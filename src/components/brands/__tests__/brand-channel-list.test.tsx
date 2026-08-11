@@ -140,14 +140,42 @@ describe("BrandChannelList", () => {
     });
 
     expect(
-      screen.getByRole("heading", { level: 3, name: "官方通路 (1)" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { level: 3, name: "實體通路 (2)" }),
+      screen.getByRole("heading", { level: 3, name: "臺北市 (3)" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { level: 3, name: "線上通路 (1)" }),
     ).toBeInTheDocument();
+  });
+
+  it("renders an evidence-backed stockist as a full row with its source", () => {
+    const address = "臺北市大同區迪化街一段94號";
+    const sourceUrl = "https://www.chatzutang.com/pages/stores";
+    const { container } = renderList({
+      confirmed: [
+        makeChannel(1, {
+          name: "茶籽堂大稻埕門市",
+          address,
+          source: "import",
+          sourceUrl,
+          fetchedAt: "2026-08-11T00:00:00.000Z",
+          status: "confirmed",
+          confirmedBy: "evidence",
+        }),
+      ],
+    });
+
+    expect(container.querySelectorAll("[data-channel-row]")).toHaveLength(1);
+    expect(screen.getByRole("link", { name: address })).toHaveAttribute(
+      "href",
+      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
+    );
+    expect(
+      screen.getByRole("link", { name: /chatzutang\.com/ }),
+    ).toHaveAttribute("href", sourceUrl);
+    expect(
+      screen.queryByRole("button", { name: /我確認/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/人確認/)).not.toBeInTheDocument();
   });
 
   it("renders addressed and addressless physical retailers as one chip group", () => {
@@ -179,10 +207,9 @@ describe("BrandChannelList", () => {
     await user.click(showRest);
 
     expect(container.querySelectorAll("[data-channel-chip]")).toHaveLength(10);
-    expect(screen.getByRole("button", { name: "顯示其餘 4 家" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
+    expect(
+      screen.getByRole("button", { name: "顯示其餘 4 家" }),
+    ).toHaveAttribute("aria-expanded", "true");
   });
 
   it("shows unconfirmed physical retailers as chips without a collapsed fold", () => {
@@ -221,11 +248,16 @@ describe("BrandChannelList", () => {
     expect(
       within(status as HTMLElement).getByText("登入後即可確認"),
     ).toBeInTheDocument();
-    expect(within(status as HTMLElement).getByText("測試通路 1")).toBeInTheDocument();
+    expect(
+      within(status as HTMLElement).getByText("測試通路 1"),
+    ).toBeInTheDocument();
     expect(
       within(status as HTMLElement).getByRole("link", { name: "登入" }),
     ).toHaveAttribute("href", "/auth/sign-in?next=%2Fbrands%2Ftest-brand");
-    expect(mocks.signInHref).toHaveBeenCalledWith("/brands/test-brand", "zh-TW");
+    expect(mocks.signInHref).toHaveBeenCalledWith(
+      "/brands/test-brand",
+      "zh-TW",
+    );
   });
 
   it("optimistically confirms and reverts a chip when confirmation fails", async () => {
@@ -264,7 +296,9 @@ describe("BrandChannelList", () => {
   });
 
   it("marks only the pending chip while the confirm round-trip is in flight", async () => {
-    let settleConfirm: (result: { confirmationCount: number }) => void = () => {};
+    let settleConfirm: (result: {
+      confirmationCount: number;
+    }) => void = () => {};
     mocks.confirmChannelAction.mockImplementation(
       () =>
         new Promise<{ confirmationCount: number }>((resolve) => {
@@ -309,7 +343,9 @@ describe("BrandChannelList", () => {
     await waitFor(() => {
       const confirmedButton = within(
         getChip(container, "測試通路 1"),
-      ).getByRole("button", { name: chipConfirmName("測試通路 1") });
+      ).getByRole("button", {
+        name: chipConfirmName("測試通路 1"),
+      });
       expect(confirmedButton).toHaveAttribute("aria-pressed", "true");
       expect(confirmedButton).toBeDisabled();
     });
@@ -325,7 +361,9 @@ describe("BrandChannelList", () => {
     await waitFor(() => {
       expect(container.querySelectorAll("[data-channel-row]")).toHaveLength(4);
       expect(container.querySelectorAll("[data-channel-chip]")).toHaveLength(0);
-      expect(screen.getAllByRole("button", { name: "確認販售" })).toHaveLength(4);
+      expect(screen.getAllByRole("button", { name: "確認販售" })).toHaveLength(
+        4,
+      );
       expect(screen.getAllByRole("button", { name: "未販售" })).toHaveLength(4);
       expect(
         screen.queryByRole("button", { name: /我確認/ }),

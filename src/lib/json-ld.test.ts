@@ -17,6 +17,7 @@ import type { Brand } from "@/lib/types";
 import { getSiteUrl } from "@/lib/site-url";
 import { faqItemsToQuestions, getBrandFaq } from "@/lib/services/brand-faq";
 import type { FaqSupabase } from "@/lib/services/brand-faq";
+import type { BrandChannel } from "@/lib/types/brand-channel";
 
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
   return {
@@ -59,6 +60,27 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
 }
 
 describe("buildBrandJsonLd", () => {
+  function channel(
+    overrides: Partial<BrandChannel> & Pick<BrandChannel, "name">,
+  ): BrandChannel {
+    const { name, ...rest } = overrides;
+    return {
+      id: `channel-${name}`,
+      name,
+      channelType: "offline",
+      categoryLabel: null,
+      regionLabel: "臺北市",
+      address: null,
+      url: null,
+      ownerStatus: "none",
+      source: "import",
+      confirmationCount: 0,
+      status: "confirmed",
+      confirmedBy: "evidence",
+      ...rest,
+    };
+  }
+
   it("returns Organization schema with required fields", () => {
     const jsonLd = buildBrandJsonLd(makeBrand());
     expect(jsonLd["@context"]).toBe("https://schema.org");
@@ -176,6 +198,47 @@ describe("buildBrandJsonLd", () => {
     expect(jsonLd.logo).toBeUndefined();
     expect(jsonLd.foundingDate).toBeUndefined();
     expect(jsonLd.sameAs).toBeUndefined();
+  });
+
+  it("emits Place entries only for direct stores and showrooms", () => {
+    const jsonLd = buildBrandJsonLd(makeBrand(), "zh-TW", undefined, [
+      channel({
+        name: "茶籽堂大稻埕門市",
+        locationType: "direct_store",
+        address: "臺北市大同區迪化街一段94號",
+      }),
+      channel({
+        name: "合作選品店",
+        locationType: "stockist",
+        address: "臺中市西區公益路68號",
+      }),
+    ]);
+
+    expect(jsonLd.location).toEqual([
+      {
+        "@type": "Place",
+        name: "茶籽堂大稻埕門市",
+        address: "臺北市大同區迪化街一段94號",
+      },
+    ]);
+  });
+
+  it("omits location entirely when there are no own places", () => {
+    const jsonLd = buildBrandJsonLd(makeBrand(), "zh-TW", undefined, [
+      channel({ name: "合作選品店", locationType: "stockist" }),
+    ]);
+
+    expect(jsonLd.location).toBeUndefined();
+  });
+
+  it("omits null address fields from a Place", () => {
+    const jsonLd = buildBrandJsonLd(makeBrand(), "zh-TW", undefined, [
+      channel({ name: "茶籽堂預約展示間", locationType: "showroom_studio" }),
+    ]);
+
+    expect(jsonLd.location).toEqual([
+      { "@type": "Place", name: "茶籽堂預約展示間" },
+    ]);
   });
 
   describe("page-scoped identity", () => {

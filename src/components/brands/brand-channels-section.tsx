@@ -1,5 +1,4 @@
 import { getTranslations } from 'next-intl/server'
-import { SurfaceCard } from '@/components/ui/card'
 import { CHANNEL_CONFIRMATION_THRESHOLD } from '@/lib/brands/channels'
 import type { AppLocale } from '@/i18n/locale-preference'
 import type { BrandChannel } from '@/lib/types'
@@ -22,8 +21,6 @@ export async function BrandChannelsSection({
   brandSlug,
 }: BrandChannelsSectionProps) {
   const t = await getTranslations({ locale, namespace: 'brandDetail' })
-  const hasChannels = confirmed.length > 0 || possible.length > 0
-
   return (
     <section
       className="space-y-6"
@@ -44,32 +41,16 @@ export async function BrandChannelsSection({
               : t('channels.subtitle')}
           </p>
         </div>
-        {hasChannels ? (
-          <ProvideChannelInfoDialog brandId={brandId} brandSlug={brandSlug} />
-        ) : null}
+        <ProvideChannelInfoDialog brandId={brandId} brandSlug={brandSlug} />
       </div>
 
-      {hasChannels ? (
-        <BrandChannelList
-          confirmed={confirmed}
-          possible={possible}
-          brandId={brandId}
-          brandSlug={brandSlug}
-          threshold={CHANNEL_CONFIRMATION_THRESHOLD}
-        />
-      ) : null}
-
-      {!hasChannels ? (
-        <SurfaceCard padding="lg" data-testid="brand-channels-empty-state">
-          <h3 className="type-subsection-title">{t('channels.empty.title')}</h3>
-          <p className="mt-1 type-card-description">
-            {t('channels.empty.description')}
-          </p>
-          <div className="mt-4">
-            <ProvideChannelInfoDialog brandId={brandId} brandSlug={brandSlug} />
-          </div>
-        </SurfaceCard>
-      ) : null}
+      <BrandChannelList
+        confirmed={confirmed}
+        possible={possible}
+        brandId={brandId}
+        brandSlug={brandSlug}
+        threshold={CHANNEL_CONFIRMATION_THRESHOLD}
+      />
     </section>
   )
 }

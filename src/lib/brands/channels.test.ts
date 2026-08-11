@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  groupChannelsByKind,
+  groupChannelsByRegion,
   groupChannelsForDisplay,
   normalizeChannelName,
 } from './channels'
@@ -14,6 +14,10 @@ type ChannelRow = {
   regionLabel: string | null
   address: string | null
   url: string | null
+  sourceUrl?: string | null
+  fetchedAt?: string | null
+  locationType?: string | null
+  country?: string | null
   ownerStatus: string
   source: string
   confirmationCount: number
@@ -84,13 +88,44 @@ describe('groupChannelsForDisplay', () => {
     })
   })
 
+  it('marks an imported source-backed row as evidence confirmed', () => {
+    const result = groupChannelsForDisplay([
+      channelRow({
+        source: 'import',
+        sourceUrl: 'https://hanchor.com.tw/pages/stockists',
+      }),
+    ])
+
+    expect(result.confirmed.at(0)).toMatchObject({
+      status: 'confirmed',
+      confirmedBy: 'evidence',
+    })
+  })
+
+  it('does not treat a community row with a source URL as evidence backed', () => {
+    const result = groupChannelsForDisplay([
+      channelRow({
+        source: 'community',
+        sourceUrl: 'https://example.com/community-submission',
+      }),
+    ])
+
+    expect(result.possible.at(0)).toMatchObject({ status: 'unconfirmed' })
+  })
+
   it('normalizeChannelName strips whitespace, case, and retailer noise suffixes', () => {
-    expect(normalizeChannelName('登山友 店')).toBe(normalizeChannelName('登山友'))
-    expect(normalizeChannelName('登山友\t店')).toBe(normalizeChannelName('登山友'))
+    expect(normalizeChannelName('登山友 店')).toBe(
+      normalizeChannelName('登山友'),
+    )
+    expect(normalizeChannelName('登山友\t店')).toBe(
+      normalizeChannelName('登山友'),
+    )
     expect(normalizeChannelName('登山友 內湖店')).not.toBe(
       normalizeChannelName('登山友'),
     )
-    expect(normalizeChannelName('登山友')).not.toBe(normalizeChannelName('登山王'))
+    expect(normalizeChannelName('登山友')).not.toBe(
+      normalizeChannelName('登山王'),
+    )
   })
 
   it('normalizeChannelName strips compound suffixes sequentially', () => {
@@ -120,12 +155,16 @@ describe('groupChannelsForDisplay', () => {
       ['confirmed'],
     )
 
-    expect(result.confirmed[0]).toMatchObject({ hasCurrentUserConfirmed: true })
-    expect(result.possible[0]).toMatchObject({ hasCurrentUserConfirmed: false })
+    expect(result.confirmed[0]).toMatchObject({
+      hasCurrentUserConfirmed: true,
+    })
+    expect(result.possible[0]).toMatchObject({
+      hasCurrentUserConfirmed: false,
+    })
   })
 })
 
-describe('groupChannelsByKind', () => {
+describe('groupChannelsByRegion', () => {
   function channel(overrides: Partial<BrandChannel> = {}): BrandChannel {
     return {
       id: 'channel-1',
@@ -143,95 +182,69 @@ describe('groupChannelsByKind', () => {
     }
   }
 
-  it('uses the ordered kind precedence and omits empty groups', () => {
-    const groups = groupChannelsByKind([
+  it('groups Taiwan rows by canonical region ordered by count', () => {
+    const groups = groupChannelsByRegion([
+      channel({
+        id: 'taipei-one',
+        name: '臺北一店',
+        regionLabel: '臺北市',
+        country: 'TW',
+      }),
+      channel({
+        id: 'taichung',
+        name: '臺中店',
+        regionLabel: '臺中市',
+        country: 'TW',
+      }),
+      channel({
+        id: 'taipei-two',
+        name: '臺北二店',
+        regionLabel: '臺北市',
+        country: 'TW',
+      }),
+    ])
+
+    expect(groups.map((group) => [group.key, group.channels.length])).toEqual([
+      ['taipei', 2],
+      ['taichung', 1],
+    ])
+  })
+
+  it('collapses non-Taiwan rows into one overseas group', () => {
+    const groups = groupChannelsByRegion([
+      channel({
+        id: 'hong-kong',
+        name: '香港店',
+        regionLabel: '香港',
+        country: 'HK',
+      }),
+      channel({
+        id: 'new-york',
+        name: '紐約店',
+        regionLabel: '美國・New York',
+        country: 'US',
+      }),
+    ])
+
+    expect(groups).toEqual([expect.objectContaining({ key: 'overseas' })])
+    expect(groups.at(0)?.channels).toHaveLength(2)
+  })
+
+  it('keeps online rows in a trailing group', () => {
+    const groups = groupChannelsByRegion([
       channel({
         id: 'online',
-        name: '線上',
+        name: '官方商城',
         channelType: 'online',
       }),
       channel({
-        id: 'chain',
-        name: '連鎖',
-      }),
-      channel({
-        id: 'visitable',
-        name: '可造訪',
-        address: '台北市',
-      }),
-      channel({
-        id: 'official',
-        name: '官方',
-        source: 'owner',
-        ownerStatus: 'confirmed',
-        status: 'confirmed',
-      }),
-      channel({
-        id: 'official-with-address',
-        name: '官方有地址',
-        source: 'owner',
-        ownerStatus: 'confirmed',
-        status: 'confirmed',
-        address: '台北市',
+        id: 'taipei',
+        name: '臺北店',
+        regionLabel: '臺北市',
+        country: 'TW',
       }),
     ])
 
-    expect(groups.map((group) => group.key)).toEqual([
-      'official',
-      'visitable',
-      'chain',
-      'online',
-    ])
-    expect(groups[0].channels.map((item) => item.id)).toEqual([
-      'official',
-      'official-with-address',
-    ])
-  })
-
-  it('omits kinds that have no channels', () => {
-    const groups = groupChannelsByKind([
-      channel({ id: 'chain-only', name: '連鎖' }),
-    ])
-
-    expect(groups.map((group) => group.key)).toEqual(['chain'])
-  })
-
-  it('sorts confirmed first, then confirmations, then name', () => {
-    const groups = groupChannelsByKind([
-      channel({
-        id: 'unconfirmed-high',
-        name: 'A',
-        confirmationCount: 9,
-      }),
-      channel({
-        id: 'confirmed-low',
-        name: 'C',
-        status: 'confirmed',
-      }),
-      channel({
-        id: 'confirmed-high',
-        name: 'B',
-        status: 'confirmed',
-        confirmationCount: 3,
-      }),
-      channel({
-        id: 'unconfirmed-name-b',
-        name: 'E',
-        confirmationCount: 1,
-      }),
-      channel({
-        id: 'unconfirmed-name-a',
-        name: 'D',
-        confirmationCount: 1,
-      }),
-    ])
-
-    expect(groups[0].channels.map((item) => item.id)).toEqual([
-      'confirmed-high',
-      'confirmed-low',
-      'unconfirmed-high',
-      'unconfirmed-name-a',
-      'unconfirmed-name-b',
-    ])
+    expect(groups.map((group) => group.key)).toEqual(['taipei', 'online'])
   })
 })

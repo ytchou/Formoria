@@ -39,7 +39,6 @@ import { isOwnerOf } from '@/lib/services/brand-owners'
 import type { ChannelType } from '@/lib/types/brand-channel'
 import { createServiceClient } from '@/lib/supabase/service'
 import { trackOriginEvidenceSubmitted } from '@/lib/analytics'
-import { LOCATIONS_SECTION_ENABLED } from './locations-section'
 
 const REPORT_REASONS = [
   'incorrect_info',
@@ -53,7 +52,9 @@ const AUTHENTICATED_REPORT_REASONS: readonly SubmitReportReason[] = [
   'ownership_dispute',
   'removal_request',
 ]
-type Translator = Awaited<ReturnType<typeof getTranslations<'brandDetail.claim.errors'>>>
+type Translator = Awaited<
+  ReturnType<typeof getTranslations<'brandDetail.claim.errors'>>
+>
 
 export type ReportState = { error?: string; success?: boolean }
 
@@ -92,8 +93,7 @@ export type SubmitClaimInput = {
 }
 
 export type SubmitClaimResult =
-  | { ok: true; domainEmailVerificationSentTo?: string }
-  | { error: string }
+  { ok: true; domainEmailVerificationSentTo?: string } | { error: string }
 
 const reportRateLimiter = createInMemoryRateLimiter()
 
@@ -106,8 +106,6 @@ export async function confirmChannelAction(
   channelId: string,
   brandSlug: string,
 ): Promise<{ confirmationCount: number } | { error: string }> {
-  if (!LOCATIONS_SECTION_ENABLED) return { error: 'unknown' }
-
   return runWithAuditContext({}, async () => {
     try {
       const user = await requireClaimUser()
@@ -120,16 +118,12 @@ export async function confirmChannelAction(
       console.error('[brands:confirmChannel]', error)
       return { error: 'unknown' }
     }
-  });
+  })
 }
 
 export async function getChannelViewerStateAction(
   brandId: string,
 ): Promise<{ isOwner: boolean; confirmedChannelIds: string[] }> {
-  if (!LOCATIONS_SECTION_ENABLED) {
-    return { isOwner: false, confirmedChannelIds: [] }
-  }
-
   return runWithAuditContext({}, async () => {
     const user = await requireClaimUser()
     if (!user) return { isOwner: false, confirmedChannelIds: [] }
@@ -146,15 +140,13 @@ export async function getChannelViewerStateAction(
         .filter((channel) => channel.hasCurrentUserConfirmed === true)
         .map((channel) => channel.id),
     }
-  });
+  })
 }
 
 export async function submitChannelInfoAction(
   _prevState: ChannelFormState,
   formData: FormData,
 ): Promise<ChannelFormState> {
-  if (!LOCATIONS_SECTION_ENABLED) return { error: 'unknown' }
-
   return runWithAuditContext({}, async () => {
     const t = await getTranslations('brandDetail.channels.errors')
 
@@ -184,7 +176,7 @@ export async function submitChannelInfoAction(
       console.error('[brands:submitChannelInfo]', error)
       return { error: t('unknown') }
     }
-  });
+  })
 }
 
 export async function ownerModerateChannelAction(
@@ -192,8 +184,6 @@ export async function ownerModerateChannelAction(
   brandSlug: string,
   status: 'confirmed' | 'rejected',
 ): Promise<{ success: true } | { error: string }> {
-  if (!LOCATIONS_SECTION_ENABLED) return { error: 'unknown' }
-
   return runWithAuditContext({}, async () => {
     try {
       const user = await requireClaimUser()
@@ -208,10 +198,12 @@ export async function ownerModerateChannelAction(
       console.error('[brands:ownerModerateChannel]', error)
       return { error: 'unknown' }
     }
-  });
+  })
 }
 
-export async function getPendingClaimStatusAction(brandId: string): Promise<boolean> {
+export async function getPendingClaimStatusAction(
+  brandId: string,
+): Promise<boolean> {
   return runWithAuditContext({}, async () => {
     // Owner-features kill switch: no claim can be pending while claiming is off,
     // so report the same "nothing pending" state as a signed-out visitor.
@@ -219,7 +211,7 @@ export async function getPendingClaimStatusAction(brandId: string): Promise<bool
 
     const user = await requireClaimUser()
     return user ? hasPendingClaim(user.id, brandId) : false
-  });
+  })
 }
 
 function buildFieldSchemas(t: Translator) {
@@ -245,7 +237,11 @@ function buildFieldSchemas(t: Translator) {
         return
       }
 
-      if ((proof.type === 'backend_screenshot' || proof.type === 'business_doc') && !proof.imageKey) {
+      if (
+        (proof.type === 'backend_screenshot' ||
+          proof.type === 'business_doc') &&
+        !proof.imageKey
+      ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['imageKey'],
@@ -268,7 +264,9 @@ function getSubmitClaimSchema(t: Translator) {
   return z.object(fields)
 }
 
-export async function submitClaimAction(input: SubmitClaimInput): Promise<SubmitClaimResult> {
+export async function submitClaimAction(
+  input: SubmitClaimInput,
+): Promise<SubmitClaimResult> {
   return runWithAuditContext({}, async () => {
     const t = await getTranslations('brandDetail.claim.errors')
     // Owner-features kill switch: refuse before auth so a stale client that still
@@ -286,7 +284,7 @@ export async function submitClaimAction(input: SubmitClaimInput): Promise<Submit
 
       const imageNamespace = `claim-proofs/${user.id}/`
       const invalidImageKey = parsed.data.proofs.find(
-        (proof) => proof.imageKey && !proof.imageKey.startsWith(imageNamespace)
+        (proof) => proof.imageKey && !proof.imageKey.startsWith(imageNamespace),
       )
       if (invalidImageKey) {
         return { error: t('invalidImageKey') }
@@ -317,13 +315,15 @@ export async function submitClaimAction(input: SubmitClaimInput): Promise<Submit
           console.log('[claim-email-verification]', verifyUrl)
         }
 
-        await sendEmail(await buildClaimEmailVerificationEmail({
-          recipientEmail: verification.email,
-          brandName: brand.name,
-          verifyUrl,
-          siteUrl,
-          locale,
-        }))
+        await sendEmail(
+          await buildClaimEmailVerificationEmail({
+            recipientEmail: verification.email,
+            brandName: brand.name,
+            verifyUrl,
+            siteUrl,
+            locale,
+          }),
+        )
       }
 
       if (parsed.data.marketingEmailOptIn && user.email) {
@@ -342,7 +342,10 @@ export async function submitClaimAction(input: SubmitClaimInput): Promise<Submit
       return {
         ok: true,
         ...(claimRequest.emailVerificationTokens[0]
-          ? { domainEmailVerificationSentTo: claimRequest.emailVerificationTokens[0].email }
+          ? {
+              domainEmailVerificationSentTo:
+                claimRequest.emailVerificationTokens[0].email,
+            }
           : {}),
       }
     } catch (err) {
@@ -356,10 +359,13 @@ export async function submitClaimAction(input: SubmitClaimInput): Promise<Submit
         error: err instanceof Error ? err.message : t('unknown'),
       }
     }
-  });
+  })
 }
 
-export async function submitReportAction(_prevState: ReportState, formData: FormData): Promise<ReportState> {
+export async function submitReportAction(
+  _prevState: ReportState,
+  formData: FormData,
+): Promise<ReportState> {
   return runWithAuditContext({}, async () => {
     const t = await getTranslations('brandDetail.report.errors')
     try {
@@ -367,7 +373,10 @@ export async function submitReportAction(_prevState: ReportState, formData: Form
       if (!brandId) return { error: t('missingBrandId') }
 
       const reasonRaw = formData.get('reason') as string | null
-      if (!reasonRaw || !REPORT_REASONS.includes(reasonRaw as SubmitReportReason)) {
+      if (
+        !reasonRaw ||
+        !REPORT_REASONS.includes(reasonRaw as SubmitReportReason)
+      ) {
         return { error: t('invalidReason') }
       }
       const reason = reasonRaw as SubmitReportReason
@@ -389,12 +398,17 @@ export async function submitReportAction(_prevState: ReportState, formData: Form
       }
 
       const reportedFieldRaw = formData.get('reportedField')
-      const reportedField = typeof reportedFieldRaw === 'string'
-        ? reportedFieldRaw.trim() || undefined
-        : undefined
+      const reportedField =
+        typeof reportedFieldRaw === 'string'
+          ? reportedFieldRaw.trim() || undefined
+          : undefined
 
       const h = await headers()
-      const ip = h.get('cf-connecting-ip') ?? h.get('x-forwarded-for')?.split(',')[0].trim() ?? h.get('x-real-ip') ?? 'unknown'
+      const ip =
+        h.get('cf-connecting-ip') ??
+        h.get('x-forwarded-for')?.split(',')[0].trim() ??
+        h.get('x-real-ip') ??
+        'unknown'
 
       const rl = reportRateLimiter.check(`report:${ip}`, 60_000, 3)
       if (!rl.allowed) {
@@ -416,7 +430,7 @@ export async function submitReportAction(_prevState: ReportState, formData: Form
       console.error('[brands:submitReport]', err)
       return { error: message }
     }
-  });
+  })
 }
 
 export async function submitEvidenceAction(
@@ -459,12 +473,15 @@ export async function submitEvidenceAction(
       if (notes.length > 1000) return { error: 'notes_too_long' }
 
       const productNameRaw = formData.get('productName')
-      const productName = typeof productNameRaw === 'string' ? productNameRaw.trim() : ''
+      const productName =
+        typeof productNameRaw === 'string' ? productNameRaw.trim() : ''
       if (!productName) return { error: 'missing_product_name' }
 
       const photoPaths = formData
         .getAll('photoPaths')
-        .filter((path): path is string => typeof path === 'string' && path.length > 0)
+        .filter(
+          (path): path is string => typeof path === 'string' && path.length > 0,
+        )
       const photoNamespace = `origin-evidence/${user.id}/${brandId.trim()}/`
       if (photoPaths.some((path) => !path.startsWith(photoNamespace))) {
         return { error: 'invalid_photo_path' }
@@ -491,5 +508,5 @@ export async function submitEvidenceAction(
       console.error('[brands:submitEvidence]', err)
       return { error: 'unknown' }
     }
-  });
+  })
 }

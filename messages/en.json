@@ -565,9 +565,8 @@
       "subtitle": "Possible retail channels for this brand, some information provided by the community",
       "provideInfo": "Provide channel info",
       "groups": {
-        "official": "Official channels",
-        "visitable": "Stores you can visit",
-        "chain": "Physical retailers",
+        "all_taiwan": "Across Taiwan",
+        "overseas": "Overseas",
         "online": "Online"
       },
       "confirmed": {
@@ -587,18 +586,15 @@
       },
       "provenance": {
         "owner": "Brand confirmed",
-        "community": "Community confirmed"
+        "community": "Community confirmed",
+        "evidence": "Source verified",
+        "sourceLine": "Source: {source} · read {date}"
       },
       "ownerBanner": {
         "title": "You are the brand owner",
         "description": "You can confirm or flag retail channel accuracy",
         "confirm": "Confirm sold here",
         "reject": "Not sold here"
-      },
-      "empty": {
-        "title": "No retail channel information yet",
-        "description": "If you know where this brand is sold, please share the information",
-        "cta": "Provide channel info"
       },
       "dialog": {
         "title": "Provide channel info",
@@ -1742,7 +1738,6 @@
         "foundingYear": "Add your founding year",
         "socialPresence": "Connect a social account",
         "additionalSalesChannel": "Add another sales channel",
-        "retailLocations": "Add a retail location",
         "reputation": "Add reputation evidence"
       }
     },
@@ -1972,8 +1967,6 @@
       "wizardStepMediaSub": "Photos & hero image",
       "wizardStepLinks": "Social & purchase links",
       "wizardStepLinksSub": "Social & purchase links",
-      "wizardStepLocations": "Locations",
-      "wizardStepLocationsSub": "Physical locations",
       "wizardStepReputation": "Reputation",
       "wizardStepReputationSub": "Press & recognition",
       "sectionReputation": "Brand Reputation",
@@ -2006,7 +1999,6 @@
     },
     "brandProfile": {
       "productPhotos": "Product Photos",
-      "retailLocations": "Retail Locations",
       "priceRange": "Price Range",
       "purchaseLinks": "Purchase Links",
       "socialLinks": "Social Links",
@@ -2174,8 +2166,6 @@
       "addAnotherLink": "Add another link",
       "platform": "Platform",
       "socialLinks": "Social Links",
-      "retailLocations": "Retail Locations",
-      "retailLocationsHint": "Physical locations where your products are sold (optional)",
       "storeName": "Store name",
       "address": "Address",
       "addLocation": "Add location",

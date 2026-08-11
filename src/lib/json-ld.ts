@@ -3,6 +3,7 @@ import { buildAlternates } from "@/lib/seo/alternates";
 import { PURCHASE_CHANNELS } from "@/lib/brands/purchase-channels";
 import { FORMORIA_SOCIALS } from "./constants";
 import { getSiteUrl } from "./seo/site-url";
+import type { BrandChannel } from "./types/brand-channel";
 
 export type BreadcrumbItem = {
   label: string;
@@ -58,6 +59,7 @@ export function buildBrandJsonLd(
   brand: BrandJsonLdInput,
   locale: Locale = "zh-TW",
   canonicalUrl?: string,
+  channels: BrandChannel[] = [],
 ): JsonLdObject {
   const allSameAs = [
     brand.socialInstagram,
@@ -90,6 +92,20 @@ export function buildBrandJsonLd(
   if (brand.heroImageUrl) jsonLd.logo = brand.heroImageUrl;
   if (brand.foundingYear) jsonLd.foundingDate = String(brand.foundingYear);
   if (allSameAs.length > 0) jsonLd.sameAs = allSameAs;
+
+  const ownPlaces = channels
+    .filter(
+      (channel) =>
+        channel.locationType === "direct_store" ||
+        channel.locationType === "showroom_studio",
+    )
+    .map((channel) => ({
+      "@type": "Place",
+      name: channel.name,
+      ...(channel.address ? { address: channel.address } : {}),
+      ...(channel.url ? { url: channel.url } : {}),
+    }));
+  if (ownPlaces.length > 0) jsonLd.location = ownPlaces;
 
   return jsonLd;
 }

@@ -565,9 +565,8 @@
       "subtitle": "以下為品牌可能的販售通路，部分資料為社群提供",
       "provideInfo": "提供販售資訊",
       "groups": {
-        "official": "官方通路",
-        "visitable": "可造訪門市",
-        "chain": "實體通路",
+        "all_taiwan": "全台",
+        "overseas": "海外",
         "online": "線上通路"
       },
       "confirmed": {
@@ -587,18 +586,15 @@
       },
       "provenance": {
         "owner": "品牌確認",
-        "community": "社群確認"
+        "community": "社群確認",
+        "evidence": "來源佐證",
+        "sourceLine": "來源：{source} · 讀取於 {date}"
       },
       "ownerBanner": {
         "title": "您是品牌擁有者",
         "description": "您可以確認或標記販售通路的正確性",
         "confirm": "確認販售",
         "reject": "未販售"
-      },
-      "empty": {
-        "title": "目前沒有販售通路資訊",
-        "description": "如果您知道這個品牌的販售地點，歡迎提供資訊",
-        "cta": "提供販售資訊"
       },
       "dialog": {
         "title": "提供販售資訊",
@@ -1742,7 +1738,6 @@
         "foundingYear": "新增創立年份",
         "socialPresence": "連結社群帳號",
         "additionalSalesChannel": "新增其他銷售管道",
-        "retailLocations": "新增零售地點",
         "reputation": "新增口碑佐證"
       }
     },
@@ -1972,8 +1967,6 @@
       "wizardStepMediaSub": "品牌圖片",
       "wizardStepLinks": "社群與購買連結",
       "wizardStepLinksSub": "社群與購買連結",
-      "wizardStepLocations": "販售地點",
-      "wizardStepLocationsSub": "實體販售地點",
       "wizardStepReputation": "品牌口碑",
       "wizardStepReputationSub": "品牌口碑",
       "sectionReputation": "品牌口碑",
@@ -2006,7 +1999,6 @@
     },
     "brandProfile": {
       "productPhotos": "產品照片",
-      "retailLocations": "販售地點",
       "priceRange": "價格範圍",
       "purchaseLinks": "購買連結",
       "socialLinks": "社群連結",
@@ -2174,8 +2166,6 @@
       "addAnotherLink": "新增另一個連結",
       "platform": "平台",
       "socialLinks": "社群連結",
-      "retailLocations": "實體零售地點",
-      "retailLocationsHint": "販售產品的實體地點（可選）",
       "storeName": "店名",
       "address": "地址",
       "addLocation": "新增地點",

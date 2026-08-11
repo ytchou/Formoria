@@ -20,7 +20,6 @@ const STEP_MESSAGE_KEYS = {
   basicInfo: ['wizardStepBasicInfo', 'wizardStepBasicInfoSub'],
   media: ['wizardStepMedia', 'wizardStepMediaSub'],
   links: ['wizardStepLinks', 'wizardStepLinksSub'],
-  locations: ['wizardStepLocations', 'wizardStepLocationsSub'],
   reputation: ['wizardStepReputation', 'wizardStepReputationSub'],
 } as const
 
@@ -56,7 +55,7 @@ export function WizardSidebar({
 
   return (
     <>
-    <aside className="sticky top-(--nav-height) hidden w-80 self-start md:block">
+      <aside className="sticky top-(--nav-height) hidden w-80 self-start md:block">
         <ProgressStepCard
           title={t('wizardSidebarTitle')}
           progressText={completedProgressText}
@@ -70,25 +69,26 @@ export function WizardSidebar({
         </ProgressStepCard>
       </aside>
 
-      <details className={surfaceCardStyles({
-        className: 'md:hidden',
-        elevated: true,
-        padding: 'none',
-      })}>
+      <details
+        className={surfaceCardStyles({
+          className: 'md:hidden',
+          elevated: true,
+          padding: 'none',
+        })}
+      >
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 text-left type-subsection-title outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden">
           <span className="min-w-0">
             <span className="block truncate">
-              {activeStepItem
-                ? activeStepItem.title
-                : stepProgressText}
+              {activeStepItem ? activeStepItem.title : stepProgressText}
             </span>
           </span>
-          <span className="ml-3 type-caption">
-            {completedProgressText}
-          </span>
+          <span className="ml-3 type-caption">{completedProgressText}</span>
         </summary>
 
-        <nav className="border-t border-border p-3" aria-label={stepProgressText}>
+        <nav
+          className="border-t border-border p-3"
+          aria-label={stepProgressText}
+        >
           <OnboardingStepList steps={stepItems} onStepClick={onStepClick} />
         </nav>
 

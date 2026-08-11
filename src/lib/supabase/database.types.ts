@@ -267,15 +267,21 @@ export type Database = {
           channel_type: string
           created_at: string
           created_by: string | null
+          country: string | null
+          fetched_at: string | null
           id: string
+          last_confirmed_at: string | null
+          location_type: string | null
           name: string
           normalized_name: string
           owner_status: string
           owner_status_by: string | null
+          provider_metadata: Json | null
           region_label: string | null
           removed_at: string | null
           removed_by: string | null
           source: string
+          source_url: string | null
           updated_at: string
           url: string | null
         }
@@ -286,15 +292,21 @@ export type Database = {
           channel_type: string
           created_at?: string
           created_by?: string | null
+          country?: string | null
+          fetched_at?: string | null
           id?: string
+          last_confirmed_at?: string | null
+          location_type?: string | null
           name: string
           normalized_name: string
           owner_status?: string
           owner_status_by?: string | null
+          provider_metadata?: Json | null
           region_label?: string | null
           removed_at?: string | null
           removed_by?: string | null
           source: string
+          source_url?: string | null
           updated_at?: string
           url?: string | null
         }
@@ -305,15 +317,21 @@ export type Database = {
           channel_type?: string
           created_at?: string
           created_by?: string | null
+          country?: string | null
+          fetched_at?: string | null
           id?: string
+          last_confirmed_at?: string | null
+          location_type?: string | null
           name?: string
           normalized_name?: string
           owner_status?: string
           owner_status_by?: string | null
+          provider_metadata?: Json | null
           region_label?: string | null
           removed_at?: string | null
           removed_by?: string | null
           source?: string
+          source_url?: string | null
           updated_at?: string
           url?: string | null
         }
@@ -677,86 +695,6 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      brand_location_candidates: {
-        Row: {
-          audit_result_ids: string[]
-          brand_id: string | null
-          channel_id: string | null
-          created_at: string
-          evidence: Json
-          id: string
-          job_id: string | null
-          location: Json
-          match_reason: string
-          normalized_address: string | null
-          normalized_identity: string
-          submission_id: string | null
-          updated_at: string
-          verification_decision: string
-        }
-        Insert: {
-          audit_result_ids?: string[]
-          brand_id?: string | null
-          channel_id?: string | null
-          created_at?: string
-          evidence?: Json
-          id?: string
-          job_id?: string | null
-          location: Json
-          match_reason: string
-          normalized_address?: string | null
-          normalized_identity: string
-          submission_id?: string | null
-          updated_at?: string
-          verification_decision: string
-        }
-        Update: {
-          audit_result_ids?: string[]
-          brand_id?: string | null
-          channel_id?: string | null
-          created_at?: string
-          evidence?: Json
-          id?: string
-          job_id?: string | null
-          location?: Json
-          match_reason?: string
-          normalized_address?: string | null
-          normalized_identity?: string
-          submission_id?: string | null
-          updated_at?: string
-          verification_decision?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "brand_location_candidates_brand_id_fkey"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "brand_location_candidates_channel_id_fkey"
-            columns: ["channel_id"]
-            isOneToOne: false
-            referencedRelation: "brand_channels"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "brand_location_candidates_job_id_fkey"
-            columns: ["job_id"]
-            isOneToOne: false
-            referencedRelation: "curation_jobs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "brand_location_candidates_submission_id_fkey"
-            columns: ["submission_id"]
-            isOneToOne: false
-            referencedRelation: "brand_submissions"
             referencedColumns: ["id"]
           },
         ]
@@ -2885,13 +2823,6 @@ export type Database = {
         Args: { p_reviewer_id: string; p_submission_id: string }
         Returns: string[]
       }
-      apply_brand_refresh_locations: {
-        Args: { p_reviewer_id: string; p_submission_ids: string[] }
-        Returns: {
-          applied_brand_id: string
-          applied_submission_id: string
-        }[]
-      }
       apply_brand_refresh_with_protected_location_gate: {
         Args: { p_reviewer_id: string; p_submission_id: string }
         Returns: string[]
@@ -3259,10 +3190,6 @@ export type Database = {
       mark_unreported_curation_job_targets_skipped: {
         Args: { p_job_id: string; p_worker_token: string }
         Returns: boolean
-      }
-      merge_verified_location_candidate: {
-        Args: { p_existing: Json; p_incoming: Json }
-        Returns: Json
       }
       persist_curation_job_target_progress: {
         Args: {

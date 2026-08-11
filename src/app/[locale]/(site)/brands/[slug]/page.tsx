@@ -50,7 +50,6 @@ import { NotFoundError } from "@/lib/errors";
 import { truncateForMeta } from "@/lib/text/truncate-for-meta";
 import { getBrandIndexability } from "@/lib/seo/brand-indexability";
 import { getBrandGalleryImages } from "@/lib/services/brand-images";
-import { LOCATIONS_SECTION_ENABLED } from "./locations-section";
 
 // Shared section rhythm: hairline rule above each section, and enough scroll offset to clear
 // the sticky main nav (100px) plus the mobile section-nav strip (48px).
@@ -182,11 +181,9 @@ export default async function BrandDetailPage({ params }: PageProps) {
   const faqContext = await getPublicBrandFaqContextById(displayBrand.id);
   const [faqItems, channels] = await Promise.all([
     getBrandFaq(displayBrand.id, faqContext, tBrandFaq, safeLocale, cityLabel),
-    // Skip the round trip entirely while the section is hidden.
-    LOCATIONS_SECTION_ENABLED
-      ? getChannelsForBrand(displayBrand.id)
-      : Promise.resolve({ confirmed: [], possible: [] }),
+    getChannelsForBrand(displayBrand.id),
   ]);
+  const channelCount = channels.confirmed.length + channels.possible.length;
   // Same builder generateMetadata uses for <link rel="canonical">, so the
   // structured data can never name a different URL than the page's own tag.
   const { canonical: canonicalUrl } = buildAlternates(
@@ -238,7 +235,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
     // URL shows as a dimmed chip rather than disappearing.
     { id: "social", label: tBrandDetail("tabNav.social") },
     { id: "purchase", label: tBrandDetail("tabNav.purchase") },
-    ...(LOCATIONS_SECTION_ENABLED
+    ...(channelCount > 0
       ? [{ id: "locations", label: tBrandDetail("tabNav.locations") }]
       : []),
     ...(faqItems.length > 0
@@ -281,7 +278,10 @@ export default async function BrandDetailPage({ params }: PageProps) {
             type="application/ld+json"
             dangerouslySetInnerHTML={{
               __html: safeJsonLdStringify(
-                buildBrandJsonLd(displayBrand, safeLocale, canonicalUrl),
+                buildBrandJsonLd(displayBrand, safeLocale, canonicalUrl, [
+                  ...channels.confirmed,
+                  ...channels.possible,
+                ]),
               ),
             }}
           />
@@ -389,7 +389,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 sectionClassName={brandSectionClassName}
               />
 
-              {LOCATIONS_SECTION_ENABLED && (
+              {channelCount > 0 && (
                 <section id="locations" className={brandSectionClassName}>
                   <BrandChannelsSection
                     locale={safeLocale}

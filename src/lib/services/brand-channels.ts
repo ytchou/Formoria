@@ -6,39 +6,24 @@ import { auditedCall } from '@/lib/audit'
 import type {
   BrandChannelInput,
   ChannelCandidate,
+  ChannelLocationType,
+  ChannelSource,
   ChannelType,
 } from '@/lib/types/brand-channel'
 import { createServiceClient } from '@/lib/supabase/service'
+import { CITY_NAMES_ZH } from '@/lib/constants/taiwan-cities'
 import { logAdminAction } from './admin-audit'
 import { isOwnerOf } from './brand-owners'
 
 const MAX_ACTIVE_CHANNELS_PER_BRAND = 5
 const MAX_SUBMISSIONS_PER_DAY = 20
 
-const REGION_LABEL_MAP: Record<string, string> = {
-  taipei: '臺北市',
-  new_taipei: '新北市',
-  taoyuan: '桃園市',
-  taichung: '臺中市',
-  tainan: '臺南市',
-  kaohsiung: '高雄市',
-  keelung: '基隆市',
-  hsinchu_city: '新竹市',
-  chiayi_city: '嘉義市',
-  hsinchu_county: '新竹縣',
-  miaoli: '苗栗縣',
-  changhua: '彰化縣',
-  nantou: '南投縣',
-  yunlin: '雲林縣',
-  chiayi_county: '嘉義縣',
-  pingtung: '屏東縣',
-  yilan: '宜蘭縣',
-  hualien: '花蓮縣',
-  taitung: '臺東縣',
-  penghu: '澎湖縣',
-  kinmen: '金門縣',
-  lienchiang: '連江縣',
-}
+export const REGION_LABEL_MAP = CITY_NAMES_ZH
+
+export const REGION_SLUG_BY_LABEL: Readonly<Record<string, string>> =
+  Object.fromEntries(
+    Object.entries(REGION_LABEL_MAP).map(([slug, label]) => [label, slug]),
+  )
 
 type SubmitChannelErrorCode =
   | 'invalid_name'
@@ -50,12 +35,14 @@ type SubmitChannelErrorCode =
   | 'database_error'
 
 export type SubmitChannelResult =
-  | { ok: true; id: string }
-  | { ok: false; code: SubmitChannelErrorCode }
+  { ok: true; id: string } | { ok: false; code: SubmitChannelErrorCode }
 
 export type ChannelActionResult =
   | { ok: true }
-  | { ok: false; code: 'not_found' | 'not_owner' | 'invalid_status' | 'database_error' }
+  | {
+      ok: false
+      code: 'not_found' | 'not_owner' | 'invalid_status' | 'database_error'
+    }
 
 export type EnrichedChannelsResult =
   | { ok: true; count: number }
@@ -75,6 +62,10 @@ type BrandChannelRow = {
   region_label: string | null
   address: string | null
   url: string | null
+  source_url: string | null
+  fetched_at: string | null
+  location_type: string | null
+  country: string | null
   owner_status: string
   source: string
   removed_at: string | null
@@ -91,11 +82,17 @@ type EnrichedChannelRow = {
   region_label: string | null
   address: string | null
   url: string | null
-  source: 'enriched'
+  source?: ChannelSource
+  source_url?: string | null
+  fetched_at?: string | null
+  location_type?: ChannelLocationType | null
+  country?: string | null
+  last_confirmed_at?: string | null
+  provider_metadata?: Record<string, unknown> | null
 }
 
-const CHANNEL_READ_SELECT =
-  'id, name, channel_type, category_label, region_label, address, url, owner_status, source, removed_at, brand_channel_confirmations(count)'
+export const CHANNEL_READ_SELECT =
+  'id, name, channel_type, category_label, region_label, address, url, source_url, fetched_at, location_type, country, owner_status, source, removed_at, brand_channel_confirmations(count)'
 
 function isChannelType(value: string): value is ChannelType {
   return value === 'online' || value === 'offline'
@@ -147,6 +144,10 @@ function rowToDisplayRow(row: BrandChannelRow) {
       regionLabel: row.region_label,
       address: row.address,
       url: row.url,
+      sourceUrl: row.source_url,
+      fetchedAt: row.fetched_at,
+      locationType: row.location_type,
+      country: row.country,
       ownerStatus: row.owner_status,
       source: row.source,
       confirmationCount: confirmations.count,
@@ -156,7 +157,9 @@ function rowToDisplayRow(row: BrandChannelRow) {
   }
 }
 
-function isDuplicateNameError(error: { code?: string; message?: string } | null): boolean {
+function isDuplicateNameError(
+  error: { code?: string; message?: string } | null,
+): boolean {
   return (
     error?.code === '23505' ||
     error?.message?.toLowerCase().includes('normalized_name') === true
@@ -248,34 +251,34 @@ export async function confirmChannel(
   return auditedCall(
     { provider: 'brands', operation: 'confirmChannel', kind: 'service' },
     async () => {
-  const supabase = createServiceClient()
+      const supabase = createServiceClient()
 
-  const { data: channel, error: lookupError } = await supabase
-    .from('brand_channels')
-    .select('id')
-    .eq('id', channelId)
-    .is('removed_at', null)
-    .neq('owner_status', 'rejected')
-    .maybeSingle()
+      const { data: channel, error: lookupError } = await supabase
+        .from('brand_channels')
+        .select('id')
+        .eq('id', channelId)
+        .is('removed_at', null)
+        .neq('owner_status', 'rejected')
+        .maybeSingle()
 
-  // A failed lookup must surface as an action error; returning 0 here would read
-  // to the caller as a successful write that simply changed nothing.
-  if (lookupError) throw lookupError
-  // Genuine miss: the channel was removed or the owner rejected it.
-  if (!channel) return 0
+      // A failed lookup must surface as an action error; returning 0 here would read
+      // to the caller as a successful write that simply changed nothing.
+      if (lookupError) throw lookupError
+      // Genuine miss: the channel was removed or the owner rejected it.
+      if (!channel) return 0
 
-  const { error } = await supabase
-    .from('brand_channel_confirmations')
-    .upsert(
-      {
-        channel_id: channelId,
-        user_id: userId,
-      },
-      { onConflict: 'channel_id,user_id' },
-    )
+      const { error } = await supabase
+        .from('brand_channel_confirmations')
+        .upsert(
+          {
+            channel_id: channelId,
+            user_id: userId,
+          },
+          { onConflict: 'channel_id,user_id' },
+        )
 
-  if (error) throw error
-  return countConfirmations(channelId)
+      if (error) throw error
+      return countConfirmations(channelId)
     },
   )
 }
@@ -288,70 +291,73 @@ export async function submitChannel(
   return auditedCall(
     { provider: 'brands', operation: 'submitChannel', kind: 'service' },
     async () => {
-  const name = input.name.trim()
-  if (name.length < 1 || name.length > 80) {
-    return { ok: false, code: 'invalid_name' }
-  }
-  if (!isChannelType(input.channelType)) {
-    return { ok: false, code: 'invalid_channel_type' }
-  }
+      const name = input.name.trim()
+      if (name.length < 1 || name.length > 80) {
+        return { ok: false, code: 'invalid_name' }
+      }
+      if (!isChannelType(input.channelType)) {
+        return { ok: false, code: 'invalid_channel_type' }
+      }
 
-  const url = trimNullable(input.url)
-  if (url && !/^https?:\/\/\S+$/i.test(url)) {
-    return { ok: false, code: 'invalid_url' }
-  }
+      const url = trimNullable(input.url)
+      if (url && !/^https?:\/\/\S+$/i.test(url)) {
+        return { ok: false, code: 'invalid_url' }
+      }
 
-  try {
-    if ((await countActiveChannels(brandId)) >= MAX_ACTIVE_CHANNELS_PER_BRAND) {
-      return { ok: false, code: 'active_cap_reached' }
-    }
-    if ((await countRecentSubmissions(userId)) >= MAX_SUBMISSIONS_PER_DAY) {
-      return { ok: false, code: 'daily_cap_reached' }
-    }
-  } catch {
-    return { ok: false, code: 'database_error' }
-  }
+      try {
+        if (
+          (await countActiveChannels(brandId)) >= MAX_ACTIVE_CHANNELS_PER_BRAND
+        ) {
+          return { ok: false, code: 'active_cap_reached' }
+        }
+        if ((await countRecentSubmissions(userId)) >= MAX_SUBMISSIONS_PER_DAY) {
+          return { ok: false, code: 'daily_cap_reached' }
+        }
+      } catch {
+        return { ok: false, code: 'database_error' }
+      }
 
-  const supabase = createServiceClient()
-  const { data, error } = await supabase
-    .from('brand_channels')
-    .insert({
-      brand_id: brandId,
-      name,
-      normalized_name: normalizeChannelName(name),
-      channel_type: input.channelType,
-      category_label: trimNullable(input.category),
-      region_label: regionSlugToLabel(input.region),
-      address: trimNullable(input.address),
-      url,
-      source: 'community',
-      created_by: userId,
-    })
-    .select('id')
-    .single()
+      const supabase = createServiceClient()
+      const { data, error } = await supabase
+        .from('brand_channels')
+        .insert({
+          brand_id: brandId,
+          name,
+          normalized_name: normalizeChannelName(name),
+          channel_type: input.channelType,
+          category_label: trimNullable(input.category),
+          region_label: regionSlugToLabel(input.region),
+          address: trimNullable(input.address),
+          url,
+          source: 'community',
+          created_by: userId,
+        })
+        .select('id')
+        .single()
 
-  if (error) {
-    if (isDuplicateNameError(error)) return { ok: false, code: 'duplicate_name' }
-    return { ok: false, code: 'database_error' }
-  }
+      if (error) {
+        if (isDuplicateNameError(error))
+          return { ok: false, code: 'duplicate_name' }
+        return { ok: false, code: 'database_error' }
+      }
 
-  const channelId = (data as { id?: unknown } | null)?.id
-  if (typeof channelId !== 'string') {
-    return { ok: false, code: 'database_error' }
-  }
+      const channelId = (data as { id?: unknown } | null)?.id
+      if (typeof channelId !== 'string') {
+        return { ok: false, code: 'database_error' }
+      }
 
-  const { error: confirmationError } = await supabase
-    .from('brand_channel_confirmations')
-    .upsert(
-      {
-        channel_id: channelId,
-        user_id: userId,
-      },
-      { onConflict: 'channel_id,user_id' },
-    )
+      const { error: confirmationError } = await supabase
+        .from('brand_channel_confirmations')
+        .upsert(
+          {
+            channel_id: channelId,
+            user_id: userId,
+          },
+          { onConflict: 'channel_id,user_id' },
+        )
 
-  if (confirmationError) return { ok: false, code: 'database_error' }
-  return { ok: true, id: channelId }
+      if (confirmationError) return { ok: false, code: 'database_error' }
+      return { ok: true, id: channelId }
     },
   )
 }
@@ -364,35 +370,35 @@ export async function setOwnerChannelStatus(
   return auditedCall(
     { provider: 'brands', operation: 'setOwnerChannelStatus', kind: 'service' },
     async () => {
-  if (status !== 'confirmed' && status !== 'rejected') {
-    return { ok: false, code: 'invalid_status' }
-  }
+      if (status !== 'confirmed' && status !== 'rejected') {
+        return { ok: false, code: 'invalid_status' }
+      }
 
-  const supabase = createServiceClient()
-  const { data: channel, error: lookupError } = await supabase
-    .from('brand_channels')
-    .select('brand_id')
-    .eq('id', channelId)
-    .maybeSingle()
+      const supabase = createServiceClient()
+      const { data: channel, error: lookupError } = await supabase
+        .from('brand_channels')
+        .select('brand_id')
+        .eq('id', channelId)
+        .maybeSingle()
 
-  if (lookupError) return { ok: false, code: 'database_error' }
-  if (!channel) return { ok: false, code: 'not_found' }
+      if (lookupError) return { ok: false, code: 'database_error' }
+      if (!channel) return { ok: false, code: 'not_found' }
 
-  const { brand_id: brandId } = channel as unknown as ChannelLookupRow
-  if (!(await isOwnerOf(userId, brandId))) {
-    return { ok: false, code: 'not_owner' }
-  }
+      const { brand_id: brandId } = channel as unknown as ChannelLookupRow
+      if (!(await isOwnerOf(userId, brandId))) {
+        return { ok: false, code: 'not_owner' }
+      }
 
-  const { error: updateError } = await supabase
-    .from('brand_channels')
-    .update({
-      owner_status: status,
-      owner_status_by: userId,
-    })
-    .eq('id', channelId)
+      const { error: updateError } = await supabase
+        .from('brand_channels')
+        .update({
+          owner_status: status,
+          owner_status_by: userId,
+        })
+        .eq('id', channelId)
 
-  if (updateError) return { ok: false, code: 'database_error' }
-  return { ok: true }
+      if (updateError) return { ok: false, code: 'database_error' }
+      return { ok: true }
     },
   )
 }
@@ -405,47 +411,50 @@ export async function adminRemoveChannel(
   return auditedCall(
     { provider: 'brands', operation: 'adminRemoveChannel', kind: 'service' },
     async () => {
-  const supabase = createServiceClient()
-  const { data, error } = await supabase
-    .from('brand_channels')
-    .update({
-      removed_at: new Date().toISOString(),
-      removed_by: adminId,
-    })
-    .eq('id', channelId)
-    .select('brand_id')
-    .maybeSingle()
+      const supabase = createServiceClient()
+      const { data, error } = await supabase
+        .from('brand_channels')
+        .update({
+          removed_at: new Date().toISOString(),
+          removed_by: adminId,
+        })
+        .eq('id', channelId)
+        .select('brand_id')
+        .maybeSingle()
 
-  if (error) return { ok: false, code: 'database_error' }
-  if (!data) return { ok: false, code: 'not_found' }
+      if (error) return { ok: false, code: 'database_error' }
+      if (!data) return { ok: false, code: 'not_found' }
 
-  const { brand_id: brandId } = data as unknown as ChannelLookupRow
-  await logAdminAction({
-    adminUserId: adminId,
-    adminEmail,
-    action: 'channel_removed',
-    targetBrandId: brandId,
-    metadata: { channelId },
-  })
+      const { brand_id: brandId } = data as unknown as ChannelLookupRow
+      await logAdminAction({
+        adminUserId: adminId,
+        adminEmail,
+        action: 'channel_removed',
+        targetBrandId: brandId,
+        metadata: { channelId },
+      })
 
-  return { ok: true }
+      return { ok: true }
     },
   )
 }
 
-export async function upsertEnrichedChannels(
-  brandId: string,
-  candidates: ChannelCandidate[],
-): Promise<EnrichedChannelsResult> {
-  return auditedCall(
-    { provider: 'brands', operation: 'upsertEnrichedChannels', kind: 'service' },
-    async () => {
+export function buildEnrichedChannelRows(candidates: ChannelCandidate[]): {
+  rows: EnrichedChannelRow[]
+  invalidCount: number
+} {
   const rows: EnrichedChannelRow[] = []
   let invalidCount = 0
   for (const candidate of candidates) {
     const name = candidate.name.trim()
-    const normalizedName = normalizeChannelName(name)
-    if (name.length < 1 || name.length > 80 || normalizedName.length < 1) {
+    const normalizedName =
+      candidate.normalizedName.trim() || normalizeChannelName(name)
+    if (
+      name.length < 1 ||
+      name.length > 80 ||
+      normalizedName.length < 1 ||
+      normalizedName.length > 80
+    ) {
       invalidCount++
       continue
     }
@@ -458,30 +467,55 @@ export async function upsertEnrichedChannels(
       region_label: trimNullable(candidate.regionLabel),
       address: trimNullable(candidate.address),
       url: trimNullable(candidate.url),
-      source: 'enriched',
+      source: candidate.source ?? 'enriched',
+      source_url: trimNullable(candidate.sourceUrl),
+      fetched_at: trimNullable(candidate.fetchedAt),
+      location_type: candidate.locationType ?? null,
+      country: trimNullable(candidate.country),
+      last_confirmed_at: trimNullable(candidate.lastConfirmedAt),
+      provider_metadata: candidate.providerMetadata ?? null,
     })
   }
 
-  if (rows.length === 0) {
-    return invalidCount > 0
-      ? { ok: false, code: 'invalid_name' }
-      : { ok: true, count: 0 }
-  }
+  return { rows, invalidCount }
+}
 
-  const supabase = createServiceClient()
-  const { data, error } = await supabase.rpc('upsert_enriched_brand_channels', {
-    p_brand_id: brandId,
-    p_candidates: rows,
-  })
+export async function upsertEnrichedChannels(
+  brandId: string,
+  candidates: ChannelCandidate[],
+): Promise<EnrichedChannelsResult> {
+  return auditedCall(
+    {
+      provider: 'brands',
+      operation: 'upsertEnrichedChannels',
+      kind: 'service',
+    },
+    async () => {
+      const { rows, invalidCount } = buildEnrichedChannelRows(candidates)
 
-  if (error) return { ok: false, code: 'database_error' }
-  const count =
-    typeof data === 'number'
-      ? data
-      : Array.isArray(data)
-        ? data.length
-        : rows.length
-  return { ok: true, count }
+      if (rows.length === 0) {
+        return invalidCount > 0
+          ? { ok: false, code: 'invalid_name' }
+          : { ok: true, count: 0 }
+      }
+
+      const supabase = createServiceClient()
+      const { data, error } = await supabase.rpc(
+        'upsert_enriched_brand_channels',
+        {
+          p_brand_id: brandId,
+          p_candidates: rows,
+        },
+      )
+
+      if (error) return { ok: false, code: 'database_error' }
+      const count =
+        typeof data === 'number'
+          ? data
+          : Array.isArray(data)
+            ? data.length
+            : rows.length
+      return { ok: true, count }
     },
   )
 }

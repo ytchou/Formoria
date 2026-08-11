@@ -25,7 +25,9 @@ test.describe("Brand detail deep", () => {
     const page = await browser.newPage();
     await page.goto("/brands", { waitUntil: "domcontentloaded" });
     const cards = page.locator("main a[aria-label]");
-    await cards.first().waitFor({ state: "visible", timeout: BUDGET.SERVER_RENDER });
+    await cards
+      .first()
+      .waitFor({ state: "visible", timeout: BUDGET.SERVER_RENDER });
     const count = await cards.count();
     let href: string | null = null;
     for (let i = 0; i < count; i++) {
@@ -64,12 +66,16 @@ test.describe("Brand detail deep", () => {
     // Verify the social section heading is visible
     await expect(
       page.getByRole("heading", { name: "社群平台", level: 2 }),
-    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+    ).toBeVisible({
+      timeout: BUDGET.INTERACTIVE,
+    });
 
     // Verify the purchase section heading is visible
     await expect(
       page.getByRole("heading", { name: "購買管道", level: 2 }),
-    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+    ).toBeVisible({
+      timeout: BUDGET.INTERACTIVE,
+    });
 
     // Both sections must appear on the same page — confirming structural separation
     const socialSection = page.getByRole("heading", {
@@ -122,7 +128,9 @@ test.describe("Brand detail deep", () => {
     // After the smooth-scroll the social section heading must be visible in the viewport
     await expect(
       page.getByRole("heading", { name: "社群平台", level: 2 }),
-    ).toBeInViewport({ timeout: BUDGET.RENDERED });
+    ).toBeInViewport({
+      timeout: BUDGET.RENDERED,
+    });
   });
 
   test("mobile brand detail keeps the website CTA in the document flow", async ({
@@ -160,13 +168,14 @@ test.describe("Brand detail deep", () => {
       window.scrollBy(0, section.getBoundingClientRect().top - 105);
     });
 
-    // Targets the purchase section, not locations: locations is hidden behind
-    // LOCATIONS_SECTION_ENABLED, so its nav entry no longer renders. The
-    // seeded brand is asserted to have a 購買管道 section by the tests above.
+    // This journey targets the purchase section; locations has its own seeded
+    // coverage below.
     await nav.getByRole("link", { name: "購買資訊" }).click();
     await expect(
       page.getByRole("heading", { name: "購買管道", level: 2 }),
-    ).toBeInViewport({ timeout: BUDGET.RENDERED });
+    ).toBeInViewport({
+      timeout: BUDGET.RENDERED,
+    });
   });
 
   test('external links have target="_blank" and rel="noopener"', async ({
@@ -231,7 +240,9 @@ test.describe("Brand detail deep", () => {
       // FAQ section heading (zh-TW default locale — brandDetail.sections.faq)
       await expect(
         page.getByRole("heading", { name: "常見問題", level: 2 }),
-      ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+      ).toBeVisible({
+        timeout: BUDGET.INTERACTIVE,
+      });
     }).toPass(POLL.DB);
 
     // At least one FAQ question row is present and visible. The rows are native
@@ -287,7 +298,9 @@ test.describe("Brand detail deep", () => {
       });
       await expect(
         page.getByRole("heading", { name: "常見問題", level: 2 }),
-      ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+      ).toBeVisible({
+        timeout: BUDGET.INTERACTIVE,
+      });
     }).toPass(POLL.DB);
 
     const firstItem = page.locator('details[id^="faq-"]').first();
@@ -403,7 +416,9 @@ test.describe("Brand detail — myship-only purchase channel", () => {
       });
       await expect(page.getByRole("heading", { level: 1 })).toContainText(
         "myship-only",
-        { timeout: BUDGET.INTERACTIVE },
+        {
+          timeout: BUDGET.INTERACTIVE,
+        },
       );
     }).toPass(POLL.DB);
 
@@ -559,14 +574,9 @@ test.describe("Brand detail — historical slugs", () => {
   });
 });
 
-// Skipped in lockstep with `LOCATIONS_SECTION_ENABLED` in
-// src/app/[locale]/(site)/brands/[slug]/page.tsx — the section is hidden from
-// the public page while its presentation is reworked, so every assertion here
-// would fail on a missing section rather than on a real regression. Un-skip when
-// that constant flips back to true.
-test.describe
-  .skip("Brand detail — public locations and retail channels", () => {
+test.describe("Brand detail — public locations and retail channels", () => {
   let seeded: SeededBrand;
+  let emptySeeded: SeededBrand;
 
   const confirmedStoreName = "[E2E-TEST] Brand direct store";
   const confirmedStoreAddress = "台北市信義區信義路五段 7 號";
@@ -575,11 +585,17 @@ test.describe
   const signedInChannelName = "[E2E-TEST] Signed-in confirmation channel";
   const submittedChannelName = "[E2E-TEST] Submitted community channel";
   const confirmedStoreUrl = "https://example.com/e2e-brand-store";
+  const evidenceSourceUrl = "https://example.com/e2e-stockists";
   const submittedChannelUrl = "https://example.com/e2e-submitted-channel";
 
   test.beforeAll(async ({}, workerInfo) => {
     seeded = await seedBrand({
       name: "mixed-channels",
+      status: "approved",
+      workerIndex: workerInfo.workerIndex,
+    });
+    emptySeeded = await seedBrand({
+      name: "without-channels",
       status: "approved",
       workerIndex: workerInfo.workerIndex,
     });
@@ -616,8 +632,12 @@ test.describe
         region_label: "臺北市",
         address: confirmedStoreAddress,
         url: confirmedStoreUrl,
-        source: "owner",
-        owner_status: "confirmed",
+        source: "import",
+        source_url: evidenceSourceUrl,
+        fetched_at: "2026-08-11T00:00:00.000Z",
+        location_type: "direct_store",
+        country: "TW",
+        owner_status: "none",
       },
       {
         brand_id: seeded.brand.id,
@@ -679,10 +699,6 @@ test.describe
       .from("brand_channel_confirmations")
       .insert([
         {
-          channel_id: getChannelId(confirmedStoreName),
-          user_id: confirmationUser.id,
-        },
-        {
           channel_id: getChannelId(confirmedOnlineName),
           user_id: confirmationUser.id,
         },
@@ -695,7 +711,7 @@ test.describe
   });
 
   test.afterAll(async () => {
-    await seeded.cleanup();
+    await Promise.all([seeded.cleanup(), emptySeeded.cleanup()]);
   });
 
   test("group headings render with correct counts", async ({ page }) => {
@@ -706,14 +722,16 @@ test.describe
       });
       await expect(page.getByRole("heading", { level: 1 })).toContainText(
         seeded.brand.name,
-        { timeout: BUDGET.INTERACTIVE },
+        {
+          timeout: BUDGET.INTERACTIVE,
+        },
       );
       await expect(
-        page.getByRole("heading", { name: "官方通路 (2)", level: 3 }),
+        page.getByRole("heading", { name: "臺北市 (1)", level: 3 }),
       ).toBeVisible();
       await expect(
         page.getByRole("heading", {
-          name: "實體通路 (2)",
+          name: "臺中市 (1)",
           level: 3,
         }),
       ).toBeVisible();
@@ -731,7 +749,7 @@ test.describe
     ).toBeVisible();
   });
 
-  test("Google Maps link renders when an address is present", async ({
+  test("an imported stockist renders its address, Maps link and source line", async ({
     page,
   }) => {
     await page.goto(`/brands/${seeded.slug}`, {
@@ -739,8 +757,28 @@ test.describe
     });
 
     await expect(
-      page.getByRole("link", { name: "臺北市", exact: true }),
+      page.getByRole("link", { name: confirmedStoreAddress, exact: true }),
     ).toHaveAttribute("href", /^https:\/\/www\.google\.com\/maps\/search\//);
+    await expect(
+      page.getByRole("link", { name: /example\.com · 讀取於/ }),
+    ).toHaveAttribute("href", evidenceSourceUrl);
+  });
+
+  test("an imported stockist shows no confirmation prompt", async ({
+    page,
+  }) => {
+    await page.goto(`/brands/${seeded.slug}`, {
+      waitUntil: "domcontentloaded",
+    });
+
+    const stockistRow = page
+      .locator("[data-channel-row]")
+      .filter({ hasText: confirmedStoreName });
+    await expect(stockistRow).toBeVisible();
+    await expect(stockistRow.getByRole("button", { name: /確認/ })).toHaveCount(
+      0,
+    );
+    await expect(stockistRow.getByText(/人確認/)).toHaveCount(0);
   });
 
   test("external link renders for channels with a URL", async ({ page }) => {
@@ -872,7 +910,7 @@ test.describe
       await userPage.reload({ waitUntil: "domcontentloaded" });
       await expect(
         userPage.getByRole("heading", {
-          name: "線上通路 (1)",
+          name: "線上通路 (2)",
           level: 3,
         }),
       ).toBeVisible();
@@ -882,5 +920,21 @@ test.describe
           .filter({ hasText: submittedChannelName }),
       ).toBeVisible();
     }).toPass(POLL.DB);
+  });
+
+  test("a brand with no channels renders no locations surface", async ({
+    page,
+  }) => {
+    await page.goto(`/brands/${emptySeeded.slug}`, {
+      waitUntil: "domcontentloaded",
+    });
+
+    await expect(page.locator("[data-brand-channels-section]")).toHaveCount(0);
+    await expect(
+      page.getByRole("navigation", { name: "本頁導覽" }).getByRole("link", {
+        name: "販售地點",
+      }),
+    ).toHaveCount(0);
+    await expect(page.getByTestId("brand-channels-empty-state")).toHaveCount(0);
   });
 });

@@ -1,4 +1,10 @@
 import type { BrandChannel } from '@/lib/types/brand-channel'
+import { CITY_NAMES_ZH } from '@/lib/constants/taiwan-cities'
+
+const REGION_SLUG_BY_LABEL: Readonly<Record<string, string>> =
+  Object.fromEntries(
+    Object.entries(CITY_NAMES_ZH).map(([slug, label]) => [label, slug]),
+  )
 
 export const CHANNEL_CONFIRMATION_THRESHOLD = Number(
   process.env.CHANNEL_CONFIRMATION_THRESHOLD ?? 3,
@@ -59,25 +65,20 @@ type ChannelRow = {
   regionLabel: string | null
   address: string | null
   url: string | null
+  sourceUrl?: string | null
+  fetchedAt?: string | null
+  locationType?: string | null
+  country?: string | null
   ownerStatus: string
   source: string
   confirmationCount: number
   removedAt: string | null
 }
 
-export type ChannelKind = 'official' | 'visitable' | 'chain' | 'online'
-
-export type ChannelKindGroups = Array<{
-  key: ChannelKind
+export type ChannelRegionGroup = {
+  key: string
   channels: BrandChannel[]
-}>
-
-const CHANNEL_KIND_ORDER: ChannelKind[] = [
-  'official',
-  'visitable',
-  'chain',
-  'online',
-]
+}
 
 function sortChannelsForDisplay(a: BrandChannel, b: BrandChannel): number {
   const statusOrder =
@@ -90,34 +91,45 @@ function sortChannelsForDisplay(a: BrandChannel, b: BrandChannel): number {
   return a.name.localeCompare(b.name)
 }
 
-export function groupChannelsByKind(
+export function regionLabelToSlug(regionLabel: string): string | null {
+  return REGION_SLUG_BY_LABEL[regionLabel] ?? null
+}
+
+export function groupChannelsByRegion(
   channels: BrandChannel[],
-): ChannelKindGroups {
-  const grouped: Record<ChannelKind, BrandChannel[]> = {
-    official: [],
-    visitable: [],
-    chain: [],
-    online: [],
-  }
+): ChannelRegionGroup[] {
+  const grouped = new Map<string, BrandChannel[]>()
 
   for (const channel of channels) {
-    const key: ChannelKind =
-      channel.ownerStatus === 'confirmed' && channel.source === 'owner'
-        ? 'official'
-        : channel.address != null
-          ? 'visitable'
-          : channel.channelType === 'offline'
-            ? 'chain'
-            : 'online'
-
-    grouped[key].push(channel)
+    const regionSlug = channel.regionLabel
+      ? regionLabelToSlug(channel.regionLabel)
+      : null
+    const key =
+      channel.channelType === 'online'
+        ? 'online'
+        : channel.country != null && channel.country !== 'TW'
+          ? 'overseas'
+          : channel.regionLabel === CHAIN_REGION_LABEL
+            ? 'all_taiwan'
+            : (regionSlug ?? 'overseas')
+    const group = grouped.get(key) ?? []
+    group.push(channel)
+    grouped.set(key, group)
   }
 
-  return CHANNEL_KIND_ORDER.flatMap((key) => {
-    const group = grouped[key]
-    if (group.length === 0) return []
-    return [{ key, channels: [...group].sort(sortChannelsForDisplay) }]
-  })
+  return [...grouped.entries()]
+    .map(([key, group]) => ({
+      key,
+      channels: [...group].sort(sortChannelsForDisplay),
+    }))
+    .sort((left, right) => {
+      if (left.key === 'online') return 1
+      if (right.key === 'online') return -1
+      return (
+        right.channels.length - left.channels.length ||
+        left.key.localeCompare(right.key)
+      )
+    })
 }
 
 export function groupChannelsForDisplay(
@@ -134,8 +146,11 @@ export function groupChannelsForDisplay(
     const ownerConfirmed = row.ownerStatus === 'confirmed'
     const communityConfirmed =
       row.confirmationCount >= CHANNEL_CONFIRMATION_THRESHOLD
+    const evidenceBacked = row.sourceUrl != null && row.source !== 'community'
     const status: BrandChannel['status'] =
-      ownerConfirmed || communityConfirmed ? 'confirmed' : 'unconfirmed'
+      ownerConfirmed || communityConfirmed || evidenceBacked
+        ? 'confirmed'
+        : 'unconfirmed'
     const channel: BrandChannel = {
       id: row.id,
       name: row.name,
@@ -144,13 +159,21 @@ export function groupChannelsForDisplay(
       regionLabel: row.regionLabel,
       address: row.address,
       url: row.url,
+      sourceUrl: row.sourceUrl ?? null,
+      fetchedAt: row.fetchedAt ?? null,
+      locationType: (row.locationType as BrandChannel['locationType']) ?? null,
+      country: row.country ?? null,
       ownerStatus: row.ownerStatus as BrandChannel['ownerStatus'],
       source: row.source as BrandChannel['source'],
       confirmationCount: row.confirmationCount,
       status,
       ...(status === 'confirmed'
         ? {
-            confirmedBy: ownerConfirmed ? ('owner' as const) : ('community' as const),
+            confirmedBy: ownerConfirmed
+              ? ('owner' as const)
+              : communityConfirmed
+                ? ('community' as const)
+                : ('evidence' as const),
           }
         : {}),
       ...(viewerConfirmedIds

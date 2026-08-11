@@ -23,9 +23,8 @@ import { signInHref } from '@/i18n/locale-preference'
 import { useUser } from '@/lib/auth/use-user'
 import {
   CHAIN_REGION_LABEL,
-  groupChannelsByKind,
-  type ChannelKind,
-  type ChannelKindGroups,
+  groupChannelsByRegion,
+  type ChannelRegionGroup,
 } from '@/lib/brands/channels'
 import type { BrandChannel } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -36,12 +35,6 @@ const MAX_VISIBLE_CHIPS = 6
 const GROUPED_LAYOUT_MIN_CHANNELS = 4
 /** Chain marker written by the enrichment phase; it carries no location worth repeating. */
 const CHAIN_MARKER = CHAIN_REGION_LABEL
-const ROW_KINDS: ReadonlySet<ChannelKind> = new Set<ChannelKind>([
-  'official',
-])
-
-type ChannelKindGroup = ChannelKindGroups[number]
-
 type ViewerState = {
   isOwner: boolean
   confirmedChannelIds: string[]
@@ -110,6 +103,7 @@ type ChannelRowProps = {
   t: Translate
   tNav: Translate
   signInHrefValue: string
+  locale: string
   ownerConfirmLabel: string
   ownerRejectLabel: string
   onConfirm: (channel: BrandChannel, context: ChannelActionContext) => void
@@ -129,6 +123,7 @@ function ChannelRow({
   t,
   tNav,
   signInHrefValue,
+  locale,
   ownerConfirmLabel,
   ownerRejectLabel,
   onConfirm,
@@ -136,7 +131,7 @@ function ChannelRow({
 }: ChannelRowProps) {
   const isOnline = channel.channelType === 'online'
   const Icon = isOnline ? Monitor : Store
-  const region = channel.regionLabel ?? channel.address
+  const region = channel.address ?? channel.regionLabel
   const mapsHref = channel.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(channel.address)}`
     : null
@@ -144,6 +139,13 @@ function ChannelRow({
     channel.confirmedBy ??
     (channel.ownerStatus === 'confirmed' ? 'owner' : 'community')
   const isConfirmed = channel.status === 'confirmed'
+  const evidenceDate =
+    channel.confirmedBy === 'evidence' && channel.fetchedAt
+      ? new Intl.DateTimeFormat(locale).format(new Date(channel.fetchedAt))
+      : null
+  const evidenceSource = channel.sourceUrl
+    ? new URL(channel.sourceUrl).hostname.replace(/^www\./, '')
+    : null
 
   return (
     <div
@@ -190,6 +192,22 @@ function ChannelRow({
                 <span>{region}</span>
               )}
             </div>
+          ) : null}
+          {channel.confirmedBy === 'evidence' &&
+          channel.sourceUrl &&
+          evidenceDate ? (
+            <a
+              href={channel.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex items-center gap-1 type-card-description underline underline-offset-4"
+            >
+              {t('channels.provenance.sourceLine', {
+                source: evidenceSource ?? channel.sourceUrl,
+                date: evidenceDate,
+              })}
+              <ExternalLink aria-hidden="true" className="size-3.5" />
+            </a>
           ) : null}
           {signInChannelId === channel.id ? (
             <p className="mt-2 rounded-lg border border-border bg-muted/50 p-3 type-card-description">
@@ -337,7 +355,8 @@ function ChannelChip({
       <span className="type-body-emphasis">{channel.name}</span>
       {region ? (
         <span className="type-metadata text-muted-foreground">
-          ({mapsHref ? (
+          (
+          {mapsHref ? (
             <a
               href={mapsHref}
               target="_blank"
@@ -348,7 +367,8 @@ function ChannelChip({
             </a>
           ) : (
             region
-          )})
+          )}
+          )
         </span>
       ) : null}
       {channel.url ? (
@@ -410,12 +430,13 @@ export function BrandChannelList({
   const t = useTranslations('brandDetail')
   const tErrors = useTranslations('brandDetail.channels.errors')
   const tNav = useTranslations('nav')
+  const tCities = useTranslations('cities')
   const { user, loading } = useUser()
   const { reportEngagement } = useBrandEngagement()
   const [, startTransition] = useTransition()
   const allChannels = [...confirmed, ...possible]
   const [expandedChipGroups, setExpandedChipGroups] = useState<
-    Partial<Record<ChannelKind, boolean>>
+    Partial<Record<string, boolean>>
   >({})
   const [viewerState, setViewerState] = useState<ViewerState>({
     isOwner: false,
@@ -455,17 +476,7 @@ export function BrandChannelList({
     }
   }, [brandId, loading, user])
 
-  const groups = groupChannelsByKind(allChannels)
-  const physicalChannels = groups.flatMap((group) =>
-    group.key === 'visitable' || group.key === 'chain' ? group.channels : [],
-  )
-  const displayGroups: ChannelKindGroup[] = [
-    ...groups.filter((group) => group.key === 'official'),
-    ...(physicalChannels.length > 0
-      ? [{ key: 'chain' as const, channels: physicalChannels }]
-      : []),
-    ...groups.filter((group) => group.key === 'online'),
-  ]
+  const displayGroups = groupChannelsByRegion(allChannels)
   const signInHrefValue = signInHref(pathname, locale)
   const ownerConfirmLabel = t('channels.ownerBanner.confirm')
   const ownerRejectLabel = t('channels.ownerBanner.reject')
@@ -565,10 +576,10 @@ export function BrandChannelList({
     })
   }
 
-  function rendersAsRow(kind: ChannelKind, channel: BrandChannel) {
-    if (ROW_KINDS.has(kind)) return true
+  function rendersAsRow(channel: BrandChannel) {
+    if (channel.status === 'confirmed') return true
     // The owner needs the moderation controls, which do not fit inside a chip.
-    return viewerState.isOwner && channel.status !== 'confirmed'
+    return viewerState.isOwner
   }
 
   function renderRow(channel: BrandChannel) {
@@ -587,6 +598,7 @@ export function BrandChannelList({
         t={t}
         tNav={tNav}
         signInHrefValue={signInHrefValue}
+        locale={locale}
         ownerConfirmLabel={ownerConfirmLabel}
         ownerRejectLabel={ownerRejectLabel}
         onConfirm={handleConfirm}
@@ -598,14 +610,10 @@ export function BrandChannelList({
   function renderRowStack(rows: BrandChannel[]) {
     if (rows.length === 0) return null
 
-    return (
-      <div className="divide-y divide-border">
-        {rows.map(renderRow)}
-      </div>
-    )
+    return <div className="divide-y divide-border">{rows.map(renderRow)}</div>
   }
 
-  function renderChipStack(kind: ChannelKind, chips: BrandChannel[]) {
+  function renderChipStack(kind: string, chips: BrandChannel[]) {
     if (chips.length === 0) return null
 
     const isExpanded = expandedChipGroups[kind] === true
@@ -618,8 +626,7 @@ export function BrandChannelList({
       ? errors[attemptedChannel.id]
       : undefined
     const showsSignInPrompt =
-      attemptedChannel !== undefined &&
-      signInChannelId === attemptedChannel.id
+      attemptedChannel !== undefined && signInChannelId === attemptedChannel.id
 
     return (
       <div className="space-y-3" data-channel-chip-group={kind}>
@@ -628,7 +635,9 @@ export function BrandChannelList({
             <ChannelChip
               key={channel.id}
               channel={channel}
-              count={confirmationCounts[channel.id] ?? channel.confirmationCount}
+              count={
+                confirmationCounts[channel.id] ?? channel.confirmationCount
+              }
               threshold={threshold}
               isViewerConfirmed={viewerState.confirmedChannelIds.includes(
                 channel.id,
@@ -681,13 +690,17 @@ export function BrandChannelList({
     )
   }
 
-  function renderGroup(group: ChannelKindGroup) {
-    const rowChannels = group.channels.filter((channel) =>
-      rendersAsRow(group.key, channel),
-    )
+  function renderGroup(group: ChannelRegionGroup) {
+    const rowChannels = group.channels.filter(rendersAsRow)
     const chipChannels = group.channels.filter(
-      (channel) => !rendersAsRow(group.key, channel),
+      (channel) => !rendersAsRow(channel),
     )
+    const heading =
+      group.key === 'online' ||
+      group.key === 'overseas' ||
+      group.key === 'all_taiwan'
+        ? t(`channels.groups.${group.key}`)
+        : tCities(group.key)
 
     return (
       <section
@@ -695,9 +708,7 @@ export function BrandChannelList({
         className="space-y-4"
         data-channel-kind={group.key}
       >
-        <h3 className="type-subsection-title">
-          {`${t(`channels.groups.${group.key}`)} (${group.channels.length})`}
-        </h3>
+        <h3 className="type-subsection-title">{`${heading} (${group.channels.length})`}</h3>
         {renderChipStack(group.key, chipChannels)}
         {renderRowStack(rowChannels)}
       </section>
@@ -707,15 +718,15 @@ export function BrandChannelList({
   // Too few entries for grouping to earn headings: render one flat list.
   if (allChannels.length < GROUPED_LAYOUT_MIN_CHANNELS) {
     const rowChannels = displayGroups.flatMap((group) =>
-      group.channels.filter((channel) => rendersAsRow(group.key, channel)),
+      group.channels.filter(rendersAsRow),
     )
     const chipChannels = displayGroups.flatMap((group) =>
-      group.channels.filter((channel) => !rendersAsRow(group.key, channel)),
+      group.channels.filter((channel) => !rendersAsRow(channel)),
     )
 
     return (
       <div className="space-y-8" data-brand-channel-list>
-        {renderChipStack('chain', chipChannels)}
+        {renderChipStack('all_taiwan', chipChannels)}
         {renderRowStack(rowChannels)}
       </div>
     )

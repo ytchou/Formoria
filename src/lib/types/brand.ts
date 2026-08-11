@@ -29,62 +29,6 @@ export type BrandFlatLinkColumns = {
   other_urls?: unknown
 } & { [Column in PurchaseChannelColumn]?: string | null }
 
-export type RetailLocationRelationshipType =
-  | 'brand_store'
-  | 'stockist'
-  | 'department_counter'
-
-export type RetailLocationType = 'chain' | 'independent'
-
-export type RetailLocationVerificationStatus =
-  | 'verified'
-  | 'manual'
-  | 'needs_review'
-
-type RetailLocationConfirmationStatus =
-  | 'unconfirmed'
-  | 'owner_confirmed'
-
-export type PhysicalRetailLocation = {
-  kind: 'location'
-  name: string
-  relationshipType: RetailLocationRelationshipType
-  /** @deprecated Legacy input only. Canonical rows use kind. */
-  type?: RetailLocationType
-  address?: string
-  city?: string
-  district?: string
-  venueName?: string
-  floorOrCounter?: string
-  availabilityNote?: string
-  latitude?: number
-  longitude?: number
-  verificationStatus?: RetailLocationVerificationStatus
-  confirmationStatus: RetailLocationConfirmationStatus
-  retailerUrl?: never
-}
-
-export type RetailChainChannel = {
-  kind: 'retail_chain'
-  name: string
-  retailerUrl?: string
-  availabilityNote?: string
-  /** @deprecated Legacy input only. Canonical rows use kind. */
-  type?: RetailLocationType
-  relationshipType?: never
-  address?: never
-  city?: never
-  district?: never
-  venueName?: never
-  floorOrCounter?: never
-  latitude?: never
-  longitude?: never
-  verificationStatus?: never
-  confirmationStatus?: never
-}
-
-export type RetailLocation = PhysicalRetailLocation | RetailChainChannel
-
 type MitEvidence = {
   mit_smile_listed?: boolean
   mit_smile_cert?: string
