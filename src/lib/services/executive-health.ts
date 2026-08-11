@@ -113,11 +113,14 @@ export async function loadExecutiveHealth(): Promise<ExecutiveHealthSnapshot> {
   const services = await Promise.all(
     defaultChecks().map((check) => runExecutiveHealthCheck(check)),
   );
+  const inventory = SERVICE_REGISTRY.map(toInventoryProjection).filter(
+    (entry): entry is NonNullable<typeof entry> => entry !== null,
+  );
   return {
     status: classifyExecutiveHealth(services),
     checkedAt: new Date().toISOString(),
     services,
-    inventory: SERVICE_REGISTRY.map(toInventoryProjection),
+    inventory,
   };
 }
 
@@ -219,8 +222,6 @@ export function defaultChecks(): ExecutiveHealthCheckDefinition[] {
   const posthogHost = (process.env.POSTHOG_API_HOST ?? "").replace(/\/+$/, "");
   const posthogProjectId = process.env.POSTHOG_PROJECT_ID;
   const posthogToken = process.env.POSTHOG_PERSONAL_API_KEY;
-  const githubToken = process.env.GITHUB_TOKEN;
-  const linearToken = process.env.LINEAR_OAUTH_ACCESS_TOKEN;
   const curationWorkerUrl = process.env.CURATION_WORKER_URL?.replace(
     /\/+$/,
     "",
@@ -435,52 +436,6 @@ export function defaultChecks(): ExecutiveHealthCheckDefinition[] {
         limit: 1,
       },
       run: checkMitRegistryHealth,
-    },
-    {
-      id: "github",
-      service: "GitHub",
-      tier: "back-office",
-      request: {
-        endpoint: "https://api.github.com/rate_limit",
-        configured: Boolean(githubToken),
-      },
-      run: configured(githubToken, "GitHub is not configured", async () =>
-        responseResult(
-          await fetch("https://api.github.com/rate_limit", {
-            headers: {
-              Accept: "application/vnd.github+json",
-              Authorization: `Bearer ${githubToken}`,
-              "X-GitHub-Api-Version": "2022-11-28",
-            },
-            signal: AbortSignal.timeout(5_000),
-          }),
-          "GitHub reachable",
-        ),
-      ),
-    },
-    {
-      id: "linear",
-      service: "Linear",
-      tier: "back-office",
-      request: {
-        endpoint: "https://api.linear.app/graphql",
-        method: "POST",
-        configured: Boolean(linearToken),
-      },
-      run: configured(linearToken, "Linear is not configured", async () =>
-        responseResult(
-          await fetch("https://api.linear.app/graphql", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${linearToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ query: "{ viewer { id } }" }),
-            signal: AbortSignal.timeout(5_000),
-          }),
-          "Linear reachable",
-        ),
-      ),
     },
     {
       id: "railway-curation-worker",
