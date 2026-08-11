@@ -60,6 +60,11 @@ function finding(
   source: HealthFinding["source"] = "sentry",
 ): HealthFinding {
   return {
+    // Repairable by default: a claim is only ever spent on findings with
+    // tracked changedFiles, so a fixture without them is claimed by nothing and
+    // silently turns every claim-mechanics assertion into a no-op. Tests about
+    // unrepairable work opt out with an explicit `changedFiles: []`.
+    changedFiles: ["src/app.ts"],
     evidence: { frame: "src/app.ts:10", rootCauseKey: fingerprint },
     fingerprint,
     ...(mergePolicy === "human" ? { humanReason: "Review required" } : {}),
@@ -935,6 +940,7 @@ describe("queue mutation gates", () => {
     const findings = [
       ...Array.from({ length: 24 }, (_, i) => ({
         ...finding(`link:link-cleanup:${String(i).padStart(3, "0")}`),
+        changedFiles: [],
         severity: "medium" as const,
       })),
       ...Array.from({ length: 131 }, (_, i) => ({
@@ -961,14 +967,58 @@ describe("queue mutation gates", () => {
     );
     expect(claimed).toHaveLength(25);
     expect(claimed.every((f) => f.startsWith("quality:dead-code:"))).toBe(true);
-    expect(result.skippedActions).not.toContain("claim_unrepairable:25");
+    expect(result.skippedActions).toContain("claim_unrepairable:24");
   });
 
-  it("names a claim that no repair stage can act on", async () => {
-    // The failure mode above is silent otherwise: a green run, an empty PR set,
-    // and nothing in the report explaining why.
+  it("never spends claim slots on findings the repair stage cannot act on", async () => {
+    // Ordering alone only protects the front of the claim. Once repairable work
+    // runs short, unrepairable findings fill the remainder — 4 fixable plus 21
+    // that are not. Those 21 charge an attempt each against a two-attempt
+    // retirement budget and leave review facing findings no repair touched, so
+    // the run opens no PR and the rows are two attempts closer to retirement
+    // for work that was never possible. The claim must be repairable-only.
+    const findings = [
+      ...Array.from({ length: 4 }, (_, i) => ({
+        ...finding(`quality:dead-code:${i}`),
+        changedFiles: ["src/lib/services/spend.ts"],
+        severity: "medium" as const,
+      })),
+      ...Array.from({ length: 21 }, (_, i) => ({
+        ...finding(`link:link-cleanup:${String(i).padStart(3, "0")}`),
+        changedFiles: [],
+        severity: "high" as const,
+      })),
+    ];
+    const claim = vi.fn(async () => []);
+
+    const result = await enqueueAndClaimPolicyBatches(
+      { findings, leaseOwner: "run-short-repairable", mode: "live" },
+      {
+        database: {
+          claimFindings: claim,
+          enqueueFindings: vi.fn(async () => undefined),
+        },
+      },
+      enabled,
+    );
+
+    const claimed = claim.mock.calls.flatMap(
+      (call) => (call as unknown as [string, string, string[]])[2],
+    );
+    // Four slots used out of a limit of 25 — the rest deliberately unspent.
+    expect(claimed).toHaveLength(4);
+    expect(claimed.every((f) => f.startsWith("quality:dead-code:"))).toBe(true);
+    expect(result.skippedActions).toContain("claim_unrepairable:21");
+    // The whole backlog is still enqueued; only the claim is withheld.
+    expect(result.skippedActions).not.toContain("claim_limit:4/25");
+  });
+
+  it("names an eligible backlog that no repair stage can act on", async () => {
+    // Otherwise the failure mode is silent: a green run, an empty PR set, and
+    // nothing in the report explaining why the queue never drains.
     const findings = Array.from({ length: 3 }, (_, i) => ({
       ...finding(`link:link-cleanup:${i}`),
+      changedFiles: [],
       severity: "medium" as const,
     }));
 

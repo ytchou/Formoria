@@ -389,6 +389,11 @@ jobs:
         if: steps.admission.outputs.claimed == 'true' && steps.repair-1.outcome == 'success'
         continue-on-error: true
         run: |
+          # Discard edits outside the claim before anything reads the working
+          # tree. `pnpm lint` and `tsc` below are repo-wide, so a stray edit to
+          # an unclaimed file fails validation on a file the run never had
+          # permission to touch (run 31472080866).
+          scripts/health-agent/enforce-repair-scope.sh "$HEALTH_ARTIFACT_DIR/manager-metadata.json" human
           # Re-run the detector and assert the *claimed* findings are gone. Bare
           # `pnpm knip` here demanded a repo-wide clean bill of health for a
           # repair scoped to at most HEALTH_REPAIR_CLAIM_LIMIT findings, so it
@@ -466,6 +471,7 @@ jobs:
         if: steps.admission.outputs.claimed == 'true' && steps.repair-2.outcome == 'success'
         continue-on-error: true
         run: |
+          scripts/health-agent/enforce-repair-scope.sh "$HEALTH_ARTIFACT_DIR/manager-metadata.json" human
           if jq -e '.findings[] | select(.fingerprint | startswith("quality:"))' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" >/dev/null; then
             pnpm exec tsx scripts/health-agent/quality-runtime.ts \
               --output "$HEALTH_ARTIFACT_DIR/quality-recheck-2.json" \

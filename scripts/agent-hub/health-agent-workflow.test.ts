@@ -190,6 +190,48 @@ describe("unified health-agent workflow contract", () => {
     }
   });
 
+  it("discards out-of-scope repair edits before validation reads the tree", async () => {
+    // `pnpm lint` and `tsc` are repo-wide, so a repair edit to a file in no
+    // claim fails validation on a file the run had no permission to touch. Run
+    // 31472080866 burned both cycles that way: the repair edited
+    // src/instrumentation-client.ts and validation died at `check:audited-calls`,
+    // which reads as a lint regression rather than the scope violation it was.
+    // validate-repair-patch.sh asserts the same allowlist but runs last, so the
+    // confusing error always fired first — hence "before", not merely "present".
+    const workflow = parseYaml(await readFile(workflowPath, "utf8")) as {
+      jobs: {
+        "nightly-health": { steps: Array<{ name?: string; run?: string }> };
+      };
+    };
+
+    const validateSteps = workflow.jobs["nightly-health"].steps.filter((step) =>
+      step.name?.includes("validate cycle"),
+    );
+    expect(validateSteps.length).toBeGreaterThan(0);
+
+    for (const step of validateSteps) {
+      // Comments explain the ordering by naming the commands, so they have to
+      // come out before the ordering itself can be measured.
+      const run = (step.run ?? "")
+        .split("\n")
+        .filter((line) => !/^\s*#/.test(line))
+        .join("\n");
+      const enforce = run.indexOf("enforce-repair-scope.sh");
+      expect(enforce).toBeGreaterThan(-1);
+      // Every command that reads the whole working tree must come after it.
+      for (const consumer of [
+        "pnpm lint",
+        "tsc --noEmit",
+        "quality-runtime.ts",
+        "vitest run",
+      ]) {
+        const at = run.indexOf(consumer);
+        if (at === -1) continue;
+        expect(at).toBeGreaterThan(enforce);
+      }
+    }
+  });
+
   it("admits before collection and gates duplicate replays without workflow-wide cancellation", async () => {
     const workflow = await readFile(workflowPath, "utf8");
     expect(workflow).not.toContain("concurrency:");
