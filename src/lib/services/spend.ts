@@ -6,7 +6,7 @@ import {
 } from "@/lib/services/service-registry";
 import { createServiceClient } from "@/lib/supabase/service";
 
-export type SpendProvenance = "declared" | "derived" | "unmetered";
+type SpendProvenance = "declared" | "derived" | "unmetered";
 
 type SpendLine = {
   id: string;

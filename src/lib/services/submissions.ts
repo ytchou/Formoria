@@ -180,8 +180,6 @@ export type SubmissionReviewCompleteness = {
   complete: boolean;
   missingFields: SubmissionReviewMissingField[];
 };
-export type EnrichmentFilter = "all" | "complete" | "incomplete";
-export type ReviewKindFilter = "all" | "new" | "refresh";
 /**
  * A new-brand submission whose name already belongs to a live brand, or to
  * another pending new-brand row in the same queue.
@@ -196,7 +194,7 @@ export type ReviewKindFilter = "all" | "new" | "refresh";
  * submissions for a brand that does not exist yet (`噗尼 Mobell` had two), where
  * approving the first is what creates the collision for the second.
  */
-export type SubmissionDuplicateWarning = {
+type SubmissionDuplicateWarning = {
   liveBrand: { slug: string; name: string } | null;
   pendingSiblings: number;
 };
