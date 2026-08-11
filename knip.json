@@ -15,9 +15,10 @@
     "tailwindcss",
     "shadcn",
     "@react-email/ui",
-    "@heroui/styles"
+    "@heroui/styles",
+    "react-simple-maps"
   ],
-  "ignoreBinaries": ["lsof", "tesseract"],
+  "ignoreBinaries": ["gh", "lsof", "tesseract"],
   "ignore": [
     "src/lib/supabase/database.types.ts",
     "scripts/threads-scraper/.venv/**"
