@@ -6,7 +6,12 @@ name: E2E Production (Synthetic)
 
 on:
   schedule:
-    - cron: "0 */6 * * *"
+    # 05:20 / 17:20 Asia/Taipei. Runs last in the morning cluster so it reads as
+    # the all-clear: by then self-heal has had its window to push a repair, and
+    # this is the only check that exercises the live deployment. Offset off the
+    # hour deliberately — the top of the hour is the most contended slot on
+    # GitHub's best-effort scheduler.
+    - cron: "20 9,21 * * *"
   workflow_dispatch:
     inputs:
       base_url:
@@ -82,6 +87,9 @@ jobs:
         continue-on-error: true
         env:
           E2E_SLACK_PHASE: initial
+          E2E_SLACK_LABEL: E2E Production (Synthetic)
+          E2E_SLACK_SCOPE: Signup + confirmation-email delivery on the live deployment
+          E2E_SLACK_TARGET: ${{ github.event.inputs.base_url || vars.PRODUCTION_BASE_URL || 'https://formoria.com' }}
           GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}

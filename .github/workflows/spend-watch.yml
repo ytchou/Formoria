@@ -2,7 +2,9 @@ name: Formoria Spend Watch
 
 on:
   schedule:
-    - cron: "30 23 * * *"
+    # 05:05 Asia/Taipei. Own concurrency, short run — slots between health-agent
+    # and the production probe.
+    - cron: "5 21 * * *"
   workflow_dispatch:
 
 permissions:

@@ -149,21 +149,27 @@ describe("evaluateCronHealth", () => {
   });
 
   it("flags a job whose newest success is older than its maxAgeHours as stale", () => {
+    // Derived from the job's own budget, not a literal: the schedules move
+    // (2026-08-11 standardized the maintenance window) and a hardcoded age
+    // turns a deliberate cadence change into a failing test.
+    const budget =
+      EXPECTED_CRON_JOBS.find((job) => job.jobName === HOURLY)?.maxAgeHours ?? 0;
+    const staleAt = hoursBefore(budget + 2);
     const rows = [
       ...healthyRows().filter((logged) => logged.job_name !== HOURLY),
       row({
         job_name: HOURLY,
         request_id: 1,
         status_code: 200,
-        created: hoursBefore(5),
+        created: staleAt,
       }),
     ];
     const findings = evaluateCronHealth(rows, now);
     expect(fingerprints(findings)).toEqual([`cron:stale:${HOURLY}`]);
     expect(findings[0]).toMatchObject({ severity: "high", source: "cron" });
     expect(findings[0]?.evidence).toMatchObject({
-      lastSuccessAt: hoursBefore(5),
-      maxAgeHours: 3,
+      lastSuccessAt: staleAt,
+      maxAgeHours: budget,
       successCount: 1,
     });
   });

@@ -2,7 +2,12 @@ name: Formoria Health Agent
 
 on:
   schedule:
-    - cron: "13 23 * * *"
+    # 04:50 Asia/Taipei, 45 min after e2e-nightly. This workflow declares NO
+    # concurrency group, so it runs beside a red night's self-heal rather than
+    # queuing behind it — deliberate, since both write to separate branches and
+    # serializing them would push the cluster past its 06:30 Taipei deadline.
+    # `expected_at` in the setup step below must be kept in sync with this cron.
+    - cron: "50 20 * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -74,7 +79,7 @@ jobs:
             done
           fi
           run_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          expected_at="$(node -e 'const n=new Date();const e=new Date(n);e.setUTCHours(23,13,0,0);if(e>n)e.setUTCDate(e.getUTCDate()-1);process.stdout.write(e.toISOString())')"
+          expected_at="$(node -e 'const n=new Date();const e=new Date(n);e.setUTCHours(20,50,0,0);if(e>n)e.setUTCDate(e.getUTCDate()-1);process.stdout.write(e.toISOString())')"
           delay_seconds="$(node -e 'process.stdout.write(String(Math.max(0,Math.round((Date.parse(process.argv[1])-Date.parse(process.argv[2]))/1000))))' "$run_at" "$expected_at")"
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "run_at=$run_at" >> "$GITHUB_OUTPUT"

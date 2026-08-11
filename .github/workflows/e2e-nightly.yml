@@ -2,7 +2,13 @@ name: E2E Nightly (Deep)
 
 on:
   schedule:
-    - cron: "10 22 * * *" # 06:10 Asia/Taipei daily
+    # 04:05 Asia/Taipei. The whole morning cluster is scheduled backwards from a
+    # 06:30 Taipei "everything is ready" deadline, against measured worst cases:
+    # ~50 min of GitHub scheduler drift plus a ~56 min red self-heal night. This
+    # one goes first because it is the longest: on a red night its self-heal job
+    # needs a window to push a repair before the later runs read the result.
+    # It is the sole member of the `formoria-agent-writer` concurrency group.
+    - cron: "5 20 * * *"
   workflow_dispatch:
     inputs:
       selfheal_only:
@@ -310,6 +316,8 @@ jobs:
         continue-on-error: true
         env:
           E2E_SLACK_PHASE: initial
+          E2E_SLACK_LABEL: E2E Nightly (Deep)
+          E2E_SLACK_SCOPE: Full deep + mobile suite against a build of main
           GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
@@ -1147,6 +1155,8 @@ jobs:
           E2E_SKIPPED: ${{ needs.selfheal.outputs.skipped || '0' }}
           E2E_REPORT_AVAILABLE: ${{ needs.selfheal.outputs.report_available || 'false' }}
           E2E_SLACK_PHASE: ready
+          E2E_SLACK_LABEL: E2E Nightly (Deep)
+          E2E_SLACK_SCOPE: Self-heal revalidation of the previously failing specs
           GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           JOB_STATUS: ${{ needs.selfheal.result }}
@@ -1164,6 +1174,8 @@ jobs:
           E2E_SKIPPED: ${{ needs.selfheal.outputs.skipped || '0' }}
           E2E_REPORT_AVAILABLE: ${{ needs.selfheal.outputs.report_available || 'false' }}
           E2E_SLACK_PHASE: blocked
+          E2E_SLACK_LABEL: E2E Nightly (Deep)
+          E2E_SLACK_SCOPE: Self-heal revalidation of the previously failing specs
           GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           JOB_STATUS: ${{ needs.selfheal.result }}
