@@ -11,7 +11,7 @@ export type ReviewTab<T> = {
   match: (item: T) => boolean;
 };
 
-export type ReviewFilterOption = { value: string; label: string };
+type ReviewFilterOption = { value: string; label: string };
 
 export type ReviewFilter<T> = {
   id: string;

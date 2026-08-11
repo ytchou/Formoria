@@ -63,7 +63,7 @@ const MAX_SOURCE_BYTES = 10 * 1024 * 1024
  * accepted cost of parity.
  */
 export const VISION_IMAGE_WIDTH = 512
-export const VISION_IMAGE_QUALITY = 80
+const VISION_IMAGE_QUALITY = 80
 
 /**
  * Pure: bytes -> 512px webp data URI. No I/O, no Supabase client, so

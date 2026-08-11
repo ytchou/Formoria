@@ -158,8 +158,8 @@ const PROVIDERS = {
   ],
 } as const;
 
-export type ProviderRegistry = typeof PROVIDERS;
-export type AuditProvider = keyof ProviderRegistry;
+type ProviderRegistry = typeof PROVIDERS;
+type AuditProvider = keyof ProviderRegistry;
 
 export function assertRegistered(provider: string, operation: string): void {
   if (!(provider in PROVIDERS)) {

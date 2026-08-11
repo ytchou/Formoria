@@ -398,7 +398,7 @@ export async function loadSpendWindow(
   };
 }
 
-export async function loadSpendSnapshot(
+async function loadSpendSnapshot(
   supabase = createServiceClient(),
   at = new Date(),
 ): Promise<SpendSnapshotV1> {
@@ -417,7 +417,7 @@ export async function loadSpendSnapshot(
   });
 }
 
-export function createSpendSnapshotCache({
+function createSpendSnapshotCache({
   load = loadSpendSnapshot,
   now = Date.now,
 }: {

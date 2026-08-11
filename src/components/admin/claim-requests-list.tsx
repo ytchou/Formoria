@@ -24,7 +24,7 @@ import {
   useReviewQueue,
 } from "./queue";
 
-export type SignedProofEvidence = ProofEvidence & { signedUrl?: string };
+type SignedProofEvidence = ProofEvidence & { signedUrl?: string };
 export type ClaimRequestWithSignedProof = Omit<
   ClaimRequest,
   "proofEvidence"
