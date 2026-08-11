@@ -35,6 +35,7 @@
     "curation:render": "tsx --env-file=.env.local scripts/curation-rerun/render.ts",
     "backfill-images": "tsx --env-file=.env.local scripts/backfill-brand-images.ts",
     "brand-storage-maintenance": "tsx --env-file=.env.local scripts/brand-storage-maintenance.ts",
+    "link-cleanup": "tsx --env-file=.env.local scripts/link-cleanup/run.ts",
     "approve-ready": "tsx --env-file=.env.local scripts/approve-ready-submissions.ts",
     "seed-events": "tsx --env-file=.env.local scripts/seed-events.ts",
     "audit:event-exhibitors": "tsx scripts/audit-event-exhibitors.ts",

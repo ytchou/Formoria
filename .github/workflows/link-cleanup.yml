@@ -1,0 +1,61 @@
+name: Link Cleanup
+
+# Removes brand links the checker has proven dead (HTTP 404/410 only) and
+# reports to Slack.
+#
+# Runs here rather than in the app because this is the only place that holds
+# both a Supabase service key and the Slack webhook. Deliberately its own
+# workflow rather than a step inside the health agent: that run is gated on a
+# once-per-logical-day admission ledger, and a data cleanup should not be
+# skippable because a code-repair run already claimed the day.
+
+on:
+  schedule:
+    # 05:30 Asia/Taipei — after the link checker's own nightly cron has
+    # refreshed `cleanup_required`, so this acts on the current day's evidence
+    # rather than yesterday's.
+    - cron: "30 21 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry_run reports without writing; apply removes the links"
+        required: true
+        type: choice
+        default: dry_run
+        options: [dry_run, apply]
+
+permissions:
+  contents: read
+
+jobs:
+  link-cleanup:
+    name: Remove proven-dead brand links
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run cleanup
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SLACK_FORMORIA_WEBHOOK_URL: ${{ secrets.SLACK_FORMORIA_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          # The scheduled run always applies; a manual run defaults to dry_run so
+          # an operator has to opt in to writing.
+          mode="${{ inputs.mode || 'apply' }}"
+          case "$mode" in
+            apply) pnpm exec tsx scripts/link-cleanup/run.ts --apply --slack ;;
+            dry_run) pnpm exec tsx scripts/link-cleanup/run.ts --slack ;;
+            *) echo "Unsupported mode: $mode" >&2; exit 1 ;;
+          esac

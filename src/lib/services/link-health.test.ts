@@ -99,6 +99,46 @@ describe("link health HTTP classification", () => {
     ).resolves.toEqual({ status: "ok", statusCode: 200 });
     expect(fetchBoundary.mock.calls[1]?.[1]).toMatchObject({ method: "GET" });
   });
+
+  it("confirms a HEAD 404 with GET before calling the link broken", async () => {
+    // A HEAD 404 used to be final. It is not evidence: SPA hosts and PHP front
+    // controllers routinely route only GET and hand every HEAD to a 404
+    // handler. Of the first nine links this fed to automatic removal, seven
+    // answered HEAD 404 / GET 200 — aastalee.com, two myportfolio.com sites,
+    // kaohsiungdiy.com, i-morona.com.tw, binguofarm.com.tw, qrc.afa.gov.tw.
+    // Nulling them would have destroyed seven working purchase links.
+    const fetchBoundary = vi
+      .fn()
+      .mockResolvedValueOnce({ status: 404 })
+      .mockResolvedValueOnce({ status: 200 });
+
+    await expect(
+      checkUrl("https://aastalee.com/", fetchBoundary),
+    ).resolves.toEqual({ status: "ok", statusCode: 200 });
+    expect(fetchBoundary.mock.calls[1]?.[1]).toMatchObject({ method: "GET" });
+  });
+
+  it("still reports broken when GET confirms the 404", async () => {
+    const fetchBoundary = vi
+      .fn()
+      .mockResolvedValueOnce({ status: 404 })
+      .mockResolvedValueOnce({ status: 404 });
+
+    await expect(
+      checkUrl("https://www.dearfig.com", fetchBoundary),
+    ).resolves.toEqual({ status: "broken", statusCode: 404 });
+  });
+
+  it("confirms a HEAD 410 with GET as well", async () => {
+    const fetchBoundary = vi
+      .fn()
+      .mockResolvedValueOnce({ status: 410 })
+      .mockResolvedValueOnce({ status: 200 });
+
+    await expect(
+      checkUrl("https://shop.mu-guang.tw/products/ceramic-cup", fetchBoundary),
+    ).resolves.toEqual({ status: "ok", statusCode: 200 });
+  });
 });
 
 describe("link health cleanup recovery", () => {
