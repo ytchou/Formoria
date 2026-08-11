@@ -17,6 +17,7 @@ import {
   type SentryClassification,
 } from "./sentry";
 import {
+  changedFilesForRepair,
   clusterRepairFindings,
   partitionRepairBatch,
   snapshotClaimedFindings,
@@ -1612,9 +1613,17 @@ export function repairClaimLimit(environment: Environment = process.env): number
  * A finding the repair stage can actually act on. `buildRepairSnapshot` drops
  * anything without tracked `changedFiles`, so a claim spent on one of these
  * produces an empty snapshot and no PR — while still burning an attempt.
+ *
+ * Must agree with the repair stage exactly, so it asks the same function the
+ * snapshot does. A finding can carry its paths in any of three places —
+ * `changedFiles`, `changedFileMapping`, or `evidence.changedFiles` — and the
+ * top-level field alone misses the App canary, which declares its one file
+ * under `evidence`. That was harmless while this only broke ties in the sort
+ * order, but it decides whether a finding may be claimed at all, and a canary
+ * that can never be claimed is a canary_fix mode that can never run.
  */
 function repairable(finding: HealthFinding): boolean {
-  return (finding.changedFiles?.length ?? 0) > 0;
+  return changedFilesForRepair(finding as RepairFinding).length > 0;
 }
 
 /**
@@ -2402,17 +2411,28 @@ export async function enqueueAndClaimPolicyBatches(
   // MAX_RESULT_BYTES, queue.json never written, and every downstream step
   // failing on the missing file (DEV-1428). Successive runs drain the queue.
   const claimLimit = repairClaimLimit(environment);
-  const claimable = severityOrdered(eligible).slice(0, claimLimit);
-  if (claimable.length < eligible.length) {
+  // The claim budget is a *repair* budget, so only repairable findings may
+  // spend it. Sorting repairable first stopped unrepairable findings from
+  // crowding out real work, but it never stopped them filling the remainder:
+  // with 4 repairable findings left and a limit of 25, a run claimed 4 it could
+  // fix and 21 it could not. Each of those charges an attempt against a
+  // two-attempt retirement budget and leaves review facing findings no repair
+  // touched, so the run ends with no PR — and the unrepairable rows sit two
+  // attempts closer to retirement for work that was never possible. They need
+  // the human path in DEV-1433, not a claim that can only fail them.
+  const repairableEligible = eligible.filter(repairable);
+  const claimable = severityOrdered(repairableEligible).slice(0, claimLimit);
+  if (claimable.length < repairableEligible.length) {
     skippedActions.push(
-      `claim_limit:${claimable.length}/${eligible.length}`,
+      `claim_limit:${claimable.length}/${repairableEligible.length}`,
     );
   }
-  // A claim of only unrepairable findings ends the run with no PR and no
-  // explanation. Name it in the report so the next empty run is one grep away.
-  const repairableClaimed = claimable.filter(repairable).length;
-  if (repairableClaimed === 0 && claimable.length > 0) {
-    skippedActions.push(`claim_unrepairable:${claimable.length}`);
+  // Unrepairable findings are now excluded rather than claimed, so this counts
+  // what was held back. Without it a backlog no repair stage can serve would be
+  // invisible in the report — a permanently quiet queue that looks drained.
+  const unrepairableHeld = eligible.length - repairableEligible.length;
+  if (unrepairableHeld > 0) {
+    skippedActions.push(`claim_unrepairable:${unrepairableHeld}`);
   }
   const automaticFingerprints = claimable
     .filter(({ mergePolicy }) => mergePolicy === "automatic")
