@@ -10,7 +10,7 @@ export const CHANNEL_CONFIRMATION_THRESHOLD = Number(
  */
 export const CHAIN_REGION_LABEL = '全台多間門市'
 
-export const RETAILER_NAME_NOISE: readonly string[] = [
+const RETAILER_NAME_NOISE: readonly string[] = [
   '戶外休閒專業中心',
   '戶外用品專門店',
   '戶外用品店',

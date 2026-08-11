@@ -70,7 +70,6 @@ import {
   STORAGE_FAILURE_PREFIX,
   runImageSearchPhase,
   runLinksPhase,
-  runChannelsPhase,
   runStandaloneClassification,
   runDetectPhase,
   type BrandEnrichState,
@@ -777,8 +776,8 @@ export function evaluateStorageGate(
 
 /**
  * Gate B: nothing downstream can consume. URLs feed scraping and link phases,
- * images feed classification, and SERP snippets feed the description and
- * channel phases — so a brand with snippets but zero URLs still has usable LLM
+ * images feed classification, and SERP snippets feed the description phase —
+ * so a brand with snippets but zero URLs still has usable LLM
  * input and must NOT be treated as empty.
  */
 export function hasNoEnrichmentInputs(input: {
@@ -2223,7 +2222,7 @@ export async function runEnrich(
       );
     }
 
-    // ---- Wave B: images -> descriptions -> locations -> ... -> persist ---
+    // ---- Wave B: images -> descriptions -> reputation -> ... -> persist ---
     await mapWithConcurrency(
       pendingBrands,
       ENRICH_BRAND_CONCURRENCY,
@@ -2271,8 +2270,8 @@ export async function runEnrich(
           }
 
           // Gate B — nothing downstream can consume, so skip before any LLM
-          // phase runs. Snippets count as usable input (descriptions and
-          // channels read them), so this only fires when every input is empty.
+          // phase runs. Snippets count as usable input for descriptions, so
+          // this only fires when every input is empty.
           //
           // It sits in wave B rather than wave A because `imageSearchUrls` is
           // one of its inputs and only exists once the batched search above has
@@ -2499,35 +2498,18 @@ export async function runEnrich(
           // with no `phase_results` entry as unfinished work, so omitting it
           // would make every resume re-owe `locations` forever.
           const locationsDeferred = isDeferredPhase("locations");
-          if (locationsDeferred || !phases.includes("locations")) {
-            state.phaseResults.push(
-              buildPhaseResult(
-                "locations",
-                "skipped",
-                [],
-                0,
-                undefined,
-                locationsDeferred
-                  ? "locations phase is deferred"
-                  : "locations phase not requested",
-              ),
-            );
-          } else {
-            await markCurrentPhase(ctx, "locations");
-            const channelsResult = await runChannelsPhase({
-              brand,
-              phases,
-              scrapedData: state.scrapedData,
-              overwrite,
-              dryRun: config.dryRun,
-              target: { type: targetType, id: brand.id },
-              jobId: config.jobId,
-              supabase: batchContext.supabase,
-            });
-            state.phaseResults.push(channelsResult.phaseResult);
-            await logCurrentPhase(ctx, channelsResult.phaseResult);
-            appendPatch(state, channelsResult.patch);
-          }
+          state.phaseResults.push(
+            buildPhaseResult(
+              "locations",
+              "skipped",
+              [],
+              0,
+              undefined,
+              locationsDeferred
+                ? "locations phase is deferred"
+                : "locations phase not requested",
+            ),
+          );
 
           await markCurrentPhase(ctx, "reputation");
           const reputationResult = await runReputationPhase({

@@ -50,20 +50,12 @@ import { NotFoundError } from "@/lib/errors";
 import { truncateForMeta } from "@/lib/text/truncate-for-meta";
 import { getBrandIndexability } from "@/lib/seo/brand-indexability";
 import { getBrandGalleryImages } from "@/lib/services/brand-images";
+import { LOCATIONS_SECTION_ENABLED } from "./locations-section";
 
 // Shared section rhythm: hairline rule above each section, and enough scroll offset to clear
 // the sticky main nav (100px) plus the mobile section-nav strip (48px).
 const brandSectionClassName =
   "scroll-mt-40 border-t border-border pt-8 first:border-t-0 first:pt-0 md:scroll-mt-28";
-
-// Temporary kill switch: the locations & retail-channels section is hidden from
-// the public brand page until its presentation is reworked. Flipping this to
-// true restores the nav entry, the section, and its channel fetch in one go —
-// nothing else is stubbed. The `boolean` annotation is deliberate: without it
-// the literal `false` makes the enabled branches unreachable to TS.
-// Kept in lockstep with the skipped `public locations and retail channels`
-// describe block in e2e/tests/brand-detail.spec.ts.
-const LOCATIONS_SECTION_ENABLED: boolean = false;
 
 // 1h ISR: ownership/verified-state changes propagate within ~an hour; route still statically served between regenerations
 export const revalidate = 3600;

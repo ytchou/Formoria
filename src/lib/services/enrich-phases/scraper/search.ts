@@ -103,7 +103,6 @@ export {
   batchSearchBrandsWithSnippets,
   batchSearchBrandImages,
   batchCaptureBrandImages,
-  searchBrandMaps,
   parseBrandSearchEntries,
 } from './serper'
 export type {

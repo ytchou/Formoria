@@ -94,17 +94,6 @@ type OwnerRecipientRow = Pick<
   Database["public"]["Tables"]["brand_submissions"]["Row"],
   "id" | "brand_id" | "submitter_email" | "submitted_at"
 >;
-type SubmissionLocationCandidateRow = Pick<
-  Database["public"]["Tables"]["brand_location_candidates"]["Row"],
-  | "id"
-  | "submission_id"
-  | "location"
-  | "verification_decision"
-  | "match_reason"
-  | "evidence"
-  | "normalized_address"
-  | "audit_result_ids"
->;
 type BrandImageReviewRow = Pick<
   Database["public"]["Tables"]["brand_images"]["Row"],
   | "id"
@@ -151,15 +140,6 @@ export type SubmissionReviewImage = {
   focalX: number | null;
   focalY: number | null;
   originBrandImageId: string | null;
-};
-type SubmissionLocationCandidate = {
-  id: string;
-  location: Json;
-  verificationDecision: string;
-  matchReason: string;
-  evidence: Json;
-  normalizedAddress: string | null;
-  auditResultIds: string[];
 };
 export type SubmissionReviewData = {
   name: string;
@@ -236,7 +216,6 @@ export type BrandSubmissionForReview = BrandSubmissionWithProductTypeNote & {
   reviewStage: SubmissionReviewStage;
   reviewData: SubmissionReviewData;
   reviewImages: SubmissionReviewImage[];
-  locationCandidates?: SubmissionLocationCandidate[];
   reviewCompleteness: SubmissionReviewCompleteness;
 };
 
@@ -1559,69 +1538,6 @@ export async function getSubmissionsForReview(options?: {
     }
   }
 
-  const locationCandidatesBySubmission = new Map<
-    string,
-    SubmissionLocationCandidate[]
-  >();
-  if (submissionIds.length > 0) {
-    const candidateChunks = await Promise.all(
-      chunkValues(submissionIds, SUPABASE_IN_FILTER_CHUNK_SIZE).map(
-        async (targetIds) => {
-          // Same row-cap exposure as the image read above: candidates per
-          // submission are unbounded, so page rather than trusting one request.
-          const chunkCandidates: SubmissionLocationCandidateRow[] = [];
-          for (let page = 0; ; page += 1) {
-            const { data: candidateData, error: candidatesError } =
-              await supabase
-                .from("brand_location_candidates")
-                .select(
-                  "id, submission_id, location, verification_decision, match_reason, evidence, normalized_address, audit_result_ids",
-                )
-                .in("submission_id", targetIds)
-                .order("submission_id", { ascending: true })
-                .order("created_at", { ascending: false })
-                .order("id", { ascending: true })
-                .range(
-                  page * ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE,
-                  (page + 1) * ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE - 1,
-                );
-            if (candidatesError) {
-              if (candidatesError.code === "PGRST205") {
-                console.warn(
-                  `[submissions] brand_location_candidates relationship not found (PGRST205), returning empty for submission ids ${targetIds.join(", ")}`,
-                );
-                return [];
-              }
-              throw candidatesError;
-            }
-
-            const pageCandidates = (candidateData ??
-              []) as SubmissionLocationCandidateRow[];
-            chunkCandidates.push(...pageCandidates);
-            if (pageCandidates.length < ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE)
-              break;
-          }
-          return chunkCandidates;
-        },
-      ),
-    );
-    for (const row of candidateChunks.flat()) {
-      if (!row.submission_id) continue;
-      const current =
-        locationCandidatesBySubmission.get(row.submission_id) ?? [];
-      current.push({
-        id: row.id,
-        location: row.location,
-        verificationDecision: row.verification_decision,
-        matchReason: row.match_reason,
-        evidence: row.evidence,
-        normalizedAddress: row.normalized_address,
-        auditResultIds: row.audit_result_ids ?? [],
-      });
-      locationCandidatesBySubmission.set(row.submission_id, current);
-    }
-  }
-
   // Advisory duplicate lookup. Only new-brand rows can collide — a refresh
   // already points at its brand — so the whole block is skipped when the queue
   // has none. Filtered to `approved`: `hidden` is this project's soft-delete and
@@ -1736,7 +1652,6 @@ export async function getSubmissionsForReview(options?: {
       latestCurationDispatchStatus: dispatchStatus,
       reviewData,
       reviewImages,
-      locationCandidates: locationCandidatesBySubmission.get(row.id) ?? [],
       reviewCompleteness,
       reviewStage: deriveSubmissionReviewStage({
         submissionStatus: submission.status,
@@ -2266,6 +2181,8 @@ export async function approveSubmission(
   if (!approval)
     throw new NotFoundError("BrandSubmission", id, { cause: approvalError });
 
+  // The maps producer is gone, but pending submissions can still carry legacy
+  // channels. Keep draining those rows until the Phase 2 importer takes over.
   if (reviewData.channels) {
     try {
       const channelsResult = await upsertEnrichedChannels(
