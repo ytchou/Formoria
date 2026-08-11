@@ -1,4 +1,4 @@
-export type ServiceCategory =
+type ServiceCategory =
   | "database"
   | "ai"
   | "search"
@@ -10,25 +10,25 @@ export type ServiceCategory =
   | "tooling"
   | "registry";
 
-export type ServiceCriticality =
+type ServiceCriticality =
   "customer-critical" | "customer-flow" | "back-office" | "dev-tooling";
 
-export type OperationalSection =
+type OperationalSection =
   "production" | "back-office" | "agents" | "deprecated" | null;
-export type OperationalKind = "dependency" | "worker" | "alert";
+type OperationalKind = "dependency" | "worker" | "alert";
 
-export type ServiceStatus = "active" | "unwired" | "dormant";
-export type ServicePlanKind = "free" | "subscription" | "metered" | "usage";
+type ServiceStatus = "active" | "unwired" | "dormant";
+type ServicePlanKind = "free" | "subscription" | "metered" | "usage";
 export type ServiceMeter = "llm-tokens" | "serper-credits" | "resend-sends";
 
-export interface ServicePlan {
+interface ServicePlan {
   kind: ServicePlanKind;
   monthlyUsd?: number;
   asOf: string;
   sourceUrl: string;
 }
 
-export interface ServiceQuota {
+interface ServiceQuota {
   metric: string;
   included: number;
   unit: string;
@@ -55,13 +55,13 @@ export interface ServiceEntry {
   notes?: string;
 }
 
-export interface InventoryPlan {
+interface InventoryPlan {
   kind: ServicePlanKind;
   monthlyUsd: number | null;
   asOf: string;
 }
 
-export interface InventoryQuota {
+interface InventoryQuota {
   metric: string;
   included: number;
   unit: string;

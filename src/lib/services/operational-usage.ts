@@ -12,16 +12,16 @@ import {
 import { getSpendSnapshot, type SpendSnapshotV1 } from "./spend";
 import { SERVICE_REGISTRY, type ServiceEntry } from "./service-registry";
 
-export type UsageState =
+type UsageState =
   "ready" | "unsupported" | "unconfigured" | "error" | "not_applicable";
 export type UsageRisk = "normal" | "warning" | "critical" | "unknown";
-export type UsageCompleteness = "exact" | "lower_bound";
-export type OperationalHealthStatus =
+type UsageCompleteness = "exact" | "lower_bound";
+type OperationalHealthStatus =
   "healthy" | "warning" | "critical" | "unknown";
 
-export type UsageWindow = { start: string; end: string };
+type UsageWindow = { start: string; end: string };
 
-export type UsageMetric = {
+type UsageMetric = {
   value: number | null;
   unit: string;
   limit: number | null;
@@ -34,7 +34,7 @@ export type UsageMetric = {
   risk: UsageRisk;
 };
 
-export type OperationalHealthCheck = {
+type OperationalHealthCheck = {
   id: string;
   name: string;
   status: ExecutiveServiceHealth["status"] | "unknown";
@@ -42,7 +42,7 @@ export type OperationalHealthCheck = {
   checkedAt: string | null;
 };
 
-export type OperationalServiceRow = {
+type OperationalServiceRow = {
   id: string;
   name: string;
   service: string;
@@ -80,7 +80,7 @@ export type OperationalSnapshotV1 = {
   services: OperationalServiceRow[];
 };
 
-export type OperationalAlertMeter = {
+type OperationalAlertMeter = {
   state: UsageState;
   risk: UsageRisk;
   value: number | null;

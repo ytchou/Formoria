@@ -8,7 +8,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 
 export type SpendProvenance = "declared" | "derived" | "unmetered";
 
-export type SpendLine = {
+type SpendLine = {
   id: string;
   provenance: SpendProvenance;
   amountUsd: number | null;

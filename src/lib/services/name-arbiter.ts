@@ -23,7 +23,7 @@ import {
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import type { LlmBatchOutcome } from "./product-type-classifier";
 
-export type NameCandidateSource = "stored" | "cleaned" | "detected" | "scraped";
+type NameCandidateSource = "stored" | "cleaned" | "detected" | "scraped";
 
 export type NameCandidate = {
   source: NameCandidateSource;

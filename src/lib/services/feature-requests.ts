@@ -20,7 +20,7 @@ const FEATURE_REQUEST_I18N_KEYS_BY_TITLE = {
   "Let anyone report origin evidence on a brand page": "origin_evidence_reports",
 } as const;
 
-export type FeatureRequestI18nKey =
+type FeatureRequestI18nKey =
   (typeof FEATURE_REQUEST_I18N_KEYS_BY_TITLE)[keyof typeof FEATURE_REQUEST_I18N_KEYS_BY_TITLE];
 
 /**
