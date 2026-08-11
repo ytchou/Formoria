@@ -39,6 +39,105 @@ describe("repository health", () => {
     expect(isKnownKnipNoise("binaries", "imagemagick")).toBe(false);
   });
 
+  it("drops known-noise findings instead of queuing them as repairs", () => {
+    // The suppression list was exported and tested but never consulted by the
+    // detector, so false positives reached the repair claim. The repair agent
+    // correctly refuses to delete code that is actually used; the refusal then
+    // read as a failed repair and blocked the PR (run 31453535132).
+    const result = evaluateQualityReports({
+      knipExitCode: 1,
+      knipReport: {
+        issues: [
+          {
+            exports: [{ name: "resetSentryAdapterForTests" }],
+            file: "src/lib/adapters/alerting/sentry.ts",
+          },
+          {
+            exports: [{ name: "getAdminSubmissions" }],
+            file: "src/lib/services/submissions.ts",
+          },
+        ],
+      },
+      repoRoot: "/repo",
+      trackedFiles: new Set([
+        ...trackedFiles,
+        "src/lib/adapters/alerting/sentry.ts",
+      ]),
+      vitestExitCode: 0,
+      vitestReport: {
+        numFailedTestSuites: 0,
+        numFailedTests: 0,
+        numTotalTestSuites: 1,
+        numTotalTests: 1,
+        success: true,
+        testResults: [],
+      },
+    });
+
+    const fingerprints = result.findings.map((finding) => finding.fingerprint);
+    expect(fingerprints.some((f) => f.includes("getadminsubmissions"))).toBe(
+      true,
+    );
+    expect(
+      fingerprints.some((f) => f.includes("resetsentryadapterfortests")),
+    ).toBe(false);
+    expect(result.failures).not.toContain("dead-code:malformed_output");
+  });
+
+  it("scopes noise suppression to the file it was verified in", () => {
+    // A bare symbol name is not unique across a repository. An unscoped
+    // suppression would hide a genuinely dead export sharing a known-noise
+    // name.
+    expect(
+      isKnownKnipNoise(
+        "exports",
+        "resetSentryAdapterForTests",
+        "src/lib/adapters/alerting/sentry.ts",
+      ),
+    ).toBe(true);
+    expect(
+      isKnownKnipNoise(
+        "exports",
+        "resetSentryAdapterForTests",
+        "src/lib/services/impostor.ts",
+      ),
+    ).toBe(false);
+  });
+
+  it("reports manifest-scoped findings without offering them for repair", () => {
+    // repair.md forbids the agent from editing dependency manifests, so a
+    // manifest-scoped finding can never be repaired by it. Without changedFiles
+    // it stays reported and ticketable but never enters the repair claim.
+    const result = evaluateQualityReports({
+      knipExitCode: 1,
+      knipReport: {
+        issues: [
+          {
+            dependencies: [{ name: "@radix-ui/react-accordion" }],
+            file: "package.json",
+          },
+        ],
+      },
+      repoRoot: "/repo",
+      trackedFiles,
+      vitestExitCode: 0,
+      vitestReport: {
+        numFailedTestSuites: 0,
+        numFailedTests: 0,
+        numTotalTestSuites: 1,
+        numTotalTests: 1,
+        success: true,
+        testResults: [],
+      },
+    });
+
+    const dependency = result.findings.find((finding) =>
+      finding.fingerprint.includes("dependencies:"),
+    );
+    expect(dependency).toBeDefined();
+    expect(dependency?.changedFiles ?? []).toEqual([]);
+  });
+
   it("turns valid Vitest and Knip failures into one complete quality result", () => {
     const result = evaluateQualityReports({
       knipExitCode: 1,
