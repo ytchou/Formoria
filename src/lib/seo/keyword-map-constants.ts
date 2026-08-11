@@ -50,12 +50,6 @@ export const COMPOSITES = ['none', 'synonym', 'multi-intent'] as const
 export const INDEXABILITIES = ['index', 'noindex'] as const
 export const LOCALES = ['zh-TW', 'en'] as const
 
-export type SearchIntent = (typeof SEARCH_INTENTS)[number]
 export type PageType = (typeof PAGE_TYPES)[number]
-export type TargetStatus = (typeof TARGET_STATUSES)[number]
-export type DataQuality = (typeof DATA_QUALITIES)[number]
 export type Priority = (typeof PRIORITIES)[number]
 export type Eligibility = (typeof ELIGIBILITIES)[number]
-export type Composite = (typeof COMPOSITES)[number]
-export type Indexability = (typeof INDEXABILITIES)[number]
-export type KeywordMapLocale = (typeof LOCALES)[number]
