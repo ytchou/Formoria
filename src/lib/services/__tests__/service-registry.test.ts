@@ -42,13 +42,17 @@ describe("service registry", () => {
     ).toBe(true);
   });
 
-  it("supabase quota resets on the 19th", () => {
+  it("keeps variable usage limits separate from fixed subscriptions", () => {
     const supabase = SERVICE_REGISTRY.find((entry) => entry.id === "supabase");
+    const openai = SERVICE_REGISTRY.find((entry) => entry.id === "openai");
+    const railway = SERVICE_REGISTRY.find(
+      (entry) => entry.id === "railway-formoria",
+    );
 
-    expect(supabase?.quota?.cycleResetsOnDay).toBe(19);
-    expect(
-      SERVICE_REGISTRY.some((entry) => entry.quota?.cycleResetsOnDay === 1),
-    ).toBe(true);
+    expect(supabase?.quota).toBeUndefined();
+    expect(openai?.plan.monthlyUsd).toBeUndefined();
+    expect(openai?.quota).toMatchObject({ included: 25, unit: "USD / month" });
+    expect(railway?.plan.monthlyUsd).toBe(5);
   });
 
   it("dead keys are marked unwired", () => {

@@ -1,0 +1,27 @@
+import { withAuditScope } from "@/lib/audit/scope";
+import { errorResponse, NO_STORE_HEADERS } from "@/lib/internal/api-response";
+import { isPersonalOsRequestAuthorized } from "@/lib/internal/personal-os-auth";
+import { getOperationalSnapshot } from "@/lib/services/operational-usage";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+export const GET = withAuditScope(
+  async (request: Request): Promise<Response> => {
+    if (!isPersonalOsRequestAuthorized(request)) {
+      return errorResponse("unauthorized", "Unauthorized", 401);
+    }
+
+    try {
+      return Response.json(await getOperationalSnapshot(), {
+        headers: NO_STORE_HEADERS,
+      });
+    } catch {
+      return errorResponse(
+        "operations_unavailable",
+        "Formoria operational data is unavailable.",
+        503,
+      );
+    }
+  },
+);

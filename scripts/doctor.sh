@@ -90,6 +90,21 @@ check_env() {
     if ! grep -q "UPSTASH_REDIS_REST_URL=https://" .env.local 2>/dev/null; then
       echo "WARN: UPSTASH_REDIS_REST_URL not set — rate limiter will use in-memory fallback (not distributed)"
     fi
+    __upstash_management_count=0
+    for var in UPSTASH_API_EMAIL UPSTASH_API_KEY UPSTASH_REDIS_DATABASE_ID; do
+      if grep -q "^${var}=." .env.local 2>/dev/null; then
+        __upstash_management_count=$((__upstash_management_count + 1))
+      fi
+    done
+    if [ "$__upstash_management_count" -eq 0 ]; then
+      echo "WARN: Upstash Management API credentials are not configured — usage remains unknown"
+    elif [ "$__upstash_management_count" -lt 3 ]; then
+      echo "ERROR: UPSTASH_API_EMAIL, UPSTASH_API_KEY, and UPSTASH_REDIS_DATABASE_ID must be configured together"
+      ERRORS=$((ERRORS + 1))
+    else
+      echo "OK: Upstash Management API credentials"
+    fi
+    unset __upstash_management_count
     if ! grep -q "CF_ORIGIN_SECRET=." .env.local; then
       echo "⚠ CF_ORIGIN_SECRET not set (optional — needed for Cloudflare origin protection)"
     fi

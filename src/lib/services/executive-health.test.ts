@@ -118,7 +118,7 @@ describe("executive health", () => {
       (entry) => entry.probe === "executive-health",
     );
 
-    expect(checks).toHaveLength(11);
+    expect(checks).toHaveLength(12);
     expect(new Set(checks.map((check) => check.id))).toEqual(
       new Set(probedEntries.map((entry) => entry.id)),
     );
@@ -265,16 +265,47 @@ describe("executive health", () => {
       vi.unstubAllGlobals();
     });
 
-    it("treats a missing secret as down instead of green", async () => {
+    it("treats a missing secret as unconfigured instead of down", async () => {
       vi.stubEnv("TURNSTILE_SECRET_KEY", "");
 
       const check = defaultChecks().find(
         (entry) => entry.id === "cloudflare-turnstile",
       );
       await expect(runExecutiveHealthCheck(check!)).resolves.toMatchObject({
-        status: "down",
+        status: "unconfigured",
       });
       vi.unstubAllEnvs();
+    });
+  });
+
+  describe("Cloudflare origin enforcement probe", () => {
+    it("accepts the exact origin guard response and rejects a route-level 401", async () => {
+      vi.stubEnv("FORMORIA_RAILWAY_URL", "https://formoria.up.railway.app");
+      vi.stubEnv("CF_ORIGIN_SECRET", "edge-secret");
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(new Response("Forbidden", { status: 403 }))
+        .mockResolvedValueOnce(new Response("Unauthorized", { status: 401 }));
+      vi.stubGlobal("fetch", fetchMock);
+      const check = defaultChecks().find(
+        (entry) => entry.id === "cloudflare-origin",
+      );
+
+      await expect(check?.run()).resolves.toEqual({
+        status: "healthy",
+        message: "Direct Railway origin is blocked by Cloudflare guard",
+      });
+      await expect(check?.run()).resolves.toEqual({
+        status: "down",
+        message: "Origin guard is not enforced (route returned 401)",
+      });
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        1,
+        "https://formoria.up.railway.app/api/internal/personal-os/operations",
+        expect.objectContaining({ headers: { Accept: "text/plain" } }),
+      );
+      vi.unstubAllEnvs();
+      vi.unstubAllGlobals();
     });
   });
 
@@ -299,7 +330,7 @@ describe("executive health", () => {
     const snapshot = await loadExecutiveHealth();
     const probedIds = new Set(defaultChecks().map((check) => check.id));
 
-    expect(snapshot.services).toHaveLength(11);
+    expect(snapshot.services).toHaveLength(12);
     expect(snapshot.inventory.length).toBeGreaterThan(snapshot.services.length);
     expect(
       snapshot.inventory.some((entry) =>

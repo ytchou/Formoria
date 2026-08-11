@@ -192,6 +192,25 @@ describe("spend snapshot", () => {
     ).toBe(2);
   });
 
+  // Bug caught: removing Serper's unverified denominator also removed its measured successful-credit count from Spend Watch.
+  it("keeps measured provider units when no authoritative quota exists", () => {
+    const result = snapshot({
+      registry: [service("serper", { meter: "serper-credits" })],
+      auditSpans: [
+        { provider: "serper", kind: "external", terminal_status: "succeeded" },
+        { provider: "serper", kind: "external", terminal_status: "failed" },
+        { provider: "serper", kind: "external", terminal_status: null },
+      ],
+    });
+
+    expect(result.services.at(0)).toMatchObject({
+      amountUsd: 0,
+      units: 1,
+      unitLabel: "credits",
+      quotaUsedRatio: null,
+    });
+  });
+
   it("marks services with no meter as unmetered with a null amount", () => {
     const result = snapshot({ registry: [service("railway")] });
 

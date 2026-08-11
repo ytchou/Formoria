@@ -190,13 +190,24 @@ function derivedMeterLine({
   }
 
   const provider = entry.meter ? meterProvider(entry.meter) : null;
-  if (provider && entry.quota) {
+  if (provider) {
     const units = auditSpans.filter(
       (span) =>
         span.provider === provider &&
-        span.kind !== "service" &&
-        span.terminal_status !== null,
+        (entry.quota
+          ? span.terminal_status !== null
+          : span.kind !== "service" && span.terminal_status === "succeeded"),
     ).length;
+    if (!entry.quota) {
+      return {
+        amountUsd: 0,
+        units,
+        unitLabel: entry.meter === "serper-credits" ? "credits" : "sends",
+        quotaUsedRatio: null,
+        pricingCoverage: null,
+        unpricedCalls: 0,
+      };
+    }
     return {
       amountUsd:
         Math.max(0, units - entry.quota.included) *

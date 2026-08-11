@@ -116,7 +116,6 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     status: "active",
     plan: {
       kind: "subscription",
-      monthlyUsd: 5,
       asOf: TODAY,
       sourceUrl: "https://railway.com/pricing",
     },
@@ -149,13 +148,6 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       asOf: TODAY,
       sourceUrl: "https://supabase.com/pricing",
     },
-    quota: {
-      metric: "Storage image transformations",
-      included: 100,
-      unit: "origin images / cycle",
-      overageUsdPerUnit: 0.005,
-      cycleResetsOnDay: 19,
-    },
     probe: "executive-health",
     dashboardUrl: "https://supabase.com/dashboard",
     notes: "Published Pro quotas also include 100 GB storage and 100k MAU.",
@@ -172,8 +164,16 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     status: "active",
     plan: {
       kind: "usage",
+      monthlyUsd: undefined,
       asOf: TODAY,
       sourceUrl: "https://openai.com/api/pricing/",
+    },
+    quota: {
+      metric: "Budget",
+      included: 25,
+      unit: "USD / month",
+      overageUsdPerUnit: 0,
+      cycleResetsOnDay: 1,
     },
     meter: "llm-tokens",
     probe: "executive-health",
@@ -215,16 +215,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     status: "active",
     plan: {
       kind: "subscription",
-      monthlyUsd: 50,
       asOf: TODAY,
       sourceUrl: "https://serper.dev/pricing",
-    },
-    quota: {
-      metric: "Search credits",
-      included: 2500,
-      unit: "credits / cycle",
-      overageUsdPerUnit: 0.02,
-      cycleResetsOnDay: 1,
     },
     meter: "serper-credits",
     probe: "executive-health",
@@ -275,6 +267,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     },
     probe: "executive-health",
     dashboardUrl: "https://dash.cloudflare.com/",
+    notes:
+      "Turnstile and origin enforcement are shown as one Cloudflare row in Personal OS.",
   },
   {
     id: "cloudflare-origin",
@@ -292,6 +286,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       asOf: TODAY,
       sourceUrl: "https://www.cloudflare.com/plans/free/",
     },
+    probe: "executive-health",
     dashboardUrl: "https://dash.cloudflare.com/",
   },
   {
@@ -302,19 +297,18 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "customer-flow",
     operationalSection: "production",
     operationalKind: "dependency",
-    envVars: ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
+    envVars: [
+      "UPSTASH_REDIS_REST_URL",
+      "UPSTASH_REDIS_REST_TOKEN",
+      "UPSTASH_API_EMAIL",
+      "UPSTASH_API_KEY",
+      "UPSTASH_REDIS_DATABASE_ID",
+    ],
     status: "active",
     plan: {
       kind: "usage",
       asOf: TODAY,
       sourceUrl: "https://upstash.com/pricing/redis",
-    },
-    quota: {
-      metric: "Commands",
-      included: 10_000,
-      unit: "commands / cycle",
-      overageUsdPerUnit: 0,
-      cycleResetsOnDay: 1,
     },
     probe: "executive-health",
     dashboardUrl: "https://console.upstash.com/",
@@ -466,10 +460,12 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     status: "active",
     plan: {
       kind: "usage",
+      monthlyUsd: 5,
       asOf: TODAY,
       sourceUrl: "https://railway.com/pricing",
     },
     dashboardUrl: "https://railway.app/dashboard",
+    notes: "Railway minimum monthly spend; variable usage is dashboard-only.",
   },
   {
     id: "railway-curation-worker",

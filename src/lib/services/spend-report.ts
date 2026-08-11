@@ -6,6 +6,11 @@ import {
   type SpendSnapshotV1,
 } from "@/lib/services/spend";
 import { createServiceClient } from "@/lib/supabase/service";
+import {
+  buildOperationalAlertSummary,
+  loadOperationalSnapshot,
+  type OperationalAlertSummary,
+} from "@/lib/services/operational-usage";
 
 export type SpendReportV1 = {
   schemaVersion: 1;
@@ -34,6 +39,7 @@ export type SpendReportV1 = {
     inFlightCalls: number;
     nonLlmDollarsAvailable: false;
   };
+  operations?: OperationalAlertSummary;
 };
 
 type SpendClient = ReturnType<typeof createServiceClient>;
@@ -96,6 +102,34 @@ export async function loadSpendReport(
     METERED_REPORT_REGISTRY,
   );
   const cycleSnapshot = buildWindowSnapshot(cycleWindow, at);
+  let operations: OperationalAlertSummary;
+  try {
+    operations = buildOperationalAlertSummary(
+      await loadOperationalSnapshot({
+        now: at,
+        supabase,
+        spend: Promise.resolve(cycleSnapshot),
+      }),
+    );
+  } catch {
+    operations = {
+      needsAttention: true,
+      unavailableUpstash: true,
+      warnings: [],
+      lowerBoundCaveats: [],
+      openai: null,
+      upstash: {
+        state: "error",
+        risk: "unknown",
+        value: null,
+        limit: null,
+        percentage: null,
+        projection: null,
+        message: "Upstash monitoring failed.",
+      },
+      posthog: null,
+    };
+  }
 
   return {
     schemaVersion: 1 as const,
@@ -119,5 +153,6 @@ export async function loadSpendReport(
       inFlightCalls: cycleSnapshot.coverage.inFlightCalls,
       nonLlmDollarsAvailable: false,
     },
+    operations,
   };
 }
