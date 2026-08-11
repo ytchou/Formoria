@@ -5,7 +5,7 @@ import { deleteBrandImages, deleteStoredImagePaths } from './image-upload'
 
 type BrandImageStatus = 'active' | 'candidate' | 'rejected'
 type BrandImageSource = 'scrape' | 'google_image' | 'owner' | 'admin' | 'legacy' | 'json_ld'
-export type BrandImageProviderMetadata = Record<string, string | number | null | undefined>
+type BrandImageProviderMetadata = Record<string, string | number | null | undefined>
 
 export type BrandImageRow = {
   id?: string

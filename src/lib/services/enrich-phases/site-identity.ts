@@ -31,7 +31,7 @@ export type SiteIdentityQuarantine = QuarantineGroup & {
   linksResult?: LinksPhaseOutput | null
 }
 
-export type SiteIdentityApplication = {
+type SiteIdentityApplication = {
   phaseResult: PhaseResult
   removedColumns: string[]
   clearedFields: string[]

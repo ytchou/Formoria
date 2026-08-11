@@ -59,7 +59,7 @@ export type RedactOptions = {
  * `summary` jsonb column keeps object semantics and a consumer query such as
  * `summary->>'queryName'` does not silently return null against a bare string.
  */
-export type TruncatedSummary = {
+type TruncatedSummary = {
   truncated: true;
   bytes: number;
   preview: string;

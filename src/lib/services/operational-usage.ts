@@ -1118,7 +1118,7 @@ export async function loadOperationalSnapshot(
   return buildOperationalSnapshot({ health, meters, now });
 }
 
-export function createOperationalSnapshotCache({
+function createOperationalSnapshotCache({
   load = loadOperationalSnapshot,
   now = Date.now,
 }: {

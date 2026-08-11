@@ -19,7 +19,7 @@ export function evalSinkPath(): string | null {
   return path && path.length > 0 ? path : null;
 }
 
-export type EvalSinkRecord = {
+type EvalSinkRecord = {
   at: string;
   target: { type: string; id: string };
   phase: string;

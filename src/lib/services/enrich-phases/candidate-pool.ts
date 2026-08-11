@@ -23,7 +23,7 @@ export type CandidateImage = {
   thumbnailHeight?: number
 }
 
-export type CandidateImageInput = string | Omit<CandidateImage, 'source'>
+type CandidateImageInput = string | Omit<CandidateImage, 'source'>
 
 type CandidatePoolInput = {
   /** Plain URLs are still accepted for callers with no provenance to pass. */

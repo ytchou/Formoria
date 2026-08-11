@@ -109,7 +109,5 @@ export {
 export type {
   QueryTemplate,
   ImageQueryInput,
-  BrandImageSearchOutcome,
-  BrandImageSearchResult,
 } from './types'
-export type { SerperRawImageCandidate, SerperRawImageSearchOutcome } from './serper'
+export type { SerperRawImageCandidate } from './serper'

@@ -27,7 +27,7 @@ export type AuditSpec = {
   meta?: Record<string, unknown>;
 };
 
-export type ChatAuditProvider = "openai" | "deepseek";
+type ChatAuditProvider = "openai" | "deepseek";
 
 export type ChatUsage = {
   prompt_tokens?: number;

@@ -2,7 +2,7 @@ import { computeBackoffDelay } from "./backoff";
 import type { RetryClassification, RetryReason } from "./classify";
 import type { RetryPolicy } from "./policy";
 
-export type RetryContext = {
+type RetryContext = {
   attemptIndex: number;
   reason: RetryReason;
   delayMs: number;
