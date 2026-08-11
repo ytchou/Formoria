@@ -117,6 +117,11 @@ async function main(): Promise<void> {
         if (!result.ok) {
           throw new Error(`${brand.brandSlug}: ${result.code}`)
         }
+        if (result.count !== brand.candidates.length) {
+          throw new Error(
+            `${brand.brandSlug}: expected ${brand.candidates.length} upserts, received ${result.count}`,
+          )
+        }
       }),
     )
   }

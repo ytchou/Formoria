@@ -23,6 +23,7 @@ import { signInHref } from '@/i18n/locale-preference'
 import { useUser } from '@/lib/auth/use-user'
 import {
   CHAIN_REGION_LABEL,
+  getChannelSourceLabel,
   groupChannelsByRegion,
   type ChannelRegionGroup,
 } from '@/lib/brands/channels'
@@ -144,7 +145,7 @@ function ChannelRow({
       ? new Intl.DateTimeFormat(locale).format(new Date(channel.fetchedAt))
       : null
   const evidenceSource = channel.sourceUrl
-    ? new URL(channel.sourceUrl).hostname.replace(/^www\./, '')
+    ? getChannelSourceLabel(channel.sourceUrl)
     : null
 
   return (

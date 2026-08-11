@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  getChannelSourceLabel,
   groupChannelsByRegion,
   groupChannelsForDisplay,
   normalizeChannelName,
@@ -23,6 +24,15 @@ type ChannelRow = {
   confirmationCount: number
   removedAt: string | null
 }
+
+describe('getChannelSourceLabel', () => {
+  it('keeps malformed evidence URLs renderable instead of throwing', () => {
+    expect(getChannelSourceLabel('http://')).toBe('http://')
+    expect(getChannelSourceLabel('https://www.example.com/stockists')).toBe(
+      'example.com',
+    )
+  })
+})
 
 function channelRow(overrides: Partial<ChannelRow> = {}): ChannelRow {
   return {

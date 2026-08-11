@@ -18,12 +18,7 @@ import { isOwnerOf } from './brand-owners'
 const MAX_ACTIVE_CHANNELS_PER_BRAND = 5
 const MAX_SUBMISSIONS_PER_DAY = 20
 
-export const REGION_LABEL_MAP = CITY_NAMES_ZH
-
-export const REGION_SLUG_BY_LABEL: Readonly<Record<string, string>> =
-  Object.fromEntries(
-    Object.entries(REGION_LABEL_MAP).map(([slug, label]) => [label, slug]),
-  )
+const REGION_LABEL_MAP = CITY_NAMES_ZH
 
 type SubmitChannelErrorCode =
   | 'invalid_name'

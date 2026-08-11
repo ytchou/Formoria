@@ -91,8 +91,16 @@ function sortChannelsForDisplay(a: BrandChannel, b: BrandChannel): number {
   return a.name.localeCompare(b.name)
 }
 
-export function regionLabelToSlug(regionLabel: string): string | null {
+function regionLabelToSlug(regionLabel: string): string | null {
   return REGION_SLUG_BY_LABEL[regionLabel] ?? null
+}
+
+export function getChannelSourceLabel(sourceUrl: string): string {
+  try {
+    return new URL(sourceUrl).hostname.replace(/^www\./, '') || sourceUrl
+  } catch {
+    return sourceUrl
+  }
 }
 
 export function groupChannelsByRegion(
