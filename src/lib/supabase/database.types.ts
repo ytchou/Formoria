@@ -265,9 +265,9 @@ export type Database = {
           brand_id: string
           category_label: string | null
           channel_type: string
+          country: string | null
           created_at: string
           created_by: string | null
-          country: string | null
           fetched_at: string | null
           id: string
           last_confirmed_at: string | null
@@ -290,9 +290,9 @@ export type Database = {
           brand_id: string
           category_label?: string | null
           channel_type: string
+          country?: string | null
           created_at?: string
           created_by?: string | null
-          country?: string | null
           fetched_at?: string | null
           id?: string
           last_confirmed_at?: string | null
@@ -315,9 +315,9 @@ export type Database = {
           brand_id?: string
           category_label?: string | null
           channel_type?: string
+          country?: string | null
           created_at?: string
           created_by?: string | null
-          country?: string | null
           fetched_at?: string | null
           id?: string
           last_confirmed_at?: string | null
@@ -3203,6 +3203,45 @@ export type Database = {
       }
       purchase_channel_sql_surface: { Args: never; Returns: Json }
       read_health_directory_database_evidence: { Args: never; Returns: Json }
+      rearm_health_fix_canary: {
+        Args: { p_fingerprint: string }
+        Returns: {
+          attempt_count: number
+          attempted_at: string | null
+          confirmation_data: Json | null
+          created_at: string
+          deployed_at: string | null
+          evidence: Json
+          fingerprint: string
+          fixed_at: string | null
+          id: string
+          key_frames: Json | null
+          last_error: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
+          linear_identifier: string | null
+          merge_policy: string
+          merge_sha: string | null
+          next_attempt_at: string | null
+          pr_number: number | null
+          pr_url: string | null
+          recommended_action: string | null
+          seer_root_cause: string | null
+          sentry_issue_id: string | null
+          source: string
+          status: string
+          ticketed_at: string | null
+          title: string
+          updated_at: string
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "health_fix_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       reconcile_health_fix_lifecycle: {
         Args: {
           p_completed_sources: string[]
@@ -3317,6 +3356,45 @@ export type Database = {
           p_submission_id: string
         }
         Returns: string[]
+      }
+      release_health_fix_claims: {
+        Args: { p_lease_owner: string }
+        Returns: {
+          attempt_count: number
+          attempted_at: string | null
+          confirmation_data: Json | null
+          created_at: string
+          deployed_at: string | null
+          evidence: Json
+          fingerprint: string
+          fixed_at: string | null
+          id: string
+          key_frames: Json | null
+          last_error: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
+          linear_identifier: string | null
+          merge_policy: string
+          merge_sha: string | null
+          next_attempt_at: string | null
+          pr_number: number | null
+          pr_url: string | null
+          recommended_action: string | null
+          seer_root_cause: string | null
+          sentry_issue_id: string | null
+          source: string
+          status: string
+          ticketed_at: string | null
+          title: string
+          updated_at: string
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "health_fix_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       request_brand_refresh: {
         Args: {
