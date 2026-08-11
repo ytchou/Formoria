@@ -627,6 +627,7 @@ jobs:
         run: >-
           pnpm exec tsx scripts/health-agent/workflow-runtime.ts release-claims
           --lease-owner "github-actions:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}"
+          --output "$HEALTH_ARTIFACT_DIR/release-claims.json"
       - name: "Stage 5 · Admission — finalize logical day"
         id: finalize
         if: always() && steps.admission.outputs.claimed == 'true'

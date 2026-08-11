@@ -2721,9 +2721,11 @@ export async function prepareSentryClassificationArtifact(
  * crashed run still releases.
  */
 export async function releaseUnattemptedClaims(
-  input: { leaseOwner: string },
+  input: { leaseOwner: string; outputPath: string },
   dependencies: WorkflowRuntimeDependencies = createWorkflowRuntimeDependencies(),
 ): Promise<JsonObject> {
+  const files = filesFor(dependencies);
+  let result: JsonObject;
   try {
     const released = await supabaseRequest(
       dependencies,
@@ -2742,14 +2744,16 @@ export async function releaseUnattemptedClaims(
         `[health-agent] released ${count} unattempted claim(s) for ${input.leaseOwner}`,
       );
     }
-    return { leaseOwner: input.leaseOwner, released: count, version: 1 };
+    result = { leaseOwner: input.leaseOwner, released: count, version: 1 };
   } catch (error) {
     // Cleanup must never fail the run it is cleaning up after. The lease still
     // expires on its own; the cost of a miss is the attempt this would refund.
     const failure = internalErrorCode(error);
     console.error(`[health-agent] claim release failed: ${failure}`);
-    return { failure, leaseOwner: input.leaseOwner, released: 0, version: 1 };
+    result = { failure, leaseOwner: input.leaseOwner, released: 0, version: 1 };
   }
+  await writeRedactedJson(input.outputPath, result, files);
+  return result;
 }
 
 export async function combineSentryClassificationArtifact(
@@ -4841,7 +4845,10 @@ export async function runWorkflowCommand(
       );
     case "release-claims":
       return releaseUnattemptedClaims(
-        { leaseOwner: safeString(input.leaseOwner, "leaseOwner") },
+        {
+          leaseOwner: safeString(input.leaseOwner, "leaseOwner"),
+          outputPath: safeString(input.outputPath, "outputPath"),
+        },
         dependencies,
       );
     case "enqueue-and-claim":
