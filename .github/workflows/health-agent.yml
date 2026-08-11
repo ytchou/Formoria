@@ -413,7 +413,7 @@ jobs:
             access providers, commit, push, open, or merge a PR.
           claude_args: >-
             --max-turns 60 --allowedTools Read,Glob,Grep,Bash(git diff:*),Bash(git status:*)
-            --json-schema '{"type":"object","required":["cycle","verdict","review_state","auto_merge_enabled","merged","findings"],"properties":{"cycle":{"const":1},"verdict":{"const":"pass"},"review_state":{"const":"passed"},"auto_merge_enabled":{"const":false},"merged":{"const":false},"findings":{"type":"array","items":{"type":"object","required":["fingerprint","verdict","review_state"],"properties":{"fingerprint":{"type":"string"},"verdict":{"const":"pass"},"review_state":{"const":"passed"}}}}}}'
+            --json-schema '{"type":"object","required":["cycle","verdict","review_state","auto_merge_enabled","merged","findings"],"properties":{"cycle":{"const":1},"verdict":{"const":"pass"},"review_state":{"const":"passed"},"auto_merge_enabled":{"const":false},"merged":{"const":false},"findings":{"type":"array","items":{"type":"object","required":["fingerprint","verdict","review_state"],"properties":{"fingerprint":{"type":"string","pattern":"^(cron|directory|link|quality|sentry):"},"verdict":{"const":"pass"},"review_state":{"const":"passed"}}}}}}'
       - name: "Stage 4 · Self-heal — review decision cycle 1"
         id: review-decision-1
         if: steps.admission.outputs.claimed == 'true' && steps.review-1.outcome == 'success'
@@ -426,7 +426,20 @@ jobs:
             ($review.auto_merge_enabled == false) and ($review.merged == false) and
             (([.findings[].fingerprint] | sort) == ([$review.findings[].fingerprint] | sort)) and
             ([$review.findings[] | select(.verdict != "pass" or .review_state != "passed")] | length == 0)
-          ' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" >/dev/null
+          ' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" >/dev/null || {
+            # Exiting 1 with no output made a skipped publish unexplainable:
+            # the run went green with no PR and nothing said why. The most
+            # common cause is the reviewer labelling findings by file path
+            # instead of copying the snapshot fingerprint.
+            echo "::error::Review decision rejected the reviewer's result" >&2
+            jq -n --argjson review "$REVIEW_RESULT" --slurpfile snap "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" '{
+              verdict: $review.verdict,
+              review_state: $review.review_state,
+              only_in_review: ([$review.findings[].fingerprint] - [$snap[0].findings[].fingerprint]),
+              only_in_snapshot: ([$snap[0].findings[].fingerprint] - [$review.findings[].fingerprint])
+            }' >&2
+            exit 1
+          }
       - name: "Stage 4 · Self-heal — repair cycle 2"
         id: repair-2
         if: >-
@@ -472,7 +485,7 @@ jobs:
             manager-scoped diff. Do not edit, commit, push, open, or merge a PR.
           claude_args: >-
             --max-turns 60 --allowedTools Read,Glob,Grep,Bash(git diff:*),Bash(git status:*)
-            --json-schema '{"type":"object","required":["cycle","verdict","review_state","auto_merge_enabled","merged","findings"],"properties":{"cycle":{"const":2},"verdict":{"const":"pass"},"review_state":{"const":"passed"},"auto_merge_enabled":{"const":false},"merged":{"const":false},"findings":{"type":"array","items":{"type":"object","required":["fingerprint","verdict","review_state"],"properties":{"fingerprint":{"type":"string"},"verdict":{"const":"pass"},"review_state":{"const":"passed"}}}}}}'
+            --json-schema '{"type":"object","required":["cycle","verdict","review_state","auto_merge_enabled","merged","findings"],"properties":{"cycle":{"const":2},"verdict":{"const":"pass"},"review_state":{"const":"passed"},"auto_merge_enabled":{"const":false},"merged":{"const":false},"findings":{"type":"array","items":{"type":"object","required":["fingerprint","verdict","review_state"],"properties":{"fingerprint":{"type":"string","pattern":"^(cron|directory|link|quality|sentry):"},"verdict":{"const":"pass"},"review_state":{"const":"passed"}}}}}}'
       - name: "Stage 4 · Self-heal — review decision cycle 2"
         id: review-decision-2
         if: steps.admission.outputs.claimed == 'true' && steps.review-2.outcome == 'success'
@@ -485,7 +498,20 @@ jobs:
             ($review.auto_merge_enabled == false) and ($review.merged == false) and
             (([.findings[].fingerprint] | sort) == ([$review.findings[].fingerprint] | sort)) and
             ([$review.findings[] | select(.verdict != "pass" or .review_state != "passed")] | length == 0)
-          ' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" >/dev/null
+          ' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" >/dev/null || {
+            # Exiting 1 with no output made a skipped publish unexplainable:
+            # the run went green with no PR and nothing said why. The most
+            # common cause is the reviewer labelling findings by file path
+            # instead of copying the snapshot fingerprint.
+            echo "::error::Review decision rejected the reviewer's result" >&2
+            jq -n --argjson review "$REVIEW_RESULT" --slurpfile snap "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" '{
+              verdict: $review.verdict,
+              review_state: $review.review_state,
+              only_in_review: ([$review.findings[].fingerprint] - [$snap[0].findings[].fingerprint]),
+              only_in_snapshot: ([$snap[0].findings[].fingerprint] - [$review.findings[].fingerprint])
+            }' >&2
+            exit 1
+          }
       - name: "Stage 4 · Publish — GitHub App token"
         id: app-token
         if: >-

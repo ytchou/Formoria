@@ -117,6 +117,26 @@ describe("unified health-agent workflow contract", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("constrains reviewer fingerprints to real fingerprints", async () => {
+    // Run 31457318935 passed review on cycle 2 and published nothing: the
+    // reviewer filled findings[].fingerprint with file paths, the publish gate
+    // compared them against the snapshot's, and the mismatch failed the step.
+    // `{"type":"string"}` accepted a path happily, so the action's own schema
+    // validation could not catch it.
+    const workflow = await readFile(workflowPath, "utf8");
+    const schemas = workflow.match(/"fingerprint":\{"type":"string"[^}]*\}/g);
+    expect(schemas).toHaveLength(2);
+    for (const schema of schemas ?? []) {
+      expect(schema).toContain("pattern");
+      expect(schema).toContain("cron|directory|link|quality|sentry");
+    }
+    // And the gate has to say why it refused, or a skipped publish is
+    // indistinguishable from having nothing to publish.
+    expect(
+      workflow.match(/Review decision rejected the reviewer's result/g),
+    ).toHaveLength(2);
+  });
+
   it("gives the repair agent enough turns for a full claim", async () => {
     // Run 31452751135 claimed 25 findings against a 40-turn budget and died on
     // `error_max_turns` at turn 41 with the repair half-applied. Every finding
