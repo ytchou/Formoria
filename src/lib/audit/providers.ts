@@ -25,6 +25,7 @@ const PROVIDERS = {
   brands: [
     "adminRemoveChannel",
     "cleanupAdminBrandReviewImages",
+    "cleanupDeadLinks",
     "completeBrandClaim",
     "confirmChannel",
     "createEvidence",

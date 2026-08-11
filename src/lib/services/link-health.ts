@@ -100,7 +100,22 @@ const BROWSER_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 const TIMEOUT_MS = 10_000;
 const CONCURRENCY = 5;
-const RETRY_ON = new Set([405, 501]);
+/**
+ * Statuses that a HEAD response may not decide on its own — each is re-checked
+ * with GET before the URL is called broken.
+ *
+ * 405/501 were here from the start: the origin is refusing the method, which
+ * says nothing about the resource. 404/410 were added after a live sample of
+ * the nine URLs queued for automatic removal found **seven** that answered
+ * `HEAD 404` and `GET 200` — aastalee.com, two myportfolio.com sites,
+ * kaohsiungdiy.com, i-morona.com.tw, binguofarm.com.tw and qrc.afa.gov.tw.
+ * Plenty of stacks (SPA hosts and PHP front controllers especially) route only
+ * GET and hand every HEAD to a 404 handler.
+ *
+ * Nulling those would have destroyed seven working purchase links, so a
+ * not-found verdict now has to survive the method a real visitor uses.
+ */
+const RETRY_ON = new Set([404, 405, 410, 501]);
 /**
  * Max ids per PostgREST `.in()` filter. Mirrors the constant of the same name in
  * brands.ts — the values live in the query string, so one filter carrying the
@@ -185,8 +200,10 @@ export async function checkUrl(
     return { status: "ok", statusCode: headStatus };
   if (headStatus === 403 || headStatus === 429)
     return { status: "blocked", statusCode: headStatus };
-  if (headStatus === 404 || headStatus === 410)
-    return { status: "broken", statusCode: headStatus };
+  // 404/410 deliberately fall through to the GET retry below rather than
+  // returning here — see RETRY_ON. This early return is what made a HEAD-only
+  // 404 final, and seven live sites were queued for automatic link removal
+  // because of it.
 
   if (RETRY_ON.has(headStatus)) {
     let getStatus: number;
@@ -313,7 +330,10 @@ export async function runLinkHealthCheck(
       index < brandIds.length;
       index += SUPABASE_IN_FILTER_CHUNK_SIZE
     ) {
-      const chunk = brandIds.slice(index, index + SUPABASE_IN_FILTER_CHUNK_SIZE);
+      const chunk = brandIds.slice(
+        index,
+        index + SUPABASE_IN_FILTER_CHUNK_SIZE,
+      );
       const { data, error } = await db
         .from("link_check_results")
         .select(
