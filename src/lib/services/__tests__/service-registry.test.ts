@@ -114,6 +114,17 @@ describe("service registry", () => {
       "production",
     ]);
     expect(inventory).toHaveLength(18);
-    expect(inventory.some((entry) => ["linear", "github", "google-maps", "agent-hub", "anthropic", "indexnow"].includes(entry.id))).toBe(false);
+    expect(
+      inventory.some((entry) =>
+        [
+          "linear",
+          "github",
+          "google-maps",
+          "agent-hub",
+          "anthropic",
+          "indexnow",
+        ].includes(entry.id),
+      ),
+    ).toBe(false);
   });
 });

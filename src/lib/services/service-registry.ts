@@ -14,11 +14,7 @@ export type ServiceCriticality =
   "customer-critical" | "customer-flow" | "back-office" | "dev-tooling";
 
 export type OperationalSection =
-  | "production"
-  | "back-office"
-  | "agents"
-  | "deprecated"
-  | null;
+  "production" | "back-office" | "agents" | "deprecated" | null;
 export type OperationalKind = "dependency" | "worker" | "alert";
 
 export type ServiceStatus = "active" | "unwired" | "dormant";
@@ -642,7 +638,9 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
   },
 ];
 
-export function toInventoryProjection(entry: ServiceEntry): InventoryEntry | null {
+export function toInventoryProjection(
+  entry: ServiceEntry,
+): InventoryEntry | null {
   if (entry.operationalSection === null) return null;
 
   return {

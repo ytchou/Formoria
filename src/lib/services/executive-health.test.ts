@@ -286,7 +286,12 @@ describe("executive health", () => {
         .length,
     );
     expect(snapshot.inventory.map((entry) => entry.operationalSection)).toEqual(
-      expect.arrayContaining(["production", "back-office", "agents", "deprecated"]),
+      expect.arrayContaining([
+        "production",
+        "back-office",
+        "agents",
+        "deprecated",
+      ]),
     );
   });
 
@@ -296,7 +301,18 @@ describe("executive health", () => {
 
     expect(snapshot.services).toHaveLength(11);
     expect(snapshot.inventory.length).toBeGreaterThan(snapshot.services.length);
-    expect(snapshot.inventory.some((entry) => ["linear", "github", "google-maps", "agent-hub", "anthropic", "indexnow"].includes(entry.id))).toBe(false);
+    expect(
+      snapshot.inventory.some((entry) =>
+        [
+          "linear",
+          "github",
+          "google-maps",
+          "agent-hub",
+          "anthropic",
+          "indexnow",
+        ].includes(entry.id),
+      ),
+    ).toBe(false);
     expect(
       snapshot.services.every((service) => probedIds.has(service.id)),
     ).toBe(true);
