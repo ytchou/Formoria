@@ -17,7 +17,7 @@ import {
 } from './keyword-map'
 
 /** Values from the parsed directory query string that determine indexation. */
-export type DirectoryFacets = {
+type DirectoryFacets = {
   [key: string]: unknown
   search?: unknown
   price?: unknown
@@ -40,7 +40,7 @@ export type DirectoryState = {
   facets: DirectoryFacets
 }
 
-export type DirectoryRobots = {
+type DirectoryRobots = {
   index: boolean
   follow: boolean
 }

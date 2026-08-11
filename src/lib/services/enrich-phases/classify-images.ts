@@ -1011,7 +1011,7 @@ async function resetImageTags(
  * as `provider`, so one Supabase incident would have cancelled a whole run under
  * a diagnosis that named the wrong vendor.
  */
-export type BatchFailureKind = "provider" | "storage" | "content";
+type BatchFailureKind = "provider" | "storage" | "content";
 
 export type BatchFailure = {
   reason: string;
@@ -1063,7 +1063,7 @@ type ChunkOutcome = {
   unavailableIds: string[];
 };
 
-export type LoadedVisionImage = {
+type LoadedVisionImage = {
   image: BrandImageForClassification;
   dataUri: string;
 };
@@ -1201,7 +1201,7 @@ async function classifyChunk(
   return { verdictsByImageId, failure: null, unavailableIds };
 }
 
-export type ChunkImageWrite = {
+type ChunkImageWrite = {
   id: string;
   row: Record<string, unknown>;
 };

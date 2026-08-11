@@ -170,7 +170,6 @@ const keywordMapSchema = z.object({
 }).strict()
 
 export type KeywordCluster = z.infer<typeof keywordClusterSchema>
-export type UnmappedBacklogRow = z.infer<typeof unmappedBacklogRowSchema>
 export type KeywordMap = z.infer<typeof keywordMapSchema>
 
 export const DEFAULT_KEYWORD_MAP_PATH = 'content/seo/keyword-map.yaml'

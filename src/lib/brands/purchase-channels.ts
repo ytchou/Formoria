@@ -26,7 +26,7 @@
  */
 
 /** Named i18n message keys per surface, as full dot paths from the message root. */
-export interface PurchaseChannelMessageKeys {
+interface PurchaseChannelMessageKeys {
   /** Link label on the brand detail page. */
   readonly brandDetailLink: string
   /** Outbound CTA label / aria label on the brand detail page. */

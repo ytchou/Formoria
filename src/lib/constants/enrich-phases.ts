@@ -56,7 +56,7 @@ export const SUB_PHASES = [
   "persist",
 ] as const;
 
-export type SubPhaseName = (typeof SUB_PHASES)[number];
+type SubPhaseName = (typeof SUB_PHASES)[number];
 
 /**
  * Every phase string the pipeline can write to `brand_ai_results.phase` or to a

@@ -45,7 +45,7 @@ export type FaqValidator = (
  * nothing to render under, and the pair being one nullable field makes that a
  * type error rather than a silent skip in the render loop.
  */
-export type FaqRender = {
+type FaqRender = {
   /** i18n key of the question shown above the template floor. */
   questionKey: string;
   templateFloor: (ctx: FaqBrandContext, t: FaqTFn, locale: string) => string;

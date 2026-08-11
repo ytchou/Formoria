@@ -951,7 +951,7 @@ export function parseOverwriteParam(value: unknown): boolean {
   return value === true || value === "true";
 }
 
-export type CurationResumeGroup = "failed" | "cancelled";
+type CurationResumeGroup = "failed" | "cancelled";
 
 export type CurationResumePlan = {
   group: CurationResumeGroup;
