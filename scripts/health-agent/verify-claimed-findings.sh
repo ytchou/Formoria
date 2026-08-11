@@ -19,6 +19,11 @@ set -euo pipefail
 
 snapshot_path="${1:?Manager snapshot path is required}"
 recheck_path="${2:?Quality recheck artifact path is required}"
+# Optional: the repair agent's own per-finding ledger for this cycle. A survivor
+# the agent deliberately declined to fix reads identically to one it crashed on,
+# so print its self-reported status and summary next to the fingerprint when the
+# ledger is available (DEV-1435).
+repair_result_path="${3:-}"
 
 test -f "$snapshot_path"
 test -f "$recheck_path"
@@ -37,7 +42,20 @@ jq -r --slurpfile recheck "$recheck_path" '
 
 if [[ -s "$remaining_file" ]]; then
   echo "Claimed findings still reported after repair:" >&2
-  sed 's/^/  /' "$remaining_file" >&2
+  if [[ -n "$repair_result_path" && -s "$repair_result_path" ]]; then
+    jq -R -r --slurpfile repair "$repair_result_path" '
+      . as $fingerprint
+      | ([$repair[0].findings[]? | select(.fingerprint == $fingerprint)] | first) as $entry
+      | if $entry == null then
+          "  \($fingerprint) — agent reported no ledger entry"
+        else
+          "  \($fingerprint) — \($entry.status // "unknown"): \($entry.summary // "no summary")"
+        end
+    ' "$remaining_file" >&2
+  else
+    sed 's/^/  /' "$remaining_file" >&2
+    echo "  (no repair ledger captured for this cycle — reason unavailable)" >&2
+  fi
   exit 1
 fi
 

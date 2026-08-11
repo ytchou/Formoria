@@ -384,6 +384,19 @@ jobs:
             push, open or merge a PR, access providers, or weaken validation.
           claude_args: >-
             --max-turns 200 --allowedTools Read,Edit,Write,Glob,Grep,TodoWrite,Bash(pnpm:*),Bash(git diff:*),Bash(git status:*),Bash(git ls-files:*)
+            --json-schema '{"type":"object","required":["status","findings"],"properties":{"snapshot_id":{"type":"string"},"cycle":{"const":1},"status":{"enum":["ready_to_merge","retry_required","needs_human"]},"validation_state":{"enum":["not_run","passed","failed"]},"review_state":{"enum":["not_run","passed","failed"]},"merge_policy":{"enum":["automatic","human"]},"linear_required":{"type":"boolean"},"auto_merge_enabled":{"type":"boolean"},"auto_merge_eligible":{"type":"boolean"},"fixed":{"type":"boolean"},"merged":{"type":"boolean"},"findings":{"type":"array","items":{"type":"object","required":["fingerprint","status","summary"],"properties":{"fingerprint":{"type":"string","pattern":"^(cron|directory|link|quality|sentry):"},"status":{"enum":["ready_to_merge","retry_required","needs_human"]},"summary":{"type":"string"}}}}}}'
+      - name: "Stage 4 · Self-heal — capture repair result cycle 1"
+        id: repair-result-1
+        if: always() && steps.repair-1.outcome != 'skipped'
+        continue-on-error: true
+        env:
+          REPAIR_RESULT: ${{ steps.repair-1.outputs.structured_output }}
+        run: |
+          # A silent refusal is otherwise indistinguishable from a crash or a
+          # no-op: the step reports success, edits nothing, and the reason dies
+          # with the transcript (show_full_output is false). Persist the agent's
+          # own per-finding ledger so validate can name it (DEV-1435).
+          scripts/health-agent/capture-repair-result.sh 1 "$HEALTH_ARTIFACT_DIR/repair-result-1.json"
       - name: "Stage 4 · Self-heal — validate cycle 1"
         id: validate-1
         if: steps.admission.outputs.claimed == 'true' && steps.repair-1.outcome == 'success'
@@ -404,7 +417,8 @@ jobs:
               --run-at "${{ steps.setup.outputs.run_at }}"
             scripts/health-agent/verify-claimed-findings.sh \
               "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" \
-              "$HEALTH_ARTIFACT_DIR/quality-recheck-1.json"
+              "$HEALTH_ARTIFACT_DIR/quality-recheck-1.json" \
+              "$HEALTH_ARTIFACT_DIR/repair-result-1.json"
           fi
           pnpm exec vitest run scripts/health-agent
           pnpm lint
@@ -466,6 +480,15 @@ jobs:
             push, open or merge a PR, access providers, or weaken validation.
           claude_args: >-
             --max-turns 200 --allowedTools Read,Edit,Write,Glob,Grep,TodoWrite,Bash(pnpm:*),Bash(git diff:*),Bash(git status:*),Bash(git ls-files:*)
+            --json-schema '{"type":"object","required":["status","findings"],"properties":{"snapshot_id":{"type":"string"},"cycle":{"const":2},"status":{"enum":["ready_to_merge","retry_required","needs_human"]},"validation_state":{"enum":["not_run","passed","failed"]},"review_state":{"enum":["not_run","passed","failed"]},"merge_policy":{"enum":["automatic","human"]},"linear_required":{"type":"boolean"},"auto_merge_enabled":{"type":"boolean"},"auto_merge_eligible":{"type":"boolean"},"fixed":{"type":"boolean"},"merged":{"type":"boolean"},"findings":{"type":"array","items":{"type":"object","required":["fingerprint","status","summary"],"properties":{"fingerprint":{"type":"string","pattern":"^(cron|directory|link|quality|sentry):"},"status":{"enum":["ready_to_merge","retry_required","needs_human"]},"summary":{"type":"string"}}}}}}'
+      - name: "Stage 4 · Self-heal — capture repair result cycle 2"
+        id: repair-result-2
+        if: always() && steps.repair-2.outcome != 'skipped'
+        continue-on-error: true
+        env:
+          REPAIR_RESULT: ${{ steps.repair-2.outputs.structured_output }}
+        run: |
+          scripts/health-agent/capture-repair-result.sh 2 "$HEALTH_ARTIFACT_DIR/repair-result-2.json"
       - name: "Stage 4 · Self-heal — validate cycle 2"
         id: validate-2
         if: steps.admission.outputs.claimed == 'true' && steps.repair-2.outcome == 'success'
@@ -478,7 +501,8 @@ jobs:
               --run-at "${{ steps.setup.outputs.run_at }}"
             scripts/health-agent/verify-claimed-findings.sh \
               "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" \
-              "$HEALTH_ARTIFACT_DIR/quality-recheck-2.json"
+              "$HEALTH_ARTIFACT_DIR/quality-recheck-2.json" \
+              "$HEALTH_ARTIFACT_DIR/repair-result-2.json"
           fi
           pnpm exec vitest run scripts/health-agent
           pnpm lint
@@ -650,6 +674,7 @@ jobs:
           path: |
             .health-agent-artifacts/health-run.json
             .health-agent-artifacts/audit.jsonl
+            .health-agent-artifacts/repair-result-*.json
           if-no-files-found: error
           retention-days: 14
       - name: "Stage 5 · Retry health run upload"
@@ -662,6 +687,7 @@ jobs:
           path: |
             .health-agent-artifacts/health-run.json
             .health-agent-artifacts/audit.jsonl
+            .health-agent-artifacts/repair-result-*.json
           if-no-files-found: error
           retention-days: 14
       - name: "Stage 5 · Classify health run upload"

@@ -109,7 +109,9 @@ describe("unified health-agent workflow contract", () => {
         const invocations = (step.run ?? "")
           .split("workflow-runtime.ts")
           .slice(1);
-        return invocations.some((invocation) => !invocation.includes("--output"))
+        return invocations.some(
+          (invocation) => !invocation.includes("--output"),
+        )
           ? [step.name ?? "(unnamed step)"]
           : [];
       });
@@ -125,7 +127,9 @@ describe("unified health-agent workflow contract", () => {
     // validation could not catch it.
     const workflow = await readFile(workflowPath, "utf8");
     const schemas = workflow.match(/"fingerprint":\{"type":"string"[^}]*\}/g);
-    expect(schemas).toHaveLength(2);
+    // Two review schemas plus the two repair ledgers (DEV-1435) — every
+    // fingerprint the agents report back is pattern-constrained.
+    expect(schemas).toHaveLength(4);
     for (const schema of schemas ?? []) {
       expect(schema).toContain("pattern");
       expect(schema).toContain("cron|directory|link|quality|sentry");
@@ -230,6 +234,54 @@ describe("unified health-agent workflow contract", () => {
         expect(at).toBeGreaterThan(enforce);
       }
     }
+  });
+
+  it("captures each repair agent's own result ledger before validating it", async () => {
+    const raw = await readFile(workflowPath, "utf8");
+    const workflow = parseYaml(raw) as {
+      jobs: {
+        "nightly-health": {
+          steps: Array<{
+            id?: string;
+            name?: string;
+            run?: string;
+            with?: { claude_args?: string };
+            env?: Record<string, string>;
+          }>;
+        };
+      };
+    };
+    const steps = workflow.jobs["nightly-health"].steps;
+    const indexOfStep = (id: string) =>
+      steps.findIndex((step) => step.id === id);
+
+    for (const cycle of [1, 2] as const) {
+      // Without --json-schema the action leaves structured_output empty, so a
+      // refusal leaves no trace anywhere (DEV-1435).
+      const repair = steps[indexOfStep(`repair-${cycle}`)];
+      const args = repair?.with?.claude_args ?? "";
+      expect(args).toContain("--json-schema");
+      expect(args).toContain(`"cycle":{"const":${cycle}}`);
+      expect(args).toContain('"required":["fingerprint","status","summary"]');
+
+      const capture = steps[indexOfStep(`repair-result-${cycle}`)];
+      expect(capture?.env?.REPAIR_RESULT).toContain(
+        `steps.repair-${cycle}.outputs.structured_output`,
+      );
+      expect(capture?.run).toContain(
+        `capture-repair-result.sh ${cycle} "$HEALTH_ARTIFACT_DIR/repair-result-${cycle}.json"`,
+      );
+      // The ledger only helps if it is written before the step that reports
+      // survivors, and read by it.
+      expect(indexOfStep(`repair-result-${cycle}`)).toBeLessThan(
+        indexOfStep(`validate-${cycle}`),
+      );
+      expect(steps[indexOfStep(`validate-${cycle}`)]?.run).toContain(
+        `"$HEALTH_ARTIFACT_DIR/repair-result-${cycle}.json"`,
+      );
+    }
+
+    expect(raw).toContain(".health-agent-artifacts/repair-result-*.json");
   });
 
   it("admits before collection and gates duplicate replays without workflow-wide cancellation", async () => {
@@ -495,7 +547,8 @@ describe("unified health-agent workflow contract", () => {
     );
     expect(workflow).toContain('git add -- "${repair_paths[@]}"');
     expect(workflow).not.toContain("git add --all");
-    expect(workflow.match(/--json-schema/g)).toHaveLength(4);
+    // Two Sentry classifications, two reviews, two repairs (DEV-1435).
+    expect(workflow.match(/--json-schema/g)).toHaveLength(6);
     expect(workflow).toContain("steps.review-decision-1.outcome");
     expect(workflow).toContain("steps.review-decision-2.outcome");
     expect(workflow).not.toMatch(
