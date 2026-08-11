@@ -379,8 +379,18 @@ jobs:
         if: steps.admission.outputs.claimed == 'true' && steps.repair-1.outcome == 'success'
         continue-on-error: true
         run: |
-          if jq -e '.findings[] | select(.fingerprint | startswith("quality:full-unit-suite:"))' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" >/dev/null; then pnpm test; fi
-          if jq -e '.findings[] | select(.fingerprint | startswith("quality:dead-code:"))' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" >/dev/null; then pnpm knip; fi
+          # Re-run the detector and assert the *claimed* findings are gone. Bare
+          # `pnpm knip` here demanded a repo-wide clean bill of health for a
+          # repair scoped to at most HEALTH_REPAIR_CLAIM_LIMIT findings, so it
+          # could never pass while a backlog existed.
+          if jq -e '.findings[] | select(.fingerprint | startswith("quality:"))' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" >/dev/null; then
+            pnpm exec tsx scripts/health-agent/quality-runtime.ts \
+              --output "$HEALTH_ARTIFACT_DIR/quality-recheck-1.json" \
+              --run-at "${{ steps.setup.outputs.run_at }}"
+            scripts/health-agent/verify-claimed-findings.sh \
+              "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" \
+              "$HEALTH_ARTIFACT_DIR/quality-recheck-1.json"
+          fi
           pnpm exec vitest run scripts/health-agent
           pnpm lint
           pnpm exec tsc --noEmit --incremental false
@@ -433,8 +443,14 @@ jobs:
         if: steps.admission.outputs.claimed == 'true' && steps.repair-2.outcome == 'success'
         continue-on-error: true
         run: |
-          if jq -e '.findings[] | select(.fingerprint | startswith("quality:full-unit-suite:"))' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" >/dev/null; then pnpm test; fi
-          if jq -e '.findings[] | select(.fingerprint | startswith("quality:dead-code:"))' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" >/dev/null; then pnpm knip; fi
+          if jq -e '.findings[] | select(.fingerprint | startswith("quality:"))' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" >/dev/null; then
+            pnpm exec tsx scripts/health-agent/quality-runtime.ts \
+              --output "$HEALTH_ARTIFACT_DIR/quality-recheck-2.json" \
+              --run-at "${{ steps.setup.outputs.run_at }}"
+            scripts/health-agent/verify-claimed-findings.sh \
+              "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" \
+              "$HEALTH_ARTIFACT_DIR/quality-recheck-2.json"
+          fi
           pnpm exec vitest run scripts/health-agent
           pnpm lint
           pnpm exec tsc --noEmit --incremental false
