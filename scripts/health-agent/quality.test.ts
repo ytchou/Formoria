@@ -32,7 +32,14 @@ describe("repository health", () => {
     expect(isKnownKnipNoise("files", "src/test/server-only.ts")).toBe(true);
     expect(isKnownKnipNoise("binaries", "tesseract")).toBe(true);
     expect(config).toContain('"src/test/server-only.ts": ["files"]');
-    expect(config).toContain('"ignoreBinaries": ["lsof", "tesseract"]');
+    // `gh` is provided by the GitHub Actions runner, not by package.json —
+    // scripts/flake-report.mjs shells out to it. Same category as lsof.
+    expect(config).toContain('"ignoreBinaries": ["gh", "lsof", "tesseract"]');
+    // react-simple-maps is unwired but deliberately kept: src/types/
+    // react-simple-maps.d.ts is a hand-written ambient declaration for the
+    // planned map surface. Suppressed rather than deleted so a dead-code pass
+    // does not throw away an intentional keep.
+    expect(config).toContain('"react-simple-maps"');
     expect(isKnownKnipNoise("files", "src/test/server-only.test.ts")).toBe(
       false,
     );
