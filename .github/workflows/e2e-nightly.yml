@@ -1380,6 +1380,7 @@ jobs:
           always() && steps.guard.outputs.skip != 'true' && steps.validation.outcome == 'success' &&
           (steps.incident_pr.outputs.pr_number != '' || inputs.incident_pr_number != '')
         id: review
+        continue-on-error: true
         uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -1394,13 +1395,32 @@ jobs:
           claude_args: >-
             --allowedTools "Read,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
             --json-schema '{"type":"object","additionalProperties":false,"required":["verdict","justification","app_files","risk","reviewed_head_sha","findings"],"properties":{"verdict":{"type":"string","enum":["PASS","REJECT"]},"justification":{"type":"string"},"app_files":{"type":"array","items":{"type":"string"}},"risk":{"type":"string","enum":["low","medium","high"]},"reviewed_head_sha":{"type":"string"},"findings":{"type":"array","items":{"type":"string"}}}}'
+
+      - name: Retry review contract once
+        if: steps.review.outcome == 'failure'
+        id: review_retry
+        uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.SELFHEAL_PAT }}
+          allowed_bots: github-actions
+          prompt: |
+            Read .github/selfheal/review.md for your full instructions.
+            Review the complete repair branch against its repair ledger at
+            /tmp/playwright-report/repair-ledger.json and the repair base
+            ${{ steps.guard.outputs.repair_base }}. The selected E2E scope is green.
+            The previous review attempt did not emit structured output. You must
+            return the complete structured review result. Do not edit files.
+          claude_args: >-
+            --allowedTools "Read,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
+            --json-schema '{"type":"object","additionalProperties":false,"required":["verdict","justification","app_files","risk","reviewed_head_sha","findings"],"properties":{"verdict":{"type":"string","enum":["PASS","REJECT"]},"justification":{"type":"string"},"app_files":{"type":"array","items":{"type":"string"}},"risk":{"type":"string","enum":["low","medium","high"]},"reviewed_head_sha":{"type":"string"},"findings":{"type":"array","items":{"type":"string"}}}}'
       - name: Enforce review verdict
         if: >-
           always() && steps.guard.outputs.skip != 'true' && steps.validation.outcome == 'success' &&
           (steps.incident_pr.outputs.pr_number != '' || inputs.incident_pr_number != '')
         id: review_gate
         env:
-          REVIEW_RESULT: ${{ steps.review.outputs.structured_output }}
+          REVIEW_RESULT: ${{ steps.review.outputs.structured_output || steps.review_retry.outputs.structured_output }}
         run: |
           set -euo pipefail
           HEAD_SHA=$(git rev-parse HEAD)
@@ -1423,7 +1443,7 @@ jobs:
           GH_TOKEN: ${{ secrets.SELFHEAL_PAT }}
           REPAIR_BASE: ${{ steps.guard.outputs.repair_base }}
           REPAIR_BRANCH: ${{ steps.branch.outputs.branch }}
-          REVIEW_RESULT: ${{ steps.review.outputs.structured_output }}
+          REVIEW_RESULT: ${{ steps.review.outputs.structured_output || steps.review_retry.outputs.structured_output }}
           SOURCE_WORKFLOW_URL: ${{ steps.context.outputs.source_workflow_url }}
         run: |
           set -euo pipefail
