@@ -57,7 +57,7 @@ test.describe('Submit name suggestion', () => {
     // click if Playwright detects the element was replaced between resolution and
     // event dispatch.
     await expect(async () => {
-      await applyBtn.click({ timeout: 3_000 });
+      await applyBtn.click({ timeout: BUDGET.INTERACTIVE });
     }).toPass(POLL.UI);
 
     // Field now holds the cleaned name

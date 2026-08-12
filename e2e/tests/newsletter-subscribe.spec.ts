@@ -72,7 +72,7 @@ test.describe('Newsletter subscribe flow', () => {
     // The success div has a green background and contains the confirmation text.
     // zh-TW: "請查看您的收件匣以確認訂閱 / Check your inbox to confirm your subscription"
     const successBanner = page.getByText('請查看您的收件匣以確認訂閱');
-    await expect(successBanner).toBeVisible({ timeout: 20_000 });
+    await expect(successBanner).toBeVisible({ timeout: BUDGET.GATED_UI });
 
     // The form itself must no longer be present
     await expect(emailInput).not.toBeVisible();

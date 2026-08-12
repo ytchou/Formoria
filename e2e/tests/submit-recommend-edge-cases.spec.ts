@@ -18,7 +18,7 @@ async function installTurnstileStub(page: Page) {
             _element: HTMLElement,
             options: { callback: (token: string) => void },
           ) {
-            setTimeout(() => options.callback('e2e-bypass-token'), 50)
+            options.callback('e2e-bypass-token')
             return 'fake-widget-id'
           },
           remove() {},
@@ -144,7 +144,7 @@ test.describe('Submit recommendation edge cases', () => {
           expect(error).toBeNull()
           return count
         },
-        { timeout: POLL.UI.timeout, intervals: [...POLL.UI.intervals] },
+        POLL.UI,
       )
       .toBe(1)
   })

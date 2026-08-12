@@ -2,7 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { test, expect } from '../fixtures/auth';
 
-import { BUDGET } from '../budgets';
+import { BUDGET, POLL } from '../budgets';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -23,11 +23,6 @@ const ADMIN_PATH = '/admin/feature-requests';
 // request, but a stale ISR/router cache entry can still serve one render behind
 // a mutation — every board assertion polls with a reload rather than asserting
 // once.
-const BOARD_POLL = {
-  timeout: BUDGET.NAVIGATION,
-  intervals: [1_000, 2_000, 3_000, 5_000],
-};
-
 function serviceClient(): AnySupabaseClient {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -148,14 +143,14 @@ async function waitForBoardRow(page: Page, title: string): Promise<void> {
   await expect(async () => {
     await page.reload({ timeout: BUDGET.GATED_UI });
     await expect(boardRow(page, title)).toBeVisible({ timeout: BUDGET.RENDERED });
-  }).toPass(BOARD_POLL);
+  }).toPass(POLL.BOARD);
 }
 
 async function waitForBoardRowGone(page: Page, title: string): Promise<void> {
   await expect(async () => {
     await page.reload({ timeout: BUDGET.GATED_UI });
     await expect(boardRow(page, title)).toHaveCount(0, { timeout: BUDGET.RENDERED });
-  }).toPass(BOARD_POLL);
+  }).toPass(POLL.BOARD);
 }
 
 test.describe('Public feature request board', () => {
@@ -318,7 +313,7 @@ test.describe('Public feature request board', () => {
         await expect(upvoteButton(userPage, request.title)).toHaveText('0', {
           timeout: BUDGET.RENDERED,
         });
-      }).toPass(BOARD_POLL);
+      }).toPass(POLL.BOARD);
     } finally {
       await cleanupFeatureRequests(supabase, created);
     }
@@ -385,7 +380,7 @@ test.describe('Public feature request board', () => {
             .first()
             .getByText(/Merged|已合併/),
         ).toBeVisible({ timeout: BUDGET.RENDERED });
-      }).toPass(BOARD_POLL);
+      }).toPass(POLL.BOARD);
 
       // The merged source leaves the public board, and the target absorbs the
       // union of both vote sets.

@@ -1,7 +1,7 @@
 import { test, expect } from "../fixtures/auth";
 import type { Locator, Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
-import { BUDGET } from "../budgets";
+import { BUDGET, POLL } from "../budgets";
 import { OWNER_FEATURES_OFF_REASON } from "../helpers/owner-features";
 
 /**
@@ -82,7 +82,7 @@ test.describe("Submit funnel", () => {
         get() {
           return {
             render(_el: HTMLElement, opts: { callback: (t: string) => void }) {
-              setTimeout(() => opts.callback("e2e-bypass-token"), 50);
+              opts.callback("e2e-bypass-token");
               return "fake-widget-id";
             },
             remove() {},
@@ -163,7 +163,7 @@ test.describe("Submit funnel", () => {
           savedSubmission = data;
           return Boolean(data);
         },
-        { timeout: BUDGET.GATED_UI, intervals: [500, 1_000, 2_000, 5_000] },
+        POLL.NAVIGATION,
       )
       .toBe(true);
 
@@ -194,7 +194,7 @@ test.describe("Submit funnel", () => {
               _el: HTMLElement,
               opts: { callback: (token: string) => void },
             ) {
-              setTimeout(() => opts.callback("e2e-bypass-token"), 50);
+              opts.callback("e2e-bypass-token");
               return "fake-widget-id";
             },
             remove() {},
@@ -246,7 +246,7 @@ test.describe("Submit funnel", () => {
       (response) =>
         response.url().includes("/api/upload") &&
         response.request().method() === "POST",
-      { timeout: 20_000 },
+      { timeout: BUDGET.GATED_UI },
     );
     await userPage.locator("#image-upload-heroImageUrl").setInputFiles({
       name: "detailed-hero.png",

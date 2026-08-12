@@ -165,7 +165,7 @@ test.describe("Scheduled brand refresh review", () => {
       expect(error).toBeNull();
       refreshSubmissionId = data?.id;
       expect(refreshSubmissionId).toBeTruthy();
-    }).toPass({ timeout: BUDGET.SERVER_RENDER });
+    }).toPass(POLL.APPLY);
 
     await adminPage.goto("/admin/submissions?stage=needs_data");
     const needsDataRow = adminPage

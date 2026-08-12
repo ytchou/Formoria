@@ -1,3 +1,7 @@
+import { expect } from '@playwright/test';
+
+import { POLL } from '../budgets';
+
 // Delivery assertion for emails sent through Resend.
 //
 // Why this exists: asserting on the signup response only proves Supabase
@@ -91,29 +95,48 @@ async function findByRecipient(
  */
 export async function waitForDelivery(
   recipient: string,
-  options: { apiKey: string; timeoutMs?: number; pollMs?: number },
+  options: { apiKey: string },
 ): Promise<DeliveryOutcome> {
-  const { apiKey, timeoutMs = 60_000, pollMs = 3_000 } = options;
-  const deadline = Date.now() + timeoutMs;
+  const { apiKey } = options;
   let last: ResendEmailRecord | null = null;
+  let terminal: DeliveryOutcome | null = null;
 
-  while (Date.now() < deadline) {
-    const result = await findByRecipient(apiKey, recipient);
+  try {
+    await expect
+      .poll(
+        async () => {
+          const result = await findByRecipient(apiKey, recipient);
 
-    if (result && 'unobservable' in result) {
-      return { status: 'unobservable', httpStatus: result.unobservable };
-    }
-    last = result;
+          if (result && 'unobservable' in result) {
+            terminal = { status: 'unobservable', httpStatus: result.unobservable };
+            return true;
+          }
+          last = result;
 
-    if (last) {
-      const event = last.last_event ?? 'unknown';
-      if (event === TERMINAL_SUCCESS_EVENT) return { status: 'delivered', lastEvent: event };
-      if (TERMINAL_FAILURE_EVENTS.has(event)) return { status: 'failed', lastEvent: event };
-    }
+          if (last) {
+            const event = last.last_event ?? 'unknown';
+            if (event === TERMINAL_SUCCESS_EVENT) {
+              terminal = { status: 'delivered', lastEvent: event };
+              return true;
+            }
+            if (TERMINAL_FAILURE_EVENTS.has(event)) {
+              terminal = { status: 'failed', lastEvent: event };
+              return true;
+            }
+          }
 
-    await new Promise((resolve) => setTimeout(resolve, pollMs));
+          return false;
+        },
+        POLL.DB,
+      )
+      .toBe(true);
+  } catch (error) {
+    // A polling timeout is an observable pending delivery, not a helper error.
+    // Preserve the old return shape; network and Resend errors still surface.
+    if (!(error instanceof Error) || !/timeout|timed out/i.test(error.message)) throw error;
   }
 
+  if (terminal) return terminal;
   if (!last) return { status: 'not_found' };
   return { status: 'pending', lastEvent: last.last_event ?? 'unknown' };
 }

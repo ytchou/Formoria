@@ -88,15 +88,18 @@ Poll ladders live in the same file. The interval array matters as much as the ce
 
 ## Enforcement
 
-`scripts/check-e2e-timeouts.mjs` runs in the `lint` job and fails on:
+`scripts/check-e2e-timeouts.mjs` runs in the `lint` job and fails closed on:
 
-1. A numeric literal in `timeout:` under `e2e/tests/**` without a `// measured:` line above it.
-2. `test.setTimeout(<literal>)`.
-3. `waitForTimeout` outside the allowlist.
-4. **Any commit that raises a `BUDGET`/`POLL` value, or adds a `// measured:` line, without a CI run URL** in the commit message or PR body.
-5. A site it cannot statically resolve (fail closed — otherwise the "nothing got longer" guarantee has a hole).
+1. Any numeric `timeout` value outside `e2e/budgets.ts`.
+2. Any unresolved or dynamic custom timeout argument, including `test.setTimeout`.
+3. Inline polling interval arrays outside `e2e/budgets.ts`.
+4. Hard sleeps (`waitForTimeout` and `setTimeout`) in E2E code.
+5. Bare `toPass()` calls or custom `toPass`/`expect.poll` policies that are not named `POLL.<NAME>` uses.
 
-The same rule already binds the nightly self-heal agent, whose prompt forbids raising timeouts and whose review step rejects any diff that does. Rule 4 exists because that constraint previously bound only the bot: every timeout raise in this repo's history was human-authored.
+Numeric definitions are allowed only in `e2e/budgets.ts`; every other E2E file
+must use a named `BUDGET.*` or `POLL.*` policy. The guard is syntax-based and
+does not maintain a generated census or baseline, so adding a new wait cannot
+be made acceptable by updating an artifact.
 
 `eslint-plugin-playwright` runs over `e2e/` against the baseline in `eslint-suppressions.json`. New conditional logic, skipped tests, and assertion-free tests fail the build; the baseline only shrinks.
 

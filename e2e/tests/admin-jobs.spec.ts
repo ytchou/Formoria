@@ -256,7 +256,7 @@ test.describe('Admin curation jobs deep', () => {
     await expect
       .poll(
         () => new URL(adminPage.url()).pathname,
-        { timeout: BUDGET.NAVIGATION, intervals: [500, 1_000, 2_000, 5_000] },
+        POLL.NAVIGATION,
       )
       .toMatch(new RegExp(`^/admin/jobs/(?!${parentJobId}$)[^/]+$`));
 

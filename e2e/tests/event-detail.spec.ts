@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 
-import { BUDGET } from "../budgets";
+import { BUDGET, POLL } from "../budgets";
 import { test, expect } from "../fixtures/auth";
 import { resolveLinkedExhibitor } from "../utils/expo-explorer";
 import {
@@ -131,7 +131,7 @@ test.describe("Event detail deep", () => {
     await expect
       .poll(async () => cards.count(), {
         message: `filtering by "${areaLabel}" did not shrink the brand grid`,
-        timeout: BUDGET.INTERACTIVE,
+        ...POLL.UI,
       })
       .toBeLessThan(totalCards);
 
@@ -160,7 +160,7 @@ test.describe("Event detail deep", () => {
     // "全部區域" restores the full lineup without a navigation either.
     await chips.first().click();
     await expect
-      .poll(async () => cards.count(), { timeout: BUDGET.INTERACTIVE })
+      .poll(async () => cards.count(), POLL.UI)
       .toBe(totalCards);
     expect(new URL(anonPage.url()).pathname).toBe(pathnameBefore);
   });

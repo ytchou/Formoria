@@ -52,7 +52,7 @@ test.describe("Community submit flow", () => {
       timeout: BUDGET.RENDERED,
     });
     await expect(userPage.locator("#submit-pdpa")).toBeVisible({
-      timeout: 3_000,
+      timeout: BUDGET.INTERACTIVE,
     });
     await expect(userPage.locator('[data-state="active"]')).not.toBeVisible();
   });

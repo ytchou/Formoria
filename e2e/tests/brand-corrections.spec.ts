@@ -128,7 +128,7 @@ async function openCorrectionDialog(page: Page, field: 'product_type' | 'product
   const dialog = correctionDialog(page);
   await expect(async () => {
     if (!(await dialog.isVisible())) await correctionTrigger(page).click();
-    await expect(dialog).toBeVisible({ timeout: 2_000 });
+    await expect(dialog).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   }).toPass(POLL.UI);
   // The field picker is the one control that is still a real <select>. The
   // picker opens on a disabled placeholder with no field selected, so the value

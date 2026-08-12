@@ -2,7 +2,7 @@ import { test, expect } from "../fixtures/auth";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { ownerFeaturesDisabled } from "../helpers/owner-features";
 
-import { BUDGET } from "../budgets";
+import { BUDGET, POLL } from "../budgets";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -212,6 +212,6 @@ test.describe("Static & compliance pages", () => {
       await expect(
         anonPage.getByText(micrositeTagline, { exact: true }),
       ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-    }).toPass({ timeout: BUDGET.NAVIGATION, intervals: [3_000, 5_000, 8_000, 13_000] });
+    }).toPass(POLL.NAVIGATION);
   });
 });
