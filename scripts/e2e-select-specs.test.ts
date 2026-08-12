@@ -203,6 +203,12 @@ describe("selective E2E workflow project routing", () => {
       ".github/workflows/frontend-ci.yml",
       "utf8",
     );
+    const workflowTrigger = workflow.slice(
+      workflow.indexOf("on:\n"),
+      workflow.indexOf("\nconcurrency:"),
+    );
+
+    expect(workflowTrigger).not.toContain("paths:");
 
     const selectedChromiumCommand = workflow
       .split("\n")
