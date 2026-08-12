@@ -3727,7 +3727,7 @@
     },
     {
       "file": "e2e/tests/navbar-auth.spec.ts",
-      "line": 10,
+      "line": 9,
       "kind": "timeout",
       "measured": false,
       "ms": 10000,
@@ -3735,7 +3735,7 @@
     },
     {
       "file": "e2e/tests/navbar-auth.spec.ts",
-      "line": 27,
+      "line": 26,
       "kind": "timeout",
       "measured": false,
       "ms": 10000,
@@ -3743,7 +3743,7 @@
     },
     {
       "file": "e2e/tests/navbar-auth.spec.ts",
-      "line": 42,
+      "line": 41,
       "kind": "timeout",
       "measured": false,
       "ms": 10000,
@@ -3751,7 +3751,7 @@
     },
     {
       "file": "e2e/tests/navbar-auth.spec.ts",
-      "line": 45,
+      "line": 44,
       "kind": "timeout",
       "measured": false,
       "ms": 5000,
@@ -3759,7 +3759,7 @@
     },
     {
       "file": "e2e/tests/navbar-auth.spec.ts",
-      "line": 48,
+      "line": 47,
       "kind": "timeout",
       "measured": false,
       "ms": 5000,
@@ -3767,7 +3767,7 @@
     },
     {
       "file": "e2e/tests/navbar-auth.spec.ts",
-      "line": 51,
+      "line": 50,
       "kind": "timeout",
       "measured": false,
       "ms": 5000,
@@ -3775,63 +3775,11 @@
     },
     {
       "file": "e2e/tests/navbar-auth.spec.ts",
-      "line": 56,
+      "line": 55,
       "kind": "timeout",
       "measured": false,
       "ms": 10000,
       "literal": false
-    },
-    {
-      "file": "e2e/tests/navbar-auth.spec.ts",
-      "line": 64,
-      "kind": "setTimeout",
-      "measured": false,
-      "ms": 120000,
-      "literal": false
-    },
-    {
-      "file": "e2e/tests/navbar-auth.spec.ts",
-      "line": 103,
-      "kind": "timeout",
-      "measured": false,
-      "ms": 30000,
-      "literal": false
-    },
-    {
-      "file": "e2e/tests/navbar-auth.spec.ts",
-      "line": 115,
-      "kind": "timeout",
-      "measured": false,
-      "ms": 15000,
-      "literal": false
-    },
-    {
-      "file": "e2e/tests/navbar-auth.spec.ts",
-      "line": 120,
-      "kind": "timeout",
-      "measured": false,
-      "ms": 10000,
-      "literal": false
-    },
-    {
-      "file": "e2e/tests/navbar-auth.spec.ts",
-      "line": 139,
-      "kind": "ladder",
-      "intervals": [
-        1000,
-        2000,
-        3000,
-        5000
-      ],
-      "measured": false
-    },
-    {
-      "file": "e2e/tests/navbar-auth.spec.ts",
-      "line": 139,
-      "kind": "timeout",
-      "measured": false,
-      "ms": 20000,
-      "literal": true
     },
     {
       "file": "e2e/tests/newsletter-subscribe.spec.ts",
