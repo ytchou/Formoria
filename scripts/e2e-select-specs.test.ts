@@ -239,6 +239,7 @@ describe("selective E2E workflow project routing", () => {
     expect(workflow).toContain("if: needs.select.outputs.has_work == 'true'");
     expect(workflow).not.toContain("smoke-cross-browser");
     expect(workflow).toContain("branches: [main, staging]");
+    expect(workflow).not.toContain("    paths:");
     expect(workflow).toContain("BASE_REF: ${{ github.base_ref || 'main' }}");
     expect(workflow).toContain(
       "E2E_SELECT_BASE: origin/${{ github.base_ref || 'main' }}",

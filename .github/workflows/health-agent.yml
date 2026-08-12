@@ -675,6 +675,7 @@ jobs:
             .health-agent-artifacts/health-run.json
             .health-agent-artifacts/audit.jsonl
             .health-agent-artifacts/repair-result-*.json
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
       - name: "Stage 5 · Retry health run upload"
@@ -688,6 +689,7 @@ jobs:
             .health-agent-artifacts/health-run.json
             .health-agent-artifacts/audit.jsonl
             .health-agent-artifacts/repair-result-*.json
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
       - name: "Stage 5 · Classify health run upload"
