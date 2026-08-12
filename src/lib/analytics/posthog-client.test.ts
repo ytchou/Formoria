@@ -62,4 +62,16 @@ describe('PostHog client initialization', () => {
     expect(initializePostHog(client)).toBe(false)
     expect(client.init).not.toHaveBeenCalled()
   })
+
+  it('does not initialize in staging with production analytics credentials', () => {
+    const client = { init: vi.fn(), capture: vi.fn(), identify: vi.fn(), register: vi.fn(), reset: vi.fn() }
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('NEXT_PUBLIC_DEPLOYMENT_ENV', 'staging')
+    vi.stubEnv('NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN', 'phc_test')
+    vi.stubEnv('NEXT_PUBLIC_POSTHOG_HOST', 'https://e.formoria.com')
+    vi.stubEnv('NEXT_PUBLIC_POSTHOG_UI_HOST', 'https://us.posthog.com')
+
+    expect(initializePostHog(client)).toBe(false)
+    expect(client.init).not.toHaveBeenCalled()
+  })
 })

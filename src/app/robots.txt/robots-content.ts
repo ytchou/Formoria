@@ -2,6 +2,7 @@ import {
   CRAWLER_REGISTRY,
   robotsTokenFor,
 } from "@/lib/security/crawler-registry";
+import { isStagingEnvironment } from "@/lib/deployment-environment";
 
 /**
  * Declares that AI training is disallowed while search indexing and answer-time
@@ -28,7 +29,7 @@ const WILDCARD_DISALLOW = [
 
 interface RobotsRule {
   userAgent: string;
-  allow: string;
+  allow?: string;
   disallow?: readonly string[];
   contentSignal?: string;
 }
@@ -36,10 +37,17 @@ interface RobotsRule {
 export interface RobotsDocument {
   rules: readonly RobotsRule[];
   host: string;
-  sitemap: string;
+  sitemap?: string;
 }
 
 export function buildRobotsDocument(siteUrl: string): RobotsDocument {
+  if (isStagingEnvironment()) {
+    return {
+      rules: [{ userAgent: "*", disallow: ["/"] }],
+      host: siteUrl,
+    };
+  }
+
   return {
     rules: [
       {
@@ -82,7 +90,9 @@ export function formatRobotsTxt({
       lines.push(`Content-Signal: ${rule.contentSignal}`);
     }
 
-    lines.push(`Allow: ${rule.allow}`);
+    if (rule.allow) {
+      lines.push(`Allow: ${rule.allow}`);
+    }
 
     for (const path of rule.disallow ?? []) {
       lines.push(`Disallow: ${path}`);
@@ -91,5 +101,9 @@ export function formatRobotsTxt({
     return lines.join("\n");
   });
 
-  return `${[...groups, `Host: ${host}`, `Sitemap: ${sitemap}`].join("\n\n")}\n`;
+  const directives = [...groups, `Host: ${host}`];
+  if (sitemap) {
+    directives.push(`Sitemap: ${sitemap}`);
+  }
+  return `${directives.join("\n\n")}\n`;
 }

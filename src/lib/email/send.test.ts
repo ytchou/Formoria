@@ -61,4 +61,14 @@ describe('sendEmail', () => {
     expect(recordsJson).toContain(`"htmlBytes":${Buffer.byteLength(html, 'utf8')}`)
     expect(recordsJson).not.toContain(html)
   })
+
+  it('does not deliver email from staging even when credentials are configured', async () => {
+    vi.stubEnv('FORMORIA_DEPLOYMENT_ENV', 'staging')
+
+    await expect(sendEmail(message)).resolves.toEqual({
+      success: false,
+      error: 'Email delivery disabled in staging',
+    })
+    expect(providerSend).not.toHaveBeenCalled()
+  })
 })

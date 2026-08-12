@@ -233,15 +233,6 @@ export async function signInWithGoogle(
   });
 }
 
-export async function signOut(formData: FormData): Promise<void> {
-  return runWithAuditContext({}, async () => {
-    const supabase = await createClient();
-    await supabase.auth.signOut({ scope: 'local' });
-    const returnTo = formData.get("returnTo");
-    redirect(typeof returnTo === "string" && isRelativeUrl(returnTo) ? returnTo : "/");
-  });
-}
-
 export async function resetPassword(
   _prevState: AuthState,
   formData: FormData

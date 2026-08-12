@@ -10,8 +10,11 @@ import {
   runInCronScope,
   startStaleJobMaintenance,
 } from "./curation-worker-loop";
+import { isStagingEnvironment } from "@/lib/deployment-environment";
 
 config({ path: ".env.local", quiet: true });
+
+const staging = isStagingEnvironment();
 
 const {
   claimCurationDispatchWork,
@@ -48,13 +51,13 @@ const controlToken = process.env.CURATION_WORKER_CONTROL_TOKEN?.trim();
 const port = parsePort(process.env.PORT);
 const activeJobs = new Set<string>();
 
-if (!controlToken) {
+if (!controlToken && !staging) {
   throw new Error(
     "CURATION_WORKER_CONTROL_TOKEN is required for the curation worker",
   );
 }
 
-const requiredControlToken = controlToken;
+const requiredControlToken = controlToken ?? '';
 
 const server = createServer((request, response) => {
   void handleRequest(request, response).catch((error) => {
@@ -88,16 +91,22 @@ server.listen(port, "0.0.0.0", () => {
     }`,
   );
   console.log(`[curation-worker] listening on port ${port}`);
-  startStaleJobMaintenance({
-    recoverStaleJobs,
-    onError: (error) => {
-      console.error(
-        "[curation-worker:stale-maintenance]",
-        sanitizeJobError(error),
-      );
-    },
-  });
-  if (CRON_SCHEDULE) {
+  if (staging) {
+    console.log(
+      "[curation-worker] staging read-only mode; dispatch and schedules disabled",
+    );
+  } else {
+    startStaleJobMaintenance({
+      recoverStaleJobs,
+      onError: (error) => {
+        console.error(
+          "[curation-worker:stale-maintenance]",
+          sanitizeJobError(error),
+        );
+      },
+    });
+  }
+  if (!staging && CRON_SCHEDULE) {
     startCronScheduler(CRON_SCHEDULE);
   }
 });
@@ -173,8 +182,13 @@ async function handleRequest(
   response: ServerResponse,
 ): Promise<void> {
   if (request.method === "GET" && request.url === "/health") {
-    sendJson(response, 200, { ok: true });
+    sendJson(response, 200, { ok: true, readOnly: staging });
     return;
+  }
+
+  if (staging) {
+    sendJson(response, 503, { error: 'Worker disabled in staging' })
+    return
   }
 
   if (request.method !== "POST" || request.url !== "/run") {

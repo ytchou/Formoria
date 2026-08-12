@@ -1,8 +1,13 @@
 import { auditedCall } from '@/lib/audit'
 import { createResendProvider } from './resend-adapter'
 import type { EmailMessage, EmailSendResult } from './types'
+import { isStagingEnvironment } from '@/lib/deployment-environment'
 
 export async function sendEmail(message: EmailMessage): Promise<EmailSendResult> {
+  if (isStagingEnvironment()) {
+    return { success: false, error: 'Email delivery disabled in staging' }
+  }
+
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) {
     console.error('[email] RESEND_API_KEY not configured, skipping email')

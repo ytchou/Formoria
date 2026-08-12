@@ -21,6 +21,7 @@ import {
   resolveAuthenticatedLocale,
   type AppLocale,
 } from "@/i18n/locale-preference";
+import { isStagingRequest } from "@/lib/deployment-environment";
 
 function isRecentlyCreated(createdAt: string | undefined): boolean {
   if (!createdAt) return false;
@@ -38,16 +39,18 @@ export const GET = withAuditScope(async (request: NextRequest) => {
   const testTokenHash =
     process.env.PLAYWRIGHT_TEST === "true" ? searchParams.get("test_token_hash") : null;
   const origin = await getRequestOrigin();
+  const staging = isStagingRequest(request.headers.get("host"));
 
   // Post-auth intent is carried via short-lived cookies for the OAuth flow
   // (see signInWithGoogle), with query params as the fallback for the
   // email-link flows (sign-up confirmation / email+password claim).
   const cookieStore = await cookies();
   const next = cookieStore.get("post_auth_next")?.value ?? searchParams.get("next");
-  const claimToken =
-    cookieStore.get("post_auth_claim")?.value ?? searchParams.get("claim");
+  const claimToken = staging
+    ? null
+    : cookieStore.get("post_auth_claim")?.value ?? searchParams.get("claim");
   const marketingEmailOptIn =
-    cookieStore.get("post_auth_marketing_opt_in")?.value === "1";
+    !staging && cookieStore.get("post_auth_marketing_opt_in")?.value === "1";
   const rawIntendedLocale = cookieStore.get("post_auth_locale")?.value;
   const legacyMarketingLocale = cookieStore.get("post_auth_marketing_locale")?.value;
   const intendedLocale: AppLocale | null = isAppLocale(rawIntendedLocale)
@@ -116,7 +119,7 @@ export const GET = withAuditScope(async (request: NextRequest) => {
     intendedLocale,
   });
 
-  if (userId && isNewUser && profile?.localePreference !== locale) {
+  if (!staging && userId && isNewUser && profile?.localePreference !== locale) {
     await updateProfileAdmin(userId, { localePreference: locale });
   }
   if (userId) {
@@ -168,16 +171,18 @@ export const GET = withAuditScope(async (request: NextRequest) => {
       });
 
       const brand = await getBrandById(claim.brandId);
-      const posthog = getPostHogClient();
-      posthog.capture({
-        distinctId: userId,
-        event: ANALYTICS_EVENTS.BRAND_CLAIM_COMPLETED,
-        properties: {
-          brand_id: claim.brandId,
-          is_new_user: isNewUser,
-        },
-      });
-      await posthog.flush();
+      if (!staging) {
+        const posthog = getPostHogClient();
+        posthog.capture({
+          distinctId: userId,
+          event: ANALYTICS_EVENTS.BRAND_CLAIM_COMPLETED,
+          properties: {
+            brand_id: claim.brandId,
+            is_new_user: isNewUser,
+          },
+        });
+        await posthog.flush();
+      }
       const url = new URL(
         localizePath(`/dashboard/brands/${brand.slug}`, locale),
         origin,
@@ -198,7 +203,7 @@ export const GET = withAuditScope(async (request: NextRequest) => {
     }
   }
 
-  if (userId) {
+  if (userId && !staging) {
     const posthog = getPostHogClient();
     posthog.identify({
       distinctId: userId,

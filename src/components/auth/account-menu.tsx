@@ -6,7 +6,6 @@ import { useLocale, useTranslations } from 'next-intl'
 import { Link, usePathname } from '@/i18n/navigation'
 import { signInHref } from '@/i18n/locale-preference'
 
-import { signOut } from '@/app/auth/actions'
 import { setLocalePreference } from '@/app/actions/locale-preference'
 import { useUser } from '@/lib/auth/use-user'
 import { trackSignOut } from '@/lib/analytics'
@@ -105,8 +104,9 @@ export function AccountMenu() {
             <DropdownMenuItem
               className={locale === targetLocale ? 'font-medium' : undefined}
               render={
-                // eslint-disable-next-line no-restricted-syntax -- ui-exception: render-prop injection for DropdownMenuItem, raw button is required by Base UI render prop API
+                /* eslint-disable no-restricted-syntax -- ui-exception: render-prop injection for DropdownMenuItem, raw button is required by Base UI render prop API */
                 <button type="submit" className="w-full text-left" aria-current={locale === targetLocale ? 'true' : undefined} />
+                /* eslint-enable no-restricted-syntax */
               }
             >
               {t(targetLocale === 'zh-TW'
@@ -116,13 +116,14 @@ export function AccountMenu() {
           </form>
         ))}
         <DropdownMenuSeparator />
-        <form action={signOut} onSubmit={preserveCurrentUrl}>
+        <form action="/auth/sign-out" method="post" onSubmit={preserveCurrentUrl}>
           <input type="hidden" name="returnTo" defaultValue={pathname} />
           <DropdownMenuItem
             variant="destructive"
             render={
-              // eslint-disable-next-line no-restricted-syntax -- ui-exception: render-prop injection for DropdownMenuItem, raw button is required by Base UI render prop API
+              /* eslint-disable no-restricted-syntax -- ui-exception: render-prop injection for DropdownMenuItem, raw button is required by Base UI render prop API */
               <button type="submit" className="w-full text-left" onClick={handleSignOut} />
+              /* eslint-enable no-restricted-syntax */
             }
           >
             {t('account.signOut')}

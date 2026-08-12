@@ -22,6 +22,7 @@ const ERROR_MESSAGE_KEYS = {
   "missing-code": "signIn.errors.missingCode",
   "expired-code": "signIn.errors.expiredCode",
   "oauth-failed": "signIn.errors.oauthFailed",
+  "invalid-credentials": "signIn.errors.default",
 } as const;
 
 export function SignInForm({
@@ -44,6 +45,7 @@ export function SignInForm({
     false,
     locale,
   );
+  const staging = process.env.NEXT_PUBLIC_DEPLOYMENT_ENV === "staging";
   const t = useTranslations("auth");
 
   const errorMessage =
@@ -120,14 +122,16 @@ export function SignInForm({
           />
         </div>
 
-        <div className="flex justify-end">
-          <Link
-            href="/auth/forgot-password"
-            className="type-caption text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
-          >
-            {t("signIn.forgotPassword")}
-          </Link>
-        </div>
+        {!staging ? (
+          <div className="flex justify-end">
+            <Link
+              href="/auth/forgot-password"
+              className="type-caption text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+            >
+              {t("signIn.forgotPassword")}
+            </Link>
+          </div>
+        ) : null}
 
         <Button
           type="submit"
@@ -139,17 +143,21 @@ export function SignInForm({
         </Button>
       </form>
 
-      <GoogleButton action={googleAction} />
+      {!staging ? (
+        <GoogleButton action={googleAction} />
+      ) : null}
 
-      <p className="text-center type-card-description">
-        {t("signIn.noAccount")}{" "}
-        <Link
-          href={signUpHref}
-          className="font-medium text-foreground underline-offset-4 hover:underline"
-        >
-          {t("signIn.signUpLink")}
-        </Link>
-      </p>
+      {!staging ? (
+        <p className="text-center type-card-description">
+          {t("signIn.noAccount")}{" "}
+          <Link
+            href={signUpHref}
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            {t("signIn.signUpLink")}
+          </Link>
+        </p>
+      ) : null}
     </div>
   );
 }
