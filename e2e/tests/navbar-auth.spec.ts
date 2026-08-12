@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { test, expect } from "../fixtures/auth";
 
-import { BUDGET } from "../budgets";
+import { BUDGET, POLL } from "../budgets";
 
 async function createDisposableSignOutUser() {
   const supabase = createClient(
@@ -155,7 +155,7 @@ test.describe("Navbar auth journey", () => {
         await expect(
           page.getByRole("button", { name: /account|帳號/i }),
         ).toHaveCount(0);
-      }).toPass({ timeout: 20_000, intervals: [1_000, 2_000, 3_000, 5_000] });
+      }).toPass(POLL.UI);
     } finally {
       await context.close();
       // Always delete the disposable user — resilient to mid-test failures
