@@ -19,7 +19,13 @@ import {
 } from '@/lib/constants/taiwan-cities'
 import { PUBLIC_BRAND_DATA_TAG } from '@/lib/cache/public-brand-cache'
 import { TEST_BRAND_NAME_PATTERN } from './public-brand-filter'
-import { matchSubcategory, subcategoryBySlug } from '@/lib/taxonomy/ontology'
+import {
+  matchSubcategory,
+  subcategoryBySlug,
+  PRODUCT_SUBCATEGORIES,
+  PRODUCT_TYPE_CATEGORIES,
+} from '@/lib/taxonomy/ontology'
+import { districtSlugFromName } from '@/lib/constants/taiwan-districts'
 import { logAdminAction } from './admin-audit'
 import { isOwnerOf } from './brand-owners'
 
@@ -109,6 +115,18 @@ export type StockistLocation = {
   productTags: string[]
 }
 
+export type StockistCitySummary = {
+  city: CitySlug
+  count: number
+  districts: Array<{ name: string; slug: string; count: number }>
+}
+
+export type StockistDistrictGroup = {
+  name: string | null
+  slug: string
+  locations: StockistLocation[]
+}
+
 type StockistReadRow = {
   id: string
   name: string
@@ -177,6 +195,80 @@ function matchesCategory(location: StockistLocation, category?: string): boolean
         (tag) => matchSubcategory(tag)?.slug === subcategory.slug,
       ),
   )
+}
+
+export function resolveStockistCategory(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const validCategories = [
+    ...PRODUCT_TYPE_CATEGORIES.map((category) => category.slug),
+    ...PRODUCT_SUBCATEGORIES.map((subcategory) => subcategory.slug),
+  ]
+  return validCategories.includes(value) ? value : undefined
+}
+
+export function summarizeStockistCities(
+  locations: StockistLocation[],
+): StockistCitySummary[] {
+  const byCity = new Map<CitySlug, StockistLocation[]>()
+  for (const location of locations) {
+    if (!location.city) continue
+    const cityLocations = byCity.get(location.city) ?? []
+    cityLocations.push(location)
+    byCity.set(location.city, cityLocations)
+  }
+
+  return [...byCity.entries()]
+    .map(([city, cityLocations]) => {
+      const counts = new Map<string, number>()
+      for (const location of cityLocations) {
+        if (location.district) {
+          counts.set(location.district, (counts.get(location.district) ?? 0) + 1)
+        }
+      }
+      return {
+        city,
+        count: cityLocations.length,
+        districts: [...counts.entries()]
+          .flatMap(([name, count]) => {
+            const slug = districtSlugFromName(city, name)
+            return slug ? [{ name, slug, count }] : []
+          })
+          .sort(
+            (left, right) =>
+              right.count - left.count || left.name.localeCompare(right.name),
+          ),
+      }
+    })
+    .sort((left, right) => right.count - left.count)
+}
+
+export function groupStockistsForCity(
+  locations: StockistLocation[],
+  city: CitySlug,
+): StockistDistrictGroup[] {
+  const groups = new Map<string | null, StockistLocation[]>()
+  for (const location of locations) {
+    if (location.city !== city) continue
+    const districtLocations = groups.get(location.district) ?? []
+    districtLocations.push(location)
+    groups.set(location.district, districtLocations)
+  }
+
+  const assigned = [...groups.entries()]
+    .filter((entry): entry is [string, StockistLocation[]] => Boolean(entry[0]))
+    .flatMap(([name, districtLocations]) => {
+      const slug = districtSlugFromName(city, name)
+      return slug ? [{ name, slug, locations: districtLocations }] : []
+    })
+    .sort(
+      (left, right) =>
+        right.locations.length - left.locations.length ||
+        left.name.localeCompare(right.name),
+    )
+  const unassigned = groups.get(null)
+  return unassigned
+    ? [...assigned, { name: null, slug: 'unassigned', locations: unassigned }]
+    : assigned
 }
 
 export const getStockistDirectory = unstable_cache(

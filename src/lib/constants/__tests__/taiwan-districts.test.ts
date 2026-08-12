@@ -29,7 +29,8 @@ describe("TAIWAN_DISTRICTS", () => {
   });
 
   it("every district has an English name in messages/en.json", () => {
-    expect(districts.every(({ slug }) => en.districts[slug])).toBe(true);
+    const names = en.districts as Record<string, string>;
+    expect(districts.every(({ slug }) => names[slug])).toBe(true);
   });
 
   it("every district has a non-empty zh name and slug", () => {

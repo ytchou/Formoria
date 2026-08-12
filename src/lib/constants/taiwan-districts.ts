@@ -5,6 +5,16 @@ export type TaiwanDistrict = {
   slug: string;
 };
 
+export function districtSlugFromName(
+  city: CitySlug,
+  name: string | null | undefined,
+): string | null {
+  if (!name) return null;
+  return (
+    TAIWAN_DISTRICTS[city].find((district) => district.zh === name)?.slug ?? null
+  );
+}
+
 /**
  * Official township-level names from the Ministry of the Interior NLSC
  * TOWN_MOI_1120317 boundary dataset. Slugs are stable public anchors.

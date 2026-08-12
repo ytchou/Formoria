@@ -110,3 +110,12 @@ export function citySlugFromName(name: string | null | undefined): CitySlug | nu
   if (!name) return null
   return CITY_SLUG_BY_NAME_ZH.get(name.replaceAll('台', '臺')) ?? null
 }
+
+export function citySlugToPath(slug: CitySlug): string {
+  return slug.replaceAll('_', '-')
+}
+
+export function citySlugFromPath(path: string): CitySlug | null {
+  const candidate = path.replaceAll('-', '_')
+  return CITY_SLUGS.find((slug) => slug === candidate) ?? null
+}
