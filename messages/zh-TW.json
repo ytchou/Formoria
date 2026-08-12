@@ -50,7 +50,8 @@
     "languageEnglish": "English",
     "about": "關於 Formoria",
     "stories": "專題",
-    "events": "展會"
+    "events": "展會",
+    "whereToBuy": "哪裡買"
   },
   "footer": {
     "about": "關於我們",
@@ -70,7 +71,8 @@
     "support": "支持我們",
     "legalHeading": "法律",
     "connectHeading": "聯絡",
-    "feedback": "功能建議"
+    "feedback": "功能建議",
+    "whereToBuy": "哪裡買"
   },
   "landing": {
     "metadata": {

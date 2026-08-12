@@ -4,6 +4,7 @@ import { PURCHASE_CHANNELS } from "@/lib/brands/purchase-channels";
 import { FORMORIA_SOCIALS } from "./constants";
 import { getSiteUrl } from "./seo/site-url";
 import type { BrandChannel } from "./types/brand-channel";
+import type { StockistLocation } from "./services/brand-channels";
 
 export type BreadcrumbItem = {
   label: string;
@@ -409,6 +410,41 @@ export function buildEventJsonLd({
   }
 
   return jsonLd;
+}
+
+export function buildStockistItemListJsonLd({
+  locations,
+  cityName,
+  canonicalUrl,
+}: {
+  locations: StockistLocation[];
+  cityName: string;
+  canonicalUrl: string;
+}): JsonLdObject {
+  const places = locations.filter(
+    (location): location is StockistLocation & { address: string } =>
+      Boolean(location.address),
+  );
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    numberOfItems: places.length,
+    itemListElement: places.map((location, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      item: {
+        "@type": "Place",
+        "@id": `${canonicalUrl}#stockist-${location.id}`,
+        name: location.name,
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: location.address,
+          addressLocality: cityName,
+          addressCountry: "TW",
+        },
+      },
+    })),
+  };
 }
 
 export type FaqQuestion = {

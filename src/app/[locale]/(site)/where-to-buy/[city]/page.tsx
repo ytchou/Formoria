@@ -18,6 +18,11 @@ import {
   summarizeStockistCities,
 } from '@/lib/services/brand-channels'
 import { PRODUCT_TYPE_CATEGORIES, categoryLabel } from '@/lib/taxonomy/ontology'
+import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
+import {
+  buildStockistItemListJsonLd,
+  safeJsonLdStringify,
+} from '@/lib/json-ld'
 
 export const revalidate = 3600
 
@@ -77,13 +82,23 @@ export default async function WhereToBuyCityPage({ params, searchParams }: PageP
   const count = groups.reduce((sum, group) => sum + group.locations.length, 0)
   const cityName = tCities(city)
   const cityUrl = `/where-to-buy/${citySlugToPath(city)}`
+  const canonicalUrl = buildAlternates(cityUrl, safeLocale).canonical
+  const jsonLd = buildStockistItemListJsonLd({
+    locations: groups.flatMap((group) => group.locations),
+    cityName,
+    canonicalUrl,
+  })
 
   return (
     <main id="main-content" className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 lg:py-16">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(jsonLd) }}
+      />
       <Breadcrumb ariaLabel={t('breadcrumbLabel')} items={[{ label: t('directory'), href: '/where-to-buy' }, { label: cityName }]} />
       <header className="max-w-3xl">
-        <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">{t('cityTitle', { city: cityName })}</h1>
-        <p className="mt-4 text-lg leading-8 text-muted-foreground">{t('cityDescription', { city: cityName, count })}</p>
+        <h1 className="type-page-title-large text-foreground">{t('cityTitle', { city: cityName })}</h1>
+        <p className="mt-4 type-page-subtitle text-muted-foreground">{t('cityDescription', { city: cityName, count })}</p>
         <div className="mt-6"><LocateButton copy={{ idle: t('useLocation'), locating: t('locating'), denied: t('locationDenied'), unavailable: t('locationUnavailable') }} /></div>
       </header>
 
@@ -97,6 +112,7 @@ export default async function WhereToBuyCityPage({ params, searchParams }: PageP
       </nav>
 
       <div className="mt-8">
+        {count > 0 ? <ViewItemListTracker listName={`where-to-buy-${city}`} itemCount={count} stockists /> : null}
         {groups.length > 0 ? groups.map((group) => (
           <DistrictSection key={group.slug} group={group} label={group.name ? tDistricts(group.slug) : t('unassigned')} locationLabel={t('locations')} mapsLabel={t('maps')} />
         )) : <p className="rounded-lg bg-secondary p-6 text-muted-foreground">{t('empty')}</p>}

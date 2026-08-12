@@ -14,6 +14,7 @@ export const GET = withAuditScope(async () => {
     ["Stories", "/stories"],
     ["About", "/about"],
     ["Events", "/events"],
+    ["Where to buy", "/where-to-buy"],
     ["FAQ", "/faq"],
   ].map(([label, path]) => ({ label, url: canonical(path) }));
 

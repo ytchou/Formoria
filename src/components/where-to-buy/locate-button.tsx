@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { LocateFixed } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { useRouter } from '@/i18n/navigation'
 import { citySlugToPath } from '@/lib/constants/taiwan-cities'
 import { TAIWAN_DISTRICT_CENTROIDS } from '@/lib/constants/taiwan-district-centroids'
@@ -50,11 +51,11 @@ export function LocateButton({ copy }: { copy: LocateCopy }) {
 
   return (
     <div>
-      <button type="button" onClick={locate} disabled={loading} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary px-5 font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-primary disabled:opacity-60">
+      <Button type="button" onClick={locate} disabled={loading}>
         <LocateFixed aria-hidden="true" className="size-5" />
         {loading ? copy.locating : copy.idle}
-      </button>
-      <p role="status" className="mt-2 min-h-6 text-sm text-muted-foreground">{status}</p>
+      </Button>
+      <p role="status" className="mt-2 min-h-6 type-caption text-muted-foreground">{status}</p>
     </div>
   )
 }

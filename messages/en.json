@@ -50,7 +50,8 @@
     "about": "About Formoria",
     "myBrands": "My Brand",
     "stories": "Stories",
-    "events": "Events"
+    "events": "Events",
+    "whereToBuy": "Where to buy"
   },
   "footer": {
     "about": "About",
@@ -70,7 +71,8 @@
     "support": "Support",
     "legalHeading": "Legal",
     "connectHeading": "Connect",
-    "feedback": "Feature requests"
+    "feedback": "Feature requests",
+    "whereToBuy": "Where to buy"
   },
   "landing": {
     "metadata": {

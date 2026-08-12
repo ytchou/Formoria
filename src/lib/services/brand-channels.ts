@@ -47,7 +47,7 @@ export type SubmitChannelResult =
   { ok: true; id: string } | { ok: false; code: SubmitChannelErrorCode }
 
 export type ChannelActionResult =
-  | { ok: true }
+  | { ok: true; city?: CitySlug | null }
   | {
       ok: false
       code: 'not_found' | 'not_owner' | 'invalid_status' | 'database_error'
@@ -81,7 +81,9 @@ type BrandChannelRow = {
   brand_channel_confirmations?: ConfirmationEmbed[] | ConfirmationEmbed | null
 }
 
-type ChannelLookupRow = Pick<BrandChannelRow, 'brand_id'>
+type ChannelLookupRow = Pick<BrandChannelRow, 'brand_id'> & {
+  region_label?: string | null
+}
 
 type EnrichedChannelRow = {
   name: string
@@ -614,7 +616,7 @@ export async function setOwnerChannelStatus(
       const supabase = createServiceClient()
       const { data: channel, error: lookupError } = await supabase
         .from('brand_channels')
-        .select('brand_id')
+        .select('brand_id, region_label')
         .eq('id', channelId)
         .maybeSingle()
 
@@ -635,7 +637,7 @@ export async function setOwnerChannelStatus(
         .eq('id', channelId)
 
       if (updateError) return { ok: false, code: 'database_error' }
-      return { ok: true }
+      return { ok: true, city: citySlugFromName((channel as ChannelLookupRow).region_label) }
     },
   )
 }
@@ -656,7 +658,7 @@ export async function adminRemoveChannel(
           removed_by: adminId,
         })
         .eq('id', channelId)
-        .select('brand_id')
+        .select('brand_id, region_label')
         .maybeSingle()
 
       if (error) return { ok: false, code: 'database_error' }
@@ -671,7 +673,7 @@ export async function adminRemoveChannel(
         metadata: { channelId },
       })
 
-      return { ok: true }
+      return { ok: true, city: citySlugFromName((data as ChannelLookupRow).region_label) }
     },
   )
 }

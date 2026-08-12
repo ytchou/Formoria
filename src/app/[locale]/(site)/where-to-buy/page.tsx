@@ -8,6 +8,7 @@ import {
   summarizeStockistCities,
 } from '@/lib/services/brand-channels'
 import { captureReadFailure } from '@/lib/degraded-render'
+import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
 
 export const revalidate = 3600
 
@@ -52,14 +53,15 @@ export default async function WhereToBuyPage({ params }: PageProps) {
     <main id="main-content" className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 lg:py-16">
       <header className="max-w-3xl">
         <p className="type-eyebrow text-primary">Formoria</p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">{t('indexTitle')}</h1>
-        <p className="mt-4 text-lg leading-8 text-muted-foreground">{t('indexIntro')}</p>
+        <h1 className="mt-3 type-page-title-large text-foreground">{t('indexTitle')}</h1>
+        <p className="mt-4 type-page-subtitle text-muted-foreground">{t('indexIntro')}</p>
         <div className="mt-6">
           <LocateButton copy={{ idle: t('useLocation'), locating: t('locating'), denied: t('locationDenied'), unavailable: t('locationUnavailable') }} />
         </div>
       </header>
 
       <div className="mt-10">
+        {locations.length > 0 ? <ViewItemListTracker listName="where-to-buy-index" itemCount={locations.length} stockists /> : null}
         {cities.map((summary) => (
           <CityCard key={summary.city} summary={summary} cityName={tCities(summary.city)} districtNames={districtNames} locationLabel={t('locations')} />
         ))}
@@ -67,11 +69,11 @@ export default async function WhereToBuyPage({ params }: PageProps) {
 
       {overseas.length > 0 ? (
         <section className="mt-10 rounded-lg bg-secondary p-6 sm:p-8">
-          <h2 className="text-2xl font-semibold text-foreground">{t('overseasTitle')}</h2>
-          <p className="mt-2 text-muted-foreground">{t('overseasDescription', { count: overseas.length, countries: countryCounts.size })}</p>
+          <h2 className="type-section-title text-foreground">{t('overseasTitle')}</h2>
+          <p className="mt-2 type-body-muted">{t('overseasDescription', { count: overseas.length, countries: countryCounts.size })}</p>
           <ul className="mt-5 grid gap-2 sm:grid-cols-2 md:grid-cols-3">
             {[...countryCounts.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([country, rows]) => (
-              <li key={country} className="flex justify-between gap-3 border-t border-border py-2 text-sm">
+              <li key={country} className="flex justify-between gap-3 border-t border-border py-2 type-caption">
                 <span>{countryNames.of(country) ?? country}</span><span className="text-muted-foreground">{rows.length}</span>
               </li>
             ))}

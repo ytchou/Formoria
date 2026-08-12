@@ -118,6 +118,10 @@ describe('getContentGroup', () => {
     expect(getContentGroup('/zh-TW/brands/some-brand')).toBe('brand_detail')
   })
 
+  it('maps /where-to-buy to its own group', () => {
+    expect(getContentGroup('/where-to-buy/taipei')).toBe('where_to_buy')
+  })
+
   it('maps /zh-TW/submit to submission', () => {
     expect(getContentGroup('/zh-TW/submit')).toBe('submission')
   })
