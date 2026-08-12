@@ -642,6 +642,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          CONTINUATION_KIND: ${{ inputs.continuation_kind }}
         run: |
           set -euo pipefail
           PROBE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
@@ -674,8 +675,9 @@ jobs:
             '{event:"e2e_selfheal_infrastructure_probe",request:{operation:$operation,auth_mode:$auth_mode,limit:1},response:{status:$status,content_type:$response_content_type},latency_ms:$latency_ms}'
           jq -n \
             --argjson errors "$(jq -c '[.failures[]?.errors[]?]' /tmp/playwright-report/selfheal-context.json)" \
+            --argjson errorsCurrent "$([ "$CONTINUATION_KIND" = infrastructure ] && echo false || echo true)" \
             --argjson probe "$(cat "$RUNNER_TEMP/supabase-probe.json")" \
-            '{errors:$errors,probe:$probe}' > "$RUNNER_TEMP/infrastructure-evidence.json"
+            '{errors:$errors,errorsCurrent:$errorsCurrent,probe:$probe}' > "$RUNNER_TEMP/infrastructure-evidence.json"
           pnpm exec tsx scripts/selfheal/incident-cli.ts classify-infrastructure \
             "$RUNNER_TEMP/infrastructure-evidence.json" > /tmp/playwright-report/infrastructure.json
           echo "confirmed=$(jq -r .confirmed /tmp/playwright-report/infrastructure.json)" >> "$GITHUB_OUTPUT"
