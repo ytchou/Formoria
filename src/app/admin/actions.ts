@@ -76,7 +76,7 @@ import { getSiteUrl } from '@/lib/site-url'
 import { getPostHogClient } from '@/lib/posthog-server'
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events'
 import { buildBrandListingPublishedEvent } from '@/lib/analytics/server-supply-events'
-import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
+import { revalidatePublicBrands } from '@/lib/cache/public-brand-cache'
 
 // Analytics runs inside withApprovalTimeout and after the DB commit, so an unbounded
 // flush could exhaust the approval budget and report failure for an approval that
@@ -314,9 +314,7 @@ function revalidateApprovals(results: ApprovalResult[]): void {
   if (results.some((result) => result.refresh)) {
     revalidatePath('/admin/brands')
   }
-  for (const result of results) {
-    revalidatePublicBrand({ slug: result.brandSlug })
-  }
+  revalidatePublicBrands(results.map((result) => result.brandSlug))
 }
 
 /**
@@ -854,7 +852,7 @@ export async function approveClaimAction(
       revalidatePath('/admin')
 
       if (claimRequest.brandSlug) {
-        revalidatePublicBrand({ slug: claimRequest.brandSlug })
+        revalidatePublicBrands([claimRequest.brandSlug])
       }
 
       try {
@@ -1002,10 +1000,7 @@ export async function updateBrandAction(
 
       revalidatePath('/admin/brands')
       revalidatePath('/admin')
-      revalidatePublicBrand({
-        slug: updatedBrand.slug,
-        previousSlug: previousBrand.slug,
-      })
+      revalidatePublicBrands([updatedBrand.slug, previousBrand.slug])
       return undefined
     } catch (err) {
       console.error('[admin:updateBrand]', err)
@@ -1028,7 +1023,7 @@ export async function hideBrandAction(
 
       revalidatePath('/admin/brands')
       revalidatePath('/admin')
-      revalidatePublicBrand({ slug: brand.slug })
+      revalidatePublicBrands([brand.slug])
       return undefined
     } catch (err) {
       console.error('[admin:hideBrand]', err)
@@ -1051,7 +1046,7 @@ export async function unhideBrandAction(
 
       revalidatePath('/admin/brands')
       revalidatePath('/admin')
-      revalidatePublicBrand({ slug: brand.slug })
+      revalidatePublicBrands([brand.slug])
       return undefined
     } catch (err) {
       console.error('[admin:unhideBrand]', err)
@@ -1075,7 +1070,7 @@ export async function deleteBrandAction(
 
       revalidatePath('/admin/brands')
       revalidatePath('/admin')
-      revalidatePublicBrand({ slug: brand.slug })
+      revalidatePublicBrands([brand.slug])
       return undefined
     } catch (err) {
       console.error('[admin:deleteBrand]', err)
@@ -1201,7 +1196,7 @@ export async function revokeOwnershipAction(
 
       revalidatePath('/admin/reports')
       revalidatePath('/admin')
-      revalidatePublicBrand({ slug: brand.slug })
+      revalidatePublicBrands([brand.slug])
       return undefined
     } catch (err) {
       console.error('[admin:revokeOwnership]', err)

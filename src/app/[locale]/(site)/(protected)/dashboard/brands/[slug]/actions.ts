@@ -31,7 +31,7 @@ import { logAdminActionIfAdmin } from "@/lib/services/admin-audit";
 import type { Brand } from "@/lib/types";
 import { buildModerationPayload } from "./actions-utils";
 import { slugifyRomanizedName } from "@/lib/brands/slug";
-import { revalidatePublicBrand } from "@/lib/cache/public-brand-cache";
+import { revalidatePublicBrands } from "@/lib/cache/public-brand-cache";
 import {
   declareMit,
   withdrawDeclaration,
@@ -79,7 +79,7 @@ export async function declareMitAction(
       if (!result.ok) return { error: t(result.code) };
 
       trackMitDeclared(editor.brand.id, editor.brand.slug, scope);
-      revalidatePublicBrand({ slug: editor.brand.slug });
+      revalidatePublicBrands([editor.brand.slug]);
       return { success: true };
     } catch (error) {
       console.error("[brand:declareMitAction]", error);
@@ -104,7 +104,7 @@ export async function withdrawDeclarationAction(
       });
       if (!result.ok) return { error: t(result.code) };
 
-      revalidatePublicBrand({ slug: editor.brand.slug });
+      revalidatePublicBrands([editor.brand.slug]);
       return { success: true };
     } catch (error) {
       console.error("[brand:withdrawDeclarationAction]", error);
@@ -271,10 +271,7 @@ export async function publishDraftAction(
         }
         await releaseBrandImageUrls(supabase, brand.id, orphans);
 
-        revalidatePublicBrand({
-          slug: publishedBrand.slug,
-          previousSlug: brand.slug,
-        });
+        revalidatePublicBrands([publishedBrand.slug, brand.slug]);
         revalidatePath("/dashboard");
       } else {
         const nextImageUrls = imageUrlsFromBrand({
@@ -315,10 +312,7 @@ export async function publishDraftAction(
           brand.id,
         );
 
-        revalidatePublicBrand({
-          slug: publishedBrand.slug,
-          previousSlug: brand.slug,
-        });
+        revalidatePublicBrands([publishedBrand.slug, brand.slug]);
         revalidatePath("/dashboard");
       }
 

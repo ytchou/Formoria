@@ -7,7 +7,7 @@ import { requireOwnerFeaturesEnabled } from '@/lib/auth/require-owner-features'
 import { isOwnerOf } from '@/lib/services/brand-owners'
 import { verifyMitByCert } from '@/lib/services/mit-verification'
 import { getBrandById } from '@/lib/services/brands'
-import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
+import { revalidatePublicBrands } from '@/lib/cache/public-brand-cache'
 
 export async function verifyMitAction(
   brandId: string,
@@ -39,7 +39,7 @@ export async function verifyMitAction(
       }
 
       const brand = await getBrandById(brandId)
-      revalidatePublicBrand({ slug: brand.slug })
+      revalidatePublicBrands([brand.slug])
       revalidatePath('/dashboard')
 
       return undefined

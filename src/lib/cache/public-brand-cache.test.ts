@@ -10,108 +10,109 @@ vi.mock('next/cache', () => ({ revalidatePath, revalidateTag }))
 import { routing } from '@/i18n/routing'
 import {
   PUBLIC_BRAND_DATA_TAG,
-  revalidatePublicBrand,
-  revalidatePublicEvent,
+  revalidatePublicBrands,
+  revalidatePublicEvents,
 } from './public-brand-cache'
 
-const revalidatedPaths = () => revalidatePath.mock.calls.map(([path]) => path)
+const revalidatedPaths = () => revalidatePath.mock.calls
 
-describe('revalidatePublicBrand', () => {
+describe('revalidatePublicBrands', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('invalidates every locale-prefixed variant, discovery pages, and the sitemap', () => {
-    revalidatePublicBrand({ slug: 'niizo' })
+  it('invalidates all brand-dependent cached page families once per batch', () => {
+    revalidatePublicBrands(['niizo', 'kiln'])
 
+    expect(revalidateTag).toHaveBeenCalledTimes(1)
+    expect(revalidateTag).toHaveBeenCalledWith(PUBLIC_BRAND_DATA_TAG, 'max')
     expect(revalidatedPaths()).toEqual(
       expect.arrayContaining([
-        '/zh-TW/brands/niizo',
-        '/en/brands/niizo',
-        '/zh-TW',
-        '/en',
-        '/zh-TW/brands',
-        '/en/brands',
-        '/zh-TW/about',
-        '/en/about',
-        '/sitemap.xml',
+        ['/zh-TW/brands/niizo'],
+        ['/en/brands/niizo'],
+        ['/site/niizo'],
+        ['/zh-TW/brands/kiln'],
+        ['/en/brands/kiln'],
+        ['/site/kiln'],
+        ['/zh-TW'],
+        ['/en'],
+        ['/zh-TW/about'],
+        ['/en/about'],
+        ['/zh-TW/events'],
+        ['/en/events'],
+        ['/sitemap.xml'],
+        ['/[locale]/events/[slug]', 'page'],
+        ['/[locale]/stories/[slug]', 'page'],
       ]),
     )
   })
 
-  it('invalidates the shared public brand data cache', () => {
-    revalidatePublicBrand({ slug: 'niizo' })
-
-    expect(revalidateTag).toHaveBeenCalledWith(PUBLIC_BRAND_DATA_TAG, 'max')
-  })
-
-  it('never emits unprefixed paths — `as-needed` keeps the locale in the ISR cache key', () => {
-    revalidatePublicBrand({ slug: 'niizo', previousSlug: 'old-niizo' })
-
-    expect(revalidatedPaths()).not.toContain('/brands/niizo')
-    expect(revalidatedPaths()).not.toContain('/brands/old-niizo')
-    expect(revalidatedPaths()).not.toContain('/brands')
-    expect(revalidatedPaths()).not.toContain('/about')
-    expect(revalidatedPaths()).not.toContain('/')
-  })
-
-  it('covers the previous slug in every locale after a rename', () => {
-    revalidatePublicBrand({ slug: 'niizo', previousSlug: 'old-niizo' })
-
-    expect(revalidatedPaths()).toEqual(
-      expect.arrayContaining(['/zh-TW/brands/old-niizo', '/en/brands/old-niizo']),
-    )
-  })
-
-  it('skips the previous slug when it matches the current slug', () => {
-    revalidatePublicBrand({ slug: 'niizo', previousSlug: 'niizo' })
+  it('deduplicates slugs and never invalidates dynamic directory or taxonomy paths', () => {
+    revalidatePublicBrands(['niizo', ' niizo ', 'kiln', ''])
 
     expect(
-      revalidatedPaths().filter((path) => path === '/zh-TW/brands/niizo'),
+      revalidatedPaths().filter(([path]) => path === '/zh-TW/brands/niizo'),
     ).toHaveLength(1)
+    expect(revalidatedPaths().filter(([path]) => path === '/site/niizo')).toHaveLength(1)
+    expect(revalidatedPaths()).not.toContainEqual(['/zh-TW/brands'])
+    expect(revalidatedPaths()).not.toContainEqual(['/en/brands'])
+    expect(
+      revalidatedPaths().some(
+        ([path]) => typeof path === 'string' && path.startsWith('/categories/'),
+      ),
+    ).toBe(false)
   })
 
-  it('emits one brand path per configured locale so a new locale cannot regress', () => {
-    revalidatePublicBrand({ slug: 'niizo' })
+  it('emits one localized detail path per configured locale', () => {
+    revalidatePublicBrands(['niizo'])
 
     expect(
-      revalidatedPaths().filter((path) => path.endsWith('/brands/niizo')),
-    ).toEqual(routing.locales.map((locale) => `/${locale}/brands/niizo`))
+      revalidatedPaths().filter(([path]) =>
+        typeof path === 'string' && path.endsWith('/brands/niizo'),
+      ),
+    ).toEqual(routing.locales.map((locale) => [`/${locale}/brands/niizo`]))
+  })
+
+  it('does nothing for an empty brand batch', () => {
+    revalidatePublicBrands([])
+
+    expect(revalidateTag).not.toHaveBeenCalled()
+    expect(revalidatePath).not.toHaveBeenCalled()
   })
 })
 
-describe('revalidatePublicEvent', () => {
+describe('revalidatePublicEvents', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('invalidates the hub, the detail page in every locale, and the sitemap', () => {
-    revalidatePublicEvent({ slug: 'taipei-design-market-2026' })
+  it('invalidates the event hub, sitemap, and each unique localized detail page', () => {
+    revalidatePublicEvents([
+      'taipei-design-market-2026',
+      ' taipei-design-market-2026 ',
+      'spring-craft-fair',
+    ])
 
-    // The sitemap now emits /events/<slug> URLs, so skipping it leaves a freshly
-    // seeded event out of the served sitemap.xml for the full revalidate window.
     expect(revalidatedPaths()).toEqual(
       expect.arrayContaining([
-        '/zh-TW/events',
-        '/en/events',
-        '/zh-TW/events/taipei-design-market-2026',
-        '/en/events/taipei-design-market-2026',
-        '/sitemap.xml',
+        ['/zh-TW/events'],
+        ['/en/events'],
+        ['/zh-TW/events/taipei-design-market-2026'],
+        ['/en/events/taipei-design-market-2026'],
+        ['/zh-TW/events/spring-craft-fair'],
+        ['/en/events/spring-craft-fair'],
+        ['/sitemap.xml'],
       ]),
     )
+    expect(
+      revalidatedPaths().filter(
+        ([path]) => path === '/zh-TW/events/taipei-design-market-2026',
+      ),
+    ).toHaveLength(1)
   })
 
-  it('never emits unprefixed event paths — `as-needed` keeps the locale in the ISR cache key', () => {
-    revalidatePublicEvent({ slug: 'taipei-design-market-2026' })
-
-    expect(revalidatedPaths()).not.toContain('/events')
-    expect(revalidatedPaths()).not.toContain(
-      '/events/taipei-design-market-2026',
-    )
-  })
-
-  it('revalidates the hub and the sitemap when no slug is given', () => {
-    revalidatePublicEvent()
+  it('keeps the hub and sitemap fresh when no event slug is known', () => {
+    revalidatePublicEvents([])
 
     expect(revalidatedPaths()).toEqual([
-      ...routing.locales.map((locale) => `/${locale}/events`),
-      '/sitemap.xml',
+      ...routing.locales.map((locale) => [`/${locale}/events`]),
+      ['/sitemap.xml'],
     ])
   })
 })
