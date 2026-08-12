@@ -33,7 +33,7 @@ import {
 } from '@/lib/services/brand-channels'
 import {
   revalidateLocalizedPath,
-  revalidatePublicBrand,
+  revalidatePublicBrands,
 } from '@/lib/cache/public-brand-cache'
 import { isOwnerOf } from '@/lib/services/brand-owners'
 import type { ChannelType } from '@/lib/types/brand-channel'
@@ -112,7 +112,7 @@ export async function confirmChannelAction(
       if (!user) return { error: 'not_logged_in' }
 
       const confirmationCount = await confirmChannel(user.id, channelId)
-      revalidatePublicBrand({ slug: brandSlug })
+      revalidatePublicBrands([brandSlug])
       return { confirmationCount }
     } catch (error) {
       console.error('[brands:confirmChannel]', error)
@@ -170,7 +170,7 @@ export async function submitChannelInfoAction(
       })
       if (!result.ok) return { error: t(result.code) }
 
-      revalidatePublicBrand({ slug: brandSlug })
+      revalidatePublicBrands([brandSlug])
       return { success: true }
     } catch (error) {
       console.error('[brands:submitChannelInfo]', error)
@@ -192,7 +192,7 @@ export async function ownerModerateChannelAction(
       const result = await setOwnerChannelStatus(user.id, channelId, status)
       if (!result.ok) return { error: result.code }
 
-      revalidatePublicBrand({ slug: brandSlug })
+      revalidatePublicBrands([brandSlug])
       return { success: true }
     } catch (error) {
       console.error('[brands:ownerModerateChannel]', error)

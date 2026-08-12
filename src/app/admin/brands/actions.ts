@@ -3,7 +3,7 @@
 import { runWithAuditContext } from "@/lib/audit/context";
 import { revalidatePath } from "next/cache";
 import { requireAdminAction } from "@/lib/auth/require-admin";
-import { revalidatePublicBrand } from "@/lib/cache/public-brand-cache";
+import { revalidatePublicBrands } from "@/lib/cache/public-brand-cache";
 import { getBrandById } from "@/lib/services/brands";
 import { saveModerationFlags, scanContent } from "@/lib/services/moderation";
 import {
@@ -77,10 +77,7 @@ export async function saveAdminBrandReviewAction(
       const updated = await getBrandById(idResult.data);
       revalidatePath("/admin/brands");
       revalidatePath("/admin");
-      revalidatePublicBrand({
-        slug: updated.slug,
-        previousSlug: previous.slug,
-      });
+      revalidatePublicBrands([updated.slug, previous.slug]);
       return undefined;
     } catch (error) {
       return {

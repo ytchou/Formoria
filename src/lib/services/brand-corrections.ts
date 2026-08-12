@@ -1,4 +1,4 @@
-import { revalidatePublicBrand } from "@/lib/cache/public-brand-cache";
+import { revalidatePublicBrands } from "@/lib/cache/public-brand-cache";
 import {
   isPrivateUrl,
   normalizeInstagramHref,
@@ -897,7 +897,7 @@ export async function reviewCorrection(
     // Cache invalidation follows the data write, never the happy path: a failed
     // supersede must not leave the public ISR pages serving the old value for
     // up to an hour with no way to trigger revalidation.
-    revalidatePublicBrand({ slug: row.brands.slug });
+    revalidatePublicBrands([row.brands.slug]);
     if (!superseded.ok) return superseded;
     return { ok: true };
   } catch (error) {

@@ -2,8 +2,8 @@ import { withAuditScope } from "@/lib/audit/scope";
 import { NextResponse } from "next/server";
 import { isAuthorizedMachineCaller } from "@/lib/security/machine-caller";
 import {
-  revalidatePublicBrand,
-  revalidatePublicEvent,
+  revalidatePublicBrands,
+  revalidatePublicEvents,
 } from "@/lib/cache/public-brand-cache";
 
 export const runtime = "nodejs";
@@ -58,20 +58,10 @@ export const POST = withAuditScope(async (req: Request) => {
       return NextResponse.json({ error: "Too many slugs" }, { status: 400 });
     }
 
-    for (const slug of brandSlugs) {
-      revalidatePublicBrand({ slug });
-    }
-
     if (events !== undefined) {
-      // An empty list still means "events changed": the hub and the sitemap are
-      // stale even when no detail page was named.
-      if (eventSlugs.length === 0) {
-        revalidatePublicEvent();
-      }
-      for (const slug of eventSlugs) {
-        revalidatePublicEvent({ slug });
-      }
+      revalidatePublicEvents(eventSlugs);
     }
+    revalidatePublicBrands(brandSlugs);
 
     return NextResponse.json({
       revalidated: brandSlugs.length + eventSlugs.length,
