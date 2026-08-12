@@ -227,7 +227,7 @@ jobs:
         id: sentry-analysis-1
         if: steps.admission.outputs.claimed == 'true' && steps.sentry-schema.outputs.count != '0'
         continue-on-error: true
-        uses: anthropics/claude-code-action@239e3a730883c8682b94e8b06e50b421055d4a7b # v1
+        uses: anthropics/claude-code-action@239e3a730883eeb5c53db12b0fc9573b3024b126 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -254,7 +254,7 @@ jobs:
           steps.sentry-schema.outputs.count != '0' &&
           (steps.sentry-analysis-1.outcome != 'success' || steps.sentry-materialize-1.outcome != 'success')
         continue-on-error: true
-        uses: anthropics/claude-code-action@239e3a730883c8682b94e8b06e50b421055d4a7b # v1
+        uses: anthropics/claude-code-action@239e3a730883eeb5c53db12b0fc9573b3024b126 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -375,7 +375,7 @@ jobs:
         id: repair-1
         if: steps.admission.outputs.claimed == 'true' && steps.setup.outputs.autofix == 'true' && steps.snapshot.outputs.count != '0'
         continue-on-error: true
-        uses: anthropics/claude-code-action@239e3a730883c8682b94e8b06e50b421055d4a7b # v1
+        uses: anthropics/claude-code-action@239e3a730883eeb5c53db12b0fc9573b3024b126 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -428,7 +428,7 @@ jobs:
         id: review-1
         if: steps.admission.outputs.claimed == 'true' && steps.validate-1.outcome == 'success'
         continue-on-error: true
-        uses: anthropics/claude-code-action@239e3a730883c8682b94e8b06e50b421055d4a7b # v1
+        uses: anthropics/claude-code-action@239e3a730883eeb5c53db12b0fc9573b3024b126 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -471,7 +471,7 @@ jobs:
           steps.repair-1.outcome == 'success' &&
           (steps.validate-1.outcome != 'success' || steps.review-decision-1.outcome != 'success')
         continue-on-error: true
-        uses: anthropics/claude-code-action@239e3a730883c8682b94e8b06e50b421055d4a7b # v1
+        uses: anthropics/claude-code-action@239e3a730883eeb5c53db12b0fc9573b3024b126 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -512,7 +512,7 @@ jobs:
         id: review-2
         if: steps.admission.outputs.claimed == 'true' && steps.validate-2.outcome == 'success'
         continue-on-error: true
-        uses: anthropics/claude-code-action@239e3a730883c8682b94e8b06e50b421055d4a7b # v1
+        uses: anthropics/claude-code-action@239e3a730883eeb5c53db12b0fc9573b3024b126 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
