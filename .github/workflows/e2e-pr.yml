@@ -3,16 +3,6 @@ name: E2E PR (targeted)
 on:
   pull_request:
     branches: [main, staging]
-    # Evaluated before a runner is allocated: a PR touching none of these
-    # costs zero runner-seconds.
-    paths:
-      - "src/**"
-      - "e2e/**"
-      - "messages/**"
-      - "public/**"
-      - "playwright.config.*"
-      - "scripts/e2e-select-specs.mjs"
-      - ".github/workflows/e2e-pr.yml"
   workflow_dispatch: {}
 
 concurrency:
