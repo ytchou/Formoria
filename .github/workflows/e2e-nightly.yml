@@ -724,6 +724,7 @@ jobs:
       - name: Diagnose complete failure set
         if: steps.guard.outputs.skip != 'true' && steps.infrastructure.outputs.confirmed != 'true' && inputs.continuation_kind != 'base-sync' && inputs.continuation_kind != 'infrastructure'
         id: diagnose
+        continue-on-error: true
         uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -738,13 +739,37 @@ jobs:
             root_workflow_url: ${{ steps.context.outputs.source_workflow_url }}
           claude_args: >-
             --max-turns 80
-            --allowedTools "Read,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(gh run view:*),Bash(ls:*),Bash(find:*),Bash(sed:*),Bash(cat:*),Bash(pwd:*)"
+            --allowedTools "Read,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(gh run view:*),Bash(ls:*),Bash(find:*),Bash(sed:*),Bash(cat:*),Bash(jq:*),Bash(pwd:*)"
+            --json-schema '{"type":"object","additionalProperties":false,"required":["version","failureSetHash","failures","clusters","complete"],"properties":{"version":{"const":1},"failureSetHash":{"type":"string"},"failures":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","file","title","project","category","rootCauseKey","actionable","reason"],"properties":{"id":{"type":"string"},"file":{"type":["string","null"]},"title":{"type":"string"},"project":{"type":"string"},"category":{"enum":["test-drift","seed-drift","app-regression","env-flake","flaky-suspect"]},"rootCauseKey":{"type":"string"},"actionable":{"type":"boolean"},"reason":{"type":"string"}}}},"clusters":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["rootCauseKey","failureIds","category","actionable","plannedFiles","diagnosis","repairPlan"],"properties":{"rootCauseKey":{"type":"string"},"failureIds":{"type":"array","items":{"type":"string"}},"category":{"type":"string"},"actionable":{"type":"boolean"},"plannedFiles":{"type":"array","items":{"type":"string"}},"diagnosis":{"type":"string"},"repairPlan":{"type":"string"}}}},"complete":{"const":true}}}'
+
+      - name: Retry diagnosis contract once
+        if: steps.diagnose.outcome == 'failure'
+        id: diagnose_retry
+        uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.SELFHEAL_PAT }}
+          allowed_bots: github-actions
+          additional_permissions: |
+            actions: read
+          prompt: |
+            Read .github/selfheal/diagnose.md and diagnose every ID in
+            /tmp/playwright-report/frozen-failures.json. The complete evidence is
+            in /tmp/playwright-report. Do not edit files or execute Playwright.
+            The previous diagnosis attempt did not emit structured output. You
+            must return the complete DiagnosisResult JSON, including when every
+            cluster is non-actionable.
+            root_workflow_url: ${{ steps.context.outputs.source_workflow_url }}
+          claude_args: >-
+            --max-turns 80
+            --allowedTools "Read,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(gh run view:*),Bash(ls:*),Bash(find:*),Bash(sed:*),Bash(cat:*),Bash(jq:*),Bash(pwd:*)"
             --json-schema '{"type":"object","additionalProperties":false,"required":["version","failureSetHash","failures","clusters","complete"],"properties":{"version":{"const":1},"failureSetHash":{"type":"string"},"failures":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","file","title","project","category","rootCauseKey","actionable","reason"],"properties":{"id":{"type":"string"},"file":{"type":["string","null"]},"title":{"type":"string"},"project":{"type":"string"},"category":{"enum":["test-drift","seed-drift","app-regression","env-flake","flaky-suspect"]},"rootCauseKey":{"type":"string"},"actionable":{"type":"boolean"},"reason":{"type":"string"}}}},"clusters":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["rootCauseKey","failureIds","category","actionable","plannedFiles","diagnosis","repairPlan"],"properties":{"rootCauseKey":{"type":"string"},"failureIds":{"type":"array","items":{"type":"string"}},"category":{"type":"string"},"actionable":{"type":"boolean"},"plannedFiles":{"type":"array","items":{"type":"string"}},"diagnosis":{"type":"string"},"repairPlan":{"type":"string"}}}},"complete":{"const":true}}}'
 
       - name: Validate diagnosis artifact
-        if: steps.diagnose.outcome == 'success'
+        if: steps.diagnose.outcome == 'success' || steps.diagnose_retry.outcome == 'success'
+        id: diagnosis_validation
         env:
-          DIAGNOSIS_RESULT: ${{ steps.diagnose.outputs.structured_output }}
+          DIAGNOSIS_RESULT: ${{ steps.diagnose.outputs.structured_output || steps.diagnose_retry.outputs.structured_output }}
         run: |
           printf '%s' "$DIAGNOSIS_RESULT" > /tmp/playwright-report/diagnosis.json
           pnpm exec tsx scripts/selfheal/incident-cli.ts validate-diagnosis \
@@ -753,7 +778,7 @@ jobs:
           mv "$RUNNER_TEMP/validated-diagnosis.json" /tmp/playwright-report/diagnosis.json
 
       - name: Repair every actionable cluster
-        if: steps.diagnose.outcome == 'success'
+        if: steps.diagnosis_validation.outcome == 'success'
         id: fix
         uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1
         with:
