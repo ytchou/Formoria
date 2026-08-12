@@ -58,6 +58,21 @@ describe("nightly E2E batch self-heal contract", () => {
     );
   });
 
+  it("passes agent JSON through the environment before shell validation", async () => {
+    const source = await workflow();
+    const diagnosis = source.slice(
+      source.indexOf("- name: Validate diagnosis artifact"),
+      source.indexOf("- name: Repair every actionable cluster"),
+    );
+    expect(diagnosis).toContain(
+      "DIAGNOSIS_RESULT: ${{ steps.diagnose.outputs.structured_output }}",
+    );
+    expect(diagnosis).toContain("printf '%s' \"$DIAGNOSIS_RESULT\"");
+    expect(diagnosis).not.toContain(
+      "printf '%s' '${{ steps.diagnose.outputs.structured_output }}'",
+    );
+  });
+
   it("caps repair, infrastructure, and base-sync continuations incident-wide", async () => {
     const source = await workflow();
     expect(source).toContain('options: ["1", "2", "3"]');

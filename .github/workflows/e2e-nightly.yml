@@ -741,8 +741,10 @@ jobs:
 
       - name: Validate diagnosis artifact
         if: steps.diagnose.outcome == 'success'
+        env:
+          DIAGNOSIS_RESULT: ${{ steps.diagnose.outputs.structured_output }}
         run: |
-          printf '%s' '${{ steps.diagnose.outputs.structured_output }}' > /tmp/playwright-report/diagnosis.json
+          printf '%s' "$DIAGNOSIS_RESULT" > /tmp/playwright-report/diagnosis.json
           pnpm exec tsx scripts/selfheal/incident-cli.ts validate-diagnosis \
             /tmp/playwright-report/frozen-failures.json /tmp/playwright-report/diagnosis.json \
             > "$RUNNER_TEMP/validated-diagnosis.json"
