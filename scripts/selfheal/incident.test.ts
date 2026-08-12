@@ -219,6 +219,12 @@ describe("self-heal incident contracts", () => {
     ).toBe(true);
     expect(
       classifyInfrastructure({
+        errors: [],
+        probe: { authenticated: false, ok: false, status: 401 },
+      }).confirmed,
+    ).toBe(false);
+    expect(
+      classifyInfrastructure({
         errors: ["Expected heading to be visible"],
         probe: { authenticated: true, ok: true, status: 200 },
       }).confirmed,
