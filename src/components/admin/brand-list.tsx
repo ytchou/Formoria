@@ -256,7 +256,7 @@ export function BrandList({
         </TabsList>
       </Tabs>
 
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-2 type-body text-destructive">{error}</p>}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Input

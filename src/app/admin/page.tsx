@@ -235,7 +235,7 @@ export default async function AdminPage() {
                 <span className="font-medium">
                   {formatJobDate(job.created_at)}
                 </span>
-                <span className="text-sm text-muted-foreground">
+                <span className="type-body-muted">
                   {job.succeeded_count +
                     job.skipped_count +
                     job.failed_count +

@@ -280,7 +280,9 @@ export function ReportsTable({
             {item.notes ? (
               <div>
                 <p className="type-metadata">{t("notes")}</p>
-                <p className="mt-1 whitespace-pre-wrap text-sm">{item.notes}</p>
+                <p className="mt-1 whitespace-pre-wrap type-body">
+                  {item.notes}
+                </p>
               </div>
             ) : null}
 

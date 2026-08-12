@@ -1,23 +1,26 @@
-import { useTranslations } from 'next-intl'
-import type { ReactNode } from 'react'
-import type { PublicBrandDetail } from '@/lib/brands/contracts'
-import { Badge } from '@/components/ui/badge'
-import { InfoField } from '@/components/ui/card'
-import { Typography } from '@/components/ui/typography'
-import { cn } from '@/lib/utils'
-import { MitDeclaredBadge, MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
-import { CorrectionDialog } from './correction-dialog'
+import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
+import type { PublicBrandDetail } from "@/lib/brands/contracts";
+import { Badge } from "@/components/ui/badge";
+import { InfoField } from "@/components/ui/card";
+import { Typography } from "@/components/ui/typography";
+import { cn } from "@/lib/utils";
+import {
+  MitDeclaredBadge,
+  MitVerifiedBadge,
+  OwnerVerifiedBadge,
+} from "./brand-verification-badges";
+import { CorrectionDialog } from "./correction-dialog";
 
-const infoLabelClassName =
-  'type-field-label uppercase tracking-[0.08em]'
+const infoLabelClassName = "type-field-label uppercase tracking-[0.08em]";
 
 interface BrandHeaderProps {
-  brand: PublicBrandDetail
-  categoryLabel?: string | null
-  cityLabel?: string | null
-  locale?: string
-  actionsSlot?: ReactNode
-  adminSlot?: ReactNode
+  brand: PublicBrandDetail;
+  categoryLabel?: string | null;
+  cityLabel?: string | null;
+  locale?: string;
+  actionsSlot?: ReactNode;
+  adminSlot?: ReactNode;
 }
 
 export function BrandHeader({
@@ -28,36 +31,44 @@ export function BrandHeader({
   actionsSlot,
   adminSlot,
 }: BrandHeaderProps) {
-  const t = useTranslations('brandDetail')
-  const hasMitDeclaredBadge = brand.mitStatus === 'declared'
-  const hasMitVerifiedBadge = brand.mitStatus === 'verified'
-  const hasOwnerVerifiedBadge = brand.isVerified
-  const hasVerification = hasMitDeclaredBadge || hasMitVerifiedBadge || hasOwnerVerifiedBadge
-  const mitSmileCert = hasMitVerifiedBadge ? brand.mitCertificateNumber : undefined
-  const priceRangeLabel = brand.priceRange != null ? '$'.repeat(brand.priceRange) : null
-  const resolvedCategory = categoryLabel ?? brand.category
+  const t = useTranslations("brandDetail");
+  const hasMitDeclaredBadge = brand.mitStatus === "declared";
+  const hasMitVerifiedBadge = brand.mitStatus === "verified";
+  const hasOwnerVerifiedBadge = brand.isVerified;
+  const hasVerification =
+    hasMitDeclaredBadge || hasMitVerifiedBadge || hasOwnerVerifiedBadge;
+  const mitSmileCert = hasMitVerifiedBadge
+    ? brand.mitCertificateNumber
+    : undefined;
+  const priceRangeLabel =
+    brand.priceRange != null ? "$".repeat(brand.priceRange) : null;
+  const resolvedCategory = categoryLabel ?? brand.category;
   const resolvedTags =
     brand.productTags.length > 0
-      ? locale === 'en'
+      ? locale === "en"
         ? brand.productTagsEn.length > 0
           ? brand.productTagsEn
           : brand.productTags
         : brand.productTags
-      : []
+      : [];
   const unknownValue = (
-    <Typography as="span" className="text-muted-foreground" variant="fieldValue">
-      {t('unknown')}
+    <Typography
+      as="span"
+      className="text-muted-foreground"
+      variant="fieldValue"
+    >
+      {t("unknown")}
     </Typography>
-  )
+  );
 
   return (
     <div>
       <div className="space-y-3">
         {/* Brand name */}
         <div className="flex items-start justify-between gap-4">
-          <h1 className="type-display">
+          <Typography as="h1" variant="display">
             {brand.name}
-          </h1>
+          </Typography>
           {adminSlot}
         </div>
 
@@ -65,10 +76,14 @@ export function BrandHeader({
         {actionsSlot}
       </div>
 
-      <section aria-labelledby="brand-info-heading" id="brand-info-section" className="mt-7">
+      <section
+        aria-labelledby="brand-info-heading"
+        id="brand-info-section"
+        className="mt-7"
+      >
         <div className="flex items-center justify-between gap-4">
-          <Typography as="h2" id="brand-info-heading" variant="sectionTitleLarge">
-            {t('sectionTitle')}
+          <Typography as="h2" id="brand-info-heading" variant="sectionTitle">
+            {t("sectionTitle")}
           </Typography>
           <CorrectionDialog
             brandId={brand.id}
@@ -81,29 +96,38 @@ export function BrandHeader({
         {hasVerification && (
           <div
             className={cn(
-              'mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg px-3 py-2.5',
-              hasMitVerifiedBadge ? 'bg-mit-verified-bg' : 'bg-secondary',
+              "mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg px-3 py-2.5",
+              hasMitVerifiedBadge ? "bg-mit-verified-bg" : "bg-secondary",
             )}
           >
             {hasMitDeclaredBadge && (
-              <MitDeclaredBadge label={t('mitDeclared')} title={t('mitDeclaredTitle')} />
+              <MitDeclaredBadge
+                label={t("mitDeclared")}
+                title={t("mitDeclaredTitle")}
+              />
             )}
             {hasMitVerifiedBadge && (
-              <MitVerifiedBadge label={t('mitVerified')} title={t('mitVerifiedTitle')} />
+              <MitVerifiedBadge
+                label={t("mitVerified")}
+                title={t("mitVerifiedTitle")}
+              />
             )}
             {hasOwnerVerifiedBadge && (
-              <OwnerVerifiedBadge label={t('verified')} title={t('verifiedTitle')} />
+              <OwnerVerifiedBadge
+                label={t("verified")}
+                title={t("verifiedTitle")}
+              />
             )}
             {mitSmileCert && (
               <span className="type-caption">
-                {t('mitProofLink', { cert: mitSmileCert })}
+                {t("mitProofLink", { cert: mitSmileCert })}
               </span>
             )}
           </div>
         )}
         <dl className="mt-5 grid grid-cols-1 gap-x-7 gap-y-4 sm:grid-cols-2">
           <InfoField
-            label={t('label.location')}
+            label={t("label.location")}
             labelClassName={infoLabelClassName}
             layout="stacked"
             value={
@@ -117,7 +141,7 @@ export function BrandHeader({
             }
           />
           <InfoField
-            label={t('label.foundingYear')}
+            label={t("label.foundingYear")}
             labelClassName={infoLabelClassName}
             layout="stacked"
             value={
@@ -131,7 +155,7 @@ export function BrandHeader({
             }
           />
           <InfoField
-            label={t('label.category')}
+            label={t("label.category")}
             labelClassName={infoLabelClassName}
             layout="stacked"
             value={
@@ -145,7 +169,7 @@ export function BrandHeader({
             }
           />
           <InfoField
-            label={t('label.priceRange')}
+            label={t("label.priceRange")}
             labelClassName={infoLabelClassName}
             layout="stacked"
             value={
@@ -159,7 +183,7 @@ export function BrandHeader({
             }
           />
           <InfoField
-            label={t('label.productCategories')}
+            label={t("label.productCategories")}
             labelClassName={infoLabelClassName}
             layout="stacked"
             value={
@@ -182,7 +206,7 @@ export function BrandHeader({
           />
           {!hasVerification && (
             <InfoField
-              label={t('label.certification')}
+              label={t("label.certification")}
               labelClassName={infoLabelClassName}
               layout="stacked"
               value={unknownValue}
@@ -191,5 +215,5 @@ export function BrandHeader({
         </dl>
       </section>
     </div>
-  )
+  );
 }

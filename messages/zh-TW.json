@@ -336,7 +336,7 @@
       "about": "品牌介紹",
       "social": "社群平台",
       "purchase": "購買資訊",
-      "locations": "產地與販售地點",
+      "locations": "販售地點",
       "faq": "常見問題",
       "backToTop": "置頂"
     },
@@ -558,16 +558,16 @@
       "highlights": "品牌亮點",
       "photos": "照片",
       "locations": "地點",
-      "locationsAndRetailChannels": "地點與販售通路",
+      "locationsAndRetailChannels": "販售地點",
       "faq": "常見問題"
     },
     "channels": {
-      "subtitle": "以下為品牌可能的販售通路，部分資料為社群提供",
-      "provideInfo": "提供販售資訊",
+      "subtitle": "以下為品牌可能的販售地點，部分資料為社群提供",
+      "provideInfo": "提供販售地點",
       "groups": {
         "all_taiwan": "全台",
         "overseas": "海外",
-        "online": "線上通路"
+        "online": "線上販售"
       },
       "confirmed": {
         "storeInfoLink": "查看店家資訊",
@@ -577,7 +577,7 @@
         "confirmAction": "我確認這裡有販售",
         "confirmed": "已確認",
         "progress": "{count}/{threshold} 人確認",
-        "thresholdNote": "虛線為社群提供、尚待確認的通路；累積 {threshold} 人確認後會移入已確認清單並標示「社群確認」",
+        "thresholdNote": "虛線為社群提供、尚待確認的販售地點；累積 {threshold} 人確認後會移入已確認清單並標示「社群確認」",
         "signInToConfirm": "登入後即可確認"
       },
       "chips": {
@@ -588,22 +588,22 @@
         "owner": "品牌確認",
         "community": "社群確認",
         "evidence": "來源佐證",
-        "sourceLine": "來源：{source} · 讀取於 {date}"
+        "sourceLine": "來源：{source}"
       },
       "ownerBanner": {
         "title": "您是品牌擁有者",
-        "description": "您可以確認或標記販售通路的正確性",
+        "description": "您可以確認或標記販售地點的正確性",
         "confirm": "確認販售",
         "reject": "未販售"
       },
       "dialog": {
-        "title": "提供販售資訊",
-        "nameLabel": "通路名稱",
+        "title": "提供販售地點",
+        "nameLabel": "販售地點名稱",
         "namePlaceholder": "例如：誠品書店 信義店",
-        "channelTypeLabel": "通路類型",
-        "channelTypeOnline": "線上通路",
-        "channelTypeOffline": "實體通路",
-        "categoryLabel": "通路分類",
+        "channelTypeLabel": "販售方式",
+        "channelTypeOnline": "線上販售",
+        "channelTypeOffline": "實體地點",
+        "categoryLabel": "地點分類",
         "categoryPlaceholder": "選擇分類",
         "categoryBrandStore": "品牌直營",
         "categoryDepartment": "百貨專櫃",
@@ -617,22 +617,22 @@
         "urlPlaceholder": "https://...",
         "submit": "送出",
         "success": "感謝您提供的資訊！",
-        "signInRequired": "請先登入才能提供販售資訊"
+        "signInRequired": "請先登入才能提供販售地點"
       },
       "errors": {
         "not_logged_in": "請先登入",
         "missing_brand_id": "缺少品牌資訊",
         "missing_brand_slug": "缺少品牌資訊",
-        "invalid_name": "請輸入有效的通路名稱",
-        "invalid_channel_type": "請選擇通路類型",
+        "invalid_name": "請輸入有效的販售地點名稱",
+        "invalid_channel_type": "請選擇販售方式",
         "invalid_url": "請輸入有效的網址",
-        "active_cap_reached": "此品牌的販售通路已達上限",
+        "active_cap_reached": "此品牌的販售地點已達上限",
         "daily_cap_reached": "您今日提供的資訊已達上限，請明天再試",
-        "duplicate_name": "此通路名稱已存在",
+        "duplicate_name": "此販售地點名稱已存在",
         "database_error": "系統錯誤，請稍後再試",
         "unknown": "發生錯誤，請稍後再試"
       },
-      "countLabel": "{count} 個通路"
+      "countLabel": "{count} 個販售地點"
     },
     "gallery": {
       "viewer": "照片檢視",

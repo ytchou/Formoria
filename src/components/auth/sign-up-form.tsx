@@ -18,7 +18,10 @@ type SignUpFormProps = {
 };
 
 export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
-  const [state, action, pending] = useActionState<AuthState, FormData>(signUp, {});
+  const [state, action, pending] = useActionState<AuthState, FormData>(
+    signUp,
+    {},
+  );
   const [marketingEmailOptIn, setMarketingEmailOptIn] = useState(false);
   const searchParams = useSearchParams();
   const email = searchParams.get("email") ?? "";
@@ -39,16 +42,12 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="type-section-title-large">
-          {t("signUp.heading")}
-        </h1>
-        <p className="type-card-description">
-          {t("signUp.subheading")}
-        </p>
+        <h1 className="type-section-title-large">{t("signUp.heading")}</h1>
+        <p className="type-card-description">{t("signUp.subheading")}</p>
       </div>
 
       {claimToken && claimBrandName && (
-        <div className="rounded-lg border border-cta/20 bg-cta/5 px-4 py-3 text-sm">
+        <div className="rounded-lg border border-cta/20 bg-cta/5 px-4 py-3 type-body">
           {t.rich("signUp.claimMessage", {
             brandName: claimBrandName,
             strong: (chunks) => <strong>{chunks}</strong>,
@@ -57,7 +56,10 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
       )}
 
       {state.error && (
-        <div role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div
+          role="alert"
+          className="rounded-lg bg-destructive/10 px-4 py-3 type-body text-destructive"
+        >
           {state.error}
         </div>
       )}
@@ -94,7 +96,9 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="confirmPassword">{t("signUp.confirmPasswordLabel")}</Label>
+          <Label htmlFor="confirmPassword">
+            {t("signUp.confirmPasswordLabel")}
+          </Label>
           <Input
             id="confirmPassword"
             name="confirmPassword"
@@ -114,7 +118,12 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
           disabled={pending}
         />
 
-        <Button type="submit" className="w-full" size="large" disabled={pending}>
+        <Button
+          type="submit"
+          className="w-full"
+          size="large"
+          disabled={pending}
+        >
           {pending ? t("signUp.submitting") : t("signUp.submit")}
         </Button>
       </form>

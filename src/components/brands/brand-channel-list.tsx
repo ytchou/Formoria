@@ -1,74 +1,75 @@
-'use client'
+"use client";
 
-import NextLink from 'next/link'
-import { useLocale, useTranslations } from 'next-intl'
+import NextLink from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Check,
+  ChevronDown,
   ExternalLink,
   Monitor,
   Store,
   ThumbsUp,
   TriangleAlert,
-} from 'lucide-react'
-import { useEffect, useState, useTransition } from 'react'
+} from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
 import {
   confirmChannelAction,
   getChannelViewerStateAction,
   ownerModerateChannelAction,
-} from '@/app/[locale]/(site)/brands/[slug]/actions'
-import { Badge } from '@/components/ui/badge'
-import { Button, buttonVariants } from '@/components/ui/button'
-import { usePathname } from '@/i18n/navigation'
-import { signInHref } from '@/i18n/locale-preference'
-import { useUser } from '@/lib/auth/use-user'
+} from "@/app/[locale]/(site)/brands/[slug]/actions";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { usePathname } from "@/i18n/navigation";
+import { signInHref } from "@/i18n/locale-preference";
+import { useUser } from "@/lib/auth/use-user";
 import {
   CHAIN_REGION_LABEL,
   getChannelSourceLabel,
   groupChannelsByRegion,
   type ChannelRegionGroup,
-} from '@/lib/brands/channels'
-import type { BrandChannel } from '@/lib/types'
-import { cn } from '@/lib/utils'
-import { useBrandEngagement } from './brand-engagement-tracker'
+} from "@/lib/brands/channels";
+import type { BrandChannel } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { useBrandEngagement } from "./brand-engagement-tracker";
 
-const MAX_VISIBLE_CHIPS = 6
+const MAX_VISIBLE_CHIPS = 6;
 /** Below this count the grouping is noise — entries render without headings. */
-const GROUPED_LAYOUT_MIN_CHANNELS = 4
+const GROUPED_LAYOUT_MIN_CHANNELS = 4;
 /** Chain marker written by the enrichment phase; it carries no location worth repeating. */
-const CHAIN_MARKER = CHAIN_REGION_LABEL
+const CHAIN_MARKER = CHAIN_REGION_LABEL;
 type ViewerState = {
-  isOwner: boolean
-  confirmedChannelIds: string[]
-}
+  isOwner: boolean;
+  confirmedChannelIds: string[];
+};
 
 type Translate = (
   key: string,
   values?: Record<string, string | number>,
-) => string
+) => string;
 
-type ChannelActionContext = 'row' | 'chip'
+type ChannelActionContext = "row" | "chip";
 
 export type BrandChannelListProps = {
-  confirmed: BrandChannel[]
-  possible: BrandChannel[]
-  brandId: string
-  brandSlug: string
-  threshold: number
-}
+  confirmed: BrandChannel[];
+  possible: BrandChannel[];
+  brandId: string;
+  brandSlug: string;
+  threshold: number;
+};
 
 function getActionErrorMessage(
   error: unknown,
   translateError: (key: string) => string,
 ): string {
-  if (error instanceof Error && error.message && error.message !== 'unknown') {
+  if (error instanceof Error && error.message && error.message !== "unknown") {
     try {
-      return translateError(error.message)
+      return translateError(error.message);
     } catch {
-      return error.message
+      return error.message;
     }
   }
 
-  return translateError('unknown')
+  return translateError("unknown");
 }
 
 function StatusMarker({ confirmed }: { confirmed: boolean }) {
@@ -80,7 +81,7 @@ function StatusMarker({ confirmed }: { confirmed: boolean }) {
       >
         <Check className="size-4" />
       </span>
-    )
+    );
   }
 
   return (
@@ -88,28 +89,27 @@ function StatusMarker({ confirmed }: { confirmed: boolean }) {
       aria-hidden="true"
       className="mt-0.5 size-6 shrink-0 rounded-full border-2 border-dashed border-muted-foreground/60"
     />
-  )
+  );
 }
 
 type ChannelRowProps = {
-  channel: BrandChannel
-  count: number
-  threshold: number
-  isViewerConfirmed: boolean
-  isPending: boolean
-  isOwner: boolean
-  loading: boolean
-  signInChannelId: string | null
-  error: string | undefined
-  t: Translate
-  tNav: Translate
-  signInHrefValue: string
-  locale: string
-  ownerConfirmLabel: string
-  ownerRejectLabel: string
-  onConfirm: (channel: BrandChannel, context: ChannelActionContext) => void
-  onModerate: (channel: BrandChannel, status: 'confirmed' | 'rejected') => void
-}
+  channel: BrandChannel;
+  count: number;
+  threshold: number;
+  isViewerConfirmed: boolean;
+  isPending: boolean;
+  isOwner: boolean;
+  loading: boolean;
+  signInChannelId: string | null;
+  error: string | undefined;
+  t: Translate;
+  tNav: Translate;
+  signInHrefValue: string;
+  ownerConfirmLabel: string;
+  ownerRejectLabel: string;
+  onConfirm: (channel: BrandChannel, context: ChannelActionContext) => void;
+  onModerate: (channel: BrandChannel, status: "confirmed" | "rejected") => void;
+};
 
 function ChannelRow({
   channel,
@@ -124,29 +124,24 @@ function ChannelRow({
   t,
   tNav,
   signInHrefValue,
-  locale,
   ownerConfirmLabel,
   ownerRejectLabel,
   onConfirm,
   onModerate,
 }: ChannelRowProps) {
-  const isOnline = channel.channelType === 'online'
-  const Icon = isOnline ? Monitor : Store
-  const region = channel.address ?? channel.regionLabel
+  const isOnline = channel.channelType === "online";
+  const Icon = isOnline ? Monitor : Store;
+  const region = channel.address ?? channel.regionLabel;
   const mapsHref = channel.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(channel.address)}`
-    : null
+    : null;
   const provenance =
     channel.confirmedBy ??
-    (channel.ownerStatus === 'confirmed' ? 'owner' : 'community')
-  const isConfirmed = channel.status === 'confirmed'
-  const evidenceDate =
-    channel.confirmedBy === 'evidence' && channel.fetchedAt
-      ? new Intl.DateTimeFormat(locale).format(new Date(channel.fetchedAt))
-      : null
+    (channel.ownerStatus === "confirmed" ? "owner" : "community");
+  const isConfirmed = channel.status === "confirmed";
   const evidenceSource = channel.sourceUrl
     ? getChannelSourceLabel(channel.sourceUrl)
-    : null
+    : null;
 
   return (
     <div
@@ -155,7 +150,7 @@ function ChannelRow({
       // The optimistic count and pressed state land before the server action is
       // even dispatched, so they cannot tell "saving" from "saved". This is the
       // only signal that the round-trip has settled.
-      data-confirm-pending={isPending ? '' : undefined}
+      data-confirm-pending={isPending ? "" : undefined}
     >
       <div className="flex min-w-0 items-start gap-3">
         <StatusMarker confirmed={isConfirmed} />
@@ -165,13 +160,13 @@ function ChannelRow({
             <Icon
               aria-hidden="true"
               className="size-4 shrink-0 text-muted-foreground"
-              data-channel-icon={isOnline ? 'monitor' : 'store'}
+              data-channel-icon={isOnline ? "monitor" : "store"}
             />
             <span className="type-metadata">
               {t(
                 isOnline
-                  ? 'channels.dialog.channelTypeOnline'
-                  : 'channels.dialog.channelTypeOffline',
+                  ? "channels.dialog.channelTypeOnline"
+                  : "channels.dialog.channelTypeOffline",
               )}
             </span>
             {channel.categoryLabel ? (
@@ -194,30 +189,27 @@ function ChannelRow({
               )}
             </div>
           ) : null}
-          {channel.confirmedBy === 'evidence' &&
-          channel.sourceUrl &&
-          evidenceDate ? (
+          {channel.confirmedBy === "evidence" && channel.sourceUrl ? (
             <a
               href={channel.sourceUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-2 inline-flex items-center gap-1 type-card-description underline underline-offset-4"
             >
-              {t('channels.provenance.sourceLine', {
+              {t("channels.provenance.sourceLine", {
                 source: evidenceSource ?? channel.sourceUrl,
-                date: evidenceDate,
               })}
               <ExternalLink aria-hidden="true" className="size-3.5" />
             </a>
           ) : null}
           {signInChannelId === channel.id ? (
             <p className="mt-2 rounded-lg border border-border bg-muted/50 p-3 type-card-description">
-              <span>{t('channels.unconfirmed.signInToConfirm')}</span>{' '}
+              <span>{t("channels.unconfirmed.signInToConfirm")}</span>{" "}
               <NextLink
                 href={signInHrefValue}
                 className="font-medium text-foreground underline underline-offset-4"
               >
-                {tNav('signIn')}
+                {tNav("signIn")}
               </NextLink>
             </p>
           ) : null}
@@ -236,7 +228,7 @@ function ChannelRow({
           </Badge>
         ) : (
           <span className="type-metadata whitespace-nowrap">
-            {t('channels.unconfirmed.progress', { count, threshold })}
+            {t("channels.unconfirmed.progress", { count, threshold })}
           </span>
         )}
         {channel.url ? (
@@ -245,15 +237,15 @@ function ChannelRow({
             target="_blank"
             rel="noopener noreferrer"
             className={buttonVariants({
-              variant: 'secondary',
-              size: 'compact',
-              className: 'min-h-12',
+              variant: "secondary",
+              size: "compact",
+              className: "min-h-12",
             })}
           >
             {t(
               isOnline
-                ? 'channels.confirmed.officialPageLink'
-                : 'channels.confirmed.storeInfoLink',
+                ? "channels.confirmed.officialPageLink"
+                : "channels.confirmed.storeInfoLink",
             )}
             <ExternalLink aria-hidden="true" className="size-4" />
           </a>
@@ -264,9 +256,9 @@ function ChannelRow({
               type="button"
               variant="secondary"
               size="compact"
-              aria-pressed={channel.ownerStatus === 'confirmed'}
+              aria-pressed={channel.ownerStatus === "confirmed"}
               disabled={isPending}
-              onClick={() => onModerate(channel, 'confirmed')}
+              onClick={() => onModerate(channel, "confirmed")}
             >
               <Check aria-hidden="true" className="size-4" />
               {ownerConfirmLabel}
@@ -275,9 +267,9 @@ function ChannelRow({
               type="button"
               variant="secondary"
               size="compact"
-              aria-pressed={channel.ownerStatus === 'rejected'}
+              aria-pressed={channel.ownerStatus === "rejected"}
               disabled={isPending}
-              onClick={() => onModerate(channel, 'rejected')}
+              onClick={() => onModerate(channel, "rejected")}
             >
               <TriangleAlert aria-hidden="true" className="size-4" />
               {ownerRejectLabel}
@@ -286,12 +278,12 @@ function ChannelRow({
         ) : (
           <Button
             type="button"
-            variant={isViewerConfirmed ? 'primary' : 'secondary'}
+            variant={isViewerConfirmed ? "primary" : "secondary"}
             size="compact"
             aria-pressed={isViewerConfirmed}
             aria-busy={isPending}
             disabled={loading || isViewerConfirmed || isPending}
-            onClick={() => onConfirm(channel, 'row')}
+            onClick={() => onConfirm(channel, "row")}
           >
             {isViewerConfirmed ? (
               <Check aria-hidden="true" className="size-4" />
@@ -299,25 +291,25 @@ function ChannelRow({
               <ThumbsUp aria-hidden="true" className="size-4" />
             )}
             {isViewerConfirmed
-              ? t('channels.unconfirmed.confirmed')
-              : t('channels.unconfirmed.confirmAction')}
+              ? t("channels.unconfirmed.confirmed")
+              : t("channels.unconfirmed.confirmAction")}
           </Button>
         )}
       </div>
     </div>
-  )
+  );
 }
 
 type ChannelChipProps = {
-  channel: BrandChannel
-  count: number
-  threshold: number
-  isViewerConfirmed: boolean
-  isPending: boolean
-  loading: boolean
-  t: Translate
-  onConfirm: (channel: BrandChannel, context: ChannelActionContext) => void
-}
+  channel: BrandChannel;
+  count: number;
+  threshold: number;
+  isViewerConfirmed: boolean;
+  isPending: boolean;
+  loading: boolean;
+  t: Translate;
+  onConfirm: (channel: BrandChannel, context: ChannelActionContext) => void;
+};
 
 function ChannelChip({
   channel,
@@ -329,26 +321,26 @@ function ChannelChip({
   t,
   onConfirm,
 }: ChannelChipProps) {
-  const isOnline = channel.channelType === 'online'
-  const isConfirmed = channel.status === 'confirmed'
+  const isOnline = channel.channelType === "online";
+  const isConfirmed = channel.status === "confirmed";
   const region =
     channel.regionLabel && channel.regionLabel !== CHAIN_MARKER
       ? channel.regionLabel
-      : null
+      : null;
   const mapsHref = channel.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(channel.address)}`
-    : null
+    : null;
 
   return (
     <li
       className={cn(
-        'inline-flex items-center gap-2 rounded-full border px-3 py-1.5',
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5",
         isConfirmed
-          ? 'border-border bg-verified-green-bg text-verified-green'
-          : 'border-dashed border-border',
+          ? "border-border bg-verified-green-bg text-verified-green"
+          : "border-dashed border-border",
       )}
       data-channel-chip
-      data-confirm-pending={isPending ? '' : undefined}
+      data-confirm-pending={isPending ? "" : undefined}
     >
       {isConfirmed ? (
         <Check aria-hidden="true" className="size-3.5 shrink-0" />
@@ -379,8 +371,8 @@ function ChannelChip({
           rel="noopener noreferrer"
           aria-label={`${channel.name} ${t(
             isOnline
-              ? 'channels.confirmed.officialPageLink'
-              : 'channels.confirmed.storeInfoLink',
+              ? "channels.confirmed.officialPageLink"
+              : "channels.confirmed.storeInfoLink",
           )}`}
           className="inline-flex min-h-8 min-w-8 items-center justify-center text-muted-foreground hover:text-foreground"
         >
@@ -390,7 +382,7 @@ function ChannelChip({
       {isConfirmed ? null : (
         <>
           <span className="type-micro whitespace-nowrap">
-            {t('channels.unconfirmed.progress', { count, threshold })}
+            {t("channels.unconfirmed.progress", { count, threshold })}
           </span>
           <Button
             type="button"
@@ -399,13 +391,13 @@ function ChannelChip({
             size="chip"
             // ::after grows the 32px control to a 44px touch target, as ui/switch does.
             className="relative px-2 after:absolute after:-inset-1.5 after:content-['']"
-            aria-label={t('channels.chips.confirmAria', {
+            aria-label={t("channels.chips.confirmAria", {
               name: channel.name,
             })}
             aria-pressed={isViewerConfirmed}
             aria-busy={isPending}
             disabled={loading || isViewerConfirmed || isPending}
-            onClick={() => onConfirm(channel, 'chip')}
+            onClick={() => onConfirm(channel, "chip")}
           >
             {isViewerConfirmed ? (
               <Check aria-hidden="true" className="size-3.5" />
@@ -416,7 +408,7 @@ function ChannelChip({
         </>
       )}
     </li>
-  )
+  );
 }
 
 export function BrandChannelList({
@@ -426,136 +418,136 @@ export function BrandChannelList({
   brandSlug,
   threshold,
 }: BrandChannelListProps) {
-  const locale = useLocale()
-  const pathname = usePathname()
-  const t = useTranslations('brandDetail')
-  const tErrors = useTranslations('brandDetail.channels.errors')
-  const tNav = useTranslations('nav')
-  const tCities = useTranslations('cities')
-  const { user, loading } = useUser()
-  const { reportEngagement } = useBrandEngagement()
-  const [, startTransition] = useTransition()
-  const allChannels = [...confirmed, ...possible]
+  const locale = useLocale();
+  const pathname = usePathname();
+  const t = useTranslations("brandDetail");
+  const tErrors = useTranslations("brandDetail.channels.errors");
+  const tNav = useTranslations("nav");
+  const tCities = useTranslations("cities");
+  const { user, loading } = useUser();
+  const { reportEngagement } = useBrandEngagement();
+  const [, startTransition] = useTransition();
+  const allChannels = [...confirmed, ...possible];
   const [expandedChipGroups, setExpandedChipGroups] = useState<
     Partial<Record<string, boolean>>
-  >({})
+  >({});
   const [viewerState, setViewerState] = useState<ViewerState>({
     isOwner: false,
     confirmedChannelIds: allChannels
       .filter((channel) => channel.hasCurrentUserConfirmed)
       .map((channel) => channel.id),
-  })
+  });
   const [confirmationCounts, setConfirmationCounts] = useState<
     Record<string, number>
   >(() =>
     Object.fromEntries(
       allChannels.map((channel) => [channel.id, channel.confirmationCount]),
     ),
-  )
-  const [pendingChannelId, setPendingChannelId] = useState<string | null>(null)
-  const [signInChannelId, setSignInChannelId] = useState<string | null>(null)
+  );
+  const [pendingChannelId, setPendingChannelId] = useState<string | null>(null);
+  const [signInChannelId, setSignInChannelId] = useState<string | null>(null);
   const [lastChipAttemptedChannelId, setLastChipAttemptedChannelId] = useState<
     string | null
-  >(null)
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  >(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (loading || !user) return
+    if (loading || !user) return;
 
-    let active = true
+    let active = true;
     void getChannelViewerStateAction(brandId)
       .then((nextViewerState) => {
-        if (!active) return
-        setViewerState(nextViewerState)
+        if (!active) return;
+        setViewerState(nextViewerState);
       })
       .catch(() => {
         // Privileged state fails closed; the community controls remain available.
-      })
+      });
 
     return () => {
-      active = false
-    }
-  }, [brandId, loading, user])
+      active = false;
+    };
+  }, [brandId, loading, user]);
 
-  const displayGroups = groupChannelsByRegion(allChannels)
-  const signInHrefValue = signInHref(pathname, locale)
-  const ownerConfirmLabel = t('channels.ownerBanner.confirm')
-  const ownerRejectLabel = t('channels.ownerBanner.reject')
+  const displayGroups = groupChannelsByRegion(allChannels);
+  const signInHrefValue = signInHref(pathname, locale);
+  const ownerConfirmLabel = t("channels.ownerBanner.confirm");
+  const ownerRejectLabel = t("channels.ownerBanner.reject");
 
   function setChannelError(channelId: string, message: string | null) {
     setErrors((current) => {
-      const next = { ...current }
-      if (message) next[channelId] = message
-      else delete next[channelId]
-      return next
-    })
+      const next = { ...current };
+      if (message) next[channelId] = message;
+      else delete next[channelId];
+      return next;
+    });
   }
 
   function setChannelConfirmed(channelId: string, isConfirmed: boolean) {
     setViewerState((current) => {
-      const confirmedChannelIds = new Set(current.confirmedChannelIds)
-      if (isConfirmed) confirmedChannelIds.add(channelId)
-      else confirmedChannelIds.delete(channelId)
+      const confirmedChannelIds = new Set(current.confirmedChannelIds);
+      if (isConfirmed) confirmedChannelIds.add(channelId);
+      else confirmedChannelIds.delete(channelId);
       return {
         ...current,
         confirmedChannelIds: Array.from(confirmedChannelIds),
-      }
-    })
+      };
+    });
   }
 
   function handleConfirm(channel: BrandChannel, context: ChannelActionContext) {
-    if (loading) return
-    reportEngagement('channel')
-    if (context === 'chip') setLastChipAttemptedChannelId(channel.id)
+    if (loading) return;
+    reportEngagement("channel");
+    if (context === "chip") setLastChipAttemptedChannelId(channel.id);
 
     if (!user) {
-      setSignInChannelId(channel.id)
-      return
+      setSignInChannelId(channel.id);
+      return;
     }
 
     const previousCount =
-      confirmationCounts[channel.id] ?? channel.confirmationCount
-    setSignInChannelId(null)
-    setChannelError(channel.id, null)
+      confirmationCounts[channel.id] ?? channel.confirmationCount;
+    setSignInChannelId(null);
+    setChannelError(channel.id, null);
     setConfirmationCounts((current) => ({
       ...current,
       [channel.id]: previousCount + 1,
-    }))
-    setChannelConfirmed(channel.id, true)
-    setPendingChannelId(channel.id)
+    }));
+    setChannelConfirmed(channel.id, true);
+    setPendingChannelId(channel.id);
 
     startTransition(() => {
       void (async () => {
         try {
-          const result = await confirmChannelAction(channel.id, brandSlug)
-          if ('error' in result) throw new Error(result.error)
+          const result = await confirmChannelAction(channel.id, brandSlug);
+          if ("error" in result) throw new Error(result.error);
 
           setConfirmationCounts((current) => ({
             ...current,
             [channel.id]: result.confirmationCount,
-          }))
+          }));
         } catch (error) {
           setConfirmationCounts((current) => ({
             ...current,
             [channel.id]: previousCount,
-          }))
-          setChannelConfirmed(channel.id, false)
-          setChannelError(channel.id, getActionErrorMessage(error, tErrors))
+          }));
+          setChannelConfirmed(channel.id, false);
+          setChannelError(channel.id, getActionErrorMessage(error, tErrors));
         } finally {
           setPendingChannelId((current) =>
             current === channel.id ? null : current,
-          )
+          );
         }
-      })()
-    })
+      })();
+    });
   }
 
   function handleOwnerModeration(
     channel: BrandChannel,
-    status: 'confirmed' | 'rejected',
+    status: "confirmed" | "rejected",
   ) {
-    setChannelError(channel.id, null)
-    setPendingChannelId(channel.id)
+    setChannelError(channel.id, null);
+    setPendingChannelId(channel.id);
 
     startTransition(() => {
       void (async () => {
@@ -564,23 +556,23 @@ export function BrandChannelList({
             channel.id,
             brandSlug,
             status,
-          )
-          if ('error' in result) throw new Error(result.error)
+          );
+          if ("error" in result) throw new Error(result.error);
         } catch (error) {
-          setChannelError(channel.id, getActionErrorMessage(error, tErrors))
+          setChannelError(channel.id, getActionErrorMessage(error, tErrors));
         } finally {
           setPendingChannelId((current) =>
             current === channel.id ? null : current,
-          )
+          );
         }
-      })()
-    })
+      })();
+    });
   }
 
   function rendersAsRow(channel: BrandChannel) {
-    if (channel.status === 'confirmed') return true
+    if (channel.status === "confirmed") return true;
     // The owner needs the moderation controls, which do not fit inside a chip.
-    return viewerState.isOwner
+    return viewerState.isOwner;
   }
 
   function renderRow(channel: BrandChannel) {
@@ -599,35 +591,34 @@ export function BrandChannelList({
         t={t}
         tNav={tNav}
         signInHrefValue={signInHrefValue}
-        locale={locale}
         ownerConfirmLabel={ownerConfirmLabel}
         ownerRejectLabel={ownerRejectLabel}
         onConfirm={handleConfirm}
         onModerate={handleOwnerModeration}
       />
-    )
+    );
   }
 
   function renderRowStack(rows: BrandChannel[]) {
-    if (rows.length === 0) return null
+    if (rows.length === 0) return null;
 
-    return <div className="divide-y divide-border">{rows.map(renderRow)}</div>
+    return <div className="divide-y divide-border">{rows.map(renderRow)}</div>;
   }
 
   function renderChipStack(kind: string, chips: BrandChannel[]) {
-    if (chips.length === 0) return null
+    if (chips.length === 0) return null;
 
-    const isExpanded = expandedChipGroups[kind] === true
-    const hiddenChipCount = Math.max(chips.length - MAX_VISIBLE_CHIPS, 0)
-    const visibleChips = isExpanded ? chips : chips.slice(0, MAX_VISIBLE_CHIPS)
+    const isExpanded = expandedChipGroups[kind] === true;
+    const hiddenChipCount = Math.max(chips.length - MAX_VISIBLE_CHIPS, 0);
+    const visibleChips = isExpanded ? chips : chips.slice(0, MAX_VISIBLE_CHIPS);
     const attemptedChannel = chips.find(
       (channel) => channel.id === lastChipAttemptedChannelId,
-    )
+    );
     const attemptedError = attemptedChannel
       ? errors[attemptedChannel.id]
-      : undefined
+      : undefined;
     const showsSignInPrompt =
-      attemptedChannel !== undefined && signInChannelId === attemptedChannel.id
+      attemptedChannel !== undefined && signInChannelId === attemptedChannel.id;
 
     return (
       <div className="space-y-3" data-channel-chip-group={kind}>
@@ -663,79 +654,86 @@ export function BrandChannelList({
               }))
             }
           >
-            {t('channels.chips.showRest', { count: hiddenChipCount })}
+            {t("channels.chips.showRest", { count: hiddenChipCount })}
           </Button>
         ) : null}
         {/* One live region per chip group — a chip is too small to host its own message. */}
         <div role="status" data-channel-chip-status>
           {attemptedChannel && showsSignInPrompt ? (
             <p className="rounded-lg border border-border bg-muted/50 p-3 type-card-description">
-              <span className="font-medium">{attemptedChannel.name}</span>{' '}
-              <span>{t('channels.unconfirmed.signInToConfirm')}</span>{' '}
+              <span className="font-medium">{attemptedChannel.name}</span>{" "}
+              <span>{t("channels.unconfirmed.signInToConfirm")}</span>{" "}
               <NextLink
                 href={signInHrefValue}
                 className="font-medium text-foreground underline underline-offset-4"
               >
-                {tNav('signIn')}
+                {tNav("signIn")}
               </NextLink>
             </p>
           ) : null}
           {attemptedChannel && !showsSignInPrompt && attemptedError ? (
             <p className="type-error" role="alert">
-              <span className="font-medium">{attemptedChannel.name}</span>{' '}
+              <span className="font-medium">{attemptedChannel.name}</span>{" "}
               <span>{attemptedError}</span>
             </p>
           ) : null}
         </div>
       </div>
-    )
+    );
   }
 
   function renderGroup(group: ChannelRegionGroup) {
-    const rowChannels = group.channels.filter(rendersAsRow)
+    const rowChannels = group.channels.filter(rendersAsRow);
     const chipChannels = group.channels.filter(
       (channel) => !rendersAsRow(channel),
-    )
+    );
     const heading =
-      group.key === 'online' ||
-      group.key === 'overseas' ||
-      group.key === 'all_taiwan'
+      group.key === "online" ||
+      group.key === "overseas" ||
+      group.key === "all_taiwan"
         ? t(`channels.groups.${group.key}`)
-        : tCities(group.key)
+        : tCities(group.key);
 
     return (
-      <section
-        key={group.key}
-        className="space-y-4"
-        data-channel-kind={group.key}
-      >
-        <h3 className="type-subsection-title">{`${heading} (${group.channels.length})`}</h3>
-        {renderChipStack(group.key, chipChannels)}
-        {renderRowStack(rowChannels)}
-      </section>
-    )
+      <details key={group.key} className="group" data-channel-kind={group.key}>
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+          <h3 className="type-subsection-title">{`${heading} (${group.channels.length})`}</h3>
+          <ChevronDown
+            aria-hidden="true"
+            className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180"
+          />
+        </summary>
+        <div className="space-y-4 pb-4">
+          {renderChipStack(group.key, chipChannels)}
+          {renderRowStack(rowChannels)}
+        </div>
+      </details>
+    );
   }
 
   // Too few entries for grouping to earn headings: render one flat list.
   if (allChannels.length < GROUPED_LAYOUT_MIN_CHANNELS) {
     const rowChannels = displayGroups.flatMap((group) =>
       group.channels.filter(rendersAsRow),
-    )
+    );
     const chipChannels = displayGroups.flatMap((group) =>
       group.channels.filter((channel) => !rendersAsRow(channel)),
-    )
+    );
 
     return (
       <div className="space-y-8" data-brand-channel-list>
-        {renderChipStack('all_taiwan', chipChannels)}
+        {renderChipStack("all_taiwan", chipChannels)}
         {renderRowStack(rowChannels)}
       </div>
-    )
+    );
   }
 
   return (
-    <div className="space-y-8" data-brand-channel-list>
+    <div
+      className="divide-y divide-border border-y border-border"
+      data-brand-channel-list
+    >
       {displayGroups.map(renderGroup)}
     </div>
-  )
+  );
 }

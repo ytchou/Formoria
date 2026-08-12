@@ -1,30 +1,34 @@
-import { surfaceCardStyles } from '@/components/ui/card'
-import type { PublicMicrositeBrand } from '@/lib/brands/contracts'
+import { surfaceCardStyles } from "@/components/ui/card";
+import type { PublicMicrositeBrand } from "@/lib/brands/contracts";
 
 type ContactCtaProps = {
-  siteContent: Pick<PublicMicrositeBrand['siteContent'], 'ctaValue'>
-}
+  siteContent: Pick<PublicMicrositeBrand["siteContent"], "ctaValue">;
+};
 
 export function ContactCta({ siteContent }: ContactCtaProps) {
-  const email = siteContent.ctaValue
+  const email = siteContent.ctaValue;
 
   return (
-    <section id="contact" className="px-6 py-12 md:px-10 md:py-16" aria-labelledby="contact-title">
+    <section
+      id="contact"
+      className="px-6 py-12 md:px-10 md:py-16"
+      aria-labelledby="contact-title"
+    >
       <div className="mx-auto max-w-[1280px]">
-        <div className={surfaceCardStyles({ className: 'md:p-8', padding: 'lg' })}>
+        <div
+          className={surfaceCardStyles({ className: "md:p-8", padding: "lg" })}
+        >
           <div className="flex flex-col items-start gap-5 md:flex-row md:items-center md:justify-between">
             <div className="space-y-2">
               <h2 id="contact-title" className="type-section-title">
                 與品牌聯繫
               </h2>
-              <p className="type-body-muted">
-                歡迎洽詢商品、合作與客製需求。
-              </p>
+              <p className="type-body-muted">歡迎洽詢商品、合作與客製需求。</p>
             </div>
             {email && (
               <a
                 href={`mailto:${email}`}
-                className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[var(--brand-accent)] px-6 py-3 text-sm font-semibold text-[var(--brand-accent-foreground)] transition-transform active:scale-[0.98]"
+                className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[var(--brand-accent)] px-6 py-3 type-subsection-title text-[var(--brand-accent-foreground)] transition-transform active:scale-[0.98]"
               >
                 聯絡品牌
               </a>
@@ -33,5 +37,5 @@ export function ContactCta({ siteContent }: ContactCtaProps) {
         </div>
       </div>
     </section>
-  )
+  );
 }

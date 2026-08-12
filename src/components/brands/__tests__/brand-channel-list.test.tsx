@@ -121,8 +121,9 @@ describe("BrandChannelList", () => {
     expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
   });
 
-  it("renders group headings with the count inside the accessible name", () => {
-    renderList({
+  it("starts every region collapsed and allows multiple regions to stay open", async () => {
+    const user = userEvent.setup();
+    const { container } = renderList({
       confirmed: [
         makeChannel(1, {
           name: "官方門市",
@@ -143,8 +144,27 @@ describe("BrandChannelList", () => {
       screen.getByRole("heading", { level: 3, name: "臺北市 (3)" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { level: 3, name: "線上通路 (1)" }),
+      screen.getByRole("heading", { level: 3, name: "線上販售 (1)" }),
     ).toBeInTheDocument();
+
+    const taipei = container.querySelector<HTMLDetailsElement>(
+      '[data-channel-kind="taipei"]',
+    );
+    const online = container.querySelector<HTMLDetailsElement>(
+      '[data-channel-kind="online"]',
+    );
+    expect(taipei).not.toHaveAttribute("open");
+    expect(online).not.toHaveAttribute("open");
+
+    await user.click(
+      screen.getByRole("heading", { level: 3, name: "臺北市 (3)" }),
+    );
+    await user.click(
+      screen.getByRole("heading", { level: 3, name: "線上販售 (1)" }),
+    );
+
+    expect(taipei).toHaveAttribute("open");
+    expect(online).toHaveAttribute("open");
   });
 
   it("renders an evidence-backed stockist as a full row with its source", () => {
@@ -170,8 +190,9 @@ describe("BrandChannelList", () => {
       `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
     );
     expect(
-      screen.getByRole("link", { name: /chatzutang\.com/ }),
+      screen.getByRole("link", { name: "來源：chatzutang.com" }),
     ).toHaveAttribute("href", sourceUrl);
+    expect(screen.queryByText(/讀取於/)).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /我確認/ }),
     ).not.toBeInTheDocument();
@@ -212,7 +233,7 @@ describe("BrandChannelList", () => {
     ).toHaveAttribute("aria-expanded", "true");
   });
 
-  it("shows unconfirmed physical retailers as chips without a collapsed fold", () => {
+  it("keeps community chips inside the collapsed region without a second fold", () => {
     const { container } = renderList({
       confirmed: [
         makeChannel(1, {
@@ -227,8 +248,11 @@ describe("BrandChannelList", () => {
       possible: makeChannels(3, { address: "台中市西區" }),
     });
 
-    expect(container.querySelector("details")).not.toBeInTheDocument();
+    expect(container.querySelector("details")).not.toHaveAttribute("open");
     expect(container.querySelectorAll("[data-channel-chip]")).toHaveLength(3);
+    expect(
+      screen.queryByRole("button", { name: /顯示其餘/ }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByText("3 個社群提供的通路待確認"),
     ).not.toBeInTheDocument();

@@ -1,25 +1,25 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { X } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
+import { useState } from "react";
+import { X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 type ProductTagFieldProps = {
-  initialTags?: string[]
-  value?: string[]
-  onChange?: (tags: string[]) => void
-  suggestions?: string[]
-  inputLabel: string
-  placeholder: string
-  removeLabel: string
-  maxLabel?: string
-}
+  initialTags?: string[];
+  value?: string[];
+  onChange?: (tags: string[]) => void;
+  suggestions?: string[];
+  inputLabel: string;
+  placeholder: string;
+  removeLabel: string;
+  maxLabel?: string;
+};
 
-const MAX_TAGS = 5
+const MAX_TAGS = 5;
 
 function normalizeTag(value: string): string {
-  return value.trim().replace(/\s+/g, ' ')
+  return value.trim().replace(/\s+/g, " ");
 }
 
 export function ProductTagField({
@@ -32,50 +32,59 @@ export function ProductTagField({
   removeLabel,
   maxLabel,
 }: ProductTagFieldProps) {
-  const [internalTags, setInternalTags] = useState(() => (initialTags ?? []).slice(0, MAX_TAGS))
-  const [value, setValue] = useState('')
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const [selectedIndex, setSelectedIndex] = useState(-1)
-  const tags = controlledTags ?? internalTags
-  const normalizedValue = normalizeTag(value).toLocaleLowerCase('en')
+  const [internalTags, setInternalTags] = useState(() =>
+    (initialTags ?? []).slice(0, MAX_TAGS),
+  );
+  const [value, setValue] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const tags = controlledTags ?? internalTags;
+  const normalizedValue = normalizeTag(value).toLocaleLowerCase("en");
   const filteredSuggestions = normalizedValue
     ? suggestions
-        .filter((suggestion) => suggestion.toLocaleLowerCase('en').includes(normalizedValue))
-        .filter((suggestion) => (
-          !tags.some((tag) => tag.toLocaleLowerCase('en') === suggestion.toLocaleLowerCase('en'))
-        ))
+        .filter((suggestion) =>
+          suggestion.toLocaleLowerCase("en").includes(normalizedValue),
+        )
+        .filter(
+          (suggestion) =>
+            !tags.some(
+              (tag) =>
+                tag.toLocaleLowerCase("en") ===
+                suggestion.toLocaleLowerCase("en"),
+            ),
+        )
         .slice(0, 6)
-    : []
+    : [];
 
   function updateTags(nextTags: string[]) {
-    if (controlledTags === undefined) setInternalTags(nextTags)
-    onChange?.(nextTags)
+    if (controlledTags === undefined) setInternalTags(nextTags);
+    onChange?.(nextTags);
   }
 
   function addTag(rawValue: string) {
-    const tag = normalizeTag(rawValue)
+    const tag = normalizeTag(rawValue);
     if (!tag || tag.length > 40 || tags.length >= MAX_TAGS) {
-      setValue('')
-      setShowSuggestions(false)
-      return
+      setValue("");
+      setShowSuggestions(false);
+      return;
     }
     if (tags.some((current) => current.toLowerCase() === tag.toLowerCase())) {
-      setValue('')
-      setShowSuggestions(false)
-      return
+      setValue("");
+      setShowSuggestions(false);
+      return;
     }
-    updateTags([...tags, tag])
-    setValue('')
-    setShowSuggestions(false)
-    setSelectedIndex(-1)
+    updateTags([...tags, tag]);
+    setValue("");
+    setShowSuggestions(false);
+    setSelectedIndex(-1);
   }
 
-  const listboxId = 'productTags-listbox'
-  const isExpanded = showSuggestions && filteredSuggestions.length > 0
+  const listboxId = "productTags-listbox";
+  const isExpanded = showSuggestions && filteredSuggestions.length > 0;
 
   return (
     <div className="space-y-2">
-      <input type="hidden" name="productTags" value={tags.join(',')} />
+      <input type="hidden" name="productTags" value={tags.join(",")} />
       <div className="relative flex min-h-11 flex-wrap gap-2 rounded-lg border border-border bg-background p-2">
         {tags.map((tag) => (
           <span
@@ -107,39 +116,43 @@ export function ProductTagField({
             value={value}
             maxLength={40}
             aria-activedescendant={
-              isExpanded && selectedIndex >= 0 && filteredSuggestions[selectedIndex]
+              isExpanded &&
+              selectedIndex >= 0 &&
+              filteredSuggestions[selectedIndex]
                 ? `productTag-suggestion-${selectedIndex}`
                 : undefined
             }
             onChange={(event) => {
-              setValue(event.target.value)
-              setShowSuggestions(true)
-              setSelectedIndex(-1)
+              setValue(event.target.value);
+              setShowSuggestions(true);
+              setSelectedIndex(-1);
             }}
             onFocus={() => setShowSuggestions(true)}
             onBlur={() => addTag(value)}
             onKeyDown={(event) => {
-              if (event.key === 'ArrowDown') {
-                event.preventDefault()
+              if (event.key === "ArrowDown") {
+                event.preventDefault();
                 if (isExpanded) {
-                  setSelectedIndex((prev) => Math.min(prev + 1, filteredSuggestions.length - 1))
+                  setSelectedIndex((prev) =>
+                    Math.min(prev + 1, filteredSuggestions.length - 1),
+                  );
                 }
-              } else if (event.key === 'ArrowUp') {
-                event.preventDefault()
-                setSelectedIndex((prev) => Math.max(prev - 1, -1))
-              } else if (event.key === 'Enter') {
-                event.preventDefault()
+              } else if (event.key === "ArrowUp") {
+                event.preventDefault();
+                setSelectedIndex((prev) => Math.max(prev - 1, -1));
+              } else if (event.key === "Enter") {
+                event.preventDefault();
                 if (selectedIndex >= 0 && filteredSuggestions[selectedIndex]) {
-                  addTag(filteredSuggestions[selectedIndex])
+                  addTag(filteredSuggestions[selectedIndex]);
                 } else {
-                  addTag(value)
+                  addTag(value);
                 }
-              } else if (event.key === ',') {
-                event.preventDefault()
-                addTag(value)
-              } else if (event.key === 'Escape') {
-                setShowSuggestions(false)
-                setSelectedIndex(-1)
+              } else if (event.key === ",") {
+                event.preventDefault();
+                addTag(value);
+              } else if (event.key === "Escape") {
+                setShowSuggestions(false);
+                setSelectedIndex(-1);
               }
             }}
           />
@@ -153,15 +166,15 @@ export function ProductTagField({
           >
             {filteredSuggestions.map((suggestion, index) => (
               <div
-                key={suggestion.toLocaleLowerCase('en')}
+                key={suggestion.toLocaleLowerCase("en")}
                 id={`productTag-suggestion-${index}`}
                 role="option"
                 aria-selected={selectedIndex === index}
                 className={cn(
-                  'block w-full cursor-pointer px-3 py-2 text-left text-sm',
+                  "block w-full cursor-pointer px-3 py-2 text-left type-body",
                   selectedIndex === index
-                    ? 'bg-secondary'
-                    : 'hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none',
+                    ? "bg-secondary"
+                    : "hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none",
                 )}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => addTag(suggestion)}
@@ -174,5 +187,5 @@ export function ProductTagField({
       </div>
       {maxLabel ? <p className="type-caption">{maxLabel}</p> : null}
     </div>
-  )
+  );
 }

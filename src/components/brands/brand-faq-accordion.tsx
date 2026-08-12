@@ -60,11 +60,7 @@ export function BrandFaqAccordion({
   }
 
   return (
-    <FaqSection
-      title={t("faq")}
-      headerClassName="mb-4"
-      titleClassName="type-section-title-large"
-    >
+    <FaqSection title={t("faq")} headerClassName="mb-4">
       <OpenTargetDetails />
       <div className="divide-y divide-border">
         {items.map((item) => (
@@ -74,7 +70,7 @@ export function BrandFaqAccordion({
             className="group scroll-mt-24"
             onToggle={(event) => handleToggle(event, item.id)}
           >
-            <summary className="flex cursor-pointer list-none items-center justify-between py-5 type-faq-question focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center justify-between py-5 type-subsection-title focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
               {item.question}
               <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
             </summary>

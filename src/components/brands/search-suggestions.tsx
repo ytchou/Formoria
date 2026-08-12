@@ -1,22 +1,22 @@
-'use client'
+"use client";
 
-import type { ReactNode } from 'react'
-import { useLocale, useTranslations } from 'next-intl'
-import type { SearchSuggestion } from '@/lib/brands/contracts'
-import { getProductTypeLabel } from '@/lib/brands/category-label'
+import type { ReactNode } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import type { SearchSuggestion } from "@/lib/brands/contracts";
+import { getProductTypeLabel } from "@/lib/brands/category-label";
 
 interface SearchSuggestionsProps {
-  suggestions: SearchSuggestion[]
-  selectedIndex: number
-  onSelect: (slug: string, index: number) => void
-  query: string
+  suggestions: SearchSuggestion[];
+  selectedIndex: number;
+  onSelect: (slug: string, index: number) => void;
+  query: string;
 }
 
 function highlightMatch(text: string, query: string): ReactNode {
-  if (!query) return text
-  const lower = text.toLowerCase()
-  const idx = lower.indexOf(query.toLowerCase())
-  if (idx === -1) return text
+  if (!query) return text;
+  const lower = text.toLowerCase();
+  const idx = lower.indexOf(query.toLowerCase());
+  if (idx === -1) return text;
   return (
     <>
       {text.slice(0, idx)}
@@ -25,10 +25,10 @@ function highlightMatch(text: string, query: string): ReactNode {
       </mark>
       {text.slice(idx + query.length)}
     </>
-  )
+  );
 }
 
-export const SEARCH_SUGGESTIONS_ID = 'search-suggestions-listbox'
+export const SEARCH_SUGGESTIONS_ID = "search-suggestions-listbox";
 
 export function SearchSuggestions({
   suggestions,
@@ -36,8 +36,8 @@ export function SearchSuggestions({
   onSelect,
   query,
 }: SearchSuggestionsProps) {
-  const t = useTranslations('brands')
-  const locale = useLocale()
+  const t = useTranslations("brands");
+  const locale = useLocale();
   return (
     <ul
       id={SEARCH_SUGGESTIONS_ID}
@@ -45,7 +45,9 @@ export function SearchSuggestions({
       className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-card shadow-lg"
     >
       {suggestions.length === 0 ? (
-        <li className="px-4 py-3 type-card-description">{t('noResultsInSuggestions')}</li>
+        <li className="px-4 py-3 type-card-description">
+          {t("noResultsInSuggestions")}
+        </li>
       ) : (
         suggestions.map((item, index) => (
           <li
@@ -54,17 +56,19 @@ export function SearchSuggestions({
             role="option"
             aria-selected={index === selectedIndex}
             onClick={() => onSelect(item.slug, index)}
-            className={`cursor-pointer px-4 py-3 text-sm ${
-              index === selectedIndex ? 'bg-secondary' : 'hover:bg-secondary'
+            className={`cursor-pointer px-4 py-3 type-body ${
+              index === selectedIndex ? "bg-secondary" : "hover:bg-secondary"
             }`}
           >
-            <span className="font-medium text-foreground">{highlightMatch(item.name, query)}</span>
+            <span className="font-medium text-foreground">
+              {highlightMatch(item.name, query)}
+            </span>
             {item.category && (
               <span className="ml-2 type-caption">
                 {highlightMatch(
                   getProductTypeLabel(
                     item.category,
-                    locale === 'zh-TW' ? 'zh-TW' : 'en',
+                    locale === "zh-TW" ? "zh-TW" : "en",
                   ) ?? item.category,
                   query,
                 )}
@@ -74,5 +78,5 @@ export function SearchSuggestions({
         ))
       )}
     </ul>
-  )
+  );
 }

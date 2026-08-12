@@ -308,7 +308,7 @@ export function EvidenceQueue({
             ? (item) => (
                 <div className="space-y-4 pt-5">
                   {canStripDeclaration(item) ? (
-                    <Label className="min-h-12 cursor-pointer gap-3 text-sm">
+                    <Label className="min-h-12 cursor-pointer gap-3 type-body">
                       <Checkbox
                         checked={stripDeclaration}
                         onCheckedChange={setStripDeclaration}
@@ -338,23 +338,25 @@ export function EvidenceQueue({
             <dl className="grid gap-4 sm:grid-cols-2">
               <div>
                 <dt className="type-metadata">{t("fields.stance")}</dt>
-                <dd className="mt-1 text-sm">{t(`stances.${item.stance}`)}</dd>
+                <dd className="mt-1 type-body">
+                  {t(`stances.${item.stance}`)}
+                </dd>
               </div>
               <div>
                 <dt className="type-metadata">{t("fields.product")}</dt>
-                <dd className="mt-1 text-sm">
+                <dd className="mt-1 type-body">
                   {item.productName ?? t("notProvided")}
                 </dd>
               </div>
               <div>
                 <dt className="type-metadata">{t("fields.sourceType")}</dt>
-                <dd className="mt-1 text-sm">
+                <dd className="mt-1 type-body">
                   {t(`sourceTypes.${item.sourceType}`)}
                 </dd>
               </div>
               <div className="sm:col-span-2">
                 <dt className="type-metadata">{t("fields.notes")}</dt>
-                <dd className="mt-1 whitespace-pre-wrap text-sm">
+                <dd className="mt-1 whitespace-pre-wrap type-body">
                   {item.notes}
                 </dd>
               </div>
@@ -365,7 +367,7 @@ export function EvidenceQueue({
             {item.reviewerNotes ? (
               <div>
                 <p className="type-metadata">{t("fields.reviewerNotes")}</p>
-                <p className="mt-1 whitespace-pre-wrap text-sm">
+                <p className="mt-1 whitespace-pre-wrap type-body">
                   {item.reviewerNotes}
                 </p>
               </div>

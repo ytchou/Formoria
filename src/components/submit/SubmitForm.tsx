@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import {
   Fragment,
@@ -9,35 +9,41 @@ import {
   useMemo,
   useRef,
   useState,
-} from 'react'
-import { useForm, useWatch, Controller, type Resolver } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useTranslations } from 'next-intl'
-import { Link, useRouter } from '@/i18n/navigation'
+} from "react";
+import { useForm, useWatch, Controller, type Resolver } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useTranslations } from "next-intl";
+import { Link, useRouter } from "@/i18n/navigation";
 import {
   createRecommendationSubmissionSchema,
   type SubmissionFormData,
-} from '@/lib/validations/submission'
+} from "@/lib/validations/submission";
 import {
   inspectRecommendation,
   submitRecommendation,
-} from '@/app/[locale]/(site)/submit/actions'
-import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
-import type { DuplicateCandidate, SourceAttribution } from '@/lib/types/submission'
-import { FormField } from '@/components/forms/form-field'
-import { StandardForm } from '@/components/forms/form-layout'
-import { MarketingEmailOptInField } from '@/components/forms/marketing-email-opt-in-field'
-import { Button } from '@/components/ui/button'
-import { SubmitButton } from '@/components/ui/submit-button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { NativeSelect } from '@/components/ui/native-select'
-import { Textarea } from '@/components/ui/textarea'
-import { TurnstileWidget } from '@/components/submit/TurnstileWidget'
-import { cn } from '@/lib/utils'
-import { trackSubmissionCompleted, trackSubmissionFormErrorShown } from '@/lib/analytics'
-import { useSubmissionAnalytics } from '@/hooks/use-submission-analytics'
+} from "@/app/[locale]/(site)/submit/actions";
+import { SOURCE_ATTRIBUTION_VALUES } from "@/lib/types/submission";
+import type {
+  DuplicateCandidate,
+  SourceAttribution,
+} from "@/lib/types/submission";
+import { FormField } from "@/components/forms/form-field";
+import { StandardForm } from "@/components/forms/form-layout";
+import { MarketingEmailOptInField } from "@/components/forms/marketing-email-opt-in-field";
+import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
+import { TurnstileWidget } from "@/components/submit/TurnstileWidget";
+import { cn } from "@/lib/utils";
+import {
+  trackSubmissionCompleted,
+  trackSubmissionFormErrorShown,
+} from "@/lib/analytics";
+import { useSubmissionAnalytics } from "@/hooks/use-submission-analytics";
 
 /**
  * A duplicate hit reads as a plain red line, matching every other field error
@@ -51,18 +57,18 @@ function DuplicateNotice({
   reasonLabels,
   children,
 }: {
-  title: string
-  candidates: DuplicateCandidate[]
-  reasonLabels?: { cjk: string; latin: string }
-  children?: ReactNode
+  title: string;
+  candidates: DuplicateCandidate[];
+  reasonLabels?: { cjk: string; latin: string };
+  children?: ReactNode;
 }) {
   return (
     <div className="space-y-2">
-      <p className="text-sm text-destructive">
+      <p className="type-body text-destructive">
         {title}
         {candidates.map((candidate, index) => (
           <Fragment key={candidate.id}>
-            {index === 0 ? ' ' : ', '}
+            {index === 0 ? " " : ", "}
             <Link
               href={`/brands/${candidate.slug}`}
               target="_blank"
@@ -72,7 +78,7 @@ function DuplicateNotice({
               {candidate.name}
             </Link>
             {reasonLabels &&
-            (candidate.matchedOn === 'cjk' || candidate.matchedOn === 'latin')
+            (candidate.matchedOn === "cjk" || candidate.matchedOn === "latin")
               ? `\uFF08${reasonLabels[candidate.matchedOn]}\uFF09`
               : null}
           </Fragment>
@@ -80,45 +86,45 @@ function DuplicateNotice({
       </p>
       {children}
     </div>
-  )
+  );
 }
 
 type SubmitFormProps = {
-  source?: 'header_cta' | 'hero_cta' | 'footer_link'
+  source?: "header_cta" | "hero_cta" | "footer_link";
   // Prefilled from the directory's no-results CTA so the visitor doesn't retype the name
   // they just searched for. Read server-side from `?name=` and passed down, deliberately
   // not via useSearchParams — that would need a Suspense boundary in this client tree.
-  initialName?: string
-}
+  initialName?: string;
+};
 
 export default function SubmitForm({
-  source = 'hero_cta',
-  initialName = '',
+  source = "hero_cta",
+  initialName = "",
 }: SubmitFormProps) {
-  const t = useTranslations('submit')
-  const tForm = useTranslations('submit.recommendForm')
-  const tReview = useTranslations('submit.review')
-  const router = useRouter()
-  const { complete } = useSubmissionAnalytics(source, 'recommend', 'opened')
-  const nameBlurRequestRef = useRef(0)
-  const submitLockRef = useRef(false)
-  const idempotencyKeyRef = useRef(crypto.randomUUID())
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [pendingRedirect, setPendingRedirect] = useState<string | null>(null)
-  const [turnstileError, setTurnstileError] = useState(false)
+  const t = useTranslations("submit");
+  const tForm = useTranslations("submit.recommendForm");
+  const tReview = useTranslations("submit.review");
+  const router = useRouter();
+  const { complete } = useSubmissionAnalytics(source, "recommend", "opened");
+  const nameBlurRequestRef = useRef(0);
+  const submitLockRef = useRef(false);
+  const idempotencyKeyRef = useRef(crypto.randomUUID());
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = useState(false);
 
   const tSchema = useMemo(
     () => (key: string) => t(key as Parameters<typeof t>[0]),
     [t],
-  )
+  );
   const schema = useMemo(
     () => createRecommendationSubmissionSchema(tSchema),
     [tSchema],
-  )
+  );
   const resolver = useMemo(
     () => zodResolver(schema as never) as Resolver<SubmissionFormData>,
     [schema],
-  )
+  );
 
   const {
     register,
@@ -132,55 +138,60 @@ export default function SubmitForm({
     resolver,
     defaultValues: {
       name: initialName,
-      website: '',
-      description: '',
-      guestEmail: '',
+      website: "",
+      description: "",
+      guestEmail: "",
       marketingEmailOptIn: false,
       duplicateConfirmed: false,
       sourceAttribution: undefined,
       pdpaConsent: false,
-      turnstileToken: '',
-      honeypot: '',
+      turnstileToken: "",
+      honeypot: "",
     },
-    mode: 'onTouched',
-  })
+    mode: "onTouched",
+  });
 
-  const pdpaConsent = useWatch({ control, name: 'pdpaConsent' })
+  const pdpaConsent = useWatch({ control, name: "pdpaConsent" });
   // Opting into the newsletter makes the otherwise-optional email mandatory
   // (enforced in the schema) — mirror that in the label's required marker.
-  const marketingEmailOptIn = useWatch({ control, name: 'marketingEmailOptIn' })
-  const duplicateConfirmed = useWatch({ control, name: 'duplicateConfirmed' })
-  const [nameSuggestion, setNameSuggestion] = useState<string | null>(null)
-  const [nameMatches, setNameMatches] = useState<DuplicateCandidate[]>([])
-  const [websiteMatches, setWebsiteMatches] = useState<DuplicateCandidate[]>([])
-  const [urlSuggestion, setUrlSuggestion] = useState<string | null>(null)
-  const [submitError, setSubmitError] = useState<string | null>(null)
+  const marketingEmailOptIn = useWatch({
+    control,
+    name: "marketingEmailOptIn",
+  });
+  const duplicateConfirmed = useWatch({ control, name: "duplicateConfirmed" });
+  const [nameSuggestion, setNameSuggestion] = useState<string | null>(null);
+  const [nameMatches, setNameMatches] = useState<DuplicateCandidate[]>([]);
+  const [websiteMatches, setWebsiteMatches] = useState<DuplicateCandidate[]>(
+    [],
+  );
+  const [urlSuggestion, setUrlSuggestion] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // A confirmation only speaks for the exact name/website pair it was shown
   // for, so any edit to either field drops both the matches and the tick.
   const clearDuplicateState = useCallback(() => {
-    setNameMatches([])
-    setWebsiteMatches([])
-    setValue('duplicateConfirmed', false)
-  }, [setValue])
+    setNameMatches([]);
+    setWebsiteMatches([]);
+    setValue("duplicateConfirmed", false);
+  }, [setValue]);
 
   // The one door for programmatic writes to the two deduped fields. setValue
   // does not fire the input's onChange, so an apply-suggestion click would
   // otherwise rewrite the name while leaving the matches — and the user's tick
   // — standing for a name they never confirmed.
   const applySuggestion = useCallback(
-    (field: 'name' | 'website', value: string) => {
-      setValue(field, value)
-      nameBlurRequestRef.current += 1
-      clearDuplicateState()
+    (field: "name" | "website", value: string) => {
+      setValue(field, value);
+      nameBlurRequestRef.current += 1;
+      clearDuplicateState();
     },
     [setValue, clearDuplicateState],
-  )
+  );
 
   // Both fields can match at once, but one tick answers for the whole
   // submission — so the checkbox is rendered under the first field that hit,
   // never twice against the same form value.
-  const confirmUnder = nameMatches.length > 0 ? 'name' : 'website'
+  const confirmUnder = nameMatches.length > 0 ? "name" : "website";
   const duplicateConfirmField = (
     <Controller
       name="duplicateConfirmed"
@@ -194,103 +205,105 @@ export default function SubmitForm({
             className="mt-0.5 size-[18px] shrink-0"
           />
           <span className="type-body font-normal">
-            {t('fields.nameDuplicateConfirmLabel')}
+            {t("fields.nameDuplicateConfirmLabel")}
           </span>
         </Label>
       )}
     />
-  )
+  );
 
   const handleNameBlur = async () => {
-    const currentName = getValues('name')
-    if (!currentName || currentName.length < 2) return
+    const currentName = getValues("name");
+    if (!currentName || currentName.length < 2) return;
 
-    const requestId = ++nameBlurRequestRef.current
+    const requestId = ++nameBlurRequestRef.current;
     try {
       const result = await inspectRecommendation(
         currentName,
-        getValues('website') || undefined,
-      )
-      if (requestId !== nameBlurRequestRef.current) return
-      setNameMatches(result.nameMatches)
-      setWebsiteMatches(result.websiteMatches)
+        getValues("website") || undefined,
+      );
+      if (requestId !== nameBlurRequestRef.current) return;
+      setNameMatches(result.nameMatches);
+      setWebsiteMatches(result.websiteMatches);
       if (result.changed && result.suggestion) {
-        setNameSuggestion(result.suggestion)
+        setNameSuggestion(result.suggestion);
       } else {
-        setNameSuggestion(null)
+        setNameSuggestion(null);
       }
     } catch {
       if (requestId === nameBlurRequestRef.current) {
-        setNameSuggestion(null)
-        setNameMatches([])
-        setWebsiteMatches([])
+        setNameSuggestion(null);
+        setNameMatches([]);
+        setWebsiteMatches([]);
       }
     }
-  }
+  };
 
   const handleTurnstileSuccess = useCallback(
     (token: string) => {
-      setTurnstileError(false)
-      setValue('turnstileToken', token, { shouldValidate: true })
+      setTurnstileError(false);
+      setValue("turnstileToken", token, { shouldValidate: true });
     },
     [setValue],
-  )
+  );
 
   const handleTurnstileError = useCallback(() => {
-    setTurnstileError(true)
-  }, [])
+    setTurnstileError(true);
+  }, []);
 
   const handleTurnstileExpire = useCallback(() => {
-    setValue('turnstileToken', '', { shouldValidate: true })
-  }, [setValue])
+    setValue("turnstileToken", "", { shouldValidate: true });
+  }, [setValue]);
 
   async function handleWebsiteBlur(value: string) {
-    if (!value || !value.includes('?')) {
-      setUrlSuggestion(null)
+    if (!value || !value.includes("?")) {
+      setUrlSuggestion(null);
     } else {
-      const cleaned = value.split('?')[0]
-      setUrlSuggestion(cleaned !== value && cleaned.length > 0 ? cleaned : null)
+      const cleaned = value.split("?")[0];
+      setUrlSuggestion(
+        cleaned !== value && cleaned.length > 0 ? cleaned : null,
+      );
     }
 
-    if (!value) return
+    if (!value) return;
 
     // Shares the name field's request counter so a blur on one field can never
     // be overwritten by a slower in-flight response from the other.
-    const requestId = ++nameBlurRequestRef.current
+    const requestId = ++nameBlurRequestRef.current;
     try {
-      const result = await inspectRecommendation(getValues('name'), value)
-      if (requestId !== nameBlurRequestRef.current) return
-      setNameMatches(result.nameMatches)
-      setWebsiteMatches(result.websiteMatches)
+      const result = await inspectRecommendation(getValues("name"), value);
+      if (requestId !== nameBlurRequestRef.current) return;
+      setNameMatches(result.nameMatches);
+      setWebsiteMatches(result.websiteMatches);
     } catch {
       if (requestId === nameBlurRequestRef.current) {
-        setNameMatches([])
-        setWebsiteMatches([])
+        setNameMatches([]);
+        setWebsiteMatches([]);
       }
     }
   }
 
-  const websiteRegistration = register('website')
-  const nameRegistration = register('name')
+  const websiteRegistration = register("website");
+  const nameRegistration = register("name");
 
   useEffect(() => {
-    if (!pendingRedirect) return
+    if (!pendingRedirect) return;
 
     const timeout = setTimeout(() => {
-      router.push(pendingRedirect)
-      setPendingRedirect(null)
-    }, 0)
+      router.push(pendingRedirect);
+      setPendingRedirect(null);
+    }, 0);
 
-    return () => clearTimeout(timeout)
-  }, [pendingRedirect, router])
+    return () => clearTimeout(timeout);
+  }, [pendingRedirect, router]);
 
   const submitForm = useCallback(
     async (data: SubmissionFormData) => {
-      if (submitLockRef.current) return
-      submitLockRef.current = true
+      if (submitLockRef.current) return;
+      submitLockRef.current = true;
 
-      setSubmitError(null)
-      setIsSubmitting(true)
+      setSubmitError(null);
+      setIsSubmitting(true);
 
       // Released only on the paths that leave the visitor on this form. A
       // successful submission is terminal for this form instance: the redirect
@@ -300,91 +313,95 @@ export default function SubmitForm({
       // (DEV-1415). The old test slept 1s and counted once, which is exactly
       // inside the window, so it never saw it.
       const unlock = () => {
-        submitLockRef.current = false
-        setIsSubmitting(false)
-      }
+        submitLockRef.current = false;
+        setIsSubmitting(false);
+      };
 
       try {
         const result:
-          | { error?: string; ownershipAdjusted?: boolean }
-          | undefined = await submitRecommendation(data, idempotencyKeyRef.current)
+          { error?: string; ownershipAdjusted?: boolean } | undefined =
+          await submitRecommendation(data, idempotencyKeyRef.current);
 
         if (result?.error) {
-          setSubmitError(result.error)
-          unlock()
-          return
+          setSubmitError(result.error);
+          unlock();
+          return;
         }
 
         const query = new URLSearchParams({
-          intent: 'recommend',
-        })
+          intent: "recommend",
+        });
         if (result?.ownershipAdjusted) {
-          query.set('ownership', 'community')
+          query.set("ownership", "community");
         }
-        setPendingRedirect(`/submit/confirmation?${query.toString()}`)
+        setPendingRedirect(`/submit/confirmation?${query.toString()}`);
 
         trackSubmissionCompleted(
           data.name,
-          '',
+          "",
           Boolean(data.heroImageUrl),
           complete(),
-          'recommend',
+          "recommend",
           !data.guestEmail,
-        )
+        );
       } catch (error) {
-        unlock()
-        throw error
+        unlock();
+        throw error;
       }
     },
     [complete],
-  )
+  );
 
   const onSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       void handleSubmit(submitForm, (validationErrors) => {
         for (const [fieldName, error] of Object.entries(validationErrors)) {
           if (error?.message) {
-            trackSubmissionFormErrorShown(fieldName, 'validation', 'recommendation')
+            trackSubmissionFormErrorShown(
+              fieldName,
+              "validation",
+              "recommendation",
+            );
           }
         }
-      })(event)
+      })(event);
     },
     [handleSubmit, submitForm],
-  )
+  );
 
   const isSubmitDisabled =
     !isValid ||
     !pdpaConsent ||
     ((nameMatches.length > 0 || websiteMatches.length > 0) &&
       !duplicateConfirmed) ||
-    isSubmitting
+    isSubmitting;
 
   return (
     <div className="page-gutter mx-auto max-w-5xl py-20">
       <div className="mb-10">
         <h1 className="text-balance text-center type-page-title-large">
-          {tForm('heading')}
+          {tForm("heading")}
         </h1>
         <span
           className="mx-auto mt-4 block h-0.5 w-8 bg-cta"
           aria-hidden="true"
         />
         <p className="mt-4 text-center type-body-muted">
-          {tForm('subheading')}
+          {tForm("subheading")}
         </p>
       </div>
 
       <StandardForm onSubmit={onSubmit} noValidate>
         <div className="flex flex-col gap-5">
           <p className="type-caption">
-            <span className="text-destructive">*</span> {tForm('requiredHint')}
+            <span className="text-destructive">*</span> {tForm("requiredHint")}
           </p>
 
           <div className="grid gap-5 md:grid-cols-2">
             <FormField
               id="submit-name"
-              label={tForm('brandNameLabel')}
-              description={tForm('brandNameHint')}
+              label={tForm("brandNameLabel")}
+              description={tForm("brandNameHint")}
               error={errors.name?.message}
               required
             >
@@ -392,57 +409,57 @@ export default function SubmitForm({
                 id="submit-name"
                 type="text"
                 autoComplete="off"
-                placeholder={tForm('brandNamePlaceholder')}
+                placeholder={tForm("brandNamePlaceholder")}
                 {...nameRegistration}
                 onBlur={async (event) => {
-                  nameRegistration.onBlur(event)
-                  await handleNameBlur()
+                  nameRegistration.onBlur(event);
+                  await handleNameBlur();
                 }}
                 onChange={(event) => {
-                  nameBlurRequestRef.current += 1
-                  setNameSuggestion(null)
-                  clearDuplicateState()
-                  setSubmitError(null)
-                  nameRegistration.onChange(event)
+                  nameBlurRequestRef.current += 1;
+                  setNameSuggestion(null);
+                  clearDuplicateState();
+                  setSubmitError(null);
+                  nameRegistration.onChange(event);
                 }}
               />
               {nameSuggestion ? (
                 <div className="animate-reveal-up">
-                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 text-sm">
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body">
                     <span>
-                      {tForm('suggestedName')} <strong>{nameSuggestion}</strong>
+                      {tForm("suggestedName")} <strong>{nameSuggestion}</strong>
                     </span>
                     <Button
                       type="button"
                       variant="secondary"
                       onClick={() => {
-                        applySuggestion('name', nameSuggestion)
-                        setNameSuggestion(null)
+                        applySuggestion("name", nameSuggestion);
+                        setNameSuggestion(null);
                       }}
                     >
-                      {tForm('applySuggestion')}
+                      {tForm("applySuggestion")}
                     </Button>
                   </div>
                 </div>
               ) : null}
               {nameMatches.length > 0 ? (
                 <DuplicateNotice
-                  title={t('fields.nameDuplicateTitle')}
+                  title={t("fields.nameDuplicateTitle")}
                   candidates={nameMatches}
                   reasonLabels={{
-                    cjk: t('fields.duplicateReasonCjk'),
-                    latin: t('fields.duplicateReasonLatin'),
+                    cjk: t("fields.duplicateReasonCjk"),
+                    latin: t("fields.duplicateReasonLatin"),
                   }}
                 >
-                  {confirmUnder === 'name' ? duplicateConfirmField : null}
+                  {confirmUnder === "name" ? duplicateConfirmField : null}
                 </DuplicateNotice>
               ) : null}
             </FormField>
 
             <FormField
               id="submit-website"
-              label={tForm('websiteLabel')}
-              description={tForm('websiteHint')}
+              label={tForm("websiteLabel")}
+              description={tForm("websiteHint")}
               error={errors.website?.message}
               required
             >
@@ -450,44 +467,44 @@ export default function SubmitForm({
                 id="submit-website"
                 type="url"
                 autoComplete="off"
-                placeholder={tForm('websitePlaceholder')}
+                placeholder={tForm("websitePlaceholder")}
                 {...websiteRegistration}
                 onBlur={async (event) => {
-                  websiteRegistration.onBlur(event)
-                  await handleWebsiteBlur(event.target.value)
+                  websiteRegistration.onBlur(event);
+                  await handleWebsiteBlur(event.target.value);
                 }}
                 onChange={(event) => {
-                  nameBlurRequestRef.current += 1
-                  websiteRegistration.onChange(event)
-                  setUrlSuggestion(null)
-                  clearDuplicateState()
+                  nameBlurRequestRef.current += 1;
+                  websiteRegistration.onChange(event);
+                  setUrlSuggestion(null);
+                  clearDuplicateState();
                 }}
               />
               {urlSuggestion ? (
                 <div className="overflow-hidden transition-all duration-200">
-                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 text-sm">
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body">
                     <span>
-                      {tForm('suggestedUrl')} <strong>{urlSuggestion}</strong>
+                      {tForm("suggestedUrl")} <strong>{urlSuggestion}</strong>
                     </span>
                     <Button
                       type="button"
                       variant="secondary"
                       onClick={() => {
-                        applySuggestion('website', urlSuggestion)
-                        setUrlSuggestion(null)
+                        applySuggestion("website", urlSuggestion);
+                        setUrlSuggestion(null);
                       }}
                     >
-                      {tForm('applySuggestion')}
+                      {tForm("applySuggestion")}
                     </Button>
                   </div>
                 </div>
               ) : null}
               {websiteMatches.length > 0 ? (
                 <DuplicateNotice
-                  title={t('fields.websiteDuplicateTitle')}
+                  title={t("fields.websiteDuplicateTitle")}
                   candidates={websiteMatches}
                 >
-                  {confirmUnder === 'website' ? duplicateConfirmField : null}
+                  {confirmUnder === "website" ? duplicateConfirmField : null}
                 </DuplicateNotice>
               ) : null}
             </FormField>
@@ -495,7 +512,7 @@ export default function SubmitForm({
 
           <FormField
             id="submit-source"
-            label={tForm('sourceLabel')}
+            label={tForm("sourceLabel")}
             error={errors.sourceAttribution?.message}
             required
           >
@@ -506,9 +523,9 @@ export default function SubmitForm({
                 <NativeSelect
                   id="submit-source"
                   className={cn(
-                    field.value ? 'text-foreground' : 'text-muted-foreground',
+                    field.value ? "text-foreground" : "text-muted-foreground",
                   )}
-                  value={field.value ?? ''}
+                  value={field.value ?? ""}
                   onChange={(event) =>
                     field.onChange(
                       (event.target.value as SourceAttribution) || undefined,
@@ -516,7 +533,7 @@ export default function SubmitForm({
                   }
                 >
                   <option value="" disabled>
-                    {tForm('sourcePlaceholder')}
+                    {tForm("sourcePlaceholder")}
                   </option>
                   {SOURCE_ATTRIBUTION_VALUES.map((value) => (
                     <option key={value} value={value}>
@@ -531,8 +548,8 @@ export default function SubmitForm({
           <div className="grid gap-5 md:grid-cols-2">
             <FormField
               id="submit-guest-email"
-              label={tForm('guestEmailLabel')}
-              description={tForm('guestEmailHint')}
+              label={tForm("guestEmailLabel")}
+              description={tForm("guestEmailHint")}
               error={errors.guestEmail?.message}
               required={marketingEmailOptIn}
             >
@@ -541,15 +558,15 @@ export default function SubmitForm({
                 type="email"
                 autoComplete="email"
                 spellCheck={false}
-                placeholder={tForm('guestEmailPlaceholder')}
-                {...register('guestEmail')}
+                placeholder={tForm("guestEmailPlaceholder")}
+                {...register("guestEmail")}
               />
             </FormField>
 
             <FormField
               id="submit-description"
-              label={tForm('descriptionLabel')}
-              description={tForm('descriptionHint')}
+              label={tForm("descriptionLabel")}
+              description={tForm("descriptionHint")}
               error={errors.description?.message}
             >
               {/* Starts at the input height of the field beside it and grows
@@ -558,8 +575,8 @@ export default function SubmitForm({
               <Textarea
                 id="submit-description"
                 className="min-h-12"
-                placeholder={tForm('descriptionPlaceholder')}
-                {...register('description')}
+                placeholder={tForm("descriptionPlaceholder")}
+                {...register("description")}
               />
             </FormField>
           </div>
@@ -578,10 +595,10 @@ export default function SubmitForm({
                   variant="newsletter-only"
                   checked={field.value ?? false}
                   onCheckedChange={(checked) => {
-                    field.onChange(checked)
+                    field.onChange(checked);
                     // The checkbox sits away from the email input, so surface
                     // the "email required for newsletter" error right away.
-                    void trigger('guestEmail')
+                    void trigger("guestEmail");
                   }}
                 />
               )}
@@ -603,7 +620,7 @@ export default function SubmitForm({
                       aria-required="true"
                     />
                     <span className="type-body font-normal">
-                      {tReview.rich('pdpaConsent', {
+                      {tReview.rich("pdpaConsent", {
                         privacyPolicy: (chunks) => (
                           <Link
                             href="/privacy"
@@ -616,15 +633,13 @@ export default function SubmitForm({
                         ),
                       })}
                       <span aria-hidden="true" className="text-destructive">
-                        {' '}
+                        {" "}
                         *
                       </span>
                     </span>
                   </Label>
                   {fieldState.error ? (
-                    <p className="text-xs text-destructive">
-                      {fieldState.error.message}
-                    </p>
+                    <p className="type-error">{fieldState.error.message}</p>
                   ) : null}
                 </div>
               )}
@@ -633,7 +648,7 @@ export default function SubmitForm({
 
           <input
             type="text"
-            {...register('honeypot')}
+            {...register("honeypot")}
             tabIndex={-1}
             autoComplete="off"
             // eslint-disable-next-line no-restricted-syntax -- ui-exception: honeypot trap must be invisible native input
@@ -649,15 +664,15 @@ export default function SubmitForm({
             />
           </div>
           {turnstileError ? (
-            <p className="text-sm text-destructive" role="alert">
-              {t('errors.turnstileError')}
+            <p className="type-body text-destructive" role="alert">
+              {t("errors.turnstileError")}
             </p>
           ) : null}
 
           {submitError ? (
             <p
               role="alert"
-              className="text-sm text-destructive"
+              className="type-body text-destructive"
               aria-live="polite"
             >
               {submitError}
@@ -669,11 +684,11 @@ export default function SubmitForm({
             tone="cta"
             disabled={isSubmitDisabled}
             isSubmitting={isSubmitting}
-            idleLabel={tForm('submitButton')}
-            submittingLabel={tForm('submittingButton')}
+            idleLabel={tForm("submitButton")}
+            submittingLabel={tForm("submittingButton")}
           />
         </div>
       </StandardForm>
     </div>
-  )
+  );
 }

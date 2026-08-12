@@ -1,12 +1,12 @@
-'use client'
+"use client";
 
-import { useTranslations } from 'next-intl'
+import { useTranslations } from "next-intl";
 import {
   normalizeInstagramHref,
   normalizeThreadsHref,
   sanitizeHref,
-} from '@/lib/url'
-import type { ReactNode } from 'react'
+} from "@/lib/url";
+import type { ReactNode } from "react";
 import {
   AtSign,
   Globe,
@@ -14,37 +14,38 @@ import {
   Package,
   ShoppingCart,
   Store,
-} from 'lucide-react'
-import { InstagramIcon } from '@/components/icons/instagram-icon'
-import { buttonVariants } from '@/components/ui/button'
+} from "lucide-react";
+import { InstagramIcon } from "@/components/icons/instagram-icon";
+import { buttonVariants } from "@/components/ui/button";
+import { Typography } from "@/components/ui/typography";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip'
-import type { PublicBrandDetail } from '@/lib/brands/contracts'
+} from "@/components/ui/tooltip";
+import type { PublicBrandDetail } from "@/lib/brands/contracts";
 import {
   channelMessageKey,
   PURCHASE_CHANNELS,
   type PurchaseChannelColumn,
   type PurchaseChannelKey,
-} from '@/lib/brands/purchase-channels'
-import { cn } from '@/lib/utils'
-import { trackExternalLinkClicked } from '@/lib/analytics'
-import { CorrectionDialog } from './correction-dialog'
+} from "@/lib/brands/purchase-channels";
+import { cn } from "@/lib/utils";
+import { trackExternalLinkClicked } from "@/lib/analytics";
+import { CorrectionDialog } from "./correction-dialog";
 
 interface BrandLinksProps {
-  brand: PublicBrandDetail
+  brand: PublicBrandDetail;
   sectionIds?: {
-    social?: string
-    purchase?: string
-  }
-  sectionClassName?: string
+    social?: string;
+    purchase?: string;
+  };
+  sectionClassName?: string;
 }
 
 function normalizeDirectUrl(value: string | undefined | null): string | null {
-  return sanitizeHref(value)
+  return sanitizeHref(value);
 }
 
 function FacebookIcon({ className }: { className?: string }) {
@@ -58,91 +59,87 @@ function FacebookIcon({ className }: { className?: string }) {
     >
       <path d="M14 8h3V4h-3c-3.31 0-5 1.96-5 5v2H6v4h3v7h4v-7h3.24L17 11h-4V9c0-.68.32-1 1-1z" />
     </svg>
-  )
+  );
 }
 
 type LinkDestination =
-  | PurchaseChannelKey
-  | 'instagram'
-  | 'threads'
-  | 'facebook'
+  PurchaseChannelKey | "instagram" | "threads" | "facebook";
 
 type LinkSlot = {
-  label: string
-  url: string | null
-  linkType: LinkDestination | 'other'
-  icon: ReactNode
-  accentClassName?: string
-}
+  label: string;
+  url: string | null;
+  linkType: LinkDestination | "other";
+  icon: ReactNode;
+  accentClassName?: string;
+};
 
 type LinkSectionProps = {
-  id?: string
-  label: string
-  slots: LinkSlot[]
-  brand: PublicBrandDetail
-  className?: string
-  headerAction?: ReactNode
-}
+  id?: string;
+  label: string;
+  slots: LinkSlot[];
+  brand: PublicBrandDetail;
+  className?: string;
+  headerAction?: ReactNode;
+};
 
-const destinationLinkClassName =
-  buttonVariants({
-    variant: 'secondary',
-    shape: 'pill',
-    size: 'compact',
-    className: 'min-w-32 max-w-full justify-center gap-2',
-  })
+const destinationLinkClassName = buttonVariants({
+  variant: "secondary",
+  shape: "pill",
+  size: "compact",
+  className: "min-w-32 max-w-full justify-center gap-2",
+});
 
 const PURCHASE_PRESENTATION = {
   website: {
     icon: <Globe className="size-4 text-current" />,
-    accentClassName: 'text-primary',
+    accentClassName: "text-primary",
   },
   pinkoi: {
     icon: <Store className="size-4 text-current" />,
-    accentClassName: 'text-[#E05B6F]',
+    accentClassName: "text-[#E05B6F]",
   },
   shopee: {
     icon: <ShoppingCart className="size-4 text-current" />,
-    accentClassName: 'text-[#EE4D2D]',
+    accentClassName: "text-[#EE4D2D]",
   },
   myship: {
     icon: <Package className="size-4 text-current" />,
-    accentClassName: 'text-[#FF6600]',
+    accentClassName: "text-[#FF6600]",
   },
-} satisfies Record<PurchaseChannelKey, { icon: ReactNode; accentClassName: string }>
+} satisfies Record<
+  PurchaseChannelKey,
+  { icon: ReactNode; accentClassName: string }
+>;
 
 function DestinationLinkButton({
   slot,
   children,
 }: {
-  slot: LinkSlot
-  children: ReactNode
+  slot: LinkSlot;
+  children: ReactNode;
 }) {
   return (
     <>
       <span
         aria-hidden="true"
-        className={cn('flex size-4 shrink-0 items-center justify-center', slot.accentClassName)}
+        className={cn(
+          "flex size-4 shrink-0 items-center justify-center",
+          slot.accentClassName,
+        )}
       >
         {slot.icon}
       </span>
-      <span className="min-w-0 truncate">
-        {children}
-      </span>
+      <span className="min-w-0 truncate">{children}</span>
     </>
-  )
+  );
 }
 
-function SectionLabel({
-  children,
-}: {
-  children: ReactNode
-}) {
+function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <h2 className="type-section-title-large">
+    <Typography as="h2" variant="sectionTitle">
       {children}
-    </h2>
-  )
+    </Typography>
+  );
 }
 
 function LinkSection({
@@ -153,8 +150,8 @@ function LinkSection({
   className,
   headerAction,
 }: LinkSectionProps) {
-  const t = useTranslations('brandDetail')
-  if (slots.length === 0 && !headerAction) return null
+  const t = useTranslations("brandDetail");
+  if (slots.length === 0 && !headerAction) return null;
 
   return (
     <section id={id} className={className}>
@@ -165,7 +162,7 @@ function LinkSection({
       <TooltipProvider>
         <div className="flex flex-wrap gap-3">
           {slots.map((slot, index) => {
-            const slotKey = `${slot.linkType}:${slot.label}:${index}`
+            const slotKey = `${slot.linkType}:${slot.label}:${index}`;
 
             // A destination we hold no URL for stays on screen as an inert,
             // dimmed chip: the set of channels a brand could be on is itself
@@ -177,11 +174,11 @@ function LinkSection({
                   <TooltipTrigger
                     type="button"
                     aria-disabled="true"
-                    aria-label={`${slot.label} — ${t('links.unknown')}`}
+                    aria-label={`${slot.label} — ${t("links.unknown")}`}
                     onClick={(event) => event.preventDefault()}
                     className={cn(
                       destinationLinkClassName,
-                      'cursor-not-allowed opacity-50',
+                      "cursor-not-allowed opacity-50",
                     )}
                     data-ph-no-autocapture
                   >
@@ -189,9 +186,9 @@ function LinkSection({
                       {slot.label}
                     </DestinationLinkButton>
                   </TooltipTrigger>
-                  <TooltipContent>{t('links.unknown')}</TooltipContent>
+                  <TooltipContent>{t("links.unknown")}</TooltipContent>
                 </Tooltip>
-              )
+              );
             }
 
             return (
@@ -206,54 +203,60 @@ function LinkSection({
                   trackExternalLinkClicked(
                     brand.slug,
                     slot.linkType,
-                    typeof window !== 'undefined' ? window.location.pathname : '',
-                    'detail_page',
+                    typeof window !== "undefined"
+                      ? window.location.pathname
+                      : "",
+                    "detail_page",
                     brand.id,
-                  )
+                  );
                 }}
               >
                 <DestinationLinkButton slot={slot}>
                   {slot.label}
                 </DestinationLinkButton>
               </a>
-            )
+            );
           })}
         </div>
       </TooltipProvider>
     </section>
-  )
+  );
 }
 
-function BrandSocialLinks({ brand, sectionIds, sectionClassName }: BrandLinksProps) {
-  const t = useTranslations('brandDetail')
+function BrandSocialLinks({
+  brand,
+  sectionIds,
+  sectionClassName,
+}: BrandLinksProps) {
+  const t = useTranslations("brandDetail");
 
   const socialSlots: LinkSlot[] = [
     {
-      label: t('links.instagram'),
+      label: t("links.instagram"),
       url: normalizeInstagramHref(brand.socialInstagram),
-      linkType: 'instagram',
+      linkType: "instagram",
       icon: <InstagramIcon className="size-4 text-current" />,
-      accentClassName: 'text-[#E1306C]',
+      accentClassName: "text-[#E1306C]",
     },
     {
-      label: t('links.threads'),
+      label: t("links.threads"),
       url: normalizeThreadsHref(brand.socialThreads),
-      linkType: 'threads',
+      linkType: "threads",
       icon: <AtSign className="size-4 text-current" />,
     },
     {
-      label: t('links.facebook'),
+      label: t("links.facebook"),
       url: normalizeDirectUrl(brand.socialFacebook),
-      linkType: 'facebook',
+      linkType: "facebook",
       icon: <FacebookIcon className="size-4 text-current" />,
-      accentClassName: 'text-[#1877F2]',
+      accentClassName: "text-[#1877F2]",
     },
-  ]
+  ];
 
   return (
     <LinkSection
       id={sectionIds?.social}
-      label={t('links.socialPlatforms')}
+      label={t("links.socialPlatforms")}
       slots={socialSlots}
       brand={brand}
       className={sectionClassName}
@@ -268,26 +271,32 @@ function BrandSocialLinks({ brand, sectionIds, sectionClassName }: BrandLinksPro
         />
       }
     />
-  )
+  );
 }
 
-function BrandPurchaseLinks({ brand, sectionIds, sectionClassName }: BrandLinksProps) {
-  const t = useTranslations('brandDetail')
+function BrandPurchaseLinks({
+  brand,
+  sectionIds,
+  sectionClassName,
+}: BrandLinksProps) {
+  const t = useTranslations("brandDetail");
 
   const purchaseSlots: LinkSlot[] = PURCHASE_CHANNELS.map((channel) => ({
-    label: t(channelMessageKey(channel.messageKeys.brandDetailLink, 'brandDetail')),
+    label: t(
+      channelMessageKey(channel.messageKeys.brandDetailLink, "brandDetail"),
+    ),
     url: normalizeDirectUrl(brand[channel.camel]),
     linkType: channel.key,
     ...PURCHASE_PRESENTATION[channel.key],
-  }))
+  }));
   const purchaseLinks = Object.fromEntries(
     PURCHASE_CHANNELS.map((channel) => [channel.column, brand[channel.camel]]),
-  ) as Record<PurchaseChannelColumn, string | null>
+  ) as Record<PurchaseChannelColumn, string | null>;
 
   return (
     <LinkSection
       id={sectionIds?.purchase}
-      label={t('links.purchaseChannels')}
+      label={t("links.purchaseChannels")}
       slots={purchaseSlots}
       brand={brand}
       className={sectionClassName}
@@ -300,38 +309,42 @@ function BrandPurchaseLinks({ brand, sectionIds, sectionClassName }: BrandLinksP
         />
       }
     />
-  )
+  );
 }
 
 function BrandOtherLinks({ brand, sectionClassName }: BrandLinksProps) {
-  const t = useTranslations('brandDetail')
+  const t = useTranslations("brandDetail");
 
   const otherSlots: LinkSlot[] = brand.otherUrls.flatMap((otherUrl) => {
-    const label = otherUrl.label?.trim() ?? ''
-    const url = normalizeDirectUrl(otherUrl.url)
-    if (!label || !url) return []
+    const label = otherUrl.label?.trim() ?? "";
+    const url = normalizeDirectUrl(otherUrl.url);
+    if (!label || !url) return [];
 
     return [
       {
         label,
         url,
-        linkType: 'other',
+        linkType: "other",
         icon: <Link className="size-4 text-current" />,
       },
-    ]
-  })
+    ];
+  });
 
   return (
     <LinkSection
-      label={t('links.otherLinks')}
+      label={t("links.otherLinks")}
       slots={otherSlots}
       brand={brand}
       className={sectionClassName}
     />
-  )
+  );
 }
 
-export function BrandLinks({ brand, sectionIds, sectionClassName }: BrandLinksProps) {
+export function BrandLinks({
+  brand,
+  sectionIds,
+  sectionClassName,
+}: BrandLinksProps) {
   return (
     <>
       <BrandSocialLinks
@@ -346,5 +359,5 @@ export function BrandLinks({ brand, sectionIds, sectionClassName }: BrandLinksPr
       />
       <BrandOtherLinks brand={brand} sectionClassName={sectionClassName} />
     </>
-  )
+  );
 }
