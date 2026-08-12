@@ -151,11 +151,18 @@ function envLimit(name: string, fallback: number): number {
  */
 type RateLimitRule = { windowMs: number; maxRequests: number; crawlerExempt: boolean }
 
+const BRANDS_DIRECTORY_RATE_LIMIT = 30
+
 // Rate limit rules per path prefix
 const RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   '/admin/operations': { windowMs: 60_000, maxRequests: 3, crawlerExempt: false },
   '/api/upload': { windowMs: 60_000, maxRequests: 20, crawlerExempt: false },
   '/api/': { windowMs: 60_000, maxRequests: 60, crawlerExempt: false },
+  '/brands': {
+    windowMs: 60_000,
+    maxRequests: BRANDS_DIRECTORY_RATE_LIMIT,
+    crawlerExempt: false,
+  },
   '/brands/': {
     windowMs: 60_000,
     maxRequests: envLimit('RATE_LIMIT_BRANDS_PER_MIN', 200),
@@ -311,13 +318,18 @@ export async function checkSoftRateLimit(request: NextRequest): Promise<boolean>
   return false
 }
 
+function matchesRateLimitRule(pathname: string, ruleKey: string): boolean {
+  if (ruleKey.endsWith('/')) return pathname.startsWith(ruleKey)
+  return pathname === ruleKey || pathname.startsWith(`${ruleKey}/`)
+}
+
 export async function checkRateLimit(request: NextRequest): Promise<NextResponse | null> {
   const { pathname } = request.nextUrl
   const normalizedPathname = stripLocalePrefix(pathname)
 
   // Find the most specific matching rule
   const ruleKey = Object.keys(RATE_LIMIT_RULES)
-    .filter((prefix) => normalizedPathname.startsWith(prefix))
+    .filter((prefix) => matchesRateLimitRule(normalizedPathname, prefix))
     .sort((a, b) => b.length - a.length)[0]
 
   if (!ruleKey) return null
