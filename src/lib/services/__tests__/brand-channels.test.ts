@@ -2,16 +2,15 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildEnrichedChannelRows,
+  buildStockistPageRanges,
   CHANNEL_READ_SELECT,
   groupStockistsForCity,
+  stockistDistrictSlugs,
   summarizeStockistCities,
   type StockistLocation,
 } from '../brand-channels'
 
-function location(
-  id: string,
-  district: string | null,
-): StockistLocation {
+function location(id: string, district: string | null): StockistLocation {
   return {
     id,
     name: `María García Stockist ${id}`,
@@ -93,16 +92,31 @@ describe('brand channel provenance', () => {
       location('delta', null),
     ]
 
-    expect(groupStockistsForCity(locations, 'taipei').map((group) => group.slug)).toEqual([
-      'taipei-zhongshan',
-      'taipei-xinyi',
-      'unassigned',
-    ])
+    expect(
+      groupStockistsForCity(locations, 'taipei').map((group) => group.slug),
+    ).toEqual(['taipei-zhongshan', 'taipei-xinyi', 'unassigned'])
   })
 
   it('summarizes only cities that have real locations', () => {
-    expect(summarizeStockistCities([location('echo', '中山區')])).toMatchObject([
-      { city: 'taipei', count: 1 },
+    expect(summarizeStockistCities([location('echo', '中山區')])).toMatchObject(
+      [{ city: 'taipei', count: 1 }],
+    )
+  })
+
+  it('requests every stockist page when the directory exceeds the Data API row cap', () => {
+    expect(buildStockistPageRanges(1_354)).toEqual([
+      { from: 0, to: 999 },
+      { from: 1000, to: 1353 },
     ])
+  })
+
+  it('offers location jumps only for district sections present in the directory', () => {
+    expect(
+      stockistDistrictSlugs([
+        location('foxtrot', '中山區'),
+        location('golf', '中山區'),
+        location('hotel', null),
+      ]),
+    ).toEqual(['taipei-zhongshan'])
   })
 })

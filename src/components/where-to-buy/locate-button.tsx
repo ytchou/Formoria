@@ -7,14 +7,25 @@ import { useRouter } from '@/i18n/navigation'
 import { citySlugToPath } from '@/lib/constants/taiwan-cities'
 import { TAIWAN_DISTRICT_CENTROIDS } from '@/lib/constants/taiwan-district-centroids'
 
-type LocateCopy = { idle: string; locating: string; denied: string; unavailable: string }
+type LocateCopy = {
+  idle: string
+  locating: string
+  denied: string
+  unavailable: string
+}
 
 function focusHashTarget() {
   const id = decodeURIComponent(window.location.hash.slice(1))
   if (id) document.getElementById(id)?.focus()
 }
 
-export function LocateButton({ copy }: { copy: LocateCopy }) {
+export function LocateButton({
+  copy,
+  availableDistrictSlugs,
+}: {
+  copy: LocateCopy
+  availableDistrictSlugs: string[]
+}) {
   const router = useRouter()
   const [status, setStatus] = useState('')
   const [loading, setLoading] = useState(false)
@@ -31,23 +42,41 @@ export function LocateButton({ copy }: { copy: LocateCopy }) {
     setStatus(copy.locating)
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
-        const first = TAIWAN_DISTRICT_CENTROIDS.at(0)
-        if (!first) return setStatus(copy.unavailable)
-        const nearest = TAIWAN_DISTRICT_CENTROIDS.reduce((best, candidate) => {
-          const distance = (candidate.latitude - coords.latitude) ** 2 + (candidate.longitude - coords.longitude) ** 2
-          return distance < best.distance ? { candidate, distance } : best
-        }, { candidate: first, distance: Number.POSITIVE_INFINITY })
+        const availableSlugs = new Set(availableDistrictSlugs)
+        const candidates = TAIWAN_DISTRICT_CENTROIDS.filter((candidate) =>
+          availableSlugs.has(candidate.district),
+        )
+        const first = candidates.at(0)
+        if (!first) {
+          setLoading(false)
+          return setStatus(copy.unavailable)
+        }
+        const nearest = candidates.reduce(
+          (best, candidate) => {
+            const distance =
+              (candidate.latitude - coords.latitude) ** 2 +
+              (candidate.longitude - coords.longitude) ** 2
+            return distance < best.distance ? { candidate, distance } : best
+          },
+          { candidate: first, distance: Number.POSITIVE_INFINITY },
+        )
         setLoading(false)
         setStatus('')
-        router.push(`/where-to-buy/${citySlugToPath(nearest.candidate.city)}#${nearest.candidate.district}`)
+        router.push(
+          `/where-to-buy/${citySlugToPath(nearest.candidate.city)}#${nearest.candidate.district}`,
+        )
       },
       (error) => {
         setLoading(false)
-        setStatus(error.code === error.PERMISSION_DENIED ? copy.denied : copy.unavailable)
+        setStatus(
+          error.code === error.PERMISSION_DENIED
+            ? copy.denied
+            : copy.unavailable,
+        )
       },
       { enableHighAccuracy: false, timeout: 10_000, maximumAge: 300_000 },
     )
-  }, [copy, router])
+  }, [availableDistrictSlugs, copy, router])
 
   return (
     <div>
@@ -55,7 +84,12 @@ export function LocateButton({ copy }: { copy: LocateCopy }) {
         <LocateFixed aria-hidden="true" className="size-5" />
         {loading ? copy.locating : copy.idle}
       </Button>
-      <p role="status" className="mt-2 min-h-6 type-caption text-muted-foreground">{status}</p>
+      <p
+        role="status"
+        className="mt-2 min-h-6 type-caption text-muted-foreground"
+      >
+        {status}
+      </p>
     </div>
   )
 }

@@ -1,17 +1,28 @@
 import { test, expect } from '../fixtures/auth'
 
 test.describe('Where-to-buy directory', () => {
-  test('browses from the index to a city and reaches a district section', async ({ anonPage }) => {
+  test('browses from the index to a city and reaches a district section', async ({
+    anonPage,
+  }) => {
     const response = await anonPage.goto('/where-to-buy')
     expect(response?.status()).toBe(200)
-    await anonPage.locator('main a[href="/where-to-buy/taipei"]').first().click()
+    await anonPage
+      .locator('main a[href="/where-to-buy/taipei"]')
+      .first()
+      .click()
     const districtLink = anonPage.locator('main a[href*="#"]').first()
     await expect(districtLink).toBeVisible()
     await districtLink.click()
     await expect(anonPage).toHaveURL(/\/where-to-buy\/taipei#[a-z0-9-]+/)
     const targetId = new URL(anonPage.url()).hash.slice(1)
     await expect(anonPage.locator(`h2#${targetId}`)).toBeFocused()
-    await expect(anonPage.locator(`h2#${targetId}`).locator('xpath=..').locator('li').first()).toBeVisible()
+    await expect(
+      anonPage
+        .locator(`h2#${targetId}`)
+        .locator('xpath=..')
+        .locator('li')
+        .first(),
+    ).toBeVisible()
   })
 
   test('renders locations without JavaScript', async ({ browser }) => {
@@ -20,11 +31,30 @@ test.describe('Where-to-buy directory', () => {
     try {
       const response = await page.goto('/where-to-buy/taipei')
       expect(response?.status()).toBe(200)
-      await expect(page.locator('main').getByText('南京西路').first()).toBeVisible()
-      await expect(page.locator('main a[href*="google.com/maps/search"]').first()).toBeVisible()
+      await expect(
+        page.locator('main').getByText('南京西路').first(),
+      ).toBeVisible()
+      await expect(
+        page.locator('main a[href*="google.com/maps/search"]').first(),
+      ).toBeVisible()
     } finally {
       await context.close()
     }
+  })
+
+  test('uses location to reach a district section that has stockists', async ({
+    anonPage,
+  }) => {
+    await anonPage.context().grantPermissions(['geolocation'])
+    await anonPage
+      .context()
+      .setGeolocation({ latitude: 25.033, longitude: 121.5654 })
+    await anonPage.goto('/where-to-buy')
+
+    await anonPage.getByRole('button', { name: '使用我的位置' }).click()
+    await expect(anonPage).toHaveURL(/\/where-to-buy\/[a-z-]+#[a-z0-9-]+/)
+    const targetId = new URL(anonPage.url()).hash.slice(1)
+    await expect(anonPage.locator(`h2#${targetId}`)).toBeFocused()
   })
 
   test('filters by category without JavaScript', async ({ browser }) => {

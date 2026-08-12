@@ -13,6 +13,7 @@ import type {
 import { unstable_cache } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/service'
 import {
+  CITY_SLUGS,
   CITY_NAMES_ZH,
   citySlugFromName,
   type CitySlug,
@@ -26,6 +27,7 @@ import {
   PRODUCT_TYPE_CATEGORIES,
 } from '@/lib/taxonomy/ontology'
 import { districtSlugFromName } from '@/lib/constants/taiwan-districts'
+import { matchDistrict } from '@/lib/brands/district'
 import { logAdminAction } from './admin-audit'
 import { isOwnerOf } from './brand-owners'
 
@@ -164,8 +166,22 @@ type ChannelDistrictBackfillRow = {
 export const CHANNEL_READ_SELECT =
   'id, name, channel_type, category_label, region_label, address, url, source_url, fetched_at, location_type, country, owner_status, source, removed_at, brand_channel_confirmations(count)'
 
-export const STOCKIST_READ_SELECT =
+const STOCKIST_READ_SELECT =
   'id, name, address, url, country, region_label, district, brands!inner(slug, name, product_type, product_tags, status)'
+
+const STOCKIST_PAGE_SIZE = 1000
+
+export function buildStockistPageRanges(
+  total: number,
+): Array<{ from: number; to: number }> {
+  return Array.from(
+    { length: Math.ceil(total / STOCKIST_PAGE_SIZE) },
+    (_, index) => ({
+      from: index * STOCKIST_PAGE_SIZE,
+      to: Math.min(total, (index + 1) * STOCKIST_PAGE_SIZE) - 1,
+    }),
+  )
+}
 
 function mapStockistRow(row: StockistReadRow): StockistLocation | null {
   const brand = Array.isArray(row.brands) ? row.brands.at(0) : row.brands
@@ -182,20 +198,25 @@ function mapStockistRow(row: StockistReadRow): StockistLocation | null {
     brandName: brand.name,
     productType: brand.product_type,
     productTags: Array.isArray(brand.product_tags)
-      ? brand.product_tags.filter((tag): tag is string => typeof tag === 'string')
+      ? brand.product_tags.filter(
+          (tag): tag is string => typeof tag === 'string',
+        )
       : [],
   }
 }
 
-function matchesCategory(location: StockistLocation, category?: string): boolean {
+function matchesCategory(
+  location: StockistLocation,
+  category?: string,
+): boolean {
   if (!category) return true
   if (location.productType === category) return true
   const subcategory = subcategoryBySlug(category)
   return Boolean(
     subcategory &&
-      location.productTags.some(
-        (tag) => matchSubcategory(tag)?.slug === subcategory.slug,
-      ),
+    location.productTags.some(
+      (tag) => matchSubcategory(tag)?.slug === subcategory.slug,
+    ),
   )
 }
 
@@ -224,7 +245,10 @@ export function summarizeStockistCities(
       const counts = new Map<string, number>()
       for (const location of cityLocations) {
         if (location.district) {
-          counts.set(location.district, (counts.get(location.district) ?? 0) + 1)
+          counts.set(
+            location.district,
+            (counts.get(location.district) ?? 0) + 1,
+          )
         }
       }
       return {
@@ -273,22 +297,67 @@ export function groupStockistsForCity(
     : assigned
 }
 
+export function stockistDistrictSlugs(locations: StockistLocation[]): string[] {
+  return [
+    ...new Set(
+      locations.flatMap((location) => {
+        if (!location.city || !location.district) return []
+        const slug = districtSlugFromName(location.city, location.district)
+        return slug ? [slug] : []
+      }),
+    ),
+  ]
+}
+
 export const getStockistDirectory = unstable_cache(
   async (category?: string): Promise<StockistLocation[]> => {
     const supabase = createServiceClient()
-    const { data, error } = await supabase
+    const { data, error, count } = await supabase
       .from('brand_channels')
-      .select(STOCKIST_READ_SELECT)
+      .select(STOCKIST_READ_SELECT, { count: 'exact' })
       .eq('brands.status', 'approved')
       .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN)
+      .eq('channel_type', 'offline')
       .is('removed_at', null)
       .neq('owner_status', 'rejected')
       .order('region_label')
       .order('district')
       .order('name')
+      .order('id')
+      .range(0, STOCKIST_PAGE_SIZE - 1)
 
     if (error) throw error
-    return ((data ?? []) as unknown as StockistReadRow[])
+    if (count === null)
+      throw new Error('Stockist directory query returned no exact count')
+
+    const remainingPages = await Promise.all(
+      buildStockistPageRanges(count)
+        .slice(1)
+        .map(async ({ from, to }) => {
+          const { data: page, error: pageError } = await supabase
+            .from('brand_channels')
+            .select(STOCKIST_READ_SELECT)
+            .eq('brands.status', 'approved')
+            .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN)
+            .eq('channel_type', 'offline')
+            .is('removed_at', null)
+            .neq('owner_status', 'rejected')
+            .order('region_label')
+            .order('district')
+            .order('name')
+            .order('id')
+            .range(from, to)
+          if (pageError) throw pageError
+          return page ?? []
+        }),
+    )
+
+    return (
+      [
+        ...(data ?? []),
+        ...remainingPages.flat(),
+      ] as unknown as StockistReadRow[]
+    )
       .map(mapStockistRow)
       .filter((location): location is StockistLocation => Boolean(location))
       .filter((location) => matchesCategory(location, category))
@@ -309,12 +378,14 @@ export async function listChannelDistrictBackfillRows(): Promise<
     .not('address', 'is', null)
 
   if (error) throw error
-  return ((data ?? []) as Array<{
-    id: string
-    address: string
-    region_label: string | null
-    district: string | null
-  }>).map((row) => ({
+  return (
+    (data ?? []) as Array<{
+      id: string
+      address: string
+      region_label: string | null
+      district: string | null
+    }>
+  ).map((row) => ({
     id: row.id,
     address: row.address,
     regionLabel: row.region_label,
@@ -327,10 +398,13 @@ export async function updateChannelDistricts(
 ): Promise<void> {
   if (rows.length === 0) return
   const supabase = createServiceClient()
-  const { error } = await supabase
-    .from('brand_channels')
-    .upsert(rows, { onConflict: 'id' })
+  const { data, error } = await supabase.rpc('update_brand_channel_districts', {
+    p_updates: rows,
+  })
   if (error) throw error
+  if (data !== rows.length) {
+    throw new Error(`Updated ${data} of ${rows.length} channel districts`)
+  }
 }
 
 function isChannelType(value: string): value is ChannelType {
@@ -557,6 +631,12 @@ export async function submitChannel(
       }
 
       const supabase = createServiceClient()
+      const regionLabel = regionSlugToLabel(input.region)
+      const regionValue = input.region?.trim()
+      const city =
+        CITY_SLUGS.find((slug) => slug === regionValue) ??
+        citySlugFromName(regionLabel)
+      const address = trimNullable(input.address)
       const { data, error } = await supabase
         .from('brand_channels')
         .insert({
@@ -565,9 +645,11 @@ export async function submitChannel(
           normalized_name: normalizeChannelName(name),
           channel_type: input.channelType,
           category_label: trimNullable(input.category),
-          region_label: regionSlugToLabel(input.region),
-          address: trimNullable(input.address),
+          region_label: regionLabel,
+          district: city && address ? matchDistrict(address, city) : null,
+          address,
           url,
+          country: city ? 'TW' : null,
           source: 'community',
           created_by: userId,
         })
@@ -637,7 +719,10 @@ export async function setOwnerChannelStatus(
         .eq('id', channelId)
 
       if (updateError) return { ok: false, code: 'database_error' }
-      return { ok: true, city: citySlugFromName((channel as ChannelLookupRow).region_label) }
+      return {
+        ok: true,
+        city: citySlugFromName((channel as ChannelLookupRow).region_label),
+      }
     },
   )
 }
@@ -673,7 +758,10 @@ export async function adminRemoveChannel(
         metadata: { channelId },
       })
 
-      return { ok: true, city: citySlugFromName((data as ChannelLookupRow).region_label) }
+      return {
+        ok: true,
+        city: citySlugFromName((data as ChannelLookupRow).region_label),
+      }
     },
   )
 }

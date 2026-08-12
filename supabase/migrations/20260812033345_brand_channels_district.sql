@@ -92,4 +92,32 @@ revoke all on function public.upsert_enriched_brand_channels(uuid, jsonb)
 grant execute on function public.upsert_enriched_brand_channels(uuid, jsonb)
   to service_role;
 
+create or replace function public.update_brand_channel_districts(
+  p_updates jsonb
+)
+returns integer
+language sql
+security definer
+set search_path to 'public', 'pg_temp'
+as $function$
+  with updated as (
+    update public.brand_channels as channel
+    set
+      district = update_row.district,
+      updated_at = now()
+    from jsonb_to_recordset(coalesce(p_updates, '[]'::jsonb)) as update_row(
+      id uuid,
+      district text
+    )
+    where channel.id = update_row.id
+    returning channel.id
+  )
+  select count(*)::integer from updated;
+$function$;
+
+revoke all on function public.update_brand_channel_districts(jsonb)
+  from public, anon, authenticated;
+grant execute on function public.update_brand_channel_districts(jsonb)
+  to service_role;
+
 commit;

@@ -81,6 +81,15 @@ describeWithStockistDb("stockist directory public read", () => {
       },
       {
         brand_id: brands[0].id,
+        name: `線上商店 ${suffix}`,
+        normalized_name: `online-shop-${suffix}`,
+        channel_type: "online",
+        region_label: "臺北市",
+        country: "TW",
+        source: "import",
+      },
+      {
+        brand_id: brands[0].id,
         name: `已移除門市 ${suffix}`,
         normalized_name: `removed-shop-${suffix}`,
         channel_type: "offline",
@@ -135,6 +144,12 @@ describeWithStockistDb("stockist directory public read", () => {
       false,
     );
     expect(locations.some(({ name }) => name.startsWith("店主拒絕門市"))).toBe(
+      false,
+    );
+  });
+
+  it("excludes online channels from the physical directory", () => {
+    expect(locations.some(({ name }) => name.startsWith("線上商店"))).toBe(
       false,
     );
   });

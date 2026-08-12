@@ -3514,6 +3514,10 @@ export type Database = {
         Args: { p_brand_id: string; p_candidates: Json }
         Returns: number
       }
+      update_brand_channel_districts: {
+        Args: { p_updates: Json }
+        Returns: number
+      }
       verify_health_fix_absence: {
         Args: { p_expected_status: string; p_id: string }
         Returns: {
