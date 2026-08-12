@@ -127,6 +127,26 @@ describe("nightly E2E batch self-heal contract", () => {
     expect(report).toContain("steps.validation.outcome != 'success'");
   });
 
+  it("reclassifies full-suite service failures before another repair cycle", async () => {
+    const source = await workflow();
+    const classifier = source.indexOf("- name: Classify validation infrastructure");
+    const redContinuation = source.indexOf(
+      "- name: Continue red self-heal within cycle cap",
+    );
+    const validationRetry = source.indexOf(
+      "- name: Dispatch validation infrastructure-only retry",
+    );
+    expect(classifier).toBeGreaterThan(-1);
+    expect(validationRetry).toBeGreaterThan(classifier);
+    expect(classifier).toBeLessThan(redContinuation);
+    expect(source).toContain("steps.validation_infrastructure.outputs.confirmed");
+    expect(source).toContain(
+      "source_artifact_name=playwright-report-selfheal-validation-infrastructure",
+    );
+    expect(source).toContain("--field continuation_kind=infrastructure");
+    expect(source).toContain("classify-infrastructure");
+  });
+
   it("creates one draft PR and reuses its number across continuations", async () => {
     const source = await workflow();
     expect(source).toContain("Create or update incident draft PR");
