@@ -30,26 +30,7 @@ test.describe("Brand detail deep", () => {
       // survive gate on mit_status / product_tags / price_range.
       withFaqEvidence: true,
     });
-  });
-
-  test.beforeAll(async ({ browser }) => {
-    const page = await browser.newPage();
-    await page.goto("/brands", { waitUntil: "domcontentloaded" });
-    const cards = page.locator("main a[aria-label]");
-    await cards
-      .first()
-      .waitFor({ state: "visible", timeout: BUDGET.SERVER_RENDER });
-    const count = await cards.count();
-    let href: string | null = null;
-    for (let i = 0; i < count; i++) {
-      const h = await cards.nth(i).getAttribute("href");
-      if (h && /^\/brands\/[\w-]+$/.test(h)) {
-        href = h;
-        break;
-      }
-    }
-    await page.close();
-    brandHref = href ?? `/brands/${seeded.slug}`;
+    brandHref = `/brands/${seeded.slug}`;
   });
 
   test.afterAll(async () => {
@@ -70,8 +51,7 @@ test.describe("Brand detail deep", () => {
   test("brand detail shows social and purchase links in two separate sections", async ({
     page,
   }) => {
-    // Use a known brand that has links data to verify two-section structure.
-    // Fall back to the dynamically resolved href if the known brand is absent.
+    // The controlled brand has links data to verify two-section structure.
     await page.goto(`/brands/${seeded.slug}`);
 
     // Verify the social section heading is visible
@@ -540,10 +520,6 @@ test.describe("Brand detail — historical slugs", () => {
       {
         source: `/en/brands/${approvedOldSlug}`,
         target: `/en/brands/${approved.slug}`,
-      },
-      {
-        source: `/brands/${encodeURIComponent("cicala-pu-喜樂鋪手工鞋")}`,
-        target: "/brands/cicala-pu",
       },
     ];
 

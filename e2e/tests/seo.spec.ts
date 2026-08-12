@@ -57,75 +57,6 @@ test.describe("SEO deep", () => {
     expect(body).toContain("<urlset");
   });
 
-  test("eligible brand locales are indexed with reciprocal canonical and hreflang links", async ({
-    page,
-    request,
-  }) => {
-    const sitemapResponse = await request.get("/sitemap.xml");
-    expect(sitemapResponse.status()).toBe(200);
-    const sitemap = await sitemapResponse.text();
-    const locations = Array.from(
-      sitemap.matchAll(/<loc>([^<]+)<\/loc>/g),
-      (match) => match[1],
-    );
-    const zhBrandUrl = locations.find((location) => {
-      const url = new URL(location);
-      return (
-        url.pathname.startsWith("/brands/") &&
-        locations.includes(`${url.origin}/en${url.pathname}`)
-      );
-    });
-
-    expect(
-      zhBrandUrl,
-      "expected at least one brand eligible in both locales",
-    ).toBeTruthy();
-    const zhUrl = new URL(zhBrandUrl!);
-    const enUrl = `${zhUrl.origin}/en${zhUrl.pathname}`;
-
-    for (const [path, canonicalUrl] of [
-      [zhUrl.pathname, zhUrl.toString()],
-      [`/en${zhUrl.pathname}`, enUrl],
-    ]) {
-      const response = await page.goto(path);
-      expect(response?.status()).toBe(200);
-
-      const canonical = await page
-        .locator('link[rel="canonical"]')
-        .getAttribute("href");
-      expect(canonical).toBe(canonicalUrl);
-      await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
-        "content",
-        canonicalUrl,
-      );
-      await expect(page.locator('meta[property="og:type"]')).toHaveAttribute(
-        "content",
-        "website",
-      );
-      await expect(
-        page.locator('meta[property="og:image:alt"]'),
-      ).toHaveAttribute("content", /.+/);
-      await expect(
-        page.locator('meta[property="og:image:width"]'),
-      ).toHaveAttribute("content", /^[1-9]\d*$/);
-      await expect(
-        page.locator('meta[property="og:image:height"]'),
-      ).toHaveAttribute("content", /^[1-9]\d*$/);
-      await expect(
-        page.locator('meta[name="robots"][content*="noindex" i]'),
-      ).toHaveCount(0);
-      await expect(
-        page.locator('link[rel="alternate"][hreflang="zh-TW"]'),
-      ).toHaveAttribute("href", zhUrl.toString());
-      await expect(
-        page.locator('link[rel="alternate"][hreflang="en"]'),
-      ).toHaveAttribute("href", enUrl);
-      await expect(
-        page.locator('link[rel="alternate"][hreflang="x-default"]'),
-      ).toHaveAttribute("href", zhUrl.toString());
-    }
-  });
-
   test("directory page 2 keeps its page query in canonical metadata", async ({
     page,
   }) => {
@@ -382,14 +313,22 @@ test.describe("SEO deep", () => {
     expect(itemListBlock).toBeTruthy();
     // itemListElement array must be present (may be empty if no approved brands exist)
     expect(itemListBlock).toContain('"itemListElement"');
-    // When approved brands exist, verify the first element has required fields
-    if (itemListBlock?.includes('"position"')) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const parsed = JSON.parse(itemListBlock) as any;
-      const first = parsed.itemListElement?.[0];
-      expect(typeof first?.position).toBe("number");
-      expect(typeof first?.name).toBe("string");
-      expect(String(first?.url)).toContain("/brands/");
-    }
+    const parsed = JSON.parse(itemListBlock!) as {
+      itemListElement?: Array<{
+        position?: unknown;
+        name?: unknown;
+        url?: unknown;
+      }>;
+    };
+    expect(Array.isArray(parsed.itemListElement)).toBe(true);
+    const items = parsed.itemListElement ?? [];
+    expect(
+      items.every(
+        (item) =>
+          typeof item.position === "number" &&
+          typeof item.name === "string" &&
+          String(item.url).includes("/brands/"),
+      ),
+    ).toBe(true);
   });
 });

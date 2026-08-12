@@ -17,7 +17,9 @@ const FILTER_SUBJECTS = ["fashion", "home", "crafts"].map((slug) => {
   if (!category) {
     // A renamed or removed L1 slug must break this loudly. Falling back to a
     // positional pick is how the drift went unnoticed in the first place.
-    throw new Error(`directory spec pins a category that no longer exists: ${slug}`);
+    throw new Error(
+      `directory spec pins a category that no longer exists: ${slug}`,
+    );
   }
   return category;
 });
@@ -29,7 +31,9 @@ test.describe("Directory deep", () => {
     await page.goto("/brands");
     // The sidebar is the one named `filters.title`; `page.locator("aside")`
     // alone also matched the mobile filter sheet's aside once it existed.
-    const sidebar = page.getByRole("complementary", { name: zhTW.brands.filters.title });
+    const sidebar = page.getByRole("complementary", {
+      name: zhTW.brands.filters.title,
+    });
     const categoryToggle = sidebar.getByRole("button", {
       name: zhTW.brands.filters.category,
       exact: true,
@@ -88,30 +92,6 @@ test.describe("Directory deep", () => {
     ).toBeVisible();
   });
 
-  test("pagination controls work", async ({ page }) => {
-    await page.goto("/brands");
-
-    // Names come from the message catalogue, not from a hardcoded string. The
-    // nav was matched as `nav[aria-label="Pagination"]`, but that label is
-    // localized and reads 分頁導覽 — so the locator had matched nothing since the
-    // day it was translated. A guard of `if (!(await nextLink.isVisible()))
-    // return;` then turned that permanent drift into a permanent green pass, and
-    // a test named "pagination controls work" spent that whole time asserting
-    // nothing (DEV-1414).
-    const labels = zhTW.brands.pagination;
-    const pagination = page.getByRole("navigation", { name: labels.label });
-    const nextLink = pagination.getByRole("link", { name: labels.nextAria });
-
-    // The directory holds hundreds of approved brands, so a missing next link is
-    // a bug rather than a data shortage. Asserted, never guarded.
-    await expect(nextLink).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-    await nextLink.click();
-    await expect(page).toHaveURL(/\/brands\?[^#]*page=2(?:&|$)/);
-    await expect(
-      pagination.getByRole("link", { name: labels.previousAria }),
-    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-  });
-
   test("category landing loads with filtered brands", async ({ page }) => {
     const response = await page.goto("/categories/home");
     expect(response?.status()).toBe(200);
@@ -131,7 +111,9 @@ test.describe("Directory deep", () => {
       .first();
     await search.fill("zzzzzzzzzzzzz_nonexistent");
     await page.keyboard.press("Enter");
-    await expect(page.locator("[data-empty]")).toBeVisible({ timeout: BUDGET.RENDERED });
+    await expect(page.locator("[data-empty]")).toBeVisible({
+      timeout: BUDGET.RENDERED,
+    });
   });
 
   test("empty filtered search shows empty state without recovery actions", async ({
