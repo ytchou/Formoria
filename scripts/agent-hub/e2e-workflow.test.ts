@@ -35,6 +35,7 @@ describe("nightly E2E batch self-heal contract", () => {
     expect(diagnosis).not.toContain("Read,Write");
     expect(diagnosis).not.toContain("verify-targeted.mjs");
     expect(diagnosis).not.toContain("Bash(pnpm");
+    expect(diagnosis).toContain("Bash(jq:*)");
     expect(repair).toContain("Read,Write,Edit,Replace");
     expect(repair).not.toContain("verify-targeted.mjs");
     expect(repair).not.toContain("Bash(pnpm");
@@ -65,12 +66,25 @@ describe("nightly E2E batch self-heal contract", () => {
       source.indexOf("- name: Repair every actionable cluster"),
     );
     expect(diagnosis).toContain(
-      "DIAGNOSIS_RESULT: ${{ steps.diagnose.outputs.structured_output }}",
+      "DIAGNOSIS_RESULT: ${{ steps.diagnose.outputs.structured_output || steps.diagnose_retry.outputs.structured_output }}",
     );
     expect(diagnosis).toContain("printf '%s' \"$DIAGNOSIS_RESULT\"");
     expect(diagnosis).not.toContain(
       "printf '%s' '${{ steps.diagnose.outputs.structured_output }}'",
     );
+  });
+
+  it("retries a missing diagnosis result without consuming a repair cycle", async () => {
+    const source = await workflow();
+    const diagnosis = source.slice(
+      source.indexOf("- name: Diagnose complete failure set"),
+      source.indexOf("- name: Repair every actionable cluster"),
+    );
+    expect(diagnosis).toContain("continue-on-error: true");
+    expect(diagnosis).toContain("- name: Retry diagnosis contract once");
+    expect(diagnosis).toContain("if: steps.diagnose.outcome == 'failure'");
+    expect(diagnosis).not.toContain("NEXT_CYCLE");
+    expect(diagnosis).not.toContain("continuation_kind=repair");
   });
 
   it("caps repair, infrastructure, and base-sync continuations incident-wide", async () => {
@@ -140,7 +154,9 @@ describe("nightly E2E batch self-heal contract", () => {
 
   it("reclassifies full-suite service failures before another repair cycle", async () => {
     const source = await workflow();
-    const classifier = source.indexOf("- name: Classify validation infrastructure");
+    const classifier = source.indexOf(
+      "- name: Classify validation infrastructure",
+    );
     const redContinuationIndex = source.indexOf(
       "- name: Continue red self-heal within cycle cap",
     );
@@ -150,7 +166,9 @@ describe("nightly E2E batch self-heal contract", () => {
     expect(classifier).toBeGreaterThan(-1);
     expect(validationRetry).toBeGreaterThan(classifier);
     expect(classifier).toBeLessThan(redContinuationIndex);
-    expect(source).toContain("steps.validation_infrastructure.outputs.confirmed");
+    expect(source).toContain(
+      "steps.validation_infrastructure.outputs.confirmed",
+    );
     expect(source).toContain(
       "source_artifact_name=playwright-report-selfheal-validation-infrastructure",
     );
@@ -168,7 +186,9 @@ describe("nightly E2E batch self-heal contract", () => {
     );
     const validationClassifier = source.slice(
       source.indexOf("- name: Classify validation infrastructure"),
-      source.indexOf("- name: Prepare validation infrastructure continuation bundle"),
+      source.indexOf(
+        "- name: Prepare validation infrastructure continuation bundle",
+      ),
     );
     expect(validationClassifier).toContain(
       "steps.infrastructure.outputs.confirmed != 'true'",
