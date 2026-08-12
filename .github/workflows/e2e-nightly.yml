@@ -1111,6 +1111,7 @@ jobs:
         if: >-
           always() &&
           steps.guard.outputs.skip != 'true' &&
+          steps.infrastructure.outputs.confirmed != 'true' &&
           steps.validation.outcome != 'success' &&
           steps.next_report.outputs.available == 'true'
         id: validation_infrastructure
@@ -1209,7 +1210,6 @@ jobs:
             --field incident_pr_number="${{ steps.incident_pr.outputs.pr_number || inputs.incident_pr_number }}" \
             --raw-field e2e_grep="$E2E_GREP"
           echo "dispatched=true" >> "$GITHUB_OUTPUT"
-          exit 1
 
       - name: Evaluate test-only merge policy
         if: >-

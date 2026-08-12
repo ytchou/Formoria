@@ -155,6 +155,13 @@ describe("nightly E2E batch self-heal contract", () => {
     expect(redContinuation).toContain(
       "steps.continue_infrastructure.outputs.dispatched != 'true'",
     );
+    const validationClassifier = source.slice(
+      source.indexOf("- name: Classify validation infrastructure"),
+      source.indexOf("- name: Prepare validation infrastructure continuation bundle"),
+    );
+    expect(validationClassifier).toContain(
+      "steps.infrastructure.outputs.confirmed != 'true'",
+    );
   });
 
   it("creates one draft PR and reuses its number across continuations", async () => {
