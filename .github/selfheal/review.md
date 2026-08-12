@@ -53,9 +53,12 @@ Return one JSON object matching this shape:
   "justification": "One-line evidence-based summary",
   "app_files": ["src/lib/example.ts"],
   "risk": "low",
+  "reviewed_head_sha": "full git SHA reviewed",
   "findings": []
 }
 ```
 
 Use `REJECT` and list every finding when any reject condition is present. Do not
 edit files. A separate workflow step parses this object and enforces the verdict.
+`PASS` requires `risk: "low"`; test-only automatic merge additionally requires an
+empty `app_files` array and a `reviewed_head_sha` equal to the current PR head.

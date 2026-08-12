@@ -9,7 +9,15 @@ import {
   type SlackReport,
 } from "../health-agent/adapters";
 
-export type E2ESlackPhase = "blocked" | "initial" | "ready";
+export type E2ESlackPhase =
+  | "blocked"
+  | "initial"
+  | "ready"
+  | "merged"
+  | "review_ready"
+  | "recovered_no_change"
+  | "infrastructure_blocked"
+  | "repair_blocked";
 
 export interface E2EFailedSpec {
   file?: string | null;
@@ -61,6 +69,11 @@ export interface E2ESlackNotification {
   // the nightly suite, which tests a server it builds itself.
   target?: string;
   workflowUrl: string;
+  rootIncidentId?: string;
+  cyclesUsed?: number;
+  exactGate?: string;
+  fullGate?: string;
+  mergeCommitSha?: string;
 }
 
 export interface E2ESlackDependencies extends AdapterDependencies {
@@ -93,14 +106,40 @@ function e2eNotification(input: E2ESlackNotification): AgentNotification {
   const summary = [
     ...(scope ? [`• Scope: ${scope}`] : []),
     counts,
+    ...(input.rootIncidentId
+      ? [`• Root incident: ${input.rootIncidentId}`]
+      : []),
+    ...(typeof input.cyclesUsed === "number"
+      ? [`• Repair cycles: ${input.cyclesUsed}/3`]
+      : []),
+    ...(input.exactGate ? [`• Exact-set gate: ${input.exactGate}`] : []),
+    ...(input.fullGate ? [`• Full-suite gate: ${input.fullGate}`] : []),
     ...(target ? [`• Target: ${target}`] : []),
   ];
-  if (input.phase === "ready") {
+  const normalizedPhase =
+    input.phase === "ready"
+      ? "review_ready"
+      : input.phase === "blocked"
+        ? "repair_blocked"
+        : input.phase;
+  if (
+    input.phase !== "initial" &&
+    input.phase !== "ready" &&
+    input.phase !== "blocked"
+  ) {
+    summary.push(`• Outcome: ${normalizedPhase}`);
+    if (input.mergeCommitSha) {
+      summary.push(`• Merge commit: ${input.mergeCommitSha}`);
+    }
+    if (input.reason) summary.push(`• Reason: ${input.reason}`);
+  }
+  if (normalizedPhase === "review_ready" || normalizedPhase === "merged") {
     return {
       agent,
       date,
       failedSpecs,
-      pullRequestLabel: "Repair PR",
+      pullRequestLabel:
+        normalizedPhase === "merged" ? "Merged repair" : "Repair PR",
       pullRequestUrl: input.prUrl,
       status: "success",
       summary,
@@ -108,7 +147,10 @@ function e2eNotification(input: E2ESlackNotification): AgentNotification {
     };
   }
 
-  if (input.phase === "blocked") {
+  if (
+    normalizedPhase === "infrastructure_blocked" ||
+    normalizedPhase === "repair_blocked"
+  ) {
     return {
       agent,
       date,
@@ -122,6 +164,19 @@ function e2eNotification(input: E2ESlackNotification): AgentNotification {
   }
 
   const succeeded = input.status === "success";
+  if (normalizedPhase === "recovered_no_change") {
+    return {
+      agent,
+      date,
+      failedSpecs: [],
+      status: "success",
+      summary,
+      workflowUrl: input.workflowUrl,
+    };
+  }
+  if (!succeeded && input.selfHealEnabled && input.failed > 0) {
+    summary.push("• Batch diagnosis started");
+  }
   return {
     agent,
     date,
@@ -317,7 +372,17 @@ function requiredEnvironment(name: string): string {
 
 async function main(): Promise<void> {
   const phase = requiredEnvironment("E2E_SLACK_PHASE");
-  if (phase !== "initial" && phase !== "ready" && phase !== "blocked") {
+  const supportedPhases: E2ESlackPhase[] = [
+    "initial",
+    "ready",
+    "blocked",
+    "merged",
+    "review_ready",
+    "recovered_no_change",
+    "infrastructure_blocked",
+    "repair_blocked",
+  ];
+  if (!supportedPhases.includes(phase as E2ESlackPhase)) {
     throw new Error(`Unsupported E2E Slack phase: ${phase}`);
   }
   const report = await readPlaywrightReport(
@@ -336,7 +401,7 @@ async function main(): Promise<void> {
           : report.failedSpecs,
       date: process.env.E2E_SLACK_DATE,
       label: process.env.E2E_SLACK_LABEL,
-      phase,
+      phase: phase as E2ESlackPhase,
       prUrl: process.env.PR_URL,
       reportAvailable: reportAvailabilityFromEnvironment(
         report.reportAvailable,
@@ -349,6 +414,13 @@ async function main(): Promise<void> {
       status: process.env.JOB_STATUS ?? "unknown",
       target: process.env.E2E_SLACK_TARGET,
       workflowUrl: requiredEnvironment("WORKFLOW_URL"),
+      rootIncidentId: process.env.ROOT_INCIDENT_ID,
+      cyclesUsed: process.env.REPAIR_CYCLES
+        ? Number(process.env.REPAIR_CYCLES)
+        : undefined,
+      exactGate: process.env.EXACT_GATE,
+      fullGate: process.env.FULL_GATE,
+      mergeCommitSha: process.env.MERGE_COMMIT_SHA,
     },
     {
       audit: (record) =>
