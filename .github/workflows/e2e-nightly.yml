@@ -1272,7 +1272,10 @@ jobs:
           ((steps.fix.outcome == 'success' && steps.checkpoint.outputs.complete == 'true') ||
            inputs.continuation_kind == 'base-sync' || inputs.continuation_kind == 'infrastructure') &&
           steps.validation.outcome != 'success' &&
+          steps.infrastructure.outputs.confirmed != 'true' &&
           steps.validation_infrastructure.outputs.confirmed != 'true' &&
+          steps.continue_infrastructure.outputs.dispatched != 'true' &&
+          steps.continue_validation_infrastructure.outputs.dispatched != 'true' &&
           steps.context.outputs.repair_cycle != '3' &&
           (steps.checkpoint.outputs.no_progress != 'true' || inputs.continuation_kind != 'repair') &&
           steps.next_report.outputs.available == 'true'
