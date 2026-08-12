@@ -88,6 +88,8 @@ export const NON_SERVICE_ENV: Readonly<Record<string, string>> = {
   CLAIM_TOKEN_SECRET:
     "Internal claim-token signing secret, not a provider service.",
   FORMORIA_LINK_HEALTH_URL: "Optional internal health-agent link target.",
+  FORMORIA_RUNTIME_URL:
+    "Deployment-specific auth and redirect origin, not a provider service.",
   CURATION_WORKER_URL: "Internal worker routing target, not a credential.",
   NEXT_PUBLIC_SITE_URL:
     "Public host used by absolute links and the availability probe; not a credential.",
