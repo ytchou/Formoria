@@ -142,6 +142,55 @@ describe("E2E Slack notifications", () => {
     );
   });
 
+  it("reports the root incident when batch diagnosis starts", () => {
+    const message = renderE2ESlackNotification({
+      failed: 3,
+      passed: 42,
+      phase: "initial",
+      rootIncidentId: "nightly-991",
+      runAttempt: "1",
+      runId: "991",
+      selfHealEnabled: true,
+      skipped: 1,
+      status: "failure",
+      workflowUrl: "https://github.test/actions/991",
+    });
+    expect(message).toContain("• Root incident: nightly-991");
+    expect(message).toContain("• Batch diagnosis started");
+  });
+
+  it.each([
+    ["merged", "Success"],
+    ["review_ready", "Success"],
+    ["recovered_no_change", "Success"],
+    ["infrastructure_blocked", "Failed"],
+    ["repair_blocked", "Failed"],
+  ] as const)("renders the %s terminal outcome", (phase, title) => {
+    const message = renderE2ESlackNotification({
+      cyclesUsed: 2,
+      exactGate: phase.includes("blocked") ? "failed" : "passed",
+      failed: phase.includes("blocked") ? 2 : 0,
+      fullGate: phase.includes("blocked") ? "not-run" : "passed",
+      passed: phase.includes("blocked") ? 0 : 54,
+      phase,
+      prUrl:
+        phase === "merged" || phase === "review_ready"
+          ? "https://github.test/pull/77"
+          : undefined,
+      reportAvailable: true,
+      rootIncidentId: "nightly-991",
+      runAttempt: "1",
+      runId: "993",
+      skipped: 1,
+      status: phase.includes("blocked") ? "failure" : "success",
+      workflowUrl: "https://github.test/actions/993",
+    });
+    expect(message).toContain(`Formoria E2E — ${title}`);
+    expect(message).toContain("• Repair cycles: 2/3");
+    expect(message).toContain("• Exact-set gate:");
+    expect(message).toContain("• Full-suite gate:");
+  });
+
   it("formats the exact initial-green message", () => {
     expect(
       renderE2ESlackNotification({
@@ -329,7 +378,7 @@ describe("E2E Slack notifications", () => {
     expect(body.text).toBe(
       [
         "⚠️ *Formoria E2E — Needs attention* · 2026-08-11",
-        "*Summary*\n• 8 passed · 2 failed · 1 skipped",
+        "*Summary*\n• 8 passed · 2 failed · 1 skipped\n• Batch diagnosis started",
         "*Failed specs*\n• e2e/tests/search.spec.ts — searches by category",
         "<https://github.com/ytchou/Formoria/actions/runs/42|Open workflow run>",
       ].join("\n\n"),

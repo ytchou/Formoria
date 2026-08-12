@@ -44,10 +44,34 @@ on:
         type: string
         default: ""
       repair_cycle:
-        description: "Bounded repair cycle (1 or 2)"
+        description: "Bounded repair cycle (1, 2, or 3)"
         type: choice
-        options: ["1", "2"]
+        options: ["1", "2", "3"]
         default: "1"
+      continuation_kind:
+        description: "Incident continuation kind"
+        type: choice
+        options: ["repair", "infrastructure", "base-sync"]
+        default: "repair"
+      validation_scope:
+        description: "Validation scope resumed by this continuation"
+        type: choice
+        options: ["exact", "full"]
+        default: "exact"
+      infrastructure_retries:
+        description: "Incident-wide infrastructure retry count (0-2)"
+        type: choice
+        options: ["0", "1", "2"]
+        default: "0"
+      base_sync_attempts:
+        description: "Incident-wide base-sync count (0-2)"
+        type: choice
+        options: ["0", "1", "2"]
+        default: "0"
+      incident_pr_number:
+        description: "Existing draft PR number for this incident"
+        type: string
+        default: ""
       e2e_grep:
         description: "Optional Playwright grep regex for a focused manual run"
         type: string
@@ -271,6 +295,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
+          ROOT_INCIDENT_ID: ${{ github.run_id }}
         run: |
           case "$JOB_STATUS" in
             success) agent_hub_status=success ;;
@@ -321,6 +346,7 @@ jobs:
           GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
+          ROOT_INCIDENT_ID: ${{ github.run_id }}
           SELFHEAL_ENABLED: ${{ vars.SELFHEAL_ENABLED }}
           SLACK_FORMORIA_WEBHOOK_URL: ${{ secrets.SLACK_FORMORIA_WEBHOOK_URL }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -374,16 +400,21 @@ jobs:
     timeout-minutes: 60
     permissions:
       actions: write
-      contents: read
+      contents: write
+      issues: write
+      pull-requests: write
     outputs:
       blocked_reason: ${{ steps.terminal_state.outputs.blocked_reason }}
       continuation_dispatched: ${{ steps.terminal_state.outputs.continuation_dispatched }}
       failed: ${{ steps.terminal_state.outputs.failed }}
       failed_specs: ${{ steps.terminal_state.outputs.failed_specs }}
       passed: ${{ steps.terminal_state.outputs.passed }}
-      pr_url: ${{ steps.pr.outputs.pr_url || steps.blocked_pr.outputs.pr_url }}
+      pr_url: ${{ steps.pr.outputs.pr_url || steps.incident_pr.outputs.pr_url || steps.existing_pr.outputs.pr_url || steps.blocked_pr.outputs.pr_url }}
       report_available: ${{ steps.terminal_state.outputs.report_available }}
       skipped: ${{ steps.terminal_state.outputs.skipped }}
+      terminal_outcome: ${{ steps.terminal_state.outputs.terminal_outcome }}
+      merge_commit_sha: ${{ steps.merge.outputs.merge_commit_sha }}
+      auto_merge_eligible: ${{ steps.merge_policy.outputs.eligible || 'false' }}
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -513,6 +544,11 @@ jobs:
               printf '{"status":"passed","failedTests":[]}\n' > playwright-last-run.json
             fi
           fi
+          if [ -s /tmp/playwright-report/playwright-last-run-frozen.json ]; then
+            cp /tmp/playwright-report/playwright-last-run-frozen.json playwright-last-run-frozen.json
+          elif [ -s playwright-last-run.json ]; then
+            cp playwright-last-run.json playwright-last-run-frozen.json
+          fi
 
       - name: Context
         if: steps.guard.outputs.skip != 'true'
@@ -557,6 +593,13 @@ jobs:
           STATE_BEFORE=$(printf '%s:%s' "$TREE_HASH" "$CONTEXT_HASH" | sha256sum | cut -d' ' -f1)
           echo "state_before=$STATE_BEFORE" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve existing incident PR
+        if: inputs.incident_pr_number != ''
+        id: existing_pr
+        env:
+          GH_TOKEN: ${{ secrets.SELFHEAL_PAT }}
+        run: echo "pr_url=$(gh pr view '${{ inputs.incident_pr_number }}' --json url --jq .url)" >> "$GITHUB_OUTPUT"
+
       - name: Setup pnpm
         if: steps.guard.outputs.skip != 'true'
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
@@ -582,8 +625,118 @@ jobs:
         if: steps.guard.outputs.skip != 'true'
         run: npx playwright install chromium
 
-      - name: Triage and fix current failed set
+      - name: Freeze complete failure set
         if: steps.guard.outputs.skip != 'true'
+        run: |
+          jq '[.failures[] | {file, title, project}]' /tmp/playwright-report/selfheal-context.json \
+            > "$RUNNER_TEMP/source-failures.json"
+          pnpm exec tsx scripts/selfheal/incident-cli.ts freeze \
+            "$RUNNER_TEMP/source-failures.json" > /tmp/playwright-report/frozen-failures.json
+
+      - name: Probe Supabase infrastructure
+        if: steps.guard.outputs.skip != 'true'
+        id: infrastructure
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          START_MS=$(date +%s%3N)
+          HTTP_STATUS=$(curl --silent --show-error --max-time 10 \
+            --output "$RUNNER_TEMP/supabase-probe-body.json" --write-out '%{http_code}' \
+            -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H 'Accept: application/json' \
+            "$SUPABASE_URL/rest/v1/brands?select=id&limit=1" || true)
+          HTTP_STATUS="${HTTP_STATUS: -3}"
+          HTTP_STATUS_NUMBER=$((10#${HTTP_STATUS:-000}))
+          LATENCY_MS=$(( $(date +%s%3N) - START_MS ))
+          PROBE_OK=false
+          [[ "$HTTP_STATUS" =~ ^2 ]] && PROBE_OK=true
+          jq -n --argjson authenticated true --argjson ok "$PROBE_OK" \
+            --argjson status "$HTTP_STATUS_NUMBER" \
+            '{authenticated:$authenticated,ok:$ok,status:$status}' \
+            > "$RUNNER_TEMP/supabase-probe.json"
+          jq -n --arg operation lightweight_authenticated_query \
+            --argjson status "$HTTP_STATUS_NUMBER" --argjson latency_ms "$LATENCY_MS" \
+            --arg response_content_type application_json \
+            '{event:"e2e_selfheal_infrastructure_probe",request:{operation:$operation,limit:1},response:{status:$status,content_type:$response_content_type},latency_ms:$latency_ms}'
+          jq -n \
+            --argjson errors "$(jq -c '[.failures[]?.errors[]?]' /tmp/playwright-report/selfheal-context.json)" \
+            --argjson probe "$(cat "$RUNNER_TEMP/supabase-probe.json")" \
+            '{errors:$errors,probe:$probe}' > "$RUNNER_TEMP/infrastructure-evidence.json"
+          pnpm exec tsx scripts/selfheal/incident-cli.ts classify-infrastructure \
+            "$RUNNER_TEMP/infrastructure-evidence.json" > /tmp/playwright-report/infrastructure.json
+          echo "confirmed=$(jq -r .confirmed /tmp/playwright-report/infrastructure.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare infrastructure continuation bundle
+        if: steps.infrastructure.outputs.confirmed == 'true' && inputs.infrastructure_retries != '2'
+        id: infrastructure_bundle
+        run: |
+          mkdir -p "$RUNNER_TEMP/selfheal-infrastructure"
+          cp -R /tmp/playwright-report/. "$RUNNER_TEMP/selfheal-infrastructure/"
+          if [ -s playwright-last-run-frozen.json ]; then
+            cp playwright-last-run-frozen.json "$RUNNER_TEMP/selfheal-infrastructure/"
+          fi
+      - name: Upload infrastructure continuation bundle
+        if: steps.infrastructure_bundle.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-report-selfheal-infrastructure
+          path: ${{ runner.temp }}/selfheal-infrastructure
+          retention-days: 7
+
+      - name: Dispatch infrastructure-only retry
+        if: steps.infrastructure.outputs.confirmed == 'true' && inputs.infrastructure_retries != '2' && steps.infrastructure_bundle.outcome == 'success'
+        id: continue_infrastructure
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPAIR_BASE: ${{ steps.guard.outputs.repair_base }}
+          REPAIR_BRANCH: ${{ steps.branch.outputs.branch }}
+          ROOT_SOURCE_RUN_ID: ${{ inputs.root_source_run_id || inputs.source_run_id || github.run_id }}
+        run: |
+          NEXT_RETRY=$(( ${{ inputs.infrastructure_retries || '0' }} + 1 ))
+          gh workflow run e2e-nightly.yml --repo "$GITHUB_REPOSITORY" --ref "$REPAIR_BASE" \
+            --field selfheal_only=true --field source_run_id="$GITHUB_RUN_ID" \
+            --field source_artifact_name=playwright-report-selfheal-infrastructure \
+            --field root_source_run_id="$ROOT_SOURCE_RUN_ID" --field repair_branch="$REPAIR_BRANCH" \
+            --field repair_base="$REPAIR_BASE" --field continuation_kind=infrastructure \
+            --field validation_scope="${{ inputs.validation_scope || 'exact' }}" \
+            --field infrastructure_retries="$NEXT_RETRY" --field repair_cycle="${{ inputs.repair_cycle || '1' }}" \
+            --field base_sync_attempts="${{ inputs.base_sync_attempts || '0' }}" \
+            --field incident_pr_number="${{ inputs.incident_pr_number }}"
+          echo "dispatched=true" >> "$GITHUB_OUTPUT"
+
+      - name: Diagnose complete failure set
+        if: steps.guard.outputs.skip != 'true' && steps.infrastructure.outputs.confirmed != 'true' && inputs.continuation_kind != 'base-sync' && inputs.continuation_kind != 'infrastructure'
+        id: diagnose
+        uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.SELFHEAL_PAT }}
+          allowed_bots: github-actions
+          additional_permissions: |
+            actions: read
+          prompt: |
+            Read .github/selfheal/diagnose.md and diagnose every ID in
+            /tmp/playwright-report/frozen-failures.json. The complete evidence is
+            in /tmp/playwright-report. Do not edit files or execute Playwright.
+            root_workflow_url: ${{ steps.context.outputs.source_workflow_url }}
+          claude_args: >-
+            --max-turns 80
+            --allowedTools "Read,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(gh run view:*),Bash(ls:*),Bash(find:*),Bash(sed:*),Bash(cat:*),Bash(pwd:*)"
+            --json-schema '{"type":"object","additionalProperties":false,"required":["version","failureSetHash","failures","clusters","complete"],"properties":{"version":{"const":1},"failureSetHash":{"type":"string"},"failures":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","file","title","project","category","rootCauseKey","actionable","reason"],"properties":{"id":{"type":"string"},"file":{"type":["string","null"]},"title":{"type":"string"},"project":{"type":"string"},"category":{"enum":["test-drift","seed-drift","app-regression","env-flake","flaky-suspect"]},"rootCauseKey":{"type":"string"},"actionable":{"type":"boolean"},"reason":{"type":"string"}}}},"clusters":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["rootCauseKey","failureIds","category","actionable","plannedFiles","diagnosis","repairPlan"],"properties":{"rootCauseKey":{"type":"string"},"failureIds":{"type":"array","items":{"type":"string"}},"category":{"type":"string"},"actionable":{"type":"boolean"},"plannedFiles":{"type":"array","items":{"type":"string"}},"diagnosis":{"type":"string"},"repairPlan":{"type":"string"}}}},"complete":{"const":true}}}'
+
+      - name: Validate diagnosis artifact
+        if: steps.diagnose.outcome == 'success'
+        run: |
+          printf '%s' '${{ steps.diagnose.outputs.structured_output }}' > /tmp/playwright-report/diagnosis.json
+          pnpm exec tsx scripts/selfheal/incident-cli.ts validate-diagnosis \
+            /tmp/playwright-report/frozen-failures.json /tmp/playwright-report/diagnosis.json \
+            > "$RUNNER_TEMP/validated-diagnosis.json"
+          mv "$RUNNER_TEMP/validated-diagnosis.json" /tmp/playwright-report/diagnosis.json
+
+      - name: Repair every actionable cluster
+        if: steps.diagnose.outcome == 'success'
         id: fix
         uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1
         with:
@@ -594,31 +747,17 @@ jobs:
             actions: read
           prompt: |
             Read .github/selfheal/triage-fix.md for your full instructions.
-
-            Repair every failure currently recorded in
-            /tmp/playwright-report/playwright-last-run.json. Group related
-            failures by root cause and apply one minimal fix at a time.
-
-            The complete failure bundle is at /tmp/playwright-report. Read
-            /tmp/playwright-report/selfheal-context.json, the Playwright JSON,
-            error contexts, traces, and build.log when present before deciding.
-
-            source_workflow_url: ${{ steps.context.outputs.source_workflow_url }}
-            systemic: ${{ steps.context.outputs.systemic == '1' && 'true' || 'false' }}
-
-            The only sanctioned test command is
-            `node scripts/selfheal/verify-targeted.mjs`. It validates that every
-            stored test ID remains collectible, starts Playwright's configured
-            development server, runs the exact failed set, and overwrites the
-            state with the smaller remaining set. Use it at most eight times.
-            Do not commit, push, build, or run a full suite.
+            Implement every actionable cluster in the validated artifact at
+            /tmp/playwright-report/diagnosis.json. The frozen set is at
+            /tmp/playwright-report/frozen-failures.json. Do not run tests,
+            Playwright, or a build. Do not commit or push.
           claude_args: >-
             --max-turns 120
-            --allowedTools "Read,Write,Edit,Replace,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(node scripts/selfheal/verify-targeted.mjs:*),Bash(gh run view:*),Bash(ls:*),Bash(find:*),Bash(sed:*),Bash(cat:*),Bash(pwd:*)"
-            --json-schema '{"type":"object","additionalProperties":false,"required":["classification","summary","changed_files","commands_run","remaining_work","complete"],"properties":{"classification":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["file","title","category","reason"],"properties":{"file":{"type":"string"},"title":{"type":"string"},"category":{"type":"string","enum":["test-drift","app-regression","seed-drift","env-flake","flaky-suspect","systemic"]},"reason":{"type":"string"}}}},"summary":{"type":"string"},"changed_files":{"type":"array","items":{"type":"string"}},"commands_run":{"type":"array","items":{"type":"string"}},"remaining_work":{"type":"array","items":{"type":"string"}},"complete":{"type":"boolean"}}}'
+            --allowedTools "Read,Write,Edit,Replace,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(gh run view:*),Bash(ls:*),Bash(find:*),Bash(sed:*),Bash(cat:*),Bash(pwd:*)"
+            --json-schema '{"type":"object","additionalProperties":false,"required":["version","failureSetHash","addressedFailureIds","addressedRootCauseKeys","changedFiles","summary","remainingWork","complete"],"properties":{"version":{"const":1},"failureSetHash":{"type":"string"},"addressedFailureIds":{"type":"array","items":{"type":"string"}},"addressedRootCauseKeys":{"type":"array","items":{"type":"string"}},"changedFiles":{"type":"array","items":{"type":"string"}},"summary":{"type":"string"},"remainingWork":{"type":"array","items":{"type":"string"}},"complete":{"const":true}}}'
 
       - name: Checkpoint repair progress
-        if: always() && steps.guard.outputs.skip != 'true'
+        if: always() && steps.guard.outputs.skip != 'true' && steps.fix.outcome != 'skipped'
         id: checkpoint
         env:
           FIX_RESULT: ${{ steps.fix.outputs.structured_output }}
@@ -642,7 +781,7 @@ jobs:
           CHANGED_FILES=$(printf '%s\n%s\n' "$TRACKED_FILES" "$(git ls-files --others --exclude-standard e2e src)" | sed '/^$/d' | sort -u)
           DECLARED_FILES=""
           if [ -n "$FIX_RESULT" ] && echo "$FIX_RESULT" | jq -e . >/dev/null; then
-            DECLARED_FILES=$(echo "$FIX_RESULT" | jq -r '.changed_files[]?' | sort -u)
+            DECLARED_FILES=$(echo "$FIX_RESULT" | jq -r '.changedFiles[]?' | sort -u)
           fi
           if [[ "$DECLARED_FILES" != "$CHANGED_FILES" ]]; then
             echo "::error::declared changed_files do not match the actual repair diff"
@@ -658,15 +797,23 @@ jobs:
             done <<< "$CHANGED_FILES"
             git diff --check
             git add -- e2e src
-            git commit -m "fix(e2e): checkpoint self-heal cluster"
+            git commit -m "fix(e2e): checkpoint self-heal cycle ${{ inputs.repair_cycle || '1' }}"
+            echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           fi
+          printf '%s\n' "$CHANGED_FILES" | sed '/^$/d' | jq -Rsc 'split("\n")[:-1]' \
+            > "$RUNNER_TEMP/working-tree-files.json"
+          printf '%s' "$FIX_RESULT" > /tmp/playwright-report/repair.json
+          pnpm exec tsx scripts/selfheal/incident-cli.ts validate-repair \
+            /tmp/playwright-report/diagnosis.json /tmp/playwright-report/repair.json \
+            "$RUNNER_TEMP/working-tree-files.json" > "$RUNNER_TEMP/validated-repair.json"
+          mv "$RUNNER_TEMP/validated-repair.json" /tmp/playwright-report/repair.json
           git push origin "$REPAIR_BRANCH" --force-with-lease
 
           if [ -n "$FIX_RESULT" ] && echo "$FIX_RESULT" | jq -e . >/dev/null; then
             jq --argjson result "$FIX_RESULT" '. + [$result]' \
               /tmp/playwright-report/repair-ledger.json > "$RUNNER_TEMP/repair-ledger.json"
             cp "$RUNNER_TEMP/repair-ledger.json" /tmp/playwright-report/repair-ledger.json
-            if [ -s playwright-last-run.json ] && jq -e '.failedTests | length == 0' playwright-last-run.json >/dev/null; then
+            if echo "$FIX_RESULT" | jq -e '.complete == true and (.remainingWork | length == 0)' >/dev/null; then
               echo "complete=true" >> "$GITHUB_OUTPUT"
             else
               echo "complete=false" >> "$GITHUB_OUTPUT"
@@ -674,6 +821,7 @@ jobs:
           else
             echo "complete=false" >> "$GITHUB_OUTPUT"
           fi
+          echo "changed_files=$(printf '%s\n' "$CHANGED_FILES" | sed '/^$/d' | jq -Rsc 'split("\n")[:-1]')" >> "$GITHUB_OUTPUT"
 
           CONTEXT_HASH=$(jq -cS '.failures' /tmp/playwright-report/selfheal-context.json | sha256sum | cut -d' ' -f1)
           TREE_HASH=$(git rev-parse 'HEAD^{tree}')
@@ -708,10 +856,52 @@ jobs:
           ATTEMPTS=$(cat /tmp/formoria-targeted-attempts 2>/dev/null || printf 0)
           echo "targeted_attempts=$ATTEMPTS" >> "$GITHUB_OUTPUT"
 
+      - name: Create or update incident draft PR
+        if: steps.checkpoint.outcome == 'success' && steps.checkpoint.outputs.changed_files != '[]'
+        id: incident_pr
+        env:
+          GH_TOKEN: ${{ secrets.SELFHEAL_PAT }}
+          REPAIR_BASE: ${{ steps.guard.outputs.repair_base }}
+          REPAIR_BRANCH: ${{ steps.branch.outputs.branch }}
+          ROOT_INCIDENT_ID: ${{ inputs.root_source_run_id || inputs.source_run_id || github.run_id }}
+        run: |
+          set -euo pipefail
+          jq -n \
+            --arg rootIncidentId "$ROOT_INCIDENT_ID" \
+            --arg rootWorkflowUrl "${{ steps.context.outputs.source_workflow_url }}" \
+            --arg currentWorkflowUrl "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --slurpfile frozen /tmp/playwright-report/frozen-failures.json \
+            --slurpfile diagnosis /tmp/playwright-report/diagnosis.json \
+            --argjson cycle "${{ inputs.repair_cycle || '1' }}" \
+            --arg commit "${{ steps.checkpoint.outputs.commit }}" \
+            --argjson changedFiles '${{ steps.checkpoint.outputs.changed_files }}' \
+            --argjson infrastructureRetries "${{ inputs.infrastructure_retries || '0' }}" \
+            '{rootIncidentId:$rootIncidentId,rootWorkflowUrl:$rootWorkflowUrl,currentWorkflowUrl:$currentWorkflowUrl,
+              frozen:$frozen[0],diagnosis:$diagnosis[0],cycles:[{cycle:$cycle,commit:$commit,changedFiles:$changedFiles}],
+              exactValidation:"pending",fullValidation:"pending",infrastructureRetries:$infrastructureRetries,
+              remainingFailures:$frozen[0].failures,mergeEligibility:{eligible:false,reasons:["validation and review pending"]}}' \
+            > "$RUNNER_TEMP/incident-pr-input.json"
+          pnpm exec tsx scripts/selfheal/incident-cli.ts render-pr \
+            "$RUNNER_TEMP/incident-pr-input.json" > "$RUNNER_TEMP/incident-pr.md"
+          PR_NUMBER="${{ inputs.incident_pr_number }}"
+          if [ -z "$PR_NUMBER" ]; then
+            PR_NUMBER=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --head "$REPAIR_BRANCH" --json number --jq '.[0].number // empty')
+          fi
+          if [ -n "$PR_NUMBER" ]; then
+            gh pr edit "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/incident-pr.md"
+          else
+            PR_URL=$(gh pr create --repo "$GITHUB_REPOSITORY" --draft --base "$REPAIR_BASE" --head "$REPAIR_BRANCH" \
+              --title "fix(e2e): batch self-heal $(date +%F)" --label selfheal --body-file "$RUNNER_TEMP/incident-pr.md")
+            PR_NUMBER=${PR_URL##*/}
+          fi
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "pr_url=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json url --jq .url)" >> "$GITHUB_OUTPUT"
+
       - name: Prepare incomplete repair report
         if: >-
           always() &&
           steps.guard.outputs.skip != 'true' &&
+          inputs.continuation_kind == 'repair' &&
           (steps.fix.outcome != 'success' || steps.checkpoint.outputs.complete != 'true')
         id: incomplete_report
         run: |
@@ -733,12 +923,13 @@ jobs:
           name: playwright-report-selfheal
           path: ${{ runner.temp }}/formoria-selfheal-incomplete
           retention-days: 7
-      - name: Continue incomplete repair as cycle 2
+      - name: Continue incomplete repair within cycle cap
         if: >-
           always() &&
           steps.guard.outputs.skip != 'true' &&
+          inputs.continuation_kind == 'repair' &&
           (steps.fix.outcome != 'success' || steps.checkpoint.outputs.complete != 'true') &&
-          steps.context.outputs.repair_cycle == '1' &&
+          steps.context.outputs.repair_cycle != '3' &&
           steps.checkpoint.outcome == 'success' &&
           steps.checkpoint.outputs.no_progress != 'true' &&
           steps.incomplete_report.outputs.available == 'true'
@@ -753,6 +944,7 @@ jobs:
           WORKFLOW_DISPATCH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          NEXT_CYCLE=$(( ${{ inputs.repair_cycle || '1' }} + 1 ))
           SOURCE_FAILURE_STATE=$(jq -cn --argjson specs "$SOURCE_FAILED_SPECS" \
             '{count: ($specs | length), specs: $specs}')
           GH_TOKEN="$WORKFLOW_DISPATCH_TOKEN" gh workflow run e2e-nightly.yml \
@@ -762,21 +954,41 @@ jobs:
             --field source_failure_state="$SOURCE_FAILURE_STATE" \
             --field root_source_run_id="$ROOT_SOURCE_RUN_ID" \
             --field repair_branch="$REPAIR_BRANCH" --field repair_base="$REPAIR_BASE" \
-            --field previous_state="$STATE_AFTER" --field repair_cycle=2 --raw-field e2e_grep="$E2E_GREP"
+            --field previous_state="$STATE_AFTER" --field repair_cycle="$NEXT_CYCLE" \
+            --field continuation_kind=repair --field validation_scope=exact \
+            --field infrastructure_retries="${{ inputs.infrastructure_retries || '0' }}" \
+            --field base_sync_attempts="${{ inputs.base_sync_attempts || '0' }}" \
+            --field incident_pr_number="${{ steps.incident_pr.outputs.pr_number || inputs.incident_pr_number }}" \
+            --raw-field e2e_grep="$E2E_GREP"
           echo "dispatched=true" >> "$GITHUB_OUTPUT"
           exit 1
 
       - name: Refresh dependencies after fix
         if: steps.guard.outputs.skip != 'true' && steps.fix.outcome == 'success' && steps.checkpoint.outputs.complete == 'true'
         run: pnpm install --frozen-lockfile
+      - name: Verify frozen exact set once
+        if: >-
+          steps.guard.outputs.skip != 'true' &&
+          steps.infrastructure.outputs.confirmed != 'true' &&
+          ((steps.fix.outcome == 'success' && steps.checkpoint.outputs.complete == 'true') ||
+           inputs.continuation_kind == 'base-sync' || inputs.continuation_kind == 'infrastructure')
+        id: exact_validation
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-results-targeted.json
+          PLAYWRIGHT_LAST_RUN_OUTPUT_FILE: playwright-last-run.json
+        run: |
+          if [ -s playwright-last-run-frozen.json ]; then
+            cp playwright-last-run-frozen.json playwright-last-run.json
+          fi
+          node scripts/selfheal/verify-targeted.mjs
       - name: Build Next.js after fix
-        if: steps.guard.outputs.skip != 'true' && steps.fix.outcome == 'success' && steps.checkpoint.outputs.complete == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.exact_validation.outcome == 'success'
         id: selfheal_build
         run: |
           set -o pipefail
           pnpm build 2>&1 | tee "$RUNNER_TEMP/formoria-selfheal-build.log"
       - name: Validate current cluster
-        if: steps.guard.outputs.skip != 'true' && steps.fix.outcome == 'success' && steps.selfheal_build.outcome == 'success'
+        if: ${{ false }}
         id: cluster_validation
         env:
           CLUSTER_FILE: ${{ steps.context.outputs.cluster_file }}
@@ -800,14 +1012,14 @@ jobs:
             TEST_ARGS+=(--grep "$E2E_GREP")
           fi
           pnpm exec playwright test "${TEST_ARGS[@]}"
-      - name: Validate selected E2E scope
-        if: steps.guard.outputs.skip != 'true' && steps.cluster_validation.outcome == 'success'
+      - name: Validate complete deep/mobile suite
+        if: steps.guard.outputs.skip != 'true' && steps.exact_validation.outcome == 'success' && steps.selfheal_build.outcome == 'success'
         id: validation
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-results-validation.json
           PLAYWRIGHT_LAST_RUN_OUTPUT_FILE: playwright-last-run.json
         run: |
-          TEST_ARGS=(--project=deep --project=mobile --last-failed-file playwright-last-run.json --reporter=html,json)
+          TEST_ARGS=(--project=deep --project=mobile --reporter=html,json)
           if [ -n "$E2E_GREP" ]; then
             TEST_ARGS+=(--grep "$E2E_GREP")
           fi
@@ -832,6 +1044,8 @@ jobs:
           mkdir -p "$REPORT_DIR"
           if [ -s playwright-results-validation.json ]; then
             cp playwright-results-validation.json "$REPORT_DIR/playwright-results.json"
+          elif [ -s playwright-results-targeted.json ]; then
+            cp playwright-results-targeted.json "$REPORT_DIR/playwright-results.json"
           elif [ -s playwright-results-cluster.json ]; then
             cp playwright-results-cluster.json "$REPORT_DIR/playwright-results.json"
           else
@@ -848,7 +1062,10 @@ jobs:
           if [ -d playwright-report ]; then cp -R playwright-report "$REPORT_DIR/playwright-report"; fi
           if [ -d test-results ]; then cp -R test-results "$REPORT_DIR/test-results"; fi
           cp /tmp/playwright-report/repair-ledger.json "$REPORT_DIR/repair-ledger.json"
-          cp /tmp/playwright-report/usage-summary.json "$REPORT_DIR/usage-summary.json"
+          cp /tmp/playwright-report/frozen-failures.json "$REPORT_DIR/frozen-failures.json"
+          if [ -s /tmp/playwright-report/diagnosis.json ]; then cp /tmp/playwright-report/diagnosis.json "$REPORT_DIR/diagnosis.json"; fi
+          if [ -s /tmp/playwright-report/repair.json ]; then cp /tmp/playwright-report/repair.json "$REPORT_DIR/repair.json"; fi
+          if [ -s /tmp/playwright-report/usage-summary.json ]; then cp /tmp/playwright-report/usage-summary.json "$REPORT_DIR/usage-summary.json"; fi
           if [ -s playwright-last-run.json ]; then cp playwright-last-run.json "$REPORT_DIR/playwright-last-run.json"; fi
           if [ -s legacy-failed-specs.txt ]; then cp legacy-failed-specs.txt "$REPORT_DIR/legacy-failed-specs.txt"; fi
           jq --arg source_run_id "$ROOT_SOURCE_RUN_ID" --arg source_workflow_url "$WORKFLOW_URL" \
@@ -874,15 +1091,70 @@ jobs:
           name: playwright-report-selfheal
           path: ${{ runner.temp }}/formoria-selfheal-report
           retention-days: 7
-      - name: Continue red self-heal
+
+      - name: Evaluate test-only merge policy
+        if: >-
+          steps.validation.outcome == 'success' &&
+          (inputs.continuation_kind != 'infrastructure' || inputs.incident_pr_number != '')
+        id: merge_policy
+        env:
+          REPAIR_BASE: ${{ steps.guard.outputs.repair_base }}
+        run: |
+          set -euo pipefail
+          git diff --name-only "origin/$REPAIR_BASE...HEAD" | jq -Rsc 'split("\n")[:-1]' > "$RUNNER_TEMP/changed-files.json"
+          git diff --name-status "origin/$REPAIR_BASE...HEAD" | awk '$1 ~ /^[DR]/ && $NF ~ /^e2e\/.*\.spec\.ts$/ {print $NF}' \
+            | jq -Rsc 'split("\n")[:-1]' > "$RUNNER_TEMP/deleted-renamed.json"
+          git diff --unified=0 "origin/$REPAIR_BASE...HEAD" -- e2e \
+            | awk '/^\+[^+]/ {sub(/^\+/, ""); print}' | jq -Rsc 'split("\n")[:-1]' > "$RUNNER_TEMP/added-lines.json"
+          git grep -h -E '\btest(\.describe)?\s*\(' "origin/$REPAIR_BASE" -- 'e2e/**/*.ts' | wc -l | tr -d ' ' > "$RUNNER_TEMP/tests-before"
+          rg -N '\btest(\.describe)?\s*\(' e2e --glob '*.ts' | wc -l | tr -d ' ' > "$RUNNER_TEMP/tests-after"
+          git grep -h -E '\bexpect\s*\(' "origin/$REPAIR_BASE" -- 'e2e/**/*.ts' | wc -l | tr -d ' ' > "$RUNNER_TEMP/assertions-before"
+          rg -N '\bexpect\s*\(' e2e --glob '*.ts' | wc -l | tr -d ' ' > "$RUNNER_TEMP/assertions-after"
+          jq -n --slurpfile diagnosis /tmp/playwright-report/diagnosis.json \
+            --slurpfile changedFiles "$RUNNER_TEMP/changed-files.json" \
+            --slurpfile deletedOrRenamedSpecs "$RUNNER_TEMP/deleted-renamed.json" \
+            --slurpfile addedLines "$RUNNER_TEMP/added-lines.json" \
+            --argjson testCountBefore "$(cat "$RUNNER_TEMP/tests-before")" \
+            --argjson testCountAfter "$(cat "$RUNNER_TEMP/tests-after")" \
+            --argjson assertionCountBefore "$(cat "$RUNNER_TEMP/assertions-before")" \
+            --argjson assertionCountAfter "$(cat "$RUNNER_TEMP/assertions-after")" \
+            --argjson skippedBefore "$(jq '.stats.skipped // 0' /tmp/playwright-report/playwright-results.json)" \
+            --argjson skippedAfter "$(jq '.stats.skipped // 0' playwright-results-validation.json)" \
+            '{diagnosis:$diagnosis[0],changedFiles:$changedFiles[0],deletedOrRenamedSpecs:$deletedOrRenamedSpecs[0],
+              addedLines:$addedLines[0],testCountBefore:$testCountBefore,testCountAfter:$testCountAfter,
+              assertionCountBefore:$assertionCountBefore,assertionCountAfter:$assertionCountAfter,
+              skippedBefore:$skippedBefore,skippedAfter:$skippedAfter}' > "$RUNNER_TEMP/merge-evidence.json"
+          pnpm exec tsx scripts/selfheal/incident-cli.ts eligibility "$RUNNER_TEMP/merge-evidence.json" \
+            > /tmp/playwright-report/merge-eligibility.json
+          echo "eligible=$(jq -r .eligible /tmp/playwright-report/merge-eligibility.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare current incident evidence bundle
+        if: steps.validation.outcome == 'success'
+        id: current_bundle
+        run: |
+          set -euo pipefail
+          REPORT_DIR="$RUNNER_TEMP/formoria-selfheal-current"
+          mkdir -p "$REPORT_DIR"
+          cp -R /tmp/playwright-report/. "$REPORT_DIR/"
+          cp playwright-results-validation.json "$REPORT_DIR/playwright-results.json"
+          cp playwright-last-run-frozen.json "$REPORT_DIR/playwright-last-run-frozen.json"
+          cp playwright-last-run.json "$REPORT_DIR/playwright-last-run.json"
+      - name: Upload current incident evidence bundle
+        if: steps.current_bundle.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-report-selfheal
+          path: ${{ runner.temp }}/formoria-selfheal-current
+          retention-days: 7
+      - name: Continue red self-heal within cycle cap
         if: >-
           always() &&
           steps.guard.outputs.skip != 'true' &&
-          steps.fix.outcome == 'success' &&
-          steps.checkpoint.outputs.complete == 'true' &&
+          ((steps.fix.outcome == 'success' && steps.checkpoint.outputs.complete == 'true') ||
+           inputs.continuation_kind == 'base-sync' || inputs.continuation_kind == 'infrastructure') &&
           steps.validation.outcome != 'success' &&
-          steps.context.outputs.repair_cycle == '1' &&
-          steps.checkpoint.outputs.no_progress != 'true' &&
+          steps.context.outputs.repair_cycle != '3' &&
+          (steps.checkpoint.outputs.no_progress != 'true' || inputs.continuation_kind != 'repair') &&
           steps.next_report.outputs.available == 'true'
         id: continue_red
         env:
@@ -895,6 +1167,7 @@ jobs:
           WORKFLOW_DISPATCH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          NEXT_CYCLE=$(( ${{ inputs.repair_cycle || '1' }} + 1 ))
           SOURCE_FAILURE_STATE=$(jq -cn --argjson specs "$SOURCE_FAILED_SPECS" \
             '{count: ($specs | length), specs: $specs}')
           GH_TOKEN="$WORKFLOW_DISPATCH_TOKEN" gh workflow run e2e-nightly.yml \
@@ -904,15 +1177,20 @@ jobs:
             --field source_failure_state="$SOURCE_FAILURE_STATE" \
             --field root_source_run_id="$ROOT_SOURCE_RUN_ID" \
             --field repair_branch="$REPAIR_BRANCH" --field repair_base="$REPAIR_BASE" \
-            --field previous_state="$STATE_AFTER" --field repair_cycle=2 --raw-field e2e_grep="$E2E_GREP"
+            --field previous_state="$STATE_AFTER" --field repair_cycle="$NEXT_CYCLE" \
+            --field continuation_kind=repair --field validation_scope=exact \
+            --field infrastructure_retries="${{ inputs.infrastructure_retries || '0' }}" \
+            --field base_sync_attempts="${{ inputs.base_sync_attempts || '0' }}" \
+            --field incident_pr_number="${{ steps.incident_pr.outputs.pr_number || inputs.incident_pr_number }}" \
+            --raw-field e2e_grep="$E2E_GREP"
           echo "dispatched=true" >> "$GITHUB_OUTPUT"
           exit 1
 
-      - name: Create blocked draft PR at cycle cap
+      - name: Update blocked draft PR at cycle cap
         if: >-
           always() &&
           steps.guard.outputs.skip != 'true' &&
-          steps.context.outputs.repair_cycle == '2' &&
+          steps.context.outputs.repair_cycle == '3' &&
           steps.validation.outcome != 'success'
         id: blocked_pr
         env:
@@ -924,16 +1202,28 @@ jobs:
           git push origin "$REPAIR_BRANCH" --force-with-lease
           BODY="$RUNNER_TEMP/e2e-selfheal-blocked.md"
           printf '%s\n' '## E2E Self-Heal — Blocked' '' \
-            'The bounded repair stopped after cycle 2. Verified checkpoints and current diagnostics are preserved; human review is required.' \
+            'The bounded repair stopped after cycle 3. Verified checkpoints and current diagnostics are preserved; human review is required.' \
             '' "Remaining failures: $(jq '.failedTests | length' playwright-last-run.json 2>/dev/null || printf unknown)" > "$BODY"
           gh label create blocked --repo "$GITHUB_REPOSITORY" --color b60205 \
             --description "Automation stopped and requires human intervention" --force
-          PR_URL=$(gh pr create --draft --base "$REPAIR_BASE" --head "$REPAIR_BRANCH" \
-            --title "fix(e2e): blocked self-heal $(date +%F)" --label selfheal --label blocked --body-file "$BODY")
+          PR_NUMBER="${{ steps.incident_pr.outputs.pr_number || inputs.incident_pr_number }}"
+          if [ -n "$PR_NUMBER" ]; then
+            gh pr edit "$PR_NUMBER" --add-label blocked --body-file "$BODY"
+            PR_URL=$(gh pr view "$PR_NUMBER" --json url --jq .url)
+          elif git diff --quiet "origin/$REPAIR_BASE...HEAD"; then
+            PR_URL=""
+            gh issue list --label e2e-nightly --state open --json number --jq '.[0].number // empty' \
+              | xargs -r -I{} gh issue comment {} --body-file "$BODY"
+          else
+            PR_URL=$(gh pr create --draft --base "$REPAIR_BASE" --head "$REPAIR_BRANCH" \
+              --title "fix(e2e): blocked self-heal $(date +%F)" --label selfheal --label blocked --body-file "$BODY")
+          fi
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
 
       - name: Review fix
-        if: steps.guard.outputs.skip != 'true' && steps.validation.outcome == 'success'
+        if: >-
+          steps.guard.outputs.skip != 'true' && steps.validation.outcome == 'success' &&
+          (steps.incident_pr.outputs.pr_number != '' || inputs.incident_pr_number != '')
         id: review
         uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1
         with:
@@ -948,19 +1238,25 @@ jobs:
             Return the required structured review result. Do not edit files.
           claude_args: >-
             --allowedTools "Read,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
-            --json-schema '{"type":"object","additionalProperties":false,"required":["verdict","justification","app_files","risk","findings"],"properties":{"verdict":{"type":"string","enum":["PASS","REJECT"]},"justification":{"type":"string"},"app_files":{"type":"array","items":{"type":"string"}},"risk":{"type":"string","enum":["low","medium","high"]},"findings":{"type":"array","items":{"type":"string"}}}}'
+            --json-schema '{"type":"object","additionalProperties":false,"required":["verdict","justification","app_files","risk","reviewed_head_sha","findings"],"properties":{"verdict":{"type":"string","enum":["PASS","REJECT"]},"justification":{"type":"string"},"app_files":{"type":"array","items":{"type":"string"}},"risk":{"type":"string","enum":["low","medium","high"]},"reviewed_head_sha":{"type":"string"},"findings":{"type":"array","items":{"type":"string"}}}}'
       - name: Enforce review verdict
-        if: always() && steps.guard.outputs.skip != 'true' && steps.validation.outcome == 'success'
+        if: >-
+          always() && steps.guard.outputs.skip != 'true' && steps.validation.outcome == 'success' &&
+          (steps.incident_pr.outputs.pr_number != '' || inputs.incident_pr_number != '')
         id: review_gate
         env:
           REVIEW_RESULT: ${{ steps.review.outputs.structured_output }}
         run: |
           set -euo pipefail
-          echo "$REVIEW_RESULT" | jq -e '.verdict == "PASS"' >/dev/null
+          HEAD_SHA=$(git rev-parse HEAD)
+          echo "$REVIEW_RESULT" | jq -e --arg head "$HEAD_SHA" \
+            '.verdict == "PASS" and .risk == "low" and .reviewed_head_sha == $head' >/dev/null
           echo "accepted=true" >> "$GITHUB_OUTPUT"
 
-      - name: Push and create review PR
-        if: steps.guard.outputs.skip != 'true' && steps.review_gate.outputs.accepted == 'true'
+      - name: Update durable incident PR with validation and review
+        if: >-
+          steps.guard.outputs.skip != 'true' && steps.review_gate.outputs.accepted == 'true' &&
+          (steps.incident_pr.outputs.pr_number != '' || inputs.incident_pr_number != '')
         id: pr
         env:
           GH_TOKEN: ${{ secrets.SELFHEAL_PAT }}
@@ -971,7 +1267,7 @@ jobs:
         run: |
           set -euo pipefail
           git push origin "$REPAIR_BRANCH" --force-with-lease
-          LEDGER=$(jq -r '[.[] | .classification[]? | "- **\(.category)** — `\(.file)` — \(.title): \(.reason)"] | if length == 0 then "- No classification was recorded" else join("\n") end' /tmp/playwright-report/repair-ledger.json)
+          LEDGER=$(jq -r '[.clusters[] | "- **\(.category)** — `\(.rootCauseKey)`: \(.diagnosis)"] | if length == 0 then "- No actionable cluster was recorded" else join("\n") end' /tmp/playwright-report/diagnosis.json)
           CHANGED_FILES=$(git diff --name-only "origin/$REPAIR_BASE...HEAD" | sed 's/^/- `/; s/$/`/')
           PASSED=$(jq '(.stats.expected // 0) + (.stats.flaky // 0)' playwright-results-validation.json)
           FAILED=$(jq '.stats.unexpected // 0' playwright-results-validation.json)
@@ -1007,11 +1303,93 @@ jobs:
             '' \
             '### Merge policy' \
             '' \
-            '**Manual review and merge required. Auto-merge is not enabled.**' \
+            "- Auto-merge eligible: ${{ steps.merge_policy.outputs.eligible == 'true' && 'yes' || 'no' }}" \
+            '- Application or mixed repairs always require human merge.' \
             > "$PR_BODY"
-          PR_URL=$(gh pr create --base "$REPAIR_BASE" --head "$REPAIR_BRANCH" \
-            --title "fix(e2e): self-heal $(date +%F)" --label selfheal --body-file "$PR_BODY")
+          PR_NUMBER="${{ steps.incident_pr.outputs.pr_number || inputs.incident_pr_number }}"
+          if [ -z "$PR_NUMBER" ]; then
+            PR_URL=$(gh pr create --draft --base "$REPAIR_BASE" --head "$REPAIR_BRANCH" \
+              --title "fix(e2e): self-heal $(date +%F)" --label selfheal --body-file "$PR_BODY")
+            PR_NUMBER=${PR_URL##*/}
+          else
+            gh pr edit "$PR_NUMBER" --body-file "$PR_BODY"
+            PR_URL=$(gh pr view "$PR_NUMBER" --json url --jq .url)
+          fi
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Mark unsafe or application repair ready for human review
+        if: steps.pr.outputs.pr_number != '' && steps.merge_policy.outputs.eligible != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.SELFHEAL_PAT }}
+        run: gh pr ready "${{ steps.pr.outputs.pr_number }}"
+
+      - name: Ensure reviewed head is based on current main
+        if: steps.merge_policy.outputs.eligible == 'true' && steps.review_gate.outputs.accepted == 'true'
+        id: base_gate
+        env:
+          GH_TOKEN: ${{ secrets.SELFHEAL_PAT }}
+          REPAIR_BASE: ${{ steps.guard.outputs.repair_base }}
+          REPAIR_BRANCH: ${{ steps.branch.outputs.branch }}
+        run: |
+          set -euo pipefail
+          git fetch origin "$REPAIR_BASE" --prune
+          if git merge-base --is-ancestor "origin/$REPAIR_BASE" HEAD; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "${{ inputs.base_sync_attempts || '0' }}" = "2" ]; then
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "blocked=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git rebase "origin/$REPAIR_BASE"
+          git push origin "$REPAIR_BRANCH" --force-with-lease
+          NEXT_SYNC=$(( ${{ inputs.base_sync_attempts || '0' }} + 1 ))
+          gh workflow run e2e-nightly.yml --repo "$GITHUB_REPOSITORY" --ref "$REPAIR_BASE" \
+            --field selfheal_only=true --field source_run_id="$GITHUB_RUN_ID" \
+            --field source_artifact_name=playwright-report-selfheal \
+            --field root_source_run_id="${{ inputs.root_source_run_id || inputs.source_run_id || github.run_id }}" \
+            --field repair_branch="$REPAIR_BRANCH" --field repair_base="$REPAIR_BASE" \
+            --field continuation_kind=base-sync --field validation_scope=exact \
+            --field infrastructure_retries="${{ inputs.infrastructure_retries || '0' }}" \
+            --field repair_cycle="${{ inputs.repair_cycle || '1' }}" --field base_sync_attempts="$NEXT_SYNC" \
+            --field incident_pr_number="${{ steps.pr.outputs.pr_number }}"
+          echo "continuation=true" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for protected PR checks
+        if: steps.base_gate.outputs.current == 'true'
+        id: pr_checks
+        env:
+          GH_TOKEN: ${{ secrets.SELFHEAL_PAT }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+        run: |
+          set -euo pipefail
+          gh pr checks "$PR_NUMBER" --required --watch --fail-fast
+          gh pr checks "$PR_NUMBER" --json name,state > "$RUNNER_TEMP/pr-checks.json"
+          jq -e '
+            (["Quality","Build","select-targeted-e2e"] - [.[] | select(.state == "SUCCESS") | .name] | length) == 0 and
+            ([.[] | select(.name == "e2e-targeted" and .state != "SUCCESS")] | length) == 0
+          ' "$RUNNER_TEMP/pr-checks.json" >/dev/null
+          BODY=$(gh pr view "$PR_NUMBER" --json body --jq .body)
+          printf '%s\n\n### Final PR checks\n\n- Quality: passed\n- Build: passed\n- select-targeted-e2e: passed\n- e2e-targeted: passed when selected\n' \
+            "$BODY" > "$RUNNER_TEMP/checked-pr.md"
+          gh pr edit "$PR_NUMBER" --body-file "$RUNNER_TEMP/checked-pr.md"
+
+      - name: Mark ready and squash-merge safe test-only repair
+        if: steps.pr_checks.outcome == 'success'
+        id: merge
+        env:
+          GH_TOKEN: ${{ secrets.SELFHEAL_PAT }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+        run: |
+          set -euo pipefail
+          HEAD_SHA=$(git rev-parse HEAD)
+          PR_HEAD=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
+          [ "$HEAD_SHA" = "$PR_HEAD" ]
+          gh pr ready "$PR_NUMBER"
+          gh pr merge "$PR_NUMBER" --squash --match-head-commit "$HEAD_SHA"
+          echo "merge_commit_sha=$(gh pr view "$PR_NUMBER" --json mergeCommit --jq .mergeCommit.oid)" >> "$GITHUB_OUTPUT"
 
       - name: Determine terminal state
         if: always()
@@ -1019,8 +1397,14 @@ jobs:
         env:
           CONTINUE_INCOMPLETE: ${{ steps.continue_incomplete.outputs.dispatched }}
           CONTINUE_RED: ${{ steps.continue_red.outputs.dispatched }}
+          CONTINUE_INFRASTRUCTURE: ${{ steps.continue_infrastructure.outputs.dispatched }}
+          CONTINUE_BASE_SYNC: ${{ steps.base_gate.outputs.continuation }}
+          INFRASTRUCTURE_CONFIRMED: ${{ steps.infrastructure.outputs.confirmed }}
+          INFRASTRUCTURE_RETRIES: ${{ inputs.infrastructure_retries || '0' }}
+          MERGE_COMMIT_SHA: ${{ steps.merge.outputs.merge_commit_sha }}
+          AUTO_MERGE_ELIGIBLE: ${{ steps.merge_policy.outputs.eligible }}
           NO_PROGRESS: ${{ steps.checkpoint.outputs.no_progress }}
-          PR_URL: ${{ steps.pr.outputs.pr_url }}
+          PR_URL: ${{ steps.pr.outputs.pr_url || steps.incident_pr.outputs.pr_url || steps.existing_pr.outputs.pr_url }}
           BLOCKED_PR_URL: ${{ steps.blocked_pr.outputs.pr_url }}
           REVIEW_GATE_OUTCOME: ${{ steps.review_gate.outcome }}
           SOURCE_FAILED_COUNT: ${{ needs.e2e-deep.outputs.failed }}
@@ -1028,24 +1412,33 @@ jobs:
           SOURCE_FAILURE_STATE: ${{ inputs.source_failure_state }}
           VALIDATION_OUTCOME: ${{ steps.validation.outcome }}
         run: |
-          if [[ "$CONTINUE_INCOMPLETE" == "true" || "$CONTINUE_RED" == "true" ]]; then
+          if [[ "$CONTINUE_INCOMPLETE" == "true" || "$CONTINUE_RED" == "true" || "$CONTINUE_INFRASTRUCTURE" == "true" || "$CONTINUE_BASE_SYNC" == "true" ]]; then
             echo "continuation_dispatched=true" >> "$GITHUB_OUTPUT"
           else
             echo "continuation_dispatched=false" >> "$GITHUB_OUTPUT"
           fi
-          if [[ -n "$BLOCKED_PR_URL" ]]; then
-            REASON="repair cycle 2 ended red; a blocked draft PR preserves progress"
-          elif [[ -n "$PR_URL" ]]; then
-            REASON=""
+          if [[ "$CONTINUE_INCOMPLETE" == "true" || "$CONTINUE_RED" == "true" || "$CONTINUE_INFRASTRUCTURE" == "true" || "$CONTINUE_BASE_SYNC" == "true" ]]; then
+            OUTCOME=continuing; REASON=""
+          elif [[ -n "$MERGE_COMMIT_SHA" ]]; then
+            OUTCOME=merged; REASON=""
+          elif [[ "$INFRASTRUCTURE_CONFIRMED" == "true" && "$INFRASTRUCTURE_RETRIES" == "2" ]]; then
+            OUTCOME=infrastructure_blocked; REASON="infrastructure remained unavailable after two validation-only retries"
+          elif [[ "$VALIDATION_OUTCOME" == "success" && -z "$PR_URL" ]]; then
+            OUTCOME=recovered_no_change; REASON=""
+          elif [[ -n "$PR_URL" && "$AUTO_MERGE_ELIGIBLE" != "true" && "$REVIEW_GATE_OUTCOME" == "success" ]]; then
+            OUTCOME=review_ready; REASON=""
+          elif [[ -n "$BLOCKED_PR_URL" ]]; then
+            OUTCOME=repair_blocked; REASON="repair cycle 3 ended red; a blocked draft PR preserves progress"
           elif [[ "$NO_PROGRESS" == "true" ]]; then
-            REASON="repair made no progress from the same failure state"
+            OUTCOME=repair_blocked; REASON="repair made no progress from the same failure state"
           elif [[ "$VALIDATION_OUTCOME" == "success" && "$REVIEW_GATE_OUTCOME" != "success" ]]; then
-            REASON="automated review rejected or could not validate the fix"
+            OUTCOME=repair_blocked; REASON="automated review rejected or could not validate the fix"
           elif [[ "${{ steps.guard.outputs.skip }}" == "true" ]]; then
-            REASON="the self-heal guard prevented this repair"
+            OUTCOME=repair_blocked; REASON="the self-heal guard prevented this repair"
           else
-            REASON="the self-heal job ended before a review-ready PR was created"
+            OUTCOME=repair_blocked; REASON="the self-heal job ended before a terminal result"
           fi
+          echo "terminal_outcome=$OUTCOME" >> "$GITHUB_OUTPUT"
           echo "blocked_reason=$REASON" >> "$GITHUB_OUTPUT"
           if [ -s playwright-results-validation.json ] && jq -e . playwright-results-validation.json >/dev/null 2>&1; then
             echo "passed=$(jq '(.stats.expected // 0) + (.stats.flaky // 0)' playwright-results-validation.json)" >> "$GITHUB_OUTPUT"
@@ -1072,6 +1465,30 @@ jobs:
           fi
           echo "failed_specs=$FAILED_SPECS" >> "$GITHUB_OUTPUT"
 
+      - name: Finalize durable incident record
+        if: >-
+          always() && steps.terminal_state.outputs.continuation_dispatched != 'true' &&
+          steps.guard.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.SELFHEAL_PAT }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number || steps.incident_pr.outputs.pr_number || inputs.incident_pr_number }}
+          TERMINAL_OUTCOME: ${{ steps.terminal_state.outputs.terminal_outcome }}
+          MERGE_COMMIT_SHA: ${{ steps.merge.outputs.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          if [ -n "$PR_NUMBER" ]; then
+            BODY=$(gh pr view "$PR_NUMBER" --json body --jq .body)
+            printf '%s\n\n## Terminal state\n\n- Outcome: `%s`\n- Merge commit: `%s`\n' \
+              "$BODY" "$TERMINAL_OUTCOME" "${MERGE_COMMIT_SHA:-not merged}" > "$RUNNER_TEMP/terminal-pr.md"
+            gh pr edit "$PR_NUMBER" --body-file "$RUNNER_TEMP/terminal-pr.md"
+          fi
+          if [[ "$TERMINAL_OUTCOME" == "merged" || "$TERMINAL_OUTCOME" == "recovered_no_change" ]]; then
+            ISSUE_NUMBER=$(gh issue list --label e2e-nightly --state open --json number --jq '.[0].number // empty')
+            if [ -n "$ISSUE_NUMBER" ]; then
+              gh issue close "$ISSUE_NUMBER" --comment "E2E incident closed with outcome: $TERMINAL_OUTCOME"
+            fi
+          fi
+
       - name: Report to Agent Hub
         if: always() && steps.guard.outputs.skip != 'true'
         continue-on-error: true
@@ -1082,17 +1499,23 @@ jobs:
           BLOCKED_REASON_FOR_REPORT: ${{ steps.terminal_state.outputs.blocked_reason }}
           FAILED_SPECS_FOR_REPORT: ${{ steps.terminal_state.outputs.failed_specs || '[]' }}
           REPORT_AVAILABLE_FOR_REPORT: ${{ steps.terminal_state.outputs.report_available || 'false' }}
-          PR_URL_FOR_REPORT: ${{ steps.pr.outputs.pr_url || steps.blocked_pr.outputs.pr_url || '' }}
+          PR_URL_FOR_REPORT: ${{ steps.pr.outputs.pr_url || steps.incident_pr.outputs.pr_url || steps.existing_pr.outputs.pr_url || steps.blocked_pr.outputs.pr_url || '' }}
           CONTINUATION_DISPATCHED: ${{ steps.terminal_state.outputs.continuation_dispatched }}
           MODEL_USAGE: ${{ steps.usage.outputs.model_usage || '{"cost_usd":null,"turns":null,"duration_ms":null}' }}
           TARGETED_ATTEMPTS: ${{ steps.usage.outputs.targeted_attempts || '0' }}
+          TERMINAL_OUTCOME: ${{ steps.terminal_state.outputs.terminal_outcome }}
+          AUTO_MERGE_ELIGIBLE: ${{ steps.merge_policy.outputs.eligible || 'false' }}
+          MERGE_COMMIT_SHA: ${{ steps.merge.outputs.merge_commit_sha || '' }}
         run: |
           if [[ "$CONTINUATION_DISPATCHED" == "true" ]]; then
             STATUS="failed"; SEVERITY="warning"; VERDICT="Self-heal is continuing in another workflow round"
             TERMINAL=false; OUTCOME=repairing
+          elif [[ "$TERMINAL_OUTCOME" == "merged" || "$TERMINAL_OUTCOME" == "review_ready" || "$TERMINAL_OUTCOME" == "recovered_no_change" ]]; then
+            STATUS="success"; SEVERITY="ok"; VERDICT="Self-heal terminal outcome: $TERMINAL_OUTCOME"
+            TERMINAL=true; OUTCOME="$TERMINAL_OUTCOME"
           elif [[ -n "$BLOCKED_REASON_FOR_REPORT" ]]; then
             STATUS="failed"; SEVERITY="critical"; VERDICT="Self-heal is blocked: $BLOCKED_REASON_FOR_REPORT"
-            TERMINAL=true; OUTCOME=blocked
+            TERMINAL=true; OUTCOME="$TERMINAL_OUTCOME"
           else
             STATUS="success"; SEVERITY="ok"; VERDICT="Self-heal PR is ready for manual review"
             TERMINAL=true; OUTCOME=ready
@@ -1113,6 +1536,12 @@ jobs:
             --arg root_source_run_id "${{ inputs.root_source_run_id || inputs.source_run_id || github.run_id }}" \
             --argjson repair_cycle "${{ inputs.repair_cycle || '1' }}" --argjson targeted_attempts "$TARGETED_ATTEMPTS" \
             --argjson terminal "$TERMINAL" --arg outcome "$OUTCOME" \
+            --arg continuation_kind "${{ inputs.continuation_kind || 'repair' }}" \
+            --arg validation_scope "${{ inputs.validation_scope || 'exact' }}" \
+            --argjson infrastructure_retries "${{ inputs.infrastructure_retries || '0' }}" \
+            --arg merge_policy "test_only_safe" --argjson auto_merge_eligible "$AUTO_MERGE_ELIGIBLE" \
+            --argjson actually_merged "$([ -n "$MERGE_COMMIT_SHA" ] && echo true || echo false)" \
+            --arg merge_commit_sha "$MERGE_COMMIT_SHA" \
             --argjson model_usage "$MODEL_USAGE" --argjson report_available "${REPORT_AVAILABLE_FOR_REPORT:-false}" \
             --argjson val_passed "$VAL_PASSED" --argjson val_failed "$VAL_FAILED" --arg workflow_url "$WORKFLOW_URL" \
             '{version: 1, source: "github_actions", source_run_id: $source_run_id, routine: "e2e-nightly",
@@ -1120,9 +1549,13 @@ jobs:
               verdict_severity: $verdict_severity, verdict_text: $verdict_text, tickets_created: [],
               log_url: $workflow_url, data: {notification_owner: "github_actions", phase: "selfheal", root_source_run_id: $root_source_run_id,
               repair_cycle: $repair_cycle, terminal: $terminal, outcome: $outcome,
+              continuation_kind: $continuation_kind, validation_scope: $validation_scope,
+              infrastructure_retries: $infrastructure_retries, merge_policy: $merge_policy,
+              auto_merge_eligible: $auto_merge_eligible, actually_merged: $actually_merged,
+              merge_commit_sha: $merge_commit_sha,
               report_available: $report_available,
               targeted_attempts: $targeted_attempts, model_usage: $model_usage, failed_specs: $failed_specs,
-              pr_url: $pr_url, auto_merge_enabled: false,
+              pr_url: $pr_url,
               validation: {passed: $val_passed, failed: $val_failed}, workflow_url: $workflow_url}}')
           printf '%s' "$payload" > /tmp/formoria-e2e-selfheal.json
           node scripts/agent-hub/report-run.mjs --file /tmp/formoria-e2e-selfheal.json
@@ -1146,40 +1579,26 @@ jobs:
           cache: pnpm
       - name: Install notification dependencies
         run: pnpm install --frozen-lockfile
-      - name: Notify Slack that the self-heal PR is ready
-        if: needs.selfheal.outputs.blocked_reason == '' && needs.selfheal.outputs.pr_url != ''
+      - name: Notify Slack of terminal self-heal outcome
         env:
+          BLOCKED_REASON: ${{ needs.selfheal.outputs.blocked_reason || '' }}
           E2E_FAILED_SPECS: ${{ needs.selfheal.outputs.failed_specs || '[]' }}
           E2E_FAILED: ${{ needs.selfheal.outputs.failed || '0' }}
           E2E_PASSED: ${{ needs.selfheal.outputs.passed || '0' }}
           E2E_SKIPPED: ${{ needs.selfheal.outputs.skipped || '0' }}
           E2E_REPORT_AVAILABLE: ${{ needs.selfheal.outputs.report_available || 'false' }}
-          E2E_SLACK_PHASE: ready
+          E2E_SLACK_PHASE: ${{ needs.selfheal.outputs.terminal_outcome }}
           E2E_SLACK_LABEL: E2E Nightly (Deep)
-          E2E_SLACK_SCOPE: Self-heal revalidation of the previously failing specs
+          E2E_SLACK_SCOPE: Batch repair, exact-set gate, build, and complete deep + mobile suite
+          EXACT_GATE: ${{ needs.selfheal.outputs.failed == '0' && 'passed' || 'failed' }}
+          FULL_GATE: ${{ needs.selfheal.outputs.failed == '0' && 'passed' || 'failed' }}
+          MERGE_COMMIT_SHA: ${{ needs.selfheal.outputs.merge_commit_sha }}
+          REPAIR_CYCLES: ${{ inputs.repair_cycle || '1' }}
+          ROOT_INCIDENT_ID: ${{ inputs.root_source_run_id || inputs.source_run_id || github.run_id }}
           GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           JOB_STATUS: ${{ needs.selfheal.result }}
           PR_URL: ${{ needs.selfheal.outputs.pr_url }}
-          SLACK_FORMORIA_WEBHOOK_URL: ${{ secrets.SLACK_FORMORIA_WEBHOOK_URL }}
-          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: pnpm exec tsx scripts/notifications/e2e-slack.ts
-      - name: Notify Slack that self-heal is blocked
-        if: needs.selfheal.outputs.blocked_reason != ''
-        env:
-          BLOCKED_REASON: ${{ needs.selfheal.outputs.blocked_reason || 'the self-heal job ended unexpectedly' }}
-          E2E_FAILED_SPECS: ${{ needs.selfheal.outputs.failed_specs || '[]' }}
-          E2E_FAILED: ${{ needs.selfheal.outputs.failed || '0' }}
-          E2E_PASSED: ${{ needs.selfheal.outputs.passed || '0' }}
-          E2E_SKIPPED: ${{ needs.selfheal.outputs.skipped || '0' }}
-          E2E_REPORT_AVAILABLE: ${{ needs.selfheal.outputs.report_available || 'false' }}
-          E2E_SLACK_PHASE: blocked
-          E2E_SLACK_LABEL: E2E Nightly (Deep)
-          E2E_SLACK_SCOPE: Self-heal revalidation of the previously failing specs
-          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
-          JOB_STATUS: ${{ needs.selfheal.result }}
-          PR_URL: ${{ needs.selfheal.outputs.pr_url || '' }}
           SLACK_FORMORIA_WEBHOOK_URL: ${{ secrets.SLACK_FORMORIA_WEBHOOK_URL }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: pnpm exec tsx scripts/notifications/e2e-slack.ts

@@ -28,6 +28,7 @@ try {
       ...legacySpecs,
       "--project=deep",
       "--project=mobile",
+      "--last-failed",
       "--last-failed-file",
       stateFile,
       "--reporter=html,json",
