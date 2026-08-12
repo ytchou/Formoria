@@ -465,6 +465,7 @@ jobs:
             exit 1
           fi
           echo "repair_base=$REPAIR_BASE" >> "$GITHUB_OUTPUT"
+          echo "checkout_ref=$REPAIR_BASE" >> "$GITHUB_OUTPUT"
 
           if [[ -n "$REPAIR_BRANCH" ]]; then
             if [[ "$REPAIR_BRANCH" != selfheal/e2e-* ]]; then
@@ -475,18 +476,19 @@ jobs:
               echo "::error::repair_branch does not exist: $REPAIR_BRANCH"
               exit 1
             fi
+            echo "checkout_ref=$REPAIR_BRANCH" >> "$GITHUB_OUTPUT"
           elif gh pr list --repo "$GITHUB_REPOSITORY" --state open --label selfheal --json number --jq length | grep -qv '^0$'; then
             echo "Open selfheal PR exists, skipping"
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Checkout
-        if: steps.guard.outputs.skip != 'true'
+        if: always() && steps.guard.outputs.skip != 'true'
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           token: ${{ secrets.SELFHEAL_PAT }}
           fetch-depth: 0
-          ref: ${{ inputs.repair_branch || inputs.repair_base || github.ref }}
+          ref: ${{ steps.guard.outputs.checkout_ref || inputs.repair_base || github.ref }}
 
       - name: Download nightly report from this run
         if: always() && steps.guard.outputs.skip != 'true' && inputs.selfheal_only != true
@@ -638,28 +640,38 @@ jobs:
         id: infrastructure
         env:
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: |
           set -euo pipefail
+          PROBE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
+          PROBE_AUTHENTICATED=false
+          PROBE_AUTH_MODE=none
+          if [ -n "$PROBE_KEY" ]; then
+            PROBE_AUTHENTICATED=true
+            PROBE_AUTH_MODE=service_role
+          fi
           START_MS=$(date +%s%3N)
           HTTP_STATUS=$(curl --silent --show-error --max-time 10 \
             --output "$RUNNER_TEMP/supabase-probe-body.json" --write-out '%{http_code}' \
-            -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "apikey: $PROBE_KEY" -H "Authorization: Bearer $PROBE_KEY" \
             -H 'Accept: application/json' \
             "$SUPABASE_URL/rest/v1/brands?select=id&limit=1" || true)
           HTTP_STATUS="${HTTP_STATUS: -3}"
           HTTP_STATUS_NUMBER=$((10#${HTTP_STATUS:-000}))
           LATENCY_MS=$(( $(date +%s%3N) - START_MS ))
           PROBE_OK=false
-          [[ "$HTTP_STATUS" =~ ^2 ]] && PROBE_OK=true
-          jq -n --argjson authenticated true --argjson ok "$PROBE_OK" \
+          [[ "$PROBE_AUTHENTICATED" == true && "$HTTP_STATUS" =~ ^2 ]] && PROBE_OK=true
+          jq -n --argjson authenticated "$PROBE_AUTHENTICATED" --argjson ok "$PROBE_OK" \
             --argjson status "$HTTP_STATUS_NUMBER" \
-            '{authenticated:$authenticated,ok:$ok,status:$status}' \
+            --arg auth_mode "$PROBE_AUTH_MODE" \
+            '{authenticated:$authenticated,auth_mode:$auth_mode,ok:$ok,status:$status}' \
             > "$RUNNER_TEMP/supabase-probe.json"
           jq -n --arg operation lightweight_authenticated_query \
             --argjson status "$HTTP_STATUS_NUMBER" --argjson latency_ms "$LATENCY_MS" \
+            --arg auth_mode "$PROBE_AUTH_MODE" \
             --arg response_content_type application_json \
-            '{event:"e2e_selfheal_infrastructure_probe",request:{operation:$operation,limit:1},response:{status:$status,content_type:$response_content_type},latency_ms:$latency_ms}'
+            '{event:"e2e_selfheal_infrastructure_probe",request:{operation:$operation,auth_mode:$auth_mode,limit:1},response:{status:$status,content_type:$response_content_type},latency_ms:$latency_ms}'
           jq -n \
             --argjson errors "$(jq -c '[.failures[]?.errors[]?]' /tmp/playwright-report/selfheal-context.json)" \
             --argjson probe "$(cat "$RUNNER_TEMP/supabase-probe.json")" \
@@ -694,6 +706,7 @@ jobs:
           REPAIR_BRANCH: ${{ steps.branch.outputs.branch }}
           ROOT_SOURCE_RUN_ID: ${{ inputs.root_source_run_id || inputs.source_run_id || github.run_id }}
         run: |
+          git push origin "$REPAIR_BRANCH" --force-with-lease
           NEXT_RETRY=$(( ${{ inputs.infrastructure_retries || '0' }} + 1 ))
           gh workflow run e2e-nightly.yml --repo "$GITHUB_REPOSITORY" --ref "$REPAIR_BASE" \
             --field selfheal_only=true --field source_run_id="$GITHUB_RUN_ID" \
@@ -1029,8 +1042,8 @@ jobs:
         if: >-
           always() &&
           steps.guard.outputs.skip != 'true' &&
-          steps.fix.outcome == 'success' &&
-          steps.checkpoint.outputs.complete == 'true' &&
+          ((steps.fix.outcome == 'success' && steps.checkpoint.outputs.complete == 'true') ||
+           inputs.continuation_kind == 'base-sync' || inputs.continuation_kind == 'infrastructure') &&
           steps.validation.outcome != 'success'
         id: next_report
         env:

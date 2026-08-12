@@ -78,9 +78,38 @@ describe("nightly E2E batch self-heal contract", () => {
     expect(probe).toBeGreaterThan(0);
     expect(probe).toBeLessThan(diagnosis);
     expect(source).toContain("lightweight_authenticated_query");
+    expect(source).toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(source).toContain("PROBE_AUTHENTICATED=false");
+    expect(source).toContain("auth_mode:$auth_mode");
     expect(source).toContain("latency_ms");
     expect(source).toContain("classify-infrastructure");
     expect(source).not.toContain("request:{credential");
+  });
+
+  it("publishes the repair branch before dispatching infrastructure recovery", async () => {
+    const source = await workflow();
+    const dispatch = source.indexOf(
+      "- name: Dispatch infrastructure-only retry",
+    );
+    const diagnosis = source.indexOf("- name: Diagnose complete failure set");
+    const section = source.slice(dispatch, diagnosis);
+    const push = section.indexOf(
+      'git push origin "$REPAIR_BRANCH" --force-with-lease',
+    );
+    expect(push).toBeGreaterThan(-1);
+    expect(push).toBeLessThan(
+      section.indexOf("gh workflow run e2e-nightly.yml"),
+    );
+  });
+
+  it("can turn a recovered infrastructure retry into the next repair cycle", async () => {
+    const source = await workflow();
+    const report = source.slice(
+      source.indexOf("- name: Prepare self-heal report for next round"),
+      source.indexOf("- name: Upload self-heal report for next round"),
+    );
+    expect(report).toContain("inputs.continuation_kind == 'infrastructure'");
+    expect(report).toContain("steps.validation.outcome != 'success'");
   });
 
   it("creates one draft PR and reuses its number across continuations", async () => {
