@@ -1,305 +1,293 @@
 #!/usr/bin/env node
 /**
- * Timeout census and gate for the e2e suite.
+ * Static guard for E2E wait policies.
  *
- * Two jobs:
- *
- *   --snapshot            write the census to e2e/timeout-baseline.json
- *   (no flag, i.e. CI)    assert the census still matches, and enforce the gate
- *
- * The census records the *effective milliseconds* of every wait in the suite,
- * with `BUDGET`/`POLL` names resolved to their values. That makes the otherwise
- * unreviewable question "did this refactor make any test wait longer?"
- * mechanically answerable, which is what lets the budget migration land in small
- * behaviour-neutral commits instead of one unreviewable diff.
- *
- * The gate exists because raising a timeout was the default repair here and the
- * rule against it bound only the nightly self-heal agent: its prompt forbids
- * raising timeouts and its review step rejects any diff that does, while every
- * timeout raise in this repo's history was human-authored. See e2e/TRIAGE.md.
- *
- * This parses `e2e/budgets.ts` as *text* — a .mjs script cannot import
- * TypeScript. That is why budgets.ts is required to stay flat `as const`
- * literals: anything computed would silently drop out of the census.
+ * E2E waits are deliberately boring to audit: numeric timeout values and
+ * polling ladders are defined in e2e/budgets.ts, while specs use the named
+ * BUDGET/POLL policies. This script scans the TypeScript syntax tree instead
+ * of maintaining a generated census, so new syntax cannot be grandfathered by
+ * updating a snapshot.
  */
 
-import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import ts from 'typescript'
 
-const BUDGETS_FILE = 'e2e/budgets.ts'
-const BASELINE_FILE = 'e2e/timeout-baseline.json'
 const SCAN_ROOT = 'e2e'
-const TRIAGE_DOC = 'e2e/TRIAGE.md'
-
-/** The single hard sleep with no readiness signal to replace it: proving a popup did NOT open. */
-const WAIT_FOR_TIMEOUT_ALLOWLIST = new Set(['e2e/tests/brand-share.spec.ts'])
-
-const args = process.argv.slice(2)
-const snapshotMode = args.includes('--snapshot')
-
-// ---------------------------------------------------------------- budgets
-
-/** Resolve `BUDGET.X`, `BUDGET.TEST.X`, `POLL.X.timeout` to numbers by parsing budgets.ts. */
-function loadBudgetSymbols() {
-  const source = readFileSync(BUDGETS_FILE, 'utf8')
-  const symbols = new Map()
-  const polls = new Map()
-
-  const num = (raw) => Number(raw.replace(/_/g, ''))
-
-  // Flat `NAME: 5_000,` entries, and the nested TEST block.
-  let scope = 'BUDGET'
-  for (const line of source.split('\n')) {
-    if (/^\s*TEST:\s*\{/.test(line)) scope = 'BUDGET.TEST'
-    else if (/^\s*\},\s*$/.test(line) && scope === 'BUDGET.TEST') scope = 'BUDGET'
-
-    const flat = line.match(/^\s*([A-Z_]+):\s*(\d[\d_]*),/)
-    if (flat) symbols.set(`${scope}.${flat[1]}`, num(flat[2]))
-
-    const poll = line.match(
-      /^\s*([A-Z_]+):\s*\{\s*timeout:\s*(\d[\d_]*),\s*intervals:\s*\[([\d_,\s]+)\]\s*\}/,
-    )
-    if (poll) {
-      polls.set(`POLL.${poll[1]}`, {
-        timeout: num(poll[2]),
-        intervals: poll[3].split(',').map((v) => num(v.trim())).filter((v) => !Number.isNaN(v)),
-      })
-    }
-  }
-
-  if (symbols.size === 0) {
-    throw new Error(`Parsed no budgets from ${BUDGETS_FILE}. Did its shape change?`)
-  }
-  return { symbols, polls }
-}
-
-// ---------------------------------------------------------------- scanning
+const BUDGETS_FILE = 'e2e/budgets.ts'
 
 function specFiles(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name)
-    if (entry.isDirectory()) return path.includes('node_modules') ? [] : specFiles(path)
-    // budgets.ts is where the numbers are *defined*; counting its literals as
-    // usage sites would make adding a named budget look like adding a bare one.
+    if (entry.isDirectory()) return specFiles(path)
     if (path === BUDGETS_FILE) return []
-    return /\.ts$/.test(entry.name) && !entry.name.endsWith('.d.ts') ? [path] : []
+    return /\.(?:ts|tsx)$/.test(entry.name) && !entry.name.endsWith('.d.ts') ? [path] : []
   })
 }
 
-/**
- * Strip `//` line comments so prose like "// Increase timeout: fooAction is slow"
- * is not scanned as code. `://` is spared so URLs inside strings survive.
- */
-function stripLineComment(line) {
-  const index = line.search(/(^|[^:])\/\//)
-  if (index === -1) return line
-  return line.slice(0, line.indexOf('//', index))
+function sourceText(node, sourceFile) {
+  return sourceFile.text.slice(node.getStart(sourceFile), node.getEnd())
 }
 
-/** TypeScript type positions — `timeout: number` declares a parameter, it is not a wait. */
-const TYPE_NAMES = new Set(['number', 'string', 'boolean', 'any', 'undefined', 'never'])
-
-/** A numeric literal, or a BUDGET/POLL reference. Anything else is unresolved on purpose. */
-function resolveExpression(raw, { symbols, polls }) {
-  const expr = raw.trim()
-
-  if (/^\d[\d_]*$/.test(expr)) {
-    return { ms: Number(expr.replace(/_/g, '')), literal: true }
-  }
-  if (symbols.has(expr)) return { ms: symbols.get(expr), literal: false }
-
-  const pollTimeout = expr.match(/^(POLL\.[A-Z_]+)\.timeout$/)
-  if (pollTimeout && polls.has(pollTimeout[1])) {
-    return { ms: polls.get(pollTimeout[1]).timeout, literal: false }
-  }
-  if (polls.has(expr)) {
-    const entry = polls.get(expr)
-    return { ms: entry.timeout, intervals: entry.intervals, literal: false }
-  }
-  return { unresolved: true, expr }
+function lineNumber(node, sourceFile) {
+  return sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1
 }
 
-function scan(budgets) {
-  const sites = []
-  for (const file of specFiles(SCAN_ROOT)) {
-    const rel = relative('.', file)
-    const lines = readFileSync(file, 'utf8').split('\n')
+function propertyName(property, sourceFile) {
+  if (!property.name) return null
+  if (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)) {
+    return property.name.text
+  }
+  return sourceText(property.name, sourceFile)
+}
 
-    lines.forEach((rawLine, index) => {
-      const lineNo = index + 1
-      const previous = lines[index - 1] ?? ''
-      const measured = /\/\/\s*measured:/.test(previous) || /\/\/\s*measured:/.test(rawLine)
-      const line = stripLineComment(rawLine)
+function unwrapExpression(node) {
+  let expression = node
+  while (
+    ts.isAsExpression(expression) ||
+    ts.isTypeAssertionExpression(expression) ||
+    ts.isParenthesizedExpression(expression)
+  ) {
+    expression = expression.expression
+  }
+  return expression
+}
 
-      const record = (kind, rawExpr, extra = {}) => {
-        if (TYPE_NAMES.has(rawExpr.trim())) return
-        const resolved = resolveExpression(rawExpr, budgets)
-        sites.push({ file: rel, line: lineNo, kind, measured, ...resolved, ...extra })
-      }
+function loadPolicyNames() {
+  const source = readFileSync(BUDGETS_FILE, 'utf8')
+  const sourceFile = ts.createSourceFile(
+    BUDGETS_FILE,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  )
+  const budgets = new Set()
+  const polls = new Set()
 
-      // Inline poll ladders, e.g. `{ timeout: 60_000, intervals: [3_000, ...] }`.
-      // Recorded even though they are not a `POLL.*` reference: the ladder is the
-      // silent-flake vector, and a census that only saw named ladders would have
-      // left every inline one unprotected — which is exactly the hole that let a
-      // fold-to-POLL report as a ladder change when nothing had changed.
-      const inlineLadder = line.match(/intervals:\s*\[([\d_,\s]+)\]/)
-      if (inlineLadder) {
-        const intervals = inlineLadder[1]
-          .split(',')
-          .map((value) => Number(value.trim().replace(/_/g, '')))
-          .filter((value) => !Number.isNaN(value))
-        sites.push({ file: rel, line: lineNo, kind: 'ladder', intervals, measured })
+  function visit(node) {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      (node.name.text === 'BUDGET' || node.name.text === 'POLL')
+    ) {
+      const root = node.name.text
+      const initializer = unwrapExpression(node.initializer)
+      if (ts.isObjectLiteralExpression(initializer)) {
+        for (const property of initializer.properties) {
+          const name = propertyName(property, sourceFile)
+          if (!name || !ts.isPropertyAssignment(property)) continue
+          const value = unwrapExpression(property.initializer)
+          if (root === 'POLL') {
+            if (ts.isObjectLiteralExpression(value)) polls.add(`POLL.${name}`)
+            continue
+          }
+          if (name === 'TEST' && ts.isObjectLiteralExpression(value)) {
+            for (const testProperty of value.properties) {
+              const testName = propertyName(testProperty, sourceFile)
+              if (testName) budgets.add(`BUDGET.TEST.${testName}`)
+            }
+          } else {
+            budgets.add(`BUDGET.${name}`)
+          }
+        }
       }
+    }
+    ts.forEachChild(node, visit)
+  }
 
-      for (const match of line.matchAll(/\btimeout:\s*([A-Za-z0-9_.]+)/g)) {
-        record('timeout', match[1])
-      }
-      for (const match of line.matchAll(/\btest\.setTimeout\(\s*([A-Za-z0-9_.]+)\s*\)/g)) {
-        record('setTimeout', match[1])
-      }
-      for (const match of line.matchAll(/\.toPass\(\s*([A-Za-z0-9_.]+)\s*\)/g)) {
-        record('toPass', match[1])
-      }
-      for (const match of line.matchAll(/\bwaitForTimeout\(\s*(\d[\d_]*)\s*\)/g)) {
-        record('waitForTimeout', match[1])
-      }
-      // A bare toPass() inherits a timeout of 0 and retries until the test dies.
-      if (/\.toPass\(\s*\)/.test(line)) {
-        sites.push({ file: rel, line: lineNo, kind: 'toPass', unresolved: true, expr: '(bare)', measured })
-      }
+  visit(sourceFile)
+  if (budgets.size === 0 || polls.size === 0) {
+    throw new Error(`Could not load named policies from ${BUDGETS_FILE}`)
+  }
+  return { budgets, polls }
+}
+
+function isNamedBudget(node, sourceFile, policies) {
+  const text = sourceText(node, sourceFile).replace(/\s+/g, '')
+  return policies.budgets.has(text) || policies.polls.has(text.replace(/\.(?:timeout|intervals)$/, ''))
+}
+
+function isNamedTestBudget(node, sourceFile, policies) {
+  return policies.budgets.has(sourceText(node, sourceFile).replace(/\s+/g, '')) &&
+    sourceText(node, sourceFile).replace(/\s+/g, '').startsWith('BUDGET.TEST.')
+}
+
+function isNamedPoll(node, sourceFile, policies) {
+  return policies.polls.has(sourceText(node, sourceFile).replace(/\s+/g, ''))
+}
+
+function hasNamedPollSpread(node, sourceFile, policies) {
+  return (
+    ts.isObjectLiteralExpression(node) &&
+    node.properties.some(
+      (property) =>
+        ts.isSpreadAssignment(property) && isNamedPoll(property.expression, sourceFile, policies),
+    )
+  )
+}
+
+function methodName(expression) {
+  return ts.isPropertyAccessExpression(expression) ? expression.name.text : null
+}
+
+function isTestSetTimeout(expression) {
+  return (
+    ts.isPropertyAccessExpression(expression) &&
+    expression.name.text === 'setTimeout' &&
+    ts.isIdentifier(expression.expression) &&
+    expression.expression.text === 'test'
+  )
+}
+
+function scanFile(file, policies) {
+  const source = readFileSync(file, 'utf8')
+  const sourceFile = ts.createSourceFile(
+    file,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  )
+  const violations = []
+
+  for (const diagnostic of sourceFile.parseDiagnostics) {
+    const position = diagnostic.start ?? 0
+    const line = sourceFile.getLineAndCharacterOfPosition(position).line + 1
+    violations.push({
+      file: relative('.', file),
+      line,
+      rule: 'parse error',
+      detail: ts.flattenDiagnosticMessageText(diagnostic.messageText, ' '),
     })
   }
-  return sites.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)
-}
 
-// ---------------------------------------------------------------- run
+  const report = (node, rule, detail) => {
+    violations.push({
+      file: relative('.', file),
+      line: lineNumber(node, sourceFile),
+      rule,
+      detail,
+    })
+  }
 
-let budgets
-try {
-  budgets = loadBudgetSymbols()
-} catch (error) {
-  console.error(`✖ ${error.message}`)
-  process.exit(1)
-}
+  function visit(node) {
+    if (ts.isObjectLiteralExpression(node)) {
+      for (const property of node.properties) {
+        const name = propertyName(property, sourceFile)
 
-const sites = scan(budgets)
-// `measured` is kept in the census: the comparison below counts unjustified bare
-// numbers, so both sides must agree on what counts as justified.
-const census = sites
+        if (name === 'timeout') {
+          const value = ts.isPropertyAssignment(property)
+            ? property.initializer
+            : ts.isShorthandPropertyAssignment(property)
+              ? property.name
+              : null
 
-if (snapshotMode) {
-  writeFileSync(BASELINE_FILE, `${JSON.stringify({ version: 1, sites: census }, null, 2)}\n`)
-  const unresolved = census.filter((s) => s.unresolved).length
-  console.log(
-    `Wrote ${BASELINE_FILE}: ${census.length} sites` +
-      (unresolved ? `, ${unresolved} unresolved (recorded; no new ones may be added)` : ''),
-  )
-  process.exit(0)
-}
+          if (!value || !isNamedBudget(value, sourceFile, policies)) {
+            const detail = value && ts.isNumericLiteral(value)
+              ? 'numeric timeout values belong in e2e/budgets.ts'
+              : 'timeout must resolve to a named BUDGET/POLL policy'
+            report(property, 'custom timeout', detail)
+          }
+        }
 
-if (!existsSync(BASELINE_FILE)) {
-  console.error(`✖ ${BASELINE_FILE} is missing. Run: node scripts/check-e2e-timeouts.mjs --snapshot`)
-  process.exit(1)
-}
-
-const baseline = JSON.parse(readFileSync(BASELINE_FILE, 'utf8'))
-
-/**
- * Compare per file, not per line.
- *
- * Line numbers are not stable identities: inserting one line above a spec's
- * assertions renumbers every site below it, so a line-keyed baseline reports a
- * whole file as "new" on any edit. That is noise, and noise in a gate gets the
- * gate switched off. Per-file aggregates are insertion-robust and still answer
- * the only question that matters: did this file gain a longer wait, a new bare
- * number, or a new thing the census cannot see?
- */
-function summarize(entries) {
-  const byFile = new Map()
-  for (const site of entries) {
-    const summary = byFile.get(site.file) ?? {
-      waits: [],
-      literals: 0,
-      unresolved: 0,
-      ladders: [],
+        if (name === 'intervals') {
+          const value = ts.isPropertyAssignment(property) ? property.initializer : null
+          if (!value || !isNamedBudget(value, sourceFile, policies)) {
+            report(
+              property,
+              'inline polling intervals',
+              'polling intervals belong in e2e/budgets.ts and must be used through POLL.<NAME>',
+            )
+          }
+        }
+      }
     }
-    if (typeof site.ms === 'number') summary.waits.push(site.ms)
-    if (site.literal && !site.measured) summary.literals += 1
-    if (site.unresolved) summary.unresolved += 1
-    if (site.intervals) summary.ladders.push(JSON.stringify(site.intervals))
-    byFile.set(site.file, summary)
-  }
-  for (const summary of byFile.values()) {
-    summary.waits.sort((a, b) => b - a)
-    summary.ladders.sort()
-  }
-  return byFile
-}
 
-const before = summarize(baseline.sites)
-const after = summarize(sites)
-const problems = []
+    if (ts.isCallExpression(node)) {
+      const name = methodName(node.expression)
 
-for (const [file, now] of after) {
-  const was = before.get(file) ?? { waits: [], literals: 0, unresolved: 0, ladders: [] }
+      if (isTestSetTimeout(node.expression)) {
+        const value = node.arguments[0]
+        if (!value || !isNamedTestBudget(value, sourceFile, policies)) {
+          report(
+            node,
+            'custom test timeout',
+            'test.setTimeout must use a named BUDGET.TEST policy',
+          )
+        }
+      }
 
-  // 1. Nothing may get longer. Both lists descending: if the nth-longest wait in
-  //    this file is longer than it used to be, something was raised.
-  for (let i = 0; i < now.waits.length; i += 1) {
-    const previous = was.waits[i] ?? 0
-    if (now.waits[i] > previous) {
-      problems.push(
-        `${file}: a wait was raised (${previous || 'none'}ms -> ${now.waits[i]}ms). ` +
-          `A raise is a claim about product latency, not about the test — ${TRIAGE_DOC} step 6. ` +
-          `If it is justified, re-run --snapshot and link the measurement in the commit.`,
-      )
-      break
+      if (name === 'waitForTimeout') {
+        report(node, 'hard sleep', 'wait for a readiness condition instead of sleeping')
+      }
+
+      if (
+        (ts.isIdentifier(node.expression) && node.expression.text === 'setTimeout') ||
+        (ts.isPropertyAccessExpression(node.expression) &&
+          node.expression.name.text === 'setTimeout' &&
+          !isTestSetTimeout(node.expression))
+      ) {
+        report(
+          node,
+          'hard sleep',
+          'use a readiness condition or named polling policy instead of setTimeout',
+        )
+      }
+
+      if (name === 'toPass') {
+        const policy = node.arguments[0]
+        if (!policy) {
+          report(node, 'bare toPass', 'toPass must use a named POLL policy')
+        } else if (
+          !isNamedPoll(policy, sourceFile, policies) &&
+          !hasNamedPollSpread(policy, sourceFile, policies)
+        ) {
+          report(node, 'custom toPass policy', 'toPass must use POLL.<NAME>')
+        }
+      }
+
+      if (name === 'poll' && node.arguments.length > 1) {
+        const options = node.arguments[1]
+        if (
+          !isNamedPoll(options, sourceFile, policies) &&
+          !hasNamedPollSpread(options, sourceFile, policies)
+        ) {
+          const hasOnlyMessage =
+            ts.isObjectLiteralExpression(options) &&
+            options.properties.every((property) => propertyName(property, sourceFile) === 'message')
+          if (!hasOnlyMessage) {
+            report(node, 'custom poll policy', 'expect.poll must use POLL.<NAME> for custom wait policy')
+          }
+        }
+      }
     }
+
+    ts.forEachChild(node, visit)
   }
 
-  // 2. No new bare numbers.
-  if (now.literals > was.literals) {
-    problems.push(
-      `${file}: ${now.literals - was.literals} new bare numeric timeout(s). ` +
-        `Use a name from ${BUDGETS_FILE}, or justify each with a \`// measured: <run url>\` comment above it.`,
-    )
-  }
-
-  // 3. Nothing new the census cannot resolve — otherwise rule 1 has a blind spot.
-  if (now.unresolved > was.unresolved) {
-    problems.push(
-      `${file}: ${now.unresolved - was.unresolved} new timeout(s) this script cannot resolve statically. ` +
-        `Use a name from ${BUDGETS_FILE} so the value stays auditable.`,
-    )
-  }
-
-  // 4. Poll ladders are the silent-flake vector: same ceiling, later first retry,
-  //    misses a window that closes early. Changed ladders get their own commit.
-  if (JSON.stringify(now.ladders) !== JSON.stringify(was.ladders)) {
-    problems.push(
-      `${file}: a poll ladder changed (${was.ladders.join(' ') || 'none'} -> ${now.ladders.join(' ') || 'none'}). ` +
-        `Change ladders in their own commit, never alongside a ceiling.`,
-    )
-  }
+  visit(sourceFile)
+  return violations
 }
 
-// 5. Hard sleeps, allowlisted only where no readiness signal can exist.
-for (const site of sites) {
-  if (site.kind === 'waitForTimeout' && !WAIT_FOR_TIMEOUT_ALLOWLIST.has(site.file)) {
-    problems.push(
-      `${site.file}:${site.line} uses waitForTimeout. Wait for a condition instead — ${TRIAGE_DOC} step 7.`,
-    )
-  }
-}
-
-if (problems.length > 0) {
-  console.error(`✖ e2e timeout gate: ${problems.length} problem(s)\n`)
-  for (const problem of problems) console.error(`  - ${problem}`)
-  console.error(
-    `\n  If a wait genuinely needs to be longer, that is a claim about product latency, not\n` +
-      `  about the test. Measure it, link the run, and say so. See ${TRIAGE_DOC}.\n`,
-  )
+const args = process.argv.slice(2)
+if (args.length > 0) {
+  console.error('✖ e2e timeout guard accepts no arguments; snapshot mode was removed')
   process.exit(1)
 }
 
-console.log(`e2e timeout gate passed (${census.length} sites).`)
+const files = specFiles(SCAN_ROOT)
+const policies = loadPolicyNames()
+const violations = files
+  .flatMap((file) => scanFile(file, policies))
+  .sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.rule.localeCompare(b.rule))
+
+if (violations.length > 0) {
+  console.error(`✖ e2e timeout guard: ${violations.length} violation(s)\n`)
+  for (const violation of violations) {
+    console.error(`  - ${violation.file}:${violation.line} ${violation.rule}: ${violation.detail}`)
+  }
+  process.exit(1)
+}
+
+console.log(`e2e timeout guard passed (${files.length} files scanned).`)

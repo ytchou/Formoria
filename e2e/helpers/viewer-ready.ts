@@ -22,7 +22,6 @@ import { BUDGET } from '../budgets'
  */
 export async function waitForViewerReady(
   page: Page,
-  timeout: number = BUDGET.GATED_UI,
 ): Promise<void> {
   const state = await page
     .waitForFunction(
@@ -31,7 +30,7 @@ export async function waitForViewerReady(
         return value === 'ready' || value === 'error' ? value : null
       },
       undefined,
-      { timeout },
+      { timeout: BUDGET.GATED_UI },
     )
     .then((handle) => handle.jsonValue())
 

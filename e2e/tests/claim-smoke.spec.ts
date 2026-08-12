@@ -182,7 +182,7 @@ test.describe("Claim request smoke", () => {
             ? data.proof_evidence.length
             : 0;
         },
-        { timeout: BUDGET.SERVER_RENDER, intervals: [500, 1_000, 2_000] },
+        POLL.UI,
       )
       .toBeGreaterThanOrEqual(1);
 
@@ -249,7 +249,7 @@ test.describe("Claim request smoke", () => {
           if (error) throw error;
           return data?.status ?? null;
         },
-        { timeout: BUDGET.SERVER_RENDER, intervals: [500, 1_000, 2_000] },
+        POLL.UI,
       )
       .toBe("completed");
 
@@ -262,7 +262,7 @@ test.describe("Claim request smoke", () => {
               .download(claimProofPath(storageKey));
             return data !== null;
           },
-          { timeout: BUDGET.SERVER_RENDER, intervals: [500, 1_000, 2_000] },
+          POLL.UI,
         )
         .toBe(false);
     }
@@ -280,7 +280,7 @@ test.describe("Claim request smoke", () => {
           if (error) throw error;
           return data?.user_id ?? null;
         },
-        { timeout: BUDGET.SERVER_RENDER, intervals: [500, 1_000, 2_000] },
+        POLL.UI,
       )
       .toBe(userId);
 

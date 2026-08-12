@@ -165,11 +165,6 @@
       "count": 2
     }
   },
-  "e2e/tests/navbar-auth.spec.ts": {
-    "playwright/no-conditional-in-test": {
-      "count": 2
-    }
-  },
   "e2e/tests/og-images.spec.ts": {
     "playwright/expect-expect": {
       "count": 7

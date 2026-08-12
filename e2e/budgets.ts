@@ -5,14 +5,11 @@
  * longer than the name it is using is telling you the name is wrong, or that the
  * app got slower — both are worth knowing, and a bare literal hides both.
  *
- * Raising any value here requires a measurement (a CI run URL) in the commit
- * message; `scripts/check-e2e-timeouts.mjs` enforces that. See
- * `e2e/TRIAGE.md` for when a raise is legitimate at all.
+ * `scripts/check-e2e-timeouts.mjs` permits numeric definitions only in this
+ * file. See `e2e/TRIAGE.md` for when changing a value is legitimate at all.
  *
  * This module is imported by `playwright.config.ts`, so it must stay free of
- * runtime dependencies — flat `as const` literals only. `check-e2e-timeouts.mjs`
- * also parses this file as *text* (a .mjs script cannot import TypeScript), so
- * computed values or re-exports would silently break the census.
+ * runtime dependencies — flat `as const` literals only.
  */
 
 export const BUDGET = {
@@ -48,6 +45,9 @@ export const BUDGET = {
   /** A route landing: page.goto, waitForURL, and the first assertion proving the
    *  new route rendered. Mirrors `use.navigationTimeout` in playwright.config.ts. */
   NAVIGATION: 60_000,
+
+  /** Browser warm-up before the suite starts; cold dev bundles can compile slowly. */
+  WARMUP: 120_000,
 
   /** Whole-test budgets, passed to test.setTimeout. */
   TEST: {
@@ -85,4 +85,10 @@ export const POLL = {
   APPLY: { timeout: 30_000, intervals: [1_000, 2_000, 5_000] },
   /** The claim state machine: upload, review, storage cleanup. */
   CLAIM: { timeout: 120_000, intervals: [2_000, 3_000, 5_000, 10_000] },
+  /** A submit flow whose server action can take several seconds to settle. */
+  SUBMIT: { timeout: 90_000, intervals: [2_000, 4_000, 8_000] },
+  /** A route transition that may include a cold server-side compile. */
+  NAVIGATION: { timeout: 60_000, intervals: [500, 1_000, 2_000, 5_000] },
+  /** A submission or board write observed through a reload. */
+  BOARD: { timeout: 60_000, intervals: [1_000, 2_000, 3_000, 5_000] },
 } as const

@@ -1,7 +1,7 @@
 import { test, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-import { BUDGET } from '../budgets';
+import { BUDGET, POLL } from '../budgets';
 // DEV-1261 note: deliberately NOT gated on `owner_features_enabled`. Save/unsave
 // and favorites are consumer journeys that touch no owner surface, and they are
 // live at launch — pausing them would take consumer coverage dark for no reason.
@@ -165,7 +165,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
           if (error) throw error;
           return Boolean(data);
         },
-        { timeout: BUDGET.NAVIGATION, intervals: [500, 1_000, 2_000] }
+        POLL.DB,
       )
       .toBe(true);
 
@@ -180,7 +180,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
       await userPage.reload({ timeout: BUDGET.GATED_UI });
       const savedBrandHeading = userPage.locator('h2').filter({ hasText: brandName });
       await expect(savedBrandHeading).toBeVisible({ timeout: BUDGET.RENDERED });
-    }).toPass({ timeout: 90_000, intervals: [3_000, 5_000, 10_000] });
+    }).toPass(POLL.DB);
 
     // Card links to the brand detail page
     await expect(userPage.locator(`a[href*="/brands/${brandSlug}"]`)).toBeVisible({ timeout: BUDGET.RENDERED });
@@ -228,7 +228,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
               .eq('user_id', testUserId);
             return data?.length ?? -1;
           },
-          { timeout: BUDGET.INTERACTIVE, intervals: [500, 1_000] }
+          POLL.UI,
         )
         .toBe(0);
 
@@ -251,7 +251,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
     // Empty state heading (favorites.emptyTitle = "尚無收藏品牌")
     await expect(
       userPage.getByRole('heading', { name: '尚無收藏品牌' })
-    ).toBeVisible({ timeout: 20_000 });
+    ).toBeVisible({ timeout: BUDGET.GATED_UI });
 
     // CTA to explore brands (favorites.exploreBrands = "探索品牌")
     await expect(

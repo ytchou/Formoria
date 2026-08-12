@@ -172,6 +172,26 @@ describe('crawler rate-limit boundaries', () => {
   })
 })
 
+describe('machine cron route availability', () => {
+  afterEach(() => {
+    setRateLimitStoreForTests(null)
+  })
+
+  it('reaches the route when the external rate-limit store is unavailable', async () => {
+    setRateLimitStoreForTests({
+      check() {
+        throw new Error('Upstash request quota exhausted')
+      },
+    })
+
+    const cronRequest = new NextRequest('https://formoria.com/api/cron/link-health', {
+      headers: { 'x-forwarded-for': '198.51.100.83' },
+    })
+
+    await expect(checkRateLimit(cronRequest)).resolves.toBeNull()
+  })
+})
+
 describe('exact brand directory rate limit', () => {
   const directoryLimit = 30
   const configuredDetailLimit = Number(process.env.RATE_LIMIT_BRANDS_PER_MIN)
