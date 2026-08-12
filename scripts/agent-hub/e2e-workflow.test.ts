@@ -130,7 +130,7 @@ describe("nightly E2E batch self-heal contract", () => {
   it("reclassifies full-suite service failures before another repair cycle", async () => {
     const source = await workflow();
     const classifier = source.indexOf("- name: Classify validation infrastructure");
-    const redContinuation = source.indexOf(
+    const redContinuationIndex = source.indexOf(
       "- name: Continue red self-heal within cycle cap",
     );
     const validationRetry = source.indexOf(
@@ -138,13 +138,23 @@ describe("nightly E2E batch self-heal contract", () => {
     );
     expect(classifier).toBeGreaterThan(-1);
     expect(validationRetry).toBeGreaterThan(classifier);
-    expect(classifier).toBeLessThan(redContinuation);
+    expect(classifier).toBeLessThan(redContinuationIndex);
     expect(source).toContain("steps.validation_infrastructure.outputs.confirmed");
     expect(source).toContain(
       "source_artifact_name=playwright-report-selfheal-validation-infrastructure",
     );
     expect(source).toContain("--field continuation_kind=infrastructure");
     expect(source).toContain("classify-infrastructure");
+    const redContinuation = source.slice(
+      source.indexOf("- name: Continue red self-heal within cycle cap"),
+      source.indexOf("- name: Update blocked draft PR at cycle cap"),
+    );
+    expect(redContinuation).toContain(
+      "steps.infrastructure.outputs.confirmed != 'true'",
+    );
+    expect(redContinuation).toContain(
+      "steps.continue_infrastructure.outputs.dispatched != 'true'",
+    );
   });
 
   it("creates one draft PR and reuses its number across continuations", async () => {
