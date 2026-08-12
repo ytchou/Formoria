@@ -1412,6 +1412,7 @@ jobs:
             The previous review attempt did not emit structured output. You must
             return the complete structured review result. Do not edit files.
           claude_args: >-
+            --model claude-sonnet-4-5
             --allowedTools "Read,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
             --json-schema '{"type":"object","additionalProperties":false,"required":["verdict","justification","app_files","risk","reviewed_head_sha","findings"],"properties":{"verdict":{"type":"string","enum":["PASS","REJECT"]},"justification":{"type":"string"},"app_files":{"type":"array","items":{"type":"string"}},"risk":{"type":"string","enum":["low","medium","high"]},"reviewed_head_sha":{"type":"string"},"findings":{"type":"array","items":{"type":"string"}}}}'
       - name: Enforce review verdict
