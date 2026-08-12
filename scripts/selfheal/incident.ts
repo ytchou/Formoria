@@ -234,7 +234,9 @@ export function validateRepair(
 const infrastructurePatterns = [
   /connection (?:reset|timed? out)/i,
   /ECONNRESET|ETIMEDOUT|UND_ERR_CONNECT_TIMEOUT/i,
-  /postgrest.*schema.?cache|schema.?cache.*(?:unavailable|loading)/i,
+  /postgrest.*schema.?cache|schema.?cache.*(?:unavailable|loading)|PGRST002/i,
+  /upstream connect error|disconnect\/reset before headers/i,
+  /connection pool|PGRST003/i,
   /supabase.*(?:unavailable|timeout)/i,
   /data service.*unavailable/i,
   /widespread HTTP 500/i,

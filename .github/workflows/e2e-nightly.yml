@@ -1107,6 +1107,110 @@ jobs:
           path: ${{ runner.temp }}/formoria-selfheal-report
           retention-days: 7
 
+      - name: Classify validation infrastructure
+        if: >-
+          always() &&
+          steps.guard.outputs.skip != 'true' &&
+          steps.validation.outcome != 'success' &&
+          steps.next_report.outputs.available == 'true'
+        id: validation_infrastructure
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          ERRORS='[]'
+          if [ -s playwright-results-validation.json ]; then
+            ERRORS=$(jq -c '[.suites[]? | recurse(.suites[]?) as $suite | $suite.specs[]? as $spec |
+              $spec.tests[]?.results[]?.errors[]? | (.message // .value // tostring)] | unique' \
+              playwright-results-validation.json)
+          fi
+          PROBE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
+          PROBE_AUTHENTICATED=false
+          PROBE_AUTH_MODE=none
+          if [ -n "$PROBE_KEY" ]; then
+            PROBE_AUTHENTICATED=true
+            PROBE_AUTH_MODE=service_role
+          fi
+          START_MS=$(date +%s%3N)
+          HTTP_STATUS=$(curl --silent --show-error --max-time 10 \
+            --output "$RUNNER_TEMP/supabase-validation-probe-body.json" --write-out '%{http_code}' \
+            -H "apikey: $PROBE_KEY" -H "Authorization: Bearer $PROBE_KEY" \
+            -H 'Accept: application/json' \
+            "$SUPABASE_URL/rest/v1/brands?select=id&limit=1" || true)
+          HTTP_STATUS="${HTTP_STATUS: -3}"
+          HTTP_STATUS_NUMBER=$((10#${HTTP_STATUS:-000}))
+          LATENCY_MS=$(( $(date +%s%3N) - START_MS ))
+          PROBE_OK=false
+          [[ "$PROBE_AUTHENTICATED" == true && "$HTTP_STATUS" =~ ^2 ]] && PROBE_OK=true
+          jq -n --argjson authenticated "$PROBE_AUTHENTICATED" --argjson ok "$PROBE_OK" \
+            --argjson status "$HTTP_STATUS_NUMBER" --arg auth_mode "$PROBE_AUTH_MODE" \
+            '{authenticated:$authenticated,auth_mode:$auth_mode,ok:$ok,status:$status}' \
+            > "$RUNNER_TEMP/supabase-validation-probe.json"
+          jq -n --arg operation validation_authenticated_query --arg phase full_validation \
+            --argjson status "$HTTP_STATUS_NUMBER" --argjson latency_ms "$LATENCY_MS" \
+            --arg auth_mode "$PROBE_AUTH_MODE" --arg response_content_type application_json \
+            '{event:"e2e_selfheal_infrastructure_probe",phase:$phase,request:{operation:$operation,auth_mode:$auth_mode,limit:1},response:{status:$status,content_type:$response_content_type},latency_ms:$latency_ms}'
+          jq -n --argjson errors "$ERRORS" \
+            --argjson probe "$(cat "$RUNNER_TEMP/supabase-validation-probe.json")" \
+            '{errors:$errors,probe:$probe}' > "$RUNNER_TEMP/validation-infrastructure-evidence.json"
+          pnpm exec tsx scripts/selfheal/incident-cli.ts classify-infrastructure \
+            "$RUNNER_TEMP/validation-infrastructure-evidence.json" > /tmp/playwright-report/validation-infrastructure.json
+          echo "confirmed=$(jq -r .confirmed /tmp/playwright-report/validation-infrastructure.json)" >> "$GITHUB_OUTPUT"
+          echo "reasons=$(jq -c .reasons /tmp/playwright-report/validation-infrastructure.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare validation infrastructure continuation bundle
+        if: steps.validation_infrastructure.outputs.confirmed == 'true' && inputs.infrastructure_retries != '2'
+        id: validation_infrastructure_bundle
+        run: |
+          set -euo pipefail
+          REPORT_DIR="$RUNNER_TEMP/formoria-selfheal-validation-infrastructure"
+          rm -rf "$REPORT_DIR"
+          cp -R "$RUNNER_TEMP/formoria-selfheal-report/." "$REPORT_DIR/"
+          cp /tmp/playwright-report/validation-infrastructure.json "$REPORT_DIR/validation-infrastructure.json"
+          echo "available=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload validation infrastructure continuation bundle
+        if: steps.validation_infrastructure_bundle.outputs.available == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-report-selfheal-validation-infrastructure
+          path: ${{ runner.temp }}/formoria-selfheal-validation-infrastructure
+          retention-days: 7
+
+      - name: Dispatch validation infrastructure-only retry
+        if: steps.validation_infrastructure_bundle.outcome == 'success'
+        id: continue_validation_infrastructure
+        env:
+          E2E_GREP: ${{ inputs.e2e_grep }}
+          REPAIR_BASE: ${{ steps.guard.outputs.repair_base }}
+          REPAIR_BRANCH: ${{ steps.branch.outputs.branch }}
+          ROOT_SOURCE_RUN_ID: ${{ inputs.root_source_run_id || inputs.source_run_id || github.run_id }}
+          SOURCE_FAILED_SPECS: ${{ steps.next_report.outputs.failed_specs || steps.context.outputs.failed_specs || '[]' }}
+          STATE_AFTER: ${{ steps.checkpoint.outputs.state_after }}
+          WORKFLOW_DISPATCH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git push origin "$REPAIR_BRANCH" --force-with-lease
+          NEXT_RETRY=$(( ${{ inputs.infrastructure_retries || '0' }} + 1 ))
+          SOURCE_FAILURE_STATE=$(jq -cn --argjson specs "$SOURCE_FAILED_SPECS" \
+            '{count: ($specs | length), specs: $specs}')
+          GH_TOKEN="$WORKFLOW_DISPATCH_TOKEN" gh workflow run e2e-nightly.yml \
+            --repo "$GITHUB_REPOSITORY" --ref "$REPAIR_BASE" \
+            --field selfheal_only=true --field source_run_id="$GITHUB_RUN_ID" \
+            --field source_artifact_name=playwright-report-selfheal-validation-infrastructure \
+            --field source_failure_state="$SOURCE_FAILURE_STATE" \
+            --field root_source_run_id="$ROOT_SOURCE_RUN_ID" \
+            --field repair_branch="$REPAIR_BRANCH" --field repair_base="$REPAIR_BASE" \
+            --field previous_state="$STATE_AFTER" --field repair_cycle="${{ inputs.repair_cycle || '1' }}" \
+            --field continuation_kind=infrastructure --field validation_scope=exact \
+            --field infrastructure_retries="$NEXT_RETRY" \
+            --field base_sync_attempts="${{ inputs.base_sync_attempts || '0' }}" \
+            --field incident_pr_number="${{ steps.incident_pr.outputs.pr_number || inputs.incident_pr_number }}" \
+            --raw-field e2e_grep="$E2E_GREP"
+          echo "dispatched=true" >> "$GITHUB_OUTPUT"
+          exit 1
+
       - name: Evaluate test-only merge policy
         if: >-
           steps.validation.outcome == 'success' &&
@@ -1168,6 +1272,7 @@ jobs:
           ((steps.fix.outcome == 'success' && steps.checkpoint.outputs.complete == 'true') ||
            inputs.continuation_kind == 'base-sync' || inputs.continuation_kind == 'infrastructure') &&
           steps.validation.outcome != 'success' &&
+          steps.validation_infrastructure.outputs.confirmed != 'true' &&
           steps.context.outputs.repair_cycle != '3' &&
           (steps.checkpoint.outputs.no_progress != 'true' || inputs.continuation_kind != 'repair') &&
           steps.next_report.outputs.available == 'true'
@@ -1412,9 +1517,9 @@ jobs:
         env:
           CONTINUE_INCOMPLETE: ${{ steps.continue_incomplete.outputs.dispatched }}
           CONTINUE_RED: ${{ steps.continue_red.outputs.dispatched }}
-          CONTINUE_INFRASTRUCTURE: ${{ steps.continue_infrastructure.outputs.dispatched }}
+          CONTINUE_INFRASTRUCTURE: ${{ steps.continue_infrastructure.outputs.dispatched || steps.continue_validation_infrastructure.outputs.dispatched }}
           CONTINUE_BASE_SYNC: ${{ steps.base_gate.outputs.continuation }}
-          INFRASTRUCTURE_CONFIRMED: ${{ steps.infrastructure.outputs.confirmed }}
+          INFRASTRUCTURE_CONFIRMED: ${{ steps.infrastructure.outputs.confirmed == 'true' || steps.validation_infrastructure.outputs.confirmed == 'true' }}
           INFRASTRUCTURE_RETRIES: ${{ inputs.infrastructure_retries || '0' }}
           MERGE_COMMIT_SHA: ${{ steps.merge.outputs.merge_commit_sha }}
           AUTO_MERGE_ELIGIBLE: ${{ steps.merge_policy.outputs.eligible }}

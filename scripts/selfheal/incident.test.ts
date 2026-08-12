@@ -229,6 +229,16 @@ describe("self-heal incident contracts", () => {
         probe: { authenticated: true, ok: true, status: 200 },
       }).confirmed,
     ).toBe(false);
+    expect(
+      classifyInfrastructure({
+        errors: [
+          "upstream connect error or disconnect/reset before headers",
+          'Could not query the database for the schema cache (PGRST002)',
+          "Timed out acquiring connection from connection pool (PGRST003)",
+        ],
+        probe: { authenticated: true, ok: true, status: 200 },
+      }).confirmed,
+    ).toBe(true);
   });
 
   it("renders all incident evidence and chooses terminal outcomes", () => {
