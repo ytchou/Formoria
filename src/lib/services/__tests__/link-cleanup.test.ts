@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * The dead-link auto-cleanup path. The strict rule — 404 and 410 only — is the
- * reason this service exists, so the candidate query is exercised through a
- * database double that actually applies the filters it is handed, rather than
- * asserted on the filter arguments. A double that ignored `.in()` would pass
- * while production auto-nulled a brand whose shop merely 500'd.
+ * The dead-link auto-cleanup path. The strict rule — 404, 410, and classified
+ * DNS only — is the reason this service exists, so the candidate query is
+ * exercised through a database double that actually applies the filters it is
+ * handed, rather than asserted on the filter arguments. A double that ignored
+ * `.or()` would pass while production auto-nulled a brand whose shop merely
+ * timed out.
  *
  * No module-level Supabase mock: `scripts/check-test-boundaries.mjs` forbids it
  * and the service takes injectable `client` / `writeBrand` seams instead.
@@ -46,6 +47,8 @@ type StoredRow = {
   field: string;
   url: string;
   last_status_code: number | null;
+  failure_reason:
+    "timeout" | "dns" | "tls" | "connection_reset" | "http" | null;
   cleanup_required: boolean;
   auto_nulled_at: string | null;
   brand_name: string | null;
@@ -57,6 +60,7 @@ function row(overrides: Partial<StoredRow> & { id: string }): StoredRow {
     field: "purchase_shopee",
     url: "https://shopee.tw/mu-guang/ceramic-cup",
     last_status_code: 404,
+    failure_reason: "http",
     cleanup_required: true,
     auto_nulled_at: null,
     brand_name: "沐光陶器",
@@ -71,7 +75,7 @@ type Db = {
 };
 
 /**
- * In-memory `link_check_results` that honours `.eq` / `.is` / `.in` for real,
+ * In-memory `link_check_results` that honours `.eq` / `.is` / `.or` for real,
  * so the assertions below are about the query the service builds.
  */
 function createDb(table: StoredRow[], updateError?: { message: string }): Db {
@@ -98,10 +102,7 @@ function createDb(table: StoredRow[], updateError?: { message: string }): Db {
               );
               return builder;
             },
-            async in(column: string, values: unknown[]) {
-              filters.push((candidate) =>
-                values.includes(candidate[column as keyof StoredRow]),
-              );
+            resolve() {
               const matched = table.filter((candidate) =>
                 filters.every((predicate) => predicate(candidate)),
               );
@@ -112,10 +113,31 @@ function createDb(table: StoredRow[], updateError?: { message: string }): Db {
                   field: candidate.field,
                   url: candidate.url,
                   last_status_code: candidate.last_status_code,
+                  failure_reason: candidate.failure_reason,
                   brands: { name: candidate.brand_name },
                 })),
                 error: null,
               };
+            },
+            async in(column: string, values: unknown[]) {
+              filters.push((candidate) =>
+                values.includes(candidate[column as keyof StoredRow]),
+              );
+              return builder.resolve();
+            },
+            or(filter: string) {
+              expect(filter).toBe(
+                "and(last_status_code.in.(404,410),failure_reason.is.null),and(last_status_code.in.(404,410),failure_reason.eq.http),and(last_status_code.is.null,failure_reason.eq.dns)",
+              );
+              filters.push(
+                (candidate) =>
+                  ([404, 410].includes(candidate.last_status_code ?? -1) &&
+                    (candidate.failure_reason === null ||
+                      candidate.failure_reason === "http")) ||
+                  (candidate.last_status_code === null &&
+                    candidate.failure_reason === "dns"),
+              );
+              return builder.resolve();
             },
           };
           return builder;
@@ -172,6 +194,84 @@ describe("cleanupDeadLinks", () => {
     expect(result).toEqual({ applied: [], skipped: [], scanned: 0 });
     expect(writeBrand).not.toHaveBeenCalled();
     expect(db.updates).toEqual([]);
+  });
+
+  it("auto-nulls only a sustained DNS failure after a DNS re-check", async () => {
+    const db = createDb([
+      row({ id: "r-dns", last_status_code: null, failure_reason: "dns" }),
+      row({
+        id: "r-timeout",
+        last_status_code: null,
+        failure_reason: "timeout",
+        field: "purchase_website",
+      }),
+      row({
+        id: "r-tls",
+        last_status_code: null,
+        failure_reason: "tls",
+        field: "purchase_pinkoi",
+      }),
+      row({
+        id: "r-reset",
+        last_status_code: null,
+        failure_reason: "connection_reset",
+        field: "social_instagram",
+      }),
+      row({
+        id: "r-transient-dns",
+        last_status_code: null,
+        failure_reason: null,
+        field: "social_facebook",
+      }),
+      row({
+        id: "r-404-tls",
+        last_status_code: 404,
+        failure_reason: "tls",
+        field: "purchase_myship",
+      }),
+      row({
+        id: "r-410-dns",
+        last_status_code: 410,
+        failure_reason: "dns",
+        field: "purchase_myship",
+      }),
+      row({
+        id: "r-500-dns",
+        last_status_code: 500,
+        failure_reason: "dns",
+        field: "purchase_myship",
+      }),
+      row({
+        id: "r-200-dns",
+        last_status_code: 200,
+        failure_reason: "dns",
+        field: "purchase_myship",
+      }),
+    ]);
+    const dnsFetch = (() =>
+      Promise.reject(
+        new TypeError("fetch failed", {
+          cause: { code: "ENOTFOUND" },
+        }),
+      )) as unknown as typeof fetch;
+
+    const result = await cleanupDeadLinks({
+      client: db.client,
+      fetchFn: dnsFetch,
+      writeBrand,
+      now: () => NOW,
+    });
+
+    expect(result.applied).toEqual([
+      {
+        brandId: BRAND_A,
+        brandName: "沐光陶器",
+        field: "purchase_shopee",
+        url: "https://shopee.tw/mu-guang/ceramic-cup",
+        statusCode: null,
+      },
+    ]);
+    expect(result.scanned).toBe(1);
   });
 
   it("ignores a row that was already auto-nulled", async () => {

@@ -485,8 +485,8 @@ export function evaluateDatabaseEvidence(evidence: DatabaseEvidence): {
         exceedsEffectiveThreshold(table)
       ) {
         recurringDeadTupleTables.push(table.tableName);
-        findings.push(
-          humanFinding(
+        findings.push({
+          ...humanFinding(
             "dead-tuples",
             table.tableName,
             "Dead tuples exceed 20% across the latest two snapshots",
@@ -511,7 +511,8 @@ export function evaluateDatabaseEvidence(evidence: DatabaseEvidence): {
             },
             "Database maintenance is human-owned",
           ),
-        );
+          disposition: "report_only",
+        });
       }
     }
   }

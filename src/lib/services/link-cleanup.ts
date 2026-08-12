@@ -8,10 +8,11 @@ import {
 } from "@/lib/types/link-fields";
 import type { BrandWriteActor, SkippedBrandField } from "./brand-write-policy";
 import { updateBrand, type BrandWriteInput } from "./brands";
-import { checkUrl } from "./link-health";
+import { checkUrl, type LinkFailureReason } from "./link-health";
 
 /**
- * The ONLY status codes that authorize an automatic null.
+ * The HTTP status codes and connection failure reason that authorize an
+ * automatic null.
  *
  * 404 and 410 are the two responses that mean the resource is gone as a fact
  * about the origin, not as a fact about this request: 404 "not here", 410
@@ -21,21 +22,24 @@ import { checkUrl } from "./link-health";
  *     a deploy would lose its purchase link permanently.
  *   - 402 / 405: a payment wall or a method the origin refuses for HEAD/GET
  *     probes. The page is usually still there for a real visitor.
- *   - `last_status_code IS NULL`: no HTTP response at all (DNS failure, TLS
- *     error, timeout). That is a statement about the network path, and our own
- *     checker's egress is part of that path.
+ *   - `last_status_code IS NULL` with any reason other than `dns`: no HTTP
+ *     response at all (TLS error, timeout, reset, or an ambiguous failure).
+ *     That is a statement about the network path, and our own checker's egress
+ *     is part of that path.
  * The asymmetry is intentional. A missed cleanup costs one stale link in an
  * admin report; a false null costs a brand real outbound traffic and can only
  * be repaired by hand. When in doubt, leave the link alone.
  */
 export const AUTO_NULL_STATUS_CODES: ReadonlySet<number> = new Set([404, 410]);
+export const AUTO_NULL_FAILURE_REASONS: ReadonlySet<LinkFailureReason> =
+  new Set(["dns"]);
 
 export type LinkCleanupApplied = {
   brandId: string;
   brandName: string | null;
   field: string;
   url: string;
-  statusCode: number;
+  statusCode: number | null;
 };
 
 export type LinkCleanupSkipped = {
@@ -58,6 +62,7 @@ type CandidateRow = {
   field: string;
   url: string;
   last_status_code: number | null;
+  failure_reason: LinkFailureReason | null;
   /** PostgREST returns an embedded to-one either as an object or a 1-element array. */
   brands: { name: string | null } | { name: string | null }[] | null;
 };
@@ -160,10 +165,7 @@ export interface LinkCleanupDatabaseClient {
           column: "auto_nulled_at",
           value: null,
         ): {
-          in(
-            column: "last_status_code",
-            values: number[],
-          ): QueryResult<CandidateRow[] | null>;
+          or(filter: string): QueryResult<CandidateRow[] | null>;
         };
       };
     };
@@ -213,14 +215,16 @@ export interface LinkCleanupOptions {
 async function confirmStillDead(
   url: string,
   fetchFn: typeof fetch,
+  expectedReason: "dns" | "http",
 ): Promise<{ dead: boolean; statusCode: number | null }> {
   try {
-    const { status, statusCode } = await checkUrl(url, fetchFn);
+    const { status, statusCode, failureReason } = await checkUrl(url, fetchFn);
     return {
       dead:
         status === "broken" &&
-        statusCode !== null &&
-        AUTO_NULL_STATUS_CODES.has(statusCode),
+        (expectedReason === "dns"
+          ? failureReason === "dns" && statusCode === null
+          : statusCode !== null && AUTO_NULL_STATUS_CODES.has(statusCode)),
       statusCode,
     };
   } catch {
@@ -230,7 +234,7 @@ async function confirmStillDead(
 }
 
 const CANDIDATE_SELECT =
-  "id, brand_id, field, url, last_status_code, brands(name)";
+  "id, brand_id, field, url, last_status_code, failure_reason, brands(name)";
 
 /**
  * Inverted `LINK_FIELD_TO_COLUMN` rather than a second hand-written switch.
@@ -300,7 +304,9 @@ export async function cleanupDeadLinks(
         .select(CANDIDATE_SELECT)
         .eq("cleanup_required", true)
         .is("auto_nulled_at", null)
-        .in("last_status_code", [...AUTO_NULL_STATUS_CODES]);
+        .or(
+          "and(last_status_code.in.(404,410),failure_reason.is.null),and(last_status_code.in.(404,410),failure_reason.eq.http),and(last_status_code.is.null,failure_reason.eq.dns)",
+        );
 
       if (error) {
         throw new Error(
@@ -319,10 +325,18 @@ export async function cleanupDeadLinks(
           url: row.url,
         };
 
-        // Defence in depth behind the `.in()` filter above: if the query is
+        // Defence in depth behind the `.or()` filter above: if the query is
         // ever loosened, a transient failure must still not be auto-nulled.
         const statusCode = row.last_status_code;
-        if (statusCode === null || !AUTO_NULL_STATUS_CODES.has(statusCode)) {
+        const isDnsFailure =
+          statusCode === null &&
+          row.failure_reason !== null &&
+          AUTO_NULL_FAILURE_REASONS.has(row.failure_reason);
+        const isHttpFailure =
+          (row.failure_reason === null || row.failure_reason === "http") &&
+          statusCode !== null &&
+          AUTO_NULL_STATUS_CODES.has(statusCode);
+        if (!isDnsFailure && !isHttpFailure) {
           skipped.push({ ...base, reason: "status_not_auto_nullable" });
           continue;
         }
@@ -337,7 +351,11 @@ export async function cleanupDeadLinks(
         // This runs in dry-run too: a dry run whose job is to preview
         // destruction is worthless if it previews a different decision than the
         // real one would make.
-        const confirmation = await confirmStillDead(row.url, fetchFn);
+        const confirmation = await confirmStillDead(
+          row.url,
+          fetchFn,
+          isDnsFailure ? "dns" : "http",
+        );
         if (!confirmation.dead) {
           skipped.push({
             ...base,

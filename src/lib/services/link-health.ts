@@ -5,6 +5,8 @@ import {
 } from "@/lib/brands/purchase-channels";
 
 export type LinkStatus = "ok" | "broken" | "blocked";
+export type LinkFailureReason =
+  "timeout" | "dns" | "tls" | "connection_reset" | "http";
 
 export interface LinkHealthOptions {
   dryRun?: boolean;
@@ -53,6 +55,7 @@ type ExistingRow = {
   last_ok_at: string | null;
   auto_nulled_at: string | null;
   cleanup_required_at: string | null;
+  failure_reason: LinkFailureReason | null;
 };
 
 type LedgerClaim = {
@@ -115,7 +118,7 @@ const CONCURRENCY = 5;
  * Nulling those would have destroyed seven working purchase links, so a
  * not-found verdict now has to survive the method a real visitor uses.
  */
-const RETRY_ON = new Set([404, 405, 410, 501]);
+const RETRY_ON = new Set([402, 404, 405, 410, 501]);
 /**
  * Max ids per PostgREST `.in()` filter. Mirrors the constant of the same name in
  * brands.ts — the values live in the query string, so one filter carrying the
@@ -124,6 +127,75 @@ const RETRY_ON = new Set([404, 405, 410, 501]);
 const SUPABASE_IN_FILTER_CHUNK_SIZE = 200;
 const SAFE_RUN_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,127}$/;
 const MAX_WORKFLOW_ATTEMPT = 1_000_000;
+
+const TIMEOUT_ERROR_CODES = new Set([
+  "ETIMEDOUT",
+  "ESOCKETTIMEDOUT",
+  "ERR_SOCKET_TIMEOUT",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+  "UND_ERR_BODY_TIMEOUT",
+]);
+const TLS_ERROR_CODES = new Set([
+  "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+  "CERT_HAS_EXPIRED",
+  "DEPTH_ZERO_SELF_SIGNED_CERT",
+  "SELF_SIGNED_CERT_IN_CHAIN",
+  "ERR_TLS_CERT_ALTNAME_INVALID",
+  "ERR_TLS_CERTIFICATE",
+]);
+
+function fetchErrorDetails(error: unknown): string {
+  const details: string[] = [];
+  const seen = new Set<object>();
+  const visit = (value: unknown): void => {
+    if (typeof value === "string" || typeof value === "number") {
+      details.push(String(value));
+      return;
+    }
+    if (value === null || typeof value !== "object") return;
+    if (seen.has(value)) return;
+    seen.add(value);
+
+    const record = value as Record<string, unknown>;
+    for (const key of ["code", "name", "errno", "message"]) {
+      const detail = record[key];
+      if (typeof detail === "string" || typeof detail === "number") {
+        details.push(String(detail));
+      }
+    }
+    for (const key of ["cause", "error", "reason", "errors"]) {
+      const nested = record[key];
+      if (Array.isArray(nested)) {
+        nested.forEach(visit);
+      } else {
+        visit(nested);
+      }
+    }
+  };
+
+  visit(error);
+  return details.join(" ").toUpperCase();
+}
+
+function classifyFetchError(error: unknown): LinkFailureReason | null {
+  const details = fetchErrorDetails(error);
+  if (/\bENOTFOUND\b/.test(details)) return "dns";
+  if (
+    /\b(?:TIMEOUTERROR|ABORTERROR)\b/.test(details) ||
+    [...TIMEOUT_ERROR_CODES].some((code) => details.includes(code))
+  ) {
+    return "timeout";
+  }
+  if (
+    [...TLS_ERROR_CODES].some((code) => details.includes(code)) ||
+    /\b(?:ERR_TLS_[A-Z0-9_]+|ERR_SSL_[A-Z0-9_]+|EPROTO)\b/.test(details)
+  ) {
+    return "tls";
+  }
+  if (/\bECONNRESET\b/.test(details)) return "connection_reset";
+  return null;
+}
 
 // These names are the public contract created by the health-agent foundation migration.
 const RUN_LEDGER_RPC_NAMES = {
@@ -178,7 +250,11 @@ async function runLedgerRpc(
 export async function checkUrl(
   url: string,
   fetchFn: typeof fetch,
-): Promise<{ status: LinkStatus; statusCode: number | null }> {
+): Promise<{
+  status: LinkStatus;
+  statusCode: number | null;
+  failureReason: LinkFailureReason | null;
+}> {
   const request = async (method: "HEAD" | "GET") => {
     const response = await fetchFn(url, {
       method,
@@ -189,17 +265,52 @@ export async function checkUrl(
     return response.status;
   };
 
+  const classifyHttpResponse = (
+    statusCode: number,
+  ): {
+    status: LinkStatus;
+    statusCode: number;
+    failureReason: LinkFailureReason | null;
+  } => {
+    if (statusCode >= 200 && statusCode < 400) {
+      return { status: "ok", statusCode, failureReason: null };
+    }
+    if (
+      statusCode === 402 ||
+      statusCode === 403 ||
+      statusCode === 405 ||
+      statusCode === 429
+    ) {
+      return { status: "blocked", statusCode, failureReason: null };
+    }
+    return { status: "broken", statusCode, failureReason: "http" };
+  };
+
+  const classifyNetworkFailure = (
+    error: unknown,
+  ): {
+    status: "broken";
+    statusCode: null;
+    failureReason: LinkFailureReason | null;
+  } => ({
+    status: "broken",
+    statusCode: null,
+    failureReason: classifyFetchError(error),
+  });
+
   let headStatus: number;
   try {
     headStatus = await request("HEAD");
-  } catch {
-    return { status: "broken", statusCode: null };
+  } catch (error) {
+    return classifyNetworkFailure(error);
   }
 
-  if (headStatus >= 200 && headStatus < 400)
-    return { status: "ok", statusCode: headStatus };
-  if (headStatus === 403 || headStatus === 429)
-    return { status: "blocked", statusCode: headStatus };
+  if (headStatus >= 200 && headStatus < 400) {
+    return classifyHttpResponse(headStatus);
+  }
+  if (headStatus === 403 || headStatus === 429) {
+    return classifyHttpResponse(headStatus);
+  }
   // 404/410 deliberately fall through to the GET retry below rather than
   // returning here — see RETRY_ON. This early return is what made a HEAD-only
   // 404 final, and seven live sites were queued for automatic link removal
@@ -209,21 +320,14 @@ export async function checkUrl(
     let getStatus: number;
     try {
       getStatus = await request("GET");
-    } catch {
-      return { status: "broken", statusCode: null };
+    } catch (error) {
+      return classifyNetworkFailure(error);
     }
 
-    if (getStatus >= 200 && getStatus < 400)
-      return { status: "ok", statusCode: getStatus };
-    if (getStatus === 403 || getStatus === 429)
-      return { status: "blocked", statusCode: getStatus };
-    if (getStatus === 404 || getStatus === 410) {
-      return { status: "broken", statusCode: getStatus };
-    }
-    return { status: "broken", statusCode: getStatus };
+    return classifyHttpResponse(getStatus);
   }
 
-  return { status: "broken", statusCode: headStatus };
+  return classifyHttpResponse(headStatus);
 }
 
 async function runConcurrent<T>(
@@ -337,7 +441,7 @@ export async function runLinkHealthCheck(
       const { data, error } = await db
         .from("link_check_results")
         .select(
-          "id, brand_id, field, url, consecutive_failures, failure_dates, last_ok_at, auto_nulled_at, cleanup_required_at",
+          "id, brand_id, field, url, consecutive_failures, failure_dates, last_ok_at, auto_nulled_at, cleanup_required_at, failure_reason",
         )
         .in("brand_id", chunk);
       if (error)
@@ -389,6 +493,13 @@ export async function runLinkHealthCheck(
         failureDates = [];
       } else if (result.status === "blocked") {
         blocked++;
+        if (result.statusCode === 402 || result.statusCode === 405) {
+          // These responses are ambiguous, so discard failure state accrued
+          // while they were incorrectly classified as broken.
+          cleanupRequiredAt = null;
+          failureDates = [];
+          consecutiveFailures = 0;
+        }
       } else {
         broken++;
         const alreadyRecordedToday = failureDates.includes(logicalDate);
@@ -444,6 +555,7 @@ export async function runLinkHealthCheck(
         field: result.field,
         url: result.url,
         last_status_code: result.statusCode,
+        failure_reason: result.failureReason,
         last_ok_at: lastOkAt,
         last_checked_at: now,
         consecutive_failures: consecutiveFailures,

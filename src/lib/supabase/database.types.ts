@@ -2183,6 +2183,7 @@ export type Database = {
           created_at: string
           distinct_failure_days: number
           failure_dates: string[]
+          failure_reason: string | null
           field: string
           id: string
           last_checked_at: string | null
@@ -2200,6 +2201,7 @@ export type Database = {
           created_at?: string
           distinct_failure_days?: number
           failure_dates?: string[]
+          failure_reason?: string | null
           field: string
           id?: string
           last_checked_at?: string | null
@@ -2217,6 +2219,7 @@ export type Database = {
           created_at?: string
           distinct_failure_days?: number
           failure_dates?: string[]
+          failure_reason?: string | null
           field?: string
           id?: string
           last_checked_at?: string | null
@@ -3288,6 +3291,7 @@ export type Database = {
           created_at: string
           distinct_failure_days: number
           failure_dates: string[]
+          failure_reason: string | null
           field: string
           id: string
           last_checked_at: string | null
