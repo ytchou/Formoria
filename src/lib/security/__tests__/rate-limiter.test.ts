@@ -172,6 +172,93 @@ describe('crawler rate-limit boundaries', () => {
   })
 })
 
+describe('exact brand directory rate limit', () => {
+  const directoryLimit = 30
+  const configuredDetailLimit = Number(process.env.RATE_LIMIT_BRANDS_PER_MIN)
+  const detailLimit = Number.isFinite(configuredDetailLimit) && configuredDetailLimit > 0 ? configuredDetailLimit : 200
+
+  beforeEach(() => {
+    setRateLimitStoreForTests(createInMemoryRateLimiter())
+  })
+
+  afterEach(() => {
+    setRateLimitStoreForTests(null)
+  })
+
+  function request(path: string, headers: Record<string, string> = {}): NextRequest {
+    return new NextRequest(`https://formoria.com${path}`, {
+      headers: {
+        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+        'x-forwarded-for': '198.51.100.240',
+        ...headers,
+      },
+    })
+  }
+
+  it('allows 30 exact-index requests and returns a standard HTML 429 on request 31', async () => {
+    for (let requestNumber = 1; requestNumber <= directoryLimit; requestNumber += 1) {
+      expect(await checkRateLimit(request('/en/brands'))).toBeNull()
+    }
+
+    const response = await checkRateLimit(request('/en/brands'))
+
+    expect(response?.status).toBe(429)
+    expect(response?.headers.get('Retry-After')).toMatch(/^\d+$/)
+    expect(response?.headers.get('X-RateLimit-Limit')).toBe(String(directoryLimit))
+    expect(response?.headers.get('X-RateLimit-Remaining')).toBe('0')
+    expect(response?.headers.get('X-RateLimit-Reset')).toMatch(/^\d+$/)
+    expect(response?.headers.get('Content-Type')).toBe('text/html; charset=utf-8')
+    if (!response) throw new Error('Expected a rate-limit response')
+    await expect(response.text()).resolves.toContain('Too Many Requests')
+  })
+
+  it('normalizes locales into one exact-index budget', async () => {
+    for (let requestNumber = 1; requestNumber <= directoryLimit; requestNumber += 1) {
+      expect(await checkRateLimit(request('/brands'))).toBeNull()
+    }
+
+    expect((await checkRateLimit(request('/zh-TW/brands')))?.status).toBe(429)
+  })
+
+  it('keeps the detail-page budget separate from the directory budget', async () => {
+    for (let requestNumber = 1; requestNumber <= detailLimit; requestNumber += 1) {
+      expect(await checkRateLimit(request('/brands/example'))).toBeNull()
+    }
+
+    const response = await checkRateLimit(request('/brands/example'))
+
+    expect(response?.status).toBe(429)
+    expect(response?.headers.get('X-RateLimit-Limit')).toBe(String(detailLimit))
+  })
+
+  it('does not consume the directory budget for Next router requests', async () => {
+    const routerHeaders = { accept: '*/*' }
+
+    for (let requestNumber = 1; requestNumber <= directoryLimit; requestNumber += 1) {
+      expect(await checkRateLimit(request('/en/brands'))).toBeNull()
+    }
+
+    expect(await checkRateLimit(request('/en/brands', routerHeaders))).toBeNull()
+    expect((await checkRateLimit(request('/en/brands')))?.status).toBe(429)
+  })
+
+  it('does not exempt a Googlebot User-Agent from the exact-index budget', async () => {
+    const crawlerHeaders = { 'user-agent': 'Googlebot/2.1' }
+
+    for (let requestNumber = 1; requestNumber <= directoryLimit; requestNumber += 1) {
+      expect(await checkRateLimit(request('/en/brands', crawlerHeaders))).toBeNull()
+    }
+
+    expect((await checkRateLimit(request('/en/brands', crawlerHeaders)))?.status).toBe(429)
+  })
+
+  it('does not match near-prefix paths', async () => {
+    for (let requestNumber = 1; requestNumber <= directoryLimit + 1; requestNumber += 1) {
+      expect(await checkRateLimit(request('/brands-extra'))).toBeNull()
+    }
+  })
+})
+
 /**
  * The plan hard-gates the shadow flip on observing both alarms fire. Each test
  * here drives the alarm's real stated condition, not a path that only passes
