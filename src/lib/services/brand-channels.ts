@@ -138,7 +138,7 @@ type StockistReadRow = {
   url: string | null
   country: string | null
   region_label: string | null
-  district: string | null
+  district?: string | null
   brands:
     | {
         slug: string
@@ -169,6 +169,9 @@ export const CHANNEL_READ_SELECT =
 const STOCKIST_READ_SELECT =
   'id, name, address, url, country, region_label, district, brands!inner(slug, name, product_type, product_tags, status)'
 
+const LEGACY_STOCKIST_READ_SELECT =
+  'id, name, address, url, country, region_label, brands!inner(slug, name, product_type, product_tags, status)'
+
 const STOCKIST_PAGE_SIZE = 1000
 
 export function buildStockistPageRanges(
@@ -186,14 +189,17 @@ export function buildStockistPageRanges(
 function mapStockistRow(row: StockistReadRow): StockistLocation | null {
   const brand = Array.isArray(row.brands) ? row.brands.at(0) : row.brands
   if (!brand) return null
+  const city = row.country === 'TW' ? citySlugFromName(row.region_label) : null
   return {
     id: row.id,
     name: row.name,
     address: row.address,
     url: row.url,
     country: row.country,
-    city: row.country === 'TW' ? citySlugFromName(row.region_label) : null,
-    district: row.district,
+    city,
+    district:
+      row.district ??
+      (city && row.address ? matchDistrict(row.address, city) : null),
     brandSlug: brand.slug,
     brandName: brand.name,
     productType: brand.product_type,
@@ -309,55 +315,72 @@ export function stockistDistrictSlugs(locations: StockistLocation[]): string[] {
   ]
 }
 
+function isMissingDistrictColumnError(error: unknown): boolean {
+  if (!isRecord(error)) return false
+  return (
+    error.code === '42703' &&
+    typeof error.message === 'string' &&
+    error.message.includes('brand_channels.district')
+  )
+}
+
+async function fetchStockistRows(select: string): Promise<StockistReadRow[]> {
+  const supabase = createServiceClient()
+  const { data, error, count } = await supabase
+    .from('brand_channels')
+    .select(select, { count: 'exact' })
+    .eq('brands.status', 'approved')
+    .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN)
+    .eq('channel_type', 'offline')
+    .is('removed_at', null)
+    .neq('owner_status', 'rejected')
+    .order('region_label')
+    .order('name')
+    .order('id')
+    .range(0, STOCKIST_PAGE_SIZE - 1)
+
+  if (error) throw error
+  if (count === null)
+    throw new Error('Stockist directory query returned no exact count')
+
+  const remainingPages = await Promise.all(
+    buildStockistPageRanges(count)
+      .slice(1)
+      .map(async ({ from, to }) => {
+        const { data: page, error: pageError } = await supabase
+          .from('brand_channels')
+          .select(select)
+          .eq('brands.status', 'approved')
+          .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN)
+          .eq('channel_type', 'offline')
+          .is('removed_at', null)
+          .neq('owner_status', 'rejected')
+          .order('region_label')
+          .order('name')
+          .order('id')
+          .range(from, to)
+        if (pageError) throw pageError
+        return page ?? []
+      }),
+  )
+
+  return [
+    ...(data ?? []),
+    ...remainingPages.flat(),
+  ] as unknown as StockistReadRow[]
+}
+
 export const getStockistDirectory = unstable_cache(
   async (category?: string): Promise<StockistLocation[]> => {
-    const supabase = createServiceClient()
-    const { data, error, count } = await supabase
-      .from('brand_channels')
-      .select(STOCKIST_READ_SELECT, { count: 'exact' })
-      .eq('brands.status', 'approved')
-      .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN)
-      .eq('channel_type', 'offline')
-      .is('removed_at', null)
-      .neq('owner_status', 'rejected')
-      .order('region_label')
-      .order('district')
-      .order('name')
-      .order('id')
-      .range(0, STOCKIST_PAGE_SIZE - 1)
+    let rows: StockistReadRow[]
+    try {
+      rows = await fetchStockistRows(STOCKIST_READ_SELECT)
+    } catch (error) {
+      if (!isMissingDistrictColumnError(error)) throw error
+      rows = await fetchStockistRows(LEGACY_STOCKIST_READ_SELECT)
+    }
 
-    if (error) throw error
-    if (count === null)
-      throw new Error('Stockist directory query returned no exact count')
-
-    const remainingPages = await Promise.all(
-      buildStockistPageRanges(count)
-        .slice(1)
-        .map(async ({ from, to }) => {
-          const { data: page, error: pageError } = await supabase
-            .from('brand_channels')
-            .select(STOCKIST_READ_SELECT)
-            .eq('brands.status', 'approved')
-            .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN)
-            .eq('channel_type', 'offline')
-            .is('removed_at', null)
-            .neq('owner_status', 'rejected')
-            .order('region_label')
-            .order('district')
-            .order('name')
-            .order('id')
-            .range(from, to)
-          if (pageError) throw pageError
-          return page ?? []
-        }),
-    )
-
-    return (
-      [
-        ...(data ?? []),
-        ...remainingPages.flat(),
-      ] as unknown as StockistReadRow[]
-    )
+    return rows
       .map(mapStockistRow)
       .filter((location): location is StockistLocation => Boolean(location))
       .filter((location) => matchesCategory(location, category))
@@ -637,24 +660,40 @@ export async function submitChannel(
         CITY_SLUGS.find((slug) => slug === regionValue) ??
         citySlugFromName(regionLabel)
       const address = trimNullable(input.address)
-      const { data, error } = await supabase
-        .from('brand_channels')
-        .insert({
-          brand_id: brandId,
-          name,
-          normalized_name: normalizeChannelName(name),
-          channel_type: input.channelType,
-          category_label: trimNullable(input.category),
-          region_label: regionLabel,
-          district: city && address ? matchDistrict(address, city) : null,
-          address,
-          url,
-          country: city ? 'TW' : null,
-          source: 'community',
-          created_by: userId,
-        })
-        .select('id')
-        .single()
+      const district = city && address ? matchDistrict(address, city) : null
+      const insertPayload = {
+        brand_id: brandId,
+        name,
+        normalized_name: normalizeChannelName(name),
+        channel_type: input.channelType,
+        category_label: trimNullable(input.category),
+        region_label: regionLabel,
+        address,
+        url,
+        country: city ? 'TW' : null,
+        source: 'community' as const,
+        created_by: userId,
+      }
+      const insertChannel = (includeDistrict: boolean) => {
+        if (includeDistrict) {
+          return supabase
+            .from('brand_channels')
+            .insert({ ...insertPayload, district })
+            .select('id')
+            .single()
+        }
+        return supabase
+          .from('brand_channels')
+          .insert(insertPayload)
+          .select('id')
+          .single()
+      }
+
+      let insertResult = await insertChannel(district !== null)
+      if (isMissingDistrictColumnError(insertResult.error)) {
+        insertResult = await insertChannel(false)
+      }
+      const { data, error } = insertResult
 
       if (error) {
         if (isDuplicateNameError(error))
