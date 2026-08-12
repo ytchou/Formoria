@@ -210,7 +210,11 @@ describe("nightly E2E batch self-heal contract", () => {
   it("self-merges only after every current-head test-only gate without admin bypass", async () => {
     const source = await workflow();
     expect(source).toContain("incident-cli.ts eligibility");
-    expect(source).toContain('.verdict == "PASS" and .risk == "low"');
+    expect(source).toContain(
+      '.verdict == "PASS" and .reviewed_head_sha == $head',
+    );
+    expect(source).toContain('.risk == "low"');
+    expect(source).toContain(".app_files | length == 0");
     expect(source).toContain(".reviewed_head_sha == $head");
     expect(source).toContain('["Quality","Build","select-targeted-e2e"]');
     expect(source).toContain('select(.name == "e2e-targeted"');
@@ -219,6 +223,26 @@ describe("nightly E2E batch self-heal contract", () => {
       'gh pr merge "$PR_NUMBER" --squash --match-head-commit "$HEAD_SHA"',
     );
     expect(source).not.toContain("--admin");
+  });
+
+  it("lets green application repairs reach review without runner-only search tools", async () => {
+    const source = await workflow();
+    const mergePolicy = source.slice(
+      source.indexOf("- name: Evaluate test-only merge policy"),
+      source.indexOf("- name: Prepare current incident evidence bundle"),
+    );
+    const review = source.slice(
+      source.indexOf("- name: Review fix"),
+      source.indexOf("- name: Ensure reviewed head is based on current main"),
+    );
+    expect(mergePolicy).not.toContain("rg -N");
+    expect(mergePolicy).toContain("DIAGNOSIS=null");
+    expect(review).toContain("always() &&");
+    expect(review).toContain(
+      '.verdict == "PASS" and .reviewed_head_sha == $head',
+    );
+    expect(review).toContain("self_merge_approved=true");
+    expect(review).toContain("gh pr ready");
   });
 
   it("keeps continuations Slack-silent and reports eligibility separately from merge", async () => {

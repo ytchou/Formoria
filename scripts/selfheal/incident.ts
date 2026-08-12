@@ -292,7 +292,7 @@ export function nextIncidentState(
 }
 
 export interface SelfMergeEvidence {
-  diagnosis: DiagnosisResult;
+  diagnosis?: DiagnosisResult;
   changedFiles: readonly string[];
   deletedOrRenamedSpecs: readonly string[];
   addedLines: readonly string[];
@@ -306,9 +306,10 @@ export interface SelfMergeEvidence {
 
 export function evaluateSelfMerge(input: SelfMergeEvidence): MergeEligibility {
   const reasons: string[] = [];
-  const codeCategories = input.diagnosis.failures
+  const codeCategories = (input.diagnosis?.failures ?? [])
     .filter(({ actionable }) => actionable)
     .map(({ category }) => category);
+  if (!input.diagnosis) reasons.push("validated diagnosis is unavailable");
   if (
     codeCategories.some(
       (category) => category !== "test-drift" && category !== "seed-drift",
