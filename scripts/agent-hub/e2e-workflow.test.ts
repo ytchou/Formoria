@@ -245,6 +245,24 @@ describe("nightly E2E batch self-heal contract", () => {
     expect(review).toContain("gh pr ready");
   });
 
+  it("retries a missing review result without rerunning validation", async () => {
+    const source = await workflow();
+    const review = source.slice(
+      source.indexOf("- name: Review fix"),
+      source.indexOf(
+        "- name: Update durable incident PR with validation and review",
+      ),
+    );
+    expect(review).toContain("continue-on-error: true");
+    expect(review).toContain("- name: Retry review contract once");
+    expect(review).toContain("if: steps.review.outcome == 'failure'");
+    expect(review).toContain(
+      "steps.review.outputs.structured_output || steps.review_retry.outputs.structured_output",
+    );
+    expect(review).not.toContain("verify-targeted.mjs");
+    expect(review).not.toContain("Validate complete deep/mobile suite");
+  });
+
   it("keeps continuations Slack-silent and reports eligibility separately from merge", async () => {
     const source = await workflow();
     const selfheal = source.slice(
