@@ -256,6 +256,8 @@ describe("nightly E2E batch self-heal contract", () => {
     expect(review).toContain("continue-on-error: true");
     expect(review).toContain("- name: Retry review contract once");
     expect(review).toContain("if: steps.review.outcome == 'failure'");
+    const retry = review.slice(review.indexOf("- name: Retry review contract once"));
+    expect(retry).toContain("--model claude-sonnet-4-5");
     expect(review).toContain(
       "steps.review.outputs.structured_output || steps.review_retry.outputs.structured_output",
     );
