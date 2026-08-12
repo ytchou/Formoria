@@ -241,6 +241,19 @@ describe("self-heal incident contracts", () => {
     ).toBe(true);
   });
 
+  it("ignores stale outage signatures when a continuation probe is healthy", () => {
+    expect(
+      classifyInfrastructure({
+        errors: [
+          "upstream connect error or disconnect/reset before headers",
+          "Timed out acquiring connection from connection pool (PGRST003)",
+        ],
+        errorsCurrent: false,
+        probe: { authenticated: true, ok: true, status: 200 },
+      }),
+    ).toEqual({ confirmed: false, reasons: [] });
+  });
+
   it("renders all incident evidence and chooses terminal outcomes", () => {
     const body = renderIncidentPrBody({
       rootIncidentId: "nightly-991",

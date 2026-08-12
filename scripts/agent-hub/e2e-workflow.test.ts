@@ -119,9 +119,20 @@ describe("nightly E2E batch self-heal contract", () => {
 
   it("can turn a recovered infrastructure retry into the next repair cycle", async () => {
     const source = await workflow();
+    const probe = source.slice(
+      source.indexOf("- name: Probe Supabase infrastructure"),
+      source.indexOf("- name: Prepare infrastructure continuation bundle"),
+    );
     const report = source.slice(
       source.indexOf("- name: Prepare self-heal report for next round"),
       source.indexOf("- name: Upload self-heal report for next round"),
+    );
+    expect(probe).toContain(
+      "CONTINUATION_KIND: ${{ inputs.continuation_kind }}",
+    );
+    expect(probe).toContain("errorsCurrent:$errorsCurrent");
+    expect(probe).toContain(
+      '[ "$CONTINUATION_KIND" = infrastructure ] && echo false || echo true',
     );
     expect(report).toContain("inputs.continuation_kind == 'infrastructure'");
     expect(report).toContain("steps.validation.outcome != 'success'");
