@@ -1,33 +1,29 @@
-'use client'
+"use client";
 
-import { useRef, useState, type ReactNode } from 'react'
-import { useTranslations } from 'next-intl'
-import { Controller, useFormContext, useWatch } from 'react-hook-form'
-import { DashboardFormField } from './dashboard-form-field'
+import { useRef, useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
+import { Controller, useFormContext, useWatch } from "react-hook-form";
+import { DashboardFormField } from "./dashboard-form-field";
 import {
   StandardFormSection,
   StandardFormStack,
-} from '@/components/forms/form-layout'
-import { ProductTagField } from '@/components/forms/product-tag-field'
-import { RequiredFieldsHint } from '@/components/forms/required-fields-hint'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { NativeSelect } from '@/components/ui/native-select'
-import { Textarea } from '@/components/ui/textarea'
-import { TAIWAN_CITIES } from '@/lib/constants/taiwan-cities'
-import type { BrandWizardCommonValues } from '@/lib/schemas/brand-wizard'
-import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
-import { slugifyRomanizedName } from '@/lib/brands/slug'
-import { cn } from '@/lib/utils'
+} from "@/components/forms/form-layout";
+import { ProductTagField } from "@/components/forms/product-tag-field";
+import { RequiredFieldsHint } from "@/components/forms/required-fields-hint";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
+import { TAIWAN_CITIES } from "@/lib/constants/taiwan-cities";
+import type { BrandWizardCommonValues } from "@/lib/schemas/brand-wizard";
+import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { slugifyRomanizedName } from "@/lib/brands/slug";
+import { cn } from "@/lib/utils";
 
 type RequiredBasicField =
-  | 'name'
-  | 'productType'
-  | 'description'
-  | 'productTags'
-  | 'priceRange'
+  "name" | "productType" | "description" | "productTags" | "priceRange";
 
-type BasicFieldName = RequiredBasicField | 'mitStory'
+type BasicFieldName = RequiredBasicField | "mitStory";
 
 export function BrandBasicInfoSection({
   productTagSuggestions = [],
@@ -36,73 +32,72 @@ export function BrandBasicInfoSection({
   suggestName,
   currentSlug,
 }: {
-  productTagSuggestions?: string[]
-  requiredFields?: Partial<Record<RequiredBasicField, boolean>>
-  afterRomanizedName?: ReactNode
+  productTagSuggestions?: string[];
+  requiredFields?: Partial<Record<RequiredBasicField, boolean>>;
+  afterRomanizedName?: ReactNode;
   suggestName?: (name: string) => Promise<{
-    changed: boolean
-    suggestion?: string | null
-  }>
-  currentSlug?: string
+    changed: boolean;
+    suggestion?: string | null;
+  }>;
+  currentSlug?: string;
 }) {
-  const form = useFormContext<BrandWizardCommonValues>()
-  const t = useTranslations('dashboard.edit')
-  const tSubmit = useTranslations('submit')
-  const tCities = useTranslations('cities')
-  const [nameSuggestion, setNameSuggestion] = useState<string | null>(null)
-  const nameBlurRequestRef = useRef(0)
-  const nameRegistration = form.register('name')
+  const form = useFormContext<BrandWizardCommonValues>();
+  const t = useTranslations("dashboard.edit");
+  const tSubmit = useTranslations("submit");
+  const tCities = useTranslations("cities");
+  const [nameSuggestion, setNameSuggestion] = useState<string | null>(null);
+  const nameBlurRequestRef = useRef(0);
+  const nameRegistration = form.register("name");
   const romanizedName = useWatch({
     control: form.control,
-    name: 'romanizedName',
-  })
-  const isExistingBrand = Boolean(currentSlug)
-  const previewSlug = slugifyRomanizedName(romanizedName) || currentSlug || ''
-  const tx = (key: string, fallback: string) => (t.has(key) ? t(key) : fallback)
+    name: "romanizedName",
+  });
+  const isExistingBrand = Boolean(currentSlug);
+  const previewSlug = slugifyRomanizedName(romanizedName) || currentSlug || "";
+  const tx = (key: string, fallback: string) =>
+    t.has(key) ? t(key) : fallback;
   const fieldError = (field: BasicFieldName) => {
-    const error = form.formState.errors[field]
-    if (!error) return undefined
-    return typeof error.message === 'string'
+    const error = form.formState.errors[field];
+    if (!error) return undefined;
+    return typeof error.message === "string"
       ? error.message
-      : t('requiredFieldError')
-  }
+      : t("requiredFieldError");
+  };
   const getPriceRangeLabel = (value: unknown) => {
     const labels: Record<string, string> = {
-      '1': `$ · ${t('fieldPriceRangeBudget')}`,
-      '2': `$$ · ${t('fieldPriceRangeMidRange')}`,
-      '3': `$$$ · ${t('fieldPriceRangePremium')}`,
-    }
-    return labels[String(value)] ?? String(value ?? '')
-  }
+      "1": `$ · ${t("fieldPriceRangeBudget")}`,
+      "2": `$$ · ${t("fieldPriceRangeMidRange")}`,
+      "3": `$$$ · ${t("fieldPriceRangePremium")}`,
+    };
+    return labels[String(value)] ?? String(value ?? "");
+  };
 
   const handleNameBlur = async () => {
-    const name = form.getValues('name')?.trim()
-    if (!name || !suggestName) return
-    const requestId = ++nameBlurRequestRef.current
+    const name = form.getValues("name")?.trim();
+    if (!name || !suggestName) return;
+    const requestId = ++nameBlurRequestRef.current;
     try {
-      const result = await suggestName(name)
-      if (requestId !== nameBlurRequestRef.current) return
+      const result = await suggestName(name);
+      if (requestId !== nameBlurRequestRef.current) return;
       setNameSuggestion(
         result.changed && result.suggestion ? result.suggestion : null,
-      )
+      );
     } catch {
-      if (requestId === nameBlurRequestRef.current) setNameSuggestion(null)
+      if (requestId === nameBlurRequestRef.current) setNameSuggestion(null);
     }
-  }
+  };
   return (
     <StandardFormSection id="basic-info">
       <StandardFormStack>
-        <h2 className="type-section-title">
-          {t('wizardStepBasicInfo')}
-        </h2>
+        <h2 className="type-section-title">{t("wizardStepBasicInfo")}</h2>
         <RequiredFieldsHint />
 
         <DashboardFormField
           id="name"
           fieldName="name"
-          label={t('fieldBrandName')}
+          label={t("fieldBrandName")}
           required={Boolean(requiredFields.name)}
-          error={fieldError('name')}
+          error={fieldError("name")}
           errorId="name-error"
         >
           <Input
@@ -110,37 +105,37 @@ export function BrandBasicInfoSection({
             aria-required={Boolean(requiredFields.name)}
             aria-invalid={Boolean(form.formState.errors.name)}
             aria-describedby={
-              form.formState.errors.name ? 'name-error' : undefined
+              form.formState.errors.name ? "name-error" : undefined
             }
             className="min-h-12 bg-card"
             {...nameRegistration}
             onBlur={(event) => {
-              nameRegistration.onBlur(event)
-              void handleNameBlur()
+              nameRegistration.onBlur(event);
+              void handleNameBlur();
             }}
             onChange={(event) => {
-              setNameSuggestion(null)
-              nameRegistration.onChange(event)
+              setNameSuggestion(null);
+              nameRegistration.onChange(event);
             }}
           />
           {nameSuggestion ? (
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 text-sm">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body">
               <span>
-                {tSubmit('ownerForm.suggestedName')}{' '}
+                {tSubmit("ownerForm.suggestedName")}{" "}
                 <strong>{nameSuggestion}</strong>
               </span>
               <Button
                 type="button"
                 variant="secondary"
                 onClick={() => {
-                  form.setValue('name', nameSuggestion, {
+                  form.setValue("name", nameSuggestion, {
                     shouldDirty: true,
                     shouldValidate: true,
-                  })
-                  setNameSuggestion(null)
+                  });
+                  setNameSuggestion(null);
                 }}
               >
-                {tSubmit('ownerForm.applySuggestion')}
+                {tSubmit("ownerForm.applySuggestion")}
               </Button>
             </div>
           ) : null}
@@ -149,8 +144,8 @@ export function BrandBasicInfoSection({
         <DashboardFormField
           id="romanizedName"
           fieldName="romanizedName"
-          label={tSubmit('ownerForm.romanizedNameLabel')}
-          description={tSubmit('ownerForm.romanizedNameHint')}
+          label={tSubmit("ownerForm.romanizedNameLabel")}
+          description={tSubmit("ownerForm.romanizedNameHint")}
           error={form.formState.errors.romanizedName?.message}
           errorId="romanizedName-error"
         >
@@ -158,35 +153,33 @@ export function BrandBasicInfoSection({
             id="romanizedName"
             autoComplete="off"
             readOnly={isExistingBrand}
-            placeholder={tSubmit('ownerForm.romanizedNamePlaceholder')}
+            placeholder={tSubmit("ownerForm.romanizedNamePlaceholder")}
             aria-invalid={Boolean(form.formState.errors.romanizedName)}
             aria-describedby={
               form.formState.errors.romanizedName
-                ? 'romanizedName-error'
+                ? "romanizedName-error"
                 : undefined
             }
             className={cn(
-              'min-h-12',
-              isExistingBrand ? 'bg-muted text-muted-foreground' : 'bg-card',
+              "min-h-12",
+              isExistingBrand ? "bg-muted text-muted-foreground" : "bg-card",
             )}
-            {...form.register('romanizedName')}
+            {...form.register("romanizedName")}
           />
           {isExistingBrand && (
-            <p className="text-sm text-muted-foreground mt-1">
-              {t('slugChangeBlocked')}
-            </p>
+            <p className="type-body-muted mt-1">{t("slugChangeBlocked")}</p>
           )}
         </DashboardFormField>
 
         <DashboardFormField
           id="brand-url-preview"
-          label={tSubmit('ownerForm.urlPreviewLabel')}
-          description={tSubmit('ownerForm.urlPreviewHint')}
+          label={tSubmit("ownerForm.urlPreviewLabel")}
+          description={tSubmit("ownerForm.urlPreviewHint")}
         >
           <Input
             id="brand-url-preview"
             readOnly
-            value={previewSlug ? `/brands/${previewSlug}` : ''}
+            value={previewSlug ? `/brands/${previewSlug}` : ""}
             className="min-h-12 bg-muted text-muted-foreground"
           />
         </DashboardFormField>
@@ -196,13 +189,13 @@ export function BrandBasicInfoSection({
         <DashboardFormField
           id="productType"
           fieldName="productType"
-          label={t('fieldProductType')}
+          label={t("fieldProductType")}
           description={tx(
-            'fieldCategoryHint',
-            'Used for navigation, search, and filtering',
+            "fieldCategoryHint",
+            "Used for navigation, search, and filtering",
           )}
           required={Boolean(requiredFields.productType)}
-          error={fieldError('productType')}
+          error={fieldError("productType")}
           errorId="productType-error"
         >
           <NativeSelect
@@ -211,15 +204,15 @@ export function BrandBasicInfoSection({
             aria-invalid={Boolean(form.formState.errors.productType)}
             aria-describedby={
               form.formState.errors.productType
-                ? 'productType-error'
+                ? "productType-error"
                 : undefined
             }
             className="min-h-12 w-full bg-card"
-            {...form.register('productType', {
-              setValueAs: (value) => (value === '' ? undefined : value),
+            {...form.register("productType", {
+              setValueAs: (value) => (value === "" ? undefined : value),
             })}
           >
-            <option value="">{t('fieldProductType')}</option>
+            <option value="">{t("fieldProductType")}</option>
             {PRODUCT_TYPE_CATEGORIES.map((category) => (
               <option key={category.slug} value={category.slug}>
                 {category.nameZh} ({category.name})
@@ -231,13 +224,13 @@ export function BrandBasicInfoSection({
         <DashboardFormField
           id="description"
           fieldName="description"
-          label={t('fieldDescription')}
+          label={t("fieldDescription")}
           description={tx(
-            'fieldDescriptionHint',
-            'Public description shown on the brand page',
+            "fieldDescriptionHint",
+            "Public description shown on the brand page",
           )}
           required={Boolean(requiredFields.description)}
-          error={fieldError('description')}
+          error={fieldError("description")}
           errorId="description-error"
         >
           <Textarea
@@ -246,19 +239,19 @@ export function BrandBasicInfoSection({
             aria-invalid={Boolean(form.formState.errors.description)}
             aria-describedby={
               form.formState.errors.description
-                ? 'description-error'
+                ? "description-error"
                 : undefined
             }
             className="min-h-28 bg-card"
-            {...form.register('description')}
+            {...form.register("description")}
           />
         </DashboardFormField>
 
         <DashboardFormField
           id="foundingYear"
           fieldName="foundingYear"
-          label={t('fieldFoundingYear')}
-          description={tx('fieldFoundingYearHint', 'Shown on the brand page')}
+          label={t("fieldFoundingYear")}
+          description={tx("fieldFoundingYearHint", "Shown on the brand page")}
         >
           <Input
             id="foundingYear"
@@ -266,41 +259,41 @@ export function BrandBasicInfoSection({
             min={1900}
             max={new Date().getFullYear()}
             className="min-h-12 bg-card"
-            {...form.register('foundingYear')}
+            {...form.register("foundingYear")}
           />
         </DashboardFormField>
 
         <DashboardFormField
           id="mitStory"
           fieldName="mitStory"
-          label={t('mitStoryLabel')}
+          label={t("mitStoryLabel")}
           description={tx(
-            'mitStoryHint',
-            'Shown on the brand page if provided',
+            "mitStoryHint",
+            "Shown on the brand page if provided",
           )}
-          error={fieldError('mitStory')}
+          error={fieldError("mitStory")}
           errorId="mitStory-error"
         >
           <Textarea
             id="mitStory"
             rows={5}
-            placeholder={t('mitStoryPlaceholder')}
+            placeholder={t("mitStoryPlaceholder")}
             aria-invalid={Boolean(form.formState.errors.mitStory)}
             aria-describedby={
-              form.formState.errors.mitStory ? 'mitStory-error' : undefined
+              form.formState.errors.mitStory ? "mitStory-error" : undefined
             }
             className="min-h-28 bg-card"
-            {...form.register('mitStory')}
+            {...form.register("mitStory")}
           />
         </DashboardFormField>
 
         <DashboardFormField
           id="productTags"
           fieldName="productTags"
-          label={tx('fieldProductTags', 'Product tags')}
-          description={tx('productTagsMax', 'Up to 5 product tags')}
+          label={tx("fieldProductTags", "Product tags")}
+          description={tx("productTagsMax", "Up to 5 product tags")}
           required={Boolean(requiredFields.productTags)}
-          error={fieldError('productTags')}
+          error={fieldError("productTags")}
           errorId="productTags-error"
         >
           <div
@@ -308,7 +301,7 @@ export function BrandBasicInfoSection({
             aria-invalid={Boolean(form.formState.errors.productTags)}
             aria-describedby={
               form.formState.errors.productTags
-                ? 'productTags-error'
+                ? "productTags-error"
                 : undefined
             }
           >
@@ -320,12 +313,12 @@ export function BrandBasicInfoSection({
                   value={field.value ?? []}
                   onChange={field.onChange}
                   suggestions={productTagSuggestions}
-                  inputLabel={tx('fieldProductTags', 'Product tags')}
+                  inputLabel={tx("fieldProductTags", "Product tags")}
                   placeholder={tx(
-                    'fieldProductTagsPlaceholder',
-                    'Add product tag',
+                    "fieldProductTagsPlaceholder",
+                    "Add product tag",
                   )}
-                  removeLabel={tx('removeProductTag', 'Remove tag')}
+                  removeLabel={tx("removeProductTag", "Remove tag")}
                 />
               )}
             />
@@ -335,20 +328,20 @@ export function BrandBasicInfoSection({
         <DashboardFormField
           id="city"
           fieldName="city"
-          label={t('city')}
+          label={t("city")}
           description={tx(
-            'cityHint',
-            'Your brand will be shown on the map if provided',
+            "cityHint",
+            "Your brand will be shown on the map if provided",
           )}
         >
           <NativeSelect
             id="city"
             className="min-h-12 w-full bg-card"
-            {...form.register('city', {
-              setValueAs: (value) => (value === '' ? undefined : value),
+            {...form.register("city", {
+              setValueAs: (value) => (value === "" ? undefined : value),
             })}
           >
-            <option value="">{t('cityPlaceholder')}</option>
+            <option value="">{t("cityPlaceholder")}</option>
             {TAIWAN_CITIES.map((city) => (
               <option key={city.slug} value={city.slug}>
                 {tCities(city.slug)}
@@ -360,10 +353,10 @@ export function BrandBasicInfoSection({
         <DashboardFormField
           id="priceRange"
           fieldName="priceRange"
-          label={tx('fieldPriceRange', 'Price Range')}
-          description={tx('fieldPriceRangeHint', 'Used for filtering')}
+          label={tx("fieldPriceRange", "Price Range")}
+          description={tx("fieldPriceRangeHint", "Used for filtering")}
           required={Boolean(requiredFields.priceRange)}
-          error={fieldError('priceRange')}
+          error={fieldError("priceRange")}
           errorId="priceRange-error"
         >
           <NativeSelect
@@ -371,20 +364,20 @@ export function BrandBasicInfoSection({
             aria-required={Boolean(requiredFields.priceRange)}
             aria-invalid={Boolean(form.formState.errors.priceRange)}
             aria-describedby={
-              form.formState.errors.priceRange ? 'priceRange-error' : undefined
+              form.formState.errors.priceRange ? "priceRange-error" : undefined
             }
             className="min-h-12 w-full bg-card"
-            {...form.register('priceRange', {
-              setValueAs: (value) => (value === '' ? undefined : Number(value)),
+            {...form.register("priceRange", {
+              setValueAs: (value) => (value === "" ? undefined : Number(value)),
             })}
           >
-            <option value="">{tx('fieldPriceRangeUnset', 'Unset')}</option>
-            <option value="1">{getPriceRangeLabel('1')}</option>
-            <option value="2">{getPriceRangeLabel('2')}</option>
-            <option value="3">{getPriceRangeLabel('3')}</option>
+            <option value="">{tx("fieldPriceRangeUnset", "Unset")}</option>
+            <option value="1">{getPriceRangeLabel("1")}</option>
+            <option value="2">{getPriceRangeLabel("2")}</option>
+            <option value="3">{getPriceRangeLabel("3")}</option>
           </NativeSelect>
         </DashboardFormField>
       </StandardFormStack>
     </StandardFormSection>
-  )
+  );
 }

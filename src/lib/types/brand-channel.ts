@@ -1,8 +1,18 @@
 type ChannelStatus = 'confirmed' | 'unconfirmed'
-type ChannelConfirmedBy = 'owner' | 'community'
-type ChannelSource = 'backfill' | 'enriched' | 'community' | 'owner' | 'admin'
+type ChannelConfirmedBy = 'owner' | 'community' | 'evidence'
+export type ChannelSource =
+  'backfill' | 'enriched' | 'community' | 'owner' | 'admin' | 'import'
 export type ChannelType = 'online' | 'offline'
 type OwnerStatus = 'none' | 'confirmed' | 'rejected'
+
+export type ChannelLocationType =
+  | 'stockist'
+  | 'distributor_retailer'
+  | 'direct_store'
+  | 'department_store_counter'
+  | 'showroom_studio'
+  | 'shop_in_shop'
+  | 'other_physical_retail'
 
 export interface BrandChannel {
   id: string
@@ -12,6 +22,10 @@ export interface BrandChannel {
   regionLabel: string | null
   address: string | null
   url: string | null
+  sourceUrl?: string | null
+  fetchedAt?: string | null
+  locationType?: ChannelLocationType | null
+  country?: string | null
   ownerStatus: OwnerStatus
   source: ChannelSource
   confirmationCount: number
@@ -28,6 +42,13 @@ export interface ChannelCandidate {
   regionLabel?: string | null
   address?: string | null
   url?: string | null
+  sourceUrl?: string | null
+  fetchedAt?: string | null
+  locationType?: ChannelLocationType | null
+  country?: string | null
+  lastConfirmedAt?: string | null
+  providerMetadata?: Record<string, unknown> | null
+  source?: ChannelSource
 }
 
 export interface BrandChannelInput {

@@ -1,19 +1,25 @@
-import Image from 'next/image'
-import { surfaceCardStyles } from '@/components/ui/card'
-import type { PublicMicrositeBrand, PublicSiteProduct } from '@/lib/brands/contracts'
+import Image from "next/image";
+import { surfaceCardStyles } from "@/components/ui/card";
+import type {
+  PublicMicrositeBrand,
+  PublicSiteProduct,
+} from "@/lib/brands/contracts";
 
 type ProductGridProps = {
-  brand: PublicMicrositeBrand
-  products: PublicSiteProduct[]
-}
+  brand: PublicMicrositeBrand;
+  products: PublicSiteProduct[];
+};
 
 export function ProductGrid({ brand, products }: ProductGridProps) {
   if (products.length === 0) {
-    return null
+    return null;
   }
 
   return (
-    <section className="px-6 py-12 md:px-10 md:py-16" aria-labelledby="microsite-products">
+    <section
+      className="px-6 py-12 md:px-10 md:py-16"
+      aria-labelledby="microsite-products"
+    >
       <div className="mx-auto max-w-[1280px] space-y-6">
         <h2 id="microsite-products" className="type-section-title">
           精選商品
@@ -22,11 +28,11 @@ export function ProductGrid({ brand, products }: ProductGridProps) {
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:gap-8 lg:grid-cols-3">
           {products.map((product) => (
             <article
-              key={`${product.name}-${product.url ?? product.imageUrl ?? 'product'}`}
+              key={`${product.name}-${product.url ?? product.imageUrl ?? "product"}`}
               className={surfaceCardStyles({
-                className: 'group overflow-hidden hover:-translate-y-0.5',
+                className: "group overflow-hidden hover:-translate-y-0.5",
                 interactive: true,
-                padding: 'none',
+                padding: "none",
               })}
             >
               {product.imageUrl && (
@@ -43,13 +49,9 @@ export function ProductGrid({ brand, products }: ProductGridProps) {
 
               <div className="space-y-3 p-5">
                 <div className="space-y-1.5">
-                  <h3 className="type-subsection-title">
-                    {product.name}
-                  </h3>
+                  <h3 className="type-subsection-title">{product.name}</h3>
                   {product.caption && (
-                    <p className="text-xs leading-relaxed text-muted-foreground">
-                      {product.caption}
-                    </p>
+                    <p className="type-form-hint">{product.caption}</p>
                   )}
                 </div>
 
@@ -69,5 +71,5 @@ export function ProductGrid({ brand, products }: ProductGridProps) {
         </div>
       </div>
     </section>
-  )
+  );
 }

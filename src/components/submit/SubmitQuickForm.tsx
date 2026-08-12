@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import {
   type FormEvent,
@@ -7,74 +7,80 @@ import {
   useMemo,
   useRef,
   useState,
-} from 'react'
-import { Controller, useForm, useWatch } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useTranslations } from 'next-intl'
-import { z } from 'zod'
-import { submitOwnerQuick, suggestCleanName } from '@/app/[locale]/(site)/submit/actions'
-import { FormField } from '@/components/forms/form-field'
-import { StandardForm, StandardFormStack } from '@/components/forms/form-layout'
-import { MarketingEmailOptInField } from '@/components/forms/marketing-email-opt-in-field'
-import { TurnstileWidget } from '@/components/submit/TurnstileWidget'
-import { Button } from '@/components/ui/button'
-import { SubmitButton } from '@/components/ui/submit-button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Link, useRouter } from '@/i18n/navigation'
-import { trackSubmissionCompleted } from '@/lib/analytics'
-import { stripUrlQuery } from '@/lib/url'
-import { useSubmissionAnalytics } from '@/hooks/use-submission-analytics'
+} from "react";
+import { Controller, useForm, useWatch } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useTranslations } from "next-intl";
+import { z } from "zod";
+import {
+  submitOwnerQuick,
+  suggestCleanName,
+} from "@/app/[locale]/(site)/submit/actions";
+import { FormField } from "@/components/forms/form-field";
+import {
+  StandardForm,
+  StandardFormStack,
+} from "@/components/forms/form-layout";
+import { MarketingEmailOptInField } from "@/components/forms/marketing-email-opt-in-field";
+import { TurnstileWidget } from "@/components/submit/TurnstileWidget";
+import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Link, useRouter } from "@/i18n/navigation";
+import { trackSubmissionCompleted } from "@/lib/analytics";
+import { stripUrlQuery } from "@/lib/url";
+import { useSubmissionAnalytics } from "@/hooks/use-submission-analytics";
 
-type Translator = (key: string) => string
+type Translator = (key: string) => string;
 
 function createQuickSubmissionSchema(t: Translator) {
   return z.object({
-    name: z.string().min(1, t('validation.nameMinLength')),
+    name: z.string().min(1, t("validation.nameMinLength")),
     romanizedName: z
       .string()
       .min(2)
       .max(100)
       .regex(/^[a-zA-Z0-9\s\-'.]+$/)
       .optional()
-      .or(z.literal('')),
-    website: z.string().url(t('validation.urlInvalid')),
-    description: z.string().min(1, t('validation.descriptionRequired')),
+      .or(z.literal("")),
+    website: z.string().url(t("validation.urlInvalid")),
+    description: z.string().min(1, t("validation.descriptionRequired")),
     pdpaConsent: z.literal(true, {
-      error: t('validation.pdpaRequired'),
+      error: t("validation.pdpaRequired"),
     }),
     marketingEmailOptIn: z.boolean(),
-    turnstileToken: z.string().min(1, t('validation.turnstileRequired')),
+    turnstileToken: z.string().min(1, t("validation.turnstileRequired")),
     honeypot: z.string(),
-  })
+  });
 }
 
 type QuickSubmissionFormData = z.infer<
   ReturnType<typeof createQuickSubmissionSchema>
->
+>;
 
 export default function SubmitQuickForm() {
-  const t = useTranslations('submit')
-  const tReview = useTranslations('submit.review')
-  const router = useRouter()
-  const { complete } = useSubmissionAnalytics('quick', 'owner', 'opened')
-  const nameBlurRequestRef = useRef(0)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const submitLockRef = useRef(false)
-  const idempotencyKeyRef = useRef(crypto.randomUUID())
-  const [pendingRedirect, setPendingRedirect] = useState<string | null>(null)
-  const [nameSuggestion, setNameSuggestion] = useState<string | null>(null)
-  const [urlSuggestion, setUrlSuggestion] = useState<string | null>(null)
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [turnstileError, setTurnstileError] = useState(false)
+  const t = useTranslations("submit");
+  const tReview = useTranslations("submit.review");
+  const router = useRouter();
+  const { complete } = useSubmissionAnalytics("quick", "owner", "opened");
+  const nameBlurRequestRef = useRef(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
+  const idempotencyKeyRef = useRef(crypto.randomUUID());
+  const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
+  const [nameSuggestion, setNameSuggestion] = useState<string | null>(null);
+  const [urlSuggestion, setUrlSuggestion] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = useState(false);
 
   const tSchema = useMemo(
     () => (key: string) => t(key as Parameters<typeof t>[0]),
     [t],
-  )
-  const schema = useMemo(() => createQuickSubmissionSchema(tSchema), [tSchema])
+  );
+  const schema = useMemo(() => createQuickSubmissionSchema(tSchema), [tSchema]);
 
   const {
     register,
@@ -85,81 +91,81 @@ export default function SubmitQuickForm() {
     formState: { errors, isValid },
   } = useForm<QuickSubmissionFormData>({
     resolver: zodResolver(schema),
-    mode: 'onTouched',
+    mode: "onTouched",
     defaultValues: {
-      name: '',
-      romanizedName: '',
-      website: '',
-      description: '',
-      pdpaConsent: false as QuickSubmissionFormData['pdpaConsent'],
+      name: "",
+      romanizedName: "",
+      website: "",
+      description: "",
+      pdpaConsent: false as QuickSubmissionFormData["pdpaConsent"],
       marketingEmailOptIn: false,
-      turnstileToken: '',
-      honeypot: '',
+      turnstileToken: "",
+      honeypot: "",
     },
-  })
+  });
 
-  const pdpaConsent = useWatch({ control, name: 'pdpaConsent' })
-  const nameRegistration = register('name')
-  const websiteRegistration = register('website')
+  const pdpaConsent = useWatch({ control, name: "pdpaConsent" });
+  const nameRegistration = register("name");
+  const websiteRegistration = register("website");
 
   useEffect(() => {
-    if (!pendingRedirect) return
+    if (!pendingRedirect) return;
 
     const timeout = setTimeout(() => {
-      router.push(pendingRedirect)
-      setPendingRedirect(null)
-    }, 0)
+      router.push(pendingRedirect);
+      setPendingRedirect(null);
+    }, 0);
 
-    return () => clearTimeout(timeout)
-  }, [pendingRedirect, router])
+    return () => clearTimeout(timeout);
+  }, [pendingRedirect, router]);
 
   const handleNameBlur = async () => {
-    const currentName = getValues('name')
-    if (!currentName || currentName.length < 2) return
+    const currentName = getValues("name");
+    if (!currentName || currentName.length < 2) return;
 
-    const requestId = ++nameBlurRequestRef.current
+    const requestId = ++nameBlurRequestRef.current;
     try {
-      const result = await suggestCleanName(currentName)
-      if (requestId !== nameBlurRequestRef.current) return
+      const result = await suggestCleanName(currentName);
+      if (requestId !== nameBlurRequestRef.current) return;
 
       if (result.changed && result.suggestion) {
-        setNameSuggestion(result.suggestion)
+        setNameSuggestion(result.suggestion);
       } else {
-        setNameSuggestion(null)
+        setNameSuggestion(null);
       }
     } catch {
       if (requestId === nameBlurRequestRef.current) {
-        setNameSuggestion(null)
+        setNameSuggestion(null);
       }
     }
-  }
+  };
 
   function handleWebsiteBlur(value: string) {
-    if (!value || !value.includes('?')) {
-      setUrlSuggestion(null)
-      return
+    if (!value || !value.includes("?")) {
+      setUrlSuggestion(null);
+      return;
     }
 
-    const cleaned = stripUrlQuery(value)
-    setUrlSuggestion(cleaned !== value && cleaned.length > 0 ? cleaned : null)
+    const cleaned = stripUrlQuery(value);
+    setUrlSuggestion(cleaned !== value && cleaned.length > 0 ? cleaned : null);
   }
 
   const handleTurnstileSuccess = useCallback(
     (token: string) => {
-      setTurnstileError(false)
-      setValue('turnstileToken', token, { shouldValidate: true })
+      setTurnstileError(false);
+      setValue("turnstileToken", token, { shouldValidate: true });
     },
     [setValue],
-  )
+  );
 
   const handleTurnstileError = useCallback(() => {
-    setTurnstileError(true)
-    setValue('turnstileToken', '', { shouldValidate: true })
-  }, [setValue])
+    setTurnstileError(true);
+    setValue("turnstileToken", "", { shouldValidate: true });
+  }, [setValue]);
 
   const handleTurnstileExpire = useCallback(() => {
-    setValue('turnstileToken', '', { shouldValidate: true })
-  }, [setValue])
+    setValue("turnstileToken", "", { shouldValidate: true });
+  }, [setValue]);
 
   const submitForm = useCallback(
     async (data: QuickSubmissionFormData) => {
@@ -168,59 +174,59 @@ export default function SubmitQuickForm() {
       // The lock is released only on paths that leave the visitor on this form —
       // a successful submission is terminal, and the redirect that follows is a
       // router.push that takes real time (DEV-1415).
-      if (submitLockRef.current) return
-      submitLockRef.current = true
+      if (submitLockRef.current) return;
+      submitLockRef.current = true;
 
-      setSubmitError(null)
-      setIsSubmitting(true)
+      setSubmitError(null);
+      setIsSubmitting(true);
 
       const unlock = () => {
-        submitLockRef.current = false
-        setIsSubmitting(false)
-      }
+        submitLockRef.current = false;
+        setIsSubmitting(false);
+      };
 
       try {
-        const result = await submitOwnerQuick(data, idempotencyKeyRef.current)
+        const result = await submitOwnerQuick(data, idempotencyKeyRef.current);
         if (result?.error) {
-          setSubmitError(result.error)
-          unlock()
-          return
+          setSubmitError(result.error);
+          unlock();
+          return;
         }
 
-        setPendingRedirect('/submit/confirmation?intent=owner_claim')
+        setPendingRedirect("/submit/confirmation?intent=owner_claim");
 
         trackSubmissionCompleted(
           data.name,
-          '',
+          "",
           false,
           complete(),
-          'owner_claim',
-        )
+          "owner_claim",
+        );
       } catch (error) {
-        unlock()
-        throw error
+        unlock();
+        throw error;
       }
     },
     [complete],
-  )
+  );
 
   const onSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
-      void handleSubmit(submitForm)(event)
+      void handleSubmit(submitForm)(event);
     },
     [handleSubmit, submitForm],
-  )
+  );
 
-  const isSubmitDisabled = !isValid || !pdpaConsent || isSubmitting
+  const isSubmitDisabled = !isValid || !pdpaConsent || isSubmitting;
 
   return (
     <div className="page-gutter mx-auto max-w-2xl py-12">
       <div className="mb-8">
         <h1 className="text-balance text-center type-page-title">
-          {t('quickForm.heading')}
+          {t("quickForm.heading")}
         </h1>
         <p className="mt-3 text-center type-card-description">
-          {t('quickForm.subheading')}
+          {t("quickForm.subheading")}
         </p>
       </div>
 
@@ -228,7 +234,7 @@ export default function SubmitQuickForm() {
         <StandardFormStack>
           <FormField
             id="submit-name"
-            label={t('fields.brandName')}
+            label={t("fields.brandName")}
             error={errors.name?.message}
             required
           >
@@ -236,35 +242,35 @@ export default function SubmitQuickForm() {
               id="submit-name"
               type="text"
               autoComplete="off"
-              placeholder={t('fields.brandNamePlaceholder')}
+              placeholder={t("fields.brandNamePlaceholder")}
               {...nameRegistration}
               onBlur={async (event) => {
-                nameRegistration.onBlur(event)
-                await handleNameBlur()
+                nameRegistration.onBlur(event);
+                await handleNameBlur();
               }}
               onChange={(event) => {
-                setNameSuggestion(null)
-                nameRegistration.onChange(event)
+                setNameSuggestion(null);
+                nameRegistration.onChange(event);
               }}
             />
             {nameSuggestion ? (
               <div className="animate-reveal-up">
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 text-sm">
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body">
                   <span>
-                    {t('ownerForm.suggestedName')}{' '}
+                    {t("ownerForm.suggestedName")}{" "}
                     <strong>{nameSuggestion}</strong>
                   </span>
                   <Button
                     type="button"
                     variant="secondary"
                     onClick={() => {
-                      setValue('name', nameSuggestion, {
+                      setValue("name", nameSuggestion, {
                         shouldValidate: true,
-                      })
-                      setNameSuggestion(null)
+                      });
+                      setNameSuggestion(null);
                     }}
                   >
-                    {t('ownerForm.applySuggestion')}
+                    {t("ownerForm.applySuggestion")}
                   </Button>
                 </div>
               </div>
@@ -273,22 +279,22 @@ export default function SubmitQuickForm() {
 
           <FormField
             id="submit-romanized-name"
-            label={t('ownerForm.romanizedNameLabel')}
-            description={t('ownerForm.romanizedNameHint')}
+            label={t("ownerForm.romanizedNameLabel")}
+            description={t("ownerForm.romanizedNameHint")}
             error={errors.romanizedName?.message}
           >
             <Input
               id="submit-romanized-name"
               type="text"
               autoComplete="off"
-              placeholder={t('ownerForm.romanizedNamePlaceholder')}
-              {...register('romanizedName')}
+              placeholder={t("ownerForm.romanizedNamePlaceholder")}
+              {...register("romanizedName")}
             />
           </FormField>
 
           <FormField
             id="submit-website"
-            label={t('ownerForm.websiteLabel')}
+            label={t("ownerForm.websiteLabel")}
             error={errors.website?.message}
             required
           >
@@ -296,35 +302,35 @@ export default function SubmitQuickForm() {
               id="submit-website"
               type="url"
               autoComplete="off"
-              placeholder={t('ownerForm.websitePlaceholder')}
+              placeholder={t("ownerForm.websitePlaceholder")}
               {...websiteRegistration}
               onBlur={(event) => {
-                websiteRegistration.onBlur(event)
-                handleWebsiteBlur(event.target.value)
+                websiteRegistration.onBlur(event);
+                handleWebsiteBlur(event.target.value);
               }}
               onChange={(event) => {
-                websiteRegistration.onChange(event)
-                setUrlSuggestion(null)
+                websiteRegistration.onChange(event);
+                setUrlSuggestion(null);
               }}
             />
             {urlSuggestion ? (
               <div className="animate-reveal-up">
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 text-sm">
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body">
                   <span>
-                    {t('ownerForm.suggestedUrl')}{' '}
+                    {t("ownerForm.suggestedUrl")}{" "}
                     <strong>{urlSuggestion}</strong>
                   </span>
                   <Button
                     type="button"
                     variant="secondary"
                     onClick={() => {
-                      setValue('website', urlSuggestion, {
+                      setValue("website", urlSuggestion, {
                         shouldValidate: true,
-                      })
-                      setUrlSuggestion(null)
+                      });
+                      setUrlSuggestion(null);
                     }}
                   >
-                    {t('ownerForm.applySuggestion')}
+                    {t("ownerForm.applySuggestion")}
                   </Button>
                 </div>
               </div>
@@ -333,15 +339,15 @@ export default function SubmitQuickForm() {
 
           <FormField
             id="submit-description"
-            label={t('ownerForm.descriptionLabel')}
+            label={t("ownerForm.descriptionLabel")}
             error={errors.description?.message}
             required
           >
             <Textarea
               id="submit-description"
               rows={4}
-              placeholder={t('ownerForm.descriptionPlaceholder')}
-              {...register('description')}
+              placeholder={t("ownerForm.descriptionPlaceholder")}
+              {...register("description")}
             />
           </FormField>
 
@@ -359,7 +365,7 @@ export default function SubmitQuickForm() {
                       className="mt-0.5 size-[18px] shrink-0"
                     />
                     <span className="type-body font-normal">
-                      {tReview.rich('pdpaConsent', {
+                      {tReview.rich("pdpaConsent", {
                         privacyPolicy: (chunks) => (
                           <Link
                             href="/privacy"
@@ -374,9 +380,7 @@ export default function SubmitQuickForm() {
                     </span>
                   </Label>
                   {fieldState.error ? (
-                    <p className="text-xs text-destructive">
-                      {fieldState.error.message}
-                    </p>
+                    <p className="type-error">{fieldState.error.message}</p>
                   ) : null}
                 </div>
               )}
@@ -398,7 +402,7 @@ export default function SubmitQuickForm() {
 
           <input
             type="text"
-            {...register('honeypot')}
+            {...register("honeypot")}
             tabIndex={-1}
             autoComplete="off"
             // eslint-disable-next-line no-restricted-syntax -- ui-exception: honeypot trap must be invisible native input
@@ -414,15 +418,15 @@ export default function SubmitQuickForm() {
             />
           </div>
           {turnstileError ? (
-            <p className="text-sm text-destructive" role="alert">
-              {t('errors.turnstileError')}
+            <p className="type-body text-destructive" role="alert">
+              {t("errors.turnstileError")}
             </p>
           ) : null}
 
           {submitError ? (
             <p
               role="alert"
-              className="text-sm text-destructive"
+              className="type-body text-destructive"
               aria-live="polite"
             >
               {submitError}
@@ -434,11 +438,11 @@ export default function SubmitQuickForm() {
             tone="cta"
             disabled={isSubmitDisabled}
             isSubmitting={isSubmitting}
-            idleLabel={t('quickForm.submitButton')}
-            submittingLabel={t('quickForm.submittingButton')}
+            idleLabel={t("quickForm.submitButton")}
+            submittingLabel={t("quickForm.submittingButton")}
           />
         </StandardFormStack>
       </StandardForm>
     </div>
-  )
+  );
 }

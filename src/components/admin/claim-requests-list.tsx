@@ -256,7 +256,7 @@ export function ClaimRequestsList({
                         href={proof.url}
                         target="_blank"
                         rel="noreferrer noopener"
-                        className="inline-block break-all text-sm text-primary underline"
+                        className="inline-block break-all type-body text-primary underline"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {proof.url}
@@ -293,7 +293,7 @@ export function ClaimRequestsList({
         {item.mitSmileCert ? (
           <div>
             <p className="type-metadata">{t("mitCertApprovalLabel")}</p>
-            <p className="mt-1 text-sm">{item.mitSmileCert}</p>
+            <p className="mt-1 type-body">{item.mitSmileCert}</p>
             {item.mitRegistryCompanyName ? (
               <p className="mt-1 type-card-description">
                 {t("mitRegistryCompanyLabel")}: {item.mitRegistryCompanyName}
@@ -304,7 +304,7 @@ export function ClaimRequestsList({
         {item.reviewerNotes ? (
           <div>
             <p className="type-metadata">{t("reviewerNotes")}</p>
-            <p className="mt-1 text-sm">{item.reviewerNotes}</p>
+            <p className="mt-1 type-body">{item.reviewerNotes}</p>
           </div>
         ) : null}
         {item.status !== "pending" && item.proofCleanupStatus ? (
@@ -334,7 +334,7 @@ export function ClaimRequestsList({
       <ReviewQueueToolbar queue={queue}>
         {warning ? (
           <p
-            className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning"
+            className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 type-body text-warning"
             role="status"
           >
             {warning}
@@ -375,7 +375,9 @@ export function ClaimRequestsList({
                     // a field with a value of its own.
                     value=""
                     onChange={(e) => {
-                      setRejectNotes(t(`rejectReasons.${e.currentTarget.value}`));
+                      setRejectNotes(
+                        t(`rejectReasons.${e.currentTarget.value}`),
+                      );
                     }}
                   >
                     <option value="" disabled>

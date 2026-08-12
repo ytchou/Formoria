@@ -241,7 +241,7 @@ export function SubmissionsReviewList({
       header: t("table.reason"),
       visibleOn: (activeTab) => activeTab === "skipped",
       cell: (submission) => (
-        <p className="max-w-96 whitespace-normal text-sm text-muted-foreground">
+        <p className="max-w-96 whitespace-normal type-body-muted">
           {submission.latestCurationError ?? t("noSkipReason")}
         </p>
       ),
@@ -545,7 +545,9 @@ export function SubmissionsReviewList({
           submission.reviewData.name || submission.brandName || ""
         }
         metadata={(submission) => (
-          <p className="type-metadata">{formatReviewDate(submission.submittedAt)}</p>
+          <p className="type-metadata">
+            {formatReviewDate(submission.submittedAt)}
+          </p>
         )}
         footer={(submission) =>
           submission.status === "pending" &&

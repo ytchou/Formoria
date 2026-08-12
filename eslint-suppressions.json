@@ -78,11 +78,6 @@
       "count": 2
     }
   },
-  "e2e/tests/brand-detail.spec.ts": {
-    "playwright/no-skipped-test": {
-      "count": 1
-    }
-  },
   "e2e/tests/brand-save.spec.ts": {
     "playwright/no-conditional-in-test": {
       "count": 11

@@ -52,7 +52,6 @@ async function seedProbe(supabaseUrl, serviceRoleKey, token) {
       product_type: 'crafts',
       description: `[E2E-TEST] Search load probe ${token}.`,
       blurb_en: `${token} punctuation load probe.`,
-      retail_locations: [],
       is_demo: false,
     }),
   })

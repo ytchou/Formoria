@@ -39,6 +39,7 @@ e2e/playwright-report/
 *.pem
 Thumbs.db
 *.csv
+!content/stockists/*.csv
 *.png
 # Images the app or the public front door needs. `*.png` above is deny-by-default
 # and these were tracked in spite of it, not because of it — see the invariant

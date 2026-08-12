@@ -1,0 +1,100 @@
+import { describe, expect, it } from 'vitest'
+import {
+  canonicalizeRegion,
+  normalizeStockistRow,
+  type StockistCsvRow,
+} from './normalize'
+
+function row(overrides: Partial<StockistCsvRow> = {}): StockistCsvRow {
+  return {
+    brand_slug: 'hanchor',
+    name: '登山友 中山店',
+    location_type: 'stockist',
+    channel_type: 'offline',
+    category_label: 'outdoor',
+    region_label: '臺北市',
+    address: '臺北市中正區中山北路一段18號',
+    url: 'https://example.com/shops/zhongshan',
+    evidence_url: 'https://hanchor.com.tw/pages/stockists',
+    source_type: 'official_website',
+    source_chain: 'brand stockist directory',
+    confidence: 'high',
+    notes: '',
+    ...overrides,
+  }
+}
+
+describe('stockist normalization', () => {
+  it('canonicalizes the common Taipei spellings', () => {
+    expect(['台北', '台北市', '臺北市'].map(canonicalizeRegion)).toEqual([
+      { ok: true, regionLabel: '臺北市', country: 'TW' },
+      { ok: true, regionLabel: '臺北市', country: 'TW' },
+      { ok: true, regionLabel: '臺北市', country: 'TW' },
+    ])
+  })
+
+  it('rejects an unmapped Taiwan-looking region rather than passing it through', () => {
+    expect(canonicalizeRegion('臺北都')).toEqual({
+      ok: false,
+      reason: 'unmapped Taiwan region: 臺北都',
+    })
+  })
+
+  it('derives category labels from all location types and discards the CSV category', () => {
+    const types = [
+      'stockist',
+      'distributor_retailer',
+      'direct_store',
+      'department_store_counter',
+      'showroom_studio',
+      'shop_in_shop',
+      'other_physical_retail',
+    ] as const
+    const labels = types.map((locationType) => {
+      const result = normalizeStockistRow(
+        row({ location_type: locationType, category_label: 'kids-pets' }),
+      )
+      return result.ok ? result.row.candidate.categoryLabel : result.reason
+    })
+
+    expect(labels).toEqual([
+      '選品店',
+      '經銷門市',
+      '品牌直營',
+      '百貨專櫃',
+      '展示空間',
+      '店中店',
+      '實體零售',
+    ])
+    expect(labels).not.toContain('kids-pets')
+  })
+
+  it('resolves countries from region prefixes and rejects an unknown foreign region', () => {
+    expect(canonicalizeRegion('香港')).toEqual({
+      ok: true,
+      regionLabel: '香港',
+      country: 'HK',
+    })
+    expect(canonicalizeRegion('美國・New York')).toEqual({
+      ok: true,
+      regionLabel: '美國・New York',
+      country: 'US',
+    })
+    expect(canonicalizeRegion('火星・Olympus Mons')).toEqual({
+      ok: false,
+      reason: 'unmapped foreign region: 火星・Olympus Mons',
+    })
+  })
+
+  it('keeps a row with no address as a null address', () => {
+    const result = normalizeStockistRow(row({ address: '  ' }))
+
+    expect(result.ok && result.row.candidate.address).toBeNull()
+  })
+
+  it('preserves the national-chain region sentinel', () => {
+    const result = normalizeStockistRow(row({ region_label: '全台多間門市' }))
+
+    expect(result.ok && result.row.candidate.regionLabel).toBe('全台多間門市')
+  })
+})

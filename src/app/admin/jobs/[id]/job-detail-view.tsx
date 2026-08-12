@@ -55,7 +55,8 @@ const phaseDescriptions = {
   faq: "Writes the bilingual FAQ answers the brand's evidence supports.",
   names:
     "Arbitrates the competing brand names the other context phases proposed; the only phase that writes the brand name.",
-  site_identity: "Adjudicates quarantined websites and links before they reach downstream enrichment.",
+  site_identity:
+    "Adjudicates quarantined websites and links before they reach downstream enrichment.",
   classification:
     "Classifies the product type on its own, when descriptions did not decide it.",
   "image-search": "Searches for candidate images before image selection.",
@@ -161,9 +162,7 @@ export function JobDetailView({
             <h1 className="type-section-title-large">Job Detail</h1>
             <JobStatusBadge job={job} />
           </div>
-          <p className="break-all font-mono text-sm text-muted-foreground">
-            {job.id}
-          </p>
+          <p className="break-all font-mono type-body-muted">{job.id}</p>
         </div>
         <div className="flex flex-wrap gap-3">
           {canDispatch ? (
@@ -325,9 +324,7 @@ export function JobDetailView({
               {phaseDefinitions.map(([phase, description]) => (
                 <div key={phase}>
                   <dt className="type-body-emphasis capitalize">{phase}</dt>
-                  <dd className="mt-1 text-sm text-muted-foreground">
-                    {description}
-                  </dd>
+                  <dd className="mt-1 type-body-muted">{description}</dd>
                 </div>
               ))}
             </dl>
@@ -393,7 +390,7 @@ export function JobDetailView({
                       <TargetStatusBadge target={target} />
                     </TableCell>
                     <TableCell>{target.current_phase ?? "-"}</TableCell>
-                    <TableCell className="max-w-80 whitespace-normal text-sm text-muted-foreground">
+                    <TableCell className="max-w-80 whitespace-normal type-body-muted">
                       {targetReason(target)}
                     </TableCell>
                     <TableCell>{formatTargetDuration(target)}</TableCell>
@@ -483,9 +480,7 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
         <div className="mt-4 space-y-2">
           <h3 className="type-body-emphasis">Phase log</h3>
           {phases.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No phase records yet.
-            </p>
+            <p className="type-body-muted">No phase records yet.</p>
           ) : (
             <ol className="space-y-2">
               {phases.map((phase, index) => (
@@ -511,22 +506,22 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
                       )}
                     </Badge>
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="mt-1 type-body-muted">
                     {formatMilliseconds(phase.durationMs)}
                     {phase.changedFields.length
                       ? ` · Changed: ${phase.changedFields.join(", ")}`
                       : ""}
                   </p>
                   {phaseDescription(phase.phase) ? (
-                    <p className="mt-2 text-sm">
+                    <p className="mt-2 type-body">
                       {phaseDescription(phase.phase)}
                     </p>
                   ) : null}
                   {phase.detail ? (
-                    <p className="mt-2 text-sm">{formatPhaseDetail(phase)}</p>
+                    <p className="mt-2 type-body">{formatPhaseDetail(phase)}</p>
                   ) : null}
                   {phase.error ? (
-                    <p className="mt-2 text-sm text-destructive">
+                    <p className="mt-2 type-body text-destructive">
                       {phase.error}
                     </p>
                   ) : null}

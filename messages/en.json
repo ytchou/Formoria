@@ -336,7 +336,7 @@
       "about": "About",
       "social": "Social",
       "purchase": "Purchase",
-      "locations": "Locations & Channels",
+      "locations": "Retail locations",
       "faq": "FAQ",
       "backToTop": "Back to top"
     },
@@ -558,16 +558,15 @@
       "highlights": "Brand Highlights",
       "photos": "Photos",
       "locations": "Locations",
-      "locationsAndRetailChannels": "Locations & retail channels",
+      "locationsAndRetailChannels": "Retail locations",
       "faq": "Frequently Asked Questions"
     },
     "channels": {
-      "subtitle": "Possible retail channels for this brand, some information provided by the community",
-      "provideInfo": "Provide channel info",
+      "subtitle": "Places where this brand may be available, with some information provided by the community",
+      "provideInfo": "Provide retail location",
       "groups": {
-        "official": "Official channels",
-        "visitable": "Stores you can visit",
-        "chain": "Physical retailers",
+        "all_taiwan": "Across Taiwan",
+        "overseas": "Overseas",
         "online": "Online"
       },
       "confirmed": {
@@ -587,27 +586,24 @@
       },
       "provenance": {
         "owner": "Brand confirmed",
-        "community": "Community confirmed"
+        "community": "Community confirmed",
+        "evidence": "Source verified",
+        "sourceLine": "Source: {source}"
       },
       "ownerBanner": {
         "title": "You are the brand owner",
-        "description": "You can confirm or flag retail channel accuracy",
+        "description": "You can confirm or flag retail location accuracy",
         "confirm": "Confirm sold here",
         "reject": "Not sold here"
       },
-      "empty": {
-        "title": "No retail channel information yet",
-        "description": "If you know where this brand is sold, please share the information",
-        "cta": "Provide channel info"
-      },
       "dialog": {
-        "title": "Provide channel info",
-        "nameLabel": "Channel name",
+        "title": "Provide retail location",
+        "nameLabel": "Retail location name",
         "namePlaceholder": "e.g. Eslite Bookstore Xinyi",
-        "channelTypeLabel": "Channel type",
-        "channelTypeOnline": "Online",
-        "channelTypeOffline": "Physical store",
-        "categoryLabel": "Category",
+        "channelTypeLabel": "Sales format",
+        "channelTypeOnline": "Online sales",
+        "channelTypeOffline": "Physical location",
+        "categoryLabel": "Location category",
         "categoryPlaceholder": "Select category",
         "categoryBrandStore": "Brand store",
         "categoryDepartment": "Department counter",
@@ -621,22 +617,22 @@
         "urlPlaceholder": "https://...",
         "submit": "Submit",
         "success": "Thank you for your information!",
-        "signInRequired": "Please sign in to provide channel info"
+        "signInRequired": "Please sign in to provide a retail location"
       },
       "errors": {
         "not_logged_in": "Please sign in",
         "missing_brand_id": "Missing brand information",
         "missing_brand_slug": "Missing brand information",
-        "invalid_name": "Please enter a valid channel name",
-        "invalid_channel_type": "Please select a channel type",
+        "invalid_name": "Please enter a valid retail location name",
+        "invalid_channel_type": "Please select a sales format",
         "invalid_url": "Please enter a valid URL",
-        "active_cap_reached": "Channel limit reached for this brand",
+        "active_cap_reached": "Retail location limit reached for this brand",
         "daily_cap_reached": "Daily submission limit reached, please try again tomorrow",
-        "duplicate_name": "This channel name already exists",
+        "duplicate_name": "This retail location name already exists",
         "database_error": "System error, please try again later",
         "unknown": "An error occurred, please try again later"
       },
-      "countLabel": "{count} channels"
+      "countLabel": "{count} retail locations"
     },
     "gallery": {
       "viewer": "Photo viewer",
@@ -1742,7 +1738,6 @@
         "foundingYear": "Add your founding year",
         "socialPresence": "Connect a social account",
         "additionalSalesChannel": "Add another sales channel",
-        "retailLocations": "Add a retail location",
         "reputation": "Add reputation evidence"
       }
     },
@@ -1972,8 +1967,6 @@
       "wizardStepMediaSub": "Photos & hero image",
       "wizardStepLinks": "Social & purchase links",
       "wizardStepLinksSub": "Social & purchase links",
-      "wizardStepLocations": "Locations",
-      "wizardStepLocationsSub": "Physical locations",
       "wizardStepReputation": "Reputation",
       "wizardStepReputationSub": "Press & recognition",
       "sectionReputation": "Brand Reputation",
@@ -2006,7 +1999,6 @@
     },
     "brandProfile": {
       "productPhotos": "Product Photos",
-      "retailLocations": "Retail Locations",
       "priceRange": "Price Range",
       "purchaseLinks": "Purchase Links",
       "socialLinks": "Social Links",
@@ -2174,8 +2166,6 @@
       "addAnotherLink": "Add another link",
       "platform": "Platform",
       "socialLinks": "Social Links",
-      "retailLocations": "Retail Locations",
-      "retailLocationsHint": "Physical locations where your products are sold (optional)",
       "storeName": "Store name",
       "address": "Address",
       "addLocation": "Add location",

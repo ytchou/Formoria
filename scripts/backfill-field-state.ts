@@ -42,7 +42,6 @@ const BRAND_FIELDS: readonly string[] = [
   'social_threads',
   'social_facebook',
   'other_urls',
-  'retail_locations',
   'site_content',
   'status',
   'submitted_at',

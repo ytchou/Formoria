@@ -1,0 +1,152 @@
+brand_slug,name,location_type,channel_type,category_label,region_label,address,url,evidence_url,source_type,source_chain,confidence,notes
+2angels,Lalaport 南港 Hugger專櫃,department_store_counter,offline,kids-pets,台北市,台北市南港區經貿二路131號4F／室內區,,https://shop.2angelsbaby.com/pages/taiwan-retailers,official_website,official_website → taiwan-retailers,medium,地址由官方零售據點頁的索引內容取得；到店前建議確認庫存
+2angels,大誠婦幼萬華館,stockist,offline,kids-pets,台北市,台北市艋舺大道156號,,https://shop.2angelsbaby.com/pages/taiwan-retailers,official_website,official_website → taiwan-retailers,medium,地址由官方零售據點頁的索引內容取得；到店前建議確認庫存
+2angels,SOGO 崇光百貨 銅鑼灣店,stockist,offline,kids-pets,香港,香港銅鑼灣軒尼詩道555號,,https://shop.2angelsbaby.com/pages/hong-kong-retailers,official_website,official_website → hong-kong-retailers,high,
+2angels,SOGO 崇光百貨 啟德店 (The Twin),stockist,offline,kids-pets,香港,九龍啟德沐翠街12號,,https://shop.2angelsbaby.com/pages/hong-kong-retailers,official_website,official_website → hong-kong-retailers,high,
+2angels,一田百貨 YATA 沙田店,stockist,offline,kids-pets,香港,香港沙田正街新城市廣場三期一、二座,,https://shop.2angelsbaby.com/pages/hong-kong-retailers,official_website,official_website → hong-kong-retailers,high,
+2angels,永安百貨 Wing On 上環總店,stockist,offline,kids-pets,香港,香港上環德輔道中211號 永安中心,,https://shop.2angelsbaby.com/pages/hong-kong-retailers,official_website,official_website → hong-kong-retailers,high,
+2angels,永安百貨 Wing On 彌敦道店,stockist,offline,kids-pets,香港,九龍彌敦道345號 永安九龍中心,,https://shop.2angelsbaby.com/pages/hong-kong-retailers,official_website,official_website → hong-kong-retailers,high,
+2angels,奶泵城母嬰用品店,stockist,offline,kids-pets,香港,香港北角英皇道389號豫港電力發展大廈23樓,,https://shop.2angelsbaby.com/pages/hong-kong-retailers,official_website,official_website → hong-kong-retailers,high,
+2angels,Baby HK 母嬰用品專門店 旺角店,stockist,offline,kids-pets,香港,九龍彌敦道610號荷李活商業中心11樓1119-23室,,https://shop.2angelsbaby.com/pages/hong-kong-retailers,official_website,official_website → hong-kong-retailers,high,
+2angels,Baby HK 母嬰用品專門店 銅鑼灣店,stockist,offline,kids-pets,香港,香港銅鑼灣百德新街2號恒隆中心8樓809-811室,,https://shop.2angelsbaby.com/pages/hong-kong-retailers,official_website,official_website → hong-kong-retailers,high,
+2angels,熊孩兒 Babybearhk,stockist,offline,kids-pets,香港,九龍觀塘成業街11號華成工商中心8樓12室,,https://shop.2angelsbaby.com/pages/hong-kong-retailers,official_website,official_website → hong-kong-retailers,high,
+qbi-toy,玩具反斗城-台北新生店,stockist,offline,kids-pets,台北市,10491 台北市中山區新生北路二段28號1樓,,https://www.qbitoy.com/pages/location,official_website,official_website → location_page,medium,官方展示據點頁說明可現場體驗 Qbi；實際庫存／活動依店點
+qbi-toy,誠品書店-松菸店,stockist,offline,kids-pets,台北市,11072 台北市信義區菸廠路88號1樓,,https://www.qbitoy.com/pages/location,official_website,official_website → location_page,medium,官方展示據點頁說明可現場體驗 Qbi；實際庫存／活動依店點
+qbi-toy,SYNTREND 7F Play,stockist,offline,kids-pets,台北市,台北市中正區市民大道三段2號7F,,https://www.qbitoy.com/pages/location,official_website,official_website → location_page,medium,官方展示據點頁說明可現場體驗 Qbi；實際庫存／活動依店點
+qbi-toy,誠品書店-美麗華店,stockist,offline,kids-pets,台北市,10466 台北市中山區敬業三路20號3F（美麗華百樂園漾館3F）,,https://www.qbitoy.com/pages/location,official_website,official_website → location_page,medium,官方展示據點頁說明可現場體驗 Qbi；實際庫存／活動依店點
+qbi-toy,法雅客信義A8,stockist,offline,kids-pets,台北市,台北市信義區松高路12號5F,,https://www.qbitoy.com/pages/location,official_website,official_website → location_page,medium,官方展示據點頁說明可現場體驗 Qbi；實際庫存／活動依店點
+qbi-toy,誠品生活南西,stockist,offline,kids-pets,台北市,台北市中山區南京西路14號,,https://www.qbitoy.com/pages/location,official_website,official_website → location_page,medium,官方展示據點頁說明可現場體驗 Qbi；實際庫存／活動依店點
+qbi-toy,誠品書店-新板店,stockist,offline,kids-pets,新北市,22065 新北市板橋區縣民大道二段66號,,https://www.qbitoy.com/pages/location,official_website,official_website → location_page,medium,官方展示據點頁說明可現場體驗 Qbi；實際庫存／活動依店點
+qbi-toy,誠品書店-新店店,stockist,offline,kids-pets,新北市,231 新北市新店區中興路三段70號（新店裕隆城B1–4F）,,https://www.qbitoy.com/pages/location,official_website,official_website → location_page,medium,官方展示據點頁說明可現場體驗 Qbi；實際庫存／活動依店點
+qbi-toy,誠品書店-林口店,stockist,offline,kids-pets,新北市,24448 新北市林口區文化三路一段356號1F（MITSUI OUTLET PARK 林口）,,https://www.qbitoy.com/pages/location,official_website,official_website → location_page,medium,官方展示據點頁說明可現場體驗 Qbi；實際庫存／活動依店點
+qbi-toy,誠品書店-台茂店,stockist,offline,kids-pets,桃園市,338207 桃園市蘆竹區南崁路一段112號,,https://www.qbitoy.com/pages/location,official_website,official_website → location_page,medium,官方展示據點頁說明可現場體驗 Qbi；實際庫存／活動依店點
+qbi-toy,誠品書店-新竹巨城店,stockist,offline,kids-pets,新竹市,30041 新竹市中央路229號5F,,https://www.qbitoy.com/pages/location,official_website,official_website → location_page,medium,官方展示據點頁說明可現場體驗 Qbi；實際庫存／活動依店點
+qbi-toy,誠品書店-竹北遠百店,stockist,offline,kids-pets,新竹縣,302 新竹縣竹北市莊敬北路18號B2,,https://www.qbitoy.com/pages/location,official_website,official_website → location_page,medium,官方展示據點頁說明可現場體驗 Qbi；實際庫存／活動依店點
+qbi-toy,誠品生活園道店,stockist,offline,kids-pets,台中市,40360 台中市西區公益路68號（勤美誠品綠園道3F）,,https://www.qbitoy.com/pages/location,official_website,official_website → location_page,medium,官方展示據點頁說明可現場體驗 Qbi；實際庫存／活動依店點
+qbi-toy,法雅客台中中港店,stockist,offline,kids-pets,台中市,台中市西屯區台灣大道三段301號9F,,https://www.qbitoy.com/pages/location,official_website,official_website → location_page,medium,官方展示據點頁說明可現場體驗 Qbi；實際庫存／活動依店點
+qbi-toy,誠品書店-台南店,stockist,offline,kids-pets,台南市,70155 台南市南區中華西路一段76號,,https://www.qbitoy.com/pages/location,official_website,official_website → location_page,medium,官方展示據點頁說明可現場體驗 Qbi；實際庫存／活動依店點
+qbi-toy,誠品書店-南紡店,stockist,offline,kids-pets,台南市,70155 台南市東區中華東路一段366號（南紡購物中心2F）,,https://www.qbitoy.com/pages/location,official_website,official_website → location_page,medium,官方展示據點頁說明可現場體驗 Qbi；實際庫存／活動依店點
+qbi-toy,法雅客小西門,stockist,offline,kids-pets,台南市,台南市中西區西門路一段658-1號1F,,https://www.qbitoy.com/pages/location,official_website,official_website → location_page,medium,官方展示據點頁說明可現場體驗 Qbi；實際庫存／活動依店點
+qbi-toy,玩具反斗城-夢時代店,stockist,offline,kids-pets,高雄市,高雄市前鎮區中華五路789號5樓（夢時代藍鯨館5F）,,https://www.qbitoy.com/pages/location,official_website,official_website → location_page,medium,官方展示據點頁說明可現場體驗 Qbi；實際庫存／活動依店點
+qbi-toy,誠品生活-義享店,stockist,offline,kids-pets,高雄市,高雄市鼓山區大順一路115號（義享時尚廣場3F）,,https://www.qbitoy.com/pages/location,official_website,official_website → location_page,medium,官方展示據點頁說明可現場體驗 Qbi；實際庫存／活動依店點
+playme-toys,法雅客-新光三越信義A8,stockist,offline,kids-pets,台北市,台北市信義區松高路12號5樓,,https://www.playmetoys.com/data-213486,official_website,official_website → 國內銷售據點,high,
+playme-toys,清水溪書店,stockist,offline,kids-pets,台北市,台北市大安區樂業街87號2樓,,https://www.playmetoys.com/data-213486,official_website,official_website → 國內銷售據點,high,
+playme-toys,好童年台大醫院,stockist,offline,kids-pets,台北市,台北市中正區中山南路8號B1,,https://www.playmetoys.com/data-213486,official_website,official_website → 國內銷售據點,high,
+playme-toys,玩偶小舖（平日營業）,stockist,offline,kids-pets,台中市,台中市潭子區民族路二段301巷25號,,https://www.playmetoys.com/data-213486,official_website,official_website → 國內銷售據點,high,請事先預約
+playme-toys,無印良品 Lalaport台中門市,stockist,offline,kids-pets,台中市,台中市東區進德路700號1F南館,,https://www.playmetoys.com/data-213486,official_website,official_website → 國內銷售據點,high,
+playme-toys,腦力飛翔工坊,stockist,offline,kids-pets,台中市,台中市北區館前路1號（科博館人類文化廳2F）,,https://www.playmetoys.com/data-213486,official_website,official_website → 國內銷售據點,high,
+playme-toys,好日商店,stockist,offline,kids-pets,台中市,台中市北區館前路1號B1（植物園地下一樓）,,https://www.playmetoys.com/data-213486,official_website,official_website → 國內銷售據點,high,
+playme-toys,日南來心肉 O'Dmar肉舖子,stockist,offline,kids-pets,台中市,台中市大甲區中山路二段204號,,https://www.playmetoys.com/data-213486,official_website,official_website → 國內銷售據點,high,
+playme-toys,樂寶貝國際有限公司（夢時代專櫃）,department_store_counter,offline,kids-pets,高雄市,高雄市前鎮區中華五路789號5樓（F5D08a櫃位）,,https://www.playmetoys.com/data-213486,official_website,official_website → 國內銷售據點,high,
+playme-toys,樂寶貝國際有限公司（南紡購物）,department_store_counter,offline,kids-pets,台南市,台南市東區中華東路一段366號4樓,,https://www.playmetoys.com/data-213486,official_website,official_website → 國內銷售據點,high,
+playme-toys,娃娃世界-鳳山親子館,stockist,offline,kids-pets,高雄市,高雄市鳳山區青年路二段309號,,https://www.playmetoys.com/data-213486,official_website,official_website → 國內銷售據點,high,
+playme-toys,樂寶貝國際有限公司（TheBaby高雄巨蛋）,department_store_counter,offline,kids-pets,高雄市,高雄市左營區博愛二路777號6樓,,https://www.playmetoys.com/data-213486,official_website,official_website → 國內銷售據點,high,
+playme-toys,娃娃世界-富國精品館,stockist,offline,kids-pets,高雄市,高雄市左營區立文路2號,,https://www.playmetoys.com/data-213486,official_website,official_website → 國內銷售據點,high,
+playme-toys,樂寶貝國際有限公司（THE BABY本館專櫃）,department_store_counter,offline,kids-pets,高雄市,高雄市前金區成功一路266-1號8F,,https://www.playmetoys.com/data-213486,official_website,official_website → 國內銷售據點,high,
+playme-toys,長榮鳳凰酒店-礁溪店,stockist,offline,kids-pets,宜蘭縣,宜蘭縣礁溪鄉健康路77號,,https://www.playmetoys.com/data-213486,official_website,official_website → 國內銷售據點,high,
+playme-toys,白水商號x橋本書屋,stockist,offline,kids-pets,花蓮縣,花蓮縣花蓮市節約街27號1樓,,https://www.playmetoys.com/data-213486,official_website,official_website → 國內銷售據點,high,
+playme-toys,樂見里8號閱覽室,stockist,offline,kids-pets,花蓮縣,花蓮市中華路144號花蓮文創園區第8棟,,https://www.playmetoys.com/data-213486,official_website,official_website → 國內銷售據點,high,
+playme-toys,福樂多事業股份有限公司,stockist,offline,kids-pets,高雄市,高雄市鼓山區美術東二路85號2樓,,https://www.playmetoys.com/data-213486,official_website,official_website → 國內銷售據點,high,
+playme-toys,愛力樂健小站,stockist,offline,kids-pets,新北市,新北市林口區仁愛路二段206之3號,,https://www.playmetoys.com/data-213486,official_website,official_website → 國內銷售據點,high,
+pato-pato,娃娃世界台北旗艦店(圍欄體驗),stockist,offline,kids-pets,新北市,新北市中和區建康路150號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,NICE to MEET U newborn & café,stockist,offline,kids-pets,台北市,台北市松山區民生東路四段56巷1弄17號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,禾全藥局(僅售清潔液),stockist,offline,kids-pets,台北市,台北市中山區龍江路332號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,BabyCar親子生活館,stockist,offline,kids-pets,桃園市,桃園市桃園區信光路56號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,蟲寶寶嬰幼兒精品生活館(藝文店),stockist,offline,kids-pets,桃園市,桃園市桃園區中正路875號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,新小天地婦幼百貨,stockist,offline,kids-pets,新竹縣,新竹縣竹東鎮學前路39號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,BabyCar 竹北門市,stockist,offline,kids-pets,新竹縣,新竹縣竹北市縣政六路46號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,蟲寶寶嬰幼兒精品生活館,stockist,offline,kids-pets,台中市,台中市西區忠明路30號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,小南國--台中龍德總店,stockist,offline,kids-pets,台中市,台中市南屯區龍德路一段28號2F,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,嬰之房台中門市,stockist,offline,kids-pets,台中市,台中市北屯區經貿一路130-1號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,麗兒采家--大墩門市(圍欄體驗),stockist,offline,kids-pets,台中市,台中市向上路一段604號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,麗兒采家--進化門市,stockist,offline,kids-pets,台中市,台中市進化北路55-1號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,麗兒采家--河南門市,stockist,offline,kids-pets,台中市,台中市河南路二段500-7號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,麗兒采家--國光門市,stockist,offline,kids-pets,台中市,台中市大里區國光路二段419號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,麗兒采家--烏日門市,stockist,offline,kids-pets,台中市,台中市烏日區中山路二段110號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,麗兒采家--彰化三民門市,stockist,offline,kids-pets,彰化縣,彰化縣彰化市三民路69號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,麗兒采家--員林中正門市,stockist,offline,kids-pets,彰化縣,彰化縣員林市中正路104-2號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,麗兒采家--北門家樂福門市,stockist,offline,kids-pets,嘉義市,嘉義市忠孝路346巷21號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,麗兒采家--博愛家樂福門市,stockist,offline,kids-pets,嘉義市,嘉義市西區博愛路二段461號B1,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,麗兒采家--斗六門市,stockist,offline,kids-pets,雲林縣,雲林縣斗六市雲林路2段351號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,麗兒采家--草屯中正門市,stockist,offline,kids-pets,南投縣,南投縣草屯鎮中正路840號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,新光三越(嘉義垂楊店),stockist,offline,kids-pets,嘉義市,嘉義市西區垂楊路726號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,麗兒采家--佳里門市,stockist,offline,kids-pets,台南市,台南市佳里區仁愛路388號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,麗兒采家--南紡門市,stockist,offline,kids-pets,台南市,台南市東區中華東路一段216號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+pato-pato,The baby育兒選物店(台南南紡購物中心),stockist,offline,kids-pets,台南市,台南市東區中華東路一段366號,,https://www.patopato.co/pages/store-old,official_website,official_website → current_store_page + still-live_legacy_location_directory,medium,目前官網仍有門市據點頁；分店地址來自仍在線舊版銷售據點目錄，建議到店前確認
+mr-sci-science-factory,SYNTREND 三創生活 7F 賽先生科學工廠,direct_store,offline,kids-pets,台北市,台北市中正區市民大道三段2號7樓,https://www.mr-sai.com/pages/store,https://www.mr-sai.com/pages/store,official_website,official_website → 實體店面 → 直營門市,high,官方頁明確列為賽先生科學工廠直營門市
+mr-sci-science-factory,總公司門市 大直店 (暢貨中心),direct_store,offline,kids-pets,台北市,台北市中山區明水路397巷7弄25號B1,https://www.mr-sai.com/pages/store,https://www.mr-sai.com/pages/store,official_website,official_website → 實體店面 → 直營門市,high,官方頁明確列為賽先生科學工廠直營門市
+mr-sci-science-factory,台北誠品生活松菸店2F,direct_store,offline,kids-pets,台北市,台北市信義區菸廠路88號2F,https://www.mr-sai.com/pages/store,https://www.mr-sai.com/pages/store,official_website,official_website → 實體店面 → 直營門市,high,官方頁明確列為賽先生科學工廠直營門市
+mr-sci-science-factory,松菸風格店家 小獵犬號,direct_store,offline,kids-pets,台北市,台北市信義區光復南路133號,https://www.mr-sai.com/pages/store,https://www.mr-sai.com/pages/store,official_website,official_website → 實體店面 → 直營門市,high,官方頁明確列為賽先生科學工廠直營門市
+mr-sci-science-factory,台北華山1914 文化創意店,direct_store,offline,kids-pets,台北市,台北市中正區八德路一段1號（中4A-2館）,https://www.mr-sai.com/pages/store,https://www.mr-sai.com/pages/store,official_website,official_website → 實體店面 → 直營門市,high,官方頁明確列為賽先生科學工廠直營門市
+mr-sci-science-factory,台北科教館門市2F,direct_store,offline,kids-pets,台北市,台北市士林區士商路189號2樓,https://www.mr-sai.com/pages/store,https://www.mr-sai.com/pages/store,official_website,official_website → 實體店面 → 直營門市,high,官方頁明確列為賽先生科學工廠直營門市
+糖果屋幼教用品社,糖果屋幼教用品社 三重門市,direct_store,offline,kids-pets,新北市,新北市三重區集美街126巷24號1樓,https://candyhouse.cyberbiz.co/,https://candyhouse.cyberbiz.co/,official_website,official_website → footer + instagram_profile → store_operations,medium,官方網站提供店面地址；官方社群近期仍有門市營運資訊
+lianne-baby,Lianne Baby 梨安門市,direct_store,offline,kids-pets,新北市,新北市中和區民享街37號-118號店面（民享市場內）,https://www.liannebaby.com/,https://www.liannebaby.com/,official_website,official_website → footer → 門市資訊,medium,官方網站門市資訊；到店前建議確認營業狀態
+wewee,安琪兒 福州旗艦店,stockist,offline,kids-pets,台北市,台北市中正區福州街11-5號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,安琪兒 八德店,stockist,offline,kids-pets,台北市,台北市松山區八德路二段441號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,安琪兒 內湖店,stockist,offline,kids-pets,台北市,台北市內湖區文德路36號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,安琪兒 國泰店,stockist,offline,kids-pets,台北市,台北市大安區仁愛路4段266巷15弄2號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,安琪兒 和平店,stockist,offline,kids-pets,台北市,台北市大安區和平東路一段274-1號1樓及B1,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,安琪兒 新北中和體驗店,stockist,offline,kids-pets,新北市,新北市中和區建康路10號2樓,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,安琪兒 新北板橋新板店,stockist,offline,kids-pets,新北市,新北市板橋區中山路1段208號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,安琪兒 新北林口仁愛旗艦店,stockist,offline,kids-pets,新北市,新北市林口區仁愛路二段163號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,安琪兒 新北中和環球店,stockist,offline,kids-pets,新北市,新北市中和區中山路三段122號3樓（環球購物中心中和店3樓，319-1區）,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,安琪兒 蘆洲長榮店,stockist,offline,kids-pets,新北市,新北市蘆洲區長榮路375-1號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,安琪兒 桃園旗艦店,stockist,offline,kids-pets,桃園市,桃園市桃園區經國二路52號1樓,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,安琪兒 桃園環球店(A19站),stockist,offline,kids-pets,桃園市,桃園市桃園區高鐵南路二段352號3樓（317櫃位）,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,安琪兒 桃園慈文店,stockist,offline,kids-pets,桃園市,桃園市桃園區慈文路808號1、2樓,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,安琪兒 新竹竹北旗艦店,stockist,offline,kids-pets,新竹縣,新竹縣竹北市博愛街551號1樓,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,安琪兒 台中廣三SOGO店,stockist,offline,kids-pets,台中市,台中市西區臺灣大道二段459號8樓,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,安琪兒 台中旗艦店,stockist,offline,kids-pets,台中市,台中市西屯區福玄路83號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,安琪兒 台中豐原店,stockist,offline,kids-pets,台中市,台中市豐原區圓環北路一段298號1樓,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,麗兒采家 大墩旗艦店,stockist,offline,kids-pets,台中市,台中市向上路一段604號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,麗兒采家 進化門市,stockist,offline,kids-pets,台中市,台中市進化北路55-1號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,麗兒采家 河南門市,stockist,offline,kids-pets,台中市,台中市河南路二段500-7號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,麗兒采家 國光門市,stockist,offline,kids-pets,台中市,台中市大里區國光路二段419號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,麗兒采家 烏日門市,stockist,offline,kids-pets,台中市,台中市烏日區中山路二段110號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,麗兒采家 斗六門市,stockist,offline,kids-pets,雲林縣,雲林縣斗六市雲林路2段351號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,麗兒采家 嘉義旗艦店,stockist,offline,kids-pets,嘉義市,嘉義市四維路136號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,麗兒采家 彰化三民,stockist,offline,kids-pets,彰化縣,彰化縣彰化市三民路69號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,麗兒采家 員林中正,stockist,offline,kids-pets,彰化縣,彰化縣員林市中正路104-2號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,麗兒采家 佳里門市,stockist,offline,kids-pets,台南市,台南市佳里區進學路169號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,麗兒采家 台南旗艦店,stockist,offline,kids-pets,台南市,台南市東區中華東路一段216號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,傑西寶寶 台北｜大安門市,stockist,offline,kids-pets,台北市,台北市大安區光復南路442號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,傑西寶寶 新北｜新北中和,stockist,offline,kids-pets,新北市,新北市中和區中山路三段173號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,傑西寶寶 桃園｜慈文門市,stockist,offline,kids-pets,桃園市,桃園市桃園區慈文路819號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,傑西寶寶 台中｜北屯門市,stockist,offline,kids-pets,台中市,台中市北屯區松竹五路一段280號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,傑西寶寶 台南｜永康門市,stockist,offline,kids-pets,台南市,台南市永康區東橋十街100號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,傑西寶寶 高雄｜中山門市,stockist,offline,kids-pets,高雄市,高雄市苓雅區中山二路355號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,THE BABY 台南 南紡旗艦店,stockist,offline,kids-pets,台南市,台南市東區中華東路一段366號A1館4F,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,THE BABY 高雄 漢神巨蛋店,stockist,offline,kids-pets,高雄市,高雄市左營區博愛二路777號6F,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,THE BABY 高雄 漢神百貨店,stockist,offline,kids-pets,高雄市,高雄市前金區成功一路266-1號7F,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,THE BABY 高雄 夢時代店,stockist,offline,kids-pets,高雄市,高雄市前鎮區中華五路789號5F（F5D08a）,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,THE BABY 台中 漢神洲際購物中心,stockist,offline,kids-pets,台中市,台中市北屯區崇德路三段865號5F,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,POLIN 寶齡中清,stockist,offline,kids-pets,台中市,臺中市北區賴福里中清路一段480號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,POLIN 寶齡昌平,stockist,offline,kids-pets,台中市,臺中市北屯區平昌里昌平路一段66號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,POLIN 寶齡育賢店,stockist,offline,kids-pets,台中市,臺中市太平區育賢路372號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,POLIN 寶齡文心,stockist,offline,kids-pets,台中市,臺中市西屯區何仁里文心路三段121號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,POLIN 寶齡東山,stockist,offline,kids-pets,台中市,臺中市北屯區軍功里東山路一段236之3號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,步步樂豐原店,stockist,offline,kids-pets,台中市,420 臺中市豐原區豐圳里成功路500號4樓,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,曖麗嬰童百貨店,stockist,offline,kids-pets,台北市,台北市中正區南昌路一段163號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,永育中醫診所,stockist,offline,kids-pets,台中市,台中市西屯區大墩路929號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+wewee,祐心藥局,stockist,offline,kids-pets,台中市,台中市北屯區東山路一段2號,,https://www.wewee.com.tw/pages/shop-1,official_website,official_website → 門市據點,high,官方頁明示全台門市都買得到
+cani,CANI 台中門市,direct_store,offline,kids-pets,台中市,台中市西區公益路379號,https://www.cani.com.tw/store/,https://www.cani.com.tw/store/,official_website,official_website → store,high,
+cani,CANI 新竹東大門市,direct_store,offline,kids-pets,新竹市,新竹市東大路一段13號,https://www.cani.com.tw/store/,https://www.cani.com.tw/store/,official_website,official_website → store,high,
+cani,CANI 台北A8門市,direct_store,offline,kids-pets,台北市,台北市信義區松高路12號4樓,https://www.cani.com.tw/store/,https://www.cani.com.tw/store/,official_website,official_website → store,high,
+baby-baby-cool,Baby Baby Cool 台北信義新天地A8,department_store_counter,offline,kids-pets,台北市,台北市信義區松高路12號4樓,https://babybabycool.com/pages/%E9%96%80%E5%B8%82%E6%93%9A%E9%BB%9E,https://babybabycool.com/pages/%E9%96%80%E5%B8%82%E6%93%9A%E9%BB%9E,official_website,official_website → 門市據點,high,目前官方門市據點頁列示
+baby-baby-cool,Baby Baby Cool 新光三越 台北南西店（一館）,department_store_counter,offline,kids-pets,台北市,台北市中山區南京西路12號6樓,https://babybabycool.com/pages/%E9%96%80%E5%B8%82%E6%93%9A%E9%BB%9E,https://babybabycool.com/pages/%E9%96%80%E5%B8%82%E6%93%9A%E9%BB%9E,official_website,official_website → 門市據點,high,目前官方門市據點頁列示
+baby-baby-cool,Baby Baby Cool 新光三越 高雄左營店,department_store_counter,offline,kids-pets,高雄市,高雄市左營區高鐵路123號5樓,https://babybabycool.com/pages/%E9%96%80%E5%B8%82%E6%93%9A%E9%BB%9E,https://babybabycool.com/pages/%E9%96%80%E5%B8%82%E6%93%9A%E9%BB%9E,official_website,official_website → 門市據點,high,目前官方門市據點頁列示
+baby-baby-cool,Baby Baby Cool 新光三越 台南新天地西門店,department_store_counter,offline,kids-pets,台南市,台南市中西區西門路一段658號3樓,https://babybabycool.com/pages/%E9%96%80%E5%B8%82%E6%93%9A%E9%BB%9E,https://babybabycool.com/pages/%E9%96%80%E5%B8%82%E6%93%9A%E9%BB%9E,official_website,official_website → 門市據點,high,目前官方門市據點頁列示
+baby-baby-cool,Baby Baby Cool 新光三越 台中中港店,department_store_counter,offline,kids-pets,台中市,台中市西屯區台灣大道三段301號6樓,https://babybabycool.com/pages/%E9%96%80%E5%B8%82%E6%93%9A%E9%BB%9E,https://babybabycool.com/pages/%E9%96%80%E5%B8%82%E6%93%9A%E9%BB%9E,official_website,official_website → 門市據點,high,目前官方門市據點頁列示
+sikaer,喜可生活 大里廠區（需事先預約）,showroom_studio,offline,kids-pets,台中市,台中市大里區國中路十股巷166弄1號,,https://www.sikaer.com.tw/pages/partnership-1,official_website,official_website → partnership-1 → physical_partner_stores,high,官方明示可看實品；週一至週五 9:00–17:30，需事先預約
+sikaer,台隆手創館 復興店,stockist,offline,kids-pets,台北市,台北市忠孝東路三段300號8樓（SOGO復興館8樓）,,https://www.sikaer.com.tw/pages/partnership-1,official_website,official_website → partnership-1 → physical_partner_stores,high,展示及現貨（擦髮巾）
+sikaer,台隆手創館 京站店,stockist,offline,kids-pets,台北市,台北市承德路一段1號3樓,,https://www.sikaer.com.tw/pages/partnership-1,official_website,official_website → partnership-1 → physical_partner_stores,high,展示及現貨（擦髮巾）
+sikaer,台隆手創館 美麗華店,stockist,offline,kids-pets,台北市,台北市敬業三路20號3樓,,https://www.sikaer.com.tw/pages/partnership-1,official_website,official_website → partnership-1 → physical_partner_stores,high,展示及現貨（擦髮巾）
+sikaer,台隆手創館 南港LaLaport店,stockist,offline,kids-pets,台北市,台北市南港區經貿二路131號3樓,,https://www.sikaer.com.tw/pages/partnership-1,official_website,official_website → partnership-1 → physical_partner_stores,high,展示及現貨（擦髮巾）
+sikaer,台隆手創館 板橋大遠百店,stockist,offline,kids-pets,新北市,新北市板橋區新站路28號7樓,,https://www.sikaer.com.tw/pages/partnership-1,official_website,official_website → partnership-1 → physical_partner_stores,high,展示及現貨（擦髮巾）
+sikaer,台隆手創館 台中三越店,stockist,offline,kids-pets,台中市,台中市台灣大道301號8樓,,https://www.sikaer.com.tw/pages/partnership-1,official_website,official_website → partnership-1 → physical_partner_stores,high,展示及現貨（擦髮巾）；地址依官方來源原文保留
+sikaer,台隆手創館 台中遠百店,stockist,offline,kids-pets,台中市,台中市台灣大道三段251號9樓,,https://www.sikaer.com.tw/pages/partnership-1,official_website,official_website → partnership-1 → physical_partner_stores,high,展示及現貨（擦髮巾）
+sikaer,台隆手創館 廣三SOGO店,stockist,offline,kids-pets,台中市,台中市西區台灣大道二段459號B1,,https://www.sikaer.com.tw/pages/partnership-1,official_website,official_website → partnership-1 → physical_partner_stores,high,展示及現貨（擦髮巾）
+sikaer,台隆手創館 台中LaLaport店,stockist,offline,kids-pets,台中市,台中市東區進德路700號2樓,,https://www.sikaer.com.tw/pages/partnership-1,official_website,official_website → partnership-1 → physical_partner_stores,high,展示及現貨（擦髮巾）
+sikaer,JA2 Concept,stockist,offline,kids-pets,"Queensland, Australia","Unit 4, 579 Kessels Road, Macgregor, QLD, Australia 4109",,https://www.sikaer.com.tw/pages/partnership-1,official_website,official_website → partnership-1 → physical_partner_stores,high,實體店（擦髮巾）
+sikaer,植人製造｜Traveggo Store,stockist,offline,kids-pets,台中市,403 台中市西區精忠街20號,,https://www.sikaer.com.tw/pages/partnership-1,official_website,official_website → partnership-1 → physical_partner_stores,high,實體合作店（好好棉布衛生棉）
+odout,寵物公園一心店,stockist,offline,kids-pets,台中市,台中市南屯區公益路二段169號,,https://www.odout.com/Shop/StoreDetail/40862/40120,official_website,official_website → store_list → store_detail,medium,官方店舖詳細頁／索引內容確認販售；到店前建議確認庫存

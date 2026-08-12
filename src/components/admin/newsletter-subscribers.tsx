@@ -62,7 +62,12 @@ export function NewsletterSubscribersList({
 
   return (
     <>
-      <div className={surfaceCardStyles({ padding: "none", className: "overflow-x-auto" })}>
+      <div
+        className={surfaceCardStyles({
+          padding: "none",
+          className: "overflow-x-auto",
+        })}
+      >
         <Table>
           <TableHeader>
             <TableRow>
@@ -77,7 +82,10 @@ export function NewsletterSubscribersList({
           <TableBody>
             {subscribers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={6}
+                  className="py-8 text-center text-muted-foreground"
+                >
                   No subscribers match these filters.
                 </TableCell>
               </TableRow>
@@ -86,13 +94,19 @@ export function NewsletterSubscribersList({
                 <TableRow key={subscriber.id}>
                   <TableCell>
                     <p className="font-medium">{subscriber.email}</p>
-                    {subscriber.name ? <p className="text-sm text-muted-foreground">{subscriber.name}</p> : null}
+                    {subscriber.name ? (
+                      <p className="type-body-muted">{subscriber.name}</p>
+                    ) : null}
                   </TableCell>
-                  <TableCell><StatusBadge status={subscriber.status} /></TableCell>
+                  <TableCell>
+                    <StatusBadge status={subscriber.status} />
+                  </TableCell>
                   <TableCell>
                     <div className="flex max-w-72 flex-wrap gap-1.5">
                       {(subscriber.interests ?? []).map((interest) => (
-                        <Badge key={interest} variant="outline">{INTEREST_LABELS[interest] ?? interest}</Badge>
+                        <Badge key={interest} variant="outline">
+                          {INTEREST_LABELS[interest] ?? interest}
+                        </Badge>
                       ))}
                     </div>
                   </TableCell>
@@ -132,7 +146,9 @@ export function NewsletterSubscribersList({
       </div>
       <ConfirmDialog
         open={unsubscribeId !== null}
-        onOpenChange={(open) => { if (!open) setUnsubscribeId(null); }}
+        onOpenChange={(open) => {
+          if (!open) setUnsubscribeId(null);
+        }}
         title="Unsubscribe this address?"
         description="This immediately opts the subscriber out and rotates their email tokens. Reactivation is not available from admin."
         onConfirm={unsubscribe}
@@ -144,11 +160,36 @@ export function NewsletterSubscribersList({
   );
 }
 
-function StatusBadge({ status }: { status: AdminNewsletterSubscriber["status"] }) {
-  const label = status === "active" ? "Active" : status === "unsubscribed" ? "Unsubscribed" : "Pending";
-  return <Badge variant={status === "active" ? "verified" : status === "unsubscribed" ? "outline" : "secondary"}>{label}</Badge>;
+function StatusBadge({
+  status,
+}: {
+  status: AdminNewsletterSubscriber["status"];
+}) {
+  const label =
+    status === "active"
+      ? "Active"
+      : status === "unsubscribed"
+        ? "Unsubscribed"
+        : "Pending";
+  return (
+    <Badge
+      variant={
+        status === "active"
+          ? "verified"
+          : status === "unsubscribed"
+            ? "outline"
+            : "secondary"
+      }
+    >
+      {label}
+    </Badge>
+  );
 }
 
 function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("en-US", { year: "numeric", month: "short", day: "numeric" }).format(new Date(value));
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(value));
 }

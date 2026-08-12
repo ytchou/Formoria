@@ -265,17 +265,23 @@ export type Database = {
           brand_id: string
           category_label: string | null
           channel_type: string
+          country: string | null
           created_at: string
           created_by: string | null
+          fetched_at: string | null
           id: string
+          last_confirmed_at: string | null
+          location_type: string | null
           name: string
           normalized_name: string
           owner_status: string
           owner_status_by: string | null
+          provider_metadata: Json | null
           region_label: string | null
           removed_at: string | null
           removed_by: string | null
           source: string
+          source_url: string | null
           updated_at: string
           url: string | null
         }
@@ -284,17 +290,23 @@ export type Database = {
           brand_id: string
           category_label?: string | null
           channel_type: string
+          country?: string | null
           created_at?: string
           created_by?: string | null
+          fetched_at?: string | null
           id?: string
+          last_confirmed_at?: string | null
+          location_type?: string | null
           name: string
           normalized_name: string
           owner_status?: string
           owner_status_by?: string | null
+          provider_metadata?: Json | null
           region_label?: string | null
           removed_at?: string | null
           removed_by?: string | null
           source: string
+          source_url?: string | null
           updated_at?: string
           url?: string | null
         }
@@ -303,17 +315,23 @@ export type Database = {
           brand_id?: string
           category_label?: string | null
           channel_type?: string
+          country?: string | null
           created_at?: string
           created_by?: string | null
+          fetched_at?: string | null
           id?: string
+          last_confirmed_at?: string | null
+          location_type?: string | null
           name?: string
           normalized_name?: string
           owner_status?: string
           owner_status_by?: string | null
+          provider_metadata?: Json | null
           region_label?: string | null
           removed_at?: string | null
           removed_by?: string | null
           source?: string
+          source_url?: string | null
           updated_at?: string
           url?: string | null
         }
@@ -677,86 +695,6 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      brand_location_candidates: {
-        Row: {
-          audit_result_ids: string[]
-          brand_id: string | null
-          channel_id: string | null
-          created_at: string
-          evidence: Json
-          id: string
-          job_id: string | null
-          location: Json
-          match_reason: string
-          normalized_address: string | null
-          normalized_identity: string
-          submission_id: string | null
-          updated_at: string
-          verification_decision: string
-        }
-        Insert: {
-          audit_result_ids?: string[]
-          brand_id?: string | null
-          channel_id?: string | null
-          created_at?: string
-          evidence?: Json
-          id?: string
-          job_id?: string | null
-          location: Json
-          match_reason: string
-          normalized_address?: string | null
-          normalized_identity: string
-          submission_id?: string | null
-          updated_at?: string
-          verification_decision: string
-        }
-        Update: {
-          audit_result_ids?: string[]
-          brand_id?: string | null
-          channel_id?: string | null
-          created_at?: string
-          evidence?: Json
-          id?: string
-          job_id?: string | null
-          location?: Json
-          match_reason?: string
-          normalized_address?: string | null
-          normalized_identity?: string
-          submission_id?: string | null
-          updated_at?: string
-          verification_decision?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "brand_location_candidates_brand_id_fkey"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "brand_location_candidates_channel_id_fkey"
-            columns: ["channel_id"]
-            isOneToOne: false
-            referencedRelation: "brand_channels"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "brand_location_candidates_job_id_fkey"
-            columns: ["job_id"]
-            isOneToOne: false
-            referencedRelation: "curation_jobs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "brand_location_candidates_submission_id_fkey"
-            columns: ["submission_id"]
-            isOneToOne: false
-            referencedRelation: "brand_submissions"
             referencedColumns: ["id"]
           },
         ]
@@ -2885,13 +2823,6 @@ export type Database = {
         Args: { p_reviewer_id: string; p_submission_id: string }
         Returns: string[]
       }
-      apply_brand_refresh_locations: {
-        Args: { p_reviewer_id: string; p_submission_ids: string[] }
-        Returns: {
-          applied_brand_id: string
-          applied_submission_id: string
-        }[]
-      }
       apply_brand_refresh_with_protected_location_gate: {
         Args: { p_reviewer_id: string; p_submission_id: string }
         Returns: string[]
@@ -3260,10 +3191,6 @@ export type Database = {
         Args: { p_job_id: string; p_worker_token: string }
         Returns: boolean
       }
-      merge_verified_location_candidate: {
-        Args: { p_existing: Json; p_incoming: Json }
-        Returns: Json
-      }
       persist_curation_job_target_progress: {
         Args: {
           p_current_phase?: string
@@ -3276,6 +3203,45 @@ export type Database = {
       }
       purchase_channel_sql_surface: { Args: never; Returns: Json }
       read_health_directory_database_evidence: { Args: never; Returns: Json }
+      rearm_health_fix_canary: {
+        Args: { p_fingerprint: string }
+        Returns: {
+          attempt_count: number
+          attempted_at: string | null
+          confirmation_data: Json | null
+          created_at: string
+          deployed_at: string | null
+          evidence: Json
+          fingerprint: string
+          fixed_at: string | null
+          id: string
+          key_frames: Json | null
+          last_error: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
+          linear_identifier: string | null
+          merge_policy: string
+          merge_sha: string | null
+          next_attempt_at: string | null
+          pr_number: number | null
+          pr_url: string | null
+          recommended_action: string | null
+          seer_root_cause: string | null
+          sentry_issue_id: string | null
+          source: string
+          status: string
+          ticketed_at: string | null
+          title: string
+          updated_at: string
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "health_fix_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       reconcile_health_fix_lifecycle: {
         Args: {
           p_completed_sources: string[]
@@ -3390,6 +3356,45 @@ export type Database = {
           p_submission_id: string
         }
         Returns: string[]
+      }
+      release_health_fix_claims: {
+        Args: { p_lease_owner: string }
+        Returns: {
+          attempt_count: number
+          attempted_at: string | null
+          confirmation_data: Json | null
+          created_at: string
+          deployed_at: string | null
+          evidence: Json
+          fingerprint: string
+          fixed_at: string | null
+          id: string
+          key_frames: Json | null
+          last_error: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
+          linear_identifier: string | null
+          merge_policy: string
+          merge_sha: string | null
+          next_attempt_at: string | null
+          pr_number: number | null
+          pr_url: string | null
+          recommended_action: string | null
+          seer_root_cause: string | null
+          sentry_issue_id: string | null
+          source: string
+          status: string
+          ticketed_at: string | null
+          title: string
+          updated_at: string
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "health_fix_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       request_brand_refresh: {
         Args: {

@@ -24,8 +24,15 @@ const ERROR_MESSAGE_KEYS = {
   "oauth-failed": "signIn.errors.oauthFailed",
 } as const;
 
-export function SignInForm({ claimToken, claimBrandName, errorCode }: SignInFormProps) {
-  const [state, action, pending] = useActionState<AuthState, FormData>(signIn, {});
+export function SignInForm({
+  claimToken,
+  claimBrandName,
+  errorCode,
+}: SignInFormProps) {
+  const [state, action, pending] = useActionState<AuthState, FormData>(
+    signIn,
+    {},
+  );
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
   const next = searchParams.get("next");
@@ -55,16 +62,12 @@ export function SignInForm({ claimToken, claimBrandName, errorCode }: SignInForm
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="type-section-title-large">
-          {t("signIn.heading")}
-        </h1>
-        <p className="type-card-description">
-          {t("signIn.subheading")}
-        </p>
+        <h1 className="type-section-title-large">{t("signIn.heading")}</h1>
+        <p className="type-card-description">{t("signIn.subheading")}</p>
       </div>
 
       {claimToken && claimBrandName && (
-        <div className="rounded-lg border border-cta/20 bg-cta/5 px-4 py-3 text-sm">
+        <div className="rounded-lg border border-cta/20 bg-cta/5 px-4 py-3 type-body">
           {t.rich("signIn.claimMessage", {
             brandName: claimBrandName,
             strong: (chunks) => <strong>{chunks}</strong>,
@@ -73,13 +76,16 @@ export function SignInForm({ claimToken, claimBrandName, errorCode }: SignInForm
       )}
 
       {message && (
-        <div className="rounded-lg bg-secondary px-4 py-3 text-sm text-secondary-foreground">
+        <div className="rounded-lg bg-secondary px-4 py-3 type-body text-secondary-foreground">
           {message}
         </div>
       )}
 
       {errorMessage && (
-        <div role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div
+          role="alert"
+          className="rounded-lg bg-destructive/10 px-4 py-3 type-body text-destructive"
+        >
           {errorMessage}
         </div>
       )}
@@ -89,9 +95,7 @@ export function SignInForm({ claimToken, claimBrandName, errorCode }: SignInForm
         {claimToken && (
           <input type="hidden" name="claimToken" value={claimToken} />
         )}
-        {next && (
-          <input type="hidden" name="next" value={next} />
-        )}
+        {next && <input type="hidden" name="next" value={next} />}
 
         <div className="space-y-2">
           <Label htmlFor="email">{t("signIn.emailLabel")}</Label>
@@ -125,7 +129,12 @@ export function SignInForm({ claimToken, claimBrandName, errorCode }: SignInForm
           </Link>
         </div>
 
-        <Button type="submit" className="w-full" size="large" disabled={pending}>
+        <Button
+          type="submit"
+          className="w-full"
+          size="large"
+          disabled={pending}
+        >
           {pending ? t("signIn.submitting") : t("signIn.submit")}
         </Button>
       </form>

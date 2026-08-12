@@ -1,169 +1,205 @@
-import type { BrandChannel } from '@/lib/types/brand-channel'
+import type { BrandChannel } from "@/lib/types/brand-channel";
+import { CITY_NAMES_ZH } from "@/lib/constants/taiwan-cities";
+
+const REGION_SLUG_BY_LABEL: Readonly<Record<string, string>> =
+  Object.fromEntries(
+    Object.entries(CITY_NAMES_ZH).map(([slug, label]) => [label, slug]),
+  );
 
 export const CHANNEL_CONFIRMATION_THRESHOLD = Number(
   process.env.CHANNEL_CONFIRMATION_THRESHOLD ?? 3,
-)
+);
 
 /**
  * Region-label sentinel the enrichment phase writes for multi-branch retailers.
  * Data value, not UI copy — the UI matches on it to suppress a location label.
  */
-export const CHAIN_REGION_LABEL = '全台多間門市'
+export const CHAIN_REGION_LABEL = "全台多間門市";
 
 const RETAILER_NAME_NOISE: readonly string[] = [
-  '戶外休閒專業中心',
-  '戶外用品專門店',
-  '戶外用品店',
-  '戶外休閒',
-  '戶外用品',
-  '戶外',
-  '專業中心',
-  '旗艦門市',
-  '旗艦店',
-  '專賣店',
-  '用品店',
-  '分公司',
-  '門市',
-  '分店',
-  '選物',
-  '商店',
-  '店',
-]
+  "戶外休閒專業中心",
+  "戶外用品專門店",
+  "戶外用品店",
+  "戶外休閒",
+  "戶外用品",
+  "戶外",
+  "專業中心",
+  "旗艦門市",
+  "旗艦店",
+  "專賣店",
+  "用品店",
+  "分公司",
+  "門市",
+  "分店",
+  "選物",
+  "商店",
+  "店",
+];
 
 export function normalizeChannelName(name: string): string {
-  let normalized = name.toLocaleLowerCase().replace(/\s+/g, '')
+  let normalized = name.toLocaleLowerCase().replace(/\s+/g, "");
 
-  let stripped: boolean
+  let stripped: boolean;
   do {
-    stripped = false
+    stripped = false;
     for (const noise of RETAILER_NAME_NOISE) {
       if (normalized.endsWith(noise)) {
-        const withoutNoise = normalized.slice(0, -noise.length)
+        const withoutNoise = normalized.slice(0, -noise.length);
         if (withoutNoise) {
-          normalized = withoutNoise
-          stripped = true
-          break
+          normalized = withoutNoise;
+          stripped = true;
+          break;
         }
       }
     }
-  } while (stripped)
+  } while (stripped);
 
-  return normalized
+  return normalized;
 }
 
 type ChannelRow = {
-  id: string
-  name: string
-  channelType: string
-  categoryLabel: string | null
-  regionLabel: string | null
-  address: string | null
-  url: string | null
-  ownerStatus: string
-  source: string
-  confirmationCount: number
-  removedAt: string | null
+  id: string;
+  name: string;
+  channelType: string;
+  categoryLabel: string | null;
+  regionLabel: string | null;
+  address: string | null;
+  url: string | null;
+  sourceUrl?: string | null;
+  fetchedAt?: string | null;
+  locationType?: string | null;
+  country?: string | null;
+  ownerStatus: string;
+  source: string;
+  confirmationCount: number;
+  removedAt: string | null;
+};
+
+export type ChannelRegionGroup = {
+  key: string;
+  channels: BrandChannel[];
+};
+
+function compareText(left: string, right: string): number {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
 }
-
-export type ChannelKind = 'official' | 'visitable' | 'chain' | 'online'
-
-export type ChannelKindGroups = Array<{
-  key: ChannelKind
-  channels: BrandChannel[]
-}>
-
-const CHANNEL_KIND_ORDER: ChannelKind[] = [
-  'official',
-  'visitable',
-  'chain',
-  'online',
-]
 
 function sortChannelsForDisplay(a: BrandChannel, b: BrandChannel): number {
   const statusOrder =
-    Number(a.status !== 'confirmed') - Number(b.status !== 'confirmed')
-  if (statusOrder !== 0) return statusOrder
+    Number(a.status !== "confirmed") - Number(b.status !== "confirmed");
+  if (statusOrder !== 0) return statusOrder;
 
-  const confirmationOrder = b.confirmationCount - a.confirmationCount
-  if (confirmationOrder !== 0) return confirmationOrder
+  const confirmationOrder = b.confirmationCount - a.confirmationCount;
+  if (confirmationOrder !== 0) return confirmationOrder;
 
-  return a.name.localeCompare(b.name)
+  return compareText(a.name, b.name);
 }
 
-export function groupChannelsByKind(
-  channels: BrandChannel[],
-): ChannelKindGroups {
-  const grouped: Record<ChannelKind, BrandChannel[]> = {
-    official: [],
-    visitable: [],
-    chain: [],
-    online: [],
+function regionLabelToSlug(regionLabel: string): string | null {
+  return REGION_SLUG_BY_LABEL[regionLabel] ?? null;
+}
+
+export function getChannelSourceLabel(sourceUrl: string): string {
+  try {
+    return new URL(sourceUrl).hostname.replace(/^www\./, "") || sourceUrl;
+  } catch {
+    return sourceUrl;
   }
+}
+
+export function groupChannelsByRegion(
+  channels: BrandChannel[],
+): ChannelRegionGroup[] {
+  const grouped = new Map<string, BrandChannel[]>();
 
   for (const channel of channels) {
-    const key: ChannelKind =
-      channel.ownerStatus === 'confirmed' && channel.source === 'owner'
-        ? 'official'
-        : channel.address != null
-          ? 'visitable'
-          : channel.channelType === 'offline'
-            ? 'chain'
-            : 'online'
-
-    grouped[key].push(channel)
+    const regionSlug = channel.regionLabel
+      ? regionLabelToSlug(channel.regionLabel)
+      : null;
+    const key =
+      channel.channelType === "online"
+        ? "online"
+        : channel.country != null && channel.country !== "TW"
+          ? "overseas"
+          : channel.regionLabel === CHAIN_REGION_LABEL
+            ? "all_taiwan"
+            : (regionSlug ?? "overseas");
+    const group = grouped.get(key) ?? [];
+    group.push(channel);
+    grouped.set(key, group);
   }
 
-  return CHANNEL_KIND_ORDER.flatMap((key) => {
-    const group = grouped[key]
-    if (group.length === 0) return []
-    return [{ key, channels: [...group].sort(sortChannelsForDisplay) }]
-  })
+  return [...grouped.entries()]
+    .map(([key, group]) => ({
+      key,
+      channels: [...group].sort(sortChannelsForDisplay),
+    }))
+    .sort((left, right) => {
+      if (left.key === "online") return 1;
+      if (right.key === "online") return -1;
+      return (
+        right.channels.length - left.channels.length ||
+        compareText(left.key, right.key)
+      );
+    });
 }
 
 export function groupChannelsForDisplay(
   rows: Array<ChannelRow>,
   viewerConfirmedIds?: string[],
 ): { confirmed: BrandChannel[]; possible: BrandChannel[] } {
-  const viewerConfirmedIdSet = new Set(viewerConfirmedIds)
-  const confirmed: BrandChannel[] = []
-  const possible: BrandChannel[] = []
+  const viewerConfirmedIdSet = new Set(viewerConfirmedIds);
+  const confirmed: BrandChannel[] = [];
+  const possible: BrandChannel[] = [];
 
   for (const row of rows) {
-    if (row.removedAt !== null || row.ownerStatus === 'rejected') continue
+    if (row.removedAt !== null || row.ownerStatus === "rejected") continue;
 
-    const ownerConfirmed = row.ownerStatus === 'confirmed'
+    const ownerConfirmed = row.ownerStatus === "confirmed";
     const communityConfirmed =
-      row.confirmationCount >= CHANNEL_CONFIRMATION_THRESHOLD
-    const status: BrandChannel['status'] =
-      ownerConfirmed || communityConfirmed ? 'confirmed' : 'unconfirmed'
+      row.confirmationCount >= CHANNEL_CONFIRMATION_THRESHOLD;
+    const evidenceBacked = row.sourceUrl != null && row.source !== "community";
+    const status: BrandChannel["status"] =
+      ownerConfirmed || communityConfirmed || evidenceBacked
+        ? "confirmed"
+        : "unconfirmed";
     const channel: BrandChannel = {
       id: row.id,
       name: row.name,
-      channelType: row.channelType as BrandChannel['channelType'],
+      channelType: row.channelType as BrandChannel["channelType"],
       categoryLabel: row.categoryLabel,
       regionLabel: row.regionLabel,
       address: row.address,
       url: row.url,
-      ownerStatus: row.ownerStatus as BrandChannel['ownerStatus'],
-      source: row.source as BrandChannel['source'],
+      sourceUrl: row.sourceUrl ?? null,
+      fetchedAt: row.fetchedAt ?? null,
+      locationType: (row.locationType as BrandChannel["locationType"]) ?? null,
+      country: row.country ?? null,
+      ownerStatus: row.ownerStatus as BrandChannel["ownerStatus"],
+      source: row.source as BrandChannel["source"],
       confirmationCount: row.confirmationCount,
       status,
-      ...(status === 'confirmed'
+      ...(status === "confirmed"
         ? {
-            confirmedBy: ownerConfirmed ? ('owner' as const) : ('community' as const),
+            confirmedBy: ownerConfirmed
+              ? ("owner" as const)
+              : evidenceBacked
+                ? ("evidence" as const)
+                : ("community" as const),
           }
         : {}),
       ...(viewerConfirmedIds
         ? { hasCurrentUserConfirmed: viewerConfirmedIdSet.has(row.id) }
         : {}),
-    }
+    };
 
-    if (status === 'confirmed') {
-      confirmed.push(channel)
+    if (status === "confirmed") {
+      confirmed.push(channel);
     } else {
-      possible.push(channel)
+      possible.push(channel);
     }
   }
 
-  return { confirmed, possible }
+  return { confirmed, possible };
 }
