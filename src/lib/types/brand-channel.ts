@@ -46,6 +46,7 @@ export interface ChannelCandidate {
   fetchedAt?: string | null
   locationType?: ChannelLocationType | null
   country?: string | null
+  district?: string | null
   lastConfirmedAt?: string | null
   providerMetadata?: Record<string, unknown> | null
   source?: ChannelSource

@@ -10,8 +10,16 @@ import type {
   ChannelSource,
   ChannelType,
 } from '@/lib/types/brand-channel'
+import { unstable_cache } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/service'
-import { CITY_NAMES_ZH } from '@/lib/constants/taiwan-cities'
+import {
+  CITY_NAMES_ZH,
+  citySlugFromName,
+  type CitySlug,
+} from '@/lib/constants/taiwan-cities'
+import { PUBLIC_BRAND_DATA_TAG } from '@/lib/cache/public-brand-cache'
+import { TEST_BRAND_NAME_PATTERN } from './public-brand-filter'
+import { matchSubcategory, subcategoryBySlug } from '@/lib/taxonomy/ontology'
 import { logAdminAction } from './admin-audit'
 import { isOwnerOf } from './brand-owners'
 
@@ -82,12 +90,154 @@ type EnrichedChannelRow = {
   fetched_at?: string | null
   location_type?: ChannelLocationType | null
   country?: string | null
+  district?: string | null
   last_confirmed_at?: string | null
   provider_metadata?: Record<string, unknown> | null
 }
 
+export type StockistLocation = {
+  id: string
+  name: string
+  address: string | null
+  url: string | null
+  country: string | null
+  city: CitySlug | null
+  district: string | null
+  brandSlug: string
+  brandName: string
+  productType: string | null
+  productTags: string[]
+}
+
+type StockistReadRow = {
+  id: string
+  name: string
+  address: string | null
+  url: string | null
+  country: string | null
+  region_label: string | null
+  district: string | null
+  brands:
+    | {
+        slug: string
+        name: string
+        product_type: string | null
+        product_tags: unknown
+        status: string
+      }
+    | Array<{
+        slug: string
+        name: string
+        product_type: string | null
+        product_tags: unknown
+        status: string
+      }>
+}
+
+type ChannelDistrictBackfillRow = {
+  id: string
+  address: string
+  regionLabel: string | null
+  district: string | null
+}
+
 export const CHANNEL_READ_SELECT =
   'id, name, channel_type, category_label, region_label, address, url, source_url, fetched_at, location_type, country, owner_status, source, removed_at, brand_channel_confirmations(count)'
+
+export const STOCKIST_READ_SELECT =
+  'id, name, address, url, country, region_label, district, brands!inner(slug, name, product_type, product_tags, status)'
+
+function mapStockistRow(row: StockistReadRow): StockistLocation | null {
+  const brand = Array.isArray(row.brands) ? row.brands.at(0) : row.brands
+  if (!brand) return null
+  return {
+    id: row.id,
+    name: row.name,
+    address: row.address,
+    url: row.url,
+    country: row.country,
+    city: row.country === 'TW' ? citySlugFromName(row.region_label) : null,
+    district: row.district,
+    brandSlug: brand.slug,
+    brandName: brand.name,
+    productType: brand.product_type,
+    productTags: Array.isArray(brand.product_tags)
+      ? brand.product_tags.filter((tag): tag is string => typeof tag === 'string')
+      : [],
+  }
+}
+
+function matchesCategory(location: StockistLocation, category?: string): boolean {
+  if (!category) return true
+  if (location.productType === category) return true
+  const subcategory = subcategoryBySlug(category)
+  return Boolean(
+    subcategory &&
+      location.productTags.some(
+        (tag) => matchSubcategory(tag)?.slug === subcategory.slug,
+      ),
+  )
+}
+
+export const getStockistDirectory = unstable_cache(
+  async (category?: string): Promise<StockistLocation[]> => {
+    const supabase = createServiceClient()
+    const { data, error } = await supabase
+      .from('brand_channels')
+      .select(STOCKIST_READ_SELECT)
+      .eq('brands.status', 'approved')
+      .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN)
+      .is('removed_at', null)
+      .neq('owner_status', 'rejected')
+      .order('region_label')
+      .order('district')
+      .order('name')
+
+    if (error) throw error
+    return ((data ?? []) as unknown as StockistReadRow[])
+      .map(mapStockistRow)
+      .filter((location): location is StockistLocation => Boolean(location))
+      .filter((location) => matchesCategory(location, category))
+  },
+  ['stockist-directory'],
+  { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
+)
+
+export async function listChannelDistrictBackfillRows(): Promise<
+  ChannelDistrictBackfillRow[]
+> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brand_channels')
+    .select('id, address, region_label, district')
+    .eq('country', 'TW')
+    .is('removed_at', null)
+    .not('address', 'is', null)
+
+  if (error) throw error
+  return ((data ?? []) as Array<{
+    id: string
+    address: string
+    region_label: string | null
+    district: string | null
+  }>).map((row) => ({
+    id: row.id,
+    address: row.address,
+    regionLabel: row.region_label,
+    district: row.district,
+  }))
+}
+
+export async function updateChannelDistricts(
+  rows: Array<{ id: string; district: string | null }>,
+): Promise<void> {
+  if (rows.length === 0) return
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('brand_channels')
+    .upsert(rows, { onConflict: 'id' })
+  if (error) throw error
+}
 
 function isChannelType(value: string): value is ChannelType {
   return value === 'online' || value === 'offline'
@@ -467,6 +617,7 @@ export function buildEnrichedChannelRows(candidates: ChannelCandidate[]): {
       fetched_at: trimNullable(candidate.fetchedAt),
       location_type: candidate.locationType ?? null,
       country: trimNullable(candidate.country),
+      district: trimNullable(candidate.district),
       last_confirmed_at: trimNullable(candidate.lastConfirmedAt),
       provider_metadata: candidate.providerMetadata ?? null,
     })

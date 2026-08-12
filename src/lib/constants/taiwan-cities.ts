@@ -101,3 +101,12 @@ export const CITY_NAMES_ZH: Readonly<Record<string, string>> = {
   kinmen: '金門縣',
   lienchiang: '連江縣',
 }
+
+const CITY_SLUG_BY_NAME_ZH = new Map(
+  CITY_SLUGS.map((slug) => [CITY_NAMES_ZH[slug], slug]),
+)
+
+export function citySlugFromName(name: string | null | undefined): CitySlug | null {
+  if (!name) return null
+  return CITY_SLUG_BY_NAME_ZH.get(name.replaceAll('台', '臺')) ?? null
+}
