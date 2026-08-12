@@ -78,7 +78,6 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
         approved_at: new Date().toISOString(),
         product_type: 'crafts',
         description: '[E2E-TEST] Save-brand journey test brand.',
-        retail_locations: [],
       })
       .select('id')
       .single();
@@ -319,7 +318,6 @@ test.describe('Brand save — card overlay on directory', () => {
         approved_at: new Date().toISOString(),
         product_type: 'crafts',
         description: '[E2E-TEST] Save-overlay journey test brand.',
-        retail_locations: [],
       })
       .select('id')
       .single();

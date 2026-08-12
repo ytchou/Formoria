@@ -49,7 +49,6 @@ test.describe('Share card API', () => {
         approved_at: new Date().toISOString(),
         product_type: 'crafts',
         description: '[E2E-TEST] share card API approved brand',
-        retail_locations: [],
       })
       .select('id')
       .single();
@@ -65,7 +64,6 @@ test.describe('Share card API', () => {
         status: 'hidden',
         product_type: 'crafts',
         description: '[E2E-TEST] share card API hidden brand',
-        retail_locations: [],
       })
       .select('id')
       .single();

@@ -121,7 +121,6 @@ async function seedBrand(
       status: "approved",
       product_type: "crafts",
       description: "Handmade goods created by a Taiwan-based studio.",
-      retail_locations: [],
       mit_status: "unverified",
       ...overrides,
     });

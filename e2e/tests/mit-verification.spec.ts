@@ -53,7 +53,6 @@ test.describe('MIT verification badges', () => {
         description: 'E2E throwaway — MIT verified brand.',
         mit_status: 'verified',
         mit_verified_at: new Date().toISOString(),
-        retail_locations: [],
       })
       .select('id')
       .single();
@@ -72,7 +71,6 @@ test.describe('MIT verification badges', () => {
         approved_at: new Date().toISOString(),
         product_type: 'crafts',
         description: 'E2E throwaway — owner-managed brand.',
-        retail_locations: [],
       })
       .select('id')
       .single();

@@ -1109,7 +1109,6 @@ export type Database = {
           purchase_shopee: string | null
           purchase_website: string | null
           reputation_summary: Json | null
-          retail_locations: Json | null
           romanized_name: string | null
           search_vector: unknown
           seo_promoted: boolean | null
@@ -1160,7 +1159,6 @@ export type Database = {
           purchase_shopee?: string | null
           purchase_website?: string | null
           reputation_summary?: Json | null
-          retail_locations?: Json | null
           romanized_name?: string | null
           search_vector?: unknown
           seo_promoted?: boolean | null
@@ -1211,7 +1209,6 @@ export type Database = {
           purchase_shopee?: string | null
           purchase_website?: string | null
           reputation_summary?: Json | null
-          retail_locations?: Json | null
           romanized_name?: string | null
           search_vector?: unknown
           seo_promoted?: boolean | null

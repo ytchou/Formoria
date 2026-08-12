@@ -2,7 +2,7 @@
  * Applies the reviewed corrections from the 2026-08 outdoor + tech content audit.
  *
  * Scope: STRUCTURED FIELDS ONLY — status, name/slug, founding_year, city,
- * product_type, product_tags, socials, purchase_website, retail_locations.
+ * product_type, product_tags, socials, purchase_website.
  * Long-form description rewrites are deliberately NOT in here; they are bilingual
  * editorial copy that needs its own review pass. `pnpm exec tsx … --pending` prints
  * the manifest of description edits still owed.
@@ -351,16 +351,8 @@ const CHANGES: Change[] = [
     brandId: "60c7b391-827d-4c77-91b0-101744333478",
     why: "ALLITE Inc. (Miamisburg, OH) is a magnesium-alloy materials firm — identity collision. OneMore is the real brand site. 萬摩科技 is REAL (統編 50930640) and stays in the description.",
     patch: {
-      retail_locations: [],
       purchaseWebsite: "https://www.onemore.me/",
     },
-  },
-  {
-    ref: "TC-03",
-    brand: "ENABLE",
-    brandId: "7d8107f6-f512-42a0-b2fe-2f6672d8b5a7",
-    why: "enable.com (Stratford-upon-Avon) is a B2B rebate-management SaaS. Official Taiwan retail is six 法雅客 stores — repopulate from the official page in a separate pass.",
-    patch: { retail_locations: [] },
   },
 ];
 
@@ -542,7 +534,7 @@ async function main(): Promise<void> {
     .select(
       // Every column any patch touches must be selected — a missing one reads as
       // undefined, so the diff never matches and the script rewrites it forever.
-      "id, name, slug, status, product_type, founding_year, city, product_tags, social_instagram, social_facebook, purchase_website, retail_locations, other_urls",
+      "id, name, slug, status, product_type, founding_year, city, product_tags, social_instagram, social_facebook, purchase_website, other_urls",
     )
     .in("id", ids);
 

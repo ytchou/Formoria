@@ -26,7 +26,7 @@ begin;
 insert into brands (
   id, name, slug, description, status, category, founding_year,
   hero_image_url, product_photos, social_links, purchase_links,
-  retail_locations, contact_email, tag_slugs, source, is_demo,
+  contact_email, tag_slugs, source, is_demo,
   mit_status, submitted_at, approved_at
 ) values (
   'dddddddd-dddd-dddd-dddd-dddddddddddd',
@@ -44,7 +44,6 @@ insert into brands (
   ]'::jsonb,
   '{"instagram":"@warmwood.living","threads":"@warmwood.living","website":"https://warmwoodliving.tw"}'::jsonb,
   '[{"label":"官方網站","url":"https://warmwoodliving.tw"},{"label":"線上商店","url":"https://warmwoodliving.tw/shop"}]'::jsonb,
-  '[]'::jsonb,
   'hello@warmwoodliving.tw',
   ARRAY['home','handmade','local-culture'],
   'demo_seed',
@@ -64,7 +63,6 @@ on conflict (id) do update set
   product_photos = excluded.product_photos,
   social_links   = excluded.social_links,
   purchase_links = excluded.purchase_links,
-  retail_locations = excluded.retail_locations,
   contact_email  = excluded.contact_email,
   tag_slugs      = excluded.tag_slugs,
   source         = excluded.source,

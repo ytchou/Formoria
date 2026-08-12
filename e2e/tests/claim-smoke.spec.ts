@@ -74,7 +74,6 @@ test.describe("Claim request smoke", () => {
         approved_at: new Date().toISOString(),
         product_type: "crafts",
         description: "Throwaway community brand for claim smoke coverage.",
-        retail_locations: [],
       })
       .select("id")
       .single();

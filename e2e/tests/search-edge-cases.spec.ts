@@ -87,7 +87,6 @@ test.describe.serial('Public brand search edge cases', () => {
           product_type: 'crafts',
           description: `[E2E-TEST] Exact-name search probe ${suffix}.`,
           blurb_en: `Exact prism teaware ${suffix}.`,
-          retail_locations: [],
           is_demo: false,
         },
         {
@@ -97,7 +96,6 @@ test.describe.serial('Public brand search edge cases', () => {
           approved_at: new Date().toISOString(),
           product_type: 'crafts',
           description: `[E2E-TEST] Description-only phrase ${exactQuery}.`,
-          retail_locations: [],
           is_demo: false,
         },
         {
@@ -109,7 +107,6 @@ test.describe.serial('Public brand search edge cases', () => {
           description: `[E2E-TEST] Bilingual search probe ${suffix}.`,
           blurb_en: `${englishToken} Aurora Copper Vessel.`,
           product_tags_en: [englishToken, 'teaware'],
-          retail_locations: [],
           is_demo: false,
         },
         {
@@ -119,7 +116,6 @@ test.describe.serial('Public brand search edge cases', () => {
           product_type: 'crafts',
           description: `[E2E-TEST] Hidden search probe ${suffix}.`,
           blurb_en: `${englishToken} hidden result.`,
-          retail_locations: [],
           is_demo: false,
         },
         {
@@ -129,7 +125,6 @@ test.describe.serial('Public brand search edge cases', () => {
           approved_at: new Date().toISOString(),
           product_type: 'crafts',
           description: `[E2E-TEST] A-Z search sort probe ${sortQuery}.`,
-          retail_locations: [],
           is_demo: false,
         },
         {
@@ -139,7 +134,6 @@ test.describe.serial('Public brand search edge cases', () => {
           approved_at: new Date().toISOString(),
           product_type: 'crafts',
           description: `[E2E-TEST] A-Z search sort probe ${sortQuery}.`,
-          retail_locations: [],
           is_demo: false,
         },
       ])
