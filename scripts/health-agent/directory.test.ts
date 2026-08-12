@@ -218,6 +218,11 @@ describe("Directory Health policies", () => {
       "directory:index-concern:complete",
     ]);
     expect(
+      result.findings.find((finding) =>
+        finding.fingerprint.endsWith("dead-tuples:brands"),
+      ),
+    ).toMatchObject({ disposition: "report_only" });
+    expect(
       result.findings.every((finding) => finding.mergePolicy === "human"),
     ).toBe(true);
     expect(result.snapshot.deadTupleSnapshotDates).toEqual([

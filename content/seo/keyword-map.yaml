@@ -2686,3 +2686,9 @@ unmapped_backlog:
 - slug: speakers
   brand_count: 0
   notes: Kept as a legitimate tech product kind; supply controls rendering, not ontology structure.
+- slug: security-cameras
+  brand_count: 1
+  notes: Added 2026-08-11. The label 攝影機 was already stored on brands but unregistered in the ontology, so it rendered no facet; registering it heals the orphan. Backlog rather than a cluster - one brand is far below the promotion threshold.
+- slug: smart-doorbells
+  brand_count: 1
+  notes: Added 2026-08-11 alongside security-cameras, same reason - 智慧門鈴 was stored but unregistered.

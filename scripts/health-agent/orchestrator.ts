@@ -104,6 +104,7 @@ const healthFindingSchema = z
   .object({
     evidence: z.record(z.string().max(120), jsonValueSchema),
     changedFiles: z.array(z.string().trim().min(1).max(300)).max(40).optional(),
+    disposition: z.literal("report_only").optional(),
     fingerprint: z.string().trim().min(1).max(500),
     humanReason: z.string().trim().min(1).max(MAX_TEXT_LENGTH).optional(),
     mergePolicy: z.enum(["automatic", "human"]),
@@ -530,6 +531,7 @@ function redactedFinding(finding: HealthFinding): HealthFinding {
       : {}),
     evidence: redactedRecord(finding.evidence),
     fingerprint: redactText(finding.fingerprint),
+    ...(finding.disposition ? { disposition: finding.disposition } : {}),
     ...(finding.humanReason
       ? { humanReason: redactText(finding.humanReason) }
       : {}),
@@ -2282,6 +2284,7 @@ export async function enqueueAndClaimPolicyBatches(
       : candidates;
   const eligible = uniqueFindings(
     scopedCandidates.filter((finding) => {
+      if (finding.disposition === "report_only") return false;
       if (input.mode !== "canary_fix") return true;
       const allowed =
         requestedCanary.has(finding.fingerprint) && harmlessCanary(finding);

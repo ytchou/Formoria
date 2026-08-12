@@ -72,7 +72,6 @@ test.beforeAll(async ({ isolatedUser }) => {
       approved_at: new Date().toISOString(),
       product_type: 'crafts',
       description: '[E2E-TEST] Quick actions fixture.',
-      retail_locations: [],
     })
     .select('id')
     .single()

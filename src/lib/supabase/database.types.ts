@@ -1109,7 +1109,6 @@ export type Database = {
           purchase_shopee: string | null
           purchase_website: string | null
           reputation_summary: Json | null
-          retail_locations: Json | null
           romanized_name: string | null
           search_vector: unknown
           seo_promoted: boolean | null
@@ -1160,7 +1159,6 @@ export type Database = {
           purchase_shopee?: string | null
           purchase_website?: string | null
           reputation_summary?: Json | null
-          retail_locations?: Json | null
           romanized_name?: string | null
           search_vector?: unknown
           seo_promoted?: boolean | null
@@ -1211,7 +1209,6 @@ export type Database = {
           purchase_shopee?: string | null
           purchase_website?: string | null
           reputation_summary?: Json | null
-          retail_locations?: Json | null
           romanized_name?: string | null
           search_vector?: unknown
           seo_promoted?: boolean | null
@@ -2183,6 +2180,7 @@ export type Database = {
           created_at: string
           distinct_failure_days: number
           failure_dates: string[]
+          failure_reason: string | null
           field: string
           id: string
           last_checked_at: string | null
@@ -2200,6 +2198,7 @@ export type Database = {
           created_at?: string
           distinct_failure_days?: number
           failure_dates?: string[]
+          failure_reason?: string | null
           field: string
           id?: string
           last_checked_at?: string | null
@@ -2217,6 +2216,7 @@ export type Database = {
           created_at?: string
           distinct_failure_days?: number
           failure_dates?: string[]
+          failure_reason?: string | null
           field?: string
           id?: string
           last_checked_at?: string | null
@@ -3288,6 +3288,7 @@ export type Database = {
           created_at: string
           distinct_failure_days: number
           failure_dates: string[]
+          failure_reason: string | null
           field: string
           id: string
           last_checked_at: string | null

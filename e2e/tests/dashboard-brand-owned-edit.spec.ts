@@ -119,7 +119,6 @@ test.beforeAll(async ({ isolatedUser }) => {
       mit_status: 'unverified',
       product_type: 'crafts',
       description: initialDescription,
-      retail_locations: [],
     })
     .select('id')
     .single();
@@ -137,7 +136,6 @@ test.beforeAll(async ({ isolatedUser }) => {
       approved_at: new Date().toISOString(),
       product_type: 'crafts',
       description: '[E2E-TEST] Wizard test brand.',
-      retail_locations: [],
     })
     .select('id')
     .single();
@@ -155,7 +153,6 @@ test.beforeAll(async ({ isolatedUser }) => {
       approved_at: new Date().toISOString(),
       product_type: 'crafts',
       description: '[E2E-TEST] Image upload test brand.',
-      retail_locations: [],
     })
     .select('id')
     .single();
@@ -177,7 +174,6 @@ test.beforeAll(async ({ isolatedUser }) => {
       mit_declared_by: testUserId,
       product_type: 'crafts',
       description: '[E2E-TEST] Initial governed description.',
-      retail_locations: [],
     })
     .select('id')
     .single();
@@ -195,7 +191,6 @@ test.beforeAll(async ({ isolatedUser }) => {
       approved_at: new Date().toISOString(),
       product_type: 'crafts',
       description: '[E2E-TEST] Admin-owned brand for redirect guard test.',
-      retail_locations: [],
     })
     .select('id')
     .single();

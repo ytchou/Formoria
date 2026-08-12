@@ -303,26 +303,6 @@ function checkPurchaseWebsiteShape(brand: RecentBrandEdit): HealthFinding[] {
   if (host === "formoria.com") {
     return [];
   }
-
-  const parsedUrl = new URL(url);
-  if (parsedUrl.pathname !== "/") {
-    return [
-      finding(
-        "brand-review-purchase-website-non-root",
-        brand,
-        "purchase_website is not a root URL",
-        "low",
-        {
-          brandId: brand.id,
-          brandName: brand.name,
-          purchaseWebsite: url,
-          hostname: host,
-          pathname: parsedUrl.pathname,
-        },
-      ),
-    ];
-  }
-
   return [];
 }
 

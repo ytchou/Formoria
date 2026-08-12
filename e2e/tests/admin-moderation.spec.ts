@@ -90,7 +90,6 @@ test.describe('Content moderation flow', () => {
         description: cleanDescription,
         hero_image_url: heroUrl,
         purchase_website: `https://${brandSlug}.example.com`,
-        retail_locations: [],
       })
       .select('id')
       .single();

@@ -91,7 +91,6 @@ test.describe.serial("Public brand data boundary", () => {
         },
         brand_enriched_at: privateTimestamp,
         updated_at: privateTimestamp,
-        retail_locations: [],
         is_demo: false,
         site_content: {
           template: "default",

@@ -135,6 +135,46 @@ describe("artifact and envelope contracts", () => {
     });
   });
 
+  it("preserves report-only findings through artifact validation and notifications", async () => {
+    const reportOnly = {
+      ...finding("directory:dead-tuples:brands", "human", "directory"),
+      disposition: "report_only" as const,
+    };
+    const { store } = fixtures({
+      directory: artifact("directory-health", [reportOnly]),
+    });
+
+    const loaded = await loadCollectorArtifact(
+      "directory-health",
+      "directory",
+      runAt,
+      store,
+    );
+    expect(loaded.findings).toEqual([
+      expect.objectContaining({
+        disposition: "report_only",
+        fingerprint: "directory:dead-tuples:brands",
+      }),
+    ]);
+
+    const slack = vi.fn(async () => undefined);
+    await aggregateAndDeliver(
+      aggregateInput,
+      { delivery: { agentHub: async () => undefined, slack }, files: store },
+      enabled,
+    );
+    expect(slack).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionableFindings: expect.arrayContaining([
+          expect.objectContaining({
+            disposition: "report_only",
+            fingerprint: "directory:dead-tuples:brands",
+          }),
+        ]),
+      }),
+    );
+  });
+
   it("puts the specific reason in failures, not a fixed string", async () => {
     // Regression: `failedCollectorArtifact` hardcoded
     // failures: ["collector_artifact_unavailable"] while accepting a `reason`
@@ -604,6 +644,44 @@ describe("queue mutation gates", () => {
       "pull_request",
       "autofix_disabled",
     ]);
+  });
+
+  it("keeps report-only findings out of queue lookup, enqueue, and claim", async () => {
+    const reportOnly = {
+      ...finding("directory:dead-tuples:brands", "human", "directory"),
+      disposition: "report_only" as const,
+    };
+    const repairable = finding("sentry:repairable");
+    const listFingerprintStates = vi.fn(async () => []);
+    const enqueueFindings = vi.fn(async () => undefined);
+    const claimFindings = vi.fn(async () => []);
+
+    const result = await enqueueAndClaimPolicyBatches(
+      {
+        findings: [reportOnly, repairable],
+        leaseOwner: "run-report-only",
+        mode: "live",
+      },
+      {
+        database: {
+          claimFindings,
+          enqueueFindings,
+          listFingerprintStates,
+        },
+      },
+      enabled,
+    );
+
+    expect(listFingerprintStates).toHaveBeenCalledWith(["sentry:repairable"]);
+    expect(enqueueFindings).toHaveBeenCalledWith([
+      expect.objectContaining({ fingerprint: "sentry:repairable" }),
+    ]);
+    expect(claimFindings).toHaveBeenCalledWith(
+      "automatic",
+      "run-report-only",
+      ["sentry:repairable"],
+    );
+    expect(result.enqueuedFingerprints).toEqual(["sentry:repairable"]);
   });
 
   it("enqueues without a cap, claims both policies for one manager batch, and excludes late findings", async () => {

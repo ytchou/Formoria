@@ -353,28 +353,22 @@ describe("evaluateBrandReview", () => {
     expect(result.snapshot.findingCount).toBe(4);
   });
 
-  it("flags a non-root purchase_website on an own domain", () => {
+  it("accepts a legitimate deep purchase destination", () => {
     const result = evaluateBrandReview(
-      [brand({ purchaseWebsite: "https://brand.example/about" })],
+      [
+        brand({
+          name: "虎嚕吼嚕嚕 HOORU HORURU",
+          purchaseWebsite: "https://portaly.cc/HOORU.HORURU",
+        }),
+      ],
       NOW_ISO,
       WINDOW_START_ISO,
     );
 
-    expect(result.findings).toHaveLength(1);
-    expect(result.findings[0]).toMatchObject({
-      severity: "low",
-      title: "purchase_website is not a root URL",
-      evidence: {
-        brandId: "brand-1",
-        brandName: "Test Brand",
-        purchaseWebsite: "https://brand.example/about",
-        hostname: "brand.example",
-        pathname: "/about",
-      },
-    });
+    expect(result.findings).toHaveLength(0);
   });
 
-  it("flags a third-party directory URL (precedence over non-root)", () => {
+  it("flags a third-party directory URL", () => {
     const result = evaluateBrandReview(
       [brand({ purchaseWebsite: "https://twrr.org.tw/partners/brand-x" })],
       NOW_ISO,
@@ -421,7 +415,7 @@ describe("evaluateBrandReview", () => {
     expect(resultBare.findings).toHaveLength(0);
   });
 
-  it("does not double-report formoria.com non-root purchase_website", () => {
+  it("reports a self-referential purchase_website once", () => {
     const result = evaluateBrandReview(
       [brand({ purchaseWebsite: "https://formoria.com/brands/test-brand" })],
       NOW_ISO,
@@ -432,9 +426,6 @@ describe("evaluateBrandReview", () => {
     expect(result.findings[0]).toMatchObject({
       title: "Self-referential formoria.com URL",
     });
-    expect(result.findings[0]?.title).not.toBe(
-      "purchase_website is not a root URL",
-    );
   });
 
   it("flags a brand with no usable visit CTA", () => {

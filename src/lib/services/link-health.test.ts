@@ -57,16 +57,16 @@ function createFakeDb(options: {
 
 describe("link health HTTP classification", () => {
   it.each([
-    [200, "ok"],
-    [301, "ok"],
-    [403, "blocked"],
-    [429, "blocked"],
-    [404, "broken"],
-    [410, "broken"],
-    [500, "broken"],
+    [200, "ok", null],
+    [301, "ok", null],
+    [403, "blocked", null],
+    [429, "blocked", null],
+    [404, "broken", "http"],
+    [410, "broken", "http"],
+    [500, "broken", "http"],
   ] as const)(
     "classifies an HTTP %s response as %s",
-    async (statusCode, status) => {
+    async (statusCode, status, failureReason) => {
       const fetchBoundary = vi.fn().mockResolvedValue({ status: statusCode });
 
       await expect(
@@ -74,7 +74,7 @@ describe("link health HTTP classification", () => {
           "https://shop.mu-guang.tw/products/ceramic-cup",
           fetchBoundary,
         ),
-      ).resolves.toEqual({ status, statusCode });
+      ).resolves.toEqual({ status, statusCode, failureReason });
     },
   );
 
@@ -85,7 +85,40 @@ describe("link health HTTP classification", () => {
 
     await expect(
       checkUrl("https://shop.mu-guang.tw/products/ceramic-cup", fetchBoundary),
-    ).resolves.toEqual({ status: "broken", statusCode: null });
+    ).resolves.toEqual({
+      status: "broken",
+      statusCode: null,
+      failureReason: null,
+    });
+  });
+
+  it("classifies nested network failures without treating transient DNS as dead", async () => {
+    const cases = [
+      ["ENOTFOUND", "dns"],
+      ["ETIMEDOUT", "timeout"],
+      ["ERR_TLS_CERT_ALTNAME_INVALID", "tls"],
+      ["ECONNRESET", "connection_reset"],
+      ["EAI_AGAIN", null],
+      ["ERR_UNKNOWN", null],
+    ] as const;
+
+    for (const [code, failureReason] of cases) {
+      const cause = { cause: { code } };
+      const fetchBoundary = vi
+        .fn()
+        .mockRejectedValue(new TypeError("fetch failed", cause));
+
+      await expect(
+        checkUrl(
+          "https://shop.mu-guang.tw/products/ceramic-cup",
+          fetchBoundary,
+        ),
+      ).resolves.toEqual({
+        status: "broken",
+        statusCode: null,
+        failureReason,
+      });
+    }
   });
 
   it("retries a rejected HEAD method with GET", async () => {
@@ -96,9 +129,34 @@ describe("link health HTTP classification", () => {
 
     await expect(
       checkUrl("https://shop.mu-guang.tw/products/ceramic-cup", fetchBoundary),
-    ).resolves.toEqual({ status: "ok", statusCode: 200 });
+    ).resolves.toEqual({ status: "ok", statusCode: 200, failureReason: null });
     expect(fetchBoundary.mock.calls[1]?.[1]).toMatchObject({ method: "GET" });
   });
+
+  it.each([
+    [402, 402],
+    [405, 405],
+  ] as const)(
+    "classifies HEAD %s followed by GET %s as blocked",
+    async (headStatus, getStatus) => {
+      const fetchBoundary = vi
+        .fn()
+        .mockResolvedValueOnce({ status: headStatus })
+        .mockResolvedValueOnce({ status: getStatus });
+
+      await expect(
+        checkUrl(
+          "https://shop.mu-guang.tw/products/ceramic-cup",
+          fetchBoundary,
+        ),
+      ).resolves.toEqual({
+        status: "blocked",
+        statusCode: getStatus,
+        failureReason: null,
+      });
+      expect(fetchBoundary.mock.calls[1]?.[1]).toMatchObject({ method: "GET" });
+    },
+  );
 
   it("confirms a HEAD 404 with GET before calling the link broken", async () => {
     // A HEAD 404 used to be final. It is not evidence: SPA hosts and PHP front
@@ -114,7 +172,7 @@ describe("link health HTTP classification", () => {
 
     await expect(
       checkUrl("https://aastalee.com/", fetchBoundary),
-    ).resolves.toEqual({ status: "ok", statusCode: 200 });
+    ).resolves.toEqual({ status: "ok", statusCode: 200, failureReason: null });
     expect(fetchBoundary.mock.calls[1]?.[1]).toMatchObject({ method: "GET" });
   });
 
@@ -126,7 +184,11 @@ describe("link health HTTP classification", () => {
 
     await expect(
       checkUrl("https://www.dearfig.com", fetchBoundary),
-    ).resolves.toEqual({ status: "broken", statusCode: 404 });
+    ).resolves.toEqual({
+      status: "broken",
+      statusCode: 404,
+      failureReason: "http",
+    });
   });
 
   it("confirms a HEAD 410 with GET as well", async () => {
@@ -137,7 +199,7 @@ describe("link health HTTP classification", () => {
 
     await expect(
       checkUrl("https://shop.mu-guang.tw/products/ceramic-cup", fetchBoundary),
-    ).resolves.toEqual({ status: "ok", statusCode: 200 });
+    ).resolves.toEqual({ status: "ok", statusCode: 200, failureReason: null });
   });
 });
 
@@ -176,10 +238,65 @@ describe("link health cleanup recovery", () => {
       field: "purchase_website",
       cleanup_required: false,
       cleanup_required_at: null,
+      failure_reason: null,
       failure_dates: [],
       consecutive_failures: 0,
     });
   });
+
+  it.each([402, 405] as const)(
+    "clears stale cleanup state when an ambiguous HTTP %s result is blocked",
+    async (statusCode) => {
+      const upsertRows: Record<string, unknown>[] = [];
+      const client = createFakeDb({
+        brandUrl: "https://candesworld.com/",
+        upsertRows,
+        existingRow: {
+          id: "row-1",
+          brand_id: "brand-1",
+          field: "purchase_website",
+          url: "https://candesworld.com/",
+          consecutive_failures: 3,
+          failure_dates: ["2026-07-20", "2026-07-21", "2026-07-22"],
+          last_ok_at: null,
+          auto_nulled_at: null,
+          cleanup_required_at: "2026-07-22T00:00:00.000Z",
+          failure_reason: "http",
+        },
+      });
+      const fetchFn = vi
+        .fn()
+        .mockResolvedValueOnce({ status: statusCode })
+        .mockResolvedValueOnce({
+          status: statusCode,
+        }) as unknown as typeof fetch;
+
+      const summary = await runLinkHealthCheck({
+        runIdentity: `blocked-${statusCode}-cleanup-reset`,
+        client,
+        fetchFn,
+        now: () => new Date("2026-07-23T12:00:00.000Z"),
+      });
+
+      expect(summary).toMatchObject({
+        checked: 1,
+        ok: 0,
+        broken: 0,
+        blocked: 1,
+        cleanupRequired: [],
+      });
+      expect(upsertRows[0]).toMatchObject({
+        brand_id: "brand-1",
+        field: "purchase_website",
+        cleanup_required: false,
+        cleanup_required_at: null,
+        failure_reason: null,
+        failure_dates: [],
+        consecutive_failures: 0,
+        distinct_failure_days: 0,
+      });
+    },
+  );
 });
 
 describe("link_check_results lookup batching", () => {

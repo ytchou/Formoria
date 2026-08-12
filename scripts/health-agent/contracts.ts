@@ -13,6 +13,8 @@ export type HealthSeverity = (typeof HEALTH_SEVERITIES)[number];
 export const MERGE_POLICIES = ["automatic", "human"] as const;
 export type MergePolicy = (typeof MERGE_POLICIES)[number];
 
+export type HealthFindingDisposition = "report_only";
+
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue =
   JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
@@ -24,6 +26,7 @@ export interface HealthFinding {
   severity: HealthSeverity;
   evidence: Record<string, JsonValue>;
   mergePolicy: MergePolicy;
+  disposition?: HealthFindingDisposition;
   humanReason?: string;
   changedFiles?: readonly string[];
   sentryIssueId?: string;

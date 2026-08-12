@@ -8,13 +8,13 @@
  * findings were enqueued into the health agent's repair queue, which only knows
  * how to edit files, so they burned retry budget and were never fixable.
  *
- * Scope is deliberately narrow (see AUTO_NULL_STATUS_CODES in
- * src/lib/services/link-cleanup.ts): only HTTP 404 and 410 are removed
- * automatically. A 5xx or a timeout can be transient, and a wrongly-nulled
- * purchase link costs a brand real traffic with no signal that it happened.
- * The other flagged categories stay report-only and are tracked as DEV-1438
- * (connection failures are indistinguishable from timeouts) and DEV-1439
- * (405/402 are misclassified as broken).
+ * Scope is deliberately narrow (see AUTO_NULL_STATUS_CODES and
+ * AUTO_NULL_FAILURE_REASONS in src/lib/services/link-cleanup.ts): HTTP 404,
+ * 410, and sustained DNS failures are removed automatically. A 5xx, timeout,
+ * TLS failure, reset, or transient DNS error can be temporary, and a
+ * wrongly-nulled purchase link costs a brand real traffic with no signal that
+ * it happened. The other flagged categories stay report-only and are tracked
+ * as DEV-1439 (405/402 are misclassified as broken).
  *
  * Safe by default: `--apply` is required to write. Every removal is reversible
  * — `updateBrand` records the previous value in `brand_field_events`, and the
@@ -48,9 +48,12 @@ function taipeiDate(now: Date = new Date()): string {
  * and silently implies the queue is empty.
  */
 const REPORT_ONLY_TICKETS = [
-  "DEV-1438 — connection failures are stored as a bare NULL, so a dead domain cannot be told apart from a timeout",
   "DEV-1439 — 405/402 are classified broken rather than blocked, inflating the queue",
 ] as const;
+
+function removalEvidence(statusCode: number | null): string {
+  return statusCode === null ? "DNS failure" : `HTTP ${statusCode}`;
+}
 
 function buildNotification(
   result: LinkCleanupResult,
@@ -59,8 +62,8 @@ function buildNotification(
 ): AgentNotification {
   const summary = [
     applied
-      ? `Removed ${result.applied.length} dead brand ${result.applied.length === 1 ? "link" : "links"} (HTTP 404/410 only).`
-      : `Dry run: ${result.applied.length} dead ${result.applied.length === 1 ? "link" : "links"} would be removed (HTTP 404/410 only).`,
+      ? `Removed ${result.applied.length} dead brand ${result.applied.length === 1 ? "link" : "links"} (HTTP 404/410 or sustained DNS failures).`
+      : `Dry run: ${result.applied.length} dead ${result.applied.length === 1 ? "link" : "links"} would be removed (HTTP 404/410 or sustained DNS failures).`,
     `Scanned ${result.scanned} flagged ${result.scanned === 1 ? "row" : "rows"}; ${result.skipped.length} skipped.`,
   ];
 
@@ -68,7 +71,7 @@ function buildNotification(
     result.applied.length > 0
       ? result.applied.map(
           (entry) =>
-            `${entry.brandName ?? entry.brandId} · ${entry.field} · HTTP ${entry.statusCode} · ${entry.url}`,
+            `${entry.brandName ?? entry.brandId} · ${entry.field} · ${removalEvidence(entry.statusCode)} · ${entry.url}`,
         )
       : // Nothing to do this run is the steady state, and an empty message reads
         // as "no dead links" when the truth may be "removed an hour ago".
@@ -113,7 +116,7 @@ async function main(): Promise<void> {
   );
   for (const entry of result.applied) {
     console.log(
-      `    - ${entry.brandName ?? entry.brandId} · ${entry.field} · HTTP ${entry.statusCode} · ${entry.url}`,
+      `    - ${entry.brandName ?? entry.brandId} · ${entry.field} · ${removalEvidence(entry.statusCode)} · ${entry.url}`,
     );
   }
   console.log(`  skipped: ${result.skipped.length}`);

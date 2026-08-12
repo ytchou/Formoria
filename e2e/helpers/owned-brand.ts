@@ -40,7 +40,6 @@ export async function ensureOwnedBrand(
       approved_at: new Date().toISOString(),
       product_type: 'crafts',
       description: 'Shared E2E dashboard fixture.',
-      retail_locations: [],
     })
     .select('id, slug, name, draft_data')
     .single()

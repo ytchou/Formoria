@@ -287,30 +287,25 @@ ON CONFLICT DO NOTHING;
 
 
 -- -----------------------------------------------------------------------------
--- Part 3: Brand detail enrichment (brand_highlights, retail_locations)
+-- Part 3: Brand detail enrichment (brand_highlights)
 -- -----------------------------------------------------------------------------
 
 UPDATE brands SET
-  brand_highlights = '阿里山金萱烏龍 / 日月潭紅茶 / 高山冷泡茶禮盒',
-  retail_locations = '[{"name": "阿里山茶園直營店", "address": "嘉義縣番路鄉", "latitude": 23.4685, "longitude": 120.7011}]'
+  brand_highlights = '阿里山金萱烏龍 / 日月潭紅茶 / 高山冷泡茶禮盒'
 WHERE slug = 'shan-wu-tea-house';
 
 UPDATE brands SET
-  brand_highlights = '手作茶器組 / 極簡花器 / 日常食器系列',
-  retail_locations = '[{"name": "鶯歌陶光工作室", "address": "新北市鶯歌區", "latitude": 24.9536, "longitude": 121.3533}]'
+  brand_highlights = '手作茶器組 / 極簡花器 / 日常食器系列'
 WHERE slug = 'claylight-studio';
 
 UPDATE brands SET
-  brand_highlights = '織紋托特包 / 手織圍巾 / 圖騰印花T恤',
-  retail_locations = '[{"name": "織語概念店", "address": "台北市大安區", "latitude": 25.0265, "longitude": 121.5435}]'
+  brand_highlights = '織紋托特包 / 手織圍巾 / 圖騰印花T恤'
 WHERE slug = 'woven-words';
 
 UPDATE brands SET
-  brand_highlights = '日曬芒果乾 / 手工鳳梨酥 / 台灣茶果醬禮盒',
-  retail_locations = '[{"name": "島嶼食光台南門市", "address": "台南市中西區", "latitude": 22.9908, "longitude": 120.2133}]'
+  brand_highlights = '日曬芒果乾 / 手工鳳梨酥 / 台灣茶果醬禮盒'
 WHERE slug = 'island-season';
 
 UPDATE brands SET
-  brand_highlights = '茶樹精華液 / 山茶花保濕霜 / 艾草舒緩面膜',
-  retail_locations = '[{"name": "膚語花蓮旗艦店", "address": "花蓮縣花蓮市", "latitude": 23.9910, "longitude": 121.6011}]'
+  brand_highlights = '茶樹精華液 / 山茶花保濕霜 / 艾草舒緩面膜'
 WHERE slug = 'skin-verse';
