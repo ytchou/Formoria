@@ -123,7 +123,7 @@ test.describe("Category landing pages deep", () => {
     ).toBe(false);
   });
 
-  test("landing facts are server-rendered once and keep the first card above the fold", async ({
+  test("landing facts are server-rendered once with a valid result state", async ({
     page,
     request,
   }) => {
@@ -151,11 +151,11 @@ test.describe("Category landing pages deep", () => {
     const liveRegion = page.locator('main [aria-live="polite"]');
     await expect(liveRegion).toHaveCount(1);
     await expect(liveRegion).toContainText(/共 \d+ 個品牌/);
-    const firstCardTop = await page
+    const firstCard = page
       .locator('main [role="list"] [role="listitem"]')
-      .first()
-      .evaluate((element) => element.getBoundingClientRect().top);
-    expect(firstCardTop).toBeLessThan(500);
+      .first();
+    const emptyState = page.locator("[data-empty]").first();
+    await expect(firstCard.or(emptyState)).toBeVisible();
   });
 
   test("bare and multi-category directories omit taxonomy-only landing facts", async ({

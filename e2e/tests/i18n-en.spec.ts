@@ -1,6 +1,7 @@
 import { BUDGET } from "../budgets";
 import { test, expect } from "@playwright/test";
 import { load } from "cheerio";
+import { seedBrand, type SeededBrand } from "../helpers/seed";
 
 function renderedDocument(html: string) {
   const $ = load(html);
@@ -25,6 +26,21 @@ function renderedDocument(html: string) {
  *   → menu with persisted locale actions for Traditional Chinese and English
  */
 test.describe("i18n English browse", () => {
+  let seeded: SeededBrand;
+
+  test.beforeAll(async ({}, workerInfo) => {
+    seeded = await seedBrand({
+      name: "i18n",
+      workerIndex: workerInfo.workerIndex,
+      withLinks: true,
+      withFaqEvidence: true,
+    });
+  });
+
+  test.afterAll(async () => {
+    await seeded.cleanup();
+  });
+
   test("/en declares the English locale in the initial HTTP document", async ({
     request,
   }) => {
@@ -35,10 +51,10 @@ test.describe("i18n English browse", () => {
     expect(document.lang).toBe("en");
   });
 
-  test("/en/brands/djulis server-renders English chrome and taxonomy", async ({
+  test("/en/brands/<seeded> server-renders English chrome and taxonomy", async ({
     request,
   }) => {
-    const response = await request.get("/en/brands/djulis");
+    const response = await request.get(`/en/brands/${seeded.slug}`);
 
     expect(response.status()).toBe(200);
     const document = renderedDocument(await response.text());
@@ -47,23 +63,17 @@ test.describe("i18n English browse", () => {
     for (const text of ["About Formoria", "Recommend a Brand"]) {
       expect(document.headerText).toContain(text);
     }
-    // Only ontology-stable strings belong here: page chrome and the taxonomy
-    // CATEGORY. Brand-level product tags must never be pinned — curation
-    // rewrites them as a normal outcome, and djulis's tags legitimately moved
-    // from 'Snacks' to 'Cereal Bars'/'Cookies & Rice Crackers' during the
-    // 2026-08-03 re-curation, failing this spec on a data change rather than a
-    // localisation regression. `Food & Beverage` comes from the ontology, so it
-    // covers taxonomy localisation without depending on one brand's data.
+    // Only fixture-backed copy and ontology-stable strings belong here. The
+    // controlled brand cannot drift during a normal curation run.
     for (const text of [
       "Brands",
       "Visit Website",
       "Brand information",
-      "Location",
       "Founded",
       "Category",
       "Price",
       "Product categories",
-      "Food & Beverage",
+      "Crafts & Art",
     ]) {
       expect(document.mainText).toContain(text);
     }
@@ -71,21 +81,20 @@ test.describe("i18n English browse", () => {
       "品牌目錄",
       "前往官網",
       "品牌資訊",
-      "地點",
       "創立年份",
       "類別",
       "價格區間",
       "產品類別",
-      "食品飲料",
+      "工藝文創",
     ]) {
       expect(document.mainText).not.toContain(text);
     }
   });
 
-  test("/brands/djulis server-renders Traditional Chinese chrome and taxonomy", async ({
+  test("/brands/<seeded> server-renders Traditional Chinese chrome and taxonomy", async ({
     request,
   }) => {
-    const response = await request.get("/brands/djulis");
+    const response = await request.get(`/brands/${seeded.slug}`);
 
     expect(response.status()).toBe(200);
     const document = renderedDocument(await response.text());
@@ -99,12 +108,11 @@ test.describe("i18n English browse", () => {
       "品牌目錄",
       "前往官網",
       "品牌資訊",
-      "地點",
       "創立年份",
       "類別",
       "價格區間",
       "產品類別",
-      "食品飲料",
+      "工藝文創",
     ]) {
       expect(document.mainText).toContain(text);
     }
@@ -112,11 +120,10 @@ test.describe("i18n English browse", () => {
       "Brand Directory",
       "Visit Website",
       "Brand information",
-      "Location",
       "Founded",
       "Category",
       "Product categories",
-      "Food & Beverage",
+      "Crafts & Art",
     ]) {
       expect(document.mainText).not.toContain(text);
     }
@@ -204,7 +211,9 @@ test.describe("i18n English browse", () => {
     await expect(enItem).toBeVisible({ timeout: BUDGET.RENDERED });
     await enItem.click();
 
-    await expect(page).toHaveURL(/\/en\/brands/, { timeout: BUDGET.INTERACTIVE });
+    await expect(page).toHaveURL(/\/en\/brands/, {
+      timeout: BUDGET.INTERACTIVE,
+    });
   });
 
   test("LocaleSwitcher preserves repeated and encoded query parameters", async ({
@@ -255,20 +264,7 @@ test.describe("i18n English browse", () => {
   test("/en/brands/[slug] renders English chrome, not the default locale", async ({
     page,
   }) => {
-    await page.goto("/en/brands");
-    const firstBrand = page
-      .locator('main [role="list"] article a[href*="/brands/"]')
-      .first();
-    const hasBrand = await firstBrand
-      .isVisible({ timeout: BUDGET.INTERACTIVE })
-      .catch(() => false);
-    if (!hasBrand) {
-      test.skip(true, "No brands seeded — skipping brand detail locale check");
-      return;
-    }
-    const href = await firstBrand.getAttribute("href");
-    expect(href).toBeTruthy();
-    await page.goto(href!);
+    await page.goto(`/en/brands/${seeded.slug}`);
     await expect(
       page.getByRole("link", { name: "About Formoria" }),
     ).toBeVisible({
