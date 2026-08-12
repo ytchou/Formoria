@@ -21,6 +21,23 @@ describe('isLocalizedPublicPath', () => {
     expect(isLocalizedPublicPath('/en/auth/sign-in')).toBe(true)
   })
 
+  it('leaves non-localized auth route handlers outside locale middleware', () => {
+    expect(isLocalizedPublicPath('/auth/callback')).toBe(false)
+    expect(isLocalizedPublicPath('/auth/sign-out')).toBe(false)
+  })
+
+  it('lets the sign-out POST reach its top-level route handler', async () => {
+    const request = new NextRequest('https://formoria.com/auth/sign-out', {
+      method: 'POST',
+      headers: { host: 'formoria.com' },
+    })
+
+    const response = await proxy(request)
+
+    expect(response.headers.get('x-middleware-rewrite')).toBeNull()
+    expect(response.headers.get('x-middleware-next')).toBe('1')
+  })
+
   it('treats /events as localized', () => {
     // Missing from PUBLIC_INTL_SEGMENTS, the prefix-free (zh-TW) hub loses locale
     // inference in production only — dev and /en both look fine.
