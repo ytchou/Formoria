@@ -3179,6 +3179,7 @@ describe("health-agent migration contract", () => {
       {
         artifactStatus: "success",
         finalReportStatus: "success",
+        managerReportStatus: "success",
         outputPath: "terminal-success.json",
         uploadClassifierStatus: "success",
         uploadRetryStatus: "skipped",
@@ -3191,6 +3192,7 @@ describe("health-agent migration contract", () => {
       {
         artifactStatus: "success",
         finalReportStatus: "success",
+        managerReportStatus: "success",
         outputPath: "terminal-failed-upload.json",
         uploadClassifierStatus: "success",
         uploadRetryStatus: "failure",
@@ -3198,15 +3200,35 @@ describe("health-agent migration contract", () => {
       },
       { files },
     );
+    const failedManagerReport = await runWorkflowCommand(
+      "terminal-status",
+      {
+        artifactStatus: "success",
+        finalReportStatus: "success",
+        managerReportStatus: "failed",
+        outputPath: "terminal-failed-manager-report.json",
+        uploadClassifierStatus: "success",
+        uploadRetryStatus: "skipped",
+        uploadStatus: "success",
+      },
+      { files },
+    );
 
     expect(successful).toMatchObject({ status: "success" });
     expect(failedUploads).toMatchObject({ status: "failed" });
+    expect(failedManagerReport).toMatchObject({ status: "failed" });
     expect(
       JSON.parse(contents.get("terminal-success.json") ?? "{}"),
     ).toMatchObject({ status: "success" });
     expect(
       JSON.parse(contents.get("terminal-failed-upload.json") ?? "{}"),
     ).toMatchObject({ status: "failed" });
+    expect(
+      JSON.parse(contents.get("terminal-failed-manager-report.json") ?? "{}"),
+    ).toMatchObject({
+      manager_report_status: "failed",
+      status: "failed",
+    });
   });
 });
 

@@ -728,9 +728,11 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
         run: |
           terminal_status=failed
+          manager_report_status="$(jq -er '.envelope.status | select(. == "failed" or . == "skipped" or . == "success")' "$HEALTH_ARTIFACT_DIR/final-report.json" 2>/dev/null || printf '%s\n' failed)"
           if pnpm exec tsx scripts/health-agent/workflow-runtime.ts terminal-status \
             --artifact-status "${{ steps.artifact.outcome }}" \
             --final-report-status "${{ steps.final-report.outcome }}" \
+            --manager-report-status "$manager_report_status" \
             --output "$HEALTH_ARTIFACT_DIR/terminal-status.json" \
             --upload-classifier-status "${{ steps.upload-status.outcome }}" \
             --upload-retry-status "${{ steps.upload-retry.outcome }}" \

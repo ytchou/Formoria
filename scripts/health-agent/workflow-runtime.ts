@@ -354,6 +354,7 @@ export interface ArtifactUploadInput {
 export interface TerminalStatusDecisionInput {
   artifactStatus: string;
   finalReportStatus: string;
+  managerReportStatus: string;
   uploadClassifierStatus: string;
   uploadRetryStatus: string;
   uploadStatus: string;
@@ -1418,6 +1419,7 @@ export function decideTerminalStatus(
   const uploadSucceeded =
     input.uploadStatus === "success" || input.uploadRetryStatus === "success";
   return input.finalReportStatus === "success" &&
+    input.managerReportStatus === "success" &&
     input.artifactStatus === "success" &&
     uploadSucceeded &&
     input.uploadClassifierStatus === "success"
@@ -1432,6 +1434,7 @@ export async function writeTerminalStatus(
   const result: JsonObject = {
     artifact_status: input.artifactStatus,
     final_report_status: input.finalReportStatus,
+    manager_report_status: input.managerReportStatus,
     status: decideTerminalStatus(input),
     upload_classifier_status: input.uploadClassifierStatus,
     upload_retry_status: input.uploadRetryStatus,
@@ -4809,6 +4812,10 @@ export async function runWorkflowCommand(
             input.finalReportStatus,
             "finalReportStatus",
           ),
+          managerReportStatus: safeString(
+            input.managerReportStatus,
+            "managerReportStatus",
+          ),
           outputPath: safeString(input.outputPath, "outputPath"),
           uploadClassifierStatus: safeString(
             input.uploadClassifierStatus,
@@ -5037,6 +5044,7 @@ export async function main(
     expectedEscalation:
       optionalArgument(argv, "--expected-escalation") === "true",
     finalReportStatus: optionalArgument(argv, "--final-report-status"),
+    managerReportStatus: optionalArgument(argv, "--manager-report-status"),
     humanPrResultPath: optionalArgument(argv, "--human-pr-result"),
     publishStatus: optionalArgument(argv, "--publish-status"),
     queueArtifactPath: optionalArgument(argv, "--queue-artifact"),
