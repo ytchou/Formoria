@@ -854,8 +854,8 @@ test.describe("Brand detail — public locations and retail channels", () => {
       timeout: BUDGET.SERVER_RENDER,
     });
 
-    // The page is `force-static` with `revalidate = 3600`, so on-demand
-    // revalidation is stale-while-revalidate: the first request after the
+    // The page uses on-demand ISR with `revalidate = 3600`, so revalidation is
+    // stale-while-revalidate: the first request after the
     // mutation can still be served from the old cache entry while the
     // regeneration runs. Retry the reload rather than assuming the write is
     // readable on the very next request. Same pattern as the submitted-channel

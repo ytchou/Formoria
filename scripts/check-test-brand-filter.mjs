@@ -3,9 +3,9 @@
  *
  * `excludeTestBrands()` is opt-in per call site, and that is exactly how it
  * drifted twice: first /about and /stats reporting one more brand than /brands,
- * then five discovery reads (homepage rail, empty-state recommendations, both
- * generateStaticParams, the detail-page category count) shipping unfiltered —
- * which is how an [E2E-TEST] brand reached the live homepage.
+ * then discovery reads (homepage rail, empty-state recommendations, and
+ * category counts) shipping unfiltered — which is how an [E2E-TEST] brand
+ * reached the live homepage.
  *
  * A unit test cannot cover this: these functions build their own service client,
  * and check-test-boundaries.mjs forbids mocking it. The property is static

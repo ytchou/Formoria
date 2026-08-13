@@ -1,0 +1,73 @@
+{
+  "findings": [
+    {
+      "severity": "Important",
+      "file": "src/app/[locale]/(site)/brands/[slug]/page.tsx",
+      "line": "60",
+      "description": "force-static makes the initial English brand-detail document fall back to zh-TW translations.",
+      "failure_scenario": "A request to /en/brands/<slug> returns lang=en and English chrome but server-renders brand detail labels such as 品牌資訊 and 品牌聲明; the scoped i18n E2E test fails before hydration. The exact prefixless route already removes the original middleware loop, so force-static is no longer required.",
+      "flagged_by": "E2E Drift Gate|Removed-behavior auditor",
+      "status": "valid"
+    },
+    {
+      "severity": "Important",
+      "file": "src/app/(default-site)/brands/[slug]/page.tsx",
+      "line": "1",
+      "description": "The new exact prefixless route does not carry over the localized brand route's error and not-found boundaries.",
+      "failure_scenario": "A missing brand or a service failure on /brands/<slug> selects the new route tree, which has no route-specific not-found.tsx or error.tsx, so users lose the localized brand recovery UI that /en/brands/<slug> still receives.",
+      "flagged_by": "Angle B|Plan Alignment",
+      "status": "valid"
+    },
+    {
+      "severity": "Important",
+      "file": "src/lib/supabase/service.ts",
+      "line": "25",
+      "description": "Generic argv build detection runs before test and script classification.",
+      "failure_scenario": "A maintenance script or test invoked with an argument exactly equal to build is attributed as build traffic, defeating the runbook's promised separation of build, test, and script requests.",
+      "flagged_by": "Angle A|Cross-file tracer",
+      "status": "valid"
+    },
+    {
+      "severity": "Minor",
+      "file": "src/lib/supabase/service.ts",
+      "line": "3",
+      "description": "The new traffic context type and classifier are exported despite having no external caller.",
+      "failure_scenario": "The module exposes two unsupported API symbols and knip reports both, increasing the public surface future refactors must preserve.",
+      "flagged_by": "Dead Code",
+      "status": "valid"
+    },
+    {
+      "severity": "Minor",
+      "file": "src/lib/services/__tests__/brands-related.integration.test.ts",
+      "line": "32",
+      "description": "The new DB regression uses a non-null assertion and unchecked array index instead of an explicit runtime guard.",
+      "failure_scenario": "A test database without a category containing two approved brands reaches an unsafe categoryEntry!/slugs[0] path; this also violates the governing rule 'Never use unchecked [0] on possibly-empty arrays.'",
+      "flagged_by": "Conventions angle|Test Quality",
+      "status": "valid"
+    },
+    {
+      "severity": "Minor",
+      "file": "src/lib/supabase/service.test.ts",
+      "line": "5",
+      "description": "The test covers the pure User-Agent builder rather than recreating a Supabase client and asserting x-client-info wiring.",
+      "failure_scenario": "A future removal of the global.headers wiring could leave this helper test green while traffic becomes untagged.",
+      "flagged_by": "Test Quality",
+      "status": "incorrect"
+    }
+  ],
+  "active_lenses": [
+    "Angle A",
+    "Angle B",
+    "Angle C",
+    "Angle D",
+    "Angle E",
+    "Cleanup",
+    "Altitude",
+    "Conventions",
+    "Plan Alignment",
+    "Test Quality",
+    "Design Quality",
+    "Dead Code",
+    "Gap Sweep"
+  ]
+}
