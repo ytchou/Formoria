@@ -85,8 +85,8 @@ async function expectToast(
   ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 }
 
-// Brand detail is force-static with 1h ISR — a freshly seeded brand needs a
-// poll-reload before it renders.
+// Brand detail uses on-demand ISR with 1h revalidation — a freshly seeded brand
+// needs a poll-reload before it renders.
 async function openSeededBrand(page: Page, seeded: SeededBrand): Promise<void> {
   await expect(async () => {
     await page.goto(`/brands/${seeded.slug}`, { waitUntil: 'domcontentloaded' });

@@ -9,7 +9,7 @@ async function globalTeardown() {
     await cleanupTestData();
     const createdSince = process.env.E2E_RUN_STARTED_AT;
     if (createdSince) {
-      await cleanupTestData({ createdSince });
+      await cleanupTestData({ createdSince, runId: process.env.E2E_RUN_ID });
     } else {
       console.warn(
         '[E2E teardown] E2E_RUN_STARTED_AT unset — skipping the run-scoped sweep',

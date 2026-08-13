@@ -4,9 +4,10 @@ import { routing } from '@/i18n/routing'
 export const PUBLIC_BRAND_DATA_TAG = 'public-brand-data'
 
 /**
- * `localePrefix: 'as-needed'` hides the default locale (`zh-TW`) from the public
- * URL, but the ISR cache key keeps the internal prefix. The prerender manifest
- * therefore holds `/zh-TW/...` and `/en/...` entries, not bare paths.
+ * `localePrefix: 'as-needed'` serves the default locale through the exact
+ * prefixless route, while English uses its visible `/en` route. Keep this
+ * separate from localized shared pages because brand detail has two concrete
+ * route files after the default-locale route split.
  */
 export function revalidateLocalizedPath(path: string): void {
   for (const locale of routing.locales) {
@@ -39,7 +40,8 @@ export function revalidatePublicBrands(slugs: readonly string[]): void {
   revalidateTag(PUBLIC_BRAND_DATA_TAG, 'max')
 
   for (const slug of unique) {
-    revalidateLocalizedPath(`/brands/${slug}`)
+    revalidatePath(`/brands/${slug}`)
+    revalidatePath(`/en/brands/${slug}`)
     revalidatePath(`/site/${slug}`)
   }
 

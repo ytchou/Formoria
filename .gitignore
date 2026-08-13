@@ -20,8 +20,17 @@ e2e/playwright-report/
 /playwright-report/
 .playwright-mcp/
 
-# Claude Code local state
-.claude/
+# Python bytecode. The repo has no Python toolchain, but scripts/zh-check and
+# scripts/story-lint are stdlib scripts and the latter imports its own module
+# during --selftest, which materialises a cache directory next to the source.
+__pycache__/
+*.pyc
+
+# Claude Code local state. `.claude/*` rather than `.claude/`: git refuses to
+# re-include anything whose parent directory is excluded, so the directory
+# itself must stay walkable for the project-local skills below to be tracked.
+.claude/*
+!.claude/skills/
 
 # Health agent run output (HEALTH_ARTIFACT_DIR). Written by every local or CI
 # health-agent command; the durable copy is the uploaded workflow artifact.
@@ -115,6 +124,14 @@ next-env.d.ts
 !.github/PULL_REQUEST_TEMPLATE.md
 # SEO measurement artifacts are shipped content, not internal strategy docs.
 !content/seo/**/*.md
+# Project-local Claude skills. These are executable specification, not docs:
+# /write-stories reads its own voice pack at runtime, so an untracked voice file
+# silently changes what the skill produces on a machine that lacks it.
+!.claude/skills/**/*.md
+# Linter dictionaries and golden fixtures. check.py parses forbidden-terms.md as
+# its rule table and reads golden/*.md as its test suite, so both are code.
+!scripts/story-lint/**/*.md
+!scripts/zh-check/*.md
 # The e2e failure-triage procedure. Named here per the INVARIANT above: the
 # check:e2e-timeouts gate points contributors at it from its failure output, so
 # CI depends on it existing. It lives in e2e/ rather than docs/ because the

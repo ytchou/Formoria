@@ -1452,6 +1452,7 @@ export const getBrandImageFields = cache(
 type GetBrandsFilters = BrandFilters & {
   page?: number;
   subcategoryTags?: string[];
+  excludeSlug?: string;
   /**
    * Opt in to the full column projection (jsonb blobs + draft data). Public
    * directory callers must leave this off — those columns are dead weight in
@@ -1540,8 +1541,8 @@ export async function getBrands(
   // `[E2E-TEST]` brand IS searchable and clickable through to detail — that is
   // how the public search path stays covered at all. Test brands are excluded
   // from every browse surface instead (listing, homepage rail, empty-state
-  // recommendations, static params, counts), so reaching one requires typing its
-  // exact name. Do not "fix" this without replacing the coverage it carries.
+  // recommendations, counts), so reaching one requires typing its exact name.
+  // Do not "fix" this without replacing the coverage it carries.
   if (typeof filters?.search === "string") {
     const trimmed = normalizePublicSearchQuery(filters.search);
     if (!trimmed) {
@@ -1647,6 +1648,9 @@ export async function getBrands(
   if (!filters?.includeTestBrands) {
     query = excludeTestBrands(query);
   }
+  if (filters?.excludeSlug) {
+    query = query.neq("slug", filters.excludeSlug);
+  }
   if (filters?.status) {
     query = query.eq("status", filters.status);
   }
@@ -1732,25 +1736,63 @@ export type SubcategorySummary = {
   latestUpdatedAt: string | null
 }
 
+type SubcategorySummaryRow = {
+  productTags: string[]
+  updatedAt: string
+}
+
+/**
+ * Every approved brand in one category, as the taxonomy summary needs them.
+ *
+ * This read has no `limit` — the counts are a whole-category aggregate, so it
+ * genuinely wants every row. That is affordable once an hour and not once a
+ * request: `/[locale]/categories/[category]` awaits `searchParams`, so it
+ * renders dynamically and `revalidate = 3600` on the page buys nothing (see the
+ * note in cache/public-brand-cache.ts — taxonomy routes have no ISR entries).
+ * Uncached, every crawler hit on every filter permutation replayed a full scan
+ * against PostgREST, which is what saturated the origin (DEV-1460).
+ *
+ * Cached at the row level rather than at the summary: the aggregation below is
+ * cheap and varies by `subcategorySlug`, while the query is the expensive part
+ * and varies only by category. `unstable_cache` serializes, so this returns
+ * plain rows — the `Map` is rebuilt per call by the caller.
+ */
+const getCachedSubcategoryRows = unstable_cache(
+  (categorySlug: string) =>
+    auditedCall(
+      {
+        provider: "cache",
+        operation: "getCachedSubcategoryRows",
+        kind: "service",
+      },
+      async (): Promise<SubcategorySummaryRow[]> => {
+        const supabase = createServiceClient();
+        const { data, error } = await excludeTestBrands(
+          supabase
+            .from("brands")
+            .select("product_tags, updated_at")
+            .eq("status", "approved")
+            .eq("product_type", categorySlug),
+        );
+
+        if (error) throw error;
+
+        return (data ?? []).map((row) => ({
+          productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
+          updatedAt: row.updated_at,
+        }));
+      },
+      { summary: { cached: true } },
+    ),
+  ["subcategory-summary-rows"],
+  { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
+);
+
 export async function getSubcategorySummary(
   categorySlug: string,
   subcategorySlug?: string,
 ): Promise<SubcategorySummary> {
-  const supabase = createServiceClient();
-  const { data, error } = await excludeTestBrands(
-    supabase
-      .from("brands")
-      .select("product_tags, updated_at")
-      .eq("status", "approved")
-      .eq("product_type", categorySlug),
-  );
-
-  if (error) throw error;
-
-  const brands = (data ?? []).map((row) => ({
-    productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
-    updatedAt: row.updated_at,
-  }));
+  const brands = await getCachedSubcategoryRows(categorySlug);
   const counts = new Map<string, number>();
   let latestUpdatedAt: string | null = null;
 
@@ -2250,45 +2292,16 @@ export async function getRelatedBrands(
   categorySlug: string,
   excludeSlug: string,
   limit = 4,
-): Promise<Brand[]> {
-  if (!categorySlug) return [];
+): Promise<{ brands: Brand[]; totalCount: number }> {
+  if (!categorySlug) return { brands: [], totalCount: 0 };
 
-  const { brands } = await getBrands({
+  return getBrands({
     category: [categorySlug],
     status: "approved",
     sort: "random",
-    limit: limit + 1,
+    limit,
+    excludeSlug,
   });
-
-  return brands.filter((brand) => brand.slug !== excludeSlug).slice(0, limit);
-}
-
-export async function getBrandCountByCategory(
-  categorySlug: string,
-  excludeSlug: string,
-): Promise<number> {
-  if (!categorySlug) return 0;
-
-  const supabase = createServiceClient();
-  const { count, error } = await excludeTestBrands(
-    supabase.from("brands").select("*", { count: "exact", head: true }),
-  )
-    .eq("status", "approved")
-    .eq("product_type", categorySlug)
-    .neq("slug", excludeSlug);
-
-  if (error) throw error;
-  return count ?? 0;
-}
-
-export async function getAllBrandSlugs(): Promise<string[]> {
-  const supabase = createServiceClient();
-  const { data, error } = await excludeTestBrands(
-    supabase.from("brands").select("slug"),
-  ).eq("status", "approved");
-
-  if (error) throw error;
-  return (data ?? []).map((row) => row.slug);
 }
 
 export type BrandSeoEntry = {
