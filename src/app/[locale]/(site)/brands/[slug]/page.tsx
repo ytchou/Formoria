@@ -6,8 +6,6 @@ import {
   getPublicBrandDetailBySlug,
   getPublicBrandFaqContextById,
   getRelatedBrands,
-  getBrandCountByCategory,
-  getAllBrandSlugs,
 } from "@/lib/services/brands";
 import {
   buildBrandJsonLd,
@@ -20,7 +18,6 @@ import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
 import {
   toPublicBrandCard,
-  type PublicBrandCard,
   type PublicBrandDetail,
 } from "@/lib/brands/contracts";
 import { BrandViewTracker } from "@/components/brands/brand-view-tracker";
@@ -56,16 +53,15 @@ import { getBrandGalleryImages } from "@/lib/services/brand-images";
 const brandSectionClassName =
   "scroll-mt-40 border-t border-border pt-8 first:border-t-0 first:pt-0 md:scroll-mt-28";
 
-// 1h ISR: ownership/verified-state changes propagate within ~an hour; route still statically served between regenerations
+// 1h ISR: ownership/verified-state changes propagate within ~an hour; paths
+// omitted from generateStaticParams are rendered on demand and cached between
+// regenerations after their first request.
 export const revalidate = 3600;
 
-export async function generateStaticParams() {
-  try {
-    const slugs = await getAllBrandSlugs();
-    return slugs.map((slug) => ({ slug }));
-  } catch {
-    return [];
-  }
+// Empty params keep all brand details on-demand ISR; never query the full brand
+// corpus during `next build` just to populate this list.
+export function generateStaticParams() {
+  return [];
 }
 
 type PageProps = {
@@ -210,17 +206,11 @@ export default async function BrandDetailPage({ params }: PageProps) {
       }
     : null;
 
-  // Parallel fetch: related brands + category count by product_type slug.
-  const [relatedBrands, categoryCount] = await Promise.all([
-    categoryTag
-      ? getRelatedBrands(categoryTag.slug, displayBrand.slug, 4).then(
-          (brands) => brands.map(toPublicBrandCard),
-        )
-      : Promise.resolve<PublicBrandCard[]>([]),
-    categoryTag
-      ? getBrandCountByCategory(categoryTag.slug, displayBrand.slug)
-      : Promise.resolve(0),
-  ]);
+  const relatedResult = categoryTag
+    ? await getRelatedBrands(categoryTag.slug, displayBrand.slug, 4)
+    : { brands: [], totalCount: 0 };
+  const relatedBrands = relatedResult.brands.map(toPublicBrandCard);
+  const categoryCount = relatedResult.totalCount;
 
   const visitLink = getBrandVisitLink(displayBrand);
   const description =

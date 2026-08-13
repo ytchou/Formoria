@@ -20,16 +20,18 @@ describe('revalidatePublicBrands', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('invalidates all brand-dependent cached page families once per batch', () => {
+    // Bug: an approved brand mutation must invalidate the exact prefixless
+    // zh-TW detail cache, not only the localized route that next-intl rewrites.
     revalidatePublicBrands(['niizo', 'kiln'])
 
     expect(revalidateTag).toHaveBeenCalledTimes(1)
     expect(revalidateTag).toHaveBeenCalledWith(PUBLIC_BRAND_DATA_TAG, 'max')
     expect(revalidatedPaths()).toEqual(
       expect.arrayContaining([
-        ['/zh-TW/brands/niizo'],
+        ['/brands/niizo'],
         ['/en/brands/niizo'],
         ['/site/niizo'],
-        ['/zh-TW/brands/kiln'],
+        ['/brands/kiln'],
         ['/en/brands/kiln'],
         ['/site/kiln'],
         ['/zh-TW'],
@@ -49,7 +51,7 @@ describe('revalidatePublicBrands', () => {
     revalidatePublicBrands(['niizo', ' niizo ', 'kiln', ''])
 
     expect(
-      revalidatedPaths().filter(([path]) => path === '/zh-TW/brands/niizo'),
+      revalidatedPaths().filter(([path]) => path === '/brands/niizo'),
     ).toHaveLength(1)
     expect(revalidatedPaths().filter(([path]) => path === '/site/niizo')).toHaveLength(1)
     expect(revalidatedPaths()).not.toContainEqual(['/zh-TW/brands'])
@@ -61,14 +63,15 @@ describe('revalidatePublicBrands', () => {
     ).toBe(false)
   })
 
-  it('emits one localized detail path per configured locale', () => {
+  it('emits the exact default-locale and English detail paths', () => {
     revalidatePublicBrands(['niizo'])
 
     expect(
       revalidatedPaths().filter(([path]) =>
         typeof path === 'string' && path.endsWith('/brands/niizo'),
       ),
-    ).toEqual(routing.locales.map((locale) => [`/${locale}/brands/niizo`]))
+    ).toEqual([['/brands/niizo'], ['/en/brands/niizo']])
+    expect(revalidatedPaths()).not.toContainEqual(['/zh-TW/brands/niizo'])
   })
 
   it('does nothing for an empty brand batch', () => {
