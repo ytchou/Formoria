@@ -1,4 +1,4 @@
-import { BUDGET } from "../budgets";
+import { BUDGET, POLL } from "../budgets";
 import { test, expect } from "../fixtures/auth";
 import zhTW from "../../messages/zh-TW.json";
 
@@ -89,6 +89,6 @@ test.describe("FAQ page", () => {
         return el ? el.open : false;
       });
       expect(isOpen).toBe(true);
-    }).toPass({ timeout: BUDGET.RENDERED });
+    }).toPass(POLL.UI);
   });
 });

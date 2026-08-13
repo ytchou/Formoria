@@ -35,6 +35,7 @@ describe("nightly E2E batch self-heal contract", () => {
     expect(diagnosis).not.toContain("Read,Write");
     expect(diagnosis).not.toContain("verify-targeted.mjs");
     expect(diagnosis).not.toContain("Bash(pnpm");
+    expect(diagnosis).toContain("Bash(jq:*)");
     expect(repair).toContain("Read,Write,Edit,Replace");
     expect(repair).not.toContain("verify-targeted.mjs");
     expect(repair).not.toContain("Bash(pnpm");
@@ -65,12 +66,25 @@ describe("nightly E2E batch self-heal contract", () => {
       source.indexOf("- name: Repair every actionable cluster"),
     );
     expect(diagnosis).toContain(
-      "DIAGNOSIS_RESULT: ${{ steps.diagnose.outputs.structured_output }}",
+      "DIAGNOSIS_RESULT: ${{ steps.diagnose.outputs.structured_output || steps.diagnose_retry.outputs.structured_output }}",
     );
     expect(diagnosis).toContain("printf '%s' \"$DIAGNOSIS_RESULT\"");
     expect(diagnosis).not.toContain(
       "printf '%s' '${{ steps.diagnose.outputs.structured_output }}'",
     );
+  });
+
+  it("retries a missing diagnosis result without consuming a repair cycle", async () => {
+    const source = await workflow();
+    const diagnosis = source.slice(
+      source.indexOf("- name: Diagnose complete failure set"),
+      source.indexOf("- name: Repair every actionable cluster"),
+    );
+    expect(diagnosis).toContain("continue-on-error: true");
+    expect(diagnosis).toContain("- name: Retry diagnosis contract once");
+    expect(diagnosis).toContain("if: steps.diagnose.outcome == 'failure'");
+    expect(diagnosis).not.toContain("NEXT_CYCLE");
+    expect(diagnosis).not.toContain("continuation_kind=repair");
   });
 
   it("caps repair, infrastructure, and base-sync continuations incident-wide", async () => {
@@ -119,9 +133,20 @@ describe("nightly E2E batch self-heal contract", () => {
 
   it("can turn a recovered infrastructure retry into the next repair cycle", async () => {
     const source = await workflow();
+    const probe = source.slice(
+      source.indexOf("- name: Probe Supabase infrastructure"),
+      source.indexOf("- name: Prepare infrastructure continuation bundle"),
+    );
     const report = source.slice(
       source.indexOf("- name: Prepare self-heal report for next round"),
       source.indexOf("- name: Upload self-heal report for next round"),
+    );
+    expect(probe).toContain(
+      "CONTINUATION_KIND: ${{ inputs.continuation_kind }}",
+    );
+    expect(probe).toContain("errorsCurrent:$errorsCurrent");
+    expect(probe).toContain(
+      '[ "$CONTINUATION_KIND" = infrastructure ] && echo false || echo true',
     );
     expect(report).toContain("inputs.continuation_kind == 'infrastructure'");
     expect(report).toContain("steps.validation.outcome != 'success'");
@@ -129,7 +154,9 @@ describe("nightly E2E batch self-heal contract", () => {
 
   it("reclassifies full-suite service failures before another repair cycle", async () => {
     const source = await workflow();
-    const classifier = source.indexOf("- name: Classify validation infrastructure");
+    const classifier = source.indexOf(
+      "- name: Classify validation infrastructure",
+    );
     const redContinuationIndex = source.indexOf(
       "- name: Continue red self-heal within cycle cap",
     );
@@ -139,7 +166,9 @@ describe("nightly E2E batch self-heal contract", () => {
     expect(classifier).toBeGreaterThan(-1);
     expect(validationRetry).toBeGreaterThan(classifier);
     expect(classifier).toBeLessThan(redContinuationIndex);
-    expect(source).toContain("steps.validation_infrastructure.outputs.confirmed");
+    expect(source).toContain(
+      "steps.validation_infrastructure.outputs.confirmed",
+    );
     expect(source).toContain(
       "source_artifact_name=playwright-report-selfheal-validation-infrastructure",
     );
@@ -154,6 +183,15 @@ describe("nightly E2E batch self-heal contract", () => {
     );
     expect(redContinuation).toContain(
       "steps.continue_infrastructure.outputs.dispatched != 'true'",
+    );
+    const validationClassifier = source.slice(
+      source.indexOf("- name: Classify validation infrastructure"),
+      source.indexOf(
+        "- name: Prepare validation infrastructure continuation bundle",
+      ),
+    );
+    expect(validationClassifier).toContain(
+      "steps.infrastructure.outputs.confirmed != 'true'",
     );
   });
 
@@ -172,7 +210,11 @@ describe("nightly E2E batch self-heal contract", () => {
   it("self-merges only after every current-head test-only gate without admin bypass", async () => {
     const source = await workflow();
     expect(source).toContain("incident-cli.ts eligibility");
-    expect(source).toContain('.verdict == "PASS" and .risk == "low"');
+    expect(source).toContain(
+      '.verdict == "PASS" and .reviewed_head_sha == $head',
+    );
+    expect(source).toContain('.risk == "low"');
+    expect(source).toContain(".app_files | length == 0");
     expect(source).toContain(".reviewed_head_sha == $head");
     expect(source).toContain('["Quality","Build","select-targeted-e2e"]');
     expect(source).toContain('select(.name == "e2e-targeted"');
@@ -181,6 +223,46 @@ describe("nightly E2E batch self-heal contract", () => {
       'gh pr merge "$PR_NUMBER" --squash --match-head-commit "$HEAD_SHA"',
     );
     expect(source).not.toContain("--admin");
+  });
+
+  it("lets green application repairs reach review without runner-only search tools", async () => {
+    const source = await workflow();
+    const mergePolicy = source.slice(
+      source.indexOf("- name: Evaluate test-only merge policy"),
+      source.indexOf("- name: Prepare current incident evidence bundle"),
+    );
+    const review = source.slice(
+      source.indexOf("- name: Review fix"),
+      source.indexOf("- name: Ensure reviewed head is based on current main"),
+    );
+    expect(mergePolicy).not.toContain("rg -N");
+    expect(mergePolicy).toContain("DIAGNOSIS=null");
+    expect(review).toContain("always() &&");
+    expect(review).toContain(
+      '.verdict == "PASS" and .reviewed_head_sha == $head',
+    );
+    expect(review).toContain("self_merge_approved=true");
+    expect(review).toContain("gh pr ready");
+  });
+
+  it("retries a missing review result without rerunning validation", async () => {
+    const source = await workflow();
+    const review = source.slice(
+      source.indexOf("- name: Review fix"),
+      source.indexOf(
+        "- name: Update durable incident PR with validation and review",
+      ),
+    );
+    expect(review).toContain("continue-on-error: true");
+    expect(review).toContain("- name: Retry review contract once");
+    expect(review).toContain("if: steps.review.outcome == 'failure'");
+    const retry = review.slice(review.indexOf("- name: Retry review contract once"));
+    expect(retry).toContain("--model claude-sonnet-4-5");
+    expect(review).toContain(
+      "steps.review.outputs.structured_output || steps.review_retry.outputs.structured_output",
+    );
+    expect(review).not.toContain("verify-targeted.mjs");
+    expect(review).not.toContain("Validate complete deep/mobile suite");
   });
 
   it("keeps continuations Slack-silent and reports eligibility separately from merge", async () => {

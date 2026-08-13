@@ -1,8 +1,8 @@
-import { BUDGET } from "./budgets";
+import { BUDGET, POLL } from "./budgets";
 import path from "path";
 import fs from "fs";
 import { execFileSync } from "child_process";
-import { chromium, type Browser } from "@playwright/test";
+import { chromium, expect, type Browser } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { cleanupTestData } from "./helpers/cleanup";
 import { writeAuthStorageState } from "./helpers/auth-session";
@@ -154,16 +154,28 @@ async function globalSetup() {
   // Any failure is swallowed — this must NEVER break the suite.
   const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 
-  // webServer 2xx fires before manifests are written; probe a static chunk to avoid loadManifestFromRelativePath SyntaxError
+  // webServer 2xx fires before manifests are written; poll a static chunk to
+  // avoid loadManifestFromRelativePath SyntaxError without a guessed sleep.
   const manifestProbeUrl = `${baseURL}/_next/static/chunks/main.js`;
-  for (let attempt = 0; attempt < 30; attempt++) {
-    try {
-      const res = await fetch(manifestProbeUrl);
-      if (res.ok) break;
-    } catch {
-      // server not yet serving static assets
-    }
-    await new Promise<void>((resolve) => setTimeout(resolve, 2_000));
+  try {
+    await expect
+      .poll(
+        async () => {
+          try {
+            const res = await fetch(manifestProbeUrl);
+            return res.ok;
+          } catch {
+            return false;
+          }
+        },
+        POLL.NAVIGATION,
+      )
+      .toBe(true);
+  } catch (err) {
+    console.warn(
+      "[global-setup] static asset warm-up probe failed (non-fatal):",
+      err instanceof Error ? err.message : String(err),
+    );
   }
 
   const tmpStorePath = path.join(__dirname, ".auth", "warmup-user.json");
@@ -181,7 +193,7 @@ async function globalSetup() {
       await page
         .locator('input[type="url"]')
         .first()
-        .waitFor({ state: "visible", timeout: 120_000 });
+        .waitFor({ state: "visible", timeout: BUDGET.WARMUP });
       // The submit overview, NOT /submit/owner/quick: the owner routes 404 while
       // the owner-features flag is off, so warming them stalled for the full
       // waitFor timeout and — being the one un-wrapped step here — threw past
@@ -194,7 +206,7 @@ async function globalSetup() {
         await page
           .getByRole("heading", { level: 1 })
           .first()
-          .waitFor({ state: "visible", timeout: 120_000 });
+          .waitFor({ state: "visible", timeout: BUDGET.WARMUP });
         console.log("[global-setup] /submit warm-up complete");
       } catch (err) {
         console.warn(
@@ -238,7 +250,7 @@ async function globalSetup() {
         await page
           .locator("main a[aria-label]")
           .first()
-          .waitFor({ state: "visible", timeout: 120_000 });
+          .waitFor({ state: "visible", timeout: BUDGET.WARMUP });
         console.log("[global-setup] /brands warm-up complete");
       } catch (err) {
         console.warn(
@@ -282,7 +294,7 @@ async function globalSetup() {
           await page
             .getByRole("heading", { level: 1 })
             .first()
-            .waitFor({ state: "visible", timeout: 120_000 });
+            .waitFor({ state: "visible", timeout: BUDGET.WARMUP });
           console.log("[global-setup] /brands/[slug] warm-up complete");
           // The unprefixed URL above redirects to the default locale (zh-TW),
           // so the `en` render of this route is still cold. Specs navigate to
@@ -296,7 +308,7 @@ async function globalSetup() {
           await page
             .getByRole("heading", { level: 1 })
             .first()
-            .waitFor({ state: "visible", timeout: 120_000 });
+            .waitFor({ state: "visible", timeout: BUDGET.WARMUP });
           console.log("[global-setup] /en/brands/[slug] warm-up complete");
         }
       } catch (err) {

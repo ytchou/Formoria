@@ -179,7 +179,7 @@ test.describe.serial("Public brand data boundary", () => {
       );
     });
     await expect(page.getByRole("link", { name: brandName })).toBeVisible({
-      timeout: 20_000,
+      timeout: BUDGET.GATED_UI,
     });
     await auditCurrentDocument(page, canaries, "directory card");
 
@@ -188,7 +188,7 @@ test.describe.serial("Public brand data boundary", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: brandName }),
     ).toBeVisible({
-      timeout: 20_000,
+      timeout: BUDGET.GATED_UI,
     });
     await auditCurrentDocument(page, canaries, "brand detail");
 
@@ -210,7 +210,7 @@ test.describe.serial("Public brand data boundary", () => {
       await expect(
         page.getByRole("heading", { level: 1, name: story.title }),
       ).toBeVisible({
-        timeout: 20_000,
+        timeout: BUDGET.GATED_UI,
       });
     } else {
       const response = await page.goto("/stories");
@@ -225,7 +225,7 @@ test.describe.serial("Public brand data boundary", () => {
     await auditCurrentDocument(page, canaries, "story surface");
 
     await expect
-      .poll(() => rscBodies.length, { timeout: BUDGET.INTERACTIVE })
+      .poll(() => rscBodies.length, POLL.UI)
       .toBeGreaterThan(0);
     const capturedRsc = (await Promise.all(rscBodies)).join("\n");
     assertCanariesAbsent(capturedRsc, canaries, "captured RSC responses");

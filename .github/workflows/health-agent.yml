@@ -227,7 +227,7 @@ jobs:
         id: sentry-analysis-1
         if: steps.admission.outputs.claimed == 'true' && steps.sentry-schema.outputs.count != '0'
         continue-on-error: true
-        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1
+        uses: anthropics/claude-code-action@239e3a730883eeb5c53db12b0fc9573b3024b126 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -254,7 +254,7 @@ jobs:
           steps.sentry-schema.outputs.count != '0' &&
           (steps.sentry-analysis-1.outcome != 'success' || steps.sentry-materialize-1.outcome != 'success')
         continue-on-error: true
-        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1
+        uses: anthropics/claude-code-action@239e3a730883eeb5c53db12b0fc9573b3024b126 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -375,7 +375,7 @@ jobs:
         id: repair-1
         if: steps.admission.outputs.claimed == 'true' && steps.setup.outputs.autofix == 'true' && steps.snapshot.outputs.count != '0'
         continue-on-error: true
-        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1
+        uses: anthropics/claude-code-action@239e3a730883eeb5c53db12b0fc9573b3024b126 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -428,7 +428,7 @@ jobs:
         id: review-1
         if: steps.admission.outputs.claimed == 'true' && steps.validate-1.outcome == 'success'
         continue-on-error: true
-        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1
+        uses: anthropics/claude-code-action@239e3a730883eeb5c53db12b0fc9573b3024b126 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -471,7 +471,7 @@ jobs:
           steps.repair-1.outcome == 'success' &&
           (steps.validate-1.outcome != 'success' || steps.review-decision-1.outcome != 'success')
         continue-on-error: true
-        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1
+        uses: anthropics/claude-code-action@239e3a730883eeb5c53db12b0fc9573b3024b126 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -512,7 +512,7 @@ jobs:
         id: review-2
         if: steps.admission.outputs.claimed == 'true' && steps.validate-2.outcome == 'success'
         continue-on-error: true
-        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1
+        uses: anthropics/claude-code-action@239e3a730883eeb5c53db12b0fc9573b3024b126 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -675,6 +675,7 @@ jobs:
             .health-agent-artifacts/health-run.json
             .health-agent-artifacts/audit.jsonl
             .health-agent-artifacts/repair-result-*.json
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
       - name: "Stage 5 · Retry health run upload"
@@ -688,6 +689,7 @@ jobs:
             .health-agent-artifacts/health-run.json
             .health-agent-artifacts/audit.jsonl
             .health-agent-artifacts/repair-result-*.json
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
       - name: "Stage 5 · Classify health run upload"
@@ -726,9 +728,11 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
         run: |
           terminal_status=failed
+          manager_report_status="$(jq -er '.envelope.status | select(. == "failed" or . == "skipped" or . == "success")' "$HEALTH_ARTIFACT_DIR/final-report.json" 2>/dev/null || printf '%s\n' failed)"
           if pnpm exec tsx scripts/health-agent/workflow-runtime.ts terminal-status \
             --artifact-status "${{ steps.artifact.outcome }}" \
             --final-report-status "${{ steps.final-report.outcome }}" \
+            --manager-report-status "$manager_report_status" \
             --output "$HEALTH_ARTIFACT_DIR/terminal-status.json" \
             --upload-classifier-status "${{ steps.upload-status.outcome }}" \
             --upload-retry-status "${{ steps.upload-retry.outcome }}" \

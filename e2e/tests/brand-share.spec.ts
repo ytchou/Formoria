@@ -34,7 +34,7 @@ async function openShareDialog(page: Page) {
   const dialog = page.getByRole("dialog", { name: "分享" });
   await expect(async () => {
     if (!(await dialog.isVisible())) await trigger.click();
-    await expect(dialog).toBeVisible({ timeout: 2_000 });
+    await expect(dialog).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   }).toPass(POLL.UI);
   return dialog;
 }
@@ -119,7 +119,7 @@ test.describe("Brand share dialog", () => {
 
     // Label swaps to "已複製！" (transient React state — wait for it)
     await expect(dialog.getByRole("button", { name: "已複製！" })).toBeVisible({
-      timeout: 3_000,
+      timeout: BUDGET.INTERACTIVE,
     });
 
     // After ~2s the label reverts to "複製"
@@ -159,7 +159,7 @@ test.describe("Brand share dialog", () => {
 
     const dialog = await openShareDialog(page);
     const popup = page
-      .waitForEvent("popup", { timeout: 2_000 })
+      .waitForEvent("popup", { timeout: BUDGET.INTERACTIVE })
       .catch(() => null);
 
     await dialog.getByRole("button", { name: "Instagram" }).click();
@@ -188,6 +188,6 @@ test.describe("Brand share dialog", () => {
 
     await dialog.getByRole("button", { name: "關閉" }).click();
 
-    await expect(dialog).not.toBeVisible({ timeout: 3_000 });
+    await expect(dialog).not.toBeVisible({ timeout: BUDGET.RENDERED });
   });
 });

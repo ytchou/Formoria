@@ -473,6 +473,15 @@ describe("unified health-agent workflow contract", () => {
       /name: "Stage 5 · Upload health run"[\s\S]*?id: upload/,
     );
     expect(workflow).toContain("id: upload-retry");
+    for (const id of ["upload", "upload-retry"]) {
+      const uploadStart = workflow.indexOf(`id: ${id}\n`);
+      const nextStep = workflow.indexOf("\n      - name:", uploadStart);
+      const uploadBlock = workflow.slice(
+        uploadStart,
+        nextStep === -1 ? undefined : nextStep,
+      );
+      expect(uploadBlock).toContain("include-hidden-files: true");
+    }
     expect(workflow).toContain("record-artifact-upload");
     expect(workflow).toContain("steps.upload.outcome != 'success'");
     expect(workflow).toContain(

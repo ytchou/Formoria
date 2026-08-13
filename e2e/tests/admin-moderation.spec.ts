@@ -5,7 +5,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { writeAuthStorageStateForCredentials } from '../helpers/auth-session';
 import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
 
-import { BUDGET } from '../budgets';
+import { BUDGET, POLL } from '../budgets';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -166,7 +166,7 @@ test.describe('Content moderation flow', () => {
           return (data?.draft_data as Record<string, unknown> | null)
             ?.description;
         },
-        { timeout: BUDGET.GATED_UI, intervals: [500, 1_000, 2_000] },
+        POLL.UI,
       )
       .toBe(description);
   }
@@ -200,7 +200,7 @@ test.describe('Content moderation flow', () => {
             draftData: data?.draft_data,
           };
         },
-        { timeout: BUDGET.GATED_UI, intervals: [500, 1_000, 2_000] },
+        POLL.UI,
       )
       .toEqual({ description: updatedDescription, draftData: null });
 

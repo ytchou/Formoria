@@ -22,7 +22,6 @@
     "check:service-registry": "node scripts/check-service-registry.mjs",
     "check:test-brand-filter": "node scripts/check-test-brand-filter.mjs",
     "check:e2e-timeouts": "node scripts/check-e2e-timeouts.mjs",
-    "snapshot:e2e-timeouts": "node scripts/check-e2e-timeouts.mjs --snapshot",
     "db:types": "npx supabase gen types typescript --linked > src/lib/supabase/database.types.ts",
     "check:db-types": "node scripts/check-db-types-fresh.mjs",
     "knip": "knip",

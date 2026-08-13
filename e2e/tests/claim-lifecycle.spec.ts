@@ -190,10 +190,10 @@ test.describe('Claim request lifecycle', () => {
       await expect(isolatedUserPage.getByText('已收到你的認領申請')).toBeVisible();
 
       await expect
-        .poll(async () => (await getClaimRow(supabase, brand!.id, isolatedUser.id))?.id ?? null, {
-          timeout: BUDGET.SERVER_RENDER,
-          intervals: [500, 1_000, 2_000],
-        })
+        .poll(
+          async () => (await getClaimRow(supabase, brand!.id, isolatedUser.id))?.id ?? null,
+          POLL.UI,
+        )
         .not.toBeNull();
       const pendingClaim = await getClaimRow(supabase, brand.id, isolatedUser.id);
       if (!pendingClaim) throw new Error('Submitted domain-email claim was not found.');
@@ -333,10 +333,10 @@ test.describe('Claim request lifecycle', () => {
       await expect(isolatedUserPage.getByText('已收到你的認領申請')).toBeVisible();
 
       await expect
-        .poll(async () => (await getClaimRow(supabase, brand!.id, isolatedUser.id))?.id ?? null, {
-          timeout: BUDGET.SERVER_RENDER,
-          intervals: [500, 1_000, 2_000],
-        })
+        .poll(
+          async () => (await getClaimRow(supabase, brand!.id, isolatedUser.id))?.id ?? null,
+          POLL.UI,
+        )
         .not.toBeNull();
       const pendingClaim = await getClaimRow(supabase, brand.id, isolatedUser.id);
       if (!pendingClaim) throw new Error('Submitted business-document claim was not found.');

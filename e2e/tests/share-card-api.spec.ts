@@ -83,7 +83,7 @@ test.describe('Share card API', () => {
     test.setTimeout(BUDGET.TEST.JOURNEY);
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
-    const resp = await request.get(`/api/share-card/${approvedBrandSlug}`, { timeout: 45_000 });
+    const resp = await request.get(`/api/share-card/${approvedBrandSlug}`, { timeout: BUDGET.NAVIGATION });
     expect(resp.status()).toBe(200);
 
     const contentType = resp.headers()['content-type'] ?? '';
@@ -114,7 +114,7 @@ test.describe('Share card API', () => {
     test.setTimeout(BUDGET.TEST.JOURNEY);
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
-    const resp = await request.get(`/api/share-card/${approvedBrandSlug}?download=1`, { timeout: 45_000 });
+    const resp = await request.get(`/api/share-card/${approvedBrandSlug}?download=1`, { timeout: BUDGET.NAVIGATION });
     expect(resp.status()).toBe(200);
 
     const disposition = resp.headers()['content-disposition'] ?? '';

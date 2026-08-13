@@ -642,6 +642,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          CONTINUATION_KIND: ${{ inputs.continuation_kind }}
         run: |
           set -euo pipefail
           PROBE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
@@ -674,8 +675,9 @@ jobs:
             '{event:"e2e_selfheal_infrastructure_probe",request:{operation:$operation,auth_mode:$auth_mode,limit:1},response:{status:$status,content_type:$response_content_type},latency_ms:$latency_ms}'
           jq -n \
             --argjson errors "$(jq -c '[.failures[]?.errors[]?]' /tmp/playwright-report/selfheal-context.json)" \
+            --argjson errorsCurrent "$([ "$CONTINUATION_KIND" = infrastructure ] && echo false || echo true)" \
             --argjson probe "$(cat "$RUNNER_TEMP/supabase-probe.json")" \
-            '{errors:$errors,probe:$probe}' > "$RUNNER_TEMP/infrastructure-evidence.json"
+            '{errors:$errors,errorsCurrent:$errorsCurrent,probe:$probe}' > "$RUNNER_TEMP/infrastructure-evidence.json"
           pnpm exec tsx scripts/selfheal/incident-cli.ts classify-infrastructure \
             "$RUNNER_TEMP/infrastructure-evidence.json" > /tmp/playwright-report/infrastructure.json
           echo "confirmed=$(jq -r .confirmed /tmp/playwright-report/infrastructure.json)" >> "$GITHUB_OUTPUT"
@@ -722,6 +724,7 @@ jobs:
       - name: Diagnose complete failure set
         if: steps.guard.outputs.skip != 'true' && steps.infrastructure.outputs.confirmed != 'true' && inputs.continuation_kind != 'base-sync' && inputs.continuation_kind != 'infrastructure'
         id: diagnose
+        continue-on-error: true
         uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -736,13 +739,37 @@ jobs:
             root_workflow_url: ${{ steps.context.outputs.source_workflow_url }}
           claude_args: >-
             --max-turns 80
-            --allowedTools "Read,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(gh run view:*),Bash(ls:*),Bash(find:*),Bash(sed:*),Bash(cat:*),Bash(pwd:*)"
+            --allowedTools "Read,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(gh run view:*),Bash(ls:*),Bash(find:*),Bash(sed:*),Bash(cat:*),Bash(jq:*),Bash(pwd:*)"
+            --json-schema '{"type":"object","additionalProperties":false,"required":["version","failureSetHash","failures","clusters","complete"],"properties":{"version":{"const":1},"failureSetHash":{"type":"string"},"failures":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","file","title","project","category","rootCauseKey","actionable","reason"],"properties":{"id":{"type":"string"},"file":{"type":["string","null"]},"title":{"type":"string"},"project":{"type":"string"},"category":{"enum":["test-drift","seed-drift","app-regression","env-flake","flaky-suspect"]},"rootCauseKey":{"type":"string"},"actionable":{"type":"boolean"},"reason":{"type":"string"}}}},"clusters":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["rootCauseKey","failureIds","category","actionable","plannedFiles","diagnosis","repairPlan"],"properties":{"rootCauseKey":{"type":"string"},"failureIds":{"type":"array","items":{"type":"string"}},"category":{"type":"string"},"actionable":{"type":"boolean"},"plannedFiles":{"type":"array","items":{"type":"string"}},"diagnosis":{"type":"string"},"repairPlan":{"type":"string"}}}},"complete":{"const":true}}}'
+
+      - name: Retry diagnosis contract once
+        if: steps.diagnose.outcome == 'failure'
+        id: diagnose_retry
+        uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.SELFHEAL_PAT }}
+          allowed_bots: github-actions
+          additional_permissions: |
+            actions: read
+          prompt: |
+            Read .github/selfheal/diagnose.md and diagnose every ID in
+            /tmp/playwright-report/frozen-failures.json. The complete evidence is
+            in /tmp/playwright-report. Do not edit files or execute Playwright.
+            The previous diagnosis attempt did not emit structured output. You
+            must return the complete DiagnosisResult JSON, including when every
+            cluster is non-actionable.
+            root_workflow_url: ${{ steps.context.outputs.source_workflow_url }}
+          claude_args: >-
+            --max-turns 80
+            --allowedTools "Read,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(gh run view:*),Bash(ls:*),Bash(find:*),Bash(sed:*),Bash(cat:*),Bash(jq:*),Bash(pwd:*)"
             --json-schema '{"type":"object","additionalProperties":false,"required":["version","failureSetHash","failures","clusters","complete"],"properties":{"version":{"const":1},"failureSetHash":{"type":"string"},"failures":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","file","title","project","category","rootCauseKey","actionable","reason"],"properties":{"id":{"type":"string"},"file":{"type":["string","null"]},"title":{"type":"string"},"project":{"type":"string"},"category":{"enum":["test-drift","seed-drift","app-regression","env-flake","flaky-suspect"]},"rootCauseKey":{"type":"string"},"actionable":{"type":"boolean"},"reason":{"type":"string"}}}},"clusters":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["rootCauseKey","failureIds","category","actionable","plannedFiles","diagnosis","repairPlan"],"properties":{"rootCauseKey":{"type":"string"},"failureIds":{"type":"array","items":{"type":"string"}},"category":{"type":"string"},"actionable":{"type":"boolean"},"plannedFiles":{"type":"array","items":{"type":"string"}},"diagnosis":{"type":"string"},"repairPlan":{"type":"string"}}}},"complete":{"const":true}}}'
 
       - name: Validate diagnosis artifact
-        if: steps.diagnose.outcome == 'success'
+        if: steps.diagnose.outcome == 'success' || steps.diagnose_retry.outcome == 'success'
+        id: diagnosis_validation
         env:
-          DIAGNOSIS_RESULT: ${{ steps.diagnose.outputs.structured_output }}
+          DIAGNOSIS_RESULT: ${{ steps.diagnose.outputs.structured_output || steps.diagnose_retry.outputs.structured_output }}
         run: |
           printf '%s' "$DIAGNOSIS_RESULT" > /tmp/playwright-report/diagnosis.json
           pnpm exec tsx scripts/selfheal/incident-cli.ts validate-diagnosis \
@@ -751,7 +778,7 @@ jobs:
           mv "$RUNNER_TEMP/validated-diagnosis.json" /tmp/playwright-report/diagnosis.json
 
       - name: Repair every actionable cluster
-        if: steps.diagnose.outcome == 'success'
+        if: steps.diagnosis_validation.outcome == 'success'
         id: fix
         uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1
         with:
@@ -1111,6 +1138,7 @@ jobs:
         if: >-
           always() &&
           steps.guard.outputs.skip != 'true' &&
+          steps.infrastructure.outputs.confirmed != 'true' &&
           steps.validation.outcome != 'success' &&
           steps.next_report.outputs.available == 'true'
         id: validation_infrastructure
@@ -1209,7 +1237,6 @@ jobs:
             --field incident_pr_number="${{ steps.incident_pr.outputs.pr_number || inputs.incident_pr_number }}" \
             --raw-field e2e_grep="$E2E_GREP"
           echo "dispatched=true" >> "$GITHUB_OUTPUT"
-          exit 1
 
       - name: Evaluate test-only merge policy
         if: >-
@@ -1226,10 +1253,15 @@ jobs:
           git diff --unified=0 "origin/$REPAIR_BASE...HEAD" -- e2e \
             | awk '/^\+[^+]/ {sub(/^\+/, ""); print}' | jq -Rsc 'split("\n")[:-1]' > "$RUNNER_TEMP/added-lines.json"
           git grep -h -E '\btest(\.describe)?\s*\(' "origin/$REPAIR_BASE" -- 'e2e/**/*.ts' | wc -l | tr -d ' ' > "$RUNNER_TEMP/tests-before"
-          rg -N '\btest(\.describe)?\s*\(' e2e --glob '*.ts' | wc -l | tr -d ' ' > "$RUNNER_TEMP/tests-after"
+          grep -R -h -E --include='*.ts' '\btest(\.describe)?\s*\(' e2e | wc -l | tr -d ' ' > "$RUNNER_TEMP/tests-after"
           git grep -h -E '\bexpect\s*\(' "origin/$REPAIR_BASE" -- 'e2e/**/*.ts' | wc -l | tr -d ' ' > "$RUNNER_TEMP/assertions-before"
-          rg -N '\bexpect\s*\(' e2e --glob '*.ts' | wc -l | tr -d ' ' > "$RUNNER_TEMP/assertions-after"
-          jq -n --slurpfile diagnosis /tmp/playwright-report/diagnosis.json \
+          grep -R -h -E --include='*.ts' '\bexpect\s*\(' e2e | wc -l | tr -d ' ' > "$RUNNER_TEMP/assertions-after"
+          if [ -s /tmp/playwright-report/diagnosis.json ]; then
+            DIAGNOSIS=$(cat /tmp/playwright-report/diagnosis.json)
+          else
+            DIAGNOSIS=null
+          fi
+          jq -n --argjson diagnosis "$DIAGNOSIS" \
             --slurpfile changedFiles "$RUNNER_TEMP/changed-files.json" \
             --slurpfile deletedOrRenamedSpecs "$RUNNER_TEMP/deleted-renamed.json" \
             --slurpfile addedLines "$RUNNER_TEMP/added-lines.json" \
@@ -1239,7 +1271,7 @@ jobs:
             --argjson assertionCountAfter "$(cat "$RUNNER_TEMP/assertions-after")" \
             --argjson skippedBefore "$(jq '.stats.skipped // 0' /tmp/playwright-report/playwright-results.json)" \
             --argjson skippedAfter "$(jq '.stats.skipped // 0' playwright-results-validation.json)" \
-            '{diagnosis:$diagnosis[0],changedFiles:$changedFiles[0],deletedOrRenamedSpecs:$deletedOrRenamedSpecs[0],
+            '{diagnosis:$diagnosis,changedFiles:$changedFiles[0],deletedOrRenamedSpecs:$deletedOrRenamedSpecs[0],
               addedLines:$addedLines[0],testCountBefore:$testCountBefore,testCountAfter:$testCountAfter,
               assertionCountBefore:$assertionCountBefore,assertionCountAfter:$assertionCountAfter,
               skippedBefore:$skippedBefore,skippedAfter:$skippedAfter}' > "$RUNNER_TEMP/merge-evidence.json"
@@ -1345,9 +1377,10 @@ jobs:
 
       - name: Review fix
         if: >-
-          steps.guard.outputs.skip != 'true' && steps.validation.outcome == 'success' &&
+          always() && steps.guard.outputs.skip != 'true' && steps.validation.outcome == 'success' &&
           (steps.incident_pr.outputs.pr_number != '' || inputs.incident_pr_number != '')
         id: review
+        continue-on-error: true
         uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -1362,19 +1395,45 @@ jobs:
           claude_args: >-
             --allowedTools "Read,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
             --json-schema '{"type":"object","additionalProperties":false,"required":["verdict","justification","app_files","risk","reviewed_head_sha","findings"],"properties":{"verdict":{"type":"string","enum":["PASS","REJECT"]},"justification":{"type":"string"},"app_files":{"type":"array","items":{"type":"string"}},"risk":{"type":"string","enum":["low","medium","high"]},"reviewed_head_sha":{"type":"string"},"findings":{"type":"array","items":{"type":"string"}}}}'
+
+      - name: Retry review contract once
+        if: steps.review.outcome == 'failure'
+        id: review_retry
+        uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.SELFHEAL_PAT }}
+          allowed_bots: github-actions
+          prompt: |
+            Read .github/selfheal/review.md for your full instructions.
+            Review the complete repair branch against its repair ledger at
+            /tmp/playwright-report/repair-ledger.json and the repair base
+            ${{ steps.guard.outputs.repair_base }}. The selected E2E scope is green.
+            The previous review attempt did not emit structured output. You must
+            return the complete structured review result. Do not edit files.
+          claude_args: >-
+            --model claude-sonnet-4-5
+            --allowedTools "Read,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
+            --json-schema '{"type":"object","additionalProperties":false,"required":["verdict","justification","app_files","risk","reviewed_head_sha","findings"],"properties":{"verdict":{"type":"string","enum":["PASS","REJECT"]},"justification":{"type":"string"},"app_files":{"type":"array","items":{"type":"string"}},"risk":{"type":"string","enum":["low","medium","high"]},"reviewed_head_sha":{"type":"string"},"findings":{"type":"array","items":{"type":"string"}}}}'
       - name: Enforce review verdict
         if: >-
           always() && steps.guard.outputs.skip != 'true' && steps.validation.outcome == 'success' &&
           (steps.incident_pr.outputs.pr_number != '' || inputs.incident_pr_number != '')
         id: review_gate
         env:
-          REVIEW_RESULT: ${{ steps.review.outputs.structured_output }}
+          REVIEW_RESULT: ${{ steps.review.outputs.structured_output || steps.review_retry.outputs.structured_output }}
         run: |
           set -euo pipefail
           HEAD_SHA=$(git rev-parse HEAD)
           echo "$REVIEW_RESULT" | jq -e --arg head "$HEAD_SHA" \
-            '.verdict == "PASS" and .risk == "low" and .reviewed_head_sha == $head' >/dev/null
+            '.verdict == "PASS" and .reviewed_head_sha == $head' >/dev/null
           echo "accepted=true" >> "$GITHUB_OUTPUT"
+          if echo "$REVIEW_RESULT" | jq -e \
+            '.risk == "low" and (.app_files | length == 0)' >/dev/null; then
+            echo "self_merge_approved=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "self_merge_approved=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Update durable incident PR with validation and review
         if: >-
@@ -1385,12 +1444,16 @@ jobs:
           GH_TOKEN: ${{ secrets.SELFHEAL_PAT }}
           REPAIR_BASE: ${{ steps.guard.outputs.repair_base }}
           REPAIR_BRANCH: ${{ steps.branch.outputs.branch }}
-          REVIEW_RESULT: ${{ steps.review.outputs.structured_output }}
+          REVIEW_RESULT: ${{ steps.review.outputs.structured_output || steps.review_retry.outputs.structured_output }}
           SOURCE_WORKFLOW_URL: ${{ steps.context.outputs.source_workflow_url }}
         run: |
           set -euo pipefail
           git push origin "$REPAIR_BRANCH" --force-with-lease
-          LEDGER=$(jq -r '[.clusters[] | "- **\(.category)** — `\(.rootCauseKey)`: \(.diagnosis)"] | if length == 0 then "- No actionable cluster was recorded" else join("\n") end' /tmp/playwright-report/diagnosis.json)
+          if [ -s /tmp/playwright-report/diagnosis.json ]; then
+            LEDGER=$(jq -r '[.clusters[] | "- **\(.category)** — `\(.rootCauseKey)`: \(.diagnosis)"] | if length == 0 then "- No actionable cluster was recorded" else join("\n") end' /tmp/playwright-report/diagnosis.json)
+          else
+            LEDGER='- Validated diagnosis evidence is unavailable; automatic merge fails closed.'
+          fi
           CHANGED_FILES=$(git diff --name-only "origin/$REPAIR_BASE...HEAD" | sed 's/^/- `/; s/$/`/')
           PASSED=$(jq '(.stats.expected // 0) + (.stats.flaky // 0)' playwright-results-validation.json)
           FAILED=$(jq '.stats.unexpected // 0' playwright-results-validation.json)
@@ -1426,7 +1489,7 @@ jobs:
             '' \
             '### Merge policy' \
             '' \
-            "- Auto-merge eligible: ${{ steps.merge_policy.outputs.eligible == 'true' && 'yes' || 'no' }}" \
+            "- Auto-merge eligible: ${{ steps.merge_policy.outputs.eligible == 'true' && steps.review_gate.outputs.self_merge_approved == 'true' && 'yes' || 'no' }}" \
             '- Application or mixed repairs always require human merge.' \
             > "$PR_BODY"
           PR_NUMBER="${{ steps.incident_pr.outputs.pr_number || inputs.incident_pr_number }}"
@@ -1442,13 +1505,17 @@ jobs:
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
 
       - name: Mark unsafe or application repair ready for human review
-        if: steps.pr.outputs.pr_number != '' && steps.merge_policy.outputs.eligible != 'true'
+        if: >-
+          steps.pr.outputs.pr_number != '' &&
+          (steps.merge_policy.outputs.eligible != 'true' || steps.review_gate.outputs.self_merge_approved != 'true')
         env:
           GH_TOKEN: ${{ secrets.SELFHEAL_PAT }}
         run: gh pr ready "${{ steps.pr.outputs.pr_number }}"
 
       - name: Ensure reviewed head is based on current main
-        if: steps.merge_policy.outputs.eligible == 'true' && steps.review_gate.outputs.accepted == 'true'
+        if: >-
+          steps.merge_policy.outputs.eligible == 'true' &&
+          steps.review_gate.outputs.self_merge_approved == 'true'
         id: base_gate
         env:
           GH_TOKEN: ${{ secrets.SELFHEAL_PAT }}
@@ -1525,7 +1592,7 @@ jobs:
           INFRASTRUCTURE_CONFIRMED: ${{ steps.infrastructure.outputs.confirmed == 'true' || steps.validation_infrastructure.outputs.confirmed == 'true' }}
           INFRASTRUCTURE_RETRIES: ${{ inputs.infrastructure_retries || '0' }}
           MERGE_COMMIT_SHA: ${{ steps.merge.outputs.merge_commit_sha }}
-          AUTO_MERGE_ELIGIBLE: ${{ steps.merge_policy.outputs.eligible }}
+          AUTO_MERGE_ELIGIBLE: ${{ steps.merge_policy.outputs.eligible == 'true' && steps.review_gate.outputs.self_merge_approved == 'true' }}
           NO_PROGRESS: ${{ steps.checkpoint.outputs.no_progress }}
           PR_URL: ${{ steps.pr.outputs.pr_url || steps.incident_pr.outputs.pr_url || steps.existing_pr.outputs.pr_url }}
           BLOCKED_PR_URL: ${{ steps.blocked_pr.outputs.pr_url }}

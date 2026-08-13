@@ -897,7 +897,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
     const dialog = userPage.getByRole("dialog", { name: "提供販售地點" });
     await expect(async () => {
       if (!(await dialog.isVisible())) await trigger.click();
-      await expect(dialog).toBeVisible({ timeout: 2_000 });
+      await expect(dialog).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     }).toPass(POLL.UI);
     await dialog
       .getByRole("textbox", { name: "販售地點名稱" })

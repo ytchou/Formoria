@@ -179,6 +179,28 @@ describe("self-heal incident contracts", () => {
     );
   });
 
+  it("fails self-merge closed when validated diagnosis evidence is unavailable", () => {
+    const eligibility = evaluateSelfMerge({
+      changedFiles: ["src/proxy.ts"],
+      deletedOrRenamedSpecs: [],
+      addedLines: [],
+      testCountBefore: 10,
+      testCountAfter: 10,
+      assertionCountBefore: 20,
+      assertionCountAfter: 20,
+      skippedBefore: 0,
+      skippedAfter: 0,
+    });
+
+    expect(eligibility).toEqual({
+      eligible: false,
+      reasons: [
+        "unsafe changed path: src/proxy.ts",
+        "validated diagnosis is unavailable",
+      ],
+    });
+  });
+
   it("separates infrastructure retries from repair and base-sync caps", () => {
     expect(
       nextIncidentState(
@@ -233,12 +255,25 @@ describe("self-heal incident contracts", () => {
       classifyInfrastructure({
         errors: [
           "upstream connect error or disconnect/reset before headers",
-          'Could not query the database for the schema cache (PGRST002)',
+          "Could not query the database for the schema cache (PGRST002)",
           "Timed out acquiring connection from connection pool (PGRST003)",
         ],
         probe: { authenticated: true, ok: true, status: 200 },
       }).confirmed,
     ).toBe(true);
+  });
+
+  it("ignores stale outage signatures when a continuation probe is healthy", () => {
+    expect(
+      classifyInfrastructure({
+        errors: [
+          "upstream connect error or disconnect/reset before headers",
+          "Timed out acquiring connection from connection pool (PGRST003)",
+        ],
+        errorsCurrent: false,
+        probe: { authenticated: true, ok: true, status: 200 },
+      }),
+    ).toEqual({ confirmed: false, reasons: [] });
   });
 
   it("renders all incident evidence and chooses terminal outcomes", () => {

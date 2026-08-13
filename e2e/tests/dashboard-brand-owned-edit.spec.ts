@@ -5,7 +5,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { writeAuthStorageStateForCredentials } from '../helpers/auth-session';
 import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
 
-import { BUDGET } from '../budgets';
+import { BUDGET, POLL } from '../budgets';
 const test = baseTest.extend<{ userPage: Page }>({
   userPage: async ({ browser, isolatedUser }, provideFixture, testInfo) => {
     const storagePath = path.join(testInfo.outputDir, 'isolated-owner.json');
@@ -365,7 +365,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
         .eq('id', wizardBrandId)
         .single();
       return (data?.draft_data as Record<string, unknown>)?.__wizardCompletedSteps ?? null;
-    }, { timeout: BUDGET.SERVER_RENDER, intervals: [500, 1_000, 2_000] }).toEqual([0]);
+    }, POLL.UI).toEqual([0]);
 
     await userPage.reload();
     await expect(userPage.locator('#main-content #media')).toBeVisible({ timeout: BUDGET.GATED_UI });
@@ -487,7 +487,7 @@ test.describe('Dashboard — brand image upload', () => {
 
     const uploadResponsePromise = userPage.waitForResponse(
       (resp) => resp.url().includes('/api/upload') && resp.request().method() === 'POST',
-      { timeout: 20_000 },
+      { timeout: BUDGET.GATED_UI },
     );
     await heroInput.setInputFiles({
       name: 'test-hero.png',
@@ -511,7 +511,7 @@ test.describe('Dashboard — brand image upload', () => {
     const productInput = userPage.locator('#productPhotos-upload');
     const productUploadResponsePromise = userPage.waitForResponse(
       (resp) => resp.url().includes('/api/upload') && resp.request().method() === 'POST',
-      { timeout: 20_000 },
+      { timeout: BUDGET.GATED_UI },
     );
     await productInput.setInputFiles({
       name: 'test-product.png',
@@ -600,7 +600,7 @@ test.describe('Dashboard — governed field integrity', () => {
         .eq('id', governedBrandId)
         .single();
       return (data?.draft_data as Record<string, unknown>)?.description ?? null;
-    }, { timeout: BUDGET.SERVER_RENDER, intervals: [500, 1_000, 2_000] }).toBe(updatedDesc);
+    }, POLL.UI).toBe(updatedDesc);
 
     const { data: row, error } = await supabase
       .from('brands')

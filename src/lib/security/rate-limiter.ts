@@ -327,6 +327,11 @@ export async function checkRateLimit(request: NextRequest): Promise<NextResponse
   const { pathname } = request.nextUrl
   const normalizedPathname = stripLocalePrefix(pathname)
 
+  // Cron handlers authenticate machine callers before doing any work. Keeping
+  // them off the shared external limiter also prevents a Redis outage or quota
+  // exhaustion from disabling scheduled operations before authentication runs.
+  if (normalizedPathname.startsWith('/api/cron/')) return null
+
   // Find the most specific matching rule
   const ruleKey = Object.keys(RATE_LIMIT_RULES)
     .filter((prefix) => matchesRateLimitRule(normalizedPathname, prefix))

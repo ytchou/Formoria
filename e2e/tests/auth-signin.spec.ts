@@ -1,7 +1,7 @@
 import { test, expect } from "../fixtures/auth";
 import { load } from "cheerio";
 
-import { BUDGET } from "../budgets";
+import { BUDGET, POLL } from "../budgets";
 function signInDocument(html: string) {
   const $ = load(html);
   const credentialForm = $("form").has('input[name="email"]');
@@ -97,7 +97,7 @@ test.describe("Auth — Google OAuth offline guard", () => {
     ]).catch(() => {});
 
     await expect
-      .poll(() => capturedAuthorizeUrl, { timeout: BUDGET.INTERACTIVE })
+      .poll(() => capturedAuthorizeUrl, POLL.UI)
       .toBeTruthy();
 
     // The intercepted URL must include provider=google

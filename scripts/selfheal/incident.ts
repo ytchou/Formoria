@@ -244,13 +244,15 @@ const infrastructurePatterns = [
 
 export function classifyInfrastructure(input: {
   errors: readonly string[];
+  errorsCurrent?: boolean;
   probe?: { authenticated: boolean; ok: boolean; status: number } | null;
 }): { confirmed: boolean; reasons: string[] } {
-  const signatureReasons = input.errors.filter((error) =>
+  const currentErrors = input.errorsCurrent === false ? [] : input.errors;
+  const signatureReasons = currentErrors.filter((error) =>
     infrastructurePatterns.some((pattern) => pattern.test(error)),
   );
   const widespreadHttp500 =
-    input.errors.filter((error) =>
+    currentErrors.filter((error) =>
       /\bHTTP\s*500\b|\bstatus(?: code)?[: ]+500\b/i.test(error),
     ).length >= 3;
   const probeFailed = input.probe?.authenticated === true && !input.probe.ok;
@@ -290,7 +292,7 @@ export function nextIncidentState(
 }
 
 export interface SelfMergeEvidence {
-  diagnosis: DiagnosisResult;
+  diagnosis?: DiagnosisResult;
   changedFiles: readonly string[];
   deletedOrRenamedSpecs: readonly string[];
   addedLines: readonly string[];
@@ -304,9 +306,10 @@ export interface SelfMergeEvidence {
 
 export function evaluateSelfMerge(input: SelfMergeEvidence): MergeEligibility {
   const reasons: string[] = [];
-  const codeCategories = input.diagnosis.failures
+  const codeCategories = (input.diagnosis?.failures ?? [])
     .filter(({ actionable }) => actionable)
     .map(({ category }) => category);
+  if (!input.diagnosis) reasons.push("validated diagnosis is unavailable");
   if (
     codeCategories.some(
       (category) => category !== "test-drift" && category !== "seed-drift",
