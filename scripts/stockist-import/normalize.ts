@@ -4,6 +4,8 @@ import type {
   ChannelLocationType,
   ChannelType,
 } from '@/lib/types/brand-channel'
+import { citySlugFromName } from '@/lib/constants/taiwan-cities'
+import { matchDistrict } from '@/lib/brands/district'
 
 export const STOCKIST_HEADER = [
   'brand_slug',
@@ -200,6 +202,8 @@ export function normalizeStockistRow(
   if (!region.ok) return { ok: false, brandSlug, reason: region.reason }
 
   const name = raw.name.trim()
+  const address = trimNullable(raw.address)
+  const city = region.country === 'TW' ? citySlugFromName(region.regionLabel) : null
   return {
     ok: true,
     row: {
@@ -211,7 +215,8 @@ export function normalizeStockistRow(
         channelType,
         categoryLabel: LOCATION_CATEGORY[locationType],
         regionLabel: region.regionLabel,
-        address: trimNullable(raw.address),
+        address,
+        district: address && city ? matchDistrict(address, city) : null,
         url: trimNullable(raw.url),
         sourceUrl: raw.evidence_url.trim(),
         fetchedAt,

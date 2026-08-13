@@ -12,6 +12,7 @@ import {
   PUBLIC_BRAND_DATA_TAG,
   revalidatePublicBrands,
   revalidatePublicEvents,
+  revalidatePublicStockists,
 } from './public-brand-cache'
 
 const revalidatedPaths = () => revalidatePath.mock.calls
@@ -116,6 +117,43 @@ describe('revalidatePublicEvents', () => {
     expect(revalidatedPaths()).toEqual([
       ...routing.locales.map((locale) => [`/${locale}/events`]),
       ['/sitemap.xml'],
+    ])
+  })
+})
+
+describe('revalidatePublicStockists', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('revalidates the index and the affected city', () => {
+    revalidatePublicStockists('new_taipei')
+    expect(revalidatedPaths()).toEqual([
+      ['/zh-TW/where-to-buy'],
+      ['/en/where-to-buy'],
+      ['/zh-TW/where-to-buy/new-taipei'],
+      ['/en/where-to-buy/new-taipei'],
+    ])
+  })
+
+  it('emits one path per configured locale', () => {
+    revalidatePublicStockists('taipei')
+    expect(
+      revalidatedPaths().filter(([path]) =>
+        path.endsWith('/where-to-buy/taipei'),
+      ),
+    ).toHaveLength(routing.locales.length)
+  })
+
+  it('never emits unprefixed paths', () => {
+    revalidatePublicStockists('taipei')
+    expect(revalidatedPaths()).not.toContainEqual(['/where-to-buy'])
+    expect(revalidatedPaths()).not.toContainEqual(['/where-to-buy/taipei'])
+  })
+
+  it('revalidates only the index when the channel has no city', () => {
+    revalidatePublicStockists(null)
+    expect(revalidatedPaths()).toEqual([
+      ['/zh-TW/where-to-buy'],
+      ['/en/where-to-buy'],
     ])
   })
 })

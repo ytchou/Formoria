@@ -62,6 +62,13 @@ export function getContentGroup(pathname: string): string {
     return 'directory'
   }
 
+  if (
+    pathWithoutLocale === '/where-to-buy' ||
+    pathWithoutLocale.startsWith('/where-to-buy/')
+  ) {
+    return 'where_to_buy'
+  }
+
   if (pathWithoutLocale.startsWith('/brands/')) {
     return 'brand_detail'
   }
@@ -446,6 +453,17 @@ export function trackViewItemList(listName: string, itemCount: number) {
     item_count: itemCount,
   })
   capturePostHogEvent(ANALYTICS_EVENTS.BRAND_LIST_VIEWED, {
+    list_name: listName,
+    item_count: itemCount,
+  })
+}
+
+export function trackStockistListViewed(listName: string, itemCount: number) {
+  safeGAEvent('event', 'view_item_list', {
+    item_list_name: listName,
+    item_count: itemCount,
+  })
+  capturePostHogEvent(ANALYTICS_EVENTS.STOCKIST_LIST_VIEWED, {
     list_name: listName,
     item_count: itemCount,
   })

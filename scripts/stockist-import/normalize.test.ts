@@ -97,4 +97,29 @@ describe('stockist normalization', () => {
 
     expect(result.ok && result.row.candidate.regionLabel).toBe('全台多間門市')
   })
+
+  it('derives district from the address for a matched row', () => {
+    const result = normalizeStockistRow(
+      row({ address: '104臺北市中山區樂群二路199號2樓' }),
+    )
+
+    expect(result.ok && result.row.candidate.district).toBe('中山區')
+  })
+
+  it('leaves district null when the address does not match', () => {
+    const result = normalizeStockistRow(
+      row({ region_label: '臺中市', address: '臺中市台灣大道三段251號9樓' }),
+    )
+
+    expect(result.ok).toBe(true)
+    expect(result.ok && result.row.candidate.district).toBeNull()
+  })
+
+  it('leaves district null for a non-TW row', () => {
+    const result = normalizeStockistRow(
+      row({ region_label: '日本・東京', address: '東京都渋谷区神宮前1-1' }),
+    )
+
+    expect(result.ok && result.row.candidate.district).toBeNull()
+  })
 })

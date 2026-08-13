@@ -32,3 +32,16 @@ describe("legacy category redirects", () => {
     expect(legacyRedirects?.every((redirect) => !('permanent' in redirect))).toBe(true);
   });
 });
+
+describe("browser permissions", () => {
+  it("allows same-origin geolocation while keeping camera and microphone disabled", async () => {
+    const headers = await nextConfig.headers?.();
+    const permissionsPolicy = headers
+      ?.flatMap((entry) => entry.headers)
+      .find(({ key }) => key === "Permissions-Policy")?.value;
+
+    expect(permissionsPolicy).toBe(
+      "camera=(), microphone=(), geolocation=(self)",
+    );
+  });
+});
