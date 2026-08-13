@@ -24,6 +24,22 @@ describe("release source guard", () => {
     );
   });
 
+  it("bootstraps the first same-repository release when production has no policy yet", async () => {
+    const workflow = await readFile(
+      ".github/workflows/release-source.yml",
+      "utf8",
+    );
+    const defaultPolicyLookup = workflow.indexOf("ref=$DEFAULT_BRANCH");
+    const bootstrapPolicyLookup = workflow.indexOf("ref=$GITHUB_HEAD_SHA");
+
+    expect(defaultPolicyLookup).toBeGreaterThan(-1);
+    expect(bootstrapPolicyLookup).toBeGreaterThan(defaultPolicyLookup);
+    expect(workflow).toContain('grep -q "HTTP 404"');
+    expect(workflow).toContain(
+      '[[ "$GITHUB_HEAD_REPO" != "$GITHUB_REPOSITORY" ]]',
+    );
+  });
+
   it("permits only staging as the source of a production pull request", () => {
     expect(
       checkReleaseSource({
