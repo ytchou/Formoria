@@ -42,6 +42,31 @@ const GALLERY_SLUG_SHORTCODE = /<BrandGallery\b[\s\S]*?\bslug=["']([^"']*)["']/g
 const GRID_SLUGS_SHORTCODE = /<BrandGrid\b[\s\S]*?\bslugs=\{\s*\[([\s\S]*?)\]\s*\}/g
 const QUOTED_ENTRY = /["']([^"']*)["']/g
 
+/**
+ * A prose markdown link into the brand directory: `[織療室](/brands/ziliaoshi)`.
+ *
+ * Deliberately absent from both shortcode extractors above, for opposite
+ * reasons. It stays out of `extractLinkedBrandSlugs` because that sizes the
+ * story page's `view_item_list`, and only a rendered card can fire a matching
+ * `select_item` — counting prose links there reports impressions against
+ * something GA4 will never see clicked. It stays out of `extractBrandSlugs`
+ * because that is the shortcode parser, and folding a markdown pattern into it
+ * would make its name a lie.
+ *
+ * It still has to be checked. A prose link is the one brand reference with no
+ * runtime safety net: every shortcode resolves through `getBrandsBySlugs` and
+ * degrades to a visible placeholder when a slug is dead, whereas a bad prose
+ * link is a plain `<a>` that 404s in production with nothing logged. The CI
+ * guard therefore checks the union of this and `extractBrandSlugs`.
+ *
+ * A trailing segment (`/brands/foo/bar`), a query, or a hash is not matched,
+ * because none of those is a brand detail URL — the route is `/brands/[slug]`
+ * exactly, and `/brands?category=home` has no slug at all. Locale prefixes are
+ * absent by convention: story links are locale-relative and middleware resolves
+ * them.
+ */
+const PROSE_BRAND_LINK = /\]\(\/brands\/([^)\s/?#]*)\)/g
+
 /** Opening or closing fence: up to three leading spaces, then ``` or ~~~. */
 const FENCE_LINE = /^ {0,3}(`{3,}|~{3,})/
 
@@ -111,6 +136,17 @@ export function extractBrandSlugs(source: string): string[] {
  */
 export function extractLinkedBrandSlugs(source: string): string[] {
   return collectBrandSlugs(source, false)
+}
+
+/**
+ * Every brand slug referenced by a prose markdown link, in document order,
+ * duplicates included. Fenced blocks are stripped for the same reason as above:
+ * a story documenting the link syntax is not referencing a real brand.
+ *
+ * Separate from both shortcode extractors on purpose — see `PROSE_BRAND_LINK`.
+ */
+export function extractProseBrandSlugs(source: string): string[] {
+  return [...stripFencedCodeBlocks(source).matchAll(PROSE_BRAND_LINK)].map(match => match[1])
 }
 
 function collectBrandSlugs(source: string, includeGallery: boolean): string[] {
