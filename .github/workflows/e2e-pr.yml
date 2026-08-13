@@ -94,6 +94,7 @@ jobs:
     needs: select
     if: needs.select.outputs.has_work == 'true'
     runs-on: ubuntu-latest
+    environment: "Formoria / staging"
     timeout-minutes: 30
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

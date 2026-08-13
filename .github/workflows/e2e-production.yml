@@ -28,6 +28,7 @@ concurrency:
 jobs:
   e2e-production:
     runs-on: ubuntu-latest
+    environment: "Formoria / production"
     timeout-minutes: 20
     permissions:
       contents: read

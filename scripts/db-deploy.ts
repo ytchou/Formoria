@@ -135,12 +135,44 @@ function run(command: string, args: string[], capture = false): string {
   return capture ? result.stdout : "";
 }
 
+function verifySchemaDrift(target: DeploymentTarget): void {
+  const result = spawnSync("bash", ["scripts/db-clean-replay.sh"], {
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      FORMORIA_COMPARE_DB_URL: target.databaseUrl,
+    },
+    stdio: "inherit",
+  });
+  if (result.status !== 0) {
+    throw new Error("Repository-to-database schema drift verification failed");
+  }
+}
+
 function supabase(args: string[], capture = false): string {
   return run("pnpm", ["exec", "supabase", ...args], capture);
 }
 
 function query(target: DeploymentTarget, sql: string): string {
-  return supabase(["db", "query", "--db-url", target.databaseUrl, sql], true);
+  const statement = sql.trim().replace(/;$/, "");
+  const wrapped = `select json_build_object(
+    'rows', coalesce(json_agg(row_to_json(formoria_query)), '[]'::json)
+  ) from (${statement}) as formoria_query;`;
+  return run(
+    "psql",
+    [
+      "--dbname",
+      target.databaseUrl,
+      "--no-psqlrc",
+      "--tuples-only",
+      "--no-align",
+      "--set",
+      "ON_ERROR_STOP=1",
+      "--command",
+      wrapped,
+    ],
+    true,
+  );
 }
 
 function queryFile(target: DeploymentTarget, file: string): void {
@@ -196,12 +228,9 @@ export function resultCount(result: string, column: string): number {
       if (Number.isInteger(count) && count >= 0) return count;
     }
   } catch {
-    // Older CLI versions render a table instead of JSON.
+    throw new Error(`Database verification could not read ${column} as JSON`);
   }
-
-  const match = result.match(new RegExp(`${column}[^0-9]+(\\d+)`, "i"));
-  if (!match) throw new Error(`Database verification could not read ${column}`);
-  return Number(match[1]);
+  throw new Error(`Database verification could not read ${column} from JSON`);
 }
 
 function verify(target: DeploymentTarget, includeSchemaDiff: boolean): void {
@@ -270,23 +299,17 @@ function verify(target: DeploymentTarget, includeSchemaDiff: boolean): void {
     }
   }
 
-  const generatedTypes = supabase(
-    ["gen", "types", "typescript", "--db-url", target.databaseUrl],
-    true,
-  );
-  if (generatedTypes.trim() !== readFileSync(DATABASE_TYPES, "utf8").trim()) {
-    throw new Error(
-      "Generated database types are stale; run pnpm db:types and commit them",
-    );
-  }
-
   if (includeSchemaDiff) {
-    const diff = supabase(
-      ["db", "diff", "--db-url", target.databaseUrl, "--use-pg-schema"],
+    const generatedTypes = supabase(
+      ["gen", "types", "typescript", "--db-url", target.databaseUrl],
       true,
     );
-    if (diff.trim())
-      throw new Error("Repository-to-database schema drift detected");
+    if (generatedTypes.trim() !== readFileSync(DATABASE_TYPES, "utf8").trim()) {
+      throw new Error(
+        "Generated database types are stale; run pnpm db:types and commit them",
+      );
+    }
+    verifySchemaDrift(target);
   }
 }
 
@@ -323,7 +346,7 @@ function main(): void {
         ["gen", "types", "typescript", "--db-url", target.databaseUrl],
         true,
       );
-      writeFileSync(DATABASE_TYPES, generatedTypes);
+      writeFileSync(DATABASE_TYPES, `${generatedTypes.trim()}\n`);
       console.log(`Updated ${DATABASE_TYPES}`);
       return;
     }

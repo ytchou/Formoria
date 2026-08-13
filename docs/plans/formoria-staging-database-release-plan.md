@@ -4,6 +4,8 @@
 
 Create an isolated Supabase staging environment and a guarded, migration-file-driven release workflow. The principal silent-failure risk is credential cross-wiring, so every remote operation must validate the declared environment, explicit database URL, and project reference without relying on `supabase link`.
 
+Current state (2026-08-13): the original 257-migration baseline and district rehearsal are complete. After synchronizing with the latest `origin/staging`, migration `20260813055010_cron_http_dispatch_durable_identity.sql` was also applied through the guard. Staging now has 259 repository migrations, with `20260812033345_brand_channels_district.sql` remaining the staging-only release delta.
+
 ## Constraints
 
 - Base this work on `origin/staging` in a linked worktree.
@@ -40,7 +42,7 @@ Create an isolated Supabase staging environment and a guarded, migration-file-dr
 - Retain `X-Robots-Tag: noindex, nofollow` and private/no-store caching.
 - Add repository-owned Railway pre-deploy/CI contracts so a nonzero guarded migration result prevents app deployment.
 - Scope CI behavior so PRs validate locally and never apply migrations to shared remote databases.
-- Check test drift for changed app/routes and defer deployed E2E journeys: where-to-buy, sign-in, one user mutation, one admin mutation.
+- Check test drift for changed app/routes and add a manually dispatched deployed E2E gate for where-to-buy, sign-in, one user mutation, and one admin mutation.
 
 ## External rollout (credentialed operations)
 
@@ -63,7 +65,7 @@ Create an isolated Supabase staging environment and a guarded, migration-file-dr
 - Intended authenticated staging writes work while email-dependent Auth flows remain blocked.
 - Noindex, no-store, disabled-email, and disabled-analytics behavior remains intact.
 - Service integration tests use isolated staging/test Supabase without mocking it.
-- Deployed E2E is deferred for where-to-buy, sign-in, one user mutation, and one admin mutation.
+- Deployed E2E covers where-to-buy, sign-in, one user mutation, and one admin mutation through the private Cloudflare and origin boundaries.
 - Repository-to-production schema diff is empty after promotion.
 
 ## Pre-mortem

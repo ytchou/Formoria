@@ -89,4 +89,16 @@ describe("database deployment identity guard", () => {
       ),
     ).toBe(257);
   });
+
+  it("rejects Railway-style table output instead of reading an adjacent count", () => {
+    const table = [
+      "migration_count | public_tables_without_rls | storage_bucket_count",
+      "----------------+---------------------------+---------------------",
+      "258             | 0                         | 5",
+    ].join("\n");
+
+    expect(() => resultCount(table, "public_tables_without_rls")).toThrow(
+      "could not read public_tables_without_rls as JSON",
+    );
+  });
 });

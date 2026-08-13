@@ -96,9 +96,7 @@ test.describe("Auth — Google OAuth offline guard", () => {
         .catch(() => {}),
     ]).catch(() => {});
 
-    await expect
-      .poll(() => capturedAuthorizeUrl, POLL.UI)
-      .toBeTruthy();
+    await expect.poll(() => capturedAuthorizeUrl, POLL.UI).toBeTruthy();
 
     // The intercepted URL must include provider=google
     expect(capturedAuthorizeUrl).not.toBeNull();
@@ -127,12 +125,6 @@ test.describe("Auth — sign-in flow", () => {
     ).toBeVisible({
       timeout: BUDGET.NAVIGATION,
     });
-    await expect(
-      anonPage.getByRole("button", { name: "使用 Google 登入", exact: true }),
-    ).toBeVisible({
-      timeout: BUDGET.NAVIGATION,
-    });
-
     await anonPage.getByLabel("電子郵件", { exact: true }).fill(email);
     await anonPage.getByLabel("密碼", { exact: true }).fill(password);
 

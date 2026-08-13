@@ -1,0 +1,63 @@
+name: E2E Staging (Deployed)
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: formoria-e2e-staging
+  cancel-in-progress: false
+
+jobs:
+  e2e-staging:
+    runs-on: ubuntu-latest
+    environment: "Formoria / staging"
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      BASE_URL: https://staging.formoria.com
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
+      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+      E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+      E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+      E2E_ORIGIN_SECRET: ${{ secrets.E2E_ORIGIN_SECRET }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      CI: "true"
+      PLAYWRIGHT_TEST: "true"
+      SELFHEAL_TARGETED: "true"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Exercise deployed private QA journeys
+        run: |
+          pnpm exec playwright test \
+            e2e/tests/where-to-buy.spec.ts \
+            e2e/tests/auth-signin.spec.ts \
+            e2e/tests/brand-save.spec.ts \
+            e2e/tests/admin-corrections.spec.ts \
+            --project=deep \
+            --workers=1 \
+            --grep "browses from the index|signs in through the UI|Journey 1: save brand|opens correction details and approves"
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-report-staging
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7

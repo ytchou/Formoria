@@ -85,6 +85,7 @@ jobs:
   e2e-deep:
     if: inputs.selfheal_only != true
     runs-on: ubuntu-latest
+    environment: "Formoria / production"
     timeout-minutes: 30
     outputs:
       failed: ${{ steps.nightly_report.outputs.failed }}
@@ -397,6 +398,7 @@ jobs:
       (needs.e2e-deep.result == 'failure' ||
        (github.event_name == 'workflow_dispatch' && inputs.selfheal_only == true))
     runs-on: ubuntu-latest
+    environment: "Formoria / production"
     timeout-minutes: 60
     permissions:
       actions: write

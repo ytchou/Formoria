@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -556,33 +551,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      brand_field_state_backup_20260728: {
-        Row: {
-          admin_locked: boolean | null
-          brand_id: string | null
-          field: string | null
-          source: string | null
-          updated_at: string | null
-          updated_by: string | null
-        }
-        Insert: {
-          admin_locked?: boolean | null
-          brand_id?: string | null
-          field?: string | null
-          source?: string | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Update: {
-          admin_locked?: boolean | null
-          brand_id?: string | null
-          field?: string | null
-          source?: string | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Relationships: []
       }
       brand_images: {
         Row: {
@@ -1359,16 +1327,19 @@ export type Database = {
       }
       cron_http_dispatch: {
         Row: {
+          dispatch_id: string
           dispatched_at: string
           job_name: string
           request_id: number
         }
         Insert: {
+          dispatch_id?: string
           dispatched_at?: string
           job_name: string
           request_id: number
         }
         Update: {
+          dispatch_id?: string
           dispatched_at?: string
           job_name?: string
           request_id?: number
@@ -1378,6 +1349,7 @@ export type Database = {
       cron_http_log: {
         Row: {
           created: string | null
+          dispatch_id: string
           error_msg: string | null
           job_name: string
           logged_at: string
@@ -1387,6 +1359,7 @@ export type Database = {
         }
         Insert: {
           created?: string | null
+          dispatch_id?: string
           error_msg?: string | null
           job_name: string
           logged_at?: string
@@ -1396,6 +1369,7 @@ export type Database = {
         }
         Update: {
           created?: string | null
+          dispatch_id?: string
           error_msg?: string | null
           job_name?: string
           logged_at?: string
@@ -3510,12 +3484,12 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      upsert_enriched_brand_channels: {
-        Args: { p_brand_id: string; p_candidates: Json }
-        Returns: number
-      }
       update_brand_channel_districts: {
         Args: { p_updates: Json }
+        Returns: number
+      }
+      upsert_enriched_brand_channels: {
+        Args: { p_brand_id: string; p_candidates: Json }
         Returns: number
       }
       verify_health_fix_absence: {

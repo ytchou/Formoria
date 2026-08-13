@@ -36,6 +36,7 @@ jobs:
   nightly-health:
     name: Unified nightly health run
     runs-on: ubuntu-latest
+    environment: "Formoria / production"
     timeout-minutes: 90
     steps:
       - name: "Stage 1 · Setup — checkout"
