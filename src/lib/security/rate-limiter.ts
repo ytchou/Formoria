@@ -120,6 +120,71 @@ export function setRateLimitStoreForTests(store: RateLimitStore | null): void {
   rateLimiter = store
     ? { check: (key, windowMs, maxRequests) => Promise.resolve(store.check(key, windowMs, maxRequests)) }
     : createRateLimiter()
+  storeBreakerOpenedAt = null
+}
+
+const STORE_BREAKER_COOLDOWN_MS = 60_000
+
+/**
+ * Fail-open circuit breaker for the backing store. On 2026-08-13 the Upstash
+ * account hit its plan quota, `check` rejected, and the rejection escaped
+ * `proxy()` — Next answered a bare 500 for every rule-matched route before any
+ * page rendered. A limiter that cannot reach its store must allow the request:
+ * the Cloudflare edge and the origin guard stay in front, and availability
+ * outranks the budget.
+ *
+ * The breaker also caps the cost of a dead store: the outage produced 57 failed
+ * round trips in 2.4s and tripped Railway's log-rate limiter, so once a failure
+ * is seen the store is not dialled again for the cooldown window, and exactly
+ * one line is logged per window.
+ *
+ * State is module-scoped, which in the edge runtime means per-isolate rather
+ * than global. That is deliberate and sufficient — the goal is to stop a hot
+ * isolate re-dialling a dead store every request, not cluster-wide consensus.
+ */
+let storeBreakerOpenedAt: number | null = null
+
+function isStoreBreakerOpen(): boolean {
+  if (storeBreakerOpenedAt === null) return false
+  if (Date.now() - storeBreakerOpenedAt < STORE_BREAKER_COOLDOWN_MS) return true
+
+  storeBreakerOpenedAt = null
+  console.error(
+    JSON.stringify({
+      event: 'rate_limit_store_breaker_closed',
+      cooldownMs: STORE_BREAKER_COOLDOWN_MS,
+    }),
+  )
+  return false
+}
+
+/**
+ * Returns null when the store could not answer — callers must treat null as
+ * "allowed" (fail open), never as a denial.
+ */
+async function checkStore(
+  key: string,
+  windowMs: number,
+  maxRequests: number,
+): Promise<RateLimitResult | null> {
+  if (isStoreBreakerOpen()) return null
+
+  try {
+    return await rateLimiter.check(key, windowMs, maxRequests)
+  } catch (error) {
+    storeBreakerOpenedAt = Date.now()
+    // console.error rather than the Sentry adapter: this runs in the edge
+    // runtime, where the Node SDK is not loaded (see src/proxy.ts).
+    console.error(
+      JSON.stringify({
+        event: 'rate_limit_store_unavailable',
+        action: 'failing_open',
+        cooldownMs: STORE_BREAKER_COOLDOWN_MS,
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    )
+    return null
+  }
 }
 
 export async function rateLimit(
@@ -304,7 +369,11 @@ export async function checkSoftRateLimit(request: NextRequest): Promise<boolean>
 
   const ip = getClientIp(request)
   const key = `soft:${getSoftRateLimitPathPrefix(normalizedPathname)}:${ip}`
-  const result = await rateLimiter.check(key, SOFT_LIMIT.windowMs, SOFT_LIMIT.maxRequests)
+  const result = await checkStore(key, SOFT_LIMIT.windowMs, SOFT_LIMIT.maxRequests)
+
+  // Store unreachable: no challenge. A soft limit that cannot be evaluated must
+  // not 302 real traffic to /challenge.
+  if (!result) return false
 
   if (!result.allowed) {
     // Defense in depth: the crawler bypass above returns false for every registry
@@ -376,7 +445,11 @@ export async function checkRateLimit(request: NextRequest): Promise<NextResponse
   const ip = getClientIp(request)
   const key = `${normalizedPathname}:${ip}`
 
-  const result = await rateLimiter.check(key, rule.windowMs, rule.maxRequests)
+  const result = await checkStore(key, rule.windowMs, rule.maxRequests)
+
+  // Store unreachable: allow. Every alarm, header and 429 below stays exactly
+  // as it was for a store that answers.
+  if (!result) return null
 
   if (!result.allowed) {
     evaluateCrawlerRateLimitAlarm(request.headers.get('user-agent') ?? '', normalizedPathname)

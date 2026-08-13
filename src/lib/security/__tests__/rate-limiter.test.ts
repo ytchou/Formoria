@@ -192,6 +192,145 @@ describe('machine cron route availability', () => {
   })
 })
 
+/**
+ * Production outage 2026-08-13: the Upstash account hit its 500k-command plan
+ * quota, `rateLimiter.check` rejected, and the rejection escaped `proxy()` — so
+ * every rule-matched route answered a bare platform 500. A rate limiter that
+ * cannot reach its store must fail OPEN.
+ */
+describe('rate-limit store outage', () => {
+  let consoleError: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    setRateLimitStoreForTests(null)
+    consoleError.mockRestore()
+  })
+
+  function throwingStore(): { store: RateLimitStore; check: ReturnType<typeof vi.fn> } {
+    const check = vi.fn(() => {
+      throw new Error('ERR max requests limit exceeded. Limit: 500000, Usage: 500000')
+    })
+    return { store: { check } as unknown as RateLimitStore, check }
+  }
+
+  function request(path: string, headers: Record<string, string> = {}): NextRequest {
+    return new NextRequest(`https://formoria.com${path}`, {
+      headers: {
+        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+        'x-forwarded-for': '198.51.100.11',
+        accept: 'text/html',
+        ...headers,
+      },
+    })
+  }
+
+  it('allows a protected route when the store throws instead of rejecting', async () => {
+    setRateLimitStoreForTests(throwingStore().store)
+
+    await expect(checkRateLimit(request('/api/brands'))).resolves.toBeNull()
+  })
+
+  it('allows the public routes that 500ed in production when the store throws', async () => {
+    setRateLimitStoreForTests(throwingStore().store)
+
+    await expect(checkRateLimit(request('/sitemap.xml'))).resolves.toBeNull()
+    await expect(checkRateLimit(request('/brands'))).resolves.toBeNull()
+    await expect(checkRateLimit(request('/brands/example'))).resolves.toBeNull()
+  })
+
+  it('issues no soft challenge when the store throws', async () => {
+    setRateLimitStoreForTests(throwingStore().store)
+
+    await expect(checkSoftRateLimit(request('/brands/example'))).resolves.toBe(false)
+  })
+
+  it('stops dialling the store for the cooldown window once the breaker opens', async () => {
+    const { store, check } = throwingStore()
+    setRateLimitStoreForTests(store)
+
+    await checkRateLimit(request('/api/brands'))
+    await checkRateLimit(request('/api/brands'))
+    await checkRateLimit(request('/brands'))
+    await checkSoftRateLimit(request('/brands/example'))
+
+    expect(check).toHaveBeenCalledTimes(1)
+  })
+
+  it('logs once per breaker window rather than once per failed request', async () => {
+    setRateLimitStoreForTests(throwingStore().store)
+
+    for (let i = 0; i < 10; i += 1) {
+      await checkRateLimit(request('/api/brands'))
+    }
+
+    expect(consoleError).toHaveBeenCalledTimes(1)
+  })
+
+  // A breaker that opens but never re-closes leaves rate limiting permanently
+  // disabled once the store blips -- the failure mode the fail-open guard could
+  // otherwise introduce, and the plan's stated rollback trigger. Cover the
+  // recovery edge, not just the trip.
+  it('re-probes the store once the cooldown elapses', async () => {
+    const { store, check } = throwingStore()
+    setRateLimitStoreForTests(store)
+
+    await checkRateLimit(request('/api/brands'))
+    await checkRateLimit(request('/api/brands'))
+    expect(check).toHaveBeenCalledTimes(1)
+
+    const realNow = Date.now
+    try {
+      Date.now = () => realNow() + 61_000
+      await checkRateLimit(request('/api/brands'))
+      expect(check).toHaveBeenCalledTimes(2)
+    } finally {
+      Date.now = realNow
+    }
+  })
+
+  it('serves traffic again when the store recovers after the cooldown', async () => {
+    let shouldThrow = true
+    const check = vi.fn(() => {
+      if (shouldThrow) throw new Error('ERR max requests limit exceeded')
+      return { allowed: false, remaining: 0, resetAt: Date.now() + 30_000 }
+    })
+    setRateLimitStoreForTests({ check })
+
+    // Breaker opens, request is allowed through (fail open).
+    await expect(checkRateLimit(request('/api/brands'))).resolves.toBeNull()
+
+    const realNow = Date.now
+    try {
+      shouldThrow = false
+      Date.now = () => realNow() + 61_000
+      // Store is healthy again: real enforcement resumes, not a permanent bypass.
+      const response = await checkRateLimit(request('/api/brands'))
+      expect(response?.status).toBe(429)
+    } finally {
+      Date.now = realNow
+    }
+  })
+
+  it('still returns the 429 with its headers when a healthy store denies', async () => {
+    const resetAt = Date.now() + 30_000
+    setRateLimitStoreForTests({
+      check: () => ({ allowed: false, remaining: 0, resetAt }),
+    })
+
+    const response = await checkRateLimit(request('/api/brands'))
+
+    expect(response?.status).toBe(429)
+    expect(response?.headers.get('Retry-After')).toMatch(/^\d+$/)
+    expect(response?.headers.get('X-RateLimit-Limit')).toBe('60')
+    expect(response?.headers.get('X-RateLimit-Remaining')).toBe('0')
+    expect(response?.headers.get('X-RateLimit-Reset')).toBe(String(resetAt))
+  })
+})
+
 describe('exact brand directory rate limit', () => {
   const directoryLimit = 30
   const configuredDetailLimit = Number(process.env.RATE_LIMIT_BRANDS_PER_MIN)
