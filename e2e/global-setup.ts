@@ -1,6 +1,7 @@
 import { BUDGET, POLL } from "./budgets";
 import path from "path";
 import fs from "fs";
+import { randomUUID } from "node:crypto";
 import { execFileSync } from "child_process";
 import { chromium, expect, type Browser } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
@@ -92,6 +93,10 @@ async function globalSetup() {
   // running suite's live fixtures. Teardown sweeps THIS run's rows instead,
   // using the timestamp recorded below (setup and teardown share a process).
   process.env.E2E_RUN_STARTED_AT = new Date().toISOString();
+  // Short id specs can stamp into '[E2E-TEST] R-<id> …' seed names (see
+  // helpers/cleanup.ts's e2eSeedName) so teardown's run-scoped sweep can tell
+  // this run's own rows apart from a concurrently running suite's.
+  process.env.E2E_RUN_ID = randomUUID().slice(0, 8);
   await cleanupTestData();
 
   const requiredVars = [
