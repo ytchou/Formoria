@@ -207,6 +207,21 @@ describe("nightly E2E batch self-heal contract", () => {
     expect(source).toContain("e2e-nightly --state open");
   });
 
+  it("resolves self-heal PRs from the repository release policy", async () => {
+    const source = await workflow();
+    expect(source).toContain(".github/release-flow.json");
+    expect(source).toContain("developmentPullRequestBase");
+    expect(source).toContain(
+      "scheduled runs must repair the configured development base",
+    );
+    expect(source).toContain(
+      "direct production repair PRs are disabled; use promote-staging",
+    );
+    expect(source).not.toContain(
+      "scheduled runs must repair the default branch",
+    );
+  });
+
   it("self-merges only after every current-head test-only gate without admin bypass", async () => {
     const source = await workflow();
     expect(source).toContain("incident-cli.ts eligibility");
@@ -256,7 +271,9 @@ describe("nightly E2E batch self-heal contract", () => {
     expect(review).toContain("continue-on-error: true");
     expect(review).toContain("- name: Retry review contract once");
     expect(review).toContain("if: steps.review.outcome == 'failure'");
-    const retry = review.slice(review.indexOf("- name: Retry review contract once"));
+    const retry = review.slice(
+      review.indexOf("- name: Retry review contract once"),
+    );
     expect(retry).toContain("--model claude-sonnet-4-5");
     expect(review).toContain(
       "steps.review.outputs.structured_output || steps.review_retry.outputs.structured_output",

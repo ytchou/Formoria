@@ -36,7 +36,7 @@ on:
         type: string
         default: ""
       repair_base:
-        description: "Manual-only repair base; non-default bases must be selfheal-test/*"
+        description: "Manual-only repair base; non-policy bases must be selfheal-test/*"
         type: string
         default: ""
       previous_state:
@@ -250,7 +250,7 @@ jobs:
             --arg source_run_id "$GITHUB_RUN_ID" \
             --arg source_workflow_url "$WORKFLOW_URL" \
             --arg source_sha "$GITHUB_SHA" \
-            --arg repair_base "$GITHUB_REF_NAME" \
+            --arg repair_base "" \
             --arg e2e_grep "$E2E_GREP" \
             'def all_suites: .suites[]? | ., all_suites;
              [all_suites as $suite |
@@ -342,7 +342,7 @@ jobs:
         env:
           E2E_SLACK_PHASE: initial
           E2E_SLACK_LABEL: E2E Nightly (Deep)
-          E2E_SLACK_SCOPE: Full deep + mobile suite against a build of main
+          E2E_SLACK_SCOPE: Full deep + mobile suite against a build of the configured release base
           GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
@@ -451,13 +451,42 @@ jobs:
             exit 0
           fi
 
-          REPAIR_BASE="${REPAIR_BASE_INPUT:-$DEFAULT_BRANCH}"
-          if [[ "${{ github.event_name }}" != "workflow_dispatch" && "$REPAIR_BASE" != "$DEFAULT_BRANCH" ]]; then
-            echo "::error::scheduled runs must repair the default branch"
+          POLICY_PATH="$RUNNER_TEMP/release-flow.json"
+          POLICY_CONTENT=$(gh api "repos/$GITHUB_REPOSITORY/contents/.github/release-flow.json?ref=$DEFAULT_BRANCH" --jq '.content' | base64 --decode) || {
+            echo "::error::release-flow policy is required on $DEFAULT_BRANCH; install it before enabling self-heal"
+            exit 1
+          }
+          printf '%s\n' "$POLICY_CONTENT" > "$POLICY_PATH"
+          RELEASE_BASE=$(jq -er '
+            def valid_branch: type == "string" and test("^[A-Za-z0-9._/-]+$") and (startswith("-") | not) and (startswith("/") | not) and (endswith("/") | not) and (startswith(".") | not) and (endswith(".") | not) and (endswith(".lock") | not) and (contains("..") | not) and (contains("//") | not) and (contains("@{") | not);
+            if (.version == 1 and (.developmentPullRequestBase | valid_branch) and (.release | type == "object") and (.release.source == .developmentPullRequestBase) and (.release.target | valid_branch) and (.release.mergeMethod == "merge") and (.release.source != .release.target) and (.allowDirectProductionPullRequests | type == "boolean"))
+            then .developmentPullRequestBase
+            else error("malformed release-flow policy") end
+          ' "$POLICY_PATH") || {
+            echo "::error::malformed release-flow policy; refusing to create a repair PR"
+            exit 1
+          }
+          PRODUCTION_BASE=$(jq -er '.release.target' "$POLICY_PATH")
+          ALLOW_DIRECT_PRODUCTION=$(jq -er '.allowDirectProductionPullRequests' "$POLICY_PATH")
+          REPAIR_BASE="${REPAIR_BASE_INPUT:-$RELEASE_BASE}"
+          if [[ "$REPAIR_BASE" == "$PRODUCTION_BASE" && "$ALLOW_DIRECT_PRODUCTION" != "true" ]]; then
+            echo "::error::direct production repair PRs are disabled; use promote-staging"
             exit 1
           fi
-          if [[ "$REPAIR_BASE" != "$DEFAULT_BRANCH" && "$REPAIR_BASE" != selfheal-test/* ]]; then
-            echo "::error::manual non-default repair_base must use selfheal-test/*"
+          if [[ "${{ github.event_name }}" != "workflow_dispatch" && "$REPAIR_BASE" != "$RELEASE_BASE" ]]; then
+            echo "::error::scheduled runs must repair the configured development base ($RELEASE_BASE)"
+            exit 1
+          fi
+          if [[ "$REPAIR_BASE" != "$RELEASE_BASE" && "$REPAIR_BASE" != selfheal-test/* ]]; then
+            echo "::error::manual non-policy repair_base must use selfheal-test/*"
+            exit 1
+          fi
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$RELEASE_BASE" >/dev/null; then
+            echo "::error::configured development base does not exist: $RELEASE_BASE"
+            exit 1
+          fi
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$PRODUCTION_BASE" >/dev/null; then
+            echo "::error::configured production branch does not exist: $PRODUCTION_BASE"
             exit 1
           fi
           if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$REPAIR_BASE" >/dev/null; then
@@ -465,6 +494,8 @@ jobs:
             exit 1
           fi
           echo "repair_base=$REPAIR_BASE" >> "$GITHUB_OUTPUT"
+          echo "development_base=$RELEASE_BASE" >> "$GITHUB_OUTPUT"
+          echo "production_base=$PRODUCTION_BASE" >> "$GITHUB_OUTPUT"
           echo "checkout_ref=$REPAIR_BASE" >> "$GITHUB_OUTPUT"
 
           if [[ -n "$REPAIR_BRANCH" ]]; then
