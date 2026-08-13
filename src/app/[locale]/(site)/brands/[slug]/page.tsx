@@ -33,6 +33,7 @@ import { BrandFaqAccordion } from "@/components/brands/brand-faq-accordion";
 import { BrandLinks } from "@/components/brands/brand-links";
 import { BrandSectionNav } from "@/components/brands/brand-section-nav";
 import { BrandChannelsSection } from "@/components/brands/brand-channels-section";
+import { BrandSelectedProducts } from "@/components/brands/brand-selected-products";
 import { RelatedBrands } from "@/components/brands/related-brands";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
@@ -40,6 +41,7 @@ import { getBrandCategoryLabel } from "@/lib/brands/category-label";
 import { getBrandVisitLink } from "@/lib/brands/link-fallback";
 import { faqItemsToQuestions, getBrandFaq } from "@/lib/services/brand-faq";
 import { getChannelsForBrand } from "@/lib/services/brand-channels";
+import { getPublishedCuratedProductsForBrand } from "@/lib/services/curated-products";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { cn } from "@/lib/utils";
 import { shouldShowBrandSectionNav } from "@/lib/brands/section-nav";
@@ -175,9 +177,10 @@ export default async function BrandDetailPage({ params }: PageProps) {
     tBrandDetail(key, params as never)) as BrandFaqTranslateFn;
   const cityLabel = displayBrand.city ? tCities(displayBrand.city) : null;
   const faqContext = await getPublicBrandFaqContextById(displayBrand.id);
-  const [faqItems, channels] = await Promise.all([
+  const [faqItems, channels, curatedProducts] = await Promise.all([
     getBrandFaq(displayBrand.id, faqContext, tBrandFaq, safeLocale, cityLabel),
     getChannelsForBrand(displayBrand.id),
+    getPublishedCuratedProductsForBrand(displayBrand.id),
   ]);
   const channelCount = channels.confirmed.length + channels.possible.length;
   // Same builder generateMetadata uses for <link rel="canonical">, so the
@@ -227,6 +230,14 @@ export default async function BrandDetailPage({ params }: PageProps) {
     { id: "purchase", label: tBrandDetail("tabNav.purchase") },
     ...(channelCount > 0
       ? [{ id: "locations", label: tBrandDetail("tabNav.locations") }]
+      : []),
+    ...(curatedProducts.length > 0
+      ? [
+          {
+            id: "selected-products",
+            label: tBrandDetail("tabNav.selectedProducts"),
+          },
+        ]
       : []),
     ...(faqItems.length > 0
       ? [{ id: "faq", label: tBrandDetail("tabNav.faq") }]
@@ -387,6 +398,19 @@ export default async function BrandDetailPage({ params }: PageProps) {
                     possible={channels.possible}
                     brandId={displayBrand.id}
                     brandSlug={displayBrand.slug}
+                  />
+                </section>
+              )}
+
+              {curatedProducts.length > 0 && (
+                <section
+                  id="selected-products"
+                  className={brandSectionClassName}
+                >
+                  <BrandSelectedProducts
+                    locale={safeLocale}
+                    brand={displayBrand}
+                    products={curatedProducts}
                   />
                 </section>
               )}

@@ -5,15 +5,39 @@ import { createServiceClient } from '@/lib/supabase/service'
 import type { Database } from '@/lib/supabase/database.types'
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+// storage-js caps a `.list()` page at 100 by default; ask for the maximum and
+// page explicitly (see listStorageObjectsUnder).
+const STORAGE_LIST_PAGE_SIZE = 1_000
+
+// A missing table. PostgREST answers `PGRST205` ("Could not find the table in
+// the schema cache"); the raw Postgres `42P01` only reaches us through an RPC or
+// direct SQL path. Matching solely on `42P01` made this guard dead code and made
+// brand removal fail hard on every pre-migration environment.
+const MISSING_TABLE_CODES = new Set(['PGRST205', '42P01'])
+
+function isMissingTableError(error: { code?: string | null } | null): boolean {
+  return Boolean(error?.code && MISSING_TABLE_CODES.has(error.code))
+}
+
+// ---------------------------------------------------------------------------
 // Minimal inline types for rows we handle (avoids guessing re-exports)
 // ---------------------------------------------------------------------------
 
 type BrandRow = Database['public']['Tables']['brands']['Row']
 type BrandSubmissionRow = Database['public']['Tables']['brand_submissions']['Row']
+// `curated_products` (DEV-1404) is not in the generated Database types yet, and
+// the service client is untyped anyway. Its children (sources, selections)
+// cascade from it, so only the parent row needs enumerating.
+type CuratedProductRow = Record<string, unknown> & { id: string }
 
 type BackupEntry = {
   brand: BrandRow
   submissions: BrandSubmissionRow[]
+  // Optional: backups written before DEV-1404 have no curated products.
+  curatedProducts?: CuratedProductRow[]
   storagePaths: string[]
 }
 
@@ -158,19 +182,65 @@ function parseBackupJson(raw: string): BackupEntry[] {
 // Storage helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Lists every object under `prefix`, descending into folder entries. Curated
+ * product keys are `curated-products/<brand-id>/<product-id>/<hash>.webp`, so a
+ * flat listing of the brand folder returns only product folders, never objects.
+ *
+ * Paged, because storage-js defaults to 100 entries per call: an unpaged
+ * `.list()` truncates at EVERY level of the recursion, and the objects it misses
+ * survive the removal as permanent orphans that nothing can identify afterwards
+ * (the rows that referenced them are gone). The endpoint may also cap a page
+ * below the requested `limit`, so a short page is not the end of the listing —
+ * terminate only on an empty page and advance by the actual page length.
+ */
+async function listStorageObjectsUnder(
+  supabase: ReturnType<typeof createServiceClient>,
+  prefix: string
+): Promise<string[]> {
+  const paths: string[] = []
+
+  for (let offset = 0; ; ) {
+    const { data, error } = await supabase.storage
+      .from('brand-images')
+      .list(prefix, {
+        limit: STORAGE_LIST_PAGE_SIZE,
+        offset,
+        sortBy: { column: 'name', order: 'asc' },
+      })
+    if (error) {
+      // Non-fatal — log and treat as empty
+      console.error(`[ERROR] Storage list failed for ${prefix}: ${error.message}`)
+      return paths
+    }
+
+    const page = data ?? []
+    if (page.length === 0) break
+    offset += page.length
+
+    for (const entry of page) {
+      const entryPath = `${prefix}/${entry.name}`
+      if (entry.id === null) {
+        paths.push(...(await listStorageObjectsUnder(supabase, entryPath)))
+      } else {
+        paths.push(entryPath)
+      }
+    }
+  }
+
+  return paths
+}
+
 async function listStorageObjects(
   supabase: ReturnType<typeof createServiceClient>,
   brandId: string
 ): Promise<string[]> {
-  const prefix = `brands/${brandId}`
-  const { data, error } = await supabase.storage.from('brand-images').list(prefix)
-  if (error) {
-    // Non-fatal — log and treat as empty
-    console.error(`[ERROR] Storage list failed for ${brandId}: ${error.message}`)
-    return []
-  }
-  if (!data || data.length === 0) return []
-  return data.map((obj) => `${prefix}/${obj.name}`)
+  // Brand-scoped only because both key layouts put the brand ID first.
+  const prefixes = [`brands/${brandId}`, `curated-products/${brandId}`]
+  const listings = await Promise.all(
+    prefixes.map((prefix) => listStorageObjectsUnder(supabase, prefix))
+  )
+  return listings.flat()
 }
 
 async function deleteStorageObjects(
@@ -191,6 +261,7 @@ async function deleteStorageObjects(
 type GatheredBrand = {
   row: BrandRow
   submissions: BrandSubmissionRow[]
+  curatedProducts: CuratedProductRow[]
   storagePaths: string[]
 }
 
@@ -209,17 +280,29 @@ async function gatherBrandData(
 
   const brandId = brandRow.id
 
-  const [submissionsResult, storagePaths] = await Promise.all([
+  const [submissionsResult, curatedProductsResult, storagePaths] = await Promise.all([
     supabase.from('brand_submissions').select('*').eq('brand_id', brandId),
+    supabase.from('curated_products').select('*').eq('brand_id', brandId),
     listStorageObjects(supabase, brandId),
   ])
 
   if (submissionsResult.error)
     throw new Error(`Submissions fetch failed for "${slug}": ${submissionsResult.error.message}`)
 
+  // The `curated_products` migration ships with DEV-1404, so an environment
+  // behind on migrations must still be able to remove a brand.
+  if (
+    curatedProductsResult.error &&
+    !isMissingTableError(curatedProductsResult.error)
+  )
+    throw new Error(
+      `Curated products fetch failed for "${slug}": ${curatedProductsResult.error.message}`
+    )
+
   return {
     row: brandRow,
     submissions: submissionsResult.data ?? [],
+    curatedProducts: (curatedProductsResult.data ?? []) as CuratedProductRow[],
     storagePaths,
   }
 }
@@ -235,6 +318,7 @@ async function runDryRun(
   console.log('--- Dry Run Preview ---')
 
   let totalSubmissions = 0
+  let totalCuratedProducts = 0
   let totalStorageObjects = 0
   let skipped = 0
 
@@ -253,14 +337,16 @@ async function runDryRun(
       continue
     }
 
-    const { row, submissions, storagePaths } = gathered
+    const { row, submissions, curatedProducts, storagePaths } = gathered
     console.log(
       `[DRY RUN] ${slug} | ${row.name} | status:${row.status} | ` +
         `submissions:${submissions.length} | ` +
+        `curatedProducts:${curatedProducts.length} | ` +
         `storageObjects:${storagePaths.length}`
     )
 
     totalSubmissions += submissions.length
+    totalCuratedProducts += curatedProducts.length
     totalStorageObjects += storagePaths.length
   }
 
@@ -268,6 +354,7 @@ async function runDryRun(
   console.log(`Brands to remove: ${slugs.length - skipped}`)
   console.log(`Brands not found: ${skipped}`)
   console.log(`Total brand_submissions rows: ${totalSubmissions}`)
+  console.log(`Total curated_products rows: ${totalCuratedProducts}`)
   console.log(`Total Storage objects: ${totalStorageObjects}`)
   console.log('\nDry run complete. No changes made.')
 }
@@ -308,11 +395,14 @@ async function removeBrands(
   }
 
   // Phase 2: write backup BEFORE any mutations
-  const backupEntries: BackupEntry[] = gathered.map(({ row, submissions, storagePaths }) => ({
-    brand: row,
-    submissions,
-    storagePaths,
-  }))
+  const backupEntries: BackupEntry[] = gathered.map(
+    ({ row, submissions, curatedProducts, storagePaths }) => ({
+      brand: row,
+      submissions,
+      curatedProducts,
+      storagePaths,
+    })
+  )
 
   let backupPath: string
   try {
@@ -328,13 +418,26 @@ async function removeBrands(
   let errored = 0
   let totalStorageDeleted = 0
   let totalSubmissionsDeleted = 0
+  let totalCuratedProductsDeleted = 0
 
-  for (const { slug, row, submissions, storagePaths } of gathered) {
+  for (const { slug, row, submissions, curatedProducts, storagePaths } of gathered) {
     const brandId = row.id
     try {
       // 3b. Delete Storage objects
       if (storagePaths.length > 0) {
         await deleteStorageObjects(supabase, storagePaths)
+      }
+
+      // 3b-ii. Delete curated_products. The brand FK cascades, so this is
+      // belt-and-braces ordering that keeps the backup and the DB in step even
+      // if the brand delete below fails; its own children cascade from here.
+      if (curatedProducts.length > 0) {
+        const { error: curatedErr } = await supabase
+          .from('curated_products')
+          .delete()
+          .eq('brand_id', brandId)
+        if (curatedErr)
+          throw new Error(`curated_products delete failed: ${curatedErr.message}`)
       }
 
       // 3c. Delete brand_submissions (blocks CASCADE-less FK)
@@ -366,11 +469,13 @@ async function removeBrands(
       }
 
       console.log(
-        `[OK] ${slug} removed (storage:${storagePaths.length}, submissions:${submissions.length})`
+        `[OK] ${slug} removed (storage:${storagePaths.length}, submissions:${submissions.length}, ` +
+          `curatedProducts:${curatedProducts.length})`
       )
       removed++
       totalStorageDeleted += storagePaths.length
       totalSubmissionsDeleted += submissions.length
+      totalCuratedProductsDeleted += curatedProducts.length
     } catch (err) {
       console.log(`[ERROR] ${slug} — ${String(err)}`)
       errored++
@@ -383,6 +488,7 @@ async function removeBrands(
   console.log(`Brands errored:      ${errored}`)
   console.log(`Storage objects del: ${totalStorageDeleted}`)
   console.log(`Submissions deleted: ${totalSubmissionsDeleted}`)
+  console.log(`Curated products del: ${totalCuratedProductsDeleted}`)
   console.log(`Backup file:         ${backupPath!}`)
 }
 
@@ -416,7 +522,7 @@ async function restoreBackup(
   let restored = 0
   let skipped = 0
 
-  for (const { brand, submissions } of entries) {
+  for (const { brand, submissions, curatedProducts } of entries) {
     const slug = brand.slug
 
     // Check if brand already exists
@@ -441,6 +547,17 @@ async function restoreBackup(
       if (submissions.length > 0) {
         const { error: subErr } = await supabase.from('brand_submissions').insert(submissions)
         if (subErr) throw new Error(`brand_submissions insert failed: ${subErr.message}`)
+      }
+
+      // Insert curated_products rows. Only the parent rows were backed up —
+      // their sources and selections cascaded away and cannot be recovered,
+      // exactly like the storage objects noted above.
+      if (curatedProducts && curatedProducts.length > 0) {
+        const { error: curatedErr } = await supabase
+          .from('curated_products')
+          .insert(curatedProducts)
+        if (curatedErr)
+          throw new Error(`curated_products insert failed: ${curatedErr.message}`)
       }
 
       console.log(`[OK] ${slug} restored (db rows only — storage NOT restored)`)

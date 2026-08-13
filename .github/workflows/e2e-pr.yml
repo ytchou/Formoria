@@ -94,6 +94,26 @@ jobs:
     needs: select
     if: needs.select.outputs.has_work == 'true'
     runs-on: ubuntu-latest
+    # Every secret this job reads is an environment secret, and GitHub injects
+    # those only into a job that names its environment. Without this line
+    # E2E_ADMIN_EMAIL and friends resolve to empty strings and global-setup
+    # throws before a single spec runs.
+    #
+    # Production, reluctantly, and only until the staging database is seeded.
+    # This restores the credentials the job used through 2026-08-13 11:00, when
+    # the same values lived as repository secrets. Pointing it at
+    # `Formoria / staging` is correct and was tried first: it authenticates
+    # against a project that has no E2E_USER/E2E_ADMIN accounts, so 14 specs
+    # fail on "Invalid login credentials" and the data-dependent ones on
+    # "Brand not found".
+    #
+    # Flip this to `Formoria / staging` the moment feat/staging-db-release lands
+    # AND its seeding creates those two auth users — the branch's own plan says
+    # "Never clone production Auth users", so they must be created, and today
+    # `db:seed:staging` does not create them. Until then this job mutates the
+    # production database (it seeds and deletes [E2E-TEST] rows and its signup
+    # specs send real email), exactly as it always has.
+    environment: Formoria / production
     timeout-minutes: 30
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

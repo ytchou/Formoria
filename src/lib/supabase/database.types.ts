@@ -268,7 +268,6 @@ export type Database = {
           country: string | null
           created_at: string
           created_by: string | null
-          district: string | null
           fetched_at: string | null
           id: string
           last_confirmed_at: string | null
@@ -294,7 +293,6 @@ export type Database = {
           country?: string | null
           created_at?: string
           created_by?: string | null
-          district?: string | null
           fetched_at?: string | null
           id?: string
           last_confirmed_at?: string | null
@@ -320,7 +318,6 @@ export type Database = {
           country?: string | null
           created_at?: string
           created_by?: string | null
-          district?: string | null
           fetched_at?: string | null
           id?: string
           last_confirmed_at?: string | null
@@ -1359,16 +1356,19 @@ export type Database = {
       }
       cron_http_dispatch: {
         Row: {
+          dispatch_id: string
           dispatched_at: string
           job_name: string
           request_id: number
         }
         Insert: {
+          dispatch_id?: string
           dispatched_at?: string
           job_name: string
           request_id: number
         }
         Update: {
+          dispatch_id?: string
           dispatched_at?: string
           job_name?: string
           request_id?: number
@@ -1378,6 +1378,7 @@ export type Database = {
       cron_http_log: {
         Row: {
           created: string | null
+          dispatch_id: string
           error_msg: string | null
           job_name: string
           logged_at: string
@@ -1387,6 +1388,7 @@ export type Database = {
         }
         Insert: {
           created?: string | null
+          dispatch_id?: string
           error_msg?: string | null
           job_name: string
           logged_at?: string
@@ -1396,6 +1398,7 @@ export type Database = {
         }
         Update: {
           created?: string | null
+          dispatch_id?: string
           error_msg?: string | null
           job_name?: string
           logged_at?: string
@@ -1404,6 +1407,174 @@ export type Database = {
           timed_out?: boolean
         }
         Relationships: []
+      }
+      curated_product_selections: {
+        Row: {
+          created_at: string
+          position: number
+          product_id: string
+          rationale_en: string | null
+          rationale_zh: string
+          section_key: string
+          state: string
+          trail_slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          position?: number
+          product_id: string
+          rationale_en?: string | null
+          rationale_zh: string
+          section_key: string
+          state?: string
+          trail_slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          position?: number
+          product_id?: string
+          rationale_en?: string | null
+          rationale_zh?: string
+          section_key?: string
+          state?: string
+          trail_slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curated_product_selections_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "curated_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curated_product_sources: {
+        Row: {
+          checked_at: string | null
+          claim_en: string | null
+          claim_zh: string | null
+          created_at: string
+          id: string
+          product_id: string
+          source_type: string
+          state: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          checked_at?: string | null
+          claim_en?: string | null
+          claim_zh?: string | null
+          created_at?: string
+          id?: string
+          product_id: string
+          source_type?: string
+          state?: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          checked_at?: string | null
+          claim_en?: string | null
+          claim_zh?: string | null
+          created_at?: string
+          id?: string
+          product_id?: string
+          source_type?: string
+          state?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curated_product_sources_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "curated_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curated_products: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          image_source_url: string | null
+          image_url: string | null
+          image_usage: string
+          key: string
+          l1: string
+          l2: string[]
+          lifecycle: string
+          link_checked_at: string | null
+          link_state: string
+          name_en: string | null
+          name_zh: string
+          notes_en: string | null
+          notes_zh: string | null
+          official_url: string | null
+          review_due_at: string | null
+          source_checked_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          image_source_url?: string | null
+          image_url?: string | null
+          image_usage?: string
+          key: string
+          l1: string
+          l2?: string[]
+          lifecycle?: string
+          link_checked_at?: string | null
+          link_state?: string
+          name_en?: string | null
+          name_zh: string
+          notes_en?: string | null
+          notes_zh?: string | null
+          official_url?: string | null
+          review_due_at?: string | null
+          source_checked_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          image_source_url?: string | null
+          image_url?: string | null
+          image_usage?: string
+          key?: string
+          l1?: string
+          l2?: string[]
+          lifecycle?: string
+          link_checked_at?: string | null
+          link_state?: string
+          name_en?: string | null
+          name_zh?: string
+          notes_en?: string | null
+          notes_zh?: string | null
+          official_url?: string | null
+          review_due_at?: string | null
+          source_checked_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curated_products_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       curation_job_targets: {
         Row: {
@@ -3512,10 +3683,6 @@ export type Database = {
       }
       upsert_enriched_brand_channels: {
         Args: { p_brand_id: string; p_candidates: Json }
-        Returns: number
-      }
-      update_brand_channel_districts: {
-        Args: { p_updates: Json }
         Returns: number
       }
       verify_health_fix_absence: {

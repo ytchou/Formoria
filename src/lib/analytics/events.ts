@@ -649,7 +649,7 @@ export interface AnalyticsEventPayloads {
     brand_slug: string
     link_type: string
     /** Named `link_surface`, NOT `surface`: the before_send scrubber overwrites a top-level `surface` with 'public' | 'product' on every event. */
-    link_surface: 'detail_page' | 'card' | 'recommendation'
+    link_surface: 'detail_page' | 'card' | 'recommendation' | 'selected_product'
   }
   [ANALYTICS_EVENTS.BRAND_PAGE_SHARED]: {
     brand_id?: string

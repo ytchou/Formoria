@@ -338,8 +338,18 @@
       "social": "社群平台",
       "purchase": "購買資訊",
       "locations": "販售地點",
+      "selectedProducts": "Formoria 選物",
       "faq": "常見問題",
       "backToTop": "置頂"
+    },
+    "selectedProducts": {
+      "heading": "Formoria 選物",
+      "note": "這裡是 Formoria 從這個品牌挑出的產品，並說明選它的理由；產品資料由品牌提供，實際內容請以品牌官方頁面為準。",
+      "selectedBadge": "Formoria 選物",
+      "brandProvidedBadge": "品牌提供",
+      "cta": "前往品牌官方網站",
+      "unavailable": "這個產品頁面暫時無法連線。",
+      "brandSiteCta": "前往品牌官網"
     },
     "verified": "品牌經營",
     "verifiedTitle": "由品牌方經營管理",

@@ -338,8 +338,18 @@
       "social": "Social",
       "purchase": "Purchase",
       "locations": "Retail locations",
+      "selectedProducts": "Formoria Selected",
       "faq": "FAQ",
       "backToTop": "Back to top"
+    },
+    "selectedProducts": {
+      "heading": "Formoria Selected",
+      "note": "These are products Formoria picked from this brand, with the reason for each choice. Product details are supplied by the brand; refer to the brand's official page for the current information.",
+      "selectedBadge": "Formoria Selected",
+      "brandProvidedBadge": "Supplied by the brand",
+      "cta": "Go to the brand's official website",
+      "unavailable": "This product page is temporarily unreachable.",
+      "brandSiteCta": "Go to the brand's website"
     },
     "verified": "Brand-managed",
     "verifiedTitle": "Managed by the brand owner",
