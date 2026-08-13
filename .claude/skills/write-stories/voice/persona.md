@@ -125,19 +125,12 @@ Never invent a category slug. The twelve L1 categories are fixed: `fashion`,
 `bags-accessories`, `jewelry`, `beauty`, `home`, `food-drink`, `crafts`,
 `stationery`, `tech`, `outdoor`, `fitness`, `kids-pets`.
 
-## 8. Structure of a brand guide
+## 8. Structure
 
-The shape that worked, as a starting point rather than a template:
+Article structure is per-shape and lives in the configs, not here — a
+product-type guide and a discovery trail arrange themselves differently for
+reasons that are about the reader's starting point, not about voice. See
+`configs/product-type.md` (which carries the brand-guide shape this file used to
+describe) and `configs/discovery-trail.md`.
 
-1. **Opening** — the reader's real problem, concretely. No Formoria.
-2. **A flat fact block** early, carrying anything that changes how the reader
-   should read the list (e.g. booths are paid, so exhibiting is not an
-   endorsement).
-3. **The organising idea** — why this cut, stated plainly, with the selection
-   criteria admitted as subjective.
-4. **Sections**, each opening with an observation about the category rather than
-   a definition of it. Three brands per section: one gets a full paragraph, the
-   other two share one.
-5. **A flat 攤位 line** per section.
-6. **Close** — what survives after the event ends. One Formoria mention. A real
-   question to the reader, not a rhetorical one.
+This file governs how sentences sound, whatever shape they sit in.

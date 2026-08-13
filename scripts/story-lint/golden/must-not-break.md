@@ -106,3 +106,35 @@ note: a category CTA line is navigation, not a paragraph.
 ````
 [瀏覽本站全部工藝文創品牌](/brands?category=craft) →
 ````
+
+## case: price-and-stock-as-deferral
+expect: none
+note: naming price and stock in order to hand them to the brand is the CORRECT form; only an asserted claim is a violation.
+
+````
+價格與庫存以品牌官方頁面為準，這裡不做即時同步。想確認尺寸，官方商品頁上有完整規格表，比我在這裡轉述可靠。展場現貨也常常和線上不一樣，同一款可能只帶了兩三件過來，賣完就沒有了。真的想要某個顏色，先問攤主還有沒有，不要等到最後一天再回頭找。
+````
+
+## case: quoted-superlative-from-a-source
+expect: none
+note: a superlative inside 「」 is the source's wording, not ours — the protection list governs.
+
+````
+攤主說「這是我做過最好的一批」，講這句話時她正在擦第三個杯子，手沒有停。我沒辦法查證這句話，也不打算幫她背書，只能說那批確實只有十二件，杯口的厚度比架上其他款薄一些。她說薄到這個程度，十件裡會破兩件，所以平常不做。
+````
+
+## case: era-phrase-mid-paragraph
+expect: none
+note: only the opening sentence is the tell; a transition using the same words is ordinary prose.
+
+````
+她從二〇一四年開始接單，做的是修補。近年來，送修件數比新做的還多，這件事她自己也沒預料到，工作室後面那排等著補的碗已經堆到第三層。客人送來的多半不貴，一只兩三百塊日用碗，修起來工錢常常超過原價。她照修，理由是那只碗通常有名字，是誰買的、誰摔的，說得出來。
+````
+
+## case: real-uncertainty-not-a-confession-hook
+expect: none
+note: genuine uncertainty stated mid-paragraph reports something; only the manufactured opener is banned.
+
+````
+這批釉在不同窯次差很多，我看了三次，每次顏色都不太一樣。老實說我到現在還分不出來哪一窯算成功，攤主說她也還在調，配方本上記到第四十七號。她讓我看那本簿子，每一頁都有一小塊試片黏在旁邊，顏色從灰綠一路走到接近土黃，中間有七八頁被劃掉。
+````

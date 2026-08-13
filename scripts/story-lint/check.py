@@ -67,6 +67,7 @@ SENTENCE_END = "。！？!?；;…"
 NON_PROSE_LINE = re.compile(r"^\s*(#{1,6}\s|[-*+]\s|\d+[.)]\s|>|\||-{3,}|:{3})")
 
 RULE_SEVERITY = {
+    "forbidden-claim": "ERROR",
     "em-dash-density": "ERROR",
     "not-a-but-b": "ERROR",
     "honorific-nin": "ERROR",
@@ -75,6 +76,9 @@ RULE_SEVERITY = {
     "formulaic-closing": "ERROR",
     "formoria-early": "ERROR",
     "three-part-parallel": "WARN",
+    "stance-vacuum": "WARN",
+    "formulaic-opening": "WARN",
+    "false-confession": "WARN",
     "de-density": "WARN",
     "sentence-monotony": "WARN",
     "paragraph-length": "WARN",
@@ -351,6 +355,59 @@ FORMULAIC_CLOSINGS = [
 # started earlier, so this is a catalogue, not a triad.
 THREE_PART = re.compile(f"(?<!、)(?:[{CJK}]{{2,4}}、){{2}}[{CJK}]{{2,4}}[，。！？]")
 
+# 立場真空 — the paragraph declined to have an opinion. These read as balance
+# but carry no judgment, and a selection piece whose whole job is to say why
+# something was chosen cannot afford them. The fix is the author's actual choice
+# and its reason; where the author never gave one, a 待確認 marker is correct and
+# inventing a stance is not.
+STANCE_VACUUM = [
+    "各有優缺點",
+    "各有千秋",
+    "因人而異",
+    "見仁見智",
+    "取決於多方面因素",
+    "沒有標準答案",
+    "適合自己的最好",
+]
+
+# 公式化開場 — the era-hat. The first sentence should carry information only
+# this article has; a trend preamble is what a model writes when it has not
+# decided what the piece is about yet.
+FORMULAIC_OPENINGS = [
+    re.compile(r"^在(當今|這個)[^。！？\n]{0,20}的(時代|年代|世界)"),
+    re.compile(r"^隨著[^。！？\n]{2,20}的(發展|興起|普及|進步)"),
+    re.compile(r"^近年來[，,]"),
+    re.compile(r"^在[^。！？\n]{0,12}快速[^。！？\n]{0,8}的今天"),
+]
+
+# 假坦白鉤子 — a manufactured confession used as an opener. It performs candour
+# rather than reporting anything, and kill-list.md Tier 4 bans the whole family:
+# 小編 may have a personality, not a fabricated inner life.
+FALSE_CONFESSION = [
+    re.compile(r"^(老實說|說實話|坦白說|不瞞你說|我承認)[，,]"),
+    re.compile(r"^我(以前|之前|原本)(一直|總是)?(以為|覺得|認為)[^。！？\n]{2,30}[，,](後來|直到)"),
+]
+
+# Claims the brand rules forbid outright. This is the one new rule at ERROR:
+# the others are habits that read badly, while these are assertions that are
+# either untrue or outside what Formoria is allowed to say. See
+# .claude/skills/write-stories/voice/brand-rules.md §4.
+#
+# Superlatives and rankings are matched as words; the commerce and assurance
+# families are matched as claim shapes, because 「價格」 alone is a legitimate
+# topic (「價格帶請以官方頁面為準」) and only an asserted number is a violation.
+FORBIDDEN_CLAIMS = [
+    (re.compile(r"最(好|棒|優|讚)(的)?(選擇|品牌|產品)?"), "最好類最高級：改成具體比較或刪掉"),
+    (re.compile(r"必買|必收|必備款|不買可惜|錯過可惜"), "購買催促語，Formoria 不做購買主張"),
+    (re.compile(r"首選|第一品牌|人氣第一|銷量第一|全台第一|台灣第一"), "無方法論的排名主張"),
+    (re.compile(r"立即購買|馬上購買|馬上下單|立即下單|現在不買"), "硬性 CTA：改成「前往品牌官方網站」"),
+    (re.compile(r"保證(有貨|供貨|品質|正品|效果|滿意)"), "保證主張：庫存與品質屬於品牌，不屬於 Formoria"),
+    (re.compile(r"(絕對|百分之百|100%)(安全|有效|天然|無毒)"), "安全或效果保證"),
+    (re.compile(r"(改善|治療|預防|舒緩)(睡眠|失眠|焦慮|疲勞|過敏)"), "健康或療效主張"),
+    (re.compile(r"(護眼|不傷眼|保護視力)"), "視力效果主張"),
+    (re.compile(r"(所有|每個|任何)人都(適合|適用|需要|會喜歡)"), "普遍適用主張"),
+]
+
 SELF_NAME = "Formoria"
 SELF_NAME_EARLY_WINDOW = 200
 SELF_NAME_MAX = 3
@@ -397,6 +454,56 @@ def check_lexical(text: str, quotes):
 
     for m in THREE_PART.finditer(text):
         add(m.start(), "three-part-parallel", m.group(0).strip(), "三段式排比是 AI 慣性，留一項或改寫成句子")
+
+    for phrase in STANCE_VACUUM:
+        for m in re.finditer(re.escape(phrase), text):
+            add(m.start(), "stance-vacuum", phrase, "這段沒有做出判斷；寫出實際的選擇與理由，作者沒給就標 [待確認]")
+
+    for pattern, reason in FORBIDDEN_CLAIMS:
+        for m in pattern.finditer(text):
+            add(m.start(), "forbidden-claim", m.group(0), reason)
+
+    return findings
+
+
+def check_openings(text: str, quotes):
+    """
+    Opening-line rules. Both families are about the FIRST sentence of a
+    paragraph, so they run per paragraph rather than per line — a 時代大帽子 in
+    the middle of a paragraph is a transition, and only the opener is the tell.
+    """
+    findings = []
+    for base, block in paragraphs(text):
+        stripped = block.lstrip()
+        offset = base + (len(block) - len(stripped))
+        if in_quote(offset, quotes):
+            continue
+
+        for pattern in FORMULAIC_OPENINGS:
+            m = pattern.search(stripped)
+            if m:
+                findings.append(
+                    (
+                        offset,
+                        "formulaic-opening",
+                        m.group(0),
+                        "時代大帽子開場：第一句就該有只有這篇文章才有的資訊",
+                    )
+                )
+                break
+
+        for pattern in FALSE_CONFESSION:
+            m = pattern.search(stripped)
+            if m:
+                findings.append(
+                    (
+                        offset,
+                        "false-confession",
+                        m.group(0),
+                        "假坦白鉤子：表演坦誠但沒有新資訊，作者沒說過的轉折不能代寫",
+                    )
+                )
+                break
 
     return findings
 
@@ -570,6 +677,7 @@ def analyze(raw: str):
     findings += check_em_dash(text, quotes)
     findings += check_not_a_but_b(text, quotes)
     findings += check_self_mention(text, headings)
+    findings += check_openings(text, quotes)
     findings += check_structure(text, quotes, headings)
 
     result = []

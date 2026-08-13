@@ -135,3 +135,65 @@ note: 予以 / 加以 are the stiffest members of the family.
 ````
 對於這些反覆出現的問題，主辦單位表示會予以檢討，也會加以改善，明年的動線圖會重畫。
 ````
+
+## case: stance-vacuum
+expect: stance-vacuum
+note: reads as balance, carries no judgment — fatal in a piece whose job is to say why something was chosen.
+
+````
+兩種做法各有優缺點，選哪一種因人而異，取決於多方面因素。手拉坯的碗會有厚薄差，模具成型的整齊但少了痕跡，這件事沒有標準答案，適合自己的最好。
+````
+
+## case: formulaic-opening-era-hat
+expect: formulaic-opening
+note: the first sentence must carry information only this article has.
+
+````
+在這個瞬息萬變的時代，工藝的價值正在被重新看見。愈來愈多年輕人投入手作，市場也慢慢願意為時間付錢。
+````
+
+## case: formulaic-opening-suizhe
+expect: formulaic-opening
+
+````
+隨著循環經濟的興起，材料的來源變成一個新問題。品牌開始標示產地，消費者也開始問。
+````
+
+## case: false-confession-hook
+expect: false-confession
+note: performs candour, reports nothing. kill-list Tier 4.
+
+````
+老實說，我一開始並不看好這個攤位。它的位置在角落，燈也暗，走過去的人很少會停下來。
+````
+
+## case: false-confession-reversal
+expect: false-confession
+note: a manufactured "I used to think X, then" turn the author never made.
+
+````
+我以前一直以為竹編只是老東西，後來才發現它可以很現代。這個轉變花了我兩年。
+````
+
+## case: forbidden-claim-superlative
+expect: forbidden-claim
+
+````
+這是全場最好的陶器，也是今年的必買品項，值得列為送禮首選。
+````
+
+## case: forbidden-claim-commerce
+expect: forbidden-claim
+note: hard CTA plus a stock promise — both belong to the brand, not to Formoria.
+
+````
+喜歡的話可以立即購買，官方通路保證有貨，現在不買就要等下一批。
+````
+
+## case: forbidden-claim-health
+expect: forbidden-claim
+note: efficacy and vision claims carry real 公平交易法 exposure.
+
+````
+這盞燈能護眼，長期使用可以改善睡眠，材質絕對安全，所有人都適合。
+````
