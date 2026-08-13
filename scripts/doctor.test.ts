@@ -21,7 +21,8 @@ function runDoctorWithMigrationOutput(output: string) {
       env: {
         ...process.env,
         PATH: `${directory}:${process.env.PATH ?? ""}`,
-        SUPABASE_DB_URL: "",
+        SUPABASE_DB_URL:
+          "postgresql://postgres:unused@db.xwkigpvnheecihpxyvsl.supabase.co:5432/postgres",
         DATABASE_URL: "",
         HEALTH_AGENT_READ_DATABASE_URL: "",
       },
@@ -38,7 +39,7 @@ describe("environment doctor migration ledger contract", () => {
     );
 
     expect(result.stdout).toContain(
-      "OK: brand_ai_results phase CHECK migration applied on the linked project",
+      "OK: brand_ai_results phase CHECK migration applied on the explicit target",
     );
   });
 
@@ -48,7 +49,7 @@ describe("environment doctor migration ledger contract", () => {
     );
 
     expect(result.stdout).toContain(
-      "ERROR: brand_ai_results phase CHECK migration is not applied on the linked project",
+      "ERROR: brand_ai_results phase CHECK migration is not applied on the explicit target",
     );
     expect(result.status).not.toBe(0);
   });
@@ -59,7 +60,7 @@ describe("environment doctor migration ledger contract", () => {
     );
 
     expect(result.stdout).toContain(
-      "OK: brand_ai_results phase CHECK migration applied on the linked project",
+      "OK: brand_ai_results phase CHECK migration applied on the explicit target",
     );
   });
 });

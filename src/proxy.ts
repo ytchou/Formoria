@@ -336,6 +336,25 @@ function getBrandDetailSlug(segments: string[]): string | null {
 /** One-shot latch so the missing-credentials error is not logged per request. */
 let supabaseCredentialsWarningEmitted = false;
 
+async function hasAuthenticatedUser(request: NextRequest): Promise<boolean> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) return false;
+
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll: () => request.cookies.getAll(),
+      setAll: () => {},
+    },
+  });
+  try {
+    const { data } = await supabase.auth.getUser();
+    return data.user !== null;
+  } catch {
+    return false;
+  }
+}
+
 async function refreshSupabaseSession(
   request: NextRequest,
   response: NextResponse,
@@ -428,9 +447,25 @@ export async function proxy(request: NextRequest) {
     );
   }
 
-  if (staging && !isAllowedStagingRequest(request.method, pathname)) {
+  const initiallyAllowed = isAllowedStagingRequest(request.method, pathname);
+  const mayAuthenticateMutation = ["POST", "PUT", "PATCH", "DELETE"].includes(
+    request.method,
+  );
+  const authenticated =
+    staging && !initiallyAllowed && mayAuthenticateMutation
+      ? await hasAuthenticatedUser(request)
+      : false;
+  const stagingRequestAllowed =
+    !staging ||
+    initiallyAllowed ||
+    isAllowedStagingRequest(request.method, pathname, authenticated);
+
+  if (!stagingRequestAllowed) {
     return finalizeResponse(
-      NextResponse.json({ error: "Staging is read-only" }, { status: 403 }),
+      NextResponse.json(
+        { error: "This flow is disabled in staging" },
+        { status: 403 },
+      ),
       staging,
     );
   }

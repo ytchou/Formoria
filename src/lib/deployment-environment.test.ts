@@ -19,18 +19,16 @@ describe("staging deployment safety policy", () => {
     expect(isStagingHost("staging.formoria.com:443")).toBe(true);
   });
 
-  it("allows reads and existing-user auth but denies application mutations", () => {
+  it("allows private QA mutations to reach their route authorization", () => {
     expect(isAllowedStagingRequest("GET", "/brands")).toBe(true);
-    expect(isAllowedStagingRequest("POST", "/en/auth/sign-in")).toBe(
-      true,
-    );
-    expect(isAllowedStagingRequest("POST", "/auth/sign-in/password")).toBe(
-      false,
-    );
-    expect(isAllowedStagingRequest("POST", "/auth/sign-in/google")).toBe(false);
+    expect(isAllowedStagingRequest("POST", "/en/auth/sign-in")).toBe(true);
     expect(isAllowedStagingRequest("POST", "/auth/sign-out")).toBe(true);
     expect(isAllowedStagingRequest("POST", "/submit")).toBe(false);
-    expect(isAllowedStagingRequest("DELETE", "/api/admin/brands/123")).toBe(
+    expect(isAllowedStagingRequest("POST", "/submit", true)).toBe(true);
+    expect(
+      isAllowedStagingRequest("DELETE", "/api/admin/brands/123", true),
+    ).toBe(true);
+    expect(isAllowedStagingRequest("TRACE", "/api/admin/brands/123")).toBe(
       false,
     );
   });
@@ -51,5 +49,12 @@ describe("staging deployment safety policy", () => {
     expect(isAllowedStagingRequest("GET", "/en/auth/sign-up")).toBe(false);
     expect(isAllowedStagingRequest("GET", "/auth/forgot-password")).toBe(false);
     expect(isAllowedStagingRequest("GET", "/auth/reset-password")).toBe(false);
+    expect(isAllowedStagingRequest("POST", "/auth/sign-up")).toBe(false);
+    expect(isAllowedStagingRequest("POST", "/auth/forgot-password")).toBe(
+      false,
+    );
+    expect(isAllowedStagingRequest("PATCH", "/auth/reset-password")).toBe(
+      false,
+    );
   });
 });

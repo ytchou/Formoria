@@ -36,20 +36,22 @@ function withoutLocale(pathname: string): string {
 export function isAllowedStagingRequest(
   method: string,
   pathname: string,
+  authenticated = false,
 ): boolean {
   const normalizedPath = withoutLocale(pathname);
 
+  if (STAGING_DISABLED_AUTH_PATHS.has(normalizedPath)) return false;
+
   if (method === "GET" || method === "HEAD" || method === "OPTIONS") {
-    return (
-      !STAGING_GET_MUTATION_PATHS.has(normalizedPath) &&
-      !STAGING_DISABLED_AUTH_PATHS.has(normalizedPath)
-    );
+    return !STAGING_GET_MUTATION_PATHS.has(normalizedPath);
   }
 
-  if (method !== "POST") return false;
+  if (
+    method === "POST" &&
+    (normalizedPath === "/auth/sign-in" || normalizedPath === "/auth/sign-out")
+  ) {
+    return true;
+  }
 
-  return (
-    normalizedPath === "/auth/sign-in" ||
-    normalizedPath === "/auth/sign-out"
-  );
+  return authenticated && ["POST", "PUT", "PATCH", "DELETE"].includes(method);
 }
