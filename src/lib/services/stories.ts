@@ -41,6 +41,19 @@ export type StoryEntry = {
     heroImageAlt?: string;
     sources: string[];
     faq: Array<{ q: string; a: string }>;
+    /**
+     * Whether this story may be quoted as a voice exemplar by the drafting
+     * skill (`.claude/skills/write-stories`). Editorial metadata only — nothing
+     * in the rendered page reads it.
+     *
+     * It exists because the voice pack is derived from the published corpus,
+     * and a corpus that treats every story as exemplary regresses toward its
+     * own drift: one article that slips into the formal second person, or into
+     * a stray em dash, teaches the next one to do the same. Stories predating
+     * the voice rules stay `false`
+     * and are still read for the drift report, just never quoted from.
+     */
+    voiceCanonical?: boolean;
   };
 };
 
@@ -121,6 +134,11 @@ const parseStoryFile = cache((slug: string): StoryDetailResult | null => {
       heroImageAlt: data.heroImageAlt != null ? String(data.heroImageAlt) : undefined,
       sources: Array.isArray(data.sources) ? data.sources : [],
       faq: Array.isArray(data.faq) ? data.faq : [],
+      // Strict `=== true`, not `?? false`: a story that writes
+      // `voiceCanonical: "true"` as a quoted string has a mistake worth leaving
+      // visible as `false`, since coercing it would silently promote an
+      // unreviewed story into the exemplar corpus.
+      voiceCanonical: data.voiceCanonical === true,
     },
   }
 
