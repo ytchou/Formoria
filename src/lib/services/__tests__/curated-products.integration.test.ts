@@ -10,11 +10,14 @@ type SeedProduct = {
   sourceCheckedAt?: string | null;
   linkState?: string;
   sources?: number;
+  /** The planner retires rather than deletes, so a source row can be dead. */
+  sourceState?: "active" | "retired";
   selections?: {
     trailSlug: string;
     sectionKey?: string;
     position: number;
     rationaleZh?: string;
+    state?: "active" | "retired";
   }[];
 };
 
@@ -81,6 +84,7 @@ describeWithDb("published curated products for a brand", () => {
             url: `https://example.com/${suffix}/${product.key}/source-${index}`,
             source_type: "official",
             claim_zh: `Claim ${index}`,
+            state: product.sourceState ?? "active",
           });
         expect(sourceError).toBeNull();
       }
@@ -96,6 +100,7 @@ describeWithDb("published curated products for a brand", () => {
             rationale_zh:
               selection.rationaleZh ??
               `Rationale ${selection.trailSlug} ${selection.position}`,
+            state: selection.state ?? "active",
           });
         expect(selectionError).toBeNull();
       }
@@ -187,6 +192,94 @@ describeWithDb("published curated products for a brand", () => {
     );
 
     expect(products.map((product) => product.key)).toEqual(["sourced-pick"]);
+  });
+
+  it("omits a published product whose every source is retired", async () => {
+    // Retire-never-delete means the source ROW survives withdrawal, so row
+    // presence is not evidence — only an active row is.
+    const brandId = await seedBrand([
+      {
+        key: "live-source-pick",
+        selections: [{ trailSlug: "gifting", position: 1 }],
+      },
+      {
+        key: "withdrawn-source-pick",
+        sourceState: "retired",
+        selections: [{ trailSlug: "gifting", position: 2 }],
+      },
+    ]);
+
+    const products = await getPublishedCuratedProductsForBrand(
+      brandId,
+      supabase,
+    );
+
+    expect(products.map((product) => product.key)).toEqual([
+      "live-source-pick",
+    ]);
+  });
+
+  it("ignores a retired selection when choosing the winning one", async () => {
+    const brandId = await seedBrand([
+      {
+        key: "repositioned-pick",
+        selections: [
+          {
+            trailSlug: "everyday",
+            position: 1,
+            rationaleZh: "Withdrawn angle",
+            state: "retired",
+          },
+          { trailSlug: "gifting", position: 3, rationaleZh: "Live angle" },
+        ],
+      },
+    ]);
+
+    const products = await getPublishedCuratedProductsForBrand(
+      brandId,
+      supabase,
+    );
+
+    expect(products).toHaveLength(1);
+    expect(products.at(0)?.trailSlug).toBe("gifting");
+    expect(products.at(0)?.position).toBe(3);
+    expect(products.at(0)?.rationaleZh).toBe("Live angle");
+  });
+
+  it("still returns a product whose every selection is retired", async () => {
+    // A product with no live placement sorts last with a null rationale; it is
+    // never dropped, because placement is presentation and not proof.
+    const brandId = await seedBrand([
+      {
+        key: "unplaced-pick",
+        selections: [
+          {
+            trailSlug: "gifting",
+            position: 1,
+            rationaleZh: "Withdrawn angle",
+            state: "retired",
+          },
+        ],
+      },
+      {
+        key: "placed-pick",
+        selections: [{ trailSlug: "gifting", position: 5 }],
+      },
+    ]);
+
+    const products = await getPublishedCuratedProductsForBrand(
+      brandId,
+      supabase,
+    );
+
+    expect(products.map((product) => product.key)).toEqual([
+      "placed-pick",
+      "unplaced-pick",
+    ]);
+    const unplaced = products.at(1);
+    expect(unplaced?.position).toBeNull();
+    expect(unplaced?.rationaleZh).toBeNull();
+    expect(unplaced?.trailSlug).toBeNull();
   });
 
   it("omits published products with a null source_checked_at", async () => {

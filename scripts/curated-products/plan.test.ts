@@ -352,6 +352,78 @@ describe('curated product sync planning', () => {
     ])
   })
 
+  /**
+   * The idempotency guarantee, at the format boundary. The YAML author writes
+   * `2026-08-01T00:00:00Z`; PostgREST hands back `2026-08-01T00:00:00+00:00`
+   * for the same instant. Comparing those as strings is false forever, so every
+   * run re-emitted an update for every row, bumped `updated_at`, marked every
+   * brand touched, and triggered a full revalidation.
+   */
+  it('treats two serialisations of the same instant as unchanged', () => {
+    const seeded = appliedProduct(plan({ products: [product()] }).operations)
+    const postgrest: CurrentCuratedProduct = {
+      ...seeded,
+      source_checked_at: '2026-08-01T00:00:00+00:00',
+      review_due_at: '2026-11-01T00:00:00+00:00',
+    }
+
+    const result = plan({
+      products: [
+        product({
+          sourceCheckedAt: '2026-08-01T00:00:00Z',
+          reviewDueAt: '2026-11-01T00:00:00Z',
+        }),
+      ],
+      sources: [source({ checkedAt: '2026-08-01T00:00:00Z' })],
+      selections: [],
+      current: {
+        products: [postgrest],
+        sources: [currentSource({ checked_at: '2026-08-01T00:00:00+00:00' })],
+        selections: [],
+      },
+    })
+
+    expect(result.operations).toEqual([])
+    expect(result.totals.productUpdates).toBe(0)
+    expect(result.totals.sourceUpserts).toBe(0)
+  })
+
+  it('still updates when the instant genuinely differs, or when one side is null', () => {
+    const seeded = appliedProduct(plan({ products: [product()] }).operations)
+
+    const moved = plan({
+      products: [product({ sourceCheckedAt: '2026-08-02T00:00:00Z' })],
+      current: {
+        products: [{ ...seeded, source_checked_at: '2026-08-01T00:00:00+00:00' }],
+        sources: [],
+        selections: [],
+      },
+    })
+    expect(moved.operations).toEqual([
+      expect.objectContaining({
+        kind: 'product.update',
+        set: { source_checked_at: '2026-08-02T00:00:00Z' },
+      }),
+    ])
+
+    // A null on exactly one side must never compare equal, or clearing a
+    // timestamp would silently never be written.
+    const cleared = plan({
+      products: [product({ reviewDueAt: null })],
+      current: {
+        products: [{ ...seeded, review_due_at: '2026-11-01T00:00:00+00:00' }],
+        sources: [],
+        selections: [],
+      },
+    })
+    expect(cleared.operations).toEqual([
+      expect.objectContaining({
+        kind: 'product.update',
+        set: { review_due_at: null },
+      }),
+    ])
+  })
+
   it('reports a brand slug with no matching brand id instead of planning writes', () => {
     const result = plan({ products: [product({ brandSlug: 'ghost-brand' })] })
 

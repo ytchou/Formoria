@@ -242,10 +242,12 @@ describeWithDb("curated product apply", () => {
     // The image was fetched from the authored URL and the row now points at the
     // mirror, which is the only reference the storage sweep can resolve.
     expect(urls).toEqual([REMOTE_IMAGE_URL]);
+    // Keyed on the URL the bytes were FETCHED from, so editing `image_url`
+    // alone produces a new key and really does re-upload.
     const storageKey = curatedImageStorageKey(
       fixture.brandId,
       product.id,
-      REMOTE_SOURCE_URL,
+      REMOTE_IMAGE_URL,
     );
     expect(await listStoredObjects(fixture.brandId)).toEqual([storageKey]);
     expect(product.image_url).toContain(storageKey);
@@ -284,6 +286,84 @@ describeWithDb("curated product apply", () => {
     expect(await snapshot(fixture.brandId)).toEqual(before);
     // Zero new storage objects.
     expect(await listStoredObjects(fixture.brandId)).toEqual(objectsBefore);
+  });
+
+  /**
+   * The row naming the key is NOT proof the bytes are there. The product phase
+   * writes the computed mirror URL into `image_url` BEFORE the image phase
+   * runs, so the row always names the key by then — reading the row as proof
+   * meant nothing was ever fetched or uploaded, the row pointed at a 404, and
+   * every later run reported 'reused' against it forever.
+   */
+  it("re-uploads when the row names the mirror but the object is gone", async () => {
+    const fixture = await seedBrand();
+    const first = downloader();
+    const firstResult = await syncCuratedProducts({
+      content: fixture.content,
+      brandIdBySlug: { [fixture.brandSlug]: fixture.brandId },
+      apply: true,
+      client: supabase,
+      downloadImage: first.download,
+    });
+    expect(firstResult.images.map((image) => image.action)).toEqual([
+      "uploaded",
+    ]);
+    expect(first.urls).toEqual([REMOTE_IMAGE_URL]);
+
+    // Simulate a run that crashed between the row write and the upload.
+    const stored = await listStoredObjects(fixture.brandId);
+    expect(stored).toHaveLength(1);
+    await supabase.storage.from(BUCKET).remove(stored);
+    expect(await listStoredObjects(fixture.brandId)).toEqual([]);
+
+    const second = downloader();
+    const secondResult = await syncCuratedProducts({
+      content: fixture.content,
+      brandIdBySlug: { [fixture.brandSlug]: fixture.brandId },
+      apply: true,
+      client: supabase,
+      downloadImage: second.download,
+    });
+
+    expect(secondResult.images.map((image) => image.action)).toEqual([
+      "uploaded",
+    ]);
+    expect(second.urls).toEqual([REMOTE_IMAGE_URL]);
+    expect(await listStoredObjects(fixture.brandId)).toEqual(stored);
+  });
+
+  /**
+   * Dry run and apply must report the SAME action for the same input, or the
+   * report an operator reads before applying is fiction.
+   */
+  it("reports the same image action in dry run as in apply", async () => {
+    const fixture = await seedBrand();
+
+    const dryRun = await syncCuratedProducts({
+      content: fixture.content,
+      brandIdBySlug: { [fixture.brandSlug]: fixture.brandId },
+      apply: false,
+      client: supabase,
+      downloadImage: downloader().download,
+    });
+    expect(dryRun.images.map((image) => image.action)).toEqual(["uploaded"]);
+
+    await syncCuratedProducts({
+      content: fixture.content,
+      brandIdBySlug: { [fixture.brandSlug]: fixture.brandId },
+      apply: true,
+      client: supabase,
+      downloadImage: downloader().download,
+    });
+
+    const afterApply = await syncCuratedProducts({
+      content: fixture.content,
+      brandIdBySlug: { [fixture.brandSlug]: fixture.brandId },
+      apply: false,
+      client: supabase,
+      downloadImage: downloader().download,
+    });
+    expect(afterApply.images.map((image) => image.action)).toEqual(["reused"]);
   });
 
   it("re-applying a product with an unchanged image_source_url reuses the same object path", async () => {

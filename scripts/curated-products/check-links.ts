@@ -1,7 +1,14 @@
 import { auditedCall } from "@/lib/audit";
 import { requestPublicBrandRevalidation } from "@/lib/cache/revalidate-client";
+import { mapWithConcurrency } from "@/lib/services/_shared/concurrency";
 import { createServiceClient } from "@/lib/supabase/service";
 import { isPrivateUrl } from "@/lib/url";
+
+import {
+  assertRevalidationConfigured,
+  fetchAllRows,
+  parseBrandOption,
+} from "./shared";
 
 /**
  * Curated-product link health and review-due report (DEV-1404).
@@ -28,6 +35,17 @@ import { isPrivateUrl } from "@/lib/url";
  * here records stock, price, inventory, or availability; those are commercial
  * facts with a freshness obligation nothing in this product can honour, which
  * is exactly why `curated_products` has no column for them.
+ *
+ * A BOT CHALLENGE IS NOT A DEAD LINK. 402/403/405/429 are recorded as NO
+ * verdict — the stored `link_state` is left untouched and the run summary
+ * counts them — because a Cloudflare-fronted origin refuses a scripted HEAD
+ * while serving a real visitor perfectly. `link_state` has no `blocked` value
+ * and its CHECK constraint is already applied to the live database.
+ *
+ * --apply FAILS LOUDLY. The revalidation credentials are checked BEFORE the
+ * first write and a failed revalidation exits non-zero, exactly as in run.ts:
+ * a cron that reports success while a brand page keeps serving a live CTA to a
+ * URL just proven dead is the failure this script exists to prevent.
  *
  * WRITE SCOPE. The updater writes `link_state` and `link_checked_at` and
  * nothing else (CURATED_LINK_WRITE_COLUMNS). Every other column on the table is
@@ -65,8 +83,27 @@ export type LinkProbe = {
   status: number | null;
 };
 
+/**
+ * Statuses that are NOT evidence about the link.
+ *
+ * A Cloudflare-fronted origin answers a scripted HEAD with 403, and a rate
+ * limiter answers 429; both serve the page perfectly to a real visitor.
+ * src/lib/services/link-health.ts already treats this set as `blocked` for the
+ * same reason. Recording them as `broken` would drop the working call-to-action
+ * from every product on that origin, on every run.
+ *
+ * `curated_products.link_state` has no `blocked` value and its CHECK constraint
+ * is already applied to the live database, so the verdict here is "no verdict":
+ * the existing `link_state` is left exactly as it was and the run summary
+ * surfaces the count for a human.
+ */
+const BLOCKED_STATUSES = new Set([402, 403, 405, 429]);
+
 export type LinkClassification = {
-  linkState: CuratedLinkState;
+  /** `null` when the probe proves nothing — leave the stored state alone. */
+  linkState: CuratedLinkState | null;
+  /** True when a bot challenge or rate limit answered instead of the origin. */
+  blocked: boolean;
   status: number | null;
   requestedUrl: string;
   resolvedUrl: string | null;
@@ -116,8 +153,13 @@ export function classify(
     status,
     requestedUrl,
     resolvedUrl,
+    blocked: false,
     checkedAt: now().toISOString(),
   };
+
+  if (status !== null && BLOCKED_STATUSES.has(status)) {
+    return { ...base, blocked: true, linkState: null, redirectedTo: null };
+  }
 
   const resolves = status !== null && status >= 200 && status < 400;
   if (!resolves) {
@@ -210,25 +252,15 @@ type CliOptions = {
   reviewOnly: boolean;
 };
 
-function parseArgs(argv: string[]): CliOptions {
-  const brandArg = argv.find((arg) => arg.startsWith("--brand="));
-  const brandIndex = argv.indexOf("--brand");
-  const brand = brandArg
-    ? brandArg.slice("--brand=".length)
-    : brandIndex === -1
-      ? null
-      : (argv.at(brandIndex + 1) ?? null);
-  if (brand !== null && (!brand || brand.startsWith("--"))) {
-    throw new Error("--brand requires a brand slug");
-  }
+export function parseArgs(argv: string[]): CliOptions {
   return {
     apply: argv.includes("--apply"),
-    brand,
+    brand: parseBrandOption(argv),
     reviewOnly: argv.includes("--review-only"),
   };
 }
 
-type ProductRow = {
+export type ProductRow = {
   id: string;
   brand_id: string;
   key: string;
@@ -245,20 +277,25 @@ function brandSlugOf(row: ProductRow): string | null {
   return brands?.slug ?? null;
 }
 
+/**
+ * PAGED. A single `select()` stops at Supabase's default `db-max-rows` (1000)
+ * with no error, so every product past the cap would silently never be probed
+ * — and a run that checked 1000 of 2400 links still prints a clean summary.
+ */
 async function loadProducts(brand: string | null): Promise<ProductRow[]> {
   const supabase = createServiceClient();
-  let query = supabase
-    .from("curated_products")
-    .select(
-      "id, brand_id, key, name_zh, lifecycle, official_url, link_state, review_due_at, brands!inner(slug)",
-    )
-    .neq("lifecycle", "retired");
-  if (brand) query = query.eq("brands.slug", brand);
-
-  const { data, error } = await query;
-  if (error)
-    throw new Error(`failed to load curated products: ${error.message}`);
-  return (data ?? []) as unknown as ProductRow[];
+  return fetchAllRows<ProductRow>("curated_products", (from, to) => {
+    let query = supabase
+      .from("curated_products")
+      .select(
+        "id, brand_id, key, name_zh, lifecycle, official_url, link_state, review_due_at, brands!inner(slug)",
+      )
+      .neq("lifecycle", "retired");
+    if (brand) query = query.eq("brands.slug", brand);
+    // A stable order is what makes paging correct: without it two pages can
+    // repeat one row and skip another.
+    return query.order("id", { ascending: true }).range(from, to);
+  });
 }
 
 /**
@@ -273,7 +310,11 @@ async function loadProducts(brand: string | null): Promise<ProductRow[]> {
  * live sites doing it, so a not-found verdict must survive a real visitor's
  * method before it is recorded.
  */
-async function probe(url: string): Promise<LinkProbe> {
+export async function probe(
+  url: string,
+  /** Seam for the unit test; the default is the global `fetch`. */
+  fetchImpl: typeof fetch = fetch,
+): Promise<LinkProbe> {
   if (isPrivateUrl(url)) {
     return { requestedUrl: url, resolvedUrl: null, status: null };
   }
@@ -282,7 +323,7 @@ async function probe(url: string): Promise<LinkProbe> {
     { provider: "http", operation: "check_link", kind: "external" },
     async (ctx): Promise<LinkProbe> => {
       const request = async (method: "HEAD" | "GET") => {
-        const response = await fetch(url, {
+        const response = await fetchImpl(url, {
           method,
           headers: { "User-Agent": BROWSER_UA },
           redirect: "follow",
@@ -327,29 +368,10 @@ async function probe(url: string): Promise<LinkProbe> {
   );
 }
 
-async function mapWithConcurrency<T, R>(
-  items: readonly T[],
-  limit: number,
-  worker: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  let cursor = 0;
-  const runners = Array.from(
-    { length: Math.min(limit, items.length) },
-    async () => {
-      while (cursor < items.length) {
-        const index = cursor++;
-        results[index] = await worker(items[index]!);
-      }
-    },
-  );
-  await Promise.all(runners);
-  return results;
-}
-
-type LinkCheck = {
+export type LinkCheck = {
   row: ProductRow;
   classification: LinkClassification;
+  /** True only when there IS a verdict and it differs from the stored state. */
   changed: boolean;
 };
 
@@ -360,7 +382,9 @@ async function checkLinks(rows: readonly ProductRow[]): Promise<LinkCheck[]> {
     return {
       row,
       classification,
-      changed: classification.linkState !== row.link_state,
+      changed:
+        classification.linkState !== null &&
+        classification.linkState !== row.link_state,
     };
   });
 }
@@ -370,8 +394,31 @@ async function checkLinks(rows: readonly ProductRow[]): Promise<LinkCheck[]> {
  * upsert: an upsert would need the full row and could resurrect an authored
  * value from a read taken before an editor's save.
  */
-async function applyLinkStates(checks: readonly LinkCheck[]): Promise<void> {
-  const supabase = createServiceClient();
+/**
+ * The narrowest shape `applyLinkStates` needs. Declaring it lets the unit test
+ * hand in a recording double WITHOUT mocking the Supabase module, which
+ * scripts/check-test-boundaries.mjs forbids outright.
+ */
+export type LinkStateWriter = {
+  from(table: string): {
+    update(values: Record<string, unknown>): {
+      eq(
+        column: string,
+        value: string,
+      ): PromiseLike<{ error: { message: string } | null }>;
+    };
+  };
+};
+
+export async function applyLinkStates(
+  checks: readonly LinkCheck[],
+  /** Seam for the unit test; the default is the real service client. */
+  client?: LinkStateWriter,
+): Promise<void> {
+  // The generic PostgREST builder is structurally wider than LinkStateWriter;
+  // this cast narrows it at the one call site rather than leaking generics.
+  const supabase =
+    client ?? (createServiceClient() as unknown as LinkStateWriter);
   for (const check of checks) {
     const { error } = await supabase
       .from("curated_products")
@@ -388,10 +435,16 @@ async function applyLinkStates(checks: readonly LinkCheck[]): Promise<void> {
 
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
+  // Same preflight as run.ts, and for the same reason: a write that lands while
+  // revalidation is unconfigured leaves every brand page serving a stale shell.
+  // Failing before the first write is the reversible failure.
+  if (options.apply) assertRevalidationConfigured();
+
   const rows = await loadProducts(options.brand);
 
   const checks = options.reviewOnly ? [] : await checkLinks(rows);
   const changed = checks.filter((check) => check.changed);
+  const blocked = checks.filter((check) => check.classification.blocked);
 
   console.log(
     JSON.stringify({
@@ -404,8 +457,22 @@ async function main(): Promise<void> {
       products: rows.length,
       checked: checks.length,
       changed: changed.length,
+      // Surfaced, never written: a bot challenge is not evidence of a dead
+      // link, so these rows keep whatever link_state they already had.
+      blocked: blocked.length,
     }),
   );
+  for (const check of blocked) {
+    console.log(
+      JSON.stringify({
+        blocked: true,
+        brandSlug: brandSlugOf(check.row),
+        key: check.row.key,
+        status: check.classification.status,
+        linkState: check.row.link_state,
+      }),
+    );
+  }
   for (const check of changed) {
     console.log(
       JSON.stringify({
@@ -468,6 +535,15 @@ async function main(): Promise<void> {
       reason: revalidation.reason ?? null,
     }),
   );
+  if (!revalidation.ok) {
+    // The link states are already committed, so this cannot be undone here —
+    // but it must never exit 0. A cron reporting success while a brand page
+    // keeps serving a call-to-action to a URL just proven dead is the exact
+    // failure this script exists to prevent.
+    throw new Error(
+      `revalidation failed (${revalidation.reason ?? "unknown"}): brand pages are stale`,
+    );
+  }
 }
 
 // The test imports the pure functions from this module, so importing it must

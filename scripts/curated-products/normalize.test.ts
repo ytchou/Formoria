@@ -278,4 +278,138 @@ selections:
       },
     ])
   })
+
+  /**
+   * A silently coerced position is worse than a rejected one: it moves the
+   * product to the front of the trail AND leaves `issues` empty, so the
+   * applier's "refusing to apply content with unresolved issues" gate lets the
+   * whole file through.
+   */
+  it.each([
+    ['1.5', '1.5', 'position must be a non-negative integer: 1.5'],
+    ['.nan', '.nan', 'position must be a non-negative integer: NaN'],
+    ['-1', '-1', 'position must be a non-negative integer: -1'],
+  ])('rejects a non-integer position (%s)', (_label, yamlValue, message) => {
+    const result = normalizeCuratedContent({
+      productFiles: [productFile(PRODUCT_FILE)],
+      selectionFiles: [
+        selectionFile(`
+trail_slug: taiwan-outdoor
+selections:
+  - product: hanchor/alpine-shell
+    section_key: hero
+    position: ${yamlValue}
+    rationale_zh: 理由
+`),
+      ],
+      knownTrailSlugs: ['taiwan-outdoor'],
+    })
+
+    expect(result.selections).toHaveLength(0)
+    expect(result.issues).toContainEqual({
+      file: 'selections/taiwan-outdoor.yaml',
+      productKey: 'hanchor/alpine-shell',
+      message,
+    })
+  })
+
+  it('keeps a valid integer position', () => {
+    const result = normalizeCuratedContent({
+      productFiles: [productFile(PRODUCT_FILE)],
+      selectionFiles: [
+        selectionFile(`
+trail_slug: taiwan-outdoor
+selections:
+  - product: hanchor/alpine-shell
+    section_key: hero
+    position: 3
+    rationale_zh: 理由
+`),
+      ],
+      knownTrailSlugs: ['taiwan-outdoor'],
+    })
+
+    expect(result.issues).toEqual([])
+    expect(result.selections[0]?.position).toBe(3)
+  })
+
+  /**
+   * Membership in the known set is not the rule — one file IS one trail. Two
+   * files resolving to the same trail would emit two rows sharing
+   * `(product_id, trail_slug, section_key)` in one upsert batch, and Postgres
+   * aborts that batch with 21000 after the product writes already committed.
+   */
+  it('rejects a trail_slug that disagrees with its own file name', () => {
+    const result = normalizeCuratedContent({
+      productFiles: [productFile(PRODUCT_FILE)],
+      selectionFiles: [
+        selectionFile(
+          `
+trail_slug: taiwan-outdoor
+selections:
+  - product: hanchor/alpine-shell
+    section_key: hero
+    position: 1
+    rationale_zh: 理由
+`,
+          'selections/taiwan-indoor.yaml',
+        ),
+      ],
+      // `taiwan-outdoor` IS a known trail — membership is exactly what used to
+      // let this through.
+      knownTrailSlugs: ['taiwan-outdoor', 'taiwan-indoor'],
+    })
+
+    expect(result.selections).toHaveLength(0)
+    expect(result.issues).toContainEqual({
+      file: 'selections/taiwan-indoor.yaml',
+      productKey: null,
+      message:
+        'trail_slug "taiwan-outdoor" does not match its file name (expected "taiwan-indoor")',
+    })
+  })
+
+  /**
+   * `brand_slug` comes from the document BODY, not the filename, so two
+   * differently-named files can declare the same `(brand_slug, key)`. The
+   * per-file duplicate guard cannot see across files and both rows would reach
+   * one upsert batch sharing `(brand_id, key)` — the same 21000 abort.
+   */
+  it('rejects the same (brand_slug, key) declared in two product files', () => {
+    const duplicate = `
+brand_slug: hanchor
+products:
+  - key: alpine-shell
+    name_zh: 高山風衣（重複）
+    l1: fashion
+    sources:
+      - url: https://elsewhere.example.com/alpine-shell
+        source_type: press
+`
+    const result = normalizeCuratedContent({
+      productFiles: [
+        productFile(PRODUCT_FILE, 'products/hanchor.yaml'),
+        productFile(duplicate, 'products/hanchor-extra.yaml'),
+      ],
+      selectionFiles: [],
+      knownTrailSlugs: [],
+    })
+
+    // The first file wins; the second is reported, not silently merged.
+    expect(result.products).toHaveLength(1)
+    expect(result.products[0]?.nameZh).toBe('高山風衣')
+    expect(result.issues).toContainEqual({
+      file: 'products/hanchor-extra.yaml',
+      productKey: 'alpine-shell',
+      message:
+        'duplicate product hanchor/alpine-shell: already declared in products/hanchor.yaml',
+    })
+    // Its sources are dropped with it — a source row keyed to a product that
+    // was never emitted has no parent to hang from.
+    expect(
+      result.sources.some((row) =>
+        row.url.includes('elsewhere.example.com'),
+      ),
+    ).toBe(false)
+  })
 })

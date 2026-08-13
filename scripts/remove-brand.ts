@@ -5,6 +5,24 @@ import { createServiceClient } from '@/lib/supabase/service'
 import type { Database } from '@/lib/supabase/database.types'
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+// storage-js caps a `.list()` page at 100 by default; ask for the maximum and
+// page explicitly (see listStorageObjectsUnder).
+const STORAGE_LIST_PAGE_SIZE = 1_000
+
+// A missing table. PostgREST answers `PGRST205` ("Could not find the table in
+// the schema cache"); the raw Postgres `42P01` only reaches us through an RPC or
+// direct SQL path. Matching solely on `42P01` made this guard dead code and made
+// brand removal fail hard on every pre-migration environment.
+const MISSING_TABLE_CODES = new Set(['PGRST205', '42P01'])
+
+function isMissingTableError(error: { code?: string | null } | null): boolean {
+  return Boolean(error?.code && MISSING_TABLE_CODES.has(error.code))
+}
+
+// ---------------------------------------------------------------------------
 // Minimal inline types for rows we handle (avoids guessing re-exports)
 // ---------------------------------------------------------------------------
 
@@ -168,28 +186,48 @@ function parseBackupJson(raw: string): BackupEntry[] {
  * Lists every object under `prefix`, descending into folder entries. Curated
  * product keys are `curated-products/<brand-id>/<product-id>/<hash>.webp`, so a
  * flat listing of the brand folder returns only product folders, never objects.
+ *
+ * Paged, because storage-js defaults to 100 entries per call: an unpaged
+ * `.list()` truncates at EVERY level of the recursion, and the objects it misses
+ * survive the removal as permanent orphans that nothing can identify afterwards
+ * (the rows that referenced them are gone). The endpoint may also cap a page
+ * below the requested `limit`, so a short page is not the end of the listing —
+ * terminate only on an empty page and advance by the actual page length.
  */
 async function listStorageObjectsUnder(
   supabase: ReturnType<typeof createServiceClient>,
   prefix: string
 ): Promise<string[]> {
-  const { data, error } = await supabase.storage.from('brand-images').list(prefix)
-  if (error) {
-    // Non-fatal — log and treat as empty
-    console.error(`[ERROR] Storage list failed for ${prefix}: ${error.message}`)
-    return []
-  }
-  if (!data || data.length === 0) return []
-
   const paths: string[] = []
-  for (const entry of data) {
-    const entryPath = `${prefix}/${entry.name}`
-    if (entry.id === null) {
-      paths.push(...(await listStorageObjectsUnder(supabase, entryPath)))
-    } else {
-      paths.push(entryPath)
+
+  for (let offset = 0; ; ) {
+    const { data, error } = await supabase.storage
+      .from('brand-images')
+      .list(prefix, {
+        limit: STORAGE_LIST_PAGE_SIZE,
+        offset,
+        sortBy: { column: 'name', order: 'asc' },
+      })
+    if (error) {
+      // Non-fatal — log and treat as empty
+      console.error(`[ERROR] Storage list failed for ${prefix}: ${error.message}`)
+      return paths
+    }
+
+    const page = data ?? []
+    if (page.length === 0) break
+    offset += page.length
+
+    for (const entry of page) {
+      const entryPath = `${prefix}/${entry.name}`
+      if (entry.id === null) {
+        paths.push(...(await listStorageObjectsUnder(supabase, entryPath)))
+      } else {
+        paths.push(entryPath)
+      }
     }
   }
+
   return paths
 }
 
@@ -251,9 +289,12 @@ async function gatherBrandData(
   if (submissionsResult.error)
     throw new Error(`Submissions fetch failed for "${slug}": ${submissionsResult.error.message}`)
 
-  // 42P01 = table does not exist. Its migration ships with DEV-1404, so an
-  // environment behind on migrations must still be able to remove a brand.
-  if (curatedProductsResult.error && curatedProductsResult.error.code !== '42P01')
+  // The `curated_products` migration ships with DEV-1404, so an environment
+  // behind on migrations must still be able to remove a brand.
+  if (
+    curatedProductsResult.error &&
+    !isMissingTableError(curatedProductsResult.error)
+  )
     throw new Error(
       `Curated products fetch failed for "${slug}": ${curatedProductsResult.error.message}`
     )

@@ -29,10 +29,26 @@ const STORAGE_KEY_PREFIXES = [
   'event-exhibitors/',
   'curated-products/',
 ] as const
-// Postgres "undefined_table". `curated_products` ships in this branch's
-// migration and may not exist yet in an environment the sweep runs against; a
-// missing table must not abort the whole audit.
-const MISSING_TABLE_CODE = '42P01'
+// `curated_products` ships in this branch's migration and may not exist yet in
+// an environment the sweep runs against; a missing table must not abort the
+// whole audit.
+//
+// PostgREST answers a missing table with `PGRST205` ("Could not find the table
+// in the schema cache"), NOT the raw Postgres `42P01` — matching only the
+// Postgres code makes this guard dead code. Both are accepted: `42P01` can still
+// surface from an RPC or a direct SQL path, and accepting it costs nothing.
+const MISSING_TABLE_CODES = new Set(['PGRST205', '42P01'])
+
+/**
+ * True when a PostgREST error means "this table does not exist yet". Exported
+ * for the test suite — the whole point of the guard is a code path that only
+ * fires on an unmigrated environment, which no local run reaches by accident.
+ */
+export function isMissingTableError(error: {
+  code?: string | null
+} | null): boolean {
+  return Boolean(error?.code && MISSING_TABLE_CODES.has(error.code))
+}
 const ACTIVE_REENCODE_MANIFEST_PATTERN =
   /^\.reencode-originals-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})(?:-(\d{3}))?Z?\.json$/
 const DEFAULT_PURGE_OPTIONS = {
@@ -249,7 +265,7 @@ async function fetchAllRows<T>(
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const { data, error } = await fetchPage(offset, offset + PAGE_SIZE - 1)
     if (error) {
-      if (options.allowMissingTable && error.code === MISSING_TABLE_CODE) {
+      if (options.allowMissingTable && isMissingTableError(error)) {
         console.warn(`${table} does not exist yet; skipping its references.`)
         return rows
       }

@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   CURATED_LINK_WRITE_COLUMNS,
+  applyLinkStates,
   classify,
+  probe,
   selectReviewDue,
+  type LinkCheck,
+  type LinkStateWriter,
+  type ProductRow,
   type ReviewDueCandidate,
 } from "./check-links";
 
@@ -34,6 +39,31 @@ describe("classify", () => {
     expect(checkedAt).toBeGreaterThanOrEqual(before);
     expect(checkedAt).toBeLessThanOrEqual(Date.now());
   });
+
+  /**
+   * A bot challenge is NOT evidence of a dead link. A Cloudflare-fronted origin
+   * answers a scripted HEAD with 403 and a rate limiter answers 429, while both
+   * serve the page perfectly to a real visitor. Recording `broken` there drops
+   * the working call-to-action from every product on that origin, on every run.
+   *
+   * `link_state` has no `blocked` value and its CHECK constraint is already
+   * applied to the live database, so the verdict is "no verdict": `linkState`
+   * is null and the stored state is left exactly as it was.
+   */
+  it.each([403, 429, 402, 405])(
+    "records no verdict for a blocked status (%i)",
+    (status) => {
+      const result = classify({
+        requestedUrl: "https://hanchor.com/products/alpine-shell",
+        resolvedUrl: "https://hanchor.com/products/alpine-shell",
+        status,
+      });
+
+      expect(result.linkState).toBeNull();
+      expect(result.blocked).toBe(true);
+      expect(result.status).toBe(status);
+    },
+  );
 
   it("classifies a 404 as broken", () => {
     const result = classify({
@@ -176,5 +206,176 @@ describe("selectReviewDue", () => {
     ]);
     expect(due[0]?.daysOverdue).toBe(104);
     expect(due.every((product) => product.reviewDueAt !== null)).toBe(true);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* Shell. The network and the database are injected, so nothing here reaches   */
+/* either — but the two bugs that shipped (a bot challenge recorded as broken, */
+/* a failed revalidation exiting 0) both lived below the pure/shell line, and  */
+/* a suite that stops at the classifier cannot see them.                       */
+/* -------------------------------------------------------------------------- */
+
+type FetchCall = { url: string; method: string };
+
+function fetchStub(
+  responses: { status: number; url?: string }[],
+  calls: FetchCall[],
+): typeof fetch {
+  let index = 0;
+  return (async (input: unknown, init?: { method?: string }) => {
+    const url = String(input);
+    calls.push({ url, method: init?.method ?? "GET" });
+    const response = responses[Math.min(index++, responses.length - 1)]!;
+    return { status: response.status, url: response.url ?? url };
+  }) as unknown as typeof fetch;
+}
+
+describe("probe", () => {
+  it("retries with GET when HEAD is refused by method", async () => {
+    const calls: FetchCall[] = [];
+    const result = await probe(
+      "https://hanchor.com/products/alpine-shell",
+      // SPA hosts and PHP front controllers routinely answer HEAD 404 and
+      // GET 200; a not-found verdict must survive a real visitor's method.
+      fetchStub([{ status: 404 }, { status: 200 }], calls),
+    );
+
+    expect(calls.map((call) => call.method)).toEqual(["HEAD", "GET"]);
+    expect(result.status).toBe(200);
+    expect(classify(result).linkState).toBe("ok");
+  });
+
+  it("does not retry when HEAD already answers", async () => {
+    const calls: FetchCall[] = [];
+    const result = await probe(
+      "https://hanchor.com/products/alpine-shell",
+      fetchStub([{ status: 200 }], calls),
+    );
+
+    expect(calls.map((call) => call.method)).toEqual(["HEAD"]);
+    expect(result.status).toBe(200);
+  });
+
+  it("carries the post-redirect URL through, so a move is distinguishable", async () => {
+    const calls: FetchCall[] = [];
+    const result = await probe(
+      "https://hanchor.com/products/alpine-shell",
+      fetchStub(
+        [{ status: 200, url: "https://hanchor.com/collections/outerwear" }],
+        calls,
+      ),
+    );
+
+    expect(result.resolvedUrl).toBe("https://hanchor.com/collections/outerwear");
+    expect(classify(result).linkState).toBe("redirected");
+  });
+
+  it("refuses a private URL without touching the network", async () => {
+    const calls: FetchCall[] = [];
+    // SSRF guard: an authored official_url pointing at the metadata service or
+    // a loopback address must never be fetched by a script holding the service
+    // key. `status: null` then classifies as broken, which is the right report.
+    const result = await probe(
+      "http://127.0.0.1:8080/admin",
+      fetchStub([{ status: 200 }], calls),
+    );
+
+    expect(calls).toEqual([]);
+    expect(result).toEqual({
+      requestedUrl: "http://127.0.0.1:8080/admin",
+      resolvedUrl: null,
+      status: null,
+    });
+  });
+});
+
+describe("applyLinkStates", () => {
+  function productRow(overrides: Partial<ProductRow> = {}): ProductRow {
+    return {
+      id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      brand_id: BRAND_ID,
+      key: "alpine-shell",
+      name_zh: "高山風衣",
+      lifecycle: "published",
+      official_url: "https://hanchor.com/products/alpine-shell",
+      link_state: "ok",
+      review_due_at: null,
+      brands: { slug: "hanchor" },
+      ...overrides,
+    };
+  }
+
+  /** Records every write instead of performing one. Injected, never mocked. */
+  function recordingWriter() {
+    const writes: { table: string; values: Record<string, unknown>; id: string }[] =
+      [];
+    const client: LinkStateWriter = {
+      from: (table) => ({
+        update: (values) => ({
+          eq: async (_column, value) => {
+            writes.push({ table, values, id: value });
+            return { error: null };
+          },
+        }),
+      }),
+    };
+    return { client, writes };
+  }
+
+  it("writes link_state and link_checked_at and nothing else", async () => {
+    const { client, writes } = recordingWriter();
+    const classification = classify({
+      requestedUrl: "https://hanchor.com/products/alpine-shell",
+      resolvedUrl: "https://hanchor.com/products/alpine-shell",
+      status: 404,
+    });
+    const check: LinkCheck = {
+      row: productRow(),
+      classification,
+      changed: true,
+    };
+
+    await applyLinkStates([check], client);
+
+    expect(writes).toHaveLength(1);
+    expect(writes[0]!.table).toBe("curated_products");
+    expect(writes[0]!.id).toBe(check.row.id);
+    // Every other column on the table is authored — name, rationale,
+    // official_url, lifecycle, images, notes. A health run that touched one
+    // would overwrite editorial copy with whatever the last read happened to
+    // see, so the key set is asserted exactly.
+    expect(Object.keys(writes[0]!.values).sort()).toEqual(
+      [...CURATED_LINK_WRITE_COLUMNS].sort(),
+    );
+    expect(writes[0]!.values.link_state).toBe("broken");
+    expect(writes[0]!.values.link_checked_at).toBe(classification.checkedAt);
+  });
+
+  it("raises the failing product key when the update errors", async () => {
+    const client: LinkStateWriter = {
+      from: () => ({
+        update: () => ({
+          eq: async () => ({ error: { message: "permission denied" } }),
+        }),
+      }),
+    };
+
+    await expect(
+      applyLinkStates(
+        [
+          {
+            row: productRow(),
+            classification: classify({
+              requestedUrl: "https://hanchor.com/products/alpine-shell",
+              resolvedUrl: null,
+              status: null,
+            }),
+            changed: true,
+          },
+        ],
+        client,
+      ),
+    ).rejects.toThrow(/alpine-shell.*permission denied/);
   });
 });

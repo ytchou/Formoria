@@ -5,9 +5,17 @@ import { resolve } from 'node:path'
 import { auditedCall } from '@/lib/audit'
 import { requestPublicBrandRevalidation } from '@/lib/cache/revalidate-client'
 import { processImage } from '@/lib/security/image-processor'
+import { mapWithConcurrency } from '@/lib/services/_shared/concurrency'
 import { uploadPublicImage } from '@/lib/services/image-upload'
 import { createServiceClient } from '@/lib/supabase/service'
 import { isPrivateUrl } from '@/lib/url'
+
+import {
+  assertRevalidationConfigured,
+  chunked,
+  fetchAllRows,
+  parseBrandOption,
+} from './shared'
 
 import {
   normalizeCuratedContent,
@@ -66,8 +74,11 @@ import {
  * curated product keeps its image on the product ROW), and it uploads to a
  * randomly generated path, which would store a NEW object on every apply and
  * orphan the previous one. The key here is
- * `curated-products/<brand-id>/<product-id>/<sha256(image_source_url)>.webp`
- * with `upsert: true`, so re-applying overwrites in place. BRAND ID COMES FIRST
+ * `curated-products/<brand-id>/<product-id>/<sha256(image_url)>.webp` — hashed
+ * on the URL the bytes are FETCHED from, so a corrected `image_url` produces a
+ * new key and really does re-upload — with `upsert: true`, so re-applying
+ * overwrites in place. Whether the OBJECT exists in the bucket, never whether
+ * the row already names it, is what decides reuse. BRAND ID COMES FIRST
  * because `scripts/remove-brand.ts` deletes a brand's curated images by listing
  * exactly one prefix, `curated-products/<brand-id>`.
  */
@@ -82,6 +93,9 @@ const CURATED_IMAGE_PREFIX = 'curated-products'
 /** Matches the stockist importer's read/write sizes; see scripts/stockist-import/run.ts. */
 const QUERY_CHUNK_SIZE = 100
 const WRITE_BATCH_SIZE = 100
+
+/** Matches the repo's other fan-out limits (see _shared/concurrency.ts). */
+const IMAGE_CONCURRENCY = 5
 
 const IMAGE_FETCH_TIMEOUT_MS = 20_000
 const IMAGE_PROCESSOR_CONFIG = {
@@ -139,22 +153,59 @@ export type CuratedSyncOptions = {
 // ---------------------------------------------------------------------------
 
 /**
- * Deterministic object key. Derived from `image_source_url` and NEVER from a
- * random UUID: the same authored source must resolve to the same object on
- * every run, otherwise each apply uploads a new object and orphans the last.
+ * Deterministic object key. Derived from `image_url` — the URL the bytes are
+ * actually FETCHED from — and NEVER from a random UUID: the same authored image
+ * must resolve to the same object on every run, otherwise each apply uploads a
+ * new object and orphans the last.
+ *
+ * It hashes the FETCH url, not `image_source_url` (the page the image was found
+ * on). Those two disagree routinely, and hashing the page meant editing
+ * `image_url` to a corrected file produced the same key, so the corrected bytes
+ * were never uploaded and the row kept pointing at the old object.
  */
 export function curatedImageStorageKey(
   brandId: string,
   productId: string,
-  imageSourceUrl: string,
+  imageFetchUrl: string,
 ): string {
-  const digest = createHash('sha256').update(imageSourceUrl).digest('hex')
+  const digest = createHash('sha256').update(imageFetchUrl).digest('hex')
   return `${CURATED_IMAGE_PREFIX}/${brandId}/${productId}/${digest}.webp`
 }
 
 function publicUrlFor(client: CuratedSyncClient, storageKey: string): string {
   return client.storage.from(BRAND_IMAGES_BUCKET).getPublicUrl(storageKey).data
     .publicUrl
+}
+
+/**
+ * Does the object actually exist in the bucket?
+ *
+ * THIS, not `image_url === mirrorUrl`, is what decides reuse. The product phase
+ * writes the computed mirror URL into the row BEFORE this phase runs, so the
+ * row always names the key by the time we look — reading the row as proof of
+ * an upload meant the bytes were never fetched, the object was never written,
+ * and every later run reported 'reused' against a 404. It also made dry run
+ * ('uploaded') and apply ('reused') disagree on identical input.
+ *
+ * Probing storage is also what makes a partial run safe: a crash between the
+ * row write and the upload leaves the object missing, and the next run sees
+ * that and uploads.
+ */
+async function storageObjectExists(
+  client: CuratedSyncClient,
+  storageKey: string,
+): Promise<boolean> {
+  const separator = storageKey.lastIndexOf('/')
+  const directory = storageKey.slice(0, separator)
+  const name = storageKey.slice(separator + 1)
+  const { data, error } = await client.storage
+    .from(BRAND_IMAGES_BUCKET)
+    .list(directory, { search: name, limit: 100 })
+  // A listing error is not proof of absence, but re-uploading is idempotent
+  // (deterministic key, `upsert: true`) while skipping is not — so on doubt,
+  // upload.
+  if (error) return false
+  return (data ?? []).some((object) => object.name === name)
 }
 
 /**
@@ -197,14 +248,6 @@ async function fetchImageBytes(url: string): Promise<Buffer> {
 // reads
 // ---------------------------------------------------------------------------
 
-function chunked<T>(values: T[], size: number): T[][] {
-  const chunks: T[][] = []
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size))
-  }
-  return chunks
-}
-
 function identity(brandId: string, key: string): string {
   return `${brandId}\u0000${key}`
 }
@@ -217,12 +260,21 @@ async function loadCurrentProducts(
 ): Promise<CurrentCuratedProduct[]> {
   const rows: CurrentCuratedProduct[] = []
   for (const chunk of chunked(brandIds, QUERY_CHUNK_SIZE)) {
-    const { data, error } = await client
-      .from('curated_products')
-      .select(PRODUCT_SELECT)
-      .in('brand_id', chunk)
-    if (error) throw new Error(`failed to read curated_products: ${error.message}`)
-    rows.push(...((data ?? []) as unknown as CurrentCuratedProduct[]))
+    // PAGED. An unpaged select stops at `db-max-rows` (1000) without an error,
+    // and a current row the planner cannot see is a row its retire sweep never
+    // fires on — a product dropped from YAML would stay published forever.
+    rows.push(
+      ...(await fetchAllRows<CurrentCuratedProduct>(
+        'curated_products',
+        (from, to) =>
+          client
+            .from('curated_products')
+            .select(PRODUCT_SELECT)
+            .in('brand_id', chunk)
+            .order('id', { ascending: true })
+            .range(from, to),
+      )),
+    )
   }
   return rows
 }
@@ -237,31 +289,35 @@ async function loadCurrentChildren(
   const sources: CurrentCuratedSource[] = []
   const selections: CurrentCuratedSelection[] = []
 
+  // Both reads are PAGED for the same reason as the products read above: a
+  // child row past `db-max-rows` is invisible to the planner, so its retire
+  // sweep never fires and a dropped source or selection stays active forever.
+  // Each `.order()` is on the table's own key, so paging cannot repeat or skip.
   for (const chunk of chunked(productIds, QUERY_CHUNK_SIZE)) {
-    const [sourceResult, selectionResult] = await Promise.all([
-      client
-        .from('curated_product_sources')
-        .select('id, product_id, url, source_type, claim_zh, claim_en, checked_at, state')
-        .in('product_id', chunk),
-      client
-        .from('curated_product_selections')
-        .select('product_id, trail_slug, section_key, position, rationale_zh, rationale_en, state')
-        .in('product_id', chunk),
+    const [chunkSources, chunkSelections] = await Promise.all([
+      fetchAllRows<CurrentCuratedSource>('curated_product_sources', (from, to) =>
+        client
+          .from('curated_product_sources')
+          .select('id, product_id, url, source_type, claim_zh, claim_en, checked_at, state')
+          .in('product_id', chunk)
+          .order('id', { ascending: true })
+          .range(from, to),
+      ),
+      fetchAllRows<CurrentCuratedSelection>(
+        'curated_product_selections',
+        (from, to) =>
+          client
+            .from('curated_product_selections')
+            .select('product_id, trail_slug, section_key, position, rationale_zh, rationale_en, state')
+            .in('product_id', chunk)
+            .order('product_id', { ascending: true })
+            .order('trail_slug', { ascending: true })
+            .order('section_key', { ascending: true })
+            .range(from, to),
+      ),
     ])
-    if (sourceResult.error) {
-      throw new Error(
-        `failed to read curated_product_sources: ${sourceResult.error.message}`,
-      )
-    }
-    if (selectionResult.error) {
-      throw new Error(
-        `failed to read curated_product_selections: ${selectionResult.error.message}`,
-      )
-    }
-    sources.push(...((sourceResult.data ?? []) as unknown as CurrentCuratedSource[]))
-    selections.push(
-      ...((selectionResult.data ?? []) as unknown as CurrentCuratedSelection[]),
-    )
+    sources.push(...chunkSources)
+    selections.push(...chunkSelections)
   }
 
   return { sources, selections }
@@ -306,11 +362,9 @@ function withMirroredImageUrls(
     if (!brandId) return row
     const productId = productIdByKey.get(identity(brandId, row.key))
     if (!productId) return row
-    const storageKey = curatedImageStorageKey(
-      brandId,
-      productId,
-      row.imageSourceUrl!,
-    )
+    // Keyed on the AUTHORED `image_url`, exactly like the image phase below —
+    // `row` here is the YAML row, never a row already rewritten to a mirror.
+    const storageKey = curatedImageStorageKey(brandId, productId, row.imageUrl!)
     return { ...row, imageUrl: publicUrlFor(client, storageKey) }
   })
 }
@@ -468,104 +522,111 @@ async function syncProductImages(options: {
   apply: boolean
   downloadImage: (url: string) => Promise<Buffer>
 }): Promise<CuratedImageOutcome[]> {
-  const outcomes: CuratedImageOutcome[] = []
+  // Bounded fan-out over the shared helper. `mapWithConcurrency` fills the
+  // result array BY INDEX, so the reported order stays the authored order no
+  // matter which fetch finishes first.
+  const results = await mapWithConcurrency(
+    options.products,
+    IMAGE_CONCURRENCY,
+    async (row): Promise<CuratedImageOutcome | null> => {
+      const brandId = options.brandIdBySlug[row.brandSlug]
+      if (!brandId) return null
 
-  for (const row of options.products) {
-    const brandId = options.brandIdBySlug[row.brandSlug]
-    if (!brandId) continue
+      const base = { brandSlug: row.brandSlug, productKey: row.key }
 
-    const base = { brandSlug: row.brandSlug, productKey: row.key }
+      if (row.imageUsage !== 'permitted') {
+        return {
+          ...base,
+          action: 'skipped',
+          storageKey: null,
+          reason: `image_usage=${row.imageUsage}`,
+        }
+      }
+      if (!row.imageSourceUrl || !row.imageUrl) {
+        return {
+          ...base,
+          action: 'skipped',
+          storageKey: null,
+          reason: 'missing image_url or image_source_url',
+        }
+      }
 
-    if (row.imageUsage !== 'permitted') {
-      outcomes.push({
-        ...base,
-        action: 'skipped',
-        storageKey: null,
-        reason: `image_usage=${row.imageUsage}`,
-      })
-      continue
-    }
-    if (!row.imageSourceUrl || !row.imageUrl) {
-      outcomes.push({
-        ...base,
-        action: 'skipped',
-        storageKey: null,
-        reason: 'missing image_url or image_source_url',
-      })
-      continue
-    }
+      const productId = options.productIdByKey.get(identity(brandId, row.key))
+      if (!productId) {
+        return {
+          ...base,
+          action: 'skipped',
+          storageKey: null,
+          reason: 'product row not written yet',
+        }
+      }
 
-    const productId = options.productIdByKey.get(identity(brandId, row.key))
-    if (!productId) {
-      outcomes.push({
-        ...base,
-        action: 'skipped',
-        storageKey: null,
-        reason: 'product row not written yet',
-      })
-      continue
-    }
+      // Same URL that the bytes are fetched from, below. Hashing a different
+      // field meant a corrected `image_url` produced the same key and the new
+      // bytes were never uploaded.
+      const storageKey = curatedImageStorageKey(brandId, productId, row.imageUrl)
+      const mirrorUrl = publicUrlFor(options.client, storageKey)
+      const stored = options.rowsById.get(productId)
 
-    const storageKey = curatedImageStorageKey(
-      brandId,
-      productId,
-      row.imageSourceUrl,
-    )
-    const mirrorUrl = publicUrlFor(options.client, storageKey)
-    const stored = options.rowsById.get(productId)
+      // THE OBJECT, not the row, decides reuse. The product phase has already
+      // written `mirrorUrl` into `image_url`, so the row always names the key
+      // by now; only the bucket knows whether the bytes are there. Probing in
+      // dry run too is what makes dry run and apply report the same action.
+      if (await storageObjectExists(options.client, storageKey)) {
+        return { ...base, action: 'reused', storageKey }
+      }
 
-    // The row already points at the object this run would write. Re-uploading
-    // would be harmless (the key is deterministic and the upload upserts) but
-    // it would re-fetch every source image on every run.
-    if (stored && stored.image_url === mirrorUrl) {
-      outcomes.push({ ...base, action: 'reused', storageKey })
-      continue
-    }
+      if (!options.apply) {
+        return { ...base, action: 'uploaded', storageKey }
+      }
 
-    if (!options.apply) {
-      outcomes.push({ ...base, action: 'uploaded', storageKey })
-      continue
-    }
-
-    const processed = await processImage(
-      await options.downloadImage(row.imageUrl),
-      IMAGE_PROCESSOR_CONFIG,
-    )
-    await uploadPublicImage({
-      bucket: BRAND_IMAGES_BUCKET,
-      path: storageKey,
-      data: processed.buffer,
-      contentType: processed.contentType,
-      upsert: true,
-    })
-
-    // Full row, never `{brand_id, key, image_url}`: Postgres checks NOT NULL on
-    // the proposed tuple before the ON CONFLICT arbiter, so a partial payload
-    // fails on `name_zh` even though the row exists. It always exists here —
-    // the product phase ran and its rows were re-read — so a miss is a bug, not
-    // a case to paper over with a partial write.
-    if (!stored) {
-      throw new Error(
-        `product row for ${row.brandSlug}/${row.key} disappeared before its image write`,
+      const processed = await processImage(
+        await options.downloadImage(row.imageUrl),
+        IMAGE_PROCESSOR_CONFIG,
       )
-    }
-    await upsertRows(
-      options.client,
-      'curated_products',
-      [
-        {
-          ...productWriteValues(stored),
-          brand_id: brandId,
-          key: row.key,
-          image_url: mirrorUrl,
-        },
-      ],
-      CURATED_PRODUCT_CONFLICT_TARGET,
-    )
-    outcomes.push({ ...base, action: 'uploaded', storageKey })
-  }
+      await uploadPublicImage({
+        bucket: BRAND_IMAGES_BUCKET,
+        path: storageKey,
+        data: processed.buffer,
+        contentType: processed.contentType,
+        upsert: true,
+      })
 
-  return outcomes
+      // Full row, never `{brand_id, key, image_url}`: Postgres checks NOT NULL on
+      // the proposed tuple before the ON CONFLICT arbiter, so a partial payload
+      // fails on `name_zh` even though the row exists. It always exists here —
+      // the product phase ran and its rows were re-read — so a miss is a bug, not
+      // a case to paper over with a partial write.
+      if (!stored) {
+        throw new Error(
+          `product row for ${row.brandSlug}/${row.key} disappeared before its image write`,
+        )
+      }
+      // Only when the row does not already name the mirror. The product phase
+      // normally got there first (an existing product), and re-writing the same
+      // values would bump `updated_at` on every run for nothing.
+      if (stored.image_url !== mirrorUrl) {
+        await upsertRows(
+          options.client,
+          'curated_products',
+          [
+            {
+              ...productWriteValues(stored),
+              brand_id: brandId,
+              key: row.key,
+              image_url: mirrorUrl,
+            },
+          ],
+          CURATED_PRODUCT_CONFLICT_TARGET,
+        )
+      }
+      return { ...base, action: 'uploaded', storageKey }
+    },
+  )
+
+  return results.filter(
+    (outcome): outcome is CuratedImageOutcome => outcome !== null,
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -702,17 +763,7 @@ export async function syncCuratedProducts(
 type CliOptions = { apply: boolean; brand: string | null }
 
 export function parseArgs(argv: string[]): CliOptions {
-  const brandArg = argv.find((arg) => arg.startsWith('--brand='))
-  const brandIndex = argv.indexOf('--brand')
-  const brand = brandArg
-    ? brandArg.slice('--brand='.length)
-    : brandIndex === -1
-      ? null
-      : (argv.at(brandIndex + 1) ?? null)
-  if (brand !== null && (!brand || brand.startsWith('--'))) {
-    throw new Error('--brand requires a brand slug')
-  }
-  return { apply: argv.includes('--apply'), brand }
+  return { apply: argv.includes('--apply'), brand: parseBrandOption(argv) }
 }
 
 async function loadContentFiles(directory: string): Promise<CuratedContentFile[]> {
@@ -748,27 +799,6 @@ async function loadBrandIdBySlug(
     }
   }
   return map
-}
-
-/**
- * Revalidation config is checked BEFORE the first write, not after the last
- * one. The revalidate client warns and skips when it is unconfigured, which for
- * this script would mean a run that reports success while every touched brand
- * page keeps serving its hour-old shell. Failing here leaves the database
- * untouched, which is the reversible failure.
- */
-function assertRevalidationConfigured(): void {
-  const hasOrigin = Boolean(
-    process.env.FORMORIA_RAILWAY_URL?.trim() ||
-      process.env.NEXT_PUBLIC_SITE_URL?.trim(),
-  )
-  const hasSecret = Boolean(process.env.ORIGIN_SECRET?.trim())
-  if (hasOrigin && hasSecret) return
-
-  throw new Error(
-    '--apply requires ORIGIN_SECRET and FORMORIA_RAILWAY_URL (or NEXT_PUBLIC_SITE_URL): ' +
-      'without them the write lands but every brand page keeps serving the stale ISR shell',
-  )
 }
 
 function reportIssues(issues: NormalizeIssue[]): void {
@@ -818,6 +848,12 @@ async function main(): Promise<void> {
       }
     : content
 
+  // ONE copy, above the early return. It was written twice, eight lines apart,
+  // which is one edit away from an --apply path that skips the gate.
+  if (options.apply && content.issues.length > 0) {
+    throw new Error('refusing to apply content with unresolved issues')
+  }
+
   if (filtered.products.length === 0) {
     console.log(
       JSON.stringify({
@@ -829,14 +865,7 @@ async function main(): Promise<void> {
         note: 'no authored curated products; nothing to plan',
       }),
     )
-    if (options.apply && content.issues.length > 0) {
-      throw new Error('refusing to apply content with unresolved issues')
-    }
     return
-  }
-
-  if (options.apply && content.issues.length > 0) {
-    throw new Error('refusing to apply content with unresolved issues')
   }
 
   const client = createServiceClient()

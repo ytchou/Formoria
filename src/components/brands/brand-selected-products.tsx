@@ -20,6 +20,16 @@ import { BrandImageFallback } from "./brand-image-fallback";
  */
 const BROKEN_LINK_STATE = "broken";
 
+/**
+ * The only `image_usage` value that permits rendering the image. The planner
+ * writes `image_url` unconditionally and the applier only declines to MIRROR the
+ * file, so a row can carry a live url with usage `none` — the migration defines
+ * `none` as "do not render the image", and that decision has to be honoured
+ * here. `licensed` gets no special case: whether a licensed image may render is
+ * an open policy question, and the fallback tile is the reversible answer.
+ */
+const RENDERABLE_IMAGE_USAGE = "permitted";
+
 export type BrandSelectedProductsProps = {
   locale: AppLocale;
   brand: BrandVisitLinkFields & { slug: string };
@@ -75,7 +85,13 @@ export async function BrandSelectedProducts({
           const fact = isEnglish
             ? (product.notesEn ?? product.notesZh)
             : product.notesZh;
-          const imageSrc = safeImageSrc(product.imageUrl);
+          // Usage first, host allowlist second: the allowlist is about where an
+          // image may be loaded from, never about whether we are allowed to
+          // show it at all.
+          const imageSrc =
+            product.imageUsage === RENDERABLE_IMAGE_USAGE
+              ? safeImageSrc(product.imageUrl)
+              : null;
           const productHref = sanitizeHref(product.officialUrl);
           const isBroken = product.linkState === BROKEN_LINK_STATE;
           // A broken product link degrades to the brand's own homepage, never to
@@ -165,11 +181,19 @@ export async function BrandSelectedProducts({
                   >
                     <span className="min-w-0 truncate">{chipLabel}</span>
                     {/*
-                     * Every chip on the page would otherwise announce the same
+                     * Every product chip would otherwise announce the same
                      * destination; the product name makes each accessible name
-                     * unique without changing the visible label.
+                     * unique without changing the visible label. The leading
+                     * ": " matters — screen readers concatenate adjacent inline
+                     * spans into one run-together string without it.
+                     *
+                     * Omitted on the broken branch: that chip goes to the brand
+                     * homepage, so naming the product would announce a
+                     * destination the link does not have.
                      */}
-                    <span className="sr-only">{name}</span>
+                    {isBroken ? null : (
+                      <span className="sr-only">{`: ${name}`}</span>
+                    )}
                   </a>
                 ) : null}
               </div>

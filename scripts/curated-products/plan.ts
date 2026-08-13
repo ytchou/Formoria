@@ -209,12 +209,61 @@ function productKey(brandId: string, key: string): string {
   return `${brandId}\u0000${key}`
 }
 
+/** Index key for a child row. NUL-joined, so no part can forge a boundary. */
+function childKey(...parts: string[]): string {
+  return parts.join('\u0000')
+}
+
+/**
+ * Columns typed `timestamptz` in the migration. They are compared by INSTANT,
+ * never by string: the YAML author writes `2026-08-13T00:00:00Z` and PostgREST
+ * serialises the same moment as `2026-08-13T00:00:00+00:00`. String identity is
+ * false forever between those two, so every run re-emitted an update for every
+ * row, bumped `updated_at`, marked every brand touched and triggered a full
+ * revalidation — the exact opposite of the "second apply writes nothing"
+ * guarantee this planner exists to provide.
+ */
+const TIMESTAMP_COLUMNS = new Set([
+  'source_checked_at',
+  'review_due_at',
+  'checked_at',
+])
+
+function toInstant(value: unknown): number | null {
+  if (value instanceof Date) return value.getTime()
+  if (typeof value !== 'string') return null
+  const parsed = Date.parse(value)
+  return Number.isNaN(parsed) ? null : parsed
+}
+
 function sameValue(left: unknown, right: unknown): boolean {
   if (Array.isArray(left) || Array.isArray(right)) {
     if (!Array.isArray(left) || !Array.isArray(right)) return false
     return left.length === right.length && left.every((item, i) => item === right[i])
   }
   return left === right
+}
+
+/**
+ * Total by construction: identical values (including null/null) match first, a
+ * null on exactly one side never matches, and anything that does not parse as
+ * an instant falls back to the strict comparison rather than to "equal".
+ */
+function sameTimestamp(left: unknown, right: unknown): boolean {
+  if (left === right) return true
+  if (left === null || left === undefined || right === null || right === undefined) {
+    return false
+  }
+  const leftInstant = toInstant(left)
+  const rightInstant = toInstant(right)
+  if (leftInstant === null || rightInstant === null) return false
+  return leftInstant === rightInstant
+}
+
+function sameColumn(column: string, left: unknown, right: unknown): boolean {
+  return TIMESTAMP_COLUMNS.has(column)
+    ? sameTimestamp(left, right)
+    : sameValue(left, right)
 }
 
 function buildProductValues(
@@ -271,7 +320,9 @@ function sameRecord(
   desired: Record<string, unknown>,
   current: Record<string, unknown>,
 ): boolean {
-  return Object.keys(desired).every((key) => sameValue(desired[key], current[key]))
+  return Object.keys(desired).every((key) =>
+    sameColumn(key, desired[key], current[key]),
+  )
 }
 
 export function planCuratedProductSync(input: CuratedSyncPlanInput): CuratedSyncPlan {
@@ -333,7 +384,7 @@ export function planCuratedProductSync(input: CuratedSyncPlanInput): CuratedSync
     const set: Partial<CuratedProductValues> = {}
     for (const column of CURATED_PRODUCT_WRITE_COLUMNS) {
       if (PRODUCT_IDENTITY_COLUMNS.includes(column)) continue
-      if (!sameValue(values[column], current[column])) {
+      if (!sameColumn(column, values[column], current[column])) {
         set[column] = values[column]
       }
     }
@@ -366,6 +417,13 @@ export function planCuratedProductSync(input: CuratedSyncPlanInput): CuratedSync
   }
 
   // --- sources --------------------------------------------------------------
+  // Indexed once, like `currentProductByKey` above: a `.find()` per desired row
+  // is O(n*m), and the retire sweeps below already walk the same arrays.
+  const currentSourceByKey = new Map<string, CurrentCuratedSource>()
+  for (const row of input.current.sources) {
+    currentSourceByKey.set(childKey(row.product_id, row.url), row)
+  }
+
   const desiredSourceKeys = new Set<string>()
   for (const row of input.sources) {
     const brandId = resolveBrandId(row.brandSlug)
@@ -376,9 +434,7 @@ export function planCuratedProductSync(input: CuratedSyncPlanInput): CuratedSync
 
     const values = sourceValues(row)
     if (productId) {
-      const current = input.current.sources.find(
-        (candidate) => candidate.product_id === productId && candidate.url === row.url,
-      )
+      const current = currentSourceByKey.get(childKey(productId, row.url))
       if (current && sameRecord(values, currentSourceValues(current))) continue
     }
 
@@ -411,6 +467,14 @@ export function planCuratedProductSync(input: CuratedSyncPlanInput): CuratedSync
   }
 
   // --- selections -----------------------------------------------------------
+  const currentSelectionByKey = new Map<string, CurrentCuratedSelection>()
+  for (const row of input.current.selections) {
+    currentSelectionByKey.set(
+      childKey(row.product_id, row.trail_slug, row.section_key),
+      row,
+    )
+  }
+
   const desiredSelectionKeys = new Set<string>()
   for (const row of input.selections) {
     const brandId = resolveBrandId(row.brandSlug)
@@ -421,11 +485,8 @@ export function planCuratedProductSync(input: CuratedSyncPlanInput): CuratedSync
 
     const values = selectionValues(row)
     if (productId) {
-      const current = input.current.selections.find(
-        (candidate) =>
-          candidate.product_id === productId &&
-          candidate.trail_slug === row.trailSlug &&
-          candidate.section_key === row.sectionKey,
+      const current = currentSelectionByKey.get(
+        childKey(productId, row.trailSlug, row.sectionKey),
       )
       if (current && sameRecord(values, currentSelectionValues(current))) continue
     }
@@ -461,20 +522,35 @@ export function planCuratedProductSync(input: CuratedSyncPlanInput): CuratedSync
     })
   }
 
-  const count = (kind: CuratedPlanOperation['kind']): number =>
-    operations.filter((operation) => operation.kind === kind).length
+  // One traversal, not seven filter passes over the same array.
+  const totals: CuratedSyncPlan['totals'] = {
+    productInserts: 0,
+    productUpdates: 0,
+    productRetires: 0,
+    sourceUpserts: 0,
+    sourceRetires: 0,
+    selectionUpserts: 0,
+    selectionRetires: 0,
+  }
+  const TOTAL_KEY_BY_KIND: Record<
+    CuratedPlanOperation['kind'],
+    keyof CuratedSyncPlan['totals']
+  > = {
+    'product.insert': 'productInserts',
+    'product.update': 'productUpdates',
+    'product.retire': 'productRetires',
+    'source.upsert': 'sourceUpserts',
+    'source.retire': 'sourceRetires',
+    'selection.upsert': 'selectionUpserts',
+    'selection.retire': 'selectionRetires',
+  }
+  for (const operation of operations) {
+    totals[TOTAL_KEY_BY_KIND[operation.kind]] += 1
+  }
 
   return {
     operations,
     unmatchedBrandSlugs: [...unmatchedBrandSlugs].sort(),
-    totals: {
-      productInserts: count('product.insert'),
-      productUpdates: count('product.update'),
-      productRetires: count('product.retire'),
-      sourceUpserts: count('source.upsert'),
-      sourceRetires: count('source.retire'),
-      selectionUpserts: count('selection.upsert'),
-      selectionRetires: count('selection.retire'),
-    },
+    totals,
   }
 }

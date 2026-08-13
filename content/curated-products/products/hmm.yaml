@@ -6,7 +6,13 @@
 # name_zh carries HMM's own English product name: hmmproject.com serves no
 # zh-TW storefront (a /zh path 404s and ?locale=zh-TW returns the English
 # title), so no official Chinese product name exists to cite. Translating it
-# here would invent a name the brand does not use.
+# here would invent a name the brand does not use. That is an internal
+# authoring note and it lives here, in a comment — NOT in `notes_zh`.
+#
+# `notes_zh` renders publicly as the card's fact line under a "supplied by the
+# brand" badge, so it may hold only a first-party product fact. No such fact is
+# carried here yet, and inventing one would be a defect, so the field is unset
+# on every product: the component then renders neither the line nor the badge.
 brand_slug: hmm
 
 products:
@@ -20,7 +26,6 @@ products:
     lifecycle: published
     source_checked_at: 2026-08-13T00:00:00Z
     review_due_at: 2027-02-13T00:00:00Z
-    notes_zh: 官方站僅有英文品名，未見官方中文品名，name_zh 沿用英文原名。
     sources:
       - url: https://hmmproject.com/products/clip
         source_type: official
@@ -38,7 +43,6 @@ products:
     lifecycle: published
     source_checked_at: 2026-08-13T00:00:00Z
     review_due_at: 2027-02-13T00:00:00Z
-    notes_zh: 官方站僅有英文品名，未見官方中文品名，name_zh 沿用英文原名。
     sources:
       - url: https://hmmproject.com/products/paperweight
         source_type: official
@@ -56,7 +60,6 @@ products:
     lifecycle: published
     source_checked_at: 2026-08-13T00:00:00Z
     review_due_at: 2027-02-13T00:00:00Z
-    notes_zh: 官方站僅有英文品名，未見官方中文品名，name_zh 沿用英文原名。官方頁面註明不含 Clip 本體。
     sources:
       - url: https://hmmproject.com/products/clip-memoboard
         source_type: official

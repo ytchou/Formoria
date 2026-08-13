@@ -16,10 +16,7 @@ const SUBMISSION_IMAGES_KEY_PREFIX = 'submissions/'
 // Curated product images (DEV-1404): `curated-products/<brand>/<product>/<hash>.webp`
 // in the same `brand-images` bucket.
 const CURATED_PRODUCT_IMAGES_KEY_PREFIX = 'curated-products/'
-const DELETABLE_IMAGE_KEY_PREFIXES = [
-  BRAND_IMAGES_KEY_PREFIX,
-  CURATED_PRODUCT_IMAGES_KEY_PREFIX,
-] as const
+const DELETABLE_IMAGE_KEY_PREFIXES = [BRAND_IMAGES_KEY_PREFIX] as const
 const READABLE_IMAGE_KEY_PREFIXES = [
   BRAND_IMAGES_KEY_PREFIX,
   SUBMISSION_IMAGES_KEY_PREFIX,
@@ -68,14 +65,18 @@ export function getUploadImageProcessingConfig(
 }
 
 /**
- * DELETE-path key derivation: `brands/` and `curated-products/`. Its consumer
- * is `deleteBrandImages`, which removes every object it resolves, so anything
- * it fails to recognise is merely left alone — a safe failure. It stays
- * narrower than the read path below: a prefix is added here only when a caller
- * genuinely owns those objects' lifecycle. `curated-products/` qualifies
- * (DEV-1404) — the curated product row is the sole owner of its image, and an
- * unresolvable key would leak the object into the storage sweep's `untracked`
- * bucket instead. `submissions/` deliberately remains read-only.
+ * DELETE-path key derivation for the BRAND-IMAGE flows: `brands/` only. Its
+ * consumers (`deleteBrandImages`, `releaseBrandImageUrls`, the `storage_path`
+ * written by `syncOwnerUploadedImages`, `scripts/repair-brand-images.ts`) remove
+ * every object they resolve, so anything it fails to recognise is merely left
+ * alone — a safe failure.
+ *
+ * `curated-products/` is NOT here on purpose (DEV-1404). Owner brand-image
+ * cleanup would otherwise resolve a curated key and delete a curated product's
+ * only object while `curated_products.image_url` still points at it — a
+ * deletion the storage sweep cannot flag, because the reference survives.
+ * A curated deletion path, when one is needed, gets its own explicitly scoped
+ * derivation rather than an entry here. `submissions/` remains read-only.
  */
 export function storageKeyFromPublicUrl(url: string): string | null {
   const prefix = getBrandImagesPublicPrefix()

@@ -443,12 +443,23 @@ export function parseCuratedSelectionFile(
     }
     seen.add(identity)
 
+    // A present-but-invalid position is REJECTED, never coerced. `1.5`, `NaN`
+    // and `Infinity` are all `typeof "number"`, so a type-only guard let them
+    // through and collapsed them to 0 — silently jumping the product to the
+    // front of the trail with no issue reported, which also let the applier's
+    // "refusing to apply content with unresolved issues" gate pass.
     const rawPosition = entry.position
-    const position =
-      typeof rawPosition === 'number' && Number.isInteger(rawPosition) ? rawPosition : 0
-    if (rawPosition !== undefined && typeof rawPosition !== 'number') {
-      fail(`position must be an integer: ${String(rawPosition)}`)
-      return
+    let position = 0
+    if (rawPosition !== undefined && rawPosition !== null) {
+      if (
+        typeof rawPosition !== 'number' ||
+        !Number.isInteger(rawPosition) ||
+        rawPosition < 0
+      ) {
+        fail(`position must be a non-negative integer: ${String(rawPosition)}`)
+        return
+      }
+      position = rawPosition
     }
 
     selections.push({
@@ -478,11 +489,39 @@ export function normalizeCuratedContent(
   const selections: CuratedSelectionRow[] = []
   const issues: NormalizeIssue[] = []
 
+  // Cross-file product identity. `brand_slug` comes from the document BODY, not
+  // the filename, so two differently-named files can both declare
+  // `brand_slug: hmm` + `key: clip`. The per-file `seenKeys` guard cannot see
+  // that, and both rows would reach one upsert batch sharing `(brand_id, key)`
+  // — Postgres aborts the whole batch with 21000 "ON CONFLICT DO UPDATE command
+  // cannot affect row a second time", AFTER the earlier writes committed.
+  const productFileByIdentity = new Map<string, string>()
+
   for (const file of input.productFiles) {
     const parsed = parseCuratedProductFile(file.name, file.content)
-    products.push(...parsed.products)
-    sources.push(...parsed.sources)
     issues.push(...parsed.issues)
+
+    const rejected = new Set<string>()
+    for (const product of parsed.products) {
+      const identity = `${product.brandSlug}/${product.key}`
+      const priorFile = productFileByIdentity.get(identity)
+      if (priorFile) {
+        issues.push({
+          file: file.name,
+          productKey: product.key,
+          message: `duplicate product ${identity}: already declared in ${priorFile}`,
+        })
+        rejected.add(identity)
+        continue
+      }
+      productFileByIdentity.set(identity, file.name)
+      products.push(product)
+    }
+    sources.push(
+      ...parsed.sources.filter(
+        (source) => !rejected.has(`${source.brandSlug}/${source.productKey}`),
+      ),
+    )
   }
 
   const knownProducts = new Set(
@@ -493,6 +532,21 @@ export function normalizeCuratedContent(
   for (const file of input.selectionFiles) {
     const parsed = parseCuratedSelectionFile(file.name, file.content)
     issues.push(...parsed.issues)
+
+    // One file IS one trail. A `trail_slug` that disagrees with its own file
+    // name is an error, not a pointer at whichever other file happens to be
+    // named that: two files resolving to the same trail emit two rows sharing
+    // `(product_id, trail_slug, section_key)` inside one upsert batch, and
+    // Postgres aborts it with 21000 after the product writes already committed.
+    const expectedTrailSlug = slugFromFileName(file.name)
+    if (parsed.trailSlug !== expectedTrailSlug) {
+      issues.push({
+        file: file.name,
+        productKey: null,
+        message: `trail_slug "${parsed.trailSlug}" does not match its file name (expected "${expectedTrailSlug}")`,
+      })
+      continue
+    }
     if (!knownTrailSlugs.has(parsed.trailSlug)) {
       issues.push({
         file: file.name,

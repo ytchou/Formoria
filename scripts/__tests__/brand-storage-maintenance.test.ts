@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   buildReferenceSet,
   categorizeObjects,
+  isMissingTableError,
   planPurge,
   selectPurgeableManifests,
   shouldReencode,
@@ -233,6 +234,7 @@ describe('curated-products prefix', () => {
  */
 function stubReferenceClient(
   rowsByTable: Record<string, unknown[]>,
+  errorsByTable: Record<string, { message: string; code?: string }> = {},
 ): Parameters<typeof buildReferenceSet>[0] {
   const client = {
     from(table: string) {
@@ -241,7 +243,11 @@ function stubReferenceClient(
         not: () => chain,
         order: () => chain,
         range: () =>
-          Promise.resolve({ data: rowsByTable[table] ?? [], error: null }),
+          Promise.resolve(
+            errorsByTable[table]
+              ? { data: null, error: errorsByTable[table] }
+              : { data: rowsByTable[table] ?? [], error: null },
+          ),
       }
       return chain
     },
@@ -270,6 +276,71 @@ describe('buildReferenceSet', () => {
     const result = categorizeObjects([{ path: rosterKey, size: 1 }], refsFromDb)
     expect(result.protected.map((object) => object.path)).toEqual([rosterKey])
     expect(result.untracked).toEqual([])
+  })
+})
+
+/**
+ * The guard exists for exactly one environment — one where the DEV-1404
+ * migration has not been applied — so nothing else exercises it. It was
+ * originally written against the raw Postgres code, which PostgREST never
+ * returns, making it dead code that aborted the whole audit.
+ */
+describe('missing curated_products table', () => {
+  it.each([
+    ['PGRST205', true],
+    ['42P01', true],
+    ['42501', false],
+    [undefined, false],
+  ])('isMissingTableError(%s) -> %s', (code, expected) => {
+    expect(isMissingTableError(code ? { code } : {})).toBe(expected)
+  })
+
+  it('isMissingTableError(null) -> false', () => {
+    expect(isMissingTableError(null)).toBe(false)
+  })
+
+  it('skips curated_products references when PostgREST cannot find the table', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const refsFromDb = await buildReferenceSet(
+      stubReferenceClient(
+        {
+          brand_images: [],
+          submission_images: [],
+          brands: [],
+          brand_submissions: [],
+          event_exhibitors: [],
+        },
+        {
+          curated_products: {
+            code: 'PGRST205',
+            message:
+              "Could not find the table 'public.curated_products' in the schema cache",
+          },
+        },
+      ),
+    )
+
+    expect(refsFromDb.otherReferencedPaths.size).toBe(0)
+    expect(warn).toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
+  it('still throws on an error that is not a missing table', async () => {
+    await expect(
+      buildReferenceSet(
+        stubReferenceClient(
+          {
+            brand_images: [],
+            submission_images: [],
+            brands: [],
+            brand_submissions: [],
+            event_exhibitors: [],
+          },
+          { curated_products: { code: '42501', message: 'permission denied' } },
+        ),
+      ),
+    ).rejects.toThrow(/permission denied/)
   })
 })
 
