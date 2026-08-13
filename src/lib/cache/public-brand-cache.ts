@@ -1,12 +1,14 @@
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { routing } from '@/i18n/routing'
+import { citySlugToPath, type CitySlug } from '@/lib/constants/taiwan-cities'
 
 export const PUBLIC_BRAND_DATA_TAG = 'public-brand-data'
 
 /**
- * `localePrefix: 'as-needed'` hides the default locale (`zh-TW`) from the public
- * URL, but the ISR cache key keeps the internal prefix. The prerender manifest
- * therefore holds `/zh-TW/...` and `/en/...` entries, not bare paths.
+ * `localePrefix: 'as-needed'` serves the default locale through the exact
+ * prefixless route, while English uses its visible `/en` route. Keep this
+ * separate from localized shared pages because brand detail has two concrete
+ * route files after the default-locale route split.
  */
 export function revalidateLocalizedPath(path: string): void {
   for (const locale of routing.locales) {
@@ -39,7 +41,8 @@ export function revalidatePublicBrands(slugs: readonly string[]): void {
   revalidateTag(PUBLIC_BRAND_DATA_TAG, 'max')
 
   for (const slug of unique) {
-    revalidateLocalizedPath(`/brands/${slug}`)
+    revalidatePath(`/brands/${slug}`)
+    revalidatePath(`/en/brands/${slug}`)
     revalidatePath(`/site/${slug}`)
   }
 
@@ -64,4 +67,12 @@ export function revalidatePublicEvents(slugs: readonly string[]): void {
 
   revalidateLocalizedPath('/events')
   revalidatePath('/sitemap.xml')
+}
+
+export function revalidatePublicStockists(city?: CitySlug | null): void {
+  revalidateTag(PUBLIC_BRAND_DATA_TAG, 'max')
+  revalidateLocalizedPath('/where-to-buy')
+  if (city) {
+    revalidateLocalizedPath(`/where-to-buy/${citySlugToPath(city)}`)
+  }
 }

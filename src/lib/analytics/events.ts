@@ -44,6 +44,9 @@ export const ANALYTICS_EVENTS = {
    */
   BRAND_LIST_VIEWED: 'brand_list_viewed',
 
+  /** A where-to-buy location list was rendered. */
+  STOCKIST_LIST_VIEWED: 'stockist_list_viewed',
+
   /**
    * A brand card in a list was clicked through to the brand detail page.
    * Excludes the recommendation-card variant, which emits `recommendation_brand_clicked`.
@@ -585,6 +588,7 @@ export const ANALYTICS_EVENTS = {
 export interface AnalyticsEventPayloads {
   // Discovery
   [ANALYTICS_EVENTS.BRAND_LIST_VIEWED]: { list_name: string; item_count: number }
+  [ANALYTICS_EVENTS.STOCKIST_LIST_VIEWED]: { list_name: string; item_count: number }
   [ANALYTICS_EVENTS.BRAND_CARD_CLICKED]: {
     brand_id: string
     brand_slug: string

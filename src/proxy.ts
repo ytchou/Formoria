@@ -56,6 +56,7 @@ export const RESERVED_ROUTES = new Set([
   "contact",
   "stories",
   "events",
+  "where-to-buy",
   "site",
   "dashboard",
   "favorites",
@@ -140,6 +141,7 @@ export const PUBLIC_INTL_SEGMENTS = new Set([
   "categories",
   "stories",
   "events",
+  "where-to-buy",
   "about",
   "vision",
   "contact",
@@ -663,7 +665,12 @@ export async function proxy(request: NextRequest) {
   }
 
   let response: NextResponse;
-  if (isPublicPath) {
+  const isPrefixlessBrandDetail = brandSlug !== null && explicitLocale === null;
+  if (isPrefixlessBrandDetail && inferredLocale !== "en") {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set(NEXT_INTL_LOCALE_HEADER, "zh-TW");
+    response = NextResponse.next({ request: { headers: requestHeaders } });
+  } else if (isPublicPath) {
     response = intlMiddleware(request);
   } else {
     const requestHeaders = new Headers(request.headers);

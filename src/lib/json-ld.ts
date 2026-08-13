@@ -4,6 +4,7 @@ import { PURCHASE_CHANNELS } from "@/lib/brands/purchase-channels";
 import { FORMORIA_SOCIALS } from "./constants";
 import { getSiteUrl } from "./seo/site-url";
 import type { BrandChannel } from "./types/brand-channel";
+import type { StockistLocation } from "./services/brand-channels";
 
 export type BreadcrumbItem = {
   label: string;
@@ -260,8 +261,8 @@ export function buildOrganizationJsonLd(locale?: string): JsonLdObject {
     logo: `${siteUrl}/images/formoria-mark.png`,
     description:
       inLanguage === "zh-TW"
-        ? "Formoria 是台灣品牌探索與選物平台，讓台灣品牌更容易被看見、被選擇，也更容易成長。"
-        : "Formoria is a Taiwanese brand discovery and curation platform that makes brands easier to discover, choose, and grow.",
+        ? "Formoria 把從靈感走到購買中間斷掉的路接回來，幫助人從自己想要的生活出發，找到適合的台灣產品、認識背後的品牌，也知道可以去哪裡購買。Formoria 負責靈感、選擇、脈絡與前往外部通路的路徑；品牌或零售通路負責價格、規格選項、庫存、結帳、出貨與售後服務。"
+        : "Formoria reconnects the broken path from inspiration to purchase by helping people start with the life they want, find Taiwanese products that suit them, get to know the brands behind them, and know where to buy. Formoria owns inspiration, selection, context, and the outbound route. Brands or retailers remain responsible for price, variants, inventory, checkout, fulfilment, and after-sales service.",
     inLanguage,
     ...(FORMORIA_SOCIALS.length > 0 ? { sameAs: FORMORIA_SOCIALS } : {}),
   };
@@ -409,6 +410,41 @@ export function buildEventJsonLd({
   }
 
   return jsonLd;
+}
+
+export function buildStockistItemListJsonLd({
+  locations,
+  cityName,
+  canonicalUrl,
+}: {
+  locations: StockistLocation[];
+  cityName: string;
+  canonicalUrl: string;
+}): JsonLdObject {
+  const places = locations.filter(
+    (location): location is StockistLocation & { address: string } =>
+      Boolean(location.address),
+  );
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    numberOfItems: places.length,
+    itemListElement: places.map((location, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      item: {
+        "@type": "Place",
+        "@id": `${canonicalUrl}#stockist-${location.id}`,
+        name: location.name,
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: location.address,
+          addressLocality: cityName,
+          addressCountry: "TW",
+        },
+      },
+    })),
+  };
 }
 
 export type FaqQuestion = {

@@ -2,18 +2,21 @@
 
 import { useEffect } from 'react';
 
-import { trackViewItemList } from '@/lib/analytics';
+import { trackStockistListViewed, trackViewItemList } from '@/lib/analytics';
 
 export function ViewItemListTracker({
   listName,
   itemCount,
+  stockists = false,
 }: {
   listName: string;
   itemCount: number;
+  stockists?: boolean;
 }) {
   useEffect(() => {
-    trackViewItemList(listName, itemCount);
-  }, [listName, itemCount]);
+    if (stockists) trackStockistListViewed(listName, itemCount);
+    else trackViewItemList(listName, itemCount);
+  }, [listName, itemCount, stockists]);
 
   return null;
 }

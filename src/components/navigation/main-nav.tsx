@@ -54,6 +54,12 @@ export function MainNav({ categories }: MainNavProps) {
         {/* Right actions (desktop) */}
         <div className="hidden items-center gap-4 md:flex">
           <Link
+            href="/where-to-buy"
+            className="type-body-emphasis text-foreground/80 transition-colors hover:text-foreground"
+          >
+            {t('whereToBuy')}
+          </Link>
+          <Link
             href="/about"
             className="type-body-emphasis text-foreground/80 transition-colors hover:text-foreground"
           >
@@ -106,6 +112,14 @@ export function MainNav({ categories }: MainNavProps) {
                 <div className="px-1">
                   <NavSearchInput />
                 </div>
+
+                <Link
+                  href="/where-to-buy"
+                  className="flex min-h-11 items-center px-1 type-body-emphasis"
+                  onClick={() => setOpen(false)}
+                >
+                  {t('whereToBuy')}
+                </Link>
 
                 <Link
                   href="/about"

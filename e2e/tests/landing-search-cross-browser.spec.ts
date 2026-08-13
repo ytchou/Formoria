@@ -21,6 +21,13 @@ test.describe("Landing search compatibility", () => {
   }) => {
     await page.goto("/");
 
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: "從自己想要的生活出發，找到適合的台灣產品",
+      }),
+    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+
     const searchbox = page.locator(
       'main form[role="search"] input[role="searchbox"]',
     );

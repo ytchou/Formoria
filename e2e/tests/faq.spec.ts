@@ -9,7 +9,7 @@ const EXPECTED_FAQ_ITEMS = Object.keys(zhTW.faq.items).length;
  * FAQ page
  *
  * Journey: Anonymous visitor lands on /faq (zh-TW, the default locale path),
- * sees both section headings and all 13 expandable items; hash links scroll
+ * sees both section headings and every translated expandable item; hash links scroll
  * the correct section into view; the #claim item auto-opens via the
  * OpenTargetDetails client component.
  *
@@ -21,7 +21,7 @@ const EXPECTED_FAQ_ITEMS = Object.keys(zhTW.faq.items).length;
  * Seed: none
  */
 test.describe("FAQ page", () => {
-  test("@smoke renders two section headings and exactly 13 details elements", async ({
+  test("@smoke renders two section headings and every translated details element", async ({
     anonPage,
   }) => {
     // /faq is the zh-TW canonical URL (localePrefix: 'as-needed', defaultLocale: 'zh-TW')
@@ -55,12 +55,67 @@ test.describe("FAQ page", () => {
     await expect(anonPage.locator("details")).toHaveCount(EXPECTED_FAQ_ITEMS, {
       timeout: BUDGET.RENDERED,
     });
+    const listingDetails = anonPage.locator("details").filter({
+      hasText: "收錄品牌和 Formoria 選物有什麼不同？",
+    });
+    await listingDetails.locator("summary").click();
+    await expect(
+      listingDetails.getByText(
+        "「收錄品牌」代表品牌符合目錄收錄規則，可以在搜尋資料中找到；這不等於 Formoria 背書、選物、認證或排名。「Formoria 選物」則是 Formoria 基於特定情境、用途、偏好或編輯觀點刻意挑選的產品或內容，會另外標示並說明理由。",
+        { exact: true },
+      ),
+    ).toBeVisible();
+
+    const purchaseDetails = anonPage.locator("details").filter({
+      hasText: "可以直接在 Formoria 購買嗎？",
+    });
+    await purchaseDetails.locator("summary").click();
+    await expect(
+      purchaseDetails.getByText(
+        "不行。Formoria 負責靈感、選擇、脈絡與前往外部通路的路徑，不接受訂單或處理結帳。價格、規格選項、庫存、結帳、出貨與售後服務由品牌或零售通路負責。",
+        { exact: true },
+      ),
+    ).toBeVisible();
+  });
+
+  test("English FAQ explains listing versus selection and the purchase boundary", async ({
+    anonPage,
+  }) => {
+    await anonPage.goto("/en/faq", { timeout: BUDGET.GATED_UI });
+
+    const listingDetails = anonPage.locator("details").filter({
+      hasText:
+        "What is the difference between a listed brand and a Formoria Selection?",
+    });
+    await expect(listingDetails.locator("summary")).toBeVisible({
+      timeout: BUDGET.SERVER_RENDER,
+    });
+    await listingDetails.locator("summary").click();
+    await expect(
+      listingDetails.getByText(
+        "A listed brand meets the directory rules and can be found in the searchable record; listing is not Formoria endorsement, selection, certification, or ranking. A Formoria Selection is a product or content item deliberately chosen for a situation, use, preference, or editorial argument, and is labelled separately with its rationale.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+
+    const purchaseDetails = anonPage.locator("details").filter({
+      hasText: "Can I purchase through Formoria?",
+    });
+    await purchaseDetails.locator("summary").click();
+    await expect(
+      purchaseDetails.getByText(
+        "No. Formoria owns inspiration, selection, context, and the outbound route; it does not accept orders or process checkout. Brands or retailers remain responsible for price, variants, inventory, checkout, fulfilment, and after-sales service.",
+        { exact: true },
+      ),
+    ).toBeVisible();
   });
 
   test("#for-owners anchor scrolls the section into viewport", async ({
     anonPage,
   }) => {
-    const resp = await anonPage.goto("/faq#for-owners", { timeout: BUDGET.GATED_UI });
+    const resp = await anonPage.goto("/faq#for-owners", {
+      timeout: BUDGET.GATED_UI,
+    });
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active — skipping");
       return;
@@ -75,7 +130,9 @@ test.describe("FAQ page", () => {
   test("#claim details auto-opens via OpenTargetDetails on hash navigation", async ({
     anonPage,
   }) => {
-    const resp = await anonPage.goto("/faq#claim", { timeout: BUDGET.GATED_UI });
+    const resp = await anonPage.goto("/faq#claim", {
+      timeout: BUDGET.GATED_UI,
+    });
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active — skipping");
       return;

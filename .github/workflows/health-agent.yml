@@ -638,11 +638,13 @@ jobs:
           AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}
           # This step is the sole Linear writer, and it has to read
           # health_fix_queue to find which findings are not ticketed yet.
-          # Without these two the read throws `required_runtime_environment`,
+          # Without these Supabase credentials the read or reservation throws
+          # `required_runtime_environment`,
           # which surfaces only as an optional-delivery warning — so every run
           # since the ledger began reported `linear_ticket_candidates_failed`
           # and created no tickets at all (DEV-1431).
           HEALTH_AGENT_READER_TOKEN: ${{ secrets.HEALTH_AGENT_READER_TOKEN }}
+          HEALTH_AGENT_WRITER_TOKEN: ${{ secrets.HEALTH_AGENT_WRITER_TOKEN }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           LINEAR_ASSIGNEE_ID: ${{ vars.LINEAR_ASSIGNEE_ID }}
           LINEAR_OAUTH_ACCESS_TOKEN: ${{ secrets.LINEAR_OAUTH_ACCESS_TOKEN }}

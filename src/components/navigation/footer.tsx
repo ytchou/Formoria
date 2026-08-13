@@ -25,6 +25,15 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link
+                  href="/where-to-buy"
+                  prefetch={false}
+                  className="type-card-description hover:text-foreground transition-colors"
+                >
+                  {t("whereToBuy")}
+                </Link>
+              </li>
+              <li>
                 <a
                   href={getFooterFullDocumentHref("/events", locale)}
                   className="type-card-description hover:text-foreground transition-colors"

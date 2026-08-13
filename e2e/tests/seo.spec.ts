@@ -29,16 +29,84 @@ test.describe("SEO deep", () => {
     expect(canonical).toMatch(/^https?:\/\//);
   });
 
-  test("homepage has OG tags", async ({ page }) => {
-    await page.goto("/");
-    const ogTitle = await page
-      .locator('meta[property="og:title"]')
-      .getAttribute("content");
-    const ogDesc = await page
-      .locator('meta[property="og:description"]')
-      .getAttribute("content");
-    expect(ogTitle?.length).toBeGreaterThan(0);
-    expect(ogDesc?.length).toBeGreaterThan(0);
+  test("home and About pages server-render the approved identity in both locales", async ({
+    page,
+  }) => {
+    const homeLocales = [
+      {
+        path: "/",
+        title: "Formoria：台灣品牌探索與選物平台",
+        description:
+          "Formoria 把從靈感走到購買中間斷掉的路接回來，幫助人從自己想要的生活出發，找到適合的台灣產品、認識背後的品牌，也知道可以去哪裡購買。",
+        heading: "從自己想要的生活出發，找到適合的台灣產品",
+        positioning:
+          "Formoria 是台灣品牌探索與選物平台。目前從可搜尋的品牌收錄出發，整理品牌資料、產品特色與官方購買通路；由 Formoria 挑選的內容會另外標示。",
+        trustHeading: "收錄與選物，清楚分開",
+      },
+      {
+        path: "/en",
+        title: "Formoria — Taiwanese Brand Discovery & Curation",
+        description:
+          "Formoria reconnects the broken path from inspiration to purchase by helping people start with the life they want, find Taiwanese products that suit them, get to know the brands behind them, and know where to buy.",
+        heading:
+          "Start with the life you want and find Taiwanese products that suit you",
+        positioning:
+          "Formoria is a Taiwanese brand discovery and curation platform. It currently starts with a searchable directory of listed brands, bringing together brand information, product highlights, and official purchase channels; content selected by Formoria is labelled separately.",
+        trustHeading: "Listings and selections stay distinct",
+      },
+    ] as const;
+    const aboutLocales = [
+      {
+        path: "/about",
+        title: "關於 Formoria | Formoria",
+        description:
+          "Formoria 把從靈感走到購買中間斷掉的路接回來，幫助人從自己想要的生活出發，找到適合的台灣產品、認識背後的品牌，也知道可以去哪裡購買。",
+        heading: "把從靈感走到購買中間斷掉的路接回來",
+      },
+      {
+        path: "/en/about",
+        title: "About Formoria | Formoria",
+        description:
+          "Formoria reconnects the broken path from inspiration to purchase by helping people start with the life they want, find Taiwanese products that suit them, get to know the brands behind them, and know where to buy.",
+        heading: "Reconnect the broken path from inspiration to purchase",
+      },
+    ] as const;
+
+    for (const locale of homeLocales) {
+      await page.goto(locale.path);
+      await expect(page).toHaveTitle(locale.title);
+      await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+        "content",
+        locale.description,
+      );
+      await expect(
+        page.locator('meta[property="og:description"]'),
+      ).toHaveAttribute("content", locale.description);
+      await expect(
+        page.getByRole("heading", { level: 1, name: locale.heading }),
+      ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+      await expect(
+        page.getByText(locale.positioning, { exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText(locale.trustHeading, { exact: true }),
+      ).toBeVisible();
+    }
+
+    for (const locale of aboutLocales) {
+      await page.goto(locale.path);
+      await expect(page).toHaveTitle(locale.title);
+      await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+        "content",
+        locale.description,
+      );
+      await expect(
+        page.locator('meta[property="og:description"]'),
+      ).toHaveAttribute("content", locale.description);
+      await expect(
+        page.getByRole("heading", { level: 1, name: locale.heading }),
+      ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+    }
   });
 
   test("robots.txt is accessible and allows crawling", async ({ request }) => {
@@ -211,16 +279,16 @@ test.describe("SEO deep", () => {
         url.pathname === "/en" ? "/" : url.pathname.replace(/^\/en(?=\/)/, "");
       return staticPaths.has(path) || path.startsWith("/categories/");
     });
-
     expect(staticLocations.length).toBeGreaterThan(0);
     // A browser render per URL exceeds the CI timeout, while compiling every
     // route concurrently can overload a cold dev server and corrupt its route
     // manifests. Plain HTTP requests in small batches keep all URL assertions
     // while bounding lazy compilation pressure.
     const batchSize = 4;
+    const renderedPages: Array<{ url: URL; path: string; html: string }> = [];
     for (let index = 0; index < staticLocations.length; index += batchSize) {
       const batch = staticLocations.slice(index, index + batchSize);
-      await Promise.all(
+      const renderedBatch = await Promise.all(
         batch.map(async (url) => {
           const path = `${url.pathname}${url.search}`;
           const pageResponse = await request.get(path);
@@ -238,17 +306,20 @@ test.describe("SEO deep", () => {
             imageResponse.headers()["content-type"],
             `${path} → og:image content-type`,
           ).toMatch(/^image\/png(?:;|$)/);
-
-          if (
-            url.pathname.replace(/^\/en(?=\/)/, "").startsWith("/categories/")
-          ) {
-            expect(
-              extractMetaContent(html, "twitter:card"),
-              `${path} → twitter:card`,
-            ).toBe("summary_large_image");
-          }
+          return { url, path, html };
         }),
       );
+      renderedPages.push(...renderedBatch);
+    }
+
+    const categoryPages = renderedPages.filter(({ url }) =>
+      url.pathname.replace(/^\/en(?=\/)/, "").startsWith("/categories/"),
+    );
+    for (const { path, html } of categoryPages) {
+      expect(
+        extractMetaContent(html, "twitter:card"),
+        `${path} → twitter:card`,
+      ).toBe("summary_large_image");
     }
   });
 
@@ -259,6 +330,11 @@ test.describe("SEO deep", () => {
     const body = await res.text();
     expect(body).toContain("/about");
     expect(body).not.toContain("/vision");
+    expect(body).toContain(
+      "Formoria reconnects the broken path from inspiration to purchase",
+    );
+    expect(body).toContain("Brands or retailers remain responsible");
+    expect(body).not.toContain("discover, choose, and grow");
   });
 
   test("llms.txt lists canonical category and reference links", async ({

@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { expect, test } from "../fixtures/auth";
 
 import { BUDGET, POLL } from "../budgets";
+import { e2eSeedName } from "../helpers/cleanup";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -47,7 +48,7 @@ test.describe("Admin submission enrichment lifecycle", () => {
 
     const suffix = `${Date.now()}-${randomUUID().slice(0, 8)}`;
     submissionId = randomUUID();
-    brandName = `[E2E-TEST] Submission lifecycle ${suffix}`;
+    brandName = e2eSeedName(`Submission lifecycle ${suffix}`);
     storagePaths = [
       `submissions/${submissionId}/hero.png`,
       `submissions/${submissionId}/detail.png`,

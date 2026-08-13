@@ -11,8 +11,21 @@ export interface RateLimitResult {
   resetAt: number
 }
 
+/**
+ * Which Upstash limiter algorithm backs a rule. `fixed` costs fewer Redis
+ * commands per call than `sliding`, at the price of allowing up to 2x the
+ * budget across a window boundary. Default everywhere is `sliding`; opt a rule
+ * into `fixed` only where that burst is acceptable.
+ */
+export type RateLimitAlgorithm = 'sliding' | 'fixed'
+
 export interface RateLimitStore {
-  check(key: string, windowMs: number, maxRequests: number): RateLimitResult
+  check(
+    key: string,
+    windowMs: number,
+    maxRequests: number,
+    algorithm?: RateLimitAlgorithm,
+  ): RateLimitResult
 }
 
 export interface RateLimitOptions {
@@ -22,7 +35,12 @@ export interface RateLimitOptions {
 }
 
 interface AsyncRateLimitStore {
-  check(key: string, windowMs: number, maxRequests: number): Promise<RateLimitResult>
+  check(
+    key: string,
+    windowMs: number,
+    maxRequests: number,
+    algorithm?: RateLimitAlgorithm,
+  ): Promise<RateLimitResult>
 }
 
 export function createInMemoryRateLimiter(): RateLimitStore {
@@ -72,14 +90,24 @@ function createUpstashRateLimiter(): AsyncRateLimitStore {
   const limiters = new Map<string, UpstashLimiter>()
 
   return {
-    check(key: string, windowMs: number, maxRequests: number): Promise<RateLimitResult> {
-      const limiterKey = `${windowMs}:${maxRequests}`
+    check(
+      key: string,
+      windowMs: number,
+      maxRequests: number,
+      algorithm: RateLimitAlgorithm = 'sliding',
+    ): Promise<RateLimitResult> {
+      // Algorithm is part of the cache key: a fixed and a sliding limiter with
+      // the same window and max are different limiters, not one.
+      const limiterKey = `${algorithm}:${windowMs}:${maxRequests}`
       let limiter = limiters.get(limiterKey)
 
       if (!limiter) {
         limiter = new Ratelimit({
           redis,
-          limiter: Ratelimit.slidingWindow(maxRequests, `${windowMs} ms`),
+          limiter:
+            algorithm === 'fixed'
+              ? Ratelimit.fixedWindow(maxRequests, `${windowMs} ms`)
+              : Ratelimit.slidingWindow(maxRequests, `${windowMs} ms`),
           prefix: 'fm_rl',
         })
         limiters.set(limiterKey, limiter)
@@ -102,8 +130,13 @@ function createRateLimiter(): AsyncRateLimitStore {
   console.warn('Upstash Redis env vars missing; falling back to in-memory rate limiter')
   const inMemoryRateLimiter = createInMemoryRateLimiter()
   return {
-    check(key: string, windowMs: number, maxRequests: number): Promise<RateLimitResult> {
-      return Promise.resolve(inMemoryRateLimiter.check(key, windowMs, maxRequests))
+    check(
+      key: string,
+      windowMs: number,
+      maxRequests: number,
+      algorithm: RateLimitAlgorithm = 'sliding',
+    ): Promise<RateLimitResult> {
+      return Promise.resolve(inMemoryRateLimiter.check(key, windowMs, maxRequests, algorithm))
     },
   }
 }
@@ -118,8 +151,77 @@ let rateLimiter = createRateLimiter()
  */
 export function setRateLimitStoreForTests(store: RateLimitStore | null): void {
   rateLimiter = store
-    ? { check: (key, windowMs, maxRequests) => Promise.resolve(store.check(key, windowMs, maxRequests)) }
+    ? {
+        check: (key, windowMs, maxRequests, algorithm) =>
+          Promise.resolve(store.check(key, windowMs, maxRequests, algorithm)),
+      }
     : createRateLimiter()
+  storeBreakerOpenedAt = null
+}
+
+const STORE_BREAKER_COOLDOWN_MS = 60_000
+
+/**
+ * Fail-open circuit breaker for the backing store. On 2026-08-13 the Upstash
+ * account hit its plan quota, `check` rejected, and the rejection escaped
+ * `proxy()` — Next answered a bare 500 for every rule-matched route before any
+ * page rendered. A limiter that cannot reach its store must allow the request:
+ * the Cloudflare edge and the origin guard stay in front, and availability
+ * outranks the budget.
+ *
+ * The breaker also caps the cost of a dead store: the outage produced 57 failed
+ * round trips in 2.4s and tripped Railway's log-rate limiter, so once a failure
+ * is seen the store is not dialled again for the cooldown window, and exactly
+ * one line is logged per window.
+ *
+ * State is module-scoped, which in the edge runtime means per-isolate rather
+ * than global. That is deliberate and sufficient — the goal is to stop a hot
+ * isolate re-dialling a dead store every request, not cluster-wide consensus.
+ */
+let storeBreakerOpenedAt: number | null = null
+
+function isStoreBreakerOpen(): boolean {
+  if (storeBreakerOpenedAt === null) return false
+  if (Date.now() - storeBreakerOpenedAt < STORE_BREAKER_COOLDOWN_MS) return true
+
+  storeBreakerOpenedAt = null
+  console.error(
+    JSON.stringify({
+      event: 'rate_limit_store_breaker_closed',
+      cooldownMs: STORE_BREAKER_COOLDOWN_MS,
+    }),
+  )
+  return false
+}
+
+/**
+ * Returns null when the store could not answer — callers must treat null as
+ * "allowed" (fail open), never as a denial.
+ */
+async function checkStore(
+  key: string,
+  windowMs: number,
+  maxRequests: number,
+  algorithm: RateLimitAlgorithm = 'sliding',
+): Promise<RateLimitResult | null> {
+  if (isStoreBreakerOpen()) return null
+
+  try {
+    return await rateLimiter.check(key, windowMs, maxRequests, algorithm)
+  } catch (error) {
+    storeBreakerOpenedAt = Date.now()
+    // console.error rather than the Sentry adapter: this runs in the edge
+    // runtime, where the Node SDK is not loaded (see src/proxy.ts).
+    console.error(
+      JSON.stringify({
+        event: 'rate_limit_store_unavailable',
+        action: 'failing_open',
+        cooldownMs: STORE_BREAKER_COOLDOWN_MS,
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    )
+    return null
+  }
 }
 
 export async function rateLimit(
@@ -149,7 +251,17 @@ function envLimit(name: string, fallback: number): number {
  * budget exists precisely to stop sitemap scraping — exempting it would turn
  * the tightest budget in the table into no budget at all.
  */
-type RateLimitRule = { windowMs: number; maxRequests: number; crawlerExempt: boolean }
+type RateLimitRule = {
+  windowMs: number
+  maxRequests: number
+  crawlerExempt: boolean
+  /**
+   * Omitted means `sliding`. `fixed` buys a cheaper Redis round trip and pays
+   * for it by allowing a burst across the window boundary — acceptable on a
+   * public directory index, never on `/api/upload` or `/admin/operations`.
+   */
+  algorithm?: RateLimitAlgorithm
+}
 
 const BRANDS_DIRECTORY_RATE_LIMIT = 30
 
@@ -161,7 +273,17 @@ const RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   '/brands': {
     windowMs: 60_000,
     maxRequests: BRANDS_DIRECTORY_RATE_LIMIT,
-    crawlerExempt: false,
+    // Crawler-exempt, matching the `/brands/` detail rule. Metering crawlers
+    // here is what burned 410k of a 500k monthly Upstash quota on 2026-08-12:
+    // the directory index and its `?category=` filter views are the single
+    // largest source of bot requests on the site, and Upstash spends commands
+    // BEFORE the allow/deny verdict, so the budget above buys nothing against
+    // them. Before that day the bare `/brands` path matched no rule at all and
+    // cost zero commands; Cloudflare still sits in front. Do not flip to false.
+    crawlerExempt: true,
+    // Fixed window: one cheaper round trip per real-user request. A boundary
+    // burst on a public directory index is harmless.
+    algorithm: 'fixed',
   },
   '/brands/': {
     windowMs: 60_000,
@@ -304,7 +426,11 @@ export async function checkSoftRateLimit(request: NextRequest): Promise<boolean>
 
   const ip = getClientIp(request)
   const key = `soft:${getSoftRateLimitPathPrefix(normalizedPathname)}:${ip}`
-  const result = await rateLimiter.check(key, SOFT_LIMIT.windowMs, SOFT_LIMIT.maxRequests)
+  const result = await checkStore(key, SOFT_LIMIT.windowMs, SOFT_LIMIT.maxRequests)
+
+  // Store unreachable: no challenge. A soft limit that cannot be evaluated must
+  // not 302 real traffic to /challenge.
+  if (!result) return false
 
   if (!result.allowed) {
     // Defense in depth: the crawler bypass above returns false for every registry
@@ -376,7 +502,11 @@ export async function checkRateLimit(request: NextRequest): Promise<NextResponse
   const ip = getClientIp(request)
   const key = `${normalizedPathname}:${ip}`
 
-  const result = await rateLimiter.check(key, rule.windowMs, rule.maxRequests)
+  const result = await checkStore(key, rule.windowMs, rule.maxRequests, rule.algorithm ?? 'sliding')
+
+  // Store unreachable: allow. Every alarm, header and 429 below stays exactly
+  // as it was for a store that answers.
+  if (!result) return null
 
   if (!result.allowed) {
     evaluateCrawlerRateLimitAlarm(request.headers.get('user-agent') ?? '', normalizedPathname)

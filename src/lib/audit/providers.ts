@@ -63,6 +63,7 @@ const PROVIDERS = {
     "getCachedExploreBrandPool",
     "getCachedMetrics",
     "getCachedRecentBrandCount",
+    "getCachedSubcategoryRows",
   ],
   claims: [
     "approveClaimRequest",

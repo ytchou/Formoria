@@ -268,6 +268,7 @@ export type Database = {
           country: string | null
           created_at: string
           created_by: string | null
+          district: string | null
           fetched_at: string | null
           id: string
           last_confirmed_at: string | null
@@ -293,6 +294,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           created_by?: string | null
+          district?: string | null
           fetched_at?: string | null
           id?: string
           last_confirmed_at?: string | null
@@ -318,6 +320,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           created_by?: string | null
+          district?: string | null
           fetched_at?: string | null
           id?: string
           last_confirmed_at?: string | null
@@ -3509,6 +3512,10 @@ export type Database = {
       }
       upsert_enriched_brand_channels: {
         Args: { p_brand_id: string; p_candidates: Json }
+        Returns: number
+      }
+      update_brand_channel_districts: {
+        Args: { p_updates: Json }
         Returns: number
       }
       verify_health_fix_absence: {
