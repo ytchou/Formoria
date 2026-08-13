@@ -28,10 +28,10 @@ export default async function HeroSection({ brandCount, categoryCount }: HeroSec
       <div className="absolute inset-0 bg-background/70 md:bg-background/45" aria-hidden="true" />
       <div className="relative mx-auto max-w-6xl page-gutter">
         <h1 className="type-hero">{t('headline')}</h1>
-        {/* Opens with the stable entity sentence and stays the first prose in the DOM:
-            without it the earliest body text is rotating brand-card copy, which Google
-            was lifting as the homepage snippet (DEV-1320). Mirrors
-            landing.metadata.description. */}
+        {/* Keeps the approved present positioning as the first prose in the DOM:
+            otherwise the earliest body text is rotating brand-card copy, which Google
+            was lifting as the homepage snippet (DEV-1320). Metadata carries the full
+            mission separately. */}
         <p className="mt-3 type-page-subtitle max-w-2xl">{t('subheadline')}</p>
 
         <div className="mt-6 max-w-md rounded-lg bg-background/85">

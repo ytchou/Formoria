@@ -46,6 +46,8 @@ export default async function FaqPage({ params }: PageProps) {
 
   const generalItemKeys = [
     'whatIsFormoria',
+    'listingVsSelection',
+    'purchaseThroughFormoria',
     'taiwaneseBrandCriteria',
     'notListedBrands',
     'whoCanSubmit',

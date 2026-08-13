@@ -98,14 +98,6 @@ export default async function LandingPage({ params }: PageProps) {
       getMessages(),
     ]);
 
-  // Aggregate flag: ANY failed read means this render is degraded, and a degraded
-  // render must never be frozen by `revalidate = 3600`.
-  const degraded =
-    exploreResult === null || newBrandsResult === null || eventResult === null;
-  if (degraded) {
-    await markRenderDegraded("landing");
-  }
-
   // One Taipei "today" for the whole render: partitioning on one value and
   // badging on another could put an event in the promoted row wearing a phase
   // pill from the other side of midnight. Same rule as the events hub.
@@ -126,6 +118,18 @@ export default async function LandingPage({ params }: PageProps) {
           promotedEvents.map((event) => event.id),
         ).catch(captureReadFailure("landing.events.brandCounts"))
       : null;
+
+  // Aggregate flag: ANY failed read means this render is degraded, and a degraded
+  // render must never be frozen by `revalidate = 3600`.
+  const degraded =
+    exploreResult === null ||
+    newBrandsResult === null ||
+    !storyResult.ok ||
+    eventResult === null ||
+    (promotedEvents.length > 0 && eventBrandCounts === null);
+  if (degraded) {
+    await markRenderDegraded("landing");
+  }
 
   const exploreBrands = (exploreResult?.brands ?? []).map(toPublicBrandCard);
   const newBrands = (newBrandsResult ?? []).map(toPublicBrandCard);
@@ -155,27 +159,6 @@ export default async function LandingPage({ params }: PageProps) {
         />
 
         <SavedBrandsProvider>
-          <div className="py-6 md:py-8">
-            <div className="mx-auto max-w-6xl page-gutter">
-              <NextIntlClientProvider messages={messages}>
-                <BrandShowcase
-                  brands={exploreBrands}
-                  heading={t("showcase.heading")}
-                  subheading={t("showcase.subheading")}
-                  linkText={t("showcase.browseAll")}
-                  linkHref="/brands"
-                />
-              </NextIntlClientProvider>
-            </div>
-          </div>
-
-          {/*
-            After the explore showcase, not before it: browsing brands is what
-            this page is for, and an event row above the fold pushed that past
-            it. Still ahead of the stories and the manifesto, because an event
-            is the one block here that expires. The whole row disappears once
-            nothing is ongoing or upcoming — no heading over an empty grid.
-          */}
           {promotedEvents.length > 0 && (
             <div className="py-6 md:py-8">
               <section
@@ -241,12 +224,6 @@ export default async function LandingPage({ params }: PageProps) {
             </div>
           )}
 
-          {/*
-            Manifesto pull-quote, deliberately after the stories rather than
-            before them: the two showcases and the story list are what a first
-            visit came for, and the "why we exist" band reads better as a beat
-            between them and the new-brands row than as a wall in front of both.
-          */}
           <section className="relative overflow-hidden py-12 md:py-16">
             <Image
               src="/images/manifesto-bg.webp"
@@ -277,6 +254,20 @@ export default async function LandingPage({ params }: PageProps) {
               </Link>
             </div>
           </section>
+
+          <div className="py-6 md:py-8">
+            <div className="mx-auto max-w-6xl page-gutter">
+              <NextIntlClientProvider messages={messages}>
+                <BrandShowcase
+                  brands={exploreBrands}
+                  heading={t("showcase.heading")}
+                  subheading={t("showcase.subheading")}
+                  linkText={t("showcase.browseAll")}
+                  linkHref="/brands"
+                />
+              </NextIntlClientProvider>
+            </div>
+          </div>
 
           <div className="py-6 md:py-8">
             <div className="mx-auto max-w-6xl page-gutter">
