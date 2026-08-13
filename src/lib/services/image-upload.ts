@@ -13,9 +13,17 @@ const BRAND_IMAGES_BUCKET = ALLOWED_UPLOAD_BUCKETS[0]
 const BRAND_IMAGES_PUBLIC_SEGMENT = `/storage/v1/object/public/${BRAND_IMAGES_BUCKET}/`
 const BRAND_IMAGES_KEY_PREFIX = 'brands/'
 const SUBMISSION_IMAGES_KEY_PREFIX = 'submissions/'
+// Curated product images (DEV-1404): `curated-products/<brand>/<product>/<hash>.webp`
+// in the same `brand-images` bucket.
+const CURATED_PRODUCT_IMAGES_KEY_PREFIX = 'curated-products/'
+const DELETABLE_IMAGE_KEY_PREFIXES = [
+  BRAND_IMAGES_KEY_PREFIX,
+  CURATED_PRODUCT_IMAGES_KEY_PREFIX,
+] as const
 const READABLE_IMAGE_KEY_PREFIXES = [
   BRAND_IMAGES_KEY_PREFIX,
   SUBMISSION_IMAGES_KEY_PREFIX,
+  CURATED_PRODUCT_IMAGES_KEY_PREFIX,
 ] as const
 const CLAIM_PROOF_IMAGE_CONFIG: Partial<ImageProcessorConfig> = {
   maxWidth: 2400,
@@ -50,10 +58,14 @@ export function getUploadImageProcessingConfig(
 }
 
 /**
- * DELETE-path key derivation: `brands/` only. Its consumer is
- * `deleteBrandImages`, which removes every object it resolves, so anything it
- * fails to recognise is merely left alone — a safe failure. Widening it would
- * hand a delete path keys it was never audited to destroy.
+ * DELETE-path key derivation: `brands/` and `curated-products/`. Its consumer
+ * is `deleteBrandImages`, which removes every object it resolves, so anything
+ * it fails to recognise is merely left alone — a safe failure. It stays
+ * narrower than the read path below: a prefix is added here only when a caller
+ * genuinely owns those objects' lifecycle. `curated-products/` qualifies
+ * (DEV-1404) — the curated product row is the sole owner of its image, and an
+ * unresolvable key would leak the object into the storage sweep's `untracked`
+ * bucket instead. `submissions/` deliberately remains read-only.
  */
 export function storageKeyFromPublicUrl(url: string): string | null {
   const prefix = getBrandImagesPublicPrefix()
@@ -62,7 +74,7 @@ export function storageKeyFromPublicUrl(url: string): string | null {
   }
 
   const key = url.slice(prefix.length)
-  if (!key || !key.startsWith(BRAND_IMAGES_KEY_PREFIX)) {
+  if (!DELETABLE_IMAGE_KEY_PREFIXES.some((allowed) => key.startsWith(allowed))) {
     return null
   }
 
@@ -122,7 +134,10 @@ export async function deleteStoredImagePaths(paths: string[]): Promise<void> {
     { provider: 'images', operation: 'deleteStoredImagePaths', kind: 'service' },
     async () => {
   const keys = [...new Set(paths)].filter(
-    (path) => path.startsWith('brands/') || path.startsWith('submissions/')
+    (path) =>
+      path.startsWith(BRAND_IMAGES_KEY_PREFIX) ||
+      path.startsWith(SUBMISSION_IMAGES_KEY_PREFIX) ||
+      path.startsWith(CURATED_PRODUCT_IMAGES_KEY_PREFIX)
   )
   if (keys.length === 0) return
 

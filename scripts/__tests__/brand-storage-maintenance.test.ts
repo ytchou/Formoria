@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   buildReferenceSet,
@@ -141,6 +141,82 @@ describe('categorizeObjects', () => {
     expect(result.protected.map((object) => object.path)).toEqual([path])
     expect(result.untracked).toEqual([])
     expect(result.rejected).toEqual([])
+  })
+})
+
+/**
+ * `curated-products/` objects (DEV-1404) are referenced only by
+ * `curated_products.image_url`, a public URL — no image table row exists for
+ * them. Without both the prefix registration and the matching read in
+ * buildReferenceSet, every live curated image is `untracked` and the purge
+ * deletes it days later with no error.
+ */
+describe('curated-products prefix', () => {
+  const supabaseUrl = 'https://test-project.supabase.co'
+  const publicUrlFor = (key: string) =>
+    `${supabaseUrl}/storage/v1/object/public/brand-images/${key}`
+
+  beforeEach(() => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', supabaseUrl)
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('a curated-products object is referenced, never untracked', async () => {
+    const key = `curated-products/${randomUUID()}/${randomUUID()}/x.webp`
+    const refsFromDb = await buildReferenceSet(
+      stubReferenceClient({
+        brand_images: [],
+        submission_images: [],
+        brands: [],
+        brand_submissions: [],
+        event_exhibitors: [],
+        curated_products: [
+          { image_url: publicUrlFor(key) },
+          { image_url: null },
+        ],
+      }),
+    )
+
+    expect(refsFromDb.otherReferencedPaths.has(key)).toBe(true)
+
+    const categorized = categorizeObjects([{ path: key, size: 1 }], refsFromDb)
+    expect(categorized.protected.map((object) => object.path)).toEqual([key])
+    expect(categorized.untracked).toEqual([])
+    expect(categorized.rejected).toEqual([])
+
+    const plan = planPurge(categorized, {
+      expectedRejected: 0,
+      expectedUntracked: 0,
+      tolerance: 0.15,
+    })
+    expect(plan.toDelete).not.toContain(key)
+  })
+
+  it('an orphaned curated-products object with no referencing row is untracked', async () => {
+    const orphanKey = `curated-products/${randomUUID()}/${randomUUID()}/dead.webp`
+    const refsFromDb = await buildReferenceSet(
+      stubReferenceClient({
+        brand_images: [],
+        submission_images: [],
+        brands: [],
+        brand_submissions: [],
+        event_exhibitors: [],
+        curated_products: [],
+      }),
+    )
+
+    const categorized = categorizeObjects(
+      [{ path: orphanKey, size: 1 }],
+      refsFromDb,
+    )
+
+    expect(categorized.untracked.map((object) => object.path)).toEqual([
+      orphanKey,
+    ])
+    expect(categorized.protected).toEqual([])
   })
 })
 

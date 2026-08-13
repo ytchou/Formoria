@@ -20,11 +20,19 @@ const WEBP_SKIP_BYTES = 150 * 1024
 // `event_exhibitors.image_storage_path`. Without this prefix the sweep cannot
 // resolve those keys at all, so every one of them falls through to `untracked`
 // and gets purged. See buildReferenceSet below for the matching read.
+// `curated-products/` (DEV-1404) is the same shape of hazard: those objects are
+// referenced only by `curated_products.image_url`, so without this prefix AND
+// the matching read below every curated product image is purged as untracked.
 const STORAGE_KEY_PREFIXES = [
   'brands/',
   'submissions/',
   'event-exhibitors/',
+  'curated-products/',
 ] as const
+// Postgres "undefined_table". `curated_products` ships in this branch's
+// migration and may not exist yet in an environment the sweep runs against; a
+// missing table must not abort the whole audit.
+const MISSING_TABLE_CODE = '42P01'
 const ACTIVE_REENCODE_MANIFEST_PATTERN =
   /^\.reencode-originals-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})(?:-(\d{3}))?Z?\.json$/
 const DEFAULT_PURGE_OPTIONS = {
@@ -111,6 +119,10 @@ type EventExhibitorReferenceRow = {
   image_storage_path: string | null
 }
 
+type CuratedProductReferenceRow = {
+  image_url: string | null
+}
+
 type BrandReencodeRow = {
   id: string
   brand_id: string
@@ -147,6 +159,7 @@ export type ReencodeManifest = {
 
 type QueryError = {
   message: string
+  code?: string
 }
 
 type PageResult = {
@@ -229,12 +242,19 @@ function storageKeysFromJson(value: unknown): string[] {
 async function fetchAllRows<T>(
   table: string,
   fetchPage: (from: number, to: number) => PromiseLike<PageResult>,
+  options: { allowMissingTable?: boolean } = {},
 ): Promise<T[]> {
   const rows: T[] = []
 
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const { data, error } = await fetchPage(offset, offset + PAGE_SIZE - 1)
-    if (error) throw new Error(`${table} query failed: ${error.message}`)
+    if (error) {
+      if (options.allowMissingTable && error.code === MISSING_TABLE_CODE) {
+        console.warn(`${table} does not exist yet; skipping its references.`)
+        return rows
+      }
+      throw new Error(`${table} query failed: ${error.message}`)
+    }
 
     const page = (data ?? []) as T[]
     rows.push(...page)
@@ -310,48 +330,68 @@ export async function listAllObjects(
 export async function buildReferenceSet(
   supabase: ReturnType<typeof createServiceClient>,
 ): Promise<StorageReferences> {
-  const [brandImages, submissionImages, brands, submissions, eventExhibitors] =
-    await Promise.all([
-      fetchAllRows<ImageReferenceRow>('brand_images', (from, to) =>
+  const [
+    brandImages,
+    submissionImages,
+    brands,
+    submissions,
+    eventExhibitors,
+    curatedProducts,
+  ] = await Promise.all([
+    fetchAllRows<ImageReferenceRow>('brand_images', (from, to) =>
+      supabase
+        .from('brand_images')
+        .select('storage_path, url, status, rejected_at')
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
+    fetchAllRows<ImageReferenceRow>('submission_images', (from, to) =>
+      supabase
+        .from('submission_images')
+        .select('storage_path, url, status, rejected_at')
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
+    fetchAllRows<BrandReferenceRow>('brands', (from, to) =>
+      supabase
+        .from('brands')
+        .select('hero_image_url, draft_data')
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
+    fetchAllRows<SubmissionReferenceRow>('brand_submissions', (from, to) =>
+      supabase
+        .from('brand_submissions')
+        .select('hero_image_url, enriched_data')
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
+    // Roster-owned exhibitor thumbnails (DEV-1396). These objects live under
+    // `event-exhibitors/` and are referenced by no image table, so they are
+    // invisible to every other read above.
+    fetchAllRows<EventExhibitorReferenceRow>('event_exhibitors', (from, to) =>
+      supabase
+        .from('event_exhibitors')
+        .select('image_storage_path')
+        .not('image_storage_path', 'is', null)
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
+    // Curated product images (DEV-1404). `curated_products.image_url` is the
+    // only reference these objects have; `allowMissingTable` keeps the sweep
+    // usable in an environment where the migration has not been applied yet.
+    fetchAllRows<CuratedProductReferenceRow>(
+      'curated_products',
+      (from, to) =>
         supabase
-          .from('brand_images')
-          .select('storage_path, url, status, rejected_at')
+          .from('curated_products')
+          .select('image_url')
+          .not('image_url', 'is', null)
           .order('id', { ascending: true })
           .range(from, to),
-      ),
-      fetchAllRows<ImageReferenceRow>('submission_images', (from, to) =>
-        supabase
-          .from('submission_images')
-          .select('storage_path, url, status, rejected_at')
-          .order('id', { ascending: true })
-          .range(from, to),
-      ),
-      fetchAllRows<BrandReferenceRow>('brands', (from, to) =>
-        supabase
-          .from('brands')
-          .select('hero_image_url, draft_data')
-          .order('id', { ascending: true })
-          .range(from, to),
-      ),
-      fetchAllRows<SubmissionReferenceRow>('brand_submissions', (from, to) =>
-        supabase
-          .from('brand_submissions')
-          .select('hero_image_url, enriched_data')
-          .order('id', { ascending: true })
-          .range(from, to),
-      ),
-      // Roster-owned exhibitor thumbnails (DEV-1396). These objects live under
-      // `event-exhibitors/` and are referenced by no image table, so they are
-      // invisible to every other read above.
-      fetchAllRows<EventExhibitorReferenceRow>('event_exhibitors', (from, to) =>
-        supabase
-          .from('event_exhibitors')
-          .select('image_storage_path')
-          .not('image_storage_path', 'is', null)
-          .order('id', { ascending: true })
-          .range(from, to),
-      ),
-    ])
+      { allowMissingTable: true },
+    ),
+  ])
 
   const activePaths = new Set<string>()
   const rejectedPaths = new Set<string>()
@@ -397,6 +437,13 @@ export async function buildReferenceSet(
   // `rejected` or `untracked` — the only two categories planPurge deletes.
   for (const exhibitor of eventExhibitors) {
     const key = storageKeyFromReference(exhibitor.image_storage_path, null)
+    if (key) otherReferencedPaths.add(key)
+  }
+
+  // Same reasoning as the exhibitor loop above: `otherReferencedPaths` makes
+  // these `protected`, so a live curated product image can never be purged.
+  for (const product of curatedProducts) {
+    const key = storageKeyFromReference(null, product.image_url)
     if (key) otherReferencedPaths.add(key)
   }
 
