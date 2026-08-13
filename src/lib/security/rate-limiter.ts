@@ -11,8 +11,21 @@ export interface RateLimitResult {
   resetAt: number
 }
 
+/**
+ * Which Upstash limiter algorithm backs a rule. `fixed` costs fewer Redis
+ * commands per call than `sliding`, at the price of allowing up to 2x the
+ * budget across a window boundary. Default everywhere is `sliding`; opt a rule
+ * into `fixed` only where that burst is acceptable.
+ */
+export type RateLimitAlgorithm = 'sliding' | 'fixed'
+
 export interface RateLimitStore {
-  check(key: string, windowMs: number, maxRequests: number): RateLimitResult
+  check(
+    key: string,
+    windowMs: number,
+    maxRequests: number,
+    algorithm?: RateLimitAlgorithm,
+  ): RateLimitResult
 }
 
 export interface RateLimitOptions {
@@ -22,7 +35,12 @@ export interface RateLimitOptions {
 }
 
 interface AsyncRateLimitStore {
-  check(key: string, windowMs: number, maxRequests: number): Promise<RateLimitResult>
+  check(
+    key: string,
+    windowMs: number,
+    maxRequests: number,
+    algorithm?: RateLimitAlgorithm,
+  ): Promise<RateLimitResult>
 }
 
 export function createInMemoryRateLimiter(): RateLimitStore {
@@ -72,14 +90,24 @@ function createUpstashRateLimiter(): AsyncRateLimitStore {
   const limiters = new Map<string, UpstashLimiter>()
 
   return {
-    check(key: string, windowMs: number, maxRequests: number): Promise<RateLimitResult> {
-      const limiterKey = `${windowMs}:${maxRequests}`
+    check(
+      key: string,
+      windowMs: number,
+      maxRequests: number,
+      algorithm: RateLimitAlgorithm = 'sliding',
+    ): Promise<RateLimitResult> {
+      // Algorithm is part of the cache key: a fixed and a sliding limiter with
+      // the same window and max are different limiters, not one.
+      const limiterKey = `${algorithm}:${windowMs}:${maxRequests}`
       let limiter = limiters.get(limiterKey)
 
       if (!limiter) {
         limiter = new Ratelimit({
           redis,
-          limiter: Ratelimit.slidingWindow(maxRequests, `${windowMs} ms`),
+          limiter:
+            algorithm === 'fixed'
+              ? Ratelimit.fixedWindow(maxRequests, `${windowMs} ms`)
+              : Ratelimit.slidingWindow(maxRequests, `${windowMs} ms`),
           prefix: 'fm_rl',
         })
         limiters.set(limiterKey, limiter)
@@ -102,8 +130,13 @@ function createRateLimiter(): AsyncRateLimitStore {
   console.warn('Upstash Redis env vars missing; falling back to in-memory rate limiter')
   const inMemoryRateLimiter = createInMemoryRateLimiter()
   return {
-    check(key: string, windowMs: number, maxRequests: number): Promise<RateLimitResult> {
-      return Promise.resolve(inMemoryRateLimiter.check(key, windowMs, maxRequests))
+    check(
+      key: string,
+      windowMs: number,
+      maxRequests: number,
+      algorithm: RateLimitAlgorithm = 'sliding',
+    ): Promise<RateLimitResult> {
+      return Promise.resolve(inMemoryRateLimiter.check(key, windowMs, maxRequests, algorithm))
     },
   }
 }
@@ -118,7 +151,10 @@ let rateLimiter = createRateLimiter()
  */
 export function setRateLimitStoreForTests(store: RateLimitStore | null): void {
   rateLimiter = store
-    ? { check: (key, windowMs, maxRequests) => Promise.resolve(store.check(key, windowMs, maxRequests)) }
+    ? {
+        check: (key, windowMs, maxRequests, algorithm) =>
+          Promise.resolve(store.check(key, windowMs, maxRequests, algorithm)),
+      }
     : createRateLimiter()
   storeBreakerOpenedAt = null
 }
@@ -166,11 +202,12 @@ async function checkStore(
   key: string,
   windowMs: number,
   maxRequests: number,
+  algorithm: RateLimitAlgorithm = 'sliding',
 ): Promise<RateLimitResult | null> {
   if (isStoreBreakerOpen()) return null
 
   try {
-    return await rateLimiter.check(key, windowMs, maxRequests)
+    return await rateLimiter.check(key, windowMs, maxRequests, algorithm)
   } catch (error) {
     storeBreakerOpenedAt = Date.now()
     // console.error rather than the Sentry adapter: this runs in the edge
@@ -214,7 +251,17 @@ function envLimit(name: string, fallback: number): number {
  * budget exists precisely to stop sitemap scraping — exempting it would turn
  * the tightest budget in the table into no budget at all.
  */
-type RateLimitRule = { windowMs: number; maxRequests: number; crawlerExempt: boolean }
+type RateLimitRule = {
+  windowMs: number
+  maxRequests: number
+  crawlerExempt: boolean
+  /**
+   * Omitted means `sliding`. `fixed` buys a cheaper Redis round trip and pays
+   * for it by allowing a burst across the window boundary — acceptable on a
+   * public directory index, never on `/api/upload` or `/admin/operations`.
+   */
+  algorithm?: RateLimitAlgorithm
+}
 
 const BRANDS_DIRECTORY_RATE_LIMIT = 30
 
@@ -226,7 +273,17 @@ const RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   '/brands': {
     windowMs: 60_000,
     maxRequests: BRANDS_DIRECTORY_RATE_LIMIT,
-    crawlerExempt: false,
+    // Crawler-exempt, matching the `/brands/` detail rule. Metering crawlers
+    // here is what burned 410k of a 500k monthly Upstash quota on 2026-08-12:
+    // the directory index and its `?category=` filter views are the single
+    // largest source of bot requests on the site, and Upstash spends commands
+    // BEFORE the allow/deny verdict, so the budget above buys nothing against
+    // them. Before that day the bare `/brands` path matched no rule at all and
+    // cost zero commands; Cloudflare still sits in front. Do not flip to false.
+    crawlerExempt: true,
+    // Fixed window: one cheaper round trip per real-user request. A boundary
+    // burst on a public directory index is harmless.
+    algorithm: 'fixed',
   },
   '/brands/': {
     windowMs: 60_000,
@@ -445,7 +502,7 @@ export async function checkRateLimit(request: NextRequest): Promise<NextResponse
   const ip = getClientIp(request)
   const key = `${normalizedPathname}:${ip}`
 
-  const result = await checkStore(key, rule.windowMs, rule.maxRequests)
+  const result = await checkStore(key, rule.windowMs, rule.maxRequests, rule.algorithm ?? 'sliding')
 
   // Store unreachable: allow. Every alarm, header and 429 below stays exactly
   // as it was for a store that answers.

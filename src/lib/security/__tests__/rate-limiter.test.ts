@@ -135,8 +135,8 @@ describe('crawler rate-limit boundaries', () => {
     )
 
     let challenged = false
-    for (let i = 0; i < 200; i += 1) {
-      challenged = (await checkSoftRateLimit(browserRequest)) || challenged
+    for (let i = 0; i < 400 && !challenged; i += 1) {
+      challenged = await checkSoftRateLimit(browserRequest)
     }
     expect(challenged).toBe(true)
   })
@@ -401,20 +401,85 @@ describe('exact brand directory rate limit', () => {
     expect((await checkRateLimit(request('/en/brands')))?.status).toBe(429)
   })
 
-  it('does not exempt a Googlebot User-Agent from the exact-index budget', async () => {
+  // Superseded the 2026-08-12 assertion that Googlebot consumed the index
+  // budget: metering crawler traffic on the directory index burned 410k Upstash
+  // commands in one day. The index is crawler-exempt again, like /brands/.
+  it('exempts a Googlebot User-Agent from the exact-index budget', async () => {
     const crawlerHeaders = { 'user-agent': 'Googlebot/2.1' }
 
-    for (let requestNumber = 1; requestNumber <= directoryLimit; requestNumber += 1) {
+    for (let requestNumber = 1; requestNumber <= directoryLimit + 1; requestNumber += 1) {
       expect(await checkRateLimit(request('/en/brands', crawlerHeaders))).toBeNull()
     }
-
-    expect((await checkRateLimit(request('/en/brands', crawlerHeaders)))?.status).toBe(429)
   })
 
   it('does not match near-prefix paths', async () => {
     for (let requestNumber = 1; requestNumber <= directoryLimit + 1; requestNumber += 1) {
       expect(await checkRateLimit(request('/brands-extra'))).toBeNull()
     }
+  })
+})
+
+/**
+ * Redis command spend, not allow/deny. Upstash meters commands BEFORE the
+ * verdict, so these assert the number of store round trips a request costs --
+ * the 2026-08-12 incident burned 410k of a 500k monthly quota in one day.
+ */
+describe('redis command spend', () => {
+  let check: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    check = vi.fn(() => ({ allowed: true, remaining: 1, resetAt: Date.now() + 60_000 }))
+    setRateLimitStoreForTests({ check } as unknown as RateLimitStore)
+  })
+
+  afterEach(() => {
+    setRateLimitStoreForTests(null)
+  })
+
+  function request(path: string, headers: Record<string, string> = {}): NextRequest {
+    return new NextRequest(`https://formoria.com${path}`, {
+      headers: {
+        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+        'x-forwarded-for': '198.51.100.55',
+        accept: 'text/html',
+        ...headers,
+      },
+    })
+  }
+
+  const crawler = { 'user-agent': 'Googlebot/2.1' }
+
+  it('spends nothing on the directory index for a crawler, in either locale', async () => {
+    await checkRateLimit(request('/brands', crawler))
+    await checkRateLimit(request('/en/brands', crawler))
+    await checkRateLimit(request('/brands?category=coffee', crawler))
+
+    expect(check).not.toHaveBeenCalled()
+  })
+
+  it('still meters the directory index for a real user at the unchanged budget', async () => {
+    setRateLimitStoreForTests(createInMemoryRateLimiter())
+
+    for (let requestNumber = 1; requestNumber <= 30; requestNumber += 1) {
+      expect(await checkRateLimit(request('/brands'))).toBeNull()
+    }
+    expect((await checkRateLimit(request('/brands')))?.status).toBe(429)
+  })
+
+  it('spends nothing on the detail pages for a crawler (unchanged)', async () => {
+    await checkRateLimit(request('/brands/example', crawler))
+    await checkRateLimit(request('/en/brands/example', crawler))
+
+    expect(check).not.toHaveBeenCalled()
+  })
+
+
+  it('asks for a fixed-window limiter on the directory index and a sliding one elsewhere', async () => {
+    await checkRateLimit(request('/brands'))
+    expect(check).toHaveBeenLastCalledWith('/brands:198.51.100.55', 60_000, 30, 'fixed')
+
+    await checkRateLimit(request('/api/brands'))
+    expect(check).toHaveBeenLastCalledWith('/api/brands:198.51.100.55', 60_000, 60, 'sliding')
   })
 })
 
