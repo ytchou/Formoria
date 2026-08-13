@@ -1,7 +1,7 @@
 name: Release source
 
 on:
-  pull_request:
+  pull_request_target:
     branches: [main]
     types: [opened, synchronize, reopened, edited]
 
@@ -14,11 +14,17 @@ jobs:
     name: Release source
     runs-on: ubuntu-latest
     steps:
+      # pull_request_target runs trusted workflow code, and this explicit ref keeps
+      # the guard itself on the repository's default branch rather than the PR merge.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
       - name: Check release source
         env:
           GITHUB_BASE_REF: ${{ github.base_ref }}
           GITHUB_HEAD_REF: ${{ github.head_ref }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           GITHUB_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}

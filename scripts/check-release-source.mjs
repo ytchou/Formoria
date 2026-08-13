@@ -64,10 +64,28 @@ export function parseReleasePolicy(text) {
   };
 }
 
-export function checkReleaseSource({ baseRef, headRef, policyText }) {
+export function checkReleaseSource({
+  baseRef,
+  headRef,
+  headRepo = "",
+  repository = "",
+  policyText,
+}) {
   const policy = parseReleasePolicy(policyText);
   if (baseRef !== policy.release.target) {
     return { allowed: true, checked: false, policy };
+  }
+  if (
+    typeof headRepo !== "string" ||
+    !headRepo ||
+    typeof repository !== "string" ||
+    !repository ||
+    headRepo !== repository
+  ) {
+    throw new Error(
+      `Release source failed: pull requests into ${policy.release.target} must come from ${policy.release.source} in the base repository; ` +
+        `head repository ${headRepo || "(missing)"} does not match ${repository || "(missing)"}`,
+    );
   }
   if (headRef !== policy.release.source) {
     throw new Error(
@@ -81,6 +99,8 @@ export function checkReleaseSource({ baseRef, headRef, policyText }) {
 if (process.argv[1] && process.argv[1].endsWith("check-release-source.mjs")) {
   const baseRef = process.env.GITHUB_BASE_REF ?? process.argv[2];
   const headRef = process.env.GITHUB_HEAD_REF ?? process.argv[3];
+  const headRepo = process.env.GITHUB_HEAD_REPO;
+  const repository = process.env.GITHUB_REPOSITORY;
   const policyPath = process.env.RELEASE_FLOW_POLICY_PATH ?? POLICY_PATH;
   if (!baseRef || !headRef) {
     console.error(
@@ -92,6 +112,8 @@ if (process.argv[1] && process.argv[1].endsWith("check-release-source.mjs")) {
     const result = checkReleaseSource({
       baseRef,
       headRef,
+      headRepo,
+      repository,
       policyText: readFileSync(policyPath, "utf8"),
     });
     if (result.checked) {
