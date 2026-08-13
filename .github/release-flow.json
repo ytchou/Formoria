@@ -4,7 +4,8 @@
   "release": {
     "source": "staging",
     "target": "main",
-    "mergeMethod": "merge"
+    "mergeMethod": "merge",
+    "candidatePrefix": "release/candidate-"
   },
   "allowDirectProductionPullRequests": false
 }
