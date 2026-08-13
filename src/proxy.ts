@@ -128,6 +128,7 @@ const intlMiddleware = createMiddleware(routing);
 const KNOWN_LOCALES = new Set<string>(routing.locales);
 const ADMIN_DEFAULT_LOCALE = "en";
 const NEXT_INTL_LOCALE_HEADER = "X-NEXT-INTL-LOCALE";
+const NON_LOCALIZED_AUTH_ROUTES = new Set(["/auth/callback", "/auth/sign-out"]);
 /**
  * First path segments that carry a locale. Drives locale inference for
  * prefix-free (zh-TW) URLs. Every `src/app/[locale]` route with a `page.tsx`
@@ -284,6 +285,8 @@ function isSoftLimitPath(pathname: string) {
 }
 
 export function isLocalizedPublicPath(pathname: string) {
+  if (NON_LOCALIZED_AUTH_ROUTES.has(pathname)) return false;
+
   const segments = pathname.split("/").filter(Boolean);
   if (segments.length === 0) return true;
 

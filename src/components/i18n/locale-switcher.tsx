@@ -12,12 +12,24 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { usePathname } from '@/i18n/navigation'
+import { readOnlyStagingLocaleHref, type AppLocale } from '@/i18n/locale-preference'
 import { trackLanguageSwitched } from '@/lib/analytics'
 
-function preserveCurrentUrl(event: FormEvent<HTMLFormElement>) {
+function preserveCurrentUrl(event: FormEvent<HTMLFormElement>, locale: AppLocale) {
   const returnTo = event.currentTarget.elements.namedItem('returnTo')
   if (returnTo instanceof HTMLInputElement) {
-    returnTo.value = `${window.location.pathname}${window.location.search}${window.location.hash}`
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`
+    returnTo.value = currentUrl
+
+    const stagingHref = readOnlyStagingLocaleHref(
+      currentUrl,
+      locale,
+      process.env.NEXT_PUBLIC_DEPLOYMENT_ENV,
+    )
+    if (stagingHref) {
+      event.preventDefault()
+      window.location.assign(stagingHref)
+    }
   }
 }
 
@@ -42,7 +54,7 @@ export function LocaleSwitcher({ compact = false }: { compact?: boolean }) {
           <form
             key={targetLocale}
             action={setLocalePreference.bind(null, targetLocale)}
-            onSubmit={preserveCurrentUrl}
+            onSubmit={(event) => preserveCurrentUrl(event, targetLocale)}
           >
             <input type="hidden" name="returnTo" defaultValue={pathname} />
             <DropdownMenuItem

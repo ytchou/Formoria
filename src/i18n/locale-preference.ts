@@ -28,6 +28,16 @@ export function localizePath(pathname: string, locale: string): string {
   return `${localizedPath}${suffix}`
 }
 
+export function readOnlyStagingLocaleHref(
+  pathname: string,
+  locale: string,
+  deploymentEnvironment: string | undefined,
+): string | null {
+  return deploymentEnvironment?.trim().toLowerCase() === 'staging'
+    ? localizePath(pathname, locale)
+    : null
+}
+
 export function resolveAuthenticatedLocale({
   isNewUser,
   profileLocale,

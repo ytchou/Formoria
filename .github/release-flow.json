@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "developmentPullRequestBase": "staging",
+  "release": {
+    "source": "staging",
+    "target": "main",
+    "mergeMethod": "merge"
+  },
+  "allowDirectProductionPullRequests": false
+}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   localizePath,
+  readOnlyStagingLocaleHref,
   resolveAuthenticatedLocale,
   resolveInitialLocale,
 } from './locale-preference'
@@ -78,6 +79,15 @@ describe('locale preference', () => {
     expect(localizePath('/?campaign=summer#brands', 'en')).toBe(
       '/en?campaign=summer#brands',
     )
+  })
+
+  it('gives read-only staging a GET destination while production keeps the preference action', () => {
+    const currentUrl = '/brands?tag=rice%2Fgrains&tag=gift%20boxes#results'
+
+    expect(readOnlyStagingLocaleHref(currentUrl, 'en', 'staging')).toBe(
+      '/en/brands?tag=rice%2Fgrains&tag=gift%20boxes#results',
+    )
+    expect(readOnlyStagingLocaleHref(currentUrl, 'en', 'production')).toBeNull()
   })
 
   it('restores a returning user profile locale while new users keep their auth intent', () => {

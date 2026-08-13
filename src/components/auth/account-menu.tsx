@@ -4,7 +4,11 @@ import type { FormEvent } from 'react'
 import NextLink from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
 import { Link, usePathname } from '@/i18n/navigation'
-import { signInHref } from '@/i18n/locale-preference'
+import {
+  readOnlyStagingLocaleHref,
+  signInHref,
+  type AppLocale,
+} from '@/i18n/locale-preference'
 
 import { setLocalePreference } from '@/app/actions/locale-preference'
 import { useUser } from '@/lib/auth/use-user'
@@ -21,10 +25,23 @@ function handleSignOut() {
   trackSignOut()
 }
 
-function preserveCurrentUrl(event: FormEvent<HTMLFormElement>) {
+function preserveCurrentUrl(event: FormEvent<HTMLFormElement>, locale?: AppLocale) {
   const returnTo = event.currentTarget.elements.namedItem('returnTo')
   if (returnTo instanceof HTMLInputElement) {
-    returnTo.value = `${window.location.pathname}${window.location.search}${window.location.hash}`
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`
+    returnTo.value = currentUrl
+
+    const stagingHref = locale
+      ? readOnlyStagingLocaleHref(
+          currentUrl,
+          locale,
+          process.env.NEXT_PUBLIC_DEPLOYMENT_ENV,
+        )
+      : null
+    if (stagingHref) {
+      event.preventDefault()
+      window.location.assign(stagingHref)
+    }
   }
 }
 
@@ -98,7 +115,7 @@ export function AccountMenu() {
           <form
             key={targetLocale}
             action={setLocalePreference.bind(null, targetLocale)}
-            onSubmit={preserveCurrentUrl}
+            onSubmit={(event) => preserveCurrentUrl(event, targetLocale)}
           >
             <input type="hidden" name="returnTo" defaultValue={pathname} />
             <DropdownMenuItem
