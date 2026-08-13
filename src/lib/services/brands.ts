@@ -1736,25 +1736,63 @@ export type SubcategorySummary = {
   latestUpdatedAt: string | null
 }
 
+type SubcategorySummaryRow = {
+  productTags: string[]
+  updatedAt: string
+}
+
+/**
+ * Every approved brand in one category, as the taxonomy summary needs them.
+ *
+ * This read has no `limit` — the counts are a whole-category aggregate, so it
+ * genuinely wants every row. That is affordable once an hour and not once a
+ * request: `/[locale]/categories/[category]` awaits `searchParams`, so it
+ * renders dynamically and `revalidate = 3600` on the page buys nothing (see the
+ * note in cache/public-brand-cache.ts — taxonomy routes have no ISR entries).
+ * Uncached, every crawler hit on every filter permutation replayed a full scan
+ * against PostgREST, which is what saturated the origin (DEV-1460).
+ *
+ * Cached at the row level rather than at the summary: the aggregation below is
+ * cheap and varies by `subcategorySlug`, while the query is the expensive part
+ * and varies only by category. `unstable_cache` serializes, so this returns
+ * plain rows — the `Map` is rebuilt per call by the caller.
+ */
+const getCachedSubcategoryRows = unstable_cache(
+  (categorySlug: string) =>
+    auditedCall(
+      {
+        provider: "cache",
+        operation: "getCachedSubcategoryRows",
+        kind: "service",
+      },
+      async (): Promise<SubcategorySummaryRow[]> => {
+        const supabase = createServiceClient();
+        const { data, error } = await excludeTestBrands(
+          supabase
+            .from("brands")
+            .select("product_tags, updated_at")
+            .eq("status", "approved")
+            .eq("product_type", categorySlug),
+        );
+
+        if (error) throw error;
+
+        return (data ?? []).map((row) => ({
+          productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
+          updatedAt: row.updated_at,
+        }));
+      },
+      { summary: { cached: true } },
+    ),
+  ["subcategory-summary-rows"],
+  { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
+);
+
 export async function getSubcategorySummary(
   categorySlug: string,
   subcategorySlug?: string,
 ): Promise<SubcategorySummary> {
-  const supabase = createServiceClient();
-  const { data, error } = await excludeTestBrands(
-    supabase
-      .from("brands")
-      .select("product_tags, updated_at")
-      .eq("status", "approved")
-      .eq("product_type", categorySlug),
-  );
-
-  if (error) throw error;
-
-  const brands = (data ?? []).map((row) => ({
-    productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
-    updatedAt: row.updated_at,
-  }));
+  const brands = await getCachedSubcategoryRows(categorySlug);
   const counts = new Map<string, number>();
   let latestUpdatedAt: string | null = null;
 

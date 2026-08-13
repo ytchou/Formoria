@@ -14,6 +14,8 @@
  * stay parameters — this owns the pagination, not the projection.
  */
 
+import { mapWithConcurrency } from "./concurrency";
+
 /**
  * PostgREST caps a response, not a filter list, so a chunk of 200 brands can
  * still exceed the row cap: a brand carries 10-14 active images, so 200 brands
@@ -143,8 +145,28 @@ type BrandImageFilterChain = {
 };
 
 /**
+ * How many batch reads may be in flight at once.
+ *
+ * Batch count scales with the caller's brand count, so an unbounded
+ * `Promise.all` here was fine for a 12-card directory page (one batch) and not
+ * fine for the Creative Expo exhibitor roster, where a few hundred brands at
+ * ~15-18 per batch opened tens of simultaneous PostgREST requests inside a
+ * single render. That is a page view consuming a double-digit share of the
+ * connection pool, and it is the shape behind the `brands.cardImageMeta`
+ * pool-timeout and 522 reports in DEV-1460.
+ *
+ * Ceiling: a flat limit tuned for page renders, where a handful of batches is
+ * the common case and latency is additive past the bound. Raise it, or give
+ * background jobs their own limit, if a render ever needs hundreds of brands
+ * hydrated at once — the deeper fix for that case is the hero-lookup view
+ * already described on BRAND_IMAGE_URL_FILTER_BUDGET above.
+ */
+export const BRAND_IMAGE_READ_CONCURRENCY = 4;
+
+/**
  * Read every active `brand_images` row matching each batch, paging within a
- * batch and running batches concurrently.
+ * batch and running batches concurrently, up to
+ * `BRAND_IMAGE_READ_CONCURRENCY`.
  *
  * Throws on a query error. Callers decide whether that is fatal —
  * `hydrateCardImageMeta` deliberately does not.
@@ -154,8 +176,10 @@ export async function fetchActiveBrandImageRows<Row>(
   select: string,
   batches: BrandImageBatch[],
 ): Promise<Row[]> {
-  const pages = await Promise.all(
-    batches.map(async (batch) => {
+  const pages = await mapWithConcurrency(
+    batches,
+    BRAND_IMAGE_READ_CONCURRENCY,
+    async (batch) => {
       const rows: Row[] = [];
       for (let offset = 0; ; offset += BRAND_IMAGE_PAGE_SIZE) {
         let query = supabase
@@ -180,7 +204,7 @@ export async function fetchActiveBrandImageRows<Row>(
         if (page.length < BRAND_IMAGE_PAGE_SIZE) break;
       }
       return rows;
-    }),
+    },
   );
 
   return pages.flat();
