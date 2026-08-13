@@ -210,7 +210,11 @@ export function trackExhibitorSiteClicked(
   capturePostHogEvent(ANALYTICS_EVENTS.EXHIBITOR_SITE_CLICKED, properties)
 }
 
-export type ExternalLinkSurface = 'detail_page' | 'card' | 'recommendation'
+export type ExternalLinkSurface =
+  | 'detail_page'
+  | 'card'
+  | 'recommendation'
+  | 'selected_product'
 
 export function trackExternalLinkClicked(
   slug: string,

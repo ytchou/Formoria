@@ -13,9 +13,14 @@ const BRAND_IMAGES_BUCKET = ALLOWED_UPLOAD_BUCKETS[0]
 const BRAND_IMAGES_PUBLIC_SEGMENT = `/storage/v1/object/public/${BRAND_IMAGES_BUCKET}/`
 const BRAND_IMAGES_KEY_PREFIX = 'brands/'
 const SUBMISSION_IMAGES_KEY_PREFIX = 'submissions/'
+// Curated product images (DEV-1404): `curated-products/<brand>/<product>/<hash>.webp`
+// in the same `brand-images` bucket.
+const CURATED_PRODUCT_IMAGES_KEY_PREFIX = 'curated-products/'
+const DELETABLE_IMAGE_KEY_PREFIXES = [BRAND_IMAGES_KEY_PREFIX] as const
 const READABLE_IMAGE_KEY_PREFIXES = [
   BRAND_IMAGES_KEY_PREFIX,
   SUBMISSION_IMAGES_KEY_PREFIX,
+  CURATED_PRODUCT_IMAGES_KEY_PREFIX,
 ] as const
 const CLAIM_PROOF_IMAGE_CONFIG: Partial<ImageProcessorConfig> = {
   maxWidth: 2400,
@@ -34,7 +39,17 @@ interface UploadImageInput {
   contentType: string
 }
 
-type PublicUploadImageInput = UploadImageInput & { bucket: 'brand-images' }
+/**
+ * `upsert` is opt-in and only safe for a caller whose path is DERIVED, not
+ * random: the curated-product sync (DEV-1404) keys its object on
+ * sha256(image_source_url), so overwriting in place is precisely how it avoids
+ * orphaning the previous object on every apply. A random-path caller must leave
+ * it unset — see uploadStorageObject, where it also gates retry idempotency.
+ */
+type PublicUploadImageInput = UploadImageInput & {
+  bucket: 'brand-images'
+  upsert?: boolean
+}
 type PrivateUploadImageInput = UploadImageInput & {
   bucket: 'claim-proofs' | 'origin-evidence'
 }
@@ -50,10 +65,18 @@ export function getUploadImageProcessingConfig(
 }
 
 /**
- * DELETE-path key derivation: `brands/` only. Its consumer is
- * `deleteBrandImages`, which removes every object it resolves, so anything it
- * fails to recognise is merely left alone — a safe failure. Widening it would
- * hand a delete path keys it was never audited to destroy.
+ * DELETE-path key derivation for the BRAND-IMAGE flows: `brands/` only. Its
+ * consumers (`deleteBrandImages`, `releaseBrandImageUrls`, the `storage_path`
+ * written by `syncOwnerUploadedImages`, `scripts/repair-brand-images.ts`) remove
+ * every object they resolve, so anything it fails to recognise is merely left
+ * alone — a safe failure.
+ *
+ * `curated-products/` is NOT here on purpose (DEV-1404). Owner brand-image
+ * cleanup would otherwise resolve a curated key and delete a curated product's
+ * only object while `curated_products.image_url` still points at it — a
+ * deletion the storage sweep cannot flag, because the reference survives.
+ * A curated deletion path, when one is needed, gets its own explicitly scoped
+ * derivation rather than an entry here. `submissions/` remains read-only.
  */
 export function storageKeyFromPublicUrl(url: string): string | null {
   const prefix = getBrandImagesPublicPrefix()
@@ -62,7 +85,7 @@ export function storageKeyFromPublicUrl(url: string): string | null {
   }
 
   const key = url.slice(prefix.length)
-  if (!key || !key.startsWith(BRAND_IMAGES_KEY_PREFIX)) {
+  if (!DELETABLE_IMAGE_KEY_PREFIXES.some((allowed) => key.startsWith(allowed))) {
     return null
   }
 
@@ -122,7 +145,10 @@ export async function deleteStoredImagePaths(paths: string[]): Promise<void> {
     { provider: 'images', operation: 'deleteStoredImagePaths', kind: 'service' },
     async () => {
   const keys = [...new Set(paths)].filter(
-    (path) => path.startsWith('brands/') || path.startsWith('submissions/')
+    (path) =>
+      path.startsWith(BRAND_IMAGES_KEY_PREFIX) ||
+      path.startsWith(SUBMISSION_IMAGES_KEY_PREFIX) ||
+      path.startsWith(CURATED_PRODUCT_IMAGES_KEY_PREFIX)
   )
   if (keys.length === 0) return
 

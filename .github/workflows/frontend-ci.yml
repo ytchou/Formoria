@@ -75,7 +75,14 @@ jobs:
     name: Build
     if: github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    environment: "Formoria / staging"
+    # Supabase credentials live as environment secrets, and GitHub injects those
+    # only into a job that names its environment. Without this line every
+    # `secrets.*` below resolves to an empty string and the build aborts on the
+    # first prerendered route with "supabaseUrl is required".
+    # Staging, never production: a pull_request job must not reach live data,
+    # and that holds for a promotion PR into main too — its commits were already
+    # verified here.
+    environment: Formoria / staging
     timeout-minutes: 10
     permissions:
       contents: read
