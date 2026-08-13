@@ -144,7 +144,24 @@ function query(target: DeploymentTarget, sql: string): string {
 }
 
 function queryFile(target: DeploymentTarget, file: string): void {
-  supabase(["db", "query", "--db-url", target.databaseUrl, "--file", file]);
+  const result = spawnSync(
+    "psql",
+    [
+      "--dbname",
+      target.databaseUrl,
+      "--set",
+      "ON_ERROR_STOP=1",
+      "--file",
+      file,
+    ],
+    {
+      cwd: ROOT,
+      stdio: "inherit",
+    },
+  );
+  if (result.status !== 0) {
+    throw new Error(`psql failed while applying ${file}`);
+  }
 }
 
 function databaseIsFresh(target: DeploymentTarget): boolean {
@@ -158,9 +175,7 @@ function databaseIsFresh(target: DeploymentTarget): boolean {
       target,
       "select count(*)::text as FORMORIA_MIGRATION_COUNT from supabase_migrations.schema_migrations;",
     );
-    const match = ledger.match(/FORMORIA_MIGRATION_COUNT[\s|:]+(\d+)/i);
-    if (!match) throw new Error("Could not read the remote migration ledger");
-    return Number(match[1]) === 0;
+    return resultCount(ledger, "FORMORIA_MIGRATION_COUNT") === 0;
   }
   throw new Error("Could not determine remote migration state");
 }
@@ -170,8 +185,21 @@ function migrationCheck(target: DeploymentTarget): void {
   supabase(["db", "push", "--db-url", target.databaseUrl, "--dry-run"]);
 }
 
-function resultCount(result: string, column: string): number {
-  const match = result.match(new RegExp(`${column}[\\s|:]+(\\d+)`, "i"));
+export function resultCount(result: string, column: string): number {
+  try {
+    const parsed = JSON.parse(result) as {
+      rows?: Array<Record<string, unknown>>;
+    };
+    const value = parsed.rows?.[0]?.[column.toLowerCase()];
+    if (typeof value === "number" || typeof value === "string") {
+      const count = Number(value);
+      if (Number.isInteger(count) && count >= 0) return count;
+    }
+  } catch {
+    // Older CLI versions render a table instead of JSON.
+  }
+
+  const match = result.match(new RegExp(`${column}[^0-9]+(\\d+)`, "i"));
   if (!match) throw new Error(`Database verification could not read ${column}`);
   return Number(match[1]);
 }
@@ -235,7 +263,7 @@ function verify(target: DeploymentTarget, includeSchemaDiff: boolean): void {
       target,
       "select count(*)::text as FORMORIA_ACTIVE_CRON from cron.job where active;",
     );
-    if (!/FORMORIA_ACTIVE_CRON[\s|:]+0\b/i.test(cron)) {
+    if (resultCount(cron, "FORMORIA_ACTIVE_CRON") !== 0) {
       throw new Error(
         "Staging verification failed: at least one cron job is active",
       );

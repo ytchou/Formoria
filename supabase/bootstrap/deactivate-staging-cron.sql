@@ -1,4 +1,12 @@
-update cron.job set active = false where active;
+do $$
+declare
+  active_job record;
+begin
+  for active_job in select jobid from cron.job where active loop
+    perform cron.alter_job(active_job.jobid, active := false);
+  end loop;
+end
+$$;
 
 do $$
 begin

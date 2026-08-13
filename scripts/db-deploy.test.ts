@@ -3,6 +3,7 @@ import {
   assertStagingSeed,
   migrationSafetyPlan,
   projectRefFromDatabaseUrl,
+  resultCount,
   validateDeploymentTarget,
 } from "./db-deploy";
 
@@ -78,5 +79,14 @@ describe("database deployment identity guard", () => {
       finalizeStaging: true,
     });
     expect(() => assertStagingSeed(staging)).not.toThrow();
+  });
+
+  it("reads migration counts from Supabase CLI JSON output", () => {
+    expect(
+      resultCount(
+        JSON.stringify({ rows: [{ formoria_migration_count: "257" }] }),
+        "FORMORIA_MIGRATION_COUNT",
+      ),
+    ).toBe(257);
   });
 });
