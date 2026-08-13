@@ -403,6 +403,26 @@ describe("unified health-agent workflow contract", () => {
     );
   });
 
+  it("passes writer credentials to the final Linear ticket writer", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+    const finalReportStep = workflow.slice(
+      workflow.indexOf('name: "Stage 5 · Final manager report"'),
+      workflow.indexOf(
+        'name: "Stage 5 · Final manager report — duplicate terminal"',
+      ),
+    );
+
+    expect(finalReportStep).toContain(
+      "HEALTH_AGENT_READER_TOKEN: ${{ secrets.HEALTH_AGENT_READER_TOKEN }}",
+    );
+    expect(finalReportStep).toContain(
+      "HEALTH_AGENT_WRITER_TOKEN: ${{ secrets.HEALTH_AGENT_WRITER_TOKEN }}",
+    );
+    expect(finalReportStep).toContain(
+      "NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}",
+    );
+  });
+
   it("sends only the findings report and final report and uploads one run artifact", async () => {
     const workflow = await readFile(workflowPath, "utf8");
 
