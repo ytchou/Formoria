@@ -12,7 +12,7 @@ mechanically; the rest is here because nothing else will catch it.
 |---|---|---|
 | `title` | yes | Drives `<h1>`, `<title>`, and Article JSON-LD. The body must NOT repeat it as an `# h1` |
 | `description` | yes | Meta description, `og:description`, JSON-LD |
-| `slug` | yes | **Must equal the filename stem minus the `YYYY-MM-DD-` prefix.** The route param uses the stem while the canonical URL uses this field, so a mismatch ships a canonical pointing at a 404 |
+| `slug` | yes | **Must equal the whole filename stem, date prefix included.** See below — this is the field that has already broken in production |
 | `locale` | yes | `zh-TW` or `en`. Anything else makes the story invisible to every list query |
 | `publishedAt` | yes | `YYYY-MM-DD`. Missing sinks it to the end of the sort and drops `datePublished` from JSON-LD |
 | `updatedAt` | no | Drives `dateModified` and sitemap `lastmod` |
@@ -25,6 +25,22 @@ mechanically; the rest is here because nothing else will catch it.
 | `series`, `seriesTitle`, `seriesOrder` | if part of a series | Groups the story on the hub and enables the series nav |
 | `author` | no | Falls back to the i18n byline |
 | `voiceCanonical` | yes | **Write `false`.** A human sets it true once the voice is approved; `/formoria-voice-refresh` only quotes exemplars from canonical stories, so a self-declared `true` would let a draft teach the next draft its own mistakes |
+
+### The slug trap
+
+The route param resolves against the **filename** — `getPublishedStoryBySlug`
+reads `content/stories/<param>.mdx`. The canonical URL, the sitemap entry, and
+the Article JSON-LD are all built from **`frontmatter.slug`**. Nothing reconciles
+them.
+
+Both published stories shipped with the date stripped out of `slug`. The result:
+the live page at `/stories/2026-08-06-…` returned 200 and declared a canonical of
+`/stories/2026-…`, which 404s — and the sitemap submitted that same 404. Every
+indexing signal pointed at a URL that does not exist, so neither story could be
+indexed. Nothing failed, nothing logged, and Lighthouse scored it fine.
+
+Write `slug` as the entire filename stem. A self-referencing canonical is the
+only safe state.
 
 ### The FaqBlock trap
 
@@ -101,9 +117,11 @@ Two vocabularies that must not be mixed:
 
 ## Hero image
 
-`public/images/stories/<slug>.webp`, 16:9, rendered `priority` as the LCP
-element. A missing file does not break the build — it 404s at request time — so
-the frontmatter gate checks the file exists on disk.
+Lives under `public/images/stories/`, 16:9, rendered `priority` as the LCP
+element. The filename is not derived from anything — `heroImage` carries the full
+path — so name it after the story and keep it stable once published. A missing
+file does not break the build (it 404s at request time), which is why the
+frontmatter gate checks it exists on disk.
 
 This skill does not generate hero images. Write the expected path and report the
 missing file as a hand-off item, the same as a `[待確認]` marker.

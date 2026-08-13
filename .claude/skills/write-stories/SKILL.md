@@ -126,13 +126,14 @@ While drafting:
 
 ## Step 6 — Emit MDX
 
-Write to `content/stories/<YYYY-MM-DD>-<slug>.mdx`, where `<slug>` is the
-frontmatter `slug` and the date prefix is the publish date. The full frontmatter
-and shortcode contract is `references/mdx-contract.md`. The parts most often got
-wrong:
+Write to `content/stories/<YYYY-MM-DD>-<name>.mdx`, where the date prefix is the
+publish date. The full frontmatter and shortcode contract is
+`references/mdx-contract.md`. The parts most often got wrong:
 
-- `slug` must equal the filename stem minus the date prefix, or the canonical URL
-  points at a 404.
+- `slug` must equal the **entire filename stem**, date prefix included. The route
+  resolves against the filename while the canonical, the sitemap, and the JSON-LD
+  are built from `slug` — both published stories shipped with the date stripped
+  out and pointed every indexing signal at a 404.
 - `faq` goes in **frontmatter**, 4–6 entries. An in-body `<FaqBlock>` renders the
   same accordion and emits no JSON-LD.
 - `draft: true` and `voiceCanonical: false`. A human flips both.

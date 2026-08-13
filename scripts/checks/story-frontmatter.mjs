@@ -72,14 +72,22 @@ function checkStory(file, raw) {
   }
 
   const stem = file.replace(/\.mdx$/, "");
-  const dated = DATE_PREFIX.exec(stem);
-  if (!dated) {
+  if (!DATE_PREFIX.test(stem)) {
     fail(file, "filename must start with a YYYY-MM-DD- prefix");
-  } else if (data.slug !== dated[2]) {
-    // The canonical URL uses frontmatter.slug; the route uses the stem.
+  }
+  if (data.slug !== stem) {
+    // `slug` must equal the WHOLE stem, date prefix included. The route param
+    // resolves against the filename (`getPublishedStoryBySlug` reads
+    // `content/stories/<param>.mdx`) while the canonical URL, the sitemap, and
+    // the Article JSON-LD are all built from `frontmatter.slug`. Any difference
+    // between them points every indexing signal at a URL that does not exist.
+    //
+    // Both published stories shipped with the date stripped from `slug`, so the
+    // live pages canonicalled to a 404 and the sitemap submitted that same 404 —
+    // neither story could be indexed. Self-referencing is the only safe state.
     fail(
       file,
-      `\`slug\` is ${JSON.stringify(data.slug)} but the filename implies ${JSON.stringify(dated[2])} — the canonical URL would point at a 404`,
+      `\`slug\` is ${JSON.stringify(data.slug)} but must equal the filename stem ${JSON.stringify(stem)} — the canonical URL and sitemap entry are built from \`slug\` while the route resolves against the filename, so any difference points them at a 404`,
     );
   }
 
