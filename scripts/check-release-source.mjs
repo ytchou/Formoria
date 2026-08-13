@@ -51,6 +51,10 @@ export function parseReleasePolicy(text) {
   if (typeof raw.allowDirectProductionPullRequests !== "boolean") {
     throw new Error("allowDirectProductionPullRequests must be a boolean");
   }
+  const candidatePrefix = branchName(
+    release.candidatePrefix,
+    "release.candidatePrefix",
+  );
   if (source === target || source !== development || target === development) {
     throw new Error(
       "release.source must match developmentPullRequestBase and differ from release.target",
@@ -59,19 +63,41 @@ export function parseReleasePolicy(text) {
   return {
     version: 1,
     developmentPullRequestBase: development,
-    release: { source, target, mergeMethod: "merge" },
+    release: { source, target, mergeMethod: "merge", candidatePrefix },
     allowDirectProductionPullRequests: raw.allowDirectProductionPullRequests,
   };
 }
 
-export function checkReleaseSource({ baseRef, headRef, policyText }) {
+export function checkReleaseSource({
+  baseRef,
+  headRef,
+  headRepo = "",
+  repository = "",
+  policyText,
+}) {
   const policy = parseReleasePolicy(policyText);
   if (baseRef !== policy.release.target) {
     return { allowed: true, checked: false, policy };
   }
-  if (headRef !== policy.release.source) {
+  if (
+    typeof headRepo !== "string" ||
+    !headRepo ||
+    typeof repository !== "string" ||
+    !repository ||
+    headRepo !== repository
+  ) {
     throw new Error(
-      `Release source failed: pull requests into ${policy.release.target} must come from ${policy.release.source}; ` +
+      `Release source failed: pull requests into ${policy.release.target} must come from ${policy.release.source} in the base repository; ` +
+        `head repository ${headRepo || "(missing)"} does not match ${repository || "(missing)"}`,
+    );
+  }
+  const isCandidateHead =
+    typeof headRef === "string" &&
+    headRef.startsWith(policy.release.candidatePrefix) &&
+    headRef.length > policy.release.candidatePrefix.length;
+  if (headRef !== policy.release.source && !isCandidateHead) {
+    throw new Error(
+      `Release source failed: pull requests into ${policy.release.target} must come from ${policy.release.source} or ${policy.release.candidatePrefix}<suffix>; ` +
         "use promote-staging for a deliberate production release",
     );
   }
@@ -81,6 +107,8 @@ export function checkReleaseSource({ baseRef, headRef, policyText }) {
 if (process.argv[1] && process.argv[1].endsWith("check-release-source.mjs")) {
   const baseRef = process.env.GITHUB_BASE_REF ?? process.argv[2];
   const headRef = process.env.GITHUB_HEAD_REF ?? process.argv[3];
+  const headRepo = process.env.GITHUB_HEAD_REPO;
+  const repository = process.env.GITHUB_REPOSITORY;
   const policyPath = process.env.RELEASE_FLOW_POLICY_PATH ?? POLICY_PATH;
   if (!baseRef || !headRef) {
     console.error(
@@ -92,6 +120,8 @@ if (process.argv[1] && process.argv[1].endsWith("check-release-source.mjs")) {
     const result = checkReleaseSource({
       baseRef,
       headRef,
+      headRepo,
+      repository,
       policyText: readFileSync(policyPath, "utf8"),
     });
     if (result.checked) {
