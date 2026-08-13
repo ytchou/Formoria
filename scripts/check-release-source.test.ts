@@ -10,7 +10,12 @@ import {
 const policy = JSON.stringify({
   version: 1,
   developmentPullRequestBase: "staging",
-  release: { source: "staging", target: "main", mergeMethod: "merge" },
+  release: {
+    source: "staging",
+    target: "main",
+    mergeMethod: "merge",
+    candidatePrefix: "release/candidate-",
+  },
   allowDirectProductionPullRequests: false,
 });
 
@@ -91,6 +96,48 @@ describe("release source guard", () => {
         policyText: policy,
       }),
     ).toThrow(/must come from staging/);
+  });
+
+  it("permits only same-repository candidate heads with a non-empty configured suffix", () => {
+    expect(
+      checkReleaseSource({
+        baseRef: "main",
+        headRef: "release/candidate-20260813",
+        headRepo: "ytchou/formoria",
+        repository: "ytchou/formoria",
+        policyText: policy,
+      }),
+    ).toMatchObject({
+      allowed: true,
+      checked: true,
+    });
+    expect(() =>
+      checkReleaseSource({
+        baseRef: "main",
+        headRef: "release/candidate-20260813",
+        headRepo: "contributor/formoria",
+        repository: "ytchou/formoria",
+        policyText: policy,
+      }),
+    ).toThrow(/does not match/);
+    expect(() =>
+      checkReleaseSource({
+        baseRef: "main",
+        headRef: "release/candidate",
+        headRepo: "ytchou/formoria",
+        repository: "ytchou/formoria",
+        policyText: policy,
+      }),
+    ).toThrow(/must come from/);
+    expect(() =>
+      checkReleaseSource({
+        baseRef: "main",
+        headRef: "release/candidate-",
+        headRepo: "ytchou/formoria",
+        repository: "ytchou/formoria",
+        policyText: policy,
+      }),
+    ).toThrow(/must come from/);
   });
 
   it("rejects a fork's staging branch as a production source", () => {

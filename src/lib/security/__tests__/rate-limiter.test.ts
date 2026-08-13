@@ -135,8 +135,8 @@ describe('crawler rate-limit boundaries', () => {
     )
 
     let challenged = false
-    for (let i = 0; i < 200; i += 1) {
-      challenged = (await checkSoftRateLimit(browserRequest)) || challenged
+    for (let i = 0; i < 400 && !challenged; i += 1) {
+      challenged = await checkSoftRateLimit(browserRequest)
     }
     expect(challenged).toBe(true)
   })
@@ -189,6 +189,145 @@ describe('machine cron route availability', () => {
     })
 
     await expect(checkRateLimit(cronRequest)).resolves.toBeNull()
+  })
+})
+
+/**
+ * Production outage 2026-08-13: the Upstash account hit its 500k-command plan
+ * quota, `rateLimiter.check` rejected, and the rejection escaped `proxy()` — so
+ * every rule-matched route answered a bare platform 500. A rate limiter that
+ * cannot reach its store must fail OPEN.
+ */
+describe('rate-limit store outage', () => {
+  let consoleError: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    setRateLimitStoreForTests(null)
+    consoleError.mockRestore()
+  })
+
+  function throwingStore(): { store: RateLimitStore; check: ReturnType<typeof vi.fn> } {
+    const check = vi.fn(() => {
+      throw new Error('ERR max requests limit exceeded. Limit: 500000, Usage: 500000')
+    })
+    return { store: { check } as unknown as RateLimitStore, check }
+  }
+
+  function request(path: string, headers: Record<string, string> = {}): NextRequest {
+    return new NextRequest(`https://formoria.com${path}`, {
+      headers: {
+        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+        'x-forwarded-for': '198.51.100.11',
+        accept: 'text/html',
+        ...headers,
+      },
+    })
+  }
+
+  it('allows a protected route when the store throws instead of rejecting', async () => {
+    setRateLimitStoreForTests(throwingStore().store)
+
+    await expect(checkRateLimit(request('/api/brands'))).resolves.toBeNull()
+  })
+
+  it('allows the public routes that 500ed in production when the store throws', async () => {
+    setRateLimitStoreForTests(throwingStore().store)
+
+    await expect(checkRateLimit(request('/sitemap.xml'))).resolves.toBeNull()
+    await expect(checkRateLimit(request('/brands'))).resolves.toBeNull()
+    await expect(checkRateLimit(request('/brands/example'))).resolves.toBeNull()
+  })
+
+  it('issues no soft challenge when the store throws', async () => {
+    setRateLimitStoreForTests(throwingStore().store)
+
+    await expect(checkSoftRateLimit(request('/brands/example'))).resolves.toBe(false)
+  })
+
+  it('stops dialling the store for the cooldown window once the breaker opens', async () => {
+    const { store, check } = throwingStore()
+    setRateLimitStoreForTests(store)
+
+    await checkRateLimit(request('/api/brands'))
+    await checkRateLimit(request('/api/brands'))
+    await checkRateLimit(request('/brands'))
+    await checkSoftRateLimit(request('/brands/example'))
+
+    expect(check).toHaveBeenCalledTimes(1)
+  })
+
+  it('logs once per breaker window rather than once per failed request', async () => {
+    setRateLimitStoreForTests(throwingStore().store)
+
+    for (let i = 0; i < 10; i += 1) {
+      await checkRateLimit(request('/api/brands'))
+    }
+
+    expect(consoleError).toHaveBeenCalledTimes(1)
+  })
+
+  // A breaker that opens but never re-closes leaves rate limiting permanently
+  // disabled once the store blips -- the failure mode the fail-open guard could
+  // otherwise introduce, and the plan's stated rollback trigger. Cover the
+  // recovery edge, not just the trip.
+  it('re-probes the store once the cooldown elapses', async () => {
+    const { store, check } = throwingStore()
+    setRateLimitStoreForTests(store)
+
+    await checkRateLimit(request('/api/brands'))
+    await checkRateLimit(request('/api/brands'))
+    expect(check).toHaveBeenCalledTimes(1)
+
+    const realNow = Date.now
+    try {
+      Date.now = () => realNow() + 61_000
+      await checkRateLimit(request('/api/brands'))
+      expect(check).toHaveBeenCalledTimes(2)
+    } finally {
+      Date.now = realNow
+    }
+  })
+
+  it('serves traffic again when the store recovers after the cooldown', async () => {
+    let shouldThrow = true
+    const check = vi.fn(() => {
+      if (shouldThrow) throw new Error('ERR max requests limit exceeded')
+      return { allowed: false, remaining: 0, resetAt: Date.now() + 30_000 }
+    })
+    setRateLimitStoreForTests({ check })
+
+    // Breaker opens, request is allowed through (fail open).
+    await expect(checkRateLimit(request('/api/brands'))).resolves.toBeNull()
+
+    const realNow = Date.now
+    try {
+      shouldThrow = false
+      Date.now = () => realNow() + 61_000
+      // Store is healthy again: real enforcement resumes, not a permanent bypass.
+      const response = await checkRateLimit(request('/api/brands'))
+      expect(response?.status).toBe(429)
+    } finally {
+      Date.now = realNow
+    }
+  })
+
+  it('still returns the 429 with its headers when a healthy store denies', async () => {
+    const resetAt = Date.now() + 30_000
+    setRateLimitStoreForTests({
+      check: () => ({ allowed: false, remaining: 0, resetAt }),
+    })
+
+    const response = await checkRateLimit(request('/api/brands'))
+
+    expect(response?.status).toBe(429)
+    expect(response?.headers.get('Retry-After')).toMatch(/^\d+$/)
+    expect(response?.headers.get('X-RateLimit-Limit')).toBe('60')
+    expect(response?.headers.get('X-RateLimit-Remaining')).toBe('0')
+    expect(response?.headers.get('X-RateLimit-Reset')).toBe(String(resetAt))
   })
 })
 
@@ -262,20 +401,85 @@ describe('exact brand directory rate limit', () => {
     expect((await checkRateLimit(request('/en/brands')))?.status).toBe(429)
   })
 
-  it('does not exempt a Googlebot User-Agent from the exact-index budget', async () => {
+  // Superseded the 2026-08-12 assertion that Googlebot consumed the index
+  // budget: metering crawler traffic on the directory index burned 410k Upstash
+  // commands in one day. The index is crawler-exempt again, like /brands/.
+  it('exempts a Googlebot User-Agent from the exact-index budget', async () => {
     const crawlerHeaders = { 'user-agent': 'Googlebot/2.1' }
 
-    for (let requestNumber = 1; requestNumber <= directoryLimit; requestNumber += 1) {
+    for (let requestNumber = 1; requestNumber <= directoryLimit + 1; requestNumber += 1) {
       expect(await checkRateLimit(request('/en/brands', crawlerHeaders))).toBeNull()
     }
-
-    expect((await checkRateLimit(request('/en/brands', crawlerHeaders)))?.status).toBe(429)
   })
 
   it('does not match near-prefix paths', async () => {
     for (let requestNumber = 1; requestNumber <= directoryLimit + 1; requestNumber += 1) {
       expect(await checkRateLimit(request('/brands-extra'))).toBeNull()
     }
+  })
+})
+
+/**
+ * Redis command spend, not allow/deny. Upstash meters commands BEFORE the
+ * verdict, so these assert the number of store round trips a request costs --
+ * the 2026-08-12 incident burned 410k of a 500k monthly quota in one day.
+ */
+describe('redis command spend', () => {
+  let check: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    check = vi.fn(() => ({ allowed: true, remaining: 1, resetAt: Date.now() + 60_000 }))
+    setRateLimitStoreForTests({ check } as unknown as RateLimitStore)
+  })
+
+  afterEach(() => {
+    setRateLimitStoreForTests(null)
+  })
+
+  function request(path: string, headers: Record<string, string> = {}): NextRequest {
+    return new NextRequest(`https://formoria.com${path}`, {
+      headers: {
+        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+        'x-forwarded-for': '198.51.100.55',
+        accept: 'text/html',
+        ...headers,
+      },
+    })
+  }
+
+  const crawler = { 'user-agent': 'Googlebot/2.1' }
+
+  it('spends nothing on the directory index for a crawler, in either locale', async () => {
+    await checkRateLimit(request('/brands', crawler))
+    await checkRateLimit(request('/en/brands', crawler))
+    await checkRateLimit(request('/brands?category=coffee', crawler))
+
+    expect(check).not.toHaveBeenCalled()
+  })
+
+  it('still meters the directory index for a real user at the unchanged budget', async () => {
+    setRateLimitStoreForTests(createInMemoryRateLimiter())
+
+    for (let requestNumber = 1; requestNumber <= 30; requestNumber += 1) {
+      expect(await checkRateLimit(request('/brands'))).toBeNull()
+    }
+    expect((await checkRateLimit(request('/brands')))?.status).toBe(429)
+  })
+
+  it('spends nothing on the detail pages for a crawler (unchanged)', async () => {
+    await checkRateLimit(request('/brands/example', crawler))
+    await checkRateLimit(request('/en/brands/example', crawler))
+
+    expect(check).not.toHaveBeenCalled()
+  })
+
+
+  it('asks for a fixed-window limiter on the directory index and a sliding one elsewhere', async () => {
+    await checkRateLimit(request('/brands'))
+    expect(check).toHaveBeenLastCalledWith('/brands:198.51.100.55', 60_000, 30, 'fixed')
+
+    await checkRateLimit(request('/api/brands'))
+    expect(check).toHaveBeenLastCalledWith('/api/brands:198.51.100.55', 60_000, 60, 'sliding')
   })
 })
 

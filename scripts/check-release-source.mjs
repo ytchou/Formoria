@@ -51,6 +51,10 @@ export function parseReleasePolicy(text) {
   if (typeof raw.allowDirectProductionPullRequests !== "boolean") {
     throw new Error("allowDirectProductionPullRequests must be a boolean");
   }
+  const candidatePrefix = branchName(
+    release.candidatePrefix,
+    "release.candidatePrefix",
+  );
   if (source === target || source !== development || target === development) {
     throw new Error(
       "release.source must match developmentPullRequestBase and differ from release.target",
@@ -59,7 +63,7 @@ export function parseReleasePolicy(text) {
   return {
     version: 1,
     developmentPullRequestBase: development,
-    release: { source, target, mergeMethod: "merge" },
+    release: { source, target, mergeMethod: "merge", candidatePrefix },
     allowDirectProductionPullRequests: raw.allowDirectProductionPullRequests,
   };
 }
@@ -87,9 +91,13 @@ export function checkReleaseSource({
         `head repository ${headRepo || "(missing)"} does not match ${repository || "(missing)"}`,
     );
   }
-  if (headRef !== policy.release.source) {
+  const isCandidateHead =
+    typeof headRef === "string" &&
+    headRef.startsWith(policy.release.candidatePrefix) &&
+    headRef.length > policy.release.candidatePrefix.length;
+  if (headRef !== policy.release.source && !isCandidateHead) {
     throw new Error(
-      `Release source failed: pull requests into ${policy.release.target} must come from ${policy.release.source}; ` +
+      `Release source failed: pull requests into ${policy.release.target} must come from ${policy.release.source} or ${policy.release.candidatePrefix}<suffix>; ` +
         "use promote-staging for a deliberate production release",
     );
   }
