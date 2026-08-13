@@ -48,8 +48,9 @@ export type StoryEntry = {
      *
      * It exists because the voice pack is derived from the published corpus,
      * and a corpus that treats every story as exemplary regresses toward its
-     * own drift: one article that slips into 您 or a stray 破折號 teaches the
-     * next one to do the same. Stories predating the voice rules stay `false`
+     * own drift: one article that slips into the formal second person, or into
+     * a stray em dash, teaches the next one to do the same. Stories predating
+     * the voice rules stay `false`
      * and are still read for the drift report, just never quoted from.
      */
     voiceCanonical?: boolean;

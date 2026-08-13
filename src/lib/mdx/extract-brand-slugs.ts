@@ -43,7 +43,7 @@ const GRID_SLUGS_SHORTCODE = /<BrandGrid\b[\s\S]*?\bslugs=\{\s*\[([\s\S]*?)\]\s*
 const QUOTED_ENTRY = /["']([^"']*)["']/g
 
 /**
- * A prose markdown link into the brand directory: `[織療室](/brands/ziliaoshi)`.
+ * A prose markdown link into the brand directory: `[brand name](/brands/ziliaoshi)`.
  *
  * Deliberately absent from both shortcode extractors above, for opposite
  * reasons. It stays out of `extractLinkedBrandSlugs` because that sizes the
