@@ -548,6 +548,11 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow).not.toContain("secrets.HEALTH_GITHUB_APP_PRIVATE_KEY");
     expect(workflow).toContain("--auto-merge-enabled false");
     expect(workflow).not.toMatch(/gh pr merge|--auto(?:\s|$)/i);
+    expect(workflow).toContain(".github/release-flow.json");
+    expect(workflow).toContain("resolve release policy");
+    expect(workflow).toContain(
+      '--base "${{ steps.release-flow.outputs.development_base }}"',
+    );
     expect(workflow).toContain("validate-repair-patch.sh");
     expect(workflow).toContain("manager-snapshot.json");
     expect(workflow).toContain("jq -er '.human.traceability[].changedFiles[]'");
