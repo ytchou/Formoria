@@ -5,7 +5,7 @@
 <h1 align="center">Formoria</h1>
 
 <p align="center">
-  Taiwanese brand discovery and curation — find, compare and support brands that actually make things in Taiwan.
+  Start with the life you want and find Taiwanese products that suit you.
   <br>
   <a href="https://formoria.com"><strong>formoria.com →</strong></a>
 </p>
@@ -14,17 +14,17 @@
 
 ## What it is
 
-Formoria makes Taiwanese brands easier to discover, choose, and grow.
+Formoria reconnects the broken path from inspiration to purchase by helping people start with the life they want, find Taiwanese products that suit them, get to know the brands behind them, and know where to buy.
 
-The foundation is a community-built directory: taxonomy filters, brand detail pages, product and purchase-channel information, and self-serve onboarding for brand owners. What sets it apart is a **3-tier manufacturing-verification ladder** — "Made in Taiwan" is a claim that ranges from fully domestic production to final assembly, and Formoria grades it rather than flattening it into a badge.
+The foundation is a community-built directory: taxonomy filters, brand detail pages, and product and purchase-channel information. What sets it apart is a **3-tier manufacturing-verification ladder** — "Made in Taiwan" is a claim that ranges from fully domestic production to final assembly, and Formoria grades it rather than flattening it into a badge.
 
 Brand data is community-submitted and reviewed before it goes live, so the directory stays trustworthy as it grows.
 
 ## Status
 
-Live in production and actively developed. The directory, verification ladder, and owner onboarding all ship today.
+Live in production and actively developed. The directory and verification ladder ship today.
 
-An owner-led online select shop is the longer-term vision — it is **not** the current commerce model. Formoria does not sell anything right now; it points you to the brands that do.
+The longer-term vision is an online select space for Taiwanese brands where people can browse at their own pace, discover new preferences, and continue to brands' official or physical channels. Formoria does not accept orders or process checkout; brands and retailers own the transaction.
 
 ## Stack
 

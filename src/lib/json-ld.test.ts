@@ -483,17 +483,26 @@ describe("buildWebSiteJsonLd", () => {
 });
 
 describe("buildOrganizationJsonLd", () => {
-  it("emits an Organization with name and absolute url", () => {
-    const ld = buildOrganizationJsonLd("zh-TW") as JsonLdObject;
-    expect(ld["@type"]).toBe("Organization");
-    expect(ld.name).toBe("Formoria");
-    expect(ld.url).toMatch(/^https?:\/\//);
-    expect(ld.description).toContain("台灣品牌探索與選物平台");
+  it("describes the mission and commerce boundary in both public languages", () => {
+    const zh = buildOrganizationJsonLd("zh-TW") as JsonLdObject;
+    const en = buildOrganizationJsonLd("en") as JsonLdObject;
+
+    expect(zh["@type"]).toBe("Organization");
+    expect(zh.name).toBe("Formoria");
+    expect(zh.url).toMatch(/^https?:\/\//);
+    expect(zh.description).toContain(
+      "Formoria 把從靈感走到購買中間斷掉的路接回來",
+    );
+    expect(zh.description).toContain("品牌或零售通路負責價格");
+    expect(en.description).toContain(
+      "Formoria reconnects the broken path from inspiration to purchase",
+    );
+    expect(en.description).toContain("Brands or retailers remain responsible");
   });
+
   it("omits sameAs when no socials are configured", () => {
     const ld = buildOrganizationJsonLd("en") as JsonLdObject;
     expect("sameAs" in ld).toBe(false);
-    expect(ld.description).toContain("discovery and curation platform");
   });
 });
 

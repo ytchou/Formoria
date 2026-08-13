@@ -160,7 +160,7 @@ export default async function GettingStartedPage({ params }: PageProps) {
             href="/about#vision"
             className={buttonVariants({ variant: "secondary" })}
           >
-            {t("cta.faq")}
+            {t("cta.about")}
           </Link>
         </div>
       </section>

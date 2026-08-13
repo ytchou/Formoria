@@ -42,4 +42,14 @@ describe("GET /llms.txt", () => {
 
     expect(body).toContain(`[Fashion & Apparel](${url})`);
   });
+
+  it("states the approved mission without implying that Formoria processes purchases", async () => {
+    const body = await (await GET()).text();
+
+    expect(body).toContain(
+      "Formoria reconnects the broken path from inspiration to purchase",
+    );
+    expect(body).toContain("Brands or retailers remain responsible");
+    expect(body).not.toContain("discover, choose, and grow");
+  });
 });

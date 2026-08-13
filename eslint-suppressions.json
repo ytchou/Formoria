@@ -188,11 +188,6 @@
       "count": 7
     }
   },
-  "e2e/tests/seo.spec.ts": {
-    "playwright/no-conditional-expect": {
-      "count": 1
-    }
-  },
   "e2e/tests/settings.spec.ts": {
     "playwright/no-conditional-in-test": {
       "count": 1

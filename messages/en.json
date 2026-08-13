@@ -58,7 +58,7 @@
     "privacy": "Privacy Policy",
     "contact": "Contact",
     "copyright": "© {year} Formoria",
-    "tagline": "Making Taiwanese brands easier to discover.",
+    "tagline": "Start with the life you want and find Taiwanese products that suit you.",
     "discoverHeading": "Discover",
     "directory": "Brand Directory",
     "gettingStarted": "Getting Started",
@@ -75,19 +75,19 @@
   "landing": {
     "metadata": {
       "title": "Formoria — Taiwanese Brand Discovery & Curation",
-      "description": "Formoria is a Taiwanese brand discovery and curation platform — brand stories, product highlights, and official purchase channels for brands from Taiwan."
+      "description": "Formoria reconnects the broken path from inspiration to purchase by helping people start with the life they want, find Taiwanese products that suit them, get to know the brands behind them, and know where to buy."
     },
     "hero": {
       "eyebrow": "TAIWANESE BRANDS",
-      "headline": "Explore more Taiwanese brands",
-      "subheadline": "Formoria is a Taiwanese brand discovery and curation platform, bringing brand stories, product highlights, and official purchase channels together so worthwhile Taiwanese brands are easier to find.",
+      "headline": "Start with the life you want and find Taiwanese products that suit you",
+      "subheadline": "Formoria is a Taiwanese brand discovery and curation platform. It currently starts with a searchable directory of listed brands, bringing together brand information, product highlights, and official purchase channels; content selected by Formoria is labelled separately.",
       "statsBrands": "brands",
       "statsCategories": "categories",
       "cta": "Explore brands…"
     },
     "showcase": {
-      "heading": "Explore Brands",
-      "subheading": "Explore lifestyle categories and discover Taiwanese brands you may not have heard of yet, but are worth getting to know.",
+      "heading": "Explore listed brands",
+      "subheading": "These brands meet the directory's listing rules. A listing is not a Formoria selection, recommendation, certification, or ranking.",
       "all": "All",
       "filterLabel": "Filter by category",
       "browseAll": "Browse All Brands →",
@@ -106,11 +106,10 @@
       "heading": "Explore Categories"
     },
     "manifesto": {
-      "headline": "Make Taiwanese brands easier to discover, choose, and grow",
-      "body1": "We first organize fragmented brand, product, and purchase-channel information so worthwhile Taiwanese brands are easier to find.",
-      "body2": "Curation can then help people choose, while owner tools support brands as they grow.",
-      "body3": "Step by step, we are working toward an online Taiwanese select shop led by the brands themselves.",
-      "cta": "Read Our Vision"
+      "headline": "Listings and selections stay distinct",
+      "body1": "A listed brand meets the directory rules; listing is not Formoria selection, recommendation, certification, or ranking.",
+      "body2": "Content selected by Formoria is labelled “Formoria Selection”; brand-provided and sponsored content are also labelled separately.",
+      "cta": "About Formoria"
     },
     "submitBand": {
       "headline": "Recommend a Taiwanese brand worth discovering",
@@ -123,7 +122,7 @@
       "cta": "Request a Feature"
     },
     "newBrands": {
-      "heading": "Newest Brands",
+      "heading": "Newly listed brands",
       "linkText": "Browse All Brands →"
     },
     "events": {
@@ -1155,10 +1154,10 @@
   "faq": {
     "metadata": {
       "title": "FAQ",
-      "description": "Frequently asked questions about Formoria's Taiwanese brand discovery and curation platform, including listings, trust tiers, recommendations, and brand claims."
+      "description": "Frequently asked questions about Formoria's Taiwanese brand discovery and curation platform, including listings versus selections, purchase channels, trust tiers, recommendations, and the review process."
     },
     "title": "Frequently Asked Questions",
-    "intro": "If you still have questions, please <contact>contact us</contact>.",
+    "intro": "Start with the life you want and find Taiwanese products that suit you. If your question is not answered here, please <contact>contact us</contact>.",
     "sections": {
       "navigation": "FAQ sections",
       "general": "General",
@@ -1167,7 +1166,15 @@
     "items": {
       "whatIsFormoria": {
         "question": "What is Formoria?",
-        "answer": "Formoria is a Taiwanese brand discovery and curation platform. Our community-built directory lists brands founded, designed, or made in Taiwan and brings together product highlights and official purchase channels so worthwhile brands are easier to find."
+        "answer": "Formoria is a Taiwanese brand discovery and curation platform. It currently starts with a searchable directory of listed brands, bringing together brand information, product highlights, and official purchase channels; content selected by Formoria is labelled separately."
+      },
+      "listingVsSelection": {
+        "question": "What is the difference between a listed brand and a Formoria Selection?",
+        "answer": "A listed brand meets the directory rules and can be found in the searchable record; listing is not Formoria endorsement, selection, certification, or ranking. A Formoria Selection is a product or content item deliberately chosen for a situation, use, preference, or editorial argument, and is labelled separately with its rationale."
+      },
+      "purchaseThroughFormoria": {
+        "question": "Can I purchase through Formoria?",
+        "answer": "No. Formoria owns inspiration, selection, context, and the outbound route; it does not accept orders or process checkout. Brands or retailers remain responsible for price, variants, inventory, checkout, fulfilment, and after-sales service."
       },
       "whoCanSubmit": {
         "question": "Who can recommend a brand?",
@@ -1259,11 +1266,11 @@
   "about": {
     "metadata": {
       "title": "About Formoria",
-      "description": "Formoria is a Taiwanese brand discovery and curation platform built to make Taiwanese brands easier to discover, choose, and grow."
+      "description": "Formoria reconnects the broken path from inspiration to purchase by helping people start with the life they want, find Taiwanese products that suit them, get to know the brands behind them, and know where to buy."
     },
     "hero": {
-      "title": "A discovery and curation platform built for Taiwanese brands",
-      "subtitle": "Starting with a searchable directory of brands, products, and official purchase channels.",
+      "title": "Reconnect the broken path from inspiration to purchase",
+      "subtitle": "Formoria reconnects the broken path from inspiration to purchase by helping people start with the life they want, find Taiwanese products that suit them, get to know the brands behind them, and know where to buy.",
       "statSuffix": " — and growing",
       "statsBrands": "brands",
       "statsCategories": "categories",
@@ -1271,22 +1278,64 @@
       "recentMonth": "new brands",
       "cta": "Explore brands"
     },
-    "mission": {
-      "heading": "Our Mission",
-      "statement": "Make Taiwanese brands easier to discover, choose, and grow.",
-      "context": "Taiwan does not lack brands with quality, taste, and care. The challenge is not the products themselves, but fragmented information that makes those brands difficult for the right people to discover and understand.",
-      "promote": {
-        "heading": "Start with discovery",
-        "body": "Organize information scattered across websites, social channels, marketplaces, and physical shops so the right people can find each brand."
+    "audiences": {
+      "heading": "Two ways to look, one connected path",
+      "intro": "Some visitors do not know a name yet and want to start with a way of living, a use, or a preference. Others already know a brand or category and want to research it clearly. Formoria serves both kinds of discovery.",
+      "wander": {
+        "heading": "When you do not know the name",
+        "body": "Start with the life you want, a situation, or a curiosity, then discover products and brands across categories."
       },
-      "smallBusiness": {
-        "heading": "Make choosing easier",
-        "body": "Use clear product highlights, purchase channels, and curation to help visitors understand why a brand may be right for them."
-      },
-      "platform": {
-        "heading": "Make growth easier",
-        "body": "Keep brand owners in control while gradually giving them better ways to reach customers, understand demand, and operate efficiently."
+      "research": {
+        "heading": "When you know the direction",
+        "body": "Search for a brand or category, then review brand information, product highlights, and official or physical channels."
       }
+    },
+    "mission": {
+      "heading": "Formoria's three roles",
+      "statement": "Formoria is a Taiwanese brand discovery and curation platform. It currently starts with a searchable directory of listed brands, bringing together brand information, product highlights, and official purchase channels; content selected by Formoria is labelled separately.",
+      "context": "Directory listing, editorial selection, and the route to purchase each have a clear boundary, so visitors know what they are seeing and who owns the next step.",
+      "directory": {
+        "heading": "An inclusive brand directory",
+        "body": "Organize Taiwanese brands under public listing rules, making known names searchable and giving different parts of life a place to begin exploring."
+      },
+      "editorial": {
+        "heading": "Selective editorial with reasons",
+        "body": "Formoria uses “Formoria Selection” only for products or content deliberately chosen for a situation, use, preference, or editorial argument, with the reason made clear."
+      },
+      "connection": {
+        "heading": "A connection to real purchase channels",
+        "body": "Provide the next step to a brand's official website or a physical channel. Formoria does not accept orders or guarantee price, inventory, or transaction outcomes."
+      }
+    },
+    "trust": {
+      "heading": "Understand every label",
+      "intro": "These four labels explain why something appears on Formoria and who is responsible for it.",
+      "listed": {
+        "heading": "收錄品牌 (Listed brand)",
+        "body": "A brand that meets Formoria's directory rules and can be found in the searchable record. Inclusion is not Formoria endorsement, selection, certification, ranking, or a promise about current products."
+      },
+      "selected": {
+        "heading": "Formoria 選物 (Formoria Selection)",
+        "body": "A product or content item deliberately chosen for a stated situation, use, preference, or editorial argument. The rationale belongs to Formoria; it is not a claim that the item is universally best or the complete brand catalogue."
+      },
+      "brandProvided": {
+        "heading": "品牌提供 (Brand-provided)",
+        "body": "Facts, images, sources, or corrections supplied by a brand. Participation does not guarantee coverage or give the brand control over selection, ordering, rationale, or interpretation."
+      },
+      "sponsored": {
+        "heading": "贊助內容 (Sponsored content)",
+        "body": "Paid or commercial content is clearly labelled and kept distinct. It cannot enter organic selection or ranking logic, and relevant relationships are disclosed at the point of action."
+      },
+      "commerceHeading": "Who owns the purchase",
+      "formoriaOwns": "Formoria owns inspiration, selection, context, and the outbound route.",
+      "merchantOwns": "Brands or retailers remain responsible for price, variants, inventory, checkout, fulfilment, and after-sales service."
+    },
+    "vision": {
+      "sectionHeading": "Our Vision",
+      "heading": "Build an online select space for Taiwanese brands where people can browse at their own pace, discover new preferences, get to know the brands behind the products, then continue to brands' official or physical channels.",
+      "body": "This is a long-term direction, not a claim that Formoria currently accepts orders, holds inventory, processes payments, or provides after-sales service.",
+      "principleHeading": "Transactions stay with brands and retailers",
+      "principleBody": "Formoria owns inspiration, selection, context, and the outbound route; brands or retailers remain responsible for price, variants, inventory, checkout, fulfilment, and after-sales service."
     },
     "taiwanStats": {
       "heading": "Why supporting Taiwan's small businesses matters",
@@ -1316,53 +1365,6 @@
     "guide": {
       "heading": "Ready to use Formoria?",
       "cta": "Get started →"
-    }
-  },
-  "vision": {
-    "metadata": {
-      "title": "Formoria's Mission and Vision",
-      "description": "See how Formoria is addressing Taiwanese brands' discovery challenge first, then working toward an owner-led online Taiwanese select shop."
-    },
-    "hero": {
-      "eyebrow": "FORMORIA'S MISSION",
-      "title": "Make Taiwanese brands easier to discover, choose, and grow",
-      "intro": "Formoria is a Taiwanese brand discovery and curation platform. We organize information scattered across websites, social media, marketplaces, and physical shops so worthwhile Taiwanese brands are easier to find."
-    },
-    "today": {
-      "eyebrow": "WHAT WE ARE BUILDING TODAY",
-      "heading": "First, make fragmented brand information clear",
-      "body": "Brand stories, product highlights, store locations, and purchase channels often live in different places. We are building a complete, searchable directory so people do not need to piece everything together across multiple sites and social channels."
-    },
-    "path": {
-      "heading": "Start with being discovered",
-      "statement": "Each stage builds on the one before it, moving brand discovery toward more useful choices and more sustainable growth.",
-      "discover": {
-        "heading": "Be discovered",
-        "body": "Organize reliable brand, product, store, and purchase-channel information to address fragmented information and limited awareness first."
-      },
-      "choose": {
-        "heading": "Be chosen",
-        "body": "Use themed collections, editorial stories, and product-level recommendations to help people find what is genuinely right for them."
-      },
-      "grow": {
-        "heading": "Grow more easily",
-        "body": "Give brand owners demand insights and operating tools that make reaching customers, maintaining information, and scaling more efficient."
-      }
-    },
-    "future": {
-      "sectionHeading": "Our Vision",
-      "heading": "Become an online Taiwanese select shop led by the brands themselves",
-      "body": "In the future, people can discover and order from Taiwanese brands through Formoria. Formoria supports discovery, organization, recommendations, and enabling tools while each brand remains in control of its business.",
-      "principleHeading": "Brands stay in control",
-      "principleBody": "Pricing, orders, payments, fulfillment, after-sales service, and customer relationships remain with each brand. Formoria does not replace brands; it helps them reach the right people, understand demand, and operate more efficiently."
-    },
-    "participate": {
-      "eyebrow": "TAKE PART",
-      "heading": "Help us carry this mission forward",
-      "body": "The feature request board lets visitors and brand owners share needs and vote, helping us understand which problems are most valuable to solve next.",
-      "visitorCta": "Improve discovery and curation",
-      "ownerCta": "Improve brand owner tools",
-      "note": "Requests and votes inform our priorities, but they are not a published timeline or feature commitment."
     }
   },
   "mySubmissions": {
@@ -2425,12 +2427,12 @@
   "gettingStarted": {
     "metadata": {
       "title": "Explore Formoria",
-      "description": "Learn how to discover Taiwanese brands, compare product highlights, save brands, and follow official links to buy directly from them."
+      "description": "Learn how to start with the life you want, find Taiwanese products that suit you, and continue to brands' official or physical channels for purchase information."
     },
     "hero": {
       "eyebrow": "Explore Formoria",
-      "title": "Find your next favorite brand",
-      "intro": "Formoria is a Taiwanese brand discovery and curation platform. Browse or search for brands, compare product highlights and purchase channels, and save favorites for later.",
+      "title": "Start with the life you want and find Taiwanese products that suit you",
+      "intro": "Browse or search listed brands, then review brand information, product highlights, and official purchase channels. Content selected by Formoria is labelled separately.",
       "primaryCta": "Browse brands",
       "secondaryCta": "Read the FAQ"
     },
@@ -2452,14 +2454,14 @@
       },
       "manage": {
         "title": "Save brands for later",
-        "body": "Keep brands you want to revisit in your saved list, then return when you are ready to learn more or shop."
+        "body": "Keep brands you want to revisit in your saved list, then return when you are ready to continue exploring."
       }
     },
     "tips": {
       "heading": "While you browse",
       "accurate": "Read the description and product details to understand what each brand offers.",
       "photos": "Use product photos to get a feel for the brand's materials, style, and range.",
-      "links": "Follow official links to learn more or shop directly from the brand."
+      "links": "Continue to a brand's official or physical channels for price, variants, inventory, and purchase details."
     },
     "forOwners": {
       "heading": "If you own a brand",
@@ -2479,9 +2481,9 @@
     },
     "cta": {
       "heading": "Ready to explore Taiwanese brands?",
-      "body": "Browse the directory to find brands that match your interests, or see how Formoria plans to carry this mission forward.",
+      "body": "Browse the directory, start with the life you want, and find Taiwanese products that suit you; or learn how Formoria connects discovery, context, and purchase channels.",
       "browse": "Browse brands",
-      "faq": "Read our mission and vision"
+      "about": "About Formoria"
     },
     "ctaFooter": {
       "cta": "Register your interest on the feature request board"
