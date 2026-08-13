@@ -31,10 +31,11 @@ import { checkUrl, type LinkFailureReason } from "./link-health";
  * be repaired by hand. When in doubt, leave the link alone.
  */
 export const AUTO_NULL_STATUS_CODES: ReadonlySet<number> = new Set([404, 410]);
-export const AUTO_NULL_FAILURE_REASONS: ReadonlySet<LinkFailureReason> =
-  new Set(["dns"]);
+const AUTO_NULL_FAILURE_REASONS: ReadonlySet<LinkFailureReason> = new Set([
+  "dns",
+]);
 
-export type LinkCleanupApplied = {
+type LinkCleanupApplied = {
   brandId: string;
   brandName: string | null;
   field: string;
@@ -42,7 +43,7 @@ export type LinkCleanupApplied = {
   statusCode: number | null;
 };
 
-export type LinkCleanupSkipped = {
+type LinkCleanupSkipped = {
   brandId: string;
   field: string;
   url: string;
