@@ -7,6 +7,7 @@ import { describeWithDb } from '@/test/setup'
 import {
   extractBrandSlugs,
   extractLinkedBrandSlugs,
+  extractProseBrandSlugs,
   hasEventInfoShortcode,
 } from '@/lib/mdx/extract-brand-slugs'
 import { getBrandsBySlugs, isValidSlug } from '../brands'
@@ -54,7 +55,10 @@ function readStorySlugReferences(): SlugReference[] {
 
   return files.flatMap(file => {
     const raw = fs.readFileSync(path.join(STORIES_DIR, file), 'utf8')
-    return extractBrandSlugs(raw).map(slug => ({ file, slug }))
+    // Union, not just the shortcodes: a prose `[名](/brands/slug)` link is the
+    // one brand reference with no runtime fallback, so a typo there ships a 404
+    // rather than a placeholder card. See `PROSE_BRAND_LINK`.
+    return [...extractBrandSlugs(raw), ...extractProseBrandSlugs(raw)].map(slug => ({ file, slug }))
   })
 }
 
@@ -151,6 +155,32 @@ describe('story content brand slugs (fixture coverage)', () => {
 
     expect(extractBrandSlugs(source)).toEqual(['molasses', 'yingge-kiln'])
     expect(extractLinkedBrandSlugs(source)).toEqual(['molasses'])
+  })
+
+  it('reads prose brand links separately from the shortcodes', () => {
+    const source = [
+      '走一趟 [織療室](/brands/ziliaoshi) 的攤位，看看他們怎麼處理布邊。',
+      '',
+      // Not a brand detail URL: the filtered directory view has no slug.
+      '想看更多可以去 [居家生活](/brands?category=home)。',
+      '',
+      // Nor is a deeper path — the route is `/brands/[slug]` exactly.
+      '[不是品牌頁](/brands/ziliaoshi/products)',
+      '',
+      '<BrandCard slug="molasses" />',
+    ].join('\n')
+
+    expect(extractProseBrandSlugs(source)).toEqual(['ziliaoshi'])
+    // The two views stay disjoint: prose links must never reach the analytics
+    // count, and the shortcode parser must not start matching markdown.
+    expect(extractBrandSlugs(source)).toEqual(['molasses'])
+    expect(extractLinkedBrandSlugs(source)).toEqual(['molasses'])
+  })
+
+  it('ignores prose brand links inside fenced code blocks', () => {
+    const source = ['```md', '[範例](/brands/不是真的品牌)', '```'].join('\n')
+
+    expect(extractProseBrandSlugs(source)).toEqual([])
   })
 
   it('ignores shortcodes inside fenced code blocks', () => {
