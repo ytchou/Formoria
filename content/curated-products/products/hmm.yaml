@@ -1,0 +1,65 @@
+# HMM — curated product facts (DEV-1404 pilot).
+#
+# Every fact below is taken from HMM's own product pages on hmmproject.com and
+# nothing else. Anything the first-party page does not state is left unset.
+#
+# name_zh carries HMM's own English product name: hmmproject.com serves no
+# zh-TW storefront (a /zh path 404s and ?locale=zh-TW returns the English
+# title), so no official Chinese product name exists to cite. Translating it
+# here would invent a name the brand does not use.
+brand_slug: hmm
+
+products:
+  - key: clip
+    name_zh: Clip
+    name_en: Clip - Set of Two Black/Raw
+    l1: stationery
+    l2:
+      - 文具收納
+    official_url: https://hmmproject.com/products/clip
+    lifecycle: published
+    source_checked_at: 2026-08-13T00:00:00Z
+    review_due_at: 2027-02-13T00:00:00Z
+    notes_zh: 官方站僅有英文品名，未見官方中文品名，name_zh 沿用英文原名。
+    sources:
+      - url: https://hmmproject.com/products/clip
+        source_type: official
+        claim_zh: 官方產品頁載明鋁製、電鍍霧黑，一組兩入（大 60×17×35mm、小 30×17×35mm），可夾持約 40 張 A4 紙；頁面並說明反向放置可作便條或名片座，纖薄外型亦可當書籤。產地標示 Made in Taiwan。
+        claim_en: The official product page states an electroplated matte black aluminum frame, a set of two (L 60×17×35mm, S 30×17×35mm), a hold of up to 40 A4 sheets, use as a memo or business card holder when inverted, a slim profile that doubles as a bookmark, and Made in Taiwan.
+        checked_at: 2026-08-13T00:00:00Z
+
+  - key: paperweight
+    name_zh: Paperweight
+    name_en: Paperweight Black/Raw
+    l1: stationery
+    l2:
+      - 文具收納
+    official_url: https://hmmproject.com/products/paperweight
+    lifecycle: published
+    source_checked_at: 2026-08-13T00:00:00Z
+    review_due_at: 2027-02-13T00:00:00Z
+    notes_zh: 官方站僅有英文品名，未見官方中文品名，name_zh 沿用英文原名。
+    sources:
+      - url: https://hmmproject.com/products/paperweight
+        source_type: official
+        claim_zh: 官方產品頁載明以鋁合金銑削成形，甜甜圈造型帶 HMM 的十二道倒角面，尺寸 Ø50×25mm、重 101g，並說明可同時作為筆座。產地標示 Made in Taiwan。
+        claim_en: The official product page states finely milled aluminum, a donut form with HMM's signature 12 bevel faces, dimensions Ø50×25mm, a weight of 101g, use as a pen holder, and Made in Taiwan.
+        checked_at: 2026-08-13T00:00:00Z
+
+  - key: clip-memo-board
+    name_zh: Clip - Memo Board
+    name_en: Clip - Memo Board (Clip is not included)
+    l1: stationery
+    l2:
+      - 紙品
+    official_url: https://hmmproject.com/products/clip-memoboard
+    lifecycle: published
+    source_checked_at: 2026-08-13T00:00:00Z
+    review_due_at: 2027-02-13T00:00:00Z
+    notes_zh: 官方站僅有英文品名，未見官方中文品名，name_zh 沿用英文原名。官方頁面註明不含 Clip 本體。
+    sources:
+      - url: https://hmmproject.com/products/clip-memoboard
+        source_type: official
+        claim_zh: 官方產品頁載明以多層厚灰紙板製成、表層覆黑卡增加書寫平順度，內含一塊紙板與一本日本畫紙便條，板身 105×140×8mm；頁面說明搭配 Clip 可成口袋尺寸的寫字板，不搭配便條時則為輕量墊板，且此組合不含 Clip。
+        claim_en: The official product page states a layered thick gray cardboard board faced with black cardboard for smoother writing, a set of one board and one Japanese art paper memo note, a board size of 105×140×8mm, use as a pocket-sized clipboard together with Clip, use as a light signature board without the memo note, and that the Clip itself is not included.
+        checked_at: 2026-08-13T00:00:00Z
