@@ -3,6 +3,7 @@ import { test, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { BUDGET } from '../budgets';
+import { e2eSeedName } from '../helpers/cleanup';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -36,7 +37,7 @@ test.describe('Admin dashboard deep', () => {
     );
     const suffix = `${Date.now()}-${randomUUID().slice(0, 8)}`;
     testSubmissionId = randomUUID();
-    testBrandName = `[E2E-TEST] Dashboard Test Brand ${suffix}`;
+    testBrandName = e2eSeedName(`Dashboard Test Brand ${suffix}`);
     storagePaths = [
       `submissions/${testSubmissionId}/hero.png`,
       `submissions/${testSubmissionId}/detail.png`,
@@ -221,7 +222,7 @@ test.describe('Admin dashboard deep', () => {
   test('needs-data submission can be dropped and is removed from the database', async ({ adminPage }) => {
     test.setTimeout(BUDGET.TEST.ADMIN);
     // Create a separate submission that remains in the needs-data stage.
-    const rejectBrandName = `[E2E-TEST] Rejected Brand ${Date.now()}`;
+    const rejectBrandName = e2eSeedName(`Rejected Brand ${Date.now()}`);
     const { data } = await supabase
       .from('brand_submissions')
       .insert({

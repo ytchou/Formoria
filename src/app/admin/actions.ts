@@ -353,7 +353,9 @@ export async function approveSubmissionAction(
       const auth = await requireAdminAction()
       if ('error' in auth) return auth
 
-      const result = await approveSubmissionForAdmin(submissionId, auth.user.id)
+      const result = await withApprovalTimeout(
+        approveSubmissionForAdmin(submissionId, auth.user.id)
+      )
       revalidateApprovals([result])
 
       if (result.imageSyncWarning) return { imageSyncWarning: result.imageSyncWarning }
