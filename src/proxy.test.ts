@@ -1,3 +1,4 @@
+import { createServer } from "node:http";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -44,6 +45,35 @@ function requestFor(pathname: string, headers: Record<string, string> = {}) {
   return new NextRequest(new URL(`https://formoria.com${pathname}`), {
     headers: { "user-agent": BROWSER_UA, ...headers },
   });
+}
+
+async function withRedirectLookupServer<T>(callback: () => Promise<T>) {
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end("[]");
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    throw new Error("Redirect lookup test server did not expose a port");
+  }
+
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", `http://127.0.0.1:${address.port}`);
+  vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "test-service-role");
+
+  try {
+    return await callback();
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
 }
 
 beforeEach(() => {
@@ -160,5 +190,45 @@ describe("the origin guard when it is not configured to run", () => {
     vi.stubEnv("CF_ORIGIN_SECRET", EDGE_SECRET);
     const response = await proxy(requestFor("/api/admin/brands"));
     expect(response.status).not.toBe(403);
+  });
+});
+
+describe("default-locale URL canonicalization", () => {
+  // Bug: an external request forged with next-intl's internal locale header
+  // must not bypass the canonical redirect for the default locale.
+  it("canonicalizes a forged default-locale directory request while rewriting the bare URL", async () => {
+    const bareResponse = await proxy(requestFor("/brands"));
+    expect(bareResponse.status).toBe(200);
+    expect(bareResponse.headers.get("x-middleware-rewrite")).toMatch(
+      /\/zh-TW\/brands$/,
+    );
+
+    const forgedResponse = await proxy(
+      requestFor("/zh-TW/brands", {
+        "X-NEXT-INTL-LOCALE": "zh-TW",
+      }),
+    );
+    expect(forgedResponse.status).toBe(307);
+    expect(forgedResponse.headers.get("location")).toMatch(/\/brands$/);
+  });
+
+  // Bug: a bare default-locale brand detail must reach its exact route, while
+  // a client-forged next-intl locale header must not bypass canonicalization.
+  it("passes a bare brand detail through without an intl rewrite while a forged default-locale detail still redirects", async () => {
+    await withRedirectLookupServer(async () => {
+      const bareResponse = await proxy(requestFor("/brands/hero-herb"));
+      expect(bareResponse.status).toBe(200);
+      expect(bareResponse.headers.get("x-middleware-rewrite")).toBeNull();
+
+      const forgedResponse = await proxy(
+        requestFor("/zh-TW/brands/hero-herb", {
+          "X-NEXT-INTL-LOCALE": "zh-TW",
+        }),
+      );
+      expect(forgedResponse.status).toBe(307);
+      expect(forgedResponse.headers.get("location")).toMatch(
+        /\/brands\/hero-herb$/,
+      );
+    });
   });
 });

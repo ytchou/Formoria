@@ -57,7 +57,7 @@ describe("POST /api/internal/revalidate-brands", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/zh-TW/events");
     expect(revalidatePath).toHaveBeenCalledWith("/en/events");
     expect(revalidatePath).toHaveBeenCalledWith("/site/brand-0");
-    expect(revalidatePath).toHaveBeenCalledWith("/zh-TW/brands/brand-0");
+    expect(revalidatePath).toHaveBeenCalledWith("/brands/brand-0");
     expect(revalidatePath).toHaveBeenCalledWith("/en/brands/brand-0");
 
     expect(
@@ -79,7 +79,7 @@ describe("POST /api/internal/revalidate-brands", () => {
     expect(revalidateTag).toHaveBeenCalledTimes(1);
     expect(
       revalidatePath.mock.calls.filter(([path]) =>
-        ["/zh-TW/brands/niizo", "/en/brands/niizo", "/site/niizo"].includes(
+        ["/brands/niizo", "/en/brands/niizo", "/site/niizo"].includes(
           path as string,
         ),
       ),
