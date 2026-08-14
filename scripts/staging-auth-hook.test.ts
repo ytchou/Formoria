@@ -33,8 +33,9 @@ describe("staging Auth capture contract", () => {
     expect(migration).not.toContain("security definer");
   });
 
-  it("does not send externally and returns a successful hook response", () => {
-    expect(migration).toContain("return jsonb_build_object('success', true)");
+  it("does not send externally and returns the documented empty hook response", () => {
+    expect(migration.match(/return '\{\}'::jsonb;/g)).toHaveLength(2);
+    expect(migration).not.toContain("jsonb_build_object('success'");
     expect(migration).not.toMatch(/resend|smtp|http_post|net\.http/);
   });
 });

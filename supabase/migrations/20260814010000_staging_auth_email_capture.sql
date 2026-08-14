@@ -69,7 +69,7 @@ begin
   -- Only the disposable E2E namespace is captured. This avoids turning an
   -- accidentally enabled hook into a general-purpose mail sink.
   if recipient is null or recipient not like 'e2e-signup-%' then
-    return jsonb_build_object('success', true);
+    return '{}'::jsonb;
   end if;
 
   insert into public.staging_auth_email_captures (
@@ -84,7 +84,7 @@ begin
     redirect_target
   );
 
-  return jsonb_build_object('success', true);
+  return '{}'::jsonb;
 end;
 $$;
 
