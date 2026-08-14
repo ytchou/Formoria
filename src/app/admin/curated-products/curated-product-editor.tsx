@@ -9,6 +9,7 @@ import {
   retireCuratedProductSourceAction,
   updateCuratedProductAction,
 } from "@/app/admin/curated-products/actions";
+import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -37,13 +38,42 @@ const EMPTY_SOURCE: SourceDraft = {
   claimZh: "",
 };
 
-/** The four promote conditions, in the order the readout lists them. */
-const GATE_CONDITIONS: PromoteBlocker[] = [
-  "official_url",
-  "source_checked_at",
-  "no_active_source",
-  "lifecycle",
-];
+/**
+ * The promote conditions, keyed by blocker and valued by the position the
+ * readout lists them in.
+ *
+ * `satisfies Record<PromoteBlocker, number>` is the point of this shape: a
+ * fifth blocker added to `promote-gate.ts` becomes a COMPILE ERROR here
+ * instead of quietly never rendering, which would leave a disabled Promote
+ * button with no on-screen explanation. A plain `PromoteBlocker[]` does not
+ * require exhaustiveness.
+ */
+const GATE_CONDITION_ORDER = {
+  official_url: 0,
+  source_checked_at: 1,
+  no_active_source: 2,
+  lifecycle: 3,
+} satisfies Record<PromoteBlocker, number>;
+
+const GATE_CONDITIONS = (
+  Object.keys(GATE_CONDITION_ORDER) as PromoteBlocker[]
+).sort((left, right) => GATE_CONDITION_ORDER[left] - GATE_CONDITION_ORDER[right]);
+
+/**
+ * A URL the server's `httpUrlSchema` will accept: absolute, http(s) only.
+ * Checked before posting because the Save button is not inside a `<form>`, so
+ * `type="url"` never triggers browser constraint validation and a schemeless
+ * `acme.com/widget` would come back as an unattributed "Invalid curated
+ * product".
+ */
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 /**
  * The promote gate, rendered as a pass/fail list FROM THE SHARED PREDICATE.
@@ -163,6 +193,15 @@ export function CuratedProductEditor({
   ]);
   const [formError, setFormError] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [prefillError, setPrefillError] = useState<string | null>(null);
+  const [officialUrlError, setOfficialUrlError] = useState<string | null>(null);
+  // Index → true for a draft source whose URL failed the client check.
+  const [sourceUrlErrors, setSourceUrlErrors] = useState<
+    Record<number, boolean>
+  >({});
+  const [uncheckSourcesOpen, setUncheckSourcesOpen] = useState(false);
+
+  const isPublished = product?.lifecycle === "published";
 
   const subcategories = useMemo(
     () => PRODUCT_SUBCATEGORIES.filter((sub) => sub.category === l1),
@@ -172,9 +211,28 @@ export function CuratedProductEditor({
   const errorId = `${fieldId}-form-error`;
   const imageErrorId = `${fieldId}-image-error`;
   const imageHintId = `${fieldId}-image-hint`;
+  const prefillErrorId = `${fieldId}-prefill-error`;
+  const prefillHintId = `${fieldId}-prefill-hint`;
+  const officialUrlErrorId = `${fieldId}-official-url-error`;
+  const sourceUrlErrorId = (index: number) =>
+    `${fieldId}-source-url-error-${index}`;
+
+  /** One row updater for the three draft-source inputs (was copy-pasted). */
+  function updateSource(index: number, patch: Partial<SourceDraft>) {
+    setDraftSources((current) =>
+      current.map((entry, entryIndex) =>
+        entryIndex === index ? { ...entry, ...patch } : entry,
+      ),
+    );
+  }
 
   function fetchDetails() {
     setFormError(null);
+    if (!isHttpUrl(prefillUrl.trim())) {
+      setPrefillError(t("urlInvalid"));
+      return;
+    }
+    setPrefillError(null);
     startFetchTransition(async () => {
       const result = await prefillCuratedProductAction(prefillUrl);
       if ("error" in result) {
@@ -197,6 +255,31 @@ export function CuratedProductEditor({
     setFormError(null);
     setImageError(null);
 
+    // URL fields are checked HERE, per field. The server's blanket
+    // `{ error: "Invalid curated product" }` cannot say which input is wrong,
+    // so a schemeless URL would come back unattributed and re-saving would
+    // reproduce it exactly.
+    const trimmedOfficialUrl = officialUrl.trim();
+    const trimmedImageSourceUrl = imageSourceUrl.trim();
+    const officialInvalid =
+      trimmedOfficialUrl.length > 0 && !isHttpUrl(trimmedOfficialUrl);
+    const imageInvalid =
+      trimmedImageSourceUrl.length > 0 && !isHttpUrl(trimmedImageSourceUrl);
+    const invalidSources: Record<number, boolean> = {};
+    draftSources.forEach((source, index) => {
+      const url = source.url.trim();
+      if (url.length > 0 && !isHttpUrl(url)) invalidSources[index] = true;
+    });
+
+    setOfficialUrlError(officialInvalid ? t("urlInvalid") : null);
+    setImageError(imageInvalid ? t("urlInvalid") : null);
+    setSourceUrlErrors(invalidSources);
+
+    if (officialInvalid || imageInvalid || Object.keys(invalidSources).length) {
+      setFormError(t("urlFieldsBlockSave"));
+      return;
+    }
+
     const sources = draftSources
       .filter((source) => source.url.trim().length > 0)
       .map((source) => ({
@@ -205,21 +288,26 @@ export function CuratedProductEditor({
         ...(source.claimZh.trim() ? { claimZh: source.claimZh.trim() } : {}),
       }));
 
+    // An EMPTIED optional field posts an explicit `null` ("clear this value"),
+    // never an omission. Under the partial update schema an absent key means
+    // "leave unchanged", so omitting emptied fields made a dead Official URL
+    // impossible to clear: the save reported success and the public brand page
+    // kept rendering the old CTA. Only fields the form does not render at all
+    // stay omitted.
+    const editorial = {
+      nameEn: nameEn.trim() || null,
+      officialUrl: trimmedOfficialUrl || null,
+      imageSourceUrl: trimmedImageSourceUrl || null,
+      notesZh: notesZh.trim() || null,
+      notesEn: notesEn.trim() || null,
+      reviewDueAt: toIsoDate(reviewDueAt) ?? null,
+    };
+
     const payload = {
       nameZh: nameZh.trim(),
-      ...(nameEn.trim() ? { nameEn: nameEn.trim() } : {}),
       l1,
       l2,
-      ...(officialUrl.trim() ? { officialUrl: officialUrl.trim() } : {}),
-      ...(imageSourceUrl.trim()
-        ? { imageSourceUrl: imageSourceUrl.trim() }
-        : {}),
       imageUsage,
-      ...(notesZh.trim() ? { notesZh: notesZh.trim() } : {}),
-      ...(notesEn.trim() ? { notesEn: notesEn.trim() } : {}),
-      ...(toIsoDate(reviewDueAt)
-        ? { reviewDueAt: toIsoDate(reviewDueAt) }
-        : {}),
       sourcesChecked,
       ...(sources.length > 0 ? { sources } : {}),
     };
@@ -227,11 +315,26 @@ export function CuratedProductEditor({
     startTransition(async () => {
       const result =
         mode === "create"
-          ? await createCuratedProductAction({ ...payload, brandId })
-          : await updateCuratedProductAction(product?.id ?? "", payload, {
-              brandId: product?.brandId,
-              previousImageUrl: product?.imageUrl ?? null,
-              published: product?.lifecycle === "published",
+          ? // Create has nothing to clear, so an empty field stays absent.
+            await createCuratedProductAction({
+              ...payload,
+              ...(editorial.nameEn ? { nameEn: editorial.nameEn } : {}),
+              ...(editorial.officialUrl
+                ? { officialUrl: editorial.officialUrl }
+                : {}),
+              ...(editorial.imageSourceUrl
+                ? { imageSourceUrl: editorial.imageSourceUrl }
+                : {}),
+              ...(editorial.notesZh ? { notesZh: editorial.notesZh } : {}),
+              ...(editorial.notesEn ? { notesEn: editorial.notesEn } : {}),
+              ...(editorial.reviewDueAt
+                ? { reviewDueAt: editorial.reviewDueAt }
+                : {}),
+              brandId,
+            })
+          : await updateCuratedProductAction(product?.id ?? "", {
+              ...payload,
+              ...editorial,
             });
 
       if (result?.error) {
@@ -249,6 +352,14 @@ export function CuratedProductEditor({
       setDraftSources([{ ...EMPTY_SOURCE }]);
       onSaved();
     });
+  }
+
+  function handleSourcesCheckedChange(checked: boolean) {
+    if (!checked && sourcesChecked && isPublished) {
+      setUncheckSourcesOpen(true);
+      return;
+    }
+    setSourcesChecked(checked);
   }
 
   function retireSource(sourceId: string) {
@@ -274,7 +385,12 @@ export function CuratedProductEditor({
             inputMode="url"
             className="max-w-lg"
             value={prefillUrl}
-            onChange={(event) => setPrefillUrl(event.target.value)}
+            onChange={(event) => {
+              setPrefillUrl(event.target.value);
+              setPrefillError(null);
+            }}
+            aria-invalid={prefillError ? true : undefined}
+            aria-describedby={prefillError ? prefillErrorId : prefillHintId}
           />
           <Button
             type="button"
@@ -286,7 +402,14 @@ export function CuratedProductEditor({
             {isFetching ? t("fetching") : t("fetchDetails")}
           </Button>
         </div>
-        <p className="type-form-hint">{t("prefillHint")}</p>
+        <p className="type-form-hint" id={prefillHintId}>
+          {t("prefillHint")}
+        </p>
+        {prefillError ? (
+          <p className="type-error" id={prefillErrorId}>
+            {prefillError}
+          </p>
+        ) : null}
       </div>
 
       {mode === "create" ? (
@@ -377,8 +500,18 @@ export function CuratedProductEditor({
           inputMode="url"
           className="max-w-lg"
           value={officialUrl}
-          onChange={(event) => setOfficialUrl(event.target.value)}
+          onChange={(event) => {
+            setOfficialUrl(event.target.value);
+            setOfficialUrlError(null);
+          }}
+          aria-invalid={officialUrlError ? true : undefined}
+          aria-describedby={officialUrlError ? officialUrlErrorId : undefined}
         />
+        {officialUrlError ? (
+          <p className="type-error" id={officialUrlErrorId}>
+            {officialUrlError}
+          </p>
+        ) : null}
       </div>
 
       <div className="space-y-2">
@@ -389,7 +522,10 @@ export function CuratedProductEditor({
           inputMode="url"
           className="max-w-lg"
           value={imageSourceUrl}
-          onChange={(event) => setImageSourceUrl(event.target.value)}
+          onChange={(event) => {
+            setImageSourceUrl(event.target.value);
+            setImageError(null);
+          }}
           aria-invalid={imageError ? true : undefined}
           aria-describedby={imageError ? imageErrorId : imageHintId}
         />
@@ -489,16 +625,25 @@ export function CuratedProductEditor({
                 type="url"
                 inputMode="url"
                 value={source.url}
-                onChange={(event) =>
-                  setDraftSources((current) =>
-                    current.map((entry, entryIndex) =>
-                      entryIndex === index
-                        ? { ...entry, url: event.target.value }
-                        : entry,
-                    ),
-                  )
+                onChange={(event) => {
+                  updateSource(index, { url: event.target.value });
+                  setSourceUrlErrors((current) => {
+                    if (!current[index]) return current;
+                    const next = { ...current };
+                    delete next[index];
+                    return next;
+                  });
+                }}
+                aria-invalid={sourceUrlErrors[index] ? true : undefined}
+                aria-describedby={
+                  sourceUrlErrors[index] ? sourceUrlErrorId(index) : undefined
                 }
               />
+              {sourceUrlErrors[index] ? (
+                <p className="type-error" id={sourceUrlErrorId(index)}>
+                  {t("urlInvalid")}
+                </p>
+              ) : null}
             </div>
             <div className="space-y-2">
               <Label htmlFor={`${fieldId}-source-type-${index}`}>
@@ -508,13 +653,7 @@ export function CuratedProductEditor({
                 id={`${fieldId}-source-type-${index}`}
                 value={source.sourceType}
                 onChange={(event) =>
-                  setDraftSources((current) =>
-                    current.map((entry, entryIndex) =>
-                      entryIndex === index
-                        ? { ...entry, sourceType: event.target.value }
-                        : entry,
-                    ),
-                  )
+                  updateSource(index, { sourceType: event.target.value })
                 }
               >
                 {CURATED_PRODUCT_SOURCE_TYPES.map((type) => (
@@ -532,13 +671,7 @@ export function CuratedProductEditor({
                 id={`${fieldId}-source-claim-${index}`}
                 value={source.claimZh}
                 onChange={(event) =>
-                  setDraftSources((current) =>
-                    current.map((entry, entryIndex) =>
-                      entryIndex === index
-                        ? { ...entry, claimZh: event.target.value }
-                        : entry,
-                    ),
-                  )
+                  updateSource(index, { claimZh: event.target.value })
                 }
               />
             </div>
@@ -560,13 +693,47 @@ export function CuratedProductEditor({
           <Checkbox
             id={`${fieldId}-sources-checked`}
             checked={sourcesChecked}
-            onCheckedChange={(checked) => setSourcesChecked(checked)}
+            onCheckedChange={handleSourcesCheckedChange}
+            aria-describedby={
+              isPublished ? `${fieldId}-sources-checked-hint` : undefined
+            }
           />
           <Label htmlFor={`${fieldId}-sources-checked`}>
             {t("sourcesChecked")}
           </Label>
         </div>
+        {isPublished ? (
+          <p
+            className="type-form-hint"
+            id={`${fieldId}-sources-checked-hint`}
+          >
+            {t("sourcesCheckedPublishedHint")}
+          </p>
+        ) : null}
       </fieldset>
+
+      {/*
+        Unchecking on a PUBLISHED product clears `source_checked_at`, and
+        `getPublishedCuratedProductsForBrand` filters on that column — the
+        product leaves the brand page the moment this save revalidates, while
+        the queue still lists it under Published. Confirming is the reversible
+        option: re-checking and saving puts it back, whereas blocking the
+        control would force a retire/promote round trip to correct a mistake.
+      */}
+      <ConfirmDialog
+        open={uncheckSourcesOpen}
+        onOpenChange={(open) => {
+          if (!open) setUncheckSourcesOpen(false);
+        }}
+        title={t("uncheckSourcesTitle")}
+        description={t("uncheckSourcesDescription")}
+        confirmLabel={t("uncheckSourcesConfirm")}
+        variant="destructive"
+        onConfirm={() => {
+          setSourcesChecked(false);
+          setUncheckSourcesOpen(false);
+        }}
+      />
 
       {formError ? (
         <p className="type-error" id={errorId} role="alert">

@@ -437,9 +437,6 @@ export function BrandList({
                           className={buttonVariants({
                             variant: "secondary",
                             size: "compact",
-                            // h-11 lifts the 40px compact height to the 44px
-                            // minimum touch target for this new control.
-                            className: "h-11",
                           })}
                         >
                           Curated products

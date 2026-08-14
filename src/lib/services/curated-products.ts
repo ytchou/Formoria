@@ -4,6 +4,7 @@ import type { Database } from "@/lib/supabase/database.types";
 import { auditedCall } from "@/lib/audit";
 import {
   curatedProductPromoteBlockers,
+  type PromoteBlocker,
   type PromoteOutcome,
 } from "@/lib/curated-products/promote-gate";
 import { withSlugSuffix } from "@/lib/brands/slug";
@@ -424,6 +425,11 @@ export async function updateCuratedProduct(
         // L2 is only meaningful within an L1. Defaulting the branch to "" would
         // normalize every tag away and write an empty array, so the caller is
         // made to state it instead of losing the tags silently.
+        //
+        // DEFENSIVE BACKSTOP ONLY. The admin boundary rejects this pair in
+        // `curatedProductUpdateSchema.superRefine`, so a raw throw here would
+        // otherwise reach the UI as an internal message; it survives for
+        // non-action callers (scripts, future writers) that skip the schema.
         if (input.l1 === undefined) {
           throw new Error("Updating l2 requires l1 in the same patch");
         }
@@ -456,6 +462,14 @@ export async function updateCuratedProduct(
     { subjectId: id },
   );
 }
+
+/**
+ * The lifecycles a promote may move FROM, as a `.in()` filter argument. Same
+ * two values `curatedProductPromoteBlockers` checks — kept here as an array
+ * because the gate holds them in a Set it does not export, and a divergence
+ * would show up as a promote the gate allows and the UPDATE silently drops.
+ */
+const PROMOTABLE_LIFECYCLES = ["candidate", "needs_review"] as const;
 
 type PromoteGateRow = {
   lifecycle: string;
@@ -512,11 +526,29 @@ export async function promoteCuratedProduct(
         };
       }
 
-      const { error: updateError } = await supabase
+      // The read above proved the lifecycle a moment ago, which is not the same
+      // as proving it now: a retire landing between the two would be silently
+      // overwritten and the product would republish itself. Re-asserting the
+      // lifecycle IN the update makes the database the arbiter, and a zero-row
+      // result is that race losing — reported as the same `lifecycle` blocker
+      // the gate would have raised.
+      const { data: updated, error: updateError } = await supabase
         .from("curated_products")
         .update({ lifecycle: "published" })
-        .eq("id", id);
+        .eq("id", id)
+        .in("lifecycle", [...PROMOTABLE_LIFECYCLES])
+        .select("id");
       if (updateError) throw updateError;
+
+      if (((updated as unknown[] | null) ?? []).length === 0) {
+        const raceBlockers: PromoteBlocker[] = ["lifecycle"];
+        ctx.summary.blockers = raceBlockers;
+        return {
+          ok: false as const,
+          blockers: raceBlockers,
+          error: `Cannot publish curated product ${id}: lifecycle`,
+        };
+      }
 
       return { ok: true as const };
     },
@@ -625,8 +657,12 @@ export async function retireCuratedProductSource(
 // Admin read (DEV-1465)
 // ---------------------------------------------------------------------------
 
-/** One source row as the admin drawer shows it, including retired ones. */
-export type AdminCuratedProductSource = {
+/**
+ * One source row as the admin drawer shows it, including retired ones. Not
+ * exported: it is reachable structurally through `AdminCuratedProduct.sources`,
+ * and a second exported name for the same shape is what knip reports.
+ */
+type AdminCuratedProductSource = {
   id: string;
   url: string;
   sourceType: string;
@@ -756,6 +792,56 @@ export async function listCuratedProductsForAdmin(
       checkedAt: source.checked_at ?? null,
     })),
   }));
+}
+
+/**
+ * Everything a write path must know about a product that it MUST NOT take from
+ * the client (DEV-1465).
+ *
+ * A server action is a POST endpoint. A caller-supplied `brandId` files an
+ * upload under another brand's storage prefix — the exact prefix
+ * `scripts/remove-brand.ts` and `scripts/brand-storage-maintenance.ts` derive
+ * their reference sets from — and a caller-supplied `previousImageUrl` is a
+ * delete primitive over any object under `curated-products/**`. Both are facts
+ * about the stored row, so both are read from the row.
+ *
+ * Returns null for an id that does not exist, which the caller reports rather
+ * than writing blind.
+ */
+export type CuratedProductWriteContext = {
+  brandId: string;
+  brandSlug: string | null;
+  imageUrl: string | null;
+  imageSourceUrl: string | null;
+  lifecycle: string;
+};
+
+export async function getCuratedProductWriteContext(
+  id: string,
+  client?: CuratedProductSupabase,
+): Promise<CuratedProductWriteContext | null> {
+  const { data, error } = await curatedProductClient(client)
+    .from("curated_products")
+    .select("brand_id, image_url, image_source_url, lifecycle, brands(slug)")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+
+  const row = data as unknown as {
+    brand_id: string;
+    image_url: string | null;
+    image_source_url: string | null;
+    lifecycle: string;
+    brands: { slug: string } | null;
+  };
+  return {
+    brandId: row.brand_id,
+    brandSlug: row.brands?.slug ?? null,
+    imageUrl: row.image_url ?? null,
+    imageSourceUrl: row.image_source_url ?? null,
+    lifecycle: row.lifecycle,
+  };
 }
 
 /** The brand slug a write must revalidate, read before or after the write. */

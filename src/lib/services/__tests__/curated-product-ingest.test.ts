@@ -111,6 +111,63 @@ describe("prefillFromUrl", () => {
     await expect(prefillFromUrl(PAGE_URL, { fetchPage })).resolves.toEqual({});
   });
 
+  it("survives JSON-LD nested deeply enough to overflow an uncapped walk", async () => {
+    // The page controls this shape entirely. An uncapped string walk overflows
+    // the stack, and the RangeError escapes a function documented never to
+    // throw for a bad page — turning a hostile page into a 500 on the editor's
+    // "Fetch details" button.
+    // Built as text rather than with JSON.stringify: stringifying a structure
+    // this deep would overflow the TEST's stack before the service saw it.
+    const depth = 100_000;
+    const buried = `${"[".repeat(depth)}"https://cdn.example.com/deep.jpg"${"]".repeat(depth)}`;
+    const jsonLd = `{"@context":"https://schema.org","@type":"Product","name":${buried},"image":${buried}}`;
+    const html = `<!doctype html><html><head>
+      <script type="application/ld+json">${jsonLd}</script>
+      <meta property="og:title" content="Fallback Mug" />
+      </head><body></body></html>`;
+
+    const fetchPage: PrefillFetchPage = async () => ({
+      text: html,
+      status: 200,
+      latencyMs: 1,
+      error: null,
+    });
+
+    const prefill = await prefillFromUrl(PAGE_URL, { fetchPage });
+
+    // Whichever layer gives out first — the JSON parse or the capped walk —
+    // the contract holds: no throw, and layer 2 still fills the form from the
+    // social-preview tags.
+    expect(prefill.nameEn).toBe("Fallback Mug");
+    expect(prefill.imageUrl).toBeUndefined();
+  });
+
+  it("stops reading a JSON-LD value nested past the depth cap", async () => {
+    // Same cap as `findProductNode` (6). A value buried below it is not read;
+    // an ordinary one-level array still is.
+    const jsonLd = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: ["Shallow Mug"],
+      description: [[[[[[[["buried description"]]]]]]]],
+    });
+    const html = `<!doctype html><html><head>
+      <script type="application/ld+json">${jsonLd}</script>
+      </head><body></body></html>`;
+
+    const fetchPage: PrefillFetchPage = async () => ({
+      text: html,
+      status: 200,
+      latencyMs: 1,
+      error: null,
+    });
+
+    const prefill = await prefillFromUrl(PAGE_URL, { fetchPage });
+
+    expect(prefill.nameEn).toBe("Shallow Mug");
+    expect(prefill.description).toBeUndefined();
+  });
+
   it("never_writes_to_database", async () => {
     // Two proofs, because one alone is weak. First: the behavioural one — the
     // only injected seam is the fetch, so a run that completes without touching

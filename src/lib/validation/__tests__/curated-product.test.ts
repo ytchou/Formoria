@@ -112,4 +112,40 @@ describe("curated product validation", () => {
       true,
     );
   });
+
+  it("accepts null on every clearable editorial field", () => {
+    // Null is the only way to EMPTY a field the editor filled in by mistake:
+    // an absent key means "untouched", so without the nullable half there is no
+    // payload that can clear one.
+    const cleared = curatedProductUpdateSchema.safeParse({
+      nameEn: null,
+      officialUrl: null,
+      imageSourceUrl: null,
+      notesZh: null,
+      notesEn: null,
+      reviewDueAt: null,
+    });
+    expect(cleared.success).toBe(true);
+    if (!cleared.success) return;
+    expect(cleared.data.officialUrl).toBeNull();
+    expect(cleared.data.reviewDueAt).toBeNull();
+    // Still validated when a value IS supplied.
+    expect(
+      curatedProductUpdateSchema.safeParse({ officialUrl: "javascript:alert(1)" })
+        .success,
+    ).toBe(false);
+  });
+
+  it("refuses an l2 patch that does not name its l1", () => {
+    // Refused at the BOUNDARY so the action returns its generic
+    // "Invalid curated product"; the service keeps the same rule as a throwing
+    // backstop, whose raw message would otherwise reach the editor.
+    expect(
+      curatedProductUpdateSchema.safeParse({ l2: ["tableware"] }).success,
+    ).toBe(false);
+    expect(
+      curatedProductUpdateSchema.safeParse({ l1: "home", l2: ["tableware"] })
+        .success,
+    ).toBe(true);
+  });
 });

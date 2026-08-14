@@ -71,22 +71,30 @@ export const curatedProductSourceSchema = z.object({
  * promote/retire actions, link health is written only by the link checker, and
  * the stored image URL is produced by the upload, never posted by a form.
  */
+/**
+ * ABSENT AND NULL MEAN DIFFERENT THINGS on every optional editorial field
+ * below. An absent key is "the editor did not touch this", which leaves the
+ * column alone; an explicit `null` is "clear this value", which writes NULL.
+ * Without the nullable half there is no payload that can ever empty a field the
+ * editor filled in by mistake — `undefined` is indistinguishable from silence.
+ * `updateCuratedProduct` implements exactly this split.
+ */
 const curatedProductFields = {
   nameZh: nameSchema,
-  nameEn: nameSchema.optional(),
+  nameEn: nameSchema.nullable().optional(),
   l1: z.enum(CURATED_PRODUCT_L1_VALUES),
   l2: l2Schema.optional(),
-  officialUrl: httpUrlSchema.optional(),
+  officialUrl: httpUrlSchema.nullable().optional(),
   /** The page an image was taken from, kept so usage rights stay re-checkable. */
-  imageSourceUrl: httpUrlSchema.optional(),
+  imageSourceUrl: httpUrlSchema.nullable().optional(),
   /**
    * `image_usage` is a human assertion of rights. It is never inferred from a
    * successful download, so the form must send it explicitly to leave 'none'.
    */
   imageUsage: z.enum(["none", "permitted", "licensed"]).optional(),
-  notesZh: noteSchema.optional(),
-  notesEn: noteSchema.optional(),
-  reviewDueAt: timestampSchema.optional(),
+  notesZh: noteSchema.nullable().optional(),
+  notesEn: noteSchema.nullable().optional(),
+  reviewDueAt: timestampSchema.nullable().optional(),
   /**
    * A human assertion that the sources below were opened and read, which is
    * what stamps `source_checked_at`. A boolean rather than a timestamp: a form
@@ -109,7 +117,22 @@ export const curatedProductCreateSchema = z.object({
  */
 export const curatedProductUpdateSchema = z
   .object(curatedProductFields)
-  .partial();
+  .partial()
+  .superRefine((payload, ctx) => {
+    // An L2 slug is only meaningful inside one L1, so a patch that moves the
+    // subcategories without naming the category cannot be normalized.
+    // `updateCuratedProduct` throws on the same pair, but a service throw
+    // reaches the editor as its raw message; refusing at the boundary turns it
+    // into the generic `{ error: "Invalid curated product" }` the action
+    // returns for every other malformed payload.
+    if (payload.l2 !== undefined && payload.l1 === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["l2"],
+        message: "Updating l2 requires l1 in the same patch",
+      });
+    }
+  });
 
 /** The paste-URL field behind "Fetch details". Same protocol bar as the rest. */
 export const prefillUrlSchema = httpUrlSchema;

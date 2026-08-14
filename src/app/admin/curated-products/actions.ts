@@ -6,11 +6,16 @@ import { runWithAuditContext } from "@/lib/audit/context";
 import { requireAdminAction } from "@/lib/auth/require-admin";
 import { revalidatePublicBrands } from "@/lib/cache/public-brand-cache";
 import { logAdminAction } from "@/lib/services/admin-audit";
-import { storeCuratedProductImage } from "@/lib/services/curated-product-image";
+import {
+  prepareCuratedProductImage,
+  storeCuratedProductImage,
+  uploadCuratedProductImage,
+} from "@/lib/services/curated-product-image";
 import { prefillFromUrl } from "@/lib/services/curated-product-ingest";
 import {
   createCuratedProduct,
   getCuratedProductBrandSlug,
+  getCuratedProductWriteContext,
   promoteCuratedProduct,
   retireCuratedProduct,
   retireCuratedProductSource,
@@ -69,29 +74,6 @@ function actionError(error: unknown, fallback: string): { error: string } {
   };
 }
 
-/**
- * Applies the image, if the payload carries a source URL for one.
- *
- * `image_usage` is never derived from a successful download — consent is a
- * human assertion, so it is only ever written from the field the editor set.
- * `processImage` throws on GIF/SVG/oversize; that message is propagated so the
- * caller can render it against the image field rather than swallow it.
- */
-async function applyImage(
-  productId: string,
-  brandId: string,
-  imageSourceUrl: string,
-  previousImageUrl: string | null,
-): Promise<string> {
-  const { url } = await storeCuratedProductImage({
-    brandId,
-    productId,
-    imageSourceUrl,
-    previousImageUrl,
-  });
-  return url;
-}
-
 async function saveSources(
   productId: string,
   sources: { url: string; sourceType: string; claimZh?: string }[] | undefined,
@@ -117,6 +99,20 @@ export async function createCuratedProductAction(
 
     try {
       const payload = parsed.data;
+
+      // ORDERING IS THE ATOMICITY STORY. Every step that can fail on an
+      // EXTERNAL cause — SSRF refusal, dead origin, GIF/SVG, oversize,
+      // undecodable bytes — runs BEFORE the insert and needs no product id. A
+      // rejected image therefore leaves no row at all, instead of a candidate
+      // whose editor retry creates a key-suffixed duplicate ("widget",
+      // "widget-2") carrying a second copy of the sources.
+      const processed = payload.imageSourceUrl
+        ? await prepareCuratedProductImage(
+            payload.imageSourceUrl,
+            payload.brandId,
+          )
+        : null;
+
       const { id } = await createCuratedProduct({
         brandId: payload.brandId,
         nameZh: payload.nameZh,
@@ -136,16 +132,34 @@ export async function createCuratedProductAction(
           : null,
       });
 
-      await saveSources(id, payload.sources);
+      try {
+        await saveSources(id, payload.sources);
 
-      if (payload.imageSourceUrl) {
-        const imageUrl = await applyImage(
-          id,
-          payload.brandId,
-          payload.imageSourceUrl,
-          null,
-        );
-        await updateCuratedProduct(id, { imageUrl });
+        if (processed && payload.imageSourceUrl) {
+          const { url } = await uploadCuratedProductImage({
+            brandId: payload.brandId,
+            productId: id,
+            imageSourceUrl: payload.imageSourceUrl,
+            processed,
+            previousImageUrl: null,
+          });
+          await updateCuratedProduct(id, { imageUrl: url });
+        }
+      } catch (error) {
+        // The row exists from here on, so the compensating action is to SAY so
+        // rather than to unwind: retiring it would keep `(brand_id, key)`
+        // taken and a retry would still suffix, and deleting it is forbidden
+        // outright (see the write-path rules in services/curated-products.ts).
+        // Naming the created product steers the editor to editing it instead
+        // of creating a duplicate.
+        revalidatePath("/admin/curated-products");
+        const detail =
+          error instanceof Error && error.message ? error.message : "";
+        return {
+          error: `The product was created, but finishing it failed${
+            detail ? `: ${detail}` : ""
+          }. Open it in the queue and save again rather than creating it twice.`,
+        };
       }
 
       // A new product is a candidate, so no public page renders it yet — only
@@ -158,14 +172,21 @@ export async function createCuratedProductAction(
   });
 }
 
+/**
+ * Saves an edit.
+ *
+ * NO CLIENT-SUPPLIED CONTEXT. A server action is a POST endpoint, so an earlier
+ * `context` parameter carrying `brandId`, `previousImageUrl`, and `published`
+ * handed the caller three things it must not have: the storage prefix an upload
+ * is filed under (which `scripts/remove-brand.ts` and
+ * `scripts/brand-storage-maintenance.ts` derive their reference sets from), a
+ * delete primitive over any object beneath `curated-products/**`, and the flag
+ * that decides whether a public page is revalidated. All three are facts about
+ * the stored row, so all three are read from it here.
+ */
 export async function updateCuratedProductAction(
   productId: string,
   input: unknown,
-  context?: {
-    brandId?: string;
-    previousImageUrl?: string | null;
-    published?: boolean;
-  },
 ): Promise<ActionResult> {
   return runWithAuditContext({}, async () => {
     const auth = await requireAdminAction();
@@ -180,50 +201,54 @@ export async function updateCuratedProductAction(
     try {
       const id = idResult.data;
       const payload = parsed.data;
-      const patch: CuratedProductUpdateInput = {};
-      if (payload.nameZh !== undefined) patch.nameZh = payload.nameZh;
-      if (payload.nameEn !== undefined) patch.nameEn = payload.nameEn;
-      if (payload.l1 !== undefined) patch.l1 = payload.l1;
-      // `updateCuratedProduct` refuses an l2 patch without its l1: an L2 slug is
-      // only meaningful inside one L1.
-      if (payload.l2 !== undefined) patch.l2 = payload.l2;
-      if (payload.officialUrl !== undefined) {
-        patch.officialUrl = payload.officialUrl;
-      }
-      if (payload.imageSourceUrl !== undefined) {
-        patch.imageSourceUrl = payload.imageSourceUrl;
-      }
-      if (payload.imageUsage !== undefined)
-        patch.imageUsage = payload.imageUsage;
-      if (payload.notesZh !== undefined) patch.notesZh = payload.notesZh;
-      if (payload.notesEn !== undefined) patch.notesEn = payload.notesEn;
-      if (payload.reviewDueAt !== undefined) {
-        patch.reviewDueAt = payload.reviewDueAt;
-      }
-      if (payload.sourcesChecked !== undefined) {
-        patch.sourceCheckedAt = payload.sourcesChecked
+
+      const context = await getCuratedProductWriteContext(id);
+      if (!context) return { error: "That curated product no longer exists" };
+
+      // The schema is a strict subset of the service's update input once the
+      // two keys this action owns are removed, so the field list lives in
+      // `updateCuratedProduct` ONLY — a second copy here drifted every time a
+      // column was added. An absent key stays absent (column untouched); a key
+      // present as `null` survives the spread and clears the column.
+      const { sourcesChecked, sources, ...fields } = payload;
+      const patch: CuratedProductUpdateInput = { ...fields };
+      if (sourcesChecked !== undefined) {
+        // Stamped from the server clock: a form that posted its own would be
+        // able to back-date the evidence the promote gate reads.
+        patch.sourceCheckedAt = sourcesChecked
           ? new Date().toISOString()
           : null;
       }
 
-      await saveSources(id, payload.sources);
+      await saveSources(id, sources);
 
-      if (payload.imageSourceUrl && context?.brandId) {
-        patch.imageUrl = await applyImage(
-          id,
-          context.brandId,
-          payload.imageSourceUrl,
-          context.previousImageUrl ?? null,
-        );
+      // The image is re-fetched, re-processed and re-uploaded ONLY when the
+      // source URL actually changed. Otherwise every unrelated typo fix cost a
+      // remote fetch, a sharp pass, an upload and an audit row — and failed the
+      // whole save whenever the origin was down. `!context.imageUrl` keeps the
+      // retry path alive: a source URL stored by a create whose upload failed
+      // is unchanged but has no object behind it yet.
+      const imageNeedsWork =
+        Boolean(payload.imageSourceUrl) &&
+        (payload.imageSourceUrl !== context.imageSourceUrl ||
+          !context.imageUrl);
+      if (payload.imageSourceUrl && imageNeedsWork) {
+        const { url } = await storeCuratedProductImage({
+          brandId: context.brandId,
+          productId: id,
+          imageSourceUrl: payload.imageSourceUrl,
+          previousImageUrl: context.imageUrl,
+        });
+        patch.imageUrl = url;
       }
 
       await updateCuratedProduct(id, patch);
 
       // An edit to an ALREADY-PUBLISHED product changes what /brands/[slug]
-      // renders, so its ISR entry has to go with it.
-      const brandSlug = context?.published
-        ? await getCuratedProductBrandSlug(id)
-        : null;
+      // renders, so its ISR entry has to go with it. Read from the row, never
+      // from a caller-supplied flag.
+      const brandSlug =
+        context.lifecycle === "published" ? context.brandSlug : null;
       revalidateCurated(brandSlug);
       return undefined;
     } catch (error) {
@@ -331,6 +356,22 @@ export async function retireCuratedProductSourceAction(
     try {
       await retireCuratedProductSource(sourceResult.data);
       const brandSlug = await getCuratedProductBrandSlug(productResult.data);
+
+      // Audited for the same reason promote and retire are: withdrawing the
+      // last active source flips a promote-gate condition, so it is an
+      // editorial decision, not a form tidy-up.
+      if (auth.user.email) {
+        await logAdminAction({
+          adminUserId: auth.user.id,
+          adminEmail: auth.user.email,
+          action: "curated_product_source_retired",
+          targetBrandSlug: brandSlug ?? undefined,
+          metadata: {
+            productId: productResult.data,
+            sourceId: sourceResult.data,
+          },
+        });
+      }
       revalidateCurated(brandSlug);
       return undefined;
     } catch (error) {

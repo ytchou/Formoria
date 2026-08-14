@@ -6,7 +6,6 @@ import {
 import {
   extractAllJsonLd,
   filterHeroImage,
-  firstString,
   metaContent,
   textContent,
 } from "@/lib/services/enrich-phases/scraper/parse/extractors";
@@ -61,6 +60,45 @@ export type PrefillDeps = {
  */
 const HAN_REGEX = /[\u4E00-\u9FFF\u3400-\u4DBF]/u;
 
+/**
+ * The JSON-LD nesting depth this service is willing to walk, matching
+ * `findProductNode` below.
+ */
+const MAX_JSONLD_DEPTH = 6;
+
+/**
+ * Depth-capped local copy of the scraper's `firstString`.
+ *
+ * The shared extractor recurses with no cap, so JSON-LD nested a few hundred
+ * thousand levels deep — which a hostile page controls entirely — overflows the
+ * stack, and the resulting `RangeError` escapes `prefillFromUrl`, whose
+ * contract is that a bad page yields an empty prefill and never throws. Capped
+ * here rather than in the extractor: that function is on the enrichment
+ * scraper's hot path, and changing its behaviour for every caller is a wider
+ * blast radius than one admin prefill needs.
+ *
+ * Semantics are otherwise the shared ones: first non-empty trimmed string, then
+ * array elements in order, then an object's `url` or `@id`.
+ */
+function firstString(value: unknown, depth = 0): string | null {
+  if (depth > MAX_JSONLD_DEPTH) return null;
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const candidate = firstString(item, depth + 1);
+      if (candidate) return candidate;
+    }
+    return null;
+  }
+  if (value && typeof value === "object") {
+    const object = value as Record<string, unknown>;
+    return (
+      firstString(object.url, depth + 1) ?? firstString(object["@id"], depth + 1)
+    );
+  }
+  return null;
+}
+
 function typeNames(node: Record<string, unknown>): string[] {
   const type = node["@type"];
   if (typeof type === "string") return [type];
@@ -81,7 +119,9 @@ function findProductNode(
   value: unknown,
   depth = 0,
 ): Record<string, unknown> | null {
-  if (depth > 6 || value == null || typeof value !== "object") return null;
+  if (depth > MAX_JSONLD_DEPTH || value == null || typeof value !== "object") {
+    return null;
+  }
 
   if (Array.isArray(value)) {
     for (const item of value) {
@@ -143,15 +183,25 @@ export async function prefillFromUrl(
   // Layer 1: the JSON-LD `Product` node, when the page publishes one. It is the
   // publisher's own structured claim about the product, so it outranks the
   // social-preview tags, which describe the PAGE and often carry a site suffix.
-  const product = findProductNode(extractAllJsonLd($));
-  if (product) {
-    assignName(prefill, firstString(product.name));
-    assignName(prefill, firstString(product.alternateName));
-    const description = firstString(product.description);
-    if (description) prefill.description = description;
-    const image = firstString(product.image);
-    const resolved = image ? filterHeroImage(image, url) : null;
-    if (resolved) prefill.imageUrl = resolved;
+  //
+  // Wrapped because the whole block reads ATTACKER-SHAPED JSON: the depth caps
+  // above bound the walks this file owns, and this catch keeps the documented
+  // contract (a bad page is an empty prefill, never a throw) even if a shared
+  // extractor called from here later grows a failure mode of its own. Layer 2
+  // still runs, so a page whose JSON-LD is hostile keeps its og: tags.
+  try {
+    const product = findProductNode(extractAllJsonLd($));
+    if (product) {
+      assignName(prefill, firstString(product.name));
+      assignName(prefill, firstString(product.alternateName));
+      const description = firstString(product.description);
+      if (description) prefill.description = description;
+      const image = firstString(product.image);
+      const resolved = image ? filterHeroImage(image, url) : null;
+      if (resolved) prefill.imageUrl = resolved;
+    }
+  } catch {
+    // Fall through to the social-preview tags.
   }
 
   // Layer 2: the same order `scraper/strategies/single-page.ts` already uses,

@@ -3098,6 +3098,8 @@
       "selectVisible": "Select visible products",
       "searchLabel": "Search",
       "searchPlaceholder": "Brand or product name",
+      "brandScope": "Showing only products for {brand}.",
+      "clearBrandScope": "Show products for every brand",
       "newProduct": "Add a curated product",
       "closeNewProduct": "Close the new product form",
       "promote": "Promote to published",
@@ -3187,6 +3189,12 @@
         "addSource": "Add another source",
         "removeSource": "Remove source",
         "sourcesChecked": "I opened and read every source listed here",
+        "sourcesCheckedPublishedHint": "This product is published. Clearing this box removes it from the brand page as soon as you save.",
+        "uncheckSourcesTitle": "Remove this product from the brand page?",
+        "uncheckSourcesDescription": "A published product only shows on the brand page while the sources are marked as read. Clearing this box removes it from the brand page when you save. Tick the box again and save to put it back, or use “Retire product” if you want it gone for good.",
+        "uncheckSourcesConfirm": "Clear the box and remove it on save",
+        "urlInvalid": "Enter the full address, starting with https:// — for example https://example.com/product.",
+        "urlFieldsBlockSave": "Fix the marked URL fields, then save again.",
         "sourceState": {
           "active": "Active",
           "retired": "Withdrawn"

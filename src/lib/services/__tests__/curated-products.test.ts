@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   createCuratedProduct,
   curatedProductPromoteBlockers,
+  getCuratedProductWriteContext,
   getPublishedCuratedProductsForBrand,
+  promoteCuratedProduct,
   retireCuratedProduct,
   retireCuratedProductSource,
   updateCuratedProduct,
@@ -194,6 +196,7 @@ describe("getPublishedCuratedProductsForBrand", () => {
 });
 
 const BRAND_ID = "3f8b6d2a-5c14-4e79-9a03-77b1e6c2d904";
+const PRODUCT_ID = "6d5f1b0c-2a44-4f13-8c9e-5b7a1d3e9f20";
 
 type WriteReply = {
   data?: unknown;
@@ -205,6 +208,7 @@ type WriteCalls = {
   insert: Record<string, unknown>[];
   update: Record<string, unknown>[];
   eq: [string, unknown][];
+  in: [string, unknown[]][];
 };
 
 /**
@@ -223,7 +227,13 @@ function stubWriteClient(replies: WriteReply[]): {
   client: CuratedProductSupabase;
   calls: WriteCalls;
 } {
-  const calls: WriteCalls = { table: [], insert: [], update: [], eq: [] };
+  const calls: WriteCalls = {
+    table: [],
+    insert: [],
+    update: [],
+    eq: [],
+    in: [],
+  };
   const queue = [...replies];
 
   const nextReply = () => {
@@ -245,6 +255,10 @@ function stubWriteClient(replies: WriteReply[]): {
     },
     eq(column: string, value: unknown) {
       calls.eq.push([column, value]);
+      return chain;
+    },
+    in(column: string, values: unknown[]) {
+      calls.in.push([column, values]);
       return chain;
     },
     single() {
@@ -433,6 +447,25 @@ describe("curated product writers", () => {
     expect(payload.name_zh).toBe("Renamed");
   });
 
+  it("update_clears_a_field_sent_as_null_and_skips_an_absent_one", async () => {
+    // Absent and null are different instructions: absent leaves the column
+    // alone, null empties it. Collapsing them leaves no payload that can ever
+    // clear a value the editor filled in by mistake.
+    const { client, calls } = stubWriteClient([{}]);
+
+    await updateCuratedProduct(
+      "6d5f1b0c-2a44-4f13-8c9e-5b7a1d3e9f20",
+      { officialUrl: null, notesZh: null },
+      client,
+    );
+
+    const payload = calls.update.at(0) ?? {};
+    expect(payload.official_url).toBeNull();
+    expect(payload.notes_zh).toBeNull();
+    expect(Object.keys(payload)).not.toContain("name_zh");
+    expect(Object.keys(payload)).not.toContain("notes_en");
+  });
+
   it("retires a product by flipping lifecycle, never by deleting", async () => {
     const { client, calls } = stubWriteClient([{}]);
 
@@ -492,5 +525,91 @@ describe("curated product writers", () => {
         stubWriteClient([{ error: missingTable }]).client,
       ),
     ).rejects.toMatchObject({ code: "PGRST205" });
+  });
+});
+
+describe("promoteCuratedProduct", () => {
+  const gateRow = {
+    lifecycle: "candidate",
+    official_url: "https://example.com/pick",
+    source_checked_at: "2026-08-13T00:00:00Z",
+    curated_product_sources: [{ state: "active" }],
+  };
+
+  it("re-asserts the lifecycle in the UPDATE, not only in the read", async () => {
+    // The read proved the lifecycle a moment ago, which is not the same as
+    // proving it now. Without the filter, a retire landing between the two is
+    // silently overwritten and the product republishes itself.
+    const { client, calls } = stubWriteClient([
+      { data: gateRow },
+      { data: [{ id: PRODUCT_ID }] },
+    ]);
+
+    const outcome = await promoteCuratedProduct(PRODUCT_ID, client);
+
+    expect(outcome).toEqual({ ok: true });
+    expect(calls.update.at(0)).toEqual({ lifecycle: "published" });
+    expect(calls.in).toContainEqual([
+      "lifecycle",
+      ["candidate", "needs_review"],
+    ]);
+  });
+
+  it("treats a zero-row update as a lifecycle refusal, not a success", async () => {
+    // What a concurrent retire looks like from here: the gate passed, the
+    // UPDATE matched nothing.
+    const { client } = stubWriteClient([{ data: gateRow }, { data: [] }]);
+
+    const outcome = await promoteCuratedProduct(PRODUCT_ID, client);
+
+    expect(outcome).toMatchObject({ ok: false, blockers: ["lifecycle"] });
+  });
+
+  it("refuses before the update when the gate itself fails", async () => {
+    const { client, calls } = stubWriteClient([
+      { data: { ...gateRow, curated_product_sources: [{ state: "retired" }] } },
+    ]);
+
+    const outcome = await promoteCuratedProduct(PRODUCT_ID, client);
+
+    expect(outcome).toMatchObject({ ok: false, blockers: ["no_active_source"] });
+    expect(calls.update).toEqual([]);
+  });
+});
+
+describe("getCuratedProductWriteContext", () => {
+  it("reads brand, image and lifecycle from the ROW, never from a caller", async () => {
+    // A server action is a POST endpoint: a caller-supplied brandId files an
+    // upload under another brand's storage prefix, and a caller-supplied
+    // previous image URL is a delete primitive over that prefix.
+    const { client, calls } = stubWriteClient([
+      {
+        data: {
+          brand_id: BRAND_ID,
+          image_url: "https://cdn.example.com/stored.webp",
+          image_source_url: "https://example.com/source.png",
+          lifecycle: "published",
+          brands: { slug: "studio-kiln" },
+        },
+      },
+    ]);
+
+    const context = await getCuratedProductWriteContext(PRODUCT_ID, client);
+
+    expect(context).toEqual({
+      brandId: BRAND_ID,
+      brandSlug: "studio-kiln",
+      imageUrl: "https://cdn.example.com/stored.webp",
+      imageSourceUrl: "https://example.com/source.png",
+      lifecycle: "published",
+    });
+    expect(calls.eq).toContainEqual(["id", PRODUCT_ID]);
+  });
+
+  it("returns null for a product that no longer exists", async () => {
+    const { client } = stubWriteClient([{ data: null }]);
+    await expect(
+      getCuratedProductWriteContext(PRODUCT_ID, client),
+    ).resolves.toBeNull();
   });
 });
