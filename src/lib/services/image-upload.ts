@@ -41,7 +41,7 @@ interface UploadImageInput {
 
 /**
  * `upsert` is opt-in and only safe for a caller whose path is DERIVED, not
- * random: the curated-product sync (DEV-1404) keys its object on
+ * random: the curated-product write path (DEV-1465) keys its object on
  * sha256(image_source_url), so overwriting in place is precisely how it avoids
  * orphaning the previous object on every apply. A random-path caller must leave
  * it unset — see uploadStorageObject, where it also gates retry idempotency.
