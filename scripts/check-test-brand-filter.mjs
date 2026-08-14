@@ -42,6 +42,10 @@ const ALLOWED_UNFILTERED = new Map([
     "getPublicBrandFaqContextById",
     "by-id read; the caller already resolved the brand",
   ],
+  [
+    "getAdminBrandOptions",
+    "admin-only brand picker for the curated-products editor; like /admin/brands it must keep [E2E-TEST] brands selectable, and it renders on no public route",
+  ],
 ]);
 
 const source = readFileSync(SOURCE, "utf8");

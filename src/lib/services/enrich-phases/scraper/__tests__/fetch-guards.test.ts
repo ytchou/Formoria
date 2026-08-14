@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { resetAuditEmitterForTests, setAuditWriteSeam, type AuditRecord } from '@/lib/audit'
-import { isPrivateUrl, fetchHtml, resolveUrl } from '../fetch-guards'
+import { isPrivateUrl, fetchHtml, fetchHtmlWithMetadata, resolveUrl } from '../fetch-guards'
 
 let writes: AuditRecord[]
 
@@ -21,6 +21,50 @@ afterEach(() => {
 function htmlResponse(body: string) {
   return new Response(body, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } })
 }
+
+function htmlResponseFrom(body: string, finalUrl: string) {
+  const response = htmlResponse(body)
+  Object.defineProperty(response, 'url', { value: finalUrl, configurable: true })
+  return response
+}
+
+describe('redirect target guard', () => {
+  it('rejects_redirect_to_private_host', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(htmlResponseFrom('<html>secret</html>', 'http://169.254.169.254/latest/meta-data')),
+    )
+
+    const result = await fetchHtmlWithMetadata('https://example.com')
+
+    expect(result.text).toBeNull()
+    expect(result.error).toContain('private URL')
+
+    const finish = writes.find(
+      (record) => record.operation === 'fetch_html_with_metadata' && record.status !== 'started',
+    )
+    expect(finish?.status).toBe('failed')
+  })
+
+  it('allows_redirect_to_public_host', async () => {
+    const body = '<html><body>ok</body></html>'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(htmlResponseFrom(body, 'https://www.example.com/final')),
+    )
+
+    await expect(fetchHtml('https://example.com')).resolves.toBe(body)
+  })
+
+  it('tolerates_empty_response_url', async () => {
+    const body = '<html><body>ok</body></html>'
+    const response = htmlResponse(body)
+    expect(response.url).toBe('')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response))
+
+    await expect(fetchHtml('https://example.com')).resolves.toBe(body)
+  })
+})
 
 describe('isPrivateUrl', () => {
   it('blocks localhost and private ranges', () => {

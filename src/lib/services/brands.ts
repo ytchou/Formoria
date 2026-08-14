@@ -1179,6 +1179,38 @@ const PUBLIC_MICROSITE_BRAND_SELECT =
  */
 const SUPABASE_IN_FILTER_CHUNK_SIZE = 200;
 
+/**
+ * The id/slug/name triple an admin picker needs.
+ *
+ * MUST MATCH THE ENTRY POINT: the admin brand list renders its "add a curated
+ * product" deep link for `approved` AND `hidden` brands, so a picker limited to
+ * `approved` opens a form in which the brand that was clicked is absent from
+ * the select — and the next save files the product against whichever unrelated
+ * brand the select defaulted to.
+ *
+ * No `excludeTestBrands()` here on purpose; the ALLOWED_UNFILTERED entry in
+ * `scripts/check-test-brand-filter.mjs` records why (an admin picker must be
+ * able to reach a test brand).
+ *
+ * Deliberately not `getBrands`: that hydrates the full card projection (hero
+ * image metadata, channels, tags) for a select element that renders three
+ * strings. Ceiling: one unpaged read. Move to a `.range()` loop if the visible
+ * corpus approaches Supabase's 1000-row `db-max-rows` default.
+ */
+export async function getAdminBrandOptions(): Promise<
+  { id: string; slug: string; name: string }[]
+> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("brands")
+    .select("id, slug, name")
+    .in("status", ["approved", "hidden"])
+    .order("name", { ascending: true })
+    .limit(1000);
+  if (error) throw new Error(`Failed to fetch brand options: ${error.message}`);
+  return data ?? [];
+}
+
 export async function getBrandSlugsBatch(
   brandIds: string[],
 ): Promise<Map<string, string>> {

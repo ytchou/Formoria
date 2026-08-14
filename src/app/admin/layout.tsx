@@ -73,6 +73,7 @@ export default async function AdminLayout({
       : []),
     { label: t("nav.reports"), href: "/admin/reports", count: counts.reports ?? undefined },
     { label: t("nav.brands"), href: "/admin/brands" },
+    { label: t("nav.curatedProducts"), href: "/admin/curated-products" },
     { label: t("nav.corrections"), href: "/admin/corrections", count: counts.corrections ?? undefined },
     { label: t("nav.quality"), href: "/admin/quality" },
     { label: t("nav.newsletter"), href: "/admin/newsletter" },

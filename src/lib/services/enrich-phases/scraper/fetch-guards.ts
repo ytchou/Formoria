@@ -115,6 +115,20 @@ async function fetchTextWithMetadata(
               Accept: accept,
             },
           })
+          // Redirects are followed by default, so the input-url check above says
+          // nothing about where the body actually came from. Re-check the final
+          // url. Guarded on truthiness and inequality: mocked `new Response(body)`
+          // has `url === ''`, and `isPrivateUrl('')` fails closed.
+          if (response.url && response.url !== url && isPrivateUrl(response.url)) {
+            return {
+              text: null,
+              status: response.status,
+              latencyMs: Date.now() - startedAt,
+              error: 'private URL after redirect',
+              reason: 'private_url',
+            }
+          }
+
           if (!response.ok) {
             return {
               text: null,

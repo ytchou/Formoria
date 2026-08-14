@@ -21,7 +21,7 @@ create table public.curated_products (
   id uuid primary key default gen_random_uuid(),
   brand_id uuid not null references public.brands (id) on delete cascade,
   -- Editorial product key, kebab-case. Stable across renames of name_zh/name_en
-  -- so the YAML sync can upsert on (brand_id, key) instead of matching titles.
+  -- so writers can upsert on (brand_id, key) instead of matching titles.
   key text not null,
   name_zh text not null,
   name_en text,
@@ -76,7 +76,7 @@ create table public.curated_product_sources (
   state text not null default 'active' check (state in ('active', 'retired')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  -- Conflict target for the idempotent YAML sync. Without it a partially
+  -- Conflict target for idempotent source writes. Without it a partially
   -- applied run duplicates rows instead of converging on re-run.
   unique (product_id, url)
 );
@@ -124,7 +124,7 @@ revoke all on table public.curated_product_selections from anon, authenticated;
 comment on table public.curated_products is
   'Editorially selected products rendered on /brands/[slug]. No price, stock, or availability by design. Read exclusively through the service layer.';
 comment on column public.curated_products.key is
-  'Kebab-case editorial key, unique per brand. Upsert conflict target for the YAML sync.';
+  'Kebab-case editorial key, unique per brand. Upsert conflict target for curated-product writes.';
 comment on column public.curated_products.image_usage is
   'none = do not render the image; permitted = owner/source allows use; licensed = formal licence on file.';
 comment on column public.curated_products.lifecycle is

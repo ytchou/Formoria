@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  CURATED_LINK_READ_LIFECYCLES,
   CURATED_LINK_WRITE_COLUMNS,
   applyLinkStates,
   classify,
+  loadProducts,
   probe,
   selectReviewDue,
   type LinkCheck,
   type LinkStateWriter,
+  type ProductQuery,
+  type ProductReader,
   type ProductRow,
   type ReviewDueCandidate,
 } from "./check-links";
@@ -377,5 +381,152 @@ describe("applyLinkStates", () => {
         client,
       ),
     ).rejects.toThrow(/alpine-shell.*permission denied/);
+  });
+});
+
+/**
+ * READ SCOPE. Nothing renders a `candidate`, so every candidate probed is a
+ * request and an `external_call_audit` row spent for no reader, a `link_state`
+ * machine-authored before an editor has looked at the row, and a brand slug
+ * dragged into the revalidation set — rebuilding a PUBLIC page for a change it
+ * cannot show, with a revalidation failure taking the whole run non-zero.
+ *
+ * None of that raises an error today, which is exactly why the filter is
+ * asserted here rather than left to a reader to notice.
+ */
+describe("loadProducts read scope", () => {
+  type RecordedCall = { method: string; args: unknown[] };
+
+  function readerRow(overrides: Partial<ProductRow> = {}): ProductRow {
+    return {
+      id: "22222222-2222-4222-8222-222222222222",
+      brand_id: BRAND_ID,
+      key: "alpine-shell",
+      name_zh: "高山風衣",
+      lifecycle: "published",
+      official_url: "https://hanchor.com/products/alpine-shell",
+      link_state: "ok",
+      review_due_at: null,
+      brands: { slug: "hanchor" },
+      ...overrides,
+    };
+  }
+
+  /**
+   * Records the filter chain AND honours it: `range` returns only the rows the
+   * recorded lifecycle allow-list admits, so the report assertions below run on
+   * what the database would actually have returned.
+   */
+  function recordingReader(rows: readonly ProductRow[]) {
+    const calls: RecordedCall[] = [];
+    let allowed: readonly string[] | null = null;
+
+    const query: ProductQuery = {
+      in: (column, values) => {
+        calls.push({ method: "in", args: [column, [...values]] });
+        if (column === "lifecycle") allowed = [...values];
+        return query;
+      },
+      eq: (column, value) => {
+        calls.push({ method: "eq", args: [column, value] });
+        return query;
+      },
+      order: (column, options) => {
+        calls.push({ method: "order", args: [column, options] });
+        return query;
+      },
+      range: async (from, to) => {
+        calls.push({ method: "range", args: [from, to] });
+        const data = rows.filter(
+          (row) => allowed === null || allowed.includes(row.lifecycle),
+        );
+        return { data: from === 0 ? data : [], error: null };
+      },
+    };
+
+    const client: ProductReader = {
+      from: (table) => {
+        calls.push({ method: "from", args: [table] });
+        return {
+          select: (columns) => {
+            calls.push({ method: "select", args: [columns] });
+            return query;
+          },
+        };
+      },
+    };
+
+    return { client, calls };
+  }
+
+  it("load_products_excludes_candidates", async () => {
+    const { client, calls } = recordingReader([
+      readerRow(),
+      readerRow({ id: "33333333-3333-4333-8333-333333333333", key: "draft-tote", lifecycle: "candidate" }),
+      readerRow({ id: "44444444-4444-4444-8444-444444444444", key: "old-cap", lifecycle: "retired" }),
+    ]);
+
+    const rows = await loadProducts(null, client);
+
+    // A positive allow-list, so a lifecycle value nobody has considered here
+    // defaults to NOT being probed.
+    expect(calls).toContainEqual({
+      method: "in",
+      args: ["lifecycle", ["published", "needs_review"]],
+    });
+    expect(calls.some((call) => call.method === "neq")).toBe(false);
+    expect(rows.map((row) => row.lifecycle)).toEqual(["published"]);
+  });
+
+  /**
+   * `selectReviewDue` has no lifecycle filter of its own, so the read scope is
+   * the only thing keeping unreviewed candidates out of an editor's work queue.
+   */
+  it("review_due_excludes_candidates", async () => {
+    const overdue = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { client } = recordingReader([
+      readerRow({ review_due_at: overdue }),
+      readerRow({
+        id: "33333333-3333-4333-8333-333333333333",
+        key: "draft-tote",
+        lifecycle: "candidate",
+        review_due_at: overdue,
+      }),
+    ]);
+
+    const rows = await loadProducts(null, client);
+    const due = selectReviewDue(
+      rows.map((row) => ({
+        id: row.id,
+        brandId: row.brand_id,
+        brandSlug: "hanchor",
+        key: row.key,
+        nameZh: row.name_zh,
+        lifecycle: row.lifecycle,
+        linkState: row.link_state,
+        reviewDueAt: row.review_due_at,
+      })),
+    );
+
+    expect(due.map((product) => product.key)).toEqual(["alpine-shell"]);
+    expect(due.some((product) => product.lifecycle === "candidate")).toBe(false);
+  });
+
+  it("keeps the allow-list and the exported constant in step", () => {
+    expect([...CURATED_LINK_READ_LIFECYCLES]).toEqual([
+      "published",
+      "needs_review",
+    ]);
+  });
+
+  /**
+   * Narrowing the READ must not narrow or widen the WRITE. The updater still
+   * writes these two columns and nothing else; every other column is authored.
+   */
+  it("write_columns_unchanged", () => {
+    expect([...CURATED_LINK_WRITE_COLUMNS]).toEqual([
+      "link_state",
+      "link_checked_at",
+    ]);
   });
 });

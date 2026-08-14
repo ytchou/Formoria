@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <title>OG Fallback Title | Studio Kiln</title>
+    <meta property="og:title" content="OG Fallback Title" />
+    <meta property="og:description" content="Open Graph description that must lose to JSON-LD." />
+    <meta property="og:image" content="https://cdn.example.com/media/og-image.jpg" />
+    <meta name="twitter:image" content="https://cdn.example.com/media/twitter-image.jpg" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "name": "Studio Kiln",
+            "url": "https://studio-kiln.example.com"
+          },
+          {
+            "@type": ["Product", "IndividualProduct"],
+            "name": "陶瓷手沖杯",
+            "alternateName": "Ceramic Pour-Over Cup",
+            "description": "Hand-thrown stoneware cup fired at 1250C.",
+            "image": [
+              "https://cdn.example.com/media/jsonld-product.jpg",
+              "https://cdn.example.com/media/jsonld-product-2.jpg"
+            ],
+            "brand": { "@type": "Brand", "name": "Studio Kiln" },
+            "offers": {
+              "@type": "Offer",
+              "price": "980",
+              "priceCurrency": "TWD",
+              "availability": "https://schema.org/InStock"
+            }
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <h1>陶瓷手沖杯</h1>
+  </body>
+</html>
