@@ -25,11 +25,6 @@ const PROVIDERS = {
     // a HEAD/GET reachability check whose verdict can flip a published product's
     // call-to-action, so the request and its outcome are replayable.
     "check_link",
-    // Curated-product image mirror (scripts/curated-products/run.ts): fetches
-    // the authored image before it is re-encoded and stored under our own
-    // deterministic key, so a rights question months later can be answered from
-    // the audit row instead of a re-fetch of a page that has since changed.
-    "fetch_curated_image",
   ],
   brands: [
     "adminRemoveChannel",
