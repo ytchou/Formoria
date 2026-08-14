@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  createCuratedProduct,
+  curatedProductPromoteBlockers,
   getPublishedCuratedProductsForBrand,
+  retireCuratedProduct,
+  retireCuratedProductSource,
+  updateCuratedProduct,
   type CuratedProductSupabase,
 } from "../curated-products";
 
@@ -185,5 +190,307 @@ describe("getPublishedCuratedProductsForBrand", () => {
     expect(unplaced?.position).toBeNull();
     expect(unplaced?.rationaleZh).toBeNull();
     expect(unplaced?.trailSlug).toBeNull();
+  });
+});
+
+const BRAND_ID = "3f8b6d2a-5c14-4e79-9a03-77b1e6c2d904";
+
+type WriteReply = {
+  data?: unknown;
+  error?: { code?: string; message: string } | null;
+};
+
+type WriteCalls = {
+  table: string[];
+  insert: Record<string, unknown>[];
+  update: Record<string, unknown>[];
+  eq: [string, unknown][];
+};
+
+/**
+ * Writer-side sibling of `stubClient`: the writers take the same
+ * `Pick<SupabaseClient, "from">` seam, and `scripts/check-test-boundaries.mjs`
+ * forbids `vi.mock` of `@/lib/services/` and `@/lib/supabase/`, so injecting the
+ * client is the only way to observe a payload.
+ *
+ * Each terminal await consumes the next queued reply, so a writer that retries
+ * (the key-collision loop) can be handed a 23505 followed by a success.
+ *
+ * Ceiling: it replays canned replies and never evaluates a filter. Anything
+ * that depends on a real constraint firing belongs in the integration file.
+ */
+function stubWriteClient(replies: WriteReply[]): {
+  client: CuratedProductSupabase;
+  calls: WriteCalls;
+} {
+  const calls: WriteCalls = { table: [], insert: [], update: [], eq: [] };
+  const queue = [...replies];
+
+  const nextReply = () => {
+    const reply = queue.shift() ?? {};
+    return { data: reply.data ?? null, error: reply.error ?? null };
+  };
+
+  const chain = {
+    select() {
+      return chain;
+    },
+    insert(payload: Record<string, unknown>) {
+      calls.insert.push(payload);
+      return chain;
+    },
+    update(payload: Record<string, unknown>) {
+      calls.update.push(payload);
+      return chain;
+    },
+    eq(column: string, value: unknown) {
+      calls.eq.push([column, value]);
+      return chain;
+    },
+    single() {
+      return Promise.resolve(nextReply());
+    },
+    maybeSingle() {
+      return Promise.resolve(nextReply());
+    },
+    then<TResult>(
+      resolve: (value: ReturnType<typeof nextReply>) => TResult,
+      reject?: (reason: unknown) => TResult,
+    ) {
+      return Promise.resolve(nextReply()).then(resolve, reject);
+    },
+  };
+
+  const client = {
+    from(table: string) {
+      calls.table.push(table);
+      return chain;
+    },
+  };
+
+  return { client: client as unknown as CuratedProductSupabase, calls };
+}
+
+describe("curatedProductPromoteBlockers", () => {
+  const promotable = {
+    lifecycle: "candidate",
+    officialUrl: "https://example.com/pick",
+    sourceCheckedAt: "2026-08-13T00:00:00Z",
+  };
+
+  it("returns no blockers when all four conditions hold", () => {
+    expect(
+      curatedProductPromoteBlockers(promotable, [{ state: "active" }]),
+    ).toEqual([]);
+  });
+
+  it("names official_url when it is null", () => {
+    expect(
+      curatedProductPromoteBlockers({ ...promotable, officialUrl: null }, [
+        { state: "active" },
+      ]),
+    ).toContain("official_url");
+  });
+
+  it("names source_checked_at when it is null", () => {
+    expect(
+      curatedProductPromoteBlockers({ ...promotable, sourceCheckedAt: null }, [
+        { state: "active" },
+      ]),
+    ).toContain("source_checked_at");
+  });
+
+  it("names no_active_source when every source row is retired", () => {
+    // Retire-never-delete: the row survives withdrawal, so its presence is not
+    // evidence. Only an active row is.
+    expect(
+      curatedProductPromoteBlockers(promotable, [{ state: "retired" }]),
+    ).toContain("no_active_source");
+  });
+
+  it("names lifecycle for a product that is already published or retired", () => {
+    expect(
+      curatedProductPromoteBlockers({ ...promotable, lifecycle: "retired" }, [
+        { state: "active" },
+      ]),
+    ).toContain("lifecycle");
+    expect(
+      curatedProductPromoteBlockers({ ...promotable, lifecycle: "published" }, [
+        { state: "active" },
+      ]),
+    ).toContain("lifecycle");
+  });
+
+  it("promotes from needs_review as well as candidate", () => {
+    expect(
+      curatedProductPromoteBlockers(
+        { ...promotable, lifecycle: "needs_review" },
+        [{ state: "active" }],
+      ),
+    ).toEqual([]);
+  });
+
+  it("ignores link_state, which is deliberately not a promote condition", () => {
+    // A broken link suppresses the call-to-action; it does not block the
+    // editorial decision, and the predicate is not even given the field.
+    expect(
+      curatedProductPromoteBlockers(promotable, [{ state: "active" }]),
+    ).toEqual([]);
+  });
+});
+
+describe("createCuratedProduct", () => {
+  it("create_derives_key_from_cjk_name — a Chinese-only name yields a kebab-case key", async () => {
+    // `generateSlug` transliterates Han via pinyin; the brand-slug helper
+    // `slugifyRomanizedName` would strip every codepoint and return "".
+    const { client, calls } = stubWriteClient([
+      { data: { id: "6d5f1b0c-2a44-4f13-8c9e-5b7a1d3e9f20", key: "ignored" } },
+    ]);
+
+    await createCuratedProduct(
+      { brandId: BRAND_ID, nameZh: "陶瓷茶杯", l1: "home" },
+      client,
+    );
+
+    const key = calls.insert.at(0)?.key as string;
+    expect(key).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+  });
+
+  it("create_writes_candidate_lifecycle — lifecycle and proposed_by are set by the writer, not the caller", async () => {
+    const { client, calls } = stubWriteClient([
+      { data: { id: "6d5f1b0c-2a44-4f13-8c9e-5b7a1d3e9f20", key: "teacup" } },
+    ]);
+
+    // A caller-supplied lifecycle has no route into the payload: the input type
+    // has no such field, so the cast is the only way to smuggle one in.
+    const smuggled = {
+      brandId: BRAND_ID,
+      nameZh: "Teacup",
+      l1: "home",
+      lifecycle: "published",
+    } as unknown as Parameters<typeof createCuratedProduct>[0];
+
+    await createCuratedProduct(smuggled, client);
+
+    const payload = calls.insert.at(0);
+    expect(payload?.lifecycle).toBe("candidate");
+    expect(payload?.proposed_by).toBe("admin");
+    expect(calls.table).toEqual(["curated_products"]);
+  });
+
+  it("create_suffixes_key_on_collision — a unique violation retries with a suffixed key", async () => {
+    const { client, calls } = stubWriteClient([
+      { error: { code: "23505", message: "duplicate key value" } },
+      { data: { id: "6d5f1b0c-2a44-4f13-8c9e-5b7a1d3e9f20", key: "teacup-2" } },
+    ]);
+
+    const created = await createCuratedProduct(
+      { brandId: BRAND_ID, nameZh: "Teacup", l1: "home" },
+      client,
+    );
+
+    expect(calls.insert.map((payload) => payload.key)).toEqual([
+      "teacup",
+      "teacup-2",
+    ]);
+    expect(created.key).toBe("teacup-2");
+  });
+
+  it("keeps only L2 subcategories that belong to the given L1", async () => {
+    const { client, calls } = stubWriteClient([
+      { data: { id: "6d5f1b0c-2a44-4f13-8c9e-5b7a1d3e9f20", key: "teacup" } },
+    ]);
+
+    await createCuratedProduct(
+      {
+        brandId: BRAND_ID,
+        nameZh: "Teacup",
+        l1: "home",
+        // A slug, a Chinese label, and a subcategory from another branch.
+        l2: ["tableware", "餐具", "kids-tableware"],
+      },
+      client,
+    );
+
+    expect(calls.insert.at(0)?.l2).toEqual(["tableware"]);
+  });
+});
+
+describe("curated product writers", () => {
+  it("update_never_writes_link_state — link health is owned by the link checker", async () => {
+    const { client, calls } = stubWriteClient([{}]);
+
+    await updateCuratedProduct(
+      "6d5f1b0c-2a44-4f13-8c9e-5b7a1d3e9f20",
+      { nameZh: "Renamed", officialUrl: "https://example.com/renamed" },
+      client,
+    );
+
+    const payload = calls.update.at(0) ?? {};
+    expect(Object.keys(payload)).not.toContain("link_state");
+    expect(Object.keys(payload)).not.toContain("link_checked_at");
+    expect(Object.keys(payload)).not.toContain("lifecycle");
+    expect(payload.name_zh).toBe("Renamed");
+  });
+
+  it("retires a product by flipping lifecycle, never by deleting", async () => {
+    const { client, calls } = stubWriteClient([{}]);
+
+    await retireCuratedProduct("6d5f1b0c-2a44-4f13-8c9e-5b7a1d3e9f20", client);
+
+    expect(calls.table).toEqual(["curated_products"]);
+    expect(calls.update.at(0)).toEqual({ lifecycle: "retired" });
+  });
+
+  it("retires a source by flipping state, never by deleting", async () => {
+    const { client, calls } = stubWriteClient([{}]);
+
+    await retireCuratedProductSource(
+      "9c2e7a51-3b06-4d88-a1f4-2e5c8b0d6417",
+      client,
+    );
+
+    expect(calls.table).toEqual(["curated_product_sources"]);
+    expect(calls.update.at(0)).toEqual({ state: "retired" });
+  });
+
+  it("writers_throw_on_missing_table — PGRST205 is rethrown, unlike the read", async () => {
+    // The read swallows PGRST205 so a brand page degrades to "no curated
+    // section" during the deploy/migration window. A writer that swallowed it
+    // would report success while writing nothing.
+    const missingTable = {
+      code: "PGRST205",
+      message:
+        "Could not find the table 'public.curated_products' in the schema cache",
+    };
+
+    await expect(
+      createCuratedProduct(
+        { brandId: BRAND_ID, nameZh: "Teacup", l1: "home" },
+        stubWriteClient([{ error: missingTable }]).client,
+      ),
+    ).rejects.toMatchObject({ code: "PGRST205" });
+
+    await expect(
+      updateCuratedProduct(
+        "6d5f1b0c-2a44-4f13-8c9e-5b7a1d3e9f20",
+        { nameZh: "Renamed" },
+        stubWriteClient([{ error: missingTable }]).client,
+      ),
+    ).rejects.toMatchObject({ code: "PGRST205" });
+
+    await expect(
+      retireCuratedProduct(
+        "6d5f1b0c-2a44-4f13-8c9e-5b7a1d3e9f20",
+        stubWriteClient([{ error: missingTable }]).client,
+      ),
+    ).rejects.toMatchObject({ code: "PGRST205" });
+
+    await expect(
+      retireCuratedProductSource(
+        "9c2e7a51-3b06-4d88-a1f4-2e5c8b0d6417",
+        stubWriteClient([{ error: missingTable }]).client,
+      ),
+    ).rejects.toMatchObject({ code: "PGRST205" });
   });
 });

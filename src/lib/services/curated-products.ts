@@ -1,6 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
+import { auditedCall } from "@/lib/audit";
+import { withSlugSuffix } from "@/lib/brands/slug";
+import { generateSlug } from "@/lib/services/brands";
+import { normalizeProductTags } from "@/lib/services/product-tags";
+import {
+  matchSubcategory,
+  normalizeTagKey,
+  resolveSubcategorySlugs,
+} from "@/lib/taxonomy/ontology";
 
 /** The tables are reached through the untyped `from` surface, with generated DB shapes at the boundary. */
 export type CuratedProductSupabase = Pick<SupabaseClient, "from">;
@@ -193,4 +202,406 @@ export async function getPublishedCuratedProductsForBrand(
         (a.position ?? UNPLACED) - (b.position ?? UNPLACED) ||
         a.key.localeCompare(b.key),
     );
+}
+
+// ---------------------------------------------------------------------------
+// Write path (DEV-1465)
+//
+// Two rules hold across every writer below.
+//
+//   1. They THROW. The read swallows PGRST205 so a brand page degrades to "no
+//      curated section" during the window between a deploy and a hand-applied
+//      migration; a writer that swallowed it would report success while writing
+//      nothing, which is the worse failure by far.
+//   2. They never DELETE. Retirement flips `lifecycle` on a product and `state`
+//      on a source, so a key is never silently reused and withdrawn evidence
+//      stays auditable. The only delete these rows ever see is the FK cascade
+//      from `brands`.
+// ---------------------------------------------------------------------------
+
+/** Postgres unique_violation — here, always `(brand_id, key)`. */
+const UNIQUE_VIOLATION_CODE = "23505";
+
+/** A key collision is resolved by suffixing; the cap only bounds a pathological loop. */
+const MAX_KEY_ATTEMPTS = 25;
+
+/** Used when a name transliterates to nothing at all (punctuation, emoji). */
+const FALLBACK_KEY = "product";
+
+export type CuratedProductWriteInput = {
+  brandId: string;
+  nameZh: string;
+  nameEn?: string | null;
+  /** CHECK-constrained to the same 12 values as `brands.product_type`. */
+  l1: string;
+  /** Subcategory slugs or labels; normalized to slugs within `l1`. */
+  l2?: string[];
+  officialUrl?: string | null;
+  imageUrl?: string | null;
+  imageSourceUrl?: string | null;
+  imageUsage?: string;
+  sourceCheckedAt?: string | null;
+  reviewDueAt?: string | null;
+  notesZh?: string | null;
+  notesEn?: string | null;
+};
+
+/**
+ * Everything a curator may change after creation. `lifecycle`, `link_state`,
+ * and `link_checked_at` are absent on purpose: lifecycle moves only through
+ * `promoteCuratedProduct` / `retireCuratedProduct`, and link health is written
+ * only by the link checker. A generic patch that accepted them would let an
+ * edit form silently overwrite a probe result with stale form state.
+ */
+export type CuratedProductUpdateInput = Partial<
+  Omit<CuratedProductWriteInput, "brandId">
+>;
+
+export type PromoteBlocker =
+  | "official_url"
+  | "source_checked_at"
+  | "no_active_source"
+  | "lifecycle";
+
+export type PromoteOutcome =
+  | { ok: true }
+  | { ok: false; blockers: PromoteBlocker[]; error: string };
+
+/** The lifecycle values a product may be promoted FROM. */
+const PROMOTABLE_LIFECYCLES = new Set(["candidate", "needs_review"]);
+
+/**
+ * The single definition of "may this product be published". Exported because
+ * the admin UI renders the same four conditions as a readout: if the gate and
+ * the readout were written twice they would drift, and a curator would be told
+ * a product is ready by a screen the writer then refuses.
+ *
+ * `link_state` is deliberately NOT a condition. A broken link suppresses the
+ * call-to-action on the card; it does not make the editorial claim untrue, and
+ * the read query does not filter on it either.
+ */
+export function curatedProductPromoteBlockers(
+  product: {
+    lifecycle: string;
+    officialUrl: string | null;
+    sourceCheckedAt: string | null;
+  },
+  sources: readonly { state: string }[],
+): PromoteBlocker[] {
+  const blockers: PromoteBlocker[] = [];
+  if (!product.officialUrl) blockers.push("official_url");
+  if (!product.sourceCheckedAt) blockers.push("source_checked_at");
+  // Retire-never-delete: a row's presence is not evidence, only its state is.
+  if (!sources.some((source) => source.state === "active")) {
+    blockers.push("no_active_source");
+  }
+  if (!PROMOTABLE_LIFECYCLES.has(product.lifecycle)) blockers.push("lifecycle");
+  return blockers;
+}
+
+/**
+ * L2 arrives as either ontology slugs (from the admin picker) or Chinese labels
+ * (from a pasted list), so both are folded into one vocabulary before
+ * `normalizeProductTags` applies the shared dedupe, novel-tag, and cap rules.
+ * Anything that does not resolve to a subcategory of `l1` is dropped: `l2` is a
+ * slug column, and a free-text tag stored there would render as a dead filter.
+ */
+function normalizeCuratedL2(l1: string, l2: readonly string[]): string[] {
+  const seenInput = new Set<string>();
+  const raw: string[] = [];
+  for (const value of l2) {
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    const key = normalizeTagKey(trimmed);
+    if (seenInput.has(key)) continue;
+    seenInput.add(key);
+    raw.push(trimmed);
+  }
+  if (raw.length === 0) return [];
+
+  // Slug inputs that belong to this L1 become their labels, so one vocabulary
+  // reaches `normalizeProductTags`.
+  const labelBySlug = new Map(
+    resolveSubcategorySlugs(l1, raw).map((sub) => [sub.slug, sub.nameZh]),
+  );
+  const { tags } = normalizeProductTags(
+    raw.map((value) => labelBySlug.get(value) ?? value),
+    [],
+    l1,
+  );
+
+  const slugs: string[] = [];
+  for (const tag of tags) {
+    const sub = matchSubcategory(tag);
+    if (!sub || sub.category !== l1) continue;
+    if (slugs.includes(sub.slug)) continue;
+    slugs.push(sub.slug);
+  }
+  return slugs;
+}
+
+/**
+ * `generateSlug` transliterates Han through pinyin → Wade-Giles, so a
+ * Chinese-only name still yields a readable key. `slugifyRomanizedName` must
+ * NOT be used here: its `[^a-z0-9]+` strip returns "" for CJK.
+ */
+function curatedProductKey(input: CuratedProductWriteInput): string {
+  return (
+    generateSlug(input.nameZh) ||
+    generateSlug(input.nameEn ?? "") ||
+    FALLBACK_KEY
+  );
+}
+
+/**
+ * Creates a candidate. `lifecycle` is written here and never taken from the
+ * caller — publication is an act with a gate in front of it
+ * (`promoteCuratedProduct`), so no create path may shortcut into `published`.
+ * `proposed_by` records the origin: hand entry today, LLM proposals and owner
+ * submissions later, which is what lets a review queue sort by trust.
+ *
+ * A `(brand_id, key)` collision is resolved by suffixing rather than thrown:
+ * two products from one brand sharing a name is ordinary, and the insert is
+ * retried rather than pre-checked so two concurrent creates cannot both read a
+ * free key and race.
+ */
+export async function createCuratedProduct(
+  input: CuratedProductWriteInput,
+  client?: CuratedProductSupabase,
+): Promise<{ id: string; key: string }> {
+  return auditedCall(
+    {
+      provider: "curatedProducts",
+      operation: "createCuratedProduct",
+      kind: "service",
+    },
+    async () => {
+      const supabase = curatedProductClient(client);
+      const baseKey = curatedProductKey(input);
+      const row = {
+        brand_id: input.brandId,
+        name_zh: input.nameZh,
+        name_en: input.nameEn ?? null,
+        l1: input.l1,
+        l2: normalizeCuratedL2(input.l1, input.l2 ?? []),
+        official_url: input.officialUrl ?? null,
+        image_url: input.imageUrl ?? null,
+        image_source_url: input.imageSourceUrl ?? null,
+        image_usage: input.imageUsage ?? "none",
+        source_checked_at: input.sourceCheckedAt ?? null,
+        review_due_at: input.reviewDueAt ?? null,
+        notes_zh: input.notesZh ?? null,
+        notes_en: input.notesEn ?? null,
+        lifecycle: "candidate",
+        proposed_by: "admin",
+      };
+
+      for (let attempt = 0; attempt < MAX_KEY_ATTEMPTS; attempt += 1) {
+        const key =
+          attempt === 0 ? baseKey : withSlugSuffix(baseKey, attempt + 1);
+        const { data, error } = await supabase
+          .from("curated_products")
+          .insert({ ...row, key })
+          .select("id, key")
+          .single();
+
+        if (!error) {
+          const created = data as { id: string; key: string };
+          return { id: created.id, key: created.key };
+        }
+        if ((error as { code?: string }).code !== UNIQUE_VIOLATION_CODE) {
+          throw error;
+        }
+      }
+
+      throw new Error(
+        `Could not find a free curated product key for "${baseKey}" on brand ${input.brandId}`,
+      );
+    },
+    { subjectId: input.brandId },
+  );
+}
+
+/**
+ * Edits the editorial fields of one product. The payload carries only the keys
+ * the caller supplied, so an untouched column is never rewritten with a stale
+ * value — and `link_state` / `link_checked_at` / `lifecycle` are unreachable by
+ * construction (see `CuratedProductUpdateInput`).
+ */
+export async function updateCuratedProduct(
+  id: string,
+  input: CuratedProductUpdateInput,
+  client?: CuratedProductSupabase,
+): Promise<void> {
+  return auditedCall(
+    {
+      provider: "curatedProducts",
+      operation: "updateCuratedProduct",
+      kind: "service",
+    },
+    async () => {
+      const payload: Record<string, unknown> = {};
+      if (input.nameZh !== undefined) payload.name_zh = input.nameZh;
+      if (input.nameEn !== undefined) payload.name_en = input.nameEn ?? null;
+      if (input.l1 !== undefined) payload.l1 = input.l1;
+      if (input.l2 !== undefined) {
+        // L2 is only meaningful within an L1. Defaulting the branch to "" would
+        // normalize every tag away and write an empty array, so the caller is
+        // made to state it instead of losing the tags silently.
+        if (input.l1 === undefined) {
+          throw new Error("Updating l2 requires l1 in the same patch");
+        }
+        payload.l2 = normalizeCuratedL2(input.l1, input.l2);
+      }
+      if (input.officialUrl !== undefined) {
+        payload.official_url = input.officialUrl ?? null;
+      }
+      if (input.imageUrl !== undefined) payload.image_url = input.imageUrl ?? null;
+      if (input.imageSourceUrl !== undefined) {
+        payload.image_source_url = input.imageSourceUrl ?? null;
+      }
+      if (input.imageUsage !== undefined) payload.image_usage = input.imageUsage;
+      if (input.sourceCheckedAt !== undefined) {
+        payload.source_checked_at = input.sourceCheckedAt ?? null;
+      }
+      if (input.reviewDueAt !== undefined) {
+        payload.review_due_at = input.reviewDueAt ?? null;
+      }
+      if (input.notesZh !== undefined) payload.notes_zh = input.notesZh ?? null;
+      if (input.notesEn !== undefined) payload.notes_en = input.notesEn ?? null;
+      if (Object.keys(payload).length === 0) return;
+
+      const { error } = await curatedProductClient(client)
+        .from("curated_products")
+        .update(payload)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    { subjectId: id },
+  );
+}
+
+type PromoteGateRow = {
+  lifecycle: string;
+  official_url: string | null;
+  source_checked_at: string | null;
+  curated_product_sources: { state: string }[] | null;
+};
+
+/**
+ * Publishes a product, or refuses with the conditions that are missing.
+ *
+ * A refusal is a return value, not a throw: an incomplete candidate is the
+ * normal state of editorial work, and the caller renders the blockers as the
+ * curator's to-do list. Only genuine database failures throw.
+ */
+export async function promoteCuratedProduct(
+  id: string,
+  client?: CuratedProductSupabase,
+): Promise<PromoteOutcome> {
+  return auditedCall(
+    {
+      provider: "curatedProducts",
+      operation: "promoteCuratedProduct",
+      kind: "service",
+    },
+    async (ctx) => {
+      const supabase = curatedProductClient(client);
+      const { data, error } = await supabase
+        .from("curated_products")
+        .select(
+          "lifecycle, official_url, source_checked_at, curated_product_sources(state)",
+        )
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error(`Curated product not found: ${id}`);
+
+      const row = data as unknown as PromoteGateRow;
+      const blockers = curatedProductPromoteBlockers(
+        {
+          lifecycle: row.lifecycle,
+          officialUrl: row.official_url,
+          sourceCheckedAt: row.source_checked_at,
+        },
+        row.curated_product_sources ?? [],
+      );
+      if (blockers.length > 0) {
+        // Why a promote was refused is the question the audit trail gets asked.
+        ctx.summary.blockers = blockers;
+        return {
+          ok: false as const,
+          blockers,
+          error: `Cannot publish curated product ${id}: ${blockers.join(", ")}`,
+        };
+      }
+
+      const { error: updateError } = await supabase
+        .from("curated_products")
+        .update({ lifecycle: "published" })
+        .eq("id", id);
+      if (updateError) throw updateError;
+
+      return { ok: true as const };
+    },
+    {
+      subjectId: id,
+      // A refusal is not a failure — nothing broke — but it must not read as a
+      // successful publish either. `empty` is the registry's "ran, wrote
+      // nothing" status.
+      classify: (result) => (result.ok ? "succeeded" : "empty"),
+    },
+  );
+}
+
+/**
+ * Withdraws a product from the site. Sources are left untouched: the evidence
+ * behind a claim stays readable after the claim is pulled, and a product
+ * un-retired later must not come back stripped of its provenance.
+ */
+export async function retireCuratedProduct(
+  id: string,
+  client?: CuratedProductSupabase,
+): Promise<void> {
+  return auditedCall(
+    {
+      provider: "curatedProducts",
+      operation: "retireCuratedProduct",
+      kind: "service",
+    },
+    async () => {
+      const { error } = await curatedProductClient(client)
+        .from("curated_products")
+        .update({ lifecycle: "retired" })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    { subjectId: id },
+  );
+}
+
+/**
+ * Withdraws one piece of provenance. The row survives so the withdrawal itself
+ * is auditable; the read query's `state = 'active'` narrowing is what stops it
+ * from propping up the evidence gate.
+ */
+export async function retireCuratedProductSource(
+  sourceId: string,
+  client?: CuratedProductSupabase,
+): Promise<void> {
+  return auditedCall(
+    {
+      provider: "curatedProducts",
+      operation: "retireCuratedProductSource",
+      kind: "service",
+    },
+    async () => {
+      const { error } = await curatedProductClient(client)
+        .from("curated_product_sources")
+        .update({ state: "retired" })
+        .eq("id", sourceId);
+      if (error) throw error;
+    },
+    { subjectId: sourceId },
+  );
 }

@@ -1518,6 +1518,7 @@ export type Database = {
           notes_en: string | null
           notes_zh: string | null
           official_url: string | null
+          proposed_by: string
           review_due_at: string | null
           source_checked_at: string | null
           updated_at: string
@@ -1540,6 +1541,7 @@ export type Database = {
           notes_en?: string | null
           notes_zh?: string | null
           official_url?: string | null
+          proposed_by?: string
           review_due_at?: string | null
           source_checked_at?: string | null
           updated_at?: string
@@ -1562,6 +1564,7 @@ export type Database = {
           notes_en?: string | null
           notes_zh?: string | null
           official_url?: string | null
+          proposed_by?: string
           review_due_at?: string | null
           source_checked_at?: string | null
           updated_at?: string

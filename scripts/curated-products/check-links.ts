@@ -27,8 +27,19 @@ import {
  * state change). That schedule is only the floor: an IMMEDIATE review is
  * triggered whenever the model, the URL, a specification, the image, or the
  * official route changes, because each of those invalidates something an editor
- * asserted in the rationale. `review_due_at` is authored in the YAML and this
- * script never writes it — it only reports the rows that have gone past it.
+ * asserted in the rationale. `review_due_at` is set by the write path that
+ * creates or edits the product; this script never writes it — it only reports
+ * the rows that have gone past it.
+ *
+ * READ SCOPE. Only `published` and `needs_review` rows are read
+ * (CURATED_LINK_READ_LIFECYCLES). `candidate` is excluded on purpose: nothing
+ * renders a candidate, so probing one buys an `external_call_audit` row per run
+ * for no reader, machine-authors `link_state` before an editor has looked at
+ * the row, and — worst — puts its brand slug into the revalidation set, so a
+ * PUBLIC brand page is rebuilt for a change that cannot appear on it and a
+ * revalidation failure fails the whole run. `retired` stays out for the same
+ * reason it always did. The allow-list is positive rather than a `neq` so a new
+ * lifecycle value defaults to NOT being probed.
  *
  * LINK HEALTH IS NOT AVAILABILITY. A 200 proves the page resolves. It never
  * proves the product is in stock, still priced the same, or still sold. Nothing
@@ -43,9 +54,9 @@ import {
  * and its CHECK constraint is already applied to the live database.
  *
  * --apply FAILS LOUDLY. The revalidation credentials are checked BEFORE the
- * first write and a failed revalidation exits non-zero, exactly as in run.ts:
- * a cron that reports success while a brand page keeps serving a live CTA to a
- * URL just proven dead is the failure this script exists to prevent.
+ * first write and a failed revalidation exits non-zero: a cron that reports
+ * success while a brand page keeps serving a live CTA to a URL just proven dead
+ * is the failure this script exists to prevent.
  *
  * WRITE SCOPE. The updater writes `link_state` and `link_checked_at` and
  * nothing else (CURATED_LINK_WRITE_COLUMNS). Every other column on the table is
@@ -278,19 +289,65 @@ function brandSlugOf(row: ProductRow): string | null {
 }
 
 /**
+ * The ONLY lifecycles this script reads. A positive allow-list, not a `neq`:
+ * every probe costs an `external_call_audit` row and can move `link_state`, so
+ * a lifecycle nobody has thought about here must default to unprobed.
+ *
+ * `candidate` is excluded because no public surface renders it — probing one
+ * spends a request per run for no reader, machine-authors a link verdict before
+ * an editor has looked at the row, and drags its brand slug into the
+ * revalidation set, rebuilding a public page for a change it cannot show.
+ * Scoping the read also keeps candidates out of the review-due report, which
+ * has no lifecycle filter of its own.
+ */
+export const CURATED_LINK_READ_LIFECYCLES = [
+  "published",
+  "needs_review",
+] as const;
+
+/**
+ * The narrowest read shape `loadProducts` needs. Declared for the same reason
+ * as `LinkStateWriter`: the unit test injects a recording double instead of
+ * mocking the Supabase module, which scripts/check-test-boundaries.mjs forbids.
+ */
+export type ProductQuery = {
+  in(column: string, values: readonly string[]): ProductQuery;
+  eq(column: string, value: string): ProductQuery;
+  order(column: string, options: { ascending: boolean }): ProductQuery;
+  range(
+    from: number,
+    to: number,
+  ): PromiseLike<{
+    data: ProductRow[] | null;
+    error: { message: string } | null;
+  }>;
+};
+
+export type ProductReader = {
+  from(table: string): { select(columns: string): ProductQuery };
+};
+
+/**
  * PAGED. A single `select()` stops at Supabase's default `db-max-rows` (1000)
  * with no error, so every product past the cap would silently never be probed
  * — and a run that checked 1000 of 2400 links still prints a clean summary.
  */
-async function loadProducts(brand: string | null): Promise<ProductRow[]> {
-  const supabase = createServiceClient();
+export async function loadProducts(
+  brand: string | null,
+  /** Seam for the unit test; the default is the real service client. */
+  client?: ProductReader,
+): Promise<ProductRow[]> {
+  // The generic PostgREST builder is structurally wider than ProductReader;
+  // this cast narrows it at the one call site rather than leaking generics.
+  const supabase =
+    client ?? (createServiceClient() as unknown as ProductReader);
   return fetchAllRows<ProductRow>("curated_products", (from, to) => {
     let query = supabase
       .from("curated_products")
       .select(
         "id, brand_id, key, name_zh, lifecycle, official_url, link_state, review_due_at, brands!inner(slug)",
       )
-      .neq("lifecycle", "retired");
+      .in("lifecycle", CURATED_LINK_READ_LIFECYCLES);
     if (brand) query = query.eq("brands.slug", brand);
     // A stable order is what makes paging correct: without it two pages can
     // repeat one row and skip another.
@@ -435,9 +492,9 @@ export async function applyLinkStates(
 
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
-  // Same preflight as run.ts, and for the same reason: a write that lands while
-  // revalidation is unconfigured leaves every brand page serving a stale shell.
-  // Failing before the first write is the reversible failure.
+  // Preflight before the first write: a write that lands while revalidation is
+  // unconfigured leaves every brand page serving a stale shell. Failing before
+  // the first write is the reversible failure.
   if (options.apply) assertRevalidationConfigured();
 
   const rows = await loadProducts(options.brand);

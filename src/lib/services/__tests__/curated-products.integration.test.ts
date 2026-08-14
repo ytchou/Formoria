@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, expect, it } from "vitest";
 import { createTestClient, describeWithDb } from "@/test/setup";
-import { getPublishedCuratedProductsForBrand } from "../curated-products";
+import {
+  createCuratedProduct,
+  getPublishedCuratedProductsForBrand,
+  promoteCuratedProduct,
+  retireCuratedProduct,
+  retireCuratedProductSource,
+} from "../curated-products";
 
 type SeedProduct = {
   key: string;
@@ -415,5 +421,222 @@ describeWithDb("published curated products for a brand", () => {
     expect(products).toEqual([]);
     expect(sources).toEqual([]);
     expect(selections).toEqual([]);
+  });
+});
+
+/**
+ * The editorial write path (DEV-1465). Promotion is the only gate that turns an
+ * internal candidate into a public factual claim, so its four conditions are
+ * asserted against a real database rather than a stub: three of them are also
+ * enforced by the read query, and a divergence between the two would publish a
+ * row the brand page then silently drops.
+ */
+describeWithDb("curated product write path", () => {
+  const supabase = (
+    process.env.RUN_SUPABASE_INTEGRATION_TESTS === "true"
+      ? createTestClient()
+      : null
+  )!;
+  const brandIds: string[] = [];
+
+  afterEach(async () => {
+    if (brandIds.length > 0) {
+      await supabase.from("brands").delete().in("id", brandIds);
+      brandIds.length = 0;
+    }
+  });
+
+  async function seedBrand(): Promise<string> {
+    const brandId = randomUUID();
+    brandIds.push(brandId);
+    const suffix = brandId.slice(0, 8);
+
+    const { error } = await supabase.from("brands").insert({
+      id: brandId,
+      name: `Curated Write Fixture ${suffix}`,
+      slug: `curated-write-fixture-${suffix}`,
+      status: "approved",
+    });
+    expect(error).toBeNull();
+    return brandId;
+  }
+
+  async function addSource(
+    productId: string,
+    state: "active" | "retired" = "active",
+  ): Promise<string> {
+    const sourceId = randomUUID();
+    const { error } = await supabase.from("curated_product_sources").insert({
+      id: sourceId,
+      product_id: productId,
+      url: `https://example.com/${sourceId}/evidence`,
+      source_type: "official",
+      claim_zh: "Evidence",
+      state,
+    });
+    expect(error).toBeNull();
+    return sourceId;
+  }
+
+  async function lifecycleOf(productId: string): Promise<string> {
+    const { data, error } = await supabase
+      .from("curated_products")
+      .select("lifecycle")
+      .eq("id", productId)
+      .single();
+    expect(error).toBeNull();
+    return data?.lifecycle as string;
+  }
+
+  /** Narrows a promote outcome to its refusal, failing the test when it succeeded. */
+  function expectRefusal(
+    result: Awaited<ReturnType<typeof promoteCuratedProduct>>,
+  ) {
+    if (result.ok) throw new Error("Expected the promote to be refused");
+    return result;
+  }
+
+  /** Everything a promote needs except whatever the caller withholds. */
+  async function seedCandidate(
+    overrides: { officialUrl?: string | null; sourceCheckedAt?: string | null } = {},
+  ): Promise<{ brandId: string; productId: string }> {
+    const brandId = await seedBrand();
+    const created = await createCuratedProduct(
+      {
+        brandId,
+        nameZh: "Ceramic Teacup",
+        nameEn: "Ceramic Teacup",
+        l1: "home",
+        l2: ["tableware"],
+        officialUrl:
+          overrides.officialUrl === undefined
+            ? `https://example.com/${brandId.slice(0, 8)}/teacup`
+            : overrides.officialUrl,
+        sourceCheckedAt:
+          overrides.sourceCheckedAt === undefined
+            ? new Date().toISOString()
+            : overrides.sourceCheckedAt,
+      },
+      supabase,
+    );
+    return { brandId, productId: created.id };
+  }
+
+  it("create_writes_candidate_lifecycle — a created row lands as candidate/admin", async () => {
+    const { productId } = await seedCandidate();
+
+    const { data } = await supabase
+      .from("curated_products")
+      .select("lifecycle, proposed_by, key")
+      .eq("id", productId)
+      .single();
+
+    expect(data?.lifecycle).toBe("candidate");
+    expect(data?.proposed_by).toBe("admin");
+    expect(data?.key).toBe("ceramic-teacup");
+  });
+
+  it("create_suffixes_key_on_collision — the unique (brand_id, key) is resolved, not thrown", async () => {
+    const brandId = await seedBrand();
+    const input = {
+      brandId,
+      nameZh: "Ceramic Teacup",
+      l1: "home",
+    };
+
+    const first = await createCuratedProduct(input, supabase);
+    const second = await createCuratedProduct(input, supabase);
+
+    expect(first.key).toBe("ceramic-teacup");
+    expect(second.key).toBe("ceramic-teacup-2");
+  });
+
+  it("promote_refuses_when_official_url_null", async () => {
+    const { productId } = await seedCandidate({ officialUrl: null });
+    await addSource(productId);
+
+    const result = await promoteCuratedProduct(productId, supabase);
+
+    const refusal = expectRefusal(result);
+    expect(refusal.blockers).toContain("official_url");
+    expect(refusal.error).toContain("official_url");
+    expect(await lifecycleOf(productId)).toBe("candidate");
+  });
+
+  it("promote_refuses_when_source_checked_at_null", async () => {
+    const { productId } = await seedCandidate({ sourceCheckedAt: null });
+    await addSource(productId);
+
+    const result = await promoteCuratedProduct(productId, supabase);
+
+    expect(expectRefusal(result).blockers).toContain("source_checked_at");
+    expect(await lifecycleOf(productId)).toBe("candidate");
+  });
+
+  it("promote_refuses_when_no_active_source", async () => {
+    // The row exists; it is retired. Row presence is not evidence.
+    const { productId } = await seedCandidate();
+    await addSource(productId, "retired");
+
+    const result = await promoteCuratedProduct(productId, supabase);
+
+    expect(expectRefusal(result).blockers).toContain("no_active_source");
+    expect(await lifecycleOf(productId)).toBe("candidate");
+  });
+
+  it("promote_refuses_when_already_retired", async () => {
+    const { productId } = await seedCandidate();
+    await addSource(productId);
+    await retireCuratedProduct(productId, supabase);
+
+    const result = await promoteCuratedProduct(productId, supabase);
+
+    expect(expectRefusal(result).blockers).toContain("lifecycle");
+    expect(await lifecycleOf(productId)).toBe("retired");
+  });
+
+  it("promote_succeeds_when_all_four_hold", async () => {
+    const { brandId, productId } = await seedCandidate();
+    await addSource(productId);
+
+    const result = await promoteCuratedProduct(productId, supabase);
+
+    expect(result.ok).toBe(true);
+    expect(await lifecycleOf(productId)).toBe("published");
+
+    // The write gate and the read gate must agree: a promoted product has to be
+    // one the public brand page actually renders.
+    const products = await getPublishedCuratedProductsForBrand(
+      brandId,
+      supabase,
+    );
+    expect(products.map((product) => product.id)).toEqual([productId]);
+  });
+
+  it("retire_sets_retired_and_keeps_sources", async () => {
+    const { productId } = await seedCandidate();
+    const sourceId = await addSource(productId);
+
+    await retireCuratedProduct(productId, supabase);
+
+    expect(await lifecycleOf(productId)).toBe("retired");
+    const { data: sources } = await supabase
+      .from("curated_product_sources")
+      .select("id, state")
+      .eq("product_id", productId);
+    expect(sources).toEqual([{ id: sourceId, state: "active" }]);
+  });
+
+  it("retire_source_flips_state_not_delete", async () => {
+    const { productId } = await seedCandidate();
+    const sourceId = await addSource(productId);
+
+    await retireCuratedProductSource(sourceId, supabase);
+
+    const { data: sources } = await supabase
+      .from("curated_product_sources")
+      .select("id, state")
+      .eq("product_id", productId);
+    expect(sources).toEqual([{ id: sourceId, state: "retired" }]);
   });
 });

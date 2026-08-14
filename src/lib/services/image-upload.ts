@@ -15,7 +15,7 @@ const BRAND_IMAGES_KEY_PREFIX = 'brands/'
 const SUBMISSION_IMAGES_KEY_PREFIX = 'submissions/'
 // Curated product images (DEV-1404): `curated-products/<brand>/<product>/<hash>.webp`
 // in the same `brand-images` bucket.
-const CURATED_PRODUCT_IMAGES_KEY_PREFIX = 'curated-products/'
+export const CURATED_PRODUCT_IMAGES_KEY_PREFIX = 'curated-products/'
 const DELETABLE_IMAGE_KEY_PREFIXES = [BRAND_IMAGES_KEY_PREFIX] as const
 const READABLE_IMAGE_KEY_PREFIXES = [
   BRAND_IMAGES_KEY_PREFIX,
@@ -116,6 +116,31 @@ export function storageKeyFromPublicUrlForRead(url: string): string | null {
   }
 
   return key
+}
+
+/**
+ * The explicitly scoped curated-product derivation the comment on
+ * `storageKeyFromPublicUrl` promised, gated on `curated-products/` ALONE. It is
+ * a third function rather than an entry in either prefix list because both of
+ * those are shared by other flows: widening the delete list would let owner
+ * brand-image cleanup remove a curated object that `curated_products.image_url`
+ * still points at, and `storageKeyFromPublicUrlForRead` also resolves `brands/`
+ * and `submissions/`, so driving a delete from it would delete those too.
+ *
+ * It exists because image REPLACEMENT orphans objects. `upsert: true` on a
+ * hash-keyed path only covers re-saving the SAME source URL; editing
+ * `image_source_url` changes the hash, writes a new object, and leaks the old
+ * one. `curated_products` has no `image_storage_path` column, so the previous
+ * key can only be recovered from the stored `image_url`.
+ */
+export function curatedProductStorageKeyFromPublicUrl(url: string): string | null {
+  const prefix = getBrandImagesPublicPrefix()
+  if (!url || !prefix || !url.startsWith(prefix)) {
+    return null
+  }
+
+  const key = url.slice(prefix.length)
+  return key.startsWith(CURATED_PRODUCT_IMAGES_KEY_PREFIX) ? key : null
 }
 
 export async function deleteBrandImages(urls: string[]): Promise<void> {
