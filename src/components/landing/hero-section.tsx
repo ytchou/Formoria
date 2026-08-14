@@ -46,7 +46,11 @@ export default async function HeroSection() {
           <HeroCategoryChips
             categories={categories.slice(0, 5)}
           />
-          <Link href="/brands" data-ph-no-autocapture className="px-2 py-2 font-medium text-primary">
+          <Link
+            href="/brands"
+            data-ph-no-autocapture
+            className="inline-flex min-h-12 items-center px-2 font-medium text-primary"
+          >
             {t('allCategories')}
           </Link>
         </nav>
@@ -59,14 +63,18 @@ export default async function HeroSection() {
           <Link
             href="/brands"
             data-ph-no-autocapture
-            className="shrink-0 px-2 py-2 font-medium text-primary"
+            className="inline-flex min-h-12 shrink-0 items-center px-2 font-medium text-primary"
           >
             {t('allCategories')}
           </Link>
         </nav>
 
         <p className="mt-5 type-body">
-          <Link href="/brands" data-ph-no-autocapture className="font-medium text-primary">
+          <Link
+            href="/brands"
+            data-ph-no-autocapture
+            className="inline-flex min-h-12 items-center font-medium text-primary"
+          >
             {t('knownIntent')}
           </Link>
         </p>

@@ -3,8 +3,8 @@ import Image from 'next/image'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Heart } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
-import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { brandImageFill } from '@/lib/images/focal'
+import { selectBrandCardImage } from '@/lib/brands/image-selection'
 import { getUserSavedBrands } from '@/lib/services/saved-brands'
 import { requireUserPage } from '@/lib/auth/require-user'
 import type { SavedBrand } from '@/lib/types/saved-brand'
@@ -27,8 +27,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 function BrandImage({ brand }: { brand: SavedBrand }) {
-  const heroImageUrl = safeImageSrc(brand.heroImageUrl)
-  if (!heroImageUrl) {
+  const selectedImage = selectBrandCardImage(brand)
+  if (!selectedImage) {
     return (
       <div className="flex h-full items-center justify-center bg-secondary">
         <span className="type-page-title-large text-muted-foreground">
@@ -41,7 +41,7 @@ function BrandImage({ brand }: { brand: SavedBrand }) {
   // Shared with every other brand image surface: a logo is contained (its
   // whitespace is part of the mark), everything else covers and is anchored on
   // its focal point.
-  const imageFill = brandImageFill(brand.heroImageMeta, { inset: 'p-6' })
+  const imageFill = brandImageFill(selectedImage.meta, { inset: 'p-6' })
 
   return (
     <Image
@@ -51,7 +51,7 @@ function BrandImage({ brand }: { brand: SavedBrand }) {
       style={imageFill.style}
       fill
       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-      src={heroImageUrl}
+      src={selectedImage.src}
     />
   )
 }

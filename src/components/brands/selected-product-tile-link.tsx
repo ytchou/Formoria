@@ -7,7 +7,6 @@ import { trackCuratedProductClicked } from '@/lib/analytics'
 
 type SelectedProductTileLinkProps = {
   href: string
-  ariaLabel: string
   className: string
   productKey: string
   brandSlug: string
@@ -19,7 +18,6 @@ type SelectedProductTileLinkProps = {
 /** Client boundary limited to the click handler; tile content stays server-rendered. */
 export function SelectedProductTileLink({
   href,
-  ariaLabel,
   className,
   productKey,
   brandSlug,
@@ -30,7 +28,6 @@ export function SelectedProductTileLink({
   return (
     <Link
       href={href}
-      aria-label={ariaLabel}
       className={className}
       data-ph-no-autocapture
       onClick={() =>

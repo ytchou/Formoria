@@ -30,7 +30,7 @@ export type SelectedProductTileProps = {
   mode: "outbound" | "internal";
   /** Existing brand-page fields used by the outbound chip. */
   brand?: BrandVisitLinkFields & { slug: string };
-  /** Homepage-only destination and accessible brand name. */
+  /** Homepage-only destination and visible brand name. */
   brandSlug?: string;
   brandName?: string;
   /** Optional homepage click tracking; omitted for the inert brand-page variant. */
@@ -87,12 +87,6 @@ export function SelectedProductTile({
   });
   const destinationSlug = brandSlug ?? brand?.slug ?? "";
   const internalHref = `/brands/${destinationSlug}#product-${product.key}`;
-  const linkedBrandName =
-    brandName ??
-    (brand && "name" in brand && typeof brand.name === "string"
-      ? brand.name
-      : null);
-  const accessibleName = [name, linkedBrandName].filter(Boolean).join(": ");
   const internalClassName =
     "group flex h-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-3";
 
@@ -176,7 +170,7 @@ export function SelectedProductTile({
             <span className="min-w-0 truncate">{chipLabel}</span>
             {isBroken ? null : (
               <span className="sr-only">
-                {`: ${name}${linkedBrandName ? ` (${linkedBrandName})` : ""}`}
+                {`: ${name}`}
               </span>
             )}
           </a>
@@ -197,7 +191,6 @@ export function SelectedProductTile({
         tracking ? (
           <SelectedProductTileLink
             href={internalHref}
-            ariaLabel={accessibleName}
             className={internalClassName}
             productKey={product.key}
             brandSlug={tracking.brandSlug}
@@ -209,7 +202,6 @@ export function SelectedProductTile({
         ) : (
           <Link
             href={internalHref}
-            aria-label={accessibleName}
             className={internalClassName}
             data-ph-no-autocapture
           >
