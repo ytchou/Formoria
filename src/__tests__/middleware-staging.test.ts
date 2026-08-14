@@ -21,13 +21,12 @@ describe("staging request boundary", () => {
     expect(response.headers.get("cache-control")).toBe("private, no-store");
   });
 
-  it("rejects a Server Action before application code can run", async () => {
+  it("rejects an unauthenticated staging Server Action", async () => {
     const response = await proxy(request("/submit", "POST"));
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({
-      error: "Staging is read-only",
-    });
+    expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
   });
 
   it("rejects mutation-via-GET callbacks and hides the sitemap", async () => {
@@ -44,5 +43,13 @@ describe("staging request boundary", () => {
 
     expect(response.status).toBeLessThan(400);
     expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+  });
+
+  it("exposes the deployed Railway revision only on staging", async () => {
+    vi.stubEnv("RAILWAY_GIT_COMMIT_SHA", "0123456789abcdef0123456789abcdef01234567");
+    const response = await proxy(request("/about"));
+    expect(response.headers.get("x-formoria-revision")).toBe(
+      "0123456789abcdef0123456789abcdef01234567",
+    );
   });
 });

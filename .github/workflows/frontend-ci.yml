@@ -113,9 +113,9 @@ jobs:
           # MDX shortcodes (EventInfo, BrandGallery, BrandList) throw rather
           # than degrade when a fetch fails, so prerendering aborts the whole
           # build without a reachable database. The same three secrets already
-          # feed a `pnpm build` in e2e-pr.yml on this same PR trigger, so this
-          # adds no new exposure — and it makes a green Build mean deployable,
-          # which the placeholder values never did.
+          # feed the deployed staging E2E and release checks, so this adds no
+          # new exposure — and it makes a green Build mean deployable, which
+          # the placeholder values never did.
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

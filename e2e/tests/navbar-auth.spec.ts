@@ -30,7 +30,7 @@ async function deleteDisposableSignOutUser(
 ) {
   const { error } = await supabase.auth.admin.deleteUser(userId);
   if (error) {
-    console.warn("[e2e-cleanup] deleteUser error:", error.message);
+    throw new Error(`[e2e-cleanup] sign-out user deletion failed: ${error.message}`);
   }
 }
 

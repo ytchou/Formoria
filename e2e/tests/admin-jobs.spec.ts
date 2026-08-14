@@ -149,7 +149,7 @@ test.describe('Admin curation jobs deep', () => {
       .select('id')
       .eq('parent_job_id', parentJobId);
     if (childLookupError) {
-      console.warn(`[e2e-cleanup] child job lookup failed: ${childLookupError.message}`);
+      throw new Error(`[e2e-cleanup] child job lookup failed: ${childLookupError.message}`);
     }
 
     const childIds = Array.from(
@@ -165,7 +165,7 @@ test.describe('Admin curation jobs deep', () => {
         .delete()
         .in('id', childIds);
       if (childDeleteError) {
-        console.warn(`[e2e-cleanup] child job deletion failed: ${childDeleteError.message}`);
+        throw new Error(`[e2e-cleanup] child job deletion failed: ${childDeleteError.message}`);
       }
     }
 
@@ -174,7 +174,7 @@ test.describe('Admin curation jobs deep', () => {
       .delete()
       .eq('id', parentJobId);
     if (parentDeleteError) {
-      console.warn(`[e2e-cleanup] parent job deletion failed: ${parentDeleteError.message}`);
+      throw new Error(`[e2e-cleanup] parent job deletion failed: ${parentDeleteError.message}`);
     }
 
     if (targetId) {
@@ -183,7 +183,7 @@ test.describe('Admin curation jobs deep', () => {
         .delete()
         .eq('id', targetId);
       if (submissionDeleteError) {
-        console.warn(`[e2e-cleanup] brand submission deletion failed: ${submissionDeleteError.message}`);
+        throw new Error(`[e2e-cleanup] brand submission deletion failed: ${submissionDeleteError.message}`);
       }
     }
   });

@@ -62,7 +62,7 @@
       "count": 2
     },
     "playwright/no-conditional-in-test": {
-      "count": 5
+      "count": 4
     }
   },
   "e2e/tests/auth-signup.spec.ts": {
@@ -70,7 +70,7 @@
       "count": 2
     },
     "playwright/no-conditional-in-test": {
-      "count": 5
+      "count": 2
     }
   },
   "e2e/tests/brand-actions.spec.ts": {

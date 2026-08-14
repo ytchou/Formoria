@@ -8,11 +8,21 @@ require("dotenv").config({ path: ".env.local" });
 // Disable dev-only widgets (e.g., Agentation) during test runs
 process.env.PLAYWRIGHT_TEST = "true";
 
-const baseURL = process.env.BASE_URL ?? "http://localhost:3000";
+const baseURL =
+  process.env.BASE_URL ??
+  process.env.PLAYWRIGHT_BASE_URL ??
+  process.env.STAGING_BASE_URL ??
+  "http://localhost:3000";
 const isLocalTarget = ["localhost", "127.0.0.1", "::1"].includes(
   new URL(baseURL).hostname,
 );
 const isTargetedSelfheal = process.env.SELFHEAL_TARGETED === "true";
+const remoteHeaders = Object.fromEntries(
+  [
+    ["CF-Access-Client-Id", process.env.CF_ACCESS_CLIENT_ID],
+    ["CF-Access-Client-Secret", process.env.CF_ACCESS_CLIENT_SECRET],
+  ].filter((entry): entry is [string, string] => Boolean(entry[1])),
+);
 
 // Ensure the E2E admin account is in ADMIN_EMAILS so isAdmin() passes during tests
 if (process.env.E2E_ADMIN_EMAIL && process.env.ADMIN_EMAILS) {
@@ -59,6 +69,7 @@ export default defineConfig({
   },
   use: {
     baseURL,
+    extraHTTPHeaders: isLocalTarget ? undefined : remoteHeaders,
     // Not 'on-first-retry': with retries=1 a fail-then-pass keeps only the
     // passing attempt's trace, which is how flakes became unfixable after
     // the fact. Retain the attempt that actually failed.

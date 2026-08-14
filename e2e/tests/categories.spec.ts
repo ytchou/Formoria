@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { load } from "cheerio";
 
 const CANONICAL_ORIGIN = new URL(
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://formoria.com",
+  process.env.STAGING_BASE_URL ?? "https://staging.formoria.com",
 ).origin;
 
 function metadataFrom(html: string) {

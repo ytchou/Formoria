@@ -10,10 +10,11 @@ test.describe("Community submit flow", () => {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
-    await supabase
+    const { error } = await supabase
       .from("brand_submissions")
       .delete()
       .like("brand_name", "[E2E-COMMUNITY]%");
+    if (error) throw new Error(`[e2e-cleanup] community submission cleanup failed: ${error.message}`);
   });
 
   test("@smoke recommendation flow is available without owner-only controls", async ({
