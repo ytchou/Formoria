@@ -432,7 +432,7 @@ export function BrandList({
                       {(brand.status === "approved" ||
                         brand.status === "hidden") && (
                         <Link
-                          href={`/admin/curated-products?brand=${brand.id}`}
+                          href={`/admin/curated-products?brand=${brand.slug}`}
                           aria-label={`Ingest curated products for ${brand.name}`}
                           className={buttonVariants({
                             variant: "secondary",
