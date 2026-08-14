@@ -54,6 +54,7 @@ export const ANALYTICS_EVENTS = {
    * @property brand_slug {string} Brand slug.
    * @property category {string | null} Primary category of the clicked brand, null when unset.
    * @property position_in_grid {number} 0-based position of the card within the rendered grid.
+   * @property list_source {string | undefined} Stable list identifier, when the card belongs to a named rail.
    */
   BRAND_CARD_CLICKED: 'brand_card_clicked',
 
@@ -83,6 +84,23 @@ export const ANALYTICS_EVENTS = {
    * @property destination_url {string} Resolved href the tile navigates to.
    */
   HERO_CATEGORY_CLICKED: 'hero_category_clicked',
+
+  /**
+   * A curated product tile was opened.
+   * @property product_key {string} Stable key of the selected product.
+   * @property brand_slug {string} Slug of the brand owning the product.
+   * @property position {number} 0-based position within the rendered selection rail.
+   * @property selection_surface {string} Stable surface identifier for the selection rail.
+   */
+  CURATED_PRODUCT_CLICKED: 'curated_product_clicked',
+
+  /**
+   * An editorial story card was opened.
+   * @property story_slug {string} Stable slug of the story.
+   * @property position {number} 0-based position within the rendered story list.
+   * @property story_surface {string} Stable surface identifier for the story list.
+   */
+  STORY_CARD_CLICKED: 'story_card_clicked',
 
   /**
    * The directory sort control changed value.
@@ -594,6 +612,7 @@ export interface AnalyticsEventPayloads {
     brand_slug: string
     category: string | null
     position_in_grid: number
+    list_source?: string
   }
   [ANALYTICS_EVENTS.BOOTH_SELECTED]: {
     booth: string
@@ -608,6 +627,17 @@ export interface AnalyticsEventPayloads {
     brand_slug: string | null
   }
   [ANALYTICS_EVENTS.HERO_CATEGORY_CLICKED]: { category: string; destination_url: string }
+  [ANALYTICS_EVENTS.CURATED_PRODUCT_CLICKED]: {
+    product_key: string
+    brand_slug: string
+    position: number
+    selection_surface: string
+  }
+  [ANALYTICS_EVENTS.STORY_CARD_CLICKED]: {
+    story_slug: string
+    position: number
+    story_surface: string
+  }
   [ANALYTICS_EVENTS.DIRECTORY_SORT_CHANGED]: { sort_value: string; previous_sort: string }
   [ANALYTICS_EVENTS.DIRECTORY_PAGE_NAVIGATED]: {
     page_number: number

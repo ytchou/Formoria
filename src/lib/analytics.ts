@@ -167,11 +167,13 @@ export function trackBrandCardClicked(
   category: string | null | undefined,
   positionInGrid: number,
   brandId?: string,
+  listSource?: string,
 ) {
   safeGAEvent('event', 'select_item', {
     item_id: slug,
     category: category ?? null,
     position_in_grid: positionInGrid,
+    ...(listSource ? { item_list_name: listSource } : {}),
   })
   if (brandId) {
     capturePostHogEvent(ANALYTICS_EVENTS.BRAND_CARD_CLICKED, {
@@ -179,6 +181,7 @@ export function trackBrandCardClicked(
       brand_slug: slug,
       category: category ?? null,
       position_in_grid: positionInGrid,
+      ...(listSource ? { list_source: listSource } : {}),
     })
   }
 }
@@ -475,6 +478,32 @@ export function trackStockistListViewed(listName: string, itemCount: number) {
 
 export function trackHeroCategoryClicked(category: string, destinationUrl: string) {
   capturePostHogEvent(ANALYTICS_EVENTS.HERO_CATEGORY_CLICKED, { category, destination_url: destinationUrl })
+}
+
+export function trackCuratedProductClicked(
+  productKey: string,
+  brandSlug: string,
+  position: number,
+  selectionSurface: string,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.CURATED_PRODUCT_CLICKED, {
+    product_key: productKey,
+    brand_slug: brandSlug,
+    position,
+    selection_surface: selectionSurface,
+  })
+}
+
+export function trackStoryCardClicked(
+  storySlug: string,
+  position: number,
+  storySurface: string,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.STORY_CARD_CLICKED, {
+    story_slug: storySlug,
+    position,
+    story_surface: storySurface,
+  })
 }
 
 export function trackDirectorySortChanged(sortValue: string, previousSort: string) {

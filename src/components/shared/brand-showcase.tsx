@@ -12,6 +12,8 @@ interface BrandShowcaseProps {
   subheading?: string
   linkText: string
   linkHref: string
+  /** Stable analytics surface for both the rail CTA and its brand cards. */
+  ctaLocation: string
 }
 
 export default function BrandShowcase({
@@ -20,6 +22,7 @@ export default function BrandShowcase({
   subheading,
   linkText,
   linkHref,
+  ctaLocation,
 }: BrandShowcaseProps) {
   const { ref, inView } = useInView<HTMLDivElement>()
 
@@ -28,7 +31,7 @@ export default function BrandShowcase({
   return (
     <section>
       <div className="mb-6">
-        <h2 className="type-section-title-large">{heading}</h2>
+        <h2 className="type-page-title-large">{heading}</h2>
         {subheading && (
           <p className="mt-1 type-card-description">{subheading}</p>
         )}
@@ -43,7 +46,7 @@ export default function BrandShowcase({
             className={inView ? 'animate-reveal-up' : 'opacity-0'}
             style={{ animationDelay: `${index * 60}ms` }}
           >
-            <BrandCard brand={brand} position={index} />
+            <BrandCard brand={brand} position={index} listSource={ctaLocation} />
           </div>
         ))}
       </div>
@@ -51,7 +54,7 @@ export default function BrandShowcase({
         <Link
           href={linkHref}
           data-ph-no-autocapture
-          onClick={() => trackCtaClicked('browse_all', 'showcase', linkHref, '/')}
+          onClick={() => trackCtaClicked('browse_all', ctaLocation, linkHref, '/')}
           className="font-medium text-primary"
         >
           {linkText}

@@ -80,12 +80,16 @@
       "description": "Formoria 把從靈感走到購買中間斷掉的路接回來，幫助人從自己想要的生活出發，找到適合的台灣產品、認識背後的品牌，也知道可以去哪裡購買。"
     },
     "hero": {
-      "eyebrow": "TAIWANESE BRANDS",
       "headline": "從自己想要的生活出發，找到適合的台灣產品",
-      "subheadline": "Formoria 是台灣品牌探索與選物平台。目前從可搜尋的品牌收錄出發，整理品牌資料、產品特色與官方購買通路；由 Formoria 挑選的內容會另外標示。",
+      "subheadline": "Formoria 是台灣品牌探索與選物平台。從自己想要的生活、使用情境或好奇出發，跨分類認識產品與品牌；由 Formoria 挑選的內容會另外標示。",
       "statsBrands": "品牌",
       "statsCategories": "分類",
-      "cta": "探索品牌…"
+      "allCategories": "所有分類 →",
+      "knownIntent": "已經知道方向？搜尋品牌或分類 →"
+    },
+    "selectedProducts": {
+      "heading": "Formoria 選物",
+      "note": "Formoria 基於特定情境、用途、偏好或編輯觀點，刻意挑選產品，並說清楚選擇理由。"
     },
     "showcase": {
       "heading": "探索收錄品牌",

@@ -13,6 +13,7 @@ import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import type { CuratedProduct } from "@/lib/services/curated-products";
 import { sanitizeHref } from "@/lib/url";
 import { BrandImageFallback } from "./brand-image-fallback";
+import { SelectedProductTileLink } from "./selected-product-tile-link";
 
 export type SelectedProductTileLabels = {
   cta: string;
@@ -32,15 +33,22 @@ export type SelectedProductTileProps = {
   /** Homepage-only destination and accessible brand name. */
   brandSlug?: string;
   brandName?: string;
+  /** Optional homepage click tracking; omitted for the inert brand-page variant. */
+  tracking?: {
+    brandSlug: string;
+    position: number;
+    surface: string;
+  };
 };
 
 const BROKEN_LINK_STATE = "broken";
 const RENDERABLE_IMAGE_USAGE = "permitted";
 
 /**
- * The selected-product tile is server-only. Outbound product chips preserve
- * the brand-page behavior; internal mode turns the whole tile into one
- * accessible link to the product anchor on that brand's page.
+ * The selected-product tile stays server-rendered. Outbound product chips
+ * preserve the brand-page behavior; internal mode turns the whole tile into
+ * one accessible link to the product anchor on that brand's page. The optional
+ * client link child adds click tracking without moving the tile into the client graph.
  */
 export function SelectedProductTile({
   locale,
@@ -50,6 +58,7 @@ export function SelectedProductTile({
   brand,
   brandSlug,
   brandName,
+  tracking,
 }: SelectedProductTileProps) {
   const isEnglish = locale === "en";
   const name =
@@ -84,6 +93,8 @@ export function SelectedProductTile({
       ? brand.name
       : null);
   const accessibleName = [name, linkedBrandName].filter(Boolean).join(": ");
+  const internalClassName =
+    "group flex h-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-3";
 
   const content = (
     <>
@@ -183,13 +194,28 @@ export function SelectedProductTile({
       })}
     >
       {mode === "internal" ? (
-        <Link
-          href={internalHref}
-          aria-label={accessibleName}
-          className="group flex h-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-3"
-        >
-          {content}
-        </Link>
+        tracking ? (
+          <SelectedProductTileLink
+            href={internalHref}
+            ariaLabel={accessibleName}
+            className={internalClassName}
+            productKey={product.key}
+            brandSlug={tracking.brandSlug}
+            position={tracking.position}
+            surface={tracking.surface}
+          >
+            {content}
+          </SelectedProductTileLink>
+        ) : (
+          <Link
+            href={internalHref}
+            aria-label={accessibleName}
+            className={internalClassName}
+            data-ph-no-autocapture
+          >
+            {content}
+          </Link>
+        )
       ) : (
         content
       )}

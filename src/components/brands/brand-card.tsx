@@ -29,6 +29,8 @@ interface BrandCardProps {
   preload?: boolean
   variant?: 'directory' | 'recommendation' | 'editorial'
   sourceBrandSlug?: string
+  /** Stable analytics identifier for the list or rail containing this card. */
+  listSource?: string
   /**
    * Editorial variant only: the author's line about this brand, shown in place
    * of the generated blurb so a story's own voice wins over directory copy.
@@ -44,6 +46,7 @@ export function BrandCard({
   preload = false,
   variant = 'directory',
   sourceBrandSlug,
+  listSource,
   note,
   eyebrow,
 }: BrandCardProps) {
@@ -152,7 +155,11 @@ export function BrandCard({
                 if (variant === 'recommendation') {
                   trackRecommendationBrandClicked(brand.id, brand.slug, sourceBrandSlug ?? '', position)
                 } else {
-                  trackBrandCardClicked(brand.slug, brand.category, position, brand.id)
+                  if (listSource) {
+                    trackBrandCardClicked(brand.slug, brand.category, position, brand.id, listSource)
+                  } else {
+                    trackBrandCardClicked(brand.slug, brand.category, position, brand.id)
+                  }
                 }
                 if (savedIds.has(brand.id)) {
                   trackSavedBrandRevisited(brand.slug, 'card', brand.id)
