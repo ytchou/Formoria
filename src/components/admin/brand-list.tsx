@@ -429,6 +429,22 @@ export function BrandList({
                           </DropdownMenuContent>
                         </DropdownMenu>
                       )}
+                      {(brand.status === "approved" ||
+                        brand.status === "hidden") && (
+                        <Link
+                          href={`/admin/curated-products?brand=${brand.id}`}
+                          aria-label={`Ingest curated products for ${brand.name}`}
+                          className={buttonVariants({
+                            variant: "secondary",
+                            size: "compact",
+                            // h-11 lifts the 40px compact height to the 44px
+                            // minimum touch target for this new control.
+                            className: "h-11",
+                          })}
+                        >
+                          Curated products
+                        </Link>
+                      )}
                       <Button
                         variant="secondary"
                         size="compact"

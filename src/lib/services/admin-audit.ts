@@ -13,6 +13,10 @@ export type AdminAction =
   | 'newsletter_confirmation_resent'
   | 'newsletter_unsubscribed'
   | 'channel_removed'
+  // Editorial decisions on curated products (DEV-1465): publishing one makes a
+  // factual claim on a brand's page, and retiring one withdraws it.
+  | 'curated_product_promoted'
+  | 'curated_product_retired'
 
 export type LogAdminActionParams = {
   adminUserId: string

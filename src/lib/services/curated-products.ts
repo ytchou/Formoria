@@ -2,6 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
 import { auditedCall } from "@/lib/audit";
+import {
+  curatedProductPromoteBlockers,
+  type PromoteOutcome,
+} from "@/lib/curated-products/promote-gate";
 import { withSlugSuffix } from "@/lib/brands/slug";
 import { generateSlug } from "@/lib/services/brands";
 import { normalizeProductTags } from "@/lib/services/product-tags";
@@ -257,47 +261,19 @@ export type CuratedProductUpdateInput = Partial<
   Omit<CuratedProductWriteInput, "brandId">
 >;
 
-export type PromoteBlocker =
-  | "official_url"
-  | "source_checked_at"
-  | "no_active_source"
-  | "lifecycle";
-
-export type PromoteOutcome =
-  | { ok: true }
-  | { ok: false; blockers: PromoteBlocker[]; error: string };
-
-/** The lifecycle values a product may be promoted FROM. */
-const PROMOTABLE_LIFECYCLES = new Set(["candidate", "needs_review"]);
-
 /**
- * The single definition of "may this product be published". Exported because
- * the admin UI renders the same four conditions as a readout: if the gate and
- * the readout were written twice they would drift, and a curator would be told
- * a product is ready by a screen the writer then refuses.
- *
- * `link_state` is deliberately NOT a condition. A broken link suppresses the
- * call-to-action on the card; it does not make the editorial claim untrue, and
- * the read query does not filter on it either.
+ * The gate itself lives in `@/lib/curated-products/promote-gate`, a pure module
+ * with no service imports, so the admin drawer's CLIENT-side readout can call
+ * the very same function. Importing this module there is impossible — it
+ * reaches `@/lib/services/brands`, which is `server-only` — and a second copy
+ * of the four conditions is precisely the drift the shared predicate prevents.
+ * Re-exported here so server code keeps one import site.
  */
-export function curatedProductPromoteBlockers(
-  product: {
-    lifecycle: string;
-    officialUrl: string | null;
-    sourceCheckedAt: string | null;
-  },
-  sources: readonly { state: string }[],
-): PromoteBlocker[] {
-  const blockers: PromoteBlocker[] = [];
-  if (!product.officialUrl) blockers.push("official_url");
-  if (!product.sourceCheckedAt) blockers.push("source_checked_at");
-  // Retire-never-delete: a row's presence is not evidence, only its state is.
-  if (!sources.some((source) => source.state === "active")) {
-    blockers.push("no_active_source");
-  }
-  if (!PROMOTABLE_LIFECYCLES.has(product.lifecycle)) blockers.push("lifecycle");
-  return blockers;
-}
+export {
+  curatedProductPromoteBlockers,
+  type PromoteBlocker,
+  type PromoteOutcome,
+} from "@/lib/curated-products/promote-gate";
 
 /**
  * L2 arrives as either ontology slugs (from the admin picker) or Chinese labels
@@ -581,6 +557,45 @@ export async function retireCuratedProduct(
 }
 
 /**
+ * Adds or refreshes one piece of provenance.
+ *
+ * Upserts on `(product_id, url)` — the conflict target the migration exists to
+ * provide — so re-saving an editor form that still lists a URL converges rather
+ * than duplicating. `state` is written back to 'active' on conflict on purpose:
+ * re-adding a URL an editor previously withdrew is a deliberate reinstatement,
+ * and leaving the row retired would silently drop it from the evidence gate.
+ */
+export async function upsertCuratedProductSource(
+  productId: string,
+  input: { url: string; sourceType: string; claimZh?: string | null },
+  client?: CuratedProductSupabase,
+): Promise<void> {
+  return auditedCall(
+    {
+      provider: "curatedProducts",
+      operation: "upsertCuratedProductSource",
+      kind: "service",
+    },
+    async () => {
+      const { error } = await curatedProductClient(client)
+        .from("curated_product_sources")
+        .upsert(
+          {
+            product_id: productId,
+            url: input.url,
+            source_type: input.sourceType,
+            claim_zh: input.claimZh ?? null,
+            state: "active",
+          },
+          { onConflict: "product_id,url" },
+        );
+      if (error) throw error;
+    },
+    { subjectId: productId },
+  );
+}
+
+/**
  * Withdraws one piece of provenance. The row survives so the withdrawal itself
  * is auditable; the read query's `state = 'active'` narrowing is what stops it
  * from propping up the evidence gate.
@@ -604,4 +619,156 @@ export async function retireCuratedProductSource(
     },
     { subjectId: sourceId },
   );
+}
+
+// ---------------------------------------------------------------------------
+// Admin read (DEV-1465)
+// ---------------------------------------------------------------------------
+
+/** One source row as the admin drawer shows it, including retired ones. */
+export type AdminCuratedProductSource = {
+  id: string;
+  url: string;
+  sourceType: string;
+  claimZh: string | null;
+  state: string;
+  checkedAt: string | null;
+};
+
+/**
+ * A curated product as the review queue renders it: every lifecycle, the brand
+ * it belongs to, and ITS SOURCES — the drawer feeds those straight into
+ * `curatedProductPromoteBlockers`, so a readout and the writer's gate are
+ * computed from the same two inputs.
+ */
+export type AdminCuratedProduct = {
+  id: string;
+  brandId: string;
+  brandSlug: string;
+  brandName: string;
+  key: string;
+  nameZh: string;
+  nameEn: string | null;
+  l1: string;
+  l2: string[];
+  officialUrl: string | null;
+  imageUrl: string | null;
+  imageSourceUrl: string | null;
+  imageUsage: string;
+  lifecycle: string;
+  linkState: string;
+  proposedBy: string;
+  sourceCheckedAt: string | null;
+  reviewDueAt: string | null;
+  notesZh: string | null;
+  notesEn: string | null;
+  updatedAt: string;
+  sources: AdminCuratedProductSource[];
+};
+
+/**
+ * Ceiling: one unpaged page of the review queue. Raise it to a `.range()` loop
+ * (see `fetchAllRows` in scripts/curated-products/shared.ts) when the curated
+ * catalog approaches this — the queue is client-filtered, so a truncated read
+ * would hide rows with no visible symptom.
+ */
+const ADMIN_CURATED_PRODUCT_LIMIT = 1_000;
+
+type AdminCuratedProductRow = Omit<
+  CuratedProductReadRow,
+  "curated_product_selections" | "link_checked_at"
+> & {
+  proposed_by: string | null;
+  updated_at: string;
+  brands: { slug: string; name: string } | null;
+  curated_product_sources:
+    | {
+        id: string;
+        url: string;
+        source_type: string;
+        claim_zh: string | null;
+        state: string;
+        checked_at: string | null;
+      }[]
+    | null;
+};
+
+/**
+ * Every curated product for the admin queue, newest edit first.
+ *
+ * Deliberately unfiltered by lifecycle and NOT `!inner` on sources: the public
+ * read drops a product with no active evidence, but the queue exists precisely
+ * to show the editor the ones that cannot yet prove themselves. Retired sources
+ * come back too, so a withdrawal stays visible where it was made.
+ *
+ * Returns `[]` when the tables are missing from the PostgREST schema cache, for
+ * the same reason the public read does: deploys ship ahead of hand-applied
+ * migrations, and an empty admin queue is a better failure than a 500 page.
+ */
+export async function listCuratedProductsForAdmin(
+  client?: CuratedProductSupabase,
+): Promise<AdminCuratedProduct[]> {
+  const { data, error } = await curatedProductClient(client)
+    .from("curated_products")
+    .select(
+      `id, brand_id, key, name_zh, name_en, l1, l2, official_url, image_url,
+       image_source_url, image_usage, lifecycle, link_state, proposed_by,
+       source_checked_at, review_due_at, notes_zh, notes_en, updated_at,
+       brands(slug, name),
+       curated_product_sources(id, url, source_type, claim_zh, state, checked_at)`,
+    )
+    .order("updated_at", { ascending: false })
+    .limit(ADMIN_CURATED_PRODUCT_LIMIT);
+
+  if (error) {
+    if ((error as { code?: string }).code === MISSING_TABLE_CODE) return [];
+    throw error;
+  }
+
+  return ((data ?? []) as unknown as AdminCuratedProductRow[]).map((row) => ({
+    id: row.id,
+    brandId: row.brand_id,
+    brandSlug: row.brands?.slug ?? "",
+    brandName: row.brands?.name ?? "",
+    key: row.key,
+    nameZh: row.name_zh,
+    nameEn: row.name_en ?? null,
+    l1: row.l1,
+    l2: row.l2 ?? [],
+    officialUrl: row.official_url ?? null,
+    imageUrl: row.image_url ?? null,
+    imageSourceUrl: row.image_source_url ?? null,
+    imageUsage: row.image_usage,
+    lifecycle: row.lifecycle,
+    linkState: row.link_state,
+    proposedBy: row.proposed_by ?? "admin",
+    sourceCheckedAt: row.source_checked_at ?? null,
+    reviewDueAt: row.review_due_at ?? null,
+    notesZh: row.notes_zh ?? null,
+    notesEn: row.notes_en ?? null,
+    updatedAt: row.updated_at,
+    sources: (row.curated_product_sources ?? []).map((source) => ({
+      id: source.id,
+      url: source.url,
+      sourceType: source.source_type,
+      claimZh: source.claim_zh ?? null,
+      state: source.state,
+      checkedAt: source.checked_at ?? null,
+    })),
+  }));
+}
+
+/** The brand slug a write must revalidate, read before or after the write. */
+export async function getCuratedProductBrandSlug(
+  id: string,
+  client?: CuratedProductSupabase,
+): Promise<string | null> {
+  const { data, error } = await curatedProductClient(client)
+    .from("curated_products")
+    .select("brands(slug)")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  const row = data as unknown as { brands: { slug: string } | null } | null;
+  return row?.brands?.slug ?? null;
 }

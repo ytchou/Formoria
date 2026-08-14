@@ -90,6 +90,7 @@ const PROVIDERS = {
     "retireCuratedProduct",
     "retireCuratedProductSource",
     "updateCuratedProduct",
+    "upsertCuratedProductSource",
   ],
   curation: [
     "cancelCurationJob",
@@ -163,6 +164,7 @@ const PROVIDERS = {
     "purgeExpiredClassifierJunk",
     "rejectBrandImages",
     "releaseBrandImageUrls",
+    "storeCuratedProductImage",
     "syncHeroDenormalized",
     "uploadImageEvalAsset",
     "uploadPrivateFile",

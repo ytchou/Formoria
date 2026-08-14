@@ -1179,6 +1179,28 @@ const PUBLIC_MICROSITE_BRAND_SELECT =
  */
 const SUPABASE_IN_FILTER_CHUNK_SIZE = 200;
 
+/**
+ * The id/slug/name triple an admin picker needs, approved brands only.
+ *
+ * Deliberately not `getBrands`: that hydrates the full card projection (hero
+ * image metadata, channels, tags) for a select element that renders three
+ * strings. Ceiling: one unpaged read. Move to a `.range()` loop if the approved
+ * corpus approaches Supabase's 1000-row `db-max-rows` default.
+ */
+export async function getAdminBrandOptions(): Promise<
+  { id: string; slug: string; name: string }[]
+> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("brands")
+    .select("id, slug, name")
+    .eq("status", "approved")
+    .order("name", { ascending: true })
+    .limit(1000);
+  if (error) throw new Error(`Failed to fetch brand options: ${error.message}`);
+  return data ?? [];
+}
+
 export async function getBrandSlugsBatch(
   brandIds: string[],
 ): Promise<Map<string, string>> {
