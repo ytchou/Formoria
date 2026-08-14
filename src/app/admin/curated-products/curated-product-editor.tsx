@@ -26,7 +26,10 @@ import {
   PRODUCT_TYPE_CATEGORIES,
 } from "@/lib/taxonomy/ontology";
 import type { AdminCuratedProduct } from "@/lib/services/curated-products";
-import { CURATED_PRODUCT_SOURCE_TYPES } from "@/lib/validation/curated-product";
+import {
+  CURATED_PRODUCT_SOURCE_TYPES,
+  curatedProductUpdateSchema,
+} from "@/lib/validation/curated-product";
 
 export type BrandOption = { id: string; slug: string; name: string };
 
@@ -182,6 +185,15 @@ export function CuratedProductEditor({
   const [imageUsage, setImageUsage] = useState(product?.imageUsage ?? "none");
   const [notesZh, setNotesZh] = useState(product?.notesZh ?? "");
   const [notesEn, setNotesEn] = useState(product?.notesEn ?? "");
+  const [highlightPosition, setHighlightPosition] = useState<number | null>(
+    product?.highlightPosition ?? null,
+  );
+  const [highlightRationaleZh, setHighlightRationaleZh] = useState(
+    product?.highlightRationaleZh ?? "",
+  );
+  const [highlightRationaleEn, setHighlightRationaleEn] = useState(
+    product?.highlightRationaleEn ?? "",
+  );
   const [reviewDueAt, setReviewDueAt] = useState(
     fromIsoDate(product?.reviewDueAt ?? null),
   );
@@ -195,6 +207,12 @@ export function CuratedProductEditor({
   const [imageError, setImageError] = useState<string | null>(null);
   const [prefillError, setPrefillError] = useState<string | null>(null);
   const [officialUrlError, setOfficialUrlError] = useState<string | null>(null);
+  const [highlightPositionError, setHighlightPositionError] = useState<
+    string | null
+  >(null);
+  const [highlightRationaleZhError, setHighlightRationaleZhError] = useState<
+    string | null
+  >(null);
   // Index → true for a draft source whose URL failed the client check.
   const [sourceUrlErrors, setSourceUrlErrors] = useState<
     Record<number, boolean>
@@ -214,6 +232,8 @@ export function CuratedProductEditor({
   const prefillErrorId = `${fieldId}-prefill-error`;
   const prefillHintId = `${fieldId}-prefill-hint`;
   const officialUrlErrorId = `${fieldId}-official-url-error`;
+  const highlightPositionErrorId = `${fieldId}-highlight-position-error`;
+  const highlightRationaleZhErrorId = `${fieldId}-highlight-rationale-zh-error`;
   const sourceUrlErrorId = (index: number) =>
     `${fieldId}-source-url-error-${index}`;
 
@@ -254,6 +274,8 @@ export function CuratedProductEditor({
   function save() {
     setFormError(null);
     setImageError(null);
+    setHighlightPositionError(null);
+    setHighlightRationaleZhError(null);
 
     // URL fields are checked HERE, per field. The server's blanket
     // `{ error: "Invalid curated product" }` cannot say which input is wrong,
@@ -300,8 +322,26 @@ export function CuratedProductEditor({
       imageSourceUrl: trimmedImageSourceUrl || null,
       notesZh: notesZh.trim() || null,
       notesEn: notesEn.trim() || null,
+      highlightPosition,
+      highlightRationaleZh: highlightRationaleZh.trim() || null,
+      highlightRationaleEn: highlightRationaleEn.trim() || null,
       reviewDueAt: toIsoDate(reviewDueAt) ?? null,
     };
+
+    const highlightValidation = curatedProductUpdateSchema.safeParse({
+      highlightPosition: editorial.highlightPosition,
+      highlightRationaleZh: editorial.highlightRationaleZh,
+    });
+    if (!highlightValidation.success) {
+      const { fieldErrors } = highlightValidation.error.flatten();
+      const positionIssue = fieldErrors.highlightPosition?.at(0);
+      const rationaleIssue = fieldErrors.highlightRationaleZh?.at(0);
+      setHighlightPositionError(
+        positionIssue ? t("highlightPositionInvalid") : null,
+      );
+      setHighlightRationaleZhError(rationaleIssue ?? null);
+      if (positionIssue || rationaleIssue) return;
+    }
 
     const payload = {
       nameZh: nameZh.trim(),
@@ -327,6 +367,15 @@ export function CuratedProductEditor({
                 : {}),
               ...(editorial.notesZh ? { notesZh: editorial.notesZh } : {}),
               ...(editorial.notesEn ? { notesEn: editorial.notesEn } : {}),
+              ...(editorial.highlightPosition !== null
+                ? { highlightPosition: editorial.highlightPosition }
+                : {}),
+              ...(editorial.highlightRationaleZh
+                ? { highlightRationaleZh: editorial.highlightRationaleZh }
+                : {}),
+              ...(editorial.highlightRationaleEn
+                ? { highlightRationaleEn: editorial.highlightRationaleEn }
+                : {}),
               ...(editorial.reviewDueAt
                 ? { reviewDueAt: editorial.reviewDueAt }
                 : {}),
@@ -572,6 +621,75 @@ export function CuratedProductEditor({
             id={`${fieldId}-notes-en`}
             value={notesEn}
             onChange={(event) => setNotesEn(event.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor={`${fieldId}-highlight-position`}>
+            {t("highlightPosition")}
+          </Label>
+          <Input
+            id={`${fieldId}-highlight-position`}
+            type="number"
+            min={0}
+            step={1}
+            value={highlightPosition ?? ""}
+            onChange={(event) => {
+              const value = event.target.value;
+              if (value === "") {
+                setHighlightPosition(null);
+              } else {
+                const parsed = Number(value);
+                setHighlightPosition(Number.isFinite(parsed) ? parsed : null);
+              }
+              setHighlightPositionError(null);
+              setHighlightRationaleZhError(null);
+            }}
+            aria-invalid={highlightPositionError ? true : undefined}
+            aria-describedby={
+              highlightPositionError ? highlightPositionErrorId : undefined
+            }
+          />
+          {highlightPositionError ? (
+            <p className="type-error" id={highlightPositionErrorId}>
+              {highlightPositionError}
+            </p>
+          ) : null}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor={`${fieldId}-highlight-rationale-zh`}>
+            {t("highlightRationaleZh")}
+          </Label>
+          <Textarea
+            id={`${fieldId}-highlight-rationale-zh`}
+            value={highlightRationaleZh}
+            onChange={(event) => {
+              setHighlightRationaleZh(event.target.value);
+              setHighlightRationaleZhError(null);
+            }}
+            aria-invalid={highlightRationaleZhError ? true : undefined}
+            aria-describedby={
+              highlightRationaleZhError
+                ? highlightRationaleZhErrorId
+                : undefined
+            }
+          />
+          {highlightRationaleZhError ? (
+            <p className="type-error" id={highlightRationaleZhErrorId}>
+              {highlightRationaleZhError}
+            </p>
+          ) : null}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor={`${fieldId}-highlight-rationale-en`}>
+            {t("highlightRationaleEn")}
+          </Label>
+          <Textarea
+            id={`${fieldId}-highlight-rationale-en`}
+            value={highlightRationaleEn}
+            onChange={(event) => setHighlightRationaleEn(event.target.value)}
           />
         </div>
       </div>

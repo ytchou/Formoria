@@ -94,6 +94,9 @@ const curatedProductFields = {
   imageUsage: z.enum(["none", "permitted", "licensed"]).optional(),
   notesZh: noteSchema.nullable().optional(),
   notesEn: noteSchema.nullable().optional(),
+  highlightPosition: z.number().int().nonnegative().nullable().optional(),
+  highlightRationaleZh: noteSchema.nullable().optional(),
+  highlightRationaleEn: noteSchema.nullable().optional(),
   reviewDueAt: timestampSchema.nullable().optional(),
   /**
    * A human assertion that the sources below were opened and read, which is
@@ -105,10 +108,32 @@ const curatedProductFields = {
   sources: z.array(curatedProductSourceSchema).max(MAX_SOURCES).optional(),
 };
 
-export const curatedProductCreateSchema = z.object({
-  brandId: curatedProductIdSchema,
-  ...curatedProductFields,
-});
+function validateHighlightFields(
+  payload: {
+    highlightPosition?: number | null;
+    highlightRationaleZh?: string | null;
+  },
+  ctx: z.RefinementCtx,
+) {
+  if (
+    payload.highlightPosition !== undefined &&
+    payload.highlightPosition !== null &&
+    !(payload.highlightRationaleZh?.trim() ?? "")
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["highlightRationaleZh"],
+      message: "A highlight position requires a zh rationale",
+    });
+  }
+}
+
+export const curatedProductCreateSchema = z
+  .object({
+    brandId: curatedProductIdSchema,
+    ...curatedProductFields,
+  })
+  .superRefine(validateHighlightFields);
 
 /**
  * Every field optional: the editor patches what it touched. An empty object is
@@ -119,6 +144,7 @@ export const curatedProductUpdateSchema = z
   .object(curatedProductFields)
   .partial()
   .superRefine((payload, ctx) => {
+    validateHighlightFields(payload, ctx);
     // An L2 slug is only meaningful inside one L1, so a patch that moves the
     // subcategories without naming the category cannot be normalized.
     // `updateCuratedProduct` throws on the same pair, but a service throw

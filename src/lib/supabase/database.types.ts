@@ -1503,6 +1503,9 @@ export type Database = {
         Row: {
           brand_id: string
           created_at: string
+          highlight_position: number | null
+          highlight_rationale_en: string | null
+          highlight_rationale_zh: string | null
           id: string
           image_source_url: string | null
           image_url: string | null
@@ -1526,6 +1529,9 @@ export type Database = {
         Insert: {
           brand_id: string
           created_at?: string
+          highlight_position?: number | null
+          highlight_rationale_en?: string | null
+          highlight_rationale_zh?: string | null
           id?: string
           image_source_url?: string | null
           image_url?: string | null
@@ -1549,6 +1555,9 @@ export type Database = {
         Update: {
           brand_id?: string
           created_at?: string
+          highlight_position?: number | null
+          highlight_rationale_en?: string | null
+          highlight_rationale_zh?: string | null
           id?: string
           image_source_url?: string | null
           image_url?: string | null
