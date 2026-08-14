@@ -1,11 +1,10 @@
 /**
  * Shared CLI and read helpers for the curated-product scripts (DEV-1404).
  *
- * `run.ts` and `check-links.ts` are two entry points onto the same three
- * tables. They had their own copies of `--brand` parsing, `chunked`, and the
- * revalidation preflight, and the copies had already drifted: `check-links.ts`
- * logged a failed revalidation and exited 0 while `run.ts` threw. One module,
- * one behaviour.
+ * `check-links.ts` is the remaining entry point onto the curated-product
+ * tables; these helpers stay in their own module so the CLI surface
+ * (`--brand` parsing, the revalidation preflight, paged reads) is testable
+ * without the script's Supabase wiring.
  *
  * PURE-ISH BY DESIGN: no Supabase client is imported here. `fetchAllRows` takes
  * the page fetcher as a callback, so the caller owns the client and this module
@@ -13,19 +12,11 @@
  */
 
 /** Supabase's default `db-max-rows`. A read that does not page stops here. */
-export const SUPABASE_PAGE_SIZE = 1000
-
-export function chunked<T>(values: T[], size: number): T[][] {
-  const chunks: T[][] = []
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size))
-  }
-  return chunks
-}
+const SUPABASE_PAGE_SIZE = 1000
 
 /**
  * `--brand=<slug>` or `--brand <slug>`. Returns null when the flag is absent
- * and throws when it is present but empty — a silent null there would sync
+ * and throws when it is present but empty — a silent null there would process
  * EVERY brand from a command the operator wrote to scope one.
  */
 export function parseBrandOption(argv: string[]): string | null {
@@ -69,9 +60,9 @@ type PageResult = { data: unknown[] | null; error: { message: string } | null }
  * Reads every row of a PostgREST query, one `.range()` page at a time.
  *
  * A single unpaged `select()` silently truncates at Supabase's `db-max-rows`
- * (1000 by default) — no error, no warning. For the planner that is worse than
- * a crash: a current row outside the first page is invisible, so its retire
- * sweep never fires and a product dropped from YAML stays published forever.
+ * (1000 by default) — no error, no warning. That is worse than a crash: a row
+ * outside the first page is invisible to the caller, so a dead link on it is
+ * never probed and the product keeps advertising a call-to-action that 404s.
  *
  * The page fetcher MUST apply a stable `.order()`, or two pages can return the
  * same row and miss another. Mirrors `fetchAllRows` in
