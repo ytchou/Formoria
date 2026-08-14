@@ -9,6 +9,7 @@ export const TEST_BRAND_NAME_PATTERN = `${TEST_BRAND_NAME_PREFIX}%`
  */
 export function excludeTestBrands<Q extends { not(column: string, operator: string, value: string): Q }>(
   query: Q,
+  nameColumn = 'name',
 ): Q {
-  return query.not('name', 'like', TEST_BRAND_NAME_PATTERN)
+  return query.not(nameColumn, 'like', TEST_BRAND_NAME_PATTERN)
 }

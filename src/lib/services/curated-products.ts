@@ -11,6 +11,10 @@ import { withSlugSuffix } from "@/lib/brands/slug";
 import { generateSlug } from "@/lib/services/brands";
 import { normalizeProductTags } from "@/lib/services/product-tags";
 import {
+  excludeTestBrands,
+  TEST_BRAND_NAME_PREFIX,
+} from "@/lib/services/public-brand-filter";
+import {
   matchSubcategory,
   normalizeTagKey,
   resolveSubcategorySlugs,
@@ -54,8 +58,20 @@ export type CuratedProduct = {
   rationaleEn: string | null;
 };
 
+/** The minimum supply needed for the homepage rail to read as intentional. */
+export const MIN_HOME_CURATED_PRODUCTS = 6;
+
+/** Keep the first impression diverse: one selected product per brand. */
+export const MAX_HOME_CURATED_PRODUCTS_PER_BRAND = 1;
+
+/** Cross-brand public projection used by the homepage's internal product links. */
+export type HomepageCuratedProduct = CuratedProduct & {
+  brandSlug: string;
+  brandName: string;
+};
+
 /**
- * `curated_product_sources!inner(id)` is the evidence gate: a product with no
+ * `curated_product_sources!inner(id, state)` is the evidence gate: a product with no
  * provenance row is dropped by the join itself, so no TypeScript filter can
  * forget it. Selections embed non-inner — placement is presentation, not proof.
  *
@@ -80,7 +96,7 @@ type SelectionTable =
 type CuratedProductSelectionRow = Pick<
   SelectionTable["Row"],
   "trail_slug" | "section_key" | "position" | "rationale_zh" | "rationale_en"
->;
+> & { state?: string };
 
 type CuratedProductReadRow = Pick<
   ProductTable["Row"],
@@ -104,6 +120,23 @@ type CuratedProductReadRow = Pick<
   | "notes_en"
 > & {
   curated_product_selections: CuratedProductSelectionRow[] | null;
+};
+
+type HomepageCuratedProductRow = CuratedProductReadRow & {
+  brands: { slug: string; name: string; status?: string } | null;
+  curated_product_sources?: { id: string; state?: string }[] | null;
+};
+
+/** Keep the fully-generic PostgREST builder from recursively instantiating here. */
+type HomepageCuratedProductQuery = PromiseLike<{
+  data: unknown[] | null;
+  error: unknown;
+}> & {
+  not(
+    column: string,
+    operator: string,
+    value: string,
+  ): HomepageCuratedProductQuery;
 };
 
 function curatedProductClient(
@@ -207,6 +240,108 @@ export async function getPublishedCuratedProductsForBrand(
         (a.position ?? UNPLACED) - (b.position ?? UNPLACED) ||
         a.key.localeCompare(b.key),
     );
+}
+
+/**
+ * The bounded, cross-brand projection for the homepage's selected-product
+ * rail. It shares the brand-page publication/evidence gates, then narrows to
+ * approved, non-test brands, renderable product images, and a live rationale.
+ *
+ * This read is intentionally not cached: publishing already revalidates the
+ * homepage, while an additional cache would create an invalidation path the
+ * publish action cannot reach. Post-processing applies the one-product
+ * per-brand cap and deterministic ordering after the database result is
+ * flattened through the same selection resolver as the brand page.
+ *
+ * Missing curated-product tables are a normal deploy-before-migration window;
+ * return an empty rail rather than failing the homepage render.
+ */
+export async function getPublishedCuratedProductsForHomepage(
+  client?: CuratedProductSupabase,
+): Promise<HomepageCuratedProduct[]> {
+  const query = excludeTestBrands(
+    curatedProductClient(client)
+      .from("curated_products")
+      .select(`${CURATED_PRODUCT_READ_SELECT}, brands!inner(slug, name, status)`)
+      .eq("lifecycle", "published")
+      .not("official_url", "is", null)
+      .not("source_checked_at", "is", null)
+      // Retired evidence is not evidence: the inner embed drops products with
+      // no active source row.
+      .eq("curated_product_sources.state", "active")
+      .eq("curated_product_selections.state", "active")
+      .eq("brands.status", "approved")
+      .not("image_url", "is", null)
+      .eq("image_usage", "permitted")
+      // This narrows the embedded selection rows; the winning-selection check
+      // below remains authoritative when several active placements exist.
+      .not("curated_product_selections.rationale_zh", "is", null)
+      .limit(1_000) as unknown as HomepageCuratedProductQuery,
+    "brands.name",
+  );
+  const { data, error } = await query;
+
+  if (error) {
+    if ((error as { code?: string }).code === MISSING_TABLE_CODE) return [];
+    throw error;
+  }
+
+  const candidates = ((data ?? []) as unknown as HomepageCuratedProductRow[])
+    .map((row): HomepageCuratedProduct | null => {
+      if (
+        !row.brands?.slug ||
+        !row.brands.name ||
+        (row.brands.status !== undefined && row.brands.status !== "approved") ||
+        row.brands.name.startsWith(TEST_BRAND_NAME_PREFIX) ||
+        row.lifecycle !== "published" ||
+        !row.official_url ||
+        !row.source_checked_at ||
+        !row.image_url ||
+        row.image_usage !== "permitted" ||
+        (row.curated_product_sources !== undefined &&
+          !(row.curated_product_sources ?? []).some(
+            (source) => source.state === undefined || source.state === "active",
+          ))
+      ) {
+        return null;
+      }
+
+      // Keep the defensive state filter aligned with the embedded query when a
+      // test seam or future projection carries selection states explicitly.
+      const activeSelections =
+        row.curated_product_selections?.filter(
+          (selection) =>
+            selection.state === undefined || selection.state === "active",
+        ) ?? null;
+      const product = toCuratedProduct({
+        ...row,
+        curated_product_selections: activeSelections,
+      });
+      // A relation filter can leave the parent row with an empty embed when
+      // none of its active placements carries rationale. Do not render a
+      // selected tile whose explanation is missing.
+      if (!product.rationaleZh?.trim()) return null;
+      return {
+        ...product,
+        brandSlug: row.brands.slug,
+        brandName: row.brands.name,
+      };
+    })
+    .filter((product): product is HomepageCuratedProduct => product !== null)
+    .sort(
+      (a, b) =>
+        (a.position ?? UNPLACED) - (b.position ?? UNPLACED) ||
+        a.brandSlug.localeCompare(b.brandSlug) ||
+        a.key.localeCompare(b.key),
+    );
+
+  const productsByBrand = new Map<string, number>();
+  return candidates.filter((product) => {
+    const count = productsByBrand.get(product.brandId) ?? 0;
+    if (count >= MAX_HOME_CURATED_PRODUCTS_PER_BRAND) return false;
+    productsByBrand.set(product.brandId, count + 1);
+    return true;
+  });
 }
 
 // ---------------------------------------------------------------------------

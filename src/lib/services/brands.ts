@@ -22,6 +22,7 @@ import { BRAND_SORT_CONFIG, DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { isLogoImageTags } from "@/lib/constants/brand-images";
 import {
   chunkBrandHeroUrlBatches,
+  chunkBrandIdBatches,
   fetchActiveBrandImageRows,
   type BrandImageQueryClient,
 } from "./_shared/brand-image-batch";
@@ -807,7 +808,7 @@ type CardImageRow = Pick<
 };
 
 /**
- * Fills in the hero image's `brand_images` metadata for a list of cards.
+ * Fills in card image metadata and the best product photo for a list of cards.
  *
  * `brandToDomain` hard-codes `imageAlts: []` because the narrow directory
  * projection reads the `brands` table only, and `brandToDomainWithImages` is
@@ -816,12 +817,13 @@ type CardImageRow = Pick<
  * renders a logo `object-contain` instead of cover-cropping it) never fires
  * outside the detail page. This batches the lookup for the whole page instead.
  *
- * REPLACES, never merges: `imageAlts` and `heroImageMetadata` are overwritten
+ * REPLACES, never merges: `productPhotos`, `imageAlts` and `heroImageMetadata` are overwritten
  * wholesale, so passing an already-hydrated brand through this DISCARDS what it
  * carried. The generic signature accepts any `{ id, heroImageUrl }`, which
  * makes a pre-hydrated caller look legal — it is not. This is for card
- * projections, whose `productPhotos` are empty by construction; a detail brand
- * carries per-image metadata for its whole gallery and must use
+ * projections, whose `productPhotos` are hydrated from the best active image
+ * tagged `product`; a detail brand carries per-image metadata for its whole
+ * gallery and must use
  * `brandToDomainWithImages` instead.
  *
  * CACHE INTERACTION, recorded because it is invisible from here: results flow
@@ -841,11 +843,14 @@ export async function hydrateCardImageMeta<
 >(
   supabase: ReturnType<typeof createServiceClient>,
   brands: T[],
-): Promise<Array<T & Pick<Brand, "imageAlts" | "heroImageMetadata">>> {
+): Promise<
+  Array<T & Pick<Brand, "productPhotos" | "imageAlts" | "heroImageMetadata">>
+> {
   const withDefaults = (
     brand: T,
-  ): T & Pick<Brand, "imageAlts" | "heroImageMetadata"> => ({
+  ): T & Pick<Brand, "productPhotos" | "imageAlts" | "heroImageMetadata"> => ({
     ...brand,
+    productPhotos: [],
     imageAlts: [],
     heroImageMetadata: null,
   });
@@ -873,13 +878,23 @@ export async function hydrateCardImageMeta<
 
   if (pairs.length === 0) return brands.map(withDefaults);
 
-  let rows: CardImageRow[];
+  let heroRows: CardImageRow[];
+  let productRows: CardImageRow[];
   try {
-    rows = await fetchActiveBrandImageRows<CardImageRow>(
-      supabase as unknown as BrandImageQueryClient,
-      CARD_IMAGE_SELECT,
-      chunkBrandHeroUrlBatches(pairs),
-    );
+    const imageClient = supabase as unknown as BrandImageQueryClient;
+    const brandIds = [...new Set(pairs.map((pair) => pair.brandId))];
+    [heroRows, productRows] = await Promise.all([
+      fetchActiveBrandImageRows<CardImageRow>(
+        imageClient,
+        CARD_IMAGE_SELECT,
+        chunkBrandHeroUrlBatches(pairs),
+      ),
+      fetchActiveBrandImageRows<CardImageRow>(
+        imageClient,
+        CARD_IMAGE_SELECT,
+        chunkBrandIdBatches(brandIds),
+      ),
+    ]);
   } catch (error) {
     /*
      * Degrade, never throw. Two independent reasons, both of which have to hold
@@ -907,10 +922,18 @@ export async function hydrateCardImageMeta<
   }
 
   const rowsByBrand = new Map<string, CardImageRow[]>();
-  for (const row of rows) {
+  for (const row of heroRows) {
     const brandRows = rowsByBrand.get(row.brand_id) ?? [];
     brandRows.push(row);
     rowsByBrand.set(row.brand_id, brandRows);
+  }
+
+  const productRowsByBrand = new Map<string, CardImageRow[]>();
+  for (const row of productRows) {
+    if (!row.tags?.includes("product") || isLogoImageTags(row.tags)) continue;
+    const brandRows = productRowsByBrand.get(row.brand_id) ?? [];
+    brandRows.push(row);
+    productRowsByBrand.set(row.brand_id, brandRows);
   }
 
   return brands.map((brand) => {
@@ -924,31 +947,61 @@ export async function hydrateCardImageMeta<
       .get(brand.id)
       ?.find((row) => row.url === brand.heroImageUrl);
 
-    // No matching row is not an error: brands whose hero predates
-    // `brand_images` (or whose row was rejected) simply keep `imageAlts: []`
-    // and degrade to the uncarved `object-cover` render they get today.
-    if (!heroRow) return withDefaults(brand);
+    const productRow = productRowsByBrand
+      .get(brand.id)
+      ?.find((row) => row.url !== brand.heroImageUrl);
 
-    // `imageAlts` is index-aligned with `[heroImageUrl, ...productPhotos]`, and
-    // the card projection leaves `productPhotos` empty — so exactly one entry.
-    // Widening this to every image would silently desync those indices.
-    return {
-      ...brand,
-      imageAlts: [
-        {
+    // No matching row is not an error: brands whose hero predates
+    // `brand_images` (or whose row was rejected) keep the old hero behavior,
+    // while a separately classified product photo can still improve the card.
+    if (!heroRow && !productRow) return withDefaults(brand);
+
+    const heroMeta = heroRow
+      ? {
           altZh: heroRow.alt_zh ?? null,
           altEn: heroRow.alt_en ?? null,
           isLogo: isLogoImageTags(heroRow.tags),
           focalX: heroRow.focal_x ?? null,
           focalY: heroRow.focal_y ?? null,
-        },
+        }
+      : {
+          altZh: null,
+          altEn: null,
+          // Unknown hero metadata must not win over a known product photo.
+          isLogo: true,
+          focalX: null,
+          focalY: null,
+        };
+
+    // `imageAlts` stays index-aligned with `[heroImageUrl, ...productPhotos]`.
+    // The product lookup intentionally contributes only the first product row:
+    // cards need one object-first lead image, while detail galleries retain
+    // their complete per-image projection through `brandToDomainWithImages`.
+    return {
+      ...brand,
+      productPhotos: productRow ? [productRow.url] : [],
+      imageAlts: [
+        heroMeta,
+        ...(productRow
+          ? [
+              {
+                altZh: productRow.alt_zh ?? null,
+                altEn: productRow.alt_en ?? null,
+                isLogo: false,
+                focalX: productRow.focal_x ?? null,
+                focalY: productRow.focal_y ?? null,
+              },
+            ]
+          : []),
       ],
-      heroImageMetadata: {
-        altZh: heroRow.alt_zh ?? null,
-        altEn: heroRow.alt_en ?? null,
-        width: heroRow.width && heroRow.width > 0 ? heroRow.width : null,
-        height: heroRow.height && heroRow.height > 0 ? heroRow.height : null,
-      },
+      heroImageMetadata: heroRow
+        ? {
+            altZh: heroRow.alt_zh ?? null,
+            altEn: heroRow.alt_en ?? null,
+            width: heroRow.width && heroRow.width > 0 ? heroRow.width : null,
+            height: heroRow.height && heroRow.height > 0 ? heroRow.height : null,
+          }
+        : null,
     };
   });
 }
@@ -1259,9 +1312,9 @@ export async function getBrandSlugsBatch(
  *    instead, which keeps the last good page served and surfaces the error.
  *
  * Uses the narrow `BRAND_LIST_SELECT` projection and plain `brandToDomain` —
- * `brandToDomainWithImages` would fire one extra query per brand. Under this
- * projection `productPhotos` stays `[]`, so cards fall back to `heroImageUrl`
- * and then `BrandImageFallback`.
+ * `brandToDomainWithImages` would fire one query per brand. The shared card
+ * hydration that follows the projection batches the hero metadata and best
+ * product photo for the full slug set.
  *
  * Cached per request, keyed on a joined slug string rather than the array:
  * React's `cache()` compares arguments by identity, and every shortcode builds
@@ -1470,10 +1523,9 @@ export type BrandImageFields = ReturnType<typeof toImageFields>;
 /**
  * The full `brand_images` list for one brand, as domain image fields.
  *
- * `getBrandsBySlugs` runs the narrow directory projection, which leaves
- * `productPhotos` empty — enough for a card that shows one hero, not enough for
- * a story gallery that wants four photos. Rather than widen that projection for
- * every card on the directory, gallery callers pay one extra query here.
+ * `getBrandsBySlugs` runs the narrow directory projection, which hydrates one
+ * best product photo for a card but not the complete gallery. Gallery callers
+ * pay one extra query here for every active image.
  * Cached per request so repeated galleries for the same brand share it.
  */
 export const getBrandImageFields = cache(

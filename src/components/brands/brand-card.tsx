@@ -59,7 +59,15 @@ export function BrandCard({
   const imageCandidates = [brand.heroImageUrl, ...brand.productPhotos].map((url) =>
     safeImageSrc(url),
   )
-  const imageIndex = imageCandidates.findIndex((src) => src !== null)
+  const preferredImageIndex = imageCandidates.findIndex(
+    (src, index) => src !== null && brand.imageAlts[index]?.isLogo === false,
+  )
+  // Preserve the existing hero fallback when a card has no classified product
+  // photo (including story-MDX fixtures that carry `productPhotos: []`).
+  const imageIndex =
+    preferredImageIndex >= 0
+      ? preferredImageIndex
+      : imageCandidates.findIndex((src) => src !== null)
   const imageSrc = imageIndex === -1 ? null : imageCandidates[imageIndex]
   const showImage = imageSrc != null && !imgError
   const imageMeta = imageIndex >= 0 ? brand.imageAlts.at(imageIndex) : undefined

@@ -3,6 +3,7 @@ import {
   createCuratedProduct,
   curatedProductPromoteBlockers,
   getCuratedProductWriteContext,
+  getPublishedCuratedProductsForHomepage,
   getPublishedCuratedProductsForBrand,
   promoteCuratedProduct,
   retireCuratedProduct,
@@ -21,6 +22,7 @@ type RecordedCalls = {
   select: string[];
   eq: [string, unknown][];
   not: [string, string, unknown][];
+  limit: number[];
 };
 
 /**
@@ -37,7 +39,13 @@ function stubClient(result: QueryResult): {
   client: CuratedProductSupabase;
   calls: RecordedCalls;
 } {
-  const calls: RecordedCalls = { table: [], select: [], eq: [], not: [] };
+  const calls: RecordedCalls = {
+    table: [],
+    select: [],
+    eq: [],
+    not: [],
+    limit: [],
+  };
   const chain = {
     select(columns: string) {
       calls.select.push(columns);
@@ -49,6 +57,10 @@ function stubClient(result: QueryResult): {
     },
     not(column: string, operator: string, value: unknown) {
       calls.not.push([column, operator, value]);
+      return chain;
+    },
+    limit(value: number) {
+      calls.limit.push(value);
       return chain;
     },
     then<TResult>(
@@ -192,6 +204,184 @@ describe("getPublishedCuratedProductsForBrand", () => {
     expect(unplaced?.position).toBeNull();
     expect(unplaced?.rationaleZh).toBeNull();
     expect(unplaced?.trailSlug).toBeNull();
+  });
+});
+
+function homepageRow(overrides: Record<string, unknown> = {}) {
+  return productRow({
+    image_url: "https://images.example.com/selected-product.webp",
+    image_usage: "permitted",
+    curated_product_sources: [{ id: "source-1", state: "active" }],
+    curated_product_selections: [
+      {
+        trail_slug: "picks",
+        section_key: "home",
+        position: 1,
+        rationale_zh: "A considered pick",
+        rationale_en: "A considered pick",
+        state: "active",
+      },
+    ],
+    brands: {
+      slug: "warmwood",
+      name: "Warmwood",
+      status: "approved",
+    },
+    ...overrides,
+  });
+}
+
+describe("getPublishedCuratedProductsForHomepage", () => {
+  it("returns only published products with active evidence", async () => {
+    const { client } = stubClient({
+      data: [
+        homepageRow({ key: "live" }),
+        homepageRow({
+          key: "candidate",
+          lifecycle: "candidate",
+        }),
+        homepageRow({
+          key: "retired-source",
+          curated_product_sources: [{ id: "source-2", state: "retired" }],
+        }),
+      ],
+    });
+
+    const products = await getPublishedCuratedProductsForHomepage(client);
+
+    expect(products.map((product) => product.key)).toEqual(["live"]);
+  });
+
+  it("excludes unapproved and test brands", async () => {
+    const { client } = stubClient({
+      data: [
+        homepageRow({ key: "approved" }),
+        homepageRow({
+          key: "hidden",
+          brands: { slug: "hidden", name: "Hidden", status: "hidden" },
+        }),
+        homepageRow({
+          key: "test",
+          brands: {
+            slug: "test",
+            name: "[E2E-TEST] fixture",
+            status: "approved",
+          },
+        }),
+      ],
+    });
+
+    const products = await getPublishedCuratedProductsForHomepage(client);
+
+    expect(products.map((product) => product.key)).toEqual(["approved"]);
+  });
+
+  it("requires a selection rationale", async () => {
+    const { client } = stubClient({
+      data: [
+        homepageRow({
+          key: "without-rationale",
+          curated_product_selections: [
+            {
+              trail_slug: "picks",
+              section_key: "home",
+              position: 1,
+              rationale_zh: null,
+              rationale_en: null,
+              state: "active",
+            },
+          ],
+        }),
+      ],
+    });
+
+    await expect(getPublishedCuratedProductsForHomepage(client)).resolves.toEqual(
+      [],
+    );
+  });
+
+  it("caps products per brand", async () => {
+    const { client } = stubClient({
+      data: [
+        homepageRow({ key: "first", brand_id: "brand-1" }),
+        homepageRow({
+          key: "second",
+          brand_id: "brand-1",
+          curated_product_selections: [
+            {
+              trail_slug: "picks",
+              section_key: "home",
+              position: 2,
+              rationale_zh: "Another angle",
+              rationale_en: "Another angle",
+              state: "active",
+            },
+          ],
+        }),
+        homepageRow({
+          key: "other-brand",
+          brand_id: "brand-2",
+          brands: { slug: "other-brand", name: "Other Brand", status: "approved" },
+        }),
+      ],
+    });
+
+    const products = await getPublishedCuratedProductsForHomepage(client);
+
+    expect(products.map((product) => product.key)).toEqual([
+      "other-brand",
+      "first",
+    ]);
+  });
+
+  it("filters unrenderable images", async () => {
+    const { client } = stubClient({
+      data: [homepageRow({ image_usage: "none" })],
+    });
+
+    await expect(getPublishedCuratedProductsForHomepage(client)).resolves.toEqual(
+      [],
+    );
+  });
+
+  it("orders deterministically and bounds the query", async () => {
+    const rows = [
+      homepageRow({
+        key: "zeta",
+        brands: { slug: "zeta", name: "Zeta", status: "approved" },
+      }),
+      homepageRow({
+        key: "alpha",
+        brands: { slug: "alpha", name: "Alpha", status: "approved" },
+      }),
+    ];
+    const first = stubClient({ data: rows });
+    const second = stubClient({ data: rows });
+
+    const firstProducts = await getPublishedCuratedProductsForHomepage(
+      first.client,
+    );
+    const secondProducts = await getPublishedCuratedProductsForHomepage(
+      second.client,
+    );
+
+    expect(firstProducts.map((product) => product.key)).toEqual(
+      secondProducts.map((product) => product.key),
+    );
+    expect(first.calls.limit).toEqual([1_000]);
+  });
+
+  it("returns empty on a missing curated-products table", async () => {
+    const { client } = stubClient({
+      error: {
+        code: "PGRST205",
+        message: "Could not find the table in the schema cache",
+      },
+    });
+
+    await expect(getPublishedCuratedProductsForHomepage(client)).resolves.toEqual(
+      [],
+    );
   });
 });
 
