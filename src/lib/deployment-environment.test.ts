@@ -46,15 +46,11 @@ describe("staging deployment safety policy", () => {
     expect(isAllowedStagingRequest("GET", "/api/email/unsubscribe")).toBe(
       false,
     );
-    expect(isAllowedStagingRequest("GET", "/en/auth/sign-up")).toBe(false);
-    expect(isAllowedStagingRequest("GET", "/auth/forgot-password")).toBe(false);
-    expect(isAllowedStagingRequest("GET", "/auth/reset-password")).toBe(false);
-    expect(isAllowedStagingRequest("POST", "/auth/sign-up")).toBe(false);
-    expect(isAllowedStagingRequest("POST", "/auth/forgot-password")).toBe(
-      false,
-    );
-    expect(isAllowedStagingRequest("PATCH", "/auth/reset-password")).toBe(
-      false,
-    );
+    expect(isAllowedStagingRequest("GET", "/en/auth/sign-up")).toBe(true);
+    expect(isAllowedStagingRequest("GET", "/auth/forgot-password")).toBe(true);
+    expect(isAllowedStagingRequest("GET", "/auth/reset-password")).toBe(true);
+    expect(isAllowedStagingRequest("POST", "/auth/sign-up")).toBe(true);
+    expect(isAllowedStagingRequest("POST", "/auth/forgot-password")).toBe(true);
+    expect(isAllowedStagingRequest("PATCH", "/auth/reset-password")).toBe(false);
   });
 });

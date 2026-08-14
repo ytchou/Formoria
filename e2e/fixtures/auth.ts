@@ -109,7 +109,7 @@ export const test = base.extend<AuthFixtures, WorkerAuthFixtures>({
           data.user.id,
         );
         if (deleteError) {
-          console.warn(
+          throw new Error(
             `[e2e-cleanup] isolated owner deletion failed: ${deleteError.message}`,
           );
         }

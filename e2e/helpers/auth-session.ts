@@ -72,7 +72,8 @@ export async function writeAuthStorageStateForCredentials(
   const baseURL =
     process.env.PLAYWRIGHT_BASE_URL ??
     process.env.BASE_URL ??
-    "http://localhost:3000";
+    process.env.STAGING_BASE_URL ??
+    "https://staging.formoria.com";
   const domain = new URL(baseURL).hostname;
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey);

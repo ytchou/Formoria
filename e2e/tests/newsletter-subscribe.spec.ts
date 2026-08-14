@@ -19,10 +19,8 @@ test.describe('Newsletter subscribe flow', () => {
 
   test.beforeAll(() => {
     // Unique email per test run — avoids collisions when the suite re-runs.
-    // Domain must accept SMTP: subscribing fires a real Resend confirmation
-    // email in production, and example.com publishes a null MX (RFC 7505), so
-    // every run hard-bounced against the Resend sending reputation.
-    testEmail = `${TEST_EMAIL_PREFIX}-${Date.now()}@formoria.com`;
+    // Use a reserved domain: staging E2E must not deliver mail externally.
+    testEmail = `${TEST_EMAIL_PREFIX}-${Date.now()}@example.test`;
   });
 
   test.afterAll(async () => {
@@ -30,10 +28,11 @@ test.describe('Newsletter subscribe flow', () => {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
-    await supabase
+    const { error } = await supabase
       .from('newsletter_subscribers')
       .delete()
       .like('email', `${TEST_EMAIL_PREFIX}%`);
+    if (error) throw new Error(`[e2e-cleanup] newsletter cleanup failed: ${error.message}`);
   });
 
   test('anonymous visitor can subscribe from the homepage', async ({ page }) => {

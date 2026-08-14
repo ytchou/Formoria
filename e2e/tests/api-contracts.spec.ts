@@ -97,7 +97,7 @@ test.describe.serial('API — newsletter', () => {
     )
 
     const wi = workerInfo.workerIndex
-    const testEmail = `e2e-api-contract-${wi}@test.formoria.com`
+    const testEmail = `e2e-api-contract-${wi}@example.test`
     ownerUnsubToken = randomUUID()
 
     // Resolve test user id

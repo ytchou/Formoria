@@ -430,6 +430,8 @@ function finalizeResponse(
   if (staging) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
     response.headers.set("Cache-Control", "private, no-store");
+    const revision = process.env.RAILWAY_GIT_COMMIT_SHA?.trim();
+    if (revision) response.headers.set("X-Formoria-Revision", revision);
   }
   return response;
 }

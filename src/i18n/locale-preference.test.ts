@@ -81,7 +81,7 @@ describe('locale preference', () => {
     )
   })
 
-  it('gives read-only staging a GET destination while production keeps the preference action', () => {
+  it('gives staging a GET destination while production keeps the preference action', () => {
     const currentUrl = '/brands?tag=rice%2Fgrains&tag=gift%20boxes#results'
 
     expect(readOnlyStagingLocaleHref(currentUrl, 'en', 'staging')).toBe(

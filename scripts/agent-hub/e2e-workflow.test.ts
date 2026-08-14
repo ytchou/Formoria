@@ -2,324 +2,146 @@ import { readFile } from "node:fs/promises";
 import { parse } from "yaml";
 import { describe, expect, it } from "vitest";
 
-const workflowPath = ".github/workflows/e2e-nightly.yml";
+const nightlyPath = ".github/workflows/e2e-nightly.yml";
+const releasePath = ".github/workflows/e2e-release.yml";
+const manualPath = ".github/workflows/e2e-staging.yml";
 
-async function workflow(): Promise<string> {
-  return readFile(workflowPath, "utf8");
+async function source(path: string): Promise<string> {
+  return readFile(path, "utf8");
 }
 
-describe("nightly E2E batch self-heal contract", () => {
-  it("is valid YAML and retains the complete deep/mobile nightly scope", async () => {
-    const source = await workflow();
-    expect(() => parse(source)).not.toThrow();
-    expect(source).toContain('cron: "5 20 * * *"');
-    expect(source).toContain(
-      "TEST_ARGS=(--project=deep --project=mobile --last-failed-file playwright-last-run.json --reporter=html,json)",
-    );
-    expect(source).toContain(
-      "TEST_ARGS=(--project=deep --project=mobile --reporter=html,json)",
-    );
+describe("staging E2E release and self-heal contract", () => {
+  it("runs a complete deployed staging suite on the nightly schedule", async () => {
+    const nightly = await source(nightlyPath);
+    expect(() => parse(nightly)).not.toThrow();
+    expect(nightly).toContain('cron: "5 20 * * *"');
+    expect(nightly).toContain("environment: \"Formoria / staging\"");
+    expect(nightly).toContain("STAGING_BASE_URL: https://staging.formoria.com");
+    expect(nightly).toContain("--project=deep");
+    expect(nightly).toContain("--project=mobile");
+    expect(nightly).not.toContain("--last-failed");
+    expect(nightly).not.toContain("pnpm build");
+    expect(nightly).not.toContain("pnpm start");
+    expect(nightly).not.toContain("Formoria / production");
+    expect(nightly).not.toContain("localhost:3000");
   });
 
-  it("makes diagnosis read-only and repair unable to execute Playwright", async () => {
-    const source = await workflow();
-    const diagnosis = source.slice(
-      source.indexOf("- name: Diagnose complete failure set"),
-      source.indexOf("- name: Validate diagnosis artifact"),
-    );
-    const repair = source.slice(
-      source.indexOf("- name: Repair every actionable cluster"),
-      source.indexOf("- name: Checkpoint repair progress"),
-    );
-    expect(diagnosis).toContain(".github/selfheal/diagnose.md");
-    expect(diagnosis).not.toContain("Read,Write");
-    expect(diagnosis).not.toContain("verify-targeted.mjs");
-    expect(diagnosis).not.toContain("Bash(pnpm");
-    expect(diagnosis).toContain("Bash(jq:*)");
-    expect(repair).toContain("Read,Write,Edit,Replace");
-    expect(repair).not.toContain("verify-targeted.mjs");
-    expect(repair).not.toContain("Bash(pnpm");
+  it("fails closed when deployed identity is missing or stale", async () => {
+    const nightly = await source(nightlyPath);
+    expect(nightly).toContain("git ls-remote");
+    expect(nightly).toContain("refs/heads/staging");
+    expect(nightly).toContain("^[0-9a-f]{40}$");
+    expect(nightly).toContain("X-Formoria-Revision");
+    expect(nightly).toContain("staging did not report the exact tested SHA");
+    expect(nightly).toContain("staging revision is missing");
   });
 
-  it("validates versioned artifacts and runs exact verification once per cycle", async () => {
-    const [source, helper] = await Promise.all([
-      workflow(),
-      readFile("scripts/selfheal/verify-targeted.mjs", "utf8"),
+  it("freezes both deployed app and repair-test identities before scope classification", async () => {
+    const nightly = await source(nightlyPath);
+    const freeze = nightly.slice(
+      nightly.indexOf("- name: Freeze complete staging failure context"),
+      nightly.indexOf("- name: Upload Playwright report"),
+    );
+    expect(freeze).toContain("steps.e2e.outcome == 'failure' || steps.report_gate.outcome == 'failure'");
+    expect(freeze).toContain("unexpected-skips.json");
+    expect(freeze).toContain("type == \"array\" and length > 0");
+    expect(freeze).toContain("refusing to freeze an empty staging failure set");
+    expect(freeze).toContain("deployed_app_sha");
+    expect(freeze).toContain("repair_test_sha");
+    expect(freeze).toContain("incident-cli.ts freeze");
+    expect(nightly).toContain("git diff --name-status \"$deployed_sha..$repair_sha\"");
+    expect(nightly).toContain(".repair_test_sha // empty");
+    expect(nightly).not.toContain("|| github.sha");
+    expect(nightly).toContain("e2e/**/*.ts");
+    expect(nightly).toContain("scope=infrastructure_blocked");
+    expect(nightly).toContain("Validate repair action contract");
+    expect(nightly).toContain("malformed structured output");
+    expect(nightly).toContain("steps.repair_contract.outcome");
+    expect(nightly).toContain("scope=repair_blocked");
+    expect(nightly).toContain("scripts/selfheal/exact-failure-runner.ts");
+    expect(nightly).not.toContain("join(\"|\")");
+    expect(nightly).toContain("gh pr ready");
+    expect(nightly).toContain("review_pending=true");
+    expect(nightly).toContain("outcome=review_ready");
+    expect(nightly).toContain('steps.eligibility.outputs.eligible }}" != true');
+    expect(nightly).toContain('steps.eligibility.outputs.eligible }}" == true');
+    expect(nightly).toContain('steps.eligibility.outputs.eligible }}" != true ]]; then outcome=repair_blocked');
+    expect(nightly).toContain("scripts/selfheal/incident-cli.ts eligibility");
+    expect(nightly).toContain("scripts/staging-target-check.ts");
+    expect(nightly).toContain("Validate staging target identity before self-heal probe");
+    expect(nightly).toContain("self-merge-evidence.json");
+    expect(nightly).toContain("steps.eligibility.outputs.eligible == 'true'");
+    expect(nightly).toContain("READY_TEST_REPAIR: ${{ steps.scope.outputs.scope == 'test_only' && steps.validation.outcome == 'success' && steps.validation_report_gate.outcome == 'success' && steps.eligibility.outputs.eligible == 'true' }}");
+    expect(nightly).toContain("assertionCountBefore");
+    expect(nightly).toContain("addedLines");
+  });
+
+  it("keeps infrastructure retries bounded and test-only repairs staging-only", async () => {
+    const nightly = await source(nightlyPath);
+    expect(nightly).toContain("Probe deployed staging infrastructure (two validation-only retries)");
+    expect(nightly).toContain("for attempt in 0 1 2");
+    expect(nightly).toContain("infrastructure_blocked");
+    expect(nightly).toContain("Create review-ready repair record for application changes");
+    expect(nightly).toContain("Reuse one incident PR");
+    expect(nightly).toContain("require independent review");
+    expect(nightly).toContain("base staging");
+    expect(nightly).toContain("--match-head-commit");
+    expect(nightly).not.toContain("--admin");
+    expect(nightly).toContain("--delete-branch=false");
+    expect(nightly).toContain("Verify frozen exact failure set against deployed staging");
+    expect(nightly).toContain("Create or update the self-heal repair branch");
+    expect(nightly).toContain("Diagnose the frozen staging failure set");
+    expect(nightly).toContain("Repair actionable staging E2E clusters");
+    expect(nightly).toContain("Create or update one incident PR");
+  });
+
+  it("gates every deployed suite on the JSON skip contract and DEV-1416 is retry-free", async () => {
+    const [nightly, manual, release, edge] = await Promise.all([
+      source(nightlyPath),
+      source(manualPath),
+      source(releasePath),
+      source("e2e/tests/submit-recommend-edge-cases.spec.ts"),
     ]);
-    expect(source).toContain("incident-cli.ts freeze");
-    expect(source).toContain("incident-cli.ts validate-diagnosis");
-    expect(source).toContain("incident-cli.ts validate-repair");
-    expect(
-      source.match(/node scripts\/selfheal\/verify-targeted\.mjs/g),
-    ).toHaveLength(1);
-    expect(helper).toContain('"--last-failed"');
-    expect(helper).toContain('"--last-failed-file"');
-    expect(helper).toContain(
-      "Stored Playwright test IDs are no longer collectible",
-    );
+    for (const workflow of [nightly, manual, release]) {
+      expect(workflow).toContain("scripts/e2e-report-gate.ts");
+      expect(workflow).toContain("scripts/e2e-expected-skips.json");
+    }
+    expect(edge).toContain("DEV-1416");
+    expect(edge).toContain("retries: 0");
+    expect(edge).toContain("Array.from({ length: 6 }");
+    expect(edge).toContain("new Set(confirmations.map(({ id }) => id)).size");
   });
 
-  it("passes agent JSON through the environment before shell validation", async () => {
-    const source = await workflow();
-    const diagnosis = source.slice(
-      source.indexOf("- name: Validate diagnosis artifact"),
-      source.indexOf("- name: Repair every actionable cluster"),
-    );
-    expect(diagnosis).toContain(
-      "DIAGNOSIS_RESULT: ${{ steps.diagnose.outputs.structured_output || steps.diagnose_retry.outputs.structured_output }}",
-    );
-    expect(diagnosis).toContain("printf '%s' \"$DIAGNOSIS_RESULT\"");
-    expect(diagnosis).not.toContain(
-      "printf '%s' '${{ steps.diagnose.outputs.structured_output }}'",
-    );
+  it("sends one initial and one terminal staging notification", async () => {
+    const nightly = await source(nightlyPath);
+    expect(nightly.match(/E2E_SLACK_PHASE: initial/g)).toHaveLength(1);
+    expect(nightly).toContain("E2E_SLACK_PHASE: ${{ steps.outcome.outputs.outcome }}");
+    expect(nightly).toContain("E2E Staging (Self-heal)");
+    expect(nightly).toContain("source_run_id");
+    expect(nightly).toContain("source_artifact_name");
   });
 
-  it("retries a missing diagnosis result without consuming a repair cycle", async () => {
-    const source = await workflow();
-    const diagnosis = source.slice(
-      source.indexOf("- name: Diagnose complete failure set"),
-      source.indexOf("- name: Repair every actionable cluster"),
-    );
-    expect(diagnosis).toContain("continue-on-error: true");
-    expect(diagnosis).toContain("- name: Retry diagnosis contract once");
-    expect(diagnosis).toContain("if: steps.diagnose.outcome == 'failure'");
-    expect(diagnosis).not.toContain("NEXT_CYCLE");
-    expect(diagnosis).not.toContain("continuation_kind=repair");
-  });
-
-  it("caps repair, infrastructure, and base-sync continuations incident-wide", async () => {
-    const source = await workflow();
-    expect(source).toContain('options: ["1", "2", "3"]');
-    expect(source).toContain("steps.context.outputs.repair_cycle != '3'");
-    expect(source).toContain("steps.context.outputs.repair_cycle == '3'");
-    expect(source).toContain("inputs.infrastructure_retries != '2'");
-    expect(source).toContain(
-      "infrastructure remained unavailable after two validation-only retries",
-    );
-    expect(source).toContain("inputs.base_sync_attempts || '0'");
-    expect(source).toContain('inputs.base_sync_attempts || \'0\' }}" = "2"');
-  });
-
-  it("classifies infrastructure before agents with an audited authenticated probe", async () => {
-    const source = await workflow();
-    const probe = source.indexOf("- name: Probe Supabase infrastructure");
-    const diagnosis = source.indexOf("- name: Diagnose complete failure set");
-    expect(probe).toBeGreaterThan(0);
-    expect(probe).toBeLessThan(diagnosis);
-    expect(source).toContain("lightweight_authenticated_query");
-    expect(source).toContain("SUPABASE_SERVICE_ROLE_KEY");
-    expect(source).toContain("PROBE_AUTHENTICATED=false");
-    expect(source).toContain("auth_mode:$auth_mode");
-    expect(source).toContain("latency_ms");
-    expect(source).toContain("classify-infrastructure");
-    expect(source).not.toContain("request:{credential");
-  });
-
-  it("publishes the repair branch before dispatching infrastructure recovery", async () => {
-    const source = await workflow();
-    const dispatch = source.indexOf(
-      "- name: Dispatch infrastructure-only retry",
-    );
-    const diagnosis = source.indexOf("- name: Diagnose complete failure set");
-    const section = source.slice(dispatch, diagnosis);
-    const push = section.indexOf(
-      'git push origin "$REPAIR_BRANCH" --force-with-lease',
-    );
-    expect(push).toBeGreaterThan(-1);
-    expect(push).toBeLessThan(
-      section.indexOf("gh workflow run e2e-nightly.yml"),
-    );
-  });
-
-  it("can turn a recovered infrastructure retry into the next repair cycle", async () => {
-    const source = await workflow();
-    const probe = source.slice(
-      source.indexOf("- name: Probe Supabase infrastructure"),
-      source.indexOf("- name: Prepare infrastructure continuation bundle"),
-    );
-    const report = source.slice(
-      source.indexOf("- name: Prepare self-heal report for next round"),
-      source.indexOf("- name: Upload self-heal report for next round"),
-    );
-    expect(probe).toContain(
-      "CONTINUATION_KIND: ${{ inputs.continuation_kind }}",
-    );
-    expect(probe).toContain("errorsCurrent:$errorsCurrent");
-    expect(probe).toContain(
-      '[ "$CONTINUATION_KIND" = infrastructure ] && echo false || echo true',
-    );
-    expect(report).toContain("inputs.continuation_kind == 'infrastructure'");
-    expect(report).toContain("steps.validation.outcome != 'success'");
-  });
-
-  it("reclassifies full-suite service failures before another repair cycle", async () => {
-    const source = await workflow();
-    const classifier = source.indexOf(
-      "- name: Classify validation infrastructure",
-    );
-    const redContinuationIndex = source.indexOf(
-      "- name: Continue red self-heal within cycle cap",
-    );
-    const validationRetry = source.indexOf(
-      "- name: Dispatch validation infrastructure-only retry",
-    );
-    expect(classifier).toBeGreaterThan(-1);
-    expect(validationRetry).toBeGreaterThan(classifier);
-    expect(classifier).toBeLessThan(redContinuationIndex);
-    expect(source).toContain(
-      "steps.validation_infrastructure.outputs.confirmed",
-    );
-    expect(source).toContain(
-      "source_artifact_name=playwright-report-selfheal-validation-infrastructure",
-    );
-    expect(source).toContain("--field continuation_kind=infrastructure");
-    expect(source).toContain("classify-infrastructure");
-    const redContinuation = source.slice(
-      source.indexOf("- name: Continue red self-heal within cycle cap"),
-      source.indexOf("- name: Update blocked draft PR at cycle cap"),
-    );
-    expect(redContinuation).toContain(
-      "steps.infrastructure.outputs.confirmed != 'true'",
-    );
-    expect(redContinuation).toContain(
-      "steps.continue_infrastructure.outputs.dispatched != 'true'",
-    );
-    const validationClassifier = source.slice(
-      source.indexOf("- name: Classify validation infrastructure"),
-      source.indexOf(
-        "- name: Prepare validation infrastructure continuation bundle",
-      ),
-    );
-    expect(validationClassifier).toContain(
-      "steps.infrastructure.outputs.confirmed != 'true'",
-    );
-  });
-
-  it("creates one draft PR and reuses its number across continuations", async () => {
-    const source = await workflow();
-    expect(source).toContain("Create or update incident draft PR");
-    expect(source).toContain("gh pr list");
-    expect(source).toContain("gh pr edit");
-    expect(source).toContain("--field incident_pr_number=");
-    expect(source).toContain(
-      "steps.incident_pr.outputs.pr_number || inputs.incident_pr_number",
-    );
-    expect(source).toContain("e2e-nightly --state open");
-  });
-
-  it("resolves self-heal PRs from the repository release policy", async () => {
-    const source = await workflow();
-    expect(source).toContain(".github/release-flow.json");
-    expect(source).toContain("developmentPullRequestBase");
-    expect(source).toContain(
-      "scheduled runs must repair the configured development base",
-    );
-    expect(source).toContain(
-      "direct production repair PRs are disabled; use promote-staging",
-    );
-    expect(source).not.toContain(
-      "scheduled runs must repair the default branch",
-    );
-  });
-
-  it("self-merges only after every current-head test-only gate without admin bypass", async () => {
-    const source = await workflow();
-    expect(source).toContain("incident-cli.ts eligibility");
-    expect(source).toContain(
-      '.verdict == "PASS" and .reviewed_head_sha == $head',
-    );
-    expect(source).toContain('.risk == "low"');
-    expect(source).toContain(".app_files | length == 0");
-    expect(source).toContain(".reviewed_head_sha == $head");
-    expect(source).toContain('["Quality","Build","select-targeted-e2e"]');
-    expect(source).toContain('select(.name == "e2e-targeted"');
-    expect(source).toContain("git merge-base --is-ancestor");
-    expect(source).toContain(
-      'gh pr merge "$PR_NUMBER" --squash --match-head-commit "$HEAD_SHA"',
-    );
-    expect(source).not.toContain("--admin");
-  });
-
-  it("lets green application repairs reach review without runner-only search tools", async () => {
-    const source = await workflow();
-    const mergePolicy = source.slice(
-      source.indexOf("- name: Evaluate test-only merge policy"),
-      source.indexOf("- name: Prepare current incident evidence bundle"),
-    );
-    const review = source.slice(
-      source.indexOf("- name: Review fix"),
-      source.indexOf("- name: Ensure reviewed head is based on current main"),
-    );
-    expect(mergePolicy).not.toContain("rg -N");
-    expect(mergePolicy).toContain("DIAGNOSIS=null");
-    expect(review).toContain("always() &&");
-    expect(review).toContain(
-      '.verdict == "PASS" and .reviewed_head_sha == $head',
-    );
-    expect(review).toContain("self_merge_approved=true");
-    expect(review).toContain("gh pr ready");
-  });
-
-  it("retries a missing review result without rerunning validation", async () => {
-    const source = await workflow();
-    const review = source.slice(
-      source.indexOf("- name: Review fix"),
-      source.indexOf(
-        "- name: Update durable incident PR with validation and review",
-      ),
-    );
-    expect(review).toContain("continue-on-error: true");
-    expect(review).toContain("- name: Retry review contract once");
-    expect(review).toContain("if: steps.review.outcome == 'failure'");
-    const retry = review.slice(
-      review.indexOf("- name: Retry review contract once"),
-    );
-    expect(retry).toContain("--model claude-sonnet-4-5");
-    expect(review).toContain(
-      "steps.review.outputs.structured_output || steps.review_retry.outputs.structured_output",
-    );
-    expect(review).not.toContain("verify-targeted.mjs");
-    expect(review).not.toContain("Validate complete deep/mobile suite");
-  });
-
-  it("keeps continuations Slack-silent and reports eligibility separately from merge", async () => {
-    const source = await workflow();
-    const selfheal = source.slice(
-      source.indexOf("  selfheal:\n"),
-      source.indexOf("  selfheal-terminal:\n"),
-    );
-    expect(selfheal).not.toContain("e2e-slack.ts");
-    expect(source.match(/E2E_SLACK_PHASE: initial/g)).toHaveLength(1);
-    expect(source).toContain(
-      "E2E_SLACK_PHASE: ${{ needs.selfheal.outputs.terminal_outcome }}",
-    );
-    expect(source).toContain(
-      "needs.selfheal.outputs.continuation_dispatched != 'true'",
-    );
-    expect(source).toContain("auto_merge_eligible: $auto_merge_eligible");
-    expect(source).toContain("actually_merged: $actually_merged");
-    expect(source).toContain("merge_commit_sha: $merge_commit_sha");
-  });
-
-  it("retains complete Agent Hub, artifact, build-log, and source-failure evidence", async () => {
-    const source = await workflow();
-    expect(source).toContain("AGENT_HUB_INGEST_URL");
-    expect(source).toContain("AGENT_HUB_INGEST_TOKEN");
-    expect(
-      source.match(/node scripts\/agent-hub\/report-run\.mjs --file/g),
-    ).toHaveLength(2);
-    expect(source).toContain("SLACK_FORMORIA_WEBHOOK_URL");
-    expect(source).not.toContain("SLACK_HEALTH_WEBHOOK_URL");
-    expect(source).toContain("retention-days: 7");
-    expect(source).toContain("test-results");
-    expect(source).toContain(
-      'pnpm build 2>&1 | tee "$RUNNER_TEMP/formoria-selfheal-build.log"',
-    );
-    expect(source).toContain(
-      "SOURCE_FAILED_SPECS: ${{ needs.e2e-deep.outputs.failed_specs }}",
-    );
-    expect(source).toContain(
-      "SOURCE_FAILURE_STATE: ${{ inputs.source_failure_state }}",
-    );
+  it("keeps manual and release checks fresh and staging-only", async () => {
+    const [manual, release] = await Promise.all([
+      source(manualPath),
+      source(releasePath),
+    ]);
+    expect(() => parse(manual)).not.toThrow();
+    expect(() => parse(release)).not.toThrow();
+    expect(manual).toContain("workflow_dispatch");
+    expect(release).toContain("pull_request:");
+    expect(release).toContain("branches: [main]");
+    expect(release).toContain("github.event.pull_request.head.ref == 'staging'");
+    expect(release).toContain("github.event.pull_request.head.sha");
+    expect(release).toContain("git ls-remote");
+    expect(release).toContain("X-Formoria-Revision");
+    for (const workflow of [manual, release]) {
+      expect(workflow).toContain("--project=deep");
+      expect(workflow).toContain("--project=mobile");
+      expect(workflow).not.toContain("--last-failed");
+      expect(workflow).not.toContain("pnpm build");
+      expect(workflow).not.toContain("Formoria / production");
+      expect(workflow).not.toContain("localhost:3000");
+    }
   });
 });

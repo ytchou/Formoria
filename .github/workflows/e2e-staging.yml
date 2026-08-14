@@ -1,21 +1,26 @@
-name: E2E Staging (Deployed)
+name: E2E Staging (Manual)
 
 on:
   workflow_dispatch: {}
 
 concurrency:
-  group: formoria-e2e-staging
+  group: formoria-staging-e2e
   cancel-in-progress: false
 
 jobs:
   e2e-staging:
     runs-on: ubuntu-latest
     environment: "Formoria / staging"
-    timeout-minutes: 20
+    timeout-minutes: 60
     permissions:
       contents: read
     env:
+      FORMORIA_DEPLOYMENT_ENV: staging
+      STAGING_BASE_URL: https://staging.formoria.com
       BASE_URL: https://staging.formoria.com
+      NEXT_PUBLIC_SITE_URL: https://staging.formoria.com
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -24,15 +29,28 @@ jobs:
       E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
       E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
       E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
-      E2E_ORIGIN_SECRET: ${{ secrets.E2E_ORIGIN_SECRET }}
+      E2E_SIGNUP_EMAIL_DOMAIN: example.test
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      E2E_ORIGIN_SECRET: ${{ secrets.E2E_ORIGIN_SECRET }}
       CI: "true"
       PLAYWRIGHT_TEST: "true"
-      SELFHEAL_TARGETED: "true"
     steps:
+      - name: Resolve current staging SHA
+        id: sha
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/staging | awk '{print $1}')"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "::error::unable to resolve a 40-character staging SHA"
+            exit 1
+          }
+          echo "staging_sha=$sha" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ steps.sha.outputs.staging_sha }}
+          fetch-depth: 1
           persist-credentials: false
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -40,24 +58,45 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
-      - name: Exercise deployed private QA journeys
+      - name: Wait for exact deployed revision
+        env:
+          EXPECTED_SHA: ${{ steps.sha.outputs.staging_sha }}
         run: |
-          pnpm exec playwright test \
-            e2e/tests/where-to-buy.spec.ts \
-            e2e/tests/auth-signin.spec.ts \
-            e2e/tests/brand-save.spec.ts \
-            e2e/tests/admin-corrections.spec.ts \
-            --project=deep \
-            --workers=1 \
-            --grep "browses from the index|signs in through the UI|Journey 1: save brand|opens correction details and approves"
+          set -euo pipefail
+          # X-Formoria-Revision must equal the tested staging SHA.
+          for attempt in $(seq 1 60); do
+            revision="$(curl --fail --silent --show-error --location \
+              -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+              -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
+              -D - -o /dev/null "$STAGING_BASE_URL/about" \
+              | awk -F': ' 'tolower($1) == "x-formoria-revision" {gsub("\\r", "", $2); print $2; exit}')"
+            if [[ "$revision" == "$EXPECTED_SHA" ]]; then exit 0; fi
+            if [[ "$attempt" == 60 ]]; then
+              echo "::error::staging revision evidence is missing or stale"
+              exit 1
+            fi
+            sleep 10
+          done
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Run complete deep and mobile suite against deployed staging
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-results.json
+        run: >-
+          pnpm exec playwright test
+          --project=deep
+          --project=mobile
+          --reporter=html,json
+      - name: Reject unexpected skipped E2E tests
+        if: always()
+        run: pnpm exec tsx scripts/e2e-report-gate.ts playwright-results.json scripts/e2e-expected-skips.json
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: playwright-report-staging
+          name: playwright-report-staging-manual-${{ github.run_id }}
           path: |
             playwright-report/
             test-results/
+            playwright-results.json
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 14

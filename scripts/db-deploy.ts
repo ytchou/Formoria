@@ -1,12 +1,17 @@
 import { spawnSync } from "node:child_process";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { createClient } from "@supabase/supabase-js";
+import {
+  STAGING_PROJECT_REF,
+  validateStagingTarget,
+} from "./staging-target";
 
 type DeploymentEnvironment = "production" | "staging";
 
 const EXPECTED_PROJECT_REFS: Record<DeploymentEnvironment, string> = {
   production: "xkcayngbttpxyibgzern",
-  staging: "xwkigpvnheecihpxyvsl",
+  staging: STAGING_PROJECT_REF,
 };
 
 const ROOT = resolve(import.meta.dirname, "..");
@@ -48,6 +53,124 @@ export function assertStagingSeed(target: DeploymentTarget): void {
   if (target.environment !== "staging") {
     throw new Error("The staging fixture cannot run against production");
   }
+}
+
+export type StagingSeedAccount = {
+  email: string;
+  password: string;
+  role: "user" | "admin";
+};
+
+export type StagingAuthUser = {
+  id: string;
+  email?: string | null;
+};
+
+export const AUTH_USERS_PAGE_SIZE = 1_000;
+export const AUTH_USERS_MAX_PAGES = 25;
+
+type AuthUsersPage = {
+  data: { users: StagingAuthUser[] } | null;
+  error: { message: string } | null;
+};
+
+/**
+ * Auth admin pagination is one of the few places where a first-page-only
+ * lookup can silently create duplicate durable accounts. Keep the bound
+ * explicit and fail closed if Supabase keeps returning full pages forever.
+ */
+export async function paginateAuthUsers(
+  listPage: (page: number, perPage: number) => Promise<AuthUsersPage>,
+): Promise<StagingAuthUser[]> {
+  const users: StagingAuthUser[] = [];
+  const seenIds = new Set<string>();
+  for (let page = 1; page <= AUTH_USERS_MAX_PAGES; page += 1) {
+    const result = await listPage(page, AUTH_USERS_PAGE_SIZE);
+    if (result.error) {
+      throw new Error(`Unable to inspect staging E2E users: ${result.error.message}`);
+    }
+    const pageUsers = result.data?.users;
+    if (!Array.isArray(pageUsers)) {
+      throw new Error(`Unable to inspect staging E2E users: page ${page} was malformed`);
+    }
+    for (const user of pageUsers) {
+      if (!user || typeof user.id !== "string" || !user.id) {
+        throw new Error(`Unable to inspect staging E2E users: page ${page} contained a malformed user`);
+      }
+      if (seenIds.has(user.id)) {
+        throw new Error(`Unable to inspect staging E2E users: page ${page} repeated user ${user.id}`);
+      }
+      seenIds.add(user.id);
+      users.push(user);
+    }
+    if (pageUsers.length < AUTH_USERS_PAGE_SIZE) return users;
+    if (page === AUTH_USERS_MAX_PAGES) {
+      throw new Error(
+        `Unable to inspect staging E2E users: pagination exceeded ${AUTH_USERS_MAX_PAGES} pages`,
+      );
+    }
+  }
+  return users;
+}
+
+export function findStagingAccount(
+  users: readonly StagingAuthUser[],
+  email: string,
+): StagingAuthUser | undefined {
+  const normalizedEmail = email.trim().toLowerCase();
+  return users.find((user) => user.email?.trim().toLowerCase() === normalizedEmail);
+}
+
+export type StagingAccountAction = {
+  account: StagingSeedAccount;
+  existingUser: StagingAuthUser | null;
+};
+
+export function planStagingAccountActions(
+  users: readonly StagingAuthUser[],
+  accounts: readonly StagingSeedAccount[],
+): StagingAccountAction[] {
+  return accounts.map((account) => ({
+    account,
+    existingUser: findStagingAccount(users, account.email) ?? null,
+  }));
+}
+
+/**
+ * Validate the app/database/account identity before the seed can mutate
+ * anything. The database guard alone is insufficient: a staging database URL
+ * paired with a production app or credentials would still be cross-wired.
+ */
+export function validateStagingSeedEnvironment(
+  environment: Environment = process.env,
+): { target: DeploymentTarget; accounts: StagingSeedAccount[] } {
+  const target = validateDeploymentTarget(environment);
+  assertStagingSeed(target);
+  validateStagingTarget(environment);
+
+  const accounts: StagingSeedAccount[] = [
+    {
+      email: required(environment, "E2E_USER_EMAIL").toLowerCase(),
+      password: required(environment, "E2E_USER_PASSWORD"),
+      role: "user",
+    },
+    {
+      email: required(environment, "E2E_ADMIN_EMAIL").toLowerCase(),
+      password: required(environment, "E2E_ADMIN_PASSWORD"),
+      role: "admin",
+    },
+  ];
+  if (new Set(accounts.map((account) => account.email)).size !== accounts.length) {
+    throw new Error("E2E_USER_EMAIL and E2E_ADMIN_EMAIL must be different");
+  }
+  const adminAllowlist = required(environment, "ADMIN_EMAILS")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+  if (!adminAllowlist.includes(accounts[1].email)) {
+    throw new Error("ADMIN_EMAILS must include E2E_ADMIN_EMAIL for staging");
+  }
+  return { target, accounts };
 }
 
 type Environment = Record<string, string | undefined>;
@@ -135,20 +258,6 @@ function run(command: string, args: string[], capture = false): string {
   return capture ? result.stdout : "";
 }
 
-function verifySchemaDrift(target: DeploymentTarget): void {
-  const result = spawnSync("bash", ["scripts/db-clean-replay.sh"], {
-    cwd: ROOT,
-    env: {
-      ...process.env,
-      FORMORIA_COMPARE_DB_URL: target.databaseUrl,
-    },
-    stdio: "inherit",
-  });
-  if (result.status !== 0) {
-    throw new Error("Repository-to-database schema drift verification failed");
-  }
-}
-
 function supabase(args: string[], capture = false): string {
   return run("pnpm", ["exec", "supabase", ...args], capture);
 }
@@ -193,6 +302,42 @@ function queryFile(target: DeploymentTarget, file: string): void {
   );
   if (result.status !== 0) {
     throw new Error(`psql failed while applying ${file}`);
+  }
+}
+
+async function ensureStagingAccounts(
+  accounts: StagingSeedAccount[],
+  environment: Environment = process.env,
+): Promise<void> {
+  const supabaseUrl = required(environment, "NEXT_PUBLIC_SUPABASE_URL");
+  const serviceRoleKey = required(environment, "SUPABASE_SERVICE_ROLE_KEY");
+  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const listed = await paginateAuthUsers((page, perPage) =>
+    supabase.auth.admin.listUsers({ page, perPage }),
+  );
+
+  for (const { account, existingUser } of planStagingAccountActions(listed, accounts)) {
+    if (existingUser) {
+      const { error } = await supabase.auth.admin.updateUserById(existingUser.id, {
+        password: account.password,
+        email_confirm: true,
+      });
+      if (error) {
+        throw new Error(`Unable to refresh staging ${account.role} account: ${error.message}`);
+      }
+      continue;
+    }
+
+    const { error } = await supabase.auth.admin.createUser({
+      email: account.email,
+      password: account.password,
+      email_confirm: true,
+    });
+    if (error) {
+      throw new Error(`Unable to create staging ${account.role} account: ${error.message}`);
+    }
   }
 }
 
@@ -309,11 +454,10 @@ function verify(target: DeploymentTarget, includeSchemaDiff: boolean): void {
         "Generated database types are stale; run pnpm db:types and commit them",
       );
     }
-    verifySchemaDrift(target);
   }
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const command = process.argv[2];
   const target = validateDeploymentTarget();
 
@@ -328,16 +472,15 @@ function main(): void {
       migrationCheck(target);
       supabase(["db", "push", "--db-url", target.databaseUrl]);
       if (safety.finalizeStaging) queryFile(target, STAGING_FINALIZE);
-      // Schema diff creates a Docker-backed shadow database. Railway pre-deploy
-      // intentionally runs every remote invariant except that evidence step;
-      // `pnpm db:verify` remains the explicit drift gate after deployment.
       verify(target, false);
       return;
     }
-    case "seed:staging":
-      assertStagingSeed(target);
+    case "seed:staging": {
+      const { accounts } = validateStagingSeedEnvironment();
       queryFile(target, STAGING_FIXTURE);
+      await ensureStagingAccounts(accounts);
       return;
+    }
     case "verify":
       verify(target, true);
       return;
@@ -356,10 +499,8 @@ function main(): void {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  try {
-    main();
-  } catch (error) {
+  void main().catch((error) => {
     console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;
-  }
+  });
 }

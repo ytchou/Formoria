@@ -1,13 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
+  findStagingAccount,
+  planStagingAccountActions,
+  paginateAuthUsers,
   assertStagingSeed,
   migrationSafetyPlan,
   projectRefFromDatabaseUrl,
   resultCount,
   validateDeploymentTarget,
+  validateStagingSeedEnvironment,
 } from "./db-deploy";
 
 const STAGING_REF = "xwkigpvnheecihpxyvsl";
+const key = (ref: string, role: string) => {
+  const encode = (value: unknown) =>
+    Buffer.from(JSON.stringify(value)).toString("base64url");
+  return `${encode({ alg: "HS256" })}.${encode({ ref, role })}.signature`;
+};
 
 describe("database deployment identity guard", () => {
   it("rejects a database URL wired to a different project", () => {
@@ -81,6 +90,25 @@ describe("database deployment identity guard", () => {
     expect(() => assertStagingSeed(staging)).not.toThrow();
   });
 
+  it("rejects a seed when the app origin or admin allowlist is cross-wired", () => {
+    const base = {
+      FORMORIA_DEPLOYMENT_ENV: "staging",
+      SUPABASE_PROJECT_REF: STAGING_REF,
+      SUPABASE_DB_URL: `postgresql://postgres:secret@db.${STAGING_REF}.supabase.co:5432/postgres`,
+      NEXT_PUBLIC_SUPABASE_URL: `https://${STAGING_REF}.supabase.co`,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: key(STAGING_REF, "anon"),
+      SUPABASE_SERVICE_ROLE_KEY: key(STAGING_REF, "service_role"),
+      E2E_USER_EMAIL: "e2e-user@example.test",
+      E2E_USER_PASSWORD: "user-password",
+      E2E_ADMIN_EMAIL: "e2e-admin@example.test",
+      E2E_ADMIN_PASSWORD: "admin-password",
+      ADMIN_EMAILS: "e2e-admin@example.test",
+    };
+    expect(validateStagingSeedEnvironment({ ...base, STAGING_BASE_URL: "https://staging.formoria.com" }).accounts).toHaveLength(2);
+    expect(() => validateStagingSeedEnvironment({ ...base, STAGING_BASE_URL: "https://formoria.com" })).toThrow(/staging\.formoria\.com/);
+    expect(() => validateStagingSeedEnvironment({ ...base, STAGING_BASE_URL: "https://staging.formoria.com", ADMIN_EMAILS: "owner@example.test" })).toThrow(/ADMIN_EMAILS/);
+  });
+
   it("reads migration counts from Supabase CLI JSON output", () => {
     expect(
       resultCount(
@@ -100,5 +128,51 @@ describe("database deployment identity guard", () => {
     expect(() => resultCount(table, "public_tables_without_rls")).toThrow(
       "could not read public_tables_without_rls as JSON",
     );
+  });
+
+  it("finds a durable account beyond page one and keeps repeated seed lookup idempotent", async () => {
+    const target = { id: "user-page-2", email: "e2e-user@example.test" };
+    const firstPage = Array.from({ length: 1_000 }, (_, index) => ({
+      id: `user-page-1-${index}`,
+      email: `other-${index}@example.test`,
+    }));
+    const pages = new Map([
+      [1, firstPage],
+      [2, [target]],
+    ]);
+    const seenPages: number[] = [];
+    const listPage = async (page: number) => {
+      seenPages.push(page);
+      return { data: { users: pages.get(page) ?? [] }, error: null };
+    };
+
+    const firstSeedUsers = await paginateAuthUsers(listPage);
+    const secondSeedUsers = await paginateAuthUsers(listPage);
+    const account = {
+      email: target.email,
+      password: "user-password",
+      role: "user" as const,
+    };
+
+    expect(findStagingAccount(firstSeedUsers, target.email)).toEqual(target);
+    expect(findStagingAccount(secondSeedUsers, target.email)).toEqual(target);
+    expect(planStagingAccountActions(firstSeedUsers, [account])[0]).toMatchObject({
+      account,
+      existingUser: target,
+    });
+    expect(planStagingAccountActions(secondSeedUsers, [account])[0]).toMatchObject({
+      account,
+      existingUser: target,
+    });
+    expect(seenPages).toEqual([1, 2, 1, 2]);
+  });
+
+  it("fails closed on an unbounded or repeated Auth pagination response", async () => {
+    await expect(
+      paginateAuthUsers(async () => ({
+        data: { users: [{ id: "same-user", email: "one@example.test" }, ...Array.from({ length: 999 }, (_, i) => ({ id: `u-${i}`, email: null }))] },
+        error: null,
+      })),
+    ).rejects.toThrow(/repeated user|pagination exceeded/);
   });
 });

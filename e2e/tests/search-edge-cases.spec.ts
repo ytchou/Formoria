@@ -149,7 +149,7 @@ test.describe.serial('Public brand search edge cases', () => {
     if (!supabase) return;
     for (const id of seededIds) {
       const { error } = await supabase.from('brands').delete().eq('id', id);
-      if (error) console.warn(`[e2e-cleanup] search brand ${id}: ${error.message}`);
+      if (error) throw new Error(`[e2e-cleanup] search brand ${id}: ${error.message}`);
     }
   });
 

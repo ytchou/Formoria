@@ -91,4 +91,6 @@ export const POLL = {
   NAVIGATION: { timeout: 60_000, intervals: [500, 1_000, 2_000, 5_000] },
   /** A submission or board write observed through a reload. */
   BOARD: { timeout: 60_000, intervals: [1_000, 2_000, 3_000, 5_000] },
+  /** A staging Auth hook row becoming visible through the service-role API. */
+  AUTH_CAPTURE: { timeout: 30_000, intervals: [250, 500, 1_000] },
 } as const
