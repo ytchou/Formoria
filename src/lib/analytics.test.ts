@@ -18,6 +18,8 @@ import {
   persistUtmTouchPoints,
   trackBrandDetailViewed,
   trackBrandCardClicked,
+  trackCuratedProductClicked,
+  trackStoryCardClicked,
   trackExternalLinkClicked,
   trackCategoryFilterApplied,
   trackSearchExecuted,
@@ -62,6 +64,7 @@ import {
   trackBrandDetailEngaged,
   trackSavedBrandRevisited,
 } from './analytics'
+import { ANALYTICS_EVENTS } from './analytics/events'
 
 beforeEach(() => {
   mockSendGAEvent.mockClear()
@@ -220,6 +223,50 @@ describe('persistUtmTouchPoints', () => {
 
 
 describe('analytics', () => {
+
+  it('curated_product_clicked_carries_product_and_brand', () => {
+    trackCuratedProductClicked(
+      'linen-mug',
+      'warmwood',
+      2,
+      'homepage_selected_products',
+    )
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.CURATED_PRODUCT_CLICKED, {
+      product_key: 'linen-mug',
+      brand_slug: 'warmwood',
+      position: 2,
+      selection_surface: 'homepage_selected_products',
+    })
+  })
+
+  it('story_card_clicked_fires_from_story_row', () => {
+    trackStoryCardClicked('slow-living', 1, 'homepage_latest_stories')
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.STORY_CARD_CLICKED, {
+      story_slug: 'slow-living',
+      position: 1,
+      story_surface: 'homepage_latest_stories',
+    })
+  })
+
+  it('brand_card_clicked_carries_list_source', () => {
+    trackBrandCardClicked(
+      'warmwood',
+      'home',
+      3,
+      'brand-uuid',
+      'homepage_explore',
+    )
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.BRAND_CARD_CLICKED, {
+      brand_id: 'brand-uuid',
+      brand_slug: 'warmwood',
+      category: 'home',
+      position_in_grid: 3,
+      list_source: 'homepage_explore',
+    })
+  })
 
   it('includes immutable IDs and public slugs on PostHog brand interactions', () => {
     trackSearchResultClicked('private query', 2, 'brand-uuid', 'my-brand')

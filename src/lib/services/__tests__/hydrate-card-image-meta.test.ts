@@ -149,8 +149,8 @@ describe('hydrateCardImageMeta', () => {
     // so position is not a reliable key while the url is. Here the hero sits at
     // sort_order 2, behind two other active rows.
     table = [
-      imageRow({ brand_id: 'b1', url: 'https://x.supabase.co/other-a.webp', sort_order: 0 }),
-      imageRow({ brand_id: 'b1', url: 'https://x.supabase.co/other-b.webp', sort_order: 1 }),
+      imageRow({ brand_id: 'b1', url: 'https://x.supabase.co/other-a.webp', sort_order: 0, tags: [] }),
+      imageRow({ brand_id: 'b1', url: 'https://x.supabase.co/other-b.webp', sort_order: 1, tags: [] }),
       imageRow({
         brand_id: 'b1',
         url: 'https://x.supabase.co/hero.webp',
@@ -180,6 +180,65 @@ describe('hydrateCardImageMeta', () => {
     })
   })
 
+  it('fetches_best_product_tagged_image_per_brand', async () => {
+    table = [
+      imageRow({
+        brand_id: 'b1',
+        url: 'https://x.supabase.co/hero.webp',
+        tags: ['logo'],
+        sort_order: 0,
+      }),
+      imageRow({
+        brand_id: 'b1',
+        url: 'https://x.supabase.co/product.webp',
+        tags: ['product'],
+        sort_order: 1,
+        alt_zh: '商品照片',
+        alt_en: 'Product photo',
+      }),
+    ]
+
+    const [hydrated] = await hydrateCardImageMeta(client(), [
+      brand('b1', 'https://x.supabase.co/hero.webp'),
+    ])
+
+    expect(hydrated?.productPhotos).toEqual(['https://x.supabase.co/product.webp'])
+    expect(hydrated?.imageAlts).toEqual([
+      expect.objectContaining({ isLogo: true }),
+      expect.objectContaining({
+        altZh: '商品照片',
+        altEn: 'Product photo',
+        isLogo: false,
+      }),
+    ])
+  })
+
+  it('image_alts_stay_index_aligned', async () => {
+    table = [
+      imageRow({
+        brand_id: 'b1',
+        url: 'https://x.supabase.co/hero.webp',
+        tags: ['logo'],
+        sort_order: 0,
+      }),
+      imageRow({
+        brand_id: 'b1',
+        url: 'https://x.supabase.co/product.webp',
+        tags: ['product'],
+        sort_order: 1,
+      }),
+    ]
+
+    const [hydrated] = await hydrateCardImageMeta(client(), [
+      brand('b1', 'https://x.supabase.co/hero.webp'),
+    ])
+
+    expect(hydrated?.imageAlts).toHaveLength(
+      [hydrated?.heroImageUrl, ...(hydrated?.productPhotos ?? [])].length,
+    )
+    expect(hydrated?.imageAlts[1]?.isLogo).toBe(false)
+  })
+
   it('leaves a brand with no active rows on the unhydrated defaults', async () => {
     // Not an error: a hero that predates `brand_images`, or whose row was
     // rejected, degrades to the uncarved centred `object-cover` render.
@@ -207,7 +266,7 @@ describe('hydrateCardImageMeta', () => {
     expect(hydrated?.heroImageMetadata).toBeNull()
   })
 
-  it('never queries for a brand with no hero url at all', async () => {
+  it('brands_without_hero_url_still_not_queried', async () => {
     const hydrated = await hydrateCardImageMeta(client(), [brand('b1', null)])
 
     expect(hydrated[0]?.imageAlts).toEqual([])
@@ -220,7 +279,7 @@ describe('hydrateCardImageMeta', () => {
   })
 
   describe('chunking', () => {
-    it('splits a large brand set across several requests and hydrates every one', async () => {
+    it('batches_across_chunk_boundary', async () => {
       // 400 brands with realistic-length storage URLs. The url `.in()` filter
       // travels in the query string, so this must NOT arrive as one request —
       // the whole reason the chunker exists.
@@ -259,8 +318,9 @@ describe('hydrateCardImageMeta', () => {
         brand('b1', 'https://x.supabase.co/hero.webp'),
       ])
 
-      expect(queries).toHaveLength(1)
+      expect(queries).toHaveLength(2)
       expect(queries[0]?.inFilters.find(([c]) => c === 'brand_id')?.[1]).toEqual(['b1'])
+      expect(queries[1]?.inFilters.find(([c]) => c === 'brand_id')?.[1]).toEqual(['b1'])
       // Both copies still come back hydrated — dedupe applies to the QUERY, not
       // to the result, which stays positionally aligned with the input.
       expect(hydrated).toHaveLength(2)
@@ -303,16 +363,23 @@ describe('hydrateCardImageMeta', () => {
       // page — required, because a PostgREST builder is single-use and reusing
       // one across `.range()` calls is a real bug. So one batch paging twice is
       // two entries carrying one range each, not one entry with two ranges.
-      expect(queries).toHaveLength(2)
-      expect(queries[0]?.ranges[0]).toEqual([0, BRAND_IMAGE_PAGE_SIZE - 1])
-      expect(queries[1]?.ranges[0]).toEqual([
+      const heroQueries = queries.filter((call) =>
+        call.inFilters.some(([column]) => column === 'url'),
+      )
+      const productQueries = queries.filter(
+        (call) => !call.inFilters.some(([column]) => column === 'url'),
+      )
+      expect(heroQueries).toHaveLength(2)
+      expect(productQueries).toHaveLength(2)
+      expect(heroQueries[0]?.ranges[0]).toEqual([0, BRAND_IMAGE_PAGE_SIZE - 1])
+      expect(heroQueries[1]?.ranges[0]).toEqual([
         BRAND_IMAGE_PAGE_SIZE,
         BRAND_IMAGE_PAGE_SIZE * 2 - 1,
       ])
       // Identical filters on both entries is what proves this is ONE batch
       // paging rather than TWO chunks — without it the test would still pass if
       // the chunker wrongly split these two brands into separate requests.
-      expect(queries[0]?.inFilters).toEqual(queries[1]?.inFilters)
+      expect(heroQueries[0]?.inFilters).toEqual(heroQueries[1]?.inFilters)
       // The row that only the second page could reach.
       expect(hydrated[1]?.imageAlts[0]?.isLogo).toBe(true)
     })

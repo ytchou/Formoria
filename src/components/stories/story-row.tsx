@@ -1,7 +1,10 @@
+'use client';
+
 import { useTranslations } from "next-intl";
 
 import { Link } from "@/i18n/navigation";
 import { Badge } from "@/components/ui/badge";
+import { trackStoryCardClicked } from "@/lib/analytics";
 import type { StoryEntry } from "@/lib/services/stories";
 import { NO_SNIPPET } from "@/lib/seo/snippet";
 import { formatStoryDate, toStoryIsoDate } from "./story-date";
@@ -10,10 +13,14 @@ export function StoryRow({
   story,
   locale,
   headingLevel,
+  position,
+  trackingSurface,
 }: {
   story: StoryEntry;
   locale: string;
   headingLevel: 2 | 3;
+  position?: number;
+  trackingSurface?: string;
 }) {
   const t = useTranslations("stories");
   const Heading = headingLevel === 3 ? "h3" : "h2";
@@ -24,11 +31,20 @@ export function StoryRow({
   // content unlabelled sends an English reader to a page they cannot read.
   const storyLocale = story.frontmatter.locale;
   const isForeignLanguage = storyLocale !== locale;
+  const trackingProps =
+    position === undefined || trackingSurface === undefined
+      ? {}
+      : {
+          onClick: () =>
+            trackStoryCardClicked(story.slug, position, trackingSurface),
+          "data-ph-no-autocapture": true,
+        };
 
   return (
     <Link
       href={`/stories/${story.slug}`}
       className="group flex min-h-12 flex-col gap-3 py-5 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex-row md:gap-8 md:py-6"
+      {...trackingProps}
     >
       {publishedLabel ? (
         <time

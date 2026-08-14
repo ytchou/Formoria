@@ -1,11 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { NextIntlClientProvider } from "next-intl";
-import {
-  getTranslations,
-  setRequestLocale,
-  getMessages,
-} from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -14,6 +9,7 @@ import {
   safeJsonLdStringify,
 } from "@/lib/json-ld";
 import HeroSection from "@/components/landing/hero-section";
+import { HeroStats } from "@/components/landing/hero-stats";
 import BrandShowcase from "@/components/shared/brand-showcase";
 import SectionBand from "@/components/landing/section-band";
 import {
@@ -21,6 +17,10 @@ import {
   getExploreBrands,
   getNewBrands,
 } from "@/lib/services/brands";
+import {
+  getPublishedCuratedProductsForHomepage,
+  MIN_HOME_CURATED_PRODUCTS,
+} from "@/lib/services/curated-products";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import { buildAlternates } from "@/lib/seo/alternates";
@@ -38,6 +38,10 @@ import {
   taipeiToday,
 } from "@/lib/services/events";
 import { toPublicBrandCard } from "@/lib/brands/contracts";
+import {
+  SelectedProductTile,
+  type SelectedProductTileLabels,
+} from "@/components/brands/selected-product-tile";
 
 /**
  * Ongoing and upcoming events promoted on the landing page. Two, not the whole
@@ -82,20 +86,30 @@ export default async function LandingPage({ params }: PageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
-  const t = await getTranslations("landing");
-  const tEvents = await getTranslations("events");
+  const [t, tEvents, tSelected] = await Promise.all([
+    getTranslations("landing"),
+    getTranslations("events"),
+    getTranslations({ locale: safeLocale, namespace: "brandDetail.selectedProducts" }),
+  ]);
   const jsonLd = buildWebSiteJsonLd(safeLocale);
   const organizationJsonLd = buildOrganizationJsonLd(safeLocale);
 
-  const [exploreResult, newBrandsResult, storyResult, eventResult, messages] =
-    await Promise.all([
+  const [
+    exploreResult,
+    newBrandsResult,
+    curatedProductsResult,
+    storyResult,
+    eventResult,
+  ] = await Promise.all([
       getExploreBrands(EXPLORE_BRAND_LIMIT).catch(
         captureReadFailure("landing.exploreBrands"),
       ),
       getNewBrands(4).catch(captureReadFailure("landing.newBrands")),
+      getPublishedCuratedProductsForHomepage().catch(
+        captureReadFailure("landing.selectedProducts"),
+      ),
       getAllStories(safeLocale),
       getPublishedEvents().catch(captureReadFailure("landing.events")),
-      getMessages(),
     ]);
 
   // One Taipei "today" for the whole render: partitioning on one value and
@@ -124,6 +138,7 @@ export default async function LandingPage({ params }: PageProps) {
   const degraded =
     exploreResult === null ||
     newBrandsResult === null ||
+    curatedProductsResult === null ||
     !storyResult.ok ||
     eventResult === null ||
     (promotedEvents.length > 0 && eventBrandCounts === null);
@@ -139,6 +154,14 @@ export default async function LandingPage({ params }: PageProps) {
   // resolves `totalCount: 0` and renders 0.
   const totalBrandCount = exploreResult?.totalCount;
   const latestStories = storyResult.ok ? storyResult.stories.slice(0, 3) : [];
+  const curatedProducts = curatedProductsResult ?? [];
+  const selectedProductLabels: SelectedProductTileLabels = {
+    cta: tSelected("cta"),
+    brandSiteCta: tSelected("brandSiteCta"),
+    selectedBadge: tSelected("selectedBadge"),
+    brandProvidedBadge: tSelected("brandProvidedBadge"),
+    unavailable: tSelected("unavailable"),
+  };
 
   return (
     <>
@@ -153,19 +176,84 @@ export default async function LandingPage({ params }: PageProps) {
         }}
       />
       <main>
-        <HeroSection
-          brandCount={totalBrandCount}
-          categoryCount={PRODUCT_TYPE_CATEGORIES.length}
-        />
+        <HeroSection />
 
         <SavedBrandsProvider>
+          {curatedProducts.length >= MIN_HOME_CURATED_PRODUCTS && (
+            <section
+              aria-labelledby="landing-selected-products"
+              className="py-6 md:py-8"
+            >
+              <div className="mx-auto max-w-6xl page-gutter">
+                <div className="mb-6 space-y-2">
+                  <h2
+                    id="landing-selected-products"
+                    className="type-page-title-large"
+                  >
+                    {t("selectedProducts.heading")}
+                  </h2>
+                  <p className="type-card-description">
+                    {t("selectedProducts.note")}
+                  </p>
+                </div>
+                <ul className="grid list-none grid-cols-1 gap-6 p-0 sm:grid-cols-2 lg:grid-cols-3">
+                  {curatedProducts.map((product, index) => (
+                    <SelectedProductTile
+                      key={`${product.brandSlug}-${product.key}`}
+                      locale={safeLocale}
+                      product={product}
+                      labels={selectedProductLabels}
+                      mode="internal"
+                      brandSlug={product.brandSlug}
+                      brandName={product.brandName}
+                      tracking={{
+                        brandSlug: product.brandSlug,
+                        position: index,
+                        surface: "homepage_selected_products",
+                      }}
+                    />
+                  ))}
+                </ul>
+              </div>
+            </section>
+          )}
+
+          {latestStories.length > 0 && (
+            <div className="py-6 md:py-8">
+              <section className="mx-auto max-w-6xl page-gutter">
+                <div className="mb-6">
+                  <h2 className="type-page-title-large">
+                    {t("latestStories.heading")}
+                  </h2>
+                </div>
+                <div className="divide-y divide-border border-y border-border">
+                  {latestStories.map((story, index) => (
+                    <StoryRow
+                      key={story.slug}
+                      story={story}
+                      locale={safeLocale}
+                      headingLevel={3}
+                      position={index}
+                      trackingSurface="homepage_latest_stories"
+                    />
+                  ))}
+                </div>
+                <div className="mt-6">
+                  <Link href="/stories" className="font-medium text-primary">
+                    {t("latestStories.linkText")}
+                  </Link>
+                </div>
+              </section>
+            </div>
+          )}
+
           {promotedEvents.length > 0 && (
             <div className="py-6 md:py-8">
               <section
                 aria-labelledby="landing-events"
                 className="mx-auto max-w-6xl page-gutter space-y-4"
               >
-                <h2 id="landing-events" className="type-section-title-large">
+                <h2 id="landing-events" className="type-page-title-large">
                   {t("events.heading")}
                 </h2>
                 <div className="flex flex-col gap-4">
@@ -191,33 +279,6 @@ export default async function LandingPage({ params }: PageProps) {
                 <div>
                   <Link href="/events" className="font-medium text-primary">
                     {t("events.linkText")}
-                  </Link>
-                </div>
-              </section>
-            </div>
-          )}
-
-          {latestStories.length > 0 && (
-            <div className="py-6 md:py-8">
-              <section className="mx-auto max-w-6xl page-gutter">
-                <div className="mb-6">
-                  <h2 className="type-section-title-large">
-                    {t("latestStories.heading")}
-                  </h2>
-                </div>
-                <div className="divide-y divide-border border-y border-border">
-                  {latestStories.map((story) => (
-                    <StoryRow
-                      key={story.slug}
-                      story={story}
-                      locale={safeLocale}
-                      headingLevel={3}
-                    />
-                  ))}
-                </div>
-                <div className="mt-6">
-                  <Link href="/stories" className="font-medium text-primary">
-                    {t("latestStories.linkText")}
                   </Link>
                 </div>
               </section>
@@ -257,15 +318,22 @@ export default async function LandingPage({ params }: PageProps) {
 
           <div className="py-6 md:py-8">
             <div className="mx-auto max-w-6xl page-gutter">
-              <NextIntlClientProvider messages={messages}>
+              <HeroStats
+                brandCount={totalBrandCount}
+                brandLabel={t("hero.statsBrands")}
+                categoryCount={PRODUCT_TYPE_CATEGORIES.length}
+                categoryLabel={t("hero.statsCategories")}
+              />
+              <div className="mt-6">
                 <BrandShowcase
                   brands={exploreBrands}
                   heading={t("showcase.heading")}
                   subheading={t("showcase.subheading")}
                   linkText={t("showcase.browseAll")}
                   linkHref="/brands"
+                  ctaLocation="homepage_explore"
                 />
-              </NextIntlClientProvider>
+              </div>
             </div>
           </div>
 
@@ -276,6 +344,7 @@ export default async function LandingPage({ params }: PageProps) {
                 heading={t("newBrands.heading")}
                 linkText={t("newBrands.linkText")}
                 linkHref="/brands"
+                ctaLocation="homepage_new_brands"
               />
             </div>
           </div>

@@ -3,6 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import { createTestClient, describeWithDb } from "@/test/setup";
 import {
   createCuratedProduct,
+  getPublishedCuratedProductsForHomepage,
   getPublishedCuratedProductsForBrand,
   promoteCuratedProduct,
   retireCuratedProduct,
@@ -13,7 +14,9 @@ type SeedProduct = {
   key: string;
   lifecycle?: string;
   officialUrl?: string | null;
+  imageUrl?: string | null;
   sourceCheckedAt?: string | null;
+  imageUsage?: string;
   createdAt?: string;
   highlightPosition?: number | null;
   highlightRationaleZh?: string | null;
@@ -77,8 +80,10 @@ describeWithDb("published curated products for a brand", () => {
             product.officialUrl === undefined
               ? `https://example.com/${suffix}/${product.key}`
               : product.officialUrl,
+          image_url: product.imageUrl ?? null,
           lifecycle: product.lifecycle ?? "published",
           link_state: product.linkState ?? "ok",
+          image_usage: product.imageUsage ?? "none",
           source_checked_at:
             product.sourceCheckedAt === undefined
               ? new Date().toISOString()
@@ -159,6 +164,38 @@ describeWithDb("published curated products for a brand", () => {
     expect(first?.rationaleZh).toBe("Brand-page first");
     expect(first?.officialUrl).toContain("second-pick");
     expect(first?.linkState).toBe("ok");
+  });
+
+  it("reads published curated products across approved brands", async () => {
+    const firstBrand = await seedBrand([
+      {
+        key: "first-home-pick",
+        imageUsage: "permitted",
+        imageUrl: "https://images.example.com/first-home-pick.webp",
+        selections: [{ trailSlug: "gifting", position: 2 }],
+      },
+    ]);
+    const secondBrand = await seedBrand([
+      {
+        key: "second-home-pick",
+        imageUsage: "permitted",
+        imageUrl: "https://images.example.com/second-home-pick.webp",
+        selections: [{ trailSlug: "gifting", position: 1 }],
+      },
+    ]);
+
+    const products = await getPublishedCuratedProductsForHomepage(supabase);
+
+    expect(products.map((product) => product.key)).toEqual([
+      "second-home-pick",
+      "first-home-pick",
+    ]);
+    expect(products.map((product) => product.brandId)).toEqual([
+      secondBrand,
+      firstBrand,
+    ]);
+    expect(products.every((product) => product.brandSlug)).toBe(true);
+    expect(products.every((product) => product.rationaleZh)).toBe(true);
   });
 
   it("orders the unhighlighted tail by created_at then key, not trail position", async () => {

@@ -80,12 +80,16 @@
       "description": "Formoria reconnects the broken path from inspiration to purchase by helping people start with the life they want, find Taiwanese products that suit them, get to know the brands behind them, and know where to buy."
     },
     "hero": {
-      "eyebrow": "TAIWANESE BRANDS",
       "headline": "Start with the life you want and find Taiwanese products that suit you",
-      "subheadline": "Formoria is a Taiwanese brand discovery and curation platform. It currently starts with a searchable directory of listed brands, bringing together brand information, product highlights, and official purchase channels; content selected by Formoria is labelled separately.",
+      "subheadline": "Formoria is a Taiwanese brand discovery and curation platform. Start with the life you want, a situation, or a curiosity, then discover products and brands across categories; content selected by Formoria is labelled separately.",
       "statsBrands": "brands",
       "statsCategories": "categories",
-      "cta": "Explore brands…"
+      "allCategories": "All categories →",
+      "knownIntent": "Know what you are looking for? Search brands or categories →"
+    },
+    "selectedProducts": {
+      "heading": "Formoria Selection",
+      "note": "Formoria deliberately chooses products for a stated situation, use, preference, or editorial point of view, and makes the reason clear."
     },
     "showcase": {
       "heading": "Explore listed brands",

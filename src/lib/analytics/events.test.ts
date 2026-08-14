@@ -11,6 +11,8 @@ const EVENT_NAME_SNAPSHOT = [
   'booth_selected',
   'exhibitor_site_clicked',
   'hero_category_clicked',
+  'curated_product_clicked',
+  'story_card_clicked',
   'directory_sort_changed',
   'directory_page_navigated',
   'category_filter_applied',
