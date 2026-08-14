@@ -1,19 +1,19 @@
-'use client'
+"use client";
 
-import type { ReactNode } from 'react'
+import type { ReactNode } from "react";
 
-import { Link } from '@/i18n/navigation'
-import { trackCuratedProductClicked } from '@/lib/analytics'
+import { Link } from "@/i18n/navigation";
+import { trackCuratedProductClicked } from "@/lib/analytics";
 
 type SelectedProductTileLinkProps = {
-  href: string
-  className: string
-  productKey: string
-  brandSlug: string
-  position: number
-  surface: string
-  children: ReactNode
-}
+  href: string;
+  className: string;
+  productKey: string;
+  brandSlug: string;
+  position: number;
+  surface: string;
+  children: ReactNode;
+};
 
 /** Client boundary limited to the click handler; tile content stays server-rendered. */
 export function SelectedProductTileLink({
@@ -36,5 +36,5 @@ export function SelectedProductTileLink({
     >
       {children}
     </Link>
-  )
+  );
 }

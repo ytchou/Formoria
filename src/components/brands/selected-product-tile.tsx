@@ -61,8 +61,7 @@ export function SelectedProductTile({
   tracking,
 }: SelectedProductTileProps) {
   const isEnglish = locale === "en";
-  const name =
-    (isEnglish ? product.nameEn : product.nameZh) ?? product.nameZh;
+  const name = (isEnglish ? product.nameEn : product.nameZh) ?? product.nameZh;
   const reason = isEnglish
     ? (product.rationaleEn ?? product.rationaleZh)
     : product.rationaleZh;
@@ -74,7 +73,8 @@ export function SelectedProductTile({
       ? safeImageSrc(product.imageUrl)
       : null;
   const isBroken = product.linkState === BROKEN_LINK_STATE;
-  const visitLink = mode === "outbound" && brand ? getBrandVisitLink(brand) : null;
+  const visitLink =
+    mode === "outbound" && brand ? getBrandVisitLink(brand) : null;
   const productHref = sanitizeHref(product.officialUrl);
   const chipHref = isBroken ? (visitLink?.href ?? null) : productHref;
   const chipLabel = isBroken ? labels.brandSiteCta : labels.cta;
@@ -106,11 +106,7 @@ export function SelectedProductTile({
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           />
         ) : (
-          <BrandImageFallback
-            name={name}
-            category={product.l1}
-            size="card"
-          />
+          <BrandImageFallback name={name} category={product.l1} size="card" />
         )}
       </div>
 
@@ -118,7 +114,9 @@ export function SelectedProductTile({
         <Typography
           as="h3"
           variant="cardTitle"
-          className={mode === "internal" ? "group-hover:text-primary" : undefined}
+          className={
+            mode === "internal" ? "group-hover:text-primary" : undefined
+          }
         >
           {name}
         </Typography>
@@ -168,11 +166,7 @@ export function SelectedProductTile({
             data-link-surface="selected_product"
           >
             <span className="min-w-0 truncate">{chipLabel}</span>
-            {isBroken ? null : (
-              <span className="sr-only">
-                {`: ${name}`}
-              </span>
-            )}
+            {isBroken ? null : <span className="sr-only">{`: ${name}`}</span>}
           </a>
         ) : null}
       </div>
