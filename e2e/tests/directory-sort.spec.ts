@@ -2,7 +2,7 @@ import { BUDGET } from "../budgets";
 import { test, expect } from "@playwright/test";
 
 test.describe("Directory sort deep", () => {
-  test("@smoke landing page renders the public search entry point", async ({
+  test("@smoke landing page renders the public directory entry point", async ({
     page,
   }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
@@ -10,7 +10,9 @@ test.describe("Directory sort deep", () => {
       timeout: BUDGET.INTERACTIVE,
     });
     await expect(
-      page.locator('main form[role="search"] input[role="searchbox"]'),
+      page.getByRole("main").getByRole("link", {
+        name: "已經知道方向？搜尋品牌或分類 →",
+      }),
     ).toBeVisible();
   });
 

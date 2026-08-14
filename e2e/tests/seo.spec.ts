@@ -40,7 +40,7 @@ test.describe("SEO deep", () => {
           "Formoria 把從靈感走到購買中間斷掉的路接回來，幫助人從自己想要的生活出發，找到適合的台灣產品、認識背後的品牌，也知道可以去哪裡購買。",
         heading: "從自己想要的生活出發，找到適合的台灣產品",
         positioning:
-          "Formoria 是台灣品牌探索與選物平台。目前從可搜尋的品牌收錄出發，整理品牌資料、產品特色與官方購買通路；由 Formoria 挑選的內容會另外標示。",
+          "Formoria 是台灣品牌探索與選物平台。從自己想要的生活、使用情境或好奇出發，跨分類認識產品與品牌；由 Formoria 挑選的內容會另外標示。",
         trustHeading: "收錄與選物，清楚分開",
       },
       {
@@ -51,7 +51,7 @@ test.describe("SEO deep", () => {
         heading:
           "Start with the life you want and find Taiwanese products that suit you",
         positioning:
-          "Formoria is a Taiwanese brand discovery and curation platform. It currently starts with a searchable directory of listed brands, bringing together brand information, product highlights, and official purchase channels; content selected by Formoria is labelled separately.",
+          "Formoria is a Taiwanese brand discovery and curation platform. Start with the life you want, a situation, or a curiosity, then discover products and brands across categories; content selected by Formoria is labelled separately.",
         trustHeading: "Listings and selections stay distinct",
       },
     ] as const;

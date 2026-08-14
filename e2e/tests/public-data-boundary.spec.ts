@@ -176,13 +176,13 @@ test.describe.serial("Public brand data boundary", () => {
       }
     });
 
-    const rootResponse = await page.goto("/");
+    const rootResponse = await page.goto("/brands");
     if (rootResponse?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active");
       return;
     }
     const searchbox = page.locator(
-      'main form[role="search"] input[role="searchbox"]',
+      'main form[aria-label="依品牌或產品關鍵字篩選"] input[role="searchbox"]',
     );
     await searchbox.fill(searchToken);
     await searchbox.press("Enter");
@@ -261,7 +261,6 @@ async function openSeededRoute(
     });
   }).toPass(POLL.DB);
 }
-
 async function auditCurrentDocument(
   page: Page,
   canaries: string[],

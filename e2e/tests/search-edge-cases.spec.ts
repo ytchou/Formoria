@@ -207,13 +207,14 @@ test.describe.serial('Public brand search edge cases', () => {
     await expect(page.getByRole('link', { name: bilingualName })).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
   });
 
-  test('landing, desktop nav, localized directory, and mobile menu reach search', async ({ page }) => {
+  test('directory, desktop nav, localized directory, and mobile menu reach search', async ({ page }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
-    await page.goto('/');
-    const heroSearch = page.locator('main form[role="search"] input[role="searchbox"]');
-    await heroSearch.fill(exactQuery);
-    await heroSearch.press('Enter');
+    await page.goto('/brands');
+    const directorySearch = page.locator(
+      'main form[aria-label="依品牌或產品關鍵字篩選"] input[role="searchbox"]',
+    );
+    await directorySearch.fill(exactQuery);
     await expect(page).toHaveURL((url) =>
       url.pathname === '/brands' && url.searchParams.get('search') === exactQuery,
     );

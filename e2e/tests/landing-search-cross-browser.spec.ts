@@ -2,7 +2,7 @@ import { BUDGET } from "../budgets";
 import { test, expect } from "@playwright/test";
 import { seedBrand, type SeededBrand } from "../helpers/seed";
 
-test.describe("Landing search compatibility", () => {
+test.describe("Directory search compatibility", () => {
   let seeded: SeededBrand;
 
   test.beforeAll(async ({}, workerInfo) => {
@@ -16,20 +16,20 @@ test.describe("Landing search compatibility", () => {
     await seeded.cleanup();
   });
 
-  test("@cross-browser landing search reaches sortable matching directory results", async ({
+  test("@cross-browser directory search reaches sortable matching results", async ({
     page,
   }) => {
-    await page.goto("/");
+    await page.goto("/brands");
 
     await expect(
       page.getByRole("heading", {
         level: 1,
-        name: "從自己想要的生活出發，找到適合的台灣產品",
+        name: "台灣品牌目錄",
       }),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
     const searchbox = page.locator(
-      'main form[role="search"] input[role="searchbox"]',
+      'main form[aria-label="依品牌或產品關鍵字篩選"] input[role="searchbox"]',
     );
     await expect(searchbox).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await searchbox.pressSequentially(seeded.brand.name, { delay: 10 });
