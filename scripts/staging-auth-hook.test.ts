@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 const migration = readFileSync(
   resolve(
     import.meta.dirname,
-    "../supabase/migrations/20260814010000_staging_auth_email_capture.sql",
+    "../supabase/migrations/20260814084238_staging_auth_email_capture.sql",
   ),
   "utf8",
 ).toLowerCase();

@@ -1,4 +1,4 @@
--- DEV-1455: staging-only Auth email capture.
+-- DEV-1455: staging-only Auth email capture contract.
 --
 -- The Auth Send Email hook is enabled only in the isolated staging project.
 -- Production may receive this inert schema during the normal migration flow,
