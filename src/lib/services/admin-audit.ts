@@ -13,6 +13,13 @@ export type AdminAction =
   | 'newsletter_confirmation_resent'
   | 'newsletter_unsubscribed'
   | 'channel_removed'
+  // Editorial decisions on curated products (DEV-1465): publishing one makes a
+  // factual claim on a brand's page, and retiring one withdraws it.
+  | 'curated_product_promoted'
+  | 'curated_product_retired'
+  // Withdrawing a source flips the promote gate's `no_active_source`
+  // condition, so it is an editorial decision on the same footing.
+  | 'curated_product_source_retired'
 
 export type LogAdminActionParams = {
   adminUserId: string
