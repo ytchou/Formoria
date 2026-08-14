@@ -365,11 +365,11 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
   const submissions = (await queryRows(
     supabase,
     'brand_submissions',
-    'id, brand_id, brand_name, submitted_at, created_at',
+    'id, brand_id, brand_name, submitted_at',
     failures,
   )).filter((row) =>
     isE2EName(row.brand_name) &&
-    (createdSince || isSweepCandidate({ created_at: row.submitted_at ?? row.created_at }, createdSince, orphanedBefore)),
+    (createdSince || isSweepCandidate({ created_at: row.submitted_at }, createdSince, orphanedBefore)),
   );
   const submissionIds = submissions.map((row) => String(row.id)).filter(Boolean);
   const events = (await queryRows(supabase, 'events', 'id, name, slug, created_at', failures)).filter((row) =>
