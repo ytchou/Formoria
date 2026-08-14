@@ -15,14 +15,18 @@ export function StoryRow({
   headingLevel,
   position,
   trackingSurface,
+  hrefBase = '/stories',
+  namespace = 'stories',
 }: {
   story: StoryEntry;
   locale: string;
   headingLevel: 2 | 3;
   position?: number;
   trackingSurface?: string;
+  hrefBase?: string;
+  namespace?: string;
 }) {
-  const t = useTranslations("stories");
+  const t = useTranslations(namespace);
   const Heading = headingLevel === 3 ? "h3" : "h2";
   const publishedLabel = formatStoryDate(story.frontmatter.publishedAt, locale);
   const publishedIso = toStoryIsoDate(story.frontmatter.publishedAt);
@@ -42,7 +46,7 @@ export function StoryRow({
 
   return (
     <Link
-      href={`/stories/${story.slug}`}
+      href={`${hrefBase.replace(/\/$/, '')}/${story.slug}`}
       className="group flex min-h-12 flex-col gap-3 py-5 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex-row md:gap-8 md:py-6"
       {...trackingProps}
     >

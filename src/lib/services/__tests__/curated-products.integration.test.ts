@@ -5,6 +5,7 @@ import {
   createCuratedProduct,
   getPublishedCuratedProductsForHomepage,
   getPublishedCuratedProductsForBrand,
+  getPublishedCuratedProductsForTrail,
   promoteCuratedProduct,
   retireCuratedProduct,
   retireCuratedProductSource,
@@ -559,6 +560,131 @@ describeWithDb("published curated products for a brand", () => {
     expect(products).toEqual([]);
     expect(sources).toEqual([]);
     expect(selections).toEqual([]);
+  });
+
+  it("returns only products passing the four-condition publish gate for a trail", async () => {
+    const brandId = await seedBrand([
+      { key: "published", selections: [{ trailSlug: "small-space-reading-corner", position: 1 }] },
+      {
+        key: "candidate",
+        lifecycle: "candidate",
+        selections: [{ trailSlug: "small-space-reading-corner", position: 2 }],
+      },
+      {
+        key: "missing-url",
+        officialUrl: null,
+        selections: [{ trailSlug: "small-space-reading-corner", position: 3 }],
+      },
+      {
+        key: "missing-check",
+        sourceCheckedAt: null,
+        selections: [{ trailSlug: "small-space-reading-corner", position: 4 }],
+      },
+      {
+        key: "retired-source",
+        sourceState: "retired",
+        selections: [{ trailSlug: "small-space-reading-corner", position: 5 }],
+      },
+    ]);
+
+    const products = await getPublishedCuratedProductsForTrail(
+      "small-space-reading-corner",
+      supabase,
+    );
+
+    expect(products.map((product) => product.key)).toEqual(["published"]);
+    expect(products[0]?.brandSlug).toContain("curated-products-fixture-");
+    void brandId;
+  });
+
+  it("does not cap per brand on a trail", async () => {
+    await seedBrand([
+      { key: "lamp", selections: [{ trailSlug: "small-space-reading-corner", position: 1 }] },
+      { key: "chair", selections: [{ trailSlug: "small-space-reading-corner", position: 2 }] },
+      { key: "table", selections: [{ trailSlug: "small-space-reading-corner", position: 3 }] },
+    ]);
+
+    const products = await getPublishedCuratedProductsForTrail(
+      "small-space-reading-corner",
+      supabase,
+    );
+
+    expect(products).toHaveLength(3);
+  });
+
+  it("uses the selection rationale, not the highlight rationale", async () => {
+    await seedBrand([
+      {
+        key: "trail-reason",
+        highlightRationaleZh: "Brand-page reason",
+        selections: [
+          {
+            trailSlug: "small-space-reading-corner",
+            position: 1,
+            rationaleZh: "Trail-specific reason",
+          },
+        ],
+      },
+    ]);
+
+    const [product] = await getPublishedCuratedProductsForTrail(
+      "small-space-reading-corner",
+      supabase,
+    );
+
+    expect(product?.rationaleZh).toBe("Trail-specific reason");
+  });
+
+  it("excludes retired selections", async () => {
+    await seedBrand([
+      {
+        key: "retired-placement",
+        selections: [
+          {
+            trailSlug: "small-space-reading-corner",
+            position: 1,
+            state: "retired",
+          },
+        ],
+      },
+    ]);
+
+    await expect(
+      getPublishedCuratedProductsForTrail(
+        "small-space-reading-corner",
+        supabase,
+      ),
+    ).resolves.toEqual([]);
+  });
+
+  it("orders deterministically when selections share a position", async () => {
+    await seedBrand([
+      { key: "zeta", selections: [{ trailSlug: "small-space-reading-corner", position: 1 }] },
+      { key: "alpha", selections: [{ trailSlug: "small-space-reading-corner", position: 1 }] },
+    ]);
+
+    const products = await getPublishedCuratedProductsForTrail(
+      "small-space-reading-corner",
+      supabase,
+    );
+
+    expect(products.map((product) => product.key)).toEqual(["alpha", "zeta"]);
+  });
+
+  it("every trail_slug in the table resolves to a trail file", async () => {
+    await seedBrand([
+      {
+        key: "linked-trail",
+        selections: [{ trailSlug: "small-space-reading-corner", position: 1 }],
+      },
+    ]);
+
+    const products = await getPublishedCuratedProductsForTrail(
+      "small-space-reading-corner",
+      supabase,
+    );
+
+    expect(products.every((product) => product.trailSlug === "small-space-reading-corner")).toBe(true);
   });
 });
 

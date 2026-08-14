@@ -13,9 +13,10 @@ type Section = {
 
 type BrandSectionNavProps = {
   sections: Section[]
+  ariaLabel?: string
 }
 
-export function BrandSectionNav({ sections }: BrandSectionNavProps) {
+export function BrandSectionNav({ sections, ariaLabel }: BrandSectionNavProps) {
   const t = useTranslations('brandDetail')
   const [activeId, setActiveId] = useState(sections[0]?.id ?? '')
   const observerRef = useRef<IntersectionObserver | null>(null)
@@ -54,7 +55,10 @@ export function BrandSectionNav({ sections }: BrandSectionNavProps) {
     event.preventDefault()
     const element = document.getElementById(id)
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth' })
+      const prefersReducedMotion =
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      element.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth' })
       setActiveId(id)
     }
   }
@@ -71,7 +75,7 @@ export function BrandSectionNav({ sections }: BrandSectionNavProps) {
     // rules read as one doubled divider. The bottom rule stays — it is what
     // separates the sticky strip from the content sliding under it.
     <nav
-      aria-label={t('tabNav.overview')}
+      aria-label={ariaLabel ?? t('tabNav.overview')}
       className="sticky top-(--nav-height) z-40 min-w-0 border-b border-border bg-background md:self-start md:border-b-0 md:border-l md:pl-3"
     >
       <div className="flex items-stretch md:flex-col">

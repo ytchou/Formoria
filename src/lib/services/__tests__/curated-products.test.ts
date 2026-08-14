@@ -5,6 +5,7 @@ import {
   getCuratedProductWriteContext,
   getPublishedCuratedProductsForHomepage,
   getPublishedCuratedProductsForBrand,
+  getPublishedCuratedProductsForTrail,
   promoteCuratedProduct,
   retireCuratedProduct,
   retireCuratedProductSource,
@@ -115,6 +116,125 @@ function productRow(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+function trailProductRow(overrides: Record<string, unknown> = {}) {
+  return productRow({
+    brands: { slug: 'fixture-brand', name: 'Fixture Brand', status: 'approved' },
+    curated_product_selections: [
+      {
+        trail_slug: 'small-space-reading-corner',
+        section_key: 'first',
+        position: 1,
+        rationale_zh: 'Trail reason',
+        rationale_en: 'Trail reason',
+        state: 'active',
+      },
+    ],
+    ...overrides,
+  })
+}
+
+describe('getPublishedCuratedProductsForTrail', () => {
+  it('keeps the four-condition publication gate and trail filters', async () => {
+    const { client, calls } = stubClient({ data: [] })
+
+    await getPublishedCuratedProductsForTrail('small-space-reading-corner', client)
+
+    expect(calls.eq).toContainEqual(['lifecycle', 'published'])
+    expect(calls.not).toContainEqual(['official_url', 'is', null])
+    expect(calls.not).toContainEqual(['source_checked_at', 'is', null])
+    expect(calls.eq).toContainEqual(['curated_product_sources.state', 'active'])
+    expect(calls.eq).toContainEqual(['curated_product_selections.state', 'active'])
+    expect(calls.eq).toContainEqual([
+      'curated_product_selections.trail_slug',
+      'small-space-reading-corner',
+    ])
+  })
+
+  it('does not cap products per brand', async () => {
+    const { client } = stubClient({
+      data: [
+        trailProductRow({ key: 'first' }),
+        trailProductRow({ key: 'second' }),
+        trailProductRow({ key: 'third' }),
+      ],
+    })
+
+    const products = await getPublishedCuratedProductsForTrail(
+      'small-space-reading-corner',
+      client,
+    )
+
+    expect(products).toHaveLength(3)
+    expect(products.every((product) => product.brandSlug === 'fixture-brand')).toBe(true)
+  })
+
+  it('uses the selection rationale, not the highlight rationale', async () => {
+    const { client } = stubClient({
+      data: [
+        trailProductRow({
+          highlight_rationale_zh: 'Brand-page reason',
+          curated_product_selections: [
+            {
+              trail_slug: 'small-space-reading-corner',
+              section_key: 'first',
+              position: 1,
+              rationale_zh: 'Trail-specific reason',
+              rationale_en: 'Trail-specific reason',
+              state: 'active',
+            },
+          ],
+        }),
+      ],
+    })
+
+    const [product] = await getPublishedCuratedProductsForTrail(
+      'small-space-reading-corner',
+      client,
+    )
+
+    expect(product?.rationaleZh).toBe('Trail-specific reason')
+  })
+
+  it('excludes retired selections', async () => {
+    const { client } = stubClient({
+      data: [
+        trailProductRow({
+          curated_product_selections: [
+            {
+              trail_slug: 'small-space-reading-corner',
+              section_key: 'first',
+              position: 1,
+              rationale_zh: 'Retired reason',
+              rationale_en: null,
+              state: 'retired',
+            },
+          ],
+        }),
+      ],
+    })
+
+    await expect(
+      getPublishedCuratedProductsForTrail('small-space-reading-corner', client),
+    ).resolves.toEqual([])
+  })
+
+  it('orders equal-position selections deterministically by product key', async () => {
+    const { client } = stubClient({
+      data: [
+        trailProductRow({ key: 'zeta' }),
+        trailProductRow({ key: 'alpha' }),
+      ],
+    })
+
+    const products = await getPublishedCuratedProductsForTrail(
+      'small-space-reading-corner',
+      client,
+    )
+
+    expect(products.map((product) => product.key)).toEqual(['alpha', 'zeta'])
+  })
+})
 
 describe("getPublishedCuratedProductsForBrand", () => {
   it("counts only ACTIVE sources and selections as live", async () => {

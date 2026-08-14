@@ -10,6 +10,7 @@ import { FaqBlock } from '@/components/stories/faq-block'
 import { PullQuote } from '@/components/stories/pull-quote'
 import { StatsCallout } from '@/components/stories/stats-callout'
 import { StoryFigure } from '@/components/stories/story-figure'
+import { TrailProducts } from '@/components/trails/trail-products'
 import { cn } from '@/lib/utils'
 
 /**
@@ -45,6 +46,7 @@ export function createStoryComponentMap({ currentStorySlug }: { currentStorySlug
     // Event details are DB-sourced so the story's event info and the event page cannot drift.
     EventInfo: (props: { slug: string }) =>
       createElement(EventInfo, { ...props, currentStorySlug }),
+    TrailProducts: (props: { section: string }) => createElement(TrailProducts, props),
     // Children, not a `slugs` array — MDX expression attributes are dropped
     // (DEV-1302), so the row's cards are authored as nested `<BrandCard>`.
     BrandRow: (props: { children?: ReactNode }) => createElement(BrandRow, null, props.children),

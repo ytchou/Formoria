@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
 import { auditedCall } from "@/lib/audit";
+import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
 import {
   curatedProductPromoteBlockers,
   type PromoteBlocker,
@@ -19,6 +20,7 @@ import {
   normalizeTagKey,
   resolveSubcategorySlugs,
 } from "@/lib/taxonomy/ontology";
+import { getPublishedTrailBySlug } from "@/lib/services/trails";
 
 /** The tables are reached through the untyped `from` surface, with generated DB shapes at the boundary. */
 export type CuratedProductSupabase = Pick<SupabaseClient, "from">;
@@ -70,6 +72,13 @@ export const MAX_HOME_CURATED_PRODUCTS_PER_BRAND = 1;
 export type HomepageCuratedProduct = CuratedProduct & {
   brandSlug: string;
   brandName: string;
+};
+
+/** A published product placement as rendered inside one trail section. */
+export type TrailCuratedProduct = CuratedProduct & {
+  brandSlug: string;
+  brandName: string;
+  brand: BrandVisitLinkFields & { slug: string };
 };
 
 /**
@@ -131,6 +140,22 @@ type CuratedProductReadRow = Pick<
 
 type HomepageCuratedProductRow = CuratedProductReadRow & {
   brands: { slug: string; name: string; status?: string } | null;
+  curated_product_sources?: { id: string; state?: string }[] | null;
+};
+
+type TrailCuratedProductRow = CuratedProductReadRow & {
+  brands: {
+    slug: string;
+    name: string;
+    status?: string;
+    purchase_website: string | null;
+    purchase_pinkoi: string | null;
+    purchase_shopee: string | null;
+    purchase_myship: string | null;
+    social_instagram: string | null;
+    social_threads: string | null;
+    social_facebook: string | null;
+  } | null;
   curated_product_sources?: { id: string; state?: string }[] | null;
 };
 
@@ -356,6 +381,115 @@ export async function getPublishedCuratedProductsForHomepage(
     productsByBrand.set(product.brandId, count + 1);
     return true;
   });
+}
+
+const CURATED_PRODUCT_TRAIL_READ_SELECT = `
+  id, brand_id, key, name_zh, name_en, l1, l2, official_url, image_url,
+  image_source_url, image_usage, lifecycle, link_state, link_checked_at,
+  source_checked_at, review_due_at, notes_zh, notes_en, highlight_position,
+  highlight_rationale_zh, highlight_rationale_en, created_at,
+  curated_product_sources!inner(id, state),
+  curated_product_selections!inner(trail_slug, section_key, position, rationale_zh, rationale_en, state),
+  brands!inner(slug, name, status, purchase_website, purchase_pinkoi, purchase_shopee, purchase_myship, social_instagram, social_threads, social_facebook)
+`;
+
+/**
+ * Resolves the public placements for one trail. Unlike the homepage rail this
+ * deliberately keeps every product from a brand: a trail can use one brand in
+ * several distinct roles. Each active selection becomes one card, and the
+ * selection rationale always wins over brand-page highlight copy.
+ */
+export async function getPublishedCuratedProductsForTrail(
+  trailSlug: string,
+  client?: CuratedProductSupabase,
+): Promise<TrailCuratedProduct[]> {
+  const { data, error } = await curatedProductClient(client)
+    .from("curated_products")
+    .select(CURATED_PRODUCT_TRAIL_READ_SELECT)
+    .eq("lifecycle", "published")
+    .not("official_url", "is", null)
+    .not("source_checked_at", "is", null)
+    .eq("curated_product_sources.state", "active")
+    .eq("curated_product_selections.state", "active")
+    .eq("curated_product_selections.trail_slug", trailSlug)
+    .eq("brands.status", "approved");
+
+  if (error) {
+    const code = (error as { code?: string }).code;
+    if (code === MISSING_TABLE_CODE || code === MISSING_COLUMN_CODE) return [];
+    throw error;
+  }
+
+  const trail = await getPublishedTrailBySlug(trailSlug).catch(() => null);
+  const sectionOrder = new Map(
+    trail?.entry.frontmatter.sections.map((section, index) => [section.key, index]) ?? [],
+  );
+
+  const products: TrailCuratedProduct[] = [];
+  for (const rawRow of (data ?? []) as unknown as TrailCuratedProductRow[]) {
+    const row = rawRow;
+    if (
+      !row.brands?.slug ||
+      !row.brands.name ||
+      (row.brands.status !== undefined && row.brands.status !== "approved") ||
+      row.lifecycle !== "published" ||
+      !row.official_url ||
+      !row.source_checked_at
+    ) {
+      continue;
+    }
+
+    const activeSources = row.curated_product_sources ?? [];
+    if (
+      activeSources.length > 0 &&
+      !activeSources.some(
+        (source) => source.state === undefined || source.state === "active",
+      )
+    ) {
+      continue;
+    }
+
+    const selections = (row.curated_product_selections ?? []).filter(
+      (selection) =>
+        selection.trail_slug === trailSlug &&
+        (selection.state === undefined || selection.state === "active"),
+    );
+
+    for (const selection of selections) {
+      const product = toCuratedProduct({
+        ...row,
+        curated_product_selections: [selection],
+      });
+      products.push({
+        ...product,
+        trailSlug: selection.trail_slug,
+        sectionKey: selection.section_key,
+        position: selection.position,
+        rationaleZh: selection.rationale_zh ?? null,
+        rationaleEn: selection.rationale_en ?? null,
+        brandSlug: row.brands.slug,
+        brandName: row.brands.name,
+        brand: {
+          slug: row.brands.slug,
+          purchaseWebsite: row.brands.purchase_website,
+          purchasePinkoi: row.brands.purchase_pinkoi,
+          purchaseShopee: row.brands.purchase_shopee,
+          purchaseMyship: row.brands.purchase_myship,
+          socialInstagram: row.brands.social_instagram,
+          socialThreads: row.brands.social_threads,
+          socialFacebook: row.brands.social_facebook,
+        },
+      });
+    }
+  }
+
+  return products.sort(
+    (a, b) =>
+      (sectionOrder.get(a.sectionKey ?? "") ?? UNPLACED) -
+        (sectionOrder.get(b.sectionKey ?? "") ?? UNPLACED) ||
+      (a.position ?? UNPLACED) - (b.position ?? UNPLACED) ||
+      a.key.localeCompare(b.key),
+  );
 }
 
 // ---------------------------------------------------------------------------
