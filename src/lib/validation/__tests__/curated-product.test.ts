@@ -131,9 +131,81 @@ describe("curated product validation", () => {
     expect(cleared.data.reviewDueAt).toBeNull();
     // Still validated when a value IS supplied.
     expect(
-      curatedProductUpdateSchema.safeParse({ officialUrl: "javascript:alert(1)" })
-        .success,
+      curatedProductUpdateSchema.safeParse({
+        officialUrl: "javascript:alert(1)",
+      }).success,
     ).toBe(false);
+  });
+
+  it("rejects a highlight position with no zh rationale", () => {
+    const result = curatedProductCreateSchema.safeParse(
+      validCreate({ highlightPosition: 1 }),
+    );
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues).toContainEqual(
+      expect.objectContaining({ path: ["highlightRationaleZh"] }),
+    );
+    expect(
+      curatedProductUpdateSchema.safeParse({ highlightPosition: 1 }).success,
+    ).toBe(false);
+  });
+
+  it("accepts a highlight rationale with no position", () => {
+    expect(
+      curatedProductCreateSchema.safeParse(
+        validCreate({ highlightRationaleZh: "編輯推薦理由" }),
+      ).success,
+    ).toBe(true);
+    expect(
+      curatedProductUpdateSchema.safeParse({
+        highlightRationaleZh: "編輯推薦理由",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("accepts a highlight position with a zh rationale", () => {
+    expect(
+      curatedProductCreateSchema.safeParse(
+        validCreate({
+          highlightPosition: 0,
+          highlightRationaleZh: "編輯推薦理由",
+        }),
+      ).success,
+    ).toBe(true);
+    expect(
+      curatedProductUpdateSchema.safeParse({
+        highlightPosition: 0,
+        highlightRationaleZh: "編輯推薦理由",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects a negative highlight position", () => {
+    const result = curatedProductUpdateSchema.safeParse({
+      highlightPosition: -1,
+      highlightRationaleZh: "編輯推薦理由",
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues).toContainEqual(
+      expect.objectContaining({ path: ["highlightPosition"] }),
+    );
+  });
+
+  it("treats an empty-string rationale as missing", () => {
+    const result = curatedProductUpdateSchema.safeParse({
+      highlightPosition: 0,
+      highlightRationaleZh: "  \t",
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues).toContainEqual(
+      expect.objectContaining({ path: ["highlightRationaleZh"] }),
+    );
   });
 
   it("refuses an l2 patch that does not name its l1", () => {

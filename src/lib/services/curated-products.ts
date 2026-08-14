@@ -46,6 +46,8 @@ export type CuratedProduct = {
   reviewDueAt: string | null;
   notesZh: string | null;
   notesEn: string | null;
+  highlightPosition: number | null;
+  createdAt: string;
   /** The winning selection: lowest `position`, ties broken by `trailSlug`. */
   trailSlug: string | null;
   sectionKey: string | null;
@@ -68,7 +70,8 @@ export type CuratedProduct = {
 const CURATED_PRODUCT_READ_SELECT = `
   id, brand_id, key, name_zh, name_en, l1, l2, official_url, image_url,
   image_source_url, image_usage, lifecycle, link_state, link_checked_at,
-  source_checked_at, review_due_at, notes_zh, notes_en,
+  source_checked_at, review_due_at, notes_zh, notes_en, highlight_position,
+  highlight_rationale_zh, highlight_rationale_en, created_at,
   curated_product_sources!inner(id),
   curated_product_selections(trail_slug, section_key, position, rationale_zh, rationale_en)
 `;
@@ -102,6 +105,10 @@ type CuratedProductReadRow = Pick<
   | "review_due_at"
   | "notes_zh"
   | "notes_en"
+  | "highlight_position"
+  | "highlight_rationale_zh"
+  | "highlight_rationale_en"
+  | "created_at"
 > & {
   curated_product_selections: CuratedProductSelectionRow[] | null;
 };
@@ -149,19 +156,23 @@ function toCuratedProduct(row: CuratedProductReadRow): CuratedProduct {
     reviewDueAt: row.review_due_at ?? null,
     notesZh: row.notes_zh ?? null,
     notesEn: row.notes_en ?? null,
+    highlightPosition: row.highlight_position ?? null,
+    createdAt: row.created_at,
     trailSlug: selection?.trail_slug ?? null,
     sectionKey: selection?.section_key ?? null,
     position: selection?.position ?? null,
-    rationaleZh: selection?.rationale_zh ?? null,
-    rationaleEn: selection?.rationale_en ?? null,
+    rationaleZh: row.highlight_rationale_zh ?? selection?.rationale_zh ?? null,
+    rationaleEn: row.highlight_rationale_en ?? selection?.rationale_en ?? null,
   };
 }
 
-/** An unplaced product sorts last rather than jumping ahead of placed ones. */
+/** An unhighlighted product sorts last rather than jumping ahead of highlights. */
 const UNPLACED = Number.MAX_SAFE_INTEGER;
 
 /** PostgREST's "could not find the table in the schema cache". */
 const MISSING_TABLE_CODE = "PGRST205";
+/** Observed from the staging REST read before this migration landed. */
+const MISSING_COLUMN_CODE = "42703";
 
 /**
  * Every publicly renderable curated product for one brand.
@@ -195,8 +206,10 @@ export async function getPublishedCuratedProductsForBrand(
     .eq("curated_product_selections.state", "active");
   if (error) {
     // PGRST205 = table not in PostgREST schema cache (migration pending or
-    // schema cache stale), matching saved-brands.ts.
-    if ((error as { code?: string }).code === MISSING_TABLE_CODE) return [];
+    // schema cache stale), matching saved-brands.ts. 42703 was observed from
+    // staging when the existing table lacked the new highlight columns.
+    const code = (error as { code?: string }).code;
+    if (code === MISSING_TABLE_CODE || code === MISSING_COLUMN_CODE) return [];
     throw error;
   }
 
@@ -204,7 +217,8 @@ export async function getPublishedCuratedProductsForBrand(
     .map(toCuratedProduct)
     .sort(
       (a, b) =>
-        (a.position ?? UNPLACED) - (b.position ?? UNPLACED) ||
+        (a.highlightPosition ?? UNPLACED) - (b.highlightPosition ?? UNPLACED) ||
+        a.createdAt.localeCompare(b.createdAt) ||
         a.key.localeCompare(b.key),
     );
 }
@@ -249,6 +263,9 @@ export type CuratedProductWriteInput = {
   reviewDueAt?: string | null;
   notesZh?: string | null;
   notesEn?: string | null;
+  highlightPosition?: number | null;
+  highlightRationaleZh?: string | null;
+  highlightRationaleEn?: string | null;
 };
 
 /**
@@ -369,6 +386,9 @@ export async function createCuratedProduct(
         review_due_at: input.reviewDueAt ?? null,
         notes_zh: input.notesZh ?? null,
         notes_en: input.notesEn ?? null,
+        highlight_position: input.highlightPosition ?? null,
+        highlight_rationale_zh: input.highlightRationaleZh ?? null,
+        highlight_rationale_en: input.highlightRationaleEn ?? null,
         lifecycle: "candidate",
         proposed_by: "admin",
       };
@@ -438,11 +458,13 @@ export async function updateCuratedProduct(
       if (input.officialUrl !== undefined) {
         payload.official_url = input.officialUrl ?? null;
       }
-      if (input.imageUrl !== undefined) payload.image_url = input.imageUrl ?? null;
+      if (input.imageUrl !== undefined)
+        payload.image_url = input.imageUrl ?? null;
       if (input.imageSourceUrl !== undefined) {
         payload.image_source_url = input.imageSourceUrl ?? null;
       }
-      if (input.imageUsage !== undefined) payload.image_usage = input.imageUsage;
+      if (input.imageUsage !== undefined)
+        payload.image_usage = input.imageUsage;
       if (input.sourceCheckedAt !== undefined) {
         payload.source_checked_at = input.sourceCheckedAt ?? null;
       }
@@ -451,6 +473,15 @@ export async function updateCuratedProduct(
       }
       if (input.notesZh !== undefined) payload.notes_zh = input.notesZh ?? null;
       if (input.notesEn !== undefined) payload.notes_en = input.notesEn ?? null;
+      if (input.highlightPosition !== undefined) {
+        payload.highlight_position = input.highlightPosition ?? null;
+      }
+      if (input.highlightRationaleZh !== undefined) {
+        payload.highlight_rationale_zh = input.highlightRationaleZh ?? null;
+      }
+      if (input.highlightRationaleEn !== undefined) {
+        payload.highlight_rationale_en = input.highlightRationaleEn ?? null;
+      }
       if (Object.keys(payload).length === 0) return;
 
       const { error } = await curatedProductClient(client)
@@ -698,6 +729,9 @@ export type AdminCuratedProduct = {
   reviewDueAt: string | null;
   notesZh: string | null;
   notesEn: string | null;
+  highlightPosition: number | null;
+  highlightRationaleZh: string | null;
+  highlightRationaleEn: string | null;
   updatedAt: string;
   sources: AdminCuratedProductSource[];
 };
@@ -749,7 +783,9 @@ export async function listCuratedProductsForAdmin(
     .select(
       `id, brand_id, key, name_zh, name_en, l1, l2, official_url, image_url,
        image_source_url, image_usage, lifecycle, link_state, proposed_by,
-       source_checked_at, review_due_at, notes_zh, notes_en, updated_at,
+       source_checked_at, review_due_at, notes_zh, notes_en,
+       highlight_position, highlight_rationale_zh, highlight_rationale_en,
+       updated_at,
        brands(slug, name),
        curated_product_sources(id, url, source_type, claim_zh, state, checked_at)`,
     )
@@ -782,6 +818,9 @@ export async function listCuratedProductsForAdmin(
     reviewDueAt: row.review_due_at ?? null,
     notesZh: row.notes_zh ?? null,
     notesEn: row.notes_en ?? null,
+    highlightPosition: row.highlight_position ?? null,
+    highlightRationaleZh: row.highlight_rationale_zh ?? null,
+    highlightRationaleEn: row.highlight_rationale_en ?? null,
     updatedAt: row.updated_at,
     sources: (row.curated_product_sources ?? []).map((source) => ({
       id: source.id,

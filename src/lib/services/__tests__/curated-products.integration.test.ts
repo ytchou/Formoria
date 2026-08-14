@@ -14,6 +14,10 @@ type SeedProduct = {
   lifecycle?: string;
   officialUrl?: string | null;
   sourceCheckedAt?: string | null;
+  createdAt?: string;
+  highlightPosition?: number | null;
+  highlightRationaleZh?: string | null;
+  highlightRationaleEn?: string | null;
   linkState?: string;
   sources?: number;
   /** The planner retires rather than deletes, so a source row can be dead. */
@@ -53,6 +57,7 @@ describeWithDb("published curated products for a brand", () => {
       name: `Curated Products Fixture ${suffix}`,
       slug: `curated-products-fixture-${suffix}`,
       status: "approved",
+      approved_at: "2026-01-02T00:00:00Z",
     });
     expect(brandError).toBeNull();
 
@@ -78,6 +83,10 @@ describeWithDb("published curated products for a brand", () => {
             product.sourceCheckedAt === undefined
               ? new Date().toISOString()
               : product.sourceCheckedAt,
+          created_at: product.createdAt,
+          highlight_position: product.highlightPosition ?? null,
+          highlight_rationale_zh: product.highlightRationaleZh ?? null,
+          highlight_rationale_en: product.highlightRationaleEn ?? null,
         });
       expect(productError).toBeNull();
 
@@ -115,15 +124,19 @@ describeWithDb("published curated products for a brand", () => {
     return brandId;
   }
 
-  it("returns published products for a brand, ordered by selection position", async () => {
+  it("returns published products for a brand, ordered by highlight position instead of selection position", async () => {
     const brandId = await seedBrand([
       {
         key: "second-pick",
         selections: [{ trailSlug: "gifting", position: 2 }],
+        highlightPosition: 0,
+        highlightRationaleZh: "Brand-page first",
       },
       {
         key: "first-pick",
         selections: [{ trailSlug: "gifting", position: 1 }],
+        highlightPosition: 1,
+        highlightRationaleZh: "Brand-page second",
       },
     ]);
 
@@ -133,19 +146,88 @@ describeWithDb("published curated products for a brand", () => {
     );
 
     expect(products.map((product) => product.key)).toEqual([
-      "first-pick",
       "second-pick",
+      "first-pick",
     ]);
     const first = products.at(0);
-    expect(first?.nameZh).toBe("Fixture first-pick");
+    expect(first?.nameZh).toBe("Fixture second-pick");
     expect(first?.l1).toBe("home");
     expect(first?.l2).toEqual(["tableware"]);
     expect(first?.trailSlug).toBe("gifting");
     expect(first?.sectionKey).toBe("picks");
-    expect(first?.position).toBe(1);
-    expect(first?.rationaleZh).toBe("Rationale gifting 1");
-    expect(first?.officialUrl).toContain("first-pick");
+    expect(first?.position).toBe(2);
+    expect(first?.rationaleZh).toBe("Brand-page first");
+    expect(first?.officialUrl).toContain("second-pick");
     expect(first?.linkState).toBe("ok");
+  });
+
+  it("orders the unhighlighted tail by created_at then key, not trail position", async () => {
+    const brandId = await seedBrand([
+      {
+        key: "newer-pick",
+        createdAt: "2026-08-15T00:00:00Z",
+        selections: [{ trailSlug: "gifting", position: 0 }],
+      },
+      {
+        key: "older-pick",
+        createdAt: "2026-08-14T00:00:00Z",
+        selections: [{ trailSlug: "gifting", position: 99 }],
+      },
+    ]);
+
+    const products = await getPublishedCuratedProductsForBrand(
+      brandId,
+      supabase,
+    );
+
+    expect(products.map((product) => product.key)).toEqual([
+      "older-pick",
+      "newer-pick",
+    ]);
+  });
+
+  it("resolves highlight rationale before the winning trail rationale", async () => {
+    const brandId = await seedBrand([
+      {
+        key: "highlighted-pick",
+        highlightPosition: 0,
+        highlightRationaleZh: "Brand-page reason",
+        highlightRationaleEn: "Brand-page reason EN",
+        selections: [
+          {
+            trailSlug: "gifting",
+            position: 1,
+            rationaleZh: "Trail reason",
+          },
+        ],
+      },
+    ]);
+
+    const [product] = await getPublishedCuratedProductsForBrand(
+      brandId,
+      supabase,
+    );
+
+    expect(product?.rationaleZh).toBe("Brand-page reason");
+    expect(product?.rationaleEn).toBe("Brand-page reason EN");
+  });
+
+  it("keeps a highlight rationale when its position is null", async () => {
+    const brandId = await seedBrand([
+      {
+        key: "unplaced-with-reason",
+        highlightPosition: null,
+        highlightRationaleZh: "Unordered brand reason",
+      },
+    ]);
+
+    const [product] = await getPublishedCuratedProductsForBrand(
+      brandId,
+      supabase,
+    );
+
+    expect(product?.highlightPosition).toBeNull();
+    expect(product?.rationaleZh).toBe("Unordered brand reason");
   });
 
   it("omits products whose lifecycle is not published", async () => {
@@ -269,6 +351,8 @@ describeWithDb("published curated products for a brand", () => {
       },
       {
         key: "placed-pick",
+        highlightPosition: 1,
+        highlightRationaleZh: "Brand-page pick",
         selections: [{ trailSlug: "gifting", position: 5 }],
       },
     ]);
@@ -372,6 +456,23 @@ describeWithDb("published curated products for a brand", () => {
     expect(products.at(0)?.rationaleZh).toBe("Artisan angle");
   });
 
+  it("rejects a highlight position with no zh rationale", async () => {
+    const brandId = await seedBrand([]);
+    const { error } = await supabase.from("curated_products").insert({
+      brand_id: brandId,
+      key: "invalid-highlight",
+      name_zh: "Invalid Highlight",
+      l1: "home",
+      official_url: "https://example.com/invalid-highlight",
+      lifecycle: "published",
+      source_checked_at: new Date().toISOString(),
+      highlight_position: 0,
+      highlight_rationale_zh: null,
+    });
+
+    expect(error?.code).toBe("23514");
+  });
+
   it("returns an empty array for a brand with no curated products", async () => {
     const brandId = await seedBrand([]);
 
@@ -456,6 +557,7 @@ describeWithDb("curated product write path", () => {
       name: `Curated Write Fixture ${suffix}`,
       slug: `curated-write-fixture-${suffix}`,
       status: "approved",
+      approved_at: "2026-01-02T00:00:00Z",
     });
     expect(error).toBeNull();
     return brandId;
@@ -498,7 +600,10 @@ describeWithDb("curated product write path", () => {
 
   /** Everything a promote needs except whatever the caller withholds. */
   async function seedCandidate(
-    overrides: { officialUrl?: string | null; sourceCheckedAt?: string | null } = {},
+    overrides: {
+      officialUrl?: string | null;
+      sourceCheckedAt?: string | null;
+    } = {},
   ): Promise<{ brandId: string; productId: string }> {
     const brandId = await seedBrand();
     const created = await createCuratedProduct(

@@ -95,6 +95,10 @@ function productRow(overrides: Record<string, unknown> = {}) {
     review_due_at: null,
     notes_zh: null,
     notes_en: null,
+    highlight_position: null,
+    highlight_rationale_zh: null,
+    highlight_rationale_en: null,
+    created_at: "2026-08-13T00:00:00Z",
     curated_product_selections: [],
     ...overrides,
   };
@@ -109,7 +113,10 @@ describe("getPublishedCuratedProductsForBrand", () => {
     await getPublishedCuratedProductsForBrand("brand-1", client);
 
     expect(calls.select.at(0)).toContain("curated_product_sources!inner(id)");
-    expect(calls.eq).toContainEqual(["curated_product_sources.state", "active"]);
+    expect(calls.eq).toContainEqual([
+      "curated_product_sources.state",
+      "active",
+    ]);
     expect(calls.eq).toContainEqual([
       "curated_product_selections.state",
       "active",
@@ -143,6 +150,21 @@ describe("getPublishedCuratedProductsForBrand", () => {
     ).resolves.toEqual([]);
   });
 
+  it("returns [] when the highlight columns are not in the database yet", async () => {
+    // The column probe against staging returned Postgres 42703. This deploy
+    // window is distinct from PGRST205 (the table itself is already present).
+    const { client } = stubClient({
+      error: {
+        code: "42703",
+        message: "column curated_products.highlight_position does not exist",
+      },
+    });
+
+    await expect(
+      getPublishedCuratedProductsForBrand("brand-1", client),
+    ).resolves.toEqual([]);
+  });
+
   it("rethrows any other error", async () => {
     const { client } = stubClient({
       error: { code: "42501", message: "permission denied" },
@@ -153,7 +175,7 @@ describe("getPublishedCuratedProductsForBrand", () => {
     ).rejects.toMatchObject({ code: "42501" });
   });
 
-  it("keeps a product whose selections are all retired, sorted last with no rationale", async () => {
+  it("keeps a product whose selections are all retired, unhighlighted with no rationale", async () => {
     // PostgREST returns the parent with an EMPTY embed once the retired
     // selections are filtered out; the product must still render.
     const { client } = stubClient({
@@ -161,11 +183,13 @@ describe("getPublishedCuratedProductsForBrand", () => {
         productRow({
           id: "aaaaaaaa-0000-0000-0000-000000000000",
           key: "unplaced",
+          created_at: "2026-08-15T00:00:00Z",
           curated_product_selections: [],
         }),
         productRow({
           id: "bbbbbbbb-0000-0000-0000-000000000000",
           key: "placed",
+          created_at: "2026-08-14T00:00:00Z",
           curated_product_selections: [
             {
               trail_slug: "gifting",
@@ -192,6 +216,165 @@ describe("getPublishedCuratedProductsForBrand", () => {
     expect(unplaced?.position).toBeNull();
     expect(unplaced?.rationaleZh).toBeNull();
     expect(unplaced?.trailSlug).toBeNull();
+  });
+
+  it("sorts highlighted products ahead of unhighlighted ones", async () => {
+    const { client } = stubClient({
+      data: [
+        productRow({
+          key: "unhighlighted",
+          highlight_position: null,
+          curated_product_selections: [
+            {
+              trail_slug: "gifting",
+              section_key: "picks",
+              position: 0,
+              rationale_zh: "Trail first",
+              rationale_en: null,
+            },
+          ],
+        }),
+        productRow({
+          key: "highlighted",
+          highlight_position: 1,
+          highlight_rationale_zh: "Brand first",
+          curated_product_selections: [
+            {
+              trail_slug: "gifting",
+              section_key: "picks",
+              position: 99,
+              rationale_zh: "Trail last",
+              rationale_en: null,
+            },
+          ],
+        }),
+      ],
+    });
+
+    const products = await getPublishedCuratedProductsForBrand(
+      "brand-1",
+      client,
+    );
+
+    expect(products.map((product) => product.key)).toEqual([
+      "highlighted",
+      "unhighlighted",
+    ]);
+  });
+
+  it("orders the unhighlighted tail by created_at then key", async () => {
+    const { client } = stubClient({
+      data: [
+        productRow({
+          key: "newer",
+          created_at: "2026-08-15T00:00:00Z",
+          curated_product_selections: [
+            {
+              trail_slug: "gifting",
+              section_key: "picks",
+              position: 0,
+              rationale_zh: "Trail first",
+              rationale_en: null,
+            },
+          ],
+        }),
+        productRow({
+          key: "older",
+          created_at: "2026-08-14T00:00:00Z",
+          curated_product_selections: [
+            {
+              trail_slug: "gifting",
+              section_key: "picks",
+              position: 99,
+              rationale_zh: "Trail last",
+              rationale_en: null,
+            },
+          ],
+        }),
+      ],
+    });
+
+    const products = await getPublishedCuratedProductsForBrand(
+      "brand-1",
+      client,
+    );
+
+    expect(products.map((product) => product.key)).toEqual(["older", "newer"]);
+  });
+
+  it("resolves the highlight rationale over the trail rationale", async () => {
+    const { client } = stubClient({
+      data: [
+        productRow({
+          highlight_position: 0,
+          highlight_rationale_zh: "Brand-page reason",
+          highlight_rationale_en: "Brand-page reason EN",
+          curated_product_selections: [
+            {
+              trail_slug: "gifting",
+              section_key: "picks",
+              position: 1,
+              rationale_zh: "Trail reason",
+              rationale_en: "Trail reason EN",
+            },
+          ],
+        }),
+      ],
+    });
+
+    const [product] = await getPublishedCuratedProductsForBrand(
+      "brand-1",
+      client,
+    );
+
+    expect(product?.rationaleZh).toBe("Brand-page reason");
+    expect(product?.rationaleEn).toBe("Brand-page reason EN");
+  });
+
+  it("falls back to the winning selection rationale when no highlight rationale exists", async () => {
+    const { client } = stubClient({
+      data: [
+        productRow({
+          curated_product_selections: [
+            {
+              trail_slug: "gifting",
+              section_key: "picks",
+              position: 1,
+              rationale_zh: "Trail fallback",
+              rationale_en: "Trail fallback EN",
+            },
+          ],
+        }),
+      ],
+    });
+
+    const [product] = await getPublishedCuratedProductsForBrand(
+      "brand-1",
+      client,
+    );
+
+    expect(product?.rationaleZh).toBe("Trail fallback");
+    expect(product?.rationaleEn).toBe("Trail fallback EN");
+  });
+
+  it("keeps the highlight rationale when highlight_position is null", async () => {
+    const { client } = stubClient({
+      data: [
+        productRow({
+          highlight_position: null,
+          highlight_rationale_zh: "Unordered brand reason",
+          curated_product_selections: [],
+        }),
+      ],
+    });
+
+    const [product] = await getPublishedCuratedProductsForBrand(
+      "brand-1",
+      client,
+    );
+
+    expect(product?.highlightPosition).toBeNull();
+    expect(product?.rationaleZh).toBe("Unordered brand reason");
   });
 });
 
@@ -428,6 +611,30 @@ describe("createCuratedProduct", () => {
 
     expect(calls.insert.at(0)?.l2).toEqual(["tableware"]);
   });
+
+  it("createCuratedProduct writes the highlight fields", async () => {
+    const { client, calls } = stubWriteClient([
+      { data: { id: PRODUCT_ID, key: "teacup" } },
+    ]);
+
+    await createCuratedProduct(
+      {
+        brandId: BRAND_ID,
+        nameZh: "Teacup",
+        l1: "home",
+        highlightPosition: 2,
+        highlightRationaleZh: "品牌頁亮點",
+        highlightRationaleEn: "Brand-page highlight",
+      },
+      client,
+    );
+
+    expect(calls.insert.at(0)).toMatchObject({
+      highlight_position: 2,
+      highlight_rationale_zh: "品牌頁亮點",
+      highlight_rationale_en: "Brand-page highlight",
+    });
+  });
 });
 
 describe("curated product writers", () => {
@@ -464,6 +671,21 @@ describe("curated product writers", () => {
     expect(payload.notes_zh).toBeNull();
     expect(Object.keys(payload)).not.toContain("name_zh");
     expect(Object.keys(payload)).not.toContain("notes_en");
+  });
+
+  it("updateCuratedProduct clears a highlight field sent as null and skips an absent one", async () => {
+    const { client, calls } = stubWriteClient([{}]);
+
+    await updateCuratedProduct(
+      PRODUCT_ID,
+      { highlightPosition: null, highlightRationaleZh: null },
+      client,
+    );
+
+    const payload = calls.update.at(0) ?? {};
+    expect(payload.highlight_position).toBeNull();
+    expect(payload.highlight_rationale_zh).toBeNull();
+    expect(Object.keys(payload)).not.toContain("highlight_rationale_en");
   });
 
   it("retires a product by flipping lifecycle, never by deleting", async () => {
@@ -572,7 +794,10 @@ describe("promoteCuratedProduct", () => {
 
     const outcome = await promoteCuratedProduct(PRODUCT_ID, client);
 
-    expect(outcome).toMatchObject({ ok: false, blockers: ["no_active_source"] });
+    expect(outcome).toMatchObject({
+      ok: false,
+      blockers: ["no_active_source"],
+    });
     expect(calls.update).toEqual([]);
   });
 });

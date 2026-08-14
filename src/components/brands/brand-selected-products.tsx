@@ -54,6 +54,7 @@ export async function BrandSelectedProducts({
   });
   const isEnglish = locale === "en";
   const visitLink = getBrandVisitLink(brand);
+  const isSingleProduct = products.length === 1;
 
   // A 40px pill, matching the outbound chips the purchase and social sections
   // already render, so the page keeps one chip shape.
@@ -107,17 +108,27 @@ export async function BrandSelectedProducts({
               id={`product-${product.key}`}
               className={surfaceCardStyles({
                 padding: "none",
-                className: "flex flex-col overflow-hidden",
+                className: `flex flex-col overflow-hidden${
+                  isSingleProduct ? " lg:col-span-2 lg:flex-row" : ""
+                }`,
               })}
             >
-              <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+              <div
+                className={`relative aspect-[4/3] w-full overflow-hidden bg-muted${
+                  isSingleProduct ? " lg:aspect-auto lg:w-1/2" : ""
+                }`}
+              >
                 {imageSrc ? (
                   <Image
                     src={imageSrc}
                     alt={name}
                     fill
                     className="object-cover"
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    sizes={
+                      isSingleProduct
+                        ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 396px"
+                        : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    }
                   />
                 ) : (
                   <BrandImageFallback
