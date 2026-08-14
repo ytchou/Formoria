@@ -51,7 +51,8 @@
     "myBrands": "My Brand",
     "stories": "Stories",
     "events": "Events",
-    "whereToBuy": "Where to buy"
+    "whereToBuy": "Where to buy",
+    "discover": "Curated themes"
   },
   "footer": {
     "about": "About",
@@ -72,7 +73,33 @@
     "legalHeading": "Legal",
     "connectHeading": "Connect",
     "feedback": "Feature requests",
-    "whereToBuy": "Where to buy"
+    "whereToBuy": "Where to buy",
+    "discover": "Curated themes"
+  },
+  "discover": {
+    "metaTitle": "Curated themes",
+    "metaDescription": "Start with a life situation and find Taiwanese products and brands that fit.",
+    "heading": "Curated themes",
+    "subheading": "Start with the life you want and find products that fit the situation.",
+    "comingSoon": "The first curated theme is on its way.",
+    "loadError": "Curated themes are temporarily unavailable. Please try again later.",
+    "breadcrumb": "Curated themes",
+    "breadcrumbAria": "Curated themes breadcrumb",
+    "sectionNavAria": "Curated theme sections",
+    "productCta": "Visit product official site",
+    "brandSiteCta": "Visit brand official site",
+    "selectedBadge": "Selected for this theme",
+    "brandProvidedBadge": "Brand-provided information",
+    "unavailable": "The official link is currently unavailable",
+    "relatedBrands": "Explore related brands",
+    "relatedCategories": "Explore related categories",
+    "relatedStories": "Continue reading",
+    "relatedTrails": "More curated themes",
+    "notFound": {
+      "title": "Curated theme not found",
+      "description": "The curated theme you are looking for does not exist or has been removed.",
+      "browseAll": "Browse all curated themes"
+    }
   },
   "landing": {
     "metadata": {

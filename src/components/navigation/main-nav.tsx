@@ -60,6 +60,12 @@ export function MainNav({ categories }: MainNavProps) {
             {t('whereToBuy')}
           </Link>
           <Link
+            href="/discover"
+            className="type-body-emphasis text-foreground/80 transition-colors hover:text-foreground"
+          >
+            {t('discover')}
+          </Link>
+          <Link
             href="/about"
             className="type-body-emphasis text-foreground/80 transition-colors hover:text-foreground"
           >
@@ -119,6 +125,14 @@ export function MainNav({ categories }: MainNavProps) {
                   onClick={() => setOpen(false)}
                 >
                   {t('whereToBuy')}
+                </Link>
+
+                <Link
+                  href="/discover"
+                  className="flex min-h-11 items-center px-1 type-body-emphasis"
+                  onClick={() => setOpen(false)}
+                >
+                  {t('discover')}
                 </Link>
 
                 <Link
