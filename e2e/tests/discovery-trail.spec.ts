@@ -9,7 +9,7 @@ import {
 
 const trails = publishedTrails("zh-TW");
 const trail =
-  trails.find((candidate) => candidate.sections.length >= 3) ?? trails[0];
+  trails.find((candidate) => candidate.sections.length >= 3) ?? trails.at(0);
 const TRAIL_URL = trail ? `/discover/${trail.slug}` : "/discover";
 const SELECTED_REASON_LABEL = "為這個主題選入";
 const OFFICIAL_DESTINATION = /前往(?:產品|品牌)官方網站/;
@@ -45,10 +45,11 @@ test.describe("Discovery trail deep", () => {
       anonPage.getByRole("heading", { name: trail!.title, level: 1 }),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
-    const section = trail!.sections[0]!;
+    const section = trail?.sections.at(0);
+    test.skip(!section, "published trail has no sections");
     await anonPage
       .getByRole("navigation", { name: "主題選物段落" })
-      .getByRole("link", { name: section.title, exact: true })
+      .getByRole("link", { name: section?.title ?? "", exact: true })
       .click();
 
     const sectionHeading = anonPage.getByRole("heading", {
@@ -109,15 +110,16 @@ test.describe("Discovery trail deep", () => {
     const response = await anonPage.goto(TRAIL_URL);
     test.skip(response?.status() === 503, "PREVIEW_MODE active");
 
-    const section = trail!.sections[1]!;
+    const section = trail?.sections.at(1);
+    test.skip(!section, "published trail has fewer than two sections");
     const targetHeading = anonPage.getByRole("heading", {
-      name: section.title,
+      name: section?.title ?? "",
       level: 2,
       exact: true,
     });
     await anonPage
       .getByRole("navigation", { name: "主題選物段落" })
-      .getByRole("link", { name: section.title, exact: true })
+      .getByRole("link", { name: section?.title ?? "", exact: true })
       .click();
 
     await expect(targetHeading).toBeFocused({ timeout: BUDGET.INTERACTIVE });

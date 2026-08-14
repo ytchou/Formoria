@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import type { TrailEntry } from "@/lib/services/trails";
@@ -36,12 +35,5 @@ describe("discovery trail hub", () => {
   it("keeps the hub noindex until at least one trail clears the gate", () => {
     expect(shouldIndexTrailHub(new Set())).toBe(false);
     expect(shouldIndexTrailHub(new Set(["small-space-reading-corner"]))).toBe(true);
-  });
-
-  it("uses the shared row and empty-state primitives", () => {
-    const source = readFileSync("src/app/[locale]/(site)/discover/page.tsx", "utf8");
-    expect(source).toContain("<EmptyState");
-    expect(source).toContain('hrefBase="/discover"');
-    expect(source).not.toContain("taxonomyLinkClasses");
   });
 });

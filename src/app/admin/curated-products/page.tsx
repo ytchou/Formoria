@@ -28,7 +28,7 @@ const VALID_TABS = new Set<CuratedProductTab>([
 ]);
 
 function firstParam(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
+  return Array.isArray(value) ? value.at(0) : value;
 }
 
 /**
@@ -71,20 +71,26 @@ export default async function CuratedProductsPage({
       ? await Promise.all(
           trails.trails.map(async (trail) => {
             let productsForTrail: TrailCuratedProduct[] = [];
+            let placementReadError = false;
             try {
               productsForTrail = await getPublishedCuratedProductsForTrail(trail.slug);
             } catch {
-              // The editor still gets the loader's known trail and sections;
-              // an unavailable read is surfaced as the same gate blockers.
+              // Keep a failed read distinct from an empty result. The editor
+              // can still place a product, but must not suggest that missing
+              // data is a real indexability blocker.
+              placementReadError = true;
             }
             return {
               slug: trail.slug,
               title: trail.frontmatter.title,
               sections: trail.frontmatter.sections,
-              blockers: trailIndexBlockers({
-                frontmatter: trail.frontmatter,
-                products: productsForTrail,
-              }),
+              blockers: placementReadError
+                ? []
+                : trailIndexBlockers({
+                    frontmatter: trail.frontmatter,
+                    products: productsForTrail,
+                  }),
+              placementReadError,
             };
           }),
         )

@@ -200,7 +200,7 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
   );
 
   return (
-    <main className="mx-auto box-border w-full max-w-[920px] px-4 pt-8 pb-16 sm:px-5 md:px-8 md:pt-12 md:pb-24">
+    <main className="page-gutter mx-auto box-border w-full max-w-[920px] pt-8 pb-16 md:pt-12 md:pb-24">
       <Breadcrumb
         ariaLabel={t("breadcrumbAria")}
         items={[{ label: t("breadcrumb"), href: "/discover" }, { label: frontmatter.title }]}
@@ -231,7 +231,11 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
           ) : null}
         </header>
         {sections.length >= 2 ? (
-          <BrandSectionNav sections={sections} ariaLabel={t("sectionNavAria")} />
+          <BrandSectionNav
+            sections={sections}
+            ariaLabel={t("sectionNavAria")}
+            orientation="horizontal"
+          />
         ) : null}
         <div className="max-w-[720px]">
           <TrailContent

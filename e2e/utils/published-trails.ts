@@ -5,7 +5,6 @@ import matter from "gray-matter";
 
 export type PublishedTrail = {
   slug: string;
-  canonicalSlug: string;
   title: string;
   locale: string;
   sections: Array<{ key: string; title: string }>;
@@ -58,7 +57,6 @@ export function publishedTrails(locale = "zh-TW"): PublishedTrail[] {
     return [
       {
         slug,
-        canonicalSlug: data.slug ?? slug,
         title: data.title ?? "",
         locale: authoredLocale,
         sections,

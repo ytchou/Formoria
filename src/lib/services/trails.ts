@@ -6,7 +6,7 @@ import matter from 'gray-matter'
 
 const TRAILS_DIR = path.join(process.cwd(), 'content', 'trails')
 
-export type TrailSection = {
+type TrailSection = {
   key: string
   title: string
 }

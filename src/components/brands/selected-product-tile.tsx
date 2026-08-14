@@ -12,6 +12,7 @@ import {
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import type { CuratedProduct } from "@/lib/services/curated-products";
 import { sanitizeHref } from "@/lib/url";
+import { cn } from "@/lib/utils";
 import { BrandImageFallback } from "./brand-image-fallback";
 import { SelectedProductTileLink } from "./selected-product-tile-link";
 import { SelectedProductExternalLink } from "./selected-product-external-link";
@@ -88,7 +89,10 @@ export function SelectedProductTile({
     variant: "secondary",
     shape: "pill",
     size: "compact",
-    className: "mt-auto max-w-full justify-center",
+    className: cn(
+      "mt-auto max-w-full justify-center",
+      mode === "trail" && "min-h-11",
+    ),
   });
   const destinationSlug = brandSlug ?? brand?.slug ?? "";
   const internalHref = `/brands/${destinationSlug}#product-${product.key}`;

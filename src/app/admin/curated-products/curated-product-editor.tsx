@@ -40,6 +40,7 @@ export type TrailOption = {
   title: string;
   sections: { key: string; title: string }[];
   blockers: string[];
+  placementReadError: boolean;
 };
 
 type SourceDraft = { url: string; sourceType: string; claimZh: string };
@@ -182,12 +183,14 @@ export function CuratedProductEditor({
   const [isFetching, startFetchTransition] = useTransition();
 
   const [brandId, setBrandId] = useState(
-    product?.brandId ?? defaultBrandId ?? brands[0]?.id ?? "",
+    product?.brandId ?? defaultBrandId ?? brands.at(0)?.id ?? "",
   );
   const [prefillUrl, setPrefillUrl] = useState(product?.officialUrl ?? "");
   const [nameZh, setNameZh] = useState(product?.nameZh ?? "");
   const [nameEn, setNameEn] = useState(product?.nameEn ?? "");
-  const [l1, setL1] = useState(product?.l1 ?? PRODUCT_TYPE_CATEGORIES[0].slug);
+  const [l1, setL1] = useState(
+    product?.l1 ?? PRODUCT_TYPE_CATEGORIES.at(0)?.slug ?? "",
+  );
   const [l2, setL2] = useState<string[]>(product?.l2 ?? []);
   const [officialUrl, setOfficialUrl] = useState(product?.officialUrl ?? "");
   const [imageSourceUrl, setImageSourceUrl] = useState(
@@ -230,11 +233,11 @@ export function CuratedProductEditor({
   >({});
   const [uncheckSourcesOpen, setUncheckSourcesOpen] = useState(false);
   const [placementTrailSlug, setPlacementTrailSlug] = useState(
-    trailOptions[0]?.slug ?? "",
+    trailOptions.at(0)?.slug ?? "",
   );
   const initialTrail = trailOptions.find((trail) => trail.slug === placementTrailSlug);
   const [placementSectionKey, setPlacementSectionKey] = useState(
-    initialTrail?.sections[0]?.key ?? "",
+    initialTrail?.sections.at(0)?.key ?? "",
   );
   const [placementPosition, setPlacementPosition] = useState(0);
   const [placementRationaleZh, setPlacementRationaleZh] = useState("");
@@ -254,7 +257,7 @@ export function CuratedProductEditor({
   function changePlacementTrail(value: string) {
     setPlacementTrailSlug(value);
     setPlacementSectionKey(
-      trailOptions.find((trail) => trail.slug === value)?.sections[0]?.key ?? "",
+      trailOptions.find((trail) => trail.slug === value)?.sections.at(0)?.key ?? "",
     );
     setPlacementError(null);
   }
@@ -941,7 +944,11 @@ export function CuratedProductEditor({
               </NativeSelect>
             </div>
           </div>
-          {selectedTrail?.blockers.length ? (
+          {selectedTrail?.placementReadError ? (
+            <p role="status" className="type-form-hint">
+              {t("placement.readError")}
+            </p>
+          ) : selectedTrail?.blockers.length ? (
             <div role="status" className="space-y-2 rounded-md bg-secondary p-3">
               <p className="type-form-label">{t("placement.blockersTitle")}</p>
               <ul className="list-disc pl-5 type-form-hint">

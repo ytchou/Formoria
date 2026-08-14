@@ -190,7 +190,7 @@ function winningSelection(
   return [...selections].sort(
     (a, b) =>
       a.position - b.position || a.trail_slug.localeCompare(b.trail_slug),
-  )[0]!;
+  ).at(0) ?? null;
 }
 
 function toCuratedProduct(row: CuratedProductReadRow): CuratedProduct {
@@ -1084,13 +1084,19 @@ export async function retireCuratedProductSelection(
       if (!trailSlug || !sectionKey) {
         throw new Error("Trail and section are required for a product placement");
       }
-      const { error } = await curatedProductClient(client)
+      const { data, error } = await curatedProductClient(client)
         .from("curated_product_selections")
         .update({ state: "retired" })
         .eq("product_id", input.productId)
         .eq("trail_slug", trailSlug)
-        .eq("section_key", sectionKey);
+        .eq("section_key", sectionKey)
+        .select("product_id");
       if (error) throw error;
+      if (!Array.isArray(data) || data.length === 0) {
+        throw new Error(
+          `Curated product selection not found: ${input.productId}/${trailSlug}/${sectionKey}`,
+        );
+      }
     },
     { subjectId: input.productId },
   );

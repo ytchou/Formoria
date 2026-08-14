@@ -1001,7 +1001,7 @@ describe("curated product writers", () => {
   });
 
   it("retires a trail selection without deleting it", async () => {
-    const { client, calls } = stubWriteClient([{}]);
+    const { client, calls } = stubWriteClient([{ data: [{ product_id: PRODUCT_ID }] }]);
 
     await retireCuratedProductSelection(
       {
@@ -1014,6 +1014,22 @@ describe("curated product writers", () => {
 
     expect(calls.update.at(0)).toEqual({ state: "retired" });
     expect(calls.table).toContain("curated_product_selections");
+  });
+
+  it("fails when the requested trail placement does not exist", async () => {
+    const { client, calls } = stubWriteClient([{ data: [] }]);
+
+    await expect(
+      retireCuratedProductSelection(
+        {
+          productId: PRODUCT_ID,
+          trailSlug: "small-space-reading-corner",
+          sectionKey: "light-first",
+        },
+        client,
+      ),
+    ).rejects.toThrow("Curated product selection not found");
+    expect(calls.update.at(0)).toEqual({ state: "retired" });
   });
 
   it("update_never_writes_link_state — link health is owned by the link checker", async () => {

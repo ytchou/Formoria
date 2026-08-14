@@ -98,7 +98,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 function firstParam(value: string | string[] | undefined): string | null {
-  const candidate = Array.isArray(value) ? value[0] : value;
+  const candidate = Array.isArray(value) ? value.at(0) : value;
   return candidate?.trim() || null;
 }
 
