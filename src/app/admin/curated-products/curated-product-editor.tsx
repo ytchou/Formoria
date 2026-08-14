@@ -6,7 +6,9 @@ import { useTranslations } from "next-intl";
 import {
   createCuratedProductAction,
   prefillCuratedProductAction,
+  retireCuratedProductSelectionAction,
   retireCuratedProductSourceAction,
+  upsertCuratedProductSelectionAction,
   updateCuratedProductAction,
 } from "@/app/admin/curated-products/actions";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
@@ -32,6 +34,13 @@ import {
 } from "@/lib/validation/curated-product";
 
 export type BrandOption = { id: string; slug: string; name: string };
+
+export type TrailOption = {
+  slug: string;
+  title: string;
+  sections: { key: string; title: string }[];
+  blockers: string[];
+};
 
 type SourceDraft = { url: string; sourceType: string; claimZh: string };
 
@@ -157,12 +166,14 @@ export function CuratedProductEditor({
   product,
   brands,
   defaultBrandId,
+  trailOptions = [],
   onSaved,
 }: {
   mode: "create" | "edit";
   product?: AdminCuratedProduct | null;
   brands: BrandOption[];
   defaultBrandId?: string | null;
+  trailOptions?: TrailOption[];
   onSaved: () => void;
 }): React.JSX.Element {
   const t = useTranslations("admin.curatedProducts.editor");
@@ -218,6 +229,17 @@ export function CuratedProductEditor({
     Record<number, boolean>
   >({});
   const [uncheckSourcesOpen, setUncheckSourcesOpen] = useState(false);
+  const [placementTrailSlug, setPlacementTrailSlug] = useState(
+    trailOptions[0]?.slug ?? "",
+  );
+  const initialTrail = trailOptions.find((trail) => trail.slug === placementTrailSlug);
+  const [placementSectionKey, setPlacementSectionKey] = useState(
+    initialTrail?.sections[0]?.key ?? "",
+  );
+  const [placementPosition, setPlacementPosition] = useState(0);
+  const [placementRationaleZh, setPlacementRationaleZh] = useState("");
+  const [placementRationaleEn, setPlacementRationaleEn] = useState("");
+  const [placementError, setPlacementError] = useState<string | null>(null);
 
   const isPublished = product?.lifecycle === "published";
 
@@ -225,6 +247,62 @@ export function CuratedProductEditor({
     () => PRODUCT_SUBCATEGORIES.filter((sub) => sub.category === l1),
     [l1],
   );
+
+  const selectedTrail =
+    trailOptions.find((trail) => trail.slug === placementTrailSlug) ?? null;
+
+  function changePlacementTrail(value: string) {
+    setPlacementTrailSlug(value);
+    setPlacementSectionKey(
+      trailOptions.find((trail) => trail.slug === value)?.sections[0]?.key ?? "",
+    );
+    setPlacementError(null);
+  }
+
+  function placeProduct() {
+    setPlacementError(null);
+    if (!product) {
+      setPlacementError(t("placement.createFirst"));
+      return;
+    }
+    if (!placementTrailSlug || !placementSectionKey || !placementRationaleZh.trim()) {
+      setPlacementError(t("placement.required"));
+      return;
+    }
+    startTransition(async () => {
+      const result = await upsertCuratedProductSelectionAction({
+        productId: product.id,
+        trailSlug: placementTrailSlug,
+        sectionKey: placementSectionKey,
+        position: placementPosition,
+        rationaleZh: placementRationaleZh.trim(),
+        rationaleEn: placementRationaleEn.trim() || null,
+      });
+      if (result?.error) setPlacementError(result.error);
+      else {
+        setPlacementRationaleZh("");
+        setPlacementRationaleEn("");
+        onSaved();
+      }
+    });
+  }
+
+  function retirePlacement() {
+    setPlacementError(null);
+    if (!product || !placementTrailSlug || !placementSectionKey) {
+      setPlacementError(t("placement.required"));
+      return;
+    }
+    startTransition(async () => {
+      const result = await retireCuratedProductSelectionAction({
+        productId: product.id,
+        trailSlug: placementTrailSlug,
+        sectionKey: placementSectionKey,
+      });
+      if (result?.error) setPlacementError(result.error);
+      else onSaved();
+    });
+  }
 
   const errorId = `${fieldId}-form-error`;
   const imageErrorId = `${fieldId}-image-error`;
@@ -829,6 +907,108 @@ export function CuratedProductEditor({
           </p>
         ) : null}
       </fieldset>
+
+      {trailOptions.length > 0 ? (
+        <fieldset className="space-y-3 rounded-lg border border-border p-4">
+          <legend className="type-subsection-title">{t("placement.title")}</legend>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor={`${fieldId}-trail`}>{t("placement.trail")}</Label>
+              <NativeSelect
+                id={`${fieldId}-trail`}
+                value={placementTrailSlug}
+                onChange={(event) => changePlacementTrail(event.target.value)}
+              >
+                {trailOptions.map((trail) => (
+                  <option key={trail.slug} value={trail.slug}>
+                    {trail.title}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${fieldId}-section`}>{t("placement.section")}</Label>
+              <NativeSelect
+                id={`${fieldId}-section`}
+                value={placementSectionKey}
+                onChange={(event) => setPlacementSectionKey(event.target.value)}
+              >
+                {(selectedTrail?.sections ?? []).map((section) => (
+                  <option key={section.key} value={section.key}>
+                    {section.title}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+          </div>
+          {selectedTrail?.blockers.length ? (
+            <div role="status" className="space-y-2 rounded-md bg-secondary p-3">
+              <p className="type-form-label">{t("placement.blockersTitle")}</p>
+              <ul className="list-disc pl-5 type-form-hint">
+                {selectedTrail.blockers.map((blocker) => (
+                  <li key={blocker}>{blocker}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <div className="grid gap-4 md:grid-cols-[8rem_minmax(0,1fr)]">
+            <div className="space-y-2">
+              <Label htmlFor={`${fieldId}-placement-position`}>
+                {t("placement.position")}
+              </Label>
+              <Input
+                id={`${fieldId}-placement-position`}
+                type="number"
+                min={0}
+                step={1}
+                value={placementPosition}
+                onChange={(event) => setPlacementPosition(Number(event.target.value) || 0)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${fieldId}-placement-rationale-zh`}>
+                {t("placement.rationaleZh")}
+              </Label>
+              <Textarea
+                id={`${fieldId}-placement-rationale-zh`}
+                value={placementRationaleZh}
+                onChange={(event) => setPlacementRationaleZh(event.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`${fieldId}-placement-rationale-en`}>
+              {t("placement.rationaleEn")}
+            </Label>
+            <Textarea
+              id={`${fieldId}-placement-rationale-en`}
+              value={placementRationaleEn}
+              onChange={(event) => setPlacementRationaleEn(event.target.value)}
+            />
+          </div>
+          {placementError ? <p className="type-error" role="alert">{placementError}</p> : null}
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              className="min-h-12"
+              disabled={isPending}
+              onClick={placeProduct}
+            >
+              {t("placement.save")}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="min-h-12"
+              disabled={isPending}
+              onClick={retirePlacement}
+            >
+              {t("placement.retire")}
+            </Button>
+          </div>
+        </fieldset>
+      ) : null}
 
       {/*
         Unchecking on a PUBLISHED product clears `source_checked_at`, and

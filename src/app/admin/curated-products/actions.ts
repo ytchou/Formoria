@@ -18,9 +18,12 @@ import {
   getCuratedProductWriteContext,
   promoteCuratedProduct,
   retireCuratedProduct,
+  retireCuratedProductSelection,
   retireCuratedProductSource,
   updateCuratedProduct,
+  upsertCuratedProductSelection,
   upsertCuratedProductSource,
+  type CuratedProductSelectionInput,
   type CuratedProductUpdateInput,
   type PromoteBlocker,
 } from "@/lib/services/curated-products";
@@ -66,6 +69,10 @@ type PromoteActionResult =
 function revalidateCurated(brandSlug: string | null): void {
   if (brandSlug) revalidatePublicBrands([brandSlug]);
   revalidatePath("/admin/curated-products");
+}
+
+function revalidateTrail(trailSlug: string): void {
+  revalidatePath(`/discover/${encodeURIComponent(trailSlug)}`);
 }
 
 function actionError(error: unknown, fallback: string): { error: string } {
@@ -376,6 +383,107 @@ export async function retireCuratedProductSourceAction(
       return undefined;
     } catch (error) {
       return actionError(error, "Unable to withdraw the source");
+    }
+  });
+}
+
+function parseSelectionInput(input: unknown): CuratedProductSelectionInput | null {
+  if (!input || typeof input !== "object") return null;
+  const value = input as Record<string, unknown>;
+  if (
+    typeof value.productId !== "string" ||
+    typeof value.trailSlug !== "string" ||
+    typeof value.sectionKey !== "string" ||
+    typeof value.rationaleZh !== "string"
+  ) {
+    return null;
+  }
+  return {
+    productId: value.productId,
+    trailSlug: value.trailSlug,
+    sectionKey: value.sectionKey,
+    rationaleZh: value.rationaleZh,
+    rationaleEn: typeof value.rationaleEn === "string" ? value.rationaleEn : null,
+    position: typeof value.position === "number" ? value.position : 0,
+  };
+}
+
+export async function upsertCuratedProductSelectionAction(
+  input: unknown,
+): Promise<ActionResult> {
+  return runWithAuditContext({}, async () => {
+    const auth = await requireAdminAction();
+    if ("error" in auth) return { error: auth.error };
+
+    const payload = parseSelectionInput(input);
+    if (!payload) return { error: "Invalid trail placement" };
+
+    try {
+      await upsertCuratedProductSelection(payload);
+      const brandSlug = await getCuratedProductBrandSlug(payload.productId);
+      if (auth.user.email) {
+        await logAdminAction({
+          adminUserId: auth.user.id,
+          adminEmail: auth.user.email,
+          action: "curated_product_selection_placed",
+          targetBrandSlug: brandSlug ?? undefined,
+          metadata: {
+            productId: payload.productId,
+            trailSlug: payload.trailSlug,
+            sectionKey: payload.sectionKey,
+          },
+        });
+      }
+      revalidateTrail(payload.trailSlug);
+      revalidateCurated(brandSlug);
+      return undefined;
+    } catch (error) {
+      return actionError(error, "Unable to place the curated product");
+    }
+  });
+}
+
+export async function retireCuratedProductSelectionAction(
+  input: unknown,
+): Promise<ActionResult> {
+  return runWithAuditContext({}, async () => {
+    const auth = await requireAdminAction();
+    if ("error" in auth) return { error: auth.error };
+    if (!input || typeof input !== "object") return { error: "Invalid trail placement" };
+    const value = input as Record<string, unknown>;
+    if (
+      typeof value.productId !== "string" ||
+      typeof value.trailSlug !== "string" ||
+      typeof value.sectionKey !== "string"
+    ) {
+      return { error: "Invalid trail placement" };
+    }
+
+    try {
+      await retireCuratedProductSelection({
+        productId: value.productId,
+        trailSlug: value.trailSlug,
+        sectionKey: value.sectionKey,
+      });
+      const brandSlug = await getCuratedProductBrandSlug(value.productId);
+      if (auth.user.email) {
+        await logAdminAction({
+          adminUserId: auth.user.id,
+          adminEmail: auth.user.email,
+          action: "curated_product_selection_retired",
+          targetBrandSlug: brandSlug ?? undefined,
+          metadata: {
+            productId: value.productId,
+            trailSlug: value.trailSlug,
+            sectionKey: value.sectionKey,
+          },
+        });
+      }
+      revalidateTrail(value.trailSlug);
+      revalidateCurated(brandSlug);
+      return undefined;
+    } catch (error) {
+      return actionError(error, "Unable to retire the trail placement");
     }
   });
 }

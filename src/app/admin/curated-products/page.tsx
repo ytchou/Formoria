@@ -2,7 +2,13 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 
 import { getAdminBrandOptions } from "@/lib/services/brands";
-import { listCuratedProductsForAdmin } from "@/lib/services/curated-products";
+import {
+  getPublishedCuratedProductsForTrail,
+  listCuratedProductsForAdmin,
+  type TrailCuratedProduct,
+} from "@/lib/services/curated-products";
+import { getAllTrailsForAdmin } from "@/lib/services/trails";
+import { trailIndexBlockers } from "@/lib/seo/trail-indexability";
 import {
   CuratedProductsList,
   type CuratedProductTab,
@@ -55,10 +61,34 @@ export default async function CuratedProductsPage({
   // filter rather than the query, so an editor can widen it without navigating.
   const initialBrandSlug = firstParam(query.brand) ?? null;
 
-  const [products, brands] = await Promise.all([
+  const [products, brands, trails] = await Promise.all([
     listCuratedProductsForAdmin(),
     getAdminBrandOptions(),
+    getAllTrailsForAdmin("zh-TW"),
   ]);
+  const trailOptions =
+    trails.ok
+      ? await Promise.all(
+          trails.trails.map(async (trail) => {
+            let productsForTrail: TrailCuratedProduct[] = [];
+            try {
+              productsForTrail = await getPublishedCuratedProductsForTrail(trail.slug);
+            } catch {
+              // The editor still gets the loader's known trail and sections;
+              // an unavailable read is surfaced as the same gate blockers.
+            }
+            return {
+              slug: trail.slug,
+              title: trail.frontmatter.title,
+              sections: trail.frontmatter.sections,
+              blockers: trailIndexBlockers({
+                frontmatter: trail.frontmatter,
+                products: productsForTrail,
+              }),
+            };
+          }),
+        )
+      : [];
 
   return (
     <div>
@@ -71,6 +101,7 @@ export default async function CuratedProductsPage({
           brands={brands}
           initialTab={initialTab}
           initialBrandSlug={initialBrandSlug}
+          trailOptions={trailOptions}
         />
       </div>
     </div>

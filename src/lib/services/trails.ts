@@ -224,3 +224,19 @@ export const getAllTrails = cache(
     }
   },
 )
+
+/** Admin/editorial reads include drafts so placements can be prepared before publication. */
+export const getAllTrailsForAdmin = cache(
+  async (locale: TrailLocale = 'zh-TW'): Promise<TrailListResult> => {
+    try {
+      return {
+        ok: true,
+        trails: readAllEntries()
+          .filter((entry) => entry.frontmatter.locale === locale)
+          .sort(compareByPublishedAtDesc),
+      }
+    } catch (error) {
+      return trailListError('getAllTrailsForAdmin', error)
+    }
+  },
+)

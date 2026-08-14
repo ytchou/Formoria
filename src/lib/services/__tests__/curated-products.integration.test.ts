@@ -8,7 +8,9 @@ import {
   getPublishedCuratedProductsForTrail,
   promoteCuratedProduct,
   retireCuratedProduct,
+  retireCuratedProductSelection,
   retireCuratedProductSource,
+  upsertCuratedProductSelection,
 } from "../curated-products";
 
 type SeedProduct = {
@@ -906,5 +908,76 @@ describeWithDb("curated product write path", () => {
       .select("id, state")
       .eq("product_id", productId);
     expect(sources).toEqual([{ id: sourceId, state: "retired" }]);
+  });
+
+  it("upsert_selection_creates_and_updates_on_the_composite_key", async () => {
+    const { productId } = await seedCandidate();
+    const key = {
+      productId,
+      trailSlug: "small-space-reading-corner",
+      sectionKey: "light-first",
+    };
+
+    await upsertCuratedProductSelection(
+      { ...key, position: 3, rationaleZh: "第一個理由" },
+      supabase,
+    );
+    await upsertCuratedProductSelection(
+      { ...key, position: 1, rationaleZh: "更新後的理由" },
+      supabase,
+    );
+
+    const { data, error } = await supabase
+      .from("curated_product_selections")
+      .select("position, rationale_zh, state")
+      .match({
+        product_id: productId,
+        trail_slug: key.trailSlug,
+        section_key: key.sectionKey,
+      })
+      .single();
+    expect(error).toBeNull();
+    expect(data).toEqual({ position: 1, rationale_zh: "更新後的理由", state: "active" });
+  });
+
+  it("retire_selection_sets_retired_and_never_deletes", async () => {
+    const { productId } = await seedCandidate();
+    const key = {
+      productId,
+      trailSlug: "small-space-reading-corner",
+      sectionKey: "beside-seat",
+    };
+    await upsertCuratedProductSelection(
+      { ...key, rationaleZh: "保留座位旁的空間" },
+      supabase,
+    );
+    await retireCuratedProductSelection(key, supabase);
+
+    const { data, error } = await supabase
+      .from("curated_product_selections")
+      .select("state")
+      .match({
+        product_id: productId,
+        trail_slug: key.trailSlug,
+        section_key: key.sectionKey,
+      })
+      .single();
+    expect(error).toBeNull();
+    expect(data).toEqual({ state: "retired" });
+  });
+
+  it("rejects_selection_for_an_unknown_trail", async () => {
+    const { productId } = await seedCandidate();
+    await expect(
+      upsertCuratedProductSelection(
+        {
+          productId,
+          trailSlug: "not-a-real-trail",
+          sectionKey: "light-first",
+          rationaleZh: "不能寫入未知主題",
+        },
+        supabase,
+      ),
+    ).rejects.toThrow("Unknown discovery trail");
   });
 });

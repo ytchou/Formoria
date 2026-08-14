@@ -88,8 +88,10 @@ const PROVIDERS = {
     "createCuratedProduct",
     "promoteCuratedProduct",
     "retireCuratedProduct",
+    "retireCuratedProductSelection",
     "retireCuratedProductSource",
     "updateCuratedProduct",
+    "upsertCuratedProductSelection",
     "upsertCuratedProductSource",
   ],
   curation: [

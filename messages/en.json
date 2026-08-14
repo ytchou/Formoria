@@ -83,6 +83,7 @@
     "subheading": "Start with the life you want and find products that fit the situation.",
     "comingSoon": "The first curated theme is on its way.",
     "loadError": "Curated themes are temporarily unavailable. Please try again later.",
+    "retry": "Try again",
     "breadcrumb": "Curated themes",
     "breadcrumbAria": "Curated themes breadcrumb",
     "sectionNavAria": "Curated theme sections",
@@ -3239,6 +3240,19 @@
           "press": "Press",
           "retailer": "Retailer",
           "other": "Other"
+        },
+        "placement": {
+          "title": "Discovery trail placement",
+          "trail": "Trail",
+          "section": "Section",
+          "position": "Position",
+          "rationaleZh": "Why this product belongs here (zh-TW)",
+          "rationaleEn": "Why this product belongs here (English)",
+          "blockersTitle": "Trail indexability blockers",
+          "save": "Place or update selection",
+          "retire": "Retire placement",
+          "required": "Choose a trail, section, and Chinese rationale.",
+          "createFirst": "Save the product before placing it on a trail."
         }
       }
     }

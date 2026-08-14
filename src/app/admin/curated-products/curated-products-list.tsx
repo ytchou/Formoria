@@ -33,6 +33,7 @@ import {
   CuratedProductEditor,
   PromoteGateReadout,
   type BrandOption,
+  type TrailOption,
 } from "./curated-product-editor";
 
 export type CuratedProductTab =
@@ -68,11 +69,13 @@ export function CuratedProductsList({
   brands,
   initialTab = "candidate",
   initialBrandSlug = null,
+  trailOptions = [],
 }: {
   products: AdminCuratedProduct[];
   brands: BrandOption[];
   initialTab?: CuratedProductTab;
   initialBrandSlug?: string | null;
+  trailOptions?: TrailOption[];
 }): React.JSX.Element {
   const t = useTranslations("admin.curatedProducts");
   const router = useRouter();
@@ -330,6 +333,7 @@ export function CuratedProductsList({
               // on the alphabetically-first brand and then be filtered out of
               // the scoped view. An unknown slug falls back to `brands[0]`.
               defaultBrandId={scopedBrand?.id ?? null}
+              trailOptions={trailOptions}
               onSaved={() => {
                 setCreating(false);
                 router.refresh();
@@ -439,6 +443,7 @@ export function CuratedProductsList({
               mode="edit"
               product={product}
               brands={brands}
+              trailOptions={trailOptions}
               onSaved={() => router.refresh()}
             />
           </DetailSection>

@@ -20,7 +20,7 @@ import {
   normalizeTagKey,
   resolveSubcategorySlugs,
 } from "@/lib/taxonomy/ontology";
-import { getPublishedTrailBySlug } from "@/lib/services/trails";
+import { getPublishedTrailBySlug, getTrailBySlug } from "@/lib/services/trails";
 
 /** The tables are reached through the untyped `from` surface, with generated DB shapes at the boundary. */
 export type CuratedProductSupabase = Pick<SupabaseClient, "from">;
@@ -950,6 +950,120 @@ export async function retireCuratedProductSource(
       if (error) throw error;
     },
     { subjectId: sourceId },
+  );
+}
+
+export type CuratedProductSelectionInput = {
+  productId: string;
+  trailSlug: string;
+  sectionKey: string;
+  position?: number;
+  rationaleZh: string;
+  rationaleEn?: string | null;
+};
+
+export type CuratedProductSelectionKey = Pick<
+  CuratedProductSelectionInput,
+  "productId" | "trailSlug" | "sectionKey"
+>;
+
+async function validateSelectionInput(
+  input: CuratedProductSelectionInput,
+): Promise<{
+  trailSlug: string;
+  sectionKey: string;
+  position: number;
+  rationaleZh: string;
+  rationaleEn: string | null;
+}> {
+  const trailSlug = input.trailSlug.trim();
+  const sectionKey = input.sectionKey.trim();
+  const rationaleZh = input.rationaleZh.trim();
+  const position = input.position ?? 0;
+  if (!trailSlug || !sectionKey) {
+    throw new Error("Trail and section are required for a product placement");
+  }
+  if (!Number.isInteger(position) || position < 0) {
+    throw new Error("Trail placement position must be a non-negative integer");
+  }
+  if (!rationaleZh) {
+    throw new Error("A Chinese selection rationale is required");
+  }
+
+  const trail = await getTrailBySlug(trailSlug);
+  if (!trail) throw new Error(`Unknown discovery trail: ${trailSlug}`);
+  if (!trail.entry.frontmatter.sections.some((section) => section.key === sectionKey)) {
+    throw new Error(`Unknown section "${sectionKey}" for discovery trail "${trailSlug}"`);
+  }
+
+  return {
+    trailSlug,
+    sectionKey,
+    position,
+    rationaleZh,
+    rationaleEn: input.rationaleEn?.trim() || null,
+  };
+}
+
+/** Places or updates a product on the composite selection primary key. */
+export async function upsertCuratedProductSelection(
+  input: CuratedProductSelectionInput,
+  client?: CuratedProductSupabase,
+): Promise<void> {
+  return auditedCall(
+    {
+      provider: "curatedProducts",
+      operation: "upsertCuratedProductSelection",
+      kind: "service",
+    },
+    async () => {
+      const validated = await validateSelectionInput(input);
+      const { error } = await curatedProductClient(client)
+        .from("curated_product_selections")
+        .upsert(
+          {
+            product_id: input.productId,
+            trail_slug: validated.trailSlug,
+            section_key: validated.sectionKey,
+            position: validated.position,
+            rationale_zh: validated.rationaleZh,
+            rationale_en: validated.rationaleEn,
+            state: "active",
+          },
+          { onConflict: "product_id,trail_slug,section_key" },
+        );
+      if (error) throw error;
+    },
+    { subjectId: input.productId },
+  );
+}
+
+/** Retires a placement in place so its history remains auditable. */
+export async function retireCuratedProductSelection(
+  input: CuratedProductSelectionKey,
+  client?: CuratedProductSupabase,
+): Promise<void> {
+  return auditedCall(
+    {
+      provider: "curatedProducts",
+      operation: "retireCuratedProductSelection",
+      kind: "service",
+    },
+    async () => {
+      const trailSlug = input.trailSlug.trim();
+      const sectionKey = input.sectionKey.trim();
+      if (!trailSlug || !sectionKey) {
+        throw new Error("Trail and section are required for a product placement");
+      }
+      const { error } = await curatedProductClient(client)
+        .from("curated_product_selections")
+        .update({ state: "retired" })
+        .eq("product_id", input.productId)
+        .eq("trail_slug", trailSlug)
+        .eq("section_key", sectionKey);
+      if (error) throw error;
+    },
+    { subjectId: input.productId },
   );
 }
 

@@ -6,10 +6,12 @@ import {
   getPublishedCuratedProductsForHomepage,
   getPublishedCuratedProductsForBrand,
   getPublishedCuratedProductsForTrail,
+  retireCuratedProductSelection,
   promoteCuratedProduct,
   retireCuratedProduct,
   retireCuratedProductSource,
   updateCuratedProduct,
+  upsertCuratedProductSelection,
   type CuratedProductSupabase,
 } from "../curated-products";
 
@@ -700,6 +702,7 @@ type WriteCalls = {
   table: string[];
   insert: Record<string, unknown>[];
   update: Record<string, unknown>[];
+  upsert: Record<string, unknown>[];
   eq: [string, unknown][];
   in: [string, unknown[]][];
 };
@@ -724,6 +727,7 @@ function stubWriteClient(replies: WriteReply[]): {
     table: [],
     insert: [],
     update: [],
+    upsert: [],
     eq: [],
     in: [],
   };
@@ -744,6 +748,10 @@ function stubWriteClient(replies: WriteReply[]): {
     },
     update(payload: Record<string, unknown>) {
       calls.update.push(payload);
+      return chain;
+    },
+    upsert(payload: Record<string, unknown>) {
+      calls.upsert.push(payload);
       return chain;
     },
     eq(column: string, value: unknown) {
@@ -948,6 +956,50 @@ describe("createCuratedProduct", () => {
 });
 
 describe("curated product writers", () => {
+  it("upserts a trail selection on its composite key without highlight fields", async () => {
+    const { client, calls } = stubWriteClient([{}]);
+
+    await upsertCuratedProductSelection(
+      {
+        productId: PRODUCT_ID,
+        trailSlug: "small-space-reading-corner",
+        sectionKey: "light-first",
+        position: 2,
+        rationaleZh: "在桌面上保留閱讀的餘裕。",
+        rationaleEn: "Keeps room for reading on the desk.",
+      },
+      client,
+    );
+
+    expect(calls.table).toContain("curated_product_selections");
+    expect(calls.upsert.at(0)).toEqual({
+      product_id: PRODUCT_ID,
+      trail_slug: "small-space-reading-corner",
+      section_key: "light-first",
+      position: 2,
+      rationale_zh: "在桌面上保留閱讀的餘裕。",
+      rationale_en: "Keeps room for reading on the desk.",
+      state: "active",
+    });
+    expect(Object.keys(calls.upsert.at(0) ?? {})).not.toContain("highlight_position");
+  });
+
+  it("retires a trail selection without deleting it", async () => {
+    const { client, calls } = stubWriteClient([{}]);
+
+    await retireCuratedProductSelection(
+      {
+        productId: PRODUCT_ID,
+        trailSlug: "small-space-reading-corner",
+        sectionKey: "light-first",
+      },
+      client,
+    );
+
+    expect(calls.update.at(0)).toEqual({ state: "retired" });
+    expect(calls.table).toContain("curated_product_selections");
+  });
+
   it("update_never_writes_link_state — link health is owned by the link checker", async () => {
     const { client, calls } = stubWriteClient([{}]);
 
