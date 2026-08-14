@@ -224,6 +224,60 @@ function toCuratedProduct(row: CuratedProductReadRow): CuratedProduct {
   };
 }
 
+/**
+ * Maps one active trail placement without inheriting brand-page highlight
+ * copy. A product may appear in several trails, so this mapper keeps the
+ * placement's own rationale and position as the source of truth for every
+ * card returned by the trail projection.
+ */
+function toTrailProduct(
+  row: TrailCuratedProductRow,
+  selection: CuratedProductSelectionRow,
+): TrailCuratedProduct {
+  const brand = row.brands;
+  if (!brand) throw new Error(`Trail product ${row.id} is missing its brand`);
+
+  return {
+    id: row.id,
+    brandId: row.brand_id,
+    key: row.key,
+    nameZh: row.name_zh,
+    nameEn: row.name_en ?? null,
+    l1: row.l1,
+    l2: row.l2 ?? [],
+    officialUrl: row.official_url ?? null,
+    imageUrl: row.image_url ?? null,
+    imageSourceUrl: row.image_source_url ?? null,
+    imageUsage: row.image_usage,
+    lifecycle: row.lifecycle,
+    linkState: row.link_state,
+    linkCheckedAt: row.link_checked_at ?? null,
+    sourceCheckedAt: row.source_checked_at ?? null,
+    reviewDueAt: row.review_due_at ?? null,
+    notesZh: row.notes_zh ?? null,
+    notesEn: row.notes_en ?? null,
+    highlightPosition: row.highlight_position ?? null,
+    createdAt: row.created_at,
+    trailSlug: selection.trail_slug,
+    sectionKey: selection.section_key,
+    position: selection.position,
+    rationaleZh: selection.rationale_zh ?? null,
+    rationaleEn: selection.rationale_en ?? null,
+    brandSlug: brand.slug,
+    brandName: brand.name,
+    brand: {
+      slug: brand.slug,
+      purchaseWebsite: brand.purchase_website,
+      purchasePinkoi: brand.purchase_pinkoi,
+      purchaseShopee: brand.purchase_shopee,
+      purchaseMyship: brand.purchase_myship,
+      socialInstagram: brand.social_instagram,
+      socialThreads: brand.social_threads,
+      socialFacebook: brand.social_facebook,
+    },
+  };
+}
+
 /** An unhighlighted product sorts last rather than jumping ahead of highlights. */
 const UNPLACED = Number.MAX_SAFE_INTEGER;
 
@@ -456,30 +510,7 @@ export async function getPublishedCuratedProductsForTrail(
     );
 
     for (const selection of selections) {
-      const product = toCuratedProduct({
-        ...row,
-        curated_product_selections: [selection],
-      });
-      products.push({
-        ...product,
-        trailSlug: selection.trail_slug,
-        sectionKey: selection.section_key,
-        position: selection.position,
-        rationaleZh: selection.rationale_zh ?? null,
-        rationaleEn: selection.rationale_en ?? null,
-        brandSlug: row.brands.slug,
-        brandName: row.brands.name,
-        brand: {
-          slug: row.brands.slug,
-          purchaseWebsite: row.brands.purchase_website,
-          purchasePinkoi: row.brands.purchase_pinkoi,
-          purchaseShopee: row.brands.purchase_shopee,
-          purchaseMyship: row.brands.purchase_myship,
-          socialInstagram: row.brands.social_instagram,
-          socialThreads: row.brands.social_threads,
-          socialFacebook: row.brands.social_facebook,
-        },
-      });
+      products.push(toTrailProduct(row, selection));
     }
   }
 

@@ -56,6 +56,8 @@ export function TrailProducts({ section }: { section: string }) {
             brandSlug: product.brandSlug,
             position: index,
             surface: `trail:${context.trailSlug}:${section}`,
+            referrerPage: `/discover/${context.trailSlug}`,
+            brandId: product.brandId,
           }}
         />
       ))}

@@ -14,6 +14,7 @@ const fixtureStems = [
   'loader-malformed-fixture',
   'checker-slug-fixture',
   'checker-sections-fixture',
+  'checker-tags-fixture',
 ]
 
 function writeTrail(stem: string, frontmatter: string, body = 'Body') {
@@ -174,5 +175,23 @@ describe('trail frontmatter checker', () => {
     )
 
     expect(() => execFileSync(process.execPath, [checker], { encoding: 'utf8' })).toThrow()
+  })
+
+  it('rejects unknown tags while accepting a valid L1 product category slug', () => {
+    const stem = 'checker-tags-fixture'
+    for (const staleStem of [
+      'checker-slug-fixture',
+      'checker-sections-fixture',
+      'loader-malformed-fixture',
+    ]) {
+      rmSync(join(trailsDir, `${staleStem}.mdx`), { force: true })
+    }
+    writeTrail(stem, validFrontmatter(stem).replace('  - home', '  - not-a-category'))
+
+    expect(() => execFileSync(process.execPath, [checker], { encoding: 'utf8' })).toThrow()
+
+    writeTrail(stem, validFrontmatter(stem).replace('  - home', '  - outdoor'))
+
+    expect(() => execFileSync(process.execPath, [checker], { encoding: 'utf8' })).not.toThrow()
   })
 })

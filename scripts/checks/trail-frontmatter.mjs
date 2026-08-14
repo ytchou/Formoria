@@ -14,6 +14,20 @@ const PUBLIC_DIR = 'public'
 const FAQ_MIN = 4
 const FAQ_MAX = 6
 const LOCALES = new Set(['zh-TW', 'en'])
+const PRODUCT_TYPE_CATEGORIES = new Set([
+  'fashion',
+  'bags-accessories',
+  'jewelry',
+  'beauty',
+  'home',
+  'food-drink',
+  'crafts',
+  'stationery',
+  'tech',
+  'outdoor',
+  'fitness',
+  'kids-pets',
+])
 
 const failures = []
 
@@ -56,6 +70,14 @@ function checkTrail(file, raw) {
 
   if (!Array.isArray(data.tags) || data.tags.length === 0) {
     fileFailures.push(`${file}: \`tags\` must be a non-empty array`)
+  } else {
+    data.tags.forEach((tag, index) => {
+      if (typeof tag !== 'string' || !PRODUCT_TYPE_CATEGORIES.has(tag)) {
+        fileFailures.push(
+          `${file}: \`tags[${index}]\` must be a PRODUCT_TYPE_CATEGORIES slug`,
+        )
+      }
+    })
   }
 
   if (!Array.isArray(data.sections) || data.sections.length === 0) {

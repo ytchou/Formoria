@@ -218,6 +218,7 @@ export type ExternalLinkSurface =
   | 'card'
   | 'recommendation'
   | 'selected_product'
+  | `trail:${string}:${string}`
 
 export function trackExternalLinkClicked(
   slug: string,

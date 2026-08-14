@@ -12,6 +12,7 @@ import {
   retireCuratedProductSource,
   upsertCuratedProductSelection,
 } from "../curated-products";
+import { getTrailBySlug } from "../trails";
 
 type SeedProduct = {
   key: string;
@@ -674,19 +675,23 @@ describeWithDb("published curated products for a brand", () => {
   });
 
   it("every trail_slug in the table resolves to a trail file", async () => {
-    await seedBrand([
-      {
-        key: "linked-trail",
-        selections: [{ trailSlug: "small-space-reading-corner", position: 1 }],
-      },
-    ]);
+    const { data, error } = await supabase
+      .from("curated_product_selections")
+      .select("trail_slug");
+    expect(error).toBeNull();
 
-    const products = await getPublishedCuratedProductsForTrail(
-      "small-space-reading-corner",
-      supabase,
-    );
+    const trailSlugs = [
+      ...new Set(
+        (data ?? [])
+          .map((selection) => selection.trail_slug)
+          .filter((slug): slug is string => Boolean(slug)),
+      ),
+    ].sort();
 
-    expect(products.every((product) => product.trailSlug === "small-space-reading-corner")).toBe(true);
+    for (const trailSlug of trailSlugs) {
+      const trail = await getTrailBySlug(trailSlug);
+      expect(trail, `orphaned curated placement: ${trailSlug}`).not.toBeNull();
+    }
   });
 });
 

@@ -14,6 +14,7 @@ import type { CuratedProduct } from "@/lib/services/curated-products";
 import { sanitizeHref } from "@/lib/url";
 import { BrandImageFallback } from "./brand-image-fallback";
 import { SelectedProductTileLink } from "./selected-product-tile-link";
+import { SelectedProductExternalLink } from "./selected-product-external-link";
 
 export type SelectedProductTileLabels = {
   cta: string;
@@ -38,6 +39,8 @@ export type SelectedProductTileProps = {
     brandSlug: string;
     position: number;
     surface: string;
+    referrerPage?: string;
+    brandId?: string;
   };
 };
 
@@ -185,22 +188,33 @@ export function SelectedProductTile({
         ) : null}
 
         {(mode === "outbound" || mode === "trail") && chipHref ? (
-          <a
-            href={chipHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={chipClassName}
-            data-brand-slug={brand?.slug}
-            data-link-type={chipLinkType}
-            data-link-surface={
-              mode === "trail"
-                ? tracking?.surface ?? "trail"
-                : "selected_product"
-            }
-          >
-            <span className="min-w-0 truncate">{chipLabel}</span>
-            {isBroken ? null : <span className="sr-only">{`: ${name}`}</span>}
-          </a>
+          mode === "trail" && tracking && brand ? (
+            <SelectedProductExternalLink
+              href={chipHref}
+              brandSlug={brand.slug}
+              linkType={chipLinkType}
+              referrerPage={tracking.referrerPage ?? "/discover"}
+              surface={tracking.surface as `trail:${string}:${string}`}
+              brandId={tracking.brandId}
+              className={chipClassName}
+            >
+              <span className="min-w-0 truncate">{chipLabel}</span>
+              {isBroken ? null : <span className="sr-only">{`: ${name}`}</span>}
+            </SelectedProductExternalLink>
+          ) : (
+            <a
+              href={chipHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={chipClassName}
+              data-brand-slug={brand?.slug}
+              data-link-type={chipLinkType}
+              data-link-surface="selected_product"
+            >
+              <span className="min-w-0 truncate">{chipLabel}</span>
+              {isBroken ? null : <span className="sr-only">{`: ${name}`}</span>}
+            </a>
+          )
         ) : null}
       </div>
     </>

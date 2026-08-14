@@ -4,6 +4,7 @@ import {
   CURATED_LINK_WRITE_COLUMNS,
   applyLinkStates,
   classify,
+  groupLinkChecksByTrail,
   loadProducts,
   probe,
   selectReviewDue,
@@ -326,6 +327,58 @@ describe("applyLinkStates", () => {
     };
     return { client, writes };
   }
+
+  it("groups link health by every active trail placement", () => {
+    const checks: LinkCheck[] = [
+      {
+        row: productRow({
+          curated_product_selections: [
+            { trail_slug: "small-space-reading-corner", state: "active" },
+            { trail_slug: "gifting", state: "active" },
+          ],
+        }),
+        classification: classify({
+          requestedUrl: "https://hanchor.com/products/alpine-shell",
+          resolvedUrl: "https://hanchor.com/collections/outerwear",
+          status: 301,
+        }),
+        changed: true,
+      },
+      {
+        row: productRow({
+          id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+          key: "trail-cap",
+          brands: { slug: "another-brand" },
+          curated_product_selections: [
+            { trail_slug: "small-space-reading-corner", state: "active" },
+          ],
+        }),
+        classification: classify({
+          requestedUrl: "https://another-brand.example/trail-cap",
+          resolvedUrl: "https://another-brand.example/trail-cap",
+          status: 403,
+        }),
+        changed: false,
+      },
+    ];
+
+    expect(groupLinkChecksByTrail(checks)).toEqual([
+      {
+        trailSlug: "gifting",
+        products: 1,
+        changed: 1,
+        blocked: 0,
+        brands: ["hanchor"],
+      },
+      {
+        trailSlug: "small-space-reading-corner",
+        products: 2,
+        changed: 1,
+        blocked: 1,
+        brands: ["another-brand", "hanchor"],
+      },
+    ]);
+  });
 
   it("writes link_state and link_checked_at and nothing else", async () => {
     const { client, writes } = recordingWriter();
