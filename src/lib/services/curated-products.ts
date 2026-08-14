@@ -469,8 +469,6 @@ export async function getPublishedCuratedProductsForTrail(
     .eq("brands.status", "approved");
 
   if (error) {
-    const code = (error as { code?: string }).code;
-    if (code === MISSING_TABLE_CODE || code === MISSING_COLUMN_CODE) return [];
     throw error;
   }
 

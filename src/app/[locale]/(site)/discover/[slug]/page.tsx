@@ -8,7 +8,9 @@ import { BrandSectionNav } from "@/components/brands/brand-section-nav";
 import { ViewItemListTracker } from "@/components/analytics/view-item-list-tracker";
 import type { SelectedProductTileLabels } from "@/components/brands/selected-product-tile";
 import { FaqBlock } from "@/components/stories/faq-block";
+import { RelatedStoryLink } from "@/components/stories/related-story-link";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
+import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import { trailIndexBlockers, type TrailIndexBlocker } from "@/lib/seo/trail-indexability";
 import {
   buildArticleJsonLd,
@@ -33,11 +35,13 @@ export const revalidate = 3600;
 const getTrailPageData = cache(
   async (slug: string): Promise<{
     trail: TrailDetailResult | null;
-    products: TrailCuratedProduct[];
+    products: TrailCuratedProduct[] | null;
   }> => {
     const [trail, products] = await Promise.all([
       getPublishedTrailBySlug(slug),
-      getPublishedCuratedProductsForTrail(slug),
+      getPublishedCuratedProductsForTrail(slug).catch(
+        captureReadFailure("discover.trail.products"),
+      ),
     ]);
     return { trail, products };
   },
@@ -92,7 +96,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return buildTrailMetadata({
     locale,
     trail: trail.entry,
-    blockers: trailIndexBlockers({ frontmatter: trail.entry.frontmatter, products }),
+    blockers: trailIndexBlockers({
+      frontmatter: trail.entry.frontmatter,
+      products: products ?? [],
+    }),
   });
 }
 
@@ -133,6 +140,35 @@ function relatedLinks(
   );
 }
 
+function relatedStoryLinks(
+  title: string,
+  values: string[],
+): React.ReactNode {
+  if (values.length === 0) return null;
+  return (
+    <section aria-labelledby="stories-related" className="space-y-3">
+      <h2 id="stories-related" className="type-section-title">
+        {title}
+      </h2>
+      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body">
+        {values.map((value, position) => (
+          <li key={value}>
+            <RelatedStoryLink
+              href={`/stories/${encodeURIComponent(value)}`}
+              storySlug={value}
+              position={position}
+              storySurface="trail_related_stories"
+              className="text-primary underline underline-offset-4 hover:text-primary-dark"
+            >
+              {value}
+            </RelatedStoryLink>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export default async function DiscoverTrailPage({ params }: PageProps) {
   const { locale, slug: rawSlug } = await params;
   const slug = decodeURIComponent(rawSlug);
@@ -142,6 +178,8 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
   const { trail, products } = await getTrailPageData(slug);
 
   if (!trail) notFound();
+  if (products === null) await markRenderDegraded("discover.trail.products");
+  const safeProducts = products ?? [];
 
   const entry = trail.entry;
   const frontmatter = entry.frontmatter;
@@ -180,8 +218,8 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
             __html: safeJsonLdStringify(breadcrumbJsonLd),
           }}
         />
-        {products.length > 0 ? (
-          <ViewItemListTracker listName={`trail:${slug}`} itemCount={products.length} />
+        {safeProducts.length > 0 ? (
+          <ViewItemListTracker listName={`trail:${slug}`} itemCount={safeProducts.length} />
         ) : null}
         <header className="max-w-[720px] space-y-4">
           <h1 className="type-page-title-large">{frontmatter.title}</h1>
@@ -200,14 +238,14 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
             source={trail.content}
             trailSlug={slug}
             locale={safeLocale}
-            products={products}
+            products={safeProducts}
             labels={trailLabels(t)}
           />
         </div>
         {frontmatter.faq.length > 0 ? <FaqBlock questions={frontmatter.faq} /> : null}
         <div className="max-w-[720px] space-y-8">
           {relatedLinks(t("relatedCategories"), frontmatter.relatedCategories, "/categories")}
-          {relatedLinks(t("relatedStories"), frontmatter.relatedStories, "/stories")}
+          {relatedStoryLinks(t("relatedStories"), frontmatter.relatedStories)}
           {relatedLinks(t("relatedTrails"), frontmatter.relatedTrails, "/discover")}
         </div>
       </article>

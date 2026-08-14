@@ -5,6 +5,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { StoryRow } from "@/components/stories/story-row";
+import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
 import { trailIndexBlockers } from "@/lib/seo/trail-indexability";
 import {
@@ -39,12 +40,18 @@ export function shouldIndexTrailHub(indexableSlugs: ReadonlySet<string>): boolea
 type TrailIndexabilityResult = {
   result: TrailListResult;
   indexableSlugs: Set<string>;
+  degraded: boolean;
 };
 
 const getTrailIndexability = cache(
   async (locale: Locale): Promise<TrailIndexabilityResult> => {
     const result = await getAllTrails(locale);
-    if (!result.ok) return { result, indexableSlugs: new Set() };
+    if (!result.ok) {
+      captureReadFailure("discover.hub.trails")(result.error);
+      return { result, indexableSlugs: new Set(), degraded: true };
+    }
+
+    let degraded = false;
 
     const checks = await Promise.all(
       result.trails.map(async (trail) => {
@@ -56,7 +63,9 @@ const getTrailIndexability = cache(
               trailIndexBlockers({ frontmatter: trail.frontmatter, products }).length ===
               0,
           };
-        } catch {
+        } catch (error) {
+          degraded = true;
+          captureReadFailure(`discover.hub.products.${trail.slug}`)(error);
           return { slug: trail.slug, clear: false };
         }
       }),
@@ -65,6 +74,7 @@ const getTrailIndexability = cache(
     return {
       result,
       indexableSlugs: new Set(checks.filter((check) => check.clear).map((check) => check.slug)),
+      degraded,
     };
   },
 );
@@ -99,7 +109,8 @@ export default async function DiscoverHubPage({ params, searchParams }: PageProp
   const t = await getTranslations({ locale, namespace: "discover" });
   const query = await searchParams;
   const activeTag = firstParam(query.tag);
-  const { result } = await getTrailIndexability(safeLocale);
+  const { result, degraded } = await getTrailIndexability(safeLocale);
+  if (degraded) await markRenderDegraded("discover.hub");
   const trails = result.ok ? filterTrailsByTag(result.trails, activeTag) : [];
 
   return (

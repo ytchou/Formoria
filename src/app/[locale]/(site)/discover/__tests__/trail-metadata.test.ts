@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import type { TrailEntry } from "@/lib/services/trails";
@@ -30,6 +31,43 @@ const trail: TrailEntry = {
 };
 
 describe("discovery trail metadata", () => {
+  it("keeps the MDX product context behind a client boundary", () => {
+    const source = readFileSync(
+      "src/components/trails/trail-products.tsx",
+      "utf8",
+    );
+
+    expect(source.startsWith("'use client'") || source.startsWith('"use client"')).toBe(
+      true,
+    );
+  });
+
+  it("captures discovery read failures before rendering the empty slate", () => {
+    const detailSource = readFileSync(
+      "src/app/[locale]/(site)/discover/[slug]/page.tsx",
+      "utf8",
+    );
+    const hubSource = readFileSync(
+      "src/app/[locale]/(site)/discover/page.tsx",
+      "utf8",
+    );
+
+    expect(detailSource).toContain('captureReadFailure("discover.trail.products")');
+    expect(detailSource).toContain('markRenderDegraded("discover.trail.products")');
+    expect(hubSource).toContain("captureReadFailure");
+    expect(hubSource).toContain('markRenderDegraded("discover.hub")');
+  });
+
+  it("tracks related story continuation links as story-card clicks", () => {
+    const detailSource = readFileSync(
+      "src/app/[locale]/(site)/discover/[slug]/page.tsx",
+      "utf8",
+    );
+
+    expect(detailSource).toContain("RelatedStoryLink");
+    expect(detailSource).toContain('storySurface="trail_related_stories"');
+  });
+
   it("emits robots noindex when blockers exist", () => {
     const metadata = buildTrailMetadata({
       locale: "en",

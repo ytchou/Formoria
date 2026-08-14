@@ -250,6 +250,16 @@ describe('analytics', () => {
     })
   })
 
+  it('story_card_clicked_carries the discovery trail continuation surface', () => {
+    trackStoryCardClicked('slow-living', 0, 'trail_related_stories')
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.STORY_CARD_CLICKED, {
+      story_slug: 'slow-living',
+      position: 0,
+      story_surface: 'trail_related_stories',
+    })
+  })
+
   it('brand_card_clicked_carries_list_source', () => {
     trackBrandCardClicked(
       'warmwood',

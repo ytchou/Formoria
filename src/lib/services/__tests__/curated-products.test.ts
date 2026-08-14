@@ -153,6 +153,22 @@ describe('getPublishedCuratedProductsForTrail', () => {
     ])
   })
 
+  it.each([
+    [
+      'PGRST205',
+      "Could not find the table 'public.curated_product_selections' in the schema cache",
+    ],
+    ['42703', 'column curated_products.highlight_position does not exist'],
+  ])('rethrows a missing trail-read schema dependency (%s) so the route can demote the render', async (code, message) => {
+    const { client } = stubClient({
+      error: { code, message },
+    })
+
+    await expect(
+      getPublishedCuratedProductsForTrail('small-space-reading-corner', client),
+    ).rejects.toMatchObject({ code })
+  })
+
   it('does not cap products per brand', async () => {
     const { client } = stubClient({
       data: [

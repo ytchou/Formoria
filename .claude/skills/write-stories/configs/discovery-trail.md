@@ -66,9 +66,9 @@ situation is not yet a trail. Say so in the hand-off instead of forcing it.
   gets wrong most: a baseline draft assumed a co-resident throughout and only
   noticed afterwards. Someone living alone must be able to read the whole piece
   without being written around. Same for budget, region, and body.
-- **Tag with every L1 branch represented in the slate**, which for a genuine
-  trail is more than one. A single product-type tag on a trail is a signal the
-  cross-category test failed.
+- **Tag with the L1 product category that best describes the trail**, such as
+  `home` for a reading-corner trail. One L1 tag is valid; diversity is evaluated
+  entirely by the L2 product subcategories represented in the slate.
 
 ## Shipped: the Trail surface
 
