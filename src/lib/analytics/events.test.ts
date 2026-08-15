@@ -64,6 +64,8 @@ const EVENT_NAME_SNAPSHOT = [
   'api_error_shown',
   'asset_uploaded',
   'challenge_verified',
+  'rate_limit_store_unavailable',
+  'rate_limit_store_recovered',
   'web_vital_reported',
   'feature_request_submitted',
   'feature_request_voted',

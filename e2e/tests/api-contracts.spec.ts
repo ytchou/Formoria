@@ -41,6 +41,10 @@ test.describe('API — health + search', () => {
     expect(resp.status()).toBe(200)
     const body = await resp.json()
     expect(body).toMatchObject({ status: 'ok' })
+    // The limiter's breaker state lives in the proxy's isolate and reaches this
+    // route only as a header proxy() stamps. Unit tests can feed that header by
+    // hand; only a real request proves the seam is wired end to end.
+    expect(body.rateLimitStore).toBe('ok')
   })
 
   test('GET /api/search with query returns results shape', async ({ request }) => {
