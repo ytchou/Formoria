@@ -88,16 +88,24 @@ jobs:
           set -euo pipefail
           staging_sha="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/staging | awk '{print $1}')"
           [[ "$staging_sha" =~ ^[0-9a-f]{40}$ ]] || exit 1
-          revision="$(curl --fail --silent --show-error --location \
+          response_body="$RUNNER_TEMP/staging-probe-body"
+          response_headers="$RUNNER_TEMP/staging-probe-headers"
+          http_code="$(curl --silent --show-error --location \
             -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
             -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
             -H "x-formoria-edge: $E2E_ORIGIN_SECRET" \
-            -D - -o /dev/null "$STAGING_BASE_URL/about" \
-            | awk -F': ' 'tolower($1) == "x-formoria-revision" {gsub("\\r", "", $2); print $2; exit}')"
-          [[ "$revision" == "$staging_sha" ]] || {
-            echo "::error::staging deployment is not at the current staging SHA"
-            exit 1
-          }
+            -D "$response_headers" -o "$response_body" -w '%{http_code}' \
+            "$STAGING_BASE_URL/about")"
+          revision="$(awk -F': ' 'tolower($1) == "x-formoria-revision" {gsub("\\r", "", $2); print $2; exit}' "$response_headers")"
+          if [[ "$http_code" == "200" && "$revision" == "$staging_sha" ]]; then exit 0; fi
+          classification="unknown"
+          if [[ "$(cat "$response_body")" == "Forbidden" ]]; then
+            classification="origin_guard"
+          elif grep -Eiq 'cloudflare|access|cdn-cgi' "$response_body"; then
+            classification="cloudflare_access"
+          fi
+          echo "::error::staging probe failed: HTTP $http_code, class=$classification, revision_present=$([[ -n "$revision" ]] && echo true || echo false)"
+          exit 1
       - run: pnpm exec playwright install --with-deps chromium
       - name: Run homepage wall regression set
         run: >-
