@@ -90,12 +90,9 @@ jobs:
           [[ "$staging_sha" =~ ^[0-9a-f]{40}$ ]] || exit 1
           response_body="$RUNNER_TEMP/staging-probe-body"
           response_headers="$RUNNER_TEMP/staging-probe-headers"
-          service_token_header="$(jq -cn \
-            --arg client_id "$CF_ACCESS_CLIENT_ID" \
-            --arg client_secret "$CF_ACCESS_CLIENT_SECRET" \
-            '{"cf-access-client-id": $client_id, "cf-access-client-secret": $client_secret}')"
           http_code="$(curl --silent --show-error --location \
-            -H "Authorization: $service_token_header" \
+            -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+            -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
             -H "x-formoria-edge: $E2E_ORIGIN_SECRET" \
             -D "$response_headers" -o "$response_body" -w '%{http_code}' \
             "$STAGING_BASE_URL/about")"
