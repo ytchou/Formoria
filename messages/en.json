@@ -372,8 +372,14 @@
       "purchase": "Purchase",
       "locations": "Retail locations",
       "selectedProducts": "Formoria Selected",
+      "events": "Event appearances",
       "faq": "FAQ",
       "backToTop": "Back to top"
+    },
+    "events": {
+      "heading": "Event appearances",
+      "note": "Where this brand has shown up in person.",
+      "boothLabel": "Booth {booth}"
     },
     "selectedProducts": {
       "heading": "Formoria Selected",

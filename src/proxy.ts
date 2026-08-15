@@ -21,8 +21,10 @@ import {
   checkSoftRateLimit,
   getClientIp,
   isLikelyCrawler,
+  isRateLimitStoreDegraded,
   isRouterRequest,
 } from "@/lib/security/rate-limiter";
+import { RATE_LIMIT_STORE_HEADER } from "@/lib/security/rate-limit-observability";
 import {
   hasApprovedBrandSlug,
   resolveApprovedBrandRedirect,
@@ -716,6 +718,16 @@ export async function proxy(request: NextRequest) {
     if (pathname === "/admin" || pathname.startsWith("/admin/")) {
       requestHeaders.set(NEXT_INTL_LOCALE_HEADER, ADMIN_DEFAULT_LOCALE);
     }
+    // Hand the limiter's breaker state to `/api/health`: middleware and route
+    // handlers are separate isolates, so the route cannot read the module-scoped
+    // breaker itself. Written on every pass, never conditionally --
+    // `new Headers(request.headers)` above copies any client-supplied value, so
+    // an unconditional overwrite is what makes the header unspoofable.
+    // `/api/health` is not a localized public path, so it always reaches here.
+    requestHeaders.set(
+      RATE_LIMIT_STORE_HEADER,
+      isRateLimitStoreDegraded() ? "degraded" : "ok",
+    );
     response = NextResponse.next({ request: { headers: requestHeaders } });
   }
 
