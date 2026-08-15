@@ -17,10 +17,16 @@ const isLocalTarget = ["localhost", "127.0.0.1", "::1"].includes(
   new URL(baseURL).hostname,
 );
 const isTargetedSelfheal = process.env.SELFHEAL_TARGETED === "true";
+const serviceTokenAuthorization =
+  process.env.CF_ACCESS_CLIENT_ID && process.env.CF_ACCESS_CLIENT_SECRET
+    ? JSON.stringify({
+        "cf-access-client-id": process.env.CF_ACCESS_CLIENT_ID,
+        "cf-access-client-secret": process.env.CF_ACCESS_CLIENT_SECRET,
+      })
+    : undefined;
 const remoteHeaders = Object.fromEntries(
   [
-    ["CF-Access-Client-Id", process.env.CF_ACCESS_CLIENT_ID],
-    ["CF-Access-Client-Secret", process.env.CF_ACCESS_CLIENT_SECRET],
+    ["Authorization", serviceTokenAuthorization],
     ["x-formoria-edge", process.env.E2E_ORIGIN_SECRET],
   ].filter((entry): entry is [string, string] => Boolean(entry[1])),
 );
