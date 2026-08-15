@@ -75,10 +75,9 @@ export function SelectedProductTile({
   const fact = isEnglish
     ? (product.notesEn ?? product.notesZh)
     : product.notesZh;
-  const imageSrc =
-    RENDERABLE_IMAGE_USAGE.has(product.imageUsage)
-      ? safeImageSrc(product.imageUrl)
-      : null;
+  const imageSrc = RENDERABLE_IMAGE_USAGE.has(product.imageUsage)
+    ? safeImageSrc(product.imageUrl)
+    : null;
   const isBroken = product.linkState === BROKEN_LINK_STATE;
   const isWallAnchor = mode === "wall" && span === "2x2";
   const visitLink =
@@ -123,20 +122,21 @@ export function SelectedProductTile({
     size: "compact",
     className: "mx-4 mb-4 justify-center",
   });
-  const wallBrandSiteLink = isWallAnchor && visitLink ? (
-    <a
-      href={visitLink.href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={wallBrandSiteClassName}
-      data-brand-slug={brand?.slug}
-      data-link-type="brand_site"
-      data-link-surface="selected_product"
-    >
-      <span className="min-w-0 truncate">{labels.brandSiteCta}</span>
-      <span className="sr-only">{`: ${brandName ?? name}`}</span>
-    </a>
-  ) : null;
+  const wallBrandSiteLink =
+    isWallAnchor && visitLink ? (
+      <a
+        href={visitLink.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={wallBrandSiteClassName}
+        data-brand-slug={brand?.slug}
+        data-link-type="brand_site"
+        data-link-surface="selected_product"
+      >
+        <span className="min-w-0 truncate">{labels.brandSiteCta}</span>
+        <span className="sr-only">{`: ${brandName ?? name}`}</span>
+      </a>
+    ) : null;
 
   const content = (
     <>
@@ -176,7 +176,11 @@ export function SelectedProductTile({
               position={tracking.position}
               surface={tracking.surface}
             >
-              <Typography as="h3" variant="cardTitle" className="hover:text-primary">
+              <Typography
+                as="h3"
+                variant="cardTitle"
+                className="hover:text-primary"
+              >
                 {name}
               </Typography>
             </SelectedProductTileLink>
@@ -186,7 +190,11 @@ export function SelectedProductTile({
               className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               data-ph-no-autocapture
             >
-              <Typography as="h3" variant="cardTitle" className="hover:text-primary">
+              <Typography
+                as="h3"
+                variant="cardTitle"
+                className="hover:text-primary"
+              >
                 {name}
               </Typography>
             </Link>
@@ -221,7 +229,12 @@ export function SelectedProductTile({
                 : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
             )}
           >
-            <Typography as="p" variant="body" className="line-clamp-2">
+            <Typography
+              as="p"
+              variant="body"
+              className="line-clamp-2"
+              data-selection-rationale={reason}
+            >
               {reason}
             </Typography>
           </div>
@@ -321,29 +334,27 @@ export function SelectedProductTile({
             )}
             {wallBrandSiteLink}
           </div>
+        ) : tracking ? (
+          <SelectedProductTileLink
+            href={internalHref}
+            prefetch={false}
+            className={internalClassName}
+            productKey={product.key}
+            brandSlug={tracking.brandSlug}
+            position={tracking.position}
+            surface={tracking.surface}
+          >
+            {content}
+          </SelectedProductTileLink>
         ) : (
-          tracking ? (
-            <SelectedProductTileLink
-              href={internalHref}
-              prefetch={false}
-              className={internalClassName}
-              productKey={product.key}
-              brandSlug={tracking.brandSlug}
-              position={tracking.position}
-              surface={tracking.surface}
-            >
-              {content}
-            </SelectedProductTileLink>
-          ) : (
-            <Link
-              href={internalHref}
-              prefetch={false}
-              className={internalClassName}
-              data-ph-no-autocapture
-            >
-              {content}
-            </Link>
-          )
+          <Link
+            href={internalHref}
+            prefetch={false}
+            className={internalClassName}
+            data-ph-no-autocapture
+          >
+            {content}
+          </Link>
         )
       ) : mode === "internal" ? (
         tracking ? (
