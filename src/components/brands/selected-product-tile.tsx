@@ -29,7 +29,9 @@ export type SelectedProductTileProps = {
   locale: AppLocale;
   product: CuratedProduct;
   labels: SelectedProductTileLabels;
-  mode: "outbound" | "internal" | "trail";
+  mode: "outbound" | "internal" | "trail" | "wall";
+  /** Wall geometry; ignored by the existing brand and trail variants. */
+  span?: "1x1" | "2x1" | "2x2";
   /** Existing brand-page fields used by the outbound chip. */
   brand?: BrandVisitLinkFields & { slug: string };
   /** Homepage-only destination and visible brand name. */
@@ -46,7 +48,7 @@ export type SelectedProductTileProps = {
 };
 
 const BROKEN_LINK_STATE = "broken";
-const RENDERABLE_IMAGE_USAGE = "permitted";
+const RENDERABLE_IMAGE_USAGE = new Set(["permitted", "licensed"]);
 
 /**
  * The selected-product tile stays server-rendered. Outbound product chips
@@ -59,6 +61,7 @@ export function SelectedProductTile({
   product,
   labels,
   mode,
+  span = "1x1",
   brand,
   brandSlug,
   brandName,
@@ -73,12 +76,13 @@ export function SelectedProductTile({
     ? (product.notesEn ?? product.notesZh)
     : product.notesZh;
   const imageSrc =
-    product.imageUsage === RENDERABLE_IMAGE_USAGE
+    RENDERABLE_IMAGE_USAGE.has(product.imageUsage)
       ? safeImageSrc(product.imageUrl)
       : null;
   const isBroken = product.linkState === BROKEN_LINK_STATE;
+  const isWallAnchor = mode === "wall" && span === "2x2";
   const visitLink =
-    (mode === "outbound" || mode === "trail") && brand
+    (mode === "outbound" || mode === "trail" || isWallAnchor) && brand
       ? getBrandVisitLink(brand)
       : null;
   const productHref = sanitizeHref(product.officialUrl);
@@ -98,6 +102,41 @@ export function SelectedProductTile({
   const internalHref = `/brands/${destinationSlug}#product-${product.key}`;
   const internalClassName =
     "group flex h-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-3";
+  const wallImageSizes =
+    span === "1x1"
+      ? "(max-width: 640px) 50vw, 25vw"
+      : "(max-width: 640px) 100vw, 50vw";
+  const wallSpanClass =
+    mode === "wall"
+      ? span === "2x2"
+        ? "col-span-2 row-span-2"
+        : span === "2x1"
+          ? "col-span-2"
+          : undefined
+      : undefined;
+  const wallBadgeClass = imageSrc
+    ? "absolute top-3 left-3 z-10 bg-foreground text-background"
+    : "absolute top-3 left-3 z-10 border-border bg-card text-foreground";
+  const wallBrandSiteClassName = buttonVariants({
+    variant: "secondary",
+    shape: "pill",
+    size: "compact",
+    className: "mx-4 mb-4 justify-center",
+  });
+  const wallBrandSiteLink = isWallAnchor && visitLink ? (
+    <a
+      href={visitLink.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={wallBrandSiteClassName}
+      data-brand-slug={brand?.slug}
+      data-link-type="brand_site"
+      data-link-surface="selected_product"
+    >
+      <span className="min-w-0 truncate">{labels.brandSiteCta}</span>
+      <span className="sr-only">{`: ${brandName ?? name}`}</span>
+    </a>
+  ) : null;
 
   const content = (
     <>
@@ -108,15 +147,22 @@ export function SelectedProductTile({
             alt={name}
             fill
             className={
-              mode === "internal"
+              mode === "internal" || mode === "wall"
                 ? "object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                 : "object-cover"
             }
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            sizes={
+              mode === "wall"
+                ? wallImageSizes
+                : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            }
           />
         ) : (
           <BrandImageFallback name={name} category={product.l1} size="card" />
         )}
+        {mode === "wall" ? (
+          <Badge className={wallBadgeClass}>{labels.selectedBadge}</Badge>
+        ) : null}
       </div>
 
       <div className="flex flex-1 flex-col gap-2 p-4">
@@ -150,20 +196,36 @@ export function SelectedProductTile({
             as="h3"
             variant="cardTitle"
             className={
-              mode === "internal" ? "group-hover:text-primary" : undefined
+              mode === "internal" || mode === "wall"
+                ? "group-hover:text-primary"
+                : undefined
             }
           >
             {name}
           </Typography>
         )}
 
-        {(mode === "internal" || mode === "trail") && brandName ? (
+        {(mode === "internal" || mode === "trail" || mode === "wall") &&
+        brandName ? (
           <Typography as="p" variant="metadata">
             {brandName}
           </Typography>
         ) : null}
 
-        {reason ? (
+        {mode === "wall" ? (
+          <div
+            className={cn(
+              "h-12 overflow-hidden transition-opacity duration-300 max-sm:h-0 max-sm:opacity-0",
+              span === "2x2"
+                ? "opacity-100"
+                : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+            )}
+          >
+            <Typography as="p" variant="body" className="line-clamp-2">
+              {reason}
+            </Typography>
+          </div>
+        ) : reason ? (
           <>
             <Typography as="p" variant="body">
               {reason}
@@ -174,7 +236,7 @@ export function SelectedProductTile({
           </>
         ) : null}
 
-        {fact ? (
+        {mode !== "wall" && fact ? (
           <>
             <Typography as="p" variant="metadata">
               {fact}
@@ -185,7 +247,7 @@ export function SelectedProductTile({
           </>
         ) : null}
 
-        {isBroken ? (
+        {mode !== "wall" && isBroken ? (
           <Typography as="p" variant="metadata">
             {labels.unavailable}
           </Typography>
@@ -229,10 +291,33 @@ export function SelectedProductTile({
       id={`product-${product.key}`}
       className={surfaceCardStyles({
         padding: "none",
-        className: "flex flex-col overflow-hidden",
+        className: cn("flex flex-col overflow-hidden", wallSpanClass),
       })}
     >
-      {mode === "internal" ? (
+      {mode === "wall" ? (
+        isWallAnchor ? (
+          <div className="flex h-full flex-col">
+            <Link
+              href={internalHref}
+              prefetch={false}
+              className={internalClassName}
+              data-ph-no-autocapture
+            >
+              {content}
+            </Link>
+            {wallBrandSiteLink}
+          </div>
+        ) : (
+          <Link
+            href={internalHref}
+            prefetch={false}
+            className={internalClassName}
+            data-ph-no-autocapture
+          >
+            {content}
+          </Link>
+        )
+      ) : mode === "internal" ? (
         tracking ? (
           <SelectedProductTileLink
             href={internalHref}

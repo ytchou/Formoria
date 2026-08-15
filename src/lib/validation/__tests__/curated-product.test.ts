@@ -182,6 +182,47 @@ describe("curated product validation", () => {
     ).toBe(true);
   });
 
+  it("accepts a non-negative wallPosition", () => {
+    expect(
+      curatedProductCreateSchema.safeParse(validCreate({ wallPosition: 0 }))
+        .success,
+    ).toBe(true);
+    expect(curatedProductUpdateSchema.safeParse({ wallPosition: 0 }).success).toBe(
+      true,
+    );
+  });
+
+  it("rejects a negative wallPosition", () => {
+    const result = curatedProductUpdateSchema.safeParse({ wallPosition: -1 });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues).toContainEqual(
+      expect.objectContaining({ path: ["wallPosition"] }),
+    );
+  });
+
+  it("clears wallPosition when sent as null and skips it when absent", () => {
+    const cleared = curatedProductUpdateSchema.safeParse({ wallPosition: null });
+    const untouched = curatedProductUpdateSchema.safeParse({});
+
+    expect(cleared.success).toBe(true);
+    expect(untouched.success).toBe(true);
+    if (!cleared.success || !untouched.success) return;
+    expect(cleared.data.wallPosition).toBeNull();
+    expect(untouched.data.wallPosition).toBeUndefined();
+  });
+
+  it("does not require a rationale for wallPosition", () => {
+    expect(
+      curatedProductCreateSchema.safeParse(validCreate({ wallPosition: 3 }))
+        .success,
+    ).toBe(true);
+    expect(curatedProductUpdateSchema.safeParse({ wallPosition: 3 }).success).toBe(
+      true,
+    );
+  });
+
   it("rejects a negative highlight position", () => {
     const result = curatedProductUpdateSchema.safeParse({
       highlightPosition: -1,
