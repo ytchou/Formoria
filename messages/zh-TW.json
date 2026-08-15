@@ -378,8 +378,14 @@
       "purchase": "購買資訊",
       "locations": "販售地點",
       "selectedProducts": "Formoria 選物",
+      "events": "展會紀錄",
       "faq": "常見問題",
       "backToTop": "置頂"
+    },
+    "events": {
+      "heading": "展會紀錄",
+      "note": "這個品牌實際參展的紀錄。",
+      "boothLabel": "攤位 {booth}"
     },
     "selectedProducts": {
       "heading": "Formoria 選物",

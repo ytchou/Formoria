@@ -567,6 +567,23 @@ export const ANALYTICS_EVENTS = {
   CHALLENGE_VERIFIED: 'challenge_verified',
 
   /**
+   * Server-side: the rate limiter could not reach its backing store and opened
+   * its fail-open breaker. The name deliberately matches the `console.error`
+   * line in `security/rate-limiter.ts`, so the log and the event are one signal.
+   * Emitted from the edge runtime, where Sentry cannot see anything.
+   * @property error_message {string} Message from the store rejection (e.g. an Upstash quota error).
+   * @property cooldown_ms {number} How long the breaker stays open before re-probing.
+   */
+  RATE_LIMIT_STORE_UNAVAILABLE: 'rate_limit_store_unavailable',
+
+  /**
+   * Server-side: the rate-limit breaker closed and the store is being dialled again.
+   * @property cooldown_ms {number} Breaker cooldown window that elapsed.
+   * @property outage_ms {number} Time between the breaker opening and closing.
+   */
+  RATE_LIMIT_STORE_RECOVERED: 'rate_limit_store_recovered',
+
+  /**
    * Core Web Vitals field measurement (LCP / CLS / INP / FCP / TTFB).
    *
    * ⚠️ **Machine-emitted — never behavioural.** This is the highest-volume event in the
@@ -870,6 +887,16 @@ export interface AnalyticsEventPayloads {
     height?: number
   }
   [ANALYTICS_EVENTS.CHALLENGE_VERIFIED]: { has_custom_return_path: boolean }
+  [ANALYTICS_EVENTS.RATE_LIMIT_STORE_UNAVAILABLE]: {
+    error_message: string
+    cooldown_ms: number
+    '$process_person_profile': false
+  }
+  [ANALYTICS_EVENTS.RATE_LIMIT_STORE_RECOVERED]: {
+    cooldown_ms: number
+    outage_ms: number
+    '$process_person_profile': false
+  }
   [ANALYTICS_EVENTS.WEB_VITAL_REPORTED]: {
     metric_name: string
     metric_value: number

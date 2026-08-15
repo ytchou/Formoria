@@ -8,9 +8,12 @@ import {
   evaluateCrawlerChallengeAlarm,
   evaluateCrawlerRateLimitAlarm,
   isLikelyCrawler,
+  isRateLimitStoreDegraded,
   setRateLimitStoreForTests,
   type RateLimitStore,
 } from '../rate-limiter'
+import { setRateLimitTelemetryTransportForTests } from '../rate-limit-observability'
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events'
 import { getCrawlerDisagreementCount, resetCrawlerDriftForTests } from '../crawler-drift'
 import { resetVerifiedCrawlerStateForTests } from '../verified-crawler'
 import { captureAlert } from '@/lib/adapters/alerting/sentry'
@@ -200,15 +203,27 @@ describe('machine cron route availability', () => {
  */
 describe('rate-limit store outage', () => {
   let consoleError: ReturnType<typeof vi.spyOn>
+  let telemetry: Array<{ event: string; properties: Record<string, unknown> }>
 
   beforeEach(() => {
     consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    // Install the transport seam so the breaker never attempts a real PostHog
+    // fetch from a unit run.
+    telemetry = []
+    setRateLimitTelemetryTransportForTests(async (event, properties) => {
+      telemetry.push({ event, properties })
+    })
   })
 
   afterEach(() => {
     setRateLimitStoreForTests(null)
+    setRateLimitTelemetryTransportForTests(null)
     consoleError.mockRestore()
   })
+
+  function eventsNamed(name: string) {
+    return telemetry.filter((entry) => entry.event === name)
+  }
 
   function throwingStore(): { store: RateLimitStore; check: ReturnType<typeof vi.fn> } {
     const check = vi.fn(() => {
@@ -313,6 +328,93 @@ describe('rate-limit store outage', () => {
     } finally {
       Date.now = realNow
     }
+  })
+
+  // The console line alone is not an alarm -- Railway dropped 205 messages
+  // during the 2026-08-13 outage and nothing consumed the rest. These assert the
+  // PostHog signal that replaces it.
+  it('emits one rate_limit_store_unavailable event carrying the store error', async () => {
+    setRateLimitStoreForTests(throwingStore().store)
+
+    await checkRateLimit(request('/api/brands'))
+
+    const emitted = eventsNamed(ANALYTICS_EVENTS.RATE_LIMIT_STORE_UNAVAILABLE)
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0]?.properties.error_message).toContain('max requests limit exceeded')
+    expect(emitted[0]?.properties.cooldown_ms).toBe(60_000)
+  })
+
+  it('emits once per breaker window rather than once per failed request', async () => {
+    setRateLimitStoreForTests(throwingStore().store)
+
+    for (let i = 0; i < 10; i += 1) {
+      await checkRateLimit(request('/api/brands'))
+    }
+
+    expect(eventsNamed(ANALYTICS_EVENTS.RATE_LIMIT_STORE_UNAVAILABLE)).toHaveLength(1)
+  })
+
+  it('emits a recovery event with the outage length when the cooldown elapses', async () => {
+    setRateLimitStoreForTests(throwingStore().store)
+    await checkRateLimit(request('/api/brands'))
+
+    const realNow = Date.now
+    try {
+      Date.now = () => realNow() + 61_000
+      await checkRateLimit(request('/api/brands'))
+    } finally {
+      Date.now = realNow
+    }
+
+    const emitted = eventsNamed(ANALYTICS_EVENTS.RATE_LIMIT_STORE_RECOVERED)
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0]?.properties.cooldown_ms).toBe(60_000)
+    expect(emitted[0]?.properties.outage_ms as number).toBeGreaterThan(0)
+  })
+
+  it('reports the breaker as degraded only while it is open', async () => {
+    setRateLimitStoreForTests(throwingStore().store)
+    expect(isRateLimitStoreDegraded()).toBe(false)
+
+    await checkRateLimit(request('/api/brands'))
+
+    expect(isRateLimitStoreDegraded()).toBe(true)
+  })
+
+  // Purity guard: the health route polls this on a monitor's schedule, so it
+  // must not close the breaker or manufacture a recovery event the way
+  // `isStoreBreakerOpen()` does.
+  it('does not close the breaker or emit when the degraded state is read', async () => {
+    const { store, check } = throwingStore()
+    setRateLimitStoreForTests(store)
+    await checkRateLimit(request('/api/brands'))
+    const emittedBefore = telemetry.length
+
+    const realNow = Date.now
+    try {
+      Date.now = () => realNow() + 61_000
+      for (let i = 0; i < 5; i += 1) {
+        expect(isRateLimitStoreDegraded()).toBe(false)
+      }
+      expect(telemetry).toHaveLength(emittedBefore)
+      expect(check).toHaveBeenCalledTimes(1)
+    } finally {
+      Date.now = realNow
+    }
+  })
+
+  // A limiter failure used to 500 /api/health, and Railway's health check reads
+  // it -- so a dead store blocked the redeploy that would have fixed it.
+  it('never rate-limits /api/health, locale-prefixed or not', async () => {
+    setRateLimitStoreForTests({
+      check: () => ({ allowed: false, remaining: 0, resetAt: Date.now() + 30_000 }),
+    })
+
+    await expect(checkRateLimit(request('/api/health'))).resolves.toBeNull()
+    await expect(checkRateLimit(request('/en/api/health'))).resolves.toBeNull()
+    // The exemption did not widen: other /api/ paths are still metered.
+    const response = await checkRateLimit(request('/api/brands'))
+    expect(response?.status).toBe(429)
   })
 
   it('still returns the 429 with its headers when a healthy store denies', async () => {
