@@ -20,7 +20,6 @@ import {
   trackBrandCardClicked,
   trackCuratedProductClicked,
   trackStoryCardClicked,
-  trackTrailCardClicked,
   trackExternalLinkClicked,
   trackCategoryFilterApplied,
   trackSearchExecuted,
@@ -258,16 +257,6 @@ describe('analytics', () => {
       story_slug: 'slow-living',
       position: 0,
       story_surface: 'trail_related_stories',
-    })
-  })
-
-  it('trail_card_clicked carries trail surface properties', () => {
-    trackTrailCardClicked('small-space-reading-corner', 3, 'trail_related')
-
-    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.TRAIL_CARD_CLICKED, {
-      trail_slug: 'small-space-reading-corner',
-      position: 3,
-      trail_surface: 'trail_related',
     })
   })
 

@@ -67,7 +67,10 @@ export function ProductWall({
         </div>
 
         {/* Symmetric gutters preserve the 4:3 ratio when a tile spans two tracks. */}
-        <ul className="grid list-none grid-cols-2 gap-6 p-0 md:grid-cols-3 lg:grid-cols-4">
+        <ul
+          aria-label={labels.heading}
+          className="grid list-none grid-cols-2 gap-6 p-0 md:grid-cols-3 lg:grid-cols-4"
+        >
           {slots.map((slot, index) =>
             slot.kind === 'trail' ? (
               <WallTrailTile

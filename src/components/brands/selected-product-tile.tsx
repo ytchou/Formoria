@@ -148,7 +148,7 @@ export function SelectedProductTile({
             fill
             className={
               mode === "internal" || mode === "wall"
-                ? "object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                ? "object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
                 : "object-cover"
             }
             sizes={
@@ -223,7 +223,7 @@ export function SelectedProductTile({
         {mode === "wall" ? (
           <div
             className={cn(
-              "h-12 overflow-hidden transition-opacity duration-300 max-sm:h-0 max-sm:opacity-0",
+              "h-12 overflow-hidden transition-opacity duration-300 motion-reduce:duration-[0.01ms] max-sm:h-0 max-sm:opacity-0",
               span === "2x2"
                 ? "opacity-100"
                 : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",

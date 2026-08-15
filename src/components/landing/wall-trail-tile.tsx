@@ -43,7 +43,7 @@ export function WallTrailTile({
             alt={imageAlt}
             fill
             sizes="(max-width: 640px) 100vw, 50vw"
-            className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
           />
         ) : null}
         <span

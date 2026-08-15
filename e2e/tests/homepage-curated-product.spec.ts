@@ -80,8 +80,7 @@ test.describe("Homepage curated product deep", () => {
     );
 
     const wallLinks = selectedProducts
-      .getByRole("list")
-      .first()
+      .getByRole("list", { name: "Formoria 選物", exact: true })
       .getByRole("link");
     const wallHrefs = await wallLinks.evaluateAll((links) =>
       links.map((link) => link.getAttribute("href") ?? ""),

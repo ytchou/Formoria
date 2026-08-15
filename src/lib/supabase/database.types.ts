@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -666,86 +671,6 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      brand_location_candidates: {
-        Row: {
-          audit_result_ids: string[]
-          brand_id: string | null
-          channel_id: string | null
-          created_at: string
-          evidence: Json
-          id: string
-          job_id: string | null
-          location: Json
-          match_reason: string
-          normalized_address: string | null
-          normalized_identity: string
-          submission_id: string | null
-          updated_at: string
-          verification_decision: string
-        }
-        Insert: {
-          audit_result_ids?: string[]
-          brand_id?: string | null
-          channel_id?: string | null
-          created_at?: string
-          evidence?: Json
-          id?: string
-          job_id?: string | null
-          location: Json
-          match_reason: string
-          normalized_address?: string | null
-          normalized_identity: string
-          submission_id?: string | null
-          updated_at?: string
-          verification_decision: string
-        }
-        Update: {
-          audit_result_ids?: string[]
-          brand_id?: string | null
-          channel_id?: string | null
-          created_at?: string
-          evidence?: Json
-          id?: string
-          job_id?: string | null
-          location?: Json
-          match_reason?: string
-          normalized_address?: string | null
-          normalized_identity?: string
-          submission_id?: string | null
-          updated_at?: string
-          verification_decision?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "brand_location_candidates_brand_id_fkey"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "brand_location_candidates_channel_id_fkey"
-            columns: ["channel_id"]
-            isOneToOne: false
-            referencedRelation: "brand_channels"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "brand_location_candidates_job_id_fkey"
-            columns: ["job_id"]
-            isOneToOne: false
-            referencedRelation: "curation_jobs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "brand_location_candidates_submission_id_fkey"
-            columns: ["submission_id"]
-            isOneToOne: false
-            referencedRelation: "brand_submissions"
             referencedColumns: ["id"]
           },
         ]
@@ -2861,33 +2786,6 @@ export type Database = {
         }
         Relationships: []
       }
-      staging_auth_email_captures: {
-        Row: {
-          action: string
-          created_at: string
-          id: string
-          recipient: string
-          redirect_to: string
-          token_hash: string
-        }
-        Insert: {
-          action: string
-          created_at?: string
-          id?: string
-          recipient: string
-          redirect_to: string
-          token_hash: string
-        }
-        Update: {
-          action?: string
-          created_at?: string
-          id?: string
-          recipient?: string
-          redirect_to?: string
-          token_hash?: string
-        }
-        Relationships: []
-      }
       submission_images: {
         Row: {
           alt_en: string | null
@@ -3723,7 +3621,6 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
-      staging_capture_auth_email: { Args: { event: Json }; Returns: Json }
       transition_health_fix: {
         Args: {
           p_confirmation_data?: Json
