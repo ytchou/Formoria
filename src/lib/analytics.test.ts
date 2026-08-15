@@ -250,6 +250,16 @@ describe('analytics', () => {
     })
   })
 
+  it('story_card_clicked_carries the discovery trail continuation surface', () => {
+    trackStoryCardClicked('slow-living', 0, 'trail_related_stories')
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.STORY_CARD_CLICKED, {
+      story_slug: 'slow-living',
+      position: 0,
+      story_surface: 'trail_related_stories',
+    })
+  })
+
   it('brand_card_clicked_carries_list_source', () => {
     trackBrandCardClicked(
       'warmwood',
@@ -461,6 +471,29 @@ describe('external link surface attribution', () => {
     for (const [, properties] of mockPostHogCapture.mock.calls) {
       expect(properties).not.toHaveProperty('surface')
     }
+  })
+
+  it('preserves the trail and section in external-link attribution', () => {
+    trackExternalLinkClicked(
+      'my-brand',
+      'curated_product',
+      '/discover/small-space-reading-corner',
+      'trail:small-space-reading-corner:light-first',
+      'brand-uuid',
+    )
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith('external_link_clicked', {
+      brand_id: 'brand-uuid',
+      brand_slug: 'my-brand',
+      link_type: 'curated_product',
+      link_surface: 'trail:small-space-reading-corner:light-first',
+    })
+    expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'external_link_clicked', {
+      brand_slug: 'my-brand',
+      link_type: 'curated_product',
+      referrer_page: '/discover/small-space-reading-corner',
+      link_surface: 'trail:small-space-reading-corner:light-first',
+    })
   })
 })
 

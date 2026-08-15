@@ -51,7 +51,8 @@
     "about": "關於 Formoria",
     "stories": "專題",
     "events": "展會",
-    "whereToBuy": "哪裡買"
+    "whereToBuy": "哪裡買",
+    "discover": "主題選物"
   },
   "footer": {
     "about": "關於我們",
@@ -72,7 +73,35 @@
     "legalHeading": "法律",
     "connectHeading": "聯絡",
     "feedback": "功能建議",
-    "whereToBuy": "哪裡買"
+    "whereToBuy": "哪裡買",
+    "discover": "主題選物"
+  },
+  "discover": {
+    "metaTitle": "主題選物",
+    "metaDescription": "從生活情境出發，找到適合你的台灣品牌與產品。",
+    "heading": "主題選物",
+    "subheading": "從你想要的生活開始，沿著一個具體情境找到適合的產品。",
+    "comingSoon": "第一個主題選物正在準備中，敬請期待。",
+    "loadError": "主題選物暫時無法載入，請稍後再試。",
+    "retry": "再試一次",
+    "breadcrumb": "主題選物",
+    "breadcrumbAria": "主題選物麵包屑導覽",
+    "sectionNavAria": "主題選物段落",
+    "languageBadge": "中文",
+    "productCta": "前往產品官方網站",
+    "brandSiteCta": "前往品牌官方網站",
+    "selectedBadge": "為這個主題選入",
+    "brandProvidedBadge": "品牌提供資訊",
+    "unavailable": "官方連結目前無法使用",
+    "relatedBrands": "探索相關品牌",
+    "relatedCategories": "探索相關分類",
+    "relatedStories": "繼續閱讀",
+    "relatedTrails": "其他主題選物",
+    "notFound": {
+      "title": "找不到主題選物",
+      "description": "你尋找的主題不存在或已被移除。",
+      "browseAll": "瀏覽所有主題選物"
+    }
   },
   "landing": {
     "metadata": {

@@ -5,10 +5,14 @@ import {
   createCuratedProduct,
   getPublishedCuratedProductsForHomepage,
   getPublishedCuratedProductsForBrand,
+  getPublishedCuratedProductsForTrail,
   promoteCuratedProduct,
   retireCuratedProduct,
+  retireCuratedProductSelection,
   retireCuratedProductSource,
+  upsertCuratedProductSelection,
 } from "../curated-products";
+import { getTrailBySlug } from "../trails";
 
 type SeedProduct = {
   key: string;
@@ -560,6 +564,135 @@ describeWithDb("published curated products for a brand", () => {
     expect(sources).toEqual([]);
     expect(selections).toEqual([]);
   });
+
+  it("returns only products passing the four-condition publish gate for a trail", async () => {
+    const brandId = await seedBrand([
+      { key: "published", selections: [{ trailSlug: "small-space-reading-corner", position: 1 }] },
+      {
+        key: "candidate",
+        lifecycle: "candidate",
+        selections: [{ trailSlug: "small-space-reading-corner", position: 2 }],
+      },
+      {
+        key: "missing-url",
+        officialUrl: null,
+        selections: [{ trailSlug: "small-space-reading-corner", position: 3 }],
+      },
+      {
+        key: "missing-check",
+        sourceCheckedAt: null,
+        selections: [{ trailSlug: "small-space-reading-corner", position: 4 }],
+      },
+      {
+        key: "retired-source",
+        sourceState: "retired",
+        selections: [{ trailSlug: "small-space-reading-corner", position: 5 }],
+      },
+    ]);
+
+    const products = await getPublishedCuratedProductsForTrail(
+      "small-space-reading-corner",
+      supabase,
+    );
+
+    expect(products.map((product) => product.key)).toEqual(["published"]);
+    expect(products[0]?.brandSlug).toContain("curated-products-fixture-");
+    void brandId;
+  });
+
+  it("does not cap per brand on a trail", async () => {
+    await seedBrand([
+      { key: "lamp", selections: [{ trailSlug: "small-space-reading-corner", position: 1 }] },
+      { key: "chair", selections: [{ trailSlug: "small-space-reading-corner", position: 2 }] },
+      { key: "table", selections: [{ trailSlug: "small-space-reading-corner", position: 3 }] },
+    ]);
+
+    const products = await getPublishedCuratedProductsForTrail(
+      "small-space-reading-corner",
+      supabase,
+    );
+
+    expect(products).toHaveLength(3);
+  });
+
+  it("uses the selection rationale, not the highlight rationale", async () => {
+    await seedBrand([
+      {
+        key: "trail-reason",
+        highlightRationaleZh: "Brand-page reason",
+        selections: [
+          {
+            trailSlug: "small-space-reading-corner",
+            position: 1,
+            rationaleZh: "Trail-specific reason",
+          },
+        ],
+      },
+    ]);
+
+    const [product] = await getPublishedCuratedProductsForTrail(
+      "small-space-reading-corner",
+      supabase,
+    );
+
+    expect(product?.rationaleZh).toBe("Trail-specific reason");
+  });
+
+  it("excludes retired selections", async () => {
+    await seedBrand([
+      {
+        key: "retired-placement",
+        selections: [
+          {
+            trailSlug: "small-space-reading-corner",
+            position: 1,
+            state: "retired",
+          },
+        ],
+      },
+    ]);
+
+    await expect(
+      getPublishedCuratedProductsForTrail(
+        "small-space-reading-corner",
+        supabase,
+      ),
+    ).resolves.toEqual([]);
+  });
+
+  it("orders deterministically when selections share a position", async () => {
+    await seedBrand([
+      { key: "zeta", selections: [{ trailSlug: "small-space-reading-corner", position: 1 }] },
+      { key: "alpha", selections: [{ trailSlug: "small-space-reading-corner", position: 1 }] },
+    ]);
+
+    const products = await getPublishedCuratedProductsForTrail(
+      "small-space-reading-corner",
+      supabase,
+    );
+
+    expect(products.map((product) => product.key)).toEqual(["alpha", "zeta"]);
+  });
+
+  it("every trail_slug in the table resolves to a trail file", async () => {
+    const { data, error } = await supabase
+      .from("curated_product_selections")
+      .select("trail_slug");
+    expect(error).toBeNull();
+
+    const trailSlugs = [
+      ...new Set(
+        (data ?? [])
+          .map((selection) => selection.trail_slug)
+          .filter((slug): slug is string => Boolean(slug)),
+      ),
+    ].sort();
+
+    for (const trailSlug of trailSlugs) {
+      const trail = await getTrailBySlug(trailSlug);
+      expect(trail, `orphaned curated placement: ${trailSlug}`).not.toBeNull();
+    }
+  });
 });
 
 /**
@@ -780,5 +913,76 @@ describeWithDb("curated product write path", () => {
       .select("id, state")
       .eq("product_id", productId);
     expect(sources).toEqual([{ id: sourceId, state: "retired" }]);
+  });
+
+  it("upsert_selection_creates_and_updates_on_the_composite_key", async () => {
+    const { productId } = await seedCandidate();
+    const key = {
+      productId,
+      trailSlug: "small-space-reading-corner",
+      sectionKey: "light-first",
+    };
+
+    await upsertCuratedProductSelection(
+      { ...key, position: 3, rationaleZh: "第一個理由" },
+      supabase,
+    );
+    await upsertCuratedProductSelection(
+      { ...key, position: 1, rationaleZh: "更新後的理由" },
+      supabase,
+    );
+
+    const { data, error } = await supabase
+      .from("curated_product_selections")
+      .select("position, rationale_zh, state")
+      .match({
+        product_id: productId,
+        trail_slug: key.trailSlug,
+        section_key: key.sectionKey,
+      })
+      .single();
+    expect(error).toBeNull();
+    expect(data).toEqual({ position: 1, rationale_zh: "更新後的理由", state: "active" });
+  });
+
+  it("retire_selection_sets_retired_and_never_deletes", async () => {
+    const { productId } = await seedCandidate();
+    const key = {
+      productId,
+      trailSlug: "small-space-reading-corner",
+      sectionKey: "beside-seat",
+    };
+    await upsertCuratedProductSelection(
+      { ...key, rationaleZh: "保留座位旁的空間" },
+      supabase,
+    );
+    await retireCuratedProductSelection(key, supabase);
+
+    const { data, error } = await supabase
+      .from("curated_product_selections")
+      .select("state")
+      .match({
+        product_id: productId,
+        trail_slug: key.trailSlug,
+        section_key: key.sectionKey,
+      })
+      .single();
+    expect(error).toBeNull();
+    expect(data).toEqual({ state: "retired" });
+  });
+
+  it("rejects_selection_for_an_unknown_trail", async () => {
+    const { productId } = await seedCandidate();
+    await expect(
+      upsertCuratedProductSelection(
+        {
+          productId,
+          trailSlug: "not-a-real-trail",
+          sectionKey: "light-first",
+          rationaleZh: "不能寫入未知主題",
+        },
+        supabase,
+      ),
+    ).rejects.toThrow("Unknown discovery trail");
   });
 });

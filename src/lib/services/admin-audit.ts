@@ -20,6 +20,8 @@ export type AdminAction =
   // Withdrawing a source flips the promote gate's `no_active_source`
   // condition, so it is an editorial decision on the same footing.
   | 'curated_product_source_retired'
+  | 'curated_product_selection_placed'
+  | 'curated_product_selection_retired'
 
 export type LogAdminActionParams = {
   adminUserId: string

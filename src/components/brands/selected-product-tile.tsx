@@ -12,8 +12,10 @@ import {
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import type { CuratedProduct } from "@/lib/services/curated-products";
 import { sanitizeHref } from "@/lib/url";
+import { cn } from "@/lib/utils";
 import { BrandImageFallback } from "./brand-image-fallback";
 import { SelectedProductTileLink } from "./selected-product-tile-link";
+import { SelectedProductExternalLink } from "./selected-product-external-link";
 
 export type SelectedProductTileLabels = {
   cta: string;
@@ -27,7 +29,7 @@ export type SelectedProductTileProps = {
   locale: AppLocale;
   product: CuratedProduct;
   labels: SelectedProductTileLabels;
-  mode: "outbound" | "internal";
+  mode: "outbound" | "internal" | "trail";
   /** Existing brand-page fields used by the outbound chip. */
   brand?: BrandVisitLinkFields & { slug: string };
   /** Homepage-only destination and visible brand name. */
@@ -38,6 +40,8 @@ export type SelectedProductTileProps = {
     brandSlug: string;
     position: number;
     surface: string;
+    referrerPage?: string;
+    brandId?: string;
   };
 };
 
@@ -74,7 +78,9 @@ export function SelectedProductTile({
       : null;
   const isBroken = product.linkState === BROKEN_LINK_STATE;
   const visitLink =
-    mode === "outbound" && brand ? getBrandVisitLink(brand) : null;
+    (mode === "outbound" || mode === "trail") && brand
+      ? getBrandVisitLink(brand)
+      : null;
   const productHref = sanitizeHref(product.officialUrl);
   const chipHref = isBroken ? (visitLink?.href ?? null) : productHref;
   const chipLabel = isBroken ? labels.brandSiteCta : labels.cta;
@@ -83,7 +89,10 @@ export function SelectedProductTile({
     variant: "secondary",
     shape: "pill",
     size: "compact",
-    className: "mt-auto max-w-full justify-center",
+    className: cn(
+      "mt-auto max-w-full justify-center",
+      mode === "trail" && "min-h-11",
+    ),
   });
   const destinationSlug = brandSlug ?? brand?.slug ?? "";
   const internalHref = `/brands/${destinationSlug}#product-${product.key}`;
@@ -111,17 +120,44 @@ export function SelectedProductTile({
       </div>
 
       <div className="flex flex-1 flex-col gap-2 p-4">
-        <Typography
-          as="h3"
-          variant="cardTitle"
-          className={
-            mode === "internal" ? "group-hover:text-primary" : undefined
-          }
-        >
-          {name}
-        </Typography>
+        {mode === "trail" ? (
+          tracking ? (
+            <SelectedProductTileLink
+              href={internalHref}
+              className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              productKey={product.key}
+              brandSlug={tracking.brandSlug}
+              position={tracking.position}
+              surface={tracking.surface}
+            >
+              <Typography as="h3" variant="cardTitle" className="hover:text-primary">
+                {name}
+              </Typography>
+            </SelectedProductTileLink>
+          ) : (
+            <Link
+              href={internalHref}
+              className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              data-ph-no-autocapture
+            >
+              <Typography as="h3" variant="cardTitle" className="hover:text-primary">
+                {name}
+              </Typography>
+            </Link>
+          )
+        ) : (
+          <Typography
+            as="h3"
+            variant="cardTitle"
+            className={
+              mode === "internal" ? "group-hover:text-primary" : undefined
+            }
+          >
+            {name}
+          </Typography>
+        )}
 
-        {mode === "internal" && brandName ? (
+        {(mode === "internal" || mode === "trail") && brandName ? (
           <Typography as="p" variant="metadata">
             {brandName}
           </Typography>
@@ -155,19 +191,34 @@ export function SelectedProductTile({
           </Typography>
         ) : null}
 
-        {mode === "outbound" && chipHref ? (
-          <a
-            href={chipHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={chipClassName}
-            data-brand-slug={brand?.slug}
-            data-link-type={chipLinkType}
-            data-link-surface="selected_product"
-          >
-            <span className="min-w-0 truncate">{chipLabel}</span>
-            {isBroken ? null : <span className="sr-only">{`: ${name}`}</span>}
-          </a>
+        {(mode === "outbound" || mode === "trail") && chipHref ? (
+          mode === "trail" && tracking && brand ? (
+            <SelectedProductExternalLink
+              href={chipHref}
+              brandSlug={brand.slug}
+              linkType={chipLinkType}
+              referrerPage={tracking.referrerPage ?? "/discover"}
+              surface={tracking.surface as `trail:${string}:${string}`}
+              brandId={tracking.brandId}
+              className={chipClassName}
+            >
+              <span className="min-w-0 truncate">{chipLabel}</span>
+              {isBroken ? null : <span className="sr-only">{`: ${name}`}</span>}
+            </SelectedProductExternalLink>
+          ) : (
+            <a
+              href={chipHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={chipClassName}
+              data-brand-slug={brand?.slug}
+              data-link-type={chipLinkType}
+              data-link-surface="selected_product"
+            >
+              <span className="min-w-0 truncate">{chipLabel}</span>
+              {isBroken ? null : <span className="sr-only">{`: ${name}`}</span>}
+            </a>
+          )
         ) : null}
       </div>
     </>

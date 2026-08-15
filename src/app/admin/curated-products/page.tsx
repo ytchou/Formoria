@@ -2,7 +2,13 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 
 import { getAdminBrandOptions } from "@/lib/services/brands";
-import { listCuratedProductsForAdmin } from "@/lib/services/curated-products";
+import {
+  getPublishedCuratedProductsForTrail,
+  listCuratedProductsForAdmin,
+  type TrailCuratedProduct,
+} from "@/lib/services/curated-products";
+import { getAllTrailsForAdmin } from "@/lib/services/trails";
+import { trailIndexBlockers } from "@/lib/seo/trail-indexability";
 import {
   CuratedProductsList,
   type CuratedProductTab,
@@ -22,7 +28,7 @@ const VALID_TABS = new Set<CuratedProductTab>([
 ]);
 
 function firstParam(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
+  return Array.isArray(value) ? value.at(0) : value;
 }
 
 /**
@@ -55,10 +61,40 @@ export default async function CuratedProductsPage({
   // filter rather than the query, so an editor can widen it without navigating.
   const initialBrandSlug = firstParam(query.brand) ?? null;
 
-  const [products, brands] = await Promise.all([
+  const [products, brands, trails] = await Promise.all([
     listCuratedProductsForAdmin(),
     getAdminBrandOptions(),
+    getAllTrailsForAdmin("zh-TW"),
   ]);
+  const trailOptions =
+    trails.ok
+      ? await Promise.all(
+          trails.trails.map(async (trail) => {
+            let productsForTrail: TrailCuratedProduct[] = [];
+            let placementReadError = false;
+            try {
+              productsForTrail = await getPublishedCuratedProductsForTrail(trail.slug);
+            } catch {
+              // Keep a failed read distinct from an empty result. The editor
+              // can still place a product, but must not suggest that missing
+              // data is a real indexability blocker.
+              placementReadError = true;
+            }
+            return {
+              slug: trail.slug,
+              title: trail.frontmatter.title,
+              sections: trail.frontmatter.sections,
+              blockers: placementReadError
+                ? []
+                : trailIndexBlockers({
+                    frontmatter: trail.frontmatter,
+                    products: productsForTrail,
+                  }),
+              placementReadError,
+            };
+          }),
+        )
+      : [];
 
   return (
     <div>
@@ -71,6 +107,7 @@ export default async function CuratedProductsPage({
           brands={brands}
           initialTab={initialTab}
           initialBrandSlug={initialBrandSlug}
+          trailOptions={trailOptions}
         />
       </div>
     </div>

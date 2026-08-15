@@ -281,11 +281,27 @@ export type ProductRow = {
   link_state: string;
   review_due_at: string | null;
   brands: { slug: string | null } | { slug: string | null }[] | null;
+  trail_slug?: string | null;
+  curated_product_selections?:
+    | { trail_slug: string; state?: string }[]
+    | { trail_slug: string; state?: string }
+    | null;
 };
 
 function brandSlugOf(row: ProductRow): string | null {
   const brands = Array.isArray(row.brands) ? row.brands[0] : row.brands;
   return brands?.slug ?? null;
+}
+
+export function trailSlugsOf(row: ProductRow): string[] {
+  const embedded = row.curated_product_selections;
+  const selections = embedded == null ? [] : Array.isArray(embedded) ? embedded : [embedded];
+  const slugs = selections
+    .filter((selection) => selection.state === undefined || selection.state === "active")
+    .map((selection) => selection.trail_slug)
+    .filter((slug): slug is string => Boolean(slug));
+  if (row.trail_slug) slugs.push(row.trail_slug);
+  return [...new Set(slugs)].sort();
 }
 
 /**
@@ -345,7 +361,7 @@ export async function loadProducts(
     let query = supabase
       .from("curated_products")
       .select(
-        "id, brand_id, key, name_zh, lifecycle, official_url, link_state, review_due_at, brands!inner(slug)",
+        "id, brand_id, key, name_zh, lifecycle, official_url, link_state, review_due_at, brands!inner(slug), curated_product_selections(trail_slug, state)",
       )
       .in("lifecycle", CURATED_LINK_READ_LIFECYCLES);
     if (brand) query = query.eq("brands.slug", brand);
@@ -432,6 +448,43 @@ export type LinkCheck = {
   changed: boolean;
 };
 
+export type TrailLinkReport = {
+  trailSlug: string;
+  products: number;
+  changed: number;
+  blocked: number;
+  brands: string[];
+};
+
+/** Groups link-health output by the editorial trail as well as its brand. */
+export function groupLinkChecksByTrail(
+  checks: readonly LinkCheck[],
+): TrailLinkReport[] {
+  const groups = new Map<string, TrailLinkReport>();
+  for (const check of checks) {
+    const slugs = trailSlugsOf(check.row);
+    const keys = slugs.length > 0 ? slugs : ["unplaced"];
+    for (const trailSlug of keys) {
+      const report = groups.get(trailSlug) ?? {
+        trailSlug,
+        products: 0,
+        changed: 0,
+        blocked: 0,
+        brands: [],
+      };
+      report.products += 1;
+      if (check.changed) report.changed += 1;
+      if (check.classification.blocked) report.blocked += 1;
+      const brandSlug = brandSlugOf(check.row);
+      if (brandSlug && !report.brands.includes(brandSlug)) report.brands.push(brandSlug);
+      groups.set(trailSlug, report);
+    }
+  }
+  return [...groups.values()]
+    .map((report) => ({ ...report, brands: [...report.brands].sort() }))
+    .sort((a, b) => a.trailSlug.localeCompare(b.trailSlug));
+}
+
 async function checkLinks(rows: readonly ProductRow[]): Promise<LinkCheck[]> {
   const checkable = rows.filter((row) => Boolean(row.official_url));
   return mapWithConcurrency(checkable, CONCURRENCY, async (row) => {
@@ -502,6 +555,7 @@ async function main(): Promise<void> {
   const checks = options.reviewOnly ? [] : await checkLinks(rows);
   const changed = checks.filter((check) => check.changed);
   const blocked = checks.filter((check) => check.classification.blocked);
+  const trailReports = groupLinkChecksByTrail(checks);
 
   console.log(
     JSON.stringify({
@@ -517,6 +571,7 @@ async function main(): Promise<void> {
       // Surfaced, never written: a bot challenge is not evidence of a dead
       // link, so these rows keep whatever link_state they already had.
       blocked: blocked.length,
+      trails: trailReports,
     }),
   );
   for (const check of blocked) {
@@ -524,6 +579,7 @@ async function main(): Promise<void> {
       JSON.stringify({
         blocked: true,
         brandSlug: brandSlugOf(check.row),
+        trailSlugs: trailSlugsOf(check.row),
         key: check.row.key,
         status: check.classification.status,
         linkState: check.row.link_state,
@@ -534,6 +590,7 @@ async function main(): Promise<void> {
     console.log(
       JSON.stringify({
         brandSlug: brandSlugOf(check.row),
+        trailSlugs: trailSlugsOf(check.row),
         key: check.row.key,
         from: check.row.link_state,
         to: check.classification.linkState,
@@ -557,9 +614,11 @@ async function main(): Promise<void> {
   );
   console.log(JSON.stringify({ reviewDue: due.length }));
   for (const product of due) {
+    const row = rows.find((candidate) => candidate.id === product.id);
     console.log(
       JSON.stringify({
         brandSlug: product.brandSlug,
+        trailSlugs: row ? trailSlugsOf(row) : [],
         key: product.key,
         nameZh: product.nameZh,
         reviewDueAt: product.reviewDueAt,

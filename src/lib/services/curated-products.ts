@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
 import { auditedCall } from "@/lib/audit";
+import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
 import {
   curatedProductPromoteBlockers,
   type PromoteBlocker,
@@ -19,6 +20,7 @@ import {
   normalizeTagKey,
   resolveSubcategorySlugs,
 } from "@/lib/taxonomy/ontology";
+import { getPublishedTrailBySlug, getTrailBySlug } from "@/lib/services/trails";
 
 /** The tables are reached through the untyped `from` surface, with generated DB shapes at the boundary. */
 export type CuratedProductSupabase = Pick<SupabaseClient, "from">;
@@ -70,6 +72,13 @@ export const MAX_HOME_CURATED_PRODUCTS_PER_BRAND = 1;
 export type HomepageCuratedProduct = CuratedProduct & {
   brandSlug: string;
   brandName: string;
+};
+
+/** A published product placement as rendered inside one trail section. */
+export type TrailCuratedProduct = CuratedProduct & {
+  brandSlug: string;
+  brandName: string;
+  brand: BrandVisitLinkFields & { slug: string };
 };
 
 /**
@@ -134,6 +143,22 @@ type HomepageCuratedProductRow = CuratedProductReadRow & {
   curated_product_sources?: { id: string; state?: string }[] | null;
 };
 
+type TrailCuratedProductRow = CuratedProductReadRow & {
+  brands: {
+    slug: string;
+    name: string;
+    status?: string;
+    purchase_website: string | null;
+    purchase_pinkoi: string | null;
+    purchase_shopee: string | null;
+    purchase_myship: string | null;
+    social_instagram: string | null;
+    social_threads: string | null;
+    social_facebook: string | null;
+  } | null;
+  curated_product_sources?: { id: string; state?: string }[] | null;
+};
+
 /** Keep the fully-generic PostgREST builder from recursively instantiating here. */
 type HomepageCuratedProductQuery = PromiseLike<{
   data: unknown[] | null;
@@ -165,7 +190,7 @@ function winningSelection(
   return [...selections].sort(
     (a, b) =>
       a.position - b.position || a.trail_slug.localeCompare(b.trail_slug),
-  )[0]!;
+  ).at(0) ?? null;
 }
 
 function toCuratedProduct(row: CuratedProductReadRow): CuratedProduct {
@@ -196,6 +221,60 @@ function toCuratedProduct(row: CuratedProductReadRow): CuratedProduct {
     position: selection?.position ?? null,
     rationaleZh: row.highlight_rationale_zh ?? selection?.rationale_zh ?? null,
     rationaleEn: row.highlight_rationale_en ?? selection?.rationale_en ?? null,
+  };
+}
+
+/**
+ * Maps one active trail placement without inheriting brand-page highlight
+ * copy. A product may appear in several trails, so this mapper keeps the
+ * placement's own rationale and position as the source of truth for every
+ * card returned by the trail projection.
+ */
+function toTrailProduct(
+  row: TrailCuratedProductRow,
+  selection: CuratedProductSelectionRow,
+): TrailCuratedProduct {
+  const brand = row.brands;
+  if (!brand) throw new Error(`Trail product ${row.id} is missing its brand`);
+
+  return {
+    id: row.id,
+    brandId: row.brand_id,
+    key: row.key,
+    nameZh: row.name_zh,
+    nameEn: row.name_en ?? null,
+    l1: row.l1,
+    l2: row.l2 ?? [],
+    officialUrl: row.official_url ?? null,
+    imageUrl: row.image_url ?? null,
+    imageSourceUrl: row.image_source_url ?? null,
+    imageUsage: row.image_usage,
+    lifecycle: row.lifecycle,
+    linkState: row.link_state,
+    linkCheckedAt: row.link_checked_at ?? null,
+    sourceCheckedAt: row.source_checked_at ?? null,
+    reviewDueAt: row.review_due_at ?? null,
+    notesZh: row.notes_zh ?? null,
+    notesEn: row.notes_en ?? null,
+    highlightPosition: row.highlight_position ?? null,
+    createdAt: row.created_at,
+    trailSlug: selection.trail_slug,
+    sectionKey: selection.section_key,
+    position: selection.position,
+    rationaleZh: selection.rationale_zh ?? null,
+    rationaleEn: selection.rationale_en ?? null,
+    brandSlug: brand.slug,
+    brandName: brand.name,
+    brand: {
+      slug: brand.slug,
+      purchaseWebsite: brand.purchase_website,
+      purchasePinkoi: brand.purchase_pinkoi,
+      purchaseShopee: brand.purchase_shopee,
+      purchaseMyship: brand.purchase_myship,
+      socialInstagram: brand.social_instagram,
+      socialThreads: brand.social_threads,
+      socialFacebook: brand.social_facebook,
+    },
   };
 }
 
@@ -356,6 +435,90 @@ export async function getPublishedCuratedProductsForHomepage(
     productsByBrand.set(product.brandId, count + 1);
     return true;
   });
+}
+
+const CURATED_PRODUCT_TRAIL_READ_SELECT = `
+  id, brand_id, key, name_zh, name_en, l1, l2, official_url, image_url,
+  image_source_url, image_usage, lifecycle, link_state, link_checked_at,
+  source_checked_at, review_due_at, notes_zh, notes_en, highlight_position,
+  highlight_rationale_zh, highlight_rationale_en, created_at,
+  curated_product_sources!inner(id, state),
+  curated_product_selections!inner(trail_slug, section_key, position, rationale_zh, rationale_en, state),
+  brands!inner(slug, name, status, purchase_website, purchase_pinkoi, purchase_shopee, purchase_myship, social_instagram, social_threads, social_facebook)
+`;
+
+/**
+ * Resolves the public placements for one trail. Unlike the homepage rail this
+ * deliberately keeps every product from a brand: a trail can use one brand in
+ * several distinct roles. Each active selection becomes one card, and the
+ * selection rationale always wins over brand-page highlight copy.
+ */
+export async function getPublishedCuratedProductsForTrail(
+  trailSlug: string,
+  client?: CuratedProductSupabase,
+): Promise<TrailCuratedProduct[]> {
+  const { data, error } = await curatedProductClient(client)
+    .from("curated_products")
+    .select(CURATED_PRODUCT_TRAIL_READ_SELECT)
+    .eq("lifecycle", "published")
+    .not("official_url", "is", null)
+    .not("source_checked_at", "is", null)
+    .eq("curated_product_sources.state", "active")
+    .eq("curated_product_selections.state", "active")
+    .eq("curated_product_selections.trail_slug", trailSlug)
+    .eq("brands.status", "approved");
+
+  if (error) {
+    throw error;
+  }
+
+  const trail = await getPublishedTrailBySlug(trailSlug).catch(() => null);
+  const sectionOrder = new Map(
+    trail?.entry.frontmatter.sections.map((section, index) => [section.key, index]) ?? [],
+  );
+
+  const products: TrailCuratedProduct[] = [];
+  for (const rawRow of (data ?? []) as unknown as TrailCuratedProductRow[]) {
+    const row = rawRow;
+    if (
+      !row.brands?.slug ||
+      !row.brands.name ||
+      (row.brands.status !== undefined && row.brands.status !== "approved") ||
+      row.lifecycle !== "published" ||
+      !row.official_url ||
+      !row.source_checked_at
+    ) {
+      continue;
+    }
+
+    const activeSources = row.curated_product_sources ?? [];
+    if (
+      activeSources.length > 0 &&
+      !activeSources.some(
+        (source) => source.state === undefined || source.state === "active",
+      )
+    ) {
+      continue;
+    }
+
+    const selections = (row.curated_product_selections ?? []).filter(
+      (selection) =>
+        selection.trail_slug === trailSlug &&
+        (selection.state === undefined || selection.state === "active"),
+    );
+
+    for (const selection of selections) {
+      products.push(toTrailProduct(row, selection));
+    }
+  }
+
+  return products.sort(
+    (a, b) =>
+      (sectionOrder.get(a.sectionKey ?? "") ?? UNPLACED) -
+        (sectionOrder.get(b.sectionKey ?? "") ?? UNPLACED) ||
+      (a.position ?? UNPLACED) - (b.position ?? UNPLACED) ||
+      a.key.localeCompare(b.key),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -816,6 +979,126 @@ export async function retireCuratedProductSource(
       if (error) throw error;
     },
     { subjectId: sourceId },
+  );
+}
+
+export type CuratedProductSelectionInput = {
+  productId: string;
+  trailSlug: string;
+  sectionKey: string;
+  position?: number;
+  rationaleZh: string;
+  rationaleEn?: string | null;
+};
+
+export type CuratedProductSelectionKey = Pick<
+  CuratedProductSelectionInput,
+  "productId" | "trailSlug" | "sectionKey"
+>;
+
+async function validateSelectionInput(
+  input: CuratedProductSelectionInput,
+): Promise<{
+  trailSlug: string;
+  sectionKey: string;
+  position: number;
+  rationaleZh: string;
+  rationaleEn: string | null;
+}> {
+  const trailSlug = input.trailSlug.trim();
+  const sectionKey = input.sectionKey.trim();
+  const rationaleZh = input.rationaleZh.trim();
+  const position = input.position ?? 0;
+  if (!trailSlug || !sectionKey) {
+    throw new Error("Trail and section are required for a product placement");
+  }
+  if (!Number.isInteger(position) || position < 0) {
+    throw new Error("Trail placement position must be a non-negative integer");
+  }
+  if (!rationaleZh) {
+    throw new Error("A Chinese selection rationale is required");
+  }
+
+  const trail = await getTrailBySlug(trailSlug);
+  if (!trail) throw new Error(`Unknown discovery trail: ${trailSlug}`);
+  if (!trail.entry.frontmatter.sections.some((section) => section.key === sectionKey)) {
+    throw new Error(`Unknown section "${sectionKey}" for discovery trail "${trailSlug}"`);
+  }
+
+  return {
+    trailSlug,
+    sectionKey,
+    position,
+    rationaleZh,
+    rationaleEn: input.rationaleEn?.trim() || null,
+  };
+}
+
+/** Places or updates a product on the composite selection primary key. */
+export async function upsertCuratedProductSelection(
+  input: CuratedProductSelectionInput,
+  client?: CuratedProductSupabase,
+): Promise<void> {
+  return auditedCall(
+    {
+      provider: "curatedProducts",
+      operation: "upsertCuratedProductSelection",
+      kind: "service",
+    },
+    async () => {
+      const validated = await validateSelectionInput(input);
+      const { error } = await curatedProductClient(client)
+        .from("curated_product_selections")
+        .upsert(
+          {
+            product_id: input.productId,
+            trail_slug: validated.trailSlug,
+            section_key: validated.sectionKey,
+            position: validated.position,
+            rationale_zh: validated.rationaleZh,
+            rationale_en: validated.rationaleEn,
+            state: "active",
+          },
+          { onConflict: "product_id,trail_slug,section_key" },
+        );
+      if (error) throw error;
+    },
+    { subjectId: input.productId },
+  );
+}
+
+/** Retires a placement in place so its history remains auditable. */
+export async function retireCuratedProductSelection(
+  input: CuratedProductSelectionKey,
+  client?: CuratedProductSupabase,
+): Promise<void> {
+  return auditedCall(
+    {
+      provider: "curatedProducts",
+      operation: "retireCuratedProductSelection",
+      kind: "service",
+    },
+    async () => {
+      const trailSlug = input.trailSlug.trim();
+      const sectionKey = input.sectionKey.trim();
+      if (!trailSlug || !sectionKey) {
+        throw new Error("Trail and section are required for a product placement");
+      }
+      const { data, error } = await curatedProductClient(client)
+        .from("curated_product_selections")
+        .update({ state: "retired" })
+        .eq("product_id", input.productId)
+        .eq("trail_slug", trailSlug)
+        .eq("section_key", sectionKey)
+        .select("product_id");
+      if (error) throw error;
+      if (!Array.isArray(data) || data.length === 0) {
+        throw new Error(
+          `Curated product selection not found: ${input.productId}/${trailSlug}/${sectionKey}`,
+        );
+      }
+    },
+    { subjectId: input.productId },
   );
 }
 

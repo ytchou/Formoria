@@ -5,10 +5,13 @@ import {
   getCuratedProductWriteContext,
   getPublishedCuratedProductsForHomepage,
   getPublishedCuratedProductsForBrand,
+  getPublishedCuratedProductsForTrail,
+  retireCuratedProductSelection,
   promoteCuratedProduct,
   retireCuratedProduct,
   retireCuratedProductSource,
   updateCuratedProduct,
+  upsertCuratedProductSelection,
   type CuratedProductSupabase,
 } from "../curated-products";
 
@@ -115,6 +118,141 @@ function productRow(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+function trailProductRow(overrides: Record<string, unknown> = {}) {
+  return productRow({
+    brands: { slug: 'fixture-brand', name: 'Fixture Brand', status: 'approved' },
+    curated_product_selections: [
+      {
+        trail_slug: 'small-space-reading-corner',
+        section_key: 'first',
+        position: 1,
+        rationale_zh: 'Trail reason',
+        rationale_en: 'Trail reason',
+        state: 'active',
+      },
+    ],
+    ...overrides,
+  })
+}
+
+describe('getPublishedCuratedProductsForTrail', () => {
+  it('keeps the four-condition publication gate and trail filters', async () => {
+    const { client, calls } = stubClient({ data: [] })
+
+    await getPublishedCuratedProductsForTrail('small-space-reading-corner', client)
+
+    expect(calls.eq).toContainEqual(['lifecycle', 'published'])
+    expect(calls.not).toContainEqual(['official_url', 'is', null])
+    expect(calls.not).toContainEqual(['source_checked_at', 'is', null])
+    expect(calls.eq).toContainEqual(['curated_product_sources.state', 'active'])
+    expect(calls.eq).toContainEqual(['curated_product_selections.state', 'active'])
+    expect(calls.eq).toContainEqual([
+      'curated_product_selections.trail_slug',
+      'small-space-reading-corner',
+    ])
+  })
+
+  it.each([
+    [
+      'PGRST205',
+      "Could not find the table 'public.curated_product_selections' in the schema cache",
+    ],
+    ['42703', 'column curated_products.highlight_position does not exist'],
+  ])('rethrows a missing trail-read schema dependency (%s) so the route can demote the render', async (code, message) => {
+    const { client } = stubClient({
+      error: { code, message },
+    })
+
+    await expect(
+      getPublishedCuratedProductsForTrail('small-space-reading-corner', client),
+    ).rejects.toMatchObject({ code })
+  })
+
+  it('does not cap products per brand', async () => {
+    const { client } = stubClient({
+      data: [
+        trailProductRow({ key: 'first' }),
+        trailProductRow({ key: 'second' }),
+        trailProductRow({ key: 'third' }),
+      ],
+    })
+
+    const products = await getPublishedCuratedProductsForTrail(
+      'small-space-reading-corner',
+      client,
+    )
+
+    expect(products).toHaveLength(3)
+    expect(products.every((product) => product.brandSlug === 'fixture-brand')).toBe(true)
+  })
+
+  it('uses the selection rationale, not the highlight rationale', async () => {
+    const { client } = stubClient({
+      data: [
+        trailProductRow({
+          highlight_rationale_zh: 'Brand-page reason',
+          curated_product_selections: [
+            {
+              trail_slug: 'small-space-reading-corner',
+              section_key: 'first',
+              position: 1,
+              rationale_zh: 'Trail-specific reason',
+              rationale_en: 'Trail-specific reason',
+              state: 'active',
+            },
+          ],
+        }),
+      ],
+    })
+
+    const [product] = await getPublishedCuratedProductsForTrail(
+      'small-space-reading-corner',
+      client,
+    )
+
+    expect(product?.rationaleZh).toBe('Trail-specific reason')
+  })
+
+  it('excludes retired selections', async () => {
+    const { client } = stubClient({
+      data: [
+        trailProductRow({
+          curated_product_selections: [
+            {
+              trail_slug: 'small-space-reading-corner',
+              section_key: 'first',
+              position: 1,
+              rationale_zh: 'Retired reason',
+              rationale_en: null,
+              state: 'retired',
+            },
+          ],
+        }),
+      ],
+    })
+
+    await expect(
+      getPublishedCuratedProductsForTrail('small-space-reading-corner', client),
+    ).resolves.toEqual([])
+  })
+
+  it('orders equal-position selections deterministically by product key', async () => {
+    const { client } = stubClient({
+      data: [
+        trailProductRow({ key: 'zeta' }),
+        trailProductRow({ key: 'alpha' }),
+      ],
+    })
+
+    const products = await getPublishedCuratedProductsForTrail(
+      'small-space-reading-corner',
+      client,
+    )
+
+    expect(products.map((product) => product.key)).toEqual(['alpha', 'zeta'])
+  })
+})
 
 describe("getPublishedCuratedProductsForBrand", () => {
   it("counts only ACTIVE sources and selections as live", async () => {
@@ -580,6 +718,7 @@ type WriteCalls = {
   table: string[];
   insert: Record<string, unknown>[];
   update: Record<string, unknown>[];
+  upsert: Record<string, unknown>[];
   eq: [string, unknown][];
   in: [string, unknown[]][];
 };
@@ -604,6 +743,7 @@ function stubWriteClient(replies: WriteReply[]): {
     table: [],
     insert: [],
     update: [],
+    upsert: [],
     eq: [],
     in: [],
   };
@@ -624,6 +764,10 @@ function stubWriteClient(replies: WriteReply[]): {
     },
     update(payload: Record<string, unknown>) {
       calls.update.push(payload);
+      return chain;
+    },
+    upsert(payload: Record<string, unknown>) {
+      calls.upsert.push(payload);
       return chain;
     },
     eq(column: string, value: unknown) {
@@ -828,6 +972,66 @@ describe("createCuratedProduct", () => {
 });
 
 describe("curated product writers", () => {
+  it("upserts a trail selection on its composite key without highlight fields", async () => {
+    const { client, calls } = stubWriteClient([{}]);
+
+    await upsertCuratedProductSelection(
+      {
+        productId: PRODUCT_ID,
+        trailSlug: "small-space-reading-corner",
+        sectionKey: "light-first",
+        position: 2,
+        rationaleZh: "在桌面上保留閱讀的餘裕。",
+        rationaleEn: "Keeps room for reading on the desk.",
+      },
+      client,
+    );
+
+    expect(calls.table).toContain("curated_product_selections");
+    expect(calls.upsert.at(0)).toEqual({
+      product_id: PRODUCT_ID,
+      trail_slug: "small-space-reading-corner",
+      section_key: "light-first",
+      position: 2,
+      rationale_zh: "在桌面上保留閱讀的餘裕。",
+      rationale_en: "Keeps room for reading on the desk.",
+      state: "active",
+    });
+    expect(Object.keys(calls.upsert.at(0) ?? {})).not.toContain("highlight_position");
+  });
+
+  it("retires a trail selection without deleting it", async () => {
+    const { client, calls } = stubWriteClient([{ data: [{ product_id: PRODUCT_ID }] }]);
+
+    await retireCuratedProductSelection(
+      {
+        productId: PRODUCT_ID,
+        trailSlug: "small-space-reading-corner",
+        sectionKey: "light-first",
+      },
+      client,
+    );
+
+    expect(calls.update.at(0)).toEqual({ state: "retired" });
+    expect(calls.table).toContain("curated_product_selections");
+  });
+
+  it("fails when the requested trail placement does not exist", async () => {
+    const { client, calls } = stubWriteClient([{ data: [] }]);
+
+    await expect(
+      retireCuratedProductSelection(
+        {
+          productId: PRODUCT_ID,
+          trailSlug: "small-space-reading-corner",
+          sectionKey: "light-first",
+        },
+        client,
+      ),
+    ).rejects.toThrow("Curated product selection not found");
+    expect(calls.update.at(0)).toEqual({ state: "retired" });
+  });
+
   it("update_never_writes_link_state — link health is owned by the link checker", async () => {
     const { client, calls } = stubWriteClient([{}]);
 
