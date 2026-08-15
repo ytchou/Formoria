@@ -21,7 +21,6 @@ const remoteHeaders = Object.fromEntries(
   [
     ["CF-Access-Client-Id", process.env.CF_ACCESS_CLIENT_ID],
     ["CF-Access-Client-Secret", process.env.CF_ACCESS_CLIENT_SECRET],
-    ["x-formoria-edge", process.env.E2E_ORIGIN_SECRET],
   ].filter((entry): entry is [string, string] => Boolean(entry[1])),
 );
 
