@@ -268,6 +268,7 @@ export type Database = {
           country: string | null
           created_at: string
           created_by: string | null
+          district: string | null
           fetched_at: string | null
           id: string
           last_confirmed_at: string | null
@@ -293,6 +294,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           created_by?: string | null
+          district?: string | null
           fetched_at?: string | null
           id?: string
           last_confirmed_at?: string | null
@@ -318,6 +320,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           created_by?: string | null
+          district?: string | null
           fetched_at?: string | null
           id?: string
           last_confirmed_at?: string | null
@@ -553,33 +556,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      brand_field_state_backup_20260728: {
-        Row: {
-          admin_locked: boolean | null
-          brand_id: string | null
-          field: string | null
-          source: string | null
-          updated_at: string | null
-          updated_by: string | null
-        }
-        Insert: {
-          admin_locked?: boolean | null
-          brand_id?: string | null
-          field?: string | null
-          source?: string | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Update: {
-          admin_locked?: boolean | null
-          brand_id?: string | null
-          field?: string | null
-          source?: string | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Relationships: []
       }
       brand_images: {
         Row: {
@@ -3692,6 +3668,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      update_brand_channel_districts: {
+        Args: { p_updates: Json }
+        Returns: number
       }
       upsert_enriched_brand_channels: {
         Args: { p_brand_id: string; p_candidates: Json }
