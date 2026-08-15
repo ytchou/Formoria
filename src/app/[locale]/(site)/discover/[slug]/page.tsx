@@ -8,7 +8,10 @@ import { BrandSectionNav } from "@/components/brands/brand-section-nav";
 import { ViewItemListTracker } from "@/components/analytics/view-item-list-tracker";
 import type { SelectedProductTileLabels } from "@/components/brands/selected-product-tile";
 import { FaqBlock } from "@/components/stories/faq-block";
-import { RelatedStoryLink } from "@/components/stories/related-story-link";
+import {
+  RelatedStoryLink,
+  RelatedTrailLink,
+} from "@/components/stories/related-story-link";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import { trailIndexBlockers, type TrailIndexBlocker } from "@/lib/seo/trail-indexability";
@@ -169,6 +172,32 @@ function relatedStoryLinks(
   );
 }
 
+function relatedTrailLinks(title: string, values: string[]): React.ReactNode {
+  if (values.length === 0) return null;
+  return (
+    <section aria-labelledby="trails-related" className="space-y-3">
+      <h2 id="trails-related" className="type-section-title">
+        {title}
+      </h2>
+      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body">
+        {values.map((value, position) => (
+          <li key={value}>
+            <RelatedTrailLink
+              href={`/discover/${encodeURIComponent(value)}`}
+              trailSlug={value}
+              position={position}
+              trailSurface="trail_related"
+              className="text-primary underline underline-offset-4 hover:text-primary-dark"
+            >
+              {value}
+            </RelatedTrailLink>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export default async function DiscoverTrailPage({ params }: PageProps) {
   const { locale, slug: rawSlug } = await params;
   const slug = decodeURIComponent(rawSlug);
@@ -250,7 +279,7 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
         <div className="max-w-[720px] space-y-8">
           {relatedLinks(t("relatedCategories"), frontmatter.relatedCategories, "/categories")}
           {relatedStoryLinks(t("relatedStories"), frontmatter.relatedStories)}
-          {relatedLinks(t("relatedTrails"), frontmatter.relatedTrails, "/discover")}
+          {relatedTrailLinks(t("relatedTrails"), frontmatter.relatedTrails)}
         </div>
       </article>
     </main>

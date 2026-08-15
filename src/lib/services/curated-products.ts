@@ -1229,6 +1229,7 @@ export type AdminCuratedProduct = {
   highlightPosition: number | null;
   highlightRationaleZh: string | null;
   highlightRationaleEn: string | null;
+  wallPosition: number | null;
   updatedAt: string;
   sources: AdminCuratedProductSource[];
 };
@@ -1282,7 +1283,7 @@ export async function listCuratedProductsForAdmin(
        image_source_url, image_usage, lifecycle, link_state, proposed_by,
        source_checked_at, review_due_at, notes_zh, notes_en,
        highlight_position, highlight_rationale_zh, highlight_rationale_en,
-       updated_at,
+       wall_position, updated_at,
        brands(slug, name),
        curated_product_sources(id, url, source_type, claim_zh, state, checked_at)`,
     )
@@ -1318,6 +1319,7 @@ export async function listCuratedProductsForAdmin(
     highlightPosition: row.highlight_position ?? null,
     highlightRationaleZh: row.highlight_rationale_zh ?? null,
     highlightRationaleEn: row.highlight_rationale_en ?? null,
+    wallPosition: row.wall_position ?? null,
     updatedAt: row.updated_at,
     sources: (row.curated_product_sources ?? []).map((source) => ({
       id: source.id,

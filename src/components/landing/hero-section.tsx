@@ -2,6 +2,7 @@ import { Link } from '@/i18n/navigation'
 import Image from 'next/image'
 import { getLocale, getTranslations } from 'next-intl/server'
 import { HeroCategoryChips } from '@/components/landing/hero-category-chips'
+import { SectionBandCtaLink } from '@/components/landing/section-band-cta-link'
 import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 const HERO_CATEGORY_SLUGS = [
@@ -70,13 +71,12 @@ export default async function HeroSection() {
         </nav>
 
         <p className="mt-5 type-body">
-          <Link
+          <SectionBandCtaLink
             href="/brands"
-            data-ph-no-autocapture
+            label={t('knownIntent')}
+            ctaName="known_intent"
             className="inline-flex min-h-12 items-center font-medium text-primary"
-          >
-            {t('knownIntent')}
-          </Link>
+          />
         </p>
       </div>
     </section>

@@ -208,6 +208,9 @@ export function CuratedProductEditor({
   const [highlightRationaleEn, setHighlightRationaleEn] = useState(
     product?.highlightRationaleEn ?? "",
   );
+  const [wallPosition, setWallPosition] = useState<number | null>(
+    product?.wallPosition ?? null,
+  );
   const [reviewDueAt, setReviewDueAt] = useState(
     fromIsoDate(product?.reviewDueAt ?? null),
   );
@@ -227,6 +230,9 @@ export function CuratedProductEditor({
   const [highlightRationaleZhError, setHighlightRationaleZhError] = useState<
     string | null
   >(null);
+  const [wallPositionError, setWallPositionError] = useState<string | null>(
+    null,
+  );
   // Index → true for a draft source whose URL failed the client check.
   const [sourceUrlErrors, setSourceUrlErrors] = useState<
     Record<number, boolean>
@@ -281,8 +287,9 @@ export function CuratedProductEditor({
         rationaleZh: placementRationaleZh.trim(),
         rationaleEn: placementRationaleEn.trim() || null,
       });
-      if (result?.error) setPlacementError(result.error);
-      else {
+      if (result?.error) {
+        setPlacementError(result.fieldErrors?.sectionKey ?? result.error);
+      } else {
         setPlacementRationaleZh("");
         setPlacementRationaleEn("");
         onSaved();
@@ -315,6 +322,8 @@ export function CuratedProductEditor({
   const officialUrlErrorId = `${fieldId}-official-url-error`;
   const highlightPositionErrorId = `${fieldId}-highlight-position-error`;
   const highlightRationaleZhErrorId = `${fieldId}-highlight-rationale-zh-error`;
+  const wallPositionErrorId = `${fieldId}-wall-position-error`;
+  const placementErrorId = `${fieldId}-placement-error`;
   const sourceUrlErrorId = (index: number) =>
     `${fieldId}-source-url-error-${index}`;
 
@@ -357,6 +366,7 @@ export function CuratedProductEditor({
     setImageError(null);
     setHighlightPositionError(null);
     setHighlightRationaleZhError(null);
+    setWallPositionError(null);
 
     // URL fields are checked HERE, per field. The server's blanket
     // `{ error: "Invalid curated product" }` cannot say which input is wrong,
@@ -406,12 +416,14 @@ export function CuratedProductEditor({
       highlightPosition,
       highlightRationaleZh: highlightRationaleZh.trim() || null,
       highlightRationaleEn: highlightRationaleEn.trim() || null,
+      wallPosition,
       reviewDueAt: toIsoDate(reviewDueAt) ?? null,
     };
 
     const highlightValidation = curatedProductUpdateSchema.safeParse({
       highlightPosition: editorial.highlightPosition,
       highlightRationaleZh: editorial.highlightRationaleZh,
+      wallPosition: editorial.wallPosition,
     });
     if (!highlightValidation.success) {
       const { fieldErrors } = highlightValidation.error.flatten();
@@ -421,7 +433,9 @@ export function CuratedProductEditor({
         positionIssue ? t("highlightPositionInvalid") : null,
       );
       setHighlightRationaleZhError(rationaleIssue ?? null);
-      if (positionIssue || rationaleIssue) return;
+      const wallPositionIssue = fieldErrors.wallPosition?.at(0);
+      setWallPositionError(wallPositionIssue ? t("wallPositionInvalid") : null);
+      if (positionIssue || rationaleIssue || wallPositionIssue) return;
     }
 
     const payload = {
@@ -456,6 +470,9 @@ export function CuratedProductEditor({
                 : {}),
               ...(editorial.highlightRationaleEn
                 ? { highlightRationaleEn: editorial.highlightRationaleEn }
+                : {}),
+              ...(editorial.wallPosition !== null
+                ? { wallPosition: editorial.wallPosition }
                 : {}),
               ...(editorial.reviewDueAt
                 ? { reviewDueAt: editorial.reviewDueAt }
@@ -740,6 +757,37 @@ export function CuratedProductEditor({
           ) : null}
         </div>
         <div className="space-y-2">
+          <Label htmlFor={`${fieldId}-wall-position`}>
+            {t("wallPosition")}
+          </Label>
+          <Input
+            id={`${fieldId}-wall-position`}
+            type="number"
+            min={0}
+            step={1}
+            value={wallPosition ?? ""}
+            onChange={(event) => {
+              const value = event.target.value;
+              if (value === "") {
+                setWallPosition(null);
+              } else {
+                const parsed = Number(value);
+                setWallPosition(Number.isFinite(parsed) ? parsed : null);
+              }
+              setWallPositionError(null);
+            }}
+            aria-invalid={wallPositionError ? true : undefined}
+            aria-describedby={
+              wallPositionError ? wallPositionErrorId : undefined
+            }
+          />
+          {wallPositionError ? (
+            <p className="type-error" id={wallPositionErrorId}>
+              {wallPositionError}
+            </p>
+          ) : null}
+        </div>
+        <div className="space-y-2">
           <Label htmlFor={`${fieldId}-highlight-rationale-zh`}>
             {t("highlightRationaleZh")}
           </Label>
@@ -935,6 +983,8 @@ export function CuratedProductEditor({
                 id={`${fieldId}-section`}
                 value={placementSectionKey}
                 onChange={(event) => setPlacementSectionKey(event.target.value)}
+                aria-invalid={placementError ? true : undefined}
+                aria-describedby={placementError ? placementErrorId : undefined}
               >
                 {(selectedTrail?.sections ?? []).map((section) => (
                   <option key={section.key} value={section.key}>
@@ -993,7 +1043,11 @@ export function CuratedProductEditor({
               onChange={(event) => setPlacementRationaleEn(event.target.value)}
             />
           </div>
-          {placementError ? <p className="type-error" role="alert">{placementError}</p> : null}
+          {placementError ? (
+            <p className="type-error" id={placementErrorId} role="alert">
+              {placementError}
+            </p>
+          ) : null}
           <div className="flex flex-wrap gap-3">
             <Button
               type="button"

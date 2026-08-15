@@ -297,6 +297,44 @@ export function SelectedProductTile({
       {mode === "wall" ? (
         isWallAnchor ? (
           <div className="flex h-full flex-col">
+            {tracking ? (
+              <SelectedProductTileLink
+                href={internalHref}
+                prefetch={false}
+                className={internalClassName}
+                productKey={product.key}
+                brandSlug={tracking.brandSlug}
+                position={tracking.position}
+                surface={tracking.surface}
+              >
+                {content}
+              </SelectedProductTileLink>
+            ) : (
+              <Link
+                href={internalHref}
+                prefetch={false}
+                className={internalClassName}
+                data-ph-no-autocapture
+              >
+                {content}
+              </Link>
+            )}
+            {wallBrandSiteLink}
+          </div>
+        ) : (
+          tracking ? (
+            <SelectedProductTileLink
+              href={internalHref}
+              prefetch={false}
+              className={internalClassName}
+              productKey={product.key}
+              brandSlug={tracking.brandSlug}
+              position={tracking.position}
+              surface={tracking.surface}
+            >
+              {content}
+            </SelectedProductTileLink>
+          ) : (
             <Link
               href={internalHref}
               prefetch={false}
@@ -305,17 +343,7 @@ export function SelectedProductTile({
             >
               {content}
             </Link>
-            {wallBrandSiteLink}
-          </div>
-        ) : (
-          <Link
-            href={internalHref}
-            prefetch={false}
-            className={internalClassName}
-            data-ph-no-autocapture
-          >
-            {content}
-          </Link>
+          )
         )
       ) : mode === "internal" ? (
         tracking ? (

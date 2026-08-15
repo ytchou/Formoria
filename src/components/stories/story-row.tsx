@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { Badge } from "@/components/ui/badge";
 import { trackStoryCardClicked } from "@/lib/analytics";
+import { trackTrailCardClicked } from "@/lib/analytics";
 import type { StoryEntry } from "@/lib/services/stories";
 import { NO_SNIPPET } from "@/lib/seo/snippet";
 import { formatStoryDate, toStoryIsoDate } from "./story-date";
@@ -15,6 +16,7 @@ export function StoryRow({
   headingLevel,
   position,
   trackingSurface,
+  trackingKind = "story",
   hrefBase = '/stories',
   namespace = 'stories',
 }: {
@@ -23,6 +25,7 @@ export function StoryRow({
   headingLevel: 2 | 3;
   position?: number;
   trackingSurface?: string;
+  trackingKind?: "story" | "trail";
   hrefBase?: string;
   namespace?: string;
 }) {
@@ -40,7 +43,9 @@ export function StoryRow({
       ? {}
       : {
           onClick: () =>
-            trackStoryCardClicked(story.slug, position, trackingSurface),
+            trackingKind === "trail"
+              ? trackTrailCardClicked(story.slug, position, trackingSurface)
+              : trackStoryCardClicked(story.slug, position, trackingSurface),
           "data-ph-no-autocapture": true,
         };
 

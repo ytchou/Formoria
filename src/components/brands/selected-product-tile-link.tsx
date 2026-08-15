@@ -12,6 +12,7 @@ type SelectedProductTileLinkProps = {
   brandSlug: string;
   position: number;
   surface: string;
+  prefetch?: boolean;
   children: ReactNode;
 };
 
@@ -23,11 +24,13 @@ export function SelectedProductTileLink({
   brandSlug,
   position,
   surface,
+  prefetch,
   children,
 }: SelectedProductTileLinkProps) {
   return (
     <Link
       href={href}
+      prefetch={prefetch}
       className={className}
       data-ph-no-autocapture
       onClick={() =>

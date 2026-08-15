@@ -507,6 +507,18 @@ export function trackStoryCardClicked(
   })
 }
 
+export function trackTrailCardClicked(
+  trailSlug: string,
+  position: number,
+  trailSurface: string,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.TRAIL_CARD_CLICKED, {
+    trail_slug: trailSlug,
+    position,
+    trail_surface: trailSurface,
+  })
+}
+
 export function trackDirectorySortChanged(sortValue: string, previousSort: string) {
   capturePostHogEvent(ANALYTICS_EVENTS.DIRECTORY_SORT_CHANGED, {
     sort_value: sortValue,

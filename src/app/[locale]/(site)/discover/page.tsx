@@ -138,7 +138,8 @@ export default async function DiscoverHubPage({ params, searchParams }: PageProp
                 locale={locale}
                 headingLevel={2}
                 position={index}
-                trackingSurface="discover"
+                trackingSurface="discover_hub"
+                trackingKind="trail"
                 hrefBase="/discover"
                 namespace="discover"
               />

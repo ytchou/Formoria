@@ -9,6 +9,7 @@ import {
   safeJsonLdStringify,
 } from "@/lib/json-ld";
 import HeroSection from "@/components/landing/hero-section";
+import { ProductWall } from "@/components/landing/product-wall";
 import { HeroStats } from "@/components/landing/hero-stats";
 import BrandShowcase from "@/components/shared/brand-showcase";
 import SectionBand from "@/components/landing/section-band";
@@ -21,6 +22,7 @@ import {
   getPublishedCuratedProductsForHomepage,
   MIN_HOME_CURATED_PRODUCTS,
 } from "@/lib/services/curated-products";
+import { buildWallSlots } from "@/lib/curated-products/home-wall";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import { buildAlternates } from "@/lib/seo/alternates";
@@ -28,6 +30,7 @@ import type { Locale } from "@/lib/seo/alternates";
 import { buildOpenGraph } from "@/lib/seo/open-graph";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { getAllStories } from "@/lib/services/stories";
+import { getAllTrails } from "@/lib/services/trails";
 import { StoryRow } from "@/components/stories/story-row";
 import { EventCard } from "@/components/events/event-card";
 import {
@@ -38,10 +41,7 @@ import {
   taipeiToday,
 } from "@/lib/services/events";
 import { toPublicBrandCard } from "@/lib/brands/contracts";
-import {
-  SelectedProductTile,
-  type SelectedProductTileLabels,
-} from "@/components/brands/selected-product-tile";
+import type { SelectedProductTileLabels } from "@/components/brands/selected-product-tile";
 
 /**
  * Ongoing and upcoming events promoted on the landing page. Two, not the whole
@@ -99,6 +99,7 @@ export default async function LandingPage({ params }: PageProps) {
     newBrandsResult,
     curatedProductsResult,
     storyResult,
+    trailResult,
     eventResult,
   ] = await Promise.all([
       getExploreBrands(EXPLORE_BRAND_LIMIT).catch(
@@ -109,6 +110,14 @@ export default async function LandingPage({ params }: PageProps) {
         captureReadFailure("landing.selectedProducts"),
       ),
       getAllStories(safeLocale),
+      getAllTrails(safeLocale)
+        .then((result) => {
+          if (!result.ok) {
+            captureReadFailure("landing.trails")(result.error);
+          }
+          return result;
+        })
+        .catch(captureReadFailure("landing.trails")),
       getPublishedEvents().catch(captureReadFailure("landing.events")),
     ]);
 
@@ -140,6 +149,8 @@ export default async function LandingPage({ params }: PageProps) {
     newBrandsResult === null ||
     curatedProductsResult === null ||
     !storyResult.ok ||
+    trailResult === null ||
+    !trailResult.ok ||
     eventResult === null ||
     (promotedEvents.length > 0 && eventBrandCounts === null);
   if (degraded) {
@@ -155,6 +166,10 @@ export default async function LandingPage({ params }: PageProps) {
   const totalBrandCount = exploreResult?.totalCount;
   const latestStories = storyResult.ok ? storyResult.stories.slice(0, 3) : [];
   const curatedProducts = curatedProductsResult ?? [];
+  const wall = buildWallSlots({
+    products: curatedProducts,
+    trails: trailResult?.ok ? trailResult.trails : [],
+  });
   const selectedProductLabels: SelectedProductTileLabels = {
     cta: tSelected("cta"),
     brandSiteCta: tSelected("brandSiteCta"),
@@ -180,42 +195,24 @@ export default async function LandingPage({ params }: PageProps) {
 
         <SavedBrandsProvider>
           {curatedProducts.length >= MIN_HOME_CURATED_PRODUCTS && (
-            <section
-              aria-labelledby="landing-selected-products"
-              className="py-6 md:py-8"
-            >
-              <div className="mx-auto max-w-6xl page-gutter">
-                <div className="mb-6 space-y-2">
-                  <h2
-                    id="landing-selected-products"
-                    className="type-page-title-large"
-                  >
-                    {t("selectedProducts.heading")}
-                  </h2>
-                  <p className="type-card-description">
-                    {t("selectedProducts.note")}
-                  </p>
-                </div>
-                <ul className="grid list-none grid-cols-1 gap-6 p-0 sm:grid-cols-2 lg:grid-cols-3">
-                  {curatedProducts.map((product, index) => (
-                    <SelectedProductTile
-                      key={`${product.brandSlug}-${product.key}`}
-                      locale={safeLocale}
-                      product={product}
-                      labels={selectedProductLabels}
-                      mode="internal"
-                      brandSlug={product.brandSlug}
-                      brandName={product.brandName}
-                      tracking={{
-                        brandSlug: product.brandSlug,
-                        position: index,
-                        surface: "homepage_selected_products",
-                      }}
-                    />
-                  ))}
-                </ul>
-              </div>
-            </section>
+            <ProductWall
+              slots={wall.slots}
+              leftoverTrails={wall.leftoverTrails}
+              locale={safeLocale}
+              labels={{
+                heading: t("selectedProducts.heading"),
+                note: t("selectedProducts.note"),
+                continuationHeading: t("selectedProducts.continuationHeading"),
+                trailLinksLabel: t("selectedProducts.trailLinksLabel"),
+                categoryLinksLabel: t("selectedProducts.categoryLinksLabel"),
+                brandsLink: t("selectedProducts.brandsLink"),
+                product: selectedProductLabels,
+                trail: {
+                  eyebrow: t("selectedProducts.trailEyebrow"),
+                  cta: t("selectedProducts.trailCta"),
+                },
+              }}
+            />
           )}
 
           {latestStories.length > 0 && (

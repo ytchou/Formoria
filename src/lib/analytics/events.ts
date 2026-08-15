@@ -103,6 +103,14 @@ export const ANALYTICS_EVENTS = {
   STORY_CARD_CLICKED: 'story_card_clicked',
 
   /**
+   * A Discovery Trail card or row was opened.
+   * @property trail_slug {string} Stable slug of the trail.
+   * @property position {number} 0-based position within the rendered trail surface.
+   * @property trail_surface {string} Stable surface identifier for the trail list.
+   */
+  TRAIL_CARD_CLICKED: 'trail_card_clicked',
+
+  /**
    * The directory sort control changed value.
    * @property sort_value {string} Newly selected sort key.
    * @property previous_sort {string} Sort key in effect before the change.
@@ -637,6 +645,11 @@ export interface AnalyticsEventPayloads {
     story_slug: string
     position: number
     story_surface: string
+  }
+  [ANALYTICS_EVENTS.TRAIL_CARD_CLICKED]: {
+    trail_slug: string
+    position: number
+    trail_surface: string
   }
   [ANALYTICS_EVENTS.DIRECTORY_SORT_CHANGED]: { sort_value: string; previous_sort: string }
   [ANALYTICS_EVENTS.DIRECTORY_PAGE_NAVIGATED]: {
