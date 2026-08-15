@@ -42,8 +42,74 @@ permissions:
   contents: read
 
 jobs:
+  branch-verification:
+    if: github.ref == 'refs/heads/feat/dev-1447-homepage-product-wall'
+    runs-on: ubuntu-latest
+    environment: "Formoria / staging"
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      FORMORIA_DEPLOYMENT_ENV: staging
+      STAGING_BASE_URL: https://staging.formoria.com
+      BASE_URL: https://staging.formoria.com
+      NEXT_PUBLIC_SITE_URL: https://staging.formoria.com
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
+      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+      E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+      E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+      E2E_SIGNUP_EMAIL_DOMAIN: example.test
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      E2E_ORIGIN_SECRET: ${{ secrets.E2E_ORIGIN_SECRET }}
+      CI: "true"
+      PLAYWRIGHT_TEST: "true"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Verify current staging deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          staging_sha="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/staging | awk '{print $1}')"
+          [[ "$staging_sha" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          revision="$(curl --fail --silent --show-error --location \
+            -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+            -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
+            -H "x-formoria-edge: $E2E_ORIGIN_SECRET" \
+            -D - -o /dev/null "$STAGING_BASE_URL/about" \
+            | awk -F': ' 'tolower($1) == "x-formoria-revision" {gsub("\\r", "", $2); print $2; exit}')"
+          [[ "$revision" == "$staging_sha" ]] || {
+            echo "::error::staging deployment is not at the current staging SHA"
+            exit 1
+          }
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Run homepage wall regression set
+        run: >-
+          pnpm exec playwright test
+          e2e/tests/seo.spec.ts
+          e2e/tests/static-pages.spec.ts
+          e2e/tests/discovery-trail.spec.ts
+          --project=deep
+          --reporter=line
+
   resolve-staging:
-    if: inputs.selfheal_only != true
+    if: false
     runs-on: ubuntu-latest
     outputs:
       staging_sha: ${{ steps.sha.outputs.staging_sha }}
