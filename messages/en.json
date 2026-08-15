@@ -118,7 +118,13 @@
     },
     "selectedProducts": {
       "heading": "Formoria Selection",
-      "note": "Formoria deliberately chooses products for a stated situation, use, preference, or editorial point of view, and makes the reason clear."
+      "note": "Formoria deliberately chooses products for a stated situation, use, preference, or editorial point of view, and makes the reason clear.",
+      "trailEyebrow": "Curated theme",
+      "trailCta": "Explore this theme →",
+      "continuationHeading": "Keep exploring",
+      "trailLinksLabel": "Explore more curated themes",
+      "categoryLinksLabel": "Keep exploring by category",
+      "brandsLink": "Explore all brands →"
     },
     "showcase": {
       "heading": "Explore listed brands",
@@ -3222,6 +3228,8 @@
         "notesEn": "Editorial note (English)",
         "highlightPosition": "Brand-page highlight position",
         "highlightPositionInvalid": "Enter a non-negative whole number for the brand-page highlight position.",
+        "wallPosition": "Homepage wall position",
+        "wallPositionInvalid": "Enter a non-negative whole number for the homepage wall position.",
         "highlightRationaleZh": "Formoria selection rationale (zh-TW)",
         "highlightRationaleEn": "Formoria selection rationale (English)",
         "reviewDueAt": "Review again on",

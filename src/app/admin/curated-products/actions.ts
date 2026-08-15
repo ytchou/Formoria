@@ -56,7 +56,9 @@ import {
  * IS the success signal; no action reports one with a truthy success flag.
  */
 
-type ActionResult = { error: string } | undefined;
+type ActionResult =
+  | { error: string; fieldErrors?: Record<string, string> }
+  | undefined;
 
 /** A promote refusal carries the missing conditions so the UI can name them. */
 type PromoteActionResult =
@@ -79,6 +81,14 @@ function actionError(error: unknown, fallback: string): { error: string } {
   return {
     error: error instanceof Error && error.message ? error.message : fallback,
   };
+}
+
+function selectionActionError(error: unknown): ActionResult {
+  if (error instanceof Error && error.message.startsWith("sectionKey:")) {
+    const message = error.message.replace(/^sectionKey:\s*/, "");
+    return { error: message, fieldErrors: { sectionKey: message } };
+  }
+  return actionError(error, "Unable to place the curated product");
 }
 
 async function saveSources(
@@ -438,7 +448,7 @@ export async function upsertCuratedProductSelectionAction(
       revalidateCurated(brandSlug);
       return undefined;
     } catch (error) {
-      return actionError(error, "Unable to place the curated product");
+      return selectionActionError(error);
     }
   });
 }

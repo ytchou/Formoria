@@ -1501,6 +1501,7 @@ export type Database = {
           review_due_at: string | null
           source_checked_at: string | null
           updated_at: string
+          wall_position: number | null
         }
         Insert: {
           brand_id: string
@@ -1527,6 +1528,7 @@ export type Database = {
           review_due_at?: string | null
           source_checked_at?: string | null
           updated_at?: string
+          wall_position?: number | null
         }
         Update: {
           brand_id?: string
@@ -1553,6 +1555,7 @@ export type Database = {
           review_due_at?: string | null
           source_checked_at?: string | null
           updated_at?: string
+          wall_position?: number | null
         }
         Relationships: [
           {

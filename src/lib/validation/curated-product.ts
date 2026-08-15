@@ -95,6 +95,7 @@ const curatedProductFields = {
   notesZh: noteSchema.nullable().optional(),
   notesEn: noteSchema.nullable().optional(),
   highlightPosition: z.number().int().nonnegative().nullable().optional(),
+  wallPosition: z.number().int().nonnegative().nullable().optional(),
   highlightRationaleZh: noteSchema.nullable().optional(),
   highlightRationaleEn: noteSchema.nullable().optional(),
   reviewDueAt: timestampSchema.nullable().optional(),

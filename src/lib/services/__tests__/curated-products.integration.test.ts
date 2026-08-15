@@ -945,6 +945,49 @@ describeWithDb("curated product write path", () => {
     expect(data).toEqual({ position: 1, rationale_zh: "更新後的理由", state: "active" });
   });
 
+  it("rejects_second_brand_product_in_one_section", async () => {
+    const first = await seedCandidate();
+    const second = await createCuratedProduct(
+      {
+        brandId: first.brandId,
+        nameZh: "Second Ceramic Teacup",
+        l1: "home",
+      },
+      supabase,
+    );
+
+    const placement = {
+      trailSlug: "small-space-reading-corner",
+      sectionKey: "light-first",
+    };
+    await upsertCuratedProductSelection(
+      {
+        productId: first.productId,
+        ...placement,
+        rationaleZh: "同品牌的第一個選物",
+      },
+      supabase,
+    );
+
+    await expect(
+      upsertCuratedProductSelection(
+        {
+          productId: second.id,
+          ...placement,
+          rationaleZh: "同品牌的第二個選物",
+        },
+        supabase,
+      ),
+    ).rejects.toThrow("ceramic-teacup");
+
+    const { data, error } = await supabase
+      .from("curated_product_selections")
+      .select("product_id")
+      .eq("product_id", second.id);
+    expect(error).toBeNull();
+    expect(data).toEqual([]);
+  });
+
   it("retire_selection_sets_retired_and_never_deletes", async () => {
     const { productId } = await seedCandidate();
     const key = {

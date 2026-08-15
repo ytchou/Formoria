@@ -24,6 +24,7 @@ type RecordedCalls = {
   table: string[];
   select: string[];
   eq: [string, unknown][];
+  in: [string, unknown[]][];
   not: [string, string, unknown][];
   limit: number[];
 };
@@ -46,6 +47,7 @@ function stubClient(result: QueryResult): {
     table: [],
     select: [],
     eq: [],
+    in: [],
     not: [],
     limit: [],
   };
@@ -56,6 +58,10 @@ function stubClient(result: QueryResult): {
     },
     eq(column: string, value: unknown) {
       calls.eq.push([column, value]);
+      return chain;
+    },
+    in(column: string, values: unknown[]) {
+      calls.in.push([column, values]);
       return chain;
     },
     not(column: string, operator: string, value: unknown) {
@@ -543,6 +549,7 @@ function homepageRow(overrides: Record<string, unknown> = {}) {
         state: "active",
       },
     ],
+    wall_position: null,
     brands: {
       slug: "warmwood",
       name: "Warmwood",
@@ -597,28 +604,27 @@ describe("getPublishedCuratedProductsForHomepage", () => {
     expect(products.map((product) => product.key)).toEqual(["approved"]);
   });
 
-  it("requires a selection rationale", async () => {
-    const { client } = stubClient({
+  it("accepts a highlight rationale when no trail selection exists", async () => {
+    const { client, calls } = stubClient({
       data: [
         homepageRow({
-          key: "without-rationale",
-          curated_product_selections: [
-            {
-              trail_slug: "picks",
-              section_key: "home",
-              position: 1,
-              rationale_zh: null,
-              rationale_en: null,
-              state: "active",
-            },
-          ],
+          key: "highlight-only",
+          curated_product_selections: [],
+          highlight_rationale_zh: "品牌頁也值得被看見",
         }),
       ],
     });
 
-    await expect(getPublishedCuratedProductsForHomepage(client)).resolves.toEqual(
-      [],
-    );
+    const [product] = await getPublishedCuratedProductsForHomepage(client);
+
+    expect(product?.key).toBe("highlight-only");
+    expect(product?.rationaleZh).toBe("品牌頁也值得被看見");
+    expect(calls.select[0]).not.toContain("curated_product_selections!inner");
+    expect(calls.not).not.toContainEqual([
+      "curated_product_selections.rationale_zh",
+      "is",
+      null,
+    ]);
   });
 
   it("caps products per brand", async () => {
@@ -640,6 +646,20 @@ describe("getPublishedCuratedProductsForHomepage", () => {
           ],
         }),
         homepageRow({
+          key: "third",
+          brand_id: "brand-1",
+          curated_product_selections: [
+            {
+              trail_slug: "picks",
+              section_key: "home",
+              position: 3,
+              rationale_zh: "第三個角度",
+              rationale_en: "A third angle",
+              state: "active",
+            },
+          ],
+        }),
+        homepageRow({
           key: "other-brand",
           brand_id: "brand-2",
           brands: { slug: "other-brand", name: "Other Brand", status: "approved" },
@@ -649,31 +669,88 @@ describe("getPublishedCuratedProductsForHomepage", () => {
 
     const products = await getPublishedCuratedProductsForHomepage(client);
 
-    expect(products.map((product) => product.key)).toEqual([
-      "other-brand",
-      "first",
-    ]);
+    expect(products.filter((product) => product.brandId === "brand-1")).toHaveLength(2);
+    expect(products.map((product) => product.key)).toContain("other-brand");
   });
 
   it("filters unrenderable images", async () => {
     const { client } = stubClient({
-      data: [homepageRow({ image_usage: "none" })],
+      data: [
+        homepageRow({ key: "licensed", image_usage: "licensed" }),
+        homepageRow({ key: "none", image_usage: "none" }),
+      ],
     });
 
-    await expect(getPublishedCuratedProductsForHomepage(client)).resolves.toEqual(
-      [],
-    );
+    const products = await getPublishedCuratedProductsForHomepage(client);
+
+    expect(products.map((product) => product.key)).toEqual(["licensed"]);
   });
 
   it("orders deterministically and bounds the query", async () => {
     const rows = [
       homepageRow({
+        key: "brand-beta",
+        brand_id: "brand-beta",
+        wall_position: 1,
+        brands: { slug: "brand-beta", name: "Beta", status: "approved" },
+        curated_product_selections: [
+          {
+            trail_slug: "picks",
+            section_key: "home",
+            position: 100,
+            rationale_zh: "Beta reason",
+            rationale_en: "Beta reason",
+            state: "active",
+          },
+        ],
+      }),
+      homepageRow({
         key: "zeta",
-        brands: { slug: "zeta", name: "Zeta", status: "approved" },
+        brand_id: "brand-alpha",
+        wall_position: 1,
+        brands: { slug: "alpha", name: "Alpha", status: "approved" },
+        curated_product_selections: [
+          {
+            trail_slug: "picks",
+            section_key: "home",
+            position: 0,
+            rationale_zh: "Alpha zeta reason",
+            rationale_en: "Alpha zeta reason",
+            state: "active",
+          },
+        ],
       }),
       homepageRow({
         key: "alpha",
+        brand_id: "brand-alpha",
+        wall_position: 1,
         brands: { slug: "alpha", name: "Alpha", status: "approved" },
+        curated_product_selections: [
+          {
+            trail_slug: "picks",
+            section_key: "home",
+            position: 99,
+            rationale_zh: "Alpha alpha reason",
+            rationale_en: "Alpha alpha reason",
+            state: "active",
+          },
+        ],
+      }),
+      homepageRow({
+        key: "later",
+        brand_id: "brand-later",
+        wall_position: 3,
+        brands: { slug: "later", name: "Later", status: "approved" },
+        curated_product_selections: [],
+        highlight_rationale_zh: "Later reason",
+      }),
+      homepageRow({
+        key: "unplaced",
+        brand_id: "brand-unplaced",
+        wall_position: null,
+        brands: { slug: "unplaced", name: "Unplaced", status: "approved" },
+        curated_product_selections: [],
+        highlight_rationale_zh: "Unplaced reason",
       }),
     ];
     const first = stubClient({ data: rows });
@@ -686,10 +763,43 @@ describe("getPublishedCuratedProductsForHomepage", () => {
       second.client,
     );
 
+    expect(firstProducts.map((product) => product.key)).toEqual([
+      "alpha",
+      "zeta",
+      "brand-beta",
+      "later",
+      "unplaced",
+    ]);
     expect(firstProducts.map((product) => product.key)).toEqual(
       secondProducts.map((product) => product.key),
     );
     expect(first.calls.limit).toEqual([1_000]);
+    expect(first.calls.select[0]).not.toContain("curated_product_selections!inner");
+    expect(first.calls.not).not.toContainEqual([
+      "curated_product_selections.rationale_zh",
+      "is",
+      null,
+    ]);
+    expect(first.calls.in).toContainEqual([
+      "image_usage",
+      ["permitted", "licensed"],
+    ]);
+  });
+
+  it("excludes a product with neither rationale source", async () => {
+    const { client } = stubClient({
+      data: [
+        homepageRow({
+          key: "without-rationale",
+          curated_product_selections: [],
+          highlight_rationale_zh: null,
+        }),
+      ],
+    });
+
+    await expect(getPublishedCuratedProductsForHomepage(client)).resolves.toEqual(
+      [],
+    );
   });
 
   it("returns empty on a missing curated-products table", async () => {
@@ -721,6 +831,7 @@ type WriteCalls = {
   upsert: Record<string, unknown>[];
   eq: [string, unknown][];
   in: [string, unknown[]][];
+  neq: [string, unknown][];
 };
 
 /**
@@ -746,6 +857,7 @@ function stubWriteClient(replies: WriteReply[]): {
     upsert: [],
     eq: [],
     in: [],
+    neq: [],
   };
   const queue = [...replies];
 
@@ -776,6 +888,10 @@ function stubWriteClient(replies: WriteReply[]): {
     },
     in(column: string, values: unknown[]) {
       calls.in.push([column, values]);
+      return chain;
+    },
+    neq(column: string, value: unknown) {
+      calls.neq.push([column, value]);
       return chain;
     },
     single() {
@@ -973,7 +1089,11 @@ describe("createCuratedProduct", () => {
 
 describe("curated product writers", () => {
   it("upserts a trail selection on its composite key without highlight fields", async () => {
-    const { client, calls } = stubWriteClient([{}]);
+    const { client, calls } = stubWriteClient([
+      { data: { brand_id: BRAND_ID } },
+      { data: [] },
+      {},
+    ]);
 
     await upsertCuratedProductSelection(
       {
@@ -998,6 +1118,90 @@ describe("curated product writers", () => {
       state: "active",
     });
     expect(Object.keys(calls.upsert.at(0) ?? {})).not.toContain("highlight_position");
+  });
+
+  it("rejects a second product from the same brand in the same trail section", async () => {
+    const { client, calls } = stubWriteClient([
+      { data: { brand_id: BRAND_ID } },
+      {
+        data: [
+          {
+            product_id: "conflicting-product",
+            curated_products: { brand_id: BRAND_ID, key: "already-picked" },
+          },
+        ],
+      },
+    ]);
+
+    await expect(
+      upsertCuratedProductSelection(
+        {
+          productId: PRODUCT_ID,
+          trailSlug: "small-space-reading-corner",
+          sectionKey: "light-first",
+          rationaleZh: "同一段落的第二個品牌產品",
+        },
+        client,
+      ),
+    ).rejects.toThrow("already-picked");
+    expect(calls.upsert).toHaveLength(0);
+  });
+
+  it("allows the same brand in two different sections of one trail", async () => {
+    const { client, calls } = stubWriteClient([
+      { data: { brand_id: BRAND_ID } },
+      { data: [] },
+      {},
+      { data: { brand_id: BRAND_ID } },
+      { data: [] },
+      {},
+    ]);
+
+    await upsertCuratedProductSelection(
+      {
+        productId: PRODUCT_ID,
+        trailSlug: "small-space-reading-corner",
+        sectionKey: "light-first",
+        rationaleZh: "另一段落的同品牌產品",
+      },
+      client,
+    );
+    await upsertCuratedProductSelection(
+      {
+        productId: PRODUCT_ID,
+        trailSlug: "small-space-reading-corner",
+        sectionKey: "beside-seat",
+        rationaleZh: "同品牌在另一段落的產品",
+      },
+      client,
+    );
+
+    expect(calls.upsert).toHaveLength(2);
+    expect(calls.upsert.map((payload) => payload.section_key)).toEqual([
+      "light-first",
+      "beside-seat",
+    ]);
+  });
+
+  it("allows re-upserting the same product into its own section", async () => {
+    const { client, calls } = stubWriteClient([
+      { data: { brand_id: BRAND_ID } },
+      { data: [] },
+      {},
+    ]);
+
+    await upsertCuratedProductSelection(
+      {
+        productId: PRODUCT_ID,
+        trailSlug: "small-space-reading-corner",
+        sectionKey: "light-first",
+        rationaleZh: "重新編輯同一個選物",
+      },
+      client,
+    );
+
+    expect(calls.neq).toContainEqual(["product_id", PRODUCT_ID]);
+    expect(calls.upsert).toHaveLength(1);
   });
 
   it("retires a trail selection without deleting it", async () => {

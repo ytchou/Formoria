@@ -53,6 +53,9 @@ export type CuratedProduct = {
   notesZh: string | null;
   notesEn: string | null;
   highlightPosition: number | null;
+  highlightRationaleZh: string | null;
+  highlightRationaleEn: string | null;
+  wallPosition: number | null;
   createdAt: string;
   /** The winning selection: lowest `position`, ties broken by `trailSlug`. */
   trailSlug: string | null;
@@ -65,13 +68,14 @@ export type CuratedProduct = {
 /** The minimum supply needed for the homepage rail to read as intentional. */
 export const MIN_HOME_CURATED_PRODUCTS = 6;
 
-/** Keep the first impression diverse: one selected product per brand. */
-export const MAX_HOME_CURATED_PRODUCTS_PER_BRAND = 1;
+/** Keep one brand from owning three of the first eight wall tiles. */
+export const MAX_HOME_CURATED_PRODUCTS_PER_BRAND = 2;
 
 /** Cross-brand public projection used by the homepage's internal product links. */
 export type HomepageCuratedProduct = CuratedProduct & {
   brandSlug: string;
   brandName: string;
+  brand: BrandVisitLinkFields & { slug: string };
 };
 
 /** A published product placement as rendered inside one trail section. */
@@ -96,7 +100,7 @@ const CURATED_PRODUCT_READ_SELECT = `
   id, brand_id, key, name_zh, name_en, l1, l2, official_url, image_url,
   image_source_url, image_usage, lifecycle, link_state, link_checked_at,
   source_checked_at, review_due_at, notes_zh, notes_en, highlight_position,
-  highlight_rationale_zh, highlight_rationale_en, created_at,
+  highlight_rationale_zh, highlight_rationale_en, wall_position, created_at,
   curated_product_sources!inner(id),
   curated_product_selections(trail_slug, section_key, position, rationale_zh, rationale_en)
 `;
@@ -133,13 +137,25 @@ type CuratedProductReadRow = Pick<
   | "highlight_position"
   | "highlight_rationale_zh"
   | "highlight_rationale_en"
+  | "wall_position"
   | "created_at"
 > & {
   curated_product_selections: CuratedProductSelectionRow[] | null;
 };
 
 type HomepageCuratedProductRow = CuratedProductReadRow & {
-  brands: { slug: string; name: string; status?: string } | null;
+  brands: {
+    slug: string;
+    name: string;
+    status?: string;
+    purchase_website: string | null;
+    purchase_pinkoi: string | null;
+    purchase_shopee: string | null;
+    purchase_myship: string | null;
+    social_instagram: string | null;
+    social_threads: string | null;
+    social_facebook: string | null;
+  } | null;
   curated_product_sources?: { id: string; state?: string }[] | null;
 };
 
@@ -164,6 +180,7 @@ type HomepageCuratedProductQuery = PromiseLike<{
   data: unknown[] | null;
   error: unknown;
 }> & {
+  in(column: string, values: string[]): HomepageCuratedProductQuery;
   not(
     column: string,
     operator: string,
@@ -215,6 +232,9 @@ function toCuratedProduct(row: CuratedProductReadRow): CuratedProduct {
     notesZh: row.notes_zh ?? null,
     notesEn: row.notes_en ?? null,
     highlightPosition: row.highlight_position ?? null,
+    highlightRationaleZh: row.highlight_rationale_zh ?? null,
+    highlightRationaleEn: row.highlight_rationale_en ?? null,
+    wallPosition: row.wall_position ?? null,
     createdAt: row.created_at,
     trailSlug: selection?.trail_slug ?? null,
     sectionKey: selection?.section_key ?? null,
@@ -257,6 +277,9 @@ function toTrailProduct(
     notesZh: row.notes_zh ?? null,
     notesEn: row.notes_en ?? null,
     highlightPosition: row.highlight_position ?? null,
+    highlightRationaleZh: row.highlight_rationale_zh ?? null,
+    highlightRationaleEn: row.highlight_rationale_en ?? null,
+    wallPosition: row.wall_position ?? null,
     createdAt: row.created_at,
     trailSlug: selection.trail_slug,
     sectionKey: selection.section_key,
@@ -355,7 +378,9 @@ export async function getPublishedCuratedProductsForHomepage(
   const query = excludeTestBrands(
     curatedProductClient(client)
       .from("curated_products")
-      .select(`${CURATED_PRODUCT_READ_SELECT}, brands!inner(slug, name, status)`)
+      .select(
+        `${CURATED_PRODUCT_READ_SELECT}, brands!inner(slug, name, status, purchase_website, purchase_pinkoi, purchase_shopee, purchase_myship, social_instagram, social_threads, social_facebook)`,
+      )
       .eq("lifecycle", "published")
       .not("official_url", "is", null)
       .not("source_checked_at", "is", null)
@@ -365,17 +390,15 @@ export async function getPublishedCuratedProductsForHomepage(
       .eq("curated_product_selections.state", "active")
       .eq("brands.status", "approved")
       .not("image_url", "is", null)
-      .eq("image_usage", "permitted")
-      // This narrows the embedded selection rows; the winning-selection check
-      // below remains authoritative when several active placements exist.
-      .not("curated_product_selections.rationale_zh", "is", null)
+      .in("image_usage", ["permitted", "licensed"])
       .limit(1_000) as unknown as HomepageCuratedProductQuery,
     "brands.name",
   );
   const { data, error } = await query;
 
   if (error) {
-    if ((error as { code?: string }).code === MISSING_TABLE_CODE) return [];
+    const code = (error as { code?: string }).code;
+    if (code === MISSING_TABLE_CODE || code === MISSING_COLUMN_CODE) return [];
     throw error;
   }
 
@@ -390,7 +413,7 @@ export async function getPublishedCuratedProductsForHomepage(
         !row.official_url ||
         !row.source_checked_at ||
         !row.image_url ||
-        row.image_usage !== "permitted" ||
+        !["permitted", "licensed"].includes(row.image_usage) ||
         (row.curated_product_sources !== undefined &&
           !(row.curated_product_sources ?? []).some(
             (source) => source.state === undefined || source.state === "active",
@@ -410,20 +433,34 @@ export async function getPublishedCuratedProductsForHomepage(
         ...row,
         curated_product_selections: activeSelections,
       });
-      // A relation filter can leave the parent row with an empty embed when
-      // none of its active placements carries rationale. Do not render a
-      // selected tile whose explanation is missing.
-      if (!product.rationaleZh?.trim()) return null;
+      const selection = winningSelection(activeSelections);
+      const rationaleZh = selection?.rationale_zh ?? product.highlightRationaleZh;
+      const rationaleEn = selection?.rationale_en ?? product.highlightRationaleEn;
+      // The wall requires an editorial explanation from either a trail
+      // placement or the product-scoped highlight rationale.
+      if (!rationaleZh?.trim()) return null;
       return {
         ...product,
+        rationaleZh,
+        rationaleEn,
         brandSlug: row.brands.slug,
         brandName: row.brands.name,
+        brand: {
+          slug: row.brands.slug,
+          purchaseWebsite: row.brands.purchase_website ?? null,
+          purchasePinkoi: row.brands.purchase_pinkoi ?? null,
+          purchaseShopee: row.brands.purchase_shopee ?? null,
+          purchaseMyship: row.brands.purchase_myship ?? null,
+          socialInstagram: row.brands.social_instagram ?? null,
+          socialThreads: row.brands.social_threads ?? null,
+          socialFacebook: row.brands.social_facebook ?? null,
+        },
       };
     })
     .filter((product): product is HomepageCuratedProduct => product !== null)
     .sort(
       (a, b) =>
-        (a.position ?? UNPLACED) - (b.position ?? UNPLACED) ||
+        (a.wallPosition ?? UNPLACED) - (b.wallPosition ?? UNPLACED) ||
         a.brandSlug.localeCompare(b.brandSlug) ||
         a.key.localeCompare(b.key),
     );
@@ -562,6 +599,7 @@ export type CuratedProductWriteInput = {
   notesZh?: string | null;
   notesEn?: string | null;
   highlightPosition?: number | null;
+  wallPosition?: number | null;
   highlightRationaleZh?: string | null;
   highlightRationaleEn?: string | null;
 };
@@ -685,6 +723,7 @@ export async function createCuratedProduct(
         notes_zh: input.notesZh ?? null,
         notes_en: input.notesEn ?? null,
         highlight_position: input.highlightPosition ?? null,
+        wall_position: input.wallPosition ?? null,
         highlight_rationale_zh: input.highlightRationaleZh ?? null,
         highlight_rationale_en: input.highlightRationaleEn ?? null,
         lifecycle: "candidate",
@@ -773,6 +812,9 @@ export async function updateCuratedProduct(
       if (input.notesEn !== undefined) payload.notes_en = input.notesEn ?? null;
       if (input.highlightPosition !== undefined) {
         payload.highlight_position = input.highlightPosition ?? null;
+      }
+      if (input.wallPosition !== undefined) {
+        payload.wall_position = input.wallPosition ?? null;
       }
       if (input.highlightRationaleZh !== undefined) {
         payload.highlight_rationale_zh = input.highlightRationaleZh ?? null;
@@ -996,6 +1038,11 @@ export type CuratedProductSelectionKey = Pick<
   "productId" | "trailSlug" | "sectionKey"
 >;
 
+type CuratedProductSelectionConflict = {
+  product_id: string;
+  curated_products: { brand_id: string; key: string } | null;
+};
+
 async function validateSelectionInput(
   input: CuratedProductSelectionInput,
 ): Promise<{
@@ -1047,7 +1094,39 @@ export async function upsertCuratedProductSelection(
     },
     async () => {
       const validated = await validateSelectionInput(input);
-      const { error } = await curatedProductClient(client)
+      const supabase = curatedProductClient(client);
+      const { data: productRow, error: productError } = await supabase
+        .from("curated_products")
+        .select("brand_id")
+        .eq("id", input.productId)
+        .single();
+      if (productError) throw productError;
+
+      const brandId = (productRow as { brand_id?: string } | null)?.brand_id;
+      if (!brandId) throw new Error(`Curated product not found: ${input.productId}`);
+
+      const { data: conflicts, error: conflictError } = await supabase
+        .from("curated_product_selections")
+        .select("product_id, curated_products!inner(brand_id, key)")
+        .eq("trail_slug", validated.trailSlug)
+        .eq("section_key", validated.sectionKey)
+        .eq("state", "active")
+        .neq("product_id", input.productId)
+        .eq("curated_products.brand_id", brandId);
+      if (conflictError) throw conflictError;
+
+      const conflict = (
+        (conflicts as unknown as CuratedProductSelectionConflict[] | null) ?? []
+      ).at(0);
+      if (conflict) {
+        const conflictingKey =
+          conflict.curated_products?.key ?? conflict.product_id;
+        throw new Error(
+          `sectionKey: section "${validated.sectionKey}" already contains product "${conflictingKey}" from this brand`,
+        );
+      }
+
+      const { error } = await supabase
         .from("curated_product_selections")
         .upsert(
           {
@@ -1150,6 +1229,7 @@ export type AdminCuratedProduct = {
   highlightPosition: number | null;
   highlightRationaleZh: string | null;
   highlightRationaleEn: string | null;
+  wallPosition: number | null;
   updatedAt: string;
   sources: AdminCuratedProductSource[];
 };
@@ -1203,7 +1283,7 @@ export async function listCuratedProductsForAdmin(
        image_source_url, image_usage, lifecycle, link_state, proposed_by,
        source_checked_at, review_due_at, notes_zh, notes_en,
        highlight_position, highlight_rationale_zh, highlight_rationale_en,
-       updated_at,
+       wall_position, updated_at,
        brands(slug, name),
        curated_product_sources(id, url, source_type, claim_zh, state, checked_at)`,
     )
@@ -1239,6 +1319,7 @@ export async function listCuratedProductsForAdmin(
     highlightPosition: row.highlight_position ?? null,
     highlightRationaleZh: row.highlight_rationale_zh ?? null,
     highlightRationaleEn: row.highlight_rationale_en ?? null,
+    wallPosition: row.wall_position ?? null,
     updatedAt: row.updated_at,
     sources: (row.curated_product_sources ?? []).map((source) => ({
       id: source.id,
