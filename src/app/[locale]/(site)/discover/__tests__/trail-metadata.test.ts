@@ -77,6 +77,24 @@ describe("discovery trail metadata", () => {
     ).toEqual([]);
   });
 
+  // The supply gate lives in the page body, below `markRenderDegraded`. These
+  // two guard the seams it must not move into: metadata has no degraded-render
+  // protection, and the sitemap keeps its own read.
+  it("blocked trail still produces noindex metadata", () => {
+    const metadata = buildTrailMetadata({
+      locale: "zh-TW",
+      trail,
+      blockers: ["min_products"],
+    });
+
+    expect(metadata.robots).toEqual({ index: false, follow: true });
+    expect(metadata.alternates?.canonical).toContain("/discover/small-space-reading-corner");
+  });
+
+  it("sitemap still omits a blocked trail", () => {
+    expect(buildTrailSitemapEntries(trail, [] as never)).toEqual([]);
+  });
+
   it("keeps the in-body FAQ block visual-only so the page emits one FAQPage", () => {
     const element = createStoryComponentMap().FaqBlock({
       questions: [{ q: "Question", a: "Answer" }],

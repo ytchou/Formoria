@@ -4,6 +4,7 @@ import type { HomepageCuratedProduct } from "@/lib/services/curated-products";
 import type { TrailEntry } from "@/lib/services/trails";
 import {
   MAX_HOME_WALL_PRODUCTS,
+  TRAIL_SLOT_CADENCE,
   buildWallSlots,
 } from "../home-wall";
 
@@ -175,6 +176,42 @@ describe("buildWallSlots", () => {
       6,
     );
     expect(productSlots(result.slots)).toHaveLength(products.length);
+  });
+
+  // The homepage filters under-supplied trails out of the list before it gets
+  // here, so an empty list is the production case, not an edge case.
+  it("omits a trail slot when no trail is passed", () => {
+    const result = buildWallSlots({
+      products: Array.from({ length: 16 }, (_, index) => product(`p-${index}`)),
+      trails: [],
+    });
+
+    expect(result.slots.some((slot) => slot.kind === "trail")).toBe(false);
+    expect(result.leftoverTrails).toEqual([]);
+    expect(productSlots(result.slots)).toHaveLength(16);
+  });
+
+  it("keeps existing anchor and cadence behaviour with trails present", () => {
+    const result = buildWallSlots({
+      products: Array.from({ length: 16 }, (_, index) =>
+        product(`p-${index}`, { wallPosition: index < 4 ? index : null }),
+      ),
+      trails: [trail("first", "/first.webp"), trail("second", "/second.webp")],
+    });
+
+    expect(
+      result.slots.flatMap((slot, index) => (slot.kind === "trail" ? [index] : [])),
+    ).toEqual([TRAIL_SLOT_CADENCE, TRAIL_SLOT_CADENCE * 2 + 1]);
+
+    const spans = new Map(
+      productSlots(result.slots).map((slot) => [slot.product.key, slot.span]),
+    );
+    expect(spans.get("p-0")).toBe("2x2");
+    expect(spans.get("p-1")).toBe("2x1");
+    expect(spans.get("p-4")).toBe("1x1");
+    expect(
+      productSlots(result.slots).filter((slot) => slot.span !== "1x1"),
+    ).toHaveLength(4);
   });
 
   it("excludes trails without a heroImage", () => {

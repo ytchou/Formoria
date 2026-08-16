@@ -30,6 +30,7 @@ import type { Locale } from "@/lib/seo/alternates";
 import { buildOpenGraph } from "@/lib/seo/open-graph";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { getAllStories } from "@/lib/services/stories";
+import { getIndexableTrailSlugs } from "@/lib/services/trail-supply";
 import { getAllTrails } from "@/lib/services/trails";
 import { StoryRow } from "@/components/stories/story-row";
 import { EventCard } from "@/components/events/event-card";
@@ -101,6 +102,7 @@ export default async function LandingPage({ params }: PageProps) {
     storyResult,
     trailResult,
     eventResult,
+    trailSupply,
   ] = await Promise.all([
       getExploreBrands(EXPLORE_BRAND_LIMIT).catch(
         captureReadFailure("landing.exploreBrands"),
@@ -119,6 +121,14 @@ export default async function LandingPage({ params }: PageProps) {
         })
         .catch(captureReadFailure("landing.trails")),
       getPublishedEvents().catch(captureReadFailure("landing.events")),
+      // Supply gate for the wall's trail tile and the leftover-trail nav.
+      // Batched here because it depends on nothing else in this render — kept
+      // serial it put N curated-product round trips on the critical path.
+      // The service reports its own read failures to Sentry internally (under
+      // the scope passed here), so this `.catch` is belt-and-braces.
+      getIndexableTrailSlugs(safeLocale, "landing.trailSupply").catch(
+        captureReadFailure("landing.trailSupply"),
+      ),
     ]);
 
   // One Taipei "today" for the whole render: partitioning on one value and
@@ -166,9 +176,15 @@ export default async function LandingPage({ params }: PageProps) {
   const totalBrandCount = exploreResult?.totalCount;
   const latestStories = storyResult.ok ? storyResult.stories.slice(0, 3) : [];
   const curatedProducts = curatedProductsResult ?? [];
+  // Deliberately kept OUT of the `degraded` aggregate above: folding it in would
+  // let one build-time blip demote the site's most-visited route to dynamic for
+  // the whole deployment. A failed read hides the trail tile instead.
+  const indexableTrailSlugs = trailSupply?.indexableSlugs ?? new Set<string>();
   const wall = buildWallSlots({
     products: curatedProducts,
-    trails: trailResult?.ok ? trailResult.trails : [],
+    trails: (trailResult?.ok ? trailResult.trails : []).filter((trail) =>
+      indexableTrailSlugs.has(trail.slug),
+    ),
   });
   const selectedProductLabels: SelectedProductTileLabels = {
     cta: tSelected("cta"),

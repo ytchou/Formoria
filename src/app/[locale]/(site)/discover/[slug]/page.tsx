@@ -27,6 +27,7 @@ import {
   type TrailDetailResult,
 } from "@/lib/services/trails";
 import { getPublishedCuratedProductsForTrail, type TrailCuratedProduct } from "@/lib/services/curated-products";
+import { shouldHideUnderSuppliedTrail } from "@/lib/services/trail-supply";
 import { TrailContent } from "./trail-content";
 
 type PageProps = {
@@ -208,6 +209,18 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
 
   if (!trail) notFound();
   if (products === null) await markRenderDegraded("discover.trail.products");
+  // Supply gate, deliberately BELOW `markRenderDegraded`. Above it the route is
+  // still statically rendering, so a `notFound()` freezes a 404 into the whole
+  // deployment; below it a failed read has already demoted this render to
+  // dynamic. (The predicate's own null-read semantics are documented on it.)
+  if (
+    shouldHideUnderSuppliedTrail({
+      frontmatter: trail.entry.frontmatter,
+      products,
+    })
+  ) {
+    notFound();
+  }
   const safeProducts = products ?? [];
 
   const entry = trail.entry;

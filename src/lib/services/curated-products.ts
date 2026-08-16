@@ -1396,3 +1396,26 @@ export async function getCuratedProductBrandSlug(
   const row = data as unknown as { brands: { slug: string } | null } | null;
   return row?.brands?.slug ?? null;
 }
+
+/**
+ * The trail slugs a product write must revalidate.
+ *
+ * Promoting or retiring a product changes the SUPPLY of every trail it is
+ * actively selected into, and both `/discover` and `/discover/[slug]` are
+ * ISR-cached behind a supply gate — without this, publishing the sixth product
+ * for a trail leaves its cached 404 serving for up to an hour. A product can
+ * sit in more than one trail, so this returns every distinct active slug.
+ */
+export async function getCuratedProductTrailSlugs(
+  id: string,
+  client?: CuratedProductSupabase,
+): Promise<string[]> {
+  const { data, error } = await curatedProductClient(client)
+    .from("curated_product_selections")
+    .select("trail_slug")
+    .eq("product_id", id)
+    .eq("state", "active");
+  if (error) throw error;
+  const rows = (data as unknown as { trail_slug: string }[] | null) ?? [];
+  return [...new Set(rows.map((row) => row.trail_slug))];
+}
