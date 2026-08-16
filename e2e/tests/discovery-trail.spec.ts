@@ -1,3 +1,4 @@
+import type { APIRequestContext } from "@playwright/test";
 import { load } from "cheerio";
 
 import { BUDGET } from "../budgets";
@@ -14,16 +15,27 @@ const TRAIL_URL = trail ? `/discover/${trail.slug}` : "/discover";
 const SELECTED_REASON_LABEL = "為這個主題選入";
 const OFFICIAL_DESTINATION = /前往(?:產品|品牌)官方網站/;
 
+// The trail is published in MDX, but the page 404s when the database holds too
+// few curated products for it. Probe once per worker so those runs skip, not
+// fail: the answer is environment-level, so every test in the worker reuses it.
+// A transport error resolves to null, which skips nothing.
+let trailStatusProbe: Promise<number | null> | undefined;
+
+function probeTrailStatus(
+  request: APIRequestContext,
+): Promise<number | null> {
+  trailStatusProbe ??= request
+    .get(TRAIL_URL)
+    .then((response) => response.status())
+    .catch(() => null);
+  return trailStatusProbe;
+}
+
 test.describe("Discovery trail deep", () => {
   test.beforeEach(async ({ request }) => {
     test.skip(trail === undefined, NO_PUBLISHED_TRAILS);
 
-    // The trail is published in MDX, but the page 404s when the database holds
-    // too few curated products for it. Probe once so those runs skip, not fail.
-    const status = await request
-      .get(TRAIL_URL)
-      .then((response) => response.status())
-      .catch(() => null);
+    const status = await probeTrailStatus(request);
     test.skip(status === 404, "trail has no published curated products");
   });
 

@@ -37,23 +37,68 @@ describe("discovery trail hub", () => {
     expect(shouldIndexTrailHub(new Set(["small-space-reading-corner"]))).toBe(true);
   });
 
-  it("hub renders comingSoon when no trail is indexable", () => {
+  it("an under-supplied trail is absent from the hub list", () => {
     const trails = [trail("home-trail", ["home"])];
 
     expect(
       selectHubView({
         result: { ok: true, trails },
         indexableSlugs: new Set(),
+        failedSlugs: new Set(),
         activeTag: null,
       }),
     ).toEqual({ kind: "comingSoon" });
+  });
+
+  it("an indexable trail stays in the hub list", () => {
+    const trails = [trail("home-trail", ["home"])];
 
     expect(
       selectHubView({
         result: { ok: true, trails },
         indexableSlugs: new Set(["home-trail"]),
+        failedSlugs: new Set(),
         activeTag: null,
       }),
     ).toEqual({ kind: "list", trails });
+  });
+
+  it("surfaces a load error when the trail list read failed", () => {
+    expect(
+      selectHubView({
+        result: { ok: false, error: new Error("read failed") },
+        indexableSlugs: new Set(),
+        failedSlugs: new Set(),
+        activeTag: null,
+      }),
+    ).toEqual({ kind: "loadError" });
+  });
+
+  it("surfaces a load error when every supply read failed", () => {
+    // The trail list is MDX on disk, so it still loads during a database
+    // outage. Without this, the hub would claim there is no content.
+    const trails = [trail("home-trail", ["home"]), trail("craft-trail", ["crafts"])];
+
+    expect(
+      selectHubView({
+        result: { ok: true, trails },
+        indexableSlugs: new Set(),
+        failedSlugs: new Set(["home-trail", "craft-trail"]),
+        activeTag: null,
+      }),
+    ).toEqual({ kind: "loadError" });
+  });
+
+  it("shows comingSoon when a tag matches only under-supplied trails", () => {
+    const trails = [trail("home-trail", ["home"]), trail("craft-trail", ["crafts"])];
+
+    expect(
+      selectHubView({
+        result: { ok: true, trails },
+        indexableSlugs: new Set(["craft-trail"]),
+        failedSlugs: new Set(),
+        activeTag: "home",
+      }),
+    ).toEqual({ kind: "comingSoon" });
   });
 });

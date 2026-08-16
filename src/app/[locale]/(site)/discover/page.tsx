@@ -45,13 +45,26 @@ export type HubView =
 export function selectHubView({
   result,
   indexableSlugs,
+  failedSlugs,
   activeTag,
 }: {
   result: TrailListResult;
   indexableSlugs: ReadonlySet<string>;
+  failedSlugs: ReadonlySet<string>;
   activeTag: string | null;
 }): HubView {
   if (!result.ok) return { kind: "loadError" };
+
+  // Every supply read failed: the trail list itself loaded (it is MDX on disk),
+  // so "no supply" is indistinguishable from a database outage unless we say so.
+  // Telling visitors there is nothing here would be a lie; surface the same
+  // load error the list-read failure uses.
+  if (
+    result.trails.length > 0 &&
+    result.trails.every((trail) => failedSlugs.has(trail.slug))
+  ) {
+    return { kind: "loadError" };
+  }
 
   const trails = filterTrailsByTag(result.trails, activeTag).filter((trail) =>
     indexableSlugs.has(trail.slug),
@@ -90,9 +103,10 @@ export default async function DiscoverHubPage({ params, searchParams }: PageProp
   const t = await getTranslations({ locale, namespace: "discover" });
   const query = await searchParams;
   const activeTag = firstParam(query.tag);
-  const { result, indexableSlugs, degraded } = await getIndexableTrailSlugs(safeLocale);
+  const { result, indexableSlugs, failedSlugs, degraded } =
+    await getIndexableTrailSlugs(safeLocale);
   if (degraded) await markRenderDegraded("discover.hub");
-  const view = selectHubView({ result, indexableSlugs, activeTag });
+  const view = selectHubView({ result, indexableSlugs, failedSlugs, activeTag });
 
   return (
     <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">

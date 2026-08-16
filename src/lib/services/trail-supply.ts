@@ -4,6 +4,7 @@ import { captureReadFailure } from "@/lib/degraded-render";
 import type { Locale } from "@/lib/seo/alternates";
 import {
   trailIndexBlockers,
+  type TrailIndexabilityFrontmatter,
   type TrailIndexabilityProduct,
 } from "@/lib/seo/trail-indexability";
 import { getPublishedCuratedProductsForTrail } from "@/lib/services/curated-products";
@@ -56,9 +57,31 @@ export function selectIndexableTrails({
   return { indexableSlugs, failedSlugs };
 }
 
+/**
+ * Decides whether a single trail detail route must 404 for want of supply.
+ *
+ * `products === null` means the read FAILED, not that the slate is empty, and
+ * must never produce a 404 — `captureReadFailure` returns `null`, so without
+ * this check a transient DB failure is indistinguishable from an empty slate.
+ * Only `min_products` hides the page; every other blocker leaves the trail
+ * reachable and merely noindex.
+ */
+export function shouldHideUnderSuppliedTrail({
+  frontmatter,
+  products,
+}: {
+  frontmatter: TrailIndexabilityFrontmatter;
+  products: readonly TrailIndexabilityProduct[] | null;
+}): boolean {
+  if (products === null) return false;
+  return trailIndexBlockers({ frontmatter, products }).includes("min_products");
+}
+
 export type TrailSupplyResult = {
   result: TrailListResult;
   indexableSlugs: Set<string>;
+  /** Trails whose product read failed — unknown supply, not empty supply. */
+  failedSlugs: Set<string>;
   /** True when any read failed, so the caller can opt out of the ISR cache. */
   degraded: boolean;
 };
@@ -66,13 +89,22 @@ export type TrailSupplyResult = {
 /**
  * Fetching wrapper around {@link selectIndexableTrails}. `cache()`-wrapped so
  * the hub's metadata and body — and the homepage — pay for one read per request.
+ *
+ * `scope` prefixes the Sentry scopes so a homepage failure is not triaged as a
+ * `/discover` hub failure. Note `cache()` keys on arguments: every call site on
+ * one surface must pass identical arguments or that surface fetches twice.
  */
 export const getIndexableTrailSlugs = cache(
-  async (locale: Locale): Promise<TrailSupplyResult> => {
+  async (locale: Locale, scope: string = "discover.hub"): Promise<TrailSupplyResult> => {
     const result = await getAllTrails(locale);
     if (!result.ok) {
-      captureReadFailure("discover.hub.trails")(result.error);
-      return { result, indexableSlugs: new Set(), degraded: true };
+      captureReadFailure(`${scope}.trails`)(result.error);
+      return {
+        result,
+        indexableSlugs: new Set(),
+        failedSlugs: new Set(),
+        degraded: true,
+      };
     }
 
     const entries = await Promise.all(
@@ -81,7 +113,7 @@ export const getIndexableTrailSlugs = cache(
           const products = await getPublishedCuratedProductsForTrail(trail.slug);
           return [trail.slug, products] as const;
         } catch (error) {
-          captureReadFailure(`discover.hub.products.${trail.slug}`)(error);
+          captureReadFailure(`${scope}.products.${trail.slug}`)(error);
           return [trail.slug, null] as const;
         }
       }),
@@ -92,6 +124,6 @@ export const getIndexableTrailSlugs = cache(
       productsBySlug: new Map(entries),
     });
 
-    return { result, indexableSlugs, degraded: failedSlugs.size > 0 };
+    return { result, indexableSlugs, failedSlugs, degraded: failedSlugs.size > 0 };
   },
 );

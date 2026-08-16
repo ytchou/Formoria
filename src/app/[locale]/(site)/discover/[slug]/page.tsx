@@ -27,6 +27,7 @@ import {
   type TrailDetailResult,
 } from "@/lib/services/trails";
 import { getPublishedCuratedProductsForTrail, type TrailCuratedProduct } from "@/lib/services/curated-products";
+import { shouldHideUnderSuppliedTrail } from "@/lib/services/trail-supply";
 import { TrailContent } from "./trail-content";
 
 type PageProps = {
@@ -211,16 +212,12 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
   // Supply gate, deliberately BELOW `markRenderDegraded`. Above it the route is
   // still statically rendering, so a `notFound()` freezes a 404 into the whole
   // deployment; below it a failed read has already demoted this render to
-  // dynamic. `products !== null` is the second half of the same guard —
-  // `captureReadFailure` returns `null`, so without it a transient build-time DB
-  // failure is indistinguishable from an empty slate and bakes a 404 for a trail
-  // that has content.
+  // dynamic. (The predicate's own null-read semantics are documented on it.)
   if (
-    products !== null &&
-    trailIndexBlockers({
+    shouldHideUnderSuppliedTrail({
       frontmatter: trail.entry.frontmatter,
       products,
-    }).includes("min_products")
+    })
   ) {
     notFound();
   }
