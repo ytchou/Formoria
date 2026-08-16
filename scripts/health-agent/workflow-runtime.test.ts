@@ -1366,7 +1366,7 @@ describe("health-agent admission", () => {
     const contents = new Map<string, string>([
       ["final-report.json", JSON.stringify({ terminal: true })],
     ]);
-    const fetchImplementation = vi.fn<typeof fetch>(async (request, init) => {
+    const fetchImplementation = vi.fn<typeof fetch>(async (request, _init) => {
       const url = String(request);
       if (url.endsWith("/rest/v1/rpc/claim_health_agent_run")) {
         return new Response(JSON.stringify({ claimed: true, replay: false }), {
