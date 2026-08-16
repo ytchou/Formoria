@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import OgImage, { alt } from '@/app/[locale]/og/trust/opengraph-image'
+import { alt } from '@/app/[locale]/og/trust/opengraph-image'
 
 describe('Trust OG image route', () => {
 

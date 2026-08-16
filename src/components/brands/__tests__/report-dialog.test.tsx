@@ -4,7 +4,6 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import zh from '../../../../messages/zh-TW.json'
-import { trackBrandReported } from '@/lib/analytics'
 
 vi.mock('@/lib/analytics', () => ({
   trackBrandReported: vi.fn(),

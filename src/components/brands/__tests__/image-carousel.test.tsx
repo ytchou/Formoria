@@ -12,7 +12,10 @@ vi.mock("next/image", () => ({
     preload: _preload,
     fill: _fill,
     ...props
-  }: Record<string, unknown>) => <img {...props} />,
+    // `alt=""` sits before the spread so the component's own alt still wins — it
+    // is there to satisfy jsx-a11y statically, not to change what renders.
+    // eslint-disable-next-line @next/next/no-img-element -- this IS the mock of next/image; importing next/image here would mock the module with itself
+  }: Record<string, unknown>) => <img alt="" {...props} />,
 }));
 // Translations resolve to their keys: this spec is about index alignment, not
 // copy, and key-as-value keeps the expected alt strings unambiguous.

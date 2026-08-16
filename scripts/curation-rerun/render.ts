@@ -16,9 +16,9 @@ import {
   purchaseChannelByKey,
 } from "@/lib/brands/purchase-channels";
 import { loadCohort, snapshotDir } from "./cohort";
-// ARTIFACT_ROOT / artifactPath / esc are shared with
+// artifactPath / esc are shared with
 // scripts/resort-heroes/render.ts; see scripts/shared/artifact.ts.
-import { ARTIFACT_ROOT, artifactPath, esc } from "../shared/artifact";
+import { artifactPath, esc } from "../shared/artifact";
 
 type Img = Record<string, unknown> & {
   url: string;
