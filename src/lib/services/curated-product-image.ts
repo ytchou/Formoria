@@ -61,13 +61,18 @@ function isAllowedImageContentType(header: string | null): boolean {
 /**
  * Reads the body with a hard byte ceiling, streaming rather than buffering.
  *
+ * Exported because the dimension backfill
+ * (`scripts/curated-products/backfill-image-dimensions.ts`) reads stored objects
+ * too and must not grow a second capped-read implementation that drifts from
+ * this one.
+ *
  * `Buffer.from(await response.arrayBuffer())` allocates whatever the origin
  * chooses to send before anything can object, so a hostile or broken origin
  * decides this process's memory. `content-length` is checked when present and
  * the stream is cancelled the moment the running total crosses the cap —
  * because a chunked response carries no length at all.
  */
-async function readImageBodyCapped(response: Response): Promise<Buffer> {
+export async function readImageBodyCapped(response: Response): Promise<Buffer> {
   const declaredLength = Number.parseInt(
     response.headers.get("content-length") ?? "",
     10,

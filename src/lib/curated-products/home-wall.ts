@@ -63,6 +63,12 @@ export type BuildWallSlotsInput = {
 export type BuildWallSlotsResult = {
   slots: WallSlot[];
   leftoverTrails: TrailEntry[];
+  /**
+   * Pins the per-brand cap refused. An editor who pins a third product of one
+   * brand gets two on the wall; the third is reported here rather than
+   * vanishing, the same way `leftoverTrails` reports an unplaced trail.
+   */
+  droppedPins: HomepageCuratedProduct[];
 };
 
 /** The Taipei calendar day, which is the whole of the wall's daily seed. */
@@ -145,16 +151,34 @@ function isPinned(product: HomepageCuratedProduct): boolean {
   return product.wallPosition !== null && product.wallPosition !== undefined;
 }
 
-function capProductsPerBrand(
-  products: HomepageCuratedProduct[],
-): HomepageCuratedProduct[] {
+/**
+ * Keeps at most `MAX_HOME_CURATED_PRODUCTS_PER_BRAND` per brand.
+ *
+ * THE CAP BINDS PINS TOO, and a pin it refuses is RETURNED rather than
+ * discarded: an editor who pins three products of one brand is telling the wall
+ * something it cannot honour, and silently dropping the third leaves no trace
+ * anywhere. The cap itself is the reversible choice — letting pins exceed it
+ * would let one brand own the top of the wall with no ceiling at all.
+ */
+function capProductsPerBrand(products: HomepageCuratedProduct[]): {
+  kept: HomepageCuratedProduct[];
+  droppedPins: HomepageCuratedProduct[];
+} {
   const counts = new Map<string, number>();
-  return products.filter((product) => {
+  const kept: HomepageCuratedProduct[] = [];
+  const droppedPins: HomepageCuratedProduct[] = [];
+
+  for (const product of products) {
     const count = counts.get(product.brandId) ?? 0;
-    if (count >= MAX_HOME_CURATED_PRODUCTS_PER_BRAND) return false;
+    if (count >= MAX_HOME_CURATED_PRODUCTS_PER_BRAND) {
+      if (isPinned(product)) droppedPins.push(product);
+      continue;
+    }
     counts.set(product.brandId, count + 1);
-    return true;
-  });
+    kept.push(product);
+  }
+
+  return { kept, droppedPins };
 }
 
 function applyDiversityPass(
@@ -189,13 +213,19 @@ function applyDiversityPass(
  * `wall_position` survives the removal of the editorial anchor spans as a PIN:
  * a product carrying one sorts ahead of everything else, in its own order, so
  * an editor can still force something to the top of the wall. Everything
- * unpinned is shuffled on the date seed. The diversity pass runs on the
- * shuffled tail only — a pin that the pass deferred would not be a pin.
+ * unpinned is shuffled on the date seed.
+ *
+ * The diversity pass then runs over the WHOLE stream, pins included. Running it
+ * on the shuffled tail alone restarts the window budget after the pins, so
+ * eight pinned `home` products plus six more from the tail put fourteen
+ * consecutive `home` tiles at the top — the "at most six of one L1 in the first
+ * twelve" rule has to hold unconditionally to mean anything. Pins still lead
+ * the stream, so a pin only moves when its own L1 has already spent the budget.
  */
 function orderProducts(
   products: HomepageCuratedProduct[],
   seed: string,
-): HomepageCuratedProduct[] {
+): { products: HomepageCuratedProduct[]; droppedPins: HomepageCuratedProduct[] } {
   const pinned = products.filter(isPinned).sort(
     (a, b) =>
       (a.wallPosition ?? 0) - (b.wallPosition ?? 0) ||
@@ -206,11 +236,8 @@ function orderProducts(
 
   // The per-brand cap runs over the pinned stream FIRST, so a pin always wins
   // the brand's two places rather than losing them to a shuffled sibling.
-  const capped = capProductsPerBrand([...pinned, ...shuffled]);
-  return [
-    ...capped.filter(isPinned),
-    ...applyDiversityPass(capped.filter((p) => !isPinned(p))),
-  ];
+  const { kept, droppedPins } = capProductsPerBrand([...pinned, ...shuffled]);
+  return { products: applyDiversityPass(kept), droppedPins };
 }
 
 function eligibleTrail(trail: TrailEntry): boolean {
@@ -223,10 +250,8 @@ export function buildWallSlots({
   trails,
   seed = wallSeedForDate(),
 }: BuildWallSlotsInput): BuildWallSlotsResult {
-  const editorialProducts = orderProducts(products, seed).slice(
-    0,
-    MAX_HOME_WALL_PRODUCTS,
-  );
+  const ordered = orderProducts(products, seed);
+  const editorialProducts = ordered.products.slice(0, MAX_HOME_WALL_PRODUCTS);
   const eligibleTrails = trails.filter(eligibleTrail);
   const trailSlotCount = Math.min(
     Math.floor(editorialProducts.length / TRAIL_SLOT_CADENCE),
@@ -265,5 +290,6 @@ export function buildWallSlots({
   return {
     slots,
     leftoverTrails: trails.filter((trail) => !placedTrailSlugs.has(trail.slug)),
+    droppedPins: ordered.droppedPins,
   };
 }

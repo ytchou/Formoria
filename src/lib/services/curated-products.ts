@@ -8,7 +8,6 @@ import {
   type PromoteBlocker,
   type PromoteOutcome,
 } from "@/lib/curated-products/promote-gate";
-import { MAX_HOME_CURATED_PRODUCTS_PER_BRAND } from "@/lib/curated-products/wall-ratio";
 import { withSlugSuffix } from "@/lib/brands/slug";
 import { generateSlug } from "@/lib/services/brands";
 import { normalizeProductTags } from "@/lib/services/product-tags";
@@ -68,13 +67,6 @@ export type CuratedProduct = {
 
 /** The minimum supply needed for the homepage rail to read as intentional. */
 export const MIN_HOME_CURATED_PRODUCTS = 6;
-
-/**
- * Keep one brand from owning three of the first eight wall tiles. Declared in
- * the `wall-ratio` leaf and re-exported here so client tiles can read it
- * without pulling this service module — and `sharp` — into the browser bundle.
- */
-export { MAX_HOME_CURATED_PRODUCTS_PER_BRAND };
 
 /** Cross-brand public projection used by the homepage's internal product links. */
 export type HomepageCuratedProduct = CuratedProduct & {
@@ -385,12 +377,21 @@ export async function getPublishedCuratedProductsForBrand(
  *
  * This read is intentionally not cached: publishing already revalidates the
  * homepage, while an additional cache would create an invalidation path the
- * publish action cannot reach. Post-processing applies the one-product
- * per-brand cap and deterministic ordering after the database result is
- * flattened through the same selection resolver as the brand page.
+ * publish action cannot reach. Post-processing applies deterministic ordering
+ * after the database result is flattened through the same selection resolver as
+ * the brand page.
  *
  * Missing curated-product tables are a normal deploy-before-migration window;
  * return an empty rail rather than failing the homepage render.
+ *
+ * THE PER-BRAND CAP IS NOT APPLIED HERE. This read has no seed and no clock, so
+ * capping to two per brand before the composer sees the rows freezes WHICH two
+ * a brand shows: the daily shuffle can then only permute the same pair, and a
+ * brand with three or more published products shows the same two forever. The
+ * cap lives once, in `@/lib/curated-products/home-wall`, after the shuffle. The
+ * ordering below stays — it is what makes `wall_position` a stable pin — and
+ * `.limit(1_000)` still bounds the read, comfortably above the ~32 tiles the
+ * wall renders.
  */
 export async function getPublishedCuratedProductsForHomepage(
   client?: CuratedProductSupabase,
@@ -488,13 +489,9 @@ export async function getPublishedCuratedProductsForHomepage(
         a.key.localeCompare(b.key),
     );
 
-  const productsByBrand = new Map<string, number>();
-  return candidates.filter((product) => {
-    const count = productsByBrand.get(product.brandId) ?? 0;
-    if (count >= MAX_HOME_CURATED_PRODUCTS_PER_BRAND) return false;
-    productsByBrand.set(product.brandId, count + 1);
-    return true;
-  });
+  // No per-brand cap here ON PURPOSE: see the header. The composer applies it
+  // after the daily shuffle, over the full published set.
+  return candidates;
 }
 
 const CURATED_PRODUCT_TRAIL_READ_SELECT = `

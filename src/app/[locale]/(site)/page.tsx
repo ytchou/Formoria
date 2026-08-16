@@ -40,7 +40,7 @@ import { toPublicBrandCard } from "@/lib/brands/contracts";
  */
 const LANDING_EVENT_LIMIT = 2;
 
-/** Stories shown in the 主題 zone before the reader is sent to `/stories`. */
+/** Stories shown in the topics zone before the reader is sent to `/stories`. */
 const LANDING_STORY_LIMIT = 3;
 
 export const revalidate = 3600;

@@ -56,6 +56,14 @@ const DEAD_KEYS = [
   // The new-brands rail goes with the restructure (D12).
   "newBrands.heading",
   "newBrands.linkText",
+  // `hero-stats.tsx` was deleted with the hero recut. `about.hero.statsBrands`
+  // is a DIFFERENT namespace and still ships — only the landing copy is dead.
+  "hero.statsBrands",
+  // The manifesto band became the trust seam; only its headline survives,
+  // because the site-wide OG image reads it.
+  "manifesto.body1",
+  "manifesto.body2",
+  "manifesto.cta",
 ];
 
 describe("landing namespace", () => {
@@ -118,6 +126,8 @@ describe("landing namespace", () => {
       "selectedProducts.heading",
       "selectedProducts.note",
       "selectedProducts.showMore",
+      // The reveal control is a disclosure, so it needs both of its labels.
+      "selectedProducts.showLess",
       "trustSeam.line",
       "trustSeam.note",
       "trustSeam.cta",

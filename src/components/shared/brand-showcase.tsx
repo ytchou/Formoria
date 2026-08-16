@@ -3,7 +3,7 @@
 import { Link } from '@/i18n/navigation'
 import type { PublicBrandCard } from '@/lib/brands/contracts'
 import { BrandCard } from '@/components/brands/brand-card'
-import { SectionHeader } from '@/components/landing/section-header'
+import { SectionHeader } from '@/components/shared/section-header'
 import { trackCtaClicked } from '@/lib/analytics'
 import { useInView } from '@/hooks/use-in-view'
 
@@ -31,7 +31,7 @@ export default function BrandShowcase({
 
   return (
     <section>
-      {/* The one shared header, so the 收錄 rail is titled exactly the way the
+      {/* The one shared header, so the directory rail is titled exactly the way the
           selection wall and the trust seam above it are. Its link slot stays
           empty: the rail's CTA is tracked, and one destination announced twice
           is a second tab stop to the same place. */}

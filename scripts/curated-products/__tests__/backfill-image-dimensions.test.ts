@@ -6,6 +6,7 @@ import {
   parseApplyOption,
   type DimensionQuery,
   type DimensionRow,
+  type DimensionUpdateFilter,
   type DimensionWriter,
 } from "../backfill-image-dimensions";
 
@@ -28,25 +29,49 @@ function row(overrides: Partial<DimensionRow> = {}): DimensionRow {
     image_source_url: null,
     image_width: null,
     image_height: null,
+    brands: { slug: "reading-lamp-co" },
     ...overrides,
   };
 }
 
 function recordingWriter(): {
   writer: DimensionWriter;
-  writes: { id: string; values: Record<string, unknown> }[];
+  writes: {
+    id: string;
+    values: Record<string, unknown>;
+    filters: [string, string][];
+  }[];
 } {
-  const writes: { id: string; values: Record<string, unknown> }[] = [];
+  const writes: {
+    id: string;
+    values: Record<string, unknown>;
+    filters: [string, string][];
+  }[] = [];
   const writer: DimensionWriter = {
     from() {
       return {
         update(values: Record<string, unknown>) {
-          return {
-            async eq(_column: string, value: string) {
-              writes.push({ id: value, values });
-              return { error: null };
-            },
+          const filters: [string, string][] = [];
+          // `eq` chains and is itself awaitable, exactly like PostgREST's
+          // builder: the update is keyed on the id AND the image_url.
+          const build = (): DimensionUpdateFilter => {
+            const filter = {
+              eq(column: string, value: string) {
+                filters.push([column, value]);
+                return build();
+              },
+              then(resolve: (result: { error: null }) => unknown) {
+                writes.push({
+                  id: filters.find(([column]) => column === "id")?.[1] ?? "",
+                  values,
+                  filters: [...filters],
+                });
+                return Promise.resolve({ error: null }).then(resolve);
+              },
+            };
+            return filter as unknown as DimensionUpdateFilter;
           };
+          return build();
         },
       };
     },
@@ -121,6 +146,46 @@ describe("backfillImageDimensions", () => {
     expect(writes.map((write) => write.id)).toEqual(["row-todo"]);
   });
 
+  it("re-measures rows that already have dimensions when forced", async () => {
+    const { writer, writes } = recordingWriter();
+
+    const report = await backfillImageDimensions({
+      rows: [
+        row({ id: "row-stale", key: "stale", image_width: 1200, image_height: 800 }),
+      ],
+      apply: true,
+      force: true,
+      writer,
+      measure: async () => ({ width: 1000, height: 1000 }),
+    });
+
+    // Without the force flag threaded here, the pending filter skipped every
+    // forced row and the run reported {selected: 1, skipped: 1, written: 0}.
+    expect(report.skipped).toBe(0);
+    expect(report.measured).toBe(1);
+    expect(report.written).toBe(1);
+    expect(writes[0]?.values).toEqual({ image_width: 1000, image_height: 1000 });
+  });
+
+  it("keys the write on the image_url it measured", async () => {
+    const { writer, writes } = recordingWriter();
+
+    const report = await backfillImageDimensions({
+      rows: [row({ id: "row-a", key: "a" })],
+      apply: true,
+      writer,
+      measure: async () => ({ width: 1200, height: 900 }),
+    });
+
+    // An id-only update would clobber the fresher dimensions an admin's
+    // mid-run image replacement already wrote.
+    expect(writes[0]?.filters).toEqual([
+      ["id", "row-a"],
+      ["image_url", `${IMAGE_BASE}/curated-products/lamp.webp`],
+    ]);
+    expect(report.writtenBrandSlugs).toEqual(["reading-lamp-co"]);
+  });
+
   it("records a failure and continues when one object is unreadable", async () => {
     const { writer, writes } = recordingWriter();
 
@@ -147,6 +212,66 @@ describe("backfillImageDimensions", () => {
 });
 
 describe("loadRowsNeedingDimensions", () => {
+  function recordingQuery() {
+    const calls: {
+      table: string;
+      select: string[];
+      is: [string, unknown][];
+      not: [string, string, unknown][];
+      order: string[];
+    } = { table: "", select: [], is: [], not: [], order: [] };
+
+    const query: DimensionQuery = {
+      is(column: string, value: unknown) {
+        calls.is.push([column, value]);
+        return query;
+      },
+      not(column: string, operator: string, value: unknown) {
+        calls.not.push([column, operator, value]);
+        return query;
+      },
+      order(column: string) {
+        calls.order.push(column);
+        return query;
+      },
+      async range() {
+        return { data: [], error: null };
+      },
+    };
+
+    return {
+      calls,
+      reader: {
+        from(table: string) {
+          calls.table = table;
+          return {
+            select: (columns: string) => {
+              calls.select.push(columns);
+              return query;
+            },
+          };
+        },
+      },
+    };
+  }
+
+  it("drops the null cursor under --force so populated rows are re-read", async () => {
+    const { calls, reader } = recordingQuery();
+
+    await loadRowsNeedingDimensions(true, reader);
+
+    expect(calls.is).not.toContainEqual(["image_width", null]);
+    expect(calls.not).toContainEqual(["image_url", "is", null]);
+  });
+
+  it("embeds the brand slug so an apply can revalidate what it changed", async () => {
+    const { calls, reader } = recordingQuery();
+
+    await loadRowsNeedingDimensions(false, reader);
+
+    expect(calls.select[0]).toContain("brands!inner(slug)");
+  });
+
   it("resumes on the null width cursor and pages in a stable order", async () => {
     const calls: {
       table: string;

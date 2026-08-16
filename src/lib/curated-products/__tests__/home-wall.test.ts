@@ -257,6 +257,69 @@ describe("buildWallSlots", () => {
     ).toBeLessThanOrEqual(6);
   });
 
+  it("holds the diversity window even when the pins are all one L1", () => {
+    // Eight pins of one L1 used to bypass the window entirely: the pass ran on
+    // the shuffled tail only, whose budget restarted at zero, so eight pinned
+    // `home` tiles plus six more made fourteen in a row.
+    const products = [
+      ...Array.from({ length: 8 }, (_, index) =>
+        product(`pin-${index}`, { l1: "home", wallPosition: index + 1 }),
+      ),
+      ...Array.from({ length: 12 }, (_, index) =>
+        product(`home-${index}`, { l1: "home" }),
+      ),
+      ...Array.from({ length: 12 }, (_, index) =>
+        product(`beauty-${index}`, { l1: "beauty" }),
+      ),
+    ];
+
+    const slots = productSlots(
+      buildWallSlots({ products, trails: [], seed: SEED }).slots,
+    );
+
+    expect(
+      slots.slice(0, 12).filter((slot) => slot.product.l1 === "home").length,
+    ).toBeLessThanOrEqual(6);
+    // The pins that fit still lead the wall — the window moves a pin, it never
+    // demotes it below an unpinned product of the same L1.
+    expect(slots[0]?.product.key).toBe("pin-0");
+  });
+
+  it("reports a pin the per-brand cap refused instead of dropping it", () => {
+    const result = buildWallSlots({
+      products: [
+        ...Array.from({ length: 3 }, (_, index) =>
+          product(`pin-${index}`, {
+            brandId: "brand-shared",
+            wallPosition: index + 1,
+          }),
+        ),
+        ...Array.from({ length: 6 }, (_, index) => product(`free-${index}`)),
+      ],
+      trails: [],
+      seed: SEED,
+    });
+
+    const slots = productSlots(result.slots);
+    expect(
+      slots.filter((slot) => slot.product.brandId === "brand-shared"),
+    ).toHaveLength(2);
+    expect(result.droppedPins.map((dropped) => dropped.key)).toEqual(["pin-2"]);
+  });
+
+  it("reports no dropped pins when every pin fits", () => {
+    const result = buildWallSlots({
+      products: [
+        product("pin-a", { wallPosition: 1 }),
+        ...Array.from({ length: 6 }, (_, index) => product(`free-${index}`)),
+      ],
+      trails: [],
+      seed: SEED,
+    });
+
+    expect(result.droppedPins).toEqual([]);
+  });
+
   it("pinned products always precede the shuffled remainder", () => {
     const products = [
       ...Array.from({ length: 20 }, (_, index) => product(`free-${index}`)),

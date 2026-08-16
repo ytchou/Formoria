@@ -114,7 +114,6 @@
       "searchLabel": "Search Taiwanese brands and products",
       "searchPlaceholder": "Search brands, products, or categories",
       "browseCta": "Start browsing",
-      "statsBrands": "brands",
       "statsCategories": "categories",
       "allCategories": "All categories →"
     },
@@ -122,6 +121,7 @@
       "heading": "Formoria Selection",
       "note": "For a particular situation, a particular use, or a particular preference, we chose these products on purpose — and we can say why.",
       "showMore": "See more selections",
+      "showLess": "Show fewer selections",
       "trailEyebrow": "Curated theme",
       "trailCta": "Explore this theme →",
       "continuationHeading": "Keep exploring",
@@ -140,10 +140,7 @@
       "browseAll": "See every listed brand →"
     },
     "manifesto": {
-      "headline": "Listings and selections stay distinct",
-      "body1": "A listed brand meets the directory rules; listing is not Formoria selection, recommendation, certification, or ranking.",
-      "body2": "Content selected by Formoria is labelled “Formoria Selection”; brand-provided and sponsored content are also labelled separately.",
-      "cta": "About Formoria"
+      "headline": "Listings and selections stay distinct"
     },
     "submitBand": {
       "headline": "Recommend a Taiwanese brand worth discovering",

@@ -21,10 +21,14 @@ interface SectionHeaderProps {
 }
 
 /**
- * The one section header for the landing trust zones. It replaces four inlined
+ * The one section header for a page zone. It replaces four inlined
  * near-duplicates whose markup had diverged — one carried `aria-labelledby`,
  * one carried nothing — so the accessible name of every zone is now built the
  * same way.
+ *
+ * It lives in `shared/` rather than `landing/` because it knows nothing about
+ * the landing page: `BrandShowcase` already consumes it from `shared/`, and a
+ * shared component must not drag a route-specific folder behind it.
  *
  * Alignment is deliberately left at the page gutter, including next to the
  * centred hero: a centred header row loses the reading edge the zones below it

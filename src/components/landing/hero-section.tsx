@@ -30,13 +30,16 @@ export default async function HeroSection() {
       <div className="mx-auto max-w-6xl page-gutter">
         {/* Centring is visual only — the DOM order below is the reading order,
             and everything after the control group returns to the page gutter. */}
-        <div className="mx-auto flex max-w-[1000px] flex-col items-center text-center">
+        <div className="mx-auto flex max-w-5xl flex-col items-center text-center">
           <h1 className="type-page-title-large md:type-hero">{t('headline')}</h1>
           {/* Keeps the approved present positioning as the first prose in the DOM:
               otherwise the earliest body text is rotating brand-card copy, which Google
               was lifting as the homepage snippet (DEV-1320). Metadata carries the full
               mission separately. */}
-          <p className="mt-3 type-page-subtitle">{t('subheadline')}</p>
+          {/* `max-w-xl` (576px) is the plan's ~560px measure: zh-TW stays one
+              line, and the longer EN line wraps to two — never the wide centred
+              paragraph DESIGN.md forbids. */}
+          <p className="mt-3 max-w-xl type-page-subtitle">{t('subheadline')}</p>
 
           {/* One control, two intents: type a query, or accept the invitation to
               browse. The field redirects to /brands?search=, which is the exact

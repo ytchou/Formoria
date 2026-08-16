@@ -114,7 +114,6 @@
       "searchLabel": "搜尋台灣品牌與產品",
       "searchPlaceholder": "搜尋品牌、產品或分類",
       "browseCta": "開始逛逛",
-      "statsBrands": "品牌",
       "statsCategories": "分類",
       "allCategories": "所有分類 →"
     },
@@ -122,6 +121,7 @@
       "heading": "Formoria 選物",
       "note": "為了某個情境、某種用途或某個偏好，我們刻意挑了這些產品，也說得出選它的理由。",
       "showMore": "看更多選物",
+      "showLess": "收合選物",
       "trailEyebrow": "主題選物",
       "trailCta": "探索這個主題 →",
       "continuationHeading": "繼續探索",
@@ -140,10 +140,7 @@
       "browseAll": "看看所有收錄品牌 →"
     },
     "manifesto": {
-      "headline": "收錄與選物，清楚分開",
-      "body1": "「收錄品牌」代表符合目錄規則，不等於 Formoria 選物、推薦、認證或排名。",
-      "body2": "由 Formoria 挑選的內容會標示為「Formoria 選物」；品牌提供與贊助內容也會分別標示。",
-      "cta": "認識 Formoria"
+      "headline": "收錄與選物，清楚分開"
     },
     "submitBand": {
       "headline": "推薦一個值得被看見的台灣品牌",

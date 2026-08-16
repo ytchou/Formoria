@@ -10,6 +10,14 @@ interface SearchSuggestionsProps {
   selectedIndex: number;
   onSelect: (slug: string, index: number) => void;
   query: string;
+  /**
+   * The listbox's DOM id, supplied by the owning `SearchInput` so it is unique
+   * per instance. The homepage renders two search fields at `md+` (hero and
+   * nav); with one shared constant both listboxes could be mounted at once
+   * under the same id, and `aria-controls` then resolved to the other field's
+   * options.
+   */
+  id: string;
 }
 
 function highlightMatch(text: string, query: string): ReactNode {
@@ -28,19 +36,30 @@ function highlightMatch(text: string, query: string): ReactNode {
   );
 }
 
-export const SEARCH_SUGGESTIONS_ID = "search-suggestions-listbox";
+/**
+ * The DOM id of one option, namespaced by its listbox. `aria-activedescendant`
+ * on the input is built from the same helper, so two search fields on one page
+ * cannot point at each other's options.
+ */
+export function searchSuggestionOptionId(
+  listboxId: string,
+  suggestionId: string,
+): string {
+  return `${listboxId}-option-${suggestionId}`;
+}
 
 export function SearchSuggestions({
   suggestions,
   selectedIndex,
   onSelect,
   query,
+  id,
 }: SearchSuggestionsProps) {
   const t = useTranslations("brands");
   const locale = useLocale();
   return (
     <ul
-      id={SEARCH_SUGGESTIONS_ID}
+      id={id}
       role="listbox"
       className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-card shadow-lg"
     >
@@ -52,7 +71,7 @@ export function SearchSuggestions({
         suggestions.map((item, index) => (
           <li
             key={item.id}
-            id={`search-suggestion-${item.id}`}
+            id={searchSuggestionOptionId(id, item.id)}
             role="option"
             aria-selected={index === selectedIndex}
             onClick={() => onSelect(item.slug, index)}

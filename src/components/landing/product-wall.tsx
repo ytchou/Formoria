@@ -7,6 +7,7 @@ import {
 } from '@/components/brands/selected-product-tile'
 import { Link } from '@/i18n/navigation'
 import type { AppLocale } from '@/i18n/locale-preference'
+import { SectionHeader } from '@/components/shared/section-header'
 import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import type { TrailEntry } from '@/lib/services/trails'
 import type { WallSlot } from '@/lib/curated-products/home-wall'
@@ -59,9 +60,14 @@ const CAPPED_TILE_CLASS =
 const WALL_GRID_CLASS = cn(
   'grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-y-0 lg:grid-cols-4',
   // Underscores are Tailwind's spaces; `calc` needs them around every `-`.
+  // The container is `max-w-6xl page-gutter`, i.e. border-box 72rem INCLUDING
+  // its gutter, so the content measure is `min(100vw, 72rem) - gutter`. Below
+  // `lg` the viewport never reaches 72rem, so `min(100vw - gutter, 72rem)`
+  // resolves to the same number there and those two declarations stand; at `lg`
+  // it overstates the column by 20px at 1440px and more above it.
   'sm:[--wall-unit:calc((min(100vw_-_3rem,72rem)_-_1.5rem)/2/60)]',
   'md:[--wall-unit:calc((min(100vw_-_5rem,72rem)_-_1.5rem)/2/60)]',
-  'lg:[--wall-unit:calc((min(100vw_-_5rem,72rem)_-_4.5rem)/4/60)]',
+  'lg:[--wall-unit:calc((min(100vw,72rem)_-_5rem_-_4.5rem)/4/60)]',
   'sm:[grid-auto-rows:var(--wall-unit)]',
 )
 
@@ -99,6 +105,9 @@ export type ProductWallLabels = {
   note: string
   /** The phone-only reveal control, `landing.selectedProducts.showMore`. */
   showMore: string
+  /** Its collapsed-state counterpart — the control is a disclosure, not a
+      one-way reveal, so it stays mounted and keeps focus after activation. */
+  showLess: string
   continuationHeading: string
   trailLinksLabel: string
   categoryLinksLabel: string
@@ -123,6 +132,7 @@ export function ProductWall({
   locale: AppLocale
   labels: ProductWallLabels
 }) {
+  const productCount = slots.filter((slot) => slot.kind === 'product').length
   const categories = WALL_CATEGORY_SLUGS.flatMap((slug) => {
     const category = PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === slug)
     return category
@@ -133,17 +143,18 @@ export function ProductWall({
   return (
     <section aria-labelledby="landing-selected-products" className="py-6 md:py-8">
       <div className="mx-auto max-w-6xl page-gutter">
-        <div className="mb-6 space-y-2">
-          <h2 id="landing-selected-products" className="type-page-title-large">
-            {labels.heading}
-          </h2>
-          <p className="type-card-description">{labels.note}</p>
-        </div>
+        <SectionHeader
+          id="landing-selected-products"
+          heading={labels.heading}
+          note={labels.note}
+          className="mb-6"
+        />
 
         <WallList
           ariaLabel={labels.heading}
           className={WALL_GRID_CLASS}
           showMoreLabel={labels.showMore}
+          showLessLabel={labels.showLess}
           showControl={slots.length > WALL_MOBILE_VISIBLE_COUNT}
         >
           {slots.map((slot, index) => {
@@ -186,7 +197,10 @@ export function ProductWall({
           })}
         </WallList>
 
-        <ViewItemListTracker listName="home_wall" itemCount={slots.length} />
+        {/* Products only: a trail tile is not an item of this list, and counting
+            it inflated every `view_item_list` for `home_wall`. The list name is
+            byte-identical on purpose — it keys the existing series. */}
+        <ViewItemListTracker listName="home_wall" itemCount={productCount} />
 
         <div className="mt-10 space-y-6 border-t border-border pt-6">
           <h3 className="type-section-title-large">{labels.continuationHeading}</h3>

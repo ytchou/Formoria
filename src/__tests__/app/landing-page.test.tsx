@@ -101,13 +101,38 @@ vi.mock("@/lib/auth/use-user", () => ({
 const { LandingZones } = await import("@/components/landing/landing-zones");
 const { isLandingRenderDegraded } = await import("@/app/[locale]/(site)/page");
 
+/**
+ * Editorial copy rather than `Product 1`: the zone assertions below read real
+ * text out of the DOM, and uniform ASCII hides the CJK wrapping and long-string
+ * truncation this page is most exposed to. One entry deliberately has no
+ * English copy, which is how the tile renders its zh-TW name in the `en` locale.
+ */
+const WALL_FIXTURES = [
+  {
+    nameZh: "手沖壺",
+    nameEn: "Pour-over kettle",
+    rationaleZh: "手感穩定，適合小空間的早晨。",
+    rationaleEn: "Steady in the hand, made for small kitchens.",
+    brandName: "小器生活",
+  },
+  {
+    nameZh: "麻布長桌巾（原色）",
+    nameEn: null,
+    rationaleZh:
+      "洗過幾次之後才會出現的柔軟，是這塊布最好的時候；長度足夠蓋住六人餐桌的兩側。",
+    rationaleEn: null,
+    brandName: "本嶼織物",
+  },
+];
+
 function buildProduct(index: number): HomepageCuratedProduct {
+  const fixture = WALL_FIXTURES[index % WALL_FIXTURES.length]!;
   return {
     id: `product-${index}`,
     brandId: `brand-${index}`,
     key: `product-${index}`,
-    nameZh: `產品 ${index}`,
-    nameEn: `Product ${index}`,
+    nameZh: `${fixture.nameZh}／${index}`,
+    nameEn: fixture.nameEn ? `${fixture.nameEn}／${index}` : null,
     l1: "home",
     l2: [],
     officialUrl: "https://example.com/product",
@@ -129,12 +154,12 @@ function buildProduct(index: number): HomepageCuratedProduct {
     trailSlug: null,
     sectionKey: null,
     position: 0,
-    rationaleZh: `理由 ${index}`,
-    rationaleEn: `Reason ${index}`,
+    rationaleZh: fixture.rationaleZh,
+    rationaleEn: fixture.rationaleEn,
     imageWidth: 1200,
     imageHeight: 900,
     brandSlug: `brand-${index}`,
-    brandName: `Brand ${index}`,
+    brandName: fixture.brandName,
     brand: {
       slug: `brand-${index}`,
       purchaseWebsite: "https://example.com",
@@ -306,6 +331,39 @@ describe("landing page trust zones", () => {
     ).toBeInTheDocument();
   });
 
+  it("names the topics zone after what it actually contains", async () => {
+    const { container } = await renderZones({
+      events: [{ event: buildEvent(), phase: "ongoing", brandCount: 3 }],
+      stories: [],
+    });
+
+    const topics = container.querySelector<HTMLElement>(
+      '[data-landing-zone="topics"]',
+    )!;
+    // With no published story the zone holds only events, so heading, link and
+    // landmark name must say so — not "Stories" over a list of events.
+    expect(
+      within(topics).getByRole("heading", {
+        level: 2,
+        name: en.landing.events.heading,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(topics).queryByRole("heading", {
+        level: 2,
+        name: en.landing.latestStories.heading,
+      }),
+    ).toBeNull();
+    expect(
+      within(topics).getByRole("link", { name: en.landing.events.linkText }),
+    ).toHaveAttribute("href", "/events");
+    expect(
+      within(topics).queryByRole("link", {
+        name: en.landing.latestStories.linkText,
+      }),
+    ).toBeNull();
+  });
+
   it("renders the trust seam without the manifesto photo band", async () => {
     const { container } = await renderZones();
 
@@ -326,9 +384,9 @@ describe("landing page trust zones", () => {
     )!;
     // The stat line sat directly above the rail. Nothing in the rail counts.
     expect(directory.textContent ?? "").not.toMatch(/\d/);
-    expect(
-      screen.queryByText(new RegExp(`\\d+\\s*${en.landing.hero.statsBrands}`)),
-    ).toBeNull();
+    // The figure read "N brands". Its message key is deleted, so the literal
+    // shape is what the assertion pins now.
+    expect(screen.queryByText(/\d+\s*brands/i)).toBeNull();
   });
 
   it("keeps the degraded-render wiring intact", () => {

@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 
 import { EventCard } from "@/components/events/event-card";
 import { ProductWall } from "@/components/landing/product-wall";
-import { SectionHeader } from "@/components/landing/section-header";
+import { SectionHeader } from "@/components/shared/section-header";
 import BrandShowcase from "@/components/shared/brand-showcase";
 import { StoryRow } from "@/components/stories/story-row";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
@@ -43,10 +43,11 @@ export type LandingZonesProps = {
  * The homepage's six trust zones, in order:
  *
  *     hero      promise line, search, category chips
- *     selection 選物 — the masonry wall with trails woven in
- *     seam      「收錄與選物，清楚分開」 — thin, no photo band
- *     topics    主題 — stories, with a live event lifted above them
- *     directory 收錄 — one explore-style brand rail
+ *     selection the masonry wall with trails woven in
+ *     seam      the listing-vs-selection line (`landing.manifesto.headline`) —
+ *               thin, no photo band
+ *     topics    stories, with a live event lifted above them
+ *     directory one explore-style brand rail
  *     close     submit · feature request · newsletter, as one zone
  *
  * Every zone carries `data-landing-zone`, which is the structure's contract:
@@ -71,6 +72,8 @@ export async function LandingZones({
     getTranslations({ locale, namespace: "brandDetail.selectedProducts" }),
   ]);
 
+  const hasStories = stories.length > 0;
+
   return (
     <>
       {/* The marker sits on a wrapper for the zones whose section element
@@ -88,6 +91,7 @@ export async function LandingZones({
                 heading: t("selectedProducts.heading"),
                 note: t("selectedProducts.note"),
                 showMore: t("selectedProducts.showMore"),
+                showLess: t("selectedProducts.showLess"),
                 continuationHeading: t("selectedProducts.continuationHeading"),
                 trailLinksLabel: t("selectedProducts.trailLinksLabel"),
                 categoryLinksLabel: t("selectedProducts.categoryLinksLabel"),
@@ -112,7 +116,7 @@ export async function LandingZones({
           The trust seam. It replaces the full-bleed manifesto band: the same
           commitment, set as one line between the selection wall and the
           directory rail, which is exactly where a reader needs to be told that
-          收錄 and 選物 are different claims. No photograph — a photo band here
+          listing and selection are different claims. No photograph — a photo band here
           reads as a third editorial zone competing with the two it separates.
         */}
         <section
@@ -138,12 +142,22 @@ export async function LandingZones({
             className="py-6 md:py-8"
           >
             <div className="mx-auto max-w-6xl page-gutter">
+              {/* The zone renders whenever it has events OR stories, so its
+                  heading, note and link follow what it actually contains — an
+                  events-only zone headed "Stories", linking to /stories, would
+                  also name the landmark "Stories" for a list of events. */}
               <SectionHeader
                 id="landing-topics"
-                heading={t("latestStories.heading")}
-                note={t("latestStories.note")}
-                linkHref="/stories"
-                linkLabel={t("latestStories.linkText")}
+                heading={
+                  hasStories ? t("latestStories.heading") : t("events.heading")
+                }
+                note={hasStories ? t("latestStories.note") : undefined}
+                linkHref={hasStories ? "/stories" : "/events"}
+                linkLabel={
+                  hasStories
+                    ? t("latestStories.linkText")
+                    : t("events.linkText")
+                }
               />
 
               {/*
@@ -176,12 +190,16 @@ export async function LandingZones({
                       </li>
                     ))}
                   </ul>
-                  <Link
-                    href="/events"
-                    className="inline-flex min-h-12 items-center font-medium text-primary"
-                  >
-                    {t("events.linkText")}
-                  </Link>
+                  {/* Only when the zone header points at /stories — otherwise
+                      the header already carries this exact link. */}
+                  {hasStories && (
+                    <Link
+                      href="/events"
+                      className="inline-flex min-h-12 items-center font-medium text-primary"
+                    >
+                      {t("events.linkText")}
+                    </Link>
+                  )}
                 </div>
               )}
 

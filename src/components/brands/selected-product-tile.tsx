@@ -44,7 +44,10 @@ export type SelectedProductTileProps = {
    * the first wall tile the LCP element, so the first row must not be lazy.
    */
   wallIndex?: number;
-  /** Wall-only grid classes (row span, mobile cap) supplied by the wall itself. */
+  /**
+   * Extra classes on the tile's `<li>`. The wall supplies its grid classes
+   * (row span, mobile cap) through it; every other mode merges it too.
+   */
   className?: string;
   /** Existing brand-page fields used by the outbound chip. */
   brand?: BrandVisitLinkFields & { slug: string };
@@ -65,11 +68,14 @@ const BROKEN_LINK_STATE = "broken";
 const RENDERABLE_IMAGE_USAGE = new Set(["permitted", "licensed"]);
 
 /**
- * The widest wall column count, which is exactly the first visible row. Those
- * tiles carry `priority`; everything after them stays lazy. Mirrors
- * `MASONRY_ABOVE_FOLD` deliberately — same reasoning, different surface.
+ * How many wall tiles carry `priority`. It is the NARROWEST column count, not
+ * the widest: the wall is one column below 640px, so on a phone only the first
+ * tile is above the fold, and preloading four of them put three
+ * `fetchpriority=high` requests in front of the real LCP element — the exact
+ * regression `priority` exists to prevent. Desktop rows 2–4 are still in the
+ * viewport and load eagerly anyway; they just do not preempt tile 0.
  */
-export const WALL_ABOVE_FOLD = 4;
+export const WALL_ABOVE_FOLD = 1;
 
 /**
  * The selected-product tile stays server-rendered. Outbound product chips
@@ -123,8 +129,12 @@ export function SelectedProductTile({
   const internalHref = `/brands/${destinationSlug}#product-${product.key}`;
   const internalClassName =
     "group flex h-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-3";
-  // One column on phones, two on tablets, four at the 1280px cap.
-  const wallImageSizes = "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw";
+  // One column on phones, two on tablets, four above 1024px. The four-column
+  // measure is `(min(100vw, 72rem) - 5rem - 4.5rem) / 4`, which tops out at
+  // 250px — never 25vw, which asked for an oversized candidate on every
+  // desktop tile.
+  const wallImageSizes =
+    "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 260px";
   const wallRatio: WallRatio = ratio ?? DEFAULT_WALL_RATIO;
   const wallAspectRatio = wallRatio.replace(":", " / ");
   const isWallPriority =
@@ -149,7 +159,7 @@ export function SelectedProductTile({
    */
   const wallReasonClass = cn(
     "flex flex-col gap-1 pt-3",
-    "sm:absolute sm:inset-x-0 sm:bottom-0 sm:z-10 sm:rounded-b-md sm:bg-background/94 sm:p-4",
+    "sm:absolute sm:inset-x-0 sm:bottom-0 sm:z-10 sm:rounded-b-lg sm:bg-background/94 sm:p-4",
     "sm:transition-opacity sm:duration-300 motion-reduce:sm:duration-[0.01ms]",
     "[@media(hover:hover)]:sm:opacity-0",
     "[@media(hover:hover)]:sm:group-hover:opacity-100",
@@ -161,7 +171,9 @@ export function SelectedProductTile({
       <div
         data-wall-ratio={wallRatio}
         style={{ aspectRatio: wallAspectRatio }}
-        className="relative w-full overflow-hidden rounded-md bg-muted"
+        // Container radius: the photo box is a top-level surface of the wall,
+        // so it takes DESIGN.md's 6px container step, not the nested 4.8px one.
+        className="relative w-full overflow-hidden rounded-lg bg-muted"
       >
         {imageSrc ? (
           <Image
@@ -383,7 +395,9 @@ export function SelectedProductTile({
       id={`product-${product.key}`}
       className={surfaceCardStyles({
         padding: "none",
-        className: "flex flex-col overflow-hidden",
+        // `className` is accepted for every mode, so it must be merged here too
+        // — dropping it silently gave a caller no styling and no type error.
+        className: cn("flex flex-col overflow-hidden", className),
       })}
     >
       {mode === "internal" ? (
