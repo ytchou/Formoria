@@ -12,7 +12,7 @@ import {
 import {
   DEFAULT_WALL_RATIO,
   type WallRatio,
-} from "@/lib/curated-products/home-wall";
+} from "@/lib/curated-products/wall-ratio";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import type { CuratedProduct } from "@/lib/services/curated-products";
 import { sanitizeHref } from "@/lib/url";

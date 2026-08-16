@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { Link } from '@/i18n/navigation'
 import { getLocale, getTranslations } from 'next-intl/server'
 import { HeroCategoryChips } from '@/components/landing/hero-category-chips'
@@ -41,12 +42,17 @@ export default async function HeroSection() {
               browse. The field redirects to /brands?search=, which is the exact
               entry point the WebSite JSON-LD declares as its SearchAction. */}
           <div className="mt-8 flex w-full flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <SearchInput
-              redirectTo="/brands"
-              placeholder={t('searchPlaceholder')}
-              formAriaLabel={t('searchLabel')}
-              className="max-w-none flex-1 text-start"
-            />
+            {/* SearchInput reads useSearchParams, which bails out of static
+                prerendering unless it sits under a Suspense boundary. The fallback
+                reserves the field's 48px height so the hero does not shift. */}
+            <Suspense fallback={<div className="h-12 flex-1" aria-hidden="true" />}>
+              <SearchInput
+                redirectTo="/brands"
+                placeholder={t('searchPlaceholder')}
+                formAriaLabel={t('searchLabel')}
+                className="max-w-none flex-1 text-start"
+              />
+            </Suspense>
             <Link
               href="/brands"
               data-ph-no-autocapture

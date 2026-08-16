@@ -9,11 +9,11 @@ import { Link } from '@/i18n/navigation'
 import type { AppLocale } from '@/i18n/locale-preference'
 import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import type { TrailEntry } from '@/lib/services/trails'
+import type { WallSlot } from '@/lib/curated-products/home-wall'
 import {
   WALL_RATIOS,
   type WallRatio,
-  type WallSlot,
-} from '@/lib/curated-products/home-wall'
+} from '@/lib/curated-products/wall-ratio'
 import { cn } from '@/lib/utils'
 import { WallList } from './wall-list'
 import { WallTrailTile, type WallTrailTileLabels } from './wall-trail-tile'

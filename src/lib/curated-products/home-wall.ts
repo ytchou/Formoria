@@ -1,7 +1,19 @@
 import { isoDateInTimeZone } from "@/lib/date-range";
 import type { HomepageCuratedProduct } from "@/lib/services/curated-products";
-import { MAX_HOME_CURATED_PRODUCTS_PER_BRAND } from "@/lib/services/curated-products";
+import {
+  DEFAULT_WALL_RATIO,
+  MAX_HOME_CURATED_PRODUCTS_PER_BRAND,
+  WALL_RATIOS,
+  type WallRatio,
+} from "@/lib/curated-products/wall-ratio";
 import type { TrailEntry } from "@/lib/services/trails";
+
+/**
+ * Re-exported so existing importers of this module keep working. The values
+ * are DECLARED in `./wall-ratio`, which is a leaf with no service imports —
+ * client components must import them from there, not from here.
+ */
+export { DEFAULT_WALL_RATIO, WALL_RATIOS, type WallRatio };
 
 export const MAX_HOME_WALL_PRODUCTS = 32;
 export const TRAIL_SLOT_CADENCE = 8;
@@ -16,24 +28,6 @@ export const MAX_PRODUCTS_PER_L1_IN_DIVERSITY_WINDOW = 6;
  * pure by design so the composition can be tested with no I/O at all.
  */
 const WALL_TIME_ZONE = "Asia/Taipei";
-
-/**
- * The four shapes a product tile may take. Every image is SNAPPED to the
- * nearest of them rather than rendered at its own ratio: brand images are
- * capped at 3:1 at ingest and curated-product images are not, so an unsnapped
- * wall renders a sale banner or a spec sheet as a strip across the grid.
- */
-export const WALL_RATIOS = {
-  "1:1": 1,
-  "3:4": 3 / 4,
-  "4:3": 4 / 3,
-  "4:5": 4 / 5,
-} as const;
-
-export type WallRatio = keyof typeof WALL_RATIOS;
-
-/** What an unmeasured row renders as. NULL dimensions are the backfill cursor. */
-export const DEFAULT_WALL_RATIO: WallRatio = "4:3";
 
 /**
  * Trail tiles are sized editorially, never measured: the tile carries a title

@@ -8,6 +8,7 @@ import {
   type PromoteBlocker,
   type PromoteOutcome,
 } from "@/lib/curated-products/promote-gate";
+import { MAX_HOME_CURATED_PRODUCTS_PER_BRAND } from "@/lib/curated-products/wall-ratio";
 import { withSlugSuffix } from "@/lib/brands/slug";
 import { generateSlug } from "@/lib/services/brands";
 import { normalizeProductTags } from "@/lib/services/product-tags";
@@ -68,8 +69,12 @@ export type CuratedProduct = {
 /** The minimum supply needed for the homepage rail to read as intentional. */
 export const MIN_HOME_CURATED_PRODUCTS = 6;
 
-/** Keep one brand from owning three of the first eight wall tiles. */
-export const MAX_HOME_CURATED_PRODUCTS_PER_BRAND = 2;
+/**
+ * Keep one brand from owning three of the first eight wall tiles. Declared in
+ * the `wall-ratio` leaf and re-exported here so client tiles can read it
+ * without pulling this service module — and `sharp` — into the browser bundle.
+ */
+export { MAX_HOME_CURATED_PRODUCTS_PER_BRAND };
 
 /** Cross-brand public projection used by the homepage's internal product links. */
 export type HomepageCuratedProduct = CuratedProduct & {
