@@ -208,6 +208,22 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
 
   if (!trail) notFound();
   if (products === null) await markRenderDegraded("discover.trail.products");
+  // Supply gate, deliberately BELOW `markRenderDegraded`. Above it the route is
+  // still statically rendering, so a `notFound()` freezes a 404 into the whole
+  // deployment; below it a failed read has already demoted this render to
+  // dynamic. `products !== null` is the second half of the same guard —
+  // `captureReadFailure` returns `null`, so without it a transient build-time DB
+  // failure is indistinguishable from an empty slate and bakes a 404 for a trail
+  // that has content.
+  if (
+    products !== null &&
+    trailIndexBlockers({
+      frontmatter: trail.entry.frontmatter,
+      products,
+    }).includes("min_products")
+  ) {
+    notFound();
+  }
   const safeProducts = products ?? [];
 
   const entry = trail.entry;

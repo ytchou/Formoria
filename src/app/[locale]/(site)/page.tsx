@@ -30,6 +30,7 @@ import type { Locale } from "@/lib/seo/alternates";
 import { buildOpenGraph } from "@/lib/seo/open-graph";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { getAllStories } from "@/lib/services/stories";
+import { getIndexableTrailSlugs } from "@/lib/services/trail-supply";
 import { getAllTrails } from "@/lib/services/trails";
 import { StoryRow } from "@/components/stories/story-row";
 import { EventCard } from "@/components/events/event-card";
@@ -166,9 +167,19 @@ export default async function LandingPage({ params }: PageProps) {
   const totalBrandCount = exploreResult?.totalCount;
   const latestStories = storyResult.ok ? storyResult.stories.slice(0, 3) : [];
   const curatedProducts = curatedProductsResult ?? [];
+  // Supply gate for the wall's trail tile and the leftover-trail nav. Caught
+  // locally and deliberately kept OUT of the `degraded` aggregate above: folding
+  // it in would let one build-time blip demote the site's most-visited route to
+  // dynamic for the whole deployment. A failed read hides the tile instead.
+  const trailSupply = await getIndexableTrailSlugs(safeLocale).catch(
+    captureReadFailure("landing.trailSupply"),
+  );
+  const indexableTrailSlugs = trailSupply?.indexableSlugs ?? new Set<string>();
   const wall = buildWallSlots({
     products: curatedProducts,
-    trails: trailResult?.ok ? trailResult.trails : [],
+    trails: (trailResult?.ok ? trailResult.trails : []).filter((trail) =>
+      indexableTrailSlugs.has(trail.slug),
+    ),
   });
   const selectedProductLabels: SelectedProductTileLabels = {
     cta: tSelected("cta"),

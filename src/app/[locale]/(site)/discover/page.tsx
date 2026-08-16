@@ -1,19 +1,13 @@
 import type { Metadata } from "next";
 import { Compass } from "lucide-react";
-import { cache } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { StoryRow } from "@/components/stories/story-row";
-import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
+import { markRenderDegraded } from "@/lib/degraded-render";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
-import { trailIndexBlockers } from "@/lib/seo/trail-indexability";
-import {
-  getAllTrails,
-  type TrailEntry,
-  type TrailListResult,
-} from "@/lib/services/trails";
-import { getPublishedCuratedProductsForTrail } from "@/lib/services/curated-products";
+import { getIndexableTrailSlugs } from "@/lib/services/trail-supply";
+import { type TrailEntry, type TrailListResult } from "@/lib/services/trails";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 
 type PageProps = {
@@ -37,54 +31,41 @@ export function shouldIndexTrailHub(indexableSlugs: ReadonlySet<string>): boolea
   return indexableSlugs.size > 0;
 }
 
-type TrailIndexabilityResult = {
+export type HubView =
+  | { kind: "loadError" }
+  | { kind: "comingSoon" }
+  | { kind: "list"; trails: TrailEntry[] };
+
+/**
+ * Decides exactly what the hub body renders. Pure so the supply gate is
+ * testable without a render: an under-supplied trail is not just noindex, it is
+ * absent from the list, which is what keeps the hub honest on an empty
+ * production database.
+ */
+export function selectHubView({
+  result,
+  indexableSlugs,
+  activeTag,
+}: {
   result: TrailListResult;
-  indexableSlugs: Set<string>;
-  degraded: boolean;
-};
+  indexableSlugs: ReadonlySet<string>;
+  activeTag: string | null;
+}): HubView {
+  if (!result.ok) return { kind: "loadError" };
 
-const getTrailIndexability = cache(
-  async (locale: Locale): Promise<TrailIndexabilityResult> => {
-    const result = await getAllTrails(locale);
-    if (!result.ok) {
-      captureReadFailure("discover.hub.trails")(result.error);
-      return { result, indexableSlugs: new Set(), degraded: true };
-    }
+  const trails = filterTrailsByTag(result.trails, activeTag).filter((trail) =>
+    indexableSlugs.has(trail.slug),
+  );
 
-    let degraded = false;
-
-    const checks = await Promise.all(
-      result.trails.map(async (trail) => {
-        try {
-          const products = await getPublishedCuratedProductsForTrail(trail.slug);
-          return {
-            slug: trail.slug,
-            clear:
-              trailIndexBlockers({ frontmatter: trail.frontmatter, products }).length ===
-              0,
-          };
-        } catch (error) {
-          degraded = true;
-          captureReadFailure(`discover.hub.products.${trail.slug}`)(error);
-          return { slug: trail.slug, clear: false };
-        }
-      }),
-    );
-
-    return {
-      result,
-      indexableSlugs: new Set(checks.filter((check) => check.clear).map((check) => check.slug)),
-      degraded,
-    };
-  },
-);
+  return trails.length === 0 ? { kind: "comingSoon" } : { kind: "list", trails };
+}
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale } = await params;
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const t = await getTranslations({ locale, namespace: "discover" });
-  const { indexableSlugs } = await getTrailIndexability(safeLocale);
+  const { indexableSlugs } = await getIndexableTrailSlugs(safeLocale);
   const { canonical, languages } = buildAlternates("/discover", "zh-TW", ["zh-TW"]);
 
   return {
@@ -109,9 +90,9 @@ export default async function DiscoverHubPage({ params, searchParams }: PageProp
   const t = await getTranslations({ locale, namespace: "discover" });
   const query = await searchParams;
   const activeTag = firstParam(query.tag);
-  const { result, degraded } = await getTrailIndexability(safeLocale);
+  const { result, indexableSlugs, degraded } = await getIndexableTrailSlugs(safeLocale);
   if (degraded) await markRenderDegraded("discover.hub");
-  const trails = result.ok ? filterTrailsByTag(result.trails, activeTag) : [];
+  const view = selectHubView({ result, indexableSlugs, activeTag });
 
   return (
     <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
@@ -120,18 +101,18 @@ export default async function DiscoverHubPage({ params, searchParams }: PageProp
           <h1 className="type-page-title">{t("heading")}</h1>
           <p className="max-w-2xl type-body-muted">{t("subheading")}</p>
         </header>
-        {!result.ok ? (
+        {view.kind === "loadError" ? (
           <div
             role="alert"
             className="rounded-2xl border border-border bg-secondary px-6 py-16 text-center"
           >
             <p className="type-empty-title">{t("loadError")}</p>
           </div>
-        ) : trails.length === 0 ? (
+        ) : view.kind === "comingSoon" ? (
           <EmptyState icon={<Compass />} title={t("comingSoon")} />
         ) : (
           <div className="divide-y divide-border border-y border-border">
-            {trails.map((trail, index) => (
+            {view.trails.map((trail, index) => (
               <StoryRow
                 key={trail.slug}
                 story={trail}

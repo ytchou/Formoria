@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { TrailEntry } from "@/lib/services/trails";
-import { filterTrailsByTag, shouldIndexTrailHub } from "../page";
+import { filterTrailsByTag, selectHubView, shouldIndexTrailHub } from "../page";
 
 const trail = (slug: string, tags: string[]): TrailEntry => ({
   slug,
@@ -35,5 +35,25 @@ describe("discovery trail hub", () => {
   it("keeps the hub noindex until at least one trail clears the gate", () => {
     expect(shouldIndexTrailHub(new Set())).toBe(false);
     expect(shouldIndexTrailHub(new Set(["small-space-reading-corner"]))).toBe(true);
+  });
+
+  it("hub renders comingSoon when no trail is indexable", () => {
+    const trails = [trail("home-trail", ["home"])];
+
+    expect(
+      selectHubView({
+        result: { ok: true, trails },
+        indexableSlugs: new Set(),
+        activeTag: null,
+      }),
+    ).toEqual({ kind: "comingSoon" });
+
+    expect(
+      selectHubView({
+        result: { ok: true, trails },
+        indexableSlugs: new Set(["home-trail"]),
+        activeTag: null,
+      }),
+    ).toEqual({ kind: "list", trails });
   });
 });

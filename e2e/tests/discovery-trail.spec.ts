@@ -15,8 +15,16 @@ const SELECTED_REASON_LABEL = "為這個主題選入";
 const OFFICIAL_DESTINATION = /前往(?:產品|品牌)官方網站/;
 
 test.describe("Discovery trail deep", () => {
-  test.beforeEach(() => {
+  test.beforeEach(async ({ request }) => {
     test.skip(trail === undefined, NO_PUBLISHED_TRAILS);
+
+    // The trail is published in MDX, but the page 404s when the database holds
+    // too few curated products for it. Probe once so those runs skip, not fail.
+    const status = await request
+      .get(TRAIL_URL)
+      .then((response) => response.status())
+      .catch(() => null);
+    test.skip(status === 404, "trail has no published curated products");
   });
 
   test("trail entrance renders in server HTML", async ({ request }) => {
