@@ -21,7 +21,6 @@ import {
   safeJsonLdStringify,
 } from "@/lib/json-ld";
 import {
-  getAllTrails,
   getPublishedTrailBySlug,
   type TrailEntry,
   type TrailDetailResult,
@@ -81,12 +80,19 @@ export function buildTrailMetadata({
   };
 }
 
+// Empty params keep every trail on ISR, rendered on first request and cached
+// until `revalidate`. Same shape as `brands/[slug]`, for a second reason that
+// matters more here: enumerating trails made this route read the database during
+// `next build`, and a failed read there calls `markRenderDegraded`, which
+// demotes the route to dynamic for the whole deployment. Production is missing
+// the curated-product migrations (DEV-1482), so that read fails with 42703
+// today and would cost `/discover/[slug]` its ISR cache entirely. Returning no
+// params removes the build-time read, so the route cannot be demoted by one.
+//
+// This was invisible until the first trail was published: while every trail was
+// `draft: true` the list was empty anyway.
 export async function generateStaticParams() {
-  if (process.env.PLAYWRIGHT_TEST === "true") return [];
-
-  const result = await getAllTrails("zh-TW");
-  if (!result.ok) return [];
-  return result.trails.map((trail) => ({ slug: trail.slug }));
+  return [];
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
