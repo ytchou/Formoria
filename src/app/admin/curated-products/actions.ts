@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import { runWithAuditContext } from "@/lib/audit/context";
 import { requireAdminAction } from "@/lib/auth/require-admin";
-import { revalidatePublicBrands } from "@/lib/cache/public-brand-cache";
+import {
+  revalidateLocalizedPath,
+  revalidatePublicBrands,
+} from "@/lib/cache/public-brand-cache";
 import { logAdminAction } from "@/lib/services/admin-audit";
 import {
   prepareCuratedProductImage,
@@ -15,6 +18,7 @@ import { prefillFromUrl } from "@/lib/services/curated-product-ingest";
 import {
   createCuratedProduct,
   getCuratedProductBrandSlug,
+  getCuratedProductTrailSlugs,
   getCuratedProductWriteContext,
   promoteCuratedProduct,
   retireCuratedProduct,
@@ -73,8 +77,25 @@ function revalidateCurated(brandSlug: string | null): void {
   revalidatePath("/admin/curated-products");
 }
 
+/**
+ * Cache invalidation for a trail placement. `/discover/[slug]` lives under the
+ * `[locale]` segment, so a bare unprefixed path invalidates nothing.
+ */
 function revalidateTrail(trailSlug: string): void {
-  revalidatePath(`/discover/${encodeURIComponent(trailSlug)}`);
+  revalidateLocalizedPath(`/discover/${encodeURIComponent(trailSlug)}`);
+  // The hub's trail list is supply-dependent, so a placement change can add or
+  // remove a row there too.
+  revalidateLocalizedPath("/discover");
+}
+
+/**
+ * Trail slugs for a revalidation sweep, never a reason to fail the action: the
+ * write has already happened (or is about to), so a failed lookup costs a stale
+ * cache entry, not correctness. `getCuratedProductBrandSlug` gets the same
+ * tolerance by returning `null` instead of throwing.
+ */
+async function trailSlugsForRevalidation(productId: string): Promise<string[]> {
+  return getCuratedProductTrailSlugs(productId).catch(() => []);
 }
 
 function actionError(error: unknown, fallback: string): { error: string } {
@@ -299,7 +320,12 @@ export async function promoteCuratedProductAction(
         return { error: outcome.error, blockers: outcome.blockers };
       }
 
-      const brandSlug = await getCuratedProductBrandSlug(id);
+      // Publishing changes the SUPPLY of every trail this product sits in, and
+      // those pages are ISR-cached behind a supply gate.
+      const [brandSlug, trailSlugs] = await Promise.all([
+        getCuratedProductBrandSlug(id),
+        trailSlugsForRevalidation(id),
+      ]);
       if (auth.user.email) {
         await logAdminAction({
           adminUserId: auth.user.id,
@@ -309,6 +335,7 @@ export async function promoteCuratedProductAction(
           metadata: { productId: id },
         });
       }
+      for (const trailSlug of trailSlugs) revalidateTrail(trailSlug);
       revalidateCurated(brandSlug);
       return undefined;
     } catch (error) {
@@ -329,10 +356,15 @@ export async function retireCuratedProductAction(
 
     try {
       const id = idResult.data;
-      // Read the slug BEFORE the write: retirement does not move the product to
-      // another brand, but reading first keeps the revalidation target known
-      // even if the read path later narrows to live rows.
-      const brandSlug = await getCuratedProductBrandSlug(id);
+      // Read the slugs BEFORE the write: retirement does not move the product
+      // to another brand, but reading first keeps the revalidation targets
+      // known even if the read path later narrows to live rows. That matters
+      // more for the trail slugs — retiring is exactly what can stop the
+      // selections being visible to a later read.
+      const [brandSlug, trailSlugs] = await Promise.all([
+        getCuratedProductBrandSlug(id),
+        trailSlugsForRevalidation(id),
+      ]);
       await retireCuratedProduct(id);
 
       if (auth.user.email) {
@@ -344,6 +376,7 @@ export async function retireCuratedProductAction(
           metadata: { productId: id },
         });
       }
+      for (const trailSlug of trailSlugs) revalidateTrail(trailSlug);
       revalidateCurated(brandSlug);
       return undefined;
     } catch (error) {

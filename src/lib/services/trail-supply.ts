@@ -6,6 +6,7 @@ import {
   trailIndexBlockers,
   type TrailIndexabilityFrontmatter,
   type TrailIndexabilityProduct,
+  type TrailIndexBlocker,
 } from "@/lib/seo/trail-indexability";
 import { getPublishedCuratedProductsForTrail } from "@/lib/services/curated-products";
 import {
@@ -58,13 +59,28 @@ export function selectIndexableTrails({
 }
 
 /**
+ * Blockers that make the page itself render visibly empty, so the route hides
+ * it. The remaining blockers (taxonomy balance) leave a readable page that is
+ * merely delisted and noindex — worth serving, not worth 404ing.
+ *
+ * Typed against `TrailIndexBlocker` so renaming a blocker is a compile error
+ * here rather than a silently reopened hole.
+ */
+const PAGE_HIDING_BLOCKERS: readonly TrailIndexBlocker[] = [
+  "min_products",
+  "empty_section",
+];
+
+/**
  * Decides whether a single trail detail route must 404 for want of supply.
  *
  * `products === null` means the read FAILED, not that the slate is empty, and
  * must never produce a 404 — `captureReadFailure` returns `null`, so without
  * this check a transient DB failure is indistinguishable from an empty slate.
- * Only `min_products` hides the page; every other blocker leaves the trail
- * reachable and merely noindex.
+ *
+ * Only {@link PAGE_HIDING_BLOCKERS} hide the page. A trail with ≥6 products
+ * that all sit in one declared section still renders a heading with nothing
+ * under it, which is why `empty_section` belongs here alongside `min_products`.
  */
 export function shouldHideUnderSuppliedTrail({
   frontmatter,
@@ -74,7 +90,8 @@ export function shouldHideUnderSuppliedTrail({
   products: readonly TrailIndexabilityProduct[] | null;
 }): boolean {
   if (products === null) return false;
-  return trailIndexBlockers({ frontmatter, products }).includes("min_products");
+  const blockers = trailIndexBlockers({ frontmatter, products });
+  return blockers.some((blocker) => PAGE_HIDING_BLOCKERS.includes(blocker));
 }
 
 export type TrailSupplyResult = {

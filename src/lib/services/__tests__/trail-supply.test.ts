@@ -102,9 +102,9 @@ describe("shouldHideUnderSuppliedTrail", () => {
     );
   });
 
-  it("keeps a trail visible when a non-min_products blocker trips", () => {
-    // Accepted asymmetry: only `min_products` 404s. Every other blocker leaves
-    // the page reachable and merely noindex — do not "fix" this by widening it.
+  it("hides a slate that leaves a declared section empty", () => {
+    // A full slate that all lands in one section still renders "On the shelf"
+    // as a heading with nothing under it, so the route hides the page.
     const withEmptySection: TrailEntry["frontmatter"] = {
       ...frontmatter,
       sections: [
@@ -118,6 +118,21 @@ describe("shouldHideUnderSuppliedTrail", () => {
         frontmatter: withEmptySection,
         products: fullSlate(),
       }),
+    ).toBe(true);
+  });
+
+  it("keeps a trail visible when only a taxonomy-balance blocker trips", () => {
+    // DELIBERATE ASYMMETRY — do not "fix" this by widening it. `distinct_l2`
+    // and `l2_dominance` describe a thin-but-real page: every section is
+    // filled and the reader gets six products. It is delisted and noindex,
+    // which is the whole remedy; a 404 would withhold a readable page.
+    const singleL2Slate: TrailIndexabilityProduct[] = Array.from(
+      { length: 6 },
+      () => ({ l1: "home", l2: ["lighting"], sectionKey: "desk" }),
+    );
+
+    expect(
+      shouldHideUnderSuppliedTrail({ frontmatter, products: singleL2Slate }),
     ).toBe(false);
   });
 });
