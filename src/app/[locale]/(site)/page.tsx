@@ -218,6 +218,7 @@ export default async function LandingPage({ params }: PageProps) {
               labels={{
                 heading: t("selectedProducts.heading"),
                 note: t("selectedProducts.note"),
+                showMore: t("selectedProducts.showMore"),
                 continuationHeading: t("selectedProducts.continuationHeading"),
                 trailLinksLabel: t("selectedProducts.trailLinksLabel"),
                 categoryLinksLabel: t("selectedProducts.categoryLinksLabel"),
