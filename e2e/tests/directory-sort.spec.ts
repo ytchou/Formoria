@@ -10,8 +10,10 @@ test.describe("Directory sort deep", () => {
       timeout: BUDGET.INTERACTIVE,
     });
     await expect(
+      // DEV-1479 replaced the known-intent line with the hero's browse CTA,
+      // which is the same journey into the directory from the homepage.
       page.getByRole("main").getByRole("link", {
-        name: "已經知道方向？搜尋品牌或分類 →",
+        name: "開始逛逛",
       }),
     ).toBeVisible();
   });
