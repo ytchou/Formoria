@@ -76,6 +76,13 @@ export type HomepageCuratedProduct = CuratedProduct & {
   brandSlug: string;
   brandName: string;
   brand: BrandVisitLinkFields & { slug: string };
+  /**
+   * Intrinsic size of the STORED image object, used by the wall to render each
+   * tile at its native ratio (DEV-1479). NULL until the backfill reaches the
+   * row; the composer falls back to 4:3 rather than guessing.
+   */
+  imageWidth: number | null;
+  imageHeight: number | null;
 };
 
 /** A published product placement as rendered inside one trail section. */
@@ -157,6 +164,14 @@ type HomepageCuratedProductRow = CuratedProductReadRow & {
     social_facebook: string | null;
   } | null;
   curated_product_sources?: { id: string; state?: string }[] | null;
+  /**
+   * Added by `20260816120000_curated_products_image_dimensions.sql`. Declared
+   * here rather than picked from `Database["public"]["Tables"]` because the
+   * generated types predate the migration; drop this once `pnpm db:types` has
+   * been regenerated against the applied schema.
+   */
+  image_width?: number | null;
+  image_height?: number | null;
 };
 
 type TrailCuratedProductRow = CuratedProductReadRow & {
@@ -379,7 +394,7 @@ export async function getPublishedCuratedProductsForHomepage(
     curatedProductClient(client)
       .from("curated_products")
       .select(
-        `${CURATED_PRODUCT_READ_SELECT}, brands!inner(slug, name, status, purchase_website, purchase_pinkoi, purchase_shopee, purchase_myship, social_instagram, social_threads, social_facebook)`,
+        `${CURATED_PRODUCT_READ_SELECT}, image_width, image_height, brands!inner(slug, name, status, purchase_website, purchase_pinkoi, purchase_shopee, purchase_myship, social_instagram, social_threads, social_facebook)`,
       )
       .eq("lifecycle", "published")
       .not("official_url", "is", null)
@@ -443,6 +458,9 @@ export async function getPublishedCuratedProductsForHomepage(
         ...product,
         rationaleZh,
         rationaleEn,
+        // NULL until the backfill reaches the row; the wall falls back to 4:3.
+        imageWidth: row.image_width ?? null,
+        imageHeight: row.image_height ?? null,
         brandSlug: row.brands.slug,
         brandName: row.brands.name,
         brand: {
@@ -593,6 +611,13 @@ export type CuratedProductWriteInput = {
   officialUrl?: string | null;
   imageUrl?: string | null;
   imageSourceUrl?: string | null;
+  /**
+   * Intrinsic size of the STORED object, written by the image path only
+   * (DEV-1479). Left absent on an edit that did not replace the image, so an
+   * unrelated save never nulls a measured size.
+   */
+  imageWidth?: number | null;
+  imageHeight?: number | null;
   imageUsage?: string;
   sourceCheckedAt?: string | null;
   reviewDueAt?: string | null;
@@ -717,6 +742,8 @@ export async function createCuratedProduct(
         official_url: input.officialUrl ?? null,
         image_url: input.imageUrl ?? null,
         image_source_url: input.imageSourceUrl ?? null,
+        image_width: input.imageWidth ?? null,
+        image_height: input.imageHeight ?? null,
         image_usage: input.imageUsage ?? "none",
         source_checked_at: input.sourceCheckedAt ?? null,
         review_due_at: input.reviewDueAt ?? null,
@@ -799,6 +826,14 @@ export async function updateCuratedProduct(
         payload.image_url = input.imageUrl ?? null;
       if (input.imageSourceUrl !== undefined) {
         payload.image_source_url = input.imageSourceUrl ?? null;
+      }
+      // Absent keys stay absent: an edit that did not replace the image must
+      // not null the measured size the wall renders from.
+      if (input.imageWidth !== undefined) {
+        payload.image_width = input.imageWidth ?? null;
+      }
+      if (input.imageHeight !== undefined) {
+        payload.image_height = input.imageHeight ?? null;
       }
       if (input.imageUsage !== undefined)
         payload.image_usage = input.imageUsage;

@@ -109,16 +109,19 @@
       "description": "Formoria reconnects the broken path from inspiration to purchase by helping people start with the life they want, find Taiwanese products that suit them, get to know the brands behind them, and know where to buy."
     },
     "hero": {
-      "headline": "Start with the life you want and find Taiwanese products that suit you",
-      "subheadline": "Formoria is a Taiwanese brand discovery and curation platform. Start with the life you want, a situation, or a curiosity, then discover products and brands across categories; content selected by Formoria is labelled separately.",
+      "headline": "Life can look a little more like you.",
+      "subheadline": "Formoria is a Taiwanese brand discovery and curation platform — start from life, meet the products and the brands.",
+      "searchLabel": "Search Taiwanese brands and products",
+      "searchPlaceholder": "Search brands, products, or categories",
+      "browseCta": "Start browsing",
       "statsBrands": "brands",
       "statsCategories": "categories",
-      "allCategories": "All categories →",
-      "knownIntent": "Know what you are looking for? Search brands or categories →"
+      "allCategories": "All categories →"
     },
     "selectedProducts": {
       "heading": "Formoria Selection",
-      "note": "Formoria deliberately chooses products for a stated situation, use, preference, or editorial point of view, and makes the reason clear.",
+      "note": "For a particular situation, a particular use, or a particular preference, we chose these products on purpose — and we can say why.",
+      "showMore": "See more selections",
       "trailEyebrow": "Curated theme",
       "trailCta": "Explore this theme →",
       "continuationHeading": "Keep exploring",
@@ -126,25 +129,15 @@
       "categoryLinksLabel": "Keep exploring by category",
       "brandsLink": "Explore all brands →"
     },
+    "trustSeam": {
+      "line": "Listings and selections stay distinct",
+      "note": "A listed brand meets the directory's listing rules; a Formoria Selection is a product we chose on purpose, with the reason stated. Brand-provided and sponsored content are labelled separately too.",
+      "cta": "See how Formoria works →"
+    },
     "showcase": {
-      "heading": "Explore listed brands",
+      "heading": "Listed brands",
       "subheading": "These brands meet the directory's listing rules. A listing is not a Formoria selection, recommendation, certification, or ranking.",
-      "all": "All",
-      "filterLabel": "Filter by category",
-      "browseAll": "Browse All Brands →",
-      "browseAllCategory": "Browse All {category} →",
-      "emptyCategory": "No brands in this category yet",
-      "showAll": "Show all brands"
-    },
-    "valueChips": {
-      "heading": "Browse by Brand Values",
-      "all": "All",
-      "browseAll": "Browse all brands →",
-      "browseAllValue": "Browse all {value} brands →",
-      "emptyValue": "No brands tagged with this value yet"
-    },
-    "categoryGrid": {
-      "heading": "Explore Categories"
+      "browseAll": "See every listed brand →"
     },
     "manifesto": {
       "headline": "Listings and selections stay distinct",
@@ -154,24 +147,21 @@
     },
     "submitBand": {
       "headline": "Recommend a Taiwanese brand worth discovering",
-      "body": "Recommendations are free; approved brands join the Formoria community directory.",
+      "body": "Found a brand that should not be missed? Tell us — approved brands join the directory.",
       "cta": "Recommend a Brand"
     },
     "featureRequestBand": {
       "headline": "Tell us what Formoria should build next",
-      "body": "If you have a product suggestion we'd love to hear it — or upvote an idea that's already on the board.",
+      "body": "Want another category, another filter, or another way to browse? Send us the idea.",
       "cta": "Request a Feature"
-    },
-    "newBrands": {
-      "heading": "Newly listed brands",
-      "linkText": "Browse All Brands →"
     },
     "events": {
       "heading": "Events",
       "linkText": "View All Events →"
     },
     "latestStories": {
-      "heading": "Latest from Formoria",
+      "heading": "Stories",
+      "note": "Start from one scene in daily life, then get to know the products, the brands, and the people who make them.",
       "linkText": "View All Stories →"
     }
   },

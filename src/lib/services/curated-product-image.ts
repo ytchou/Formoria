@@ -118,6 +118,28 @@ export type CuratedProductImageInput = {
   previousImageUrl?: string | null;
 };
 
+/**
+ * What the stored object is, for the row that points at it.
+ *
+ * `width`/`height` are the POST-rotate, POST-resize dimensions `processImage`
+ * reports, because the resized object is what a browser downloads and what the
+ * homepage wall renders at its native ratio (DEV-1479).
+ */
+export type StoredCuratedProductImage = {
+  url: string;
+  width: number;
+  height: number;
+};
+
+/**
+ * Injectable storage seam. Tests drive the upload without a bucket, and
+ * `scripts/check-test-boundaries.mjs` forbids mocking the module instead.
+ */
+export type CuratedProductImageDeps = {
+  upload?: typeof uploadPublicImage;
+  deletePaths?: typeof deleteStoredImagePaths;
+};
+
 /** Module-private: the key shape is derived here and nowhere else. */
 function curatedProductImageKey(input: {
   brandId: string;
@@ -223,7 +245,8 @@ export async function prepareCuratedProductImage(
  */
 export async function uploadCuratedProductImage(
   input: CuratedProductImageInput & { processed: ProcessedImage },
-): Promise<{ url: string }> {
+  deps: CuratedProductImageDeps = {},
+): Promise<StoredCuratedProductImage> {
   return auditedCall(
     {
       provider: "images",
@@ -236,7 +259,8 @@ export async function uploadCuratedProductImage(
       // `upsert: true` is safe here and only here: the path is DERIVED from the
       // source URL, so re-saving the same source overwrites in place instead of
       // orphaning an object on every apply.
-      const { url } = await uploadPublicImage({
+      const upload = deps.upload ?? uploadPublicImage;
+      const { url } = await upload({
         bucket: "brand-images",
         path,
         data: processed.buffer,
@@ -251,7 +275,7 @@ export async function uploadCuratedProductImage(
         // Best effort: the row already points at the new object, so a failed
         // cleanup leaves a stale object for the storage sweep, not a broken row.
         try {
-          await deleteStoredImagePaths([previousKey]);
+          await (deps.deletePaths ?? deleteStoredImagePaths)([previousKey]);
         } catch (error) {
           console.error(
             "[curatedProducts] stale image cleanup failed",
@@ -261,7 +285,7 @@ export async function uploadCuratedProductImage(
         }
       }
 
-      return { url };
+      return { url, width: processed.width, height: processed.height };
     },
     { subjectId: input.productId },
   );
@@ -274,10 +298,11 @@ export async function uploadCuratedProductImage(
  */
 export async function storeCuratedProductImage(
   input: CuratedProductImageInput,
-): Promise<{ url: string }> {
+  deps: CuratedProductImageDeps = {},
+): Promise<StoredCuratedProductImage> {
   const processed = await prepareCuratedProductImage(
     input.imageSourceUrl,
     input.productId,
   );
-  return uploadCuratedProductImage({ ...input, processed });
+  return uploadCuratedProductImage({ ...input, processed }, deps);
 }

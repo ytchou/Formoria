@@ -86,7 +86,6 @@ export function ProductWall({
                 product={slot.product}
                 labels={labels.product}
                 mode="wall"
-                span={slot.span}
                 brand={slot.product.brand}
                 brandSlug={slot.product.brandSlug}
                 brandName={slot.product.brandName}
