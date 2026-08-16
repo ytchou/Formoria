@@ -22,6 +22,10 @@ const STAGING_FINALIZE = resolve(
   "supabase/bootstrap/deactivate-staging-cron.sql",
 );
 const STAGING_FIXTURE = resolve(ROOT, "supabase/fixtures/staging.sql");
+const STAGING_CURATED_FIXTURE = resolve(
+  ROOT,
+  "supabase/fixtures/staging-curated-products.sql",
+);
 const MIGRATIONS = resolve(ROOT, "supabase/migrations");
 const EXPECTED_STORAGE_BUCKETS =
   "brand-images:true,claim-proofs:false,image-eval:false,origin-evidence:false,run-logs:false";
@@ -478,6 +482,9 @@ async function main(): Promise<void> {
     case "seed:staging": {
       const { accounts } = validateStagingSeedEnvironment();
       queryFile(target, STAGING_FIXTURE);
+      // Curated products carry a foreign key to the brands seeded above, so
+      // this file can never run first.
+      queryFile(target, STAGING_CURATED_FIXTURE);
       await ensureStagingAccounts(accounts);
       return;
     }

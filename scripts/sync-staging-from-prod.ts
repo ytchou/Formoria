@@ -44,8 +44,9 @@
  *
  * The sync is ADDITIVE. There is no delete anywhere in this file, and there is
  * exactly one write call (`upsertBatch`). `curated_products` is deliberately
- * untouched — production has zero rows and staging has ten, so any mirroring
- * of that table would destroy the homepage product wall's only data.
+ * untouched — production has zero rows and staging is seeded from
+ * `supabase/fixtures/staging-curated-products.sql`, so any mirroring of that
+ * table would destroy the homepage product wall's only data.
  *
  * Run order is `db:seed:staging` first, then this. The reverse order lets the
  * fixture re-stamp its placeholder description over the copied one.
@@ -403,7 +404,7 @@ export const TABLE_POLICIES: Record<CopyTable, TablePolicy> = {
   // `id` MUST be omitted. `ON CONFLICT (slug) DO UPDATE` with `id` in the
   // payload executes `set id = excluded.id`, rewriting the primary key of
   // every fixture row that matched — which cascades into staging's existing
-  // brand_channels and its ten curated_products. Omitting it means new brands
+  // brand_channels and its seeded curated_products. Omitting it means new brands
   // get staging-generated uuids and the remap applies uniformly to all of them.
   //
   // `seo_promoted` is GENERATED ALWAYS ... STORED: naming it in an INSERT is a
