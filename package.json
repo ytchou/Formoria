@@ -30,6 +30,8 @@
     "db:migrate": "tsx scripts/db-deploy.ts migrate",
     "db:seed:staging": "tsx scripts/db-deploy.ts seed:staging",
     "db:verify": "tsx scripts/db-deploy.ts verify",
+    "db:sync:staging:select": "tsx scripts/sync-staging-from-prod.ts select",
+    "db:sync:staging": "tsx scripts/sync-staging-from-prod.ts sync",
     "check:db-types": "node scripts/check-db-types-fresh.mjs",
     "knip": "knip",
     "prepare": "git config core.hooksPath scripts/hooks 2>/dev/null || true",
