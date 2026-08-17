@@ -130,9 +130,13 @@ test.describe("Category landing pages deep", () => {
         exact: false,
       }),
     ).toHaveCount(1);
-    await expect(page.getByRole("heading", { name: "分類說明" })).toHaveCount(
-      0,
-    );
+    // The 分類說明 absence assertion that used to sit here is gone. Its
+    // heading came from `categories.landing.definitionTitle`, whose renderer
+    // was already deleted earlier in this delta; this sweep removed the
+    // orphaned key. With no component able to emit that heading under any
+    // condition, the assertion could no longer fail — the same rot this sweep
+    // exists to remove. 常見問題 below is still rendered on the taxonomy
+    // landing pages, so that one remains a real guard.
     await expect(page.getByRole("heading", { name: "常見問題" })).toHaveCount(
       0,
     );

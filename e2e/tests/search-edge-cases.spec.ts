@@ -347,7 +347,12 @@ test.describe.serial('Public brand search edge cases', () => {
     const emptyState = page.locator('[data-empty]');
     await expect(emptyState).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     await expect(page.getByText('共 0 個品牌', { exact: true })).toBeVisible();
-    await expect(page.getByText('本目錄收錄在台灣創立、設計或製造的品牌。', { exact: true })).toHaveCount(0);
+    // A scope-note absence assertion used to sit here. Its string came from a
+    // `scopeNote` key whose renderer was already deleted earlier in this delta;
+    // this sweep removed the orphaned key, leaving an assertion no component
+    // could ever violate. The 找不到品牌 guard below is the one that matters —
+    // that copy is still live, and it must not appear alongside the real
+    // 找不到符合的品牌 empty-state heading.
     await expect(page.getByText('找不到品牌', { exact: true })).toHaveCount(0);
     await expect(page.getByText('目前套用條件', { exact: true })).toHaveCount(0);
     await expect(emptyState.getByRole('heading', { name: '找不到符合的品牌' })).toBeVisible();
