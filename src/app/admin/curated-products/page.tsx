@@ -66,6 +66,21 @@ export default async function CuratedProductsPage({
     getAdminBrandOptions(),
     getAllTrailsForAdmin("zh-TW"),
   ]);
+  // Section keys that still carry ACTIVE selections, per trail. A section
+  // renamed or dropped from a trail's MDX leaves its rows behind: they render
+  // nowhere, but they still count toward `trailIndexBlockers` and hold the
+  // trail noindex. The editor's Section dropdown is the only retire path, so
+  // those keys are unioned into it below — otherwise the rows are unreachable
+  // from the admin UI entirely (DEV-1487).
+  const liveSectionKeys = new Map<string, Set<string>>();
+  for (const product of products) {
+    for (const selection of product.selections) {
+      const keys = liveSectionKeys.get(selection.trailSlug) ?? new Set<string>();
+      keys.add(selection.sectionKey);
+      liveSectionKeys.set(selection.trailSlug, keys);
+    }
+  }
+
   const trailOptions =
     trails.ok
       ? await Promise.all(
@@ -80,10 +95,18 @@ export default async function CuratedProductsPage({
               // data is a real indexability blocker.
               placementReadError = true;
             }
+            const declared = trail.frontmatter.sections;
+            const orphaned = [
+              ...(liveSectionKeys.get(trail.slug) ?? new Set<string>()),
+            ]
+              .filter((key) => !declared.some((section) => section.key === key))
+              .sort()
+              .map((key) => ({ key, title: key, orphaned: true }));
+
             return {
               slug: trail.slug,
               title: trail.frontmatter.title,
-              sections: trail.frontmatter.sections,
+              sections: [...declared, ...orphaned],
               blockers: placementReadError
                 ? []
                 : trailIndexBlockers({
