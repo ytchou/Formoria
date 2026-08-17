@@ -35,13 +35,13 @@ export type LandingZonesProps = {
   hero: ReactNode;
   close: ReactNode;
   /** `null` when the wall is below its publication floor and must not render. */
-  wall: { slots: WallSlot[]; leftoverTrails: TrailEntry[] } | null;
+  wall: { slots: WallSlot[] } | null;
   /**
    * EVERY indexable trail, not the ones the wall declined to place. A trail
    * that earns a wall tile still belongs in this zone: the tile is a picture in
    * a masonry grid, the row is the titled, dated route into `/discover`. The
-   * zone used to read `wall.leftoverTrails`, which meant the single-trail case
-   * — the trail is always placed — erased the zone from the page.
+   * zone used to read the wall's leftover trails, which meant the single-trail
+   * case — the trail is always placed — erased the zone from the page.
    */
   trails: TrailEntry[];
   stories: StoryEntry[];
@@ -106,7 +106,6 @@ export async function LandingZones({
                   cta: tSelected("cta"),
                   brandSiteCta: tSelected("brandSiteCta"),
                   selectedBadge: tSelected("selectedBadge"),
-                  brandProvidedBadge: tSelected("brandProvidedBadge"),
                   unavailable: tSelected("unavailable"),
                 },
                 trail: {
@@ -122,10 +121,10 @@ export async function LandingZones({
           Every indexable trail — including the ones the wall placed as tiles.
           Duplication with the wall is deliberate and cheap: a wall tile is a
           photograph a reader may scroll past, and this row is the only titled,
-          dated, keyboard-obvious path to `/discover`. Gating on
-          `wall.leftoverTrails` instead cost the zone its whole existence the
-          moment the site had one indexable trail, since that trail is always
-          placed. The zone is withheld only when nothing is indexable — never
+          dated, keyboard-obvious path to `/discover`. Gating on the trails the
+          wall left over instead cost the zone its whole existence the moment
+          the site had one indexable trail, since that trail is always placed.
+          The zone is withheld only when nothing is indexable — never
           because the wall is missing.
 
           This zone replaces the continuation strip that used to sit at the foot

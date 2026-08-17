@@ -47,7 +47,6 @@ const labels = {
   cta: "Visit product",
   brandSiteCta: "Visit brand site",
   selectedBadge: "Formoria selection",
-  brandProvidedBadge: "Brand provided",
   unavailable: "Link unavailable",
 };
 
@@ -128,7 +127,8 @@ describe("SelectedProductTile", () => {
   });
 
   it("renders the description with the 選物 badge on the brand page", () => {
-    // The 選物 commitment in brand-voice.md:71 now rests entirely on the
+    // The 選物 commitment in brand-voice.md ("Trust labels": Formoria 選物 is a
+    // deliberate editorial choice) now rests entirely on the
     // non-wall modes. If this goes red, the text has disappeared site-wide.
     const { container } = renderWallTile({ mode: "internal" });
 
@@ -189,9 +189,10 @@ describe("SelectedProductTile", () => {
     // it (DEV-1496).
     const tile = renderWallTile({ mode: "internal" });
 
-    expect(tile.container.textContent).not.toContain(
-      labels.brandProvidedBadge,
-    );
+    // Pinned by value: the label no longer exists as a tile prop, so the only
+    // way to catch its return is to look for the text itself.
+    expect(tile.container.textContent).not.toContain("Brand provided");
+    expect(tile.container.textContent).not.toContain("品牌提供");
   });
 
   it("links a wall tile to the top of the brand page, with no anchor", () => {

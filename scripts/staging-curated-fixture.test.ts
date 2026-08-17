@@ -23,18 +23,27 @@ const PRODUCT_ID = /'53000000-0000-4000-8000-\d{12}'::uuid/g;
 /** `'key', 'name_zh', 'l1',` — the l1 literal is the third on that line. */
 const CATEGORY = /'[a-z0-9-]+', '[^']+', '([a-z-]+)',/g;
 /** `'description。', product_position, wall_position` — the last row line. */
-const DESCRIPTION = /\n {6}'([^']*。)', (?:\d+|null), (?:\d+|null)\n/g;
+const DESCRIPTION = /\n {6}'([^']*。)', (?:\d+|null), (\d+|null)\n/g;
 
 const productIds = new Set(fixture.match(PRODUCT_ID) ?? []);
-const descriptions = [...raw.matchAll(DESCRIPTION)].map(([, value]) => value);
+const rows = [...raw.matchAll(DESCRIPTION)];
+const descriptions = rows.map(([, value]) => value);
+const wallPositions = rows.map(([, , wallPosition]) => wallPosition);
 
 describe("staging curated-product fixture contract", () => {
   it("seeds enough products to clear the homepage supply floor", () => {
     // Margin over the floor, not a full wall: the wall is meant to show real
     // authored products, and this fixture is only CI/staging supply.
-    expect(productIds.size).toBeGreaterThan(SUPPLY_FLOOR);
     expect(productIds.size).toBeGreaterThanOrEqual(SUPPLY_FLOOR + 4);
     expect(productIds.size).toBeLessThanOrEqual(14);
+  });
+
+  it("pins no fixture product to the wall", () => {
+    // Synthetic CI supply must never lead the homepage wall: a pin sorts ahead
+    // of the daily shuffle, and those slots belong to hand-authored products.
+    // The file header states this; without an assertion a stray pin ships.
+    expect(wallPositions).toHaveLength(productIds.size);
+    expect(new Set(wallPositions)).toEqual(new Set(["null"]));
   });
 
   it("gives every fixture product a zh description", () => {

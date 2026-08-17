@@ -36,7 +36,10 @@ type CuratedProductRow = Record<string, unknown> & { id: string }
 // Explicit column list for the backup snapshot. The restore path re-inserts the
 // row verbatim, so this must stay the full parent-row column set — but spelled
 // out, so a column rename breaks the fetch loudly instead of silently changing
-// the snapshot shape. Keep in sync with the `curated_products` schema.
+// the snapshot shape. An ADDED column is the silent direction — it drops out of
+// the snapshot and the restore re-inserts an incomplete row without erroring —
+// so the list is pinned against the generated row type by
+// scripts/remove-brand-columns.test.ts rather than by convention.
 //
 // One `as const` literal, no spaces after commas: supabase-js parses the select
 // string at the type level, and a runtime-joined `string[]` resolves to

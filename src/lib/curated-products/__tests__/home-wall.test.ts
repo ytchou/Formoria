@@ -92,15 +92,13 @@ describe("buildWallSlots", () => {
   });
 
   it("reserves no trail slot below eight products", () => {
-    const onlyTrail = trail("small", "/small.webp");
     const result = buildWallSlots({
       products: Array.from({ length: 7 }, (_, index) => product(`p-${index}`)),
-      trails: [onlyTrail],
+      trails: [trail("small", "/small.webp")],
       seed: SEED,
     });
 
     expect(result.slots.some((slot) => slot.kind === "trail")).toBe(false);
-    expect(result.leftoverTrails).toEqual([onlyTrail]);
   });
 
   it("caps the wall at MAX_HOME_WALL_PRODUCTS", () => {
@@ -114,15 +112,13 @@ describe("buildWallSlots", () => {
   });
 
   it("excludes trails without a heroImage", () => {
-    const noHero = trail("no-hero");
     const result = buildWallSlots({
       products: Array.from({ length: 8 }, (_, index) => product(`p-${index}`)),
-      trails: [noHero],
+      trails: [trail("no-hero")],
       seed: SEED,
     });
 
     expect(result.slots.some((slot) => slot.kind === "trail")).toBe(false);
-    expect(result.leftoverTrails).toEqual([noHero]);
   });
 
   it("snaps each product to the nearest of four ratio buckets", () => {
@@ -229,12 +225,25 @@ describe("buildWallSlots", () => {
   });
 
   it("keeps sixteen products from one category", () => {
-    // The per-L1 diversity window is GONE (DEV-1496). A wall of sixteen home
+    // The per-L1 diversity window is GONE (DEV-1496). A run of sixteen home
     // products is a legitimate day's supply, and reordering it around a
     // category budget produced no reader-visible benefit.
-    const products = Array.from({ length: 16 }, (_, index) =>
-      product(`home-${index}`, { l1: "home", wallPosition: index + 1 }),
-    );
+    //
+    // The fixture mixes a SECOND L1 on purpose. A single-L1 input is a fixed
+    // point of the deleted pass — it accepted the first six, deferred the rest
+    // in order, and re-concatenated the input — so an all-`home` fixture passes
+    // whether or not the pass is back. Eight `home` ahead of eight `beauty`
+    // does not: the old window (12 slots, at most 6 of one L1) would have
+    // emitted h0–h5, b0–b5, then h6, h7, b6, b7. Asserting the input order
+    // therefore fails the moment the pass returns.
+    const products = [
+      ...Array.from({ length: 8 }, (_, index) =>
+        product(`home-${index}`, { l1: "home", wallPosition: index + 1 }),
+      ),
+      ...Array.from({ length: 8 }, (_, index) =>
+        product(`beauty-${index}`, { l1: "beauty", wallPosition: index + 9 }),
+      ),
+    ];
 
     const slots = productSlots(
       buildWallSlots({ products, trails: [], seed: SEED }).slots,

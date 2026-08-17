@@ -30,6 +30,7 @@ import {
 import type { AdminCuratedProduct } from "@/lib/services/curated-products";
 import {
   CURATED_PRODUCT_SOURCE_TYPES,
+  MAX_NOTE,
   curatedProductUpdateSchema,
 } from "@/lib/validation/curated-product";
 
@@ -421,17 +422,30 @@ export function CuratedProductEditor({
     });
     if (!positionValidation.success) {
       const { fieldErrors } = positionValidation.error.flatten();
-      const descriptionIssue = fieldErrors.productDescriptionZh?.at(0);
+      // The MESSAGE is chosen from the issue code, not from the field name: a
+      // description over `MAX_NOTE` used to be reported as "write one", which
+      // reads as a lie against a visibly full textarea and never names the real
+      // constraint. `too_big` is the only other way this field can fail.
+      const descriptionIssue = positionValidation.error.issues.find(
+        (issue) => issue.path[0] === "productDescriptionZh",
+      );
       const positionIssue = fieldErrors.productPosition?.at(0);
       const wallPositionIssue = fieldErrors.wallPosition?.at(0);
       setProductDescriptionZhError(
-        descriptionIssue ? t("productDescriptionZhRequired") : null,
+        descriptionIssue
+          ? descriptionIssue.code === "too_big"
+            ? t("productDescriptionZhTooLong", { max: MAX_NOTE })
+            : t("productDescriptionZhRequired")
+          : null,
       );
       setProductPositionError(
         positionIssue ? t("productPositionInvalid") : null,
       );
       setWallPositionError(wallPositionIssue ? t("wallPositionInvalid") : null);
-      if (descriptionIssue || positionIssue || wallPositionIssue) return;
+      // Unconditional: `safeParse` receives exactly the three fields read
+      // above, and the schema's only non-field issue is an `l2`/`l1` refine on
+      // a key that is not passed here. A failure is always one of these three.
+      return;
     }
 
     const payload = {
@@ -666,7 +680,11 @@ export function CuratedProductEditor({
             setImageError(null);
           }}
           aria-invalid={imageError ? true : undefined}
-          aria-describedby={imageError ? imageErrorId : imageHintId}
+          // Same shape, same fix as the description below: the hint keeps being
+          // announced when the field is invalid.
+          aria-describedby={
+            imageError ? `${imageErrorId} ${imageHintId}` : imageHintId
+          }
         />
         <p className="type-form-hint" id={imageHintId}>
           {t("imageHint")}
@@ -710,9 +728,13 @@ export function CuratedProductEditor({
               setProductDescriptionZhError(null);
             }}
             aria-invalid={productDescriptionZhError ? true : undefined}
+            // BOTH ids when invalid, error first. Swapping the hint out for the
+            // error withdrew the field's only statement of the content rules at
+            // the exact moment the editor needs them; a sighted editor keeps
+            // seeing both, so the swap only ever cost screen-reader users.
             aria-describedby={
               productDescriptionZhError
-                ? productDescriptionZhErrorId
+                ? `${productDescriptionZhErrorId} ${fieldId}-product-description-hint`
                 : `${fieldId}-product-description-hint`
             }
           />

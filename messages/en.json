@@ -93,7 +93,7 @@
     },
     "selectedProducts": {
       "heading": "Formoria Selection",
-      "note": "For a particular situation, use, or preference, we chose these products on purpose — and we link the brand's own page, so you can order directly from the brand.",
+      "note": "Moving in, styling a shop, changing a lamp — these products were chosen on purpose for moments like these; open one to meet the brand behind it.",
       "showMore": "See more selections",
       "showLess": "Show fewer selections",
       "trailEyebrow": "Curated theme",
@@ -337,7 +337,6 @@
       "heading": "Formoria Selected",
       "note": "These are products Formoria picked from this brand, each described for what it is. Product details are supplied by the brand; refer to the brand's official page for the current information.",
       "selectedBadge": "Formoria Selected",
-      "brandProvidedBadge": "Supplied by the brand",
       "cta": "Go to the brand's official website",
       "unavailable": "This product page is temporarily unreachable.",
       "brandSiteCta": "Go to the brand's website"
@@ -2913,6 +2912,7 @@
         "productDescriptionEn": "Product description (English)",
         "productDescriptionHint": "What the product IS: material, size, use, made-where. No price, stock, discount, variants, or delivery. Do not state why it was selected — that belongs in the trail.",
         "productDescriptionZhRequired": "Write a Chinese product description. Every published product needs one.",
+        "productDescriptionZhTooLong": "The Chinese product description is too long. Trim it to {max} characters or fewer.",
         "productPosition": "Brand-page position",
         "productPositionInvalid": "Enter a non-negative whole number for the brand-page position.",
         "wallPosition": "Homepage wall position",

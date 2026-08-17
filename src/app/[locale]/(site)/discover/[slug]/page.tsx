@@ -118,7 +118,6 @@ function trailLabels(t: (key: string) => string): SelectedProductTileLabels {
     cta: t("productCta"),
     brandSiteCta: t("brandSiteCta"),
     selectedBadge: t("selectedBadge"),
-    brandProvidedBadge: t("brandProvidedBadge"),
     unavailable: t("unavailable"),
   };
 }

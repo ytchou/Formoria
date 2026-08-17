@@ -26,8 +26,11 @@ export const CURATED_PRODUCT_L1_VALUES = PRODUCT_TYPE_CATEGORIES.map(
 export const MAX_CURATED_PRODUCT_NAME = 200;
 /** Matches `adminReviewSchema.otherUrls[].url`. */
 const MAX_URL = 2_000;
-/** Matches `nullableText` in admin-review.ts. */
-const MAX_NOTE = 10_000;
+/**
+ * Matches `nullableText` in admin-review.ts. Exported so the admin editor can
+ * NAME the ceiling in its too-long message instead of restating the number.
+ */
+export const MAX_NOTE = 10_000;
 /** A claim is a one-line factual note, not an essay. */
 const MAX_CLAIM = 1_000;
 /** L2 is capped by `normalizeProductTags`; this is only a payload bound. */

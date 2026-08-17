@@ -176,14 +176,13 @@ function buildProduct(index: number): HomepageCuratedProduct {
   };
 }
 
-function buildWall(count = 2): { slots: WallSlot[]; leftoverTrails: [] } {
+function buildWall(count = 2): { slots: WallSlot[] } {
   return {
     slots: Array.from({ length: count }, (_, index) => ({
       kind: "product" as const,
       product: buildProduct(index),
       ratio: "4:3" as const,
     })),
-    leftoverTrails: [],
   };
 }
 
@@ -312,8 +311,8 @@ describe("landing page trust zones", () => {
   });
 
   /**
-   * The zone used to render `wall.leftoverTrails` — the trails the wall did
-   * NOT place. With a single indexable trail that trail is always a wall tile,
+   * The zone used to render only the trails the wall did NOT place. With a
+   * single indexable trail that trail is always a wall tile,
    * so the zone disappeared from the homepage entirely. Its input is now every
    * indexable trail, and wall placement is not a reason to withhold one: the
    * tile is a picture, the row is the reader's route into /discover.
@@ -327,7 +326,6 @@ describe("landing page trust zones", () => {
           ...buildWall().slots,
           { kind: "trail" as const, trail, format: "wide" as const },
         ],
-        leftoverTrails: [],
       },
       trails: [trail],
     });
@@ -364,7 +362,6 @@ describe("landing page trust zones", () => {
           ...buildWall().slots,
           { kind: "trail" as const, trail: placed, format: "wide" as const },
         ],
-        leftoverTrails: [unplaced],
       },
       trails: [placed, unplaced],
     });

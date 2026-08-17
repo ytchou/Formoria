@@ -236,7 +236,7 @@ export default async function LandingPage({ params }: PageProps) {
           close={<SectionBand />}
           wall={
             curatedProducts.length >= MIN_HOME_CURATED_PRODUCTS
-              ? { slots: wall.slots, leftoverTrails: wall.leftoverTrails }
+              ? { slots: wall.slots }
               : null
           }
           trails={indexableTrails}

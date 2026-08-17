@@ -25,8 +25,11 @@ export { DEFAULT_WALL_RATIO, WALL_RATIOS, type WallRatio };
  * wall earns TWO trail slots, so it composes to 18 slots — not the 17 this
  * comment claimed while the cap was smaller — and `ProductWall` trims back to a
  * whole 16. That trim takes its overflow from the tail's products so neither
- * reserved trail is discarded; a trail dropped there would render nowhere,
- * because `leftoverTrails` below already counts it as placed.
+ * reserved trail is discarded. That is now a COMPOSITION rule, not a
+ * content-loss rule: the homepage trails zone renders every indexable trail
+ * whether or not the wall placed it, so a trimmed trail would still reach the
+ * reader. Products are the interchangeable part of the wall, which is the
+ * reason the trim keeps taking its overflow from them.
  */
 export const MAX_HOME_WALL_PRODUCTS = 16;
 export const TRAIL_SLOT_CADENCE = 8;
@@ -73,11 +76,10 @@ export type BuildWallSlotsInput = {
 
 export type BuildWallSlotsResult = {
   slots: WallSlot[];
-  leftoverTrails: TrailEntry[];
   /**
    * Pins the per-brand cap refused. An editor who pins a third product of one
    * brand gets two on the wall; the third is reported here rather than
-   * vanishing, the same way `leftoverTrails` reports an unplaced trail.
+   * vanishing silently.
    */
   droppedPins: HomepageCuratedProduct[];
 };
@@ -271,10 +273,8 @@ export function buildWallSlots({
     slotIndex += 1;
   }
 
-  const placedTrailSlugs = new Set(reservedTrails.map((trail) => trail.slug));
   return {
     slots,
-    leftoverTrails: trails.filter((trail) => !placedTrailSlugs.has(trail.slug)),
     droppedPins: ordered.droppedPins,
   };
 }

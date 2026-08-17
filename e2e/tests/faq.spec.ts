@@ -61,7 +61,7 @@ test.describe("FAQ page", () => {
     await listingDetails.locator("summary").click();
     await expect(
       listingDetails.getByText(
-        "「收錄品牌」代表品牌符合目錄收錄規則，可以在搜尋資料中找到；這不等於 Formoria 背書、選物、認證或排名。「Formoria 選物」則是 Formoria 基於特定情境、用途、偏好或編輯觀點刻意挑選的產品或內容，會另外標示並說明理由。",
+        "「收錄品牌」代表品牌符合目錄收錄規則，可以在搜尋資料中找到；這不等於 Formoria 背書、選物、認證或排名。「Formoria 選物」則是 Formoria 基於特定情境、用途、偏好或編輯觀點刻意挑選的產品或內容，會另外標示，並說明產品是什麼、可以在哪裡向品牌訂購。",
         { exact: true },
       ),
     ).toBeVisible();

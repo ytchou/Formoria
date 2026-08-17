@@ -93,7 +93,7 @@
     },
     "selectedProducts": {
       "heading": "Formoria 選物",
-      "note": "為了某個情境、某種用途或某個偏好，我們刻意挑了這些產品，也附上品牌官方頁面，可以直接向品牌訂購。",
+      "note": "搬新家、佈置店面、想換一盞燈 — 這裡是為了這些時刻刻意挑出的產品，點進去認識做它的品牌。",
       "showMore": "看更多選物",
       "showLess": "收合選物",
       "trailEyebrow": "主題選物",
@@ -337,7 +337,6 @@
       "heading": "Formoria 選物",
       "note": "這裡是 Formoria 從這個品牌挑出的產品，並說明每一件是什麼；產品資料由品牌提供，實際內容請以品牌官方頁面為準。",
       "selectedBadge": "Formoria 選物",
-      "brandProvidedBadge": "品牌提供",
       "cta": "前往品牌官方網站",
       "unavailable": "這個產品頁面暫時無法連線。",
       "brandSiteCta": "前往品牌官網"

@@ -27,7 +27,6 @@ export type SelectedProductTileLabels = {
   cta: string;
   brandSiteCta: string;
   selectedBadge: string;
-  brandProvidedBadge: string;
   unavailable: string;
 };
 
@@ -157,7 +156,10 @@ export function SelectedProductTile({
    *
    * `productDescription` still renders on every NON-wall mode
    * (internal/outbound/trail) further down this file. Do not remove it there
-   * without re-reading docs/strategy/brand-voice.md:71.
+   * without re-reading the "Trust labels" section of
+   * docs/strategy/brand-voice.md: the Formoria-selection label is a deliberate
+   * editorial choice for a specific context, argued in the trail that gathers
+   * it. (Cited by section, not by line number: the line moved once already.)
    *
    * This band still exists for the name and brand: mobile puts it in flow
    * beneath the photograph, and from `sm` it is an absolutely positioned scrim

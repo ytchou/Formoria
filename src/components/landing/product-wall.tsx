@@ -107,15 +107,17 @@ function WallLineBreak({ className }: { className: string }) {
  * entire measure, which is the one pathology justified rows have. But a plain
  * tail slice took whatever was there — and with a 16-product cap and a trail
  * every 8 slots the composition ends ON a trail (slot 17 of 18), so the slice
- * deleted it. `buildWallSlots` had already counted that trail as placed, so it
- * was absent from `leftoverTrails` too and rendered nowhere on the page.
+ * deleted it.
  *
- * So the overflow is taken from the tail's PRODUCTS instead, scanning
- * backwards: products are interchangeable here and the wall is capped well
- * below supply, while a trail has exactly one place to be. If the tail somehow
- * holds too few products to reach a whole line (no real cadence produces this),
- * nothing is dropped at all — a stretched last line is a cosmetic flaw, a
- * vanished trail is lost content.
+ * The rule still stands, for a weaker reason than the one it was written for.
+ * A trimmed trail is no longer lost content: the homepage trails zone lists
+ * EVERY indexable trail, placed or not, so the reader still gets it as a
+ * titled, dated row. What a trim would cost is the composition — the wall's
+ * only editorial break in a sheet of photographs, at the cadence that was
+ * chosen for it. Products are interchangeable here and the wall is capped well
+ * below supply, so the overflow comes from the tail's PRODUCTS instead,
+ * scanning backwards. If the tail somehow holds too few products to reach a
+ * whole line (no real cadence produces this), nothing is dropped at all.
  */
 function trimToWholeLines(slots: WallSlot[], lineSize: number): WallSlot[] {
   if (slots.length < lineSize) return slots
