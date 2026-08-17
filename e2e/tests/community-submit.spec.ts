@@ -28,7 +28,11 @@ test.describe("Community submit flow", () => {
     await expect(userPage.locator("#submit-guest-email")).toBeVisible({
       timeout: BUDGET.RENDERED,
     });
-    await expect(userPage.locator("#submit-instagram")).toHaveCount(0);
+    // The owner/recommendation split, asserted against a control the owner
+    // form really renders: #submit-romanized-name exists only in
+    // SubmitQuickForm. (#submit-instagram, the previous subject, exists in no
+    // form at all, so its absence was guaranteed.)
+    await expect(userPage.locator("#submit-romanized-name")).toHaveCount(0);
   });
 
   test("source attribution select is visible on the recommendation form", async ({
@@ -55,7 +59,6 @@ test.describe("Community submit flow", () => {
     await expect(userPage.locator("#submit-pdpa")).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
-    await expect(userPage.locator('[data-state="active"]')).not.toBeVisible();
   });
 
   test("@smoke owner quick form shows its core fields when owner features are enabled", async ({

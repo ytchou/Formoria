@@ -6,7 +6,6 @@ import {
   formatEnrichPatchField,
   formatJobStart,
   formatJobSummary,
-  ENRICH_PREFIX,
   SEPARATOR,
   logEnrichmentProgress,
   type EnrichmentSummary,
@@ -17,10 +16,6 @@ afterEach(() => {
 })
 
 describe('enrichment-logger', () => {
-  it('exports the enrichment log prefix', () => {
-    expect(ENRICH_PREFIX).toBe('[ENRICH]')
-  })
-
   describe('formatPhaseProgress', () => {
     it('formats successful phase with brand and phase counters', () => {
       const result = formatPhaseProgress({

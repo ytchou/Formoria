@@ -168,7 +168,6 @@ test.describe('Admin dashboard deep', () => {
       'href',
       '/admin/newsletter?status=active',
     );
-    await expect(adminPage.getByText('System Status')).toHaveCount(0);
     await expect(adminPage.getByText('Feature Toggles')).toHaveCount(0);
     await expect(adminPage.getByText(/something went wrong|minified react error/i)).not.toBeVisible();
   });

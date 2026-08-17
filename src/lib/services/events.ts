@@ -443,7 +443,7 @@ export function eventExhibitorRowToDomain(
  * caveat as `EventBrandJoinRow`: PostgREST hands a to-one embed back as an
  * object, older stacks as a single-element array, so the transform accepts both.
  */
-export type BrandEventJoinRow = {
+type BrandEventJoinRow = {
   booth: string | null;
   area: string | null;
   area_en: string | null;
@@ -466,7 +466,7 @@ type BrandEventEmbeddedEvent = {
  * `eventExhibitorRowToDomain`: this transform is exported and unit-tested on
  * raw rows, so it must not depend on the caller having filtered first.
  */
-export function brandEventRowToDomain(
+function brandEventRowToDomain(
   row: BrandEventJoinRow,
 ): BrandEventParticipation | null {
   const embedded = Array.isArray(row.events) ? row.events[0] : row.events;

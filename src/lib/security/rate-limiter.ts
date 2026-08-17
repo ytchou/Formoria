@@ -18,7 +18,7 @@ export interface RateLimitResult {
  * budget across a window boundary. Default everywhere is `sliding`; opt a rule
  * into `fixed` only where that burst is acceptable.
  */
-export type RateLimitAlgorithm = 'sliding' | 'fixed'
+type RateLimitAlgorithm = 'sliding' | 'fixed'
 
 export interface RateLimitStore {
   check(

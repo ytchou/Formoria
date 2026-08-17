@@ -52,15 +52,18 @@ test.describe("Homepage curated product deep", () => {
       timeout: BUDGET.SERVER_RENDER,
     });
     // The whole continuation strip was removed on 2026-08-17: its trail links
-    // are their own zone now, and the category nav and the "探索所有品牌" button
+    // are their own zone now, and the category nav and the directory button
     // that also lived here are both still linked from the hero. Asserted as
     // ABSENT so they cannot quietly come back and duplicate the hero.
+    //
+    // Anchored on structure, not copy: the CTA is matched by its /brands href
+    // and the category nav by its landmark role. A name-based matcher would go
+    // vacuous the next time the button copy is rewritten — silently, since an
+    // absence assertion passes when its selector stops matching anything.
     await expect(
-      selectedProducts.getByRole("link", { name: "探索所有品牌 →", exact: true }),
+      selectedProducts.locator('a[href$="/brands"], a[href*="/brands?"]'),
     ).toHaveCount(0);
-    await expect(
-      selectedProducts.getByRole("navigation", { name: "依分類繼續探索" }),
-    ).toHaveCount(0);
+    await expect(selectedProducts.getByRole("navigation")).toHaveCount(0);
   });
 
   test("a discovery trail tile inside the wall leads to its trail", async ({

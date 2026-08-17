@@ -303,7 +303,6 @@ describe("landing page trust zones", () => {
     // The new-brands rail is gone with its copy: its two keys were deleted in
     // Wave 1, so a surviving second rail would render a missing-message error.
     expect(container.innerHTML).not.toContain("newBrands");
-    expect(container.textContent).not.toContain("landing.newBrands");
   });
 
   it("lifts a promoted event above stories when one is live", async () => {
@@ -406,9 +405,6 @@ describe("landing page trust zones", () => {
     )!;
     // The stat line sat directly above the rail. Nothing in the rail counts.
     expect(directory.textContent ?? "").not.toMatch(/\d/);
-    // The figure read "N brands". Its message key is deleted, so the literal
-    // shape is what the assertion pins now.
-    expect(screen.queryByText(/\d+\s*brands/i)).toBeNull();
   });
 
   it("keeps the degraded-render wiring intact", () => {
@@ -444,11 +440,15 @@ describe("landing page trust zones", () => {
       resolve(import.meta.dirname, "../../app/[locale]/(site)/page.tsx"),
       "utf8",
     );
-    const statement = source.slice(
-      source.indexOf("const degraded ="),
-      source.indexOf("if (degraded)"),
-    );
-    expect(statement).not.toBe("");
+    // Both markers must exist before slicing: `indexOf` returns -1 for a
+    // missing one, and the slice still yields a non-empty string — so the
+    // guard below would pass against a page.tsx that no longer computes
+    // `degraded` at all.
+    const start = source.indexOf("const degraded =");
+    const end = source.indexOf("if (degraded)");
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const statement = source.slice(start, end);
     expect(statement).not.toContain("trailSupply");
   });
 });

@@ -22,6 +22,12 @@ type AnySupabaseClient = SupabaseClient<any, any, any>
  */
 test.describe('API — health + search', () => {
   let supabase: AnySupabaseClient | undefined
+  // A brand seeded by this spec, so the search contract below is exercised
+  // against a guaranteed hit instead of whatever `q=test` happens to match.
+  // Search is deliberately not wrapped in excludeTestBrands (brands.ts), which
+  // is what lets an [E2E-TEST] row serve as the probe here.
+  let searchProbeQuery: string
+  let searchProbeBrandId: string | undefined
 
   test.beforeAll(async ({ request }) => {
     // PREVIEW_MODE guard
@@ -32,6 +38,32 @@ test.describe('API — health + search', () => {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     )
+
+    const suffix = randomUUID().replaceAll('-', '').slice(0, 10)
+    searchProbeQuery = `apicontract${suffix}`
+    const { data, error } = await supabase
+      .from('brands')
+      .insert({
+        name: `[E2E-TEST] ${searchProbeQuery}`,
+        slug: `e2e-api-contract-${suffix}`,
+        status: 'approved',
+        approved_at: new Date().toISOString(),
+        product_type: 'crafts',
+        description: `[E2E-TEST] API contract search probe ${suffix}.`,
+        is_demo: false,
+      })
+      .select('id')
+      .single()
+    if (error || !data) {
+      throw new Error(`API contract seed failed: ${error?.message ?? 'no row'}`)
+    }
+    searchProbeBrandId = data.id as string
+  })
+
+  test.afterAll(async () => {
+    if (!supabase || !searchProbeBrandId) return
+    const { error } = await supabase.from('brands').delete().eq('id', searchProbeBrandId)
+    if (error) throw new Error(`[e2e-cleanup] api contract brand cleanup failed: ${error.message}`)
   })
 
   test('GET /api/health returns ok', async ({ request }) => {
@@ -50,19 +82,20 @@ test.describe('API — health + search', () => {
   test('GET /api/search with query returns results shape', async ({ request }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
 
-    const resp = await request.get('/api/search?q=test')
+    const resp = await request.get(`/api/search?q=${searchProbeQuery}`)
     expect(resp.status()).toBe(200)
     const body = await resp.json()
     expect(body).toHaveProperty('results')
     expect(Array.isArray(body.results)).toBe(true)
-    // Shape check on any result that comes back
-    if (body.results.length > 0) {
-      const first = body.results[0]
-      expect(first).toHaveProperty('id')
-      expect(first).toHaveProperty('slug')
-      expect(first).toHaveProperty('name')
-      expect(first).toHaveProperty('category')
-    }
+    // Unconditional: the query is the spec's own seeded brand, so an empty
+    // result is a failure. The shape check used to sit behind `if (length > 0)`,
+    // which reduced the whole contract to a 200 plus Array.isArray.
+    expect(body.results.length).toBeGreaterThan(0)
+    const first = body.results[0]
+    expect(first).toHaveProperty('id')
+    expect(first).toHaveProperty('slug')
+    expect(first).toHaveProperty('name')
+    expect(first).toHaveProperty('category')
   })
 
   test('GET /api/search without query returns 400', async ({ request }) => {

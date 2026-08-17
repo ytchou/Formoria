@@ -52,7 +52,6 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
@@ -278,20 +277,12 @@ body:has([data-page-measure="wide"]) {
   --page-measure: 100rem;
 }
 
-@utility inline-link {
-  @apply text-primary underline-offset-4 hover:underline;
-}
-
 @utility type-display {
   @apply font-heading text-[1.625rem] font-[560] tracking-[-0.02em] leading-[1.2] text-foreground;
 }
 
 @utility type-hero {
   @apply font-heading text-4xl font-[560] tracking-[-0.02em] leading-tight text-foreground md:text-5xl;
-}
-
-@utility type-hero-inverse {
-  @apply font-heading text-3xl font-[560] tracking-[-0.02em] leading-tight text-white lg:text-5xl;
 }
 
 @utility type-page-title {
@@ -374,10 +365,6 @@ body:has([data-page-measure="wide"]) {
   @apply text-sm font-medium leading-6 text-foreground;
 }
 
-@utility type-body-emphasis-inverse {
-  @apply text-sm font-medium text-white/70;
-}
-
 @utility type-metadata {
   @apply text-[0.8125rem] font-medium leading-[1.4] text-muted-foreground;
 }
@@ -398,20 +385,12 @@ body:has([data-page-measure="wide"]) {
   @apply text-[0.6875rem] font-medium uppercase tracking-widest text-muted-foreground;
 }
 
-@utility type-eyebrow-cta {
-  @apply text-[0.8125rem] font-semibold leading-[1.4] text-cta;
-}
-
 @utility type-eyebrow-foreground {
   @apply text-xs font-semibold uppercase tracking-wider text-foreground;
 }
 
 @utility type-stat {
   @apply font-heading text-[1.625rem] font-[560] tracking-[-0.02em] leading-[1.2] tabular-nums text-foreground;
-}
-
-@utility type-stat-large {
-  @apply font-heading text-5xl font-[560] tracking-[-0.02em] leading-none tabular-nums text-primary md:text-6xl;
 }
 
 @utility type-nav-item {
