@@ -115,7 +115,7 @@
       "searchPlaceholder": "搜尋品牌、產品或分類",
       "browseCta": "開始逛逛",
       "statsCategories": "分類",
-      "allCategories": "所有分類 →"
+      "categoriesEyebrow": "或從分類開始"
     },
     "selectedProducts": {
       "heading": "Formoria 選物",
@@ -123,16 +123,10 @@
       "showMore": "看更多選物",
       "showLess": "收合選物",
       "trailEyebrow": "主題選物",
-      "trailCta": "探索這個主題 →",
-      "continuationHeading": "繼續探索",
-      "trailLinksLabel": "探索其他主題選物",
-      "categoryLinksLabel": "依分類繼續探索",
-      "brandsLink": "探索所有品牌 →"
+      "trailCta": "探索這個主題 →"
     },
     "trustSeam": {
-      "line": "收錄與選物，清楚分開",
-      "note": "「收錄品牌」代表符合目錄收錄規則；「Formoria 選物」是 Formoria 刻意挑選、並說明理由的產品。品牌提供與贊助內容也會分別標示。",
-      "cta": "認識 Formoria 的做法 →"
+      "line": "收錄與選物，清楚分開"
     },
     "showcase": {
       "heading": "收錄品牌",
@@ -140,7 +134,10 @@
       "browseAll": "看看所有收錄品牌 →"
     },
     "manifesto": {
-      "headline": "收錄與選物，清楚分開"
+      "headline": "讓台灣品牌重新回到大眾目光",
+      "body1": "許多台灣品牌有出色的產品、鮮明的想法與認真的製作方式，卻散落在不同網站、社群與販售通路。",
+      "body2": "Formoria 將品牌故事、產品特色與官方連結整理在一起，讓每一次尋找台灣品牌，都可以更簡單、更有方向。",
+      "cta": "認識 Formoria"
     },
     "submitBand": {
       "headline": "推薦一個值得被看見的台灣品牌",
@@ -160,6 +157,11 @@
       "heading": "主題",
       "note": "從一個生活場景出發，慢慢認識產品、品牌，以及做這些東西的人。",
       "linkText": "瀏覽所有專題 →"
+    },
+    "trails": {
+      "heading": "主題選物",
+      "note": "從一個具體的生活情境出發，沿著它認識合適的產品與品牌。",
+      "linkText": "瀏覽所有主題選物 →"
     }
   },
   "newsletter": {
@@ -613,7 +615,6 @@
         "online": "線上販售"
       },
       "confirmed": {
-        "storeInfoLink": "查看店家資訊",
         "officialPageLink": "前往官方頁面"
       },
       "unconfirmed": {
@@ -630,8 +631,8 @@
       "provenance": {
         "owner": "品牌確認",
         "community": "社群確認",
-        "evidence": "來源佐證",
-        "sourceLine": "來源：{source}"
+        "evidence": "來自官網",
+        "evidenceOther": "來源佐證"
       },
       "ownerBanner": {
         "title": "您是品牌擁有者",
@@ -646,12 +647,6 @@
         "channelTypeLabel": "販售方式",
         "channelTypeOnline": "線上販售",
         "channelTypeOffline": "實體地點",
-        "categoryLabel": "地點分類",
-        "categoryPlaceholder": "選擇分類",
-        "categoryBrandStore": "品牌直營",
-        "categoryDepartment": "百貨專櫃",
-        "categoryStockist": "選品店",
-        "categoryOther": "其他",
         "regionLabel": "地區",
         "regionPlaceholder": "選擇地區",
         "addressLabel": "地址",

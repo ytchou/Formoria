@@ -12,7 +12,6 @@ export const STOCKIST_HEADER = [
   'name',
   'location_type',
   'channel_type',
-  'category_label',
   'region_label',
   'address',
   'url',
@@ -38,16 +37,6 @@ export type NormalizeResult =
   | { ok: false; brandSlug: string; reason: string }
 
 const CHAIN_REGION_LABEL = '全台多間門市'
-const LOCATION_CATEGORY: Record<ChannelLocationType, string> = {
-  stockist: '選品店',
-  distributor_retailer: '經銷門市',
-  direct_store: '品牌直營',
-  department_store_counter: '百貨專櫃',
-  showroom_studio: '展示空間',
-  shop_in_shop: '店中店',
-  other_physical_retail: '實體零售',
-}
-
 const TAIWAN_REGIONS = new Map<string, string>([
   ['臺北市', '臺北市'],
   ['台北市', '臺北市'],
@@ -169,8 +158,30 @@ export function canonicalizeRegion(
   return { ok: false, reason: `unmapped foreign region: ${value}` }
 }
 
+/**
+ * A keyset, not an array, and that shape is load-bearing. `satisfies
+ * Record<ChannelLocationType, true>` makes a missing member a compile error, so
+ * adding a location type to the union breaks the build until this map is
+ * updated. An array with `satisfies readonly ChannelLocationType[]` would only
+ * check that every entry is valid, not that every member is present — a new
+ * type would compile clean and then be rejected row by row at import time with
+ * a generic reason, silently dropping stockists. The object also stops the
+ * per-call allocation the array version paid.
+ */
+const LOCATION_TYPES = {
+  stockist: true,
+  distributor_retailer: true,
+  direct_store: true,
+  department_store_counter: true,
+  showroom_studio: true,
+  shop_in_shop: true,
+  other_physical_retail: true,
+} satisfies Record<ChannelLocationType, true>
+
 function isLocationType(value: string): value is ChannelLocationType {
-  return value in LOCATION_CATEGORY
+  // `Object.hasOwn`, not `in`: `in` walks the prototype, so a CSV row saying
+  // `constructor` or `toString` would type-narrow to ChannelLocationType.
+  return Object.hasOwn(LOCATION_TYPES, value)
 }
 
 function isChannelType(value: string): value is ChannelType {
@@ -213,7 +224,6 @@ export function normalizeStockistRow(
         name,
         normalizedName: name,
         channelType,
-        categoryLabel: LOCATION_CATEGORY[locationType],
         regionLabel: region.regionLabel,
         address,
         district: address && city ? matchDistrict(address, city) : null,

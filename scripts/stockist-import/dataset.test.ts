@@ -24,7 +24,6 @@ const EXPECTED_HEADER = [
   'name',
   'location_type',
   'channel_type',
-  'category_label',
   'region_label',
   'address',
   'url',
@@ -94,7 +93,6 @@ describe('stockist import dataset', () => {
       expect(row.name.trim().length).toBeGreaterThanOrEqual(1)
       expect(row.name.length).toBeLessThanOrEqual(80)
       expect(row.address.length).toBeLessThanOrEqual(200)
-      expect(row.category_label.length).toBeLessThanOrEqual(40)
       expect(row.region_label.length).toBeLessThanOrEqual(40)
       if (row.url) expect(row.url).toMatch(/^https?:\/\//i)
       expect(row.evidence_url).toMatch(/^https?:\/\//i)

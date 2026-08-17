@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 
@@ -8,6 +9,7 @@ import BrandShowcase from "@/components/shared/brand-showcase";
 import { StoryRow } from "@/components/stories/story-row";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { Link } from "@/i18n/navigation";
+import { buttonVariants } from "@/components/ui/button";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
 import type { WallSlot } from "@/lib/curated-products/home-wall";
 import type { Locale } from "@/lib/seo/alternates";
@@ -85,17 +87,12 @@ export async function LandingZones({
           <div data-landing-zone="selection">
             <ProductWall
               slots={wall.slots}
-              leftoverTrails={wall.leftoverTrails}
               locale={locale}
               labels={{
                 heading: t("selectedProducts.heading"),
                 note: t("selectedProducts.note"),
                 showMore: t("selectedProducts.showMore"),
                 showLess: t("selectedProducts.showLess"),
-                continuationHeading: t("selectedProducts.continuationHeading"),
-                trailLinksLabel: t("selectedProducts.trailLinksLabel"),
-                categoryLinksLabel: t("selectedProducts.categoryLinksLabel"),
-                brandsLink: t("selectedProducts.brandsLink"),
                 product: {
                   cta: tSelected("cta"),
                   brandSiteCta: tSelected("brandSiteCta"),
@@ -113,25 +110,113 @@ export async function LandingZones({
         ) : null}
 
         {/*
-          The trust seam. It replaces the full-bleed manifesto band: the same
-          commitment, set as one line between the selection wall and the
-          directory rail, which is exactly where a reader needs to be told that
-          listing and selection are different claims. No photograph — a photo band here
-          reads as a third editorial zone competing with the two it separates.
+          Trails that did not earn a tile inside the wall. This zone replaces the
+          continuation strip that used to sit at the foot of the wall, where the
+          same trails were a row of underlined links — the weakest presentation
+          available for the editorial content they point at.
+
+          It deliberately reuses the topics zone's construction: `SectionHeader`
+          over a `StoryRow` list on the same divided rule. `StoryRow` already
+          takes a `TrailEntry` (the /discover hub renders trails through it), so
+          this is the existing component with `hrefBase` and `namespace`
+          repointed, not a second row design to keep in sync.
+        */}
+        {wall && wall.leftoverTrails.length > 0 ? (
+          <section
+            data-landing-zone="trails"
+            aria-labelledby="landing-trails"
+            className="py-6 md:py-8"
+          >
+            <div className="page-shell">
+              <SectionHeader
+                id="landing-trails"
+                heading={t("trails.heading")}
+                note={t("trails.note")}
+                linkHref="/discover"
+                linkLabel={t("trails.linkText")}
+              />
+              <div className="mt-8 divide-y divide-border border-y border-border">
+                {wall.leftoverTrails.map((trail, index) => (
+                  <StoryRow
+                    key={trail.slug}
+                    story={trail}
+                    locale={locale}
+                    headingLevel={3}
+                    position={index}
+                    trackingSurface="homepage_trails"
+                    trackingKind="trail"
+                    hrefBase="/discover"
+                    namespace="discover"
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {/*
+          The manifesto band, restored 2026-08-17 from what production serves.
+          It replaces the trust seam that the DEV-1479 recut put here.
+
+          THE TRUST STATEMENT LEAVES THE HOMEPAGE WITH IT. The listings-vs-
+          selections line is a public commitment in docs/strategy/brand-voice.md
+          (`landing.trustSeam.line`), and it now
+          ships only on /about and /faq — plus the `/og/trust` card, which was
+          repointed at `landing.trustSeam.line` in the same change so it keeps
+          stating the commitment even though no homepage section does. The
+          `about` CTA below is the homepage's only remaining path to it.
+
+          `sizes="100vw"` and no `priority`: this band is well below the fold,
+          and the hero photograph above owns the preload.
         */}
         <section
-          data-landing-zone="seam"
-          aria-labelledby="landing-trust-seam"
-          className="py-6 md:py-8"
+          data-landing-zone="manifesto"
+          aria-labelledby="landing-manifesto"
+          className="relative overflow-hidden py-12 md:py-16"
         >
-          <div className="mx-auto max-w-6xl page-gutter">
-            <SectionHeader
-              id="landing-trust-seam"
-              heading={t("trustSeam.line")}
-              note={t("trustSeam.note")}
-              linkHref="/about"
-              linkLabel={t("trustSeam.cta")}
-            />
+          <Image
+            src="/images/manifesto-bg.webp"
+            alt=""
+            fill
+            sizes="100vw"
+            className="object-cover"
+          />
+          {/* CONTRAST FLOOR — do not weaken either half of this.
+              `manifesto-bg.webp` measures mean 128.8/255 greyscale with a 10th
+              percentile of 53/255, so the darkest regions are what body text
+              actually sits on. Over the previous `bg-background/70` scrim the
+              muted foreground token composited to 3.83:1 on average and 3.04:1
+              in those dark regions — under the 4.5:1 AA floor for body text.
+              Two changes together clear it: the scrim goes to /85 (the paper
+              background over p10 composites to ~223/255) and the body copy
+              leaves the muted token for the full-strength foreground, landing at
+              ~13:1 in the p10 region and ~14:1 on the mean. The headline was
+              already `text-foreground` and gains the same margin. Anything below
+              /85, or any return to `type-body-muted` here, re-breaks AA. */}
+          <div className="absolute inset-0 bg-background/85" aria-hidden="true" />
+          <div className="relative page-shell text-center">
+            <h2
+              id="landing-manifesto"
+              className="mx-auto max-w-4xl type-page-title-large text-foreground"
+            >
+              {t("manifesto.headline")}
+            </h2>
+            <p className="mx-auto mt-3 max-w-3xl type-body">
+              {t("manifesto.body1")}
+            </p>
+            <p className="mx-auto mt-3 max-w-3xl type-body">
+              {t("manifesto.body2")}
+            </p>
+            <Link
+              href="/about"
+              className={buttonVariants({
+                variant: "primary",
+                tone: "cta",
+                className: "mt-4",
+              })}
+            >
+              {t("manifesto.cta")}
+            </Link>
           </div>
         </section>
 
@@ -141,7 +226,7 @@ export async function LandingZones({
             aria-labelledby="landing-topics"
             className="py-6 md:py-8"
           >
-            <div className="mx-auto max-w-6xl page-gutter">
+            <div className="page-shell">
               {/* The zone renders whenever it has events OR stories, so its
                   heading, note and link follow what it actually contains — an
                   events-only zone headed "Stories", linking to /stories, would
@@ -223,7 +308,7 @@ export async function LandingZones({
 
         {brands.length > 0 && (
           <div data-landing-zone="directory" className="py-6 md:py-8">
-            <div className="mx-auto max-w-6xl page-gutter">
+            <div className="page-shell">
               <BrandShowcase
                 brands={brands}
                 heading={t("showcase.heading")}

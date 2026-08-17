@@ -453,16 +453,42 @@ export async function proxy(request: NextRequest) {
     );
   }
 
+  // The mutation lockdown exists to protect the DEPLOYED staging environment.
+  // A local `next dev` server that merely points `.env.local` at staging is not
+  // that — but `isStagingRequest` only reads env vars and the staging hostname,
+  // so it cannot tell the two apart. Without this gate, aiming local dev at
+  // staging 403s every unauthenticated POST on localhost, which silently kills
+  // dev tooling (the Next.js devtools annotation panel among it) with an error
+  // that reads like a deployment problem.
+  //
+  // The exemption keys on DEPLOYMENT, not on build mode. RAILWAY_GIT_COMMIT_SHA
+  // is injected by the container that serves deployed staging and is absent on
+  // a laptop, so a deployed container stays locked down even if something sets
+  // NODE_ENV=development (a debug build, a container misconfiguration).
+  // NODE_ENV alone would be a convention, not a constraint, and getting it
+  // wrong opens every unauthenticated mutation on deployed staging.
+  //
+  // NODE_ENV still narrows the local case to `next dev`, which is the only
+  // runner that sets `development`: the lockdown therefore stays armed under
+  // `test` (where middleware-staging.test.ts asserts it) and under
+  // `production`.
+  //
+  // Deliberately narrower than relaxing `isStagingEnvironment()`, which must
+  // stay true here — lib/email/send.ts keys outbound email suppression off it,
+  // and flipping it would make a laptop pointed at staging send real mail.
+  const isDeployedRuntime = Boolean(process.env.RAILWAY_GIT_COMMIT_SHA?.trim());
+  const enforceStagingLockdown =
+    staging && (isDeployedRuntime || process.env.NODE_ENV !== "development");
   const initiallyAllowed = isAllowedStagingRequest(request.method, pathname);
   const mayAuthenticateMutation = ["POST", "PUT", "PATCH", "DELETE"].includes(
     request.method,
   );
   const authenticated =
-    staging && !initiallyAllowed && mayAuthenticateMutation
+    enforceStagingLockdown && !initiallyAllowed && mayAuthenticateMutation
       ? await hasAuthenticatedUser(request)
       : false;
   const stagingRequestAllowed =
-    !staging ||
+    !enforceStagingLockdown ||
     initiallyAllowed ||
     isAllowedStagingRequest(request.method, pathname, authenticated);
 

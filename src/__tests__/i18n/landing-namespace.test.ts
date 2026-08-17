@@ -5,10 +5,13 @@ import zhTW from "../../../messages/zh-TW.json";
 
 /**
  * The landing namespace was recut for the six trust zones (DEV-1479). Two of its
- * keys survive the recut for reasons that are invisible from the homepage, so
- * they are pinned here: `metadata.*` is the site-wide `%s | Formoria` title
- * template read by `[locale]/layout.tsx`, and `manifesto.headline` is the text
- * baked into the site-wide OG image, which statically imports both catalogues.
+ * keys survive for reasons that are invisible from the homepage, so they are
+ * pinned here: `metadata.*` is the site-wide `%s | Formoria` title template read
+ * by `[locale]/layout.tsx`, and `trustSeam.line` is the commitment baked into
+ * the `/og/trust` card, which statically imports both catalogues and is now its
+ * only consumer. `manifesto.headline` is NOT one of them — it is rendered on the
+ * homepage again by the restored manifesto band, and is asserted below with the
+ * rest of that band's copy.
  */
 type MessageNode = { [key: string]: string | MessageNode };
 
@@ -59,11 +62,15 @@ const DEAD_KEYS = [
   // `hero-stats.tsx` was deleted with the hero recut. `about.hero.statsBrands`
   // is a DIFFERENT namespace and still ships — only the landing copy is dead.
   "hero.statsBrands",
-  // The manifesto band became the trust seam; only its headline survives,
-  // because the site-wide OG image reads it.
-  "manifesto.body1",
-  "manifesto.body2",
-  "manifesto.cta",
+  // The seam section was replaced by that band, so its supporting copy has no
+  // renderer. Only `trustSeam.line` survives, for /og/trust.
+  "trustSeam.note",
+  "trustSeam.cta",
+  // The wall's continuation strip is gone; its trails moved to their own zone.
+  "selectedProducts.continuationHeading",
+  "selectedProducts.trailLinksLabel",
+  "selectedProducts.categoryLinksLabel",
+  "selectedProducts.brandsLink",
 ];
 
 describe("landing namespace", () => {
@@ -106,11 +113,23 @@ describe("landing namespace", () => {
     }
   });
 
-  it("manifesto headline survives", () => {
-    // `[locale]/og/trust/opengraph-image.tsx` statically imports both message
-    // JSONs and reads this key — deleting it is a build-time type error.
-    expect(resolve(zhLanding, "manifesto.headline")).toBe("收錄與選物，清楚分開");
-    expect(resolve(enLanding, "manifesto.headline")).toBeTruthy();
+  it("the trust commitment ships even though no homepage section states it", () => {
+    // The manifesto band replaced the trust seam on the homepage (2026-08-17),
+    // so `/og/trust/opengraph-image.tsx` is now the only build-time consumer of
+    // this line. It statically imports both catalogues and reads the key —
+    // deleting it is a build-time type error, and it is the commitment in
+    // docs/strategy/brand-voice.md, so it is pinned by value here.
+    expect(resolve(zhLanding, "trustSeam.line")).toBe("收錄與選物，清楚分開");
+    expect(resolve(enLanding, "trustSeam.line")).toBeTruthy();
+  });
+
+  it("the manifesto band's copy ships in both catalogues", () => {
+    for (const catalogue of [zhLanding, enLanding]) {
+      for (const key of ["headline", "body1", "body2", "cta"]) {
+        expect(resolve(catalogue, `manifesto.${key}`)).toBeTruthy();
+      }
+    }
+    expect(resolve(zhLanding, "manifesto.headline")).toBe("讓台灣品牌重新回到大眾目光");
   });
 
   it("keeps the keys the new trust zones render", () => {
@@ -122,16 +141,25 @@ describe("landing namespace", () => {
       "hero.browseCta",
       // Also the aria-label on both hero category navs, not just HeroStats.
       "hero.statsCategories",
-      "hero.allCategories",
+      // The hero now lists every L1, so the "all categories" escape hatch is
+      // gone and this eyebrow labels the chip block in its place.
+      "hero.categoriesEyebrow",
       "selectedProducts.heading",
       "selectedProducts.note",
       "selectedProducts.showMore",
       // The reveal control is a disclosure, so it needs both of its labels.
       "selectedProducts.showLess",
+      // `.line` only — it is read by /og/trust, not by any landing zone. The
+      // seam section it used to render was replaced by the manifesto band.
       "trustSeam.line",
-      "trustSeam.note",
-      "trustSeam.cta",
       "latestStories.heading",
+      "trails.heading",
+      "trails.note",
+      "trails.linkText",
+      "manifesto.headline",
+      "manifesto.body1",
+      "manifesto.body2",
+      "manifesto.cta",
       "showcase.heading",
       "showcase.subheading",
       "showcase.browseAll",

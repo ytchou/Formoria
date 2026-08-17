@@ -41,7 +41,7 @@ test.describe("SEO deep", () => {
         heading: "生活可以更像自己一點。",
         positioning:
           "Formoria 是台灣品牌探索與選物平台，從生活出發認識產品與品牌。",
-        trustHeading: "收錄與選物，清楚分開",
+        manifestoHeading: "讓台灣品牌重新回到大眾目光",
       },
       {
         path: "/en",
@@ -51,7 +51,8 @@ test.describe("SEO deep", () => {
         heading: "Life can look a little more like you.",
         positioning:
           "Formoria is a Taiwanese brand discovery and curation platform — start from life, meet the products and the brands.",
-        trustHeading: "Listings and selections stay distinct",
+        manifestoHeading:
+          "Make Taiwanese brands easier to discover, choose, and grow",
       },
     ] as const;
     const aboutLocales = [
@@ -87,8 +88,12 @@ test.describe("SEO deep", () => {
       await expect(
         page.getByText(locale.positioning, { exact: true }),
       ).toBeVisible();
+      // The trust line "收錄與選物，清楚分開" left the homepage on 2026-08-17
+      // when the manifesto band replaced the trust seam. It still ships on
+      // /about (asserted below), /faq and the /og/trust card. What the homepage
+      // states here now is the positioning line.
       await expect(
-        page.getByText(locale.trustHeading, { exact: true }),
+        page.getByRole("heading", { name: locale.manifestoHeading, level: 2 }),
       ).toBeVisible();
     }
 

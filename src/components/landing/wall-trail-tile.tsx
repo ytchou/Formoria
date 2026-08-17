@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import type { CSSProperties } from 'react'
 
 import { Link } from '@/i18n/navigation'
 import type { WallTrailFormat } from '@/lib/curated-products/home-wall'
@@ -15,28 +16,24 @@ export type WallTrailTileLabels = {
 }
 
 /**
- * Trail tiles are sized editorially rather than measured, so their spans are
- * declared here in the same column-relative unit the product tiles use. Literal
- * classes because Tailwind scans source text, never runtime strings.
+ * Trail tiles are sized editorially rather than measured, so their two formats
+ * are declared here as RATIOS — the same currency the justified-row layout uses
+ * for a product tile's measured shape (see `product-wall.tsx`).
  *
- * The wide format spans EVERY column at every multi-column breakpoint — two at
- * `sm`, four at `lg` — rather than two of four. Sparse auto-placement (the only
- * mode allowed here, because `grid-auto-flow: dense` would divorce visual order
- * from DOM order) can only place a multi-column tile where its tracks are all
- * free at once, so a 2-of-4 tile parked the cursor mid-grid and left cells no
- * later single-column tile could ever fill. Spanning the full width instead
- * makes the tile a band: it lands after the longest track, and every track
- * restarts in phase beneath it. The ragged edge above the band is the ordinary
- * masonry edge, not a hole.
+ * They were column spans under the old masonry: `tall` a 95-unit row span,
+ * `wide` a full-width band. A band cannot survive a justified line, because a
+ * line's tiles must share a height; a wide trail is now simply the widest tile
+ * ON its line, at 3:2 against a portrait 3:4 for `tall`. The alternation still
+ * reads as two different modules, which is all the format ever promised.
  *
- * Its row span carries the tile's own content: eyebrow, title, a three-line
- * promise and a 48px CTA need ~285px inside `md:p-8`, which 65 units did not
- * give at `lg` — the link is `justify-end` under `overflow-hidden`, so the
- * shortfall clipped the title off the TOP rather than overflowing visibly.
+ * The floor matters: eyebrow, title, a three-line promise and a 48px CTA need
+ * ~285px inside `md:p-8`. The link is `justify-end` under `overflow-hidden`, so
+ * a shortfall clips the title off the TOP rather than overflowing visibly —
+ * hence `min-h-80` staying on both the tile and the link at every breakpoint.
  */
-const TRAIL_FORMAT_CLASS: Record<WallTrailFormat, string> = {
-  tall: 'sm:[grid-row:span_95/span_95]',
-  wide: 'sm:col-span-2 sm:[grid-row:span_75/span_75] lg:col-span-4',
+const TRAIL_FORMAT_RATIO: Record<WallTrailFormat, number> = {
+  tall: 3 / 4,
+  wide: 3 / 2,
 }
 
 export function WallTrailTile({
@@ -60,11 +57,15 @@ export function WallTrailTile({
 
   return (
     <li
+      style={{ '--tile-ratio': TRAIL_FORMAT_RATIO[format] } as CSSProperties}
       className={cn(
         // `rounded-lg` is DESIGN.md's container radius; this tile is a
         // top-level surface, not a nested one.
         'relative list-none min-h-80 overflow-hidden rounded-lg bg-foreground text-background sm:min-h-0',
-        TRAIL_FORMAT_CLASS[format],
+        // Same flex arithmetic as a product tile — one per line on phones, then
+        // basis and grow both proportional to the format's ratio.
+        'basis-full grow-0',
+        'sm:basis-[calc(var(--wall-line-h)*var(--tile-ratio))] sm:grow-[var(--tile-ratio)]',
         className,
       )}
     >
@@ -81,14 +82,14 @@ export function WallTrailTile({
             src={imageSrc}
             alt={imageAlt}
             fill
-            // The wide format is full-bleed within the content measure at every
-            // breakpoint, and that measure caps at 1000px (72rem less the 5rem
-            // gutter). `50vw` here made the tablet tile upscale a ~480w
-            // candidate by nearly 2x.
+            // Both formats are ordinary tiles on a justified line now, not a
+            // full-width band, so neither asks for a viewport-wide candidate on
+            // desktop. `wide` is 3:2 against `tall`'s 3:4 — twice the width for
+            // the same line height, hence 30vw against 20vw.
             sizes={
               format === 'wide'
-                ? '(max-width: 1024px) 100vw, 1000px'
-                : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw'
+                ? '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 30vw'
+                : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw'
             }
             className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
           />

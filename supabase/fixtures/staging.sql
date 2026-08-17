@@ -1,5 +1,18 @@
 -- Private staging only. Public production fields were reviewed; every mutation
 -- journey record below is explicitly labeled as a staging fixture.
+--
+-- SEEDS BRANDS ONLY. The `Staging Fixture • <brand>` brand_channels block was
+-- deleted on 2026-08-17: a channel is where a reader is told they can actually
+-- buy something, and forty invented rows pointing at example.com sat in the
+-- same list as real, source-backed stockists. Staging now shows only channels
+-- that came from a brand's own published pages.
+--
+-- Deleting the block only stopped future writes; the fixture is insert-only, so
+-- the forty rows it had already seeded stayed in staging. The cleanup at the
+-- bottom of this file removes them, and re-running it is a no-op.
+--
+-- The brands below are NOT invented — real names, real slugs, real
+-- purchase_website URLs. Only the fabricated channels are gone.
 
 with fixture(id, name, slug, product_type, city, purchase_website) as (
   values
@@ -71,54 +84,10 @@ on conflict (id) do update set
   city = excluded.city,
   purchase_website = excluded.purchase_website;
 
-with fixture as (
-  select
-    row_number() over (order by id) as fixture_number,
-    id as brand_id,
-    name
-  from public.brands
-  where id >= '51000000-0000-4000-8000-000000000001'::uuid
-    and id <= '51000000-0000-4000-8000-000000000040'::uuid
-)
-insert into public.brand_channels (
-  id, brand_id, name, normalized_name, channel_type, category_label,
-  region_label, address, url, source, owner_status, country
-)
-select
-  ('52000000-0000-4000-8000-' || lpad(fixture_number::text, 12, '0'))::uuid,
-  brand_id,
-  'Staging Fixture • ' || name,
-  'staging-fixture-' || fixture_number,
-  case when fixture_number % 5 = 0 then 'online' else 'offline' end,
-  case when fixture_number % 5 = 0 then '品牌官網' else '實體門市' end,
-  case fixture_number % 4
-    when 0 then '高雄市'
-    when 1 then '臺北市'
-    when 2 then '新北市'
-    else '臺中市'
-  end,
-  case
-    when fixture_number = 39 then null
-    when fixture_number = 40 then 'Unmatched staging-only address'
-    when fixture_number % 4 = 0 then '高雄市苓雅區四維三路2號'
-    when fixture_number % 4 = 1 then '臺北市信義區市府路45號'
-    when fixture_number % 4 = 2 then '新北市板橋區中山路一段161號'
-    else '臺中市西屯區臺灣大道三段99號'
-  end,
-  'https://example.com/staging-fixture/' || fixture_number,
-  'admin',
-  'none',
-  'TW'
-from fixture
-on conflict (id) do update set
-  name = excluded.name,
-  normalized_name = excluded.normalized_name,
-  channel_type = excluded.channel_type,
-  category_label = excluded.category_label,
-  region_label = excluded.region_label,
-  address = excluded.address,
-  url = excluded.url,
-  source = excluded.source,
-  owner_status = excluded.owner_status,
-  country = excluded.country,
-  updated_at = now();
+-- Cleanup of the deleted fabricated-channel block. Matched on the fixed id
+-- range this file used to write, NOT on the `Staging Fixture • ` name pattern:
+-- a real channel could one day carry a similar name, and an id range can only
+-- ever hit rows this fixture created. Confirmations cascade with the channel.
+delete from public.brand_channels
+where id between '52000000-0000-4000-8000-000000000001'::uuid
+            and '52000000-0000-4000-8000-000000000040'::uuid;

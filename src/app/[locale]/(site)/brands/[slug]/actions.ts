@@ -167,7 +167,6 @@ export async function submitChannelInfoAction(
       const result = await submitChannel(user.id, brandId, {
         name: getFormString(formData, 'name'),
         channelType: getFormString(formData, 'channelType') as ChannelType,
-        category: getFormString(formData, 'category'),
         region,
         address: getFormString(formData, 'address'),
         url: getFormString(formData, 'url'),

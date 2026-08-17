@@ -15,7 +15,20 @@ import type { TrailEntry } from "@/lib/services/trails";
  */
 export { DEFAULT_WALL_RATIO, WALL_RATIOS, type WallRatio };
 
-export const MAX_HOME_WALL_PRODUCTS = 32;
+/**
+ * FOUR desktop lines of four, not eight.
+ *
+ * Sized in LINES, because that is what a reader perceives: 32 products ran the
+ * wall to eight lines and ~3000px, which buried every section under it.
+ *
+ * The figure is the PRODUCT cap, not the slot count. At a cadence of 8 a full
+ * wall earns TWO trail slots, so it composes to 18 slots — not the 17 this
+ * comment claimed while the cap was smaller — and `ProductWall` trims back to a
+ * whole 16. That trim takes its overflow from the tail's products so neither
+ * reserved trail is discarded; a trail dropped there would render nowhere,
+ * because `leftoverTrails` below already counts it as placed.
+ */
+export const MAX_HOME_WALL_PRODUCTS = 16;
 export const TRAIL_SLOT_CADENCE = 8;
 export const DIVERSITY_WINDOW_SIZE = 12;
 export const MAX_PRODUCTS_PER_L1_IN_DIVERSITY_WINDOW = 6;

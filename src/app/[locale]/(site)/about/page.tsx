@@ -243,7 +243,7 @@ export default async function AboutPage({ params }: PageProps) {
 
         <section className="relative overflow-hidden py-12 md:py-16">
           <Image
-            src="/images/hero-bg.png"
+            src="/images/hero-bg.webp"
             alt=""
             fill
             sizes="100vw"

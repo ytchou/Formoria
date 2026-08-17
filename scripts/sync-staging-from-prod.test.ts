@@ -151,7 +151,6 @@ function channelRow(overrides: Row = {}): Row {
     normalized_name: "eslite-xinyi",
     channel_type: "offline",
     location_type: "department_store",
-    category_label: "百貨",
     region_label: "北部",
     country: "TW",
     district: "信義區",

@@ -115,7 +115,7 @@
       "searchPlaceholder": "Search brands, products, or categories",
       "browseCta": "Start browsing",
       "statsCategories": "categories",
-      "allCategories": "All categories →"
+      "categoriesEyebrow": "Or start from a category"
     },
     "selectedProducts": {
       "heading": "Formoria Selection",
@@ -123,16 +123,10 @@
       "showMore": "See more selections",
       "showLess": "Show fewer selections",
       "trailEyebrow": "Curated theme",
-      "trailCta": "Explore this theme →",
-      "continuationHeading": "Keep exploring",
-      "trailLinksLabel": "Explore more curated themes",
-      "categoryLinksLabel": "Keep exploring by category",
-      "brandsLink": "Explore all brands →"
+      "trailCta": "Explore this theme →"
     },
     "trustSeam": {
-      "line": "Listings and selections stay distinct",
-      "note": "A listed brand meets the directory's listing rules; a Formoria Selection is a product we chose on purpose, with the reason stated. Brand-provided and sponsored content are labelled separately too.",
-      "cta": "See how Formoria works →"
+      "line": "Listings and selections stay distinct"
     },
     "showcase": {
       "heading": "Listed brands",
@@ -140,7 +134,10 @@
       "browseAll": "See every listed brand →"
     },
     "manifesto": {
-      "headline": "Listings and selections stay distinct"
+      "headline": "Make Taiwanese brands easier to discover, choose, and grow",
+      "body1": "We first organize fragmented brand, product, and purchase-channel information so worthwhile Taiwanese brands are easier to find.",
+      "body2": "Curation can then help people choose, while owner tools support brands as they grow.",
+      "cta": "Read Our Vision"
     },
     "submitBand": {
       "headline": "Recommend a Taiwanese brand worth discovering",
@@ -160,6 +157,11 @@
       "heading": "Stories",
       "note": "Start from one scene in daily life, then get to know the products, the brands, and the people who make them.",
       "linkText": "View All Stories →"
+    },
+    "trails": {
+      "heading": "Discovery trails",
+      "note": "Start from one concrete situation and follow it to the products and brands that fit.",
+      "linkText": "Browse every trail →"
     }
   },
   "newsletter": {
@@ -613,7 +615,6 @@
         "online": "Online"
       },
       "confirmed": {
-        "storeInfoLink": "Store info",
         "officialPageLink": "Official page"
       },
       "unconfirmed": {
@@ -630,8 +631,8 @@
       "provenance": {
         "owner": "Brand confirmed",
         "community": "Community confirmed",
-        "evidence": "Source verified",
-        "sourceLine": "Source: {source}"
+        "evidence": "From the official website",
+        "evidenceOther": "Source verified"
       },
       "ownerBanner": {
         "title": "You are the brand owner",
@@ -646,12 +647,6 @@
         "channelTypeLabel": "Sales format",
         "channelTypeOnline": "Online sales",
         "channelTypeOffline": "Physical location",
-        "categoryLabel": "Location category",
-        "categoryPlaceholder": "Select category",
-        "categoryBrandStore": "Brand store",
-        "categoryDepartment": "Department counter",
-        "categoryStockist": "Stockist",
-        "categoryOther": "Other",
         "regionLabel": "Region",
         "regionPlaceholder": "Select region",
         "addressLabel": "Address",

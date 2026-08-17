@@ -9,6 +9,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import en from "../../../../messages/en.json";
 import { buildWebSiteJsonLd } from "@/lib/json-ld";
+import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+
+// The hero carries a `priority` background photograph. `next/image` resolves a
+// local `src` against the loader's base URL, which jsdom does not provide, so
+// without this every spec in this file dies on "Invalid URL" inside getImgProps.
+// `priority` is surfaced as a data attribute because React drops the unknown
+// boolean prop from a plain `<img>`.
+vi.mock("next/image", () => ({
+  default: ({ fill: _fill, priority, ...props }: Record<string, unknown>) => (
+    // eslint-disable-next-line @next/next/no-img-element -- this IS the mock of next/image
+    <img alt="" data-priority={priority ? "true" : "false"} {...props} />
+  ),
+}));
 
 vi.mock("next-intl/server", async () => {
   const { createTranslator } = await import("next-intl");
@@ -101,13 +114,21 @@ describe("HeroSection", () => {
     ) as unknown as typeof fetch;
   });
 
-  it("renders no background image", async () => {
+  it("renders the background photograph, decorative and preloaded", async () => {
+    // REVERSES DEV-1479 decision D2 ("the hero is photograph-free"), by product
+    // decision on 2026-08-17: production never stopped serving this image and
+    // the text-only hero read as unfinished above a wall of photographs.
     const { container } = await renderHero();
 
-    // `next/image` always emits an <img>; the decorative scrim it sat under is
-    // gone with it. The hero is photograph-free by design (D2).
-    expect(container.querySelector("img")).toBeNull();
-    expect(container.innerHTML).not.toContain("hero-bg");
+    const image = container.querySelector("img");
+    expect(image).not.toBeNull();
+    expect(image?.getAttribute("src")).toContain("hero-bg");
+    // Decorative: the headline beside it carries the meaning.
+    expect(image?.getAttribute("alt")).toBe("");
+    // It is the LCP element, so it preloads — and it is the ONLY image on the
+    // page that does. `selected-product-tile.tsx` marks no wall tile
+    // `priority`, so nothing competes with this request.
+    expect(image?.getAttribute("data-priority")).toBe("true");
   });
 
   it("renders exactly one search control that targets /brands?search=", async () => {
@@ -148,23 +169,62 @@ describe("HeroSection", () => {
     expect(paragraphs[0]).toHaveTextContent(en.landing.hero.subheadline);
   });
 
-  it("category chips remain left-aligned and horizontally scrollable", async () => {
+  it("the mobile chip row stays left-aligned and horizontally scrollable", async () => {
     const { container } = await renderHero();
 
-    const navs = [...container.querySelectorAll("nav")];
-    expect(navs.length).toBeGreaterThan(0);
-
-    for (const nav of navs) {
-      // Centring the hero is visual and stops at the control group — a centred
-      // chip row that overflows reads as broken and loses its scroll affordance.
-      expect(nav.className).not.toContain("text-center");
-      expect(nav.className).not.toContain("justify-center");
-    }
-
-    const scrollable = navs.find((nav) =>
+    const scrollable = [...container.querySelectorAll("nav")].find((nav) =>
       nav.className.includes("overflow-x-auto"),
     );
     expect(scrollable).toBeDefined();
+
+    // A centred row that overflows reads as broken and loses its scroll
+    // affordance, so only the desktop block (which never overflows) centres.
+    expect(scrollable!.className).not.toContain("text-center");
+    expect(scrollable!.className).not.toContain("justify-center");
+  });
+
+  it("every L1 category is reachable from the hero, with no all-categories link", async () => {
+    // The header drops its category tab row on `/`, so the hero is the only
+    // category entry point and must list the ontology in full.
+    const { container } = await renderHero();
+
+    for (const category of PRODUCT_TYPE_CATEGORIES) {
+      const chips = container.querySelectorAll(
+        `a[href="/categories/${category.slug}"]`,
+      );
+      // One chip in the desktop block, one in the mobile scroller.
+      expect(chips).toHaveLength(2);
+      expect(chips[0]).toHaveTextContent(category.name);
+    }
+
+    // Every category is on screen, so the escape hatch to /brands is dead
+    // weight — the only remaining /brands link is the browse CTA.
+    const brandsLinks = container.querySelectorAll('a[href="/brands"]');
+    expect(brandsLinks).toHaveLength(1);
+    expect(brandsLinks[0]).toHaveTextContent(en.landing.hero.browseCta);
+  });
+
+  it("labels the desktop chip block with the eyebrow line", async () => {
+    const { container } = await renderHero();
+
+    const desktopNav = [...container.querySelectorAll("nav")].find(
+      (nav) => !nav.className.includes("overflow-x-auto"),
+    );
+    expect(desktopNav).toBeDefined();
+    expect(desktopNav!).toHaveTextContent(en.landing.hero.categoriesEyebrow);
+
+    // ONE wrapping row, not a hand-split 6+6: zh-TW's twelve four-character
+    // labels fit a single line at the 1120px cap, and EN's word labels wrap to
+    // a second by themselves. Asserting one container with all twelve chips
+    // keeps this test about "every category is reachable" rather than about a
+    // row count that legitimately differs per locale and viewport.
+    const rows = [...desktopNav!.querySelectorAll("div")].filter((row) =>
+      row.className.includes("justify-center"),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.querySelectorAll("a")).toHaveLength(
+      PRODUCT_TYPE_CATEGORIES.length,
+    );
   });
 
   it("keeps a single h1", async () => {

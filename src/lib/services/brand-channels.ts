@@ -69,7 +69,6 @@ type BrandChannelRow = {
   brand_id: string
   name: string
   channel_type: string
-  category_label: string | null
   region_label: string | null
   address: string | null
   url: string | null
@@ -91,7 +90,6 @@ type EnrichedChannelRow = {
   name: string
   normalized_name: string
   channel_type: ChannelType
-  category_label: string | null
   region_label: string | null
   address: string | null
   url: string | null
@@ -164,7 +162,7 @@ type ChannelDistrictBackfillRow = {
 }
 
 export const CHANNEL_READ_SELECT =
-  'id, name, channel_type, category_label, region_label, address, url, source_url, fetched_at, location_type, country, owner_status, source, removed_at, brand_channel_confirmations(count)'
+  'id, name, channel_type, region_label, address, url, source_url, fetched_at, location_type, country, owner_status, source, removed_at, brand_channel_confirmations(count)'
 
 const STOCKIST_READ_SELECT =
   'id, name, address, url, country, region_label, district, brands!inner(slug, name, product_type, product_tags, status)'
@@ -476,7 +474,6 @@ function rowToDisplayRow(row: BrandChannelRow) {
       id: row.id,
       name: row.name,
       channelType: row.channel_type,
-      categoryLabel: row.category_label,
       regionLabel: row.region_label,
       address: row.address,
       url: row.url,
@@ -666,7 +663,6 @@ export async function submitChannel(
         name,
         normalized_name: normalizeChannelName(name),
         channel_type: input.channelType,
-        category_label: trimNullable(input.category),
         region_label: regionLabel,
         address,
         url,
@@ -829,7 +825,6 @@ export function buildEnrichedChannelRows(candidates: ChannelCandidate[]): {
       name,
       normalized_name: normalizedName,
       channel_type: candidate.channelType,
-      category_label: trimNullable(candidate.categoryLabel),
       region_label: trimNullable(candidate.regionLabel),
       address: trimNullable(candidate.address),
       url: trimNullable(candidate.url),
