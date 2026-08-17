@@ -227,6 +227,29 @@
   }
 }
 
+/*
+ * The landing page's shared measure: `page-gutter` plus a 100rem cap, centred.
+ *
+ * ONE declaration, because every landing section has to agree with the product
+ * wall down to the pixel — a section 8px narrower than the wall above it reads
+ * as a mistake, and three copies of `mx-auto max-w-[100rem] page-gutter`
+ * scattered across four files drift the moment one of them is edited. Change
+ * the cap here and the whole page moves together.
+ *
+ * At 1920px this leaves 160px each side. The narrower `max-w-6xl` (72rem) that
+ * several of these sections used to carry left 384px, which made every band
+ * look inset from the wall.
+ */
+@utility page-shell {
+  margin-inline: auto;
+  max-width: 100rem;
+  padding-inline: calc(var(--spacing) * 6);
+
+  @media (width >= 48rem) {
+    padding-inline: calc(var(--spacing) * 10);
+  }
+}
+
 @utility inline-link {
   @apply text-primary underline-offset-4 hover:underline;
 }

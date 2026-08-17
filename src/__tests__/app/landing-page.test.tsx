@@ -34,13 +34,19 @@ vi.mock("next-intl/server", async () => {
   };
 });
 
+// `priority` is surfaced as a data attribute rather than dropped: the seam spec
+// asserts the manifesto band does NOT preload, since the hero photograph owns
+// the single above-the-fold preload. React would drop the unknown boolean prop
+// from a plain `<img>`.
 vi.mock("next/image", () => ({
   default: ({
     fill: _fill,
-    priority: _priority,
+    priority,
     ...props
+  }: Record<string, unknown>) => (
     // eslint-disable-next-line @next/next/no-img-element -- this IS the mock of next/image
-  }: Record<string, unknown>) => <img alt="" {...props} />,
+    <img alt="" data-priority={priority ? "true" : "false"} {...props} />
+  ),
 }));
 
 vi.mock("@/i18n/navigation", () => ({
@@ -364,16 +370,27 @@ describe("landing page trust zones", () => {
     ).toBeNull();
   });
 
-  it("renders the trust seam without the manifesto photo band", async () => {
+  it("renders the manifesto photo band in the seam slot", async () => {
+    // Restored 2026-08-17, reversing the DEV-1479 recut that put the thin trust
+    // seam here. The trust line itself now ships only on /about, /faq and the
+    // /og/trust card — asserted in the i18n spec, not here.
     const { container } = await renderZones();
 
     const seam = container.querySelector<HTMLElement>('[data-landing-zone="seam"]')!;
-    expect(within(seam).getByText(en.landing.trustSeam.line)).toBeInTheDocument();
-    expect(within(seam).getByText(en.landing.trustSeam.note)).toBeInTheDocument();
+    expect(
+      within(seam).getByRole("heading", { name: en.landing.manifesto.headline }),
+    ).toBeInTheDocument();
+    expect(within(seam).getByText(en.landing.manifesto.body1)).toBeInTheDocument();
+    expect(within(seam).getByText(en.landing.manifesto.body2)).toBeInTheDocument();
+    expect(
+      within(seam).getByRole("link", { name: en.landing.manifesto.cta }),
+    ).toHaveAttribute("href", "/about");
 
-    // The seam is thin by design: no photograph, and therefore no scrim.
-    expect(seam.querySelector("img")).toBeNull();
-    expect(container.innerHTML).not.toContain("manifesto-bg");
+    // The photograph is decorative and must not preload — the hero owns that.
+    const image = seam.querySelector("img")!;
+    expect(image.getAttribute("src")).toContain("manifesto-bg");
+    expect(image.getAttribute("alt")).toBe("");
+    expect(image.getAttribute("data-priority")).toBe("false");
   });
 
   it("omits the brand-count figure", async () => {

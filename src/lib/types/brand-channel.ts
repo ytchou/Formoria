@@ -18,7 +18,6 @@ export interface BrandChannel {
   id: string
   name: string
   channelType: ChannelType
-  categoryLabel: string | null
   regionLabel: string | null
   address: string | null
   url: string | null
@@ -38,7 +37,6 @@ export interface ChannelCandidate {
   name: string
   normalizedName: string
   channelType: ChannelType
-  categoryLabel?: string | null
   regionLabel?: string | null
   address?: string | null
   url?: string | null
@@ -55,7 +53,6 @@ export interface ChannelCandidate {
 export interface BrandChannelInput {
   name: string
   channelType: ChannelType
-  category?: string
   region?: string
   address?: string
   url?: string

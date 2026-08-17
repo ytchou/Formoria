@@ -453,16 +453,35 @@ export async function proxy(request: NextRequest) {
     );
   }
 
+  // The mutation lockdown exists to protect the DEPLOYED staging environment.
+  // A local `next dev` server that merely points `.env.local` at staging is not
+  // that — but `isStagingRequest` only reads env vars and the staging hostname,
+  // so it cannot tell the two apart. Without this gate, aiming local dev at
+  // staging 403s every unauthenticated POST on localhost, which silently kills
+  // dev tooling (the Next.js devtools annotation panel among it) with an error
+  // that reads like a deployment problem.
+  //
+  // The discriminator is `development` specifically, not `!== "production"`:
+  // only `next dev` sets it, so the lockdown stays armed under `test` (where
+  // middleware-staging.test.ts asserts it) and under `production` (deployed
+  // staging). Widening this to `!== "production"` would disarm the guard in the
+  // very suite that proves it works.
+  //
+  // Deliberately narrower than relaxing `isStagingEnvironment()`, which must
+  // stay true here — lib/email/send.ts keys outbound email suppression off it,
+  // and flipping it would make a laptop pointed at staging send real mail.
+  const enforceStagingLockdown =
+    staging && process.env.NODE_ENV !== "development";
   const initiallyAllowed = isAllowedStagingRequest(request.method, pathname);
   const mayAuthenticateMutation = ["POST", "PUT", "PATCH", "DELETE"].includes(
     request.method,
   );
   const authenticated =
-    staging && !initiallyAllowed && mayAuthenticateMutation
+    enforceStagingLockdown && !initiallyAllowed && mayAuthenticateMutation
       ? await hasAuthenticatedUser(request)
       : false;
   const stagingRequestAllowed =
-    !staging ||
+    !enforceStagingLockdown ||
     initiallyAllowed ||
     isAllowedStagingRequest(request.method, pathname, authenticated);
 

@@ -50,7 +50,6 @@ function makeChannel(
     id: `channel-${index}`,
     name: `測試通路 ${index}`,
     channelType: "offline",
-    categoryLabel: "選品店",
     regionLabel: "臺北市",
     address: null,
     url: null,
@@ -167,7 +166,7 @@ describe("BrandChannelList", () => {
     expect(online).toHaveAttribute("open");
   });
 
-  it("renders an evidence-backed stockist as a full row with its source", () => {
+  it("renders an evidence-backed stockist as a full row", () => {
     const address = "臺北市大同區迪化街一段94號";
     const sourceUrl = "https://www.chatzutang.com/pages/stores";
     const { container } = renderList({
@@ -189,9 +188,6 @@ describe("BrandChannelList", () => {
       "href",
       `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
     );
-    expect(
-      screen.getByRole("link", { name: "來源：chatzutang.com" }),
-    ).toHaveAttribute("href", sourceUrl);
     expect(screen.queryByText(/讀取於/)).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /我確認/ }),

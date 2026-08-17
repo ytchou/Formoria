@@ -11,7 +11,6 @@ function row(overrides: Partial<StockistCsvRow> = {}): StockistCsvRow {
     name: '登山友 中山店',
     location_type: 'stockist',
     channel_type: 'offline',
-    category_label: 'outdoor',
     region_label: '臺北市',
     address: '臺北市中正區中山北路一段18號',
     url: 'https://example.com/shops/zhongshan',
@@ -40,7 +39,7 @@ describe('stockist normalization', () => {
     })
   })
 
-  it('derives category labels from all location types and discards the CSV category', () => {
+  it('accepts every supported location type', () => {
     const types = [
       'stockist',
       'distributor_retailer',
@@ -52,21 +51,14 @@ describe('stockist normalization', () => {
     ] as const
     const labels = types.map((locationType) => {
       const result = normalizeStockistRow(
-        row({ location_type: locationType, category_label: 'kids-pets' }),
+        row({ location_type: locationType }),
       )
-      return result.ok ? result.row.candidate.categoryLabel : result.reason
+      return result.ok ? result.row.candidate.locationType : result.reason
     })
 
     expect(labels).toEqual([
-      '選品店',
-      '經銷門市',
-      '品牌直營',
-      '百貨專櫃',
-      '展示空間',
-      '店中店',
-      '實體零售',
+      ...types,
     ])
-    expect(labels).not.toContain('kids-pets')
   })
 
   it('resolves countries from region prefixes and rejects an unknown foreign region', () => {

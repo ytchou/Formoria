@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Link, usePathname } from '@/i18n/navigation'
 import { Menu } from 'lucide-react'
@@ -34,6 +34,27 @@ export function MainNav({ categories }: MainNavProps) {
   const hasOwnedBrand = viewer.hasOwnedBrand
   const ownerFeaturesEnabled = viewer.ownerFeaturesEnabled
   const pathname = usePathname()
+
+  // The homepage hero owns both entry modes — a search field and all 12 L1
+  // chips — so the header's copies of them are pure duplication within one
+  // viewport. Every other route keeps them; `/brands` in particular relies on
+  // the tab row as its primary control surface.
+  const isHome = pathname === '/'
+  const [scrolledPastHero, setScrolledPastHero] = useState(false)
+  useEffect(() => {
+    if (!isHome) return
+    // Fixed 420px threshold approximates the hero's height; switch to an
+    // IntersectionObserver on a hero sentinel if the hero's height becomes
+    // variable. Search must never be unreachable, so it fades back in once the
+    // hero has scrolled away.
+    const onScroll = () => setScrolledPastHero(window.scrollY > 420)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [isHome])
+
+  const showNavSearch = !isHome || scrolledPastHero
+
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background">
       {/* Row 1: Logo | Search | Actions */}
@@ -46,13 +67,23 @@ export function MainNav({ categories }: MainNavProps) {
           </span>
         </Link>
 
-        {/* Search — center, takes remaining space (desktop only) */}
+        {/* Search — center, takes remaining space (desktop only). The wrapper
+            is unconditional so it keeps holding the `flex-1` gap between the
+            logo and the actions; only its contents come and go. */}
         <div className="hidden flex-1 md:block">
-          <NavSearchInput />
+          {showNavSearch ? (
+            // `animate-in fade-in-0` is neutralised by the global
+            // prefers-reduced-motion rule in globals.css, so no extra guard here.
+            <div className="animate-in fade-in-0 duration-200">
+              <NavSearchInput />
+            </div>
+          ) : null}
         </div>
 
-        {/* Right actions (desktop) */}
-        <div className="hidden items-center gap-4 md:flex">
+        {/* Right actions (desktop). A `nav` rather than a `div`: NavCategoryTabs
+            below used to be the header's only navigation landmark, so gating it
+            off the homepage left the banner with none at all. */}
+        <nav aria-label={t('navigation')} className="hidden items-center gap-4 md:flex">
           <Link
             href="/where-to-buy"
             className="type-body-emphasis text-foreground/80 transition-colors hover:text-foreground"
@@ -90,7 +121,7 @@ export function MainNav({ categories }: MainNavProps) {
           )}
           {!user ? <LocaleSwitcher /> : null}
           <AccountMenu />
-        </div>
+        </nav>
 
         {/* Mobile hamburger */}
         <div className="ml-auto md:hidden">
@@ -175,8 +206,10 @@ export function MainNav({ categories }: MainNavProps) {
         </div>
       </div>
 
-      {/* Row 2: Category tabs */}
-      <NavCategoryTabs categories={categories} />
+      {/* Row 2: Category tabs — suppressed on `/`, where the hero renders all
+          12 L1s directly. Unlike the search field this does not come back on
+          scroll: the homepage below the hero is its own browse surface. */}
+      {isHome ? null : <NavCategoryTabs categories={categories} />}
     </header>
   )
 }

@@ -69,7 +69,6 @@ describe("buildBrandJsonLd", () => {
       id: `channel-${name}`,
       name,
       channelType: "offline",
-      categoryLabel: null,
       regionLabel: "臺北市",
       address: null,
       url: null,

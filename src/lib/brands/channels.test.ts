@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  getChannelSourceLabel,
   groupChannelsByRegion,
   groupChannelsForDisplay,
   normalizeChannelName,
@@ -11,7 +10,6 @@ type ChannelRow = {
   id: string;
   name: string;
   channelType: string;
-  categoryLabel: string | null;
   regionLabel: string | null;
   address: string | null;
   url: string | null;
@@ -25,21 +23,11 @@ type ChannelRow = {
   removedAt: string | null;
 };
 
-describe("getChannelSourceLabel", () => {
-  it("keeps malformed evidence URLs renderable instead of throwing", () => {
-    expect(getChannelSourceLabel("http://")).toBe("http://");
-    expect(getChannelSourceLabel("https://www.example.com/stockists")).toBe(
-      "example.com",
-    );
-  });
-});
-
 function channelRow(overrides: Partial<ChannelRow> = {}): ChannelRow {
   return {
     id: "channel-1",
     name: "登山友",
     channelType: "online",
-    categoryLabel: null,
     regionLabel: null,
     address: null,
     url: null,
@@ -203,7 +191,6 @@ describe("groupChannelsByRegion", () => {
       id: "channel-1",
       name: "通路",
       channelType: "offline",
-      categoryLabel: null,
       regionLabel: null,
       address: null,
       url: null,

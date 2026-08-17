@@ -6,8 +6,6 @@ import {
   Check,
   ChevronDown,
   ExternalLink,
-  Monitor,
-  Store,
   ThumbsUp,
   TriangleAlert,
 } from "lucide-react";
@@ -24,7 +22,6 @@ import { signInHref } from "@/i18n/locale-preference";
 import { useUser } from "@/lib/auth/use-user";
 import {
   CHAIN_REGION_LABEL,
-  getChannelSourceLabel,
   groupChannelsByRegion,
   type ChannelRegionGroup,
 } from "@/lib/brands/channels";
@@ -130,8 +127,12 @@ function ChannelRow({
   onModerate,
 }: ChannelRowProps) {
   const isOnline = channel.channelType === "online";
-  const Icon = isOnline ? Monitor : Store;
-  const region = channel.address ?? channel.regionLabel;
+  // An ONLINE channel has no location, so it must never print one. Some rows
+  // carry a region_label and even a street address anyway (a head-office
+  // address on a webshop row), and printing it filed an online entry under a
+  // city in the reader's mind. The online group heading is the only location
+  // an online channel has.
+  const region = isOnline ? null : (channel.address ?? channel.regionLabel);
   const mapsHref = channel.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(channel.address)}`
     : null;
@@ -139,9 +140,6 @@ function ChannelRow({
     channel.confirmedBy ??
     (channel.ownerStatus === "confirmed" ? "owner" : "community");
   const isConfirmed = channel.status === "confirmed";
-  const evidenceSource = channel.sourceUrl
-    ? getChannelSourceLabel(channel.sourceUrl)
-    : null;
 
   return (
     <div
@@ -156,23 +154,6 @@ function ChannelRow({
         <StatusMarker confirmed={isConfirmed} />
         <div className="min-w-0">
           <p className="type-body-emphasis">{channel.name}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <Icon
-              aria-hidden="true"
-              className="size-4 shrink-0 text-muted-foreground"
-              data-channel-icon={isOnline ? "monitor" : "store"}
-            />
-            <span className="type-metadata">
-              {t(
-                isOnline
-                  ? "channels.dialog.channelTypeOnline"
-                  : "channels.dialog.channelTypeOffline",
-              )}
-            </span>
-            {channel.categoryLabel ? (
-              <Badge variant="secondary">{channel.categoryLabel}</Badge>
-            ) : null}
-          </div>
           {region ? (
             <div className="mt-2 type-body">
               {mapsHref ? (
@@ -188,19 +169,6 @@ function ChannelRow({
                 <span>{region}</span>
               )}
             </div>
-          ) : null}
-          {channel.confirmedBy === "evidence" && channel.sourceUrl ? (
-            <a
-              href={channel.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 inline-flex items-center gap-1 type-card-description underline underline-offset-4"
-            >
-              {t("channels.provenance.sourceLine", {
-                source: evidenceSource ?? channel.sourceUrl,
-              })}
-              <ExternalLink aria-hidden="true" className="size-3.5" />
-            </a>
           ) : null}
           {signInChannelId === channel.id ? (
             <p className="mt-2 rounded-lg border border-border bg-muted/50 p-3 type-card-description">
@@ -231,7 +199,13 @@ function ChannelRow({
             {t("channels.unconfirmed.progress", { count, threshold })}
           </span>
         )}
-        {channel.url ? (
+        {/* ONLINE only. The store-info button on a physical location was
+            removed: the address beneath the name is already a Google Maps link,
+            which is the action a reader actually wants from a stockist row, and
+            the button sent them to a second page saying the same thing. An
+            online channel has no address, so its link is the only way through
+            and it stays. */}
+        {isOnline && channel.url ? (
           <a
             href={channel.url}
             target="_blank"
@@ -242,11 +216,7 @@ function ChannelRow({
               className: "min-h-12",
             })}
           >
-            {t(
-              isOnline
-                ? "channels.confirmed.officialPageLink"
-                : "channels.confirmed.storeInfoLink",
-            )}
+            {t("channels.confirmed.officialPageLink")}
             <ExternalLink aria-hidden="true" className="size-4" />
           </a>
         ) : null}
@@ -323,8 +293,10 @@ function ChannelChip({
 }: ChannelChipProps) {
   const isOnline = channel.channelType === "online";
   const isConfirmed = channel.status === "confirmed";
+  // Same rule as the row: an online channel prints no location. This is what
+  // printed a city in parentheses beside an official-website chip.
   const region =
-    channel.regionLabel && channel.regionLabel !== CHAIN_MARKER
+    !isOnline && channel.regionLabel && channel.regionLabel !== CHAIN_MARKER
       ? channel.regionLabel
       : null;
   const mapsHref = channel.address
@@ -364,16 +336,16 @@ function ChannelChip({
           )
         </span>
       ) : null}
-      {channel.url ? (
+      {/* ONLINE only, matching the row. A physical location reaches its
+          destination through the Maps link on its region above; leaving the
+          icon here would have kept the store-info link the row just lost, in a
+          smaller and less obvious control. */}
+      {isOnline && channel.url ? (
         <a
           href={channel.url}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label={`${channel.name} ${t(
-            isOnline
-              ? "channels.confirmed.officialPageLink"
-              : "channels.confirmed.storeInfoLink",
-          )}`}
+          aria-label={`${channel.name} ${t("channels.confirmed.officialPageLink")}`}
           className="inline-flex min-h-8 min-w-8 items-center justify-center text-muted-foreground hover:text-foreground"
         >
           <ExternalLink aria-hidden="true" className="size-4" />

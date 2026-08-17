@@ -615,7 +615,6 @@ test.describe("Brand detail — public locations and retail channels", () => {
         name: confirmedStoreName,
         normalized_name: "e2e-brand-direct-store",
         channel_type: "offline",
-        category_label: "品牌直營",
         region_label: "臺北市",
         address: confirmedStoreAddress,
         url: confirmedStoreUrl,
@@ -631,7 +630,6 @@ test.describe("Brand detail — public locations and retail channels", () => {
         name: confirmedOnlineName,
         normalized_name: "e2e-brand-online-channel",
         channel_type: "online",
-        category_label: "選品店",
         region_label: null,
         address: null,
         url: null,
@@ -643,7 +641,6 @@ test.describe("Brand detail — public locations and retail channels", () => {
         name: anonymousChannelName,
         normalized_name: "e2e-anonymous-confirmation-channel",
         channel_type: "offline",
-        category_label: "選品店",
         region_label: "臺中市",
         address: null,
         url: null,
@@ -655,7 +652,6 @@ test.describe("Brand detail — public locations and retail channels", () => {
         name: signedInChannelName,
         normalized_name: "e2e-signed-in-confirmation-channel",
         channel_type: "offline",
-        category_label: "選品店",
         region_label: "新北市",
         address: null,
         url: null,
@@ -742,20 +738,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
     await expect(taichung).toHaveAttribute("open", "");
   });
 
-  test("category badges render", async ({ page }) => {
-    await page.goto(`/brands/${seeded.slug}`, {
-      waitUntil: "domcontentloaded",
-    });
-    await openChannelGroup(page, "taipei");
-    await openChannelGroup(page, "online");
-
-    await expect(page.getByText("品牌直營", { exact: true })).toBeVisible();
-    await expect(
-      page.getByText("選品店", { exact: true }).first(),
-    ).toBeVisible();
-  });
-
-  test("an imported stockist renders its address, Maps link and source line", async ({
+  test("an imported stockist renders its address and Maps link", async ({
     page,
   }) => {
     await page.goto(`/brands/${seeded.slug}`, {
@@ -766,9 +749,6 @@ test.describe("Brand detail — public locations and retail channels", () => {
     await expect(
       page.getByRole("link", { name: confirmedStoreAddress, exact: true }),
     ).toHaveAttribute("href", /^https:\/\/www\.google\.com\/maps\/search\//);
-    await expect(
-      page.getByRole("link", { name: "來源：example.com", exact: true }),
-    ).toHaveAttribute("href", evidenceSourceUrl);
     await expect(page.getByText(/讀取於/)).toHaveCount(0);
   });
 
@@ -790,15 +770,23 @@ test.describe("Brand detail — public locations and retail channels", () => {
     await expect(stockistRow.getByText(/人確認/)).toHaveCount(0);
   });
 
-  test("external link renders for channels with a URL", async ({ page }) => {
+  test("a physical location links through its address, not a store-info button", async ({
+    page,
+  }) => {
     await page.goto(`/brands/${seeded.slug}`, {
       waitUntil: "domcontentloaded",
     });
     await openChannelGroup(page, "taipei");
 
+    // Removed 2026-08-17. The row carries `url: confirmedStoreUrl`, so this
+    // asserts the button is suppressed BY CHANNEL TYPE rather than absent for
+    // want of a URL — the Maps link on the address is the way through now.
     await expect(
       page.getByRole("link", { name: "查看店家資訊", exact: true }),
-    ).toHaveAttribute("href", confirmedStoreUrl);
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: confirmedStoreAddress, exact: true }),
+    ).toHaveAttribute("href", /google\.com\/maps/);
   });
 
   test("anonymous confirm shows a sign-in prompt", async ({ anonPage }) => {

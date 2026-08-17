@@ -12,7 +12,6 @@ export const STOCKIST_HEADER = [
   'name',
   'location_type',
   'channel_type',
-  'category_label',
   'region_label',
   'address',
   'url',
@@ -38,16 +37,6 @@ export type NormalizeResult =
   | { ok: false; brandSlug: string; reason: string }
 
 const CHAIN_REGION_LABEL = '全台多間門市'
-const LOCATION_CATEGORY: Record<ChannelLocationType, string> = {
-  stockist: '選品店',
-  distributor_retailer: '經銷門市',
-  direct_store: '品牌直營',
-  department_store_counter: '百貨專櫃',
-  showroom_studio: '展示空間',
-  shop_in_shop: '店中店',
-  other_physical_retail: '實體零售',
-}
-
 const TAIWAN_REGIONS = new Map<string, string>([
   ['臺北市', '臺北市'],
   ['台北市', '臺北市'],
@@ -170,7 +159,15 @@ export function canonicalizeRegion(
 }
 
 function isLocationType(value: string): value is ChannelLocationType {
-  return value in LOCATION_CATEGORY
+  return [
+    'stockist',
+    'distributor_retailer',
+    'direct_store',
+    'department_store_counter',
+    'showroom_studio',
+    'shop_in_shop',
+    'other_physical_retail',
+  ].includes(value as ChannelLocationType)
 }
 
 function isChannelType(value: string): value is ChannelType {
@@ -213,7 +210,6 @@ export function normalizeStockistRow(
         name,
         normalizedName: name,
         channelType,
-        categoryLabel: LOCATION_CATEGORY[locationType],
         regionLabel: region.regionLabel,
         address,
         district: address && city ? matchDistrict(address, city) : null,

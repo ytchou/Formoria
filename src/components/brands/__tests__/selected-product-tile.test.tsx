@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { CuratedProduct } from "@/lib/services/curated-products";
-import { SelectedProductTile, WALL_ABOVE_FOLD } from "../selected-product-tile";
+import { SelectedProductTile } from "../selected-product-tile";
 
 // `next/image` becomes a plain `img` so the props this spec reads — `priority`
 // and `sizes` — land on the DOM verbatim instead of being consumed by the
@@ -117,20 +117,45 @@ function renderWallTile(
 }
 
 describe("SelectedProductTile", () => {
-  it("renders exactly one rationale element per tile", () => {
+  it("renders no rationale on a wall tile", () => {
+    // Removed 2026-08-17 by product decision: the wall is a sheet of
+    // photographs and the generated reasons read as product specs. The tile
+    // still receives a non-empty `rationaleZh`/`rationaleEn` from the fixture,
+    // so this asserts the wall drops it rather than that there was none.
     const { container } = renderWallTile();
 
-    const nodes = container.querySelectorAll("[data-selection-rationale]");
-    expect(nodes.length).toBe(1);
+    expect(
+      container.querySelectorAll("[data-selection-rationale]").length,
+    ).toBe(0);
+    expect(
+      container.textContent,
+    ).not.toContain("Steady in the hand, made for small kitchens");
+  });
 
-    const node = nodes[0]!;
-    const attribute = node.getAttribute("data-selection-rationale")!;
-    // The e2e cheerio contract: the attribute is already trimmed AND equals the
-    // visible text, so the mobile caption and the desktop scrim cannot be two
-    // nodes that drift apart.
-    expect(attribute).toBe(attribute.trim());
-    expect(node.textContent?.trim()).toBe(attribute);
-    expect(attribute).toBe("Steady in the hand, made for small kitchens");
+  it("still renders the rationale on non-wall surfaces", () => {
+    // The 選物 commitment in brand-voice.md:71 now rests entirely on these
+    // modes. If this test goes red, the reason has disappeared site-wide, not
+    // just from the wall. Non-wall surfaces carry no
+    // `[data-selection-rationale]` — that attribute was always wall-only — so
+    // the guarantee here is the visible text beside the 選物 badge.
+    const { container } = renderWallTile({ mode: "internal" });
+
+    expect(container.textContent).toContain(
+      "Steady in the hand, made for small kitchens",
+    );
+    expect(container.textContent).toContain(labels.selectedBadge);
+  });
+
+  it("links a wall tile to the top of the brand page, with no anchor", () => {
+    // A homepage tile is first contact with the brand, so it must not drop the
+    // reader mid-page at one product (changed 2026-08-17).
+    const { container } = renderWallTile();
+
+    const link = container.querySelector("a")!;
+    expect(link).toHaveAttribute("href", "/brands/kettle-co");
+    expect(link.getAttribute("href")).not.toContain("#");
+    // The tile keeps its own anchor id — the brand page's anchors point at it.
+    expect(container.querySelector("#product-kettle")).not.toBeNull();
   });
 
   it("applies the bucket aspect ratio via inline style", () => {
@@ -149,25 +174,17 @@ describe("SelectedProductTile", () => {
     expect(box.getAttribute("data-wall-ratio")).toBe("4:3");
   });
 
-  it("marks the first N tiles priority", () => {
-    const { container: aboveFold } = renderWallTile({
-      wallIndex: WALL_ABOVE_FOLD - 1,
-    });
-    expect(
-      aboveFold.querySelector("img")?.getAttribute("data-priority"),
-    ).toBe("true");
-
-    const { container: belowFold } = renderWallTile({
-      wallIndex: WALL_ABOVE_FOLD,
-    });
-    expect(belowFold.querySelector("img")?.getAttribute("data-priority")).toBe(
-      "false",
-    );
-
-    const { container: untracked } = renderWallTile();
-    expect(untracked.querySelector("img")?.getAttribute("data-priority")).toBe(
-      "false",
-    );
+  it("never preloads a wall image", () => {
+    // The hero photograph is the LCP element and owns the page's single
+    // preload. This replaced a `WALL_ABOVE_FOLD` counter that went to 0 when
+    // the hero image was restored, leaving a comparison that could never be
+    // true — so the guard is now "no wall tile preloads, ever".
+    for (const tile of [renderWallTile(), renderWallTile({ ratio: "1:1" })]) {
+      expect(tile.container.querySelector("img")?.getAttribute("data-priority")).toBe(
+        "false",
+      );
+      tile.unmount();
+    }
   });
 
   it("leaves outbound, internal and trail modes unchanged", () => {
@@ -206,6 +223,8 @@ describe("SelectedProductTile", () => {
       </ul>,
     );
     expect(broken.getByText("Link unavailable")).toBeInTheDocument();
+    // `internal` keeps the anchor — the reader is already on a brand page and
+    // asked for one product. Only `wall` drops it (see the wall spec below).
     expect(
       broken.getByRole("link", { name: /Pour-over kettle/ }),
     ).toHaveAttribute("href", "/brands/kettle-co#product-kettle");

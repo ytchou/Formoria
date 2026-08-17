@@ -263,7 +263,6 @@ export type Database = {
         Row: {
           address: string | null
           brand_id: string
-          category_label: string | null
           channel_type: string
           country: string | null
           created_at: string
@@ -289,7 +288,6 @@ export type Database = {
         Insert: {
           address?: string | null
           brand_id: string
-          category_label?: string | null
           channel_type: string
           country?: string | null
           created_at?: string
@@ -315,7 +313,6 @@ export type Database = {
         Update: {
           address?: string | null
           brand_id?: string
-          category_label?: string | null
           channel_type?: string
           country?: string | null
           created_at?: string

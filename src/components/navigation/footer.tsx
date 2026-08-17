@@ -8,7 +8,7 @@ export function Footer() {
 
   return (
     <footer role="contentinfo" className="border-t border-border bg-card">
-      <div className="page-gutter mx-auto max-w-screen-xl py-12">
+      <div className="page-shell py-12">
         {/* Multi-column link grid */}
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
           {/* Discover */}

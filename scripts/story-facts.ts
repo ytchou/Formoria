@@ -301,7 +301,6 @@ type ChannelFact = {
   url: string | null;
   address: string | null;
   regionLabel: string | null;
-  categoryLabel: string | null;
 };
 
 /**
@@ -322,7 +321,7 @@ async function fetchChannels(
     const { data, error } = await supabase
       .from("brand_channels")
       .select(
-        "brand_id, name, channel_type, url, address, region_label, category_label",
+        "brand_id, name, channel_type, url, address, region_label",
       )
       .in("brand_id", ids)
       .is("removed_at", null)
@@ -336,7 +335,6 @@ async function fetchChannels(
       url: string | null;
       address: string | null;
       region_label: string | null;
-      category_label: string | null;
     }>) {
       const existing = byBrandId.get(row.brand_id) ?? [];
       existing.push({
@@ -345,7 +343,6 @@ async function fetchChannels(
         url: row.url,
         address: row.address,
         regionLabel: row.region_label,
-        categoryLabel: row.category_label,
       });
       byBrandId.set(row.brand_id, existing);
     }

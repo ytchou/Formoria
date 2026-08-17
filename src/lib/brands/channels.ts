@@ -61,7 +61,6 @@ type ChannelRow = {
   id: string;
   name: string;
   channelType: string;
-  categoryLabel: string | null;
   regionLabel: string | null;
   address: string | null;
   url: string | null;
@@ -98,14 +97,6 @@ function sortChannelsForDisplay(a: BrandChannel, b: BrandChannel): number {
 
 function regionLabelToSlug(regionLabel: string): string | null {
   return REGION_SLUG_BY_LABEL[regionLabel] ?? null;
-}
-
-export function getChannelSourceLabel(sourceUrl: string): string {
-  try {
-    return new URL(sourceUrl).hostname.replace(/^www\./, "") || sourceUrl;
-  } catch {
-    return sourceUrl;
-  }
 }
 
 export function groupChannelsByRegion(
@@ -168,7 +159,6 @@ export function groupChannelsForDisplay(
       id: row.id,
       name: row.name,
       channelType: row.channelType as BrandChannel["channelType"],
-      categoryLabel: row.categoryLabel,
       regionLabel: row.regionLabel,
       address: row.address,
       url: row.url,

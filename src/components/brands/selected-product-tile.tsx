@@ -1,4 +1,5 @@
 import Image from "next/image";
+import type { CSSProperties } from "react";
 import { Link } from "@/i18n/navigation";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import {
 } from "@/lib/brands/link-fallback";
 import {
   DEFAULT_WALL_RATIO,
+  WALL_RATIOS,
   type WallRatio,
 } from "@/lib/curated-products/wall-ratio";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
@@ -40,13 +42,8 @@ export type SelectedProductTileProps = {
    */
   ratio?: WallRatio;
   /**
-   * Wall-only position, used for the LCP decision. Removing the hero photo made
-   * the first wall tile the LCP element, so the first row must not be lazy.
-   */
-  wallIndex?: number;
-  /**
-   * Extra classes on the tile's `<li>`. The wall supplies its grid classes
-   * (row span, mobile cap) through it; every other mode merges it too.
+   * Extra classes on the tile's `<li>`. The wall supplies its flex sizing and
+   * the mobile cap through it; every other mode merges it too.
    */
   className?: string;
   /** Existing brand-page fields used by the outbound chip. */
@@ -68,16 +65,6 @@ const BROKEN_LINK_STATE = "broken";
 const RENDERABLE_IMAGE_USAGE = new Set(["permitted", "licensed"]);
 
 /**
- * How many wall tiles carry `priority`. It is the NARROWEST column count, not
- * the widest: the wall is one column below 640px, so on a phone only the first
- * tile is above the fold, and preloading four of them put three
- * `fetchpriority=high` requests in front of the real LCP element — the exact
- * regression `priority` exists to prevent. Desktop rows 2–4 are still in the
- * viewport and load eagerly anyway; they just do not preempt tile 0.
- */
-export const WALL_ABOVE_FOLD = 1;
-
-/**
  * The selected-product tile stays server-rendered. Outbound product chips
  * preserve the brand-page behavior; internal mode turns the whole tile into
  * one accessible link to the product anchor on that brand's page. The optional
@@ -89,7 +76,6 @@ export function SelectedProductTile({
   labels,
   mode,
   ratio,
-  wallIndex,
   className,
   brand,
   brandSlug,
@@ -126,38 +112,59 @@ export function SelectedProductTile({
     ),
   });
   const destinationSlug = brandSlug ?? brand?.slug ?? "";
-  const internalHref = `/brands/${destinationSlug}#product-${product.key}`;
+  /*
+   * The WALL lands on the top of the brand page; every other mode keeps the
+   * `#product-` anchor.
+   *
+   * A homepage tile is the reader's FIRST contact with that brand, so dropping
+   * them mid-page at one product skips the name, the trust labels and the rest
+   * of the selection. From a trail or from another product on the same brand
+   * page the anchor is still right — there the reader already has the context
+   * and is asking for one specific item.
+   *
+   * The `id="product-<key>"` on the tile below stays either way: it is what the
+   * brand page's own anchors point AT, and removing it would break those.
+   */
+  const anchoredHref = `/brands/${destinationSlug}#product-${product.key}`;
+  const internalHref =
+    mode === "wall" ? `/brands/${destinationSlug}` : anchoredHref;
   const internalClassName =
     "group flex h-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-3";
   // One column on phones, two on tablets, four above 1024px. The four-column
-  // measure is `(min(100vw, 72rem) - 5rem - 4.5rem) / 4`, which tops out at
-  // 250px — never 25vw, which asked for an oversized candidate on every
-  // desktop tile.
+  // measure is `(min(100vw, 100rem) - 5rem - 4.5rem) / 4`, which tops out at
+  // 362px once the container hits its 100rem cap — so `25vw` below that and a
+  // fixed candidate above it, rather than asking for an oversized image on
+  // every wide desktop.
   const wallImageSizes =
-    "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 260px";
+    "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1600px) 25vw, 362px";
   const wallRatio: WallRatio = ratio ?? DEFAULT_WALL_RATIO;
   const wallAspectRatio = wallRatio.replace(":", " / ");
-  const isWallPriority =
-    mode === "wall" && wallIndex !== undefined && wallIndex < WALL_ABOVE_FOLD;
-  const wallBadgeClass = imageSrc
-    ? "absolute top-3 left-3 z-10 bg-foreground text-background"
-    : "absolute top-3 left-3 z-10 border-border bg-card text-foreground";
-  const wallReason = reason?.trim() ? reason.trim() : null;
-
   /*
-   * ONE reason node, repositioned — never two.
+   * The wall carries NO selection rationale — product name and brand only.
    *
-   * Mobile puts it in flow beneath the photograph on a transparent band;
-   * from `sm` it becomes an absolutely positioned scrim over the lower edge of
-   * the image, revealed on hover and focus. Position and background are the
-   * only breakpoint deltas, because the e2e contract (and the crawler) require
-   * exactly one `[data-selection-rationale]` per tile.
+   * Removed deliberately on 2026-08-17: the reasons read as generated product
+   * specs ("lens and frame replaceable separately") rather than editorial
+   * reasons for choosing the product, and the wall is
+   * a sheet of photographs. The cost is accepted and real — the wall now shows
+   * selections with neither a per-tile trust label (removed earlier) nor a
+   * stated reason, so
+   * brand-voice.md's "always with a stated reason" is carried only by the
+   * surfaces below, and the homepage no longer exposes a machine-readable
+   * `[data-selection-rationale]` for answer engines.
+   *
+   * `reason` still renders on every NON-wall mode (internal/outbound/trail)
+   * further down this file. Do not remove it there without re-reading
+   * docs/strategy/brand-voice.md:71.
+   *
+   * This band still exists for the name and brand: mobile puts it in flow
+   * beneath the photograph, and from `sm` it is an absolutely positioned scrim
+   * over the lower edge of the image, revealed on hover and focus.
    *
    * The scrim is SOLID canvas at 94% alpha, not a gradient: composited over a
    * dark photograph, paper falls below 4.5:1 wherever alpha drops under ~51%.
    * The 16px lead-in above it fades, and deliberately carries no text.
    */
-  const wallReasonClass = cn(
+  const wallCaptionClass = cn(
     "flex flex-col gap-1 pt-3",
     "sm:absolute sm:inset-x-0 sm:bottom-0 sm:z-10 sm:rounded-b-lg sm:bg-background/94 sm:p-4",
     "sm:transition-opacity sm:duration-300 motion-reduce:sm:duration-[0.01ms]",
@@ -180,17 +187,25 @@ export function SelectedProductTile({
             src={imageSrc}
             alt={name}
             fill
-            priority={isWallPriority}
+            // NEVER `priority`. The hero photograph is the LCP element and
+            // owns the page's single preload; a wall tile competing for
+            // `fetchpriority=high` is the regression this used to guard
+            // against with a WALL_ABOVE_FOLD counter. The wall begins below
+            // the hero at every breakpoint, so nothing here is above the fold.
             className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
             sizes={wallImageSizes}
           />
         ) : (
           <BrandImageFallback name={name} category={product.l1} size="card" />
         )}
-        <Badge className={wallBadgeClass}>{labels.selectedBadge}</Badge>
+        {/* No selection badge here. The whole wall IS the selection — the section
+            heading says so once — so a per-tile label repeated 32 times adds
+            no information and breaks the sheet of photographs. The trust
+            label still appears on every non-wall surface, where a selected
+            product sits beside items that are not selected. */}
       </div>
 
-      <div className={wallReasonClass}>
+      <div className={wallCaptionClass}>
         <span
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 -top-4 hidden h-4 bg-gradient-to-t from-background/94 to-transparent sm:block"
@@ -207,16 +222,6 @@ export function SelectedProductTile({
           // almost no margin. Never smaller, never lighter.
           <Typography as="p" variant="metadata">
             {brandName}
-          </Typography>
-        ) : null}
-        {wallReason ? (
-          <Typography
-            as="p"
-            variant="body"
-            className="line-clamp-3"
-            data-selection-rationale={wallReason}
-          >
-            {wallReason}
           </Typography>
         ) : null}
       </div>
@@ -358,11 +363,23 @@ export function SelectedProductTile({
 
   if (mode === "wall") {
     // The wall tile is a photograph, not a card: no border, no card surface, so
-    // the reason band can sit flush over the lower edge of the image.
+    // the caption band can sit flush over the lower edge of the image.
     return (
       <li
         id={`product-${product.key}`}
-        className={cn("relative list-none", className)}
+        // Both `flex-basis` and `flex-grow` proportional to the ratio is what
+        // makes the line justify: see the header of `product-wall.tsx`. Set as
+        // a custom property because Tailwind cannot emit a class built from a
+        // runtime value, and the two arbitrary properties below then read it.
+        style={{ "--tile-ratio": WALL_RATIOS[wallRatio] } as CSSProperties}
+        className={cn(
+          "relative list-none",
+          // Phones are one tile per line, so the tile takes the whole basis and
+          // never grows; from `sm` the ratio drives both.
+          "basis-full grow-0",
+          "sm:basis-[calc(var(--wall-line-h)*var(--tile-ratio))] sm:grow-[var(--tile-ratio)]",
+          className,
+        )}
       >
         {tracking ? (
           <SelectedProductTileLink

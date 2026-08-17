@@ -8,10 +8,11 @@ import { trackViewItemList } from "@/lib/analytics";
 import type { WallSlot } from "@/lib/curated-products/home-wall";
 import type { HomepageCuratedProduct } from "@/lib/services/curated-products";
 import type { TrailEntry } from "@/lib/services/trails";
+import { WALL_RATIOS } from "@/lib/curated-products/wall-ratio";
 import {
   ProductWall,
+  WALL_LINE_SIZE_DESKTOP,
   WALL_MOBILE_VISIBLE_COUNT,
-  wallRowSpan,
 } from "../product-wall";
 
 vi.mock("next/image", () => ({
@@ -53,10 +54,6 @@ const labels = {
   note: "Chosen for a situation, with the reason stated.",
   showMore: "See more selections",
   showLess: "Show fewer selections",
-  continuationHeading: "Keep exploring",
-  trailLinksLabel: "Other trails",
-  categoryLinksLabel: "By category",
-  brandsLink: "Explore every brand",
   product: {
     cta: "Visit product",
     brandSiteCta: "Visit brand site",
@@ -203,15 +200,8 @@ function productSlots(count: number): WallSlot[] {
   }));
 }
 
-function renderWall(slots: WallSlot[], leftoverTrails: TrailEntry[] = []) {
-  return render(
-    <ProductWall
-      slots={slots}
-      leftoverTrails={leftoverTrails}
-      locale="en"
-      labels={labels}
-    />,
-  );
+function renderWall(slots: WallSlot[]) {
+  return render(<ProductWall slots={slots} locale="en" labels={labels} />);
 }
 
 describe("ProductWall", () => {
@@ -220,48 +210,108 @@ describe("ProductWall", () => {
   });
 
   it("renders every tile into the markup regardless of the mobile cap", () => {
-    const count = WALL_MOBILE_VISIBLE_COUNT + 5;
+    // A multiple of the desktop line size, so the tail trim does not remove
+    // tiles underneath this assertion — `trims the tail` covers that separately.
+    const count = WALL_MOBILE_VISIBLE_COUNT + WALL_LINE_SIZE_DESKTOP;
     const { container } = renderWall(productSlots(count));
 
     const list = screen.getByRole("list", { name: labels.heading });
     expect(within(list).getAllByRole("listitem").length).toBe(count);
     // The cap is CSS, never a slice: the last tile is in the server HTML.
     expect(screen.getByText(fixtureName(count - 1))).toBeInTheDocument();
+    // Zero, not `count`: the wall stopped rendering selection rationales on
+    // 2026-08-17 (see selected-product-tile.tsx). Asserted rather than deleted
+    // so a rationale silently returning to the wall goes red here.
     expect(
       container.querySelectorAll("[data-selection-rationale]").length,
-    ).toBe(count);
+    ).toBe(0);
 
     // Everything past the cap is hidden by a class, not removed.
-    const capped = Array.from(container.querySelectorAll("li")).filter((node) =>
-      node.className.includes("hidden"),
-    );
-    expect(capped.length).toBe(5);
+    const capped = Array.from(
+      container.querySelectorAll("li:not([role='presentation'])"),
+    ).filter((node) => node.className.includes("hidden"));
+    expect(capped.length).toBe(WALL_LINE_SIZE_DESKTOP);
   });
 
-  it("applies a row-span derived from each tile's ratio", () => {
+  it("sizes each tile proportionally to its ratio, so a line justifies", () => {
     const { container } = renderWall([
-      { kind: "product", product: buildProduct(0), ratio: "4:3" },
-      { kind: "product", product: buildProduct(1), ratio: "1:1" },
-      { kind: "product", product: buildProduct(2), ratio: "4:5" },
-      { kind: "product", product: buildProduct(3), ratio: "3:4" },
+      { kind: "product", product: buildProduct(0), ratio: "3:4" },
+      { kind: "product", product: buildProduct(1), ratio: "4:5" },
+      { kind: "product", product: buildProduct(2), ratio: "1:1" },
+      { kind: "product", product: buildProduct(3), ratio: "4:3" },
     ]);
 
-    // The span is a literal Tailwind class, so this also catches it drifting
-    // away from `wallRowSpan()` — the two are declared in different places.
-    const spans = Array.from(container.querySelectorAll("li")).map((node) =>
-      Number(/grid-row:span_(\d+)/.exec(node.className)?.[1]),
+    const tiles = Array.from(
+      container.querySelectorAll<HTMLLIElement>("li:not([role='presentation'])"),
     );
+    expect(tiles).toHaveLength(4);
 
-    expect(spans).toEqual([
-      wallRowSpan("4:3"),
-      wallRowSpan("1:1"),
-      wallRowSpan("4:5"),
-      wallRowSpan("3:4"),
+    // Both flex axes read the SAME custom property. That identity is the whole
+    // mechanism: basis and grow proportional to r give width proportional to r,
+    // and therefore one shared height per line. If either class stops reading
+    // `--tile-ratio`, lines stop justifying and the wall goes ragged again.
+    for (const tile of tiles) {
+      expect(tile.className).toContain(
+        "sm:basis-[calc(var(--wall-line-h)*var(--tile-ratio))]",
+      );
+      expect(tile.className).toContain("sm:grow-[var(--tile-ratio)]");
+      // One tile per line on phones, so no growth there.
+      expect(tile.className).toContain("basis-full");
+      expect(tile.className).toContain("grow-0");
+    }
+
+    const ratios = tiles.map((tile) =>
+      Number(tile.style.getPropertyValue("--tile-ratio")),
+    );
+    expect(ratios).toEqual([
+      WALL_RATIOS["3:4"],
+      WALL_RATIOS["4:5"],
+      WALL_RATIOS["1:1"],
+      WALL_RATIOS["4:3"],
     ]);
-    // Taller buckets take proportionally more rows, in bucket height order.
-    expect(spans[0]).toBeLessThan(spans[1]!);
-    expect(spans[1]).toBeLessThan(spans[2]!);
-    expect(spans[2]).toBeLessThan(spans[3]!);
+    // Wider bucket, wider tile — the variation is carried by width now, and it
+    // is strictly monotonic across the four buckets.
+    expect(ratios[0]).toBeLessThan(ratios[1]!);
+    expect(ratios[1]).toBeLessThan(ratios[2]!);
+    expect(ratios[2]).toBeLessThan(ratios[3]!);
+  });
+
+  it("breaks lines at four from lg and at two below it", () => {
+    const { container } = renderWall(productSlots(WALL_LINE_SIZE_DESKTOP * 2));
+
+    const breaks = Array.from(
+      container.querySelectorAll<HTMLLIElement>("li[role='presentation']"),
+    );
+    // Two tablet-only breaks (after tiles 2 and 6) and two shared breaks
+    // (after 4 and 8) — the shared ones are what make the line four wide at lg.
+    expect(breaks).toHaveLength(4);
+    expect(
+      breaks.filter((node) => node.className.includes("lg:hidden")),
+    ).toHaveLength(2);
+    // A break must never be announced as an item of the list.
+    for (const node of breaks) {
+      expect(node).toHaveAttribute("aria-hidden", "true");
+    }
+    expect(
+      within(screen.getByRole("list", { name: labels.heading })).getAllByRole(
+        "listitem",
+      ),
+    ).toHaveLength(WALL_LINE_SIZE_DESKTOP * 2);
+  });
+
+  it("trims the tail so the last line is full rather than stretched", () => {
+    // 13 slots is three full lines plus one orphan. Left alone, flex stretches
+    // that orphan across the entire measure.
+    const { container } = renderWall(productSlots(13));
+    const tiles = container.querySelectorAll("li:not([role='presentation'])");
+    expect(tiles).toHaveLength(12);
+    expect(tiles.length % WALL_LINE_SIZE_DESKTOP).toBe(0);
+
+    // Under one full line nothing is dropped — three tiles is still a wall.
+    const short = renderWall(productSlots(3));
+    expect(
+      short.container.querySelectorAll("li:not([role='presentation'])"),
+    ).toHaveLength(3);
   });
 
   it("preserves the wall's accessible name and list semantics", () => {
@@ -283,7 +333,7 @@ describe("ProductWall", () => {
     expect(screen.queryByRole("button", { name: labels.showMore })).toBeNull();
     unmount();
 
-    renderWall(productSlots(WALL_MOBILE_VISIBLE_COUNT + 1));
+    renderWall(productSlots(WALL_MOBILE_VISIBLE_COUNT + WALL_LINE_SIZE_DESKTOP));
     expect(
       screen.getByRole("button", { name: labels.showMore }),
     ).toBeInTheDocument();
@@ -291,7 +341,7 @@ describe("ProductWall", () => {
 
   it("reveals with disclosure semantics and keeps focus on the control", async () => {
     const user = userEvent.setup();
-    renderWall(productSlots(WALL_MOBILE_VISIBLE_COUNT + 3));
+    renderWall(productSlots(WALL_MOBILE_VISIBLE_COUNT + WALL_LINE_SIZE_DESKTOP));
 
     const control = screen.getByRole("button", { name: labels.showMore });
     const list = screen.getByRole("list", { name: labels.heading });
@@ -332,10 +382,12 @@ describe("ProductWall", () => {
     expect(
       screen.getByText("A reading corner for a small flat"),
     ).toBeInTheDocument();
-    // No leftover trails means no empty continuation strip.
-    expect(
-      screen.queryByRole("navigation", { name: labels.trailLinksLabel }),
-    ).toBeNull();
-    expect(container.querySelector("li")?.className).toContain("grid-row:span");
+    // The wall no longer owns a continuation strip at all — leftover trails
+    // render as their own zone (see landing-zones.tsx). Asserted so the strip
+    // cannot reappear here.
+    expect(container.querySelector(".border-t")).toBeNull();
+    expect(container.querySelector("li")?.className).toContain(
+      "sm:grow-[var(--tile-ratio)]",
+    );
   });
 });

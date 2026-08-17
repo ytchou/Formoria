@@ -20,17 +20,21 @@ test.describe("Homepage curated product deep", () => {
     });
     const firstProductLink = selectedProducts.getByRole("link").first();
     const destination = await firstProductLink.getAttribute("href");
-    expect(destination).toMatch(/^\/brands\/[^#]+#product-[^#]+$/);
+    // NO `#product-` anchor from the wall (changed 2026-08-17). A homepage tile
+    // is first contact with the brand, so it lands on the top of the brand page
+    // rather than mid-page at one product. The anchored form is still asserted
+    // from a trail, in discovery-trail.spec.ts.
+    expect(destination).toMatch(/^\/brands\/[^#]+$/);
 
     await firstProductLink.click();
 
     await expect(page).toHaveURL(new RegExp(`${destination}$`), {
       timeout: BUDGET.NAVIGATION,
     });
-    const productAnchor = new URL(destination!, "http://localhost").hash;
-    await expect(page.locator(productAnchor)).toBeVisible({
-      timeout: BUDGET.SERVER_RENDER,
-    });
+    // The brand page opens at its own heading, not scrolled into the selection.
+    await expect(
+      page.getByRole("heading", { level: 1 }),
+    ).toBeInViewport({ timeout: BUDGET.SERVER_RENDER });
   });
 
   test("the wall ends in a continuation strip rather than scrolling forever", async ({
@@ -51,12 +55,15 @@ test.describe("Homepage curated product deep", () => {
         exact: true,
       }),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+    // The category nav and the "探索所有品牌" button were removed from this strip
+    // on 2026-08-17 — both destinations are still linked from the hero. Asserted
+    // as ABSENT so they cannot quietly come back and duplicate the hero.
     await expect(
-      selectedProducts.getByRole("link", {
-        name: "探索所有品牌 →",
-        exact: true,
-      }),
-    ).toHaveAttribute("href", "/brands", { timeout: BUDGET.RENDERED });
+      selectedProducts.getByRole("link", { name: "探索所有品牌 →", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      selectedProducts.getByRole("navigation", { name: "依分類繼續探索" }),
+    ).toHaveCount(0);
   });
 
   test("a discovery trail tile inside the wall leads to its trail", async ({
@@ -106,7 +113,7 @@ test.describe("Homepage curated product deep", () => {
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
   });
 
-  test("every wall tile exposes its selection rationale in the server HTML", async ({
+  test("every wall tile links to its product and carries no rationale", async ({
     request,
   }) => {
     const response = await request.get("/");
@@ -129,7 +136,7 @@ test.describe("Homepage curated product deep", () => {
         .find("a")
         .toArray()
         .some((link) =>
-          /^\/brands\/[^#]+#product-[^#]+$/.test($(link).attr("href") ?? ""),
+          /^\/brands\/[^#]+$/.test($(link).attr("href") ?? ""),
         ),
     );
     expect(productTiles.length).toBeGreaterThan(0);
@@ -139,22 +146,15 @@ test.describe("Homepage curated product deep", () => {
         .find("a")
         .toArray()
         .find((link) =>
-          /^\/brands\/[^#]+#product-[^#]+$/.test($(link).attr("href") ?? ""),
+          /^\/brands\/[^#]+$/.test($(link).attr("href") ?? ""),
         );
-      expect($(productLink).attr("href")).toMatch(
-        /^\/brands\/[^#]+#product-[^#]+$/,
-      );
+      expect($(productLink).attr("href")).toMatch(/^\/brands\/[^#]+$/);
 
-      const rationaleMarkers = $(item).find("[data-selection-rationale]");
-      expect(rationaleMarkers.length).toBe(1);
-
-      const rationaleMarker = rationaleMarkers.first();
-      const rawRationale = rationaleMarker.attr("data-selection-rationale");
-      expect(rawRationale).toBeDefined();
-      const rationale = rawRationale!.trim();
-      expect(rationale.length).toBeGreaterThan(0);
-      expect(rawRationale).toBe(rationale);
-      expect(rationaleMarker.text().trim()).toBe(rationale);
+      // The wall stopped rendering selection rationales on 2026-08-17. Asserted
+      // as absent rather than deleted: this spec reads the SERVER HTML, so it
+      // is the only guard that catches a rationale returning to the homepage
+      // wall — where it would again be a crawler-visible claim.
+      expect($(item).find("[data-selection-rationale]").length).toBe(0);
     });
   });
 });
