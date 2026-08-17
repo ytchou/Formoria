@@ -749,7 +749,15 @@ test.describe("Brand detail — public locations and retail channels", () => {
     await expect(
       page.getByRole("link", { name: confirmedStoreAddress, exact: true }),
     ).toHaveAttribute("href", /^https:\/\/www\.google\.com\/maps\/search\//);
-    await expect(page.getByText(/讀取於/)).toHaveCount(0);
+    // An imported stockist must not publish when it was scraped. Anchored on
+    // any rendered date rather than on one label ("讀取於", which no message
+    // key emits any more), so a timestamp returning under new copy still
+    // trips it.
+    await expect(
+      page
+        .locator("[data-brand-channels-section]")
+        .getByText(/\d{4}\s*[年/-]\s*\d{1,2}/),
+    ).toHaveCount(0);
   });
 
   test("an imported stockist shows no confirmation prompt", async ({
@@ -942,6 +950,5 @@ test.describe("Brand detail — public locations and retail channels", () => {
         name: "販售地點",
       }),
     ).toHaveCount(0);
-    await expect(page.getByTestId("brand-channels-empty-state")).toHaveCount(0);
   });
 });

@@ -401,10 +401,8 @@ describe("buildBreadcrumbJsonLd", () => {
 });
 
 describe("buildBrandsItemListJsonLd", () => {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://formoria.com";
 
   it("returns valid ItemList schema with correct structure", () => {
-    expect(siteUrl).toBeTruthy();
     const brands = [
       { name: "Brand Alpha", slug: "brand-alpha" },
       { name: "Brand Beta", slug: "brand-beta" },

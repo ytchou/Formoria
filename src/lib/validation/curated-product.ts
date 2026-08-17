@@ -163,13 +163,3 @@ export const curatedProductUpdateSchema = z
 
 /** The paste-URL field behind "Fetch details". Same protocol bar as the rest. */
 export const prefillUrlSchema = httpUrlSchema;
-
-export type CuratedProductCreateInput = z.infer<
-  typeof curatedProductCreateSchema
->;
-export type CuratedProductUpdatePayload = z.infer<
-  typeof curatedProductUpdateSchema
->;
-export type CuratedProductSourceInput = z.infer<
-  typeof curatedProductSourceSchema
->;

@@ -126,7 +126,6 @@ const PROVIDERS = {
     "createSubscriber",
     "enrollInMarketingEmails",
     "evaluateDrips",
-    "recordEmailSend",
     "requestNewsletterSubscription",
     "resendNewsletterConfirmation",
     "setLifecycleEmailPreference",

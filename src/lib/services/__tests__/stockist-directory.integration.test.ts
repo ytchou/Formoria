@@ -1,24 +1,20 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createTestClient } from "@/test/setup";
+import { afterAll, beforeAll, expect, it } from "vitest";
+import { createTestClient, describeWithDb } from "@/test/setup";
 import { getStockistDirectory, type StockistLocation } from "../brand-channels";
 
-const describeWithStockistDb =
-  process.env.RUN_SUPABASE_INTEGRATION_TESTS === "1" ||
-  process.env.RUN_SUPABASE_INTEGRATION_TESTS === "true"
-    ? describe
-    : describe.skip;
-const integrationEnabled =
-  process.env.RUN_SUPABASE_INTEGRATION_TESTS === "1" ||
-  process.env.RUN_SUPABASE_INTEGRATION_TESTS === "true";
-
-describeWithStockistDb("stockist directory public read", () => {
-  const supabase = (integrationEnabled ? createTestClient() : null)!;
+// The house gate: one env value ("true") for all integration suites, and the
+// production-database assertion that `describeWithDb` performs. A local
+// variant accepting "1" both split the gate and skipped assertSafeTestDatabase().
+describeWithDb("stockist directory public read", () => {
+  // Created inside beforeAll: a skipped describe still evaluates its body.
+  let supabase: ReturnType<typeof createTestClient>;
   const suffix = randomUUID().replaceAll("-", "");
   const brandIds: string[] = [];
   let locations: StockistLocation[] = [];
 
   beforeAll(async () => {
+    supabase = createTestClient();
     const brands = [
       {
         id: randomUUID(),

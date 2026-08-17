@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   parsePageParam,
   parseSortParam,
-  DEFAULT_PAGE_SIZE,
   BRAND_SORT_CONFIG,
 } from './pagination'
 
@@ -58,30 +57,27 @@ describe('parseSortParam', () => {
 })
 
 describe('constants', () => {
-  it('DEFAULT_PAGE_SIZE is 12', () => {
-    expect(DEFAULT_PAGE_SIZE).toBe(12)
+  // `BRAND_SORT_CONFIG` is typed `Record<BrandSortOption, …>`, so completeness
+  // is already a compile error — transcribing every entry's value here only
+  // restated the source. What the types do NOT enforce is the empty-column
+  // sentinel: an empty `column` means "no ORDER BY", so a new sort option that
+  // forgot its column would silently return unsorted rows rather than fail.
+  it('reserves the empty-column sentinel for random ordering alone', () => {
+    for (const [option, config] of Object.entries(BRAND_SORT_CONFIG)) {
+      if (option === 'random') {
+        expect(config.column).toBe('')
+      } else {
+        expect(config.column).not.toBe('')
+      }
+      expect(config.label).not.toBe('')
+    }
   })
 
-  it('BRAND_SORT_CONFIG has entries for all sort options', () => {
-    expect(BRAND_SORT_CONFIG.random).toEqual({
-      column: '',
-      ascending: true,
-      label: 'random',
-    })
-    expect(BRAND_SORT_CONFIG.name).toEqual({
-      column: 'name',
-      ascending: true,
-      label: 'A-Z',
-    })
-    expect(BRAND_SORT_CONFIG.newest).toEqual({
-      column: 'created_at',
-      ascending: false,
-      label: 'newest',
-    })
-    expect(BRAND_SORT_CONFIG.year).toEqual({
-      column: 'founding_year',
-      ascending: false,
-      label: 'year',
-    })
+  // Every configured option must survive a round trip through the parser,
+  // which gates on `raw in BRAND_SORT_CONFIG`.
+  it('parses every configured sort option back to itself', () => {
+    for (const option of Object.keys(BRAND_SORT_CONFIG)) {
+      expect(parseSortParam(option)).toBe(option)
+    }
   })
 })

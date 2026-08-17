@@ -326,5 +326,3 @@ export async function LandingZones({
     </>
   );
 }
-
-export default LandingZones;

@@ -786,14 +786,6 @@ export function trackSubmissionFormErrorShown(field: string, errorType: string, 
   })
 }
 
-export function trackApiErrorShown(endpoint: string, statusCode: number, userAction: string) {
-  capturePostHogEvent(ANALYTICS_EVENTS.API_ERROR_SHOWN, {
-    endpoint,
-    status_code: statusCode,
-    user_action: userAction,
-  })
-}
-
 /** Core Web Vitals field measurement (LCP/CLS/INP/FCP/TTFB).
  *  Shape matches the metric object Next's `useReportWebVitals` yields. */
 export function trackWebVital(metric: {

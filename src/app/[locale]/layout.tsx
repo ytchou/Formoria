@@ -58,7 +58,6 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
     <RootDocument
       locale={safeLocale}
       skipToContentLabel={tCommon('skipToContent')}
-      feedbackCopy={messages.feedbackWidget as Record<string, string>}
     >
       <NextIntlClientProvider locale={safeLocale} messages={messages}>
         {children}

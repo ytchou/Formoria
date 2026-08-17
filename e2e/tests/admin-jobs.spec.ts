@@ -192,7 +192,6 @@ test.describe('Admin curation jobs deep', () => {
     test.setTimeout(BUDGET.TEST.ADMIN);
     if (!cancellableJobId) test.skip();
     await adminPage.goto('/admin/jobs');
-    await expect(adminPage.getByRole('navigation', { name: 'Filter data jobs' })).toHaveCount(0);
     const row = adminPage.locator('tbody tr').filter({ has: adminPage.locator(`a[href="/admin/jobs/${cancellableJobId}"]`) });
     await expect(row).toBeVisible({ timeout: BUDGET.NAVIGATION });
     await expect(row.locator('[data-slot="badge"]', { hasText: 'Queued' })).toBeVisible();

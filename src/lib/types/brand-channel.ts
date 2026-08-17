@@ -5,7 +5,7 @@ type ChannelConfirmedBy = 'owner' | 'community' | 'evidence'
  * label differs by kind, so this must never be widened to a boolean: only
  * `official_website` may claim the brand's own site as the source.
  */
-export type ChannelEvidenceSource = 'official_website' | 'other'
+type ChannelEvidenceSource = 'official_website' | 'other'
 export type ChannelSource =
   'backfill' | 'enriched' | 'community' | 'owner' | 'admin' | 'import'
 export type ChannelType = 'online' | 'offline'

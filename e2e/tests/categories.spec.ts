@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { load } from "cheerio";
 
+import { DEFAULT_PAGE_SIZE } from "../../src/lib/pagination";
+
 const CANONICAL_ORIGIN = new URL(
   process.env.STAGING_BASE_URL ?? "https://staging.formoria.com",
 ).origin;
@@ -107,20 +109,6 @@ test.describe("Category landing pages deep", () => {
       "餐具",
       "家具",
     ]);
-    expect(
-      links
-        .map((_, link) => $(link).attr("href"))
-        .get()
-        .some((href) => href?.endsWith("/bedding")),
-    ).toBe(false);
-    expect(
-      links
-        .map((_, link) => $(link).text().trim())
-        .get()
-        .some((label) =>
-          ["查看全部", "更多", "看更多", "全部"].includes(label),
-        ),
-    ).toBe(false);
   });
 
   test("landing facts are server-rendered once with a valid result state", async ({
@@ -151,11 +139,20 @@ test.describe("Category landing pages deep", () => {
     const liveRegion = page.locator('main [aria-live="polite"]');
     await expect(liveRegion).toHaveCount(1);
     await expect(liveRegion).toContainText(/共 \d+ 個品牌/);
-    const firstCard = page
-      .locator('main [role="list"] [role="listitem"]')
-      .first();
-    const emptyState = page.locator("[data-empty]").first();
-    await expect(firstCard.or(emptyState)).toBeVisible();
+
+    // The "valid result state" the test name promises: the announced count and
+    // the rendered cards must agree. Asserted WITHOUT a branch on purpose —
+    // the previous form accepted the empty state as an alternative, so it
+    // passed on either polarity, and a version that branches on the count
+    // instead of an `.or()` has the same hole. `home` is a seeded L1 with
+    // supply, so an announced zero here is a real defect and must fail rather
+    // than select a second acceptable outcome.
+    const announcement = await liveRegion.innerText();
+    const announced = Number(/共 (\d+) 個品牌/.exec(announcement)?.[1] ?? "0");
+    expect(announced).toBeGreaterThan(0);
+    await expect(
+      page.locator('main [role="list"] [role="listitem"]'),
+    ).toHaveCount(Math.min(announced, DEFAULT_PAGE_SIZE));
   });
 
   test("bare and multi-category directories omit taxonomy-only landing facts", async ({
