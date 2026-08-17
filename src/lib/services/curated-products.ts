@@ -68,14 +68,18 @@ export type CuratedProduct = {
 /** The minimum supply needed for the homepage rail to read as intentional. */
 export const MIN_HOME_CURATED_PRODUCTS = 6;
 
-/** Keep one brand from owning three of the first eight wall tiles. */
-export const MAX_HOME_CURATED_PRODUCTS_PER_BRAND = 2;
-
 /** Cross-brand public projection used by the homepage's internal product links. */
 export type HomepageCuratedProduct = CuratedProduct & {
   brandSlug: string;
   brandName: string;
   brand: BrandVisitLinkFields & { slug: string };
+  /**
+   * Intrinsic size of the STORED image object, used by the wall to render each
+   * tile at its native ratio (DEV-1479). NULL until the backfill reaches the
+   * row; the composer falls back to 4:3 rather than guessing.
+   */
+  imageWidth: number | null;
+  imageHeight: number | null;
 };
 
 /** A published product placement as rendered inside one trail section. */
@@ -157,6 +161,14 @@ type HomepageCuratedProductRow = CuratedProductReadRow & {
     social_facebook: string | null;
   } | null;
   curated_product_sources?: { id: string; state?: string }[] | null;
+  /**
+   * Added by `20260816120000_curated_products_image_dimensions.sql`. Declared
+   * here rather than picked from `Database["public"]["Tables"]` because the
+   * generated types predate the migration; drop this once `pnpm db:types` has
+   * been regenerated against the applied schema.
+   */
+  image_width?: number | null;
+  image_height?: number | null;
 };
 
 type TrailCuratedProductRow = CuratedProductReadRow & {
@@ -365,12 +377,21 @@ export async function getPublishedCuratedProductsForBrand(
  *
  * This read is intentionally not cached: publishing already revalidates the
  * homepage, while an additional cache would create an invalidation path the
- * publish action cannot reach. Post-processing applies the one-product
- * per-brand cap and deterministic ordering after the database result is
- * flattened through the same selection resolver as the brand page.
+ * publish action cannot reach. Post-processing applies deterministic ordering
+ * after the database result is flattened through the same selection resolver as
+ * the brand page.
  *
  * Missing curated-product tables are a normal deploy-before-migration window;
  * return an empty rail rather than failing the homepage render.
+ *
+ * THE PER-BRAND CAP IS NOT APPLIED HERE. This read has no seed and no clock, so
+ * capping to two per brand before the composer sees the rows freezes WHICH two
+ * a brand shows: the daily shuffle can then only permute the same pair, and a
+ * brand with three or more published products shows the same two forever. The
+ * cap lives once, in `@/lib/curated-products/home-wall`, after the shuffle. The
+ * ordering below stays — it is what makes `wall_position` a stable pin — and
+ * `.limit(1_000)` still bounds the read, comfortably above the ~32 tiles the
+ * wall renders.
  */
 export async function getPublishedCuratedProductsForHomepage(
   client?: CuratedProductSupabase,
@@ -379,7 +400,7 @@ export async function getPublishedCuratedProductsForHomepage(
     curatedProductClient(client)
       .from("curated_products")
       .select(
-        `${CURATED_PRODUCT_READ_SELECT}, brands!inner(slug, name, status, purchase_website, purchase_pinkoi, purchase_shopee, purchase_myship, social_instagram, social_threads, social_facebook)`,
+        `${CURATED_PRODUCT_READ_SELECT}, image_width, image_height, brands!inner(slug, name, status, purchase_website, purchase_pinkoi, purchase_shopee, purchase_myship, social_instagram, social_threads, social_facebook)`,
       )
       .eq("lifecycle", "published")
       .not("official_url", "is", null)
@@ -443,6 +464,9 @@ export async function getPublishedCuratedProductsForHomepage(
         ...product,
         rationaleZh,
         rationaleEn,
+        // NULL until the backfill reaches the row; the wall falls back to 4:3.
+        imageWidth: row.image_width ?? null,
+        imageHeight: row.image_height ?? null,
         brandSlug: row.brands.slug,
         brandName: row.brands.name,
         brand: {
@@ -465,13 +489,9 @@ export async function getPublishedCuratedProductsForHomepage(
         a.key.localeCompare(b.key),
     );
 
-  const productsByBrand = new Map<string, number>();
-  return candidates.filter((product) => {
-    const count = productsByBrand.get(product.brandId) ?? 0;
-    if (count >= MAX_HOME_CURATED_PRODUCTS_PER_BRAND) return false;
-    productsByBrand.set(product.brandId, count + 1);
-    return true;
-  });
+  // No per-brand cap here ON PURPOSE: see the header. The composer applies it
+  // after the daily shuffle, over the full published set.
+  return candidates;
 }
 
 const CURATED_PRODUCT_TRAIL_READ_SELECT = `
@@ -593,6 +613,13 @@ export type CuratedProductWriteInput = {
   officialUrl?: string | null;
   imageUrl?: string | null;
   imageSourceUrl?: string | null;
+  /**
+   * Intrinsic size of the STORED object, written by the image path only
+   * (DEV-1479). Left absent on an edit that did not replace the image, so an
+   * unrelated save never nulls a measured size.
+   */
+  imageWidth?: number | null;
+  imageHeight?: number | null;
   imageUsage?: string;
   sourceCheckedAt?: string | null;
   reviewDueAt?: string | null;
@@ -717,6 +744,8 @@ export async function createCuratedProduct(
         official_url: input.officialUrl ?? null,
         image_url: input.imageUrl ?? null,
         image_source_url: input.imageSourceUrl ?? null,
+        image_width: input.imageWidth ?? null,
+        image_height: input.imageHeight ?? null,
         image_usage: input.imageUsage ?? "none",
         source_checked_at: input.sourceCheckedAt ?? null,
         review_due_at: input.reviewDueAt ?? null,
@@ -799,6 +828,14 @@ export async function updateCuratedProduct(
         payload.image_url = input.imageUrl ?? null;
       if (input.imageSourceUrl !== undefined) {
         payload.image_source_url = input.imageSourceUrl ?? null;
+      }
+      // Absent keys stay absent: an edit that did not replace the image must
+      // not null the measured size the wall renders from.
+      if (input.imageWidth !== undefined) {
+        payload.image_width = input.imageWidth ?? null;
+      }
+      if (input.imageHeight !== undefined) {
+        payload.image_height = input.imageHeight ?? null;
       }
       if (input.imageUsage !== undefined)
         payload.image_usage = input.imageUsage;

@@ -1,8 +1,9 @@
+import { Suspense } from 'react'
 import { Link } from '@/i18n/navigation'
-import Image from 'next/image'
 import { getLocale, getTranslations } from 'next-intl/server'
 import { HeroCategoryChips } from '@/components/landing/hero-category-chips'
-import { SectionBandCtaLink } from '@/components/landing/section-band-cta-link'
+import { SearchInput } from '@/components/brands/search-input'
+import { buttonVariants } from '@/components/ui/button'
 import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 const HERO_CATEGORY_SLUGS = [
@@ -25,25 +26,51 @@ export default async function HeroSection() {
   })
 
   return (
-    <section className="relative overflow-hidden py-12 md:py-20">
-      <Image
-        src="/images/hero-bg.png"
-        alt=""
-        fill
-        preload
-        sizes="100vw"
-        className="object-cover object-right"
-      />
-      <div className="absolute inset-0 bg-background/70 md:bg-background/45" aria-hidden="true" />
-      <div className="relative mx-auto max-w-6xl page-gutter">
-        <h1 className="type-page-title-large md:type-hero">{t('headline')}</h1>
-        {/* Keeps the approved present positioning as the first prose in the DOM:
-            otherwise the earliest body text is rotating brand-card copy, which Google
-            was lifting as the homepage snippet (DEV-1320). Metadata carries the full
-            mission separately. */}
-        <p className="mt-3 type-page-subtitle max-w-2xl">{t('subheadline')}</p>
+    <section className="py-12 md:py-20">
+      <div className="mx-auto max-w-6xl page-gutter">
+        {/* Centring is visual only — the DOM order below is the reading order,
+            and everything after the control group returns to the page gutter. */}
+        <div className="mx-auto flex max-w-5xl flex-col items-center text-center">
+          <h1 className="type-page-title-large md:type-hero">{t('headline')}</h1>
+          {/* Keeps the approved present positioning as the first prose in the DOM:
+              otherwise the earliest body text is rotating brand-card copy, which Google
+              was lifting as the homepage snippet (DEV-1320). Metadata carries the full
+              mission separately. */}
+          {/* `max-w-xl` (576px) is the plan's ~560px measure: zh-TW stays one
+              line, and the longer EN line wraps to two — never the wide centred
+              paragraph DESIGN.md forbids. */}
+          <p className="mt-3 max-w-xl type-page-subtitle">{t('subheadline')}</p>
 
-        <nav className="mt-6 hidden flex-wrap gap-2 md:flex" aria-label={t('statsCategories')}>
+          {/* One control, two intents: type a query, or accept the invitation to
+              browse. The field redirects to /brands?search=, which is the exact
+              entry point the WebSite JSON-LD declares as its SearchAction. */}
+          <div className="mt-8 flex w-full flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            {/* SearchInput reads useSearchParams, which bails out of static
+                prerendering unless it sits under a Suspense boundary. The fallback
+                reserves the field's 48px height so the hero does not shift. */}
+            <Suspense fallback={<div className="h-12 flex-1" aria-hidden="true" />}>
+              <SearchInput
+                redirectTo="/brands"
+                placeholder={t('searchPlaceholder')}
+                formAriaLabel={t('searchLabel')}
+                className="max-w-none flex-1 text-start"
+              />
+            </Suspense>
+            <Link
+              href="/brands"
+              data-ph-no-autocapture
+              className={buttonVariants({
+                variant: 'primary',
+                tone: 'cta',
+                className: 'shrink-0',
+              })}
+            >
+              {t('browseCta')}
+            </Link>
+          </div>
+        </div>
+
+        <nav className="mt-8 hidden flex-wrap gap-2 md:flex" aria-label={t('statsCategories')}>
           <HeroCategoryChips
             categories={categories.slice(0, 5)}
           />
@@ -57,7 +84,7 @@ export default async function HeroSection() {
         </nav>
 
         <nav
-          className="mt-6 flex min-w-0 gap-2 overflow-x-auto pb-1 md:hidden"
+          className="mt-8 flex min-w-0 gap-2 overflow-x-auto pb-1 md:hidden"
           aria-label={t('statsCategories')}
         >
           <HeroCategoryChips categories={categories.slice(0, 7)} />
@@ -69,15 +96,6 @@ export default async function HeroSection() {
             {t('allCategories')}
           </Link>
         </nav>
-
-        <p className="mt-5 type-body">
-          <SectionBandCtaLink
-            href="/brands"
-            label={t('knownIntent')}
-            ctaName="known_intent"
-            className="inline-flex min-h-12 items-center font-medium text-primary"
-          />
-        </p>
       </div>
     </section>
   )

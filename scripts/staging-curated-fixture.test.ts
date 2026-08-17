@@ -118,13 +118,23 @@ describe("staging curated-product fixture contract", () => {
     }
   });
 
-  it("places eight wall anchors and leaves the rest unplaced", () => {
-    // buildWallSlots keeps floor(32 * 0.25) = 8 anchors once the wall is
-    // sliced to MAX_HOME_WALL_PRODUCTS, so eight is the number that fully
-    // exercises the 2x2 plus 2x1 spans.
-    const placed = raw.match(/, (\d+)\n\s+\)/g) ?? [];
-    expect(placed).toHaveLength(8);
-    expect(new Set(placed.map((line) => line.match(/\d+/)?.[0])).size).toBe(8);
+  it("pins eight products ahead of the daily shuffle and leaves the rest free", () => {
+    // Anchor spans are gone — every tile is now equal and the rhythm comes
+    // from ratio variety. `wall_position` survives only as an editorial pin:
+    // pinned rows sort ahead of the date-seeded remainder, so eight of them is
+    // what exercises the pinned/unpinned split without freezing the wall.
+    const pinned = raw.match(/, (\d+)\n\s+\)/g) ?? [];
+    expect(pinned).toHaveLength(8);
+    expect(new Set(pinned.map((line) => line.match(/\d+/)?.[0])).size).toBe(8);
     expect(raw.match(/, null\n\s+\)/g)).toHaveLength(82);
+  });
+
+  it("leaves image dimensions unmeasured, so every tile falls back to 4:3", () => {
+    // `image_width` / `image_height` are nullable by design: NULL is the
+    // backfill cursor. The fixture writes neither, so the staging wall renders
+    // entirely at DEFAULT_WALL_RATIO until the backfill runs — which is the
+    // state the ratio fallback exists to survive, not a gap in the fixture.
+    expect(fixture).not.toContain("image_width");
+    expect(fixture).not.toContain("image_height");
   });
 });

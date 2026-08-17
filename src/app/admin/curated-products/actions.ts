@@ -174,14 +174,21 @@ export async function createCuratedProductAction(
         await saveSources(id, payload.sources);
 
         if (processed && payload.imageSourceUrl) {
-          const { url } = await uploadCuratedProductImage({
+          // The stored object's own dimensions ride along with its URL, in the
+          // update that already exists — the wall renders each tile at the
+          // ratio of the bytes a browser downloads (DEV-1479).
+          const { url, width, height } = await uploadCuratedProductImage({
             brandId: payload.brandId,
             productId: id,
             imageSourceUrl: payload.imageSourceUrl,
             processed,
             previousImageUrl: null,
           });
-          await updateCuratedProduct(id, { imageUrl: url });
+          await updateCuratedProduct(id, {
+            imageUrl: url,
+            imageWidth: width,
+            imageHeight: height,
+          });
         }
       } catch (error) {
         // The row exists from here on, so the compensating action is to SAY so
@@ -271,13 +278,17 @@ export async function updateCuratedProductAction(
         (payload.imageSourceUrl !== context.imageSourceUrl ||
           !context.imageUrl);
       if (payload.imageSourceUrl && imageNeedsWork) {
-        const { url } = await storeCuratedProductImage({
+        const { url, width, height } = await storeCuratedProductImage({
           brandId: context.brandId,
           productId: id,
           imageSourceUrl: payload.imageSourceUrl,
           previousImageUrl: context.imageUrl,
         });
         patch.imageUrl = url;
+        // Only set when the image actually changed: the keys are absent on
+        // every other save, so `updateCuratedProduct` leaves the columns alone.
+        patch.imageWidth = width;
+        patch.imageHeight = height;
       }
 
       await updateCuratedProduct(id, patch);

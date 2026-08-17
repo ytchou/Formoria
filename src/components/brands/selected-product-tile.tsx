@@ -9,6 +9,10 @@ import {
   getBrandVisitLink,
   type BrandVisitLinkFields,
 } from "@/lib/brands/link-fallback";
+import {
+  DEFAULT_WALL_RATIO,
+  type WallRatio,
+} from "@/lib/curated-products/wall-ratio";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import type { CuratedProduct } from "@/lib/services/curated-products";
 import { sanitizeHref } from "@/lib/url";
@@ -30,8 +34,21 @@ export type SelectedProductTileProps = {
   product: CuratedProduct;
   labels: SelectedProductTileLabels;
   mode: "outbound" | "internal" | "trail" | "wall";
-  /** Wall geometry; ignored by the existing brand and trail variants. */
-  span?: "1x1" | "2x1" | "2x2";
+  /**
+   * Wall geometry: the snapped ratio bucket the tile renders at. Absent means
+   * the row carries no measurement yet, which renders the legacy 4:3.
+   */
+  ratio?: WallRatio;
+  /**
+   * Wall-only position, used for the LCP decision. Removing the hero photo made
+   * the first wall tile the LCP element, so the first row must not be lazy.
+   */
+  wallIndex?: number;
+  /**
+   * Extra classes on the tile's `<li>`. The wall supplies its grid classes
+   * (row span, mobile cap) through it; every other mode merges it too.
+   */
+  className?: string;
   /** Existing brand-page fields used by the outbound chip. */
   brand?: BrandVisitLinkFields & { slug: string };
   /** Homepage-only destination and visible brand name. */
@@ -51,6 +68,16 @@ const BROKEN_LINK_STATE = "broken";
 const RENDERABLE_IMAGE_USAGE = new Set(["permitted", "licensed"]);
 
 /**
+ * How many wall tiles carry `priority`. It is the NARROWEST column count, not
+ * the widest: the wall is one column below 640px, so on a phone only the first
+ * tile is above the fold, and preloading four of them put three
+ * `fetchpriority=high` requests in front of the real LCP element — the exact
+ * regression `priority` exists to prevent. Desktop rows 2–4 are still in the
+ * viewport and load eagerly anyway; they just do not preempt tile 0.
+ */
+export const WALL_ABOVE_FOLD = 1;
+
+/**
  * The selected-product tile stays server-rendered. Outbound product chips
  * preserve the brand-page behavior; internal mode turns the whole tile into
  * one accessible link to the product anchor on that brand's page. The optional
@@ -61,7 +88,9 @@ export function SelectedProductTile({
   product,
   labels,
   mode,
-  span = "1x1",
+  ratio,
+  wallIndex,
+  className,
   brand,
   brandSlug,
   brandName,
@@ -79,9 +108,8 @@ export function SelectedProductTile({
     ? safeImageSrc(product.imageUrl)
     : null;
   const isBroken = product.linkState === BROKEN_LINK_STATE;
-  const isWallAnchor = mode === "wall" && span === "2x2";
   const visitLink =
-    (mode === "outbound" || mode === "trail" || isWallAnchor) && brand
+    (mode === "outbound" || mode === "trail") && brand
       ? getBrandVisitLink(brand)
       : null;
   const productHref = sanitizeHref(product.officialUrl);
@@ -101,42 +129,99 @@ export function SelectedProductTile({
   const internalHref = `/brands/${destinationSlug}#product-${product.key}`;
   const internalClassName =
     "group flex h-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-3";
+  // One column on phones, two on tablets, four above 1024px. The four-column
+  // measure is `(min(100vw, 72rem) - 5rem - 4.5rem) / 4`, which tops out at
+  // 250px — never 25vw, which asked for an oversized candidate on every
+  // desktop tile.
   const wallImageSizes =
-    span === "1x1"
-      ? "(max-width: 640px) 50vw, 25vw"
-      : "(max-width: 640px) 100vw, 50vw";
-  const wallSpanClass =
-    mode === "wall"
-      ? span === "2x2"
-        ? "col-span-2 row-span-2"
-        : span === "2x1"
-          ? "col-span-2"
-          : undefined
-      : undefined;
+    "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 260px";
+  const wallRatio: WallRatio = ratio ?? DEFAULT_WALL_RATIO;
+  const wallAspectRatio = wallRatio.replace(":", " / ");
+  const isWallPriority =
+    mode === "wall" && wallIndex !== undefined && wallIndex < WALL_ABOVE_FOLD;
   const wallBadgeClass = imageSrc
     ? "absolute top-3 left-3 z-10 bg-foreground text-background"
     : "absolute top-3 left-3 z-10 border-border bg-card text-foreground";
-  const wallBrandSiteClassName = buttonVariants({
-    variant: "secondary",
-    shape: "pill",
-    size: "compact",
-    className: "mx-4 mb-4 justify-center",
-  });
-  const wallBrandSiteLink =
-    isWallAnchor && visitLink ? (
-      <a
-        href={visitLink.href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={wallBrandSiteClassName}
-        data-brand-slug={brand?.slug}
-        data-link-type="brand_site"
-        data-link-surface="selected_product"
+  const wallReason = reason?.trim() ? reason.trim() : null;
+
+  /*
+   * ONE reason node, repositioned — never two.
+   *
+   * Mobile puts it in flow beneath the photograph on a transparent band;
+   * from `sm` it becomes an absolutely positioned scrim over the lower edge of
+   * the image, revealed on hover and focus. Position and background are the
+   * only breakpoint deltas, because the e2e contract (and the crawler) require
+   * exactly one `[data-selection-rationale]` per tile.
+   *
+   * The scrim is SOLID canvas at 94% alpha, not a gradient: composited over a
+   * dark photograph, paper falls below 4.5:1 wherever alpha drops under ~51%.
+   * The 16px lead-in above it fades, and deliberately carries no text.
+   */
+  const wallReasonClass = cn(
+    "flex flex-col gap-1 pt-3",
+    "sm:absolute sm:inset-x-0 sm:bottom-0 sm:z-10 sm:rounded-b-lg sm:bg-background/94 sm:p-4",
+    "sm:transition-opacity sm:duration-300 motion-reduce:sm:duration-[0.01ms]",
+    "[@media(hover:hover)]:sm:opacity-0",
+    "[@media(hover:hover)]:sm:group-hover:opacity-100",
+    "[@media(hover:hover)]:sm:group-focus-within:opacity-100",
+  );
+
+  const wallContent = (
+    <div className="relative flex h-full flex-col">
+      <div
+        data-wall-ratio={wallRatio}
+        style={{ aspectRatio: wallAspectRatio }}
+        // Container radius: the photo box is a top-level surface of the wall,
+        // so it takes DESIGN.md's 6px container step, not the nested 4.8px one.
+        className="relative w-full overflow-hidden rounded-lg bg-muted"
       >
-        <span className="min-w-0 truncate">{labels.brandSiteCta}</span>
-        <span className="sr-only">{`: ${brandName ?? name}`}</span>
-      </a>
-    ) : null;
+        {imageSrc ? (
+          <Image
+            src={imageSrc}
+            alt={name}
+            fill
+            priority={isWallPriority}
+            className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
+            sizes={wallImageSizes}
+          />
+        ) : (
+          <BrandImageFallback name={name} category={product.l1} size="card" />
+        )}
+        <Badge className={wallBadgeClass}>{labels.selectedBadge}</Badge>
+      </div>
+
+      <div className={wallReasonClass}>
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 -top-4 hidden h-4 bg-gradient-to-t from-background/94 to-transparent sm:block"
+        />
+        <Typography
+          as="h3"
+          variant="cardTitle"
+          className="group-hover:text-primary"
+        >
+          {name}
+        </Typography>
+        {brandName ? (
+          // 13px muted is the floor: measured 4.6:1 over the scrim, AA with
+          // almost no margin. Never smaller, never lighter.
+          <Typography as="p" variant="metadata">
+            {brandName}
+          </Typography>
+        ) : null}
+        {wallReason ? (
+          <Typography
+            as="p"
+            variant="body"
+            className="line-clamp-3"
+            data-selection-rationale={wallReason}
+          >
+            {wallReason}
+          </Typography>
+        ) : null}
+      </div>
+    </div>
+  );
 
   const content = (
     <>
@@ -147,22 +232,15 @@ export function SelectedProductTile({
             alt={name}
             fill
             className={
-              mode === "internal" || mode === "wall"
+              mode === "internal"
                 ? "object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
                 : "object-cover"
             }
-            sizes={
-              mode === "wall"
-                ? wallImageSizes
-                : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            }
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           />
         ) : (
           <BrandImageFallback name={name} category={product.l1} size="card" />
         )}
-        {mode === "wall" ? (
-          <Badge className={wallBadgeClass}>{labels.selectedBadge}</Badge>
-        ) : null}
       </div>
 
       <div className="flex flex-1 flex-col gap-2 p-4">
@@ -204,41 +282,20 @@ export function SelectedProductTile({
             as="h3"
             variant="cardTitle"
             className={
-              mode === "internal" || mode === "wall"
-                ? "group-hover:text-primary"
-                : undefined
+              mode === "internal" ? "group-hover:text-primary" : undefined
             }
           >
             {name}
           </Typography>
         )}
 
-        {(mode === "internal" || mode === "trail" || mode === "wall") &&
-        brandName ? (
+        {(mode === "internal" || mode === "trail") && brandName ? (
           <Typography as="p" variant="metadata">
             {brandName}
           </Typography>
         ) : null}
 
-        {mode === "wall" ? (
-          <div
-            className={cn(
-              "h-12 overflow-hidden transition-opacity duration-300 motion-reduce:duration-[0.01ms] max-sm:h-0 max-sm:opacity-0",
-              span === "2x2"
-                ? "opacity-100"
-                : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
-            )}
-          >
-            <Typography
-              as="p"
-              variant="body"
-              className="line-clamp-2"
-              data-selection-rationale={reason}
-            >
-              {reason}
-            </Typography>
-          </div>
-        ) : reason ? (
+        {reason ? (
           <>
             <Typography as="p" variant="body">
               {reason}
@@ -249,7 +306,7 @@ export function SelectedProductTile({
           </>
         ) : null}
 
-        {mode !== "wall" && fact ? (
+        {fact ? (
           <>
             <Typography as="p" variant="metadata">
               {fact}
@@ -260,7 +317,7 @@ export function SelectedProductTile({
           </>
         ) : null}
 
-        {mode !== "wall" && isBroken ? (
+        {isBroken ? (
           <Typography as="p" variant="metadata">
             {labels.unavailable}
           </Typography>
@@ -299,42 +356,15 @@ export function SelectedProductTile({
     </>
   );
 
-  return (
-    <li
-      id={`product-${product.key}`}
-      className={surfaceCardStyles({
-        padding: "none",
-        className: cn("flex flex-col overflow-hidden", wallSpanClass),
-      })}
-    >
-      {mode === "wall" ? (
-        isWallAnchor ? (
-          <div className="flex h-full flex-col">
-            {tracking ? (
-              <SelectedProductTileLink
-                href={internalHref}
-                prefetch={false}
-                className={internalClassName}
-                productKey={product.key}
-                brandSlug={tracking.brandSlug}
-                position={tracking.position}
-                surface={tracking.surface}
-              >
-                {content}
-              </SelectedProductTileLink>
-            ) : (
-              <Link
-                href={internalHref}
-                prefetch={false}
-                className={internalClassName}
-                data-ph-no-autocapture
-              >
-                {content}
-              </Link>
-            )}
-            {wallBrandSiteLink}
-          </div>
-        ) : tracking ? (
+  if (mode === "wall") {
+    // The wall tile is a photograph, not a card: no border, no card surface, so
+    // the reason band can sit flush over the lower edge of the image.
+    return (
+      <li
+        id={`product-${product.key}`}
+        className={cn("relative list-none", className)}
+      >
+        {tracking ? (
           <SelectedProductTileLink
             href={internalHref}
             prefetch={false}
@@ -344,7 +374,7 @@ export function SelectedProductTile({
             position={tracking.position}
             surface={tracking.surface}
           >
-            {content}
+            {wallContent}
           </SelectedProductTileLink>
         ) : (
           <Link
@@ -353,10 +383,24 @@ export function SelectedProductTile({
             className={internalClassName}
             data-ph-no-autocapture
           >
-            {content}
+            {wallContent}
           </Link>
-        )
-      ) : mode === "internal" ? (
+        )}
+      </li>
+    );
+  }
+
+  return (
+    <li
+      id={`product-${product.key}`}
+      className={surfaceCardStyles({
+        padding: "none",
+        // `className` is accepted for every mode, so it must be merged here too
+        // — dropping it silently gave a caller no styling and no type error.
+        className: cn("flex flex-col overflow-hidden", className),
+      })}
+    >
+      {mode === "internal" ? (
         tracking ? (
           <SelectedProductTileLink
             href={internalHref}

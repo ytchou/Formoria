@@ -627,7 +627,10 @@ describe("getPublishedCuratedProductsForHomepage", () => {
     ]);
   });
 
-  it("caps products per brand", async () => {
+  // The read deliberately carries the whole published set: the per-brand cap
+  // lives in the wall composer, AFTER the daily shuffle. Capping here would
+  // freeze which two of a brand's products the shuffle can ever choose from.
+  it("returns every published product of a brand, uncapped", async () => {
     const { client } = stubClient({
       data: [
         homepageRow({ key: "first", brand_id: "brand-1" }),
@@ -669,7 +672,7 @@ describe("getPublishedCuratedProductsForHomepage", () => {
 
     const products = await getPublishedCuratedProductsForHomepage(client);
 
-    expect(products.filter((product) => product.brandId === "brand-1")).toHaveLength(2);
+    expect(products.filter((product) => product.brandId === "brand-1")).toHaveLength(3);
     expect(products.map((product) => product.key)).toContain("other-brand");
   });
 

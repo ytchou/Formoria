@@ -61,13 +61,18 @@ function isAllowedImageContentType(header: string | null): boolean {
 /**
  * Reads the body with a hard byte ceiling, streaming rather than buffering.
  *
+ * Exported because the dimension backfill
+ * (`scripts/curated-products/backfill-image-dimensions.ts`) reads stored objects
+ * too and must not grow a second capped-read implementation that drifts from
+ * this one.
+ *
  * `Buffer.from(await response.arrayBuffer())` allocates whatever the origin
  * chooses to send before anything can object, so a hostile or broken origin
  * decides this process's memory. `content-length` is checked when present and
  * the stream is cancelled the moment the running total crosses the cap —
  * because a chunked response carries no length at all.
  */
-async function readImageBodyCapped(response: Response): Promise<Buffer> {
+export async function readImageBodyCapped(response: Response): Promise<Buffer> {
   const declaredLength = Number.parseInt(
     response.headers.get("content-length") ?? "",
     10,
@@ -116,6 +121,28 @@ export type CuratedProductImageInput = {
   imageSourceUrl: string;
   /** The public URL currently stored on the row, if any. */
   previousImageUrl?: string | null;
+};
+
+/**
+ * What the stored object is, for the row that points at it.
+ *
+ * `width`/`height` are the POST-rotate, POST-resize dimensions `processImage`
+ * reports, because the resized object is what a browser downloads and what the
+ * homepage wall renders at its native ratio (DEV-1479).
+ */
+export type StoredCuratedProductImage = {
+  url: string;
+  width: number;
+  height: number;
+};
+
+/**
+ * Injectable storage seam. Tests drive the upload without a bucket, and
+ * `scripts/check-test-boundaries.mjs` forbids mocking the module instead.
+ */
+export type CuratedProductImageDeps = {
+  upload?: typeof uploadPublicImage;
+  deletePaths?: typeof deleteStoredImagePaths;
 };
 
 /** Module-private: the key shape is derived here and nowhere else. */
@@ -223,7 +250,8 @@ export async function prepareCuratedProductImage(
  */
 export async function uploadCuratedProductImage(
   input: CuratedProductImageInput & { processed: ProcessedImage },
-): Promise<{ url: string }> {
+  deps: CuratedProductImageDeps = {},
+): Promise<StoredCuratedProductImage> {
   return auditedCall(
     {
       provider: "images",
@@ -236,7 +264,8 @@ export async function uploadCuratedProductImage(
       // `upsert: true` is safe here and only here: the path is DERIVED from the
       // source URL, so re-saving the same source overwrites in place instead of
       // orphaning an object on every apply.
-      const { url } = await uploadPublicImage({
+      const upload = deps.upload ?? uploadPublicImage;
+      const { url } = await upload({
         bucket: "brand-images",
         path,
         data: processed.buffer,
@@ -251,7 +280,7 @@ export async function uploadCuratedProductImage(
         // Best effort: the row already points at the new object, so a failed
         // cleanup leaves a stale object for the storage sweep, not a broken row.
         try {
-          await deleteStoredImagePaths([previousKey]);
+          await (deps.deletePaths ?? deleteStoredImagePaths)([previousKey]);
         } catch (error) {
           console.error(
             "[curatedProducts] stale image cleanup failed",
@@ -261,7 +290,7 @@ export async function uploadCuratedProductImage(
         }
       }
 
-      return { url };
+      return { url, width: processed.width, height: processed.height };
     },
     { subjectId: input.productId },
   );
@@ -274,10 +303,11 @@ export async function uploadCuratedProductImage(
  */
 export async function storeCuratedProductImage(
   input: CuratedProductImageInput,
-): Promise<{ url: string }> {
+  deps: CuratedProductImageDeps = {},
+): Promise<StoredCuratedProductImage> {
   const processed = await prepareCuratedProductImage(
     input.imageSourceUrl,
     input.productId,
   );
-  return uploadCuratedProductImage({ ...input, processed });
+  return uploadCuratedProductImage({ ...input, processed }, deps);
 }

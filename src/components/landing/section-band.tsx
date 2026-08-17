@@ -10,35 +10,41 @@ export default async function SectionBand() {
   const tFeatureRequest = await getTranslations('landing.featureRequestBand')
 
   return (
-    <section className="bg-secondary py-12 md:py-16">
+    /*
+      The closing zone: three ways to stay involved, read as one. The band no
+      longer paints itself a different colour — zones are separated by
+      whitespace and a single rule, never by alternating backgrounds
+      (DESIGN.md) — and the three invitations now sit side by side instead of
+      stacking two in a column beside the newsletter.
+    */
+    <section className="mt-6 border-t border-border py-12 md:mt-8 md:py-16">
       <div className="mx-auto max-w-6xl page-gutter">
-        <div className="grid gap-10 md:grid-cols-2 md:gap-16 items-start">
-          {/* Recommendation + feature request CTAs */}
+        <div className="grid gap-10 md:grid-cols-3 md:gap-12 items-start">
+          {/* Recommend a brand */}
           <div>
-            <div>
-              <h2 className="type-section-title-large">{tRecommend('headline')}</h2>
-              <p className="mt-2 type-body-muted">{tRecommend('body')}</p>
-              <SectionBandCtaLink
-                href="/submit"
-                label={tRecommend('cta')}
-                ctaName="submit_brand"
-                className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-4')}
-              />
-            </div>
-
-            <div className="mt-10 border-t border-border pt-10">
-              <h2 className="type-section-title-large">{tFeatureRequest('headline')}</h2>
-              <p className="mt-2 type-body-muted">{tFeatureRequest('body')}</p>
-              <SectionBandCtaLink
-                href="/feature-requests"
-                label={tFeatureRequest('cta')}
-                ctaName="feature_request"
-                className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-4')}
-              />
-            </div>
+            <h2 className="type-section-title-large">{tRecommend('headline')}</h2>
+            <p className="mt-2 type-body-muted">{tRecommend('body')}</p>
+            <SectionBandCtaLink
+              href="/submit"
+              label={tRecommend('cta')}
+              ctaName="submit_brand"
+              className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-4')}
+            />
           </div>
 
-          {/* Newsletter */}
+          {/* Feature request */}
+          <div>
+            <h2 className="type-section-title-large">{tFeatureRequest('headline')}</h2>
+            <p className="mt-2 type-body-muted">{tFeatureRequest('body')}</p>
+            <SectionBandCtaLink
+              href="/feature-requests"
+              label={tFeatureRequest('cta')}
+              ctaName="feature_request"
+              className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-4')}
+            />
+          </div>
+
+          {/* Newsletter — its only surface on `/`. */}
           <div>
             <h2 className="type-section-title-large">{tNewsletter('heading')}</h2>
             <p className="mt-2 type-body-muted">{tNewsletter('subtext')}</p>
