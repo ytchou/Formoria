@@ -33,6 +33,17 @@ type BrandSubmissionRow = Database['public']['Tables']['brand_submissions']['Row
 // cascade from it, so only the parent row needs enumerating.
 type CuratedProductRow = Record<string, unknown> & { id: string }
 
+// Explicit column list for the backup snapshot. The restore path re-inserts the
+// row verbatim, so this must stay the full parent-row column set — but spelled
+// out, so a column rename breaks the fetch loudly instead of silently changing
+// the snapshot shape. Keep in sync with the `curated_products` schema.
+//
+// One `as const` literal, no spaces after commas: supabase-js parses the select
+// string at the type level, and a runtime-joined `string[]` resolves to
+// `GenericStringError[]` instead of a row type.
+const CURATED_PRODUCT_COLUMNS =
+  'id,brand_id,key,name_zh,name_en,l1,l2,official_url,image_url,image_source_url,image_usage,lifecycle,link_state,link_checked_at,source_checked_at,review_due_at,created_at,updated_at,proposed_by,wall_position,image_width,image_height,product_description_zh,product_description_en,product_position' as const
+
 type BackupEntry = {
   brand: BrandRow
   submissions: BrandSubmissionRow[]
@@ -282,7 +293,7 @@ async function gatherBrandData(
 
   const [submissionsResult, curatedProductsResult, storagePaths] = await Promise.all([
     supabase.from('brand_submissions').select('*').eq('brand_id', brandId),
-    supabase.from('curated_products').select('*').eq('brand_id', brandId),
+    supabase.from('curated_products').select(CURATED_PRODUCT_COLUMNS).eq('brand_id', brandId),
     listStorageObjects(supabase, brandId),
   ])
 

@@ -233,6 +233,7 @@ describe("storeCuratedProductImage dimensions", () => {
         brandId: BRAND_ID,
         nameZh: "Pick",
         l1: "home",
+        productDescriptionZh: "陶土燒製，容量約 200 毫升。",
         imageUrl: "https://cdn.example.com/stored.webp",
         imageWidth: 1200,
         imageHeight: 600,
@@ -269,10 +270,16 @@ describe("storeCuratedProductImage dimensions", () => {
   it("leaves dimensions untouched when no new image is supplied", async () => {
     const { client, payloads } = stubWriteClient();
 
-    await updateCuratedProduct(PRODUCT_ID, { notesZh: "A typo fix" }, client);
+    await updateCuratedProduct(
+      PRODUCT_ID,
+      { productDescriptionZh: "陶土燒製，容量約 200 毫升。" },
+      client,
+    );
 
     const payload = payloads.update[0] ?? {};
-    expect(payload).toMatchObject({ notes_zh: "A typo fix" });
+    expect(payload).toMatchObject({
+      product_description_zh: "陶土燒製，容量約 200 毫升。",
+    });
     // An absent key is the whole point: a payload carrying `image_width: null`
     // would null the measured size on every unrelated edit.
     expect(Object.keys(payload)).not.toContain("image_width");

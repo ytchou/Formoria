@@ -92,12 +92,16 @@ const curatedProductFields = {
    * successful download, so the form must send it explicitly to leave 'none'.
    */
   imageUsage: z.enum(["none", "permitted", "licensed"]).optional(),
-  notesZh: noteSchema.nullable().optional(),
-  notesEn: noteSchema.nullable().optional(),
-  highlightPosition: z.number().int().nonnegative().nullable().optional(),
+  /**
+   * The one editorial text field, and the column behind it is NOT NULL — so
+   * this is the single field of the set that is neither nullable nor blankable.
+   * `.trim().min(1)` is what makes a whitespace-only textarea a field error
+   * rather than a row whose description renders as an empty block.
+   */
+  productDescriptionZh: z.string().trim().min(1).max(MAX_NOTE),
+  productDescriptionEn: noteSchema.nullable().optional(),
+  productPosition: z.number().int().nonnegative().nullable().optional(),
   wallPosition: z.number().int().nonnegative().nullable().optional(),
-  highlightRationaleZh: noteSchema.nullable().optional(),
-  highlightRationaleEn: noteSchema.nullable().optional(),
   reviewDueAt: timestampSchema.nullable().optional(),
   /**
    * A human assertion that the sources below were opened and read, which is
@@ -109,32 +113,15 @@ const curatedProductFields = {
   sources: z.array(curatedProductSourceSchema).max(MAX_SOURCES).optional(),
 };
 
-function validateHighlightFields(
-  payload: {
-    highlightPosition?: number | null;
-    highlightRationaleZh?: string | null;
-  },
-  ctx: z.RefinementCtx,
-) {
-  if (
-    payload.highlightPosition !== undefined &&
-    payload.highlightPosition !== null &&
-    !(payload.highlightRationaleZh?.trim() ?? "")
-  ) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["highlightRationaleZh"],
-      message: "A highlight position requires a zh rationale",
-    });
-  }
-}
-
-export const curatedProductCreateSchema = z
-  .object({
-    brandId: curatedProductIdSchema,
-    ...curatedProductFields,
-  })
-  .superRefine(validateHighlightFields);
+/**
+ * NO CROSS-FIELD REFINE (removed DEV-1496). The pair it guarded — "a brand-page
+ * position requires a zh rationale" — cannot fail any more: the description is
+ * mandatory on every create, so a positioned product always carries text.
+ */
+export const curatedProductCreateSchema = z.object({
+  brandId: curatedProductIdSchema,
+  ...curatedProductFields,
+});
 
 /**
  * Every field optional: the editor patches what it touched. An empty object is
@@ -145,7 +132,6 @@ export const curatedProductUpdateSchema = z
   .object(curatedProductFields)
   .partial()
   .superRefine((payload, ctx) => {
-    validateHighlightFields(payload, ctx);
     // An L2 slug is only meaningful inside one L1, so a patch that moves the
     // subcategories without naming the category cannot be normalized.
     // `updateCuratedProduct` throws on the same pair, but a service throw

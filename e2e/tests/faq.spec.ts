@@ -93,7 +93,7 @@ test.describe("FAQ page", () => {
     await listingDetails.locator("summary").click();
     await expect(
       listingDetails.getByText(
-        "A listed brand meets the directory rules and can be found in the searchable record; listing is not Formoria endorsement, selection, certification, or ranking. A Formoria Selection is a product or content item deliberately chosen for a situation, use, preference, or editorial argument, and is labelled separately with its rationale.",
+        "A listed brand meets the directory rules and can be found in the searchable record; listing is not Formoria endorsement, selection, certification, or ranking. A Formoria Selection is a product or content item deliberately chosen for a situation, use, preference, or editorial argument, labelled separately and described for what it is and where to order it from the brand.",
         { exact: true },
       ),
     ).toBeVisible();

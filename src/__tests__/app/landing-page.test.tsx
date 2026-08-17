@@ -14,6 +14,7 @@ import type { WallSlot } from "@/lib/curated-products/home-wall";
 import type { HomepageCuratedProduct } from "@/lib/services/curated-products";
 import type { Event } from "@/lib/services/events";
 import type { StoryEntry } from "@/lib/services/stories";
+import type { TrailEntry } from "@/lib/services/trails";
 
 vi.mock("next-intl/server", async () => {
   const { createTranslator } = await import("next-intl");
@@ -117,16 +118,16 @@ const WALL_FIXTURES = [
   {
     nameZh: "手沖壺",
     nameEn: "Pour-over kettle",
-    rationaleZh: "手感穩定，適合小空間的早晨。",
-    rationaleEn: "Steady in the hand, made for small kitchens.",
+    descriptionZh: "手感穩定，適合小空間的早晨。",
+    descriptionEn: "Steady in the hand, made for small kitchens.",
     brandName: "小器生活",
   },
   {
     nameZh: "麻布長桌巾（原色）",
     nameEn: null,
-    rationaleZh:
+    descriptionZh:
       "洗過幾次之後才會出現的柔軟，是這塊布最好的時候；長度足夠蓋住六人餐桌的兩側。",
-    rationaleEn: null,
+    descriptionEn: null,
     brandName: "本嶼織物",
   },
 ];
@@ -150,18 +151,14 @@ function buildProduct(index: number): HomepageCuratedProduct {
     linkCheckedAt: null,
     sourceCheckedAt: null,
     reviewDueAt: null,
-    notesZh: null,
-    notesEn: null,
-    highlightPosition: null,
-    highlightRationaleZh: null,
-    highlightRationaleEn: null,
+    productDescriptionZh: fixture.descriptionZh,
+    productDescriptionEn: fixture.descriptionEn,
+    productPosition: null,
     wallPosition: null,
     createdAt: "2026-01-01T00:00:00Z",
     trailSlug: null,
     sectionKey: null,
     position: 0,
-    rationaleZh: fixture.rationaleZh,
-    rationaleEn: fixture.rationaleEn,
     imageWidth: 1200,
     imageHeight: 900,
     brandSlug: `brand-${index}`,
@@ -211,6 +208,27 @@ function buildStory(slug: string): StoryEntry {
   } as unknown as StoryEntry;
 }
 
+function buildTrail(slug: string): TrailEntry {
+  return {
+    slug,
+    frontmatter: {
+      title: `Trail ${slug}`,
+      description: "Where to start when the kitchen is small.",
+      slug,
+      tags: [],
+      locale: "en",
+      publishedAt: "2026-02-01",
+      draft: false,
+      sources: [],
+      faq: [],
+      sections: [],
+      relatedCategories: [],
+      relatedStories: [],
+      relatedTrails: [],
+    },
+  } as unknown as TrailEntry;
+}
+
 function buildEvent(): Event {
   return {
     id: "event-one",
@@ -257,6 +275,7 @@ async function renderZones(overrides: ZoneOverrides = {}) {
     hero: <section>Hero</section>,
     close: <section>Close</section>,
     wall: buildWall(),
+    trails: [],
     stories: [buildStory("a-story")],
     events: [],
     brands: [buildBrand(0), buildBrand(1)],
@@ -285,6 +304,105 @@ describe("landing page trust zones", () => {
     expect(zoneOrder(container)).toEqual([
       "hero",
       "selection",
+      "manifesto",
+      "topics",
+      "directory",
+      "close",
+    ]);
+  });
+
+  /**
+   * The zone used to render `wall.leftoverTrails` — the trails the wall did
+   * NOT place. With a single indexable trail that trail is always a wall tile,
+   * so the zone disappeared from the homepage entirely. Its input is now every
+   * indexable trail, and wall placement is not a reason to withhold one: the
+   * tile is a picture, the row is the reader's route into /discover.
+   */
+  it("renders the trails zone when its only trail is also a wall tile", async () => {
+    const trail = buildTrail("small-kitchen");
+    const { container } = await renderZones({
+      // Placed in the wall AND passed to the zone: exactly the single-trail case.
+      wall: {
+        slots: [
+          ...buildWall().slots,
+          { kind: "trail" as const, trail, format: "wide" as const },
+        ],
+        leftoverTrails: [],
+      },
+      trails: [trail],
+    });
+
+    const trails = container.querySelector<HTMLElement>(
+      '[data-landing-zone="trails"]',
+    );
+    expect(trails).not.toBeNull();
+    expect(
+      within(trails!).getByRole("heading", {
+        level: 2,
+        name: en.landing.trails.heading,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(trails!).getByRole("link", { name: en.landing.trails.linkText }),
+    ).toHaveAttribute("href", "/discover");
+
+    const rows = within(trails!).getAllByRole("heading", { level: 3 });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveTextContent("Trail small-kitchen");
+    // /discover, not /stories — the row is `StoryRow` with `hrefBase` repointed.
+    expect(
+      within(trails!).getByRole("link", { name: /Trail small-kitchen/ }),
+    ).toHaveAttribute("href", "/discover/small-kitchen");
+  });
+
+  it("renders every indexable trail in the zone", async () => {
+    const placed = buildTrail("small-kitchen");
+    const unplaced = buildTrail("first-apartment");
+    const { container } = await renderZones({
+      wall: {
+        slots: [
+          ...buildWall().slots,
+          { kind: "trail" as const, trail: placed, format: "wide" as const },
+        ],
+        leftoverTrails: [unplaced],
+      },
+      trails: [placed, unplaced],
+    });
+
+    const trails = container.querySelector<HTMLElement>(
+      '[data-landing-zone="trails"]',
+    )!;
+    expect(within(trails).getAllByRole("heading", { level: 3 })).toHaveLength(2);
+    expect(
+      within(trails).getByRole("heading", { name: "Trail small-kitchen" }),
+    ).toBeInTheDocument();
+    expect(
+      within(trails).getByRole("heading", { name: "Trail first-apartment" }),
+    ).toBeInTheDocument();
+  });
+
+  it("omits the trails zone when no trail is indexable", async () => {
+    const { container } = await renderZones({ trails: [] });
+
+    expect(
+      container.querySelector('[data-landing-zone="trails"]'),
+    ).toBeNull();
+    // Not an empty zone wearing the heading either.
+    expect(
+      screen.queryByRole("heading", { name: en.landing.trails.heading }),
+    ).toBeNull();
+  });
+
+  it("keeps the zone order", async () => {
+    const { container } = await renderZones({
+      trails: [buildTrail("small-kitchen")],
+      events: [{ event: buildEvent(), phase: "ongoing", brandCount: 3 }],
+    });
+
+    expect(zoneOrder(container)).toEqual([
+      "hero",
+      "selection",
+      "trails",
       "manifesto",
       "topics",
       "directory",

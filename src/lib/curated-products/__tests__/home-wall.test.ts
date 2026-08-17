@@ -31,18 +31,14 @@ function product(
     linkCheckedAt: null,
     sourceCheckedAt: "2026-08-15T00:00:00Z",
     reviewDueAt: null,
-    notesZh: null,
-    notesEn: null,
-    highlightPosition: null,
-    highlightRationaleZh: null,
-    highlightRationaleEn: null,
+    productDescriptionZh: "手感穩定，適合小空間。",
+    productDescriptionEn: "Steady in the hand, made for small kitchens.",
+    productPosition: null,
     wallPosition: null,
     createdAt: "2026-08-15T00:00:00Z",
     trailSlug: null,
     sectionKey: null,
     position: null,
-    rationaleZh: "A considered selection",
-    rationaleEn: "A considered selection",
     brandSlug: `brand-${key}`,
     brandName: `Brand ${key}`,
     brand: {
@@ -232,57 +228,59 @@ describe("buildWallSlots", () => {
     expect(wallModule.MAX_HOME_WALL_ANCHOR_RATIO).toBeUndefined();
   });
 
-  it("preserves the per-brand cap and the diversity window", () => {
-    const products = [
-      ...Array.from({ length: 12 }, (_, index) =>
-        product(`home-${index}`, { l1: "home" }),
-      ),
-      ...Array.from({ length: 6 }, (_, index) =>
-        product(`beauty-${index}`, { l1: "beauty" }),
-      ),
-      // Three from one brand: the cap keeps two.
-      ...Array.from({ length: 3 }, (_, index) =>
-        product(`shared-${index}`, { brandId: "brand-shared", l1: "beauty" }),
-      ),
-    ];
+  it("keeps sixteen products from one category", () => {
+    // The per-L1 diversity window is GONE (DEV-1496). A wall of sixteen home
+    // products is a legitimate day's supply, and reordering it around a
+    // category budget produced no reader-visible benefit.
+    const products = Array.from({ length: 16 }, (_, index) =>
+      product(`home-${index}`, { l1: "home", wallPosition: index + 1 }),
+    );
+
     const slots = productSlots(
       buildWallSlots({ products, trails: [], seed: SEED }).slots,
     );
 
+    expect(slots).toHaveLength(16);
+    expect(slots.map((slot) => slot.product.key)).toEqual(
+      products.map((entry) => entry.key),
+    );
+  });
+
+  it("caps two products per brand and reports refused pins", () => {
+    const result = buildWallSlots({
+      products: [
+        ...Array.from({ length: 3 }, (_, index) =>
+          product(`shared-${index}`, { brandId: "brand-shared", l1: "beauty" }),
+        ),
+        ...Array.from({ length: 6 }, (_, index) =>
+          product(`free-${index}`, { l1: "home" }),
+        ),
+      ],
+      trails: [],
+      seed: SEED,
+    });
+
+    const slots = productSlots(result.slots);
     expect(
       slots.filter((slot) => slot.product.brandId === "brand-shared"),
     ).toHaveLength(2);
-    expect(
-      slots.slice(0, 12).filter((slot) => slot.product.l1 === "home").length,
-    ).toBeLessThanOrEqual(6);
+    // None of the three was pinned, so the cap refuses no pin.
+    expect(result.droppedPins).toEqual([]);
   });
 
-  it("holds the diversity window even when the pins are all one L1", () => {
-    // Eight pins of one L1 used to bypass the window entirely: the pass ran on
-    // the shuffled tail only, whose budget restarted at zero, so eight pinned
-    // `home` tiles plus six more made fourteen in a row.
-    const products = [
-      ...Array.from({ length: 8 }, (_, index) =>
-        product(`pin-${index}`, { l1: "home", wallPosition: index + 1 }),
-      ),
-      ...Array.from({ length: 12 }, (_, index) =>
-        product(`home-${index}`, { l1: "home" }),
-      ),
-      ...Array.from({ length: 12 }, (_, index) =>
-        product(`beauty-${index}`, { l1: "beauty" }),
-      ),
-    ];
-
-    const slots = productSlots(
-      buildWallSlots({ products, trails: [], seed: SEED }).slots,
+  it("rotates which two products of a brand appear across dates", () => {
+    // The cap runs AFTER the shuffle precisely so this holds: capping in the
+    // read would freeze which two of a brand's four the wall can ever show.
+    const products = Array.from({ length: 4 }, (_, index) =>
+      product(`shared-${index}`, { brandId: "brand-shared" }),
     );
+    const visiblePair = (seed: string) =>
+      productSlots(buildWallSlots({ products, trails: [], seed }).slots)
+        .map((slot) => slot.product.key)
+        .sort();
 
-    expect(
-      slots.slice(0, 12).filter((slot) => slot.product.l1 === "home").length,
-    ).toBeLessThanOrEqual(6);
-    // The pins that fit still lead the wall — the window moves a pin, it never
-    // demotes it below an unpinned product of the same L1.
-    expect(slots[0]?.product.key).toBe("pin-0");
+    expect(visiblePair(SEED)).toHaveLength(2);
+    expect(visiblePair(SEED)).not.toEqual(visiblePair(OTHER_SEED));
   });
 
   it("reports a pin the per-brand cap refused instead of dropping it", () => {
