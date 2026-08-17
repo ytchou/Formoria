@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { load } from "cheerio";
 
 import { BUDGET } from "../budgets";
+import { requireWallOrSkip } from "../utils/wall-supply";
 
 test.describe("Homepage curated product deep", () => {
   test("homepage curated rail leads to the selected product on its brand page", async ({
@@ -12,11 +13,7 @@ test.describe("Homepage curated product deep", () => {
     const selectedProducts = page.getByRole("region", {
       name: "Formoria 選物",
     });
-    const railIsAbsent = (await selectedProducts.count()) === 0;
-    test.skip(
-      railIsAbsent,
-      "The homepage curated rail is hidden below its public supply gate.",
-    );
+    requireWallOrSkip((await selectedProducts.count()) === 0);
 
     await expect(selectedProducts).toBeVisible({
       timeout: BUDGET.SERVER_RENDER,
@@ -45,10 +42,7 @@ test.describe("Homepage curated product deep", () => {
     const selectedProducts = page.getByRole("region", {
       name: "Formoria 選物",
     });
-    test.skip(
-      (await selectedProducts.count()) === 0,
-      "The homepage product wall is hidden below its public supply gate.",
-    );
+    requireWallOrSkip((await selectedProducts.count()) === 0);
 
     await expect(
       selectedProducts.getByRole("heading", {
@@ -74,10 +68,7 @@ test.describe("Homepage curated product deep", () => {
     const selectedProducts = page.getByRole("region", {
       name: "Formoria 選物",
     });
-    test.skip(
-      (await selectedProducts.count()) === 0,
-      "The homepage product wall is hidden below its public supply gate.",
-    );
+    requireWallOrSkip((await selectedProducts.count()) === 0);
 
     const wallLinks = selectedProducts
       .getByRole("list", { name: "Formoria 選物", exact: true })
@@ -131,10 +122,7 @@ test.describe("Homepage curated product deep", () => {
           .some((heading) => $(heading).text().trim() === "Formoria 選物"),
       )
       .first();
-    test.skip(
-      selectedProducts.length === 0,
-      "The homepage product wall is hidden below its public supply gate.",
-    );
+    requireWallOrSkip(selectedProducts.length === 0);
 
     const productTiles = selectedProducts.find("li").filter((_, item) =>
       $(item)
