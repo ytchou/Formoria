@@ -19,6 +19,10 @@
 -- Every image_url is an existing public brand-images object: next/image only
 -- renders *.supabase.co (src/lib/images/allowed-image-hosts.ts), so a URL on a
 -- brand's own site would silently fall back to the placeholder tile.
+--
+-- Every wall_position below is deliberately null: pins sort ahead of the
+-- homepage wall's daily shuffle, and those slots belong to hand-authored
+-- products. This synthetic supply fills in behind them, never leads.
 
 with fixture(
   id, brand_id, key, name_zh, l1, official_url, image_url,
@@ -31,7 +35,7 @@ with fixture(
       'miniature-bread-case', '迷你麵包標本盒', 'crafts',
       'https://1cmhandmade.com',
       'https://xkcayngbttpxyibgzern.supabase.co/storage/v1/object/public/brand-images/submissions/be843530-20e2-44f8-a21c-413a9a66806b/92e670cb-84cf-4194-868d-c996370702e0.webp',
-      '黏土捏製的迷你麵包，收在可以直立擺放的透明盒裡，深度留給麵包的立體厚度。', 1, 1
+      '黏土捏製的迷你麵包，收在可以直立擺放的透明盒裡，深度留給麵包的立體厚度。', 1, null
     ),
     (
       '53000000-0000-4000-8000-000000000002'::uuid,
@@ -63,7 +67,7 @@ with fixture(
       'solid-wood-dining-set', '實木餐桌椅組', 'home',
       'https://1973home.myshopify.com',
       'https://xkcayngbttpxyibgzern.supabase.co/storage/v1/object/public/brand-images/submissions/5935ad14-8b78-4c7a-aae4-b0021e2d8256/38080c9c-8434-4756-8bc8-1de9077c4e29.webp',
-      '實木餐桌搭配同系列餐椅，桌面保留木紋，椅子可以單獨搬動。', 1, 2
+      '實木餐桌搭配同系列餐椅，桌面保留木紋，椅子可以單獨搬動。', 1, null
     ),
     (
       '53000000-0000-4000-8000-000000000006'::uuid,
@@ -95,7 +99,7 @@ with fixture(
       'wooden-stamp-set', '木頭印章組', 'stationery',
       'https://www.asteroidb610.com',
       'https://xkcayngbttpxyibgzern.supabase.co/storage/v1/object/public/brand-images/submissions/c4060da5-4e4a-4478-894e-8717dc05af98/73dd349b-3021-4c55-913b-21e53906d1e0.webp',
-      '木頭刻製的印章組，一組多款圖樣，章面尺寸適合蓋在手帳邊緣。', 1, 3
+      '木頭刻製的印章組，一組多款圖樣，章面尺寸適合蓋在手帳邊緣。', 1, null
     ),
     (
       '53000000-0000-4000-8000-000000000010'::uuid,
