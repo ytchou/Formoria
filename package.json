@@ -84,7 +84,7 @@
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.9",
     "@upstash/ratelimit": "^2.0.8",
-    "@upstash/redis": "^1.38.0",
+    "@upstash/redis": "^1.38.2",
     "adm-zip": "^0.6.0",
     "agentation": "^3.0.2",
     "cheerio": "^1.2.0",
