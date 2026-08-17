@@ -321,6 +321,39 @@ const MISSING_TABLE_CODE = "PGRST205";
 /** Observed from the staging REST read before this migration landed. */
 const MISSING_COLUMN_CODE = "42703";
 
+/** True when the error says the database schema is older than this code. */
+function isSchemaLag(error: unknown): boolean {
+  const code = (error as { code?: string }).code;
+  return code === MISSING_TABLE_CODE || code === MISSING_COLUMN_CODE;
+}
+
+/**
+ * A read that ran against a schema older than the code reading it.
+ *
+ * Railway builds the image BEFORE `deploy.preDeployCommand` applies migrations,
+ * so every `next build` prerender sees the previous schema. A caller that turns
+ * this read into a whole page zone must not receive `[]`: an empty array is
+ * indistinguishable from "nothing is published", so the zone is dropped from
+ * the static HTML, the route stays `●`, the build stays green, and nothing
+ * reaches Sentry. That is exactly how the homepage shipped with no product wall
+ * (DEV-1490). Callers that only garnish a page may still degrade to `[]`.
+ */
+export class CuratedProductSchemaLagError extends Error {
+  constructor(
+    readonly scope: string,
+    readonly cause: unknown,
+  ) {
+    const code = (cause as { code?: string }).code ?? "unknown";
+    const message = (cause as { message?: string }).message ?? "";
+    super(
+      `[${scope}] curated-product read hit a schema older than this deploy `
+        + `(${code}${message ? `: ${message}` : ""}). The migration for this `
+        + "column or table has not been applied to the target database yet.",
+    );
+    this.name = "CuratedProductSchemaLagError";
+  }
+}
+
 /**
  * Every publicly renderable curated product for one brand.
  *
@@ -355,8 +388,14 @@ export async function getPublishedCuratedProductsForBrand(
     // PGRST205 = table not in PostgREST schema cache (migration pending or
     // schema cache stale), matching saved-brands.ts. 42703 was observed from
     // staging when the existing table lacked the new highlight columns.
-    const code = (error as { code?: string }).code;
-    if (code === MISSING_TABLE_CODE || code === MISSING_COLUMN_CODE) return [];
+    // Degrading to "no curated section" is right here — this is one section of
+    // a page whose subject is the brand — but it is no longer silent.
+    if (isSchemaLag(error)) {
+      console.error(
+        new CuratedProductSchemaLagError("curatedProducts.brand", error).message,
+      );
+      return [];
+    }
     throw error;
   }
 
@@ -381,8 +420,9 @@ export async function getPublishedCuratedProductsForBrand(
  * after the database result is flattened through the same selection resolver as
  * the brand page.
  *
- * Missing curated-product tables are a normal deploy-before-migration window;
- * return an empty rail rather than failing the homepage render.
+ * A schema older than this code throws `CuratedProductSchemaLagError` rather
+ * than degrading to `[]` — see the error class for why the homepage cannot
+ * treat that window as "nothing published".
  *
  * THE PER-BRAND CAP IS NOT APPLIED HERE. This read has no seed and no clock, so
  * capping to two per brand before the composer sees the rows freezes WHICH two
@@ -418,8 +458,15 @@ export async function getPublishedCuratedProductsForHomepage(
   const { data, error } = await query;
 
   if (error) {
-    const code = (error as { code?: string }).code;
-    if (code === MISSING_TABLE_CODE || code === MISSING_COLUMN_CODE) return [];
+    // Schema lag THROWS here, unlike the brand read. The homepage turns this
+    // result into the entire selection zone, and the gate is a count, so `[]`
+    // renders exactly like "nothing is published yet" — a whole zone silently
+    // missing from a `●` page, cached for `revalidate`, with a green build and
+    // no Sentry event. The caller wraps this in `captureReadFailure`, so a
+    // throw reports the failure and marks the render degraded instead.
+    if (isSchemaLag(error)) {
+      throw new CuratedProductSchemaLagError("curatedProducts.homepage", error);
+    }
     throw error;
   }
 

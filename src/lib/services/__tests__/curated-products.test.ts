@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createCuratedProduct,
+  CuratedProductSchemaLagError,
   curatedProductPromoteBlockers,
   getCuratedProductWriteContext,
   getPublishedCuratedProductsForHomepage,
@@ -805,17 +806,35 @@ describe("getPublishedCuratedProductsForHomepage", () => {
     );
   });
 
-  it("returns empty on a missing curated-products table", async () => {
+  // A missing table or column means the schema is older than this code, which
+  // for the homepage is NOT the same as "nothing is published". `[]` would drop
+  // the whole selection zone from a `●` prerender and cache it for an hour with
+  // a green build and nothing in Sentry — how the wall went missing (DEV-1490).
+  it.each([
+    ["PGRST205", "Could not find the table in the schema cache"],
+    ["42703", "column curated_products.image_width does not exist"],
+  ])(
+    "throws rather than degrading to [] when the schema lags (%s)",
+    async (code, message) => {
+      const { client } = stubClient({ error: { code, message } });
+
+      await expect(
+        getPublishedCuratedProductsForHomepage(client),
+      ).rejects.toBeInstanceOf(CuratedProductSchemaLagError);
+    },
+  );
+
+  it("names the offending code in the schema-lag message", async () => {
     const { client } = stubClient({
       error: {
-        code: "PGRST205",
-        message: "Could not find the table in the schema cache",
+        code: "42703",
+        message: "column curated_products.image_width does not exist",
       },
     });
 
-    await expect(getPublishedCuratedProductsForHomepage(client)).resolves.toEqual(
-      [],
-    );
+    await expect(
+      getPublishedCuratedProductsForHomepage(client),
+    ).rejects.toThrow(/42703.*image_width/);
   });
 });
 
