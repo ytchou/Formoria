@@ -770,7 +770,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
     await expect(stockistRow.getByText(/人確認/)).toHaveCount(0);
   });
 
-  test("a physical location links through its address, not a store-info button", async ({
+  test("an addressed location links through its address, not a second outbound link", async ({
     page,
   }) => {
     await page.goto(`/brands/${seeded.slug}`, {
@@ -778,15 +778,20 @@ test.describe("Brand detail — public locations and retail channels", () => {
     });
     await openChannelGroup(page, "taipei");
 
-    // Removed 2026-08-17. The row carries `url: confirmedStoreUrl`, so this
-    // asserts the button is suppressed BY CHANNEL TYPE rather than absent for
-    // want of a URL — the Maps link on the address is the way through now.
+    // The row carries `url: confirmedStoreUrl` AND an address, so this asserts
+    // the outbound link is suppressed because the address already links
+    // through — not that it is absent for want of a URL. Asserted against the
+    // href, which is what the reader follows: a label-only assertion would go
+    // green on any copy change.
+    const stockistRow = page
+      .locator("[data-channel-row]")
+      .filter({ hasText: confirmedStoreName });
     await expect(
-      page.getByRole("link", { name: "查看店家資訊", exact: true }),
-    ).toHaveCount(0);
-    await expect(
-      page.getByRole("link", { name: confirmedStoreAddress, exact: true }),
+      stockistRow.getByRole("link", { name: confirmedStoreAddress, exact: true }),
     ).toHaveAttribute("href", /google\.com\/maps/);
+    await expect(
+      stockistRow.locator(`a[href="${confirmedStoreUrl}"]`),
+    ).toHaveCount(0);
   });
 
   test("anonymous confirm shows a sign-in prompt", async ({ anonPage }) => {

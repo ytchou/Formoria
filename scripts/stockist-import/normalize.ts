@@ -158,16 +158,30 @@ export function canonicalizeRegion(
   return { ok: false, reason: `unmapped foreign region: ${value}` }
 }
 
+/**
+ * A keyset, not an array, and that shape is load-bearing. `satisfies
+ * Record<ChannelLocationType, true>` makes a missing member a compile error, so
+ * adding a location type to the union breaks the build until this map is
+ * updated. An array with `satisfies readonly ChannelLocationType[]` would only
+ * check that every entry is valid, not that every member is present — a new
+ * type would compile clean and then be rejected row by row at import time with
+ * a generic reason, silently dropping stockists. The object also stops the
+ * per-call allocation the array version paid.
+ */
+const LOCATION_TYPES = {
+  stockist: true,
+  distributor_retailer: true,
+  direct_store: true,
+  department_store_counter: true,
+  showroom_studio: true,
+  shop_in_shop: true,
+  other_physical_retail: true,
+} satisfies Record<ChannelLocationType, true>
+
 function isLocationType(value: string): value is ChannelLocationType {
-  return [
-    'stockist',
-    'distributor_retailer',
-    'direct_store',
-    'department_store_counter',
-    'showroom_studio',
-    'shop_in_shop',
-    'other_physical_retail',
-  ].includes(value as ChannelLocationType)
+  // `Object.hasOwn`, not `in`: `in` walks the prototype, so a CSV row saying
+  // `constructor` or `toString` would type-narrow to ChannelLocationType.
+  return Object.hasOwn(LOCATION_TYPES, value)
 }
 
 function isChannelType(value: string): value is ChannelType {

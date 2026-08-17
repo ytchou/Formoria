@@ -170,7 +170,7 @@ export async function LandingZones({
           and the hero photograph above owns the preload.
         */}
         <section
-          data-landing-zone="seam"
+          data-landing-zone="manifesto"
           aria-labelledby="landing-manifesto"
           className="relative overflow-hidden py-12 md:py-16"
         >
@@ -181,7 +181,19 @@ export async function LandingZones({
             sizes="100vw"
             className="object-cover"
           />
-          <div className="absolute inset-0 bg-background/70" aria-hidden="true" />
+          {/* CONTRAST FLOOR — do not weaken either half of this.
+              `manifesto-bg.webp` measures mean 128.8/255 greyscale with a 10th
+              percentile of 53/255, so the darkest regions are what body text
+              actually sits on. Over the previous `bg-background/70` scrim the
+              muted foreground token composited to 3.83:1 on average and 3.04:1
+              in those dark regions — under the 4.5:1 AA floor for body text.
+              Two changes together clear it: the scrim goes to /85 (the paper
+              background over p10 composites to ~223/255) and the body copy
+              leaves the muted token for the full-strength foreground, landing at
+              ~13:1 in the p10 region and ~14:1 on the mean. The headline was
+              already `text-foreground` and gains the same margin. Anything below
+              /85, or any return to `type-body-muted` here, re-breaks AA. */}
+          <div className="absolute inset-0 bg-background/85" aria-hidden="true" />
           <div className="relative page-shell text-center">
             <h2
               id="landing-manifesto"
@@ -189,10 +201,10 @@ export async function LandingZones({
             >
               {t("manifesto.headline")}
             </h2>
-            <p className="mx-auto mt-3 max-w-3xl type-body-muted">
+            <p className="mx-auto mt-3 max-w-3xl type-body">
               {t("manifesto.body1")}
             </p>
-            <p className="mx-auto mt-3 max-w-3xl type-body-muted">
+            <p className="mx-auto mt-3 max-w-3xl type-body">
               {t("manifesto.body2")}
             </p>
             <Link

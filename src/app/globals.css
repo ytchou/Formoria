@@ -239,15 +239,43 @@
  * At 1920px this leaves 160px each side. The narrower `max-w-6xl` (72rem) that
  * several of these sections used to carry left 384px, which made every band
  * look inset from the wall.
+ *
+ * It COMPOSES `page-gutter` rather than restating it. The two declarations were
+ * byte-identical copies twenty lines apart, so a change to the gutter silently
+ * applied to every non-landing route and to nothing on the landing page.
  */
 @utility page-shell {
+  @apply page-gutter;
+
   margin-inline: auto;
   max-width: 100rem;
-  padding-inline: calc(var(--spacing) * 6);
+}
 
-  @media (width >= 48rem) {
-    padding-inline: calc(var(--spacing) * 10);
-  }
+/*
+ * THE FOOTER FOLLOWS THE PAGE IT SITS UNDER.
+ *
+ * The footer is rendered by the site layout, so it cannot know its route — and
+ * a `usePathname()` check there would turn a static server component into a
+ * client one to answer a question that is purely presentational. Instead the
+ * measure is a custom property: 80rem by default, which is the `max-w-screen-xl`
+ * every non-landing `<main>` carries, and 100rem when the page below declares
+ * itself wide with `data-page-measure="wide"` (the landing page does).
+ *
+ * `:has()` reads DOWN the tree, which is what makes a child able to set a value
+ * its PARENT's other subtree reads. If `:has()` is unsupported the rule simply
+ * never matches and the footer keeps the 80rem default — the pre-existing
+ * alignment for every route but one, never a broken layout.
+ *
+ * The sticky header is deliberately NOT wired to this: it stays at 80rem on
+ * every route, because a header that changes width between routes reads as the
+ * page jumping.
+ */
+:root {
+  --page-measure: 80rem;
+}
+
+body:has([data-page-measure="wide"]) {
+  --page-measure: 100rem;
 }
 
 @utility inline-link {

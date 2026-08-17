@@ -1,3 +1,16 @@
+-- DEPLOY ORDER: ship the application code FIRST, then apply this migration.
+--
+-- Railway auto-deploys on push but Supabase migrations are applied by hand, so
+-- code and schema move at different times. The pre-change CHANNEL_READ_SELECT
+-- (src/lib/services/brand-channels.ts) and scripts/story-facts.ts both name
+-- `category_label`. Applying this migration before the deploy lands makes
+-- Postgres return 42703 on every brand-detail channel read until it does; the
+-- reverse order is safe because the new code never names the column.
+--
+-- Nothing catches this at build time: the Supabase service client is created
+-- without the <Database> generic, so tsc and ESLint accept a .select() string
+-- naming a column that no longer exists. The failure surfaces only at runtime.
+
 begin;
 
 create or replace function public.upsert_enriched_brand_channels(

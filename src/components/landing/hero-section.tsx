@@ -30,13 +30,26 @@ export default async function HeroSection() {
         `priority` at all, because two competing `fetchpriority=high` requests
         above the fold is the regression that pairing exists to prevent.
 
+        WebP, not the original PNG. The source was a 1.78 MB PNG for a
+        photograph — `next/image` re-encodes on request, but the optimizer cache
+        sits on Railway's ephemeral disk (see next.config.ts), so every cold
+        start decoded 1.78 MB in front of the page's LCP and the file shipped in
+        the Docker image besides. Re-encoded at q90, it is 97 KB.
+
         The scrim is not decoration. `object-right` keeps the photograph's
         subject clear of the centred column, and the paper wash over it is what
-        holds the headline at AA — measured against the darkest region of the
+        holds the prose at AA — measured against the darkest region of the
         image, not its average.
+
+        CONTRAST FLOOR — do not weaken this, and do not reintroduce a per-
+        breakpoint value. It used to thin from /80 to /70 at `md`, which made
+        the scrim WEAKEST exactly where the hero is largest: the image's 10th
+        percentile put the muted foreground token at ~4.19:1 there, under the
+        4.5:1 AA floor. One value at /85 for every breakpoint, plus prose on the
+        full-strength foreground token below, clears it with margin.
       */}
       <Image
-        src="/images/hero-bg.png"
+        src="/images/hero-bg.webp"
         alt=""
         fill
         priority
@@ -45,7 +58,7 @@ export default async function HeroSection() {
       />
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-background/80 md:bg-background/70"
+        className="absolute inset-0 bg-background/85"
       />
       {/* `page-shell` is the landing page's one shared measure — the same
           declaration the product wall and every band below use, so the whole
@@ -64,7 +77,12 @@ export default async function HeroSection() {
           {/* `max-w-xl` (576px) is the plan's ~560px measure: zh-TW stays one
               line, and the longer EN line wraps to two — never the wide centred
               paragraph DESIGN.md forbids. */}
-          <p className="mt-3 max-w-xl type-page-subtitle">{t('subheadline')}</p>
+          {/* `text-foreground` overrides the muted colour `type-page-subtitle`
+              carries — see the contrast note on the scrim above. The type scale
+              is unchanged; only the colour token moves. */}
+          <p className="mt-3 max-w-xl type-page-subtitle text-foreground">
+            {t('subheadline')}
+          </p>
 
           {/* One control, two intents: type a query, or accept the invitation to
               browse. The field redirects to /brands?search=, which is the exact
@@ -111,7 +129,12 @@ export default async function HeroSection() {
           className="mx-auto mt-8 hidden w-full max-w-[1120px] flex-col gap-3 md:flex"
           aria-label={t('statsCategories')}
         >
-          <p className="text-center type-metadata">{t('categoriesEyebrow')}</p>
+          {/* 13px, so it is body text for AA purposes, not large text — the
+              muted token in `type-metadata` does not clear 4.5:1 over the
+              photograph. Same override as the subheadline. */}
+          <p className="text-center type-metadata text-foreground">
+            {t('categoriesEyebrow')}
+          </p>
           <div className="flex flex-wrap justify-center gap-2">
             <HeroCategoryChips categories={categories} />
           </div>
@@ -126,6 +149,20 @@ export default async function HeroSection() {
           <HeroCategoryChips categories={categories} />
         </nav>
       </div>
+
+      {/* The hero's bottom edge, published as an element so the sticky header
+          can observe it. `main-nav.tsx` reveals its search field once this
+          leaves the viewport, which is the only way that reveal can track a
+          hero whose height moves with the copy, the locale (the twelve chips
+          are one row in zh-TW and two in EN) and the font. A hardcoded pixel
+          threshold stood here before and was coupled to none of them.
+          Zero-height and `aria-hidden`, so it is invisible to layout and to
+          assistive technology alike. */}
+      <div
+        data-hero-sentinel
+        aria-hidden="true"
+        className="absolute inset-x-0 bottom-0 h-px"
+      />
     </section>
   )
 }

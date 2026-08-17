@@ -168,17 +168,16 @@ describe("BrandChannelList", () => {
 
   it("renders an evidence-backed stockist as a full row", () => {
     const address = "臺北市大同區迪化街一段94號";
-    const sourceUrl = "https://www.chatzutang.com/pages/stores";
     const { container } = renderList({
       confirmed: [
         makeChannel(1, {
           name: "茶籽堂大稻埕門市",
           address,
           source: "import",
-          sourceUrl,
           fetchedAt: "2026-08-11T00:00:00.000Z",
           status: "confirmed",
           confirmedBy: "evidence",
+          evidenceSource: "official_website",
         }),
       ],
     });
@@ -193,6 +192,96 @@ describe("BrandChannelList", () => {
       screen.queryByRole("button", { name: /我確認/ }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText(/人確認/)).not.toBeInTheDocument();
+  });
+
+  // 來自官網 is a trust claim about WHERE the fact came from, so it may only
+  // appear when the evidence really is the brand's own site.
+  it("labels official-website evidence 來自官網 and other evidence 來源佐證", () => {
+    renderList({
+      confirmed: [
+        makeChannel(1, {
+          name: "官網列出的門市",
+          source: "import",
+          status: "confirmed",
+          confirmedBy: "evidence",
+          evidenceSource: "official_website",
+        }),
+        makeChannel(2, {
+          name: "其他來源的門市",
+          source: "enriched",
+          status: "confirmed",
+          confirmedBy: "evidence",
+          evidenceSource: "other",
+        }),
+      ],
+    });
+
+    expect(screen.getByText("來自官網")).toBeInTheDocument();
+    expect(screen.getByText("來源佐證")).toBeInTheDocument();
+  });
+
+  it("shows neither evidence label when the row has no evidence", () => {
+    renderList({
+      confirmed: [
+        makeChannel(1, {
+          name: "品牌自己確認的門市",
+          ownerStatus: "confirmed",
+          status: "confirmed",
+          confirmedBy: "owner",
+        }),
+      ],
+    });
+
+    expect(screen.getByText("品牌確認")).toBeInTheDocument();
+    expect(screen.queryByText("來自官網")).not.toBeInTheDocument();
+    expect(screen.queryByText("來源佐證")).not.toBeInTheDocument();
+  });
+
+  // 14 rows in content/stockists/*.csv are offline with a url and no address.
+  // Gating the outbound link on channelType left them with no way through.
+  it("falls back to the outbound link when an offline row has no address", () => {
+    renderList({
+      confirmed: [
+        makeChannel(1, {
+          name: "穿山甲裝備門市",
+          address: null,
+          url: "https://pngl.com.tw/",
+          source: "import",
+          status: "confirmed",
+          confirmedBy: "evidence",
+          evidenceSource: "official_website",
+        }),
+      ],
+    });
+
+    expect(
+      screen.getByRole("link", { name: /前往官方頁面/ }),
+    ).toHaveAttribute("href", "https://pngl.com.tw/");
+  });
+
+  it("keeps the Maps link as the only way through when there is an address", () => {
+    const address = "臺北市大同區迪化街一段94號";
+    renderList({
+      confirmed: [
+        makeChannel(1, {
+          name: "有地址的門市",
+          address,
+          url: "https://example.com/store",
+          source: "import",
+          status: "confirmed",
+          confirmedBy: "evidence",
+          evidenceSource: "official_website",
+        }),
+      ],
+    });
+
+    expect(screen.getByRole("link", { name: address })).toHaveAttribute(
+      "href",
+      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
+    );
+    expect(
+      screen.queryByRole("link", { name: /前往官方頁面/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders addressed and addressless physical retailers as one chip group", () => {

@@ -39,7 +39,7 @@ describe('stockist normalization', () => {
     })
   })
 
-  it('accepts every supported location type', () => {
+  it('accepts every supported location type and ignores a CSV category column', () => {
     const types = [
       'stockist',
       'distributor_retailer',
@@ -49,16 +49,28 @@ describe('stockist normalization', () => {
       'shop_in_shop',
       'other_physical_retail',
     ] as const
-    const labels = types.map((locationType) => {
+    const locationTypes = types.map((locationType) => {
       const result = normalizeStockistRow(
         row({ location_type: locationType }),
       )
       return result.ok ? result.row.candidate.locationType : result.reason
     })
 
-    expect(labels).toEqual([
-      ...types,
-    ])
+    expect(locationTypes).toEqual([...types])
+
+    // The dropped `category_label` column is the invariant worth guarding: a
+    // stray category supplied by a CSV must never reach the candidate, because
+    // a channel's category is the brand's, derived server-side, and not
+    // something an import file gets to assert.
+    const withStrayCategory = normalizeStockistRow({
+      ...row(),
+      category_label: 'kids-pets',
+    } as StockistCsvRow)
+
+    expect(withStrayCategory.ok).toBe(true)
+    expect(
+      JSON.stringify(withStrayCategory.ok ? withStrayCategory.row : {}),
+    ).not.toContain('kids-pets')
   })
 
   it('resolves countries from region prefixes and rejects an unknown foreign region', () => {

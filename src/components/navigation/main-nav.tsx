@@ -40,20 +40,61 @@ export function MainNav({ categories }: MainNavProps) {
   // viewport. Every other route keeps them; `/brands` in particular relies on
   // the tab row as its primary control surface.
   const isHome = pathname === '/'
-  const [scrolledPastHero, setScrolledPastHero] = useState(false)
+  // Starts `true` on every render path, server and client alike: the hero IS on
+  // screen at the top of `/`, so the header search starts hidden with no
+  // first-paint flash and no hydration mismatch. A browser global read in the
+  // initialiser would resolve differently on the two sides and cause one.
+  const [heroVisible, setHeroVisible] = useState(true)
   useEffect(() => {
     if (!isHome) return
-    // Fixed 420px threshold approximates the hero's height; switch to an
-    // IntersectionObserver on a hero sentinel if the hero's height becomes
-    // variable. Search must never be unreachable, so it fades back in once the
-    // hero has scrolled away.
-    const onScroll = () => setScrolledPastHero(window.scrollY > 420)
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
+    // THE SEARCH MUST NEVER BE UNREACHABLE. Every branch below that cannot
+    // observe the hero resolves to "show it" — a hidden search with no way back
+    // is a dead end, an early-revealed one is only a duplicated control.
+    //
+    // The fallback is scheduled rather than called inline because a synchronous
+    // setState in an effect body trips react-hooks/set-state-in-effect. One
+    // frame of delay is invisible on a path that only runs when the observer
+    // cannot work at all.
+    const revealSearch = () => setHeroVisible(false)
+    if (typeof IntersectionObserver === 'undefined') {
+      const frame = requestAnimationFrame(revealSearch)
+      return () => cancelAnimationFrame(frame)
+    }
+
+    // The hero publishes its bottom edge as `[data-hero-sentinel]`
+    // (hero-section.tsx). Observing it replaces a hardcoded `scrollY > 420`
+    // that stood in for the hero's height while being coupled to nothing: the
+    // hero grows with the copy, the locale and the font, so the threshold was
+    // wrong on the EN homepage the day it was written.
+    //
+    // It also removes a mount-time latch. The old handler read `window.scrollY`
+    // eagerly, so a client-side navigation to `/` from a deep scroll position
+    // revealed the search before the router had reset the scroll. An observer
+    // has no such reading: its first callback reports where the sentinel
+    // actually is once the new page has laid out.
+    const sentinel = document.querySelector('[data-hero-sentinel]')
+    if (!sentinel) {
+      const frame = requestAnimationFrame(revealSearch)
+      return () => cancelAnimationFrame(frame)
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // `.at(-1)` rather than `[0]`: a single observation can deliver several
+        // entries, and the last is the current state.
+        const entry = entries.at(-1)
+        if (!entry) return
+        setHeroVisible(entry.isIntersecting)
+      },
+      // The header is `h-14`, so the sentinel is "gone" once it slides under
+      // the sticky bar rather than when it leaves the viewport underneath it.
+      { rootMargin: '-56px 0px 0px 0px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
   }, [isHome])
 
-  const showNavSearch = !isHome || scrolledPastHero
+  const showNavSearch = !isHome || !heroVisible
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background">
@@ -71,13 +112,22 @@ export function MainNav({ categories }: MainNavProps) {
             is unconditional so it keeps holding the `flex-1` gap between the
             logo and the actions; only its contents come and go. */}
         <div className="hidden flex-1 md:block">
-          {showNavSearch ? (
-            // `animate-in fade-in-0` is neutralised by the global
-            // prefers-reduced-motion rule in globals.css, so no extra guard here.
-            <div className="animate-in fade-in-0 duration-200">
-              <NavSearchInput />
-            </div>
-          ) : null}
+          {/* HIDDEN, NEVER UNMOUNTED. Unmounting threw away an in-progress
+              query the moment the reader scrolled back up to the hero, and the
+              field came back empty. `hidden` is `display: none`, so while it is
+              concealed the input is neither focusable nor announced — a
+              visually-hidden-but-focusable field here would be a tab stop
+              pointing at nothing on screen.
+
+              `animate-in fade-in-0` is neutralised by the global
+              prefers-reduced-motion rule in globals.css, so no extra guard here. */}
+          <div
+            className={
+              showNavSearch ? 'animate-in fade-in-0 duration-200' : 'hidden'
+            }
+          >
+            <NavSearchInput />
+          </div>
         </div>
 
         {/* Right actions (desktop). A `nav` rather than a `div`: NavCategoryTabs
@@ -123,8 +173,13 @@ export function MainNav({ categories }: MainNavProps) {
           <AccountMenu />
         </nav>
 
-        {/* Mobile hamburger */}
-        <div className="ml-auto md:hidden">
+        {/* Mobile hamburger. A `nav` rather than a `div`, for the same reason
+            the desktop actions are one: the actions element is `md:flex`, so it
+            is `display: none` below 768px and exposes no landmark there, and
+            NavCategoryTabs — the header's other navigation — is suppressed on
+            `/` entirely. Without this the homepage banner had no navigation
+            landmark at all on a phone, only a button. */}
+        <nav aria-label={t('navigation')} className="ml-auto md:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetPrimitive.Trigger
               render={
@@ -203,7 +258,7 @@ export function MainNav({ categories }: MainNavProps) {
               </div>
             </SheetContent>
           </Sheet>
-        </div>
+        </nav>
       </div>
 
       {/* Row 2: Category tabs — suppressed on `/`, where the hero renders all

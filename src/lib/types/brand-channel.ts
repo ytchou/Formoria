@@ -1,5 +1,11 @@
 type ChannelStatus = 'confirmed' | 'unconfirmed'
 type ChannelConfirmedBy = 'owner' | 'community' | 'evidence'
+/**
+ * Which kind of evidence backs a `confirmedBy: 'evidence'` channel. The public
+ * label differs by kind, so this must never be widened to a boolean: only
+ * `official_website` may claim the brand's own site as the source.
+ */
+export type ChannelEvidenceSource = 'official_website' | 'other'
 export type ChannelSource =
   'backfill' | 'enriched' | 'community' | 'owner' | 'admin' | 'import'
 export type ChannelType = 'online' | 'offline'
@@ -21,7 +27,8 @@ export interface BrandChannel {
   regionLabel: string | null
   address: string | null
   url: string | null
-  sourceUrl?: string | null
+  // `sourceUrl` is deliberately absent: it is a server-side input used to derive
+  // `confirmedBy` and `evidenceSource`, and no client surface renders it.
   fetchedAt?: string | null
   locationType?: ChannelLocationType | null
   country?: string | null
@@ -30,6 +37,7 @@ export interface BrandChannel {
   confirmationCount: number
   status: ChannelStatus
   confirmedBy?: ChannelConfirmedBy
+  evidenceSource?: ChannelEvidenceSource
   hasCurrentUserConfirmed?: boolean
 }
 

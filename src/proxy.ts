@@ -461,17 +461,24 @@ export async function proxy(request: NextRequest) {
   // dev tooling (the Next.js devtools annotation panel among it) with an error
   // that reads like a deployment problem.
   //
-  // The discriminator is `development` specifically, not `!== "production"`:
-  // only `next dev` sets it, so the lockdown stays armed under `test` (where
-  // middleware-staging.test.ts asserts it) and under `production` (deployed
-  // staging). Widening this to `!== "production"` would disarm the guard in the
-  // very suite that proves it works.
+  // The exemption keys on DEPLOYMENT, not on build mode. RAILWAY_GIT_COMMIT_SHA
+  // is injected by the container that serves deployed staging and is absent on
+  // a laptop, so a deployed container stays locked down even if something sets
+  // NODE_ENV=development (a debug build, a container misconfiguration).
+  // NODE_ENV alone would be a convention, not a constraint, and getting it
+  // wrong opens every unauthenticated mutation on deployed staging.
+  //
+  // NODE_ENV still narrows the local case to `next dev`, which is the only
+  // runner that sets `development`: the lockdown therefore stays armed under
+  // `test` (where middleware-staging.test.ts asserts it) and under
+  // `production`.
   //
   // Deliberately narrower than relaxing `isStagingEnvironment()`, which must
   // stay true here — lib/email/send.ts keys outbound email suppression off it,
   // and flipping it would make a laptop pointed at staging send real mail.
+  const isDeployedRuntime = Boolean(process.env.RAILWAY_GIT_COMMIT_SHA?.trim());
   const enforceStagingLockdown =
-    staging && process.env.NODE_ENV !== "development";
+    staging && (isDeployedRuntime || process.env.NODE_ENV !== "development");
   const initiallyAllowed = isAllowedStagingRequest(request.method, pathname);
   const mayAuthenticateMutation = ["POST", "PUT", "PATCH", "DELETE"].includes(
     request.method,

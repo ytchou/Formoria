@@ -105,7 +105,45 @@ describe("groupChannelsForDisplay", () => {
     expect(result.confirmed.at(0)).toMatchObject({
       status: "confirmed",
       confirmedBy: "evidence",
+      evidenceSource: "official_website",
     });
+  });
+
+  // Only the curated import guarantees the evidence is the brand's own site, so
+  // every other evidence-backed source must not claim it.
+  it("marks non-import evidence as a generic source, not the official website", () => {
+    const result = groupChannelsForDisplay([
+      channelRow({
+        source: "enriched",
+        sourceUrl: "https://www.example-directory.tw/shops/1",
+      }),
+    ]);
+
+    expect(result.confirmed.at(0)).toMatchObject({
+      status: "confirmed",
+      confirmedBy: "evidence",
+      evidenceSource: "other",
+    });
+  });
+
+  it("leaves evidenceSource unset when nothing backs the row", () => {
+    const result = groupChannelsForDisplay([
+      channelRow({ ownerStatus: "confirmed", sourceUrl: null }),
+    ]);
+
+    expect(result.confirmed.at(0)).toMatchObject({ confirmedBy: "owner" });
+    expect(result.confirmed.at(0)?.evidenceSource).toBeUndefined();
+  });
+
+  it("does not send the evidence source URL to the client", () => {
+    const result = groupChannelsForDisplay([
+      channelRow({
+        source: "import",
+        sourceUrl: "https://hanchor.com.tw/pages/stockists",
+      }),
+    ]);
+
+    expect(result.confirmed.at(0)).not.toHaveProperty("sourceUrl");
   });
 
   it("keeps source evidence authoritative after community confirmations", () => {

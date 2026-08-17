@@ -17,11 +17,11 @@ export default async function OgImage({
 }) {
   const { locale } = await params;
   // This card is the TRUST card — the route is `/og/trust`. It reads
-  // `landing.trustSeam.line` — the listings-vs-selections commitment — not
-  // Those were the same string only while the trust seam had replaced the
-  // manifesto band on the homepage; the band came back on 2026-08-17 and
+  // `landing.trustSeam.line`, the listings-vs-selections commitment, and NOT
   // `manifesto.headline`, which reverted to the positioning line when the
-  // band came back. A positioning line is not a trust commitment.
+  // manifesto band came back on 2026-08-17. Those two keys held the same string
+  // only while the trust seam had replaced that band on the homepage. A
+  // positioning line is not a trust commitment.
   const fallbackTagline =
     locale === "en"
       ? en.landing.trustSeam.line

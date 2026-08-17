@@ -61,10 +61,24 @@ export const WALL_LINE_SIZE_DESKTOP = 4
  * useful knob is "how many tiles' worth of width", and the break elements below
  * decide the actual count.
  */
+/**
+ * The row gap is carried by the BREAK ELEMENTS from `sm` up, not by the list.
+ *
+ * A `basis-full` break occupies a flex line of its own, so with a row-gap on
+ * the list every pair of tile lines was separated by TWO gaps — 32px at `lg`
+ * where the design calls for 16. Setting the row gap to zero and giving the
+ * break a height of exactly one gap makes the spacing single again, and puts
+ * the number in one place. Phones keep the list's row gap: they render no
+ * breaks (one tile per line is the basis there), so nothing else would space
+ * them.
+ */
 const WALL_LIST_CLASS = cn(
-  'flex flex-wrap gap-6 sm:gap-4',
+  'flex flex-wrap gap-x-6 gap-y-6 sm:gap-x-4 sm:gap-y-0',
   'sm:[--wall-line-h:200px] lg:[--wall-line-h:260px]',
 )
+
+/** One row gap's worth of height, matching `sm:gap-x-4`. See WALL_LIST_CLASS. */
+const WALL_LINE_BREAK_CLASS = 'h-0 basis-full sm:h-4'
 
 /**
  * A zero-height full-width flex item forces the next tile onto a new line.
@@ -78,8 +92,43 @@ const WALL_LIST_CLASS = cn(
  */
 function WallLineBreak({ className }: { className: string }) {
   return (
-    <li role="presentation" aria-hidden="true" className={cn('h-0 basis-full', className)} />
+    <li
+      role="presentation"
+      aria-hidden="true"
+      className={cn(WALL_LINE_BREAK_CLASS, className)}
+    />
   )
+}
+
+/**
+ * Trims the wall to a whole number of lines WITHOUT dropping a trail tile.
+ *
+ * The last line has to be full: flex stretches a lone trailing tile across the
+ * entire measure, which is the one pathology justified rows have. But a plain
+ * tail slice took whatever was there — and with a 16-product cap and a trail
+ * every 8 slots the composition ends ON a trail (slot 17 of 18), so the slice
+ * deleted it. `buildWallSlots` had already counted that trail as placed, so it
+ * was absent from `leftoverTrails` too and rendered nowhere on the page.
+ *
+ * So the overflow is taken from the tail's PRODUCTS instead, scanning
+ * backwards: products are interchangeable here and the wall is capped well
+ * below supply, while a trail has exactly one place to be. If the tail somehow
+ * holds too few products to reach a whole line (no real cadence produces this),
+ * nothing is dropped at all — a stretched last line is a cosmetic flaw, a
+ * vanished trail is lost content.
+ */
+function trimToWholeLines(slots: WallSlot[], lineSize: number): WallSlot[] {
+  if (slots.length < lineSize) return slots
+  const overflow = slots.length % lineSize
+  if (overflow === 0) return slots
+
+  const dropped = new Set<number>()
+  for (let index = slots.length - 1; index >= 0 && dropped.size < overflow; index -= 1) {
+    if (slots[index]?.kind === 'product') dropped.add(index)
+  }
+  if (dropped.size < overflow) return slots
+
+  return slots.filter((_, index) => !dropped.has(index))
 }
 
 export type ProductWallLabels = {
@@ -108,15 +157,11 @@ export function ProductWall({
   labels: ProductWallLabels
 }) {
   // Trimmed to a whole number of desktop lines, so the LAST line is full too.
-  // Without this a wall of 33 slots ends on a single tile, which flex then
-  // stretches across the entire measure — the one pathology justified rows
-  // have. A multiple of four is also a multiple of the tablet line size, so one
-  // trim serves both breakpoints. Below one full line nothing is dropped.
+  // A multiple of four is also a multiple of the tablet line size, so one trim
+  // serves both breakpoints. Trail tiles survive the trim — see
+  // `trimToWholeLines`.
   const lineSize = WALL_LINE_SIZE_DESKTOP
-  const visibleSlots =
-    slots.length >= lineSize
-      ? slots.slice(0, slots.length - (slots.length % lineSize))
-      : slots
+  const visibleSlots = trimToWholeLines(slots, lineSize)
   const productCount = visibleSlots.filter((slot) => slot.kind === 'product').length
 
   return (
@@ -147,20 +192,27 @@ export function ProductWall({
             const cappedClass =
               index >= WALL_MOBILE_VISIBLE_COUNT ? CAPPED_TILE_CLASS : undefined
             const position = index + 1
+            // Never after the LAST tile. `visibleSlots.length` is a multiple of
+            // four after the trim, so the desktop test is true for the final
+            // tile too — and that break added an empty flex line plus its own
+            // height below the wall.
+            const isLastTile = position === visibleSlots.length
             // A break after every second tile, shown only while the line size
             // IS two; a break after every fourth, shown from `lg` where it is
             // four. Phones never break — one tile per line is the basis there.
+            //
+            // No `cappedClass` here: the phone cap only ever hides below `sm`,
+            // where every break is already unconditionally hidden, so the class
+            // was inert and implied a per-breakpoint reveal that cannot happen.
+            const lineBreakClass =
+              position % WALL_LINE_SIZE_DESKTOP === 0
+                ? 'hidden sm:block'
+                : position % WALL_LINE_SIZE_TABLET === 0
+                  ? 'hidden sm:block lg:hidden'
+                  : null
             const lineBreak =
-              position % WALL_LINE_SIZE_DESKTOP === 0 ? (
-                <WallLineBreak
-                  key={`break-${index}`}
-                  className={cn('hidden sm:block', cappedClass)}
-                />
-              ) : position % WALL_LINE_SIZE_TABLET === 0 ? (
-                <WallLineBreak
-                  key={`break-${index}`}
-                  className={cn('hidden sm:block lg:hidden', cappedClass)}
-                />
+              lineBreakClass && !isLastTile ? (
+                <WallLineBreak key={`break-${index}`} className={lineBreakClass} />
               ) : null
 
             const tile = slot.kind === 'trail' ? (

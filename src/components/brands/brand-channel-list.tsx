@@ -136,9 +136,20 @@ function ChannelRow({
   const mapsHref = channel.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(channel.address)}`
     : null;
+  // Only a rendered Maps link counts as a way through: an online row with a
+  // head-office address builds a mapsHref it never prints.
+  const showsMapsLink = region !== null && mapsHref !== null;
+  // The href itself rather than a boolean beside it: `channel.url` is
+  // `string | null`, and a separate flag proves nothing to the compiler at the
+  // point of use — the anchor below needs the narrowing, not the answer.
+  const outboundHref = showsMapsLink ? null : channel.url;
   const provenance =
     channel.confirmedBy ??
     (channel.ownerStatus === "confirmed" ? "owner" : "community");
+  const provenanceKey =
+    provenance === "evidence" && channel.evidenceSource !== "official_website"
+      ? "evidenceOther"
+      : provenance;
   const isConfirmed = channel.status === "confirmed";
 
   return (
@@ -192,22 +203,22 @@ function ChannelRow({
       <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
         {isConfirmed ? (
           <Badge variant="success">
-            {t(`channels.provenance.${provenance}`)}
+            {t(`channels.provenance.${provenanceKey}`)}
           </Badge>
         ) : (
           <span className="type-metadata whitespace-nowrap">
             {t("channels.unconfirmed.progress", { count, threshold })}
           </span>
         )}
-        {/* ONLINE only. The store-info button on a physical location was
-            removed: the address beneath the name is already a Google Maps link,
-            which is the action a reader actually wants from a stockist row, and
-            the button sent them to a second page saying the same thing. An
-            online channel has no address, so its link is the only way through
-            and it stays. */}
-        {isOnline && channel.url ? (
+        {/* Exactly one way through per channel. When the address renders as a
+            Google Maps link that IS the way through, so the outbound button
+            would send the reader to a second page saying the same thing. When
+            there is no rendered address — every online row, and an offline row
+            whose address is unknown — the outbound link is the only way
+            through and it stays. */}
+        {outboundHref !== null ? (
           <a
-            href={channel.url}
+            href={outboundHref}
             target="_blank"
             rel="noopener noreferrer"
             className={buttonVariants({
@@ -302,6 +313,10 @@ function ChannelChip({
   const mapsHref = channel.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(channel.address)}`
     : null;
+  // Same rule as the row: the outbound icon is a fallback, not a duplicate.
+  const showsMapsLink = region !== null && mapsHref !== null;
+  // Held as the href, not as a boolean — see the row above.
+  const outboundHref = showsMapsLink ? null : channel.url;
 
   return (
     <li
@@ -336,13 +351,13 @@ function ChannelChip({
           )
         </span>
       ) : null}
-      {/* ONLINE only, matching the row. A physical location reaches its
-          destination through the Maps link on its region above; leaving the
-          icon here would have kept the store-info link the row just lost, in a
-          smaller and less obvious control. */}
-      {isOnline && channel.url ? (
+      {/* A physical location with a printed region reaches its destination
+          through the Maps link above, so the icon would duplicate it. Without
+          that link — an online chip, or a chip whose region is the chain
+          sentinel or unknown — this icon is the only way through. */}
+      {outboundHref !== null ? (
         <a
-          href={channel.url}
+          href={outboundHref}
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`${channel.name} ${t("channels.confirmed.officialPageLink")}`}

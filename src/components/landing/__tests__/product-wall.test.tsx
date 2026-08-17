@@ -5,7 +5,12 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { trackViewItemList } from "@/lib/analytics";
-import type { WallSlot } from "@/lib/curated-products/home-wall";
+import {
+  buildWallSlots,
+  MAX_HOME_WALL_PRODUCTS,
+  type WallSlot,
+  type WallTrailSlot,
+} from "@/lib/curated-products/home-wall";
 import type { HomepageCuratedProduct } from "@/lib/services/curated-products";
 import type { TrailEntry } from "@/lib/services/trails";
 import { WALL_RATIOS } from "@/lib/curated-products/wall-ratio";
@@ -168,11 +173,14 @@ function buildProduct(index: number): HomepageCuratedProduct {
   };
 }
 
-function buildTrail(slug = "small-space-reading-corner"): TrailEntry {
+function buildTrail(
+  slug = "small-space-reading-corner",
+  title = "A reading corner for a small flat",
+): TrailEntry {
   return {
     slug,
     frontmatter: {
-      title: "A reading corner for a small flat",
+      title,
       slug,
       tags: [],
       locale: "en",
@@ -282,12 +290,22 @@ describe("ProductWall", () => {
     const breaks = Array.from(
       container.querySelectorAll<HTMLLIElement>("li[role='presentation']"),
     );
-    // Two tablet-only breaks (after tiles 2 and 6) and two shared breaks
-    // (after 4 and 8) — the shared ones are what make the line four wide at lg.
-    expect(breaks).toHaveLength(4);
+    // Two tablet-only breaks (after tiles 2 and 6) and ONE shared break (after
+    // 4) — the shared one is what makes the line four wide at lg. There is no
+    // break after tile 8: it is the last tile, and a break there is an empty
+    // flex line plus a row gap hanging under the wall.
+    expect(breaks).toHaveLength(3);
     expect(
       breaks.filter((node) => node.className.includes("lg:hidden")),
     ).toHaveLength(2);
+    // The row gap lives on the breaks from `sm` up, not on the list: a
+    // `basis-full` break takes a flex line of its own, so a list row-gap would
+    // separate every pair of tile lines by two gaps instead of one.
+    for (const node of breaks) {
+      expect(node.className).toContain("sm:h-4");
+    }
+    const list = container.querySelector("ul");
+    expect(list?.className).toContain("sm:gap-y-0");
     // A break must never be announced as an item of the list.
     for (const node of breaks) {
       expect(node).toHaveAttribute("aria-hidden", "true");
@@ -312,6 +330,55 @@ describe("ProductWall", () => {
     expect(
       short.container.querySelectorAll("li:not([role='presentation'])"),
     ).toHaveLength(3);
+  });
+
+  it("takes the trim out of products, so no composed trail vanishes", () => {
+    // The real composition, not hand-built slots: at a 16-product cap and a
+    // trail every 8 slots `buildWallSlots` reserves TWO trails and returns 18
+    // slots ENDING on one of them. A tail slice back to 16 therefore deleted a
+    // trail that `leftoverTrails` had already counted as placed, so it rendered
+    // nowhere on the homepage at all.
+    const products = Array.from(
+      { length: MAX_HOME_WALL_PRODUCTS + 4 },
+      (_, index) => buildProduct(index),
+    );
+    const trails = [
+      buildTrail("trail-a", "Where to read in a small flat"),
+      buildTrail("trail-b", "A table set for four"),
+    ];
+    const { slots, leftoverTrails } = buildWallSlots({
+      products,
+      trails,
+      seed: "2026-08-17",
+    });
+
+    const composedTrails = slots.filter(
+      (slot): slot is WallTrailSlot => slot.kind === "trail",
+    );
+    // The premise of the test: fewer than two reserved trails and the trim has
+    // nothing to drop, so the assertion below would pass vacuously.
+    expect(composedTrails).toHaveLength(2);
+
+    const { container } = renderWall(slots);
+    const list = screen.getByRole("list", { name: labels.heading });
+    const leftoverSlugs = new Set(leftoverTrails.map((trail) => trail.slug));
+
+    for (const slot of composedTrails) {
+      const inWall =
+        within(list).queryAllByText(slot.trail.frontmatter.title).length > 0;
+      expect(
+        inWall || leftoverSlugs.has(slot.trail.slug),
+        `trail ${slot.trail.slug} renders nowhere`,
+      ).toBe(true);
+    }
+
+    // And the wall still ends on a full line — the trim is wanted, only its
+    // victim changed.
+    const tiles = container.querySelectorAll("li:not([role='presentation'])");
+    expect(tiles.length % WALL_LINE_SIZE_DESKTOP).toBe(0);
+    expect(tiles).toHaveLength(16);
+    // Two of the sixteen are trails, so fourteen products are reported.
+    expect(trackViewItemList).toHaveBeenCalledWith("home_wall", 14);
   });
 
   it("preserves the wall's accessible name and list semantics", () => {

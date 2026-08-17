@@ -10,9 +10,10 @@ import { cn } from "@/lib/utils";
  *
  * A client island rather than a client wall: the tiles arrive as server-rendered
  * children and stay out of the client graph. Only the expanded flag lives here,
- * and it is published as a data attribute so the cap can be pure CSS — every
- * tile stays in the server HTML for crawlers and for the one-rationale-per-tile
- * contract, exactly as `masonry-grid.tsx` does with `visibleCount`.
+ * and it is published as a data attribute so the cap can be pure CSS. That is
+ * what keeps EVERY tile in the server HTML: a crawler runs no click handler, so
+ * a phone cap implemented as a slice would hide two thirds of the wall's links
+ * from it. `masonry-grid.tsx` caps the same way with `visibleCount`.
  *
  * The control reveals in place. It becomes a link to the selection index once
  * DEV-1488 ships; until then a placeholder href would be a dead end.

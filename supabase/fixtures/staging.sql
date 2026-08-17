@@ -7,6 +7,10 @@
 -- same list as real, source-backed stockists. Staging now shows only channels
 -- that came from a brand's own published pages.
 --
+-- Deleting the block only stopped future writes; the fixture is insert-only, so
+-- the forty rows it had already seeded stayed in staging. The cleanup at the
+-- bottom of this file removes them, and re-running it is a no-op.
+--
 -- The brands below are NOT invented — real names, real slugs, real
 -- purchase_website URLs. Only the fabricated channels are gone.
 
@@ -79,3 +83,11 @@ on conflict (id) do update set
   product_type = excluded.product_type,
   city = excluded.city,
   purchase_website = excluded.purchase_website;
+
+-- Cleanup of the deleted fabricated-channel block. Matched on the fixed id
+-- range this file used to write, NOT on the `Staging Fixture • ` name pattern:
+-- a real channel could one day carry a similar name, and an id range can only
+-- ever hit rows this fixture created. Confirmations cascade with the channel.
+delete from public.brand_channels
+where id between '52000000-0000-4000-8000-000000000001'::uuid
+            and '52000000-0000-4000-8000-000000000040'::uuid;

@@ -631,7 +631,8 @@
       "provenance": {
         "owner": "品牌確認",
         "community": "社群確認",
-        "evidence": "來自官網"
+        "evidence": "來自官網",
+        "evidenceOther": "來源佐證"
       },
       "ownerBanner": {
         "title": "您是品牌擁有者",

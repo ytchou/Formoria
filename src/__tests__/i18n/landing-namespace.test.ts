@@ -5,10 +5,13 @@ import zhTW from "../../../messages/zh-TW.json";
 
 /**
  * The landing namespace was recut for the six trust zones (DEV-1479). Two of its
- * keys survive the recut for reasons that are invisible from the homepage, so
- * they are pinned here: `metadata.*` is the site-wide `%s | Formoria` title
- * template read by `[locale]/layout.tsx`, and `manifesto.headline` is the text
- * baked into the site-wide OG image, which statically imports both catalogues.
+ * keys survive for reasons that are invisible from the homepage, so they are
+ * pinned here: `metadata.*` is the site-wide `%s | Formoria` title template read
+ * by `[locale]/layout.tsx`, and `trustSeam.line` is the commitment baked into
+ * the `/og/trust` card, which statically imports both catalogues and is now its
+ * only consumer. `manifesto.headline` is NOT one of them — it is rendered on the
+ * homepage again by the restored manifesto band, and is asserted below with the
+ * rest of that band's copy.
  */
 type MessageNode = { [key: string]: string | MessageNode };
 
@@ -59,10 +62,6 @@ const DEAD_KEYS = [
   // `hero-stats.tsx` was deleted with the hero recut. `about.hero.statsBrands`
   // is a DIFFERENT namespace and still ships — only the landing copy is dead.
   "hero.statsBrands",
-  // `manifesto.body3` stays dead: the band renders two body paragraphs, not
-  // the three production's copy carried. body1/body2/cta came BACK on
-  // 2026-08-17 with the band itself.
-  "manifesto.body3",
   // The seam section was replaced by that band, so its supporting copy has no
   // renderer. Only `trustSeam.line` survives, for /og/trust.
   "trustSeam.note",

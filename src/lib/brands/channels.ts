@@ -151,6 +151,16 @@ export function groupChannelsForDisplay(
     const communityConfirmed =
       row.confirmationCount >= CHANNEL_CONFIRMATION_THRESHOLD;
     const evidenceBacked = row.sourceUrl != null && row.source !== "community";
+    // The public label for evidence-backed rows is a trust claim, so it may only
+    // say "from the official website" when the evidence really is the brand's
+    // own site. `brand_channels` has no source_type column, so `source` is the
+    // only field that carries that guarantee: the curated stockist import
+    // (scripts/stockist-import/plan.ts) publishes a row ONLY when its CSV
+    // source_type is `official_website`. Every other evidence-backed source
+    // (enriched, backfill, admin, owner) may cite a directory, a social post or
+    // a retailer page, so it gets the generic source-attested label instead.
+    const evidenceSource: BrandChannel["evidenceSource"] =
+      row.source === "import" ? "official_website" : "other";
     const status: BrandChannel["status"] =
       ownerConfirmed || communityConfirmed || evidenceBacked
         ? "confirmed"
@@ -162,7 +172,6 @@ export function groupChannelsForDisplay(
       regionLabel: row.regionLabel,
       address: row.address,
       url: row.url,
-      sourceUrl: row.sourceUrl ?? null,
       fetchedAt: row.fetchedAt ?? null,
       locationType: (row.locationType as BrandChannel["locationType"]) ?? null,
       country: row.country ?? null,
@@ -178,6 +187,9 @@ export function groupChannelsForDisplay(
                 ? ("evidence" as const)
                 : ("community" as const),
           }
+        : {}),
+      ...(status === "confirmed" && !ownerConfirmed && evidenceBacked
+        ? { evidenceSource }
         : {}),
       ...(viewerConfirmedIds
         ? { hasCurrentUserConfirmed: viewerConfirmedIdSet.has(row.id) }

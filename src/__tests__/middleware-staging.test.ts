@@ -56,6 +56,20 @@ describe("staging request boundary", () => {
     expect(response.status).not.toBe(403);
   });
 
+  it("keeps a deployed container locked down even with NODE_ENV=development", async () => {
+    // The exemption above is for a laptop, not for a build mode. A deployed
+    // container carries RAILWAY_GIT_COMMIT_SHA, so a stray NODE_ENV must not
+    // open every unauthenticated mutation on deployed staging.
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv(
+      "RAILWAY_GIT_COMMIT_SHA",
+      "0123456789abcdef0123456789abcdef01234567",
+    );
+    const response = await proxy(request("/submit", "POST"));
+
+    expect(response.status).toBe(403);
+  });
+
   it("still marks a local dev response non-indexable", async () => {
     // The carve-out above must not leak into finalizeResponse: staging is still
     // staging for robots purposes even when served from a dev server.

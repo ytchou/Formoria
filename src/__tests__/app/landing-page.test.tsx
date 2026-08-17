@@ -285,7 +285,7 @@ describe("landing page trust zones", () => {
     expect(zoneOrder(container)).toEqual([
       "hero",
       "selection",
-      "seam",
+      "manifesto",
       "topics",
       "directory",
       "close",
@@ -376,7 +376,12 @@ describe("landing page trust zones", () => {
     // /og/trust card — asserted in the i18n spec, not here.
     const { container } = await renderZones();
 
-    const seam = container.querySelector<HTMLElement>('[data-landing-zone="seam"]')!;
+    // The zone is named for what it renders. It briefly carried
+    // `data-landing-zone="seam"` after the band was restored into the slot the
+    // trust seam had occupied, which made the selector a lie.
+    const seam = container.querySelector<HTMLElement>(
+      '[data-landing-zone="manifesto"]',
+    )!;
     expect(
       within(seam).getByRole("heading", { name: en.landing.manifesto.headline }),
     ).toBeInTheDocument();

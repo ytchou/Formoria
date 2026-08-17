@@ -631,7 +631,8 @@
       "provenance": {
         "owner": "Brand confirmed",
         "community": "Community confirmed",
-        "evidence": "Source verified"
+        "evidence": "From the official website",
+        "evidenceOther": "Source verified"
       },
       "ownerBanner": {
         "title": "You are the brand owner",

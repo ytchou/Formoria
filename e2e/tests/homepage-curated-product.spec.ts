@@ -37,7 +37,7 @@ test.describe("Homepage curated product deep", () => {
     ).toBeInViewport({ timeout: BUDGET.SERVER_RENDER });
   });
 
-  test("the wall ends in a continuation strip rather than scrolling forever", async ({
+  test("the wall does not duplicate the hero's browse entry points", async ({
     page,
   }) => {
     const response = await page.goto("/");
@@ -48,16 +48,13 @@ test.describe("Homepage curated product deep", () => {
     });
     requireWallOrSkip((await selectedProducts.count()) === 0);
 
-    await expect(
-      selectedProducts.getByRole("heading", {
-        name: "繼續探索",
-        level: 3,
-        exact: true,
-      }),
-    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
-    // The category nav and the "探索所有品牌" button were removed from this strip
-    // on 2026-08-17 — both destinations are still linked from the hero. Asserted
-    // as ABSENT so they cannot quietly come back and duplicate the hero.
+    await expect(selectedProducts).toBeVisible({
+      timeout: BUDGET.SERVER_RENDER,
+    });
+    // The whole continuation strip was removed on 2026-08-17: its trail links
+    // are their own zone now, and the category nav and the "探索所有品牌" button
+    // that also lived here are both still linked from the hero. Asserted as
+    // ABSENT so they cannot quietly come back and duplicate the hero.
     await expect(
       selectedProducts.getByRole("link", { name: "探索所有品牌 →", exact: true }),
     ).toHaveCount(0);
