@@ -79,7 +79,7 @@
   "landing": {
     "metadata": {
       "title": "Formoria — Taiwanese Brand Discovery & Curation",
-      "description": "Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it. A Taiwanese brand discovery and curation platform — start from life, meet the products and the brands."
+      "description": "Taiwanese brand discovery and curation: from one thing you love, to its brand, its story, and the place you can buy it. Formoria reconnects that path."
     },
     "hero": {
       "headline": "Life can look a little more like you.",
@@ -139,7 +139,7 @@
   },
   "newsletter": {
     "heading": "Stay in the loop",
-    "subtext": "Get the latest on Taiwanese brands — stories, launches, and curated picks delivered to your inbox.",
+    "subtext": "Get the latest on Taiwanese brands — stories, launches, and Formoria 選物 (Formoria Selection), delivered to your inbox.",
     "emailPlaceholder": "your@email.com",
     "subscribe": "Subscribe",
     "interestsLabel": "Choose what to receive",
@@ -1197,7 +1197,7 @@
       },
       "ownerInterest": {
         "question": "I own a brand — can I manage my own brand page?",
-        "answer": "Yes. On the brand page, select “Claim this brand” and submit one piece of ownership proof for our review; once it is approved you can edit brand details, product highlights, and official purchase channels, and submit an MIT brand declaration. While a claim is under review the page stays with our team, and corrections can be reported directly on the brand page. For any other owner tools, tell us on the <link>feature request board</link>."
+        "answer": "Yes. On the brand page, select “Claim this brand” and submit one piece of ownership proof for our review; once it is approved you can edit brand details, product highlights, and official purchase channels, and submit an MIT brand declaration. If the brand page is already claimed, the claim button will not appear — tell us on the contact page. While a claim is under review the page stays with our team, and corrections can be reported directly on the brand page. For any other owner tools, tell us on the <link>feature request board</link>."
       },
       "whatCategories": {
         "question": "What product categories does Formoria cover?",
@@ -2212,11 +2212,11 @@
   "gettingStarted": {
     "metadata": {
       "title": "Explore Formoria",
-      "description": "Learn how to start with the life you want, find Taiwanese products that suit you, and continue to brands' official or physical channels for purchase information."
+      "description": "Stopped at a market stall? How to find that brand on Formoria: browse listed brands, read the details, then head to official or physical channels."
     },
     "hero": {
       "eyebrow": "Explore Formoria",
-      "title": "Start with the life you want and find Taiwanese products that suit you",
+      "title": "From one thing you love to its brand and the place you can buy it",
       "intro": "Browse or search listed brands, then review brand information, product highlights, and official purchase channels. Content selected by Formoria is labelled separately.",
       "primaryCta": "Browse brands",
       "secondaryCta": "Read the FAQ"
@@ -2266,7 +2266,7 @@
     },
     "cta": {
       "heading": "Ready to explore Taiwanese brands?",
-      "body": "Browse the directory, start with the life you want, and find Taiwanese products that suit you; or learn how Formoria connects discovery, context, and purchase channels.",
+      "body": "Start with the directory: from one thing you love, to its brand, its story, and the place you can buy it. Or read what Formoria does.",
       "browse": "Browse brands",
       "about": "About Formoria"
     },

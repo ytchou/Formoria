@@ -5,7 +5,7 @@
 <h1 align="center">Formoria</h1>
 
 <p align="center">
-  Start with the life you want and find Taiwanese products that suit you.
+  Life can look a little more like you.
   <br>
   <a href="https://formoria.com"><strong>formoria.com →</strong></a>
 </p>

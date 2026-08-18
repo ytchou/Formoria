@@ -15,7 +15,7 @@ test.describe("Getting Started page deep", () => {
     await expect(
       page.getByRole("heading", {
         level: 1,
-        name: "Start with the life you want and find Taiwanese products that suit you",
+        name: "From one thing you love to its brand and the place you can buy it",
       }),
     ).toBeVisible();
   });
@@ -105,7 +105,7 @@ test.describe("Getting Started page deep", () => {
     await expect(footerLink).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   });
 
-  test("zh-TW introduction starts from the visitor's life and uses outbound language", async ({
+  test("zh-TW introduction names the path after the encounter and uses outbound language", async ({
     page,
   }) => {
     await page.goto("/getting-started");
@@ -113,7 +113,7 @@ test.describe("Getting Started page deep", () => {
     await expect(
       page.getByRole("heading", {
         level: 1,
-        name: "從自己想要的生活出發，找到適合的台灣產品",
+        name: "從一件喜歡的東西，走到它的品牌和買得到它的地方",
       }),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     await expect(
