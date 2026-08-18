@@ -86,7 +86,6 @@ const PROVIDERS = {
   // a brand's behalf, so who moved it and when has to be replayable.
   curatedProducts: [
     "createCuratedProduct",
-    "promoteCuratedProduct",
     "retireCuratedProduct",
     "retireCuratedProductSelection",
     "retireCuratedProductSource",

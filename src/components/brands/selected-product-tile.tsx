@@ -61,7 +61,6 @@ export type SelectedProductTileProps = {
 };
 
 const BROKEN_LINK_STATE = "broken";
-const RENDERABLE_IMAGE_USAGE = new Set(["permitted", "licensed"]);
 
 /**
  * The selected-product tile stays server-rendered. Outbound product chips
@@ -95,9 +94,7 @@ export function SelectedProductTile({
   const productDescription = isEnglish
     ? (product.productDescriptionEn ?? product.productDescriptionZh)
     : product.productDescriptionZh;
-  const imageSrc = RENDERABLE_IMAGE_USAGE.has(product.imageUsage)
-    ? safeImageSrc(product.imageUrl)
-    : null;
+  const imageSrc = safeImageSrc(product.imageUrl);
   const isBroken = product.linkState === BROKEN_LINK_STATE;
   const visitLink =
     (mode === "outbound" || mode === "trail") && brand

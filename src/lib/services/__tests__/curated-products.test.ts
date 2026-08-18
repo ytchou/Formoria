@@ -2,14 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   createCuratedProduct,
   CuratedProductSchemaLagError,
-  curatedProductPromoteBlockers,
   getCuratedProductWriteContext,
   getPublishedCuratedProductsForHomepage,
   getPublishedCuratedProductsForBrand,
   getPublishedCuratedProductsForTrail,
   listCuratedProductsForAdmin,
   retireCuratedProductSelection,
-  promoteCuratedProduct,
   retireCuratedProduct,
   retireCuratedProductSource,
   updateCuratedProduct,
@@ -113,8 +111,7 @@ function productRow(overrides: Record<string, unknown> = {}) {
     official_url: "https://example.com/pick",
     image_url: null,
     image_source_url: null,
-    image_usage: "none",
-    lifecycle: "published",
+    visible: true,
     link_state: "ok",
     link_checked_at: null,
     source_checked_at: "2026-08-13T00:00:00Z",
@@ -149,7 +146,7 @@ describe('getPublishedCuratedProductsForTrail', () => {
 
     await getPublishedCuratedProductsForTrail('small-space-reading-corner', client)
 
-    expect(calls.eq).toContainEqual(['lifecycle', 'published'])
+    expect(calls.eq).toContainEqual(['visible', true])
     expect(calls.not).toContainEqual(['official_url', 'is', null])
     expect(calls.not).toContainEqual(['source_checked_at', 'is', null])
     expect(calls.eq).toContainEqual(['curated_product_sources.state', 'active'])
@@ -282,7 +279,7 @@ describe("getPublishedCuratedProductsForBrand", () => {
 
     expect(calls.table).toEqual(["curated_products"]);
     expect(calls.eq).toContainEqual(["brand_id", "brand-1"]);
-    expect(calls.eq).toContainEqual(["lifecycle", "published"]);
+    expect(calls.eq).toContainEqual(["visible", true]);
     expect(calls.not).toContainEqual(["official_url", "is", null]);
     expect(calls.not).toContainEqual(["source_checked_at", "is", null]);
   });
@@ -467,12 +464,10 @@ describe("getPublishedCuratedProductsForBrand", () => {
 function homepageRow(overrides: Record<string, unknown> = {}) {
   return productRow({
     image_url: "https://images.example.com/selected-product.webp",
-    image_usage: "permitted",
     curated_product_sources: [{ id: "source-1", state: "active" }],
     curated_product_selections: [
       { trail_slug: "picks", section_key: "home", position: 1, state: "active" },
     ],
-    wall_position: null,
     brands: {
       slug: "warmwood",
       name: "Warmwood",
@@ -483,13 +478,13 @@ function homepageRow(overrides: Record<string, unknown> = {}) {
 }
 
 describe("getPublishedCuratedProductsForHomepage", () => {
-  it("returns only published products with active evidence", async () => {
+  it("homepage eligibility filters on visible", async () => {
     const { client } = stubClient({
       data: [
         homepageRow({ key: "live" }),
         homepageRow({
-          key: "candidate",
-          lifecycle: "candidate",
+          key: "hidden",
+          visible: false,
         }),
         homepageRow({
           key: "retired-source",
@@ -593,8 +588,10 @@ describe("getPublishedCuratedProductsForHomepage", () => {
     expect(products.map((product) => product.key)).toContain("other-brand");
   });
 
-  it("filters unrenderable images", async () => {
-    const { client } = stubClient({
+  it("image_usage no longer filters — permission is an outreach errand, not a column", async () => {
+    // The column is gone. A row that the old `.in("image_usage", …)` gate would
+    // have dropped for `none` now renders like any other visible product.
+    const { client, calls } = stubClient({
       data: [
         homepageRow({ key: "licensed", image_usage: "licensed" }),
         homepageRow({ key: "none", image_usage: "none" }),
@@ -603,40 +600,40 @@ describe("getPublishedCuratedProductsForHomepage", () => {
 
     const products = await getPublishedCuratedProductsForHomepage(client);
 
-    expect(products.map((product) => product.key)).toEqual(["licensed"]);
+    expect(products.map((product) => product.key)).toEqual(["licensed", "none"]);
+    expect(calls.in.map(([column]) => column)).not.toContain("image_usage");
+    expect(calls.select.at(0)).not.toContain("image_usage");
   });
 
-  it("orders deterministically and bounds the query", async () => {
+  it("homepage products sort by brandSlug then key", async () => {
+    // Two keys, in that order, and nothing before them: no column pins a
+    // product to a wall slot any more, so the composer receives a stable list
+    // it is free to shuffle whole.
     const rows = [
       homepageRow({
         key: "brand-beta",
         brand_id: "brand-beta",
-        wall_position: 1,
         brands: { slug: "brand-beta", name: "Beta", status: "approved" },
       }),
       homepageRow({
         key: "zeta",
         brand_id: "brand-alpha",
-        wall_position: 1,
         brands: { slug: "alpha", name: "Alpha", status: "approved" },
       }),
       homepageRow({
         key: "alpha",
         brand_id: "brand-alpha",
-        wall_position: 1,
         brands: { slug: "alpha", name: "Alpha", status: "approved" },
       }),
       homepageRow({
         key: "later",
         brand_id: "brand-later",
-        wall_position: 3,
         brands: { slug: "later", name: "Later", status: "approved" },
         curated_product_selections: [],
       }),
       homepageRow({
         key: "unplaced",
         brand_id: "brand-unplaced",
-        wall_position: null,
         brands: { slug: "unplaced", name: "Unplaced", status: "approved" },
         curated_product_selections: [],
       }),
@@ -668,21 +665,18 @@ describe("getPublishedCuratedProductsForHomepage", () => {
     expect(first.calls.select[0]).toContain("product_description_zh");
     expect(first.calls.select[0]).not.toContain("rationale_zh");
     expect(first.calls.select[0]).not.toContain("notes_zh");
-    expect(first.calls.in).toContainEqual([
-      "image_usage",
-      ["permitted", "licensed"],
-    ]);
+    expect(first.calls.select[0]).not.toContain("wall_position");
+    expect(first.calls.select[0]).not.toContain("lifecycle");
   });
 
   it("keeps the rest of the publication gate", async () => {
     const { client } = stubClient({
       data: [
         homepageRow({ key: "live" }),
-        homepageRow({ key: "candidate", lifecycle: "candidate" }),
+        homepageRow({ key: "hidden", visible: false }),
         homepageRow({ key: "no-url", official_url: null }),
         homepageRow({ key: "unchecked", source_checked_at: null }),
         homepageRow({ key: "no-image", image_url: null }),
-        homepageRow({ key: "uncleared-image", image_usage: "none" }),
         homepageRow({
           key: "no-active-source",
           curated_product_sources: [{ id: "s", state: "retired" }],
@@ -829,74 +823,6 @@ function stubWriteClient(replies: WriteReply[]): {
   return { client: client as unknown as CuratedProductSupabase, calls };
 }
 
-describe("curatedProductPromoteBlockers", () => {
-  const promotable = {
-    lifecycle: "candidate",
-    officialUrl: "https://example.com/pick",
-    sourceCheckedAt: "2026-08-13T00:00:00Z",
-  };
-
-  it("returns no blockers when all four conditions hold", () => {
-    expect(
-      curatedProductPromoteBlockers(promotable, [{ state: "active" }]),
-    ).toEqual([]);
-  });
-
-  it("names official_url when it is null", () => {
-    expect(
-      curatedProductPromoteBlockers({ ...promotable, officialUrl: null }, [
-        { state: "active" },
-      ]),
-    ).toContain("official_url");
-  });
-
-  it("names source_checked_at when it is null", () => {
-    expect(
-      curatedProductPromoteBlockers({ ...promotable, sourceCheckedAt: null }, [
-        { state: "active" },
-      ]),
-    ).toContain("source_checked_at");
-  });
-
-  it("names no_active_source when every source row is retired", () => {
-    // Retire-never-delete: the row survives withdrawal, so its presence is not
-    // evidence. Only an active row is.
-    expect(
-      curatedProductPromoteBlockers(promotable, [{ state: "retired" }]),
-    ).toContain("no_active_source");
-  });
-
-  it("names lifecycle for a product that is already published or retired", () => {
-    expect(
-      curatedProductPromoteBlockers({ ...promotable, lifecycle: "retired" }, [
-        { state: "active" },
-      ]),
-    ).toContain("lifecycle");
-    expect(
-      curatedProductPromoteBlockers({ ...promotable, lifecycle: "published" }, [
-        { state: "active" },
-      ]),
-    ).toContain("lifecycle");
-  });
-
-  it("promotes from needs_review as well as candidate", () => {
-    expect(
-      curatedProductPromoteBlockers(
-        { ...promotable, lifecycle: "needs_review" },
-        [{ state: "active" }],
-      ),
-    ).toEqual([]);
-  });
-
-  it("ignores link_state, which is deliberately not a promote condition", () => {
-    // A broken link suppresses the call-to-action; it does not block the
-    // editorial decision, and the predicate is not even given the field.
-    expect(
-      curatedProductPromoteBlockers(promotable, [{ state: "active" }]),
-    ).toEqual([]);
-  });
-});
-
 describe("createCuratedProduct", () => {
   it("create_derives_key_from_cjk_name — a Chinese-only name yields a kebab-case key", async () => {
     // `generateSlug` transliterates Han via pinyin; the brand-slug helper
@@ -914,26 +840,31 @@ describe("createCuratedProduct", () => {
     expect(key).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
   });
 
-  it("create_writes_candidate_lifecycle — lifecycle and proposed_by are set by the writer, not the caller", async () => {
+  it("create_defaults_to_hidden — visible and proposed_by are set by the writer, not the caller", async () => {
     const { client, calls } = stubWriteClient([
       { data: { id: "6d5f1b0c-2a44-4f13-8c9e-5b7a1d3e9f20", key: "teacup" } },
     ]);
 
-    // A caller-supplied lifecycle has no route into the payload: the input type
-    // has no such field, so the cast is the only way to smuggle one in.
+    // The three dropped columns have no route into the payload: the input type
+    // has no such fields, so the cast is the only way to smuggle them in.
     const smuggled = {
       brandId: BRAND_ID,
       nameZh: "Teacup",
       l1: "home",
       productDescriptionZh: "陶土燒製，容量約 200 毫升。",
       lifecycle: "published",
+      wallPosition: 3,
+      imageUsage: "licensed",
     } as unknown as Parameters<typeof createCuratedProduct>[0];
 
     await createCuratedProduct(smuggled, client);
 
-    const payload = calls.insert.at(0);
-    expect(payload?.lifecycle).toBe("candidate");
-    expect(payload?.proposed_by).toBe("admin");
+    const payload = calls.insert.at(0) ?? {};
+    expect(payload.visible).toBe(false);
+    expect(payload.proposed_by).toBe("admin");
+    expect(Object.keys(payload)).not.toContain("lifecycle");
+    expect(Object.keys(payload)).not.toContain("wall_position");
+    expect(Object.keys(payload)).not.toContain("image_usage");
     expect(calls.table).toEqual(["curated_products"]);
   });
 
@@ -1193,13 +1124,35 @@ describe("curated product writers", () => {
     expect(Object.keys(payload)).not.toContain("wall_position");
   });
 
-  it("retires a product by flipping lifecycle, never by deleting", async () => {
+  it("update payload omits the dropped columns even when a caller supplies them", async () => {
+    const { client, calls } = stubWriteClient([{}]);
+
+    await updateCuratedProduct(
+      PRODUCT_ID,
+      {
+        nameZh: "Renamed",
+        visible: true,
+        wallPosition: 2,
+        lifecycle: "published",
+        imageUsage: "licensed",
+      } as unknown as Parameters<typeof updateCuratedProduct>[1],
+      client,
+    );
+
+    const payload = calls.update.at(0) ?? {};
+    expect(payload.visible).toBe(true);
+    expect(Object.keys(payload)).not.toContain("wall_position");
+    expect(Object.keys(payload)).not.toContain("lifecycle");
+    expect(Object.keys(payload)).not.toContain("image_usage");
+  });
+
+  it("retire sets visible=false, never deleting the row", async () => {
     const { client, calls } = stubWriteClient([{}]);
 
     await retireCuratedProduct("6d5f1b0c-2a44-4f13-8c9e-5b7a1d3e9f20", client);
 
     expect(calls.table).toEqual(["curated_products"]);
-    expect(calls.update.at(0)).toEqual({ lifecycle: "retired" });
+    expect(calls.update.at(0)).toEqual({ visible: false });
   });
 
   it("retires a source by flipping state, never by deleting", async () => {
@@ -1260,60 +1213,8 @@ describe("curated product writers", () => {
   });
 });
 
-describe("promoteCuratedProduct", () => {
-  const gateRow = {
-    lifecycle: "candidate",
-    official_url: "https://example.com/pick",
-    source_checked_at: "2026-08-13T00:00:00Z",
-    curated_product_sources: [{ state: "active" }],
-  };
-
-  it("re-asserts the lifecycle in the UPDATE, not only in the read", async () => {
-    // The read proved the lifecycle a moment ago, which is not the same as
-    // proving it now. Without the filter, a retire landing between the two is
-    // silently overwritten and the product republishes itself.
-    const { client, calls } = stubWriteClient([
-      { data: gateRow },
-      { data: [{ id: PRODUCT_ID }] },
-    ]);
-
-    const outcome = await promoteCuratedProduct(PRODUCT_ID, client);
-
-    expect(outcome).toEqual({ ok: true });
-    expect(calls.update.at(0)).toEqual({ lifecycle: "published" });
-    expect(calls.in).toContainEqual([
-      "lifecycle",
-      ["candidate", "needs_review"],
-    ]);
-  });
-
-  it("treats a zero-row update as a lifecycle refusal, not a success", async () => {
-    // What a concurrent retire looks like from here: the gate passed, the
-    // UPDATE matched nothing.
-    const { client } = stubWriteClient([{ data: gateRow }, { data: [] }]);
-
-    const outcome = await promoteCuratedProduct(PRODUCT_ID, client);
-
-    expect(outcome).toMatchObject({ ok: false, blockers: ["lifecycle"] });
-  });
-
-  it("refuses before the update when the gate itself fails", async () => {
-    const { client, calls } = stubWriteClient([
-      { data: { ...gateRow, curated_product_sources: [{ state: "retired" }] } },
-    ]);
-
-    const outcome = await promoteCuratedProduct(PRODUCT_ID, client);
-
-    expect(outcome).toMatchObject({
-      ok: false,
-      blockers: ["no_active_source"],
-    });
-    expect(calls.update).toEqual([]);
-  });
-});
-
 describe("getCuratedProductWriteContext", () => {
-  it("reads brand, image and lifecycle from the ROW, never from a caller", async () => {
+  it("reads brand, image and visibility from the ROW, never from a caller", async () => {
     // A server action is a POST endpoint: a caller-supplied brandId files an
     // upload under another brand's storage prefix, and a caller-supplied
     // previous image URL is a delete primitive over that prefix.
@@ -1323,7 +1224,7 @@ describe("getCuratedProductWriteContext", () => {
           brand_id: BRAND_ID,
           image_url: "https://cdn.example.com/stored.webp",
           image_source_url: "https://example.com/source.png",
-          lifecycle: "published",
+          visible: true,
           brands: { slug: "studio-kiln" },
         },
       },
@@ -1336,7 +1237,7 @@ describe("getCuratedProductWriteContext", () => {
       brandSlug: "studio-kiln",
       imageUrl: "https://cdn.example.com/stored.webp",
       imageSourceUrl: "https://example.com/source.png",
-      lifecycle: "published",
+      visible: true,
     });
     expect(calls.eq).toContainEqual(["id", PRODUCT_ID]);
   });

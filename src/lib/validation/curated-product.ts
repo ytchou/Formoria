@@ -69,9 +69,8 @@ export const curatedProductSourceSchema = z.object({
 });
 
 /**
- * Editorial fields only. `lifecycle`, `link_state`, `link_checked_at`, and
- * `image_url` are absent by construction: lifecycle moves only through the
- * promote/retire actions, link health is written only by the link checker, and
+ * Editorial fields only. `link_state`, `link_checked_at`, and `image_url` are
+ * absent by construction: link health is written only by the link checker, and
  * the stored image URL is produced by the upload, never posted by a form.
  */
 /**
@@ -91,11 +90,6 @@ const curatedProductFields = {
   /** The page an image was taken from, kept so usage rights stay re-checkable. */
   imageSourceUrl: httpUrlSchema.nullable().optional(),
   /**
-   * `image_usage` is a human assertion of rights. It is never inferred from a
-   * successful download, so the form must send it explicitly to leave 'none'.
-   */
-  imageUsage: z.enum(["none", "permitted", "licensed"]).optional(),
-  /**
    * The one editorial text field, and the column behind it is NOT NULL — so
    * this is the single field of the set that is neither nullable nor blankable.
    * `.trim().min(1)` is what makes a whitespace-only textarea a field error
@@ -104,7 +98,12 @@ const curatedProductFields = {
   productDescriptionZh: z.string().trim().min(1).max(MAX_NOTE),
   productDescriptionEn: noteSchema.nullable().optional(),
   productPosition: z.number().int().nonnegative().nullable().optional(),
-  wallPosition: z.number().int().nonnegative().nullable().optional(),
+  /**
+   * Replaces `lifecycle` (DEV-1485). A product is on the site or it is not;
+   * absent means "leave it alone", and the column's NOT NULL DEFAULT true is
+   * what makes a create that never mentions it publish.
+   */
+  visible: z.boolean().optional(),
   reviewDueAt: timestampSchema.nullable().optional(),
   /**
    * A human assertion that the sources below were opened and read, which is
