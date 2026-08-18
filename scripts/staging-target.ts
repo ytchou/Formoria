@@ -1,3 +1,4 @@
+export const PRODUCTION_PROJECT_REF = "xkcayngbttpxyibgzern";
 export const STAGING_PROJECT_REF = "xwkigpvnheecihpxyvsl";
 export const STAGING_HOSTNAME = "staging.formoria.com";
 export const STAGING_BASE_URL = `https://${STAGING_HOSTNAME}`;
@@ -36,8 +37,8 @@ function parseHttpsUrl(value: string, name: string): URL {
 /**
  * The installed Supabase client accepts both legacy JWT keys and the newer
  * publishable/secret key strings. Only the JWT form exposes a project ref and
- * role locally, so staging guards reject every other form instead of guessing
- * at an authoritative identity source.
+ * role locally, so environment guards reject every other form instead of
+ * guessing at an authoritative identity source.
  */
 export function validateSupabaseKeyIdentity(
   value: string,
@@ -51,7 +52,7 @@ export function validateSupabaseKeyIdentity(
     parts.some((part) => !part || !/^[A-Za-z0-9_-]+$/.test(part))
   ) {
     throw new Error(
-      `${name} must be a Supabase JWT with a verifiable staging project ref; publishable/secret key formats are rejected`,
+      `${name} must be a Supabase JWT with a verifiable project ref; publishable/secret key formats are rejected`,
     );
   }
 
@@ -60,7 +61,8 @@ export function validateSupabaseKeyIdentity(
     const decoded = JSON.parse(
       Buffer.from(parts[1], "base64url").toString("utf8"),
     ) as unknown;
-    if (!decoded || typeof decoded !== "object") throw new Error("not an object");
+    if (!decoded || typeof decoded !== "object")
+      throw new Error("not an object");
     payload = decoded as SupabaseKeyPayload;
   } catch {
     throw new Error(`${name} contains an invalid Supabase JWT payload`);
@@ -133,7 +135,9 @@ export function validateStagingTarget(
       declaredOrigin &&
       parseHttpsUrl(declaredOrigin, name).toString() !== appUrl.toString()
     ) {
-      throw new Error(`${name} and STAGING_BASE_URL must identify the same staging origin`);
+      throw new Error(
+        `${name} and STAGING_BASE_URL must identify the same staging origin`,
+      );
     }
   }
   if (appUrl.hostname.toLowerCase() !== STAGING_HOSTNAME) {
@@ -146,7 +150,10 @@ export function validateStagingTarget(
   }
 
   const supabaseUrl = required(environment, "NEXT_PUBLIC_SUPABASE_URL");
-  const projectRef = required(environment, "SUPABASE_PROJECT_REF").toLowerCase();
+  const projectRef = required(
+    environment,
+    "SUPABASE_PROJECT_REF",
+  ).toLowerCase();
   const urlProjectRef = projectRefFromSupabaseUrl(supabaseUrl);
   if (projectRef !== STAGING_PROJECT_REF) {
     throw new Error(
