@@ -46,7 +46,7 @@
   },
   "e2e/tests/api-contracts.spec.ts": {
     "playwright/no-conditional-in-test": {
-      "count": 8
+      "count": 7
     }
   },
   "e2e/tests/auth-signin.spec.ts": {
