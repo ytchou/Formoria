@@ -311,7 +311,7 @@ mit_indicators：是否在來源中提及台灣製造（MIT、台灣製造、100
 ## 驗證檢查（輸出前自行確認）
 - [ ] subcategories 和 subcategories_en 數量是否一致？
 - [ ] 每個 novel subcategory 是否命名具體產品種類，而不是 L1、場合、包裝、服務、材質或 SKU 層級詞？
-- [ ] novel tag 是否不含「・」？
+- [ ] novel subcategory 是否不含「・」？
 - [ ] 所有欄位是否可從提供的來源中找到依據？
 - [ ] category 與 city 是否只使用上列 slug？
 - [ ] 沒有依據的欄位是否已回傳 null 或 []，而不是猜測值？`;

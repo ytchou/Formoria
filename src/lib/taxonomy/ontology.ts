@@ -267,11 +267,11 @@ export const L2_SUBCATEGORIES: readonly L2Subcategory[] = [
 /**
  * The single matching basis for tag strings: NFKC (collapses full-width Latin),
  * middle-dot strip, trim, lowercase, whitespace collapse. Exported because
- * callers that store tags the ontology does NOT know (novel correction tags)
+ * callers that store subcategories the ontology does NOT know (novel correction subcategories)
  * still have to dedupe them the way `matchSubcategory` would have, or 'Vegan'
  * and 'vegan' become two distinct tags for one concept.
  */
-export function normalizeTagKey(s: string): string {
+export function normalizeSubcategoryKey(s: string): string {
   return s
     .normalize('NFKC')
     .replace(/・/g, '') // strip katakana middle dot (U+30FB ・)
@@ -283,7 +283,7 @@ export function normalizeTagKey(s: string): string {
 /**
  * Labels retired by the DEV-1361 split. They remain explicit deny-list values
  * rather than aliases: an old middle-dot or compact spelling must not come
- * back as a novel tag after the atomic replacements are installed.
+ * back as a novel subcategory after the atomic replacements are installed.
  */
 export const RETIRED_COMPOSITE_LABELS = [
   '香氛・蠟燭',
@@ -297,16 +297,16 @@ export const RETIRED_COMPOSITE_LABELS = [
 ] as const
 
 const RETIRED_COMPOSITE_KEYS = new Set(
-  RETIRED_COMPOSITE_LABELS.map((label) => normalizeTagKey(label)),
+  RETIRED_COMPOSITE_LABELS.map((label) => normalizeSubcategoryKey(label)),
 )
 
 export function isRetiredCompositeLabel(input: string): boolean {
-  return RETIRED_COMPOSITE_KEYS.has(normalizeTagKey(input))
+  return RETIRED_COMPOSITE_KEYS.has(normalizeSubcategoryKey(input))
 }
 
 /**
  * A composite subcategory bundles two concepts behind one label, joined by the
- * katakana middle dot (U+30FB ・) that `normalizeTagKey` strips. This module owns
+ * katakana middle dot (U+30FB ・) that `normalizeSubcategoryKey` strips. This module owns
  * the separator, so it owns the predicate too: callers that hand-rolled
  * `nameZh.includes('・')` drifted into two spellings of the same codepoint across
  * two files.
@@ -318,12 +318,12 @@ export function isCompositeSubcategory(subcategory: { nameZh: string }): boolean
 const _subcategoryMap = new Map<string, L2Subcategory>()
 for (const sub of L2_SUBCATEGORIES) {
   for (const key of [sub.nameZh, sub.nameEn, ...sub.aliases]) {
-    _subcategoryMap.set(normalizeTagKey(key), sub)
+    _subcategoryMap.set(normalizeSubcategoryKey(key), sub)
   }
 }
 
 export function matchSubcategory(input: string): L2Subcategory | null {
-  const key = normalizeTagKey(input)
+  const key = normalizeSubcategoryKey(input)
   if (!key) return null
   return _subcategoryMap.get(key) ?? null
 }

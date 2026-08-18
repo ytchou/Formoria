@@ -67,20 +67,23 @@ describe("parseBrandFactsResult", () => {
   it("keeps a single normalized tag (min-1 gate)", () => {
     const json = makeTagFixture(["口金零錢包", "口金夾"], ["a", "b"]);
     const result = parseBrandFactsResult(json);
-    // Both collapse to the same slug → one canonical tag
+    // Both collapse to the same slug → one canonical subcategory
     // Old min-2 gate would have dropped it; min-1 gate preserves it
     expect(result.subcategories).toEqual(["口金包"]);
     expect(result.subcategoriesEn).toEqual(["Clasp-Frame Bags"]);
   });
 
-  it("drops blocklisted novel tags", () => {
+  it("drops blocklisted novel subcategories", () => {
     const json = makeTagFixture(["藍鵲系列襪子"], ["bluebird series socks"]);
     const result = parseBrandFactsResult(json);
     // '系列' matches BLOCKLIST_CONTENT → rejected
     expect(result.subcategories).toEqual([]);
     expect(result.rejected).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ tag: "藍鵲系列襪子", reason: "blocklist" }),
+        expect.objectContaining({
+          subcategory: "藍鵲系列襪子",
+          reason: "blocklist",
+        }),
       ]),
     );
   });

@@ -44,7 +44,7 @@
     },
     {
       "q": "皮革",
-      "note": "Leather. Only three brands carry it in name or tags; the rest describe it. Recall here comes almost entirely from descriptions.",
+      "note": "Leather. Only three brands carry it in name or subcategories; the rest describe it. Recall here comes almost entirely from descriptions.",
       "mustInclude": ["handmadeship", "trista-handmade", "moonlight"],
       "minResults": 3
     },
@@ -56,7 +56,7 @@
     },
     {
       "q": "陶瓷",
-      "note": "Ceramics. Already partly working today because 陶瓷 is its own product tag — a guard that the tag path does not regress.",
+      "note": "Ceramics. Already partly working today because 陶瓷 is its own subcategory — a guard that the subcategory path does not regress.",
       "minResults": 20
     },
     {

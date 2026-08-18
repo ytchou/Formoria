@@ -83,14 +83,14 @@ describe("normalizeProposedValue — subcategories", () => {
     expect(value.add).toEqual(["上衣・T恤"]);
   });
 
-  it("collapses case variants of one novel tag, keeping the first casing", () => {
+  it("collapses case variants of one novel subcategory, keeping the first casing", () => {
     const value = expectOkDelta(
       normalizeTags({ add: ["Vegan", "vegan"], remove: [] }),
     );
     expect(value.add).toEqual(["Vegan"]);
   });
 
-  it("collapses a full-width variant of one novel tag", () => {
+  it("collapses a full-width variant of one novel subcategory", () => {
     const value = expectOkDelta(
       normalizeTags({ add: ["vegan", "ｖｅｇａｎ"], remove: [] }),
     );

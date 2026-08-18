@@ -6,6 +6,7 @@ import {
   CLEARED_FIELDS_KEY,
   resolveRefreshEnrichmentPatch,
 } from "./brand-write-policy";
+import { fromPersistedFieldIdentifiers } from "./_shared/persisted-field-identifiers";
 import type { BrandFlatLinkColumns } from "@/lib/types";
 import type { SiteContent } from "@/lib/types/brand";
 import type { ScrapedBrandData } from "@/lib/types/scraper";
@@ -1154,10 +1155,12 @@ export async function persistSubmissionEnrichmentResults(
     if (fieldStateError) throw fieldStateError;
 
     const fieldState = Object.fromEntries(
-      (fieldStates ?? []).map((state) => [
-        state.field,
-        { source: state.source },
-      ]),
+      (fieldStates ?? []).flatMap((state) =>
+        fromPersistedFieldIdentifiers(state.field).map((field) => [
+          field,
+          { source: state.source },
+        ]),
+      ),
     );
     const filtered = resolveRefreshEnrichmentPatch(
       persistablePatch,

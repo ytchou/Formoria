@@ -6,7 +6,7 @@ import {
   sanitizeHref,
 } from "@/lib/url";
 import {
-  normalizeTagKey,
+  normalizeSubcategoryKey,
   L1_CATEGORIES,
 } from "@/lib/taxonomy/ontology";
 import type { Database, Json } from "@/lib/supabase/database.types";
@@ -360,7 +360,7 @@ export type NormalizeProposedValueResult =
  *    if a `nameZh` is later dropped from the ontology a stale pending row can
  *    become both un-approvable and un-rejectable. Pre-existing, not introduced
  *    here.
- * 2. Add-as-alias: a novel tag is persisted raw and the admin queue renders that
+ * 2. Add-as-alias: a novel subcategory is persisted raw and the admin queue renders that
  *    stored string. If that exact string is later added to the ontology as an
  *    ALIAS of a subcategory, the approval-time re-normalization rewrites `add`
  *    to that subcategory's `nameZh` — so the reviewer approves a label they
@@ -400,10 +400,10 @@ export function normalizeProposedValue(
   // (alias or English name -> `nameZh`) before it is persisted: brands.subcategories
   // stores canonical labels and the `?sub=` filter matches by exact-string array
   // overlap, so an un-canonicalized addition would silently drop the brand from
-  // subcategory results. A tag the ontology does not know is still allowed
+  // subcategory results. A subcategory the ontology does not know is still allowed
   // through — that escape hatch is the point — but only if it clears the same
-  // novel-tag heuristics enrichment applies. `remove` stays unrestricted: a brand
-  // can carry novel tags persisted by normalizeSubcategories, and removing a bad
+  // novel-subcategory heuristics enrichment applies. `remove` stays unrestricted: a brand
+  // can carry novel subcategories persisted by normalizeSubcategories, and removing a bad
   // value can never introduce one. Rejecting those removals would block exactly
   // the repair this feature exists to perform.
   // Ceiling: `novelSubcategoryRejection` is a code-point length band plus a
@@ -411,7 +411,7 @@ export function normalizeProposedValue(
   // with NO content filter at all, and admin review is the only gate on it;
   // swap for a language-agnostic blocklist (or a moderation call) if reviewers
   // report abusive submissions.
-  // Dedupe on the ontology's matching key, not the raw string: novel tags are
+  // Dedupe on the ontology's matching key, not the raw string: novel subcategories are
   // stored as typed, so 'Vegan' and 'vegan' would otherwise both survive and
   // take two of the five cap slots. First-seen casing wins.
   const add: string[] = [];
@@ -419,7 +419,7 @@ export function normalizeProposedValue(
   for (const raw of value.add) {
     const resolved = resolveSubcategoryInput(raw);
     if (!resolved.ok) return { ok: false, error: "invalid_value" };
-    const key = normalizeTagKey(resolved.subcategory);
+    const key = normalizeSubcategoryKey(resolved.subcategory);
     if (seenAdd.has(key)) continue;
     seenAdd.add(key);
     add.push(resolved.subcategory);
@@ -717,14 +717,16 @@ export async function submitCorrection(
 
     if (input.field === "subcategories") {
       const delta = proposedValue as SubcategoriesDelta;
-      const currentTags = Array.isArray(currentValue) ? currentValue : [];
-      const next = applySubcategoryDelta(currentTags, delta);
-      if (sameSubcategorySet(currentTags, next))
+      const currentSubcategories = Array.isArray(currentValue)
+        ? currentValue
+        : [];
+      const next = applySubcategoryDelta(currentSubcategories, delta);
+      if (sameSubcategorySet(currentSubcategories, next))
         return { ok: false, code: "unchanged" };
       if (next.length > MAX_SUBCATEGORIES) {
         return { ok: false, code: "too_many_subcategories" };
       }
-      previousValue = currentTags;
+      previousValue = currentSubcategories;
     } else if (
       correctionValuesEqual(input.field, currentValue, proposedValue)
     ) {
@@ -848,9 +850,11 @@ export async function reviewCorrection(
 
     if (applicationField === "subcategories") {
       const delta = proposedValue as SubcategoriesDelta;
-      const currentTags = Array.isArray(currentValue) ? currentValue : [];
-      const next = applySubcategoryDelta(currentTags, delta);
-      if (sameSubcategorySet(currentTags, next)) {
+      const currentSubcategories = Array.isArray(currentValue)
+        ? currentValue
+        : [];
+      const next = applySubcategoryDelta(currentSubcategories, delta);
+      if (sameSubcategorySet(currentSubcategories, next)) {
         patch = null;
       } else if (next.length > MAX_SUBCATEGORIES) {
         return { ok: false, code: "too_many_subcategories" };

@@ -78,7 +78,7 @@ describe('aggregateBrandCounts', () => {
     ])
   })
 
-  it('reports l1_branches as the number of distinct categorys carrying the tag', () => {
+  it('reports l1_branches as the number of distinct categories carrying the subcategory', () => {
     const result = aggregateBrandCounts([
       brand('home', ['家具']),
       brand('beauty', ['家具']),
@@ -95,9 +95,9 @@ describe('aggregateBrandCounts', () => {
     ])
   })
 
-  it('does not count a tag whose subcategory belongs to another category', () => {
+  it('does not count a subcategory whose parent belongs to another category', () => {
     // `/brands?category=jewelry` filters on category, so a fashion brand
-    // tagged 手鍊 never renders on the jewelry subcategory page.
+    // A fashion brand carrying 手鍊 never renders on the jewelry subcategory page.
     const result = aggregateBrandCounts([brand('fashion', ['牛仔褲', '手鍊'])])
 
     expect(result.subcategories).toEqual([
@@ -120,7 +120,7 @@ describe('aggregateBrandCounts', () => {
     expect(result.unmatched).toEqual([])
   })
 
-  it('drops cross-category tags on rows with no recognised category', () => {
+  it('drops cross-category subcategories on rows with no recognised category', () => {
     const result = aggregateBrandCounts([
       brand(null, ['手鍊']),
       brand('not-a-category', ['手鍊']),
@@ -136,16 +136,16 @@ describe('aggregateBrandCounts', () => {
     ])
   })
 
-  it('collects unmatched tags separately', () => {
+  it('collects unmatched subcategories separately', () => {
     const result = aggregateBrandCounts([
       brand('fashion', ['Custom Gizmo', 'custom gizmo', '未分類']),
       brand('fashion', ['CUSTOM GIZMO', '其他']),
     ])
 
     expect(result.unmatched).toEqual([
-      { tag: 'Custom Gizmo', brand_count: 2 },
-      { tag: '其他', brand_count: 1 },
-      { tag: '未分類', brand_count: 1 },
+      { subcategory: 'Custom Gizmo', brand_count: 2 },
+      { subcategory: '其他', brand_count: 1 },
+      { subcategory: '未分類', brand_count: 1 },
     ])
   })
 

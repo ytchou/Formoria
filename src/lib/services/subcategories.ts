@@ -1,7 +1,7 @@
 import {
   isRetiredCompositeLabel,
   matchSubcategory,
-  normalizeTagKey,
+  normalizeSubcategoryKey,
   type L2Subcategory,
 } from '@/lib/taxonomy/ontology'
 
@@ -39,7 +39,7 @@ const BLOCKLIST_SIZE_PREFIX = /^(超|迷你|小|大|長|短)/u
  * (`normalizeSubcategories`) and the visitor-facing correction validator
  * (`resolveSubcategoryInput`) — so the two can never drift. The `export` exists
  * for the unit test.
- * Expects an already-trimmed tag.
+ * Expects an already-trimmed subcategory.
  */
 export function novelSubcategoryRejection(subcategory: string): NovelSubcategoryRejectionReason | null {
   if (isRetiredCompositeLabel(subcategory)) return 'retired-composite'
@@ -60,14 +60,14 @@ export function novelSubcategoryRejection(subcategory: string): NovelSubcategory
 
 /**
  * Every ontology `nameEn` is Title Case ('Rain Boots', 'Clasp-Frame Bags'), so a
- * novel tag that keeps the model's lowercase output ('rain boots') sits next to
+ * novel subcategory that keeps the model's lowercase output ('rain boots') sits next to
  * canonical ones on the same card and reads as a data bug. Capitalizes the first
  * letter of each whitespace-separated word and touches nothing else, so existing
  * capitals survive ('USB-C' stays 'USB-C') and a Chinese fallback is a no-op.
- * Casing only — this does NOT drop or machine-translate the tag, which
+ * Casing only — this does NOT drop or machine-translate the subcategory, which
  * `docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md` rules out.
  */
-function toTagTitleCase(value: string): string {
+function toSubcategoryTitleCase(value: string): string {
   return value.replace(/(^|\s)(\p{Ll})/gu, (_, lead: string, letter: string) =>
     `${lead}${letter.toLocaleUpperCase()}`,
   )
@@ -88,7 +88,7 @@ export function resolveSubcategoryInput(input: string): SubcategoryInputResult {
 
   // Canonical ontology matching always wins first (for example, the accepted
   // 卡片・明信片 synonym). Retired DEV-1361 composites are then blocked from
-  // the novel-tag escape hatch, including their compact no-dot spellings.
+  // the novel-subcategory escape hatch, including their compact no-dot spellings.
   if (isRetiredCompositeLabel(trimmed)) {
     return { ok: false, reason: 'retired-composite' }
   }
@@ -135,8 +135,8 @@ export function normalizeSubcategories(
       }
 
       // An unmatched composite is not a subcategory by itself. Keep only
-      // halves that resolve to canonical ontology tags; unresolved halves and
-      // the original composite must not become novel tags.
+      // halves that resolve to canonical ontology subcategories; unresolved halves and
+      // the original composite must not become novel subcategories.
       if (zh.includes('・')) {
         for (const half of zh.split('・')) {
           const halfSub = matchSubcategory(half.trim())
@@ -150,7 +150,7 @@ export function normalizeSubcategories(
       if (rejection) {
         rejected.push({ subcategory: rawZh, reason: rejection })
       } else {
-        pairs.push({ zh, en: toTagTitleCase(en || zh) })
+        pairs.push({ zh, en: toSubcategoryTitleCase(en || zh) })
       }
     }
   }
@@ -201,17 +201,17 @@ export function deriveCategoryFromSubcategories(
  * - An ontology hit ALWAYS wins over the stored value. That is what repairs the
  *   drift DEV-1266 found — `後背包` stored as 'Backpack'/'backpack' becomes the
  *   canonical 'Backpacks', `面膜` becomes 'Face Masks'.
- * - A novel tag (ontology miss) keeps its stored EN, Title Cased, so a real
+ * - A novel subcategory (ontology miss) keeps its stored EN, Title Cased, so a real
  *   human/LLM translation ('sling bag') survives as 'Sling Bag' instead of
  *   being thrown away.
  *
  * Called with one argument it behaves exactly as before.
  *
- * ACCEPTED TRADEOFF, not a bug: when `existingEn` has nothing for a novel tag,
+ * ACCEPTED TRADEOFF, not a bug: when `existingEn` has nothing for a novel subcategory,
  * the raw (usually Chinese) string is written to `subcategories_en` verbatim and
  * renders untranslated on `/en`. `docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md`
  * weighs this against the alternatives and takes it deliberately — do not
- * "fix" it by dropping the tag or machine-translating it here.
+ * "fix" it by dropping the subcategory or machine-translating it here.
  */
 export function deriveSubcategoriesEn(
   subcategories: string[],
@@ -220,7 +220,7 @@ export function deriveSubcategoriesEn(
   return subcategories.map((subcategory, index) => {
     const canonical = matchSubcategory(subcategory)?.nameEn
     if (canonical) return canonical
-    return toTagTitleCase(existingEn[index]?.trim() || subcategory)
+    return toSubcategoryTitleCase(existingEn[index]?.trim() || subcategory)
   })
 }
 
@@ -237,7 +237,7 @@ export function isSubcategoriesDelta(value: unknown): value is SubcategoriesDelt
 
 /**
  * Applies a correction delta. Membership — removal and dedupe alike — is keyed
- * by `normalizeTagKey`, the same basis `matchSubcategory` matches on, so a
+ * by `normalizeSubcategoryKey`, the same basis `matchSubcategory` matches on, so a
  * novel subcategory stored raw ('Vegan') cannot coexist with a case or full-width
  * variant of itself ('vegan') and burn two of the five cap slots. The string
  * kept is always the FIRST-seen original, never the normalized key: the key is
@@ -247,19 +247,19 @@ export function applySubcategoryDelta(
   current: string[],
   delta: SubcategoriesDelta,
 ): string[] {
-  const removed = new Set(delta.remove.map(normalizeTagKey))
+  const removed = new Set(delta.remove.map(normalizeSubcategoryKey))
   const seen = new Set<string>()
   const next: string[] = []
 
   for (const subcategory of current) {
-    const key = normalizeTagKey(subcategory)
+    const key = normalizeSubcategoryKey(subcategory)
     if (removed.has(key) || seen.has(key)) continue
     seen.add(key)
     next.push(subcategory)
   }
 
   for (const subcategory of delta.add) {
-    const key = normalizeTagKey(subcategory)
+    const key = normalizeSubcategoryKey(subcategory)
     if (seen.has(key)) continue
     seen.add(key)
     next.push(subcategory)
@@ -271,7 +271,7 @@ export function applySubcategoryDelta(
 export function sameSubcategorySet(left: string[], right: string[]): boolean {
   if (left.length !== right.length) return false
   const rightSet = new Set(right)
-  return left.every((tag) => rightSet.has(tag))
+  return left.every((subcategory) => rightSet.has(subcategory))
 }
 
 type SubcategoryBackfillMatch = {
@@ -288,28 +288,28 @@ export type SubcategoryBackfillPlan = {
 
 /**
  * Deterministic first pass for the normalize-subcategories backfill.
- * Tags that hit the ontology vocab are resolved to canonical zh/en/slug.
- * Tags that miss are returned as `unmatched` for LLM follow-up.
+ * Subcategories that hit the ontology vocab are resolved to canonical zh/en/slug.
+ * Subcategories that miss are returned as `unmatched` for LLM follow-up.
  * Deduplication is by slug — first occurrence wins.
  */
-export function planSubcategoryBackfill(tags: string[]): SubcategoryBackfillPlan {
+export function planSubcategoryBackfill(subcategories: string[]): SubcategoryBackfillPlan {
   const matched: SubcategoryBackfillMatch[] = []
   const unmatched: string[] = []
   const seenSlugs = new Set<string>()
 
-  for (const tag of tags) {
-    const sub = matchSubcategory(tag)
+  for (const subcategory of subcategories) {
+    const sub = matchSubcategory(subcategory)
     if (sub) {
       if (seenSlugs.has(sub.slug)) continue
       seenSlugs.add(sub.slug)
       matched.push({
-        original: tag,
+        original: subcategory,
         canonicalZh: sub.nameZh,
         canonicalEn: sub.nameEn,
         slug: sub.slug,
       })
     } else {
-      unmatched.push(tag)
+      unmatched.push(subcategory)
     }
   }
 

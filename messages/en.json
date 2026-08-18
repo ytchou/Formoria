@@ -2480,16 +2480,16 @@
         "social_threads": "Threads",
         "social_facebook": "Facebook"
       },
-      "tagDelta": {
+      "subcategoryDelta": {
         "projected": "Projected result"
       },
       "stale": "Brand data changed after submission",
-      "novelTag": "Not in taxonomy",
-      "novelTagTitle": "Approving this adds a display-only tag: it matches no ?sub= filter, so it will not appear in directory filtering.",
+      "novelSubcategory": "Not in taxonomy",
+      "novelSubcategoryTitle": "Approving this adds a display-only subcategory: it matches no ?sub= filter, so it will not appear in directory filtering.",
       "tooManySubcategories": "Cannot approve: the result would exceed 5 product subcategories",
       "bulkApprove": "Approve {count} selected",
       "bulkReject": "Reject {count} selected",
-      "capBlocker": "{projected} tags after apply — the limit for this brand is {limit}",
+      "capBlocker": "{projected} subcategories after apply — the limit for this brand is {limit}",
       "actions": {
         "approve": "Approve",
         "reject": "Reject"
@@ -2878,8 +2878,8 @@
         "fetching": "Reading the page…",
         "nameZh": "Product name (zh-TW)",
         "nameEn": "Product name (English)",
-        "l1": "Category",
-        "l2": "Subcategories",
+        "l1": "Product category",
+        "l2": "Product subcategory",
         "officialUrl": "Official product URL",
         "imageSourceUrl": "Image page URL",
         "imageHint": "The image is downloaded, converted to WebP, and stored when you save. GIF and SVG are rejected; use a JPEG, PNG, or WebP source.",

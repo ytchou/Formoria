@@ -1,6 +1,6 @@
 ---
 name: write-stories
-description: Use when drafting or rewriting a long-form zh-TW article for formoria.com — a 專題, 導覽, 主題選物, discovery trail, product-type guide, brand guide, or event guide — or when the user says "write a story", "draft an article", or names a reader situation to build a selection around. Produces an MDX file under content/stories/ with every fact traceable to a source. NOT for social posts, brand descriptions, marketing copy, or English content.
+description: Use when drafting or rewriting a long-form zh-TW article for formoria.com — a 專題, 導覽, 主題選物, discovery trail, L1 category guide, brand guide, or event guide — or when the user says "write a story", "draft an article", or names a reader situation to build a selection around. Produces an MDX file under content/stories/ with every fact traceable to a source. NOT for social posts, brand descriptions, marketing copy, or English content.
 allowed-tools: Read, Grep, Glob, Write, Edit, Bash
 ---
 
@@ -34,7 +34,7 @@ Two shapes, and picking the wrong one costs a rewrite rather than an edit.
 
 | The organising idea is… | Config | Signal |
 |---|---|---|
-| A **kind of thing** — material, craft, product category | `configs/product-type.md` | Title names a category. Reader knows what they are looking at |
+| A **kind of thing** — material, craft, L1 category | `configs/l1-category.md` | Title names a category. Reader knows what they are looking at |
 | A **reader's situation** | `configs/discovery-trail.md` | Title starts 「在…的時候」 or quotes the reader. Reader has no keyword |
 
 Take the mode from the argument when given. Otherwise infer it and **state the
@@ -97,7 +97,7 @@ reporting it as one wastes the editor's time.
 
 The human's brief owns the angle, the selection, and what the article is for. Do
 not substitute your own thesis. Build the section list from the config's shape,
-then check it against the config's own trap — the product-type roster problem, or
+then check it against the config's own trap — the L1 category roster problem, or
 the trail's cross-category test — before writing prose.
 
 Record the outline and the slate in your hand-off. It is not an approval gate; it

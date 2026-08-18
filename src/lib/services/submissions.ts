@@ -48,6 +48,7 @@ import {
   type PurchaseChannelCamelField,
   type PurchaseChannelColumn,
 } from "@/lib/brands/purchase-channels";
+import { toPersistedFieldPatch } from "./_shared/persisted-field-identifiers";
 
 // ---------------------------------------------------------------------------
 // Row types
@@ -2183,11 +2184,17 @@ export async function approveSubmission(
     slug,
     status: "approved",
   };
+  // The approval RPC still records its input keys as provenance identifiers.
+  // Keep the application payload on final vocabulary everywhere else, then
+  // translate only at this persisted legacy boundary until PR3.
+  const persistedBrandInsert = toPersistedFieldPatch(
+    brandInsert as unknown as Record<string, unknown>,
+  );
 
   const { data: approvalRows, error: approvalError } = await supabase.rpc(
     "approve_submission_with_romanized_name",
     {
-      p_brand_data: brandInsert as unknown as Json,
+      p_brand_data: persistedBrandInsert as unknown as Json,
       p_reviewer_id: reviewerId,
       p_submission_id: id,
     },

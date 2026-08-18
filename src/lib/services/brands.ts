@@ -55,6 +55,10 @@ import {
   type SkippedBrandField,
 } from "./brand-write-policy";
 import {
+  fromPersistedFieldIdentifiers,
+  toPersistedFieldPatch,
+} from "./_shared/persisted-field-identifiers";
+import {
   getBrandImages,
   insertBrandImage,
   syncHeroDenormalized,
@@ -1059,13 +1063,15 @@ async function loadBrandFieldState(
   if (error) throw error;
 
   return Object.fromEntries(
-    (data ?? []).map((row) => [
-      row.field,
-      {
-        source: row.source,
-        updatedAt: row.updated_at,
-      },
-    ]),
+    (data ?? []).flatMap((row) =>
+      fromPersistedFieldIdentifiers(row.field).map((field) => [
+        field,
+        {
+          source: row.source,
+          updatedAt: row.updated_at,
+        },
+      ]),
+    ),
   );
 }
 
@@ -2181,7 +2187,7 @@ export async function updateBrand(
       "apply_brand_patch",
       {
         p_brand_id: id,
-        p_patch: allowed,
+        p_patch: toPersistedFieldPatch(allowed),
         p_source: actor.source,
         p_actor: actor.userId ?? null,
         p_job_id: actor.jobId ?? null,
@@ -2198,7 +2204,7 @@ export async function updateBrand(
         "apply_brand_patch",
         {
           p_brand_id: id,
-          p_patch: allowed,
+          p_patch: toPersistedFieldPatch(allowed),
           p_source: actor.source,
           p_actor: actor.userId ?? null,
           p_job_id: actor.jobId ?? null,

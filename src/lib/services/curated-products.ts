@@ -12,7 +12,7 @@ import {
 } from "@/lib/services/public-brand-filter";
 import {
   matchSubcategory,
-  normalizeTagKey,
+  normalizeSubcategoryKey,
   resolveSubcategorySlugs,
 } from "@/lib/taxonomy/ontology";
 import { getPublishedTrailBySlug, getTrailBySlug } from "@/lib/services/trails";
@@ -681,9 +681,9 @@ export type CuratedProductUpdateInput = Partial<
 /**
  * L2 arrives as either ontology slugs (from the admin picker) or Chinese labels
  * (from a pasted list), so both are folded into one vocabulary before
- * `normalizeSubcategories` applies the shared dedupe, novel-tag, and cap rules.
+ * `normalizeSubcategories` applies the shared dedupe, novel-subcategory, and cap rules.
  * Anything that does not resolve to a subcategory of `l1` is dropped: `l2` is a
- * slug column, and a free-text tag stored there would render as a dead filter.
+ * slug column, and a free-text subcategory stored there would render as a dead filter.
  */
 function normalizeCuratedL2(l1: string, l2: readonly string[]): string[] {
   const seenInput = new Set<string>();
@@ -691,7 +691,7 @@ function normalizeCuratedL2(l1: string, l2: readonly string[]): string[] {
   for (const value of l2) {
     const trimmed = value.trim();
     if (!trimmed) continue;
-    const key = normalizeTagKey(trimmed);
+    const key = normalizeSubcategoryKey(trimmed);
     if (seenInput.has(key)) continue;
     seenInput.add(key);
     raw.push(trimmed);
@@ -826,7 +826,7 @@ export async function updateCuratedProduct(
       if (input.l1 !== undefined) payload.l1 = input.l1;
       if (input.l2 !== undefined) {
         // L2 is only meaningful within an L1. Defaulting the branch to "" would
-        // normalize every tag away and write an empty array, so the caller is
+        // normalize every subcategory away and write an empty array, so the caller is
         // made to state it instead of losing the tags silently.
         //
         // DEFENSIVE BACKSTOP ONLY. The admin boundary rejects this pair in

@@ -17,7 +17,7 @@ describe('toBrandRow subcategories_en derivation', () => {
     expect(row.subcategories_en).toEqual(['Backpacks'])
   })
 
-  it('keeps a novel tag supplied EN but Title Cases it', () => {
+  it('keeps a novel subcategory supplied EN but Title Cases it', () => {
     const row = toBrandRow({
       subcategories: ['手工燈籠'],
       subcategoriesEn: ['handmade lantern'],

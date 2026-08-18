@@ -2,9 +2,9 @@
  * DEV-1266 backfill: re-derive `subcategories_en` for every brand.
  *
  * `subcategories_en` is a pure function of `subcategories`: an ontology hit takes
- * the canonical `nameEn` ('後背包' -> 'Backpacks'), a novel tag keeps whatever
+ * the canonical `nameEn` ('後背包' -> 'Backpacks'), a novel subcategory keeps whatever
  * English is already stored, Title Cased ('sling bag' -> 'Sling Bag'), and a
- * novel tag with no stored English falls back to the raw Chinese. All of that
+ * novel subcategory with no stored English falls back to the raw Chinese. All of that
  * lives in `deriveSubcategoriesEn`, so this script is deterministic — no LLM, no
  * DeepSeek, no network beyond Supabase.
  *
@@ -170,7 +170,7 @@ async function main(): Promise<void> {
   // never end up with zero EN tags — `deriveSubcategoriesEn` is index-aligned, so
   // that can only mean the zh array was misread. A brand with zero zh tags
   // legitimately normalizes to zero EN tags (rnl-threads is exactly that: one
-  // orphaned EN tag, no zh), so it is excluded from the guard.
+  // orphaned EN subcategory, no zh), so it is excluded from the guard.
   for (const result of changedResults) {
     if (
       result.subcategories.length > 0 &&

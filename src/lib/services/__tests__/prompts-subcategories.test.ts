@@ -16,7 +16,7 @@ describe("FACTS_SYSTEM_PROMPT subcategories vocabulary", () => {
     expect(FACTS_SYSTEM_PROMPT).not.toContain("不要用寬泛分類");
   });
 
-  it("the subcategories rule forbids the middle dot in novel tags", () => {
+  it("the subcategories rule forbids the middle dot in novel subcategories", () => {
     expect(FACTS_SYSTEM_PROMPT).toContain("不含「・」");
   });
 
@@ -26,7 +26,7 @@ describe("FACTS_SYSTEM_PROMPT subcategories vocabulary", () => {
     );
   });
 
-  it("the output self-check list covers tag kind and the separator", () => {
+  it("the output self-check list covers subcategory kind and the separator", () => {
     expect(FACTS_SYSTEM_PROMPT).toContain("是否命名具體產品種類");
     expect(FACTS_SYSTEM_PROMPT).toContain("是否不含「・」");
   });

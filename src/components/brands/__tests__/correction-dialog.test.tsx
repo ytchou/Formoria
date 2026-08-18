@@ -55,8 +55,8 @@ const CATEGORY_LABEL = messages.brandDetail.label.category;
 const PRICE_RANGE_LABEL = messages.brandDetail.label.priceRange;
 const CURRENT_HEADING = COPY.currentHeading;
 const CHANGE_TO_HEADING = COPY.changeToHeading;
-const CURRENT_TAGS_HEADING = COPY.currentSubcategoriesHeading;
-const ADD_TAGS_HEADING = COPY.addSubcategoriesHeading;
+const CURRENT_SUBCATEGORIES_HEADING = COPY.currentSubcategoriesHeading;
+const ADD_SUBCATEGORIES_HEADING = COPY.addSubcategoriesHeading;
 const PLACEHOLDER_COPY = COPY.selectPlaceholder;
 const OTHER_CHIP = COPY.otherSubcategoryChip;
 const OTHER_INPUT_LABEL = COPY.otherSubcategoryInputLabel;
@@ -135,14 +135,14 @@ const HOME_SUBCATEGORIES = L2_SUBCATEGORIES.filter(
   (subcategory) => subcategory.category === "home",
 );
 
-function homeTagsAt(count: number) {
+function homeSubcategoriesAt(count: number) {
   return HOME_SUBCATEGORIES.slice(0, count).map(
     (subcategory) => subcategory.nameZh,
   );
 }
 
 function expandOther() {
-  clickChip(ADD_TAGS_HEADING, OTHER_CHIP);
+  clickChip(ADD_SUBCATEGORIES_HEADING, OTHER_CHIP);
 }
 
 function typeOther(value: string) {
@@ -152,7 +152,7 @@ function typeOther(value: string) {
 }
 
 function confirmOther() {
-  clickChip(ADD_TAGS_HEADING, OTHER_CONFIRM);
+  clickChip(ADD_SUBCATEGORIES_HEADING, OTHER_CONFIRM);
 }
 
 describe("CorrectionDialog", () => {
@@ -291,16 +291,16 @@ describe("CorrectionDialog", () => {
       expect(submitButton()).toBeDisabled();
     });
 
-    it("submit stays disabled while the tag set is unchanged", () => {
+    it("submit stays disabled while the subcategory set is unchanged", () => {
       renderSubcategories(["寢具", "家具"]);
       openSubcategoriesDialog();
 
       expect(submitButton()).toBeDisabled();
 
-      clickChip(ADD_TAGS_HEADING, "床墊");
+      clickChip(ADD_SUBCATEGORIES_HEADING, "床墊");
       expect(submitButton()).toBeEnabled();
 
-      clickChip(ADD_TAGS_HEADING, "床墊");
+      clickChip(ADD_SUBCATEGORIES_HEADING, "床墊");
       expect(submitButton()).toBeDisabled();
     });
   });
@@ -336,8 +336,8 @@ describe("CorrectionDialog", () => {
       renderSubcategories(["寢具", "家具"]);
       openSubcategoriesDialog();
 
-      clickChip(ADD_TAGS_HEADING, "床墊");
-      clickChip(CURRENT_TAGS_HEADING, "家具");
+      clickChip(ADD_SUBCATEGORIES_HEADING, "床墊");
+      clickChip(CURRENT_SUBCATEGORIES_HEADING, "家具");
       submit();
 
       await waitFor(() => {
@@ -353,8 +353,8 @@ describe("CorrectionDialog", () => {
       renderSubcategories(["寢具"]);
       openSubcategoriesDialog();
 
-      clickChip(CURRENT_TAGS_HEADING, "寢具");
-      clickChip(ADD_TAGS_HEADING, "床墊");
+      clickChip(CURRENT_SUBCATEGORIES_HEADING, "寢具");
+      clickChip(ADD_SUBCATEGORIES_HEADING, "床墊");
       submit();
 
       await waitFor(() => {
@@ -371,11 +371,11 @@ describe("CorrectionDialog", () => {
       );
     });
 
-    it("omits untouched tags from the delta", async () => {
+    it("omits untouched subcategories from the delta", async () => {
       renderSubcategories(["寢具", "家具"]);
       openSubcategoriesDialog();
 
-      clickChip(ADD_TAGS_HEADING, "床墊");
+      clickChip(ADD_SUBCATEGORIES_HEADING, "床墊");
       submit();
 
       await waitFor(() => {
@@ -391,7 +391,7 @@ describe("CorrectionDialog", () => {
       renderSubcategories(["寢具", "上衣・T恤"]);
       openSubcategoriesDialog();
 
-      clickChip(CURRENT_TAGS_HEADING, "上衣・T恤");
+      clickChip(CURRENT_SUBCATEGORIES_HEADING, "上衣・T恤");
       expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
 
       submit();
@@ -423,16 +423,16 @@ describe("CorrectionDialog", () => {
     });
   });
 
-  describe("tag rows", () => {
-    // A `home` brand can still carry `fashion` tags: normalizeSubcategories keeps
-    // cross-branch tags, and approving a category correction moves the
-    // category without re-deriving subcategories. Those tags consume the 5-tag
+  describe("subcategory rows", () => {
+    // A `home` brand can still carry `fashion` subcategories: normalizeSubcategories keeps
+    // cross-branch subcategories, and approving a category correction moves the
+    // category without re-deriving subcategories. Those subcategories consume the 5-subcategory
     // cap, so they have to stay visible and removable.
-    it("renders every current tag in row 1, including out-of-category ones", () => {
+    it("renders every current subcategory in row 1, including out-of-category ones", () => {
       renderSubcategories(["寢具", "上衣・T恤"]);
       openSubcategoriesDialog();
 
-      const current = group(CURRENT_TAGS_HEADING);
+      const current = group(CURRENT_SUBCATEGORIES_HEADING);
       expect(
         within(current).getByRole("button", { name: "寢具" }),
       ).toBeEnabled();
@@ -444,29 +444,29 @@ describe("CorrectionDialog", () => {
       expect(screen.getByText(selectedCount(2))).toBeInTheDocument();
     });
 
-    it("row 1 tags start pressed and flip to unpressed when marked for removal", () => {
+    it("row 1 subcategories start pressed and flip to unpressed when marked for removal", () => {
       renderSubcategories(["寢具"]);
       openSubcategoriesDialog();
 
-      expect(chip(CURRENT_TAGS_HEADING, "寢具")).toHaveAttribute(
+      expect(chip(CURRENT_SUBCATEGORIES_HEADING, "寢具")).toHaveAttribute(
         "aria-pressed",
         "true",
       );
 
-      clickChip(CURRENT_TAGS_HEADING, "寢具");
+      clickChip(CURRENT_SUBCATEGORIES_HEADING, "寢具");
 
-      expect(chip(CURRENT_TAGS_HEADING, "寢具")).toHaveAttribute(
+      expect(chip(CURRENT_SUBCATEGORIES_HEADING, "寢具")).toHaveAttribute(
         "aria-pressed",
         "false",
       );
       expect(screen.getByText(selectedCount(0))).toBeInTheDocument();
     });
 
-    it("row 2 excludes tags already held", () => {
+    it("row 2 excludes subcategories already held", () => {
       renderSubcategories(["寢具"]);
       openSubcategoriesDialog();
 
-      const options = group(ADD_TAGS_HEADING);
+      const options = group(ADD_SUBCATEGORIES_HEADING);
       expect(
         within(options).queryByRole("button", { name: "寢具" }),
       ).not.toBeInTheDocument();
@@ -485,7 +485,7 @@ describe("CorrectionDialog", () => {
       }
     });
 
-    it("counts out-of-category and novel tags against the 5 cap", () => {
+    it("counts out-of-category and novel subcategories against the 5 cap", () => {
       renderSubcategories(["上衣・T恤", "褲裝", "裙裝", "洋裝"]);
       openSubcategoriesDialog();
 
@@ -497,59 +497,59 @@ describe("CorrectionDialog", () => {
 
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
       expect(screen.getByText(COPY.subcategoriesLimit)).toBeInTheDocument();
-      expect(chip(ADD_TAGS_HEADING, "寢具")).toBeDisabled();
+      expect(chip(ADD_SUBCATEGORIES_HEADING, "寢具")).toBeDisabled();
     });
 
     it("disables unselected row-2 chips at the cap while pressed ones stay enabled", () => {
-      const currentTags = homeTagsAt(5);
-      renderSubcategories(currentTags);
+      const currentSubcategories = homeSubcategoriesAt(5);
+      renderSubcategories(currentSubcategories);
       openSubcategoriesDialog();
 
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
 
-      const options = within(group(ADD_TAGS_HEADING)).getAllByRole("button");
+      const options = within(group(ADD_SUBCATEGORIES_HEADING)).getAllByRole("button");
       expect(options.length).toBeGreaterThan(0);
       expect(options.every((button) => button.hasAttribute("disabled"))).toBe(
         true,
       );
 
-      for (const tag of currentTags) {
-        expect(chip(CURRENT_TAGS_HEADING, tag)).toBeEnabled();
+      for (const subcategory of currentSubcategories) {
+        expect(chip(CURRENT_SUBCATEGORIES_HEADING, subcategory)).toBeEnabled();
       }
     });
 
-    // Restoring a tag that was marked for removal is an add, and adds no-op at
+    // Restoring a subcategory that was marked for removal is an add, and adds no-op at
     // the cap. Without the guard the chip would look live and do nothing.
-    it("disables a removed row-1 tag once the cap is refilled elsewhere", () => {
-      const currentTags = homeTagsAt(5);
-      const [removed] = currentTags;
+    it("disables a removed row-1 subcategory once the cap is refilled elsewhere", () => {
+      const currentSubcategories = homeSubcategoriesAt(5);
+      const [removed] = currentSubcategories;
       const replacement = HOME_SUBCATEGORIES[5]?.nameZh;
       expect(removed).toBeDefined();
       expect(replacement).toBeDefined();
       if (!removed || !replacement) return;
 
-      renderSubcategories(currentTags);
+      renderSubcategories(currentSubcategories);
       openSubcategoriesDialog();
 
-      clickChip(CURRENT_TAGS_HEADING, removed);
+      clickChip(CURRENT_SUBCATEGORIES_HEADING, removed);
       expect(screen.getByText(selectedCount(4))).toBeInTheDocument();
-      expect(chip(CURRENT_TAGS_HEADING, removed)).toBeEnabled();
+      expect(chip(CURRENT_SUBCATEGORIES_HEADING, removed)).toBeEnabled();
 
-      clickChip(ADD_TAGS_HEADING, replacement);
+      clickChip(ADD_SUBCATEGORIES_HEADING, replacement);
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
-      expect(chip(CURRENT_TAGS_HEADING, removed)).toBeDisabled();
-      expect(chip(CURRENT_TAGS_HEADING, removed)).toHaveAttribute(
+      expect(chip(CURRENT_SUBCATEGORIES_HEADING, removed)).toBeDisabled();
+      expect(chip(CURRENT_SUBCATEGORIES_HEADING, removed)).toHaveAttribute(
         "aria-pressed",
         "false",
       );
     });
 
-    it("counts a duplicated legacy tag once", () => {
+    it("counts a duplicated legacy subcategory once", () => {
       renderSubcategories(["寢具", "寢具"]);
       openSubcategoriesDialog();
 
       expect(
-        within(group(CURRENT_TAGS_HEADING)).getAllByRole("button", {
+        within(group(CURRENT_SUBCATEGORIES_HEADING)).getAllByRole("button", {
           name: "寢具",
         }),
       ).toHaveLength(1);
@@ -560,7 +560,7 @@ describe("CorrectionDialog", () => {
       renderSubcategories(["寢具"]);
       openSubcategoriesDialog();
 
-      clickChip(ADD_TAGS_HEADING, "床墊");
+      clickChip(ADD_SUBCATEGORIES_HEADING, "床墊");
       submit();
 
       await waitFor(() => {
@@ -569,11 +569,11 @@ describe("CorrectionDialog", () => {
 
       openSubcategoriesDialog();
 
-      expect(chip(CURRENT_TAGS_HEADING, "寢具")).toHaveAttribute(
+      expect(chip(CURRENT_SUBCATEGORIES_HEADING, "寢具")).toHaveAttribute(
         "aria-pressed",
         "true",
       );
-      expect(chip(ADD_TAGS_HEADING, "床墊")).toHaveAttribute(
+      expect(chip(ADD_SUBCATEGORIES_HEADING, "床墊")).toHaveAttribute(
         "aria-pressed",
         "false",
       );
@@ -582,7 +582,7 @@ describe("CorrectionDialog", () => {
     });
   });
 
-  describe("other tag flow", () => {
+  describe("other subcategory flow", () => {
     it("canonicalizes an alias to its nameZh instead of adding the typed string", () => {
       renderSubcategories([]);
       openSubcategoriesDialog();
@@ -591,10 +591,10 @@ describe("CorrectionDialog", () => {
       typeOther("T恤");
       confirmOther();
 
-      const added = chip(ADD_TAGS_HEADING, "上衣・T恤");
+      const added = chip(ADD_SUBCATEGORIES_HEADING, "上衣・T恤");
       expect(added).toHaveAttribute("aria-pressed", "true");
       expect(
-        within(group(ADD_TAGS_HEADING)).queryByRole("button", { name: "T恤" }),
+        within(group(ADD_SUBCATEGORIES_HEADING)).queryByRole("button", { name: "T恤" }),
       ).not.toBeInTheDocument();
     });
 
@@ -606,17 +606,17 @@ describe("CorrectionDialog", () => {
       typeOther("床包");
       confirmOther();
 
-      const options = group(ADD_TAGS_HEADING);
+      const options = group(ADD_SUBCATEGORIES_HEADING);
       expect(
         within(options).getAllByRole("button", { name: "寢具" }),
       ).toHaveLength(1);
-      expect(chip(ADD_TAGS_HEADING, "寢具")).toHaveAttribute(
+      expect(chip(ADD_SUBCATEGORIES_HEADING, "寢具")).toHaveAttribute(
         "aria-pressed",
         "true",
       );
     });
 
-    it("appends a cross-category canonical tag as a selected chip", () => {
+    it("appends a cross-category canonical subcategory as a selected chip", () => {
       renderSubcategories([]);
       openSubcategoriesDialog();
 
@@ -624,14 +624,14 @@ describe("CorrectionDialog", () => {
       typeOther("洋裝");
       confirmOther();
 
-      expect(chip(ADD_TAGS_HEADING, "洋裝")).toHaveAttribute(
+      expect(chip(ADD_SUBCATEGORIES_HEADING, "洋裝")).toHaveAttribute(
         "aria-pressed",
         "true",
       );
       expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
     });
 
-    it("appends an accepted novel tag as a selected chip", async () => {
+    it("appends an accepted novel subcategory as a selected chip", async () => {
       renderSubcategories([]);
       openSubcategoriesDialog();
 
@@ -639,7 +639,7 @@ describe("CorrectionDialog", () => {
       typeOther("藤編椅");
       confirmOther();
 
-      expect(chip(ADD_TAGS_HEADING, "藤編椅")).toHaveAttribute(
+      expect(chip(ADD_SUBCATEGORIES_HEADING, "藤編椅")).toHaveAttribute(
         "aria-pressed",
         "true",
       );
@@ -673,7 +673,7 @@ describe("CorrectionDialog", () => {
         .join(" ");
       expect(text).toContain(COPY.errors.subcategoryBlocked);
       expect(
-        within(group(ADD_TAGS_HEADING)).queryByRole("button", {
+        within(group(ADD_SUBCATEGORIES_HEADING)).queryByRole("button", {
           name: "限定",
         }),
       ).not.toBeInTheDocument();
@@ -707,26 +707,26 @@ describe("CorrectionDialog", () => {
       expect(screen.getByText(COPY.otherSubcategoryDuplicate)).toBeInTheDocument();
       expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
       expect(
-        within(group(CURRENT_TAGS_HEADING)).getAllByRole("button", {
+        within(group(CURRENT_SUBCATEGORIES_HEADING)).getAllByRole("button", {
           name: "寢具",
         }),
       ).toHaveLength(1);
     });
 
-    it("disables the 其他 affordance at the 5-tag cap", () => {
-      renderSubcategories(homeTagsAt(5));
+    it("disables the 其他 affordance at the 5-subcategory cap", () => {
+      renderSubcategories(homeSubcategoriesAt(5));
       openSubcategoriesDialog();
 
-      expect(chip(ADD_TAGS_HEADING, OTHER_CHIP)).toBeDisabled();
+      expect(chip(ADD_SUBCATEGORIES_HEADING, OTHER_CHIP)).toBeDisabled();
       expect(
         screen.queryByLabelText(OTHER_INPUT_LABEL),
       ).not.toBeInTheDocument();
     });
 
-    // Stored tags are not guaranteed canonical — the owner edit path persists
+    // Stored subcategories are not guaranteed canonical — the owner edit path persists
     // whatever alias was typed — so the duplicate check has to compare on a
     // canonical basis or the same subcategory lands twice.
-    it("reports a duplicate when the brand carries an alias of the typed tag", () => {
+    it("reports a duplicate when the brand carries an alias of the typed subcategory", () => {
       renderSubcategories(["床包"]);
       openSubcategoriesDialog();
 
@@ -737,7 +737,7 @@ describe("CorrectionDialog", () => {
       expect(screen.getByText(COPY.otherSubcategoryDuplicate)).toBeInTheDocument();
       expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
       expect(
-        within(group(ADD_TAGS_HEADING)).queryByRole("button", {
+        within(group(ADD_SUBCATEGORIES_HEADING)).queryByRole("button", {
           name: "寢具",
         }),
       ).not.toBeInTheDocument();
@@ -745,17 +745,17 @@ describe("CorrectionDialog", () => {
 
     // Disabling the 其他 chip does not unmount an entry panel opened below the
     // cap, so the cap has to be stated inside the panel too.
-    it("keeps the entry open and explains the cap instead of dropping the tag", () => {
+    it("keeps the entry open and explains the cap instead of dropping the subcategory", () => {
       const replacement = HOME_SUBCATEGORIES[4]?.nameZh;
       expect(replacement).toBeDefined();
       if (!replacement) return;
 
-      renderSubcategories(homeTagsAt(4));
+      renderSubcategories(homeSubcategoriesAt(4));
       openSubcategoriesDialog();
 
       expandOther();
       // The cap is reached while the entry panel is already open.
-      clickChip(ADD_TAGS_HEADING, replacement);
+      clickChip(ADD_SUBCATEGORIES_HEADING, replacement);
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
 
       typeOther("藤編椅");
@@ -769,7 +769,7 @@ describe("CorrectionDialog", () => {
       );
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
       expect(
-        within(group(ADD_TAGS_HEADING)).queryByRole("button", {
+        within(group(ADD_SUBCATEGORIES_HEADING)).queryByRole("button", {
           name: "藤編椅",
         }),
       ).not.toBeInTheDocument();
@@ -777,8 +777,8 @@ describe("CorrectionDialog", () => {
 
     // The 其他 chip is disabled at the cap, and focusing an element that is
     // about to be disabled drops focus to <body> mid-dialog.
-    it("keeps focus inside the dialog after the confirmed tag fills the cap", () => {
-      renderSubcategories(homeTagsAt(4));
+    it("keeps focus inside the dialog after the confirmed subcategory fills the cap", () => {
+      renderSubcategories(homeSubcategoriesAt(4));
       openSubcategoriesDialog();
 
       expandOther();
@@ -786,7 +786,7 @@ describe("CorrectionDialog", () => {
       confirmOther();
 
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
-      expect(chip(ADD_TAGS_HEADING, OTHER_CHIP)).toBeDisabled();
+      expect(chip(ADD_SUBCATEGORIES_HEADING, OTHER_CHIP)).toBeDisabled();
 
       const dialog = screen.getByRole("dialog");
       expect(document.activeElement).not.toBe(document.body);
@@ -800,12 +800,12 @@ describe("CorrectionDialog", () => {
       expandOther();
       expect(screen.getByLabelText(OTHER_INPUT_LABEL)).toHaveFocus();
 
-      clickChip(ADD_TAGS_HEADING, OTHER_CANCEL);
+      clickChip(ADD_SUBCATEGORIES_HEADING, OTHER_CANCEL);
 
       expect(
         screen.queryByLabelText(OTHER_INPUT_LABEL),
       ).not.toBeInTheDocument();
-      expect(chip(ADD_TAGS_HEADING, OTHER_CHIP)).toHaveFocus();
+      expect(chip(ADD_SUBCATEGORIES_HEADING, OTHER_CHIP)).toHaveFocus();
     });
   });
 

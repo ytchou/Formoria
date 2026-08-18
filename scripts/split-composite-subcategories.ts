@@ -29,7 +29,7 @@ import {
 import {
   RETIRED_COMPOSITE_LABELS,
   isRetiredCompositeLabel,
-  normalizeTagKey,
+  normalizeSubcategoryKey,
   subcategoryBySlug,
   type L2Subcategory,
 } from "@/lib/taxonomy/ontology";
@@ -65,7 +65,7 @@ export const SPLIT_DEFINITIONS: readonly SplitDefinition[] = [
 
 const definitionByKey = new Map<string, SplitDefinition>(
   SPLIT_DEFINITIONS.map((definition) => [
-    normalizeTagKey(definition.source),
+    normalizeSubcategoryKey(definition.source),
     definition,
   ]),
 );
@@ -264,7 +264,7 @@ function toTagPairs(
 }
 
 function sourceDefinitionForTag(tag: string): SplitDefinition | null {
-  return definitionByKey.get(normalizeTagKey(tag)) ?? null;
+  return definitionByKey.get(normalizeSubcategoryKey(tag)) ?? null;
 }
 
 export function sourceLabelsForTags(tags: string[]): string[] {
@@ -305,8 +305,8 @@ function appendUniquePair(
   pairs: Array<{ zh: string; en: string }>,
   pair: { zh: string; en: string },
 ): void {
-  const key = normalizeTagKey(pair.zh);
-  if (pairs.some((existing) => normalizeTagKey(existing.zh) === key)) return;
+  const key = normalizeSubcategoryKey(pair.zh);
+  if (pairs.some((existing) => normalizeSubcategoryKey(existing.zh) === key)) return;
   pairs.push(pair);
 }
 
@@ -331,7 +331,7 @@ function buildPredictedPairs(
 ): TagPair[] {
   const assignmentBySource = new Map(
     assignments.map((assignment) => [
-      normalizeTagKey(assignment.sourceLabel),
+      normalizeSubcategoryKey(assignment.sourceLabel),
       assignment,
     ]),
   );
@@ -341,7 +341,7 @@ function buildPredictedPairs(
     const rawTag = beforeTags[index] ?? "";
     const definition = sourceDefinitionForTag(rawTag);
     const assignment = definition
-      ? assignmentBySource.get(normalizeTagKey(definition.source))
+      ? assignmentBySource.get(normalizeSubcategoryKey(definition.source))
       : undefined;
 
     if (!definition || !assignment || assignment.decision === "needs-review") {
@@ -377,7 +377,7 @@ function buildOverflowReview(
       !sourceDefinitionForTag(pair.zh) &&
       predictedPairs.some(
         (predicted) =>
-          normalizeTagKey(predicted.zh) === normalizeTagKey(pair.zh),
+          normalizeSubcategoryKey(predicted.zh) === normalizeSubcategoryKey(pair.zh),
       ),
   );
   return {
@@ -406,7 +406,7 @@ export function buildSplitRow(
   const normalizedAssignments = sourceLabels.map((sourceLabel) => {
     const assignment = assignments.find(
       (candidate) =>
-        normalizeTagKey(candidate.sourceLabel) === normalizeTagKey(sourceLabel),
+        normalizeSubcategoryKey(candidate.sourceLabel) === normalizeSubcategoryKey(sourceLabel),
     );
     return (
       assignment ?? {
@@ -466,13 +466,13 @@ export function validateSplitRow(
     );
   }
   const assignmentKeys = row.assignments.map((assignment) =>
-    normalizeTagKey(assignment.sourceLabel),
+    normalizeSubcategoryKey(assignment.sourceLabel),
   );
   if (
     assignmentKeys.length !== expectedSources.length ||
     new Set(assignmentKeys).size !== assignmentKeys.length ||
     expectedSources.some(
-      (source) => !assignmentKeys.includes(normalizeTagKey(source)),
+      (source) => !assignmentKeys.includes(normalizeSubcategoryKey(source)),
     )
   ) {
     throw new Error(
@@ -571,14 +571,14 @@ export function validateSplitRow(
   const selected = row.overflowReview.evicted;
   const selectedKeys = new Set<string>();
   for (const pair of selected) {
-    const key = normalizeTagKey(pair.zh);
+    const key = normalizeSubcategoryKey(pair.zh);
     if (selectedKeys.has(key))
       throw new Error(
         `ABORT: duplicate overflow eviction "${pair.zh}" for ${row.slug}`,
       );
     selectedKeys.add(key);
     const beforePair = row.before.pairs.find(
-      (candidate) => normalizeTagKey(candidate.zh) === key,
+      (candidate) => normalizeSubcategoryKey(candidate.zh) === key,
     );
     if (!beforePair || !sameTagPair(beforePair, pair))
       throw new Error(
@@ -603,7 +603,7 @@ export function validateSplitRow(
       ? predictedPairs
       : row.overflowReview.status === "approved"
         ? predictedPairs.filter(
-            (pair) => !selectedKeys.has(normalizeTagKey(pair.zh)),
+            (pair) => !selectedKeys.has(normalizeSubcategoryKey(pair.zh)),
           )
         : predictedPairs;
   if (!sameTagPairList(row.after.pairs, expectedAfterPairs))
