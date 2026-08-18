@@ -119,9 +119,9 @@ describe('SubmitOverview', () => {
     await user.click(trigger);
 
     const dialog = screen.getByRole('alertdialog');
-    expect(dialog).toHaveTextContent('你已經擁有一個品牌');
+    expect(dialog).toHaveTextContent('這個帳號已經管理一個品牌');
     expect(dialog).toHaveTextContent(
-      '每個帳號只能管理一個品牌，因此你無法再透過品牌主流程建立另一個品牌頁。若想分享其他品牌，請改用社群推薦流程。',
+      '每個帳號只能管理一個品牌，因此無法再透過品牌主流程建立另一個品牌頁。若想分享其他品牌，請改用社群推薦流程。',
     );
     expect(screen.getByRole('button', { name: '關閉' })).toBeInTheDocument();
 

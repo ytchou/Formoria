@@ -29,19 +29,95 @@ test.describe("SEO deep", () => {
     expect(canonical).toMatch(/^https?:\/\//);
   });
 
-  test("homepage has OG tags", async ({ page }) => {
-    await page.goto("/");
-    const ogTitle = await page
-      .locator('meta[property="og:title"]')
-      .getAttribute("content");
-    const ogDesc = await page
-      .locator('meta[property="og:description"]')
-      .getAttribute("content");
-    expect(ogTitle?.length).toBeGreaterThan(0);
-    expect(ogDesc?.length).toBeGreaterThan(0);
+  test("home and About pages server-render the approved identity in both locales", async ({
+    page,
+  }) => {
+    const homeLocales = [
+      {
+        path: "/",
+        title: "Formoria：台灣品牌探索與選物平台",
+        description:
+          "Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。台灣品牌探索與選物平台，從生活出發認識產品與品牌。",
+        heading: "生活可以更像自己一點。",
+        positioning:
+          "Formoria 是台灣品牌探索與選物平台，從生活出發認識產品與品牌。",
+        manifestoHeading: "讓台灣品牌重新回到大眾目光",
+      },
+      {
+        path: "/en",
+        title: "Formoria — Taiwanese Brand Discovery & Curation",
+        description:
+          "Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it. A Taiwanese brand discovery and curation platform — start from life, meet the products and the brands.",
+        heading: "Life can look a little more like you.",
+        positioning:
+          "Formoria is a Taiwanese brand discovery and curation platform — start from life, meet the products and the brands.",
+        manifestoHeading:
+          "Make Taiwanese brands easier to discover, choose, and grow",
+      },
+    ] as const;
+    const aboutLocales = [
+      {
+        path: "/about",
+        title: "關於 Formoria | Formoria",
+        description:
+          "Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。認識這個台灣品牌探索與選物平台的收錄規則、編輯選擇與標示方式。",
+        heading: "搬新家、佈置店面、在市集停下來的那一刻",
+      },
+      {
+        path: "/en/about",
+        title: "About Formoria | Formoria",
+        description:
+          "How Formoria works: the inclusion rules, editorial choices, and labels behind a Taiwanese brand discovery and curation platform.",
+        heading: "Moving into a new home, setting up a shop, stopping at a market stall",
+      },
+    ] as const;
+
+    for (const locale of homeLocales) {
+      await page.goto(locale.path);
+      await expect(page).toHaveTitle(locale.title);
+      await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+        "content",
+        locale.description,
+      );
+      await expect(
+        page.locator('meta[property="og:description"]'),
+      ).toHaveAttribute("content", locale.description);
+      await expect(
+        page.getByRole("heading", { level: 1, name: locale.heading }),
+      ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+      await expect(
+        page.getByText(locale.positioning, { exact: true }),
+      ).toBeVisible();
+      // The trust line "收錄與選物，清楚分開" left the homepage on 2026-08-17
+      // when the manifesto band replaced the trust seam. It still ships on
+      // /about (asserted below), /faq and the /og/trust card. What the homepage
+      // states here now is the positioning line.
+      await expect(
+        page.getByRole("heading", { name: locale.manifestoHeading, level: 2 }),
+      ).toBeVisible();
+    }
+
+    for (const locale of aboutLocales) {
+      await page.goto(locale.path);
+      await expect(page).toHaveTitle(locale.title);
+      await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+        "content",
+        locale.description,
+      );
+      await expect(
+        page.locator('meta[property="og:description"]'),
+      ).toHaveAttribute("content", locale.description);
+      await expect(
+        page.getByRole("heading", { level: 1, name: locale.heading }),
+      ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+    }
   });
 
   test("robots.txt is accessible and allows crawling", async ({ request }) => {
+    test.skip(
+      process.env.FORMORIA_DEPLOYMENT_ENV === "staging",
+      "Staging intentionally disables indexing.",
+    );
     const response = await request.get("/robots.txt");
     expect(response.status()).toBe(200);
     const body = await response.text();
@@ -51,6 +127,10 @@ test.describe("SEO deep", () => {
   });
 
   test("sitemap.xml is accessible", async ({ request }) => {
+    test.skip(
+      process.env.FORMORIA_DEPLOYMENT_ENV === "staging",
+      "Staging intentionally omits the sitemap.",
+    );
     const response = await request.get("/sitemap.xml");
     expect(response.status()).toBe(200);
     const body = await response.text();
@@ -175,6 +255,10 @@ test.describe("SEO deep", () => {
   });
 
   test("sitemap includes the public editorial pages", async ({ request }) => {
+    test.skip(
+      process.env.FORMORIA_DEPLOYMENT_ENV === "staging",
+      "Staging intentionally omits the sitemap.",
+    );
     const body = await (await request.get("/sitemap.xml")).text();
     expect(body).toContain("/about");
     expect(body).not.toContain("/vision");
@@ -183,6 +267,10 @@ test.describe("SEO deep", () => {
   test("sitemap static pages expose a resolvable PNG OG image", async ({
     request,
   }) => {
+    test.skip(
+      process.env.FORMORIA_DEPLOYMENT_ENV === "staging",
+      "Staging intentionally omits the sitemap.",
+    );
     // The sitemap includes every locale and category variant; in a full dev
     // run those route bundles may still compile lazily after the other SEO
     // journeys have exercised the server. Keep the budget local to this sweep.
@@ -211,16 +299,16 @@ test.describe("SEO deep", () => {
         url.pathname === "/en" ? "/" : url.pathname.replace(/^\/en(?=\/)/, "");
       return staticPaths.has(path) || path.startsWith("/categories/");
     });
-
     expect(staticLocations.length).toBeGreaterThan(0);
     // A browser render per URL exceeds the CI timeout, while compiling every
     // route concurrently can overload a cold dev server and corrupt its route
     // manifests. Plain HTTP requests in small batches keep all URL assertions
     // while bounding lazy compilation pressure.
     const batchSize = 4;
+    const renderedPages: Array<{ url: URL; path: string; html: string }> = [];
     for (let index = 0; index < staticLocations.length; index += batchSize) {
       const batch = staticLocations.slice(index, index + batchSize);
-      await Promise.all(
+      const renderedBatch = await Promise.all(
         batch.map(async (url) => {
           const path = `${url.pathname}${url.search}`;
           const pageResponse = await request.get(path);
@@ -238,17 +326,20 @@ test.describe("SEO deep", () => {
             imageResponse.headers()["content-type"],
             `${path} → og:image content-type`,
           ).toMatch(/^image\/png(?:;|$)/);
-
-          if (
-            url.pathname.replace(/^\/en(?=\/)/, "").startsWith("/categories/")
-          ) {
-            expect(
-              extractMetaContent(html, "twitter:card"),
-              `${path} → twitter:card`,
-            ).toBe("summary_large_image");
-          }
+          return { url, path, html };
         }),
       );
+      renderedPages.push(...renderedBatch);
+    }
+
+    const categoryPages = renderedPages.filter(({ url }) =>
+      url.pathname.replace(/^\/en(?=\/)/, "").startsWith("/categories/"),
+    );
+    for (const { path, html } of categoryPages) {
+      expect(
+        extractMetaContent(html, "twitter:card"),
+        `${path} → twitter:card`,
+      ).toBe("summary_large_image");
     }
   });
 
@@ -259,6 +350,11 @@ test.describe("SEO deep", () => {
     const body = await res.text();
     expect(body).toContain("/about");
     expect(body).not.toContain("/vision");
+    expect(body).toContain(
+      "Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
+    );
+    expect(body).toContain("Brands or retailers remain responsible");
+    expect(body).not.toContain("discover, choose, and grow");
   });
 
   test("llms.txt lists canonical category and reference links", async ({

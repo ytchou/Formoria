@@ -6,6 +6,7 @@ import {
   buildCategoryItemListJsonLd,
   buildBrandsItemListJsonLd,
   buildEventJsonLd,
+  buildStockistItemListJsonLd,
   buildFaqPageJsonLd,
   buildOrganizationJsonLd,
   buildWebSiteJsonLd,
@@ -68,7 +69,6 @@ describe("buildBrandJsonLd", () => {
       id: `channel-${name}`,
       name,
       channelType: "offline",
-      categoryLabel: null,
       regionLabel: "臺北市",
       address: null,
       url: null,
@@ -401,10 +401,8 @@ describe("buildBreadcrumbJsonLd", () => {
 });
 
 describe("buildBrandsItemListJsonLd", () => {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://formoria.com";
 
   it("returns valid ItemList schema with correct structure", () => {
-    expect(siteUrl).toBeTruthy();
     const brands = [
       { name: "Brand Alpha", slug: "brand-alpha" },
       { name: "Brand Beta", slug: "brand-beta" },
@@ -483,17 +481,26 @@ describe("buildWebSiteJsonLd", () => {
 });
 
 describe("buildOrganizationJsonLd", () => {
-  it("emits an Organization with name and absolute url", () => {
-    const ld = buildOrganizationJsonLd("zh-TW") as JsonLdObject;
-    expect(ld["@type"]).toBe("Organization");
-    expect(ld.name).toBe("Formoria");
-    expect(ld.url).toMatch(/^https?:\/\//);
-    expect(ld.description).toContain("台灣品牌探索與選物平台");
+  it("describes the mission and commerce boundary in both public languages", () => {
+    const zh = buildOrganizationJsonLd("zh-TW") as JsonLdObject;
+    const en = buildOrganizationJsonLd("en") as JsonLdObject;
+
+    expect(zh["@type"]).toBe("Organization");
+    expect(zh.name).toBe("Formoria");
+    expect(zh.url).toMatch(/^https?:\/\//);
+    expect(zh.description).toContain(
+      "Formoria 把相遇之後的路接起來",
+    );
+    expect(zh.description).toContain("品牌或零售通路負責價格");
+    expect(en.description).toContain(
+      "Formoria reconnects the path after that moment",
+    );
+    expect(en.description).toContain("Brands or retailers remain responsible");
   });
+
   it("omits sameAs when no socials are configured", () => {
     const ld = buildOrganizationJsonLd("en") as JsonLdObject;
     expect("sameAs" in ld).toBe(false);
-    expect(ld.description).toContain("discovery and curation platform");
   });
 });
 
@@ -789,6 +796,68 @@ describe("buildFaqPageJsonLd", () => {
     expect(
       ld.mainEntity.map((entry: JsonLdObject) => entry.acceptedAnswer.text),
     ).toEqual(items.map((item) => item.answer));
+  });
+});
+
+describe("buildStockistItemListJsonLd", () => {
+  const location = (address: string | null) => ({
+    id: "8a8b35c9-6168-4899-87b4-24a48d647d1c",
+    name: "María García & Sons <Flagship>",
+    address,
+    url: null,
+    country: "TW",
+    city: "taipei" as const,
+    district: "中山區",
+    brandSlug: "maria-garcia-ceramics",
+    brandName: "María García Ceramics",
+    productType: "home",
+    productTags: [],
+  });
+
+  it("builds a Place with a PostalAddress for a location with an address", () => {
+    const result = buildStockistItemListJsonLd({
+      locations: [location("臺北市中山區樂群二路199號")],
+      cityName: "臺北市",
+      canonicalUrl: "https://formoria.com/where-to-buy/taipei",
+    });
+
+    expect(result.itemListElement[0].item).toMatchObject({
+      "@type": "Place",
+      address: {
+        "@type": "PostalAddress",
+        streetAddress: "臺北市中山區樂群二路199號",
+        addressLocality: "臺北市",
+        addressCountry: "TW",
+      },
+    });
+  });
+
+  it("omits the Place entirely when the location has no address", () => {
+    const result = buildStockistItemListJsonLd({
+      locations: [location(null)],
+      cityName: "臺北市",
+      canonicalUrl: "https://formoria.com/where-to-buy/taipei",
+    });
+    expect(result.itemListElement).toEqual([]);
+  });
+
+  it("builds an ItemList of the city's locations in order", () => {
+    const result = buildStockistItemListJsonLd({
+      locations: [location("第一個地址"), { ...location("第二個地址"), id: "second" }],
+      cityName: "臺北市",
+      canonicalUrl: "https://formoria.com/where-to-buy/taipei",
+    });
+    expect(result.numberOfItems).toBe(2);
+    expect(result.itemListElement.map((item: { position: number }) => item.position)).toEqual([1, 2]);
+  });
+
+  it("escapes safely", () => {
+    const result = buildStockistItemListJsonLd({
+      locations: [location("臺北市</script><script>alert(1)</script>")],
+      cityName: "臺北市",
+      canonicalUrl: "https://formoria.com/where-to-buy/taipei",
+    });
+    expect(safeJsonLdStringify(result)).not.toContain("</script>");
   });
 });
 

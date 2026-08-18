@@ -76,7 +76,10 @@ import { getSiteUrl } from '@/lib/site-url'
 import { getPostHogClient } from '@/lib/posthog-server'
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events'
 import { buildBrandListingPublishedEvent } from '@/lib/analytics/server-supply-events'
-import { revalidatePublicBrands } from '@/lib/cache/public-brand-cache'
+import {
+  revalidatePublicBrands,
+  revalidatePublicStockists,
+} from '@/lib/cache/public-brand-cache'
 
 // Analytics runs inside withApprovalTimeout and after the DB commit, so an unbounded
 // flush could exhaust the approval budget and report failure for an approval that
@@ -1097,6 +1100,8 @@ export async function adminRemoveChannelAction(
         auth.user.email ?? auth.user.id,
       )
       if (!result.ok) return { error: result.code }
+
+      revalidatePublicStockists(result.city)
 
       return { success: true }
     } catch (error) {

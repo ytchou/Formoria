@@ -2,8 +2,29 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildEnrichedChannelRows,
+  buildStockistPageRanges,
   CHANNEL_READ_SELECT,
+  groupStockistsForCity,
+  stockistDistrictSlugs,
+  summarizeStockistCities,
+  type StockistLocation,
 } from '../brand-channels'
+
+function location(id: string, district: string | null): StockistLocation {
+  return {
+    id,
+    name: `María García Stockist ${id}`,
+    address: `臺北市${district ?? ''}南京東路1號`,
+    url: null,
+    country: 'TW',
+    city: 'taipei',
+    district,
+    brandSlug: `maria-garcia-${id}`,
+    brandName: `María García ${id}`,
+    productType: 'home',
+    productTags: [],
+  }
+}
 
 describe('brand channel provenance', () => {
   it('forwards imported provenance into the RPC row payload', () => {
@@ -12,7 +33,6 @@ describe('brand channel provenance', () => {
         name: '好丘 信義店',
         normalizedName: '好丘信義',
         channelType: 'offline',
-        categoryLabel: '選品店',
         regionLabel: '臺北市',
         address: '臺北市信義區松勤街54號',
         url: 'https://www.goodcho.com.tw/stores/xinyi',
@@ -61,5 +81,41 @@ describe('brand channel provenance', () => {
     expect(CHANNEL_READ_SELECT).toContain('fetched_at')
     expect(CHANNEL_READ_SELECT).toContain('location_type')
     expect(CHANNEL_READ_SELECT).toContain('country')
+  })
+
+  it('orders district sections by location count and leaves unmatched locations last', () => {
+    const locations = [
+      location('alpha', '信義區'),
+      location('bravo', '中山區'),
+      location('charlie', '中山區'),
+      location('delta', null),
+    ]
+
+    expect(
+      groupStockistsForCity(locations, 'taipei').map((group) => group.slug),
+    ).toEqual(['taipei-zhongshan', 'taipei-xinyi', 'unassigned'])
+  })
+
+  it('summarizes only cities that have real locations', () => {
+    expect(summarizeStockistCities([location('echo', '中山區')])).toMatchObject(
+      [{ city: 'taipei', count: 1 }],
+    )
+  })
+
+  it('requests every stockist page when the directory exceeds the Data API row cap', () => {
+    expect(buildStockistPageRanges(1_354)).toEqual([
+      { from: 0, to: 999 },
+      { from: 1000, to: 1353 },
+    ])
+  })
+
+  it('offers location jumps only for district sections present in the directory', () => {
+    expect(
+      stockistDistrictSlugs([
+        location('foxtrot', '中山區'),
+        location('golf', '中山區'),
+        location('hotel', null),
+      ]),
+    ).toEqual(['taipei-zhongshan'])
   })
 })

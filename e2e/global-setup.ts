@@ -7,6 +7,7 @@ import { chromium, expect, type Browser } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { cleanupTestData } from "./helpers/cleanup";
 import { writeAuthStorageState } from "./helpers/auth-session";
+import { validateStagingTarget } from "../scripts/staging-target";
 
 const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
@@ -49,6 +50,7 @@ function assertServerServesThisCheckout(): void {
   const baseURL =
     process.env.BASE_URL ??
     process.env.PLAYWRIGHT_BASE_URL ??
+    process.env.STAGING_BASE_URL ??
     "http://localhost:3000";
   let url: URL;
   try {
@@ -77,6 +79,11 @@ function assertServerServesThisCheckout(): void {
 }
 
 async function globalSetup() {
+  // This is deliberately before any cleanup or probe mutation. Local and
+  // production targets are not supported: the suite is canonical only against
+  // the isolated deployed staging origin and project.
+  validateStagingTarget(process.env);
+
   // Guard first: everything below is wasted work if the wrong server answers.
   assertServerServesThisCheckout();
 
@@ -89,13 +96,13 @@ async function globalSetup() {
   }
 
   // Sweep orphaned test data from previous runs (runs once, globally). The 6h
-  // window is deliberate here — a tighter one would delete a concurrently
-  // running suite's live fixtures. Teardown sweeps THIS run's rows instead,
-  // using the timestamp recorded below (setup and teardown share a process).
+  // window is deliberate here — setup must remain safe if an operator starts
+  // a manual run while another invocation is still finishing. Teardown runs
+  // after the serialized suite and applies the strict run-scoped audit.
   process.env.E2E_RUN_STARTED_AT = new Date().toISOString();
-  // Short id specs can stamp into '[E2E-TEST] R-<id> …' seed names (see
-  // helpers/cleanup.ts's e2eSeedName) so teardown's run-scoped sweep can tell
-  // this run's own rows apart from a concurrently running suite's.
+  // Short id specs may stamp '[E2E-TEST] R-<id> …' seed names (see
+  // helpers/cleanup.ts's e2eSeedName); the strict teardown sweep also covers
+  // legacy un-stamped names because complete suite invocations are serialized.
   process.env.E2E_RUN_ID = randomUUID().slice(0, 8);
   await cleanupTestData();
 
@@ -143,21 +150,35 @@ async function globalSetup() {
     );
   }
 
-  // Clean up probe immediately
-  await supabase.from("brands").delete().eq("id", probe.id);
+  // Clean up probe immediately; a successful insert with a failed delete must
+  // not be allowed to seed residue before the suite has even started.
+  const { error: probeCleanupErr } = await supabase
+    .from("brands")
+    .delete()
+    .eq("id", probe.id);
+  if (probeCleanupErr) {
+    throw new Error(
+      `E2E preflight cleanup failed — ${probeCleanupErr.message}`,
+    );
+  }
 
   // Sessions are written lazily per worker in fixtures/auth.ts.
   // global-setup intentionally does NOT write shared .auth/*.json files —
   // each Playwright worker will call writeAuthStorageState() for its own
   // per-worker path, giving every worker a distinct Supabase refresh token.
 
-  // CI runs the production server, so there are no on-demand bundles to warm.
+  // CI runs against the deployed staging server, so there are no on-demand
+  // bundles to warm.
   if (process.env.CI) return;
 
   // Browser warm-up: compile the submit flows before specs hit them.
   // A plain fetch() only warms the server bundle, not the client bundle.
   // Any failure is swallowed — this must NEVER break the suite.
-  const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
+  const baseURL =
+    process.env.PLAYWRIGHT_BASE_URL ??
+    process.env.BASE_URL ??
+    process.env.STAGING_BASE_URL ??
+    "http://localhost:3000";
 
   // webServer 2xx fires before manifests are written; poll a static chunk to
   // avoid loadManifestFromRelativePath SyntaxError without a guessed sleep.

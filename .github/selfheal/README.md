@@ -1,31 +1,23 @@
-# Batch E2E Self-Heal Contract
+# Staging E2E self-heal contract
 
-The original nightly GitHub run ID identifies one incident. The workflow freezes
-the complete failure set, validates a read-only `DiagnosisResult`, validates one
-complete batch `RepairResult`, and calls `verify-targeted.mjs` exactly once per
-repair cycle. The helper proves stored Playwright IDs remain collectible and its
-test invocation contains both `--last-failed` and `--last-failed-file`.
+The nightly workflow freezes the complete deployed-staging failure set and
+records both the deployed app SHA and the repair-test SHA. A missing or stale
+`X-Formoria-Revision` is an infrastructure block, never evidence for a repair.
 
-A green exact set unlocks one production build and one complete, unselected
-`deep` + `mobile` suite. A remaining non-infrastructure set starts the next
-cycle. Three repair cycles are permitted; a fourth is forbidden.
+Infrastructure is probed independently and may be retried at most twice. A
+repair is classified by the exact SHA range: only TypeScript files under
+`e2e/**/*.ts` can be verified against the currently deployed staging app. Any
+`src/**`, mixed, deleted, or renamed repair is `review_ready`; the deployed
+staging run cannot certify application code that has not been deployed.
 
-Confirmed infrastructure failures do not dispatch either agent and do not
-consume repair cycles. The workflow logs a credential-free structured Supabase
-probe audit and permits two incident-wide validation-only retries. Persistent
-failure ends as `infrastructure_blocked`.
+Test-only repairs run the complete deep/mobile suite against staging and may
+merge only to `staging`, after one reused incident PR has an independent
+approval and the head SHA still matches. The merge uses
+`--match-head-commit` and never an admin bypass. Human application repairs are
+verified authoritatively by the next nightly or release-gate run after they
+land and deploy.
 
-The first non-empty checkpoint creates one draft PR. All continuations reuse its
-branch and PR. Safe test/seed drift confined to `e2e/**/*.ts` may be squash-merged
-only after structural anti-weakening policy, exact/build/full validation,
-independent low-risk review of the current head, current-main ancestry, and the
-named protected checks pass. The merge uses `--match-head-commit` and never an
-admin bypass. `src/**`, mixed, and otherwise unsafe repairs end `review_ready`.
-
-## Reporting ownership
-
-GitHub Actions sends one initial Slack message and one terminal message with one
-of `merged`, `review_ready`, `recovered_no_change`, `infrastructure_blocked`, or
-`repair_blocked`. Infrastructure, repair, and base-sync continuations are silent.
-Agent Hub remains the per-run incident ledger and distinguishes merge eligibility
-from an actual merge and merge commit SHA.
+GitHub Actions emits one initial E2E notification and one terminal self-heal
+notification with one of `merged`, `review_ready`, `recovered_no_change`,
+`infrastructure_blocked`, or `repair_blocked`. No production URL, credential,
+build, or local server is part of this flow.

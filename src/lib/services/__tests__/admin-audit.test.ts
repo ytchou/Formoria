@@ -10,7 +10,7 @@ import {
 } from '../admin-audit'
 import { runWithAuditContext } from '@/lib/audit'
 
-const ALL_ACTIONS: AdminAction[] = [
+const ALL_ACTIONS = [
   'impersonate_start',
   'impersonate_end',
   'brand_edit',
@@ -22,7 +22,16 @@ const ALL_ACTIONS: AdminAction[] = [
   'newsletter_confirmation_resent',
   'newsletter_unsubscribed',
   'channel_removed',
-]
+  'curated_product_promoted',
+  'curated_product_retired',
+  'curated_product_source_retired',
+  'curated_product_selection_placed',
+  'curated_product_selection_retired',
+] as const satisfies readonly AdminAction[]
+
+type MissingAdminAction = Exclude<AdminAction, (typeof ALL_ACTIONS)[number]>
+const allAdminActionsAreListed: MissingAdminAction extends never ? true : never = true
+void allAdminActionsAreListed
 
 const dashboardPagePath = resolve(
   process.cwd(),

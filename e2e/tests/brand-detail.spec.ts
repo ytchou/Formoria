@@ -615,7 +615,6 @@ test.describe("Brand detail — public locations and retail channels", () => {
         name: confirmedStoreName,
         normalized_name: "e2e-brand-direct-store",
         channel_type: "offline",
-        category_label: "品牌直營",
         region_label: "臺北市",
         address: confirmedStoreAddress,
         url: confirmedStoreUrl,
@@ -631,7 +630,6 @@ test.describe("Brand detail — public locations and retail channels", () => {
         name: confirmedOnlineName,
         normalized_name: "e2e-brand-online-channel",
         channel_type: "online",
-        category_label: "選品店",
         region_label: null,
         address: null,
         url: null,
@@ -643,7 +641,6 @@ test.describe("Brand detail — public locations and retail channels", () => {
         name: anonymousChannelName,
         normalized_name: "e2e-anonymous-confirmation-channel",
         channel_type: "offline",
-        category_label: "選品店",
         region_label: "臺中市",
         address: null,
         url: null,
@@ -655,7 +652,6 @@ test.describe("Brand detail — public locations and retail channels", () => {
         name: signedInChannelName,
         normalized_name: "e2e-signed-in-confirmation-channel",
         channel_type: "offline",
-        category_label: "選品店",
         region_label: "新北市",
         address: null,
         url: null,
@@ -742,20 +738,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
     await expect(taichung).toHaveAttribute("open", "");
   });
 
-  test("category badges render", async ({ page }) => {
-    await page.goto(`/brands/${seeded.slug}`, {
-      waitUntil: "domcontentloaded",
-    });
-    await openChannelGroup(page, "taipei");
-    await openChannelGroup(page, "online");
-
-    await expect(page.getByText("品牌直營", { exact: true })).toBeVisible();
-    await expect(
-      page.getByText("選品店", { exact: true }).first(),
-    ).toBeVisible();
-  });
-
-  test("an imported stockist renders its address, Maps link and source line", async ({
+  test("an imported stockist renders its address and Maps link", async ({
     page,
   }) => {
     await page.goto(`/brands/${seeded.slug}`, {
@@ -766,10 +749,15 @@ test.describe("Brand detail — public locations and retail channels", () => {
     await expect(
       page.getByRole("link", { name: confirmedStoreAddress, exact: true }),
     ).toHaveAttribute("href", /^https:\/\/www\.google\.com\/maps\/search\//);
+    // An imported stockist must not publish when it was scraped. Anchored on
+    // any rendered date rather than on one label ("讀取於", which no message
+    // key emits any more), so a timestamp returning under new copy still
+    // trips it.
     await expect(
-      page.getByRole("link", { name: "來源：example.com", exact: true }),
-    ).toHaveAttribute("href", evidenceSourceUrl);
-    await expect(page.getByText(/讀取於/)).toHaveCount(0);
+      page
+        .locator("[data-brand-channels-section]")
+        .getByText(/\d{4}\s*[年/-]\s*\d{1,2}/),
+    ).toHaveCount(0);
   });
 
   test("an imported stockist shows no confirmation prompt", async ({
@@ -790,15 +778,28 @@ test.describe("Brand detail — public locations and retail channels", () => {
     await expect(stockistRow.getByText(/人確認/)).toHaveCount(0);
   });
 
-  test("external link renders for channels with a URL", async ({ page }) => {
+  test("an addressed location links through its address, not a second outbound link", async ({
+    page,
+  }) => {
     await page.goto(`/brands/${seeded.slug}`, {
       waitUntil: "domcontentloaded",
     });
     await openChannelGroup(page, "taipei");
 
+    // The row carries `url: confirmedStoreUrl` AND an address, so this asserts
+    // the outbound link is suppressed because the address already links
+    // through — not that it is absent for want of a URL. Asserted against the
+    // href, which is what the reader follows: a label-only assertion would go
+    // green on any copy change.
+    const stockistRow = page
+      .locator("[data-channel-row]")
+      .filter({ hasText: confirmedStoreName });
     await expect(
-      page.getByRole("link", { name: "查看店家資訊", exact: true }),
-    ).toHaveAttribute("href", confirmedStoreUrl);
+      stockistRow.getByRole("link", { name: confirmedStoreAddress, exact: true }),
+    ).toHaveAttribute("href", /google\.com\/maps/);
+    await expect(
+      stockistRow.locator(`a[href="${confirmedStoreUrl}"]`),
+    ).toHaveCount(0);
   });
 
   test("anonymous confirm shows a sign-in prompt", async ({ anonPage }) => {
@@ -914,7 +915,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
       .fill(submittedChannelUrl);
     await dialog.getByRole("button", { name: "送出", exact: true }).click();
     // The submit still queues behind the like-button action, so give it 30s.
-    await expect(dialog.getByText("感謝您提供的資訊！")).toBeVisible({
+    await expect(dialog.getByText("感謝提供資訊！")).toBeVisible({
       timeout: BUDGET.GATED_UI,
     });
     await dialog.getByRole("button", { name: "關閉", exact: true }).click();
@@ -949,6 +950,5 @@ test.describe("Brand detail — public locations and retail channels", () => {
         name: "販售地點",
       }),
     ).toHaveCount(0);
-    await expect(page.getByTestId("brand-channels-empty-state")).toHaveCount(0);
   });
 });

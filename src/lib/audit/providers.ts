@@ -21,6 +21,14 @@ const PROVIDERS = {
     "fetch_html_with_metadata",
     "fetch_xml",
     "download_and_store_images",
+    // Curated-product link health probe (scripts/curated-products/check-links.ts):
+    // a HEAD/GET reachability check whose verdict can flip a published product's
+    // call-to-action, so the request and its outcome are replayable.
+    "check_link",
+    // Curated-product image fetch: pulls the candidate image from the source
+    // page it was cited from, so the bytes stored against a product can be
+    // traced back to the request that produced them.
+    "fetch_curated_image",
   ],
   brands: [
     "adminRemoveChannel",
@@ -73,6 +81,18 @@ const PROVIDERS = {
     "revokeOwnership",
     "verifyClaimEmailProof",
   ],
+  // Editorial write path for /brands/[slug] curated products (DEV-1465). Every
+  // writer is audited: a published product is a factual claim the site makes on
+  // a brand's behalf, so who moved it and when has to be replayable.
+  curatedProducts: [
+    "createCuratedProduct",
+    "retireCuratedProduct",
+    "retireCuratedProductSelection",
+    "retireCuratedProductSource",
+    "updateCuratedProduct",
+    "upsertCuratedProductSelection",
+    "upsertCuratedProductSource",
+  ],
   curation: [
     "cancelCurationJob",
     "claimCurationDispatchWork",
@@ -105,7 +125,6 @@ const PROVIDERS = {
     "createSubscriber",
     "enrollInMarketingEmails",
     "evaluateDrips",
-    "recordEmailSend",
     "requestNewsletterSubscription",
     "resendNewsletterConfirmation",
     "setLifecycleEmailPreference",
@@ -145,6 +164,7 @@ const PROVIDERS = {
     "purgeExpiredClassifierJunk",
     "rejectBrandImages",
     "releaseBrandImageUrls",
+    "storeCuratedProductImage",
     "syncHeroDenormalized",
     "uploadImageEvalAsset",
     "uploadPrivateFile",

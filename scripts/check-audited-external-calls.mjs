@@ -41,6 +41,13 @@ export const ALLOWED_UNAUDITED_FETCH = [
   // DeepSeek HTTP adapter. Wrapped by src/lib/services/llm-audit.ts as
   // deepseek.chat_completions and deepseek.balance.
   'src/lib/services/deepseek-client.ts',
+  // Edge-runtime breaker telemetry to PostHog ingest. Same structural bar as the
+  // 'use client' rule above, one layer out: the envelope reaches src/lib/audit/emit.ts,
+  // which imports the Node Sentry SDK, and this module is loaded by the proxy in the
+  // edge runtime where that SDK is not available. It is also the channel that reports
+  // a rate-limit store outage, so putting a Supabase audit write in front of it would
+  // route the outage signal through a dependency the outage can take with it.
+  'src/lib/security/rate-limit-observability.ts',
 ];
 
 /** Import of the envelope helper, in either quote style. */

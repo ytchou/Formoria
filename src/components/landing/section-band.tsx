@@ -11,7 +11,7 @@ export default async function SectionBand() {
 
   return (
     <section className="bg-secondary py-12 md:py-16">
-      <div className="mx-auto max-w-6xl page-gutter">
+      <div className="page-shell">
         <div className="grid gap-10 md:grid-cols-2 md:gap-16 items-start">
           {/* Recommendation + feature request CTAs */}
           <div>

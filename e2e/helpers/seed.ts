@@ -2,7 +2,12 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 let _client: SupabaseClient | null = null;
 
-function getServiceClient(): SupabaseClient {
+/**
+ * Exported so e2e utils share ONE service-role client instead of each keeping a
+ * private copy of this construction (there were six). Memoized: callers may
+ * rely on repeated calls returning the same instance.
+ */
+export function getServiceClient(): SupabaseClient {
   if (!_client) {
     _client = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -122,7 +127,7 @@ export async function seedBrand(opts: {
 
   const cleanup = async () => {
     const { error } = await supabase.from('brands').delete().eq('id', brand.id);
-    if (error) console.warn('[e2e-seed] cleanup failed:', error.message);
+    if (error) throw new Error(`[e2e-cleanup] seed brand ${brand.id} cleanup failed: ${error.message}`);
   };
 
   return { brand, slug, cleanup };

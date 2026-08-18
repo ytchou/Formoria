@@ -11,6 +11,8 @@ export interface SourceFailure {
   file: string | null;
   title: string;
   project: string;
+  /** Human diagnosis context; never part of the exact Playwright selector. */
+  reason?: string;
 }
 
 export interface FrozenFailure extends SourceFailure {
@@ -123,14 +125,26 @@ export function freezeFailures(
   if (failures.length === 0)
     throw new Error("Cannot freeze an empty failure set");
   const frozen = failures
-    .map(canonicalFailure)
-    .map((failure) => ({ ...failure, id: failureId(failure) }))
+    .map((input) => {
+      const failure = canonicalFailure(input);
+      return {
+        ...failure,
+        ...(input.reason?.trim() ? { reason: input.reason.trim() } : {}),
+        id: failureId(failure),
+      };
+    })
     .sort((left, right) => left.id.localeCompare(right.id));
   if (new Set(frozen.map(({ id }) => id)).size !== frozen.length) {
     throw new Error("Frozen failure set contains duplicate failures");
   }
+  const identity = frozen.map(({ file, title, project, id }) => ({
+    file,
+    title,
+    project,
+    id,
+  }));
   const failureSetHash = createHash("sha256")
-    .update(JSON.stringify(frozen))
+    .update(JSON.stringify(identity))
     .digest("hex");
   return { version: 1, failureSetHash, failures: frozen };
 }
@@ -330,8 +344,10 @@ export function evaluateSelfMerge(input: SelfMergeEvidence): MergeEligibility {
   }
   const forbidden = [
     { label: "test.skip", pattern: /\btest\.skip\s*\(/ },
+    { label: "test.describe.skip", pattern: /\btest\.describe\.skip\s*\(/ },
     { label: "test.fixme", pattern: /\btest\.fixme\s*\(/ },
     { label: "test.only", pattern: /\btest\.only\s*\(/ },
+    { label: "test.describe.only", pattern: /\btest\.describe\.only\s*\(/ },
     {
       label: "timeout increase",
       pattern: /\b(?:test\.)?setTimeout\s*\(|\btimeout\s*:/,
@@ -370,8 +386,10 @@ export interface IncidentPrBodyInput {
 
 export function renderIncidentPrBody(input: IncidentPrBodyInput): string {
   const failureLines = input.frozen.failures.map(
-    (failure) =>
+    (failure) => [
       `- \`${failure.id}\` ${failure.project}: ${failure.file ?? "workflow"} — ${failure.title}`,
+      ...(failure.reason ? [`  Reason: ${failure.reason}`] : []),
+    ].join("\n"),
   );
   const clusterLines = (input.diagnosis?.clusters ?? []).map(
     (cluster) =>
@@ -433,7 +451,9 @@ export function terminalOutcome(input: {
   reviewReady?: boolean;
   recoveredNoChange?: boolean;
   infrastructureBlocked?: boolean;
+  repairBlocked?: boolean;
 }): TerminalOutcome {
+  if (input.repairBlocked) return "repair_blocked";
   if (input.merged) return "merged";
   if (input.reviewReady) return "review_ready";
   if (input.recoveredNoChange) return "recovered_no_change";

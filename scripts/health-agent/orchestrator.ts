@@ -1718,7 +1718,9 @@ async function deliverSlackDigest(
 export async function aggregateAndDeliver(
   input: AggregateInput,
   dependencies: HealthAgentDependencies,
-  environment: Environment = environmentValue(dependencies),
+  // Unread by this body, but the third position is load-bearing: workflow-runtime.ts
+  // and the orchestrator tests all pass an environment here.
+  _environment: Environment = environmentValue(dependencies),
 ): Promise<AggregateResult> {
   const runAt = validRunAt(input.runAt ?? nowFor(dependencies));
   const artifacts = await loadAggregateArtifacts(input, dependencies, runAt);

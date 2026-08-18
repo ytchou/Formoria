@@ -1,0 +1,153 @@
+import { test } from "@playwright/test";
+import type { createClient } from "@supabase/supabase-js";
+
+import { getServiceClient } from "../helpers/seed";
+// A LEAF module: it declares two string constants and imports nothing, so this
+// does not drag the service layer into the Playwright module graph.
+import { TEST_BRAND_NAME_PATTERN } from "../../src/lib/services/public-brand-filter";
+
+/**
+ * Mirrors MIN_HOME_CURATED_PRODUCTS in src/lib/services/curated-products.ts
+ * (declared there at :66). Duplicated rather than imported so an e2e util never
+ * drags the service layer (and its generated Supabase types, and through them
+ * `sharp`) into the Playwright module graph. `wall-ratio.ts` is the leaf that
+ * would hold it, but the floor is a SERVICE-layer publication constant and the
+ * service is where its only other reader lives, so moving it there would split
+ * the gate across two files instead of one.
+ *
+ * If that constant changes, change this one in the same commit.
+ */
+export const MIN_HOME_CURATED_PRODUCTS = 6;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type WallSupplySupabase = ReturnType<typeof createClient<any, any, any>>;
+
+/**
+ * Homepage-eligible curated products, counted ONCE per worker and cached — the
+ * answer is environment-level, exactly like `trailStatusProbe` in
+ * discovery-trail.spec.ts, so every spec in the worker reuses it.
+ *
+ * Keyed by the CLIENT that took the count, so an injected client gets its own
+ * answer instead of silently inheriting the default client's, and a FAILED
+ * count is never cached: one transient Supabase timeout would otherwise skip
+ * every later wall spec in the worker, which is how a real regression reports
+ * green.
+ *
+ * `null` means "the count could not be taken" and is never evidence of a
+ * regression.
+ */
+let supplyProbes = new WeakMap<object, Promise<number>>();
+
+/** Test seam: drop the cached per-worker count. */
+export function resetWallSupplyProbe(): void {
+  supplyProbes = new WeakMap();
+}
+
+/**
+ * The publication gate of `getPublishedCuratedProductsForHomepage`
+ * (src/lib/services/curated-products.ts:430), expressed as a count. `visible =
+ * true` replaced the old lifecycle column, and image usage is no longer a gate
+ * at all — keep this aligned with that query AND with the row loop under it,
+ * since a filter that drifts turns this guard into either a false red or a
+ * silent skip.
+ *
+ * The two brand filters are that row loop: the service drops seeded `[E2E-TEST]`
+ * brands and rows with no brand name, so a count that keeps them reports supply
+ * the homepage will never render. The service also embeds
+ * `curated_product_selections`, but that embed is NOT `!inner` — it narrows the
+ * embedded rows only and never drops a product, so it is deliberately absent
+ * here.
+ */
+async function countEligibleProducts(
+  client: WallSupplySupabase,
+): Promise<number> {
+  const { count, error } = await client
+    .from("curated_products")
+    .select("id, curated_product_sources!inner(id), brands!inner(name, status)", {
+      count: "exact",
+      head: true,
+    })
+    .eq("visible", true)
+    .not("official_url", "is", null)
+    .not("source_checked_at", "is", null)
+    .not("image_url", "is", null)
+    .eq("curated_product_sources.state", "active")
+    .eq("brands.status", "approved")
+    .not("brands.name", "like", TEST_BRAND_NAME_PATTERN)
+    .not("brands.name", "is", null);
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * `curated_products` has RLS enabled with no policies and is revoked from
+ * `anon`, so supply can only be counted with the service-role key — the shared
+ * memoized client in `../helpers/seed`. The key is present in all three e2e
+ * workflow envs; when it is not, the count throws and the probe resolves to
+ * `null`.
+ */
+function homepageSupplyCount(
+  client?: WallSupplySupabase,
+): Promise<number | null> {
+  let target: WallSupplySupabase;
+  try {
+    target = client ?? (getServiceClient() as unknown as WallSupplySupabase);
+  } catch {
+    return Promise.resolve(null);
+  }
+
+  const key = target as unknown as object;
+  let probe = supplyProbes.get(key);
+  if (!probe) {
+    // Only a SUCCESSFUL count stays cached; the failure evicts itself so the
+    // next spec in this worker takes the count again.
+    probe = countEligibleProducts(target).catch((error: unknown) => {
+      if (supplyProbes.get(key) === probe) supplyProbes.delete(key);
+      throw error;
+    });
+    supplyProbes.set(key, probe);
+  }
+  return probe.then(
+    (count) => count,
+    () => null,
+  );
+}
+
+/**
+ * Gate a wall spec on SUPPLY, never on the rendered DOM alone.
+ *
+ * `test.skip(count === 0)` cannot tell "the wall is legitimately below its
+ * supply floor" from "the wall regressed out of the page" — both are an empty
+ * selector, and both report green. That is not hypothetical: in DEV-1490 the
+ * staging landing shipped with no selection zone while the database held 99
+ * qualifying products, and every wall spec would have skipped past it.
+ *
+ * So the guard MEASURES supply instead of assuming it: an absent wall fails
+ * only when the database actually holds `MIN_HOME_CURATED_PRODUCTS` eligible
+ * products. Below that floor a hidden wall is correct behaviour, and a count
+ * that cannot be taken skips rather than inventing a red.
+ */
+export async function requireWallOrSkip(
+  wallIsAbsent: boolean,
+  client?: WallSupplySupabase,
+): Promise<void> {
+  if (!wallIsAbsent) return;
+
+  const supply = await homepageSupplyCount(client);
+  if (supply !== null && supply >= MIN_HOME_CURATED_PRODUCTS) {
+    throw new Error(
+      `The homepage selection zone is missing while ${supply} curated products `
+        + "clear the homepage publication gate — at or above "
+        + `MIN_HOME_CURATED_PRODUCTS (${MIN_HOME_CURATED_PRODUCTS}). The wall `
+        + "regressed — it did not fall below its supply gate. See DEV-1490 for "
+        + "the last cause: a build that prerendered against a pre-migration "
+        + "schema.",
+    );
+  }
+
+  test.skip(
+    true,
+    "The homepage product wall is hidden below its public supply gate.",
+  );
+}

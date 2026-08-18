@@ -89,6 +89,18 @@ async function runProductMerge(
 }
 
 describe("unified health-agent workflow contract", () => {
+  it("uses only the production GitHub environment", async () => {
+    const workflow = parseYaml(await readFile(workflowPath, "utf8")) as {
+      jobs: {
+        "nightly-health": { environment?: string };
+      };
+    };
+
+    expect(workflow.jobs["nightly-health"].environment).toBe(
+      "Formoria / production",
+    );
+  });
+
   it("passes --output to every workflow-runtime command", async () => {
     // The CLI builds its input object with `outputPath: requiredArgument(argv,
     // "--output")` for *every* command, before dispatch — so a step that omits

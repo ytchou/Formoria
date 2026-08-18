@@ -5,6 +5,14 @@ import { getAllStories } from "@/lib/services/stories";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
 import { buildBrandSitemapEntries } from "@/lib/seo/brand-sitemap";
 import { buildDirectorySitemapSection } from "@/lib/seo/directory-sitemap";
+import { getStockistDirectory } from "@/lib/services/brand-channels";
+import { buildWhereToBuySitemapSection } from "@/lib/seo/where-to-buy-sitemap";
+import { trailIndexBlockers } from "@/lib/seo/trail-indexability";
+import { getAllTrails, type TrailEntry } from "@/lib/services/trails";
+import {
+  getPublishedCuratedProductsForTrail,
+  type TrailCuratedProduct,
+} from "@/lib/services/curated-products";
 
 export const revalidate = 3600;
 
@@ -45,6 +53,31 @@ function validDate(value: string | undefined): Date | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
+export function buildTrailSitemapEntries(
+  trail: TrailEntry,
+  products: readonly TrailCuratedProduct[],
+): MetadataRoute.Sitemap {
+  if (trailIndexBlockers({ frontmatter: trail.frontmatter, products }).length > 0) return [];
+  return localizedEntries(
+    `/discover/${trail.frontmatter.slug}`,
+    ["zh-TW"],
+    validDate(trail.frontmatter.updatedAt || trail.frontmatter.publishedAt),
+  );
+}
+
+async function buildTrailSitemapSection(): Promise<MetadataRoute.Sitemap> {
+  const result = await getAllTrails("zh-TW");
+  if (!result.ok) return [];
+
+  const entries = await Promise.all(
+    result.trails.map(async (trail) => {
+      const products = await getPublishedCuratedProductsForTrail(trail.slug);
+      return buildTrailSitemapEntries(trail, products);
+    }),
+  );
+  return entries.flat();
+}
+
 export function latestBrandDate(
   entries: ReadonlyArray<{ updatedAt: string }>,
 ): Date | undefined {
@@ -81,7 +114,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const rawBrandsPromise = getBrandSeoEntries();
     const brandsPromise = rawBrandsPromise.catch(() => []);
     const directoryPagesPromise = buildDirectorySitemapSection(rawBrandsPromise);
-    const [brands, storyResult, events, categoryPages] = await Promise.all([
+    const stockistPagesPromise = buildWhereToBuySitemapSection(getStockistDirectory());
+    const trailPagesPromise = buildTrailSitemapSection().catch(() => []);
+    const [brands, storyResult, events, categoryPages, stockistPages, trailPages] = await Promise.all([
       brandsPromise,
       getAllStories(),
       // Degrade to zero event entries instead of taking the sitemap down with
@@ -92,6 +127,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       // window. Same resilience as `storyResult.ok` on the next line.
       getPublishedEvents().catch(() => []),
       directoryPagesPromise,
+      stockistPagesPromise,
+      trailPagesPromise,
     ]);
     const stories = storyResult.ok ? storyResult.stories : [];
 
@@ -125,9 +162,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...staticPages,
       ...storyIndexPages,
       ...categoryPages,
+      ...stockistPages,
       ...brandPages,
       ...storyPages,
       ...eventPages,
+      ...trailPages,
     ];
   } catch {
     return [...staticPages, ...storyIndexPages];

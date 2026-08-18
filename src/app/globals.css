@@ -52,7 +52,6 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
@@ -227,8 +226,55 @@
   }
 }
 
-@utility inline-link {
-  @apply text-primary underline-offset-4 hover:underline;
+/*
+ * The landing page's shared measure: `page-gutter` plus a 100rem cap, centred.
+ *
+ * ONE declaration, because every landing section has to agree with the product
+ * wall down to the pixel — a section 8px narrower than the wall above it reads
+ * as a mistake, and three copies of `mx-auto max-w-[100rem] page-gutter`
+ * scattered across four files drift the moment one of them is edited. Change
+ * the cap here and the whole page moves together.
+ *
+ * At 1920px this leaves 160px each side. The narrower `max-w-6xl` (72rem) that
+ * several of these sections used to carry left 384px, which made every band
+ * look inset from the wall.
+ *
+ * It COMPOSES `page-gutter` rather than restating it. The two declarations were
+ * byte-identical copies twenty lines apart, so a change to the gutter silently
+ * applied to every non-landing route and to nothing on the landing page.
+ */
+@utility page-shell {
+  @apply page-gutter;
+
+  margin-inline: auto;
+  max-width: 100rem;
+}
+
+/*
+ * THE FOOTER FOLLOWS THE PAGE IT SITS UNDER.
+ *
+ * The footer is rendered by the site layout, so it cannot know its route — and
+ * a `usePathname()` check there would turn a static server component into a
+ * client one to answer a question that is purely presentational. Instead the
+ * measure is a custom property: 80rem by default, which is the `max-w-screen-xl`
+ * every non-landing `<main>` carries, and 100rem when the page below declares
+ * itself wide with `data-page-measure="wide"` (the landing page does).
+ *
+ * `:has()` reads DOWN the tree, which is what makes a child able to set a value
+ * its PARENT's other subtree reads. If `:has()` is unsupported the rule simply
+ * never matches and the footer keeps the 80rem default — the pre-existing
+ * alignment for every route but one, never a broken layout.
+ *
+ * The sticky header is deliberately NOT wired to this: it stays at 80rem on
+ * every route, because a header that changes width between routes reads as the
+ * page jumping.
+ */
+:root {
+  --page-measure: 80rem;
+}
+
+body:has([data-page-measure="wide"]) {
+  --page-measure: 100rem;
 }
 
 @utility type-display {
@@ -237,10 +283,6 @@
 
 @utility type-hero {
   @apply font-heading text-4xl font-[560] tracking-[-0.02em] leading-tight text-foreground md:text-5xl;
-}
-
-@utility type-hero-inverse {
-  @apply font-heading text-3xl font-[560] tracking-[-0.02em] leading-tight text-white lg:text-5xl;
 }
 
 @utility type-page-title {
@@ -323,10 +365,6 @@
   @apply text-sm font-medium leading-6 text-foreground;
 }
 
-@utility type-body-emphasis-inverse {
-  @apply text-sm font-medium text-white/70;
-}
-
 @utility type-metadata {
   @apply text-[0.8125rem] font-medium leading-[1.4] text-muted-foreground;
 }
@@ -347,20 +385,12 @@
   @apply text-[0.6875rem] font-medium uppercase tracking-widest text-muted-foreground;
 }
 
-@utility type-eyebrow-cta {
-  @apply text-[0.8125rem] font-semibold leading-[1.4] text-cta;
-}
-
 @utility type-eyebrow-foreground {
   @apply text-xs font-semibold uppercase tracking-wider text-foreground;
 }
 
 @utility type-stat {
   @apply font-heading text-[1.625rem] font-[560] tracking-[-0.02em] leading-[1.2] tabular-nums text-foreground;
-}
-
-@utility type-stat-large {
-  @apply font-heading text-5xl font-[560] tracking-[-0.02em] leading-none tabular-nums text-primary md:text-6xl;
 }
 
 @utility type-nav-item {

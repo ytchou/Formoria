@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   OWNER_ENDPOINTS,
   OWNER_ENDPOINTS_V2,
-  SITE_DASHBOARD_NAME,
   listOwnerEndpoints,
 } from './posthog-queries'
 
@@ -52,7 +51,6 @@ describe('posthog-queries definitions', () => {
   })
 
   it('every endpoint has a dashboard insight variant carrying the {filters} placeholder', () => {
-    expect(SITE_DASHBOARD_NAME).toBe('Formoria — Site analytics')
     for (const def of listOwnerEndpoints()) {
       expect(def.insight.name.length).toBeGreaterThan(0)
       expect(def.insight.hogql).toContain('{filters}')

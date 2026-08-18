@@ -41,7 +41,7 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <html lang={locale} data-feedback-copy={JSON.stringify(locale === 'en' ? en.feedbackWidget : zhTW.feedbackWidget)}>
+    <html lang={locale}>
       <body className="min-h-screen bg-background text-foreground">
         <main className="page-gutter mx-auto flex min-h-screen max-w-screen-xl flex-col items-center justify-center py-24 text-center">
           <h1 className="type-page-title-large">{copy.title}</h1>

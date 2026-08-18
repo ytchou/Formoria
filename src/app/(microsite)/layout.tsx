@@ -18,7 +18,6 @@ export default function MicrositeLayout({
     <RootDocument
       locale="zh-TW"
       skipToContentLabel={zhTW.common.skipToContent}
-      feedbackCopy={zhTW.feedbackWidget}
     >
       {children}
     </RootDocument>

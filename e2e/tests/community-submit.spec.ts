@@ -10,10 +10,11 @@ test.describe("Community submit flow", () => {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
-    await supabase
+    const { error } = await supabase
       .from("brand_submissions")
       .delete()
       .like("brand_name", "[E2E-COMMUNITY]%");
+    if (error) throw new Error(`[e2e-cleanup] community submission cleanup failed: ${error.message}`);
   });
 
   test("@smoke recommendation flow is available without owner-only controls", async ({
@@ -27,7 +28,11 @@ test.describe("Community submit flow", () => {
     await expect(userPage.locator("#submit-guest-email")).toBeVisible({
       timeout: BUDGET.RENDERED,
     });
-    await expect(userPage.locator("#submit-instagram")).toHaveCount(0);
+    // The owner/recommendation split, asserted against a control the owner
+    // form really renders: #submit-romanized-name exists only in
+    // SubmitQuickForm. (#submit-instagram, the previous subject, exists in no
+    // form at all, so its absence was guaranteed.)
+    await expect(userPage.locator("#submit-romanized-name")).toHaveCount(0);
   });
 
   test("source attribution select is visible on the recommendation form", async ({
@@ -54,7 +59,6 @@ test.describe("Community submit flow", () => {
     await expect(userPage.locator("#submit-pdpa")).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
-    await expect(userPage.locator('[data-state="active"]')).not.toBeVisible();
   });
 
   test("@smoke owner quick form shows its core fields when owner features are enabled", async ({

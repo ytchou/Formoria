@@ -37,9 +37,9 @@ function isPrerendering(): boolean {
  *
  * Failing the build is therefore opt-in. Deploy builds that genuinely expect a
  * reachable database can set `STRICT_PRERENDER_DATA=1` to turn a read failure
- * into a hard build error. It is off by default because CI builds this app with
- * no database on purpose — the Build job is a compile check and points Supabase
- * at 127.0.0.1, so a mandatory throw fails a build that is working as intended.
+ * into a hard build error. It is off by default because a transient read failure
+ * should not block a deploy: the demotion is recoverable and already visible in
+ * Sentry, so shipping a dynamic route beats shipping nothing.
  */
 const STRICT_PRERENDER_DATA = process.env.STRICT_PRERENDER_DATA === '1'
 

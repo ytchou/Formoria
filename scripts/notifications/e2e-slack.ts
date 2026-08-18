@@ -47,10 +47,8 @@ export interface E2ESlackNotification {
   date?: string;
   failed: number;
   failedSpecs?: readonly (E2EFailedSpec | string)[];
-  // Distinguishes the two monitors in Slack. The nightly deep suite and the
-  // production synthetic probe both render "Formoria E2E — Success", which made
-  // them indistinguishable at a glance. Defaults to "E2E" so any caller that
-  // does not set it keeps the original title.
+  // Distinguishes the deployed staging suite in Slack. Defaults to "E2E" so
+  // callers that do not set it keep the original title.
   label?: string;
   passed: number;
   phase: E2ESlackPhase;
@@ -65,8 +63,7 @@ export interface E2ESlackNotification {
   selfHealEnabled?: boolean;
   skipped: number;
   status: string;
-  // What was probed — a deployed origin for the synthetic monitor, omitted for
-  // the nightly suite, which tests a server it builds itself.
+  // What was probed — the deployed staging origin.
   target?: string;
   workflowUrl: string;
   rootIncidentId?: string;

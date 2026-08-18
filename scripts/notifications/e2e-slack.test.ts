@@ -217,22 +217,22 @@ describe("E2E Slack notifications", () => {
     expect(
       renderE2ESlackNotification({
         failed: 0,
-        label: "E2E Production (Synthetic)",
+        label: "E2E Staging (Manual)",
         passed: 4,
         phase: "initial",
         reportAvailable: true,
         runAttempt: "1",
         runId: "47",
-        scope: "Signup + confirmation-email delivery on the live deployment",
+        scope: "Signup + confirmation-email capture on deployed staging",
         skipped: 1,
         status: "success",
-        target: "https://formoria.com",
+        target: "https://staging.formoria.com",
         workflowUrl: "https://github.com/ytchou/Formoria/actions/runs/47",
       }),
     ).toBe(
       [
-        "✅ *Formoria E2E Production (Synthetic) — Success* · 2026-08-11",
-        "*Summary*\n• Scope: Signup + confirmation-email delivery on the live deployment\n• 4 passed · 0 failed · 1 skipped\n• Target: https://formoria.com",
+        "✅ *Formoria E2E Staging (Manual) — Success* · 2026-08-11",
+        "*Summary*\n• Scope: Signup + confirmation-email capture on deployed staging\n• 4 passed · 0 failed · 1 skipped\n• Target: https://staging.formoria.com",
         "<https://github.com/ytchou/Formoria/actions/runs/47|Open workflow run>",
       ].join("\n\n"),
     );

@@ -2430,6 +2430,26 @@ clusters:
     /en stories canonicalize to the zh-TW original and /en brand pages are gated by getBrandIndexability,
     so shipping an English target today would publish a noindex or canonicalized-away page. Ownership
     is recorded now so English work has a starting map.'
+- id: discovery-small-space-reading-corner
+  primary_keyword: 小坪數閱讀角落
+  secondary_keywords:
+  - 小空間閱讀區佈置
+  - 小宅閱讀角落選物
+  search_intent: informational
+  page_type: topic-hub
+  target_url: /discover/small-space-reading-corner
+  target_status: proposed
+  brand_count: 0
+  data_quality: thin
+  intent_fit: 2
+  differentiation: 3
+  priority: P2
+  eligibility: defer-data
+  composite: none
+  content_requirement: Editorial trail with a stated life situation, cross-category product choices, selection rationales, and first-party sources; remains noindex until the trail gate clears.
+  indexability: noindex
+  locale: zh-TW
+  notes: The first Discovery Trail pilot. Its URL owns the small-space reading-corner cluster while the editorial slate and governance evidence are being completed.
 unmapped_backlog:
 - slug: hair-care
   brand_count: 14

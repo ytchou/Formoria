@@ -18,7 +18,7 @@ file and that document disagree, the document is right and this file is stale.
 Reproduce these without drift. They are approved language, not a starting point
 to paraphrase.
 
-**Mission** — Formoria 把從靈感走到購買中間斷掉的路接回來，幫助人從自己想要的生活出發，找到適合的台灣產品、認識背後的品牌，也知道可以去哪裡購買。
+**Mission（消費者承諾）** — 生活可以更像自己一點。搬新家、佈置店面、在市集停下來的那一刻 — 喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。
 
 **Present positioning** — Formoria 是台灣品牌探索與選物平台。目前從可搜尋的品牌收錄出發，整理品牌資料、產品特色與官方購買通路；由 Formoria 挑選的內容會另外標示。
 

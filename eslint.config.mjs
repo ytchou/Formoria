@@ -6,6 +6,32 @@ import playwright from "eslint-plugin-playwright";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // A suppression that suppresses nothing is worse than no suppression: it reads
+  // as a deliberate, reviewed exemption while the rule it names is still firing
+  // one line away. email-capture-form.tsx had exactly that — a
+  // react-hooks/exhaustive-deps directive placed on the hook opening when the
+  // rule reports at the dependency array.
+  { linterOptions: { reportUnusedDisableDirectives: "error" } },
+  // no-unused-vars is an error, not a warning. Warnings do not fail CI, which is
+  // how 66 of them accumulated unnoticed — and one was masking a misplaced
+  // suppression in email-capture-form.tsx. The ignore patterns encode intent that
+  // already existed in the code: `_`-prefixed bindings are deliberate, and
+  // rest-sibling destructuring is the idiom used to omit keys.
+  {
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          args: "all",
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+          ignoreRestSiblings: true,
+        },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
