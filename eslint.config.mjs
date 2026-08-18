@@ -143,7 +143,6 @@ const eslintConfig = defineConfig([
       "src/components/brands/save-brand-button.tsx",
       "src/components/dashboard/analytics-chart.tsx",
       "src/components/dashboard/onboarding-step-list.tsx",
-      "src/components/forms/product-tag-field.tsx",
       "src/components/landing/filterable-brand-showcase.tsx",
       "src/components/navigation/nav-category-tabs.tsx",
       "src/components/newsletter/email-capture-form.tsx",

@@ -3129,6 +3129,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      canonicalize_subcategory_translations: {
+        Args: { p_subcategories: string[]; p_subcategories_en: string[] }
+        Returns: string[]
+      }
       check_brand_duplicates: {
         Args: { p_name: string; p_ubn?: string; p_website_key?: string }
         Returns: Json

@@ -569,7 +569,7 @@ export type SelectionPlan = {
   };
 };
 
-const UNKNOWN_PRODUCT_TYPE = "unknown";
+const UNKNOWN_CATEGORY = "unknown";
 
 /**
  * The `seo_promoted` generated column, recomputed locally.
@@ -607,7 +607,7 @@ export function computeSeoPromoted(
 
 export function categorySlugKey(value: string | null): string {
   const trimmed = (value ?? "").trim();
-  return trimmed.length > 0 ? trimmed : UNKNOWN_PRODUCT_TYPE;
+  return trimmed.length > 0 ? trimmed : UNKNOWN_CATEGORY;
 }
 
 /** Coverage floors. Below these the corresponding page or query has no data. */

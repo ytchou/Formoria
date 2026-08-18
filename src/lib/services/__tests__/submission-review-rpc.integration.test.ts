@@ -93,12 +93,12 @@ describeWithDb("trusted submission review RPCs", () => {
       .eq("id", submissionId)
       .single();
     expect(submission).toMatchObject({
-      brand_name: "Trusted Save Brand",
+      brand_name: "Trusted save Brand",
       description: "原始介紹",
       website_url: "https://original.example.com",
       purchase_website: null,
       hero_image_url: null,
-      suggested_tags: null,
+      suggested_tags: [],
       enriched_data: null,
       review_overrides: expect.objectContaining({
         description: "完整中文介紹",
@@ -940,7 +940,7 @@ describeWithDb("trusted submission review RPCs", () => {
     expect(error?.message).toContain("brand images changed");
   });
 
-  it("enforces the seven-image limit even when review was never saved", async () => {
+  it("enforces the image ceiling even when review was never saved", async () => {
     const brand = await seedRefreshBrand("image-limit", "approved");
     const { data: submissionId, error: requestError } = await supabase!.rpc(
       "request_brand_refresh",
@@ -956,7 +956,7 @@ describeWithDb("trusted submission review RPCs", () => {
     const { error: imageError } = await supabase!
       .from("submission_images")
       .insert(
-        Array.from({ length: 6 }, (_, index) => ({
+        Array.from({ length: 9 }, (_, index) => ({
           submission_id: submissionId!,
           storage_path: `submissions/${submissionId}/candidate-${index}.webp`,
           url: `https://cdn.example.com/${submissionId}/candidate-${index}.webp`,

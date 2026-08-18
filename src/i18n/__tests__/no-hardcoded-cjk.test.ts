@@ -69,7 +69,7 @@ const ALLOWLIST = [
   "lib/services/enrich-validators.ts",
   // zh-CN→zh-TW vocabulary and punctuation rules (not UI copy).
   "lib/services/taiwan-localization.ts",
-  // Product-tag validator uses Chinese blocklist regex patterns (not UI copy).
+  // Subcategory validator uses Chinese blocklist regex patterns (not UI copy).
   "lib/services/subcategories.ts",
   // Brand cleanup uses Chinese keyword arrays and regex patterns (not UI copy).
   "lib/services/brand-cleanup.ts",

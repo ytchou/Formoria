@@ -1,5 +1,5 @@
 /**
- * Plan and apply the reviewed DEV-1361 product-tag split.
+ * Plan and apply the reviewed DEV-1361 subcategory split.
  *
  * Planning is the default and only reads approved brands carrying one of the
  * eight retired composite labels. The classifier is called once per brand,

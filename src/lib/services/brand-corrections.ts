@@ -661,7 +661,7 @@ async function releaseClaim(
     .eq("id", id);
 }
 
-async function supersedePendingTags(
+async function supersedePendingSubcategories(
   supabase: ReturnType<typeof createServiceClient>,
   brandId: string,
   reviewerId: string,
@@ -681,7 +681,10 @@ async function supersedePendingTags(
     .eq("status", "pending");
 
   if (error) {
-    console.error("[brand-corrections] supersedePendingTags failed:", error);
+    console.error(
+      "[brand-corrections] supersedePendingSubcategories failed:",
+      error,
+    );
     if (ctx) ctx.summary.supersedeError = describeError(error);
     return { ok: false, code: "database_error" };
   }
@@ -903,7 +906,7 @@ export async function reviewCorrection(
 
     const superseded =
       applicationField === "category"
-        ? await supersedePendingTags(
+        ? await supersedePendingSubcategories(
             supabase,
             row.brand_id,
             reviewerId,
@@ -987,7 +990,7 @@ const defaultReviewCorrectionsDeps: ReviewCorrectionsDeps = {
  * patch, then calls `updateBrand`. Two corrections on the SAME brand running
  * concurrently therefore both read the pre-batch row and the later write
  * silently discards the earlier field change. A `category` approval makes
- * it worse: `supersedePendingTags` bulk-rejects that brand's sibling pending
+ * it worse: `supersedePendingSubcategories` bulk-rejects that brand's sibling pending
  * `subcategories` rows, which a concurrent item may be mid-claim on. Neither
  * failure raises an error — it surfaces weeks later as a brand field that
  * "reverted on its own". Different brands share no row, so those groups are

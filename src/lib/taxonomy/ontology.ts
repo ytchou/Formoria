@@ -265,11 +265,11 @@ export const L2_SUBCATEGORIES: readonly L2Subcategory[] = [
 ]
 
 /**
- * The single matching basis for tag strings: NFKC (collapses full-width Latin),
+ * The single matching basis for subcategory strings: NFKC (collapses full-width Latin),
  * middle-dot strip, trim, lowercase, whitespace collapse. Exported because
  * callers that store subcategories the ontology does NOT know (novel correction subcategories)
  * still have to dedupe them the way `matchSubcategory` would have, or 'Vegan'
- * and 'vegan' become two distinct tags for one concept.
+ * and 'vegan' become two distinct subcategories for one concept.
  */
 export function normalizeSubcategoryKey(s: string): string {
   return s

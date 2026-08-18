@@ -75,6 +75,22 @@ type DescriptionsPhaseOutput = {
   listingVerdict: ListingVerdict | null;
 };
 
+export async function canonicalizeSubcategoryTranslations(
+  client: ReturnType<typeof createServiceClient>,
+  subcategories: string[],
+  subcategoriesEn: string[],
+): Promise<string[]> {
+  const { data, error } = await client.rpc(
+    "canonicalize_subcategory_translations",
+    {
+      p_subcategories: subcategories,
+      p_subcategories_en: subcategoriesEn,
+    },
+  );
+  if (error) throw error;
+  return data ?? subcategories.map((subcategory, index) => subcategoriesEn[index] ?? subcategory);
+}
+
 /**
  * `_cleared_fields` — the verdict that a live field should now be EMPTY — is
  * deliberately absent from this phase. The only field whose null is an
@@ -543,31 +559,12 @@ export async function runDescriptionsPhase({
         Array.isArray(descriptionPatch.subcategories_en)
       ) {
         const supabase = createServiceClient();
-        const tagPairs = mergedSubcategories.map((zh, i) => ({
-          tag_zh: zh,
-          tag_en: mergedSubcategoriesEn[i] ?? zh,
-        }));
-
-        await supabase
-          .from("product_tag_translations")
-          .upsert(tagPairs, { onConflict: "tag_zh", ignoreDuplicates: true });
-
-        const { data: canonical } = await supabase
-          .from("product_tag_translations")
-          .select("tag_zh, tag_en")
-          .in("tag_zh", mergedSubcategories);
-
-        if (canonical && canonical.length > 0) {
-          const tagMap = new Map(
-            canonical.map((t: { tag_zh: string; tag_en: string }) => [
-              t.tag_zh,
-              t.tag_en,
-            ]),
+        descriptionPatch.subcategories_en =
+          await canonicalizeSubcategoryTranslations(
+            supabase,
+            mergedSubcategories,
+            mergedSubcategoriesEn,
           );
-          descriptionPatch.subcategories_en = mergedSubcategories.map(
-            (zh) => tagMap.get(zh) ?? zh,
-          );
-        }
       }
     }
 

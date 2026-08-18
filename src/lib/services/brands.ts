@@ -55,7 +55,7 @@ import {
   type SkippedBrandField,
 } from "./brand-write-policy";
 import {
-  fromPersistedFieldIdentifiers,
+  mergePersistedFieldStates,
   toPersistedFieldPatch,
 } from "./_shared/persisted-field-identifiers";
 import {
@@ -1062,17 +1062,7 @@ async function loadBrandFieldState(
 
   if (error) throw error;
 
-  return Object.fromEntries(
-    (data ?? []).flatMap((row) =>
-      fromPersistedFieldIdentifiers(row.field).map((field) => [
-        field,
-        {
-          source: row.source,
-          updatedAt: row.updated_at,
-        },
-      ]),
-    ),
-  );
+  return mergePersistedFieldStates(data ?? []);
 }
 
 // ---------------------------------------------------------------------------

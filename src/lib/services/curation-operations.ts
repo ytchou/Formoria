@@ -6,7 +6,7 @@ import {
   CLEARED_FIELDS_KEY,
   resolveRefreshEnrichmentPatch,
 } from "./brand-write-policy";
-import { fromPersistedFieldIdentifiers } from "./_shared/persisted-field-identifiers";
+import { mergePersistedFieldStates } from "./_shared/persisted-field-identifiers";
 import type { BrandFlatLinkColumns } from "@/lib/types";
 import type { SiteContent } from "@/lib/types/brand";
 import type { ScrapedBrandData } from "@/lib/types/scraper";
@@ -420,7 +420,7 @@ export function seedEnrichedDataFromOwnerData(
 
   const merged = { ...existing };
   const fieldMappings = [
-    ["category", "category"],
+    ["categorySlug", "category"],
     ["foundingYear", "founding_year"],
     ["city", "city"],
     ["priceRange", "price_range"],
@@ -1150,18 +1150,11 @@ export async function persistSubmissionEnrichmentResults(
     }
     const { data: fieldStates, error: fieldStateError } = await supabase
       .from("brand_field_state")
-      .select("field, source")
+      .select("field, source, updated_at")
       .eq("brand_id", row.brand_id);
     if (fieldStateError) throw fieldStateError;
 
-    const fieldState = Object.fromEntries(
-      (fieldStates ?? []).flatMap((state) =>
-        fromPersistedFieldIdentifiers(state.field).map((field) => [
-          field,
-          { source: state.source },
-        ]),
-      ),
-    );
+    const fieldState = mergePersistedFieldStates(fieldStates ?? []);
     const filtered = resolveRefreshEnrichmentPatch(
       persistablePatch,
       fieldState,

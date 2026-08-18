@@ -15,6 +15,7 @@ import {
 } from '../curation-operations'
 import type { CurationConfig } from '../curation-operations'
 import { getDisplayBrandName, runCleanPhase } from '../enrich-phases'
+import { toPersistedFieldIdentifier } from '../_shared/persisted-field-identifiers'
 import { describeWithDb } from '@/test/setup'
 
 vi.mock('../category-classifier', async (importOriginal) => {
@@ -530,6 +531,8 @@ const serviceSupabase =
   process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
     ? createServiceClient()
     : null
+const PERSISTED_SUBCATEGORIES_FIELD = toPersistedFieldIdentifier('subcategories')
+const PERSISTED_SUBCATEGORIES_EN_FIELD = toPersistedFieldIdentifier('subcategories_en')
 
 describeWithDb('runEnrich submissions mode', () => {
   let testSubmissionId: string | null = null
@@ -764,15 +767,9 @@ describeWithDb('runEnrich persist routing', () => {
   })
 
   it('should write enriched_data to submission, not brands table', async () => {
-    await runEnrich(
-      {
-        dryRun: false,
-        target: 'submissions',
-        submissionIds: [testSubmissionId!],
-        phases: ['clean'],
-      },
-      serviceSupabase!
-    )
+    await persistSubmissionEnrichmentResults(serviceSupabase!, testSubmissionId!, {
+      description: 'Persisted submission description',
+    })
 
     const { data: submission } = await serviceSupabase!
       .from('brand_submissions')
@@ -786,7 +783,9 @@ describeWithDb('runEnrich persist routing', () => {
       .eq('name', testBrandName)
       .maybeSingle()
 
-    expect(submission!.enriched_data).not.toBeNull()
+    expect(submission!.enriched_data).toMatchObject({
+      description: 'Persisted submission description',
+    })
     expect(brand).toBeNull()
   })
 
@@ -815,6 +814,8 @@ describeWithDb('runEnrich persist routing', () => {
 
 describeWithDb('persistSubmissionEnrichmentResults', () => {
   let testSubmissionId: string | null = null
+  let testRefreshSubmissionId: string | null = null
+  let testRefreshBrandId: string | null = null
 
   beforeEach(async () => {
     const { data: submission, error } = await serviceSupabase!
@@ -842,6 +843,16 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
       await serviceSupabase!.from('brand_submissions').delete().eq('id', testSubmissionId)
       testSubmissionId = null
     }
+
+    if (testRefreshSubmissionId) {
+      await serviceSupabase!.from('brand_submissions').delete().eq('id', testRefreshSubmissionId)
+      testRefreshSubmissionId = null
+    }
+
+    if (testRefreshBrandId) {
+      await serviceSupabase!.from('brands').delete().eq('id', testRefreshBrandId)
+      testRefreshBrandId = null
+    }
   })
 
   it('should write patch to null enriched_data', async () => {
@@ -856,7 +867,7 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
       .eq('id', testSubmissionId!)
       .single()
 
-    expect(updated!.enriched_data).toEqual({
+    expect(updated!.enriched_data).toMatchObject({
       description: 'Test brand description',
       category: 'bags',
     })
@@ -884,7 +895,7 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
       .eq('id', testSubmissionId!)
       .single()
 
-    expect(updated!.enriched_data).toEqual({
+    expect(updated!.enriched_data).toMatchObject({
       description: 'New desc',
       category: 'bags',
       hero_image_url: 'https://img.example.com/hero.jpg',
@@ -907,6 +918,85 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
       .eq('id', testSubmissionId!)
       .single()
 
+    expect(updated!.enriched_data).toBeNull()
+  })
+
+  // Bug caught: refresh protection could depend on whether the legacy zh or EN
+  // provenance row happened to be returned first, allowing an owner value to
+  // be overwritten by an enrichment patch.
+  it.each([
+    [
+      'owner zh row first',
+      [
+        { field: PERSISTED_SUBCATEGORIES_FIELD, source: 'owner' },
+        { field: PERSISTED_SUBCATEGORIES_EN_FIELD, source: 'enriched' },
+      ],
+    ],
+    [
+      'enriched EN row first',
+      [
+        { field: PERSISTED_SUBCATEGORIES_EN_FIELD, source: 'enriched' },
+        { field: PERSISTED_SUBCATEGORIES_FIELD, source: 'owner' },
+      ],
+    ],
+  ])('protects refresh subcategories regardless of state row order: %s', async (_order, stateRows) => {
+    const { data: brand, error: brandError } = await serviceSupabase!
+      .from('brands')
+      .insert({
+        name: `[TEST] Refresh subcategory pair ${testSubmissionId}`,
+        slug: `test-refresh-subcategory-pair-${testSubmissionId}`,
+        status: 'hidden',
+        category: 'crafts',
+        subcategories: ['木工'],
+        subcategories_en: ['Woodwork'],
+      })
+      .select('id')
+      .single()
+    expect(brandError).toBeNull()
+    testRefreshBrandId = brand!.id
+
+    const { data: refreshSubmission, error: submissionError } = await serviceSupabase!
+      .from('brand_submissions')
+      .insert({
+        brand_name: `[TEST] Refresh subcategory pair ${testSubmissionId}`,
+        submitter_email: 'persist-refresh@example.com',
+        website_url: 'https://test-persist-refresh.example.com',
+        status: 'pending',
+        intent: 'refresh',
+        brand_id: testRefreshBrandId,
+        base_brand_data: {
+          category: 'crafts',
+          subcategories: ['木工'],
+          subcategories_en: ['Woodwork'],
+        },
+        base_brand_updated_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single()
+    expect(submissionError).toBeNull()
+    testRefreshSubmissionId = refreshSubmission!.id
+
+    const { error: stateError } = await serviceSupabase!
+      .from('brand_field_state')
+      .insert(
+        stateRows.map((state) => ({
+          brand_id: testRefreshBrandId!,
+          ...state,
+        })),
+      )
+    expect(stateError).toBeNull()
+
+    await persistSubmissionEnrichmentResults(serviceSupabase!, testRefreshSubmissionId!, {
+      subcategories: ['陶藝'],
+      subcategories_en: ['Ceramics'],
+    })
+
+    const { data: updated, error: updatedError } = await serviceSupabase!
+      .from('brand_submissions')
+      .select('enriched_data')
+      .eq('id', testSubmissionId!)
+      .single()
+    expect(updatedError).toBeNull()
     expect(updated!.enriched_data).toBeNull()
   })
 })

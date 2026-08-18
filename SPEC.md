@@ -23,7 +23,7 @@ Marketing entry point at `/`. Faire-inspired design for first-time visitors.
 
 ### Directory
 Primary discovery surface at `/brands`. Filterable brand listing with grid layout.
-- Taxonomy-based filtering (category, product type, price range)
+- Taxonomy-based filtering (category, subcategory, price range)
 - Full-text search
 - SEO-optimized category pages (static generation)
 - Responsive grid layout (desktop: multi-column, mobile: single column)
@@ -40,7 +40,7 @@ Individual brand pages with rich content.
 ### Onboarding
 Self-serve brand submission flow.
 - Single-screen flat form collecting: brand URL, brand name, region (1 of 23 options), ownership declaration, PDPA consent, and optional social/purchase links
-- No description, product type, images, tags, or UBN required at submission — these are auto-enriched by the scheduled batch enrichment pipeline
+- No description, category, subcategories, images, or UBN required at submission — these are auto-enriched by the scheduled batch enrichment pipeline
 - Submission enters Needs Data, is discovered by the six-hour scheduler, and reaches the admin approval queue after enrichment
 
 ### Admin
@@ -100,21 +100,21 @@ Post-claim management surface at `/dashboard` (protected; Supabase Auth; brand o
 **Closed vocabularies (DEV-802):**
 - `region`: closed vocabulary of Taiwan's 22 cities/counties plus `全台灣`; max 1 per brand.
 - `value`: closed vocabulary of admin-curated tags; max 3 per brand.
-- `product_type`: Each brand has exactly one L1 category, **AI-classified by the enrichment pipeline** (see `PRODUCT_TYPE_CATEGORIES` in `ontology.ts`). Stored as a column on `brands`; validated via CHECK constraint. Not submitter-selected.
+- `category`: Each brand has exactly one L1 category, **AI-classified by the enrichment pipeline** (see `L1_CATEGORIES` in `ontology.ts`). Stored as a column on `brands`; validated via CHECK constraint. Not submitter-selected.
 
-**Product tags — canonical-zh ontology model (DEV-1032):**
-- `brands.product_tags text[]`: canonical zh subcategory names (e.g. `['口金包', '手提包']`). AI-classified by enrichment; admin may override.
-- `brands.product_tags_en text[]`: English translations, same order. Display-only.
-- Ontology source of truth: `src/lib/taxonomy/ontology.ts` — defines `PRODUCT_TYPE_CATEGORIES[].subcategories[]` with `{ nameZh, nameEn, slug, aliases }`.
+**Subcategories — canonical ontology model (DEV-1032):**
+- `brands.subcategories text[]`: canonical zh L2 subcategory names (e.g. `['口金包', '手提包']`). AI-classified by enrichment; admin may override.
+- `brands.subcategories_en text[]`: English translations, same order. Display-only.
+- Ontology source of truth: `src/lib/taxonomy/ontology.ts` — defines `L1_CATEGORIES` and `L2_SUBCATEGORIES` with `{ nameZh, nameEn, slug, aliases }`.
 - Slug resolution: `subcategoryBySlug(slug)` and `resolveSubcategorySlugs(categorySlug, slugs)` map URL `?sub=` slugs to canonical zh names.
-- GIN index `idx_brands_product_tags` enables `.overlaps()` and RPC `filter_tags` array overlap filtering.
+- GIN index `idx_brands_subcategories` enables `.overlaps()` and RPC subcategory overlap filtering.
 
 **Subcategory filtering on /brands (DEV-1032):**
 - URL: `?category=X&sub=Y` (comma-separated, OR semantics). Only active when exactly one L1 category is selected.
 - `app_settings` table: runtime feature flag `subcategory_filter_enabled` (jsonb). Fail-open (default true on read error). Admin toggle at `/admin`.
 - When enabled: subcategory chips with counts appear under the checked L1 category in the filter sidebar/drawer. Counts from `getSubcategoryCounts()`.
 - Canonical URL: sub-filtered views point canonical + hreflang to the parent `/brands?category=X` (no `sub=`). Sitemap unchanged.
-- `search_brands` RPC: `filter_tags` parameter filters all three query branches (FTS, trigram, EXCEPTION fallback).
+- `search_brands` RPC: subcategory filtering applies to all three query branches (FTS, trigram, EXCEPTION fallback).
 
 **Submissions:**
 - `brand_submissions.suggested_tags`: `{ region?: string, values?: string[] }` JSONB (structured format, DEV-802); legacy `string[]` accepted for backwards compatibility.
@@ -181,7 +181,7 @@ See `docs/strategy/brand-success-playbook.md` for full specification.
 - mitDeclaredScope: all | most | some | null (Tier 2 scope)
 - mitDeclaredAt: timestamp | null (Tier 2 declaration date)
 - mitDeclaredBy: user FK | null (Tier 2 declarer)
-- product_type (single product category, validated against PRODUCT_TYPE_CATEGORIES — one of: fashion, bags-accessories, jewelry, beauty, home, food-drink, crafts, tech, outdoor, kids-pets)
+- category (single L1 category, validated against L1_CATEGORIES — one of: fashion, bags-accessories, jewelry, beauty, home, food-drink, crafts, tech, outdoor, kids-pets)
 - tags[] (additional taxonomy tags)
 - purchaseLinks[] (platform, url, label)
 - socialLinks (instagram, threads, facebook, officialWebsite)

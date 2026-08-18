@@ -31,7 +31,7 @@ describe('basicInfoSchema', () => {
     })
     expect(result.success).toBe(false)
   })
-  it('fails when a productTag exceeds 40 chars', () => {
+  it('fails when a subcategory exceeds 40 chars', () => {
     const result = basicInfoSchema.safeParse({
       name: 'X',
       categorySlug: 'fashion',

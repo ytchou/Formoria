@@ -145,13 +145,13 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
             labelClassName={infoLabelClassName}
             value={subcategories.length > 0 ? (
               <div className="flex flex-wrap items-center gap-1.5">
-                {subcategories.map((productTag) => (
+                {subcategories.map((subcategory) => (
                   <Badge
                     className="text-foreground"
-                    key={productTag}
+                    key={subcategory}
                     variant="secondary"
                   >
-                    {productTag}
+                    {subcategory}
                   </Badge>
                 ))}
               </div>

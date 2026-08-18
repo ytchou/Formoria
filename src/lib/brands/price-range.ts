@@ -21,7 +21,7 @@ export function formatPriceRange(value: unknown): string | null {
  * `brand_ai_results.price_range`, so a defaulted tier stays distinguishable
  * from one the model actually determined.
  *
- * Least-wrong guess, not a measurement; upgrade path is a product-tag or
+ * Least-wrong guess, not a measurement; upgrade path is a subcategory or
  * catalog-derived heuristic (DEV-995) once real product prices exist.
  */
 export const DEFAULT_PRICE_RANGE = 2

@@ -48,6 +48,90 @@ export function fromPersistedFieldIdentifiers(field: string): string[] {
   return [fromPersistedFieldIdentifier(field)];
 }
 
+export type PersistedFieldStateRow = {
+  field: string;
+  source: string;
+  updated_at?: string | null;
+};
+
+export type ApplicationFieldState = {
+  source: string;
+  updatedAt?: string;
+};
+
+const FIELD_STATE_SOURCE_PRIORITY: Record<string, number> = {
+  enriched: 1,
+  submitted: 2,
+  admin: 3,
+  owner: 4,
+};
+
+function sourcePriority(source: string): number {
+  return FIELD_STATE_SOURCE_PRIORITY[source] ?? 0;
+}
+
+function shouldReplaceFieldState(
+  candidate: ApplicationFieldState,
+  candidatePersistedField: string,
+  current: ApplicationFieldState,
+  currentPersistedField: string,
+): boolean {
+  const candidatePriority = sourcePriority(candidate.source);
+  const currentPriority = sourcePriority(current.source);
+  if (candidatePriority !== currentPriority) {
+    return candidatePriority > currentPriority;
+  }
+
+  const candidateUpdatedAt = candidate.updatedAt ?? "";
+  const currentUpdatedAt = current.updatedAt ?? "";
+  if (candidateUpdatedAt !== currentUpdatedAt) {
+    return candidateUpdatedAt > currentUpdatedAt;
+  }
+
+  // The database normally has one row per field. This final tie-breaker only
+  // applies to the synchronized zh/en pair and keeps the result row-order
+  // independent even when timestamps collide.
+  return candidatePersistedField < currentPersistedField;
+}
+
+/**
+ * Expand persisted field IDs into application fields with stable precedence.
+ * Owner provenance wins before timestamps or persisted-field ordering because
+ * either historical subcategory array can represent the same protected pair.
+ */
+export function mergePersistedFieldStates(
+  rows: readonly PersistedFieldStateRow[],
+): Record<string, ApplicationFieldState> {
+  const merged: Record<string, ApplicationFieldState> = {};
+  const persistedFieldByApplicationField: Record<string, string> = {};
+
+  for (const row of rows) {
+    const candidate: ApplicationFieldState = {
+      source: row.source,
+      ...(row.updated_at ? { updatedAt: row.updated_at } : {}),
+    };
+    for (const applicationField of fromPersistedFieldIdentifiers(row.field)) {
+      const current = merged[applicationField];
+      const currentPersistedField =
+        persistedFieldByApplicationField[applicationField];
+      if (
+        !current ||
+        shouldReplaceFieldState(
+          candidate,
+          row.field,
+          current,
+          currentPersistedField,
+        )
+      ) {
+        merged[applicationField] = candidate;
+        persistedFieldByApplicationField[applicationField] = row.field;
+      }
+    }
+  }
+
+  return merged;
+}
+
 /**
  * Translate an application-shaped patch before passing it to a legacy RPC.
  *
