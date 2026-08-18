@@ -70,9 +70,9 @@ test.describe("i18n English browse", () => {
       "Visit Website",
       "Brand information",
       "Founded",
-      "Category",
+      "Brand category",
       "Price",
-      "Product categories",
+      "Product subcategory",
       "Crafts & Art",
     ]) {
       expect(document.mainText).toContain(text);
@@ -82,9 +82,9 @@ test.describe("i18n English browse", () => {
       "前往官網",
       "品牌資訊",
       "創立年份",
-      "類別",
+      "品牌類別",
       "價格區間",
-      "產品類別",
+      "商品子類別",
       "工藝文創",
     ]) {
       expect(document.mainText).not.toContain(text);
@@ -109,9 +109,9 @@ test.describe("i18n English browse", () => {
       "前往官網",
       "品牌資訊",
       "創立年份",
-      "類別",
+      "品牌類別",
       "價格區間",
-      "產品類別",
+      "商品子類別",
       "工藝文創",
     ]) {
       expect(document.mainText).toContain(text);
@@ -121,8 +121,8 @@ test.describe("i18n English browse", () => {
       "Visit Website",
       "Brand information",
       "Founded",
-      "Category",
-      "Product categories",
+      "Brand category",
+      "Product subcategory",
       "Crafts & Art",
     ]) {
       expect(document.mainText).not.toContain(text);

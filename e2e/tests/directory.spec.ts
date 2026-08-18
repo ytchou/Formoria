@@ -1,4 +1,4 @@
-import { PRODUCT_TYPE_CATEGORIES } from "../../src/lib/taxonomy/ontology";
+import { L1_CATEGORIES } from "../../src/lib/taxonomy/ontology";
 import zhTW from "../../messages/zh-TW.json";
 import { BUDGET } from "../budgets";
 import { test, expect, type Page } from "@playwright/test";
@@ -13,7 +13,7 @@ import { test, expect, type Page } from "@playwright/test";
  * changed it again (DEV-1414).
  */
 const FILTER_SUBJECTS = ["fashion", "home", "crafts"].map((slug) => {
-  const category = PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === slug);
+  const category = L1_CATEGORIES.find((item) => item.slug === slug);
   if (!category) {
     // A renamed or removed L1 slug must break this loudly. Falling back to a
     // positional pick is how the drift went unnoticed in the first place.

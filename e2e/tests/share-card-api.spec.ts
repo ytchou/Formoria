@@ -47,7 +47,7 @@ test.describe('Share card API', () => {
         slug: approvedBrandSlug,
         status: 'approved',
         approved_at: new Date().toISOString(),
-        product_type: 'crafts',
+        category: 'crafts',
         description: '[E2E-TEST] share card API approved brand',
       })
       .select('id')
@@ -62,7 +62,7 @@ test.describe('Share card API', () => {
         name: `[E2E-TEST] Share Card Hidden ${ts}`,
         slug: hiddenBrandSlug,
         status: 'hidden',
-        product_type: 'crafts',
+        category: 'crafts',
         description: '[E2E-TEST] share card API hidden brand',
       })
       .select('id')

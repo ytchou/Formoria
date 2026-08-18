@@ -27,7 +27,7 @@ test.describe("Brand detail deep", () => {
       withLinks: true,
       withOwner: true,
       // The FAQ cases below need brand *evidence*, not links: the presets that
-      // survive gate on mit_status / product_tags / price_range.
+      // survive gate on mit_status / subcategories / price_range.
       withFaqEvidence: true,
     });
     brandHref = `/brands/${seeded.slug}`;
@@ -37,12 +37,30 @@ test.describe("Brand detail deep", () => {
     await seeded.cleanup();
   });
 
-  test("@smoke all sections render without error", async ({ page }) => {
+  test("@smoke brand information uses final category and subcategory copy in both locales", async ({
+    page,
+  }) => {
     await page.goto(brandHref);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
-    // No error boundaries or 404
+    const zhBrandInfo = page.getByRole("region", { name: "品牌資訊" });
+    await expect(
+      zhBrandInfo.getByText("品牌類別", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      zhBrandInfo.getByText("商品子類別", { exact: true }),
+    ).toBeVisible();
+
+    await page.goto(`/en/brands/${seeded.slug}`);
+    const enBrandInfo = page.getByRole("region", { name: "Brand information" });
+    await expect(
+      enBrandInfo.getByText("Brand category", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      enBrandInfo.getByText("Product subcategory", { exact: true }),
+    ).toBeVisible();
+
     await expect(
       page.getByText(/something went wrong|not found|error|發生錯誤/i),
     ).not.toBeVisible();
@@ -220,7 +238,7 @@ test.describe("Brand detail deep", () => {
 
   test("FAQ renders on a data-rich brand", async ({ page }) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
-    // Seeded via `withFaqEvidence`: mit_status, product_tags and price_range.
+    // Seeded via `withFaqEvidence`: mit_status, subcategories and price_range.
     // Those — not links — are what the FAQ floors gate on. This fixture is
     // declared rather than MIT-verified, so taiwan-origin is intentionally
     // absent while the product and price floors still render.

@@ -65,8 +65,8 @@ test.describe('Admin dashboard deep', () => {
         enriched_data: {
           description: 'Complete dashboard test enrichment.',
           hero_image_url: imageUrls[0],
-          product_type: 'bags-accessories',
-          product_tags: ['手工包袋'],
+          category: 'bags-accessories',
+          subcategories: ['手工包袋'],
           price_range: 2,
           purchase_website: 'https://e2e-dashboard.example.com',
         },
