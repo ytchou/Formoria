@@ -16,7 +16,10 @@ const environmentFor = (ref: string) => ({
 describe("curation worker database target guard", () => {
   it("accepts credentials that match the declared environment", () => {
     expect(
-      assertWorkerDatabaseTarget("staging", environmentFor(STAGING_PROJECT_REF)),
+      assertWorkerDatabaseTarget(
+        "staging",
+        environmentFor(STAGING_PROJECT_REF),
+      ),
     ).toEqual({
       deploymentEnvironment: "staging",
       projectRef: STAGING_PROJECT_REF,
@@ -38,14 +41,19 @@ describe("curation worker database target guard", () => {
         "staging",
         environmentFor(PRODUCTION_PROJECT_REF),
       ),
-    ).toThrow(/identifies project xkcayngbttpxyibgzern, but this worker declares staging/);
+    ).toThrow(
+      /identifies project xkcayngbttpxyibgzern, but this worker declares staging/,
+    );
   });
 
   // The fail-open declaration: an unset FORMORIA_DEPLOYMENT_ENV resolves to
   // production, so staging credentials under it must crash rather than run.
   it("refuses a production-declared worker holding staging credentials", () => {
     expect(() =>
-      assertWorkerDatabaseTarget("production", environmentFor(STAGING_PROJECT_REF)),
+      assertWorkerDatabaseTarget(
+        "production",
+        environmentFor(STAGING_PROJECT_REF),
+      ),
     ).toThrow(/but this worker declares production/);
   });
 

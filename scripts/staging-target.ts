@@ -61,7 +61,8 @@ export function validateSupabaseKeyIdentity(
     const decoded = JSON.parse(
       Buffer.from(parts[1], "base64url").toString("utf8"),
     ) as unknown;
-    if (!decoded || typeof decoded !== "object") throw new Error("not an object");
+    if (!decoded || typeof decoded !== "object")
+      throw new Error("not an object");
     payload = decoded as SupabaseKeyPayload;
   } catch {
     throw new Error(`${name} contains an invalid Supabase JWT payload`);
@@ -134,7 +135,9 @@ export function validateStagingTarget(
       declaredOrigin &&
       parseHttpsUrl(declaredOrigin, name).toString() !== appUrl.toString()
     ) {
-      throw new Error(`${name} and STAGING_BASE_URL must identify the same staging origin`);
+      throw new Error(
+        `${name} and STAGING_BASE_URL must identify the same staging origin`,
+      );
     }
   }
   if (appUrl.hostname.toLowerCase() !== STAGING_HOSTNAME) {
@@ -147,7 +150,10 @@ export function validateStagingTarget(
   }
 
   const supabaseUrl = required(environment, "NEXT_PUBLIC_SUPABASE_URL");
-  const projectRef = required(environment, "SUPABASE_PROJECT_REF").toLowerCase();
+  const projectRef = required(
+    environment,
+    "SUPABASE_PROJECT_REF",
+  ).toLowerCase();
   const urlProjectRef = projectRefFromSupabaseUrl(supabaseUrl);
   if (projectRef !== STAGING_PROJECT_REF) {
     throw new Error(

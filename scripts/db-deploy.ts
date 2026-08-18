@@ -92,18 +92,26 @@ export async function paginateAuthUsers(
   for (let page = 1; page <= AUTH_USERS_MAX_PAGES; page += 1) {
     const result = await listPage(page, AUTH_USERS_PAGE_SIZE);
     if (result.error) {
-      throw new Error(`Unable to inspect staging E2E users: ${result.error.message}`);
+      throw new Error(
+        `Unable to inspect staging E2E users: ${result.error.message}`,
+      );
     }
     const pageUsers = result.data?.users;
     if (!Array.isArray(pageUsers)) {
-      throw new Error(`Unable to inspect staging E2E users: page ${page} was malformed`);
+      throw new Error(
+        `Unable to inspect staging E2E users: page ${page} was malformed`,
+      );
     }
     for (const user of pageUsers) {
       if (!user || typeof user.id !== "string" || !user.id) {
-        throw new Error(`Unable to inspect staging E2E users: page ${page} contained a malformed user`);
+        throw new Error(
+          `Unable to inspect staging E2E users: page ${page} contained a malformed user`,
+        );
       }
       if (seenIds.has(user.id)) {
-        throw new Error(`Unable to inspect staging E2E users: page ${page} repeated user ${user.id}`);
+        throw new Error(
+          `Unable to inspect staging E2E users: page ${page} repeated user ${user.id}`,
+        );
       }
       seenIds.add(user.id);
       users.push(user);
@@ -123,7 +131,9 @@ export function findStagingAccount(
   email: string,
 ): StagingAuthUser | undefined {
   const normalizedEmail = email.trim().toLowerCase();
-  return users.find((user) => user.email?.trim().toLowerCase() === normalizedEmail);
+  return users.find(
+    (user) => user.email?.trim().toLowerCase() === normalizedEmail,
+  );
 }
 
 export type StagingAccountAction = {
@@ -165,7 +175,9 @@ export function validateStagingSeedEnvironment(
       role: "admin",
     },
   ];
-  if (new Set(accounts.map((account) => account.email)).size !== accounts.length) {
+  if (
+    new Set(accounts.map((account) => account.email)).size !== accounts.length
+  ) {
     throw new Error("E2E_USER_EMAIL and E2E_ADMIN_EMAIL must be different");
   }
   const adminAllowlist = required(environment, "ADMIN_EMAILS")
@@ -323,14 +335,22 @@ async function ensureStagingAccounts(
     supabase.auth.admin.listUsers({ page, perPage }),
   );
 
-  for (const { account, existingUser } of planStagingAccountActions(listed, accounts)) {
+  for (const { account, existingUser } of planStagingAccountActions(
+    listed,
+    accounts,
+  )) {
     if (existingUser) {
-      const { error } = await supabase.auth.admin.updateUserById(existingUser.id, {
-        password: account.password,
-        email_confirm: true,
-      });
+      const { error } = await supabase.auth.admin.updateUserById(
+        existingUser.id,
+        {
+          password: account.password,
+          email_confirm: true,
+        },
+      );
       if (error) {
-        throw new Error(`Unable to refresh staging ${account.role} account: ${error.message}`);
+        throw new Error(
+          `Unable to refresh staging ${account.role} account: ${error.message}`,
+        );
       }
       continue;
     }
@@ -341,7 +361,9 @@ async function ensureStagingAccounts(
       email_confirm: true,
     });
     if (error) {
-      throw new Error(`Unable to create staging ${account.role} account: ${error.message}`);
+      throw new Error(
+        `Unable to create staging ${account.role} account: ${error.message}`,
+      );
     }
   }
 }

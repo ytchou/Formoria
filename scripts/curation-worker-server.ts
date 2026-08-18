@@ -23,15 +23,10 @@ const target = assertWorkerDatabaseTarget(
   isStagingEnvironment() ? "staging" : "production",
 );
 
-const {
-  claimCurationDispatchWork,
-  claimNextCurationJob,
-  recoverStaleJobs,
-} = await import("@/lib/services/curation-jobs");
+const { claimCurationDispatchWork, claimNextCurationJob, recoverStaleJobs } =
+  await import("@/lib/services/curation-jobs");
 const { runJob, sanitizeJobError } = await import("@/lib/services/job-runner");
-const { runScheduledCuration } = await import(
-  "@/lib/services/curation-worker"
-);
+const { runScheduledCuration } = await import("@/lib/services/curation-worker");
 const { reportWorkerFailure } = await import("@/lib/services/job-alerts");
 
 // This container never loads Next's instrumentation hook, so nothing else here
@@ -126,7 +121,9 @@ server.listen(port, "0.0.0.0", () => {
 function startCronScheduler(schedule: string) {
   const hours = parseCronHours(schedule);
   if (hours.length === 0) {
-    console.warn(`[curation-cron] invalid schedule "${schedule}", cron disabled`);
+    console.warn(
+      `[curation-cron] invalid schedule "${schedule}", cron disabled`,
+    );
     return;
   }
   console.log(
@@ -138,7 +135,11 @@ function startCronScheduler(schedule: string) {
     const now = new Date();
     const currentHour = now.getUTCHours();
     const currentMinute = now.getUTCMinutes();
-    if (currentMinute === 0 && hours.includes(currentHour) && lastRunHour !== currentHour) {
+    if (
+      currentMinute === 0 &&
+      hours.includes(currentHour) &&
+      lastRunHour !== currentHour
+    ) {
       lastRunHour = currentHour;
       void runCron();
     }
@@ -173,9 +174,7 @@ async function runCron(): Promise<void> {
   } catch (error) {
     console.error(
       "[curation-cron]",
-      error instanceof Error
-        ? error.message
-        : JSON.stringify(error, null, 2),
+      error instanceof Error ? error.message : JSON.stringify(error, null, 2),
     );
     await reportWorkerFailure("cron", error);
   }
