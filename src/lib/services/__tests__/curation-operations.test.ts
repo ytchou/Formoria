@@ -940,6 +940,19 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
       ],
     ],
   ])('protects refresh subcategories regardless of state row order: %s', async (_order, stateRows) => {
+    // Keep a sentinel on the unrelated pending submission so a regression to
+    // querying testSubmissionId fails instead of silently checking the wrong row.
+    const { error: sentinelError } = await serviceSupabase!
+      .from('brand_submissions')
+      .update({
+        enriched_data: {
+          subcategories: ['[TEST] unrelated submission'],
+          subcategories_en: ['Unrelated submission'],
+        },
+      })
+      .eq('id', testSubmissionId!)
+    expect(sentinelError).toBeNull()
+
     const { data: brand, error: brandError } = await serviceSupabase!
       .from('brands')
       .insert({
@@ -994,9 +1007,11 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
     const { data: updated, error: updatedError } = await serviceSupabase!
       .from('brand_submissions')
       .select('enriched_data')
-      .eq('id', testSubmissionId!)
+      .eq('id', testRefreshSubmissionId!)
       .single()
     expect(updatedError).toBeNull()
-    expect(updated!.enriched_data).toBeNull()
+    const enrichedData = updated!.enriched_data ?? {}
+    expect(enrichedData).not.toHaveProperty('subcategories')
+    expect(enrichedData).not.toHaveProperty('subcategories_en')
   })
 })

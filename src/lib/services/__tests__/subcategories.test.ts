@@ -68,7 +68,7 @@ describe('normalizeSubcategories', () => {
     expect(result.crossBranch).toEqual(['手工皂'])
   })
 
-  it('splits an unmatched composite tag and keeps the halves that resolve', () => {
+  it('splits an unmatched composite subcategory and keeps the halves that resolve', () => {
     const result = normalizeSubcategories(['糖果・糕點'], [])
 
     expect(result.subcategories).toEqual(['甜點・糕點'])
@@ -76,7 +76,7 @@ describe('normalizeSubcategories', () => {
     expect(result.subcategories).not.toContain('糖果・糕點')
   })
 
-  it('keeps a canonical composite tag untouched', () => {
+  it('keeps a canonical composite subcategory untouched', () => {
     const result = normalizeSubcategories(['甜點・糕點'], [])
 
     expect(result.subcategories).toEqual(['甜點・糕點'])
@@ -210,7 +210,7 @@ describe('novelSubcategoryRejection', () => {
     expect(novelSubcategoryRejection('手工燈籠')).toBeNull()
   })
 
-  it('rejects retired composite spellings before the novel-tag escape hatch', () => {
+  it('rejects retired composite spellings before the novel-subcategory escape hatch', () => {
     expect(novelSubcategoryRejection('香氛・蠟燭')).toBe('retired-composite')
     expect(novelSubcategoryRejection('香氛蠟燭')).toBe('retired-composite')
   })
@@ -244,7 +244,7 @@ describe('applySubcategoryDelta', () => {
     expect(applySubcategoryDelta([], { add: ['Vegan', 'vegan'], remove: [] })).toEqual([
       'Vegan',
     ])
-    // A removal typed in a different casing still removes the stored tag.
+    // A removal typed in a different casing still removes the stored subcategory.
     expect(applySubcategoryDelta(['Vegan'], { add: [], remove: ['vegan'] })).toEqual([])
   })
 

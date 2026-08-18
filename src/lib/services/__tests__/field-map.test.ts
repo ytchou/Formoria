@@ -10,7 +10,7 @@ describe('toBrandRow subcategories_en derivation', () => {
   })
 
   it('normalizes a caller-supplied subcategoriesEn instead of trusting it', () => {
-    // DEV-1266: the admin review action validates EN tags for length only, so
+    // DEV-1266: the admin review action validates EN subcategories for length only, so
     // a stale hand-edited array must not survive the write boundary.
     const row = toBrandRow({ subcategories: ['後背包'], subcategoriesEn: ['backpack'] })
     expect(row.subcategories).toEqual(['後背包'])
