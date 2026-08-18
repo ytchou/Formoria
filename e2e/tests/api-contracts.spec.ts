@@ -1,9 +1,62 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type APIResponse } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>
+
+const IS_CANONICAL_STAGING_TARGET =
+  new URL(
+    process.env.BASE_URL ??
+      process.env.PLAYWRIGHT_BASE_URL ??
+      process.env.STAGING_BASE_URL ??
+      'http://localhost:3000',
+  ).origin === 'https://staging.formoria.com'
+
+type StagingAwareGetContract = {
+  status: number
+  assertResponse: (response: APIResponse) => Promise<void>
+}
+
+function stagingAwareGetMutationContract(
+  nonStagingStatus: number,
+  assertNonStagingResponse: (response: APIResponse) => Promise<void>,
+): StagingAwareGetContract {
+  if (IS_CANONICAL_STAGING_TARGET) {
+    return {
+      status: 403,
+      assertResponse: async (response) => {
+        expect(await response.json()).toEqual({
+          error: 'This flow is disabled in staging',
+        })
+      },
+    }
+  }
+
+  return {
+    status: nonStagingStatus,
+    assertResponse: assertNonStagingResponse,
+  }
+}
+
+const NEWSLETTER_CONFIRM_CONTRACT = stagingAwareGetMutationContract(
+  307,
+  async (response) => {
+    expect(response.headers()['location'] ?? '').toContain('subscribed=true')
+  },
+)
+const VALID_UNSUBSCRIBE_CONTRACT = stagingAwareGetMutationContract(
+  200,
+  async (response) => {
+    expect((await response.text()).toLowerCase()).toContain('unsubscribed')
+  },
+)
+const MISSING_TOKEN_CONTRACT = stagingAwareGetMutationContract(
+  400,
+  async (response) => {
+    expect(await response.text()).toContain('Missing')
+  },
+)
 
 /**
  * API Contracts
@@ -95,7 +148,7 @@ test.describe('API — health + search', () => {
     expect(first).toHaveProperty('id')
     expect(first).toHaveProperty('slug')
     expect(first).toHaveProperty('name')
-    expect(first).toHaveProperty('category')
+    expect(first).toHaveProperty('categoryLabel')
   })
 
   test('GET /api/search without query returns 400', async ({ request }) => {
@@ -199,56 +252,53 @@ test.describe.serial('API — newsletter', () => {
 
   // --- Order matters: confirm before unsubscribe ---
 
-  test('GET /api/newsletter/confirm with valid token redirects to /?subscribed=true', async ({ request }) => {
+  test('GET /api/newsletter/confirm honors the environment contract with a valid token', async ({ request }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
 
     const resp = await request.get(
       `/api/newsletter/confirm?token=${confirmToken}`,
       { maxRedirects: 0 },
     )
-    expect(resp.status()).toBe(307)
-    const location = resp.headers()['location'] ?? ''
-    expect(location).toContain('subscribed=true')
+    expect(resp.status()).toBe(NEWSLETTER_CONFIRM_CONTRACT.status)
+    await NEWSLETTER_CONFIRM_CONTRACT.assertResponse(resp)
   })
 
-  test('GET /api/newsletter/unsubscribe with valid token succeeds', async ({ request }) => {
+  test('GET /api/newsletter/unsubscribe honors the environment contract with a valid token', async ({ request }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
 
     const resp = await request.get(
       `/api/newsletter/unsubscribe?token=${newsletterUnsubToken}`,
     )
-    expect(resp.status()).toBe(200)
-    const text = await resp.text()
-    expect(text.toLowerCase()).toContain('unsubscribed')
+    expect(resp.status()).toBe(VALID_UNSUBSCRIBE_CONTRACT.status)
+    await VALID_UNSUBSCRIBE_CONTRACT.assertResponse(resp)
   })
 
-  test('GET /api/newsletter/unsubscribe without token returns 400', async ({ request }) => {
+  test('GET /api/newsletter/unsubscribe honors the environment contract without a token', async ({ request }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
 
     const resp = await request.get('/api/newsletter/unsubscribe')
-    expect(resp.status()).toBe(400)
-    const text = await resp.text()
-    expect(text).toContain('Missing')
+    expect(resp.status()).toBe(MISSING_TOKEN_CONTRACT.status)
+    await MISSING_TOKEN_CONTRACT.assertResponse(resp)
   })
 
-  test('GET /api/email/unsubscribe with valid token succeeds', async ({ request }) => {
-    if (!supabase || !testUserId) { test.skip(true, 'PREVIEW_MODE active or no test user'); return }
+  test('GET /api/email/unsubscribe honors the environment contract with a valid token', async ({ request }) => {
+    test.skip(
+      !supabase || (!IS_CANONICAL_STAGING_TARGET && !testUserId),
+      'PREVIEW_MODE active or no test user',
+    )
 
     const resp = await request.get(
       `/api/email/unsubscribe?token=${ownerUnsubToken}`,
     )
-    expect(resp.status()).toBe(200)
-    const text = await resp.text()
-    // The route returns "You have been unsubscribed from Formoria lifecycle emails…"
-    expect(text.toLowerCase()).toContain('unsubscribed')
+    expect(resp.status()).toBe(VALID_UNSUBSCRIBE_CONTRACT.status)
+    await VALID_UNSUBSCRIBE_CONTRACT.assertResponse(resp)
   })
 
-  test('GET /api/email/unsubscribe without token returns 400', async ({ request }) => {
+  test('GET /api/email/unsubscribe honors the environment contract without a token', async ({ request }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
 
     const resp = await request.get('/api/email/unsubscribe')
-    expect(resp.status()).toBe(400)
-    const text = await resp.text()
-    expect(text).toContain('Missing')
+    expect(resp.status()).toBe(MISSING_TOKEN_CONTRACT.status)
+    await MISSING_TOKEN_CONTRACT.assertResponse(resp)
   })
 })

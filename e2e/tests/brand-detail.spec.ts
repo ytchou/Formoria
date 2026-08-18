@@ -924,10 +924,12 @@ test.describe("Brand detail — public locations and retail channels", () => {
     await dialog
       .getByRole("combobox", { name: "販售方式" })
       .selectOption("online");
-    await dialog
-      .getByRole("combobox", { name: "地點分類" })
-      .selectOption("other");
-    await dialog.getByRole("combobox", { name: "地區" }).selectOption("taipei");
+    await expect(
+      dialog.getByRole("combobox", { name: "地點分類" }),
+    ).toHaveCount(0);
+    const region = dialog.getByRole("combobox", { name: "地區" });
+    await expect(region).toBeVisible();
+    await region.selectOption("taipei");
     await dialog
       .getByRole("textbox", { name: "網址" })
       .fill(submittedChannelUrl);
