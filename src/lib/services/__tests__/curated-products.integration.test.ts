@@ -6,7 +6,6 @@ import {
   getPublishedCuratedProductsForHomepage,
   getPublishedCuratedProductsForBrand,
   getPublishedCuratedProductsForTrail,
-  promoteCuratedProduct,
   retireCuratedProduct,
   retireCuratedProductSelection,
   retireCuratedProductSource,
@@ -16,11 +15,10 @@ import { getTrailBySlug } from "../trails";
 
 type SeedProduct = {
   key: string;
-  lifecycle?: string;
+  visible?: boolean;
   officialUrl?: string | null;
   imageUrl?: string | null;
   sourceCheckedAt?: string | null;
-  imageUsage?: string;
   createdAt?: string;
   productPosition?: number | null;
   productDescriptionZh?: string | null;
@@ -84,9 +82,8 @@ describeWithDb("published curated products for a brand", () => {
               ? `https://example.com/${suffix}/${product.key}`
               : product.officialUrl,
           image_url: product.imageUrl ?? null,
-          lifecycle: product.lifecycle ?? "published",
+          visible: product.visible ?? true,
           link_state: product.linkState ?? "ok",
-          image_usage: product.imageUsage ?? "none",
           source_checked_at:
             product.sourceCheckedAt === undefined
               ? new Date().toISOString()
@@ -171,7 +168,6 @@ describeWithDb("published curated products for a brand", () => {
     const firstBrand = await seedBrand([
       {
         key: "first-home-pick",
-        imageUsage: "permitted",
         imageUrl: "https://images.example.com/first-home-pick.webp",
         selections: [{ trailSlug: "gifting", position: 2 }],
       },
@@ -179,7 +175,6 @@ describeWithDb("published curated products for a brand", () => {
     const secondBrand = await seedBrand([
       {
         key: "second-home-pick",
-        imageUsage: "permitted",
         imageUrl: "https://images.example.com/second-home-pick.webp",
         selections: [{ trailSlug: "gifting", position: 1 }],
       },
@@ -262,26 +257,16 @@ describeWithDb("published curated products for a brand", () => {
     expect(product?.productDescriptionZh).toBe("Unordered description。");
   });
 
-  it("omits products whose lifecycle is not published", async () => {
+  it("omits products that are not visible", async () => {
     const brandId = await seedBrand([
       {
         key: "live-pick",
         selections: [{ trailSlug: "gifting", position: 1 }],
       },
       {
-        key: "candidate-pick",
-        lifecycle: "candidate",
+        key: "hidden-pick",
+        visible: false,
         selections: [{ trailSlug: "gifting", position: 2 }],
-      },
-      {
-        key: "needs-review-pick",
-        lifecycle: "needs_review",
-        selections: [{ trailSlug: "gifting", position: 3 }],
-      },
-      {
-        key: "retired-pick",
-        lifecycle: "retired",
-        selections: [{ trailSlug: "gifting", position: 4 }],
       },
     ]);
 
@@ -491,7 +476,7 @@ describeWithDb("published curated products for a brand", () => {
       name_zh: "No Description",
       l1: "home",
       official_url: "https://example.com/no-description",
-      lifecycle: "published",
+      visible: true,
       source_checked_at: new Date().toISOString(),
       product_position: 0,
     });
@@ -554,8 +539,8 @@ describeWithDb("published curated products for a brand", () => {
     const brandId = await seedBrand([
       { key: "published", selections: [{ trailSlug: "small-space-reading-corner", position: 1 }] },
       {
-        key: "candidate",
-        lifecycle: "candidate",
+        key: "hidden",
+        visible: false,
         selections: [{ trailSlug: "small-space-reading-corner", position: 2 }],
       },
       {
@@ -731,25 +716,17 @@ describeWithDb("curated product write path", () => {
     return sourceId;
   }
 
-  async function lifecycleOf(productId: string): Promise<string> {
+  async function visibleOf(productId: string): Promise<boolean> {
     const { data, error } = await supabase
       .from("curated_products")
-      .select("lifecycle")
+      .select("visible")
       .eq("id", productId)
       .single();
     expect(error).toBeNull();
-    return data?.lifecycle as string;
+    return data?.visible as boolean;
   }
 
-  /** Narrows a promote outcome to its refusal, failing the test when it succeeded. */
-  function expectRefusal(
-    result: Awaited<ReturnType<typeof promoteCuratedProduct>>,
-  ) {
-    if (result.ok) throw new Error("Expected the promote to be refused");
-    return result;
-  }
-
-  /** Everything a promote needs except whatever the caller withholds. */
+  /** A freshly created product, minus whatever the caller withholds. */
   async function seedCandidate(
     overrides: {
       officialUrl?: string | null;
@@ -779,16 +756,16 @@ describeWithDb("curated product write path", () => {
     return { brandId, productId: created.id };
   }
 
-  it("create_writes_candidate_lifecycle — a created row lands as candidate/admin", async () => {
+  it("create_writes_hidden_row — a created row lands hidden, proposed by admin", async () => {
     const { productId } = await seedCandidate();
 
     const { data } = await supabase
       .from("curated_products")
-      .select("lifecycle, proposed_by, key")
+      .select("visible, proposed_by, key")
       .eq("id", productId)
       .single();
 
-    expect(data?.lifecycle).toBe("candidate");
+    expect(data?.visible).toBe(false);
     expect(data?.proposed_by).toBe("admin");
     expect(data?.key).toBe("ceramic-teacup");
   });
@@ -809,75 +786,13 @@ describeWithDb("curated product write path", () => {
     expect(second.key).toBe("ceramic-teacup-2");
   });
 
-  it("promote_refuses_when_official_url_null", async () => {
-    const { productId } = await seedCandidate({ officialUrl: null });
-    await addSource(productId);
-
-    const result = await promoteCuratedProduct(productId, supabase);
-
-    const refusal = expectRefusal(result);
-    expect(refusal.blockers).toContain("official_url");
-    expect(refusal.error).toContain("official_url");
-    expect(await lifecycleOf(productId)).toBe("candidate");
-  });
-
-  it("promote_refuses_when_source_checked_at_null", async () => {
-    const { productId } = await seedCandidate({ sourceCheckedAt: null });
-    await addSource(productId);
-
-    const result = await promoteCuratedProduct(productId, supabase);
-
-    expect(expectRefusal(result).blockers).toContain("source_checked_at");
-    expect(await lifecycleOf(productId)).toBe("candidate");
-  });
-
-  it("promote_refuses_when_no_active_source", async () => {
-    // The row exists; it is retired. Row presence is not evidence.
-    const { productId } = await seedCandidate();
-    await addSource(productId, "retired");
-
-    const result = await promoteCuratedProduct(productId, supabase);
-
-    expect(expectRefusal(result).blockers).toContain("no_active_source");
-    expect(await lifecycleOf(productId)).toBe("candidate");
-  });
-
-  it("promote_refuses_when_already_retired", async () => {
-    const { productId } = await seedCandidate();
-    await addSource(productId);
-    await retireCuratedProduct(productId, supabase);
-
-    const result = await promoteCuratedProduct(productId, supabase);
-
-    expect(expectRefusal(result).blockers).toContain("lifecycle");
-    expect(await lifecycleOf(productId)).toBe("retired");
-  });
-
-  it("promote_succeeds_when_all_four_hold", async () => {
-    const { brandId, productId } = await seedCandidate();
-    await addSource(productId);
-
-    const result = await promoteCuratedProduct(productId, supabase);
-
-    expect(result.ok).toBe(true);
-    expect(await lifecycleOf(productId)).toBe("published");
-
-    // The write gate and the read gate must agree: a promoted product has to be
-    // one the public brand page actually renders.
-    const products = await getPublishedCuratedProductsForBrand(
-      brandId,
-      supabase,
-    );
-    expect(products.map((product) => product.id)).toEqual([productId]);
-  });
-
-  it("retire_sets_retired_and_keeps_sources", async () => {
+  it("retire_hides_the_row_and_keeps_sources", async () => {
     const { productId } = await seedCandidate();
     const sourceId = await addSource(productId);
 
     await retireCuratedProduct(productId, supabase);
 
-    expect(await lifecycleOf(productId)).toBe("retired");
+    expect(await visibleOf(productId)).toBe(false);
     const { data: sources } = await supabase
       .from("curated_product_sources")
       .select("id, state")

@@ -13,7 +13,7 @@ test.describe("Homepage curated product deep", () => {
     const selectedProducts = page.getByRole("region", {
       name: "Formoria 選物",
     });
-    requireWallOrSkip((await selectedProducts.count()) === 0);
+    await requireWallOrSkip((await selectedProducts.count()) === 0);
 
     await expect(selectedProducts).toBeVisible({
       timeout: BUDGET.SERVER_RENDER,
@@ -46,7 +46,7 @@ test.describe("Homepage curated product deep", () => {
     const selectedProducts = page.getByRole("region", {
       name: "Formoria 選物",
     });
-    requireWallOrSkip((await selectedProducts.count()) === 0);
+    await requireWallOrSkip((await selectedProducts.count()) === 0);
 
     await expect(selectedProducts).toBeVisible({
       timeout: BUDGET.SERVER_RENDER,
@@ -75,7 +75,7 @@ test.describe("Homepage curated product deep", () => {
     const selectedProducts = page.getByRole("region", {
       name: "Formoria 選物",
     });
-    requireWallOrSkip((await selectedProducts.count()) === 0);
+    await requireWallOrSkip((await selectedProducts.count()) === 0);
 
     const wallLinks = selectedProducts
       .getByRole("list", { name: "Formoria 選物", exact: true })
@@ -129,7 +129,7 @@ test.describe("Homepage curated product deep", () => {
           .some((heading) => $(heading).text().trim() === "Formoria 選物"),
       )
       .first();
-    requireWallOrSkip(selectedProducts.length === 0);
+    await requireWallOrSkip(selectedProducts.length === 0);
 
     const productTiles = selectedProducts.find("li").filter((_, item) =>
       $(item)

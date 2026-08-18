@@ -20,7 +20,6 @@ import {
   getCuratedProductBrandSlug,
   getCuratedProductTrailSlugs,
   getCuratedProductWriteContext,
-  promoteCuratedProduct,
   retireCuratedProduct,
   retireCuratedProductSelection,
   retireCuratedProductSource,
@@ -29,7 +28,6 @@ import {
   upsertCuratedProductSource,
   type CuratedProductSelectionInput,
   type CuratedProductUpdateInput,
-  type PromoteBlocker,
 } from "@/lib/services/curated-products";
 import {
   curatedProductCreateSchema,
@@ -63,10 +61,6 @@ import {
 type ActionResult =
   | { error: string; fieldErrors?: Record<string, string> }
   | undefined;
-
-/** A promote refusal carries the missing conditions so the UI can name them. */
-type PromoteActionResult =
-  { error: string; blockers: PromoteBlocker[] } | { error: string } | undefined;
 
 /**
  * Cache invalidation for a curated write. Silent when missed: `/brands/[slug]`
@@ -159,11 +153,9 @@ export async function createCuratedProductAction(
         l2: payload.l2 ?? [],
         officialUrl: payload.officialUrl ?? null,
         imageSourceUrl: payload.imageSourceUrl ?? null,
-        imageUsage: payload.imageUsage ?? "none",
         productDescriptionZh: payload.productDescriptionZh,
         productDescriptionEn: payload.productDescriptionEn ?? null,
         productPosition: payload.productPosition ?? null,
-        wallPosition: payload.wallPosition ?? null,
         reviewDueAt: payload.reviewDueAt ?? null,
         // Stamped from the server clock, and only when the editor asserted the
         // sources were read.
@@ -209,8 +201,8 @@ export async function createCuratedProductAction(
         };
       }
 
-      // A new product is a candidate, so no public page renders it yet — only
-      // the queue needs invalidating.
+      // A new product is hidden, so no public page renders it yet — only the
+      // queue needs invalidating.
       revalidatePath("/admin/curated-products");
       return undefined;
     } catch (error) {
@@ -261,7 +253,7 @@ export async function updateCuratedProductAction(
       const patch: CuratedProductUpdateInput = { ...fields };
       if (sourcesChecked !== undefined) {
         // Stamped from the server clock: a form that posted its own would be
-        // able to back-date the evidence the promote gate reads.
+        // able to back-date the evidence this column records.
         patch.sourceCheckedAt = sourcesChecked
           ? new Date().toISOString()
           : null;
@@ -295,64 +287,14 @@ export async function updateCuratedProductAction(
 
       await updateCuratedProduct(id, patch);
 
-      // An edit to an ALREADY-PUBLISHED product changes what /brands/[slug]
-      // renders, so its ISR entry has to go with it. Read from the row, never
-      // from a caller-supplied flag.
-      const brandSlug =
-        context.lifecycle === "published" ? context.brandSlug : null;
+      // An edit to a VISIBLE product changes what /brands/[slug] renders, so
+      // its ISR entry has to go with it. Read from the row, never from a
+      // caller-supplied flag.
+      const brandSlug = context.visible ? context.brandSlug : null;
       revalidateCurated(brandSlug);
       return undefined;
     } catch (error) {
       return actionError(error, "Unable to save the curated product");
-    }
-  });
-}
-
-/**
- * Publishes a product, or reports the conditions it still fails.
- *
- * A refusal is a RETURN VALUE from the service, not a throw, and it is passed
- * through here with its blockers intact: the drawer renders the same four
- * conditions from the same shared predicate, so a refused promote names what is
- * missing instead of surfacing as a surprise error.
- */
-export async function promoteCuratedProductAction(
-  productId: string,
-): Promise<PromoteActionResult> {
-  return runWithAuditContext({}, async () => {
-    const auth = await requireAdminAction();
-    if ("error" in auth) return { error: auth.error };
-
-    const idResult = curatedProductIdSchema.safeParse(productId);
-    if (!idResult.success) return { error: "Invalid curated product" };
-
-    try {
-      const id = idResult.data;
-      const outcome = await promoteCuratedProduct(id);
-      if (!outcome.ok) {
-        return { error: outcome.error, blockers: outcome.blockers };
-      }
-
-      // Publishing changes the SUPPLY of every trail this product sits in, and
-      // those pages are ISR-cached behind a supply gate.
-      const [brandSlug, trailSlugs] = await Promise.all([
-        getCuratedProductBrandSlug(id),
-        trailSlugsForRevalidation(id),
-      ]);
-      if (auth.user.email) {
-        await logAdminAction({
-          adminUserId: auth.user.id,
-          adminEmail: auth.user.email,
-          action: "curated_product_promoted",
-          targetBrandSlug: brandSlug ?? undefined,
-          metadata: { productId: id },
-        });
-      }
-      for (const trailSlug of trailSlugs) revalidateTrail(trailSlug);
-      revalidateCurated(brandSlug);
-      return undefined;
-    } catch (error) {
-      return actionError(error, "Unable to publish the curated product");
     }
   });
 }
@@ -399,8 +341,8 @@ export async function retireCuratedProductAction(
 }
 
 /**
- * Withdraws one source. This can flip the promote gate (a product with no
- * active source cannot publish), so the queue is revalidated with it.
+ * Withdraws one source. A product with no active source can no longer prove
+ * its claim, so the queue is revalidated with it.
  */
 export async function retireCuratedProductSourceAction(
   sourceId: string,
@@ -420,8 +362,8 @@ export async function retireCuratedProductSourceAction(
       await retireCuratedProductSource(sourceResult.data);
       const brandSlug = await getCuratedProductBrandSlug(productResult.data);
 
-      // Audited for the same reason promote and retire are: withdrawing the
-      // last active source flips a promote-gate condition, so it is an
+      // Audited for the same reason a retire is: withdrawing the last active
+      // source removes the evidence behind a published claim, so it is an
       // editorial decision, not a form tidy-up.
       if (auth.user.email) {
         await logAdminAction({
