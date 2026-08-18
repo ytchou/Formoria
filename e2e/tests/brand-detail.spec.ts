@@ -915,7 +915,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
       .fill(submittedChannelUrl);
     await dialog.getByRole("button", { name: "送出", exact: true }).click();
     // The submit still queues behind the like-button action, so give it 30s.
-    await expect(dialog.getByText("感謝您提供的資訊！")).toBeVisible({
+    await expect(dialog.getByText("感謝提供資訊！")).toBeVisible({
       timeout: BUDGET.GATED_UI,
     });
     await dialog.getByRole("button", { name: "關閉", exact: true }).click();

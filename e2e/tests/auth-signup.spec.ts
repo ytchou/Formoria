@@ -11,7 +11,7 @@ import {
 
 import { BUDGET } from '../budgets';
 // Post-signup behavior per src/app/auth/actions.ts signUp():
-//   supabase.auth.signUp() → redirect("/auth/sign-in?message=請確認您的電子郵件以完成帳號驗證")
+//   supabase.auth.signUp() → redirect("/auth/sign-in?message=請到信箱點開確認連結，完成帳號驗證")
 // The user is created in an unconfirmed state in Supabase; the UI shows a
 // confirmation-required message on the sign-in page.
 
@@ -90,7 +90,7 @@ test.describe('Auth — sign-up flow', () => {
 
     await anonPage.getByRole('button', { name: '建立帳號', exact: true }).click();
 
-    // actions.ts happy path: redirect("/auth/sign-in?message=請確認您的電子郵件以完成帳號驗證")
+    // actions.ts happy path: redirect("/auth/sign-in?message=請到信箱點開確認連結，完成帳號驗證")
     const redirected = await anonPage
       .waitForURL(/\/auth\/sign-in/, { timeout: BUDGET.SERVER_RENDER })
       .then(() => true)
@@ -99,7 +99,7 @@ test.describe('Auth — sign-up flow', () => {
     if (redirected) {
       // Supabase accepted signup and the staging Send Email Hook captured the
       // real token. The signup journey follows this same link in its E2E flow.
-      await expect(anonPage.getByText('請確認您的電子郵件以完成帳號驗證')).toBeVisible({
+      await expect(anonPage.getByText('請到信箱點開確認連結，完成帳號驗證')).toBeVisible({
         timeout: BUDGET.INTERACTIVE,
       });
       const capture = await waitForCapturedAuthEmail({

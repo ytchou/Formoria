@@ -42,9 +42,9 @@ const OTHER_TAG_INPUT_LABEL = '其他類別名稱'; // brandDetail.correction.ot
 const OTHER_TAG_CONFIRM = '加入'; // brandDetail.correction.otherTagConfirm
 const SUBMIT_LABEL = '送出修正'; // brandDetail.correction.submit
 const CANCEL_LABEL = '取消'; // dashboard.edit.cancel
-const REVIEW_PROMISE = '感謝您的建議！送出後將由官方審核決定是否更新。'; // brandDetail.correction.description
+const REVIEW_PROMISE = '感謝提供建議！送出後由 Formoria 審核決定是否更新。'; // brandDetail.correction.description
 const SUCCESS_TOAST = '修正已送出，感謝你的協助。'; // brandDetail.correction.success
-const ALREADY_SUBMITTED_TOAST = '你已經送出過這項修正，請等待審核。'; // ...correction.errors.already_submitted
+const ALREADY_SUBMITTED_TOAST = '這項修正已經送出，請等待審核。'; // ...correction.errors.already_submitted
 
 // seedBrand() always writes product_type: 'crafts' and no product_tags
 const CURRENT_CATEGORY_LABEL = '工藝文創';

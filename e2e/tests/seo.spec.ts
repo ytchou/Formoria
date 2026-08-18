@@ -37,7 +37,7 @@ test.describe("SEO deep", () => {
         path: "/",
         title: "Formoria：台灣品牌探索與選物平台",
         description:
-          "Formoria 把從靈感走到購買中間斷掉的路接回來，幫助人從自己想要的生活出發，找到適合的台灣產品、認識背後的品牌，也知道可以去哪裡購買。",
+          "Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。台灣品牌探索與選物平台，從生活出發認識產品與品牌。",
         heading: "生活可以更像自己一點。",
         positioning:
           "Formoria 是台灣品牌探索與選物平台，從生活出發認識產品與品牌。",
@@ -47,7 +47,7 @@ test.describe("SEO deep", () => {
         path: "/en",
         title: "Formoria — Taiwanese Brand Discovery & Curation",
         description:
-          "Formoria reconnects the broken path from inspiration to purchase by helping people start with the life they want, find Taiwanese products that suit them, get to know the brands behind them, and know where to buy.",
+          "Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it. A Taiwanese brand discovery and curation platform — start from life, meet the products and the brands.",
         heading: "Life can look a little more like you.",
         positioning:
           "Formoria is a Taiwanese brand discovery and curation platform — start from life, meet the products and the brands.",
@@ -60,15 +60,15 @@ test.describe("SEO deep", () => {
         path: "/about",
         title: "關於 Formoria | Formoria",
         description:
-          "Formoria 把從靈感走到購買中間斷掉的路接回來，幫助人從自己想要的生活出發，找到適合的台灣產品、認識背後的品牌，也知道可以去哪裡購買。",
-        heading: "把從靈感走到購買中間斷掉的路接回來",
+          "Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。認識這個台灣品牌探索與選物平台的收錄規則、編輯選擇與標示方式。",
+        heading: "搬新家、佈置店面、在市集停下來的那一刻",
       },
       {
         path: "/en/about",
         title: "About Formoria | Formoria",
         description:
-          "Formoria reconnects the broken path from inspiration to purchase by helping people start with the life they want, find Taiwanese products that suit them, get to know the brands behind them, and know where to buy.",
-        heading: "Reconnect the broken path from inspiration to purchase",
+          "How Formoria works: the inclusion rules, editorial choices, and labels behind a Taiwanese brand discovery and curation platform.",
+        heading: "Moving into a new home, setting up a shop, stopping at a market stall",
       },
     ] as const;
 
@@ -351,7 +351,7 @@ test.describe("SEO deep", () => {
     expect(body).toContain("/about");
     expect(body).not.toContain("/vision");
     expect(body).toContain(
-      "Formoria reconnects the broken path from inspiration to purchase",
+      "Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
     );
     expect(body).toContain("Brands or retailers remain responsible");
     expect(body).not.toContain("discover, choose, and grow");

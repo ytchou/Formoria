@@ -81,9 +81,9 @@ test.describe("Static & compliance pages", () => {
     const locales = [
       {
         path: "/about",
-        heading: "把從靈感走到購買中間斷掉的路接回來",
+        heading: "搬新家、佈置店面、在市集停下來的那一刻",
         mission:
-          "Formoria 把從靈感走到購買中間斷掉的路接回來，幫助人從自己想要的生活出發，找到適合的台灣產品、認識背後的品牌，也知道可以去哪裡購買。",
+          "喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
         trustLabels: ["收錄品牌", "Formoria 選物", "品牌提供", "贊助內容"],
         boundary:
           "品牌或零售通路負責價格、規格選項、庫存、結帳、出貨與售後服務。",
@@ -92,9 +92,9 @@ test.describe("Static & compliance pages", () => {
       },
       {
         path: "/en/about",
-        heading: "Reconnect the broken path from inspiration to purchase",
+        heading: "Moving into a new home, setting up a shop, stopping at a market stall",
         mission:
-          "Formoria reconnects the broken path from inspiration to purchase by helping people start with the life they want, find Taiwanese products that suit them, get to know the brands behind them, and know where to buy.",
+          "Something you love shouldn't stay a chance encounter. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
         trustLabels: [
           "收錄品牌 (Listed brand)",
           "Formoria 選物 (Formoria Selection)",

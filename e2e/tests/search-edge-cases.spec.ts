@@ -358,7 +358,7 @@ test.describe.serial('Public brand search edge cases', () => {
     await expect(emptyState.getByRole('heading', { name: '找不到符合的品牌' })).toBeVisible();
     await expect(emptyState.getByRole('status')).toContainText(missingQuery);
     await expect(emptyState.locator('img[src="x"]')).toHaveCount(0);
-    await expect(emptyState.getByRole('heading', { name: '你可能想找' })).toBeVisible();
+    await expect(emptyState.getByRole('heading', { name: '類似的選擇' })).toBeVisible();
     await expect(emptyState.getByRole('link', { name: '查看全部' })).toBeVisible();
   });
 });
