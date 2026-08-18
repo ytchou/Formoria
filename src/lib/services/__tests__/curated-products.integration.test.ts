@@ -22,9 +22,9 @@ type SeedProduct = {
   sourceCheckedAt?: string | null;
   imageUsage?: string;
   createdAt?: string;
-  highlightPosition?: number | null;
-  highlightRationaleZh?: string | null;
-  highlightRationaleEn?: string | null;
+  productPosition?: number | null;
+  productDescriptionZh?: string | null;
+  productDescriptionEn?: string | null;
   linkState?: string;
   sources?: number;
   /** The planner retires rather than deletes, so a source row can be dead. */
@@ -33,7 +33,6 @@ type SeedProduct = {
     trailSlug: string;
     sectionKey?: string;
     position: number;
-    rationaleZh?: string;
     state?: "active" | "retired";
   }[];
 };
@@ -93,9 +92,10 @@ describeWithDb("published curated products for a brand", () => {
               ? new Date().toISOString()
               : product.sourceCheckedAt,
           created_at: product.createdAt,
-          highlight_position: product.highlightPosition ?? null,
-          highlight_rationale_zh: product.highlightRationaleZh ?? null,
-          highlight_rationale_en: product.highlightRationaleEn ?? null,
+          product_position: product.productPosition ?? null,
+          product_description_zh:
+            product.productDescriptionZh ?? `Description ${product.key}。`,
+          product_description_en: product.productDescriptionEn ?? null,
         });
       expect(productError).toBeNull();
 
@@ -121,9 +121,6 @@ describeWithDb("published curated products for a brand", () => {
             trail_slug: selection.trailSlug,
             section_key: selection.sectionKey ?? "picks",
             position: selection.position,
-            rationale_zh:
-              selection.rationaleZh ??
-              `Rationale ${selection.trailSlug} ${selection.position}`,
             state: selection.state ?? "active",
           });
         expect(selectionError).toBeNull();
@@ -133,19 +130,19 @@ describeWithDb("published curated products for a brand", () => {
     return brandId;
   }
 
-  it("returns published products for a brand, ordered by highlight position instead of selection position", async () => {
+  it("returns published products for a brand, ordered by product_position instead of selection position", async () => {
     const brandId = await seedBrand([
       {
         key: "second-pick",
         selections: [{ trailSlug: "gifting", position: 2 }],
-        highlightPosition: 0,
-        highlightRationaleZh: "Brand-page first",
+        productPosition: 0,
+        productDescriptionZh: "Brand-page first。",
       },
       {
         key: "first-pick",
         selections: [{ trailSlug: "gifting", position: 1 }],
-        highlightPosition: 1,
-        highlightRationaleZh: "Brand-page second",
+        productPosition: 1,
+        productDescriptionZh: "Brand-page second。",
       },
     ]);
 
@@ -165,7 +162,7 @@ describeWithDb("published curated products for a brand", () => {
     expect(first?.trailSlug).toBe("gifting");
     expect(first?.sectionKey).toBe("picks");
     expect(first?.position).toBe(2);
-    expect(first?.rationaleZh).toBe("Brand-page first");
+    expect(first?.productDescriptionZh).toBe("Brand-page first。");
     expect(first?.officialUrl).toContain("second-pick");
     expect(first?.linkState).toBe("ok");
   });
@@ -199,10 +196,10 @@ describeWithDb("published curated products for a brand", () => {
       firstBrand,
     ]);
     expect(products.every((product) => product.brandSlug)).toBe(true);
-    expect(products.every((product) => product.rationaleZh)).toBe(true);
+    expect(products.every((product) => product.productDescriptionZh)).toBe(true);
   });
 
-  it("orders the unhighlighted tail by created_at then key, not trail position", async () => {
+  it("orders the unpositioned tail by created_at then key, not trail position", async () => {
     const brandId = await seedBrand([
       {
         key: "newer-pick",
@@ -227,20 +224,14 @@ describeWithDb("published curated products for a brand", () => {
     ]);
   });
 
-  it("resolves highlight rationale before the winning trail rationale", async () => {
+  it("maps product_description onto the brand read", async () => {
     const brandId = await seedBrand([
       {
-        key: "highlighted-pick",
-        highlightPosition: 0,
-        highlightRationaleZh: "Brand-page reason",
-        highlightRationaleEn: "Brand-page reason EN",
-        selections: [
-          {
-            trailSlug: "gifting",
-            position: 1,
-            rationaleZh: "Trail reason",
-          },
-        ],
+        key: "described-pick",
+        productPosition: 0,
+        productDescriptionZh: "Product description。",
+        productDescriptionEn: "Product description EN",
+        selections: [{ trailSlug: "gifting", position: 1 }],
       },
     ]);
 
@@ -249,16 +240,16 @@ describeWithDb("published curated products for a brand", () => {
       supabase,
     );
 
-    expect(product?.rationaleZh).toBe("Brand-page reason");
-    expect(product?.rationaleEn).toBe("Brand-page reason EN");
+    expect(product?.productDescriptionZh).toBe("Product description。");
+    expect(product?.productDescriptionEn).toBe("Product description EN");
   });
 
-  it("keeps a highlight rationale when its position is null", async () => {
+  it("keeps a description when product_position is null", async () => {
     const brandId = await seedBrand([
       {
-        key: "unplaced-with-reason",
-        highlightPosition: null,
-        highlightRationaleZh: "Unordered brand reason",
+        key: "unplaced-with-description",
+        productPosition: null,
+        productDescriptionZh: "Unordered description。",
       },
     ]);
 
@@ -267,8 +258,8 @@ describeWithDb("published curated products for a brand", () => {
       supabase,
     );
 
-    expect(product?.highlightPosition).toBeNull();
-    expect(product?.rationaleZh).toBe("Unordered brand reason");
+    expect(product?.productPosition).toBeNull();
+    expect(product?.productDescriptionZh).toBe("Unordered description。");
   });
 
   it("omits products whose lifecycle is not published", async () => {
@@ -356,10 +347,9 @@ describeWithDb("published curated products for a brand", () => {
           {
             trailSlug: "everyday",
             position: 1,
-            rationaleZh: "Withdrawn angle",
             state: "retired",
           },
-          { trailSlug: "gifting", position: 3, rationaleZh: "Live angle" },
+          { trailSlug: "gifting", position: 3 },
         ],
       },
     ]);
@@ -372,12 +362,11 @@ describeWithDb("published curated products for a brand", () => {
     expect(products).toHaveLength(1);
     expect(products.at(0)?.trailSlug).toBe("gifting");
     expect(products.at(0)?.position).toBe(3);
-    expect(products.at(0)?.rationaleZh).toBe("Live angle");
   });
 
   it("still returns a product whose every selection is retired", async () => {
-    // A product with no live placement sorts last with a null rationale; it is
-    // never dropped, because placement is presentation and not proof.
+    // A product with no live placement sorts last with a null trail slug; it
+    // is never dropped, because placement is presentation and not proof.
     const brandId = await seedBrand([
       {
         key: "unplaced-pick",
@@ -385,15 +374,13 @@ describeWithDb("published curated products for a brand", () => {
           {
             trailSlug: "gifting",
             position: 1,
-            rationaleZh: "Withdrawn angle",
             state: "retired",
           },
         ],
       },
       {
         key: "placed-pick",
-        highlightPosition: 1,
-        highlightRationaleZh: "Brand-page pick",
+        productPosition: 1,
         selections: [{ trailSlug: "gifting", position: 5 }],
       },
     ]);
@@ -409,7 +396,6 @@ describeWithDb("published curated products for a brand", () => {
     ]);
     const unplaced = products.at(1);
     expect(unplaced?.position).toBeNull();
-    expect(unplaced?.rationaleZh).toBeNull();
     expect(unplaced?.trailSlug).toBeNull();
   });
 
@@ -458,8 +444,8 @@ describeWithDb("published curated products for a brand", () => {
       {
         key: "shared-pick",
         selections: [
-          { trailSlug: "gifting", position: 3, rationaleZh: "Gifting angle" },
-          { trailSlug: "everyday", position: 1, rationaleZh: "Everyday angle" },
+          { trailSlug: "gifting", position: 3 },
+          { trailSlug: "everyday", position: 1 },
         ],
       },
     ]);
@@ -470,10 +456,9 @@ describeWithDb("published curated products for a brand", () => {
     );
 
     expect(products).toHaveLength(1);
-    // The lowest-position selection supplies the rationale shown on the card.
+    // The lowest-position selection is the one the card reports.
     expect(products.at(0)?.trailSlug).toBe("everyday");
     expect(products.at(0)?.position).toBe(1);
-    expect(products.at(0)?.rationaleZh).toBe("Everyday angle");
   });
 
   it("breaks a position tie by trail_slug alphabetically", async () => {
@@ -481,8 +466,8 @@ describeWithDb("published curated products for a brand", () => {
       {
         key: "tied-pick",
         selections: [
-          { trailSlug: "zesty", position: 1, rationaleZh: "Zesty angle" },
-          { trailSlug: "artisan", position: 1, rationaleZh: "Artisan angle" },
+          { trailSlug: "zesty", position: 1 },
+          { trailSlug: "artisan", position: 1 },
         ],
       },
     ]);
@@ -494,24 +479,24 @@ describeWithDb("published curated products for a brand", () => {
 
     expect(products).toHaveLength(1);
     expect(products.at(0)?.trailSlug).toBe("artisan");
-    expect(products.at(0)?.rationaleZh).toBe("Artisan angle");
   });
 
-  it("rejects a highlight position with no zh rationale", async () => {
+  it("refuses an insert with no zh description", async () => {
+    // The column is NOT NULL — there is no "a product with no text" state to
+    // fall back to, which is the whole point of collapsing to one field.
     const brandId = await seedBrand([]);
     const { error } = await supabase.from("curated_products").insert({
       brand_id: brandId,
-      key: "invalid-highlight",
-      name_zh: "Invalid Highlight",
+      key: "no-description",
+      name_zh: "No Description",
       l1: "home",
-      official_url: "https://example.com/invalid-highlight",
+      official_url: "https://example.com/no-description",
       lifecycle: "published",
       source_checked_at: new Date().toISOString(),
-      highlight_position: 0,
-      highlight_rationale_zh: null,
+      product_position: 0,
     });
 
-    expect(error?.code).toBe("23514");
+    expect(error?.code).toBe("23502");
   });
 
   it("returns an empty array for a brand with no curated products", async () => {
@@ -615,17 +600,13 @@ describeWithDb("published curated products for a brand", () => {
     expect(products).toHaveLength(3);
   });
 
-  it("uses the selection rationale, not the highlight rationale", async () => {
+  it("renders the trail read from product_description", async () => {
     await seedBrand([
       {
-        key: "trail-reason",
-        highlightRationaleZh: "Brand-page reason",
+        key: "trail-described",
+        productDescriptionZh: "Product description。",
         selections: [
-          {
-            trailSlug: "small-space-reading-corner",
-            position: 1,
-            rationaleZh: "Trail-specific reason",
-          },
+          { trailSlug: "small-space-reading-corner", position: 1 },
         ],
       },
     ]);
@@ -635,7 +616,7 @@ describeWithDb("published curated products for a brand", () => {
       supabase,
     );
 
-    expect(product?.rationaleZh).toBe("Trail-specific reason");
+    expect(product?.productDescriptionZh).toBe("Product description。");
   });
 
   it("excludes retired selections", async () => {
@@ -783,6 +764,7 @@ describeWithDb("curated product write path", () => {
         nameEn: "Ceramic Teacup",
         l1: "home",
         l2: ["tableware"],
+        productDescriptionZh: "陶土燒製，容量約 200 毫升。",
         officialUrl:
           overrides.officialUrl === undefined
             ? `https://example.com/${brandId.slice(0, 8)}/teacup`
@@ -817,6 +799,7 @@ describeWithDb("curated product write path", () => {
       brandId,
       nameZh: "Ceramic Teacup",
       l1: "home",
+      productDescriptionZh: "陶土燒製，容量約 200 毫升。",
     };
 
     const first = await createCuratedProduct(input, supabase);
@@ -924,17 +907,17 @@ describeWithDb("curated product write path", () => {
     };
 
     await upsertCuratedProductSelection(
-      { ...key, position: 3, rationaleZh: "第一個理由" },
+      { ...key, position: 3 },
       supabase,
     );
     await upsertCuratedProductSelection(
-      { ...key, position: 1, rationaleZh: "更新後的理由" },
+      { ...key, position: 1 },
       supabase,
     );
 
     const { data, error } = await supabase
       .from("curated_product_selections")
-      .select("position, rationale_zh, state")
+      .select("position, state")
       .match({
         product_id: productId,
         trail_slug: key.trailSlug,
@@ -942,7 +925,7 @@ describeWithDb("curated product write path", () => {
       })
       .single();
     expect(error).toBeNull();
-    expect(data).toEqual({ position: 1, rationale_zh: "更新後的理由", state: "active" });
+    expect(data).toEqual({ position: 1, state: "active" });
   });
 
   it("rejects_second_brand_product_in_one_section", async () => {
@@ -952,6 +935,7 @@ describeWithDb("curated product write path", () => {
         brandId: first.brandId,
         nameZh: "Second Ceramic Teacup",
         l1: "home",
+        productDescriptionZh: "同一品牌的第二支杯子。",
       },
       supabase,
     );
@@ -964,7 +948,6 @@ describeWithDb("curated product write path", () => {
       {
         productId: first.productId,
         ...placement,
-        rationaleZh: "同品牌的第一個選物",
       },
       supabase,
     );
@@ -974,7 +957,6 @@ describeWithDb("curated product write path", () => {
         {
           productId: second.id,
           ...placement,
-          rationaleZh: "同品牌的第二個選物",
         },
         supabase,
       ),
@@ -996,7 +978,7 @@ describeWithDb("curated product write path", () => {
       sectionKey: "beside-seat",
     };
     await upsertCuratedProductSelection(
-      { ...key, rationaleZh: "保留座位旁的空間" },
+      key,
       supabase,
     );
     await retireCuratedProductSelection(key, supabase);
@@ -1022,7 +1004,6 @@ describeWithDb("curated product write path", () => {
           productId,
           trailSlug: "not-a-real-trail",
           sectionKey: "light-first",
-          rationaleZh: "不能寫入未知主題",
         },
         supabase,
       ),

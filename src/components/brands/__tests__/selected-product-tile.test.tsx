@@ -47,7 +47,6 @@ const labels = {
   cta: "Visit product",
   brandSiteCta: "Visit brand site",
   selectedBadge: "Formoria selection",
-  brandProvidedBadge: "Brand provided",
   unavailable: "Link unavailable",
 };
 
@@ -69,18 +68,14 @@ function buildProduct(overrides: Partial<CuratedProduct> = {}): CuratedProduct {
     linkCheckedAt: null,
     sourceCheckedAt: null,
     reviewDueAt: null,
-    notesZh: "品牌提供的材質說明",
-    notesEn: "A brand-supplied material note",
-    highlightPosition: null,
-    highlightRationaleZh: null,
-    highlightRationaleEn: null,
+    productDescriptionZh: "手感穩定，適合小空間",
+    productDescriptionEn: "Steady in the hand, made for small kitchens",
+    productPosition: null,
     wallPosition: null,
     createdAt: "2026-01-01T00:00:00Z",
     trailSlug: null,
     sectionKey: null,
     position: 0,
-    rationaleZh: "手感穩定，適合小空間",
-    rationaleEn: "  Steady in the hand, made for small kitchens  ",
     ...overrides,
   };
 }
@@ -117,33 +112,87 @@ function renderWallTile(
 }
 
 describe("SelectedProductTile", () => {
-  it("renders no rationale on a wall tile", () => {
+  it("renders no text but name and brand on a wall tile", () => {
     // Removed 2026-08-17 by product decision: the wall is a sheet of
-    // photographs and the generated reasons read as product specs. The tile
-    // still receives a non-empty `rationaleZh`/`rationaleEn` from the fixture,
-    // so this asserts the wall drops it rather than that there was none.
+    // photographs and the copy read as product specs. The tile still receives
+    // a non-empty description from the fixture, so this asserts the wall drops
+    // it rather than that there was none.
     const { container } = renderWallTile();
 
-    expect(
-      container.querySelectorAll("[data-selection-rationale]").length,
-    ).toBe(0);
-    expect(
-      container.textContent,
-    ).not.toContain("Steady in the hand, made for small kitchens");
+    expect(container.textContent).toContain("Pour-over kettle");
+    expect(container.textContent).toContain("Kettle Co");
+    expect(container.textContent).not.toContain(
+      "Steady in the hand, made for small kitchens",
+    );
   });
 
-  it("still renders the rationale on non-wall surfaces", () => {
-    // The 選物 commitment in brand-voice.md:71 now rests entirely on these
-    // modes. If this test goes red, the reason has disappeared site-wide, not
-    // just from the wall. Non-wall surfaces carry no
-    // `[data-selection-rationale]` — that attribute was always wall-only — so
-    // the guarantee here is the visible text beside the 選物 badge.
+  it("renders the description with the 選物 badge on the brand page", () => {
+    // The 選物 commitment in brand-voice.md ("Trust labels": Formoria 選物 is a
+    // deliberate editorial choice) now rests entirely on the
+    // non-wall modes. If this goes red, the text has disappeared site-wide.
     const { container } = renderWallTile({ mode: "internal" });
 
     expect(container.textContent).toContain(
       "Steady in the hand, made for small kitchens",
     );
     expect(container.textContent).toContain(labels.selectedBadge);
+  });
+
+  it("renders the description on a trail tile", () => {
+    const trail = render(
+      <ul>
+        <SelectedProductTile
+          locale="en"
+          product={buildProduct()}
+          labels={labels}
+          mode="trail"
+          brand={brand}
+          brandSlug="kettle-co"
+          brandName="Kettle Co"
+        />
+      </ul>,
+    );
+
+    expect(trail.container.textContent).toContain(
+      "Steady in the hand, made for small kitchens",
+    );
+    expect(
+      trail.getByRole("link", { name: /Visit product/ }),
+    ).toBeInTheDocument();
+    trail.unmount();
+  });
+
+  it("carries no data-selection-rationale attribute in any mode", () => {
+    for (const mode of ["wall", "internal", "trail", "outbound"] as const) {
+      const tile = renderWallTile({ mode });
+      expect(
+        tile.container.querySelectorAll("[data-selection-rationale]").length,
+      ).toBe(0);
+      tile.unmount();
+    }
+  });
+
+  it("falls back to zh when the en description is null", () => {
+    // EN locale, no English twin: the reader gets the zh text rather than an
+    // empty block, which is what `product_description_en` being nullable buys.
+    const tile = renderWallTile({
+      mode: "internal",
+      product: buildProduct({ productDescriptionEn: null }),
+    });
+
+    expect(tile.container.textContent).toContain("手感穩定，適合小空間");
+  });
+
+  it("renders exactly one text block per non-wall tile", () => {
+    // The second block was `notes` + a 品牌提供 badge. Both are gone: a product
+    // now carries ONE description, so a second badge would have nothing behind
+    // it (DEV-1496).
+    const tile = renderWallTile({ mode: "internal" });
+
+    // Pinned by value: the label no longer exists as a tile prop, so the only
+    // way to catch its return is to look for the text itself.
+    expect(tile.container.textContent).not.toContain("Brand provided");
+    expect(tile.container.textContent).not.toContain("品牌提供");
   });
 
   it("links a wall tile to the top of the brand page, with no anchor", () => {
@@ -199,15 +248,15 @@ describe("SelectedProductTile", () => {
         />
       </ul>,
     );
-    // The outbound chip, the brand-provided badge and the rationale body all
-    // stay on the brand page variant.
+    // The outbound chip and the description body stay on the brand page
+    // variant; the brand-provided badge is gone with the notes field.
     expect(
       outbound.getByRole("link", { name: /Visit product/ }),
     ).toBeInTheDocument();
     expect(
-      outbound.getByText("A brand-supplied material note"),
+      outbound.getByText("Steady in the hand, made for small kitchens"),
     ).toBeInTheDocument();
-    expect(outbound.getAllByText("Brand provided").length).toBe(1);
+    expect(outbound.queryByText("Brand provided")).toBeNull();
     outbound.unmount();
 
     const broken = render(

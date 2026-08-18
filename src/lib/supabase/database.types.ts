@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
@@ -1386,8 +1386,6 @@ export type Database = {
           created_at: string
           position: number
           product_id: string
-          rationale_en: string | null
-          rationale_zh: string
           section_key: string
           state: string
           trail_slug: string
@@ -1397,8 +1395,6 @@ export type Database = {
           created_at?: string
           position?: number
           product_id: string
-          rationale_en?: string | null
-          rationale_zh: string
           section_key: string
           state?: string
           trail_slug: string
@@ -1408,8 +1404,6 @@ export type Database = {
           created_at?: string
           position?: number
           product_id?: string
-          rationale_en?: string | null
-          rationale_zh?: string
           section_key?: string
           state?: string
           trail_slug?: string
@@ -1476,13 +1470,12 @@ export type Database = {
         Row: {
           brand_id: string
           created_at: string
-          highlight_position: number | null
-          highlight_rationale_en: string | null
-          highlight_rationale_zh: string | null
           id: string
+          image_height: number | null
           image_source_url: string | null
           image_url: string | null
           image_usage: string
+          image_width: number | null
           key: string
           l1: string
           l2: string[]
@@ -1491,9 +1484,10 @@ export type Database = {
           link_state: string
           name_en: string | null
           name_zh: string
-          notes_en: string | null
-          notes_zh: string | null
           official_url: string | null
+          product_description_en: string | null
+          product_description_zh: string
+          product_position: number | null
           proposed_by: string
           review_due_at: string | null
           source_checked_at: string | null
@@ -1503,13 +1497,12 @@ export type Database = {
         Insert: {
           brand_id: string
           created_at?: string
-          highlight_position?: number | null
-          highlight_rationale_en?: string | null
-          highlight_rationale_zh?: string | null
           id?: string
+          image_height?: number | null
           image_source_url?: string | null
           image_url?: string | null
           image_usage?: string
+          image_width?: number | null
           key: string
           l1: string
           l2?: string[]
@@ -1518,9 +1511,10 @@ export type Database = {
           link_state?: string
           name_en?: string | null
           name_zh: string
-          notes_en?: string | null
-          notes_zh?: string | null
           official_url?: string | null
+          product_description_en?: string | null
+          product_description_zh: string
+          product_position?: number | null
           proposed_by?: string
           review_due_at?: string | null
           source_checked_at?: string | null
@@ -1530,13 +1524,12 @@ export type Database = {
         Update: {
           brand_id?: string
           created_at?: string
-          highlight_position?: number | null
-          highlight_rationale_en?: string | null
-          highlight_rationale_zh?: string | null
           id?: string
+          image_height?: number | null
           image_source_url?: string | null
           image_url?: string | null
           image_usage?: string
+          image_width?: number | null
           key?: string
           l1?: string
           l2?: string[]
@@ -1545,9 +1538,10 @@ export type Database = {
           link_state?: string
           name_en?: string | null
           name_zh?: string
-          notes_en?: string | null
-          notes_zh?: string | null
           official_url?: string | null
+          product_description_en?: string | null
+          product_description_zh?: string
+          product_position?: number | null
           proposed_by?: string
           review_due_at?: string | null
           source_checked_at?: string | null
@@ -2783,6 +2777,33 @@ export type Database = {
         }
         Relationships: []
       }
+      staging_auth_email_captures: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          recipient: string
+          redirect_to: string
+          token_hash: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          recipient: string
+          redirect_to: string
+          token_hash: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          recipient?: string
+          redirect_to?: string
+          token_hash?: string
+        }
+        Relationships: []
+      }
       submission_images: {
         Row: {
           alt_en: string | null
@@ -3618,6 +3639,7 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      staging_capture_auth_email: { Args: { event: Json }; Returns: Json }
       transition_health_fix: {
         Args: {
           p_confirmation_data?: Json

@@ -119,11 +119,9 @@ function productRow(overrides: Record<string, unknown> = {}) {
     link_checked_at: null,
     source_checked_at: "2026-08-13T00:00:00Z",
     review_due_at: null,
-    notes_zh: null,
-    notes_en: null,
-    highlight_position: null,
-    highlight_rationale_zh: null,
-    highlight_rationale_en: null,
+    product_description_zh: "一支手感穩定的產品。",
+    product_description_en: null,
+    product_position: null,
     created_at: "2026-08-13T00:00:00Z",
     curated_product_selections: [],
     ...overrides,
@@ -138,8 +136,6 @@ function trailProductRow(overrides: Record<string, unknown> = {}) {
         trail_slug: 'small-space-reading-corner',
         section_key: 'first',
         position: 1,
-        rationale_zh: 'Trail reason',
-        rationale_en: 'Trail reason',
         state: 'active',
       },
     ],
@@ -169,7 +165,7 @@ describe('getPublishedCuratedProductsForTrail', () => {
       'PGRST205',
       "Could not find the table 'public.curated_product_selections' in the schema cache",
     ],
-    ['42703', 'column curated_products.highlight_position does not exist'],
+    ['42703', 'column curated_products.product_description_zh does not exist'],
   ])('rethrows a missing trail-read schema dependency (%s) so the route can demote the render', async (code, message) => {
     const { client } = stubClient({
       error: { code, message },
@@ -198,21 +194,12 @@ describe('getPublishedCuratedProductsForTrail', () => {
     expect(products.every((product) => product.brandSlug === 'fixture-brand')).toBe(true)
   })
 
-  it('uses the selection rationale, not the highlight rationale', async () => {
-    const { client } = stubClient({
+  it('renders the trail read from product_description', async () => {
+    const { client, calls } = stubClient({
       data: [
         trailProductRow({
-          highlight_rationale_zh: 'Brand-page reason',
-          curated_product_selections: [
-            {
-              trail_slug: 'small-space-reading-corner',
-              section_key: 'first',
-              position: 1,
-              rationale_zh: 'Trail-specific reason',
-              rationale_en: 'Trail-specific reason',
-              state: 'active',
-            },
-          ],
+          product_description_zh: '一盞放在桌角也不擠的燈。',
+          product_description_en: 'A lamp that fits the corner of a desk.',
         }),
       ],
     })
@@ -222,7 +209,14 @@ describe('getPublishedCuratedProductsForTrail', () => {
       client,
     )
 
-    expect(product?.rationaleZh).toBe('Trail-specific reason')
+    expect(product?.productDescriptionZh).toBe('一盞放在桌角也不擠的燈。')
+    expect(product?.productDescriptionEn).toBe(
+      'A lamp that fits the corner of a desk.',
+    )
+    // The dropped column must not come back through the select list: a
+    // selection-scoped rationale is what this ticket collapsed away.
+    expect(calls.select.at(0)).not.toContain('rationale_zh')
+    expect(calls.select.at(0)).toContain('product_description_zh')
   })
 
   it('excludes retired selections', async () => {
@@ -234,8 +228,6 @@ describe('getPublishedCuratedProductsForTrail', () => {
               trail_slug: 'small-space-reading-corner',
               section_key: 'first',
               position: 1,
-              rationale_zh: 'Retired reason',
-              rationale_en: null,
               state: 'retired',
             },
           ],
@@ -311,13 +303,13 @@ describe("getPublishedCuratedProductsForBrand", () => {
     ).resolves.toEqual([]);
   });
 
-  it("returns [] when the highlight columns are not in the database yet", async () => {
+  it("returns [] when the product-description columns are not in the database yet", async () => {
     // The column probe against staging returned Postgres 42703. This deploy
     // window is distinct from PGRST205 (the table itself is already present).
     const { client } = stubClient({
       error: {
         code: "42703",
-        message: "column curated_products.highlight_position does not exist",
+        message: "column curated_products.product_description_zh does not exist",
       },
     });
 
@@ -336,7 +328,78 @@ describe("getPublishedCuratedProductsForBrand", () => {
     ).rejects.toMatchObject({ code: "42501" });
   });
 
-  it("keeps a product whose selections are all retired, unhighlighted with no rationale", async () => {
+  it("maps product_description_zh onto the brand read", async () => {
+    const { client, calls } = stubClient({
+      data: [
+        productRow({
+          product_description_zh: "杯口薄、杯身厚，熱飲不燙手。",
+          product_description_en: "Thin at the lip, thick in the body.",
+        }),
+      ],
+    });
+
+    const [product] = await getPublishedCuratedProductsForBrand(
+      "brand-1",
+      client,
+    );
+
+    expect(product?.productDescriptionZh).toBe("杯口薄、杯身厚，熱飲不燙手。");
+    expect(product?.productDescriptionEn).toBe(
+      "Thin at the lip, thick in the body.",
+    );
+    // One text field, not three. The collapsed names must not survive anywhere
+    // on the mapped object — a leftover key would keep a dead surface alive.
+    for (const dead of [
+      "rationaleZh",
+      "rationaleEn",
+      "notesZh",
+      "notesEn",
+      "highlightPosition",
+      "highlightRationaleZh",
+      "highlightRationaleEn",
+    ]) {
+      expect(Object.keys(product ?? {})).not.toContain(dead);
+    }
+    expect(calls.select.at(0)).not.toContain("rationale_zh");
+    expect(calls.select.at(0)).not.toContain("notes_zh");
+  });
+
+  it("orders the brand page by product_position then createdAt then key", async () => {
+    const { client } = stubClient({
+      data: [
+        productRow({
+          key: "unpositioned-newer",
+          product_position: null,
+          created_at: "2026-08-15T00:00:00Z",
+        }),
+        productRow({
+          key: "zeta",
+          product_position: null,
+          created_at: "2026-08-14T00:00:00Z",
+        }),
+        productRow({
+          key: "alpha",
+          product_position: null,
+          created_at: "2026-08-14T00:00:00Z",
+        }),
+        productRow({ key: "positioned", product_position: 1 }),
+      ],
+    });
+
+    const products = await getPublishedCuratedProductsForBrand(
+      "brand-1",
+      client,
+    );
+
+    expect(products.map((product) => product.key)).toEqual([
+      "positioned",
+      "alpha",
+      "zeta",
+      "unpositioned-newer",
+    ]);
+  });
+
+  it("keeps a product whose selections are all retired", async () => {
     // PostgREST returns the parent with an EMPTY embed once the retired
     // selections are filtered out; the product must still render.
     const { client } = stubClient({
@@ -356,8 +419,6 @@ describe("getPublishedCuratedProductsForBrand", () => {
               trail_slug: "gifting",
               section_key: "picks",
               position: 2,
-              rationale_zh: "Gifting angle",
-              rationale_en: null,
             },
           ],
         }),
@@ -375,109 +436,19 @@ describe("getPublishedCuratedProductsForBrand", () => {
     ]);
     const unplaced = products.at(1);
     expect(unplaced?.position).toBeNull();
-    expect(unplaced?.rationaleZh).toBeNull();
     expect(unplaced?.trailSlug).toBeNull();
+    // Placement is presentation, never proof: the description survives it.
+    expect(unplaced?.productDescriptionZh).toBeTruthy();
   });
 
-  it("sorts highlighted products ahead of unhighlighted ones", async () => {
+  it("keeps the winning selection lowest-position-first, tied by trail slug", async () => {
     const { client } = stubClient({
       data: [
         productRow({
-          key: "unhighlighted",
-          highlight_position: null,
           curated_product_selections: [
-            {
-              trail_slug: "gifting",
-              section_key: "picks",
-              position: 0,
-              rationale_zh: "Trail first",
-              rationale_en: null,
-            },
-          ],
-        }),
-        productRow({
-          key: "highlighted",
-          highlight_position: 1,
-          highlight_rationale_zh: "Brand first",
-          curated_product_selections: [
-            {
-              trail_slug: "gifting",
-              section_key: "picks",
-              position: 99,
-              rationale_zh: "Trail last",
-              rationale_en: null,
-            },
-          ],
-        }),
-      ],
-    });
-
-    const products = await getPublishedCuratedProductsForBrand(
-      "brand-1",
-      client,
-    );
-
-    expect(products.map((product) => product.key)).toEqual([
-      "highlighted",
-      "unhighlighted",
-    ]);
-  });
-
-  it("orders the unhighlighted tail by created_at then key", async () => {
-    const { client } = stubClient({
-      data: [
-        productRow({
-          key: "newer",
-          created_at: "2026-08-15T00:00:00Z",
-          curated_product_selections: [
-            {
-              trail_slug: "gifting",
-              section_key: "picks",
-              position: 0,
-              rationale_zh: "Trail first",
-              rationale_en: null,
-            },
-          ],
-        }),
-        productRow({
-          key: "older",
-          created_at: "2026-08-14T00:00:00Z",
-          curated_product_selections: [
-            {
-              trail_slug: "gifting",
-              section_key: "picks",
-              position: 99,
-              rationale_zh: "Trail last",
-              rationale_en: null,
-            },
-          ],
-        }),
-      ],
-    });
-
-    const products = await getPublishedCuratedProductsForBrand(
-      "brand-1",
-      client,
-    );
-
-    expect(products.map((product) => product.key)).toEqual(["older", "newer"]);
-  });
-
-  it("resolves the highlight rationale over the trail rationale", async () => {
-    const { client } = stubClient({
-      data: [
-        productRow({
-          highlight_position: 0,
-          highlight_rationale_zh: "Brand-page reason",
-          highlight_rationale_en: "Brand-page reason EN",
-          curated_product_selections: [
-            {
-              trail_slug: "gifting",
-              section_key: "picks",
-              position: 1,
-              rationale_zh: "Trail reason",
-              rationale_en: "Trail reason EN",
-            },
+            { trail_slug: "zesty", section_key: "picks", position: 1 },
+            { trail_slug: "artisan", section_key: "picks", position: 1 },
+            { trail_slug: "everyday", section_key: "picks", position: 5 },
           ],
         }),
       ],
@@ -488,54 +459,8 @@ describe("getPublishedCuratedProductsForBrand", () => {
       client,
     );
 
-    expect(product?.rationaleZh).toBe("Brand-page reason");
-    expect(product?.rationaleEn).toBe("Brand-page reason EN");
-  });
-
-  it("falls back to the winning selection rationale when no highlight rationale exists", async () => {
-    const { client } = stubClient({
-      data: [
-        productRow({
-          curated_product_selections: [
-            {
-              trail_slug: "gifting",
-              section_key: "picks",
-              position: 1,
-              rationale_zh: "Trail fallback",
-              rationale_en: "Trail fallback EN",
-            },
-          ],
-        }),
-      ],
-    });
-
-    const [product] = await getPublishedCuratedProductsForBrand(
-      "brand-1",
-      client,
-    );
-
-    expect(product?.rationaleZh).toBe("Trail fallback");
-    expect(product?.rationaleEn).toBe("Trail fallback EN");
-  });
-
-  it("keeps the highlight rationale when highlight_position is null", async () => {
-    const { client } = stubClient({
-      data: [
-        productRow({
-          highlight_position: null,
-          highlight_rationale_zh: "Unordered brand reason",
-          curated_product_selections: [],
-        }),
-      ],
-    });
-
-    const [product] = await getPublishedCuratedProductsForBrand(
-      "brand-1",
-      client,
-    );
-
-    expect(product?.highlightPosition).toBeNull();
-    expect(product?.rationaleZh).toBe("Unordered brand reason");
+    expect(product?.trailSlug).toBe("artisan");
+    expect(product?.position).toBe(1);
   });
 });
 
@@ -545,14 +470,7 @@ function homepageRow(overrides: Record<string, unknown> = {}) {
     image_usage: "permitted",
     curated_product_sources: [{ id: "source-1", state: "active" }],
     curated_product_selections: [
-      {
-        trail_slug: "picks",
-        section_key: "home",
-        position: 1,
-        rationale_zh: "A considered pick",
-        rationale_en: "A considered pick",
-        state: "active",
-      },
+      { trail_slug: "picks", section_key: "home", position: 1, state: "active" },
     ],
     wall_position: null,
     brands: {
@@ -585,6 +503,24 @@ describe("getPublishedCuratedProductsForHomepage", () => {
     expect(products.map((product) => product.key)).toEqual(["live"]);
   });
 
+  it("drops a homepage product whose brand is not approved", async () => {
+    // Everything except the brand status is held constant, so a pass here is a
+    // statement about the brand gate rather than about the fixture.
+    const { client } = stubClient({
+      data: [
+        homepageRow({ key: "approved" }),
+        homepageRow({
+          key: "pending",
+          brands: { slug: "pending", name: "Pending", status: "pending" },
+        }),
+      ],
+    });
+
+    const products = await getPublishedCuratedProductsForHomepage(client);
+
+    expect(products.map((product) => product.key)).toEqual(["approved"]);
+  });
+
   it("excludes unapproved and test brands", async () => {
     const { client } = stubClient({
       data: [
@@ -609,27 +545,29 @@ describe("getPublishedCuratedProductsForHomepage", () => {
     expect(products.map((product) => product.key)).toEqual(["approved"]);
   });
 
-  it("accepts a highlight rationale when no trail selection exists", async () => {
+  it("keeps a homepage product that has no trail placement", async () => {
+    // A trail placement is presentation, not a publication condition: the wall
+    // renders a published product on its own description alone.
     const { client, calls } = stubClient({
       data: [
         homepageRow({
-          key: "highlight-only",
+          key: "unplaced",
           curated_product_selections: [],
-          highlight_rationale_zh: "品牌頁也值得被看見",
+          product_description_zh: "品牌頁也值得被看見。",
         }),
       ],
     });
 
     const [product] = await getPublishedCuratedProductsForHomepage(client);
 
-    expect(product?.key).toBe("highlight-only");
-    expect(product?.rationaleZh).toBe("品牌頁也值得被看見");
+    expect(product?.key).toBe("unplaced");
+    expect(product?.productDescriptionZh).toBe("品牌頁也值得被看見。");
+    expect(product?.trailSlug).toBeNull();
+    // The embed stays NON-inner, so a product with zero selections survives it.
     expect(calls.select[0]).not.toContain("curated_product_selections!inner");
-    expect(calls.not).not.toContainEqual([
-      "curated_product_selections.rationale_zh",
-      "is",
-      null,
-    ]);
+    expect(calls.select[0]).toContain(
+      "curated_product_selections(trail_slug, section_key, position)",
+    );
   });
 
   // The read deliberately carries the whole published set: the per-brand cap
@@ -639,34 +577,8 @@ describe("getPublishedCuratedProductsForHomepage", () => {
     const { client } = stubClient({
       data: [
         homepageRow({ key: "first", brand_id: "brand-1" }),
-        homepageRow({
-          key: "second",
-          brand_id: "brand-1",
-          curated_product_selections: [
-            {
-              trail_slug: "picks",
-              section_key: "home",
-              position: 2,
-              rationale_zh: "Another angle",
-              rationale_en: "Another angle",
-              state: "active",
-            },
-          ],
-        }),
-        homepageRow({
-          key: "third",
-          brand_id: "brand-1",
-          curated_product_selections: [
-            {
-              trail_slug: "picks",
-              section_key: "home",
-              position: 3,
-              rationale_zh: "第三個角度",
-              rationale_en: "A third angle",
-              state: "active",
-            },
-          ],
-        }),
+        homepageRow({ key: "second", brand_id: "brand-1" }),
+        homepageRow({ key: "third", brand_id: "brand-1" }),
         homepageRow({
           key: "other-brand",
           brand_id: "brand-2",
@@ -701,48 +613,18 @@ describe("getPublishedCuratedProductsForHomepage", () => {
         brand_id: "brand-beta",
         wall_position: 1,
         brands: { slug: "brand-beta", name: "Beta", status: "approved" },
-        curated_product_selections: [
-          {
-            trail_slug: "picks",
-            section_key: "home",
-            position: 100,
-            rationale_zh: "Beta reason",
-            rationale_en: "Beta reason",
-            state: "active",
-          },
-        ],
       }),
       homepageRow({
         key: "zeta",
         brand_id: "brand-alpha",
         wall_position: 1,
         brands: { slug: "alpha", name: "Alpha", status: "approved" },
-        curated_product_selections: [
-          {
-            trail_slug: "picks",
-            section_key: "home",
-            position: 0,
-            rationale_zh: "Alpha zeta reason",
-            rationale_en: "Alpha zeta reason",
-            state: "active",
-          },
-        ],
       }),
       homepageRow({
         key: "alpha",
         brand_id: "brand-alpha",
         wall_position: 1,
         brands: { slug: "alpha", name: "Alpha", status: "approved" },
-        curated_product_selections: [
-          {
-            trail_slug: "picks",
-            section_key: "home",
-            position: 99,
-            rationale_zh: "Alpha alpha reason",
-            rationale_en: "Alpha alpha reason",
-            state: "active",
-          },
-        ],
       }),
       homepageRow({
         key: "later",
@@ -750,7 +632,6 @@ describe("getPublishedCuratedProductsForHomepage", () => {
         wall_position: 3,
         brands: { slug: "later", name: "Later", status: "approved" },
         curated_product_selections: [],
-        highlight_rationale_zh: "Later reason",
       }),
       homepageRow({
         key: "unplaced",
@@ -758,7 +639,6 @@ describe("getPublishedCuratedProductsForHomepage", () => {
         wall_position: null,
         brands: { slug: "unplaced", name: "Unplaced", status: "approved" },
         curated_product_selections: [],
-        highlight_rationale_zh: "Unplaced reason",
       }),
     ];
     const first = stubClient({ data: rows });
@@ -783,31 +663,36 @@ describe("getPublishedCuratedProductsForHomepage", () => {
     );
     expect(first.calls.limit).toEqual([1_000]);
     expect(first.calls.select[0]).not.toContain("curated_product_selections!inner");
-    expect(first.calls.not).not.toContainEqual([
-      "curated_product_selections.rationale_zh",
-      "is",
-      null,
-    ]);
+    // The select list asks for the CURRENT text column and for none of the
+    // three it replaced — a stale name here is a schema-lag 42703 in prod.
+    expect(first.calls.select[0]).toContain("product_description_zh");
+    expect(first.calls.select[0]).not.toContain("rationale_zh");
+    expect(first.calls.select[0]).not.toContain("notes_zh");
     expect(first.calls.in).toContainEqual([
       "image_usage",
       ["permitted", "licensed"],
     ]);
   });
 
-  it("excludes a product with neither rationale source", async () => {
+  it("keeps the rest of the publication gate", async () => {
     const { client } = stubClient({
       data: [
+        homepageRow({ key: "live" }),
+        homepageRow({ key: "candidate", lifecycle: "candidate" }),
+        homepageRow({ key: "no-url", official_url: null }),
+        homepageRow({ key: "unchecked", source_checked_at: null }),
+        homepageRow({ key: "no-image", image_url: null }),
+        homepageRow({ key: "uncleared-image", image_usage: "none" }),
         homepageRow({
-          key: "without-rationale",
-          curated_product_selections: [],
-          highlight_rationale_zh: null,
+          key: "no-active-source",
+          curated_product_sources: [{ id: "s", state: "retired" }],
         }),
       ],
     });
 
-    await expect(getPublishedCuratedProductsForHomepage(client)).resolves.toEqual(
-      [],
-    );
+    const products = await getPublishedCuratedProductsForHomepage(client);
+
+    expect(products.map((product) => product.key)).toEqual(["live"]);
   });
 
   // A missing table or column means the schema is older than this code, which
@@ -816,9 +701,9 @@ describe("getPublishedCuratedProductsForHomepage", () => {
   // a green build and nothing in Sentry — how the wall went missing (DEV-1490).
   it.each([
     ["PGRST205", "Could not find the table in the schema cache"],
-    ["42703", "column curated_products.image_width does not exist"],
+    ["42703", "column curated_products.product_description_zh does not exist"],
   ])(
-    "throws rather than degrading to [] when the schema lags (%s)",
+    "throws CuratedProductSchemaLagError rather than degrading to [] when the schema lags (%s)",
     async (code, message) => {
       const { client } = stubClient({ error: { code, message } });
 
@@ -832,13 +717,13 @@ describe("getPublishedCuratedProductsForHomepage", () => {
     const { client } = stubClient({
       error: {
         code: "42703",
-        message: "column curated_products.image_width does not exist",
+        message: "column curated_products.product_description_zh does not exist",
       },
     });
 
     await expect(
       getPublishedCuratedProductsForHomepage(client),
-    ).rejects.toThrow(/42703.*image_width/);
+    ).rejects.toThrow(/42703.*product_description_zh/);
   });
 });
 
@@ -1021,7 +906,7 @@ describe("createCuratedProduct", () => {
     ]);
 
     await createCuratedProduct(
-      { brandId: BRAND_ID, nameZh: "陶瓷茶杯", l1: "home" },
+      { brandId: BRAND_ID, nameZh: "陶瓷茶杯", l1: "home", productDescriptionZh: "陶土燒製，容量約 200 毫升。" },
       client,
     );
 
@@ -1040,6 +925,7 @@ describe("createCuratedProduct", () => {
       brandId: BRAND_ID,
       nameZh: "Teacup",
       l1: "home",
+      productDescriptionZh: "陶土燒製，容量約 200 毫升。",
       lifecycle: "published",
     } as unknown as Parameters<typeof createCuratedProduct>[0];
 
@@ -1058,7 +944,7 @@ describe("createCuratedProduct", () => {
     ]);
 
     const created = await createCuratedProduct(
-      { brandId: BRAND_ID, nameZh: "Teacup", l1: "home" },
+      { brandId: BRAND_ID, nameZh: "Teacup", l1: "home", productDescriptionZh: "陶土燒製，容量約 200 毫升。" },
       client,
     );
 
@@ -1079,6 +965,7 @@ describe("createCuratedProduct", () => {
         brandId: BRAND_ID,
         nameZh: "Teacup",
         l1: "home",
+        productDescriptionZh: "陶土燒製，容量約 200 毫升。",
         // A slug, a Chinese label, and a subcategory from another branch.
         l2: ["tableware", "餐具", "kids-tableware"],
       },
@@ -1088,7 +975,7 @@ describe("createCuratedProduct", () => {
     expect(calls.insert.at(0)?.l2).toEqual(["tableware"]);
   });
 
-  it("createCuratedProduct writes the highlight fields", async () => {
+  it("createCuratedProduct writes the description and brand-page position", async () => {
     const { client, calls } = stubWriteClient([
       { data: { id: PRODUCT_ID, key: "teacup" } },
     ]);
@@ -1098,23 +985,24 @@ describe("createCuratedProduct", () => {
         brandId: BRAND_ID,
         nameZh: "Teacup",
         l1: "home",
-        highlightPosition: 2,
-        highlightRationaleZh: "品牌頁亮點",
-        highlightRationaleEn: "Brand-page highlight",
+        productPosition: 2,
+        productDescriptionZh: "杯口薄、杯身厚。",
+        productDescriptionEn: "Thin at the lip, thick in the body.",
       },
       client,
     );
 
     expect(calls.insert.at(0)).toMatchObject({
-      highlight_position: 2,
-      highlight_rationale_zh: "品牌頁亮點",
-      highlight_rationale_en: "Brand-page highlight",
+      product_position: 2,
+      product_description_zh: "杯口薄、杯身厚。",
+      product_description_en: "Thin at the lip, thick in the body.",
     });
+    expect(Object.keys(calls.insert.at(0) ?? {})).not.toContain("notes_zh");
   });
 });
 
 describe("curated product writers", () => {
-  it("upserts a trail selection on its composite key without highlight fields", async () => {
+  it("upserts a placement without rationale", async () => {
     const { client, calls } = stubWriteClient([
       { data: { brand_id: BRAND_ID } },
       { data: [] },
@@ -1127,23 +1015,20 @@ describe("curated product writers", () => {
         trailSlug: "small-space-reading-corner",
         sectionKey: "light-first",
         position: 2,
-        rationaleZh: "在桌面上保留閱讀的餘裕。",
-        rationaleEn: "Keeps room for reading on the desk.",
       },
       client,
     );
 
     expect(calls.table).toContain("curated_product_selections");
+    // A placement is now WHERE a product sits and nothing else — the copy it
+    // renders comes from the product row.
     expect(calls.upsert.at(0)).toEqual({
       product_id: PRODUCT_ID,
       trail_slug: "small-space-reading-corner",
       section_key: "light-first",
       position: 2,
-      rationale_zh: "在桌面上保留閱讀的餘裕。",
-      rationale_en: "Keeps room for reading on the desk.",
       state: "active",
     });
-    expect(Object.keys(calls.upsert.at(0) ?? {})).not.toContain("highlight_position");
   });
 
   it("rejects a second product from the same brand in the same trail section", async () => {
@@ -1165,7 +1050,6 @@ describe("curated product writers", () => {
           productId: PRODUCT_ID,
           trailSlug: "small-space-reading-corner",
           sectionKey: "light-first",
-          rationaleZh: "同一段落的第二個品牌產品",
         },
         client,
       ),
@@ -1188,7 +1072,6 @@ describe("curated product writers", () => {
         productId: PRODUCT_ID,
         trailSlug: "small-space-reading-corner",
         sectionKey: "light-first",
-        rationaleZh: "另一段落的同品牌產品",
       },
       client,
     );
@@ -1197,7 +1080,6 @@ describe("curated product writers", () => {
         productId: PRODUCT_ID,
         trailSlug: "small-space-reading-corner",
         sectionKey: "beside-seat",
-        rationaleZh: "同品牌在另一段落的產品",
       },
       client,
     );
@@ -1221,7 +1103,6 @@ describe("curated product writers", () => {
         productId: PRODUCT_ID,
         trailSlug: "small-space-reading-corner",
         sectionKey: "light-first",
-        rationaleZh: "重新編輯同一個選物",
       },
       client,
     );
@@ -1286,30 +1167,30 @@ describe("curated product writers", () => {
 
     await updateCuratedProduct(
       "6d5f1b0c-2a44-4f13-8c9e-5b7a1d3e9f20",
-      { officialUrl: null, notesZh: null },
+      { officialUrl: null, productDescriptionEn: null },
       client,
     );
 
     const payload = calls.update.at(0) ?? {};
     expect(payload.official_url).toBeNull();
-    expect(payload.notes_zh).toBeNull();
+    expect(payload.product_description_en).toBeNull();
     expect(Object.keys(payload)).not.toContain("name_zh");
-    expect(Object.keys(payload)).not.toContain("notes_en");
+    expect(Object.keys(payload)).not.toContain("product_description_zh");
   });
 
-  it("updateCuratedProduct clears a highlight field sent as null and skips an absent one", async () => {
+  it("updateCuratedProduct clears product_position sent as null and skips an absent one", async () => {
     const { client, calls } = stubWriteClient([{}]);
 
     await updateCuratedProduct(
       PRODUCT_ID,
-      { highlightPosition: null, highlightRationaleZh: null },
+      { productPosition: null, productDescriptionZh: "重寫過的描述。" },
       client,
     );
 
     const payload = calls.update.at(0) ?? {};
-    expect(payload.highlight_position).toBeNull();
-    expect(payload.highlight_rationale_zh).toBeNull();
-    expect(Object.keys(payload)).not.toContain("highlight_rationale_en");
+    expect(payload.product_position).toBeNull();
+    expect(payload.product_description_zh).toBe("重寫過的描述。");
+    expect(Object.keys(payload)).not.toContain("wall_position");
   });
 
   it("retires a product by flipping lifecycle, never by deleting", async () => {
@@ -1345,7 +1226,12 @@ describe("curated product writers", () => {
 
     await expect(
       createCuratedProduct(
-        { brandId: BRAND_ID, nameZh: "Teacup", l1: "home" },
+        {
+          brandId: BRAND_ID,
+          nameZh: "Teacup",
+          l1: "home",
+          productDescriptionZh: "陶土燒製，容量約 200 毫升。",
+        },
         stubWriteClient([{ error: missingTable }]).client,
       ),
     ).rejects.toMatchObject({ code: "PGRST205" });
@@ -1483,16 +1369,12 @@ describe("listCuratedProductsForAdmin", () => {
               trail_slug: "small-space-reading-corner",
               section_key: "desk-companions",
               position: 2,
-              rationale_zh: "還在 MDX 之外",
-              rationale_en: null,
               state: "active",
             },
             {
               trail_slug: "small-space-reading-corner",
               section_key: "withdrawn",
               position: 0,
-              rationale_zh: "已撤下",
-              rationale_en: null,
               state: "retired",
             },
           ],
@@ -1507,8 +1389,6 @@ describe("listCuratedProductsForAdmin", () => {
         trailSlug: "small-space-reading-corner",
         sectionKey: "desk-companions",
         position: 2,
-        rationaleZh: "還在 MDX 之外",
-        rationaleEn: null,
       },
     ]);
   });

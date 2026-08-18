@@ -93,7 +93,7 @@
     },
     "selectedProducts": {
       "heading": "Formoria Selection",
-      "note": "For a particular situation, a particular use, or a particular preference, we chose these products on purpose — and we can say why.",
+      "note": "Moving in, styling a shop, changing a lamp — these products were chosen on purpose for moments like these; open one to meet the brand behind it.",
       "showMore": "See more selections",
       "showLess": "Show fewer selections",
       "trailEyebrow": "Curated theme",
@@ -335,9 +335,8 @@
     },
     "selectedProducts": {
       "heading": "Formoria Selected",
-      "note": "These are products Formoria picked from this brand, with the reason for each choice. Product details are supplied by the brand; refer to the brand's official page for the current information.",
+      "note": "These are products Formoria picked from this brand, each described for what it is. Product details are supplied by the brand; refer to the brand's official page for the current information.",
       "selectedBadge": "Formoria Selected",
-      "brandProvidedBadge": "Supplied by the brand",
       "cta": "Go to the brand's official website",
       "unavailable": "This product page is temporarily unreachable.",
       "brandSiteCta": "Go to the brand's website"
@@ -1159,7 +1158,7 @@
       },
       "listingVsSelection": {
         "question": "What is the difference between a listed brand and a Formoria Selection?",
-        "answer": "A listed brand meets the directory rules and can be found in the searchable record; listing is not Formoria endorsement, selection, certification, or ranking. A Formoria Selection is a product or content item deliberately chosen for a situation, use, preference, or editorial argument, and is labelled separately with its rationale."
+        "answer": "A listed brand meets the directory rules and can be found in the searchable record; listing is not Formoria endorsement, selection, certification, or ranking. A Formoria Selection is a product or content item deliberately chosen for a situation, use, preference, or editorial argument, labelled separately and described for what it is and where to order it from the brand."
       },
       "purchaseThroughFormoria": {
         "question": "Can I purchase through Formoria?",
@@ -1287,8 +1286,8 @@
         "body": "Organize Taiwanese brands under public listing rules, making known names searchable and giving different parts of life a place to begin exploring."
       },
       "editorial": {
-        "heading": "Selective editorial with reasons",
-        "body": "Formoria uses “Formoria Selection” only for products or content deliberately chosen for a situation, use, preference, or editorial argument, with the reason made clear."
+        "heading": "Selective editorial",
+        "body": "Formoria uses “Formoria Selection” only for products or content deliberately chosen for a situation, use, preference, or editorial argument, described for what it is and where to order it from the brand."
       },
       "connection": {
         "heading": "A connection to real purchase channels",
@@ -2909,14 +2908,15 @@
         "imageUsageNone": "Not cleared",
         "imageUsagePermitted": "Owner or source permits use",
         "imageUsageLicensed": "Licence on file",
-        "notesZh": "Editorial note (zh-TW)",
-        "notesEn": "Editorial note (English)",
-        "highlightPosition": "Brand-page highlight position",
-        "highlightPositionInvalid": "Enter a non-negative whole number for the brand-page highlight position.",
+        "productDescriptionZh": "Product description (zh-TW)",
+        "productDescriptionEn": "Product description (English)",
+        "productDescriptionHint": "What the product IS: material, size, use, made-where. No price, stock, discount, variants, or delivery. Do not state why it was selected — that belongs in the trail.",
+        "productDescriptionZhRequired": "Write a Chinese product description. Every published product needs one.",
+        "productDescriptionZhTooLong": "The Chinese product description is too long. Trim it to {max} characters or fewer.",
+        "productPosition": "Brand-page position",
+        "productPositionInvalid": "Enter a non-negative whole number for the brand-page position.",
         "wallPosition": "Homepage wall position",
         "wallPositionInvalid": "Enter a non-negative whole number for the homepage wall position.",
-        "highlightRationaleZh": "Formoria selection rationale (zh-TW)",
-        "highlightRationaleEn": "Formoria selection rationale (English)",
         "reviewDueAt": "Review again on",
         "sources": "Sources",
         "sourceUrl": "Source URL",
@@ -2948,13 +2948,11 @@
           "orphanSuffix": "no longer in the trail MDX",
           "orphanHint": "This section was renamed or removed from the trail MDX. Its selections still count toward the indexability blockers above, so retire them here. New placements into it are rejected by the server.",
           "position": "Position",
-          "rationaleZh": "Why this product belongs here (zh-TW)",
-          "rationaleEn": "Why this product belongs here (English)",
           "blockersTitle": "Trail indexability blockers",
           "readError": "Placement data is temporarily unavailable; indexability blockers are not shown.",
           "save": "Place or update selection",
           "retire": "Retire placement",
-          "required": "Choose a trail, section, and Chinese rationale.",
+          "required": "Choose a trail and a section.",
           "createFirst": "Save the product before placing it on a trail."
         }
       }

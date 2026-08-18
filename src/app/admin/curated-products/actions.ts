@@ -160,8 +160,10 @@ export async function createCuratedProductAction(
         officialUrl: payload.officialUrl ?? null,
         imageSourceUrl: payload.imageSourceUrl ?? null,
         imageUsage: payload.imageUsage ?? "none",
-        notesZh: payload.notesZh ?? null,
-        notesEn: payload.notesEn ?? null,
+        productDescriptionZh: payload.productDescriptionZh,
+        productDescriptionEn: payload.productDescriptionEn ?? null,
+        productPosition: payload.productPosition ?? null,
+        wallPosition: payload.wallPosition ?? null,
         reviewDueAt: payload.reviewDueAt ?? null,
         // Stamped from the server clock, and only when the editor asserted the
         // sources were read.
@@ -447,17 +449,16 @@ function parseSelectionInput(input: unknown): CuratedProductSelectionInput | nul
   if (
     typeof value.productId !== "string" ||
     typeof value.trailSlug !== "string" ||
-    typeof value.sectionKey !== "string" ||
-    typeof value.rationaleZh !== "string"
+    typeof value.sectionKey !== "string"
   ) {
     return null;
   }
+  // A placement is WHERE, not WHY: the copy lives on the product row, so no
+  // rationale is read here (DEV-1496).
   return {
     productId: value.productId,
     trailSlug: value.trailSlug,
     sectionKey: value.sectionKey,
-    rationaleZh: value.rationaleZh,
-    rationaleEn: typeof value.rationaleEn === "string" ? value.rationaleEn : null,
     position: typeof value.position === "number" ? value.position : 0,
   };
 }

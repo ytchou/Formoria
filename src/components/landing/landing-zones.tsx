@@ -35,7 +35,15 @@ export type LandingZonesProps = {
   hero: ReactNode;
   close: ReactNode;
   /** `null` when the wall is below its publication floor and must not render. */
-  wall: { slots: WallSlot[]; leftoverTrails: TrailEntry[] } | null;
+  wall: { slots: WallSlot[] } | null;
+  /**
+   * EVERY indexable trail, not the ones the wall declined to place. A trail
+   * that earns a wall tile still belongs in this zone: the tile is a picture in
+   * a masonry grid, the row is the titled, dated route into `/discover`. The
+   * zone used to read the wall's leftover trails, which meant the single-trail
+   * case — the trail is always placed — erased the zone from the page.
+   */
+  trails: TrailEntry[];
   stories: StoryEntry[];
   events: PromotedEvent[];
   brands: PublicBrandCard[];
@@ -64,6 +72,7 @@ export async function LandingZones({
   hero,
   close,
   wall,
+  trails,
   stories,
   events,
   brands,
@@ -97,7 +106,6 @@ export async function LandingZones({
                   cta: tSelected("cta"),
                   brandSiteCta: tSelected("brandSiteCta"),
                   selectedBadge: tSelected("selectedBadge"),
-                  brandProvidedBadge: tSelected("brandProvidedBadge"),
                   unavailable: tSelected("unavailable"),
                 },
                 trail: {
@@ -110,10 +118,19 @@ export async function LandingZones({
         ) : null}
 
         {/*
-          Trails that did not earn a tile inside the wall. This zone replaces the
-          continuation strip that used to sit at the foot of the wall, where the
-          same trails were a row of underlined links — the weakest presentation
-          available for the editorial content they point at.
+          Every indexable trail — including the ones the wall placed as tiles.
+          Duplication with the wall is deliberate and cheap: a wall tile is a
+          photograph a reader may scroll past, and this row is the only titled,
+          dated, keyboard-obvious path to `/discover`. Gating on the trails the
+          wall left over instead cost the zone its whole existence the moment
+          the site had one indexable trail, since that trail is always placed.
+          The zone is withheld only when nothing is indexable — never
+          because the wall is missing.
+
+          This zone replaces the continuation strip that used to sit at the foot
+          of the wall, where the same trails were a row of underlined links —
+          the weakest presentation available for the editorial content they
+          point at.
 
           It deliberately reuses the topics zone's construction: `SectionHeader`
           over a `StoryRow` list on the same divided rule. `StoryRow` already
@@ -121,7 +138,7 @@ export async function LandingZones({
           this is the existing component with `hrefBase` and `namespace`
           repointed, not a second row design to keep in sync.
         */}
-        {wall && wall.leftoverTrails.length > 0 ? (
+        {trails.length > 0 ? (
           <section
             data-landing-zone="trails"
             aria-labelledby="landing-trails"
@@ -136,7 +153,7 @@ export async function LandingZones({
                 linkLabel={t("trails.linkText")}
               />
               <div className="mt-8 divide-y divide-border border-y border-border">
-                {wall.leftoverTrails.map((trail, index) => (
+                {trails.map((trail, index) => (
                   <StoryRow
                     key={trail.slug}
                     story={trail}

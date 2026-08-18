@@ -56,14 +56,13 @@ vi.mock("@/lib/analytics", () => ({
 
 const labels = {
   heading: "Formoria selections",
-  note: "Chosen for a situation, with the reason stated.",
+  note: "Chosen for a situation; open one to meet the brand behind it.",
   showMore: "See more selections",
   showLess: "Show fewer selections",
   product: {
     cta: "Visit product",
     brandSiteCta: "Visit brand site",
     selectedBadge: "Formoria selection",
-    brandProvidedBadge: "Brand provided",
     unavailable: "Link unavailable",
   },
   trail: { eyebrow: "Trail", cta: "Explore this trail" },
@@ -72,7 +71,7 @@ const labels = {
 /**
  * Real editorial copy, not `Product 1` / `Reason 1`. Uniform-length ASCII
  * cannot surface what this layout is actually exposed to: CJK line breaking, a
- * rationale long enough to hit `line-clamp-3`, a product with no English name
+ * description long enough to hit `line-clamp-3`, a product with no English name
  * at all (the tile then renders the zh-TW one), and a title short enough to
  * leave the scrim half empty. Lengths vary on purpose.
  */
@@ -80,39 +79,39 @@ const WALL_FIXTURES = [
   {
     nameZh: "手沖壺",
     nameEn: "Pour-over kettle",
-    rationaleZh: "手感穩定，適合小空間的早晨。",
-    rationaleEn: "Steady in the hand, made for small kitchens.",
+    descriptionZh: "手感穩定，適合小空間的早晨。",
+    descriptionEn: "Steady in the hand, made for small kitchens.",
     brandName: "小器生活",
   },
   {
     nameZh: "麻布長桌巾（原色）",
     nameEn: null,
-    rationaleZh:
+    descriptionZh:
       "洗過幾次之後才會出現的柔軟，是這塊布最好的時候；長度足夠蓋住六人餐桌的兩側，收起來也不佔位子。",
-    rationaleEn: null,
+    descriptionEn: null,
     brandName: "本嶼織物",
   },
   {
     nameZh: "陶土馬克杯",
     nameEn: "Stoneware mug",
-    rationaleZh: "杯口薄、杯身厚，熱飲不燙手。",
-    rationaleEn:
+    descriptionZh: "杯口薄、杯身厚，熱飲不燙手。",
+    descriptionEn:
       "A thin rim over a thick body — hot drinks without a hot handle, and it stacks.",
     brandName: "土屋陶作",
   },
   {
     nameZh: "黃銅書籤",
     nameEn: null,
-    rationaleZh: "用久了會變色，那是它記錄時間的方式。",
-    rationaleEn: null,
+    descriptionZh: "用久了會變色，那是它記錄時間的方式。",
+    descriptionEn: null,
     brandName: "日星鑄字",
   },
   {
     nameZh: "無染色棉質浴巾",
     nameEn: "Undyed cotton bath towel",
-    rationaleZh:
+    descriptionZh:
       "吸水快、乾得也快，適合沒有陽台的租屋處，是我們反覆比較之後留下來的一條。",
-    rationaleEn:
+    descriptionEn:
       "Fast to soak, faster to dry — the one we kept after testing towels in a flat with no balcony.",
     brandName: "禾織",
   },
@@ -144,18 +143,14 @@ function buildProduct(index: number): HomepageCuratedProduct {
     linkCheckedAt: null,
     sourceCheckedAt: null,
     reviewDueAt: null,
-    notesZh: null,
-    notesEn: null,
-    highlightPosition: null,
-    highlightRationaleZh: null,
-    highlightRationaleEn: null,
+    productDescriptionZh: fixture.descriptionZh,
+    productDescriptionEn: fixture.descriptionEn,
+    productPosition: null,
     wallPosition: null,
     createdAt: "2026-01-01T00:00:00Z",
     trailSlug: null,
     sectionKey: null,
     position: 0,
-    rationaleZh: fixture.rationaleZh,
-    rationaleEn: fixture.rationaleEn,
     imageWidth: 1200,
     imageHeight: 900,
     brandSlug: `brand-${index}`,
@@ -336,8 +331,7 @@ describe("ProductWall", () => {
     // The real composition, not hand-built slots: at a 16-product cap and a
     // trail every 8 slots `buildWallSlots` reserves TWO trails and returns 18
     // slots ENDING on one of them. A tail slice back to 16 therefore deleted a
-    // trail that `leftoverTrails` had already counted as placed, so it rendered
-    // nowhere on the homepage at all.
+    // composed trail; the trim must fall on products instead.
     const products = Array.from(
       { length: MAX_HOME_WALL_PRODUCTS + 4 },
       (_, index) => buildProduct(index),
@@ -346,7 +340,7 @@ describe("ProductWall", () => {
       buildTrail("trail-a", "Where to read in a small flat"),
       buildTrail("trail-b", "A table set for four"),
     ];
-    const { slots, leftoverTrails } = buildWallSlots({
+    const { slots } = buildWallSlots({
       products,
       trails,
       seed: "2026-08-17",
@@ -360,19 +354,8 @@ describe("ProductWall", () => {
     expect(composedTrails).toHaveLength(2);
 
     const { container } = renderWall(slots);
-    const list = screen.getByRole("list", { name: labels.heading });
-    const leftoverSlugs = new Set(leftoverTrails.map((trail) => trail.slug));
 
-    for (const slot of composedTrails) {
-      const inWall =
-        within(list).queryAllByText(slot.trail.frontmatter.title).length > 0;
-      expect(
-        inWall || leftoverSlugs.has(slot.trail.slug),
-        `trail ${slot.trail.slug} renders nowhere`,
-      ).toBe(true);
-    }
-
-    // And the wall still ends on a full line — the trim is wanted, only its
+    // The wall still ends on a full line — the trim is wanted, only its
     // victim changed.
     const tiles = container.querySelectorAll("li:not([role='presentation'])");
     expect(tiles.length % WALL_LINE_SIZE_DESKTOP).toBe(0);

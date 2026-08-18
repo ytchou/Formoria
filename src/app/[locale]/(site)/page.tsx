@@ -196,11 +196,15 @@ export default async function LandingPage({ params }: PageProps) {
   // let one build-time blip demote the site's most-visited route to dynamic for
   // the whole deployment. A failed read hides the trail tile instead.
   const indexableTrailSlugs = trailSupply?.indexableSlugs ?? new Set<string>();
+  // One list, two consumers: the wall composes tiles from it and the trails
+  // zone lists all of it. Computed once from reads already in flight — the zone
+  // adds no query, so `/` stays statically rendered.
+  const indexableTrails = (trailResult?.ok ? trailResult.trails : []).filter(
+    (trail) => indexableTrailSlugs.has(trail.slug),
+  );
   const wall = buildWallSlots({
     products: curatedProducts,
-    trails: (trailResult?.ok ? trailResult.trails : []).filter((trail) =>
-      indexableTrailSlugs.has(trail.slug),
-    ),
+    trails: indexableTrails,
   });
   const promotedEvents: PromotedEvent[] = liveEvents.map((event) => ({
     event,
@@ -232,9 +236,10 @@ export default async function LandingPage({ params }: PageProps) {
           close={<SectionBand />}
           wall={
             curatedProducts.length >= MIN_HOME_CURATED_PRODUCTS
-              ? { slots: wall.slots, leftoverTrails: wall.leftoverTrails }
+              ? { slots: wall.slots }
               : null
           }
+          trails={indexableTrails}
           stories={latestStories}
           events={promotedEvents}
           brands={exploreBrands}

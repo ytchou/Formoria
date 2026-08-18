@@ -27,7 +27,12 @@ export type CuratedProductSupabase = Pick<SupabaseClient, "from">;
 
 /**
  * One curated product as the brand page renders it: the product itself plus the
- * single selection whose rationale is shown beside it.
+ * single selection that says WHERE it sits on a trail.
+ *
+ * ONE text field, `productDescription*` (DEV-1496). The three that preceded it
+ * — a product note, a brand-page highlight rationale, and a per-placement
+ * selection rationale — collapsed into it, so no caller needs a `??` chain to
+ * decide which of three columns a surface should render.
  *
  * `linkState` is reported, never filtered on. A broken link suppresses the
  * call-to-action; it does not unpublish the product, so the decision belongs to
@@ -50,19 +55,17 @@ export type CuratedProduct = {
   linkCheckedAt: string | null;
   sourceCheckedAt: string | null;
   reviewDueAt: string | null;
-  notesZh: string | null;
-  notesEn: string | null;
-  highlightPosition: number | null;
-  highlightRationaleZh: string | null;
-  highlightRationaleEn: string | null;
+  /** The one piece of editorial copy a product carries. NOT NULL in Postgres. */
+  productDescriptionZh: string;
+  productDescriptionEn: string | null;
+  /** Where the product sits in its own brand page's selection. */
+  productPosition: number | null;
   wallPosition: number | null;
   createdAt: string;
   /** The winning selection: lowest `position`, ties broken by `trailSlug`. */
   trailSlug: string | null;
   sectionKey: string | null;
   position: number | null;
-  rationaleZh: string | null;
-  rationaleEn: string | null;
 };
 
 /** The minimum supply needed for the homepage rail to read as intentional. */
@@ -98,15 +101,18 @@ export type TrailCuratedProduct = CuratedProduct & {
  * retires rather than deletes, so a row's presence is not evidence that it is
  * still live: a product whose every source was withdrawn would otherwise keep
  * passing the proof gate, and a withdrawn selection would keep supplying the
- * public rationale and the sort position.
+ * sort position.
+ *
+ * A selection carries no copy of its own any more (DEV-1496) — it is a
+ * placement and nothing else, so the columns below are the whole of it.
  */
 const CURATED_PRODUCT_READ_SELECT = `
   id, brand_id, key, name_zh, name_en, l1, l2, official_url, image_url,
   image_source_url, image_usage, lifecycle, link_state, link_checked_at,
-  source_checked_at, review_due_at, notes_zh, notes_en, highlight_position,
-  highlight_rationale_zh, highlight_rationale_en, wall_position, created_at,
+  source_checked_at, review_due_at, product_description_zh,
+  product_description_en, product_position, wall_position, created_at,
   curated_product_sources!inner(id),
-  curated_product_selections(trail_slug, section_key, position, rationale_zh, rationale_en)
+  curated_product_selections(trail_slug, section_key, position)
 `;
 
 type ProductTable = Database["public"]["Tables"]["curated_products"];
@@ -115,7 +121,7 @@ type SelectionTable =
 
 type CuratedProductSelectionRow = Pick<
   SelectionTable["Row"],
-  "trail_slug" | "section_key" | "position" | "rationale_zh" | "rationale_en"
+  "trail_slug" | "section_key" | "position"
 > & { state?: string };
 
 type CuratedProductReadRow = Pick<
@@ -136,11 +142,9 @@ type CuratedProductReadRow = Pick<
   | "link_checked_at"
   | "source_checked_at"
   | "review_due_at"
-  | "notes_zh"
-  | "notes_en"
-  | "highlight_position"
-  | "highlight_rationale_zh"
-  | "highlight_rationale_en"
+  | "product_description_zh"
+  | "product_description_en"
+  | "product_position"
   | "wall_position"
   | "created_at"
 > & {
@@ -241,26 +245,22 @@ function toCuratedProduct(row: CuratedProductReadRow): CuratedProduct {
     linkCheckedAt: row.link_checked_at ?? null,
     sourceCheckedAt: row.source_checked_at ?? null,
     reviewDueAt: row.review_due_at ?? null,
-    notesZh: row.notes_zh ?? null,
-    notesEn: row.notes_en ?? null,
-    highlightPosition: row.highlight_position ?? null,
-    highlightRationaleZh: row.highlight_rationale_zh ?? null,
-    highlightRationaleEn: row.highlight_rationale_en ?? null,
+    productDescriptionZh: row.product_description_zh,
+    productDescriptionEn: row.product_description_en ?? null,
+    productPosition: row.product_position ?? null,
     wallPosition: row.wall_position ?? null,
     createdAt: row.created_at,
     trailSlug: selection?.trail_slug ?? null,
     sectionKey: selection?.section_key ?? null,
     position: selection?.position ?? null,
-    rationaleZh: row.highlight_rationale_zh ?? selection?.rationale_zh ?? null,
-    rationaleEn: row.highlight_rationale_en ?? selection?.rationale_en ?? null,
   };
 }
 
 /**
- * Maps one active trail placement without inheriting brand-page highlight
- * copy. A product may appear in several trails, so this mapper keeps the
- * placement's own rationale and position as the source of truth for every
- * card returned by the trail projection.
+ * Maps one active trail placement. A product may appear in several trails, so
+ * the placement supplies the section and the position; the copy comes from the
+ * PRODUCT row, which is now the only place any curated text lives. Reading a
+ * selection-scoped rationale here is what DEV-1496 removed.
  */
 function toTrailProduct(
   row: TrailCuratedProductRow,
@@ -286,18 +286,14 @@ function toTrailProduct(
     linkCheckedAt: row.link_checked_at ?? null,
     sourceCheckedAt: row.source_checked_at ?? null,
     reviewDueAt: row.review_due_at ?? null,
-    notesZh: row.notes_zh ?? null,
-    notesEn: row.notes_en ?? null,
-    highlightPosition: row.highlight_position ?? null,
-    highlightRationaleZh: row.highlight_rationale_zh ?? null,
-    highlightRationaleEn: row.highlight_rationale_en ?? null,
+    productDescriptionZh: row.product_description_zh,
+    productDescriptionEn: row.product_description_en ?? null,
+    productPosition: row.product_position ?? null,
     wallPosition: row.wall_position ?? null,
     createdAt: row.created_at,
     trailSlug: selection.trail_slug,
     sectionKey: selection.section_key,
     position: selection.position,
-    rationaleZh: selection.rationale_zh ?? null,
-    rationaleEn: selection.rationale_en ?? null,
     brandSlug: brand.slug,
     brandName: brand.name,
     brand: {
@@ -313,7 +309,7 @@ function toTrailProduct(
   };
 }
 
-/** An unhighlighted product sorts last rather than jumping ahead of highlights. */
+/** An unpositioned product sorts last rather than jumping ahead of placed ones. */
 const UNPLACED = Number.MAX_SAFE_INTEGER;
 
 /** PostgREST's "could not find the table in the schema cache". */
@@ -382,12 +378,12 @@ export async function getPublishedCuratedProductsForBrand(
     // Retired evidence is not evidence: `!inner` makes this drop the product.
     .eq("curated_product_sources.state", "active")
     // Non-inner, so this narrows the embedded rows only. A product left with no
-    // active selection still renders — it sorts last with a null rationale.
+    // active selection still renders — it sorts last with a null trail slug.
     .eq("curated_product_selections.state", "active");
   if (error) {
     // PGRST205 = table not in PostgREST schema cache (migration pending or
     // schema cache stale), matching saved-brands.ts. 42703 was observed from
-    // staging when the existing table lacked the new highlight columns.
+    // staging when the existing table lacked the newly renamed columns.
     // Degrading to "no curated section" is right here — this is one section of
     // a page whose subject is the brand — but it is no longer silent.
     if (isSchemaLag(error)) {
@@ -403,7 +399,7 @@ export async function getPublishedCuratedProductsForBrand(
     .map(toCuratedProduct)
     .sort(
       (a, b) =>
-        (a.highlightPosition ?? UNPLACED) - (b.highlightPosition ?? UNPLACED) ||
+        (a.productPosition ?? UNPLACED) - (b.productPosition ?? UNPLACED) ||
         a.createdAt.localeCompare(b.createdAt) ||
         a.key.localeCompare(b.key),
     );
@@ -412,7 +408,12 @@ export async function getPublishedCuratedProductsForBrand(
 /**
  * The bounded, cross-brand projection for the homepage's selected-product
  * rail. It shares the brand-page publication/evidence gates, then narrows to
- * approved, non-test brands, renderable product images, and a live rationale.
+ * approved, non-test brands and renderable product images.
+ *
+ * IT DOES NOT REQUIRE A TRAIL PLACEMENT. `product_description_zh` is NOT NULL,
+ * so every published product already carries the copy the wall needs; the old
+ * "must have a rationale from a selection or a highlight" filter existed only
+ * because the copy used to live on the placement (DEV-1496).
  *
  * This read is intentionally not cached: publishing already revalidates the
  * homepage, while an additional cache would create an invalidation path the
@@ -501,16 +502,8 @@ export async function getPublishedCuratedProductsForHomepage(
         ...row,
         curated_product_selections: activeSelections,
       });
-      const selection = winningSelection(activeSelections);
-      const rationaleZh = selection?.rationale_zh ?? product.highlightRationaleZh;
-      const rationaleEn = selection?.rationale_en ?? product.highlightRationaleEn;
-      // The wall requires an editorial explanation from either a trail
-      // placement or the product-scoped highlight rationale.
-      if (!rationaleZh?.trim()) return null;
       return {
         ...product,
-        rationaleZh,
-        rationaleEn,
         // NULL until the backfill reaches the row; the wall falls back to 4:3.
         imageWidth: row.image_width ?? null,
         imageHeight: row.image_height ?? null,
@@ -544,18 +537,19 @@ export async function getPublishedCuratedProductsForHomepage(
 const CURATED_PRODUCT_TRAIL_READ_SELECT = `
   id, brand_id, key, name_zh, name_en, l1, l2, official_url, image_url,
   image_source_url, image_usage, lifecycle, link_state, link_checked_at,
-  source_checked_at, review_due_at, notes_zh, notes_en, highlight_position,
-  highlight_rationale_zh, highlight_rationale_en, created_at,
+  source_checked_at, review_due_at, product_description_zh,
+  product_description_en, product_position, created_at,
   curated_product_sources!inner(id, state),
-  curated_product_selections!inner(trail_slug, section_key, position, rationale_zh, rationale_en, state),
+  curated_product_selections!inner(trail_slug, section_key, position, state),
   brands!inner(slug, name, status, purchase_website, purchase_pinkoi, purchase_shopee, purchase_myship, social_instagram, social_threads, social_facebook)
 `;
 
 /**
  * Resolves the public placements for one trail. Unlike the homepage rail this
  * deliberately keeps every product from a brand: a trail can use one brand in
- * several distinct roles. Each active selection becomes one card, and the
- * selection rationale always wins over brand-page highlight copy.
+ * several distinct roles. Each active selection becomes one card, and every
+ * card renders the product's own `product_description` — a trail no longer
+ * carries copy of its own.
  */
 export async function getPublishedCuratedProductsForTrail(
   trailSlug: string,
@@ -670,12 +664,16 @@ export type CuratedProductWriteInput = {
   imageUsage?: string;
   sourceCheckedAt?: string | null;
   reviewDueAt?: string | null;
-  notesZh?: string | null;
-  notesEn?: string | null;
-  highlightPosition?: number | null;
+  /**
+   * The single editorial text field, and the only one. REQUIRED, because the
+   * column is NOT NULL: a create that could omit it would fail at the database
+   * with a 23502 the editor cannot read. `CuratedProductUpdateInput` is a
+   * `Partial` of this, so a patch may still leave it untouched.
+   */
+  productDescriptionZh: string;
+  productDescriptionEn?: string | null;
+  productPosition?: number | null;
   wallPosition?: number | null;
-  highlightRationaleZh?: string | null;
-  highlightRationaleEn?: string | null;
 };
 
 /**
@@ -796,12 +794,10 @@ export async function createCuratedProduct(
         image_usage: input.imageUsage ?? "none",
         source_checked_at: input.sourceCheckedAt ?? null,
         review_due_at: input.reviewDueAt ?? null,
-        notes_zh: input.notesZh ?? null,
-        notes_en: input.notesEn ?? null,
-        highlight_position: input.highlightPosition ?? null,
+        product_description_zh: input.productDescriptionZh,
+        product_description_en: input.productDescriptionEn ?? null,
+        product_position: input.productPosition ?? null,
         wall_position: input.wallPosition ?? null,
-        highlight_rationale_zh: input.highlightRationaleZh ?? null,
-        highlight_rationale_en: input.highlightRationaleEn ?? null,
         lifecycle: "candidate",
         proposed_by: "admin",
       };
@@ -892,19 +888,20 @@ export async function updateCuratedProduct(
       if (input.reviewDueAt !== undefined) {
         payload.review_due_at = input.reviewDueAt ?? null;
       }
-      if (input.notesZh !== undefined) payload.notes_zh = input.notesZh ?? null;
-      if (input.notesEn !== undefined) payload.notes_en = input.notesEn ?? null;
-      if (input.highlightPosition !== undefined) {
-        payload.highlight_position = input.highlightPosition ?? null;
+      // NOT NULL: an explicit null here is a 23502, so the key is only carried
+      // when the caller supplied real text. Clearing the description is not an
+      // operation the column allows.
+      if (input.productDescriptionZh !== undefined) {
+        payload.product_description_zh = input.productDescriptionZh;
+      }
+      if (input.productDescriptionEn !== undefined) {
+        payload.product_description_en = input.productDescriptionEn ?? null;
+      }
+      if (input.productPosition !== undefined) {
+        payload.product_position = input.productPosition ?? null;
       }
       if (input.wallPosition !== undefined) {
         payload.wall_position = input.wallPosition ?? null;
-      }
-      if (input.highlightRationaleZh !== undefined) {
-        payload.highlight_rationale_zh = input.highlightRationaleZh ?? null;
-      }
-      if (input.highlightRationaleEn !== undefined) {
-        payload.highlight_rationale_en = input.highlightRationaleEn ?? null;
       }
       if (Object.keys(payload).length === 0) return;
 
@@ -1108,13 +1105,15 @@ export async function retireCuratedProductSource(
   );
 }
 
+/**
+ * A placement is WHERE a product sits, and nothing else (DEV-1496). It carries
+ * no copy: the card renders the product's own `product_description`.
+ */
 export type CuratedProductSelectionInput = {
   productId: string;
   trailSlug: string;
   sectionKey: string;
   position?: number;
-  rationaleZh: string;
-  rationaleEn?: string | null;
 };
 
 export type CuratedProductSelectionKey = Pick<
@@ -1133,21 +1132,15 @@ async function validateSelectionInput(
   trailSlug: string;
   sectionKey: string;
   position: number;
-  rationaleZh: string;
-  rationaleEn: string | null;
 }> {
   const trailSlug = input.trailSlug.trim();
   const sectionKey = input.sectionKey.trim();
-  const rationaleZh = input.rationaleZh.trim();
   const position = input.position ?? 0;
   if (!trailSlug || !sectionKey) {
     throw new Error("Trail and section are required for a product placement");
   }
   if (!Number.isInteger(position) || position < 0) {
     throw new Error("Trail placement position must be a non-negative integer");
-  }
-  if (!rationaleZh) {
-    throw new Error("A Chinese selection rationale is required");
   }
 
   const trail = await getTrailBySlug(trailSlug);
@@ -1156,13 +1149,7 @@ async function validateSelectionInput(
     throw new Error(`Unknown section "${sectionKey}" for discovery trail "${trailSlug}"`);
   }
 
-  return {
-    trailSlug,
-    sectionKey,
-    position,
-    rationaleZh,
-    rationaleEn: input.rationaleEn?.trim() || null,
-  };
+  return { trailSlug, sectionKey, position };
 }
 
 /** Places or updates a product on the composite selection primary key. */
@@ -1218,8 +1205,6 @@ export async function upsertCuratedProductSelection(
             trail_slug: validated.trailSlug,
             section_key: validated.sectionKey,
             position: validated.position,
-            rationale_zh: validated.rationaleZh,
-            rationale_en: validated.rationaleEn,
             state: "active",
           },
           { onConflict: "product_id,trail_slug,section_key" },
@@ -1295,8 +1280,6 @@ type AdminCuratedProductSelection = {
   trailSlug: string;
   sectionKey: string;
   position: number;
-  rationaleZh: string;
-  rationaleEn: string | null;
 };
 
 /**
@@ -1324,11 +1307,9 @@ export type AdminCuratedProduct = {
   proposedBy: string;
   sourceCheckedAt: string | null;
   reviewDueAt: string | null;
-  notesZh: string | null;
-  notesEn: string | null;
-  highlightPosition: number | null;
-  highlightRationaleZh: string | null;
-  highlightRationaleEn: string | null;
+  productDescriptionZh: string;
+  productDescriptionEn: string | null;
+  productPosition: number | null;
   wallPosition: number | null;
   updatedAt: string;
   sources: AdminCuratedProductSource[];
@@ -1379,12 +1360,11 @@ export async function listCuratedProductsForAdmin(
     .select(
       `id, brand_id, key, name_zh, name_en, l1, l2, official_url, image_url,
        image_source_url, image_usage, lifecycle, link_state, proposed_by,
-       source_checked_at, review_due_at, notes_zh, notes_en,
-       highlight_position, highlight_rationale_zh, highlight_rationale_en,
-       wall_position, updated_at,
+       source_checked_at, review_due_at, product_description_zh,
+       product_description_en, product_position, wall_position, updated_at,
        brands(slug, name),
        curated_product_sources(id, url, source_type, claim_zh, state, checked_at),
-       curated_product_selections(trail_slug, section_key, position, rationale_zh, rationale_en, state)`,
+       curated_product_selections(trail_slug, section_key, position, state)`,
     )
     .order("updated_at", { ascending: false })
     .limit(ADMIN_CURATED_PRODUCT_LIMIT);
@@ -1413,11 +1393,9 @@ export async function listCuratedProductsForAdmin(
     proposedBy: row.proposed_by ?? "admin",
     sourceCheckedAt: row.source_checked_at ?? null,
     reviewDueAt: row.review_due_at ?? null,
-    notesZh: row.notes_zh ?? null,
-    notesEn: row.notes_en ?? null,
-    highlightPosition: row.highlight_position ?? null,
-    highlightRationaleZh: row.highlight_rationale_zh ?? null,
-    highlightRationaleEn: row.highlight_rationale_en ?? null,
+    productDescriptionZh: row.product_description_zh,
+    productDescriptionEn: row.product_description_en ?? null,
+    productPosition: row.product_position ?? null,
     wallPosition: row.wall_position ?? null,
     updatedAt: row.updated_at,
     sources: (row.curated_product_sources ?? []).map((source) => ({
@@ -1434,8 +1412,6 @@ export async function listCuratedProductsForAdmin(
         trailSlug: selection.trail_slug,
         sectionKey: selection.section_key,
         position: selection.position ?? 0,
-        rationaleZh: selection.rationale_zh,
-        rationaleEn: selection.rationale_en ?? null,
       })),
   }));
 }

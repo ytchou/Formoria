@@ -17,6 +17,7 @@ function validCreate(overrides: Record<string, unknown> = {}) {
     brandId: BRAND_ID,
     nameZh: "手沖濾杯",
     l1: "home",
+    productDescriptionZh: "錐形濾杯，單孔設計。",
     ...overrides,
   };
 }
@@ -58,8 +59,7 @@ describe("curated product validation", () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.data.nameEn).toBeUndefined();
-    expect(result.data.notesZh).toBeUndefined();
-    expect(result.data.notesEn).toBeUndefined();
+    expect(result.data.productDescriptionEn).toBeUndefined();
     expect(result.data.reviewDueAt).toBeUndefined();
     // An empty patch is legal: the update writer no-ops on it rather than
     // rewriting untouched columns.
@@ -121,8 +121,7 @@ describe("curated product validation", () => {
       nameEn: null,
       officialUrl: null,
       imageSourceUrl: null,
-      notesZh: null,
-      notesEn: null,
+      productDescriptionEn: null,
       reviewDueAt: null,
     });
     expect(cleared.success).toBe(true);
@@ -137,48 +136,40 @@ describe("curated product validation", () => {
     ).toBe(false);
   });
 
-  it("rejects a highlight position with no zh rationale", () => {
-    const result = curatedProductCreateSchema.safeParse(
-      validCreate({ highlightPosition: 1 }),
-    );
+  it("rejects a create with no zh description", () => {
+    for (const value of [undefined, "", "  \t"]) {
+      const payload = validCreate();
+      if (value === undefined) delete (payload as Record<string, unknown>)
+        .productDescriptionZh;
+      else (payload as Record<string, unknown>).productDescriptionZh = value;
 
-    expect(result.success).toBe(false);
-    if (result.success) return;
-    expect(result.error.issues).toContainEqual(
-      expect.objectContaining({ path: ["highlightRationaleZh"] }),
-    );
-    expect(
-      curatedProductUpdateSchema.safeParse({ highlightPosition: 1 }).success,
-    ).toBe(false);
+      const result = curatedProductCreateSchema.safeParse(payload);
+      expect(result.success).toBe(false);
+      if (result.success) continue;
+      expect(result.error.issues).toContainEqual(
+        expect.objectContaining({ path: ["productDescriptionZh"] }),
+      );
+    }
   });
 
-  it("accepts a highlight rationale with no position", () => {
-    expect(
-      curatedProductCreateSchema.safeParse(
-        validCreate({ highlightRationaleZh: "編輯推薦理由" }),
-      ).success,
-    ).toBe(true);
-    expect(
-      curatedProductUpdateSchema.safeParse({
-        highlightRationaleZh: "編輯推薦理由",
-      }).success,
-    ).toBe(true);
+  it("accepts a create with a zh description and no en twin", () => {
+    const result = curatedProductCreateSchema.safeParse(validCreate());
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.productDescriptionZh).toBe("錐形濾杯，單孔設計。");
+    expect(result.data.productDescriptionEn).toBeUndefined();
   });
 
-  it("accepts a highlight position with a zh rationale", () => {
+  it("accepts a product_position with no extra requirement", () => {
+    // The cross-field refine is GONE (DEV-1496): a position is an ordering
+    // fact, and the description it used to demand is now mandatory anyway.
     expect(
-      curatedProductCreateSchema.safeParse(
-        validCreate({
-          highlightPosition: 0,
-          highlightRationaleZh: "編輯推薦理由",
-        }),
-      ).success,
+      curatedProductCreateSchema.safeParse(validCreate({ productPosition: 1 }))
+        .success,
     ).toBe(true);
     expect(
-      curatedProductUpdateSchema.safeParse({
-        highlightPosition: 0,
-        highlightRationaleZh: "編輯推薦理由",
-      }).success,
+      curatedProductUpdateSchema.safeParse({ productPosition: 1 }).success,
     ).toBe(true);
   });
 
@@ -213,7 +204,7 @@ describe("curated product validation", () => {
     expect(untouched.data.wallPosition).toBeUndefined();
   });
 
-  it("does not require a rationale for wallPosition", () => {
+  it("accepts a wall_position with no companion text", () => {
     expect(
       curatedProductCreateSchema.safeParse(validCreate({ wallPosition: 3 }))
         .success,
@@ -223,29 +214,15 @@ describe("curated product validation", () => {
     );
   });
 
-  it("rejects a negative highlight position", () => {
+  it("rejects a negative product_position", () => {
     const result = curatedProductUpdateSchema.safeParse({
-      highlightPosition: -1,
-      highlightRationaleZh: "編輯推薦理由",
+      productPosition: -1,
     });
 
     expect(result.success).toBe(false);
     if (result.success) return;
     expect(result.error.issues).toContainEqual(
-      expect.objectContaining({ path: ["highlightPosition"] }),
-    );
-  });
-
-  it("treats an empty-string rationale as missing", () => {
-    const result = curatedProductUpdateSchema.safeParse({
-      highlightPosition: 0,
-      highlightRationaleZh: "  \t",
-    });
-
-    expect(result.success).toBe(false);
-    if (result.success) return;
-    expect(result.error.issues).toContainEqual(
-      expect.objectContaining({ path: ["highlightRationaleZh"] }),
+      expect.objectContaining({ path: ["productPosition"] }),
     );
   });
 

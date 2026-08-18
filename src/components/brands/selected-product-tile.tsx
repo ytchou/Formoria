@@ -27,7 +27,6 @@ export type SelectedProductTileLabels = {
   cta: string;
   brandSiteCta: string;
   selectedBadge: string;
-  brandProvidedBadge: string;
   unavailable: string;
 };
 
@@ -84,12 +83,18 @@ export function SelectedProductTile({
 }: SelectedProductTileProps) {
   const isEnglish = locale === "en";
   const name = (isEnglish ? product.nameEn : product.nameZh) ?? product.nameZh;
-  const reason = isEnglish
-    ? (product.rationaleEn ?? product.rationaleZh)
-    : product.rationaleZh;
-  const fact = isEnglish
-    ? (product.notesEn ?? product.notesZh)
-    : product.notesZh;
+  /*
+   * ONE text block per tile (DEV-1496). The three fields this replaced — a
+   * selection rationale, a brand-page highlight rationale and a brand-supplied
+   * note — collapsed into `product_description`, so there is nothing left to
+   * choose between and no second badge to attach to a second block.
+   *
+   * `_zh` is the fallback because it is the NOT NULL column: an EN reader with
+   * no English twin gets the Chinese text, never an empty block.
+   */
+  const productDescription = isEnglish
+    ? (product.productDescriptionEn ?? product.productDescriptionZh)
+    : product.productDescriptionZh;
   const imageSrc = RENDERABLE_IMAGE_USAGE.has(product.imageUsage)
     ? safeImageSrc(product.imageUrl)
     : null;
@@ -140,21 +145,21 @@ export function SelectedProductTile({
   const wallRatio: WallRatio = ratio ?? DEFAULT_WALL_RATIO;
   const wallAspectRatio = wallRatio.replace(":", " / ");
   /*
-   * The wall carries NO selection rationale — product name and brand only.
+   * The wall carries NO product text — product name and brand only.
    *
-   * Removed deliberately on 2026-08-17: the reasons read as generated product
-   * specs ("lens and frame replaceable separately") rather than editorial
-   * reasons for choosing the product, and the wall is
-   * a sheet of photographs. The cost is accepted and real — the wall now shows
-   * selections with neither a per-tile trust label (removed earlier) nor a
-   * stated reason, so
-   * brand-voice.md's "always with a stated reason" is carried only by the
-   * surfaces below, and the homepage no longer exposes a machine-readable
-   * `[data-selection-rationale]` for answer engines.
+   * Removed deliberately on 2026-08-17: the copy read as generated product
+   * specs ("lens and frame replaceable separately") rather than something a
+   * reader wanted at that size, and the wall is a sheet of photographs. The
+   * cost is accepted and real — the wall shows selections with neither a
+   * per-tile trust label (removed earlier) nor any description, so
+   * brand-voice.md's commitment is carried only by the surfaces below.
    *
-   * `reason` still renders on every NON-wall mode (internal/outbound/trail)
-   * further down this file. Do not remove it there without re-reading
-   * docs/strategy/brand-voice.md:71.
+   * `productDescription` still renders on every NON-wall mode
+   * (internal/outbound/trail) further down this file. Do not remove it there
+   * without re-reading the "Trust labels" section of
+   * docs/strategy/brand-voice.md: the Formoria-selection label is a deliberate
+   * editorial choice for a specific context, argued in the trail that gathers
+   * it. (Cited by section, not by line number: the line moved once already.)
    *
    * This band still exists for the name and brand: mobile puts it in flow
    * beneath the photograph, and from `sm` it is an absolutely positioned scrim
@@ -300,24 +305,13 @@ export function SelectedProductTile({
           </Typography>
         ) : null}
 
-        {reason ? (
+        {productDescription ? (
           <>
             <Typography as="p" variant="body">
-              {reason}
+              {productDescription}
             </Typography>
             <div>
               <Badge variant="secondary">{labels.selectedBadge}</Badge>
-            </div>
-          </>
-        ) : null}
-
-        {fact ? (
-          <>
-            <Typography as="p" variant="metadata">
-              {fact}
-            </Typography>
-            <div>
-              <Badge variant="declared">{labels.brandProvidedBadge}</Badge>
             </div>
           </>
         ) : null}

@@ -34,7 +34,6 @@ export async function BrandSelectedProducts({
     cta: t("cta"),
     brandSiteCta: t("brandSiteCta"),
     selectedBadge: t("selectedBadge"),
-    brandProvidedBadge: t("brandProvidedBadge"),
     unavailable: t("unavailable"),
   };
 

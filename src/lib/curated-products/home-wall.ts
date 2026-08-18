@@ -25,13 +25,14 @@ export { DEFAULT_WALL_RATIO, WALL_RATIOS, type WallRatio };
  * wall earns TWO trail slots, so it composes to 18 slots — not the 17 this
  * comment claimed while the cap was smaller — and `ProductWall` trims back to a
  * whole 16. That trim takes its overflow from the tail's products so neither
- * reserved trail is discarded; a trail dropped there would render nowhere,
- * because `leftoverTrails` below already counts it as placed.
+ * reserved trail is discarded. That is now a COMPOSITION rule, not a
+ * content-loss rule: the homepage trails zone renders every indexable trail
+ * whether or not the wall placed it, so a trimmed trail would still reach the
+ * reader. Products are the interchangeable part of the wall, which is the
+ * reason the trim keeps taking its overflow from them.
  */
 export const MAX_HOME_WALL_PRODUCTS = 16;
 export const TRAIL_SLOT_CADENCE = 8;
-export const DIVERSITY_WINDOW_SIZE = 12;
-export const MAX_PRODUCTS_PER_L1_IN_DIVERSITY_WINDOW = 6;
 
 /**
  * The wall rotates on the Taipei calendar day, because that is the day its
@@ -75,11 +76,10 @@ export type BuildWallSlotsInput = {
 
 export type BuildWallSlotsResult = {
   slots: WallSlot[];
-  leftoverTrails: TrailEntry[];
   /**
    * Pins the per-brand cap refused. An editor who pins a third product of one
    * brand gets two on the wall; the third is reported here rather than
-   * vanishing, the same way `leftoverTrails` reports an unplaced trail.
+   * vanishing silently.
    */
   droppedPins: HomepageCuratedProduct[];
 };
@@ -194,46 +194,20 @@ function capProductsPerBrand(products: HomepageCuratedProduct[]): {
   return { kept, droppedPins };
 }
 
-function applyDiversityPass(
-  products: HomepageCuratedProduct[],
-): HomepageCuratedProduct[] {
-  const firstWindow: HomepageCuratedProduct[] = [];
-  const deferred: HomepageCuratedProduct[] = [];
-  const counts = new Map<string, number>();
-
-  for (const product of products) {
-    if (firstWindow.length >= DIVERSITY_WINDOW_SIZE) {
-      deferred.push(product);
-      continue;
-    }
-
-    const count = counts.get(product.l1) ?? 0;
-    if (count >= MAX_PRODUCTS_PER_L1_IN_DIVERSITY_WINDOW) {
-      deferred.push(product);
-      continue;
-    }
-
-    firstWindow.push(product);
-    counts.set(product.l1, count + 1);
-  }
-
-  return [...firstWindow, ...deferred];
-}
-
 /**
- * Pins first, then the day's shuffle.
+ * Pins first, then the day's shuffle, then the per-brand cap. That is the whole
+ * ordering.
  *
  * `wall_position` survives the removal of the editorial anchor spans as a PIN:
  * a product carrying one sorts ahead of everything else, in its own order, so
  * an editor can still force something to the top of the wall. Everything
  * unpinned is shuffled on the date seed.
  *
- * The diversity pass then runs over the WHOLE stream, pins included. Running it
- * on the shuffled tail alone restarts the window budget after the pins, so
- * eight pinned `home` products plus six more from the tail put fourteen
- * consecutive `home` tiles at the top — the "at most six of one L1 in the first
- * twelve" rule has to hold unconditionally to mean anything. Pins still lead
- * the stream, so a pin only moves when its own L1 has already spent the budget.
+ * NO CATEGORY-SPREAD PASS (removed DEV-1496). A per-L1 window over the first
+ * twelve tiles reordered the wall to satisfy a budget no reader was counting,
+ * and it fought the two rules that DO earn their place — the editor's pins and
+ * the daily rotation. A wall of sixteen `home` products is now simply what a
+ * day of `home` supply looks like.
  */
 function orderProducts(
   products: HomepageCuratedProduct[],
@@ -250,7 +224,7 @@ function orderProducts(
   // The per-brand cap runs over the pinned stream FIRST, so a pin always wins
   // the brand's two places rather than losing them to a shuffled sibling.
   const { kept, droppedPins } = capProductsPerBrand([...pinned, ...shuffled]);
-  return { products: applyDiversityPass(kept), droppedPins };
+  return { products: kept, droppedPins };
 }
 
 function eligibleTrail(trail: TrailEntry): boolean {
@@ -299,10 +273,8 @@ export function buildWallSlots({
     slotIndex += 1;
   }
 
-  const placedTrailSlugs = new Set(reservedTrails.map((trail) => trail.slug));
   return {
     slots,
-    leftoverTrails: trails.filter((trail) => !placedTrailSlugs.has(trail.slug)),
     droppedPins: ordered.droppedPins,
   };
 }
