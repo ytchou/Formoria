@@ -146,10 +146,24 @@ test.describe.serial("Public brand data boundary", () => {
 
   test.afterAll(async () => {
     if (!supabase) return;
-    if (eventId) await supabase.from("event_brands").delete().eq("event_id", eventId);
-    if (eventId) await supabase.from("events").delete().eq("id", eventId);
-    if (brandId) await supabase.from("brands").delete().eq("id", brandId);
-    if (actorUserId) await supabase.auth.admin.deleteUser(actorUserId);
+    const cleanupErrors: string[] = [];
+    if (eventId) {
+      const { error } = await supabase.from("event_brands").delete().eq("event_id", eventId);
+      if (error) cleanupErrors.push(`event lineup deletion failed: ${error.message}`);
+      const { error: eventError } = await supabase.from("events").delete().eq("id", eventId);
+      if (eventError) cleanupErrors.push(`event deletion failed: ${eventError.message}`);
+    }
+    if (brandId) {
+      const { error } = await supabase.from("brands").delete().eq("id", brandId);
+      if (error) cleanupErrors.push(`brand deletion failed: ${error.message}`);
+    }
+    if (actorUserId) {
+      const { error } = await supabase.auth.admin.deleteUser(actorUserId);
+      if (error) cleanupErrors.push(`actor deletion failed: ${error.message}`);
+    }
+    if (cleanupErrors.length > 0) {
+      throw new Error(`[e2e-cleanup] public data boundary cleanup failed — ${cleanupErrors.join("; ")}`);
+    }
   });
 
   test("anonymous public surfaces omit private brand data from HTML, RSC, and JSON-LD", async ({
@@ -162,13 +176,13 @@ test.describe.serial("Public brand data boundary", () => {
       }
     });
 
-    const rootResponse = await page.goto("/");
+    const rootResponse = await page.goto("/brands");
     if (rootResponse?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active");
       return;
     }
     const searchbox = page.locator(
-      'main form[role="search"] input[role="searchbox"]',
+      'main form[aria-label="依品牌或產品關鍵字篩選"] input[role="searchbox"]',
     );
     await searchbox.fill(searchToken);
     await searchbox.press("Enter");
@@ -247,7 +261,6 @@ async function openSeededRoute(
     });
   }).toPass(POLL.DB);
 }
-
 async function auditCurrentDocument(
   page: Page,
   canaries: string[],

@@ -37,8 +37,11 @@ describe('CITY_REGION_LABELS_ZH', () => {
   })
 
   it('is the short form, distinct from the full page names', () => {
+    // CITY_NAMES_ZH is already pinned against messages/zh-TW.json above, so
+    // restating one of its entries here proves nothing. What this test is for
+    // is the DISTINCTION: the region label must be the short form.
     expect(CITY_REGION_LABELS_ZH.taipei).toBe('台北')
-    expect(CITY_NAMES_ZH.taipei).toBe('臺北市')
+    expect(CITY_REGION_LABELS_ZH.taipei).not.toBe(CITY_NAMES_ZH.taipei)
   })
 })
 

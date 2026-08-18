@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
@@ -14,7 +14,10 @@ import {
   trackSearchSuggestionSelect,
 } from '@/lib/analytics'
 import type { SearchSuggestion } from '@/lib/brands/contracts'
-import { SearchSuggestions, SEARCH_SUGGESTIONS_ID } from './search-suggestions'
+import {
+  SearchSuggestions,
+  searchSuggestionOptionId,
+} from './search-suggestions'
 
 interface SearchInputProps {
   redirectTo?: string
@@ -47,6 +50,10 @@ function SearchInput({
   const abortRef = useRef<AbortController | null>(null)
   const containerRef = useRef<HTMLFormElement>(null)
   const router = useRouter()
+  // Per-instance, not a module constant: the homepage renders this field twice
+  // at `md+` (hero and nav), and one shared listbox id pointed `aria-controls`
+  // at whichever list happened to be first in the DOM.
+  const suggestionsId = useId()
 
   if (filters.search !== lastUrlSearch) {
     setLastUrlSearch(filters.search)
@@ -264,10 +271,13 @@ function SearchInput({
         role="searchbox"
         aria-label={t('search.aria')}
         aria-autocomplete="list"
-        aria-controls={showDropdown ? SEARCH_SUGGESTIONS_ID : undefined}
+        aria-controls={showDropdown ? suggestionsId : undefined}
         aria-activedescendant={
           showDropdown && selectedIndex >= 0 && suggestions[selectedIndex]
-            ? `search-suggestion-${suggestions[selectedIndex].id}`
+            ? searchSuggestionOptionId(
+                suggestionsId,
+                suggestions[selectedIndex].id,
+              )
             : undefined
         }
         placeholder={placeholder ?? t('search.placeholder')}
@@ -306,6 +316,7 @@ function SearchInput({
 
       {showDropdown && (
         <SearchSuggestions
+          id={suggestionsId}
           suggestions={suggestions}
           selectedIndex={selectedIndex}
           onSelect={handleSelect}

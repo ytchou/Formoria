@@ -56,8 +56,8 @@ export async function getUserSavedBrands(
   const approvedRows = rows.filter((row) => row.brands?.status === 'approved')
 
   // This query reads `brands` directly rather than going through `getBrands`,
-  // so it needs the hero's `brand_images` metadata hydrated on its own to know
-  // which saved cards render a logo. Only `id` and `heroImageUrl` are required.
+  // so it needs card image fields hydrated on its own. The full aligned fields
+  // let favorites share the same object-first image choice as BrandCard.
   const hydrated = await hydrateCardImageMeta(
     supabase,
     approvedRows.map((row) => ({
@@ -65,21 +65,24 @@ export async function getUserSavedBrands(
       heroImageUrl: row.brands!.hero_image_url,
     })),
   )
-  // One map, one lookup per row: the fill mode and the object-position both
-  // come from the same hero `BrandImageMeta`, so splitting them into two maps
-  // meant two passes over `hydrated` reading the same `imageAlts.at(0)`.
-  const heroMetaByBrandId = new Map(
-    hydrated.map((brand) => [brand.id, brand.imageAlts.at(0) ?? null]),
+  const imageFieldsByBrandId = new Map(
+    hydrated.map((brand) => [brand.id, brand]),
   )
 
-  return approvedRows.map((row) => ({
-    brandId: row.brand_id,
-    brandName: row.brands!.name,
-    brandSlug: row.brands!.slug,
-    heroImageUrl: row.brands!.hero_image_url ?? null,
-    savedAt: row.created_at,
-    heroImageMeta: heroMetaByBrandId.get(row.brands!.id) ?? null,
-  }))
+  return approvedRows.map((row) => {
+    const imageFields = imageFieldsByBrandId.get(row.brands!.id)
+
+    return {
+      brandId: row.brand_id,
+      brandName: row.brands!.name,
+      brandSlug: row.brands!.slug,
+      heroImageUrl: row.brands!.hero_image_url ?? null,
+      productPhotos: imageFields?.productPhotos ?? [],
+      imageAlts: imageFields?.imageAlts ?? [],
+      savedAt: row.created_at,
+      heroImageMeta: imageFields?.imageAlts.at(0) ?? null,
+    }
+  })
 }
 
 export async function saveBrand(

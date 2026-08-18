@@ -64,9 +64,9 @@ describe("SubmissionReviewDetails", () => {
     const user = userEvent.setup();
     renderDetails(makeSubmission());
 
-    const languageTabs = screen.getByRole("tablist", {
-      name: "Narrative language",
-    });
+    expect(
+      screen.getByRole("tablist", { name: "Narrative language" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Mandarin" })).toHaveAttribute(
       "aria-selected",
       "true",
@@ -284,13 +284,12 @@ describe("SubmissionReviewDetails", () => {
       within(imagesSection).getByRole("button", { name: "Edit" }),
     );
 
-    const heroButton = screen.getByRole("button", {
-      name: "Set image 1 as hero",
-    });
+    expect(
+      screen.getByRole("button", { name: "Set image 1 as hero" }),
+    ).toBeInTheDocument();
     const removeButton = screen.getByRole("button", {
       name: "Remove image 1",
     });
-    const gallery = heroButton.parentElement?.parentElement?.parentElement;
 
     expect(removeButton).not.toHaveTextContent("Remove");
   });

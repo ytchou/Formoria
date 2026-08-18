@@ -2,9 +2,13 @@ import { createClient } from '@supabase/supabase-js';
 import { test, expect } from '../fixtures/auth';
 import {
   deleteSignupTestUsers,
-  isEmailRateLimitMessage,
   signupTestEmail,
 } from '../helpers/signup-namespace';
+import {
+  capturedAuthLink,
+  deleteCapturedAuthEmail,
+  waitForCapturedAuthEmail,
+} from '../helpers/auth-email-capture';
 import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
 
 import { BUDGET } from '../budgets';
@@ -15,27 +19,9 @@ import { BUDGET } from '../budgets';
 // this browser context and a matching challenge server-side. Shortcutting the setup
 // tests a different code path than the one real users take.
 //
-// Confirming the account can't go through that same PKCE exchange, though.
-// admin.generateLink() has no code_challenge parameter (see @supabase/auth-js'
-// GenerateLinkOptions) — a link it mints can never satisfy the PKCE flow_state the
-// real signUp() created, so /auth/v1/verify falls back to the implicit flow and
-// hands back tokens in the URL *fragment*, which /auth/callback's `?code=` reader
-// never sees. This was confirmed directly against the project's auth API: signing
-// up for real and then minting a link with generateLink still redirects with
-// `#access_token=…`, never `?code=`. Reading the real confirmation email isn't a
-// fix either — formoria.com is a Cloudflare Email Routing catch-all → Drop, so that
-// mail is discarded, not delivered anywhere retrievable.
-//
-// So confirmation goes through /auth/callback's `test_token_hash` fallback instead
-// (PLAYWRIGHT_TEST-gated, see route.ts): generateLink's `hashed_token` verifies via
-// supabase.auth.verifyOtp(), the same call a real email-OTP confirmation would use.
-// That still exercises the callback's full onboarding handoff — new-user detection,
-// locale, redirect — just via the OTP branch instead of the PKCE code-exchange one.
-//
-// Cost of doing it properly: signUp sends a confirmation email, so this journey is
-// gated by Supabase's PROJECT-WIDE email quota (429). That quota is not per-address,
-// so no namespace can dodge it. When it is exhausted the journey SKIPS — never
-// passes — for the same reason as auth-signup.spec.ts.
+// The staging Send Email Hook captures the real Auth link without external
+// delivery. This journey follows that link, so it exercises deployed Auth and
+// the app callback rather than an admin-generated token shortcut.
 
 test.describe.serial('Auth — signup to first value', () => {
   test.skip(!process.env.SUPABASE_SERVICE_ROLE_KEY, 'requires service role key');
@@ -62,14 +48,11 @@ test.describe.serial('Auth — signup to first value', () => {
     );
 
     expect(baseURL, 'baseURL must be configured').toBeTruthy();
-    // Strip a trailing slash so a `vars.PRODUCTION_BASE_URL` ending in `/`
-    // cannot produce a `//auth/callback` redirectTo that fails Supabase's
-    // allow-list match.
-    const callbackUrl = `${baseURL!.replace(/\/$/, '')}/auth/callback`;
-
     const email = signupTestEmail('journey', testInfo.workerIndex);
     const password = `SignupJourney${Date.now()}A!`;
     let userId: string | null = null;
+    let captureId: string | null = null;
+    const createdAfter = new Date().toISOString();
 
     try {
       // 1. Real UI signup — this is what establishes the PKCE verifier cookie in
@@ -93,11 +76,9 @@ test.describe.serial('Auth — signup to first value', () => {
           .catch(() => null);
         const observed = `url=${anonPage.url()} error=${alertText?.trim() || '(no error alert rendered)'}`;
 
-        if (isEmailRateLimitMessage(alertText)) {
-          test.skip(true, `Supabase project-wide email quota exhausted — ${observed}`);
-          return;
-        }
-        expect(observed, 'UI signup did not reach /auth/sign-in and was not rate limited').toBe(
+        // Auth email quota exhaustion is an infrastructure failure. Do not
+        // convert it into a skipped test or a green release gate.
+        expect(observed, 'UI signup did not reach /auth/sign-in').toBe(
           'redirected to /auth/sign-in with the confirmation message',
         );
       }
@@ -112,24 +93,16 @@ test.describe.serial('Auth — signup to first value', () => {
         'the journey must start from an UNCONFIRMED account',
       ).toBeNull();
 
-      // 2. Mint the confirmation token in place of reading an inbox (dropped by the
-      //    Cloudflare catch-all) or an actual PKCE-compatible link, which
-      //    generateLink cannot produce — see the module comment above.
-      const { data: link, error: linkError } = await admin.auth.admin.generateLink({
-        type: 'signup',
-        email,
-        password,
-        options: { redirectTo: callbackUrl },
+      // 2. Read the actual link captured by the staging Auth hook.
+      const capture = await waitForCapturedAuthEmail({
+        recipient: email,
+        action: 'signup',
+        createdAfter,
       });
-      expect(linkError?.message ?? null, 'admin.generateLink must succeed').toBeNull();
-      const tokenHash = link.properties?.hashed_token;
-      expect(tokenHash, 'generateLink must return a hashed_token').toBeTruthy();
+      captureId = capture.id;
 
-      // 3. Confirm through /auth/callback's test-only OTP fallback (PLAYWRIGHT_TEST-
-      //    gated, see route.ts) instead of clicking the link. Same browser context
-      //    as step 1; the confirmation itself goes through verifyOtp rather than the
-      //    PKCE exchange, but everything downstream in the callback is identical.
-      await anonPage.goto(`${callbackUrl}?test_token_hash=${encodeURIComponent(tokenHash!)}`);
+      // 3. Follow the captured URL through Supabase Auth into the app callback.
+      await anonPage.goto(capturedAuthLink(capture));
 
       // 4. Onboarding handoff — callback marks a <60s-old account as new and sends
       //    it to the zh-TW dashboard (bare path, localePrefix: 'as-needed').
@@ -169,10 +142,11 @@ test.describe.serial('Auth — signup to first value', () => {
       if (userId) {
         const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
         if (deleteError) {
-          console.warn(`[e2e-cleanup] journey user deletion failed: ${deleteError.message}`);
+          throw new Error(`[e2e-cleanup] journey user deletion failed: ${deleteError.message}`);
         }
       }
-      await deleteSignupTestUsers();
+      await deleteCapturedAuthEmail(captureId);
+      await deleteSignupTestUsers(undefined, { throwOnError: true });
     }
   });
 });

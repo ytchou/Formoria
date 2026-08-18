@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  getChannelSourceLabel,
   groupChannelsByRegion,
   groupChannelsForDisplay,
   normalizeChannelName,
@@ -11,7 +10,6 @@ type ChannelRow = {
   id: string;
   name: string;
   channelType: string;
-  categoryLabel: string | null;
   regionLabel: string | null;
   address: string | null;
   url: string | null;
@@ -25,21 +23,11 @@ type ChannelRow = {
   removedAt: string | null;
 };
 
-describe("getChannelSourceLabel", () => {
-  it("keeps malformed evidence URLs renderable instead of throwing", () => {
-    expect(getChannelSourceLabel("http://")).toBe("http://");
-    expect(getChannelSourceLabel("https://www.example.com/stockists")).toBe(
-      "example.com",
-    );
-  });
-});
-
 function channelRow(overrides: Partial<ChannelRow> = {}): ChannelRow {
   return {
     id: "channel-1",
     name: "登山友",
     channelType: "online",
-    categoryLabel: null,
     regionLabel: null,
     address: null,
     url: null,
@@ -117,7 +105,45 @@ describe("groupChannelsForDisplay", () => {
     expect(result.confirmed.at(0)).toMatchObject({
       status: "confirmed",
       confirmedBy: "evidence",
+      evidenceSource: "official_website",
     });
+  });
+
+  // Only the curated import guarantees the evidence is the brand's own site, so
+  // every other evidence-backed source must not claim it.
+  it("marks non-import evidence as a generic source, not the official website", () => {
+    const result = groupChannelsForDisplay([
+      channelRow({
+        source: "enriched",
+        sourceUrl: "https://www.example-directory.tw/shops/1",
+      }),
+    ]);
+
+    expect(result.confirmed.at(0)).toMatchObject({
+      status: "confirmed",
+      confirmedBy: "evidence",
+      evidenceSource: "other",
+    });
+  });
+
+  it("leaves evidenceSource unset when nothing backs the row", () => {
+    const result = groupChannelsForDisplay([
+      channelRow({ ownerStatus: "confirmed", sourceUrl: null }),
+    ]);
+
+    expect(result.confirmed.at(0)).toMatchObject({ confirmedBy: "owner" });
+    expect(result.confirmed.at(0)?.evidenceSource).toBeUndefined();
+  });
+
+  it("does not send the evidence source URL to the client", () => {
+    const result = groupChannelsForDisplay([
+      channelRow({
+        source: "import",
+        sourceUrl: "https://hanchor.com.tw/pages/stockists",
+      }),
+    ]);
+
+    expect(result.confirmed.at(0)).not.toHaveProperty("sourceUrl");
   });
 
   it("keeps source evidence authoritative after community confirmations", () => {
@@ -203,7 +229,6 @@ describe("groupChannelsByRegion", () => {
       id: "channel-1",
       name: "通路",
       channelType: "offline",
-      categoryLabel: null,
       regionLabel: null,
       address: null,
       url: null,

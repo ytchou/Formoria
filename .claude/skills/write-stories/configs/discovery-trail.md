@@ -4,8 +4,8 @@ A story organised around a **reader's situation** — 「在小空間裡，留�
 「小空間也能招待一兩位朋友」, 「讓通勤少一點負擔」.
 
 The reader does not know the product name. They know how they want their life to
-feel. This is the shape closest to Formoria's mission: it repairs the broken path
-from inspiration to purchase, which a keyword search cannot do because the reader
+feel. This is the shape closest to Formoria's mission: it reconnects the path
+after the moment of liking, which a keyword search cannot do because the reader
 has no keyword.
 
 Candidate situations and their per-candidate watch-outs live in the DEV-1427
@@ -18,9 +18,9 @@ A trail earns the name by holding a **cross-category argument**. If every produc
 in the slate comes from one category, the situation was decoration — the piece is
 a category page with a nicer title, and it should be filed as one.
 
-**Hard rule: no single product category may exceed half the slate.** DEV-1427
-states it for lighting in the reading-corner candidate; it generalises. The
-moment lighting is six of ten, it is a Lighting page wearing a trail's title.
+**Hard rule: no single L2 product subcategory may exceed half the slate.**
+DEV-1427 states it for lighting in the reading-corner candidate; it generalises.
+The moment lighting is six of ten, it is a Lighting page wearing a trail's title.
 
 If you cannot get under half without padding, that is real evidence: the
 situation is not yet a trail. Say so in the hand-off instead of forcing it.
@@ -66,13 +66,14 @@ situation is not yet a trail. Say so in the hand-off instead of forcing it.
   gets wrong most: a baseline draft assumed a co-resident throughout and only
   noticed afterwards. Someone living alone must be able to read the whole piece
   without being written around. Same for budget, region, and body.
-- **Tag with every L1 category the slate actually spans**, which for a genuine
-  trail is more than one. A single product-type tag on a trail is a signal the
-  cross-category test failed.
+- **Tag with the L1 product category that best describes the trail**, such as
+  `home` for a reading-corner trail. One L1 tag is valid; diversity is evaluated
+  entirely by the L2 product subcategories represented in the slate.
 
-## Deferred: the Trail surface
+## Shipped: the Trail surface
 
 「主題選物」 is the reader-facing label. "Trail" is the internal content-model
-term and does not appear in prose. The dedicated Trail route (DEV-1419) does not
-exist yet, so a trail publishes as a Story under `content/stories/` today. Do not
-imply a route, URL, or section that has not shipped.
+term and does not appear in prose. Published trails live in `content/trails/`
+and the reader-facing surface is `/discover/<slug>`. Keep the route out of prose
+unless the reader needs a link; sections remain branches of the situation, not
+product-category labels.

@@ -34,7 +34,9 @@ import {
 import {
   revalidateLocalizedPath,
   revalidatePublicBrands,
+  revalidatePublicStockists,
 } from '@/lib/cache/public-brand-cache'
+import { CITY_SLUGS, citySlugFromName } from '@/lib/constants/taiwan-cities'
 import { isOwnerOf } from '@/lib/services/brand-owners'
 import type { ChannelType } from '@/lib/types/brand-channel'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -113,6 +115,7 @@ export async function confirmChannelAction(
 
       const confirmationCount = await confirmChannel(user.id, channelId)
       revalidatePublicBrands([brandSlug])
+      revalidatePublicStockists()
       return { confirmationCount }
     } catch (error) {
       console.error('[brands:confirmChannel]', error)
@@ -160,17 +163,19 @@ export async function submitChannelInfoAction(
       const brandSlug = getFormString(formData, 'brandSlug')
       if (!brandSlug) return { error: t('missing_brand_slug') }
 
+      const region = getFormString(formData, 'region')
       const result = await submitChannel(user.id, brandId, {
         name: getFormString(formData, 'name'),
         channelType: getFormString(formData, 'channelType') as ChannelType,
-        category: getFormString(formData, 'category'),
-        region: getFormString(formData, 'region'),
+        region,
         address: getFormString(formData, 'address'),
         url: getFormString(formData, 'url'),
       })
       if (!result.ok) return { error: t(result.code) }
 
       revalidatePublicBrands([brandSlug])
+      const city = citySlugFromName(region) ?? CITY_SLUGS.find((slug) => slug === region)
+      revalidatePublicStockists(city)
       return { success: true }
     } catch (error) {
       console.error('[brands:submitChannelInfo]', error)
@@ -193,6 +198,7 @@ export async function ownerModerateChannelAction(
       if (!result.ok) return { error: result.code }
 
       revalidatePublicBrands([brandSlug])
+      revalidatePublicStockists(result.city)
       return { success: true }
     } catch (error) {
       console.error('[brands:ownerModerateChannel]', error)

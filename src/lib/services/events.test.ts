@@ -9,6 +9,7 @@ import {
   eventExhibitorRowToDomain,
   eventBrandRowToDomain,
   eventRowToDomain,
+  fetchBrandEventParticipations,
   fetchEventBrandCounts,
   fetchEventBrandLinks,
   fetchEventExhibitors,
@@ -117,6 +118,52 @@ function joinRow(
 }
 
 /**
+ * Row shape of the per-brand participation read. Deliberately NOT `JoinFixture`:
+ * that one embeds `events(slug, status)` for the lineup query, while this read
+ * needs the event's name and dates. Separate fixtures make a query that lands
+ * on the wrong branch return nothing rather than a plausible-looking row.
+ */
+type BrandEventFixture = {
+  brand_id: string;
+  booth: string | null;
+  area: string | null;
+  area_en: string | null;
+  sort_order: number;
+  events: {
+    slug: string;
+    name: string;
+    name_en: string | null;
+    starts_on: string;
+    ends_on: string;
+    status: string;
+  };
+};
+
+function brandEventRow(
+  overrides: Partial<Omit<BrandEventFixture, "events">> & {
+    events: Partial<BrandEventFixture["events"]>;
+  },
+): BrandEventFixture {
+  return {
+    brand_id: "brand-woky",
+    booth: null,
+    area: null,
+    area_en: null,
+    sort_order: 0,
+    ...overrides,
+    events: {
+      slug: "taipei-craft-market-2026",
+      name: "Taipei Craft Market 2026",
+      name_en: null,
+      starts_on: "2026-08-06",
+      ends_on: "2026-08-09",
+      status: "published",
+      ...overrides.events,
+    },
+  };
+}
+
+/**
  * Only `slug` and `name` are read by the ordering and composition paths under
  * test; the rest of `Brand` is irrelevant here and inventing it would pin
  * fields these functions never touch.
@@ -180,6 +227,7 @@ type QueryCall = {
 const queries: QueryCall[] = [];
 let eventsTable: EventRow[] = [];
 let eventBrandsTable: JoinFixture[] = [];
+let brandEventsTable: BrandEventFixture[] = [];
 let eventExhibitorsTable: EventExhibitorJoinRow[] = [];
 let queryError: { message: string } | null = null;
 
@@ -225,12 +273,18 @@ function readPath(row: unknown, column: string): unknown {
 }
 
 function resolveRows(call: QueryCall): unknown[] {
+  // `event_brands` is read by more than one query, so the table name alone does
+  // not identify the fixture: the per-brand participation read is the only one
+  // that filters on `brand_id`, and it gets its own table so a lineup fixture
+  // can never silently satisfy it (or vice versa).
   const source: unknown[] =
     call.table === "events"
       ? eventsTable
       : call.table === "event_exhibitors"
         ? eventExhibitorsTable
-        : eventBrandsTable;
+        : call.eqFilters.some(([column]) => column === "brand_id")
+          ? brandEventsTable
+          : eventBrandsTable;
 
   let rows = source.filter(
     (row) =>
@@ -328,6 +382,7 @@ describe("events service", () => {
     queryError = null;
     eventsTable = [];
     eventBrandsTable = [];
+    brandEventsTable = [];
     eventExhibitorsTable = [];
   });
 
@@ -710,6 +765,118 @@ describe("events service", () => {
     expect(
       await fetchPublishedEventBySlug(clientDouble(), "draft-market"),
     ).toBeNull();
+  });
+
+  it("fetchBrandEventParticipations_orders_most_recent_first", async () => {
+    // The brand page leads with the latest appearance: "exhibited at X" is only
+    // a useful fact if the most current one is the one a reader sees first.
+    // Fixture order is deliberately the reverse of the expected output, so a
+    // fetcher that returned rows as they arrived would fail here.
+    brandEventsTable = [
+      brandEventRow({
+        booth: "K1-23",
+        events: {
+          slug: "taiwan-creative-expo-2025",
+          name: "Taiwan Creative Expo 2025",
+          starts_on: "2025-08-01",
+          ends_on: "2025-08-05",
+        },
+      }),
+      brandEventRow({
+        booth: "S-07",
+        events: {
+          slug: "taiwan-creative-expo-2026",
+          name: "Taiwan Creative Expo 2026",
+          starts_on: "2026-08-06",
+          ends_on: "2026-08-09",
+        },
+      }),
+    ];
+
+    const rows = await fetchBrandEventParticipations(
+      clientDouble(),
+      "brand-woky",
+    );
+
+    expect(rows.map((row) => [row.eventSlug, row.booth])).toEqual([
+      ["taiwan-creative-expo-2026", "S-07"],
+      ["taiwan-creative-expo-2025", "K1-23"],
+    ]);
+  });
+
+  it("fetchBrandEventParticipations_excludes_unpublished_events", async () => {
+    // A draft or hidden event must not leak its name, dates, or booth onto a
+    // public brand page — the same guard the event pages themselves apply.
+    brandEventsTable = [
+      brandEventRow({
+        events: { slug: "published-market", starts_on: "2026-08-06" },
+      }),
+      brandEventRow({
+        events: {
+          slug: "draft-market",
+          starts_on: "2026-09-01",
+          ends_on: "2026-09-02",
+          status: "draft",
+        },
+      }),
+    ];
+
+    const rows = await fetchBrandEventParticipations(
+      clientDouble(),
+      "brand-woky",
+    );
+
+    expect(rows.map((row) => row.eventSlug)).toEqual(["published-market"]);
+  });
+
+  it("fetchBrandEventParticipations_keeps_a_null_booth_as_null", async () => {
+    // Not every lineup row records a booth. The service hands `null` through
+    // untouched rather than substituting a placeholder: the component is what
+    // decides whether the booth line renders at all.
+    brandEventsTable = [
+      brandEventRow({ booth: null, area: "Zone K1", area_en: null, events: {} }),
+    ];
+
+    const rows = await fetchBrandEventParticipations(
+      clientDouble(),
+      "brand-woky",
+    );
+
+    expect(rows[0]).toMatchObject({
+      booth: null,
+      area: "Zone K1",
+      areaEn: null,
+      eventName: "Taipei Craft Market 2026",
+      startsOn: "2026-08-06",
+      endsOn: "2026-08-09",
+    });
+  });
+
+  it("fetchBrandEventParticipations_returns_empty_for_a_brand_with_no_events", async () => {
+    // The absent-section contract: most approved brands have no event link, so
+    // `[]` is the normal answer and the page must not render an empty heading.
+    brandEventsTable = [brandEventRow({ brand_id: "brand-other", events: {} })];
+
+    expect(
+      await fetchBrandEventParticipations(clientDouble(), "brand-woky"),
+    ).toEqual([]);
+  });
+
+  it("fetchBrandEventParticipations_degrades_to_empty_on_query_error", async () => {
+    // Deliberately unlike `fetchPublishedEvents`, which throws: this read hangs
+    // off the brand detail page, and a supplementary section must never be able
+    // to take a brand page down. The error is still logged.
+    queryError = { message: "connection reset" };
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    await expect(
+      fetchBrandEventParticipations(clientDouble(), "brand-woky"),
+    ).resolves.toEqual([]);
+
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 
   it("fetchEventBrandLinks_pages_past_the_max_rows_cap", async () => {

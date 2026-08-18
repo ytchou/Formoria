@@ -311,6 +311,9 @@ describe("self-heal incident contracts", () => {
       "recovered_no_change",
     );
     expect(terminalOutcome({ reviewReady: true })).toBe("review_ready");
+    expect(terminalOutcome({ repairBlocked: true, recoveredNoChange: true })).toBe(
+      "repair_blocked",
+    );
     expect(terminalOutcome({})).toBe("repair_blocked");
   });
 });

@@ -9,7 +9,7 @@
 // that module pulls `node:fs`, `node:path`, `yaml` and `zod`, and the plan's
 // performance budget forbids `yaml` reaching the client bundle. These
 // classifiers are pure, so their import graph must stay pure too.
-import { PAGE_TYPES } from '../keyword-map-constants'
+import type { PageType } from '../keyword-map-constants'
 
 export const QUERY_CLUSTERS = [
   'branded',
@@ -81,9 +81,7 @@ export function classifyQuery(raw: string): QueryClassification {
   }
 }
 
-const LANDING_PAGE_TYPES = [...PAGE_TYPES, 'event', 'other/static'] as const
-
-export type LandingPageType = (typeof LANDING_PAGE_TYPES)[number]
+export type LandingPageType = PageType | 'event' | 'other/static'
 
 export type LandingPageClassification = {
   raw: string

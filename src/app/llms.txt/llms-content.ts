@@ -25,7 +25,7 @@ export function formatLlmsTxt({ links, categories }: LlmsContent): string {
   return [
     '# Formoria',
     '',
-    'Formoria is a Taiwanese brand discovery and curation platform built to make Taiwanese brands easier to discover, choose, and grow. Its searchable, community-built directory is the foundation of that mission.',
+    'Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it. It currently starts with a searchable directory of listed Taiwanese brands; content selected by Formoria is labelled separately. Formoria owns inspiration, selection, context, and the outbound route. Brands or retailers remain responsible for price, variants, inventory, checkout, fulfilment, and after-sales service.',
     '',
     '## Links',
     ...linkLines,

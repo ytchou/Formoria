@@ -90,6 +90,10 @@ export const NON_SERVICE_ENV: Readonly<Record<string, string>> = {
   FORMORIA_LINK_HEALTH_URL: "Optional internal health-agent link target.",
   FORMORIA_RUNTIME_URL:
     "Deployment-specific auth and redirect origin, not a provider service.",
+  STAGING_BASE_URL:
+    "Canonical staging E2E target origin, not a provider service.",
+  E2E_ORIGIN_SECRET:
+    "Staging E2E origin authentication secret, not a provider service.",
   CURATION_WORKER_URL: "Internal worker routing target, not a credential.",
   NEXT_PUBLIC_SITE_URL:
     "Public host used by absolute links and the availability probe; not a credential.",
@@ -138,6 +142,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       "NEXT_PUBLIC_SUPABASE_URL",
       "NEXT_PUBLIC_SUPABASE_ANON_KEY",
       "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_DB_URL",
+      "SUPABASE_PROJECT_REF",
       "HEALTH_AGENT_READ_DATABASE_URL",
       "HEALTH_AGENT_READ_DATABASE_PASSWORD",
       "HEALTH_AGENT_WRITE_DATABASE_URL",
@@ -232,7 +238,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "customer-flow",
     operationalSection: "production",
     operationalKind: "dependency",
-    envVars: ["RESEND_API_KEY", "E2E_RESEND_API_KEY"],
+    envVars: ["RESEND_API_KEY"],
     status: "active",
     plan: {
       kind: "free",
@@ -280,7 +286,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "customer-critical",
     operationalSection: "production",
     operationalKind: "dependency",
-    envVars: ["CF_ORIGIN_SECRET"],
+    envVars: ["CF_ORIGIN_SECRET", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"],
     status: "active",
     plan: {
       kind: "free",

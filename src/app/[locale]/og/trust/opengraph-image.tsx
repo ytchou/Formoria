@@ -16,17 +16,23 @@ export default async function OgImage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  // This card is the TRUST card — the route is `/og/trust`. It reads
+  // `landing.trustSeam.line`, the listings-vs-selections commitment, and NOT
+  // `manifesto.headline`, which reverted to the positioning line when the
+  // manifesto band came back on 2026-08-17. Those two keys held the same string
+  // only while the trust seam had replaced that band on the homepage. A
+  // positioning line is not a trust commitment.
   const fallbackTagline =
     locale === "en"
-      ? en.landing.manifesto.headline
-      : zhTW.landing.manifesto.headline;
+      ? en.landing.trustSeam.line
+      : zhTW.landing.trustSeam.line;
   const [fonts, markDataUri] = await Promise.all([
     getOgFonts(),
     getOgMarkDataUri(),
   ]);
 
   try {
-    const t = await getTranslations({ locale, namespace: "landing.manifesto" });
+    const t = await getTranslations({ locale, namespace: "landing.trustSeam" });
 
     return new ImageResponse(
       <OgLayout
@@ -97,7 +103,7 @@ export default async function OgImage({
               locale === "en" ? "Bricolage Grotesque" : "Noto Sans TC",
           }}
         >
-          {t("headline")}
+          {t("line")}
         </div>
       </OgLayout>,
       {

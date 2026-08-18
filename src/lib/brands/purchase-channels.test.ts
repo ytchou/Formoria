@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  PURCHASE_CAMEL_FIELDS,
   PURCHASE_CHANNELS,
-  PURCHASE_COLUMNS,
   purchaseChannelByColumn,
   purchaseChannelByPlatformSlug,
   purchaseChannelForUrl,
@@ -45,22 +43,32 @@ describe('purchase-channels registry', () => {
     expect(PURCHASE_CHANNELS.at(-1)?.key).toBe('myship')
   })
 
-  it('PURCHASE_COLUMNS and PURCHASE_CAMEL_FIELDS stay index-aligned', () => {
-    expect(PURCHASE_COLUMNS).toHaveLength(PURCHASE_CAMEL_FIELDS.length)
-    expect(PURCHASE_COLUMNS).toHaveLength(PURCHASE_CHANNELS.length)
-    PURCHASE_CHANNELS.forEach((channel, index) => {
-      expect(PURCHASE_COLUMNS[index]).toBe(channel.column)
-      expect(PURCHASE_CAMEL_FIELDS[index]).toBe(channel.camel)
-    })
-  })
+  // The previous two tests here asserted index alignment between
+  // PURCHASE_COLUMNS / PURCHASE_CAMEL_FIELDS and a round trip through
+  // purchaseChannelByColumn. Both were true by construction: the arrays are
+  // `PURCHASE_CHANNELS.map(...)` and the maps are `indexBy(PURCHASE_CHANNELS)`,
+  // so they restated `Array.prototype.map` and `Object.fromEntries`.
+  //
+  // The invariant that is NOT free is uniqueness. `indexBy` keeps the LAST
+  // entry for a repeated key, so a duplicated `column` or `platformSlug` in the
+  // registry silently collapses two channels into one lookup — the earlier
+  // channel becomes unreachable through the map while both still appear in the
+  // array, and no type catches it.
+  it('keys every channel uniquely by column, camel field, and platform slug', () => {
+    const columns = PURCHASE_CHANNELS.map((channel) => channel.column)
+    const camelFields = PURCHASE_CHANNELS.map((channel) => channel.camel)
+    const platformSlugs = PURCHASE_CHANNELS.map((channel) => channel.platformSlug)
 
-  it('purchaseChannelByColumn and purchaseChannelByPlatformSlug round-trip', () => {
-    for (const channel of PURCHASE_CHANNELS) {
-      expect(purchaseChannelByColumn[channel.column]).toBe(channel)
-      expect(purchaseChannelByPlatformSlug[channel.platformSlug]).toBe(channel)
-      expect(purchaseChannelByColumn[channel.column]).toBe(
-        purchaseChannelByPlatformSlug[channel.platformSlug]
-      )
-    }
+    expect(new Set(columns).size).toBe(PURCHASE_CHANNELS.length)
+    expect(new Set(camelFields).size).toBe(PURCHASE_CHANNELS.length)
+    expect(new Set(platformSlugs).size).toBe(PURCHASE_CHANNELS.length)
+
+    // Therefore neither lookup map lost an entry to a collision.
+    expect(Object.keys(purchaseChannelByColumn)).toHaveLength(
+      PURCHASE_CHANNELS.length
+    )
+    expect(Object.keys(purchaseChannelByPlatformSlug)).toHaveLength(
+      PURCHASE_CHANNELS.length
+    )
   })
 })

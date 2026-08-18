@@ -37,19 +37,16 @@ type RootDocumentProps = {
   children: React.ReactNode
   locale: AppLocale
   skipToContentLabel: string
-  feedbackCopy: Record<string, string>
 }
 
 export function RootDocument({
   children,
   locale,
   skipToContentLabel,
-  feedbackCopy,
 }: RootDocumentProps) {
   return (
     <html
       lang={locale}
-      data-feedback-copy={JSON.stringify(feedbackCopy)}
       className={`${inter.variable} ${bricolage.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">

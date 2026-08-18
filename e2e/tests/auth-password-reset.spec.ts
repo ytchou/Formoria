@@ -1,4 +1,7 @@
 import { test, expect } from '../fixtures/auth';
+import { createClient } from '@supabase/supabase-js';
+import { capturedAuthLink, deleteCapturedAuthEmail, waitForCapturedAuthEmail } from '../helpers/auth-email-capture';
+import { signupTestEmail } from '../helpers/signup-namespace';
 
 import { BUDGET } from '../budgets';
 // zh-TW copy from messages/zh-TW.json (auth.forgotPassword.* / auth.resetPassword.*)
@@ -6,6 +9,59 @@ const GENERIC_SUCCESS = '若此電子郵件已註冊帳號，我們已寄出密�
 const SESSION_EXPIRED = '重設連結已過期，請重新申請';
 
 test.describe('Auth — forgot password request', () => {
+  test('follows a captured recovery link and updates the password', async ({ anonPage }, testInfo) => {
+    test.setTimeout(BUDGET.TEST.JOURNEY);
+    const admin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    );
+    const email = signupTestEmail('recovery', testInfo.workerIndex);
+    const password = `Recovery-${Date.now()}A!`;
+    const createdAfter = new Date().toISOString();
+    const { data: created, error: createError } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    });
+    expect(createError?.message ?? null).toBeNull();
+    const createdUserId = created.user?.id;
+    expect(createdUserId).toBeTruthy();
+    let captureId: string | null = null;
+    try {
+      await anonPage.goto('/auth/forgot-password');
+      await anonPage.getByLabel('電子郵件', { exact: true }).fill(email);
+      await anonPage.getByRole('button', { name: '傳送重設連結', exact: true }).click();
+      await expect(anonPage.getByText(GENERIC_SUCCESS, { exact: true })).toBeVisible({
+        timeout: BUDGET.NAVIGATION,
+      });
+
+      const capture = await waitForCapturedAuthEmail({
+        recipient: email,
+        action: 'recovery',
+        createdAfter,
+      });
+      captureId = capture.id;
+      await anonPage.goto(capturedAuthLink(capture));
+      await anonPage.waitForURL(/\/auth\/reset-password/, { timeout: BUDGET.NAVIGATION });
+      const nextPassword = `Recovery-updated-${Date.now()}A!`;
+      await anonPage.getByLabel('新密碼', { exact: true }).fill(nextPassword);
+      await anonPage.getByLabel('確認新密碼', { exact: true }).fill(nextPassword);
+      await anonPage.getByRole('button', { name: '更新密碼', exact: true }).click();
+      await expect(anonPage.getByText(/密碼已更新|password updated/i)).toBeVisible({
+        timeout: BUDGET.NAVIGATION,
+      });
+    } finally {
+      const cleanupErrors = (await Promise.all([
+        deleteCapturedAuthEmail(captureId)
+          .then(() => null)
+          .catch((error: unknown) => error instanceof Error ? error.message : String(error)),
+        admin.auth.admin.deleteUser(createdUserId!).then(({ error }) => error?.message ?? null),
+      ])).filter(Boolean);
+      expect(cleanupErrors, 'recovery journey cleanup must remove every resource').toEqual([]);
+    }
+  });
+
   test('sign-in page links to the forgot-password form', async ({ anonPage }) => {
     // Auth pages can cold-compile slowly in dev.
     test.setTimeout(BUDGET.TEST.ADMIN);

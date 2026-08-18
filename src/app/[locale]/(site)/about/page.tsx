@@ -13,7 +13,11 @@ import { Link } from "@/i18n/navigation";
 import AboutHero from "@/components/about/about-hero";
 import TaiwanStats from "@/components/about/taiwan-stats";
 import MissionPillars from "@/components/about/mission-pillars";
-import { AboutCard } from "@/components/about/about-card-grid";
+import {
+  AboutCard,
+  AboutCardContent,
+  AboutCardGrid,
+} from "@/components/about/about-card-grid";
 import { buttonVariants } from "@/components/ui/button";
 import { getBrandStats, getRecentBrandCount } from "@/lib/services/brands";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
@@ -56,9 +60,8 @@ export default async function AboutPage({ params }: PageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
-  const [t, visionT, metadataT] = await Promise.all([
+  const [t, metadataT] = await Promise.all([
     getTranslations("about"),
-    getTranslations("vision"),
     getTranslations("about.metadata"),
   ]);
   const title = metadataT("title");
@@ -105,49 +108,112 @@ export default async function AboutPage({ params }: PageProps) {
           recentBrands={recentBrands ?? undefined}
         />
 
+        <section className="bg-secondary py-12 md:py-16">
+          <div className="page-gutter mx-auto max-w-6xl">
+            <h2 className="type-page-title-large text-balance">
+              {t("audiences.heading")}
+            </h2>
+            <p className="mt-4 max-w-4xl type-page-subtitle text-pretty">
+              {t("audiences.intro")}
+            </p>
+            <AboutCardGrid className="md:grid-cols-2">
+              <AboutCard>
+                <AboutCardContent
+                  eyebrow="01"
+                  heading={t("audiences.wander.heading")}
+                  body={t("audiences.wander.body")}
+                />
+              </AboutCard>
+              <AboutCard>
+                <AboutCardContent
+                  eyebrow="02"
+                  heading={t("audiences.research.heading")}
+                  body={t("audiences.research.body")}
+                />
+              </AboutCard>
+            </AboutCardGrid>
+          </div>
+        </section>
+
         <MissionPillars
           heading={t("mission.heading")}
           statement={t("mission.statement")}
           context={t("mission.context")}
           pillars={[
             {
-              heading: t("mission.promote.heading"),
-              body: t("mission.promote.body"),
+              heading: t("mission.directory.heading"),
+              body: t("mission.directory.body"),
             },
             {
-              heading: t("mission.smallBusiness.heading"),
-              body: t("mission.smallBusiness.body"),
+              heading: t("mission.editorial.heading"),
+              body: t("mission.editorial.body"),
             },
             {
-              heading: t("mission.platform.heading"),
-              body: t("mission.platform.body"),
+              heading: t("mission.connection.heading"),
+              body: t("mission.connection.body"),
             },
           ]}
         />
 
-        <section
-          id="vision"
-          className="scroll-mt-32 bg-secondary py-12 md:py-20"
-        >
+        <section className="bg-secondary py-12 md:py-16">
           <div className="page-gutter mx-auto max-w-6xl">
             <h2 className="type-page-title-large text-balance">
-              {visionT("future.sectionHeading")}
+              {t("trust.heading")}
+            </h2>
+            <p className="mt-4 max-w-4xl type-page-subtitle text-pretty">
+              {t("trust.intro")}
+            </p>
+            <AboutCardGrid className="md:grid-cols-2">
+              {(
+                ["listed", "selected", "brandProvided", "sponsored"] as const
+              ).map((label, index) => (
+                <AboutCard key={label}>
+                  <AboutCardContent
+                    eyebrow={String(index + 1).padStart(2, "0")}
+                    heading={t(`trust.${label}.heading`)}
+                    body={t(`trust.${label}.body`)}
+                  />
+                </AboutCard>
+              ))}
+            </AboutCardGrid>
+            <h3 className="mt-10 type-section-title-large text-balance">
+              {t("trust.commerceHeading")}
+            </h3>
+            <AboutCardGrid className="md:grid-cols-2">
+              <AboutCard>
+                <p className="type-page-subtitle text-pretty">
+                  {t("trust.formoriaOwns")}
+                </p>
+              </AboutCard>
+              <AboutCard>
+                <p className="type-page-subtitle text-pretty">
+                  {t("trust.merchantOwns")}
+                </p>
+              </AboutCard>
+            </AboutCardGrid>
+          </div>
+        </section>
+
+        <section id="vision" className="scroll-mt-32 py-12 md:py-20">
+          <div className="page-gutter mx-auto max-w-6xl">
+            <h2 className="type-page-title-large text-balance">
+              {t("vision.sectionHeading")}
             </h2>
             <div className="mt-8 grid gap-8 md:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)] md:items-start">
               <div>
                 <h3 className="type-section-title-large text-balance">
-                  {visionT("future.heading")}
+                  {t("vision.heading")}
                 </h3>
                 <p className="mt-5 type-page-subtitle text-pretty">
-                  {visionT("future.body")}
+                  {t("vision.body")}
                 </p>
               </div>
               <AboutCard>
                 <h3 className="type-card-title">
-                  {visionT("future.principleHeading")}
+                  {t("vision.principleHeading")}
                 </h3>
                 <p className="mt-3 type-page-subtitle text-pretty">
-                  {visionT("future.principleBody")}
+                  {t("vision.principleBody")}
                 </p>
               </AboutCard>
             </div>
@@ -177,7 +243,7 @@ export default async function AboutPage({ params }: PageProps) {
 
         <section className="relative overflow-hidden py-12 md:py-16">
           <Image
-            src="/images/hero-bg.png"
+            src="/images/hero-bg.webp"
             alt=""
             fill
             sizes="100vw"

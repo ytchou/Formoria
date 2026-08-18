@@ -1,5 +1,6 @@
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { routing } from '@/i18n/routing'
+import { citySlugToPath, type CitySlug } from '@/lib/constants/taiwan-cities'
 
 export const PUBLIC_BRAND_DATA_TAG = 'public-brand-data'
 
@@ -66,4 +67,12 @@ export function revalidatePublicEvents(slugs: readonly string[]): void {
 
   revalidateLocalizedPath('/events')
   revalidatePath('/sitemap.xml')
+}
+
+export function revalidatePublicStockists(city?: CitySlug | null): void {
+  revalidateTag(PUBLIC_BRAND_DATA_TAG, 'max')
+  revalidateLocalizedPath('/where-to-buy')
+  if (city) {
+    revalidateLocalizedPath(`/where-to-buy/${citySlugToPath(city)}`)
+  }
 }

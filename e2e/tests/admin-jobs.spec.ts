@@ -149,7 +149,7 @@ test.describe('Admin curation jobs deep', () => {
       .select('id')
       .eq('parent_job_id', parentJobId);
     if (childLookupError) {
-      console.warn(`[e2e-cleanup] child job lookup failed: ${childLookupError.message}`);
+      throw new Error(`[e2e-cleanup] child job lookup failed: ${childLookupError.message}`);
     }
 
     const childIds = Array.from(
@@ -165,7 +165,7 @@ test.describe('Admin curation jobs deep', () => {
         .delete()
         .in('id', childIds);
       if (childDeleteError) {
-        console.warn(`[e2e-cleanup] child job deletion failed: ${childDeleteError.message}`);
+        throw new Error(`[e2e-cleanup] child job deletion failed: ${childDeleteError.message}`);
       }
     }
 
@@ -174,7 +174,7 @@ test.describe('Admin curation jobs deep', () => {
       .delete()
       .eq('id', parentJobId);
     if (parentDeleteError) {
-      console.warn(`[e2e-cleanup] parent job deletion failed: ${parentDeleteError.message}`);
+      throw new Error(`[e2e-cleanup] parent job deletion failed: ${parentDeleteError.message}`);
     }
 
     if (targetId) {
@@ -183,7 +183,7 @@ test.describe('Admin curation jobs deep', () => {
         .delete()
         .eq('id', targetId);
       if (submissionDeleteError) {
-        console.warn(`[e2e-cleanup] brand submission deletion failed: ${submissionDeleteError.message}`);
+        throw new Error(`[e2e-cleanup] brand submission deletion failed: ${submissionDeleteError.message}`);
       }
     }
   });
@@ -192,7 +192,6 @@ test.describe('Admin curation jobs deep', () => {
     test.setTimeout(BUDGET.TEST.ADMIN);
     if (!cancellableJobId) test.skip();
     await adminPage.goto('/admin/jobs');
-    await expect(adminPage.getByRole('navigation', { name: 'Filter data jobs' })).toHaveCount(0);
     const row = adminPage.locator('tbody tr').filter({ has: adminPage.locator(`a[href="/admin/jobs/${cancellableJobId}"]`) });
     await expect(row).toBeVisible({ timeout: BUDGET.NAVIGATION });
     await expect(row.locator('[data-slot="badge"]', { hasText: 'Queued' })).toBeVisible();

@@ -158,7 +158,14 @@ describe('SearchInput autocomplete', () => {
     await user.keyboard('{ArrowDown}')
     const firstOption = screen.getAllByRole('option')[0]
     expect(firstOption).toHaveAttribute('aria-selected', 'true')
-    expect(input).toHaveAttribute('aria-activedescendant', 'search-suggestion-1')
+    // Option ids are namespaced by their listbox (two search fields coexist on
+    // `/`), so the assertion is that the pointer RESOLVES, not its literal text.
+    expect(input.getAttribute('aria-activedescendant')).toBe(
+      firstOption!.getAttribute('id'),
+    )
+    expect(
+      screen.getByRole('searchbox').getAttribute('aria-controls'),
+    ).toBe(screen.getByRole('listbox').getAttribute('id'))
 
     await user.keyboard('{ArrowDown}')
     const secondOption = screen.getAllByRole('option')[1]

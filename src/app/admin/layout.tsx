@@ -73,6 +73,7 @@ export default async function AdminLayout({
       : []),
     { label: t("nav.reports"), href: "/admin/reports", count: counts.reports ?? undefined },
     { label: t("nav.brands"), href: "/admin/brands" },
+    { label: t("nav.curatedProducts"), href: "/admin/curated-products" },
     { label: t("nav.corrections"), href: "/admin/corrections", count: counts.corrections ?? undefined },
     { label: t("nav.quality"), href: "/admin/quality" },
     { label: t("nav.newsletter"), href: "/admin/newsletter" },
@@ -84,7 +85,6 @@ export default async function AdminLayout({
     <RootDocument
       locale="en"
       skipToContentLabel={tCommon("skipToContent")}
-      feedbackCopy={messages.feedbackWidget as Record<string, string>}
     >
       <NextIntlClientProvider locale="en" messages={messages}>
         <div className="min-h-screen bg-background">

@@ -2,28 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   createEmailPreferences,
   unsubscribeByToken,
-  recordEmailSend,
   hasSent,
   isUnsubscribed,
   isLifecycleOptedIn,
-  setLifecycleEmailPreference,
 } from '../email-lifecycle'
 
 const mockSupabase = {
   from: vi.fn(),
-}
-
-function mockChain(data: unknown, error: unknown = null) {
-  return {
-    insert: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single: vi.fn().mockResolvedValue({ data, error }) }) }),
-    update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ data, error }) }),
-    select: vi.fn().mockReturnValue({
-      eq: vi.fn().mockReturnValue({
-        single: vi.fn().mockResolvedValue({ data, error }),
-        maybeSingle: vi.fn().mockResolvedValue({ data, error }),
-      }),
-    }),
-  }
 }
 
 describe('email-lifecycle service', () => {

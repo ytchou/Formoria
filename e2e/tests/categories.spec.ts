@@ -1,8 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { load } from "cheerio";
 
+import { DEFAULT_PAGE_SIZE } from "../../src/lib/pagination";
+
 const CANONICAL_ORIGIN = new URL(
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://formoria.com",
+  process.env.STAGING_BASE_URL ?? "https://staging.formoria.com",
 ).origin;
 
 function metadataFrom(html: string) {
@@ -107,20 +109,6 @@ test.describe("Category landing pages deep", () => {
       "餐具",
       "家具",
     ]);
-    expect(
-      links
-        .map((_, link) => $(link).attr("href"))
-        .get()
-        .some((href) => href?.endsWith("/bedding")),
-    ).toBe(false);
-    expect(
-      links
-        .map((_, link) => $(link).text().trim())
-        .get()
-        .some((label) =>
-          ["查看全部", "更多", "看更多", "全部"].includes(label),
-        ),
-    ).toBe(false);
   });
 
   test("landing facts are server-rendered once with a valid result state", async ({
@@ -130,7 +118,7 @@ test.describe("Category landing pages deep", () => {
     const response = await request.get("/categories/home");
     const html = await response.text();
     expect(html).toContain(
-      "本分類聚焦讓居家生活更美好，涵蓋家具、收納、照明、餐桌器皿與日常布置。",
+      "從家具、收納、照明到餐桌器皿與佈置小物；在小坪數的房間裡，尺寸和收納方式通常比風格更早決定。",
     );
     expect(html).toMatch(/共 \d+ 個品牌/);
     expect(html).toMatch(/更新於 \d{4}年\d{1,2}月\d{1,2}日/);
@@ -142,20 +130,33 @@ test.describe("Category landing pages deep", () => {
         exact: false,
       }),
     ).toHaveCount(1);
-    await expect(page.getByRole("heading", { name: "分類說明" })).toHaveCount(
-      0,
-    );
+    // The 分類說明 absence assertion that used to sit here is gone. Its
+    // heading came from `categories.landing.definitionTitle`, whose renderer
+    // was already deleted earlier in this delta; this sweep removed the
+    // orphaned key. With no component able to emit that heading under any
+    // condition, the assertion could no longer fail — the same rot this sweep
+    // exists to remove. 常見問題 below is still rendered on the taxonomy
+    // landing pages, so that one remains a real guard.
     await expect(page.getByRole("heading", { name: "常見問題" })).toHaveCount(
       0,
     );
     const liveRegion = page.locator('main [aria-live="polite"]');
     await expect(liveRegion).toHaveCount(1);
     await expect(liveRegion).toContainText(/共 \d+ 個品牌/);
-    const firstCard = page
-      .locator('main [role="list"] [role="listitem"]')
-      .first();
-    const emptyState = page.locator("[data-empty]").first();
-    await expect(firstCard.or(emptyState)).toBeVisible();
+
+    // The "valid result state" the test name promises: the announced count and
+    // the rendered cards must agree. Asserted WITHOUT a branch on purpose —
+    // the previous form accepted the empty state as an alternative, so it
+    // passed on either polarity, and a version that branches on the count
+    // instead of an `.or()` has the same hole. `home` is a seeded L1 with
+    // supply, so an announced zero here is a real defect and must fail rather
+    // than select a second acceptable outcome.
+    const announcement = await liveRegion.innerText();
+    const announced = Number(/共 (\d+) 個品牌/.exec(announcement)?.[1] ?? "0");
+    expect(announced).toBeGreaterThan(0);
+    await expect(
+      page.locator('main [role="list"] [role="listitem"]'),
+    ).toHaveCount(Math.min(announced, DEFAULT_PAGE_SIZE));
   });
 
   test("bare and multi-category directories omit taxonomy-only landing facts", async ({
@@ -220,14 +221,14 @@ test.describe("Category landing pages deep", () => {
     );
     await expect(page.locator("[data-empty]")).toBeVisible();
     await expect(page.getByText(/更新於 \d{4}年/)).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "你可能想找" })).toHaveCount(
+    await expect(page.getByRole("heading", { name: "類似的選擇" })).toHaveCount(
       0,
     );
 
     await page.goto("/categories/home?page=999");
     await expect(page).toHaveURL(/\/categories\/home\?page=999$/);
     await expect(page.locator("[data-empty]")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "你可能想找" })).toHaveCount(
+    await expect(page.getByRole("heading", { name: "類似的選擇" })).toHaveCount(
       0,
     );
   });

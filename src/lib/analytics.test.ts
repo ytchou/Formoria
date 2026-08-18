@@ -18,50 +18,24 @@ import {
   persistUtmTouchPoints,
   trackBrandDetailViewed,
   trackBrandCardClicked,
+  trackCuratedProductClicked,
+  trackStoryCardClicked,
   trackExternalLinkClicked,
-  trackCategoryFilterApplied,
   trackSearchExecuted,
   trackSearchResultClicked,
   trackSearchNoResults,
   trackSearchSuggestionSelect,
-  trackSubmissionFormOpened,
-  trackSubmissionFormStepCompleted,
   trackSubmissionCompleted,
-  trackSubmissionFormAbandoned,
   trackGalleryPhotoView,
   trackBrandPageShared,
-  trackSignUp,
-  trackLogin,
-  trackViewItemList,
-  trackHeroCategoryClicked,
-  trackDirectorySortChanged,
-  trackDirectoryPageNavigated,
   trackSubcategoryFilterApplied,
-  trackPriceFilterApplied,
-  trackVerificationFilterApplied,
-  trackFilterCleared,
-  trackLanguageSwitched,
-  trackBrandSaved,
-  trackBrandUnsaved,
   trackBrandLiked,
   trackBrandUnliked,
-  trackRecommendationBrandClicked,
-  trackRecommendationSectionViewed,
-  trackGalleryCompleted,
   trackFaqItemExpanded,
-  trackSubmissionPathSelected,
-  trackNewsletterSubscribed,
-  trackBrandClaimStarted,
-  trackMitDeclared,
-  trackOriginEvidenceSubmitted,
-  trackBrandClaimFormSubmitted,
-  trackBrandReported,
-  trackCtaClicked,
-  trackSubmissionFormErrorShown,
-  trackApiErrorShown,
   trackBrandDetailEngaged,
   trackSavedBrandRevisited,
 } from './analytics'
+import { ANALYTICS_EVENTS } from './analytics/events'
 
 beforeEach(() => {
   mockSendGAEvent.mockClear()
@@ -116,6 +90,10 @@ describe('getContentGroup', () => {
 
   it('maps /zh-TW/brands/some-brand to brand_detail', () => {
     expect(getContentGroup('/zh-TW/brands/some-brand')).toBe('brand_detail')
+  })
+
+  it('maps /where-to-buy to its own group', () => {
+    expect(getContentGroup('/where-to-buy/taipei')).toBe('where_to_buy')
   })
 
   it('maps /zh-TW/submit to submission', () => {
@@ -216,6 +194,60 @@ describe('persistUtmTouchPoints', () => {
 
 
 describe('analytics', () => {
+
+  it('curated_product_clicked_carries_product_and_brand', () => {
+    trackCuratedProductClicked(
+      'linen-mug',
+      'warmwood',
+      2,
+      'homepage_selected_products',
+    )
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.CURATED_PRODUCT_CLICKED, {
+      product_key: 'linen-mug',
+      brand_slug: 'warmwood',
+      position: 2,
+      selection_surface: 'homepage_selected_products',
+    })
+  })
+
+  it('story_card_clicked_fires_from_story_row', () => {
+    trackStoryCardClicked('slow-living', 1, 'homepage_latest_stories')
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.STORY_CARD_CLICKED, {
+      story_slug: 'slow-living',
+      position: 1,
+      story_surface: 'homepage_latest_stories',
+    })
+  })
+
+  it('story_card_clicked_carries the discovery trail continuation surface', () => {
+    trackStoryCardClicked('slow-living', 0, 'trail_related_stories')
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.STORY_CARD_CLICKED, {
+      story_slug: 'slow-living',
+      position: 0,
+      story_surface: 'trail_related_stories',
+    })
+  })
+
+  it('brand_card_clicked_carries_list_source', () => {
+    trackBrandCardClicked(
+      'warmwood',
+      'home',
+      3,
+      'brand-uuid',
+      'homepage_explore',
+    )
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.BRAND_CARD_CLICKED, {
+      brand_id: 'brand-uuid',
+      brand_slug: 'warmwood',
+      category: 'home',
+      position_in_grid: 3,
+      list_source: 'homepage_explore',
+    })
+  })
 
   it('includes immutable IDs and public slugs on PostHog brand interactions', () => {
     trackSearchResultClicked('private query', 2, 'brand-uuid', 'my-brand')
@@ -410,6 +442,29 @@ describe('external link surface attribution', () => {
     for (const [, properties] of mockPostHogCapture.mock.calls) {
       expect(properties).not.toHaveProperty('surface')
     }
+  })
+
+  it('preserves the trail and section in external-link attribution', () => {
+    trackExternalLinkClicked(
+      'my-brand',
+      'curated_product',
+      '/discover/small-space-reading-corner',
+      'trail:small-space-reading-corner:light-first',
+      'brand-uuid',
+    )
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith('external_link_clicked', {
+      brand_id: 'brand-uuid',
+      brand_slug: 'my-brand',
+      link_type: 'curated_product',
+      link_surface: 'trail:small-space-reading-corner:light-first',
+    })
+    expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'external_link_clicked', {
+      brand_slug: 'my-brand',
+      link_type: 'curated_product',
+      referrer_page: '/discover/small-space-reading-corner',
+      link_surface: 'trail:small-space-reading-corner:light-first',
+    })
   })
 })
 

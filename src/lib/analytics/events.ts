@@ -44,6 +44,9 @@ export const ANALYTICS_EVENTS = {
    */
   BRAND_LIST_VIEWED: 'brand_list_viewed',
 
+  /** A where-to-buy location list was rendered. */
+  STOCKIST_LIST_VIEWED: 'stockist_list_viewed',
+
   /**
    * A brand card in a list was clicked through to the brand detail page.
    * Excludes the recommendation-card variant, which emits `recommendation_brand_clicked`.
@@ -51,6 +54,7 @@ export const ANALYTICS_EVENTS = {
    * @property brand_slug {string} Brand slug.
    * @property category {string | null} Primary category of the clicked brand, null when unset.
    * @property position_in_grid {number} 0-based position of the card within the rendered grid.
+   * @property list_source {string | undefined} Stable list identifier, when the card belongs to a named rail.
    */
   BRAND_CARD_CLICKED: 'brand_card_clicked',
 
@@ -80,6 +84,31 @@ export const ANALYTICS_EVENTS = {
    * @property destination_url {string} Resolved href the tile navigates to.
    */
   HERO_CATEGORY_CLICKED: 'hero_category_clicked',
+
+  /**
+   * A curated product tile was opened.
+   * @property product_key {string} Stable key of the selected product.
+   * @property brand_slug {string} Slug of the brand owning the product.
+   * @property position {number} 0-based position within the rendered selection rail.
+   * @property selection_surface {string} Stable surface identifier for the selection rail.
+   */
+  CURATED_PRODUCT_CLICKED: 'curated_product_clicked',
+
+  /**
+   * An editorial story card was opened.
+   * @property story_slug {string} Stable slug of the story.
+   * @property position {number} 0-based position within the rendered story list.
+   * @property story_surface {string} Stable surface identifier for the story list.
+   */
+  STORY_CARD_CLICKED: 'story_card_clicked',
+
+  /**
+   * A Discovery Trail card or row was opened.
+   * @property trail_slug {string} Stable slug of the trail.
+   * @property position {number} 0-based position within the rendered trail surface.
+   * @property trail_surface {string} Stable surface identifier for the trail list.
+   */
+  TRAIL_CARD_CLICKED: 'trail_card_clicked',
 
   /**
    * The directory sort control changed value.
@@ -538,6 +567,23 @@ export const ANALYTICS_EVENTS = {
   CHALLENGE_VERIFIED: 'challenge_verified',
 
   /**
+   * Server-side: the rate limiter could not reach its backing store and opened
+   * its fail-open breaker. The name deliberately matches the `console.error`
+   * line in `security/rate-limiter.ts`, so the log and the event are one signal.
+   * Emitted from the edge runtime, where Sentry cannot see anything.
+   * @property error_message {string} Message from the store rejection (e.g. an Upstash quota error).
+   * @property cooldown_ms {number} How long the breaker stays open before re-probing.
+   */
+  RATE_LIMIT_STORE_UNAVAILABLE: 'rate_limit_store_unavailable',
+
+  /**
+   * Server-side: the rate-limit breaker closed and the store is being dialled again.
+   * @property cooldown_ms {number} Breaker cooldown window that elapsed.
+   * @property outage_ms {number} Time between the breaker opening and closing.
+   */
+  RATE_LIMIT_STORE_RECOVERED: 'rate_limit_store_recovered',
+
+  /**
    * Core Web Vitals field measurement (LCP / CLS / INP / FCP / TTFB).
    *
    * ⚠️ **Machine-emitted — never behavioural.** This is the highest-volume event in the
@@ -585,11 +631,13 @@ export const ANALYTICS_EVENTS = {
 export interface AnalyticsEventPayloads {
   // Discovery
   [ANALYTICS_EVENTS.BRAND_LIST_VIEWED]: { list_name: string; item_count: number }
+  [ANALYTICS_EVENTS.STOCKIST_LIST_VIEWED]: { list_name: string; item_count: number }
   [ANALYTICS_EVENTS.BRAND_CARD_CLICKED]: {
     brand_id: string
     brand_slug: string
     category: string | null
     position_in_grid: number
+    list_source?: string
   }
   [ANALYTICS_EVENTS.BOOTH_SELECTED]: {
     booth: string
@@ -604,6 +652,22 @@ export interface AnalyticsEventPayloads {
     brand_slug: string | null
   }
   [ANALYTICS_EVENTS.HERO_CATEGORY_CLICKED]: { category: string; destination_url: string }
+  [ANALYTICS_EVENTS.CURATED_PRODUCT_CLICKED]: {
+    product_key: string
+    brand_slug: string
+    position: number
+    selection_surface: string
+  }
+  [ANALYTICS_EVENTS.STORY_CARD_CLICKED]: {
+    story_slug: string
+    position: number
+    story_surface: string
+  }
+  [ANALYTICS_EVENTS.TRAIL_CARD_CLICKED]: {
+    trail_slug: string
+    position: number
+    trail_surface: string
+  }
   [ANALYTICS_EVENTS.DIRECTORY_SORT_CHANGED]: { sort_value: string; previous_sort: string }
   [ANALYTICS_EVENTS.DIRECTORY_PAGE_NAVIGATED]: {
     page_number: number
@@ -645,7 +709,7 @@ export interface AnalyticsEventPayloads {
     brand_slug: string
     link_type: string
     /** Named `link_surface`, NOT `surface`: the before_send scrubber overwrites a top-level `surface` with 'public' | 'product' on every event. */
-    link_surface: 'detail_page' | 'card' | 'recommendation'
+    link_surface: 'detail_page' | 'card' | 'recommendation' | 'selected_product'
   }
   [ANALYTICS_EVENTS.BRAND_PAGE_SHARED]: {
     brand_id?: string
@@ -823,6 +887,16 @@ export interface AnalyticsEventPayloads {
     height?: number
   }
   [ANALYTICS_EVENTS.CHALLENGE_VERIFIED]: { has_custom_return_path: boolean }
+  [ANALYTICS_EVENTS.RATE_LIMIT_STORE_UNAVAILABLE]: {
+    error_message: string
+    cooldown_ms: number
+    '$process_person_profile': false
+  }
+  [ANALYTICS_EVENTS.RATE_LIMIT_STORE_RECOVERED]: {
+    cooldown_ms: number
+    outage_ms: number
+    '$process_person_profile': false
+  }
   [ANALYTICS_EVENTS.WEB_VITAL_REPORTED]: {
     metric_name: string
     metric_value: number

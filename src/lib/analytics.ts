@@ -62,6 +62,13 @@ export function getContentGroup(pathname: string): string {
     return 'directory'
   }
 
+  if (
+    pathWithoutLocale === '/where-to-buy' ||
+    pathWithoutLocale.startsWith('/where-to-buy/')
+  ) {
+    return 'where_to_buy'
+  }
+
   if (pathWithoutLocale.startsWith('/brands/')) {
     return 'brand_detail'
   }
@@ -160,11 +167,13 @@ export function trackBrandCardClicked(
   category: string | null | undefined,
   positionInGrid: number,
   brandId?: string,
+  listSource?: string,
 ) {
   safeGAEvent('event', 'select_item', {
     item_id: slug,
     category: category ?? null,
     position_in_grid: positionInGrid,
+    ...(listSource ? { item_list_name: listSource } : {}),
   })
   if (brandId) {
     capturePostHogEvent(ANALYTICS_EVENTS.BRAND_CARD_CLICKED, {
@@ -172,6 +181,7 @@ export function trackBrandCardClicked(
       brand_slug: slug,
       category: category ?? null,
       position_in_grid: positionInGrid,
+      ...(listSource ? { list_source: listSource } : {}),
     })
   }
 }
@@ -203,7 +213,12 @@ export function trackExhibitorSiteClicked(
   capturePostHogEvent(ANALYTICS_EVENTS.EXHIBITOR_SITE_CLICKED, properties)
 }
 
-export type ExternalLinkSurface = 'detail_page' | 'card' | 'recommendation'
+export type ExternalLinkSurface =
+  | 'detail_page'
+  | 'card'
+  | 'recommendation'
+  | 'selected_product'
+  | `trail:${string}:${string}`
 
 export function trackExternalLinkClicked(
   slug: string,
@@ -451,8 +466,57 @@ export function trackViewItemList(listName: string, itemCount: number) {
   })
 }
 
+export function trackStockistListViewed(listName: string, itemCount: number) {
+  safeGAEvent('event', 'view_item_list', {
+    item_list_name: listName,
+    item_count: itemCount,
+  })
+  capturePostHogEvent(ANALYTICS_EVENTS.STOCKIST_LIST_VIEWED, {
+    list_name: listName,
+    item_count: itemCount,
+  })
+}
+
 export function trackHeroCategoryClicked(category: string, destinationUrl: string) {
   capturePostHogEvent(ANALYTICS_EVENTS.HERO_CATEGORY_CLICKED, { category, destination_url: destinationUrl })
+}
+
+export function trackCuratedProductClicked(
+  productKey: string,
+  brandSlug: string,
+  position: number,
+  selectionSurface: string,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.CURATED_PRODUCT_CLICKED, {
+    product_key: productKey,
+    brand_slug: brandSlug,
+    position,
+    selection_surface: selectionSurface,
+  })
+}
+
+export function trackStoryCardClicked(
+  storySlug: string,
+  position: number,
+  storySurface: string,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.STORY_CARD_CLICKED, {
+    story_slug: storySlug,
+    position,
+    story_surface: storySurface,
+  })
+}
+
+export function trackTrailCardClicked(
+  trailSlug: string,
+  position: number,
+  trailSurface: string,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.TRAIL_CARD_CLICKED, {
+    trail_slug: trailSlug,
+    position,
+    trail_surface: trailSurface,
+  })
 }
 
 export function trackDirectorySortChanged(sortValue: string, previousSort: string) {
@@ -719,14 +783,6 @@ export function trackSubmissionFormErrorShown(field: string, errorType: string, 
     field,
     error_type: errorType,
     step,
-  })
-}
-
-export function trackApiErrorShown(endpoint: string, statusCode: number, userAction: string) {
-  capturePostHogEvent(ANALYTICS_EVENTS.API_ERROR_SHOWN, {
-    endpoint,
-    status_code: statusCode,
-    user_action: userAction,
   })
 }
 

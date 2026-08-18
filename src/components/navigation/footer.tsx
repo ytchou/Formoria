@@ -8,7 +8,13 @@ export function Footer() {
 
   return (
     <footer role="contentinfo" className="border-t border-border bg-card">
-      <div className="page-gutter mx-auto max-w-screen-xl py-12">
+      {/* Not `page-shell`: that is a fixed 100rem, and every non-landing
+          `<main>` caps at `max-w-screen-xl` (80rem), so a fixed footer measure
+          diverged from the content above it by up to 160px on `/brands`,
+          `/about` and the rest. `--page-measure` is declared in globals.css and
+          defaults to 80rem; the landing page raises it to 100rem by marking its
+          `<main>` with `data-page-measure="wide"`. */}
+      <div className="page-gutter mx-auto w-full max-w-[var(--page-measure)] py-12">
         {/* Multi-column link grid */}
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
           {/* Discover */}
@@ -22,6 +28,24 @@ export function Footer() {
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t("directory")}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/where-to-buy"
+                  prefetch={false}
+                  className="type-card-description hover:text-foreground transition-colors"
+                >
+                  {t("whereToBuy")}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/discover"
+                  prefetch={false}
+                  className="type-card-description hover:text-foreground transition-colors"
+                >
+                  {t("discover")}
                 </Link>
               </li>
               <li>

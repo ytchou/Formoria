@@ -33,7 +33,8 @@ test.describe('Admin newsletter operations deep', () => {
   });
 
   test.afterAll(async () => {
-    await supabase.from('newsletter_subscribers').delete().eq('id', subscriberId);
+    const { error } = await supabase.from('newsletter_subscribers').delete().eq('id', subscriberId);
+    if (error) throw new Error(`[e2e-cleanup] admin newsletter cleanup failed: ${error.message}`);
   });
 
   test('admin filters pending subscribers without exposing action tokens', async ({ adminPage }) => {

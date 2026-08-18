@@ -14,9 +14,9 @@ import { useSavedBrands } from '@/hooks/use-saved-brands'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { brandImageFill } from '@/lib/images/focal'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
+import { selectBrandCardImage } from '@/lib/brands/image-selection'
 import { NO_SNIPPET } from '@/lib/seo/snippet'
 import { SaveBrandButton } from './save-brand-button'
 import { BrandImageFallback } from './brand-image-fallback'
@@ -29,6 +29,8 @@ interface BrandCardProps {
   preload?: boolean
   variant?: 'directory' | 'recommendation' | 'editorial'
   sourceBrandSlug?: string
+  /** Stable analytics identifier for the list or rail containing this card. */
+  listSource?: string
   /**
    * Editorial variant only: the author's line about this brand, shown in place
    * of the generated blurb so a story's own voice wins over directory copy.
@@ -44,6 +46,7 @@ export function BrandCard({
   preload = false,
   variant = 'directory',
   sourceBrandSlug,
+  listSource,
   note,
   eyebrow,
 }: BrandCardProps) {
@@ -53,17 +56,10 @@ export function BrandCard({
   // Safe on surfaces with no SavedBrandsProvider — the hook falls back to an empty set.
   const { savedIds } = useSavedBrands()
   const [imgError, setImgError] = useState(false)
-  // Index-tracked rather than `.find()`: `imageAlts` is index-aligned with
-  // `[heroImageUrl, ...productPhotos]`, and the fill mode below needs the
-  // metadata of whichever candidate actually renders.
-  const imageCandidates = [brand.heroImageUrl, ...brand.productPhotos].map((url) =>
-    safeImageSrc(url),
-  )
-  const imageIndex = imageCandidates.findIndex((src) => src !== null)
-  const imageSrc = imageIndex === -1 ? null : imageCandidates[imageIndex]
+  const selectedImage = selectBrandCardImage(brand)
+  const imageSrc = selectedImage?.src ?? null
   const showImage = imageSrc != null && !imgError
-  const imageMeta = imageIndex >= 0 ? brand.imageAlts.at(imageIndex) : undefined
-  const imageFill = brandImageFill(imageMeta, { inset: 'p-6' })
+  const imageFill = brandImageFill(selectedImage?.meta, { inset: 'p-6' })
 
   const categoryLabel = getBrandCategoryLabel(brand, locale === 'en' ? 'en' : 'zh-TW')
   // The directory blurb, resolved once: both the directory variant and the
@@ -144,7 +140,11 @@ export function BrandCard({
                 if (variant === 'recommendation') {
                   trackRecommendationBrandClicked(brand.id, brand.slug, sourceBrandSlug ?? '', position)
                 } else {
-                  trackBrandCardClicked(brand.slug, brand.category, position, brand.id)
+                  if (listSource) {
+                    trackBrandCardClicked(brand.slug, brand.category, position, brand.id, listSource)
+                  } else {
+                    trackBrandCardClicked(brand.slug, brand.category, position, brand.id)
+                  }
                 }
                 if (savedIds.has(brand.id)) {
                   trackSavedBrandRevisited(brand.slug, 'card', brand.id)

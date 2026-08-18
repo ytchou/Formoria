@@ -159,33 +159,6 @@ export function ProvideChannelInfoDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor={`${fieldId}-category`}>
-                  {t("channels.dialog.categoryLabel")}
-                </Label>
-                <NativeSelect
-                  id={`${fieldId}-category`}
-                  name="category"
-                  defaultValue=""
-                >
-                  <option value="">
-                    {t("channels.dialog.categoryPlaceholder")}
-                  </option>
-                  <option value="brand_store">
-                    {t("channels.dialog.categoryBrandStore")}
-                  </option>
-                  <option value="department_counter">
-                    {t("channels.dialog.categoryDepartment")}
-                  </option>
-                  <option value="stockist">
-                    {t("channels.dialog.categoryStockist")}
-                  </option>
-                  <option value="other">
-                    {t("channels.dialog.categoryOther")}
-                  </option>
-                </NativeSelect>
-              </div>
-
-              <div className="space-y-2">
                 <Label htmlFor={`${fieldId}-region`}>
                   {t("channels.dialog.regionLabel")}
                 </Label>

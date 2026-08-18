@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
@@ -263,11 +263,11 @@ export type Database = {
         Row: {
           address: string | null
           brand_id: string
-          category_label: string | null
           channel_type: string
           country: string | null
           created_at: string
           created_by: string | null
+          district: string | null
           fetched_at: string | null
           id: string
           last_confirmed_at: string | null
@@ -288,11 +288,11 @@ export type Database = {
         Insert: {
           address?: string | null
           brand_id: string
-          category_label?: string | null
           channel_type: string
           country?: string | null
           created_at?: string
           created_by?: string | null
+          district?: string | null
           fetched_at?: string | null
           id?: string
           last_confirmed_at?: string | null
@@ -313,11 +313,11 @@ export type Database = {
         Update: {
           address?: string | null
           brand_id?: string
-          category_label?: string | null
           channel_type?: string
           country?: string | null
           created_at?: string
           created_by?: string | null
+          district?: string | null
           fetched_at?: string | null
           id?: string
           last_confirmed_at?: string | null
@@ -553,33 +553,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      brand_field_state_backup_20260728: {
-        Row: {
-          admin_locked: boolean | null
-          brand_id: string | null
-          field: string | null
-          source: string | null
-          updated_at: string | null
-          updated_by: string | null
-        }
-        Insert: {
-          admin_locked?: boolean | null
-          brand_id?: string | null
-          field?: string | null
-          source?: string | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Update: {
-          admin_locked?: boolean | null
-          brand_id?: string | null
-          field?: string | null
-          source?: string | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Relationships: []
       }
       brand_images: {
         Row: {
@@ -1356,16 +1329,19 @@ export type Database = {
       }
       cron_http_dispatch: {
         Row: {
+          dispatch_id: string
           dispatched_at: string
           job_name: string
           request_id: number
         }
         Insert: {
+          dispatch_id?: string
           dispatched_at?: string
           job_name: string
           request_id: number
         }
         Update: {
+          dispatch_id?: string
           dispatched_at?: string
           job_name?: string
           request_id?: number
@@ -1375,6 +1351,7 @@ export type Database = {
       cron_http_log: {
         Row: {
           created: string | null
+          dispatch_id: string
           error_msg: string | null
           job_name: string
           logged_at: string
@@ -1384,6 +1361,7 @@ export type Database = {
         }
         Insert: {
           created?: string | null
+          dispatch_id?: string
           error_msg?: string | null
           job_name: string
           logged_at?: string
@@ -1393,6 +1371,7 @@ export type Database = {
         }
         Update: {
           created?: string | null
+          dispatch_id?: string
           error_msg?: string | null
           job_name?: string
           logged_at?: string
@@ -1401,6 +1380,177 @@ export type Database = {
           timed_out?: boolean
         }
         Relationships: []
+      }
+      curated_product_selections: {
+        Row: {
+          created_at: string
+          position: number
+          product_id: string
+          section_key: string
+          state: string
+          trail_slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          position?: number
+          product_id: string
+          section_key: string
+          state?: string
+          trail_slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          position?: number
+          product_id?: string
+          section_key?: string
+          state?: string
+          trail_slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curated_product_selections_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "curated_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curated_product_sources: {
+        Row: {
+          checked_at: string | null
+          claim_en: string | null
+          claim_zh: string | null
+          created_at: string
+          id: string
+          product_id: string
+          source_type: string
+          state: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          checked_at?: string | null
+          claim_en?: string | null
+          claim_zh?: string | null
+          created_at?: string
+          id?: string
+          product_id: string
+          source_type?: string
+          state?: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          checked_at?: string | null
+          claim_en?: string | null
+          claim_zh?: string | null
+          created_at?: string
+          id?: string
+          product_id?: string
+          source_type?: string
+          state?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curated_product_sources_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "curated_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curated_products: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          image_height: number | null
+          image_source_url: string | null
+          image_url: string | null
+          image_width: number | null
+          key: string
+          l1: string
+          l2: string[]
+          link_checked_at: string | null
+          link_state: string
+          name_en: string | null
+          name_zh: string
+          official_url: string | null
+          product_description_en: string | null
+          product_description_zh: string
+          product_position: number | null
+          proposed_by: string
+          review_due_at: string | null
+          source_checked_at: string | null
+          updated_at: string
+          visible: boolean
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          image_height?: number | null
+          image_source_url?: string | null
+          image_url?: string | null
+          image_width?: number | null
+          key: string
+          l1: string
+          l2?: string[]
+          link_checked_at?: string | null
+          link_state?: string
+          name_en?: string | null
+          name_zh: string
+          official_url?: string | null
+          product_description_en?: string | null
+          product_description_zh: string
+          product_position?: number | null
+          proposed_by?: string
+          review_due_at?: string | null
+          source_checked_at?: string | null
+          updated_at?: string
+          visible?: boolean
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          image_height?: number | null
+          image_source_url?: string | null
+          image_url?: string | null
+          image_width?: number | null
+          key?: string
+          l1?: string
+          l2?: string[]
+          link_checked_at?: string | null
+          link_state?: string
+          name_en?: string | null
+          name_zh?: string
+          official_url?: string | null
+          product_description_en?: string | null
+          product_description_zh?: string
+          product_position?: number | null
+          proposed_by?: string
+          review_due_at?: string | null
+          source_checked_at?: string | null
+          updated_at?: string
+          visible?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curated_products_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       curation_job_targets: {
         Row: {
@@ -2621,6 +2771,33 @@ export type Database = {
         }
         Relationships: []
       }
+      staging_auth_email_captures: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          recipient: string
+          redirect_to: string
+          token_hash: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          recipient: string
+          redirect_to: string
+          token_hash: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          recipient?: string
+          redirect_to?: string
+          token_hash?: string
+        }
+        Relationships: []
+      }
       submission_images: {
         Row: {
           alt_en: string | null
@@ -3456,6 +3633,7 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      staging_capture_auth_email: { Args: { event: Json }; Returns: Json }
       transition_health_fix: {
         Args: {
           p_confirmation_data?: Json
@@ -3506,6 +3684,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      update_brand_channel_districts: {
+        Args: { p_updates: Json }
+        Returns: number
       }
       upsert_enriched_brand_channels: {
         Args: { p_brand_id: string; p_candidates: Json }

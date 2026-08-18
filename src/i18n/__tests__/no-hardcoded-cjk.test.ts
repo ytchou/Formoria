@@ -116,6 +116,7 @@ const ALLOWLIST = [
   // module resolution (#596). The rendering path still reads the catalog via
   // next-intl — this map is the worker's copy, not the render source.
   "lib/constants/taiwan-cities.ts",
+  "lib/constants/taiwan-districts.ts",
 ];
 
 function isAllowlisted(relPath: string): boolean {

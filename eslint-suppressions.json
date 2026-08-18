@@ -45,11 +45,8 @@
     }
   },
   "e2e/tests/api-contracts.spec.ts": {
-    "playwright/no-conditional-expect": {
-      "count": 4
-    },
     "playwright/no-conditional-in-test": {
-      "count": 9
+      "count": 8
     }
   },
   "e2e/tests/auth-signin.spec.ts": {
@@ -62,7 +59,7 @@
       "count": 2
     },
     "playwright/no-conditional-in-test": {
-      "count": 5
+      "count": 4
     }
   },
   "e2e/tests/auth-signup.spec.ts": {
@@ -70,7 +67,7 @@
       "count": 2
     },
     "playwright/no-conditional-in-test": {
-      "count": 5
+      "count": 2
     }
   },
   "e2e/tests/brand-actions.spec.ts": {
@@ -186,11 +183,6 @@
   "e2e/tests/search-edge-cases.spec.ts": {
     "playwright/no-conditional-in-test": {
       "count": 7
-    }
-  },
-  "e2e/tests/seo.spec.ts": {
-    "playwright/no-conditional-expect": {
-      "count": 1
     }
   },
   "e2e/tests/settings.spec.ts": {

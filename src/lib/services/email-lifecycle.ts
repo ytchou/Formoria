@@ -204,22 +204,6 @@ export async function unsubscribeByToken(
   )
 }
 
-export async function recordEmailSend(
-  supabase: unknown,
-  userId: string,
-  templateKey: string
-): Promise<void> {
-  return auditedCall(
-    { provider: 'email', operation: 'recordEmailSend', kind: 'service' },
-    async () => {
-      await emailLifecycleTable(supabase, 'email_sends').insert({
-        user_id: userId,
-        template_key: templateKey,
-      })
-    },
-  )
-}
-
 export async function hasSent(
   supabase: unknown,
   userId: string,

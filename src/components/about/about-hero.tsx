@@ -22,7 +22,7 @@ export default async function AboutHero({ brandCount, categoryCount, recentBrand
   return (
     <section className="relative overflow-hidden py-12 md:py-20">
       <Image
-        src="/images/hero-bg.png"
+        src="/images/hero-bg.webp"
         alt=""
         fill
         preload

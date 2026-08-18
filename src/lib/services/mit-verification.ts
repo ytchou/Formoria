@@ -15,6 +15,34 @@ function normalizeMitIdentity(value: string): string {
     .replace(/[^\p{L}\p{N}]+/gu, '')
 }
 
+/**
+ * Whether a registry `valid_until` is still in the future (DEV-1475).
+ *
+ * `mit_registry.valid_until` holds the government's `產品效期` VERBATIM, which
+ * is `yyyymmdd` — every one of the archive's 245,135 rows, with no second
+ * format. `new Date('20120127')` is an Invalid Date, so the guard that used to
+ * live inline here (`!isNaN(...) && expiry < now`) skipped its own check on
+ * every row it was written to catch, and an expired certificate auto-verified a
+ * brand. It stayed invisible while the mirror held one of 26 industry files;
+ * widening the sync takes the expired population from ~28,000 to ~214,000, so
+ * the parse has to be right before the rows land.
+ *
+ * A value that is NOT `yyyymmdd` returns false — refusing to verify. This is a
+ * public trust label, so an expiry nobody can read is not evidence of a live
+ * certificate. Nothing upstream is shaped that way today; if that changes, this
+ * fails toward "unverified", which is the recoverable direction.
+ */
+export function isMitCertUnexpired(validUntil: string, now: Date = new Date()): boolean {
+  const match = /^(\d{4})(\d{2})(\d{2})$/.exec(validUntil.trim())
+  if (!match) return false
+
+  // UTC, and the END of the stated day: the certificate is valid THROUGH its
+  // expiry date, and a local-time parse would retire it up to a day early for
+  // anyone west of Taipei.
+  const expiryMs = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + 1)
+  return now.getTime() < expiryMs
+}
+
 export async function verifyMitByCert(
   brandId: string,
   certNumber: string
@@ -32,11 +60,8 @@ export async function verifyMitByCert(
     return { error: 'cert_not_found' }
   }
 
-  if (registryRecord.valid_until) {
-    const expiryDate = new Date(registryRecord.valid_until)
-    if (!isNaN(expiryDate.getTime()) && expiryDate < new Date()) {
-      return { error: 'cert_expired' }
-    }
+  if (registryRecord.valid_until && !isMitCertUnexpired(registryRecord.valid_until)) {
+    return { error: 'cert_expired' }
   }
 
   const supabase = createServiceClient()
