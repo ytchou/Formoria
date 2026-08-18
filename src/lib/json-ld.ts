@@ -261,8 +261,8 @@ export function buildOrganizationJsonLd(locale?: string): JsonLdObject {
     logo: `${siteUrl}/images/formoria-mark.png`,
     description:
       inLanguage === "zh-TW"
-        ? "Formoria 把從靈感走到購買中間斷掉的路接回來，幫助人從自己想要的生活出發，找到適合的台灣產品、認識背後的品牌，也知道可以去哪裡購買。Formoria 負責靈感、選擇、脈絡與前往外部通路的路徑；品牌或零售通路負責價格、規格選項、庫存、結帳、出貨與售後服務。"
-        : "Formoria reconnects the broken path from inspiration to purchase by helping people start with the life they want, find Taiwanese products that suit them, get to know the brands behind them, and know where to buy. Formoria owns inspiration, selection, context, and the outbound route. Brands or retailers remain responsible for price, variants, inventory, checkout, fulfilment, and after-sales service.",
+        ? "Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。Formoria 負責靈感、選擇、脈絡與前往外部通路的路徑；品牌或零售通路負責價格、規格選項、庫存、結帳、出貨與售後服務。"
+        : "Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it. Formoria owns inspiration, selection, context, and the outbound route. Brands or retailers remain responsible for price, variants, inventory, checkout, fulfilment, and after-sales service.",
     inLanguage,
     ...(FORMORIA_SOCIALS.length > 0 ? { sameAs: FORMORIA_SOCIALS } : {}),
   };

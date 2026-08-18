@@ -489,11 +489,11 @@ describe("buildOrganizationJsonLd", () => {
     expect(zh.name).toBe("Formoria");
     expect(zh.url).toMatch(/^https?:\/\//);
     expect(zh.description).toContain(
-      "Formoria 把從靈感走到購買中間斷掉的路接回來",
+      "Formoria 把相遇之後的路接起來",
     );
     expect(zh.description).toContain("品牌或零售通路負責價格");
     expect(en.description).toContain(
-      "Formoria reconnects the broken path from inspiration to purchase",
+      "Formoria reconnects the path after that moment",
     );
     expect(en.description).toContain("Brands or retailers remain responsible");
   });

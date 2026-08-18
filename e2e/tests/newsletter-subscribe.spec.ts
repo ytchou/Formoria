@@ -45,8 +45,8 @@ test.describe('Newsletter subscribe flow', () => {
     await expect(heading).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
     // --- "Curated Picks" chip is pre-selected (aria-pressed="true") ---
-    // zh-TW label: "選物推薦"
-    const curatedPicksChip = page.getByRole('button', { name: /選物推薦/ });
+    // zh-TW label: "Formoria 選物" (the stored slug stays `curated-picks`)
+    const curatedPicksChip = page.getByRole('button', { name: /Formoria 選物/ });
     await expect(curatedPicksChip).toBeVisible({ timeout: BUDGET.RENDERED });
     await expect(curatedPicksChip).toHaveAttribute('aria-pressed', 'true');
 
@@ -69,8 +69,8 @@ test.describe('Newsletter subscribe flow', () => {
 
     // --- Success banner replaces the form ---
     // The success div has a green background and contains the confirmation text.
-    // zh-TW: "請查看您的收件匣以確認訂閱 / Check your inbox to confirm your subscription"
-    const successBanner = page.getByText('請查看您的收件匣以確認訂閱');
+    // zh-TW: "確認信已寄出，請到收件匣點開連結完成訂閱"
+    const successBanner = page.getByText('確認信已寄出，請到收件匣點開連結完成訂閱');
     await expect(successBanner).toBeVisible({ timeout: BUDGET.GATED_UI });
 
     // The form itself must no longer be present

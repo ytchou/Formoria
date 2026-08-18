@@ -4,8 +4,8 @@ A story organised around a **reader's situation** — 「在小空間裡，留�
 「小空間也能招待一兩位朋友」, 「讓通勤少一點負擔」.
 
 The reader does not know the product name. They know how they want their life to
-feel. This is the shape closest to Formoria's mission: it repairs the broken path
-from inspiration to purchase, which a keyword search cannot do because the reader
+feel. This is the shape closest to Formoria's mission: it reconnects the path
+after the moment of liking, which a keyword search cannot do because the reader
 has no keyword.
 
 Candidate situations and their per-candidate watch-outs live in the DEV-1427

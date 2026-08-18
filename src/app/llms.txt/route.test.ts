@@ -4,6 +4,8 @@ import { GET } from "./route";
 import { formatLlmsTxt } from "./llms-content";
 import { buildAlternates } from "@/lib/seo/alternates";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import en from "../../../messages/en.json";
+import zhTW from "../../../messages/zh-TW.json";
 
 describe("GET /llms.txt", () => {
   it("publishes the current taxonomy and public reference surfaces as UTF-8 text", async () => {
@@ -33,6 +35,28 @@ describe("GET /llms.txt", () => {
     }
   });
 
+  it("publishes a non-empty description for every one of the 12 categories", async () => {
+    const body = await (await GET()).text();
+
+    // `formatLlmsTxt` *omits* a missing description rather than printing
+    // "undefined", so a scan for a sentinel would pass while silently dropping
+    // copy. Assert the description text is present instead.
+    expect(PRODUCT_TYPE_CATEGORIES).toHaveLength(12);
+
+    for (const category of PRODUCT_TYPE_CATEGORIES) {
+      const description =
+        en.categories.descriptions[
+          category.slug as keyof typeof en.categories.descriptions
+        ] ??
+        zhTW.categories.descriptions[
+          category.slug as keyof typeof zhTW.categories.descriptions
+        ];
+
+      expect(description, `missing description for ${category.slug}`).toBeTruthy();
+      expect(body).toContain(`(${category.nameZh}) — ${description}`);
+    }
+  });
+
   it("keeps a category URL when its optional description is missing", () => {
     const url = "https://formoria.com/categories/fashion";
     const body = formatLlmsTxt({
@@ -47,7 +71,7 @@ describe("GET /llms.txt", () => {
     const body = await (await GET()).text();
 
     expect(body).toContain(
-      "Formoria reconnects the broken path from inspiration to purchase",
+      "Formoria reconnects the path after that moment",
     );
     expect(body).toContain("Brands or retailers remain responsible");
     expect(body).not.toContain("discover, choose, and grow");
