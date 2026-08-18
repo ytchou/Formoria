@@ -15,12 +15,12 @@ describeWithDb("canonical subcategory translation RPC", () => {
   afterEach(async () => {
     if (seededKeys.length === 0) return;
 
-    // Bridge-only cleanup: application code calls the final RPC; PR3 removes
-    // this direct legacy-table cleanup with the compatibility table itself.
+    // Contract cleanup uses the final table directly so seeded rows cannot
+    // leak between integration cases.
     await supabase!
-      .from("product_tag_translations")
+      .from("subcategory_translations")
       .delete()
-      .in("tag_zh", seededKeys);
+      .in("subcategory", seededKeys);
     seededKeys.length = 0;
   });
 

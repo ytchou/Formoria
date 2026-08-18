@@ -31,10 +31,6 @@ import {
   type SubcategoriesDelta,
 } from "./subcategories";
 import { updateBrand, type BrandWriteInput } from "./brands";
-import {
-  fromPersistedFieldIdentifier,
-  toPersistedFieldIdentifier,
-} from "./_shared/persisted-field-identifiers";
 
 const CORRECTION_SELECT =
   `*, brands(name, slug, price_range, category, subcategories, ${PURCHASE_COLUMNS.join(
@@ -537,11 +533,10 @@ function currentValueForField(
 }
 
 function rowToCorrection(row: BrandCorrectionRowWithBrand): BrandCorrection {
-  const applicationField = fromPersistedFieldIdentifier(row.field);
-  if (!isCorrectionField(applicationField)) {
+  if (!isCorrectionField(row.field)) {
     throw new Error(`Unsupported persisted correction field: ${row.field}`);
   }
-  const field = applicationField;
+  const field = row.field;
   const currentValue = currentValueForField(field, row.brands);
 
   return {
@@ -677,7 +672,7 @@ async function supersedePendingSubcategories(
       reviewer_notes: "superseded_by_category_change",
     })
     .eq("brand_id", brandId)
-    .eq("field", toPersistedFieldIdentifier("subcategories"))
+    .eq("field", "subcategories")
     .eq("status", "pending");
 
   if (error) {
@@ -738,7 +733,7 @@ export async function submitCorrection(
 
     const row: BrandCorrectionInsert = {
       brand_id: input.brandId,
-      field: toPersistedFieldIdentifier(input.field),
+      field: input.field,
       proposed_value: proposedValue as Json,
       previous_value: previousValue,
       visitor_hash: input.visitorHash ?? null,
@@ -816,10 +811,10 @@ export async function reviewCorrection(
     if (!data) return { ok: false, code: "not_found" };
 
     const row = data as unknown as BrandCorrectionRowWithBrand;
-    const applicationField = fromPersistedFieldIdentifier(row.field);
-    if (!isCorrectionField(applicationField) || !row.brands) {
+    if (!isCorrectionField(row.field) || !row.brands) {
       return { ok: false, code: "invalid_value" };
     }
+    const applicationField = row.field;
 
     // Re-normalizes an already-normalized stored value; idempotency is what
     // keeps a row that passed at submit from failing here.

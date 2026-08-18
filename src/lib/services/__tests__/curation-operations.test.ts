@@ -15,7 +15,6 @@ import {
 } from '../curation-operations'
 import type { CurationConfig } from '../curation-operations'
 import { getDisplayBrandName, runCleanPhase } from '../enrich-phases'
-import { toPersistedFieldIdentifier } from '../_shared/persisted-field-identifiers'
 import { describeWithDb } from '@/test/setup'
 
 vi.mock('../category-classifier', async (importOriginal) => {
@@ -531,8 +530,8 @@ const serviceSupabase =
   process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
     ? createServiceClient()
     : null
-const PERSISTED_SUBCATEGORIES_FIELD = toPersistedFieldIdentifier('subcategories')
-const PERSISTED_SUBCATEGORIES_EN_FIELD = toPersistedFieldIdentifier('subcategories_en')
+const SUBCATEGORIES_FIELD = 'subcategories'
+const SUBCATEGORIES_EN_FIELD = 'subcategories_en'
 
 describeWithDb('runEnrich submissions mode', () => {
   let testSubmissionId: string | null = null
@@ -921,22 +920,22 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
     expect(updated!.enriched_data).toBeNull()
   })
 
-  // Bug caught: refresh protection could depend on whether the legacy zh or EN
+  // Bug caught: refresh protection could depend on whether the zh-TW or EN
   // provenance row happened to be returned first, allowing an owner value to
   // be overwritten by an enrichment patch.
   it.each([
     [
       'owner zh row first',
       [
-        { field: PERSISTED_SUBCATEGORIES_FIELD, source: 'owner' },
-        { field: PERSISTED_SUBCATEGORIES_EN_FIELD, source: 'enriched' },
+        { field: SUBCATEGORIES_FIELD, source: 'owner' },
+        { field: SUBCATEGORIES_EN_FIELD, source: 'enriched' },
       ],
     ],
     [
       'enriched EN row first',
       [
-        { field: PERSISTED_SUBCATEGORIES_EN_FIELD, source: 'enriched' },
-        { field: PERSISTED_SUBCATEGORIES_FIELD, source: 'owner' },
+        { field: SUBCATEGORIES_EN_FIELD, source: 'enriched' },
+        { field: SUBCATEGORIES_FIELD, source: 'owner' },
       ],
     ],
   ])('protects refresh subcategories regardless of state row order: %s', async (_order, stateRows) => {

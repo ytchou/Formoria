@@ -138,8 +138,6 @@ export type Database = {
           non_brand_reason: string | null
           phase: string
           price_range: number | null
-          product_tags: string[] | null
-          product_type: string | null
           prompt_tokens: number | null
           raw_response: Json | null
           retry_attempt: number
@@ -168,8 +166,6 @@ export type Database = {
           non_brand_reason?: string | null
           phase: string
           price_range?: number | null
-          product_tags?: string[] | null
-          product_type?: string | null
           prompt_tokens?: number | null
           raw_response?: Json | null
           retry_attempt?: number
@@ -198,8 +194,6 @@ export type Database = {
           non_brand_reason?: string | null
           phase?: string
           price_range?: number | null
-          product_tags?: string[] | null
-          product_type?: string | null
           prompt_tokens?: number | null
           raw_response?: Json | null
           retry_attempt?: number
@@ -930,7 +924,6 @@ export type Database = {
           other_urls: Json
           owner_data: Json | null
           pdpa_consent_at: string | null
-          product_type_note: string | null
           purchase_myship: string | null
           purchase_pinkoi: string | null
           purchase_shopee: string | null
@@ -972,7 +965,6 @@ export type Database = {
           other_urls?: Json
           owner_data?: Json | null
           pdpa_consent_at?: string | null
-          product_type_note?: string | null
           purchase_myship?: string | null
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
@@ -1014,7 +1006,6 @@ export type Database = {
           other_urls?: Json
           owner_data?: Json | null
           pdpa_consent_at?: string | null
-          product_type_note?: string | null
           purchase_myship?: string | null
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
@@ -1079,9 +1070,6 @@ export type Database = {
           onboarding_dismissed_at: string | null
           other_urls: Json
           price_range: number | null
-          product_tags: string[] | null
-          product_tags_en: string[] | null
-          product_type: string | null
           purchase_myship: string | null
           purchase_pinkoi: string | null
           purchase_shopee: string | null
@@ -1132,9 +1120,6 @@ export type Database = {
           onboarding_dismissed_at?: string | null
           other_urls?: Json
           price_range?: number | null
-          product_tags?: string[] | null
-          product_tags_en?: string[] | null
-          product_type?: string | null
           purchase_myship?: string | null
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
@@ -1185,9 +1170,6 @@ export type Database = {
           onboarding_dismissed_at?: string | null
           other_urls?: Json
           price_range?: number | null
-          product_tags?: string[] | null
-          product_tags_en?: string[] | null
-          product_type?: string | null
           purchase_myship?: string | null
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
@@ -2742,24 +2724,6 @@ export type Database = {
           },
         ]
       }
-      product_tag_translations: {
-        Row: {
-          created_at: string | null
-          tag_en: string
-          tag_zh: string
-        }
-        Insert: {
-          created_at?: string | null
-          tag_en: string
-          tag_zh: string
-        }
-        Update: {
-          created_at?: string | null
-          tag_en?: string
-          tag_zh?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           created_at: string
@@ -2808,6 +2772,24 @@ export type Database = {
           recipient?: string
           redirect_to?: string
           token_hash?: string
+        }
+        Relationships: []
+      }
+      subcategory_translations: {
+        Row: {
+          created_at: string | null
+          subcategory: string
+          translation: string
+        }
+        Insert: {
+          created_at?: string | null
+          subcategory: string
+          translation: string
+        }
+        Update: {
+          created_at?: string | null
+          subcategory?: string
+          translation?: string
         }
         Relationships: []
       }
@@ -3066,25 +3048,25 @@ export type Database = {
       brand_trgm_rank: {
         Args: {
           p_blurb_en: string
+          p_category: string
           p_description: string
           p_name: string
-          p_product_tags: string[]
-          p_product_tags_en: string[]
-          p_product_type: string
           p_query: string
           p_slug: string
+          p_subcategories: string[]
+          p_subcategories_en: string[]
         }
         Returns: number
       }
       brands_search_document: {
         Args: {
           p_blurb_en: string
+          p_category: string
           p_description: string
           p_name: string
-          p_product_tags: string[]
-          p_product_tags_en: string[]
-          p_product_type: string
           p_slug: string
+          p_subcategories: string[]
+          p_subcategories_en: string[]
         }
         Returns: unknown
       }
@@ -3614,7 +3596,7 @@ export type Database = {
         Args: {
           filter_categories?: string[]
           filter_price_ranges?: number[]
-          filter_tags?: string[]
+          filter_subcategories?: string[]
           filter_verification?: string
           page_offset?: number
           search_query: string
@@ -3631,7 +3613,7 @@ export type Database = {
         Args: {
           filter_categories?: string[]
           filter_status?: string
-          filter_tags?: string[]
+          filter_subcategories?: string[]
           filter_verification?: string
           include_test_brands?: boolean
           prefix_mode?: boolean
@@ -3651,15 +3633,6 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       staging_capture_auth_email: { Args: { event: Json }; Returns: Json }
-      sync_submission_json_alias_group: {
-        Args: { p_aliases: string[]; p_json: Json }
-        Returns: Json
-      }
-      sync_submission_json_aliases: { Args: { p_json: Json }; Returns: Json }
-      sync_submission_suggested_tags_aliases: {
-        Args: { p_json: Json }
-        Returns: Json
-      }
       transition_health_fix: {
         Args: {
           p_confirmation_data?: Json
