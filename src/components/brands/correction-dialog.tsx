@@ -284,7 +284,7 @@ export function CorrectionDialog({
       : item === "price_range"
         ? tBrandDetail("label.priceRange")
         : item === "subcategories"
-          ? tBrandDetail("label.productCategories")
+          ? tBrandDetail("label.subcategories")
           : item === "social_instagram"
             ? tBrandDetail("links.instagram")
             : item === "social_threads"

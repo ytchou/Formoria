@@ -183,7 +183,7 @@ export function BrandHeader({
             }
           />
           <InfoField
-            label={t("label.productCategories")}
+            label={t("label.subcategories")}
             labelClassName={infoLabelClassName}
             layout="stacked"
             value={

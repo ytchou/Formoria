@@ -353,9 +353,9 @@
     "label": {
       "location": "地點",
       "foundingYear": "創立年份",
-      "category": "類別",
+      "category": "品牌類別",
       "priceRange": "價格區間",
-      "productCategories": "產品類別",
+      "subcategories": "商品子類別",
       "certification": "認證"
     },
     "actions": {
