@@ -5,7 +5,7 @@
 <h1 align="center">Formoria</h1>
 
 <p align="center">
-  Start with the life you want and find Taiwanese products that suit you.
+  Life can look a little more like you.
   <br>
   <a href="https://formoria.com"><strong>formoria.com →</strong></a>
 </p>
@@ -14,7 +14,7 @@
 
 ## What it is
 
-Formoria reconnects the broken path from inspiration to purchase by helping people start with the life they want, find Taiwanese products that suit them, get to know the brands behind them, and know where to buy.
+Moving into a new home, styling a shop, the moment you stop at a market stall — the things you love shouldn't just be chance encounters. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.
 
 The foundation is a community-built directory: taxonomy filters, brand detail pages, and product and purchase-channel information. What sets it apart is a **3-tier manufacturing-verification ladder** — "Made in Taiwan" is a claim that ranges from fully domestic production to final assembly, and Formoria grades it rather than flattening it into a badge.
 

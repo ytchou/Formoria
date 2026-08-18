@@ -133,9 +133,11 @@ export default async function FaqPage({ params }: PageProps) {
           </FaqSection>
           <FaqSection id="for-owners" title={t('sections.forOwners')}>
             <div className="divide-y divide-border">
-              {/* Owner self-serve is not open yet, so the whole section is one
-                  interest-collection item. `id="claim"` is kept so legacy
-                  /faq#claim deep links still land on an answer. */}
+              {/* Brand claiming is live (`ClaimBrandCta` on the brand page), so
+                  this answer describes the claim flow; the remaining owner
+                  features are still collected via the feature-request link.
+                  `id="claim"` is kept so legacy /faq#claim deep links still
+                  land on an answer. */}
               <details id="claim" className="group scroll-mt-24 py-5">
                 <summary className="flex cursor-pointer list-none items-center justify-between type-faq-question [&::-webkit-details-marker]:hidden">
                   {t('items.ownerInterest.question')}

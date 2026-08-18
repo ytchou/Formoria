@@ -118,7 +118,7 @@ test.describe("Category landing pages deep", () => {
     const response = await request.get("/categories/home");
     const html = await response.text();
     expect(html).toContain(
-      "本分類聚焦讓居家生活更美好，涵蓋家具、收納、照明、餐桌器皿與日常布置。",
+      "從家具、收納、照明到餐桌器皿與佈置小物；在小坪數的房間裡，尺寸和收納方式通常比風格更早決定。",
     );
     expect(html).toMatch(/共 \d+ 個品牌/);
     expect(html).toMatch(/更新於 \d{4}年\d{1,2}月\d{1,2}日/);
@@ -221,14 +221,14 @@ test.describe("Category landing pages deep", () => {
     );
     await expect(page.locator("[data-empty]")).toBeVisible();
     await expect(page.getByText(/更新於 \d{4}年/)).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "你可能想找" })).toHaveCount(
+    await expect(page.getByRole("heading", { name: "類似的選擇" })).toHaveCount(
       0,
     );
 
     await page.goto("/categories/home?page=999");
     await expect(page).toHaveURL(/\/categories\/home\?page=999$/);
     await expect(page.locator("[data-empty]")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "你可能想找" })).toHaveCount(
+    await expect(page.getByRole("heading", { name: "類似的選擇" })).toHaveCount(
       0,
     );
   });
