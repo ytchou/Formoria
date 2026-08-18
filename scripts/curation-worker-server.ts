@@ -11,10 +11,17 @@ import {
   startStaleJobMaintenance,
 } from "./curation-worker-loop";
 import { isStagingEnvironment } from "@/lib/deployment-environment";
+import { assertWorkerDatabaseTarget } from "./worker-target";
 
 config({ path: ".env.local", quiet: true });
 
-const staging = isStagingEnvironment();
+// Runs before the service modules below are imported, so a cross-wired worker
+// dies at boot instead of claiming a job. The environment declaration is
+// fail-open (unset means production), so it is never trusted on its own — the
+// attached database must corroborate it. See worker-target.ts.
+const target = assertWorkerDatabaseTarget(
+  isStagingEnvironment() ? "staging" : "production",
+);
 
 const {
   claimCurationDispatchWork,
@@ -51,13 +58,15 @@ const controlToken = process.env.CURATION_WORKER_CONTROL_TOKEN?.trim();
 const port = parsePort(process.env.PORT);
 const activeJobs = new Set<string>();
 
-if (!controlToken && !staging) {
+if (!controlToken) {
   throw new Error(
     "CURATION_WORKER_CONTROL_TOKEN is required for the curation worker",
   );
 }
 
-const requiredControlToken = controlToken ?? '';
+// Re-bound as non-optional: `handleRequest` is a hoisted declaration, so the
+// throw above does not narrow `controlToken` inside it.
+const requiredControlToken: string = controlToken;
 
 const server = createServer((request, response) => {
   void handleRequest(request, response).catch((error) => {
@@ -91,22 +100,21 @@ server.listen(port, "0.0.0.0", () => {
     }`,
   );
   console.log(`[curation-worker] listening on port ${port}`);
-  if (staging) {
-    console.log(
-      "[curation-worker] staging read-only mode; dispatch and schedules disabled",
-    );
-  } else {
-    startStaleJobMaintenance({
-      recoverStaleJobs,
-      onError: (error) => {
-        console.error(
-          "[curation-worker:stale-maintenance]",
-          sanitizeJobError(error),
-        );
-      },
-    });
-  }
-  if (!staging && CRON_SCHEDULE) {
+  // Which database this worker will actually write to, verified at boot rather
+  // than inferred from the environment name.
+  console.log(
+    `[curation-worker] target env=${target.deploymentEnvironment} project=${target.projectRef}`,
+  );
+  startStaleJobMaintenance({
+    recoverStaleJobs,
+    onError: (error) => {
+      console.error(
+        "[curation-worker:stale-maintenance]",
+        sanitizeJobError(error),
+      );
+    },
+  });
+  if (CRON_SCHEDULE) {
     startCronScheduler(CRON_SCHEDULE);
   }
 });
@@ -182,13 +190,11 @@ async function handleRequest(
   response: ServerResponse,
 ): Promise<void> {
   if (request.method === "GET" && request.url === "/health") {
-    sendJson(response, 200, { ok: true, readOnly: staging });
+    sendJson(response, 200, {
+      ok: true,
+      environment: target.deploymentEnvironment,
+    });
     return;
-  }
-
-  if (staging) {
-    sendJson(response, 503, { error: 'Worker disabled in staging' })
-    return
   }
 
   if (request.method !== "POST" || request.url !== "/run") {

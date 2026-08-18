@@ -1,3 +1,4 @@
+export const PRODUCTION_PROJECT_REF = "xkcayngbttpxyibgzern";
 export const STAGING_PROJECT_REF = "xwkigpvnheecihpxyvsl";
 export const STAGING_HOSTNAME = "staging.formoria.com";
 export const STAGING_BASE_URL = `https://${STAGING_HOSTNAME}`;
@@ -36,8 +37,8 @@ function parseHttpsUrl(value: string, name: string): URL {
 /**
  * The installed Supabase client accepts both legacy JWT keys and the newer
  * publishable/secret key strings. Only the JWT form exposes a project ref and
- * role locally, so staging guards reject every other form instead of guessing
- * at an authoritative identity source.
+ * role locally, so environment guards reject every other form instead of
+ * guessing at an authoritative identity source.
  */
 export function validateSupabaseKeyIdentity(
   value: string,
@@ -51,7 +52,7 @@ export function validateSupabaseKeyIdentity(
     parts.some((part) => !part || !/^[A-Za-z0-9_-]+$/.test(part))
   ) {
     throw new Error(
-      `${name} must be a Supabase JWT with a verifiable staging project ref; publishable/secret key formats are rejected`,
+      `${name} must be a Supabase JWT with a verifiable project ref; publishable/secret key formats are rejected`,
     );
   }
 

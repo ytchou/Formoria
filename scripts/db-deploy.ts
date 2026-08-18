@@ -3,6 +3,7 @@ import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import {
+  PRODUCTION_PROJECT_REF,
   STAGING_PROJECT_REF,
   validateStagingTarget,
 } from "./staging-target";
@@ -10,7 +11,7 @@ import {
 type DeploymentEnvironment = "production" | "staging";
 
 const EXPECTED_PROJECT_REFS: Record<DeploymentEnvironment, string> = {
-  production: "xkcayngbttpxyibgzern",
+  production: PRODUCTION_PROJECT_REF,
   staging: STAGING_PROJECT_REF,
 };
 
