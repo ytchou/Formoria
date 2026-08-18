@@ -244,9 +244,6 @@ export async function prepareCuratedProductImage(
  * A crash between the two must leave a stale object — which the storage sweep
  * can find and reclaim — rather than a row pointing at nothing, which nothing
  * can repair.
- *
- * `image_usage` is NOT touched here. A successful download is not consent; only
- * a human may assert usage rights.
  */
 export async function uploadCuratedProductImage(
   input: CuratedProductImageInput & { processed: ProcessedImage },
