@@ -1,4 +1,4 @@
-export const PRODUCT_TYPE_CATEGORIES = [
+export const L1_CATEGORIES = [
   { slug: 'fashion', name: 'Fashion & Apparel', nameZh: '服飾鞋履', tint: 'oklch(0.935 0.022 350)' },
   { slug: 'bags-accessories', name: 'Bags & Accessories', nameZh: '包袋配件', tint: 'oklch(0.935 0.022 25)' },
   { slug: 'jewelry', name: 'Jewelry', nameZh: '飾品珠寶', tint: 'oklch(0.935 0.022 55)' },
@@ -21,24 +21,24 @@ export function categoryLabel(
 }
 
 /**
- * Chinese display name for an L1 product-type slug. Enrichment search queries
+ * Chinese display name for an L1 category slug. Enrichment search queries
  * run against a zh-TW SERP, so the raw English slug must never leak into a
  * query string — resolve through here instead of inlining the lookup.
  */
-export function productTypeNameZh(slug: string | null | undefined): string | null {
+export function categoryLabelZh(slug: string | null | undefined): string | null {
   if (!slug) return null
-  return PRODUCT_TYPE_CATEGORIES.find(c => c.slug === slug)?.nameZh ?? null
+  return L1_CATEGORIES.find(c => c.slug === slug)?.nameZh ?? null
 }
 
-export function deriveCategoryFromProductType(
-  productType: string,
-  productTypeNote?: string | null,
+export function deriveCategoryLabel(
+  categorySlug: string,
+  categoryNote?: string | null,
 ): string | null {
-  if (productType) {
-    return productTypeNameZh(productType)
+  if (categorySlug) {
+    return categoryLabelZh(categorySlug)
   }
-  if (productTypeNote?.trim()) {
-    return productTypeNote.trim()
+  if (categoryNote?.trim()) {
+    return categoryNote.trim()
   }
   return null
 }
@@ -47,19 +47,19 @@ const WARM_SURFACE = 'oklch(0.963 0.004 80)'
 
 export function categoryTint(slug: string | null | undefined): string {
   if (!slug) return WARM_SURFACE
-  const match = PRODUCT_TYPE_CATEGORIES.find(c => c.slug === slug)
+  const match = L1_CATEGORIES.find(c => c.slug === slug)
   return match?.tint ?? WARM_SURFACE
 }
 
 // ---------------------------------------------------------------------------
-// L2 Product Subcategories
+// L2 Subcategories
 // ---------------------------------------------------------------------------
 
-export type ProductSubcategory = {
+export type L2Subcategory = {
   slug: string
   nameZh: string
   nameEn: string
-  category: (typeof PRODUCT_TYPE_CATEGORIES)[number]['slug']
+  category: (typeof L1_CATEGORIES)[number]['slug']
   aliases: readonly string[]
 }
 
@@ -70,7 +70,7 @@ export type ProductSubcategory = {
  * L2s. Crafts is the recorded technique exception: 陶瓷, 木藝, and 金工 are
  * kinds of 工藝, so technique-based entries pass the same is-a test.
  */
-export const PRODUCT_SUBCATEGORIES: readonly ProductSubcategory[] = [
+export const L2_SUBCATEGORIES: readonly L2Subcategory[] = [
   // fashion (16)
   { slug: 'tops-and-tshirts', nameZh: '上衣・T恤', nameEn: 'Tops & T-shirts', category: 'fashion', aliases: ['T恤', '襯衫', '帽T', 'Polo衫', '針織衫', '上衣T恤', '上衣'] },
   { slug: 'dresses', nameZh: '洋裝', nameEn: 'Dresses', category: 'fashion', aliases: ['連身裙'] },
@@ -265,13 +265,13 @@ export const PRODUCT_SUBCATEGORIES: readonly ProductSubcategory[] = [
 ]
 
 /**
- * The single matching basis for tag strings: NFKC (collapses full-width Latin),
+ * The single matching basis for subcategory strings: NFKC (collapses full-width Latin),
  * middle-dot strip, trim, lowercase, whitespace collapse. Exported because
- * callers that store tags the ontology does NOT know (novel correction tags)
+ * callers that store subcategories the ontology does NOT know (novel correction subcategories)
  * still have to dedupe them the way `matchSubcategory` would have, or 'Vegan'
- * and 'vegan' become two distinct tags for one concept.
+ * and 'vegan' become two distinct subcategories for one concept.
  */
-export function normalizeTagKey(s: string): string {
+export function normalizeSubcategoryKey(s: string): string {
   return s
     .normalize('NFKC')
     .replace(/・/g, '') // strip katakana middle dot (U+30FB ・)
@@ -283,7 +283,7 @@ export function normalizeTagKey(s: string): string {
 /**
  * Labels retired by the DEV-1361 split. They remain explicit deny-list values
  * rather than aliases: an old middle-dot or compact spelling must not come
- * back as a novel tag after the atomic replacements are installed.
+ * back as a novel subcategory after the atomic replacements are installed.
  */
 export const RETIRED_COMPOSITE_LABELS = [
   '香氛・蠟燭',
@@ -297,16 +297,16 @@ export const RETIRED_COMPOSITE_LABELS = [
 ] as const
 
 const RETIRED_COMPOSITE_KEYS = new Set(
-  RETIRED_COMPOSITE_LABELS.map((label) => normalizeTagKey(label)),
+  RETIRED_COMPOSITE_LABELS.map((label) => normalizeSubcategoryKey(label)),
 )
 
 export function isRetiredCompositeLabel(input: string): boolean {
-  return RETIRED_COMPOSITE_KEYS.has(normalizeTagKey(input))
+  return RETIRED_COMPOSITE_KEYS.has(normalizeSubcategoryKey(input))
 }
 
 /**
  * A composite subcategory bundles two concepts behind one label, joined by the
- * katakana middle dot (U+30FB ・) that `normalizeTagKey` strips. This module owns
+ * katakana middle dot (U+30FB ・) that `normalizeSubcategoryKey` strips. This module owns
  * the separator, so it owns the predicate too: callers that hand-rolled
  * `nameZh.includes('・')` drifted into two spellings of the same codepoint across
  * two files.
@@ -315,40 +315,40 @@ export function isCompositeSubcategory(subcategory: { nameZh: string }): boolean
   return subcategory.nameZh.includes('・')
 }
 
-const _subcategoryMap = new Map<string, ProductSubcategory>()
-for (const sub of PRODUCT_SUBCATEGORIES) {
+const _subcategoryMap = new Map<string, L2Subcategory>()
+for (const sub of L2_SUBCATEGORIES) {
   for (const key of [sub.nameZh, sub.nameEn, ...sub.aliases]) {
-    _subcategoryMap.set(normalizeTagKey(key), sub)
+    _subcategoryMap.set(normalizeSubcategoryKey(key), sub)
   }
 }
 
-export function matchSubcategory(input: string): ProductSubcategory | null {
-  const key = normalizeTagKey(input)
+export function matchSubcategory(input: string): L2Subcategory | null {
+  const key = normalizeSubcategoryKey(input)
   if (!key) return null
   return _subcategoryMap.get(key) ?? null
 }
 
-let _subcategorySlugMap: Map<string, ProductSubcategory> | null = null
+let _subcategorySlugMap: Map<string, L2Subcategory> | null = null
 
-function _getSubcategorySlugMap(): Map<string, ProductSubcategory> {
+function _getSubcategorySlugMap(): Map<string, L2Subcategory> {
   if (!_subcategorySlugMap) {
-    _subcategorySlugMap = new Map(PRODUCT_SUBCATEGORIES.map((sub) => [sub.slug, sub]))
+    _subcategorySlugMap = new Map(L2_SUBCATEGORIES.map((sub) => [sub.slug, sub]))
   }
   return _subcategorySlugMap
 }
 
-export function subcategoryBySlug(slug: string): ProductSubcategory | null {
+export function subcategoryBySlug(slug: string): L2Subcategory | null {
   return _getSubcategorySlugMap().get(slug) ?? null
 }
 
 export function resolveSubcategorySlugs(
   categorySlug: string | null,
   slugs: string[],
-): ProductSubcategory[] {
+): L2Subcategory[] {
   if (!categorySlug || slugs.length === 0) return []
 
   const seen = new Set<string>()
-  const subcategories: ProductSubcategory[] = []
+  const subcategories: L2Subcategory[] = []
   for (const slug of slugs) {
     if (seen.has(slug)) continue
     seen.add(slug)
@@ -359,6 +359,6 @@ export function resolveSubcategorySlugs(
   return subcategories
 }
 
-export function subcategoryLabel(sub: ProductSubcategory, locale: string): string {
+export function subcategoryLabel(sub: L2Subcategory, locale: string): string {
   return locale === 'zh-TW' ? sub.nameZh : sub.nameEn
 }

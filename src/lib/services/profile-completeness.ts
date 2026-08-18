@@ -6,7 +6,7 @@ import type { Brand } from '@/lib/types/brand'
 
 type ProfileComponentKey =
   | 'description'
-  | 'productTags'
+  | 'subcategories'
   | 'priceRange'
   | 'heroImage'
   | 'productPhotos'
@@ -36,7 +36,7 @@ export type ProfileCompleteness = {
 type ProfileInput = Pick<
   Brand,
   | 'description'
-  | 'productTags'
+  | 'subcategories'
   | 'priceRange'
   | 'heroImageUrl'
   | 'productPhotos'
@@ -73,8 +73,8 @@ export function computeProfileCompleteness(
       step: 0,
     },
     {
-      key: 'productTags',
-      complete: brand.productTags.some(hasText),
+      key: 'subcategories',
+      complete: brand.subcategories.some(hasText),
       required: true,
       weight: 3,
       step: 0,

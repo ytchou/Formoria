@@ -32,9 +32,9 @@ export interface SubmitBrandForReviewParams {
   } | null
   purchaseLinks?: Array<{ platform: string; url: string }> | null
   otherUrls?: OtherUrl[] | null
-  suggestedTags?: { values?: string[]; productType?: string }
-  productType?: string | null
-  productTypeNote?: string | null
+  suggestedSubcategories?: { values?: string[]; categorySlug?: string }
+  categorySlug?: string | null
+  categoryNote?: string | null
   mitSmileCert?: string
   ownerData?: Record<string, unknown>
 }
@@ -99,9 +99,9 @@ export async function submitBrandForReview(
     }
   }
 
-  const suggestedTags = {
-    ...(params.suggestedTags ?? {}),
-    ...(params.productType ? { productType: params.productType } : {}),
+  const suggestedSubcategories = {
+    ...(params.suggestedSubcategories ?? {}),
+    ...(params.categorySlug ? { categorySlug: params.categorySlug } : {}),
     ...(params.mitSmileCert ? { mitSmileCert: params.mitSmileCert } : {}),
   }
 
@@ -121,11 +121,11 @@ export async function submitBrandForReview(
     socialFacebook,
     ...purchaseValues,
     otherUrls: [...(params.otherUrls ?? []), ...otherPurchaseUrls],
-    suggestedTags,
+    suggestedSubcategories,
     isBrandOwner: params.isBrandOwner ?? false,
     sourceAttribution: params.sourceAttribution ?? null,
     pdpaConsentAt: params.pdpaConsent ? new Date().toISOString() : undefined,
-    productTypeNote: params.productTypeNote ?? null,
+    categoryNote: params.categoryNote ?? null,
     ownerData: params.ownerData,
   }, options)
 

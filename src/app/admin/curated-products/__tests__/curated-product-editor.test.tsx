@@ -154,6 +154,19 @@ describe("CuratedProductEditor", () => {
     ).not.toBeNull();
   });
 
+  // Bug caught: generic Category/Subcategories copy hid the L1/L2 taxonomy
+  // distinction on the product editor and made the active contract ambiguous.
+  it("uses explicit L1/L2 vocabulary for category controls", () => {
+    renderEditor();
+
+    expect(messages.admin.curatedProducts.editor.l1).toBe("Product category");
+    expect(messages.admin.curatedProducts.editor.l2).toBe(
+      "Product subcategory",
+    );
+    expect(screen.getByLabelText("Product category")).toBeInTheDocument();
+    expect(screen.getByText("Product subcategory")).toBeInTheDocument();
+  });
+
   it("offers no promote action", () => {
     const { container } = renderEditor();
 

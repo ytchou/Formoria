@@ -3,7 +3,7 @@
  * by running the REAL worker entry point — `runEnrich` — rather than a
  * reimplementation of it.
  *
- * Note the scratch submissions carry no product category: `brand_submissions`
+ * Note the scratch submissions carry no category: `brand_submissions`
  * has no such column, so `detect` assigns one exactly as it would for a real
  * submission. That is more faithful than copying the live value across.
  *
@@ -88,7 +88,7 @@ type BrandRow = {
   id: string
   slug: string
   name: string
-  product_type: string | null
+  category: string | null
   description: string | null
   purchase_website: string | null
   social_instagram: string | null
@@ -114,7 +114,7 @@ async function main(): Promise<void> {
   const { data: brands, error } = await supabase
     .from('brands')
     .select(
-      'id, slug, name, product_type, description, purchase_website, social_instagram, social_threads, social_facebook, purchase_pinkoi, purchase_shopee'
+      'id, slug, name, category, description, purchase_website, social_instagram, social_threads, social_facebook, purchase_pinkoi, purchase_shopee'
     )
     .in('slug', slugs)
   if (error) throw error

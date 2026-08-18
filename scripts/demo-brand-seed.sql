@@ -74,7 +74,7 @@ on conflict (id) do update set
 -- keeps this idempotent regardless of the (brand_id, tag_id) primary key.
 delete from brand_taxonomy where brand_id = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 insert into brand_taxonomy (brand_id, tag_id, source) values
-  ('dddddddd-dddd-dddd-dddd-dddddddddddd','af47f2d8-ea7a-412a-9f45-628561fe2030','manual'), -- home / 居家生活 (product_type)
+  ('dddddddd-dddd-dddd-dddd-dddddddddddd','af47f2d8-ea7a-412a-9f45-628561fe2030','manual'), -- home / 居家生活 (category)
   ('dddddddd-dddd-dddd-dddd-dddddddddddd','4a2c96b7-541c-48c6-9c69-b7052389181e','manual'), -- handmade / 手作 (value)
   ('dddddddd-dddd-dddd-dddd-dddddddddddd','9d197f76-a020-404c-9595-ca65a76cc648','manual'); -- local-culture / 在地文化 (value)
 

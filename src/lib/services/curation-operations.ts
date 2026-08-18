@@ -6,6 +6,7 @@ import {
   CLEARED_FIELDS_KEY,
   resolveRefreshEnrichmentPatch,
 } from "./brand-write-policy";
+import { mergePersistedFieldStates } from "./_shared/persisted-field-identifiers";
 import type { BrandFlatLinkColumns } from "@/lib/types";
 import type { SiteContent } from "@/lib/types/brand";
 import type { ScrapedBrandData } from "@/lib/types/scraper";
@@ -33,7 +34,7 @@ import {
 import {
   type ClassificationResult,
   type DetectResult,
-} from "./product-type-classifier";
+} from "./category-classifier";
 import type { DescriptionAttempt } from "./description-rewrite";
 import type { BrandFactsAttempt } from "./brand-facts";
 import { SEARCH_DELAY_MS } from "./enrich-phases/scraper/search";
@@ -81,7 +82,10 @@ import type { NameCandidate } from "./name-arbiter";
 import type { BrandImageSearchOutcome } from "./enrich-phases/scraper/types";
 import { buildCandidatePool } from "./enrich-phases/candidate-pool";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
-import { deriveProductTypeFromTags, MAX_PRODUCT_TAGS } from "./product-tags";
+import {
+  deriveCategoryFromSubcategories,
+  MAX_SUBCATEGORIES,
+} from "./subcategories";
 import {
   formatBrandComplete,
   formatEnrichError,
@@ -109,8 +113,8 @@ type CurationBrand = {
   description?: string | null;
   description_en?: string | null;
   city?: string | null;
-  product_type?: string | null;
-  product_tags?: string[] | null;
+  category?: string | null;
+  subcategories?: string[] | null;
   category_attributes?: unknown | null;
   site_content?: SiteContent | null;
   reputation_summary?: unknown | null;
@@ -343,7 +347,7 @@ type EnrichDescriptionPatch = Partial<{
   description: string | null;
   description_en: string | null;
   price_range: number | null;
-  product_tags: string[] | null;
+  subcategories: string[] | null;
   city: string | null;
   category_attributes: unknown;
 }>;
@@ -366,13 +370,13 @@ type EnrichPatches = {
   names?: Partial<Pick<CurationBrand, "name">>;
   images?: EnrichImagePatch;
   descriptions?: EnrichDescriptionPatch;
-  tags?: Partial<Pick<CurationBrand, "product_type">>;
+  tags?: Partial<Pick<CurationBrand, "category">>;
 };
 
 type EnrichPatch = Partial<BrandFlatLinkColumns> &
   EnrichImagePatch &
   EnrichDescriptionPatch &
-  Partial<Pick<EnrichBrand, "product_type" | "name">>;
+  Partial<Pick<EnrichBrand, "category" | "name">>;
 
 type ProcessEnrichResult = {
   phases: EnrichProcessPhases;
@@ -416,11 +420,12 @@ export function seedEnrichedDataFromOwnerData(
 
   const merged = { ...existing };
   const fieldMappings = [
-    ["productType", "product_type"],
+    ["categorySlug", "category"],
     ["foundingYear", "founding_year"],
     ["city", "city"],
     ["priceRange", "price_range"],
-    ["productTags", "product_tags"],
+    ["subcategories", "subcategories"],
+    ["subcategories_en", "subcategories_en"],
     ["productPhotos", "product_photos"],
     ["mitStory", "mit_story"],
     ["heroImageUrl", "hero_image_url"],
@@ -448,10 +453,10 @@ function deepMergeJsonObjects(base: JsonObject, patch: JsonObject): JsonObject {
   for (const [key, value] of Object.entries(patch)) {
     const existing = merged[key];
     if (
-      (key === "product_tags" || key === "product_tags_en") &&
+      (key === "subcategories" || key === "subcategories_en") &&
       Array.isArray(value)
     ) {
-      merged[key] = value.slice(0, MAX_PRODUCT_TAGS);
+      merged[key] = value.slice(0, MAX_SUBCATEGORIES);
       continue;
     }
 
@@ -1145,16 +1150,11 @@ export async function persistSubmissionEnrichmentResults(
     }
     const { data: fieldStates, error: fieldStateError } = await supabase
       .from("brand_field_state")
-      .select("field, source")
+      .select("field, source, updated_at")
       .eq("brand_id", row.brand_id);
     if (fieldStateError) throw fieldStateError;
 
-    const fieldState = Object.fromEntries(
-      (fieldStates ?? []).map((state) => [
-        state.field,
-        { source: state.source },
-      ]),
-    );
+    const fieldState = mergePersistedFieldStates(fieldStates ?? []);
     const filtered = resolveRefreshEnrichmentPatch(
       persistablePatch,
       fieldState,
@@ -1287,8 +1287,8 @@ export function submissionToEnrichBrand(
       : null,
     reputation_summary: existing.reputation_summary ?? null,
     mit_evidence: existing.mit_evidence ?? null,
-    product_type:
-      typeof existing.product_type === "string" ? existing.product_type : null,
+    category:
+      typeof existing.category === "string" ? existing.category : null,
     social_instagram:
       typeof existing.social_instagram === "string"
         ? existing.social_instagram
@@ -1956,7 +1956,7 @@ export async function runEnrich(
                 isNonBrand: true,
                 nonBrandReason: detectResult?.nonBrandReason ?? null,
                 slugGenerated: detectResult?.slugGenerated ?? null,
-                productType: detectResult?.productType ?? null,
+                categorySlug: detectResult?.categorySlug ?? null,
                 confidence: detectResult?.confidence ?? "high",
               });
             }
@@ -2392,35 +2392,35 @@ export async function runEnrich(
           // The descriptions phase now assigns the category explicitly, from
           // site content and image alt text. That value wins: the tag-vote
           // derivation below is a fallback for when the model returned null.
-          const effectiveProductType =
-            typeof descriptionsResult.patch.product_type === "string"
-              ? descriptionsResult.patch.product_type
-              : typeof state.patches.product_type === "string"
-                ? state.patches.product_type
-                : brand.product_type;
-          const effectiveProductTags = Array.isArray(
-            descriptionsResult.patch.product_tags,
+          const effectiveCategory =
+            typeof descriptionsResult.patch.category === "string"
+              ? descriptionsResult.patch.category
+              : typeof state.patches.category === "string"
+                ? state.patches.category
+                : brand.category;
+          const effectiveSubcategories = Array.isArray(
+            descriptionsResult.patch.subcategories,
           )
-            ? descriptionsResult.patch.product_tags.filter(
+            ? descriptionsResult.patch.subcategories.filter(
                 (tag): tag is string => typeof tag === "string",
               )
-            : (brand.product_tags ?? []);
+            : (brand.subcategories ?? []);
           if (
             descriptionsResult.phaseResult.status === "succeeded" &&
-            !effectiveProductType
+            !effectiveCategory
           ) {
-            const derivedProductType =
-              deriveProductTypeFromTags(effectiveProductTags);
-            if (derivedProductType) {
-              descriptionsResult.patch.product_type = derivedProductType;
+            const derivedCategory =
+              deriveCategoryFromSubcategories(effectiveSubcategories);
+            if (derivedCategory) {
+              descriptionsResult.patch.category = derivedCategory;
               descriptionsResult.phaseResult.changedFields = [
                 ...new Set([
                   ...descriptionsResult.phaseResult.changedFields,
-                  "product_type",
+                  "category",
                 ]),
               ];
               onProgress(
-                `  [CATEGORY] ${brand.slug}: derived ${derivedProductType} from product tags`,
+                `  [CATEGORY] ${brand.slug}: derived ${derivedCategory} from subcategories`,
               );
             }
           }
@@ -2461,7 +2461,7 @@ export async function runEnrich(
                   isNonBrand: true,
                   nonBrandReason: `listing_reject: ${listingReason}`,
                   slugGenerated: null,
-                  productType: effectiveProductType ?? null,
+                  categorySlug: effectiveCategory ?? null,
                   confidence: "medium",
                 });
               }
@@ -2568,18 +2568,18 @@ export async function runEnrich(
             await markCurrentPhase(ctx, "tags");
             const tagStartedAt = Date.now();
             hasCompletedTagClassification = true;
-            if (classification.productType !== brand.product_type) {
-              appendPatch(state, { product_type: classification.productType });
+            if (classification.categorySlug !== brand.category) {
+              appendPatch(state, { category: classification.categorySlug });
               const tagPhaseResult = buildPhaseResult(
                 "tags",
                 "succeeded",
-                ["product_type"],
+                ["category"],
                 Date.now() - tagStartedAt,
               );
               state.phaseResults.push(tagPhaseResult);
               await logCurrentPhase(ctx, tagPhaseResult);
               onProgress(
-                `  [TAG] ${brand.slug}: ${brand.product_type ?? "null"} → ${classification.productType} (${classification.confidence})`,
+                `  [CATEGORY] ${brand.slug}: ${brand.category ?? "null"} → ${classification.categorySlug} (${classification.confidence})`,
               );
             } else {
               const tagPhaseResult = buildPhaseResult(
@@ -2591,7 +2591,7 @@ export async function runEnrich(
               state.phaseResults.push(tagPhaseResult);
               await logCurrentPhase(ctx, tagPhaseResult);
               onProgress(
-                `  [TAG] ${brand.slug}: ${brand.product_type} (unchanged)`,
+                `  [CATEGORY] ${brand.slug}: ${brand.category ?? "null"} (unchanged)`,
               );
             }
           }
@@ -2683,7 +2683,7 @@ export async function runEnrich(
                 isNonBrand: false,
                 nonBrandReason: null,
                 slugGenerated: detectResult.slugGenerated,
-                productType: detectResult.productType,
+                categorySlug: detectResult.categorySlug,
                 confidence: detectResult.confidence,
               });
             }
@@ -2705,7 +2705,7 @@ export async function runEnrich(
               await insertClassificationResult({
                 brandId: brand.id,
                 target: { type: targetType, id: brand.id },
-                productType: classification.productType,
+                categorySlug: classification.categorySlug,
                 confidence: classification.confidence,
               });
             }

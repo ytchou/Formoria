@@ -21,7 +21,7 @@ import {
   type LlmCallOutcome,
 } from "./_shared/llm-call-outcome";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
-import type { LlmBatchOutcome } from "./product-type-classifier";
+import type { LlmBatchOutcome } from "./category-classifier";
 
 type NameCandidateSource = "stored" | "cleaned" | "detected" | "scraped";
 

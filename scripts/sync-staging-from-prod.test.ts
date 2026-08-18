@@ -16,7 +16,7 @@ import {
   planCopyOrder,
   planImageUpserts,
   planMitRegistryCerts,
-  planProductTypeQuotas,
+  planCategoryQuotas,
   planSlugRedirects,
   planWriteDiff,
   type Row,
@@ -40,7 +40,7 @@ function candidate(
   return {
     id: `id-${overrides.slug}`,
     name: `品牌 ${overrides.slug}`,
-    product_type: "home",
+    category: "home",
     city: "台北市",
     model_faq_count: 5,
     mit_status: "none",
@@ -75,9 +75,9 @@ function prodBrandRow(overrides: Row = {}): Row {
     city: "新北市",
     founding_year: 1998,
     price_range: 2,
-    product_type: "home",
-    product_tags: ["陶器"],
-    product_tags_en: ["ceramics"],
+    category: "home",
+    subcategories: ["陶器"],
+    subcategories_en: ["ceramics"],
     category_attributes: { material: "clay" },
     hero_image_url: "https://images.example/hero.webp",
     other_urls: [],
@@ -207,25 +207,25 @@ function exhibitorRow(overrides: Row = {}): Row {
 // Selection
 // ---------------------------------------------------------------------------
 
-const PRODUCT_TYPES = ["home", "food-drink", "beauty", "crafts"];
+const CATEGORIES = ["home", "food-drink", "beauty", "crafts"];
 
 function selectionCandidates(): SelectionCandidate[] {
   const candidates: SelectionCandidate[] = [];
-  for (const [typeIndex, productType] of PRODUCT_TYPES.entries()) {
+  for (const [categoryIndex, categorySlug] of CATEGORIES.entries()) {
     for (let index = 0; index < 15; index += 1) {
       candidates.push(
         candidate({
-          slug: `${productType}-${index}`,
-          product_type: productType,
+          slug: `${categorySlug}-${index}`,
+          category: categorySlug,
           imageCount: index,
           channelCount: index % 3,
-          // One zero-FAQ brand per product_type, deliberately not the first.
+          // One zero-FAQ brand per category, deliberately not the first.
           model_faq_count: index === 7 ? 0 : 4 + index,
           city: index % 5 === 0 ? null : "台中市",
           isEventBrand: index % 4 === 0,
           isRedirectTarget: index % 6 === 0,
           description: index % 7 === 0 ? "短" : "描".repeat(400),
-          mit_status: typeIndex === 0 && index < 3 ? "verified" : "none",
+          mit_status: categoryIndex === 0 && index < 3 ? "verified" : "none",
         }),
       );
     }
@@ -283,7 +283,7 @@ describe("planBrandSelection", () => {
     }
   });
 
-  it("includes at least one zero-FAQ brand per product_type", () => {
+  it("includes at least one zero-FAQ brand per category", () => {
     const plan = planBrandSelection({
       candidates,
       pinnedSlugs,
@@ -291,10 +291,10 @@ describe("planBrandSelection", () => {
       seed: 1,
     });
     const selected = new Set(plan.slugs);
-    for (const productType of PRODUCT_TYPES) {
+    for (const categorySlug of CATEGORIES) {
       const zeroFaq = candidates.filter(
         (brand) =>
-          brand.product_type === productType && brand.model_faq_count === 0,
+          brand.category === categorySlug && brand.model_faq_count === 0,
       );
       expect(zeroFaq.some((brand) => selected.has(brand.slug))).toBe(true);
     }
@@ -346,14 +346,14 @@ describe("planBrandSelection", () => {
     expect(second.rationale).toEqual(first.rationale);
   });
 
-  it("counts every selected brand in byProductType", () => {
+  it("counts every selected brand in byCategory", () => {
     const plan = planBrandSelection({
       candidates,
       pinnedSlugs,
       target: 30,
       seed: 1,
     });
-    const total = Object.values(plan.rationale.byProductType).reduce(
+    const total = Object.values(plan.rationale.byCategory).reduce(
       (sum, count) => sum + count,
       0,
     );
@@ -367,20 +367,20 @@ describe("planBrandSelection", () => {
   });
 });
 
-describe("planProductTypeQuotas", () => {
-  it("apportions exactly the target across product types", () => {
-    const quotas = planProductTypeQuotas(selectionCandidates(), 100);
+describe("planCategoryQuotas", () => {
+  it("apportions exactly the target across categories", () => {
+    const quotas = planCategoryQuotas(selectionCandidates(), 100);
     const total = [...quotas.values()].reduce((sum, value) => sum + value, 0);
     expect(total).toBe(100);
     expect(quotas.get("home")).toBe(25);
   });
 
-  it("groups brands with no product_type under a single key", () => {
-    const quotas = planProductTypeQuotas(
+  it("groups brands with no category under a single key", () => {
+    const quotas = planCategoryQuotas(
       [
-        candidate({ slug: "a", product_type: null }),
-        candidate({ slug: "b", product_type: "  " }),
-        candidate({ slug: "c", product_type: "home" }),
+        candidate({ slug: "a", category: null }),
+        candidate({ slug: "b", category: "  " }),
+        candidate({ slug: "c", category: "home" }),
       ],
       3,
     );

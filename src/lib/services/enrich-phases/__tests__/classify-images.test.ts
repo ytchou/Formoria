@@ -748,7 +748,7 @@ describe("buildBrandContext identifiers", () => {
     );
     const context = buildBrandContext({
       name: "A brand",
-      productType: null,
+      categorySlug: null,
       website,
     });
 
@@ -759,7 +759,7 @@ describe("buildBrandContext identifiers", () => {
   it("uses the Pinkoi store slug when the brand has no website", () => {
     const context = buildBrandContext({
       name: "I.A.N Design",
-      productType: null,
+      categorySlug: null,
       website: null,
       pinkoi: "https://hk.pinkoi.com/store/ian-design?ref_posn=20",
     });
@@ -771,7 +771,7 @@ describe("buildBrandContext identifiers", () => {
   it("uses an Instagram profile handle", () => {
     const context = buildBrandContext({
       name: "7th Island",
-      productType: null,
+      categorySlug: null,
       website: null,
       instagram: "https://www.instagram.com/7th_island",
     });
@@ -782,7 +782,7 @@ describe("buildBrandContext identifiers", () => {
   it("ignores an Instagram post permalink, which identifies nothing", () => {
     const context = buildBrandContext({
       name: "新夭 BrainHoleSky",
-      productType: null,
+      categorySlug: null,
       website: null,
       instagram: "https://www.instagram.com/p/DWd7Jm9k_xS/",
     });
@@ -797,7 +797,7 @@ describe("buildBrandContext identifiers", () => {
   it("declares the absence so the prompt can withhold wrong_brand", () => {
     const context = buildBrandContext({
       name: "Some Brand",
-      productType: null,
+      categorySlug: null,
       website: null,
     });
 
@@ -809,7 +809,7 @@ describe("buildBrandContext identifiers", () => {
   it("stays silent about absence when any identifier is present", () => {
     const context = buildBrandContext({
       name: "TopNutree",
-      productType: null,
+      categorySlug: null,
       website: "https://www.topnutree.com.tw",
     });
 

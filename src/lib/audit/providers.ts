@@ -135,7 +135,7 @@ const PROVIDERS = {
   enrich: [
     "arbitrateBrandNames",
     "arbitrateSiteIdentity",
-    "classifyProductTypeBatch",
+    "classifyCategoryBatch",
     "detectBrandsBatch",
     "persistEnrichmentResults",
     "persistSubmissionEnrichmentResults",

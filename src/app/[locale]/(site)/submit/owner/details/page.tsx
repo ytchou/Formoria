@@ -5,7 +5,7 @@ import SubmissionWizard from '@/components/submit/wizard/SubmissionWizard'
 import { signInHref } from '@/i18n/locale-preference'
 import { buildAlternates, type Locale } from '@/lib/seo/alternates'
 import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
-import { getApprovedProductTagSuggestions } from '@/lib/services/product-tag-suggestions'
+import { getApprovedSubcategorySuggestions } from '@/lib/services/subcategory-suggestions'
 import { createClient } from '@/lib/supabase/server'
 
 type OwnerDetailsPageProps = {
@@ -52,9 +52,9 @@ export default async function SubmitOwnerDetailsPage({
     redirect(signInHref('/submit/owner/details', locale))
   }
 
-  const [t, productTagSuggestions] = await Promise.all([
+  const [t, subcategorySuggestions] = await Promise.all([
     getTranslations('submit.submissionWizard'),
-    getApprovedProductTagSuggestions(),
+    getApprovedSubcategorySuggestions(),
   ])
 
   return (
@@ -63,7 +63,7 @@ export default async function SubmitOwnerDetailsPage({
         <h1 className="text-balance type-page-title-large">{t('heading')}</h1>
         <p className="mt-3 type-card-description">{t('subheading')}</p>
       </div>
-      <SubmissionWizard productTagSuggestions={productTagSuggestions} />
+      <SubmissionWizard subcategorySuggestions={subcategorySuggestions} />
     </div>
   )
 }

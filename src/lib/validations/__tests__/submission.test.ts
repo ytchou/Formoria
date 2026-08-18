@@ -47,7 +47,7 @@ describe('simplified submission schema', () => {
 
   it('keeps description and hero image optional', () => {
     const shape = Object.keys(fullSubmissionSchema.shape)
-    expect(shape).not.toContain('productType')
+    expect(shape).not.toContain('categorySlug')
     expect(shape).not.toContain('productPhotos')
     expect(shape).toContain('description')
     expect(shape).toContain('heroImageUrl')

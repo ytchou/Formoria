@@ -30,7 +30,7 @@ import {
   resolveApprovedBrandRedirect,
 } from "@/lib/services/brand-redirects-edge";
 import {
-  PRODUCT_TYPE_CATEGORIES,
+  L1_CATEGORIES,
   subcategoryBySlug,
 } from "@/lib/taxonomy/ontology";
 import { recordCrawlerHit } from "@/lib/security/crawler-telemetry";
@@ -195,7 +195,7 @@ export function isDirectoryIndexPath(pathname: string, search = ""): boolean {
   ) {
     return false;
   }
-  const category = PRODUCT_TYPE_CATEGORIES.find(
+  const category = L1_CATEGORIES.find(
     (item) => item.slug === segments[1],
   );
   if (!category) return false;
@@ -238,7 +238,7 @@ export function decideDirectoryTaxonomyRedirect(
   const categorySlug = singleQueryValue(params, "category");
   if (
     !categorySlug ||
-    !PRODUCT_TYPE_CATEGORIES.some((category) => category.slug === categorySlug)
+    !L1_CATEGORIES.some((category) => category.slug === categorySlug)
   ) {
     return { action: "none" };
   }

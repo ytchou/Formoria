@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { SearchSuggestion } from "@/lib/brands/contracts";
-import { getProductTypeLabel } from "@/lib/brands/category-label";
+import { getCategoryLabel } from "@/lib/brands/category-label";
 
 interface SearchSuggestionsProps {
   suggestions: SearchSuggestion[];
@@ -82,13 +82,13 @@ export function SearchSuggestions({
             <span className="font-medium text-foreground">
               {highlightMatch(item.name, query)}
             </span>
-            {item.category && (
+            {item.categoryLabel && (
               <span className="ml-2 type-caption">
                 {highlightMatch(
-                  getProductTypeLabel(
-                    item.category,
+                  getCategoryLabel(
+                    item.categoryLabel,
                     locale === "zh-TW" ? "zh-TW" : "en",
-                  ) ?? item.category,
+                  ) ?? item.categoryLabel,
                   query,
                 )}
               </span>

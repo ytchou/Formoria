@@ -32,9 +32,9 @@ const publishPurchaseRequirements = {
 
 export const brandPublishRequirementsSchema = z.object({
   name: z.string().trim().min(1),
-  productType: z.string().trim().min(1),
+  categorySlug: z.string().trim().min(1),
   description: z.string().trim().min(1),
-  productTags: z.array(z.string().trim().min(1)).min(1).max(5),
+  subcategories: z.array(z.string().trim().min(1)).min(1).max(5),
   priceRange: z.union([
     z.literal(1),
     z.literal(2),

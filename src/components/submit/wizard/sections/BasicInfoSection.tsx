@@ -9,12 +9,12 @@ import { Input } from '@/components/ui/input'
 import { useSubmissionWizard } from '../submission-wizard-context'
 
 export function BasicInfoSection() {
-  const { form, productTagSuggestions } = useSubmissionWizard()
+  const { form, subcategorySuggestions } = useSubmissionWizard()
 
   return (
     <FormProvider {...form}>
       <BrandBasicInfoSection
-        productTagSuggestions={productTagSuggestions}
+        subcategorySuggestions={subcategorySuggestions}
         requiredFields={{ name: true, description: true }}
         suggestName={suggestCleanName}
         afterRomanizedName={<SourceWebsiteField />}

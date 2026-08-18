@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { DETECT_SYSTEM_PROMPT, FACTS_SYSTEM_PROMPT } from "@/lib/prompts";
 
-describe("FACTS_SYSTEM_PROMPT product_tags vocabulary", () => {
+describe("FACTS_SYSTEM_PROMPT subcategories vocabulary", () => {
   it("embeds the subcategory tree grouped by L1 category", () => {
     expect(FACTS_SYSTEM_PROMPT).toContain("包袋配件");
     expect(FACTS_SYSTEM_PROMPT).toContain("口金包");
@@ -16,17 +16,17 @@ describe("FACTS_SYSTEM_PROMPT product_tags vocabulary", () => {
     expect(FACTS_SYSTEM_PROMPT).not.toContain("不要用寬泛分類");
   });
 
-  it("the product_tags rule forbids the middle dot in novel tags", () => {
+  it("the subcategories rule forbids the middle dot in novel subcategories", () => {
     expect(FACTS_SYSTEM_PROMPT).toContain("不含「・」");
   });
 
-  it("the product_tags rule forbids occasion, service and material tags", () => {
+  it("the subcategories rule forbids occasion, service and material tags", () => {
     expect(FACTS_SYSTEM_PROMPT).toContain(
       "4. 不得是場合、收件對象、包裝形式、履約方式、服務或材質（例如送禮、彌月、禮盒、伴手禮、體驗課程、服務、原料）。",
     );
   });
 
-  it("the output self-check list covers tag kind and the separator", () => {
+  it("the output self-check list covers subcategory kind and the separator", () => {
     expect(FACTS_SYSTEM_PROMPT).toContain("是否命名具體產品種類");
     expect(FACTS_SYSTEM_PROMPT).toContain("是否不含「・」");
   });
@@ -70,12 +70,12 @@ describe("the product category is decided in the facts stage", () => {
   // scraped and before any product photo is seen. The category is a reasoning
   // task, so it belongs to the call that has that evidence.
   it("drops the category from the detect contract", () => {
-    expect(DETECT_SYSTEM_PROMPT).not.toContain("productType");
+    expect(DETECT_SYSTEM_PROMPT).not.toContain("categorySlug");
     expect(DETECT_SYSTEM_PROMPT).not.toContain("## Category");
   });
 
   it("asks the facts stage for a single L1 category slug", () => {
-    expect(FACTS_SYSTEM_PROMPT).toContain("product_type");
+    expect(FACTS_SYSTEM_PROMPT).toContain("category");
     expect(FACTS_SYSTEM_PROMPT).toContain("bags-accessories");
     expect(FACTS_SYSTEM_PROMPT).toContain("核心產品線");
   });

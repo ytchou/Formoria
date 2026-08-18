@@ -30,14 +30,14 @@ interface BrandInput {
   threads?: string
   facebook?: string
   context?: string
-  productType?: string
+  categorySlug?: string
 }
 
 interface EnrichedBrand {
   name: string
   description: string
-  productTypes: string
-  productTypeNote: string
+  categories: string
+  categoryNote: string
   website: string
   instagram: string
   threads: string
@@ -66,8 +66,8 @@ function buildCSVRow(brand: EnrichedBrand): string {
   const columns: (keyof EnrichedBrand)[] = [
     'name',
     'description',
-    'productTypes',
-    'productTypeNote',
+    'categories',
+    'categoryNote',
     'website',
     'instagram',
     'threads',
@@ -161,8 +161,8 @@ function mergeToEnriched(input: BrandInput, scraped: ScrapedBrandData | null): E
   return {
     name: pickBestName(input.name, s?.brandName ?? undefined),
     description: s?.description || s?.story || '',
-    productTypes: input.productType || '',
-    productTypeNote: '',
+    categories: input.categorySlug || '',
+    categoryNote: '',
     website: s?.websiteUrl || input.url || '',
     instagram: s?.socialInstagram || input.instagram || '',
     threads: s?.socialThreads || input.threads || '',
@@ -242,7 +242,7 @@ async function main() {
     }
   }
 
-  const header = 'name,description,productTypes,productTypeNote,website,instagram,threads,facebook,heroImageUrl,productPhotos,brandHighlights,categoryHints,scrapeStatus'
+  const header = 'name,description,categories,categoryNote,website,instagram,threads,facebook,heroImageUrl,productPhotos,brandHighlights,categoryHints,scrapeStatus'
   const rows = results.map(buildCSVRow)
   const csv = [header, ...rows].join('\n')
 
@@ -251,7 +251,7 @@ async function main() {
   writeFileSync(outPath, csv, 'utf-8')
 
   console.error(`\nWrote ${results.length} brands to ${outPath}`)
-  console.error('\nNext step: paste the CSV into a Claude Code session to fill in productTypes.')
+  console.error('\nNext step: paste the CSV into a Claude Code session to fill in categories.')
 
   const noUrl = results.filter((r) => r.scrapeStatus === 'no-url')
   const noDesc = results.filter((r) => !r.description)

@@ -21,8 +21,8 @@ describeWithDb("stockist directory public read", () => {
         name: `María García Field Goods ${suffix}`,
         slug: `maria-garcia-field-goods-${suffix}`,
         status: "approved",
-        product_type: "outdoor",
-        product_tags: ["登山背包"],
+        category: "outdoor",
+        subcategories: ["登山背包"],
       },
       {
         id: randomUUID(),

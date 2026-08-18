@@ -8,7 +8,16 @@ import {
   getSubmissionsForReview,
   saveSubmissionReview,
 } from "../submissions";
+import { updateBrand } from "../brands";
+import { toPersistedFieldIdentifier } from "../_shared/persisted-field-identifiers";
 import { describeWithDb } from "@/test/setup";
+
+const PERSISTED_CATEGORY_FIELD = toPersistedFieldIdentifier("category");
+const PERSISTED_SUBCATEGORIES_FIELD =
+  toPersistedFieldIdentifier("subcategories");
+const PERSISTED_SUBCATEGORIES_EN_FIELD = toPersistedFieldIdentifier(
+  "subcategories_en",
+);
 
 const supabase =
   process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -84,17 +93,17 @@ describeWithDb("trusted submission review RPCs", () => {
       .eq("id", submissionId)
       .single();
     expect(submission).toMatchObject({
-      brand_name: "Trusted Save Brand",
+      brand_name: "Trusted save Brand",
       description: "原始介紹",
       website_url: "https://original.example.com",
       purchase_website: null,
       hero_image_url: null,
-      suggested_tags: null,
+      suggested_tags: [],
       enriched_data: null,
       review_overrides: expect.objectContaining({
         description: "完整中文介紹",
-        product_type: "crafts",
-        product_tags: ["木工"],
+        category: "crafts",
+        subcategories: ["木工"],
         price_range: 2,
         purchase_website: "https://trusted.example.com",
       }),
@@ -363,15 +372,15 @@ describeWithDb("trusted submission review RPCs", () => {
     expect(brand?.mit_story).toBe(mitStory);
   });
 
-  it("records matching community suggested tags as submitted provenance", async () => {
+  it("records matching community suggested subcategories as legacy provenance", async () => {
     const submissionId = await seedSubmission("submitted-provenance");
     const images = await seedImages(submissionId);
     const { error: candidateError } = await supabase!
       .from("brand_submissions")
       .update({
         social_instagram: "https://instagram.com/community-submitted",
-        suggested_tags: { values: ["木工"], productType: "crafts" },
-        enriched_data: { product_tags: ["木工"], product_type: "crafts" },
+        suggested_tags: { values: ["木工"], categorySlug: "crafts" },
+        enriched_data: { subcategories: ["木工"], category: "crafts" },
       })
       .eq("id", submissionId);
     expect(candidateError).toBeNull();
@@ -384,17 +393,151 @@ describeWithDb("trusted submission review RPCs", () => {
       .from("brand_field_state")
       .select("field, source")
       .eq("brand_id", result.brandId)
-      .in("field", ["product_tags", "product_type", "social_instagram"]);
+      .in("field", [
+        PERSISTED_SUBCATEGORIES_FIELD,
+        PERSISTED_CATEGORY_FIELD,
+        "social_instagram",
+      ]);
     expect(stateError).toBeNull();
     expect(
       Object.fromEntries(
         (states ?? []).map((state) => [state.field, state.source]),
       ),
     ).toEqual({
-      product_tags: "submitted",
-      product_type: "submitted",
+      [PERSISTED_SUBCATEGORIES_FIELD]: "submitted",
+      [PERSISTED_CATEGORY_FIELD]: "submitted",
       social_instagram: "admin",
     });
+  });
+
+  // Bug caught: translating only the write path left old owner locks invisible
+  // to application-shaped category/subcategory patches, so enrichment could
+  // overwrite values an owner had protected under the historical identifiers.
+  it("protects target category and subcategories through legacy owner locks", async () => {
+    const brand = await seedRefreshBrand("legacy-owner-locks", "approved");
+    const { error: lockError } = await untypedSupabase!
+      .from("brand_field_state")
+      .insert([
+        {
+          brand_id: brand.id,
+          field: PERSISTED_CATEGORY_FIELD,
+          source: "owner",
+          updated_by: reviewerId,
+        },
+        {
+          brand_id: brand.id,
+          field: PERSISTED_SUBCATEGORIES_FIELD,
+          source: "owner",
+          updated_by: reviewerId,
+        },
+      ]);
+    expect(lockError).toBeNull();
+
+    const result = await updateBrand(
+      brand.id,
+      {
+        categorySlug: "jewelry",
+        subcategories: ["戒指"],
+        subcategoriesEn: ["Rings"],
+      },
+      { source: "enriched" },
+    );
+
+    expect(result.skipped).toEqual(
+      expect.arrayContaining([
+        { field: "category", reason: "protected:owner" },
+        { field: "subcategories", reason: "protected:owner" },
+        { field: "subcategories_en", reason: "protected:owner" },
+      ]),
+    );
+    const { data: unchanged, error: readError } = await supabase!
+      .from("brands")
+      .select("category, subcategories, subcategories_en")
+      .eq("id", brand.id)
+      .single();
+    expect(readError).toBeNull();
+    expect(unchanged).toEqual({
+      category: "crafts",
+      subcategories: ["木工"],
+      subcategories_en: null,
+    });
+  });
+
+  // Bug caught: sending final target names directly to the unchanged patch RPC
+  // created category/subcategories provenance rows that PR3 cannot interpret.
+  it("writes target brand values while retaining legacy provenance identifiers", async () => {
+    const brand = await seedRefreshBrand("legacy-provenance-write", "approved");
+
+    const result = await updateBrand(
+      brand.id,
+      {
+        categorySlug: "jewelry",
+        subcategories: ["戒指"],
+        subcategoriesEn: ["Rings"],
+      },
+      { source: "enriched" },
+    );
+    expect(result.skipped).toEqual([]);
+
+    const { data: updated, error: brandError } = await supabase!
+      .from("brands")
+      .select("*")
+      .eq("id", brand.id)
+      .single();
+    expect(brandError).toBeNull();
+    expect(updated?.category).toBe("jewelry");
+    const updatedRecord = updated as unknown as Record<string, unknown> | null;
+    expect(updatedRecord?.[PERSISTED_CATEGORY_FIELD]).toBe("jewelry");
+    expect(updated?.subcategories).toEqual(["戒指"]);
+    expect(updatedRecord?.[PERSISTED_SUBCATEGORIES_FIELD]).toEqual(["戒指"]);
+    expect(updated?.subcategories_en).toEqual(["Rings"]);
+    expect(updatedRecord?.[PERSISTED_SUBCATEGORIES_EN_FIELD]).toEqual(["Rings"]);
+
+    const { data: states, error: stateError } = await untypedSupabase!
+      .from("brand_field_state")
+      .select("field, source")
+      .eq("brand_id", brand.id)
+      .in("field", [
+        "category",
+        PERSISTED_CATEGORY_FIELD,
+        "subcategories",
+        PERSISTED_SUBCATEGORIES_FIELD,
+        "subcategories_en",
+        PERSISTED_SUBCATEGORIES_EN_FIELD,
+      ]);
+    expect(stateError).toBeNull();
+    expect(states).toEqual(
+      expect.arrayContaining([
+        { field: PERSISTED_CATEGORY_FIELD, source: "enriched" },
+        { field: PERSISTED_SUBCATEGORIES_FIELD, source: "enriched" },
+        { field: PERSISTED_SUBCATEGORIES_EN_FIELD, source: "enriched" },
+      ]),
+    );
+    expect(states?.some((state) =>
+      ["category", "subcategories", "subcategories_en"].includes(
+        state.field,
+      ),
+    )).toBe(false);
+
+    const { data: events, error: eventError } = await untypedSupabase!
+      .from("brand_field_events")
+      .select("field, source")
+      .eq("brand_id", brand.id)
+      .in("field", [
+        "category",
+        PERSISTED_CATEGORY_FIELD,
+        "subcategories",
+        PERSISTED_SUBCATEGORIES_FIELD,
+        "subcategories_en",
+        PERSISTED_SUBCATEGORIES_EN_FIELD,
+      ]);
+    expect(eventError).toBeNull();
+    expect(events).toHaveLength(3);
+    expect(events?.map((event) => event.field).sort()).toEqual([
+      PERSISTED_SUBCATEGORIES_FIELD,
+      PERSISTED_SUBCATEGORIES_EN_FIELD,
+      PERSISTED_CATEGORY_FIELD,
+    ]);
   });
 
   it("requests and applies a refresh to exactly one existing hidden brand", async () => {
@@ -752,7 +895,7 @@ describeWithDb("trusted submission review RPCs", () => {
       .update({ enriched_data: { description: "不應套用的介紹" } })
       .eq("id", submissionId!);
     await seedSuccessfulTarget(submissionId!, "refresh-stale");
-    await supabase!.from("brands").update({ city: "台北" }).eq("id", brand.id);
+    await supabase!.from("brands").update({ city: "taipei" }).eq("id", brand.id);
 
     const { error } = await supabase!.rpc("apply_brand_refresh", {
       p_submission_id: submissionId!,
@@ -797,7 +940,7 @@ describeWithDb("trusted submission review RPCs", () => {
     expect(error?.message).toContain("brand images changed");
   });
 
-  it("enforces the seven-image limit even when review was never saved", async () => {
+  it("enforces the image ceiling even when review was never saved", async () => {
     const brand = await seedRefreshBrand("image-limit", "approved");
     const { data: submissionId, error: requestError } = await supabase!.rpc(
       "request_brand_refresh",
@@ -813,7 +956,7 @@ describeWithDb("trusted submission review RPCs", () => {
     const { error: imageError } = await supabase!
       .from("submission_images")
       .insert(
-        Array.from({ length: 6 }, (_, index) => ({
+        Array.from({ length: 9 }, (_, index) => ({
           submission_id: submissionId!,
           storage_path: `submissions/${submissionId}/candidate-${index}.webp`,
           url: `https://cdn.example.com/${submissionId}/candidate-${index}.webp`,
@@ -945,8 +1088,10 @@ describeWithDb("trusted submission review RPCs", () => {
       status,
       description: "原本完整的品牌介紹",
       hero_image_url: heroUrl,
-      product_type: "crafts",
-      product_tags: ["木工"],
+      category: "crafts",
+      subcategories: ["木工"],
+      city: "taichung",
+      approved_at: status === "approved" ? new Date().toISOString() : null,
       price_range: 2,
       purchase_website:
         links.purchaseWebsite === undefined
@@ -998,7 +1143,7 @@ describeWithDb("trusted submission review RPCs", () => {
       descriptionEn: "Complete English description",
       blurb: "品牌摘要",
       blurbEn: "Brand summary",
-      city: "台中",
+      city: "taichung",
       categoryAttributes: null,
       reputationSummary: null,
       channels: [],
@@ -1006,10 +1151,10 @@ describeWithDb("trusted submission review RPCs", () => {
       siteContent: null,
       foundingYear: 2018,
       heroImageUrl: images.hero.url,
-      productType: "crafts",
+      categorySlug: "crafts",
       priceRange: 2,
-      productTags: ["木工"],
-      productTagsEn: ["Woodwork"],
+      subcategories: ["木工"],
+      subcategoriesEn: ["Woodwork"],
       websiteUrl: "https://trusted.example.com",
       socialInstagram: null,
       socialThreads: null,

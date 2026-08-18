@@ -153,7 +153,7 @@ export const LLM_PROFILES = {
     timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
   },
   /**
-   * Single-brand product-type classification. 300, not 100: maxTokens is
+   * Single-brand category classification. 300, not 100: maxTokens is
    * max_completion_tokens on gpt-5, so any preamble the model emits before the
    * JSON eats the same budget and truncates the answer.
    */
@@ -164,7 +164,7 @@ export const LLM_PROFILES = {
     reasoningEffort: "none",
     timeoutMs: CLASSIFY_TIMEOUT_MS,
   },
-  /** Batched product-type classification — up to 20 brands per call. */
+  /** Batched category classification — up to 20 brands per call. */
   classificationBatch: {
     model: "text",
     maxTokens: 1500,

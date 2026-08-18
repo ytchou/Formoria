@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { runEnrich } from "../curation-operations";
-import type { DetectResult } from "../product-type-classifier";
+import type { DetectResult } from "../category-classifier";
 import type { ImageQueryInput } from "../enrich-phases/scraper/types";
 
 /**
@@ -26,8 +26,8 @@ const mocks = vi.hoisted(() => ({
   getLatestSearchResults: vi.fn(),
 }));
 
-vi.mock("../product-type-classifier", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../product-type-classifier")>()),
+vi.mock("../category-classifier", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../category-classifier")>()),
   detectBrandsBatch: mocks.detectBrandsBatch,
 }));
 
@@ -122,7 +122,7 @@ function detectResult(
     nonBrandReason: null,
     brandName: null,
     slugGenerated: null,
-    productType: null,
+    categorySlug: null,
     confidence: "high",
     ...overrides,
   } as DetectResult;

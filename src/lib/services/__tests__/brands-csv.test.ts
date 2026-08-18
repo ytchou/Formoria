@@ -20,10 +20,10 @@ describe('parseBrandCSV', () => {
     expect(rows[0].name).toBe('Tea, Coffee & More')
   })
 
-  it('handles pipe-delimited array fields (productTags)', () => {
-    const csv = `name,description,category,productTags\nTest Brand,${MIN_DESCRIPTION},Food,handmade|local`
+  it('handles pipe-delimited array fields (subcategories)', () => {
+    const csv = `name,description,category,subcategories\nTest Brand,${MIN_DESCRIPTION},Food,handmade|local`
     const rows = parseBrandCSV(csv)
-    expect(rows[0].productTags).toEqual(['handmade', 'local'])
+    expect(rows[0].subcategories).toEqual(['handmade', 'local'])
   })
 
   it('returns empty array for empty input', () => {
@@ -46,7 +46,7 @@ describe('curatedSubmissionToBrand', () => {
     name: 'Taiwan Tea Co',
     slug: 'taiwan-tea-co',
     description: MIN_DESCRIPTION,
-    category: 'Food & Beverage',
+    categorySlug: 'Food & Beverage',
     productPhotos: [],
     purchaseLinks: [],
     socialLinks: { instagram: '', threads: '', facebook: '', website: '' },

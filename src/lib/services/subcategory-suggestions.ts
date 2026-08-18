@@ -3,23 +3,23 @@ import { createServiceClient } from '@/lib/supabase/service'
 const MAX_BRAND_ROWS = 500
 const DEFAULT_SUGGESTION_LIMIT = 200
 
-export async function getApprovedProductTagSuggestions(
+export async function getApprovedSubcategorySuggestions(
   limit = DEFAULT_SUGGESTION_LIMIT
 ): Promise<string[]> {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('brands')
-    .select('product_tags')
+    .select('subcategories')
     .eq('status', 'approved')
-    .not('product_tags', 'is', null)
+    .not('subcategories', 'is', null)
     .limit(MAX_BRAND_ROWS)
 
   if (error) throw error
 
   const suggestions = new Map<string, string>()
   for (const row of data ?? []) {
-    if (!Array.isArray(row.product_tags)) continue
-    for (const rawTag of row.product_tags) {
+    if (!Array.isArray(row.subcategories)) continue
+    for (const rawTag of row.subcategories) {
       if (typeof rawTag !== 'string') continue
       const tag = rawTag.trim().replace(/\s+/g, ' ')
       if (!tag) continue

@@ -21,8 +21,8 @@ function location(id: string, district: string | null): StockistLocation {
     district,
     brandSlug: `maria-garcia-${id}`,
     brandName: `María García ${id}`,
-    productType: 'home',
-    productTags: [],
+    categorySlug: 'home',
+    subcategories: [],
   }
 }
 

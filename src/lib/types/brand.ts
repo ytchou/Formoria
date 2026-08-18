@@ -99,9 +99,9 @@ export type Brand = {
     height: number | null
   } | null
   status: BrandStatus
-  productType?: string | null
+  categorySlug?: string | null
   city: string | null
-  category: string | null
+  categoryLabel: string | null
   isVerified: boolean
   mitStatus?: 'unverified' | 'declared' | 'verified'
   mitDeclaredScope?: 'all' | 'most' | 'some' | null
@@ -121,8 +121,8 @@ export type Brand = {
   imageAlts: BrandImageMeta[]
   contactEmail: string | null
   priceRange: number | null
-  productTags: string[]
-  productTagsEn: string[]
+  subcategories: string[]
+  subcategoriesEn: string[]
   siteContent: SiteContent | null
   submittedAt: string
   approvedAt: string | null

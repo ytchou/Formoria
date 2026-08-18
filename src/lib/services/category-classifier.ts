@@ -10,7 +10,7 @@ import {
   resolveProfileModel,
   type LlmProfileKey,
 } from "@/lib/constants/llm-models";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import {
   addLlmCalls,
   contentFailed,
@@ -24,7 +24,7 @@ import {
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
 
 export type ClassificationResult = {
-  productType: string;
+  categorySlug: string;
   confidence: "high" | "medium" | "low";
 };
 export type BatchClassificationItem = {
@@ -53,12 +53,12 @@ export type DetectResult = {
    * of SERP snippets. The field stays so historical `brand_ai_results` rows and
    * any model that still volunteers the key parse without being discarded.
    */
-  productType: string | null;
+  categorySlug: string | null;
   confidence: "high" | "medium" | "low";
 };
 export type ExtractionResult = {
   priceRange: 1 | 2 | 3 | null;
-  productTags: string[];
+  subcategories: string[];
   city: string | null;
   foundingYear: number | null;
   signatureProducts: string[];
@@ -66,8 +66,8 @@ export type ExtractionResult = {
   categoryMismatch: boolean;
 };
 
-const VALID_PRODUCT_TYPES = new Set<string>(
-  PRODUCT_TYPE_CATEGORIES.map((category) => category.slug),
+const VALID_CATEGORY_SLUGS = new Set<string>(
+  L1_CATEGORIES.map((category) => category.slug),
 );
 
 type UnknownRecord = Record<string, unknown>;
@@ -114,18 +114,18 @@ function isConfidence(
 
 function parseClassification(content: string): ClassificationResult | null {
   const parsed = JSON.parse(content) as UnknownRecord;
-  const productType = parsed.productType;
+  const categorySlug = parsed.category;
   const confidence = parsed.confidence;
 
   if (
-    typeof productType !== "string" ||
-    !VALID_PRODUCT_TYPES.has(productType) ||
+    typeof categorySlug !== "string" ||
+    !VALID_CATEGORY_SLUGS.has(categorySlug) ||
     !isConfidence(confidence)
   ) {
     return null;
   }
 
-  return { productType, confidence };
+  return { categorySlug, confidence };
 }
 
 function parseStringArray(value: unknown): string[] {
@@ -247,7 +247,7 @@ export function parseExtractionResult(content: string): ExtractionResult {
 
     return {
       priceRange,
-      productTags: parseStringArray(parsed.product_tags).slice(0, 5),
+      subcategories: parseStringArray(parsed.subcategories).slice(0, 5),
       city: mapCityToSlug(parseNullableString(parsed.city)),
       foundingYear,
       signatureProducts: parseStringArray(parsed.signature_products).slice(
@@ -260,7 +260,7 @@ export function parseExtractionResult(content: string): ExtractionResult {
   } catch {
     return {
       priceRange: null,
-      productTags: [],
+      subcategories: [],
       city: null,
       foundingYear: null,
       signatureProducts: [],
@@ -287,20 +287,20 @@ function parseBatchClassification(
 
     const item = entry as UnknownRecord;
     const slug = item.slug;
-    const productType = item.productType;
+    const categorySlug = item.category;
     const confidence = item.confidence;
 
     if (
       typeof slug !== "string" ||
       !validSlugs.has(slug) ||
-      typeof productType !== "string" ||
-      !VALID_PRODUCT_TYPES.has(productType) ||
+      typeof categorySlug !== "string" ||
+      !VALID_CATEGORY_SLUGS.has(categorySlug) ||
       !isConfidence(confidence)
     ) {
       continue;
     }
 
-    results.set(slug, { productType, confidence });
+    results.set(slug, { categorySlug, confidence });
   }
 
   return results;
@@ -322,11 +322,11 @@ function parseTriageEntry(
   // The detect prompt no longer asks for a category, so the key is normally
   // absent. An absent or unrecognised value is null, never a discarded triage
   // result — the non-brand gate and the name/slug are what this call is for.
-  const rawProductType = entry.productType;
-  const productType =
-    typeof rawProductType === "string" &&
-    VALID_PRODUCT_TYPES.has(rawProductType)
-      ? rawProductType
+  const rawCategory = entry.category;
+  const categorySlug =
+    typeof rawCategory === "string" &&
+    VALID_CATEGORY_SLUGS.has(rawCategory)
+      ? rawCategory
       : null;
 
   const brandName = entry.brand_name;
@@ -340,7 +340,7 @@ function parseTriageEntry(
         : null,
     slug,
     slugGenerated: typeof slugGenerated === "string" ? slugGenerated : null,
-    productType,
+    categorySlug,
     confidence,
   };
 }
@@ -392,7 +392,7 @@ function parseSingleTriageResponse(
   return parseTriageEntry(parsed as UnknownRecord, slug);
 }
 
-async function classifyProductType(
+async function classifyCategory(
   brand: BatchClassificationItem,
   jobId?: string,
 ): Promise<LlmCallOutcome<ClassificationResult>> {
@@ -421,14 +421,14 @@ async function classifyProductType(
 
     if (!response.ok) {
       console.error(
-        `  → product type classification failed: HTTP ${response.status}`,
+        `  → category classification failed: HTTP ${response.status}`,
       );
       return providerFailed();
     }
 
     if (!content) {
       console.error(
-        `  → product type classification: empty response, data=${JSON.stringify(data).slice(0, 200)}`,
+        `  → category classification: empty response, data=${JSON.stringify(data).slice(0, 200)}`,
       );
       return contentFailed();
     }
@@ -436,7 +436,7 @@ async function classifyProductType(
     const result = parseClassification(content);
     if (!result) {
       console.error(
-        `  → product type classification: invalid response: ${content.slice(0, 200)}`,
+        `  → category classification: invalid response: ${content.slice(0, 200)}`,
       );
       return contentFailed();
     }
@@ -444,13 +444,13 @@ async function classifyProductType(
     return { value: result, calls: { attempted: 1, providerFailed: 0 } };
   } catch (err) {
     console.error(
-      `  → product type classification failed: ${err instanceof Error ? err.message : err}`,
+      `  → category classification failed: ${err instanceof Error ? err.message : err}`,
     );
     return contentFailed();
   }
 }
 
-async function classifyProductTypeBatchChunk(
+async function classifyCategoryBatchChunk(
   brands: BatchClassificationItem[],
   jobId?: string,
 ): Promise<LlmCallOutcome<Map<string, ClassificationResult>>> {
@@ -483,14 +483,14 @@ async function classifyProductTypeBatchChunk(
 
     if (!response.ok) {
       console.error(
-        `  → product type batch classification failed: HTTP ${response.status}`,
+        `  → category batch classification failed: HTTP ${response.status}`,
       );
       return providerFailed();
     }
 
     if (!content) {
       console.error(
-        `  → product type batch classification: empty response, data=${JSON.stringify(data).slice(0, 200)}`,
+        `  → category batch classification: empty response, data=${JSON.stringify(data).slice(0, 200)}`,
       );
       return contentFailed();
     }
@@ -498,7 +498,7 @@ async function classifyProductTypeBatchChunk(
     const results = parseBatchClassification(content, validSlugs);
     if (!results) {
       console.error(
-        `  → product type batch classification: invalid response: ${content.slice(0, 200)}`,
+        `  → category batch classification: invalid response: ${content.slice(0, 200)}`,
       );
       return contentFailed();
     }
@@ -506,25 +506,25 @@ async function classifyProductTypeBatchChunk(
     return { value: results, calls: { attempted: 1, providerFailed: 0 } };
   } catch (err) {
     console.error(
-      `  → product type batch classification failed: ${err instanceof Error ? err.message : err}`,
+      `  → category batch classification failed: ${err instanceof Error ? err.message : err}`,
     );
     return contentFailed();
   }
 }
 
-export async function classifyProductTypeBatch(
+export async function classifyCategoryBatch(
   brands: BatchClassificationItem[],
   jobId?: string,
 ): Promise<LlmBatchOutcome<Map<string, ClassificationResult>>> {
   return auditedCall(
-    { provider: "enrich", operation: "classifyProductTypeBatch", kind: "service" },
+    { provider: "enrich", operation: "classifyCategoryBatch", kind: "service" },
     async () => {
   const results = new Map<string, ClassificationResult>();
   let calls = noLlmCalls();
 
   for (let i = 0; i < brands.length; i += LLM_BATCH_CHUNK_SIZE) {
     const batch = brands.slice(i, i + LLM_BATCH_CHUNK_SIZE);
-    const chunk = await classifyProductTypeBatchChunk(batch, jobId);
+    const chunk = await classifyCategoryBatchChunk(batch, jobId);
     calls = addLlmCalls(calls, chunk.calls);
 
     if (chunk.value) {
@@ -544,7 +544,7 @@ export async function classifyProductTypeBatch(
     }
 
     for (const brand of batch) {
-      const single = await classifyProductType(brand, jobId);
+      const single = await classifyCategory(brand, jobId);
       calls = addLlmCalls(calls, single.calls);
       if (single.value) {
         results.set(brand.slug, single.value);

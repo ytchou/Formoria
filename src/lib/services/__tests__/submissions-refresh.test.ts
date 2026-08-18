@@ -20,10 +20,10 @@ const baseline: SubmissionReviewData = {
   siteContent: null,
   foundingYear: 2020,
   heroImageUrl: "https://example.com/hero.webp",
-  productType: "fashion",
+  categorySlug: "fashion",
   priceRange: 2,
-  productTags: ["服飾"],
-  productTagsEn: ["Apparel"],
+  subcategories: ["服飾"],
+  subcategoriesEn: ["Apparel"],
   websiteUrl: "https://example.com",
   socialInstagram: null,
   socialThreads: null,
@@ -45,7 +45,7 @@ describe("refresh review overrides", () => {
         city: "Tainan",
         founding_year: 2018,
         price_range: 2,
-        product_tags: ["服飾"],
+        subcategories: ["服飾"],
       },
       {
         description: "Enriched description",
@@ -86,7 +86,7 @@ describe("refresh review overrides", () => {
     ).toMatchObject({
       description: "Admin description",
       socialInstagram: null,
-      productType: "fashion",
+      categorySlug: "fashion",
     });
   });
 

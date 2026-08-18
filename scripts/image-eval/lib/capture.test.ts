@@ -11,7 +11,7 @@ describe("image-eval capture recovery", () => {
   it("puts the production query first and carries no negative terms", () => {
     const queries = buildCaptureQueries({
       name: "Aireal Land 年零",
-      productType: "beauty",
+      categorySlug: "beauty",
     });
 
     // Byte-identical to what production issues, so a capture run and a
@@ -19,7 +19,7 @@ describe("image-eval capture recovery", () => {
     expect(queries[PRODUCTION_QUERY_INDEX]).toBe(
       buildImageQueryVariants({
         brandName: "Aireal Land 年零",
-        productType: "beauty",
+        categorySlug: "beauty",
       })[0],
     );
     expect(queries).toEqual([
@@ -39,7 +39,7 @@ describe("image-eval capture recovery", () => {
     expect(
       buildCaptureQueries({
         name: "稜光 AURA",
-        productType: "crafts",
+        categorySlug: "crafts",
         purchaseWebsite: "https://www.aura-craft.com/shop",
       }).at(-1),
     ).toBe("site:aura-craft.com AURA");

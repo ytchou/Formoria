@@ -30,18 +30,18 @@ function getClient(client?: PeerStatsSupabase): PeerStatsSupabase {
 
 /** Pipeline-only category context for FAQ enrichment. */
 export async function getCategoryPeerStats(
-  productType: string | null | undefined,
+  categorySlug: string | null | undefined,
   brandId: string,
   client?: PeerStatsSupabase,
 ): Promise<CategoryPeerStats | null> {
-  if (!productType?.trim()) return null;
+  if (!categorySlug?.trim()) return null;
 
   const { data, error } = await excludeTestBrands(
     getClient(client)
       .from("brands")
       .select("id, price_range, city")
       .eq("status", "approved")
-      .eq("product_type", productType),
+      .eq("category", categorySlug),
   );
 
   if (error) throw error;

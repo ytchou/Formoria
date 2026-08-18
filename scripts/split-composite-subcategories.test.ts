@@ -15,7 +15,7 @@ import {
   type BrandRow,
   type PlanningCall,
   type SplitRow,
-} from "./split-composite-product-tags";
+} from "./split-composite-subcategories";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -30,9 +30,9 @@ const brand = (overrides: Partial<BrandRow> = {}): BrandRow => ({
   blurb: "手作居家香氛與茶飲，使用台灣植物素材。",
   description: "工作室製作擴香、茶包與季節選物，網站展示完整商品線。",
   site_content: { products: ["擴香", "茶包"] },
-  product_type: "home",
-  product_tags: ["香氛・蠟燭", "茶包・茶飲", "卡片・明信片"],
-  product_tags_en: [
+  category: "home",
+  subcategories: ["香氛・蠟燭", "茶包・茶飲", "卡片・明信片"],
+  subcategories_en: [
     "Home Fragrance & Candles",
     "Tea Bags & Drinks",
     "Cards & Postcards",
@@ -50,9 +50,9 @@ const promptForRow = (row: SplitRow) =>
       blurb: row.blurb,
       description: row.description,
       site_content: row.siteContent,
-      product_type: row.productType,
-      product_tags: row.before.productTags,
-      product_tags_en: row.before.productTagsEn,
+      category: row.categorySlug,
+      subcategories: row.before.subcategories,
+      subcategories_en: row.before.subcategoriesEn,
     },
     row.sourceLabels,
   );
@@ -154,13 +154,13 @@ describe("DEV-1361 split planner", () => {
       },
     ]);
 
-    expect(row.after.productTags).toEqual([
+    expect(row.after.subcategories).toEqual([
       "居家香氛",
       "茶包",
       "茶飲",
       "卡片・明信片",
     ]);
-    expect(row.after.productTagsEn).toEqual([
+    expect(row.after.subcategoriesEn).toEqual([
       "Home Fragrance",
       "Tea Bags",
       "Tea Drinks",
@@ -169,14 +169,14 @@ describe("DEV-1361 split planner", () => {
     expect(row.assignments.map((assignment) => assignment.sourceLabel)).toEqual(
       ["香氛・蠟燭", "茶包・茶飲"],
     );
-    expect(row.after.productTags).not.toContain("香氛・蠟燭");
-    expect(row.after.productTags).not.toContain("茶包・茶飲");
+    expect(row.after.subcategories).not.toContain("香氛・蠟燭");
+    expect(row.after.subcategories).not.toContain("茶包・茶飲");
   });
 
   it("removes an evidence-backed false-positive composite without changing other tag pairs", () => {
     const current = brand({
-      product_tags: ["卡片・明信片", "香氛・蠟燭", "茶葉"],
-      product_tags_en: ["Cards & Postcards", "Home Fragrance & Candles", "Tea"],
+      subcategories: ["卡片・明信片", "香氛・蠟燭", "茶葉"],
+      subcategories_en: ["Cards & Postcards", "Home Fragrance & Candles", "Tea"],
     });
     const row = buildSplitRow(current, "call-neither", [
       {
@@ -188,8 +188,8 @@ describe("DEV-1361 split planner", () => {
       },
     ]);
 
-    expect(row.after.productTags).toEqual(["卡片・明信片", "茶葉"]);
-    expect(row.after.productTagsEn).toEqual(["Cards & Postcards", "Tea"]);
+    expect(row.after.subcategories).toEqual(["卡片・明信片", "茶葉"]);
+    expect(row.after.subcategoriesEn).toEqual(["Cards & Postcards", "Tea"]);
     expect(row.overflowReview.status).toBe("none");
 
     const artifact = artifactForRow(row);
@@ -208,16 +208,16 @@ describe("DEV-1361 split planner", () => {
     expect(
       parseRunArtifact(artifact, { requireApproval: true }).rows[0]?.after,
     ).toMatchObject({
-      productTags: ["卡片・明信片", "茶葉"],
-      productTagsEn: ["Cards & Postcards", "Tea"],
+      subcategories: ["卡片・明信片", "茶葉"],
+      subcategoriesEn: ["Cards & Postcards", "Tea"],
     });
   });
 
   it("blocks a neither decision that would leave a brand with zero tags", () => {
     const row = buildSplitRow(
       brand({
-        product_tags: ["香氛・蠟燭"],
-        product_tags_en: ["Home Fragrance & Candles"],
+        subcategories: ["香氛・蠟燭"],
+        subcategories_en: ["Home Fragrance & Candles"],
       }),
       "call-neither-zero",
       [
@@ -229,7 +229,7 @@ describe("DEV-1361 split planner", () => {
         },
       ],
     );
-    expect(row.after.productTags).toEqual([]);
+    expect(row.after.subcategories).toEqual([]);
     expect(row.overflowReview.status).toBe("none");
     expect(() => artifactForRow(row)).toThrow(/zero tags/i);
   });
@@ -237,8 +237,8 @@ describe("DEV-1361 split planner", () => {
   it("keeps an ambiguous source visible but marks it needs-review", () => {
     const row = buildSplitRow(
       brand({
-        product_tags: ["香氛・蠟燭"],
-        product_tags_en: ["Home Fragrance & Candles"],
+        subcategories: ["香氛・蠟燭"],
+        subcategories_en: ["Home Fragrance & Candles"],
       }),
       "call-review",
       [
@@ -252,7 +252,7 @@ describe("DEV-1361 split planner", () => {
       ],
     );
 
-    expect(row.after.productTags).toEqual(["香氛・蠟燭"]);
+    expect(row.after.subcategories).toEqual(["香氛・蠟燭"]);
     expect(row.assignments[0]?.decision).toBe("needs-review");
     const prompt = promptForRow(row);
     expect(() =>
@@ -371,8 +371,8 @@ describe("DEV-1361 split planner", () => {
   it("rejects inconsistent reviewed assignment semantics in an artifact", () => {
     const row = buildSplitRow(
       brand({
-        product_tags: ["香氛・蠟燭"],
-        product_tags_en: ["Home Fragrance & Candles"],
+        subcategories: ["香氛・蠟燭"],
+        subcategories_en: ["Home Fragrance & Candles"],
       }),
       "call-inconsistent",
       [
@@ -442,8 +442,8 @@ describe("DEV-1361 split planner", () => {
     const result = await classifyBrandWithLlm(
       createPlanningDeepSeekClient(auditEvents),
       brand({
-        product_tags: ["香氛・蠟燭"],
-        product_tags_en: ["Home Fragrance & Candles"],
+        subcategories: ["香氛・蠟燭"],
+        subcategories_en: ["Home Fragrance & Candles"],
       }),
       ["香氛・蠟燭"],
       "call-http",
@@ -467,8 +467,8 @@ describe("DEV-1361 split planner", () => {
 
   it("round-trips an approved artifact only with correlated audit evidence", () => {
     const current = brand({
-      product_tags: ["香氛・蠟燭"],
-      product_tags_en: ["Home Fragrance & Candles"],
+      subcategories: ["香氛・蠟燭"],
+      subcategories_en: ["Home Fragrance & Candles"],
     });
     const row = buildSplitRow(current, "call-approved", [
       {
@@ -520,7 +520,7 @@ describe("DEV-1361 split planner", () => {
 
     expect(
       parseRunArtifact(artifact, { requireApproval: true }).rows[0]?.after
-        .productTags,
+        .subcategories,
     ).toEqual(["居家香氛"]);
 
     const tampered = structuredClone(artifact);
@@ -533,8 +533,8 @@ describe("DEV-1361 split planner", () => {
   it("rejects tampered neither after-state and rollback values", () => {
     const row = buildSplitRow(
       brand({
-        product_tags: ["香氛・蠟燭", "卡片・明信片"],
-        product_tags_en: ["Home Fragrance & Candles", "Cards & Postcards"],
+        subcategories: ["香氛・蠟燭", "卡片・明信片"],
+        subcategories_en: ["Home Fragrance & Candles", "Cards & Postcards"],
       }),
       "call-neither-integrity",
       [
@@ -556,8 +556,8 @@ describe("DEV-1361 split planner", () => {
 
     const tamperedAfter = structuredClone(artifact);
     tamperedAfter.rows[0]!.after = {
-      productTags: ["居家香氛", "卡片・明信片"],
-      productTagsEn: ["Home Fragrance", "Cards & Postcards"],
+      subcategories: ["居家香氛", "卡片・明信片"],
+      subcategoriesEn: ["Home Fragrance", "Cards & Postcards"],
       pairs: [
         { zh: "居家香氛", en: "Home Fragrance" },
         { zh: "卡片・明信片", en: "Cards & Postcards" },
@@ -566,15 +566,15 @@ describe("DEV-1361 split planner", () => {
     expect(() => parseRunArtifact(tamperedAfter)).toThrow(/after tags/i);
 
     const tamperedRollback = structuredClone(artifact);
-    tamperedRollback.rollback.rows[0]!.productTags = ["卡片・明信片"];
+    tamperedRollback.rollback.rows[0]!.subcategories = ["卡片・明信片"];
     expect(() => parseRunArtifact(tamperedRollback)).toThrow(/rollback/i);
   });
 
   it("requires one deterministic call and complete DeepSeek audit evidence per row", () => {
     const row = buildSplitRow(
       brand({
-        product_tags: ["香氛・蠟燭"],
-        product_tags_en: ["Home Fragrance & Candles"],
+        subcategories: ["香氛・蠟燭"],
+        subcategories_en: ["Home Fragrance & Candles"],
       }),
       "call-audit-shape",
       [
@@ -625,8 +625,8 @@ describe("DEV-1361 split planner", () => {
   it("accepts failed retry attempts before one terminal success and preserves every event", () => {
     const row = buildSplitRow(
       brand({
-        product_tags: ["香氛・蠟燭"],
-        product_tags_en: ["Home Fragrance & Candles"],
+        subcategories: ["香氛・蠟燭"],
+        subcategories_en: ["Home Fragrance & Candles"],
       }),
       "call-retry-chain",
       [
@@ -667,8 +667,8 @@ describe("DEV-1361 split planner", () => {
   it("rejects incomplete, duplicate, reordered, tampered, and all-failed retry chains", () => {
     const row = buildSplitRow(
       brand({
-        product_tags: ["香氛・蠟燭"],
-        product_tags_en: ["Home Fragrance & Candles"],
+        subcategories: ["香氛・蠟燭"],
+        subcategories_en: ["Home Fragrance & Candles"],
       }),
       "call-retry-adversarial",
       [
@@ -731,8 +731,8 @@ describe("DEV-1361 split planner", () => {
   it("recomputes the classifier request from stored row evidence", () => {
     const row = buildSplitRow(
       brand({
-        product_tags: ["香氛・蠟燭"],
-        product_tags_en: ["Home Fragrance & Candles"],
+        subcategories: ["香氛・蠟燭"],
+        subcategories_en: ["Home Fragrance & Candles"],
       }),
       "call-evidence-integrity",
       [
@@ -753,8 +753,8 @@ describe("DEV-1361 split planner", () => {
   it("keeps five-tag overflow visible until an explicit non-source eviction is reviewed", () => {
     const row = buildSplitRow(
       brand({
-        product_tags: ["香氛・蠟燭", "卡片・明信片", "托特包", "茶葉", "耳環"],
-        product_tags_en: [
+        subcategories: ["香氛・蠟燭", "卡片・明信片", "托特包", "茶葉", "耳環"],
+        subcategories_en: [
           "Home Fragrance & Candles",
           "Cards & Postcards",
           "Tote Bags",
@@ -772,7 +772,7 @@ describe("DEV-1361 split planner", () => {
         },
       ],
     );
-    expect(row.after.productTags).toHaveLength(6);
+    expect(row.after.subcategories).toHaveLength(6);
     expect(row.overflowReview.status).toBe("needs-review");
     expect(row.overflowReview.candidates.map((pair) => pair.zh)).toEqual([
       "卡片・明信片",
@@ -803,8 +803,8 @@ describe("DEV-1361 split planner", () => {
       rationale: "Cards are outside this brand's product line.",
     };
     approved.rows[0]!.after = {
-      productTags: finalPairs.map((pair) => pair.zh),
-      productTagsEn: finalPairs.map((pair) => pair.en ?? pair.zh),
+      subcategories: finalPairs.map((pair) => pair.zh),
+      subcategoriesEn: finalPairs.map((pair) => pair.en ?? pair.zh),
       pairs: finalPairs,
     };
     approved.review = {
@@ -814,7 +814,7 @@ describe("DEV-1361 split planner", () => {
     };
     expect(
       parseRunArtifact(approved, { requireApproval: true }).rows[0]?.after
-        .productTags,
+        .subcategories,
     ).toHaveLength(5);
 
     const sourceEviction = artifactForRow(row);
@@ -825,8 +825,8 @@ describe("DEV-1361 split planner", () => {
       rationale: "Invalid source eviction.",
     };
     sourceEviction.rows[0]!.after = {
-      productTags: row.after.productTags.slice(0, 5),
-      productTagsEn: row.after.productTagsEn.slice(0, 5),
+      subcategories: row.after.subcategories.slice(0, 5),
+      subcategoriesEn: row.after.subcategoriesEn.slice(0, 5),
       pairs: row.after.pairs.slice(0, 5),
     };
     expect(() => parseRunArtifact(sourceEviction)).toThrow(
@@ -836,8 +836,8 @@ describe("DEV-1361 split planner", () => {
 
   it("writes first, validates every final snapshot, then batches CLI revalidation", async () => {
     const current = brand({
-      product_tags: ["香氛・蠟燭"],
-      product_tags_en: ["Home Fragrance & Candles"],
+      subcategories: ["香氛・蠟燭"],
+      subcategories_en: ["Home Fragrance & Candles"],
     });
     const row = buildSplitRow(current, "call-apply-sequence", [
       {
@@ -856,7 +856,7 @@ describe("DEV-1361 split planner", () => {
     let state = structuredClone(current);
     const revalidationBatches: string[][] = [];
     const actors: Array<{ source: "enriched" }> = [];
-    const result = await import("./split-composite-product-tags").then(
+    const result = await import("./split-composite-subcategories").then(
       ({ applyRunArtifact }) =>
         applyRunArtifact({} as never, artifact, {
           loadScope: async () => [structuredClone(state)],
@@ -865,13 +865,13 @@ describe("DEV-1361 split planner", () => {
             actors.push(actor);
             state = {
               ...state,
-              product_tags: data.productTags,
-              product_tags_en: data.productTagsEn,
+              subcategories: data.subcategories,
+              subcategories_en: data.subcategoriesEn,
             };
             return {
-              productTags: data.productTags,
-              productTagsEn: data.productTagsEn,
-              productType: state.product_type,
+              subcategories: data.subcategories,
+              subcategoriesEn: data.subcategoriesEn,
+              categorySlug: state.category,
               skipped: [],
             };
           },
@@ -887,13 +887,13 @@ describe("DEV-1361 split planner", () => {
     });
     expect(revalidationBatches).toEqual([[current.slug]]);
     expect(actors).toEqual([{ source: "enriched" }]);
-    expect(state.product_tags).toEqual(["居家香氛"]);
+    expect(state.subcategories).toEqual(["居家香氛"]);
   });
 
   it("applies a reviewed neither decision without replacement or overflow", async () => {
     const current = brand({
-      product_tags: ["香氛・蠟燭", "卡片・明信片"],
-      product_tags_en: ["Home Fragrance & Candles", "Cards & Postcards"],
+      subcategories: ["香氛・蠟燭", "卡片・明信片"],
+      subcategories_en: ["Home Fragrance & Candles", "Cards & Postcards"],
     });
     const row = buildSplitRow(current, "call-apply-neither", [
       {
@@ -911,20 +911,20 @@ describe("DEV-1361 split planner", () => {
       reviewedAt: "2026-08-08T01:00:00.000Z",
     };
     let state = structuredClone(current);
-    const { applyRunArtifact } = await import("./split-composite-product-tags");
+    const { applyRunArtifact } = await import("./split-composite-subcategories");
     const result = await applyRunArtifact({} as never, artifact, {
       loadScope: async () => [structuredClone(state)],
       loadSnapshot: async () => structuredClone(state),
       update: async (_id, data) => {
         state = {
           ...state,
-          product_tags: data.productTags,
-          product_tags_en: data.productTagsEn,
+          subcategories: data.subcategories,
+          subcategories_en: data.subcategoriesEn,
         };
         return {
-          productTags: data.productTags,
-          productTagsEn: data.productTagsEn,
-          productType: state.product_type,
+          subcategories: data.subcategories,
+          subcategoriesEn: data.subcategoriesEn,
+          categorySlug: state.category,
           skipped: [],
         };
       },
@@ -932,14 +932,14 @@ describe("DEV-1361 split planner", () => {
     });
 
     expect(result.writeCount).toBe(1);
-    expect(state.product_tags).toEqual(["卡片・明信片"]);
-    expect(state.product_tags_en).toEqual(["Cards & Postcards"]);
+    expect(state.subcategories).toEqual(["卡片・明信片"]);
+    expect(state.subcategories_en).toEqual(["Cards & Postcards"]);
   });
 
-  it("blocks revalidation when final reread detects a product-type or tag drift", async () => {
+  it("blocks revalidation when final reread detects a category or subcategory drift", async () => {
     const current = brand({
-      product_tags: ["香氛・蠟燭"],
-      product_tags_en: ["Home Fragrance & Candles"],
+      subcategories: ["香氛・蠟燭"],
+      subcategories_en: ["Home Fragrance & Candles"],
     });
     const row = buildSplitRow(current, "call-apply-final-drift", [
       {
@@ -957,7 +957,7 @@ describe("DEV-1361 split planner", () => {
     };
     let state = structuredClone(current);
     let revalidateCount = 0;
-    const { applyRunArtifact } = await import("./split-composite-product-tags");
+    const { applyRunArtifact } = await import("./split-composite-subcategories");
     await expect(
       applyRunArtifact({} as never, artifact, {
         loadScope: async () => [structuredClone(state)],
@@ -965,14 +965,14 @@ describe("DEV-1361 split planner", () => {
         update: async (_id, data) => {
           state = {
             ...state,
-            product_tags: data.productTags,
-            product_tags_en: data.productTagsEn,
-            product_type: "crafts",
+            subcategories: data.subcategories,
+            subcategories_en: data.subcategoriesEn,
+            category: "crafts",
           };
           return {
-            productTags: data.productTags,
-            productTagsEn: data.productTagsEn,
-            productType: state.product_type,
+            subcategories: data.subcategories,
+            subcategoriesEn: data.subcategoriesEn,
+            categorySlug: state.category,
             skipped: [],
           };
         },
@@ -988,8 +988,8 @@ describe("DEV-1361 split planner", () => {
 
   it("surfaces revalidation failure after all final row checks pass", async () => {
     const current = brand({
-      product_tags: ["香氛・蠟燭"],
-      product_tags_en: ["Home Fragrance & Candles"],
+      subcategories: ["香氛・蠟燭"],
+      subcategories_en: ["Home Fragrance & Candles"],
     });
     const row = buildSplitRow(current, "call-revalidate-failure", [
       {
@@ -1006,7 +1006,7 @@ describe("DEV-1361 split planner", () => {
       reviewedAt: "2026-08-08T01:00:00.000Z",
     };
     let state = structuredClone(current);
-    const { applyRunArtifact } = await import("./split-composite-product-tags");
+    const { applyRunArtifact } = await import("./split-composite-subcategories");
     await expect(
       applyRunArtifact({} as never, artifact, {
         loadScope: async () => [structuredClone(state)],
@@ -1014,13 +1014,13 @@ describe("DEV-1361 split planner", () => {
         update: async (_id, data) => {
           state = {
             ...state,
-            product_tags: data.productTags,
-            product_tags_en: data.productTagsEn,
+            subcategories: data.subcategories,
+            subcategories_en: data.subcategoriesEn,
           };
           return {
-            productTags: data.productTags,
-            productTagsEn: data.productTagsEn,
-            productType: state.product_type,
+            subcategories: data.subcategories,
+            subcategoriesEn: data.subcategoriesEn,
+            categorySlug: state.category,
             skipped: [],
           };
         },
@@ -1047,8 +1047,8 @@ describe("DEV-1361 split planner", () => {
 
   it("changes the scope hash when a reviewed baseline changes", () => {
     const current = brand({
-      product_tags: ["香氛・蠟燭"],
-      product_tags_en: ["Home Fragrance & Candles"],
+      subcategories: ["香氛・蠟燭"],
+      subcategories_en: ["Home Fragrance & Candles"],
     });
     const row = buildSplitRow(current, "call-hash", [
       {

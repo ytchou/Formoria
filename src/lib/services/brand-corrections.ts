@@ -6,8 +6,8 @@ import {
   sanitizeHref,
 } from "@/lib/url";
 import {
-  normalizeTagKey,
-  PRODUCT_TYPE_CATEGORIES,
+  normalizeSubcategoryKey,
+  L1_CATEGORIES,
 } from "@/lib/taxonomy/ontology";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -22,18 +22,22 @@ import {
   type PurchaseChannelColumn,
 } from "@/lib/brands/purchase-channels";
 import {
-  applyTagDelta,
-  deriveProductTagsEn,
-  isProductTagsDelta,
-  MAX_PRODUCT_TAGS,
-  resolveProductTagInput,
-  sameTagSet,
-  type ProductTagsDelta,
-} from "./product-tags";
+  applySubcategoryDelta,
+  deriveSubcategoriesEn,
+  isSubcategoriesDelta,
+  MAX_SUBCATEGORIES,
+  resolveSubcategoryInput,
+  sameSubcategorySet,
+  type SubcategoriesDelta,
+} from "./subcategories";
 import { updateBrand, type BrandWriteInput } from "./brands";
+import {
+  fromPersistedFieldIdentifier,
+  toPersistedFieldIdentifier,
+} from "./_shared/persisted-field-identifiers";
 
 const CORRECTION_SELECT =
-  `*, brands(name, slug, price_range, product_type, product_tags, ${PURCHASE_COLUMNS.join(
+  `*, brands(name, slug, price_range, category, subcategories, ${PURCHASE_COLUMNS.join(
     ", ",
   )}, social_instagram, social_threads, social_facebook)`;
 
@@ -44,8 +48,8 @@ const SOCIAL_LINK_FIELDS = [
   "social_facebook",
 ] as const;
 
-const PRODUCT_TYPE_SLUGS = new Set<string>(
-  PRODUCT_TYPE_CATEGORIES.map((category) => category.slug),
+const CATEGORY_SLUGS = new Set<string>(
+  L1_CATEGORIES.map((category) => category.slug),
 );
 type BrandCorrectionRow =
   Database["public"]["Tables"]["brand_field_corrections"]["Row"];
@@ -57,8 +61,8 @@ type BrandCorrectionBrandRow = Pick<
   | "name"
   | "slug"
   | "price_range"
-  | "product_type"
-  | "product_tags"
+  | "category"
+  | "subcategories"
   | "social_instagram"
   | "social_threads"
   | "social_facebook"
@@ -82,14 +86,14 @@ type LinkCorrectionField =
   | SocialLinkCorrectionField;
 export type CorrectionField =
   | "price_range"
-  | "product_type"
-  | "product_tags"
+  | "category"
+  | "subcategories"
   | LinkCorrectionField;
-type ScalarCorrectionField = Exclude<CorrectionField, "product_tags">;
+type ScalarCorrectionField = Exclude<CorrectionField, "subcategories">;
 type CorrectionStatus = "pending" | "approved" | "rejected";
 export type CorrectionDecision = Exclude<CorrectionStatus, "pending">;
 
-type CorrectionProposedValue = number | string | ProductTagsDelta;
+type CorrectionProposedValue = number | string | SubcategoriesDelta;
 
 export type BrandCorrection = {
   id: string;
@@ -124,7 +128,7 @@ export type SubmitCorrectionResult =
         | "invalid_field"
         | "invalid_value"
         | "unchanged"
-        | "too_many_tags"
+        | "too_many_subcategories"
         | "already_submitted"
         | "not_found"
         | "database_error";
@@ -142,7 +146,7 @@ export type ReviewCorrectionResult =
       ok: false;
       code:
         | "invalid_value"
-        | "too_many_tags"
+        | "too_many_subcategories"
         | "not_found"
         | "already_reviewed"
         | "database_error";
@@ -186,8 +190,8 @@ type CurrentBrandValue = number | string | string[] | null;
 export function isCorrectionField(value: string): value is CorrectionField {
   return (
     value === "price_range" ||
-    value === "product_type" ||
-    value === "product_tags" ||
+    value === "category" ||
+    value === "subcategories" ||
     PURCHASE_COLUMNS.some((field) => field === value) ||
     SOCIAL_LINK_FIELDS.some((field) => field === value)
   );
@@ -356,7 +360,7 @@ export type NormalizeProposedValueResult =
  *    if a `nameZh` is later dropped from the ontology a stale pending row can
  *    become both un-approvable and un-rejectable. Pre-existing, not introduced
  *    here.
- * 2. Add-as-alias: a novel tag is persisted raw and the admin queue renders that
+ * 2. Add-as-alias: a novel subcategory is persisted raw and the admin queue renders that
  *    stored string. If that exact string is later added to the ontology as an
  *    ALIAS of a subcategory, the approval-time re-normalization rewrites `add`
  *    to that subcategory's `nameZh` — so the reviewer approves a label they
@@ -377,8 +381,8 @@ export function normalizeProposedValue(
       : { ok: false, error: "invalid_value" };
   }
 
-  if (field === "product_type") {
-    return typeof value === "string" && PRODUCT_TYPE_SLUGS.has(value)
+  if (field === "category") {
+    return typeof value === "string" && CATEGORY_SLUGS.has(value)
       ? { ok: true, value }
       : { ok: false, error: "invalid_value" };
   }
@@ -390,35 +394,35 @@ export function normalizeProposedValue(
       : { ok: false, error: "invalid_value" };
   }
 
-  if (!isProductTagsDelta(value)) return { ok: false, error: "invalid_value" };
+  if (!isSubcategoriesDelta(value)) return { ok: false, error: "invalid_value" };
 
   // Asymmetric on purpose. Every `add` is canonicalized through the ontology
-  // (alias or English name -> `nameZh`) before it is persisted: brands.product_tags
+  // (alias or English name -> `nameZh`) before it is persisted: brands.subcategories
   // stores canonical labels and the `?sub=` filter matches by exact-string array
   // overlap, so an un-canonicalized addition would silently drop the brand from
-  // subcategory results. A tag the ontology does not know is still allowed
+  // subcategory results. A subcategory the ontology does not know is still allowed
   // through — that escape hatch is the point — but only if it clears the same
-  // novel-tag heuristics enrichment applies. `remove` stays unrestricted: a brand
-  // can carry novel tags persisted by normalizeProductTags, and removing a bad
+  // novel-subcategory heuristics enrichment applies. `remove` stays unrestricted: a brand
+  // can carry novel subcategories persisted by normalizeSubcategories, and removing a bad
   // value can never introduce one. Rejecting those removals would block exactly
   // the repair this feature exists to perform.
-  // Ceiling: `novelTagRejection` is a code-point length band plus a
+  // Ceiling: `novelSubcategoryRejection` is a code-point length band plus a
   // marketing-noise regex whose terms are all Han — so non-CJK input passes
   // with NO content filter at all, and admin review is the only gate on it;
   // swap for a language-agnostic blocklist (or a moderation call) if reviewers
   // report abusive submissions.
-  // Dedupe on the ontology's matching key, not the raw string: novel tags are
+  // Dedupe on the ontology's matching key, not the raw string: novel subcategories are
   // stored as typed, so 'Vegan' and 'vegan' would otherwise both survive and
   // take two of the five cap slots. First-seen casing wins.
   const add: string[] = [];
   const seenAdd = new Set<string>();
   for (const raw of value.add) {
-    const resolved = resolveProductTagInput(raw);
+    const resolved = resolveSubcategoryInput(raw);
     if (!resolved.ok) return { ok: false, error: "invalid_value" };
-    const key = normalizeTagKey(resolved.tag);
+    const key = normalizeSubcategoryKey(resolved.subcategory);
     if (seenAdd.has(key)) continue;
     seenAdd.add(key);
-    add.push(resolved.tag);
+    add.push(resolved.subcategory);
   }
 
   const remove: string[] = [];
@@ -448,8 +452,8 @@ export function buildScalarCorrectionPatch(
   switch (field) {
     case "price_range":
       return { priceRange: proposedValue as number };
-    case "product_type":
-      return { productType: proposedValue as string };
+    case "category":
+      return { categorySlug: proposedValue as string };
     case "social_instagram":
       return { socialInstagram: proposedValue as string };
     case "social_threads":
@@ -519,10 +523,10 @@ function currentValueForField(
   switch (field) {
     case "price_range":
       return brand.price_range;
-    case "product_type":
-      return brand.product_type;
-    case "product_tags":
-      return Array.isArray(brand.product_tags) ? brand.product_tags : [];
+    case "category":
+      return brand.category;
+    case "subcategories":
+      return Array.isArray(brand.subcategories) ? brand.subcategories : [];
     case "social_instagram":
       return brand.social_instagram;
     case "social_threads":
@@ -533,7 +537,11 @@ function currentValueForField(
 }
 
 function rowToCorrection(row: BrandCorrectionRowWithBrand): BrandCorrection {
-  const field = row.field as CorrectionField;
+  const applicationField = fromPersistedFieldIdentifier(row.field);
+  if (!isCorrectionField(applicationField)) {
+    throw new Error(`Unsupported persisted correction field: ${row.field}`);
+  }
+  const field = applicationField;
   const currentValue = currentValueForField(field, row.brands);
 
   return {
@@ -576,7 +584,7 @@ async function readBrand(
   const { data, error } = await supabase
     .from("brands")
     .select(
-      `id, name, slug, price_range, product_type, product_tags, ${PURCHASE_COLUMNS.join(
+      `id, name, slug, price_range, category, subcategories, ${PURCHASE_COLUMNS.join(
         ", ",
       )}, social_instagram, social_threads, social_facebook`,
     )
@@ -653,7 +661,7 @@ async function releaseClaim(
     .eq("id", id);
 }
 
-async function supersedePendingTags(
+async function supersedePendingSubcategories(
   supabase: ReturnType<typeof createServiceClient>,
   brandId: string,
   reviewerId: string,
@@ -669,11 +677,14 @@ async function supersedePendingTags(
       reviewer_notes: "superseded_by_category_change",
     })
     .eq("brand_id", brandId)
-    .eq("field", "product_tags")
+    .eq("field", toPersistedFieldIdentifier("subcategories"))
     .eq("status", "pending");
 
   if (error) {
-    console.error("[brand-corrections] supersedePendingTags failed:", error);
+    console.error(
+      "[brand-corrections] supersedePendingSubcategories failed:",
+      error,
+    );
     if (ctx) ctx.summary.supersedeError = describeError(error);
     return { ok: false, code: "database_error" };
   }
@@ -707,16 +718,18 @@ export async function submitCorrection(
     const currentValue = currentValueForField(input.field, brand);
     let previousValue: Json | null = currentValue;
 
-    if (input.field === "product_tags") {
-      const delta = proposedValue as ProductTagsDelta;
-      const currentTags = Array.isArray(currentValue) ? currentValue : [];
-      const next = applyTagDelta(currentTags, delta);
-      if (sameTagSet(currentTags, next))
+    if (input.field === "subcategories") {
+      const delta = proposedValue as SubcategoriesDelta;
+      const currentSubcategories = Array.isArray(currentValue)
+        ? currentValue
+        : [];
+      const next = applySubcategoryDelta(currentSubcategories, delta);
+      if (sameSubcategorySet(currentSubcategories, next))
         return { ok: false, code: "unchanged" };
-      if (next.length > MAX_PRODUCT_TAGS) {
-        return { ok: false, code: "too_many_tags" };
+      if (next.length > MAX_SUBCATEGORIES) {
+        return { ok: false, code: "too_many_subcategories" };
       }
-      previousValue = currentTags;
+      previousValue = currentSubcategories;
     } else if (
       correctionValuesEqual(input.field, currentValue, proposedValue)
     ) {
@@ -725,7 +738,7 @@ export async function submitCorrection(
 
     const row: BrandCorrectionInsert = {
       brand_id: input.brandId,
-      field: input.field,
+      field: toPersistedFieldIdentifier(input.field),
       proposed_value: proposedValue as Json,
       previous_value: previousValue,
       visitor_hash: input.visitorHash ?? null,
@@ -803,13 +816,17 @@ export async function reviewCorrection(
     if (!data) return { ok: false, code: "not_found" };
 
     const row = data as unknown as BrandCorrectionRowWithBrand;
-    if (!isCorrectionField(row.field) || !row.brands) {
+    const applicationField = fromPersistedFieldIdentifier(row.field);
+    if (!isCorrectionField(applicationField) || !row.brands) {
       return { ok: false, code: "invalid_value" };
     }
 
     // Re-normalizes an already-normalized stored value; idempotency is what
     // keeps a row that passed at submit from failing here.
-    const normalized = normalizeProposedValue(row.field, row.proposed_value);
+    const normalized = normalizeProposedValue(
+      applicationField,
+      row.proposed_value,
+    );
     if (!normalized.ok) return { ok: false, code: normalized.error };
     const proposedValue = normalized.value;
 
@@ -826,7 +843,7 @@ export async function reviewCorrection(
       );
     }
 
-    const currentValue = currentValueForField(row.field, row.brands);
+    const currentValue = currentValueForField(applicationField, row.brands);
     // `null` means the brand already holds the proposed value. The dedup index
     // is per visitor_hash, so N visitors reporting the same wrong value each
     // create a row; approving the first applies it and every later row is a
@@ -834,25 +851,29 @@ export async function reviewCorrection(
     // leave the queue instead of stranding them as un-approvable pending rows.
     let patch: BrandWriteInput | null;
 
-    if (row.field === "product_tags") {
-      const delta = proposedValue as ProductTagsDelta;
-      const currentTags = Array.isArray(currentValue) ? currentValue : [];
-      const next = applyTagDelta(currentTags, delta);
-      if (sameTagSet(currentTags, next)) {
+    if (applicationField === "subcategories") {
+      const delta = proposedValue as SubcategoriesDelta;
+      const currentSubcategories = Array.isArray(currentValue)
+        ? currentValue
+        : [];
+      const next = applySubcategoryDelta(currentSubcategories, delta);
+      if (sameSubcategorySet(currentSubcategories, next)) {
         patch = null;
-      } else if (next.length > MAX_PRODUCT_TAGS) {
-        return { ok: false, code: "too_many_tags" };
+      } else if (next.length > MAX_SUBCATEGORIES) {
+        return { ok: false, code: "too_many_subcategories" };
       } else {
         patch = {
-          productTags: next,
-          productTagsEn: deriveProductTagsEn(next),
+          subcategories: next,
+          subcategoriesEn: deriveSubcategoriesEn(next),
         };
       }
-    } else if (correctionValuesEqual(row.field, currentValue, proposedValue)) {
+    } else if (
+      correctionValuesEqual(applicationField, currentValue, proposedValue)
+    ) {
       patch = null;
     } else {
       patch = buildScalarCorrectionPatch(
-        row.field as ScalarCorrectionField,
+        applicationField as ScalarCorrectionField,
         proposedValue as number | string,
       );
     }
@@ -884,8 +905,8 @@ export async function reviewCorrection(
     }
 
     const superseded =
-      row.field === "product_type"
-        ? await supersedePendingTags(
+      applicationField === "category"
+        ? await supersedePendingSubcategories(
             supabase,
             row.brand_id,
             reviewerId,
@@ -968,9 +989,9 @@ const defaultReviewCorrectionsDeps: ReviewCorrectionsDeps = {
  * approval path is a read-modify-write: it reads the brand row, computes a
  * patch, then calls `updateBrand`. Two corrections on the SAME brand running
  * concurrently therefore both read the pre-batch row and the later write
- * silently discards the earlier field change. A `product_type` approval makes
- * it worse: `supersedePendingTags` bulk-rejects that brand's sibling pending
- * `product_tags` rows, which a concurrent item may be mid-claim on. Neither
+ * silently discards the earlier field change. A `category` approval makes
+ * it worse: `supersedePendingSubcategories` bulk-rejects that brand's sibling pending
+ * `subcategories` rows, which a concurrent item may be mid-claim on. Neither
  * failure raises an error — it surfaces weeks later as a brand field that
  * "reverted on its own". Different brands share no row, so those groups are
  * free to overlap.

@@ -4,7 +4,7 @@ import {
   runStandaloneClassification,
   runDetectPhase,
 } from "../detect";
-import type { BatchClassificationItem } from "../../product-type-classifier";
+import type { BatchClassificationItem } from "../../category-classifier";
 
 /**
  * The two batch helpers are mocked (rather than spied) because vitest cannot
@@ -13,25 +13,25 @@ import type { BatchClassificationItem } from "../../product-type-classifier";
  */
 const mocks = vi.hoisted(() => ({
   detectBrandsBatch: vi.fn(),
-  classifyProductTypeBatch: vi.fn(),
+  classifyCategoryBatch: vi.fn(),
 }));
 
-vi.mock("../../product-type-classifier", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../product-type-classifier")>()),
+vi.mock("../../category-classifier", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../category-classifier")>()),
   detectBrandsBatch: mocks.detectBrandsBatch,
-  classifyProductTypeBatch: mocks.classifyProductTypeBatch,
+  classifyCategoryBatch: mocks.classifyCategoryBatch,
 }));
 
 void (null as BatchClassificationItem | null);
 import type { BatchPhaseContext, EnrichBrand, EnrichPhase } from "../types";
-import type { DetectResult } from "../../product-type-classifier";
+import type { DetectResult } from "../../category-classifier";
 
 const brand: EnrichBrand = {
   id: "brand-1",
   slug: "test-brand",
   name: "Test Brand",
   description: "Original description",
-  product_type: null,
+  category: null,
   purchase_website: "https://test.example",
 };
 
@@ -41,7 +41,7 @@ const brandDetect: DetectResult = {
   brandName: null,
   slug: "test-brand",
   slugGenerated: "better-brand",
-  productType: "skincare",
+  categorySlug: "skincare",
   confidence: "high",
 };
 
@@ -118,7 +118,7 @@ describe("runStandaloneClassification", () => {
   });
 
   it("fails the phase when every classification call died at the provider", async () => {
-    mocks.classifyProductTypeBatch.mockResolvedValue({
+    mocks.classifyCategoryBatch.mockResolvedValue({
       results: new Map(),
       calls: { attempted: 1, providerFailed: 1 },
     });
@@ -184,15 +184,15 @@ describe("applyDetectResult", () => {
     expect(result.brandName).toBe("ADELA Studio");
   });
 
-  it("never writes product_type, even when tags is requested", () => {
+  it("never writes category, even when tags is requested", () => {
     // The category moved to the descriptions phase, which sees the brand's own
     // site text and its classified image alt text. Detect sees SERP snippets.
     const result = applyDetectResult(
-      { ...brandDetect, productType: "beauty" },
+      { ...brandDetect, categorySlug: "beauty" },
       brand,
       ["detect", "slugs", "tags"] as EnrichPhase[],
     );
 
-    expect(result.patch).not.toHaveProperty("product_type");
+    expect(result.patch).not.toHaveProperty("category");
   });
 });

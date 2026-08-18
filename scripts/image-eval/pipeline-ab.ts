@@ -24,7 +24,7 @@ import {
 } from '@/lib/services/enrich-phases/classify-images'
 import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from '@/lib/prompts'
 import { computeDHash, isNonImageContentType } from '@/lib/services/image-download'
-import { productTypeNameZh } from '@/lib/taxonomy/ontology'
+import { categoryLabelZh } from '@/lib/taxonomy/ontology'
 import { cleanBrandName } from '@/lib/services/brand-cleanup'
 
 const TRACKED_SLUGS = [
@@ -69,7 +69,7 @@ type AfterBrand = {
   slug: string
   name: string
   nameAfter: string
-  productType: string | null
+  categorySlug: string | null
   categoryZh: string | null
   linksBefore: Record<string, string | null>
   linksAfter: Record<string, string | null>
@@ -247,7 +247,7 @@ async function main(): Promise<void> {
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
   const { data: brands, error } = await supabase
     .from('brands')
-    .select('id, slug, name, product_type, purchase_website, social_instagram, social_threads, social_facebook, purchase_pinkoi, purchase_shopee')
+    .select('id, slug, name, category, purchase_website, social_instagram, social_threads, social_facebook, purchase_pinkoi, purchase_shopee')
     .in('slug', TRACKED_SLUGS)
   if (error) throw error
 
@@ -299,7 +299,7 @@ async function main(): Promise<void> {
     // --- image query: the real branch logic ---
     const queries = buildImageQueryVariants({
       brandName: nameAfter,
-      productType: b.product_type,
+      categorySlug: b.category,
       purchaseWebsite: websiteAfter,
     })
     const imageQuery = queries.at(0) ?? ''
@@ -340,7 +340,7 @@ async function main(): Promise<void> {
         // would make the harness measure a weaker prompt than production.
         buildBrandContext({
           name: nameAfter,
-          productType: b.product_type,
+          categorySlug: b.category,
           website: websiteAfter,
           pinkoi: b.purchase_pinkoi ?? null,
           instagram: b.social_instagram ?? null,
@@ -384,8 +384,8 @@ async function main(): Promise<void> {
       slug,
       name: String(b.name ?? slug),
       nameAfter,
-      productType: b.product_type,
-      categoryZh: productTypeNameZh(b.product_type),
+      categorySlug: b.category,
+      categoryZh: categoryLabelZh(b.category),
       linksBefore,
       linksAfter,
       routingBranch,

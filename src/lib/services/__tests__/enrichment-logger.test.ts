@@ -75,8 +75,8 @@ describe('enrichment-logger', () => {
     })
 
     it('formats an enrichment patch field with compact values', () => {
-      expect(formatEnrichPatchField('productTags', ['handmade', 'local'])).toBe(
-        '  [ENRICH] productTags: [2 items]',
+      expect(formatEnrichPatchField('subcategories', ['handmade', 'local'])).toBe(
+        '  [ENRICH] subcategories: [2 items]',
       )
       expect(formatEnrichPatchField('description', 'a'.repeat(61))).toBe(
         `  [ENRICH] description: ${'a'.repeat(60)}…`,

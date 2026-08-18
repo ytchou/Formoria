@@ -31,7 +31,7 @@ import {
 } from "@/lib/json-ld";
 import {
   categoryLabel,
-  PRODUCT_TYPE_CATEGORIES,
+  L1_CATEGORIES,
 } from "@/lib/taxonomy/ontology";
 import { StoryContent } from "./story-content";
 
@@ -184,7 +184,7 @@ export default async function StoryPage({ params }: PageProps) {
       if (tag === "event") return { key: tag, label: t("tags.event") };
       if (tag === "creative-expo")
         return { key: tag, label: t("tags.creative-expo") };
-      const category = PRODUCT_TYPE_CATEGORIES.find(
+      const category = L1_CATEGORIES.find(
         (item) => item.slug === tag,
       );
       return category

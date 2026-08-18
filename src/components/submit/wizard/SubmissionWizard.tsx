@@ -45,7 +45,7 @@ import { LinksSection } from './sections/LinksSection'
 import { MediaSection } from './sections/MediaSection'
 
 type SubmissionWizardProps = {
-  productTagSuggestions?: string[]
+  subcategorySuggestions?: string[]
 }
 
 const submissionStepFormSchema = submissionWizardSchema.and(
@@ -75,9 +75,9 @@ const FIELD_STEPS: Partial<Record<keyof SubmissionWizardValues, number>> = {
   romanizedName: 0,
   website: 0,
   description: 0,
-  productType: 0,
+  categorySlug: 0,
   foundingYear: 0,
-  productTags: 0,
+  subcategories: 0,
   city: 0,
   priceRange: 0,
   mitStory: 0,
@@ -98,7 +98,7 @@ const FIELD_STEPS: Partial<Record<keyof SubmissionWizardValues, number>> = {
 }
 
 export default function SubmissionWizard({
-  productTagSuggestions = [],
+  subcategorySuggestions = [],
 }: SubmissionWizardProps) {
   const t = useTranslations('submit')
   const tReview = useTranslations('submit.review')
@@ -125,9 +125,9 @@ export default function SubmissionWizard({
       romanizedName: '',
       website: '',
       description: '',
-      productType: undefined,
+      categorySlug: undefined,
       foundingYear: undefined,
-      productTags: [],
+      subcategories: [],
       city: undefined,
       priceRange: undefined,
       mitStory: '',
@@ -150,8 +150,8 @@ export default function SubmissionWizard({
   })
 
   const contextValue = useMemo(
-    () => ({ form, productTagSuggestions, uploadSessionId }),
-    [form, productTagSuggestions, uploadSessionId],
+    () => ({ form, subcategorySuggestions, uploadSessionId }),
+    [form, subcategorySuggestions, uploadSessionId],
   )
 
   const validateStep = useCallback(async (stepKey: SubmissionWizardStepKey) => {
@@ -208,7 +208,7 @@ export default function SubmissionWizard({
         stepCompleted(currentStepKey)
         trackSubmissionCompleted(
           values.name,
-          values.productType ?? '',
+          values.categorySlug ?? '',
           Boolean(values.heroImageUrl),
           complete(),
           'owner_claim',

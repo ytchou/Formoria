@@ -14,7 +14,7 @@ const PUBLIC_DIR = 'public'
 const FAQ_MIN = 4
 const FAQ_MAX = 6
 const LOCALES = new Set(['zh-TW', 'en'])
-const PRODUCT_TYPE_CATEGORIES = new Set([
+const L1_CATEGORIES = new Set([
   'fashion',
   'bags-accessories',
   'jewelry',
@@ -72,9 +72,9 @@ function checkTrail(file, raw) {
     fileFailures.push(`${file}: \`tags\` must be a non-empty array`)
   } else {
     data.tags.forEach((tag, index) => {
-      if (typeof tag !== 'string' || !PRODUCT_TYPE_CATEGORIES.has(tag)) {
+      if (typeof tag !== 'string' || !L1_CATEGORIES.has(tag)) {
         fileFailures.push(
-          `${file}: \`tags[${index}]\` must be a PRODUCT_TYPE_CATEGORIES slug`,
+          `${file}: \`tags[${index}]\` must be an L1 category slug`,
         )
       }
     })

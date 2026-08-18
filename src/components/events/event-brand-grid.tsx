@@ -172,7 +172,7 @@ export function EventBrandGrid({
     () =>
       entries.filter((entry) => {
         if (activeArea !== null && entry.area !== activeArea) return false;
-        if (activeCategory !== null && entry.brand.category !== activeCategory)
+        if (activeCategory !== null && entry.brand.categoryLabel !== activeCategory)
           return false;
         if (!normalizedQuery) return true;
 

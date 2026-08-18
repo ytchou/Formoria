@@ -344,9 +344,9 @@ export async function submitOwnerDetailedBrand(
 
       const ownershipAdjusted = Boolean(await getUserBrand(user.id))
       const ownerData = {
-        productType: parsed.productType,
+        categorySlug: parsed.categorySlug,
         foundingYear: parsed.foundingYear,
-        productTags: parsed.productTags,
+        subcategories: parsed.subcategories,
         city: parsed.city,
         priceRange: parsed.priceRange,
         productPhotos: parsed.productPhotos,

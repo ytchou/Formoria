@@ -10,8 +10,8 @@ export function buildModerationPayload(
   fields: Record<string, string | undefined>
 } {
   const proposedName = getString(proposedData.name)
-  const productTags = Array.isArray(proposedData.productTags)
-    ? proposedData.productTags
+  const subcategories = Array.isArray(proposedData.subcategories)
+    ? proposedData.subcategories
         .filter((tag): tag is string => typeof tag === 'string')
         .join(' ')
     : undefined
@@ -22,7 +22,7 @@ export function buildModerationPayload(
       name: proposedName,
       description: getString(proposedData.description),
       mitStory: getString(proposedData.mitStory),
-      productTags,
+      subcategories,
       website: getString(proposedData.purchaseWebsite),
       purchaseUrl:
         getString(proposedData.purchasePinkoi) ??

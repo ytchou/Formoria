@@ -180,7 +180,7 @@ describe('hydrateCardImageMeta', () => {
     })
   })
 
-  it('fetches_best_product_tagged_image_per_brand', async () => {
+  it('fetches_best_product_image_per_brand', async () => {
     table = [
       imageRow({
         brand_id: 'b1',

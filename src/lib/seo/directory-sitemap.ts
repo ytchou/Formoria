@@ -7,7 +7,7 @@ import type { BrandSeoEntry } from '@/lib/services/brands'
 const DIRECTORY_LOCALES = ['zh-TW', 'en'] as const
 
 function hasTargetSubcategory(brand: BrandSeoEntry, subcategorySlug: string): boolean {
-  return brand.productTags.some(
+  return brand.subcategories.some(
     (tag) => matchSubcategory(tag)?.slug === subcategorySlug,
   )
 }
@@ -18,7 +18,7 @@ export function buildDirectorySitemapEntries(
   return listIndexableTargets().flatMap((target) => {
     const members = brands.filter(
       (brand) =>
-        brand.productType === target.categorySlug &&
+        brand.categorySlug === target.categorySlug &&
         (!target.subcategorySlug || hasTargetSubcategory(brand, target.subcategorySlug)),
     )
     const path = target.subcategorySlug

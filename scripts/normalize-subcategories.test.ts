@@ -10,8 +10,8 @@ import {
   PLANNING_OPERATION,
   validateResults,
   type BrandRow,
-} from "./normalize-product-tags";
-import { planTagBackfill } from "@/lib/services/product-tags";
+} from "./normalize-subcategories";
+import { planSubcategoryBackfill } from "@/lib/services/subcategories";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -21,21 +21,21 @@ afterEach(() => {
 const brand = (overrides: Partial<BrandRow> = {}): BrandRow => ({
   id: "00000000-0000-4000-8000-000000000001",
   slug: "sample-brand",
-  product_type: "food",
-  product_tags: ["食品禮盒", "側背包", "手工燈籠"],
-  product_tags_en: ["Food Gift Box", "Crossbody", "Handmade Lantern"],
+  category: "food",
+  subcategories: ["食品禮盒", "側背包", "手工燈籠"],
+  subcategories_en: ["Food Gift Box", "Crossbody", "Handmade Lantern"],
   status: "approved",
   ...overrides,
 });
 
 const modelAssistedResult = () => {
   const current = brand({
-    product_tags: ["手工燈籠"],
-    product_tags_en: ["Handmade Lantern"],
+    subcategories: ["手工燈籠"],
+    subcategories_en: ["Handmade Lantern"],
   });
   return composeResult(
     current,
-    planTagBackfill(current.product_tags ?? []),
+    planSubcategoryBackfill(current.subcategories ?? []),
     new Map([["手工燈籠", null]]),
   );
 };
@@ -45,7 +45,7 @@ const foodPlanningCall = {
   operation: PLANNING_OPERATION,
 } as const;
 
-describe("normalize-product-tags safety contract", () => {
+describe("normalize-subcategories safety contract", () => {
   it("captures every planning LLM response in the run audit evidence", async () => {
     const events: ChatAuditEvent[] = [];
     vi.stubEnv("DEEPSEEK_API_KEY", "test-deepseek-key");
@@ -109,7 +109,7 @@ describe("normalize-product-tags safety contract", () => {
     const current = brand();
     const result = composeResult(
       current,
-      planTagBackfill(current.product_tags ?? []),
+      planSubcategoryBackfill(current.subcategories ?? []),
       new Map([["手工燈籠", null]]),
     );
 
@@ -117,19 +117,19 @@ describe("normalize-product-tags safety contract", () => {
     expect(result.afterEn[result.afterZh.indexOf("食品禮盒")]).toBe(
       "Food Gift Box",
     );
-    expect(result.perTagSource.get("食品禮盒")).toBe("preserved");
+    expect(result.perSubcategorySource.get("食品禮盒")).toBe("preserved");
   });
 
   it("rejects plans that would remove every tag or exceed the five-tag cap", () => {
     const noTags = composeResult(
-      brand({ product_tags: ["襪"], product_tags_en: ["Sock"] }),
-      planTagBackfill(["襪"]),
+      brand({ subcategories: ["襪"], subcategories_en: ["Sock"] }),
+      planSubcategoryBackfill(["襪"]),
       new Map([["襪", null]]),
     );
     expect(() => validateResults([noTags])).toThrow(/zero tags/);
 
     const sixTags = brand({
-      product_tags: [
+      subcategories: [
         "托特包",
         "後背包",
         "斜背包",
@@ -137,11 +137,11 @@ describe("normalize-product-tags safety contract", () => {
         "水桶包",
         "零錢包",
       ],
-      product_tags_en: null,
+      subcategories_en: null,
     });
     const capped = composeResult(
       sixTags,
-      planTagBackfill(sixTags.product_tags ?? []),
+      planSubcategoryBackfill(sixTags.subcategories ?? []),
       new Map(),
     );
     expect(capped.afterZh).toHaveLength(5);
@@ -152,7 +152,7 @@ describe("normalize-product-tags safety contract", () => {
     const current = brand();
     const result = composeResult(
       current,
-      planTagBackfill(current.product_tags ?? []),
+      planSubcategoryBackfill(current.subcategories ?? []),
       new Map([["手工燈籠", null]]),
     );
     const artifact = createRunArtifact([result], "2026-08-07T00:00:00.000Z");
@@ -170,8 +170,8 @@ describe("normalize-product-tags safety contract", () => {
     expect(artifact.rollback.rows[0]).toMatchObject({
       id: current.id,
       slug: current.slug,
-      productTags: current.product_tags,
-      productTagsEn: current.product_tags_en,
+      subcategories: current.subcategories,
+      subcategoriesEn: current.subcategories_en,
     });
     expect(() => parseRunArtifact(artifact, { requireApproval: true })).toThrow(
       /review/i,
@@ -192,7 +192,7 @@ describe("normalize-product-tags safety contract", () => {
     const current = brand();
     const result = composeResult(
       current,
-      planTagBackfill(current.product_tags ?? []),
+      planSubcategoryBackfill(current.subcategories ?? []),
       new Map([["手工燈籠", null]]),
     );
     const artifact = createRunArtifact([result], "2026-08-07T00:00:00.000Z");

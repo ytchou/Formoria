@@ -28,7 +28,7 @@ SLUGS = [b["slug"] for b in A["brands"]]
 
 # Fields worth showing, in reading order. Anything else present is appended.
 FIELD_ORDER = [
-    "name", "slug", "product_type", "product_tags", "product_tags_en",
+    "name", "slug", "category", "subcategories", "subcategories_en",
     "price_range", "city", "founding_year",
     "blurb", "blurb_en", "description", "description_en",
     "mit_evidence", "reputation_summary", "channels",
@@ -135,10 +135,10 @@ for slug in SLUGS:
 parts.append("</nav>")
 
 # ------------------------------------------------------------- highlights
-tag_a = sum(len([t for t in (ab[s]["textPatch"].get("product_tags") or []) if t in VOCAB]) for s in SLUGS)
-tag_a_all = sum(len(ab[s]["textPatch"].get("product_tags") or []) for s in SLUGS)
-tag_b = sum(len([t for t in (bb[s]["textPatch"].get("product_tags") or []) if t in VOCAB]) for s in SLUGS)
-tag_b_all = sum(len(bb[s]["textPatch"].get("product_tags") or []) for s in SLUGS)
+tag_a = sum(len([t for t in (ab[s]["textPatch"].get("subcategories") or []) if t in VOCAB]) for s in SLUGS)
+tag_a_all = sum(len(ab[s]["textPatch"].get("subcategories") or []) for s in SLUGS)
+tag_b = sum(len([t for t in (bb[s]["textPatch"].get("subcategories") or []) if t in VOCAB]) for s in SLUGS)
+tag_b_all = sum(len(bb[s]["textPatch"].get("subcategories") or []) for s in SLUGS)
 img_a = sum(x["imageUsage"]["prompt"] for x in A["brands"])
 img_b = sum(x["imageUsage"]["prompt"] for x in B["brands"])
 
@@ -214,10 +214,10 @@ parts.append("""
 <tbody>""")
 for slug in SLUGS:
     pa, pb = ab[slug]["textPatch"], bb[slug]["textPatch"]
-    cat_a, cat_b = pa.get("product_type"), pb.get("product_type")
+    cat_a, cat_b = pa.get("category"), pb.get("category")
     cat_cls = ' class="changed"' if cat_a != cat_b else ""
-    ta_ = pa.get("product_tags") or []
-    tb_ = pb.get("product_tags") or []
+    ta_ = pa.get("subcategories") or []
+    tb_ = pb.get("subcategories") or []
     oa = len([t for t in ta_ if t in VOCAB])
     ob = len([t for t in tb_ if t in VOCAB])
     pub_a = sum(1 for i in ab[slug]["images"] if i.get("published"))
@@ -250,8 +250,8 @@ for slug in SLUGS:
     for k in keys:
         va, vb = pa.get(k), pb.get(k)
         cls = "same" if va == vb else "changed"
-        badge_a = tag_badge(va) if k == "product_tags" else ""
-        badge_b = tag_badge(vb) if k == "product_tags" else ""
+        badge_a = tag_badge(va) if k == "subcategories" else ""
+        badge_b = tag_badge(vb) if k == "subcategories" else ""
         parts.append(f'<tr><th>{e(k)}</th><td class="{cls}">{fmt(va)}{badge_a}</td>'
                      f'<td class="{cls}">{fmt(vb)}{badge_b}</td></tr>')
     parts.append("</tbody></table></div>")

@@ -944,7 +944,7 @@ export async function updateBrandAction(
     status?: string
     website?: string
     purchaseUrl?: string
-    productType?: string
+    categorySlug?: string
     socialInstagram?: string | null
     socialThreads?: string | null
     socialFacebook?: string | null

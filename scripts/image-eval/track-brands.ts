@@ -50,8 +50,8 @@ type ImageRow = {
 type BrandRow = {
   slug: string
   name: string
-  product_type: string | null
-  product_tags: string[] | null
+  category: string | null
+  subcategories: string[] | null
   city: string | null
   mit_status: string | null
   purchase_website: string | null
@@ -87,7 +87,7 @@ function routingBranch(b: BrandRow): { id: string; label: string; query: string 
   } catch {
     host = null
   }
-  const category = b.product_type ?? '—'
+  const category = b.category ?? '—'
   if (host && b.social_instagram) {
     return { id: 'web+ig', label: 'Website + Instagram', query: `site:${host} ${b.name}` }
   }
@@ -237,7 +237,7 @@ async function main(): Promise<void> {
       return `<tr>
       <td><a href="#${esc(b.slug)}"><b>${esc(b.name)}</b></a><br><code>${esc(b.slug)}</code></td>
       <td>${esc(br.label)}</td>
-      <td><code>${esc(b.product_type ?? '—')}</code></td>
+      <td><code>${esc(b.category ?? '—')}</code></td>
       <td class="num">${(b.images ?? []).length}</td>
       <td class="num">${b.rejected_count}</td>
       <td class="num ${bad ? 'bad' : f.length ? 'warn' : 'good'}">${bad ? `${bad} blocking` : f.length ? `${f.length} minor` : 'clean'}</td>
@@ -256,8 +256,8 @@ async function main(): Promise<void> {
       <div class="col">
         <h3>Identity &amp; category</h3>
         <table class="kv">
-          <tr><th>Category</th><td><code>${esc(b.product_type ?? '—')}</code></td></tr>
-          <tr><th>Product tags</th><td>${(b.product_tags ?? []).length ? (b.product_tags ?? []).map((t) => `<span class="chip">${esc(t)}</span>`).join('') : '<span class="muted">—</span>'}</td></tr>
+          <tr><th>Category</th><td><code>${esc(b.category ?? '—')}</code></td></tr>
+          <tr><th>Product subcategories</th><td>${(b.subcategories ?? []).length ? (b.subcategories ?? []).map((t) => `<span class="chip">${esc(t)}</span>`).join('') : '<span class="muted">—</span>'}</td></tr>
           <tr><th>City</th><td>${esc(b.city ?? '—')}</td></tr>
           <tr><th>MIT status</th><td>${esc(b.mit_status ?? '—')}</td></tr>
         </table>

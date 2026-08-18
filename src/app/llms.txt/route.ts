@@ -2,7 +2,7 @@ import en from "../../../messages/en.json";
 import zhTW from "../../../messages/zh-TW.json";
 import { withAuditScope } from "@/lib/audit";
 import { buildAlternates } from "@/lib/seo/alternates";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { formatLlmsTxt } from "./llms-content";
 
 export const revalidate = 3600;
@@ -18,7 +18,7 @@ export const GET = withAuditScope(async () => {
     ["FAQ", "/faq"],
   ].map(([label, path]) => ({ label, url: canonical(path) }));
 
-  const categories = PRODUCT_TYPE_CATEGORIES.map((category) => ({
+  const categories = L1_CATEGORIES.map((category) => ({
     name: category.name,
     nameZh: category.nameZh,
     url: canonical(`/categories/${category.slug}`),

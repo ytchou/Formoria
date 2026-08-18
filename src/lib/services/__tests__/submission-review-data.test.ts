@@ -22,9 +22,9 @@ const baseSubmission = {
   purchaseShopee: null,
   purchaseMyship: null,
   otherUrls: [{ label: "Stockist", url: "https://stockist.example.com" }],
-  suggestedTags: {
+  suggestedSubcategories: {
     values: ["手工皂"],
-    productType: "beauty",
+    categorySlug: "beauty",
   },
 };
 
@@ -73,9 +73,9 @@ describe("buildSubmissionReviewData", () => {
         name: "Enriched Brand",
         description: "豐富後的中文介紹",
         descriptionEn: "Enriched English description",
-        productType: "crafts",
-        productTags: ["木工", "家飾"],
-        productTagsEn: ["Woodwork", "Home decor"],
+        categorySlug: "crafts",
+        subcategories: ["木工", "家飾"],
+        subcategoriesEn: ["Woodwork", "Home decor"],
         priceRange: 2,
         city: "台中",
         foundingYear: 2018,
@@ -90,9 +90,9 @@ describe("buildSubmissionReviewData", () => {
       name: "Enriched Brand",
       description: "豐富後的中文介紹",
       descriptionEn: "Enriched English description",
-      productType: "crafts",
-      productTags: ["木工", "家飾"],
-      productTagsEn: ["Woodwork", "Home decor"],
+      categorySlug: "crafts",
+      subcategories: ["木工", "家飾"],
+      subcategoriesEn: ["Woodwork", "Home decor"],
       priceRange: 2,
       city: "台中",
       foundingYear: 2018,
@@ -110,8 +110,8 @@ describe("buildSubmissionReviewData", () => {
         name: "  ",
         description: "",
         heroImageUrl: " ",
-        productType: "",
-        productTags: [],
+        categorySlug: "",
+        subcategories: [],
         purchaseWebsite: "",
         socialInstagram: "",
         otherUrls: [],
@@ -122,8 +122,8 @@ describe("buildSubmissionReviewData", () => {
     expect(reviewData).toMatchObject({
       name: "Original Brand",
       description: "Original description",
-      productType: "beauty",
-      productTags: ["手工皂"],
+      categorySlug: "beauty",
+      subcategories: ["手工皂"],
       websiteUrl: "https://original.example.com",
       heroImageUrl: "https://cdn.example.com/hero.webp",
       socialInstagram: "https://instagram.com/original",
@@ -137,8 +137,8 @@ describe("getSubmissionReviewCompleteness", () => {
     return buildSubmissionReviewData(
       baseSubmission,
       {
-        productType: "beauty",
-        productTags: ["手工皂"],
+        categorySlug: "beauty",
+        subcategories: ["手工皂"],
         priceRange: 2,
       },
       activeImages,
@@ -157,9 +157,9 @@ describe("getSubmissionReviewCompleteness", () => {
 
   it.each([
     ["description", { description: "" }],
-    ["productType", { productType: "unknown-category" }],
-    ["productTags", { productTags: [] }],
-    ["productTags", { productTags: ["一", "二", "三", "四", "五", "六"] }],
+    ["categorySlug", { categorySlug: "unknown-category" }],
+    ["subcategories", { subcategories: [] }],
+    ["subcategories", { subcategories: ["一", "二", "三", "四", "五", "六"] }],
     ["priceRange", { priceRange: 4 }],
     [
       "website",
@@ -251,8 +251,8 @@ describe("buildSubmissionReviewOverrides", () => {
     const baseline = buildSubmissionReviewData(
       baseSubmission,
       {
-        productType: "beauty",
-        productTags: ["手工皂"],
+        categorySlug: "beauty",
+        subcategories: ["手工皂"],
         priceRange: 2,
       },
       activeImages,

@@ -25,13 +25,13 @@ export type EnrichBrand = {
   blurb?: string | null
   blurb_en?: string | null
   price_range?: number | null
-  product_tags?: string[] | null
-  product_tags_en?: string[] | null
+  subcategories?: string[] | null
+  subcategories_en?: string[] | null
   founding_year?: number | null
   city?: string | null
   site_content?: SiteContent | null
   category_attributes?: unknown | null
-  product_type?: string | null
+  category?: string | null
   purchase_website?: string | null
   purchaseWebsite?: string | null
   hero_image_url?: string | null
@@ -93,13 +93,13 @@ export type EnrichPatch = Partial<BrandFlatLinkColumns> &
     name: string
     reputation_summary: unknown
     price_range: number | null
-    product_tags: string[] | null
-    product_type: string | null
+    subcategories: string[] | null
+    category: string | null
     slug: string
     blurb: string | null
     blurb_en: string | null
     founding_year: number | null
-    product_tags_en: string[] | null
+    subcategories_en: string[] | null
     /**
      * Sentinel key, not a brand column: the columns this run affirmatively
      * determined should be EMPTY. `resolveRefreshEnrichmentPatch` routes it

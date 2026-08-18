@@ -515,28 +515,28 @@
       "submit": "Submit correction",
       "selectPlaceholder": "Not set yet",
       "currentHeading": "Current",
-      "currentTagsHeading": "Current (tap to remove)",
+      "currentSubcategoriesHeading": "Current (tap to remove)",
       "changeToHeading": "Change to",
-      "addTagsHeading": "Categories you can add",
-      "productTagsSubtitle": "{category} product categories (up to 5)",
-      "productTagsSelected": "Selected {count} / 5",
-      "productTagsLimit": "Select up to 5 product categories.",
-      "otherTagChip": "Other",
-      "otherTagInputLabel": "Other category name",
-      "otherTagHint": "Use 2–8 characters. Every suggestion is reviewed before it updates the listing.",
-      "otherTagConfirm": "Add",
-      "otherTagDuplicate": "This category is already listed above — remove it there instead.",
+      "addSubcategoriesHeading": "Categories you can add",
+      "subcategoriesSubtitle": "{category} product subcategories (up to 5)",
+      "subcategoriesSelected": "Selected {count} / 5",
+      "subcategoriesLimit": "Select up to 5 product subcategories.",
+      "otherSubcategoryChip": "Other",
+      "otherSubcategoryInputLabel": "Other subcategory name",
+      "otherSubcategoryHint": "Use 2–8 characters. Every suggestion is reviewed before it updates the listing.",
+      "otherSubcategoryConfirm": "Add",
+      "otherSubcategoryDuplicate": "This subcategory is already listed above — remove it there instead.",
       "success": "Correction submitted. Thank you for helping keep this listing accurate.",
       "errors": {
         "invalid_brand": "This brand could not be found. Please refresh and try again.",
         "invalid_value": "That correction is not valid. Please choose another value.",
-        "too_many_tags": "A brand can have at most 5 product categories.",
+        "too_many_subcategories": "A brand can have at most 5 product subcategories.",
         "unchanged": "This correction does not change the current information.",
         "already_submitted": "This correction has already been submitted. Please wait for review.",
         "rate_limited": "Too many correction submissions. Please try again later.",
         "unavailable": "We could not submit the correction. Please try again later.",
-        "tagLength": "Use 2–8 characters for the category name.",
-        "tagBlocked": "That word can't be used as a category — try a name that describes the product itself."
+        "subcategoryLength": "Use 2–8 characters for the subcategory name.",
+        "subcategoryBlocked": "That word can't be used as a subcategory — try a name that describes the product itself."
       }
     },
     "adminMenu": {
@@ -676,8 +676,8 @@
       },
       "mainProducts": {
         "question": "What are {brandName}'s main products?",
-        "answerWithCategoryAndTags": "{brandName} focuses on {category}, with signature products including {productTags}.{context}",
-        "answerWithTags": "{brandName} makes {productTags} as signature products.{context}"
+        "answerWithCategoryAndSubcategories": "{brandName} focuses on {category}, with signature products including {subcategories}.{context}",
+        "answerWithSubcategories": "{brandName} makes {subcategories} as signature products.{context}"
       },
       "priceRange": {
         "question": "Which price tier does {brandName} fall into?",
@@ -722,7 +722,7 @@
         "description": "Explore Taiwanese home and living brands, from furniture and storage to tableware and objects designed for daily life.",
         "h1": "Taiwan Home & Living Brands",
         "intro": "From furniture and storage to lighting, tableware, and small decor pieces; in a small apartment, dimensions and how something stores away usually settle the choice before style does.",
-        "definition": "This category focuses on objects that make a living space more useful, not only decorative pieces. Brands may work in ceramics, wood, bamboo, metal, or mixed materials; inclusion reflects a clear Taiwan connection through founding, design, or manufacturing and the product types recorded for the brand.",
+        "definition": "This category focuses on objects that make a living space more useful, not only decorative pieces. Brands may work in ceramics, wood, bamboo, metal, or mixed materials; inclusion reflects a clear Taiwan connection through founding, design, or manufacturing and the categories recorded for the brand.",
         "faq": [
           {
             "question": "What products appear in Home & Living?",
@@ -790,7 +790,7 @@
         "description": "Explore Taiwanese crafts and art brands across ceramics, woodwork, textiles, metalwork, print, and contemporary making.",
         "h1": "Taiwan Crafts & Art Brands",
         "intro": "Ceramics, woodwork, textiles, metalwork, and printing; mostly made in small batches by hand, so no two pieces carry quite the same grain.",
-        "definition": "Craft does not mean every piece is entirely handmade, nor does it stand for one cultural tradition. Formoria looks at a brand's published processes, product types, and Taiwan connection so visitors can learn more about studio scale, materials, and making on the brand page.",
+        "definition": "Craft does not mean every piece is entirely handmade, nor does it stand for one cultural tradition. Formoria looks at a brand's published processes, categories, and Taiwan connection so visitors can learn more about studio scale, materials, and making on the brand page.",
         "faq": [
           {
             "question": "How is Crafts & Art different from Home & Living?",
@@ -807,7 +807,7 @@
         "description": "Explore Taiwanese bags and accessories brands, from backpacks and wallets to eyewear, hats, and travel pieces.",
         "h1": "Taiwan Bags & Accessories Brands",
         "intro": "Bags, leather goods, and everyday accessories; what fits inside and whether the strap digs in are usually the same question.",
-        "definition": "A brand may make bags, wallets, and other accessories at the same time, so subcategories follow the main product tags. Inclusion does not mean every item shares one material or manufacturing location; check the listing for the brand's own material and origin details.",
+        "definition": "A brand may make bags, wallets, and other accessories at the same time, so subcategories follow the brand's main subcategories. Inclusion does not mean every item shares one material or manufacturing location; check the listing for the brand's own material and origin details.",
         "faq": [
           {
             "question": "Which subcategories are included?",
@@ -862,7 +862,7 @@
         "faq": [
           {
             "question": "What products are included in Stationery & Design?",
-            "answer": "Pens, notebooks, planners, paper goods, stamps, stickers, and desk organisers can appear, grouped by their primary use and product tags."
+            "answer": "Pens, notebooks, planners, paper goods, stamps, stickers, and desk organisers can appear, grouped by their primary use and subcategories."
           },
           {
             "question": "Are stationery products all made in Taiwan?",
@@ -932,7 +932,7 @@
         "faq": [
           {
             "question": "Are clip-on earrings included?",
-            "answer": "Yes. Clip-ons and stud earrings are both ear-worn products, and brands are grouped according to their public product tags."
+            "answer": "Yes. Clip-ons and stud earrings are both ear-worn products, and brands are grouped according to their public subcategories."
           },
           {
             "question": "Are these earrings suitable for everyone?",
@@ -945,11 +945,11 @@
         "description": "Explore Taiwanese storage brands across organisers, containers, shelving, and tools for making everyday spaces work better.",
         "h1": "Taiwan Storage Brands",
         "intro": "Boxes, racks, bags, and other storage pieces; measure the shelf depth first, then pick the style.",
-        "definition": "A storage product may also be furniture, travel gear, or a work accessory, so the subcategory follows the brand's main product tags. Check dimensions, capacity, load, materials, and installation requirements before buying.",
+        "definition": "A storage product may also be furniture, travel gear, or a work accessory, so the subcategory follows the brand's main subcategories. Check dimensions, capacity, load, materials, and installation requirements before buying.",
         "faq": [
           {
             "question": "Can large furniture appear in Storage?",
-            "answer": "A brand whose main products are storage furniture or systems may also appear in Furniture; the route follows its product tags."
+            "answer": "A brand whose main products are storage furniture or systems may also appear in Furniture; the route follows its subcategories."
           },
           {
             "question": "How should I choose storage for a small room?",
@@ -1000,7 +1000,7 @@
         "faq": [
           {
             "question": "Are shirts included with T-shirts?",
-            "answer": "A brand may appear when shirts or other upper-body garments are part of its main range; the exact route follows its product tags."
+            "answer": "A brand may appear when shirts or other upper-body garments are part of its main range; the exact route follows its subcategories."
           },
           {
             "question": "How can I confirm a top's fabric and origin?",
@@ -1558,7 +1558,7 @@
       "todoRemaining": "{count} remaining",
       "todoDescription": {
         "description": "Write your brand story to attract more customers",
-        "productTags": "Add product tags to improve search visibility",
+        "subcategories": "Add product subcategories to improve search visibility",
         "priceRange": "Set a price range so customers can filter",
         "heroImage": "Upload a hero image for brand recognition",
         "productPhotos": "Add brand and product photos",
@@ -1671,7 +1671,7 @@
       },
       "component": {
         "description": "Add your brand story",
-        "productTags": "Add product tags",
+        "subcategories": "Add product subcategories",
         "priceRange": "Choose a price range",
         "heroImage": "Upload a hero image",
         "productPhotos": "Upload product photos",
@@ -1761,12 +1761,13 @@
       "sectionMedia": "Product images",
       "sectionLinks": "Social & purchase links",
       "fieldBrandName": "Brand name",
-      "fieldProductType": "Product type",
+      "fieldCategory": "Brand category",
+      "fieldCategoryHint": "Used for navigation, search, and filtering",
       "fieldDescription": "Description",
-      "fieldProductTags": "Product tags",
-      "fieldProductTagsPlaceholder": "Add product tag",
-      "removeProductTag": "Remove tag",
-      "productTagsMax": "Up to 5 tags. Describe products, not promotional claims.",
+      "fieldSubcategories": "Product subcategories",
+      "fieldSubcategoriesPlaceholder": "Add product subcategory",
+      "removeSubcategory": "Remove subcategory",
+      "subcategoriesMax": "Up to 5 subcategories. Describe products, not promotional claims.",
       "fieldFoundingYear": "Founding Year",
       "fieldPriceRange": "Price Range",
       "fieldPriceRangeUnset": "Unset",
@@ -2009,14 +2010,14 @@
       "regionPlaceholder": "Select a region",
       "regionHint": "The brand's headquarters or main city of operations",
       "regionOptionalHint": "optional",
-      "productTypes": "Product Type",
-      "productTypesMultiSelect": "",
-      "productTypesHint": "Select the product type that fits best",
-      "productTypesFreeTextToggle": "None of the above?",
-      "productTypesFreeTextToggleHint": "— Enter product type manually",
-      "productTypeNoteLabel": "Describe the product type",
-      "productTypeNoteHint": "We'll review this suggestion",
-      "productTypeNotePlaceholder": "e.g. leather goods",
+      "category": "Brand category",
+      "categoryMultiSelect": "",
+      "categoryHint": "Select the brand category that fits best",
+      "categoryFreeTextToggle": "None of the above?",
+      "categoryFreeTextToggleHint": "— Enter a brand category manually",
+      "categoryNoteLabel": "Describe the brand category",
+      "categoryNoteHint": "We'll review this suggestion",
+      "categoryNotePlaceholder": "e.g. leather goods",
       "ubn": "Unified Business Number (optional)",
       "ubnHint": "8-digit number issued by the Ministry of Economic Affairs",
       "ubnDuplicateTitle": "A brand with this UBN already exists in the directory",
@@ -2469,8 +2470,8 @@
       },
       "fields": {
         "price_range": "Price range",
-        "product_type": "Product type",
-        "product_tags": "Product tags",
+        "category": "Brand category",
+        "subcategories": "Product subcategories",
         "purchase_website": "Official website",
         "purchase_pinkoi": "Pinkoi",
         "purchase_shopee": "Shopee",
@@ -2479,16 +2480,16 @@
         "social_threads": "Threads",
         "social_facebook": "Facebook"
       },
-      "tagDelta": {
+      "subcategoryDelta": {
         "projected": "Projected result"
       },
       "stale": "Brand data changed after submission",
-      "novelTag": "Not in taxonomy",
-      "novelTagTitle": "Approving this adds a display-only tag: it matches no ?sub= filter, so it will not appear in directory filtering.",
-      "tooManyTags": "Cannot approve: the result would exceed 5 product tags",
+      "novelSubcategory": "Not in taxonomy",
+      "novelSubcategoryTitle": "Approving this adds a display-only subcategory: it matches no ?sub= filter, so it will not appear in directory filtering.",
+      "tooManySubcategories": "Cannot approve: the result would exceed 5 product subcategories",
       "bulkApprove": "Approve {count} selected",
       "bulkReject": "Reject {count} selected",
-      "capBlocker": "{projected} tags after apply — the limit for this brand is {limit}",
+      "capBlocker": "{projected} subcategories after apply — the limit for this brand is {limit}",
       "actions": {
         "approve": "Approve",
         "reject": "Reject"
@@ -2672,8 +2673,8 @@
       },
       "missingFields": {
         "description": "Description",
-        "productType": "Valid product type",
-        "productTags": "1–5 product tags",
+        "categorySlug": "Valid brand category",
+        "subcategories": "1–5 product subcategories",
         "priceRange": "Price range",
         "website": "Valid official website",
         "heroImage": "Hero image",
@@ -2700,8 +2701,8 @@
         },
         "catalog": "Catalog classification",
         "priceRange": "Price range",
-        "productTags": "Product tags",
-        "tagsPlaceholder": "Separate up to five tags with commas",
+        "subcategories": "Product subcategories",
+        "subcategoriesPlaceholder": "Separate up to five subcategories with commas",
         "city": "City",
         "foundingYear": "Founding year",
         "links": "Links",
@@ -2763,7 +2764,7 @@
       },
       "fields": {
         "description": "Brand Description",
-        "productType": "Product Type",
+        "categorySlug": "Brand category",
         "purchaseLinks": "Purchase Links",
         "socialLinks": "Social Links",
         "heroImages": "Hero / Product Images",
@@ -2877,8 +2878,8 @@
         "fetching": "Reading the page…",
         "nameZh": "Product name (zh-TW)",
         "nameEn": "Product name (English)",
-        "l1": "Category",
-        "l2": "Subcategories",
+        "l1": "Product category",
+        "l2": "Product subcategory",
         "officialUrl": "Official product URL",
         "imageSourceUrl": "Image page URL",
         "imageHint": "The image is downloaded, converted to WebP, and stored when you save. GIF and SVG are rejected; use a JPEG, PNG, or WebP source.",

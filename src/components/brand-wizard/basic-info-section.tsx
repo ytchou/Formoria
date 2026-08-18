@@ -8,7 +8,7 @@ import {
   StandardFormSection,
   StandardFormStack,
 } from "@/components/forms/form-layout";
-import { ProductTagField } from "@/components/forms/product-tag-field";
+import { SubcategoryField } from "@/components/forms/subcategory-field";
 import { RequiredFieldsHint } from "@/components/forms/required-fields-hint";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,23 +16,23 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { TAIWAN_CITIES } from "@/lib/constants/taiwan-cities";
 import type { BrandWizardCommonValues } from "@/lib/schemas/brand-wizard";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { slugifyRomanizedName } from "@/lib/brands/slug";
 import { cn } from "@/lib/utils";
 
 type RequiredBasicField =
-  "name" | "productType" | "description" | "productTags" | "priceRange";
+  "name" | "categorySlug" | "description" | "subcategories" | "priceRange";
 
 type BasicFieldName = RequiredBasicField | "mitStory";
 
 export function BrandBasicInfoSection({
-  productTagSuggestions = [],
+  subcategorySuggestions = [],
   requiredFields = {},
   afterRomanizedName,
   suggestName,
   currentSlug,
 }: {
-  productTagSuggestions?: string[];
+  subcategorySuggestions?: string[];
   requiredFields?: Partial<Record<RequiredBasicField, boolean>>;
   afterRomanizedName?: ReactNode;
   suggestName?: (name: string) => Promise<{
@@ -187,33 +187,33 @@ export function BrandBasicInfoSection({
         {afterRomanizedName}
 
         <DashboardFormField
-          id="productType"
-          fieldName="productType"
-          label={t("fieldProductType")}
+          id="categorySlug"
+          fieldName="categorySlug"
+          label={t("fieldCategory")}
           description={tx(
             "fieldCategoryHint",
             "Used for navigation, search, and filtering",
           )}
-          required={Boolean(requiredFields.productType)}
-          error={fieldError("productType")}
-          errorId="productType-error"
+          required={Boolean(requiredFields.categorySlug)}
+          error={fieldError("categorySlug")}
+          errorId="categorySlug-error"
         >
           <NativeSelect
-            id="productType"
-            aria-required={Boolean(requiredFields.productType)}
-            aria-invalid={Boolean(form.formState.errors.productType)}
+            id="categorySlug"
+            aria-required={Boolean(requiredFields.categorySlug)}
+            aria-invalid={Boolean(form.formState.errors.categorySlug)}
             aria-describedby={
-              form.formState.errors.productType
-                ? "productType-error"
+              form.formState.errors.categorySlug
+                ? "categorySlug-error"
                 : undefined
             }
             className="min-h-12 w-full bg-card"
-            {...form.register("productType", {
+            {...form.register("categorySlug", {
               setValueAs: (value) => (value === "" ? undefined : value),
             })}
           >
-            <option value="">{t("fieldProductType")}</option>
-            {PRODUCT_TYPE_CATEGORIES.map((category) => (
+            <option value="">{t("fieldCategory")}</option>
+            {L1_CATEGORIES.map((category) => (
               <option key={category.slug} value={category.slug}>
                 {category.nameZh} ({category.name})
               </option>
@@ -288,37 +288,37 @@ export function BrandBasicInfoSection({
         </DashboardFormField>
 
         <DashboardFormField
-          id="productTags"
-          fieldName="productTags"
-          label={tx("fieldProductTags", "Product tags")}
-          description={tx("productTagsMax", "Up to 5 product tags")}
-          required={Boolean(requiredFields.productTags)}
-          error={fieldError("productTags")}
-          errorId="productTags-error"
+          id="subcategories"
+          fieldName="subcategories"
+          label={tx("fieldSubcategories", "Product subcategories")}
+          description={tx("subcategoriesMax", "Up to 5 product subcategories")}
+          required={Boolean(requiredFields.subcategories)}
+          error={fieldError("subcategories")}
+          errorId="subcategories-error"
         >
           <div
-            aria-required={Boolean(requiredFields.productTags)}
-            aria-invalid={Boolean(form.formState.errors.productTags)}
+            aria-required={Boolean(requiredFields.subcategories)}
+            aria-invalid={Boolean(form.formState.errors.subcategories)}
             aria-describedby={
-              form.formState.errors.productTags
-                ? "productTags-error"
+              form.formState.errors.subcategories
+                ? "subcategories-error"
                 : undefined
             }
           >
             <Controller
               control={form.control}
-              name="productTags"
+              name="subcategories"
               render={({ field }) => (
-                <ProductTagField
+                <SubcategoryField
                   value={field.value ?? []}
                   onChange={field.onChange}
-                  suggestions={productTagSuggestions}
-                  inputLabel={tx("fieldProductTags", "Product tags")}
+                  suggestions={subcategorySuggestions}
+                  inputLabel={tx("fieldSubcategories", "Product subcategories")}
                   placeholder={tx(
-                    "fieldProductTagsPlaceholder",
-                    "Add product tag",
+                    "fieldSubcategoriesPlaceholder",
+                    "Add product subcategory",
                   )}
-                  removeLabel={tx("removeProductTag", "Remove tag")}
+                  removeLabel={tx("removeSubcategory", "Remove subcategory")}
                 />
               )}
             />

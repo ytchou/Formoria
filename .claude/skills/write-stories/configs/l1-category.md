@@ -1,6 +1,6 @@
-# Config: product-type story
+# Config: L1 category story
 
-A story organised around a **kind of thing** — a material, a craft, a product
+A story organised around a **kind of thing** — a material, a craft, an L1
 category. 「認識台灣工藝：精選 2026 文博會 6 家工藝品牌」 is the shape.
 
 The reader arrives already knowing roughly what they are looking at and wants to
@@ -9,7 +9,7 @@ visible.
 
 ## The trap this config exists to prevent
 
-A product-type story is still **editorial selection**, not a category listing.
+A L1 category story is still **editorial selection**, not a category listing.
 The failure mode is a complete-looking roster of every brand in a category, which
 is 收錄 wearing 選物's clothes — and the reader cannot tell the difference unless
 the piece says so.
@@ -52,9 +52,9 @@ Two things keep it honest, and both belong in the prose:
 
 - **One concrete sensory or material detail per brand.** Not 「質感精緻」 but
   「邊緣沒有修得很整齊，拿兩個同款來比，花紋不會一樣」. This is what makes a
-  product-type piece worth reading and it is the first thing to go missing when
+  L1 category piece worth reading and it is the first thing to go missing when
   facts are thin — a `[待確認]` marker is the correct output, not an adjective.
-- **Tag with the L1 product-type slugs the story actually covers**, plus `event`
+- **Tag with the L1 category slugs the story actually covers**, plus `event`
   and `creative-expo` when it is tied to an expo.
 - **Headings may use an editorial gloss; link text uses the canonical taxonomy
   label.** 「瀏覽本站全部工藝文創品牌」 must land on a page whose heading agrees.

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { auditedCall } from "@/lib/audit";
 import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "@/lib/prompts";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import {
   BRAND_IMAGE_LOGO_TAG,
   HERO_TARGET_RATIO,
@@ -1348,15 +1348,15 @@ function instagramHandle(url: string | null | undefined): string | null {
 
 export function buildBrandContext(brand: {
   name: string | null;
-  productType: string | null;
+  categorySlug: string | null;
   website: string | null;
   pinkoi?: string | null;
   instagram?: string | null;
 }): string {
   const parts: string[] = [`Brand: ${brand.name ?? "unknown"}.`];
 
-  const category = brand.productType
-    ? PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === brand.productType)?.name
+  const category = brand.categorySlug
+    ? L1_CATEGORIES.find((c) => c.slug === brand.categorySlug)?.name
     : undefined;
   if (category) parts.push(`Category: ${category}.`);
 
@@ -1488,7 +1488,7 @@ export async function runClassifyImagesPhase({
 
         const brandContext = buildBrandContext({
           name: brand.name ?? brand.slug,
-          productType: brand.product_type ?? null,
+          categorySlug: brand.category ?? null,
           website: preferPatched(
             pendingPatch,
             brand.purchase_website,

@@ -13,16 +13,16 @@ import { createServiceClient } from '@/lib/supabase/service'
 import {
   isCompositeSubcategory,
   matchSubcategory,
-  normalizeTagKey,
-  PRODUCT_TYPE_CATEGORIES,
+  normalizeSubcategoryKey,
+  L1_CATEGORIES,
   subcategoryBySlug,
-  type ProductSubcategory,
+  type L2Subcategory,
 } from '@/lib/taxonomy/ontology'
 
 export type BrandCountRow = {
   name: string | null
-  product_type: string | null
-  product_tags: string[] | null
+  category: string | null
+  subcategories: string[] | null
   status: string | null
 }
 
@@ -42,10 +42,10 @@ export function isTestBrandName(name: string | null): boolean {
   return name !== null && TEST_BRAND_NAME_REGEXP.test(name)
 }
 
-type ProductTypeSlug = (typeof PRODUCT_TYPE_CATEGORIES)[number]['slug']
+type CategorySlug = (typeof L1_CATEGORIES)[number]['slug']
 
 export type SubcategoryBrandCount = Pick<
-  ProductSubcategory,
+  L2Subcategory,
   'slug' | 'nameZh' | 'nameEn' | 'category'
 > & {
   brand_count: number
@@ -57,10 +57,10 @@ export type SubcategoryBrandCount = Pick<
 type ThresholdKey = 'at_least_20' | 'at_least_15' | 'at_least_10' | 'at_least_5'
 
 export type BrandCountResult = {
-  product_type_totals: Record<ProductTypeSlug, number>
+  category_totals: Record<CategorySlug, number>
   subcategories: SubcategoryBrandCount[]
   thresholds: Record<ThresholdKey, number>
-  unmatched: Array<{ tag: string; brand_count: number }>
+  unmatched: Array<{ subcategory: string; brand_count: number }>
 }
 
 function compareAscending(left: string, right: string): number {
@@ -98,15 +98,15 @@ function toSubcategoryBrandCount(
 }
 
 export function aggregateBrandCounts(rows: BrandCountRow[]): BrandCountResult {
-  const product_type_totals = {} as Record<ProductTypeSlug, number>
-  for (const category of PRODUCT_TYPE_CATEGORIES) {
-    product_type_totals[category.slug] = 0
+  const category_totals = {} as Record<CategorySlug, number>
+  for (const category of L1_CATEGORIES) {
+    category_totals[category.slug] = 0
   }
 
   const subcategoryCounts = new Map<string, number>()
   const corpusSubcategoryCounts = new Map<string, number>()
-  const l1Branches = new Map<string, Set<ProductTypeSlug>>()
-  const unmatchedCounts = new Map<string, { tag: string; brand_count: number }>()
+  const l1Branches = new Map<string, Set<CategorySlug>>()
+  const unmatchedCounts = new Map<string, { subcategory: string; brand_count: number }>()
 
   for (const row of rows) {
     // Exclusion is deliberately identical to the public surfaces: approved
@@ -116,25 +116,25 @@ export function aggregateBrandCounts(rows: BrandCountRow[]): BrandCountResult {
     // fewer brands than the URL it is measuring.
     if (row.status !== 'approved' || isTestBrandName(row.name)) continue
 
-    const productTypeCategory = PRODUCT_TYPE_CATEGORIES.find(
-      ({ slug }) => slug === row.product_type,
+    const categorySlugCategory = L1_CATEGORIES.find(
+      ({ slug }) => slug === row.category,
     )
-    if (productTypeCategory) {
-      product_type_totals[productTypeCategory.slug] += 1
+    if (categorySlugCategory) {
+      category_totals[categorySlugCategory.slug] += 1
     }
 
     const seenSubcategorySlugs = new Set<string>()
     const seenCorpusSubcategorySlugs = new Set<string>()
-    const seenUnmatchedTagKeys = new Set<string>()
+    const seenUnmatchedSubcategoryKeys = new Set<string>()
 
-    for (const tag of row.product_tags ?? []) {
-      const matchedSubcategory = matchSubcategory(tag)
+    for (const subcategoryValue of row.subcategories ?? []) {
+      const matchedSubcategory = matchSubcategory(subcategoryValue)
       if (matchedSubcategory) {
         const subcategory = subcategoryBySlug(matchedSubcategory.slug)
         if (!subcategory) continue
 
         // Corpus measurement is deliberately unscoped: it answers how many
-        // approved brands carry a tag anywhere in the directory, even when the
+        // approved brands carry a subcategory anywhere in the directory, even when the
         // brand's L1 differs from the subcategory's parent. Keep this tally
         // separate from the L1-scoped set below so the guard cannot suppress it.
         if (!seenCorpusSubcategorySlugs.has(subcategory.slug)) {
@@ -144,21 +144,21 @@ export function aggregateBrandCounts(rows: BrandCountRow[]): BrandCountResult {
             (corpusSubcategoryCounts.get(subcategory.slug) ?? 0) + 1,
           )
 
-          if (productTypeCategory) {
-            const branches = l1Branches.get(subcategory.slug) ?? new Set<ProductTypeSlug>()
-            branches.add(productTypeCategory.slug)
+          if (categorySlugCategory) {
+            const branches = l1Branches.get(subcategory.slug) ?? new Set<CategorySlug>()
+            branches.add(categorySlugCategory.slug)
             l1Branches.set(subcategory.slug, branches)
           }
         }
 
-        // Scope the tag to the brand's own L1: `/brands?category=jewelry`
-        // filters on product_type, so a fashion brand tagged 手鍊 never appears
+        // Scope the subcategory to the brand's own L1: `/brands?category=jewelry`
+        // filters on category, so a fashion brand carrying 手鍊 never appears
         // under the jewelry subcategory page. Counting it would inflate every
         // L2 count above what its URL actually renders (mirrors
         // getSubcategoryCounts' `subcategory?.category === categorySlug`).
-        // A cross-category tag is not "unmatched" either — it resolves to a
+        // A cross-category subcategory is not "unmatched" either — it resolves to a
         // real subcategory, just not one this brand's page belongs to.
-        if (matchedSubcategory.category !== row.product_type) continue
+        if (matchedSubcategory.category !== row.category) continue
 
         if (seenSubcategorySlugs.has(subcategory.slug)) continue
 
@@ -170,15 +170,21 @@ export function aggregateBrandCounts(rows: BrandCountRow[]): BrandCountResult {
         continue
       }
 
-      const normalizedTagKey = normalizeTagKey(tag)
-      if (!normalizedTagKey || seenUnmatchedTagKeys.has(normalizedTagKey)) continue
+      const normalizedSubcategoryKey = normalizeSubcategoryKey(subcategoryValue)
+      if (
+        !normalizedSubcategoryKey ||
+        seenUnmatchedSubcategoryKeys.has(normalizedSubcategoryKey)
+      ) continue
 
-      seenUnmatchedTagKeys.add(normalizedTagKey)
-      const current = unmatchedCounts.get(normalizedTagKey)
+      seenUnmatchedSubcategoryKeys.add(normalizedSubcategoryKey)
+      const current = unmatchedCounts.get(normalizedSubcategoryKey)
       if (current) {
         current.brand_count += 1
       } else {
-        unmatchedCounts.set(normalizedTagKey, { tag, brand_count: 1 })
+        unmatchedCounts.set(normalizedSubcategoryKey, {
+          subcategory: subcategoryValue,
+          brand_count: 1,
+        })
       }
     }
   }
@@ -207,10 +213,11 @@ export function aggregateBrandCounts(rows: BrandCountRow[]): BrandCountResult {
 
   const unmatched = Array.from(unmatchedCounts.values()).sort(
     (left, right) =>
-      right.brand_count - left.brand_count || compareAscending(left.tag, right.tag),
+      right.brand_count - left.brand_count ||
+      compareAscending(left.subcategory, right.subcategory),
   )
 
-  return { product_type_totals, subcategories, thresholds, unmatched }
+  return { category_totals, subcategories, thresholds, unmatched }
 }
 
 /** PostgREST caps an unbounded select at 1000 rows; page under that cap. */
@@ -224,7 +231,7 @@ async function fetchAllBrandRows(): Promise<BrandCountRow[]> {
     // excludeTestBrands must wrap the FILTER builder (`.not` is gone once
     // `.order`/`.range` narrow it to a transform builder).
     const { data, error } = await excludeTestBrands(
-      client.from('brands').select('name, product_type, product_tags, status'),
+      client.from('brands').select('name, category, subcategories, status'),
     )
       .order('id', { ascending: true })
       .range(offset, offset + PAGE_SIZE - 1)

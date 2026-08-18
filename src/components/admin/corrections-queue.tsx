@@ -10,17 +10,17 @@ import type {
   CorrectionDecision,
 } from "@/lib/services/brand-corrections";
 import {
-  applyTagDelta,
-  isProductTagsDelta,
-  MAX_PRODUCT_TAGS,
-  type ProductTagsDelta,
-} from "@/lib/services/product-tags";
+  applySubcategoryDelta,
+  isSubcategoriesDelta,
+  MAX_SUBCATEGORIES,
+  type SubcategoriesDelta,
+} from "@/lib/services/subcategories";
 import { formatPriceRange } from "@/lib/brands/price-range";
 import { PURCHASE_COLUMNS } from "@/lib/brands/purchase-channels";
 import {
   categoryLabel,
   matchSubcategory,
-  PRODUCT_TYPE_CATEGORIES,
+  L1_CATEGORIES,
 } from "@/lib/taxonomy/ontology";
 import {
   formatReviewDate,
@@ -63,9 +63,9 @@ type BulkReviewAction = (
   notes: string,
 ) => Promise<{ failures: CorrectionBatchFailure[] } | { error: string }>;
 
-type TagDeltaState = {
-  delta: ProductTagsDelta;
-  projectedTags: string[];
+type SubcategoryDeltaState = {
+  delta: SubcategoriesDelta;
+  projectedSubcategories: string[];
   exceedsCap: boolean;
 };
 
@@ -92,26 +92,34 @@ function stringArray(value: unknown): string[] {
     : [];
 }
 
-function tagDeltaState(correction: CorrectionQueueItem): TagDeltaState | null {
+function subcategoryDeltaState(
+  correction: CorrectionQueueItem,
+): SubcategoryDeltaState | null {
   if (
-    correction.field !== "product_tags" ||
-    !isProductTagsDelta(correction.proposedValue)
+    correction.field !== "subcategories" ||
+    !isSubcategoriesDelta(correction.proposedValue)
   ) {
     return null;
   }
 
-  const currentTags = stringArray(correction.currentValue);
-  const projectedTags = applyTagDelta(currentTags, correction.proposedValue);
+  const currentSubcategories = stringArray(correction.currentValue);
+  const projectedSubcategories = applySubcategoryDelta(
+    currentSubcategories,
+    correction.proposedValue,
+  );
 
   return {
     delta: correction.proposedValue,
-    projectedTags,
-    exceedsCap: projectedTags.length > MAX_PRODUCT_TAGS,
+    projectedSubcategories,
+    exceedsCap: projectedSubcategories.length > MAX_SUBCATEGORIES,
   };
 }
 
-function tagBadges(tags: string[], emptyLabel: string): ReactNode {
-  if (tags.length === 0) {
+function subcategoryBadges(
+  subcategories: string[],
+  emptyLabel: string,
+): ReactNode {
+  if (subcategories.length === 0) {
     return (
       <span className="type-field-value text-muted-foreground">
         {emptyLabel}
@@ -121,9 +129,9 @@ function tagBadges(tags: string[], emptyLabel: string): ReactNode {
 
   return (
     <div className="flex flex-wrap gap-2">
-      {tags.map((tag, index) => (
-        <Badge key={`${tag}-${index}`} variant="secondary">
-          {tag}
+      {subcategories.map((subcategory, index) => (
+        <Badge key={`${subcategory}-${index}`} variant="secondary">
+          {subcategory}
         </Badge>
       ))}
     </div>
@@ -140,8 +148,8 @@ function scalarValue(
     return formatPriceRange(value) ?? unavailableLabel;
   }
 
-  if (field === "product_type" && typeof value === "string") {
-    const category = PRODUCT_TYPE_CATEGORIES.find(
+  if (field === "category" && typeof value === "string") {
+    const category = L1_CATEGORIES.find(
       (item) => item.slug === value,
     );
     return category ? categoryLabel(category, locale) : unavailableLabel;
@@ -203,8 +211,8 @@ export function CorrectionsQueue({
 
   function renderCurrentValue(item: CorrectionQueueItem): ReactNode {
     const value = item.currentValue;
-    if (item.field === "product_tags") {
-      return tagBadges(stringArray(value), t("notAvailable"));
+    if (item.field === "subcategories") {
+      return subcategoryBadges(stringArray(value), t("notAvailable"));
     }
 
     return (
@@ -215,38 +223,41 @@ export function CorrectionsQueue({
   }
 
   function renderProposedValue(item: CorrectionQueueItem): ReactNode {
-    const delta = tagDeltaState(item);
+    const delta = subcategoryDeltaState(item);
     if (delta) {
       return (
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
-            {delta.delta.add.map((tag, index) => (
+            {delta.delta.add.map((subcategory, index) => (
               <span
-                key={`add-${tag}-${index}`}
+                key={`add-${subcategory}-${index}`}
                 className="inline-flex items-center gap-1"
               >
-                <Badge variant="secondary">+{tag}</Badge>
-                {/* Novel tags are display-only: they match no ?sub= filter. */}
-                {matchSubcategory(tag) === null && (
-                  <Badge variant="warning" title={t("novelTagTitle")}>
-                    {t("novelTag")}
+                <Badge variant="secondary">+{subcategory}</Badge>
+                {/* Novel subcategories are display-only: they match no ?sub= filter. */}
+                {matchSubcategory(subcategory) === null && (
+                  <Badge variant="warning" title={t("novelSubcategoryTitle")}>
+                    {t("novelSubcategory")}
                   </Badge>
                 )}
               </span>
             ))}
-            {delta.delta.remove.map((tag, index) => (
+            {delta.delta.remove.map((subcategory, index) => (
               <Badge
-                key={`remove-${tag}-${index}`}
+                key={`remove-${subcategory}-${index}`}
                 variant="secondary"
                 className="line-through"
               >
-                −{tag}
+                −{subcategory}
               </Badge>
             ))}
           </div>
           <div className="space-y-1">
-            <p className="type-metadata">{t("tagDelta.projected")}</p>
-            {tagBadges(delta.projectedTags, t("notAvailable"))}
+            <p className="type-metadata">{t("subcategoryDelta.projected")}</p>
+            {subcategoryBadges(
+              delta.projectedSubcategories,
+              t("notAvailable"),
+            )}
           </div>
         </div>
       );
@@ -284,7 +295,7 @@ export function CorrectionsQueue({
       id: "proposed",
       header: t("table.proposed"),
       cell: (item) => {
-        const delta = tagDeltaState(item);
+        const delta = subcategoryDeltaState(item);
 
         return (
           <div className="space-y-2">
@@ -292,7 +303,7 @@ export function CorrectionsQueue({
             <div className="flex flex-wrap gap-2">
               {item.stale && <Badge variant="secondary">{t("stale")}</Badge>}
               {delta?.exceedsCap && (
-                <Badge variant="secondary">{t("tooManyTags")}</Badge>
+                <Badge variant="secondary">{t("tooManySubcategories")}</Badge>
               )}
             </div>
           </div>
@@ -364,7 +375,7 @@ export function CorrectionsQueue({
     {
       id: "approve",
       label: (count) => t("bulkApprove", { count }),
-      eligible: (item) => !tagDeltaState(item)?.exceedsCap,
+      eligible: (item) => !subcategoryDeltaState(item)?.exceedsCap,
       pending: queueAction.isPending,
       onRun: (items) => runBulk(items, "approved"),
     },
@@ -429,9 +440,9 @@ export function CorrectionsQueue({
               notesLabel={t("reviewerNotes")}
               notesPlaceholder={t("reviewerNotesPlaceholder")}
               // `blocker` is deliberately NOT passed: the cap message is stated
-              // contextually in the body, right under the projected tag list,
+              // contextually in the body, right under the projected subcategory list,
               // so repeating it down here would duplicate it.
-              eligible={!tagDeltaState(item)?.exceedsCap}
+              eligible={!subcategoryDeltaState(item)?.exceedsCap}
               isPending={queueAction.isRowPending(item.id)}
               error={queueAction.error}
             />
@@ -439,7 +450,7 @@ export function CorrectionsQueue({
         )}
       >
         {(item) => {
-          const delta = tagDeltaState(item);
+          const delta = subcategoryDeltaState(item);
           const exceedsCap = delta?.exceedsCap ?? false;
 
           return (
@@ -459,8 +470,8 @@ export function CorrectionsQueue({
                     {exceedsCap && delta ? (
                       <p className="type-error" role="alert">
                         {t("capBlocker", {
-                          projected: delta.projectedTags.length,
-                          limit: MAX_PRODUCT_TAGS,
+                          projected: delta.projectedSubcategories.length,
+                          limit: MAX_SUBCATEGORIES,
                         })}
                       </p>
                     ) : null}

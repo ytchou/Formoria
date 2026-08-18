@@ -42,14 +42,14 @@ export function BrandHeader({
     : undefined;
   const priceRangeLabel =
     brand.priceRange != null ? "$".repeat(brand.priceRange) : null;
-  const resolvedCategory = categoryLabel ?? brand.category;
+  const resolvedCategory = categoryLabel ?? brand.categoryLabel;
   const resolvedTags =
-    brand.productTags.length > 0
+    brand.subcategories.length > 0
       ? locale === "en"
-        ? brand.productTagsEn.length > 0
-          ? brand.productTagsEn
-          : brand.productTags
-        : brand.productTags
+        ? brand.subcategoriesEn.length > 0
+          ? brand.subcategoriesEn
+          : brand.subcategories
+        : brand.subcategories
       : [];
   const unknownValue = (
     <Typography
@@ -88,9 +88,9 @@ export function BrandHeader({
           <CorrectionDialog
             brandId={brand.id}
             brandSlug={brand.slug}
-            productType={brand.productType ?? null}
+            categorySlug={brand.categorySlug ?? null}
             priceRange={brand.priceRange}
-            productTags={brand.productTags}
+            subcategories={brand.subcategories}
           />
         </div>
         {hasVerification && (

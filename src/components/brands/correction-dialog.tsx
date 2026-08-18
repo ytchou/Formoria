@@ -24,15 +24,15 @@ import {
 } from "@/lib/brands/purchase-channels";
 import type { CorrectionField } from "@/lib/services/brand-corrections";
 import {
-  MAX_PRODUCT_TAGS,
-  resolveProductTagInput,
-  sameTagSet,
-} from "@/lib/services/product-tags";
+  MAX_SUBCATEGORIES,
+  resolveSubcategoryInput,
+  sameSubcategorySet,
+} from "@/lib/services/subcategories";
 import {
   categoryLabel,
   matchSubcategory,
-  PRODUCT_SUBCATEGORIES,
-  PRODUCT_TYPE_CATEGORIES,
+  L2_SUBCATEGORIES,
+  L1_CATEGORIES,
   subcategoryLabel,
 } from "@/lib/taxonomy/ontology";
 import { sanitizeHref, stripUrlQuery } from "@/lib/url";
@@ -57,7 +57,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 const CORRECTION_ERROR_KEYS = {
   invalid_brand: "errors.invalid_brand",
   invalid_value: "errors.invalid_value",
-  too_many_tags: "errors.too_many_tags",
+  too_many_subcategories: "errors.too_many_subcategories",
   unchanged: "errors.unchanged",
   already_submitted: "errors.already_submitted",
   rate_limited: "errors.rate_limited",
@@ -101,9 +101,9 @@ export type CorrectionDialogProps = {
   brandId: string;
   brandSlug: string;
   mode?: CorrectionDialogMode;
-  productType?: string | null;
+  categorySlug?: string | null;
   priceRange?: number | null;
-  productTags?: string[];
+  subcategories?: string[];
   purchaseLinks?: Record<PurchaseChannelColumn, string | null>;
   socialInstagram?: string | null;
   socialThreads?: string | null;
@@ -113,19 +113,19 @@ export type CorrectionDialogProps = {
 type SelectionState = {
   key: string;
   value: string;
-  tags: string[];
-  // Tags resolved through the free-text ("other") escape hatch that row 2 does
+  subcategories: string[];
+  // Subcategories resolved through the free-text ("other") escape hatch that row 2 does
   // not already offer — kept so the chip stays visible after it is toggled off.
   extras: string[];
 };
 
-function buildTagDelta(initialTags: string[], selectedTags: string[]) {
-  const initialSet = new Set(initialTags);
-  const selectedSet = new Set(selectedTags);
+function buildSubcategoryDelta(initialSubcategories: string[], selectedSubcategories: string[]) {
+  const initialSet = new Set(initialSubcategories);
+  const selectedSet = new Set(selectedSubcategories);
 
   return {
-    add: selectedTags.filter((tag) => !initialSet.has(tag)),
-    remove: initialTags.filter((tag) => !selectedSet.has(tag)),
+    add: selectedSubcategories.filter((subcategory) => !initialSet.has(subcategory)),
+    remove: initialSubcategories.filter((subcategory) => !selectedSet.has(subcategory)),
   };
 }
 
@@ -133,9 +133,9 @@ export function CorrectionDialog({
   brandId,
   brandSlug,
   mode = "brandInfo",
-  productType = null,
+  categorySlug = null,
   priceRange = null,
-  productTags = [],
+  subcategories = [],
   purchaseLinks = {} as Record<PurchaseChannelColumn, string | null>,
   socialInstagram = null,
   socialThreads = null,
@@ -155,7 +155,7 @@ export function CorrectionDialog({
   const otherMessageId = `${baseId}-other-message`;
   const otherChipRef = useRef<HTMLButtonElement>(null);
   const otherInputRef = useRef<HTMLInputElement>(null);
-  const addTagsGroupRef = useRef<HTMLDivElement>(null);
+  const addSubcategoriesGroupRef = useRef<HTMLDivElement>(null);
   const copy = COPY_KEYS[mode];
   // Starts empty so the dialog opens on the picker alone — no value control is
   // shown until the contributor says what they are correcting.
@@ -168,9 +168,9 @@ export function CorrectionDialog({
       ? [...PURCHASE_COLUMNS]
       : mode === "socialLinks"
         ? ["social_instagram", "social_threads", "social_facebook"]
-        : productType != null
-          ? ["product_type", "price_range", "product_tags"]
-          : ["product_type", "price_range"];
+        : categorySlug != null
+          ? ["category", "price_range", "subcategories"]
+          : ["category", "price_range"];
   // Every link field — purchase and social alike — is edited as a free-text URL
   // rather than a chip, so they share the baseline, diff and body branches.
   const isLinkField =
@@ -179,8 +179,8 @@ export function CorrectionDialog({
     field === "social_threads" ||
     field === "social_facebook";
   const originalSelection =
-    field === "product_type"
-      ? (productType ?? "")
+    field === "category"
+      ? (categorySlug ?? "")
       : field === "price_range" && priceRange != null
         ? String(priceRange)
         : purchaseChannel
@@ -192,18 +192,18 @@ export function CorrectionDialog({
               : field === "social_facebook"
                 ? (socialFacebook ?? "")
                 : "";
-  // `brands.product_tags` is a bare text[] with no unique constraint, so a
-  // legacy row can carry the same tag twice. De-duplicating once here keeps the
-  // counter, the 5-tag cap and the row-1 chips reading the same list.
-  const originalTags =
-    field === "product_tags" ? Array.from(new Set(productTags)) : [];
+  // `brands.subcategories` is a bare text[] with no unique constraint, so a
+  // legacy row can carry the same subcategory twice. De-duplicating once here keeps the
+  // counter, the 5-subcategory cap and the row-1 chips reading the same list.
+  const originalSubcategories =
+    field === "subcategories" ? Array.from(new Set(subcategories)) : [];
   // Both branches share one reset key so a changed `currentValue` re-baselines
-  // the scalar chips and the tag chips alike.
-  const selectionKey = `${field}:${originalSelection}:${originalTags.join("\u0000")}`;
+  // the scalar chips and the subcategory chips alike.
+  const selectionKey = `${field}:${originalSelection}:${originalSubcategories.join("\u0000")}`;
   const baseline: SelectionState = {
     key: selectionKey,
     value: isLinkField ? "" : originalSelection,
-    tags: originalTags,
+    subcategories: originalSubcategories,
     extras: [],
   };
   const [selectionState, setSelectionState] = useState(baseline);
@@ -215,9 +215,9 @@ export function CorrectionDialog({
   const active =
     selectionState.key === selectionKey ? selectionState : baseline;
   const selection = active.value;
-  const selectedTags = active.tags;
-  const extraTags = active.extras;
-  const atTagLimit = selectedTags.length >= MAX_PRODUCT_TAGS;
+  const selectedSubcategories = active.subcategories;
+  const extraSubcategories = active.extras;
+  const atSubcategoryLimit = selectedSubcategories.length >= MAX_SUBCATEGORIES;
 
   useEffect(() => {
     if (otherOpen) otherInputRef.current?.focus();
@@ -226,49 +226,49 @@ export function CorrectionDialog({
   const hasChanged =
     field === ""
       ? false
-      : field === "product_tags"
-        ? !sameTagSet(originalTags, selectedTags)
+      : field === "subcategories"
+        ? !sameSubcategorySet(originalSubcategories, selectedSubcategories)
         : isLinkField
           ? selection.trim() !== "" &&
             sanitizeHref(selection) !== sanitizeHref(originalSelection)
           : selection !== "" && selection !== originalSelection;
-  const productTagsCategory = PRODUCT_TYPE_CATEGORIES.find(
-    (category) => category.slug === productType,
+  const subcategoriesCategory = L1_CATEGORIES.find(
+    (category) => category.slug === categorySlug,
   );
-  const productTagsCategoryLabel = productTagsCategory
-    ? categoryLabel(productTagsCategory, locale)
-    : (productType ?? "");
-  const productSubcategories = PRODUCT_SUBCATEGORIES.filter(
-    (subcategory) => subcategory.category === productType,
+  const subcategoriesCategoryLabel = subcategoriesCategory
+    ? categoryLabel(subcategoriesCategory, locale)
+    : (categorySlug ?? "");
+  const productSubcategories = L2_SUBCATEGORIES.filter(
+    (subcategory) => subcategory.category === categorySlug,
   );
-  // Stored tags are not guaranteed canonical: the owner edit path only trims
+  // Stored subcategories are not guaranteed canonical: the owner edit path only trims
   // and de-dupes, so a brand can hold an alias of a subcategory. Comparing on a
-  // canonical basis is what stops a visitor adding the canonical twin of a tag
+  // canonical basis is what stops a visitor adding the canonical twin of a subcategory
   // the brand already carries.
-  const canonicalTag = (tag: string) => matchSubcategory(tag)?.nameZh ?? tag;
-  const currentTagSet = new Set(originalTags.map(canonicalTag));
+  const canonicalSubcategory = (subcategory: string) => matchSubcategory(subcategory)?.nameZh ?? subcategory;
+  const currentSubcategorySet = new Set(originalSubcategories.map(canonicalSubcategory));
   // Row 2 offers only what the brand does not already carry — row 1 owns the
   // rest, in-category or not.
   const offeredSubcategories = productSubcategories.filter(
-    (subcategory) => !currentTagSet.has(subcategory.nameZh),
+    (subcategory) => !currentSubcategorySet.has(subcategory.nameZh),
   );
-  const offeredTagNames = new Set(
+  const offeredSubcategoryNames = new Set(
     offeredSubcategories.map((subcategory) => subcategory.nameZh),
   );
-  const tagLabel = (tag: string) => {
-    const subcategory = matchSubcategory(tag);
-    return subcategory ? subcategoryLabel(subcategory, locale) : tag;
+  const subcategoryLabelForInput = (subcategory: string) => {
+    const matched = matchSubcategory(subcategory);
+    return matched ? subcategoryLabel(matched, locale) : subcategory;
   };
   // Row 2 renders in one pass: the in-category subcategories the brand does not
   // hold, then anything the free-text escape hatch resolved that row 2 did not
   // offer.
-  const addableTags = [
+  const addableSubcategories = [
     ...offeredSubcategories.map((subcategory) => ({
       key: subcategory.slug,
-      tag: subcategory.nameZh,
+      subcategory: subcategory.nameZh,
       label: subcategoryLabel(subcategory, locale),
     })),
-    ...extraTags.map((tag) => ({ key: tag, tag, label: tagLabel(tag) })),
+    ...extraSubcategories.map((subcategory) => ({ key: subcategory, subcategory, label: subcategoryLabelForInput(subcategory) })),
   ];
   const labelForField = (item: CorrectionField) => {
     const channel = Object.hasOwn(purchaseChannelByColumn, item)
@@ -279,11 +279,11 @@ export function CorrectionDialog({
         channelMessageKey(channel.messageKeys.brandDetailLink, "brandDetail"),
       );
     }
-    return item === "product_type"
+    return item === "category"
       ? tBrandDetail("label.category")
       : item === "price_range"
         ? tBrandDetail("label.priceRange")
-        : item === "product_tags"
+        : item === "subcategories"
           ? tBrandDetail("label.productCategories")
           : item === "social_instagram"
             ? tBrandDetail("links.instagram")
@@ -323,32 +323,32 @@ export function CorrectionDialog({
     }));
   }
 
-  function toggleTag(tag: string, checked: boolean) {
+  function toggleSubcategory(subcategory: string, checked: boolean) {
     updateSelection((base) => {
       if (!checked) {
         return {
           ...base,
           key: selectionKey,
-          tags: base.tags.filter((item) => item !== tag),
+          subcategories: base.subcategories.filter((item) => item !== subcategory),
         };
       }
-      if (base.tags.includes(tag) || base.tags.length >= MAX_PRODUCT_TAGS) {
+      if (base.subcategories.includes(subcategory) || base.subcategories.length >= MAX_SUBCATEGORIES) {
         return { ...base, key: selectionKey };
       }
-      return { ...base, key: selectionKey, tags: [...base.tags, tag] };
+      return { ...base, key: selectionKey, subcategories: [...base.subcategories, subcategory] };
     });
   }
 
-  function appendExtraTag(tag: string) {
+  function appendExtraSubcategory(subcategory: string) {
     updateSelection((base) => {
-      if (base.tags.length >= MAX_PRODUCT_TAGS) {
+      if (base.subcategories.length >= MAX_SUBCATEGORIES) {
         return { ...base, key: selectionKey };
       }
       return {
         key: selectionKey,
         value: base.value,
-        tags: base.tags.includes(tag) ? base.tags : [...base.tags, tag],
-        extras: base.extras.includes(tag) ? base.extras : [...base.extras, tag],
+        subcategories: base.subcategories.includes(subcategory) ? base.subcategories : [...base.subcategories, subcategory],
+        extras: base.extras.includes(subcategory) ? base.extras : [...base.extras, subcategory],
       };
     });
   }
@@ -359,42 +359,42 @@ export function CorrectionDialog({
     // before React commits that attribute, and a focused element that becomes
     // disabled drops focus to <body> — so when this confirmation fills the last
     // slot, focus goes to the row that now owns the selection instead.
-    if (atLimitAfter) addTagsGroupRef.current?.focus();
+    if (atLimitAfter) addSubcategoriesGroupRef.current?.focus();
     else otherChipRef.current?.focus();
   }
 
-  function confirmOtherTag() {
-    const result = resolveProductTagInput(otherValue);
+  function confirmOtherSubcategory() {
+    const result = resolveSubcategoryInput(otherValue);
     if (!result.ok) {
       setOtherMessage(
         result.reason === "length"
-          ? tCorrection("errors.tagLength")
-          : tCorrection("errors.tagBlocked"),
+          ? tCorrection("errors.subcategoryLength")
+          : tCorrection("errors.subcategoryBlocked"),
       );
       return;
     }
-    if (currentTagSet.has(result.tag)) {
-      setOtherMessage(tCorrection("otherTagDuplicate"));
+    if (currentSubcategorySet.has(result.subcategory)) {
+      setOtherMessage(tCorrection("otherSubcategoryDuplicate"));
       return;
     }
-    const alreadySelected = selectedTags.includes(result.tag);
+    const alreadySelected = selectedSubcategories.includes(result.subcategory);
     // Disabling the escape-hatch chip at the cap does not unmount an entry
     // panel opened below the cap, so the cap has to be stated here too — both
-    // add paths no-op silently and the tag would vanish without a word.
-    if (!alreadySelected && atTagLimit) {
-      setOtherMessage(tCorrection("productTagsLimit"));
+    // add paths no-op silently and the subcategory would vanish without a word.
+    if (!alreadySelected && atSubcategoryLimit) {
+      setOtherMessage(tCorrection("subcategoriesLimit"));
       return;
     }
-    if (offeredTagNames.has(result.tag)) {
+    if (offeredSubcategoryNames.has(result.subcategory)) {
       // Already on screen in row 2 — select it instead of adding a twin.
-      toggleTag(result.tag, true);
+      toggleSubcategory(result.subcategory, true);
     } else {
-      appendExtraTag(result.tag);
+      appendExtraSubcategory(result.subcategory);
     }
     const nextCount = alreadySelected
-      ? selectedTags.length
-      : selectedTags.length + 1;
-    closeOtherEntry(nextCount >= MAX_PRODUCT_TAGS);
+      ? selectedSubcategories.length
+      : selectedSubcategories.length + 1;
+    closeOtherEntry(nextCount >= MAX_SUBCATEGORIES);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -404,9 +404,9 @@ export function CorrectionDialog({
     const proposedValue =
       field === "price_range"
         ? Number(selection)
-        : field !== "product_tags"
+        : field !== "subcategories"
           ? selection
-          : buildTagDelta(originalTags, selectedTags);
+          : buildSubcategoryDelta(originalSubcategories, selectedSubcategories);
     startTransition(async () => {
       try {
         const result = await submitCorrectionAction({
@@ -423,7 +423,7 @@ export function CorrectionDialog({
           setSelectionState({
             key: selectionKey,
             value: isLinkField ? "" : originalSelection,
-            tags: originalTags,
+            subcategories: originalSubcategories,
             extras: [],
           });
           handleOpenChange(false);
@@ -490,7 +490,7 @@ export function CorrectionDialog({
   const currentPriceTier = PRICE_RANGE_TIERS.find(
     (tier) => String(tier.value) === originalSelection,
   );
-  const currentCategory = PRODUCT_TYPE_CATEGORIES.find(
+  const currentCategory = L1_CATEGORIES.find(
     (item) => item.slug === originalSelection,
   );
 
@@ -530,10 +530,10 @@ export function CorrectionDialog({
           <DialogTitle>
             {tCorrection(copy.title)}
           </DialogTitle>
-          {field === "product_tags" && (
+          {field === "subcategories" && (
             <p className="type-caption">
-              {tCorrection("productTagsSubtitle", {
-                category: productTagsCategoryLabel,
+              {tCorrection("subcategoriesSubtitle", {
+                category: subcategoriesCategoryLabel,
               })}
             </p>
           )}
@@ -591,10 +591,10 @@ export function CorrectionDialog({
                 })),
               )}
 
-            {field === "product_type" &&
+            {field === "category" &&
               scalarRows(
                 currentCategory ? categoryLabel(currentCategory, locale) : null,
-                PRODUCT_TYPE_CATEGORIES.filter(
+                L1_CATEGORIES.filter(
                   (item) => item.slug !== originalSelection,
                 ).map((item) => ({
                   key: item.slug,
@@ -603,24 +603,24 @@ export function CorrectionDialog({
                 })),
               )}
 
-            {field === "product_tags" && (
+            {field === "subcategories" && (
               <div className="space-y-4 p-4">
                 <div className="flex items-center justify-end">
                   <span
                     className="type-caption tabular-nums"
                     aria-live="polite"
                   >
-                    {tCorrection("productTagsSelected", {
-                      count: selectedTags.length,
+                    {tCorrection("subcategoriesSelected", {
+                      count: selectedSubcategories.length,
                     })}
                   </span>
                 </div>
-                {atTagLimit && (
+                {atSubcategoryLimit && (
                   <p
                     className="rounded-md bg-secondary px-3 py-2 type-caption"
                     aria-live="polite"
                   >
-                    {tCorrection("productTagsLimit")}
+                    {tCorrection("subcategoriesLimit")}
                   </p>
                 )}
 
@@ -630,32 +630,32 @@ export function CorrectionDialog({
                   className="space-y-2"
                 >
                   <Typography id={currentHeadingId} variant="subsectionTitle">
-                    {tCorrection("currentTagsHeading")}
+                    {tCorrection("currentSubcategoriesHeading")}
                   </Typography>
-                  {originalTags.length === 0 ? (
+                  {originalSubcategories.length === 0 ? (
                     <p className="type-caption">
                       {tCorrection("selectPlaceholder")}
                     </p>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {originalTags.map((tag) => {
-                        const kept = selectedTags.includes(tag);
+                      {originalSubcategories.map((subcategory) => {
+                        const kept = selectedSubcategories.includes(subcategory);
                         const Icon = kept ? X : RotateCcw;
 
                         return (
                           <ToggleChip
-                            key={tag}
+                            key={subcategory}
                             size="chip"
                             tone="reference"
                             pressed={kept}
-                            // Restoring a removed tag is an add, and adds no-op
+                            // Restoring a removed subcategory is an add, and adds no-op
                             // at the cap — without this the chip would be a
                             // dead control that never flips back.
-                            disabled={!kept && atTagLimit}
-                            onPressedChange={(next) => toggleTag(tag, next)}
+                            disabled={!kept && atSubcategoryLimit}
+                            onPressedChange={(next) => toggleSubcategory(subcategory, next)}
                             data-ph-no-autocapture
                           >
-                            {tagLabel(tag)}
+                            {subcategoryLabelForInput(subcategory)}
                             <Icon aria-hidden="true" />
                           </ToggleChip>
                         );
@@ -665,7 +665,7 @@ export function CorrectionDialog({
                 </div>
 
                 <div
-                  ref={addTagsGroupRef}
+                  ref={addSubcategoriesGroupRef}
                   role="group"
                   // Programmatic focus target only — see closeOtherEntry.
                   tabIndex={-1}
@@ -673,20 +673,20 @@ export function CorrectionDialog({
                   className="space-y-2 outline-none"
                 >
                   <Typography id={optionsHeadingId} variant="subsectionTitle">
-                    {tCorrection("addTagsHeading")}
+                    {tCorrection("addSubcategoriesHeading")}
                   </Typography>
                   <div className="flex flex-wrap gap-2">
-                    {addableTags.map((option) => {
-                      const pressed = selectedTags.includes(option.tag);
+                    {addableSubcategories.map((option) => {
+                      const pressed = selectedSubcategories.includes(option.subcategory);
 
                       return (
                         <ToggleChip
                           key={option.key}
                           size="chip"
                           pressed={pressed}
-                          disabled={!pressed && atTagLimit}
+                          disabled={!pressed && atSubcategoryLimit}
                           onPressedChange={(next) =>
-                            toggleTag(option.tag, next)
+                            toggleSubcategory(option.subcategory, next)
                           }
                           data-ph-no-autocapture
                         >
@@ -700,7 +700,7 @@ export function CorrectionDialog({
                       variant="secondary"
                       shape="pill"
                       size="chip"
-                      disabled={atTagLimit}
+                      disabled={atSubcategoryLimit}
                       aria-expanded={otherOpen}
                       onClick={() => {
                         setOtherMessage(null);
@@ -710,14 +710,14 @@ export function CorrectionDialog({
                       data-ph-no-autocapture
                     >
                       <Plus aria-hidden="true" />
-                      {tCorrection("otherTagChip")}
+                      {tCorrection("otherSubcategoryChip")}
                     </Button>
                   </div>
 
                   {otherOpen && (
                     <div className="space-y-2 rounded-lg border border-border p-3">
                       <Label htmlFor={otherInputId}>
-                        {tCorrection("otherTagInputLabel")}
+                        {tCorrection("otherSubcategoryInputLabel")}
                       </Label>
                       <Input
                         id={otherInputId}
@@ -736,14 +736,14 @@ export function CorrectionDialog({
                         onKeyDown={(event) => {
                           if (event.key !== "Enter") return;
                           // The dialog form would otherwise submit the
-                          // correction from inside the tag entry.
+                          // correction from inside the subcategory entry.
                           event.preventDefault();
-                          confirmOtherTag();
+                          confirmOtherSubcategory();
                         }}
                         data-ph-no-autocapture
                       />
                       <p id={otherHintId} className="type-caption">
-                        {tCorrection("otherTagHint")}
+                        {tCorrection("otherSubcategoryHint")}
                       </p>
                       {otherMessage && (
                         <p
@@ -756,11 +756,11 @@ export function CorrectionDialog({
                       <div className="flex gap-2">
                         <Button
                           type="button"
-                          onClick={confirmOtherTag}
+                          onClick={confirmOtherSubcategory}
                           className="focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
                           data-ph-no-autocapture
                         >
-                          {tCorrection("otherTagConfirm")}
+                          {tCorrection("otherSubcategoryConfirm")}
                         </Button>
                         <Button
                           type="button"

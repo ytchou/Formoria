@@ -1,13 +1,13 @@
 import type { PhaseResult } from "@/lib/types/curation";
 import { auditedCall } from "@/lib/audit";
 import {
-  classifyProductTypeBatch,
+  classifyCategoryBatch,
   detectBrandsBatch,
   type BatchClassificationItem,
   type ClassificationResult,
   type DetectBatchItem,
   type DetectResult,
-} from "../product-type-classifier";
+} from "../category-classifier";
 import { isLlmProviderFailure } from "../_shared/llm-call-outcome";
 import { generateSlug } from "../brands";
 import { isValidBrandName } from "../brand-cleanup";
@@ -63,7 +63,7 @@ function buildDetectPatch(
     patch.slug = detectResult.slugGenerated;
   }
 
-  // No product_type write here on purpose: the category is a reasoning task the
+  // No category write here on purpose: the category is a reasoning task the
   // descriptions phase owns, decided from the brand's own site text and its
   // classified image alt text. Detect only sees SERP snippets.
 
@@ -234,7 +234,7 @@ export async function runStandaloneClassification(
       description: brand.description ?? null,
       target: { type: ctx.targetType ?? "brand", id: brand.id },
     }));
-    const outcome = await classifyProductTypeBatch(classifyItems, ctx.jobId);
+    const outcome = await classifyCategoryBatch(classifyItems, ctx.jobId);
     ctx.onProgress?.(`  [TAGS] OK — ${outcome.results.size} classifications`);
 
     return outcome;
@@ -265,7 +265,7 @@ export async function runStandaloneClassification(
     phaseResult: buildPhaseResult(
       "tags",
       "succeeded",
-      result.results.size > 0 ? ["product_type"] : [],
+      result.results.size > 0 ? ["category"] : [],
       durationMs,
     ),
     batchClassifications: result.results,

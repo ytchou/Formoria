@@ -19,8 +19,8 @@ const brandIdSchema = z.string().uuid();
 // without widening the member type past `CorrectionField`.
 const correctionFields = [
   "price_range",
-  "product_type",
-  "product_tags",
+  "category",
+  "subcategories",
   ...PURCHASE_COLUMNS,
   "social_instagram",
   "social_threads",
@@ -57,7 +57,7 @@ export type SubmitCorrectionActionResult =
       error:
         | "invalid_brand"
         | "invalid_value"
-        | "too_many_tags"
+        | "too_many_subcategories"
         | "unchanged"
         | "already_submitted"
         | "rate_limited"

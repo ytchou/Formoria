@@ -23,8 +23,8 @@ import { TEST_BRAND_NAME_PATTERN } from './public-brand-filter'
 import {
   matchSubcategory,
   subcategoryBySlug,
-  PRODUCT_SUBCATEGORIES,
-  PRODUCT_TYPE_CATEGORIES,
+  L2_SUBCATEGORIES,
+  L1_CATEGORIES,
 } from '@/lib/taxonomy/ontology'
 import { districtSlugFromName } from '@/lib/constants/taiwan-districts'
 import { matchDistrict } from '@/lib/brands/district'
@@ -113,8 +113,8 @@ export type StockistLocation = {
   district: string | null
   brandSlug: string
   brandName: string
-  productType: string | null
-  productTags: string[]
+  categorySlug: string | null
+  subcategories: string[]
 }
 
 export type StockistCitySummary = {
@@ -141,15 +141,15 @@ type StockistReadRow = {
     | {
         slug: string
         name: string
-        product_type: string | null
-        product_tags: unknown
+        category: string | null
+        subcategories: unknown
         status: string
       }
     | Array<{
         slug: string
         name: string
-        product_type: string | null
-        product_tags: unknown
+        category: string | null
+        subcategories: unknown
         status: string
       }>
 }
@@ -165,10 +165,10 @@ export const CHANNEL_READ_SELECT =
   'id, name, channel_type, region_label, address, url, source_url, fetched_at, location_type, country, owner_status, source, removed_at, brand_channel_confirmations(count)'
 
 const STOCKIST_READ_SELECT =
-  'id, name, address, url, country, region_label, district, brands!inner(slug, name, product_type, product_tags, status)'
+  'id, name, address, url, country, region_label, district, brands!inner(slug, name, category, subcategories, status)'
 
 const LEGACY_STOCKIST_READ_SELECT =
-  'id, name, address, url, country, region_label, brands!inner(slug, name, product_type, product_tags, status)'
+  'id, name, address, url, country, region_label, brands!inner(slug, name, category, subcategories, status)'
 
 const STOCKIST_PAGE_SIZE = 1000
 
@@ -200,9 +200,9 @@ function mapStockistRow(row: StockistReadRow): StockistLocation | null {
       (city && row.address ? matchDistrict(row.address, city) : null),
     brandSlug: brand.slug,
     brandName: brand.name,
-    productType: brand.product_type,
-    productTags: Array.isArray(brand.product_tags)
-      ? brand.product_tags.filter(
+    categorySlug: brand.category,
+    subcategories: Array.isArray(brand.subcategories)
+      ? brand.subcategories.filter(
           (tag): tag is string => typeof tag === 'string',
         )
       : [],
@@ -214,11 +214,11 @@ function matchesCategory(
   category?: string,
 ): boolean {
   if (!category) return true
-  if (location.productType === category) return true
+  if (location.categorySlug === category) return true
   const subcategory = subcategoryBySlug(category)
   return Boolean(
     subcategory &&
-    location.productTags.some(
+    location.subcategories.some(
       (tag) => matchSubcategory(tag)?.slug === subcategory.slug,
     ),
   )
@@ -227,8 +227,8 @@ function matchesCategory(
 export function resolveStockistCategory(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
   const validCategories = [
-    ...PRODUCT_TYPE_CATEGORIES.map((category) => category.slug),
-    ...PRODUCT_SUBCATEGORIES.map((subcategory) => subcategory.slug),
+    ...L1_CATEGORIES.map((category) => category.slug),
+    ...L2_SUBCATEGORIES.map((subcategory) => subcategory.slug),
   ]
   return validCategories.includes(value) ? value : undefined
 }

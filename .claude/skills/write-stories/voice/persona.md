@@ -117,7 +117,7 @@ Two vocabularies, and the skill must not mix them up:
 - **Headings may use an editorial gloss** — 個人風格, 服飾配件, 紙品文具. These
   read better as section titles and are what the 小編 voice would actually say.
 - **Link text uses the canonical taxonomy label** from
-  `src/lib/taxonomy/ontology.ts` (`productTypeNameZh()`) — 服飾鞋履, 文具設計,
+  `src/lib/taxonomy/ontology.ts` (`categoryLabelZh()`) — 服飾鞋履, 文具設計,
   工藝文創, 美妝保養, 居家生活. A reader who clicks 「瀏覽本站全部服飾鞋履品牌」
   must land on a page whose heading says the same words.
 
@@ -128,9 +128,9 @@ Never invent a category slug. The twelve L1 categories are fixed: `fashion`,
 ## 8. Structure
 
 Article structure is per-shape and lives in the configs, not here — a
-product-type guide and a discovery trail arrange themselves differently for
+L1 category guide and a discovery trail arrange themselves differently for
 reasons that are about the reader's starting point, not about voice. See
-`configs/product-type.md` (which carries the brand-guide shape this file used to
+`configs/l1-category.md` (which carries the brand-guide shape this file used to
 describe) and `configs/discovery-trail.md`.
 
 This file governs how sentences sound, whatever shape they sit in.

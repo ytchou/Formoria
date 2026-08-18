@@ -41,7 +41,7 @@ const phaseDescriptions = {
   detect:
     "Checks whether the entry is a real brand and validates its identity.",
   slugs: "Generates a stable URL slug from the validated brand name.",
-  tags: "Classifies the brand's product type and tags.",
+  tags: "Classifies the brand's category and subcategories.",
   discover: "Searches the web for useful official sources and brand context.",
   links: "Extracts and verifies official website and social links.",
   images: "Finds and selects usable brand and product images.",
@@ -58,7 +58,7 @@ const phaseDescriptions = {
   site_identity:
     "Adjudicates quarantined websites and links before they reach downstream enrichment.",
   classification:
-    "Classifies the product type on its own, when descriptions did not decide it.",
+    "Classifies the category on its own, when descriptions did not decide it.",
   "image-search": "Searches for candidate images before image selection.",
   persist: "Writes the accumulated patch back to the brand record.",
   // Legacy: `reputation` was called `expansion` until 2026-08-03 and historical
@@ -537,7 +537,7 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
 
 function phaseDescription(phase: string): string | null {
   if (phase === "detect") {
-    return "Checks whether this entry is a real brand and may update its name, slug, or product type.";
+    return "Checks whether this entry is a real brand and may update its name, slug, or category.";
   }
 
   return null;

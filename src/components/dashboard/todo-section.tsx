@@ -32,7 +32,7 @@ const recommendationIcons: Record<RecommendationKey, LucideIcon> = {
   city: MapPin,
   foundingYear: Calendar,
   socialPresence: Share2,
-  productTags: Tag,
+  subcategories: Tag,
   priceRange: DollarSign,
 }
 

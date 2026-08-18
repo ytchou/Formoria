@@ -44,7 +44,7 @@ export type EnrichPhaseName = (typeof ENRICH_PHASES)[number];
  *   unless `phases.includes('descriptions')`, and `extractBrandFacts` is called
  *   unconditionally after that gate, so `facts` cannot run alone and cannot be
  *   skipped while `descriptions` runs.
- * - `classification` is the standalone product-type classifier that backs
+ * - `classification` is the standalone category classifier that backs
  *   `tags` when `descriptions` did not already decide the category.
  * - `image-search` is the batched serper /images call that backs `images`. It
  *   is batched across a whole chunk, so it is not a per-brand phase.

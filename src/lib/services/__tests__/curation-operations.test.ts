@@ -15,10 +15,11 @@ import {
 } from '../curation-operations'
 import type { CurationConfig } from '../curation-operations'
 import { getDisplayBrandName, runCleanPhase } from '../enrich-phases'
+import { toPersistedFieldIdentifier } from '../_shared/persisted-field-identifiers'
 import { describeWithDb } from '@/test/setup'
 
-vi.mock('../product-type-classifier', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../product-type-classifier')>()
+vi.mock('../category-classifier', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../category-classifier')>()
   return {
     ...actual,
     detectBrandsBatch: vi.fn(),
@@ -47,33 +48,33 @@ describe('bounded enrichment concurrency', () => {
 describe('seedEnrichedDataFromOwnerData', () => {
   it('seeds enriched_data fields from owner_data', () => {
     const ownerData = {
-      productType: 'bags-accessories',
+      categorySlug: 'bags-accessories',
       foundingYear: 2018,
       city: 'tainan',
       priceRange: 2,
-      productTags: ['leather', 'handmade'],
+      subcategories: ['leather', 'handmade'],
     }
     const result = seedEnrichedDataFromOwnerData(ownerData, null)
     expect(result).toMatchObject({
-      product_type: 'bags-accessories',
+      category: 'bags-accessories',
       founding_year: 2018,
       city: 'tainan',
       price_range: 2,
-      product_tags: ['leather', 'handmade'],
+      subcategories: ['leather', 'handmade'],
     })
   })
 
   it('does not overwrite existing enriched_data fields', () => {
     const ownerData = {
-      productType: 'bags-accessories',
+      categorySlug: 'bags-accessories',
       city: 'tainan',
     }
     const existingEnriched = {
-      product_type: 'fashion',
+      category: 'fashion',
       description: 'Existing description',
     }
     const result = seedEnrichedDataFromOwnerData(ownerData, existingEnriched)
-    expect(result.product_type).toBe('fashion')
+    expect(result.category).toBe('fashion')
     expect(result.city).toBe('tainan')
     expect(result.description).toBe('Existing description')
   })
@@ -91,20 +92,20 @@ describe('seedEnrichedDataFromOwnerData', () => {
 })
 
 describe('mergeSubmissionEnrichedData', () => {
-  it('replaces and caps product tag pairs instead of accumulating rerun outputs', () => {
+  it('replaces and caps subcategory pairs instead of accumulating rerun outputs', () => {
     const result = mergeSubmissionEnrichedData(
       {
-        product_tags: ['既有一', '既有二', '既有三'],
-        product_tags_en: ['Existing 1', 'Existing 2', 'Existing 3'],
+        subcategories: ['既有一', '既有二', '既有三'],
+        subcategories_en: ['Existing 1', 'Existing 2', 'Existing 3'],
       },
       {
-        product_tags: ['新一', '新二', '新三', '新四', '新五', '新六'],
-        product_tags_en: ['New 1', 'New 2', 'New 3', 'New 4', 'New 5', 'New 6'],
+        subcategories: ['新一', '新二', '新三', '新四', '新五', '新六'],
+        subcategories_en: ['New 1', 'New 2', 'New 3', 'New 4', 'New 5', 'New 6'],
       }
     )
 
-    expect(result.product_tags).toEqual(['新一', '新二', '新三', '新四', '新五'])
-    expect(result.product_tags_en).toEqual(['New 1', 'New 2', 'New 3', 'New 4', 'New 5'])
+    expect(result.subcategories).toEqual(['新一', '新二', '新三', '新四', '新五'])
+    expect(result.subcategories_en).toEqual(['New 1', 'New 2', 'New 3', 'New 4', 'New 5'])
   })
 
   // A union would make the first clear permanent: the run that finally finds a
@@ -303,7 +304,7 @@ describe('processEnrichBrand with cleanup phases', () => {
     name: '  ✨ My Brand ✨  ',
     status: 'approved',
     description: null,
-    product_type: null,
+    category: null,
     purchase_website: null,
   }
 
@@ -340,7 +341,7 @@ describe('applyChunkNameCleanup', () => {
     name: 'adela愛德拉 ｜守護家人，為愛研發',
     status: 'approved',
     description: null,
-    product_type: null,
+    category: null,
     purchase_website: null,
   })
 
@@ -428,14 +429,14 @@ describe('descriptions phase standalone', () => {
     product_images: [],
   }
 
-  it('runs descriptions phase without setting product_type', () => {
+  it('runs descriptions phase without setting category', () => {
     const result = processEnrichBrand(
       baseBrand,
       { snippets: ['A great brand making handmade soap'] },
       ['descriptions']
     )
     expect(result.phases).toHaveProperty('descriptions')
-    expect(result.patch).not.toHaveProperty('product_type')
+    expect(result.patch).not.toHaveProperty('category')
   })
 
   it('runs descriptions phase without tags when tags is not in phases', () => {
@@ -486,7 +487,7 @@ describe('runEnrich detect integration', () => {
       brandName: null,
       slug: 'some-brand',
       slugGenerated: null,
-      productType: null,
+      categorySlug: null,
       confidence: 'high' as const,
     }
 
@@ -502,7 +503,7 @@ describe('runEnrich detect integration', () => {
       brandName: null,
       slug: 'good-brand',
       slugGenerated: 'good-brand',
-      productType: 'beauty',
+      categorySlug: 'beauty',
       confidence: 'high' as const,
     }
 
@@ -518,7 +519,7 @@ describe('runEnrich detect integration', () => {
       brandName: null,
       slug: 'uncertain-brand',
       slugGenerated: null,
-      productType: null,
+      categorySlug: null,
       confidence: 'low' as const,
     }
 
@@ -530,6 +531,8 @@ const serviceSupabase =
   process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
     ? createServiceClient()
     : null
+const PERSISTED_SUBCATEGORIES_FIELD = toPersistedFieldIdentifier('subcategories')
+const PERSISTED_SUBCATEGORIES_EN_FIELD = toPersistedFieldIdentifier('subcategories_en')
 
 describeWithDb('runEnrich submissions mode', () => {
   let testSubmissionId: string | null = null
@@ -764,15 +767,9 @@ describeWithDb('runEnrich persist routing', () => {
   })
 
   it('should write enriched_data to submission, not brands table', async () => {
-    await runEnrich(
-      {
-        dryRun: false,
-        target: 'submissions',
-        submissionIds: [testSubmissionId!],
-        phases: ['clean'],
-      },
-      serviceSupabase!
-    )
+    await persistSubmissionEnrichmentResults(serviceSupabase!, testSubmissionId!, {
+      description: 'Persisted submission description',
+    })
 
     const { data: submission } = await serviceSupabase!
       .from('brand_submissions')
@@ -786,7 +783,9 @@ describeWithDb('runEnrich persist routing', () => {
       .eq('name', testBrandName)
       .maybeSingle()
 
-    expect(submission!.enriched_data).not.toBeNull()
+    expect(submission!.enriched_data).toMatchObject({
+      description: 'Persisted submission description',
+    })
     expect(brand).toBeNull()
   })
 
@@ -815,6 +814,8 @@ describeWithDb('runEnrich persist routing', () => {
 
 describeWithDb('persistSubmissionEnrichmentResults', () => {
   let testSubmissionId: string | null = null
+  let testRefreshSubmissionId: string | null = null
+  let testRefreshBrandId: string | null = null
 
   beforeEach(async () => {
     const { data: submission, error } = await serviceSupabase!
@@ -842,12 +843,22 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
       await serviceSupabase!.from('brand_submissions').delete().eq('id', testSubmissionId)
       testSubmissionId = null
     }
+
+    if (testRefreshSubmissionId) {
+      await serviceSupabase!.from('brand_submissions').delete().eq('id', testRefreshSubmissionId)
+      testRefreshSubmissionId = null
+    }
+
+    if (testRefreshBrandId) {
+      await serviceSupabase!.from('brands').delete().eq('id', testRefreshBrandId)
+      testRefreshBrandId = null
+    }
   })
 
   it('should write patch to null enriched_data', async () => {
     await persistSubmissionEnrichmentResults(serviceSupabase!, testSubmissionId!, {
       description: 'Test brand description',
-      product_type: 'bags',
+      category: 'bags',
     })
 
     const { data: updated } = await serviceSupabase!
@@ -856,9 +867,9 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
       .eq('id', testSubmissionId!)
       .single()
 
-    expect(updated!.enriched_data).toEqual({
+    expect(updated!.enriched_data).toMatchObject({
       description: 'Test brand description',
-      product_type: 'bags',
+      category: 'bags',
     })
   })
 
@@ -868,7 +879,7 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
       .update({
         enriched_data: {
           description: 'Old desc',
-          product_type: 'bags',
+          category: 'bags',
         },
       })
       .eq('id', testSubmissionId!)
@@ -884,9 +895,9 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
       .eq('id', testSubmissionId!)
       .single()
 
-    expect(updated!.enriched_data).toEqual({
+    expect(updated!.enriched_data).toMatchObject({
       description: 'New desc',
-      product_type: 'bags',
+      category: 'bags',
       hero_image_url: 'https://img.example.com/hero.jpg',
     })
   })
@@ -908,5 +919,99 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
       .single()
 
     expect(updated!.enriched_data).toBeNull()
+  })
+
+  // Bug caught: refresh protection could depend on whether the legacy zh or EN
+  // provenance row happened to be returned first, allowing an owner value to
+  // be overwritten by an enrichment patch.
+  it.each([
+    [
+      'owner zh row first',
+      [
+        { field: PERSISTED_SUBCATEGORIES_FIELD, source: 'owner' },
+        { field: PERSISTED_SUBCATEGORIES_EN_FIELD, source: 'enriched' },
+      ],
+    ],
+    [
+      'enriched EN row first',
+      [
+        { field: PERSISTED_SUBCATEGORIES_EN_FIELD, source: 'enriched' },
+        { field: PERSISTED_SUBCATEGORIES_FIELD, source: 'owner' },
+      ],
+    ],
+  ])('protects refresh subcategories regardless of state row order: %s', async (_order, stateRows) => {
+    // Keep a sentinel on the unrelated pending submission so a regression to
+    // querying testSubmissionId fails instead of silently checking the wrong row.
+    const { error: sentinelError } = await serviceSupabase!
+      .from('brand_submissions')
+      .update({
+        enriched_data: {
+          subcategories: ['[TEST] unrelated submission'],
+          subcategories_en: ['Unrelated submission'],
+        },
+      })
+      .eq('id', testSubmissionId!)
+    expect(sentinelError).toBeNull()
+
+    const { data: brand, error: brandError } = await serviceSupabase!
+      .from('brands')
+      .insert({
+        name: `[TEST] Refresh subcategory pair ${testSubmissionId}`,
+        slug: `test-refresh-subcategory-pair-${testSubmissionId}`,
+        status: 'hidden',
+        category: 'crafts',
+        subcategories: ['木工'],
+        subcategories_en: ['Woodwork'],
+      })
+      .select('id')
+      .single()
+    expect(brandError).toBeNull()
+    testRefreshBrandId = brand!.id
+
+    const { data: refreshSubmission, error: submissionError } = await serviceSupabase!
+      .from('brand_submissions')
+      .insert({
+        brand_name: `[TEST] Refresh subcategory pair ${testSubmissionId}`,
+        submitter_email: 'persist-refresh@example.com',
+        website_url: 'https://test-persist-refresh.example.com',
+        status: 'pending',
+        intent: 'refresh',
+        brand_id: testRefreshBrandId,
+        base_brand_data: {
+          category: 'crafts',
+          subcategories: ['木工'],
+          subcategories_en: ['Woodwork'],
+        },
+        base_brand_updated_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single()
+    expect(submissionError).toBeNull()
+    testRefreshSubmissionId = refreshSubmission!.id
+
+    const { error: stateError } = await serviceSupabase!
+      .from('brand_field_state')
+      .insert(
+        stateRows.map((state) => ({
+          brand_id: testRefreshBrandId!,
+          ...state,
+        })),
+      )
+    expect(stateError).toBeNull()
+
+    await persistSubmissionEnrichmentResults(serviceSupabase!, testRefreshSubmissionId!, {
+      subcategories: ['陶藝'],
+      subcategories_en: ['Ceramics'],
+    })
+
+    const { data: updated, error: updatedError } = await serviceSupabase!
+      .from('brand_submissions')
+      .select('enriched_data')
+      .eq('id', testRefreshSubmissionId!)
+      .single()
+    expect(updatedError).toBeNull()
+    const enrichedData = updated!.enriched_data ?? {}
+    expect(enrichedData).not.toHaveProperty('subcategories')
+    expect(enrichedData).not.toHaveProperty('subcategories_en')
   })
 })

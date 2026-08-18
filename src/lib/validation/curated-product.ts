@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
 /**
  * Payload shapes for the curated-product admin write path (DEV-1465).
@@ -14,11 +14,11 @@ import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 /**
  * The L1 CHECK list of `curated_products`
  * (supabase/migrations/20260813120000_curated_products.sql), which is itself the
- * same 12 values as `brands.product_type`. Derived from the ontology rather than
+ * same 12 values as `brands.category`. Derived from the ontology rather than
  * re-typed so a taxonomy change cannot leave two copies disagreeing; the length
  * assertion in the test is what pins it to the migration.
  */
-export const CURATED_PRODUCT_L1_VALUES = PRODUCT_TYPE_CATEGORIES.map(
+export const CURATED_PRODUCT_L1_VALUES = L1_CATEGORIES.map(
   (category) => category.slug,
 ) as [string, ...string[]];
 
@@ -33,7 +33,7 @@ const MAX_URL = 2_000;
 export const MAX_NOTE = 10_000;
 /** A claim is a one-line factual note, not an essay. */
 const MAX_CLAIM = 1_000;
-/** L2 is capped by `normalizeProductTags`; this is only a payload bound. */
+/** L2 is capped by `normalizeSubcategories`; this is only a payload bound. */
 const MAX_L2 = 20;
 /** A product cites its provenance; it does not carry a bibliography. */
 const MAX_SOURCES = 20;

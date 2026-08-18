@@ -2,7 +2,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { SectionDetailLayout } from '@/components/dashboard/section-detail-layout'
 import { EmptyValue, display } from '@/components/dashboard/display-helpers'
 import { InfoField } from '@/components/ui/card'
-import { getProductTypeLabel } from '@/lib/brands/category-label'
+import { getCategoryLabel } from '@/lib/brands/category-label'
 import { getBrandBySlug } from '@/lib/services/brands'
 
 type Props = {
@@ -40,14 +40,14 @@ export default async function InfoPage({ params }: Props) {
           value={display(brand.name, t('notSet'))}
         />
         <InfoField
-          label={tEdit('fieldProductType')}
+          label={tEdit('fieldCategory')}
           value={
-            brand.productType
+            brand.categorySlug
               ? (
-                  getProductTypeLabel(
-                    brand.productType,
+                  getCategoryLabel(
+                    brand.categorySlug,
                     locale === 'zh-TW' ? 'zh-TW' : 'en',
-                  ) ?? brand.productType
+                  ) ?? brand.categorySlug
                 )
               : <EmptyValue>{t('notSet')}</EmptyValue>
           }
@@ -70,10 +70,10 @@ export default async function InfoPage({ params }: Props) {
           value={priceRange}
         />
         <InfoField
-          label={tEdit('fieldProductTags')}
+          label={tEdit('fieldSubcategories')}
           value={
-            brand.productTags.length > 0
-              ? brand.productTags.join(' · ')
+            brand.subcategories.length > 0
+              ? brand.subcategories.join(' · ')
               : <EmptyValue>{t('notSet')}</EmptyValue>
           }
         />

@@ -17,7 +17,7 @@ type BrandRow = Record<PurchaseChannelColumn, string | null> & {
   name: string
   description: string | null
   hero_image_url: string | null
-  product_type: string | null
+  category: string | null
   social_instagram: string | null
 }
 type SearchResultRow = {
@@ -101,7 +101,7 @@ function makeCandidate(
   ownerBrandIds: Set<string>
 ): Candidate {
   const coverage = [
-    `product:${brand.product_type ?? 'unknown'}`,
+    `category:${brand.category ?? 'unknown'}`,
     `data:${dataRichness(brand)}`,
     brand.hero_image_url ? 'hero:present' : 'hero:missing',
     ownerBrandIds.has(brand.id) ? 'owner:claimed' : 'owner:unclaimed',
@@ -117,7 +117,7 @@ function makeCandidate(
     descriptionSnippet: descriptionSnippet(brand.description),
     criteriaCoverage: coverage,
     reasons: [
-      `Covers ${brand.product_type ?? 'unknown'} product type`,
+      `Covers ${brand.category ?? 'unknown'} category`,
       `Represents ${dataRichness(brand)} data richness`,
       brand.hero_image_url ? 'Has current hero image' : 'Missing current hero image',
       ownerBrandIds.has(brand.id) ? 'Owner-claimed brand' : 'Unclaimed brand',
@@ -163,7 +163,7 @@ async function main(): Promise<void> {
   const brandsResult = await supabase
     .from('brands')
     .select(
-      `id, slug, name, description, hero_image_url, product_type, ${PURCHASE_COLUMNS.join(', ')}, social_instagram`
+      `id, slug, name, description, hero_image_url, category, ${PURCHASE_COLUMNS.join(', ')}, social_instagram`
     )
     .eq('status', 'approved')
     .order('updated_at', { ascending: false })

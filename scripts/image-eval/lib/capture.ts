@@ -2,7 +2,7 @@ import { buildImageQueryVariants } from "@/lib/services/enrich-phases/scraper/se
 
 export type CaptureQueryBrand = {
   name: string;
-  productType: string;
+  categorySlug: string;
   purchaseWebsite?: string | null;
 };
 
@@ -32,15 +32,15 @@ export const PRODUCTION_QUERY_INDEX = 0;
  */
 export function buildCaptureQueries(brand: CaptureQueryBrand): string[] {
   const name = brand.name.trim();
-  const productType = brand.productType.trim();
+  const categorySlug = brand.categorySlug.trim();
   const productionQuery =
-    buildImageQueryVariants({ brandName: name, productType })[0] ??
+    buildImageQueryVariants({ brandName: name, categorySlug })[0] ??
     `"${name}" 台灣`;
 
   const queries = [
     productionQuery,
-    `"${name}" ${productType} 官方網站 商品`,
-    `"${name}" ${productType} 產品 圖片`,
+    `"${name}" ${categorySlug} 官方網站 商品`,
+    `"${name}" ${categorySlug} 產品 圖片`,
     `"${name}" 台灣 品牌 商品`,
   ];
 

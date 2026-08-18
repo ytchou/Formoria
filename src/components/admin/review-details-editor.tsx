@@ -21,16 +21,16 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { getProductTypeLabel } from "@/lib/brands/category-label";
+import { getCategoryLabel } from "@/lib/brands/category-label";
 import { brandImageFill } from "@/lib/images/focal";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import type { OtherUrl } from "@/lib/types";
 import type {
   SaveSubmissionReviewInput,
   SubmissionReviewData,
   SubmissionReviewImage,
 } from "@/lib/services/submissions";
-import { deriveProductTagsEn } from "@/lib/services/product-tags";
+import { deriveSubcategoriesEn } from "@/lib/services/subcategories";
 import { cn } from "@/lib/utils";
 import { MAX_BRAND_ACTIVE_IMAGES } from "@/lib/constants/brand-images";
 import {
@@ -358,11 +358,11 @@ export function ReviewDetailsEditor({
               <div className="space-y-3">
                 <dl className="grid gap-4 sm:grid-cols-2">
                   <Definition
-                    label={t("fields.productType")}
+                    label={t("fields.categorySlug")}
                     value={
-                      data.productType
-                        ? (getProductTypeLabel(data.productType) ??
-                          data.productType)
+                      data.categorySlug
+                        ? (getCategoryLabel(data.categorySlug) ??
+                          data.categorySlug)
                         : null
                     }
                   />
@@ -376,9 +376,9 @@ export function ReviewDetailsEditor({
                     value={data.foundingYear?.toString() ?? null}
                   />
                 </dl>
-                {data.productTags.length > 0 && (
+                {data.subcategories.length > 0 && (
                   <div className="flex flex-wrap gap-2">
-                    {data.productTags.map((tag) => (
+                    {data.subcategories.map((tag) => (
                       <Badge key={tag} variant="secondary">
                         {tag}
                       </Badge>
@@ -707,16 +707,16 @@ function CatalogEditor({
   ) => void;
 }) {
   const t = useTranslations("admin.submissions");
-  const [tagsText, setTagsText] = useState(draft.productTags.join(", "));
+  const [tagsText, setTagsText] = useState(draft.subcategories.join(", "));
   return (
     <div className="space-y-3">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Field label={t("fields.productType")}>
+        <Field label={t("fields.categorySlug")}>
           <Select
-            value={draft.productType ?? EMPTY_SELECT_VALUE}
+            value={draft.categorySlug ?? EMPTY_SELECT_VALUE}
             onValueChange={(value) =>
               onUpdate(
-                "productType",
+                "categorySlug",
                 value === EMPTY_SELECT_VALUE ? null : value,
               )
             }
@@ -726,7 +726,7 @@ function CatalogEditor({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={EMPTY_SELECT_VALUE}>{t("notSet")}</SelectItem>
-              {PRODUCT_TYPE_CATEGORIES.map((category) => (
+              {L1_CATEGORIES.map((category) => (
                 <SelectItem key={category.slug} value={category.slug}>
                   {category.nameZh} ({category.name})
                 </SelectItem>
@@ -779,16 +779,16 @@ function CatalogEditor({
           />
         </Field>
       </div>
-      <Field label={t("details.productTags")}>
+      <Field label={t("details.subcategories")}>
         <Input
           value={tagsText}
           onChange={(event) => {
             setTagsText(event.target.value);
             const tags = parseTags(event.target.value);
-            onUpdate("productTags", tags);
-            onUpdate("productTagsEn", deriveProductTagsEn(tags));
+            onUpdate("subcategories", tags);
+            onUpdate("subcategoriesEn", deriveSubcategoriesEn(tags));
           }}
-          placeholder={t("details.tagsPlaceholder")}
+          placeholder={t("details.subcategoriesPlaceholder")}
         />
       </Field>
     </div>

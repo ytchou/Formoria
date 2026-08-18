@@ -18,7 +18,7 @@ export default async function OgImage({
   try {
     const brandDetail = await getBrandBySlug(slug)
     const brandLabel = locale === 'en' ? 'Taiwanese Brand' : '台灣品牌'
-    const categoryName = brandDetail.category ?? 'Taiwan brand'
+    const categoryName = brandDetail.categoryLabel ?? 'Taiwan brand'
 
     return new ImageResponse(
       (

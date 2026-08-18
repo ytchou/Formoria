@@ -26,13 +26,13 @@ export type PublicBrandCard = {
   blurbEn: string | null
   heroImageUrl: string | null
   status: 'approved' | 'hidden'
-  productType?: string | null
-  category: string | null
+  categorySlug?: string | null
+  categoryLabel: string | null
   isVerified: boolean
   mitStatus?: 'unverified' | 'declared' | 'verified'
   priceRange: number | null
-  productTags: string[]
-  productTagsEn: string[]
+  subcategories: string[]
+  subcategoriesEn: string[]
   foundingYear: number | null
   productPhotos: string[]
   imageAlts: BrandImageMeta[]
@@ -104,7 +104,7 @@ export type SearchSuggestion = {
   id: string
   slug: string
   name: string
-  category: string
+  categoryLabel: string
 }
 
 /**
@@ -114,11 +114,11 @@ export type SearchSuggestion = {
  */
 export type PublicBrandFaqContext = {
   name: string
-  category: string | null
+  categoryLabel: string | null
   city: string | null
-  productType?: string | null
-  productTags: string[]
-  productTagsEn: string[]
+  categorySlug?: string | null
+  subcategories: string[]
+  subcategoriesEn: string[]
   priceRange: number | null
   foundingYear: number | null
   reputationSummary?: ReputationSummary | null
@@ -141,7 +141,7 @@ export type AdminBrandListItem = {
   slug: string
   status: 'approved' | 'hidden'
   isDemo: boolean
-  category: string | null
+  categoryLabel: string | null
   createdAt: string
   updatedAt: string
   mitStatus?: 'unverified' | 'declared' | 'verified'
@@ -153,15 +153,15 @@ export type AdminBrandListItem = {
   blurb?: string | null
   blurbEn?: string | null
   city?: string | null
-  productType?: string | null
+  categorySlug?: string | null
   heroImageUrl?: string | null
   foundingYear?: number | null
   reputationSummary?: ReputationSummary | null
   mitEvidence?: Brand['mitEvidence']
   siteContent?: SiteContent | null
   priceRange?: number | null
-  productTags?: string[]
-  productTagsEn?: string[]
+  subcategories?: string[]
+  subcategoriesEn?: string[]
   purchaseWebsite?: string | null
   purchasePinkoi?: string | null
   purchaseShopee?: string | null
@@ -207,13 +207,13 @@ export function toPublicBrandCard(brand: Brand): PublicBrandCard {
     blurbEn: brand.blurbEn,
     heroImageUrl: brand.heroImageUrl,
     status: brand.status,
-    productType: brand.productType ?? null,
-    category: brand.category,
+    categorySlug: brand.categorySlug ?? null,
+    categoryLabel: brand.categoryLabel,
     isVerified: brand.isVerified,
     mitStatus: brand.mitStatus ?? 'unverified',
     priceRange: brand.priceRange,
-    productTags: [...brand.productTags],
-    productTagsEn: [...brand.productTagsEn],
+    subcategories: [...brand.subcategories],
+    subcategoriesEn: [...brand.subcategoriesEn],
     foundingYear: brand.foundingYear,
     productPhotos: [...brand.productPhotos],
     imageAlts: brand.imageAlts.map((alt) => ({
@@ -230,11 +230,11 @@ export function toPublicBrandCard(brand: Brand): PublicBrandCard {
 export function toPublicBrandFaqContext(brand: Brand): PublicBrandFaqContext {
   return {
     name: brand.name,
-    category: brand.category,
+    categoryLabel: brand.categoryLabel,
     city: brand.city,
-    productType: brand.productType ?? null,
-    productTags: Array.isArray(brand.productTags) ? [...brand.productTags] : [],
-    productTagsEn: Array.isArray(brand.productTagsEn) ? [...brand.productTagsEn] : [],
+    categorySlug: brand.categorySlug ?? null,
+    subcategories: Array.isArray(brand.subcategories) ? [...brand.subcategories] : [],
+    subcategoriesEn: Array.isArray(brand.subcategoriesEn) ? [...brand.subcategoriesEn] : [],
     priceRange: brand.priceRange,
     foundingYear: brand.foundingYear,
     reputationSummary: brand.reputationSummary ?? null,
@@ -257,10 +257,10 @@ export function normalizePublicBrandCard(
   }
   return {
     ...brand,
-    productType: brand.productType ?? null,
+    categorySlug: brand.categorySlug ?? null,
     mitStatus: brand.mitStatus ?? 'unverified',
-    productTags: Array.isArray(brand.productTags) ? [...brand.productTags] : [],
-    productTagsEn: Array.isArray(brand.productTagsEn) ? [...brand.productTagsEn] : [],
+    subcategories: Array.isArray(brand.subcategories) ? [...brand.subcategories] : [],
+    subcategoriesEn: Array.isArray(brand.subcategoriesEn) ? [...brand.subcategoriesEn] : [],
     productPhotos: Array.isArray(brand.productPhotos) ? [...brand.productPhotos] : [],
     imageAlts: Array.isArray(brand.imageAlts)
       ? brand.imageAlts.map((alt) => ({
@@ -334,7 +334,7 @@ export function toAdminBrandListItem(brand: Brand): AdminBrandListItem {
     slug: brand.slug,
     status: brand.status,
     isDemo: brand.isDemo,
-    category: brand.category,
+    categoryLabel: brand.categoryLabel,
     createdAt: brand.createdAt,
     updatedAt: brand.updatedAt,
     mitStatus: brand.mitStatus ?? (brand.mitVerified ? 'verified' : 'unverified'),
@@ -346,15 +346,15 @@ export function toAdminBrandListItem(brand: Brand): AdminBrandListItem {
     blurb: brand.blurb,
     blurbEn: brand.blurbEn,
     city: brand.city,
-    productType: brand.productType ?? null,
+    categorySlug: brand.categorySlug ?? null,
     heroImageUrl: brand.heroImageUrl,
     foundingYear: brand.foundingYear,
     reputationSummary: brand.reputationSummary ?? null,
     mitEvidence: brand.mitEvidence ?? null,
     siteContent: brand.siteContent ?? null,
     priceRange: brand.priceRange,
-    productTags: [...brand.productTags],
-    productTagsEn: [...brand.productTagsEn],
+    subcategories: [...brand.subcategories],
+    subcategoriesEn: [...brand.subcategoriesEn],
     purchaseWebsite: brand.purchaseWebsite,
     purchasePinkoi: brand.purchasePinkoi,
     purchaseShopee: brand.purchaseShopee,

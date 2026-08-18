@@ -1,6 +1,6 @@
 import { cache } from 'react'
 import {
-  PRODUCT_TYPE_CATEGORIES,
+  L1_CATEGORIES,
   subcategoryBySlug,
 } from '@/lib/taxonomy/ontology'
 import type { Locale } from './alternates'
@@ -69,7 +69,7 @@ const getKeywordMap = cache(() => {
 })
 
 const CATEGORY_SLUGS = new Set<string>(
-  PRODUCT_TYPE_CATEGORIES.map((category) => category.slug),
+  L1_CATEGORIES.map((category) => category.slug),
 )
 
 function taxonomyTarget(

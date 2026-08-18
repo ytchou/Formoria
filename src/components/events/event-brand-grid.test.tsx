@@ -58,7 +58,13 @@ function makeEntry(
   booth: string | null = null,
 ): EventBrandEntry {
   return {
-    brand: { id: name, slug: name, name, category },
+    brand: {
+      id: name,
+      slug: name,
+      name,
+      categorySlug: category,
+      categoryLabel: category,
+    },
     booth,
     area,
     areaEn: area,

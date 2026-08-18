@@ -8,21 +8,21 @@ describeWithDb("related brand browse results", () => {
     const supabase = createTestClient();
     const { data: candidates, error: candidatesError } = await supabase
       .from("brands")
-      .select("slug, product_type")
+      .select("slug, category")
       .eq("status", "approved")
       .not("name", "like", "[E2E-TEST]%")
-      .not("product_type", "is", null)
-      .order("product_type")
+      .not("category", "is", null)
+      .order("category")
       .limit(5000);
 
     expect(candidatesError).toBeNull();
 
     const byCategory = new Map<string, string[]>();
     for (const candidate of candidates ?? []) {
-      if (!candidate.product_type) continue;
-      const slugs = byCategory.get(candidate.product_type) ?? [];
+      if (!candidate.category) continue;
+      const slugs = byCategory.get(candidate.category) ?? [];
       slugs.push(candidate.slug);
-      byCategory.set(candidate.product_type, slugs);
+      byCategory.set(candidate.category, slugs);
     }
 
     const categoryEntry = [...byCategory.entries()].find(
@@ -47,7 +47,7 @@ describeWithDb("related brand browse results", () => {
       .select("id", { count: "exact", head: true })
       .eq("status", "approved")
       .not("name", "like", "[E2E-TEST]%")
-      .eq("product_type", categorySlug)
+      .eq("category", categorySlug)
       .neq("slug", currentSlug);
 
     expect(countError).toBeNull();

@@ -52,7 +52,7 @@ type BrandSearchResult = {
 
 export type ImageQueryInput = {
   brandName: string
-  productType?: string | null
+  categorySlug?: string | null
   /**
    * The brand's own domain, when we know one. Re-added deliberately after an
    * earlier removal: it is the only signal that lets the query anchor on brand

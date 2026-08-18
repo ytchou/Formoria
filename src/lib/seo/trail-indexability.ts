@@ -1,4 +1,4 @@
-import { PRODUCT_SUBCATEGORIES } from '@/lib/taxonomy/ontology'
+import { L2_SUBCATEGORIES } from '@/lib/taxonomy/ontology'
 
 /** A trail needs the same minimum slate as the homepage's curated rail. */
 export const MIN_TRAIL_PRODUCTS = 6
@@ -30,7 +30,7 @@ export type TrailIndexabilityProduct = {
   sectionKey?: string | null
 }
 
-const VALID_L2 = new Set(PRODUCT_SUBCATEGORIES.map((subcategory) => subcategory.slug))
+const VALID_L2 = new Set(L2_SUBCATEGORIES.map((subcategory) => subcategory.slug))
 
 function present(value: string | null | undefined): boolean {
   return typeof value === 'string' && value.trim().length > 0

@@ -80,16 +80,16 @@ describe("resolveRefreshEnrichmentPatch", () => {
         {
           description: "new description",
           city: "台北",
-          product_type: "fashion",
+          category: "fashion",
           name: "renamed by AI",
         },
         {
           description: { source: "owner" },
-          product_type: { source: "enriched" },
+          category: { source: "enriched" },
         },
       ),
     ).toEqual({
-      allowed: { city: "台北", product_type: "fashion" },
+      allowed: { city: "台北", category: "fashion" },
       skipped: [
         { field: "description", reason: "protected:owner" },
         { field: "name", reason: "excluded:identity" },

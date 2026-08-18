@@ -10,8 +10,8 @@ function brand(overrides: Partial<BrandSeoEntry> = {}): BrandSeoEntry {
   return {
     slug: 'sample-brand',
     updatedAt: '2026-01-01T00:00:00.000Z',
-    productType: 'home',
-    productTags: ['家具'],
+    categorySlug: 'home',
+    subcategories: ['家具'],
     description: null,
     descriptionEn: null,
     blurbEn: null,

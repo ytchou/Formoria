@@ -52,7 +52,7 @@ exports[`renderRunLogHtml > renders the fixture to stable HTML 1`] = `
       <table><thead><tr><th>Time</th><th>Actor</th><th>Event</th><th>Usage / latency</th></tr></thead><tbody><tr class="event event-ok">
     <td class="time">02:00:03</td>
     <td><span class="actor actor-llm">LLM</span></td>
-    <td><div class="event-summary"><span class="target">acme-taiwan</span><span>Classified brand and product type</span><span class="model">gpt-5.6-luna</span></div></td>
+    <td><div class="event-summary"><span class="target">acme-taiwan</span><span>Classified brand category and subcategories</span><span class="model">gpt-5.6-luna</span></div></td>
     <td class="metrics">2.1k→410 tok · 2.43s</td>
   </tr>
 <tr class="event event-error">

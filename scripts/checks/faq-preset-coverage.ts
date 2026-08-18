@@ -32,7 +32,7 @@ type CoverageRow = {
   mit_status: string | null;
   /** smallint in Postgres — an ordinal bucket (1/2/3), never a string. */
   price_range: number | null;
-  product_type: string | null;
+  category: string | null;
   reputation_summary: unknown;
 };
 
@@ -72,7 +72,7 @@ async function main(): Promise<void> {
   const { data, error, count } = await excludeTestBrands(
     supabase
       .from("brands")
-      .select("mit_status, price_range, product_type, reputation_summary", {
+      .select("mit_status, price_range, category, reputation_summary", {
         count: "exact",
       })
       .eq("status", "approved"),
@@ -106,7 +106,7 @@ async function main(): Promise<void> {
   const pricePopulated = rows.filter((row) =>
     hasOrdinal(row.price_range),
   ).length;
-  const typePopulated = rows.filter((row) => hasText(row.product_type)).length;
+  const typePopulated = rows.filter((row) => hasText(row.category)).length;
   const reputationPopulated = rows.filter((row) =>
     hasReputationSummary(row.reputation_summary),
   ).length;
@@ -115,7 +115,7 @@ async function main(): Promise<void> {
   console.log("  " + "-".repeat(48));
   console.log(line("mit_status", mitPopulated, total));
   console.log(line("price_range", pricePopulated, total));
-  console.log(line("product_type", typePopulated, total));
+  console.log(line("category", typePopulated, total));
   console.log(line("reputation_summary", reputationPopulated, total));
 
   console.log("\n  mit_status detail (null is coerced to 'unverified' by the app)");

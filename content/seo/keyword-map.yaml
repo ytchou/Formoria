@@ -13,7 +13,7 @@
 # use: status = 'approved' minus the e2e test-brand name pattern
 # (src/lib/services/public-brand-filter.ts). is_demo is deliberately NOT
 # excluded — no public listing or count filters on it. Total: 718 brands.
-# l2-category counts are scoped to the brand's own product_type, matching
+# l2-category counts are scoped to the brand's own category, matching
 # getSubcategoryCounts and `/brands?category=…`: a fashion brand tagged 手鍊
 # does not count toward the jewelry subcategory it would never render on.
 # data/formoria-seed.csv (139 rows) is STALE and was NOT used for any count.
@@ -98,8 +98,8 @@
 # ANCHORING RULE
 # ---------------------------------------------------------------------------
 # l1-category and l2-category rows key off `ontology_slug` (kebab-case ASCII,
-# resolvable via subcategoryBySlug / PRODUCT_TYPE_CATEGORIES) — NEVER off a raw
-# product_tags string. 445 distinct tags are in use against 156 ontology
+# resolvable via subcategoryBySlug / L1_CATEGORIES) — NEVER off a raw
+# subcategories string. 445 distinct subcategories are in use against 156 ontology
 # entries, so a tag-keyed URL space would be uncontrolled. Raw tags may appear
 # only as secondary_keywords.
 #
@@ -2052,8 +2052,8 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: 'Gift-format exception: 食品禮盒 (74 brands) is the single highest-count tag in the ontology, but
-    it is a gift FORMAT, not a product type. It is deliberately NOT an l2-category row — a gift-format
-    axis inside a product-type URL space would misrepresent what the page contains. Editorial story content
+    it is a gift FORMAT, not a category. It is deliberately NOT an l2-category row — a gift-format
+    axis inside a category URL space would misrepresent what the page contains. Editorial story content
     owns the term instead.'
 - id: story-custom-gifts
   primary_keyword: 客製化禮品
@@ -2076,7 +2076,7 @@ clusters:
     and Article JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'Gift-format exception: 客製化禮品 (43 brands) is a gift FORMAT (and a service), not a product type.
+  notes: 'Gift-format exception: 客製化禮品 (43 brands) is a gift FORMAT (and a service), not a category.
     Deliberately NOT an l2-category row for the same reason as 食品禮盒.'
 - id: story-annual-roundup
   primary_keyword: 2026 台灣品牌推薦

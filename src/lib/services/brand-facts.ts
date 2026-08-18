@@ -7,9 +7,9 @@ import {
   type LlmAuditContext,
 } from "./llm-audit";
 import { localizeToTW } from "./taiwan-localization";
-import { parseExtractionResult } from "./product-type-classifier";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
-import { normalizeProductTags } from "@/lib/services/product-tags";
+import { parseExtractionResult } from "./category-classifier";
+import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { normalizeSubcategories } from "@/lib/services/subcategories";
 import { noLlmCalls, type LlmCallCounts } from "./_shared/llm-call-outcome";
 
 function localizeZhText(text: string): string {
@@ -24,9 +24,9 @@ export type BrandFactsResult = {
    * alt text. Undefined for an absent or unrecognised value — a made-up slug is
    * a model error, not a reason to discard the rest of the extraction.
    */
-  productType?: string;
-  productTags: string[];
-  productTagsEn: string[];
+  categorySlug?: string;
+  subcategories: string[];
+  subcategoriesEn: string[];
   city: string | null;
   foundingYear: number | null;
   mitIndicators: {
@@ -40,23 +40,23 @@ export type BrandFactsResult = {
    * `list`.
    */
   listing?: ListingVerdict;
-  rejected?: { tag: string; reason: string }[];
+  rejected?: { subcategory: string; reason: string }[];
   crossBranch?: string[];
   rawResponse?: unknown;
 };
 
-const VALID_PRODUCT_TYPES = new Set<string>(
-  PRODUCT_TYPE_CATEGORIES.map((category) => category.slug),
+const VALID_CATEGORY_SLUGS = new Set<string>(
+  L1_CATEGORIES.map((category) => category.slug),
 );
 
 /**
  * Validates against the real L1 slug list. Anything else — absent, null, a made
  * up slug, a Chinese category name — is undefined, never a rejection.
  */
-function parseDescriptionProductType(raw: unknown): string | undefined {
+function parseDescriptionCategory(raw: unknown): string | undefined {
   if (typeof raw !== "string") return undefined;
   const trimmed = raw.trim();
-  return VALID_PRODUCT_TYPES.has(trimmed) ? trimmed : undefined;
+  return VALID_CATEGORY_SLUGS.has(trimmed) ? trimmed : undefined;
 }
 
 const LISTING_VERDICTS = ["list", "reject"] as const;
@@ -110,8 +110,8 @@ function parseListingVerdict(raw: unknown): ListingVerdict | undefined {
 
 const EMPTY_FACTS: BrandFactsResult = {
   priceRange: null,
-  productTags: [],
-  productTagsEn: [],
+  subcategories: [],
+  subcategoriesEn: [],
   city: null,
   foundingYear: null,
   mitIndicators: null,
@@ -126,18 +126,18 @@ export function parseBrandFactsResult(content: string): BrandFactsResult {
   // city slug map and the price tier check a second time.
   const extraction = parseExtractionResult(content);
 
-  const rawProductTagsEn = parsed.product_tags_en;
-  const productTagsEnRaw = Array.isArray(rawProductTagsEn)
-    ? rawProductTagsEn
+  const rawSubcategoriesEn = parsed.subcategories_en;
+  const subcategoriesEnRaw = Array.isArray(rawSubcategoriesEn)
+    ? rawSubcategoriesEn
         .filter(
           (t): t is string => typeof t === "string" && t.trim().length > 0,
         )
         .map((t) => t.trim())
     : [];
 
-  const normalizedTags = normalizeProductTags(
-    extraction.productTags,
-    productTagsEnRaw,
+  const normalizedSubcategories = normalizeSubcategories(
+    extraction.subcategories,
+    subcategoriesEnRaw,
   );
 
   const rawMit = parsed.mit_indicators;
@@ -158,23 +158,27 @@ export function parseBrandFactsResult(content: string): BrandFactsResult {
       : null;
 
   const listing = parseListingVerdict(parsed.listing);
-  const productType = parseDescriptionProductType(parsed.product_type);
+  const categorySlug = parseDescriptionCategory(parsed.category);
 
-  const acceptedTags =
-    normalizedTags.tags.length >= 1 ? normalizedTags.tags : [];
-  const acceptedTagsEn =
-    normalizedTags.tags.length >= 1 ? normalizedTags.tagsEn : [];
+  const acceptedSubcategories =
+    normalizedSubcategories.subcategories.length >= 1
+      ? normalizedSubcategories.subcategories
+      : [];
+  const acceptedSubcategoriesEn =
+    normalizedSubcategories.subcategories.length >= 1
+      ? normalizedSubcategories.subcategoriesEn
+      : [];
 
   return {
     priceRange: extraction.priceRange,
-    ...(productType ? { productType } : {}),
-    productTags: acceptedTags,
-    productTagsEn: acceptedTagsEn,
+    ...(categorySlug ? { categorySlug } : {}),
+    subcategories: acceptedSubcategories,
+    subcategoriesEn: acceptedSubcategoriesEn,
     city: extraction.city,
     foundingYear: extraction.foundingYear,
     mitIndicators,
-    rejected: normalizedTags.rejected,
-    crossBranch: normalizedTags.crossBranch,
+    rejected: normalizedSubcategories.rejected,
+    crossBranch: normalizedSubcategories.crossBranch,
     ...(listing ? { listing } : {}),
   };
 }

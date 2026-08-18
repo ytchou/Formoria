@@ -33,7 +33,7 @@ type OwnerRow = {
   description?: string
   hero_image_url?: string
   product_photos: string[]
-  product_tags: string[]
+  subcategories: string[]
   price_range?: number
   city?: string
   social_instagram?: string
@@ -320,7 +320,7 @@ function queryEligibleOwners(
   const query = supabase.from<Record<string, unknown>>('brand_owners').select(`
       user_id,
       claimed_at,
-      brands!inner(name, slug, description, hero_image_url, founding_year, product_tags, price_range, ${PURCHASE_COLUMNS.join(', ')}, city, social_instagram, social_threads, social_facebook, other_urls, reputation_summary, site_content, brand_images(url, status, sort_order)),
+      brands!inner(name, slug, description, hero_image_url, founding_year, subcategories, price_range, ${PURCHASE_COLUMNS.join(', ')}, city, social_instagram, social_threads, social_facebook, other_urls, reputation_summary, site_content, brand_images(url, status, sort_order)),
       owner_email_preferences!inner(unsubscribe_token),
       email:users!brand_owners_user_id_fkey(email)
     `)
@@ -378,8 +378,8 @@ function normalizeOwnerRow(row: Record<string, unknown>): OwnerRow {
       .slice(1)
       .map((image) => stringValue(objectValue(image)?.url))
       .filter(Boolean),
-    product_tags: Array.isArray(brand?.product_tags)
-      ? brand.product_tags.filter(
+    subcategories: Array.isArray(brand?.subcategories)
+      ? brand.subcategories.filter(
           (tag): tag is string => typeof tag === 'string',
         )
       : [],
@@ -411,7 +411,7 @@ function profileCompleteness(owner: OwnerRow): {
 } {
   const completeness = computeProfileCompleteness({
     description: owner.description ?? null,
-    productTags: owner.product_tags,
+    subcategories: owner.subcategories,
     priceRange: owner.price_range ?? null,
     heroImageUrl: owner.hero_image_url ?? null,
     productPhotos: owner.product_photos,

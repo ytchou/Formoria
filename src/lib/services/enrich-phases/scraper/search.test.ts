@@ -4,7 +4,7 @@ import { passesImageDimensions } from './serper'
 
 describe('buildImageQueryVariants', () => {
   it('builds a single query from the quoted brand name and 商品', () => {
-    const variants = buildImageQueryVariants({ brandName: '好日子', productType: 'home' })
+    const variants = buildImageQueryVariants({ brandName: '好日子', categorySlug: 'home' })
     expect(variants).toEqual(['"好日子" 商品'])
   })
 
@@ -13,17 +13,17 @@ describe('buildImageQueryVariants', () => {
   // query carrying it would be reading the previous run's answer, and a wrong
   // value actively poisons the search.
   it('never carries the product category, whatever is passed', () => {
-    for (const productType of ['home', 'bags-accessories', 'lifestyle', null, undefined]) {
-      const query = buildImageQueryVariants({ brandName: '好日子', productType })[0] ?? ''
+    for (const categorySlug of ['home', 'bags-accessories', 'lifestyle', null, undefined]) {
+      const query = buildImageQueryVariants({ brandName: '好日子', categorySlug })[0] ?? ''
       expect(query).toBe('"好日子" 商品')
     }
     expect(
-      buildImageQueryVariants({ brandName: '瀏海樹 BANGSTREE', productType: 'bags-accessories' })[0]
+      buildImageQueryVariants({ brandName: '瀏海樹 BANGSTREE', categorySlug: 'bags-accessories' })[0]
     ).toBe('"瀏海樹 BANGSTREE" 商品')
   })
 
   it('carries no negative terms, 台灣, or 品牌', () => {
-    const query = buildImageQueryVariants({ brandName: '好日子', productType: 'home' })[0] ?? ''
+    const query = buildImageQueryVariants({ brandName: '好日子', categorySlug: 'home' })[0] ?? ''
     for (const term of ['-優惠', '-折扣', '-特價', '-coupon', '台灣', '品牌']) {
       expect(query).not.toContain(term)
     }
@@ -42,7 +42,7 @@ describe('buildImageQueryVariants', () => {
     expect(
       buildImageQueryVariants({
         brandName: '好日子',
-        productType: 'home',
+        categorySlug: 'home',
         purchaseWebsite: 'https://www.gooddays.tw/collections/all',
       })
     ).toEqual(['site:gooddays.tw 好日子'])
@@ -50,7 +50,7 @@ describe('buildImageQueryVariants', () => {
 
   it('keeps 商品 for a brand with no website, where it is the only commerce signal', () => {
     expect(
-      buildImageQueryVariants({ brandName: '好日子', productType: 'home', purchaseWebsite: null })
+      buildImageQueryVariants({ brandName: '好日子', categorySlug: 'home', purchaseWebsite: null })
     ).toEqual(['"好日子" 商品'])
   })
 
@@ -58,10 +58,10 @@ describe('buildImageQueryVariants', () => {
     // A wrong site: filter returns nothing at all, so a malformed value must
     // never be guessed at.
     expect(
-      buildImageQueryVariants({ brandName: '好日子', productType: 'home', purchaseWebsite: 'gooddays.tw' })
+      buildImageQueryVariants({ brandName: '好日子', categorySlug: 'home', purchaseWebsite: 'gooddays.tw' })
     ).toEqual(['"好日子" 商品'])
     expect(
-      buildImageQueryVariants({ brandName: '好日子', productType: 'home', purchaseWebsite: '   ' })
+      buildImageQueryVariants({ brandName: '好日子', categorySlug: 'home', purchaseWebsite: '   ' })
     ).toEqual(['"好日子" 商品'])
   })
 
@@ -76,7 +76,7 @@ describe('buildImageQueryVariants', () => {
   ])('ignores the platform URL %s and falls back to the name query', (purchaseWebsite) => {
     const variants = buildImageQueryVariants({
       brandName: '好日子',
-      productType: 'home',
+      categorySlug: 'home',
       purchaseWebsite,
     })
     expect(variants).toEqual(['"好日子" 商品'])
