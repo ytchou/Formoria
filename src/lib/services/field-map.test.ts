@@ -69,8 +69,8 @@ describe('field-map', () => {
       contact_email: 'hello@senzi.tw',
       price_range: 2,
       subcategories: ['handmade', 'home'],
-      // Neither tag is in the ontology, so deriveSubcategoriesEn falls through to
-      // the novel-tag path, which now Title Cases to match ontology nameEn casing.
+      // Neither subcategory is in the ontology, so deriveSubcategoriesEn falls through to
+      // the novel-subcategory path, which now Title Cases to match ontology nameEn casing.
       subcategories_en: ['Handmade', 'Home'],
       is_demo: true,
     })
