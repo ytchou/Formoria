@@ -305,7 +305,12 @@ export default withSentryConfig(withNextIntl(nextConfig), {
 
   org: "formoria",
 
-  project: "formoria",
+  // Staging and production report to SEPARATE Sentry projects, so source-map
+  // upload must follow the DSN. `SENTRY_PROJECT` is set on the Railway staging
+  // service; production leaves it unset and keeps the default. Hardcoding
+  // "formoria" would silently file staging releases and source maps against
+  // production the moment a staging `SENTRY_AUTH_TOKEN` is added (DEV-1494).
+  project: process.env.SENTRY_PROJECT ?? "formoria",
 
   // Only print logs for uploading source maps in CI
   silent: !process.env.CI,
