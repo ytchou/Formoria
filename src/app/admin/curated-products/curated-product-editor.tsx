@@ -39,7 +39,13 @@ export type BrandOption = { id: string; slug: string; name: string };
 export type TrailOption = {
   slug: string;
   title: string;
-  sections: { key: string; title: string }[];
+  /**
+   * The trail's MDX sections, followed by any `section_key` that still holds
+   * active selections without being declared in the MDX. `orphaned` marks the
+   * second group: those can only be RETIRED, because
+   * `upsertCuratedProductSelection` validates the key against the frontmatter.
+   */
+  sections: { key: string; title: string; orphaned?: boolean }[];
   blockers: string[];
   placementReadError: boolean;
 };
@@ -256,6 +262,41 @@ export function CuratedProductEditor({
 
   const selectedTrail =
     trailOptions.find((trail) => trail.slug === placementTrailSlug) ?? null;
+  const selectedSection =
+    selectedTrail?.sections.find(
+      (section) => section.key === placementSectionKey,
+    ) ?? null;
+  const sectionIsOrphaned = selectedSection?.orphaned === true;
+
+  const existingPlacement =
+    product?.selections.find(
+      (selection) =>
+        selection.trailSlug === placementTrailSlug &&
+        selection.sectionKey === placementSectionKey,
+    ) ?? null;
+
+  /**
+   * Read the STORED placement back into the form whenever the trail/section
+   * pair changes, or whenever the stored row itself changes.
+   *
+   * The fingerprint includes the stored values, not just the key: a local
+   * `useState` copy seeded once would go blind to the `router.refresh()` that
+   * follows a save, so the panel would keep showing the pre-save numbers. The
+   * "adjust state during render" pattern is used instead of an effect because
+   * it repaints in the same commit, with no blank frame.
+   */
+  const placementSync = [
+    placementTrailSlug,
+    placementSectionKey,
+    existingPlacement?.position ?? "",
+  ].join(" ");
+  // `null`, not `placementSync`: the first render must sync too, otherwise a
+  // product that is already placed opens with the blank defaults.
+  const [syncedPlacement, setSyncedPlacement] = useState<string | null>(null);
+  if (syncedPlacement !== placementSync) {
+    setSyncedPlacement(placementSync);
+    setPlacementPosition(existingPlacement?.position ?? 0);
+  }
 
   function changePlacementTrail(value: string) {
     setPlacementTrailSlug(value);
@@ -285,6 +326,8 @@ export function CuratedProductEditor({
       if (result?.error) {
         setPlacementError(result.fieldErrors?.sectionKey ?? result.error);
       } else {
+        // The fields are NOT cleared: they now read back the stored placement,
+        // and the refresh below re-syncs them from the server row.
         onSaved();
       }
     });
@@ -992,10 +1035,17 @@ export function CuratedProductEditor({
               >
                 {(selectedTrail?.sections ?? []).map((section) => (
                   <option key={section.key} value={section.key}>
-                    {section.title}
+                    {section.orphaned
+                      ? `${section.title} — ${t("placement.orphanSuffix")}`
+                      : section.title}
                   </option>
                 ))}
               </NativeSelect>
+              {sectionIsOrphaned ? (
+                <p role="status" className="type-form-hint">
+                  {t("placement.orphanHint")}
+                </p>
+              ) : null}
             </div>
           </div>
           {selectedTrail?.placementReadError ? (
@@ -1038,7 +1088,7 @@ export function CuratedProductEditor({
               type="button"
               variant="secondary"
               className="min-h-12"
-              disabled={isPending}
+              disabled={isPending || sectionIsOrphaned}
               onClick={placeProduct}
             >
               {t("placement.save")}

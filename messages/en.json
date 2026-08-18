@@ -2945,6 +2945,8 @@
           "title": "Discovery trail placement",
           "trail": "Trail",
           "section": "Section",
+          "orphanSuffix": "no longer in the trail MDX",
+          "orphanHint": "This section was renamed or removed from the trail MDX. Its selections still count toward the indexability blockers above, so retire them here. New placements into it are rejected by the server.",
           "position": "Position",
           "blockersTitle": "Trail indexability blockers",
           "readError": "Placement data is temporarily unavailable; indexability blockers are not shown.",

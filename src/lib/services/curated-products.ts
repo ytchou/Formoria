@@ -1269,10 +1269,24 @@ type AdminCuratedProductSource = {
 };
 
 /**
+ * One ACTIVE trail placement as the admin drawer reads it back.
+ *
+ * The drawer is the only writer of `curated_product_selections`, so a
+ * placement that cannot be read back cannot be corrected: before DEV-1487 the
+ * form opened blank every time and success was observable only indirectly.
+ * Retired rows stay out — they are history, not editable state.
+ */
+type AdminCuratedProductSelection = {
+  trailSlug: string;
+  sectionKey: string;
+  position: number;
+};
+
+/**
  * A curated product as the review queue renders it: every lifecycle, the brand
- * it belongs to, and ITS SOURCES — the drawer feeds those straight into
+ * it belongs to, ITS SOURCES — the drawer feeds those straight into
  * `curatedProductPromoteBlockers`, so a readout and the writer's gate are
- * computed from the same two inputs.
+ * computed from the same two inputs — and its active trail placements.
  */
 export type AdminCuratedProduct = {
   id: string;
@@ -1299,6 +1313,7 @@ export type AdminCuratedProduct = {
   wallPosition: number | null;
   updatedAt: string;
   sources: AdminCuratedProductSource[];
+  selections: AdminCuratedProductSelection[];
 };
 
 /**
@@ -1309,10 +1324,7 @@ export type AdminCuratedProduct = {
  */
 const ADMIN_CURATED_PRODUCT_LIMIT = 1_000;
 
-type AdminCuratedProductRow = Omit<
-  CuratedProductReadRow,
-  "curated_product_selections" | "link_checked_at"
-> & {
+type AdminCuratedProductRow = Omit<CuratedProductReadRow, "link_checked_at"> & {
   proposed_by: string | null;
   updated_at: string;
   brands: { slug: string; name: string } | null;
@@ -1351,7 +1363,8 @@ export async function listCuratedProductsForAdmin(
        source_checked_at, review_due_at, product_description_zh,
        product_description_en, product_position, wall_position, updated_at,
        brands(slug, name),
-       curated_product_sources(id, url, source_type, claim_zh, state, checked_at)`,
+       curated_product_sources(id, url, source_type, claim_zh, state, checked_at),
+       curated_product_selections(trail_slug, section_key, position, state)`,
     )
     .order("updated_at", { ascending: false })
     .limit(ADMIN_CURATED_PRODUCT_LIMIT);
@@ -1393,6 +1406,13 @@ export async function listCuratedProductsForAdmin(
       state: source.state,
       checkedAt: source.checked_at ?? null,
     })),
+    selections: (row.curated_product_selections ?? [])
+      .filter((selection) => selection.state === "active")
+      .map((selection) => ({
+        trailSlug: selection.trail_slug,
+        sectionKey: selection.section_key,
+        position: selection.position ?? 0,
+      })),
   }));
 }
 

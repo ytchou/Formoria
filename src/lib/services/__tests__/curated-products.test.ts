@@ -7,6 +7,7 @@ import {
   getPublishedCuratedProductsForHomepage,
   getPublishedCuratedProductsForBrand,
   getPublishedCuratedProductsForTrail,
+  listCuratedProductsForAdmin,
   retireCuratedProductSelection,
   promoteCuratedProduct,
   retireCuratedProduct,
@@ -71,6 +72,9 @@ function stubClient(result: QueryResult): {
     },
     limit(value: number) {
       calls.limit.push(value);
+      return chain;
+    },
+    order() {
       return chain;
     },
     then<TResult>(
@@ -1342,5 +1346,50 @@ describe("getCuratedProductWriteContext", () => {
     await expect(
       getCuratedProductWriteContext(PRODUCT_ID, client),
     ).resolves.toBeNull();
+  });
+});
+
+describe("listCuratedProductsForAdmin", () => {
+  /**
+   * The drawer's placement panel reads its prefill from `selections`, and its
+   * Section dropdown unions these keys with the trail's MDX so an orphaned
+   * placement stays retirable (DEV-1487). Retired rows are history: prefilling
+   * from one would re-place a selection an editor deliberately withdrew.
+   */
+  it("returns only the active selections, mapped to camelCase", async () => {
+    const { client } = stubClient({
+      data: [
+        productRow({
+          brands: { slug: "studio-kiln", name: "Studio Kiln" },
+          proposed_by: "admin",
+          updated_at: "2026-08-16T00:00:00Z",
+          curated_product_sources: [],
+          curated_product_selections: [
+            {
+              trail_slug: "small-space-reading-corner",
+              section_key: "desk-companions",
+              position: 2,
+              state: "active",
+            },
+            {
+              trail_slug: "small-space-reading-corner",
+              section_key: "withdrawn",
+              position: 0,
+              state: "retired",
+            },
+          ],
+        }),
+      ],
+    });
+
+    const [product] = await listCuratedProductsForAdmin(client);
+
+    expect(product?.selections).toEqual([
+      {
+        trailSlug: "small-space-reading-corner",
+        sectionKey: "desk-companions",
+        position: 2,
+      },
+    ]);
   });
 });
