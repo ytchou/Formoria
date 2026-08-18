@@ -24,11 +24,16 @@ const PRODUCT_ID = /'53000000-0000-4000-8000-\d{12}'::uuid/g;
 const CATEGORY = /'[a-z0-9-]+', '[^']+', '([a-z-]+)',/g;
 /** `'description。', product_position, wall_position` — the last row line. */
 const DESCRIPTION = /\n {6}'([^']*。)', (?:\d+|null), (\d+|null)\n/g;
+/** `'…webp', image_width, image_height,` — the stored object's measured size. */
+const MEASURED = /\.webp', (\d+), (\d+),/g;
 
 const productIds = new Set(fixture.match(PRODUCT_ID) ?? []);
 const rows = [...raw.matchAll(DESCRIPTION)];
 const descriptions = rows.map(([, value]) => value);
 const wallPositions = rows.map(([, , wallPosition]) => wallPosition);
+const measured = [...raw.matchAll(MEASURED)].map(
+  ([, width, height]) => [Number(width), Number(height)] as const,
+);
 
 describe("staging curated-product fixture contract", () => {
   it("seeds enough products to clear the homepage supply floor", () => {
@@ -126,12 +131,20 @@ describe("staging curated-product fixture contract", () => {
     }
   });
 
-  it("leaves image dimensions unmeasured, so every tile falls back to 4:3", () => {
-    // `image_width` / `image_height` are nullable by design: NULL is the
-    // backfill cursor. The fixture writes neither, so the staging wall renders
-    // entirely at DEFAULT_WALL_RATIO until the backfill runs — which is the
-    // state the ratio fallback exists to survive, not a gap in the fixture.
-    expect(fixture).not.toContain("image_width");
-    expect(fixture).not.toContain("image_height");
+  it("measures every image, so the wall renders more than one bucket", () => {
+    // NULL is the backfill cursor, so a fixture that omitted these would seed
+    // twelve rows the cursor is meant to catch and render all of them at
+    // DEFAULT_WALL_RATIO. The wall's rhythm IS the spread across four buckets
+    // (DEV-1479), so a single-bucket staging wall hides the layout it exists to
+    // show. Literals measured from the stored objects with sharp.
+    expect(measured).toHaveLength(productIds.size);
+    for (const [width, height] of measured) {
+      expect(width).toBeGreaterThan(0);
+      expect(height).toBeGreaterThan(0);
+    }
+    const ratios = new Set(
+      measured.map(([width, height]) => (width === height ? "square" : "wide")),
+    );
+    expect(ratios.size).toBeGreaterThan(1);
   });
 });

@@ -110,7 +110,12 @@ function parseCsvLine(line: string): string[] {
   return fields
 }
 
-function parseMitCsv(csvContent: string): MitRegistryRecord[] {
+/**
+ * One industry file to records. Exported for the archive test: all 26 data
+ * files share this layout (their `schema-NN.csv` column lists are identical),
+ * so this one parser is what every certificate in the registry passes through.
+ */
+export function parseMitCsv(csvContent: string): MitRegistryRecord[] {
   if (!csvContent.trim()) return []
 
   const lines = csvContent.split('\n').filter((line) => line.trim())
@@ -201,8 +206,33 @@ export async function lookupCertNumbers(
 }
 
 const MIT_ZIP_URL = 'https://keid.nat.gov.tw/mittw/Files/Download/productlist.zip'
-const CSV_FILENAME = '011.csv'
-const BATCH_SIZE = 500
+
+/**
+ * The archive's own index of its data files (DEV-1475).
+ *
+ * READ THE MANIFEST, NEVER A FILENAME. This sync used to open exactly one entry
+ * — `011.csv`, the 成衣 (apparel) family — so `lookupCertNumber` could resolve
+ * `011…` certificates and nothing else. 25 other industries, ~215,000 rows and
+ * every non-apparel certificate were unreachable, including real ones a brand
+ * had already been verified against by hand.
+ *
+ * `manifest.csv` maps each data file to its schema and its industry, so it is
+ * the only entry that says which of the archive's 53 entries carry data: the
+ * other 27 are `schema-NN.csv` column descriptions and the manifest itself. It
+ * also means a new industry file is picked up the week it appears, with no
+ * code change — which is the failure this whole ticket is.
+ */
+const MANIFEST_FILENAME = 'manifest.csv'
+
+/**
+ * Rows per upsert. Raised from 500 with the archive widening: the payload went
+ * from ~29,000 rows to ~245,000, and at 500 that is ~490 sequential round trips
+ * inside the route's 300s budget (`maxDuration`, matched by the pg_net timeout
+ * in `20260808120000_mit_registry_sync_timeout.sql`). Halving the round trips
+ * buys the margin back. Raising it further trades a fixed win for a growing
+ * statement size, so measure before moving it again.
+ */
+const BATCH_SIZE = 1000
 
 /**
  * Fraction of the existing registry a sync must re-supply before its
@@ -218,12 +248,92 @@ export const MIN_SWEEP_COVERAGE_RATIO = 0.8
 
 /**
  * Decide whether this sync's payload is complete enough to delete the rows it
- * did not re-supply. An empty table has nothing to protect, so the first
- * populating sync always sweeps.
+ * did not re-supply.
+ *
+ * THE RATIO ALONE CANNOT SEE A TRUNCATION IT INHERITED. It compares the payload
+ * against the existing table, so while the sync read one of 26 files the table
+ * held one file's worth of rows and every run looked like ~100% coverage. The
+ * guard was measuring the truncation against itself (DEV-1475).
+ *
+ * So completeness is asserted against the ARCHIVE first: every file the
+ * manifest lists must have yielded records. That is the condition the ratio can
+ * never supply, because it is the only one that does not depend on what the
+ * table already contains. The ratio still runs afterwards, where it is sound —
+ * catching a week-over-week collapse once the baseline is the whole dataset.
  */
-export function shouldSweepStaleRecords(parsedCount: number, existingCount: number): boolean {
+export function shouldSweepStaleRecords(input: {
+  parsedCount: number
+  existingCount: number
+  /** Data files `manifest.csv` listed. */
+  expectedFileCount: number
+  /** Of those, how many yielded at least one record. */
+  parsedFileCount: number
+}): boolean {
+  const { parsedCount, existingCount, expectedFileCount, parsedFileCount } = input
+  // An archive that indexed nothing is a changed upstream layout, not an empty
+  // dataset — the one input where deleting everything is most tempting.
+  if (expectedFileCount === 0) return false
+  if (parsedFileCount < expectedFileCount) return false
+  // A payload carrying no rows can never authorize a delete, table empty or not.
+  if (parsedCount === 0) return false
   if (existingCount === 0) return true
   return parsedCount >= existingCount * MIN_SWEEP_COVERAGE_RATIO
+}
+
+/**
+ * The data files `manifest.csv` indexes, in its own order.
+ *
+ * Its first column is the filename; the rest describe the schema and industry
+ * and are not needed here. The BOM the government writes on every file in this
+ * archive is stripped first — without it the first header parses as
+ * `﻿name` and the column lookup misses, which is invisible for the data
+ * files (their first column is unused) and fatal for this one.
+ */
+export function parseManifestFilenames(manifestCsv: string): string[] {
+  const lines = manifestCsv.replace(/^﻿/, '').split('\n').filter((line) => line.trim())
+  if (lines.length < 2) return []
+
+  const headers = parseCsvLine(lines[0]).map((header) => header.trim())
+  const nameIndex = headers.indexOf('name')
+  if (nameIndex === -1) return []
+
+  const names: string[] = []
+  for (let i = 1; i < lines.length; i++) {
+    const name = parseCsvLine(lines[i])[nameIndex]?.trim()
+    // Self-reference or a schema description would parse to zero records and
+    // then be counted as an unread file, blocking the sweep forever.
+    if (!name || name === MANIFEST_FILENAME || name.startsWith('schema-')) continue
+    names.push(name)
+  }
+  return names
+}
+
+/**
+ * Collapses the payload to one row per certificate, keeping the latest expiry.
+ *
+ * `cert_number` is the table's unique key, but the upstream files carry one ROW
+ * PER PRODUCT VARIANT: 826 certificates appear two or more times, differing
+ * only in product name and expiry. Left as-is those duplicates reach a single
+ * `ON CONFLICT DO UPDATE` statement twice, which Postgres rejects outright
+ * ("cannot affect row a second time") and which fails the whole batch — today
+ * they merely happen to land in different 500-row batches, which is luck, not
+ * design.
+ *
+ * LATEST EXPIRY WINS, not last-seen: a certificate is live until the last of
+ * its products expires, and file order is arbitrary. `valid_until` is `yyyymmdd`
+ * throughout this dataset, so a string comparison is a date comparison.
+ */
+export function dedupeRecordsByCert(
+  records: readonly MitRegistryRecord[],
+): MitRegistryRecord[] {
+  const byCert = new Map<string, MitRegistryRecord>()
+  for (const record of records) {
+    const existing = byCert.get(record.cert_number)
+    if (!existing || (record.valid_until ?? '') > (existing.valid_until ?? '')) {
+      byCert.set(record.cert_number, record)
+    }
+  }
+  return [...byCert.values()]
 }
 
 export async function syncMitRegistry(): Promise<{
@@ -234,7 +344,7 @@ export async function syncMitRegistry(): Promise<{
   const startMs = Date.now()
 
   const syncSummary: Record<string, unknown> = { recordCount: 0 }
-  const { records } = await auditedCall(
+  const { records, expectedFileCount, parsedFileCount } = await auditedCall(
     { provider: 'mit-registry', operation: 'sync_registry', kind: 'external' },
     async () => {
       const response = await fetch(MIT_ZIP_URL)
@@ -246,15 +356,45 @@ export async function syncMitRegistry(): Promise<{
       const buffer = Buffer.from(arrayBuffer)
 
       const zip = new AdmZip(buffer)
-      const entry = zip.getEntry(CSV_FILENAME)
-      if (!entry) {
-        throw new Error(`CSV file "${CSV_FILENAME}" not found in ZIP archive`)
+      const manifestEntry = zip.getEntry(MANIFEST_FILENAME)
+      if (!manifestEntry) {
+        throw new Error(`"${MANIFEST_FILENAME}" not found in ZIP archive`)
       }
 
-      const csvContent = entry.getData().toString('utf-8')
-      const records = parseMitCsv(csvContent)
+      const filenames = parseManifestFilenames(manifestEntry.getData().toString('utf-8'))
+      if (filenames.length === 0) {
+        throw new Error(`"${MANIFEST_FILENAME}" listed no data files`)
+      }
+
+      // Every file is read. A missing or empty one is REPORTED rather than
+      // thrown on: one industry the government publishes late must not cost the
+      // other 25 their weekly refresh. It does withhold the sweep, because a
+      // partial archive cannot authorize deleting the rows it failed to carry.
+      const parsed: MitRegistryRecord[] = []
+      const skipped: string[] = []
+      let parsedFileCount = 0
+      for (const filename of filenames) {
+        const entry = zip.getEntry(filename)
+        if (!entry) {
+          skipped.push(filename)
+          continue
+        }
+        const fileRecords = parseMitCsv(entry.getData().toString('utf-8'))
+        if (fileRecords.length === 0) {
+          skipped.push(filename)
+          continue
+        }
+        parsedFileCount += 1
+        parsed.push(...fileRecords)
+      }
+
+      const records = dedupeRecordsByCert(parsed)
       syncSummary.recordCount = records.length
-      return { records }
+      syncSummary.rowCount = parsed.length
+      syncSummary.expectedFileCount = filenames.length
+      syncSummary.parsedFileCount = parsedFileCount
+      syncSummary.skippedFiles = skipped
+      return { records, expectedFileCount: filenames.length, parsedFileCount }
     },
     {
       classify: (result) => result.records.length === 0 ? 'empty' : 'succeeded',
@@ -290,7 +430,12 @@ export async function syncMitRegistry(): Promise<{
   // or are no longer in the official dataset. Skipped when the payload is too
   // small to be a full republish: the upserts above are still kept (they are
   // additive and safe), only the destructive half is withheld.
-  const sweptStale = shouldSweepStaleRecords(records.length, existingCount ?? 0)
+  const sweptStale = shouldSweepStaleRecords({
+    parsedCount: records.length,
+    existingCount: existingCount ?? 0,
+    expectedFileCount,
+    parsedFileCount,
+  })
 
   if (sweptStale) {
     const { error: cleanupError } = await supabase
