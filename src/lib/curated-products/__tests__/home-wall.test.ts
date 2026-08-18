@@ -66,7 +66,7 @@ function trail(slug: string, heroImage?: string): TrailEntry {
   };
 }
 
-function productSlots(slots: ReturnType<typeof buildWallSlots>["slots"]) {
+function productSlots(slots: ReturnType<typeof buildWallSlots>) {
   return slots.filter(
     (slot): slot is Extract<(typeof slots)[number], { kind: "product" }> =>
       slot.kind === "product",
@@ -78,51 +78,51 @@ const OTHER_SEED = "2026-08-17";
 
 describe("buildWallSlots", () => {
   it("reserves one trail slot per eight products", () => {
-    const result = buildWallSlots({
+    const slots = buildWallSlots({
       products: Array.from({ length: 16 }, (_, index) => product(`p-${index}`)),
       trails: [trail("first", "/first.webp"), trail("second", "/second.webp")],
       seed: SEED,
     });
 
     expect(
-      result.slots.flatMap((slot, index) =>
+      slots.flatMap((slot, index) =>
         slot.kind === "trail" ? [index] : [],
       ),
     ).toEqual([8, 17]);
   });
 
   it("reserves no trail slot below eight products", () => {
-    const result = buildWallSlots({
+    const slots = buildWallSlots({
       products: Array.from({ length: 7 }, (_, index) => product(`p-${index}`)),
       trails: [trail("small", "/small.webp")],
       seed: SEED,
     });
 
-    expect(result.slots.some((slot) => slot.kind === "trail")).toBe(false);
+    expect(slots.some((slot) => slot.kind === "trail")).toBe(false);
   });
 
   it("caps the wall at MAX_HOME_WALL_PRODUCTS", () => {
-    const result = buildWallSlots({
+    const slots = buildWallSlots({
       products: Array.from({ length: 40 }, (_, index) => product(`p-${index}`)),
       trails: [],
       seed: SEED,
     });
 
-    expect(productSlots(result.slots)).toHaveLength(MAX_HOME_WALL_PRODUCTS);
+    expect(productSlots(slots)).toHaveLength(MAX_HOME_WALL_PRODUCTS);
   });
 
   it("excludes trails without a heroImage", () => {
-    const result = buildWallSlots({
+    const slots = buildWallSlots({
       products: Array.from({ length: 8 }, (_, index) => product(`p-${index}`)),
       trails: [trail("no-hero")],
       seed: SEED,
     });
 
-    expect(result.slots.some((slot) => slot.kind === "trail")).toBe(false);
+    expect(slots.some((slot) => slot.kind === "trail")).toBe(false);
   });
 
   it("snaps each product to the nearest of four ratio buckets", () => {
-    const result = buildWallSlots({
+    const slots = buildWallSlots({
       products: [
         product("square", { imageWidth: 1000, imageHeight: 1000 }),
         product("three-four", { imageWidth: 900, imageHeight: 1200 }),
@@ -137,7 +137,7 @@ describe("buildWallSlots", () => {
     });
 
     const ratios = new Map(
-      productSlots(result.slots).map((slot) => [slot.product.key, slot.ratio]),
+      productSlots(slots).map((slot) => [slot.product.key, slot.ratio]),
     );
     expect(ratios.get("square")).toBe("1:1");
     expect(ratios.get("three-four")).toBe("3:4");
@@ -147,7 +147,7 @@ describe("buildWallSlots", () => {
   });
 
   it("falls back to 4:3 when dimensions are null", () => {
-    const result = buildWallSlots({
+    const slots = buildWallSlots({
       products: [
         product("no-width", { imageWidth: null, imageHeight: 900 }),
         product("no-height", { imageWidth: 1200, imageHeight: null }),
@@ -156,20 +156,20 @@ describe("buildWallSlots", () => {
       seed: SEED,
     });
 
-    expect(productSlots(result.slots).map((slot) => slot.ratio)).toEqual([
+    expect(productSlots(slots).map((slot) => slot.ratio)).toEqual([
       "4:3",
       "4:3",
     ]);
   });
 
   it("assigns trails their own two formats", () => {
-    const result = buildWallSlots({
+    const slots = buildWallSlots({
       products: Array.from({ length: 24 }, (_, index) => product(`p-${index}`)),
       trails: [trail("first", "/first.webp"), trail("second", "/second.webp")],
       seed: SEED,
     });
 
-    const formats = result.slots.flatMap((slot) =>
+    const formats = slots.flatMap((slot) =>
       slot.kind === "trail" ? [slot.format] : [],
     );
     expect(formats).toHaveLength(2);
@@ -187,7 +187,7 @@ describe("buildWallSlots", () => {
     );
     const keys = () =>
       productSlots(
-        buildWallSlots({ products, trails: [], seed: SEED }).slots,
+        buildWallSlots({ products, trails: [], seed: SEED }),
       ).map((slot) => slot.product.key);
 
     expect(keys()).toEqual(keys());
@@ -199,20 +199,20 @@ describe("buildWallSlots", () => {
     );
     const keysFor = (seed: string) =>
       productSlots(
-        buildWallSlots({ products, trails: [], seed }).slots,
+        buildWallSlots({ products, trails: [], seed }),
       ).map((slot) => slot.product.key);
 
     expect(keysFor(SEED)).not.toEqual(keysFor(OTHER_SEED));
   });
 
   it("no longer emits anchor spans", async () => {
-    const result = buildWallSlots({
+    const slots = buildWallSlots({
       products: Array.from({ length: 20 }, (_, index) => product(`p-${index}`)),
       trails: [trail("first", "/first.webp")],
       seed: SEED,
     });
 
-    for (const slot of result.slots) {
+    for (const slot of slots) {
       const values = Object.values(slot as Record<string, unknown>);
       expect(values).not.toContain("2x2");
       expect(values).not.toContain("2x1");
@@ -242,7 +242,7 @@ describe("buildWallSlots", () => {
     ];
 
     const slots = productSlots(
-      buildWallSlots({ products, trails: [], seed: SEED }).slots,
+      buildWallSlots({ products, trails: [], seed: SEED }),
     );
 
     expect(slots).toHaveLength(16);
@@ -257,7 +257,7 @@ describe("buildWallSlots", () => {
     const shared = Array.from({ length: 5 }, (_, index) =>
       product(`shared-${index}`, { brandId: "brand-shared", l1: "beauty" }),
     );
-    const result = buildWallSlots({
+    const slots = buildWallSlots({
       products: [
         ...shared,
         ...Array.from({ length: 6 }, (_, index) =>
@@ -268,7 +268,7 @@ describe("buildWallSlots", () => {
       seed: SEED,
     });
 
-    const kept = productSlots(result.slots).filter(
+    const kept = productSlots(slots).filter(
       (slot) => slot.product.brandId === "brand-shared",
     );
     expect(kept).toHaveLength(MAX_HOME_CURATED_PRODUCTS_PER_BRAND);
@@ -285,7 +285,7 @@ describe("buildWallSlots", () => {
       product(`shared-${index}`, { brandId: "brand-shared" }),
     );
     const visiblePair = (seed: string) =>
-      productSlots(buildWallSlots({ products, trails: [], seed }).slots)
+      productSlots(buildWallSlots({ products, trails: [], seed }))
         .map((slot) => slot.product.key)
         .sort();
 

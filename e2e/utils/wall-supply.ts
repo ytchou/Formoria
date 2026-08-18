@@ -1,10 +1,21 @@
 import { test } from "@playwright/test";
-import { createClient } from "@supabase/supabase-js";
+import type { createClient } from "@supabase/supabase-js";
+
+import { getServiceClient } from "../helpers/seed";
+// A LEAF module: it declares two string constants and imports nothing, so this
+// does not drag the service layer into the Playwright module graph.
+import { TEST_BRAND_NAME_PATTERN } from "../../src/lib/services/public-brand-filter";
 
 /**
- * Mirrors MIN_HOME_CURATED_PRODUCTS in src/lib/services/curated-products.ts.
- * Duplicated rather than imported so an e2e util never drags the service layer
- * (and its generated Supabase types) into the Playwright module graph.
+ * Mirrors MIN_HOME_CURATED_PRODUCTS in src/lib/services/curated-products.ts
+ * (declared there at :66). Duplicated rather than imported so an e2e util never
+ * drags the service layer (and its generated Supabase types, and through them
+ * `sharp`) into the Playwright module graph. `wall-ratio.ts` is the leaf that
+ * would hold it, but the floor is a SERVICE-layer publication constant and the
+ * service is where its only other reader lives, so moving it there would split
+ * the gate across two files instead of one.
+ *
+ * If that constant changes, change this one in the same commit.
  */
 export const MIN_HOME_CURATED_PRODUCTS = 6;
 
@@ -16,41 +27,43 @@ export type WallSupplySupabase = ReturnType<typeof createClient<any, any, any>>;
  * answer is environment-level, exactly like `trailStatusProbe` in
  * discovery-trail.spec.ts, so every spec in the worker reuses it.
  *
+ * Keyed by the CLIENT that took the count, so an injected client gets its own
+ * answer instead of silently inheriting the default client's, and a FAILED
+ * count is never cached: one transient Supabase timeout would otherwise skip
+ * every later wall spec in the worker, which is how a real regression reports
+ * green.
+ *
  * `null` means "the count could not be taken" and is never evidence of a
  * regression.
  */
-let supplyProbe: Promise<number | null> | undefined;
+let supplyProbes = new WeakMap<object, Promise<number>>();
 
 /** Test seam: drop the cached per-worker count. */
 export function resetWallSupplyProbe(): void {
-  supplyProbe = undefined;
+  supplyProbes = new WeakMap();
 }
 
 /**
- * `curated_products` has RLS enabled with no policies and is revoked from
- * `anon`, so supply can only be counted with the service-role key. It is
- * present in all three e2e workflow envs; when it is not, the client
- * construction throws and the probe resolves to `null`.
- */
-function serviceClient(): WallSupplySupabase {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
-}
-
-/**
- * The publication gate of `getPublishedCuratedProductsForHomepage`, expressed
- * as a count. `visible = true` replaced the old lifecycle column, and image
- * usage is no longer a gate at all — keep this aligned with that query, since a
- * filter that drifts turns this guard into either a false red or a silent skip.
+ * The publication gate of `getPublishedCuratedProductsForHomepage`
+ * (src/lib/services/curated-products.ts:430), expressed as a count. `visible =
+ * true` replaced the old lifecycle column, and image usage is no longer a gate
+ * at all — keep this aligned with that query AND with the row loop under it,
+ * since a filter that drifts turns this guard into either a false red or a
+ * silent skip.
+ *
+ * The two brand filters are that row loop: the service drops seeded `[E2E-TEST]`
+ * brands and rows with no brand name, so a count that keeps them reports supply
+ * the homepage will never render. The service also embeds
+ * `curated_product_selections`, but that embed is NOT `!inner` — it narrows the
+ * embedded rows only and never drops a product, so it is deliberately absent
+ * here.
  */
 async function countEligibleProducts(
   client: WallSupplySupabase,
 ): Promise<number> {
   const { count, error } = await client
     .from("curated_products")
-    .select("id, curated_product_sources!inner(id), brands!inner(status)", {
+    .select("id, curated_product_sources!inner(id), brands!inner(name, status)", {
       count: "exact",
       head: true,
     })
@@ -59,18 +72,46 @@ async function countEligibleProducts(
     .not("source_checked_at", "is", null)
     .not("image_url", "is", null)
     .eq("curated_product_sources.state", "active")
-    .eq("brands.status", "approved");
+    .eq("brands.status", "approved")
+    .not("brands.name", "like", TEST_BRAND_NAME_PATTERN)
+    .not("brands.name", "is", null);
 
   if (error) throw error;
   return count ?? 0;
 }
 
+/**
+ * `curated_products` has RLS enabled with no policies and is revoked from
+ * `anon`, so supply can only be counted with the service-role key — the shared
+ * memoized client in `../helpers/seed`. The key is present in all three e2e
+ * workflow envs; when it is not, the count throws and the probe resolves to
+ * `null`.
+ */
 function homepageSupplyCount(
   client?: WallSupplySupabase,
 ): Promise<number | null> {
-  supplyProbe ??= (async () => countEligibleProducts(client ?? serviceClient()))()
-    .catch(() => null);
-  return supplyProbe;
+  let target: WallSupplySupabase;
+  try {
+    target = client ?? (getServiceClient() as unknown as WallSupplySupabase);
+  } catch {
+    return Promise.resolve(null);
+  }
+
+  const key = target as unknown as object;
+  let probe = supplyProbes.get(key);
+  if (!probe) {
+    // Only a SUCCESSFUL count stays cached; the failure evicts itself so the
+    // next spec in this worker takes the count again.
+    probe = countEligibleProducts(target).catch((error: unknown) => {
+      if (supplyProbes.get(key) === probe) supplyProbes.delete(key);
+      throw error;
+    });
+    supplyProbes.set(key, probe);
+  }
+  return probe.then(
+    (count) => count,
+    () => null,
+  );
 }
 
 /**

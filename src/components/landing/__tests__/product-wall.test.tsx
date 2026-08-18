@@ -338,7 +338,7 @@ describe("ProductWall", () => {
       buildTrail("trail-a", "Where to read in a small flat"),
       buildTrail("trail-b", "A table set for four"),
     ];
-    const { slots } = buildWallSlots({
+    const slots = buildWallSlots({
       products,
       trails,
       seed: "2026-08-17",

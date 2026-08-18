@@ -157,20 +157,33 @@ describe('getPublishedCuratedProductsForTrail', () => {
     ])
   })
 
+  // Same reasoning as the homepage rail: a trail page turns this read into its
+  // whole product body, so degrading to `[]` during the deploy->migrate window
+  // caches an empty trail with a green build and nothing in Sentry.
   it.each([
     [
       'PGRST205',
       "Could not find the table 'public.curated_product_selections' in the schema cache",
     ],
-    ['42703', 'column curated_products.product_description_zh does not exist'],
-  ])('rethrows a missing trail-read schema dependency (%s) so the route can demote the render', async (code, message) => {
+    ['42703', 'column curated_products.visible does not exist'],
+  ])('throws CuratedProductSchemaLagError rather than degrading to [] when the schema lags (%s)', async (code, message) => {
     const { client } = stubClient({
       error: { code, message },
     })
 
     await expect(
       getPublishedCuratedProductsForTrail('small-space-reading-corner', client),
-    ).rejects.toMatchObject({ code })
+    ).rejects.toBeInstanceOf(CuratedProductSchemaLagError)
+  })
+
+  it('rethrows any other trail-read error untouched', async () => {
+    const { client } = stubClient({
+      error: { code: '42501', message: 'permission denied' },
+    })
+
+    await expect(
+      getPublishedCuratedProductsForTrail('small-space-reading-corner', client),
+    ).rejects.toMatchObject({ code: '42501' })
   })
 
   it('does not cap products per brand', async () => {
@@ -1292,5 +1305,28 @@ describe("listCuratedProductsForAdmin", () => {
         position: 2,
       },
     ]);
+  });
+
+  // The admin queue is the screen used to REPAIR a bad deploy, so it must not
+  // be the screen that 500s during the deploy->migrate window. A renamed column
+  // returns 42703 from a table that is already in the schema cache, so guarding
+  // on the missing-table code alone let that escape.
+  it.each([
+    ["PGRST205", "Could not find the table 'public.curated_products' in the schema cache"],
+    ["42703", "column curated_products.visible does not exist"],
+  ])("returns [] when the schema lags (%s)", async (code, message) => {
+    const { client } = stubClient({ error: { code, message } });
+
+    await expect(listCuratedProductsForAdmin(client)).resolves.toEqual([]);
+  });
+
+  it("rethrows any other admin-queue error", async () => {
+    const { client } = stubClient({
+      error: { code: "42501", message: "permission denied" },
+    });
+
+    await expect(listCuratedProductsForAdmin(client)).rejects.toMatchObject({
+      code: "42501",
+    });
   });
 });

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { runWithAuditContext } from "@/lib/audit/context";
+import { planVisibilityChange } from "@/app/admin/curated-products/visibility-change";
 import { requireAdminAction } from "@/lib/auth/require-admin";
 import {
   revalidateLocalizedPath,
@@ -285,12 +286,48 @@ export async function updateCuratedProductAction(
         patch.imageHeight = height;
       }
 
+      // A visibility TRANSITION, not the posted value: an absent key means
+      // "leave unchanged", and re-saving an already-visible product is an edit,
+      // not a publication decision.
+      const visibility = planVisibilityChange({
+        before: context.visible,
+        after: payload.visible,
+      });
+
+      // Read BEFORE the write, like the retire path: the selections a trail
+      // page renders are exactly what a visibility change adds or removes, so a
+      // post-write read of a now-hidden product can come back empty.
+      const trailSlugs = visibility.changed
+        ? await trailSlugsForRevalidation(id)
+        : [];
+
       await updateCuratedProduct(id, patch);
+
+      if (visibility.changed && auth.user.email) {
+        // Publishing makes a factual claim on a brand's page and hiding
+        // withdraws it, so both directions are audited — the deleted promote
+        // action audited only the first. The two action names are the ones the
+        // `admin_audit_log` CHECK constraint already accepts; no new value is
+        // introduced here, because the migration is applied by hand.
+        await logAdminAction({
+          adminUserId: auth.user.id,
+          adminEmail: auth.user.email,
+          action: visibility.isVisibleAfter
+            ? "curated_product_promoted"
+            : "curated_product_retired",
+          targetBrandSlug: context.brandSlug ?? undefined,
+          metadata: { productId: id, visible: visibility.isVisibleAfter },
+        });
+      }
 
       // An edit to a VISIBLE product changes what /brands/[slug] renders, so
       // its ISR entry has to go with it. Read from the row, never from a
-      // caller-supplied flag.
-      const brandSlug = context.visible ? context.brandSlug : null;
+      // caller-supplied flag — but read the POST-update value: computing this
+      // from `context` alone meant a hidden->visible save never purged the
+      // brand page, so the newly published product stayed invisible for an
+      // hour. A visible->hidden save is revalidated for the mirror reason.
+      const brandSlug = visibility.revalidateBrand ? context.brandSlug : null;
+      for (const trailSlug of trailSlugs) revalidateTrail(trailSlug);
       revalidateCurated(brandSlug);
       return undefined;
     } catch (error) {

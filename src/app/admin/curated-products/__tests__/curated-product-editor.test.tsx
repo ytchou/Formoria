@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import messages from "../../../../../messages/en.json";
 import type { AdminCuratedProduct } from "@/lib/services/curated-products";
@@ -16,14 +17,25 @@ import {
  * would need an authenticated request and a database. Mocking the action module
  * is allowed by `scripts/check-test-boundaries.mjs`; mocking a service is not.
  */
+const actions = vi.hoisted(() => ({
+  create: vi.fn(),
+  update: vi.fn(),
+}));
+
 vi.mock("@/app/admin/curated-products/actions", () => ({
-  createCuratedProductAction: vi.fn(),
+  createCuratedProductAction: actions.create,
   prefillCuratedProductAction: vi.fn(),
   retireCuratedProductSelectionAction: vi.fn(),
   retireCuratedProductSourceAction: vi.fn(),
   upsertCuratedProductSelectionAction: vi.fn(),
-  updateCuratedProductAction: vi.fn(),
+  updateCuratedProductAction: actions.update,
 }));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  actions.create.mockResolvedValue(undefined);
+  actions.update.mockResolvedValue(undefined);
+});
 
 const BRAND = {
   id: "8f4c2b1e-5a90-4d37-9c68-1b7e0a3d5f42",
@@ -86,6 +98,22 @@ function renderEditor(overrides: Partial<AdminCuratedProduct> = {}) {
   );
 }
 
+function renderCreate() {
+  return render(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <CuratedProductEditor
+        mode="create"
+        brands={[BRAND]}
+        defaultBrandId={BRAND.id}
+        trailOptions={TRAILS}
+        onSaved={vi.fn()}
+      />
+    </NextIntlClientProvider>,
+  );
+}
+
+const VISIBLE_LABEL = messages.admin.curatedProducts.editor.visible;
+
 describe("CuratedProductEditor", () => {
   it("renders no wall-position or image-rights control", () => {
     const { container } = renderEditor();
@@ -133,6 +161,94 @@ describe("CuratedProductEditor", () => {
     expect(screen.queryByRole("status", { name: /publish/i })).toBeNull();
     expect(container.textContent).not.toMatch(/promote/i);
     expect(container.textContent).not.toMatch(/publishing conditions/i);
+  });
+
+  /**
+   * The promote path was deleted with `lifecycle`, and nothing replaced it: the
+   * editor read `visible` and never wrote it, so no surface in the product
+   * could publish a curated product at all (DEV-1485).
+   */
+  it("publishes a hidden product by sending visible in the update payload", async () => {
+    const user = userEvent.setup();
+    renderEditor({ visible: false });
+
+    const control = screen.getByLabelText(VISIBLE_LABEL);
+    expect(control).not.toBeChecked();
+
+    await user.click(control);
+    expect(control).toBeChecked();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: messages.admin.curatedProducts.editor.save,
+      }),
+    );
+
+    await waitFor(() => expect(actions.update).toHaveBeenCalledTimes(1));
+    expect(actions.update.mock.calls[0]?.[0]).toBe(product().id);
+    expect(actions.update.mock.calls[0]?.[1]).toMatchObject({ visible: true });
+  });
+
+  it("unpublishes a visible product by sending visible: false", async () => {
+    const user = userEvent.setup();
+    renderEditor({ visible: true });
+
+    const control = screen.getByLabelText(VISIBLE_LABEL);
+    expect(control).toBeChecked();
+
+    await user.click(control);
+    await user.click(
+      screen.getByRole("button", {
+        name: messages.admin.curatedProducts.editor.save,
+      }),
+    );
+
+    await waitFor(() => expect(actions.update).toHaveBeenCalledTimes(1));
+    expect(actions.update.mock.calls[0]?.[1]).toMatchObject({ visible: false });
+  });
+
+  it("a new product defaults to hidden", async () => {
+    const user = userEvent.setup();
+    renderCreate();
+
+    // Publication stays a deliberate act: the box starts clear, and a create
+    // that never touches it posts `visible: false` rather than relying on the
+    // column default, which publishes.
+    const control = screen.getByLabelText(VISIBLE_LABEL);
+    expect(control).not.toBeChecked();
+
+    await user.type(
+      screen.getByLabelText(messages.admin.curatedProducts.editor.nameZh),
+      "陶土茶杯",
+    );
+    await user.type(
+      screen.getByLabelText(
+        messages.admin.curatedProducts.editor.productDescriptionZh,
+      ),
+      "陶土燒製，容量約 200 毫升。",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: messages.admin.curatedProducts.editor.create,
+      }),
+    );
+
+    await waitFor(() => expect(actions.create).toHaveBeenCalledTimes(1));
+    expect(actions.create.mock.calls[0]?.[0]).toMatchObject({ visible: false });
+  });
+
+  it("labels the visibility control and points its hint at a real element", () => {
+    const { container } = renderEditor();
+
+    const control = screen.getByLabelText(VISIBLE_LABEL);
+    expect(control.id).toContain("visible");
+    expect(
+      container.querySelector(`label[for="${CSS.escape(control.id)}"]`),
+    ).not.toBeNull();
+    const hintId = control.getAttribute("aria-describedby") ?? "";
+    expect(container.querySelector(`#${CSS.escape(hintId)}`)?.textContent).toBe(
+      messages.admin.curatedProducts.editor.visibleHint,
+    );
   });
 
   it("every rendered i18n key resolves", () => {

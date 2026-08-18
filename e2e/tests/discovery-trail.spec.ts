@@ -80,13 +80,19 @@ test.describe("Discovery trail deep", () => {
       level: 2,
       exact: true,
     });
+    await expect(sectionHeading).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+
+    // The tile is matched the way SelectedProductTile identifies itself: the h3
+    // product name the next lines read, PLUS the selection badge it renders
+    // beside every product description (selected-product-tile.tsx:311, and
+    // asserted in server HTML above). "Any listitem containing an h3" would also
+    // match an unrelated card list and make `.first()` pick a tile with no
+    // product href — the badge filter is what rules that out.
     const productTile = anonPage
       .getByRole("listitem")
-      // A selected-product tile is identified by the h3 SelectedProductTile
-      // renders for the product name — the next line reads that same heading.
       .filter({ has: anonPage.getByRole("heading", { level: 3 }) })
+      .filter({ hasText: SELECTED_BADGE_LABEL })
       .first();
-    await expect(sectionHeading).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(productTile).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
     const productHeading = productTile.getByRole("heading", { level: 3 });

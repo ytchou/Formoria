@@ -99,17 +99,21 @@ const curatedProductFields = {
   productDescriptionEn: noteSchema.nullable().optional(),
   productPosition: z.number().int().nonnegative().nullable().optional(),
   /**
-   * Replaces `lifecycle` (DEV-1485). A product is on the site or it is not;
-   * absent means "leave it alone", and the column's NOT NULL DEFAULT true is
-   * what makes a create that never mentions it publish.
+   * Replaces `lifecycle` (DEV-1485). A product is on the site or it is not, and
+   * absent means "leave it alone".
+   *
+   * Do NOT infer the create default from the column's DEFAULT: `createCuratedProduct`
+   * writes `visible: input.visible ?? false` explicitly, so a create that never
+   * mentions it stays HIDDEN. Publication is a deliberate act, and the editor
+   * posts this field on both paths rather than relying on the database.
    */
   visible: z.boolean().optional(),
   reviewDueAt: timestampSchema.nullable().optional(),
   /**
    * A human assertion that the sources below were opened and read, which is
    * what stamps `source_checked_at`. A boolean rather than a timestamp: a form
-   * that posted its own clock could back-date the check, and the promote gate
-   * reads that column as evidence.
+   * that posted its own clock could back-date the check, and the public read
+   * filters treat that column as evidence.
    */
   sourcesChecked: z.boolean().optional(),
   sources: z.array(curatedProductSourceSchema).max(MAX_SOURCES).optional(),

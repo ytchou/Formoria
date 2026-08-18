@@ -551,6 +551,14 @@ export async function getPublishedCuratedProductsForTrail(
     .eq("brands.status", "approved");
 
   if (error) {
+    // Schema lag THROWS here, exactly as the homepage read does. A trail page
+    // turns this result into its whole product body, so `[]` reads as "nothing
+    // is placed yet" — the zone silently vanishes from a cached render with a
+    // green build and nothing in Sentry. The caller wraps this in
+    // `captureReadFailure`, so a throw marks the render degraded instead.
+    if (isSchemaLag(error)) {
+      throw new CuratedProductSchemaLagError("curatedProducts.trail", error);
+    }
     throw error;
   }
 
@@ -1209,9 +1217,10 @@ type AdminCuratedProductRow = Omit<CuratedProductReadRow, "link_checked_at"> & {
  * to show the editor the ones that cannot yet prove themselves. Retired sources
  * come back too, so a withdrawal stays visible where it was made.
  *
- * Returns `[]` when the tables are missing from the PostgREST schema cache, for
- * the same reason the public read does: deploys ship ahead of hand-applied
- * migrations, and an empty admin queue is a better failure than a 500 page.
+ * Returns `[]` on any schema lag — a missing table (PGRST205) or a missing
+ * column (42703) — for the same reason the public read does: deploys ship
+ * ahead of hand-applied migrations, and an empty admin queue is a better
+ * failure than a 500 page on the screen used to repair things.
  */
 export async function listCuratedProductsForAdmin(
   client?: CuratedProductSupabase,
@@ -1231,7 +1240,11 @@ export async function listCuratedProductsForAdmin(
     .limit(ADMIN_CURATED_PRODUCT_LIMIT);
 
   if (error) {
-    if ((error as { code?: string }).code === MISSING_TABLE_CODE) return [];
+    // Both lag codes, not just the missing table: this branch renames columns,
+    // so the deploy->migrate window returns 42703 from a table that is already
+    // in the schema cache. Letting that escape 500s the one screen an admin
+    // would use to see and fix the damage.
+    if (isSchemaLag(error)) return [];
     throw error;
   }
 

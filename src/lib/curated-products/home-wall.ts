@@ -74,10 +74,6 @@ export type BuildWallSlotsInput = {
   seed?: string;
 };
 
-export type BuildWallSlotsResult = {
-  slots: WallSlot[];
-};
-
 /** The Taipei calendar day, which is the whole of the wall's daily seed. */
 export function wallSeedForDate(now: Date = new Date()): string {
   return isoDateInTimeZone(now.toISOString(), WALL_TIME_ZONE);
@@ -178,11 +174,15 @@ function capProductsPerBrand(
   return kept;
 }
 
+function eligibleTrail(trail: TrailEntry): boolean {
+  return Boolean(trail.frontmatter.heroImage?.trim());
+}
+
 /**
- * The day's shuffle, then the per-brand cap, then the slice to
- * `MAX_HOME_WALL_PRODUCTS`, then the trail interleave. That is the whole
- * ordering — the seed decides everything about which products lead the wall,
- * and no editorial override sits above it.
+ * Composes the finite wall: the day's shuffle, then the per-brand cap, then the
+ * slice to `MAX_HOME_WALL_PRODUCTS`, then the trail interleave. That is the
+ * whole ordering — the seed decides everything about which products lead the
+ * wall, and no editorial override sits above it.
  *
  * NO CATEGORY-SPREAD PASS (removed DEV-1496). A per-L1 window over the first
  * twelve tiles reordered the wall to satisfy a budget no reader was counting,
@@ -190,25 +190,14 @@ function capProductsPerBrand(
  * wall of sixteen `home` products is simply what a day of `home` supply looks
  * like.
  */
-function orderProducts(
-  products: HomepageCuratedProduct[],
-  seed: string,
-): HomepageCuratedProduct[] {
-  return capProductsPerBrand(shuffleWithSeed(products, seed));
-}
-
-function eligibleTrail(trail: TrailEntry): boolean {
-  return Boolean(trail.frontmatter.heroImage?.trim());
-}
-
-/** Composes the finite wall: the day's shuffle, then the trails. */
 export function buildWallSlots({
   products,
   trails,
   seed = wallSeedForDate(),
-}: BuildWallSlotsInput): BuildWallSlotsResult {
-  const ordered = orderProducts(products, seed);
-  const editorialProducts = ordered.slice(0, MAX_HOME_WALL_PRODUCTS);
+}: BuildWallSlotsInput): WallSlot[] {
+  const editorialProducts = capProductsPerBrand(
+    shuffleWithSeed(products, seed),
+  ).slice(0, MAX_HOME_WALL_PRODUCTS);
   const eligibleTrails = trails.filter(eligibleTrail);
   const trailSlotCount = Math.min(
     Math.floor(editorialProducts.length / TRAIL_SLOT_CADENCE),
@@ -243,5 +232,5 @@ export function buildWallSlots({
     slotIndex += 1;
   }
 
-  return { slots };
+  return slots;
 }
