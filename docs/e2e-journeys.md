@@ -27,6 +27,6 @@ The canonical browser suite targets the isolated staging Supabase project. Deep 
 | Bilingual search edge cases | directory and global search | `e2e/tests/search-edge-cases.spec.ts` | deep | ranking, CJK/English subcategories, typo, filters, stale responses |
 | Share-card API | `/api/share-card/[slug]` | `e2e/tests/share-card-api.spec.ts` | deep | PNG dimensions, download headers, hidden/missing 404 |
 
-## Backlog
+## Pending verification
 
-- DEV-1503 app-owned characterization: the live brand detail still rendered `類別` / `Category` and `產品類別` / `Product categories` on 2026-08-19 instead of the approved `品牌類別` / `Brand category` and `商品子類別` / `Product subcategory`. Correct the application copy before certifying this run; no E2E workaround should preserve the obsolete wording.
+- The DEV-1503 application copy source was corrected in commit `0cf6e57d`. The only remaining gate is one `deep` run of the 20 changed specs against canonical HTTPS staging after PR3 is merged and that exact SHA is deployed. A local attempt already failed closed at the staging-target preflight before tests or mutations, as designed.

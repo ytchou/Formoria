@@ -33,12 +33,12 @@ const CORRECTION_DIALOG_TITLE = '修正品牌資訊'; // brandDetail.correction.
 const FIELD_PICKER_LABEL = '要修正哪一項?'; // brandDetail.correction.fieldPickerLabel
 // The value control is two role="group" rows. Row 1 (the brand's current value)
 // is named by the 目前 heading; row 2 (the options a visitor may pick) is named
-// by the field label itself, so 類別 addresses the options row, not the current one.
+// by the field label itself, so 品牌類別 addresses the options row, not the current one.
 const CURRENT_VALUE_LABEL = '目前'; // brandDetail.correction.currentHeading
 const CATEGORY_VALUE_LABEL = '品牌類別'; // brandDetail.label.category
-const ADD_SUBCATEGORIES_LABEL = '可加入的類別'; // brandDetail.correction.addSubcategoriesHeading
+const ADD_SUBCATEGORIES_LABEL = '可加入的子類別'; // brandDetail.correction.addSubcategoriesHeading
 const OTHER_SUBCATEGORY_CHIP = '其他'; // brandDetail.correction.otherSubcategoryChip
-const OTHER_SUBCATEGORY_INPUT_LABEL = '其他類別名稱'; // brandDetail.correction.otherSubcategoryInputLabel
+const OTHER_SUBCATEGORY_INPUT_LABEL = '其他子類別名稱'; // brandDetail.correction.otherSubcategoryInputLabel
 const OTHER_SUBCATEGORY_CONFIRM = '加入'; // brandDetail.correction.otherSubcategoryConfirm
 const SUBMIT_LABEL = '送出修正'; // brandDetail.correction.submit
 const CANCEL_LABEL = '取消'; // dashboard.edit.cancel
