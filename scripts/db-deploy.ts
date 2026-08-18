@@ -22,10 +22,6 @@ const STAGING_FINALIZE = resolve(
   "supabase/bootstrap/deactivate-staging-cron.sql",
 );
 const STAGING_FIXTURE = resolve(ROOT, "supabase/fixtures/staging.sql");
-const STAGING_CURATED_FIXTURE = resolve(
-  ROOT,
-  "supabase/fixtures/staging-curated-products.sql",
-);
 const MIGRATIONS = resolve(ROOT, "supabase/migrations");
 const EXPECTED_STORAGE_BUCKETS =
   "brand-images:true,claim-proofs:false,image-eval:false,origin-evidence:false,run-logs:false";
@@ -57,6 +53,15 @@ export function assertStagingSeed(target: DeploymentTarget): void {
   if (target.environment !== "staging") {
     throw new Error("The staging fixture cannot run against production");
   }
+}
+
+/**
+ * Every SQL file `seed:staging` applies, in order. The synthetic curated-product
+ * fixture was deleted with DEV-1485 — staging now carries authored products, so
+ * the brand fixture is the whole of the seed.
+ */
+export function stagingSeedFiles(): string[] {
+  return [STAGING_FIXTURE];
 }
 
 export type StagingSeedAccount = {
@@ -480,11 +485,9 @@ async function main(): Promise<void> {
       return;
     }
     case "seed:staging": {
+      // validateStagingSeedEnvironment already ran assertStagingSeed.
       const { accounts } = validateStagingSeedEnvironment();
-      queryFile(target, STAGING_FIXTURE);
-      // Curated products carry a foreign key to the brands seeded above, so
-      // this file can never run first.
-      queryFile(target, STAGING_CURATED_FIXTURE);
+      for (const file of stagingSeedFiles()) queryFile(target, file);
       await ensureStagingAccounts(accounts);
       return;
     }

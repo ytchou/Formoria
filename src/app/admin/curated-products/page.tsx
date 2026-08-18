@@ -20,12 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("title") };
 }
 
-const VALID_TABS = new Set<CuratedProductTab>([
-  "candidate",
-  "needs_review",
-  "published",
-  "retired",
-]);
+const VALID_TABS = new Set<CuratedProductTab>(["visible", "hidden"]);
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value.at(0) : value;
@@ -56,7 +51,7 @@ export default async function CuratedProductsPage({
   const initialTab: CuratedProductTab =
     stageParam && VALID_TABS.has(stageParam as CuratedProductTab)
       ? (stageParam as CuratedProductTab)
-      : "candidate";
+      : "visible";
   // `?brand=<slug>` is the deep link from the brand list; it seeds the search
   // filter rather than the query, so an editor can widen it without navigating.
   const initialBrandSlug = firstParam(query.brand) ?? null;

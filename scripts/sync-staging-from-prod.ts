@@ -44,12 +44,14 @@
  *
  * The sync is ADDITIVE. There is no delete anywhere in this file, and there is
  * exactly one write call (`upsertBatch`). `curated_products` is deliberately
- * untouched — production has zero rows and staging is seeded from
- * `supabase/fixtures/staging-curated-products.sql`, so any mirroring of that
- * table would destroy the homepage product wall's only data.
+ * untouched — production has zero rows, and staging's rows are the real
+ * authored supply, not a fixture (DEV-1485 deleted the synthetic one), so any
+ * mirroring of that table would destroy the homepage product wall's only data.
  *
- * Run order is `db:seed:staging` first, then this. The reverse order lets the
- * fixture re-stamp its placeholder description over the copied one.
+ * There is no seed ordering to respect any more: `db:seed:staging` no longer
+ * writes curated products at all. If the wall's supply ever reaches zero,
+ * `e2e/utils/wall-supply.ts` now counts it live and skips rather than failing —
+ * that count, not this script, is where a missing wall gets diagnosed.
  */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";

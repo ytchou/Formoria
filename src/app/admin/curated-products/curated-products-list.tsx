@@ -4,70 +4,40 @@ import { useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
-import {
-  promoteCuratedProductAction,
-  retireCuratedProductAction,
-} from "@/app/admin/curated-products/actions";
+import { retireCuratedProductAction } from "@/app/admin/curated-products/actions";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { DetailSection } from "@/components/admin/detail-section";
 import {
   formatReviewDate,
-  ReviewDecisionPanel,
   ReviewQueueDrawer,
   ReviewQueuePagination,
   ReviewQueueTable,
   ReviewQueueToolbar,
-  reviewStatusVariant,
   useQueueAction,
   useReviewQueue,
-  type ReviewBulkAction,
   type ReviewColumn,
   type ReviewFilter,
   type ReviewTab,
 } from "@/components/admin/queue";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { curatedProductPromoteBlockers } from "@/lib/curated-products/promote-gate";
 import type { AdminCuratedProduct } from "@/lib/services/curated-products";
 import {
   CuratedProductEditor,
-  PromoteGateReadout,
   type BrandOption,
   type TrailOption,
 } from "./curated-product-editor";
 
-export type CuratedProductTab =
-  "candidate" | "needs_review" | "published" | "retired";
+export type CuratedProductTab = "visible" | "hidden";
 
-const TAB_ORDER: CuratedProductTab[] = [
-  "candidate",
-  "needs_review",
-  "published",
-  "retired",
-];
-
-/**
- * Lifecycle → the status vocabulary `reviewStatusVariant` reads. `candidate`
- * and `published` are not words that helper knows, so they are translated here
- * rather than by widening a table six other queues share.
- */
-const LIFECYCLE_STATUS: Record<string, string> = {
-  candidate: "pending",
-  needs_review: "needs_review",
-  published: "approved",
-  retired: "rejected",
-};
+const TAB_ORDER: CuratedProductTab[] = ["visible", "hidden"];
 
 const getProductId = (product: AdminCuratedProduct) => product.id;
-
-function isPromotable(product: AdminCuratedProduct): boolean {
-  return curatedProductPromoteBlockers(product, product.sources).length === 0;
-}
 
 export function CuratedProductsList({
   products,
   brands,
-  initialTab = "candidate",
+  initialTab = "visible",
   initialBrandSlug = null,
   trailOptions = [],
 }: {
@@ -91,8 +61,8 @@ export function CuratedProductsList({
     () =>
       TAB_ORDER.map((tab) => ({
         value: tab,
-        label: t(`tabs.${tab === "needs_review" ? "needsReview" : tab}`),
-        match: (product) => product.lifecycle === tab,
+        label: t(`tabs.${tab}`),
+        match: (product) => product.visible === (tab === "visible"),
       })),
     [t],
   );
@@ -121,7 +91,7 @@ export function CuratedProductsList({
             product.nameZh,
             product.nameEn,
             product.key,
-          ].some((candidate) => candidate?.toLocaleLowerCase().includes(query));
+          ].some((field) => field?.toLocaleLowerCase().includes(query));
         },
       },
       {
@@ -163,12 +133,8 @@ export function CuratedProductsList({
     tabs,
     filters,
     initialTab,
-    isSelectable: (product) =>
-      product.lifecycle === "candidate" || product.lifecycle === "needs_review",
-    // A promoted row un-hides itself the moment the incoming props say the
-    // server caught up, so the Published tab never undercounts.
-    releaseHidden: (product) =>
-      product.lifecycle !== "candidate" && product.lifecycle !== "needs_review",
+    // No selection predicate is passed: the queue has no bulk action left, so
+    // the selection column is not rendered at all.
     onTabChange: (value) => router.replace(`${pathname}?stage=${value}`),
     onViewReset: () => {
       setRetireTarget(null);
@@ -197,15 +163,11 @@ export function CuratedProductsList({
       cellClassName: "max-w-[240px] font-medium",
     },
     {
-      id: "lifecycle",
-      header: t("table.lifecycle"),
+      id: "visible",
+      header: t("table.visible"),
       cell: (product) => (
-        <Badge
-          variant={reviewStatusVariant(
-            LIFECYCLE_STATUS[product.lifecycle] ?? product.lifecycle,
-          )}
-        >
-          {t(`lifecycle.${product.lifecycle}`)}
+        <Badge variant={product.visible ? "success" : "secondary"}>
+          {t(product.visible ? "visibleYes" : "visibleNo")}
         </Badge>
       ),
     },
@@ -226,53 +188,6 @@ export function CuratedProductsList({
     },
   ];
 
-  function bulkPromote(items: AdminCuratedProduct[]) {
-    const eligible = items.filter(isPromotable);
-    if (eligible.length === 0) return;
-
-    const ids = eligible.map(getProductId);
-    queueAction.runBulk(ids, async () => {
-      const results = await Promise.all(
-        ids.map(async (id) => ({
-          id,
-          result: await promoteCuratedProductAction(id),
-        })),
-      );
-      const failed = results.filter((entry) => entry.result?.error);
-      const succeeded = results
-        .filter((entry) => !entry.result?.error)
-        .map((entry) => entry.id);
-      // No router.refresh(): revalidatePath pushes fresh props, and the hidden
-      // latch keeps promoted rows out of the tab until they arrive.
-      queue.hideIds(succeeded);
-      queue.setSelectedIds(new Set(failed.map((entry) => entry.id)));
-
-      const first = failed.at(0);
-      if (!first) return undefined;
-      const product = eligible.find((item) => item.id === first.id);
-      return {
-        error: `${product?.nameZh ?? first.id}: ${first.result?.error ?? ""}`,
-      };
-    });
-  }
-
-  function promoteOne(product: AdminCuratedProduct) {
-    void queueAction.run(
-      [product.id],
-      async () => {
-        const result = await promoteCuratedProductAction(product.id);
-        return result?.error ? { error: result.error } : undefined;
-      },
-      {
-        onResult: (result) => {
-          if (!result.ok) return;
-          queue.setOpenId(null);
-          router.refresh();
-        },
-      },
-    );
-  }
-
   function retireOne(product: AdminCuratedProduct) {
     void queueAction.run(
       [product.id],
@@ -290,19 +205,6 @@ export function CuratedProductsList({
       },
     );
   }
-
-  const bulkActions: ReviewBulkAction<AdminCuratedProduct>[] = [
-    {
-      id: "promote",
-      label: (count) => t("promoteSelected", { count }),
-      variant: "primary",
-      visibleOn: (activeTab) =>
-        activeTab === "candidate" || activeTab === "needs_review",
-      eligible: isPromotable,
-      pending: queueAction.isPending,
-      onRun: bulkPromote,
-    },
-  ];
 
   return (
     <div>
@@ -371,8 +273,6 @@ export function CuratedProductsList({
           columns={columns}
           emptyMessage={t("notFound")}
           getRowName={(product) => product.nameZh}
-          selectAllLabel={t("selectVisible")}
-          bulkActions={bulkActions}
           onRowActivate={(product) => {
             queueAction.clearError();
             queue.toggleOpen(product.id);
@@ -403,26 +303,24 @@ export function CuratedProductsList({
           </p>
         )}
         footer={(product) => (
-          <div className="pt-5">
-            <ReviewDecisionPanel
-              onApprove={() => promoteOne(product)}
-              onReject={() => setRetireTarget(product)}
-              // The labels name their exact scope: never "Approve"/"Reject".
-              approveLabel={t("promote")}
-              rejectLabel={t("retire")}
-              notesPolicy="none"
-              eligible={isPromotable(product)}
-              // The gate readout IS the blocker explanation, so a disabled
-              // Promote button always says which condition is missing.
-              blocker={
-                <PromoteGateReadout
-                  product={product}
-                  sources={product.sources}
-                />
-              }
-              isPending={queueAction.isRowPending(product.id)}
-              error={queueAction.error}
-            />
+          // Retire is the only decision left in the drawer — visibility itself
+          // is edited in the form above — so the two-button decision panel has
+          // nothing to put on its approve side.
+          <div className="space-y-3 pt-5">
+            {queueAction.error ? (
+              <p className="type-error" role="alert">
+                {queueAction.error}
+              </p>
+            ) : null}
+            {/* The label names its exact scope: never a bare "Reject". */}
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={queueAction.isRowPending(product.id)}
+              onClick={() => setRetireTarget(product)}
+            >
+              {t("retire")}
+            </Button>
           </div>
         )}
       >

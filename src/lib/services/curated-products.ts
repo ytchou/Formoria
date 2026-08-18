@@ -3,11 +3,6 @@ import { createServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
 import { auditedCall } from "@/lib/audit";
 import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
-import {
-  curatedProductPromoteBlockers,
-  type PromoteBlocker,
-  type PromoteOutcome,
-} from "@/lib/curated-products/promote-gate";
 import { withSlugSuffix } from "@/lib/brands/slug";
 import { generateSlug } from "@/lib/services/brands";
 import { normalizeProductTags } from "@/lib/services/product-tags";
@@ -49,8 +44,8 @@ export type CuratedProduct = {
   officialUrl: string | null;
   imageUrl: string | null;
   imageSourceUrl: string | null;
-  imageUsage: string;
-  lifecycle: string;
+  /** Public visibility. `false` is a withdrawal, never a delete. */
+  visible: boolean;
   linkState: string;
   linkCheckedAt: string | null;
   sourceCheckedAt: string | null;
@@ -60,7 +55,6 @@ export type CuratedProduct = {
   productDescriptionEn: string | null;
   /** Where the product sits in its own brand page's selection. */
   productPosition: number | null;
-  wallPosition: number | null;
   createdAt: string;
   /** The winning selection: lowest `position`, ties broken by `trailSlug`. */
   trailSlug: string | null;
@@ -108,9 +102,9 @@ export type TrailCuratedProduct = CuratedProduct & {
  */
 const CURATED_PRODUCT_READ_SELECT = `
   id, brand_id, key, name_zh, name_en, l1, l2, official_url, image_url,
-  image_source_url, image_usage, lifecycle, link_state, link_checked_at,
+  image_source_url, visible, link_state, link_checked_at,
   source_checked_at, review_due_at, product_description_zh,
-  product_description_en, product_position, wall_position, created_at,
+  product_description_en, product_position, created_at,
   curated_product_sources!inner(id),
   curated_product_selections(trail_slug, section_key, position)
 `;
@@ -136,8 +130,7 @@ type CuratedProductReadRow = Pick<
   | "official_url"
   | "image_url"
   | "image_source_url"
-  | "image_usage"
-  | "lifecycle"
+  | "visible"
   | "link_state"
   | "link_checked_at"
   | "source_checked_at"
@@ -145,7 +138,6 @@ type CuratedProductReadRow = Pick<
   | "product_description_zh"
   | "product_description_en"
   | "product_position"
-  | "wall_position"
   | "created_at"
 > & {
   curated_product_selections: CuratedProductSelectionRow[] | null;
@@ -239,8 +231,7 @@ function toCuratedProduct(row: CuratedProductReadRow): CuratedProduct {
     officialUrl: row.official_url ?? null,
     imageUrl: row.image_url ?? null,
     imageSourceUrl: row.image_source_url ?? null,
-    imageUsage: row.image_usage,
-    lifecycle: row.lifecycle,
+    visible: row.visible,
     linkState: row.link_state,
     linkCheckedAt: row.link_checked_at ?? null,
     sourceCheckedAt: row.source_checked_at ?? null,
@@ -248,7 +239,6 @@ function toCuratedProduct(row: CuratedProductReadRow): CuratedProduct {
     productDescriptionZh: row.product_description_zh,
     productDescriptionEn: row.product_description_en ?? null,
     productPosition: row.product_position ?? null,
-    wallPosition: row.wall_position ?? null,
     createdAt: row.created_at,
     trailSlug: selection?.trail_slug ?? null,
     sectionKey: selection?.section_key ?? null,
@@ -280,8 +270,7 @@ function toTrailProduct(
     officialUrl: row.official_url ?? null,
     imageUrl: row.image_url ?? null,
     imageSourceUrl: row.image_source_url ?? null,
-    imageUsage: row.image_usage,
-    lifecycle: row.lifecycle,
+    visible: row.visible,
     linkState: row.link_state,
     linkCheckedAt: row.link_checked_at ?? null,
     sourceCheckedAt: row.source_checked_at ?? null,
@@ -289,7 +278,6 @@ function toTrailProduct(
     productDescriptionZh: row.product_description_zh,
     productDescriptionEn: row.product_description_en ?? null,
     productPosition: row.product_position ?? null,
-    wallPosition: row.wall_position ?? null,
     createdAt: row.created_at,
     trailSlug: selection.trail_slug,
     sectionKey: selection.section_key,
@@ -354,7 +342,7 @@ export class CuratedProductSchemaLagError extends Error {
  * Every publicly renderable curated product for one brand.
  *
  * The proof gate is four conditions, all pushed into the query: the product is
- * `published`, it has an `official_url`, its sources were checked
+ * `visible`, it has an `official_url`, its sources were checked
  * (`source_checked_at`), and at least one ACTIVE `curated_product_sources` row
  * exists. A product that cannot prove itself never reaches TypeScript.
  *
@@ -372,7 +360,7 @@ export async function getPublishedCuratedProductsForBrand(
     .from("curated_products")
     .select(CURATED_PRODUCT_READ_SELECT)
     .eq("brand_id", brandId)
-    .eq("lifecycle", "published")
+    .eq("visible", true)
     .not("official_url", "is", null)
     .not("source_checked_at", "is", null)
     // Retired evidence is not evidence: `!inner` makes this drop the product.
@@ -430,9 +418,9 @@ export async function getPublishedCuratedProductsForBrand(
  * a brand shows: the daily shuffle can then only permute the same pair, and a
  * brand with three or more published products shows the same two forever. The
  * cap lives once, in `@/lib/curated-products/home-wall`, after the shuffle. The
- * ordering below stays — it is what makes `wall_position` a stable pin — and
- * `.limit(1_000)` still bounds the read, comfortably above the ~32 tiles the
- * wall renders.
+ * ordering below is a deterministic tie-break only — nothing pins a tile to a
+ * slot any more, so the wall is a pure shuffle — and `.limit(1_000)` still
+ * bounds the read, comfortably above the ~32 tiles the wall renders.
  */
 export async function getPublishedCuratedProductsForHomepage(
   client?: CuratedProductSupabase,
@@ -443,7 +431,7 @@ export async function getPublishedCuratedProductsForHomepage(
       .select(
         `${CURATED_PRODUCT_READ_SELECT}, image_width, image_height, brands!inner(slug, name, status, purchase_website, purchase_pinkoi, purchase_shopee, purchase_myship, social_instagram, social_threads, social_facebook)`,
       )
-      .eq("lifecycle", "published")
+      .eq("visible", true)
       .not("official_url", "is", null)
       .not("source_checked_at", "is", null)
       // Retired evidence is not evidence: the inner embed drops products with
@@ -452,7 +440,6 @@ export async function getPublishedCuratedProductsForHomepage(
       .eq("curated_product_selections.state", "active")
       .eq("brands.status", "approved")
       .not("image_url", "is", null)
-      .in("image_usage", ["permitted", "licensed"])
       .limit(1_000) as unknown as HomepageCuratedProductQuery,
     "brands.name",
   );
@@ -478,11 +465,10 @@ export async function getPublishedCuratedProductsForHomepage(
         !row.brands.name ||
         (row.brands.status !== undefined && row.brands.status !== "approved") ||
         row.brands.name.startsWith(TEST_BRAND_NAME_PREFIX) ||
-        row.lifecycle !== "published" ||
+        !row.visible ||
         !row.official_url ||
         !row.source_checked_at ||
         !row.image_url ||
-        !["permitted", "licensed"].includes(row.image_usage) ||
         (row.curated_product_sources !== undefined &&
           !(row.curated_product_sources ?? []).some(
             (source) => source.state === undefined || source.state === "active",
@@ -524,9 +510,7 @@ export async function getPublishedCuratedProductsForHomepage(
     .filter((product): product is HomepageCuratedProduct => product !== null)
     .sort(
       (a, b) =>
-        (a.wallPosition ?? UNPLACED) - (b.wallPosition ?? UNPLACED) ||
-        a.brandSlug.localeCompare(b.brandSlug) ||
-        a.key.localeCompare(b.key),
+        a.brandSlug.localeCompare(b.brandSlug) || a.key.localeCompare(b.key),
     );
 
   // No per-brand cap here ON PURPOSE: see the header. The composer applies it
@@ -536,7 +520,7 @@ export async function getPublishedCuratedProductsForHomepage(
 
 const CURATED_PRODUCT_TRAIL_READ_SELECT = `
   id, brand_id, key, name_zh, name_en, l1, l2, official_url, image_url,
-  image_source_url, image_usage, lifecycle, link_state, link_checked_at,
+  image_source_url, visible, link_state, link_checked_at,
   source_checked_at, review_due_at, product_description_zh,
   product_description_en, product_position, created_at,
   curated_product_sources!inner(id, state),
@@ -558,7 +542,7 @@ export async function getPublishedCuratedProductsForTrail(
   const { data, error } = await curatedProductClient(client)
     .from("curated_products")
     .select(CURATED_PRODUCT_TRAIL_READ_SELECT)
-    .eq("lifecycle", "published")
+    .eq("visible", true)
     .not("official_url", "is", null)
     .not("source_checked_at", "is", null)
     .eq("curated_product_sources.state", "active")
@@ -567,6 +551,14 @@ export async function getPublishedCuratedProductsForTrail(
     .eq("brands.status", "approved");
 
   if (error) {
+    // Schema lag THROWS here, exactly as the homepage read does. A trail page
+    // turns this result into its whole product body, so `[]` reads as "nothing
+    // is placed yet" — the zone silently vanishes from a cached render with a
+    // green build and nothing in Sentry. The caller wraps this in
+    // `captureReadFailure`, so a throw marks the render degraded instead.
+    if (isSchemaLag(error)) {
+      throw new CuratedProductSchemaLagError("curatedProducts.trail", error);
+    }
     throw error;
   }
 
@@ -582,7 +574,7 @@ export async function getPublishedCuratedProductsForTrail(
       !row.brands?.slug ||
       !row.brands.name ||
       (row.brands.status !== undefined && row.brands.status !== "approved") ||
-      row.lifecycle !== "published" ||
+      !row.visible ||
       !row.official_url ||
       !row.source_checked_at
     ) {
@@ -628,7 +620,7 @@ export async function getPublishedCuratedProductsForTrail(
 //      curated section" during the window between a deploy and a hand-applied
 //      migration; a writer that swallowed it would report success while writing
 //      nothing, which is the worse failure by far.
-//   2. They never DELETE. Retirement flips `lifecycle` on a product and `state`
+//   2. They never DELETE. Retirement flips `visible` on a product and `state`
 //      on a source, so a key is never silently reused and withdrawn evidence
 //      stays auditable. The only delete these rows ever see is the FK cascade
 //      from `brands`.
@@ -661,7 +653,8 @@ export type CuratedProductWriteInput = {
    */
   imageWidth?: number | null;
   imageHeight?: number | null;
-  imageUsage?: string;
+  /** Public visibility. A create defaults to `false`; publishing is a later act. */
+  visible?: boolean;
   sourceCheckedAt?: string | null;
   reviewDueAt?: string | null;
   /**
@@ -673,33 +666,17 @@ export type CuratedProductWriteInput = {
   productDescriptionZh: string;
   productDescriptionEn?: string | null;
   productPosition?: number | null;
-  wallPosition?: number | null;
 };
 
 /**
- * Everything a curator may change after creation. `lifecycle`, `link_state`,
- * and `link_checked_at` are absent on purpose: lifecycle moves only through
- * `promoteCuratedProduct` / `retireCuratedProduct`, and link health is written
- * only by the link checker. A generic patch that accepted them would let an
- * edit form silently overwrite a probe result with stale form state.
+ * Everything a curator may change after creation. `link_state` and
+ * `link_checked_at` are absent on purpose: link health is written only by the
+ * link checker. A generic patch that accepted them would let an edit form
+ * silently overwrite a probe result with stale form state.
  */
 export type CuratedProductUpdateInput = Partial<
   Omit<CuratedProductWriteInput, "brandId">
 >;
-
-/**
- * The gate itself lives in `@/lib/curated-products/promote-gate`, a pure module
- * with no service imports, so the admin drawer's CLIENT-side readout can call
- * the very same function. Importing this module there is impossible — it
- * reaches `@/lib/services/brands`, which is `server-only` — and a second copy
- * of the four conditions is precisely the drift the shared predicate prevents.
- * Re-exported here so server code keeps one import site.
- */
-export {
-  curatedProductPromoteBlockers,
-  type PromoteBlocker,
-  type PromoteOutcome,
-} from "@/lib/curated-products/promote-gate";
 
 /**
  * L2 arrives as either ontology slugs (from the admin picker) or Chinese labels
@@ -756,9 +733,8 @@ function curatedProductKey(input: CuratedProductWriteInput): string {
 }
 
 /**
- * Creates a candidate. `lifecycle` is written here and never taken from the
- * caller — publication is an act with a gate in front of it
- * (`promoteCuratedProduct`), so no create path may shortcut into `published`.
+ * Creates a product. `visible` defaults to `false` — publication is a separate,
+ * deliberate act, so no create path silently puts a new row on the site.
  * `proposed_by` records the origin: hand entry today, LLM proposals and owner
  * submissions later, which is what lets a review queue sort by trust.
  *
@@ -791,14 +767,12 @@ export async function createCuratedProduct(
         image_source_url: input.imageSourceUrl ?? null,
         image_width: input.imageWidth ?? null,
         image_height: input.imageHeight ?? null,
-        image_usage: input.imageUsage ?? "none",
         source_checked_at: input.sourceCheckedAt ?? null,
         review_due_at: input.reviewDueAt ?? null,
         product_description_zh: input.productDescriptionZh,
         product_description_en: input.productDescriptionEn ?? null,
         product_position: input.productPosition ?? null,
-        wall_position: input.wallPosition ?? null,
-        lifecycle: "candidate",
+        visible: input.visible ?? false,
         proposed_by: "admin",
       };
 
@@ -831,8 +805,8 @@ export async function createCuratedProduct(
 /**
  * Edits the editorial fields of one product. The payload carries only the keys
  * the caller supplied, so an untouched column is never rewritten with a stale
- * value — and `link_state` / `link_checked_at` / `lifecycle` are unreachable by
- * construction (see `CuratedProductUpdateInput`).
+ * value — and `link_state` / `link_checked_at` are unreachable by construction
+ * (see `CuratedProductUpdateInput`).
  */
 export async function updateCuratedProduct(
   id: string,
@@ -880,8 +854,7 @@ export async function updateCuratedProduct(
       if (input.imageHeight !== undefined) {
         payload.image_height = input.imageHeight ?? null;
       }
-      if (input.imageUsage !== undefined)
-        payload.image_usage = input.imageUsage;
+      if (input.visible !== undefined) payload.visible = input.visible;
       if (input.sourceCheckedAt !== undefined) {
         payload.source_checked_at = input.sourceCheckedAt ?? null;
       }
@@ -900,9 +873,6 @@ export async function updateCuratedProduct(
       if (input.productPosition !== undefined) {
         payload.product_position = input.productPosition ?? null;
       }
-      if (input.wallPosition !== undefined) {
-        payload.wall_position = input.wallPosition ?? null;
-      }
       if (Object.keys(payload).length === 0) return;
 
       const { error } = await curatedProductClient(client)
@@ -912,105 +882,6 @@ export async function updateCuratedProduct(
       if (error) throw error;
     },
     { subjectId: id },
-  );
-}
-
-/**
- * The lifecycles a promote may move FROM, as a `.in()` filter argument. Same
- * two values `curatedProductPromoteBlockers` checks — kept here as an array
- * because the gate holds them in a Set it does not export, and a divergence
- * would show up as a promote the gate allows and the UPDATE silently drops.
- */
-const PROMOTABLE_LIFECYCLES = ["candidate", "needs_review"] as const;
-
-type PromoteGateRow = {
-  lifecycle: string;
-  official_url: string | null;
-  source_checked_at: string | null;
-  curated_product_sources: { state: string }[] | null;
-};
-
-/**
- * Publishes a product, or refuses with the conditions that are missing.
- *
- * A refusal is a return value, not a throw: an incomplete candidate is the
- * normal state of editorial work, and the caller renders the blockers as the
- * curator's to-do list. Only genuine database failures throw.
- */
-export async function promoteCuratedProduct(
-  id: string,
-  client?: CuratedProductSupabase,
-): Promise<PromoteOutcome> {
-  return auditedCall(
-    {
-      provider: "curatedProducts",
-      operation: "promoteCuratedProduct",
-      kind: "service",
-    },
-    async (ctx) => {
-      const supabase = curatedProductClient(client);
-      const { data, error } = await supabase
-        .from("curated_products")
-        .select(
-          "lifecycle, official_url, source_checked_at, curated_product_sources(state)",
-        )
-        .eq("id", id)
-        .maybeSingle();
-      if (error) throw error;
-      if (!data) throw new Error(`Curated product not found: ${id}`);
-
-      const row = data as unknown as PromoteGateRow;
-      const blockers = curatedProductPromoteBlockers(
-        {
-          lifecycle: row.lifecycle,
-          officialUrl: row.official_url,
-          sourceCheckedAt: row.source_checked_at,
-        },
-        row.curated_product_sources ?? [],
-      );
-      if (blockers.length > 0) {
-        // Why a promote was refused is the question the audit trail gets asked.
-        ctx.summary.blockers = blockers;
-        return {
-          ok: false as const,
-          blockers,
-          error: `Cannot publish curated product ${id}: ${blockers.join(", ")}`,
-        };
-      }
-
-      // The read above proved the lifecycle a moment ago, which is not the same
-      // as proving it now: a retire landing between the two would be silently
-      // overwritten and the product would republish itself. Re-asserting the
-      // lifecycle IN the update makes the database the arbiter, and a zero-row
-      // result is that race losing — reported as the same `lifecycle` blocker
-      // the gate would have raised.
-      const { data: updated, error: updateError } = await supabase
-        .from("curated_products")
-        .update({ lifecycle: "published" })
-        .eq("id", id)
-        .in("lifecycle", [...PROMOTABLE_LIFECYCLES])
-        .select("id");
-      if (updateError) throw updateError;
-
-      if (((updated as unknown[] | null) ?? []).length === 0) {
-        const raceBlockers: PromoteBlocker[] = ["lifecycle"];
-        ctx.summary.blockers = raceBlockers;
-        return {
-          ok: false as const,
-          blockers: raceBlockers,
-          error: `Cannot publish curated product ${id}: lifecycle`,
-        };
-      }
-
-      return { ok: true as const };
-    },
-    {
-      subjectId: id,
-      // A refusal is not a failure — nothing broke — but it must not read as a
-      // successful publish either. `empty` is the registry's "ran, wrote
-      // nothing" status.
-      classify: (result) => (result.ok ? "succeeded" : "empty"),
-    },
   );
 }
 
@@ -1032,7 +903,7 @@ export async function retireCuratedProduct(
     async () => {
       const { error } = await curatedProductClient(client)
         .from("curated_products")
-        .update({ lifecycle: "retired" })
+        .update({ visible: false })
         .eq("id", id);
       if (error) throw error;
     },
@@ -1283,10 +1154,10 @@ type AdminCuratedProductSelection = {
 };
 
 /**
- * A curated product as the review queue renders it: every lifecycle, the brand
- * it belongs to, ITS SOURCES — the drawer feeds those straight into
- * `curatedProductPromoteBlockers`, so a readout and the writer's gate are
- * computed from the same two inputs — and its active trail placements.
+ * A curated product as the review queue renders it: visible and hidden alike,
+ * the brand it belongs to, ITS SOURCES — the drawer renders those so the editor
+ * can see what a product can and cannot prove — and its active trail
+ * placements.
  */
 export type AdminCuratedProduct = {
   id: string;
@@ -1301,8 +1172,7 @@ export type AdminCuratedProduct = {
   officialUrl: string | null;
   imageUrl: string | null;
   imageSourceUrl: string | null;
-  imageUsage: string;
-  lifecycle: string;
+  visible: boolean;
   linkState: string;
   proposedBy: string;
   sourceCheckedAt: string | null;
@@ -1310,7 +1180,6 @@ export type AdminCuratedProduct = {
   productDescriptionZh: string;
   productDescriptionEn: string | null;
   productPosition: number | null;
-  wallPosition: number | null;
   updatedAt: string;
   sources: AdminCuratedProductSource[];
   selections: AdminCuratedProductSelection[];
@@ -1343,14 +1212,15 @@ type AdminCuratedProductRow = Omit<CuratedProductReadRow, "link_checked_at"> & {
 /**
  * Every curated product for the admin queue, newest edit first.
  *
- * Deliberately unfiltered by lifecycle and NOT `!inner` on sources: the public
+ * Deliberately unfiltered by visibility and NOT `!inner` on sources: the public
  * read drops a product with no active evidence, but the queue exists precisely
  * to show the editor the ones that cannot yet prove themselves. Retired sources
  * come back too, so a withdrawal stays visible where it was made.
  *
- * Returns `[]` when the tables are missing from the PostgREST schema cache, for
- * the same reason the public read does: deploys ship ahead of hand-applied
- * migrations, and an empty admin queue is a better failure than a 500 page.
+ * Returns `[]` on any schema lag — a missing table (PGRST205) or a missing
+ * column (42703) — for the same reason the public read does: deploys ship
+ * ahead of hand-applied migrations, and an empty admin queue is a better
+ * failure than a 500 page on the screen used to repair things.
  */
 export async function listCuratedProductsForAdmin(
   client?: CuratedProductSupabase,
@@ -1359,9 +1229,9 @@ export async function listCuratedProductsForAdmin(
     .from("curated_products")
     .select(
       `id, brand_id, key, name_zh, name_en, l1, l2, official_url, image_url,
-       image_source_url, image_usage, lifecycle, link_state, proposed_by,
+       image_source_url, visible, link_state, proposed_by,
        source_checked_at, review_due_at, product_description_zh,
-       product_description_en, product_position, wall_position, updated_at,
+       product_description_en, product_position, updated_at,
        brands(slug, name),
        curated_product_sources(id, url, source_type, claim_zh, state, checked_at),
        curated_product_selections(trail_slug, section_key, position, state)`,
@@ -1370,7 +1240,11 @@ export async function listCuratedProductsForAdmin(
     .limit(ADMIN_CURATED_PRODUCT_LIMIT);
 
   if (error) {
-    if ((error as { code?: string }).code === MISSING_TABLE_CODE) return [];
+    // Both lag codes, not just the missing table: this branch renames columns,
+    // so the deploy->migrate window returns 42703 from a table that is already
+    // in the schema cache. Letting that escape 500s the one screen an admin
+    // would use to see and fix the damage.
+    if (isSchemaLag(error)) return [];
     throw error;
   }
 
@@ -1387,8 +1261,7 @@ export async function listCuratedProductsForAdmin(
     officialUrl: row.official_url ?? null,
     imageUrl: row.image_url ?? null,
     imageSourceUrl: row.image_source_url ?? null,
-    imageUsage: row.image_usage,
-    lifecycle: row.lifecycle,
+    visible: row.visible,
     linkState: row.link_state,
     proposedBy: row.proposed_by ?? "admin",
     sourceCheckedAt: row.source_checked_at ?? null,
@@ -1396,7 +1269,6 @@ export async function listCuratedProductsForAdmin(
     productDescriptionZh: row.product_description_zh,
     productDescriptionEn: row.product_description_en ?? null,
     productPosition: row.product_position ?? null,
-    wallPosition: row.wall_position ?? null,
     updatedAt: row.updated_at,
     sources: (row.curated_product_sources ?? []).map((source) => ({
       id: source.id,
@@ -1435,7 +1307,7 @@ export type CuratedProductWriteContext = {
   brandSlug: string | null;
   imageUrl: string | null;
   imageSourceUrl: string | null;
-  lifecycle: string;
+  visible: boolean;
 };
 
 export async function getCuratedProductWriteContext(
@@ -1444,7 +1316,7 @@ export async function getCuratedProductWriteContext(
 ): Promise<CuratedProductWriteContext | null> {
   const { data, error } = await curatedProductClient(client)
     .from("curated_products")
-    .select("brand_id, image_url, image_source_url, lifecycle, brands(slug)")
+    .select("brand_id, image_url, image_source_url, visible, brands(slug)")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
@@ -1454,7 +1326,7 @@ export async function getCuratedProductWriteContext(
     brand_id: string;
     image_url: string | null;
     image_source_url: string | null;
-    lifecycle: string;
+    visible: boolean;
     brands: { slug: string } | null;
   };
   return {
@@ -1462,7 +1334,7 @@ export async function getCuratedProductWriteContext(
     brandSlug: row.brands?.slug ?? null,
     imageUrl: row.image_url ?? null,
     imageSourceUrl: row.image_source_url ?? null,
-    lifecycle: row.lifecycle,
+    visible: row.visible,
   };
 }
 
@@ -1484,7 +1356,7 @@ export async function getCuratedProductBrandSlug(
 /**
  * The trail slugs a product write must revalidate.
  *
- * Promoting or retiring a product changes the SUPPLY of every trail it is
+ * Publishing or retiring a product changes the SUPPLY of every trail it is
  * actively selected into, and both `/discover` and `/discover/[slug]` are
  * ISR-cached behind a supply gate — without this, publishing the sixth product
  * for a trail leaves its cached 404 serving for up to an hour. A product can

@@ -5,8 +5,10 @@ import type { TrailEntry } from "@/lib/services/trails";
 import {
   MAX_HOME_WALL_PRODUCTS,
   buildWallSlots,
+  shuffleWithSeed,
   wallSeedForDate,
 } from "../home-wall";
+import { MAX_HOME_CURATED_PRODUCTS_PER_BRAND } from "../wall-ratio";
 
 function product(
   key: string,
@@ -25,8 +27,7 @@ function product(
     imageSourceUrl: null,
     imageWidth: 1200,
     imageHeight: 900,
-    imageUsage: "permitted",
-    lifecycle: "published",
+    visible: true,
     linkState: "ok",
     linkCheckedAt: null,
     sourceCheckedAt: "2026-08-15T00:00:00Z",
@@ -34,7 +35,6 @@ function product(
     productDescriptionZh: "手感穩定，適合小空間。",
     productDescriptionEn: "Steady in the hand, made for small kitchens.",
     productPosition: null,
-    wallPosition: null,
     createdAt: "2026-08-15T00:00:00Z",
     trailSlug: null,
     sectionKey: null,
@@ -66,7 +66,7 @@ function trail(slug: string, heroImage?: string): TrailEntry {
   };
 }
 
-function productSlots(slots: ReturnType<typeof buildWallSlots>["slots"]) {
+function productSlots(slots: ReturnType<typeof buildWallSlots>) {
   return slots.filter(
     (slot): slot is Extract<(typeof slots)[number], { kind: "product" }> =>
       slot.kind === "product",
@@ -78,51 +78,51 @@ const OTHER_SEED = "2026-08-17";
 
 describe("buildWallSlots", () => {
   it("reserves one trail slot per eight products", () => {
-    const result = buildWallSlots({
+    const slots = buildWallSlots({
       products: Array.from({ length: 16 }, (_, index) => product(`p-${index}`)),
       trails: [trail("first", "/first.webp"), trail("second", "/second.webp")],
       seed: SEED,
     });
 
     expect(
-      result.slots.flatMap((slot, index) =>
+      slots.flatMap((slot, index) =>
         slot.kind === "trail" ? [index] : [],
       ),
     ).toEqual([8, 17]);
   });
 
   it("reserves no trail slot below eight products", () => {
-    const result = buildWallSlots({
+    const slots = buildWallSlots({
       products: Array.from({ length: 7 }, (_, index) => product(`p-${index}`)),
       trails: [trail("small", "/small.webp")],
       seed: SEED,
     });
 
-    expect(result.slots.some((slot) => slot.kind === "trail")).toBe(false);
+    expect(slots.some((slot) => slot.kind === "trail")).toBe(false);
   });
 
   it("caps the wall at MAX_HOME_WALL_PRODUCTS", () => {
-    const result = buildWallSlots({
+    const slots = buildWallSlots({
       products: Array.from({ length: 40 }, (_, index) => product(`p-${index}`)),
       trails: [],
       seed: SEED,
     });
 
-    expect(productSlots(result.slots)).toHaveLength(MAX_HOME_WALL_PRODUCTS);
+    expect(productSlots(slots)).toHaveLength(MAX_HOME_WALL_PRODUCTS);
   });
 
   it("excludes trails without a heroImage", () => {
-    const result = buildWallSlots({
+    const slots = buildWallSlots({
       products: Array.from({ length: 8 }, (_, index) => product(`p-${index}`)),
       trails: [trail("no-hero")],
       seed: SEED,
     });
 
-    expect(result.slots.some((slot) => slot.kind === "trail")).toBe(false);
+    expect(slots.some((slot) => slot.kind === "trail")).toBe(false);
   });
 
   it("snaps each product to the nearest of four ratio buckets", () => {
-    const result = buildWallSlots({
+    const slots = buildWallSlots({
       products: [
         product("square", { imageWidth: 1000, imageHeight: 1000 }),
         product("three-four", { imageWidth: 900, imageHeight: 1200 }),
@@ -137,7 +137,7 @@ describe("buildWallSlots", () => {
     });
 
     const ratios = new Map(
-      productSlots(result.slots).map((slot) => [slot.product.key, slot.ratio]),
+      productSlots(slots).map((slot) => [slot.product.key, slot.ratio]),
     );
     expect(ratios.get("square")).toBe("1:1");
     expect(ratios.get("three-four")).toBe("3:4");
@@ -147,7 +147,7 @@ describe("buildWallSlots", () => {
   });
 
   it("falls back to 4:3 when dimensions are null", () => {
-    const result = buildWallSlots({
+    const slots = buildWallSlots({
       products: [
         product("no-width", { imageWidth: null, imageHeight: 900 }),
         product("no-height", { imageWidth: 1200, imageHeight: null }),
@@ -156,20 +156,20 @@ describe("buildWallSlots", () => {
       seed: SEED,
     });
 
-    expect(productSlots(result.slots).map((slot) => slot.ratio)).toEqual([
+    expect(productSlots(slots).map((slot) => slot.ratio)).toEqual([
       "4:3",
       "4:3",
     ]);
   });
 
   it("assigns trails their own two formats", () => {
-    const result = buildWallSlots({
+    const slots = buildWallSlots({
       products: Array.from({ length: 24 }, (_, index) => product(`p-${index}`)),
       trails: [trail("first", "/first.webp"), trail("second", "/second.webp")],
       seed: SEED,
     });
 
-    const formats = result.slots.flatMap((slot) =>
+    const formats = slots.flatMap((slot) =>
       slot.kind === "trail" ? [slot.format] : [],
     );
     expect(formats).toHaveLength(2);
@@ -187,7 +187,7 @@ describe("buildWallSlots", () => {
     );
     const keys = () =>
       productSlots(
-        buildWallSlots({ products, trails: [], seed: SEED }).slots,
+        buildWallSlots({ products, trails: [], seed: SEED }),
       ).map((slot) => slot.product.key);
 
     expect(keys()).toEqual(keys());
@@ -199,22 +199,20 @@ describe("buildWallSlots", () => {
     );
     const keysFor = (seed: string) =>
       productSlots(
-        buildWallSlots({ products, trails: [], seed }).slots,
+        buildWallSlots({ products, trails: [], seed }),
       ).map((slot) => slot.product.key);
 
     expect(keysFor(SEED)).not.toEqual(keysFor(OTHER_SEED));
   });
 
   it("no longer emits anchor spans", async () => {
-    const result = buildWallSlots({
-      products: Array.from({ length: 20 }, (_, index) =>
-        product(`p-${index}`, { wallPosition: index }),
-      ),
+    const slots = buildWallSlots({
+      products: Array.from({ length: 20 }, (_, index) => product(`p-${index}`)),
       trails: [trail("first", "/first.webp")],
       seed: SEED,
     });
 
-    for (const slot of result.slots) {
+    for (const slot of slots) {
       const values = Object.values(slot as Record<string, unknown>);
       expect(values).not.toContain("2x2");
       expect(values).not.toContain("2x1");
@@ -229,38 +227,39 @@ describe("buildWallSlots", () => {
     // products is a legitimate day's supply, and reordering it around a
     // category budget produced no reader-visible benefit.
     //
-    // The fixture mixes a SECOND L1 on purpose. A single-L1 input is a fixed
-    // point of the deleted pass — it accepted the first six, deferred the rest
-    // in order, and re-concatenated the input — so an all-`home` fixture passes
-    // whether or not the pass is back. Eight `home` ahead of eight `beauty`
-    // does not: the old window (12 slots, at most 6 of one L1) would have
-    // emitted h0–h5, b0–b5, then h6, h7, b6, b7. Asserting the input order
-    // therefore fails the moment the pass returns.
+    // The fixture mixes a SECOND L1 on purpose, and the oracle is the raw daily
+    // shuffle: every product here carries its own brand, so the per-brand cap
+    // removes nothing and the wall must be exactly `shuffleWithSeed` sliced to
+    // sixteen. Any surviving reordering pass — a per-L1 window above all —
+    // moves a key off that sequence and fails the moment it returns.
     const products = [
       ...Array.from({ length: 8 }, (_, index) =>
-        product(`home-${index}`, { l1: "home", wallPosition: index + 1 }),
+        product(`home-${index}`, { l1: "home" }),
       ),
       ...Array.from({ length: 8 }, (_, index) =>
-        product(`beauty-${index}`, { l1: "beauty", wallPosition: index + 9 }),
+        product(`beauty-${index}`, { l1: "beauty" }),
       ),
     ];
 
     const slots = productSlots(
-      buildWallSlots({ products, trails: [], seed: SEED }).slots,
+      buildWallSlots({ products, trails: [], seed: SEED }),
     );
 
     expect(slots).toHaveLength(16);
     expect(slots.map((slot) => slot.product.key)).toEqual(
-      products.map((entry) => entry.key),
+      shuffleWithSeed(products, SEED)
+        .slice(0, MAX_HOME_WALL_PRODUCTS)
+        .map((entry) => entry.key),
     );
   });
 
-  it("caps two products per brand and reports refused pins", () => {
-    const result = buildWallSlots({
+  it("caps each brand at MAX_HOME_CURATED_PRODUCTS_PER_BRAND", () => {
+    const shared = Array.from({ length: 5 }, (_, index) =>
+      product(`shared-${index}`, { brandId: "brand-shared", l1: "beauty" }),
+    );
+    const slots = buildWallSlots({
       products: [
-        ...Array.from({ length: 3 }, (_, index) =>
-          product(`shared-${index}`, { brandId: "brand-shared", l1: "beauty" }),
-        ),
+        ...shared,
         ...Array.from({ length: 6 }, (_, index) =>
           product(`free-${index}`, { l1: "home" }),
         ),
@@ -269,12 +268,14 @@ describe("buildWallSlots", () => {
       seed: SEED,
     });
 
-    const slots = productSlots(result.slots);
-    expect(
-      slots.filter((slot) => slot.product.brandId === "brand-shared"),
-    ).toHaveLength(2);
-    // None of the three was pinned, so the cap refuses no pin.
-    expect(result.droppedPins).toEqual([]);
+    const kept = productSlots(slots).filter(
+      (slot) => slot.product.brandId === "brand-shared",
+    );
+    expect(kept).toHaveLength(MAX_HOME_CURATED_PRODUCTS_PER_BRAND);
+    // Whichever two survive, they are drawn from the input rather than invented.
+    for (const slot of kept) {
+      expect(shared.map((entry) => entry.key)).toContain(slot.product.key);
+    }
   });
 
   it("rotates which two products of a brand appear across dates", () => {
@@ -284,63 +285,12 @@ describe("buildWallSlots", () => {
       product(`shared-${index}`, { brandId: "brand-shared" }),
     );
     const visiblePair = (seed: string) =>
-      productSlots(buildWallSlots({ products, trails: [], seed }).slots)
+      productSlots(buildWallSlots({ products, trails: [], seed }))
         .map((slot) => slot.product.key)
         .sort();
 
     expect(visiblePair(SEED)).toHaveLength(2);
     expect(visiblePair(SEED)).not.toEqual(visiblePair(OTHER_SEED));
-  });
-
-  it("reports a pin the per-brand cap refused instead of dropping it", () => {
-    const result = buildWallSlots({
-      products: [
-        ...Array.from({ length: 3 }, (_, index) =>
-          product(`pin-${index}`, {
-            brandId: "brand-shared",
-            wallPosition: index + 1,
-          }),
-        ),
-        ...Array.from({ length: 6 }, (_, index) => product(`free-${index}`)),
-      ],
-      trails: [],
-      seed: SEED,
-    });
-
-    const slots = productSlots(result.slots);
-    expect(
-      slots.filter((slot) => slot.product.brandId === "brand-shared"),
-    ).toHaveLength(2);
-    expect(result.droppedPins.map((dropped) => dropped.key)).toEqual(["pin-2"]);
-  });
-
-  it("reports no dropped pins when every pin fits", () => {
-    const result = buildWallSlots({
-      products: [
-        product("pin-a", { wallPosition: 1 }),
-        ...Array.from({ length: 6 }, (_, index) => product(`free-${index}`)),
-      ],
-      trails: [],
-      seed: SEED,
-    });
-
-    expect(result.droppedPins).toEqual([]);
-  });
-
-  it("pinned products always precede the shuffled remainder", () => {
-    const products = [
-      ...Array.from({ length: 20 }, (_, index) => product(`free-${index}`)),
-      product("pin-b", { wallPosition: 2 }),
-      product("pin-a", { wallPosition: 1 }),
-    ];
-
-    for (const seed of [SEED, OTHER_SEED]) {
-      const keys = productSlots(
-        buildWallSlots({ products, trails: [], seed }).slots,
-      ).map((slot) => slot.product.key);
-
-      expect(keys.slice(0, 2)).toEqual(["pin-a", "pin-b"]);
-    }
   });
 });
 

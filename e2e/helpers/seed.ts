@@ -2,7 +2,12 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 let _client: SupabaseClient | null = null;
 
-function getServiceClient(): SupabaseClient {
+/**
+ * Exported so e2e utils share ONE service-role client instead of each keeping a
+ * private copy of this construction (there were six). Memoized: callers may
+ * rely on repeated calls returning the same instance.
+ */
+export function getServiceClient(): SupabaseClient {
   if (!_client) {
     _client = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

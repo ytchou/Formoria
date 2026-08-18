@@ -23,6 +23,9 @@ const include = [
   "src/**/*.test.tsx",
   "scripts/**/*.test.ts",
   "supabase/functions/**/*.test.ts",
+  // e2e/ is excluded from tsconfig and from Playwright's own run, but the
+  // wall-supply guard is pure logic and needs a live unit test (DEV-1485).
+  "e2e/utils/**/*.test.ts",
 ];
 
 // Inline projects do not inherit the root Vite config, so resolve aliases and

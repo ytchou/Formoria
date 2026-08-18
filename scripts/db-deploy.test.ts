@@ -8,6 +8,7 @@ import {
   projectRefFromDatabaseUrl,
   resultCount,
   validateDeploymentTarget,
+  stagingSeedFiles,
   validateStagingSeedEnvironment,
 } from "./db-deploy";
 
@@ -107,6 +108,27 @@ describe("database deployment identity guard", () => {
     expect(validateStagingSeedEnvironment({ ...base, STAGING_BASE_URL: "https://staging.formoria.com" }).accounts).toHaveLength(2);
     expect(() => validateStagingSeedEnvironment({ ...base, STAGING_BASE_URL: "https://formoria.com" })).toThrow(/staging\.formoria\.com/);
     expect(() => validateStagingSeedEnvironment({ ...base, STAGING_BASE_URL: "https://staging.formoria.com", ADMIN_EMAILS: "owner@example.test" })).toThrow(/ADMIN_EMAILS/);
+  });
+
+  it("seed:staging applies the brand fixture only", () => {
+    // The synthetic curated-product fixture is gone (DEV-1485). One file, and
+    // it must stay the brand seed — a second entry here would be a throwaway
+    // dataset reappearing in a staging database that now holds authored rows.
+    const files = stagingSeedFiles();
+    expect(files).toHaveLength(1);
+    expect(files[0].endsWith("/supabase/fixtures/staging.sql")).toBe(true);
+  });
+
+  it("the staging seed still refuses a production target", () => {
+    const production = validateDeploymentTarget({
+      FORMORIA_DEPLOYMENT_ENV: "production",
+      SUPABASE_PROJECT_REF: "xkcayngbttpxyibgzern",
+      SUPABASE_DB_URL:
+        "postgresql://postgres:secret@db.xkcayngbttpxyibgzern.supabase.co:5432/postgres",
+    });
+    expect(() => assertStagingSeed(production)).toThrow(
+      "The staging fixture cannot run against production",
+    );
   });
 
   it("reads migration counts from Supabase CLI JSON output", () => {

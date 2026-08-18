@@ -202,7 +202,7 @@ export default async function LandingPage({ params }: PageProps) {
   const indexableTrails = (trailResult?.ok ? trailResult.trails : []).filter(
     (trail) => indexableTrailSlugs.has(trail.slug),
   );
-  const wall = buildWallSlots({
+  const wallSlots = buildWallSlots({
     products: curatedProducts,
     trails: indexableTrails,
   });
@@ -236,7 +236,7 @@ export default async function LandingPage({ params }: PageProps) {
           close={<SectionBand />}
           wall={
             curatedProducts.length >= MIN_HOME_CURATED_PRODUCTS
-              ? { slots: wall.slots }
+              ? { slots: wallSlots }
               : null
           }
           trails={indexableTrails}

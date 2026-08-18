@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  CURATED_LINK_READ_LIFECYCLES,
+  CURATED_LINK_READ_SCOPE,
   CURATED_LINK_WRITE_COLUMNS,
   applyLinkStates,
   classify,
@@ -161,7 +161,7 @@ describe("selectReviewDue", () => {
         brandSlug: "hanchor",
         key: "alpine-shell",
         nameZh: "高山風衣",
-        lifecycle: "published",
+        visible: true,
         linkState: "ok",
         reviewDueAt: "2026-05-01T00:00:00.000Z",
       },
@@ -171,7 +171,7 @@ describe("selectReviewDue", () => {
         brandSlug: "hanchor",
         key: "trail-cap",
         nameZh: "山徑帽",
-        lifecycle: "published",
+        visible: true,
         linkState: "ok",
         // Due later today, so not yet overdue: the boundary belongs to the
         // future side, or a quarterly cadence reports every product a day early.
@@ -183,7 +183,7 @@ describe("selectReviewDue", () => {
         brandSlug: "hanchor",
         key: "field-tote",
         nameZh: "田野托特包",
-        lifecycle: "published",
+        visible: true,
         linkState: "broken",
         reviewDueAt: "2026-07-01T00:00:00.000Z",
       },
@@ -193,11 +193,11 @@ describe("selectReviewDue", () => {
         brandSlug: "hanchor",
         key: "no-cadence-yet",
         nameZh: "尚未排程",
-        lifecycle: "candidate",
+        visible: false,
         linkState: "unchecked",
         // Never scheduled. An unscheduled product is not overdue; it is a
         // separate authoring gap, and folding it in here would bury the real
-        // overdue list under every candidate row.
+        // overdue list under every hidden row.
         reviewDueAt: null,
       },
     ];
@@ -302,7 +302,7 @@ describe("applyLinkStates", () => {
       brand_id: BRAND_ID,
       key: "alpine-shell",
       name_zh: "高山風衣",
-      lifecycle: "published",
+      visible: true,
       official_url: "https://hanchor.com/products/alpine-shell",
       link_state: "ok",
       review_due_at: null,
@@ -399,7 +399,7 @@ describe("applyLinkStates", () => {
     expect(writes[0]!.table).toBe("curated_products");
     expect(writes[0]!.id).toBe(check.row.id);
     // Every other column on the table is authored — name, rationale,
-    // official_url, lifecycle, images, notes. A health run that touched one
+    // official_url, visible, images, notes. A health run that touched one
     // would overwrite editorial copy with whatever the last read happened to
     // see, so the key set is asserted exactly.
     expect(Object.keys(writes[0]!.values).sort()).toEqual(
@@ -456,7 +456,7 @@ describe("loadProducts read scope", () => {
       brand_id: BRAND_ID,
       key: "alpine-shell",
       name_zh: "高山風衣",
-      lifecycle: "published",
+      visible: true,
       official_url: "https://hanchor.com/products/alpine-shell",
       link_state: "ok",
       review_due_at: null,
@@ -467,21 +467,17 @@ describe("loadProducts read scope", () => {
 
   /**
    * Records the filter chain AND honours it: `range` returns only the rows the
-   * recorded lifecycle allow-list admits, so the report assertions below run on
+   * recorded visibility scope admits, so the report assertions below run on
    * what the database would actually have returned.
    */
   function recordingReader(rows: readonly ProductRow[]) {
     const calls: RecordedCall[] = [];
-    let allowed: readonly string[] | null = null;
+    let visibleOnly = false;
 
     const query: ProductQuery = {
-      in: (column, values) => {
-        calls.push({ method: "in", args: [column, [...values]] });
-        if (column === "lifecycle") allowed = [...values];
-        return query;
-      },
       eq: (column, value) => {
         calls.push({ method: "eq", args: [column, value] });
+        if (column === "visible" && value === true) visibleOnly = true;
         return query;
       },
       order: (column, options) => {
@@ -490,9 +486,7 @@ describe("loadProducts read scope", () => {
       },
       range: async (from, to) => {
         calls.push({ method: "range", args: [from, to] });
-        const data = rows.filter(
-          (row) => allowed === null || allowed.includes(row.lifecycle),
-        );
+        const data = rows.filter((row) => !visibleOnly || row.visible);
         return { data: from === 0 ? data : [], error: null };
       },
     };
@@ -512,37 +506,50 @@ describe("loadProducts read scope", () => {
     return { client, calls };
   }
 
-  it("load_products_excludes_candidates", async () => {
+  it("load_products_excludes_hidden_products", async () => {
     const { client, calls } = recordingReader([
       readerRow(),
-      readerRow({ id: "33333333-3333-4333-8333-333333333333", key: "draft-tote", lifecycle: "candidate" }),
-      readerRow({ id: "44444444-4444-4444-8444-444444444444", key: "old-cap", lifecycle: "retired" }),
+      readerRow({ id: "33333333-3333-4333-8333-333333333333", key: "draft-tote", visible: false }),
+      readerRow({ id: "44444444-4444-4444-8444-444444444444", key: "old-cap", visible: false }),
     ]);
 
     const rows = await loadProducts(null, client);
 
-    // A positive allow-list, so a lifecycle value nobody has considered here
-    // defaults to NOT being probed.
-    expect(calls).toContainEqual({
-      method: "in",
-      args: ["lifecycle", ["published", "needs_review"]],
-    });
+    // Stated positively, so a row nobody has reasoned about here defaults to
+    // NOT being probed.
+    expect(calls).toContainEqual({ method: "eq", args: ["visible", true] });
     expect(calls.some((call) => call.method === "neq")).toBe(false);
-    expect(rows.map((row) => row.lifecycle)).toEqual(["published"]);
+    expect(rows.map((row) => row.key)).toEqual(["alpine-shell"]);
   });
 
   /**
-   * `selectReviewDue` has no lifecycle filter of its own, so the read scope is
-   * the only thing keeping unreviewed candidates out of an editor's work queue.
+   * The dropped column must not survive anywhere in the read: this script uses
+   * an UNTYPED service client, so `tsc` cannot catch a stale `lifecycle` — the
+   * first symptom would be PostgREST 42703 freezing `link_state` catalogue-wide.
    */
-  it("review_due_excludes_candidates", async () => {
+  it("scopes on visible and never names lifecycle", async () => {
+    const { client, calls } = recordingReader([readerRow()]);
+
+    await loadProducts(null, client);
+
+    expect(calls).toContainEqual({ method: "eq", args: ["visible", true] });
+    const select = calls.find((call) => call.method === "select");
+    expect(select?.args[0]).toContain("visible");
+    expect(JSON.stringify(calls)).not.toContain("lifecycle");
+  });
+
+  /**
+   * `selectReviewDue` has no visibility filter of its own, so the read scope is
+   * the only thing keeping hidden products out of an editor's work queue.
+   */
+  it("review_due_excludes_hidden_products", async () => {
     const overdue = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const { client } = recordingReader([
       readerRow({ review_due_at: overdue }),
       readerRow({
         id: "33333333-3333-4333-8333-333333333333",
         key: "draft-tote",
-        lifecycle: "candidate",
+        visible: false,
         review_due_at: overdue,
       }),
     ]);
@@ -555,21 +562,18 @@ describe("loadProducts read scope", () => {
         brandSlug: "hanchor",
         key: row.key,
         nameZh: row.name_zh,
-        lifecycle: row.lifecycle,
+        visible: row.visible,
         linkState: row.link_state,
         reviewDueAt: row.review_due_at,
       })),
     );
 
     expect(due.map((product) => product.key)).toEqual(["alpine-shell"]);
-    expect(due.some((product) => product.lifecycle === "candidate")).toBe(false);
+    expect(due.every((product) => product.visible)).toBe(true);
   });
 
-  it("keeps the allow-list and the exported constant in step", () => {
-    expect([...CURATED_LINK_READ_LIFECYCLES]).toEqual([
-      "published",
-      "needs_review",
-    ]);
+  it("keeps the read scope and the exported constant in step", () => {
+    expect(CURATED_LINK_READ_SCOPE).toEqual({ column: "visible", value: true });
   });
 
   /**

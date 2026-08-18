@@ -31,15 +31,15 @@ import {
  * creates or edits the product; this script never writes it — it only reports
  * the rows that have gone past it.
  *
- * READ SCOPE. Only `published` and `needs_review` rows are read
- * (CURATED_LINK_READ_LIFECYCLES). `candidate` is excluded on purpose: nothing
- * renders a candidate, so probing one buys an `external_call_audit` row per run
- * for no reader, machine-authors `link_state` before an editor has looked at
- * the row, and — worst — puts its brand slug into the revalidation set, so a
- * PUBLIC brand page is rebuilt for a change that cannot appear on it and a
- * revalidation failure fails the whole run. `retired` stays out for the same
- * reason it always did. The allow-list is positive rather than a `neq` so a new
- * lifecycle value defaults to NOT being probed.
+ * READ SCOPE. Only `visible = true` rows are read (CURATED_LINK_READ_SCOPE).
+ * A hidden product is excluded on purpose: nothing renders it, so probing one
+ * buys an `external_call_audit` row per run for no reader, machine-authors
+ * `link_state` before an editor has looked at the row, and — worst — puts its
+ * brand slug into the revalidation set, so a PUBLIC brand page is rebuilt for a
+ * change that cannot appear on it and a revalidation failure fails the whole
+ * run. The scope is stated positively rather than as a `neq` for the same
+ * reason it always was: a row this script has not reasoned about must default
+ * to NOT being probed.
  *
  * LINK HEALTH IS NOT AVAILABILITY. A 200 proves the page resolves. It never
  * proves the product is in stock, still priced the same, or still sold. Nothing
@@ -60,7 +60,7 @@ import {
  *
  * WRITE SCOPE. The updater writes `link_state` and `link_checked_at` and
  * nothing else (CURATED_LINK_WRITE_COLUMNS). Every other column on the table is
- * authored — name, rationale, official_url, lifecycle, images, notes — and a
+ * authored — name, rationale, official_url, visible, images, notes — and a
  * health run that touched one would silently overwrite editorial copy with
  * whatever the last read happened to see.
  */
@@ -200,7 +200,7 @@ export type ReviewDueCandidate = {
   brandSlug: string | null;
   key: string;
   nameZh: string;
-  lifecycle: string;
+  visible: boolean;
   linkState: string;
   reviewDueAt: string | null;
 };
@@ -276,7 +276,7 @@ export type ProductRow = {
   brand_id: string;
   key: string;
   name_zh: string;
-  lifecycle: string;
+  visible: boolean;
   official_url: string | null;
   link_state: string;
   review_due_at: string | null;
@@ -305,21 +305,22 @@ export function trailSlugsOf(row: ProductRow): string[] {
 }
 
 /**
- * The ONLY lifecycles this script reads. A positive allow-list, not a `neq`:
- * every probe costs an `external_call_audit` row and can move `link_state`, so
- * a lifecycle nobody has thought about here must default to unprobed.
+ * The ONLY rows this script reads. Stated positively as `visible = true`, never
+ * as a `neq` against whatever "not published" happens to mean today: every
+ * probe costs an `external_call_audit` row and can move `link_state`, so a row
+ * nobody has reasoned about here must default to unprobed.
  *
- * `candidate` is excluded because no public surface renders it — probing one
- * spends a request per run for no reader, machine-authors a link verdict before
- * an editor has looked at the row, and drags its brand slug into the
+ * Hidden products are excluded because no public surface renders one — probing
+ * it spends a request per run for no reader, machine-authors a link verdict
+ * before an editor has looked at the row, and drags its brand slug into the
  * revalidation set, rebuilding a public page for a change it cannot show.
- * Scoping the read also keeps candidates out of the review-due report, which
- * has no lifecycle filter of its own.
+ * Scoping the read also keeps hidden products out of the review-due report,
+ * which has no visibility filter of its own.
  */
-export const CURATED_LINK_READ_LIFECYCLES = [
-  "published",
-  "needs_review",
-] as const;
+export const CURATED_LINK_READ_SCOPE = {
+  column: "visible",
+  value: true,
+} as const;
 
 /**
  * The narrowest read shape `loadProducts` needs. Declared for the same reason
@@ -327,8 +328,7 @@ export const CURATED_LINK_READ_LIFECYCLES = [
  * mocking the Supabase module, which scripts/check-test-boundaries.mjs forbids.
  */
 export type ProductQuery = {
-  in(column: string, values: readonly string[]): ProductQuery;
-  eq(column: string, value: string): ProductQuery;
+  eq(column: string, value: string | boolean): ProductQuery;
   order(column: string, options: { ascending: boolean }): ProductQuery;
   range(
     from: number,
@@ -361,9 +361,9 @@ export async function loadProducts(
     let query = supabase
       .from("curated_products")
       .select(
-        "id, brand_id, key, name_zh, lifecycle, official_url, link_state, review_due_at, brands!inner(slug), curated_product_selections(trail_slug, state)",
+        "id, brand_id, key, name_zh, visible, official_url, link_state, review_due_at, brands!inner(slug), curated_product_selections(trail_slug, state)",
       )
-      .in("lifecycle", CURATED_LINK_READ_LIFECYCLES);
+      .eq(CURATED_LINK_READ_SCOPE.column, CURATED_LINK_READ_SCOPE.value);
     if (brand) query = query.eq("brands.slug", brand);
     // A stable order is what makes paging correct: without it two pages can
     // repeat one row and skip another.
@@ -607,7 +607,7 @@ async function main(): Promise<void> {
       brandSlug: brandSlugOf(row),
       key: row.key,
       nameZh: row.name_zh,
-      lifecycle: row.lifecycle,
+      visible: row.visible,
       linkState: row.link_state,
       reviewDueAt: row.review_due_at,
     })),
@@ -623,7 +623,7 @@ async function main(): Promise<void> {
         nameZh: product.nameZh,
         reviewDueAt: product.reviewDueAt,
         daysOverdue: product.daysOverdue,
-        lifecycle: product.lifecycle,
+        visible: product.visible,
       }),
     );
   }

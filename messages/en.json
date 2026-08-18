@@ -2823,40 +2823,31 @@
       "title": "Curated Products",
       "description": "Editorially selected products shown on brand pages. A product publishes only when it can prove itself: an official link, sources that were read, and at least one active source.",
       "notFound": "No curated products match this view.",
-      "selectVisible": "Select visible products",
       "searchLabel": "Search",
       "searchPlaceholder": "Brand or product name",
       "brandScope": "Showing only products for {brand}.",
       "clearBrandScope": "Show products for every brand",
       "newProduct": "Add a curated product",
       "closeNewProduct": "Close the new product form",
-      "promote": "Promote to published",
-      "promoteSelected": "Promote {count} to published",
       "retire": "Retire product",
       "retireTitle": "Retire this product?",
       "retireDescription": "{name} stops showing on the brand page. Its sources are kept, so it can be reinstated later.",
       "expandProduct": "Show details for {name}",
       "collapseProduct": "Hide details for {name}",
       "tabs": {
-        "candidate": "Candidates",
-        "needsReview": "Needs review",
-        "published": "Published",
-        "retired": "Retired"
+        "visible": "Visible",
+        "hidden": "Hidden"
       },
       "table": {
         "brand": "Brand",
         "product": "Product",
-        "lifecycle": "Stage",
+        "visible": "Visible",
         "proposedBy": "Proposed by",
         "linkState": "Link",
         "updated": "Updated"
       },
-      "lifecycle": {
-        "candidate": "Candidate",
-        "needs_review": "Needs review",
-        "published": "Published",
-        "retired": "Retired"
-      },
+      "visibleYes": "Visible",
+      "visibleNo": "Hidden",
       "linkState": {
         "unchecked": "Not checked",
         "ok": "Working",
@@ -2871,17 +2862,6 @@
       "proposedByFilter": {
         "label": "Proposed by",
         "all": "Anyone"
-      },
-      "gate": {
-        "title": "Publishing conditions",
-        "passed": "met",
-        "failed": "not met yet",
-        "conditions": {
-          "official_url": "Add the official product URL",
-          "source_checked_at": "Confirm you read the sources",
-          "no_active_source": "Keep at least one active source",
-          "lifecycle": "Move the product back to candidate or needs review"
-        }
       },
       "editor": {
         "title": "Product details",
@@ -2902,11 +2882,6 @@
         "officialUrl": "Official product URL",
         "imageSourceUrl": "Image page URL",
         "imageHint": "The image is downloaded, converted to WebP, and stored when you save. GIF and SVG are rejected; use a JPEG, PNG, or WebP source.",
-        "imageUsage": "Image rights",
-        "imageUsageHint": "Stays at “Not cleared” until you confirm the rights. Until then the brand page shows the fallback tile.",
-        "imageUsageNone": "Not cleared",
-        "imageUsagePermitted": "Owner or source permits use",
-        "imageUsageLicensed": "Licence on file",
         "productDescriptionZh": "Product description (zh-TW)",
         "productDescriptionEn": "Product description (English)",
         "productDescriptionHint": "What the product IS: material, size, use, made-where. No price, stock, discount, variants, or delivery. Do not state why it was selected — that belongs in the trail.",
@@ -2914,8 +2889,6 @@
         "productDescriptionZhTooLong": "The Chinese product description is too long. Trim it to {max} characters or fewer.",
         "productPosition": "Brand-page position",
         "productPositionInvalid": "Enter a non-negative whole number for the brand-page position.",
-        "wallPosition": "Homepage wall position",
-        "wallPositionInvalid": "Enter a non-negative whole number for the homepage wall position.",
         "reviewDueAt": "Review again on",
         "sources": "Sources",
         "sourceUrl": "Source URL",
@@ -2924,6 +2897,8 @@
         "addSource": "Add another source",
         "removeSource": "Remove source",
         "sourcesChecked": "I opened and read every source listed here",
+        "visible": "Show this product on the site",
+        "visibleHint": "A new product starts hidden. Tick this box and save to publish it; clear it and save to take it down.",
         "sourcesCheckedPublishedHint": "This product is published. Clearing this box removes it from the brand page as soon as you save.",
         "uncheckSourcesTitle": "Remove this product from the brand page?",
         "uncheckSourcesDescription": "A published product only shows on the brand page while the sources are marked as read. Clearing this box removes it from the brand page when you save. Tick the box again and save to put it back, or use “Retire product” if you want it gone for good.",

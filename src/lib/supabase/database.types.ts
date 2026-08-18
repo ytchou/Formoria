@@ -1474,12 +1474,10 @@ export type Database = {
           image_height: number | null
           image_source_url: string | null
           image_url: string | null
-          image_usage: string
           image_width: number | null
           key: string
           l1: string
           l2: string[]
-          lifecycle: string
           link_checked_at: string | null
           link_state: string
           name_en: string | null
@@ -1492,7 +1490,7 @@ export type Database = {
           review_due_at: string | null
           source_checked_at: string | null
           updated_at: string
-          wall_position: number | null
+          visible: boolean
         }
         Insert: {
           brand_id: string
@@ -1501,12 +1499,10 @@ export type Database = {
           image_height?: number | null
           image_source_url?: string | null
           image_url?: string | null
-          image_usage?: string
           image_width?: number | null
           key: string
           l1: string
           l2?: string[]
-          lifecycle?: string
           link_checked_at?: string | null
           link_state?: string
           name_en?: string | null
@@ -1519,7 +1515,7 @@ export type Database = {
           review_due_at?: string | null
           source_checked_at?: string | null
           updated_at?: string
-          wall_position?: number | null
+          visible?: boolean
         }
         Update: {
           brand_id?: string
@@ -1528,12 +1524,10 @@ export type Database = {
           image_height?: number | null
           image_source_url?: string | null
           image_url?: string | null
-          image_usage?: string
           image_width?: number | null
           key?: string
           l1?: string
           l2?: string[]
-          lifecycle?: string
           link_checked_at?: string | null
           link_state?: string
           name_en?: string | null
@@ -1546,7 +1540,7 @@ export type Database = {
           review_due_at?: string | null
           source_checked_at?: string | null
           updated_at?: string
-          wall_position?: number | null
+          visible?: boolean
         }
         Relationships: [
           {

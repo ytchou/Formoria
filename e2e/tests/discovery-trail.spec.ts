@@ -12,7 +12,10 @@ const trails = publishedTrails("zh-TW");
 const trail =
   trails.find((candidate) => candidate.sections.length >= 3) ?? trails.at(0);
 const TRAIL_URL = trail ? `/discover/${trail.slug}` : "/discover";
-const SELECTED_REASON_LABEL = "為這個主題選入";
+// Not a per-product selection reason — DEV-1496 removed those. This is the
+// generic badge `SelectedProductTile` renders beside the product description
+// (selected-product-tile.tsx:311), so it is still live on every trail tile.
+const SELECTED_BADGE_LABEL = "為這個主題選入";
 const OFFICIAL_DESTINATION = /前往(?:產品|品牌)官方網站/;
 
 // The trail is published in MDX, but the page 404s when the database holds too
@@ -51,7 +54,7 @@ test.describe("Discovery trail deep", () => {
     for (const section of trail!.sections) {
       expect(serverText).toContain(section.title);
     }
-    expect(serverText).toContain(SELECTED_REASON_LABEL);
+    expect(serverText).toContain(SELECTED_BADGE_LABEL);
   });
 
   test("visitor moves situation → section → product → brand page", async ({
@@ -77,13 +80,19 @@ test.describe("Discovery trail deep", () => {
       level: 2,
       exact: true,
     });
+    await expect(sectionHeading).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+
+    // The tile is matched the way SelectedProductTile identifies itself: the h3
+    // product name the next lines read, PLUS the selection badge it renders
+    // beside every product description (selected-product-tile.tsx:311, and
+    // asserted in server HTML above). "Any listitem containing an h3" would also
+    // match an unrelated card list and make `.first()` pick a tile with no
+    // product href — the badge filter is what rules that out.
     const productTile = anonPage
       .getByRole("listitem")
-      .filter({
-        has: anonPage.getByText(SELECTED_REASON_LABEL, { exact: true }),
-      })
+      .filter({ has: anonPage.getByRole("heading", { level: 3 }) })
+      .filter({ hasText: SELECTED_BADGE_LABEL })
       .first();
-    await expect(sectionHeading).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(productTile).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
     const productHeading = productTile.getByRole("heading", { level: 3 });

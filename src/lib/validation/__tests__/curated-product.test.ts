@@ -173,45 +173,61 @@ describe("curated product validation", () => {
     ).toBe(true);
   });
 
-  it("accepts a non-negative wallPosition", () => {
-    expect(
-      curatedProductCreateSchema.safeParse(validCreate({ wallPosition: 0 }))
-        .success,
-    ).toBe(true);
-    expect(curatedProductUpdateSchema.safeParse({ wallPosition: 0 }).success).toBe(
+  it("rejects removed keys", () => {
+    // `wallPosition` and `imageUsage` are GONE (DEV-1485): the wall is a pure
+    // shuffle, so there is no hand-placed slot, and image rights are no longer
+    // a payload field. zod strips unknown keys rather than erroring, so the
+    // assertion that matters is that neither survives into `.data` — a schema
+    // that silently carried them would let a stale form write dropped columns.
+    const created = curatedProductCreateSchema.safeParse(
+      validCreate({ wallPosition: 3, imageUsage: "permitted" }),
+    );
+    const updated = curatedProductUpdateSchema.safeParse({
+      wallPosition: 3,
+      imageUsage: "permitted",
+    });
+
+    expect(created.success).toBe(true);
+    expect(updated.success).toBe(true);
+    if (!created.success || !updated.success) return;
+    expect(created.data).not.toHaveProperty("wallPosition");
+    expect(created.data).not.toHaveProperty("imageUsage");
+    expect(updated.data).not.toHaveProperty("wallPosition");
+    expect(updated.data).not.toHaveProperty("imageUsage");
+  });
+
+  it("accepts visible on create and update", () => {
+    // The boolean that replaced `lifecycle`: a product is either on the site or
+    // it is not, with no state machine in between.
+    const created = curatedProductCreateSchema.safeParse(
+      validCreate({ visible: false }),
+    );
+
+    expect(created.success).toBe(true);
+    if (!created.success) return;
+    expect(created.data.visible).toBe(false);
+    expect(curatedProductUpdateSchema.safeParse({ visible: true }).success).toBe(
       true,
     );
-  });
-
-  it("rejects a negative wallPosition", () => {
-    const result = curatedProductUpdateSchema.safeParse({ wallPosition: -1 });
-
-    expect(result.success).toBe(false);
-    if (result.success) return;
-    expect(result.error.issues).toContainEqual(
-      expect.objectContaining({ path: ["wallPosition"] }),
-    );
-  });
-
-  it("clears wallPosition when sent as null and skips it when absent", () => {
-    const cleared = curatedProductUpdateSchema.safeParse({ wallPosition: null });
-    const untouched = curatedProductUpdateSchema.safeParse({});
-
-    expect(cleared.success).toBe(true);
-    expect(untouched.success).toBe(true);
-    if (!cleared.success || !untouched.success) return;
-    expect(cleared.data.wallPosition).toBeNull();
-    expect(untouched.data.wallPosition).toBeUndefined();
-  });
-
-  it("accepts a wall_position with no companion text", () => {
+    // Absent is legal — the column carries its own NOT NULL DEFAULT true.
     expect(
-      curatedProductCreateSchema.safeParse(validCreate({ wallPosition: 3 }))
+      curatedProductCreateSchema.safeParse(validCreate()).success,
+    ).toBe(true);
+  });
+
+  it("still accepts a non-negative productPosition and rejects a negative one", () => {
+    // `productPosition` is the ordering fact that SURVIVES the DEV-1485 cut;
+    // 0 is the boundary the other position tests do not exercise.
+    expect(
+      curatedProductCreateSchema.safeParse(validCreate({ productPosition: 0 }))
         .success,
     ).toBe(true);
-    expect(curatedProductUpdateSchema.safeParse({ wallPosition: 3 }).success).toBe(
-      true,
-    );
+    expect(
+      curatedProductUpdateSchema.safeParse({ productPosition: 0 }).success,
+    ).toBe(true);
+    expect(
+      curatedProductUpdateSchema.safeParse({ productPosition: -1 }).success,
+    ).toBe(false);
   });
 
   it("rejects a negative product_position", () => {

@@ -137,8 +137,7 @@ function buildProduct(index: number): HomepageCuratedProduct {
     officialUrl: "https://example.com/product",
     imageUrl: `https://project.supabase.co/storage/v1/object/public/p/${index}.jpg`,
     imageSourceUrl: null,
-    imageUsage: "permitted",
-    lifecycle: "active",
+    visible: true,
     linkState: "ok",
     linkCheckedAt: null,
     sourceCheckedAt: null,
@@ -146,7 +145,6 @@ function buildProduct(index: number): HomepageCuratedProduct {
     productDescriptionZh: fixture.descriptionZh,
     productDescriptionEn: fixture.descriptionEn,
     productPosition: null,
-    wallPosition: null,
     createdAt: "2026-01-01T00:00:00Z",
     trailSlug: null,
     sectionKey: null,
@@ -340,7 +338,7 @@ describe("ProductWall", () => {
       buildTrail("trail-a", "Where to read in a small flat"),
       buildTrail("trail-b", "A table set for four"),
     ];
-    const { slots } = buildWallSlots({
+    const slots = buildWallSlots({
       products,
       trails,
       seed: "2026-08-17",
