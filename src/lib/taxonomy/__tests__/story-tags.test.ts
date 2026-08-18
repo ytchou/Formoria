@@ -4,7 +4,7 @@ import path from 'path'
 import matter from 'gray-matter'
 import { describe, expect, it } from 'vitest'
 
-import { PRODUCT_TYPE_CATEGORIES } from '../ontology'
+import { L1_CATEGORIES } from '../ontology'
 import { STORY_EDITORIAL_TAGS, STORY_TAGS, isStoryTag } from '../story-tags'
 
 // NOTE: this suite reads real files off disk on purpose — it must never mock
@@ -29,8 +29,8 @@ function readStoryFrontmatter(): Array<{ file: string; tags: unknown }> {
 }
 
 describe('STORY_TAGS vocabulary', () => {
-  it('includes every PRODUCT_TYPE_CATEGORIES slug', () => {
-    for (const category of PRODUCT_TYPE_CATEGORIES) {
+  it('includes every L1_CATEGORIES slug', () => {
+    for (const category of L1_CATEGORIES) {
       expect(STORY_TAGS).toContain(category.slug)
     }
   })

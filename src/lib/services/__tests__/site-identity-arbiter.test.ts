@@ -24,7 +24,7 @@ describe("arbitrateSiteIdentity", () => {
     {
       slug: "xiao-zhu-dessert",
       brandName: "小朱甜點",
-      productType: "甜點",
+      categorySlug: "甜點",
       subjectUrl: "https://xiao-zhu.example",
       subjectKind: "website",
       pageTitle: "小朱甜點｜官方網站",
@@ -32,7 +32,7 @@ describe("arbitrateSiteIdentity", () => {
     {
       slug: "unigaze",
       brandName: "UNIGAZE",
-      productType: "金工",
+      categorySlug: "金工",
       subjectUrl: "https://example.com/unigaze",
       subjectKind: "source-page",
       pageDescription: "UNIGAZE 慢火金工創作室",

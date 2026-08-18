@@ -70,7 +70,7 @@ const ALLOWLIST = [
   // zh-CN→zh-TW vocabulary and punctuation rules (not UI copy).
   "lib/services/taiwan-localization.ts",
   // Product-tag validator uses Chinese blocklist regex patterns (not UI copy).
-  "lib/services/product-tags.ts",
+  "lib/services/subcategories.ts",
   // Brand cleanup uses Chinese keyword arrays and regex patterns (not UI copy).
   "lib/services/brand-cleanup.ts",
   // LLM system prompts centralised module (Chinese prompt text).
@@ -78,7 +78,7 @@ const ALLOWLIST = [
   // LLM user message templates still contain Chinese field labels (not UI copy).
   "lib/services/description-rewrite.ts",
   "lib/services/brand-facts.ts",
-  "lib/services/product-type-classifier.ts",
+  "lib/services/category-classifier.ts",
   "lib/services/reputation-research.ts",
   // Image classify user message includes brand name in Chinese; detect has SEO keyword constants.
   "lib/services/enrich-phases/classify-images.ts",

@@ -10,8 +10,8 @@ import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  PRODUCT_SUBCATEGORIES,
-  PRODUCT_TYPE_CATEGORIES,
+  L2_SUBCATEGORIES,
+  L1_CATEGORIES,
   subcategoryLabel,
 } from "@/lib/taxonomy/ontology";
 
@@ -55,12 +55,12 @@ const CATEGORY_LABEL = messages.brandDetail.label.category;
 const PRICE_RANGE_LABEL = messages.brandDetail.label.priceRange;
 const CURRENT_HEADING = COPY.currentHeading;
 const CHANGE_TO_HEADING = COPY.changeToHeading;
-const CURRENT_TAGS_HEADING = COPY.currentTagsHeading;
-const ADD_TAGS_HEADING = COPY.addTagsHeading;
+const CURRENT_TAGS_HEADING = COPY.currentSubcategoriesHeading;
+const ADD_TAGS_HEADING = COPY.addSubcategoriesHeading;
 const PLACEHOLDER_COPY = COPY.selectPlaceholder;
-const OTHER_CHIP = COPY.otherTagChip;
-const OTHER_INPUT_LABEL = COPY.otherTagInputLabel;
-const OTHER_CONFIRM = COPY.otherTagConfirm;
+const OTHER_CHIP = COPY.otherSubcategoryChip;
+const OTHER_INPUT_LABEL = COPY.otherSubcategoryInputLabel;
+const OTHER_CONFIRM = COPY.otherSubcategoryConfirm;
 const OTHER_CANCEL = EDIT_COPY.cancel;
 
 const PRICE_CHIP = {
@@ -70,7 +70,7 @@ const PRICE_CHIP = {
 } as const;
 
 function selectedCount(count: number) {
-  return COPY.productTagsSelected.replace("{count}", String(count));
+  return COPY.subcategoriesSelected.replace("{count}", String(count));
 }
 
 function renderDialog(
@@ -81,9 +81,9 @@ function renderDialog(
       <CorrectionDialog
         brandId={BRAND_ID}
         brandSlug="warmwood"
-        productType="crafts"
+        categorySlug="crafts"
         priceRange={2}
-        productTags={[]}
+        subcategories={[]}
         {...props}
       />
     </NextIntlClientProvider>,
@@ -122,16 +122,16 @@ function submit() {
   fireEvent.click(submitButton());
 }
 
-function renderProductTags(currentValue: string[] = []) {
-  renderDialog({ productType: "home", productTags: currentValue });
+function renderSubcategories(currentValue: string[] = []) {
+  renderDialog({ categorySlug: "home", subcategories: currentValue });
 }
 
-function openProductTagsDialog() {
+function openSubcategoriesDialog() {
   openDialog();
-  selectField("product_tags");
+  selectField("subcategories");
 }
 
-const HOME_SUBCATEGORIES = PRODUCT_SUBCATEGORIES.filter(
+const HOME_SUBCATEGORIES = L2_SUBCATEGORIES.filter(
   (subcategory) => subcategory.category === "home",
 );
 
@@ -163,9 +163,9 @@ describe("CorrectionDialog", () => {
 
   describe("structure", () => {
     it("renders the current category as a non-interactive reference, not a button", () => {
-      renderDialog({ productType: "crafts" });
+      renderDialog({ categorySlug: "crafts" });
       openDialog();
-      selectField("product_type");
+      selectField("category");
 
       const current = group(CURRENT_HEADING);
       expect(within(current).getByText("工藝文創")).toBeInTheDocument();
@@ -175,9 +175,9 @@ describe("CorrectionDialog", () => {
     // The dialog reads as a diff: 目前 / 改成. The field label stays the group's
     // accessible name so the row is still addressable as 類別 / 價格區間.
     it("heads the options row with 改成 while keeping the field label as its name", () => {
-      renderDialog({ productType: "crafts" });
+      renderDialog({ categorySlug: "crafts" });
       openDialog();
-      selectField("product_type");
+      selectField("category");
 
       const options = group(CATEGORY_LABEL);
       expect(within(options).getByText(CHANGE_TO_HEADING)).toBeInTheDocument();
@@ -187,9 +187,9 @@ describe("CorrectionDialog", () => {
     });
 
     it("excludes the current value from the options row", () => {
-      renderDialog({ productType: "crafts" });
+      renderDialog({ categorySlug: "crafts" });
       openDialog();
-      selectField("product_type");
+      selectField("category");
 
       expect(screen.getAllByText("工藝文創")).toHaveLength(1);
       expect(
@@ -200,25 +200,25 @@ describe("CorrectionDialog", () => {
     });
 
     it("renders one option chip per remaining category", () => {
-      renderDialog({ productType: "crafts" });
+      renderDialog({ categorySlug: "crafts" });
       openDialog();
-      selectField("product_type");
+      selectField("category");
 
       expect(within(group(CATEGORY_LABEL)).getAllByRole("button")).toHaveLength(
-        PRODUCT_TYPE_CATEGORIES.length - 1,
+        L1_CATEGORIES.length - 1,
       );
     });
 
     it("renders a placeholder in row 1 when the field is unset", () => {
-      renderDialog({ productType: null });
+      renderDialog({ categorySlug: null });
       openDialog();
-      selectField("product_type");
+      selectField("category");
 
       expect(
         within(group(CURRENT_HEADING)).getByText(PLACEHOLDER_COPY),
       ).toBeInTheDocument();
       expect(within(group(CATEGORY_LABEL)).getAllByRole("button")).toHaveLength(
-        PRODUCT_TYPE_CATEGORIES.length,
+        L1_CATEGORIES.length,
       );
       expect(submitButton()).toBeDisabled();
     });
@@ -236,7 +236,7 @@ describe("CorrectionDialog", () => {
       renderDialog();
       openDialog();
 
-      selectField("product_type");
+      selectField("category");
       expect(group(CATEGORY_LABEL)).toBeInTheDocument();
 
       selectField("price_range");
@@ -246,14 +246,14 @@ describe("CorrectionDialog", () => {
       expect(group(PRICE_RANGE_LABEL)).toBeInTheDocument();
     });
 
-    it("omits product tags from the field picker when the brand has no category", () => {
-      renderDialog({ productType: null });
+    it("omits subcategories from the field picker when the brand has no category", () => {
+      renderDialog({ categorySlug: null });
       openDialog();
 
       const options = within(fieldPicker()).getAllByRole("option");
       expect(
         options.map((option) => (option as HTMLOptionElement).value),
-      ).toEqual(["", "product_type", "price_range"]);
+      ).toEqual(["", "category", "price_range"]);
     });
   });
 
@@ -292,8 +292,8 @@ describe("CorrectionDialog", () => {
     });
 
     it("submit stays disabled while the tag set is unchanged", () => {
-      renderProductTags(["寢具", "家具"]);
-      openProductTagsDialog();
+      renderSubcategories(["寢具", "家具"]);
+      openSubcategoriesDialog();
 
       expect(submitButton()).toBeDisabled();
 
@@ -333,8 +333,8 @@ describe("CorrectionDialog", () => {
     });
 
     it("submits an add/remove delta, not a full set", async () => {
-      renderProductTags(["寢具", "家具"]);
-      openProductTagsDialog();
+      renderSubcategories(["寢具", "家具"]);
+      openSubcategoriesDialog();
 
       clickChip(ADD_TAGS_HEADING, "床墊");
       clickChip(CURRENT_TAGS_HEADING, "家具");
@@ -343,15 +343,15 @@ describe("CorrectionDialog", () => {
       await waitFor(() => {
         expect(mocks.submitCorrection).toHaveBeenCalledWith({
           brandId: BRAND_ID,
-          field: "product_tags",
+          field: "subcategories",
           proposedValue: { add: ["床墊"], remove: ["家具"] },
         });
       });
     });
 
     it("uses canonical nameZh in both delta arrays", async () => {
-      renderProductTags(["寢具"]);
-      openProductTagsDialog();
+      renderSubcategories(["寢具"]);
+      openSubcategoriesDialog();
 
       clickChip(CURRENT_TAGS_HEADING, "寢具");
       clickChip(ADD_TAGS_HEADING, "床墊");
@@ -372,8 +372,8 @@ describe("CorrectionDialog", () => {
     });
 
     it("omits untouched tags from the delta", async () => {
-      renderProductTags(["寢具", "家具"]);
-      openProductTagsDialog();
+      renderSubcategories(["寢具", "家具"]);
+      openSubcategoriesDialog();
 
       clickChip(ADD_TAGS_HEADING, "床墊");
       submit();
@@ -381,15 +381,15 @@ describe("CorrectionDialog", () => {
       await waitFor(() => {
         expect(mocks.submitCorrection).toHaveBeenCalledWith({
           brandId: BRAND_ID,
-          field: "product_tags",
+          field: "subcategories",
           proposedValue: { add: ["床墊"], remove: [] },
         });
       });
     });
 
     it("emits a remove-only delta", async () => {
-      renderProductTags(["寢具", "上衣・T恤"]);
-      openProductTagsDialog();
+      renderSubcategories(["寢具", "上衣・T恤"]);
+      openSubcategoriesDialog();
 
       clickChip(CURRENT_TAGS_HEADING, "上衣・T恤");
       expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
@@ -399,7 +399,7 @@ describe("CorrectionDialog", () => {
       await waitFor(() => {
         expect(mocks.submitCorrection).toHaveBeenCalledWith({
           brandId: BRAND_ID,
-          field: "product_tags",
+          field: "subcategories",
           proposedValue: { add: [], remove: ["上衣・T恤"] },
         });
       });
@@ -424,13 +424,13 @@ describe("CorrectionDialog", () => {
   });
 
   describe("tag rows", () => {
-    // A `home` brand can still carry `fashion` tags: normalizeProductTags keeps
-    // cross-branch tags, and approving a product_type correction moves the
-    // category without re-deriving product_tags. Those tags consume the 5-tag
+    // A `home` brand can still carry `fashion` tags: normalizeSubcategories keeps
+    // cross-branch tags, and approving a category correction moves the
+    // category without re-deriving subcategories. Those tags consume the 5-tag
     // cap, so they have to stay visible and removable.
     it("renders every current tag in row 1, including out-of-category ones", () => {
-      renderProductTags(["寢具", "上衣・T恤"]);
-      openProductTagsDialog();
+      renderSubcategories(["寢具", "上衣・T恤"]);
+      openSubcategoriesDialog();
 
       const current = group(CURRENT_TAGS_HEADING);
       expect(
@@ -445,8 +445,8 @@ describe("CorrectionDialog", () => {
     });
 
     it("row 1 tags start pressed and flip to unpressed when marked for removal", () => {
-      renderProductTags(["寢具"]);
-      openProductTagsDialog();
+      renderSubcategories(["寢具"]);
+      openSubcategoriesDialog();
 
       expect(chip(CURRENT_TAGS_HEADING, "寢具")).toHaveAttribute(
         "aria-pressed",
@@ -463,8 +463,8 @@ describe("CorrectionDialog", () => {
     });
 
     it("row 2 excludes tags already held", () => {
-      renderProductTags(["寢具"]);
-      openProductTagsDialog();
+      renderSubcategories(["寢具"]);
+      openSubcategoriesDialog();
 
       const options = group(ADD_TAGS_HEADING);
       expect(
@@ -486,8 +486,8 @@ describe("CorrectionDialog", () => {
     });
 
     it("counts out-of-category and novel tags against the 5 cap", () => {
-      renderProductTags(["上衣・T恤", "褲裝", "裙裝", "洋裝"]);
-      openProductTagsDialog();
+      renderSubcategories(["上衣・T恤", "褲裝", "裙裝", "洋裝"]);
+      openSubcategoriesDialog();
 
       expect(screen.getByText(selectedCount(4))).toBeInTheDocument();
 
@@ -496,14 +496,14 @@ describe("CorrectionDialog", () => {
       confirmOther();
 
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
-      expect(screen.getByText(COPY.productTagsLimit)).toBeInTheDocument();
+      expect(screen.getByText(COPY.subcategoriesLimit)).toBeInTheDocument();
       expect(chip(ADD_TAGS_HEADING, "寢具")).toBeDisabled();
     });
 
     it("disables unselected row-2 chips at the cap while pressed ones stay enabled", () => {
       const currentTags = homeTagsAt(5);
-      renderProductTags(currentTags);
-      openProductTagsDialog();
+      renderSubcategories(currentTags);
+      openSubcategoriesDialog();
 
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
 
@@ -528,8 +528,8 @@ describe("CorrectionDialog", () => {
       expect(replacement).toBeDefined();
       if (!removed || !replacement) return;
 
-      renderProductTags(currentTags);
-      openProductTagsDialog();
+      renderSubcategories(currentTags);
+      openSubcategoriesDialog();
 
       clickChip(CURRENT_TAGS_HEADING, removed);
       expect(screen.getByText(selectedCount(4))).toBeInTheDocument();
@@ -545,8 +545,8 @@ describe("CorrectionDialog", () => {
     });
 
     it("counts a duplicated legacy tag once", () => {
-      renderProductTags(["寢具", "寢具"]);
-      openProductTagsDialog();
+      renderSubcategories(["寢具", "寢具"]);
+      openSubcategoriesDialog();
 
       expect(
         within(group(CURRENT_TAGS_HEADING)).getAllByRole("button", {
@@ -557,8 +557,8 @@ describe("CorrectionDialog", () => {
     });
 
     it("resets the selection after a successful submit", async () => {
-      renderProductTags(["寢具"]);
-      openProductTagsDialog();
+      renderSubcategories(["寢具"]);
+      openSubcategoriesDialog();
 
       clickChip(ADD_TAGS_HEADING, "床墊");
       submit();
@@ -567,7 +567,7 @@ describe("CorrectionDialog", () => {
         expect(screen.queryAllByRole("group")).toHaveLength(0);
       });
 
-      openProductTagsDialog();
+      openSubcategoriesDialog();
 
       expect(chip(CURRENT_TAGS_HEADING, "寢具")).toHaveAttribute(
         "aria-pressed",
@@ -584,8 +584,8 @@ describe("CorrectionDialog", () => {
 
   describe("other tag flow", () => {
     it("canonicalizes an alias to its nameZh instead of adding the typed string", () => {
-      renderProductTags([]);
-      openProductTagsDialog();
+      renderSubcategories([]);
+      openSubcategoriesDialog();
 
       expandOther();
       typeOther("T恤");
@@ -599,8 +599,8 @@ describe("CorrectionDialog", () => {
     });
 
     it("selects the existing row-2 chip when the typed value is already offered", () => {
-      renderProductTags([]);
-      openProductTagsDialog();
+      renderSubcategories([]);
+      openSubcategoriesDialog();
 
       expandOther();
       typeOther("床包");
@@ -617,8 +617,8 @@ describe("CorrectionDialog", () => {
     });
 
     it("appends a cross-category canonical tag as a selected chip", () => {
-      renderProductTags([]);
-      openProductTagsDialog();
+      renderSubcategories([]);
+      openSubcategoriesDialog();
 
       expandOther();
       typeOther("洋裝");
@@ -632,8 +632,8 @@ describe("CorrectionDialog", () => {
     });
 
     it("appends an accepted novel tag as a selected chip", async () => {
-      renderProductTags([]);
-      openProductTagsDialog();
+      renderSubcategories([]);
+      openSubcategoriesDialog();
 
       expandOther();
       typeOther("藤編椅");
@@ -649,15 +649,15 @@ describe("CorrectionDialog", () => {
       await waitFor(() => {
         expect(mocks.submitCorrection).toHaveBeenCalledWith({
           brandId: BRAND_ID,
-          field: "product_tags",
+          field: "subcategories",
           proposedValue: { add: ["藤編椅"], remove: [] },
         });
       });
     });
 
     it("shows an inline reason for a blocklisted entry and does not add it", () => {
-      renderProductTags([]);
-      openProductTagsDialog();
+      renderSubcategories([]);
+      openSubcategoriesDialog();
 
       expandOther();
       typeOther("限定");
@@ -671,7 +671,7 @@ describe("CorrectionDialog", () => {
       const text = messageIds
         .map((id) => document.getElementById(id)?.textContent ?? "")
         .join(" ");
-      expect(text).toContain(COPY.errors.tagBlocked);
+      expect(text).toContain(COPY.errors.subcategoryBlocked);
       expect(
         within(group(ADD_TAGS_HEADING)).queryByRole("button", {
           name: "限定",
@@ -681,8 +681,8 @@ describe("CorrectionDialog", () => {
     });
 
     it("shows an inline reason for a too-short entry and does not add it", () => {
-      renderProductTags([]);
-      openProductTagsDialog();
+      renderSubcategories([]);
+      openSubcategoriesDialog();
 
       expandOther();
       typeOther("杯");
@@ -692,19 +692,19 @@ describe("CorrectionDialog", () => {
         "aria-invalid",
         "true",
       );
-      expect(screen.getByText(COPY.errors.tagLength)).toBeInTheDocument();
+      expect(screen.getByText(COPY.errors.subcategoryLength)).toBeInTheDocument();
       expect(screen.getByText(selectedCount(0))).toBeInTheDocument();
     });
 
     it("reports a duplicate when the typed value is already in row 1", () => {
-      renderProductTags(["寢具"]);
-      openProductTagsDialog();
+      renderSubcategories(["寢具"]);
+      openSubcategoriesDialog();
 
       expandOther();
       typeOther("床包");
       confirmOther();
 
-      expect(screen.getByText(COPY.otherTagDuplicate)).toBeInTheDocument();
+      expect(screen.getByText(COPY.otherSubcategoryDuplicate)).toBeInTheDocument();
       expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
       expect(
         within(group(CURRENT_TAGS_HEADING)).getAllByRole("button", {
@@ -714,8 +714,8 @@ describe("CorrectionDialog", () => {
     });
 
     it("disables the 其他 affordance at the 5-tag cap", () => {
-      renderProductTags(homeTagsAt(5));
-      openProductTagsDialog();
+      renderSubcategories(homeTagsAt(5));
+      openSubcategoriesDialog();
 
       expect(chip(ADD_TAGS_HEADING, OTHER_CHIP)).toBeDisabled();
       expect(
@@ -727,14 +727,14 @@ describe("CorrectionDialog", () => {
     // whatever alias was typed — so the duplicate check has to compare on a
     // canonical basis or the same subcategory lands twice.
     it("reports a duplicate when the brand carries an alias of the typed tag", () => {
-      renderProductTags(["床包"]);
-      openProductTagsDialog();
+      renderSubcategories(["床包"]);
+      openSubcategoriesDialog();
 
       expandOther();
       typeOther("寢具");
       confirmOther();
 
-      expect(screen.getByText(COPY.otherTagDuplicate)).toBeInTheDocument();
+      expect(screen.getByText(COPY.otherSubcategoryDuplicate)).toBeInTheDocument();
       expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
       expect(
         within(group(ADD_TAGS_HEADING)).queryByRole("button", {
@@ -750,8 +750,8 @@ describe("CorrectionDialog", () => {
       expect(replacement).toBeDefined();
       if (!replacement) return;
 
-      renderProductTags(homeTagsAt(4));
-      openProductTagsDialog();
+      renderSubcategories(homeTagsAt(4));
+      openSubcategoriesDialog();
 
       expandOther();
       // The cap is reached while the entry panel is already open.
@@ -764,7 +764,7 @@ describe("CorrectionDialog", () => {
       const input = screen.getByLabelText(OTHER_INPUT_LABEL);
       expect(input).toBeInTheDocument();
       expect(input).toHaveAttribute("aria-invalid", "true");
-      expect(screen.getAllByText(COPY.productTagsLimit).length).toBeGreaterThan(
+      expect(screen.getAllByText(COPY.subcategoriesLimit).length).toBeGreaterThan(
         0,
       );
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
@@ -778,8 +778,8 @@ describe("CorrectionDialog", () => {
     // The 其他 chip is disabled at the cap, and focusing an element that is
     // about to be disabled drops focus to <body> mid-dialog.
     it("keeps focus inside the dialog after the confirmed tag fills the cap", () => {
-      renderProductTags(homeTagsAt(4));
-      openProductTagsDialog();
+      renderSubcategories(homeTagsAt(4));
+      openSubcategoriesDialog();
 
       expandOther();
       typeOther("藤編椅");
@@ -794,8 +794,8 @@ describe("CorrectionDialog", () => {
     });
 
     it("returns focus to the 其他 chip when the entry is cancelled", () => {
-      renderProductTags([]);
-      openProductTagsDialog();
+      renderSubcategories([]);
+      openSubcategoriesDialog();
 
       expandOther();
       expect(screen.getByLabelText(OTHER_INPUT_LABEL)).toHaveFocus();

@@ -1,24 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import {
-  PRODUCT_TYPE_CATEGORIES,
-  PRODUCT_SUBCATEGORIES,
+  L1_CATEGORIES,
+  L2_SUBCATEGORIES,
   isCompositeSubcategory,
   matchSubcategory,
   resolveSubcategorySlugs,
   subcategoryBySlug,
   subcategoryLabel,
-  deriveCategoryFromProductType,
+  deriveCategoryLabel,
   categoryTint,
   RETIRED_COMPOSITE_LABELS,
 } from '../ontology'
 
-describe('PRODUCT_TYPE_CATEGORIES', () => {
+describe('L1_CATEGORIES', () => {
   it('has exactly 12 entries', () => {
-    expect(PRODUCT_TYPE_CATEGORIES).toHaveLength(12)
+    expect(L1_CATEGORIES).toHaveLength(12)
   })
 
   it('each entry has slug, name, nameZh, tint', () => {
-    for (const cat of PRODUCT_TYPE_CATEGORIES) {
+    for (const cat of L1_CATEGORIES) {
       expect(cat.slug).toBeTruthy()
       expect(cat.name).toBeTruthy()
       expect(cat.nameZh).toBeTruthy()
@@ -27,7 +27,7 @@ describe('PRODUCT_TYPE_CATEGORIES', () => {
   })
 
   it('contains all expected slugs', () => {
-    const slugs = PRODUCT_TYPE_CATEGORIES.map(c => c.slug)
+    const slugs = L1_CATEGORIES.map(c => c.slug)
     expect(slugs).toContain('fashion')
     expect(slugs).toContain('bags-accessories')
     expect(slugs).toContain('jewelry')
@@ -43,7 +43,7 @@ describe('PRODUCT_TYPE_CATEGORIES', () => {
   })
 
   it('does not contain old sub-category slugs', () => {
-    const slugs = PRODUCT_TYPE_CATEGORIES.map(c => c.slug)
+    const slugs = L1_CATEGORIES.map(c => c.slug)
     expect(slugs).not.toContain('clothing')
     expect(slugs).not.toContain('footwear')
     expect(slugs).not.toContain('others')
@@ -60,17 +60,17 @@ describe('parentGroupForSlug (removed)', () => {
   })
 })
 
-describe('deriveCategoryFromProductType', () => {
-  it('returns the zh category name for a known product type slug', () => {
-    expect(deriveCategoryFromProductType('beauty')).toBe('美妝保養')
+describe('deriveCategoryLabel', () => {
+  it('returns the zh category name for a known category slug', () => {
+    expect(deriveCategoryLabel('beauty')).toBe('美妝保養')
   })
 
-  it('falls back to product type note when no slug is selected', () => {
-    expect(deriveCategoryFromProductType('', '香氛')).toBe('香氛')
+  it('falls back to category note when no slug is selected', () => {
+    expect(deriveCategoryLabel('', '香氛')).toBe('香氛')
   })
 
-  it('returns null when neither product type nor note is available', () => {
-    expect(deriveCategoryFromProductType('', '   ')).toBeNull()
+  it('returns null when neither category nor note is available', () => {
+    expect(deriveCategoryLabel('', '   ')).toBeNull()
   })
 })
 
@@ -90,10 +90,10 @@ describe('categoryTint', () => {
   })
 })
 
-describe('PRODUCT_SUBCATEGORIES', () => {
+describe('L2_SUBCATEGORIES', () => {
   it('no subcategory names an occasion, packaging format, fulfilment mode or service', () => {
     const disqualifyingTokens = ['禮盒', '伴手禮', '彌月', '客製化', '體驗課程', '課程', '服務']
-    const offenders = PRODUCT_SUBCATEGORIES.filter(subcategory =>
+    const offenders = L2_SUBCATEGORIES.filter(subcategory =>
       disqualifyingTokens.some(token => subcategory.nameZh.includes(token)),
     ).map(subcategory => `${subcategory.slug} (${subcategory.nameZh})`)
 
@@ -101,21 +101,21 @@ describe('PRODUCT_SUBCATEGORIES', () => {
   })
 
   it("every subcategory's parent L1 exists", () => {
-    const l1 = new Set(PRODUCT_TYPE_CATEGORIES.map((c) => c.slug))
-    for (const sub of PRODUCT_SUBCATEGORIES) {
+    const l1 = new Set(L1_CATEGORIES.map((c) => c.slug))
+    for (const sub of L2_SUBCATEGORIES) {
       expect(l1.has(sub.category), `${sub.slug} parent ${sub.category}`).toBe(true)
     }
   })
 
   it('slugs are unique and kebab-case', () => {
-    const slugs = PRODUCT_SUBCATEGORIES.map((s) => s.slug)
+    const slugs = L2_SUBCATEGORIES.map((s) => s.slug)
     expect(new Set(slugs).size).toBe(slugs.length)
     for (const slug of slugs) expect(slug).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/)
   })
 
   it('canonical names and aliases are globally unambiguous', () => {
     const seen = new Map<string, string>()
-    for (const sub of PRODUCT_SUBCATEGORIES) {
+    for (const sub of L2_SUBCATEGORIES) {
       for (const key of [sub.nameZh, sub.nameEn.toLowerCase(), ...sub.aliases]) {
         expect(seen.has(key), `duplicate match key "${key}" in ${sub.slug} and ${seen.get(key)}`).toBe(false)
         seen.set(key, sub.slug)
@@ -124,12 +124,12 @@ describe('PRODUCT_SUBCATEGORIES', () => {
   })
 
   it('has entries for every L1 category', () => {
-    const covered = new Set(PRODUCT_SUBCATEGORIES.map((s) => s.category))
-    expect(covered.size).toBe(PRODUCT_TYPE_CATEGORIES.length)
+    const covered = new Set(L2_SUBCATEGORIES.map((s) => s.category))
+    expect(covered.size).toBe(L1_CATEGORIES.length)
   })
 
   it('no new composite subcategories are added', () => {
-    expect(PRODUCT_SUBCATEGORIES.filter(isCompositeSubcategory).length).toBeLessThanOrEqual(57)
+    expect(L2_SUBCATEGORIES.filter(isCompositeSubcategory).length).toBeLessThanOrEqual(57)
   })
 
   it('registers the sixteen DEV-1361 atomic replacements with exclusive aliases', () => {

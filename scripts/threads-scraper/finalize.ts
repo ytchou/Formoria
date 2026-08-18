@@ -2,7 +2,7 @@
  * Step 4: Finalize enriched CSV for bulk import.
  *
  * - Cleans brand names (strips page-title junk)
- * - Maps categoryHints to valid productType slugs
+ * - Maps categoryHints to valid categorySlug slugs
  * - Validates descriptions (40+ char minimum)
  * - Drops informational columns (categoryHints, scrapeStatus)
  * - Outputs a bulk-import-ready CSV
@@ -13,12 +13,12 @@
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve, dirname, basename } from 'node:path'
-import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { L1_CATEGORIES } from '@/lib/taxonomy/ontology'
 
-type ProductTypeSlug = (typeof PRODUCT_TYPE_CATEGORIES)[number]['slug']
+type CategorySlug = (typeof L1_CATEGORIES)[number]['slug']
 
 // Keyword → slug mapping for auto-categorization from categoryHints
-const HINT_KEYWORD_MAP: Record<string, ProductTypeSlug> = {
+const HINT_KEYWORD_MAP: Record<string, CategorySlug> = {
   // bags-accessories
   bag: 'bags-accessories',
   bags: 'bags-accessories',
@@ -228,25 +228,25 @@ function cleanBrandName(name: string): string {
   return cleaned.trim()
 }
 
-function mapHintsToProductTypes(
+function mapHintsToCategories(
   hints: string,
   existingTypes: string,
   description: string = '',
   brandHighlights: string = '',
-): ProductTypeSlug[] {
-  // If productTypes already set, validate and return
+): CategorySlug[] {
+  // If categories already set, validate and return
   if (existingTypes.trim()) {
     const existing = existingTypes.split('|').map(s => s.trim()).filter(Boolean)
-    const validSlugs = PRODUCT_TYPE_CATEGORIES.map(c => c.slug)
-    const valid = existing.filter(s => validSlugs.includes(s as ProductTypeSlug))
-    if (valid.length > 0) return valid as ProductTypeSlug[]
+    const validSlugs = L1_CATEGORIES.map(c => c.slug)
+    const valid = existing.filter(s => validSlugs.includes(s as CategorySlug))
+    if (valid.length > 0) return valid as CategorySlug[]
   }
 
   // Combine all text sources for keyword matching
   const allText = [hints, description, brandHighlights].join(' ')
   if (!allText.trim()) return []
 
-  const matched = new Set<ProductTypeSlug>()
+  const matched = new Set<CategorySlug>()
   const lowerText = allText.toLowerCase()
 
   for (const [keyword, slug] of Object.entries(HINT_KEYWORD_MAP)) {
@@ -275,7 +275,7 @@ function escapeCSV(value: string): string {
 }
 
 const FINAL_COLUMNS = [
-  'name', 'description', 'productTypes', 'productTypeNote',
+  'name', 'description', 'categories', 'categoryNote',
   'website', 'instagram', 'threads', 'facebook',
   'heroImageUrl', 'productPhotos', 'brandHighlights',
 ] as const
@@ -307,10 +307,10 @@ function main() {
     // Validate description
     const desc = (row.description || '').trim()
 
-    // Map productTypes
-    const productTypes = mapHintsToProductTypes(
+    // Map categories
+    const categories = mapHintsToCategories(
       row.categoryHints || '',
-      row.productTypes || '',
+      row.categories || '',
       desc,
       row.brandHighlights || '',
     )
@@ -320,17 +320,17 @@ function main() {
       warnings.push(`${cleanedName}: description too short (${desc.length} chars, need 40+)`)
     }
 
-    // Validate productTypes
-    if (productTypes.length === 0 && !(row.productTypeNote || '').trim()) {
-      warnings.push(`${cleanedName}: no productTypes mapped and no productTypeNote`)
+    // Validate categories
+    if (categories.length === 0 && !(row.categoryNote || '').trim()) {
+      warnings.push(`${cleanedName}: no categories mapped and no categoryNote`)
     }
 
     // Build final row
     const finalRow: Record<string, string> = {
       name: cleanedName,
       description: desc,
-      productTypes: productTypes.join(' | '),
-      productTypeNote: row.productTypeNote || '',
+      categories: categories.join(' | '),
+      categoryNote: row.categoryNote || '',
       website: row.website || '',
       instagram: row.instagram || '',
       threads: row.threads || '',
@@ -344,7 +344,7 @@ function main() {
     finalRows.push(csvLine)
 
     const status = warnings.length > 0 ? '⚠' : '✓'
-    console.error(`  ${status} ${cleanedName} → [${productTypes.join(', ')}]`)
+    console.error(`  ${status} ${cleanedName} → [${categories.join(', ')}]`)
   }
 
   // Write output

@@ -44,7 +44,7 @@ import { faqItemsToQuestions, getBrandFaq } from "@/lib/services/brand-faq";
 import { getChannelsForBrand } from "@/lib/services/brand-channels";
 import { getPublishedCuratedProductsForBrand } from "@/lib/services/curated-products";
 import { getBrandEventParticipations } from "@/lib/services/events";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { cn } from "@/lib/utils";
 import { shouldShowBrandSectionNav } from "@/lib/brands/section-nav";
 import { NotFoundError } from "@/lib/errors";
@@ -204,15 +204,15 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
   const galleryImages = getBrandGalleryImages(displayBrand);
 
-  const productTypeSlug = displayBrand.productType;
-  const productTypeCategory = PRODUCT_TYPE_CATEGORIES.find(
-    (category) => category.slug === productTypeSlug,
+  const categorySlugSlug = displayBrand.categorySlug;
+  const categorySlugCategory = L1_CATEGORIES.find(
+    (category) => category.slug === categorySlugSlug,
   );
-  const categoryTag = productTypeCategory
+  const categoryTag = categorySlugCategory
     ? {
-        slug: productTypeCategory.slug,
-        name: productTypeCategory.name,
-        nameZh: productTypeCategory.nameZh,
+        slug: categorySlugCategory.slug,
+        name: categorySlugCategory.name,
+        nameZh: categorySlugCategory.nameZh,
       }
     : null;
 
@@ -257,10 +257,10 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
   // Breadcrumb items for JSON-LD
   const directoryLabel = tBrandDetail("breadcrumb.directory");
-  const categoryLabel = productTypeCategory
+  const categoryLabel = categorySlugCategory
     ? safeLocale === "en"
-      ? productTypeCategory.name
-      : productTypeCategory.nameZh
+      ? categorySlugCategory.name
+      : categorySlugCategory.nameZh
     : getBrandCategoryLabel(displayBrand, safeLocale === "en" ? "en" : "zh-TW");
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: directoryLabel, href: "/brands" },
@@ -328,7 +328,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 alt={displayBrand.name}
                 brandId={displayBrand.id}
                 brandSlug={displayBrand.slug}
-                category={productTypeSlug}
+                category={categorySlugSlug}
                 imageAlts={displayBrand.imageAlts}
               />
             </div>

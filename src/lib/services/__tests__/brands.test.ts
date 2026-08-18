@@ -193,16 +193,16 @@ describe('brandToDomain — brand detail enrichment fields', () => {
     expect(brand.priceRange).toBe(3)
   })
 
-  it('maps product_tags to productTags', () => {
-    const row = makeBrandRow({ product_tags: ['cotton', 'handmade'] })
+  it('maps subcategories to subcategories', () => {
+    const row = makeBrandRow({ subcategories: ['cotton', 'handmade'] })
     const brand = brandToDomain(row)
-    expect(brand.productTags).toEqual(['cotton', 'handmade'])
+    expect(brand.subcategories).toEqual(['cotton', 'handmade'])
   })
 
-  it('defaults productTags to [] when product_tags is null', () => {
-    const row = makeBrandRow({ product_tags: null })
+  it('defaults subcategories to [] when subcategories is null', () => {
+    const row = makeBrandRow({ subcategories: null })
     const brand = brandToDomain(row)
-    expect(brand.productTags).toEqual([])
+    expect(brand.subcategories).toEqual([])
   })
 
   it('defaults priceRange to null when price_range is not set', () => {
@@ -263,13 +263,13 @@ describe('brandToInsert — brand detail enrichment fields', () => {
     expect(result.price_range).toBe(2)
   })
 
-  it('serializes non-empty productTags to product_tags', () => {
-    const result = brandToInsert({ productTags: ['minimal', 'gift'] })
-    expect(result.product_tags).toEqual(['minimal', 'gift'])
+  it('serializes non-empty subcategories to subcategories', () => {
+    const result = brandToInsert({ subcategories: ['minimal', 'gift'] })
+    expect(result.subcategories).toEqual(['minimal', 'gift'])
   })
 
-  it('serializes empty productTags as [] to allow clearing the field', () => {
-    const result = brandToInsert({ productTags: [] })
-    expect(result.product_tags).toEqual([])
+  it('serializes empty subcategories as [] to allow clearing the field', () => {
+    const result = brandToInsert({ subcategories: [] })
+    expect(result.subcategories).toEqual([])
   })
 })

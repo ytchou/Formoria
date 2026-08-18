@@ -2,7 +2,7 @@
  * Applies the reviewed corrections from the 2026-08 outdoor + tech content audit.
  *
  * Scope: STRUCTURED FIELDS ONLY — status, name/slug, founding_year, city,
- * product_type, product_tags, socials, purchase_website.
+ * category, subcategories, socials, purchase_website.
  * Long-form description rewrites are deliberately NOT in here; they are bilingual
  * editorial copy that needs its own review pass. `pnpm exec tsx … --pending` prints
  * the manifest of description edits still owed.
@@ -158,7 +158,7 @@ const CHANGES: Change[] = [
       name: "張萬春洋傘",
       socialInstagram: null,
       socialFacebook: null,
-      productTags: ["戶外配件"],
+      subcategories: ["戶外配件"],
     },
   },
 
@@ -231,34 +231,34 @@ const CHANGES: Change[] = [
     patch: { city: null },
   },
 
-  // -------------------------------------------------------- product_type
+  // -------------------------------------------------------- category
   {
     ref: "TC-27",
     brand: "MXM",
     brandId: "8760c48e-6c10-476b-9042-894f6c1e846c",
     why: "Professional hand tools, not consumer electronics. Also takes MXM from 0 live facets to 1 — 手工具 is registered under home.",
-    patch: { productType: "home" },
+    patch: { categorySlug: "home" },
   },
   {
     ref: "TC-01",
     brand: "YUJ",
     brandId: "1f482cc1-99cf-47c4-ae87-fef649c87bd0",
     why: "Catalogue is fans, dish dryers, mosquito traps, baby and kitchen goods. 生活家電 is the ontology-valid home tag; the stored 螺絲/螺帽/螺栓 exist in no category.",
-    patch: { productType: "home", productTags: ["生活家電"] },
+    patch: { categorySlug: "home", subcategories: ["生活家電"] },
   },
   {
     ref: "OD-36",
     brand: "Arsenal Tool Inc. 愛森諾工具",
     brandId: "57571a79-fec9-489a-b0a7-ea364306981f",
     why: "Scissors, drivers, sockets, torque wrenches — hand tools, not outdoor gear. 手工具 goes live under home.",
-    patch: { productType: "home" },
+    patch: { categorySlug: "home" },
   },
   {
     ref: "TC-19b",
     brand: "Sweet House 松尼",
     brandId: "79b9bd21-e769-4e60-84c0-6a54a4e96f90",
     why: "Plush, calendars, 春聯, homeware. No tag change — crafts has no character-goods entry, so this brand lands on 0 live facets until the ontology grows.",
-    patch: { productType: "crafts" },
+    patch: { categorySlug: "crafts" },
   },
   {
     ref: "TC-20",
@@ -266,8 +266,8 @@ const CHANGES: Change[] = [
     brandId: "d1485433-c519-4f95-a18f-613c930f37aa",
     why: "Character IP licensed onto CASETiFY, not a tech brand. purchase_website moves off bonnielu.com, which is a portfolio site rather than a shop.",
     patch: {
-      productType: "crafts",
-      productTags: ["手機殼", "插畫・畫作"],
+      categorySlug: "crafts",
+      subcategories: ["手機殼", "插畫・畫作"],
       purchaseWebsite: "https://www.casetify.com/artist/bonnielu",
     },
   },
@@ -276,7 +276,7 @@ const CHANGES: Change[] = [
     brand: "橘皮 oranpeel",
     brandId: "84ff072a-30a5-4700-9e4b-640dbc36c8a7",
     why: "Illustration and character IP; 3C accessories are one licensed line among many.",
-    patch: { productType: "crafts", productTags: ["手機殼", "插畫・畫作"] },
+    patch: { categorySlug: "crafts", subcategories: ["手機殼", "插畫・畫作"] },
   },
   {
     ref: "TC-24",
@@ -284,8 +284,8 @@ const CHANGES: Change[] = [
     brandId: "a233c361-5d7a-4518-99bd-66bc6933ea95",
     why: "Original character brand with CASETiFY, apparel and jewellery collabs.",
     patch: {
-      productType: "crafts",
-      productTags: [
+      categorySlug: "crafts",
+      subcategories: [
         "手機殼",
         "支架",
         "卡套",
@@ -296,14 +296,14 @@ const CHANGES: Change[] = [
     },
   },
 
-  // -------------------------------------------------------- product_tags
+  // -------------------------------------------------------- subcategories
   {
     ref: "OD-18",
     brand: "Gallop Kustom Kulture",
     brandId: "35b24101-b8af-4e6f-9e3b-9ffd273bd8a1",
     why: "Apparel is unsupported on the Pinkoi store (rider face masks do exist, but those are accessories). Facebook was MOONEYES樂多 Kaohsiung, cleared per your call.",
     patch: {
-      productTags: ["安全帽", "戶外配件"],
+      subcategories: ["安全帽", "戶外配件"],
       socialFacebook: null,
     },
   },
@@ -312,28 +312,28 @@ const CHANGES: Change[] = [
     brand: "Taiwan Wader 台興",
     brandId: "15f71688-d68f-419c-856d-fab2ac7a3940",
     why: "Neither pet clothing nor wetsuits. Waders keep you dry (PVC/mesh); wetsuits keep you warm while wet. 雨靴 is kept although unregistered — it is existing data, not a new write.",
-    patch: { productTags: ["雨靴"] },
+    patch: { subcategories: ["雨靴"] },
   },
   {
     ref: "OD-24",
     brand: "ZIV",
     brandId: "1d39c063-5220-411a-96fb-33685b9b3f60",
     why: "No wetsuits and no water-sports equipment — only a 水上運動款 sunglasses sub-line.",
-    patch: { productTags: ["眼鏡・太陽眼鏡", "戶外配件"] },
+    patch: { subcategories: ["眼鏡・太陽眼鏡", "戶外配件"] },
   },
   {
     ref: "OD-25",
     brand: "衣力美 EasyMain",
     brandId: "03bb5608-bfe9-4d92-b561-ac99b6fe64f8",
     why: "Mountaineering apparel and sun-protection layers; no water-sports products of any kind.",
-    patch: { productTags: ["機能服飾", "戶外配件"] },
+    patch: { subcategories: ["機能服飾", "戶外配件"] },
   },
   {
     ref: "TC-17",
     brand: "PhotoFast 銀箭",
     brandId: "f498ec88-8b5a-49e0-b7aa-947b31b736c3",
     why: "Current categories are backup/storage, power/charging and gaming accessories. Phone cases are no longer a product line.",
-    patch: { productTags: ["充電器・充電線", "行動電源", "儲存裝置"] },
+    patch: { subcategories: ["充電器・充電線", "行動電源", "儲存裝置"] },
   },
 
   {
@@ -341,7 +341,7 @@ const CHANGES: Change[] = [
     brand: "SpotCam",
     brandId: "85a43352-88b9-4030-8076-535ee92d9f8b",
     why: "Drops 手機應用程式 — a mobile app is a feature of the product, not a product category, so registering it in the ontology would create a facet nobody browses by. 攝影機 and 智慧門鈴 were registered under tech on 2026-08-12 and now render as live facets.",
-    patch: { productTags: ["攝影機", "智慧門鈴"] },
+    patch: { subcategories: ["攝影機", "智慧門鈴"] },
   },
 
   // ---------------------------------------------------- retail + channels
@@ -534,7 +534,7 @@ async function main(): Promise<void> {
     .select(
       // Every column any patch touches must be selected — a missing one reads as
       // undefined, so the diff never matches and the script rewrites it forever.
-      "id, name, slug, status, product_type, founding_year, city, product_tags, social_instagram, social_facebook, purchase_website, other_urls",
+      "id, name, slug, status, category, founding_year, city, subcategories, social_instagram, social_facebook, purchase_website, other_urls",
     )
     .in("id", ids);
 
@@ -578,10 +578,10 @@ async function main(): Promise<void> {
     }
 
     // Surface tags that will render as invisible labels under the target category.
-    const nextTags = change.patch.productTags as string[] | undefined;
+    const nextTags = change.patch.subcategories as string[] | undefined;
     const nextType =
-      (change.patch.productType as string | undefined) ??
-      (before.product_type as string);
+      (change.patch.categorySlug as string | undefined) ??
+      (before.category as string);
     if (nextTags) {
       const dead = nextTags.filter(
         (t) => matchSubcategory(t)?.category !== nextType,

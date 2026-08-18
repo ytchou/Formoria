@@ -1,5 +1,5 @@
 /**
- * Plan and apply a reviewed product-tag normalization run for approved brands.
+ * Plan and apply a reviewed subcategory normalization run for approved brands.
  *
  * Planning is the default and never mutates Supabase. It resolves ontology
  * aliases deterministically, asks DeepSeek only for the remaining labels, and
@@ -8,10 +8,10 @@
  * manually reviewed artifact; it never calls the model again.
  *
  * Usage:
- *   pnpm exec tsx --env-file=.env.local scripts/normalize-product-tags.ts
- *   pnpm exec tsx --env-file=.env.local scripts/normalize-product-tags.ts --dry-run
- *   pnpm exec tsx --env-file=.env.local scripts/normalize-product-tags.ts \
- *     --apply --artifact=scripts/eval/results/normalize-product-tags-<timestamp>.json
+ *   pnpm exec tsx --env-file=.env.local scripts/normalize-subcategories.ts
+ *   pnpm exec tsx --env-file=.env.local scripts/normalize-subcategories.ts --dry-run
+ *   pnpm exec tsx --env-file=.env.local scripts/normalize-subcategories.ts \
+ *     --apply --artifact=scripts/eval/results/normalize-subcategories-<timestamp>.json
  */
 
 import { config } from "dotenv";
@@ -27,32 +27,32 @@ import {
   parseDeepSeekJson,
 } from "@/lib/services/deepseek-client";
 import {
-  planTagBackfill,
-  normalizeProductTags,
-} from "@/lib/services/product-tags";
+  planSubcategoryBackfill,
+  normalizeSubcategories,
+} from "@/lib/services/subcategories";
 import { updateBrand } from "@/lib/services/brands";
 import {
-  PRODUCT_SUBCATEGORIES,
-  type ProductSubcategory,
+  L2_SUBCATEGORIES,
+  type L2Subcategory,
 } from "@/lib/taxonomy/ontology";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-export const MAX_TAGS = 5;
+export const MAX_SUBCATEGORIES = 5;
 export const DISTINCT_AFTER_THRESHOLD = 350;
 export const RUN_ARTIFACT_VERSION = 2;
-export const PRESERVED_TAGS = [
+export const PRESERVED_SUBCATEGORIES = [
   "食品禮盒",
   "客製化禮品",
   "體驗課程・DIY材料",
   "彌月禮盒",
 ] as const;
 
-const PRESERVED_TAG_SET = new Set<string>(PRESERVED_TAGS);
-const ARTIFACT_KIND = "normalize-product-tags" as const;
-export const PLANNING_OPERATION = "normalize-product-tags.map-tags" as const;
+const PRESERVED_SUBCATEGORY_SET = new Set<string>(PRESERVED_SUBCATEGORIES);
+const ARTIFACT_KIND = "normalize-subcategories" as const;
+export const PLANNING_OPERATION = "normalize-subcategories.map-subcategories" as const;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -69,18 +69,18 @@ export type BrandRow = {
   id: string;
   slug: string;
   status: string;
-  product_type: string | null;
-  product_tags: string[] | null;
-  product_tags_en: string[] | null;
+  category: string | null;
+  subcategories: string[] | null;
+  subcategories_en: string[] | null;
 };
 
-export type TagSource = "matched" | "llm" | "novel" | "preserved" | "dropped";
+export type SubcategorySource = "matched" | "llm" | "novel" | "preserved" | "dropped";
 
-type PairWithSource = {
+type PairWithSubcategorySource = {
   zh: string;
   en: string;
   originalTag: string;
-  source: Exclude<TagSource, "dropped">;
+  source: Exclude<SubcategorySource, "dropped">;
 };
 
 export type BrandResult = {
@@ -89,7 +89,7 @@ export type BrandResult = {
   beforeEn: string[] | null;
   afterZh: string[];
   afterEn: string[];
-  perTagSource: Map<string, TagSource>;
+  perSubcategorySource: Map<string, SubcategorySource>;
 };
 
 export type TagPair = {
@@ -107,10 +107,10 @@ export type RunSummary = {
   droppedCount: number;
   pctMapped: string;
   preservedTagCounts: Record<
-    (typeof PRESERVED_TAGS)[number],
+    (typeof PRESERVED_SUBCATEGORIES)[number],
     { before: number; after: number }
   >;
-  productTypeTotals: Record<string, number>;
+  categorySlugTotals: Record<string, number>;
 };
 
 export type PlanningCall = {
@@ -125,8 +125,8 @@ type ArtifactReview = {
 };
 
 type ArtifactValue = {
-  productTags: string[];
-  productTagsEn: string[] | null;
+  subcategories: string[];
+  subcategoriesEn: string[] | null;
   pairs: TagPair[];
 };
 
@@ -134,17 +134,17 @@ type ArtifactRow = {
   id: string;
   slug: string;
   status: string;
-  productType: string | null;
+  categorySlug: string | null;
   before: ArtifactValue;
-  after: ArtifactValue & { productTagsEn: string[] };
-  sources: Record<string, TagSource>;
+  after: ArtifactValue & { subcategoriesEn: string[] };
+  sources: Record<string, SubcategorySource>;
 };
 
 type RollbackRow = {
   id: string;
   slug: string;
-  productTags: string[];
-  productTagsEn: string[] | null;
+  subcategories: string[];
+  subcategoriesEn: string[] | null;
 };
 
 export type RunArtifact = {
@@ -166,13 +166,13 @@ export type RunArtifact = {
 // Module-level lookups (computed once)
 // ---------------------------------------------------------------------------
 
-const slugToSub = new Map<string, ProductSubcategory>();
-for (const sub of PRODUCT_SUBCATEGORIES) {
+const slugToSub = new Map<string, L2Subcategory>();
+for (const sub of L2_SUBCATEGORIES) {
   slugToSub.set(sub.slug, sub);
 }
 
-const categorySubcategories = new Map<string, ProductSubcategory[]>();
-for (const sub of PRODUCT_SUBCATEGORIES) {
+const categorySubcategories = new Map<string, L2Subcategory[]>();
+for (const sub of L2_SUBCATEGORIES) {
   const list = categorySubcategories.get(sub.category) ?? [];
   list.push(sub);
   categorySubcategories.set(sub.category, list);
@@ -260,9 +260,9 @@ async function loadApprovedBrands(
   while (true) {
     const { data, error } = await supabase
       .from("brands")
-      .select("id, slug, status, product_type, product_tags, product_tags_en")
+      .select("id, slug, status, category, subcategories, subcategories_en")
       .eq("status", "approved")
-      .not("product_tags", "is", null)
+      .not("subcategories", "is", null)
       .order("id", { ascending: true })
       .range(offset, offset + batchSize - 1);
 
@@ -270,7 +270,7 @@ async function loadApprovedBrands(
 
     const batch = (data ?? []) as BrandRow[];
     brands.push(
-      ...batch.filter((brand) => (brand.product_tags ?? []).length > 0),
+      ...batch.filter((brand) => (brand.subcategories ?? []).length > 0),
     );
 
     if (batch.length < batchSize) break;
@@ -286,7 +286,7 @@ async function loadBrandSnapshot(
 ): Promise<BrandRow> {
   const { data, error } = await supabase
     .from("brands")
-    .select("id, slug, status, product_type, product_tags, product_tags_en")
+    .select("id, slug, status, category, subcategories, subcategories_en")
     .eq("id", id)
     .maybeSingle();
 
@@ -307,9 +307,9 @@ function assertCurrentMatchesArtifact(
     current.id !== row.id ||
     current.slug !== row.slug ||
     current.status !== row.status ||
-    current.product_type !== row.productType ||
-    !sameArray(current.product_tags, row.before.productTags) ||
-    !sameArray(current.product_tags_en, row.before.productTagsEn)
+    current.category !== row.categorySlug ||
+    !sameArray(current.subcategories, row.before.subcategories) ||
+    !sameArray(current.subcategories_en, row.before.subcategoriesEn)
   ) {
     throw new Error(
       `ABORT: baseline drift for brand "${row.slug}"; current DB values do not match the reviewed artifact`,
@@ -338,7 +338,7 @@ function collectPlanningCategories(
   for (const { category, unmatched } of entries) {
     const tags = categoryUnmatched.get(category) ?? new Set<string>();
     for (const tag of unmatched) {
-      if (!PRESERVED_TAG_SET.has(tag)) tags.add(tag);
+      if (!PRESERVED_SUBCATEGORY_SET.has(tag)) tags.add(tag);
     }
     categoryUnmatched.set(category, tags);
   }
@@ -359,8 +359,8 @@ function expectedPlanningCallsForResults(
   return planningCallsForCategories(
     collectPlanningCategories(
       results.map((result) => ({
-        category: result.brand.product_type ?? "unknown",
-        unmatched: planTagBackfill(result.beforeZh).unmatched,
+        category: result.brand.category ?? "unknown",
+        unmatched: planSubcategoryBackfill(result.beforeZh).unmatched,
       })),
     ),
   );
@@ -377,11 +377,11 @@ export async function mapTagsWithLlm(
   const slugList = subs.map((sub) => `${sub.slug} (${sub.nameZh})`).join("\n");
   const system =
     "You are a product taxonomy assistant for Formoria, a Taiwanese brand discovery and curation platform. " +
-    "Map Chinese product tags to predefined subcategory slugs. Return only valid JSON.";
+    "Map Chinese subcategories to predefined subcategory slugs. Return only valid JSON.";
   const user =
-    "Map each Chinese product tag to the most fitting subcategory slug from the list below, " +
+    "Map each Chinese subcategory to the most fitting subcategory slug from the list below, " +
     `or null if none fits well.\n\nAvailable slugs for category "${category}":\n${slugList}\n\n` +
-    "Tags to map (return a JSON object mapping each tag string to a slug string or null):\n" +
+    "Subcategories to map (return a JSON object mapping each subcategory to a slug string or null):\n" +
     tags.join("\n");
 
   const result = await client.chat({
@@ -423,18 +423,18 @@ export async function mapTagsWithLlm(
 
 export function composeResult(
   brand: BrandRow,
-  plan: ReturnType<typeof planTagBackfill>,
+  plan: ReturnType<typeof planSubcategoryBackfill>,
   llmMapping: Map<string, string | null>,
 ): BrandResult {
-  const beforeZh = brand.product_tags ?? [];
-  const beforeEn = brand.product_tags_en;
+  const beforeZh = brand.subcategories ?? [];
+  const beforeEn = brand.subcategories_en;
   const zhToEn = new Map<string, string>();
   for (let index = 0; index < beforeZh.length; index += 1) {
     const zh = beforeZh[index];
     if (zh) zhToEn.set(zh, beforeEn?.[index] ?? zh);
   }
 
-  const pairs: PairWithSource[] = [];
+  const pairs: PairWithSubcategorySource[] = [];
   const seenSlugs = new Set<string>();
   const droppedTags = new Set<string>();
 
@@ -442,7 +442,7 @@ export function composeResult(
   // are research signals until DEV-1384 chooses a destination surface.
   for (let index = 0; index < beforeZh.length; index += 1) {
     const original = beforeZh[index];
-    if (!PRESERVED_TAG_SET.has(original)) continue;
+    if (!PRESERVED_SUBCATEGORY_SET.has(original)) continue;
     pairs.push({
       zh: original,
       en: beforeEn?.[index] ?? original,
@@ -453,7 +453,7 @@ export function composeResult(
 
   // Pass 1 — deterministic vocab matches.
   for (const match of plan.matched) {
-    if (PRESERVED_TAG_SET.has(match.original)) continue;
+    if (PRESERVED_SUBCATEGORY_SET.has(match.original)) continue;
     if (seenSlugs.has(match.slug)) {
       droppedTags.add(match.original);
       continue;
@@ -470,7 +470,7 @@ export function composeResult(
   // Pass 2 — LLM-mapped + novel heuristics. Preserved labels never reach a
   // model or a heuristic, even if a future ontology alias overlaps one.
   for (const unmatchedTag of plan.unmatched) {
-    if (PRESERVED_TAG_SET.has(unmatchedTag)) continue;
+    if (PRESERVED_SUBCATEGORY_SET.has(unmatchedTag)) continue;
 
     const slug = llmMapping.get(unmatchedTag);
     if (typeof slug === "string") {
@@ -489,14 +489,14 @@ export function composeResult(
       continue;
     }
 
-    const novel = normalizeProductTags(
+    const novel = normalizeSubcategories(
       [unmatchedTag],
       [zhToEn.get(unmatchedTag) ?? ""],
     );
-    if (novel.tags.length > 0) {
+    if (novel.subcategories.length > 0) {
       pairs.push({
-        zh: novel.tags[0]!,
-        en: novel.tagsEn[0] ?? unmatchedTag,
+        zh: novel.subcategories[0]!,
+        en: novel.subcategoriesEn[0] ?? unmatchedTag,
         originalTag: unmatchedTag,
         source: "novel",
       });
@@ -507,22 +507,22 @@ export function composeResult(
 
   // Keep the existing five-tag product invariant. Preserved labels are first,
   // so a source row can only lose one of them when the input itself is unsafe.
-  const capped = pairs.slice(0, MAX_TAGS);
+  const capped = pairs.slice(0, MAX_SUBCATEGORIES);
   const cappedOriginals = new Set(capped.map((pair) => pair.originalTag));
   for (const preserved of pairs.filter((pair) => pair.source === "preserved")) {
     if (!capped.includes(preserved)) {
       throw new Error(
-        `ABORT: preserved tag "${preserved.zh}" would be removed by the ${MAX_TAGS}-tag cap for brand "${brand.slug}"`,
+        `ABORT: preserved tag "${preserved.zh}" would be removed by the ${MAX_SUBCATEGORIES}-tag cap for brand "${brand.slug}"`,
       );
     }
   }
 
-  const perTagSource = new Map<string, TagSource>();
-  for (const pair of capped) perTagSource.set(pair.originalTag, pair.source);
-  for (const tag of droppedTags) perTagSource.set(tag, "dropped");
-  for (const pair of pairs.slice(MAX_TAGS)) {
+  const perSubcategorySource = new Map<string, SubcategorySource>();
+  for (const pair of capped) perSubcategorySource.set(pair.originalTag, pair.source);
+  for (const tag of droppedTags) perSubcategorySource.set(tag, "dropped");
+  for (const pair of pairs.slice(MAX_SUBCATEGORIES)) {
     if (!cappedOriginals.has(pair.originalTag)) {
-      perTagSource.set(pair.originalTag, "dropped");
+      perSubcategorySource.set(pair.originalTag, "dropped");
     }
   }
 
@@ -532,38 +532,38 @@ export function composeResult(
     beforeEn,
     afterZh: capped.map((pair) => pair.zh),
     afterEn: capped.map((pair) => pair.en),
-    perTagSource,
+    perSubcategorySource,
   };
 }
 
 function toTagPairs(
-  productTags: string[],
-  productTagsEn: string[] | null,
+  subcategories: string[],
+  subcategoriesEn: string[] | null,
 ): TagPair[] {
-  return productTags.map((zh, index) => ({
+  return subcategories.map((zh, index) => ({
     zh,
-    en: productTagsEn?.[index] ?? null,
+    en: subcategoriesEn?.[index] ?? null,
   }));
 }
 
 function preservedCounts(
   values: string[],
-): Record<(typeof PRESERVED_TAGS)[number], number> {
+): Record<(typeof PRESERVED_SUBCATEGORIES)[number], number> {
   const counts = Object.fromEntries(
-    PRESERVED_TAGS.map((tag) => [tag, 0]),
-  ) as Record<(typeof PRESERVED_TAGS)[number], number>;
+    PRESERVED_SUBCATEGORIES.map((tag) => [tag, 0]),
+  ) as Record<(typeof PRESERVED_SUBCATEGORIES)[number], number>;
   for (const value of values) {
-    if (PRESERVED_TAG_SET.has(value)) {
-      counts[value as (typeof PRESERVED_TAGS)[number]] += 1;
+    if (PRESERVED_SUBCATEGORY_SET.has(value)) {
+      counts[value as (typeof PRESERVED_SUBCATEGORIES)[number]] += 1;
     }
   }
   return counts;
 }
 
-function productTypeTotals(results: BrandResult[]): Record<string, number> {
+function categorySlugTotals(results: BrandResult[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const result of results) {
-    const category = result.brand.product_type ?? "unknown";
+    const category = result.brand.category ?? "unknown";
     totals[category] = (totals[category] ?? 0) + 1;
   }
   return Object.fromEntries(
@@ -587,9 +587,9 @@ export function validateResults(results: BrandResult[]): RunSummary {
         `ABORT: brand "${result.brand.slug}" would go from tags to zero tags`,
       );
     }
-    if (result.afterZh.length > MAX_TAGS) {
+    if (result.afterZh.length > MAX_SUBCATEGORIES) {
       throw new Error(
-        `ABORT: brand "${result.brand.slug}" exceeds the ${MAX_TAGS}-tag cap`,
+        `ABORT: brand "${result.brand.slug}" exceeds the ${MAX_SUBCATEGORIES}-tag cap`,
       );
     }
     if (result.afterZh.length !== result.afterEn.length) {
@@ -608,7 +608,7 @@ export function validateResults(results: BrandResult[]): RunSummary {
 
     const beforePreserved = preservedCounts(result.beforeZh);
     const afterPreserved = preservedCounts(result.afterZh);
-    for (const tag of PRESERVED_TAGS) {
+    for (const tag of PRESERVED_SUBCATEGORIES) {
       if (beforePreserved[tag] !== afterPreserved[tag]) {
         throw new Error(
           `ABORT: preserved tag "${tag}" changed count for brand "${result.brand.slug}"`,
@@ -620,16 +620,16 @@ export function validateResults(results: BrandResult[]): RunSummary {
   const beforePreserved = preservedCounts(beforeTags);
   const afterPreserved = preservedCounts(afterTags);
   const preservedTagCounts = Object.fromEntries(
-    PRESERVED_TAGS.map((tag) => [
+    PRESERVED_SUBCATEGORIES.map((tag) => [
       tag,
       { before: beforePreserved[tag], after: afterPreserved[tag] },
     ]),
   ) as RunSummary["preservedTagCounts"];
   const mappedCount = results
-    .flatMap((result) => [...result.perTagSource.values()])
+    .flatMap((result) => [...result.perSubcategorySource.values()])
     .filter((source) => source !== "dropped").length;
   const droppedCount = results
-    .flatMap((result) => [...result.perTagSource.values()])
+    .flatMap((result) => [...result.perSubcategorySource.values()])
     .filter((source) => source === "dropped").length;
   const totalOriginalTags = beforeTags.length;
   const distinctAfter = new Set(afterTags).size;
@@ -656,7 +656,7 @@ export function validateResults(results: BrandResult[]): RunSummary {
         ? ((mappedCount / totalOriginalTags) * 100).toFixed(1)
         : "0",
     preservedTagCounts,
-    productTypeTotals: productTypeTotals(results),
+    categorySlugTotals: categorySlugTotals(results),
   };
 }
 
@@ -669,18 +669,18 @@ function artifactRowFromResult(result: BrandResult): ArtifactRow {
     id: result.brand.id,
     slug: result.brand.slug,
     status: result.brand.status,
-    productType: result.brand.product_type,
+    categorySlug: result.brand.category,
     before: {
-      productTags: result.beforeZh,
-      productTagsEn: result.beforeEn,
+      subcategories: result.beforeZh,
+      subcategoriesEn: result.beforeEn,
       pairs: toTagPairs(result.beforeZh, result.beforeEn),
     },
     after: {
-      productTags: result.afterZh,
-      productTagsEn: result.afterEn,
+      subcategories: result.afterZh,
+      subcategoriesEn: result.afterEn,
       pairs: toTagPairs(result.afterZh, result.afterEn),
     },
-    sources: Object.fromEntries(result.perTagSource.entries()),
+    sources: Object.fromEntries(result.perSubcategorySource.entries()),
   };
 }
 
@@ -710,8 +710,8 @@ export function createRunArtifact(
       rows: rows.map((row) => ({
         id: row.id,
         slug: row.slug,
-        productTags: row.before.productTags,
-        productTagsEn: row.before.productTagsEn,
+        subcategories: row.before.subcategories,
+        subcategoriesEn: row.before.subcategoriesEn,
       })),
     },
   };
@@ -897,8 +897,8 @@ function expectedPlanningCallsForRows(rows: ArtifactRow[]): PlanningCall[] {
   return planningCallsForCategories(
     collectPlanningCategories(
       rows.map((row) => ({
-        category: row.productType ?? "unknown",
-        unmatched: planTagBackfill(row.before.productTags).unmatched,
+        category: row.categorySlug ?? "unknown",
+        unmatched: planSubcategoryBackfill(row.before.subcategories).unmatched,
       })),
     ),
   );
@@ -927,7 +927,7 @@ function assertPlanningAuditCoverage(
 }
 
 function assertPairedValues(value: ArtifactValue, pathLabel: string): void {
-  const expected = toTagPairs(value.productTags, value.productTagsEn);
+  const expected = toTagPairs(value.subcategories, value.subcategoriesEn);
   if (JSON.stringify(expected) !== JSON.stringify(value.pairs)) {
     throw new Error(
       `Malformed artifact: ${pathLabel} paired values do not match arrays`,
@@ -944,7 +944,7 @@ function assertArtifactSummary(artifact: RunArtifact): void {
   }
   const categories = new Map<string, number>();
   for (const row of artifact.rows) {
-    const category = row.productType ?? "unknown";
+    const category = row.categorySlug ?? "unknown";
     categories.set(category, (categories.get(category) ?? 0) + 1);
   }
   const expectedTotals = Object.fromEntries(
@@ -954,10 +954,10 @@ function assertArtifactSummary(artifact: RunArtifact): void {
   );
   if (
     JSON.stringify(expectedTotals) !==
-    JSON.stringify(artifact.summary.productTypeTotals)
+    JSON.stringify(artifact.summary.categorySlugTotals)
   ) {
     throw new Error(
-      "Malformed artifact: product_type totals do not match rows",
+      "Malformed artifact: category totals do not match rows",
     );
   }
   if (artifact.summary.brandsScanned !== artifact.rows.length) {
@@ -972,15 +972,15 @@ function assertArtifactSummary(artifact: RunArtifact): void {
         id: row.id,
         slug: row.slug,
         status: row.status,
-        product_type: row.productType,
-        product_tags: row.before.productTags,
-        product_tags_en: row.before.productTagsEn,
+        category: row.categorySlug,
+        subcategories: row.before.subcategories,
+        subcategories_en: row.before.subcategoriesEn,
       },
-      beforeZh: row.before.productTags,
-      beforeEn: row.before.productTagsEn,
-      afterZh: row.after.productTags,
-      afterEn: row.after.productTagsEn,
-      perTagSource: new Map(Object.entries(row.sources)),
+      beforeZh: row.before.subcategories,
+      beforeEn: row.before.subcategoriesEn,
+      afterZh: row.after.subcategories,
+      afterEn: row.after.subcategoriesEn,
+      perSubcategorySource: new Map(Object.entries(row.sources)),
     })),
   );
   if (JSON.stringify(computed) !== JSON.stringify(artifact.summary)) {
@@ -1050,7 +1050,7 @@ export function parseRunArtifact(
       typeof rawRow.id !== "string" ||
       typeof rawRow.slug !== "string" ||
       typeof rawRow.status !== "string" ||
-      (rawRow.productType !== null && typeof rawRow.productType !== "string") ||
+      (rawRow.categorySlug !== null && typeof rawRow.categorySlug !== "string") ||
       !isRecord(rawRow.before) ||
       !isRecord(rawRow.after) ||
       !isRecord(rawRow.sources)
@@ -1063,49 +1063,49 @@ export function parseRunArtifact(
     ids.add(rawRow.id);
 
     const before: ArtifactValue = {
-      productTags: stringArray(
-        rawRow.before.productTags,
-        `rows[${index}].before.productTags`,
+      subcategories: stringArray(
+        rawRow.before.subcategories,
+        `rows[${index}].before.subcategories`,
       ),
-      productTagsEn: nullableStringArray(
-        rawRow.before.productTagsEn,
-        `rows[${index}].before.productTagsEn`,
+      subcategoriesEn: nullableStringArray(
+        rawRow.before.subcategoriesEn,
+        `rows[${index}].before.subcategoriesEn`,
       ),
       pairs: tagPairs(rawRow.before.pairs, `rows[${index}].before.pairs`),
     };
     const afterEn = stringArray(
-      rawRow.after.productTagsEn,
-      `rows[${index}].after.productTagsEn`,
+      rawRow.after.subcategoriesEn,
+      `rows[${index}].after.subcategoriesEn`,
     );
-    const after: ArtifactValue & { productTagsEn: string[] } = {
-      productTags: stringArray(
-        rawRow.after.productTags,
-        `rows[${index}].after.productTags`,
+    const after: ArtifactValue & { subcategoriesEn: string[] } = {
+      subcategories: stringArray(
+        rawRow.after.subcategories,
+        `rows[${index}].after.subcategories`,
       ),
-      productTagsEn: afterEn,
+      subcategoriesEn: afterEn,
       pairs: tagPairs(rawRow.after.pairs, `rows[${index}].after.pairs`),
     };
     assertPairedValues(before, `rows[${index}].before`);
     assertPairedValues(after, `rows[${index}].after`);
     if (
-      before.productTagsEn !== null &&
-      before.productTags.length !== before.productTagsEn.length
+      before.subcategoriesEn !== null &&
+      before.subcategories.length !== before.subcategoriesEn.length
     ) {
       throw new Error(
         `Malformed artifact: rows[${index}].before zh/en arrays are unpaired`,
       );
     }
-    if (before.productTags.length > 0 && after.productTags.length === 0) {
+    if (before.subcategories.length > 0 && after.subcategories.length === 0) {
       throw new Error(`ABORT: rows[${index}] would remove every tag`);
     }
-    if (after.productTags.length > MAX_TAGS) {
-      throw new Error(`ABORT: rows[${index}] exceeds the ${MAX_TAGS}-tag cap`);
+    if (after.subcategories.length > MAX_SUBCATEGORIES) {
+      throw new Error(`ABORT: rows[${index}] exceeds the ${MAX_SUBCATEGORIES}-tag cap`);
     }
-    for (const tag of PRESERVED_TAGS) {
-      const beforeCount = before.productTags.filter(
+    for (const tag of PRESERVED_SUBCATEGORIES) {
+      const beforeCount = before.subcategories.filter(
         (value) => value === tag,
       ).length;
-      const afterCount = after.productTags.filter(
+      const afterCount = after.subcategories.filter(
         (value) => value === tag,
       ).length;
       if (beforeCount !== afterCount) {
@@ -1130,13 +1130,13 @@ export function parseRunArtifact(
         }
         return [sourceTag, source];
       }),
-    ) as Record<string, TagSource>;
+    ) as Record<string, SubcategorySource>;
 
     return {
       id: rawRow.id,
       slug: rawRow.slug,
       status: rawRow.status,
-      productType: rawRow.productType,
+      categorySlug: rawRow.categorySlug,
       before,
       after,
       sources,
@@ -1154,13 +1154,13 @@ export function parseRunArtifact(
     return {
       id: rawRow.id,
       slug: rawRow.slug,
-      productTags: stringArray(
-        rawRow.productTags,
-        `rollback.rows[${index}].productTags`,
+      subcategories: stringArray(
+        rawRow.subcategories,
+        `rollback.rows[${index}].subcategories`,
       ),
-      productTagsEn: nullableStringArray(
-        rawRow.productTagsEn,
-        `rollback.rows[${index}].productTagsEn`,
+      subcategoriesEn: nullableStringArray(
+        rawRow.subcategoriesEn,
+        `rollback.rows[${index}].subcategoriesEn`,
       ),
     };
   });
@@ -1174,8 +1174,8 @@ export function parseRunArtifact(
     if (
       rollback.id !== row.id ||
       rollback.slug !== row.slug ||
-      !sameArray(rollback.productTags, row.before.productTags) ||
-      !sameArray(rollback.productTagsEn, row.before.productTagsEn)
+      !sameArray(rollback.subcategories, row.before.subcategories) ||
+      !sameArray(rollback.subcategoriesEn, row.before.subcategoriesEn)
     ) {
       throw new Error(
         `Malformed artifact: rollback row ${index} does not restore before values`,
@@ -1217,7 +1217,7 @@ export function defaultArtifactPath(
   const safeTimestamp = createdAt.replace(/[:.]/g, "-");
   return path.resolve(
     "scripts/eval/results",
-    `normalize-product-tags-${safeTimestamp}.json`,
+    `normalize-subcategories-${safeTimestamp}.json`,
   );
 }
 
@@ -1273,8 +1273,8 @@ export async function applyRunArtifact(
   let writeCount = 0;
   for (const row of reviewed.rows) {
     if (
-      sameArray(row.before.productTags, row.after.productTags) &&
-      sameArray(row.before.productTagsEn, row.after.productTagsEn)
+      sameArray(row.before.subcategories, row.after.subcategories) &&
+      sameArray(row.before.subcategoriesEn, row.after.subcategoriesEn)
     ) {
       continue;
     }
@@ -1284,8 +1284,8 @@ export async function applyRunArtifact(
     const written = await updateBrand(
       row.id,
       {
-        productTags: row.after.productTags,
-        productTagsEn: row.after.productTagsEn,
+        subcategories: row.after.subcategories,
+        subcategoriesEn: row.after.subcategoriesEn,
       },
       { source: "enriched" },
     );
@@ -1296,8 +1296,8 @@ export async function applyRunArtifact(
       throw new Error(`ABORT: write for "${row.slug}" was skipped: ${detail}`);
     }
     if (
-      !sameArray(written.productTags, row.after.productTags) ||
-      !sameArray(written.productTagsEn, row.after.productTagsEn)
+      !sameArray(written.subcategories, row.after.subcategories) ||
+      !sameArray(written.subcategoriesEn, row.after.subcategoriesEn)
     ) {
       throw new Error(`ABORT: write verification failed for "${row.slug}"`);
     }
@@ -1315,15 +1315,15 @@ async function planAndWrite(options: CliOptions): Promise<void> {
   const auditEvents: ChatAuditEvent[] = [];
   const deepseek = createPlanningDeepSeekClient(auditEvents);
   const brands = await loadApprovedBrands(supabase, options.batchSize);
-  console.log(`Loaded ${brands.length} brand(s) with product_tags`);
+  console.log(`Loaded ${brands.length} brand(s) with subcategories`);
 
   const brandPlans = brands.map((brand) => ({
     brand,
-    plan: planTagBackfill(brand.product_tags ?? []),
+    plan: planSubcategoryBackfill(brand.subcategories ?? []),
   }));
   const categoryUnmatched = collectPlanningCategories(
     brandPlans.map(({ brand, plan }) => ({
-      category: brand.product_type ?? "unknown",
+      category: brand.category ?? "unknown",
       unmatched: plan.unmatched,
     })),
   );
@@ -1343,7 +1343,7 @@ async function planAndWrite(options: CliOptions): Promise<void> {
     composeResult(
       brand,
       plan,
-      globalLlmMapping.get(brand.product_type ?? "unknown") ?? new Map(),
+      globalLlmMapping.get(brand.category ?? "unknown") ?? new Map(),
     ),
   );
   const artifact = createRunArtifact(

@@ -23,7 +23,7 @@ const USER_FACING_ROOTS = [
   "messages",
   "public",
   "scripts/fonts",
-  "scripts/normalize-product-tags.ts",
+  "scripts/normalize-subcategories.ts",
   "src/app",
   "src/components",
   "src/lib",

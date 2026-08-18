@@ -3,8 +3,8 @@ import { resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import { describe, expect, it } from 'vitest'
 import {
-  PRODUCT_TYPE_CATEGORIES,
-  PRODUCT_SUBCATEGORIES,
+  L1_CATEGORIES,
+  L2_SUBCATEGORIES,
   isCompositeSubcategory,
   subcategoryBySlug,
 } from '@/lib/taxonomy/ontology'
@@ -27,7 +27,7 @@ import {
 const map: KeywordMap = loadKeywordMap(DEFAULT_KEYWORD_MAP_PATH)
 const { clusters, unmapped_backlog: backlog } = map
 
-const L1_SLUGS = new Set<string>(PRODUCT_TYPE_CATEGORIES.map(category => category.slug))
+const L1_SLUGS = new Set<string>(L1_CATEGORIES.map(category => category.slug))
 const TAXONOMY_PAGE_TYPES = new Set(['l1-category', 'l2-category'])
 const RECLASSIFIED_SYNONYM_SLUGS = new Set([
   'essential-oils-and-hydrosols',
@@ -386,7 +386,7 @@ describe('keyword map invariants', () => {
 
     const missing: string[] = []
     const duplicate: string[] = []
-    for (const subcategory of PRODUCT_SUBCATEGORIES) {
+    for (const subcategory of L2_SUBCATEGORIES) {
       const rows = rowsBySlug.get(subcategory.slug) ?? []
       if (rows.length === 0) missing.push(subcategory.slug)
       if (rows.length > 1) duplicate.push(`${subcategory.slug}: ${rows.join(', ')}`)
@@ -435,8 +435,8 @@ describe('keyword map invariants', () => {
         .map(cluster => cluster.ontology_slug),
     )
 
-    expect(PRODUCT_TYPE_CATEGORIES).toHaveLength(12)
-    const missing = PRODUCT_TYPE_CATEGORIES.map(category => category.slug).filter(
+    expect(L1_CATEGORIES).toHaveLength(12)
+    const missing = L1_CATEGORIES.map(category => category.slug).filter(
       slug => !covered.has(slug),
     )
     expect(missing).toEqual([])
@@ -543,7 +543,7 @@ describe('keyword map invariants', () => {
   it('every composite ontology subcategory is classified with a definite value', () => {
     // The separator predicate lives in ontology.ts, which owns U+30FB — two
     // hand-rolled `includes('・')` spellings across two files was the bug.
-    const compositeSubcategories = PRODUCT_SUBCATEGORIES.filter(isCompositeSubcategory)
+    const compositeSubcategories = L2_SUBCATEGORIES.filter(isCompositeSubcategory)
     expect(compositeSubcategories.length).toBeGreaterThan(0)
 
     // Record WHICH classification, and treat a second, different classification

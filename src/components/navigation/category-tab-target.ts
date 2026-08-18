@@ -1,6 +1,6 @@
 import { localizePath } from '@/i18n/locale-preference'
 import { updateDirectoryUrl } from '@/lib/directory-filter-url'
-import { PRODUCT_TYPE_CATEGORIES, subcategoryBySlug } from '@/lib/taxonomy/ontology'
+import { L1_CATEGORIES, subcategoryBySlug } from '@/lib/taxonomy/ontology'
 
 export type CategoryTabTargetInput = {
   pathname: string
@@ -28,7 +28,7 @@ export function buildCategoryTabTarget({
   const selectedCategories = categorySlugs ?? (slug ? [slug] : [])
   const clearingAll = slug === '' && categorySlugs === undefined
   const validCategories = selectedCategories.filter((candidate) =>
-    PRODUCT_TYPE_CATEGORIES.some((category) => category.slug === candidate),
+    L1_CATEGORIES.some((category) => category.slug === candidate),
   )
   const categorySlug = validCategories[0] ?? null
   const activeSubSlug = subSlug ?? null

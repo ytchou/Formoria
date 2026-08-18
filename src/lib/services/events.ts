@@ -664,7 +664,7 @@ export function deriveCategoryOptions(
   const options = new Map<string, EventCategoryOption>();
 
   for (const entry of entries) {
-    const category = entry.brand.category;
+    const category = entry.brand.categoryLabel;
     if (!category) continue;
     if (options.has(category)) continue;
 

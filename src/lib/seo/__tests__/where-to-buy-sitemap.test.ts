@@ -17,8 +17,8 @@ function location(city: CitySlug, index: number): StockistLocation {
     district: null,
     brandSlug: `maria-garcia-${index}`,
     brandName: `María García ${index}`,
-    productType: 'home',
-    productTags: [],
+    categorySlug: 'home',
+    subcategories: [],
   }
 }
 

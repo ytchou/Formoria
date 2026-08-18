@@ -8,7 +8,7 @@ import { markRenderDegraded } from "@/lib/degraded-render";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
 import { getIndexableTrailSlugs } from "@/lib/services/trail-supply";
 import { type TrailEntry, type TrailListResult } from "@/lib/services/trails";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -17,7 +17,7 @@ type PageProps = {
 
 export const revalidate = 3600;
 
-const TRAIL_TAGS = new Set<string>(PRODUCT_TYPE_CATEGORIES.map((category) => category.slug));
+const TRAIL_TAGS = new Set<string>(L1_CATEGORIES.map((category) => category.slug));
 
 export function filterTrailsByTag(
   trails: TrailEntry[],

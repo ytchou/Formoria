@@ -6,7 +6,7 @@ import { InfoField, SurfaceCard } from '@/components/ui/card'
 import { Typography } from '@/components/ui/typography'
 import { CompletenessRing } from '@/components/dashboard/completeness-ring'
 import { Link } from '@/i18n/navigation'
-import { getProductTypeLabel } from '@/lib/brands/category-label'
+import { getCategoryLabel } from '@/lib/brands/category-label'
 import { getBrandGalleryImages } from '@/lib/services/brand-images'
 import {
   computeProfileCompleteness,
@@ -43,16 +43,16 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
   const publicationStatus = tOverview(
     brand.status === 'approved' ? 'statusPublished' : 'statusHidden',
   )
-  const productType = brand.productType
-    ? (getProductTypeLabel(
-        brand.productType,
+  const categorySlug = brand.categorySlug
+    ? (getCategoryLabel(
+        brand.categorySlug,
         locale === 'zh-TW' ? 'zh-TW' : 'en',
-      ) ?? brand.productType)
+      ) ?? brand.categorySlug)
     : '—'
   const priceRange = brand.priceRange != null ? '$'.repeat(brand.priceRange) : null
-  const productTags = locale === 'en' && brand.productTagsEn.length > 0
-    ? brand.productTagsEn
-    : brand.productTags
+  const subcategories = locale === 'en' && brand.subcategoriesEn.length > 0
+    ? brand.subcategoriesEn
+    : brand.subcategories
   const unknownValue = (
     <Typography as="span" className="text-muted-foreground" variant="fieldValue">
       {tBrandDetail('unknown')}
@@ -72,7 +72,7 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
           alt={brand.name}
           brandId={brand.id}
           brandSlug={brand.slug}
-          category={brand.productType ?? brand.category}
+          category={brand.categorySlug ?? brand.categoryLabel}
           imageAlts={brand.imageAlts}
           images={galleryImages}
           trackingEnabled={false}
@@ -125,9 +125,9 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
           <InfoField
             label={tBrandDetail('label.category')}
             labelClassName={infoLabelClassName}
-            value={productType !== '—' ? (
+            value={categorySlug !== '—' ? (
               <Badge className="text-foreground" variant="secondary">
-                {productType}
+                {categorySlug}
               </Badge>
             ) : unknownValue}
           />
@@ -143,9 +143,9 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
           <InfoField
             label={tBrandDetail('label.productCategories')}
             labelClassName={infoLabelClassName}
-            value={productTags.length > 0 ? (
+            value={subcategories.length > 0 ? (
               <div className="flex flex-wrap items-center gap-1.5">
-                {productTags.map((productTag) => (
+                {subcategories.map((productTag) => (
                   <Badge
                     className="text-foreground"
                     key={productTag}

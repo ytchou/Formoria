@@ -49,7 +49,7 @@ function makeBrand(
     slug,
     status: "approved",
     category: "bags-accessories",
-    productType: "bags-accessories",
+    categorySlug: "bags-accessories",
     heroImageUrl,
     productPhotos,
     imageAlts,
@@ -61,8 +61,8 @@ function makeBrand(
     isVerified: false,
     mitStatus: "unverified",
     priceRange: null,
-    productTags: [],
-    productTagsEn: [],
+    subcategories: [],
+    subcategoriesEn: [],
   } as unknown as Brand;
 }
 

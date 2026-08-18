@@ -5,7 +5,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
 
 import messages from "../../../../messages/en.json";
-import { MAX_PRODUCT_TAGS } from "@/lib/services/product-tags";
+import { MAX_SUBCATEGORIES } from "@/lib/services/subcategories";
 import type {
   CorrectionBatchFailure,
   CorrectionDecision,
@@ -27,7 +27,7 @@ const CAP_TAGS = ["洋裝", "後背包", "耳環", "手工皂", "茶葉"];
 const TAG_CORRECTION: CorrectionQueueItem = {
   id: "correction-tags",
   brandName: "Formoria Studio",
-  field: "product_tags",
+  field: "subcategories",
   currentValue: [REMOVED_TAG],
   proposedValue: {
     add: [NOVEL_TAG, CANONICAL_TAG],
@@ -133,14 +133,14 @@ describe("CorrectionsQueue", () => {
     const capCorrection = correction({
       id: "correction-cap-exceeded",
       brandName: "Formoria Cap Review",
-      field: "product_tags",
+      field: "subcategories",
       currentValue: CAP_TAGS,
       proposedValue: { add: [NOVEL_TAG], remove: [] },
     });
     const eligibleCorrection = correction({
       id: "correction-eligible",
       brandName: "Formoria Eligible Review",
-      field: "product_type",
+      field: "category",
       currentValue: "beauty",
       proposedValue: "fashion",
     });
@@ -149,7 +149,7 @@ describe("CorrectionsQueue", () => {
       .mockResolvedValue({ failures: [] });
     renderQueue([capCorrection, eligibleCorrection], { bulkReviewAction });
 
-    expect(CAP_TAGS).toHaveLength(MAX_PRODUCT_TAGS);
+    expect(CAP_TAGS).toHaveLength(MAX_SUBCATEGORIES);
     const capCheckbox = screen.getByRole("checkbox", {
       name: `Select ${capCorrection.brandName}`,
     });
@@ -179,7 +179,7 @@ describe("CorrectionsQueue", () => {
     const selected = correction({
       id: "correction-selected",
       brandName: "Formoria Selected Review",
-      field: "product_type",
+      field: "category",
       currentValue: "beauty",
       proposedValue: "fashion",
     });

@@ -210,12 +210,12 @@ describe("SubmissionReviewDetails", () => {
     );
   });
 
-  it("renders the product type as a Mandarin taxonomy label", () => {
+  it("renders the category as a Mandarin taxonomy label", () => {
     renderDetails(
       makeSubmission({
         reviewData: {
           ...reviewData,
-          productType: "beauty",
+          categorySlug: "beauty",
         },
       }),
     );
@@ -380,10 +380,10 @@ const reviewData = {
   siteContent: null,
   foundingYear: 2018,
   heroImageUrl: "https://cdn.example.com/hero.webp",
-  productType: "crafts",
+  categorySlug: "crafts",
   priceRange: 2,
-  productTags: ["木工"],
-  productTagsEn: ["Woodwork"],
+  subcategories: ["木工"],
+  subcategoriesEn: ["Woodwork"],
   websiteUrl: "https://brand.example.com",
   socialInstagram: null,
   socialThreads: null,
@@ -415,7 +415,7 @@ function makeSubmission(
     purchaseShopee: null,
     purchaseMyship: null,
     otherUrls: [],
-    suggestedTags: [],
+    suggestedSubcategories: [],
     status: "pending",
     reviewerNotes: null,
     submittedAt: "2026-07-18T00:00:00.000Z",
@@ -428,7 +428,7 @@ function makeSubmission(
     isBrandOwner: false,
     sourceAttribution: "found_online",
     intent: "recommend",
-    productTypeNote: null,
+    categoryNote: null,
     reviewKind: "new",
     duplicateWarning: null,
     baseBrandData: null,

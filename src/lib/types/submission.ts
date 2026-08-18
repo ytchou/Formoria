@@ -52,7 +52,7 @@ export type BrandSubmission = {
   socialThreads: string | null
   socialFacebook: string | null
   otherUrls: OtherUrl[]
-  suggestedTags: string[] | { values?: string[]; productType?: string }
+  suggestedSubcategories: string[] | { values?: string[]; categorySlug?: string }
   status: SubmissionStatus
   reviewerNotes: string | null
   submittedAt: string

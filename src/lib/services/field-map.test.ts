@@ -7,8 +7,7 @@ const brandInput = {
   description: 'Taiwan-made home goods and accessories',
   heroImageUrl: 'https://cdn.example.com/hero.jpg',
   status: 'approved',
-  category: 'home',
-  productType: undefined,
+  categorySlug: 'home',
   foundingYear: 2018,
   socialInstagram: '@senzi',
   socialThreads: 'https://threads.net/@senzi',
@@ -19,7 +18,7 @@ const brandInput = {
   otherUrls: [{ label: 'Line', url: 'https://line.me/senzi' }],
   contactEmail: 'hello@senzi.tw',
   priceRange: 2,
-  productTags: ['handmade', 'home'],
+  subcategories: ['handmade', 'home'],
   isDemo: true,
 }
 
@@ -38,7 +37,7 @@ const submissionInput = {
   purchasePinkoi: 'https://pinkoi.com/store/senzi',
   purchaseShopee: 'https://shopee.tw/senzi',
   otherUrls: [{ label: 'Line', url: 'https://line.me/senzi' }],
-  suggestedTags: ['organic', 'minimal'],
+  suggestedSubcategories: ['organic', 'minimal'],
   status: 'approved',
   reviewerNotes: 'Looks good',
   pdpaConsentAt: '2026-07-01T10:00:00Z',
@@ -47,7 +46,7 @@ const submissionInput = {
   notifiedAt: '2026-07-01T11:00:00Z',
   isBrandOwner: true,
   sourceAttribution: 'manual',
-  productTypeNote: 'derived from retail concept',
+  categoryNote: 'derived from retail concept',
 }
 
 describe('field-map', () => {
@@ -58,7 +57,7 @@ describe('field-map', () => {
       description: 'Taiwan-made home goods and accessories',
       hero_image_url: 'https://cdn.example.com/hero.jpg',
       status: 'approved',
-      product_type: 'home',
+      category: 'home',
       founding_year: 2018,
       social_instagram: '@senzi',
       social_threads: 'https://threads.net/@senzi',
@@ -69,10 +68,10 @@ describe('field-map', () => {
       other_urls: [{ label: 'Line', url: 'https://line.me/senzi' }],
       contact_email: 'hello@senzi.tw',
       price_range: 2,
-      product_tags: ['handmade', 'home'],
-      // Neither tag is in the ontology, so deriveProductTagsEn falls through to
+      subcategories: ['handmade', 'home'],
+      // Neither tag is in the ontology, so deriveSubcategoriesEn falls through to
       // the novel-tag path, which now Title Cases to match ontology nameEn casing.
-      product_tags_en: ['Handmade', 'Home'],
+      subcategories_en: ['Handmade', 'Home'],
       is_demo: true,
     })
   })
@@ -104,13 +103,12 @@ describe('field-map', () => {
       description: undefined,
       heroImageUrl: undefined,
       status: undefined,
-      category: undefined,
-      productType: undefined,
+      categorySlug: undefined,
       foundingYear: undefined,
       otherUrls: undefined,
       contactEmail: undefined,
       priceRange: undefined,
-      productTags: undefined,
+      subcategories: undefined,
       isDemo: undefined,
     })
     const s = toSubmissionRow(submissionInput)
@@ -145,7 +143,7 @@ describe('field-map', () => {
       notified_at: '2026-07-01T11:00:00Z',
       is_brand_owner: true,
       source_attribution: 'manual',
-      product_type_note: 'derived from retail concept',
+      category_note: 'derived from retail concept',
     })
   })
 })

@@ -15,9 +15,9 @@ export function splitRoster(
 
   const byCategory = new Map<string, Omit<GoldenRosterBrand, "split">[]>();
   for (const brand of brands) {
-    const category = byCategory.get(brand.productType) ?? [];
+    const category = byCategory.get(brand.categorySlug) ?? [];
     category.push(brand);
-    byCategory.set(brand.productType, category);
+    byCategory.set(brand.categorySlug, category);
   }
 
   const holdoutIds = new Set<string>();
@@ -58,7 +58,7 @@ export function splitRoster(
     }))
     .sort(
       (left, right) =>
-        left.productType.localeCompare(right.productType) ||
+        left.categorySlug.localeCompare(right.categorySlug) ||
         left.slug.localeCompare(right.slug),
     );
 }

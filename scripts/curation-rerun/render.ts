@@ -89,8 +89,8 @@ const LINK_FIELDS: readonly string[] = [
 const IDENTITY_FIELDS: ReadonlyArray<readonly [string, string]> = [
   ["name", "Name"],
   ["slug", "Slug"],
-  ["product_type", "Category"],
-  ["product_tags", "Product tags"],
+  ["category", "Category"],
+  ["subcategories", "Product subcategories"],
   ["city", "City"],
   ["founding_year", "Founded"],
   ["price_range", "Price range"],
@@ -422,10 +422,10 @@ async function main(): Promise<void> {
       const delta = na - nb;
       const cls =
         na === 0 ? "bad" : delta > 0 ? "good" : delta < 0 ? "warn" : "";
-      const catChanged = show(b.product_type) !== show(a.product_type);
+      const catChanged = show(b.category) !== show(a.category);
       return `<tr>
       <td><a href="#${esc(slug)}"><b>${esc(cohort.labels[slug] ?? String(b.name))}</b></a></td>
-      <td${catChanged ? ' class="changed"' : ""}>${esc(show(b.product_type) || "—")} → <b>${esc(show(a.product_type) || "—")}</b></td>
+      <td${catChanged ? ' class="changed"' : ""}>${esc(show(b.category) || "—")} → <b>${esc(show(a.category) || "—")}</b></td>
       <td class="num">${nb}</td>
       <td class="num">${total}</td>
       <td class="num ${cls}">${na}</td>
@@ -546,7 +546,7 @@ details{margin-top:8px}summary{cursor:pointer;font-size:13px;color:var(--muted)}
 <div class="hl">
   <div><b>${pairs.length}</b><span>brands refreshed</span></div>
   <div><b>${totalBefore} → ${totalAfter}</b><span>published images</span></div>
-  <div><b>${pairs.filter((p) => show(p.before.product_type) !== show(p.after.product_type)).length}</b><span>category changes</span></div>
+  <div><b>${pairs.filter((p) => show(p.before.category) !== show(p.after.category)).length}</b><span>category changes</span></div>
   <div><b>${pairs.filter((p) => p.before.slug !== p.after.slug).length}</b><span>slug changes</span></div>
   ${totalCalls ? `<div><b>${usd(grandTotal)}</b><span>LLM cost, ${totalCalls} calls${totalUnpriced ? ` · ${totalUnpriced} unpriced` : ""}</span></div>` : ""}
 </div>

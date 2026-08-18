@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-type ProductTagFieldProps = {
-  initialTags?: string[];
+type SubcategoryFieldProps = {
+  initialSubcategories?: string[];
   value?: string[];
-  onChange?: (tags: string[]) => void;
+  onChange?: (subcategories: string[]) => void;
   suggestions?: string[];
   inputLabel: string;
   placeholder: string;
@@ -16,30 +17,30 @@ type ProductTagFieldProps = {
   maxLabel?: string;
 };
 
-const MAX_TAGS = 5;
+const MAX_SUBCATEGORIES = 5;
 
-function normalizeTag(value: string): string {
+function normalizeSubcategory(value: string): string {
   return value.trim().replace(/\s+/g, " ");
 }
 
-export function ProductTagField({
-  initialTags,
-  value: controlledTags,
+export function SubcategoryField({
+  initialSubcategories,
+  value: controlledSubcategories,
   onChange,
   suggestions = [],
   inputLabel,
   placeholder,
   removeLabel,
   maxLabel,
-}: ProductTagFieldProps) {
-  const [internalTags, setInternalTags] = useState(() =>
-    (initialTags ?? []).slice(0, MAX_TAGS),
+}: SubcategoryFieldProps) {
+  const [internalSubcategories, setInternalSubcategories] = useState(() =>
+    (initialSubcategories ?? []).slice(0, MAX_SUBCATEGORIES),
   );
   const [value, setValue] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
-  const tags = controlledTags ?? internalTags;
-  const normalizedValue = normalizeTag(value).toLocaleLowerCase("en");
+  const subcategories = controlledSubcategories ?? internalSubcategories;
+  const normalizedValue = normalizeSubcategory(value).toLocaleLowerCase("en");
   const filteredSuggestions = normalizedValue
     ? suggestions
         .filter((suggestion) =>
@@ -47,65 +48,86 @@ export function ProductTagField({
         )
         .filter(
           (suggestion) =>
-            !tags.some(
-              (tag) =>
-                tag.toLocaleLowerCase("en") ===
+            !subcategories.some(
+              (subcategory) =>
+                subcategory.toLocaleLowerCase("en") ===
                 suggestion.toLocaleLowerCase("en"),
             ),
         )
         .slice(0, 6)
     : [];
 
-  function updateTags(nextTags: string[]) {
-    if (controlledTags === undefined) setInternalTags(nextTags);
-    onChange?.(nextTags);
+  function updateSubcategories(nextSubcategories: string[]) {
+    if (controlledSubcategories === undefined) {
+      setInternalSubcategories(nextSubcategories);
+    }
+    onChange?.(nextSubcategories);
   }
 
-  function addTag(rawValue: string) {
-    const tag = normalizeTag(rawValue);
-    if (!tag || tag.length > 40 || tags.length >= MAX_TAGS) {
+  function addSubcategory(rawValue: string) {
+    const subcategory = normalizeSubcategory(rawValue);
+    if (
+      !subcategory ||
+      subcategory.length > 40 ||
+      subcategories.length >= MAX_SUBCATEGORIES
+    ) {
       setValue("");
       setShowSuggestions(false);
       return;
     }
-    if (tags.some((current) => current.toLowerCase() === tag.toLowerCase())) {
+    if (
+      subcategories.some(
+        (current) => current.toLowerCase() === subcategory.toLowerCase(),
+      )
+    ) {
       setValue("");
       setShowSuggestions(false);
       return;
     }
-    updateTags([...tags, tag]);
+    updateSubcategories([...subcategories, subcategory]);
     setValue("");
     setShowSuggestions(false);
     setSelectedIndex(-1);
   }
 
-  const listboxId = "productTags-listbox";
+  const listboxId = "subcategories-listbox";
   const isExpanded = showSuggestions && filteredSuggestions.length > 0;
 
   return (
     <div className="space-y-2">
-      <input type="hidden" name="productTags" value={tags.join(",")} />
+      <input
+        type="hidden"
+        name="subcategories"
+        value={subcategories.join(",")}
+      />
       <div className="relative flex min-h-11 flex-wrap gap-2 rounded-lg border border-border bg-background p-2">
-        {tags.map((tag) => (
+        {subcategories.map((subcategory) => (
           <span
-            key={tag.toLowerCase()}
+            key={subcategory.toLowerCase()}
             className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 type-body-emphasis text-primary"
           >
-            {tag}
-            <button
+            {subcategory}
+            <Button
               type="button"
-              aria-label={`${removeLabel}: ${tag}`}
-              className="rounded-full p-0.5 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              variant="ghost"
+              size="icon"
+              shape="pill"
+              aria-label={`${removeLabel}: ${subcategory}`}
+              className="size-6 min-h-0 min-w-0 p-0 text-primary hover:bg-primary/10"
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => updateTags(tags.filter((item) => item !== tag))}
+              onClick={() =>
+                updateSubcategories(
+                  subcategories.filter((item) => item !== subcategory),
+                )
+              }
             >
               <X className="size-3.5" />
-            </button>
+            </Button>
           </span>
         ))}
-        {tags.length < MAX_TAGS ? (
+        {subcategories.length < MAX_SUBCATEGORIES ? (
           <Input
-            id="productTags"
+            id="subcategories"
             role="combobox"
             aria-label={inputLabel}
             aria-expanded={isExpanded}
@@ -119,7 +141,7 @@ export function ProductTagField({
               isExpanded &&
               selectedIndex >= 0 &&
               filteredSuggestions[selectedIndex]
-                ? `productTag-suggestion-${selectedIndex}`
+                ? `subcategory-suggestion-${selectedIndex}`
                 : undefined
             }
             onChange={(event) => {
@@ -128,7 +150,7 @@ export function ProductTagField({
               setSelectedIndex(-1);
             }}
             onFocus={() => setShowSuggestions(true)}
-            onBlur={() => addTag(value)}
+            onBlur={() => addSubcategory(value)}
             onKeyDown={(event) => {
               if (event.key === "ArrowDown") {
                 event.preventDefault();
@@ -143,13 +165,13 @@ export function ProductTagField({
               } else if (event.key === "Enter") {
                 event.preventDefault();
                 if (selectedIndex >= 0 && filteredSuggestions[selectedIndex]) {
-                  addTag(filteredSuggestions[selectedIndex]);
+                  addSubcategory(filteredSuggestions[selectedIndex]);
                 } else {
-                  addTag(value);
+                  addSubcategory(value);
                 }
               } else if (event.key === ",") {
                 event.preventDefault();
-                addTag(value);
+                addSubcategory(value);
               } else if (event.key === "Escape") {
                 setShowSuggestions(false);
                 setSelectedIndex(-1);
@@ -167,7 +189,7 @@ export function ProductTagField({
             {filteredSuggestions.map((suggestion, index) => (
               <div
                 key={suggestion.toLocaleLowerCase("en")}
-                id={`productTag-suggestion-${index}`}
+                id={`subcategory-suggestion-${index}`}
                 role="option"
                 aria-selected={selectedIndex === index}
                 className={cn(
@@ -177,7 +199,7 @@ export function ProductTagField({
                     : "hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none",
                 )}
                 onMouseDown={(event) => event.preventDefault()}
-                onClick={() => addTag(suggestion)}
+                onClick={() => addSubcategory(suggestion)}
               >
                 {suggestion}
               </div>

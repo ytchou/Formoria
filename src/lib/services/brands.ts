@@ -29,9 +29,9 @@ import {
 import { isNonImageHost } from "@/lib/images/allowed-image-hosts";
 import { RESERVED_ROUTES } from "@/proxy";
 import {
-  deriveCategoryFromProductType,
+  deriveCategoryLabel,
   matchSubcategory,
-  PRODUCT_TYPE_CATEGORIES,
+  L1_CATEGORIES,
   subcategoryBySlug,
 } from "@/lib/taxonomy/ontology";
 import { slugifyRomanizedName, withSlugSuffix } from "@/lib/brands/slug";
@@ -118,8 +118,7 @@ export type CuratedSubmissionInput = {
   name: string;
   slug: string;
   description: string;
-  category: string;
-  productType?: string;
+  categorySlug: string;
   heroImageUrl?: string | null;
   productPhotos: string[];
   purchaseLinks: Array<{ platform: string; url: string }>;
@@ -144,9 +143,12 @@ type CuratedBrand = Partial<Brand> &
     | "contactEmail"
     | "foundingYear"
   > &
-  Pick<Brand, PurchaseChannelCamelField> & { productType: string };
+  Pick<Brand, PurchaseChannelCamelField> & {
+    categorySlug: string;
+    categoryLabel: string;
+  };
 
-export type BrandWriteInput = Partial<Brand> & { productType?: string | null };
+export type BrandWriteInput = Partial<Brand> & { categorySlug?: string | null };
 type BrandWriteResult = Brand & { skipped: SkippedBrandField[] };
 type ApplyBrandPatchArgs = {
   p_brand_id: string;
@@ -186,17 +188,17 @@ type BrandOwnerRef = { user_id: string };
 /**
  * Full joined row from BRAND_SELECT. Extends Partial<BrandRow> so that
  * unit test fixtures can omit columns added in later migrations (is_demo,
- * price_range, product_tags) without a cast — the mapper uses
+ * price_range, subcategories) without a cast — the mapper uses
  * ?? defaults for all optional fields.
  */
 export type BrandRowWithJoins = Partial<BrandRow> &
   BrandFlatLinkColumns & {
     price_range?: number | null;
-    product_tags?: string[] | null;
+    subcategories?: string[] | null;
     description_en?: string | null;
     blurb?: string | null;
     blurb_en?: string | null;
-    product_tags_en?: string[] | null;
+    subcategories_en?: string[] | null;
   } & Pick<
     BrandRow,
     | "id"
@@ -466,8 +468,9 @@ export function curatedSubmissionToBrand(
     description: input.description,
     heroImageUrl: input.heroImageUrl || null,
     status: "approved",
-    category: input.category,
-    productType: input.productType ?? input.category,
+    categorySlug: input.categorySlug,
+    categoryLabel:
+      deriveCategoryLabel(input.categorySlug) ?? input.categorySlug,
     foundingYear: null,
     socialInstagram: input.socialLinks.instagram || null,
     socialThreads: input.socialLinks.threads || null,
@@ -487,7 +490,7 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
   "name",
   "romanizedName",
   "description",
-  "productType",
+  "categorySlug",
   "foundingYear",
   "socialInstagram",
   "socialThreads",
@@ -495,7 +498,7 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
   "heroImageUrl",
   "productPhotos",
   "priceRange",
-  "productTags",
+  "subcategories",
   ...PURCHASE_CAMEL_FIELDS,
   "mitStory",
   "otherUrls",
@@ -640,11 +643,11 @@ export function draftSnapshotToDomain(
       case "description":
         partial.description = snapshot.description as Brand["description"];
         break;
-      case "productType": {
-        const productType = snapshot.productType as Brand["productType"];
-        partial.productType = productType;
-        partial.category = productType
-          ? (deriveCategoryFromProductType(productType) ?? productType)
+      case "categorySlug": {
+        const categorySlug = snapshot.categorySlug as Brand["categorySlug"];
+        partial.categorySlug = categorySlug;
+        partial.categoryLabel = categorySlug
+          ? (deriveCategoryLabel(categorySlug) ?? categorySlug)
           : null;
         break;
       }
@@ -673,9 +676,9 @@ export function draftSnapshotToDomain(
       case "priceRange":
         partial.priceRange = snapshot.priceRange as Brand["priceRange"];
         break;
-      case "productTags":
-        partial.productTags =
-          (snapshot.productTags as Brand["productTags"]) ?? [];
+      case "subcategories":
+        partial.subcategories =
+          (snapshot.subcategories as Brand["subcategories"]) ?? [];
         break;
       case "mitStory":
         partial.mitStory = snapshot.mitStory as string | null;
@@ -735,11 +738,10 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     heroImageMetadata: null,
     // status is text in the DB — cast to BrandStatus at the boundary
     status: row.status as Brand["status"],
-    product_type: row.product_type ?? null,
-    productType: row.product_type ?? null,
-    category:
-      deriveCategoryFromProductType(row.product_type ?? "") ??
-      row.product_type ??
+    categorySlug: row.category ?? null,
+    categoryLabel:
+      deriveCategoryLabel(row.category ?? "") ??
+      row.category ??
       null,
     isVerified: owners.length > 0,
     mitStatus: (row.mit_status as Brand["mitStatus"]) ?? "unverified",
@@ -762,9 +764,9 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     imageAlts: [],
     contactEmail: row.contact_email ?? null,
     priceRange: row.price_range ?? null,
-    productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
-    productTagsEn: Array.isArray(row.product_tags_en)
-      ? row.product_tags_en
+    subcategories: Array.isArray(row.subcategories) ? row.subcategories : [],
+    subcategoriesEn: Array.isArray(row.subcategories_en)
+      ? row.subcategories_en
       : [],
     reputationSummary: normalizeReputationSummary(row.reputation_summary),
     siteContent: normalizeSiteContent(row.site_content as Brand["siteContent"]),
@@ -1031,8 +1033,8 @@ function brandToUpdate(data: BrandWriteInput): Record<string, unknown> {
   const raw = data as Record<string, unknown>;
   if (data.priceRange === undefined && raw.price_range === undefined)
     delete row.price_range;
-  if (data.productTags === undefined && raw.product_tags === undefined)
-    delete row.product_tags;
+  if (data.subcategories === undefined && raw.subcategories === undefined)
+    delete row.subcategories;
   return row;
 }
 
@@ -1081,7 +1083,7 @@ export const BRAND_COLUMN_LIST = [
   "blurb",
   "blurb_en",
   "hero_image_url",
-  "product_type",
+  "category",
   "contact_email",
   "city",
   ...PURCHASE_COLUMNS,
@@ -1100,8 +1102,8 @@ export const BRAND_COLUMN_LIST = [
   "draft_updated_at",
   "founding_year",
   "price_range",
-  "product_tags",
-  "product_tags_en",
+  "subcategories",
+  "subcategories_en",
   "reputation_summary",
   "mit_status",
   "mit_declared_scope",
@@ -1144,12 +1146,12 @@ export const PUBLIC_BRAND_CARD_COLUMN_LIST = [
   "blurb",
   "blurb_en",
   "hero_image_url",
-  "product_type",
+  "category",
   "status",
   "founding_year",
   "price_range",
-  "product_tags",
-  "product_tags_en",
+  "subcategories",
+  "subcategories_en",
   "mit_status",
 ] as const;
 
@@ -1173,11 +1175,11 @@ export const PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST = [
   "slug",
   "status",
   "city",
-  "product_type",
+  "category",
   "founding_year",
   "price_range",
-  "product_tags",
-  "product_tags_en",
+  "subcategories",
+  "subcategories_en",
   "reputation_summary",
   "mit_status",
   "mit_declared_scope",
@@ -1547,7 +1549,7 @@ type GetBrandsFilters = BrandFilters & {
 
 /**
  * Expand a taxonomy selection to every stored spelling for the concept.
- * Product tags predate the slug ontology, so a brand can carry an alias (for
+ * Subcategories predate the slug ontology, so a brand can carry an alias (for
  * example `口金夾`) while the filter is selected by its slug or canonical name.
  * Both the browse query and the search RPC must receive this same list.
  */
@@ -1739,13 +1741,13 @@ export async function getBrands(
     query = query.eq("status", filters.status);
   }
   if (filters?.category && filters.category.length > 0) {
-    query = query.in("product_type", filters.category);
+    query = query.in("category", filters.category);
   }
   if (filters?.priceRanges && filters.priceRanges.length > 0) {
     query = query.in("price_range", filters.priceRanges);
   }
   if (expandedSubcategoryTags.length > 0) {
-    query = query.overlaps("product_tags", expandedSubcategoryTags);
+    query = query.overlaps("subcategories", expandedSubcategoryTags);
   }
 
   // Sorting
@@ -1821,7 +1823,7 @@ export type SubcategorySummary = {
 }
 
 type SubcategorySummaryRow = {
-  productTags: string[]
+  subcategories: string[]
   updatedAt: string
 }
 
@@ -1854,15 +1856,15 @@ const getCachedSubcategoryRows = unstable_cache(
         const { data, error } = await excludeTestBrands(
           supabase
             .from("brands")
-            .select("product_tags, updated_at")
+            .select("subcategories, updated_at")
             .eq("status", "approved")
-            .eq("product_type", categorySlug),
+            .eq("category", categorySlug),
         );
 
         if (error) throw error;
 
         return (data ?? []).map((row) => ({
-          productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
+          subcategories: Array.isArray(row.subcategories) ? row.subcategories : [],
           updatedAt: row.updated_at,
         }));
       },
@@ -1882,7 +1884,7 @@ export async function getSubcategorySummary(
 
   for (const brand of brands) {
     const canonicalTags = new Set<string>();
-    for (const tag of brand.productTags) {
+    for (const tag of brand.subcategories) {
       const subcategory = matchSubcategory(tag);
       if (subcategory?.category === categorySlug) {
         canonicalTags.add(subcategory.nameZh);
@@ -1894,7 +1896,7 @@ export async function getSubcategorySummary(
 
     const updatedAtTimestamp = Date.parse(brand.updatedAt);
     const latestTimestamp = latestUpdatedAt ? Date.parse(latestUpdatedAt) : Number.NaN;
-    const isInScope = !subcategorySlug || canonicalTagsHasSlug(brand.productTags, subcategorySlug);
+    const isInScope = !subcategorySlug || canonicalTagsHasSlug(brand.subcategories, subcategorySlug);
     if (
       isInScope &&
       !Number.isNaN(updatedAtTimestamp) &&
@@ -1953,7 +1955,7 @@ function selectCategoryBalancedBrands(
 
     const brand = brands.find(
       (candidate) =>
-        candidate.productType === categorySlug &&
+        candidate.categorySlug === categorySlug &&
         !selectedIds.has(candidate.id),
     );
     if (!brand) continue;
@@ -1977,7 +1979,7 @@ export async function getExploreBrands(
   limit = EXPLORE_BRAND_LIMIT,
 ): Promise<{ brands: Brand[]; totalCount: number }> {
   const { brands, totalCount } = await getCachedExploreBrandPool();
-  const categorySlugs = PRODUCT_TYPE_CATEGORIES.map(({ slug }) => slug);
+  const categorySlugs = L1_CATEGORIES.map(({ slug }) => slug);
 
   return {
     brands: selectCategoryBalancedBrands(brands, categorySlugs, limit),
@@ -2006,7 +2008,7 @@ export async function searchBrandsAutocomplete(
     id: row.id,
     slug: row.slug,
     name: row.name,
-    category: row.primary_category_name ?? "",
+    categoryLabel: row.primary_category_name ?? "",
   }));
 }
 
@@ -2391,8 +2393,8 @@ export async function getRelatedBrands(
 export type BrandSeoEntry = {
   slug: string;
   updatedAt: string;
-  productType: string | null;
-  productTags: string[];
+  categorySlug: string | null;
+  subcategories: string[];
   description: string | null;
   descriptionEn: string | null;
   blurbEn: string | null;
@@ -2406,7 +2408,7 @@ export async function getBrandSeoEntries(): Promise<BrandSeoEntry[]> {
     supabase
       .from("brands")
       .select(
-        "slug, updated_at, product_type, product_tags, description, description_en, blurb_en, seo_promoted",
+        "slug, updated_at, category, subcategories, description, description_en, blurb_en, seo_promoted",
       ),
   )
     .eq("status", "approved");
@@ -2415,8 +2417,8 @@ export async function getBrandSeoEntries(): Promise<BrandSeoEntry[]> {
   return (data ?? []).map((row) => ({
     slug: row.slug,
     updatedAt: row.updated_at,
-    productType: row.product_type,
-    productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
+    categorySlug: row.category,
+    subcategories: Array.isArray(row.subcategories) ? row.subcategories : [],
     description: row.description,
     descriptionEn: row.description_en,
     blurbEn: row.blurb_en,
@@ -2741,14 +2743,14 @@ export async function getBrandStats(): Promise<{
           .eq("status", "approved"),
       ),
       excludeTestBrands(
-        supabase.from("brands").select("product_type").eq("status", "approved"),
-      ).not("product_type", "is", null),
+        supabase.from("brands").select("category").eq("status", "approved"),
+      ).not("category", "is", null),
     ]);
 
   if (error) throw error;
   if (categoryError) throw categoryError;
   const categoryCount = new Set(
-    (categoryRows ?? []).map((row) => row.product_type).filter(Boolean),
+    (categoryRows ?? []).map((row) => row.category).filter(Boolean),
   ).size;
   return { brandCount: count ?? 0, categoryCount };
 }

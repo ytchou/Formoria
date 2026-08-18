@@ -17,8 +17,8 @@ import type { CurationConfig } from '../curation-operations'
 import { getDisplayBrandName, runCleanPhase } from '../enrich-phases'
 import { describeWithDb } from '@/test/setup'
 
-vi.mock('../product-type-classifier', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../product-type-classifier')>()
+vi.mock('../category-classifier', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../category-classifier')>()
   return {
     ...actual,
     detectBrandsBatch: vi.fn(),
@@ -47,33 +47,33 @@ describe('bounded enrichment concurrency', () => {
 describe('seedEnrichedDataFromOwnerData', () => {
   it('seeds enriched_data fields from owner_data', () => {
     const ownerData = {
-      productType: 'bags-accessories',
+      categorySlug: 'bags-accessories',
       foundingYear: 2018,
       city: 'tainan',
       priceRange: 2,
-      productTags: ['leather', 'handmade'],
+      subcategories: ['leather', 'handmade'],
     }
     const result = seedEnrichedDataFromOwnerData(ownerData, null)
     expect(result).toMatchObject({
-      product_type: 'bags-accessories',
+      category: 'bags-accessories',
       founding_year: 2018,
       city: 'tainan',
       price_range: 2,
-      product_tags: ['leather', 'handmade'],
+      subcategories: ['leather', 'handmade'],
     })
   })
 
   it('does not overwrite existing enriched_data fields', () => {
     const ownerData = {
-      productType: 'bags-accessories',
+      categorySlug: 'bags-accessories',
       city: 'tainan',
     }
     const existingEnriched = {
-      product_type: 'fashion',
+      category: 'fashion',
       description: 'Existing description',
     }
     const result = seedEnrichedDataFromOwnerData(ownerData, existingEnriched)
-    expect(result.product_type).toBe('fashion')
+    expect(result.category).toBe('fashion')
     expect(result.city).toBe('tainan')
     expect(result.description).toBe('Existing description')
   })
@@ -91,20 +91,20 @@ describe('seedEnrichedDataFromOwnerData', () => {
 })
 
 describe('mergeSubmissionEnrichedData', () => {
-  it('replaces and caps product tag pairs instead of accumulating rerun outputs', () => {
+  it('replaces and caps subcategory pairs instead of accumulating rerun outputs', () => {
     const result = mergeSubmissionEnrichedData(
       {
-        product_tags: ['既有一', '既有二', '既有三'],
-        product_tags_en: ['Existing 1', 'Existing 2', 'Existing 3'],
+        subcategories: ['既有一', '既有二', '既有三'],
+        subcategories_en: ['Existing 1', 'Existing 2', 'Existing 3'],
       },
       {
-        product_tags: ['新一', '新二', '新三', '新四', '新五', '新六'],
-        product_tags_en: ['New 1', 'New 2', 'New 3', 'New 4', 'New 5', 'New 6'],
+        subcategories: ['新一', '新二', '新三', '新四', '新五', '新六'],
+        subcategories_en: ['New 1', 'New 2', 'New 3', 'New 4', 'New 5', 'New 6'],
       }
     )
 
-    expect(result.product_tags).toEqual(['新一', '新二', '新三', '新四', '新五'])
-    expect(result.product_tags_en).toEqual(['New 1', 'New 2', 'New 3', 'New 4', 'New 5'])
+    expect(result.subcategories).toEqual(['新一', '新二', '新三', '新四', '新五'])
+    expect(result.subcategories_en).toEqual(['New 1', 'New 2', 'New 3', 'New 4', 'New 5'])
   })
 
   // A union would make the first clear permanent: the run that finally finds a
@@ -303,7 +303,7 @@ describe('processEnrichBrand with cleanup phases', () => {
     name: '  ✨ My Brand ✨  ',
     status: 'approved',
     description: null,
-    product_type: null,
+    category: null,
     purchase_website: null,
   }
 
@@ -340,7 +340,7 @@ describe('applyChunkNameCleanup', () => {
     name: 'adela愛德拉 ｜守護家人，為愛研發',
     status: 'approved',
     description: null,
-    product_type: null,
+    category: null,
     purchase_website: null,
   })
 
@@ -428,14 +428,14 @@ describe('descriptions phase standalone', () => {
     product_images: [],
   }
 
-  it('runs descriptions phase without setting product_type', () => {
+  it('runs descriptions phase without setting category', () => {
     const result = processEnrichBrand(
       baseBrand,
       { snippets: ['A great brand making handmade soap'] },
       ['descriptions']
     )
     expect(result.phases).toHaveProperty('descriptions')
-    expect(result.patch).not.toHaveProperty('product_type')
+    expect(result.patch).not.toHaveProperty('category')
   })
 
   it('runs descriptions phase without tags when tags is not in phases', () => {
@@ -486,7 +486,7 @@ describe('runEnrich detect integration', () => {
       brandName: null,
       slug: 'some-brand',
       slugGenerated: null,
-      productType: null,
+      categorySlug: null,
       confidence: 'high' as const,
     }
 
@@ -502,7 +502,7 @@ describe('runEnrich detect integration', () => {
       brandName: null,
       slug: 'good-brand',
       slugGenerated: 'good-brand',
-      productType: 'beauty',
+      categorySlug: 'beauty',
       confidence: 'high' as const,
     }
 
@@ -518,7 +518,7 @@ describe('runEnrich detect integration', () => {
       brandName: null,
       slug: 'uncertain-brand',
       slugGenerated: null,
-      productType: null,
+      categorySlug: null,
       confidence: 'low' as const,
     }
 
@@ -847,7 +847,7 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
   it('should write patch to null enriched_data', async () => {
     await persistSubmissionEnrichmentResults(serviceSupabase!, testSubmissionId!, {
       description: 'Test brand description',
-      product_type: 'bags',
+      category: 'bags',
     })
 
     const { data: updated } = await serviceSupabase!
@@ -858,7 +858,7 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
 
     expect(updated!.enriched_data).toEqual({
       description: 'Test brand description',
-      product_type: 'bags',
+      category: 'bags',
     })
   })
 
@@ -868,7 +868,7 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
       .update({
         enriched_data: {
           description: 'Old desc',
-          product_type: 'bags',
+          category: 'bags',
         },
       })
       .eq('id', testSubmissionId!)
@@ -886,7 +886,7 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
 
     expect(updated!.enriched_data).toEqual({
       description: 'New desc',
-      product_type: 'bags',
+      category: 'bags',
       hero_image_url: 'https://img.example.com/hero.jpg',
     })
   })

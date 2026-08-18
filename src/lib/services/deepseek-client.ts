@@ -13,7 +13,7 @@ export type { ChatAuditEvent, ChatUsage }
  *
  * To revive it, re-point the five text call sites and flip their env gate back
  * from `OPENAI_API_KEY` to `DEEPSEEK_API_KEY`:
- *   - `product-type-classifier.ts` (4 sites)
+ *   - `category-classifier.ts` (4 sites)
  *   - `description-rewrite.ts`
  *   - `brand-facts.ts`
  *   - `reputation-research.ts`

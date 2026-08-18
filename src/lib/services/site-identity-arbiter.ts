@@ -21,14 +21,14 @@ import {
   type LlmCallOutcome,
 } from "./_shared/llm-call-outcome";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
-import type { LlmBatchOutcome } from "./product-type-classifier";
+import type { LlmBatchOutcome } from "./category-classifier";
 
 export type SiteIdentitySubjectKind = "website" | "source-page";
 
 export type SiteIdentityItem = {
   slug: string;
   brandName: string;
-  productType?: string;
+  categorySlug?: string;
   subjectUrl: string;
   subjectKind: SiteIdentitySubjectKind;
   pageTitle?: string;
@@ -147,8 +147,8 @@ function formatSiteIdentityItem(item: SiteIdentityItem, index: number): string {
   const story = bounded(item.pageStory);
   const fields = [
     SITE_IDENTITY_LABELS.brandName + "：" + item.brandName,
-    item.productType
-      ? SITE_IDENTITY_LABELS.productType + "：" + item.productType
+    item.categorySlug
+      ? SITE_IDENTITY_LABELS.categorySlug + "：" + item.categorySlug
       : "",
     SITE_IDENTITY_LABELS.subjectKind[item.subjectKind],
     SITE_IDENTITY_LABELS.url + "：" + item.subjectUrl,

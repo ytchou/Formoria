@@ -119,7 +119,7 @@ async function seedBrand(
       name,
       slug: `integration-${id}`,
       status: "approved",
-      product_type: "crafts",
+      category: "crafts",
       description: "Handmade goods created by a Taiwan-based studio.",
       mit_status: "unverified",
       ...overrides,

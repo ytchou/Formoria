@@ -4,7 +4,7 @@ import {
   detectBrandsBatch,
   type DetectBatchItem,
   type DetectResult,
-} from "../product-type-classifier";
+} from "../category-classifier";
 
 const mockFetch = vi.fn();
 void (null as DetectResult | null);
@@ -36,7 +36,7 @@ describe("detectBrandsBatch", () => {
     },
   ];
 
-  it("parses a detect response that omits productType", async () => {
+  it("parses a detect response that omits categorySlug", async () => {
     // The detect prompt no longer asks for a category, so the key is absent.
     // The triage result must still carry the non-brand gate and the name/slug.
     mockFetch.mockResolvedValueOnce({
@@ -71,7 +71,7 @@ describe("detectBrandsBatch", () => {
     const { results } = await detectBrandsBatch(brands);
 
     expect(results.size).toBe(2);
-    expect(results.get("my-brand")!.productType).toBeNull();
+    expect(results.get("my-brand")!.categorySlug).toBeNull();
     expect(results.get("my-brand")!.brandName).toBe("My Brand");
     expect(results.get("some-reseller")!.isNonBrand).toBe(true);
   });
@@ -89,7 +89,7 @@ describe("detectBrandsBatch", () => {
                   isNonBrand: false,
                   nonBrandReason: null,
                   slug_generated: "my-brand",
-                  productType: "beauty",
+                  category: "beauty",
                   confidence: "high",
                 },
                 {
@@ -97,7 +97,7 @@ describe("detectBrandsBatch", () => {
                   isNonBrand: true,
                   nonBrandReason: "代購 (reseller)",
                   slug_generated: "some-reseller",
-                  productType: null,
+                  category: null,
                   confidence: "high",
                 },
               ]),
@@ -114,7 +114,7 @@ describe("detectBrandsBatch", () => {
     const myBrand = results.get("my-brand");
     expect(myBrand).toBeDefined();
     expect(myBrand!.isNonBrand).toBe(false);
-    expect(myBrand!.productType).toBe("beauty");
+    expect(myBrand!.categorySlug).toBe("beauty");
     expect(myBrand!.slug).toBe("my-brand");
     expect(myBrand!.slugGenerated).toBe("my-brand");
     expect(myBrand!.confidence).toBe("high");
@@ -146,7 +146,7 @@ describe("detectBrandsBatch", () => {
                 content: JSON.stringify({
                   isNonBrand: false,
                   slug_generated: "my-brand",
-                  productType: "beauty",
+                  category: "beauty",
                   confidence: "high",
                 }),
               },
@@ -164,7 +164,7 @@ describe("detectBrandsBatch", () => {
                   isNonBrand: true,
                   nonBrandReason: "reseller",
                   slug_generated: "some-reseller",
-                  productType: null,
+                  category: null,
                   confidence: "high",
                 }),
               },
@@ -199,7 +199,7 @@ describe("detectBrandsBatch", () => {
                   slug: `brand-${i}`,
                   isNonBrand: false,
                   slug_generated: `brand-${i}`,
-                  productType: "crafts",
+                  category: "crafts",
                   confidence: "medium",
                 })),
               ),
@@ -265,7 +265,7 @@ describe("parseExtractionResult", () => {
     const parsed = parseExtractionResult(
       JSON.stringify({
         price_range: 2,
-        product_tags: ["餐具"],
+        subcategories: ["餐具"],
         city: "台中",
         founding_year: 2015,
         signature_products: ["木製餐盤"],

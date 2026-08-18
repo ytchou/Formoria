@@ -98,7 +98,7 @@ export function BrandCard({
             onError={() => setImgError(true)}
           />
         ) : (
-          <BrandImageFallback name={brand.name} category={brand.category} size="card" />
+          <BrandImageFallback name={brand.name} category={brand.categoryLabel} size="card" />
         )}
         {isWholeCardLink ? (
           <SaveBrandButton brandId={brand.id} slug={brand.slug} variant="overlay" />
@@ -141,9 +141,9 @@ export function BrandCard({
                   trackRecommendationBrandClicked(brand.id, brand.slug, sourceBrandSlug ?? '', position)
                 } else {
                   if (listSource) {
-                    trackBrandCardClicked(brand.slug, brand.category, position, brand.id, listSource)
+                    trackBrandCardClicked(brand.slug, brand.categoryLabel, position, brand.id, listSource)
                   } else {
-                    trackBrandCardClicked(brand.slug, brand.category, position, brand.id)
+                    trackBrandCardClicked(brand.slug, brand.categoryLabel, position, brand.id)
                   }
                 }
                 if (savedIds.has(brand.id)) {
@@ -238,11 +238,11 @@ export function BrandCard({
               {brand.priceRange != null && (
                 <Badge variant="secondary">{'$'.repeat(brand.priceRange)}</Badge>
               )}
-              {brand.productTags[0] && (
+              {brand.subcategories[0] && (
                 <Badge variant="secondary" className="max-w-full truncate">
                   {locale === 'en'
-                    ? (brand.productTagsEn[0] ?? brand.productTags[0])
-                    : brand.productTags[0]}
+                    ? (brand.subcategoriesEn[0] ?? brand.subcategories[0])
+                    : brand.subcategories[0]}
                 </Badge>
               )}
             </div>

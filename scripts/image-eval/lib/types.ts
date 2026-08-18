@@ -31,7 +31,7 @@ export type GoldenRosterBrand = {
   id: string;
   slug: string;
   name: string;
-  productType: EvalCategory;
+  categorySlug: EvalCategory;
   purchaseWebsite: string | null;
   split: GoldenSplit;
 };

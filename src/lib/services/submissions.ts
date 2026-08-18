@@ -37,7 +37,7 @@ import { toBrandRow, toSubmissionRow } from "./_shared/field-map";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { deleteStoredImagePaths } from "./image-upload";
 import { slugifyRomanizedName } from "@/lib/brands/slug";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { upsertEnrichedChannels } from "./brand-channels";
 import { normalizeCommunityWebsite } from "./community-submissions";
 import {
@@ -70,12 +70,12 @@ type CurationJobReviewRow = Pick<
   Database["public"]["Tables"]["curation_jobs"]["Row"],
   "id" | "status" | "dispatch_status" | "dispatch_error" | "job_error"
 >;
-type SubmissionRowWithProductTypeNote = Omit<
+type SubmissionRowWithCategoryNote = Omit<
   SubmissionRow,
   "other_urls" | PurchaseChannelColumn
 > & {
   hero_image_url?: string | null;
-  product_type_note?: string | null;
+  category_note?: string | null;
   social_instagram?: string | null;
   social_threads?: string | null;
   social_facebook?: string | null;
@@ -114,9 +114,9 @@ type BrandImageReviewRow = Pick<
   focal_x: number | null;
   focal_y: number | null;
 };
-export type BrandSubmissionWithProductTypeNote = BrandSubmission & {
+export type BrandSubmissionWithCategoryNote = BrandSubmission & {
   websiteUrl: string | null;
-  productTypeNote: string | null;
+  categoryNote: string | null;
 };
 export type SubmissionReviewImage = {
   id: string;
@@ -155,10 +155,10 @@ export type SubmissionReviewData = {
   siteContent: Json | null;
   foundingYear: number | null;
   heroImageUrl: string | null;
-  productType: string | null;
+  categorySlug: string | null;
   priceRange: number | null;
-  productTags: string[];
-  productTagsEn: string[];
+  subcategories: string[];
+  subcategoriesEn: string[];
   websiteUrl: string | null;
   socialInstagram: string | null;
   socialThreads: string | null;
@@ -170,8 +170,8 @@ type EnrichedSubmissionData = EnrichedData & {
 };
 type SubmissionReviewMissingField =
   | "description"
-  | "productType"
-  | "productTags"
+  | "categorySlug"
+  | "subcategories"
   | "priceRange"
   | "website"
   | "heroImage"
@@ -198,7 +198,7 @@ type SubmissionDuplicateWarning = {
   liveBrand: { slug: string; name: string } | null;
   pendingSiblings: number;
 };
-export type BrandSubmissionForReview = BrandSubmissionWithProductTypeNote & {
+export type BrandSubmissionForReview = BrandSubmissionWithCategoryNote & {
   reviewKind: "new" | "refresh";
   duplicateWarning: SubmissionDuplicateWarning | null;
   baseBrandData: Json | null;
@@ -223,7 +223,7 @@ export type BrandSubmissionForReview = BrandSubmissionWithProductTypeNote & {
  * unit test fixtures can omit them without casts.
  */
 type SubmissionRowInput = Pick<
-  SubmissionRowWithProductTypeNote,
+  SubmissionRowWithCategoryNote,
   | "id"
   | "brand_id"
   | "brand_name"
@@ -234,7 +234,7 @@ type SubmissionRowInput = Pick<
   unified_business_number?: string | null;
 } & Partial<
     Omit<
-      SubmissionRowWithProductTypeNote,
+      SubmissionRowWithCategoryNote,
       | "id"
       | "brand_id"
       | "brand_name"
@@ -244,7 +244,7 @@ type SubmissionRowInput = Pick<
     >
   >;
 
-type SuggestedTagsInput = string[] | { values?: string[] };
+type SuggestedSubcategoriesInput = string[] | { values?: string[] };
 type ServiceClient = SupabaseClient<Database>;
 type BrandInsert = Database["public"]["Tables"]["brands"]["Insert"] & {
   [Column in PurchaseChannelColumn]?: string | null;
@@ -296,11 +296,11 @@ export type CreateSubmissionInput = {
   socialThreads?: string | null;
   socialFacebook?: string | null;
   otherUrls?: OtherUrl[];
-  suggestedTags?: string[] | { values?: string[] };
+  suggestedSubcategories?: string[] | { values?: string[] };
   pdpaConsentAt?: string;
   isOwner?: boolean;
   sourceAttribution?: SourceAttribution | null;
-  productTypeNote?: string | null;
+  categoryNote?: string | null;
   ownerData?: Record<string, unknown>;
 } & Partial<Pick<BrandSubmission, PurchaseChannelCamelField>>;
 
@@ -326,11 +326,11 @@ export function buildSubmissionRecord(
       ]),
     ),
     otherUrls: input.otherUrls ?? [],
-    suggestedTags: input.suggestedTags ?? [],
+    suggestedSubcategories: input.suggestedSubcategories ?? [],
     pdpaConsentAt: input.pdpaConsentAt ?? null,
     isBrandOwner: input.isOwner ?? false,
     sourceAttribution: input.sourceAttribution ?? null,
-    productTypeNote: input.productTypeNote ?? null,
+    categoryNote: input.categoryNote ?? null,
   });
 
   return {
@@ -353,8 +353,8 @@ export function buildSubmissionRecord(
     pdpa_consent_at: mapped.pdpa_consent_at,
     is_brand_owner: mapped.is_brand_owner,
     source_attribution: mapped.source_attribution,
-    product_type_note: mapped.product_type_note,
-    owner_data: input.ownerData ?? null,
+    category_note: mapped.category_note,
+    owner_data: ownerDataToDb(input.ownerData),
   };
 }
 
@@ -364,7 +364,7 @@ export function buildSubmissionRecord(
 
 function submissionToDomain(
   row: SubmissionRowInput,
-): BrandSubmissionWithProductTypeNote {
+): BrandSubmissionWithCategoryNote {
   const purchaseFields = Object.fromEntries(
     PURCHASE_CHANNELS.map((channel) => [
       channel.camel,
@@ -387,7 +387,7 @@ function submissionToDomain(
     socialFacebook: row.social_facebook ?? null,
     ...purchaseFields,
     otherUrls: (row.other_urls as OtherUrl[]) ?? [],
-    suggestedTags: (row.suggested_tags as string[]) ?? [],
+    suggestedSubcategories: suggestedSubcategoriesFromDb(row.suggested_tags),
     status: row.status as BrandSubmission["status"],
     reviewerNotes: row.reviewer_notes ?? null,
     denialReason: (row.denial_reason as DenialReason) ?? null,
@@ -402,16 +402,16 @@ function submissionToDomain(
     isBrandOwner: row.is_brand_owner ?? false,
     sourceAttribution:
       (row.source_attribution as BrandSubmission["sourceAttribution"]) ?? null,
-    productTypeNote: row.product_type_note ?? null,
+    categoryNote: row.category_note ?? null,
   };
 }
 
 function submissionToInsert(
-  data: Partial<Omit<BrandSubmission, "suggestedTags">> & {
+  data: Partial<Omit<BrandSubmission, "suggestedSubcategories">> & {
     romanizedName?: string | null;
     websiteUrl?: string | null;
-    suggestedTags?: SuggestedTagsInput;
-    productTypeNote?: string | null;
+    suggestedSubcategories?: SuggestedSubcategoriesInput;
+    categoryNote?: string | null;
     ownerData?: Record<string, unknown>;
     idempotencyKey?: string | null;
   },
@@ -419,7 +419,7 @@ function submissionToInsert(
   return {
     ...toSubmissionRow(data),
     idempotency_key: data.idempotencyKey ?? null,
-    owner_data: data.ownerData ?? null,
+    owner_data: ownerDataToDb(data.ownerData),
   };
 }
 
@@ -440,6 +440,22 @@ function enrichedDataFromSubmissionDb(
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function ownerDataToDb(
+  value: Record<string, unknown> | undefined,
+): Record<string, unknown> | null {
+  if (!value) return null;
+  const result = { ...value };
+  if (Object.hasOwn(result, "categorySlug")) {
+    result.category = result.categorySlug;
+    delete result.categorySlug;
+  }
+  if (Object.hasOwn(result, "subcategoriesEn")) {
+    result.subcategories_en = result.subcategoriesEn;
+    delete result.subcategoriesEn;
+  }
+  return result;
 }
 
 function normalizeString(value: string | null | undefined): string | null {
@@ -501,6 +517,18 @@ function normalizeStringArray(value: unknown): string[] {
   ];
 }
 
+function suggestedSubcategoriesFromDb(
+  value: unknown,
+): BrandSubmission["suggestedSubcategories"] {
+  if (Array.isArray(value)) return normalizeStringArray(value);
+  if (!isJsonObject(value)) return [];
+
+  const values = normalizeStringArray(value.subcategories ?? value.values);
+  const categorySlug =
+    typeof value.category === "string" ? normalizeString(value.category) : null;
+  return categorySlug ? { values, categorySlug } : { values };
+}
+
 function preferText(
   preferred: string | null | undefined,
   fallback: string | null | undefined,
@@ -508,18 +536,20 @@ function preferText(
   return normalizeString(preferred) ?? normalizeString(fallback);
 }
 
-function originalSuggestedTags(value: BrandSubmission["suggestedTags"]): {
-  productType: string | null;
-  productTags: string[];
+function originalSuggestedSubcategories(
+  value: BrandSubmission["suggestedSubcategories"],
+): {
+  categorySlug: string | null;
+  subcategories: string[];
 } {
   if (Array.isArray(value)) {
-    return { productType: null, productTags: normalizeStringArray(value) };
+    return { categorySlug: null, subcategories: normalizeStringArray(value) };
   }
 
-  const structured = value as { values?: string[]; productType?: string };
+  const structured = value as { values?: string[]; categorySlug?: string };
   return {
-    productType: normalizeString(structured.productType),
-    productTags: normalizeStringArray(structured.values),
+    categorySlug: normalizeString(structured.categorySlug),
+    subcategories: normalizeStringArray(structured.values),
   };
 }
 
@@ -632,7 +662,7 @@ export function resolveSubmissionReviewImages(
 }
 
 type SubmissionReviewSource = Pick<
-  BrandSubmissionWithProductTypeNote,
+  BrandSubmissionWithCategoryNote,
   | "brandName"
   | "description"
   | "websiteUrl"
@@ -641,16 +671,18 @@ type SubmissionReviewSource = Pick<
   | "socialThreads"
   | "socialFacebook"
   | "otherUrls"
-  | "suggestedTags"
-> & Pick<BrandSubmissionWithProductTypeNote, PurchaseChannelCamelField>;
+  | "suggestedSubcategories"
+> & Pick<BrandSubmissionWithCategoryNote, PurchaseChannelCamelField>;
 
 export function buildSubmissionReviewData(
   submission: SubmissionReviewSource,
   enrichedData: EnrichedSubmissionData | null | undefined,
   images: SubmissionReviewImage[],
 ): SubmissionReviewData {
-  const originalTags = originalSuggestedTags(submission.suggestedTags);
-  const enrichedTags = normalizeStringArray(enrichedData?.productTags);
+  const originalTags = originalSuggestedSubcategories(
+    submission.suggestedSubcategories,
+  );
+  const enrichedTags = normalizeStringArray(enrichedData?.subcategories);
   const enrichedOtherUrls = normalizeOtherUrls(enrichedData?.otherUrls);
   const activeImages = normalizeSubmissionReviewImages(images).filter(
     (image) => image.status === "active",
@@ -686,14 +718,14 @@ export function buildSubmissionReviewData(
     heroImageUrl:
       normalizeString(imageHero?.url) ??
       preferText(enrichedData?.heroImageUrl, submission.heroImageUrl),
-    productType: preferText(
-      enrichedData?.productType,
-      originalTags.productType,
+    categorySlug: preferText(
+      enrichedData?.categorySlug,
+      originalTags.categorySlug,
     ),
     priceRange: enrichedData?.priceRange ?? null,
-    productTags:
-      enrichedTags.length > 0 ? enrichedTags : originalTags.productTags,
-    productTagsEn: normalizeStringArray(enrichedData?.productTagsEn),
+    subcategories:
+      enrichedTags.length > 0 ? enrichedTags : originalTags.subcategories,
+    subcategoriesEn: normalizeStringArray(enrichedData?.subcategoriesEn),
     websiteUrl,
     socialInstagram: preferText(
       enrichedData?.socialInstagram,
@@ -717,11 +749,11 @@ export function buildSubmissionReviewData(
 
 function refreshReviewSource(
   baseBrandData: Record<string, unknown>,
-  fallback: BrandSubmissionWithProductTypeNote,
+  fallback: BrandSubmissionWithCategoryNote,
 ): SubmissionReviewSource {
-  const productType = normalizeString(
-    typeof baseBrandData.product_type === "string"
-      ? baseBrandData.product_type
+  const categorySlug = normalizeString(
+    typeof baseBrandData.category === "string"
+      ? baseBrandData.category
       : null,
   );
   const websiteColumn = purchaseChannelByKey.website.column;
@@ -766,9 +798,9 @@ function refreshReviewSource(
         : null,
     ...purchaseFields,
     otherUrls: normalizeOtherUrls(baseBrandData.other_urls),
-    suggestedTags: {
-      values: normalizeStringArray(baseBrandData.product_tags),
-      productType: productType ?? undefined,
+    suggestedSubcategories: {
+      values: normalizeStringArray(baseBrandData.subcategories),
+      categorySlug: categorySlug ?? undefined,
     },
   };
 }
@@ -783,8 +815,8 @@ export function buildRefreshSubmissionReviewData(
 }
 
 function buildReviewLayers(
-  row: SubmissionRowWithProductTypeNote,
-  submission: BrandSubmissionWithProductTypeNote,
+  row: SubmissionRowWithCategoryNote,
+  submission: BrandSubmissionWithCategoryNote,
   enrichedData: EnrichedSubmissionData | null,
   images: SubmissionReviewImage[] = [],
 ): {
@@ -854,19 +886,19 @@ export function getSubmissionReviewCompleteness(
   latestTargetStatus: CurationTargetStatus | null,
 ): SubmissionReviewCompleteness {
   const missingFields: SubmissionReviewMissingField[] = [];
-  const validProductTypes = new Set<string>(
-    PRODUCT_TYPE_CATEGORIES.map((category) => category.slug),
+  const validCategories = new Set<string>(
+    L1_CATEGORIES.map((category) => category.slug),
   );
   const activeImages = normalizeSubmissionReviewImages(images).filter(
     (image) => image.status === "active",
   );
 
   if (!normalizeString(data.description)) missingFields.push("description");
-  if (!data.productType || !validProductTypes.has(data.productType)) {
-    missingFields.push("productType");
+  if (!data.categorySlug || !validCategories.has(data.categorySlug)) {
+    missingFields.push("categorySlug");
   }
-  if (data.productTags.length < 1 || data.productTags.length > 5) {
-    missingFields.push("productTags");
+  if (data.subcategories.length < 1 || data.subcategories.length > 5) {
+    missingFields.push("subcategories");
   }
   if (![1, 2, 3].includes(data.priceRange ?? 0)) {
     missingFields.push("priceRange");
@@ -905,7 +937,7 @@ function submissionToBrandBase(row: SubmissionRow): BrandInsert {
     hero_image_url: rowWithSubmissionImages.hero_image_url ?? null,
     status: "approved",
     is_demo: false,
-    product_type: null as unknown as string,
+    category: null as unknown as string,
     founding_year: null,
     social_instagram: row.social_instagram,
     social_threads: row.social_threads,
@@ -927,7 +959,7 @@ function submissionReviewDataPrefix(data: SubmissionReviewData) {
     blurb: data.blurb,
     blurbEn: data.blurbEn,
     heroImageUrl: data.heroImageUrl,
-    productType: data.productType,
+    categorySlug: data.categorySlug,
     foundingYear: data.foundingYear,
     city: data.city,
     socialInstagram: data.socialInstagram,
@@ -943,8 +975,8 @@ function submissionReviewDataPrefix(data: SubmissionReviewData) {
     ),
     otherUrls: data.otherUrls,
     priceRange: data.priceRange,
-    productTags: data.productTags,
-    productTagsEn: data.productTagsEn,
+    subcategories: data.subcategories,
+    subcategoriesEn: data.subcategoriesEn,
   });
   const purchaseFields = Object.fromEntries(
     PURCHASE_COLUMNS.map((column) => [column, mapped[column]]),
@@ -971,10 +1003,10 @@ function submissionReviewDataToBrandInsert(
     site_content: data.siteContent,
     founding_year: mapped.founding_year,
     hero_image_url: mapped.hero_image_url,
-    product_type: mapped.product_type,
+    category: mapped.category,
     price_range: mapped.price_range,
-    product_tags: mapped.product_tags,
-    product_tags_en: mapped.product_tags_en,
+    subcategories: mapped.subcategories,
+    subcategories_en: mapped.subcategories_en,
     social_instagram: mapped.social_instagram,
     social_threads: mapped.social_threads,
     social_facebook: mapped.social_facebook,
@@ -1002,10 +1034,10 @@ function submissionReviewDataToDb(
     site_content: data.siteContent,
     founding_year: mapped.founding_year,
     hero_image_url: mapped.hero_image_url,
-    product_type: mapped.product_type,
+    category: mapped.category,
     price_range: mapped.price_range,
-    product_tags: mapped.product_tags,
-    product_tags_en: mapped.product_tags_en,
+    subcategories: mapped.subcategories,
+    subcategories_en: mapped.subcategories_en,
     social_instagram: mapped.social_instagram,
     social_threads: mapped.social_threads,
     social_facebook: mapped.social_facebook,
@@ -1085,20 +1117,20 @@ function reviewDataFromDb(
       data.hero_image_url === null || typeof data.hero_image_url === "string"
         ? data.hero_image_url
         : fallback.heroImageUrl,
-    productType:
-      data.product_type === null || typeof data.product_type === "string"
-        ? data.product_type
-        : fallback.productType,
+    categorySlug:
+      data.category === null || typeof data.category === "string"
+        ? data.category
+        : fallback.categorySlug,
     priceRange:
       data.price_range === null || typeof data.price_range === "number"
         ? data.price_range
         : fallback.priceRange,
-    productTags: Array.isArray(data.product_tags)
-      ? normalizeStringArray(data.product_tags)
-      : fallback.productTags,
-    productTagsEn: Array.isArray(data.product_tags_en)
-      ? normalizeStringArray(data.product_tags_en)
-      : fallback.productTagsEn,
+    subcategories: Array.isArray(data.subcategories)
+      ? normalizeStringArray(data.subcategories)
+      : fallback.subcategories,
+    subcategoriesEn: Array.isArray(data.subcategories_en)
+      ? normalizeStringArray(data.subcategories_en)
+      : fallback.subcategoriesEn,
     websiteUrl,
     socialInstagram:
       data.social_instagram === null ||
@@ -1198,14 +1230,14 @@ export async function createSubmission(
     > & Partial<Pick<BrandSubmission, PurchaseChannelCamelField>> & {
       websiteUrl?: string | null;
       romanizedName?: string | null;
-      suggestedTags?: SuggestedTagsInput;
-      productTypeNote?: string | null;
+      suggestedSubcategories?: SuggestedSubcategoriesInput;
+      categoryNote?: string | null;
       intent?: SubmissionIntent;
       ownerData?: Record<string, unknown>;
       idempotencyKey?: string | null;
     },
   _options?: { useServiceRole?: boolean },
-): Promise<BrandSubmissionWithProductTypeNote> {
+): Promise<BrandSubmissionWithCategoryNote> {
   return auditedCall(
     { provider: "submissions", operation: "createSubmission", kind: "service" },
     async () => {
@@ -1322,7 +1354,7 @@ const ADMIN_REVIEW_SUBMISSIONS_SELECT = `
   is_brand_owner,
   intent,
   source_attribution,
-  product_type_note,
+  category_note,
   enriched_data,
   owner_data,
   review_overrides,
@@ -1366,7 +1398,7 @@ export async function getSubmissionsForReview(options?: {
 
   const rows = [firstPage, ...remainingPages].flatMap(
     (page) =>
-      (page.data ?? []) as unknown as SubmissionRowWithProductTypeNote[],
+      (page.data ?? []) as unknown as SubmissionRowWithCategoryNote[],
   );
   const submissionIds = rows.map((row) => row.id);
   const targetHistory = (
@@ -1938,7 +1970,7 @@ export async function saveSubmissionReview(
     throw new NotFoundError("BrandSubmission", id, { cause: submissionError });
   }
 
-  const submissionRow = row as unknown as SubmissionRowWithProductTypeNote;
+  const submissionRow = row as unknown as SubmissionRowWithCategoryNote;
   const submission = submissionToDomain(submissionRow);
   const enrichedData = isEnrichedData(submissionRow.enriched_data)
     ? enrichedDataFromSubmissionDb(
@@ -2117,7 +2149,7 @@ export async function approveSubmission(
   const typedSubmission = {
     ...submission,
     other_urls: normalizeOtherUrls(submission.other_urls),
-  } as unknown as SubmissionRowWithProductTypeNote;
+  } as unknown as SubmissionRowWithCategoryNote;
   const submissionDomain = submissionToDomain(typedSubmission);
   const reviewData = buildReviewLayers(
     typedSubmission,

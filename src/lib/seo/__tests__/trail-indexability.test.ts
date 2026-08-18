@@ -120,7 +120,7 @@ describe('trailIndexBlockers', () => {
     expect(blockers).toContain('distinct_l2')
   })
 
-  it('rejects an L2 value absent from PRODUCT_SUBCATEGORIES', () => {
+  it('rejects an L2 value absent from L2_SUBCATEGORIES', () => {
     const blockers = trailIndexBlockers({
       frontmatter: baseFrontmatter,
       products: products(6, 'not-a-real-subcategory').map((item, index) => ({

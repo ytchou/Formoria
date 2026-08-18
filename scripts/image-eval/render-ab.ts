@@ -68,8 +68,8 @@ const LINK_FIELDS = [
 
 const IDENTITY_FIELDS: ReadonlyArray<readonly [string, string]> = [
   ['name', 'Name'],
-  ['product_type', 'Category'],
-  ['product_tags', 'Product tags'],
+  ['category', 'Category'],
+  ['subcategories', 'Product subcategories'],
   ['city', 'City'],
   ['founding_year', 'Founded'],
   ['price_range', 'Price range'],
@@ -157,7 +157,7 @@ async function main(): Promise<void> {
       const cls = pub === 0 ? 'bad' : delta > 0 ? 'good' : delta < 0 ? 'warn' : ''
       return `<tr>
       <td><a href="#${esc(b.slug)}"><b>${esc(b.name)}</b></a></td>
-      <td>${esc(show(b.product_type) || '—')} → <b>${esc(show(afterValue(w, 'product_type')) || '—')}</b></td>
+      <td>${esc(show(b.category) || '—')} → <b>${esc(show(afterValue(w, 'category')) || '—')}</b></td>
       <td class="num">${now}</td>
       <td class="num">${w.images.length}</td>
       <td class="num ${cls}">${pub}</td>
@@ -287,7 +287,7 @@ ${sections}
   console.log('wrote scripts/image-eval/runs/_track/before-after.html')
   for (const { before: b, after: w } of pairs) {
     console.log(
-      `  ${b.slug.padEnd(22)} images ${String((b.images ?? []).length).padStart(2)} -> ${String(w.images.filter((i) => i.status === 'active').length).padStart(2)}   category ${show(b.product_type) || '—'} -> ${show(afterValue(w, 'product_type')) || '—'}`
+      `  ${b.slug.padEnd(22)} images ${String((b.images ?? []).length).padStart(2)} -> ${String(w.images.filter((i) => i.status === 'active').length).padStart(2)}   category ${show(b.category) || '—'} -> ${show(afterValue(w, 'category')) || '—'}`
     )
   }
 }

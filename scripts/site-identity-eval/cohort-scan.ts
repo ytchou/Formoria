@@ -56,7 +56,7 @@ type BrandRow = {
   id: string;
   slug: string;
   name: string | null;
-  product_type: string | null;
+  category: string | null;
   purchase_website: string | null;
 };
 type Evidence = { title?: string; description?: string; story?: string };
@@ -136,7 +136,7 @@ async function fetchCohortBrands(): Promise<BrandRow[]> {
   for (let offset = 0; ; offset += BATCH_SIZE) {
     const { data, error } = await supabase
       .from("brands")
-      .select("id, slug, name, product_type, purchase_website")
+      .select("id, slug, name, category, purchase_website")
       .eq("status", "approved")
       .order("slug", { ascending: true })
       .range(offset, offset + BATCH_SIZE - 1);
@@ -274,7 +274,7 @@ async function main(): Promise<void> {
     ({ brand, url, evidence }) => ({
       slug: brand.slug,
       brandName: brand.name ?? "",
-      productType: brand.product_type ?? undefined,
+      categorySlug: brand.category ?? undefined,
       subjectUrl: url,
       subjectKind: "website",
       pageTitle: evidence.title,

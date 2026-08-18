@@ -14,7 +14,7 @@
 -- The brands below are NOT invented — real names, real slugs, real
 -- purchase_website URLs. Only the fabricated channels are gone.
 
-with fixture(id, name, slug, product_type, city, purchase_website) as (
+with fixture(id, name, slug, category, city, purchase_website) as (
   values
     ('51000000-0000-4000-8000-000000000001'::uuid, '74OUNCE', '74ounce', 'bags-accessories', 'chiayi_city', 'https://www.74oz.com.tw/'),
     ('51000000-0000-4000-8000-000000000002'::uuid, '87 小兔 87rabbit', '87rabbit', 'bags-accessories', null, null),
@@ -58,7 +58,7 @@ with fixture(id, name, slug, product_type, city, purchase_website) as (
     ('51000000-0000-4000-8000-000000000040'::uuid, 'Overdigi', 'overdigi', 'tech', null, 'https://www.overdigi.com')
 )
 insert into public.brands (
-  id, name, slug, description, status, approved_at, source, product_type, city,
+  id, name, slug, description, status, approved_at, source, category, city,
   purchase_website
 )
 select
@@ -69,7 +69,7 @@ select
   'approved',
   '2026-08-12T00:00:00Z'::timestamptz,
   'demo_seed',
-  product_type,
+  category,
   city,
   purchase_website
 from fixture
@@ -80,7 +80,7 @@ on conflict (id) do update set
   status = excluded.status,
   approved_at = excluded.approved_at,
   source = excluded.source,
-  product_type = excluded.product_type,
+  category = excluded.category,
   city = excluded.city,
   purchase_website = excluded.purchase_website;
 

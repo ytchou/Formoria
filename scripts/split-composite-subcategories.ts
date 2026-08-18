@@ -8,9 +8,9 @@
  * explicitly approved artifact and never calls the model.
  *
  * Usage:
- *   pnpm exec tsx --env-file=.env.local scripts/split-composite-product-tags.ts
- *   pnpm exec tsx --env-file=.env.local scripts/split-composite-product-tags.ts \
- *     --apply --artifact=scripts/eval/results/split-composite-product-tags-<timestamp>.json
+ *   pnpm exec tsx --env-file=.env.local scripts/split-composite-subcategories.ts
+ *   pnpm exec tsx --env-file=.env.local scripts/split-composite-subcategories.ts \
+ *     --apply --artifact=scripts/eval/results/split-composite-subcategories-<timestamp>.json
  */
 
 import { config } from "dotenv";
@@ -31,7 +31,7 @@ import {
   isRetiredCompositeLabel,
   normalizeTagKey,
   subcategoryBySlug,
-  type ProductSubcategory,
+  type L2Subcategory,
 } from "@/lib/taxonomy/ontology";
 
 // ---------------------------------------------------------------------------
@@ -40,9 +40,9 @@ import {
 
 export const MAX_TAGS = 5;
 export const RUN_ARTIFACT_VERSION = 1;
-export const ARTIFACT_KIND = "split-composite-product-tags" as const;
+export const ARTIFACT_KIND = "split-composite-subcategories" as const;
 export const PLANNING_OPERATION =
-  "split-composite-product-tags.classify" as const;
+  "split-composite-subcategories.classify" as const;
 
 export type SplitDefinition = {
   source: (typeof RETIRED_COMPOSITE_LABELS)[number];
@@ -70,7 +70,7 @@ const definitionByKey = new Map<string, SplitDefinition>(
   ]),
 );
 
-const subcategoryByTarget = new Map<string, ProductSubcategory>();
+const subcategoryByTarget = new Map<string, L2Subcategory>();
 for (const definition of SPLIT_DEFINITIONS) {
   for (const slug of definition.targetSlugs) {
     const subcategory = subcategoryBySlug(slug);
@@ -99,9 +99,9 @@ export type BrandRow = {
   blurb: string | null;
   description: string | null;
   site_content: unknown;
-  product_type: string | null;
-  product_tags: string[] | null;
-  product_tags_en: string[] | null;
+  category: string | null;
+  subcategories: string[] | null;
+  subcategories_en: string[] | null;
 };
 
 export type SplitDecision = "one" | "both" | "neither" | "needs-review";
@@ -123,8 +123,8 @@ export type OverflowReview = {
 };
 
 type TagValue = {
-  productTags: string[];
-  productTagsEn: string[] | null;
+  subcategories: string[];
+  subcategoriesEn: string[] | null;
   pairs: TagPair[];
 };
 
@@ -136,11 +136,11 @@ export type SplitRow = {
   blurb: string | null;
   description: string | null;
   siteContent: unknown;
-  productType: string | null;
+  categorySlug: string | null;
   callId: string;
   sourceLabels: string[];
   before: TagValue;
-  after: TagValue & { productTagsEn: string[] };
+  after: TagValue & { subcategoriesEn: string[] };
   assignments: SplitAssignment[];
   overflowReview: OverflowReview;
 };
@@ -186,8 +186,8 @@ export type RunArtifact = {
     rows: Array<{
       id: string;
       slug: string;
-      productTags: string[];
-      productTagsEn: string[] | null;
+      subcategories: string[];
+      subcategoriesEn: string[] | null;
     }>;
   };
 };
@@ -254,12 +254,12 @@ function sameArray(left: string[] | null, right: string[] | null): boolean {
 }
 
 function toTagPairs(
-  productTags: string[],
-  productTagsEn: string[] | null,
+  subcategories: string[],
+  subcategoriesEn: string[] | null,
 ): TagPair[] {
-  return productTags.map((zh, index) => ({
+  return subcategories.map((zh, index) => ({
     zh,
-    en: productTagsEn?.[index] ?? null,
+    en: subcategoriesEn?.[index] ?? null,
   }));
 }
 
@@ -400,8 +400,8 @@ export function buildSplitRow(
   callId: string,
   assignments: SplitAssignment[],
 ): SplitRow {
-  const beforeTags = brand.product_tags ?? [];
-  const beforeEn = brand.product_tags_en;
+  const beforeTags = brand.subcategories ?? [];
+  const beforeEn = brand.subcategories_en;
   const sourceLabels = sourceLabelsForTags(beforeTags);
   const normalizedAssignments = sourceLabels.map((sourceLabel) => {
     const assignment = assignments.find(
@@ -437,17 +437,17 @@ export function buildSplitRow(
     blurb: brand.blurb,
     description: brand.description,
     siteContent: brand.site_content,
-    productType: brand.product_type,
+    categorySlug: brand.category,
     callId,
     sourceLabels,
     before: {
-      productTags: beforeTags,
-      productTagsEn: beforeEn,
+      subcategories: beforeTags,
+      subcategoriesEn: beforeEn,
       pairs: toTagPairs(beforeTags, beforeEn),
     },
     after: {
-      productTags: afterTags,
-      productTagsEn: afterEn,
+      subcategories: afterTags,
+      subcategoriesEn: afterEn,
       pairs: predictedPairs,
     },
     assignments: normalizedAssignments,
@@ -459,7 +459,7 @@ export function validateSplitRow(
   row: SplitRow,
   options: { forApply?: boolean } = {},
 ): void {
-  const expectedSources = sourceLabelsForTags(row.before.productTags);
+  const expectedSources = sourceLabelsForTags(row.before.subcategories);
   if (JSON.stringify(row.sourceLabels) !== JSON.stringify(expectedSources)) {
     throw new Error(
       `Malformed split artifact: source labels do not match the before tags for "${row.slug}"`,
@@ -479,14 +479,14 @@ export function validateSplitRow(
       `Malformed split artifact: split decisions do not exactly cover source labels for "${row.slug}"`,
     );
   }
-  if (row.after.productTags.length !== row.after.productTagsEn.length) {
+  if (row.after.subcategories.length !== row.after.subcategoriesEn.length) {
     throw new Error(
       `ABORT: brand "${row.slug}" has unpaired zh/en after values`,
     );
   }
   if (
-    row.before.productTagsEn !== null &&
-    row.before.productTags.length !== row.before.productTagsEn.length
+    row.before.subcategoriesEn !== null &&
+    row.before.subcategories.length !== row.before.subcategoriesEn.length
   ) {
     throw new Error(
       `ABORT: brand "${row.slug}" has unpaired zh/en before values`,
@@ -494,7 +494,7 @@ export function validateSplitRow(
   }
   if (
     JSON.stringify(row.before.pairs) !==
-    JSON.stringify(toTagPairs(row.before.productTags, row.before.productTagsEn))
+    JSON.stringify(toTagPairs(row.before.subcategories, row.before.subcategoriesEn))
   ) {
     throw new Error(
       `Malformed split artifact: ${row.slug} before pairs do not match arrays`,
@@ -502,7 +502,7 @@ export function validateSplitRow(
   }
   if (
     JSON.stringify(row.after.pairs) !==
-    JSON.stringify(toTagPairs(row.after.productTags, row.after.productTagsEn))
+    JSON.stringify(toTagPairs(row.after.subcategories, row.after.subcategoriesEn))
   ) {
     throw new Error(
       `Malformed split artifact: ${row.slug} after pairs do not match arrays`,
@@ -553,8 +553,8 @@ export function validateSplitRow(
   }
 
   const predictedPairs = buildPredictedPairs(
-    row.before.productTags,
-    row.before.productTagsEn,
+    row.before.subcategories,
+    row.before.subcategoriesEn,
     row.assignments,
   );
   const expectedOverflow = buildOverflowReview(
@@ -634,15 +634,15 @@ export function validateSplitRow(
       );
     if (
       row.overflowReview.status === "approved" &&
-      (row.after.productTags.length === 0 ||
-        row.after.productTags.length > MAX_TAGS)
+      (row.after.subcategories.length === 0 ||
+        row.after.subcategories.length > MAX_TAGS)
     )
       throw new Error(
         `ABORT: approved overflow review for ${row.slug} must leave 1-${MAX_TAGS} paired tags`,
       );
   }
 
-  if (row.before.productTags.length > 0 && row.after.productTags.length === 0) {
+  if (row.before.subcategories.length > 0 && row.after.subcategories.length === 0) {
     throw new Error(
       `ABORT: brand "${row.slug}" would go from tags to zero tags`,
     );
@@ -658,7 +658,7 @@ export function validateSplitRow(
         `ABORT: brand "${row.slug}" still has a needs-review split decision`,
       );
     }
-    if (row.after.productTags.some(isRetiredCompositeLabel)) {
+    if (row.after.subcategories.some(isRetiredCompositeLabel)) {
       throw new Error(
         `ABORT: retired composite remains after split for "${row.slug}"`,
       );
@@ -699,9 +699,9 @@ export function buildClassifierPrompt(
 ): { system: string; user: string } {
   const evidence = {
     name: brand.name,
-    productType: brand.product_type,
-    productTags: brand.product_tags ?? [],
-    productTagsEn: brand.product_tags_en ?? [],
+    categorySlug: brand.category,
+    subcategories: brand.subcategories ?? [],
+    subcategoriesEn: brand.subcategories_en ?? [],
     blurb: brand.blurb,
     description: brand.description,
     siteContent: brand.site_content,
@@ -736,9 +736,9 @@ function classifierBrandFromRow(row: SplitRow): BrandRow {
     blurb: row.blurb,
     description: row.description,
     site_content: row.siteContent,
-    product_type: row.productType,
-    product_tags: row.before.productTags,
-    product_tags_en: row.before.productTagsEn,
+    category: row.categorySlug,
+    subcategories: row.before.subcategories,
+    subcategories_en: row.before.subcategoriesEn,
   };
 }
 
@@ -903,7 +903,7 @@ function rowScopeValue(row: SplitRow): Record<string, unknown> {
     blurb: row.blurb,
     description: row.description,
     siteContent: row.siteContent,
-    productType: row.productType,
+    categorySlug: row.categorySlug,
     before: row.before,
   };
 }
@@ -930,8 +930,8 @@ function summaryForRows(rows: SplitRow[]): RunSummary {
 
   for (const row of rows) {
     if (
-      !sameArray(row.before.productTags, row.after.productTags) ||
-      !sameArray(row.before.productTagsEn, row.after.productTagsEn)
+      !sameArray(row.before.subcategories, row.after.subcategories) ||
+      !sameArray(row.before.subcategoriesEn, row.after.subcategoriesEn)
     )
       brandsChanged += 1;
     let rowNeedsReview = false;
@@ -1002,8 +1002,8 @@ export function createRunArtifact(
       rows: rows.map((row) => ({
         id: row.id,
         slug: row.slug,
-        productTags: row.before.productTags,
-        productTagsEn: row.before.productTagsEn,
+        subcategories: row.before.subcategories,
+        subcategoriesEn: row.before.subcategoriesEn,
       })),
     },
   };
@@ -1342,15 +1342,15 @@ export function parseRunArtifact(
       (raw.description !== null &&
         raw.description !== undefined &&
         typeof raw.description !== "string") ||
-      (raw.productType !== null &&
-        raw.productType !== undefined &&
-        typeof raw.productType !== "string")
+      (raw.categorySlug !== null &&
+        raw.categorySlug !== undefined &&
+        typeof raw.categorySlug !== "string")
     )
       throw new Error(`Malformed artifact: rows[${index}] metadata is invalid`);
-    const beforeTags = raw.before.productTags;
-    const beforeEn = raw.before.productTagsEn;
-    const afterTags = raw.after.productTags;
-    const afterEn = raw.after.productTagsEn;
+    const beforeTags = raw.before.subcategories;
+    const beforeEn = raw.before.subcategoriesEn;
+    const afterTags = raw.after.subcategories;
+    const afterEn = raw.after.subcategoriesEn;
     const overflowReview = raw.overflowReview;
     if (
       !Array.isArray(beforeTags) ||
@@ -1420,17 +1420,17 @@ export function parseRunArtifact(
       blurb: (raw.blurb ?? null) as string | null,
       description: (raw.description ?? null) as string | null,
       siteContent: raw.siteContent,
-      productType: (raw.productType ?? null) as string | null,
+      categorySlug: (raw.categorySlug ?? null) as string | null,
       callId: raw.callId,
       sourceLabels: raw.sourceLabels as string[],
       before: {
-        productTags: beforeTags as string[],
-        productTagsEn: beforeEn as string[] | null,
+        subcategories: beforeTags as string[],
+        subcategoriesEn: beforeEn as string[] | null,
         pairs: beforePairs,
       },
       after: {
-        productTags: afterTags as string[],
-        productTagsEn: afterEn as string[],
+        subcategories: afterTags as string[],
+        subcategoriesEn: afterEn as string[],
         pairs: afterPairs,
       },
       assignments,
@@ -1475,18 +1475,18 @@ export function parseRunArtifact(
       !isRecord(raw) ||
       typeof raw.id !== "string" ||
       typeof raw.slug !== "string" ||
-      !Array.isArray(raw.productTags) ||
-      !raw.productTags.every((tag) => typeof tag === "string") ||
-      (raw.productTagsEn !== null &&
-        (!Array.isArray(raw.productTagsEn) ||
-          !raw.productTagsEn.every((tag) => typeof tag === "string")))
+      !Array.isArray(raw.subcategories) ||
+      !raw.subcategories.every((tag) => typeof tag === "string") ||
+      (raw.subcategoriesEn !== null &&
+        (!Array.isArray(raw.subcategoriesEn) ||
+          !raw.subcategoriesEn.every((tag) => typeof tag === "string")))
     )
       throw new Error(`Malformed artifact: rollback.rows[${index}] is invalid`);
     return {
       id: raw.id,
       slug: raw.slug,
-      productTags: raw.productTags as string[],
-      productTagsEn: raw.productTagsEn as string[] | null,
+      subcategories: raw.subcategories as string[],
+      subcategoriesEn: raw.subcategoriesEn as string[] | null,
     };
   });
   const artifact = {
@@ -1530,12 +1530,12 @@ export function parseRunArtifact(
         rollbackRows[index]?.id !== row.id ||
         rollbackRows[index]?.slug !== row.slug ||
         !sameArray(
-          rollbackRows[index]?.productTags ?? null,
-          row.before.productTags,
+          rollbackRows[index]?.subcategories ?? null,
+          row.before.subcategories,
         ) ||
         !sameArray(
-          rollbackRows[index]?.productTagsEn ?? null,
-          row.before.productTagsEn,
+          rollbackRows[index]?.subcategoriesEn ?? null,
+          row.before.subcategoriesEn,
         ),
     )
   )
@@ -1558,7 +1558,7 @@ export function defaultArtifactPath(
 ): string {
   return path.resolve(
     "scripts/eval/results",
-    `split-composite-product-tags-${createdAt.replace(/[:.]/g, "-")}.json`,
+    `split-composite-subcategories-${createdAt.replace(/[:.]/g, "-")}.json`,
   );
 }
 
@@ -1620,16 +1620,16 @@ async function loadCompositeBrands(
     const { data, error } = await supabase
       .from("brands")
       .select(
-        "id, slug, status, name, blurb, description, site_content, product_type, product_tags, product_tags_en",
+        "id, slug, status, name, blurb, description, site_content, category, subcategories, subcategories_en",
       )
       .eq("status", "approved")
-      .not("product_tags", "is", null)
+      .not("subcategories", "is", null)
       .order("id", { ascending: true })
       .range(offset, offset + batchSize - 1);
     if (error) throw error;
     const batch = (data ?? []) as unknown as BrandRow[];
     brands.push(
-      ...batch.filter((brand) => hasRetiredSource(brand.product_tags)),
+      ...batch.filter((brand) => hasRetiredSource(brand.subcategories)),
     );
     if (batch.length < batchSize) break;
     offset += batchSize;
@@ -1644,7 +1644,7 @@ async function loadBrandSnapshot(
   const { data, error } = await supabase
     .from("brands")
     .select(
-      "id, slug, status, name, blurb, description, site_content, product_type, product_tags, product_tags_en",
+      "id, slug, status, name, blurb, description, site_content, category, subcategories, subcategories_en",
     )
     .eq("id", id)
     .maybeSingle();
@@ -1658,13 +1658,13 @@ function assertCurrentMatchesArtifact(current: BrandRow, row: SplitRow): void {
     current.id !== row.id ||
     current.slug !== row.slug ||
     current.status !== row.status ||
-    current.product_type !== row.productType ||
+    current.category !== row.categorySlug ||
     current.name !== row.name ||
     current.blurb !== row.blurb ||
     current.description !== row.description ||
     stableJson(current.site_content) !== stableJson(row.siteContent) ||
-    !sameArray(current.product_tags, row.before.productTags) ||
-    !sameArray(current.product_tags_en, row.before.productTagsEn)
+    !sameArray(current.subcategories, row.before.subcategories) ||
+    !sameArray(current.subcategories_en, row.before.subcategoriesEn)
   ) {
     throw new Error(
       `ABORT: baseline drift for brand "${row.slug}"; current DB values do not match the reviewed artifact`,
@@ -1677,14 +1677,14 @@ function assertPersistedMatchesRow(current: BrandRow, row: SplitRow): void {
     current.id !== row.id ||
     current.slug !== row.slug ||
     current.status !== row.status ||
-    current.product_type !== row.productType ||
+    current.category !== row.categorySlug ||
     current.name !== row.name ||
     current.blurb !== row.blurb ||
     current.description !== row.description ||
     stableJson(current.site_content) !== stableJson(row.siteContent) ||
-    !sameArray(current.product_tags, row.after.productTags) ||
-    !sameArray(current.product_tags_en, row.after.productTagsEn) ||
-    hasRetiredSource(current.product_tags)
+    !sameArray(current.subcategories, row.after.subcategories) ||
+    !sameArray(current.subcategories_en, row.after.subcategoriesEn) ||
+    hasRetiredSource(current.subcategories)
   ) {
     throw new Error(
       `ABORT: final validation failed for brand "${row.slug}"; persisted values do not match the reviewed artifact`,
@@ -1717,15 +1717,15 @@ export function validateFinalSnapshots(
 }
 
 type ApplyBrandWriteResult = {
-  productTags: string[];
-  productTagsEn: string[] | null;
-  productType: string | null;
+  subcategories: string[];
+  subcategoriesEn: string[] | null;
+  categorySlug: string | null;
   skipped: Array<{ field: string; reason: string }>;
 };
 
 type ApplyBrandUpdater = (
   id: string,
-  data: { productTags: string[]; productTagsEn: string[] | null },
+  data: { subcategories: string[]; subcategoriesEn: string[] | null },
   actor: { source: "enriched" },
 ) => Promise<ApplyBrandWriteResult>;
 
@@ -1770,8 +1770,8 @@ export async function applyRunArtifact(
   let writeCount = 0;
   const changedRows = reviewed.rows.filter(
     (row) =>
-      !sameArray(row.before.productTags, row.after.productTags) ||
-      !sameArray(row.before.productTagsEn, row.after.productTagsEn),
+      !sameArray(row.before.subcategories, row.after.subcategories) ||
+      !sameArray(row.before.subcategoriesEn, row.after.subcategoriesEn),
   );
   const changedSlugs = changedRows.map((row) => row.slug);
   if (new Set(changedSlugs).size !== changedSlugs.length)
@@ -1786,8 +1786,8 @@ export async function applyRunArtifact(
     const written = await update(
       row.id,
       {
-        productTags: row.after.productTags,
-        productTagsEn: row.after.productTagsEn,
+        subcategories: row.after.subcategories,
+        subcategoriesEn: row.after.subcategoriesEn,
       },
       { source: "enriched" },
     );
@@ -1796,9 +1796,9 @@ export async function applyRunArtifact(
         `ABORT: write for "${row.slug}" was skipped: ${written.skipped.map((entry) => `${entry.field}:${entry.reason}`).join(", ")}`,
       );
     if (
-      !sameArray(written.productTags, row.after.productTags) ||
-      !sameArray(written.productTagsEn, row.after.productTagsEn) ||
-      written.productType !== row.productType
+      !sameArray(written.subcategories, row.after.subcategories) ||
+      !sameArray(written.subcategoriesEn, row.after.subcategoriesEn) ||
+      written.categorySlug !== row.categorySlug
     )
       throw new Error(`ABORT: write verification failed for "${row.slug}"`);
     writeCount += 1;
@@ -1853,7 +1853,7 @@ async function planAndWrite(options: CliOptions): Promise<void> {
   const planningCalls: PlanningCall[] = [];
 
   for (const brand of brands) {
-    const sourceLabels = sourceLabelsForTags(brand.product_tags ?? []);
+    const sourceLabels = sourceLabelsForTags(brand.subcategories ?? []);
     const callId = randomUUID();
     console.log(`[llm] classifying ${brand.slug}: ${sourceLabels.join(", ")}`);
     const classified = await classifyBrandWithLlm(
@@ -1873,7 +1873,7 @@ async function planAndWrite(options: CliOptions): Promise<void> {
     "Review every needs-review decision and aggregate distribution, then set review.status=approved, reviewer, and reviewedAt before applying.",
   );
   console.log(
-    "For overflow rows, set overflowReview.status=approved, choose exact non-source before pairs in overflowReview.evicted, and update after.pairs/productTags/productTagsEn to the resulting 1-5 paired tags.",
+    "For overflow rows, set overflowReview.status=approved, choose exact non-source before pairs in overflowReview.evicted, and update after.pairs/subcategories/subcategoriesEn to the resulting 1-5 paired tags.",
   );
   console.log(JSON.stringify(artifact.summary, null, 2));
 }

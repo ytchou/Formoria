@@ -8,7 +8,7 @@
       "id": "cc0d4ef6-6fb7-4e71-b86b-3717cf711d8f",
       "slug": "bangstree",
       "name": "瀏海樹 BANGSTREE",
-      "productType": "bags-accessories",
+      "categorySlug": "bags-accessories",
       "purchaseWebsite": "https://www.bangstree.com",
       "split": "holdout"
     },
@@ -16,7 +16,7 @@
       "id": "206f6ee4-88a9-45c0-bf8b-4766cafefe4f",
       "slug": "buwu",
       "name": "布物設計 BUWU",
-      "productType": "bags-accessories",
+      "categorySlug": "bags-accessories",
       "purchaseWebsite": null,
       "split": "dev"
     },
@@ -24,7 +24,7 @@
       "id": "c7979647-ad1d-422a-8730-404167738619",
       "slug": "chez-城市系列",
       "name": "Chez。城市系列",
-      "productType": "bags-accessories",
+      "categorySlug": "bags-accessories",
       "purchaseWebsite": null,
       "split": "dev"
     },
@@ -32,7 +32,7 @@
       "id": "d78c5332-456f-4c0e-9164-be04191249d1",
       "slug": "clm",
       "name": "CLM",
-      "productType": "bags-accessories",
+      "categorySlug": "bags-accessories",
       "purchaseWebsite": "https://clm-taiwan.com",
       "split": "dev"
     },
@@ -40,7 +40,7 @@
       "id": "a291578c-0e1d-4ca6-b6f0-975654659036",
       "slug": "colorsmith",
       "name": "COLORSMITH",
-      "productType": "bags-accessories",
+      "categorySlug": "bags-accessories",
       "purchaseWebsite": null,
       "split": "dev"
     },
@@ -48,7 +48,7 @@
       "id": "7cb6f197-6951-42c6-90b1-b6daa6719819",
       "slug": "3triforce",
       "name": "TRIFORCE 翠芙思",
-      "productType": "beauty",
+      "categorySlug": "beauty",
       "purchaseWebsite": "https://www.3triforce.com.tw",
       "split": "dev"
     },
@@ -56,7 +56,7 @@
       "id": "c2f10e26-387a-43cc-84d9-e62cb69be77c",
       "slug": "8vd",
       "name": "8VD",
-      "productType": "beauty",
+      "categorySlug": "beauty",
       "purchaseWebsite": "https://www.shop8vd.com",
       "split": "dev"
     },
@@ -64,7 +64,7 @@
       "id": "27df9c7c-a4e0-466c-a9db-759357783043",
       "slug": "adela",
       "name": "ADELA",
-      "productType": "beauty",
+      "categorySlug": "beauty",
       "purchaseWebsite": "https://www.adela.tw",
       "split": "dev"
     },
@@ -72,7 +72,7 @@
       "id": "7d7e1c94-54c5-4275-b52a-15a2041141b1",
       "slug": "aenti",
       "name": "安提歐 aenti-O.",
-      "productType": "beauty",
+      "categorySlug": "beauty",
       "purchaseWebsite": "https://www.aenti-o.com/",
       "split": "holdout"
     },
@@ -80,7 +80,7 @@
       "id": "741363a7-ee9f-4786-a93e-ac6633ccb298",
       "slug": "aireal-land",
       "name": "Aireal Land 年零",
-      "productType": "beauty",
+      "categorySlug": "beauty",
       "purchaseWebsite": "https://www.airealland.com",
       "split": "dev"
     },
@@ -88,7 +88,7 @@
       "id": "76d2bbdc-4fdc-4f99-9941-47f7f5beb1e8",
       "slug": "1cmhandmake",
       "name": "一公分手作 1Cmhandmake",
-      "productType": "crafts",
+      "categorySlug": "crafts",
       "purchaseWebsite": "https://1cmhandmade.com",
       "split": "dev"
     },
@@ -96,7 +96,7 @@
       "id": "5d64eb48-7adf-42f9-b32f-6392e0e26218",
       "slug": "atw-studio",
       "name": "ATW studio",
-      "productType": "crafts",
+      "categorySlug": "crafts",
       "purchaseWebsite": "https://www.threads.com",
       "split": "holdout"
     },
@@ -104,7 +104,7 @@
       "id": "c02e2dba-fa75-4114-88b4-596ce7de8afe",
       "slug": "aura-aura-craft",
       "name": "稜光 AURA",
-      "productType": "crafts",
+      "categorySlug": "crafts",
       "purchaseWebsite": "https://aura-craft.com",
       "split": "holdout"
     },
@@ -112,7 +112,7 @@
       "id": "89cec845-7922-4bd1-9300-344fea1351f8",
       "slug": "bamboola-1980",
       "name": "Bamboola 1980",
-      "productType": "crafts",
+      "categorySlug": "crafts",
       "purchaseWebsite": null,
       "split": "dev"
     },
@@ -120,7 +120,7 @@
       "id": "02444e0a-fb2b-463f-9357-a795f1855f66",
       "slug": "bao-needle-felt",
       "name": "包手作羊毛氈 BAO Needle Felt",
-      "productType": "crafts",
+      "categorySlug": "crafts",
       "purchaseWebsite": "https://www.baobaohandmade.com",
       "split": "dev"
     },
@@ -128,7 +128,7 @@
       "id": "d75f6091-cefb-48cc-a3fe-e8464484bbd2",
       "slug": "1002",
       "name": "1002",
-      "productType": "fashion",
+      "categorySlug": "fashion",
       "purchaseWebsite": "https://online.uni-prosperity.com.tw",
       "split": "dev"
     },
@@ -136,7 +136,7 @@
       "id": "b84789d1-a75d-4663-b70b-7930d66dec0d",
       "slug": "2bm",
       "name": "2BM",
-      "productType": "fashion",
+      "categorySlug": "fashion",
       "purchaseWebsite": "https://www.2bm.com.tw",
       "split": "dev"
     },
@@ -144,7 +144,7 @@
       "id": "3b07c375-0b51-4e33-897b-9d8397774191",
       "slug": "7th-island",
       "name": "7th Island",
-      "productType": "fashion",
+      "categorySlug": "fashion",
       "purchaseWebsite": null,
       "split": "holdout"
     },
@@ -152,7 +152,7 @@
       "id": "494c11a0-79be-46d2-8c98-cc4f80006c82",
       "slug": "9-02-nineoootwo",
       "name": "9:02 Nineoootwo",
-      "productType": "fashion",
+      "categorySlug": "fashion",
       "purchaseWebsite": "https://nineoootwo.com",
       "split": "dev"
     },
@@ -160,7 +160,7 @@
       "id": "87b22b17-6b37-490a-94de-f2c1542822d2",
       "slug": "a-mour",
       "name": "A.MOUR 經典手工鞋",
-      "productType": "fashion",
+      "categorySlug": "fashion",
       "purchaseWebsite": "https://www.amour1981.com",
       "split": "dev"
     },
@@ -168,7 +168,7 @@
       "id": "96c93493-ec2f-4c52-b74e-3ef3f00af5fb",
       "slug": "1-koshijimi",
       "name": "壹顆蜆",
-      "productType": "food-drink",
+      "categorySlug": "food-drink",
       "purchaseWebsite": "https://1koshijimi.com.tw",
       "split": "dev"
     },
@@ -176,7 +176,7 @@
       "id": "3bce3306-e2e1-4ddf-8423-26603751dcc9",
       "slug": "1935",
       "name": "鹿苑茶莊 1935",
-      "productType": "food-drink",
+      "categorySlug": "food-drink",
       "purchaseWebsite": null,
       "split": "dev"
     },
@@ -184,7 +184,7 @@
       "id": "74384a49-4029-47f9-8826-f43bb7bb42c4",
       "slug": "404-oligo",
       "name": "404 Oligo",
-      "productType": "food-drink",
+      "categorySlug": "food-drink",
       "purchaseWebsite": null,
       "split": "dev"
     },
@@ -192,7 +192,7 @@
       "id": "efb8a416-0571-447f-8abe-34af12f1df31",
       "slug": "a-xiu-fresh-milk",
       "name": "阿秀鮮乳",
-      "productType": "food-drink",
+      "categorySlug": "food-drink",
       "purchaseWebsite": "https://www.puredairy.com.tw",
       "split": "holdout"
     },
@@ -200,7 +200,7 @@
       "id": "f5113412-3011-43d7-979a-7b1a827f288d",
       "slug": "all-4-nuts",
       "name": "4 Nuts",
-      "productType": "food-drink",
+      "categorySlug": "food-drink",
       "purchaseWebsite": null,
       "split": "dev"
     },
@@ -208,7 +208,7 @@
       "id": "bfd54fa4-4d12-4a28-b8e4-e679c136707b",
       "slug": "1973-furniture",
       "name": "1973 Furniture",
-      "productType": "home",
+      "categorySlug": "home",
       "purchaseWebsite": "https://1973home.myshopify.com",
       "split": "holdout"
     },
@@ -216,7 +216,7 @@
       "id": "a94504d2-2a68-4967-9788-0dcd7ff66bd7",
       "slug": "a-merry-heart",
       "name": "A Merry Heart",
-      "productType": "home",
+      "categorySlug": "home",
       "purchaseWebsite": "https://www.amerryheart.co",
       "split": "holdout"
     },
@@ -224,7 +224,7 @@
       "id": "f1f95a95-4508-47d2-aaf9-39b2affd20ab",
       "slug": "addable",
       "name": "Addable 居加良品",
-      "productType": "home",
+      "categorySlug": "home",
       "purchaseWebsite": "https://www.addableliving.com",
       "split": "dev"
     },
@@ -232,7 +232,7 @@
       "id": "885ae28a-a05b-4499-ba6c-420f0e313427",
       "slug": "agape",
       "name": "AGAPE 雅家倍",
-      "productType": "home",
+      "categorySlug": "home",
       "purchaseWebsite": null,
       "split": "dev"
     },
@@ -240,7 +240,7 @@
       "id": "3be09226-e5dd-4b0e-9734-4214019080cd",
       "slug": "aisaniea",
       "name": "艾莎妮亞名床 Aisaniea",
-      "productType": "home",
+      "categorySlug": "home",
       "purchaseWebsite": "https://aisaniea.com.tw",
       "split": "dev"
     },
@@ -248,7 +248,7 @@
       "id": "49d146e8-40a5-4980-a096-5f601f56fd72",
       "slug": "5am-jewelry",
       "name": "5AM Jewelry",
-      "productType": "jewelry",
+      "categorySlug": "jewelry",
       "purchaseWebsite": "https://5amjewelry.com",
       "split": "dev"
     },
@@ -256,7 +256,7 @@
       "id": "6f234f5f-78e2-4349-8a5d-cc20b34f9c3e",
       "slug": "ailin",
       "name": "AiliN",
-      "productType": "jewelry",
+      "categorySlug": "jewelry",
       "purchaseWebsite": null,
       "split": "dev"
     },
@@ -264,7 +264,7 @@
       "id": "6a316cf4-147e-4eae-a216-6e949d0c683f",
       "slug": "candes-accessories",
       "name": "Candes Accessories",
-      "productType": "jewelry",
+      "categorySlug": "jewelry",
       "purchaseWebsite": null,
       "split": "holdout"
     },
@@ -272,7 +272,7 @@
       "id": "9bf5b971-bf10-453f-b453-dde08d2d74ee",
       "slug": "cian-jewelry",
       "name": "黔CIAN Jewelry",
-      "productType": "jewelry",
+      "categorySlug": "jewelry",
       "purchaseWebsite": null,
       "split": "dev"
     },
@@ -280,7 +280,7 @@
       "id": "6160be24-9a8a-4cc5-8d55-07dec0ed9aea",
       "slug": "coconut-pie",
       "name": "椰子派 Coconut Pie",
-      "productType": "jewelry",
+      "categorySlug": "jewelry",
       "purchaseWebsite": null,
       "split": "dev"
     },
@@ -288,7 +288,7 @@
       "id": "6d1934ca-6218-4b79-a49b-caa2cd2ecab2",
       "slug": "1woof",
       "name": "一屋",
-      "productType": "kids-pets",
+      "categorySlug": "kids-pets",
       "purchaseWebsite": null,
       "split": "dev"
     },
@@ -296,7 +296,7 @@
       "id": "ca0e5a59-5a85-4c8d-8d49-50ced6e77692",
       "slug": "2angels",
       "name": "2Angels",
-      "productType": "kids-pets",
+      "categorySlug": "kids-pets",
       "purchaseWebsite": "https://2angelsbaby.com",
       "split": "dev"
     },
@@ -304,7 +304,7 @@
       "id": "6a9274e2-3351-4d77-bbc9-8c1ea2520dd5",
       "slug": "angle-wave",
       "name": "安閣家 ANGLE WAVE",
-      "productType": "kids-pets",
+      "categorySlug": "kids-pets",
       "purchaseWebsite": "https://www.anglewave.com",
       "split": "holdout"
     },
@@ -312,7 +312,7 @@
       "id": "9d55ea5d-4211-4f88-b106-8d3208f502db",
       "slug": "baby-baby-cool",
       "name": "Baby Baby Cool",
-      "productType": "kids-pets",
+      "categorySlug": "kids-pets",
       "purchaseWebsite": "https://babybabycool.com",
       "split": "holdout"
     },
@@ -320,7 +320,7 @@
       "id": "93795a99-6d13-46fb-bff2-e194c459fb67",
       "slug": "boxkitty",
       "name": "BOXKITTY 抓板大叔",
-      "productType": "kids-pets",
+      "categorySlug": "kids-pets",
       "purchaseWebsite": null,
       "split": "dev"
     },
@@ -328,7 +328,7 @@
       "id": "e9cfc9a0-a1da-4ecd-8fd2-f7f56196e959",
       "slug": "aceka",
       "name": "ACEKA",
-      "productType": "outdoor",
+      "categorySlug": "outdoor",
       "purchaseWebsite": "https://www.aceka.com.tw",
       "split": "dev"
     },
@@ -336,7 +336,7 @@
       "id": "57571a79-fec9-489a-b0a7-ea364306981f",
       "slug": "arsenal-tool-inc",
       "name": "Arsenal Tool Inc. 愛森諾工具",
-      "productType": "outdoor",
+      "categorySlug": "outdoor",
       "purchaseWebsite": "https://www.arsenaltoolinc.com",
       "split": "dev"
     },
@@ -344,7 +344,7 @@
       "id": "03bb5608-bfe9-4d92-b561-ac99b6fe64f8",
       "slug": "easymain",
       "name": "衣力美 EasyMain",
-      "productType": "outdoor",
+      "categorySlug": "outdoor",
       "purchaseWebsite": "https://www.easymain.com.tw",
       "split": "dev"
     },
@@ -352,7 +352,7 @@
       "id": "35b24101-b8af-4e6f-9e3b-9ffd273bd8a1",
       "slug": "gallop-kustom-kulture",
       "name": "Gallop Kustom Kulture",
-      "productType": "outdoor",
+      "categorySlug": "outdoor",
       "purchaseWebsite": null,
       "split": "holdout"
     },
@@ -360,7 +360,7 @@
       "id": "1069660c-6b39-4f98-a66e-b40c5b9a2188",
       "slug": "hanchor",
       "name": "HANCHOR",
-      "productType": "outdoor",
+      "categorySlug": "outdoor",
       "purchaseWebsite": "https://www.hanchor.com",
       "split": "dev"
     },
@@ -368,7 +368,7 @@
       "id": "60c7b391-827d-4c77-91b0-101744333478",
       "slug": "allite",
       "name": "Allite",
-      "productType": "tech",
+      "categorySlug": "tech",
       "purchaseWebsite": null,
       "split": "holdout"
     },
@@ -376,7 +376,7 @@
       "id": "7d8107f6-f512-42a0-b2fe-2f6672d8b5a7",
       "slug": "enable",
       "name": "ENABLE",
-      "productType": "tech",
+      "categorySlug": "tech",
       "purchaseWebsite": null,
       "split": "holdout"
     },
@@ -384,7 +384,7 @@
       "id": "7acef87c-8eda-4d61-bdbe-df53a699acbf",
       "slug": "euthenia",
       "name": "Euthenia 歐珍妮雅",
-      "productType": "tech",
+      "categorySlug": "tech",
       "purchaseWebsite": "https://euthenia.tw",
       "split": "dev"
     },
@@ -392,7 +392,7 @@
       "id": "c52946bd-2020-4e8b-96a3-cba00632a2b6",
       "slug": "hipporizz",
       "name": "HIPPORIZZ 河馬引力",
-      "productType": "tech",
+      "categorySlug": "tech",
       "purchaseWebsite": "https://hipporizz.com.tw",
       "split": "dev"
     },
@@ -400,7 +400,7 @@
       "id": "554e0b00-ca36-4027-b5d0-ee0288899187",
       "slug": "jlab-台灣獨家代理",
       "name": "JLab",
-      "productType": "tech",
+      "categorySlug": "tech",
       "purchaseWebsite": "https://www.ifans.com.tw",
       "split": "holdout"
     }

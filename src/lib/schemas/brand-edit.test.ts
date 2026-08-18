@@ -12,30 +12,30 @@ describe('basicInfoSchema', () => {
   it('passes with valid minimal data', () => {
     const result = basicInfoSchema.safeParse({
       name: 'Test Brand',
-      productType: 'fashion',
+      categorySlug: 'fashion',
     })
     expect(result.success).toBe(true)
   })
   it('allows an empty name in a draft', () => {
     const result = basicInfoSchema.safeParse({
       name: '',
-      productType: 'fashion',
+      categorySlug: 'fashion',
     })
     expect(result.success).toBe(true)
   })
-  it('fails when productTags exceeds 5', () => {
+  it('fails when subcategories exceeds 5', () => {
     const result = basicInfoSchema.safeParse({
       name: 'X',
-      productType: 'fashion',
-      productTags: ['a', 'b', 'c', 'd', 'e', 'f'],
+      categorySlug: 'fashion',
+      subcategories: ['a', 'b', 'c', 'd', 'e', 'f'],
     })
     expect(result.success).toBe(false)
   })
   it('fails when a productTag exceeds 40 chars', () => {
     const result = basicInfoSchema.safeParse({
       name: 'X',
-      productType: 'fashion',
-      productTags: ['a'.repeat(41)],
+      categorySlug: 'fashion',
+      subcategories: ['a'.repeat(41)],
     })
     expect(result.success).toBe(false)
   })
@@ -45,7 +45,7 @@ describe('brandEditSchema', () => {
   it('is a merge of all section schemas', () => {
     const result = brandEditSchema.safeParse({
       name: 'Brand',
-      productType: 'food',
+      categorySlug: 'food',
     })
     expect(result.success).toBe(true)
   })
@@ -82,7 +82,7 @@ describe('brandEditSchema', () => {
 describe('brandPublishSchema', () => {
   it('requires every owner publish field', () => {
     expect(
-      brandPublishSchema.safeParse({ name: '', productType: '' }).success,
+      brandPublishSchema.safeParse({ name: '', categorySlug: '' }).success,
     ).toBe(false)
   })
 
@@ -90,9 +90,9 @@ describe('brandPublishSchema', () => {
     expect(
       brandPublishSchema.safeParse({
         name: 'Brand',
-        productType: 'food',
+        categorySlug: 'food',
         description: 'Story',
-        productTags: ['tea'],
+        subcategories: ['tea'],
         priceRange: 2,
         heroImageUrl: 'https://example.com/hero.webp',
         productPhotos: ['https://example.com/product.webp'],
@@ -103,9 +103,9 @@ describe('brandPublishSchema', () => {
 
   const publishBase = {
     name: 'Brand',
-    productType: 'food',
+    categorySlug: 'food',
     description: 'Story',
-    productTags: ['tea'],
+    subcategories: ['tea'],
     priceRange: 2,
     heroImageUrl: 'https://example.com/hero.webp',
     purchaseWebsite: 'https://example.com',

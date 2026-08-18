@@ -245,9 +245,9 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "city",
     "founding_year",
     "price_range",
-    "product_type",
-    "product_tags",
-    "product_tags_en",
+    "category",
+    "subcategories",
+    "subcategories_en",
     "category_attributes",
     "hero_image_url",
     "other_urls",
@@ -527,7 +527,7 @@ export type SelectionCandidate = {
   id: string;
   slug: string;
   name: string;
-  product_type: string | null;
+  category: string | null;
   city: string | null;
   model_faq_count: number;
   mit_status: string;
@@ -558,7 +558,7 @@ export type SelectionPlan = {
   seed: number;
   slugs: string[];
   rationale: {
-    byProductType: Record<string, number>;
+    byCategory: Record<string, number>;
     pinned: string[];
     /**
      * Pinned staging slugs with no production brand. They stay in staging
@@ -605,7 +605,7 @@ export function computeSeoPromoted(
   );
 }
 
-export function productTypeKey(value: string | null): string {
+export function categorySlugKey(value: string | null): string {
   const trimmed = (value ?? "").trim();
   return trimmed.length > 0 ? trimmed : UNKNOWN_PRODUCT_TYPE;
 }
@@ -629,7 +629,7 @@ export const COVERAGE_FLOORS = {
  * any proportional filling, because the shapes it protects — a brand with zero
  * FAQ entries, a verified MIT brand, a redirect target — are rare enough that
  * a proportional draw reliably misses them. The quota fill gets whatever
- * budget is left, which is what keeps staging's product_type mix recognisably
+ * budget is left, which is what keeps staging's category mix recognisably
  * production's.
  */
 export function planBrandSelection(input: {
@@ -672,11 +672,11 @@ export function planBrandSelection(input: {
   const faqZeroTypes = new Set(
     [...selected.values()]
       .filter((brand) => brand.model_faq_count === 0)
-      .map((brand) => productTypeKey(brand.product_type)),
+      .map((brand) => categorySlugKey(brand.category)),
   );
   for (const brand of ordered) {
     if (brand.model_faq_count !== 0) continue;
-    const type = productTypeKey(brand.product_type);
+    const type = categorySlugKey(brand.category);
     if (faqZeroTypes.has(type)) continue;
     faqZeroTypes.add(type);
     take(brand);
@@ -714,26 +714,26 @@ export function planBrandSelection(input: {
 
   // 3. Proportional fill on production's own approved distribution, computed
   //    from the candidates rather than hard-coded: a frozen distribution rots
-  //    the first time a product_type grows.
-  const quotas = planProductTypeQuotas(candidates, target);
+  //    the first time a category grows.
+  const quotas = planCategoryQuotas(candidates, target);
   const remaining = ordered.filter((brand) => !selected.has(brand.slug));
   const byRichness = [...remaining].sort(compareRichness(seed));
 
   for (const [type, quota] of quotas) {
     let have = [...selected.values()].filter(
-      (brand) => productTypeKey(brand.product_type) === type,
+      (brand) => categorySlugKey(brand.category) === type,
     ).length;
     for (const brand of byRichness) {
       if (selected.size >= target) break;
       if (have >= quota) break;
       if (selected.has(brand.slug)) continue;
-      if (productTypeKey(brand.product_type) !== type) continue;
+      if (categorySlugKey(brand.category) !== type) continue;
       take(brand);
       have += 1;
     }
   }
 
-  // 4. Top-up. A product_type can run out of candidates before its quota is
+  // 4. Top-up. A category can run out of candidates before its quota is
   //    met; without this the run lands short of `target` for a reason nobody
   //    would think to look for.
   for (const brand of byRichness) {
@@ -743,10 +743,10 @@ export function planBrandSelection(input: {
   }
 
   const chosen = [...selected.values()];
-  const byProductType: Record<string, number> = {};
+  const byCategory: Record<string, number> = {};
   for (const brand of chosen) {
-    const type = productTypeKey(brand.product_type);
-    byProductType[type] = (byProductType[type] ?? 0) + 1;
+    const type = categorySlugKey(brand.category);
+    byCategory[type] = (byCategory[type] ?? 0) + 1;
   }
 
   return {
@@ -756,8 +756,8 @@ export function planBrandSelection(input: {
     // shows as one added line, not as a reshuffle.
     slugs: chosen.map((brand) => brand.slug).sort(),
     rationale: {
-      byProductType: Object.fromEntries(
-        Object.entries(byProductType).sort(([a], [b]) => a.localeCompare(b)),
+      byCategory: Object.fromEntries(
+        Object.entries(byCategory).sort(([a], [b]) => a.localeCompare(b)),
       ),
       pinned,
       pinnedMissingFromProduction,
@@ -782,17 +782,17 @@ export function planBrandSelection(input: {
 }
 
 /**
- * Largest-remainder apportionment of `target` seats across product_type, on
+ * Largest-remainder apportionment of `target` seats across category, on
  * the candidate distribution. Ties break on the type name so the result does
  * not depend on Postgres' row order.
  */
-export function planProductTypeQuotas(
+export function planCategoryQuotas(
   candidates: SelectionCandidate[],
   target: number,
 ): Map<string, number> {
   const counts = new Map<string, number>();
   for (const brand of candidates) {
-    const type = productTypeKey(brand.product_type);
+    const type = categorySlugKey(brand.category);
     counts.set(type, (counts.get(type) ?? 0) + 1);
   }
   const total = candidates.length;
@@ -1540,7 +1540,7 @@ const SELECTION_BRAND_COLUMNS = [
   "id",
   "slug",
   "name",
-  "product_type",
+  "category",
   "city",
   "model_faq_count",
   "mit_status",
@@ -1619,7 +1619,7 @@ async function runSelect(argv: string[]): Promise<void> {
     id: String(row.id),
     slug: String(row.slug),
     name: String(row.name),
-    product_type: (row.product_type as string | null) ?? null,
+    category: (row.category as string | null) ?? null,
     city: (row.city as string | null) ?? null,
     model_faq_count: Number(row.model_faq_count ?? 0),
     mit_status: String(row.mit_status ?? ""),

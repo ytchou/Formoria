@@ -5,27 +5,27 @@ import { describe, it, expect } from "vitest";
 // (`next/cache`, the Supabase server client). The day one of those gains a
 // module-scope env assertion — a pattern this repo uses elsewhere — every case
 // below fails at import for reasons unrelated to what it asserts. Escape hatch
-// if that happens: move the validator beside `resolveProductTagInput` in
-// `product-tags.ts`, which is ontology-only imports precisely so it can be
+// if that happens: move the validator beside `resolveSubcategoryInput` in
+// `subcategories.ts`, which is ontology-only imports precisely so it can be
 // imported freely.
 import {
   buildScalarCorrectionPatch,
   isCorrectionField,
   normalizeProposedValue,
 } from "../brand-corrections";
-import type { ProductTagsDelta } from "../product-tags";
+import type { SubcategoriesDelta } from "../subcategories";
 
 function normalizeTags(delta: unknown) {
-  return normalizeProposedValue("product_tags", delta);
+  return normalizeProposedValue("subcategories", delta);
 }
 
 function expectOkDelta(result: ReturnType<typeof normalizeTags>) {
   expect(result.ok).toBe(true);
   if (!result.ok) throw new Error("expected ok result");
-  return result.value as ProductTagsDelta;
+  return result.value as SubcategoriesDelta;
 }
 
-describe("normalizeProposedValue — product_tags", () => {
+describe("normalizeProposedValue — subcategories", () => {
   it("accepts a canonical nameZh add", () => {
     const value = expectOkDelta(normalizeTags({ add: ["洋裝"], remove: [] }));
     expect(value.add).toEqual(["洋裝"]);
@@ -148,8 +148,8 @@ describe("normalizeProposedValue — product_tags", () => {
   });
 });
 
-describe("normalizeProposedValue — price_range and product_type", () => {
-  it("price_range and product_type branches are unchanged", () => {
+describe("normalizeProposedValue — price_range and category", () => {
+  it("price_range and category branches are unchanged", () => {
     expect(normalizeProposedValue("price_range", 1)).toEqual({
       ok: true,
       value: 1,
@@ -175,15 +175,15 @@ describe("normalizeProposedValue — price_range and product_type", () => {
       error: "invalid_value",
     });
 
-    expect(normalizeProposedValue("product_type", "fashion")).toEqual({
+    expect(normalizeProposedValue("category", "fashion")).toEqual({
       ok: true,
       value: "fashion",
     });
-    expect(normalizeProposedValue("product_type", "not-a-slug")).toEqual({
+    expect(normalizeProposedValue("category", "not-a-slug")).toEqual({
       ok: false,
       error: "invalid_value",
     });
-    expect(normalizeProposedValue("product_type", 1)).toEqual({
+    expect(normalizeProposedValue("category", 1)).toEqual({
       ok: false,
       error: "invalid_value",
     });
@@ -414,8 +414,8 @@ describe("isCorrectionField", () => {
   it("accepts every supported field name and rejects unknown ones", () => {
     for (const field of [
       "price_range",
-      "product_type",
-      "product_tags",
+      "category",
+      "subcategories",
       "purchase_website",
       "purchase_pinkoi",
       "purchase_shopee",

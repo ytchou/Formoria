@@ -66,9 +66,9 @@ describeWithDb('submitBrandForReview (submission-first)', () => {
 
   it('stores owner_data when provided', async () => {
     const ownerData = {
-      productType: 'bags-accessories',
+      categorySlug: 'bags-accessories',
       foundingYear: 2018,
-      productTags: ['leather', 'handmade'],
+      subcategories: ['leather', 'handmade'],
       city: 'tainan',
       priceRange: 2,
       productPhotos: ['https://storage.example.com/p1.webp'],
@@ -93,9 +93,9 @@ describeWithDb('submitBrandForReview (submission-first)', () => {
       .single()
 
     expect(submission!.owner_data).toMatchObject({
-      productType: 'bags-accessories',
+      categorySlug: 'bags-accessories',
       foundingYear: 2018,
-      productTags: ['leather', 'handmade'],
+      subcategories: ['leather', 'handmade'],
       city: 'tainan',
       priceRange: 2,
     })

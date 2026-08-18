@@ -1,11 +1,11 @@
 /**
- * DEV-1266 backfill: re-derive `product_tags_en` for every brand.
+ * DEV-1266 backfill: re-derive `subcategories_en` for every brand.
  *
- * `product_tags_en` is a pure function of `product_tags`: an ontology hit takes
+ * `subcategories_en` is a pure function of `subcategories`: an ontology hit takes
  * the canonical `nameEn` ('後背包' -> 'Backpacks'), a novel tag keeps whatever
  * English is already stored, Title Cased ('sling bag' -> 'Sling Bag'), and a
  * novel tag with no stored English falls back to the raw Chinese. All of that
- * lives in `deriveProductTagsEn`, so this script is deterministic — no LLM, no
+ * lives in `deriveSubcategoriesEn`, so this script is deterministic — no LLM, no
  * DeepSeek, no network beyond Supabase.
  *
  * `toBrandRow` in `src/lib/services/_shared/field-map.ts` now runs the same normalizer
@@ -14,14 +14,14 @@
  * changed" on a later run means a write path bypassed `toBrandRow`.
  *
  * Usage:
- *   pnpm normalize-tags-en [--dry-run] [--batch-size=50]
+ *   pnpm normalize-subcategories-en [--dry-run] [--batch-size=50]
  */
 
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { deriveProductTagsEn } from "@/lib/services/product-tags";
+import { deriveSubcategoriesEn } from "@/lib/services/subcategories";
 import { updateBrand } from "@/lib/services/brands";
 import { requestPublicBrandRevalidation } from "@/lib/cache/revalidate-client";
 
@@ -37,13 +37,13 @@ type CliOptions = {
 type BrandRow = {
   id: string;
   slug: string;
-  product_tags: string[] | null;
-  product_tags_en: string[] | null;
+  subcategories: string[] | null;
+  subcategories_en: string[] | null;
 };
 
 type BrandResult = {
   brand: BrandRow;
-  tags: string[];
+  subcategories: string[];
   beforeEn: string[];
   afterEn: string[];
   changed: boolean;
@@ -101,7 +101,7 @@ async function main(): Promise<void> {
   while (true) {
     const { data, error } = await supabase
       .from("brands")
-      .select("id, slug, product_tags, product_tags_en")
+      .select("id, slug, subcategories, subcategories_en")
       .order("id", { ascending: true })
       .range(offset, offset + options.batchSize - 1);
 
@@ -117,20 +117,20 @@ async function main(): Promise<void> {
   console.log(`Loaded ${brands.length} brand(s)`);
 
   const results: BrandResult[] = brands.map((brand) => {
-    const tags = brand.product_tags ?? [];
-    const beforeEn = brand.product_tags_en ?? [];
-    const afterEn = deriveProductTagsEn(tags, beforeEn);
+    const subcategories = brand.subcategories ?? [];
+    const beforeEn = brand.subcategories_en ?? [];
+    const afterEn = deriveSubcategoriesEn(subcategories, beforeEn);
     return {
       brand,
-      tags,
+      subcategories,
       beforeEn,
       afterEn,
       changed: JSON.stringify(beforeEn) !== JSON.stringify(afterEn),
       // More EN entries than zh entries means the two arrays were never
-      // index-aligned, so `product_tags_en[i]` does not describe
-      // `product_tags[i]`. Deriving would either truncate real chips or carry
+      // index-aligned, so `subcategories_en[i]` does not describe
+      // `subcategories[i]`. Deriving would either truncate real chips or carry
       // the wrong pairing forward — both are guesses this script must not make.
-      misaligned: beforeEn.length > tags.length,
+      misaligned: beforeEn.length > subcategories.length,
     };
   });
 
@@ -151,7 +151,7 @@ async function main(): Promise<void> {
 
   for (const result of misalignedResults) {
     console.warn(
-      `MISALIGNED (skipped, needs a human): ${result.brand.slug} — zh(${result.tags.length})=${JSON.stringify(result.tags)} en(${result.beforeEn.length})=${JSON.stringify(result.beforeEn)}`,
+      `MISALIGNED (skipped, needs a human): ${result.brand.slug} — zh(${result.subcategories.length})=${JSON.stringify(result.subcategories)} en(${result.beforeEn.length})=${JSON.stringify(result.beforeEn)}`,
     );
   }
 
@@ -167,18 +167,18 @@ async function main(): Promise<void> {
   }
 
   // Sanity threshold before any writes: a brand that still has zh tags must
-  // never end up with zero EN tags — `deriveProductTagsEn` is index-aligned, so
+  // never end up with zero EN tags — `deriveSubcategoriesEn` is index-aligned, so
   // that can only mean the zh array was misread. A brand with zero zh tags
   // legitimately normalizes to zero EN tags (rnl-threads is exactly that: one
   // orphaned EN tag, no zh), so it is excluded from the guard.
   for (const result of changedResults) {
     if (
-      result.tags.length > 0 &&
+      result.subcategories.length > 0 &&
       result.beforeEn.length > 0 &&
       result.afterEn.length === 0
     ) {
       console.error(
-        `ABORT: brand "${result.brand.slug}" would go from ${result.beforeEn.length} EN tag(s) to 0 while keeping ${result.tags.length} zh tag(s)`,
+        `ABORT: brand "${result.brand.slug}" would go from ${result.beforeEn.length} EN subcategory value(s) to 0 while keeping ${result.subcategories.length} zh subcategory value(s)`,
       );
       process.exit(1);
     }
@@ -189,12 +189,15 @@ async function main(): Promise<void> {
   const writtenSlugs: string[] = [];
 
   for (const result of changedResults) {
-    // `productTags` has to go along: `toBrandRow` now derives the EN array from
-    // it, so a patch carrying only `productTagsEn` would derive against an empty
+    // `subcategories` has to go along: `toBrandRow` now derives the EN array from
+    // it, so a patch carrying only `subcategoriesEn` would derive against an empty
     // zh array and wipe the column.
     const writeResult = await updateBrand(
       result.brand.id,
-      { productTags: result.tags, productTagsEn: result.afterEn },
+      {
+        subcategories: result.subcategories,
+        subcategoriesEn: result.afterEn,
+      },
       { source: "enriched" },
     );
 

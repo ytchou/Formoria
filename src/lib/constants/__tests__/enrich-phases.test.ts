@@ -219,7 +219,7 @@ describe("curation steps", () => {
   });
 
   it("keeps the product category in detail, never in context", () => {
-    // detect no longer emits productType; the descriptions phase owns the
+    // detect no longer emits categorySlug; the descriptions phase owns the
     // category, so `tags` must not be pulled forward into the context step.
     expect(CURATION_STEPS.detail).toContain("tags");
     expect(CURATION_STEPS.context).not.toContain("tags");

@@ -35,11 +35,11 @@ const socialHandleOrUrlSchema = z
 export const brandWizardBasicInfoSchema = z.object({
   name: z.string().optional(),
   romanizedName: romanizedNameSchema,
-  productType: z.string().optional(),
+  categorySlug: z.string().optional(),
   description: z.string().optional(),
   foundingYear: z.union([z.number(), z.string()]).optional(),
   mitStory: z.string().optional(),
-  productTags: z.array(z.string().max(40)).max(5).optional(),
+  subcategories: z.array(z.string().max(40)).max(5).optional(),
   city: z.string().optional(),
   priceRange: z.union([z.number(), z.string()]).optional(),
 })
@@ -94,11 +94,11 @@ export const BRAND_WIZARD_SHARED_SECTION_FIELDS: Record<
   basicInfo: [
     'name',
     'romanizedName',
-    'productType',
+    'categorySlug',
     'description',
     'foundingYear',
     'mitStory',
-    'productTags',
+    'subcategories',
     'city',
     'priceRange',
   ],

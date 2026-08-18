@@ -12,7 +12,7 @@ describeWithDb('getBrands subcategoryTags', () => {
     })
     expect(filtered.totalCount).toBeGreaterThan(0)
     expect(filtered.totalCount).toBeLessThan(all.totalCount)
-    for (const brand of filtered.brands) expect(brand.productTags).toContain('口金包')
+    for (const brand of filtered.brands) expect(brand.subcategories).toContain('口金包')
   })
 
   it('search path: passes filter_tags through the RPC', async () => {
@@ -22,7 +22,7 @@ describeWithDb('getBrands subcategoryTags', () => {
       subcategoryTags: ['口金包'],
       page: 1,
     })
-    for (const brand of result.brands) expect(brand.productTags).toContain('口金包')
+    for (const brand of result.brands) expect(brand.subcategories).toContain('口金包')
   })
 
   it('empty subcategoryTags is a no-op', async () => {

@@ -10,17 +10,17 @@ import type {
   CorrectionDecision,
 } from "@/lib/services/brand-corrections";
 import {
-  applyTagDelta,
-  isProductTagsDelta,
-  MAX_PRODUCT_TAGS,
-  type ProductTagsDelta,
-} from "@/lib/services/product-tags";
+  applySubcategoryDelta,
+  isSubcategoriesDelta,
+  MAX_SUBCATEGORIES,
+  type SubcategoriesDelta,
+} from "@/lib/services/subcategories";
 import { formatPriceRange } from "@/lib/brands/price-range";
 import { PURCHASE_COLUMNS } from "@/lib/brands/purchase-channels";
 import {
   categoryLabel,
   matchSubcategory,
-  PRODUCT_TYPE_CATEGORIES,
+  L1_CATEGORIES,
 } from "@/lib/taxonomy/ontology";
 import {
   formatReviewDate,
@@ -64,7 +64,7 @@ type BulkReviewAction = (
 ) => Promise<{ failures: CorrectionBatchFailure[] } | { error: string }>;
 
 type TagDeltaState = {
-  delta: ProductTagsDelta;
+  delta: SubcategoriesDelta;
   projectedTags: string[];
   exceedsCap: boolean;
 };
@@ -94,19 +94,19 @@ function stringArray(value: unknown): string[] {
 
 function tagDeltaState(correction: CorrectionQueueItem): TagDeltaState | null {
   if (
-    correction.field !== "product_tags" ||
-    !isProductTagsDelta(correction.proposedValue)
+    correction.field !== "subcategories" ||
+    !isSubcategoriesDelta(correction.proposedValue)
   ) {
     return null;
   }
 
   const currentTags = stringArray(correction.currentValue);
-  const projectedTags = applyTagDelta(currentTags, correction.proposedValue);
+  const projectedTags = applySubcategoryDelta(currentTags, correction.proposedValue);
 
   return {
     delta: correction.proposedValue,
     projectedTags,
-    exceedsCap: projectedTags.length > MAX_PRODUCT_TAGS,
+    exceedsCap: projectedTags.length > MAX_SUBCATEGORIES,
   };
 }
 
@@ -140,8 +140,8 @@ function scalarValue(
     return formatPriceRange(value) ?? unavailableLabel;
   }
 
-  if (field === "product_type" && typeof value === "string") {
-    const category = PRODUCT_TYPE_CATEGORIES.find(
+  if (field === "category" && typeof value === "string") {
+    const category = L1_CATEGORIES.find(
       (item) => item.slug === value,
     );
     return category ? categoryLabel(category, locale) : unavailableLabel;
@@ -203,7 +203,7 @@ export function CorrectionsQueue({
 
   function renderCurrentValue(item: CorrectionQueueItem): ReactNode {
     const value = item.currentValue;
-    if (item.field === "product_tags") {
+    if (item.field === "subcategories") {
       return tagBadges(stringArray(value), t("notAvailable"));
     }
 
@@ -292,7 +292,7 @@ export function CorrectionsQueue({
             <div className="flex flex-wrap gap-2">
               {item.stale && <Badge variant="secondary">{t("stale")}</Badge>}
               {delta?.exceedsCap && (
-                <Badge variant="secondary">{t("tooManyTags")}</Badge>
+                <Badge variant="secondary">{t("tooManySubcategories")}</Badge>
               )}
             </div>
           </div>
@@ -460,7 +460,7 @@ export function CorrectionsQueue({
                       <p className="type-error" role="alert">
                         {t("capBlocker", {
                           projected: delta.projectedTags.length,
-                          limit: MAX_PRODUCT_TAGS,
+                          limit: MAX_SUBCATEGORIES,
                         })}
                       </p>
                     ) : null}

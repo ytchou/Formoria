@@ -191,7 +191,7 @@ def merge_brands(vk123_path: Path, threads_path: Path) -> list[dict]:
     brands = []
     seen_names = set()
 
-    # Load vk123 brands (primary source — has productType mapping)
+    # Load vk123 brands (primary source — has categorySlug mapping)
     if vk123_path.exists():
         with open(vk123_path) as f:
             vk123 = json.load(f)
@@ -309,10 +309,10 @@ def main():
     # Final stats
     has_url = sum(1 for b in brands if b.get("url"))
     has_ig = sum(1 for b in brands if b.get("instagram"))
-    has_pt = sum(1 for b in brands if b.get("productType"))
+    has_pt = sum(1 for b in brands if b.get("categorySlug"))
     print(f"  With website URL: {has_url}", file=sys.stderr)
     print(f"  With Instagram: {has_ig}", file=sys.stderr)
-    print(f"  With productType: {has_pt}", file=sys.stderr)
+    print(f"  With categorySlug: {has_pt}", file=sys.stderr)
     print(f"  Without any URL: {sum(1 for b in brands if not b.get('url') and not b.get('instagram'))}", file=sys.stderr)
 
 

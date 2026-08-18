@@ -38,9 +38,9 @@ const BRAND: Brand = {
   blurbEn: null,
   heroImageUrl: null,
   status: "approved",
-  productType: "crafts",
+  categorySlug: "crafts",
   city: "臺南",
-  category: "手作工藝",
+  categoryLabel: "手作工藝",
   isVerified: false,
   mitStatus: "unverified",
   mitStory: null,
@@ -55,8 +55,8 @@ const BRAND: Brand = {
   imageAlts: [],
   contactEmail: null,
   priceRange: null,
-  productTags: [],
-  productTagsEn: [],
+  subcategories: [],
+  subcategoriesEn: [],
   siteContent: null,
   submittedAt: "2026-01-01T00:00:00.000Z",
   approvedAt: null,
@@ -173,7 +173,7 @@ describe("faq phase wiring", () => {
 
 describe("validateFaqEntries", () => {
   it("drops an answer for an ineligible preset", () => {
-    // No product tags on file, so `main-products` never entered the prompt and
+    // No subcategories on file, so `main-products` never entered the prompt and
     // must not be storable even when the model answers it anyway.
     const ctx = context();
     const presets = authorable(ctx);

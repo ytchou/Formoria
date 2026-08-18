@@ -4,7 +4,7 @@ import type { Brand } from '@/lib/types/brand'
 
 const EMPTY = {
   description: null,
-  productTags: [],
+  subcategories: [],
   priceRange: null,
   heroImageUrl: null,
   productPhotos: [],
@@ -22,7 +22,7 @@ const EMPTY = {
 } satisfies Pick<
   Brand,
   | 'description'
-  | 'productTags'
+  | 'subcategories'
   | 'priceRange'
   | 'heroImageUrl'
   | 'productPhotos'
@@ -52,7 +52,7 @@ describe('computeProfileCompleteness', () => {
     const result = computeProfileCompleteness({
       ...EMPTY,
       description: 'Story',
-      productTags: ['tea'],
+      subcategories: ['tea'],
       priceRange: 2,
       heroImageUrl: 'https://example.com/hero.webp',
       productPhotos: ['https://example.com/product.webp'],

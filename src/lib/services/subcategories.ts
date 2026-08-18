@@ -2,57 +2,57 @@ import {
   isRetiredCompositeLabel,
   matchSubcategory,
   normalizeTagKey,
-  type ProductSubcategory,
+  type L2Subcategory,
 } from '@/lib/taxonomy/ontology'
 
-export type NormalizeProductTagsResult = {
-  tags: string[]
-  tagsEn: string[]
-  rejected: { tag: string; reason: string }[]
+export type NormalizeSubcategoriesResult = {
+  subcategories: string[]
+  subcategoriesEn: string[]
+  rejected: { subcategory: string; reason: string }[]
   crossBranch: string[]
 }
 
-export type ProductTagsDelta = {
+export type SubcategoriesDelta = {
   add: string[]
   remove: string[]
 }
 
-export type NovelTagRejectionReason = 'length' | 'blocklist' | 'retired-composite'
+export type NovelSubcategoryRejectionReason = 'length' | 'blocklist' | 'retired-composite'
 
-export type ProductTagInputResult =
-  | { ok: true; tag: string; canonical: boolean }
-  | { ok: false; reason: NovelTagRejectionReason }
+export type SubcategoryInputResult =
+  | { ok: true; subcategory: string; canonical: boolean }
+  | { ok: false; reason: NovelSubcategoryRejectionReason }
 
-export const MAX_PRODUCT_TAGS = 5
+export const MAX_SUBCATEGORIES = 5
 const MIN_NOVEL_LENGTH = 2
 const MAX_NOVEL_LENGTH = 8
 
-// Reject tags whose content signals a promotional/variant/series label
+// Reject subcategories whose content signals a promotional/variant/series label
 const BLOCKLIST_CONTENT = /系列|限定|聯名|客製|訂製|優惠|折扣|禮盒組|組合|款$/u
 
-// Reject tags that open with a size/scale qualifier — too generic to be a product type
+// Reject subcategories that open with a size/scale qualifier — too generic to be a product category
 const BLOCKLIST_SIZE_PREFIX = /^(超|迷你|小|大|長|短)/u
 
 /**
- * The single novel-tag gate: a tag that misses the ontology is only kept when
+ * The single novel-subcategory gate: a subcategory that misses the ontology is only kept when
  * this returns `null`. Both callers live in this module — the enrichment writer
- * (`normalizeProductTags`) and the visitor-facing correction validator
- * (`resolveProductTagInput`) — so the two can never drift. The `export` exists
+ * (`normalizeSubcategories`) and the visitor-facing correction validator
+ * (`resolveSubcategoryInput`) — so the two can never drift. The `export` exists
  * for the unit test.
  * Expects an already-trimmed tag.
  */
-export function novelTagRejection(tag: string): NovelTagRejectionReason | null {
-  if (isRetiredCompositeLabel(tag)) return 'retired-composite'
+export function novelSubcategoryRejection(subcategory: string): NovelSubcategoryRejectionReason | null {
+  if (isRetiredCompositeLabel(subcategory)) return 'retired-composite'
 
   // Code points, not `.length`: `String.prototype.length` counts UTF-16 code
   // units, so one astral character (an emoji) would score 2 and clear the min,
   // and four would score 8 and clear the max — the exact input the band exists
   // to exclude.
-  const length = [...tag].length
+  const length = [...subcategory].length
   if (length < MIN_NOVEL_LENGTH || length > MAX_NOVEL_LENGTH) {
     return 'length'
   }
-  if (BLOCKLIST_CONTENT.test(tag) || BLOCKLIST_SIZE_PREFIX.test(tag)) {
+  if (BLOCKLIST_CONTENT.test(subcategory) || BLOCKLIST_SIZE_PREFIX.test(subcategory)) {
     return 'blocklist'
   }
   return null
@@ -74,17 +74,17 @@ function toTagTitleCase(value: string): string {
 }
 
 /**
- * Resolves one free-text tag a person typed. An ontology hit (nameZh, nameEn or
+ * Resolves one free-text subcategory a person typed. An ontology hit (nameZh, nameEn or
  * any alias) is canonicalized to its nameZh; a miss is accepted as-is when it
- * clears `novelTagRejection`. Pure and ontology-only, so a client component can
+ * clears `novelSubcategoryRejection`. Pure and ontology-only, so a client component can
  * import it for inline feedback and the server can reuse it as the guard.
  * `matchSubcategory` already NFKC-normalizes, so no extra normalization here.
  */
-export function resolveProductTagInput(input: string): ProductTagInputResult {
+export function resolveSubcategoryInput(input: string): SubcategoryInputResult {
   const trimmed = input.trim()
 
   const sub = matchSubcategory(trimmed)
-  if (sub) return { ok: true, tag: sub.nameZh, canonical: true }
+  if (sub) return { ok: true, subcategory: sub.nameZh, canonical: true }
 
   // Canonical ontology matching always wins first (for example, the accepted
   // 卡片・明信片 synonym). Retired DEV-1361 composites are then blocked from
@@ -93,35 +93,35 @@ export function resolveProductTagInput(input: string): ProductTagInputResult {
     return { ok: false, reason: 'retired-composite' }
   }
 
-  const rejection = novelTagRejection(trimmed)
+  const rejection = novelSubcategoryRejection(trimmed)
   if (rejection) return { ok: false, reason: rejection }
 
-  return { ok: true, tag: trimmed, canonical: false }
+  return { ok: true, subcategory: trimmed, canonical: false }
 }
 
-export function normalizeProductTags(
-  tags: string[],
-  tagsEn: string[],
-  brandCategory?: string,
-): NormalizeProductTagsResult {
+export function normalizeSubcategories(
+  subcategories: string[],
+  subcategoriesEn: string[],
+  categorySlug?: string,
+): NormalizeSubcategoriesResult {
   const pairs: Array<{ zh: string; en: string }> = []
-  const rejected: { tag: string; reason: string }[] = []
+  const rejected: { subcategory: string; reason: string }[] = []
   const crossBranch: string[] = []
   const seenSlugs = new Set<string>()
 
-  const addCanonicalSubcategory = (sub: ProductSubcategory): void => {
+  const addCanonicalSubcategory = (sub: L2Subcategory): void => {
     // Vocab match — dedupe by slug, first occurrence wins
     if (seenSlugs.has(sub.slug)) return
     seenSlugs.add(sub.slug)
     pairs.push({ zh: sub.nameZh, en: sub.nameEn })
-    if (brandCategory !== undefined && sub.category !== brandCategory) {
+    if (categorySlug !== undefined && sub.category !== categorySlug) {
       crossBranch.push(sub.nameZh)
     }
   }
 
-  for (let i = 0; i < tags.length; i++) {
-    const rawZh = tags[i]
-    const rawEn = tagsEn[i] ?? ''
+  for (let i = 0; i < subcategories.length; i++) {
+    const rawZh = subcategories[i]
+    const rawEn = subcategoriesEn[i] ?? ''
     const zh = rawZh.trim()
     const en = rawEn.trim()
 
@@ -130,11 +130,11 @@ export function normalizeProductTags(
       addCanonicalSubcategory(sub)
     } else {
       if (isRetiredCompositeLabel(zh)) {
-        rejected.push({ tag: rawZh, reason: 'retired-composite' })
+        rejected.push({ subcategory: rawZh, reason: 'retired-composite' })
         continue
       }
 
-      // An unmatched composite is not a product kind by itself. Keep only
+      // An unmatched composite is not a subcategory by itself. Keep only
       // halves that resolve to canonical ontology tags; unresolved halves and
       // the original composite must not become novel tags.
       if (zh.includes('・')) {
@@ -145,39 +145,39 @@ export function normalizeProductTags(
         continue
       }
 
-      // Novel tag heuristics
-      const rejection = novelTagRejection(zh)
+      // Novel subcategory heuristics
+      const rejection = novelSubcategoryRejection(zh)
       if (rejection) {
-        rejected.push({ tag: rawZh, reason: rejection })
+        rejected.push({ subcategory: rawZh, reason: rejection })
       } else {
         pairs.push({ zh, en: toTagTitleCase(en || zh) })
       }
     }
   }
 
-  const capped = pairs.slice(0, MAX_PRODUCT_TAGS)
+  const capped = pairs.slice(0, MAX_SUBCATEGORIES)
   return {
-    tags: capped.map((p) => p.zh),
-    tagsEn: capped.map((p) => p.en),
+    subcategories: capped.map((p) => p.zh),
+    subcategoriesEn: capped.map((p) => p.en),
     rejected,
     crossBranch,
   }
 }
 
-export function deriveProductTypeFromTags(
-  tags: string[],
-): ProductSubcategory['category'] | null {
-  const votes = new Map<ProductSubcategory['category'], number>()
+export function deriveCategoryFromSubcategories(
+  subcategories: string[],
+): L2Subcategory['category'] | null {
+  const votes = new Map<L2Subcategory['category'], number>()
   const seenSubcategories = new Set<string>()
 
-  for (const tag of tags) {
-    const subcategory = matchSubcategory(tag)
+  for (const subcategoryValue of subcategories) {
+    const subcategory = matchSubcategory(subcategoryValue)
     if (!subcategory || seenSubcategories.has(subcategory.slug)) continue
     seenSubcategories.add(subcategory.slug)
     votes.set(subcategory.category, (votes.get(subcategory.category) ?? 0) + 1)
   }
 
-  let winner: ProductSubcategory['category'] | null = null
+  let winner: L2Subcategory['category'] | null = null
   let winningVotes = 0
   let tied = false
 
@@ -195,8 +195,8 @@ export function deriveProductTypeFromTags(
 }
 
 /**
- * Derives `product_tags_en` from `product_tags`. `existingEn` is the currently
- * stored EN array, index-aligned with `tags`, and is only ever a fallback:
+ * Derives `subcategories_en` from `subcategories`. `existingEn` is the currently
+ * stored EN array, index-aligned with `subcategories`, and is only ever a fallback:
  *
  * - An ontology hit ALWAYS wins over the stored value. That is what repairs the
  *   drift DEV-1266 found — `後背包` stored as 'Backpack'/'backpack' becomes the
@@ -208,19 +208,19 @@ export function deriveProductTypeFromTags(
  * Called with one argument it behaves exactly as before.
  *
  * ACCEPTED TRADEOFF, not a bug: when `existingEn` has nothing for a novel tag,
- * the raw (usually Chinese) string is written to `product_tags_en` verbatim and
+ * the raw (usually Chinese) string is written to `subcategories_en` verbatim and
  * renders untranslated on `/en`. `docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md`
  * weighs this against the alternatives and takes it deliberately — do not
  * "fix" it by dropping the tag or machine-translating it here.
  */
-export function deriveProductTagsEn(
-  tags: string[],
+export function deriveSubcategoriesEn(
+  subcategories: string[],
   existingEn: string[] = [],
 ): string[] {
-  return tags.map((tag, index) => {
-    const canonical = matchSubcategory(tag)?.nameEn
+  return subcategories.map((subcategory, index) => {
+    const canonical = matchSubcategory(subcategory)?.nameEn
     if (canonical) return canonical
-    return toTagTitleCase(existingEn[index]?.trim() || tag)
+    return toTagTitleCase(existingEn[index]?.trim() || subcategory)
   })
 }
 
@@ -228,7 +228,7 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string')
 }
 
-export function isProductTagsDelta(value: unknown): value is ProductTagsDelta {
+export function isSubcategoriesDelta(value: unknown): value is SubcategoriesDelta {
   if (typeof value !== 'object' || value === null || Array.isArray(value))
     return false
   const record = value as Record<string, unknown>
@@ -238,62 +238,62 @@ export function isProductTagsDelta(value: unknown): value is ProductTagsDelta {
 /**
  * Applies a correction delta. Membership — removal and dedupe alike — is keyed
  * by `normalizeTagKey`, the same basis `matchSubcategory` matches on, so a
- * novel tag stored raw ('Vegan') cannot coexist with a case or full-width
+ * novel subcategory stored raw ('Vegan') cannot coexist with a case or full-width
  * variant of itself ('vegan') and burn two of the five cap slots. The string
  * kept is always the FIRST-seen original, never the normalized key: the key is
  * an identity, not a display value.
  */
-export function applyTagDelta(
+export function applySubcategoryDelta(
   current: string[],
-  delta: ProductTagsDelta,
+  delta: SubcategoriesDelta,
 ): string[] {
   const removed = new Set(delta.remove.map(normalizeTagKey))
   const seen = new Set<string>()
   const next: string[] = []
 
-  for (const tag of current) {
-    const key = normalizeTagKey(tag)
+  for (const subcategory of current) {
+    const key = normalizeTagKey(subcategory)
     if (removed.has(key) || seen.has(key)) continue
     seen.add(key)
-    next.push(tag)
+    next.push(subcategory)
   }
 
-  for (const tag of delta.add) {
-    const key = normalizeTagKey(tag)
+  for (const subcategory of delta.add) {
+    const key = normalizeTagKey(subcategory)
     if (seen.has(key)) continue
     seen.add(key)
-    next.push(tag)
+    next.push(subcategory)
   }
 
   return next
 }
 
-export function sameTagSet(left: string[], right: string[]): boolean {
+export function sameSubcategorySet(left: string[], right: string[]): boolean {
   if (left.length !== right.length) return false
   const rightSet = new Set(right)
   return left.every((tag) => rightSet.has(tag))
 }
 
-type TagBackfillMatch = {
+type SubcategoryBackfillMatch = {
   original: string
   canonicalZh: string
   canonicalEn: string
   slug: string
 }
 
-export type TagBackfillPlan = {
-  matched: TagBackfillMatch[]
+export type SubcategoryBackfillPlan = {
+  matched: SubcategoryBackfillMatch[]
   unmatched: string[]
 }
 
 /**
- * Deterministic first pass for the normalize-product-tags backfill.
+ * Deterministic first pass for the normalize-subcategories backfill.
  * Tags that hit the ontology vocab are resolved to canonical zh/en/slug.
  * Tags that miss are returned as `unmatched` for LLM follow-up.
  * Deduplication is by slug — first occurrence wins.
  */
-export function planTagBackfill(tags: string[]): TagBackfillPlan {
-  const matched: TagBackfillMatch[] = []
+export function planSubcategoryBackfill(tags: string[]): SubcategoryBackfillPlan {
+  const matched: SubcategoryBackfillMatch[] = []
   const unmatched: string[] = []
   const seenSlugs = new Set<string>()
 

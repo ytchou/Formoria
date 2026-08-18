@@ -54,8 +54,8 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     blurbEn: null,
     heroImageUrl: null,
     status: "approved",
-    productType: "crafts",
-    category: "工藝文創",
+    categorySlug: "crafts",
+    categoryLabel: "工藝文創",
     city: "taipei",
     isVerified: false,
     mitStatus: undefined,
@@ -84,8 +84,8 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     imageAlts: [],
     contactEmail: null,
     priceRange: 2,
-    productTags: ["陶藝", "茶具"],
-    productTagsEn: ["ceramics", "tea ware"],
+    subcategories: ["陶藝", "茶具"],
+    subcategoriesEn: ["ceramics", "tea ware"],
     siteContent: null,
     submittedAt: "2026-01-01T00:00:00.000Z",
     approvedAt: "2026-01-02T00:00:00.000Z",
@@ -157,9 +157,9 @@ describe("FAQ preset catalog", () => {
     const withoutEvidence = makeContext({
       peerStats: null,
       brand: makeBrand({
-        productType: null,
-        productTags: [],
-        productTagsEn: [],
+        categorySlug: null,
+        subcategories: [],
+        subcategoriesEn: [],
         priceRange: null,
         reputationSummary: null,
       }),
@@ -177,7 +177,7 @@ describe("FAQ preset catalog", () => {
       expect(item.eligible(withoutEvidence)).toBe(false);
     }
     expect(presetById("category-position").requiredEvidence).toEqual([
-      "productType",
+      "categorySlug",
       "peerStats",
     ]);
   });
@@ -204,7 +204,7 @@ describe("FAQ preset catalog", () => {
   it("main-products render eligibility is per locale", () => {
     const mainProducts = presetById("main-products");
     const zhOnly = makeContext({
-      brand: makeBrand({ productTags: ["陶藝"], productTagsEn: [] }),
+      brand: makeBrand({ subcategories: ["陶藝"], subcategoriesEn: [] }),
     });
 
     expect(mainProducts.eligible(zhOnly, "zh-TW")).toBe(true);

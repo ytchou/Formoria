@@ -185,7 +185,7 @@ export async function runImageSearchPhase(
           // having to wait for the next run.
           brandName:
             preferPatched(pendingPatch, getDisplayBrandName(brand), 'name') ?? '',
-          productType: brand.product_type,
+          categorySlug: brand.category,
           // The brand's domain switches the query builder onto its `site:`
           // branch, which is where the image-quality win lives. The links phase
           // runs before this one, so a freshly submitted brand — which has no

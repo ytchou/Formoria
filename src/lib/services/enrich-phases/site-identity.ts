@@ -415,7 +415,7 @@ export async function runSiteIdentityPhase(
           const item: SiteIdentityItem = {
             slug: brand.slug,
             brandName: brand.name ?? '',
-            productType: brand.product_type ?? undefined,
+            categorySlug: brand.category ?? undefined,
             subjectUrl: quarantine.subjectUrl,
             subjectKind: quarantine.subjectKind,
             pageTitle: evidence.title,

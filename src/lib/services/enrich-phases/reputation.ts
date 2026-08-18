@@ -63,7 +63,7 @@ function isEmptyFieldValue(value: unknown): boolean {
  *
  * The policy is deliberately one field. `reputation_summary`'s prompt contract
  * makes null an affirmative verdict: it returns null when there is no
- * third-party evaluation. A null `city`, `founding_year`, `product_type` or
+ * third-party evaluation. A null `city`, `founding_year`, `category` or
  * link means "could not determine this run", and clearing those would destroy
  * correct data whenever a SERP call came back thin.
  *
@@ -106,7 +106,7 @@ function getBrandSiteContent(brand: EnrichBrand): string | null {
 }
 
 function getCategory(brand: EnrichBrand): string | null {
-  return brand.product_type ?? null;
+  return brand.category ?? null;
 }
 
 /**

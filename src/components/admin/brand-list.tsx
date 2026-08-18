@@ -158,7 +158,7 @@ export function BrandList({
     (refreshingBrandId ? brandsById.get(refreshingBrandId) : null) ?? null;
 
   const categories = Array.from(
-    new Set(brands.map((b) => b.category).filter(Boolean) as string[]),
+    new Set(brands.map((b) => b.categoryLabel).filter(Boolean) as string[]),
   ).sort();
 
   const filtered = brands
@@ -169,7 +169,7 @@ export function BrandList({
         b.name.toLowerCase().includes(searchQuery.toLowerCase()),
     )
     .filter((b) => mitFilter === "all" || getMitStatus(b) === mitFilter)
-    .filter((b) => categoryFilter === "all" || b.category === categoryFilter);
+    .filter((b) => categoryFilter === "all" || b.categoryLabel === categoryFilter);
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visible = filtered.slice(
@@ -357,7 +357,7 @@ export function BrandList({
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>{brand.category ?? "-"}</TableCell>
+                  <TableCell>{brand.categoryLabel ?? "-"}</TableCell>
                   <TableCell>{formatDate(brand.createdAt)}</TableCell>
                   <TableCell>{formatDate(brand.updatedAt)}</TableCell>
                   <TableCell className="text-right">

@@ -18,10 +18,10 @@ export type EnrichedData = {
   siteContent?: Json;
   foundingYear?: number;
   heroImageUrl?: string;
-  productType?: string;
+  categorySlug?: string;
   priceRange?: number;
-  productTags?: string[];
-  productTagsEn?: string[];
+  subcategories?: string[];
+  subcategoriesEn?: string[];
   socialInstagram?: string;
   socialThreads?: string;
   socialFacebook?: string;
@@ -50,7 +50,7 @@ function getEnrichmentCompleteness(
   const complete =
     hasText(enrichedData.description) &&
     (hasText(enrichedData.heroImageUrl) || hasText(heroImageUrl)) &&
-    hasText(enrichedData.productType);
+    hasText(enrichedData.categorySlug);
 
   if (complete) return "complete";
   return "partial";
@@ -100,17 +100,17 @@ export function enrichedDataFromDb(
     ...(typeof json.hero_image_url === "string"
       ? { heroImageUrl: json.hero_image_url }
       : {}),
-    ...(typeof json.product_type === "string"
-      ? { productType: json.product_type }
+    ...(typeof json.category === "string"
+      ? { categorySlug: json.category }
       : {}),
     ...(typeof json.price_range === "number"
       ? { priceRange: json.price_range }
       : {}),
-    ...(Array.isArray(json.product_tags)
-      ? { productTags: json.product_tags as string[] }
+    ...(Array.isArray(json.subcategories)
+      ? { subcategories: json.subcategories as string[] }
       : {}),
-    ...(Array.isArray(json.product_tags_en)
-      ? { productTagsEn: json.product_tags_en as string[] }
+    ...(Array.isArray(json.subcategories_en)
+      ? { subcategoriesEn: json.subcategories_en as string[] }
       : {}),
     ...(typeof json.social_instagram === "string"
       ? { socialInstagram: json.social_instagram }
@@ -165,11 +165,11 @@ export function enrichedDataToDb(data: EnrichedData): Record<string, unknown> {
   if (data.name !== undefined) result.name = data.name;
   if (data.heroImageUrl !== undefined)
     result.hero_image_url = data.heroImageUrl;
-  if (data.productType !== undefined) result.product_type = data.productType;
+  if (data.categorySlug !== undefined) result.category = data.categorySlug;
   if (data.priceRange !== undefined) result.price_range = data.priceRange;
-  if (data.productTags !== undefined) result.product_tags = data.productTags;
-  if (data.productTagsEn !== undefined)
-    result.product_tags_en = data.productTagsEn;
+  if (data.subcategories !== undefined) result.subcategories = data.subcategories;
+  if (data.subcategoriesEn !== undefined)
+    result.subcategories_en = data.subcategoriesEn;
   if (data.socialInstagram !== undefined)
     result.social_instagram = data.socialInstagram;
   if (data.socialThreads !== undefined)

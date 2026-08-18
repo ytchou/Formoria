@@ -11,22 +11,22 @@ config({ path: resolve(import.meta.dirname ?? '.', '../../.env.local') })
 type GoldenBrand = {
   slug: string
   name: string
-  productType: string
-  productTypeZh: string
+  categorySlug: string
+  categoryLabel: string
   difficulty: string
 }
 
 const GOLDEN_BRANDS: GoldenBrand[] = [
-  { slug: 'anden-hud', name: 'Anden Hud', productType: 'fashion', productTypeZh: '服飾鞋履', difficulty: 'medium' },
-  { slug: 'aromase艾瑪絲-頭皮療癒永續品牌', name: 'AROMASE 艾瑪絲', productType: 'beauty', productTypeZh: '美妝保養', difficulty: 'easy' },
-  { slug: 'darker-than-black-bags', name: 'Darker Than Black Bags', productType: 'bags-accessories', productTypeZh: '包袋配件', difficulty: 'medium' },
-  { slug: 'djulis德朱利斯-台東必買伴手禮-紅藜穀物棒-紅藜小米起司棒-紅藜黑芝麻糕', name: 'Djulis 德朱利斯', productType: 'food-drink', productTypeZh: '食品飲料', difficulty: 'medium' },
-  { slug: 'hipporizz', name: 'HIPPORIZZ 河馬引力', productType: 'tech', productTypeZh: '3C科技', difficulty: 'medium' },
-  { slug: 'hanchor', name: 'HANCHOR', productType: 'outdoor', productTypeZh: '戶外露營', difficulty: 'medium' },
-  { slug: 'baby-baby-cool', name: 'Baby Baby Cool', productType: 'kids-pets', productTypeZh: '母嬰寵物', difficulty: 'medium' },
-  { slug: 'ecopeco', name: 'Ecopeco', productType: 'crafts', productTypeZh: '工藝文創', difficulty: 'medium' },
-  { slug: 'febbi', name: 'FEBBI', productType: 'jewelry', productTypeZh: '飾品珠寶', difficulty: 'hard' },
-  { slug: 'chaiwood', name: 'Chaiwood 柴屋', productType: 'home', productTypeZh: '居家生活', difficulty: 'hard' },
+  { slug: 'anden-hud', name: 'Anden Hud', categorySlug: 'fashion', categoryLabel: '服飾鞋履', difficulty: 'medium' },
+  { slug: 'aromase艾瑪絲-頭皮療癒永續品牌', name: 'AROMASE 艾瑪絲', categorySlug: 'beauty', categoryLabel: '美妝保養', difficulty: 'easy' },
+  { slug: 'darker-than-black-bags', name: 'Darker Than Black Bags', categorySlug: 'bags-accessories', categoryLabel: '包袋配件', difficulty: 'medium' },
+  { slug: 'djulis德朱利斯-台東必買伴手禮-紅藜穀物棒-紅藜小米起司棒-紅藜黑芝麻糕', name: 'Djulis 德朱利斯', categorySlug: 'food-drink', categoryLabel: '食品飲料', difficulty: 'medium' },
+  { slug: 'hipporizz', name: 'HIPPORIZZ 河馬引力', categorySlug: 'tech', categoryLabel: '3C科技', difficulty: 'medium' },
+  { slug: 'hanchor', name: 'HANCHOR', categorySlug: 'outdoor', categoryLabel: '戶外露營', difficulty: 'medium' },
+  { slug: 'baby-baby-cool', name: 'Baby Baby Cool', categorySlug: 'kids-pets', categoryLabel: '母嬰寵物', difficulty: 'medium' },
+  { slug: 'ecopeco', name: 'Ecopeco', categorySlug: 'crafts', categoryLabel: '工藝文創', difficulty: 'medium' },
+  { slug: 'febbi', name: 'FEBBI', categorySlug: 'jewelry', categoryLabel: '飾品珠寶', difficulty: 'hard' },
+  { slug: 'chaiwood', name: 'Chaiwood 柴屋', categorySlug: 'home', categoryLabel: '居家生活', difficulty: 'hard' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -44,8 +44,8 @@ const VARIANTS: QueryVariant[] = [
     id: 'E',
     label: 'Precision + Review Hybrid',
     build: (b) => {
-      const typeSegment = b.productTypeZh ? ` ${b.productTypeZh}` : ''
-      return `"${b.name}"${typeSegment} 品牌 介紹 評價 推薦 -徵才 -104 -人力 -site:formoria.com`
+      const categorySegment = b.categoryLabel ? ` ${b.categoryLabel}` : ''
+      return `"${b.name}"${categorySegment} 品牌 介紹 評價 推薦 -徵才 -104 -人力 -site:formoria.com`
     },
   },
 ]

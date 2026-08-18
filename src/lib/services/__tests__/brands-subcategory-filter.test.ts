@@ -14,7 +14,7 @@ describeWithDb('getBrands subcategory alias filtering', () => {
     expect(result.totalCount).toBeGreaterThan(0)
     expect(
       result.brands.some((brand) =>
-        brand.productTags.some((tag) => ['口金包', '口金零錢包', '口金夾'].includes(tag)),
+        brand.subcategories.some((tag) => ['口金包', '口金零錢包', '口金夾'].includes(tag)),
       ),
     ).toBe(true)
   })
@@ -41,14 +41,14 @@ describeWithDb('getBrands subcategory alias filtering', () => {
 
     expect(result.totalCount).toBe(result.brands.length)
     for (const brand of result.brands) {
-      expect(brand.productTags.some((tag) => ['口金包', '口金零錢包', '口金夾'].includes(tag))).toBe(true)
+      expect(brand.subcategories.some((tag) => ['口金包', '口金零錢包', '口金夾'].includes(tag))).toBe(true)
     }
   })
 
-  it('getBrandSeoEntries exposes product_tags', async () => {
+  it('getBrandSeoEntries exposes subcategories', async () => {
     const entries = await getBrandSeoEntries()
     expect(entries.length).toBeGreaterThan(0)
-    expect(entries.some((entry) => Array.isArray(entry.productTags))).toBe(true)
+    expect(entries.some((entry) => Array.isArray(entry.subcategories))).toBe(true)
   })
 
   it('taxonomy summary returns counts and a scoped latest update date', async () => {

@@ -162,7 +162,7 @@ export function EventExhibitorRow({
                   onClick={() =>
                     trackBrandCardClicked(
                       brand.slug,
-                      brand.category,
+                      brand.categoryLabel,
                       position,
                       brand.id,
                     )

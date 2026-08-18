@@ -93,8 +93,8 @@ describeWithDb("trusted submission review RPCs", () => {
       enriched_data: null,
       review_overrides: expect.objectContaining({
         description: "完整中文介紹",
-        product_type: "crafts",
-        product_tags: ["木工"],
+        category: "crafts",
+        subcategories: ["木工"],
         price_range: 2,
         purchase_website: "https://trusted.example.com",
       }),
@@ -370,8 +370,8 @@ describeWithDb("trusted submission review RPCs", () => {
       .from("brand_submissions")
       .update({
         social_instagram: "https://instagram.com/community-submitted",
-        suggested_tags: { values: ["木工"], productType: "crafts" },
-        enriched_data: { product_tags: ["木工"], product_type: "crafts" },
+        suggested_tags: { values: ["木工"], categorySlug: "crafts" },
+        enriched_data: { subcategories: ["木工"], category: "crafts" },
       })
       .eq("id", submissionId);
     expect(candidateError).toBeNull();
@@ -384,15 +384,15 @@ describeWithDb("trusted submission review RPCs", () => {
       .from("brand_field_state")
       .select("field, source")
       .eq("brand_id", result.brandId)
-      .in("field", ["product_tags", "product_type", "social_instagram"]);
+      .in("field", ["subcategories", "category", "social_instagram"]);
     expect(stateError).toBeNull();
     expect(
       Object.fromEntries(
         (states ?? []).map((state) => [state.field, state.source]),
       ),
     ).toEqual({
-      product_tags: "submitted",
-      product_type: "submitted",
+      subcategories: "submitted",
+      category: "submitted",
       social_instagram: "admin",
     });
   });
@@ -945,8 +945,8 @@ describeWithDb("trusted submission review RPCs", () => {
       status,
       description: "原本完整的品牌介紹",
       hero_image_url: heroUrl,
-      product_type: "crafts",
-      product_tags: ["木工"],
+      category: "crafts",
+      subcategories: ["木工"],
       price_range: 2,
       purchase_website:
         links.purchaseWebsite === undefined
@@ -1006,10 +1006,10 @@ describeWithDb("trusted submission review RPCs", () => {
       siteContent: null,
       foundingYear: 2018,
       heroImageUrl: images.hero.url,
-      productType: "crafts",
+      categorySlug: "crafts",
       priceRange: 2,
-      productTags: ["木工"],
-      productTagsEn: ["Woodwork"],
+      subcategories: ["木工"],
+      subcategoriesEn: ["Woodwork"],
       websiteUrl: "https://trusted.example.com",
       socialInstagram: null,
       socialThreads: null,

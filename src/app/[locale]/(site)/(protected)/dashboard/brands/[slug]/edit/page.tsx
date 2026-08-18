@@ -4,7 +4,7 @@ import { localizePath, signInHref } from '@/i18n/locale-preference'
 import { getTranslations } from 'next-intl/server'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import { getBrandDraft, toOwnerEditorContract } from '@/lib/services/brands'
-import { getApprovedProductTagSuggestions } from '@/lib/services/product-tag-suggestions'
+import { getApprovedSubcategorySuggestions } from '@/lib/services/subcategory-suggestions'
 import { BrandEditWizard } from './brand-edit-wizard'
 import {
   buildBrandEditDefaultValues,
@@ -44,9 +44,9 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
   }
   const brand = toOwnerEditorContract(editor.brand)
 
-  const [draft, productTagSuggestions] = await Promise.all([
+  const [draft, subcategorySuggestions] = await Promise.all([
     getBrandDraft(brand.id),
-    getApprovedProductTagSuggestions(),
+    getApprovedSubcategorySuggestions(),
   ])
 
   const defaultValues = buildBrandEditDefaultValues(brand, draft)
@@ -84,7 +84,7 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
         initialCompletedSteps={initialCompletedSteps}
         initialStep={initialStep}
         isFocused={isWizardComplete}
-        productTagSuggestions={productTagSuggestions}
+        subcategorySuggestions={subcategorySuggestions}
       />
     </div>
   )

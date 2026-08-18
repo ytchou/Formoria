@@ -11,11 +11,11 @@ import {
   type BrandFactsResult,
   type ListingVerdict,
 } from "../brand-facts";
-import { normalizeProductTags } from "@/lib/services/product-tags";
+import { normalizeSubcategories } from "@/lib/services/subcategories";
 import { CLEARED_FIELDS_KEY } from "@/lib/services/brand-write-policy";
 import { resolveEnrichedPriceRange } from "@/lib/brands/price-range";
 import { createServiceClient } from "@/lib/supabase/service";
-import { productTypeNameZh } from "@/lib/taxonomy/ontology";
+import { categoryLabelZh } from "@/lib/taxonomy/ontology";
 import {
   addLlmCalls,
   isLlmProviderFailure,
@@ -79,7 +79,7 @@ type DescriptionsPhaseOutput = {
  * `_cleared_fields` — the verdict that a live field should now be EMPTY — is
  * deliberately absent from this phase. The only field whose null is an
  * affirmative verdict is `reputation_summary`, and that moved to `reputation.ts`
- * together with its resolver. A null `city`, `founding_year` or `product_type`
+ * together with its resolver. A null `city`, `founding_year` or `category`
  * from this phase means "could not determine this run", and clearing those would
  * destroy correct data whenever a SERP call came back thin.
  */
@@ -98,12 +98,12 @@ function changedFieldsForPatch(patch: Record<string, unknown>): string[] {
     changedFields.push("price_range");
   }
 
-  if (Array.isArray(patch.product_tags) && patch.product_tags.length > 0) {
-    changedFields.push("product_tags");
+  if (Array.isArray(patch.subcategories) && patch.subcategories.length > 0) {
+    changedFields.push("subcategories");
   }
 
-  if (patch.product_type != null) {
-    changedFields.push("product_type");
+  if (patch.category != null) {
+    changedFields.push("category");
   }
 
   if (patch.city != null) {
@@ -123,10 +123,10 @@ function changedFieldsForPatch(patch: Record<string, unknown>): string[] {
   }
 
   if (
-    Array.isArray(patch.product_tags_en) &&
-    patch.product_tags_en.length > 0
+    Array.isArray(patch.subcategories_en) &&
+    patch.subcategories_en.length > 0
   ) {
-    changedFields.push("product_tags_en");
+    changedFields.push("subcategories_en");
   }
 
   // A clear is a change: the run output has to report the field it emptied, the
@@ -360,8 +360,8 @@ export function buildDescriptionEvidence(
         "purchase_myship",
       ),
     },
-    productCategoryZh: productTypeNameZh(
-      preferPatched(pendingPatch, brand.product_type, "product_type"),
+    productCategoryZh: categoryLabelZh(
+      preferPatched(pendingPatch, brand.category, "category"),
     ),
     imageAlts,
   };
@@ -477,19 +477,19 @@ export async function runDescriptionsPhase({
       (Array.isArray(existing) && existing.length === 0);
 
     let descriptionPatch: Record<string, unknown> = {};
-    let crossBranchTags: string[] = [];
+    let crossBranchSubcategories: string[] = [];
 
     if (brandFacts) {
       const {
-        tags: mergedTags,
-        tagsEn: mergedTagsEn,
+        subcategories: mergedSubcategories,
+        subcategoriesEn: mergedSubcategoriesEn,
         crossBranch,
-      } = normalizeProductTags(
-        brandFacts.productTags,
-        brandFacts.productTagsEn,
-        brand.product_type ?? undefined,
+      } = normalizeSubcategories(
+        brandFacts.subcategories,
+        brandFacts.subcategoriesEn,
+        brand.category ?? undefined,
       );
-      crossBranchTags = crossBranch;
+      crossBranchSubcategories = crossBranch;
 
       descriptionPatch = {
         // Unlike every other field here, an absent price range is filled rather
@@ -500,23 +500,26 @@ export async function runDescriptionsPhase({
         ...(shouldWrite(brand.price_range)
           ? { price_range: resolveEnrichedPriceRange(brandFacts.priceRange) }
           : {}),
-        // `product_tags` and `product_tags_en` are index-aligned by contract, so
+        // `subcategories` and `subcategories_en` are index-aligned by contract, so
         // they have to be written as one unit. Gating them on two independent
         // `shouldWrite` checks let one land without the other, which is how the
         // rows with more EN entries than zh entries in DEV-1266 were produced.
         // The zh array is the source of truth, so it owns the gate; a brand that
         // already has zh tags but an empty EN array is repaired by
-        // `deriveProductTagsEn` at the write boundary, not by a half-write here.
-        ...(mergedTags.length > 0 && shouldWrite(brand.product_tags)
-          ? { product_tags: mergedTags, product_tags_en: mergedTagsEn }
+        // `deriveSubcategoriesEn` at the write boundary, not by a half-write here.
+        ...(mergedSubcategories.length > 0 && shouldWrite(brand.subcategories)
+          ? {
+              subcategories: mergedSubcategories,
+              subcategories_en: mergedSubcategoriesEn,
+            }
           : {}),
         // The category is written whenever the model chose one that differs from
         // the brand's current value — unlike the text fields it is not gated on
         // `shouldWrite`, because this phase is now the authority on it (detect no
         // longer assigns it) and a stale category silently mis-files the brand.
-        ...(brandFacts.productType &&
-        brandFacts.productType !== brand.product_type
-          ? { product_type: brandFacts.productType }
+        ...(brandFacts.categorySlug &&
+        brandFacts.categorySlug !== brand.category
+          ? { category: brandFacts.categorySlug }
           : {}),
         ...(brandFacts.city && shouldWrite(brand.city)
           ? { city: brandFacts.city }
@@ -536,13 +539,13 @@ export async function runDescriptionsPhase({
 
       if (
         !dryRun &&
-        Array.isArray(descriptionPatch.product_tags) &&
-        Array.isArray(descriptionPatch.product_tags_en)
+        Array.isArray(descriptionPatch.subcategories) &&
+        Array.isArray(descriptionPatch.subcategories_en)
       ) {
         const supabase = createServiceClient();
-        const tagPairs = mergedTags.map((zh, i) => ({
+        const tagPairs = mergedSubcategories.map((zh, i) => ({
           tag_zh: zh,
-          tag_en: mergedTagsEn[i] ?? zh,
+          tag_en: mergedSubcategoriesEn[i] ?? zh,
         }));
 
         await supabase
@@ -552,7 +555,7 @@ export async function runDescriptionsPhase({
         const { data: canonical } = await supabase
           .from("product_tag_translations")
           .select("tag_zh, tag_en")
-          .in("tag_zh", mergedTags);
+          .in("tag_zh", mergedSubcategories);
 
         if (canonical && canonical.length > 0) {
           const tagMap = new Map(
@@ -561,7 +564,7 @@ export async function runDescriptionsPhase({
               t.tag_en,
             ]),
           );
-          descriptionPatch.product_tags_en = mergedTags.map(
+          descriptionPatch.subcategories_en = mergedSubcategories.map(
             (zh) => tagMap.get(zh) ?? zh,
           );
         }
@@ -579,7 +582,7 @@ export async function runDescriptionsPhase({
         factsAttempts,
         calls: factsOutput?.calls ?? noLlmCalls(),
         listingVerdict,
-        crossBranch: crossBranchTags,
+        crossBranch: crossBranchSubcategories,
       };
     }
 
@@ -628,7 +631,7 @@ export async function runDescriptionsPhase({
       factsAttempts,
       calls,
       listingVerdict,
-      crossBranch: crossBranchTags,
+      crossBranch: crossBranchSubcategories,
     };
   });
 

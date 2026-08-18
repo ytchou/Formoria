@@ -5,7 +5,7 @@ import { auditedCall } from "@/lib/audit";
 import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
 import { withSlugSuffix } from "@/lib/brands/slug";
 import { generateSlug } from "@/lib/services/brands";
-import { normalizeProductTags } from "@/lib/services/product-tags";
+import { normalizeSubcategories } from "@/lib/services/subcategories";
 import {
   excludeTestBrands,
   TEST_BRAND_NAME_PREFIX,
@@ -639,7 +639,7 @@ export type CuratedProductWriteInput = {
   brandId: string;
   nameZh: string;
   nameEn?: string | null;
-  /** CHECK-constrained to the same 12 values as `brands.product_type`. */
+  /** CHECK-constrained to the same 12 values as `brands.category`. */
   l1: string;
   /** Subcategory slugs or labels; normalized to slugs within `l1`. */
   l2?: string[];
@@ -681,7 +681,7 @@ export type CuratedProductUpdateInput = Partial<
 /**
  * L2 arrives as either ontology slugs (from the admin picker) or Chinese labels
  * (from a pasted list), so both are folded into one vocabulary before
- * `normalizeProductTags` applies the shared dedupe, novel-tag, and cap rules.
+ * `normalizeSubcategories` applies the shared dedupe, novel-tag, and cap rules.
  * Anything that does not resolve to a subcategory of `l1` is dropped: `l2` is a
  * slug column, and a free-text tag stored there would render as a dead filter.
  */
@@ -699,19 +699,19 @@ function normalizeCuratedL2(l1: string, l2: readonly string[]): string[] {
   if (raw.length === 0) return [];
 
   // Slug inputs that belong to this L1 become their labels, so one vocabulary
-  // reaches `normalizeProductTags`.
+  // reaches `normalizeSubcategories`.
   const labelBySlug = new Map(
     resolveSubcategorySlugs(l1, raw).map((sub) => [sub.slug, sub.nameZh]),
   );
-  const { tags } = normalizeProductTags(
+  const { subcategories } = normalizeSubcategories(
     raw.map((value) => labelBySlug.get(value) ?? value),
     [],
     l1,
   );
 
   const slugs: string[] = [];
-  for (const tag of tags) {
-    const sub = matchSubcategory(tag);
+  for (const subcategory of subcategories) {
+    const sub = matchSubcategory(subcategory);
     if (!sub || sub.category !== l1) continue;
     if (slugs.includes(sub.slug)) continue;
     slugs.push(sub.slug);

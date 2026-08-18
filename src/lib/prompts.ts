@@ -1,6 +1,6 @@
 import {
-  PRODUCT_SUBCATEGORIES,
-  PRODUCT_TYPE_CATEGORIES,
+  L2_SUBCATEGORIES,
+  L1_CATEGORIES,
 } from "@/lib/taxonomy/ontology";
 
 const CATEGORY_EXAMPLES: Record<string, string> = {
@@ -18,18 +18,18 @@ const CATEGORY_EXAMPLES: Record<string, string> = {
   "kids-pets": "兒童、嬰兒、玩具、寵物用品",
 };
 
-const CATEGORY_LIST = PRODUCT_TYPE_CATEGORIES.map(
+const CATEGORY_LIST = L1_CATEGORIES.map(
   (c) => `- ${c.slug}: ${CATEGORY_EXAMPLES[c.slug] ?? c.nameZh}`,
 ).join("\n");
 
 const _subcatByCategory = new Map<string, string[]>();
-for (const sub of PRODUCT_SUBCATEGORIES) {
+for (const sub of L2_SUBCATEGORIES) {
   const arr = _subcatByCategory.get(sub.category) ?? [];
   arr.push(sub.nameZh);
   _subcatByCategory.set(sub.category, arr);
 }
 
-const PRODUCT_VOCAB_BLOCK = PRODUCT_TYPE_CATEGORIES.map((c) => {
+const SUBCATEGORY_VOCAB_BLOCK = L1_CATEGORIES.map((c) => {
   const subs = _subcatByCategory.get(c.slug) ?? [];
   return `- ${c.nameZh}：${subs.join("、")}`;
 }).join("\n");
@@ -44,8 +44,8 @@ ${CATEGORY_LIST}
 - 如果品牌跨多個類別，選擇主要產品線所屬類別
 
 回應格式（嚴格 JSON，不加任何其他文字）：
-單一品牌：{"productType":"<類別 slug>","confidence":"high|medium|low"}
-多個品牌：[{"slug":"<品牌 slug>","productType":"<類別 slug>","confidence":"high|medium|low"}]`;
+單一品牌：{"category":"<類別 slug>","confidence":"high|medium|low"}
+多個品牌：[{"slug":"<品牌 slug>","category":"<類別 slug>","confidence":"high|medium|low"}]`;
 
 export const DETECT_SYSTEM_PROMPT = `You triage submissions to Formoria, a directory of Taiwanese product brands. You do two things: flag entities that are definitionally not a product brand, and normalise the brand's name and slug.
 
@@ -255,9 +255,9 @@ listing.taiwan_connection 只能依據來源明確提到的事實填寫，不可
 ## 輸出格式（嚴格 JSON，不加 Markdown 或額外說明）
 
 {
-  "product_type": "類別 slug 或 null（只能用下方「品牌分類」清單中的 slug）",
-  "product_tags": ["具體商品類型（繁體中文）"],
-  "product_tags_en": ["specific product types (English, same count and order as product_tags)"],
+  "category": "類別 slug 或 null（只能用下方「品牌分類」清單中的 slug）",
+  "subcategories": ["具體商品子類別（繁體中文）"],
+  "subcategories_en": ["specific product subcategories (English, same count and order as subcategories)"],
   "price_range": 1 | 2 | 3 | null,
   "city": "城市 slug 或 null（只能用以下值：taipei, new_taipei, taoyuan, taichung, tainan, kaohsiung, keelung, hsinchu_city, chiayi_city, hsinchu_county, miaoli, changhua, nantou, yunlin, chiayi_county, pingtung, yilan, hualien, taitung, penghu, kinmen, lienchiang）",
   "founding_year": 2015 | null,
@@ -283,17 +283,17 @@ price_range 分級：
 - 3：高價／精品，平均商品價格高於 NT$5,000
 - 若價格線索不足，回傳 null
 
-product_type（品牌分類）：
+category（品牌分類）：
 ${CATEGORY_LIST}
 
 選出最符合品牌「核心產品線」的單一類別，只能填上列 slug。判斷依據以網站內容與商品圖片描述為主，搜尋摘要為輔；跨多類別時選主要產品線所屬類別。證據不足以支持任一類別時回傳 null，不可猜測。
 
-product_tags：
+subcategories（商品子類別）：
 
-產品類型詞彙表：
-${PRODUCT_VOCAB_BLOCK}
+商品子類別詞彙表：
+${SUBCATEGORY_VOCAB_BLOCK}
 
-先列出品牌的產品線，每條產品線從詞彙表中選取對應類型（優先品牌所屬分類下的詞彙，明確跨分類時才選其他分支）。僅當找不到合適詞彙時，才輸出新的「類型層級」標籤，且必須同時符合以下條件：
+先列出品牌的產品線，每條產品線從詞彙表中選取對應子類別（優先品牌所屬分類下的詞彙，明確跨分類時才選其他分支）。僅當找不到合適詞彙時，才輸出新的「子類別層級」標籤，且必須同時符合以下條件：
 1. 必須命名具體的產品種類，不得只描述用途或抽象範圍。
 2. 不含「・」；複合詞應拆成可獨立匹配的產品種類，不得原樣輸出。
 3. 不得是任何 L1 類別名稱（例如服飾鞋履、包袋配件、居家生活）。
@@ -309,11 +309,11 @@ founding_year：只能填寫來源中明確提到的年份；若來源中未提�
 mit_indicators：是否在來源中提及台灣製造（MIT、台灣製造、100% Made in Taiwan 等）。evidence 引用原文。若無相關資訊回傳 null。
 
 ## 驗證檢查（輸出前自行確認）
-- [ ] product_tags 和 product_tags_en 數量是否一致？
-- [ ] 每個 novel tag 是否命名具體產品種類，而不是 L1、場合、包裝、服務、材質或 SKU 層級詞？
+- [ ] subcategories 和 subcategories_en 數量是否一致？
+- [ ] 每個 novel subcategory 是否命名具體產品種類，而不是 L1、場合、包裝、服務、材質或 SKU 層級詞？
 - [ ] novel tag 是否不含「・」？
 - [ ] 所有欄位是否可從提供的來源中找到依據？
-- [ ] product_type 與 city 是否只使用上列 slug？
+- [ ] category 與 city 是否只使用上列 slug？
 - [ ] 沒有依據的欄位是否已回傳 null 或 []，而不是猜測值？`;
 
 export const REPUTATION_SYSTEM_PROMPT = `你是台灣品牌聲譽研究專家。請根據搜尋摘要與網站內容，抽取品牌聲譽資訊。
@@ -534,7 +534,7 @@ export const NAME_ARBITER_SYSTEM_PROMPT = `你是 Formoria 的品牌名稱裁決
 
 export const SITE_IDENTITY_LABELS = {
   brandName: "品牌名稱",
-  productType: "產品類型",
+  categorySlug: "品牌類別",
   subjectKind: {
     website: "宣稱的官方網站",
     "source-page": "抓取來源頁面",

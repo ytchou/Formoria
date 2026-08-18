@@ -3,7 +3,7 @@
 Fill gaps in the enriched CSV to make all brands import-ready.
 
 Three steps:
-  1. Auto-map productTypes from brand name / context keywords
+  1. Auto-map categories from brand name / context keywords
   2. Fetch meta descriptions from brand websites (concurrent)
   3. Generate template descriptions for remaining brands
 
@@ -29,12 +29,12 @@ OUTPUT_DIR = Path(__file__).parent / "output"
 INPUT_CSV = OUTPUT_DIR / "all-brands-merged.final.csv"
 OUTPUT_CSV = OUTPUT_DIR / "all-brands-import-ready.csv"
 
-VALID_PRODUCT_TYPES = {
+VALID_CATEGORIES = {
     "fashion", "bags-accessories", "jewelry", "beauty",
     "home", "food-drink", "crafts", "tech", "outdoor", "kids-pets",
 }
 
-# Keywords in brand name / context → productType slug
+# Keywords in brand name / context → categorySlug slug
 # Ordered: most specific first
 NAME_CATEGORY_RULES: list[tuple[list[str], str]] = [
     # Fashion — shoes
@@ -110,10 +110,10 @@ CATEGORY_ZH = {
 }
 
 
-def infer_product_type(name: str, highlights: str, existing_pt: str) -> str:
-    """Infer productType from brand name and context keywords."""
-    if existing_pt and existing_pt in VALID_PRODUCT_TYPES:
-        return existing_pt
+def infer_category(name: str, highlights: str, existing_category: str) -> str:
+    """Infer categorySlug from brand name and context keywords."""
+    if existing_category and existing_category in VALID_CATEGORIES:
+        return existing_category
 
     search_text = f"{name} {highlights}".lower()
 
@@ -202,9 +202,9 @@ def fetch_meta_description(url: str, timeout: int = 8) -> str:
     return desc
 
 
-def generate_template_description(name: str, product_type: str) -> str:
+def generate_template_description(name: str, category: str) -> str:
     """Generate a template description for brands still missing one."""
-    cat_zh = CATEGORY_ZH.get(product_type, "生活風格")
+    cat_zh = CATEGORY_ZH.get(category, "生活風格")
 
     templates = [
         f"{name}，台灣設計製造的{cat_zh}品牌，堅持在地生產，提供高品質的台灣原創商品。",
@@ -270,27 +270,27 @@ def main():
             r["name"] = cleaned
     print(f"  Fixed {name_fixes} brand names\n", file=sys.stderr)
 
-    # Step 2: Auto-map productTypes
-    print("--- Step 2: Auto-map productTypes ---", file=sys.stderr)
-    pt_before = sum(1 for r in rows if r.get("productTypes", "").strip() in VALID_PRODUCT_TYPES)
+    # Step 2: Auto-map categories
+    print("--- Step 2: Auto-map categories ---", file=sys.stderr)
+    category_before = sum(1 for r in rows if r.get("categories", "").strip() in VALID_CATEGORIES)
     for r in rows:
-        inferred = infer_product_type(
+        inferred = infer_category(
             r["name"],
             r.get("brandHighlights", ""),
-            r.get("productTypes", "").strip(),
+            r.get("categories", "").strip(),
         )
         if inferred:
-            r["productTypes"] = inferred
-    pt_after = sum(1 for r in rows if r.get("productTypes", "").strip() in VALID_PRODUCT_TYPES)
-    print(f"  Before: {pt_before} → After: {pt_after} (+{pt_after - pt_before})", file=sys.stderr)
+            r["categories"] = inferred
+    category_after = sum(1 for r in rows if r.get("categories", "").strip() in VALID_CATEGORIES)
+    print(f"  Before: {category_before} → After: {category_after} (+{category_after - category_before})", file=sys.stderr)
 
-    # For brands still without productType, set productTypeNote
-    still_no_pt = 0
+    # For brands still without categorySlug, set categoryNote
+    still_no_category = 0
     for r in rows:
-        if r.get("productTypes", "").strip() not in VALID_PRODUCT_TYPES:
-            r["productTypeNote"] = "待分類 — 需人工審核"
-            still_no_pt += 1
-    print(f"  Still uncategorized (set productTypeNote): {still_no_pt}\n", file=sys.stderr)
+        if r.get("categories", "").strip() not in VALID_CATEGORIES:
+            r["categoryNote"] = "待分類 — 需人工審核"
+            still_no_category += 1
+    print(f"  Still uncategorized (set categoryNote): {still_no_category}\n", file=sys.stderr)
 
     # Step 3: Fetch meta descriptions
     print("--- Step 3: Fetch meta descriptions ---", file=sys.stderr)
@@ -343,7 +343,7 @@ def main():
     generated = 0
     for r in rows:
         if is_junk_description(r.get("description", "")):
-            pt = r.get("productTypes", "").strip()
+            pt = r.get("categories", "").strip()
             r["description"] = generate_template_description(r["name"], pt)
             generated += 1
     print(f"  Generated {generated} template descriptions\n", file=sys.stderr)
@@ -355,10 +355,10 @@ def main():
     for r in rows:
         name_ok = 2 <= len(r["name"]) <= 100
         desc_ok = 40 <= len(r.get("description", "")) <= 500
-        pt_ok = (r.get("productTypes", "").strip() in VALID_PRODUCT_TYPES
-                 or bool(r.get("productTypeNote", "").strip()))
+        category_ok = (r.get("categories", "").strip() in VALID_CATEGORIES
+                 or bool(r.get("categoryNote", "").strip()))
 
-        if name_ok and desc_ok and pt_ok:
+        if name_ok and desc_ok and category_ok:
             ready += 1
         else:
             issue = r["name"]
@@ -366,8 +366,8 @@ def main():
                 issue += " [bad name]"
             if not desc_ok:
                 issue += f" [desc={len(r.get('description', ''))} chars]"
-            if not pt_ok:
-                issue += " [no productType]"
+            if not category_ok:
+                issue += " [no categorySlug]"
             issues.append(issue)
 
     print(f"  Import-ready: {ready}/{len(rows)}", file=sys.stderr)

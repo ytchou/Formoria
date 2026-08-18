@@ -13,7 +13,7 @@ type BrandRowFixture = {
   name: string
   slug: string
   status: string
-  product_type: string | null
+  category: string | null
   brand_owners: Array<{ user_id: string }>
 }
 
@@ -129,7 +129,7 @@ function brandRow(overrides: Partial<BrandRowFixture> & { slug: string }): Brand
     id: `id-${overrides.slug}`,
     name: overrides.slug,
     status: 'approved',
-    product_type: 'bags-accessories',
+    category: 'bags-accessories',
     brand_owners: [],
     ...overrides,
   }

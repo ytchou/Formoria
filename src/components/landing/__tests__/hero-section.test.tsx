@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import en from "../../../../messages/en.json";
 import { buildWebSiteJsonLd } from "@/lib/json-ld";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
 // The hero carries a `priority` background photograph. `next/image` resolves a
 // local `src` against the loader's base URL, which jsdom does not provide, so
@@ -188,7 +188,7 @@ describe("HeroSection", () => {
     // category entry point and must list the ontology in full.
     const { container } = await renderHero();
 
-    for (const category of PRODUCT_TYPE_CATEGORIES) {
+    for (const category of L1_CATEGORIES) {
       const chips = container.querySelectorAll(
         `a[href="/categories/${category.slug}"]`,
       );
@@ -223,7 +223,7 @@ describe("HeroSection", () => {
     );
     expect(rows).toHaveLength(1);
     expect(rows[0]!.querySelectorAll("a")).toHaveLength(
-      PRODUCT_TYPE_CATEGORIES.length,
+      L1_CATEGORIES.length,
     );
   });
 

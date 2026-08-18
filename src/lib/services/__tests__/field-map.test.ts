@@ -2,37 +2,37 @@ import { describe, expect, it } from 'vitest'
 
 import { toBrandRow } from '../_shared/field-map'
 
-describe('toBrandRow product_tags_en derivation', () => {
-  it('derives product_tags_en when mapping productTags', () => {
-    const row = toBrandRow({ productTags: ['托特包', '手工燈籠'] })
-    expect(row.product_tags).toEqual(['托特包', '手工燈籠'])
-    expect(row.product_tags_en).toEqual(['Tote Bags', '手工燈籠'])
+describe('toBrandRow subcategories_en derivation', () => {
+  it('derives subcategories_en when mapping subcategories', () => {
+    const row = toBrandRow({ subcategories: ['托特包', '手工燈籠'] })
+    expect(row.subcategories).toEqual(['托特包', '手工燈籠'])
+    expect(row.subcategories_en).toEqual(['Tote Bags', '手工燈籠'])
   })
 
-  it('normalizes a caller-supplied productTagsEn instead of trusting it', () => {
+  it('normalizes a caller-supplied subcategoriesEn instead of trusting it', () => {
     // DEV-1266: the admin review action validates EN tags for length only, so
     // a stale hand-edited array must not survive the write boundary.
-    const row = toBrandRow({ productTags: ['後背包'], productTagsEn: ['backpack'] })
-    expect(row.product_tags).toEqual(['後背包'])
-    expect(row.product_tags_en).toEqual(['Backpacks'])
+    const row = toBrandRow({ subcategories: ['後背包'], subcategoriesEn: ['backpack'] })
+    expect(row.subcategories).toEqual(['後背包'])
+    expect(row.subcategories_en).toEqual(['Backpacks'])
   })
 
   it('keeps a novel tag supplied EN but Title Cases it', () => {
     const row = toBrandRow({
-      productTags: ['手工燈籠'],
-      productTagsEn: ['handmade lantern'],
+      subcategories: ['手工燈籠'],
+      subcategoriesEn: ['handmade lantern'],
     })
-    expect(row.product_tags_en).toEqual(['Handmade Lantern'])
+    expect(row.subcategories_en).toEqual(['Handmade Lantern'])
   })
 
-  it('still derives when productTagsEn is omitted', () => {
-    const row = toBrandRow({ productTags: ['托特包', '手工燈籠'] })
-    expect(row.product_tags_en).toEqual(['Tote Bags', '手工燈籠'])
+  it('still derives when subcategoriesEn is omitted', () => {
+    const row = toBrandRow({ subcategories: ['托特包', '手工燈籠'] })
+    expect(row.subcategories_en).toEqual(['Tote Bags', '手工燈籠'])
   })
 
-  it('does not set product_tags_en when productTags is absent', () => {
+  it('does not set subcategories_en when subcategories is absent', () => {
     const row = toBrandRow({ name: 'Test Brand', slug: 'test-brand' })
-    expect(row.product_tags_en).toBeUndefined()
+    expect(row.subcategories_en).toBeUndefined()
   })
 })
 
@@ -44,10 +44,10 @@ describe('toBrandRow city mapping', () => {
       description: null,
       heroImageUrl: null,
       status: 'approved',
-      category: null,
+      categorySlug: null,
       foundingYear: null,
       city: 'taipei',
-      productTags: [],
+      subcategories: [],
     })
 
     expect(row.city).toBe('taipei')
@@ -60,10 +60,10 @@ describe('toBrandRow city mapping', () => {
       description: null,
       heroImageUrl: null,
       status: 'approved',
-      category: null,
+      categorySlug: null,
       foundingYear: null,
       city: null,
-      productTags: [],
+      subcategories: [],
     })
 
     expect(row.city).toBeNull()

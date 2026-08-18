@@ -203,7 +203,7 @@ export type AiTriageInput = {
   isNonBrand: boolean;
   nonBrandReason: string | null;
   slugGenerated: string | null;
-  productType: string | null;
+  categorySlug: string | null;
   confidence: "high" | "medium" | "low";
 };
 
@@ -220,7 +220,7 @@ export async function insertTriageResult(input: AiTriageInput): Promise<void> {
     is_non_brand: input.isNonBrand,
     non_brand_reason: input.nonBrandReason,
     slug_generated: input.slugGenerated,
-    product_type: input.productType,
+    category: input.categorySlug,
     confidence: input.confidence,
     model: textModel(),
   } as never);
@@ -280,7 +280,7 @@ async function findAuditRow(
 }
 
 /**
- * Copy-call audit. `price_range` and `product_tags` are deliberately absent:
+ * Copy-call audit. `price_range` and `subcategories` are deliberately absent:
  * those fields moved to the facts call when the mega-call was split, and
  * `updateFactsAuditResult` denormalises them onto the `facts` row instead.
  */
@@ -342,7 +342,7 @@ export async function updateFactsAuditResult(input: {
         [],
       ),
       price_range: parsed.priceRange,
-      product_tags: parsed.productTags,
+      subcategories: parsed.subcategories,
     } as never)
     .eq("id", data.id);
   if (updateError)
@@ -371,7 +371,7 @@ export async function insertReputationResult(
 export type AiClassificationInput = {
   brandId: string;
   target?: EnrichmentTarget;
-  productType: string;
+  categorySlug: string;
   confidence: "high" | "medium" | "low";
 };
 
@@ -382,7 +382,7 @@ export async function insertClassificationResult(
   const { error } = await supabase.from("brand_ai_results").insert({
     ...targetForeignKey(input.target ?? brandTarget(input.brandId)),
     phase: "classification",
-    product_type: input.productType,
+    category: input.categorySlug,
     confidence: input.confidence,
     model: textModel(),
   } as never);

@@ -5,7 +5,7 @@ import { getLocale, getTranslations } from 'next-intl/server'
 import { HeroCategoryChips } from '@/components/landing/hero-category-chips'
 import { SearchInput } from '@/components/brands/search-input'
 import { buttonVariants } from '@/components/ui/button'
-import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { categoryLabel, L1_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 export default async function HeroSection() {
   const [t, locale] = await Promise.all([getTranslations('landing.hero'), getLocale()])
@@ -13,7 +13,7 @@ export default async function HeroSection() {
   // its tab row on `/`), so it shows every L1 in the ontology's declared order
   // rather than a hand-picked subset — a curated seven silently became label
   // drift the moment the ontology was renamed.
-  const categories = PRODUCT_TYPE_CATEGORIES.map((category) => ({
+  const categories = L1_CATEGORIES.map((category) => ({
     slug: category.slug,
     label: categoryLabel(category, locale),
   }))

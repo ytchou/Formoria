@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getTranslations } from 'next-intl/server'
 import { getPublicBrandCards, getRandomBrands, getSubcategorySummary } from '@/lib/services/brands'
-import { categoryLabel, PRODUCT_SUBCATEGORIES, PRODUCT_TYPE_CATEGORIES, resolveSubcategorySlugs } from '@/lib/taxonomy/ontology'
+import { categoryLabel, L2_SUBCATEGORIES, L1_CATEGORIES, resolveSubcategorySlugs } from '@/lib/taxonomy/ontology'
 import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildBrandsItemListJsonLd, buildWebSiteJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { DEFAULT_PAGE_SIZE, type BrandSortOption } from '@/lib/pagination'
 import {
@@ -29,7 +29,7 @@ import type { PublicBrandCard } from '@/lib/brands/contracts'
 import { DirectoryLandingHead, DirectoryResultStatus } from './directory-landing-head'
 
 const EMPTY_STATE_RECOMMENDATION_LIMIT = 4
-const VALID_CATEGORY_SLUGS: ReadonlySet<string> = new Set(PRODUCT_TYPE_CATEGORIES.map((category) => category.slug))
+const VALID_CATEGORY_SLUGS: ReadonlySet<string> = new Set(L1_CATEGORIES.map((category) => category.slug))
 
 export type DirectoryViewProps = {
   locale: Locale
@@ -54,7 +54,7 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
     ? validCategoryFilter[0] ?? null
     : null
   const categoryTag = singleValidCategory
-    ? PRODUCT_TYPE_CATEGORIES.find((category) => category.slug === singleValidCategory)
+    ? L1_CATEGORIES.find((category) => category.slug === singleValidCategory)
     : undefined
   const resolvedSubs = resolveSubcategorySlugs(categoryTag?.slug ?? null, filters.subcategorySlugs)
   const activeSubcategory = resolvedSubs.length === 1 ? resolvedSubs[0] : undefined
@@ -79,7 +79,7 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
       : Promise.resolve({ counts: new Map<string, number>(), latestUpdatedAt: null }),
   ])
   const subcategoriesWithCounts = singleValidCategory
-    ? PRODUCT_SUBCATEGORIES
+    ? L2_SUBCATEGORIES
         .filter((subcategory) => subcategory.category === singleValidCategory)
         .map((subcategory) => ({
           ...subcategory,
@@ -137,7 +137,7 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
     })
   }
   for (const slug of validCategoryFilter) {
-    const category = PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === slug)
+    const category = L1_CATEGORIES.find((item) => item.slug === slug)
     if (!category) continue
     const value = categoryLabel(category, safeLocale)
     const remainingCategories = validCategoryFilter.filter((item) => item !== slug)
@@ -289,7 +289,7 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
           <div className="sticky top-(--nav-height)">
             <BrandFilterSidebar
               activeFilters={activeFilters}
-              categories={[...PRODUCT_TYPE_CATEGORIES]}
+              categories={[...L1_CATEGORIES]}
               activeCategorySlugs={validCategoryFilter}
               subcategories={subcategoryOptions}
               activeSubSlugs={activeSubSlugs}
@@ -312,7 +312,7 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
             <div className="flex items-center gap-3">
               <BrandFilterDrawer
                 activeFilters={activeFilters}
-                categories={[...PRODUCT_TYPE_CATEGORIES]}
+                categories={[...L1_CATEGORIES]}
                 activeCategorySlugs={validCategoryFilter}
                 subcategories={subcategoryOptions}
                 activeSubSlugs={activeSubSlugs}

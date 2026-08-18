@@ -1,25 +1,28 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { ProductTagField } from './product-tag-field'
+import { SubcategoryField } from './subcategory-field'
 
-function renderField(initialTags: string[] = [], suggestions: string[] = []) {
+function renderField(
+  initialSubcategories: string[] = [],
+  suggestions: string[] = [],
+) {
   return render(
-    <ProductTagField
-      initialTags={initialTags}
-      inputLabel="Product tags"
-      placeholder="Add product"
-      removeLabel="Remove tag"
-      maxLabel="Up to 5 tags"
+    <SubcategoryField
+      initialSubcategories={initialSubcategories}
+      inputLabel="Product subcategories"
+      placeholder="Add subcategory"
+      removeLabel="Remove subcategory"
+      maxLabel="Up to 5 subcategories"
       suggestions={suggestions}
     />
   )
 }
 
-describe('ProductTagField', () => {
-  it('adds normalized tags and ignores case-insensitive duplicates', () => {
+describe('SubcategoryField', () => {
+  it('adds normalized subcategories and ignores case-insensitive duplicates', () => {
     const { container } = renderField(['Electric beds'])
-    const input = screen.getByRole('combobox', { name: 'Product tags' })
+    const input = screen.getByRole('combobox', { name: 'Product subcategories' })
 
     fireEvent.change(input, { target: { value: '  Wheelchair   lifts  ' } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -27,21 +30,21 @@ describe('ProductTagField', () => {
     fireEvent.keyDown(input, { key: 'Enter' })
 
     expect(screen.getByText('Wheelchair lifts')).toBeInTheDocument()
-    expect(container.querySelector<HTMLInputElement>('input[name="productTags"]')?.value)
+    expect(container.querySelector<HTMLInputElement>('input[name="subcategories"]')?.value)
       .toBe('Electric beds,Wheelchair lifts')
   })
 
-  it('limits the editor to five tags and supports removal', () => {
+  it('limits the editor to five subcategories and supports removal', () => {
     renderField(['One', 'Two', 'Three', 'Four', 'Five'])
 
-    expect(screen.queryByRole('combobox', { name: 'Product tags' })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Remove tag: Three' }))
-    expect(screen.getByRole('combobox', { name: 'Product tags' })).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Product subcategories' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove subcategory: Three' }))
+    expect(screen.getByRole('combobox', { name: 'Product subcategories' })).toBeInTheDocument()
   })
 
-  it('suggests existing tags while preserving free-form entry', () => {
+  it('suggests existing subcategories while preserving free-form entry', () => {
     const { container } = renderField([], ['Ceramic mugs', 'Ceramic plates', 'Leather totes'])
-    const input = screen.getByRole('combobox', { name: 'Product tags' })
+    const input = screen.getByRole('combobox', { name: 'Product subcategories' })
 
     fireEvent.change(input, { target: { value: 'ceramic' } })
     expect(screen.getByRole('option', { name: 'Ceramic mugs' })).toBeInTheDocument()
@@ -53,13 +56,13 @@ describe('ProductTagField', () => {
     fireEvent.change(input, { target: { value: 'Custom tea set' } })
     fireEvent.keyDown(input, { key: 'Enter' })
 
-    expect(container.querySelector<HTMLInputElement>('input[name="productTags"]')?.value)
+    expect(container.querySelector<HTMLInputElement>('input[name="subcategories"]')?.value)
       .toBe('Ceramic mugs,Custom tea set')
   })
 
-  it('does not suggest a tag that is already selected', () => {
+  it('does not suggest a subcategory that is already selected', () => {
     renderField(['Ceramic mugs'], ['Ceramic mugs', 'Ceramic plates'])
-    const input = screen.getByRole('combobox', { name: 'Product tags' })
+    const input = screen.getByRole('combobox', { name: 'Product subcategories' })
 
     fireEvent.change(input, { target: { value: 'ceramic' } })
 

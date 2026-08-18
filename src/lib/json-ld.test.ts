@@ -30,7 +30,8 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     status: "approved",
     isVerified: false,
     isDemo: false,
-    category: "Food & Beverage",
+    categorySlug: "food-drink",
+    categoryLabel: "Food & Beverage",
     foundingYear: 2004,
     city: null,
     purchaseWebsite: "https://chatzutang.com",
@@ -44,8 +45,8 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     productPhotos: [],
     siteContent: null,
     priceRange: null,
-    productTags: [],
-    productTagsEn: [],
+    subcategories: [],
+    subcategoriesEn: [],
     descriptionEn: null,
     blurb: null,
     blurbEn: null,
@@ -779,7 +780,7 @@ describe("buildFaqPageJsonLd", () => {
       `${key}|${JSON.stringify(params ?? {})}`;
     const items = await getBrandFaq(
       "123",
-      makeBrand({ productTags: ["陶瓷"] }),
+      makeBrand({ subcategories: ["陶瓷"] }),
       translate,
       "zh-TW",
       null,
@@ -810,8 +811,8 @@ describe("buildStockistItemListJsonLd", () => {
     district: "中山區",
     brandSlug: "maria-garcia-ceramics",
     brandName: "María García Ceramics",
-    productType: "home",
-    productTags: [],
+    categorySlug: "home",
+    subcategories: [],
   });
 
   it("builds a Place with a PostalAddress for a location with an address", () => {

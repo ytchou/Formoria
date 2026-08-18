@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { DirectoryView } from '@/components/brands/directory-view'
-import { PRODUCT_TYPE_CATEGORIES, categoryLabel, resolveSubcategorySlugs } from '@/lib/taxonomy/ontology'
+import { L1_CATEGORIES, categoryLabel, resolveSubcategorySlugs } from '@/lib/taxonomy/ontology'
 import { parseDirectoryViewFilters, type DirectorySearchParams } from '@/lib/seo/directory-filters'
 import type { Locale } from '@/lib/seo/alternates'
 import { buildOpenGraph } from '@/lib/seo/open-graph'
@@ -12,7 +12,7 @@ import { truncateForMeta } from '@/lib/text/truncate-for-meta'
 // into dynamic rendering. Keep this value for path revalidation parity.
 export const revalidate = 3600
 
-const VALID_CATEGORY_SLUGS = new Set(PRODUCT_TYPE_CATEGORIES.map((category) => category.slug))
+const VALID_CATEGORY_SLUGS = new Set(L1_CATEGORIES.map((category) => category.slug))
 
 interface BrandsPageProps {
   params: Promise<{ locale: string }>
@@ -27,7 +27,7 @@ export async function generateMetadata({ params, searchParams }: BrandsPageProps
   const { filters, page } = parseDirectoryViewFilters(sp, VALID_CATEGORY_SLUGS)
   const categorySlug = filters.categorySlugs.length === 1 ? filters.categorySlugs[0] ?? null : null
   const category = categorySlug
-    ? PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === categorySlug)
+    ? L1_CATEGORIES.find((item) => item.slug === categorySlug)
     : undefined
   const subcategory = resolveSubcategorySlugs(categorySlug, filters.subcategorySlugs)
   const activeSubcategory = subcategory.length === 1 ? subcategory[0] : undefined
