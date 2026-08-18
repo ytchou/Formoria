@@ -1,9 +1,32 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type APIResponse } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>
+
+const IS_CANONICAL_STAGING_TARGET =
+  new URL(
+    process.env.BASE_URL ??
+      process.env.PLAYWRIGHT_BASE_URL ??
+      process.env.STAGING_BASE_URL ??
+      'http://localhost:3000',
+  ).origin === 'https://staging.formoria.com'
+const EXPECTED_NEWSLETTER_CONFIRM_STATUS = IS_CANONICAL_STAGING_TARGET ? 403 : 307
+
+async function expectNewsletterConfirmContract(
+  response: APIResponse,
+): Promise<void> {
+  if (IS_CANONICAL_STAGING_TARGET) {
+    expect(await response.json()).toMatchObject({
+      error: 'This flow is disabled in staging',
+    })
+    return
+  }
+
+  const location = response.headers()['location'] ?? ''
+  expect(location).toContain('subscribed=true')
+}
 
 /**
  * API Contracts
@@ -95,7 +118,7 @@ test.describe('API — health + search', () => {
     expect(first).toHaveProperty('id')
     expect(first).toHaveProperty('slug')
     expect(first).toHaveProperty('name')
-    expect(first).toHaveProperty('category')
+    expect(first).toHaveProperty('categoryLabel')
   })
 
   test('GET /api/search without query returns 400', async ({ request }) => {
@@ -206,9 +229,8 @@ test.describe.serial('API — newsletter', () => {
       `/api/newsletter/confirm?token=${confirmToken}`,
       { maxRedirects: 0 },
     )
-    expect(resp.status()).toBe(307)
-    const location = resp.headers()['location'] ?? ''
-    expect(location).toContain('subscribed=true')
+    expect(resp.status()).toBe(EXPECTED_NEWSLETTER_CONFIRM_STATUS)
+    await expectNewsletterConfirmContract(resp)
   })
 
   test('GET /api/newsletter/unsubscribe with valid token succeeds', async ({ request }) => {

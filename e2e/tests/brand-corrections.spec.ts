@@ -2,6 +2,16 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures/auth';
 import { seedBrand, SeededBrand } from '../helpers/seed';
 import { BUDGET, POLL } from '../budgets';
+
+const IS_CANONICAL_STAGING_TARGET =
+  new URL(
+    process.env.BASE_URL ??
+      process.env.PLAYWRIGHT_BASE_URL ??
+      process.env.STAGING_BASE_URL ??
+      'http://localhost:3000',
+  ).origin === 'https://staging.formoria.com';
+const STAGING_MUTATION_SKIP_REASON =
+  'Anonymous correction mutations are intentionally disabled on canonical staging';
 // DEV-1261 note: deliberately NOT gated on `owner_features_enabled`. This is an
 // anonymous crowd-QA journey that touches no owner surface, and it is live at
 // launch — pausing it would take consumer coverage dark for no reason. Verified
@@ -185,6 +195,7 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   test(
     'anonymous visitor can submit a category correction',
     async ({ anonPage }, testInfo) => {
+      test.skip(IS_CANONICAL_STAGING_TARGET, STAGING_MUTATION_SKIP_REASON);
       test.setTimeout(BUDGET.TEST.MUTATION);
       await isolateVisitorIp(anonPage, testInfo.workerIndex);
       await openSeededBrand(anonPage, seeded);
@@ -252,6 +263,7 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   test(
     'page still shows the original value after submitting',
     async ({ anonPage }, testInfo) => {
+      test.skip(IS_CANONICAL_STAGING_TARGET, STAGING_MUTATION_SKIP_REASON);
       test.setTimeout(BUDGET.TEST.MUTATION);
       await isolateVisitorIp(anonPage, testInfo.workerIndex);
       await openSeededBrand(anonPage, seeded);
@@ -273,6 +285,7 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   );
 
   test('a second submission for the same field is rejected', async ({ anonPage }, testInfo) => {
+    test.skip(IS_CANONICAL_STAGING_TARGET, STAGING_MUTATION_SKIP_REASON);
     test.setTimeout(BUDGET.TEST.ADMIN);
     await isolateVisitorIp(anonPage, testInfo.workerIndex);
     await openSeededBrand(anonPage, seeded);
@@ -292,6 +305,7 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   test(
     'a visitor can propose a subcategory the taxonomy does not offer',
     async ({ anonPage }, testInfo) => {
+      test.skip(IS_CANONICAL_STAGING_TARGET, STAGING_MUTATION_SKIP_REASON);
       test.setTimeout(BUDGET.TEST.MUTATION);
       await isolateVisitorIp(anonPage, testInfo.workerIndex);
       await openSeededBrand(anonPage, seeded);
