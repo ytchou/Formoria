@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { afterEach, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { describeWithDb } from "@/test/setup";
@@ -7,6 +10,13 @@ import { describeWithDb } from "@/test/setup";
 const supabase =
   process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
     ? createClient<Database>(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+      )
+    : null;
+const untypedSupabase =
+  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
         process.env.SUPABASE_SERVICE_ROLE_KEY,
       )
@@ -25,9 +35,147 @@ type SubmissionValues = Partial<
   >
 >;
 
-describeWithDb("DEV-1503 expand vocabulary compatibility", () => {
+const LEGACY_JSON_KEYS = [
+  ["product", "type"].join("_"),
+  ["product", "tags"].join("_"),
+  ["product", "tags", "en"].join("_"),
+  ["product", "Type"].join(""),
+  ["product", "Tags"].join(""),
+  ["product", "Tags", "En"].join(""),
+];
+
+function expectNoLegacyJsonKeys(value: Json | null): void {
+  if (!value || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    for (const item of value) expectNoLegacyJsonKeys(item);
+    return;
+  }
+  for (const [key, child] of Object.entries(value)) {
+    expect(LEGACY_JSON_KEYS).not.toContain(key);
+    if (key === "_cleared_fields" && Array.isArray(child)) {
+      for (const clearedField of child) {
+        if (typeof clearedField === "string") {
+          expect(LEGACY_JSON_KEYS).not.toContain(clearedField);
+        }
+      }
+    }
+    expectNoLegacyJsonKeys(child ?? null);
+  }
+}
+
+function runPendingCorrectionMigrationHarness(): void {
+  const migration = readFileSync(
+    join(
+      process.cwd(),
+      "supabase/migrations/20260819090000_contract_category_subcategory_vocabulary.sql",
+    ),
+    "utf8",
+  );
+  const dedupeStart = migration.indexOf("with pending_ranked as (");
+  const mappingStart = migration.indexOf(
+    "update public.brand_field_corrections\nset field = case field",
+    dedupeStart,
+  );
+  const constraintStart = migration.indexOf(
+    "alter table public.brand_field_corrections",
+    mappingStart,
+  );
+  if (dedupeStart < 0 || mappingStart < 0 || constraintStart < 0) {
+    throw new Error(
+      "Unable to extract pending correction migration statements",
+    );
+  }
+
+  const fixtureTable = "dev1503_pending_correction_fixture";
+  const dedupeSql = migration
+    .slice(dedupeStart, mappingStart)
+    .replaceAll("public.brand_field_corrections", fixtureTable);
+  const mappingSql = migration
+    .slice(mappingStart, constraintStart)
+    .replaceAll("public.brand_field_corrections", fixtureTable);
+  // The Supabase CLI sends one prepared statement, so execute the extracted
+  // migration statements in a temporary-table DO block. The block rolls back
+  // with the statement on any assertion failure and leaves no persistent rows.
+  const sql = `
+do $dev1503$
+declare
+  survivor_count integer;
+  non_null_ids integer[];
+  null_fields text[];
+  legacy_count integer;
+begin
+  create temp table ${fixtureTable} (
+    id integer primary key,
+    brand_id uuid not null,
+    visitor_hash text,
+    field text not null,
+    status text not null,
+    created_at timestamptz not null
+  ) on commit drop;
+  insert into ${fixtureTable} (id, brand_id, visitor_hash, field, status, created_at)
+  values
+    (101, '00000000-0000-4000-8000-000000000001', 'same-visitor', 'product_tags', 'pending', '2026-01-01T00:00:00Z'),
+    (102, '00000000-0000-4000-8000-000000000001', 'same-visitor', 'subcategories', 'pending', '2026-01-02T00:00:00Z'),
+    (201, '00000000-0000-4000-8000-000000000001', null, 'product_tags', 'pending', '2026-01-01T00:00:00Z'),
+    (202, '00000000-0000-4000-8000-000000000001', null, 'subcategories', 'pending', '2026-01-02T00:00:00Z'),
+    (203, '00000000-0000-4000-8000-000000000001', null, 'product_tags_en', 'pending', '2026-01-01T00:00:00Z'),
+    (204, '00000000-0000-4000-8000-000000000001', null, 'subcategories_en', 'pending', '2026-01-02T00:00:00Z');
+${dedupeSql}
+${mappingSql}
+  select
+    count(*),
+    coalesce(array_agg(id order by id) filter (where visitor_hash is not null), array[]::integer[]),
+    coalesce(array_agg(field order by id) filter (where visitor_hash is null), array[]::text[]),
+    count(*) filter (where field in ('product_type', 'product_tags', 'product_tags_en'))
+  into survivor_count, non_null_ids, null_fields, legacy_count
+  from ${fixtureTable};
+
+  if survivor_count <> 5
+    or non_null_ids is distinct from array[102]::integer[]
+    or null_fields is distinct from array[
+      'subcategories', 'subcategories', 'subcategories_en', 'subcategories_en'
+    ]::text[]
+    or legacy_count <> 0 then
+    raise exception
+      'DEV-1503 pending correction migration harness mismatch: survivors=%, non_null_ids=%, null_fields=%, legacy_count=%',
+      survivor_count, non_null_ids, null_fields, legacy_count;
+  end if;
+end
+$dev1503$;
+`;
+  if (!process.env.SUPABASE_DB_URL) {
+    throw new Error("SUPABASE_DB_URL is required for migration harness");
+  }
+  try {
+    execFileSync(
+      "pnpm",
+      [
+        "exec",
+        "supabase",
+        "db",
+        "query",
+        "--db-url",
+        process.env.SUPABASE_DB_URL,
+        "--output-format",
+        "json",
+        sql,
+      ],
+      {
+        encoding: "utf8",
+        env: process.env,
+        maxBuffer: 1024 * 1024,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+  } catch {
+    throw new Error("Pending correction migration harness failed");
+  }
+}
+
+describeWithDb("DEV-1503 contract category/subcategory vocabulary", () => {
   const brandIds: string[] = [];
   const submissionIds: string[] = [];
+  const jobIds: string[] = [];
 
   afterEach(async () => {
     if (submissionIds.length > 0) {
@@ -46,11 +194,20 @@ describeWithDb("DEV-1503 expand vocabulary compatibility", () => {
       expect(error).toBeNull();
       brandIds.length = 0;
     }
+    if (jobIds.length > 0) {
+      const { error } = await supabase!
+        .from("curation_jobs")
+        .delete()
+        .in("id", jobIds);
+      expect(error).toBeNull();
+      jobIds.length = 0;
+    }
   });
 
   async function insertBrand(
     label: string,
     values: BrandValues,
+    isDemo = true,
   ): Promise<string> {
     const id = randomUUID();
     const { error } = await supabase!.from("brands").insert({
@@ -59,7 +216,7 @@ describeWithDb("DEV-1503 expand vocabulary compatibility", () => {
       slug: `dev-1503-${label}-${id.slice(0, 8)}`,
       status: "approved",
       approved_at: new Date().toISOString(),
-      is_demo: true,
+      is_demo: isDemo,
       ...values,
     });
     expect(error).toBeNull();
@@ -85,210 +242,134 @@ describeWithDb("DEV-1503 expand vocabulary compatibility", () => {
     return id;
   }
 
-  it("keeps legacy and target physical writes equal and rejects conflicting dual writes", async () => {
-    // Bug caught: a mixed Wave 1/Wave 2 revision could write one vocabulary
-    // and silently leave the other column stale, or make two values disagree.
-    const oldOnlyId = await insertBrand("old-only", {
-      product_type: "home",
-      product_tags: ["家具"],
-      product_tags_en: ["Furniture"],
+  // Bug caught: contracting the physical schema without preserving the final
+  // columns would make the first application write fail or lose values.
+  it("persists final category/subcategory columns across core tables", async () => {
+    const brandId = await insertBrand("final-columns", {
+      category: "home",
+      subcategories: ["家具", "家飾"],
+      subcategories_en: ["Furniture", "Home decor"],
     });
-    const newOnlyId = await insertBrand("new-only", {
-      category: "crafts",
-      subcategories: ["陶藝"],
-      subcategories_en: ["Ceramics"],
-    });
-
-    const { data: inserted } = await supabase!
-      .from("brands")
-      .select(
-        "id, product_type, category, product_tags, subcategories, product_tags_en, subcategories_en",
-      )
-      .in("id", [oldOnlyId, newOnlyId]);
-    expect(inserted).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: oldOnlyId,
-          product_type: "home",
-          category: "home",
-          product_tags: ["家具"],
-          subcategories: ["家具"],
-          product_tags_en: ["Furniture"],
-          subcategories_en: ["Furniture"],
-        }),
-        expect.objectContaining({
-          id: newOnlyId,
-          product_type: "crafts",
-          category: "crafts",
-          product_tags: ["陶藝"],
-          subcategories: ["陶藝"],
-          product_tags_en: ["Ceramics"],
-          subcategories_en: ["Ceramics"],
-        }),
-      ]),
-    );
-
-    const { error: legacyUpdateError } = await supabase!
-      .from("brands")
-      .update({ product_type: "jewelry" })
-      .eq("id", oldOnlyId);
-    expect(legacyUpdateError).toBeNull();
-    const { error: targetUpdateError } = await supabase!
-      .from("brands")
-      .update({ subcategories: ["戒指"] })
-      .eq("id", newOnlyId);
-    expect(targetUpdateError).toBeNull();
-
-    const { data: updated } = await supabase!
-      .from("brands")
-      .select("id, product_type, category, product_tags, subcategories")
-      .in("id", [oldOnlyId, newOnlyId]);
-    expect(updated).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: oldOnlyId,
-          product_type: "jewelry",
-          category: "jewelry",
-        }),
-        expect.objectContaining({
-          id: newOnlyId,
-          product_tags: ["戒指"],
-          subcategories: ["戒指"],
-        }),
-      ]),
-    );
-
-    const { error: conflictingError } = await supabase!.from("brands").insert({
-      id: randomUUID(),
-      name: "DEV-1503 conflicting physical values",
-      slug: `dev-1503-conflict-${randomUUID().slice(0, 8)}`,
-      status: "approved",
-      is_demo: true,
-      product_type: "home",
-      category: "crafts",
-    });
-    expect(conflictingError?.message).toMatch(/Conflicting category values/);
-
-    const { error: conflictingUpdateError } = await supabase!
-      .from("brands")
-      .update({ product_type: "home", category: "crafts" })
-      .eq("id", oldOnlyId);
-    expect(conflictingUpdateError?.message).toMatch(
-      /Conflicting category values/,
-    );
-  });
-
-  it("synchronizes AI results and submission category notes in both directions", async () => {
-    // Bug caught: enrichment or submission-note writes through the new name
-    // would otherwise disappear when legacy approval code reads the row.
-    const brandId = await insertBrand("ai-target", { category: "beauty" });
     const aiResultId = randomUUID();
-    const { error: aiInsertError } = await supabase!
-      .from("brand_ai_results")
-      .insert({
-        id: aiResultId,
-        brand_id: brandId,
-        phase: "description",
-        model: "dev-1503-test",
-        category: "beauty",
-        subcategories: ["保養"],
-      });
-    expect(aiInsertError).toBeNull();
-    const legacyAiResultId = randomUUID();
-    const { error: legacyAiInsertError } = await supabase!
-      .from("brand_ai_results")
-      .insert({
-        id: legacyAiResultId,
-        brand_id: brandId,
-        phase: "description",
-        model: "dev-1503-test",
-        product_type: "crafts",
-        product_tags: ["木工"],
-      });
-    expect(legacyAiInsertError).toBeNull();
+    const { error: aiError } = await supabase!.from("brand_ai_results").insert({
+      id: aiResultId,
+      brand_id: brandId,
+      phase: "description",
+      model: "dev-1503-contract",
+      category: "home",
+      subcategories: ["家具"],
+    });
+    expect(aiError).toBeNull();
 
-    const submissionId = await insertSubmission("note", {
+    const submissionId = await insertSubmission("final-note", {
       category_note: "生活風格用品",
     });
+    const { data: brand, error: brandError } = await supabase!
+      .from("brands")
+      .select("category, subcategories, subcategories_en")
+      .eq("id", brandId)
+      .single();
+    expect(brandError).toBeNull();
+    expect(brand).toEqual({
+      category: "home",
+      subcategories: ["家具", "家飾"],
+      subcategories_en: ["Furniture", "Home decor"],
+    });
 
-    const { data: aiResult } = await supabase!
+    const { data: aiResult, error: aiReadError } = await supabase!
       .from("brand_ai_results")
-      .select("product_type, category, product_tags, subcategories")
+      .select("category, subcategories")
       .eq("id", aiResultId)
       .single();
-    expect(aiResult).toEqual({
-      product_type: "beauty",
-      category: "beauty",
-      product_tags: ["保養"],
-      subcategories: ["保養"],
-    });
-    const { data: legacyAiResult } = await supabase!
-      .from("brand_ai_results")
-      .select("product_type, category, product_tags, subcategories")
-      .eq("id", legacyAiResultId)
-      .single();
-    expect(legacyAiResult).toEqual({
-      product_type: "crafts",
-      category: "crafts",
-      product_tags: ["木工"],
-      subcategories: ["木工"],
-    });
+    expect(aiReadError).toBeNull();
+    expect(aiResult).toEqual({ category: "home", subcategories: ["家具"] });
 
-    const { error: noteUpdateError } = await supabase!
+    const { data: submission, error: submissionError } = await supabase!
       .from("brand_submissions")
-      .update({ product_type_note: "手作生活用品" })
-      .eq("id", submissionId);
-    expect(noteUpdateError).toBeNull();
-    const { data: submission } = await supabase!
-      .from("brand_submissions")
-      .select("product_type_note, category_note")
+      .select("category_note")
       .eq("id", submissionId)
       .single();
-    expect(submission).toEqual({
-      product_type_note: "手作生活用品",
-      category_note: "手作生活用品",
-    });
-  });
+    expect(submissionError).toBeNull();
+    expect(submission).toEqual({ category_note: "生活風格用品" });
 
-  it("preserves equality for the seeded legacy rows after the expand backfill", async () => {
-    // Bug caught: a partial backfill would leave a mixed physical schema even
-    // though both columns exist, breaking the first new application rollout.
-    const { data, error } = await supabase!
+    // The old physical write must fail rather than silently reintroduce a
+    // second source of truth after the compatibility columns are removed.
+    const { error: legacyWriteError } = await untypedSupabase!
       .from("brands")
-      .select(
-        "product_type, category, product_tags, subcategories, product_tags_en, subcategories_en",
-      )
-      .not("product_type", "is", null)
-      .limit(100);
-    expect(error).toBeNull();
-    expect(data?.length).toBeGreaterThan(0);
-    for (const row of data ?? []) {
-      expect(row.category).toBe(row.product_type);
-      expect(row.subcategories).toEqual(row.product_tags);
-      expect(row.subcategories_en).toEqual(row.product_tags_en);
-    }
+      .update({ [["product", "type"].join("_")]: "crafts" })
+      .eq("id", brandId);
+    expect(legacyWriteError).not.toBeNull();
   });
 
-  it("writes both snake_case and form-shaped aliases in every pending JSON container", async () => {
-    // Bug caught: pending review data written by one revision would lose its
-    // category/subcategory values when the other revision reads another JSON
-    // container, including refresh clearing sentinels.
-    const submissionId = await insertSubmission("json-aliases", {
+  // Bug caught: migration deduplication partitioned every NULL visitor hash
+  // together, dropping anonymous legacy/final corrections even though the
+  // partial unique index treats NULL hashes as distinct identities. The
+  // assertion executes the committed migration statements against a temporary
+  // table; the live rows below prove the post-contract index behavior.
+  it("keeps multiple anonymous pending corrections for the final field", async () => {
+    expect(() => runPendingCorrectionMigrationHarness()).not.toThrow();
+    const brandId = await insertBrand("anonymous-corrections", {
+      category: "crafts",
+      subcategories: ["木工"],
+      subcategories_en: ["Woodwork"],
+    });
+    const { error: insertError } = await untypedSupabase!
+      .from("brand_field_corrections")
+      .insert([
+        {
+          brand_id: brandId,
+          field: "subcategories",
+          proposed_value: ["陶藝"],
+          previous_value: ["木工"],
+          status: "pending",
+          visitor_hash: null,
+        },
+        {
+          brand_id: brandId,
+          field: "subcategories",
+          proposed_value: ["金工"],
+          previous_value: ["木工"],
+          status: "pending",
+          visitor_hash: null,
+        },
+      ]);
+    expect(insertError).toBeNull();
+
+    const { data: corrections, error: readError } = await untypedSupabase!
+      .from("brand_field_corrections")
+      .select("field, proposed_value, visitor_hash")
+      .eq("brand_id", brandId)
+      .eq("field", "subcategories")
+      .eq("status", "pending");
+    expect(readError).toBeNull();
+    expect(corrections).toHaveLength(2);
+    expect(
+      corrections?.every((correction) => correction.visitor_hash === null),
+    ).toBe(true);
+    expect(corrections?.map((correction) => correction.proposed_value)).toEqual(
+      expect.arrayContaining([["陶藝"], ["金工"]]),
+    );
+  });
+
+  // Bug caught: a post-contract submission read could still expose removed
+  // aliases or clear the wrong field when containers use different shapes.
+  it("keeps every pending JSON container on final keys", async () => {
+    const submissionId = await insertSubmission("final-json", {
       enriched_data: {
-        product_type: "home",
-        product_tags: ["家具"],
-        product_tags_en: ["Furniture"],
-        _cleared_fields: ["product_type", "product_tags"],
+        category: "home",
+        subcategories: ["家具"],
+        subcategories_en: ["Furniture"],
+        _cleared_fields: ["category", "subcategories"],
       },
       review_overrides: {
-        category: "crafts",
+        categorySlug: "crafts",
         subcategories: ["陶藝"],
-        subcategories_en: ["Ceramics"],
+        subcategoriesEn: ["Ceramics"],
       },
       base_brand_data: {
-        productType: "beauty",
-        productTags: ["保養"],
-        productTagsEn: ["Skincare"],
+        category: "beauty",
+        subcategories: ["保養"],
+        subcategories_en: ["Skincare"],
       },
       owner_data: {
         categorySlug: "jewelry",
@@ -297,7 +378,9 @@ describeWithDb("DEV-1503 expand vocabulary compatibility", () => {
       },
       suggested_tags: {
         values: ["洋裝"],
-        productType: "fashion",
+        category: "fashion",
+        subcategories: ["洋裝"],
+        subcategories_en: ["Dresses"],
       },
     });
 
@@ -309,78 +392,435 @@ describeWithDb("DEV-1503 expand vocabulary compatibility", () => {
       .eq("id", submissionId)
       .single();
     expect(error).toBeNull();
-
-    const containers = [
+    for (const container of [
       data?.enriched_data,
       data?.review_overrides,
       data?.base_brand_data,
       data?.owner_data,
       data?.suggested_tags,
-    ];
-    expect(containers).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          product_type: "home",
-          category: "home",
-          productType: "home",
-          categorySlug: "home",
-          product_tags: ["家具"],
-          subcategories: ["家具"],
-          productTags: ["家具"],
-          product_tags_en: ["Furniture"],
-          subcategories_en: ["Furniture"],
-          productTagsEn: ["Furniture"],
-          subcategoriesEn: ["Furniture"],
-          _cleared_fields: expect.arrayContaining([
-            "product_type",
-            "category",
-            "productType",
-            "categorySlug",
-            "product_tags",
-            "subcategories",
-            "productTags",
-          ]),
-        }),
-        expect.objectContaining({
-          values: ["洋裝"],
-          product_tags: ["洋裝"],
-          subcategories: ["洋裝"],
-          productTags: ["洋裝"],
-          productType: "fashion",
-          category: "fashion",
-          categorySlug: "fashion",
-        }),
-      ]),
-    );
-
-    for (const container of containers) {
+    ]) {
       expect(container).toBeTruthy();
-      const object = container as Record<string, Json | undefined>;
-      if (object.category !== undefined) {
-        expect(object.category).toBe(object.product_type);
-        expect(object.categorySlug).toBe(object.product_type);
-      }
-      if (object.subcategories !== undefined) {
-        expect(object.subcategories).toEqual(object.product_tags);
-        expect(object.subcategories).toEqual(object.productTags);
-      }
+      expectNoLegacyJsonKeys(container ?? null);
     }
+    expect(data?.enriched_data).toMatchObject({
+      category: "home",
+      subcategories: ["家具"],
+      subcategories_en: ["Furniture"],
+      _cleared_fields: ["category", "subcategories"],
+    });
+    expect(data?.suggested_tags).toMatchObject({
+      values: ["洋裝"],
+      category: "fashion",
+      subcategories: ["洋裝"],
+      subcategories_en: ["Dresses"],
+    });
   });
 
-  it("rejects conflicting aliases inside pending JSON", async () => {
-    // Bug caught: dual JSON keys with different values would make approval
-    // depend on which alias a mixed-version function happened to read.
-    const { error } = await supabase!.from("brand_submissions").insert({
-      id: randomUUID(),
-      brand_name: "DEV-1503 conflicting JSON values",
-      submitter_email: `dev-1503-conflicting-json-${randomUUID().slice(0, 8)}@example.com`,
-      intent: "recommend",
-      status: "pending",
-      enriched_data: {
-        product_type: "home",
-        category: "crafts",
-      },
+  // Bug caught: rewriting approval/provenance SQL without changing its JSON
+  // record fields would publish an empty category or record removed field IDs.
+  it("approves final category data and records final provenance identifiers", async () => {
+    const submissionId = await insertSubmission("contract-approval", {
+      description: "可以公開的品牌介紹",
+      website_url: "https://contract-approval.example.com",
+      suggested_tags: { values: ["木工"], category: "crafts" },
+      owner_data: { categorySlug: "crafts", subcategories: ["木工"] },
     });
-    expect(error?.message).toMatch(/Conflicting submission JSON aliases/);
+    const { error: imageError } = await supabase!
+      .from("submission_images")
+      .insert({
+        id: randomUUID(),
+        submission_id: submissionId,
+        url: `https://cdn.example.com/${submissionId}/hero.webp`,
+        source: "admin",
+        status: "active",
+        sort_order: 0,
+      });
+    expect(imageError).toBeNull();
+
+    const { data: jobId, error: jobError } = await untypedSupabase!.rpc(
+      "enqueue_curation_job",
+      {
+        p_operation: "enrich",
+        p_params: { target: "submissions", submissionIds: [submissionId] },
+        p_dry_run: false,
+        p_started_by: "dev-1503-contract",
+        p_trigger: "admin",
+        p_parent_job_id: null,
+        p_attempt: 1,
+        p_scheduled_for: null,
+        p_run_after: new Date().toISOString(),
+        p_dedupe_key: `dev-1503-contract:${randomUUID()}`,
+        p_targets: [
+          {
+            target_type: "submission",
+            target_id: submissionId,
+            brand_name: "DEV-1503 contract approval",
+            brand_slug: null,
+          },
+        ],
+      },
+    );
+    expect(jobError).toBeNull();
+    expect(jobId).toBeTruthy();
+    jobIds.push(jobId as string);
+    const completedAt = new Date().toISOString();
+    const { error: targetError } = await supabase!
+      .from("curation_job_targets")
+      .update({ status: "succeeded", completed_at: completedAt })
+      .eq("job_id", jobId as string);
+    expect(targetError).toBeNull();
+    const { error: jobCompleteError } = await supabase!
+      .from("curation_jobs")
+      .update({ status: "completed", completed_at: completedAt })
+      .eq("id", jobId as string);
+    expect(jobCompleteError).toBeNull();
+
+    const { data: approval, error: approvalError } = await untypedSupabase!.rpc(
+      "approve_submission",
+      {
+        p_submission_id: submissionId,
+        p_reviewer_id: null,
+        p_brand_data: {
+          name: "DEV-1503 Contract Approval Brand",
+          slug: `dev-1503-contract-approval-${randomUUID().slice(0, 8)}`,
+          description: "可以公開的品牌介紹",
+          category: "crafts",
+          subcategories: ["木工"],
+          subcategories_en: ["Woodwork"],
+          price_range: 2,
+          approved_at: new Date().toISOString(),
+          purchase_website: "https://contract-approval.example.com",
+          is_demo: true,
+        },
+      },
+    );
+    expect(approvalError).toBeNull();
+    const brandId = approval?.[0]?.brand_id as string | undefined;
+    expect(brandId).toBeTruthy();
+    brandIds.push(brandId!);
+
+    const { data: brand, error: brandError } = await supabase!
+      .from("brands")
+      .select("category, subcategories, subcategories_en")
+      .eq("id", brandId!)
+      .single();
+    expect(brandError).toBeNull();
+    expect(brand).toEqual({
+      category: "crafts",
+      subcategories: ["木工"],
+      subcategories_en: ["Woodwork"],
+    });
+    const { data: states, error: stateError } = await untypedSupabase!
+      .from("brand_field_state")
+      .select("field")
+      .eq("brand_id", brandId!);
+    expect(stateError).toBeNull();
+    expect(states?.map((row) => row.field)).toEqual(
+      expect.arrayContaining(["category", "subcategories", "subcategories_en"]),
+    );
+    expect(states?.some((row) => LEGACY_JSON_KEYS.includes(row.field))).toBe(
+      false,
+    );
+  });
+
+  // Bug caught: a refresh contract rewrite could still read/write removed
+  // identifiers, publishing an unchanged category while recording legacy
+  // provenance rows and events.
+  it("refreshes final category data and records final provenance identifiers", async () => {
+    const brandId = await insertBrand("final-refresh", {
+      description: "原本完整的品牌介紹",
+      category: "crafts",
+      subcategories: ["木工"],
+      subcategories_en: ["Woodwork"],
+      price_range: 2,
+      purchase_website: "https://contract-refresh.example.com",
+    });
+    const { data: snapshot, error: snapshotError } = await supabase!
+      .from("brands")
+      .select("updated_at")
+      .eq("id", brandId)
+      .single();
+    expect(snapshotError).toBeNull();
+    expect(snapshot?.updated_at).toBeTruthy();
+
+    const submissionId = randomUUID();
+    const { error: submissionError } = await supabase!
+      .from("brand_submissions")
+      .insert({
+        id: submissionId,
+        brand_id: brandId,
+        brand_name: "DEV-1503 final refresh",
+        submitter_email: `dev-1503-refresh-${submissionId.slice(0, 8)}@example.com`,
+        intent: "refresh",
+        status: "pending",
+        base_brand_data: {
+          name: `DEV-1503 final-refresh-${brandId.slice(0, 8)}`,
+          description: "原本完整的品牌介紹",
+          category: "crafts",
+          subcategories: ["木工"],
+          subcategories_en: ["Woodwork"],
+          price_range: 2,
+          purchase_website: "https://contract-refresh.example.com",
+          _active_images: [],
+        },
+        base_brand_updated_at: snapshot?.updated_at,
+        enriched_data: {
+          description: "排程更新後的品牌介紹",
+          category: "home",
+          subcategories: ["家具"],
+          subcategories_en: ["Furniture"],
+        },
+      });
+    expect(submissionError).toBeNull();
+    submissionIds.push(submissionId);
+
+    const { error: imageError } = await supabase!
+      .from("submission_images")
+      .insert({
+        id: randomUUID(),
+        submission_id: submissionId,
+        url: `https://cdn.example.com/${submissionId}/refresh.webp`,
+        source: "admin",
+        status: "active",
+        sort_order: 0,
+      });
+    expect(imageError).toBeNull();
+
+    const { data: jobId, error: jobError } = await untypedSupabase!.rpc(
+      "enqueue_curation_job",
+      {
+        p_operation: "enrich",
+        p_params: { target: "submissions", submissionIds: [submissionId] },
+        p_dry_run: false,
+        p_started_by: "dev-1503-contract-refresh",
+        p_trigger: "admin",
+        p_parent_job_id: null,
+        p_attempt: 1,
+        p_scheduled_for: null,
+        p_run_after: new Date().toISOString(),
+        p_dedupe_key: `dev-1503-contract-refresh:${randomUUID()}`,
+        p_targets: [
+          {
+            target_type: "submission",
+            target_id: submissionId,
+            brand_name: "DEV-1503 final refresh",
+            brand_slug: null,
+          },
+        ],
+      },
+    );
+    expect(jobError).toBeNull();
+    expect(jobId).toBeTruthy();
+    jobIds.push(jobId as string);
+    const completedAt = new Date().toISOString();
+    const { error: targetError } = await supabase!
+      .from("curation_job_targets")
+      .update({ status: "succeeded", completed_at: completedAt })
+      .eq("job_id", jobId as string);
+    expect(targetError).toBeNull();
+    const { error: jobCompleteError } = await supabase!
+      .from("curation_jobs")
+      .update({ status: "completed", completed_at: completedAt })
+      .eq("id", jobId as string);
+    expect(jobCompleteError).toBeNull();
+
+    const { error: refreshError } = await untypedSupabase!.rpc(
+      "apply_brand_refresh",
+      { p_submission_id: submissionId, p_reviewer_id: null },
+    );
+    expect(refreshError).toBeNull();
+
+    const { data: brand, error: brandError } = await supabase!
+      .from("brands")
+      .select("description, category, subcategories, subcategories_en")
+      .eq("id", brandId)
+      .single();
+    expect(brandError).toBeNull();
+    expect(brand).toEqual({
+      description: "排程更新後的品牌介紹",
+      category: "home",
+      subcategories: ["家具"],
+      subcategories_en: ["Furniture"],
+    });
+    const { data: states, error: stateError } = await untypedSupabase!
+      .from("brand_field_state")
+      .select("field, source")
+      .eq("brand_id", brandId)
+      .in("field", [
+        "description",
+        "category",
+        "subcategories",
+        "subcategories_en",
+      ]);
+    expect(stateError).toBeNull();
+    expect(states).toEqual(
+      expect.arrayContaining([
+        { field: "description", source: "enriched" },
+        { field: "category", source: "enriched" },
+        { field: "subcategories", source: "enriched" },
+        { field: "subcategories_en", source: "enriched" },
+      ]),
+    );
+    expect(states?.some((row) => LEGACY_JSON_KEYS.includes(row.field))).toBe(
+      false,
+    );
+  });
+
+  // Bug caught: the parameter rename could change category filtering or add
+  // overlap behavior to search_brands, changing existing search results.
+  it("keeps category filtering, subcategory overlap, and search weights usable", async () => {
+    const suffix = `contract${randomUUID().replaceAll("-", "").slice(0, 8)}`;
+    const homeOverlapId = await insertBrand(
+      `search-home-overlap-${suffix}`,
+      {
+        category: "home",
+        subcategories: ["木工"],
+        subcategories_en: ["Woodwork"],
+      },
+      false,
+    );
+    const homeOtherId = await insertBrand(
+      `search-home-other-${suffix}`,
+      {
+        category: "home",
+        subcategories: ["陶藝"],
+        subcategories_en: ["Ceramics"],
+      },
+      false,
+    );
+    const craftsOverlapId = await insertBrand(
+      `search-crafts-overlap-${suffix}`,
+      {
+        category: "crafts",
+        subcategories: ["木工"],
+        subcategories_en: ["Woodwork"],
+      },
+      false,
+    );
+
+    const categoryAndOverlap = await supabase!.rpc("search_brand_page", {
+      search_query: suffix,
+      filter_categories: ["home"],
+      filter_subcategories: ["木工"],
+      sort_mode: "name",
+    });
+    expect(categoryAndOverlap.error).toBeNull();
+    expect(categoryAndOverlap.data?.map((row) => row.id)).toContain(
+      homeOverlapId,
+    );
+    expect(categoryAndOverlap.data?.map((row) => row.id)).not.toContain(
+      homeOtherId,
+    );
+    expect(categoryAndOverlap.data?.map((row) => row.id)).not.toContain(
+      craftsOverlapId,
+    );
+
+    for (const query of ["木工", "Woodwork"]) {
+      const result = await supabase!.rpc("search_brand_page", {
+        search_query: query,
+        filter_subcategories: ["木工"],
+        sort_mode: "name",
+      });
+      expect(result.error).toBeNull();
+      expect(result.data?.map((row) => row.id)).toEqual(
+        expect.arrayContaining([homeOverlapId, craftsOverlapId]),
+      );
+    }
+
+    const unchangedAutocomplete = await supabase!.rpc("search_brands", {
+      search_query: suffix,
+      filter_categories: ["home"],
+      filter_subcategories: ["不存在的子類別"],
+      include_test_brands: false,
+    });
+    expect(unchangedAutocomplete.error).toBeNull();
+    expect(unchangedAutocomplete.data?.map((row) => row.id)).toEqual(
+      expect.arrayContaining([homeOverlapId, homeOtherId]),
+    );
+    expect(unchangedAutocomplete.data?.map((row) => row.id)).not.toContain(
+      craftsOverlapId,
+    );
+
+    const document = await supabase!.rpc("brands_search_document", {
+      p_name: `DEV-1503 ${suffix}`,
+      p_slug: `dev-1503-${suffix}`,
+      p_category: "home",
+      p_subcategories: ["木工"],
+      p_subcategories_en: ["Woodwork"],
+      p_description: "",
+      p_blurb_en: "",
+    });
+    expect(document.error).toBeNull();
+    expect(String(document.data)).toContain("woodwork");
+  });
+
+  // Bug caught: contraction could leave persisted rows accepting historical
+  // field identifiers, allowing owner protection and correction review to
+  // diverge from the final application vocabulary.
+  it("accepts final persisted identifiers and rejects removed ones", async () => {
+    const brandId = await insertBrand("final-provenance", {
+      category: "crafts",
+      subcategories: ["木工"],
+      subcategories_en: ["Woodwork"],
+    });
+    const { error: stateError } = await untypedSupabase!
+      .from("brand_field_state")
+      .insert({
+        brand_id: brandId,
+        field: "category",
+        source: "owner",
+      });
+    expect(stateError).toBeNull();
+    const { error: eventError } = await untypedSupabase!
+      .from("brand_field_events")
+      .insert({
+        brand_id: brandId,
+        field: "subcategories",
+        source: "owner",
+        new_value: ["木工"],
+      });
+    expect(eventError).toBeNull();
+    const { error: correctionError } = await untypedSupabase!
+      .from("brand_field_corrections")
+      .insert({
+        brand_id: brandId,
+        field: "subcategories",
+        proposed_value: ["木工"],
+        status: "pending",
+        visitor_hash: `dev-1503-${randomUUID()}`,
+      });
+    expect(correctionError).toBeNull();
+
+    const { data: state } = await untypedSupabase!
+      .from("brand_field_state")
+      .select("field, source")
+      .eq("brand_id", brandId);
+    const { data: events } = await untypedSupabase!
+      .from("brand_field_events")
+      .select("field, source")
+      .eq("brand_id", brandId);
+    const { data: corrections } = await untypedSupabase!
+      .from("brand_field_corrections")
+      .select("field, status")
+      .eq("brand_id", brandId);
+    expect(state).toContainEqual({ field: "category", source: "owner" });
+    expect(events).toContainEqual({ field: "subcategories", source: "owner" });
+    expect(corrections).toContainEqual({
+      field: "subcategories",
+      status: "pending",
+    });
+
+    const { data: removedStateRows, error: removedStateReadError } =
+      await untypedSupabase!
+        .from("brand_field_state")
+        .select("field")
+        .eq("brand_id", brandId)
+        .in("field", [
+          ["product", "type"].join("_"),
+          ["product", "tags"].join("_"),
+          ["product", "tags", "en"].join("_"),
+        ]);
+    expect(removedStateReadError).toBeNull();
+    expect(removedStateRows).toEqual([]);
   });
 });

@@ -141,7 +141,7 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
             ) : unknownValue}
           />
           <InfoField
-            label={tBrandDetail('label.productCategories')}
+            label={tBrandDetail('label.subcategories')}
             labelClassName={infoLabelClassName}
             value={subcategories.length > 0 ? (
               <div className="flex flex-wrap items-center gap-1.5">

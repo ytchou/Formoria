@@ -117,7 +117,7 @@ test.beforeAll(async ({ isolatedUser }) => {
       status: 'approved',
       approved_at: new Date().toISOString(),
       mit_status: 'unverified',
-      product_type: 'crafts',
+      category: 'crafts',
       description: initialDescription,
     })
     .select('id')
@@ -134,7 +134,7 @@ test.beforeAll(async ({ isolatedUser }) => {
       slug: wizardBrandSlug,
       status: 'approved',
       approved_at: new Date().toISOString(),
-      product_type: 'crafts',
+      category: 'crafts',
       description: '[E2E-TEST] Wizard test brand.',
     })
     .select('id')
@@ -151,7 +151,7 @@ test.beforeAll(async ({ isolatedUser }) => {
       slug: imageUploadBrandSlug,
       status: 'approved',
       approved_at: new Date().toISOString(),
-      product_type: 'crafts',
+      category: 'crafts',
       description: '[E2E-TEST] Image upload test brand.',
     })
     .select('id')
@@ -172,7 +172,7 @@ test.beforeAll(async ({ isolatedUser }) => {
       mit_declared_scope: 'most',
       mit_declared_at: '2026-07-22T01:02:03+00:00',
       mit_declared_by: testUserId,
-      product_type: 'crafts',
+      category: 'crafts',
       description: '[E2E-TEST] Initial governed description.',
     })
     .select('id')
@@ -189,7 +189,7 @@ test.beforeAll(async ({ isolatedUser }) => {
       slug: adminBrandSlug,
       status: 'approved',
       approved_at: new Date().toISOString(),
-      product_type: 'crafts',
+      category: 'crafts',
       description: '[E2E-TEST] Admin-owned brand for redirect guard test.',
     })
     .select('id')

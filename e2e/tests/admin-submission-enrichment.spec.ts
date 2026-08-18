@@ -172,9 +172,9 @@ test.describe("Admin submission enrichment lifecycle", () => {
           description_en: "Complete enriched brand profile.",
           blurb: "完整品牌摘要",
           hero_image_url: imageUrls[0],
-          product_type: "bags-accessories",
-          product_tags: ["手工包袋"],
-          product_tags_en: ["Handmade Bags"],
+          category: "bags-accessories",
+          subcategories: ["手工包袋"],
+          subcategories_en: ["Handmade Bags"],
           price_range: 2,
           purchase_website: "https://e2e-submission.example.com",
         },
@@ -263,14 +263,14 @@ test.describe("Admin submission enrichment lifecycle", () => {
 
     const { data: brand, error: brandError } = await supabase
       .from("brands")
-      .select("id, status, description_en, blurb, product_tags_en")
+      .select("id, status, description_en, blurb, subcategories_en")
       .eq("id", approvedBrandId!)
       .single();
     expect(brandError).toBeNull();
     expect(brand?.status).toBe("approved");
     expect(brand?.description_en).toBe("Complete enriched brand profile.");
     expect(brand?.blurb).toBe("完整品牌摘要");
-    expect(brand?.product_tags_en).toEqual(["Handmade Bags"]);
+    expect(brand?.subcategories_en).toEqual(["Handmade Bags"]);
 
     const [{ count: stagedCount }, { data: promotedImages }] =
       await Promise.all([

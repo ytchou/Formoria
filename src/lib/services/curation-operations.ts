@@ -4,9 +4,9 @@ import { cleanBrandName, type NameCleanupResult } from "./brand-cleanup";
 import { ENRICH_CHUNK_SIZE, mapWithConcurrency } from "./_shared/concurrency";
 import {
   CLEARED_FIELDS_KEY,
+  mergeBrandFieldStates,
   resolveRefreshEnrichmentPatch,
 } from "./brand-write-policy";
-import { mergePersistedFieldStates } from "./_shared/persisted-field-identifiers";
 import type { BrandFlatLinkColumns } from "@/lib/types";
 import type { SiteContent } from "@/lib/types/brand";
 import type { ScrapedBrandData } from "@/lib/types/scraper";
@@ -1154,7 +1154,7 @@ export async function persistSubmissionEnrichmentResults(
       .eq("brand_id", row.brand_id);
     if (fieldStateError) throw fieldStateError;
 
-    const fieldState = mergePersistedFieldStates(fieldStates ?? []);
+    const fieldState = mergeBrandFieldStates(fieldStates ?? []);
     const filtered = resolveRefreshEnrichmentPatch(
       persistablePatch,
       fieldState,

@@ -9,6 +9,91 @@ export type BrandFieldWriteState = {
   updatedAt?: string;
 };
 
+export type BrandFieldStateRow = {
+  field: string;
+  source: string;
+  updated_at?: string | null;
+};
+
+const FIELD_STATE_SOURCE_PRIORITY: Record<string, number> = {
+  enriched: 1,
+  submitted: 2,
+  admin: 3,
+  owner: 4,
+};
+
+function fieldStateSourcePriority(source: string): number {
+  return FIELD_STATE_SOURCE_PRIORITY[source] ?? 0;
+}
+
+function shouldReplaceFieldState(
+  candidate: BrandFieldStateRow,
+  current: BrandFieldStateRow,
+): boolean {
+  const candidatePriority = fieldStateSourcePriority(candidate.source);
+  const currentPriority = fieldStateSourcePriority(current.source);
+  if (candidatePriority !== currentPriority) {
+    return candidatePriority > currentPriority;
+  }
+
+  const candidateUpdatedAt = candidate.updated_at ?? "";
+  const currentUpdatedAt = current.updated_at ?? "";
+  if (candidateUpdatedAt !== currentUpdatedAt) {
+    return candidateUpdatedAt > currentUpdatedAt;
+  }
+
+  return candidate.field < current.field;
+}
+
+/**
+ * Normalizes final persisted field state rows for owner protection. The two
+ * subcategory languages are one protected value: an owner lock on either
+ * language protects both, regardless of query row order.
+ */
+export function mergeBrandFieldStates(
+  rows: readonly BrandFieldStateRow[],
+): Record<string, BrandFieldWriteState> {
+  const merged = new Map<string, BrandFieldStateRow>();
+
+  for (const row of rows) {
+    const current = merged.get(row.field);
+    if (!current || shouldReplaceFieldState(row, current)) {
+      merged.set(row.field, row);
+    }
+  }
+
+  const ownerPair = rows
+    .filter(
+      (row) =>
+        row.source === "owner" &&
+        (row.field === "subcategories" || row.field === "subcategories_en"),
+    )
+    .sort((left, right) => {
+      const leftUpdatedAt = left.updated_at ?? "";
+      const rightUpdatedAt = right.updated_at ?? "";
+      if (leftUpdatedAt !== rightUpdatedAt) {
+        return rightUpdatedAt.localeCompare(leftUpdatedAt);
+      }
+      if (left.field === right.field) return 0;
+      return left.field === "subcategories" ? -1 : 1;
+    })[0];
+
+  if (ownerPair) {
+    merged.set("subcategories", ownerPair);
+    merged.set("subcategories_en", ownerPair);
+  }
+
+  return Object.fromEntries(
+    [...merged].map(([field, row]) => [
+      field,
+      {
+        source: row.source,
+        ...(row.updated_at ? { updatedAt: row.updated_at } : {}),
+      },
+    ]),
+  );
+}
+
 export type SkippedBrandField = {
   field: string;
   reason: string;

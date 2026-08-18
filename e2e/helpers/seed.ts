@@ -40,7 +40,7 @@ export async function seedBrand(opts: {
    * Seed the brand evidence the FAQ presets gate their template floors on, so
    * a fixture renders several FAQ items. `taiwan-origin` requires a verified
    * `mit_status` and is intentionally absent from this declared fixture:
-   *   - `main-products`  — needs `product_tags` (and `product_tags_en` for /en).
+   *   - `main-products`  — needs `subcategories` (and `subcategories_en` for /en).
    *   - `price-positioning` — needs `price_range` (smallint ordinal 1/2/3).
    *   - `reputation`     — needs `reputation_summary.text`; deliberately left
    *     unseeded, since no e2e journey asserts on it and it is the one field
@@ -48,7 +48,7 @@ export async function seedBrand(opts: {
    *   - `custom`         — model-authored only, no template floor to seed for.
    *
    * Opt-in and default-off on purpose: many specs share `seedBrand`, and these
-   * columns change the rendered header badge, tags, and price row.
+   * columns change the rendered header badge, subcategories, and price row.
    */
   withFaqEvidence?: boolean;
 }): Promise<SeededBrand> {
@@ -73,7 +73,7 @@ export async function seedBrand(opts: {
     slug,
     status,
     ...(status === 'approved' ? { approved_at: new Date().toISOString() } : {}),
-    product_type: 'crafts',
+    category: 'crafts',
     founding_year: '2020',
   };
 
@@ -83,8 +83,8 @@ export async function seedBrand(opts: {
     // fixture stays valid without seeding MIT registry rows.
     brandData.mit_status = 'declared';
     brandData.mit_declared_scope = 'all';
-    brandData.product_tags = ['手工陶器', '茶具'];
-    brandData.product_tags_en = ['Handmade ceramics', 'Teaware'];
+    brandData.subcategories = ['手工陶器', '茶具'];
+    brandData.subcategories_en = ['Handmade ceramics', 'Teaware'];
     brandData.price_range = 2;
   }
 

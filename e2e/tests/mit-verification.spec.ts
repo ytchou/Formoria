@@ -49,7 +49,7 @@ test.describe('MIT verification badges', () => {
         slug: mitBrandSlug,
         status: 'approved',
         approved_at: new Date().toISOString(),
-        product_type: 'crafts',
+        category: 'crafts',
         description: 'E2E throwaway — MIT verified brand.',
         mit_status: 'verified',
         mit_verified_at: new Date().toISOString(),
@@ -69,7 +69,7 @@ test.describe('MIT verification badges', () => {
         slug: ownerBrandSlug,
         status: 'approved',
         approved_at: new Date().toISOString(),
-        product_type: 'crafts',
+        category: 'crafts',
         description: 'E2E throwaway — owner-managed brand.',
       })
       .select('id')

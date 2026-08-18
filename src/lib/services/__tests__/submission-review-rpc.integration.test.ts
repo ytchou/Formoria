@@ -9,15 +9,11 @@ import {
   saveSubmissionReview,
 } from "../submissions";
 import { updateBrand } from "../brands";
-import { toPersistedFieldIdentifier } from "../_shared/persisted-field-identifiers";
 import { describeWithDb } from "@/test/setup";
 
-const PERSISTED_CATEGORY_FIELD = toPersistedFieldIdentifier("category");
-const PERSISTED_SUBCATEGORIES_FIELD =
-  toPersistedFieldIdentifier("subcategories");
-const PERSISTED_SUBCATEGORIES_EN_FIELD = toPersistedFieldIdentifier(
-  "subcategories_en",
-);
+const CATEGORY_FIELD = "category";
+const SUBCATEGORIES_FIELD = "subcategories";
+const SUBCATEGORIES_EN_FIELD = "subcategories_en";
 
 const supabase =
   process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -372,14 +368,14 @@ describeWithDb("trusted submission review RPCs", () => {
     expect(brand?.mit_story).toBe(mitStory);
   });
 
-  it("records matching community suggested subcategories as legacy provenance", async () => {
+  it("records matching community suggested subcategories as final provenance", async () => {
     const submissionId = await seedSubmission("submitted-provenance");
     const images = await seedImages(submissionId);
     const { error: candidateError } = await supabase!
       .from("brand_submissions")
       .update({
         social_instagram: "https://instagram.com/community-submitted",
-        suggested_tags: { values: ["木工"], categorySlug: "crafts" },
+        suggested_tags: { values: ["木工"], category: "crafts" },
         enriched_data: { subcategories: ["木工"], category: "crafts" },
       })
       .eq("id", submissionId);
@@ -394,8 +390,8 @@ describeWithDb("trusted submission review RPCs", () => {
       .select("field, source")
       .eq("brand_id", result.brandId)
       .in("field", [
-        PERSISTED_SUBCATEGORIES_FIELD,
-        PERSISTED_CATEGORY_FIELD,
+        SUBCATEGORIES_FIELD,
+        CATEGORY_FIELD,
         "social_instagram",
       ]);
     expect(stateError).toBeNull();
@@ -404,29 +400,28 @@ describeWithDb("trusted submission review RPCs", () => {
         (states ?? []).map((state) => [state.field, state.source]),
       ),
     ).toEqual({
-      [PERSISTED_SUBCATEGORIES_FIELD]: "submitted",
-      [PERSISTED_CATEGORY_FIELD]: "submitted",
+      [SUBCATEGORIES_FIELD]: "submitted",
+      [CATEGORY_FIELD]: "submitted",
       social_instagram: "admin",
     });
   });
 
-  // Bug caught: translating only the write path left old owner locks invisible
-  // to application-shaped category/subcategory patches, so enrichment could
-  // overwrite values an owner had protected under the historical identifiers.
-  it("protects target category and subcategories through legacy owner locks", async () => {
-    const brand = await seedRefreshBrand("legacy-owner-locks", "approved");
+  // Bug caught: a contracted application write could ignore existing owner
+  // locks, allowing enrichment to overwrite protected final fields.
+  it("protects target category and subcategories through owner locks", async () => {
+    const brand = await seedRefreshBrand("owner-locks", "approved");
     const { error: lockError } = await untypedSupabase!
       .from("brand_field_state")
       .insert([
         {
           brand_id: brand.id,
-          field: PERSISTED_CATEGORY_FIELD,
+          field: CATEGORY_FIELD,
           source: "owner",
           updated_by: reviewerId,
         },
         {
           brand_id: brand.id,
-          field: PERSISTED_SUBCATEGORIES_FIELD,
+          field: SUBCATEGORIES_FIELD,
           source: "owner",
           updated_by: reviewerId,
         },
@@ -463,10 +458,10 @@ describeWithDb("trusted submission review RPCs", () => {
     });
   });
 
-  // Bug caught: sending final target names directly to the unchanged patch RPC
-  // created category/subcategories provenance rows that PR3 cannot interpret.
-  it("writes target brand values while retaining legacy provenance identifiers", async () => {
-    const brand = await seedRefreshBrand("legacy-provenance-write", "approved");
+  // Bug caught: a direct final-vocabulary patch could update the brand while
+  // leaving state and events under a different identifier contract.
+  it("writes target brand values with final provenance identifiers", async () => {
+    const brand = await seedRefreshBrand("final-provenance-write", "approved");
 
     const result = await updateBrand(
       brand.id,
@@ -487,56 +482,46 @@ describeWithDb("trusted submission review RPCs", () => {
     expect(brandError).toBeNull();
     expect(updated?.category).toBe("jewelry");
     const updatedRecord = updated as unknown as Record<string, unknown> | null;
-    expect(updatedRecord?.[PERSISTED_CATEGORY_FIELD]).toBe("jewelry");
+    expect(updatedRecord?.[CATEGORY_FIELD]).toBe("jewelry");
     expect(updated?.subcategories).toEqual(["戒指"]);
-    expect(updatedRecord?.[PERSISTED_SUBCATEGORIES_FIELD]).toEqual(["戒指"]);
+    expect(updatedRecord?.[SUBCATEGORIES_FIELD]).toEqual(["戒指"]);
     expect(updated?.subcategories_en).toEqual(["Rings"]);
-    expect(updatedRecord?.[PERSISTED_SUBCATEGORIES_EN_FIELD]).toEqual(["Rings"]);
+    expect(updatedRecord?.[SUBCATEGORIES_EN_FIELD]).toEqual(["Rings"]);
 
     const { data: states, error: stateError } = await untypedSupabase!
       .from("brand_field_state")
       .select("field, source")
       .eq("brand_id", brand.id)
       .in("field", [
-        "category",
-        PERSISTED_CATEGORY_FIELD,
-        "subcategories",
-        PERSISTED_SUBCATEGORIES_FIELD,
-        "subcategories_en",
-        PERSISTED_SUBCATEGORIES_EN_FIELD,
+        CATEGORY_FIELD,
+        SUBCATEGORIES_FIELD,
+        SUBCATEGORIES_EN_FIELD,
       ]);
     expect(stateError).toBeNull();
     expect(states).toEqual(
       expect.arrayContaining([
-        { field: PERSISTED_CATEGORY_FIELD, source: "enriched" },
-        { field: PERSISTED_SUBCATEGORIES_FIELD, source: "enriched" },
-        { field: PERSISTED_SUBCATEGORIES_EN_FIELD, source: "enriched" },
+        { field: CATEGORY_FIELD, source: "enriched" },
+        { field: SUBCATEGORIES_FIELD, source: "enriched" },
+        { field: SUBCATEGORIES_EN_FIELD, source: "enriched" },
       ]),
     );
-    expect(states?.some((state) =>
-      ["category", "subcategories", "subcategories_en"].includes(
-        state.field,
-      ),
-    )).toBe(false);
+    expect(states).toHaveLength(3);
 
     const { data: events, error: eventError } = await untypedSupabase!
       .from("brand_field_events")
       .select("field, source")
       .eq("brand_id", brand.id)
       .in("field", [
-        "category",
-        PERSISTED_CATEGORY_FIELD,
-        "subcategories",
-        PERSISTED_SUBCATEGORIES_FIELD,
-        "subcategories_en",
-        PERSISTED_SUBCATEGORIES_EN_FIELD,
+        CATEGORY_FIELD,
+        SUBCATEGORIES_FIELD,
+        SUBCATEGORIES_EN_FIELD,
       ]);
     expect(eventError).toBeNull();
     expect(events).toHaveLength(3);
     expect(events?.map((event) => event.field).sort()).toEqual([
-      PERSISTED_SUBCATEGORIES_FIELD,
-      PERSISTED_SUBCATEGORIES_EN_FIELD,
-      PERSISTED_CATEGORY_FIELD,
+      CATEGORY_FIELD,
+      SUBCATEGORIES_FIELD,
+      SUBCATEGORIES_EN_FIELD,
     ]);
   });
 

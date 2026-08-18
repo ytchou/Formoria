@@ -49,15 +49,13 @@ import {
   type PurchaseChannelPlatformSlug,
 } from "@/lib/brands/purchase-channels";
 import {
+  mergeBrandFieldStates,
   resolveWritablePatch,
+  type BrandFieldStateRow,
   type BrandFieldWriteState,
   type BrandWriteActor,
   type SkippedBrandField,
 } from "./brand-write-policy";
-import {
-  mergePersistedFieldStates,
-  toPersistedFieldPatch,
-} from "./_shared/persisted-field-identifiers";
 import {
   getBrandImages,
   insertBrandImage,
@@ -160,11 +158,6 @@ type ApplyBrandPatchArgs = {
   p_source: BrandWriteActor["source"];
   p_actor: string | null;
   p_job_id: string | null;
-};
-type BrandFieldStateRow = {
-  field: string;
-  source: string;
-  updated_at: string;
 };
 type BrandFieldStateTable = {
   select: (columns: "field, source, updated_at") => {
@@ -1062,7 +1055,7 @@ async function loadBrandFieldState(
 
   if (error) throw error;
 
-  return mergePersistedFieldStates(data ?? []);
+  return mergeBrandFieldStates(data ?? []);
 }
 
 // ---------------------------------------------------------------------------
@@ -1645,7 +1638,7 @@ export async function getBrands(
       {
         search_query: trimmed,
         filter_categories: filters.category?.length ? filters.category : null,
-        filter_tags: expandedSubcategoryTags.length
+        filter_subcategories: expandedSubcategoryTags.length
           ? expandedSubcategoryTags
           : null,
         filter_verification: verificationFilter,
@@ -1673,7 +1666,7 @@ export async function getBrands(
         {
           search_query: trimmed,
           filter_categories: filters.category?.length ? filters.category : null,
-          filter_tags: expandedSubcategoryTags.length
+          filter_subcategories: expandedSubcategoryTags.length
             ? expandedSubcategoryTags
             : null,
           filter_verification: verificationFilter,
@@ -2177,7 +2170,7 @@ export async function updateBrand(
       "apply_brand_patch",
       {
         p_brand_id: id,
-        p_patch: toPersistedFieldPatch(allowed),
+        p_patch: allowed,
         p_source: actor.source,
         p_actor: actor.userId ?? null,
         p_job_id: actor.jobId ?? null,
@@ -2194,7 +2187,7 @@ export async function updateBrand(
         "apply_brand_patch",
         {
           p_brand_id: id,
-          p_patch: toPersistedFieldPatch(allowed),
+          p_patch: allowed,
           p_source: actor.source,
           p_actor: actor.userId ?? null,
           p_job_id: actor.jobId ?? null,

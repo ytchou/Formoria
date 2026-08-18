@@ -17,7 +17,7 @@ import { BUDGET, POLL } from '../budgets';
  * original value until an admin approves it.
  *
  * The value control is a two-row chip picker (DEV-1244): row 1 is the brand's
- * current value, row 2 is everything else. A visitor whose product category is
+ * current value, row 2 is everything else. A visitor whose product subcategory is
  * missing from row 2 can type it via the 其他 escape hatch.
  *
  * Admin approval is deliberately out of scope here — admin review paths are
@@ -33,28 +33,28 @@ const CORRECTION_DIALOG_TITLE = '修正品牌資訊'; // brandDetail.correction.
 const FIELD_PICKER_LABEL = '要修正哪一項?'; // brandDetail.correction.fieldPickerLabel
 // The value control is two role="group" rows. Row 1 (the brand's current value)
 // is named by the 目前 heading; row 2 (the options a visitor may pick) is named
-// by the field label itself, so 類別 addresses the options row, not the current one.
+// by the field label itself, so 品牌類別 addresses the options row, not the current one.
 const CURRENT_VALUE_LABEL = '目前'; // brandDetail.correction.currentHeading
-const CATEGORY_VALUE_LABEL = '類別'; // brandDetail.label.category
-const ADD_TAGS_LABEL = '可加入的類別'; // brandDetail.correction.addTagsHeading
-const OTHER_TAG_CHIP = '其他'; // brandDetail.correction.otherTagChip
-const OTHER_TAG_INPUT_LABEL = '其他類別名稱'; // brandDetail.correction.otherTagInputLabel
-const OTHER_TAG_CONFIRM = '加入'; // brandDetail.correction.otherTagConfirm
+const CATEGORY_VALUE_LABEL = '品牌類別'; // brandDetail.label.category
+const ADD_SUBCATEGORIES_LABEL = '可加入的子類別'; // brandDetail.correction.addSubcategoriesHeading
+const OTHER_SUBCATEGORY_CHIP = '其他'; // brandDetail.correction.otherSubcategoryChip
+const OTHER_SUBCATEGORY_INPUT_LABEL = '其他子類別名稱'; // brandDetail.correction.otherSubcategoryInputLabel
+const OTHER_SUBCATEGORY_CONFIRM = '加入'; // brandDetail.correction.otherSubcategoryConfirm
 const SUBMIT_LABEL = '送出修正'; // brandDetail.correction.submit
 const CANCEL_LABEL = '取消'; // dashboard.edit.cancel
 const REVIEW_PROMISE = '感謝提供建議！送出後由 Formoria 審核決定是否更新。'; // brandDetail.correction.description
 const SUCCESS_TOAST = '修正已送出，感謝你的協助。'; // brandDetail.correction.success
 const ALREADY_SUBMITTED_TOAST = '這項修正已經送出，請等待審核。'; // ...correction.errors.already_submitted
 
-// seedBrand() always writes product_type: 'crafts' and no product_tags
+// seedBrand() always writes category: 'crafts' and no subcategories.
 const CURRENT_CATEGORY_LABEL = '工藝文創';
 const PROPOSED_CATEGORY_LABEL = '文具設計';
 
-// A tag the taxonomy does not know: 4 characters (inside the 2–8 rule), no
+// A subcategory the taxonomy does not know: 4 characters (inside the 2–8 rule), no
 // ontology name or alias (grep 藺 in ontology.ts returns nothing), and it misses
-// both blocklists in product-tags.ts — no marketing-noise term and no leading
-// size qualifier. See `novelTagRejection`.
-const NOVEL_TAG = '藺草編織';
+// either subcategory blocklist — no marketing-noise term and no leading
+// size qualifier. See `novelSubcategoryRejection`.
+const NOVEL_SUBCATEGORY = '藺草編織';
 
 /**
  * Correction submits and `/brands/` page loads are both rate limited per client
@@ -104,20 +104,20 @@ function correctionDialog(page: Page) {
   return page.getByRole('dialog', { name: CORRECTION_DIALOG_TITLE });
 }
 
-// The 類別 value cell. Scoping here matters: the category label also appears in
-// the breadcrumb and the related-brands rail. `:text-is` is exact on purpose —
-// a substring match would also select the 產品類別 row.
+// The 品牌類別 value cell. Scoping here matters: the category value also appears
+// in the breadcrumb and the related-brands rail. `:text-is` is exact on purpose
+// so this can never select the 商品子類別 row.
 function categoryValue(page: Page) {
   return page
     .locator('#brand-info-section > dl > div')
-    .filter({ has: page.locator('dt:text-is("類別")') })
+    .filter({ has: page.locator('dt:text-is("品牌類別")') })
     .locator('dd');
 }
 
 // The brand page is statically served and hydrates afterwards, so a click that
 // lands too early is a no-op. Retry the (idempotent) open until the dialog is up
 // rather than sleeping on a guessed hydration delay.
-async function openCorrectionDialog(page: Page, field: 'product_type' | 'product_tags') {
+async function openCorrectionDialog(page: Page, field: 'category' | 'subcategories') {
   // The trigger ships in the server-rendered HTML, so a missing one is never a
   // hydration race — it means the page under test doesn't have this feature at
   // all. Assert it up front: folded into the retry loop below it surfaces as an
@@ -138,7 +138,7 @@ async function openCorrectionDialog(page: Page, field: 'product_type' | 'product
 }
 
 async function openCategoryDialog(page: Page) {
-  return openCorrectionDialog(page, 'product_type');
+  return openCorrectionDialog(page, 'category');
 }
 
 // Every chip lookup goes through one of these two. Bare
@@ -290,31 +290,40 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   });
 
   test(
-    'a visitor can propose a tag the taxonomy does not offer',
+    'a visitor can propose a subcategory the taxonomy does not offer',
     async ({ anonPage }, testInfo) => {
       test.setTimeout(BUDGET.TEST.MUTATION);
       await isolateVisitorIp(anonPage, testInfo.workerIndex);
       await openSeededBrand(anonPage, seeded);
 
-      const dialog = await openCorrectionDialog(anonPage, 'product_tags');
-      const options = optionsRow(dialog, ADD_TAGS_LABEL);
+      const dialog = await openCorrectionDialog(anonPage, 'subcategories');
+      const options = optionsRow(dialog, ADD_SUBCATEGORIES_LABEL);
       const submit = dialog.getByRole('button', { name: SUBMIT_LABEL, exact: true });
 
-      // Nothing picked yet — the seeded brand carries no tags at all.
+      // Nothing picked yet — the seeded brand carries no subcategories at all.
       await expect(submit).toBeDisabled();
 
-      // The escape hatch: the visitor's tag is not one of the offered chips.
+      // The escape hatch: the visitor's subcategory is not one of the offered chips.
       await expect(
-        options.getByRole('button', { name: NOVEL_TAG, exact: true }),
+        options.getByRole('button', { name: NOVEL_SUBCATEGORY, exact: true }),
       ).toHaveCount(0);
-      await options.getByRole('button', { name: OTHER_TAG_CHIP, exact: true }).click();
+      await options
+        .getByRole('button', { name: OTHER_SUBCATEGORY_CHIP, exact: true })
+        .click();
 
-      await dialog.getByRole('textbox', { name: OTHER_TAG_INPUT_LABEL }).fill(NOVEL_TAG);
-      await dialog.getByRole('button', { name: OTHER_TAG_CONFIRM, exact: true }).click();
+      await dialog
+        .getByRole('textbox', { name: OTHER_SUBCATEGORY_INPUT_LABEL })
+        .fill(NOVEL_SUBCATEGORY);
+      await dialog
+        .getByRole('button', { name: OTHER_SUBCATEGORY_CONFIRM, exact: true })
+        .click();
 
       // Accepted: it joins the options row already selected, so the visitor sees
       // what they are about to propose rather than a silent form change.
-      const novelChip = options.getByRole('button', { name: NOVEL_TAG, exact: true });
+      const novelChip = options.getByRole('button', {
+        name: NOVEL_SUBCATEGORY,
+        exact: true,
+      });
       await expect(novelChip).toBeVisible();
       await expect(novelChip).toHaveAttribute('aria-pressed', 'true');
 

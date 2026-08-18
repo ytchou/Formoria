@@ -353,9 +353,9 @@
     "label": {
       "location": "Location",
       "foundingYear": "Founded",
-      "category": "Category",
+      "category": "Brand category",
       "priceRange": "Price",
-      "productCategories": "Product categories",
+      "subcategories": "Product subcategory",
       "certification": "Verification"
     },
     "actions": {
