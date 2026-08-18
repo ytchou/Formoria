@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.15"
-  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -127,6 +122,7 @@ export type Database = {
           audit_span_id: string | null
           brand_id: string | null
           cached_prompt_tokens: number | null
+          category: string | null
           completion_tokens: number | null
           confidence: string | null
           config: Json | null
@@ -148,6 +144,7 @@ export type Database = {
           raw_response: Json | null
           retry_attempt: number
           slug_generated: string | null
+          subcategories: string[] | null
           submission_id: string | null
         }
         Insert: {
@@ -155,6 +152,7 @@ export type Database = {
           audit_span_id?: string | null
           brand_id?: string | null
           cached_prompt_tokens?: number | null
+          category?: string | null
           completion_tokens?: number | null
           confidence?: string | null
           config?: Json | null
@@ -176,6 +174,7 @@ export type Database = {
           raw_response?: Json | null
           retry_attempt?: number
           slug_generated?: string | null
+          subcategories?: string[] | null
           submission_id?: string | null
         }
         Update: {
@@ -183,6 +182,7 @@ export type Database = {
           audit_span_id?: string | null
           brand_id?: string | null
           cached_prompt_tokens?: number | null
+          category?: string | null
           completion_tokens?: number | null
           confidence?: string | null
           config?: Json | null
@@ -204,6 +204,7 @@ export type Database = {
           raw_response?: Json | null
           retry_attempt?: number
           slug_generated?: string | null
+          subcategories?: string[] | null
           submission_id?: string | null
         }
         Relationships: [
@@ -916,6 +917,7 @@ export type Database = {
           base_brand_updated_at: string | null
           brand_id: string | null
           brand_name: string
+          category_note: string | null
           denial_reason: string | null
           description: string | null
           enriched_data: Json | null
@@ -957,6 +959,7 @@ export type Database = {
           base_brand_updated_at?: string | null
           brand_id?: string | null
           brand_name: string
+          category_note?: string | null
           denial_reason?: string | null
           description?: string | null
           enriched_data?: Json | null
@@ -998,6 +1001,7 @@ export type Database = {
           base_brand_updated_at?: string | null
           brand_id?: string | null
           brand_name?: string
+          category_note?: string | null
           denial_reason?: string | null
           description?: string | null
           enriched_data?: Json | null
@@ -1050,6 +1054,7 @@ export type Database = {
           blurb: string | null
           blurb_en: string | null
           brand_enriched_at: string | null
+          category: string | null
           category_attributes: Json | null
           city: string | null
           contact_email: string | null
@@ -1092,6 +1097,8 @@ export type Database = {
           social_threads: string | null
           source: string | null
           status: string
+          subcategories: string[] | null
+          subcategories_en: string[] | null
           submitted_at: string | null
           updated_at: string | null
         }
@@ -1100,6 +1107,7 @@ export type Database = {
           blurb?: string | null
           blurb_en?: string | null
           brand_enriched_at?: string | null
+          category?: string | null
           category_attributes?: Json | null
           city?: string | null
           contact_email?: string | null
@@ -1142,6 +1150,8 @@ export type Database = {
           social_threads?: string | null
           source?: string | null
           status?: string
+          subcategories?: string[] | null
+          subcategories_en?: string[] | null
           submitted_at?: string | null
           updated_at?: string | null
         }
@@ -1150,6 +1160,7 @@ export type Database = {
           blurb?: string | null
           blurb_en?: string | null
           brand_enriched_at?: string | null
+          category?: string | null
           category_attributes?: Json | null
           city?: string | null
           contact_email?: string | null
@@ -1192,6 +1203,8 @@ export type Database = {
           social_threads?: string | null
           source?: string | null
           status?: string
+          subcategories?: string[] | null
+          subcategories_en?: string[] | null
           submitted_at?: string | null
           updated_at?: string | null
         }
@@ -3634,6 +3647,15 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       staging_capture_auth_email: { Args: { event: Json }; Returns: Json }
+      sync_submission_json_alias_group: {
+        Args: { p_aliases: string[]; p_json: Json }
+        Returns: Json
+      }
+      sync_submission_json_aliases: { Args: { p_json: Json }; Returns: Json }
+      sync_submission_suggested_tags_aliases: {
+        Args: { p_json: Json }
+        Returns: Json
+      }
       transition_health_fix: {
         Args: {
           p_confirmation_data?: Json
