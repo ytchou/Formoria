@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition, type ReactNode } from "react";
+import { useId, useMemo, useState, useTransition, type ReactNode } from "react";
 import { ChevronDown, Info, Loader2, SlidersHorizontal } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
@@ -52,12 +52,29 @@ type SubcategoryOption = {
   count: number;
 };
 
+/**
+ * One slug of the closed 12-slug material vocabulary.
+ *
+ * `value` is the slug itself — it is what `brands.material` stores and what
+ * `?material=` carries — while `label` is the localized rendering the caller
+ * resolved from the ontology (`nameZh` / `nameEn`), not from a message
+ * catalogue. The caller also drops any slug whose count is zero, so this list
+ * is never longer than the slugs a user can actually reach.
+ */
+type MaterialOption = {
+  value: string;
+  label: string;
+  count: number;
+};
+
 type BrandFilterSidebarProps = {
   activeFilters?: ActiveDirectoryFilter[];
   categories: CategoryOption[];
   activeCategorySlugs?: string[];
   subcategories?: SubcategoryOption[];
   activeSubSlugs?: string[];
+  materials?: MaterialOption[];
+  activeMaterials?: string[];
   className?: string;
   announceSearchLoading?: boolean;
   totalCount: number;
@@ -96,6 +113,7 @@ function FilterSection({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const panelId = useId();
 
   return (
     <section className="space-y-3">
@@ -104,6 +122,7 @@ function FilterSection({
           type="button"
           variant="ghost"
           aria-expanded={open}
+          aria-controls={panelId}
           onClick={() => setOpen((value) => !value)}
           className="min-h-12 min-w-0 flex-1 justify-between px-2 text-left"
         >
@@ -117,7 +136,17 @@ function FilterSection({
           />
         </Button>
       </div>
+      {/*
+        `grid-rows-[0fr]` hides the panel visually and nothing else: its
+        checkboxes stayed in the tab order and in the accessibility tree, so a
+        keyboard user tabbed through invisible controls with no focus ring
+        (WCAG 2.4.3, 2.4.7). `inert` is what closes both, and unlike
+        `display:none` it leaves the markup in the server HTML that crawlers
+        and answer engines read (DESIGN.md §6).
+      */}
       <div
+        id={panelId}
+        inert={!open}
         className={cn(
           "grid transition-[grid-template-rows] duration-200",
           open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
@@ -138,6 +167,8 @@ export function BrandFilterSidebar({
   activeCategorySlugs = [],
   subcategories = [],
   activeSubSlugs = [],
+  materials = [],
+  activeMaterials = [],
   className,
   announceSearchLoading = true,
   totalCount,
@@ -164,6 +195,16 @@ export function BrandFilterSidebar({
     [searchParams],
   );
   const activeSubcategories = new Set(activeSubSlugs);
+  // The server-validated list, and only that: `parseDirectoryViewFilters`
+  // drops any value outside the closed 12-slug vocabulary, so reading
+  // `?material=` back here resurrected exactly the slugs it rejected. On
+  // `/brands?material=xyz` that made ticking a box re-emit `xyz`, and unticking
+  // rewrite the key instead of deleting it — the facet could not be cleared at
+  // all, and the page stayed noindex with a self-canonical to the junk URL.
+  const activeMaterialSet = useMemo(
+    () => new Set(activeMaterials),
+    [activeMaterials],
+  );
   const useZh = locale === "zh-TW";
   const [isPending, startTransition] = useTransition();
 
@@ -199,6 +240,21 @@ export function BrandFilterSidebar({
       router.replace(
         updateDirectoryUrl(pathname, searchParams, {
           verification: value === "all" ? null : value,
+        }),
+        { scroll: false },
+      );
+    });
+  }
+
+  function toggleMaterial(value: string, checked: boolean) {
+    const next = new Set(activeMaterialSet);
+    if (checked) next.add(value);
+    else next.delete(value);
+
+    startTransition(() => {
+      router.replace(
+        updateDirectoryUrl(pathname, searchParams, {
+          material: next.size > 0 ? Array.from(next).join(",") : null,
         }),
         { scroll: false },
       );
@@ -298,23 +354,37 @@ export function BrandFilterSidebar({
                       checked && "bg-primary/10 font-medium text-primary",
                     )}
                   >
+                    {/*
+                      No `aria-label`: the visible text inside this <label> is
+                      already the checkbox's accessible name, and an aria-label
+                      would outrank it — the same rule the material block below
+                      documents. The count span is `aria-hidden`, so the name
+                      stays the bare category label.
+                    */}
                     <Checkbox
                       checked={checked}
                       onCheckedChange={(value: boolean) =>
                         toggleCategory(category.slug, value)
                       }
-                      aria-label={categoryLabel(category)}
                       data-ph-no-autocapture
                     />
                     <span>{categoryLabel(category)}</span>
-                    {checked && activeCategories.size === 1 && (
-                      <span
-                        className="ml-auto type-caption text-inherit"
-                        aria-hidden="true"
-                      >
-                        {totalCount}
-                      </span>
-                    )}
+                    {/*
+                      Only while the L1 is what narrows the page. With an L2
+                      active the brand query drops the L1 entirely, so this
+                      count belongs to the subcategory and printing it beside
+                      the category name states a total the L1 never produced.
+                    */}
+                    {checked &&
+                      activeCategories.size === 1 &&
+                      activeSubSlugs.length === 0 && (
+                        <span
+                          className="ml-auto type-caption text-inherit"
+                          aria-hidden="true"
+                        >
+                          {totalCount}
+                        </span>
+                      )}
                   </Label>
                   {checked && subcategories.length > 0 && (
                     <div className="ml-6 flex flex-wrap gap-2">
@@ -376,6 +446,48 @@ export function BrandFilterSidebar({
             })}
           </div>
         </FilterSection>
+
+        {materials.length > 0 ? (
+          <>
+            <Separator />
+
+            <FilterSection
+              title={t("material")}
+              defaultOpen={activeMaterialSet.size > 0}
+            >
+              <div className="space-y-1">
+                {materials.map((material) => {
+                  const checked = activeMaterialSet.has(material.value);
+                  return (
+                    // The visible text inside the <label> IS the accessible
+                    // name of the native checkbox it wraps — no aria-label.
+                    // The count rides along in that name deliberately: it is a
+                    // static fact about the option, not decoration.
+                    <Label
+                      key={material.value}
+                      className={cn(
+                        filterOptionClassName,
+                        checked && "bg-primary/10 font-medium text-primary",
+                      )}
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(value: boolean) =>
+                          toggleMaterial(material.value, value)
+                        }
+                        data-ph-no-autocapture
+                      />
+                      <span>{material.label}</span>
+                      <span className="ml-auto type-caption text-muted-foreground">
+                        {material.count}
+                      </span>
+                    </Label>
+                  );
+                })}
+              </div>
+            </FilterSection>
+          </>
+        ) : null}
 
         <Separator />
 
@@ -460,6 +572,8 @@ export function BrandFilterDrawer({
   activeCategorySlugs = [],
   subcategories = [],
   activeSubSlugs = [],
+  materials = [],
+  activeMaterials = [],
   announceSearchLoading = true,
   totalCount,
 }: BrandFilterDrawerProps) {
@@ -491,6 +605,8 @@ export function BrandFilterDrawer({
             activeCategorySlugs={activeCategorySlugs}
             subcategories={subcategories}
             activeSubSlugs={activeSubSlugs}
+            materials={materials}
+            activeMaterials={activeMaterials}
             announceSearchLoading={announceSearchLoading}
             totalCount={totalCount}
           />

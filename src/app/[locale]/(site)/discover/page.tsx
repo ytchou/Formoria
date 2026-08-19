@@ -4,16 +4,22 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { StoryRow } from "@/components/stories/story-row";
-import { markRenderDegraded } from "@/lib/degraded-render";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
-import { getIndexableTrailSlugs } from "@/lib/services/trail-supply";
-import { type TrailEntry, type TrailListResult } from "@/lib/services/trails";
+import { shouldIndexTrailHub } from "@/lib/seo/trail-hub-indexability";
+import { captureReadFailure } from "@/lib/degraded-render";
+import {
+  getAllTrails,
+  type TrailEntry,
+  type TrailListResult,
+} from "@/lib/services/trails";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
+
+export { shouldIndexTrailHub };
 
 export const revalidate = 3600;
 
@@ -27,48 +33,27 @@ export function filterTrailsByTag(
   return trails.filter((trail) => trail.frontmatter.tags.includes(requestedTag));
 }
 
-export function shouldIndexTrailHub(indexableSlugs: ReadonlySet<string>): boolean {
-  return indexableSlugs.size > 0;
-}
-
 export type HubView =
   | { kind: "loadError" }
   | { kind: "comingSoon" }
   | { kind: "list"; trails: TrailEntry[] };
 
 /**
- * Decides exactly what the hub body renders. Pure so the supply gate is
- * testable without a render: an under-supplied trail is not just noindex, it is
- * absent from the list, which is what keeps the hub honest on an empty
- * production database.
+ * Decides exactly what the hub body renders. Published is the only membership
+ * test — trail quality is enforced when the trail is authored, so the hub reads
+ * the MDX list and nothing else. `comingSoon` now means what it says: no trail
+ * is published, or none carries the requested tag.
  */
 export function selectHubView({
   result,
-  indexableSlugs,
-  failedSlugs,
   activeTag,
 }: {
   result: TrailListResult;
-  indexableSlugs: ReadonlySet<string>;
-  failedSlugs: ReadonlySet<string>;
   activeTag: string | null;
 }): HubView {
   if (!result.ok) return { kind: "loadError" };
 
-  // Every supply read failed: the trail list itself loaded (it is MDX on disk),
-  // so "no supply" is indistinguishable from a database outage unless we say so.
-  // Telling visitors there is nothing here would be a lie; surface the same
-  // load error the list-read failure uses.
-  if (
-    result.trails.length > 0 &&
-    result.trails.every((trail) => failedSlugs.has(trail.slug))
-  ) {
-    return { kind: "loadError" };
-  }
-
-  const trails = filterTrailsByTag(result.trails, activeTag).filter((trail) =>
-    indexableSlugs.has(trail.slug),
-  );
+  const trails = filterTrailsByTag(result.trails, activeTag);
 
   return trails.length === 0 ? { kind: "comingSoon" } : { kind: "list", trails };
 }
@@ -78,14 +63,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const t = await getTranslations({ locale, namespace: "discover" });
-  const { indexableSlugs } = await getIndexableTrailSlugs(safeLocale);
+  const result = await getAllTrails(safeLocale);
   const { canonical, languages } = buildAlternates("/discover", "zh-TW", ["zh-TW"]);
 
   return {
     title: t("metaTitle"),
     description: t("metaDescription"),
     alternates: { canonical, languages },
-    ...(!shouldIndexTrailHub(indexableSlugs)
+    ...(!shouldIndexTrailHub(result.ok ? result.trails : [])
       ? { robots: { index: false, follow: true } }
       : {}),
   };
@@ -103,10 +88,14 @@ export default async function DiscoverHubPage({ params, searchParams }: PageProp
   const t = await getTranslations({ locale, namespace: "discover" });
   const query = await searchParams;
   const activeTag = firstParam(query.tag);
-  const { result, indexableSlugs, failedSlugs, degraded } =
-    await getIndexableTrailSlugs(safeLocale);
-  if (degraded) await markRenderDegraded("discover.hub");
-  const view = selectHubView({ result, indexableSlugs, failedSlugs, activeTag });
+  const result = await getAllTrails(safeLocale);
+  // The trail list is MDX on disk, so a failed read is a real outage that still
+  // serves a 200 with an error panel. Report it, or the outage is invisible:
+  // `trailListError` only reaches `console.error`. Observability only — the hub
+  // awaits `searchParams`, a Next 16 dynamic API, so the route is already
+  // dynamic and there is no ISR entry for `markRenderDegraded` to opt out of.
+  if (!result.ok) captureReadFailure("discover.hub.trails")(result.error);
+  const view = selectHubView({ result, activeTag });
 
   return (
     <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">

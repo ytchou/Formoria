@@ -197,6 +197,60 @@ jobs:
             staging-selfheal-context.json
           if-no-files-found: ignore
           retention-days: 14
+      - name: Report staging E2E result to Agent Hub
+        if: always()
+        continue-on-error: true
+        env:
+          AGENT_HUB_DELIVERY_MODE: dual
+          AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}
+          AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}
+          AGENT_HUB_TURSO_DATABASE_URL: ${{ secrets.AGENT_HUB_TURSO_DATABASE_URL }}
+          AGENT_HUB_TURSO_AUTH_TOKEN: ${{ secrets.AGENT_HUB_TURSO_AUTH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          case "$JOB_STATUS" in
+            success) agent_hub_status=success ;;
+            failure) agent_hub_status=failed ;;
+            cancelled|skipped) agent_hub_status=skipped ;;
+            *) agent_hub_status=failed ;;
+          esac
+          workflow_started_at=$(curl -fsSL \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" | jq -r '.run_started_at')
+          report_date=$(TZ=Asia/Taipei date -d "$workflow_started_at" +%F)
+          if [ -f playwright-results.json ]; then
+            total_specs=$(jq '(.stats.expected // 0) + (.stats.unexpected // 0) + (.stats.skipped // 0) + (.stats.flaky // 0)' playwright-results.json)
+            passed=$(jq '(.stats.expected // 0) + (.stats.flaky // 0)' playwright-results.json)
+            failed=$(jq '.stats.unexpected // 0' playwright-results.json)
+            skipped=$(jq '.stats.skipped // 0' playwright-results.json)
+            duration_seconds=$(jq '((.stats.duration // 0) / 1000) | round' playwright-results.json)
+            failed_specs=$(jq -c '[.suites[]? | recurse(.suites[]?) as $suite | $suite.specs[]? | select(.ok == false) | {file: ($suite.file // null), title}]' playwright-results.json)
+          else
+            total_specs=0; passed=0; failed=0; skipped=0; duration_seconds=0; failed_specs='[]'
+          fi
+          verdict_text="E2E: $JOB_STATUS -- $passed specs passed, $failed failed"
+          payload=$(jq -n \
+            --arg source_run_id "github-actions:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT:test" \
+            --arg status "$agent_hub_status" --arg run_at "$workflow_started_at" --arg date "$report_date" \
+            --arg verdict_severity "$([ "$agent_hub_status" = success ] && echo ok || echo critical)" \
+            --arg verdict_text "$verdict_text" --argjson total_specs "$total_specs" --argjson passed "$passed" \
+            --argjson failed "$failed" --argjson skipped "$skipped" --argjson duration_seconds "$duration_seconds" \
+            --argjson failed_specs "$failed_specs" --arg workflow_url "$WORKFLOW_URL" \
+            '{version: 1, source: "github_actions", source_run_id: $source_run_id, routine: "e2e-nightly",
+              project: "formoria", status: $status, run_at: $run_at, date: $date,
+              verdict_severity: $verdict_severity, verdict_text: $verdict_text, tickets_created: [],
+              log_url: $workflow_url, data: {notification_owner: "github_actions", phase: "test",
+              root_source_run_id: env.GITHUB_RUN_ID, terminal: ($status == "success"),
+              outcome: (if $status == "success" then "ready" else "failed" end),
+              total_specs: $total_specs, passed: $passed, failed: $failed, skipped: $skipped,
+              duration_seconds: $duration_seconds, failed_specs: $failed_specs,
+              workflow_url: $workflow_url}}')
+          printf '%s' "$payload" > /tmp/formoria-e2e-nightly.json
+          node scripts/agent-hub/report-run.mjs --file /tmp/formoria-e2e-nightly.json
       - name: Notify initial staging E2E result
         if: always()
         continue-on-error: true
@@ -819,6 +873,103 @@ jobs:
           name: staging-selfheal-context-${{ github.run_id }}
           path: ${{ runner.temp }}/staging-selfheal-context.json
           if-no-files-found: error
+      - name: Report staging self-heal result to Agent Hub
+        if: always()
+        continue-on-error: true
+        env:
+          AGENT_HUB_DELIVERY_MODE: dual
+          AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}
+          AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}
+          AGENT_HUB_TURSO_DATABASE_URL: ${{ secrets.AGENT_HUB_TURSO_DATABASE_URL }}
+          AGENT_HUB_TURSO_AUTH_TOKEN: ${{ secrets.AGENT_HUB_TURSO_AUTH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JOB_STATUS: ${{ job.status }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          OUTCOME: ${{ steps.outcome.outputs.outcome || 'repair_blocked' }}
+          SOURCE_RUN_ID: ${{ env.SOURCE_RUN_ID }}
+          AUTO_MERGE_ELIGIBLE: ${{ steps.eligibility.outputs.eligible || 'false' }}
+          ACTUALLY_MERGED: ${{ steps.merge.outcome == 'success' }}
+          INCIDENT_PR_NUMBER: ${{ steps.incident.outputs.number || env.INCIDENT_PR_NUMBER }}
+        run: |
+          set -euo pipefail
+          case "$JOB_STATUS" in
+            success)
+              status=success
+              severity=ok
+              terminal=true
+              ;;
+            cancelled|skipped)
+              status=skipped
+              severity=info
+              terminal=true
+              ;;
+            *)
+              status=failed
+              severity=critical
+              terminal=true
+              ;;
+          esac
+          case "$OUTCOME" in
+            merged|review_ready|recovered_no_change)
+              status=success
+              severity=ok
+              ;;
+          esac
+          workflow_started_at=$(curl -fsSL \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" | jq -r '.run_started_at')
+          report_date=$(TZ=Asia/Taipei date -d "$workflow_started_at" +%F)
+          failed_specs='[]'
+          report_available=false
+          if [ -s "$RUNNER_TEMP/frozen-failures.json" ]; then
+            failed_specs=$(jq -c '[.failures[]? | {file: (.file // null), title, project: (.project // null)}]' "$RUNNER_TEMP/frozen-failures.json")
+            report_available=true
+          fi
+          passed=0
+          failed=0
+          skipped=0
+          duration_seconds=0
+          for result in playwright-results-validation.json playwright-results-exact.json; do
+            if [ -s "$result" ]; then
+              passed=$(jq '(.stats.expected // 0) + (.stats.flaky // 0)' "$result")
+              failed=$(jq '.stats.unexpected // 0' "$result")
+              skipped=$(jq '.stats.skipped // 0' "$result")
+              duration_seconds=$(jq '((.stats.duration // 0) / 1000) | round' "$result")
+              break
+            fi
+          done
+          pr_url=""
+          if [ -n "$INCIDENT_PR_NUMBER" ]; then
+            pr_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/pull/$INCIDENT_PR_NUMBER"
+          fi
+          verdict_text="Self-heal outcome: $OUTCOME"
+          payload=$(jq -n \
+            --arg source_run_id "github-actions:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT:selfheal" \
+            --arg status "$status" --arg run_at "$workflow_started_at" --arg date "$report_date" \
+            --arg verdict_severity "$severity" --arg verdict_text "$verdict_text" \
+            --argjson failed_specs "$failed_specs" --arg pr_url "$pr_url" \
+            --arg root_source_run_id "$SOURCE_RUN_ID" --argjson terminal "$terminal" \
+            --arg outcome "$OUTCOME" --argjson auto_merge_eligible "$AUTO_MERGE_ELIGIBLE" \
+            --argjson actually_merged "$ACTUALLY_MERGED" --argjson report_available "$report_available" \
+            --argjson passed "$passed" --argjson failed "$failed" --argjson skipped "$skipped" \
+            --argjson duration_seconds "$duration_seconds" --arg workflow_url "$WORKFLOW_URL" \
+            '{version: 1, source: "github_actions", source_run_id: $source_run_id, routine: "e2e-nightly",
+              project: "formoria", status: $status, run_at: $run_at, date: $date,
+              verdict_severity: $verdict_severity, verdict_text: $verdict_text, tickets_created: [],
+              log_url: $workflow_url, data: {notification_owner: "github_actions", phase: "selfheal",
+              root_source_run_id: $root_source_run_id, repair_cycle: 1, terminal: $terminal,
+              outcome: $outcome, continuation_kind: "none", validation_scope: "exact_and_full",
+              infrastructure_retries: 0, merge_policy: "test_only_safe",
+              auto_merge_eligible: $auto_merge_eligible, actually_merged: $actually_merged,
+              report_available: $report_available, targeted_attempts: 0,
+              model_usage: {cost_usd: null, turns: null, duration_ms: null},
+              failed_specs: $failed_specs, pr_url: $pr_url,
+              validation: {passed: $passed, failed: $failed, skipped: $skipped,
+              duration_seconds: $duration_seconds}, workflow_url: $workflow_url}}')
+          printf '%s' "$payload" > /tmp/formoria-e2e-selfheal.json
+          node scripts/agent-hub/report-run.mjs --file /tmp/formoria-e2e-selfheal.json
+
       - name: Notify terminal staging self-heal result
         if: always()
         continue-on-error: true

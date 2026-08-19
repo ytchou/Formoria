@@ -32,73 +32,39 @@ describe("discovery trail hub", () => {
     expect(filterTrailsByTag(trails, "not-a-category")).toEqual(trails);
   });
 
-  it("keeps the hub noindex until at least one trail clears the gate", () => {
-    expect(shouldIndexTrailHub(new Set())).toBe(false);
-    expect(shouldIndexTrailHub(new Set(["small-space-reading-corner"]))).toBe(true);
+  it("keeps the hub noindex only when no trail is published", () => {
+    expect(shouldIndexTrailHub([])).toBe(false);
+    expect(shouldIndexTrailHub([trail("home-trail", ["home"])])).toBe(true);
   });
 
-  it("an under-supplied trail is absent from the hub list", () => {
-    const trails = [trail("home-trail", ["home"])];
+  it("lists every published trail", () => {
+    const homeTrail = trail("home-trail", ["home"]);
+    const craftTrail = trail("craft-trail", ["crafts"]);
+    const trails = [homeTrail, craftTrail];
 
+    // No supply filtering: publication is the only gate the hub applies.
     expect(
-      selectHubView({
-        result: { ok: true, trails },
-        indexableSlugs: new Set(),
-        failedSlugs: new Set(),
-        activeTag: null,
-      }),
-    ).toEqual({ kind: "comingSoon" });
-  });
-
-  it("an indexable trail stays in the hub list", () => {
-    const trails = [trail("home-trail", ["home"])];
-
-    expect(
-      selectHubView({
-        result: { ok: true, trails },
-        indexableSlugs: new Set(["home-trail"]),
-        failedSlugs: new Set(),
-        activeTag: null,
-      }),
+      selectHubView({ result: { ok: true, trails }, activeTag: null }),
     ).toEqual({ kind: "list", trails });
+
+    // The tag filter is the only thing left that can narrow the list.
+    expect(
+      selectHubView({ result: { ok: true, trails }, activeTag: "home" }),
+    ).toEqual({ kind: "list", trails: [homeTrail] });
+
+    expect(
+      selectHubView({ result: { ok: true, trails: [] }, activeTag: null }),
+    ).toEqual({ kind: "comingSoon" });
   });
 
   it("surfaces a load error when the trail list read failed", () => {
+    // The trail list is MDX on disk. It failing is a real outage, and the hub
+    // says so rather than claiming there is nothing to read.
     expect(
       selectHubView({
         result: { ok: false, error: new Error("read failed") },
-        indexableSlugs: new Set(),
-        failedSlugs: new Set(),
         activeTag: null,
       }),
     ).toEqual({ kind: "loadError" });
-  });
-
-  it("surfaces a load error when every supply read failed", () => {
-    // The trail list is MDX on disk, so it still loads during a database
-    // outage. Without this, the hub would claim there is no content.
-    const trails = [trail("home-trail", ["home"]), trail("craft-trail", ["crafts"])];
-
-    expect(
-      selectHubView({
-        result: { ok: true, trails },
-        indexableSlugs: new Set(),
-        failedSlugs: new Set(["home-trail", "craft-trail"]),
-        activeTag: null,
-      }),
-    ).toEqual({ kind: "loadError" });
-  });
-
-  it("shows comingSoon when a tag matches only under-supplied trails", () => {
-    const trails = [trail("home-trail", ["home"]), trail("craft-trail", ["crafts"])];
-
-    expect(
-      selectHubView({
-        result: { ok: true, trails },
-        indexableSlugs: new Set(["craft-trail"]),
-        failedSlugs: new Set(),
-        activeTag: "home",
-      }),
-    ).toEqual({ kind: "comingSoon" });
   });
 });

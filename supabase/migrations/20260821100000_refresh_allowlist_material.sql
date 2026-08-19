@@ -1,8 +1,9 @@
 -- Refresh allow-lists: admit `material`, and record why `products` stays out
--- (DEV-1469 / DEV-1502).
+-- (DEV-1469).
 --
--- `apply_brand_refresh_with_protected_location_gate` filters `enriched_data`
--- and `review_overrides` through FIVE field allow-lists:
+-- `apply_brand_refresh_with_protected_location_gate(uuid,uuid)` filters
+-- `enriched_data` and `review_overrides` through FIVE field allow-lists. Read
+-- live from staging today, they are:
 --
 --   1/5  owner-protection check over enriched_data          (raise on conflict)
 --   2/5  owner-protection check over _cleared_fields        (raise on conflict)
@@ -10,7 +11,14 @@
 --   4/5  the admin override patch (also carries 'name')     (writes brands.<col>)
 --   5/5  the cleared-fields patch                           (writes NULL)
 --
--- DEV-1502 shipped `brands.material` without touching any of them, so a
+-- DEV-1510 rewrote the element blocks — `product_type` / `product_tags` /
+-- `product_tags_en` are gone and `subcategories` / `subcategories_en` stand in
+-- their place — but the COUNT is unchanged and so is the shape: five lists, one
+-- identical element block each, distinguished only by the `into v_*_patch`,
+-- `entry.key` and `cleared.field` lines above them. Those lines are the anchors
+-- used below, and each occurs exactly once in the live body.
+--
+-- DEV-1502 shipped `brands.material` without touching any of the five, so a
 -- material value on a submission is filtered out and silently lost at every
 -- refresh. This migration adds `'material'` to 1-4.
 --
@@ -19,12 +27,12 @@
 -- so the only value it can express is JSON null; the apply loop then runs
 -- `update public.brands set material = (jsonb_populate_record(...)).material`,
 -- which writes SQL NULL. `brands.material` is `text[] not null default '{}'`
--- (20260819120000), so the clear would 23502 and abort the whole apply. Every
--- other member of these lists is nullable or has no clear path, which is why
--- list 5 was safe until material arrived. "Clear a material list" means writing
--- `'{}'`, and the cleared-fields mechanism cannot say that — teaching it to
--- needs its own change, so material simply cannot be cleared through a refresh
--- until then.
+-- (confirmed live: information_schema.columns.is_nullable = 'NO'), so the clear
+-- would 23502 and abort the whole apply. Every other member of these lists is
+-- nullable or has no clear path, which is why list 5 was safe until material
+-- arrived. "Clear a material list" means writing `'{}'`, and the cleared-fields
+-- mechanism cannot say that — teaching it to needs its own change, so material
+-- simply cannot be cleared through a refresh until then.
 --
 -- LISTS 3 AND 4 CARRY THE SAME 23502 EXPOSURE, and are admitted anyway. They
 -- are built from `jsonb_each(enriched_data)` and `jsonb_each(review_overrides)`
@@ -48,13 +56,19 @@
 --
 -- `'products'` IS NOT ADDED TO ANY LIST, and must not be. The curated-product
 -- proposals ride `brand_submissions.enriched_data.products`, and this function
--- never writes or deletes that column — it only reads it, so nothing about the
--- proposals is lost at refresh. What lists 3-5 actually do is drive a per-key
--- `update public.brands set <key> = ...` loop over the patch, and there is no
--- `brands.products` column: a `products` key inside the patch would make
--- `select to_jsonb("products") from public.brands` raise 42703 and fail EVERY
--- refresh apply that carried proposals — precisely the backfill path. Approval
--- materializes the proposals in TypeScript
+-- never writes or deletes that column — it only READS the submission blob, so
+-- nothing about the proposals is lost at refresh. What lists 3-5 actually feed
+-- is a per-key loop that uses each key as a `brands` COLUMN IDENTIFIER:
+--
+--   execute format('select to_jsonb(%I) from public.brands where id = $1', v_entry.key)
+--   execute format('update public.brands set %1$I = (jsonb_populate_record(
+--                     null::public.brands, jsonb_build_object($1, $2))).%1$I
+--                   where id = $3', v_entry.key)
+--
+-- There is no `brands.products` column (confirmed live: zero rows in
+-- information_schema.columns for brands.products), so a `'products'` entry
+-- would raise 42703 on EVERY refresh apply that carried proposals — precisely
+-- the backfill path. Approval materializes the proposals in TypeScript
 -- (`lib/services/curated-products/materialize.ts`), from the effective review
 -- layer, after the RPC returns. The count-0 contract below keeps that decision
 -- checkable instead of re-derivable.
@@ -66,26 +80,34 @@
 -- all. Its own missing `material` entries — three positional column lists — are
 -- known and out of this migration's scope.
 --
--- ORDERING IS LOAD-BEARING. The asserted fingerprint is the body left by
--- 20260819130000, which is itself gated on 20260819090000 and 20260819120000.
--- An unapplied predecessor fails at the fingerprint assert before a single
--- allow-list is rewritten.
+-- ORDERING IS LOAD-BEARING, and this file was RENUMBERED for it. It was
+-- authored as 20260819160000 against the body 20260819130000 left behind
+-- (fingerprint `2206671cb5ec38c303ffd1cfdbbd9c3c`). DEV-1510 and DEV-1525 then
+-- merged ahead of it: 20260820145000 appended the
+-- `subcategory_json_to_slugs(v_effective)` conversion to this same function, so
+-- the old fingerprint now describes a body that no longer exists and the old
+-- number would sort this rewrite BEFORE the migrations it must follow.
 --
--- FINGERPRINT PROVENANCE. `2206671cb5ec38c303ffd1cfdbbd9c3c` was derived, not
--- observed live: the committed staging dump
--- `docs/reports/2026-08-18-pre-rename-function-dump.sql` md5s to
--- `7ec68dd607613015fb60132db15d7254`, which is the baseline asserted by
--- 20260819090000; replaying that migration's three documented replacements
--- (product_tags_en x5, product_tags x7, product_type x6) reproduces
--- `38657d05f0f079cda852410e00efa32d`, the exact value 20260819130000 asserts,
--- which validates the replay; applying 20260819130000's own removal of
--- `'category_attributes', ` x5 then yields the value below. No later migration
--- touches this function. A drifted live body raises P0001 and changes nothing.
+-- FINGERPRINT PROVENANCE. `5615ed859182567e6e1155a3cdb7ecd4` was OBSERVED, not
+-- derived. Read read-only from staging (`xwkigpvnheecihpxyvsl`) at
+-- **2026-08-19 16:29 UTC**, with the full chain through 20260820170000 applied
+-- and none of this branch's own migrations applied:
+--
+--   psql "$SUPABASE_DB_URL" -At -c "
+--     select md5(pg_get_functiondef(
+--       'public.apply_brand_refresh_with_protected_location_gate(uuid,uuid)'::regprocedure
+--     ));"
+--   -- 5615ed859182567e6e1155a3cdb7ecd4
+--
+-- The same read confirmed the two count-0 preconditions asserted below: the
+-- live body contains zero occurrences of `'material'` and zero of `'products'`.
+-- A drifted body raises P0001 and changes nothing.
 
 begin;
 
--- Re-created here: 20260819090000 dropped both helpers at its own tail, and
--- 20260819130000 re-created and dropped them again for the same reason.
+-- Re-created here: every migration that defines these two helpers drops them at
+-- its own tail, and the last one to do so was 20260820145000. A migration that
+-- called them without re-creating them would fail on an undefined function.
 create or replace function public.dev1503_contract_assert_function(
   p_signature regprocedure,
   p_expected_md5 text
@@ -141,7 +163,7 @@ declare
 begin
   perform public.dev1503_contract_assert_function(
     'public.apply_brand_refresh_with_protected_location_gate(uuid,uuid)'::regprocedure,
-    '2206671cb5ec38c303ffd1cfdbbd9c3c'
+    '5615ed859182567e6e1155a3cdb7ecd4'
   );
 
   v_refresh := pg_get_functiondef(
@@ -169,7 +191,7 @@ begin
   -- filter — order is not meaningful in either, and the head of the array is the
   -- only position with a unique anchor.
 
-  -- 3/5 enrichment patch: the path the products/material backfill uses.
+  -- 3/5 enrichment patch: the path the material backfill uses.
   v_refresh := public.dev1503_contract_replace_exact(
     v_refresh,
 $legacy$  into v_enrichment_patch

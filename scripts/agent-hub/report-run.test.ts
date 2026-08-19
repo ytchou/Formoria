@@ -1,4 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+
+import {
+  AgentHubMissingAgentError,
+  AgentHubPausedAgentError,
+  AgentHubStoreError,
+  createAgentHubWriter,
+} from "./writer.mjs";
 import {
   AgentHubReportError,
   normalizeRoutineEnvelope,
@@ -20,10 +27,89 @@ function routineEnvelope(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function jsonResponse(status: number, body: unknown) {
-  return new Response(JSON.stringify(body), {
-    headers: { "content-type": "application/json" },
-    status,
+function memoryStore({ agentStatus = "active", transientFailures = 0 } = {}) {
+  const agents = [
+    {
+      id: "agent-growth-pulse",
+      name: "growth-pulse",
+      project: "formoria",
+      status: agentStatus,
+    },
+  ];
+  const rows: Record<string, unknown>[] = [];
+  let calls = 0;
+  let failures = transientFailures;
+
+  return {
+    get calls() {
+      return calls;
+    },
+    rows,
+    store: {
+      async insertOrGetRun({
+        agentName,
+        project,
+        sourceRunId,
+        run,
+      }: {
+        agentName: string;
+        project: string;
+        sourceRunId: string;
+        run: Record<string, unknown>;
+      }) {
+        calls += 1;
+        if (failures > 0) {
+          failures -= 1;
+          throw new AgentHubStoreError("connection reset", {
+            code: "ECONNRESET",
+            retryable: true,
+          });
+        }
+        const agent = agents.find(
+          (candidate) =>
+            candidate.name === agentName && candidate.project === project,
+        );
+        if (!agent) throw new AgentHubMissingAgentError(project, agentName);
+        if (agent.status !== "active")
+          throw new AgentHubPausedAgentError(project, agentName);
+        const existing = rows.find(
+          (candidate) =>
+            candidate.agent_id === agent.id &&
+            candidate.source_run_id === sourceRunId,
+        );
+        if (existing) {
+          return { duplicate: true, run_id: String(existing.id) };
+        }
+        const runNumber =
+          Math.max(
+            0,
+            ...rows
+              .filter((candidate) => candidate.agent_id === agent.id)
+              .map((candidate) => Number(candidate.run_number)),
+          ) + 1;
+        const persisted: Record<string, unknown> = {
+          ...run,
+          agent_id: agent.id,
+          run_number: runNumber,
+        };
+        rows.push(persisted);
+        return { duplicate: false, run_id: String(persisted.id) };
+      },
+    },
+  };
+}
+
+function writerFor(
+  boundary: ReturnType<typeof memoryStore>,
+  records: unknown[] = [],
+  options: Record<string, unknown> = {},
+) {
+  return createAgentHubWriter({
+    logger: (record: unknown) => records.push(record),
+    now: () => new Date("2026-07-15T00:00:00.000Z"),
+    sleep: () => Promise.resolve(),
+    store: boundary.store,
+    ...options,
   });
 }
 
@@ -39,70 +125,105 @@ describe("Agent Hub routine reporting", () => {
     expect(normalized.data).toEqual({ scorecard: { sessions: 42 } });
   });
 
-  it("posts the payload with bearer auth and emits a redacted structured audit record", async () => {
-    const fetchImplementation = vi.fn<typeof fetch>(async () =>
-      jsonResponse(201, { duplicate: false, run_id: "run-123" }),
-    );
+  it("writes real run data, returns the run ID, and returns the same ID for a replay", async () => {
+    const boundary = memoryStore();
+    const writer = writerFor(boundary);
+
+    const first = await reportAgentRun(routineEnvelope(), { writer });
+    const replay = await reportAgentRun(routineEnvelope(), { writer });
+
+    expect(first).toMatchObject({
+      duplicate: false,
+      run_id: expect.any(String),
+    });
+    expect(replay).toEqual({ duplicate: true, run_id: first.run_id });
+    expect(boundary.rows).toHaveLength(1);
+    expect(boundary.rows[0]).toMatchObject({
+      agent_id: "agent-growth-pulse",
+      actions: [
+        {
+          desc: "Created Linear issue DEV-1234",
+          path: "DEV-1234",
+          type: "linear_issue",
+        },
+      ],
+      metadata: { scorecard: { sessions: 42 }, source: "claude_routine" },
+      run_number: 1,
+      source_run_id: expect.stringMatching(/^claude-routine:growth-pulse:/),
+      started_at: "2026-07-14T23:10:00.000Z",
+      status: "success",
+      summary: "Traffic is steady.",
+      verdict_text: "Traffic is steady.",
+    });
+  });
+
+  it("retries transient store failures with bounded backoff and redacts audit data", async () => {
+    const boundary = memoryStore({ transientFailures: 2 });
     const records: unknown[] = [];
-
-    const result = await reportAgentRun(routineEnvelope(), {
-      fetchImplementation,
-      logger: (record) => records.push(record),
-      sleep: () => Promise.resolve(),
-      token: "scoped-secret-token",
-      url: "https://agent-hub.test/functions/v1/ingest-agent-run",
+    const sleeps: number[] = [];
+    const writer = writerFor(boundary, records, {
+      secrets: ["scoped-secret-token"],
+      sleep: (milliseconds: number) => {
+        sleeps.push(milliseconds);
+        return Promise.resolve();
+      },
     });
 
-    expect(result).toEqual({ duplicate: false, run_id: "run-123" });
-    expect(fetchImplementation).toHaveBeenCalledTimes(1);
-    const firstCall = fetchImplementation.mock.calls.at(0);
-    expect(firstCall).toBeDefined();
-    expect(new Headers(firstCall?.[1]?.headers).get("authorization")).toBe(
-      "Bearer scoped-secret-token",
+    const result = await reportAgentRun(
+      routineEnvelope({
+        data: { scorecard: { sessions: 42 }, token: "scoped-secret-token" },
+      }),
+      { writer },
     );
-    expect(JSON.stringify(records)).toContain("Traffic is steady.");
-    expect(JSON.stringify(records)).toContain("run-123");
+
+    expect(result).toMatchObject({
+      duplicate: false,
+      run_id: expect.any(String),
+    });
+    expect(boundary.calls).toBe(3);
+    expect(sleeps).toEqual([250, 500]);
+    expect(records).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operation: "insert_agent_run",
+          status: "failure",
+          success: false,
+        }),
+        expect.objectContaining({
+          operation: "insert_agent_run",
+          status: "success",
+          success: true,
+        }),
+      ]),
+    );
     expect(JSON.stringify(records)).not.toContain("scoped-secret-token");
+    expect(JSON.stringify(records)).toContain("Traffic is steady.");
   });
 
-  it("retries network, 429, and 5xx failures before succeeding", async () => {
-    const fetchImplementation = vi
-      .fn()
-      .mockRejectedValueOnce(new Error("connection reset"))
-      .mockResolvedValueOnce(jsonResponse(429, { error: "slow down" }))
-      .mockResolvedValueOnce(jsonResponse(503, { error: "unavailable" }))
-      .mockResolvedValueOnce(
-        jsonResponse(200, { duplicate: true, run_id: "run-existing" }),
-      );
+  it("does not retry invalid envelopes or inactive agents", async () => {
+    const invalidBoundary = memoryStore();
+    const invalidRecords: unknown[] = [];
+    await expect(
+      reportAgentRun(routineEnvelope({ status: "running" }), {
+        writer: writerFor(invalidBoundary, invalidRecords),
+      }),
+    ).rejects.toThrow(new AgentHubReportError("status is invalid"));
+    expect(invalidBoundary.calls).toBe(0);
 
-    const result = await reportAgentRun(routineEnvelope(), {
-      fetchImplementation,
-      logger: () => undefined,
-      maxAttempts: 4,
-      sleep: () => Promise.resolve(),
-      token: "scoped-secret-token",
-      url: "https://agent-hub.test/functions/v1/ingest-agent-run",
-    });
-
-    expect(result).toEqual({ duplicate: true, run_id: "run-existing" });
-    expect(fetchImplementation).toHaveBeenCalledTimes(4);
-  });
-
-  it("does not retry a validation or authentication response", async () => {
-    const fetchImplementation = vi.fn<typeof fetch>(async () =>
-      jsonResponse(400, { error: "status is invalid" }),
-    );
-
+    const pausedBoundary = memoryStore({ agentStatus: "paused" });
+    const sleeps: number[] = [];
     await expect(
       reportAgentRun(routineEnvelope(), {
-        fetchImplementation,
-        logger: () => undefined,
-        sleep: () => Promise.resolve(),
-        token: "scoped-secret-token",
-        url: "https://agent-hub.test/functions/v1/ingest-agent-run",
+        writer: writerFor(pausedBoundary, [], {
+          sleep: (milliseconds: number) => {
+            sleeps.push(milliseconds);
+            return Promise.resolve();
+          },
+        }),
       }),
-    ).rejects.toMatchObject({ status: 400 });
-    expect(fetchImplementation).toHaveBeenCalledTimes(1);
+    ).rejects.toBeInstanceOf(AgentHubPausedAgentError);
+    expect(pausedBoundary.calls).toBe(1);
+    expect(sleeps).toEqual([]);
   });
 
   it("rejects a logical report date that does not match run_at in Taipei", () => {

@@ -176,6 +176,7 @@
       "all": "All",
       "category": "Category",
       "priceRange": "Price range",
+      "material": "Material",
       "brandStatus": "Brand status",
       "appliedHint": "Select × on a tag to remove that filter.",
       "currentConditions": "Active filters",
@@ -185,6 +186,7 @@
       "activeSearch": "Search",
       "activeCategory": "Category",
       "activeSubcategory": "Subcategory",
+      "activeMaterial": "Material",
       "activePrice": "Price range",
       "activeStatus": "Brand status",
       "removeFilter": "Remove {label}: {value}",
@@ -518,15 +520,14 @@
       "currentSubcategoriesHeading": "Current (tap to remove)",
       "changeToHeading": "Change to",
       "addSubcategoriesHeading": "Categories you can add",
-      "subcategoriesSubtitle": "{category} product subcategories (up to 5)",
+      "subcategoriesSubtitle": "Product subcategories (up to 5, any category)",
       "subcategoriesSelected": "Selected {count} / 5",
       "subcategoriesLimit": "Select up to 5 product subcategories.",
-      "otherSubcategoryChip": "Other",
-      "otherSubcategoryInputLabel": "Other subcategory name",
-      "otherSubcategoryHint": "Use 2–8 characters. Every suggestion is reviewed before it updates the listing.",
-      "otherSubcategoryConfirm": "Add",
-      "otherSubcategoryDuplicate": "This subcategory is already listed above — remove it there instead.",
       "success": "Correction submitted. Thank you for helping keep this listing accurate.",
+      "subcategorySearchLabel": "Search subcategories",
+      "subcategorySearchHint": "Type to filter, then pick a chip below to add it.",
+      "subcategoryRejected": "That term is not in the subcategory list. Pick the closest subcategory from the list below.",
+      "subcategoryEmpty": "No subcategory matches that search. Try another word.",
       "errors": {
         "invalid_brand": "This brand could not be found. Please refresh and try again.",
         "invalid_value": "That correction is not valid. Please choose another value.",
@@ -534,9 +535,7 @@
         "unchanged": "This correction does not change the current information.",
         "already_submitted": "This correction has already been submitted. Please wait for review.",
         "rate_limited": "Too many correction submissions. Please try again later.",
-        "unavailable": "We could not submit the correction. Please try again later.",
-        "subcategoryLength": "Use 2–8 characters for the subcategory name.",
-        "subcategoryBlocked": "That word can't be used as a subcategory — try a name that describes the product itself."
+        "unavailable": "We could not submit the correction. Please try again later."
       }
     },
     "adminMenu": {
@@ -714,7 +713,8 @@
       "tech": "One more cable on the desk and it is a mess, so charging, expansion, and cable management usually get solved together. Tech and electronics covers consumer electronics, computer peripherals, creator tools, and smart home devices. Formoria lists tech brands founded, designed, or made in Taiwan; for specifications, compatibility, and warranty terms, follow each brand's official documentation.",
       "outdoor": "A weekend in the mountains means carrying the sleeping bag, the stove, and the pack yourself. Outdoor and camping covers hiking, camping, climbing, and travel gear, along with the apparel, packs, and accessories that go with them; between high ridgelines and coastal campsites, low weight and damp resistance are the usual trade-off. Formoria lists outdoor and camping brands founded, designed, or made in Taiwan.",
       "fitness": "A mat unrolled in the living room after work is the whole training space for the day. Fitness and sports covers yoga mats, resistance training equipment, activewear, and recovery tools; size, weight, and how a piece stores away often decide whether it gets used at all. Formoria lists fitness and sports brands founded, designed, or made in Taiwan.",
-      "kids-pets": "Children put things in their mouths, and cats chew toys open. Kids, baby, and pets covers children's clothing, wooden and fabric toys, tableware, pet supplies, and accessories, where the material and how it washes are usually the first things to check. Formoria lists kids and pet brands founded, designed, or made in Taiwan; for safety labelling and test reports, follow each brand's own announcements."
+      "kids": "Children put things in their mouths, and grow half a size in a season. Kids & Baby covers children's and baby clothing, bedding, wooden and fabric toys, feeding goods, and parenting essentials, where the material and how it washes are usually the first things to check. Formoria lists kids and baby brands founded, designed, or made in Taiwan; for safety labelling and test reports, follow each brand's own announcements.",
+      "pets": "Cats chew toys open, and leads get dragged across wet asphalt. Pets covers fresh food and treats, supplements, apparel and accessories, scratchers and beds, and grooming supplies, where durability and how a thing washes are usually the first things to check. Formoria lists pet brands founded, designed, or made in Taiwan; for ingredients and test reports, follow each brand's own announcements."
     },
     "l1": {
       "home": {
@@ -836,19 +836,19 @@
           }
         ]
       },
-      "kids-pets": {
-        "title": "Taiwan Kids, Baby & Pet Brands | Clothing, Toys & Everyday Care | Formoria",
-        "description": "Explore Taiwanese kids, baby, and pet brands across clothing, toys, accessories, and everyday care products.",
-        "h1": "Taiwan Kids, Baby & Pet Brands",
-        "intro": "Toys, clothing, tableware, pet supplies, and accessories; they end up in mouths and get chewed open, so material and washing are looked at first.",
+      "kids": {
+        "title": "Taiwan Kids & Baby Brands | Clothing, Toys & Everyday Care | Formoria",
+        "description": "Explore Taiwanese kids and baby brands across clothing, bedding, toys, feeding goods, and everyday care.",
+        "h1": "Taiwan Kids & Baby Brands",
+        "intro": "Children's and baby clothing, bedding, toys, tableware, and parenting essentials; they end up in mouths and go through dozens of washes, so material and washing are looked at first.",
         "definition": "Safety, sizing, and age guidance are important reading cues, but the directory does not replace regulations, testing, or medical advice. A brand may be founded, designed, or manufactured in Taiwan; check its listing, packaging, and product guidance for the details that matter.",
         "faq": [
           {
-            "question": "What products appear in Kids, Baby & Pets?",
-            "answer": "Children's and baby clothing, toys, feeding goods, home items, pet food, and pet accessories may all appear in this category."
+            "question": "What products appear in Kids & Baby?",
+            "answer": "Children's and baby clothing, bedding, toys, learning aids, feeding goods, and parenting essentials may all appear in this category."
           },
           {
-            "question": "Does Formoria confirm that a product suits every child or pet?",
+            "question": "Does Formoria confirm that a product suits every child?",
             "answer": "No. The directory organises public brand information; age, size, safety, and care decisions should follow the product label and professional guidance."
           }
         ]
@@ -1765,8 +1765,6 @@
       "fieldCategoryHint": "Used for navigation, search, and filtering",
       "fieldDescription": "Description",
       "fieldSubcategories": "Product subcategories",
-      "fieldSubcategoriesPlaceholder": "Add product subcategory",
-      "removeSubcategory": "Remove subcategory",
       "subcategoriesMax": "Up to 5 subcategories. Describe products, not promotional claims.",
       "fieldFoundingYear": "Founding Year",
       "fieldPriceRange": "Price Range",
@@ -1832,7 +1830,6 @@
       "addSource": "Add source",
       "requiredHint": "indicates a required field",
       "requiredFieldError": "Complete this required field before publishing.",
-      "fieldCategoryHint": "Used for navigation, search, and filtering",
       "fieldDescriptionHint": "Public description shown on the brand page",
       "fieldFoundingYearHint": "Shown on the brand page",
       "mitStoryHint": "Shown on the brand page if provided",
@@ -1850,7 +1847,12 @@
         "excessiveEmoji": "This field contains too many emoji. Keep it to ten emoji or fewer.",
         "shortDescription": "This description is too short. Add a fuller description with at least ten Chinese characters.",
         "identicalDescription": "This description repeats the brand name. Explain what the brand makes instead."
-      }
+      },
+      "subcategoriesSearchHint": "Type to filter, then pick a subcategory below.",
+      "subcategoriesSelectedHeading": "Selected (tap to remove)",
+      "subcategoriesOptionsHeading": "Subcategories you can add",
+      "subcategoriesRejected": "That term is not in the subcategory list. Pick the closest one from the list below.",
+      "subcategoriesEmpty": "No subcategory matches that search. Try another word."
     },
     "brandProfile": {
       "productPhotos": "Product Photos",
@@ -1983,7 +1985,7 @@
       "addMorePhotos": "Add more photos",
       "fromWebsite": "from website",
       "uploaded": "uploaded",
-      "category": "Category",
+      "category": "Brand category",
       "categoryPlaceholder": "Select a category",
       "tags": "Tags",
       "tagsHint": "Add up to 5 tags to help people find this brand",
@@ -2010,7 +2012,6 @@
       "regionPlaceholder": "Select a region",
       "regionHint": "The brand's headquarters or main city of operations",
       "regionOptionalHint": "optional",
-      "category": "Brand category",
       "categoryMultiSelect": "",
       "categoryHint": "Select the brand category that fits best",
       "categoryFreeTextToggle": "None of the above?",
@@ -2725,7 +2726,6 @@
         },
         "priceRange": "Price range",
         "subcategories": "Product subcategories",
-        "subcategoriesPlaceholder": "Separate up to five subcategories with commas",
         "city": "City",
         "foundingYear": "Founding year",
         "links": "Links",
@@ -2759,7 +2759,13 @@
           "coordinates": "Coordinates: {latitude}, {longitude}",
           "evidence": "Evidence and source links",
           "remove": "Remove location {number}"
-        }
+        },
+        "subcategoriesSearchHint": "Type to filter, then pick a subcategory below.",
+        "subcategoriesSelectedHeading": "Selected (click to remove)",
+        "subcategoriesOptionsHeading": "Subcategories you can add",
+        "subcategoriesLimit": "Up to 5 product subcategories.",
+        "subcategoriesRejected": "That term is not in the subcategory list. Pick the closest one from the list below.",
+        "subcategoriesEmpty": "No subcategory matches that search. Try another word."
       },
       "links": {
         "official": "Official website"
@@ -2944,10 +2950,10 @@
           "trail": "Trail",
           "section": "Section",
           "orphanSuffix": "no longer in the trail MDX",
-          "orphanHint": "This section was renamed or removed from the trail MDX. Its selections still count toward the indexability blockers above, so retire them here. New placements into it are rejected by the server.",
+          "orphanHint": "This section was renamed or removed from the trail MDX. Its selections render nowhere, so retire them here. New placements into it are rejected by the server.",
           "position": "Position",
-          "blockersTitle": "Trail indexability blockers",
-          "readError": "Placement data is temporarily unavailable; indexability blockers are not shown.",
+          "blockersTitle": "Before publishing",
+          "readError": "Placement data is temporarily unavailable; authoring warnings are not shown.",
           "save": "Place or update selection",
           "retire": "Retire placement",
           "required": "Choose a trail and a section.",

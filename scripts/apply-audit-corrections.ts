@@ -13,6 +13,12 @@
  *   pnpm exec tsx --env-file=.env.local scripts/apply-audit-corrections.ts --apply
  *   pnpm exec tsx --env-file=.env.local scripts/apply-audit-corrections.ts --pending
  *
+ * `subcategories` patches are written as ONTOLOGY SLUGS, because that is what the
+ * column stores since DEV-1510 and `updateBrand` copies the array through
+ * verbatim. Writing zh-TW labels here un-migrates a row per `--apply` run, and
+ * defeats the "already applied" check below as well: a label never equals the
+ * stored slug, so the diff is never empty and every run rewrites every row.
+ *
  * Provenance: every change below was verified against a primary source during the
  * 2026-08-11 review. Rows the audit got wrong (MONOCEAN's description, MXM's history,
  * PhotoFast's origin, ENABLE's ODM years, Allite's operating company, VIGHT's city)
@@ -21,7 +27,7 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { updateBrand, type BrandWriteInput } from "@/lib/services/brands";
 import { requestPublicBrandRevalidation } from "@/lib/cache/revalidate-client";
-import { matchSubcategory } from "@/lib/taxonomy/ontology";
+import { matchSubcategory, subcategoryBySlug } from "@/lib/taxonomy/ontology";
 
 type Change = {
   ref: string;
@@ -158,7 +164,7 @@ const CHANGES: Change[] = [
       name: "張萬春洋傘",
       socialInstagram: null,
       socialFacebook: null,
-      subcategories: ["戶外配件"],
+      subcategories: ["outdoor-accessories"],
     },
   },
 
@@ -244,7 +250,7 @@ const CHANGES: Change[] = [
     brand: "YUJ",
     brandId: "1f482cc1-99cf-47c4-ae87-fef649c87bd0",
     why: "Catalogue is fans, dish dryers, mosquito traps, baby and kitchen goods. 生活家電 is the ontology-valid home tag; the stored 螺絲/螺帽/螺栓 exist in no category.",
-    patch: { categorySlug: "home", subcategories: ["生活家電"] },
+    patch: { categorySlug: "home", subcategories: ["home-appliances"] },
   },
   {
     ref: "OD-36",
@@ -267,7 +273,7 @@ const CHANGES: Change[] = [
     why: "Character IP licensed onto CASETiFY, not a tech brand. purchase_website moves off bonnielu.com, which is a portfolio site rather than a shop.",
     patch: {
       categorySlug: "crafts",
-      subcategories: ["手機殼", "插畫・畫作"],
+      subcategories: ["phone-cases", "illustration-and-art"],
       purchaseWebsite: "https://www.casetify.com/artist/bonnielu",
     },
   },
@@ -276,7 +282,7 @@ const CHANGES: Change[] = [
     brand: "橘皮 oranpeel",
     brandId: "84ff072a-30a5-4700-9e4b-640dbc36c8a7",
     why: "Illustration and character IP; 3C accessories are one licensed line among many.",
-    patch: { categorySlug: "crafts", subcategories: ["手機殼", "插畫・畫作"] },
+    patch: { categorySlug: "crafts", subcategories: ["phone-cases", "illustration-and-art"] },
   },
   {
     ref: "TC-24",
@@ -286,12 +292,12 @@ const CHANGES: Change[] = [
     patch: {
       categorySlug: "crafts",
       subcategories: [
-        "手機殼",
-        "支架",
-        "卡套",
-        "環保袋・購物袋",
-        "徽章",
-        "插畫・畫作",
+        "phone-cases",
+        "stands-and-mounts",
+        "card-holders",
+        "eco-and-shopping-bags",
+        "brooches",
+        "illustration-and-art",
       ],
     },
   },
@@ -303,7 +309,7 @@ const CHANGES: Change[] = [
     brandId: "35b24101-b8af-4e6f-9e3b-9ffd273bd8a1",
     why: "Apparel is unsupported on the Pinkoi store (rider face masks do exist, but those are accessories). Facebook was MOONEYES樂多 Kaohsiung, cleared per your call.",
     patch: {
-      subcategories: ["安全帽", "戶外配件"],
+      subcategories: ["helmets", "outdoor-accessories"],
       socialFacebook: null,
     },
   },
@@ -311,29 +317,29 @@ const CHANGES: Change[] = [
     ref: "OD-23",
     brand: "Taiwan Wader 台興",
     brandId: "15f71688-d68f-419c-856d-fab2ac7a3940",
-    why: "Neither pet clothing nor wetsuits. Waders keep you dry (PVC/mesh); wetsuits keep you warm while wet. 雨靴 is kept although unregistered — it is existing data, not a new write.",
-    patch: { subcategories: ["雨靴"] },
+    why: "Neither pet clothing nor wetsuits. Waders keep you dry (PVC/mesh); wetsuits keep you warm while wet. 雨靴 is now registered as an alias of `boots` (fashion), so the tag it used to carry unregistered resolves to a live slug.",
+    patch: { subcategories: ["boots"] },
   },
   {
     ref: "OD-24",
     brand: "ZIV",
     brandId: "1d39c063-5220-411a-96fb-33685b9b3f60",
     why: "No wetsuits and no water-sports equipment — only a 水上運動款 sunglasses sub-line.",
-    patch: { subcategories: ["眼鏡・太陽眼鏡", "戶外配件"] },
+    patch: { subcategories: ["eyewear", "outdoor-accessories"] },
   },
   {
     ref: "OD-25",
     brand: "衣力美 EasyMain",
     brandId: "03bb5608-bfe9-4d92-b561-ac99b6fe64f8",
     why: "Mountaineering apparel and sun-protection layers; no water-sports products of any kind.",
-    patch: { subcategories: ["機能服飾", "戶外配件"] },
+    patch: { subcategories: ["performance-apparel", "outdoor-accessories"] },
   },
   {
     ref: "TC-17",
     brand: "PhotoFast 銀箭",
     brandId: "f498ec88-8b5a-49e0-b7aa-947b31b736c3",
     why: "Current categories are backup/storage, power/charging and gaming accessories. Phone cases are no longer a product line.",
-    patch: { subcategories: ["充電器・充電線", "行動電源", "儲存裝置"] },
+    patch: { subcategories: ["chargers-and-cables", "power-banks", "storage-devices"] },
   },
 
   {
@@ -341,7 +347,7 @@ const CHANGES: Change[] = [
     brand: "SpotCam",
     brandId: "85a43352-88b9-4030-8076-535ee92d9f8b",
     why: "Drops 手機應用程式 — a mobile app is a feature of the product, not a product category, so registering it in the ontology would create a facet nobody browses by. 攝影機 and 智慧門鈴 were registered under tech on 2026-08-12 and now render as live facets.",
-    patch: { subcategories: ["攝影機", "智慧門鈴"] },
+    patch: { subcategories: ["security-cameras", "smart-doorbells"] },
   },
 
   // ---------------------------------------------------- retail + channels
@@ -584,7 +590,10 @@ async function main(): Promise<void> {
       (before.category as string);
     if (nextTags) {
       const dead = nextTags.filter(
-        (t) => matchSubcategory(t)?.category !== nextType,
+        // Slug-first, matching the column the patches now carry. Name-keyed
+        // lookup alone reports every multi-word slug as a dead facet.
+        (t) =>
+          (subcategoryBySlug(t) ?? matchSubcategory(t))?.category !== nextType,
       );
       const live = nextTags.length - dead.length;
       if (dead.length > 0) {

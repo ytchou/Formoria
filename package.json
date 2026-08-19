@@ -66,7 +66,6 @@
     "image-eval:baseline": "tsx --env-file=.env.local scripts/image-eval/baseline.ts",
     "image-eval:score": "tsx --env-file=.env.local scripts/image-eval/score.ts",
     "image-recovery:audit": "tsx --env-file=.env.local scripts/image-recovery-audit.ts",
-    "normalize-subcategories-en": "tsx --env-file=.env.local scripts/normalize-subcategories-en.ts",
     "seo:counts": "tsx --env-file=.env.local scripts/seo/brand-counts.ts",
     "seo:gsc-export": "tsx --env-file=.env.local scripts/seo/search-console-export.ts",
     "seo:gsc-404": "tsx --env-file=.env.local scripts/seo/gsc-404-triage.ts",
@@ -76,7 +75,9 @@
     "test:e2e:cross-browser": "playwright test --project=cross-browser-chromium --project=cross-browser-firefox --project=cross-browser-webkit --grep @cross-browser e2e/tests/landing-search-cross-browser.spec.ts",
     "test:e2e:deep": "playwright test --project=deep",
     "test:search:load": "node --env-file=.env.local scripts/search-load.mjs",
-    "search:eval": "tsx --env-file=.env.local scripts/search-eval/run.ts"
+    "search:eval": "tsx --env-file=.env.local scripts/search-eval/run.ts",
+    "design:tokens": "node scripts/generate-design-tokens.mjs",
+    "check:design-tokens": "node scripts/generate-design-tokens.mjs --check"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -84,6 +85,7 @@
     "@heroui/styles": "^3.2.4",
     "@hookform/resolvers": "^5.2.2",
     "@internationalized/date": "^3.12.3",
+    "@libsql/client": "^0.17.4",
     "@radix-ui/react-tooltip": "^1.2.16",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.1.0",

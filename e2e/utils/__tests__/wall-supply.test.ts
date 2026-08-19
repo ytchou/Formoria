@@ -3,15 +3,33 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const skip = vi.fn();
 vi.mock("@playwright/test", () => ({ test: { skip: (...args: unknown[]) => skip(...args) } }));
 
+const trailFrontmatter = vi.fn<() => { heroImage?: string }[]>(() => []);
+vi.mock("../published-trails", () => ({
+  publishedTrails: () => trailFrontmatter(),
+  NO_PUBLISHED_TRAILS: "no published trails in content/trails",
+}));
+
 import {
+  MAX_HOME_WALL_PRODUCTS,
   MIN_HOME_CURATED_PRODUCTS,
+  TRAIL_SLOT_CADENCE,
   requireWallOrSkip,
+  requireWallTrailTileOrSkip,
   resetWallSupplyProbe,
   type WallSupplySupabase,
 } from "../wall-supply";
 import { TEST_BRAND_NAME_PATTERN } from "../../../src/lib/services/public-brand-filter";
+import { MAX_HOME_CURATED_PRODUCTS_PER_BRAND } from "../../../src/lib/curated-products/wall-ratio";
+import {
+  MAX_HOME_WALL_PRODUCTS as SOURCE_MAX_HOME_WALL_PRODUCTS,
+  TRAIL_SLOT_CADENCE as SOURCE_TRAIL_SLOT_CADENCE,
+} from "../../../src/lib/curated-products/home-wall";
 
-type CountResult = { count: number | null; error: unknown };
+type CountResult = {
+  count?: number | null;
+  data?: unknown[];
+  error: unknown;
+};
 
 /**
  * Minimal PostgREST double: every builder method chains and records the filter
@@ -32,7 +50,7 @@ function supabaseReturning(
   const filters: string[] = [];
   const builder: Record<string, unknown> = {};
   builder.select = () => builder;
-  for (const method of ["eq", "not"]) {
+  for (const method of ["eq", "not", "limit"]) {
     builder[method] = (...args: unknown[]) => {
       filters.push(`${method}(${args.map(String).join(",")})`);
       return builder;
@@ -155,5 +173,146 @@ describe("homepage wall supply guard", () => {
       `not(brands.name,like,${TEST_BRAND_NAME_PATTERN})`,
     );
     expect(filters()).toContain("not(brands.name,is,null)");
+  });
+});
+
+/** N eligible rows spread over one brand per argument. */
+function rowsPerBrand(...perBrand: number[]): { brand_id: string }[] {
+  return perBrand.flatMap((count, index) =>
+    Array.from({ length: count }, () => ({ brand_id: `brand-${index}` })),
+  );
+}
+
+const withHeroImage = [{ heroImage: "/images/trails/hero.jpg" }];
+
+describe("homepage wall trail-tile guard", () => {
+  beforeEach(() => {
+    skip.mockClear();
+    resetWallSupplyProbe();
+    trailFrontmatter.mockReturnValue([]);
+  });
+
+  it("pins the duplicated wall constants to their source", () => {
+    // These two are copied out of home-wall.ts because `e2e/` cannot resolve
+    // the `@/` alias Playwright would need. Vitest CAN, so the copy is asserted
+    // here rather than trusted — this is the whole safety net for that
+    // duplication.
+    expect(TRAIL_SLOT_CADENCE).toBe(SOURCE_TRAIL_SLOT_CADENCE);
+    expect(MAX_HOME_WALL_PRODUCTS).toBe(SOURCE_MAX_HOME_WALL_PRODUCTS);
+  });
+
+  it("does nothing when the trail tile is present", async () => {
+    const { client, calls } = supabaseReturning({ data: [], error: null });
+
+    await expect(
+      requireWallTrailTileOrSkip(false, client),
+    ).resolves.toBeUndefined();
+    expect(skip).not.toHaveBeenCalled();
+    expect(calls()).toBe(0);
+  });
+
+  it("skips without touching the database when no trail carries a heroImage", async () => {
+    // The live case as of DEV-1522: one published trail, no `heroImage`, so
+    // `buildWallSlots` reserves no trail slot whatever the product supply is.
+    trailFrontmatter.mockReturnValue([{}, { heroImage: "   " }]);
+    const { client, calls } = supabaseReturning({ data: [], error: null });
+
+    await expect(
+      requireWallTrailTileOrSkip(true, client),
+    ).resolves.toBeUndefined();
+    expect(skip).toHaveBeenCalledWith(true, expect.stringContaining("heroImage"));
+    expect(calls()).toBe(0);
+  });
+
+  it("skips when the wall composes fewer products than the trail cadence", async () => {
+    trailFrontmatter.mockReturnValue(withHeroImage);
+    const { client } = supabaseReturning({
+      data: rowsPerBrand(...Array(TRAIL_SLOT_CADENCE - 1).fill(1)),
+      error: null,
+    });
+
+    await expect(
+      requireWallTrailTileOrSkip(true, client),
+    ).resolves.toBeUndefined();
+    expect(skip).toHaveBeenCalledWith(
+      true,
+      expect.stringContaining(`${TRAIL_SLOT_CADENCE - 1} products`),
+    );
+  });
+
+  it("counts products AFTER the per-brand cap, not before", async () => {
+    // The false red this guard could easily have shipped: twenty eligible rows
+    // look like plenty, but three brands capped at two compose a wall of six —
+    // below the cadence, so no trail slot is reserved and an absent tile is
+    // correct. Gating on the raw row count would call that a regression.
+    trailFrontmatter.mockReturnValue(withHeroImage);
+    const { client } = supabaseReturning({
+      data: rowsPerBrand(7, 7, 6),
+      error: null,
+    });
+
+    await expect(
+      requireWallTrailTileOrSkip(true, client),
+    ).resolves.toBeUndefined();
+    expect(skip).toHaveBeenCalledWith(
+      true,
+      expect.stringContaining(
+        `${3 * MAX_HOME_CURATED_PRODUCTS_PER_BRAND} products`,
+      ),
+    );
+  });
+
+  it("throws when both gates are open and the tile is missing", async () => {
+    trailFrontmatter.mockReturnValue(withHeroImage);
+    const { client } = supabaseReturning({
+      data: rowsPerBrand(...Array(TRAIL_SLOT_CADENCE).fill(1)),
+      error: null,
+    });
+
+    await expect(requireWallTrailTileOrSkip(true, client)).rejects.toThrow(
+      /no discovery trail tile/,
+    );
+    expect(skip).not.toHaveBeenCalled();
+  });
+
+  it("never composes more than the wall's product cap", async () => {
+    trailFrontmatter.mockReturnValue(withHeroImage);
+    const { client } = supabaseReturning({
+      data: rowsPerBrand(...Array(40).fill(2)),
+      error: null,
+    });
+
+    await expect(requireWallTrailTileOrSkip(true, client)).rejects.toThrow(
+      new RegExp(`composes ${MAX_HOME_WALL_PRODUCTS} products`),
+    );
+  });
+
+  it("skips rather than inventing a red when the row read fails", async () => {
+    trailFrontmatter.mockReturnValue(withHeroImage);
+    const { client } = supabaseReturning(new Error("network down"));
+
+    await expect(
+      requireWallTrailTileOrSkip(true, client),
+    ).resolves.toBeUndefined();
+    expect(skip).toHaveBeenCalledWith(
+      true,
+      expect.stringContaining("could not be counted"),
+    );
+  });
+
+  it("keeps its own cache, so a failure evicts only its own probe", async () => {
+    trailFrontmatter.mockReturnValue(withHeroImage);
+    const { client, calls } = supabaseReturning(new Error("timeout"), {
+      data: rowsPerBrand(...Array(TRAIL_SLOT_CADENCE).fill(1)),
+      error: null,
+    });
+
+    await expect(
+      requireWallTrailTileOrSkip(true, client),
+    ).resolves.toBeUndefined();
+    await expect(requireWallTrailTileOrSkip(true, client)).rejects.toThrow(
+      /no discovery trail tile/,
+    );
+    expect(calls()).toBe(2);
   });
 });

@@ -2,7 +2,10 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { SectionDetailLayout } from '@/components/dashboard/section-detail-layout'
 import { EmptyValue, display } from '@/components/dashboard/display-helpers'
 import { InfoField } from '@/components/ui/card'
-import { getCategoryLabel } from '@/lib/brands/category-label'
+import {
+  getBrandSubcategoryLabels,
+  getCategoryLabel,
+} from '@/lib/brands/category-label'
 import { getBrandBySlug } from '@/lib/services/brands'
 
 type Props = {
@@ -17,6 +20,8 @@ export default async function InfoPage({ params }: Props) {
     getTranslations({ locale, namespace: 'dashboard.brandProfile' }),
     getTranslations({ locale, namespace: 'dashboard.edit' }),
   ])
+  // `subcategories` stores slugs since DEV-1510; the owner reads labels.
+  const subcategoryLabels = getBrandSubcategoryLabels(brand, locale)
   const priceRange = brand.priceRange
     ? tEdit(
         brand.priceRange === 1
@@ -72,8 +77,8 @@ export default async function InfoPage({ params }: Props) {
         <InfoField
           label={tEdit('fieldSubcategories')}
           value={
-            brand.subcategories.length > 0
-              ? brand.subcategories.join(' · ')
+            subcategoryLabels.length > 0
+              ? subcategoryLabels.join(' · ')
               : <EmptyValue>{t('notSet')}</EmptyValue>
           }
         />

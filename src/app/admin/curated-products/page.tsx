@@ -7,8 +7,8 @@ import {
   listCuratedProductsForAdmin,
   type TrailCuratedProduct,
 } from "@/lib/services/curated-products";
+import { trailAuthoringWarnings } from "@/lib/services/trail-authoring";
 import { getAllTrailsForAdmin } from "@/lib/services/trails";
-import { trailIndexBlockers } from "@/lib/seo/trail-indexability";
 import {
   CuratedProductsList,
   type CuratedProductTab,
@@ -62,9 +62,8 @@ export default async function CuratedProductsPage({
     getAllTrailsForAdmin("zh-TW"),
   ]);
   // Section keys that still carry ACTIVE selections, per trail. A section
-  // renamed or dropped from a trail's MDX leaves its rows behind: they render
-  // nowhere, but they still count toward `trailIndexBlockers` and hold the
-  // trail noindex. The editor's Section dropdown is the only retire path, so
+  // renamed or dropped from a trail's MDX leaves its rows behind, and they
+  // render nowhere. The editor's Section dropdown is the only retire path, so
   // those keys are unioned into it below — otherwise the rows are unreachable
   // from the admin UI entirely (DEV-1487).
   const liveSectionKeys = new Map<string, Set<string>>();
@@ -85,9 +84,13 @@ export default async function CuratedProductsPage({
             try {
               productsForTrail = await getPublishedCuratedProductsForTrail(trail.slug);
             } catch {
-              // Keep a failed read distinct from an empty result. The editor
-              // can still place a product, but must not suggest that missing
-              // data is a real indexability blocker.
+              // Keep a failed read distinct from an empty result, for the
+              // PRODUCT-DERIVED warning only: zero rows read as an unfilled
+              // section, so a failed read would invent one. Passing `null`
+              // below skips that check while leaving the frontmatter-derived
+              // `draft` flag intact — it is the signal that stops an editor
+              // treating an unpublished trail as publishable, and a broken
+              // product query is no reason to withhold it.
               placementReadError = true;
             }
             const declared = trail.frontmatter.sections;
@@ -102,12 +105,10 @@ export default async function CuratedProductsPage({
               slug: trail.slug,
               title: trail.frontmatter.title,
               sections: [...declared, ...orphaned],
-              blockers: placementReadError
-                ? []
-                : trailIndexBlockers({
-                    frontmatter: trail.frontmatter,
-                    products: productsForTrail,
-                  }),
+              warnings: trailAuthoringWarnings({
+                frontmatter: trail.frontmatter,
+                products: placementReadError ? null : productsForTrail,
+              }),
               placementReadError,
             };
           }),

@@ -966,7 +966,7 @@ describe("createCuratedProduct", () => {
 
   it("create_rejects_unknown_material_slug — an unratified term is dropped, never handed to Postgres", async () => {
     // The column carries a CHECK over the twelve ratified slugs
-    // (20260819140000_material_vocabulary_check.sql). Letting an unknown term
+    // (20260820170000_material_slugs.sql). Letting an unknown term
     // through would 23514 the whole insert and lose the valid terms with it, so
     // the service drops it — the same behaviour as an out-of-category
     // subcategory.

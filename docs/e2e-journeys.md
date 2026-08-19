@@ -26,6 +26,8 @@ The canonical browser suite targets the isolated staging Supabase project. Deep 
 | Public data boundary | public HTML, RSC, JSON-LD | `e2e/tests/public-data-boundary.spec.ts` | deep | private fields absent across public surfaces |
 | Bilingual search edge cases | directory and global search | `e2e/tests/search-edge-cases.spec.ts` | deep | ranking, CJK/English subcategories, typo, filters, stale responses |
 | Share-card API | `/api/share-card/[slug]` | `e2e/tests/share-card-api.spec.ts` | deep | PNG dimensions, download headers, hidden/missing 404 |
+| Generated curated products — review and approval | admin submission review drawer | _uncovered_ | — | DEV-1469: proposals render, keep toggles, locked already-known rows, approval materializes ticked rows visible and unticked hidden |
+| Generated curated products — brand backfill | `/admin/brands` | _uncovered_ | — | DEV-1469: multi-select, per-run cap, `Generate products for N selected brands`, products-scoped job enqueued |
 
 ## Pending verification
 

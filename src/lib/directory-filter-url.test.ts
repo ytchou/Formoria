@@ -45,6 +45,40 @@ describe('directory filter URLs', () => {
     ).toBe('/brands?sort=name')
   })
 
+  it('material_round_trips_through_the_url', () => {
+    const empty = new URLSearchParams('category=crafts')
+
+    // Set, extend, and clear — the same comma-joined multi-select shape as
+    // `?category=`. The value is the ontology slug, never a display label.
+    expect(updateDirectoryUrl('/brands', empty, { material: 'ceramic' })).toBe(
+      '/brands?category=crafts&material=ceramic',
+    )
+    const applied = new URLSearchParams('category=crafts&material=ceramic')
+    expect(updateDirectoryUrl('/brands', applied, { material: 'ceramic,wood' })).toBe(
+      '/brands?category=crafts&material=ceramic%2Cwood',
+    )
+    expect(updateDirectoryUrl('/brands', applied, { material: null })).toBe(
+      '/brands?category=crafts',
+    )
+    expect(clearDirectoryFilters('/brands', applied)).toBe('/brands')
+  })
+
+  it('material_survives_a_category_change', () => {
+    // `sub` is scoped to one L1 and is meaningless under another, so changing
+    // the category drops it. `material` is an ORTHOGONAL axis — `ceramic` means
+    // the same thing in every category — so dropping it would silently discard
+    // a filter the user did not touch.
+    const params = new URLSearchParams('category=crafts&sub=ceramics&material=ceramic&sort=name')
+
+    expect(updateDirectoryUrl('/brands', params, { category: 'home' })).toBe(
+      '/brands?category=home&material=ceramic&sort=name',
+    )
+    // Clearing the category entirely still keeps it.
+    expect(updateDirectoryUrl('/brands', params, { category: null })).toBe(
+      '/brands?material=ceramic&sort=name',
+    )
+  })
+
   it('adds search while preserving category and sort and removing page', () => {
     const params = new URLSearchParams(
       'category=crafts&sort=newest&page=4',

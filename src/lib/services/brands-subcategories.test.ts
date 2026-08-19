@@ -7,22 +7,22 @@ describeWithDb('getBrands subcategoryTags', () => {
     const all = await getBrands({ category: ['bags-accessories'], page: 1 })
     const filtered = await getBrands({
       category: ['bags-accessories'],
-      subcategoryTags: ['後背包'],
+      subcategoryTags: ['backpacks'],
       page: 1,
     })
     expect(filtered.totalCount).toBeGreaterThan(0)
     expect(filtered.totalCount).toBeLessThan(all.totalCount)
-    for (const brand of filtered.brands) expect(brand.subcategories).toContain('後背包')
+    for (const brand of filtered.brands) expect(brand.subcategories).toContain('backpacks')
   })
 
   it('search path: passes filter_subcategories through the RPC', async () => {
     const result = await getBrands({
       search: '包',
       category: ['bags-accessories'],
-      subcategoryTags: ['後背包'],
+      subcategoryTags: ['backpacks'],
       page: 1,
     })
-    for (const brand of result.brands) expect(brand.subcategories).toContain('後背包')
+    for (const brand of result.brands) expect(brand.subcategories).toContain('backpacks')
   })
 
   it('empty subcategoryTags is a no-op', async () => {
@@ -37,7 +37,7 @@ describeWithDb('getBrands subcategoryTags', () => {
 })
 
 describeWithDb('subcategory counts', () => {
-  it('returns per-nameZh counts for approved brands in the category, only >0 entries', async () => {
+  it('returns per-slug counts for approved brands in the category, only >0 entries', async () => {
     const { brands } = await getBrands({
       category: ['bags-accessories'],
       includeDetailColumns: true,
@@ -49,7 +49,7 @@ describeWithDb('subcategory counts', () => {
         counts.set(subcategory, (counts.get(subcategory) ?? 0) + 1)
       }
     }
-    expect(counts.get('後背包')).toBeGreaterThan(0)
+    expect(counts.get('backpacks')).toBeGreaterThan(0)
     for (const count of counts.values()) expect(count).toBeGreaterThan(0)
   })
 })

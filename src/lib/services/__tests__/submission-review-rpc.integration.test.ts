@@ -1134,7 +1134,8 @@ describeWithDb("trusted submission review RPCs", () => {
   /**
    * `brands.material` shipped in DEV-1502 without reaching any of the refresh
    * allow-lists, so a material value on a submission was filtered out and lost
-   * at every apply. Fixed by 20260819160000; this is the behavioural proof.
+   * at every apply. Fixed by 20260821100000_refresh_allowlist_material.sql;
+   * this is the behavioural proof.
    */
   it("refresh_preserves_material", async () => {
     const brand = await seedRefreshBrand("material-payload", "approved");

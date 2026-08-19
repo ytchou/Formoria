@@ -259,7 +259,10 @@ describe("degraded vs failed run verdict", () => {
   // skipped nothing technically but made every night look like a total loss and
   // left 147 valid findings from the healthy detectors stranded. A detector
   // failure must degrade the run, not fail it.
-  async function verdictFor(aggregate: unknown, phases?: Record<string, string>) {
+  async function verdictFor(
+    aggregate: unknown,
+    phases?: Record<string, string>,
+  ) {
     const contents = new Map<string, string>([
       ["aggregate.json", JSON.stringify(aggregate)],
       [
@@ -292,7 +295,8 @@ describe("degraded vs failed run verdict", () => {
         runAt: now,
         workflowAttempt: 1,
         workflowRunId: "987654321",
-        workflowUrl: "https://github.com/ytchou/Formoria/actions/runs/987654321",
+        workflowUrl:
+          "https://github.com/ytchou/Formoria/actions/runs/987654321",
       } as unknown as Parameters<typeof deliverFinalHealthReport>[0],
       {
         delivery: { agentHub, slack },
@@ -330,9 +334,9 @@ describe("degraded vs failed run verdict", () => {
 
   it("degrades rather than fails when one detector is down", async () => {
     // The exact shape of the 2026-08-09 run: Sentry broken, five detectors fine.
-    await expect(verdictFor(withFailedDetectors(["sentry-triage"]))).resolves.toBe(
-      "needs_attention",
-    );
+    await expect(
+      verdictFor(withFailedDetectors(["sentry-triage"])),
+    ).resolves.toBe("needs_attention");
   });
 
   it("still fails when every detector is down", async () => {
@@ -3475,6 +3479,64 @@ describe("default runtime dependencies", () => {
     expect(dependencies.queue?.markFingerprintsTicketed).toEqual(
       expect.any(Function),
     );
+  });
+
+  it("delivers terminal health reports through the injected delivery writer and preserves audits", async () => {
+    const auditRecords: AuditRecord[] = [];
+    let writerCalls = 0;
+    let deliveredEnvelope: unknown;
+    const dependencies = createWorkflowRuntimeDependencies({
+      agentHubWriter: async (envelope) => {
+        writerCalls += 1;
+        deliveredEnvelope = envelope;
+        return { duplicate: false, run_id: "run-health-123" };
+      },
+      auditRecords,
+      env: {},
+      fetchImplementation: vi.fn(),
+    });
+
+    const result = await dependencies.delivery?.agentHub({
+      data: {
+        auth_token: "health-secret",
+        notification_owner: "github_actions",
+      },
+      date: "2026-08-07",
+      project: "formoria",
+      routine: "health-agent",
+      run_at: "2026-08-07T00:00:00.000Z",
+      source: "github_actions",
+      source_run_id: "github-actions:health-agent:123:1",
+      status: "success",
+      tickets_created: [],
+      verdict_severity: "ok",
+      verdict_text: "Health is steady.",
+      version: 1,
+    });
+
+    expect(result).toEqual({ duplicate: false, run_id: "run-health-123" });
+    expect(writerCalls).toBe(1);
+    expect(deliveredEnvelope).toMatchObject({ routine: "health-agent" });
+    expect(auditRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          adapter: "agent-hub-runtime",
+          operation: "ingest_envelope",
+          response: {
+            mode: "injected",
+            result: { duplicate: false, run_id: "run-health-123" },
+          },
+          status: "success",
+        }),
+        expect.objectContaining({
+          adapter: "agent-hub",
+          operation: "delegate",
+          response: { duplicate: false, reported: true, runIdPresent: true },
+          status: "success",
+        }),
+      ]),
+    );
+    expect(JSON.stringify(auditRecords)).not.toContain("health-secret");
   });
 
   it("audits ticket-ledger reads and writes at the Supabase boundary", async () => {

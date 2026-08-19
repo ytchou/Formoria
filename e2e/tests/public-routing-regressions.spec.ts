@@ -48,8 +48,11 @@ test.describe("Public routing regressions deep", () => {
     const redirects = [
       ["/categories/accessories", "/categories/bags-accessories"],
       ["/categories/bags", "/categories/bags-accessories"],
-      ["/categories/baby-kids", "/categories/kids-pets"],
-      ["/categories/pets", "/categories/kids-pets"],
+      // DEV-1510 split kids-pets into the live L1s kids and pets: baby-kids
+      // now lands on kids, `pets` is a page rather than a redirect source, and
+      // the merged parent has no successor category, so it exits to /brands.
+      ["/categories/baby-kids", "/categories/kids"],
+      ["/categories/kids-pets", "/brands"],
       ["/categories/food", "/categories/food-drink"],
       ["/categories/beverages", "/categories/food-drink"],
       ["/en/categories/clothing", "/en/categories/fashion"],

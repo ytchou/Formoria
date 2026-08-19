@@ -1,6 +1,7 @@
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import type { PublicBrandDetail } from "@/lib/brands/contracts";
+import { getBrandSubcategoryLabels } from "@/lib/brands/category-label";
 import { Badge } from "@/components/ui/badge";
 import { InfoField } from "@/components/ui/card";
 import { Typography } from "@/components/ui/typography";
@@ -43,14 +44,9 @@ export function BrandHeader({
   const priceRangeLabel =
     brand.priceRange != null ? "$".repeat(brand.priceRange) : null;
   const resolvedCategory = categoryLabel ?? brand.categoryLabel;
-  const resolvedTags =
-    brand.subcategories.length > 0
-      ? locale === "en"
-        ? brand.subcategoriesEn.length > 0
-          ? brand.subcategoriesEn
-          : brand.subcategories
-        : brand.subcategories
-      : [];
+  // `subcategories` stores slugs since DEV-1510, so the chips resolve through
+  // the ontology rather than rendering the stored value.
+  const resolvedTags = getBrandSubcategoryLabels(brand, locale ?? "zh-TW");
   const unknownValue = (
     <Typography
       as="span"

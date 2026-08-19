@@ -11,12 +11,7 @@ import {
   excludeTestBrands,
   TEST_BRAND_NAME_PREFIX,
 } from "@/lib/services/public-brand-filter";
-import {
-  matchSubcategory,
-  materialBySlug,
-  normalizeSubcategoryKey,
-  resolveSubcategorySlugs,
-} from "@/lib/taxonomy/ontology";
+import { materialBySlug, resolveSubcategorySlugs } from "@/lib/taxonomy/ontology";
 import { getPublishedTrailBySlug, getTrailBySlug } from "@/lib/services/trails";
 
 /** The tables are reached through the untyped `from` surface, with generated DB shapes at the boundary. */
@@ -725,48 +720,21 @@ export type CuratedProductUpdateInput = Partial<
 >;
 
 /**
- * Subcategories arrive as either ontology slugs (from the admin picker) or Chinese
- * labels (from a pasted list), so both are folded into one vocabulary before
- * `normalizeSubcategories` applies the shared dedupe, novel-subcategory, and cap rules.
- * Anything that does not resolve to a subcategory of `category` is dropped:
- * `subcategories` is a slug column, and a free-text subcategory stored there would
- * render as a dead filter.
+ * Curated-product subcategories, normalized to slugs and confined to the
+ * product's own L1.
+ *
+ * `normalizeSubcategories` resolves slugs and zh-TW labels alike through the
+ * closed vocabulary, dedupes by slug and applies the 5-tag cap.
+ * `resolveSubcategorySlugs` then drops anything outside `category` — the
+ * write-time conjunct that curated products keep on purpose while the
+ * directory read paths dropped theirs (DEV-1510).
  */
 function normalizeCuratedSubcategories(
   category: string,
   values: readonly string[],
 ): string[] {
-  const seenInput = new Set<string>();
-  const raw: string[] = [];
-  for (const value of values) {
-    const trimmed = value.trim();
-    if (!trimmed) continue;
-    const key = normalizeSubcategoryKey(trimmed);
-    if (seenInput.has(key)) continue;
-    seenInput.add(key);
-    raw.push(trimmed);
-  }
-  if (raw.length === 0) return [];
-
-  // Slug inputs that belong to this category become their labels, so one
-  // vocabulary reaches `normalizeSubcategories`.
-  const labelBySlug = new Map(
-    resolveSubcategorySlugs(category, raw).map((sub) => [sub.slug, sub.nameZh]),
-  );
-  const { subcategories } = normalizeSubcategories(
-    raw.map((value) => labelBySlug.get(value) ?? value),
-    [],
-    category,
-  );
-
-  const slugs: string[] = [];
-  for (const subcategory of subcategories) {
-    const sub = matchSubcategory(subcategory);
-    if (!sub || sub.category !== category) continue;
-    if (slugs.includes(sub.slug)) continue;
-    slugs.push(sub.slug);
-  }
-  return slugs;
+  const { subcategories } = normalizeSubcategories([...values]);
+  return resolveSubcategorySlugs(category, subcategories).map((sub) => sub.slug);
 }
 
 /**

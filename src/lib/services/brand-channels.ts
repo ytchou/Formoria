@@ -209,7 +209,8 @@ function mapStockistRow(row: StockistReadRow): StockistLocation | null {
   }
 }
 
-function matchesCategory(
+/** Exported for the slug-storage regression test; `getStockistDirectory` is the only runtime caller. */
+export function matchesCategory(
   location: StockistLocation,
   category?: string,
 ): boolean {
@@ -219,7 +220,15 @@ function matchesCategory(
   return Boolean(
     subcategory &&
     location.subcategories.some(
-      (tag) => matchSubcategory(tag)?.slug === subcategory.slug,
+      // Stored values are SLUGS since DEV-1510, so the slug map is tried
+      // first; `matchSubcategory` is the fallback for any row still holding a
+      // pre-migration zh-TW label. Slug-only lookup through `matchSubcategory`
+      // resolves none of the 117 multi-word slugs ('tote-bags'), which reads as
+      // an empty stockist list rather than an error. Same order as
+      // `resolveSubcategorySelection`.
+      (tag) =>
+        (subcategoryBySlug(tag) ?? matchSubcategory(tag))?.slug ===
+        subcategory.slug,
     ),
   )
 }

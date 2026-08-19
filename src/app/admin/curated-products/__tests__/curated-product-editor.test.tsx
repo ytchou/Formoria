@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import messages from "../../../../../messages/en.json";
 import type { AdminCuratedProduct } from "@/lib/services/curated-products";
+import type { TrailAuthoringWarning } from "@/lib/services/trail-authoring";
 import {
   CuratedProductEditor,
   type TrailOption,
@@ -48,10 +49,14 @@ const TRAILS: TrailOption[] = [
     slug: "small-space-reading-corner",
     title: "A reading corner in a small home",
     sections: [{ key: "light-first", title: "Light first" }],
-    blockers: [],
+    warnings: [],
     placementReadError: false,
   },
 ];
+
+function trailsWithWarnings(warnings: TrailAuthoringWarning[]): TrailOption[] {
+  return TRAILS.map((trail) => ({ ...trail, warnings }));
+}
 
 function product(
   overrides: Partial<AdminCuratedProduct> = {},
@@ -84,14 +89,17 @@ function product(
   };
 }
 
-function renderEditor(overrides: Partial<AdminCuratedProduct> = {}) {
+function renderEditor(
+  overrides: Partial<AdminCuratedProduct> = {},
+  trailOptions: TrailOption[] = TRAILS,
+) {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
       <CuratedProductEditor
         mode="edit"
         product={product(overrides)}
         brands={[BRAND]}
-        trailOptions={TRAILS}
+        trailOptions={trailOptions}
         onSaved={vi.fn()}
       />
     </NextIntlClientProvider>,
@@ -262,6 +270,33 @@ describe("CuratedProductEditor", () => {
     expect(container.querySelector(`#${CSS.escape(hintId)}`)?.textContent).toBe(
       messages.admin.curatedProducts.editor.visibleHint,
     );
+  });
+
+  /**
+   * The panel is an AUTHORING readout, not a gate: it never blocks a save, and
+   * nothing it lists changes what a visitor sees. Each warning is its own list
+   * item so an editor can read them one at a time.
+   */
+  it("renders the before publishing panel with warnings", () => {
+    renderEditor({}, trailsWithWarnings(["draft", "unplaced_section"]));
+
+    const heading = screen.getByText(
+      messages.admin.curatedProducts.editor.placement.blockersTitle,
+    );
+    const items = [
+      ...(heading.parentElement?.querySelectorAll("li") ?? []),
+    ].map((item) => item.textContent);
+    expect(items).toEqual(["draft", "unplaced_section"]);
+  });
+
+  it("renders no panel when there are no warnings", () => {
+    renderEditor({}, trailsWithWarnings([]));
+
+    expect(
+      screen.queryByText(
+        messages.admin.curatedProducts.editor.placement.blockersTitle,
+      ),
+    ).toBeNull();
   });
 
   it("every rendered i18n key resolves", () => {

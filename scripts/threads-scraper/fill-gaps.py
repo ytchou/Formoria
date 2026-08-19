@@ -31,7 +31,7 @@ OUTPUT_CSV = OUTPUT_DIR / "all-brands-import-ready.csv"
 
 VALID_CATEGORIES = {
     "fashion", "bags-accessories", "jewelry", "beauty",
-    "home", "food-drink", "crafts", "tech", "outdoor", "kids-pets",
+    "home", "food-drink", "crafts", "tech", "outdoor", "kids", "pets",
 }
 
 # Keywords in brand name / context → categorySlug slug
@@ -77,9 +77,11 @@ NAME_CATEGORY_RULES: list[tuple[list[str], str]] = [
     (["運動", "sport", "outdoor", "登山", "hiking", "camping", "露營",
       "單車", "bike", "cycling", "瑜珈", "yoga", "健身", "fitness",
       "衝浪", "surf", "潛水", "dive"], "outdoor"),
-    # Kids & Pets
-    (["童", "kid", "child", "baby", "嬰", "母嬰", "寵物", "pet",
-      "狗", "dog", "貓", "cat"], "kids-pets"),
+    # Pets — before Kids, because 寵物 and 童 never co-occur but the pet rule
+    # is the narrower one and DEV-1510 split them into two L1s.
+    (["寵物", "pet", "狗", "dog", "貓", "cat"], "pets"),
+    # Kids
+    (["童", "kid", "child", "baby", "嬰", "母嬰"], "kids"),
 ]
 
 # Brand names that are clearly platforms, not product brands — skip entirely
@@ -106,7 +108,8 @@ CATEGORY_ZH = {
     "crafts": "手作工藝",
     "tech": "科技產品",
     "outdoor": "戶外運動",
-    "kids-pets": "親子寵物",
+    "kids": "母嬰童",
+    "pets": "寵物",
 }
 
 

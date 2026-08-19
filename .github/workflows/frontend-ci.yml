@@ -48,6 +48,7 @@ jobs:
               # earlier link silently skips every check after it, so a gate that
               # only lives inside the chain can go unrun without anyone noticing.
               node scripts/check-e2e-timeouts.mjs
+              node scripts/checks/trail-frontmatter.mjs
               pnpm lint
               ;;
             type-check)

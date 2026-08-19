@@ -588,8 +588,11 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     operationalSection: null,
     operationalKind: "dependency",
     envVars: [
+      "AGENT_HUB_DELIVERY_MODE",
       "AGENT_HUB_INGEST_URL",
       "AGENT_HUB_INGEST_TOKEN",
+      "AGENT_HUB_TURSO_DATABASE_URL",
+      "AGENT_HUB_TURSO_AUTH_TOKEN",
       "HEALTH_AGENT_READER_TOKEN",
       "HEALTH_AGENT_WRITER_TOKEN",
     ],

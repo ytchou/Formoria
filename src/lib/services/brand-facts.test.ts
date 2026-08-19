@@ -56,8 +56,9 @@ describe("parseBrandFactsResult", () => {
       ["crossbody", "clasp coin purse", "clasp wallet"],
     );
     const result = parseBrandFactsResult(json);
-    // '側背包' is an alias for crossbody-bags (斜背包); '口金夾' dedupes to same slug as '口金零錢包'
-    expect(result.subcategories).toEqual(["斜背包", "口金包"]);
+    // '側背包' is an alias for crossbody-bags; '口金夾' dedupes to the same slug
+    // as '口金零錢包'. Storage is slugs since DEV-1510.
+    expect(result.subcategories).toEqual(["crossbody-bags", "clasp-frame-bags"]);
     expect(result.subcategoriesEn).toEqual([
       "Crossbody Bags",
       "Clasp-Frame Bags",
@@ -69,20 +70,22 @@ describe("parseBrandFactsResult", () => {
     const result = parseBrandFactsResult(json);
     // Both collapse to the same slug → one canonical subcategory
     // Old min-2 gate would have dropped it; min-1 gate preserves it
-    expect(result.subcategories).toEqual(["口金包"]);
+    expect(result.subcategories).toEqual(["clasp-frame-bags"]);
     expect(result.subcategoriesEn).toEqual(["Clasp-Frame Bags"]);
   });
 
-  it("drops blocklisted novel subcategories", () => {
+  it("drops a term the closed vocabulary does not know, and records it", () => {
     const json = makeTagFixture(["藍鵲系列襪子"], ["bluebird series socks"]);
     const result = parseBrandFactsResult(json);
-    // '系列' matches BLOCKLIST_CONTENT → rejected
+    // No novel escape hatch since DEV-1510: the model's term either resolves to
+    // a node or is rejected — and every rejection is logged, because that log is
+    // the only remaining signal that the vocabulary has a gap.
     expect(result.subcategories).toEqual([]);
     expect(result.rejected).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           subcategory: "藍鵲系列襪子",
-          reason: "blocklist",
+          reason: "unknown-term",
         }),
       ]),
     );

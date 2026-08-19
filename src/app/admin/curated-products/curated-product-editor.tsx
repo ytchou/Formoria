@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleChip } from "@/components/ui/toggle-chip";
 import { L2_SUBCATEGORIES, L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import type { AdminCuratedProduct } from "@/lib/services/curated-products";
+import type { TrailAuthoringWarning } from "@/lib/services/trail-authoring";
 import {
   CURATED_PRODUCT_SOURCE_TYPES,
   MAX_NOTE,
@@ -39,7 +40,11 @@ export type TrailOption = {
    * `upsertCuratedProductSelection` validates the key against the frontmatter.
    */
   sections: { key: string; title: string; orphaned?: boolean }[];
-  blockers: string[];
+  /**
+   * Authoring notes for the editor, never a publish gate: the trail renders
+   * and indexes the same whether this list is empty or not.
+   */
+  warnings: TrailAuthoringWarning[];
   placementReadError: boolean;
 };
 
@@ -938,15 +943,19 @@ export function CuratedProductEditor({
             <p role="status" className="type-form-hint">
               {t("placement.readError")}
             </p>
-          ) : selectedTrail?.blockers.length ? (
+          ) : null}
+          {/* Independent of the read error above, not an else-branch of it: a
+              failed placement read still leaves the frontmatter-derived
+              warnings (draft) worth showing. */}
+          {selectedTrail?.warnings.length ? (
             <div
               role="status"
               className="space-y-2 rounded-md bg-secondary p-3"
             >
               <p className="type-form-label">{t("placement.blockersTitle")}</p>
               <ul className="list-disc pl-5 type-form-hint">
-                {selectedTrail.blockers.map((blocker) => (
-                  <li key={blocker}>{blocker}</li>
+                {selectedTrail.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
                 ))}
               </ul>
             </div>

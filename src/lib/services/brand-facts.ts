@@ -41,7 +41,6 @@ export type BrandFactsResult = {
    */
   listing?: ListingVerdict;
   rejected?: { subcategory: string; reason: string }[];
-  crossBranch?: string[];
   rawResponse?: unknown;
 };
 
@@ -126,18 +125,11 @@ export function parseBrandFactsResult(content: string): BrandFactsResult {
   // city slug map and the price tier check a second time.
   const extraction = parseExtractionResult(content);
 
-  const rawSubcategoriesEn = parsed.subcategories_en;
-  const subcategoriesEnRaw = Array.isArray(rawSubcategoriesEn)
-    ? rawSubcategoriesEn
-        .filter(
-          (t): t is string => typeof t === "string" && t.trim().length > 0,
-        )
-        .map((t) => t.trim())
-    : [];
-
+  // No `subcategories_en` parse. The prompt stopped asking for that key, and
+  // `normalizeSubcategories` derives English from the resolved ontology node, so
+  // a parsed array could only ever have been discarded.
   const normalizedSubcategories = normalizeSubcategories(
     extraction.subcategories,
-    subcategoriesEnRaw,
   );
 
   const rawMit = parsed.mit_indicators;
@@ -178,7 +170,6 @@ export function parseBrandFactsResult(content: string): BrandFactsResult {
     foundingYear: extraction.foundingYear,
     mitIndicators,
     rejected: normalizedSubcategories.rejected,
-    crossBranch: normalizedSubcategories.crossBranch,
     ...(listing ? { listing } : {}),
   };
 }
