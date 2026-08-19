@@ -4,8 +4,8 @@ import { Grid } from '@/components/ui/grid'
 
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-(--nav-height) z-10 border-b bg-background/95 backdrop-blur">
+    <div className="min-h-screen bg-ground">
+      <header className="sticky top-(--nav-height) z-10 border-b border-rule bg-ground/95 backdrop-blur">
         <div className="page-gutter mx-auto flex h-14 page-measure items-center">
           <Skeleton className="h-5 w-32" />
         </div>

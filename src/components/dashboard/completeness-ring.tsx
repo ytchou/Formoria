@@ -36,7 +36,7 @@ export function CompletenessRing({ score }: { score: number }) {
         viewBox="0 0 48 48"
       >
         <circle
-          className="stroke-muted"
+          className="stroke-surface-deep"
           cx="24"
           cy="24"
           fill="none"

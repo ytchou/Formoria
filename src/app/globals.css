@@ -205,7 +205,7 @@
   --surface-deep: #E8DFD2; /* third step; image placeholder */
   --ink: #1A1815; /* primary text — 18.9:1 on ground */
   --ink-soft: #4A443C; /* body prose — 10.2:1 on ground */
-  --ink-muted: #7A736A; /* metadata, secondary — 5.1:1 on ground */
+  --ink-muted: #6F685F; /* metadata — 5.1:1 ground / 4.6:1 surface */
   --rule: #DED5C8; /* hairlines, borders */
   /* `--accent` (藍染 indigo) is deliberately NOT restated here. It is declared
      exactly once, in the palette block above, so the v1 meaning of that name
@@ -488,8 +488,13 @@ body:has([data-page-measure="wide"]) {
 }
 
 @layer base {
+  /* The default border and outline COLOUR for every element in the app. `*` is
+     the highest-leverage selector in the stylesheet, so it names v2 tokens
+     directly: `rule` is the v2 hairline, and the outline follows `accent`,
+     which is what `--ring` already aliased. Anything that needs a different
+     border states one; this is only the fallback. */
   * {
-    @apply border-border outline-ring/50;
+    @apply border-rule outline-accent/50;
   }
   body {
     @apply bg-background text-foreground;

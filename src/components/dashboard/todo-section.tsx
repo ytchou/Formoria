@@ -57,10 +57,10 @@ export async function TodoSection({
 
   return (
     <section aria-labelledby="todo-section-title" id="profile-completeness">
-      <h2 className="type-card-title" id="todo-section-title">
+      <h2 className="type-label" id="todo-section-title">
         {tOverview('todoTitle')}
       </h2>
-      <SurfaceCard className="mt-4 rounded-lg" padding="lg">
+      <SurfaceCard className="mt-4 rounded-[3px]" padding="lg">
         {isEmpty ? (
           <div className="flex items-center justify-center gap-3 py-4">
             <CircleCheck
@@ -70,7 +70,7 @@ export async function TodoSection({
             <p className="type-body-sm font-medium text-ink">{tOverview('todoEmpty')}</p>
           </div>
         ) : (
-          <ul className="divide-y divide-border">
+          <ul className="divide-y divide-rule">
             {completeness.recommendations.map((recommendation) => {
               const Icon = recommendationIcons[recommendation.key]
 
@@ -98,7 +98,7 @@ export async function TodoSection({
                       {tOverview('todoRemaining', { count: 1 })}
                     </Badge>
                     <Link
-                      className="inline-flex min-h-12 items-center rounded-lg px-3 type-body-sm font-medium text-accent hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="inline-flex min-h-12 items-center rounded-[3px] px-3 type-body-sm font-medium text-accent hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                       href={`${routes.dashboard.brandEdit(slug)}?step=${recommendation.step}`}
                     >
                       {tOverview('todoGoComplete')}
@@ -121,7 +121,7 @@ export async function TodoSection({
                     {tOverview('todoRemaining', { count: 1 })}
                   </Badge>
                   <Link
-                    className="inline-flex min-h-12 items-center rounded-lg px-3 type-body-sm font-medium text-accent hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="inline-flex min-h-12 items-center rounded-[3px] px-3 type-body-sm font-medium text-accent hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     href={routes.dashboard.brandSection(slug, 'verification')}
                   >
                     {tOverview('todoGoComplete')}

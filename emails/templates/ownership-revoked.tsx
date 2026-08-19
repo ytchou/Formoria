@@ -1,5 +1,5 @@
-import { Link } from "@react-email/components";
 import { render } from "@react-email/render";
+import { EmailLink } from "@emails/components/email-link";
 import { Layout } from "@emails/components/layout";
 import { EmailHeading } from "@emails/components/email-heading";
 import { EmailText } from "@emails/components/email-text";
@@ -35,9 +35,9 @@ export default function OwnershipRevokedEmail({
       <Reason label="原因：" reason={escapedReason} />
       <EmailText>
         如對此決定有疑問，請聯絡 Formoria 支援團隊：
-        <Link href={`mailto:${CONTACT_EMAILS.contact}`}>
+        <EmailLink href={`mailto:${CONTACT_EMAILS.contact}`}>
           {CONTACT_EMAILS.contact}
-        </Link>
+        </EmailLink>
       </EmailText>
 
       <EmailHeading as="h2">Brand management access removed</EmailHeading>
@@ -49,9 +49,9 @@ export default function OwnershipRevokedEmail({
       <Reason label="Reason:" reason={escapedReason} />
       <EmailText>
         If you have questions about this decision, contact Formoria support at{" "}
-        <Link href={`mailto:${CONTACT_EMAILS.contact}`}>
+        <EmailLink href={`mailto:${CONTACT_EMAILS.contact}`}>
           {CONTACT_EMAILS.contact}
-        </Link>
+        </EmailLink>
         .
       </EmailText>
       <EmailText>

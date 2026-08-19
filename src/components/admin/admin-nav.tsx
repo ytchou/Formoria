@@ -26,7 +26,7 @@ export function AdminNav({ items }: AdminNavProps) {
   return (
     <nav
       aria-label="Admin main navigation"
-      className="mt-6 overflow-x-auto border-b border-border"
+      className="mt-6 overflow-x-auto border-b border-rule"
     >
       <div className="flex min-w-max gap-1">
         {items.map((item) => (
@@ -35,16 +35,16 @@ export function AdminNav({ items }: AdminNavProps) {
             href={item.href}
             aria-current={isActive(item.href) ? "page" : undefined}
             className={cn(
-              "-mb-px inline-flex min-h-12 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 type-nav hover:text-ink transition-colors transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "-mb-px inline-flex min-h-12 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 type-nav hover:text-ink transition-colors transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
               isActive(item.href)
-                ? "border-accent text-foreground"
-                : "border-transparent text-muted-foreground",
+                ? "border-accent text-ink"
+                : "border-transparent text-ink-muted",
             )}
           >
             {item.label}
             {item.count && item.count > 0 ? (
               <span
-                className="rounded-full bg-muted px-2 py-0.5 type-metadata"
+                className="rounded-full bg-surface px-2 py-0.5 type-metadata"
                 aria-label={`${item.count} pending`}
               >
                 {item.count}

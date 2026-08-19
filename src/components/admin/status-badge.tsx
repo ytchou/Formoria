@@ -6,7 +6,7 @@ type StatusConfig = { label: string; className: string }
 const submissionStatusConfig: Record<SubmissionStatus, StatusConfig> = {
   pending: {
     label: 'Pending',
-    className: 'bg-muted text-muted-foreground',
+    className: 'bg-surface text-ink-muted',
   },
   approved: {
     label: 'Approved',
@@ -14,7 +14,7 @@ const submissionStatusConfig: Record<SubmissionStatus, StatusConfig> = {
   },
   rejected: {
     label: 'Rejected',
-    className: 'bg-accent/10 text-destructive',
+    className: 'bg-danger/10 text-danger',
   },
 }
 
@@ -22,7 +22,7 @@ const brandStatusConfig: Record<BrandStatus, StatusConfig> = {
   approved: submissionStatusConfig.approved,
   hidden: {
     label: 'Hidden',
-    className: 'bg-muted text-muted-foreground',
+    className: 'bg-surface text-ink-muted',
   },
 }
 

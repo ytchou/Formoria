@@ -9,7 +9,7 @@ export default function CommunitySubmissionsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="type-section">Bulk community submissions</h1>
+        <h1 className="type-label">Bulk community submissions</h1>
         <p className="mt-1 type-body-sm">
           Preview and import up to 100 brand recommendations. Exact duplicates
           are blocked; similar matches require an explicit override.

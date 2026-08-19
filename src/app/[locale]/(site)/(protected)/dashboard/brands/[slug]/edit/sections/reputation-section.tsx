@@ -28,7 +28,7 @@ export function ReputationSection({
   return (
     <StandardFormSection id="reputation">
       <StandardFormStack>
-        <h2 className="type-card-title">
+        <h2 className="type-label">
           {t('sectionReputation')}
         </h2>
 
@@ -39,7 +39,7 @@ export function ReputationSection({
         >
           <Textarea
             id="reputationSummary"
-            className="min-h-28 bg-card"
+            className="min-h-28 bg-surface"
             {...form.register('reputationSummary')}
           />
         </DashboardFormField>
@@ -51,7 +51,7 @@ export function ReputationSection({
               className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_48px]"
             >
               <Input
-                className="min-h-12 bg-card"
+                className="min-h-12 bg-surface"
                 type="url"
                 aria-label={t('fieldSourceUrlPlaceholder')}
                 placeholder={t('fieldSourceUrlPlaceholder')}

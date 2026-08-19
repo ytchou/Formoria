@@ -66,7 +66,7 @@ export function AccountMenu() {
     return (
       <NextLink
         href={signInHref(pathname, locale)}
-        className="inline-flex h-9 items-center justify-center rounded-md px-2.5 type-metadata transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        className="inline-flex h-9 items-center justify-center rounded-[4px] px-2.5 type-metadata transition-colors hover:text-ink focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none"
       >
         {t('nav.signIn')}
       </NextLink>
@@ -79,7 +79,7 @@ export function AccountMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={t('account.menuLabel')}
-        className="inline-flex size-9 items-center justify-center rounded-full bg-secondary type-body-sm font-semibold text-secondary-foreground transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="inline-flex size-9 items-center justify-center rounded-full bg-surface type-body-sm font-semibold text-ink-soft transition-colors outline-none hover:bg-surface-deep focus-visible:ring-3 focus-visible:ring-accent/50"
       >
         {initial}
       </DropdownMenuTrigger>

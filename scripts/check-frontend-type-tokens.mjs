@@ -63,9 +63,22 @@ export const allowedMatches = [
     ],
   },
   {
+    // Per-brand accents are brand property, deliberately outside the palette
+    // (DESIGN.md §2's one documented exception). These are arbitrary fixture
+    // values standing in for whatever a brand actually picks — plus the system
+    // accent, which appears here only in the assertion that it must NOT leak
+    // into microsite output.
     file: "src/components/microsite/__tests__/registry.test.ts",
     names: ["raw hex color literal"],
-    values: ["#123456", "#FFFFFF", "#000000"],
+    values: [
+      "#123456",
+      "#FFFFFF",
+      "#000000",
+      "#2F5D50",
+      "#C4693B",
+      "#FF00FF",
+      "#2F4F63",
+    ],
   },
   {
     file: "src/components/microsite/tokens.ts",

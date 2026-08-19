@@ -5,6 +5,7 @@ import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { updatePassword } from "@/app/auth/actions";
 import type { AuthState } from "@/app/auth/actions";
+import { AuthFormError } from "@/components/auth/auth-form-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,14 +27,7 @@ export function ResetPasswordForm() {
         <p className="type-body-sm">{t("resetPassword.subheading")}</p>
       </div>
 
-      {state.error && (
-        <div
-          role="alert"
-          className="rounded-lg bg-destructive/10 px-4 py-3 type-body-sm text-destructive"
-        >
-          {state.error}
-        </div>
-      )}
+      <AuthFormError message={state.error} />
 
       <form action={action} className="space-y-4">
         <div className="space-y-2">
@@ -75,7 +69,7 @@ export function ResetPasswordForm() {
         {t("resetPassword.backToSignIn")}{" "}
         <Link
           href={routes.auth.signIn()}
-          className="font-medium text-foreground underline-offset-4 hover:underline"
+          className="font-medium text-accent underline-offset-4 hover:underline"
         >
           {t("resetPassword.signInLink")}
         </Link>

@@ -36,7 +36,7 @@ export default async function JobDetailPage({
   if ("error" in result) {
     return (
       <div className="space-y-4">
-        <h1 className="type-section">Job Detail</h1>
+        <h1 className="type-label">Job Detail</h1>
         <p className="type-metadata text-danger">{result.error}</p>
       </div>
     );

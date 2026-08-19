@@ -122,11 +122,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   });
 }
 
+/*
+ * No `selectedBadge`. A trail renders `mode="trail"`, and the tile gates the
+ * trust label on `mode === "outbound"` (D11, the contrast rule: every tile in a
+ * trail is selected, so the label would repeat and say nothing). The key it
+ * used to read, `discover.selectedBadge`, was a different sentence from the
+ * selection commitment `TrustLabel` owns, and is gone from both catalogues.
+ */
 function trailLabels(t: (key: string) => string): SelectedProductTileLabels {
   return {
     cta: t("productCta"),
     brandSiteCta: t("brandSiteCta"),
-    selectedBadge: t("selectedBadge"),
     unavailable: t("unavailable"),
   };
 }

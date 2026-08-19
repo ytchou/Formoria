@@ -136,7 +136,7 @@ export function ReviewQueueToolbar<T>(props: {
                   key={filter.id}
                 >
                   <Search
-                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted"
                     aria-hidden="true"
                   />
                   <Input

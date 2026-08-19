@@ -56,10 +56,10 @@ function StepItem({
   showArrow: boolean
 }) {
   const itemClasses = cn(
-    'group flex h-auto w-full items-start gap-3 whitespace-normal rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+    'group flex h-auto w-full items-start gap-3 whitespace-normal rounded-[3px] border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2',
     step.isHighlighted
       ? 'border-accent/30 bg-accent/5 hover:bg-accent/10'
-      : 'border-transparent hover:bg-muted'
+      : 'border-transparent hover:bg-surface'
   )
 
   const content = (
@@ -73,7 +73,7 @@ function StepItem({
             'bg-accent/15 text-accent',
           !step.isCompleted &&
             !step.isHighlighted &&
-            'bg-muted text-muted-foreground'
+            'bg-surface text-ink-muted'
         )}
       >
         {step.isCompleted ? (

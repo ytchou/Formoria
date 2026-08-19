@@ -37,7 +37,7 @@ export default async function SettingsPage({ params, searchParams }: Props) {
   ]);
 
   return (
-    <div className="page-gutter mx-auto max-w-2xl py-12">
+    <div className="page-gutter mx-auto max-w-2xl py-section">
       <h1 className="type-page-title">
         {t("heading")}
       </h1>

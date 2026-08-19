@@ -53,6 +53,7 @@ import { statusStyles, textStyles } from "@/components/ui/text-styles";
 import { MAX_BULK_PRODUCT_BACKFILL } from "@/lib/constants/curated-products";
 import { routing } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
+import { inkActionClassName } from "@/components/admin/ink-action";
 import { routes } from "@/lib/routes";
 
 type TabValue = "all" | BrandStatus;
@@ -65,11 +66,11 @@ const MIT_STATUS_CONFIG: Record<
 > = {
   unverified: {
     label: "MIT Unverified",
-    className: "bg-secondary text-muted-foreground",
+    className: "bg-surface text-ink-muted",
   },
   declared: {
     label: "品牌聲明",
-    className: "bg-secondary text-muted-foreground",
+    className: "bg-surface text-ink-muted",
   },
   verified: {
     label: "MIT Smile Certified",
@@ -369,7 +370,7 @@ export function BrandList({
         </TabsList>
       </Tabs>
 
-      {error && <p className="mt-2 type-body-sm text-destructive">{error}</p>}
+      {error && <p className="mt-2 type-body-sm text-danger">{error}</p>}
 
       {/*
         A status, not an alert: "a refresh is already pending" is an ordinary
@@ -380,7 +381,7 @@ export function BrandList({
       <p
         role="status"
         className={cn(
-          "type-body-sm text-muted-foreground",
+          "type-body-sm text-ink-muted",
           productBackfillStatus && "mt-2",
         )}
       >
@@ -437,6 +438,8 @@ export function BrandList({
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Button
             type="button"
+            variant="secondary"
+            className={inkActionClassName}
             disabled={isPending}
             aria-label={`Generate products for ${productBackfillIds.size} selected ${
               productBackfillIds.size === 1 ? "brand" : "brands"
@@ -509,7 +512,7 @@ export function BrandList({
             {visible.map((brand) => (
               <Fragment key={brand.id}>
                 <TableRow
-                  className="cursor-pointer hover:bg-secondary"
+                  className="cursor-pointer hover:bg-surface"
                   data-state={
                     productBackfillIds.has(brand.id) ? "selected" : undefined
                   }
@@ -630,11 +633,11 @@ export function BrandList({
                           </DropdownMenuTrigger>
                           <DropdownMenuContent
                             align="end"
-                            className="w-40 min-w-40 rounded-lg border border-border bg-card shadow-card-hover"
+                            className="w-40 min-w-40 rounded-[3px] border border-rule bg-surface"
                           >
                             <DropdownMenuItem
                               disabled={isPending}
-                              className="text-foreground hover:bg-muted focus:bg-muted"
+                              className="text-ink hover:bg-surface focus:bg-surface"
                               onClick={() => setRefreshingBrandId(brand.id)}
                             >
                               Request re-enrichment
@@ -658,7 +661,7 @@ export function BrandList({
                       <Button
                         variant="secondary"
                         size="compact"
-                        className="text-destructive hover:text-destructive"
+                        className="text-danger hover:text-danger"
                         onClick={() => setDeletingBrandId(brand.id)}
                       >
                         Delete
@@ -690,7 +693,7 @@ export function BrandList({
               <TableRow>
                 <TableCell
                   colSpan={9}
-                  className="py-8 text-center text-muted-foreground"
+                  className="py-8 text-center text-ink-muted"
                 >
                   No brands found.
                 </TableCell>
@@ -793,7 +796,7 @@ export function BrandList({
         title="Delete brand"
         description="This action cannot be undone. The brand and all associated data will be permanently deleted."
         onConfirm={handleDelete}
-        confirmLabel="Delete"
+        confirmLabel="Delete this brand permanently"
         variant="destructive"
         confirmText={deletingBrand?.name}
         isPending={isPending}

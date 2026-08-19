@@ -36,7 +36,7 @@ export default async function MediaPage({ params }: Props) {
           label={tEdit('fieldHeroImage')}
         >
           {heroImageUrl ? (
-            <div className="relative aspect-video max-w-md overflow-hidden rounded-xl bg-muted">
+            <div className="relative aspect-video max-w-md overflow-hidden rounded-[3px] bg-surface-deep">
               <SurfaceImage
                 alt={tEdit('fieldHeroImage')}
                 className="object-cover"
@@ -48,7 +48,7 @@ export default async function MediaPage({ params }: Props) {
               />
             </div>
           ) : (
-            <p className="type-body-sm text-muted-foreground">
+            <p className="type-body-sm text-ink-muted">
               {t('notSet')}
             </p>
           )}
@@ -63,7 +63,7 @@ export default async function MediaPage({ params }: Props) {
               {productPhotos.map((photo, index) => (
                 <div
                   key={`${photo}-${index}`}
-                  className="relative aspect-square overflow-hidden rounded-xl bg-muted"
+                  className="relative aspect-square overflow-hidden rounded-[3px] bg-surface-deep"
                 >
                   <SurfaceImage
                     alt={`${tEdit('fieldProductPhotos')} ${index + 1}`}
@@ -78,7 +78,7 @@ export default async function MediaPage({ params }: Props) {
               ))}
             </div>
           ) : (
-            <p className="type-body-sm text-muted-foreground">
+            <p className="type-body-sm text-ink-muted">
               {t('notSet')}
             </p>
           )}

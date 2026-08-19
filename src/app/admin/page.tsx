@@ -35,16 +35,16 @@ function OperationsCard({
     <Link
       href={href}
       className={cn(
-        "group flex min-h-40 flex-col justify-between border-b border-r border-border p-5 transition-colors focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "group flex min-h-40 flex-col justify-between border-b border-r border-rule p-5 transition-colors focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
         needsAttention
           ? "bg-warning/10 hover:bg-warning/20"
-          : "bg-card hover:bg-muted/50",
+          : "bg-ground hover:bg-surface",
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <span className="type-body-sm font-medium text-ink">{label}</span>
         <ArrowUpRight
-          className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+          className="size-4 text-ink-muted transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
           aria-hidden="true"
         />
       </div>
@@ -142,12 +142,12 @@ export default async function AdminPage() {
   ];
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-stack">
       <section aria-labelledby="operations-overview-heading">
         <div className="mb-5 max-w-2xl">
           <h2
             id="operations-overview-heading"
-            className="type-section"
+            className="type-label"
           >
             Operations overview
           </h2>
@@ -156,7 +156,7 @@ export default async function AdminPage() {
             owns the work.
           </p>
         </div>
-        <div className="grid overflow-hidden rounded-xl border-l border-t border-border sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid overflow-hidden rounded-[3px] border-l border-t border-rule sm:grid-cols-2 xl:grid-cols-5">
           {dashboardMetrics.map((metric) => {
             const value = snapshot.metrics[metric.key];
             return (
@@ -191,10 +191,10 @@ export default async function AdminPage() {
 
       <section
         aria-labelledby="quick-operations-heading"
-        className="border-t border-border pt-8"
+        className="border-t border-rule pt-8"
       >
         <div className="mb-4">
-          <h2 id="quick-operations-heading" className="type-card-title">
+          <h2 id="quick-operations-heading" className="type-label">
             Quick operations
           </h2>
         </div>
@@ -203,11 +203,11 @@ export default async function AdminPage() {
 
       <section
         aria-labelledby="recent-jobs-heading"
-        className="border-t border-border pt-8"
+        className="border-t border-rule pt-8"
       >
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
-            <h2 id="recent-jobs-heading" className="type-card-title">
+            <h2 id="recent-jobs-heading" className="type-label">
               Recent data jobs
             </h2>
             <p className="mt-1 type-body-sm">
@@ -216,14 +216,14 @@ export default async function AdminPage() {
           </div>
           <Link
             href={routes.admin.jobs()}
-            className="inline-flex min-h-12 items-center text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex min-h-12 items-center text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             View all jobs
           </Link>
         </div>
-        <div className="divide-y divide-border border-y border-border">
+        <div className="divide-y divide-rule border-y border-rule">
           {snapshot.recentJobs.length === 0 ? (
-            <p className="py-8 text-center text-muted-foreground">
+            <p className="py-8 text-center text-ink-muted">
               No data jobs yet.
             </p>
           ) : (
@@ -231,7 +231,7 @@ export default async function AdminPage() {
               <Link
                 key={job.id}
                 href={routes.admin.job(job.id)}
-                className="grid min-h-16 gap-2 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:grid-cols-[minmax(220px,1fr)_auto_auto] sm:items-center sm:px-3"
+                className="grid min-h-16 gap-2 py-3 transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:grid-cols-[minmax(220px,1fr)_auto_auto] sm:items-center sm:px-3"
               >
                 <span className="font-medium">
                   {formatJobDate(job.created_at)}

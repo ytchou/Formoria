@@ -30,7 +30,10 @@ export default function ViolationAdminNotificationEmail({
   }))
 
   return (
-    <Layout previewText={`Content violation detected for ${escapedBrandName}`}>
+    <Layout
+      lang="en"
+      previewText={`Content violation detected for ${escapedBrandName}`}
+    >
       <EmailHeading as="h2">Content Violation Detected</EmailHeading>
       <EmailText>
         An edit by <span dangerouslySetInnerHTML={{ __html: escapedOwnerEmail }} /> for brand &quot;

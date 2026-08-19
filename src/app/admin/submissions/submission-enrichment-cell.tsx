@@ -27,7 +27,7 @@ export function renderEnrichment(submission: ReviewSubmission, t: SubmissionsT) 
         )}
       </div>
       {submission.latestCurationError && (
-        <p className="mt-1 max-w-72 type-metadata text-muted-foreground">
+        <p className="mt-1 max-w-72 type-metadata text-ink-muted">
           {submission.latestCurationError}
         </p>
       )}

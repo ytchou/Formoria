@@ -153,8 +153,10 @@ describe("SelectedProductTile", () => {
     // visible. Every tile on the wall and every tile in a trail is selected, so
     // the label carries no information there — and the trail's own string was
     // 為這個主題選入, a DIFFERENT commitment that must not be migrated into the
-    // 選物 label. The fixture still passes `selectedBadge`, so this asserts the
-    // mode suppresses the label rather than that the caller stopped asking.
+    // 選物 label. Both real call sites have since stopped passing
+    // `selectedBadge` and `discover.selectedBadge` is gone from the catalogues,
+    // but the FIXTURE still passes it on purpose: this asserts the mode alone
+    // suppresses the label, not merely that the callers stopped asking.
     for (const mode of ["wall", "trail"] as const) {
       const tile = renderWallTile({ mode });
       expect(
@@ -404,26 +406,31 @@ describe("SelectedProductTile", () => {
     expect(img.className).toContain("object-contain");
     expect(img.className).not.toContain("object-cover");
     // A contained image letterboxes permanently, so the box must match the
-    // `surfaceCardStyles` surface it sits in — `bg-muted` would show as a
-    // visible band. Covered modes keep `bg-muted` as a loading tint.
+    // `surfaceCardStyles` surface it sits in — the image plate would show as a
+    // visible band. Covered modes take `bg-surface-deep` as a loading tint;
+    // this one must not, which is what the negative pins.
     expect(box.className).toContain("bg-card");
-    expect(box.className).not.toContain("bg-muted");
+    expect(box.className).not.toContain("bg-surface-deep");
     view.unmount();
   });
 
-  it("serves a single-column image source on trail", () => {
-    // The trail is one column inside `max-w-[720px]`; the brand page's 3-col
-    // formula under-served it by ~40%, which `object-contain` makes visible.
+  it("serves the three-up grid image source on both card modes", () => {
+    // Both modes lay these tiles out with `Grid cols="thirds"`, so both take
+    // the `tile` surface's hint and there is no override left to drift.
+    //
+    // The trail used to ask for `(max-width: 768px) 100vw, 720px`, correct when
+    // it was a single 720px column and wrong the moment it became three-up: it
+    // requested roughly 3x the pixels it displayed. Pinned as ONE expected
+    // string for both modes, because a second string here is the thing that
+    // went stale last time.
+    const tileSizes = "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw";
+
     const trail = renderImageBox("trail");
-    expect(trail.img.getAttribute("sizes")).toBe(
-      "(max-width: 768px) 100vw, 720px",
-    );
+    expect(trail.img.getAttribute("sizes")).toBe(tileSizes);
     trail.view.unmount();
 
     const outbound = renderImageBox("outbound");
-    expect(outbound.img.getAttribute("sizes")).toBe(
-      "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw",
-    );
+    expect(outbound.img.getAttribute("sizes")).toBe(tileSizes);
     outbound.view.unmount();
   });
 
@@ -445,7 +452,7 @@ describe("SelectedProductTile", () => {
     expect(img.className).toContain("object-cover");
     expect(img.className).toContain("transition-transform");
     expect(img.className).toContain("motion-reduce:duration-[0.01ms]");
-    expect(box.className).toContain("bg-muted");
+    expect(box.className).toContain("bg-surface-deep");
     expect(img.getAttribute("sizes")).toBe(
       "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1600px) 25vw, 362px",
     );

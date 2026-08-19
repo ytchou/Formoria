@@ -7,6 +7,14 @@ import { getOgFonts, getOgMarkDataUri } from "@/lib/brand/og-fonts";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
+/**
+ * The site card. Warm paper ground, ink wordmark, one accent mark, and the
+ * 96 / 32 / 24 rhythm — the v2 spacing tokens at OG scale.
+ *
+ * v1 printed "Formoria" TWICE on this card, once at 118px in Bricolage and
+ * again at 56px in Noto Sans TC, with the tagline third. Two sizes of the same
+ * word is not a hierarchy; the wordmark says it once and the tagline answers.
+ */
 export default async function OgImage() {
   const [fonts, markDataUri] = await Promise.all([
     getOgFonts(),
@@ -15,16 +23,16 @@ export default async function OgImage() {
 
   return new ImageResponse(
     <OgLayout
-      backgroundColor={brand.bg}
+      backgroundColor={brand.ground}
       leftStripe={
         <div
           style={{
             position: "absolute",
             left: 96,
             top: 112,
-            width: 136,
-            height: 6,
-            backgroundColor: brand.cta,
+            width: 96,
+            height: 4,
+            backgroundColor: brand.accent,
           }}
         />
       }
@@ -44,9 +52,9 @@ export default async function OgImage() {
         style={{
           fontSize: 118,
           fontWeight: 700,
-          color: brand.fg,
+          color: brand.ink,
           lineHeight: 0.95,
-          marginTop: 44,
+          marginTop: 32,
           fontFamily: "Bricolage Grotesque",
         }}
       >
@@ -56,32 +64,15 @@ export default async function OgImage() {
       <div
         style={{
           display: "flex",
-          flexDirection: "column",
-          marginTop: 28,
-          gap: 12,
-          color: brand.fg,
+          fontSize: 38,
+          lineHeight: 1.2,
+          marginTop: 24,
+          color: brand.inkMuted,
           fontFamily: "Noto Sans TC",
           fontWeight: 700,
         }}
       >
-        <div
-          style={{
-            fontSize: 56,
-            lineHeight: 1.1,
-          }}
-        >
-          Formoria
-        </div>
-
-        <div
-          style={{
-            fontSize: 34,
-            lineHeight: 1.2,
-            color: brand.espresso,
-          }}
-        >
-          台灣品牌探索與選物平台
-        </div>
+        台灣品牌探索與選物平台
       </div>
     </OgLayout>,
     {

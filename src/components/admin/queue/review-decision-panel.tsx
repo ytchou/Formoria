@@ -3,6 +3,7 @@
 import { useId, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { inkActionClassName } from "@/components/admin/ink-action";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -104,7 +105,8 @@ export function ReviewDecisionPanel(props: {
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
-            variant="primary"
+            variant="secondary"
+            className={inkActionClassName}
             disabled={approveDisabled}
             aria-describedby={
               approveDisabled && notesPolicy === "required" && notesBlank

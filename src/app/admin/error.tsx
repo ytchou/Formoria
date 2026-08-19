@@ -2,6 +2,8 @@
 
 import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
+import { inkActionClassName } from '@/components/admin/ink-action'
+import { cn } from '@/lib/utils'
 import * as Sentry from '@sentry/nextjs'
 
 export default function AdminError({
@@ -17,12 +19,16 @@ export default function AdminError({
   }, [error])
 
   return (
-    <main className="page-gutter mx-auto flex page-measure flex-col items-center justify-center py-24 text-center">
+    <main className="page-gutter mx-auto flex page-measure flex-col items-center justify-center py-section text-center">
       <h1 className="type-section">Something went wrong</h1>
       <p className="mt-3 type-body-sm">
         An unexpected error occurred while loading this admin page. Please try again.
       </p>
-      <Button variant="primary" onClick={reset} className="mt-6">
+      <Button
+        variant="secondary"
+        onClick={reset}
+        className={cn('mt-6', inkActionClassName)}
+      >
         Try again
       </Button>
     </main>

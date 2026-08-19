@@ -157,7 +157,7 @@ export function InlineVerification({
             onClick={dismiss}
             variant="ghost"
             size="icon"
-            className="ml-auto text-muted-foreground hover:text-foreground [&_svg:not([class*=size-])]:size-3.5"
+            className="ml-auto text-ink-muted hover:text-ink [&_svg:not([class*=size-])]:size-3.5"
             aria-label={t('dismiss')}
           >
             <X className="h-3.5 w-3.5" />
@@ -169,14 +169,14 @@ export function InlineVerification({
         <div className="space-y-3">
           <dl className="grid gap-2 type-metadata sm:grid-cols-2">
             <div>
-              <dt className="text-muted-foreground">{t('declared.scopeLabel')}</dt>
+              <dt className="text-ink-muted">{t('declared.scopeLabel')}</dt>
               <dd className="type-body-sm font-medium text-ink">
                 {t(`declare.scope.${mitDeclaredScope ?? 'all'}`)}
               </dd>
             </div>
             {mitDeclaredAt ? (
               <div>
-                <dt className="text-muted-foreground">{t('declared.dateLabel')}</dt>
+                <dt className="text-ink-muted">{t('declared.dateLabel')}</dt>
                 <dd className="type-body-sm font-medium text-ink">
                   {new Intl.DateTimeFormat().format(new Date(mitDeclaredAt))}
                 </dd>
@@ -200,7 +200,7 @@ export function InlineVerification({
               <h3 id={`${scopeId}-cert-title`} className="type-body-sm font-medium text-ink">
                 {t('tier.certTitle')}
               </h3>
-              <p className="mt-1 type-metadata text-muted-foreground">
+              <p className="mt-1 type-metadata text-ink-muted">
                 {t('tier.certDescription')}
               </p>
             </div>
@@ -227,7 +227,7 @@ export function InlineVerification({
             </form>
           </section>
 
-          <div className="flex items-center gap-3 text-muted-foreground" aria-hidden="true">
+          <div className="flex items-center gap-3 text-ink-muted" aria-hidden="true">
             <span className="h-px flex-1 bg-border md:h-full md:w-px md:flex-none" />
             <span className="type-metadata">{t('or')}</span>
             <span className="h-px flex-1 bg-border md:hidden" />
@@ -238,7 +238,7 @@ export function InlineVerification({
               <h3 id={`${scopeId}-declare-title`} className="type-body-sm font-medium text-ink">
                 {t('tier.declareTitle')}
               </h3>
-              <p className="mt-1 type-metadata text-muted-foreground">
+              <p className="mt-1 type-metadata text-ink-muted">
                 {t('tier.declareDescription')}
               </p>
             </div>

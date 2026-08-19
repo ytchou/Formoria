@@ -53,16 +53,16 @@
     "disclosure": "Formoria does not sell products. Every purchase happens on the brand's own channel."
   },
   "discover": {
-    "metaTitle": "Curated themes",
+    "metaTitle": "Styles",
     "metaDescription": "Moving into a new home, setting up a shop, changing a lamp — follow a concrete situation to find Taiwanese brands and products that fit.",
-    "heading": "Curated themes",
+    "heading": "Styles",
     "subheading": "Start from one concrete situation and see which Taiwanese products belong in it.",
-    "comingSoon": "The first curated theme is on its way.",
-    "loadError": "Curated themes are temporarily unavailable. Please try again later.",
+    "comingSoon": "The first style is on its way.",
+    "loadError": "Styles are temporarily unavailable. Please try again later.",
     "retry": "Try again",
-    "breadcrumb": "Curated themes",
-    "breadcrumbAria": "Curated themes breadcrumb",
-    "sectionNavAria": "Curated theme sections",
+    "breadcrumb": "Styles",
+    "breadcrumbAria": "Styles breadcrumb",
+    "sectionNavAria": "Style sections",
     "editorLabel": "Editor",
     "updatedLabel": "Updated",
     "selectionLabel": "Selection",
@@ -71,16 +71,15 @@
     "languageBadge": "In Chinese",
     "productCta": "Visit product official site",
     "brandSiteCta": "Visit brand official site",
-    "selectedBadge": "Selected for this theme",
     "brandProvidedBadge": "Brand-provided information",
     "unavailable": "The official link is currently unavailable",
     "relatedCategories": "Explore related categories",
     "relatedStories": "Continue reading",
-    "relatedTrails": "More curated themes",
+    "relatedTrails": "More styles",
     "notFound": {
-      "title": "Curated theme not found",
-      "description": "This curated theme does not exist or has been removed.",
-      "browseAll": "Browse all curated themes"
+      "title": "Style not found",
+      "description": "This style does not exist or has been removed.",
+      "browseAll": "Browse all styles"
     }
   },
   "landing": {
@@ -103,8 +102,8 @@
       "note": "Moving in, styling a shop, changing a lamp — these products were chosen on purpose for moments like these; open one to meet the brand behind it.",
       "showMore": "See more selections",
       "showLess": "Show fewer selections",
-      "trailEyebrow": "Curated theme",
-      "trailCta": "Explore this theme →"
+      "trailEyebrow": "Style",
+      "trailCta": "Explore this style →"
     },
     "trustSeam": {
       "line": "Listings and selections stay distinct"
@@ -1648,6 +1647,7 @@
       "shareOfVisits": "{share}% of visits",
       "tooltipProfileVisits": "Unique browsing sessions that opened your brand page in the last 30 days.",
       "tooltipOutboundClicks": "Sessions where a visitor clicked an external link from your brand page.",
+      "privacyBoundary": "An outbound click records only the moment a visitor leaves Formoria. Formoria does not track what visitors do on your own site — what happens next is visible to you alone.",
       "tooltipOutboundClickRate": "Outbound clicks ÷ profile visits. Measures how often visitors engage with your links.",
       "tooltipTopTrafficSource": "The most common way visitors find this brand page.",
       "definitionAria": "Definition",
@@ -1834,6 +1834,8 @@
       "wizardBack": "Back",
       "wizardBackToDashboard": "Back to dashboard",
       "wizardPublish": "Publish",
+      "curationNotice": "Formoria 選物 is decided by the editorial team and is not edited here. It is an editorial judgement, not a field a brand sets.",
+      "reviewNotice": "Publishing sends your changes for review. The public brand page keeps its current content until the review finishes, then switches to this version.",
       "wizardStepBasicInfo": "Basic Info",
       "wizardStepBasicInfoSub": "Brand identity & details",
       "wizardStepMedia": "Brand images",

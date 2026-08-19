@@ -256,7 +256,7 @@ export default function SubmitQuickForm() {
             />
             {nameSuggestion ? (
               <div className="animate-reveal-up">
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body-sm text-ink-soft">
+                <div className="flex items-center justify-between gap-3 rounded-[3px] border border-rule bg-surface p-3 type-body-sm text-ink-soft">
                   <span>
                     {t("ownerForm.suggestedName")}{" "}
                     <strong>{nameSuggestion}</strong>
@@ -316,7 +316,7 @@ export default function SubmitQuickForm() {
             />
             {urlSuggestion ? (
               <div className="animate-reveal-up">
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body-sm text-ink-soft">
+                <div className="flex items-center justify-between gap-3 rounded-[3px] border border-rule bg-surface p-3 type-body-sm text-ink-soft">
                   <span>
                     {t("ownerForm.suggestedUrl")}{" "}
                     <strong>{urlSuggestion}</strong>
@@ -372,7 +372,7 @@ export default function SubmitQuickForm() {
                             href={routes.privacy()}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="text-ink underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                           >
                             {chunks}
                           </Link>
@@ -419,7 +419,7 @@ export default function SubmitQuickForm() {
             />
           </div>
           {turnstileError ? (
-            <p className="type-body-sm text-destructive" role="alert">
+            <p className="type-body-sm text-danger" role="alert">
               {t("errors.turnstileError")}
             </p>
           ) : null}
@@ -427,7 +427,7 @@ export default function SubmitQuickForm() {
           {submitError ? (
             <p
               role="alert"
-              className="type-body-sm text-destructive"
+              className="type-body-sm text-danger"
               aria-live="polite"
             >
               {submitError}

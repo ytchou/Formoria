@@ -88,9 +88,9 @@ export default async function AdminLayout({
       skipToContentLabel={tCommon("skipToContent")}
     >
       <NextIntlClientProvider locale="en" messages={messages}>
-        <div className="min-h-screen bg-background">
-          <main id="main-content" className="mx-auto max-w-screen-2xl px-10 pb-8 pt-8">
-            <h1 className="type-page-title">{t("title")}</h1>
+        <div className="min-h-screen bg-ground">
+          <main id="main-content" className="page-gutter mx-auto max-w-screen-2xl py-stack">
+            <h1 className="type-label">{t("title")}</h1>
             <AdminNav items={navItems} />
             <div className="mt-8">{children}</div>
           </main>

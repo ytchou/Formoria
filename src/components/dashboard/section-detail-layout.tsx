@@ -20,7 +20,7 @@ export function SectionDetailLayout({
     <section className="space-y-3">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <h2 className="type-card-title">{title}</h2>
+          <h2 className="type-label">{title}</h2>
           <p className="type-body-sm">{description}</p>
         </div>
         {editHref && editLabel ? (

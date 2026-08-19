@@ -210,7 +210,7 @@ export function SelectedProductTile({
         style={{ aspectRatio: wallAspectRatio }}
         // Container radius: the photo box is a top-level surface of the wall,
         // so it takes DESIGN.md's 6px container step, not the nested 4.8px one.
-        className="relative w-full overflow-hidden rounded-[3px] bg-muted"
+        className="relative w-full overflow-hidden rounded-[3px] bg-surface-deep"
       >
         {imageSrc ? (
           <SurfaceImage
@@ -280,10 +280,12 @@ export function SelectedProductTile({
         className={cn(
           "relative aspect-square w-full overflow-hidden",
           // Not cosmetic. A contained image letterboxes PERMANENTLY, so the
-          // box must disappear into the `surfaceCardStyles` tone it sits in
-          // (`card`). A covered image only shows its box while loading, which
-          // is why every other mode keeps `bg-muted` as a loading tint.
-          mode === "trail" ? "bg-card" : "bg-muted",
+          // box must disappear into the `surfaceCardStyles` tone it sits in,
+          // and that tone is still `bg-card` — `surfaceCardStyles` carries no
+          // `bg-muted` to migrate, so this branch does not move with the rest.
+          // A covered image only shows its box while loading, which is why
+          // every other mode takes the `surface-deep` plate instead.
+          mode === "trail" ? "bg-card" : "bg-surface-deep",
         )}
       >
         {imageSrc ? (
@@ -300,17 +302,17 @@ export function SelectedProductTile({
                 fit: mode === "trail" ? "contain" : "cover",
               }).className
             }
-            // Trail is ONE column inside a `max-w-[720px]` section
-            // (`discover/[slug]/page.tsx`). On the brand page's 3-col formula
-            // `next/image` under-served it by ~40% and the photo rendered
-            // soft — which `object-contain`, showing more of the frame, makes
-            // more visible.
+            // NO `sizes` OVERRIDE, IN EITHER MODE. Both the brand page and the
+            // trail lay these tiles out with `Grid cols="thirds"`
+            // (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`), which is exactly
+            // what the `tile` surface describes — so the surface IS the hint.
+            //
+            // The trail used to override with `(max-width: 768px) 100vw,
+            // 720px`, written when a trail was a single 720px column. It is now
+            // three-up, so that hint asked for roughly three times the pixels
+            // it displays on every trail product image. An override is a string
+            // nothing keeps honest: the column count moved and it did not.
             surface="tile"
-            sizes={
-              mode === "trail"
-                ? "(max-width: 768px) 100vw, 720px"
-                : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            }
           />
         ) : (
           <BrandImageFallback

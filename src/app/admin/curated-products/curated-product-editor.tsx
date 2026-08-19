@@ -12,6 +12,8 @@ import {
   updateCuratedProductAction,
 } from "@/app/admin/curated-products/actions";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
+import { inkActionClassName } from "@/components/admin/ink-action";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -894,7 +896,7 @@ export function CuratedProductEditor({
       </fieldset>
 
       {trailOptions.length > 0 ? (
-        <fieldset className="space-y-3 rounded-lg border border-border p-4">
+        <fieldset className="space-y-3 rounded-[3px] border border-rule p-4">
           <legend className="type-body-sm font-semibold text-ink">
             {t("placement.title")}
           </legend>
@@ -950,7 +952,7 @@ export function CuratedProductEditor({
           {selectedTrail?.warnings.length ? (
             <div
               role="status"
-              className="space-y-2 rounded-md bg-secondary p-3"
+              className="space-y-2 rounded-[4px] bg-surface p-3"
             >
               <p className="type-body-sm font-semibold text-ink">{t("placement.blockersTitle")}</p>
               <ul className="list-disc pl-5 type-metadata">
@@ -1036,8 +1038,8 @@ export function CuratedProductEditor({
       <div className="flex justify-end">
         <Button
           type="button"
-          variant="primary"
-          className="min-h-12"
+          variant="secondary"
+          className={cn("min-h-12", inkActionClassName)}
           disabled={
             isPending ||
             nameZh.trim().length === 0 ||

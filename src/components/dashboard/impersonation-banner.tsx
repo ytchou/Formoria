@@ -52,10 +52,10 @@ export function ImpersonationBanner() {
 
   return (
     <div className="border-b border-mit-verified/20 bg-mit-verified-bg px-3 py-2">
-      <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-3">
+      <div className="mx-auto flex header-measure items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           {/* ui-exception: inverse badge on dark impersonation banner; single site, no variant warranted */}
-          <Badge className="bg-background text-mit-verified">
+          <Badge className="bg-ground text-mit-verified">
             {brandName}
           </Badge>
           <span className="truncate type-body-sm font-medium text-mit-verified">
@@ -69,7 +69,7 @@ export function ImpersonationBanner() {
           type="button"
           size="compact"
           variant="secondary"
-          className="border-mit-verified/30 text-mit-verified hover:bg-background"
+          className="border-mit-verified/30 text-mit-verified hover:bg-ground"
           disabled={isPending}
           onClick={() => {
             startTransition(async () => {

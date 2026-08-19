@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { signInWithGoogle, signUp } from "@/app/auth/actions";
 import type { AuthState } from "@/app/auth/actions";
+import { AuthFormError } from "@/components/auth/auth-form-error";
 import { GoogleButton } from "@/components/auth/google-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,7 +47,7 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
       </div>
 
       {claimToken && claimBrandName && (
-        <div className="rounded-lg border border-accent/20 bg-accent/5 px-4 py-3 type-body-sm text-ink-soft">
+        <div className="rounded-[3px] border border-rule bg-surface px-4 py-3 type-body-sm text-ink-soft">
           {t.rich("signUp.claimMessage", {
             brandName: claimBrandName,
             strong: (chunks) => <strong>{chunks}</strong>,
@@ -54,14 +55,7 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
         </div>
       )}
 
-      {state.error && (
-        <div
-          role="alert"
-          className="rounded-lg bg-destructive/10 px-4 py-3 type-body-sm text-destructive"
-        >
-          {state.error}
-        </div>
-      )}
+      <AuthFormError message={state.error} />
 
       <form action={action} className="space-y-4">
         <input type="hidden" name="locale" value={locale} />
@@ -133,7 +127,7 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
         {t("signUp.hasAccount")}{" "}
         <Link
           href={signInHref}
-          className="font-medium text-foreground underline-offset-4 hover:underline"
+          className="font-medium text-accent underline-offset-4 hover:underline"
         >
           {t("signUp.signInLink")}
         </Link>

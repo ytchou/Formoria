@@ -44,8 +44,8 @@ export function AnalyticsDonutCard({
   );
 
   return (
-    <SurfaceCard className="rounded-md" padding="lg">
-      <h2 className="type-card-title">{title}</h2>
+    <SurfaceCard className="rounded-[4px]" padding="lg">
+      <h2 className="type-label">{title}</h2>
       {rows.length === 0 ? (
         <p className="mt-4 type-body-sm">{emptyLabel}</p>
       ) : (
@@ -88,15 +88,15 @@ export function AnalyticsDonutCard({
                   className="h-2.5 w-2.5 shrink-0 rounded-full"
                   style={{ backgroundColor: paletteColor(index) }}
                 />
-                <span className="min-w-0 flex-1 text-foreground">
+                <span className="min-w-0 flex-1 text-ink">
                   {row.label}
                 </span>
-                <span className="text-muted-foreground tabular-nums">
+                <span className="text-ink-muted tabular-nums">
                   {total === 0
                     ? "0%"
                     : `${Math.round((row.sessions / total) * 100)}%`}
                 </span>
-                <span className="w-12 text-right font-medium text-foreground tabular-nums">
+                <span className="w-12 text-right font-medium text-ink tabular-nums">
                   {row.sessions.toLocaleString()}
                 </span>
               </li>

@@ -70,7 +70,7 @@ export function JobHistoryList({
         </div>
       ) : null}
 
-      <div className="overflow-x-auto rounded-xl border border-border bg-card">
+      <div className="overflow-x-auto rounded-[3px] border border-rule bg-surface">
         <Table>
           <TableHeader>
             <TableRow>
@@ -90,7 +90,7 @@ export function JobHistoryList({
               <TableRow>
                 <TableCell
                   colSpan={9}
-                  className="py-8 text-center text-muted-foreground"
+                  className="py-8 text-center text-ink-muted"
                 >
                   No data jobs yet.
                 </TableCell>
@@ -101,7 +101,7 @@ export function JobHistoryList({
                   <TableCell>
                     <Link
                       href={routes.admin.job(job.id)}
-                      className="font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     >
                       {formatJobDate(job.created_at)}
                     </Link>
@@ -115,7 +115,7 @@ export function JobHistoryList({
                   <TableCell>{formatProgress(job)}</TableCell>
                   <TableCell
                     className={
-                      job.failed_count > 0 ? "font-medium text-destructive" : ""
+                      job.failed_count > 0 ? "font-medium text-danger" : ""
                     }
                   >
                     {formatOutcome(job)}

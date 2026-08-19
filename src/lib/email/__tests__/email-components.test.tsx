@@ -19,7 +19,7 @@ describe("Layout", () => {
     expect(html).toContain("台灣品牌探索與選物平台");
     expect(html).toContain("Hello world");
     expect(html).toContain("600");
-    expect(html).toContain("#FDFCFA");
+    expect(html).toContain("#FAF7F2");
   });
 
   it("renders unsubscribe link when provided", async () => {
@@ -49,7 +49,7 @@ describe("Header", () => {
   it("renders logo and wordmark", async () => {
     const html = await render(<Header />);
     expect(html).toContain("Formoria");
-    expect(html).toContain("#18181B");
+    expect(html).toContain("#1A1815");
   });
 });
 
@@ -84,7 +84,7 @@ describe("EmailHeading", () => {
   it("renders styled heading", async () => {
     const html = await render(<EmailHeading>Title</EmailHeading>);
     expect(html).toContain("Title");
-    expect(html).toContain("#18181B");
+    expect(html).toContain("#1A1815");
   });
 });
 
@@ -98,6 +98,6 @@ describe("EmailText", () => {
 describe("EmailDivider", () => {
   it("renders styled hr", async () => {
     const html = await render(<EmailDivider />);
-    expect(html).toContain("#E8E5E0");
+    expect(html).toContain("#DED5C8");
   });
 });

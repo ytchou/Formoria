@@ -9,7 +9,7 @@ export default function EventNotFound() {
   const t = useTranslations('events')
 
   return (
-    <main className="page-gutter mx-auto flex page-measure flex-col items-center justify-center py-24 text-center">
+    <main className="page-gutter mx-auto flex page-measure flex-col items-center justify-center py-section text-center">
       <h1 className="type-section">{t('notFound.title')}</h1>
       <p className="mt-3 type-body-sm">{t('notFound.description')}</p>
       {/* A raw `<a>`, not next/link. DEV-1280: full-document navigation avoids a

@@ -157,19 +157,19 @@ export function JobDetailView({
         <div className="space-y-2">
           <Link
             href={routes.admin.jobs()}
-            className="inline-flex min-h-12 items-center type-body-sm font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex min-h-12 items-center type-body-sm font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             ← Back to Data Jobs
           </Link>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="type-section">Job Detail</h1>
+            <h1 className="type-label">Job Detail</h1>
             <JobStatusBadge job={job} />
           </div>
-          <p className="break-all font-mono type-body-sm">{job.id}</p>
+          <p className="break-all type-metadata tabular-nums">{job.id}</p>
         </div>
         <div className="flex flex-wrap gap-3">
           {canDispatch ? (
-            <DispatchJobButton jobId={job.id} label="Run now" />
+            <DispatchJobButton jobId={job.id} label="Run this job now" />
           ) : null}
           {active ? <CancelJobButton jobId={job.id} /> : null}
           {canRerunCompleted ? (
@@ -244,7 +244,7 @@ export function JobDetailView({
       </div>
 
       <SurfaceCard padding="lg">
-        <h2 className="type-card-title">Execution Info</h2>
+        <h2 className="type-label">Execution Info</h2>
         <dl className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <InfoField label="Trigger" value={jobTriggerLabel(job.trigger)} />
           <InfoField label="Attempt" value={job.attempt} />
@@ -292,7 +292,7 @@ export function JobDetailView({
 
       {parent || children.length > 0 ? (
         <SurfaceCard padding="lg">
-          <h2 className="type-card-title">Retry Lineage</h2>
+          <h2 className="type-label">Retry Lineage</h2>
           <div className="mt-4 flex flex-wrap gap-3">
             {parent ? (
               <LineageLink
@@ -313,17 +313,17 @@ export function JobDetailView({
 
       <section className="space-y-4" aria-labelledby="job-targets-heading">
         <div>
-          <h2 id="job-targets-heading" className="type-card-title">
+          <h2 id="job-targets-heading" className="type-label">
             Brand Details
           </h2>
           <p className="mt-1 type-body-sm">
             Phase results, changed fields, and error summary per brand.
           </p>
           <details className="mt-2">
-            <summary className="flex min-h-12 cursor-pointer items-center font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <summary className="flex min-h-12 cursor-pointer items-center font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
               What do phases mean?
             </summary>
-            <dl className="grid gap-x-6 gap-y-3 rounded-lg bg-muted/40 p-4 sm:grid-cols-2 lg:grid-cols-3">
+            <dl className="grid gap-x-6 gap-y-3 rounded-[3px] bg-surface/40 p-4 sm:grid-cols-2 lg:grid-cols-3">
               {phaseDefinitions.map(([phase, description]) => (
                 <div key={phase}>
                   <dt className="type-body-sm font-medium text-ink capitalize">{phase}</dt>
@@ -362,7 +362,7 @@ export function JobDetailView({
 
         <SurfaceCard padding="none" className="overflow-x-auto">
           {visibleTargets.length === 0 ? (
-            <p className="p-6 text-center text-muted-foreground">
+            <p className="p-6 text-center text-ink-muted">
               No brands match this filter.
             </p>
           ) : (
@@ -458,11 +458,11 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
 
   return (
     <details className="group min-w-72">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
         View details
       </summary>
       <div className="pb-4 pr-4">
-        <dl className="grid gap-4 rounded-lg bg-muted/40 p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <dl className="grid gap-4 rounded-[3px] bg-surface/40 p-4 sm:grid-cols-2 lg:grid-cols-4">
           <InfoField label="Slug" value={target.brand_slug ?? "-"} />
           <InfoField
             label="Changed fields"
@@ -489,7 +489,7 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
               {phases.map((phase, index) => (
                 <li
                   key={`${phase.phase}-${index}`}
-                  className="rounded-lg border border-border p-3"
+                  className="rounded-[3px] border border-rule p-3"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-medium">{phase.phase}</span>
@@ -524,7 +524,7 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
                     <p className="mt-2 type-body-sm text-ink-soft">{formatPhaseDetail(phase)}</p>
                   ) : null}
                   {phase.error ? (
-                    <p className="mt-2 type-body-sm text-destructive">
+                    <p className="mt-2 type-body-sm text-danger">
                       {phase.error}
                     </p>
                   ) : null}

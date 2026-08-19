@@ -41,7 +41,7 @@ export function ProgressStepCard({
           <ListChecks className="size-5" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="type-card-title">
+          <h2 className="type-label">
             {title}
           </h2>
           <p className="mt-0.5 type-body-sm">{progressText}</p>
@@ -49,7 +49,7 @@ export function ProgressStepCard({
       </div>
 
       <div
-        className="mt-4 h-2 overflow-hidden rounded-full bg-muted"
+        className="mt-4 h-2 overflow-hidden rounded-full bg-surface"
         role="progressbar"
         aria-label={progressLabel}
         aria-valuemin={0}

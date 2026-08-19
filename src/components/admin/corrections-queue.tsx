@@ -123,7 +123,7 @@ function subcategoryBadges(
 ): ReactNode {
   if (subcategories.length === 0) {
     return (
-      <span className="type-body-sm text-muted-foreground">
+      <span className="type-body-sm text-ink-muted">
         {emptyLabel}
       </span>
     );

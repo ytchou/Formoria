@@ -2,17 +2,20 @@
   "dimensions": { "card": { "width": 1080, "height": 1350 } },
   "palette": {
     "accent": "#2F4F63",
-    "dark": "#1C1C1C",
-    "cream": "#FFFDF8",
+    "dark": "#1A1815",
+    "cream": "#FAF7F2",
+    "onInk": "#D6CFC4",
+    "onInkMuted": "#9A9288",
+    "ruleOnInk": "#3A352E",
     "scrimBlack": "#000000",
-    "stripDark": "#000000CC",
+    "stripDark": "#1A1815CC",
     "stripAccent": "#1D3140"
   },
   "colors": {
-    "background": "#1C1C1C",
-    "text": "#FFFDF8",
-    "secondary": "#FFFFFFCC",
-    "muted": "#FFFFFF99",
+    "background": "#1A1815",
+    "text": "#D6CFC4",
+    "secondary": "#9A9288",
+    "muted": "#9A9288",
     "accent": "#2F4F63"
   },
   "typography": {
@@ -70,32 +73,32 @@
   },
   "accentRules": {
     "image": {
-      "tagBorder": "#2F4F63",
-      "tagText": "#2F4F63",
-      "ruleColor": "#2F4F63",
-      "barColor": "#2F4F63",
-      "counter": "#2F4F63",
-      "strip": "#000000CC",
-      "ctaBtn": { "bg": "#FFFDF8", "text": "#2F4F63" }
+      "tagBorder": "#D6CFC466",
+      "tagText": "#D6CFC4",
+      "ruleColor": "#D6CFC4AA",
+      "barColor": "#D6CFC4",
+      "counter": "#9A9288",
+      "strip": "#1A1815CC",
+      "ctaBtn": { "bg": "#FAF7F2", "text": "#2F4F63" }
     },
     "dark": {
-      "tagBorder": "#2F4F63",
-      "tagText": "#2F4F63",
-      "ruleColor": "#2F4F63",
-      "barColor": "#2F4F63",
-      "counter": "#2F4F63",
-      "strip": "#000000CC",
-      "ctaBtn": { "bg": "#FFFDF8", "text": "#2F4F63" }
+      "tagBorder": "#D6CFC466",
+      "tagText": "#D6CFC4",
+      "ruleColor": "#D6CFC4AA",
+      "barColor": "#D6CFC4",
+      "counter": "#9A9288",
+      "strip": "#1A1815CC",
+      "ctaBtn": { "bg": "#FAF7F2", "text": "#2F4F63" }
     },
     "color": {
       "#2F4F63": {
-        "tagBorder": "#FFFFFF66",
-        "tagText": "#FFFDF8",
-        "ruleColor": "#FFFDF8AA",
-        "barColor": "#FFFDF8AA",
-        "counter": "#FFFDF8",
+        "tagBorder": "#D6CFC466",
+        "tagText": "#FAF7F2",
+        "ruleColor": "#FAF7F2AA",
+        "barColor": "#FAF7F2",
+        "counter": "#FAF7F2",
         "strip": "#1D3140",
-        "ctaBtn": { "bg": "#FFFDF8", "text": "#2F4F63" }
+        "ctaBtn": { "bg": "#FAF7F2", "text": "#2F4F63" }
       }
     }
   },

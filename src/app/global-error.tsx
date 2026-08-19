@@ -42,8 +42,8 @@ export default function GlobalError({
 
   return (
     <html lang={locale}>
-      <body className="min-h-screen bg-background text-foreground">
-        <main className="page-gutter mx-auto flex min-h-screen page-measure flex-col items-center justify-center py-24 text-center">
+      <body className="min-h-screen bg-ground text-ink">
+        <main className="page-gutter mx-auto flex min-h-screen page-measure flex-col items-center justify-center py-section text-center">
           <h1 className="type-page-title">{copy.title}</h1>
           <p className="mt-3 type-body-sm">{copy.description}</p>
           <Button

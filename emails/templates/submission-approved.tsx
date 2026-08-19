@@ -1,7 +1,7 @@
 import * as React from "react";
-import { Link } from "@react-email/components";
 import { render } from "@react-email/render";
 import { Button } from "@emails/components/button";
+import { EmailLink } from "@emails/components/email-link";
 import { EmailHeading } from "@emails/components/email-heading";
 import { EmailText } from "@emails/components/email-text";
 import { Layout } from "@emails/components/layout";
@@ -32,7 +32,7 @@ export default function SubmissionApprovedEmail({
 }: ApprovalTemplateProps) {
   if (locale === "en") {
     return (
-      <Layout previewText="Your brand has been approved!">
+      <Layout lang="en" previewText="Your brand has been approved!">
         <EmailHeading>Your brand has been approved!</EmailHeading>
         <EmailText>
           Great news -{" "}
@@ -41,7 +41,7 @@ export default function SubmissionApprovedEmail({
         </EmailText>
         <EmailText>You can view your brand page here:</EmailText>
         <EmailText>
-          <Link href={brandUrl}>{brandUrl}</Link>
+          <EmailLink href={brandUrl}>{brandUrl}</EmailLink>
         </EmailText>
         <Button href={brandUrl}>View your brand page</Button>
         <EmailText>
@@ -60,7 +60,7 @@ export default function SubmissionApprovedEmail({
       </EmailText>
       <EmailText>您可以在此查看您的品牌頁面：</EmailText>
       <EmailText>
-        <Link href={brandUrl}>{brandUrl}</Link>
+        <EmailLink href={brandUrl}>{brandUrl}</EmailLink>
       </EmailText>
       <Button href={brandUrl}>查看品牌頁面</Button>
       <EmailText>感謝您協助更多人發現台灣品牌。</EmailText>

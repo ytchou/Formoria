@@ -178,7 +178,7 @@ export function ClaimRequestsList({
         <div>
           <span>{item.requesterEmail ?? t("unknownRequester")}</span>
           {item.existingOwnedBrand ? (
-            <span className="mt-1 block type-label text-destructive">
+            <span className="mt-1 block type-label text-danger">
               {t("ownerAlreadyManagesShort")}
             </span>
           ) : null}
@@ -209,8 +209,8 @@ export function ClaimRequestsList({
     return (
       <div className="space-y-4">
         {item.existingOwnedBrand ? (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-            <p className="type-body-sm font-semibold text-destructive">
+          <div className="rounded-[3px] border border-danger/30 bg-danger/5 p-4">
+            <p className="type-body-sm font-semibold text-danger">
               {t("ownerAlreadyManagesTitle")}
             </p>
             <p className="mt-1 type-body-sm">
@@ -233,7 +233,7 @@ export function ClaimRequestsList({
               {item.proofEvidence.map((proof, index) => (
                 <div
                   key={`${proof.type}-${proof.url ?? proof.imageKey ?? index}`}
-                  className="rounded-lg border border-border bg-card p-4"
+                  className="rounded-[3px] border border-rule bg-surface p-4"
                 >
                   <div className="space-y-3">
                     <p className="type-body-sm font-medium text-ink">
@@ -244,7 +244,7 @@ export function ClaimRequestsList({
                         className={
                           proof.verified
                             ? "inline-flex rounded-full bg-verified-green-bg px-2 py-0.5 type-metadata text-verified-green"
-                            : "inline-flex rounded-full bg-muted px-2 py-0.5 type-metadata"
+                            : "inline-flex rounded-full bg-surface px-2 py-0.5 type-metadata"
                         }
                       >
                         {proof.verified
@@ -276,7 +276,7 @@ export function ClaimRequestsList({
                           alt={proofTypesT(
                             `${PROOF_TYPE_I18N_KEYS[proof.type]}.label`,
                           )}
-                          className="h-20 w-20 rounded-md border border-border object-cover"
+                          className="h-20 w-20 rounded-[4px] border border-rule object-cover"
                         />
                       </>
                     ) : null}
@@ -309,7 +309,7 @@ export function ClaimRequestsList({
           </div>
         ) : null}
         {item.status !== "pending" && item.proofCleanupStatus ? (
-          <div className="space-y-1 rounded-lg border border-border bg-card p-4">
+          <div className="space-y-1 rounded-[3px] border border-rule bg-surface p-4">
             <p className="type-metadata">{t("cleanupStatus.label")}</p>
             <Badge
               variant={
@@ -335,7 +335,7 @@ export function ClaimRequestsList({
       <ReviewQueueToolbar queue={queue}>
         {warning ? (
           <p
-            className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 type-body-sm text-warning"
+            className="rounded-[3px] border border-warning/30 bg-warning/10 px-4 py-3 type-body-sm text-warning"
             role="status"
           >
             {warning}

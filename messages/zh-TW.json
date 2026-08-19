@@ -53,16 +53,16 @@
     "disclosure": "Formoria 不販售商品，所有購買都在品牌自己的通路完成。"
   },
   "discover": {
-    "metaTitle": "主題選物",
+    "metaTitle": "風格",
     "metaDescription": "搬新家、佈置店面、換一盞燈——沿著具體的生活情境，找到適合你的台灣品牌與產品。",
-    "heading": "主題選物",
+    "heading": "風格",
     "subheading": "從一個具體情境出發，看看有哪些台灣產品適合放進去。",
-    "comingSoon": "第一個主題選物正在準備中，敬請期待。",
-    "loadError": "主題選物暫時無法載入，請稍後再試。",
+    "comingSoon": "第一個風格正在準備中，敬請期待。",
+    "loadError": "風格暫時無法載入，請稍後再試。",
     "retry": "再試一次",
-    "breadcrumb": "主題選物",
-    "breadcrumbAria": "主題選物麵包屑導覽",
-    "sectionNavAria": "主題選物段落",
+    "breadcrumb": "風格",
+    "breadcrumbAria": "風格麵包屑導覽",
+    "sectionNavAria": "風格段落",
     "editorLabel": "編輯",
     "updatedLabel": "更新",
     "selectionLabel": "選物",
@@ -71,16 +71,15 @@
     "languageBadge": "中文",
     "productCta": "前往產品官方網站",
     "brandSiteCta": "前往品牌官方網站",
-    "selectedBadge": "為這個主題選入",
     "brandProvidedBadge": "品牌提供資訊",
     "unavailable": "官方連結目前無法使用",
     "relatedCategories": "探索相關分類",
     "relatedStories": "繼續閱讀",
-    "relatedTrails": "其他主題選物",
+    "relatedTrails": "其他風格",
     "notFound": {
-      "title": "找不到主題選物",
-      "description": "這個主題不存在或已被移除。",
-      "browseAll": "瀏覽所有主題選物"
+      "title": "找不到這個風格",
+      "description": "這個風格不存在或已被移除。",
+      "browseAll": "瀏覽所有風格"
     }
   },
   "landing": {
@@ -103,8 +102,8 @@
       "note": "搬新家、佈置店面、想換一盞燈 — 這裡是為了這些時刻刻意挑出的產品，點進去認識做它的品牌。",
       "showMore": "看更多選物",
       "showLess": "收合選物",
-      "trailEyebrow": "主題選物",
-      "trailCta": "探索這個主題 →"
+      "trailEyebrow": "風格",
+      "trailCta": "探索這個風格 →"
     },
     "trustSeam": {
       "line": "收錄與選物，清楚分開"
@@ -1648,6 +1647,7 @@
       "shareOfVisits": "佔瀏覽量 {share}%",
       "tooltipProfileVisits": "過去 30 天內開啟品牌頁面的不重複瀏覽工作階段。",
       "tooltipOutboundClicks": "訪客在品牌頁面點擊外部連結的工作階段。",
+      "privacyBoundary": "外連點擊只記錄訪客離開 Formoria 的那一下。Formoria 不追蹤你在品牌官網上的行為，之後發生什麼事，只有你自己的網站看得到。",
       "tooltipOutboundClickRate": "外連點擊 ÷ 品牌頁瀏覽。衡量訪客與連結互動的頻率。",
       "tooltipTopTrafficSource": "訪客找到這個品牌頁面的最常見方式。",
       "definitionAria": "查看定義",
@@ -1834,6 +1834,8 @@
       "wizardBack": "上一步",
       "wizardBackToDashboard": "返回品牌管理",
       "wizardPublish": "發布",
+      "curationNotice": "「Formoria 選物」由編輯團隊決定，不在這裡編輯。它是編輯判斷，不是品牌可以設定的欄位。",
+      "reviewNotice": "發布後會先進入審核。審核期間，公開的品牌頁面維持現在的內容；通過之後才會換成你這次的修改。",
       "wizardStepBasicInfo": "基本資料",
       "wizardStepBasicInfoSub": "品牌基本資料",
       "wizardStepMedia": "品牌圖片",

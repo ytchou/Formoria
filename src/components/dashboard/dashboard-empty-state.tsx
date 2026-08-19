@@ -12,8 +12,8 @@ export function DashboardEmptyState() {
   return (
     <section className="flex min-h-[calc(100vh-8rem)] items-center justify-center px-4 py-16">
       <div className="mx-auto flex max-w-[480px] flex-col items-center text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-          <Store className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface">
+          <Store className="h-7 w-7 text-ink-muted" aria-hidden="true" />
         </div>
         <h1 className="mt-6 type-section">
           {t('title')}

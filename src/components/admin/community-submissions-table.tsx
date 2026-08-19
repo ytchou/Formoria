@@ -22,6 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { inkActionClassName } from "@/components/admin/ink-action";
+import { cn } from "@/lib/utils";
 import { MAX_COMMUNITY_SUBMISSIONS } from "@/lib/services/community-submissions.constants";
 import type {
   CommunitySubmissionDraft,
@@ -200,10 +202,10 @@ export function CommunitySubmissionsTable() {
         <Label
           htmlFor={`${idBase}-csv`}
           aria-disabled={isPending}
-          className="flex min-h-36 cursor-pointer items-center justify-between gap-6 rounded-lg border border-dashed border-border bg-background p-6 transition-colors hover:bg-muted aria-disabled:pointer-events-none aria-disabled:opacity-50"
+          className="flex min-h-36 cursor-pointer items-center justify-between gap-6 rounded-[3px] border border-dashed border-rule bg-ground p-6 transition-colors hover:bg-surface aria-disabled:pointer-events-none aria-disabled:opacity-50"
         >
           <span className="flex items-center gap-4">
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-border bg-card">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-[3px] border border-rule bg-surface">
               <FileUp aria-hidden="true" />
             </span>
             <span className="space-y-1">
@@ -236,7 +238,7 @@ export function CommunitySubmissionsTable() {
         <div className="space-y-3">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 className="type-card-title">Review import</h2>
+              <h2 className="type-label">Review import</h2>
               <p className="mt-1 type-body-sm">
                 Showing {filteredRows.length} of {rows.length} rows ·{" "}
                 {selectedCount} selected. Similar matches require an explicit
@@ -267,7 +269,8 @@ export function CommunitySubmissionsTable() {
               </div>
               <Button
                 type="button"
-                className="min-h-12"
+                variant="secondary"
+                className={cn("min-h-12", inkActionClassName)}
                 disabled={isPending || selectedCount === 0}
                 onClick={executeRows}
               >

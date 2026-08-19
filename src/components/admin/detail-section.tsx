@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { inkActionClassName } from "@/components/admin/ink-action";
+import { cn } from "@/lib/utils";
 
 type DetailSectionProps = {
   title: string;
@@ -35,7 +37,7 @@ export function DetailSection({
 }: DetailSectionProps) {
   return (
     <section
-      className={editing ? "space-y-4 rounded-lg bg-muted/40 p-4" : "space-y-3"}
+      className={editing ? "space-y-4 rounded-[3px] bg-surface/40 p-4" : "space-y-3"}
     >
       <div className="flex items-center justify-between">
         <h3 className="type-body-sm font-semibold text-ink">{title}</h3>
@@ -68,8 +70,8 @@ export function DetailSection({
             {cancelLabel}
           </Button>
           <Button
-            className="min-h-12"
-            variant="primary"
+            className={cn("min-h-12", inkActionClassName)}
+            variant="secondary"
             onClick={onSave}
             disabled={isPending}
           >

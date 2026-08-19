@@ -342,7 +342,7 @@ export function ReviewDetailsEditor({
       className="space-y-6"
     >
       {missingLabels.length > 0 && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4">
+        <div className="rounded-[4px] border border-danger/30 bg-danger/5 p-4">
           <p className="type-body-sm font-medium text-ink">{t("missingRequired")}</p>
           <ul className="mt-2 list-disc space-y-1 pl-5 type-body-sm">
             {missingLabels.map((label) => (
@@ -587,12 +587,12 @@ export function ReviewDetailsEditor({
                   // public cards there is no container behind this image.
                   const fill = brandImageFill(image, {
                     inset: "p-6",
-                    logoPlate: "bg-muted",
+                    logoPlate: "bg-surface",
                   });
                   return (
                     <div
                       key={image.id}
-                      className="overflow-hidden rounded-md border bg-card"
+                      className="overflow-hidden rounded-[4px] border bg-surface"
                     >
                       <div className="relative">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -606,7 +606,7 @@ export function ReviewDetailsEditor({
                         <Button
                           shape="pill"
                           variant={index === 0 ? "primary" : "secondary"}
-                          className="absolute left-2 top-2 h-12 w-12 p-0 shadow-sm"
+                          className="absolute left-2 top-2 h-12 w-12 border border-rule p-0"
                           onClick={() => setHero(image.id)}
                           aria-label={t("setHero", { n: index + 1 })}
                         >
@@ -676,7 +676,7 @@ export function ReviewDetailsEditor({
                     // Same helper, same reasoning as the draft grid above.
                     const fill = brandImageFill(image, {
                       inset: "p-6",
-                      logoPlate: "bg-muted",
+                      logoPlate: "bg-surface",
                     });
                     return (
                       <figure
@@ -688,7 +688,7 @@ export function ReviewDetailsEditor({
                           src={image.url}
                           alt={image.altZh ?? t("imageAlt", { n: index + 1 })}
                           className={cn(
-                            "aspect-media w-full rounded-md border",
+                            "aspect-media w-full rounded-[4px] border",
                             fill.className,
                           )}
                           // Assigned, never spread — `undefined` is meaningful here.
@@ -965,7 +965,7 @@ function ProductProposalsReadOnly({
         return (
           <li
             key={proposal.key}
-            className="space-y-3 rounded-md border border-border p-4"
+            className="space-y-3 rounded-[4px] border border-rule p-4"
           >
             <div className="flex flex-wrap items-center gap-2">
               <p className="type-body-sm font-medium text-ink">{proposalTitle(proposal)}</p>
@@ -1078,7 +1078,7 @@ function ProductProposalsEditor({
         return (
           <fieldset
             key={proposal.key}
-            className="space-y-3 rounded-md border border-border p-4"
+            className="space-y-3 rounded-[4px] border border-rule p-4"
           >
             <legend className="type-metadata">
               {t("details.productEditor.item", { number: index + 1 })}

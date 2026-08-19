@@ -53,7 +53,7 @@ export async function QuickActions({ brandSlug }: { brandSlug: string }) {
 
   return (
     <section aria-labelledby="quick-actions-title">
-      <h2 className="type-card-title" id="quick-actions-title">
+      <h2 className="type-label" id="quick-actions-title">
         {tOverview('quickActionsTitle')}
       </h2>
       <Grid className="mt-4">
@@ -62,12 +62,12 @@ export async function QuickActions({ brandSlug }: { brandSlug: string }) {
 
           return (
             <Link
-              className="group min-h-12 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="group min-h-12 rounded-[3px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               href={action.href}
               key={action.titleKey}
             >
               <SurfaceCard
-                className="flex h-full items-center gap-3 rounded-lg transition-colors group-hover:bg-muted"
+                className="flex h-full items-center gap-3 rounded-[3px] transition-colors group-hover:bg-surface"
                 padding="sm"
               >
                 <Icon
@@ -75,7 +75,7 @@ export async function QuickActions({ brandSlug }: { brandSlug: string }) {
                   className="size-5 shrink-0 text-accent"
                 />
                 <div className="min-w-0 flex-1">
-                  <h3 className="type-card-title">
+                  <h3 className="type-label">
                     {tWelcome(action.titleKey)}
                   </h3>
                   <p className="mt-1 type-body-sm">
@@ -84,7 +84,7 @@ export async function QuickActions({ brandSlug }: { brandSlug: string }) {
                 </div>
                 <ChevronRight
                   aria-hidden="true"
-                  className="size-4 shrink-0 text-muted-foreground"
+                  className="size-4 shrink-0 text-ink-muted"
                 />
               </SurfaceCard>
             </Link>

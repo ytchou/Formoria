@@ -500,7 +500,7 @@ export function SubmissionsReviewList({
         {queue.activeTab !== "needs_data" &&
         bulkRejecting &&
         queue.selectedVisible.length > 0 ? (
-          <div className="max-w-sm space-y-2 rounded-md border bg-background p-3">
+          <div className="max-w-sm space-y-2 rounded-[4px] border bg-ground p-3">
             <Label>{t("bulkRejectReason")}</Label>
             <NativeSelect
               aria-label={t("bulkRejectAriaLabel")}
@@ -535,7 +535,7 @@ export function SubmissionsReviewList({
             queue.toggleOpen(submission.id);
           }}
           isRowPending={(submission) => queueAction.isRowPending(submission.id)}
-          rowClassName={() => "hover:bg-secondary"}
+          rowClassName={() => "hover:bg-surface"}
           // The drawer's decision panel already renders the action error while
           // it is open; surfacing it here too would emit two role="alert" nodes.
           error={openSubmission === null ? queueAction.error : null}

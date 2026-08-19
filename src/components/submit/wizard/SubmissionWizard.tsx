@@ -286,7 +286,7 @@ export default function SubmissionWizard({
 
             {activeStep === SUBMISSION_WIZARD_STEPS.length - 1 ? (
               <>
-                <div className="mt-6 space-y-4 rounded-lg border border-border bg-card p-6">
+                <div className="mt-6 space-y-4 rounded-[3px] border border-rule bg-surface p-6">
                   <Controller
                     name="pdpaConsent"
                     control={form.control}
@@ -308,7 +308,7 @@ export default function SubmissionWizard({
                                   href={routes.privacy()}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                  className="text-ink underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                                 >
                                   {chunks}
                                 </Link>
@@ -379,7 +379,7 @@ export default function SubmissionWizard({
                   ) : null}
                 </div>
 
-                <footer className="mt-8 flex items-center justify-between border-t border-border pt-6">
+                <footer className="mt-8 flex items-center justify-between border-t border-rule pt-6">
                   <Button
                     type="button"
                     variant="secondary"

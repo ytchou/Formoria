@@ -62,7 +62,7 @@ export function ImageCarousel({
         // in the grid, so the same photo was cropped two different ways
         // depending on where you looked at it. `aspect-media` is 1:1 — see the
         // token's comment in globals.css for the measurement.
-        className="relative aspect-media overflow-hidden rounded-[3px] bg-muted"
+        className="relative aspect-media overflow-hidden rounded-[3px] bg-surface-deep"
       >
         <BrandImageFallback name={alt} category={category ?? null} size="detail" />
       </div>
@@ -90,7 +90,8 @@ export function ImageCarousel({
   }
 
   // Shared with every other brand image surface. The container already paints
-  // the `bg-muted` plate a contained logo sits on, so no `logoPlate` here.
+  // the `bg-surface-deep` plate a contained logo sits on, so no `logoPlate`
+  // here.
   function fill(index: number, inset: string) {
     return brandImageFill(metaFor(index), { inset })
   }
@@ -174,7 +175,7 @@ export function ImageCarousel({
         // in the grid, so the same photo was cropped two different ways
         // depending on where you looked at it. `aspect-media` is 1:1 — see the
         // token's comment in globals.css for the measurement.
-        className="relative aspect-media overflow-hidden rounded-[3px] bg-muted"
+        className="relative aspect-media overflow-hidden rounded-[3px] bg-surface-deep"
       >
         {previousImage && (
           <SurfaceImage
@@ -304,7 +305,7 @@ export function ImageCarousel({
               data-ph-no-autocapture
             >
               {brokenImages.has(i) ? (
-                <div className="flex h-full items-center justify-center bg-muted">
+                <div className="flex h-full items-center justify-center bg-surface-deep">
                   <span className="type-label text-ink-muted">
                     {initial}
                   </span>

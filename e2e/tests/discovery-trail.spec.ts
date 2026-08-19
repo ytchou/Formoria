@@ -5,11 +5,17 @@ import { test, expect } from "../fixtures/auth";
 import {
   NO_PUBLISHED_TRAILS,
   publishedTrails,
+  type PublishedTrail,
 } from "../utils/published-trails";
 
 const trails = publishedTrails("zh-TW");
-const trail =
-  trails.find((candidate) => candidate.sections.length >= 3) ?? trails.at(0);
+// Index access, not `.at()`: `e2e/` is excluded from `tsconfig.json`, so the
+// editor type-checks this file against default compiler options whose `lib`
+// predates `Array.prototype.at`. The annotation is what keeps the empty-array
+// case honest — `trails[0]` widens to `PublishedTrail` without
+// `noUncheckedIndexedAccess`, and the `test.skip` below reads `undefined`.
+const trail: PublishedTrail | undefined =
+  trails.find((candidate) => candidate.sections.length >= 3) ?? trails[0];
 const TRAIL_URL = trail ? `/discover/${trail.slug}` : "/discover";
 // NO BADGE ON A TRAIL TILE ANY MORE (D11, DEV-1514). A trust label only says
 // something where its opposite is visible, and every tile in a trail is
@@ -19,6 +25,11 @@ const TRAIL_URL = trail ? `/discover/${trail.slug}` : "/discover";
 // anchor into the brand page at this product.
 const PRODUCT_ANCHOR = 'a[href*="#product-"]';
 const OFFICIAL_DESTINATION = /前往(?:產品|品牌)官方網站/;
+// `discover.sectionNavAria`. 風格 is the ONE name this surface has (DESIGN.md,
+// D5/D10): the nav link, the footer link, the `<h1>` and this landmark all say
+// it. The old 主題選物段落 was the second name the same surface used to carry,
+// and the two disagreeing is the seam DEV-1514 closes.
+const SECTION_NAV = "風格段落";
 
 test.describe("Discovery trail deep", () => {
   // DEV-1518 deleted the supply gate, so `/discover/<slug>` no longer 404s for
@@ -78,7 +89,7 @@ test.describe("Discovery trail deep", () => {
     const section = trail?.sections.at(0);
     test.skip(!section, "published trail has no sections");
     await anonPage
-      .getByRole("navigation", { name: "主題選物段落" })
+      .getByRole("navigation", { name: SECTION_NAV })
       .getByRole("link", { name: section?.title ?? "", exact: true })
       .click();
 
@@ -154,7 +165,7 @@ test.describe("Discovery trail deep", () => {
       exact: true,
     });
     await anonPage
-      .getByRole("navigation", { name: "主題選物段落" })
+      .getByRole("navigation", { name: SECTION_NAV })
       .getByRole("link", { name: section?.title ?? "", exact: true })
       .click();
 

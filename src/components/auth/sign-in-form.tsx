@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { signIn, signInWithGoogle } from "@/app/auth/actions";
 import type { AuthState } from "@/app/auth/actions";
+import { AuthFormError } from "@/components/auth/auth-form-error";
 import { GoogleButton } from "@/components/auth/google-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,7 +69,7 @@ export function SignInForm({
       </div>
 
       {claimToken && claimBrandName && (
-        <div className="rounded-lg border border-accent/20 bg-accent/5 px-4 py-3 type-body-sm text-ink-soft">
+        <div className="rounded-[3px] border border-rule bg-surface px-4 py-3 type-body-sm text-ink-soft">
           {t.rich("signIn.claimMessage", {
             brandName: claimBrandName,
             strong: (chunks) => <strong>{chunks}</strong>,
@@ -77,19 +78,12 @@ export function SignInForm({
       )}
 
       {message && (
-        <div className="rounded-lg bg-secondary px-4 py-3 type-body-sm text-secondary-foreground">
+        <div className="rounded-[3px] bg-surface px-4 py-3 type-body-sm text-ink-soft">
           {message}
         </div>
       )}
 
-      {errorMessage && (
-        <div
-          role="alert"
-          className="rounded-lg bg-destructive/10 px-4 py-3 type-body-sm text-destructive"
-        >
-          {errorMessage}
-        </div>
-      )}
+      <AuthFormError message={errorMessage} />
 
       <form action={action} className="space-y-4">
         <input type="hidden" name="locale" value={locale} />
@@ -125,7 +119,7 @@ export function SignInForm({
           <div className="flex justify-end">
             <Link
               href={routes.auth.forgotPassword()}
-              className="type-metadata text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+              className="type-metadata text-accent underline-offset-4 hover:underline"
             >
               {t("signIn.forgotPassword")}
             </Link>
@@ -151,7 +145,7 @@ export function SignInForm({
           {t("signIn.noAccount")}{" "}
           <Link
             href={signUpHref}
-            className="font-medium text-foreground underline-offset-4 hover:underline"
+            className="font-medium text-accent underline-offset-4 hover:underline"
           >
             {t("signIn.signUpLink")}
           </Link>

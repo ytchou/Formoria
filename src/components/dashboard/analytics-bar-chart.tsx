@@ -53,8 +53,8 @@ export function AnalyticsBarChart({
             className="flex items-center justify-between type-body-sm text-ink-soft"
             key={item.label}
           >
-            <span className="text-foreground">{item.label}</span>
-            <span className="tabular-nums text-muted-foreground">
+            <span className="text-ink">{item.label}</span>
+            <span className="tabular-nums text-ink-muted">
               {item.value.toLocaleString()}
             </span>
           </li>

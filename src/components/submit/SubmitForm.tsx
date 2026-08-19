@@ -65,7 +65,7 @@ function DuplicateNotice({
 }) {
   return (
     <div className="space-y-2">
-      <p className="type-body-sm text-destructive">
+      <p className="type-body-sm text-danger">
         {title}
         {candidates.map((candidate, index) => (
           <Fragment key={candidate.id}>
@@ -74,7 +74,7 @@ function DuplicateNotice({
               href={routes.brand(candidate.slug)}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="font-medium underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               {candidate.name}
             </Link>
@@ -395,7 +395,7 @@ export default function SubmitForm({
       <StandardForm onSubmit={onSubmit} noValidate>
         <div className="flex flex-col gap-5">
           <p className="type-metadata">
-            <span className="text-destructive">*</span> {tForm("requiredHint")}
+            <span className="text-danger">*</span> {tForm("requiredHint")}
           </p>
 
           <div className="grid gap-5 md:grid-cols-2">
@@ -426,7 +426,7 @@ export default function SubmitForm({
               />
               {nameSuggestion ? (
                 <div className="animate-reveal-up">
-                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body-sm text-ink-soft">
+                  <div className="flex items-center justify-between gap-3 rounded-[3px] border border-rule bg-surface p-3 type-body-sm text-ink-soft">
                     <span>
                       {tForm("suggestedName")} <strong>{nameSuggestion}</strong>
                     </span>
@@ -483,7 +483,7 @@ export default function SubmitForm({
               />
               {urlSuggestion ? (
                 <div className="overflow-hidden transition-all duration-200">
-                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body-sm text-ink-soft">
+                  <div className="flex items-center justify-between gap-3 rounded-[3px] border border-rule bg-surface p-3 type-body-sm text-ink-soft">
                     <span>
                       {tForm("suggestedUrl")} <strong>{urlSuggestion}</strong>
                     </span>
@@ -524,7 +524,7 @@ export default function SubmitForm({
                 <NativeSelect
                   id="submit-source"
                   className={cn(
-                    field.value ? "text-foreground" : "text-muted-foreground",
+                    field.value ? "text-ink" : "text-ink-muted",
                   )}
                   value={field.value ?? ""}
                   onChange={(event) =>
@@ -627,13 +627,13 @@ export default function SubmitForm({
                             href={routes.privacy()}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="text-ink underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                           >
                             {chunks}
                           </Link>
                         ),
                       })}
-                      <span aria-hidden="true" className="text-destructive">
+                      <span aria-hidden="true" className="text-danger">
                         {" "}
                         *
                       </span>
@@ -665,7 +665,7 @@ export default function SubmitForm({
             />
           </div>
           {turnstileError ? (
-            <p className="type-body-sm text-destructive" role="alert">
+            <p className="type-body-sm text-danger" role="alert">
               {t("errors.turnstileError")}
             </p>
           ) : null}
@@ -673,7 +673,7 @@ export default function SubmitForm({
           {submitError ? (
             <p
               role="alert"
-              className="type-body-sm text-destructive"
+              className="type-body-sm text-danger"
               aria-live="polite"
             >
               {submitError}

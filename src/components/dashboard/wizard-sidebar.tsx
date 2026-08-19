@@ -75,7 +75,7 @@ export function WizardSidebar({
           padding: 'none',
         })}
       >
-        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 text-left type-body-sm font-semibold text-ink outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-accent [&::-webkit-details-marker]:hidden">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 text-left type-body-sm font-semibold text-ink outline-none transition-colors hover:bg-surface focus-visible:ring-2 focus-visible:ring-accent [&::-webkit-details-marker]:hidden">
           <span className="min-w-0">
             <span className="block truncate">
               {activeStepItem ? activeStepItem.title : stepProgressText}
@@ -85,15 +85,15 @@ export function WizardSidebar({
         </summary>
 
         <nav
-          className="border-t border-border p-3"
+          className="border-t border-rule p-3"
           aria-label={stepProgressText}
         >
           <OnboardingStepList steps={stepItems} onStepClick={onStepClick} />
         </nav>
 
-        <div className="border-t border-border px-4 py-3">
+        <div className="border-t border-rule px-4 py-3">
           <div
-            className="h-2 overflow-hidden rounded-full bg-muted"
+            className="h-2 overflow-hidden rounded-full bg-surface"
             role="progressbar"
             aria-label={completedProgressText}
             aria-valuemin={0}

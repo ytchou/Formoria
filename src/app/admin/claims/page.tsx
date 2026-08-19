@@ -15,7 +15,7 @@ export default async function ClaimRequestsPage() {
 
   return (
     <div>
-      <h1 className="type-page-title">
+      <h1 className="type-label">
         Claim Requests
       </h1>
       <p className="mt-2 type-body-sm">

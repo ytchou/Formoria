@@ -5,6 +5,7 @@ import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { resetPassword } from "@/app/auth/actions";
 import type { AuthState } from "@/app/auth/actions";
+import { AuthFormError } from "@/components/auth/auth-form-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,17 +29,10 @@ export function ForgotPasswordForm() {
         </p>
       </div>
 
-      {state.error && (
-        <div
-          role="alert"
-          className="rounded-lg bg-destructive/10 px-4 py-3 type-body-sm text-destructive"
-        >
-          {state.error}
-        </div>
-      )}
+      <AuthFormError message={state.error} />
 
       {state.message ? (
-        <div className="rounded-lg bg-verified-green-bg px-4 py-3 type-body-sm text-ink-soft text-verified-green">
+        <div className="rounded-[3px] bg-verified-green-bg px-4 py-3 type-body-sm text-ink-soft text-verified-green">
           {state.message}
         </div>
       ) : (
@@ -72,7 +66,7 @@ export function ForgotPasswordForm() {
         {t("forgotPassword.backToSignIn")}{" "}
         <Link
           href={routes.auth.signIn()}
-          className="font-medium text-foreground underline-offset-4 hover:underline"
+          className="font-medium text-accent underline-offset-4 hover:underline"
         >
           {t("forgotPassword.signInLink")}
         </Link>

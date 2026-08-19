@@ -57,14 +57,14 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
   // `subcategories` stores slugs since DEV-1510; the owner sees labels.
   const subcategories = getBrandSubcategoryLabels(brand, locale)
   const unknownValue = (
-    <Typography as="span" className="text-muted-foreground" variant="fieldValue">
+    <Typography as="span" className="text-ink-muted" variant="fieldValue">
       {tBrandDetail('unknown')}
     </Typography>
   )
 
   return (
     <SurfaceCard
-      className="grid grid-cols-1 gap-6 rounded-lg md:grid-cols-[auto_1fr_auto]"
+      className="grid grid-cols-1 gap-6 rounded-[3px] md:grid-cols-[auto_1fr_auto]"
       padding="lg"
     >
       <div
@@ -111,7 +111,7 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
             label={tBrandDetail('label.location')}
             labelClassName={infoLabelClassName}
             value={brand.city ? (
-              <Badge className="text-foreground" variant="secondary">
+              <Badge className="text-ink" variant="secondary">
                 {tCities(brand.city)}
               </Badge>
             ) : unknownValue}
@@ -120,7 +120,7 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
             label={tBrandDetail('label.foundingYear')}
             labelClassName={infoLabelClassName}
             value={brand.foundingYear != null ? (
-              <Badge className="text-foreground" variant="secondary">
+              <Badge className="text-ink" variant="secondary">
                 {brand.foundingYear}
               </Badge>
             ) : unknownValue}
@@ -129,7 +129,7 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
             label={tBrandDetail('label.category')}
             labelClassName={infoLabelClassName}
             value={categorySlug !== '—' ? (
-              <Badge className="text-foreground" variant="secondary">
+              <Badge className="text-ink" variant="secondary">
                 {categorySlug}
               </Badge>
             ) : unknownValue}
@@ -138,7 +138,7 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
             label={tBrandDetail('label.priceRange')}
             labelClassName={infoLabelClassName}
             value={priceRange ? (
-              <Badge className="text-foreground" variant="secondary">
+              <Badge className="text-ink" variant="secondary">
                 {priceRange}
               </Badge>
             ) : unknownValue}
@@ -150,7 +150,7 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
               <div className="flex flex-wrap items-center gap-1.5">
                 {subcategories.map((subcategory) => (
                   <Badge
-                    className="text-foreground"
+                    className="text-ink"
                     key={subcategory}
                     variant="secondary"
                   >
@@ -179,7 +179,7 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
           })}
         </p>
         {completeness.score < 100 ? (
-          <p className="w-full rounded-lg bg-warning/10 p-3 type-metadata text-warning">
+          <p className="w-full rounded-[3px] bg-warning/10 p-3 type-metadata text-warning">
             {tOverview('warningIncomplete', {
               count: completeness.recommendations.length,
             })}

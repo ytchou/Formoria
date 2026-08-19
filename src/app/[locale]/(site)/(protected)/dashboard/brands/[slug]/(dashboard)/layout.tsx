@@ -35,11 +35,11 @@ export default async function DashboardBrandLayout({
 
   return (
     <div className="min-h-screen">
-      <div className="mx-auto max-w-7xl px-6 md:px-8">
+      <div className="page-gutter mx-auto page-measure">
         <DashboardHeroCard brand={brand} completeness={completeness} />
         <DashboardTabNav brandSlug={brand.slug} />
       </div>
-      <main className="mx-auto max-w-7xl p-6 md:p-8">{children}</main>
+      <main className="page-gutter mx-auto page-measure py-stack">{children}</main>
     </div>
   )
 }

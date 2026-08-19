@@ -33,9 +33,9 @@ export function WizardFooter({
   return (
     <footer
       className={cn(
-        'mt-8 flex items-center justify-between border-t border-border pt-6',
+        'mt-8 flex items-center justify-between border-t border-rule pt-6',
         isDirty &&
-          'sticky bottom-0 z-10 bg-background/95 backdrop-blur-sm page-gutter pb-6 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]',
+          'sticky bottom-0 z-10 border-t border-rule bg-ground/95 backdrop-blur-sm page-gutter pb-6',
       )}
     >
       <div>

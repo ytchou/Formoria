@@ -6,6 +6,8 @@ import { RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { rerunCurationJobAction } from "@/app/admin/operations/actions";
 import { Button } from "@/components/ui/button";
+import { inkActionClassName } from "@/components/admin/ink-action";
+import { cn } from "@/lib/utils";
 
 export function RerunJobButton({
   jobId,
@@ -39,7 +41,8 @@ export function RerunJobButton({
       onClick={handleRerun}
       disabled={isPending}
       size="large"
-      className="min-h-12"
+      variant="secondary"
+      className={cn("min-h-12", inkActionClassName)}
     >
       <RotateCcw aria-hidden="true" />
       {isPending ? "Queuing…" : label}

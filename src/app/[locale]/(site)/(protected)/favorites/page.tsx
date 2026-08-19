@@ -32,8 +32,8 @@ function BrandImage({ brand }: { brand: SavedBrand }) {
   const selectedImage = selectBrandCardImage(brand)
   if (!selectedImage) {
     return (
-      <div className="flex h-full items-center justify-center bg-secondary">
-        <span className="type-page-title text-muted-foreground">
+      <div className="flex h-full items-center justify-center bg-surface-deep">
+        <span className="type-page-title text-ink-muted">
           {[...brand.brandName][0]}
         </span>
       </div>
@@ -69,9 +69,9 @@ function SavedBrandCard({ brand }: { brand: SavedBrand }) {
       })}
       href={routes.brand(brand.brandSlug)}
     >
-      <div className="relative aspect-media overflow-hidden bg-muted">
+      <div className="relative aspect-media overflow-hidden bg-surface-deep">
         <BrandImage brand={brand} />
-        <div className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-accent shadow-sm">
+        <div className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-rule bg-ground text-accent">
           <Heart className="h-5 w-5" fill="currentColor" aria-hidden />
         </div>
       </div>
@@ -96,7 +96,7 @@ function EmptyState({
   return (
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center page-gutter py-16">
       <div className="max-w-md text-center">
-        <div className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <div className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-surface-deep text-ink-muted">
           <Heart className="h-8 w-8" aria-hidden />
         </div>
         <h2 className="mt-6 type-section">
@@ -126,8 +126,8 @@ export default async function FavoritesPage({ params }: Props) {
   const brands = await getUserSavedBrands(user.id)
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
+    <div className="min-h-screen bg-ground">
+      <header className="border-b border-rule bg-ground">
         <div className="page-gutter flex h-16 items-center justify-between gap-4">
           <h1 className="type-section">
             {t('heading')}
@@ -142,7 +142,7 @@ export default async function FavoritesPage({ params }: Props) {
 
       <main>
         {brands.length > 0 ? (
-          <Grid className="page-gutter py-10">
+          <Grid className="page-gutter py-stack">
             {brands.map((brand) => (
               <SavedBrandCard key={brand.brandId} brand={brand} />
             ))}

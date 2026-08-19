@@ -47,7 +47,7 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
 
   return (
     <div>
-      <h1 className="type-page-title">
+      <h1 className="type-label">
         Brands
       </h1>
       <p className="mt-2 type-body-sm">
