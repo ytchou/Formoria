@@ -53,6 +53,24 @@ describe("trailAuthoringWarnings", () => {
     ).toEqual([]);
   });
 
+  // A failed placement read reaches this as `products: null`. Only the section
+  // check consumes products, so the draft flag must survive it — losing it
+  // would let a broken query make an unpublished trail look publishable.
+  it("keeps the draft flag when the product read failed", () => {
+    expect(
+      trailAuthoringWarnings({
+        frontmatter: { ...baseFrontmatter, draft: true },
+        products: null,
+      }),
+    ).toEqual(["draft"]);
+  });
+
+  it("invents no section warning when the product read failed", () => {
+    expect(
+      trailAuthoringWarnings({ frontmatter: baseFrontmatter, products: null }),
+    ).toEqual([]);
+  });
+
   // No supply floor survives: a trail is not defective for being small, only
   // for declaring a section it never fills.
   it("does not flag on product count alone", () => {

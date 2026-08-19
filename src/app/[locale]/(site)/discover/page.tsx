@@ -5,6 +5,8 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StoryRow } from "@/components/stories/story-row";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
+import { shouldIndexTrailHub } from "@/lib/seo/trail-hub-indexability";
+import { captureReadFailure } from "@/lib/degraded-render";
 import {
   getAllTrails,
   type TrailEntry,
@@ -17,6 +19,8 @@ type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+export { shouldIndexTrailHub };
+
 export const revalidate = 3600;
 
 const TRAIL_TAGS = new Set<string>(L1_CATEGORIES.map((category) => category.slug));
@@ -27,10 +31,6 @@ export function filterTrailsByTag(
 ): TrailEntry[] {
   if (!requestedTag || !TRAIL_TAGS.has(requestedTag)) return trails;
   return trails.filter((trail) => trail.frontmatter.tags.includes(requestedTag));
-}
-
-export function shouldIndexTrailHub(trails: readonly TrailEntry[]): boolean {
-  return trails.length > 0;
 }
 
 export type HubView =
@@ -89,6 +89,12 @@ export default async function DiscoverHubPage({ params, searchParams }: PageProp
   const query = await searchParams;
   const activeTag = firstParam(query.tag);
   const result = await getAllTrails(safeLocale);
+  // The trail list is MDX on disk, so a failed read is a real outage that still
+  // serves a 200 with an error panel. Report it, or the outage is invisible:
+  // `trailListError` only reaches `console.error`. Observability only — the hub
+  // awaits `searchParams`, a Next 16 dynamic API, so the route is already
+  // dynamic and there is no ISR entry for `markRenderDegraded` to opt out of.
+  if (!result.ok) captureReadFailure("discover.hub.trails")(result.error);
   const view = selectHubView({ result, activeTag });
 
   return (

@@ -943,7 +943,11 @@ export function CuratedProductEditor({
             <p role="status" className="type-form-hint">
               {t("placement.readError")}
             </p>
-          ) : selectedTrail?.warnings.length ? (
+          ) : null}
+          {/* Independent of the read error above, not an else-branch of it: a
+              failed placement read still leaves the frontmatter-derived
+              warnings (draft) worth showing. */}
+          {selectedTrail?.warnings.length ? (
             <div
               role="status"
               className="space-y-2 rounded-md bg-secondary p-3"

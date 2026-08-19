@@ -51,9 +51,12 @@ const getTrailPageData = cache(
 export function buildTrailMetadata({
   locale,
   trail,
+  productsReadFailed = false,
 }: {
   locale: string;
   trail: TrailEntry;
+  /** `products === null` from `getTrailPageData` — the read threw, see below. */
+  productsReadFailed?: boolean;
 }): Metadata {
   const safeLocale: Locale = locale === "en" ? "en" : "zh-TW";
   const path = `/discover/${trail.frontmatter.slug}`;
@@ -70,6 +73,13 @@ export function buildTrailMetadata({
       type: "article",
       locale: safeLocale === "en" ? "en_US" : "zh_TW",
     },
+    // Failure, not scarcity — this is not the deleted supply floor. `null` means
+    // the curated-product read threw, so the page renders zero tiles for a reason
+    // that has nothing to do with the trail; indexing that is indexing an outage.
+    // A read that succeeds and returns nothing is a published trail with an empty
+    // shelf, and stays indexable, which is the whole point of moving quality to
+    // authoring time.
+    ...(productsReadFailed ? { robots: { index: false, follow: true } } : {}),
   };
 }
 
@@ -93,11 +103,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { locale, slug: rawSlug } = await params;
   const slug = decodeURIComponent(rawSlug);
   setRequestLocale(locale);
-  const { trail } = await getTrailPageData(slug);
+  // Already in hand and request-cached, so reading `products` here costs no extra
+  // round trip: `getTrailPageData` is the same `cache`d call the page body makes.
+  const { trail, products } = await getTrailPageData(slug);
 
   if (!trail) notFound();
 
-  return buildTrailMetadata({ locale, trail: trail.entry });
+  return buildTrailMetadata({
+    locale,
+    trail: trail.entry,
+    productsReadFailed: products === null,
+  });
 }
 
 function trailLabels(t: (key: string) => string): SelectedProductTileLabels {

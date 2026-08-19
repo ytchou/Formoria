@@ -84,9 +84,13 @@ export default async function CuratedProductsPage({
             try {
               productsForTrail = await getPublishedCuratedProductsForTrail(trail.slug);
             } catch {
-              // Keep a failed read distinct from an empty result. The editor
-              // can still place a product, but must not suggest that missing
-              // data is a real authoring warning.
+              // Keep a failed read distinct from an empty result, for the
+              // PRODUCT-DERIVED warning only: zero rows read as an unfilled
+              // section, so a failed read would invent one. Passing `null`
+              // below skips that check while leaving the frontmatter-derived
+              // `draft` flag intact — it is the signal that stops an editor
+              // treating an unpublished trail as publishable, and a broken
+              // product query is no reason to withhold it.
               placementReadError = true;
             }
             const declared = trail.frontmatter.sections;
@@ -101,12 +105,10 @@ export default async function CuratedProductsPage({
               slug: trail.slug,
               title: trail.frontmatter.title,
               sections: [...declared, ...orphaned],
-              warnings: placementReadError
-                ? []
-                : trailAuthoringWarnings({
-                    frontmatter: trail.frontmatter,
-                    products: productsForTrail,
-                  }),
+              warnings: trailAuthoringWarnings({
+                frontmatter: trail.frontmatter,
+                products: placementReadError ? null : productsForTrail,
+              }),
               placementReadError,
             };
           }),

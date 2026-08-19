@@ -17,14 +17,19 @@
  *   defective one.
  *
  * Kept pure and Supabase-free, exactly like the module it replaces: the caller
- * supplies the frontmatter and the products it already read.
+ * supplies the frontmatter and the products it already read — or `null` when
+ * that read failed.
  */
 
 /**
  * `unplaced_section` is a rename, not a port, of the old render-time blocker for
- * a section with no products. The old name described a render defect (a section
- * box with nothing in it) that no longer happens. What is left is an authoring
- * gap — a section the editor declared and never filled.
+ * a section with no products. The rendering did not change — only the gate that
+ * used to 404 such a trail was removed — so the state is now MORE reachable, not
+ * less. It is not a blank box either: the section still emits its MDX heading
+ * and the prose promising a slate, and only the product list under it renders
+ * nothing. That is the defect — a promised slate that renders nothing. It is now
+ * surfaced to the editor as an authoring warning instead of being hidden from
+ * visitors by a render-time 404, and NO automated gate blocks publishing one.
  */
 export type TrailAuthoringWarning = "draft" | "unplaced_section";
 
@@ -41,17 +46,26 @@ function present(value: string | null | undefined): boolean {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-/** Every authoring gap worth telling an editor about, in declaration order. */
+/**
+ * Every authoring gap worth telling an editor about, in declaration order.
+ *
+ * `products: null` means the caller could not read the placements. Only the
+ * section check consumes them, so only that check is skipped: a failed read
+ * never fabricates an unfilled section, and never costs the editor the
+ * frontmatter-derived `draft` flag, which no product row has a say in.
+ */
 export function trailAuthoringWarnings({
   frontmatter,
   products,
 }: {
   frontmatter: TrailAuthoringFrontmatter;
-  products: readonly TrailAuthoringProduct[];
+  products: readonly TrailAuthoringProduct[] | null;
 }): TrailAuthoringWarning[] {
   const warnings: TrailAuthoringWarning[] = [];
 
   if (frontmatter.draft) warnings.push("draft");
+
+  if (products === null) return warnings;
 
   const productSections = new Set(
     products

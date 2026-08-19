@@ -285,6 +285,12 @@ test.describe("SEO deep", () => {
     const staticPaths = new Set([
       "/",
       "/brands",
+      // Not a member of sitemap.ts's `staticPages`: the trail hub is listed
+      // zh-TW only and only while at least one trail is published, matching its
+      // own `noindex` gate. Named here so the entry is still swept for a
+      // resolvable OG image on the runs where the sitemap does emit it; on a
+      // run with no published trail the filter below simply finds no match.
+      "/discover",
       "/events",
       "/about",
       "/faq",

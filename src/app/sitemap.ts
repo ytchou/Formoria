@@ -8,6 +8,7 @@ import { buildDirectorySitemapSection } from "@/lib/seo/directory-sitemap";
 import { getStockistDirectory } from "@/lib/services/brand-channels";
 import { buildWhereToBuySitemapSection } from "@/lib/seo/where-to-buy-sitemap";
 import { getAllTrails, type TrailEntry } from "@/lib/services/trails";
+import { shouldIndexTrailHub } from "@/lib/seo/trail-hub-indexability";
 
 export const revalidate = 3600;
 
@@ -62,10 +63,26 @@ export function buildTrailSitemapEntries(
   );
 }
 
+// zh-TW only, exactly like `/stories` above and like every trail below: /en/discover
+// serves the same content and canonicals to the prefix-free twin, so submitting
+// it would be a self-inflicted duplicate-content signal with non-reciprocal
+// hreflang.
+export function buildTrailHubSitemapEntries(): MetadataRoute.Sitemap {
+  return localizedEntries("/discover", ["zh-TW"]);
+}
+
 async function buildTrailSitemapSection(): Promise<MetadataRoute.Sitemap> {
   const result = await getAllTrails("zh-TW");
+  // A failed read is not an empty slate: it drops the hub with its trails
+  // rather than submitting a URL nothing here could vouch for.
   if (!result.ok) return [];
-  return result.trails.flatMap((trail) => buildTrailSitemapEntries(trail));
+  // One read, one verdict. `shouldIndexTrailHub` is the hub page's own metadata
+  // gate, reused rather than restated, so the sitemap can never submit a URL
+  // that the page itself marks `noindex` — the two surfaces cannot drift.
+  return [
+    ...(shouldIndexTrailHub(result.trails) ? buildTrailHubSitemapEntries() : []),
+    ...result.trails.flatMap((trail) => buildTrailSitemapEntries(trail)),
+  ];
 }
 
 export function latestBrandDate(
@@ -81,7 +98,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages = [
     "/",
     "/brands",
-    "/discover",
     // Deliberately in staticPages, not the try block: the hub is a real page with
     // zero events, and it must stay listed even when the dynamic block throws.
     "/events",

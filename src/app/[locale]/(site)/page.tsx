@@ -49,9 +49,10 @@ export const revalidate = 3600;
  * never be frozen by `revalidate = 3600`.
  *
  * Pure and exported so the exact set of inputs is asserted rather than
- * re-argued. A read that only decorates the page stays out: folding one in
- * would let a single build-time blip demote the site's most-visited route to
- * dynamic for the whole deployment.
+ * re-argued — a single build-time blip must not demote the site's most-visited
+ * route to dynamic for the whole deployment, so which reads count is a fact a
+ * test pins down, not a judgment each edit makes again. There are currently no
+ * exclusions: every read this page performs is a parameter below.
  */
 export function isLandingRenderDegraded({
   exploreResult,
