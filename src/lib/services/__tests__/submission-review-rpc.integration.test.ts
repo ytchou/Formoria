@@ -389,11 +389,7 @@ describeWithDb("trusted submission review RPCs", () => {
       .from("brand_field_state")
       .select("field, source")
       .eq("brand_id", result.brandId)
-      .in("field", [
-        SUBCATEGORIES_FIELD,
-        CATEGORY_FIELD,
-        "social_instagram",
-      ]);
+      .in("field", [SUBCATEGORIES_FIELD, CATEGORY_FIELD, "social_instagram"]);
     expect(stateError).toBeNull();
     expect(
       Object.fromEntries(
@@ -880,7 +876,10 @@ describeWithDb("trusted submission review RPCs", () => {
       .update({ enriched_data: { description: "不應套用的介紹" } })
       .eq("id", submissionId!);
     await seedSuccessfulTarget(submissionId!, "refresh-stale");
-    await supabase!.from("brands").update({ city: "taipei" }).eq("id", brand.id);
+    await supabase!
+      .from("brands")
+      .update({ city: "taipei" })
+      .eq("id", brand.id);
 
     const { error } = await supabase!.rpc("apply_brand_refresh", {
       p_submission_id: submissionId!,
@@ -1129,7 +1128,6 @@ describeWithDb("trusted submission review RPCs", () => {
       blurb: "品牌摘要",
       blurbEn: "Brand summary",
       city: "taichung",
-      categoryAttributes: null,
       reputationSummary: null,
       channels: [],
       mitEvidence: null,

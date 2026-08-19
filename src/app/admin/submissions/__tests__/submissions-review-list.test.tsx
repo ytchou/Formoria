@@ -576,7 +576,6 @@ const baseReviewData = {
   blurb: "品牌摘要",
   blurbEn: "Brand summary",
   city: "台中",
-  categoryAttributes: null,
   reputationSummary: null,
   mitEvidence: null,
   siteContent: null,

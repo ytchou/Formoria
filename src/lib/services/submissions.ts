@@ -148,7 +148,6 @@ export type SubmissionReviewData = {
   blurb: string | null;
   blurbEn: string | null;
   city: string | null;
-  categoryAttributes: Json | null;
   reputationSummary: Json | null;
   channels?: ChannelCandidate[];
   mitEvidence: Json | null;
@@ -709,7 +708,6 @@ export function buildSubmissionReviewData(
     blurb: normalizeString(enrichedData?.blurb),
     blurbEn: normalizeString(enrichedData?.blurbEn),
     city: normalizeString(enrichedData?.city),
-    categoryAttributes: enrichedData?.categoryAttributes ?? null,
     reputationSummary: enrichedData?.reputationSummary ?? null,
     channels: enrichedData?.channels,
     mitEvidence: enrichedData?.mitEvidence ?? null,
@@ -997,7 +995,6 @@ function submissionReviewDataToBrandInsert(
     blurb: mapped.blurb,
     blurb_en: mapped.blurb_en,
     city: mapped.city,
-    category_attributes: data.categoryAttributes,
     reputation_summary: data.reputationSummary,
     mit_evidence: data.mitEvidence,
     site_content: data.siteContent,
@@ -1027,7 +1024,6 @@ function submissionReviewDataToDb(
     blurb: data.blurb,
     blurb_en: data.blurbEn,
     city: data.city,
-    category_attributes: data.categoryAttributes,
     reputation_summary: data.reputationSummary,
     channels: data.channels as unknown as Json,
     mit_evidence: data.mitEvidence,
@@ -1087,10 +1083,6 @@ function reviewDataFromDb(
       data.city === null || typeof data.city === "string"
         ? data.city
         : fallback.city,
-    categoryAttributes:
-      data.category_attributes === undefined
-        ? fallback.categoryAttributes
-        : (data.category_attributes as Json | null),
     reputationSummary:
       data.reputation_summary === undefined
         ? fallback.reputationSummary

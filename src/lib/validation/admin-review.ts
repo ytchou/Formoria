@@ -44,7 +44,6 @@ export const adminReviewSchema = z.object({
   blurb: nullableText,
   blurbEn: nullableText,
   city: z.string().max(200).nullable(),
-  categoryAttributes: z.unknown().nullable(),
   reputationSummary: z.unknown().nullable(),
   mitEvidence: z.unknown().nullable(),
   siteContent: z.unknown().nullable(),

@@ -248,7 +248,7 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "category",
     "subcategories",
     "subcategories_en",
-    "category_attributes",
+    "material",
     "hero_image_url",
     "other_urls",
     "purchase_website",

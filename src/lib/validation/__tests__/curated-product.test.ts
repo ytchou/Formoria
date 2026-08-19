@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  CURATED_PRODUCT_L1_VALUES,
+  CURATED_PRODUCT_CATEGORY_VALUES,
   MAX_CURATED_PRODUCT_NAME,
   curatedProductCreateSchema,
   curatedProductIdSchema,
@@ -16,7 +16,7 @@ function validCreate(overrides: Record<string, unknown> = {}) {
   return {
     brandId: BRAND_ID,
     nameZh: "手沖濾杯",
-    l1: "home",
+    category: "home",
     productDescriptionZh: "錐形濾杯，單孔設計。",
     ...overrides,
   };
@@ -28,16 +28,16 @@ describe("curated product validation", () => {
     expect(curatedProductIdSchema.safeParse(BRAND_ID).success).toBe(true);
   });
 
-  it("rejects_l1_outside_the_twelve", () => {
+  it("rejects_category_outside_the_twelve", () => {
     // The CHECK constraint in 20260813120000_curated_products.sql would reject
     // this too, but only after a round trip that surfaces as a 500.
-    expect(CURATED_PRODUCT_L1_VALUES).toHaveLength(12);
+    expect(CURATED_PRODUCT_CATEGORY_VALUES).toHaveLength(12);
     expect(
-      curatedProductCreateSchema.safeParse(validCreate({ l1: "furniture" }))
+      curatedProductCreateSchema.safeParse(validCreate({ category: "furniture" }))
         .success,
     ).toBe(false);
     expect(
-      curatedProductCreateSchema.safeParse(validCreate({ l1: "home" })).success,
+      curatedProductCreateSchema.safeParse(validCreate({ category: "home" })).success,
     ).toBe(true);
   });
 
@@ -242,16 +242,19 @@ describe("curated product validation", () => {
     );
   });
 
-  it("refuses an l2 patch that does not name its l1", () => {
+  it("refuses a subcategories patch that does not name its category", () => {
     // Refused at the BOUNDARY so the action returns its generic
     // "Invalid curated product"; the service keeps the same rule as a throwing
     // backstop, whose raw message would otherwise reach the editor.
     expect(
-      curatedProductUpdateSchema.safeParse({ l2: ["tableware"] }).success,
+      curatedProductUpdateSchema.safeParse({ subcategories: ["tableware"] })
+        .success,
     ).toBe(false);
     expect(
-      curatedProductUpdateSchema.safeParse({ l1: "home", l2: ["tableware"] })
-        .success,
+      curatedProductUpdateSchema.safeParse({
+        category: "home",
+        subcategories: ["tableware"],
+      }).success,
     ).toBe(true);
   });
 });

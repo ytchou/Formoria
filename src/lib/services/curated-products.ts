@@ -39,8 +39,8 @@ export type CuratedProduct = {
   key: string;
   nameZh: string;
   nameEn: string | null;
-  l1: string;
-  l2: string[];
+  category: string;
+  subcategories: string[];
   officialUrl: string | null;
   imageUrl: string | null;
   imageSourceUrl: string | null;
@@ -101,7 +101,8 @@ export type TrailCuratedProduct = CuratedProduct & {
  * placement and nothing else, so the columns below are the whole of it.
  */
 const CURATED_PRODUCT_READ_SELECT = `
-  id, brand_id, key, name_zh, name_en, l1, l2, official_url, image_url,
+  id, brand_id, key, name_zh, name_en, category, subcategories,
+  official_url, image_url,
   image_source_url, visible, link_state, link_checked_at,
   source_checked_at, review_due_at, product_description_zh,
   product_description_en, product_position, created_at,
@@ -125,8 +126,8 @@ type CuratedProductReadRow = Pick<
   | "key"
   | "name_zh"
   | "name_en"
-  | "l1"
-  | "l2"
+  | "category"
+  | "subcategories"
   | "official_url"
   | "image_url"
   | "image_source_url"
@@ -226,8 +227,8 @@ function toCuratedProduct(row: CuratedProductReadRow): CuratedProduct {
     key: row.key,
     nameZh: row.name_zh,
     nameEn: row.name_en ?? null,
-    l1: row.l1,
-    l2: row.l2 ?? [],
+    category: row.category,
+    subcategories: row.subcategories ?? [],
     officialUrl: row.official_url ?? null,
     imageUrl: row.image_url ?? null,
     imageSourceUrl: row.image_source_url ?? null,
@@ -265,8 +266,8 @@ function toTrailProduct(
     key: row.key,
     nameZh: row.name_zh,
     nameEn: row.name_en ?? null,
-    l1: row.l1,
-    l2: row.l2 ?? [],
+    category: row.category,
+    subcategories: row.subcategories ?? [],
     officialUrl: row.official_url ?? null,
     imageUrl: row.image_url ?? null,
     imageSourceUrl: row.image_source_url ?? null,
@@ -519,7 +520,8 @@ export async function getPublishedCuratedProductsForHomepage(
 }
 
 const CURATED_PRODUCT_TRAIL_READ_SELECT = `
-  id, brand_id, key, name_zh, name_en, l1, l2, official_url, image_url,
+  id, brand_id, key, name_zh, name_en, category, subcategories,
+  official_url, image_url,
   image_source_url, visible, link_state, link_checked_at,
   source_checked_at, review_due_at, product_description_zh,
   product_description_en, product_position, created_at,
@@ -640,9 +642,9 @@ export type CuratedProductWriteInput = {
   nameZh: string;
   nameEn?: string | null;
   /** CHECK-constrained to the same 12 values as `brands.category`. */
-  l1: string;
-  /** Subcategory slugs or labels; normalized to slugs within `l1`. */
-  l2?: string[];
+  category: string;
+  /** Subcategory slugs or labels; normalized to slugs within `category`. */
+  subcategories?: string[];
   officialUrl?: string | null;
   imageUrl?: string | null;
   imageSourceUrl?: string | null;
@@ -679,16 +681,20 @@ export type CuratedProductUpdateInput = Partial<
 >;
 
 /**
- * L2 arrives as either ontology slugs (from the admin picker) or Chinese labels
- * (from a pasted list), so both are folded into one vocabulary before
+ * Subcategories arrive as either ontology slugs (from the admin picker) or Chinese
+ * labels (from a pasted list), so both are folded into one vocabulary before
  * `normalizeSubcategories` applies the shared dedupe, novel-subcategory, and cap rules.
- * Anything that does not resolve to a subcategory of `l1` is dropped: `l2` is a
- * slug column, and a free-text subcategory stored there would render as a dead filter.
+ * Anything that does not resolve to a subcategory of `category` is dropped:
+ * `subcategories` is a slug column, and a free-text subcategory stored there would
+ * render as a dead filter.
  */
-function normalizeCuratedL2(l1: string, l2: readonly string[]): string[] {
+function normalizeCuratedSubcategories(
+  category: string,
+  values: readonly string[],
+): string[] {
   const seenInput = new Set<string>();
   const raw: string[] = [];
-  for (const value of l2) {
+  for (const value of values) {
     const trimmed = value.trim();
     if (!trimmed) continue;
     const key = normalizeSubcategoryKey(trimmed);
@@ -698,21 +704,21 @@ function normalizeCuratedL2(l1: string, l2: readonly string[]): string[] {
   }
   if (raw.length === 0) return [];
 
-  // Slug inputs that belong to this L1 become their labels, so one vocabulary
-  // reaches `normalizeSubcategories`.
+  // Slug inputs that belong to this category become their labels, so one
+  // vocabulary reaches `normalizeSubcategories`.
   const labelBySlug = new Map(
-    resolveSubcategorySlugs(l1, raw).map((sub) => [sub.slug, sub.nameZh]),
+    resolveSubcategorySlugs(category, raw).map((sub) => [sub.slug, sub.nameZh]),
   );
   const { subcategories } = normalizeSubcategories(
     raw.map((value) => labelBySlug.get(value) ?? value),
     [],
-    l1,
+    category,
   );
 
   const slugs: string[] = [];
   for (const subcategory of subcategories) {
     const sub = matchSubcategory(subcategory);
-    if (!sub || sub.category !== l1) continue;
+    if (!sub || sub.category !== category) continue;
     if (slugs.includes(sub.slug)) continue;
     slugs.push(sub.slug);
   }
@@ -760,8 +766,11 @@ export async function createCuratedProduct(
         brand_id: input.brandId,
         name_zh: input.nameZh,
         name_en: input.nameEn ?? null,
-        l1: input.l1,
-        l2: normalizeCuratedL2(input.l1, input.l2 ?? []),
+        category: input.category,
+        subcategories: normalizeCuratedSubcategories(
+          input.category,
+          input.subcategories ?? [],
+        ),
         official_url: input.officialUrl ?? null,
         image_url: input.imageUrl ?? null,
         image_source_url: input.imageSourceUrl ?? null,
@@ -823,20 +832,25 @@ export async function updateCuratedProduct(
       const payload: Record<string, unknown> = {};
       if (input.nameZh !== undefined) payload.name_zh = input.nameZh;
       if (input.nameEn !== undefined) payload.name_en = input.nameEn ?? null;
-      if (input.l1 !== undefined) payload.l1 = input.l1;
-      if (input.l2 !== undefined) {
-        // L2 is only meaningful within an L1. Defaulting the branch to "" would
-        // normalize every subcategory away and write an empty array, so the caller is
-        // made to state it instead of losing the tags silently.
+      if (input.category !== undefined) payload.category = input.category;
+      if (input.subcategories !== undefined) {
+        // A subcategory is only meaningful within a category. Defaulting the branch
+        // to "" would normalize every subcategory away and write an empty array, so
+        // the caller is made to state it instead of losing the tags silently.
         //
         // DEFENSIVE BACKSTOP ONLY. The admin boundary rejects this pair in
         // `curatedProductUpdateSchema.superRefine`, so a raw throw here would
         // otherwise reach the UI as an internal message; it survives for
         // non-action callers (scripts, future writers) that skip the schema.
-        if (input.l1 === undefined) {
-          throw new Error("Updating l2 requires l1 in the same patch");
+        if (input.category === undefined) {
+          throw new Error(
+            "Updating subcategories requires category in the same patch",
+          );
         }
-        payload.l2 = normalizeCuratedL2(input.l1, input.l2);
+        payload.subcategories = normalizeCuratedSubcategories(
+          input.category,
+          input.subcategories,
+        );
       }
       if (input.officialUrl !== undefined) {
         payload.official_url = input.officialUrl ?? null;
@@ -1167,8 +1181,8 @@ export type AdminCuratedProduct = {
   key: string;
   nameZh: string;
   nameEn: string | null;
-  l1: string;
-  l2: string[];
+  category: string;
+  subcategories: string[];
   officialUrl: string | null;
   imageUrl: string | null;
   imageSourceUrl: string | null;
@@ -1228,7 +1242,8 @@ export async function listCuratedProductsForAdmin(
   const { data, error } = await curatedProductClient(client)
     .from("curated_products")
     .select(
-      `id, brand_id, key, name_zh, name_en, l1, l2, official_url, image_url,
+      `id, brand_id, key, name_zh, name_en, category, subcategories,
+       official_url, image_url,
        image_source_url, visible, link_state, proposed_by,
        source_checked_at, review_due_at, product_description_zh,
        product_description_en, product_position, updated_at,
@@ -1256,8 +1271,8 @@ export async function listCuratedProductsForAdmin(
     key: row.key,
     nameZh: row.name_zh,
     nameEn: row.name_en ?? null,
-    l1: row.l1,
-    l2: row.l2 ?? [],
+    category: row.category,
+    subcategories: row.subcategories ?? [],
     officialUrl: row.official_url ?? null,
     imageUrl: row.image_url ?? null,
     imageSourceUrl: row.image_source_url ?? null,

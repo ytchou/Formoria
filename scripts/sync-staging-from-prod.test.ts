@@ -78,7 +78,6 @@ function prodBrandRow(overrides: Row = {}): Row {
     category: "home",
     subcategories: ["陶器"],
     subcategories_en: ["ceramics"],
-    category_attributes: { material: "clay" },
     hero_image_url: "https://images.example/hero.webp",
     other_urls: [],
     purchase_website: "https://kinyo.tw",
@@ -804,6 +803,56 @@ describe("planCopyOrder", () => {
   it("covers exactly the copied tables", () => {
     expect(order).toEqual([...COPY_ORDER]);
     expect(Object.keys(KNOWN_COLUMNS).sort()).toEqual([...order].sort());
+  });
+});
+
+/**
+ * `KNOWN_COLUMNS.brands` is transcribed by hand and the sync client is
+ * untyped, so nothing in the type system holds it to the table. The existing
+ * planCopyOrder test compares only the KEYS of KNOWN_COLUMNS against
+ * COPY_ORDER — it never looks at a column list. Both drift directions are
+ * live: DEV-1502 both dropped a column and added one, and each direction
+ * breaks the sync differently — a stale entry makes the production read 42703
+ * against staging, a missing one makes assertKnownColumns throw once
+ * production catches up.
+ *
+ * The generated types file is read as TEXT, in the style of
+ * remove-brand-columns.test.ts: `Row` is a type with no runtime keys to
+ * enumerate, and the file is regenerated from the live schema.
+ */
+describe("KNOWN_COLUMNS.brands", () => {
+  const databaseTypes = readFileSync(
+    new URL("../src/lib/supabase/database.types.ts", import.meta.url),
+    "utf8",
+  );
+
+  function brandsRowColumns(): string[] {
+    // The first `Row: {` block after the table key, up to its closing brace.
+    const table = databaseTypes.slice(databaseTypes.indexOf("      brands: {"));
+    const rowStart = table.indexOf("Row: {");
+    const rowEnd = table.indexOf("\n        }", rowStart);
+    if (rowStart === -1 || rowEnd === -1)
+      throw new Error(
+        "brands Row block not found in database.types.ts — regenerate the types",
+      );
+    return [...table.slice(rowStart, rowEnd).matchAll(/^\s{10}(\w+)\??:/gm)].map(
+      ([, name]) => name!,
+    );
+  }
+
+  it("lists exactly the columns of the brands row", () => {
+    const actual = brandsRowColumns();
+
+    expect(actual.length).toBeGreaterThan(0);
+    // Sorted: the list is ordered for readability, the generated type is
+    // alphabetical, and ORDER is not part of the invariant.
+    expect([...KNOWN_COLUMNS.brands].sort()).toEqual([...actual].sort());
+  });
+
+  it("lists every column once", () => {
+    expect(new Set(KNOWN_COLUMNS.brands).size).toBe(
+      KNOWN_COLUMNS.brands.length,
+    );
   });
 });
 

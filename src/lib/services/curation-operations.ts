@@ -115,7 +115,6 @@ type CurationBrand = {
   city?: string | null;
   category?: string | null;
   subcategories?: string[] | null;
-  category_attributes?: unknown | null;
   site_content?: SiteContent | null;
   reputation_summary?: unknown | null;
   mit_evidence?: unknown | null;
@@ -349,7 +348,6 @@ type EnrichDescriptionPatch = Partial<{
   price_range: number | null;
   subcategories: string[] | null;
   city: string | null;
-  category_attributes: unknown;
 }>;
 
 type EnrichProcessPhases = {
@@ -1281,7 +1279,6 @@ export function submissionToEnrichBrand(
         ? existing.description_en
         : null,
     city: typeof existing.city === "string" ? existing.city : null,
-    category_attributes: existing.category_attributes ?? null,
     site_content: isPlainObject(existing.site_content)
       ? (existing.site_content as EnrichBrand["site_content"])
       : null,

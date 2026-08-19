@@ -20,8 +20,8 @@ function product(
     key,
     nameZh: key,
     nameEn: key,
-    l1: "home",
-    l2: [],
+    category: "home",
+    subcategories: [],
     officialUrl: `https://example.com/${key}`,
     imageUrl: `https://images.example.com/${key}.webp`,
     imageSourceUrl: null,
@@ -234,10 +234,10 @@ describe("buildWallSlots", () => {
     // moves a key off that sequence and fails the moment it returns.
     const products = [
       ...Array.from({ length: 8 }, (_, index) =>
-        product(`home-${index}`, { l1: "home" }),
+        product(`home-${index}`, { category: "home" }),
       ),
       ...Array.from({ length: 8 }, (_, index) =>
-        product(`beauty-${index}`, { l1: "beauty" }),
+        product(`beauty-${index}`, { category: "beauty" }),
       ),
     ];
 
@@ -255,13 +255,13 @@ describe("buildWallSlots", () => {
 
   it("caps each brand at MAX_HOME_CURATED_PRODUCTS_PER_BRAND", () => {
     const shared = Array.from({ length: 5 }, (_, index) =>
-      product(`shared-${index}`, { brandId: "brand-shared", l1: "beauty" }),
+      product(`shared-${index}`, { brandId: "brand-shared", category: "beauty" }),
     );
     const slots = buildWallSlots({
       products: [
         ...shared,
         ...Array.from({ length: 6 }, (_, index) =>
-          product(`free-${index}`, { l1: "home" }),
+          product(`free-${index}`, { category: "home" }),
         ),
       ],
       trails: [],

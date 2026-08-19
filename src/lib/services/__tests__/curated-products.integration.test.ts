@@ -75,8 +75,8 @@ describeWithDb("published curated products for a brand", () => {
           key: product.key,
           name_zh: `Fixture ${product.key}`,
           name_en: `Fixture ${product.key}`,
-          l1: "home",
-          l2: ["tableware"],
+          category: "home",
+          subcategories: ["tableware"],
           official_url:
             product.officialUrl === undefined
               ? `https://example.com/${suffix}/${product.key}`
@@ -154,8 +154,8 @@ describeWithDb("published curated products for a brand", () => {
     ]);
     const first = products.at(0);
     expect(first?.nameZh).toBe("Fixture second-pick");
-    expect(first?.l1).toBe("home");
-    expect(first?.l2).toEqual(["tableware"]);
+    expect(first?.category).toBe("home");
+    expect(first?.subcategories).toEqual(["tableware"]);
     expect(first?.trailSlug).toBe("gifting");
     expect(first?.sectionKey).toBe("picks");
     expect(first?.position).toBe(2);
@@ -474,7 +474,7 @@ describeWithDb("published curated products for a brand", () => {
       brand_id: brandId,
       key: "no-description",
       name_zh: "No Description",
-      l1: "home",
+      category: "home",
       official_url: "https://example.com/no-description",
       visible: true,
       source_checked_at: new Date().toISOString(),
@@ -739,8 +739,8 @@ describeWithDb("curated product write path", () => {
         brandId,
         nameZh: "Ceramic Teacup",
         nameEn: "Ceramic Teacup",
-        l1: "home",
-        l2: ["tableware"],
+        category: "home",
+        subcategories: ["tableware"],
         productDescriptionZh: "陶土燒製，容量約 200 毫升。",
         officialUrl:
           overrides.officialUrl === undefined
@@ -775,7 +775,7 @@ describeWithDb("curated product write path", () => {
     const input = {
       brandId,
       nameZh: "Ceramic Teacup",
-      l1: "home",
+      category: "home",
       productDescriptionZh: "陶土燒製，容量約 200 毫升。",
     };
 
@@ -849,7 +849,7 @@ describeWithDb("curated product write path", () => {
       {
         brandId: first.brandId,
         nameZh: "Second Ceramic Teacup",
-        l1: "home",
+        category: "home",
         productDescriptionZh: "同一品牌的第二支杯子。",
       },
       supabase,

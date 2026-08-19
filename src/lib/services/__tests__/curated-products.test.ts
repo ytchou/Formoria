@@ -106,8 +106,8 @@ function productRow(overrides: Record<string, unknown> = {}) {
     key: "pick",
     name_zh: "Pick",
     name_en: "Pick",
-    l1: "home",
-    l2: ["tableware"],
+    category: "home",
+    subcategories: ["tableware"],
     official_url: "https://example.com/pick",
     image_url: null,
     image_source_url: null,
@@ -845,7 +845,7 @@ describe("createCuratedProduct", () => {
     ]);
 
     await createCuratedProduct(
-      { brandId: BRAND_ID, nameZh: "陶瓷茶杯", l1: "home", productDescriptionZh: "陶土燒製，容量約 200 毫升。" },
+      { brandId: BRAND_ID, nameZh: "陶瓷茶杯", category: "home", productDescriptionZh: "陶土燒製，容量約 200 毫升。" },
       client,
     );
 
@@ -863,7 +863,7 @@ describe("createCuratedProduct", () => {
     const smuggled = {
       brandId: BRAND_ID,
       nameZh: "Teacup",
-      l1: "home",
+      category: "home",
       productDescriptionZh: "陶土燒製，容量約 200 毫升。",
       lifecycle: "published",
       wallPosition: 3,
@@ -888,7 +888,7 @@ describe("createCuratedProduct", () => {
     ]);
 
     const created = await createCuratedProduct(
-      { brandId: BRAND_ID, nameZh: "Teacup", l1: "home", productDescriptionZh: "陶土燒製，容量約 200 毫升。" },
+      { brandId: BRAND_ID, nameZh: "Teacup", category: "home", productDescriptionZh: "陶土燒製，容量約 200 毫升。" },
       client,
     );
 
@@ -899,7 +899,7 @@ describe("createCuratedProduct", () => {
     expect(created.key).toBe("teacup-2");
   });
 
-  it("keeps only L2 subcategories that belong to the given L1", async () => {
+  it("keeps only subcategories that belong to the given category", async () => {
     const { client, calls } = stubWriteClient([
       { data: { id: "6d5f1b0c-2a44-4f13-8c9e-5b7a1d3e9f20", key: "teacup" } },
     ]);
@@ -908,15 +908,15 @@ describe("createCuratedProduct", () => {
       {
         brandId: BRAND_ID,
         nameZh: "Teacup",
-        l1: "home",
+        category: "home",
         productDescriptionZh: "陶土燒製，容量約 200 毫升。",
         // A slug, a Chinese label, and a subcategory from another branch.
-        l2: ["tableware", "餐具", "kids-tableware"],
+        subcategories: ["tableware", "餐具", "kids-tableware"],
       },
       client,
     );
 
-    expect(calls.insert.at(0)?.l2).toEqual(["tableware"]);
+    expect(calls.insert.at(0)?.subcategories).toEqual(["tableware"]);
   });
 
   it("createCuratedProduct writes the description and brand-page position", async () => {
@@ -928,7 +928,7 @@ describe("createCuratedProduct", () => {
       {
         brandId: BRAND_ID,
         nameZh: "Teacup",
-        l1: "home",
+        category: "home",
         productPosition: 2,
         productDescriptionZh: "杯口薄、杯身厚。",
         productDescriptionEn: "Thin at the lip, thick in the body.",
@@ -1137,6 +1137,35 @@ describe("curated product writers", () => {
     expect(Object.keys(payload)).not.toContain("wall_position");
   });
 
+  it("update_rejects_subcategories_without_category — a subcategory slug is only meaningful inside one category", async () => {
+    const { client, calls } = stubWriteClient([{}]);
+
+    await expect(
+      updateCuratedProduct(PRODUCT_ID, { subcategories: ["tableware"] }, client),
+    ).rejects.toThrow(
+      "Updating subcategories requires category in the same patch",
+    );
+    expect(calls.update).toEqual([]);
+  });
+
+  it("update_normalizes_subcategories_within_the_patched_category", async () => {
+    const { client, calls } = stubWriteClient([{}]);
+
+    await updateCuratedProduct(
+      PRODUCT_ID,
+      // A slug, a Chinese label, and a subcategory from another branch.
+      {
+        category: "home",
+        subcategories: ["tableware", "餐具", "kids-tableware"],
+      },
+      client,
+    );
+
+    const payload = calls.update.at(0) ?? {};
+    expect(payload.category).toBe("home");
+    expect(payload.subcategories).toEqual(["tableware"]);
+  });
+
   it("update payload omits the dropped columns even when a caller supplies them", async () => {
     const { client, calls } = stubWriteClient([{}]);
 
@@ -1195,7 +1224,7 @@ describe("curated product writers", () => {
         {
           brandId: BRAND_ID,
           nameZh: "Teacup",
-          l1: "home",
+          category: "home",
           productDescriptionZh: "陶土燒製，容量約 200 毫升。",
         },
         stubWriteClient([{ error: missingTable }]).client,

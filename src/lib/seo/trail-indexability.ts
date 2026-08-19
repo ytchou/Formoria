@@ -3,6 +3,9 @@ import { L2_SUBCATEGORIES } from '@/lib/taxonomy/ontology'
 /** A trail needs the same minimum slate as the homepage's curated rail. */
 export const MIN_TRAIL_PRODUCTS = 6
 
+// The `*_l2` members keep the old vocabulary on purpose: they are emitted enum
+// values consumed by downstream indexability reporting, not internal names.
+// Renaming them is a data migration, not a refactor.
 export type TrailIndexBlocker =
   | 'draft'
   | 'promise'
@@ -25,12 +28,14 @@ export type TrailIndexabilityFrontmatter = {
 }
 
 export type TrailIndexabilityProduct = {
-  l1: string
-  l2: readonly string[]
+  category: string
+  subcategories: readonly string[]
   sectionKey?: string | null
 }
 
-const VALID_L2 = new Set(L2_SUBCATEGORIES.map((subcategory) => subcategory.slug))
+const VALID_SUBCATEGORIES = new Set(
+  L2_SUBCATEGORIES.map((subcategory) => subcategory.slug),
+)
 
 function present(value: string | null | undefined): boolean {
   return typeof value === 'string' && value.trim().length > 0
@@ -65,23 +70,23 @@ export function trailIndexBlockers({
     blockers.push('empty_section')
   }
 
-  const l2Counts = new Map<string, number>()
-  const invalidL2 = new Set<string>()
+  const subcategoryCounts = new Map<string, number>()
+  const invalidSubcategories = new Set<string>()
   for (const product of products) {
-    const productL2 = new Set(product.l2)
-    for (const l2 of productL2) {
-      if (!VALID_L2.has(l2)) {
-        invalidL2.add(l2)
+    const productSubcategories = new Set(product.subcategories)
+    for (const subcategory of productSubcategories) {
+      if (!VALID_SUBCATEGORIES.has(subcategory)) {
+        invalidSubcategories.add(subcategory)
         continue
       }
-      l2Counts.set(l2, (l2Counts.get(l2) ?? 0) + 1)
+      subcategoryCounts.set(subcategory, (subcategoryCounts.get(subcategory) ?? 0) + 1)
     }
   }
-  if (invalidL2.size > 0) blockers.push('invalid_l2')
+  if (invalidSubcategories.size > 0) blockers.push('invalid_l2')
 
-  if (l2Counts.size < 2) blockers.push('distinct_l2')
-  const largestL2Count = Math.max(0, ...l2Counts.values())
-  if (largestL2Count > products.length / 2) blockers.push('l2_dominance')
+  if (subcategoryCounts.size < 2) blockers.push('distinct_l2')
+  const largestSubcategoryCount = Math.max(0, ...subcategoryCounts.values())
+  if (largestSubcategoryCount > products.length / 2) blockers.push('l2_dominance')
 
   return blockers
 }

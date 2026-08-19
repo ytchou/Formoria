@@ -2,7 +2,9 @@ import type { Json } from "@/lib/supabase/database.types";
 import type { AdminBrandListItem } from "@/lib/brands/contracts";
 import type { SubmissionReviewData } from "@/lib/services/submissions";
 
-export function brandToReviewData(brand: AdminBrandListItem): SubmissionReviewData {
+export function brandToReviewData(
+  brand: AdminBrandListItem,
+): SubmissionReviewData {
   return {
     name: brand.name,
     description: brand.description ?? null,
@@ -10,7 +12,6 @@ export function brandToReviewData(brand: AdminBrandListItem): SubmissionReviewDa
     blurb: brand.blurb ?? null,
     blurbEn: brand.blurbEn ?? null,
     city: brand.city ?? null,
-    categoryAttributes: null,
     reputationSummary: (brand.reputationSummary ?? null) as unknown as Json,
     mitEvidence: (brand.mitEvidence ?? null) as unknown as Json,
     siteContent: (brand.siteContent ?? null) as unknown as Json,
