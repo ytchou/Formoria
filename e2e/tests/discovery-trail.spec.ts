@@ -12,8 +12,9 @@ const trail =
   trails.find((candidate) => candidate.sections.length >= 3) ?? trails.at(0);
 const TRAIL_URL = trail ? `/discover/${trail.slug}` : "/discover";
 // Not a per-product selection reason — DEV-1496 removed those. This is the
-// generic badge `SelectedProductTile` renders beside the product description
-// (selected-product-tile.tsx:311), so it is still live on every trail tile.
+// generic badge `SelectedProductTile` renders beside the product description,
+// from its `labels.selectedBadge` block, so it is still live on every trail
+// tile.
 const SELECTED_BADGE_LABEL = "為這個主題選入";
 const OFFICIAL_DESTINATION = /前往(?:產品|品牌)官方網站/;
 
@@ -85,9 +86,9 @@ test.describe("Discovery trail deep", () => {
 
     // The tile is matched the way SelectedProductTile identifies itself: the h3
     // product name the next lines read, PLUS the selection badge it renders
-    // beside every product description (selected-product-tile.tsx:311, and
-    // asserted in server HTML above). "Any listitem containing an h3" would also
-    // match an unrelated card list and make `.first()` pick a tile with no
+    // beside every product description, from its `labels.selectedBadge` block
+    // and asserted in server HTML above. "Any listitem containing an h3" would
+    // also match an unrelated card list and make `.first()` pick a tile with no
     // product href — the badge filter is what rules that out.
     const productTile = anonPage
       .getByRole("listitem")
