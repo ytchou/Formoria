@@ -147,10 +147,7 @@ export const curatedProductUpdateSchema = z
     // reaches the editor as its raw message; refusing at the boundary turns it
     // into the generic `{ error: "Invalid curated product" }` the action
     // returns for every other malformed payload.
-    if (
-      payload.subcategories !== undefined &&
-      payload.category === undefined
-    ) {
+    if (payload.subcategories !== undefined && payload.category === undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["subcategories"],

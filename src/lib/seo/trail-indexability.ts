@@ -3,6 +3,9 @@ import { L2_SUBCATEGORIES } from '@/lib/taxonomy/ontology'
 /** A trail needs the same minimum slate as the homepage's curated rail. */
 export const MIN_TRAIL_PRODUCTS = 6
 
+// The `*_l2` members keep the old vocabulary on purpose: they are emitted enum
+// values consumed by downstream indexability reporting, not internal names.
+// Renaming them is a data migration, not a refactor.
 export type TrailIndexBlocker =
   | 'draft'
   | 'promise'

@@ -148,10 +148,13 @@ begin
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
-      and p.prokind = 'f'
+      -- Functions AND procedures. The filter stays because
+      -- pg_get_functiondef() errors on aggregates (prokind = 'a'), so a bare
+      -- scan cannot run at all.
+      and p.prokind in ('f', 'p')
       and pg_get_functiondef(p.oid) like '%category_attributes%'
   ) then
-    raise exception 'DEV-1502 category_attributes remains in a public function'
+    raise exception 'DEV-1502 category_attributes remains in a public function or procedure'
       using errcode = 'P0001';
   end if;
 end

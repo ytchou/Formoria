@@ -52,7 +52,9 @@ alter table public.curated_products rename column l2 to subcategories;
 -- byte and so cannot silently widen or narrow the 12 allowed slugs. Re-typing
 -- the list here would make this migration a second, drifting source of truth.
 do $$
-declare v_name text;
+declare
+  v_name text;
+  v_count integer;
 begin
   if exists (
     select 1
@@ -65,15 +67,26 @@ begin
     return;  -- already renamed; this migration is being re-run
   end if;
 
-  select con.conname into v_name
+  -- Counted first, on purpose: plpgsql `select ... into` does NOT raise on
+  -- multiple rows, it keeps an arbitrary one. A second CHECK mentioning
+  -- `category` (DEV-1506 adds a material/category cross-check) would otherwise
+  -- rename the WRONG constraint and leave the 12-slug guard on its generated
+  -- name, with no error at all.
+  select count(*), min(con.conname) into v_count, v_name
   from pg_constraint con
   join pg_class rel on rel.oid = con.conrelid
   join pg_namespace nsp on nsp.oid = rel.relnamespace
   where nsp.nspname = 'public' and rel.relname = 'curated_products'
     and con.contype = 'c' and pg_get_constraintdef(con.oid) like '%category%';
 
-  if v_name is null then
+  if v_count = 0 then
     raise exception 'expected a category CHECK on curated_products, found none';
+  end if;
+
+  if v_count > 1 then
+    raise exception
+      'expected exactly one category CHECK on curated_products, found %; rename the 12-slug guard by name instead',
+      v_count;
   end if;
 
   execute format(

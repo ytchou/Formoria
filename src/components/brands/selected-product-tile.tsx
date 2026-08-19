@@ -198,7 +198,11 @@ export function SelectedProductTile({
             sizes={wallImageSizes}
           />
         ) : (
-          <BrandImageFallback name={name} category={product.category} size="card" />
+          <BrandImageFallback
+            name={name}
+            category={product.category}
+            size="card"
+          />
         )}
         {/* No selection badge here. The whole wall IS the selection — the section
             heading says so once — so a per-tile label repeated 32 times adds
@@ -246,7 +250,11 @@ export function SelectedProductTile({
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           />
         ) : (
-          <BrandImageFallback name={name} category={product.category} size="card" />
+          <BrandImageFallback
+            name={name}
+            category={product.category}
+            size="card"
+          />
         )}
       </div>
 
