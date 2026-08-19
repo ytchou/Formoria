@@ -2,7 +2,10 @@ import { test, expect } from "@playwright/test";
 import { load } from "cheerio";
 
 import { BUDGET } from "../budgets";
-import { requireWallOrSkip } from "../utils/wall-supply";
+import {
+  requireWallOrSkip,
+  requireWallTrailTileOrSkip,
+} from "../utils/wall-supply";
 
 test.describe("Homepage curated product deep", () => {
   test("homepage curated rail leads to the selected product on its brand page", async ({
@@ -86,10 +89,11 @@ test.describe("Homepage curated product deep", () => {
     const trailLinkIndex = wallHrefs.findIndex((href) =>
       /^\/discover\/[a-z0-9-]+$/.test(href),
     );
-    test.skip(
-      trailLinkIndex === -1,
-      "The homepage wall has no discovery trail tile at the current supply gate.",
-    );
+    // NOT `test.skip(trailLinkIndex === -1)`. An empty result here is the same
+    // selector whether the wall reserved no trail slot or lost the tile it
+    // reserved, so the guard measures both of `buildWallSlots`' gates instead
+    // of reading the DOM twice (DEV-1522).
+    await requireWallTrailTileOrSkip(trailLinkIndex === -1);
 
     const trailLink = wallLinks.nth(trailLinkIndex);
     const destination = await trailLink.getAttribute("href");
