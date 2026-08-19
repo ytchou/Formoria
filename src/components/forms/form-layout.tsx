@@ -20,7 +20,6 @@ type StandardFormStackProps = ComponentPropsWithoutRef<'div'> & {
 
 const panelClassName = surfaceCardStyles({
   className: 'p-8',
-  elevated: true,
   padding: 'none',
 })
 const stackClassName = 'flex flex-col gap-5'

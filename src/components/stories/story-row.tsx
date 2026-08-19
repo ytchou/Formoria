@@ -52,7 +52,7 @@ export function StoryRow({
   return (
     <Link
       href={`${hrefBase.replace(/\/$/, '')}/${story.slug}`}
-      className="group flex min-h-12 flex-col gap-3 py-5 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex-row md:gap-8 md:py-6"
+      className="group flex min-h-12 flex-col gap-3 py-5 transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex-row md:gap-8 md:py-6"
       {...trackingProps}
     >
       {publishedLabel ? (
@@ -84,7 +84,7 @@ export function StoryRow({
         */}
         <p
           {...NO_SNIPPET}
-          className="max-w-3xl type-body-muted"
+          className="max-w-3xl type-body-sm"
           lang={isForeignLanguage ? storyLocale : undefined}
         >
           {story.frontmatter.description}

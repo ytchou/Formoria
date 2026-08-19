@@ -28,7 +28,7 @@ function highlightMatch(text: string, query: string): ReactNode {
   return (
     <>
       {text.slice(0, idx)}
-      <mark className="bg-primary/10 text-foreground rounded-sm">
+      <mark className="bg-accent/10 text-foreground rounded-sm">
         {text.slice(idx, idx + query.length)}
       </mark>
       {text.slice(idx + query.length)}
@@ -64,7 +64,7 @@ export function SearchSuggestions({
       className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-card shadow-lg"
     >
       {suggestions.length === 0 ? (
-        <li className="px-4 py-3 type-card-description">
+        <li className="px-4 py-3 type-body-sm">
           {t("noResultsInSuggestions")}
         </li>
       ) : (
@@ -75,7 +75,7 @@ export function SearchSuggestions({
             role="option"
             aria-selected={index === selectedIndex}
             onClick={() => onSelect(item.slug, index)}
-            className={`cursor-pointer px-4 py-3 type-body ${
+            className={`cursor-pointer px-4 py-3 type-body-sm text-ink-soft ${
               index === selectedIndex ? "bg-secondary" : "hover:bg-secondary"
             }`}
           >
@@ -83,7 +83,7 @@ export function SearchSuggestions({
               {highlightMatch(item.name, query)}
             </span>
             {item.categoryLabel && (
-              <span className="ml-2 type-caption">
+              <span className="ml-2 type-metadata">
                 {highlightMatch(
                   getCategoryLabel(
                     item.categoryLabel,

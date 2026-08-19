@@ -54,24 +54,23 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
       <div
         className={surfaceCardStyles({
           className: 'w-full max-w-[560px] rounded-2xl p-10',
-          elevated: true,
           padding: 'none',
           tone: 'white',
         })}
       >
         {/* Success badge */}
         <div className="flex justify-center">
-          <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-cta">
+          <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-accent">
             <Check className="h-8 w-8 text-white" strokeWidth={3} />
           </div>
         </div>
 
-        <h1 className="mt-6 text-center type-section-title-large">
+        <h1 className="mt-6 text-center type-section">
           {isOwnerIntent ? t('ownerSubheading') : t('subheading')}
         </h1>
 
         {ownershipAdjusted ? (
-          <p className="mt-4 rounded-lg border border-border bg-muted p-4 type-card-description">
+          <p className="mt-4 rounded-lg border border-border bg-muted p-4 type-body-sm">
             {t('communityOwnershipNotice')}
           </p>
         ) : null}
@@ -97,7 +96,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
                 <div className="flex flex-col items-center">
                   <div
                     className={`h-3 w-3 shrink-0 rounded-full ${
-                      step.active ? 'bg-cta' : 'bg-border'
+                      step.active ? 'bg-accent' : 'bg-border'
                     }`}
                   />
                   {i < 1 && (
@@ -106,13 +105,13 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
                 </div>
                 <div className="pb-4">
                   <p
-                    className={`type-subsection-title ${
+                    className={`type-body-sm font-semibold text-ink ${
                       step.active ? 'text-foreground' : 'text-muted-foreground'
                     }`}
                   >
                     {step.label}
                   </p>
-                  <p className="mt-0.5 type-caption">
+                  <p className="mt-0.5 type-metadata">
                     {step.description}
                   </p>
                 </div>
@@ -121,7 +120,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
           </div>
         </div>
 
-        <p className="mt-4 type-card-description">
+        <p className="mt-4 type-body-sm">
           {t.rich('whatNext.learnMore.answer', {
             link: (chunks) => (
               <Link href="/getting-started" className="text-foreground underline">
@@ -135,7 +134,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
         <div className="mt-8 space-y-3">
           <Link
             href="/"
-            className={buttonVariants({ variant: 'primary', tone: 'cta', className: 'w-full' })}
+            className={buttonVariants({ variant: 'primary', className: 'w-full' })}
           >
             <Home className="h-4 w-4" />
             {t('cta.explore')}

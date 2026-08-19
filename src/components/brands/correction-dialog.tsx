@@ -363,7 +363,7 @@ export function CorrectionDialog({
             type="button"
             variant="ghost"
             size="compact"
-            className="relative min-h-10 gap-1.5 px-1 type-metadata text-primary underline-offset-4 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[''] hover:bg-transparent hover:text-primary/80 hover:underline focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
+            className="relative min-h-10 gap-1.5 px-1 type-metadata text-accent underline-offset-4 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[''] hover:bg-transparent hover:text-accent/80 hover:underline focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
           />
         }
       >
@@ -392,7 +392,7 @@ export function CorrectionDialog({
             {tCorrection(copy.title)}
           </DialogTitle>
           {field === "subcategories" && (
-            <p className="type-caption">{tCorrection("subcategoriesSubtitle")}</p>
+            <p className="type-metadata">{tCorrection("subcategoriesSubtitle")}</p>
           )}
         </DialogHeader>
 
@@ -418,7 +418,7 @@ export function CorrectionDialog({
                     ) ?? "",
                   );
                 }}
-                className="bg-card focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
+                className="bg-card focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
               >
                 {field === "" && (
                   <option value="" disabled>
@@ -463,7 +463,7 @@ export function CorrectionDialog({
               <div className="space-y-4 p-4">
                 <div className="flex items-center justify-end">
                   <span
-                    className="type-caption tabular-nums"
+                    className="type-metadata tabular-nums"
                     aria-live="polite"
                   >
                     {tCorrection("subcategoriesSelected", {
@@ -511,7 +511,7 @@ export function CorrectionDialog({
                   <Typography id={currentHeadingId} variant="subsectionTitle">
                     {tCorrection("currentHeading")}
                   </Typography>
-                  <p className="type-field-value break-all">
+                  <p className="type-body-sm text-ink break-all">
                     {originalSelection || tCorrection("selectPlaceholder")}
                   </p>
                 </div>
@@ -555,7 +555,7 @@ export function CorrectionDialog({
           </div>
 
           <DialogFooter className="mx-0 mb-0 flex-col gap-3 rounded-b-xl bg-background px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="type-caption sm:max-w-xs">
+            <p className="type-metadata sm:max-w-xs">
               {tCorrection("description")}
             </p>
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
@@ -564,7 +564,7 @@ export function CorrectionDialog({
                   <Button
                     type="button"
                     variant="secondary"
-                    className="focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary sm:w-auto"
+                    className="focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent sm:w-auto"
                   />
                 }
               >
@@ -575,7 +575,7 @@ export function CorrectionDialog({
                 idleLabel={tCorrection("submit")}
                 submittingLabel={tCorrection("submitting")}
                 disabled={!hasChanged || isPending}
-                className="focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary sm:w-auto"
+                className="focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent sm:w-auto"
                 data-ph-no-autocapture
               />
             </div>

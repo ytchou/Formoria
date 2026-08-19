@@ -17,7 +17,7 @@ import {
 } from '@/lib/services/profile-completeness'
 import type { OwnerBrandEditor } from '@/lib/brands/contracts'
 
-const infoLabelClassName = 'type-field-label uppercase tracking-[0.08em]'
+const infoLabelClassName = 'type-metadata uppercase tracking-[0.08em]'
 
 type DashboardHeroCardProps =
   | {
@@ -84,7 +84,7 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
 
       <div className="min-w-0" data-testid="hero-metadata">
         <div className="min-w-0">
-          <h1 className="type-page-title">{brand.name}</h1>
+          <h1 className="type-section">{brand.name}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Badge
               variant={brand.status === 'approved' ? 'success' : 'secondary'}
@@ -167,25 +167,25 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
         className="flex flex-col items-center gap-3 md:w-52"
         data-testid="hero-completeness"
       >
-        <p className="type-caption">{tOverview('completionTitle')}</p>
+        <p className="type-metadata">{tOverview('completionTitle')}</p>
         <div className="[&_[role=img]]:size-20">
           <CompletenessRing score={completeness.score} />
         </div>
-        <p className="type-caption">
+        <p className="type-metadata">
           {tOverview('completedCount', {
             completed: completeness.completed,
             total: completeness.total,
           })}
         </p>
         {completeness.score < 100 ? (
-          <p className="w-full rounded-lg bg-warning/10 p-3 type-caption text-warning">
+          <p className="w-full rounded-lg bg-warning/10 p-3 type-metadata text-warning">
             {tOverview('warningIncomplete', {
               count: completeness.recommendations.length,
             })}
           </p>
         ) : null}
         <Button
-          className="min-h-12 w-full focus-visible:ring-2 focus-visible:ring-primary"
+          className="min-h-12 w-full focus-visible:ring-2 focus-visible:ring-accent"
           nativeButton={false}
           render={
             <Link

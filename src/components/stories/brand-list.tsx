@@ -139,7 +139,7 @@ export async function BrandLine({
       </span>
       <BrandLineLink brand={brand} position={position} />
       {note ? (
-        <span className="col-span-2 min-w-0 type-body-muted sm:col-span-1">{note}</span>
+        <span className="col-span-2 min-w-0 type-body-sm sm:col-span-1">{note}</span>
       ) : null}
     </div>
   )

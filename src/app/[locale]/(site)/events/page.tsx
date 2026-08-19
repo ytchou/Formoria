@@ -108,8 +108,8 @@ export default async function EventsHubPage({ params }: PageProps) {
     <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
       <div className="space-y-8">
         <header className="space-y-3">
-          <h1 className="type-page-title">{t('heading')}</h1>
-          <p className="max-w-2xl type-body-muted">{t('subheading')}</p>
+          <h1 className="type-section">{t('heading')}</h1>
+          <p className="max-w-2xl type-body-sm">{t('subheading')}</p>
         </header>
 
         {/*
@@ -119,7 +119,7 @@ export default async function EventsHubPage({ params }: PageProps) {
         */}
         {safeEvents.length === 0 ? (
           <div className="flex min-h-[40vh] items-center justify-center rounded-2xl border border-border bg-secondary px-6 py-16 text-center">
-            <p className="type-empty-body">{t('comingSoon')}</p>
+            <p className="type-body-sm">{t('comingSoon')}</p>
           </div>
         ) : (
           <div className="space-y-10">
@@ -127,7 +127,7 @@ export default async function EventsHubPage({ params }: PageProps) {
                 above an empty grid, in either direction. */}
             {upcoming.length > 0 ? (
               <section aria-labelledby="events-upcoming" className="space-y-4">
-                <h2 id="events-upcoming" className="type-section-title">
+                <h2 id="events-upcoming" className="type-card-title">
                   {t('upcomingHeading')}
                 </h2>
                 <div className="flex flex-col gap-4">
@@ -138,7 +138,7 @@ export default async function EventsHubPage({ params }: PageProps) {
 
             {past.length > 0 ? (
               <section aria-labelledby="events-past" className="space-y-4">
-                <h2 id="events-past" className="type-section-title">
+                <h2 id="events-past" className="type-card-title">
                   {t('pastHeading')}
                 </h2>
                 <div className="flex flex-col gap-4">

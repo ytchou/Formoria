@@ -45,7 +45,7 @@ export function EmailCaptureForm() {
 
   if (state.success) {
     return (
-      <div className="rounded-lg bg-verified-green-bg px-4 py-3 type-body-emphasis text-verified-green">
+      <div className="rounded-lg bg-verified-green-bg px-4 py-3 type-body-sm font-medium text-ink text-verified-green">
         {t("success")}
       </div>
     );
@@ -80,7 +80,7 @@ export function EmailCaptureForm() {
             type="email"
           />
           {state.error ? (
-            <p className="mt-2 type-body text-destructive" role="alert">
+            <p className="mt-2 type-body-sm text-destructive" role="alert">
               {state.error}
             </p>
           ) : null}
@@ -88,7 +88,6 @@ export function EmailCaptureForm() {
 
         <Button
           variant="primary"
-          tone="cta"
           data-ph-no-autocapture
           disabled={isPending}
           type="submit"
@@ -104,7 +103,7 @@ export function EmailCaptureForm() {
       </div>
 
       <div className="space-y-2">
-        <p className="type-body-emphasis text-secondary-foreground">
+        <p className="type-body-sm font-medium text-secondary-foreground">
           {t("interestsLabel")}
         </p>
         <div className="flex flex-row gap-2 overflow-x-auto">
@@ -129,7 +128,7 @@ export function EmailCaptureForm() {
         <input key={slug} name="interests" type="hidden" value={slug} />
       ))}
 
-      <p className="type-form-hint">
+      <p className="type-metadata">
         {t.rich("consentNotice", {
           privacyPolicy: (chunks) => (
             <Link

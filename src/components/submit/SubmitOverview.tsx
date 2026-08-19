@@ -41,12 +41,12 @@ function PathPoints({ points, muted }: { points: string[]; muted?: boolean }) {
               'mt-0.5 inline-flex size-5 items-center justify-center rounded-full border',
               muted
                 ? 'border-border bg-muted text-muted-foreground'
-                : 'border-cta/25 bg-cta/10 text-cta',
+                : 'border-accent/25 bg-accent/10 text-accent',
             )}
           >
             <Check className="size-3" />
           </span>
-          <span className="type-body-muted">{point}</span>
+          <span className="type-body-sm">{point}</span>
         </li>
       ))}
     </ul>
@@ -93,8 +93,8 @@ export default function SubmitOverview({
   return (
     <main className="page-gutter mx-auto max-w-5xl py-20">
       <div className="max-w-3xl">
-        <h1 className="text-balance type-page-title-large">{t('heading')}</h1>
-        <p className="mt-4 type-body-muted">{t('description')}</p>
+        <h1 className="text-balance type-page-title">{t('heading')}</h1>
+        <p className="mt-4 type-body-sm">{t('description')}</p>
       </div>
 
       {/* Two columns in both flag states: while the owner fork is gated its card
@@ -102,11 +102,11 @@ export default function SubmitOverview({
           a content change and never a re-layout. */}
       <div className="mt-10 grid gap-6 md:grid-cols-2">
         <section className={surfaceCardStyles({ padding: 'lg' })}>
-          <p className="type-eyebrow-muted">{t('recommendEyebrow')}</p>
-          <h2 className="mt-2 type-section-title-large text-foreground">
+          <p className="type-eyebrow">{t('recommendEyebrow')}</p>
+          <h2 className="mt-2 type-section text-foreground">
             {t('recommendTitle')}
           </h2>
-          <p className="mt-3 type-card-description">
+          <p className="mt-3 type-body-sm">
             {t('recommendDescription')}
           </p>
           <PathPoints
@@ -121,7 +121,7 @@ export default function SubmitOverview({
             data-ph-no-autocapture
             onClick={() => trackSubmissionPathSelected('recommend', isLoggedIn)}
             className={cn(
-              buttonVariants({ variant: 'primary', tone: 'cta' }),
+              buttonVariants({ variant: 'primary' }),
               'mt-6',
             )}
           >
@@ -131,11 +131,11 @@ export default function SubmitOverview({
 
         {ownerFeaturesEnabled ? (
           <section className={surfaceCardStyles({ padding: 'lg' })}>
-            <p className="type-eyebrow-muted">{t('ownerEyebrow')}</p>
-            <h2 className="mt-2 type-section-title-large text-foreground">
+            <p className="type-eyebrow">{t('ownerEyebrow')}</p>
+            <h2 className="mt-2 type-section text-foreground">
               {t('ownerTitle')}
             </h2>
-            <p className="mt-3 type-card-description">{t('ownerDescription')}</p>
+            <p className="mt-3 type-body-sm">{t('ownerDescription')}</p>
             <PathPoints
               points={[t('ownerPoint1'), t('ownerPoint2'), t('ownerPoint3')]}
             />
@@ -143,7 +143,6 @@ export default function SubmitOverview({
               <>
                 <Button
                   type="button"
-                  tone="cta"
                   className="mt-6 min-h-12"
                   data-ph-no-autocapture
                   onClick={() => {
@@ -169,11 +168,11 @@ export default function SubmitOverview({
                     <AlertDialogHeader className="!place-items-center gap-3 pt-4 !text-center">
                       <span
                         aria-hidden="true"
-                        className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary"
+                        className="flex size-12 items-center justify-center rounded-full bg-accent/10 text-accent"
                       >
                         <Info className="size-5" />
                       </span>
-                      <AlertDialogTitle className="type-section-title-large">
+                      <AlertDialogTitle className="type-section">
                         {t('ownerLimitTitle')}
                       </AlertDialogTitle>
                       <AlertDialogDescription className="max-w-md text-center">
@@ -186,7 +185,6 @@ export default function SubmitOverview({
                       </AlertDialogCancel>
                       <Button
                         type="button"
-                        tone="cta"
                         size="large"
                         disabled={isNavigating}
                         onClick={handleRecommendationNavigation}
@@ -203,7 +201,7 @@ export default function SubmitOverview({
                 data-ph-no-autocapture
                 onClick={() => trackSubmissionPathSelected('claim', true)}
                 className={cn(
-                  buttonVariants({ variant: 'primary', tone: 'cta' }),
+                  buttonVariants({ variant: 'primary' }),
                   'mt-6',
                 )}
               >
@@ -215,7 +213,7 @@ export default function SubmitOverview({
                 data-ph-no-autocapture
                 onClick={() => trackSubmissionPathSelected('claim', false)}
                 className={cn(
-                  buttonVariants({ variant: 'primary', tone: 'cta' }),
+                  buttonVariants({ variant: 'primary' }),
                   'mt-6',
                 )}
               >
@@ -231,13 +229,13 @@ export default function SubmitOverview({
             className={cn(surfaceCardStyles({ padding: 'lg' }), 'bg-muted/30')}
           >
             <div className="flex flex-wrap items-center gap-2">
-              <p className="type-eyebrow-muted">{t('ownerEyebrow')}</p>
+              <p className="type-eyebrow">{t('ownerEyebrow')}</p>
               <Badge variant="declared">{t('ownerComingSoon')}</Badge>
             </div>
-            <h2 className="mt-2 type-section-title-large text-muted-foreground">
+            <h2 className="mt-2 type-section text-muted-foreground">
               {t('ownerTitle')}
             </h2>
-            <p className="mt-3 type-card-description">{t('ownerDescription')}</p>
+            <p className="mt-3 type-body-sm">{t('ownerDescription')}</p>
             <PathPoints
               points={[t('ownerPoint1'), t('ownerPoint2'), t('ownerPoint3')]}
               muted

@@ -100,7 +100,7 @@ export function JobHistoryList({
                   <TableCell>
                     <Link
                       href={`/admin/jobs/${job.id}`}
-                      className="font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       {formatJobDate(job.created_at)}
                     </Link>

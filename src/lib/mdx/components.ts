@@ -70,7 +70,7 @@ export function createStoryComponentMap({ currentStorySlug }: { currentStorySlug
     // else said this", which is the opposite of a statement the site is making
     // about itself.
     Disclaimer: (props: { children?: ReactNode }) =>
-      createElement('aside', { className: 'my-4 [&>p]:type-body-muted' }, props.children),
+      createElement('aside', { className: 'my-4 [&>p]:type-body-sm' }, props.children),
     // A credited photo. Literal `<figure>`/`<figcaption>` JSX does NOT resolve
     // against this map — only markdown-generated elements and capitalized
     // shortcodes do — so an authored `<figure>` renders unstyled.
@@ -90,17 +90,17 @@ export function createStoryComponentMap({ currentStorySlug }: { currentStorySlug
     h1: (props: ComponentPropsWithoutRef<'h1'>) =>
       createElement('h1', {
         ...props,
-        className: cn('mt-10 mb-4 scroll-mt-24 type-page-title-large', props.className),
+        className: cn('mt-10 mb-4 scroll-mt-24 type-page-title', props.className),
       }),
     h2: (props: ComponentPropsWithoutRef<'h2'>) =>
       createElement('h2', {
         ...props,
-        className: cn('mt-10 mb-3 scroll-mt-24 type-section-title-large', props.className),
+        className: cn('mt-10 mb-3 scroll-mt-24 type-section', props.className),
       }),
     h3: (props: ComponentPropsWithoutRef<'h3'>) =>
       createElement('h3', {
         ...props,
-        className: cn('mt-8 mb-2 scroll-mt-24 type-subsection-title', props.className),
+        className: cn('mt-8 mb-2 scroll-mt-24 type-body-sm font-semibold text-ink', props.className),
       }),
     h4: (props: ComponentPropsWithoutRef<'h4'>) =>
       createElement('h4', {
@@ -110,35 +110,35 @@ export function createStoryComponentMap({ currentStorySlug }: { currentStorySlug
     p: (props: ComponentPropsWithoutRef<'p'>) =>
       createElement('p', {
         ...props,
-        className: cn('my-4 type-body', props.className),
+        className: cn('my-4 type-body-sm text-ink-soft', props.className),
       }),
     ul: (props: ComponentPropsWithoutRef<'ul'>) =>
       createElement('ul', {
         ...props,
-        className: cn('my-4 list-disc space-y-2 pl-5 type-body', props.className),
+        className: cn('my-4 list-disc space-y-2 pl-5 type-body-sm text-ink-soft', props.className),
       }),
     ol: (props: ComponentPropsWithoutRef<'ol'>) =>
       createElement('ol', {
         ...props,
-        className: cn('my-4 list-decimal space-y-2 pl-5 type-body', props.className),
+        className: cn('my-4 list-decimal space-y-2 pl-5 type-body-sm text-ink-soft', props.className),
       }),
     li: (props: ComponentPropsWithoutRef<'li'>) =>
       createElement('li', {
         ...props,
-        className: cn('type-body', props.className),
+        className: cn('type-body-sm text-ink-soft', props.className),
       }),
     a: (props: ComponentPropsWithoutRef<'a'>) =>
       createElement('a', {
         ...props,
         className: cn(
-          'rounded-sm break-words text-primary underline underline-offset-4 hover:text-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          'rounded-sm break-words text-accent underline underline-offset-4 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           props.className,
         ),
       }),
     blockquote: (props: ComponentPropsWithoutRef<'blockquote'>) =>
       createElement('blockquote', {
         ...props,
-        className: cn('my-6 border-l-2 border-foreground pl-4 type-body-muted', props.className),
+        className: cn('my-6 border-l-2 border-foreground pl-4 type-body-sm', props.className),
       }),
     hr: (props: ComponentPropsWithoutRef<'hr'>) =>
       createElement('hr', {
@@ -176,7 +176,7 @@ export function createStoryComponentMap({ currentStorySlug }: { currentStorySlug
         createElement('table', {
           ...props,
           className: cn(
-            'w-full border-collapse border border-border text-left type-body',
+            'w-full border-collapse border border-border text-left type-body-sm text-ink-soft',
             props.className,
           ),
         }),
@@ -189,7 +189,7 @@ export function createStoryComponentMap({ currentStorySlug }: { currentStorySlug
     td: (props: ComponentPropsWithoutRef<'td'>) =>
       createElement('td', {
         ...props,
-        className: cn('border border-border px-3 py-2 align-top type-body', props.className),
+        className: cn('border border-border px-3 py-2 align-top type-body-sm text-ink-soft', props.className),
       }),
 
     // Inline code. Inside a `<pre>` the chrome would double up, so `pre` strips it

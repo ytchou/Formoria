@@ -14,15 +14,15 @@ export function DashboardEmptyState() {
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
           <Store className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
         </div>
-        <h1 className="mt-6 type-section-title-large">
+        <h1 className="mt-6 type-section">
           {t('title')}
         </h1>
-        <p className="mt-3 type-card-description">
+        <p className="mt-3 type-body-sm">
           {t('description')}
         </p>
         <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
           <Link
-            className={buttonVariants({ variant: 'primary', tone: 'cta' })}
+            className={buttonVariants({ variant: 'primary' })}
             href="/submit"
           >
             {t('submitCta')}

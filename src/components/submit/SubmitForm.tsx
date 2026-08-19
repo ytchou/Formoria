@@ -64,7 +64,7 @@ function DuplicateNotice({
 }) {
   return (
     <div className="space-y-2">
-      <p className="type-body text-destructive">
+      <p className="type-body-sm text-destructive">
         {title}
         {candidates.map((candidate, index) => (
           <Fragment key={candidate.id}>
@@ -204,7 +204,7 @@ export default function SubmitForm({
             onCheckedChange={(checked) => field.onChange(checked)}
             className="mt-0.5 size-[18px] shrink-0"
           />
-          <span className="type-body font-normal">
+          <span className="type-body-sm text-ink-soft font-normal">
             {t("fields.nameDuplicateConfirmLabel")}
           </span>
         </Label>
@@ -379,21 +379,21 @@ export default function SubmitForm({
   return (
     <div className="page-gutter mx-auto max-w-5xl py-20">
       <div className="mb-10">
-        <h1 className="text-balance text-center type-page-title-large">
+        <h1 className="text-balance text-center type-page-title">
           {tForm("heading")}
         </h1>
         <span
-          className="mx-auto mt-4 block h-0.5 w-8 bg-cta"
+          className="mx-auto mt-4 block h-0.5 w-8 bg-accent"
           aria-hidden="true"
         />
-        <p className="mt-4 text-center type-body-muted">
+        <p className="mt-4 text-center type-body-sm">
           {tForm("subheading")}
         </p>
       </div>
 
       <StandardForm onSubmit={onSubmit} noValidate>
         <div className="flex flex-col gap-5">
-          <p className="type-caption">
+          <p className="type-metadata">
             <span className="text-destructive">*</span> {tForm("requiredHint")}
           </p>
 
@@ -425,7 +425,7 @@ export default function SubmitForm({
               />
               {nameSuggestion ? (
                 <div className="animate-reveal-up">
-                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body">
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body-sm text-ink-soft">
                     <span>
                       {tForm("suggestedName")} <strong>{nameSuggestion}</strong>
                     </span>
@@ -482,7 +482,7 @@ export default function SubmitForm({
               />
               {urlSuggestion ? (
                 <div className="overflow-hidden transition-all duration-200">
-                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body">
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body-sm text-ink-soft">
                     <span>
                       {tForm("suggestedUrl")} <strong>{urlSuggestion}</strong>
                     </span>
@@ -619,7 +619,7 @@ export default function SubmitForm({
                       className="mt-0.5 size-[18px] shrink-0"
                       aria-required="true"
                     />
-                    <span className="type-body font-normal">
+                    <span className="type-body-sm text-ink-soft font-normal">
                       {tReview.rich("pdpaConsent", {
                         privacyPolicy: (chunks) => (
                           <Link
@@ -639,7 +639,7 @@ export default function SubmitForm({
                     </span>
                   </Label>
                   {fieldState.error ? (
-                    <p className="type-error">{fieldState.error.message}</p>
+                    <p className="type-metadata text-danger">{fieldState.error.message}</p>
                   ) : null}
                 </div>
               )}
@@ -664,7 +664,7 @@ export default function SubmitForm({
             />
           </div>
           {turnstileError ? (
-            <p className="type-body text-destructive" role="alert">
+            <p className="type-body-sm text-destructive" role="alert">
               {t("errors.turnstileError")}
             </p>
           ) : null}
@@ -672,7 +672,7 @@ export default function SubmitForm({
           {submitError ? (
             <p
               role="alert"
-              className="type-body text-destructive"
+              className="type-body-sm text-destructive"
               aria-live="polite"
             >
               {submitError}
@@ -681,7 +681,6 @@ export default function SubmitForm({
 
           <SubmitButton
             variant="primary"
-            tone="cta"
             disabled={isSubmitDisabled}
             isSubmitting={isSubmitting}
             idleLabel={tForm("submitButton")}

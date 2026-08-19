@@ -32,8 +32,9 @@ interface SectionHeaderProps {
  *
  * Alignment is deliberately left at the page gutter, including next to the
  * centred hero: a centred header row loses the reading edge the zones below it
- * share. `globals.css` gives every `h2` a kiln bar via `::before`; that is
- * inherited on purpose and must not be overridden here.
+ * share. The site-wide `h2::before` accent bar this comment used to describe
+ * was deleted in design system v2 — elevation and emphasis are borders and
+ * type, never a decorative rule.
  */
 export function SectionHeader({
   heading,
@@ -51,16 +52,16 @@ export function SectionHeader({
       )}
     >
       <div className="min-w-0">
-        <h2 id={id} className="type-page-title-large">
+        <h2 id={id} className="type-page-title">
           {heading}
         </h2>
-        {note ? <p className="mt-2 max-w-2xl type-body-muted">{note}</p> : null}
+        {note ? <p className="mt-2 max-w-2xl type-body-sm">{note}</p> : null}
       </div>
 
       {linkHref && linkLabel ? (
         <Link
           href={linkHref}
-          className="ml-auto inline-flex min-h-12 shrink-0 items-center font-medium text-primary"
+          className="ml-auto inline-flex min-h-12 shrink-0 items-center font-medium text-accent"
         >
           {linkLabel}
         </Link>

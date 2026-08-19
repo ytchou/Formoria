@@ -132,7 +132,7 @@ export function InlineVerification({
       >
         <StatusPill variant="verified" label={t('status.verified')}>
           {mitEvidence?.mit_smile_cert && (
-            <span className="rounded bg-verified-green-bg px-2 py-0.5 font-mono type-caption text-verified-green">
+            <span className="rounded bg-verified-green-bg px-2 py-0.5 font-mono type-metadata text-verified-green">
               {mitEvidence.mit_smile_cert}
             </span>
           )}
@@ -167,17 +167,17 @@ export function InlineVerification({
 
       {mitStatus === 'declared' ? (
         <div className="space-y-3">
-          <dl className="grid gap-2 type-caption sm:grid-cols-2">
+          <dl className="grid gap-2 type-metadata sm:grid-cols-2">
             <div>
               <dt className="text-muted-foreground">{t('declared.scopeLabel')}</dt>
-              <dd className="type-body-emphasis">
+              <dd className="type-body-sm font-medium text-ink">
                 {t(`declare.scope.${mitDeclaredScope ?? 'all'}`)}
               </dd>
             </div>
             {mitDeclaredAt ? (
               <div>
                 <dt className="text-muted-foreground">{t('declared.dateLabel')}</dt>
-                <dd className="type-body-emphasis">
+                <dd className="type-body-sm font-medium text-ink">
                   {new Intl.DateTimeFormat().format(new Date(mitDeclaredAt))}
                 </dd>
               </div>
@@ -197,10 +197,10 @@ export function InlineVerification({
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-stretch">
           <section className="space-y-3" aria-labelledby={`${scopeId}-cert-title`}>
             <div>
-              <h3 id={`${scopeId}-cert-title`} className="type-body-emphasis">
+              <h3 id={`${scopeId}-cert-title`} className="type-body-sm font-medium text-ink">
                 {t('tier.certTitle')}
               </h3>
-              <p className="mt-1 type-caption text-muted-foreground">
+              <p className="mt-1 type-metadata text-muted-foreground">
                 {t('tier.certDescription')}
               </p>
             </div>
@@ -211,7 +211,7 @@ export function InlineVerification({
               }}
               className="space-y-2"
             >
-              <Label htmlFor={`${scopeId}-cert`} className="type-caption">
+              <Label htmlFor={`${scopeId}-cert`} className="type-metadata">
                 {t('certLabel')}
               </Label>
               <Input
@@ -219,7 +219,7 @@ export function InlineVerification({
                 value={certNumber}
                 onChange={(event) => setCertNumber(event.target.value)}
                 placeholder={t('certPlaceholder')}
-                className="font-mono type-caption"
+                className="font-mono type-metadata"
               />
               <Button type="submit" size="compact" disabled={!certNumber.trim() || isPending}>
                 {t('verifyButton')}
@@ -229,16 +229,16 @@ export function InlineVerification({
 
           <div className="flex items-center gap-3 text-muted-foreground" aria-hidden="true">
             <span className="h-px flex-1 bg-border md:h-full md:w-px md:flex-none" />
-            <span className="type-caption">{t('or')}</span>
+            <span className="type-metadata">{t('or')}</span>
             <span className="h-px flex-1 bg-border md:hidden" />
           </div>
 
           <section className="space-y-3" aria-labelledby={`${scopeId}-declare-title`}>
             <div>
-              <h3 id={`${scopeId}-declare-title`} className="type-body-emphasis">
+              <h3 id={`${scopeId}-declare-title`} className="type-body-sm font-medium text-ink">
                 {t('tier.declareTitle')}
               </h3>
-              <p className="mt-1 type-caption text-muted-foreground">
+              <p className="mt-1 type-metadata text-muted-foreground">
                 {t('tier.declareDescription')}
               </p>
             </div>
@@ -250,7 +250,7 @@ export function InlineVerification({
               }}
             >
               <div className="space-y-1.5">
-                <Label htmlFor={scopeId} className="type-caption">
+                <Label htmlFor={scopeId} className="type-metadata">
                   {t('declare.scopeLabel')}
                 </Label>
                 <NativeSelect
@@ -264,7 +264,7 @@ export function InlineVerification({
                 </NativeSelect>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor={storyId} className="type-caption">
+                <Label htmlFor={storyId} className="type-metadata">
                   {t('declare.storyLabel')}
                 </Label>
                 <Textarea
@@ -274,7 +274,7 @@ export function InlineVerification({
                   placeholder={t('declare.storyPlaceholder')}
                 />
               </div>
-              <Label className="flex min-h-12 items-start gap-2 type-caption">
+              <Label className="flex min-h-12 items-start gap-2 type-metadata">
                 <Checkbox
                   checked={attested}
                   onCheckedChange={setAttested}
@@ -284,7 +284,6 @@ export function InlineVerification({
               </Label>
               <Button
                 type="submit"
-                tone="cta"
                 size="compact"
                 disabled={!attested || !brandSlug || isPending}
               >
@@ -295,7 +294,7 @@ export function InlineVerification({
         </div>
       )}
 
-      {error ? <p className="mt-3 animate-error-shake type-error">{error}</p> : null}
+      {error ? <p className="mt-3 animate-error-shake type-metadata text-danger">{error}</p> : null}
       {successMessage ? (
         <div className="mt-3 animate-reveal-up">
           <StatusPill variant="verified" label={successMessage} />

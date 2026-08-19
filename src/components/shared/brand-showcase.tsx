@@ -55,7 +55,7 @@ export default function BrandShowcase({
           href={linkHref}
           data-ph-no-autocapture
           onClick={() => trackCtaClicked('browse_all', ctaLocation, linkHref, '/')}
-          className="font-medium text-primary"
+          className="font-medium text-accent"
         >
           {linkText}
         </Link>

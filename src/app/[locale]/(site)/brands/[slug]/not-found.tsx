@@ -9,10 +9,10 @@ export default function BrandNotFound() {
 
   return (
     <main className="page-gutter mx-auto flex max-w-screen-xl flex-col items-center justify-center py-24">
-      <h1 className="type-page-title-large">
+      <h1 className="type-page-title">
         {t('notFound.title')}
       </h1>
-      <p className="mt-3 type-card-description">
+      <p className="mt-3 type-body-sm">
         {t('notFound.description')}
       </p>
       <Link

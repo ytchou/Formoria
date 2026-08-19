@@ -133,15 +133,15 @@ function relatedLinks(
   if (values.length === 0) return null;
   return (
     <section aria-labelledby={`${hrefBase.slice(1)}-related`} className="space-y-3">
-      <h2 id={`${hrefBase.slice(1)}-related`} className="type-section-title">
+      <h2 id={`${hrefBase.slice(1)}-related`} className="type-card-title">
         {title}
       </h2>
-      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body">
+      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm text-ink-soft">
         {values.map((value) => (
           <li key={value}>
             <a
               href={`${hrefBase}/${encodeURIComponent(value)}`}
-              className="text-primary underline underline-offset-4 hover:text-primary-dark"
+              className="text-accent underline underline-offset-4 hover:text-ink"
             >
               {value}
             </a>
@@ -159,10 +159,10 @@ function relatedStoryLinks(
   if (values.length === 0) return null;
   return (
     <section aria-labelledby="stories-related" className="space-y-3">
-      <h2 id="stories-related" className="type-section-title">
+      <h2 id="stories-related" className="type-card-title">
         {title}
       </h2>
-      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body">
+      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm text-ink-soft">
         {values.map((value, position) => (
           <li key={value}>
             <RelatedStoryLink
@@ -170,7 +170,7 @@ function relatedStoryLinks(
               storySlug={value}
               position={position}
               storySurface="trail_related_stories"
-              className="text-primary underline underline-offset-4 hover:text-primary-dark"
+              className="text-accent underline underline-offset-4 hover:text-ink"
             >
               {value}
             </RelatedStoryLink>
@@ -185,10 +185,10 @@ function relatedTrailLinks(title: string, values: string[]): React.ReactNode {
   if (values.length === 0) return null;
   return (
     <section aria-labelledby="trails-related" className="space-y-3">
-      <h2 id="trails-related" className="type-section-title">
+      <h2 id="trails-related" className="type-card-title">
         {title}
       </h2>
-      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body">
+      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm text-ink-soft">
         {values.map((value, position) => (
           <li key={value}>
             <RelatedTrailLink
@@ -196,7 +196,7 @@ function relatedTrailLinks(title: string, values: string[]): React.ReactNode {
               trailSlug={value}
               position={position}
               trailSurface="trail_related"
-              className="text-primary underline underline-offset-4 hover:text-primary-dark"
+              className="text-accent underline underline-offset-4 hover:text-ink"
             >
               {value}
             </RelatedTrailLink>
@@ -260,12 +260,12 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
           <ViewItemListTracker listName={`trail:${slug}`} itemCount={safeProducts.length} />
         ) : null}
         <header className="max-w-[720px] space-y-4">
-          <h1 className="type-page-title-large">{frontmatter.title}</h1>
+          <h1 className="type-page-title">{frontmatter.title}</h1>
           {frontmatter.description ? (
-            <p className="type-page-subtitle">{frontmatter.description}</p>
+            <p className="type-body">{frontmatter.description}</p>
           ) : null}
           {frontmatter.promise ? (
-            <p className="type-body-muted">{frontmatter.promise}</p>
+            <p className="type-body-sm">{frontmatter.promise}</p>
           ) : null}
         </header>
         {sections.length >= 2 ? (

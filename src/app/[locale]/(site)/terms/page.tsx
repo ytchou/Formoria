@@ -59,21 +59,21 @@ export default async function TermsPage({ params }: PageProps) {
     <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
       <div className="grid gap-10 md:grid-cols-[18rem_minmax(0,1fr)] md:gap-16">
         <aside className="space-y-4 md:sticky md:top-(--nav-height) md:self-start">
-          <h1 className="type-page-title">{t('title')}</h1>
-          <p className="type-body-muted">{t('intro')}</p>
-          <p className="type-body-muted">{t('lastUpdated')}</p>
+          <h1 className="type-section">{t('title')}</h1>
+          <p className="type-body-sm">{t('intro')}</p>
+          <p className="type-body-sm">{t('lastUpdated')}</p>
         </aside>
         <div className="divide-y divide-border">
           {sectionKeys.map((key) => (
             <section key={key} className="space-y-3 py-6 first:pt-0">
-              <h2 className="type-section-title-large">
+              <h2 className="type-section">
                 {t(`${key}.heading`)}
               </h2>
-              <p className="type-body-muted">
+              <p className="type-body-sm">
                 {t(`${key}.body`)}
               </p>
               {sectionKeysWithDetail.has(key) && (
-                <p className="type-body-muted">
+                <p className="type-body-sm">
                   {t(`${key}.bodyDetail`)}
                 </p>
               )}

@@ -70,11 +70,11 @@ describe("Footer", () => {
 });
 
 describe("Button", () => {
-  it("renders kiln CTA button", async () => {
+  it("renders an accent CTA button", async () => {
     const html = await render(
       <Button href="https://example.com">Click me</Button>,
     );
-    expect(html).toContain("#C04A24");
+    expect(html).toContain("#2F4F63");
     expect(html).toContain("Click me");
     expect(html).toContain("https://example.com");
   });

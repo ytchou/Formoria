@@ -28,7 +28,7 @@ function renderLinkedText(text: string): ReactNode {
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-primary underline hover:text-primary/80"
+          className="text-accent underline hover:text-accent/80"
         >
           {match[1]}
         </a>
@@ -70,7 +70,7 @@ export function BrandFaqAccordion({
             className="group scroll-mt-24"
             onToggle={(event) => handleToggle(event, item.id)}
           >
-            <summary className="flex cursor-pointer list-none items-center justify-between py-5 type-subsection-title focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center justify-between py-5 type-body-sm font-semibold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
               {item.question}
               <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
             </summary>
@@ -78,7 +78,7 @@ export function BrandFaqAccordion({
                 element, so the whole visual row is the hit target (~62px, over
                 the 44px minimum) and the focus ring wraps it. The answer
                 carries the closing padding the <details> used to. */}
-            <p className="pb-5 type-body-muted">
+            <p className="pb-5 type-body-sm">
               {renderLinkedText(item.answer)}
             </p>
           </details>

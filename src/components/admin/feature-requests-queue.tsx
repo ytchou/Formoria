@@ -150,7 +150,7 @@ export function FeatureRequestsQueue({
   }
 
   if (requests.length === 0) {
-    return <p className="type-empty-body mt-4">{t('empty')}</p>
+    return <p className="type-body-sm mt-4">{t('empty')}</p>
   }
 
   return (

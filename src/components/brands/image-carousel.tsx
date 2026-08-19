@@ -200,11 +200,15 @@ export function ImageCarousel({
             {/* Prev button */}
             <Button
               type="button"
-              variant="overlay"
+              variant="secondary"
               shape="pill"
               size="icon"
+              // The v2 `overlay` variant is gone with the second interaction
+              // colour. Over a photograph an outline alone is illegible, so
+              // the control wears a paper fill here — a call-site treatment,
+              // not a new variant.
               className={cn(
-                'absolute top-1/2 -translate-y-1/2',
+                'absolute top-1/2 -translate-y-1/2 bg-ground/90 hover:bg-ground',
                 variant === 'detail' ? 'left-4' : 'left-2',
               )}
               onClick={() => goTo(current - 1)}
@@ -217,11 +221,11 @@ export function ImageCarousel({
             {/* Next button */}
             <Button
               type="button"
-              variant="overlay"
+              variant="secondary"
               shape="pill"
               size="icon"
               className={cn(
-                'absolute top-1/2 -translate-y-1/2',
+                'absolute top-1/2 -translate-y-1/2 bg-ground/90 hover:bg-ground',
                 variant === 'detail' ? 'right-4' : 'right-2',
               )}
               onClick={() => goTo(current + 1)}
@@ -234,7 +238,7 @@ export function ImageCarousel({
             {/* Counter badge */}
             <span
               className={cn(
-                'absolute rounded-full bg-accent/80 px-2.5 py-1 type-field-label text-accent-foreground backdrop-blur-sm',
+                'absolute rounded-full bg-accent/80 px-2.5 py-1 type-metadata text-accent-foreground backdrop-blur-sm',
                 variant === 'detail' ? 'bottom-4 right-4' : 'bottom-2 right-2',
               )}
             >
@@ -257,7 +261,7 @@ export function ImageCarousel({
               onClick={() => goTo(i)}
               className={`relative size-16 overflow-hidden rounded-lg p-0 hover:bg-transparent ${
                 i === current
-                  ? 'ring-2 ring-primary ring-offset-2'
+                  ? 'ring-2 ring-accent ring-offset-2'
                   : 'opacity-70 hover:opacity-100'
               }`}
               aria-label={t('gallery.viewPhoto', { n: i + 1 })}

@@ -46,9 +46,9 @@ export function MarketingEmailOptInField({
           onCheckedChange={onCheckedChange}
           className="mt-0.5 size-[18px] shrink-0"
         />
-        <span className="type-body font-normal">{t(labelKey)}</span>
+        <span className="type-body-sm text-ink-soft font-normal">{t(labelKey)}</span>
       </Label>
-      <p className="pl-[30px] type-form-hint">
+      <p className="pl-[30px] type-metadata">
         {t.rich(descriptionKey, {
           privacyPolicy: (chunks) => (
             <Link

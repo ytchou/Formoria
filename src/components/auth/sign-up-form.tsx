@@ -42,12 +42,12 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="type-section-title-large">{t("signUp.heading")}</h1>
-        <p className="type-card-description">{t("signUp.subheading")}</p>
+        <h1 className="type-section">{t("signUp.heading")}</h1>
+        <p className="type-body-sm">{t("signUp.subheading")}</p>
       </div>
 
       {claimToken && claimBrandName && (
-        <div className="rounded-lg border border-cta/20 bg-cta/5 px-4 py-3 type-body">
+        <div className="rounded-lg border border-accent/20 bg-accent/5 px-4 py-3 type-body-sm text-ink-soft">
           {t.rich("signUp.claimMessage", {
             brandName: claimBrandName,
             strong: (chunks) => <strong>{chunks}</strong>,
@@ -58,7 +58,7 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
       {state.error && (
         <div
           role="alert"
-          className="rounded-lg bg-destructive/10 px-4 py-3 type-body text-destructive"
+          className="rounded-lg bg-destructive/10 px-4 py-3 type-body-sm text-destructive"
         >
           {state.error}
         </div>
@@ -130,7 +130,7 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
 
       <GoogleButton action={googleAction} />
 
-      <p className="text-center type-card-description">
+      <p className="text-center type-body-sm">
         {t("signUp.hasAccount")}{" "}
         <Link
           href={signInHref}

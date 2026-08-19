@@ -45,7 +45,7 @@ export default async function MediaPage({ params }: Props) {
               />
             </div>
           ) : (
-            <p className="type-field-value text-muted-foreground">
+            <p className="type-body-sm text-muted-foreground">
               {t('notSet')}
             </p>
           )}
@@ -73,7 +73,7 @@ export default async function MediaPage({ params }: Props) {
               ))}
             </div>
           ) : (
-            <p className="type-field-value text-muted-foreground">
+            <p className="type-body-sm text-muted-foreground">
               {t('notSet')}
             </p>
           )}

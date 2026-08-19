@@ -88,7 +88,7 @@ function ProgressBar({ value, label }: ProgressBarProps) {
       role="progressbar"
     >
       <div
-        className="h-full rounded-full bg-primary"
+        className="h-full rounded-full bg-accent"
         style={{ width: `${boundedValue}%` }}
       />
     </div>
@@ -105,7 +105,7 @@ export default async function AdminQualityPage() {
 
   return (
     <div>
-      <h1 className="type-page-title-large">Quality Dashboard</h1>
+      <h1 className="type-page-title">Quality Dashboard</h1>
       <p className="mt-2 text-muted-foreground">
         Track brand data quality for images, links, descriptions, and
         completeness.
@@ -132,7 +132,7 @@ export default async function AdminQualityPage() {
 
               return (
                 <div key={row.key} className="space-y-2">
-                  <div className="flex min-h-6 items-center justify-between gap-4 type-body">
+                  <div className="flex min-h-6 items-center justify-between gap-4 type-body-sm text-ink-soft">
                     <span className="font-medium text-foreground">
                       {row.label}
                     </span>
@@ -174,7 +174,7 @@ export default async function AdminQualityPage() {
 
               return (
                 <div key={row.key} className="space-y-2">
-                  <div className="flex min-h-6 items-center justify-between gap-4 type-body">
+                  <div className="flex min-h-6 items-center justify-between gap-4 type-body-sm text-ink-soft">
                     <span className="font-medium text-foreground">
                       {row.label}
                     </span>
@@ -200,7 +200,7 @@ export default async function AdminQualityPage() {
 
               return (
                 <div key={row.key} className="space-y-2">
-                  <div className="flex min-h-6 items-center justify-between gap-4 type-body">
+                  <div className="flex min-h-6 items-center justify-between gap-4 type-body-sm text-ink-soft">
                     <span className="font-medium text-foreground">
                       {row.label}
                     </span>
@@ -218,14 +218,14 @@ export default async function AdminQualityPage() {
 
             <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
               <div>
-                <p className="type-body-emphasis">Promo hero images</p>
-                <p className="mt-1 type-stat">
+                <p className="type-body-sm font-medium text-ink">Promo hero images</p>
+                <p className="mt-1 type-section tabular-nums">
                   {metrics.enrichment.promoHeroCount}
                 </p>
               </div>
               <div>
-                <p className="type-body-emphasis">Validation failures</p>
-                <p className="mt-1 type-stat">
+                <p className="type-body-sm font-medium text-ink">Validation failures</p>
+                <p className="mt-1 type-section tabular-nums">
                   {metrics.enrichment.validationFailures}
                 </p>
               </div>

@@ -49,7 +49,7 @@ export function DashboardTabNav({ brandSlug }: DashboardTabNavProps) {
               key={item.key}
               aria-current={isActive ? 'page' : undefined}
               className={cn(
-                'relative inline-flex min-h-12 flex-none items-center justify-center gap-1.5 whitespace-nowrap px-4 py-2 text-muted-foreground transition-[background-color,color] after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:bg-primary after:opacity-0 after:transition-opacity hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:after:transition-none',
+                'relative inline-flex min-h-12 flex-none items-center justify-center gap-1.5 whitespace-nowrap px-4 py-2 text-muted-foreground transition-[background-color,color] after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:bg-accent after:opacity-0 after:transition-opacity hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent motion-reduce:after:transition-none',
                 textStyles({ variant: 'navItem' }),
                 isActive && 'text-foreground after:opacity-100',
               )}

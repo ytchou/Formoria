@@ -89,7 +89,7 @@ export default async function AdminLayout({
       <NextIntlClientProvider locale="en" messages={messages}>
         <div className="min-h-screen bg-background">
           <main id="main-content" className="mx-auto max-w-screen-2xl px-10 pb-8 pt-8">
-            <h1 className="type-page-title-large">{t("title")}</h1>
+            <h1 className="type-page-title">{t("title")}</h1>
             <AdminNav items={navItems} />
             <div className="mt-8">{children}</div>
           </main>

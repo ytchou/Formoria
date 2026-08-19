@@ -28,8 +28,8 @@ export default function TaiwanStats({
     <section className="py-12 md:py-16">
       <div className="page-gutter mx-auto max-w-6xl">
         <div>
-          <h2 className="type-page-title-large text-balance">{heading}</h2>
-          <p className="mt-4 type-page-subtitle text-pretty">{intro}</p>
+          <h2 className="type-page-title text-balance">{heading}</h2>
+          <p className="mt-4 type-body text-pretty">{intro}</p>
         </div>
         <AboutCardGrid>
           {items.map((item) => (
@@ -38,8 +38,8 @@ export default function TaiwanStats({
             </AboutCard>
           ))}
         </AboutCardGrid>
-        <p className="mt-8 flex flex-wrap items-center gap-x-2 gap-y-1 type-caption">
-          <span className="type-eyebrow-muted">{sourceLabel}</span>
+        <p className="mt-8 flex flex-wrap items-center gap-x-2 gap-y-1 type-metadata">
+          <span className="type-eyebrow">{sourceLabel}</span>
           <a
             href="https://www.sme.gov.tw/article-tw-2853-13097"
             target="_blank"

@@ -9,15 +9,15 @@ export default function AdminScriptsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="type-section-title-large">Scripts</h1>
-        <p className="mt-1 type-card-description">
+        <h1 className="type-section">Scripts</h1>
+        <p className="mt-1 type-body-sm">
           Run guarded administrative utilities without leaving the dashboard.
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <SurfaceCard padding="lg">
           <h2 className="type-card-title">Bulk community submissions</h2>
-          <p className="mt-2 type-card-description">
+          <p className="mt-2 type-body-sm">
             Bulk create pending community recommendations from brand names and
             official websites.
           </p>

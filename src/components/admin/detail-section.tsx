@@ -38,7 +38,7 @@ export function DetailSection({
       className={editing ? "space-y-4 rounded-lg bg-muted/40 p-4" : "space-y-3"}
     >
       <div className="flex items-center justify-between">
-        <h3 className="type-subsection-title">{title}</h3>
+        <h3 className="type-body-sm font-semibold text-ink">{title}</h3>
         {canEdit && !editing && (
           <Button
             type="button"
@@ -53,7 +53,7 @@ export function DetailSection({
       </div>
       {children}
       {editing && error && (
-        <p role="alert" className="type-error">
+        <p role="alert" className="type-metadata text-danger">
           {error}
         </p>
       )}

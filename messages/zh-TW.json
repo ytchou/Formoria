@@ -315,6 +315,9 @@
     "kinmen": "金門縣",
     "lienchiang": "連江縣"
   },
+  "trustLabel": {
+    "selected": "Formoria 選物"
+  },
   "brandDetail": {
     "metadata": {
       "fallbackDescription": "探索 {name} 的品牌故事、產品與官方連結。"

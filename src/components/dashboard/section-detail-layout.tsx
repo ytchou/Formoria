@@ -20,13 +20,13 @@ export function SectionDetailLayout({
     <section className="space-y-3">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <h2 className="type-section-title">{title}</h2>
-          <p className="type-section-description">{description}</p>
+          <h2 className="type-card-title">{title}</h2>
+          <p className="type-body-sm">{description}</p>
         </div>
         {editHref && editLabel ? (
           <Link
             aria-label={`${editLabel}: ${title}`}
-            className="type-link"
+            className="type-nav font-semibold text-accent underline-offset-4 hover:underline"
             href={editHref}
           >
             {editLabel}

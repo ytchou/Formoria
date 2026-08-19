@@ -9,9 +9,10 @@
  * not exist.
  *
  *   pnpm design:tokens          rewrite the generated block in DESIGN.md
- *   pnpm design:tokens --check  exit 1 if the block is stale (for CI)
+ *   pnpm check:design-tokens    exit 1 if globals.css is missing a v2 token, or
+ *                               (where DESIGN.md exists) if the block is stale
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = process.cwd();
@@ -136,8 +137,8 @@ function render(tokens) {
 }
 
 const css = readFileSync(CSS, "utf8");
-const doc = readFileSync(DOC, "utf8");
 const tokens = parseTokens(css);
+const check = process.argv.includes("--check");
 
 /**
  * A PARTIAL match is more dangerous than no match. When this script first ran against
@@ -162,6 +163,39 @@ if (missing.length) {
   process.exit(1);
 }
 
+/**
+ * `--check` DOES NOT NEED DESIGN.md, AND MUST NOT.
+ *
+ * `docs/` is gitignored, so the doc is absent from every CI checkout and from
+ * every worktree. Wiring a check that reads it into `pnpm lint` would fail every
+ * build for a file the build can never have. The two halves are therefore
+ * separated: the token contract above (all 17 ROLES declared in globals.css) is
+ * the part CI can verify and does, and the doc comparison runs only where the
+ * doc exists.
+ *
+ * That is not a weaker gate. The failure this script was written for — a value
+ * documented that the stylesheet does not ship — is caught by the REQUIRED
+ * check, before any table is rendered.
+ */
+if (!existsSync(DOC)) {
+  if (check) {
+    console.log(
+      `design:tokens — ${tokens.size}/${REQUIRED.length} v2 tokens declared in globals.css. ` +
+        `DESIGN.md is not present (docs/ is gitignored), so only the token contract was checked.`,
+    );
+    process.exit(0);
+  }
+
+  console.error(
+    `design:tokens — ${DOC} not found.\n` +
+      `The generated block is written into the design doc, which lives only in the\n` +
+      `main checkout (docs/ is gitignored). Run this from there, or run --check,\n` +
+      `which verifies the token contract without the doc.`,
+  );
+  process.exit(1);
+}
+
+const doc = readFileSync(DOC, "utf8");
 const start = doc.indexOf(BEGIN);
 const end = doc.indexOf(END);
 if (start === -1 || end === -1) {
@@ -172,7 +206,7 @@ if (start === -1 || end === -1) {
 const next =
   doc.slice(0, start + BEGIN.length) + "\n" + render(tokens) + doc.slice(end);
 
-if (process.argv.includes("--check")) {
+if (check) {
   if (next !== doc) {
     console.error(
       "design:tokens — DESIGN.md is stale. Run `pnpm design:tokens` and commit.",

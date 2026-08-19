@@ -14,7 +14,7 @@ const submissionStatusConfig: Record<SubmissionStatus, StatusConfig> = {
   },
   rejected: {
     label: 'Rejected',
-    className: 'bg-cta/10 text-destructive',
+    className: 'bg-accent/10 text-destructive',
   },
 }
 
@@ -30,7 +30,7 @@ function StatusBadgeBase({ config }: { config: StatusConfig }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-0.5 type-field-label',
+        'inline-flex items-center rounded-full px-2.5 py-0.5 type-metadata',
         config.className
       )}
     >

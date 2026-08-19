@@ -147,7 +147,7 @@ export function SubmitRequestDialog() {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger className={buttonVariants({ tone: 'cta' })}>
+      <DialogTrigger className={buttonVariants()}>
         <Lightbulb className="size-4" aria-hidden="true" />
         {t('trigger')}
       </DialogTrigger>

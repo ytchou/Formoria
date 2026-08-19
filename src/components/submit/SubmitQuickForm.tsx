@@ -222,10 +222,10 @@ export default function SubmitQuickForm() {
   return (
     <div className="page-gutter mx-auto max-w-2xl py-12">
       <div className="mb-8">
-        <h1 className="text-balance text-center type-page-title">
+        <h1 className="text-balance text-center type-section">
           {t("quickForm.heading")}
         </h1>
-        <p className="mt-3 text-center type-card-description">
+        <p className="mt-3 text-center type-body-sm">
           {t("quickForm.subheading")}
         </p>
       </div>
@@ -255,7 +255,7 @@ export default function SubmitQuickForm() {
             />
             {nameSuggestion ? (
               <div className="animate-reveal-up">
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body">
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body-sm text-ink-soft">
                   <span>
                     {t("ownerForm.suggestedName")}{" "}
                     <strong>{nameSuggestion}</strong>
@@ -315,7 +315,7 @@ export default function SubmitQuickForm() {
             />
             {urlSuggestion ? (
               <div className="animate-reveal-up">
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body">
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body-sm text-ink-soft">
                   <span>
                     {t("ownerForm.suggestedUrl")}{" "}
                     <strong>{urlSuggestion}</strong>
@@ -364,7 +364,7 @@ export default function SubmitQuickForm() {
                       onCheckedChange={(checked) => field.onChange(checked)}
                       className="mt-0.5 size-[18px] shrink-0"
                     />
-                    <span className="type-body font-normal">
+                    <span className="type-body-sm text-ink-soft font-normal">
                       {tReview.rich("pdpaConsent", {
                         privacyPolicy: (chunks) => (
                           <Link
@@ -380,7 +380,7 @@ export default function SubmitQuickForm() {
                     </span>
                   </Label>
                   {fieldState.error ? (
-                    <p className="type-error">{fieldState.error.message}</p>
+                    <p className="type-metadata text-danger">{fieldState.error.message}</p>
                   ) : null}
                 </div>
               )}
@@ -418,7 +418,7 @@ export default function SubmitQuickForm() {
             />
           </div>
           {turnstileError ? (
-            <p className="type-body text-destructive" role="alert">
+            <p className="type-body-sm text-destructive" role="alert">
               {t("errors.turnstileError")}
             </p>
           ) : null}
@@ -426,7 +426,7 @@ export default function SubmitQuickForm() {
           {submitError ? (
             <p
               role="alert"
-              className="type-body text-destructive"
+              className="type-body-sm text-destructive"
               aria-live="polite"
             >
               {submitError}
@@ -435,7 +435,6 @@ export default function SubmitQuickForm() {
 
           <SubmitButton
             variant="primary"
-            tone="cta"
             disabled={isSubmitDisabled}
             isSubmitting={isSubmitting}
             idleLabel={t("quickForm.submitButton")}

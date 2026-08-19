@@ -39,7 +39,7 @@ export function BrandMediaSection({
   return (
     <StandardFormSection id="media" className="scroll-mt-8">
       <StandardFormStack>
-        <h2 className="type-section-title">
+        <h2 className="type-card-title">
           {t('sectionMedia')}
         </h2>
         {heroRequired || productPhotosRequired ? <RequiredFieldsHint /> : null}

@@ -101,15 +101,15 @@ export default async function DiscoverHubPage({ params, searchParams }: PageProp
     <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
       <div className="space-y-8">
         <header className="space-y-3">
-          <h1 className="type-page-title">{t("heading")}</h1>
-          <p className="max-w-2xl type-body-muted">{t("subheading")}</p>
+          <h1 className="type-section">{t("heading")}</h1>
+          <p className="max-w-2xl type-body-sm">{t("subheading")}</p>
         </header>
         {view.kind === "loadError" ? (
           <div
             role="alert"
             className="rounded-2xl border border-border bg-secondary px-6 py-16 text-center"
           >
-            <p className="type-empty-title">{t("loadError")}</p>
+            <p className="type-card-title text-ink-muted">{t("loadError")}</p>
           </div>
         ) : view.kind === "comingSoon" ? (
           <EmptyState icon={<Compass />} title={t("comingSoon")} />

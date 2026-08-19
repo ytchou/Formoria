@@ -280,7 +280,7 @@ export function ReportsTable({
             {item.notes ? (
               <div>
                 <p className="type-metadata">{t("notes")}</p>
-                <p className="mt-1 whitespace-pre-wrap type-body">
+                <p className="mt-1 whitespace-pre-wrap type-body-sm text-ink-soft">
                   {item.notes}
                 </p>
               </div>
@@ -291,7 +291,7 @@ export function ReportsTable({
               <dl>
                 <div>
                   <dt className="type-metadata">{t("reporterEmail")}</dt>
-                  <dd className="mt-1 type-field-value">
+                  <dd className="mt-1 type-body-sm text-ink">
                     {item.reporterEmail ?? t("unavailable")}
                   </dd>
                 </div>

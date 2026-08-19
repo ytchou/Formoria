@@ -60,8 +60,8 @@ export default async function SubmitOwnerDetailsPage({
   return (
     <div className="page-gutter mx-auto w-full max-w-6xl py-12">
       <div className="mb-8 max-w-3xl">
-        <h1 className="text-balance type-page-title-large">{t('heading')}</h1>
-        <p className="mt-3 type-card-description">{t('subheading')}</p>
+        <h1 className="text-balance type-page-title">{t('heading')}</h1>
+        <p className="mt-3 type-body-sm">{t('subheading')}</p>
       </div>
       <SubmissionWizard subcategorySuggestions={subcategorySuggestions} />
     </div>

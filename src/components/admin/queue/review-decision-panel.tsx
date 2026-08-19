@@ -97,7 +97,7 @@ export function ReviewDecisionPanel(props: {
             an absent blocker meant any consumer using the `blocker` slot lost
             EVERY action failure message. */}
         {error ? (
-          <p className="type-error" role="alert">
+          <p className="type-metadata text-danger" role="alert">
             {error}
           </p>
         ) : null}

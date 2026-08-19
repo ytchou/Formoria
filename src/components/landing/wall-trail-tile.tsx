@@ -102,10 +102,10 @@ export function WallTrailTile({
           <span className="rounded-full border border-background/30 bg-background/20 px-3 py-1 type-eyebrow text-background">
             {labels.eyebrow}
           </span>
-          <span id={titleId} className="type-card-title md:type-display text-background">
+          <span id={titleId} className="type-card-title md:type-section text-background">
             {title}
           </span>
-          {promise ? <span className="type-body-inverse line-clamp-3">{promise}</span> : null}
+          {promise ? <span className="type-body text-on-ink line-clamp-3">{promise}</span> : null}
           <span className="inline-flex min-h-12 items-center font-medium text-background underline underline-offset-4 transition-colors group-hover:text-background/80">
             {labels.cta}
           </span>

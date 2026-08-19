@@ -110,10 +110,10 @@ export default async function AboutPage({ params }: PageProps) {
 
         <section className="bg-secondary py-12 md:py-16">
           <div className="page-gutter mx-auto max-w-6xl">
-            <h2 className="type-page-title-large text-balance">
+            <h2 className="type-page-title text-balance">
               {t("audiences.heading")}
             </h2>
-            <p className="mt-4 max-w-4xl type-page-subtitle text-pretty">
+            <p className="mt-4 max-w-4xl type-body text-pretty">
               {t("audiences.intro")}
             </p>
             <AboutCardGrid className="md:grid-cols-2">
@@ -157,10 +157,10 @@ export default async function AboutPage({ params }: PageProps) {
 
         <section className="bg-secondary py-12 md:py-16">
           <div className="page-gutter mx-auto max-w-6xl">
-            <h2 className="type-page-title-large text-balance">
+            <h2 className="type-page-title text-balance">
               {t("trust.heading")}
             </h2>
-            <p className="mt-4 max-w-4xl type-page-subtitle text-pretty">
+            <p className="mt-4 max-w-4xl type-body text-pretty">
               {t("trust.intro")}
             </p>
             <AboutCardGrid className="md:grid-cols-2">
@@ -176,17 +176,17 @@ export default async function AboutPage({ params }: PageProps) {
                 </AboutCard>
               ))}
             </AboutCardGrid>
-            <h3 className="mt-10 type-section-title-large text-balance">
+            <h3 className="mt-10 type-section text-balance">
               {t("trust.commerceHeading")}
             </h3>
             <AboutCardGrid className="md:grid-cols-2">
               <AboutCard>
-                <p className="type-page-subtitle text-pretty">
+                <p className="type-body text-pretty">
                   {t("trust.formoriaOwns")}
                 </p>
               </AboutCard>
               <AboutCard>
-                <p className="type-page-subtitle text-pretty">
+                <p className="type-body text-pretty">
                   {t("trust.merchantOwns")}
                 </p>
               </AboutCard>
@@ -196,15 +196,15 @@ export default async function AboutPage({ params }: PageProps) {
 
         <section id="vision" className="scroll-mt-32 py-12 md:py-20">
           <div className="page-gutter mx-auto max-w-6xl">
-            <h2 className="type-page-title-large text-balance">
+            <h2 className="type-page-title text-balance">
               {t("vision.sectionHeading")}
             </h2>
             <div className="mt-8 grid gap-8 md:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)] md:items-start">
               <div>
-                <h3 className="type-section-title-large text-balance">
+                <h3 className="type-section text-balance">
                   {t("vision.heading")}
                 </h3>
-                <p className="mt-5 type-page-subtitle text-pretty">
+                <p className="mt-5 type-body text-pretty">
                   {t("vision.body")}
                 </p>
               </div>
@@ -212,7 +212,7 @@ export default async function AboutPage({ params }: PageProps) {
                 <h3 className="type-card-title">
                   {t("vision.principleHeading")}
                 </h3>
-                <p className="mt-3 type-page-subtitle text-pretty">
+                <p className="mt-3 type-body text-pretty">
                   {t("vision.principleBody")}
                 </p>
               </AboutCard>
@@ -256,7 +256,7 @@ export default async function AboutPage({ params }: PageProps) {
           <div className="relative mx-auto max-w-6xl page-gutter">
             <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
               <div>
-                <h2 className="type-page-title-large text-balance">
+                <h2 className="type-page-title text-balance">
                   {t("guide.heading")}
                 </h2>
               </div>
@@ -265,7 +265,6 @@ export default async function AboutPage({ params }: PageProps) {
                   href="/getting-started"
                   className={buttonVariants({
                     variant: "primary",
-                    tone: "cta",
                     size: "large",
                     className: "min-h-12",
                   })}

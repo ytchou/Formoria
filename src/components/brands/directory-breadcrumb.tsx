@@ -55,7 +55,7 @@ export function DirectoryBreadcrumb({
 
   return (
     <nav aria-label={ariaLabel} className="mb-6">
-      <ol className="flex items-center gap-1.5 type-card-description">
+      <ol className="flex items-center gap-1.5 type-body-sm">
         {items.map((item, index) => (
           <li key={`${item.label}-${index}`} className="flex items-center gap-1.5">
             {index > 0 ? (

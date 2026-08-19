@@ -34,7 +34,7 @@ export async function BrandChannelsSection({
           <Typography as="h2" variant="sectionTitle">
             {t("sections.locationsAndRetailChannels")}
           </Typography>
-          <p className="type-card-description">
+          <p className="type-body-sm">
             {possible.length > 0
               ? t("channels.unconfirmed.thresholdNote", {
                   threshold: CHANNEL_CONFIRMATION_THRESHOLD,

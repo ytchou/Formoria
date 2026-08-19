@@ -86,7 +86,7 @@ export function BrandActions({
           href={websiteUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className={buttonVariants({ variant: 'primary', tone: 'cta', className: 'w-full' })}
+          className={buttonVariants({ variant: 'primary', className: 'w-full' })}
           data-ph-no-autocapture
           onClick={handleWebsiteClick}
         >

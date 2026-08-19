@@ -117,10 +117,10 @@ export default async function WhereToBuyCityPage({
         ]}
       />
       <header className="max-w-3xl">
-        <h1 className="type-page-title-large text-foreground">
+        <h1 className="type-page-title text-foreground">
           {t('cityTitle', { city: cityName })}
         </h1>
-        <p className="mt-4 type-page-subtitle text-muted-foreground">
+        <p className="mt-4 type-body text-muted-foreground">
           {t('cityDescription', { city: cityName, count })}
         </p>
         <div className="mt-6">

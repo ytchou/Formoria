@@ -57,7 +57,7 @@ export function SearchEmptyState({
       >
         <div role="status" className="flex min-w-0 items-start gap-3">
           <Sparkles className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
-          <p className="type-card-description text-current">{notice}</p>
+          <p className="type-body-sm text-current">{notice}</p>
         </div>
         {query ? (
           <Link
@@ -66,7 +66,7 @@ export function SearchEmptyState({
             onClick={() =>
               trackCtaClicked('recommend_brand', 'empty_state', '/submit/recommend', '/brands')
             }
-            className="inline-flex min-h-12 shrink-0 items-center gap-1 self-start type-link sm:self-auto"
+            className="inline-flex min-h-12 shrink-0 items-center gap-1 self-start type-nav font-semibold text-accent underline-offset-4 hover:underline sm:self-auto"
           >
             {t('actions.recommendBrand.title')}
             <ArrowRight className="size-4" aria-hidden="true" />
@@ -81,20 +81,20 @@ export function SearchEmptyState({
           <Search className="relative size-12 text-foreground" strokeWidth={1.75} />
           <SlidersHorizontal className="absolute bottom-1 right-0 size-6 text-filter-active" />
         </div>
-        <h2 className="mt-3 type-empty-title">{t('title')}</h2>
-        <p className="mt-2 max-w-xl type-card-description">{t('description')}</p>
+        <h2 className="mt-3 type-card-title text-ink-muted">{t('title')}</h2>
+        <p className="mt-2 max-w-xl type-body-sm">{t('description')}</p>
 
       </section>
 
       {recommendedBrands.length > 0 ? (
         <section className="border-t border-border pt-6">
           <div className="mb-4 flex items-center justify-between gap-4">
-            <h2 className="type-section-title">{t('recommendations')}</h2>
+            <h2 className="type-card-title">{t('recommendations')}</h2>
             <Link
               href={recommendationsHref}
               data-ph-no-autocapture
               onClick={() => trackCtaClicked('view_all', 'empty_state', recommendationsHref, '/brands')}
-              className="inline-flex min-h-12 items-center gap-1 font-medium hover:text-primary"
+              className="inline-flex min-h-12 items-center gap-1 font-medium hover:text-accent"
             >
               {t('viewAll')}
               <ArrowRight className="size-4" aria-hidden="true" />

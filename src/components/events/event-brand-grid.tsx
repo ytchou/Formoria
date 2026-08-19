@@ -357,7 +357,7 @@ export function EventBrandGrid({
           the new result count without interrupting, and focus deliberately
           stays on the chip the reader just pressed.
         */}
-        <p role="status" className="type-caption">
+        <p role="status" className="type-metadata">
           {/*
             A filtered view states what it was filtered from: "0 brands" alone
             reads as "this event has no lineup", which is a different and much

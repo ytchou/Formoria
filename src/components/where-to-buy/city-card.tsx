@@ -20,12 +20,12 @@ export function CityCard({
         <h2 className="type-card-title text-foreground">
           <Link
             href={cityPath}
-            className="hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-primary"
+            className="hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent"
           >
             {cityName}
           </Link>
         </h2>
-        <span className="type-caption text-muted-foreground">
+        <span className="type-metadata text-muted-foreground">
           {summary.count} {locationLabel}
         </span>
       </div>
@@ -34,7 +34,7 @@ export function CityCard({
           <li key={district.slug}>
             <Link
               href={`${cityPath}#${district.slug}`}
-              className="inline-flex min-h-8 items-center rounded-full border border-border px-3 type-caption hover:border-primary hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-primary"
+              className="inline-flex min-h-8 items-center rounded-full border border-border px-3 type-metadata hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent"
             >
               {districtNames[district.slug] ?? district.name} · {district.count}
             </Link>

@@ -11,7 +11,7 @@ type EventExhibitorPaginationProps = {
 };
 
 const EDGE_CLASS =
-  "inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/20";
+  "inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-sm font-medium text-foreground/20";
 
 /**
  * Buttons, not links — the one deliberate divergence from
@@ -61,7 +61,7 @@ export function EventExhibitorPagination({
         page === "ellipsis" ? (
           <span
             key={`ellipsis-${index}`}
-            className="inline-flex min-h-12 min-w-12 items-center justify-center type-body text-foreground/40"
+            className="inline-flex min-h-12 min-w-12 items-center justify-center type-body-sm text-foreground/40"
           >
             …
           </span>
@@ -69,7 +69,7 @@ export function EventExhibitorPagination({
           <span
             key={page}
             aria-current="page"
-            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg bg-primary type-metadata text-primary-foreground"
+            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg bg-accent type-metadata text-ground"
           >
             {page}
           </span>

@@ -69,7 +69,7 @@ export default async function HeroSection() {
         {/* Centring is visual only — the DOM order below is the reading order,
             and everything after the control group returns to the page gutter. */}
         <div className="mx-auto flex max-w-5xl flex-col items-center text-center">
-          <h1 className="type-page-title-large md:type-hero">{t('headline')}</h1>
+          <h1 className="type-page-title md:type-display">{t('headline')}</h1>
           {/* Keeps the approved present positioning as the first prose in the DOM:
               otherwise the earliest body text is rotating brand-card copy, which Google
               was lifting as the homepage snippet (DEV-1320). Metadata carries the full
@@ -77,10 +77,10 @@ export default async function HeroSection() {
           {/* `max-w-xl` (576px) is the plan's ~560px measure: zh-TW stays one
               line, and the longer EN line wraps to two — never the wide centred
               paragraph DESIGN.md forbids. */}
-          {/* `text-foreground` overrides the muted colour `type-page-subtitle`
+          {/* `text-foreground` overrides the muted colour `type-body`
               carries — see the contrast note on the scrim above. The type scale
               is unchanged; only the colour token moves. */}
-          <p className="mt-3 max-w-xl type-page-subtitle text-foreground">
+          <p className="mt-3 max-w-xl type-body text-foreground">
             {t('subheadline')}
           </p>
 
@@ -104,7 +104,6 @@ export default async function HeroSection() {
               data-ph-no-autocapture
               className={buttonVariants({
                 variant: 'primary',
-                tone: 'cta',
                 className: 'shrink-0',
               })}
             >

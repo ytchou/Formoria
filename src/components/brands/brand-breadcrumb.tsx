@@ -21,7 +21,7 @@ export function Breadcrumb({
 }) {
   return (
     <nav aria-label={ariaLabel} className="mb-6">
-      <ol className="flex items-center gap-1.5 type-card-description">
+      <ol className="flex items-center gap-1.5 type-body-sm">
         {items.map((item, index) => (
           <li key={`${item.label}-${index}`} className="contents">
             {index > 0 ? (
@@ -30,7 +30,7 @@ export function Breadcrumb({
             {item.href ? (
               <Link
                 href={item.href}
-                className="transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-primary"
+                className="transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent"
               >
                 {item.label}
               </Link>

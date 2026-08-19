@@ -81,7 +81,7 @@ export async function BrandCardMdx({
  */
 export function MissingBrandNotice({ label }: { label: string }) {
   return (
-    <p className="rounded-lg border border-dashed border-border px-4 py-3 type-body-muted">
+    <p className="rounded-lg border border-dashed border-border px-4 py-3 type-body-sm">
       {label}
     </p>
   )

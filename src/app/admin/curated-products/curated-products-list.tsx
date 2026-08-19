@@ -247,7 +247,7 @@ export function CuratedProductsList({
 
       {scopedBrand || brandScope ? (
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <p className="type-body-muted">
+          <p className="type-body-sm">
             {t("brandScope", { brand: scopedBrand?.name ?? brandScope ?? "" })}
           </p>
           <Button
@@ -308,7 +308,7 @@ export function CuratedProductsList({
           // nothing to put on its approve side.
           <div className="space-y-3 pt-5">
             {queueAction.error ? (
-              <p className="type-error" role="alert">
+              <p className="type-metadata text-danger" role="alert">
                 {queueAction.error}
               </p>
             ) : null}

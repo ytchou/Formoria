@@ -15,15 +15,15 @@ export function Hero({ brand, siteContent }: HeroProps) {
       <div className="mx-auto grid max-w-[1280px] items-center gap-8 md:grid-cols-[minmax(0,0.85fr)_minmax(320px,1fr)] md:gap-12">
         <div className="space-y-5">
           <div className="space-y-3">
-            <h1 className="type-display">{brand.name}</h1>
+            <h1 className="type-section">{brand.name}</h1>
             {siteContent.tagline && (
-              <p className="max-w-2xl type-body-muted">{siteContent.tagline}</p>
+              <p className="max-w-2xl type-body-sm">{siteContent.tagline}</p>
             )}
           </div>
 
           <a
             href="#contact"
-            className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[var(--brand-accent)] px-6 py-3 type-subsection-title text-[var(--brand-accent-foreground)] transition-transform active:scale-[0.98]"
+            className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[var(--brand-accent)] px-6 py-3 type-body-sm font-semibold text-ink text-[var(--brand-accent-foreground)] transition-transform active:scale-[0.98]"
           >
             了解更多
           </a>

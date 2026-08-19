@@ -73,8 +73,8 @@ export default async function StoriesHubPage({
     <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
       <div className="space-y-8">
         <header className="space-y-3">
-          <h1 className="type-page-title">{t("heading")}</h1>
-          <p className="max-w-2xl type-body-muted">{t("subheading")}</p>
+          <h1 className="type-section">{t("heading")}</h1>
+          <p className="max-w-2xl type-body-sm">{t("subheading")}</p>
         </header>
 
         {!storyResult.ok ? (
@@ -82,11 +82,11 @@ export default async function StoriesHubPage({
             role="alert"
             className="flex min-h-[40vh] items-center justify-center rounded-2xl border border-border bg-secondary px-6 py-16 text-center"
           >
-            <p className="type-empty-title">{t("loadError")}</p>
+            <p className="type-card-title text-ink-muted">{t("loadError")}</p>
           </div>
         ) : stories.length === 0 ? (
           <div className="flex min-h-[40vh] items-center justify-center rounded-2xl border border-border bg-secondary px-6 py-16 text-center">
-            <p className="type-empty-body">{t("comingSoon")}</p>
+            <p className="type-body-sm">{t("comingSoon")}</p>
           </div>
         ) : (
           <div className="space-y-10">
@@ -104,10 +104,10 @@ export default async function StoriesHubPage({
                   className="space-y-4"
                 >
                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <h2 id={headingId} className="type-section-title">
+                    <h2 id={headingId} className="type-card-title">
                       {group.title}
                     </h2>
-                    <p className="type-caption">
+                    <p className="type-metadata">
                       {isPartial
                         ? t("seriesCountFiltered", {
                             shown: group.stories.length,

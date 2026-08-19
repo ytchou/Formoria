@@ -237,7 +237,7 @@ export function TaiwanCreativeExpoExplorer({
       </Suspense>
 
       <header>
-        <h2 id="creative-expo-explorer" className="type-section-title">
+        <h2 id="creative-expo-explorer" className="type-card-title">
           {t("explorerHeading")}
         </h2>
       </header>
@@ -248,7 +248,7 @@ export function TaiwanCreativeExpoExplorer({
           role="status"
         >
           <p className="type-card-title">{t("explorerRosterUnavailable")}</p>
-          <p className="mt-1 type-card-description">
+          <p className="mt-1 type-body-sm">
             {t("explorerRosterUnavailableBody")}
           </p>
         </div>
@@ -334,7 +334,7 @@ export function TaiwanCreativeExpoExplorer({
             below keeps its reset — that is the one case with no visible chip to
             return to.
           */}
-          <p role="status" className="type-caption">
+          <p role="status" className="type-metadata">
             {isFiltered
               ? t("exhibitorCountFiltered", {
                   count: sortedEntries.length,
@@ -345,7 +345,7 @@ export function TaiwanCreativeExpoExplorer({
         </div>
 
         {rosterFailed ? null : entries.length === 0 ? (
-          <p className="type-empty-body">{t("explorerRosterEmpty")}</p>
+          <p className="type-body-sm">{t("explorerRosterEmpty")}</p>
         ) : isFilteredEmpty ? (
           <EmptyState
             icon={<SearchX />}
@@ -372,7 +372,7 @@ export function TaiwanCreativeExpoExplorer({
               every keystroke.
             */}
             {pageCount > 1 ? (
-              <p className="mt-3 type-caption">
+              <p className="mt-3 type-metadata">
                 {t("paginationPosition", { page: currentPage, pageCount })}
               </p>
             ) : null}

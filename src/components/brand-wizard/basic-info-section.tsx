@@ -96,7 +96,7 @@ export function BrandBasicInfoSection({
   return (
     <StandardFormSection id="basic-info">
       <StandardFormStack>
-        <h2 className="type-section-title">{t("wizardStepBasicInfo")}</h2>
+        <h2 className="type-card-title">{t("wizardStepBasicInfo")}</h2>
         <RequiredFieldsHint />
 
         <DashboardFormField
@@ -126,7 +126,7 @@ export function BrandBasicInfoSection({
             }}
           />
           {nameSuggestion ? (
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body-sm text-ink-soft">
               <span>
                 {tSubmit("ownerForm.suggestedName")}{" "}
                 <strong>{nameSuggestion}</strong>
@@ -174,7 +174,7 @@ export function BrandBasicInfoSection({
             {...form.register("romanizedName")}
           />
           {isExistingBrand && (
-            <p className="type-body-muted mt-1">{t("slugChangeBlocked")}</p>
+            <p className="type-body-sm mt-1">{t("slugChangeBlocked")}</p>
           )}
         </DashboardFormField>
 

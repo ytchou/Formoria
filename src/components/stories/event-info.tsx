@@ -64,7 +64,7 @@ export async function EventInfo({
         <section className="p-5">
           {/* Same step as the series heading below it — the two halves of this
               card are peers, so they carry the same heading level and scale. */}
-          <h2 className="type-subsection-title">{name}</h2>
+          <h2 className="type-body-sm font-semibold text-ink">{name}</h2>
           {/* Two columns from `sm` up: the short fields pair off instead of each
               taking a full row. `admissionNote` is a sentence, not a value, so it
               spans both and reads as the paragraph it is. */}
@@ -94,7 +94,6 @@ export async function EventInfo({
                 rel="noopener noreferrer"
                 className={buttonVariants({
                   variant: 'primary',
-                  tone: 'cta',
                   size: 'large',
                 })}
               >
@@ -126,7 +125,7 @@ export async function EventInfo({
               {t('eventPage')}
             </Link>
           </div>
-          <p className="mt-4 type-caption">{t('eventFinePrint')}</p>
+          <p className="mt-4 type-metadata">{t('eventFinePrint')}</p>
         </section>
       ) : null}
 
@@ -141,7 +140,7 @@ export async function EventInfo({
           className={cn('scroll-mt-24 p-5', event && 'border-t border-border')}
         >
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-            <h2 className="type-subsection-title">{t('seriesHeading')}</h2>
+            <h2 className="type-body-sm font-semibold text-ink">{t('seriesHeading')}</h2>
             <p className="type-metadata">{t('seriesCount', { count: series.length })}</p>
           </div>
           <SeriesList series={series} currentSlug={currentStorySlug ?? ''} />

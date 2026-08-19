@@ -14,7 +14,7 @@ describe('story MDX rendering', () => {
     const html = renderToStaticMarkup(renderedContent)
 
     expect(html).toContain('Editorial fine print.')
-    expect(html).not.toContain('<p class="my-4 type-body-muted"><p')
+    expect(html).not.toContain('<p class="my-4 type-body-sm"><p')
   })
 
   it('passes evaluated expression attributes to story shortcodes', async () => {

@@ -96,7 +96,7 @@ function MitStatusBadge({ status }: { status: MitStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 type-field-label",
+        "inline-flex items-center rounded-full px-2.5 py-0.5 type-metadata",
         config.className,
       )}
     >
@@ -368,7 +368,7 @@ export function BrandList({
         </TabsList>
       </Tabs>
 
-      {error && <p className="mt-2 type-body text-destructive">{error}</p>}
+      {error && <p className="mt-2 type-body-sm text-destructive">{error}</p>}
 
       {/*
         A status, not an alert: "a refresh is already pending" is an ordinary
@@ -379,7 +379,7 @@ export function BrandList({
       <p
         role="status"
         className={cn(
-          "type-body text-muted-foreground",
+          "type-body-sm text-muted-foreground",
           productBackfillStatus && "mt-2",
         )}
       >
@@ -451,7 +451,7 @@ export function BrandList({
             the accessible name: the bound is the one thing a growing selection
             has to be able to see coming.
           */}
-          <span className="type-body-muted">
+          <span className="type-body-sm">
             {`${productBackfillIds.size} of ${MAX_BULK_PRODUCT_BACKFILL} per run${
               selectionAtCap ? " — limit reached" : ""
             }`}
@@ -563,7 +563,7 @@ export function BrandList({
                     <div className="space-y-1">
                       <MitStatusBadge status={getMitStatus(brand)} />
                       {brand.mitEvidence?.mit_smile_cert && (
-                        <p className="type-caption">
+                        <p className="type-metadata">
                           Cert: {brand.mitEvidence.mit_smile_cert}
                         </p>
                       )}
@@ -700,7 +700,7 @@ export function BrandList({
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="type-card-description">
+        <p className="type-body-sm">
           Showing {filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}
           –{Math.min(currentPage * pageSize, filtered.length)} of{" "}
           {filtered.length} brands
@@ -733,7 +733,7 @@ export function BrandList({
           >
             <ChevronLeft className="size-4" aria-hidden />
           </Button>
-          <span className="min-w-16 text-center type-card-description">
+          <span className="min-w-16 text-center type-body-sm">
             {currentPage} / {pageCount}
           </span>
           <Button

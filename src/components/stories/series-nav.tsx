@@ -27,7 +27,7 @@ export async function SeriesNav({ series, currentSlug, locale }: SeriesNavProps)
       className="scroll-mt-24 rounded-lg border border-border bg-card p-5"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 className="type-subsection-title">{t('seriesHeading')}</h2>
+        <h2 className="type-body-sm font-semibold text-ink">{t('seriesHeading')}</h2>
         <p className="type-metadata">{t('seriesCount', { count: series.length })}</p>
       </div>
 
@@ -52,7 +52,7 @@ export function SeriesList({ series, currentSlug }: Omit<SeriesNavProps, 'locale
             {isCurrent ? (
               <span
                 aria-current="page"
-                className="flex min-h-11 items-center gap-3 py-2 type-body-emphasis"
+                className="flex min-h-11 items-center gap-3 py-2 type-body-sm font-medium text-ink"
               >
                 {position}
                 {entry.frontmatter.title}
@@ -62,7 +62,7 @@ export function SeriesList({ series, currentSlug }: Omit<SeriesNavProps, 'locale
               // `generateStaticParams` registers. `frontmatter.slug` 404s.
               <Link
                 href={`/stories/${entry.slug}`}
-                className="flex min-h-11 items-center gap-3 rounded-lg py-2 type-body transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex min-h-11 items-center gap-3 rounded-lg py-2 type-body-sm text-ink-soft transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {position}
                 {entry.frontmatter.title}

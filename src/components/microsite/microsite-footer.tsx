@@ -7,7 +7,7 @@ type MicrositeFooterProps = {
 export function MicrositeFooter({ brand }: MicrositeFooterProps) {
   return (
     <footer className="px-6 pb-10 pt-6 md:px-10">
-      <div className="mx-auto flex max-w-[1280px] flex-col gap-4 border-t border-border pt-6 type-caption sm:flex-row sm:items-center sm:justify-between">
+      <div className="mx-auto flex max-w-[1280px] flex-col gap-4 border-t border-border pt-6 type-metadata sm:flex-row sm:items-center sm:justify-between">
         <a
           href={`https://formoria.com/brands/${brand.slug}`}
           target="_blank"

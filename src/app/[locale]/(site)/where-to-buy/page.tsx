@@ -69,11 +69,11 @@ export default async function WhereToBuyPage({ params }: PageProps) {
       className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 lg:py-16"
     >
       <header className="max-w-3xl">
-        <p className="type-eyebrow text-primary">Formoria</p>
-        <h1 className="mt-3 type-page-title-large text-foreground">
+        <p className="type-eyebrow text-accent">Formoria</p>
+        <h1 className="mt-3 type-page-title text-foreground">
           {t('indexTitle')}
         </h1>
-        <p className="mt-4 type-page-subtitle text-muted-foreground">
+        <p className="mt-4 type-body text-muted-foreground">
           {t('indexIntro')}
         </p>
         <div className="mt-6">
@@ -110,10 +110,10 @@ export default async function WhereToBuyPage({ params }: PageProps) {
 
       {overseas.length > 0 ? (
         <section className="mt-10 rounded-lg bg-secondary p-6 sm:p-8">
-          <h2 className="type-section-title text-foreground">
+          <h2 className="type-card-title text-foreground">
             {t('overseasTitle')}
           </h2>
-          <p className="mt-2 type-body-muted">
+          <p className="mt-2 type-body-sm">
             {t('overseasDescription', {
               count: overseas.length,
               countries: countryCounts.size,
@@ -125,7 +125,7 @@ export default async function WhereToBuyPage({ params }: PageProps) {
               .map(([country, rows]) => (
                 <li
                   key={country}
-                  className="flex justify-between gap-3 border-t border-border py-2 type-caption"
+                  className="flex justify-between gap-3 border-t border-border py-2 type-metadata"
                 >
                   <span>{countryNames.of(country) ?? country}</span>
                   <span className="text-muted-foreground">{rows.length}</span>

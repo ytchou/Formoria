@@ -41,15 +41,15 @@ function OperationsCard({
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <span className="type-body-emphasis">{label}</span>
+        <span className="type-body-sm font-medium text-ink">{label}</span>
         <ArrowUpRight
           className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
           aria-hidden="true"
         />
       </div>
       <div>
-        <p className="type-stat">{value}</p>
-        <p className="mt-1 type-card-description">{description}</p>
+        <p className="type-section tabular-nums">{value}</p>
+        <p className="mt-1 type-body-sm">{description}</p>
       </div>
     </Link>
   );
@@ -146,11 +146,11 @@ export default async function AdminPage() {
         <div className="mb-5 max-w-2xl">
           <h2
             id="operations-overview-heading"
-            className="type-section-title-large"
+            className="type-section"
           >
             Operations overview
           </h2>
-          <p className="mt-1 type-card-description">
+          <p className="mt-1 type-body-sm">
             Triage the queues that need a decision, then open the workspace that
             owns the work.
           </p>
@@ -209,13 +209,13 @@ export default async function AdminPage() {
             <h2 id="recent-jobs-heading" className="type-card-title">
               Recent data jobs
             </h2>
-            <p className="mt-1 type-card-description">
+            <p className="mt-1 type-body-sm">
               The five newest runs, ordered by creation time.
             </p>
           </div>
           <Link
             href="/admin/jobs"
-            className="inline-flex min-h-12 items-center text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex min-h-12 items-center text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             View all jobs
           </Link>
@@ -235,7 +235,7 @@ export default async function AdminPage() {
                 <span className="font-medium">
                   {formatJobDate(job.created_at)}
                 </span>
-                <span className="type-body-muted">
+                <span className="type-body-sm">
                   {job.succeeded_count +
                     job.skipped_count +
                     job.failed_count +

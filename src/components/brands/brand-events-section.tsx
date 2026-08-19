@@ -76,7 +76,7 @@ export async function BrandEventsSection({
                 {name}
               </Link>
               {dateLabel ? <p className="type-metadata">{dateLabel}</p> : null}
-              <div className="flex flex-wrap gap-x-3 type-caption">
+              <div className="flex flex-wrap gap-x-3 type-metadata">
                 {booth ? <span>{t("boothLabel", { booth })}</span> : null}
                 {area ? <span>{area}</span> : null}
               </div>

@@ -14,10 +14,10 @@ export default async function ClaimRequestsPage() {
 
   return (
     <div>
-      <h1 className="type-page-title-large">
+      <h1 className="type-page-title">
         Claim Requests
       </h1>
-      <p className="mt-2 type-body-muted">
+      <p className="mt-2 type-body-sm">
         Review and manage brand ownership claims.
       </p>
 

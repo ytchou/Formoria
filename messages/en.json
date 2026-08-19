@@ -315,6 +315,9 @@
     "kinmen": "Kinmen County",
     "lienchiang": "Lienchiang County"
   },
+  "trustLabel": {
+    "selected": "Formoria Selected"
+  },
   "brandDetail": {
     "metadata": {
       "fallbackDescription": "Explore {name}, a Taiwanese brand featured on Formoria."
@@ -2623,8 +2626,10 @@
       "searchLabel": "Search submissions",
       "searchPlaceholder": "Search brand, submitter, email, or website",
       "submittedDate": {
+        "label": "Submitted date",
         "from": "Submitted from",
-        "to": "Submitted through"
+        "to": "Submitted through",
+        "clear": "Clear the submitted date range"
       },
       "selectVisible": "Select submissions on this page",
       "imageAlt": "Review image {n}",

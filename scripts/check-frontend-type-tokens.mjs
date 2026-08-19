@@ -5,7 +5,13 @@ import { pathToFileURL } from "node:url";
 
 export const frontendTokenRoots = ["src/app", "src/components"];
 
-const allowedMatches = [
+/**
+ * Exported so a test can assert every entry still points at a file that exists.
+ * An allowlist has no existence check of its own, which is why the entry for a
+ * deleted microsite test sat here silently permitting two hexes in a file that
+ * had not existed for months.
+ */
+export const allowedMatches = [
   {
     file: "src/components/auth/google-button.tsx",
     names: ["raw hex color literal"],
@@ -55,11 +61,6 @@ const allowedMatches = [
       "text-[#FF6600]",
       "#FF6600",
     ],
-  },
-  {
-    file: "src/components/microsite/__tests__/default-template.test.tsx",
-    names: ["raw hex color literal"],
-    values: ["#7C5C3E", "#FFFFFF"],
   },
   {
     file: "src/components/microsite/__tests__/registry.test.ts",

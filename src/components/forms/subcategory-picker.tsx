@@ -308,7 +308,7 @@ export function SubcategoryPicker({
           }}
           data-ph-no-autocapture
         />
-        <p id={searchHintId} className="type-caption">
+        <p id={searchHintId} className="type-metadata">
           {labels.searchHint}
         </p>
         {/*
@@ -322,7 +322,7 @@ export function SubcategoryPicker({
           id={messageId}
           role="status"
           className={cn(
-            "type-caption text-destructive",
+            "type-metadata text-destructive",
             !rejectedTerm && "sr-only",
           )}
         >
@@ -369,7 +369,7 @@ export function SubcategoryPicker({
         <p
           id={limitMessageId}
           role="status"
-          className={cn("type-caption", !atLimit && "sr-only")}
+          className={cn("type-metadata", !atLimit && "sr-only")}
         >
           {atLimit ? labels.limit : ""}
         </p>
@@ -390,11 +390,11 @@ export function SubcategoryPicker({
           {labels.options}
         </Typography>
         {offerGroups.length === 0 ? (
-          <p className="type-caption">{labels.empty}</p>
+          <p className="type-metadata">{labels.empty}</p>
         ) : (
           offerGroups.map(({ category, nodes }) => (
             <div key={category.slug} className="space-y-1.5">
-              <p className="type-caption text-muted-foreground">
+              <p className="type-metadata text-muted-foreground">
                 {categoryLabel(category, l1Locale)}
               </p>
               <div className="flex flex-wrap gap-2">

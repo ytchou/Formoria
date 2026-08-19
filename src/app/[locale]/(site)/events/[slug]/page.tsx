@@ -328,7 +328,7 @@ export default async function EventDetailPage({ params }: PageProps) {
       />
 
       <nav aria-label={t("breadcrumbAria")} className="mb-6">
-        <ol className="flex items-center gap-1.5 type-card-description">
+        <ol className="flex items-center gap-1.5 type-body-sm">
           <li>
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
             <a
@@ -360,11 +360,11 @@ export default async function EventDetailPage({ params }: PageProps) {
               <Badge variant="outline">{t("free")}</Badge>
             ) : null}
           </div>
-          <h1 className="type-page-title-large text-balance">{name}</h1>
+          <h1 className="type-page-title text-balance">{name}</h1>
           {/* Full measure, not `max-w-2xl`: the summary is one or two lines of
               scene-setting, not body copy, and a half-width block under a
               full-width `h1` read as an unfinished column. */}
-          <p className="type-page-subtitle">{summary}</p>
+          <p className="type-body">{summary}</p>
         </header>
 
         {heroSrc ? (
@@ -392,7 +392,6 @@ export default async function EventDetailPage({ params }: PageProps) {
                   rel="noopener noreferrer"
                   className={buttonVariants({
                     variant: "primary",
-                    tone: "cta",
                     size: "large",
                     className: "w-full sm:w-auto",
                   })}
@@ -440,7 +439,7 @@ export default async function EventDetailPage({ params }: PageProps) {
                   is full", a question that only exists once there is
                   something to book. */}
             {event.ticketUrl ? (
-              <p className="type-caption">{t("reserveNote")}</p>
+              <p className="type-metadata">{t("reserveNote")}</p>
             ) : null}
           </div>
         ) : null}
@@ -464,7 +463,7 @@ export default async function EventDetailPage({ params }: PageProps) {
           fact list they landed under the page fold on a laptop.
         */}
         <section aria-labelledby="event-about" className="space-y-8">
-          <h2 id="event-about" className="type-section-title">
+          <h2 id="event-about" className="type-card-title">
             {t("about")}
           </h2>
 
@@ -511,7 +510,7 @@ export default async function EventDetailPage({ params }: PageProps) {
                 <dd className={textStyles({ variant: "fieldValue" })}>
                   {venueName}
                   {event.venueAddress ? (
-                    <span className="block type-caption">
+                    <span className="block type-metadata">
                       {event.venueAddress}
                     </span>
                   ) : null}
@@ -568,7 +567,7 @@ export default async function EventDetailPage({ params }: PageProps) {
         */}
         <section aria-label={t("brandsHeading")} className="space-y-4">
           {isCreativeExpo ? null : (
-            <h2 className="type-section-title">{t("brandsHeading")}</h2>
+            <h2 className="type-card-title">{t("brandsHeading")}</h2>
           )}
           {/*
             Source attribution plus the "exhibiting is not an endorsement"
@@ -577,7 +576,7 @@ export default async function EventDetailPage({ params }: PageProps) {
             tinted box here would outweigh the lineup it introduces. No label
             key — the heading above already names what is being qualified.
           */}
-          {lineupNote ? <p className="type-caption">{lineupNote}</p> : null}
+          {lineupNote ? <p className="type-metadata">{lineupNote}</p> : null}
           {/*
             A lineup that has not been published yet renders the message and
             nothing else: no filter bar (there is nothing to filter) and no
@@ -594,7 +593,7 @@ export default async function EventDetailPage({ params }: PageProps) {
               />
             </Suspense>
           ) : entries.length === 0 ? (
-            <p className="type-empty-body">{t("noBrands")}</p>
+            <p className="type-body-sm">{t("noBrands")}</p>
           ) : (
             <EventBrandGrid
               entries={lineup}
@@ -612,7 +611,7 @@ export default async function EventDetailPage({ params }: PageProps) {
           reads. Separated by whitespace only, never a tinted band.
         */}
         <section aria-labelledby="event-related-stories" className="space-y-4">
-          <h2 id="event-related-stories" className="type-section-title">
+          <h2 id="event-related-stories" className="type-card-title">
             {t("relatedStories")}
           </h2>
           {relatedStories.length === 0 ? (

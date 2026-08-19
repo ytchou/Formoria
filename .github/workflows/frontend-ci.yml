@@ -49,6 +49,12 @@ jobs:
               # only lives inside the chain can go unrun without anyone noticing.
               node scripts/check-e2e-timeouts.mjs
               node scripts/checks/trail-frontmatter.mjs
+              # The v2 token contract. Hoisted for the same reason as the line
+              # above AND because it is the first link of `pnpm lint` itself:
+              # run here it names the missing token even when eslint is red.
+              # It reads only globals.css — `docs/` is gitignored, so a check
+              # that needed DESIGN.md could never pass in CI.
+              node scripts/generate-design-tokens.mjs --check
               pnpm lint
               ;;
             type-check)

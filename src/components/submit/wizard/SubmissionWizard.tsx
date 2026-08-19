@@ -300,7 +300,7 @@ export default function SubmissionWizard({
                             }
                             className="mt-0.5 size-[18px] shrink-0"
                           />
-                          <span className="type-body font-normal">
+                          <span className="type-body-sm text-ink-soft font-normal">
                             {tReview.rich('pdpaConsent', {
                               privacyPolicy: (chunks) => (
                                 <Link
@@ -316,7 +316,7 @@ export default function SubmissionWizard({
                           </span>
                         </Label>
                         {fieldState.error ? (
-                          <p className="type-error">
+                          <p className="type-metadata text-danger">
                             {t('validation.pdpaRequired')}
                           </p>
                         ) : null}
@@ -364,7 +364,7 @@ export default function SubmissionWizard({
                     />
                   </div>
                   {turnstileError || form.formState.errors.turnstileToken ? (
-                    <p className="type-error text-center" role="alert">
+                    <p className="type-metadata text-danger text-center" role="alert">
                       {turnstileError
                         ? t('errors.turnstileError')
                         : t('validation.turnstileRequired')}
@@ -372,7 +372,7 @@ export default function SubmissionWizard({
                   ) : null}
 
                   {submitError ? (
-                    <p className="type-error" role="alert" aria-live="polite">
+                    <p className="type-metadata text-danger" role="alert" aria-live="polite">
                       {submitError}
                     </p>
                   ) : null}
@@ -390,7 +390,6 @@ export default function SubmissionWizard({
                   <Button
                     type="submit"
                     variant="primary"
-                    tone="cta"
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? (

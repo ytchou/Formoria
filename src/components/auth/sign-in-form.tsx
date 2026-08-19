@@ -64,12 +64,12 @@ export function SignInForm({
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="type-section-title-large">{t("signIn.heading")}</h1>
-        <p className="type-card-description">{t("signIn.subheading")}</p>
+        <h1 className="type-section">{t("signIn.heading")}</h1>
+        <p className="type-body-sm">{t("signIn.subheading")}</p>
       </div>
 
       {claimToken && claimBrandName && (
-        <div className="rounded-lg border border-cta/20 bg-cta/5 px-4 py-3 type-body">
+        <div className="rounded-lg border border-accent/20 bg-accent/5 px-4 py-3 type-body-sm text-ink-soft">
           {t.rich("signIn.claimMessage", {
             brandName: claimBrandName,
             strong: (chunks) => <strong>{chunks}</strong>,
@@ -78,7 +78,7 @@ export function SignInForm({
       )}
 
       {message && (
-        <div className="rounded-lg bg-secondary px-4 py-3 type-body text-secondary-foreground">
+        <div className="rounded-lg bg-secondary px-4 py-3 type-body-sm text-secondary-foreground">
           {message}
         </div>
       )}
@@ -86,7 +86,7 @@ export function SignInForm({
       {errorMessage && (
         <div
           role="alert"
-          className="rounded-lg bg-destructive/10 px-4 py-3 type-body text-destructive"
+          className="rounded-lg bg-destructive/10 px-4 py-3 type-body-sm text-destructive"
         >
           {errorMessage}
         </div>
@@ -126,7 +126,7 @@ export function SignInForm({
           <div className="flex justify-end">
             <Link
               href="/auth/forgot-password"
-              className="type-caption text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+              className="type-metadata text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
             >
               {t("signIn.forgotPassword")}
             </Link>
@@ -148,7 +148,7 @@ export function SignInForm({
       ) : null}
 
       {!staging ? (
-        <p className="text-center type-card-description">
+        <p className="text-center type-body-sm">
           {t("signIn.noAccount")}{" "}
           <Link
             href={signUpHref}

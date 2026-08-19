@@ -34,16 +34,16 @@ export function AdminNav({ items }: AdminNavProps) {
             href={item.href}
             aria-current={isActive(item.href) ? "page" : undefined}
             className={cn(
-              "-mb-px inline-flex min-h-12 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 type-nav-item transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "-mb-px inline-flex min-h-12 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 type-nav hover:text-ink transition-colors transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               isActive(item.href)
-                ? "border-cta text-foreground"
+                ? "border-accent text-foreground"
                 : "border-transparent text-muted-foreground",
             )}
           >
             {item.label}
             {item.count && item.count > 0 ? (
               <span
-                className="rounded-full bg-muted px-2 py-0.5 type-caption"
+                className="rounded-full bg-muted px-2 py-0.5 type-metadata"
                 aria-label={`${item.count} pending`}
               >
                 {item.count}

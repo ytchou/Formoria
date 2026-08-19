@@ -16,32 +16,32 @@ export default async function SectionBand() {
           {/* Recommendation + feature request CTAs */}
           <div>
             <div>
-              <h2 className="type-section-title-large">{tRecommend('headline')}</h2>
-              <p className="mt-2 type-body-muted">{tRecommend('body')}</p>
+              <h2 className="type-section">{tRecommend('headline')}</h2>
+              <p className="mt-2 type-body-sm">{tRecommend('body')}</p>
               <SectionBandCtaLink
                 href="/submit"
                 label={tRecommend('cta')}
                 ctaName="submit_brand"
-                className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-4')}
+                className={cn(buttonVariants({ variant: 'primary' }), 'mt-4')}
               />
             </div>
 
             <div className="mt-10 border-t border-border pt-10">
-              <h2 className="type-section-title-large">{tFeatureRequest('headline')}</h2>
-              <p className="mt-2 type-body-muted">{tFeatureRequest('body')}</p>
+              <h2 className="type-section">{tFeatureRequest('headline')}</h2>
+              <p className="mt-2 type-body-sm">{tFeatureRequest('body')}</p>
               <SectionBandCtaLink
                 href="/feature-requests"
                 label={tFeatureRequest('cta')}
                 ctaName="feature_request"
-                className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-4')}
+                className={cn(buttonVariants({ variant: 'primary' }), 'mt-4')}
               />
             </div>
           </div>
 
           {/* Newsletter */}
           <div>
-            <h2 className="type-section-title-large">{tNewsletter('heading')}</h2>
-            <p className="mt-2 type-body-muted">{tNewsletter('subtext')}</p>
+            <h2 className="type-section">{tNewsletter('heading')}</h2>
+            <p className="mt-2 type-body-sm">{tNewsletter('subtext')}</p>
             <div className="mt-4">
               <EmailCaptureForm />
             </div>

@@ -19,6 +19,15 @@ export type ReviewFilter<T> = {
   label: string;
   placeholder?: string;
   options?: ReviewFilterOption[];
+  /**
+   * `dateRange` renders TWO native date inputs, and each one needs its own
+   * visible label — `label` describes the pair, so it cannot serve as either.
+   * The fallback below is deliberately clumsy: it is meant to be replaced by a
+   * real pair of strings, not to read well.
+   */
+  rangeLabels?: { from: string; to: string };
+  /** Accessible name for a `dateRange` filter's clear control. */
+  clearLabel?: string;
   defaultValue?: ReviewFilterValue;
   predicate: (item: T, value: ReviewFilterValue) => boolean;
   visibleOn?: (activeTab: string) => boolean;

@@ -40,7 +40,7 @@ export function FaqBlock({ questions, emitJsonLd = true }: FaqBlockProps) {
           <summary className="cursor-pointer type-card-title">
             {item.q}
           </summary>
-          <div className="mt-3 type-body-muted">
+          <div className="mt-3 type-body-sm">
             {item.a}
           </div>
         </details>

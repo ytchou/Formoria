@@ -89,9 +89,12 @@ Values are drawn from `theme.accentRules` in `theme.json`:
 
 | Background mode | Accent color | Tag / rule / bar / counter | CTA button |
 |---|---|---|---|
-| `image` or `dark` | Terracotta `#C4693B` | `#C4693B` | Cream bg `#FFFDF8` / terracotta text |
-| `color` → green `#2F5D50` | White-tint `#FFFFFF66` border, `#FFFDF8` text/rule | `#FFFDF8` strip | Cream bg / green text |
-| `color` → terracotta `#C4693B` | White-tint `#FFFFFF40` border/bar, `#FFFDF8` text/rule | `#FFFDF8` counter | Cream bg / terracotta text |
+| `image` or `dark` | Accent `#2F4F63` | `#2F4F63` | Cream bg `#FFFDF8` / accent text |
+| `color` → accent `#2F4F63` | White-tint `#FFFFFF66` border, `#FFFDF8` text/rule | `#1D3140` strip | Cream bg / accent text |
+
+Design system v2 has ONE accent, so the two coloured-background rows above
+became one. The terracotta and green the cards used to carry were a second and
+third accent that no other surface shared.
 
 Scrim gradient stops per card type (from `theme.background.scrim`):
 

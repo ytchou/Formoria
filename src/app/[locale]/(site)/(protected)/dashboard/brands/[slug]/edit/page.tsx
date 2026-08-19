@@ -70,10 +70,10 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
   return (
     <div className="w-full space-y-8">
       <div>
-        <h1 className="type-section-title-large">
+        <h1 className="type-section">
           {t('pageHeading', { name: brand.name })}
         </h1>
-        <p className="mt-1 type-card-description">
+        <p className="mt-1 type-body-sm">
           {t('pageSubheading')}
         </p>
       </div>

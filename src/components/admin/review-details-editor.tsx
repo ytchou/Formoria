@@ -343,8 +343,8 @@ export function ReviewDetailsEditor({
     >
       {missingLabels.length > 0 && (
         <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4">
-          <p className="type-body-emphasis">{t("missingRequired")}</p>
-          <ul className="mt-2 list-disc space-y-1 pl-5 type-card-description">
+          <p className="type-body-sm font-medium text-ink">{t("missingRequired")}</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 type-body-sm">
             {missingLabels.map((label) => (
               <li key={label}>{label}</li>
             ))}
@@ -695,7 +695,7 @@ export function ReviewDetailsEditor({
                           style={fill.style}
                         />
                         {index === 0 && (
-                          <figcaption className="mt-1 type-caption">
+                          <figcaption className="mt-1 type-metadata">
                             {t("fields.mainImage")}
                           </figcaption>
                         )}
@@ -704,7 +704,7 @@ export function ReviewDetailsEditor({
                   })}
                 </div>
               ) : (
-                <p className="type-card-description">{t("fields.noImages")}</p>
+                <p className="type-body-sm">{t("fields.noImages")}</p>
               )}
             </>
           )}
@@ -968,7 +968,7 @@ function ProductProposalsReadOnly({
             className="space-y-3 rounded-md border border-border p-4"
           >
             <div className="flex flex-wrap items-center gap-2">
-              <p className="type-body-emphasis">{proposalTitle(proposal)}</p>
+              <p className="type-body-sm font-medium text-ink">{proposalTitle(proposal)}</p>
               <ProposalStateBadges
                 state={states.get(proposal.key) ?? "new"}
                 kept={keptKeys.includes(proposal.key)}
@@ -994,7 +994,7 @@ function ProductProposalsReadOnly({
                 ))}
               </div>
             )}
-            <p className="whitespace-pre-wrap type-body">
+            <p className="whitespace-pre-wrap type-body-sm text-ink-soft">
               {proposal.productDescriptionZh}
             </p>
             <ProposalSourceLinks proposal={proposal} />
@@ -1108,7 +1108,7 @@ function ProductProposalsEditor({
               />
             </div>
             {locked && (
-              <p className="type-form-hint">
+              <p className="type-metadata">
                 {t("details.productEditor.locked")}
               </p>
             )}
@@ -1222,7 +1222,7 @@ function ProductProposalsEditor({
                 }
               />
             </Field>
-            <p className="type-form-hint">
+            <p className="type-metadata">
               {t("details.productEditor.descriptionHint")}
             </p>
             <ProposalSourceLinks proposal={proposal} />
@@ -1247,7 +1247,7 @@ function ProposalStateBadges({
       <Badge variant={state === "previously-rejected" ? "warning" : "outline"}>
         {t(`details.productEditor.state.${PRODUCT_STATE_KEYS[state]}`)}
       </Badge>
-      {/* Kiln means one thing in this system: a change being proposed. */}
+      {/* The accent means one thing here: a change being proposed. */}
       <Badge variant={kept ? "default" : "declared"}>
         {kept
           ? t("details.productEditor.keeping")
@@ -1288,7 +1288,7 @@ function ProposalSourceLinks({
         {urls.map((url) => (
           <a
             key={url}
-            className="type-link break-all"
+            className="type-nav font-semibold text-accent underline-offset-4 hover:underline break-all"
             href={url}
             target="_blank"
             rel="noreferrer"
@@ -1381,11 +1381,11 @@ function ReputationReadOnly({
 }) {
   const t = useTranslations("admin.submissions");
   if (!summary && sources.length === 0)
-    return <p className="type-card-description">—</p>;
+    return <p className="type-body-sm">—</p>;
 
   return (
     <>
-      {summary && <p className="whitespace-pre-wrap type-body">{summary}</p>}
+      {summary && <p className="whitespace-pre-wrap type-body-sm text-ink-soft">{summary}</p>}
       {sources.length > 0 && (
         <div className="space-y-1">
           <p className="type-metadata">{t("details.reputationSources")}</p>
@@ -1393,7 +1393,7 @@ function ReputationReadOnly({
             {sources.map((source) => (
               <li key={source.href}>
                 <a
-                  className="type-link"
+                  className="type-nav font-semibold text-accent underline-offset-4 hover:underline"
                   href={source.href}
                   target="_blank"
                   rel="noreferrer"
@@ -1479,7 +1479,7 @@ function ValueBlock({ label, value }: { label: string; value: string | null }) {
   return (
     <div>
       <p className="type-metadata">{label}</p>
-      <p className="mt-1 whitespace-pre-wrap type-body">{value}</p>
+      <p className="mt-1 whitespace-pre-wrap type-body-sm text-ink-soft">{value}</p>
     </div>
   );
 }
@@ -1488,7 +1488,7 @@ function Definition({ label, value }: { label: string; value: string | null }) {
   return (
     <div>
       <dt className="type-metadata">{label}</dt>
-      <dd className="mt-1 type-body">{value ?? "—"}</dd>
+      <dd className="mt-1 type-body-sm text-ink-soft">{value ?? "—"}</dd>
     </div>
   );
 }
@@ -1507,7 +1507,7 @@ function LinkList({
         {links.map(([label, url]) => (
           <li key={`${label}-${url}`}>
             <a
-              className="type-link break-all"
+              className="type-nav font-semibold text-accent underline-offset-4 hover:underline break-all"
               href={url}
               target="_blank"
               rel="noreferrer"
@@ -1522,9 +1522,9 @@ function LinkList({
 }
 
 function StringListReadOnly({ values }: { values: string[] }) {
-  if (values.length === 0) return <p className="type-card-description">—</p>;
+  if (values.length === 0) return <p className="type-body-sm">—</p>;
   return (
-    <ul className="list-disc space-y-1 pl-5 type-body">
+    <ul className="list-disc space-y-1 pl-5 type-body-sm text-ink-soft">
       {values.map((value) => (
         <li key={value}>{value}</li>
       ))}

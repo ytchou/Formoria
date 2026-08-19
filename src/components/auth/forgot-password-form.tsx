@@ -19,10 +19,10 @@ export function ForgotPasswordForm() {
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="type-section-title-large">
+        <h1 className="type-section">
           {t("forgotPassword.heading")}
         </h1>
-        <p className="type-card-description">
+        <p className="type-body-sm">
           {t("forgotPassword.subheading")}
         </p>
       </div>
@@ -30,14 +30,14 @@ export function ForgotPasswordForm() {
       {state.error && (
         <div
           role="alert"
-          className="rounded-lg bg-destructive/10 px-4 py-3 type-body text-destructive"
+          className="rounded-lg bg-destructive/10 px-4 py-3 type-body-sm text-destructive"
         >
           {state.error}
         </div>
       )}
 
       {state.message ? (
-        <div className="rounded-lg bg-verified-green-bg px-4 py-3 type-body text-verified-green">
+        <div className="rounded-lg bg-verified-green-bg px-4 py-3 type-body-sm text-ink-soft text-verified-green">
           {state.message}
         </div>
       ) : (
@@ -67,7 +67,7 @@ export function ForgotPasswordForm() {
         </form>
       )}
 
-      <p className="text-center type-card-description">
+      <p className="text-center type-body-sm">
         {t("forgotPassword.backToSignIn")}{" "}
         <Link
           href="/auth/sign-in"

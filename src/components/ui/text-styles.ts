@@ -1,43 +1,56 @@
 import { cva } from 'class-variance-authority'
 
+/**
+ * 35 variant names over 12 v2 type roles.
+ *
+ * The names are kept as an ALIAS layer, not as a second type system: 45 call
+ * sites name a variant, and renaming them in the same pass as the 838 raw-class
+ * sites would have made one indivisible change out of two independent ones.
+ * Several names are now synonyms — `sectionTitle` and `cardTitle` both resolve
+ * to `type-card-title` — which is the point: the collapse happens here, once,
+ * instead of at every call site.
+ *
+ * When a surface is redesigned in a later wave, prefer the role name over the
+ * alias, and delete the alias when its last caller goes. Do not add a variant.
+ */
 export const textStyles = cva('', {
   variants: {
     variant: {
-      display: 'type-display',
-      hero: 'type-hero',
-      pageTitle: 'type-page-title',
-      pageTitleLarge: 'type-page-title-large',
-      pageSubtitle: 'type-page-subtitle',
-      sectionTitle: 'type-section-title',
-      sectionTitleLarge: 'type-section-title-large',
-      sectionDescription: 'type-section-description',
+      display: 'type-section',
+      hero: 'type-display',
+      pageTitle: 'type-section',
+      pageTitleLarge: 'type-page-title',
+      pageSubtitle: 'type-body',
+      sectionTitle: 'type-card-title',
+      sectionTitleLarge: 'type-section',
+      sectionDescription: 'type-body-sm',
       cardTitle: 'type-card-title',
-      cardTitleSmall: 'type-card-title-small',
-      cardDescription: 'type-card-description',
-      subsectionTitle: 'type-subsection-title',
-      fieldLabel: 'type-field-label',
-      fieldValue: 'type-field-value',
-      formLabel: 'type-form-label',
-      formHint: 'type-form-hint',
-      body: 'type-body',
-      bodyMuted: 'type-body-muted',
-      bodyInverse: 'type-body-inverse',
-      bodyEmphasis: 'type-body-emphasis',
+      cardTitleSmall: 'type-card-title',
+      cardDescription: 'type-body-sm',
+      subsectionTitle: 'type-body-sm font-semibold text-ink',
+      fieldLabel: 'type-metadata',
+      fieldValue: 'type-body-sm text-ink',
+      formLabel: 'type-body-sm font-semibold text-ink',
+      formHint: 'type-metadata',
+      body: 'type-body-sm text-ink-soft',
+      bodyMuted: 'type-body-sm',
+      bodyInverse: 'type-body text-on-ink',
+      bodyEmphasis: 'type-body-sm font-medium text-ink',
       metadata: 'type-metadata',
-      caption: 'type-caption',
+      caption: 'type-metadata',
       micro: 'type-micro',
       eyebrow: 'type-eyebrow',
-      eyebrowMuted: 'type-eyebrow-muted',
-      eyebrowForeground: 'type-eyebrow-foreground',
-      stat: 'type-stat',
-      navItem: 'type-nav-item',
-      navItemActive: 'type-nav-item-active',
-      link: 'type-link',
-      error: 'type-error',
-      success: 'type-success',
-      successPanel: 'type-success-panel',
-      emptyTitle: 'type-empty-title',
-      emptyBody: 'type-empty-body',
+      eyebrowMuted: 'type-eyebrow',
+      eyebrowForeground: 'type-metadata font-semibold uppercase tracking-wider text-ink',
+      stat: 'type-section tabular-nums',
+      navItem: 'type-nav hover:text-ink transition-colors',
+      navItemActive: 'type-nav font-semibold text-ink',
+      link: 'type-nav font-semibold text-accent underline-offset-4 hover:underline',
+      error: 'type-metadata text-danger',
+      success: 'type-body-sm font-medium text-verified-green',
+      successPanel: 'panel-success',
+      emptyTitle: 'type-card-title text-ink-muted',
+      emptyBody: 'type-body-sm',
     },
   },
   defaultVariants: {

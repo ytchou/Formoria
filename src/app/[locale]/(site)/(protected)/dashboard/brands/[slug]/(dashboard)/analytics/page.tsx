@@ -215,7 +215,7 @@ function OwnerAnalytics({
               />
             </div>
           ) : (
-            <p className="mt-6 type-card-description">
+            <p className="mt-6 type-body-sm">
               {snapshot.daily === null ? copy.trendUnavailable : copy.trendEmpty}
             </p>
           )}
@@ -343,7 +343,7 @@ export default async function AnalyticsPage({ params, searchParams }: Props) {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <h1 className="type-page-title">{t('pageTitle')}</h1>
+        <h1 className="type-section">{t('pageTitle')}</h1>
         <AnalyticsPeriodPicker currentPeriod={period} />
       </div>
       {snapshot ? (
@@ -351,7 +351,7 @@ export default async function AnalyticsPage({ params, searchParams }: Props) {
       ) : (
         <SurfaceCard padding="lg">
           <h2 className="type-card-title">{copy.unavailableTitle}</h2>
-          <p className="mt-2 type-card-description">{copy.unavailableBody}</p>
+          <p className="mt-2 type-body-sm">{copy.unavailableBody}</p>
         </SurfaceCard>
       )}
     </div>

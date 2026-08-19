@@ -36,11 +36,11 @@ export async function OverviewInlineAnalytics({
     return (
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="type-section-title">{tSidebar('analytics')}</h2>
-          <span className="type-caption text-muted-foreground">{periodLabel}</span>
+          <h2 className="type-card-title">{tSidebar('analytics')}</h2>
+          <span className="type-metadata text-muted-foreground">{periodLabel}</span>
         </div>
         <SurfaceCard>
-          <p className="type-body-muted">{tOverview('analyticsUnavailable')}</p>
+          <p className="type-body-sm">{tOverview('analyticsUnavailable')}</p>
         </SurfaceCard>
       </section>
     )
@@ -103,19 +103,19 @@ export async function OverviewInlineAnalytics({
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="type-section-title">{tSidebar('analytics')}</h2>
-        <span className="type-caption text-muted-foreground">{periodLabel}</span>
+        <h2 className="type-card-title">{tSidebar('analytics')}</h2>
+        <span className="type-metadata text-muted-foreground">{periodLabel}</span>
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <SurfaceCard padding="lg">
           <div className="flex items-start justify-between gap-3">
             <h3 className="type-card-title">{tAnalytics('trendTitle')}</h3>
             <div className="text-right">
-              <p className="type-stat">
+              <p className="type-section tabular-nums">
                 {snapshot.profileSessions?.current ?? '—'}
               </p>
               {profileDelta ? (
-                <p className="type-caption text-muted-foreground">
+                <p className="type-metadata text-muted-foreground">
                   {profileDelta.text}
                 </p>
               ) : null}
@@ -133,7 +133,7 @@ export async function OverviewInlineAnalytics({
               />
             </div>
           ) : (
-            <p className="mt-4 type-body-muted">
+            <p className="mt-4 type-body-sm">
               {snapshot.daily === null
                 ? tAnalytics('trendUnavailable')
                 : tAnalytics('trendEmpty')}
@@ -172,7 +172,7 @@ export async function OverviewInlineAnalytics({
               />
             </div>
           ) : (
-            <p className="mt-4 type-body-muted">
+            <p className="mt-4 type-body-sm">
               {snapshot.destinations === null
                 ? tAnalytics('sectionUnavailable')
                 : tAnalytics('destinationsEmpty')}

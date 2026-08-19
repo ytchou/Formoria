@@ -156,15 +156,15 @@ export function JobDetailView({
         <div className="space-y-2">
           <Link
             href="/admin/jobs"
-            className="inline-flex min-h-12 items-center type-body-emphasis text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex min-h-12 items-center type-body-sm font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             ← Back to Data Jobs
           </Link>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="type-section-title-large">Job Detail</h1>
+            <h1 className="type-section">Job Detail</h1>
             <JobStatusBadge job={job} />
           </div>
-          <p className="break-all font-mono type-body-muted">{job.id}</p>
+          <p className="break-all font-mono type-body-sm">{job.id}</p>
         </div>
         <div className="flex flex-wrap gap-3">
           {canDispatch ? (
@@ -315,18 +315,18 @@ export function JobDetailView({
           <h2 id="job-targets-heading" className="type-card-title">
             Brand Details
           </h2>
-          <p className="mt-1 type-card-description">
+          <p className="mt-1 type-body-sm">
             Phase results, changed fields, and error summary per brand.
           </p>
           <details className="mt-2">
-            <summary className="flex min-h-12 cursor-pointer items-center font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <summary className="flex min-h-12 cursor-pointer items-center font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               What do phases mean?
             </summary>
             <dl className="grid gap-x-6 gap-y-3 rounded-lg bg-muted/40 p-4 sm:grid-cols-2 lg:grid-cols-3">
               {phaseDefinitions.map(([phase, description]) => (
                 <div key={phase}>
-                  <dt className="type-body-emphasis capitalize">{phase}</dt>
-                  <dd className="mt-1 type-body-muted">{description}</dd>
+                  <dt className="type-body-sm font-medium text-ink capitalize">{phase}</dt>
+                  <dd className="mt-1 type-body-sm">{description}</dd>
                 </div>
               ))}
             </dl>
@@ -392,7 +392,7 @@ export function JobDetailView({
                       <TargetStatusBadge target={target} />
                     </TableCell>
                     <TableCell>{target.current_phase ?? "-"}</TableCell>
-                    <TableCell className="max-w-80 whitespace-normal type-body-muted">
+                    <TableCell className="max-w-80 whitespace-normal type-body-sm">
                       {targetReason(target)}
                     </TableCell>
                     <TableCell>{formatTargetDuration(target)}</TableCell>
@@ -457,7 +457,7 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
 
   return (
     <details className="group min-w-72">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         View details
       </summary>
       <div className="pb-4 pr-4">
@@ -480,9 +480,9 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
           ) : null}
         </dl>
         <div className="mt-4 space-y-2">
-          <h3 className="type-body-emphasis">Phase log</h3>
+          <h3 className="type-body-sm font-medium text-ink">Phase log</h3>
           {phases.length === 0 ? (
-            <p className="type-body-muted">No phase records yet.</p>
+            <p className="type-body-sm">No phase records yet.</p>
           ) : (
             <ol className="space-y-2">
               {phases.map((phase, index) => (
@@ -508,22 +508,22 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
                       )}
                     </Badge>
                   </div>
-                  <p className="mt-1 type-body-muted">
+                  <p className="mt-1 type-body-sm">
                     {formatMilliseconds(phase.durationMs)}
                     {phase.changedFields.length
                       ? ` · Changed: ${phase.changedFields.join(", ")}`
                       : ""}
                   </p>
                   {phaseDescription(phase.phase) ? (
-                    <p className="mt-2 type-body">
+                    <p className="mt-2 type-body-sm text-ink-soft">
                       {phaseDescription(phase.phase)}
                     </p>
                   ) : null}
                   {phase.detail ? (
-                    <p className="mt-2 type-body">{formatPhaseDetail(phase)}</p>
+                    <p className="mt-2 type-body-sm text-ink-soft">{formatPhaseDetail(phase)}</p>
                   ) : null}
                   {phase.error ? (
-                    <p className="mt-2 type-body text-destructive">
+                    <p className="mt-2 type-body-sm text-destructive">
                       {phase.error}
                     </p>
                   ) : null}

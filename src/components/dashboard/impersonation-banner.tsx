@@ -57,10 +57,10 @@ export function ImpersonationBanner() {
           <Badge className="bg-background text-mit-verified">
             {brandName}
           </Badge>
-          <span className="truncate type-body-emphasis text-mit-verified">
+          <span className="truncate type-body-sm font-medium text-mit-verified">
             {t('banner', { brandName })}
           </span>
-          <span className="type-caption text-mit-verified" suppressHydrationWarning>
+          <span className="type-metadata text-mit-verified" suppressHydrationWarning>
             {t.raw('timeRemaining').replace('{minutes}', String(minutesLeft))}
           </span>
         </div>

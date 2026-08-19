@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Button as ReactEmailButton } from '@react-email/components'
-import { FONT_STACK, KILN } from '@emails/styles'
+import { ACCENT, FONT_STACK } from '@emails/styles'
 
 type ButtonProps = {
   href: string
@@ -16,7 +16,7 @@ export function Button({ href, children }: ButtonProps) {
 }
 
 const button = {
-  backgroundColor: KILN,
+  backgroundColor: ACCENT,
   borderRadius: '6px',
   color: '#FFFFFF',
   display: 'inline-block',

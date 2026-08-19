@@ -103,7 +103,7 @@ export function MainNav({ categories }: MainNavProps) {
         {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <BrandMark size={32} />
-          <span className="type-section-title">
+          <span className="type-card-title">
             Formoria
           </span>
         </Link>
@@ -136,19 +136,19 @@ export function MainNav({ categories }: MainNavProps) {
         <nav aria-label={t('navigation')} className="hidden items-center gap-4 md:flex">
           <Link
             href="/where-to-buy"
-            className="type-body-emphasis text-foreground/80 transition-colors hover:text-foreground"
+            className="type-body-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
           >
             {t('whereToBuy')}
           </Link>
           <Link
             href="/discover"
-            className="type-body-emphasis text-foreground/80 transition-colors hover:text-foreground"
+            className="type-body-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
           >
             {t('discover')}
           </Link>
           <Link
             href="/about"
-            className="type-body-emphasis text-foreground/80 transition-colors hover:text-foreground"
+            className="type-body-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
           >
             {t('about')}
           </Link>
@@ -164,7 +164,7 @@ export function MainNav({ categories }: MainNavProps) {
               href="/submit"
               data-ph-no-autocapture
               onClick={() => trackCtaClicked('submit_brand', 'header_nav', '/submit', pathname)}
-              className={buttonVariants({ variant: 'primary', tone: 'cta' })}
+              className={buttonVariants({ variant: 'primary' })}
             >
               {t('submitBrand')}
             </Link>
@@ -207,7 +207,7 @@ export function MainNav({ categories }: MainNavProps) {
 
                 <Link
                   href="/where-to-buy"
-                  className="flex min-h-11 items-center px-1 type-body-emphasis"
+                  className="flex min-h-11 items-center px-1 type-body-sm font-medium text-ink"
                   onClick={() => setOpen(false)}
                 >
                   {t('whereToBuy')}
@@ -215,7 +215,7 @@ export function MainNav({ categories }: MainNavProps) {
 
                 <Link
                   href="/discover"
-                  className="flex min-h-11 items-center px-1 type-body-emphasis"
+                  className="flex min-h-11 items-center px-1 type-body-sm font-medium text-ink"
                   onClick={() => setOpen(false)}
                 >
                   {t('discover')}
@@ -223,7 +223,7 @@ export function MainNav({ categories }: MainNavProps) {
 
                 <Link
                   href="/about"
-                  className="flex min-h-11 items-center px-1 type-body-emphasis"
+                  className="flex min-h-11 items-center px-1 type-body-sm font-medium text-ink"
                   onClick={() => setOpen(false)}
                 >
                   {t('about')}
@@ -244,7 +244,7 @@ export function MainNav({ categories }: MainNavProps) {
                       trackCtaClicked('submit_brand', 'header_nav', '/submit', pathname)
                       setOpen(false)
                     }}
-                    className={buttonVariants({ variant: 'primary', tone: 'cta', className: 'w-full' })}
+                    className={buttonVariants({ variant: 'primary', className: 'w-full' })}
                   >
                     {t('submitBrand')}
                   </Link>

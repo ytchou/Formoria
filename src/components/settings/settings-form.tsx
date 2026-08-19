@@ -45,13 +45,13 @@ export function SettingsForm({
       <input type="hidden" name="_currentLocale" value={currentLocale} />
 
       {state.error && (
-        <div className="rounded-lg bg-destructive/10 px-4 py-3 type-error">
+        <div className="rounded-lg bg-destructive/10 px-4 py-3 type-metadata text-danger">
           {state.error}
         </div>
       )}
 
       {state.message && (
-        <div className="type-success-panel">
+        <div className="panel-success">
           {state.message}
         </div>
       )}
@@ -78,7 +78,7 @@ export function SettingsForm({
           maxLength={50}
         />
         {state.fieldErrors?.displayName && (
-          <p className="type-error">
+          <p className="type-metadata text-danger">
             {state.fieldErrors.displayName}
           </p>
         )}
@@ -96,7 +96,7 @@ export function SettingsForm({
           <option value="en">English</option>
         </NativeSelect>
         {state.fieldErrors?.localePreference && (
-          <p className="type-error">
+          <p className="type-metadata text-danger">
             {state.fieldErrors.localePreference}
           </p>
         )}
@@ -104,8 +104,8 @@ export function SettingsForm({
 
       <section className="space-y-4 rounded-lg border border-border p-4">
         <div>
-          <h2 className="type-subsection-title">{t("marketingHeading")}</h2>
-          <p className="mt-1 type-form-hint">{t("marketingDescription")}</p>
+          <h2 className="type-body-sm font-semibold text-ink">{t("marketingHeading")}</h2>
+          <p className="mt-1 type-metadata">{t("marketingDescription")}</p>
         </div>
 
         <div className="space-y-1">
@@ -122,11 +122,11 @@ export function SettingsForm({
               onCheckedChange={setNewsletterMarketing}
               className="mt-0.5 size-[18px] shrink-0"
             />
-            <span className="type-body font-normal">
+            <span className="type-body-sm text-ink-soft font-normal">
               {t("newsletterMarketingLabel")}
             </span>
           </Label>
-          <p className="pl-[30px] type-form-hint">
+          <p className="pl-[30px] type-metadata">
             {newsletterStatus === "pending"
               ? t("newsletterPending")
               : t("newsletterMarketingDescription")}
@@ -147,11 +147,11 @@ export function SettingsForm({
               onCheckedChange={setLifecycleMarketing}
               className="mt-0.5 size-[18px] shrink-0"
             />
-            <span className="type-body font-normal">
+            <span className="type-body-sm text-ink-soft font-normal">
               {t("lifecycleMarketingLabel")}
             </span>
           </Label>
-          <p className="pl-[30px] type-form-hint">
+          <p className="pl-[30px] type-metadata">
             {t("lifecycleMarketingDescription")}
           </p>
         </div>

@@ -72,17 +72,16 @@ export function WizardSidebar({
       <details
         className={surfaceCardStyles({
           className: 'md:hidden',
-          elevated: true,
           padding: 'none',
         })}
       >
-        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 text-left type-subsection-title outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 text-left type-body-sm font-semibold text-ink outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-accent [&::-webkit-details-marker]:hidden">
           <span className="min-w-0">
             <span className="block truncate">
               {activeStepItem ? activeStepItem.title : stepProgressText}
             </span>
           </span>
-          <span className="ml-3 type-caption">{completedProgressText}</span>
+          <span className="ml-3 type-metadata">{completedProgressText}</span>
         </summary>
 
         <nav
@@ -102,7 +101,7 @@ export function WizardSidebar({
             aria-valuenow={completedCount}
           >
             <div
-              className="h-full rounded-full bg-primary transition-[width]"
+              className="h-full rounded-full bg-accent transition-[width]"
               style={{
                 width: `${steps.length ? (completedCount / steps.length) * 100 : 0}%`,
               }}

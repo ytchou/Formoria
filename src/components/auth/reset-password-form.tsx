@@ -19,16 +19,16 @@ export function ResetPasswordForm() {
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="type-section-title-large">
+        <h1 className="type-section">
           {t("resetPassword.heading")}
         </h1>
-        <p className="type-card-description">{t("resetPassword.subheading")}</p>
+        <p className="type-body-sm">{t("resetPassword.subheading")}</p>
       </div>
 
       {state.error && (
         <div
           role="alert"
-          className="rounded-lg bg-destructive/10 px-4 py-3 type-body text-destructive"
+          className="rounded-lg bg-destructive/10 px-4 py-3 type-body-sm text-destructive"
         >
           {state.error}
         </div>
@@ -70,7 +70,7 @@ export function ResetPasswordForm() {
         </Button>
       </form>
 
-      <p className="text-center type-card-description">
+      <p className="text-center type-body-sm">
         {t("resetPassword.backToSignIn")}{" "}
         <Link
           href="/auth/sign-in"

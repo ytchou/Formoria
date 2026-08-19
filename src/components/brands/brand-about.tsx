@@ -26,7 +26,7 @@ export async function BrandAbout({ brand, locale }: BrandAboutProps) {
       </Typography>
       <div className="space-y-3">
         {paragraphs.map((paragraph, i) => (
-          <p key={i} className="type-section-description">
+          <p key={i} className="type-body-sm">
             {paragraph.split("\n").map((line, j) => (
               <span key={j}>
                 {j > 0 && <br />}

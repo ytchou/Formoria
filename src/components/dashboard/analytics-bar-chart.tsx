@@ -50,7 +50,7 @@ export function AnalyticsBarChart({
       <ul className="mt-2 space-y-1">
         {data.map((item) => (
           <li
-            className="flex items-center justify-between type-body"
+            className="flex items-center justify-between type-body-sm text-ink-soft"
             key={item.label}
           >
             <span className="text-foreground">{item.label}</span>

@@ -74,7 +74,7 @@ export function AnalyticsTrendChart({
           />
         </LineChart>
       </ChartContainer>
-      <div className="mt-3 flex flex-wrap justify-center gap-x-6 gap-y-2 type-body-muted">
+      <div className="mt-3 flex flex-wrap justify-center gap-x-6 gap-y-2 type-body-sm">
         <div className="flex items-center gap-2">
           <span className="h-0.5 w-5 bg-foreground" aria-hidden="true" />
           <span>{labels.profile}</span>

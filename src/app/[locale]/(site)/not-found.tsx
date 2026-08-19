@@ -8,16 +8,16 @@ export default async function NotFound() {
 
   return (
     <main className="page-gutter mx-auto flex max-w-screen-xl flex-col items-center justify-center py-24 text-center">
-      <h1 className="type-page-title-large">
+      <h1 className="type-page-title">
         {t('notFound.title')}
       </h1>
-      <p className="mt-3 type-card-description">
+      <p className="mt-3 type-body-sm">
         {t('notFound.description')}
       </p>
       <div className="mt-6 flex flex-wrap gap-3">
         <Link
           href="/"
-          className={buttonVariants({ variant: 'primary', tone: 'cta' })}
+          className={buttonVariants({ variant: 'primary' })}
         >
           {t('notFound.cta')}
         </Link>

@@ -174,8 +174,14 @@ export function SubmissionsReviewList({
       {
         id: "submittedRange",
         kind: "dateRange",
-        label: `${t("submittedDate.from")} / ${t("submittedDate.to")}`,
-        placeholder: `${t("submittedDate.from")} – ${t("submittedDate.to")}`,
+        label: t("submittedDate.label"),
+        // Two inputs, two labels. The pair label above names the control for
+        // screen-reader summaries; neither input may borrow it.
+        rangeLabels: {
+          from: t("submittedDate.from"),
+          to: t("submittedDate.to"),
+        },
+        clearLabel: t("submittedDate.clear"),
         predicate: (submission, value) =>
           isDateInRange(
             isoDateInTimeZone(submission.submittedAt, "Asia/Taipei"),
@@ -234,7 +240,7 @@ export function SubmissionsReviewList({
               getSubmitterLabel(submission.submitterEmail, t("noSubmitter"))}
           </span>
           {submission.submitterName && (
-            <span className="block truncate type-caption">
+            <span className="block truncate type-metadata">
               {getSubmitterLabel(submission.submitterEmail, t("noSubmitter"))}
             </span>
           )}
@@ -252,7 +258,7 @@ export function SubmissionsReviewList({
       header: t("table.reason"),
       visibleOn: (activeTab) => activeTab === "skipped",
       cell: (submission) => (
-        <p className="max-w-96 whitespace-normal type-body-muted">
+        <p className="max-w-96 whitespace-normal type-body-sm">
           {submission.latestCurationError ?? t("noSkipReason")}
         </p>
       ),

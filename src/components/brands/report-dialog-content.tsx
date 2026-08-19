@@ -139,7 +139,7 @@ export function ReportDialogContent({
       </DialogClose>
 
       <DialogHeader className="flex-row gap-3 p-4 pr-14 sm:p-6 sm:pr-16">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
           <TriangleAlert className="size-5" aria-hidden="true" />
         </span>
         <div className="min-w-0 space-y-1">
@@ -201,7 +201,7 @@ export function ReportDialogContent({
                       className={cn(
                         'h-auto min-h-14 w-full justify-start gap-3 px-4 py-3 text-left whitespace-normal',
                         selected &&
-                          'border-primary bg-primary/10 text-primary hover:bg-primary/10',
+                          'border-accent bg-accent/10 text-accent hover:bg-accent/10',
                       )}
                       onClick={() => selectReason(value)}
                     >
@@ -254,20 +254,20 @@ export function ReportDialogContent({
                       className={cn(
                         'h-auto min-h-16 w-full justify-start gap-3 px-4 py-3 text-left whitespace-normal',
                         selected &&
-                          'border-primary bg-primary/10 text-primary hover:bg-primary/10',
+                          'border-accent bg-accent/10 text-accent hover:bg-accent/10',
                       )}
                       onClick={() => selectReason(value)}
                     >
                       <Icon
                         className={cn(
                           'size-5 text-muted-foreground',
-                          selected && 'text-primary',
+                          selected && 'text-accent',
                         )}
                         aria-hidden="true"
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="block type-body-emphasis">{label}</span>
-                        <span className="mt-0.5 block type-card-description">{description}</span>
+                        <span className="block type-body-sm font-medium text-ink">{label}</span>
+                        <span className="mt-0.5 block type-body-sm">{description}</span>
                       </span>
                       {selected ? (
                         <CircleCheck className="size-4" aria-hidden="true" />
@@ -319,7 +319,7 @@ export function ReportDialogContent({
                 <div className="flex items-center justify-between gap-4">
                   <Label htmlFor="report-notes">{t('notesLabel')}</Label>
                   <span
-                    className="type-caption tabular-nums text-muted-foreground"
+                    className="type-metadata tabular-nums text-muted-foreground"
                     aria-live="polite"
                     aria-atomic="true"
                   >

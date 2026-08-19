@@ -1,16 +1,106 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { useId, type ReactNode } from "react";
+import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { IsoDateRange } from "@/lib/date-range";
-import type { ReviewQueueState } from "./types";
+import { cn } from "@/lib/utils";
+import type { ReviewFilter, ReviewFilterValue, ReviewQueueState } from "./types";
+
+/**
+ * An unset bound, encoded rather than absent.
+ *
+ * `IsoDateRange` has two required bounds and `isDateInRange` compares them with
+ * plain string `>=` / `<=`, which is exactly right for ISO calendar dates. Two
+ * independent inputs, though, can leave one side empty — and holding a partial
+ * range in component state is what makes a filter forget the half the user
+ * already typed on the next parent render.
+ *
+ * So a missing bound becomes an unreachable date instead. The comparison stays
+ * a string comparison, the filter state stays complete and parent-owned, and a
+ * one-sided range filters correctly. These values are an internal encoding and
+ * are never rendered: the inputs show `""` for either sentinel.
+ */
+const OPEN_START = "0001-01-01";
+const OPEN_END = "9999-12-31";
+
+function DateRangeFilter<T>({
+  filter,
+  value,
+  onChange,
+}: {
+  filter: ReviewFilter<T>;
+  value: ReviewFilterValue;
+  onChange: (next: ReviewFilterValue) => void;
+}) {
+  const fieldId = useId();
+  const fromId = `${fieldId}-from`;
+  const toId = `${fieldId}-to`;
+
+  const range = (value ?? null) as IsoDateRange | null;
+  const start = range && range.start !== OPEN_START ? range.start : "";
+  const end = range && range.end !== OPEN_END ? range.end : "";
+
+  const labels = filter.rangeLabels ?? {
+    from: `${filter.label} — from`,
+    to: `${filter.label} — to`,
+  };
+
+  const commit = (nextStart: string, nextEnd: string) => {
+    if (!nextStart && !nextEnd) {
+      onChange(null);
+      return;
+    }
+    onChange({
+      start: nextStart || OPEN_START,
+      end: nextEnd || OPEN_END,
+    });
+  };
+
+  return (
+    <div className={cn("flex flex-wrap items-end gap-3", filter.className)}>
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <Label htmlFor={fromId}>{labels.from}</Label>
+        <Input
+          id={fromId}
+          type="date"
+          value={start}
+          max={end || undefined}
+          onChange={(event) => commit(event.target.value, end)}
+        />
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <Label htmlFor={toId}>{labels.to}</Label>
+        <Input
+          id={toId}
+          type="date"
+          value={end}
+          min={start || undefined}
+          onChange={(event) => commit(start, event.target.value)}
+        />
+      </div>
+      {start || end ? (
+        <Button
+          type="button"
+          variant="ghost"
+          shape="square"
+          size="icon"
+          className="size-12"
+          aria-label={filter.clearLabel ?? `Clear ${filter.label}`}
+          onClick={() => onChange(null)}
+        >
+          <X className="size-4" aria-hidden="true" />
+        </Button>
+      ) : null}
+    </div>
+  );
+}
 
 export function ReviewQueueToolbar<T>(props: {
   queue: ReviewQueueState<T>;
@@ -83,16 +173,11 @@ export function ReviewQueueToolbar<T>(props: {
             }
 
             return (
-              <DateRangePicker
+              <DateRangeFilter
                 key={filter.id}
-                ariaLabel={filter.label}
-                locale="en"
-                value={value as IsoDateRange | null}
-                placeholder={filter.placeholder}
-                clearLabel={`Clear ${filter.label}`}
-                className={filter.className}
-                onChange={(range) => queue.setFilterValue(filter.id, range)}
-                onClear={() => queue.setFilterValue(filter.id, null)}
+                filter={filter}
+                value={value}
+                onChange={(next) => queue.setFilterValue(filter.id, next)}
               />
             );
           })}
@@ -106,7 +191,7 @@ export function ReviewQueueToolbar<T>(props: {
       {children}
 
       {error ? (
-        <p className="mt-3 type-error" role="alert">
+        <p className="mt-3 type-metadata text-danger" role="alert">
           {error}
         </p>
       ) : null}
@@ -147,7 +232,7 @@ export function ReviewQueuePagination<T>(props: {
 
   return (
     <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-      <p className="type-card-description">{summary}</p>
+      <p className="type-body-sm">{summary}</p>
       <div className="flex items-center gap-2">
         <NativeSelect
           aria-label={pageSizeLabel}
@@ -174,7 +259,7 @@ export function ReviewQueuePagination<T>(props: {
         >
           <ChevronLeft aria-hidden="true" />
         </Button>
-        <span className="min-w-16 text-center type-card-description">
+        <span className="min-w-16 text-center type-body-sm">
           {queue.page} / {queue.pageCount}
         </span>
         <Button

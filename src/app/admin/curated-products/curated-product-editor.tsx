@@ -521,11 +521,11 @@ export function CuratedProductEditor({
             {isFetching ? t("fetching") : t("fetchDetails")}
           </Button>
         </div>
-        <p className="type-form-hint" id={prefillHintId}>
+        <p className="type-metadata" id={prefillHintId}>
           {t("prefillHint")}
         </p>
         {prefillError ? (
-          <p className="type-error" id={prefillErrorId}>
+          <p className="type-metadata text-danger" id={prefillErrorId}>
             {prefillError}
           </p>
         ) : null}
@@ -592,7 +592,7 @@ export function CuratedProductEditor({
       </div>
 
       <fieldset className="space-y-2">
-        <legend className="type-form-label">{t("l2")}</legend>
+        <legend className="type-body-sm font-semibold text-ink">{t("l2")}</legend>
         <div className="flex flex-wrap gap-2">
           {subcategoryOptions.map((sub) => (
             <ToggleChip
@@ -628,7 +628,7 @@ export function CuratedProductEditor({
           aria-describedby={officialUrlError ? officialUrlErrorId : undefined}
         />
         {officialUrlError ? (
-          <p className="type-error" id={officialUrlErrorId}>
+          <p className="type-metadata text-danger" id={officialUrlErrorId}>
             {officialUrlError}
           </p>
         ) : null}
@@ -653,11 +653,11 @@ export function CuratedProductEditor({
             imageError ? `${imageErrorId} ${imageHintId}` : imageHintId
           }
         />
-        <p className="type-form-hint" id={imageHintId}>
+        <p className="type-metadata" id={imageHintId}>
           {t("imageHint")}
         </p>
         {imageError ? (
-          <p className="type-error" id={imageErrorId}>
+          <p className="type-metadata text-danger" id={imageErrorId}>
             {imageError}
           </p>
         ) : null}
@@ -688,13 +688,13 @@ export function CuratedProductEditor({
             }
           />
           <p
-            className="type-form-hint"
+            className="type-metadata"
             id={`${fieldId}-product-description-hint`}
           >
             {t("productDescriptionHint")}
           </p>
           {productDescriptionZhError ? (
-            <p className="type-error" id={productDescriptionZhErrorId}>
+            <p className="type-metadata text-danger" id={productDescriptionZhErrorId}>
               {productDescriptionZhError}
             </p>
           ) : null}
@@ -738,7 +738,7 @@ export function CuratedProductEditor({
             }
           />
           {productPositionError ? (
-            <p className="type-error" id={productPositionErrorId}>
+            <p className="type-metadata text-danger" id={productPositionErrorId}>
               {productPositionError}
             </p>
           ) : null}
@@ -755,7 +755,7 @@ export function CuratedProductEditor({
           />
           <Label htmlFor={`${fieldId}-visible`}>{t("visible")}</Label>
         </div>
-        <p className="type-form-hint" id={`${fieldId}-visible-hint`}>
+        <p className="type-metadata" id={`${fieldId}-visible-hint`}>
           {t("visibleHint")}
         </p>
       </div>
@@ -772,13 +772,13 @@ export function CuratedProductEditor({
       </div>
 
       <fieldset className="space-y-3">
-        <legend className="type-subsection-title">{t("sources")}</legend>
+        <legend className="type-body-sm font-semibold text-ink">{t("sources")}</legend>
 
         {product && product.sources.length > 0 ? (
           <ul className="space-y-2">
             {product.sources.map((source) => (
               <li key={source.id} className="flex flex-wrap items-center gap-3">
-                <span className="type-body-muted break-all">{source.url}</span>
+                <span className="type-body-sm break-all">{source.url}</span>
                 <span className="type-metadata">
                   {t(`sourceState.${source.state}`)}
                 </span>
@@ -824,7 +824,7 @@ export function CuratedProductEditor({
                 }
               />
               {sourceUrlErrors[index] ? (
-                <p className="type-error" id={sourceUrlErrorId(index)}>
+                <p className="type-metadata text-danger" id={sourceUrlErrorId(index)}>
                   {t("urlInvalid")}
                 </p>
               ) : null}
@@ -887,7 +887,7 @@ export function CuratedProductEditor({
           </Label>
         </div>
         {isVisible ? (
-          <p className="type-form-hint" id={`${fieldId}-sources-checked-hint`}>
+          <p className="type-metadata" id={`${fieldId}-sources-checked-hint`}>
             {t("sourcesCheckedPublishedHint")}
           </p>
         ) : null}
@@ -895,7 +895,7 @@ export function CuratedProductEditor({
 
       {trailOptions.length > 0 ? (
         <fieldset className="space-y-3 rounded-lg border border-border p-4">
-          <legend className="type-subsection-title">
+          <legend className="type-body-sm font-semibold text-ink">
             {t("placement.title")}
           </legend>
           <div className="grid gap-4 md:grid-cols-2">
@@ -933,14 +933,14 @@ export function CuratedProductEditor({
                 ))}
               </NativeSelect>
               {sectionIsOrphaned ? (
-                <p role="status" className="type-form-hint">
+                <p role="status" className="type-metadata">
                   {t("placement.orphanHint")}
                 </p>
               ) : null}
             </div>
           </div>
           {selectedTrail?.placementReadError ? (
-            <p role="status" className="type-form-hint">
+            <p role="status" className="type-metadata">
               {t("placement.readError")}
             </p>
           ) : null}
@@ -952,8 +952,8 @@ export function CuratedProductEditor({
               role="status"
               className="space-y-2 rounded-md bg-secondary p-3"
             >
-              <p className="type-form-label">{t("placement.blockersTitle")}</p>
-              <ul className="list-disc pl-5 type-form-hint">
+              <p className="type-body-sm font-semibold text-ink">{t("placement.blockersTitle")}</p>
+              <ul className="list-disc pl-5 type-metadata">
                 {selectedTrail.warnings.map((warning) => (
                   <li key={warning}>{warning}</li>
                 ))}
@@ -977,7 +977,7 @@ export function CuratedProductEditor({
             />
           </div>
           {placementError ? (
-            <p className="type-error" id={placementErrorId} role="alert">
+            <p className="type-metadata text-danger" id={placementErrorId} role="alert">
               {placementError}
             </p>
           ) : null}
@@ -1028,7 +1028,7 @@ export function CuratedProductEditor({
       />
 
       {formError ? (
-        <p className="type-error" id={errorId} role="alert">
+        <p className="type-metadata text-danger" id={errorId} role="alert">
           {formError}
         </p>
       ) : null}

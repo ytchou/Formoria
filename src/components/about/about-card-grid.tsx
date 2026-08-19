@@ -46,10 +46,10 @@ export function AboutCardContent({
 }: AboutCardContentProps) {
   return (
     <>
-      <p className="type-eyebrow tabular-nums text-primary">{eyebrow}</p>
+      <p className="type-eyebrow tabular-nums text-accent">{eyebrow}</p>
       <h3 className="mt-5 type-card-title">{heading}</h3>
       {body ? (
-        <p className="mt-3 type-page-subtitle text-pretty">{body}</p>
+        <p className="mt-3 type-body text-pretty">{body}</p>
       ) : null}
     </>
   );

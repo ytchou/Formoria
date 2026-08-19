@@ -115,7 +115,7 @@ export async function BrandGallery({
           )
         })}
       </div>
-      {caption ? <figcaption className="mt-2 type-caption">{caption}</figcaption> : null}
+      {caption ? <figcaption className="mt-2 type-metadata">{caption}</figcaption> : null}
     </figure>
   )
 }

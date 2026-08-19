@@ -45,7 +45,7 @@ export function CompletenessRing({ score }: { score: number }) {
         />
         <circle
           ref={circleRef}
-          className="stroke-primary"
+          className="stroke-accent"
           cx="24"
           cy="24"
           fill="none"

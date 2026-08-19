@@ -32,15 +32,14 @@ export default async function AboutHero({ brandCount, categoryCount, recentBrand
       <div className="absolute inset-0 bg-background/70 md:bg-background/45" aria-hidden="true" />
       <div className="relative mx-auto max-w-6xl page-gutter">
         <div className="max-w-3xl">
-          <h1 className="type-hero text-balance">{t('title')}</h1>
-          <p className="mt-3 max-w-2xl type-page-subtitle text-pretty">{t('subtitle')}</p>
+          <h1 className="type-display text-balance">{t('title')}</h1>
+          <p className="mt-3 max-w-2xl type-body text-pretty">{t('subtitle')}</p>
 
           <div className="mt-6">
             <Link
               href="/brands"
               className={buttonVariants({
                 variant: 'primary',
-                tone: 'cta',
                 size: 'large',
                 className: 'min-h-12',
               })}
@@ -53,7 +52,7 @@ export default async function AboutHero({ brandCount, categoryCount, recentBrand
             <p className="mt-6 type-metadata">
               {facts.join(' · ')}
               {recentBrands != null && recentBrands.count > 0 && (
-                <span className="text-primary">
+                <span className="text-accent">
                   {facts.length > 0 ? ' · ' : ''}+{recentBrands.count}{' '}
                   {t(recentBrands.period === '7d' ? 'recentWeek' : 'recentMonth')}
                 </span>

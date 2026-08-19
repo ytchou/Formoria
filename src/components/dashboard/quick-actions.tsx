@@ -51,7 +51,7 @@ export async function QuickActions({ brandSlug }: { brandSlug: string }) {
 
   return (
     <section aria-labelledby="quick-actions-title">
-      <h2 className="type-section-title" id="quick-actions-title">
+      <h2 className="type-card-title" id="quick-actions-title">
         {tOverview('quickActionsTitle')}
       </h2>
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -70,13 +70,13 @@ export async function QuickActions({ brandSlug }: { brandSlug: string }) {
               >
                 <Icon
                   aria-hidden="true"
-                  className="size-5 shrink-0 text-primary"
+                  className="size-5 shrink-0 text-accent"
                 />
                 <div className="min-w-0 flex-1">
                   <h3 className="type-card-title">
                     {tWelcome(action.titleKey)}
                   </h3>
-                  <p className="mt-1 type-body-muted">
+                  <p className="mt-1 type-body-sm">
                     {tOverview(action.descriptionKey)}
                   </p>
                 </div>

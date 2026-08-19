@@ -77,7 +77,7 @@ export function WizardFooter({
       </div>
 
       {isDirty && (
-        <div className="flex items-center gap-1.5 type-caption text-warning">
+        <div className="flex items-center gap-1.5 type-metadata text-warning">
           <CircleAlert className="h-3.5 w-3.5" />
           <span>{t('unsavedChanges')}</span>
         </div>

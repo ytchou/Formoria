@@ -3,8 +3,16 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { textStyles } from "./text-styles";
 
+/**
+ * ELEVATION IS THE BORDER. Nothing floats.
+ *
+ * The `elevated` axis is gone: it existed only to add `shadow-card`, and v2
+ * has no shadows at all — a card is distinguished by its rule and its tone,
+ * not by a drop shadow. Callers that passed `elevated` fall back to the
+ * bordered default, which is what they should have been using.
+ */
 const surfaceCardStyles = cva(
-  "rounded-xl border border-border text-card-foreground shadow-none",
+  "rounded-[3px] border border-rule text-ink shadow-none",
   {
     variants: {
       tone: {
@@ -22,11 +30,7 @@ const surfaceCardStyles = cva(
         lg: "p-6",
       },
       interactive: {
-        true: "transition-[box-shadow,transform] hover:-translate-y-px hover:shadow-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        false: "",
-      },
-      elevated: {
-        true: "shadow-card",
+        true: "transition-colors hover:border-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground",
         false: "",
       },
     },
@@ -34,7 +38,6 @@ const surfaceCardStyles = cva(
       tone: "card",
       padding: "md",
       interactive: false,
-      elevated: false,
     },
   },
 );
@@ -44,7 +47,7 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card"
       className={cn(
-        "bg-card text-card-foreground rounded-xl border shadow-card",
+        "rounded-[3px] border border-rule bg-card text-ink",
         className,
       )}
       {...props}
@@ -57,7 +60,6 @@ type SurfaceCardProps = ComponentProps<"div"> &
 
 function SurfaceCard({
   className,
-  elevated,
   interactive,
   padding,
   tone,
@@ -67,7 +69,7 @@ function SurfaceCard({
     <div
       data-slot="surface-card"
       className={cn(
-        surfaceCardStyles({ elevated, interactive, padding, tone }),
+        surfaceCardStyles({ interactive, padding, tone }),
         className,
       )}
       {...props}

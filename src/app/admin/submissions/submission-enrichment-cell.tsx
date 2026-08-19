@@ -18,7 +18,7 @@ export function renderEnrichment(submission: ReviewSubmission, t: SubmissionsT) 
         <Badge variant={enrichment.variant}>{enrichment.label}</Badge>
         {submission.latestCurationJobId && (
           <Link
-            className="type-link"
+            className="type-nav font-semibold text-accent underline-offset-4 hover:underline"
             href={`/admin/jobs/${submission.latestCurationJobId}`}
           >
             {t("viewJob")}
@@ -26,12 +26,12 @@ export function renderEnrichment(submission: ReviewSubmission, t: SubmissionsT) 
         )}
       </div>
       {submission.latestCurationError && (
-        <p className="mt-1 max-w-72 type-caption text-muted-foreground">
+        <p className="mt-1 max-w-72 type-metadata text-muted-foreground">
           {submission.latestCurationError}
         </p>
       )}
       {submission.reviewCompleteness.missingFields.length > 0 && (
-        <p className="mt-1 type-caption text-warning">
+        <p className="mt-1 type-metadata text-warning">
           {`${t("missingRequired")}: ${submission.reviewCompleteness.missingFields
             .map((field) => t(`missingFields.${field}`))
             .join(", ")}`}
@@ -40,7 +40,7 @@ export function renderEnrichment(submission: ReviewSubmission, t: SubmissionsT) 
       {/* Advisory only — approving is still allowed. The slug is deduped, so a
           duplicate approves cleanly and silently creates a second brand page. */}
       {submission.duplicateWarning && (
-        <p className="mt-1 type-caption text-warning">
+        <p className="mt-1 type-metadata text-warning">
           {submission.duplicateWarning.liveBrand
             ? t("duplicateWarning.liveBrand", {
                 name: submission.duplicateWarning.liveBrand.name,

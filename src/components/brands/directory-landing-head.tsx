@@ -98,7 +98,7 @@ export async function DirectoryResultStatus({
       {...(announceLiveRegion
         ? { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' }
         : {})}
-      className="flex flex-wrap gap-x-3 gap-y-1 tabular-nums type-card-description"
+      className="flex flex-wrap gap-x-3 gap-y-1 tabular-nums type-body-sm"
     >
       <span>{brandsT('count', { count: totalCount })}</span>
       {updatedDate ? (
@@ -139,9 +139,9 @@ export async function DirectoryLandingHead({
         category={category}
         subcategory={subcategory}
       />
-      <h1 className="text-balance type-page-title">{heading}</h1>
+      <h1 className="text-balance type-section">{heading}</h1>
       {intro ? (
-        <p className="mt-3 type-body-muted">{intro}</p>
+        <p className="mt-3 type-body-sm">{intro}</p>
       ) : null}
       <CategoryLinkList
         locale={locale}

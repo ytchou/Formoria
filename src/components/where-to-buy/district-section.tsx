@@ -18,14 +18,14 @@ export function DistrictSection({
       <h2
         id={group.slug}
         tabIndex={-1}
-        className="type-section-title text-foreground focus:outline-2 focus:outline-offset-3 focus:outline-primary"
+        className="type-card-title text-foreground focus:outline-2 focus:outline-offset-3 focus:outline-accent"
       >
         {label} · {group.locations.length} {locationLabel}
       </h2>
       <div className="mt-5 space-y-6">
         {[...byBrand.entries()].map(([brandSlug, locations]) => (
           <section key={brandSlug}>
-            <h3 className="type-body-emphasis text-foreground">
+            <h3 className="type-body-sm font-medium text-foreground">
               {locations.at(0)?.brandName}
             </h3>
             <ul className="mt-2 rounded-lg bg-card px-4">

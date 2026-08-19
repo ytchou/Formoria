@@ -112,8 +112,8 @@ export function BrandSectionNav({
                   'flex min-h-12 shrink-0 items-center border-b-2 border-transparent px-4',
                   orientation === 'vertical' && 'md:border-b-0 md:border-l-2 md:px-3',
                   isActive
-                    ? 'type-nav-item-active border-primary'
-                    : 'type-nav-item',
+                    ? 'type-nav font-semibold text-ink border-accent'
+                    : 'type-nav hover:text-ink transition-colors',
                 )}
               >
                 {label}

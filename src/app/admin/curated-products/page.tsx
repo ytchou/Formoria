@@ -117,8 +117,8 @@ export default async function CuratedProductsPage({
 
   return (
     <div>
-      <h1 className="type-page-title-large">{t("title")}</h1>
-      <p className="mt-2 type-body-muted">{t("description")}</p>
+      <h1 className="type-page-title">{t("title")}</h1>
+      <p className="mt-2 type-body-sm">{t("description")}</p>
 
       <div className="mt-8">
         <CuratedProductsList

@@ -25,9 +25,9 @@ function buildPageUrl(pathname: string, searchParams: URLSearchParams, page: num
 }
 
 const navLinkClass =
-  'relative inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+  'relative inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-sm font-medium text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
 const pageLinkClass =
-  'relative inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+  'relative inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg type-body-sm font-medium text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
 
 function PaginationLinkStatus() {
   const { pending } = useLinkStatus()
@@ -82,7 +82,7 @@ export function Pagination({
           <PaginationLinkStatus />
         </Link>
       ) : (
-        <span className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/20">
+        <span className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-sm font-medium text-foreground/20">
           {t('pagination.previous')}
         </span>
       )}
@@ -93,7 +93,7 @@ export function Pagination({
           return (
             <span
               key={`ellipsis-${i}`}
-              className="inline-flex min-h-12 min-w-12 items-center justify-center type-body text-foreground/40"
+              className="inline-flex min-h-12 min-w-12 items-center justify-center type-body-sm text-foreground/40"
             >
               …
             </span>
@@ -106,7 +106,7 @@ export function Pagination({
           return (
             <span
               key={page}
-              className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg bg-primary type-metadata text-primary-foreground"
+              className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg bg-accent type-metadata text-ground"
               aria-current="page"
             >
               {page}
@@ -153,7 +153,7 @@ export function Pagination({
           <PaginationLinkStatus />
         </Link>
       ) : (
-        <span className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/20">
+        <span className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-sm font-medium text-foreground/20">
           {t('pagination.next')}
         </span>
       )}

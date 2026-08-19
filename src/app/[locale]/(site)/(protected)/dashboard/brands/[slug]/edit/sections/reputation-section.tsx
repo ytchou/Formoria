@@ -28,7 +28,7 @@ export function ReputationSection({
   return (
     <StandardFormSection id="reputation">
       <StandardFormStack>
-        <h2 className="type-section-title">
+        <h2 className="type-card-title">
           {t('sectionReputation')}
         </h2>
 

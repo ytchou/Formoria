@@ -75,8 +75,8 @@ export default async function ContactPage({ params }: PageProps) {
       <section className="border-b border-border pb-10">
         <div className="max-w-3xl">
           <p className="type-eyebrow">{t('hero.eyebrow')}</p>
-          <h1 className="mt-3 type-hero">{t('hero.title')}</h1>
-          <p className="mt-4 max-w-2xl type-page-subtitle">{t('hero.intro')}</p>
+          <h1 className="mt-3 type-display">{t('hero.title')}</h1>
+          <p className="mt-4 max-w-2xl type-body">{t('hero.intro')}</p>
         </div>
       </section>
 
@@ -84,13 +84,13 @@ export default async function ContactPage({ params }: PageProps) {
         <div className="grid gap-4 md:grid-cols-2">
           {channels.map(({ key, icon: Icon, href, external }) => (
             <article key={key} className={surfaceCardStyles()}>
-              <div className="flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <div className="flex size-8 items-center justify-center rounded-full bg-accent text-ground">
                 <Icon aria-hidden="true" className="size-4" />
               </div>
               <h2 className="mt-4 type-card-title">
                 {t(`channels.${key}.title`)}
               </h2>
-              <p className="mt-2 type-card-description">
+              <p className="mt-2 type-body-sm">
                 {t(`channels.${key}.body`)}
               </p>
               {external ? (

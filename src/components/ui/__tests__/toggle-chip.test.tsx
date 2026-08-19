@@ -2,7 +2,12 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { ToggleChip } from "@/components/ui/toggle-chip";
+import {
+  TOGGLE_CHIP_GAP_PX,
+  ToggleChip,
+  taxonomyLinkClasses,
+  toggleChipRowClasses,
+} from "@/components/ui/toggle-chip";
 
 describe("ToggleChip", () => {
   it("renders a native button with aria-pressed reflecting the pressed prop", () => {
@@ -60,9 +65,9 @@ describe("ToggleChip", () => {
     );
 
     const pressedChip = screen.getByRole("button", { name: "Ceramics" });
-    expect(pressedChip).toHaveClass("border-primary");
-    expect(pressedChip).toHaveClass("bg-primary");
-    expect(pressedChip).toHaveClass("text-primary-foreground");
+    expect(pressedChip).toHaveClass("border-accent");
+    expect(pressedChip).toHaveClass("bg-accent");
+    expect(pressedChip).toHaveClass("text-ground");
 
     rerender(
       <ToggleChip pressed={false} onPressedChange={vi.fn()}>
@@ -71,9 +76,9 @@ describe("ToggleChip", () => {
     );
 
     const unpressedChip = screen.getByRole("button", { name: "Ceramics" });
-    expect(unpressedChip).not.toHaveClass("border-primary");
-    expect(unpressedChip).not.toHaveClass("bg-primary");
-    expect(unpressedChip).not.toHaveClass("text-primary-foreground");
+    expect(unpressedChip).not.toHaveClass("border-accent");
+    expect(unpressedChip).not.toHaveClass("bg-accent");
+    expect(unpressedChip).not.toHaveClass("text-ground");
   });
 
   // The Button `secondary` variant hovers to bg-muted/text-foreground. Without
@@ -88,9 +93,9 @@ describe("ToggleChip", () => {
     );
 
     const chip = screen.getByRole("button", { name: "Ceramics" });
-    expect(chip).toHaveClass("hover:border-primary");
-    expect(chip).toHaveClass("hover:bg-primary");
-    expect(chip).toHaveClass("hover:text-primary-foreground");
+    expect(chip).toHaveClass("hover:border-accent");
+    expect(chip).toHaveClass("hover:bg-accent");
+    expect(chip).toHaveClass("hover:text-ground");
     expect(chip).not.toHaveClass("hover:bg-muted");
     expect(chip).not.toHaveClass("hover:text-foreground");
   });
@@ -105,7 +110,7 @@ describe("ToggleChip", () => {
     const keptChip = screen.getByRole("button", { name: "Ceramics" });
     expect(keptChip).toHaveClass("hover:bg-secondary");
     expect(keptChip).not.toHaveClass("hover:bg-muted");
-    expect(keptChip).not.toHaveClass("hover:bg-primary");
+    expect(keptChip).not.toHaveClass("hover:bg-accent");
 
     rerender(
       <ToggleChip pressed={false} tone="reference" onPressedChange={vi.fn()}>
@@ -129,9 +134,9 @@ describe("ToggleChip", () => {
 
     const keptChip = screen.getByRole("button", { name: "Ceramics" });
     expect(keptChip).toHaveClass("bg-secondary");
-    expect(keptChip).not.toHaveClass("bg-primary");
-    expect(keptChip).not.toHaveClass("border-primary");
-    expect(keptChip).not.toHaveClass("text-primary-foreground");
+    expect(keptChip).not.toHaveClass("bg-accent");
+    expect(keptChip).not.toHaveClass("border-accent");
+    expect(keptChip).not.toHaveClass("text-ground");
     expect(keptChip).not.toHaveClass("line-through");
 
     rerender(
@@ -142,9 +147,9 @@ describe("ToggleChip", () => {
 
     const struckChip = screen.getByRole("button", { name: "Ceramics" });
     expect(struckChip).toHaveClass("bg-secondary");
-    expect(struckChip).not.toHaveClass("bg-primary");
-    expect(struckChip).not.toHaveClass("border-primary");
-    expect(struckChip).not.toHaveClass("text-primary-foreground");
+    expect(struckChip).not.toHaveClass("bg-accent");
+    expect(struckChip).not.toHaveClass("border-accent");
+    expect(struckChip).not.toHaveClass("text-ground");
     expect(struckChip).toHaveClass("line-through");
     expect(struckChip).toHaveClass("text-muted-foreground");
   });
@@ -168,16 +173,72 @@ describe("ToggleChip", () => {
         pressed={false}
         onPressedChange={vi.fn()}
         size="chip"
-        className="min-h-12 active:animate-spring-pop"
+        className="active:animate-spring-pop"
       >
         Ceramics
       </ToggleChip>,
     );
 
     const chip = screen.getByRole("button", { name: "Ceramics" });
-    expect(chip).toHaveClass("min-h-12");
     expect(chip).toHaveClass("active:animate-spring-pop");
-    // size="chip" maps to the Button size variant's h-8 track
-    expect(chip).toHaveClass("h-8");
+    // size="chip" maps to the Button size variant's 36px track
+    expect(chip).toHaveClass("h-9");
+    expect(chip).not.toHaveClass("h-8");
+  });
+
+  // 36px is the ONE documented exception to the 44x44 touch minimum, and it
+  // only holds while neighbouring chips sit >=14px apart. A chip that can be
+  // rendered flush against its neighbour would void the exception, so the gap
+  // is part of the chip's own contract rather than the caller's discipline.
+  it("meets the 36px chip height without a caller opting in", () => {
+    render(
+      <ToggleChip pressed={false} onPressedChange={vi.fn()}>
+        Ceramics
+      </ToggleChip>,
+    );
+
+    const chip = screen.getByRole("button", { name: "Ceramics" });
+    expect(chip).toHaveClass("h-9");
+    expect(chip).not.toHaveClass("h-11");
+  });
+
+  it("carries its own >=14px spacing so the 36px exception holds", () => {
+    expect(TOGGLE_CHIP_GAP_PX).toBe(14);
+
+    render(
+      <ToggleChip pressed={false} onPressedChange={vi.fn()}>
+        Ceramics
+      </ToggleChip>,
+    );
+
+    // Half the gap on every side: two flush chips still sit 14px apart, in
+    // both axes, whatever the parent does.
+    expect(screen.getByRole("button", { name: "Ceramics" })).toHaveClass(
+      "m-[7px]",
+    );
+
+    // The row cancels only the OUTER half-gap, so the row still lines up flush
+    // with the column around it while the inner gaps survive.
+    expect(toggleChipRowClasses).toContain("-m-[7px]");
+  });
+
+  it("gives the link-shaped chip the same height and spacing contract", () => {
+    const classes = taxonomyLinkClasses();
+
+    expect(classes).toContain("h-9");
+    expect(classes).toContain("m-[7px]");
+    expect(classes).toContain("rounded-full");
+  });
+
+  it("gives the unpressed chip a rule outline, never an ink one", () => {
+    render(
+      <ToggleChip pressed={false} onPressedChange={vi.fn()}>
+        Ceramics
+      </ToggleChip>,
+    );
+
+    const chip = screen.getByRole("button", { name: "Ceramics" });
+    expect(chip).toHaveClass("border-rule");
+    expect(chip).not.toHaveClass("border-ink");
   });
 });

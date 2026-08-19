@@ -13,7 +13,7 @@ import {
 } from "./brand-verification-badges";
 import { CorrectionDialog } from "./correction-dialog";
 
-const infoLabelClassName = "type-field-label uppercase tracking-[0.08em]";
+const infoLabelClassName = "type-metadata uppercase tracking-[0.08em]";
 
 interface BrandHeaderProps {
   brand: PublicBrandDetail;
@@ -115,7 +115,7 @@ export function BrandHeader({
               />
             )}
             {mitSmileCert && (
-              <span className="type-caption">
+              <span className="type-metadata">
                 {t("mitProofLink", { cert: mitSmileCert })}
               </span>
             )}

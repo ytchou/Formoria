@@ -31,7 +31,7 @@ function BrandImage({ brand }: { brand: SavedBrand }) {
   if (!selectedImage) {
     return (
       <div className="flex h-full items-center justify-center bg-secondary">
-        <span className="type-page-title-large text-muted-foreground">
+        <span className="type-page-title text-muted-foreground">
           {[...brand.brandName][0]}
         </span>
       </div>
@@ -69,12 +69,12 @@ function SavedBrandCard({ brand }: { brand: SavedBrand }) {
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
         <BrandImage brand={brand} />
-        <div className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-cta shadow-sm">
+        <div className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-accent shadow-sm">
           <Heart className="h-5 w-5" fill="currentColor" aria-hidden />
         </div>
       </div>
       <div className="p-4">
-        <h2 className="truncate type-subsection-title">
+        <h2 className="truncate type-body-sm font-semibold text-ink">
           {brand.brandName}
         </h2>
       </div>
@@ -97,10 +97,10 @@ function EmptyState({
         <div className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-muted text-muted-foreground">
           <Heart className="h-8 w-8" aria-hidden />
         </div>
-        <h2 className="mt-6 type-section-title-large">
+        <h2 className="mt-6 type-section">
           {title}
         </h2>
-        <p className="mt-3 type-card-description">
+        <p className="mt-3 type-body-sm">
           {description}
         </p>
         <Link
@@ -127,7 +127,7 @@ export default async function FavoritesPage({ params }: Props) {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
         <div className="page-gutter flex h-16 items-center justify-between gap-4">
-          <h1 className="type-section-title-large">
+          <h1 className="type-section">
             {t('heading')}
           </h1>
           {brands.length > 0 && (

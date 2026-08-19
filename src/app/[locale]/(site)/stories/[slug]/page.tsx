@@ -220,7 +220,7 @@ export default async function StoryPage({ params }: PageProps) {
     // breadcrumb, hero, metadata, body, figures, cards, FAQ, and series nav.
     <main className="mx-auto box-border w-full max-w-[920px] px-4 pt-8 pb-16 sm:px-5 md:px-8 md:pt-12 md:pb-24">
       <nav aria-label={t("breadcrumbAria")} className="mb-6">
-        <ol className="flex items-center gap-1.5 type-card-description">
+        <ol className="flex items-center gap-1.5 type-body-sm">
           <li>
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
             <a
@@ -314,13 +314,13 @@ export default async function StoryPage({ params }: PageProps) {
           </div>
         ) : null}
         <header className="space-y-4">
-          <h1 className="type-page-title-large">
+          <h1 className="type-page-title">
             {story.entry.frontmatter.title}
           </h1>
-          <p className="type-page-subtitle">
+          <p className="type-body">
             {story.entry.frontmatter.description}
           </p>
-          <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 type-caption">
+          <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 type-metadata">
             <div className="contents">
               <dt className="border-r border-border pr-3 type-metadata">
                 {t("authorLabel")}

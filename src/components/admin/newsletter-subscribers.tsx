@@ -95,7 +95,7 @@ export function NewsletterSubscribersList({
                   <TableCell>
                     <p className="font-medium">{subscriber.email}</p>
                     {subscriber.name ? (
-                      <p className="type-body-muted">{subscriber.name}</p>
+                      <p className="type-body-sm">{subscriber.name}</p>
                     ) : null}
                   </TableCell>
                   <TableCell>

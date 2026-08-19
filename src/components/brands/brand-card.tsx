@@ -113,10 +113,10 @@ export function BrandCard({
         {variant === 'editorial' && eyebrow ? (
           /*
            * Micro-text, not a `Badge`: three grey pills across a `<BrandRow>`
-           * read as chrome inside prose. `type-eyebrow-muted` is the declared
+           * read as chrome inside prose. `type-eyebrow` is the declared
            * 11px uppercase tracked utility — never hand-pick the size here.
            */
-          <p className="mb-2 type-eyebrow-muted">{eyebrow}</p>
+          <p className="mb-2 type-eyebrow">{eyebrow}</p>
         ) : null}
         <div className="flex min-w-0 items-center gap-1.5">
           {/*
@@ -128,7 +128,7 @@ export function BrandCard({
            */}
           <h3
             className={cn(
-              'min-w-0 type-subsection-title',
+              'min-w-0 type-body-sm font-semibold text-ink',
               variant === 'editorial' ? 'line-clamp-2 min-h-10' : 'truncate',
             )}
           >
@@ -184,7 +184,7 @@ export function BrandCard({
         {variant === 'recommendation' ? (
           <>
             {categoryLabel ? (
-              <p className="mt-1 truncate type-card-description">{categoryLabel}</p>
+              <p className="mt-1 truncate type-body-sm">{categoryLabel}</p>
             ) : null}
             <Link
               href={`/brands/${brand.slug}`}
@@ -218,7 +218,7 @@ export function BrandCard({
               selection — see NO_SNIPPET. The brand's own description still
               serves snippets from its detail page.
             */}
-            <p {...NO_SNIPPET} className="mt-1.5 min-h-[2.625rem] type-body line-clamp-2">
+            <p {...NO_SNIPPET} className="mt-1.5 min-h-[2.625rem] type-body-sm text-ink-soft line-clamp-2">
               {note ?? blurb ?? ' '}
             </p>
             {categoryLabel ? (
@@ -232,7 +232,7 @@ export function BrandCard({
             {/* Same snippet suppression as the editorial variant above. */}
             <p
               {...NO_SNIPPET}
-              className="mt-1.5 min-h-[2.625rem] type-section-description line-clamp-2"
+              className="mt-1.5 min-h-[2.625rem] type-body-sm line-clamp-2"
             >
               {blurb ?? ' '}
             </p>

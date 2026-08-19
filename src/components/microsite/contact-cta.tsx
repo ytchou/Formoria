@@ -20,15 +20,15 @@ export function ContactCta({ siteContent }: ContactCtaProps) {
         >
           <div className="flex flex-col items-start gap-5 md:flex-row md:items-center md:justify-between">
             <div className="space-y-2">
-              <h2 id="contact-title" className="type-section-title">
+              <h2 id="contact-title" className="type-card-title">
                 與品牌聯繫
               </h2>
-              <p className="type-body-muted">歡迎洽詢商品、合作與客製需求。</p>
+              <p className="type-body-sm">歡迎洽詢商品、合作與客製需求。</p>
             </div>
             {email && (
               <a
                 href={`mailto:${email}`}
-                className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[var(--brand-accent)] px-6 py-3 type-subsection-title text-[var(--brand-accent-foreground)] transition-transform active:scale-[0.98]"
+                className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[var(--brand-accent)] px-6 py-3 type-body-sm font-semibold text-ink text-[var(--brand-accent-foreground)] transition-transform active:scale-[0.98]"
               >
                 聯絡品牌
               </a>

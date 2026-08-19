@@ -19,13 +19,13 @@ export function Footer() {
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
           {/* Discover */}
           <div>
-            <p className="type-eyebrow-foreground">{t("discoverHeading")}</p>
+            <p className="type-metadata font-semibold uppercase tracking-wider text-ink">{t("discoverHeading")}</p>
             <ul className="mt-4 space-y-2">
               <li>
                 <Link
                   href="/brands"
                   prefetch={false}
-                  className="type-card-description hover:text-foreground transition-colors"
+                  className="type-body-sm hover:text-foreground transition-colors"
                 >
                   {t("directory")}
                 </Link>
@@ -34,7 +34,7 @@ export function Footer() {
                 <Link
                   href="/where-to-buy"
                   prefetch={false}
-                  className="type-card-description hover:text-foreground transition-colors"
+                  className="type-body-sm hover:text-foreground transition-colors"
                 >
                   {t("whereToBuy")}
                 </Link>
@@ -43,7 +43,7 @@ export function Footer() {
                 <Link
                   href="/discover"
                   prefetch={false}
-                  className="type-card-description hover:text-foreground transition-colors"
+                  className="type-body-sm hover:text-foreground transition-colors"
                 >
                   {t("discover")}
                 </Link>
@@ -51,7 +51,7 @@ export function Footer() {
               <li>
                 <a
                   href={getFooterFullDocumentHref("/events", locale)}
-                  className="type-card-description hover:text-foreground transition-colors"
+                  className="type-body-sm hover:text-foreground transition-colors"
                 >
                   {t("events")}
                 </a>
@@ -59,7 +59,7 @@ export function Footer() {
               <li>
                 <a
                   href={getFooterFullDocumentHref("/stories", locale)}
-                  className="type-card-description hover:text-foreground transition-colors"
+                  className="type-body-sm hover:text-foreground transition-colors"
                 >
                   {t("stories")}
                 </a>
@@ -68,7 +68,7 @@ export function Footer() {
                 <Link
                   href="/submit"
                   prefetch={false}
-                  className="type-card-description hover:text-foreground transition-colors"
+                  className="type-body-sm hover:text-foreground transition-colors"
                 >
                   {t("submit")}
                 </Link>
@@ -78,13 +78,13 @@ export function Footer() {
 
           {/* Company */}
           <div>
-            <p className="type-eyebrow-foreground">{t("companyHeading")}</p>
+            <p className="type-metadata font-semibold uppercase tracking-wider text-ink">{t("companyHeading")}</p>
             <ul className="mt-4 space-y-2">
               <li>
                 <Link
                   href="/about"
                   prefetch={false}
-                  className="type-card-description hover:text-foreground transition-colors"
+                  className="type-body-sm hover:text-foreground transition-colors"
                 >
                   {t("about")}
                 </Link>
@@ -93,7 +93,7 @@ export function Footer() {
                 <Link
                   href="/getting-started"
                   prefetch={false}
-                  className="type-card-description hover:text-foreground transition-colors"
+                  className="type-body-sm hover:text-foreground transition-colors"
                 >
                   {t("gettingStarted")}
                 </Link>
@@ -102,7 +102,7 @@ export function Footer() {
                 <Link
                   href="/faq"
                   prefetch={false}
-                  className="type-card-description hover:text-foreground transition-colors"
+                  className="type-body-sm hover:text-foreground transition-colors"
                 >
                   {t("faq")}
                 </Link>
@@ -112,13 +112,13 @@ export function Footer() {
 
           {/* Legal */}
           <div>
-            <p className="type-eyebrow-foreground">{t("legalHeading")}</p>
+            <p className="type-metadata font-semibold uppercase tracking-wider text-ink">{t("legalHeading")}</p>
             <ul className="mt-4 space-y-2">
               <li>
                 <Link
                   href="/terms"
                   prefetch={false}
-                  className="type-card-description hover:text-foreground transition-colors"
+                  className="type-body-sm hover:text-foreground transition-colors"
                 >
                   {t("terms")}
                 </Link>
@@ -127,7 +127,7 @@ export function Footer() {
                 <Link
                   href="/privacy"
                   prefetch={false}
-                  className="type-card-description hover:text-foreground transition-colors"
+                  className="type-body-sm hover:text-foreground transition-colors"
                 >
                   {t("privacy")}
                 </Link>
@@ -137,13 +137,13 @@ export function Footer() {
 
           {/* Connect */}
           <div>
-            <p className="type-eyebrow-foreground">{t("connectHeading")}</p>
+            <p className="type-metadata font-semibold uppercase tracking-wider text-ink">{t("connectHeading")}</p>
             <ul className="mt-4 space-y-2">
               <li>
                 <Link
                   href="/contact"
                   prefetch={false}
-                  className="type-card-description hover:text-foreground transition-colors"
+                  className="type-body-sm hover:text-foreground transition-colors"
                 >
                   {t("contact")}
                 </Link>
@@ -152,7 +152,7 @@ export function Footer() {
                 <Link
                   href="/feature-requests"
                   prefetch={false}
-                  className="type-card-description hover:text-foreground transition-colors"
+                  className="type-body-sm hover:text-foreground transition-colors"
                 >
                   {t("feedback")}
                 </Link>
@@ -163,8 +163,8 @@ export function Footer() {
 
         {/* Bottom bar: tagline + copyright */}
         <div className="mt-10 flex flex-col items-start gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="type-card-description">{t("tagline")}</p>
-          <p className="type-caption">
+          <p className="type-body-sm">{t("tagline")}</p>
+          <p className="type-metadata">
             {t("copyright", { year: new Date().getFullYear() })}
           </p>
         </div>

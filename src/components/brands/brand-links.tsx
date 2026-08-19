@@ -92,7 +92,7 @@ const destinationLinkClassName = buttonVariants({
 const PURCHASE_PRESENTATION = {
   website: {
     icon: <Globe className="size-4 text-current" />,
-    accentClassName: "text-primary",
+    accentClassName: "text-accent",
   },
   pinkoi: {
     icon: <Store className="size-4 text-current" />,

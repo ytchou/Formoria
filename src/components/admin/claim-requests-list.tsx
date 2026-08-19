@@ -209,17 +209,17 @@ export function ClaimRequestsList({
       <div className="space-y-4">
         {item.existingOwnedBrand ? (
           <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-            <p className="type-subsection-title text-destructive">
+            <p className="type-body-sm font-semibold text-destructive">
               {t("ownerAlreadyManagesTitle")}
             </p>
-            <p className="mt-1 type-card-description">
+            <p className="mt-1 type-body-sm">
               {t("ownerAlreadyManagesBody", {
                 brandName: item.existingOwnedBrand.brandName,
               })}
             </p>
             <a
               href={`/brands/${item.existingOwnedBrand.brandSlug}`}
-              className="mt-2 inline-block type-link underline"
+              className="mt-2 inline-block type-nav font-semibold text-accent underline-offset-4 hover:underline underline"
             >
               {item.existingOwnedBrand.brandName}
             </a>
@@ -235,15 +235,15 @@ export function ClaimRequestsList({
                   className="rounded-lg border border-border bg-card p-4"
                 >
                   <div className="space-y-3">
-                    <p className="type-body-emphasis">
+                    <p className="type-body-sm font-medium text-ink">
                       {proofTypesT(`${PROOF_TYPE_I18N_KEYS[proof.type]}.label`)}
                     </p>
                     {proof.type === "domain_email" ? (
                       <span
                         className={
                           proof.verified
-                            ? "inline-flex rounded-full bg-verified-green-bg px-2 py-0.5 type-caption text-verified-green"
-                            : "inline-flex rounded-full bg-muted px-2 py-0.5 type-caption"
+                            ? "inline-flex rounded-full bg-verified-green-bg px-2 py-0.5 type-metadata text-verified-green"
+                            : "inline-flex rounded-full bg-muted px-2 py-0.5 type-metadata"
                         }
                       >
                         {proof.verified
@@ -256,14 +256,14 @@ export function ClaimRequestsList({
                         href={proof.url}
                         target="_blank"
                         rel="noreferrer noopener"
-                        className="inline-block break-all type-body text-primary underline"
+                        className="inline-block break-all type-body-sm text-accent underline"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {proof.url}
                       </a>
                     ) : null}
                     {proof.url && !isClickableProofUrl(proof.url) ? (
-                      <p className="break-all type-card-description">
+                      <p className="break-all type-body-sm">
                         {proof.url}
                       </p>
                     ) : null}
@@ -280,22 +280,22 @@ export function ClaimRequestsList({
                       </>
                     ) : null}
                     {proof.note ? (
-                      <p className="type-card-description">{proof.note}</p>
+                      <p className="type-body-sm">{proof.note}</p>
                     ) : null}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="type-card-description">{t("noProofEvidence")}</p>
+            <p className="type-body-sm">{t("noProofEvidence")}</p>
           )}
         </div>
         {item.mitSmileCert ? (
           <div>
             <p className="type-metadata">{t("mitCertApprovalLabel")}</p>
-            <p className="mt-1 type-body">{item.mitSmileCert}</p>
+            <p className="mt-1 type-body-sm text-ink-soft">{item.mitSmileCert}</p>
             {item.mitRegistryCompanyName ? (
-              <p className="mt-1 type-card-description">
+              <p className="mt-1 type-body-sm">
                 {t("mitRegistryCompanyLabel")}: {item.mitRegistryCompanyName}
               </p>
             ) : null}
@@ -304,7 +304,7 @@ export function ClaimRequestsList({
         {item.reviewerNotes ? (
           <div>
             <p className="type-metadata">{t("reviewerNotes")}</p>
-            <p className="mt-1 type-body">{item.reviewerNotes}</p>
+            <p className="mt-1 type-body-sm text-ink-soft">{item.reviewerNotes}</p>
           </div>
         ) : null}
         {item.status !== "pending" && item.proofCleanupStatus ? (
@@ -321,7 +321,7 @@ export function ClaimRequestsList({
             >
               {t(`cleanupStatus.${item.proofCleanupStatus}.label`)}
             </Badge>
-            <p className="type-card-description">
+            <p className="type-body-sm">
               {t(`cleanupStatus.${item.proofCleanupStatus}.description`)}{" "}
             </p>
           </div>
@@ -334,7 +334,7 @@ export function ClaimRequestsList({
       <ReviewQueueToolbar queue={queue}>
         {warning ? (
           <p
-            className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 type-body text-warning"
+            className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 type-body-sm text-warning"
             role="status"
           >
             {warning}

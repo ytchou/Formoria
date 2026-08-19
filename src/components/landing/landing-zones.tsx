@@ -209,26 +209,25 @@ export async function LandingZones({
               leaves the muted token for the full-strength foreground, landing at
               ~13:1 in the p10 region and ~14:1 on the mean. The headline was
               already `text-foreground` and gains the same margin. Anything below
-              /85, or any return to `type-body-muted` here, re-breaks AA. */}
+              /85, or any return to `type-body-sm` here, re-breaks AA. */}
           <div className="absolute inset-0 bg-background/85" aria-hidden="true" />
           <div className="relative page-shell text-center">
             <h2
               id="landing-manifesto"
-              className="mx-auto max-w-4xl type-page-title-large text-foreground"
+              className="mx-auto max-w-4xl type-page-title text-foreground"
             >
               {t("manifesto.headline")}
             </h2>
-            <p className="mx-auto mt-3 max-w-3xl type-body">
+            <p className="mx-auto mt-3 max-w-3xl type-body-sm text-ink-soft">
               {t("manifesto.body1")}
             </p>
-            <p className="mx-auto mt-3 max-w-3xl type-body">
+            <p className="mx-auto mt-3 max-w-3xl type-body-sm text-ink-soft">
               {t("manifesto.body2")}
             </p>
             <Link
               href="/about"
               className={buttonVariants({
                 variant: "primary",
-                tone: "cta",
                 className: "mt-4",
               })}
             >
@@ -297,7 +296,7 @@ export async function LandingZones({
                   {hasStories && (
                     <Link
                       href="/events"
-                      className="inline-flex min-h-12 items-center font-medium text-primary"
+                      className="inline-flex min-h-12 items-center font-medium text-accent"
                     >
                       {t("events.linkText")}
                     </Link>

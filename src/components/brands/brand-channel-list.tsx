@@ -164,9 +164,9 @@ function ChannelRow({
       <div className="flex min-w-0 items-start gap-3">
         <StatusMarker confirmed={isConfirmed} />
         <div className="min-w-0">
-          <p className="type-body-emphasis">{channel.name}</p>
+          <p className="type-body-sm font-medium text-ink">{channel.name}</p>
           {region ? (
-            <div className="mt-2 type-body">
+            <div className="mt-2 type-body-sm text-ink-soft">
               {mapsHref ? (
                 <a
                   href={mapsHref}
@@ -182,7 +182,7 @@ function ChannelRow({
             </div>
           ) : null}
           {signInChannelId === channel.id ? (
-            <p className="mt-2 rounded-lg border border-border bg-muted/50 p-3 type-card-description">
+            <p className="mt-2 rounded-lg border border-border bg-muted/50 p-3 type-body-sm">
               <span>{t("channels.unconfirmed.signInToConfirm")}</span>{" "}
               <NextLink
                 href={signInHrefValue}
@@ -193,7 +193,7 @@ function ChannelRow({
             </p>
           ) : null}
           {error ? (
-            <p className="mt-2 type-error" role="alert">
+            <p className="mt-2 type-metadata text-danger" role="alert">
               {error}
             </p>
           ) : null}
@@ -332,7 +332,7 @@ function ChannelChip({
       {isConfirmed ? (
         <Check aria-hidden="true" className="size-3.5 shrink-0" />
       ) : null}
-      <span className="type-body-emphasis">{channel.name}</span>
+      <span className="type-body-sm font-medium text-ink">{channel.name}</span>
       {region ? (
         <span className="type-metadata text-muted-foreground">
           (
@@ -647,7 +647,7 @@ export function BrandChannelList({
         {/* One live region per chip group — a chip is too small to host its own message. */}
         <div role="status" data-channel-chip-status>
           {attemptedChannel && showsSignInPrompt ? (
-            <p className="rounded-lg border border-border bg-muted/50 p-3 type-card-description">
+            <p className="rounded-lg border border-border bg-muted/50 p-3 type-body-sm">
               <span className="font-medium">{attemptedChannel.name}</span>{" "}
               <span>{t("channels.unconfirmed.signInToConfirm")}</span>{" "}
               <NextLink
@@ -659,7 +659,7 @@ export function BrandChannelList({
             </p>
           ) : null}
           {attemptedChannel && !showsSignInPrompt && attemptedError ? (
-            <p className="type-error" role="alert">
+            <p className="type-metadata text-danger" role="alert">
               <span className="font-medium">{attemptedChannel.name}</span>{" "}
               <span>{attemptedError}</span>
             </p>
@@ -684,7 +684,7 @@ export function BrandChannelList({
     return (
       <details key={group.key} className="group" data-channel-kind={group.key}>
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-          <h3 className="type-subsection-title">{`${heading} (${group.channels.length})`}</h3>
+          <h3 className="type-body-sm font-semibold text-ink">{`${heading} (${group.channels.length})`}</h3>
           <ChevronDown
             aria-hidden="true"
             className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180"

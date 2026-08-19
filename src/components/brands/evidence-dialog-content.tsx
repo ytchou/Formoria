@@ -100,7 +100,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
       </DialogClose>
 
       <DialogHeader className="flex-row gap-3 p-4 pr-14 sm:p-6 sm:pr-16">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
           <FileSearch className="size-5" aria-hidden="true" />
         </span>
         <div className="min-w-0 space-y-1">
@@ -157,7 +157,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
 
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
             <fieldset className="space-y-3">
-              <legend className="type-subsection-title">
+              <legend className="type-body-sm font-semibold text-ink">
                 {t('stanceLabel')}
                 <span aria-hidden="true" className="text-destructive"> *</span>
               </legend>
@@ -167,7 +167,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
                     key={value}
                     className={cn(
                       'flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border border-border px-4 py-3 transition-colors',
-                      stance === value && 'border-primary bg-primary/10 text-primary',
+                      stance === value && 'border-accent bg-accent/10 text-accent',
                     )}
                   >
                     <Input
@@ -176,7 +176,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
                       value={value}
                       checked={stance === value}
                       required
-                      className="size-4 min-w-4 shrink-0 p-0 accent-primary"
+                      className="size-4 min-w-4 shrink-0 p-0 accent-accent"
                       onChange={() => setStance(value)}
                     />
                     <span>{t(`stances.${value}`)}</span>
@@ -221,7 +221,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
               <div className="flex items-center justify-between gap-4">
                 <Label htmlFor="evidence-notes">{t('notesLabel')}</Label>
                 <span
-                  className="type-caption tabular-nums text-muted-foreground"
+                  className="type-metadata tabular-nums text-muted-foreground"
                   aria-live="polite"
                   aria-atomic="true"
                 >
@@ -240,13 +240,13 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
             </div>
 
             <div className="space-y-2">
-              <p className="type-body-emphasis">{t('photoLabel')}</p>
+              <p className="type-body-sm font-medium text-ink">{t('photoLabel')}</p>
               <Button
                 type="button"
                 onClick={() => inputRef.current?.click()}
                 disabled={uploading}
                 variant="ghost"
-                className="flex min-h-24 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted px-4 py-4 type-metadata transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex min-h-24 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted px-4 py-4 type-metadata transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Upload className="size-4" aria-hidden="true" />
                 <span>{uploading ? t('uploading') : t('photoHint')}</span>

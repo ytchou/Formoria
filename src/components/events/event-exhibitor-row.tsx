@@ -153,7 +153,7 @@ export function EventExhibitorRow({
           </p>
 
           <div className="min-w-0 flex-1 space-y-1">
-            <p className="type-card-title-small">
+            <p className="type-card-title">
               {brand ? (
                 <Link
                   href={`/brands/${brand.slug}`}
@@ -177,7 +177,7 @@ export function EventExhibitorRow({
             {summary ? (
               /* Repeated list copy, kept out of Google's snippet selection —
                  see NO_SNIPPET. */
-              <p {...NO_SNIPPET} className="line-clamp-2 type-body-muted">
+              <p {...NO_SNIPPET} className="line-clamp-2 type-body-sm">
                 {summary}
               </p>
             ) : null}

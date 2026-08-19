@@ -25,8 +25,8 @@ export default async function JobsPage({
   if ("error" in result) {
     return (
       <div className="space-y-4">
-        <h1 className="type-section-title-large">Data Jobs</h1>
-        <p className="type-error">
+        <h1 className="type-section">Data Jobs</h1>
+        <p className="type-metadata text-danger">
           {result.error}
         </p>
       </div>
@@ -36,8 +36,8 @@ export default async function JobsPage({
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="type-section-title-large">Data Jobs</h1>
-        <p className="mt-1 type-card-description">
+        <h1 className="type-section">Data Jobs</h1>
+        <p className="mt-1 type-body-sm">
           Track data enrichment job dispatch, execution progress, and results.
         </p>
       </div>

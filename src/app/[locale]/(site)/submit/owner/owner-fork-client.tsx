@@ -13,20 +13,20 @@ export default function OwnerForkClient() {
   return (
     <main className="page-gutter mx-auto max-w-5xl py-20">
       <div className="max-w-3xl">
-        <h1 className="text-balance type-page-title-large">
+        <h1 className="text-balance type-page-title">
           {t('ownerFork.heading')}
         </h1>
-        <p className="mt-4 type-body-muted">
+        <p className="mt-4 type-body-sm">
           {t('ownerFork.description')}
         </p>
       </div>
 
       <div className="mt-10 grid gap-6 md:grid-cols-2">
         <section className={surfaceCardStyles({ padding: 'lg' })}>
-          <h2 className="type-section-title-large text-foreground">
+          <h2 className="type-section text-foreground">
             {t('ownerFork.quickTitle')}
           </h2>
-          <p className="mt-3 type-card-description">
+          <p className="mt-3 type-body-sm">
             {t('ownerFork.quickDescription')}
           </p>
           <ul className="mt-5 space-y-2.5">
@@ -41,27 +41,27 @@ export default function OwnerForkClient() {
               >
                 <span
                   aria-hidden="true"
-                  className="mt-0.5 inline-flex size-5 items-center justify-center rounded-full border border-cta/25 bg-cta/10 text-cta"
+                  className="mt-0.5 inline-flex size-5 items-center justify-center rounded-full border border-accent/25 bg-accent/10 text-accent"
                 >
                   <Check className="size-3" />
                 </span>
-                <span className="type-body-muted">{point}</span>
+                <span className="type-body-sm">{point}</span>
               </li>
             ))}
           </ul>
           <Link
             href="/submit/owner/quick"
-            className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-6')}
+            className={cn(buttonVariants({ variant: 'primary' }), 'mt-6')}
           >
             {t('ownerFork.quickCta')}
           </Link>
         </section>
 
         <section className={surfaceCardStyles({ padding: 'lg' })}>
-          <h2 className="type-section-title-large text-foreground">
+          <h2 className="type-section text-foreground">
             {t('ownerFork.detailsTitle')}
           </h2>
-          <p className="mt-3 type-card-description">
+          <p className="mt-3 type-body-sm">
             {t('ownerFork.detailsDescription')}
           </p>
           <ul className="mt-5 space-y-2.5">
@@ -76,17 +76,17 @@ export default function OwnerForkClient() {
               >
                 <span
                   aria-hidden="true"
-                  className="mt-0.5 inline-flex size-5 items-center justify-center rounded-full border border-cta/25 bg-cta/10 text-cta"
+                  className="mt-0.5 inline-flex size-5 items-center justify-center rounded-full border border-accent/25 bg-accent/10 text-accent"
                 >
                   <Check className="size-3" />
                 </span>
-                <span className="type-body-muted">{point}</span>
+                <span className="type-body-sm">{point}</span>
               </li>
             ))}
           </ul>
           <Link
             href="/submit/owner/details"
-            className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-6')}
+            className={cn(buttonVariants({ variant: 'primary' }), 'mt-6')}
           >
             {t('ownerFork.detailsCta')}
           </Link>

@@ -220,7 +220,7 @@ export function SelectedProductTile({
         <Typography
           as="h3"
           variant="cardTitle"
-          className="group-hover:text-primary"
+          className="group-hover:text-accent"
         >
           {name}
         </Typography>
@@ -306,7 +306,7 @@ export function SelectedProductTile({
               <Typography
                 as="h3"
                 variant="cardTitle"
-                className="hover:text-primary"
+                className="hover:text-accent"
               >
                 {name}
               </Typography>
@@ -320,7 +320,7 @@ export function SelectedProductTile({
               <Typography
                 as="h3"
                 variant="cardTitle"
-                className="hover:text-primary"
+                className="hover:text-accent"
               >
                 {name}
               </Typography>

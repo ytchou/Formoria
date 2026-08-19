@@ -99,8 +99,8 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
           onClick={(event) => handleClick(event, '')}
           className={
             isBrandsPage && !activeCategory
-              ? 'type-body-emphasis flex min-h-12 items-center whitespace-nowrap px-3 py-2'
-              : 'type-card-description hover:text-foreground flex min-h-12 items-center whitespace-nowrap px-3 py-2 transition-colors'
+              ? 'type-body-sm font-medium text-ink flex min-h-12 items-center whitespace-nowrap px-3 py-2'
+              : 'type-body-sm hover:text-foreground flex min-h-12 items-center whitespace-nowrap px-3 py-2 transition-colors'
           }
         >
           {t('allBrands')}
@@ -119,8 +119,8 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
               onClick={(event) => handleClick(event, cat.slug)}
               className={
                 isActive
-                  ? 'type-body-emphasis flex min-h-12 items-center whitespace-nowrap px-3 py-2'
-                  : 'type-card-description hover:text-foreground flex min-h-12 items-center whitespace-nowrap px-3 py-2 transition-colors'
+                  ? 'type-body-sm font-medium text-ink flex min-h-12 items-center whitespace-nowrap px-3 py-2'
+                  : 'type-body-sm hover:text-foreground flex min-h-12 items-center whitespace-nowrap px-3 py-2 transition-colors'
               }
             >
               {label}
@@ -131,7 +131,7 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
         {hasIndicator && (
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-primary"
+            className="pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-accent"
             style={{
               left: indicator.left,
               width: indicator.width,

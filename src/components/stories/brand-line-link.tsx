@@ -34,7 +34,7 @@ export function BrandLineLink({ brand, position = 0 }: BrandLineLinkProps) {
   return (
     <Link
       href={`/brands/${brand.slug}`}
-      className="rounded-sm type-subsection-title underline-offset-4 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="rounded-sm type-body-sm font-semibold text-ink underline-offset-4 hover:text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onClick={() => {
         trackBrandCardClicked(brand.slug, brand.categoryLabel, position, brand.id)
       }}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import ts from "typescript";
 
@@ -31,8 +31,6 @@ const ALLOWLIST = [
   // Admin surface is intentionally single-locale (Chinese-only).
   "components/admin/",
   "app/admin/",
-  // Preview/under-construction gate is zh-only by design.
-  "lib/preview/",
   // Email copy lives in-file and is locale-branched inside the template.
   "lib/email/templates.ts",
   // Language endonyms (中文 / English) — correct in both locales.
@@ -137,6 +135,20 @@ function walk(dir: string): string[] {
   }
   return out;
 }
+
+describe("i18n guard — allowlist hygiene", () => {
+  it("every allowlist entry points at a path that exists", () => {
+    // A dead entry fails nothing and looks like documentation of a decision
+    // that is still live. `lib/preview/` sat here after the directory was
+    // deleted, quietly holding a CJK exemption open for a path that could be
+    // recreated by anyone, for any reason, with no review.
+    const missing = ALLOWLIST.filter(
+      (entry) => !existsSync(join(SRC, entry.replace(/\/$/, ""))),
+    );
+
+    expect(missing).toEqual([]);
+  });
+});
 
 describe("i18n guard — no hardcoded Chinese in source", () => {
   it("source outside the allowlist contains no Han characters", () => {

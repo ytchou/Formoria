@@ -21,7 +21,7 @@ export function ProductGrid({ brand, products }: ProductGridProps) {
       aria-labelledby="microsite-products"
     >
       <div className="mx-auto max-w-[1280px] space-y-6">
-        <h2 id="microsite-products" className="type-section-title">
+        <h2 id="microsite-products" className="type-card-title">
           精選商品
         </h2>
 
@@ -49,9 +49,9 @@ export function ProductGrid({ brand, products }: ProductGridProps) {
 
               <div className="space-y-3 p-5">
                 <div className="space-y-1.5">
-                  <h3 className="type-subsection-title">{product.name}</h3>
+                  <h3 className="type-body-sm font-semibold text-ink">{product.name}</h3>
                   {product.caption && (
-                    <p className="type-form-hint">{product.caption}</p>
+                    <p className="type-metadata">{product.caption}</p>
                   )}
                 </div>
 
@@ -60,7 +60,7 @@ export function ProductGrid({ brand, products }: ProductGridProps) {
                     href={product.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex min-h-12 items-center justify-center rounded-lg border border-border px-4 py-3 type-subsection-title transition-colors hover:border-[var(--brand-accent)] hover:text-[var(--brand-accent)] active:scale-[0.98]"
+                    className="inline-flex min-h-12 items-center justify-center rounded-lg border border-border px-4 py-3 type-body-sm font-semibold text-ink transition-colors hover:border-[var(--brand-accent)] hover:text-[var(--brand-accent)] active:scale-[0.98]"
                   >
                     查看商品
                   </a>

@@ -32,8 +32,8 @@ export function ContributionsList({ items }: ContributionsListProps) {
   if (items.length === 0) {
     return (
       <div className="py-16 text-center">
-        <h2 className="type-section-title-large">{t('emptyTitle')}</h2>
-        <p className="mx-auto mt-3 max-w-md type-card-description">
+        <h2 className="type-section">{t('emptyTitle')}</h2>
+        <p className="mx-auto mt-3 max-w-md type-body-sm">
           {t('emptyDescription')}
         </p>
         <Link
@@ -53,13 +53,13 @@ export function ContributionsList({ items }: ContributionsListProps) {
         const isSupport = item.stance === 'supports'
         const brandNameElement = item.brandSlug ? (
           <Link
-            className="type-subsection-title underline-offset-4 hover:underline"
+            className="type-body-sm font-semibold text-ink underline-offset-4 hover:underline"
             href={`/brands/${item.brandSlug}`}
           >
             {brandName}
           </Link>
         ) : (
-          <span className="type-subsection-title">{brandName}</span>
+          <span className="type-body-sm font-semibold text-ink">{brandName}</span>
         )
 
         return (

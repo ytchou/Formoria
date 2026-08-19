@@ -44,8 +44,8 @@ export default async function ContributionsPage({ params }: ContributionsPagePro
 
   return (
     <main className="page-gutter mx-auto max-w-3xl py-12">
-      <h1 className="type-page-title-large">{t('heading')}</h1>
-      <p className="mt-2 type-body-muted">{t('subheading')}</p>
+      <h1 className="type-page-title">{t('heading')}</h1>
+      <p className="mt-2 type-body-sm">{t('subheading')}</p>
       <div className="mt-8">
         <ContributionsList items={items} />
       </div>

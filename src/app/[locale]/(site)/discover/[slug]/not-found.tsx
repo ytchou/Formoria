@@ -21,7 +21,7 @@ export default function DiscoverTrailNotFound() {
         action={
           <Link
             href="/discover"
-            className="inline-flex min-h-12 items-center rounded-md bg-primary px-4 type-button text-primary-foreground"
+            className="inline-flex min-h-12 items-center rounded-md bg-accent px-4 type-button text-ground"
           >
             {t("notFound.browseAll")}
           </Link>
