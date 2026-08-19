@@ -87,12 +87,7 @@ type SubmissionRowWithCategoryNote = Omit<
   [Column in PurchaseChannelColumn]?: string | null;
 };
 type SubmissionImageRow =
-  Database["public"]["Tables"]["submission_images"]["Row"] & {
-    // The generated database types intentionally lag the applied migration;
-    // keep this forward-compatible until the next type refresh.
-    focal_x?: number | null;
-    focal_y?: number | null;
-  };
+  Database["public"]["Tables"]["submission_images"]["Row"];
 type OwnerRecipientRow = Pick<
   Database["public"]["Tables"]["brand_submissions"]["Row"],
   "id" | "brand_id" | "submitter_email" | "submitted_at"
@@ -111,12 +106,7 @@ type BrandImageReviewRow = Pick<
   | "tags"
   | "width"
   | "height"
-> & {
-  // The generated database types intentionally lag the applied migration; keep
-  // this narrow projection forward-compatible until the next type refresh.
-  focal_x: number | null;
-  focal_y: number | null;
-};
+>;
 export type BrandSubmissionWithCategoryNote = BrandSubmission & {
   websiteUrl: string | null;
   categoryNote: string | null;
@@ -134,14 +124,6 @@ export type SubmissionReviewImage = {
   isLogo: boolean;
   width: number | null;
   height: number | null;
-  /**
-   * Normalised focal point, carried so the moderation preview frames an image
-   * exactly as the public page will. Without it the two admin previews rendered
-   * a centre crop of an image that ships focal-cropped, and a moderator was
-   * approving a frame nobody would ever see.
-   */
-  focalX: number | null;
-  focalY: number | null;
   originBrandImageId: string | null;
 };
 export type SubmissionReviewData = {
@@ -623,8 +605,6 @@ function submissionImageToReviewImage(
     isLogo: isLogoImageTags(row.tags),
     width: row.width,
     height: row.height,
-    focalX: row.focal_x ?? null,
-    focalY: row.focal_y ?? null,
     originBrandImageId: row.origin_brand_image_id,
   };
 }
@@ -646,8 +626,6 @@ function brandImageToReviewImage(
     isLogo: isLogoImageTags(row.tags),
     width: row.width,
     height: row.height,
-    focalX: row.focal_x ?? null,
-    focalY: row.focal_y ?? null,
     originBrandImageId: row.id,
   };
 }
@@ -1531,7 +1509,7 @@ export async function getSubmissionsForReview(options?: {
             const { data: imageData, error: imagesError } = await supabase
               .from("submission_images")
               .select(
-                "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, focal_x, focal_y, origin_brand_image_id",
+                "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, origin_brand_image_id",
               )
               .in("submission_id", targetIds)
               .order("submission_id", { ascending: true })
@@ -1583,7 +1561,7 @@ export async function getSubmissionsForReview(options?: {
             const { data: imageData, error: imagesError } = await supabase
               .from("brand_images")
               .select(
-                "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, focal_x, focal_y",
+                "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height",
               )
               .in("brand_id", brandIds)
               .eq("status", "active")
@@ -2248,7 +2226,7 @@ export async function approveSubmission(
   const { data: imageRows, error: imageError } = await supabase
     .from("submission_images")
     .select(
-      "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, focal_x, focal_y, origin_brand_image_id",
+      "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, origin_brand_image_id",
     )
     .eq("submission_id", id)
     .order("sort_order", { ascending: true });

@@ -26,7 +26,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleChip } from "@/components/ui/toggle-chip";
 import { getCategoryLabel } from "@/lib/brands/category-label";
-import { brandImageFill } from "@/lib/images/focal";
+import { brandImageFill } from "@/lib/images/fill";
 import {
   L1_CATEGORIES,
   L2_SUBCATEGORIES,
@@ -579,12 +579,11 @@ export function ReviewDetailsEditor({
             <div className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 {draftImages.map((image, index) => {
-                  // The SAME helper the public surfaces use, including the
-                  // focal `object-position` these previews used to omit. A
-                  // moderation preview that frames an image differently from
-                  // production is worse than no preview: it approves a crop
-                  // nobody will ever see. `logoPlate` stays, because unlike the
-                  // public cards there is no container behind this image.
+                  // The SAME helper the public surfaces use. A moderation
+                  // preview that frames an image differently from production is
+                  // worse than no preview: it approves a crop nobody will ever
+                  // see. `logoPlate` stays, because unlike the public cards
+                  // there is no container behind this image.
                   const fill = brandImageFill(image, {
                     inset: "p-6",
                     logoPlate: "bg-muted",
@@ -599,9 +598,7 @@ export function ReviewDetailsEditor({
                         <img
                           src={image.url}
                           alt={image.altZh ?? t("imageAlt", { n: index + 1 })}
-                          className={cn("aspect-[4/3] w-full", fill.className)}
-                          // Assigned, never spread — `undefined` is meaningful here.
-                          style={fill.style}
+                          className={cn("aspect-[4/3] w-full", fill)}
                         />
                         <Button
                           shape="pill"
@@ -687,12 +684,7 @@ export function ReviewDetailsEditor({
                         <img
                           src={image.url}
                           alt={image.altZh ?? t("imageAlt", { n: index + 1 })}
-                          className={cn(
-                            "aspect-[4/3] w-full rounded-md border",
-                            fill.className,
-                          )}
-                          // Assigned, never spread — `undefined` is meaningful here.
-                          style={fill.style}
+                          className={cn("aspect-[4/3] w-full rounded-md border", fill)}
                         />
                         {index === 0 && (
                           <figcaption className="mt-1 type-caption">

@@ -557,8 +557,6 @@ export type Database = {
           created_at: string
           dominant_color: string | null
           entropy: number | null
-          focal_x: number | null
-          focal_y: number | null
           height: number | null
           id: string
           phash: string | null
@@ -583,8 +581,6 @@ export type Database = {
           created_at?: string
           dominant_color?: string | null
           entropy?: number | null
-          focal_x?: number | null
-          focal_y?: number | null
           height?: number | null
           id?: string
           phash?: string | null
@@ -609,8 +605,6 @@ export type Database = {
           created_at?: string
           dominant_color?: string | null
           entropy?: number | null
-          focal_x?: number | null
-          focal_y?: number | null
           height?: number | null
           id?: string
           phash?: string | null

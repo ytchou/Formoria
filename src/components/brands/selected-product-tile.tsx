@@ -16,7 +16,7 @@ import {
   type WallRatio,
 } from "@/lib/curated-products/wall-ratio";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
-import { brandImageFill } from "@/lib/images/focal";
+import { brandImageFill } from "@/lib/images/fill";
 import type { CuratedProduct } from "@/lib/services/curated-products";
 import { sanitizeHref } from "@/lib/url";
 import { cn } from "@/lib/utils";
@@ -265,13 +265,10 @@ export function SelectedProductTile({
             fill
             // `brandImageFill` is the single definition of cover-vs-contain
             // (DESIGN.md §5). `null` meta is the point: curated products carry
-            // no focal data, so there is nothing to anchor and the helper
-            // returns no `style` — see DEV-1519.
-            className={
-              brandImageFill(null, {
-                fit: mode === "trail" ? "contain" : "cover",
-              }).className
-            }
+            // no per-image framing data — see DEV-1519.
+            className={brandImageFill(null, {
+              fit: mode === "trail" ? "contain" : "cover",
+            })}
             // Trail is ONE column inside a `max-w-[720px]` section
             // (`discover/[slug]/page.tsx`). On the brand page's 3-col formula
             // `next/image` under-served it by ~40% and the photo rendered

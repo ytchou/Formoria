@@ -9,7 +9,7 @@ import {
 import { normalizePublicBrandCard } from '@/lib/brands/contracts'
 import { getBrandGalleryImageEntries } from '@/lib/services/brand-images'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
-import { brandImageFill } from '@/lib/images/focal'
+import { brandImageFill } from '@/lib/images/fill'
 import { cn } from '@/lib/utils'
 
 type BrandGalleryProps = {
@@ -107,10 +107,8 @@ export async function BrandGallery({
               decoding="async"
               className={cn(
                 'aspect-[4/3] w-full rounded-lg border border-border bg-muted',
-                fill.className,
+                fill,
               )}
-              // Assigned, never spread — `undefined` is meaningful here.
-              style={fill.style}
             />
           )
         })}

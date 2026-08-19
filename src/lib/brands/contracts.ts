@@ -88,11 +88,9 @@ export type PublicMicrositeBrand = {
    * so a full index-aligned `imageAlts` array would be dishonest about what is
    * carried. Nullable because a brand's hero can predate `brand_images`.
    *
-   * Deliberately a whole `BrandImageMeta` rather than the flattened
-   * `isLogo`/`focalX`/`focalY` triple it replaces: the flattened names only
-   * satisfied `objectPositionStyle` by coinciding with its structural
-   * parameter, so nothing tied them to `BrandImageMeta` and a field added there
-   * would never have reached this contract.
+   * Deliberately a whole `BrandImageMeta` rather than the flattened fields it
+   * replaces: a flattened copy is tied to nothing, so a field added to
+   * `BrandImageMeta` would never have reached this contract.
    */
   heroImageMeta: BrandImageMeta | null
   foundingYear: number | null
@@ -220,8 +218,6 @@ export function toPublicBrandCard(brand: Brand): PublicBrandCard {
       altZh: alt.altZh,
       altEn: alt.altEn,
       isLogo: alt.isLogo,
-      focalX: alt.focalX,
-      focalY: alt.focalY,
     })),
     heroImageMetadata: brand.heroImageMetadata ?? null,
   }
@@ -267,8 +263,6 @@ export function normalizePublicBrandCard(
           altZh: alt.altZh,
           altEn: alt.altEn,
           isLogo: alt.isLogo,
-          focalX: alt.focalX,
-          focalY: alt.focalY,
         }))
       : [],
     heroImageMetadata: brand.heroImageMetadata ?? null,
@@ -293,8 +287,6 @@ export function toPublicBrandDetail(brand: Brand): PublicBrandDetail {
       altZh: alt.altZh,
       altEn: alt.altEn,
       isLogo: alt.isLogo,
-      focalX: alt.focalX,
-      focalY: alt.focalY,
     })),
     heroImageMetadata: brand.heroImageMetadata ?? null,
   }

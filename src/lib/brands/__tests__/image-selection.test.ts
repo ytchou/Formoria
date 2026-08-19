@@ -12,15 +12,11 @@ describe("selectBrandCardImage", () => {
       altZh: "品牌標誌",
       altEn: "Brand logo",
       isLogo: true,
-      focalX: null,
-      focalY: null,
     };
     const productMeta = {
       altZh: "陶瓷杯",
       altEn: "Ceramic cup",
       isLogo: false,
-      focalX: 0.25,
-      focalY: 0.75,
     };
 
     expect(

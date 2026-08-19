@@ -1,6 +1,6 @@
 import Image from "next/image";
 import type { PublicMicrositeBrand } from "@/lib/brands/contracts";
-import { brandImageFill } from "@/lib/images/focal";
+import { brandImageFill } from "@/lib/images/fill";
 
 type HeroProps = {
   brand: PublicMicrositeBrand;
@@ -37,11 +37,9 @@ export function Hero({ brand, siteContent }: HeroProps) {
               fill
               // Shared with every other brand image surface: a logo is
               // contained (its whitespace is part of the mark), everything else
-              // covers and is anchored on its focal point. The container above
-              // already paints the plate a contained logo sits on.
-              className={heroFill.className}
-              // Assigned, never spread — `undefined` is meaningful here.
-              style={heroFill.style}
+              // covers. The container above already paints the plate a
+              // contained logo sits on.
+              className={heroFill}
               sizes="(max-width: 768px) 100vw, 50vw"
               preload
             />

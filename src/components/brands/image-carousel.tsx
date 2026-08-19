@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
-import { brandImageFill } from '@/lib/images/focal'
+import { brandImageFill } from '@/lib/images/fill'
 import type { BrandImageMeta } from '@/lib/types/brand'
 import { trackGalleryPhotoView, trackGalleryCompleted } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
@@ -162,15 +162,8 @@ export function ImageCarousel({
             src={previousImage.src}
             alt=""
             fill
-            className={cn(
-              'transition-opacity duration-200 opacity-0',
-              previousFill.className,
-            )}
-            // Merged rather than assigned, because there IS another real
-            // property here. The spread of a possibly-undefined
-            // `previousFill.style` is safe in that case.
+            className={cn('transition-opacity duration-200 opacity-0', previousFill)}
             style={{
-              ...previousFill.style,
               transitionTimingFunction: 'var(--ease-settle)',
             }}
             sizes={variant === 'detail' ? '(max-width: 1024px) 100vw, 580px' : '192px'}
@@ -186,9 +179,7 @@ export function ImageCarousel({
             src={currentImage.src}
             alt={getAlt(current)}
             fill
-            className={cn('animate-in fade-in duration-200', currentFill.className)}
-            // Assigned, never spread — `undefined` is meaningful here.
-            style={currentFill.style}
+            className={cn('animate-in fade-in duration-200', currentFill)}
             sizes={variant === 'detail' ? '(max-width: 1024px) 100vw, 580px' : '192px'}
             preload={variant === 'detail' && current === 0}
             onError={() => handleImageError(current)}
@@ -274,9 +265,7 @@ export function ImageCarousel({
                   src={src}
                   alt={getAlt(i)}
                   fill
-                  className={thumbFill.className}
-                  // Assigned, never spread — `undefined` is meaningful here.
-                  style={thumbFill.style}
+                  className={thumbFill}
                   sizes="64px"
                   onError={() => handleImageError(i)}
                 />

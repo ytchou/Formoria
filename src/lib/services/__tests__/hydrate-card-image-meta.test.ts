@@ -3,16 +3,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 /**
  * `hydrateCardImageMeta` is what puts per-image metadata on every card surface —
  * /brands, the homepage, /favorites, story galleries and microsites all route
- * through it. It decides fill mode (`isLogo`) and `object-position`
- * (`focalX`/`focalY`), so a wrong row here is a visibly wrong crop rather than a
- * missing string.
+ * through it. It decides fill mode (`isLogo`) and carries the alt text, so a
+ * wrong row here is a visibly wrong render rather than a missing string.
  *
  * The load-bearing parts are the batching and the failure mode, and both are
  * invisible on a five-brand happy path:
  *   - chunking, because the `.in()` filters travel in the GET query string;
  *   - the inner `.range()` pager, because a chunk can exceed the row cap;
  *   - degrading instead of throwing, because the metadata is decorative and
- *     because `focal_x` does not exist between a deploy and its migration.
+ *     because a column this projection reads can be absent between a deploy
+ *     and its migration.
  */
 
 import type { createServiceClient } from '@/lib/supabase/service'
@@ -28,8 +28,6 @@ type ImageRowFixture = {
   sort_order: number
   width: number | null
   height: number | null
-  focal_x: number | null
-  focal_y: number | null
 }
 
 type QueryCall = {
@@ -126,8 +124,6 @@ function imageRow(overrides: Partial<ImageRowFixture> & { brand_id: string; url:
     sort_order: 0,
     width: 1200,
     height: 900,
-    focal_x: null,
-    focal_y: null,
     ...overrides,
   }
 }
@@ -158,8 +154,6 @@ describe('hydrateCardImageMeta', () => {
         tags: ['logo'],
         alt_zh: '標誌',
         alt_en: 'Logo',
-        focal_x: 0.25,
-        focal_y: 0.75,
         width: 800,
         height: 800,
       }),
@@ -170,7 +164,7 @@ describe('hydrateCardImageMeta', () => {
     ])
 
     expect(hydrated?.imageAlts).toEqual([
-      { altZh: '標誌', altEn: 'Logo', isLogo: true, focalX: 0.25, focalY: 0.75 },
+      { altZh: '標誌', altEn: 'Logo', isLogo: true },
     ])
     expect(hydrated?.heroImageMetadata).toEqual({
       altZh: '標誌',
@@ -393,13 +387,43 @@ describe('hydrateCardImageMeta', () => {
     })
   })
 
+  describe('projection', () => {
+    it('requests exactly the columns the mapper reads, and no more', async () => {
+      // The service client carries no `<Database>` generic, so a column named
+      // here is never checked at compile time: a stale token survives tsc and
+      // lint and only surfaces as a 42703 at runtime, on every card surface at
+      // once. Pinning the projection is the only compile-time-shaped guard
+      // this query has.
+      table = [imageRow({ brand_id: 'b1', url: 'u1' })]
+
+      await hydrateCardImageMeta(client(), [brand('b1', 'u1')])
+
+      const columns = (queries[0]?.select ?? '').split(',').map((c) => c.trim())
+      expect(columns).toEqual([
+        'brand_id',
+        'url',
+        'tags',
+        'alt_zh',
+        'alt_en',
+        'sort_order',
+        'width',
+        'height',
+      ])
+      // Both reads (hero-by-url and products-by-brand) share one projection.
+      expect(queries[1]?.select).toBe(queries[0]?.select)
+    })
+  })
+
   describe('read failure', () => {
     it('degrades to unhydrated brands rather than throwing', async () => {
       // Decorative metadata must never take a page down, and this is also the
       // deploy-order guard: between a Railway deploy and the manual
-      // `supabase db push`, `focal_x` does not exist and PostgREST answers
-      // 42703 on every card surface at once.
-      queryError = { message: 'column brand_images.focal_x does not exist', code: '42703' }
+      // `supabase db push`, a column this projection reads does not exist yet,
+      // PostgREST answers 42703, and it does so on every card surface at once.
+      queryError = {
+        message: 'column brand_images.alt_en does not exist',
+        code: '42703',
+      }
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 
       const hydrated = await hydrateCardImageMeta(client(), [

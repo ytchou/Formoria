@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getBrandGalleryImageEntries,
   getBrandGalleryImages,
+  getBrandImages,
   insertBrandImage,
   rejectBrandImages,
   releaseBrandImageUrls,
@@ -152,6 +153,87 @@ describe('insertBrandImage', () => {
   })
 })
 
+/**
+ * Client for getBrandImages: records the projection and the filters, and
+ * replays a fixed row set so the mapper's inputs are observable.
+ */
+function createReadClient(rows: unknown[]) {
+  const call = { select: '', eqFilters: [] as Array<[string, string]>, order: null as unknown }
+  const builder = {
+    select(columns: string) {
+      call.select = columns
+      return builder
+    },
+    eq(column: string, value: string) {
+      call.eqFilters.push([column, value])
+      return builder
+    },
+    order(column: string, options: unknown) {
+      call.order = [column, options]
+      return Promise.resolve({ data: rows, error: null })
+    },
+  }
+  const from = vi.fn(() => builder)
+  return { client: { from }, call, from }
+}
+
+describe('getBrandImages', () => {
+  it('requests exactly the columns its callers consume, active rows only', async () => {
+    // Neither this query nor `toImageFields` is type-checked against the
+    // database: `getBrandImages` takes an `unknown` client and the service
+    // client carries no `<Database>` generic. A column named here that no
+    // longer exists passes tsc and lint and fails at runtime with a 42703, so
+    // the projection is pinned rather than inferred.
+    const { client, call } = createReadClient([])
+
+    await getBrandImages(client, 'brand-1')
+
+    const columns = call.select.split(',').map((column) => column.trim())
+    expect(columns).toEqual([
+      'url',
+      'status',
+      'tags',
+      'score',
+      'sort_order',
+      'source_url',
+      'alt_zh',
+      'alt_en',
+      'width',
+      'height',
+    ])
+    expect(call.eqFilters).toEqual([
+      ['brand_id', 'brand-1'],
+      ['status', 'active'],
+    ])
+    expect(call.order).toEqual(['sort_order', { ascending: true }])
+  })
+
+  it('treats a missing table as no images rather than an error', async () => {
+    // PGRST205 is "relation not found" — the pre-migration state. Every other
+    // error still throws, because a silent empty gallery would hide a real
+    // read failure behind a brand that merely looks image-less.
+    const builder = {
+      select: () => builder,
+      eq: () => builder,
+      order: () => Promise.resolve({ data: null, error: { code: 'PGRST205' } }),
+    }
+
+    await expect(getBrandImages({ from: () => builder }, 'brand-1')).resolves.toEqual([])
+  })
+
+  it('rethrows any other read failure', async () => {
+    const builder = {
+      select: () => builder,
+      eq: () => builder,
+      order: () => Promise.resolve({ data: null, error: { code: '42703', message: 'boom' } }),
+    }
+
+    await expect(getBrandImages({ from: () => builder }, 'brand-1')).rejects.toMatchObject({
+      code: '42703',
+    })
+  })
+})
+
 describe('toImageFields', () => {
   const rows = [
     { url: 'https://images.formoria.com/rejected-campaign.webp', status: 'rejected', sort_order: 0 },
@@ -163,8 +245,6 @@ describe('toImageFields', () => {
       alt_en: 'Handwoven rush-grass tote bag',
       width: 1600,
       height: 1200,
-      focal_x: 0.25,
-      focal_y: 0.75,
     },
     { url: 'https://images.formoria.com/workshop.webp', status: 'active', sort_order: 1 },
   ]
@@ -184,10 +264,8 @@ describe('toImageFields', () => {
           altZh: '職人手工編織的藺草提包',
           altEn: 'Handwoven rush-grass tote bag',
           isLogo: false,
-          focalX: 0.25,
-          focalY: 0.75,
         },
-        { altZh: null, altEn: null, isLogo: false, focalX: null, focalY: null },
+        { altZh: null, altEn: null, isLogo: false },
       ],
     })
   })

@@ -14,7 +14,7 @@ import { useSavedBrands } from '@/hooks/use-saved-brands'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { brandImageFill } from '@/lib/images/focal'
+import { brandImageFill } from '@/lib/images/fill'
 import { getBrandCategoryLabel, getBrandSubcategoryLabels } from '@/lib/brands/category-label'
 import { selectBrandCardImage } from '@/lib/brands/image-selection'
 import { NO_SNIPPET } from '@/lib/seo/snippet'
@@ -92,11 +92,7 @@ export function BrandCard({
             alt=""
             fill
             preload={preload}
-            className={cn('transition-transform group-hover:scale-[1.02]', imageFill.className)}
-            // Assigned, never spread: `brandImageFill` returns `undefined` when
-            // there is nothing to position, and `{ ...undefined }` would turn
-            // that into an empty object.
-            style={imageFill.style}
+            className={cn('transition-transform group-hover:scale-[1.02]', imageFill)}
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
             onError={() => setImgError(true)}
           />

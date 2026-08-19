@@ -28,9 +28,9 @@ function candidateTable(entry: PreviewBrand): string {
   const images = new Map(entry.rankedImages.map((image) => [image.id, image]))
   const rows = entry.ranked.slice(0, 3).map((candidate) => {
     const image = images.get(candidate.id)
-    return `<tr><td>${esc(candidate.id)}</td><td>${candidate.score}</td><td>${image?.width ?? '?'} × ${image?.height ?? '?'}</td><td>${image && ratio(image) ? ratio(image)!.toFixed(2) : '?'}</td><td>${image?.focalX ?? '?'}, ${image?.focalY ?? '?'}</td><td>${candidate.cropDamage.toFixed(1)}</td><td>${candidate.heroQuality.toFixed(1)}</td></tr>`
+    return `<tr><td>${esc(candidate.id)}</td><td>${candidate.score}</td><td>${image?.width ?? '?'} × ${image?.height ?? '?'}</td><td>${image && ratio(image) ? ratio(image)!.toFixed(2) : '?'}</td><td>${candidate.cropDamage.toFixed(1)}</td><td>${candidate.heroQuality.toFixed(1)}</td></tr>`
   })
-  return `<table><thead><tr><th>id</th><th>score</th><th>w × h</th><th>ratio</th><th>focal</th><th>cropDamage</th><th>heroQuality</th></tr></thead><tbody>${rows.join('')}</tbody></table>`
+  return `<table><thead><tr><th>id</th><th>score</th><th>w × h</th><th>ratio</th><th>cropDamage</th><th>heroQuality</th></tr></thead><tbody>${rows.join('')}</tbody></table>`
 }
 
 function renderChanged(entry: PreviewBrand): string {
