@@ -2,6 +2,59 @@ import type { Json } from "@/lib/supabase/database.types";
 import type { OtherUrl } from "@/lib/types/brand";
 
 /**
+ * One provenance citation on a proposed product. Mirrors
+ * `curatedProductSourceSchema` in `@/lib/validation/curated-product` minus its
+ * `id` — a proposal has no row yet — and stays a plain type rather than a second
+ * schema, so the bounds and the `source_type` CHECK list keep exactly one owner.
+ */
+export type CuratedProductProposalSource = {
+  url: string;
+  /** One of `CURATED_PRODUCT_SOURCE_TYPES`; the enum is enforced at validation. */
+  sourceType: string;
+  claimZh?: string;
+};
+
+/**
+ * One product an enrichment run proposes from the brand's own site. Proposals
+ * ride the submission's `enriched_data` blob until a moderator ticks the keepers
+ * in the existing submission review; approval is what materializes
+ * `curated_products` rows.
+ *
+ * Shaped like `channels`: the blob's TOP-LEVEL keys are snake_case, its object
+ * arrays are camelCase passthrough. No per-item key transform in either
+ * direction, so a round trip is lossless by construction.
+ *
+ * NO COMMERCE TRUTH, ever: no price, stock, inventory, discount, availability,
+ * offer or variant field. Anything a transaction or an inventory event can
+ * change is linked to through `officialUrl` instead of copied here.
+ *
+ * No gifting and no customization field either — DEV-1506 ruled there is no such
+ * facet at any taxonomy level, so a proposal has nowhere to put one.
+ */
+export type CuratedProductProposal = {
+  /** Stable within one brand; becomes `curated_products.key`. */
+  key: string;
+  nameZh: string;
+  nameEn?: string;
+  /** L1 category slug. */
+  category: string;
+  subcategories: string[];
+  /**
+   * Slugs from the closed `MATERIALS` vocabulary. Deliberately `string[]` and
+   * not the union: this is a wire payload, and the vocabulary check belongs to
+   * the enrichment phase and the service that writes the rows, not to a type
+   * that only describes what a JSONB blob may hold.
+   */
+  material: string[];
+  officialUrl: string;
+  /** The page an image was taken from, kept so usage rights stay re-checkable. */
+  imageSourceUrl?: string;
+  /** The one editorial text field a curated product carries (DEV-1496). */
+  productDescriptionZh: string;
+  sources: CuratedProductProposalSource[];
+};
+
+/**
  * FAQ deliberately has no field here. The dedicated `faq` phase writes
  * `brand_faq_entries` directly, behind the preset validators; carrying a copy
  * on this blob would be a second, unvalidated write door into the same table.
@@ -29,6 +82,12 @@ export type EnrichedData = {
   purchaseShopee?: string;
   purchaseMyship?: string;
   otherUrls?: OtherUrl[];
+  /**
+   * Curated-product proposals from the enrichment run (DEV-1469). Absent means
+   * "this run proposed nothing about products"; an empty array is a different
+   * statement and no transform invents one.
+   */
+  products?: CuratedProductProposal[];
   name?: string;
 };
 
@@ -129,6 +188,9 @@ export function enrichedDataFromDb(
     ...(typeof json.purchase_myship === "string"
       ? { purchaseMyship: json.purchase_myship }
       : {}),
+    ...(Array.isArray(json.products)
+      ? { products: json.products as CuratedProductProposal[] }
+      : {}),
     ...(Array.isArray(json.other_urls)
       ? {
           otherUrls: json.other_urls.filter(
@@ -180,5 +242,6 @@ export function enrichedDataToDb(data: EnrichedData): Record<string, unknown> {
   if (data.purchaseMyship !== undefined)
     result.purchase_myship = data.purchaseMyship;
   if (data.otherUrls !== undefined) result.other_urls = data.otherUrls;
+  if (data.products !== undefined) result.products = data.products;
   return result;
 }

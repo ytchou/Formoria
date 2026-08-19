@@ -53,6 +53,8 @@ const phaseDescriptions = {
   reputation:
     "Adds third-party reputation context — coverage, awards, ratings.",
   faq: "Writes the bilingual FAQ answers the brand's evidence supports.",
+  products:
+    "Proposes curated products from the brand's own site; a moderator ticks the keepers at approval.",
   names:
     "Arbitrates the competing brand names the other context phases proposed; the only phase that writes the brand name.",
   site_identity:

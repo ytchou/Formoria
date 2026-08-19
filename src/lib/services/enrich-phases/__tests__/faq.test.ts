@@ -168,7 +168,11 @@ describe("faq phase wiring", () => {
     expect(ENRICH_PHASES.indexOf("faq")).toBeGreaterThan(
       ENRICH_PHASES.indexOf("reputation"),
     );
-    expect(ENRICH_PHASES.at(-1)).toBe("faq");
+    // `products` runs after faq, so the last-phase claim now lives in
+    // src/lib/constants/__tests__/enrich-phases.test.ts, which owns that ordering.
+    expect(ENRICH_PHASES.indexOf("products")).toBeGreaterThan(
+      ENRICH_PHASES.indexOf("faq"),
+    );
   });
 });
 

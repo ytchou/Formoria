@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { ChevronLeft, ChevronRight, Star, Trash2 } from "lucide-react";
@@ -11,8 +11,10 @@ import { DetailSection } from "@/components/admin/detail-section";
 import { SubcategoryPicker } from "@/components/forms/subcategory-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
   Select,
   SelectContent,
@@ -22,13 +24,24 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleChip } from "@/components/ui/toggle-chip";
 import { getCategoryLabel } from "@/lib/brands/category-label";
 import { brandImageFill } from "@/lib/images/focal";
 import {
   L1_CATEGORIES,
+  L2_SUBCATEGORIES,
+  MATERIALS,
+  materialBySlug,
+  subcategoryBySlug,
   subcategoryDisplayLabel,
 } from "@/lib/taxonomy/ontology";
 import type { OtherUrl } from "@/lib/types";
+import type { CuratedProductProposal } from "@/lib/types/enriched-data";
+import {
+  diffCuratedProductProposals,
+  type CuratedProductProposalState,
+  type ExistingCuratedProduct,
+} from "@/lib/services/curated-products/proposal-diff";
 import type {
   SaveSubmissionReviewInput,
   SubmissionReviewData,
@@ -63,13 +76,37 @@ const PURCHASE_DISPLAY_LABELS = {
 } satisfies Record<PurchaseChannelKey, string>;
 
 type EditableSection =
-  "content" | "reputation" | "catalog" | "links" | "evidence" | "images";
+  | "content"
+  | "reputation"
+  | "catalog"
+  | "products"
+  | "links"
+  | "evidence"
+  | "images";
+
+/**
+ * Message-key suffixes for the proposal states. The diff's own values are
+ * kebab-case because they are a service contract; the catalogue is camelCase
+ * because every other key in it is, so the mapping is written down once here
+ * rather than being derived by a string transform nobody can grep for.
+ */
+const PRODUCT_STATE_KEYS = {
+  new: "new",
+  matched: "matched",
+  "previously-rejected": "previouslyRejected",
+} satisfies Record<CuratedProductProposalState, string>;
 
 type Props = {
   entityId: string;
   reviewData: SubmissionReviewData;
   reviewImages: SubmissionReviewImage[];
   canEdit: boolean;
+  /**
+   * The brand's existing curated products, used only to classify the proposals
+   * riding this review (DEV-1469). Empty is the honest default for a brand-new
+   * submission — there is no brand yet, so nothing can have been rejected.
+   */
+  existingProducts?: ExistingCuratedProduct[];
   missingFields?: string[];
   uploadEndpoint: string;
   uploadPath: string;
@@ -87,6 +124,7 @@ export function ReviewDetailsEditor({
   reviewData,
   reviewImages,
   canEdit,
+  existingProducts = [],
   missingFields = [],
   uploadEndpoint,
   uploadPath,
@@ -131,6 +169,25 @@ export function ReviewDetailsEditor({
     ["Facebook", data.socialFacebook],
   ]);
   const evidence = displayStrings(data.mitEvidence);
+  // Classified on load, from the SERVER copy of the proposals: a state is what
+  // the brand's catalog already knows, so it must not shift while the reviewer
+  // retypes a name. The diff is pure and runs over at most a handful of rows.
+  const productDiffs = diffCuratedProductProposals(
+    data.products ?? [],
+    existingProducts,
+  );
+  const productStates = new Map(
+    productDiffs.map((diff) => [diff.proposal.key, diff.state]),
+  );
+  /**
+   * A proposal the brand already holds — published or rejected — starts
+   * unticked, which is the whole point of the diff: re-approving a rejection
+   * would insert it a second time under a suffixed key.
+   */
+  const defaultKeptProductKeys = productDiffs
+    .filter((diff) => diff.state === "new")
+    .map((diff) => diff.proposal.key);
+  const keptProductKeys = data.keptProductKeys ?? defaultKeptProductKeys;
   const gallery = activeImages(reviewImages);
   const reputation = parseReputationSummary(data.reputationSummary);
   const hasEnglishNarrative = Boolean(
@@ -211,6 +268,16 @@ export function ReviewDetailsEditor({
   }
 
   function startEditing(section: EditableSection) {
+    // THE COMPUTED TICK SET IS NEVER SEEDED INTO THE DRAFT. It used to be, so
+    // that a save right after opening recorded what was shown — but the baseline
+    // carries no `keptProductKeys`, so an UNEDITED save wrote a phantom tick set
+    // to `review_overrides.kept_product_keys`. After a phase re-run `products`
+    // then comes from the fresh `enriched_data` while the stored keys still name
+    // the old proposals, and because the column is defined, `materialize` skips
+    // its "every new proposal is kept" default and files every fresh proposal as
+    // `visible=false` rejection memory for a decision nobody made. A real tick
+    // still persists: `setKept` rebuilds the full list from the displayed
+    // default, so the first click writes the whole set.
     setDraft(reviewData);
     setDraftImages(activeImages(reviewImages));
     setUploadedDraftIds([]);
@@ -402,6 +469,41 @@ export function ReviewDetailsEditor({
               </div>
             )}
           </InlineEditSection>
+
+          {/*
+            Rendered only when a run actually proposed something. The same
+            editor serves the brand detail page, where there are no proposals at
+            all, and an empty section there would read as a broken feature.
+          */}
+          {(data.products?.length ?? 0) > 0 && (
+            <InlineEditSection
+              title={t("details.products")}
+              saveLabel={t("details.productEditor.save")}
+              canEdit={canEdit}
+              editing={editingSection === "products"}
+              onEdit={() => startEditing("products")}
+              onSave={handleSave}
+              onCancel={handleCancel}
+              isPending={isPending}
+              error={error}
+            >
+              {editingSection === "products" ? (
+                <ProductProposalsEditor
+                  proposals={draft.products ?? []}
+                  keptKeys={draft.keptProductKeys ?? keptProductKeys}
+                  states={productStates}
+                  onProposalsChange={(products) => update("products", products)}
+                  onKeptKeysChange={(keys) => update("keptProductKeys", keys)}
+                />
+              ) : (
+                <ProductProposalsReadOnly
+                  proposals={data.products ?? []}
+                  keptKeys={keptProductKeys}
+                  states={productStates}
+                />
+              )}
+            </InlineEditSection>
+          )}
 
           <InlineEditSection
             title={t("details.links")}
@@ -621,6 +723,7 @@ function InlineEditSection({
   onCancel,
   isPending = false,
   error = null,
+  saveLabel,
   children,
 }: {
   title: string;
@@ -631,6 +734,11 @@ function InlineEditSection({
   onCancel?: () => void;
   isPending?: boolean;
   error?: string | null;
+  /**
+   * Overrides the generic "Save" for a section whose save does something the
+   * word alone does not describe. Undefined keeps the shared label.
+   */
+  saveLabel?: string;
   children: React.ReactNode;
 }) {
   const t = useTranslations("admin.submissions");
@@ -645,7 +753,7 @@ function InlineEditSection({
       isPending={isPending}
       error={error}
       editLabel={t("edit")}
-      saveLabel={t("save")}
+      saveLabel={saveLabel ?? t("save")}
       cancelLabel={t("cancel")}
     >
       {children}
@@ -824,6 +932,389 @@ function CatalogEditor({
       />
     </div>
   );
+}
+
+type ProductProposalStates = Map<string, CuratedProductProposalState>;
+
+/**
+ * What the run proposed, and what the review decided about it. Read-only view:
+ * it renders the SERVER copy, like every other section here, so a
+ * `router.refresh()` after a save is what updates it.
+ */
+function ProductProposalsReadOnly({
+  proposals,
+  keptKeys,
+  states,
+}: {
+  proposals: CuratedProductProposal[];
+  keptKeys: string[];
+  states: ProductProposalStates;
+}) {
+  const t = useTranslations("admin.submissions");
+
+  return (
+    <ul className="space-y-3">
+      {proposals.map((proposal) => {
+        // `enriched_data` is JSONB written by an enrichment phase, so a field
+        // the type declares required can still be missing on a stored row. A
+        // dereference that threw here would blank the whole review drawer and
+        // block the approval, not just this row.
+        const subcategories = proposal.subcategories ?? [];
+        const material = proposal.material ?? [];
+
+        return (
+          <li
+            key={proposal.key}
+            className="space-y-3 rounded-md border border-border p-4"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="type-body-emphasis">{proposalTitle(proposal)}</p>
+              <ProposalStateBadges
+                state={states.get(proposal.key) ?? "new"}
+                kept={keptKeys.includes(proposal.key)}
+              />
+            </div>
+            <dl className="grid gap-4 sm:grid-cols-2">
+              <Definition
+                label={t("details.productEditor.category")}
+                value={getCategoryLabel(proposal.category) ?? proposal.category}
+              />
+            </dl>
+            {(subcategories.length > 0 || material.length > 0) && (
+              <div className="flex flex-wrap gap-2">
+                {subcategories.map((slug) => (
+                  <Badge key={`subcategory-${slug}`} variant="outline">
+                    {subcategoryBySlug(slug)?.nameZh ?? slug}
+                  </Badge>
+                ))}
+                {material.map((slug) => (
+                  <Badge key={`material-${slug}`} variant="secondary">
+                    {materialBySlug(slug)?.nameZh ?? slug}
+                  </Badge>
+                ))}
+              </div>
+            )}
+            <p className="whitespace-pre-wrap type-body">
+              {proposal.productDescriptionZh}
+            </p>
+            <ProposalSourceLinks proposal={proposal} />
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/**
+ * Ticking is the job; retyping is the fallback. Every field is editable because
+ * a proposal is a machine's reading of a product page, but the keep toggle is
+ * what the reviewer is here for — so it leads each row and its label names the
+ * product rather than saying "keep".
+ *
+ * Only the proposal payload is touched. Nothing here writes `enriched_data`:
+ * edits ride `review_overrides` like every other section, and approval is what
+ * turns a kept proposal into a `curated_products` row.
+ */
+function ProductProposalsEditor({
+  proposals,
+  keptKeys,
+  states,
+  onProposalsChange,
+  onKeptKeysChange,
+}: {
+  proposals: CuratedProductProposal[];
+  keptKeys: string[];
+  states: ProductProposalStates;
+  onProposalsChange: (proposals: CuratedProductProposal[]) => void;
+  onKeptKeysChange: (keys: string[]) => void;
+}) {
+  const t = useTranslations("admin.submissions");
+  const fieldId = useId();
+
+  function patchProposal(
+    index: number,
+    patch: Partial<CuratedProductProposal>,
+  ) {
+    onProposalsChange(
+      proposals.map((proposal, proposalIndex) =>
+        proposalIndex === index ? { ...proposal, ...patch } : proposal,
+      ),
+    );
+  }
+
+  /** Rebuilt from the proposal order, so the saved set never depends on click order. */
+  function setKept(key: string, kept: boolean) {
+    onKeptKeysChange(
+      proposals
+        .filter((proposal) =>
+          proposal.key === key ? kept : keptKeys.includes(proposal.key),
+        )
+        .map((proposal) => proposal.key),
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {proposals.map((proposal, index) => {
+        const rowId = `${fieldId}-${index}`;
+        // Same reason as the read-only view: a stored proposal can be missing a
+        // field the type declares required.
+        const subcategories = proposal.subcategories ?? [];
+        const material = proposal.material ?? [];
+        const subcategoryOptions = L2_SUBCATEGORIES.filter(
+          (subcategory) => subcategory.category === proposal.category,
+        );
+
+        const state = states.get(proposal.key) ?? "new";
+        // MATERIALIZATION IS CREATE-ONLY: approval inserts a row for a `new`
+        // proposal and does nothing at all for one the brand already holds,
+        // published or rejected. An enabled control on those rows asserts an
+        // effect it cannot have — the tick and the retyped name were accepted,
+        // saved, and then silently discarded at approval. Locking the row is the
+        // honest reading of that rule, and the note below says so on screen
+        // rather than only in a tooltip.
+        const locked = state !== "new";
+
+        return (
+          <fieldset
+            key={proposal.key}
+            className="space-y-3 rounded-md border border-border p-4"
+          >
+            <legend className="type-metadata">
+              {t("details.productEditor.item", { number: index + 1 })}
+            </legend>
+            <div className="flex flex-wrap items-center gap-2">
+              {/*
+                The box and its text share ONE 48x48 hit target, the treatment
+                `brand-list` gives its row checkboxes: a 20x20 box beside a
+                separate label is below the 44x44 minimum on touch.
+              */}
+              <Label
+                htmlFor={`${rowId}-keep`}
+                className="min-h-12 min-w-12 cursor-pointer py-3"
+              >
+                <Checkbox
+                  id={`${rowId}-keep`}
+                  className="size-5"
+                  checked={keptKeys.includes(proposal.key)}
+                  disabled={locked}
+                  onCheckedChange={(checked) => setKept(proposal.key, checked)}
+                />
+                {t("details.productEditor.keep", { name: proposal.nameZh })}
+              </Label>
+              <ProposalStateBadges
+                state={state}
+                kept={keptKeys.includes(proposal.key)}
+              />
+            </div>
+            {locked && (
+              <p className="type-form-hint">
+                {t("details.productEditor.locked")}
+              </p>
+            )}
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label={t("details.productEditor.nameZh")}>
+                <Input
+                  value={proposal.nameZh ?? ""}
+                  disabled={locked}
+                  onChange={(event) =>
+                    patchProposal(index, { nameZh: event.target.value })
+                  }
+                />
+              </Field>
+              <Field label={t("details.productEditor.nameEn")}>
+                <Input
+                  value={proposal.nameEn ?? ""}
+                  disabled={locked}
+                  onChange={(event) =>
+                    patchProposal(index, {
+                      nameEn: emptyToNull(event.target.value) ?? undefined,
+                    })
+                  }
+                />
+              </Field>
+            </div>
+            <Field label={t("details.productEditor.category")}>
+              <NativeSelect
+                value={proposal.category}
+                disabled={locked}
+                onChange={(event) =>
+                  // A subcategory slug exists only inside one category, so a
+                  // category change clears them rather than carrying dead tags
+                  // into the new branch.
+                  patchProposal(index, {
+                    category: event.target.value,
+                    subcategories: [],
+                  })
+                }
+              >
+                {L1_CATEGORIES.map((category) => (
+                  <option key={category.slug} value={category.slug}>
+                    {category.nameZh} ({category.name})
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+            <fieldset className="space-y-2">
+              <legend className="type-metadata">
+                {t("details.productEditor.subcategories")}
+              </legend>
+              <div className="flex flex-wrap gap-2">
+                {subcategoryOptions.map((subcategory) => (
+                  <ToggleChip
+                    key={subcategory.slug}
+                    pressed={subcategories.includes(subcategory.slug)}
+                    disabled={locked}
+                    onPressedChange={(pressed) =>
+                      patchProposal(index, {
+                        subcategories: toggleSlug(
+                          subcategories,
+                          subcategory.slug,
+                          pressed,
+                        ),
+                      })
+                    }
+                  >
+                    {subcategory.nameZh}
+                  </ToggleChip>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset className="space-y-2">
+              <legend className="type-metadata">
+                {t("details.productEditor.material")}
+              </legend>
+              <div className="flex flex-wrap gap-2">
+                {MATERIALS.map((option) => (
+                  <ToggleChip
+                    key={option.slug}
+                    pressed={material.includes(option.slug)}
+                    disabled={locked}
+                    onPressedChange={(pressed) =>
+                      patchProposal(index, {
+                        material: toggleSlug(material, option.slug, pressed),
+                      })
+                    }
+                  >
+                    {option.nameZh}
+                  </ToggleChip>
+                ))}
+              </div>
+            </fieldset>
+            <Field label={t("details.productEditor.officialUrl")}>
+              <Input
+                type="url"
+                value={proposal.officialUrl ?? ""}
+                disabled={locked}
+                onChange={(event) =>
+                  patchProposal(index, { officialUrl: event.target.value })
+                }
+              />
+            </Field>
+            <Field label={t("details.productEditor.description")}>
+              <Textarea
+                value={proposal.productDescriptionZh ?? ""}
+                disabled={locked}
+                onChange={(event) =>
+                  patchProposal(index, {
+                    productDescriptionZh: event.target.value,
+                  })
+                }
+              />
+            </Field>
+            <p className="type-form-hint">
+              {t("details.productEditor.descriptionHint")}
+            </p>
+            <ProposalSourceLinks proposal={proposal} />
+          </fieldset>
+        );
+      })}
+    </div>
+  );
+}
+
+function ProposalStateBadges({
+  state,
+  kept,
+}: {
+  state: CuratedProductProposalState;
+  kept: boolean;
+}) {
+  const t = useTranslations("admin.submissions");
+
+  return (
+    <>
+      <Badge variant={state === "previously-rejected" ? "warning" : "outline"}>
+        {t(`details.productEditor.state.${PRODUCT_STATE_KEYS[state]}`)}
+      </Badge>
+      {/* Kiln means one thing in this system: a change being proposed. */}
+      <Badge variant={kept ? "default" : "declared"}>
+        {kept
+          ? t("details.productEditor.keeping")
+          : t("details.productEditor.dropping")}
+      </Badge>
+    </>
+  );
+}
+
+/**
+ * The proposal's own page plus whatever it cites, deduplicated: a proposal
+ * normally cites the page it was read from, and rendering that twice would say
+ * there is more evidence than there is. Deliberately not a nested list — the
+ * proposals are the list.
+ */
+function ProposalSourceLinks({
+  proposal,
+}: {
+  proposal: CuratedProductProposal;
+}) {
+  const t = useTranslations("admin.submissions");
+  const urls = [
+    ...new Set(
+      [
+        proposal.officialUrl,
+        ...(proposal.sources ?? []).map((source) => source.url),
+      ]
+        .map((url) => url?.trim())
+        .filter((url): url is string => Boolean(url)),
+    ),
+  ];
+  if (urls.length === 0) return null;
+
+  return (
+    <div className="space-y-1">
+      <p className="type-metadata">{t("details.productEditor.sources")}</p>
+      <div className="flex flex-col gap-1">
+        {urls.map((url) => (
+          <a
+            key={url}
+            className="type-link break-all"
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {url}
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function proposalTitle(proposal: CuratedProductProposal): string {
+  return proposal.nameEn
+    ? `${proposal.nameZh} (${proposal.nameEn})`
+    : proposal.nameZh;
+}
+
+/** Adds or removes one slug without duplicating it or reordering what is there. */
+function toggleSlug(
+  slugs: string[],
+  slug: string,
+  selected: boolean,
+): string[] {
+  if (!selected) return slugs.filter((value) => value !== slug);
+  return slugs.includes(slug) ? slugs : [...slugs, slug];
 }
 
 function LinksEditor({

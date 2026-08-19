@@ -13,7 +13,10 @@ import type {
   DuplicateCheckResult,
 } from "@/lib/types/submission";
 import type { Database, Json } from "@/lib/supabase/database.types";
-import type { EnrichedData } from "@/lib/types/enriched-data";
+import type {
+  CuratedProductProposal,
+  EnrichedData,
+} from "@/lib/types/enriched-data";
 import { enrichedDataFromDb } from "@/lib/types/enriched-data";
 import type { ChannelCandidate } from "@/lib/types/brand-channel";
 import type {
@@ -150,6 +153,22 @@ export type SubmissionReviewData = {
   city: string | null;
   reputationSummary: Json | null;
   channels?: ChannelCandidate[];
+  /**
+   * Curated-product proposals from the enrichment run (DEV-1469), seeded from
+   * `enriched_data.products` and editable in the review like every other
+   * field: a reviewer who fixes a name must not have that fix dropped. The
+   * enrichment blob itself is never written from the review — an edit lands in
+   * `review_overrides` under the same `products` key, which is why one mapper
+   * serves both layers.
+   */
+  products?: CuratedProductProposal[];
+  /**
+   * The proposal keys the reviewer ticked to keep. Absent means "no decision
+   * recorded yet", which is NOT the same as none kept: the review computes the
+   * default tick set from the proposal diff, and approval materializes the
+   * unticked ones as hidden rows rather than dropping them.
+   */
+  keptProductKeys?: string[];
   mitEvidence: Json | null;
   siteContent: Json | null;
   foundingYear: number | null;
@@ -164,6 +183,13 @@ export type SubmissionReviewData = {
   socialFacebook: string | null;
   otherUrls: OtherUrl[];
 } & { [Field in PurchaseChannelCamelField]: string | null };
+/**
+ * `channels` is submission-only, so it is widened here. Curated-product
+ * proposals are NOT: `products` lives on `EnrichedData` itself, which is what
+ * puts it through `enrichedDataToDb`/`enrichedDataFromDb` and therefore through
+ * `enrichedDataFromSubmissionDb` below. Re-declaring it here would be a second
+ * copy of the same contract, free to drift.
+ */
 type EnrichedSubmissionData = EnrichedData & {
   channels?: ChannelCandidate[];
 };
@@ -267,6 +293,13 @@ export type ApproveSubmissionResult = {
   brandName: string;
   submitterName: string | null;
   isBrandOwner: boolean;
+  /**
+   * The curated-product half of the effective review layer this approval
+   * already built (DEV-1469). Returned so the caller's materialization step
+   * does not re-read the row and re-derive it — two derivations of one decision
+   * are two chances to disagree about what the reviewer chose.
+   */
+  productReview: SubmissionProductReview;
 };
 
 function chunkValues<T>(values: T[], size: number): T[][] {
@@ -710,6 +743,7 @@ export function buildSubmissionReviewData(
     city: normalizeString(enrichedData?.city),
     reputationSummary: enrichedData?.reputationSummary ?? null,
     channels: enrichedData?.channels,
+    products: enrichedData?.products,
     mitEvidence: enrichedData?.mitEvidence ?? null,
     siteContent: enrichedData?.siteContent ?? null,
     foundingYear: enrichedData?.foundingYear ?? null,
@@ -1026,6 +1060,12 @@ function submissionReviewDataToDb(
     city: data.city,
     reputation_summary: data.reputationSummary,
     channels: data.channels as unknown as Json,
+    // Same key the enrichment blob uses, so `buildRefreshSubmissionReviewData`
+    // reads proposals straight out of `enriched_data` through the same mapper
+    // that reads them back out of `review_overrides`. `kept_product_keys` only
+    // ever comes from a review — enrichment has no opinion on what to keep.
+    products: data.products as unknown as Json,
+    kept_product_keys: data.keptProductKeys as unknown as Json,
     mit_evidence: data.mitEvidence,
     site_content: data.siteContent,
     founding_year: mapped.founding_year,
@@ -1093,6 +1133,18 @@ function reviewDataFromDb(
         : Array.isArray(data.channels)
           ? (data.channels as ChannelCandidate[])
           : fallback.channels,
+    products:
+      data.products === undefined
+        ? fallback.products
+        : Array.isArray(data.products)
+          ? (data.products as CuratedProductProposal[])
+          : fallback.products,
+    keptProductKeys:
+      data.kept_product_keys === undefined
+        ? fallback.keptProductKeys
+        : Array.isArray(data.kept_product_keys)
+          ? normalizeStringArray(data.kept_product_keys)
+          : fallback.keptProductKeys,
     mitEvidence:
       data.mit_evidence === undefined
         ? fallback.mitEvidence
@@ -1940,6 +1992,75 @@ export async function applyBrandRefresh(
   );
 }
 
+/**
+ * What the review DECIDED about the curated-product proposals riding one
+ * submission (DEV-1469) — the effective layer, never the raw enrichment blob.
+ *
+ * Materialization must read this and not `enriched_data.products`: a reviewer's
+ * fix to a name, a category, or a description lands in `review_overrides` under
+ * the same `products` key, so reading the blob would silently publish the
+ * machine's first draft and drop every correction.
+ *
+ * IT IS A PROJECTION OF `buildReviewLayers(...).effective`, not a second
+ * implementation of it. The precedence this needs is the precedence the whole
+ * review already has — an override replaces the proposal array when the key is
+ * present, otherwise the enrichment blob shows through — and the hand-rolled
+ * copy that used to live here was free to drift from the merge that actually
+ * decides what a reviewer sees.
+ *
+ * `keptProductKeys` is `undefined` when no decision was recorded, which is NOT
+ * the same as `[]`. Absent means "the reviewer never opened the section", and
+ * the caller applies the section's own default (every new proposal kept); `[]`
+ * means "the reviewer looked and kept nothing". `SubmissionReviewData` keeps the
+ * distinction — the field is optional there for exactly this reason.
+ */
+export type SubmissionProductReview = {
+  products: CuratedProductProposal[];
+  keptProductKeys: string[] | undefined;
+};
+
+function submissionProductReview(
+  reviewData: SubmissionReviewData,
+): SubmissionProductReview {
+  return {
+    products: reviewData.products ?? [],
+    keptProductKeys: reviewData.keptProductKeys,
+  };
+}
+
+/**
+ * The reading half. `approveSubmission` already holds the effective layer and
+ * hands it straight to the materializer; this is for the refresh path, which
+ * does not.
+ */
+export async function getSubmissionProductReview(
+  id: string,
+): Promise<SubmissionProductReview> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("brand_submissions")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new NotFoundError("BrandSubmission", id);
+
+  const row = {
+    ...data,
+    other_urls: normalizeOtherUrls(data.other_urls),
+  } as unknown as SubmissionRowWithCategoryNote;
+  const enrichedData = isEnrichedData(row.enriched_data)
+    ? enrichedDataFromSubmissionDb(row.enriched_data as Record<string, unknown>)
+    : null;
+
+  // Images are not passed: the only thing they can change on the effective
+  // layer is `heroImageUrl`, and this projection reads neither it nor anything
+  // derived from it.
+  return submissionProductReview(
+    buildReviewLayers(row, submissionToDomain(row), enrichedData).effective,
+  );
+}
+
 export type SaveSubmissionReviewInput = SubmissionReviewData & {
   images: Array<{ id: string; sortOrder: number }>;
 };
@@ -2234,6 +2355,10 @@ export async function approveSubmission(
     brandName: approval.brand_name,
     submitterName: approval.submitter_name ?? null,
     isBrandOwner: approval.is_brand_owner ?? false,
+    // `reviewData` is the effective layer built at the top of this function,
+    // from the row as it stood when the approval ran. Materialization is the
+    // caller's next step and consumes exactly this.
+    productReview: submissionProductReview(reviewData),
   };
     },
   );

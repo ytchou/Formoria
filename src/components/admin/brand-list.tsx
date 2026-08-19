@@ -27,6 +27,7 @@ import {
   unhideBrandAction,
   deleteBrandAction,
   requestBrandRefreshAction,
+  requestCuratedProductBackfillAction,
   resendClaimInviteAction,
 } from "@/app/admin/actions";
 import {
@@ -45,8 +46,11 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { statusStyles, textStyles } from "@/components/ui/text-styles";
+import { MAX_BULK_PRODUCT_BACKFILL } from "@/lib/constants/curated-products";
 import { routing } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
 
@@ -75,6 +79,15 @@ const MIT_STATUS_CONFIG: Record<
 function getMitStatus(brand: AdminBrandListItem): MitStatus {
   if (brand.mitStatus) return brand.mitStatus;
   return brand.mitVerified ? "verified" : "unverified";
+}
+
+/**
+ * `request_brand_refresh` accepts approved and hidden brands only (it raises on
+ * anything else), so an ineligible brand is unselectable rather than one row of
+ * a batch failing after the admin has already clicked.
+ */
+function canGenerateProducts(brand: AdminBrandListItem): boolean {
+  return brand.status === "approved" || brand.status === "hidden";
 }
 
 function MitStatusBadge({ status }: { status: MitStatus }) {
@@ -123,6 +136,15 @@ export function BrandList({
   const [refreshingBrandId, setRefreshingBrandId] = useState<string | null>(
     null,
   );
+  // Ids, never brand objects, for the same reason as `selectedBrandId` above:
+  // the server re-sends `brands` after a revalidate, and a captured object would
+  // queue work against pre-edit values.
+  const [productBackfillIds, setProductBackfillIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [productBackfillStatus, setProductBackfillStatus] = useState<
+    string | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const claimInviteBrandIdSet = new Set(claimInviteBrandIds);
@@ -147,6 +169,15 @@ export function BrandList({
     }
     if (refreshingBrandId && !brandsById.has(refreshingBrandId)) {
       setRefreshingBrandId(null);
+    }
+    // A queued selection must not outlive the rows it names, or the action would
+    // post ids the server no longer lists. One pass: the filtered set answers
+    // both "did anything drop?" and "what is left?".
+    const stillListed = [...productBackfillIds].filter((brandId) =>
+      brandsById.has(brandId),
+    );
+    if (stillListed.length !== productBackfillIds.size) {
+      setProductBackfillIds(new Set(stillListed));
     }
   }
 
@@ -176,6 +207,24 @@ export function BrandList({
     (currentPage - 1) * pageSize,
     currentPage * pageSize,
   );
+  // Page-scoped, like the header checkbox it feeds: "select all" must never
+  // reach rows the admin cannot see.
+  const selectableVisible = visible.filter(canGenerateProducts);
+  // Declared once and reused by the header checkbox AND by the toggle it
+  // drives. The two used to compute the same predicate separately, which is one
+  // edit away from a header that says "all selected" while the toggle adds.
+  const everySelectableVisibleSelected = (selection: Set<string>): boolean =>
+    selectableVisible.every((brand) => selection.has(brand.id));
+  const allVisibleSelected =
+    selectableVisible.length > 0 &&
+    everySelectableVisibleSelected(productBackfillIds);
+  const someVisibleSelected =
+    !allVisibleSelected &&
+    selectableVisible.some((brand) => productBackfillIds.has(brand.id));
+  // The cap is enforced in the server action too — this is what stops the admin
+  // reaching it blind. Past the limit every UNSELECTED checkbox is disabled, so
+  // a selection can only shrink, and the bulk bar names the number.
+  const selectionAtCap = productBackfillIds.size >= MAX_BULK_PRODUCT_BACKFILL;
 
   function handleHide(brand: AdminBrandListItem) {
     startTransition(async () => {
@@ -211,6 +260,69 @@ export function BrandList({
         return;
       }
       toast.success("Claim invitation sent");
+    });
+  }
+
+  function toggleProductBackfill(brandId: string) {
+    setProductBackfillIds((current) => {
+      const next = new Set(current);
+      if (next.has(brandId)) next.delete(brandId);
+      else if (next.size < MAX_BULK_PRODUCT_BACKFILL) next.add(brandId);
+      return next;
+    });
+  }
+
+  function toggleProductBackfillPage() {
+    setProductBackfillIds((current) => {
+      const next = new Set(current);
+      if (everySelectableVisibleSelected(current)) {
+        for (const brand of selectableVisible) next.delete(brand.id);
+        return next;
+      }
+      // Fills to the cap and stops, rather than refusing the whole page: the
+      // page the admin is looking at is the selection they asked for, and a
+      // silent no-op would read as a broken checkbox.
+      for (const brand of selectableVisible) {
+        if (next.size >= MAX_BULK_PRODUCT_BACKFILL) break;
+        next.add(brand.id);
+      }
+      return next;
+    });
+  }
+
+  function handleGenerateProducts() {
+    const brandIds = [...productBackfillIds];
+    if (brandIds.length === 0) return;
+    startTransition(async () => {
+      setError(null);
+      setProductBackfillStatus(null);
+      const result = await requestCuratedProductBackfillAction(brandIds);
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+      const queued = result.outcomes.filter(
+        (outcome) => outcome.submissionId !== null,
+      ).length;
+      // "A refresh is already pending" is an ordinary answer, not a failure, so
+      // it is reported in the same status line as the successes.
+      const skipped = result.outcomes.filter((outcome) => outcome.error !== null);
+      setProductBackfillStatus(
+        [
+          queued > 0
+            ? `Queued product generation for ${queued} ${
+                queued === 1 ? "brand" : "brands"
+              }. It runs on the next worker pass.`
+            : "No brand was queued.",
+          ...skipped.map(
+            (outcome) =>
+              `${brandsById.get(outcome.brandId)?.name ?? outcome.brandId}: ${
+                outcome.error
+              }`,
+          ),
+        ].join(" "),
+      );
+      setProductBackfillIds(new Set());
     });
   }
 
@@ -258,6 +370,22 @@ export function BrandList({
 
       {error && <p className="mt-2 type-body text-destructive">{error}</p>}
 
+      {/*
+        A status, not an alert: "a refresh is already pending" is an ordinary
+        answer to the request, and interrupting the admin for it would be wrong.
+        Rendered unconditionally so the live region exists BEFORE it has text —
+        a region added at the same moment as its content is not announced.
+      */}
+      <p
+        role="status"
+        className={cn(
+          "type-body text-muted-foreground",
+          productBackfillStatus && "mt-2",
+        )}
+      >
+        {productBackfillStatus}
+      </p>
+
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Input
           placeholder="Search brand name..."
@@ -297,6 +425,48 @@ export function BrandList({
         </NativeSelect>
       </div>
 
+      {/*
+        Shown only once something is selected, like the review queue's bulk bar.
+        The label names its exact scope and its count — "Refresh" would not say
+        what runs, and a curated-product run is neither free nor instant. The
+        cost and the queue behaviour ride the accessible name rather than a
+        confirm dialog nobody would read twice.
+      */}
+      {productBackfillIds.size > 0 && (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            disabled={isPending}
+            aria-label={`Generate products for ${productBackfillIds.size} selected ${
+              productBackfillIds.size === 1 ? "brand" : "brands"
+            }, of ${MAX_BULK_PRODUCT_BACKFILL} per run — opens a refresh per brand and queues one enrichment job that calls the model`}
+            onClick={handleGenerateProducts}
+          >
+            {`Generate products for ${productBackfillIds.size} selected ${
+              productBackfillIds.size === 1 ? "brand" : "brands"
+            }`}
+          </Button>
+          {/*
+            The count against the limit, shown as plain text rather than only in
+            the accessible name: the bound is the one thing a growing selection
+            has to be able to see coming.
+          */}
+          <span className="type-body-muted">
+            {`${productBackfillIds.size} of ${MAX_BULK_PRODUCT_BACKFILL} per run${
+              selectionAtCap ? " — limit reached" : ""
+            }`}
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={isPending}
+            onClick={() => setProductBackfillIds(new Set())}
+          >
+            Clear selection
+          </Button>
+        </div>
+      )}
+
       <div
         className={surfaceCardStyles({
           className: "mt-4 overflow-hidden",
@@ -306,6 +476,20 @@ export function BrandList({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-14">
+                <Label className="flex min-h-12 min-w-12 cursor-pointer items-center">
+                  <Checkbox
+                    aria-label={`Select every eligible brand on this page for product generation, up to ${MAX_BULK_PRODUCT_BACKFILL} brands per run`}
+                    checked={allVisibleSelected}
+                    indeterminate={someVisibleSelected}
+                    disabled={
+                      selectableVisible.length === 0 ||
+                      (selectionAtCap && !allVisibleSelected)
+                    }
+                    onCheckedChange={() => toggleProductBackfillPage()}
+                  />
+                </Label>
+              </TableHead>
               <TableHead>Brand</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>MIT</TableHead>
@@ -325,11 +509,39 @@ export function BrandList({
               <Fragment key={brand.id}>
                 <TableRow
                   className="cursor-pointer hover:bg-secondary"
+                  data-state={
+                    productBackfillIds.has(brand.id) ? "selected" : undefined
+                  }
                   onClick={(event) => {
                     if (isInteractiveTableTarget(event.target)) return;
+                    // The checkbox's own 48px hit area is a <label>, and its
+                    // padding is not an interactive element — without this, half
+                    // of every tick would also open the detail sheet.
+                    if (
+                      event.target instanceof Element &&
+                      event.target.closest("label")
+                    )
+                      return;
                     setSelectedBrandId(brand.id);
                   }}
                 >
+                  <TableCell>
+                    <Label className="flex min-h-12 min-w-12 cursor-pointer items-center">
+                      <Checkbox
+                        aria-label={
+                          selectionAtCap && !productBackfillIds.has(brand.id)
+                            ? `Cannot select ${brand.name}: product generation runs at most ${MAX_BULK_PRODUCT_BACKFILL} brands per run`
+                            : `Select ${brand.name} for product generation`
+                        }
+                        checked={productBackfillIds.has(brand.id)}
+                        disabled={
+                          !canGenerateProducts(brand) ||
+                          (selectionAtCap && !productBackfillIds.has(brand.id))
+                        }
+                        onCheckedChange={() => toggleProductBackfill(brand.id)}
+                      />
+                    </Label>
+                  </TableCell>
                   <TableCell className="max-w-[180px] font-medium">
                     <span className="block truncate">{brand.name}</span>
                     {brand.isDemo && (
@@ -476,7 +688,7 @@ export function BrandList({
             {visible.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={9}
                   className="py-8 text-center text-muted-foreground"
                 >
                   No brands found.

@@ -158,3 +158,37 @@ export const curatedProductUpdateSchema = z
 
 /** The paste-URL field behind "Fetch details". Same protocol bar as the rest. */
 export const prefillUrlSchema = httpUrlSchema;
+
+/**
+ * A payload bound, not an editorial cap: the products prompt asks for at most 5
+ * proposals per brand, and this only stops a hand-rolled request from posting a
+ * thousand.
+ */
+export const MAX_CURATED_PRODUCT_PROPOSALS = 20;
+
+/**
+ * One generated proposal as the admin submission review posts it back
+ * (DEV-1469). The shape contract is `CuratedProductProposal` in
+ * `@/lib/types/enriched-data` — this is the boundary check for it, and it lives
+ * here so the bounds and the `source_type` list stay shared with the rest of the
+ * curated-product write path instead of being retyped in `admin-review.ts`.
+ *
+ * `officialUrl` accepts `""` as well as an http(s) URL. It is required on the
+ * type but a run can return a proposal whose product page it never resolved,
+ * and a schema that rejected the empty string would make the whole section
+ * unsaveable — the reviewer could not even fix the name. Non-http strings stay
+ * barred: the value is rendered as an href once the proposal is materialized.
+ */
+export const curatedProductProposalSchema = z.object({
+  key: z.string().trim().min(1).max(200),
+  nameZh: nameSchema,
+  nameEn: nameSchema.optional(),
+  category: z.enum(CURATED_PRODUCT_CATEGORY_VALUES),
+  subcategories: subcategoriesSchema,
+  /** Slugs of the closed `MATERIALS` vocabulary; the CHECK is the real gate. */
+  material: z.array(z.string().trim().min(1).max(100)).max(MAX_SUBCATEGORIES),
+  officialUrl: z.union([httpUrlSchema, z.literal("")]),
+  imageSourceUrl: httpUrlSchema.optional(),
+  productDescriptionZh: z.string().trim().min(1).max(MAX_NOTE),
+  sources: z.array(curatedProductSourceSchema).max(MAX_SOURCES),
+});

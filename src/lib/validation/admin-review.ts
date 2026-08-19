@@ -5,6 +5,10 @@ import {
   PURCHASE_CAMEL_FIELDS,
   type PurchaseChannelCamelField,
 } from "@/lib/brands/purchase-channels";
+import {
+  curatedProductProposalSchema,
+  MAX_CURATED_PRODUCT_PROPOSALS,
+} from "@/lib/validation/curated-product";
 
 const nullableText = z.string().max(10_000).nullable();
 const purchaseFieldSchemas = Object.fromEntries(
@@ -77,6 +81,24 @@ export const adminReviewSchema = z.object({
       }),
     )
     .max(20),
+  /**
+   * Curated-product proposals and the reviewer's tick set (DEV-1469). BOTH must
+   * be declared here or they never reach the service: `z.object` strips unknown
+   * keys, so an undeclared field is dropped in silence — the review would look
+   * saved and materialize the machine's original proposals at approval.
+   *
+   * Optional, not defaulted. Absent means "this save did not touch products",
+   * which is what a save from any other section is; an empty array means the
+   * reviewer kept nothing.
+   */
+  products: z
+    .array(curatedProductProposalSchema)
+    .max(MAX_CURATED_PRODUCT_PROPOSALS)
+    .optional(),
+  keptProductKeys: z
+    .array(z.string().trim().min(1).max(200))
+    .max(MAX_CURATED_PRODUCT_PROPOSALS)
+    .optional(),
   images: imageSelectionSchema,
 });
 

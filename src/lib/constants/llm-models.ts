@@ -104,6 +104,19 @@ export const LLM_PROFILES = {
     reasoningEffort: "none",
     timeoutMs: 60_000,
   },
+  /**
+   * Curated-product proposals from the brand's own site. Its own key rather than
+   * a borrowed one: five proposals each carrying a 60-160 character description
+   * is a different token shape from any other phase, and sharing `faq`'s numbers
+   * would mean retuning FAQ silently retunes this call.
+   */
+  products: {
+    model: "text",
+    maxTokens: 3000,
+    temperature: 0.1,
+    reasoningEffort: "none",
+    timeoutMs: 60_000,
+  },
   /** Single-brand triage. */
   detect: {
     model: "text",

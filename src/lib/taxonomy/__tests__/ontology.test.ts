@@ -402,6 +402,16 @@ describe('DEV-1510 closed vocabulary', () => {
     expect(new Set(MATERIALS.map(material => material.slug)).size).toBe(12)
   })
 
+  it('material_slugs_are_ascii_kebab_case', () => {
+    // The slug is the URL token `?material=` carries and the value the CHECK
+    // constraint stores, so it has to survive a round trip through a query
+    // string unescaped. The exact-list test above pins today's twelve; this
+    // one states the rule any thirteenth would have to meet.
+    for (const material of MATERIALS) {
+      expect(material.slug, `${material.nameZh} slug`).toMatch(/^[a-z][a-z0-9-]*$/)
+    }
+  })
+
   it('every_material_carries_both_labels', () => {
     // The slug is what `brands.material` stores and what `?material=` carries;
     // both labels are display-only, so a blank one renders an empty rail chip

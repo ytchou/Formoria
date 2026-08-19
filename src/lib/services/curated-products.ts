@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
 import { auditedCall } from "@/lib/audit";
 import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
+import type { ExistingCuratedProduct } from "@/lib/services/curated-products/proposal-diff";
 import { withSlugSuffix } from "@/lib/brands/slug";
 import { generateSlug } from "@/lib/services/brands";
 import { normalizeSubcategories } from "@/lib/services/subcategories";
@@ -10,7 +11,7 @@ import {
   excludeTestBrands,
   TEST_BRAND_NAME_PREFIX,
 } from "@/lib/services/public-brand-filter";
-import { resolveSubcategorySlugs } from "@/lib/taxonomy/ontology";
+import { materialBySlug, resolveSubcategorySlugs } from "@/lib/taxonomy/ontology";
 import { getPublishedTrailBySlug, getTrailBySlug } from "@/lib/services/trails";
 
 /** The tables are reached through the untyped `from` surface, with generated DB shapes at the boundary. */
@@ -635,12 +636,30 @@ const FALLBACK_KEY = "product";
 
 export type CuratedProductWriteInput = {
   brandId: string;
+  /**
+   * The key to store, when the caller already HAS one. Absent means "derive it
+   * from the name", which is what every interactive create does.
+   *
+   * The approval materializer supplies it (DEV-1469) because rejection memory
+   * hangs off this column: a proposal carries a key derived from the MODEL's
+   * name, a reviewer may rename the product before approving, and re-deriving
+   * here would store a key the next run's proposal can never match. The diff
+   * would then miss on the key axis, re-offer a product a human already
+   * declined, and insert it again under a `…-2` suffix.
+   */
+  key?: string;
   nameZh: string;
   nameEn?: string | null;
   /** CHECK-constrained to the same 12 values as `brands.category`. */
   category: string;
   /** Subcategory slugs or labels; normalized to slugs within `category`. */
   subcategories?: string[];
+  /**
+   * Material slugs from the closed `MATERIALS` vocabulary. CHECK-constrained in
+   * Postgres, so unratified terms are dropped rather than forwarded; absent
+   * means `[]`, because the column is `not null default '{}'`.
+   */
+  material?: string[];
   officialUrl?: string | null;
   imageUrl?: string | null;
   imageSourceUrl?: string | null;
@@ -664,6 +683,14 @@ export type CuratedProductWriteInput = {
   productDescriptionZh: string;
   productDescriptionEn?: string | null;
   productPosition?: number | null;
+  /**
+   * Origin of the candidate, CHECK-constrained to the three values in
+   * `20260814140000_curated_products_proposed_by.sql`. Defaults to `admin`
+   * because hand entry is still the only interactive create path; the approval
+   * materializer passes `generated` so the review queue can sort a machine
+   * proposal apart from a curator's own row (DEV-1469).
+   */
+  proposedBy?: "admin" | "generated" | "owner";
 };
 
 /**
@@ -671,9 +698,25 @@ export type CuratedProductWriteInput = {
  * `link_checked_at` are absent on purpose: link health is written only by the
  * link checker. A generic patch that accepted them would let an edit form
  * silently overwrite a probe result with stale form state.
+ *
+ * `material` is omitted for the same class of reason, one step earlier:
+ * `updateCuratedProduct` has no branch for it yet, so inheriting the key from
+ * `CuratedProductWriteInput` would accept a material patch and drop it without
+ * an error. Removing it here makes that a compile error until the edit path
+ * exists.
+ *
+ * `proposedBy` is omitted on the same grounds AND on principle: origin is a
+ * fact about how the row came to exist, so an edit must never be able to
+ * relabel a generated proposal as hand-entered.
+ *
+ * `key` is omitted for BOTH reasons at once: `updateCuratedProduct` has no
+ * branch for it, so inheriting it would accept a key patch and drop it in
+ * silence — and a key is identity. `diffCuratedProductProposals` matches
+ * rejection memory on it, and public URLs are built from it, so re-keying a
+ * live row is a migration, never an edit.
  */
 export type CuratedProductUpdateInput = Partial<
-  Omit<CuratedProductWriteInput, "brandId">
+  Omit<CuratedProductWriteInput, "brandId" | "key" | "material" | "proposedBy">
 >;
 
 /**
@@ -695,12 +738,40 @@ function normalizeCuratedSubcategories(
 }
 
 /**
+ * Materials arrive as slugs of the closed `MATERIALS` vocabulary. Anything that
+ * does not resolve is DROPPED rather than thrown, matching
+ * `normalizeCuratedSubcategories`: both columns are slug columns whose values
+ * render as filters, and a term the ontology cannot resolve would render as a
+ * dead one.
+ *
+ * Dropping is also what keeps a partly-bad list writable. `material` carries a
+ * CHECK over the twelve ratified slugs, so one unknown term forwarded to
+ * Postgres 23514s the whole insert and loses the valid terms with it.
+ */
+function normalizeCuratedMaterials(values: readonly string[]): string[] {
+  const slugs: string[] = [];
+  for (const value of values) {
+    const material = materialBySlug(value.trim().toLowerCase());
+    if (!material) continue;
+    if (slugs.includes(material.slug)) continue;
+    slugs.push(material.slug);
+  }
+  return slugs;
+}
+
+/**
  * `generateSlug` transliterates Han through pinyin → Wade-Giles, so a
  * Chinese-only name still yields a readable key. `slugifyRomanizedName` must
  * NOT be used here: its `[^a-z0-9]+` strip returns "" for CJK.
+ *
+ * A caller-supplied `key` wins, and is still passed through `generateSlug`: the
+ * column is a slug, and a hand-edited proposal must not be able to store
+ * something that is not one. Everything else falls through to the name-derived
+ * key, so no existing caller changes behaviour.
  */
 function curatedProductKey(input: CuratedProductWriteInput): string {
   return (
+    generateSlug(input.key ?? "") ||
     generateSlug(input.nameZh) ||
     generateSlug(input.nameEn ?? "") ||
     FALLBACK_KEY
@@ -710,8 +781,9 @@ function curatedProductKey(input: CuratedProductWriteInput): string {
 /**
  * Creates a product. `visible` defaults to `false` — publication is a separate,
  * deliberate act, so no create path silently puts a new row on the site.
- * `proposed_by` records the origin: hand entry today, LLM proposals and owner
- * submissions later, which is what lets a review queue sort by trust.
+ * `proposed_by` records the origin: hand entry by default, `generated` from the
+ * approval materializer (DEV-1469), owner submissions later — which is what
+ * lets a review queue sort by trust.
  *
  * A `(brand_id, key)` collision is resolved by suffixing rather than thrown:
  * two products from one brand sharing a name is ordinary, and the insert is
@@ -740,6 +812,7 @@ export async function createCuratedProduct(
           input.category,
           input.subcategories ?? [],
         ),
+        material: normalizeCuratedMaterials(input.material ?? []),
         official_url: input.officialUrl ?? null,
         image_url: input.imageUrl ?? null,
         image_source_url: input.imageSourceUrl ?? null,
@@ -751,7 +824,7 @@ export async function createCuratedProduct(
         product_description_en: input.productDescriptionEn ?? null,
         product_position: input.productPosition ?? null,
         visible: input.visible ?? false,
-        proposed_by: "admin",
+        proposed_by: input.proposedBy ?? "admin",
       };
 
       for (let attempt = 0; attempt < MAX_KEY_ATTEMPTS; attempt += 1) {
@@ -1270,6 +1343,141 @@ export async function listCuratedProductsForAdmin(
         position: selection.position ?? 0,
       })),
   }));
+}
+
+/**
+ * PostgREST caps a URL, and `.in()` renders every id into it. 200 is the value
+ * every other batch reader in the service layer uses (`brands.ts`,
+ * `submissions.ts`, `curation-jobs.ts`); it is repeated rather than shared for
+ * the same reason they repeat it.
+ *
+ * IT BOUNDS BRANDS, NOT ROWS, and this reader returns one row per PRODUCT. The
+ * page size below is what bounds rows.
+ */
+const CURATED_PRODUCT_IN_FILTER_CHUNK_SIZE = 200;
+
+/**
+ * Rows per request, deliberately under `max_rows = 1000` in
+ * `supabase/config.toml`. At that ceiling PostgREST truncates the response with
+ * NO error, so a chunk of 200 brands carrying more than a thousand products —
+ * ordinary, because hidden rejection rows accumulate by design — would return a
+ * partial map that reads exactly like "these brands have no history": every
+ * proposal diffs as `new`, a previously-rejected product is offered again, and
+ * approval re-inserts it under a key-suffixed key. That is the outcome this
+ * function's docstring says it throws to prevent, so the read pages instead.
+ */
+const CURATED_PRODUCT_BATCH_PAGE_SIZE = 500;
+
+/**
+ * A hard stop on the paging loop. 200 brands × 500 rows is 100k products, far
+ * past anything real — so reaching it means the pages are not advancing (an
+ * unstable order, a proxy ignoring `Range`), and looping forever inside an
+ * approval is the worse failure. Throwing keeps the function's contract: this
+ * read returns complete data or it raises. It never returns a partial map.
+ */
+const CURATED_PRODUCT_BATCH_MAX_PAGES = 200;
+
+type CuratedProductBatchRow = Pick<
+  ProductTable["Row"],
+  "id" | "brand_id" | "key" | "official_url" | "visible" | "proposed_by"
+> & {
+  /** Narrowed to `state = 'active'` by the query; `[]` means no live evidence. */
+  curated_product_sources?: { id: string }[] | null;
+};
+
+/**
+ * Every listed brand's existing curated products, in the minimum shape
+ * `diffCuratedProductProposals` needs (DEV-1469).
+ *
+ * BATCHED because both callers hold a LIST of brands: the submission review
+ * queue classifies the proposals riding every pending submission at once, and
+ * approval consults the same rows before it creates anything. Reading per brand
+ * would issue one round trip per row on screen — this sits next to
+ * `getBrandSlugsBatch` in `/admin/submissions` and mirrors its shape.
+ *
+ * Visible AND hidden rows, deliberately. A hidden row IS how a rejection is
+ * recorded, so filtering on `visible` would erase the exact memory the diff
+ * exists to consult and every rejected proposal would read as new again.
+ *
+ * Schema lag is NOT swallowed here, unlike `listCuratedProductsForAdmin`: an
+ * empty answer would make the approval path treat known products as new and
+ * insert key-suffixed duplicates, which is worse than a loud failure. A SHORT
+ * read is the same failure without the error, which is why the query below
+ * pages rather than trusting one request.
+ *
+ * `hasActiveSource` rides along because the approval materializer needs to tell
+ * a decision from a half-finished create. See `ExistingCuratedProduct`.
+ */
+export async function getCuratedProductsByBrandBatch(
+  brandIds: string[],
+  client?: CuratedProductSupabase,
+): Promise<Map<string, ExistingCuratedProduct[]>> {
+  const uniqueIds = [...new Set(brandIds.filter(Boolean))];
+  const byBrandId = new Map<string, ExistingCuratedProduct[]>();
+  if (uniqueIds.length === 0) return byBrandId;
+
+  const supabase = curatedProductClient(client);
+  const chunks: string[][] = [];
+  for (
+    let index = 0;
+    index < uniqueIds.length;
+    index += CURATED_PRODUCT_IN_FILTER_CHUNK_SIZE
+  ) {
+    chunks.push(
+      uniqueIds.slice(index, index + CURATED_PRODUCT_IN_FILTER_CHUNK_SIZE),
+    );
+  }
+
+  const pages = await Promise.all(
+    chunks.map(async (chunk) => {
+      const rows: CuratedProductBatchRow[] = [];
+      // Range-paged to the first SHORT page. `.order()` is what makes that
+      // sound: without a total order the same row can appear on two pages and
+      // another on none, so the loop needs a stable one — `(brand_id, key)` is
+      // unique, so it is total.
+      for (let page = 0; page < CURATED_PRODUCT_BATCH_MAX_PAGES; page += 1) {
+        const from = page * CURATED_PRODUCT_BATCH_PAGE_SIZE;
+        const { data, error } = await supabase
+          .from("curated_products")
+          .select(
+            // A PLAIN embed, never `!inner`: the default is a left join, so a
+            // product with no active source is still returned. That row is
+            // precisely the half-created one the approval materializer has to
+            // REPAIR, and an inner join would hide it and make every re-run a
+            // no-op. The `.eq` below narrows the EMBEDDED rows only.
+            "id, brand_id, key, official_url, visible, proposed_by, curated_product_sources(id)",
+          )
+          .in("brand_id", chunk)
+          .eq("curated_product_sources.state", "active")
+          .order("brand_id", { ascending: true })
+          .order("key", { ascending: true })
+          .range(from, from + CURATED_PRODUCT_BATCH_PAGE_SIZE - 1);
+        if (error) throw error;
+        const pageRows = (data ?? []) as unknown as CuratedProductBatchRow[];
+        rows.push(...pageRows);
+        if (pageRows.length < CURATED_PRODUCT_BATCH_PAGE_SIZE) return rows;
+      }
+
+      throw new Error(
+        `Curated product batch read did not terminate after ${CURATED_PRODUCT_BATCH_MAX_PAGES} pages`,
+      );
+    }),
+  );
+
+  for (const row of pages.flat()) {
+    const rows = byBrandId.get(row.brand_id) ?? [];
+    rows.push({
+      id: row.id,
+      key: row.key,
+      officialUrl: row.official_url ?? null,
+      visible: row.visible,
+      hasActiveSource: (row.curated_product_sources ?? []).length > 0,
+      proposedBy: row.proposed_by,
+    });
+    byBrandId.set(row.brand_id, rows);
+  }
+
+  return byBrandId;
 }
 
 /**

@@ -13,6 +13,7 @@ import {
   reopenSubmission,
   requestBrandRefresh,
   isGeneratedGuestSubmissionEmail,
+  type SubmissionProductReview,
 } from '@/lib/services/submissions'
 import { getOwnerLocale } from '@/lib/services/profiles'
 import {
@@ -32,6 +33,11 @@ import {
   getUserBrandByEmail,
   revokeOwnership,
 } from '@/lib/services/brand-owners'
+import { materializeSubmissionCuratedProducts } from '@/lib/services/curated-products/materialize'
+import {
+  requestCuratedProductBackfill,
+  type CuratedProductBackfillResult,
+} from '@/lib/services/curated-products/backfill'
 import {
   scanContent,
   saveModerationFlags,
@@ -41,6 +47,9 @@ import {
 import { sendEmail } from '@/lib/email/send'
 import type { EmailSendResult } from '@/lib/email/types'
 import { validateIdBatch } from '@/lib/validation/id-batch'
+import { reviewEntityIdSchema } from '@/lib/validation/admin-review'
+import { MAX_BULK_PRODUCT_BACKFILL } from '@/lib/constants/curated-products'
+import { z } from 'zod'
 import {
   buildApprovalEmail,
   buildRejectionEmail,
@@ -111,8 +120,18 @@ async function captureSupplyEvent(
   }
 }
 
-const MODERATION_FLAG_ID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+/**
+ * ONE validator for the admin id value class, reused rather than restated.
+ * `reviewEntityIdSchema` (`lib/validation/admin-review.ts`) is the declared
+ * schema for it and already gates the review payload and the drop queue; this
+ * file used to carry three hand-rolled copies instead, and they had drifted —
+ * the named one accepted UUID versions 1-5 while two inline copies accepted
+ * 1-8, so the same value was valid or invalid depending on which action
+ * received it.
+ */
+function isAdminEntityId(value: unknown): boolean {
+  return reviewEntityIdSchema.safeParse(value).success
+}
 
 type ApprovalResult = {
   brandSlug: string
@@ -222,6 +241,44 @@ export async function resendClaimInviteAction(
     }
   });
 }
+/**
+ * Curated-product proposals become rows only once the brand exists, so this
+ * runs AFTER the approval RPC on both paths (DEV-1469). It works from the
+ * effective review layer — a reviewer's edits and their tick set — which the
+ * new-brand path already computed and hands over, and the refresh path leaves
+ * the service to read.
+ *
+ * Never at the cost of an approval that already succeeded: the RPC has
+ * committed by the time this runs, so a failure is reported and swallowed,
+ * exactly like the enriched-channels upsert in `approveSubmission`.
+ *
+ * WHAT THE RECOVERY ACTUALLY IS. Requesting another products refresh re-runs
+ * the phase and re-materializes, and that re-run is a repair, not a no-op:
+ * the materializer writes per proposal, so one failure costs one product, and a
+ * product whose row landed while its `curated_product_sources` write did not is
+ * re-attached to its evidence by the diff's repair branch rather than skipped
+ * as a decision. Without that branch the half-created row was permanent — every
+ * public read drops it on the `!inner` evidence join, and the re-run matched it
+ * and moved on.
+ */
+async function materializeProposedProducts(
+  submissionId: string,
+  brandId: string,
+  review?: SubmissionProductReview
+): Promise<void> {
+  try {
+    await materializeSubmissionCuratedProducts(submissionId, brandId, {
+      ...(review ? { review } : {}),
+    })
+  } catch (err) {
+    console.error('[admin] materializeSubmissionCuratedProducts failed:', {
+      submissionId,
+      brandId,
+      error: err,
+    })
+  }
+}
+
 async function approveSubmissionForAdmin(
   submissionId: string,
   reviewerId: string
@@ -236,6 +293,7 @@ async function approveSubmissionForAdmin(
     if (brand.status === 'hidden') {
       await updateBrand(refresh.brandId, { status: 'approved' })
     }
+    await materializeProposedProducts(submissionId, refresh.brandId)
     return {
       brandSlug: brand.slug,
       refresh: true,
@@ -245,7 +303,7 @@ async function approveSubmissionForAdmin(
 
   const siteUrl = getSiteUrl()
 
-  const { brandId, submitterEmail, brandName, isBrandOwner } = await approveSubmission(submissionId, reviewerId)
+  const { brandId, submitterEmail, brandName, isBrandOwner, productReview } = await approveSubmission(submissionId, reviewerId)
   const brand = await getBrandById(brandId)
   let imageSyncWarning: { synced: number; failed: number } | undefined
 
@@ -254,6 +312,8 @@ async function approveSubmissionForAdmin(
   } catch (err) {
     console.error('[admin] markFlagsReviewed failed:', err)
   }
+
+  await materializeProposedProducts(submissionId, brandId, productReview)
 
   if (brand.heroImageUrl) {
     try {
@@ -525,9 +585,7 @@ export async function requestBrandRefreshAction(
     try {
       const auth = await requireAdminAction()
       if ('error' in auth) return auth
-      if (
-        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(brandId)
-      ) {
+      if (!isAdminEntityId(brandId)) {
         return { error: 'Invalid brand ID' }
       }
       if (!auth.user.email) return { error: 'Admin email is required' }
@@ -542,6 +600,65 @@ export async function requestBrandRefreshAction(
       return result
     } catch (err) {
       console.error('[admin:requestBrandRefresh]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
+    }
+  });
+}
+
+/**
+ * Backfill entry point for generated curated products (DEV-1469): open a refresh
+ * per selected brand and queue ONE curation job scoped to the products phase and
+ * the two phases it depends on (see the backfill service for the derivation).
+ *
+ * The job is queued, not dispatched. Dispatch needs the worker URL and control
+ * token, and a missing one marks the job failed — `/admin/jobs` already has a
+ * dispatch button for the deliberate "run it now", and the worker's scheduled
+ * pass claims a queued job either way.
+ *
+ * Per-brand outcomes rather than a single verdict: a brand already mid-refresh
+ * raises 23505, which is an ordinary answer ("not this one, not yet") and must
+ * reach the admin as a message, never as a thrown error.
+ */
+export async function requestCuratedProductBackfillAction(
+  brandIds: string[]
+): Promise<CuratedProductBackfillResult | { error: string }> {
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
+      if (!Array.isArray(brandIds)) {
+        return { error: 'Invalid brand selection' }
+      }
+
+      const ids = [...new Set(brandIds)]
+      // The cap gets its OWN message. Selecting 101 brands out of a directory
+      // of 718 is an ordinary intent, not a malformed request, and returning
+      // the same 'Invalid brand selection' string for both named neither the
+      // limit nor the fix — the admin retried the identical selection and got
+      // the identical error.
+      if (ids.length > MAX_BULK_PRODUCT_BACKFILL) {
+        return {
+          error: `Product generation runs up to ${MAX_BULK_PRODUCT_BACKFILL} brands at a time. ${ids.length} are selected — deselect ${ids.length - MAX_BULK_PRODUCT_BACKFILL} and run the rest afterwards.`,
+        }
+      }
+      if (!z.array(reviewEntityIdSchema).min(1).safeParse(ids).success) {
+        return { error: 'Invalid brand selection' }
+      }
+      if (!auth.user.email) return { error: 'Admin email is required' }
+
+      const result = await requestCuratedProductBackfill(ids, {
+        id: auth.user.id,
+        email: auth.user.email,
+      })
+      revalidatePath('/admin/brands')
+      revalidatePath('/admin/submissions')
+      revalidatePath('/admin/jobs')
+      revalidatePath('/admin')
+      return result
+    } catch (err) {
+      console.error('[admin:requestCuratedProductBackfill]', err)
       return {
         error: err instanceof Error ? err.message : 'An unexpected error occurred',
       }
@@ -1154,7 +1271,7 @@ export async function reviewModerationFlagAction(
       const auth = await requireAdminAction()
       if ('error' in auth) return auth
 
-      if (!MODERATION_FLAG_ID_REGEX.test(flagId)) {
+      if (!isAdminEntityId(flagId)) {
         return { error: 'Invalid moderation flag ID' }
       }
       if (decision !== 'reviewed' && decision !== 'dismissed') {

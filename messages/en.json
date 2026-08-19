@@ -2701,6 +2701,29 @@
           "english": "English"
         },
         "catalog": "Catalog classification",
+        "products": "Curated product proposals",
+        "productEditor": {
+          "item": "Proposal {number}",
+          "keep": "Keep {name}",
+          "keeping": "Keeping",
+          "dropping": "Not keeping",
+          "state": {
+            "new": "New proposal",
+            "matched": "Already in the catalog",
+            "previouslyRejected": "Previously rejected"
+          },
+          "nameZh": "Product name (zh-TW)",
+          "nameEn": "Product name (English)",
+          "category": "Product category",
+          "subcategories": "Product subcategory",
+          "material": "Material",
+          "description": "Product description (zh-TW)",
+          "descriptionHint": "What the product IS: material, size, use, made-where. No price, stock, discount, variants, or delivery.",
+          "officialUrl": "Official product URL",
+          "sources": "Sources",
+          "locked": "Already in this brand's catalog. Approval creates products only from new proposals, so a tick or an edit here has no effect.",
+          "save": "Save product selection and edits"
+        },
         "priceRange": "Price range",
         "subcategories": "Product subcategories",
         "city": "City",

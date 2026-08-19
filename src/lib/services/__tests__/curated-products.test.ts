@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createCuratedProduct,
   CuratedProductSchemaLagError,
+  getCuratedProductsByBrandBatch,
   getCuratedProductWriteContext,
   getPublishedCuratedProductsForHomepage,
   getPublishedCuratedProductsForBrand,
@@ -943,6 +944,69 @@ describe("createCuratedProduct", () => {
     });
     expect(Object.keys(calls.insert.at(0) ?? {})).not.toContain("notes_zh");
   });
+
+  it("create_persists_material — a ratified slug round-trips onto the inserted row", async () => {
+    const { client, calls } = stubWriteClient([
+      { data: { id: PRODUCT_ID, key: "teacup" } },
+    ]);
+
+    await createCuratedProduct(
+      {
+        brandId: BRAND_ID,
+        nameZh: "Teacup",
+        category: "home",
+        productDescriptionZh: "陶土燒製，容量約 200 毫升。",
+        material: ["wood"],
+      },
+      client,
+    );
+
+    expect(calls.insert.at(0)?.material).toEqual(["wood"]);
+  });
+
+  it("create_rejects_unknown_material_slug — an unratified term is dropped, never handed to Postgres", async () => {
+    // The column carries a CHECK over the twelve ratified slugs
+    // (20260820170000_material_slugs.sql). Letting an unknown term
+    // through would 23514 the whole insert and lose the valid terms with it, so
+    // the service drops it — the same behaviour as an out-of-category
+    // subcategory.
+    const { client, calls } = stubWriteClient([
+      { data: { id: PRODUCT_ID, key: "teacup" } },
+    ]);
+
+    await createCuratedProduct(
+      {
+        brandId: BRAND_ID,
+        nameZh: "Teacup",
+        category: "home",
+        productDescriptionZh: "陶土燒製，容量約 200 毫升。",
+        material: ["wood", "plastic", "resin"],
+      },
+      client,
+    );
+
+    expect(calls.insert.at(0)?.material).toEqual(["wood"]);
+  });
+
+  it("create_defaults_material_to_empty_array — an omitted material inserts [], not null", async () => {
+    const { client, calls } = stubWriteClient([
+      { data: { id: PRODUCT_ID, key: "teacup" } },
+    ]);
+
+    await createCuratedProduct(
+      {
+        brandId: BRAND_ID,
+        nameZh: "Teacup",
+        category: "home",
+        productDescriptionZh: "陶土燒製，容量約 200 毫升。",
+      },
+      client,
+    );
+
+    // `material` is NOT NULL in Postgres: a null here is a 23502, so the writer
+    // must always send an array.
+    expect(calls.insert.at(0)?.material).toEqual([]);
+  });
 });
 
 describe("curated product writers", () => {
@@ -1357,5 +1421,110 @@ describe("listCuratedProductsForAdmin", () => {
     await expect(listCuratedProductsForAdmin(client)).rejects.toMatchObject({
       code: "42501",
     });
+  });
+});
+
+/**
+ * `supabase/config.toml` sets `max_rows = 1000`, and PostgREST truncates at
+ * that ceiling with NO error. This reader returns one row per PRODUCT while its
+ * `.in()` chunk bounds BRANDS, and hidden rejection rows accumulate by design,
+ * so a single request could silently return a partial map — which reads exactly
+ * like "these brands have no history" and makes approval re-insert products a
+ * reviewer already rejected under key-suffixed keys.
+ */
+describe("getCuratedProductsByBrandBatch", () => {
+  const BATCH_BRAND_ID = "9d1d5a94-3d2f-4a56-9b04-6f1f5b2b7a10";
+
+  function pagingClient(pages: Record<string, unknown>[][]) {
+    const ranges: [number, number][] = [];
+    let call = 0;
+    const chain = {
+      select: () => chain,
+      in: () => chain,
+      eq: () => chain,
+      order: () => chain,
+      range(from: number, to: number) {
+        ranges.push([from, to]);
+        return chain;
+      },
+      then<TResult>(
+        resolve: (value: { data: unknown[]; error: null }) => TResult,
+        reject?: (reason: unknown) => TResult,
+      ) {
+        const page = pages[call] ?? [];
+        call += 1;
+        return Promise.resolve({ data: page, error: null }).then(
+          resolve,
+          reject,
+        );
+      },
+    };
+    return {
+      client: { from: () => chain } as unknown as CuratedProductSupabase,
+      ranges,
+    };
+  }
+
+  function batchRow(index: number) {
+    return {
+      id: `product-${index}`,
+      brand_id: BATCH_BRAND_ID,
+      key: `product-${index}`,
+      official_url: `https://taoqi.com.tw/products/${index}`,
+      visible: false,
+      proposed_by: "generated",
+      curated_product_sources: [{ id: `source-${index}` }],
+    };
+  }
+
+  it("pages until a short page rather than trusting one request", async () => {
+    const full = Array.from({ length: 500 }, (_, index) => batchRow(index));
+    const tail = [batchRow(500), batchRow(501)];
+    const { client, ranges } = pagingClient([full, tail]);
+
+    const byBrand = await getCuratedProductsByBrandBatch(
+      [BATCH_BRAND_ID],
+      client,
+    );
+
+    expect(ranges).toEqual([
+      [0, 499],
+      [500, 999],
+    ]);
+    expect(byBrand.get(BATCH_BRAND_ID)).toHaveLength(502);
+  });
+
+  it("stops after one request when the first page is already short", async () => {
+    const { client, ranges } = pagingClient([[batchRow(0)]]);
+
+    const byBrand = await getCuratedProductsByBrandBatch(
+      [BATCH_BRAND_ID],
+      client,
+    );
+
+    expect(ranges).toEqual([[0, 499]]);
+    expect(byBrand.get(BATCH_BRAND_ID)).toEqual([
+      {
+        id: "product-0",
+        key: "product-0",
+        officialUrl: "https://taoqi.com.tw/products/0",
+        visible: false,
+        hasActiveSource: true,
+        proposedBy: "generated",
+      },
+    ]);
+  });
+
+  it("reports a row with no active source, so the materializer can repair it", async () => {
+    const { client } = pagingClient([
+      [{ ...batchRow(0), curated_product_sources: [] }],
+    ]);
+
+    const byBrand = await getCuratedProductsByBrandBatch(
+      [BATCH_BRAND_ID],
+      client,
+    );
+
+    expect(byBrand.get(BATCH_BRAND_ID)?.at(0)?.hasActiveSource).toBe(false);
   });
 });
