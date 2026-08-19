@@ -27,7 +27,9 @@
     "stories": "Stories",
     "events": "Events",
     "whereToBuy": "Where to buy",
-    "discover": "Curated themes"
+    "discover": "Styles",
+    "brands": "Listed brands",
+    "categories": "Categories"
   },
   "footer": {
     "about": "About",
@@ -44,11 +46,11 @@
     "submit": "Recommend a Brand",
     "companyHeading": "Company",
     "faq": "FAQ",
-    "legalHeading": "Legal",
     "connectHeading": "Connect",
     "feedback": "Feature requests",
     "whereToBuy": "Where to buy",
-    "discover": "Curated themes"
+    "discover": "Styles",
+    "disclosure": "Formoria does not sell products. Every purchase happens on the brand's own channel."
   },
   "discover": {
     "metaTitle": "Curated themes",
@@ -61,6 +63,11 @@
     "breadcrumb": "Curated themes",
     "breadcrumbAria": "Curated themes breadcrumb",
     "sectionNavAria": "Curated theme sections",
+    "editorLabel": "Editor",
+    "updatedLabel": "Updated",
+    "selectionLabel": "Selection",
+    "selectionSummary": "{count} items · {categories} categories",
+    "exclusionsHeading": "What this page leaves out",
     "languageBadge": "In Chinese",
     "productCta": "Visit product official site",
     "brandSiteCta": "Visit brand official site",
@@ -85,10 +92,11 @@
       "headline": "Life can look a little more like you.",
       "subheadline": "Formoria is a Taiwanese brand discovery and curation platform — start from life, meet the products and the brands.",
       "searchLabel": "Search Taiwanese brands and products",
-      "searchPlaceholder": "Search brands, products, or categories",
-      "browseCta": "Start browsing",
-      "statsCategories": "categories",
-      "categoriesEyebrow": "Or start from a category"
+      "searchPlaceholder": "Find a specific brand or product",
+      "browseCta": "Start from a style",
+      "eyebrow": "Taiwanese brand discovery and curation",
+      "lede": "Moving into a new home, setting up a shop, stopping at a market stall — what you like should not stay a chance encounter. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
+      "browsePrefix": "or"
     },
     "selectedProducts": {
       "heading": "Formoria Selection",
@@ -113,13 +121,11 @@
       "cta": "Read Our Vision"
     },
     "submitBand": {
-      "headline": "Recommend a Taiwanese brand worth discovering",
-      "body": "Found a brand that should not be missed? Tell us — approved brands join the directory.",
-      "cta": "Recommend a Brand"
+      "headline": "Found a brand that should not be missed?",
+      "body": "Tell us. Approved brands join the directory, and you need no connection to the brand.",
+      "cta": "Recommend a brand"
     },
     "featureRequestBand": {
-      "headline": "Tell us what Formoria should build next",
-      "body": "Want another category, another filter, or another way to browse? Send us the idea.",
       "cta": "Request a Feature"
     },
     "events": {
@@ -132,9 +138,18 @@
       "linkText": "View All Stories →"
     },
     "trails": {
-      "heading": "Discovery trails",
-      "note": "Start from one concrete situation and follow it to the products and brands that fit.",
-      "linkText": "Browse every trail →"
+      "heading": "Styles",
+      "note": "One situation, one set of things. Start from the days you are living, not from a brand name.",
+      "linkText": "See every style →"
+    },
+    "trust": {
+      "note": "Two different things. We never blur them.",
+      "listedTitle": "Listed brands",
+      "listedBody": "Meets the directory's listing rules and can be found in search. A listing is not a Formoria endorsement, selection, certification, or ranking.",
+      "selectedTitle": "Formoria Selection",
+      "selectedBody": "Products chosen on purpose for one situation. The reason is written on the style page that holds them.",
+      "suppliedTitle": "Brand-supplied",
+      "suppliedBody": "Facts, images, or corrections supplied by the brand. Taking part guarantees no coverage, and controls neither the selection nor the wording."
     }
   },
   "newsletter": {
@@ -631,7 +646,8 @@
       "previous": "Previous photo",
       "next": "Next photo",
       "photoAltWithBrand": "{brand} product {n}",
-      "viewPhoto": "View photo {n}"
+      "viewPhoto": "View photo {n}",
+      "brandSupplied": "Image supplied by the brand"
     },
     "locations": {},
     "relatedBrands": {

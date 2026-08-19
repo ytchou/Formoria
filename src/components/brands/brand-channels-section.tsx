@@ -31,7 +31,7 @@ export async function BrandChannelsSection({
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
-          <Typography as="h2" variant="sectionTitle">
+          <Typography as="h2" variant="sectionTitleLarge">
             {t("sections.locationsAndRetailChannels")}
           </Typography>
           <p className="type-body-sm">

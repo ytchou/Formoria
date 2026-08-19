@@ -245,12 +245,12 @@ function SearchInput({
       {/* Search icon */}
       {isBusy ? (
         <Loader2
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-ink-muted"
           aria-hidden="true"
         />
       ) : (
         <svg
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
@@ -296,7 +296,7 @@ function SearchInput({
           onClick={handleClear}
           aria-label={t('search.clear')}
           // eslint-disable-next-line no-restricted-syntax -- ui-exception: inline clear button inside custom search form, tightly coupled to search input layout
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-muted-foreground hover:text-foreground"
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-ink-muted hover:text-ink"
         >
           <svg
             className="h-4 w-4"

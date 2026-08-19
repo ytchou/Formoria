@@ -24,6 +24,7 @@ import {
   DialogClose,
 } from '@/components/ui/dialog'
 import { Button, buttonVariants } from '@/components/ui/button'
+import { Grid } from '@/components/ui/grid'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
@@ -187,7 +188,7 @@ export function ReportDialogContent({
               <Typography id={generalHeadingId} variant="subsectionTitle">
                 {t('reasonHeading')}
               </Typography>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <Grid cols="pair" gap="tight">
                 {generalReasons.map(({ value, label, Icon }) => {
                   const selected = selectedReason === value
 
@@ -213,8 +214,8 @@ export function ReportDialogContent({
                     </Button>
                   )
                 })}
-              </div>
-              <div className="flex min-h-12 items-center gap-3 rounded-lg border border-border bg-muted/50 p-3">
+              </Grid>
+              <div className="flex min-h-12 items-center gap-3 rounded-[3px] border border-rule bg-muted/50 p-3">
                 <Info className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <Typography variant="cardDescription">
                   {t('mitDisputePrompt')}{' '}

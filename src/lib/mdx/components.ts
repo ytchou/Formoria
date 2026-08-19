@@ -14,6 +14,12 @@ import { TrailProducts } from '@/components/trails/trail-products'
 import { cn } from '@/lib/utils'
 
 /**
+ * One declared section of a trail, in authoring order. Only `title` is read —
+ * it is what the markdown `##` heading resolves against.
+ */
+export type TrailSectionRef = { key: string; title: string }
+
+/**
  * Story MDX shortcodes plus element-level typography for the prose itself.
  *
  * The Tailwind typography plugin is deliberately NOT installed — the project already
@@ -34,7 +40,32 @@ import { cn } from '@/lib/utils'
  *
  * `scroll-mt-24` on headings keeps anchor targets clear of the sticky header.
  */
-export function createStoryComponentMap({ currentStorySlug }: { currentStorySlug?: string } = {}) {
+export function createStoryComponentMap({
+  currentStorySlug,
+  trailSections,
+}: {
+  currentStorySlug?: string
+  /**
+   * A trail's declared sections, in order. Passing them turns the `h2` rule
+   * into the trail archetype's numbered section header.
+   *
+   * Matched by TITLE, not by DOM position, because the `<section id="…">`
+   * wrapper in the MDX is explicit JSX and MDX never routes explicit JSX
+   * through this map (`recma-jsx-rewrite`: "Do not turn explicit JSX into
+   * components from `_components`"). The `##` heading inside it IS
+   * markdown-generated, so it is the only element here that can carry the
+   * number. A heading the frontmatter never declared stays unnumbered — a
+   * degradation, not a crash.
+   */
+  trailSections?: readonly TrailSectionRef[]
+} = {}) {
+  const sectionNumbers = new Map(
+    (trailSections ?? []).map((section, index) => [
+      section.title.trim(),
+      String(index + 1).padStart(2, '0'),
+    ]),
+  )
+
   return {
     BrandCard: (props: { slug: string; note?: string; eyebrow?: string }) =>
       createElement(BrandCardMdx, props),
@@ -92,15 +123,47 @@ export function createStoryComponentMap({ currentStorySlug }: { currentStorySlug
         ...props,
         className: cn('mt-10 mb-4 scroll-mt-24 type-page-title', props.className),
       }),
-    h2: (props: ComponentPropsWithoutRef<'h2'>) =>
-      createElement('h2', {
-        ...props,
-        className: cn('mt-10 mb-3 scroll-mt-24 type-section', props.className),
-      }),
+    h2: (props: ComponentPropsWithoutRef<'h2'>) => {
+      const label = typeof props.children === 'string' ? props.children.trim() : ''
+      const sectionNumber = sectionNumbers.get(label)
+
+      if (!sectionNumber) {
+        return createElement('h2', {
+          ...props,
+          className: cn('mt-10 mb-3 scroll-mt-24 type-section', props.className),
+        })
+      }
+
+      // The trail archetype's section header: a small interface-face ordinal in
+      // a left gutter, the content-face title beside it. `aria-hidden` on it is
+      // load-bearing — the section nav resolves this heading by its ACCESSIBLE
+      // NAME (`discovery-trail.spec.ts`), and a number joined to it would break
+      // that as well as read "zero two" aloud before every section.
+      //
+      // Children go through `createElement`'s variadic arguments, not a
+      // `children` prop: the extra arguments win over the spread `props.children`
+      // above, and `react/no-children-prop` forbids the prop form.
+      return createElement(
+        'h2',
+        {
+          ...props,
+          className: cn(
+            'mt-16 mb-4 grid scroll-mt-24 grid-cols-[1.75rem_minmax(0,1fr)] items-baseline gap-x-4 type-section md:mt-24 md:grid-cols-[3rem_minmax(0,1fr)]',
+            props.className,
+          ),
+        },
+        createElement(
+          'span',
+          { 'aria-hidden': 'true', className: 'tabular-nums type-metadata' },
+          sectionNumber,
+        ),
+        createElement('span', { className: 'min-w-0' }, props.children),
+      )
+    },
     h3: (props: ComponentPropsWithoutRef<'h3'>) =>
       createElement('h3', {
         ...props,
-        className: cn('mt-8 mb-2 scroll-mt-24 type-body-sm font-semibold text-ink', props.className),
+        className: cn('mt-8 mb-2 scroll-mt-24 type-card-title', props.className),
       }),
     h4: (props: ComponentPropsWithoutRef<'h4'>) =>
       createElement('h4', {
@@ -110,40 +173,40 @@ export function createStoryComponentMap({ currentStorySlug }: { currentStorySlug
     p: (props: ComponentPropsWithoutRef<'p'>) =>
       createElement('p', {
         ...props,
-        className: cn('my-4 type-body-sm text-ink-soft', props.className),
+        className: cn('my-4 type-body text-ink-soft', props.className),
       }),
     ul: (props: ComponentPropsWithoutRef<'ul'>) =>
       createElement('ul', {
         ...props,
-        className: cn('my-4 list-disc space-y-2 pl-5 type-body-sm text-ink-soft', props.className),
+        className: cn('my-4 list-disc space-y-2 pl-5 type-body text-ink-soft', props.className),
       }),
     ol: (props: ComponentPropsWithoutRef<'ol'>) =>
       createElement('ol', {
         ...props,
-        className: cn('my-4 list-decimal space-y-2 pl-5 type-body-sm text-ink-soft', props.className),
+        className: cn('my-4 list-decimal space-y-2 pl-5 type-body text-ink-soft', props.className),
       }),
     li: (props: ComponentPropsWithoutRef<'li'>) =>
       createElement('li', {
         ...props,
-        className: cn('type-body-sm text-ink-soft', props.className),
+        className: cn('type-body text-ink-soft', props.className),
       }),
     a: (props: ComponentPropsWithoutRef<'a'>) =>
       createElement('a', {
         ...props,
         className: cn(
-          'rounded-sm break-words text-accent underline underline-offset-4 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          'rounded-[2px] break-words text-accent underline underline-offset-4 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground',
           props.className,
         ),
       }),
     blockquote: (props: ComponentPropsWithoutRef<'blockquote'>) =>
       createElement('blockquote', {
         ...props,
-        className: cn('my-6 border-l-2 border-foreground pl-4 type-body-sm', props.className),
+        className: cn('my-6 border-l-2 border-accent pl-5 type-body text-ink-soft', props.className),
       }),
     hr: (props: ComponentPropsWithoutRef<'hr'>) =>
       createElement('hr', {
         ...props,
-        className: cn('my-10 h-px border-0 bg-border', props.className),
+        className: cn('my-10 h-px border-0 bg-rule', props.className),
       }),
 
     // Markdown images are raw `<img>`, not `next/image`: authors write arbitrary
@@ -161,7 +224,7 @@ export function createStoryComponentMap({ currentStorySlug }: { currentStorySlug
         decoding: 'async',
         ...props,
         className: cn(
-          'mx-auto my-6 aspect-media w-full max-w-2xl rounded-lg border border-border bg-muted object-cover',
+          'mx-auto my-6 aspect-media w-full max-w-2xl rounded-[3px] border border-rule bg-surface-deep object-cover',
           props.className,
         ),
       }),
@@ -176,7 +239,7 @@ export function createStoryComponentMap({ currentStorySlug }: { currentStorySlug
         createElement('table', {
           ...props,
           className: cn(
-            'w-full border-collapse border border-border text-left type-body-sm text-ink-soft',
+            'w-full border-collapse border border-rule text-left type-body-sm text-ink-soft',
             props.className,
           ),
         }),
@@ -184,12 +247,12 @@ export function createStoryComponentMap({ currentStorySlug }: { currentStorySlug
     th: (props: ComponentPropsWithoutRef<'th'>) =>
       createElement('th', {
         ...props,
-        className: cn('border border-border bg-secondary px-3 py-2 type-label', props.className),
+        className: cn('border border-rule bg-surface px-3 py-2 type-label', props.className),
       }),
     td: (props: ComponentPropsWithoutRef<'td'>) =>
       createElement('td', {
         ...props,
-        className: cn('border border-border px-3 py-2 align-top type-body-sm text-ink-soft', props.className),
+        className: cn('border border-rule px-3 py-2 align-top type-body-sm text-ink-soft', props.className),
       }),
 
     // Inline code. Inside a `<pre>` the chrome would double up, so `pre` strips it
@@ -198,7 +261,7 @@ export function createStoryComponentMap({ currentStorySlug }: { currentStorySlug
       createElement('code', {
         ...props,
         className: cn(
-          'rounded-sm border border-border bg-secondary px-1.5 py-0.5 font-mono text-[0.85em]',
+          'rounded-[2px] border border-rule bg-surface px-1.5 py-0.5 font-mono text-[0.85em]',
           props.className,
         ),
       }),
@@ -206,7 +269,7 @@ export function createStoryComponentMap({ currentStorySlug }: { currentStorySlug
       createElement('pre', {
         ...props,
         className: cn(
-          'my-6 overflow-x-auto rounded-lg border border-border bg-secondary p-4 font-mono text-[0.8125rem] leading-[1.7] text-foreground',
+          'my-6 overflow-x-auto rounded-[3px] border border-rule bg-surface p-4 font-mono text-[0.8125rem] leading-[1.7] text-ink',
           '[&>code]:rounded-none [&>code]:border-0 [&>code]:bg-transparent [&>code]:p-0 [&>code]:text-inherit',
           props.className,
         ),

@@ -92,7 +92,7 @@ const verificationOptions: VerificationFilterValue[] = [
 ];
 const priceRangeOptions = [1, 2, 3] as const;
 const filterOptionClassName =
-  "flex min-h-12 cursor-pointer items-center gap-2 rounded-lg px-2 type-body-sm transition-colors hover:bg-muted hover:text-foreground";
+  "flex min-h-12 cursor-pointer items-center gap-2 rounded-[4px] px-2 type-body-sm transition-colors hover:bg-surface hover:text-ink";
 
 function parseCommaParam(value: string | null): string[] {
   return value
@@ -129,7 +129,7 @@ function FilterSection({
           <span className="type-body-sm font-medium text-ink">{title}</span>
           <ChevronDown
             className={cn(
-              "h-4 w-4 text-muted-foreground transition-transform duration-200",
+              "h-4 w-4 text-ink-muted transition-transform duration-200 motion-reduce:duration-[0.01ms]",
               !open && "-rotate-90",
             )}
             aria-hidden="true"
@@ -293,7 +293,7 @@ export function BrandFilterSidebar({
       >
         <Loader2
           className={cn(
-            "size-4 text-muted-foreground transition-opacity",
+            "size-4 text-ink-muted transition-opacity",
             isPending ? "animate-spin opacity-100" : "opacity-0",
           )}
         />
@@ -329,7 +329,7 @@ export function BrandFilterSidebar({
         <section className="space-y-3">
           <div className="flex items-center gap-1.5">
             <h2 className="type-body-sm font-medium text-ink">{t("brandSearch")}</h2>
-            <Info className="size-4 text-muted-foreground" aria-hidden="true" />
+            <Info className="size-4 text-ink-muted" aria-hidden="true" />
           </div>
           <SearchInput
             className="max-w-none"
@@ -431,7 +431,7 @@ export function BrandFilterSidebar({
                               className={cn(
                                 subcategoryChecked
                                   ? "text-ground/70"
-                                  : "text-muted-foreground",
+                                  : "text-ink-muted",
                               )}
                             >
                               {subcategory.count}
@@ -478,7 +478,7 @@ export function BrandFilterSidebar({
                         data-ph-no-autocapture
                       />
                       <span>{material.label}</span>
-                      <span className="ml-auto type-metadata text-muted-foreground">
+                      <span className="ml-auto type-metadata text-ink-muted">
                         {material.count}
                       </span>
                     </Label>
@@ -595,7 +595,7 @@ export function BrandFilterDrawer({
         className="w-[86vw] max-w-sm gap-0 p-0"
         showCloseButton
       >
-        <SheetHeader className="border-b border-border">
+        <SheetHeader className="border-b border-rule">
           <SheetTitle>{t("title")}</SheetTitle>
         </SheetHeader>
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -611,7 +611,7 @@ export function BrandFilterDrawer({
             totalCount={totalCount}
           />
         </div>
-        <SheetFooter className="sticky bottom-0 border-t border-border bg-popover">
+        <SheetFooter className="sticky bottom-0 border-t border-rule bg-popover">
           <Button
             type="button"
             className="w-full"
@@ -649,7 +649,7 @@ function MobileClearAll({ onClear }: { onClear: () => void }) {
       type="button"
       variant="ghost"
       onClick={clearAll}
-      className="mx-auto min-h-12 type-body-sm underline-offset-2 hover:text-foreground hover:underline"
+      className="mx-auto min-h-12 type-body-sm underline-offset-2 hover:text-ink hover:underline"
       data-ph-no-autocapture
     >
       {t("clearAll")}

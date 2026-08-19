@@ -25,7 +25,7 @@ export default function TaiwanStats({
   sourceName,
 }: TaiwanStatsProps) {
   return (
-    <section className="py-12 md:py-16">
+    <section className="py-section">
       <div className="page-gutter mx-auto max-w-6xl">
         <div>
           <h2 className="type-page-title text-balance">{heading}</h2>
@@ -44,7 +44,7 @@ export default function TaiwanStats({
             href="https://www.sme.gov.tw/article-tw-2853-13097"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline decoration-dotted underline-offset-2 hover:text-foreground"
+            className="underline decoration-dotted underline-offset-2 hover:text-ink"
           >
             {sourceName}
           </a>

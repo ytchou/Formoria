@@ -56,7 +56,7 @@ import { routes } from "@/lib/routes";
 // Shared section rhythm: hairline rule above each section, and enough scroll offset to clear
 // the sticky main nav (100px) plus the mobile section-nav strip (48px).
 const brandSectionClassName =
-  "scroll-mt-40 border-t border-border pt-8 first:border-t-0 first:pt-0 md:scroll-mt-28";
+  "scroll-mt-40 border-t border-rule pt-stack first:border-t-0 first:pt-0 md:scroll-mt-28";
 
 // 1h ISR: ownership/verified-state changes propagate within ~an hour; paths
 // omitted from generateStaticParams are rendered on demand and cached between
@@ -372,7 +372,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
           <div
             className={cn(
-              "mt-8 border-t border-border pt-8",
+              "mt-stack border-t border-rule pt-stack",
               hasSectionNav && "grid md:grid-cols-5 md:gap-16",
             )}
           >

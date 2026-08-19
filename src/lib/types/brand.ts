@@ -80,6 +80,19 @@ export type BrandImageMeta = {
   isLogo: boolean
   focalX: number | null
   focalY: number | null
+  /**
+   * `brand_images.source === 'owner'` — the brand handed us this file through
+   * the dashboard wizard. It is the ONLY rights signal on an image and the only
+   * thing the brand-supplied credit may be derived from; every other source is
+   * Formoria or a crawler.
+   *
+   * Optional because it is read on exactly one surface (the brand-detail
+   * gallery) and most producers of this type have no `source` to report — a
+   * required field would have forced ~20 fixtures and four service constructors
+   * to state a provenance they do not know. Absent means "not stated", which
+   * fails closed: no credit.
+   */
+  isOwnerSupplied?: boolean
 }
 
 export type Brand = {

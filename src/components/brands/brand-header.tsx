@@ -4,6 +4,7 @@ import type { PublicBrandDetail } from "@/lib/brands/contracts";
 import { getBrandSubcategoryLabels } from "@/lib/brands/category-label";
 import { Badge } from "@/components/ui/badge";
 import { InfoField } from "@/components/ui/card";
+import { Grid } from "@/components/ui/grid";
 import { Typography } from "@/components/ui/typography";
 import { cn } from "@/lib/utils";
 import {
@@ -50,7 +51,7 @@ export function BrandHeader({
   const unknownValue = (
     <Typography
       as="span"
-      className="text-muted-foreground"
+      className="text-ink-muted"
       variant="fieldValue"
     >
       {t("unknown")}
@@ -60,9 +61,11 @@ export function BrandHeader({
   return (
     <div>
       <div className="space-y-3">
-        {/* Brand name */}
+        {/* Brand name. The page title step of the content face: this is the one
+            piece of copy the whole page is about, and it is the brand's own
+            name, not interface chrome. */}
         <div className="flex items-start justify-between gap-4">
-          <Typography as="h1" variant="display">
+          <Typography as="h1" balance variant="pageTitleLarge">
             {brand.name}
           </Typography>
           {adminSlot}
@@ -78,7 +81,7 @@ export function BrandHeader({
         className="mt-7"
       >
         <div className="flex items-center justify-between gap-4">
-          <Typography as="h2" id="brand-info-heading" variant="sectionTitle">
+          <Typography as="h2" id="brand-info-heading" variant="sectionTitleLarge">
             {t("sectionTitle")}
           </Typography>
           <CorrectionDialog
@@ -92,7 +95,7 @@ export function BrandHeader({
         {hasVerification && (
           <div
             className={cn(
-              "mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg px-3 py-2.5",
+              "mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[3px] px-3 py-2.5",
               hasMitVerifiedBadge ? "bg-mit-verified-bg" : "bg-secondary",
             )}
           >
@@ -121,14 +124,14 @@ export function BrandHeader({
             )}
           </div>
         )}
-        <dl className="mt-5 grid grid-cols-1 gap-x-7 gap-y-4 sm:grid-cols-2">
+        <Grid as="dl" cols="pair" className="mt-5">
           <InfoField
             label={t("label.location")}
             labelClassName={infoLabelClassName}
             layout="stacked"
             value={
               cityLabel ? (
-                <Badge className="text-foreground" variant="secondary">
+                <Badge className="text-ink" variant="secondary">
                   {cityLabel}
                 </Badge>
               ) : (
@@ -142,7 +145,7 @@ export function BrandHeader({
             layout="stacked"
             value={
               brand.foundingYear != null ? (
-                <Badge className="text-foreground" variant="secondary">
+                <Badge className="text-ink" variant="secondary">
                   {brand.foundingYear}
                 </Badge>
               ) : (
@@ -156,7 +159,7 @@ export function BrandHeader({
             layout="stacked"
             value={
               resolvedCategory ? (
-                <Badge className="text-foreground" variant="secondary">
+                <Badge className="text-ink" variant="secondary">
                   {resolvedCategory}
                 </Badge>
               ) : (
@@ -170,7 +173,7 @@ export function BrandHeader({
             layout="stacked"
             value={
               priceRangeLabel ? (
-                <Badge className="text-foreground" variant="secondary">
+                <Badge className="text-ink" variant="secondary">
                   {priceRangeLabel}
                 </Badge>
               ) : (
@@ -188,7 +191,7 @@ export function BrandHeader({
                   {resolvedTags.map((tag, index) => (
                     <Badge
                       key={`${tag}-${index}`}
-                      className="text-foreground"
+                      className="text-ink"
                       variant="secondary"
                     >
                       {tag}
@@ -208,7 +211,7 @@ export function BrandHeader({
               value={unknownValue}
             />
           )}
-        </dl>
+        </Grid>
       </section>
     </div>
   );

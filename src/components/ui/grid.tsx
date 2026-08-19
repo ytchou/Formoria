@@ -30,6 +30,13 @@ export const gridStyles = cva("grid", {
       triptych: "grid-cols-1 md:grid-cols-3",
       /** Three-up with a tablet stop. Microsite products, story galleries. */
       thirds: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+      /**
+       * A filter rail beside its results, stacked below `lg`. Not a card grid:
+       * this is the page shell the directory and its category routes are built
+       * on, and the rail is a fixed measure because a filter list that reflows
+       * with the viewport re-wraps its labels at every width.
+       */
+      sidebar: "grid-cols-1 lg:grid-cols-[16rem_minmax(0,1fr)]",
     },
     /**
      * GAPS COME FROM `--space-gutter`, NEVER A NUMERIC STEP. `gap-gutter` is

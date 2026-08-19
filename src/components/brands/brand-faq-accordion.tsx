@@ -62,7 +62,7 @@ export function BrandFaqAccordion({
   return (
     <FaqSection title={t("faq")} headerClassName="mb-4">
       <OpenTargetDetails />
-      <div className="divide-y divide-border">
+      <div className="divide-y divide-rule">
         {items.map((item) => (
           <details
             key={item.id}
@@ -70,9 +70,9 @@ export function BrandFaqAccordion({
             className="group scroll-mt-24"
             onToggle={(event) => handleToggle(event, item.id)}
           >
-            <summary className="flex cursor-pointer list-none items-center justify-between py-5 type-body-sm font-semibold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center justify-between py-5 type-body-sm font-semibold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent [&::-webkit-details-marker]:hidden">
               {item.question}
-              <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
+              <ChevronDown className="size-5 shrink-0 text-ink-muted transition-transform duration-200 group-open:rotate-180 motion-reduce:duration-[0.01ms]" />
             </summary>
             {/* The row's vertical padding lives on <summary>, the interactive
                 element, so the whole visual row is the hit target (~62px, over

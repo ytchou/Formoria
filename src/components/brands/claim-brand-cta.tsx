@@ -9,6 +9,7 @@ import {
 } from '@/app/[locale]/(site)/brands/[slug]/actions'
 import NextLink from 'next/link'
 import { Button, buttonVariants } from '@/components/ui/button'
+import { Grid } from '@/components/ui/grid'
 import { MarketingEmailOptInField } from '@/components/forms/marketing-email-opt-in-field'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -422,7 +423,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
                   </div>
 
                   {proof.selected && (
-                    <div className="grid gap-4 border-t border-border pt-4 md:grid-cols-2">
+                    <Grid cols="pair" className="border-t border-rule pt-4">
                       {type === 'domain_email' && (
                         <div className="space-y-2 md:col-span-2">
                           <label htmlFor={`claim-${type}-email`} className="block type-body-sm font-medium text-ink">
@@ -487,10 +488,10 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
                           id={`claim-${type}-note`}
                           value={proof.note}
                           onChange={(event) => updateProof(type, { note: event.target.value })}
-                          className="min-h-24 bg-card px-3.5 py-2.5 focus-visible:ring-2 focus-visible:ring-ring"
+                          className="min-h-24 bg-card px-3.5 py-2.5 focus-visible:ring-2 focus-visible:ring-accent"
                         />
                       </div>
-                    </div>
+                    </Grid>
                   )}
                 </div>
               )

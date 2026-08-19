@@ -37,8 +37,8 @@ export function DirectoryFilterToken({
       scroll={false}
     >
       <span className="min-w-0 truncate">
-        <span className="font-medium text-foreground">{label}:</span>{' '}
-        <span className="text-muted-foreground">{value}</span>
+        <span className="font-medium text-ink">{label}:</span>{' '}
+        <span className="text-ink-muted">{value}</span>
       </span>
       <X className="size-4" aria-hidden="true" />
     </Link>

@@ -62,7 +62,7 @@ export function ImageCarousel({
         // in the grid, so the same photo was cropped two different ways
         // depending on where you looked at it. `aspect-media` is 1:1 — see the
         // token's comment in globals.css for the measurement.
-        className="relative aspect-media overflow-hidden rounded-xl bg-muted"
+        className="relative aspect-media overflow-hidden rounded-[3px] bg-muted"
       >
         <BrandImageFallback name={alt} category={category ?? null} size="detail" />
       </div>
@@ -148,6 +148,23 @@ export function ImageCarousel({
     inset: heroInset,
     fit: 'contain',
   })
+  /*
+   * The brand-supplied credit — a credit, not a badge.
+   *
+   * It states where ONE file came from, so it sits under that file and moves
+   * with it; a badge would put it in the same register as the selection
+   * label, which is an
+   * editorial commitment Formoria makes rather than a fact about provenance.
+   *
+   * Read off `metaFor(current)`, which resolves through `sourceIndex` — the
+   * same discipline alt text and fill mode use. Indexing the FILTERED list here
+   * would credit the brand for a photograph it never supplied, which is the one
+   * way this line can be actively wrong rather than merely absent.
+   *
+   * Absent is the common case and is correct: a brand with no owner uploads has
+   * nothing to credit. There is no fallback.
+   */
+  const isCurrentBrandSupplied = metaFor(current)?.isOwnerSupplied === true
 
   return (
     <div className={cn(variant === 'detail' && 'space-y-3')}>
@@ -157,7 +174,7 @@ export function ImageCarousel({
         // in the grid, so the same photo was cropped two different ways
         // depending on where you looked at it. `aspect-media` is 1:1 — see the
         // token's comment in globals.css for the measurement.
-        className="relative aspect-media overflow-hidden rounded-xl bg-muted"
+        className="relative aspect-media overflow-hidden rounded-[3px] bg-muted"
       >
         {previousImage && (
           <SurfaceImage
@@ -258,6 +275,15 @@ export function ImageCarousel({
         )}
       </div>
 
+      {/* Brand-supplied credit — beside the image, never over it. Interface
+          type (the metadata step of the interface face), because it is a note
+          about the asset rather than part of the brand's own content. */}
+      {isCurrentBrandSupplied && variant === 'detail' ? (
+        <p data-brand-supplied className="type-metadata">
+          {t('gallery.brandSupplied')}
+        </p>
+      ) : null}
+
       {/* Thumbnail grid */}
       {total > 1 && variant === 'detail' && (
         <div className="scrollbar-none flex gap-2 overflow-x-auto">
@@ -269,7 +295,7 @@ export function ImageCarousel({
               type="button"
               variant="ghost"
               onClick={() => goTo(i)}
-              className={`relative size-16 overflow-hidden rounded-lg p-0 hover:bg-transparent ${
+              className={`relative size-16 overflow-hidden rounded-[4px] p-0 hover:bg-transparent ${
                 i === current
                   ? 'ring-2 ring-accent ring-offset-2'
                   : 'opacity-70 hover:opacity-100'
@@ -279,7 +305,7 @@ export function ImageCarousel({
             >
               {brokenImages.has(i) ? (
                 <div className="flex h-full items-center justify-center bg-muted">
-                  <span className="type-label text-muted-foreground">
+                  <span className="type-label text-ink-muted">
                     {initial}
                   </span>
                 </div>

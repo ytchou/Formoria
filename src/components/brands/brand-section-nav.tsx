@@ -88,7 +88,7 @@ export function BrandSectionNav({
     <nav
       aria-label={ariaLabel ?? t('tabNav.overview')}
       className={cn(
-        'sticky top-(--nav-height) z-40 min-w-0 border-b border-border bg-background',
+        'sticky top-(--nav-height) z-40 min-w-0 border-b border-rule bg-ground',
         orientation === 'vertical' && 'md:self-start md:border-b-0 md:border-l md:pl-3',
       )}
     >

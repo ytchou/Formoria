@@ -165,6 +165,10 @@ export default async function StoryPage({ params }: PageProps) {
     path: routes.story(story.entry.frontmatter.slug),
     locale: safeLocale,
     author: story.entry.frontmatter.author ?? t("byline"),
+    // The story has carried a mandatory hero since it launched and never
+    // emitted one into structured data. Same file the `<img>` below renders;
+    // `buildArticleJsonLd` absolutises a repo path.
+    image: story.entry.frontmatter.heroImage ?? null,
   });
   // Both are omitted rather than emitted raw when the frontmatter date is
   // missing or unparseable: schema.org date properties must be ISO-8601, and an
@@ -219,7 +223,7 @@ export default async function StoryPage({ params }: PageProps) {
   return (
     // One centered, box-sized article container owns every story detail surface:
     // breadcrumb, hero, metadata, body, figures, cards, FAQ, and series nav.
-    <main className="mx-auto box-border w-full max-w-[920px] px-4 pt-8 pb-16 sm:px-5 md:px-8 md:pt-12 md:pb-24">
+    <main className="page-gutter mx-auto box-border w-full max-w-[920px] pt-8 pb-16 md:pt-12 md:pb-24">
       <nav aria-label={t("breadcrumbAria")} className="mb-6">
         <ol className="flex items-center gap-1.5 type-body-sm">
           <li>
@@ -231,7 +235,7 @@ export default async function StoryPage({ params }: PageProps) {
               `reportUnusedDisableDirectives: "error"` fails on. */}
             <a
               href={routes.stories()}
-              className="hover:text-foreground transition-colors"
+              className="hover:text-ink transition-colors"
             >
               {t("breadcrumb")}
             </a>
@@ -240,7 +244,7 @@ export default async function StoryPage({ params }: PageProps) {
             <ChevronRight className="size-3.5" />
           </li>
           <li>
-            <span aria-current="page" className="text-foreground">
+            <span aria-current="page" className="text-ink">
               {story.entry.frontmatter.title}
             </span>
           </li>
@@ -277,7 +281,7 @@ export default async function StoryPage({ params }: PageProps) {
           fold on a laptop.
         */}
         {story.entry.frontmatter.heroImage ? (
-          <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-border bg-muted">
+          <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-rule bg-surface-deep">
             {/*
               Two renderers, chosen by where the asset lives.
 
@@ -301,6 +305,7 @@ export default async function StoryPage({ params }: PageProps) {
                 alt={story.entry.frontmatter.heroImageAlt ?? ""}
                 fill
                 priority
+                fetchPriority="high"
                 surface="banner"
                 className="object-cover"
               />
@@ -323,26 +328,29 @@ export default async function StoryPage({ params }: PageProps) {
           <h1 className="type-page-title">
             {story.entry.frontmatter.title}
           </h1>
-          <p className="type-body">
+          <p className="max-w-[46rem] type-body text-ink-soft">
             {story.entry.frontmatter.description}
           </p>
-          <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 type-metadata">
+          {/* The byline sits under a hairline, the way a feature's credits do in
+              print: it is the boundary between the opening and the article, not
+              a caption on the title. */}
+          <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 border-t border-rule pt-4 type-metadata">
             <div className="contents">
-              <dt className="border-r border-border pr-3 type-metadata">
+              <dt className="border-r border-rule pr-3 type-metadata">
                 {t("authorLabel")}
               </dt>
               <dd>{story.entry.frontmatter.author ?? t("byline")}</dd>
             </div>
             {seriesId && series.length >= 2 ? (
               <div className="contents">
-                <dt className="border-r border-border pr-3 type-metadata">
+                <dt className="border-r border-rule pr-3 type-metadata">
                   {t("seriesLabel")}
                 </dt>
                 <dd>
                   {/* Metadata navigation follows the breadcrumb treatment, not body-prose link styling. */}
                   <a
                     href="#series"
-                    className="rounded-sm hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="rounded-[2px] hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   >
                     {seriesTitle}
                   </a>
@@ -351,7 +359,7 @@ export default async function StoryPage({ params }: PageProps) {
             ) : null}
             {publishedLabel ? (
               <div className="contents">
-                <dt className="border-r border-border pr-3 type-metadata">
+                <dt className="border-r border-rule pr-3 type-metadata">
                   {t("publishedLabel")}
                 </dt>
                 <dd>{publishedLabel}</dd>
@@ -359,7 +367,7 @@ export default async function StoryPage({ params }: PageProps) {
             ) : null}
             {updatedLabel && updatedLabel !== publishedLabel ? (
               <div className="contents">
-                <dt className="border-r border-border pr-3 type-metadata">
+                <dt className="border-r border-rule pr-3 type-metadata">
                   {t("lastUpdatedLabel")}
                 </dt>
                 <dd>{updatedLabel}</dd>
@@ -367,7 +375,7 @@ export default async function StoryPage({ params }: PageProps) {
             ) : null}
             {storyTags.length > 0 ? (
               <div className="contents">
-                <dt className="border-r border-border pr-3 type-metadata">
+                <dt className="border-r border-rule pr-3 type-metadata">
                   {t("tagsLabel")}
                 </dt>
                 <dd className="min-w-0">

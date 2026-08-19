@@ -244,7 +244,7 @@ export function TaiwanCreativeExpoExplorer({
 
       {rosterFailed ? (
         <div
-          className="rounded-xl border border-dashed border-warning/60 bg-warning/5 p-4"
+          className="rounded-[3px] border border-dashed border-warning/60 bg-warning/5 p-4"
           role="status"
         >
           <p className="type-card-title">{t("explorerRosterUnavailable")}</p>
@@ -260,7 +260,7 @@ export function TaiwanCreativeExpoExplorer({
             <div className="relative w-full sm:max-w-xs">
               <Search
                 aria-hidden="true"
-                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted"
               />
               <Input
                 type="search"

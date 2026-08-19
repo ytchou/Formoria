@@ -316,7 +316,7 @@ export default async function EventDetailPage({ params }: PageProps) {
   );
 
   return (
-    <main className="page-gutter mx-auto w-full page-measure py-10 md:py-12">
+    <main className="page-gutter mx-auto w-full page-measure pt-12 pb-section">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(eventJsonLd) }}
@@ -339,7 +339,7 @@ export default async function EventDetailPage({ params }: PageProps) {
               `reportUnusedDisableDirectives: "error"` fails on. */}
             <a
               href={routes.events()}
-              className="transition-colors hover:text-foreground"
+              className="transition-colors hover:text-ink"
             >
               {t("breadcrumb")}
             </a>
@@ -348,14 +348,14 @@ export default async function EventDetailPage({ params }: PageProps) {
             <ChevronRight className="size-3.5" />
           </li>
           <li>
-            <span aria-current="page" className="text-foreground">
+            <span aria-current="page" className="text-ink">
               {name}
             </span>
           </li>
         </ol>
       </nav>
 
-      <article className="space-y-12">
+      <article className="space-y-stack">
         {/* Band A — hero, full width. */}
         <header className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -370,11 +370,11 @@ export default async function EventDetailPage({ params }: PageProps) {
           {/* Full measure, not `max-w-2xl`: the summary is one or two lines of
               scene-setting, not body copy, and a half-width block under a
               full-width `h1` read as an unfinished column. */}
-          <p className="type-body">{summary}</p>
+          <p className="max-w-[46rem] type-body text-ink-soft">{summary}</p>
         </header>
 
         {heroSrc ? (
-          <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-muted">
+          <div className="relative aspect-[16/9] overflow-hidden rounded-xl border border-rule bg-surface-deep">
             {/* Decorative: the event name is the adjacent `<h1>`, so alt text
                 here would only repeat it to a screen reader. */}
             <SurfaceImage
@@ -469,13 +469,13 @@ export default async function EventDetailPage({ params }: PageProps) {
           fact list they landed under the page fold on a laptop.
         */}
         <section aria-labelledby="event-about" className="space-y-8">
-          <h2 id="event-about" className="type-card-title">
+          <h2 id="event-about" className="type-section">
             {t("about")}
           </h2>
 
           <dl
             aria-label={t("visitInfo")}
-            className="divide-y divide-border border-t border-border"
+            className="divide-y divide-rule border-t border-rule"
           >
             {dateLabel ? (
               <div className="grid gap-x-6 gap-y-1 py-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
@@ -573,7 +573,7 @@ export default async function EventDetailPage({ params }: PageProps) {
         */}
         <section aria-label={t("brandsHeading")} className="space-y-4">
           {isCreativeExpo ? null : (
-            <h2 className="type-card-title">{t("brandsHeading")}</h2>
+            <h2 className="type-section">{t("brandsHeading")}</h2>
           )}
           {/*
             Source attribution plus the "exhibiting is not an endorsement"
@@ -617,7 +617,7 @@ export default async function EventDetailPage({ params }: PageProps) {
           reads. Separated by whitespace only, never a tinted band.
         */}
         <section aria-labelledby="event-related-stories" className="space-y-4">
-          <h2 id="event-related-stories" className="type-card-title">
+          <h2 id="event-related-stories" className="type-section">
             {t("relatedStories")}
           </h2>
           {relatedStories.length === 0 ? (
@@ -629,7 +629,7 @@ export default async function EventDetailPage({ params }: PageProps) {
             // Same `StoryRow` list as the homepage and /stories: one story
             // presentation across the site, and a date-led row reads at any
             // count, unlike a grid that had to drop to one column below two.
-            <div className="divide-y divide-border border-y border-border">
+            <div className="divide-y divide-rule border-y border-rule">
               {relatedStories.map((story) => (
                 <StoryRow
                   key={story.slug}

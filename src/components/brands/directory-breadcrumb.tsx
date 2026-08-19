@@ -63,11 +63,11 @@ export function DirectoryBreadcrumb({
               <ChevronRight className="size-3.5" aria-hidden="true" />
             ) : null}
             {item.current || !item.href ? (
-              <span aria-current={item.current ? 'page' : undefined} className={item.current ? 'font-medium text-foreground' : undefined}>
+              <span aria-current={item.current ? 'page' : undefined} className={item.current ? 'font-medium text-ink' : undefined}>
                 {item.label}
               </span>
             ) : (
-              <a href={item.href} className="transition-colors hover:text-foreground">
+              <a href={item.href} className="transition-colors hover:text-ink">
                 {item.label}
               </a>
             )}

@@ -104,7 +104,7 @@ export default async function WhereToBuyCityPage({
   return (
     <main
       id="main-content"
-      className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 lg:py-16"
+      className="page-gutter mx-auto w-full page-measure pt-12 pb-section"
     >
       <script
         type="application/ld+json"
@@ -118,10 +118,10 @@ export default async function WhereToBuyCityPage({
         ]}
       />
       <header className="max-w-3xl">
-        <h1 className="type-page-title text-foreground">
+        <h1 className="type-page-title text-ink">
           {t('cityTitle', { city: cityName })}
         </h1>
-        <p className="mt-4 type-body text-muted-foreground">
+        <p className="mt-4 type-body text-ink-muted">
           {t('cityDescription', { city: cityName, count })}
         </p>
         <div className="mt-6">
@@ -137,7 +137,7 @@ export default async function WhereToBuyCityPage({
         </div>
       </header>
 
-      <nav aria-label={t('categoryNavLabel')} className="mt-8">
+      <nav aria-label={t('categoryNavLabel')} className="mt-stack">
         <ul className="flex flex-wrap gap-2">
           <li>
             <a
@@ -165,7 +165,7 @@ export default async function WhereToBuyCityPage({
         </ul>
       </nav>
 
-      <div className="mt-8">
+      <div className="mt-stack">
         {count > 0 ? (
           <ViewItemListTracker
             listName={`where-to-buy-${city}`}
@@ -184,7 +184,7 @@ export default async function WhereToBuyCityPage({
             />
           ))
         ) : (
-          <p className="rounded-lg bg-secondary p-6 text-muted-foreground">
+          <p className="rounded-[3px] border border-rule bg-surface p-6 type-body-sm">
             {t('empty')}
           </p>
         )}

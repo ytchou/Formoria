@@ -136,7 +136,7 @@ function DestinationLinkButton({
 
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <Typography as="h2" variant="sectionTitle">
+    <Typography as="h2" variant="sectionTitleLarge">
       {children}
     </Typography>
   );

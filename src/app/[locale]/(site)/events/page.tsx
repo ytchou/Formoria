@@ -106,11 +106,11 @@ export default async function EventsHubPage({ params }: PageProps) {
   }
 
   return (
-    <main className="page-gutter mx-auto w-full page-measure py-10">
-      <div className="space-y-8">
-        <header className="space-y-3">
-          <h1 className="type-section">{t('heading')}</h1>
-          <p className="max-w-2xl type-body-sm">{t('subheading')}</p>
+    <main className="page-gutter mx-auto w-full page-measure pt-12 pb-section">
+      <div className="space-y-stack">
+        <header className="max-w-[46rem] space-y-3">
+          <h1 className="type-page-title">{t('heading')}</h1>
+          <p className="type-body text-ink-soft">{t('subheading')}</p>
         </header>
 
         {/*
@@ -119,7 +119,7 @@ export default async function EventsHubPage({ params }: PageProps) {
           yet. Same shape as the stories hub's `comingSoon` block.
         */}
         {safeEvents.length === 0 ? (
-          <div className="flex min-h-[40vh] items-center justify-center rounded-2xl border border-border bg-secondary px-6 py-16 text-center">
+          <div className="flex min-h-[40vh] items-center justify-center rounded-[3px] border border-rule bg-surface px-6 py-16 text-center">
             <p className="type-body-sm">{t('comingSoon')}</p>
           </div>
         ) : (
@@ -128,7 +128,7 @@ export default async function EventsHubPage({ params }: PageProps) {
                 above an empty grid, in either direction. */}
             {upcoming.length > 0 ? (
               <section aria-labelledby="events-upcoming" className="space-y-4">
-                <h2 id="events-upcoming" className="type-card-title">
+                <h2 id="events-upcoming" className="type-section">
                   {t('upcomingHeading')}
                 </h2>
                 <div className="flex flex-col gap-4">
@@ -139,7 +139,7 @@ export default async function EventsHubPage({ params }: PageProps) {
 
             {past.length > 0 ? (
               <section aria-labelledby="events-past" className="space-y-4">
-                <h2 id="events-past" className="type-card-title">
+                <h2 id="events-past" className="type-section">
                   {t('pastHeading')}
                 </h2>
                 <div className="flex flex-col gap-4">

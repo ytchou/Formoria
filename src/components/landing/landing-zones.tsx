@@ -10,6 +10,7 @@ import { StoryRow } from "@/components/stories/story-row";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { Link } from "@/i18n/navigation";
 import { buttonVariants } from "@/components/ui/button";
+import { Grid } from "@/components/ui/grid";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
 import type { WallSlot } from "@/lib/curated-products/home-wall";
 import type { Locale } from "@/lib/seo/alternates";
@@ -51,22 +52,29 @@ export type LandingZonesProps = {
 };
 
 /**
- * The homepage's six trust zones, in order:
+ * The homepage's zones, in order:
  *
- *     hero      promise line, search, category chips
- *     selection the masonry wall with trails woven in
- *     seam      the listing-vs-selection line (`landing.manifesto.headline`) —
- *               thin, no photo band
+ *     hero      the editorial opener — eyebrow, promise, lede, search
+ *     selection the justified wall with trails woven in
+ *     trust     the trust-seam line — membership and selection, kept clearly
+ *               apart — explained as prose in three columns
+ *     trails    the style zone — every indexable trail as a titled row
+ *     manifesto the photo band
  *     topics    stories, with a live event lifted above them
  *     directory one explore-style brand rail
- *     close     submit · feature request · newsletter, as one zone
+ *     close     the CTA band — recommend · feature request · newsletter
  *
- * Every zone carries `data-landing-zone`, which is the structure's contract:
- * eight sections collapsing to six is the change this page exists to make, and
- * a marker survives copy edits that a heading-text assertion would not.
+ * Every zone carries `data-landing-zone`, which is the structure's contract: a
+ * marker survives copy edits that a heading-text assertion would not.
  *
- * Zones are separated by whitespace only — never by an alternating background,
- * per DESIGN.md.
+ * TWO ZONES THE APPROVED MOCK DOES NOT DRAW are kept, in the slot they already
+ * held. `manifesto` is pinned on `/` by `e2e/tests/seo.spec.ts`, which asserts
+ * its h2 is visible in both locales. `topics` is the homepage's only path to a
+ * dated event, and dropping it would also strip the stories and events reads
+ * out of `page.tsx` and out of `isLandingRenderDegraded`.
+ *
+ * Only ONE zone carries a background — the trust band, on `surface`. Every
+ * other seam is whitespace, per DESIGN.md.
  */
 export async function LandingZones({
   locale,
@@ -119,6 +127,58 @@ export async function LandingZones({
         ) : null}
 
         {/*
+          THE TRUST IA AS PROSE, NEVER AS BADGES (D11).
+
+          The homepage states what directory membership, the selection label
+          and the brand-supplied credit each mean, in running text, once. It
+          renders no trust BADGE at all — the single rendered selection badge
+          lives on brand detail, and a badge here would read as the homepage
+          certifying something.
+
+          The heading is `landing.trustSeam.line`, the commitment in
+          docs/strategy/brand-voice.md. It left the homepage on 2026-08-17 when
+          the manifesto band replaced the thin seam; this band brings it back
+          with the explanation the thin seam never had.
+
+          Column titles are h3, not h2: `homepage-curated-product.spec.ts` finds
+          the wall by the section whose h2 reads exactly the selection label
+          (`landing.selectedProducts.heading`), and the trust column's title is
+          that same string — a second h2 with it would give the selector two
+          matches.
+        */}
+        <section
+          data-landing-zone="trust"
+          aria-labelledby="landing-trust"
+          className="bg-surface py-section"
+        >
+          <div className="page-shell flex flex-col gap-stack lg:flex-row lg:gap-gutter">
+            <div className="lg:w-1/4">
+              <h2 id="landing-trust" className="type-section">
+                {t("trustSeam.line")}
+              </h2>
+              <p className="mt-3 type-body-sm">{t("trust.note")}</p>
+            </div>
+            {/* The shared grid primitive, not a local `md:grid-cols-3`. */}
+            <Grid cols="triptych" gap="gutter" className="lg:flex-1">
+              {(
+                [
+                  ["listed", t("trust.listedTitle"), t("trust.listedBody")],
+                  ["selected", t("trust.selectedTitle"), t("trust.selectedBody")],
+                  ["supplied", t("trust.suppliedTitle"), t("trust.suppliedBody")],
+                ] as const
+              ).map(([key, title, body]) => (
+                // Elevation is a border, never a shadow: the rule over each
+                // column is the whole separation between them.
+                <div key={key} className="border-t-2 border-ink pt-4">
+                  <h3 className="type-label">{title}</h3>
+                  <p className="mt-3 type-body-sm">{body}</p>
+                </div>
+              ))}
+            </Grid>
+          </div>
+        </section>
+
+        {/*
           Every indexable trail — including the ones the wall placed as tiles.
           Duplication with the wall is deliberate and cheap: a wall tile is a
           photograph a reader may scroll past, and this row is the only titled,
@@ -143,7 +203,7 @@ export async function LandingZones({
           <section
             data-landing-zone="trails"
             aria-labelledby="landing-trails"
-            className="py-6 md:py-8"
+            className="py-section"
           >
             <div className="page-shell">
               <SectionHeader
@@ -153,7 +213,7 @@ export async function LandingZones({
                 linkHref={routes.discover()}
                 linkLabel={t("trails.linkText")}
               />
-              <div className="mt-8 divide-y divide-border border-y border-border">
+              <div className="mt-8 divide-y divide-rule border-y border-rule">
                 {trails.map((trail, index) => (
                   <StoryRow
                     key={trail.slug}
@@ -190,7 +250,7 @@ export async function LandingZones({
         <section
           data-landing-zone="manifesto"
           aria-labelledby="landing-manifesto"
-          className="relative overflow-hidden py-12 md:py-16"
+          className="relative overflow-hidden py-section"
         >
           <SurfaceImage
             src="/images/manifesto-bg.webp"
@@ -208,14 +268,14 @@ export async function LandingZones({
               Two changes together clear it: the scrim goes to /85 (the paper
               background over p10 composites to ~223/255) and the body copy
               leaves the muted token for the full-strength foreground, landing at
-              ~13:1 in the p10 region and ~14:1 on the mean. The headline was
-              already `text-foreground` and gains the same margin. Anything below
-              /85, or any return to `type-body-sm` here, re-breaks AA. */}
-          <div className="absolute inset-0 bg-background/85" aria-hidden="true" />
+              ~13:1 in the p10 region and ~14:1 on the mean. The headline carries
+              `type-page-title`, whose default ink is the full-strength token, so
+              it has the same margin. Anything below /85 re-breaks AA. */}
+          <div className="absolute inset-0 bg-ground/85" aria-hidden="true" />
           <div className="relative page-shell text-center">
             <h2
               id="landing-manifesto"
-              className="mx-auto max-w-4xl type-page-title text-foreground"
+              className="mx-auto max-w-4xl type-page-title"
             >
               {t("manifesto.headline")}
             </h2>
@@ -241,7 +301,7 @@ export async function LandingZones({
           <section
             data-landing-zone="topics"
             aria-labelledby="landing-topics"
-            className="py-6 md:py-8"
+            className="py-section"
           >
             <div className="page-shell">
               {/* The zone renders whenever it has events OR stories, so its
@@ -306,7 +366,7 @@ export async function LandingZones({
               )}
 
               {stories.length > 0 && (
-                <div className="mt-8 divide-y divide-border border-y border-border">
+                <div className="mt-8 divide-y divide-rule border-y border-rule">
                   {stories.map((story, index) => (
                     <StoryRow
                       key={story.slug}
@@ -324,7 +384,7 @@ export async function LandingZones({
         )}
 
         {brands.length > 0 && (
-          <div data-landing-zone="directory" className="py-6 md:py-8">
+          <div data-landing-zone="directory" className="py-section">
             <div className="page-shell">
               <BrandShowcase
                 brands={brands}

@@ -14,7 +14,22 @@ import { useLocale, useTranslations } from 'next-intl'
 import { trackCategoryFilterApplied } from '@/lib/analytics'
 import { categoryLabel } from '@/lib/taxonomy/ontology'
 import { buildCategoryTabTarget } from './category-tab-target'
+import { cn } from '@/lib/utils'
 import { routes } from '@/lib/routes'
+
+/**
+ * One tab's classes. These are raw anchors rather than `Button` links because
+ * they must work with JS off and carry `aria-current`, so the focus ring the
+ * primitives provide is restated here — the base layer sets an outline COLOUR
+ * and no visible replacement of its own.
+ */
+function tabClasses(active: boolean): string {
+  return cn(
+    'type-nav flex min-h-12 items-center whitespace-nowrap rounded-[4px] px-3 py-2 transition-colors',
+    'focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground',
+    active ? 'text-ink' : 'text-ink-muted hover:text-ink',
+  )
+}
 
 interface NavCategoryTabsProps {
   categories: Array<{ slug: string; name: string; nameZh: string | null }>
@@ -93,7 +108,16 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
     // `header-measure`, not `page-measure`: this row is part of the sticky
     // header, which is deliberately excluded from the landing page's wider
     // measure. See the comment beside `--page-measure` in globals.css.
-    <nav className="page-gutter mx-auto header-measure overflow-x-hidden">
+    // NAMED, because it is no longer the header's only navigation landmark and
+    // is no longer suppressed on `/` — three unnamed `nav` elements in one
+    // banner are three identical entries in a landmark list.
+    <nav
+      aria-label={t('categories')}
+      className="page-gutter mx-auto header-measure overflow-x-hidden"
+    >
+      {/* One row that scrolls horizontally on a phone rather than wrapping:
+          thirteen zh-TW labels wrap to three lines at 375px and push the page
+          down by 96px before any content. */}
       <div ref={containerRef} className="relative flex min-h-12 items-center gap-1 overflow-x-auto scrollbar-none">
         <a
           href={targetFor('').href}
@@ -101,11 +125,7 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
           aria-current={isBrandsPage && !activeCategory ? 'page' : undefined}
           data-ph-no-autocapture
           onClick={(event) => handleClick(event, '')}
-          className={
-            isBrandsPage && !activeCategory
-              ? 'type-body-sm font-medium text-ink flex min-h-12 items-center whitespace-nowrap px-3 py-2'
-              : 'type-body-sm hover:text-foreground flex min-h-12 items-center whitespace-nowrap px-3 py-2 transition-colors'
-          }
+          className={tabClasses(isBrandsPage && !activeCategory)}
         >
           {t('allBrands')}
         </a>
@@ -121,11 +141,7 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
               aria-current={isActive ? 'page' : undefined}
               data-ph-no-autocapture
               onClick={(event) => handleClick(event, cat.slug)}
-              className={
-                isActive
-                  ? 'type-body-sm font-medium text-ink flex min-h-12 items-center whitespace-nowrap px-3 py-2'
-                  : 'type-body-sm hover:text-foreground flex min-h-12 items-center whitespace-nowrap px-3 py-2 transition-colors'
-              }
+              className={tabClasses(isActive)}
             >
               {label}
             </a>

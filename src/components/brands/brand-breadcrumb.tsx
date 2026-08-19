@@ -31,12 +31,12 @@ export function Breadcrumb({
             {item.href ? (
               <Link
                 href={item.href}
-                className="transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent"
+                className="transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent"
               >
                 {item.label}
               </Link>
             ) : (
-              <span aria-current="page" className="font-medium text-foreground">
+              <span aria-current="page" className="font-medium text-ink">
                 {item.label}
               </span>
             )}

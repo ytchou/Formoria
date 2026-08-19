@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { Grid } from "@/components/ui/grid";
+
 type BrandRowProps = {
   /**
    * The row's cards, authored as plain `<BrandCard slug="…" />` shortcodes.
@@ -22,13 +24,14 @@ type BrandRowProps = {
  * card can stretch to the full width of its responsive grid column without an
  * extra per-child wrapper element.
  *
- * The grid is one column on mobile, two at `sm`, and three at `md`, keeping
- * brand rows aligned with the story article container at every breakpoint.
+ * Laid out by the shared grid primitive rather than a hand-written
+ * `grid-cols-*` triple: the gutter is a token, so a change to it moves this row
+ * and the directory together instead of leaving them 4px apart.
  */
 export function BrandRow({ children }: BrandRowProps) {
   return (
-    <div className="my-10 grid w-full grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+    <Grid cols="thirds" className="my-10 w-full">
       {children}
-    </div>
+    </Grid>
   );
 }

@@ -277,6 +277,7 @@ export function buildArticleJsonLd({
   path,
   locale,
   author,
+  image,
 }: {
   title: string;
   description: string;
@@ -284,11 +285,27 @@ export function buildArticleJsonLd({
   locale?: string;
   /** Visible byline, when the story names one. Falls back to the publisher. */
   author?: string;
+  /**
+   * The entry's lead image — the same file the page renders as its LCP element.
+   * A repo-relative path (`/images/…`) is absolutised below; an absolute URL is
+   * passed through. Absent or blank emits no `image` key at all.
+   */
+  image?: string | null;
 }): JsonLdObject {
   const siteUrl = getSiteUrl();
   const absoluteUrl = `${siteUrl}${path.startsWith("/") ? path : `/${path}`}`;
+  // Structured data has no page to resolve a relative reference against, so a
+  // leading-slash repo path is meaningless there even though it renders fine in
+  // the `<img>`. Resolved once here rather than at each caller, because both
+  // callers hold exactly the same kind of value.
+  const trimmedImage = image?.trim();
+  const imageUrl = trimmedImage
+    ? trimmedImage.startsWith("/")
+      ? `${siteUrl}${trimmedImage}`
+      : trimmedImage
+    : null;
 
-  return {
+  const jsonLd: JsonLdObject = {
     "@context": "https://schema.org",
     "@type": "Article",
     headline: title,
@@ -304,6 +321,12 @@ export function buildArticleJsonLd({
     publisher: buildOrganizationJsonLd(locale),
     isPartOf: buildWebSiteJsonLd(locale === "zh-TW" ? "zh-TW" : "en"),
   };
+
+  // Conditional, exactly like `buildEventJsonLd`'s `imageUrl`: an empty string
+  // is reported by Google as an invalid value, which is worse than no key.
+  if (imageUrl) jsonLd.image = imageUrl;
+
+  return jsonLd;
 }
 
 export type EventJsonLdInput = {

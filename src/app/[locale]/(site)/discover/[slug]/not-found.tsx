@@ -8,6 +8,7 @@ import { Compass } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { EmptyState } from "@/components/ui/empty-state";
+import { buttonVariants } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { routes } from "@/lib/routes";
 
@@ -22,7 +23,7 @@ export default function DiscoverTrailNotFound() {
         action={
           <Link
             href={routes.discover()}
-            className="inline-flex min-h-12 items-center rounded-md bg-accent px-4 type-button text-ground"
+            className={buttonVariants({ variant: "primary", size: "large" })}
           >
             {t("notFound.browseAll")}
           </Link>

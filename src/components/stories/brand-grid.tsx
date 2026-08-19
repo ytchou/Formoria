@@ -1,6 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 
 import { BrandCard } from '@/components/brands/brand-card'
+import { Grid } from '@/components/ui/grid'
 import { getPublicBrandsBySlugs } from '@/lib/services/brands'
 import { normalizePublicBrandCard } from '@/lib/brands/contracts'
 import { MissingBrandNotice, type BrandLoaderSeam } from './brand-card-mdx'
@@ -43,7 +44,7 @@ export async function BrandGrid({
   const t = await getTranslations('stories')
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <Grid cols="pair">
       {slugs.map((slug, index) => {
         const resolvedBrand = brands.get(slug)
         const brand = resolvedBrand ? normalizePublicBrandCard(resolvedBrand) : undefined
@@ -63,6 +64,6 @@ export async function BrandGrid({
           />
         )
       })}
-    </div>
+    </Grid>
   )
 }

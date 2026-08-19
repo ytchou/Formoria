@@ -323,7 +323,14 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
 
   return (
     <NextIntlClientProvider messages={messages}>
-      <main className="page-gutter mx-auto grid w-full page-measure gap-8 py-10 lg:grid-cols-[16rem_minmax(0,1fr)]">
+      {/* The shell is the shared grid too, not a formula that agrees with it by
+          coincidence — the rail measure and the column gap both belong to the
+          primitive, so a change to either moves every surface that uses it. */}
+      <Grid
+        as="main"
+        cols="sidebar"
+        className="page-gutter mx-auto w-full page-measure py-10"
+      >
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildWebSiteJsonLd(safeLocale)) }}
@@ -438,7 +445,7 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
 
           <Pagination totalCount={totalCount} currentPage={clampedPage} pageSize={DEFAULT_PAGE_SIZE} />
         </div>
-      </main>
+      </Grid>
     </NextIntlClientProvider>
   )
 }

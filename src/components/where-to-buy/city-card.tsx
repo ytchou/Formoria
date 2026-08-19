@@ -1,4 +1,6 @@
 import { Link } from '@/i18n/navigation'
+import { taxonomyLinkClasses, toggleChipRowClasses } from '@/components/ui/toggle-chip'
+import { cn } from '@/lib/utils'
 import { citySlugToPath } from '@/lib/constants/taiwan-cities'
 import type { StockistCitySummary } from '@/lib/services/brand-channels'
 import { routes } from '@/lib/routes'
@@ -16,9 +18,9 @@ export function CityCard({
 }) {
   const cityPath = routes.whereToBuyCity(citySlugToPath(summary.city))
   return (
-    <article className="border-t border-border py-6">
+    <article className="border-t border-rule py-6">
       <div className="flex items-baseline justify-between gap-4">
-        <h2 className="type-card-title text-foreground">
+        <h2 className="type-card-title text-ink">
           <Link
             href={cityPath}
             className="hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent"
@@ -26,17 +28,17 @@ export function CityCard({
             {cityName}
           </Link>
         </h2>
-        <span className="type-metadata text-muted-foreground">
+        <span className="type-metadata text-ink-muted">
           {summary.count} {locationLabel}
         </span>
       </div>
-      <ul className="mt-3 flex flex-wrap gap-2">
+      {/* The 36px chip primitive, not a hand-rolled 32px pill: the chip owns
+          its own 14px gap, which is what keeps the touch-target exception
+          honest whatever this row's parent does. */}
+      <ul className={cn('mt-3', toggleChipRowClasses)}>
         {summary.districts.map((district) => (
           <li key={district.slug}>
-            <Link
-              href={`${cityPath}#${district.slug}`}
-              className="inline-flex min-h-8 items-center rounded-full border border-border px-3 type-metadata hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent"
-            >
+            <Link href={`${cityPath}#${district.slug}`} className={taxonomyLinkClasses()}>
               {districtNames[district.slug] ?? district.name} · {district.count}
             </Link>
           </li>

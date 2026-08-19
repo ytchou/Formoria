@@ -27,7 +27,9 @@
     "stories": "專題",
     "events": "展會",
     "whereToBuy": "哪裡買",
-    "discover": "主題選物"
+    "discover": "風格",
+    "brands": "收錄品牌",
+    "categories": "商品分類"
   },
   "footer": {
     "about": "關於我們",
@@ -44,11 +46,11 @@
     "submit": "推薦品牌",
     "companyHeading": "關於",
     "faq": "常見問題",
-    "legalHeading": "法律",
     "connectHeading": "聯絡",
     "feedback": "功能建議",
     "whereToBuy": "哪裡買",
-    "discover": "主題選物"
+    "discover": "風格",
+    "disclosure": "Formoria 不販售商品，所有購買都在品牌自己的通路完成。"
   },
   "discover": {
     "metaTitle": "主題選物",
@@ -61,6 +63,11 @@
     "breadcrumb": "主題選物",
     "breadcrumbAria": "主題選物麵包屑導覽",
     "sectionNavAria": "主題選物段落",
+    "editorLabel": "編輯",
+    "updatedLabel": "更新",
+    "selectionLabel": "選物",
+    "selectionSummary": "{count} 件・{categories} 個分類",
+    "exclusionsHeading": "這一頁沒有放什麼",
     "languageBadge": "中文",
     "productCta": "前往產品官方網站",
     "brandSiteCta": "前往品牌官方網站",
@@ -85,10 +92,11 @@
       "headline": "生活可以更像自己一點。",
       "subheadline": "Formoria 是台灣品牌探索與選物平台，從生活出發認識產品與品牌。",
       "searchLabel": "搜尋台灣品牌與產品",
-      "searchPlaceholder": "搜尋品牌、產品或分類",
-      "browseCta": "開始逛逛",
-      "statsCategories": "分類",
-      "categoriesEyebrow": "或從分類開始"
+      "searchPlaceholder": "找特定的品牌或產品",
+      "browseCta": "從風格開始",
+      "eyebrow": "台灣品牌探索與選物",
+      "lede": "搬新家、佈置店面、在市集停下來的那一刻 — 喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
+      "browsePrefix": "或"
     },
     "selectedProducts": {
       "heading": "Formoria 選物",
@@ -113,13 +121,11 @@
       "cta": "認識 Formoria"
     },
     "submitBand": {
-      "headline": "推薦一個值得被看見的台灣品牌",
-      "body": "發現了不該被錯過的品牌嗎？告訴我們，通過審核後就會收錄進目錄。",
-      "cta": "推薦品牌"
+      "headline": "發現了不該被錯過的品牌嗎？",
+      "body": "告訴我們，通過審核後就會收錄進目錄。推薦不需要和品牌有關係。",
+      "cta": "推薦一個品牌"
     },
     "featureRequestBand": {
-      "headline": "一起讓 Formoria 更好用",
-      "body": "想多一種分類、一個篩選，或一種逛的方式嗎？把想法告訴我們。",
       "cta": "提出建議"
     },
     "events": {
@@ -132,9 +138,18 @@
       "linkText": "瀏覽所有專題 →"
     },
     "trails": {
-      "heading": "主題選物",
-      "note": "從一個具體的生活情境出發，沿著它認識合適的產品與品牌。",
-      "linkText": "瀏覽所有主題選物 →"
+      "heading": "風格",
+      "note": "一個情境、一組選物。從你正在過的日子開始，而不是從品牌名開始。",
+      "linkText": "看全部風格 →"
+    },
+    "trust": {
+      "note": "兩件事不一樣，我們不會混著講。",
+      "listedTitle": "收錄品牌",
+      "listedBody": "符合目錄收錄規則，可以在搜尋資料中找到。收錄不代表 Formoria 背書、選物、認證或排名。",
+      "selectedTitle": "Formoria 選物",
+      "selectedBody": "基於特定情境刻意挑選的產品，理由寫在收它的那個風格頁裡。",
+      "suppliedTitle": "品牌提供",
+      "suppliedBody": "由品牌提供的事實、圖片或更正。品牌參與不保證獲得報導，也不能控制選擇或詮釋。"
     }
   },
   "newsletter": {
@@ -631,7 +646,8 @@
       "previous": "上一張",
       "next": "下一張",
       "photoAltWithBrand": "{brand} 產品 {n}",
-      "viewPhoto": "檢視第 {n} 張照片"
+      "viewPhoto": "檢視第 {n} 張照片",
+      "brandSupplied": "圖片由品牌提供"
     },
     "locations": {},
     "relatedBrands": {

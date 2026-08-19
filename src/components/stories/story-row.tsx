@@ -53,7 +53,7 @@ export function StoryRow({
   return (
     <Link
       href={`${hrefBase.replace(/\/$/, '')}/${story.slug}`}
-      className="group flex min-h-12 flex-col gap-3 py-5 transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex-row md:gap-8 md:py-6"
+      className="group flex min-h-12 flex-col gap-3 py-5 transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent md:flex-row md:gap-8 md:py-6"
       {...trackingProps}
     >
       {publishedLabel ? (

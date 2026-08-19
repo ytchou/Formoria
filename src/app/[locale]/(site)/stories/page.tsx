@@ -71,22 +71,22 @@ export default async function StoriesHubPage({
   ];
 
   return (
-    <main className="page-gutter mx-auto w-full page-measure py-10">
-      <div className="space-y-8">
-        <header className="space-y-3">
-          <h1 className="type-section">{t("heading")}</h1>
-          <p className="max-w-2xl type-body-sm">{t("subheading")}</p>
+    <main className="page-gutter mx-auto w-full page-measure pt-12 pb-section">
+      <div className="space-y-stack">
+        <header className="max-w-[46rem] space-y-3">
+          <h1 className="type-page-title">{t("heading")}</h1>
+          <p className="type-body text-ink-soft">{t("subheading")}</p>
         </header>
 
         {!storyResult.ok ? (
           <div
             role="alert"
-            className="flex min-h-[40vh] items-center justify-center rounded-2xl border border-border bg-secondary px-6 py-16 text-center"
+            className="flex min-h-[40vh] items-center justify-center rounded-[3px] border border-rule bg-surface px-6 py-16 text-center"
           >
             <p className="type-card-title text-ink-muted">{t("loadError")}</p>
           </div>
         ) : stories.length === 0 ? (
-          <div className="flex min-h-[40vh] items-center justify-center rounded-2xl border border-border bg-secondary px-6 py-16 text-center">
+          <div className="flex min-h-[40vh] items-center justify-center rounded-[3px] border border-rule bg-surface px-6 py-16 text-center">
             <p className="type-body-sm">{t("comingSoon")}</p>
           </div>
         ) : (
@@ -105,7 +105,7 @@ export default async function StoriesHubPage({
                   className="space-y-4"
                 >
                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <h2 id={headingId} className="type-card-title">
+                    <h2 id={headingId} className="type-section">
                       {group.title}
                     </h2>
                     <p className="type-metadata">
@@ -117,7 +117,7 @@ export default async function StoriesHubPage({
                         : t("seriesCount", { count: group.stories.length })}
                     </p>
                   </div>
-                  <div className="divide-y divide-border border-y border-border">
+                  <div className="divide-y divide-rule border-y border-rule">
                     {group.stories.map((story) => (
                       <StoryRow
                         key={story.slug}
@@ -132,7 +132,7 @@ export default async function StoriesHubPage({
             })}
 
             {ungrouped.length > 0 && (
-              <section className="divide-y divide-border border-y border-border">
+              <section className="divide-y divide-rule border-y border-rule">
                 {ungrouped.map((story) => (
                   <StoryRow
                     key={story.slug}

@@ -183,4 +183,71 @@ describe("ImageCarousel", () => {
     expect(photoHero).toHaveClass("object-contain");
     expect(photoHero).not.toHaveStyle({ objectPosition: "25% 75%" });
   });
+
+  /*
+   * 品牌提供 — the brand-supplied credit (D11).
+   *
+   * DERIVED, NEVER INFERRED. The only signal is `brand_images.source ===
+   * 'owner'`, written by `syncOwnerUploadedImages()` when an owner uploads
+   * through the dashboard wizard. It rides the index-aligned `imageAlts` array
+   * for the same reason alt text and fill mode do: the credit names ONE image,
+   * and reading it off the filtered position would credit the brand for a
+   * photograph it never supplied.
+   *
+   * It is a credit line beside the asset, never a badge — a badge would put it
+   * in the same visual register as 選物, which is an editorial commitment
+   * Formoria makes, not a fact about where a file came from.
+   */
+  function renderWithSources(sources: Array<boolean | undefined>) {
+    return render(
+      <ImageCarousel
+        images={[`${ALLOWED_HOST}/one.jpg`, `${ALLOWED_HOST}/two.jpg`]}
+        alt="Formoria"
+        brandId="brand-id"
+        brandSlug="formoria"
+        imageAlts={sources.map((isOwnerSupplied) => ({
+          altZh: null,
+          altEn: null,
+          isLogo: false,
+          focalX: null,
+          focalY: null,
+          isOwnerSupplied,
+        }))}
+      />,
+    );
+  }
+
+  it("credits an owner-supplied image beside the image it credits", () => {
+    const { container } = renderWithSources([true, false]);
+
+    const credit = container.querySelector("[data-brand-supplied]");
+    expect(credit).not.toBeNull();
+    expect(credit?.textContent).toBe("gallery.brandSupplied");
+  });
+
+  it("shows no credit for an image the brand did not supply", () => {
+    // `source` is 'scrape' | 'google_image' | 'admin' | 'legacy' here — every
+    // value that is not 'owner' collapses to the same false, because the credit
+    // is a statement about provenance and only one value states it.
+    const { container } = renderWithSources([false, true]);
+
+    expect(container.querySelector("[data-brand-supplied]")).toBeNull();
+  });
+
+  it("moves the credit with the image, not with the gallery", () => {
+    const { container } = renderWithSources([false, true]);
+
+    fireEvent.click(screen.getByRole("button", { name: "gallery.next" }));
+
+    expect(container.querySelector("[data-brand-supplied]")).not.toBeNull();
+  });
+
+  it("shows no credit when no image carries provenance", () => {
+    // A brand with zero owner-supplied rows is the common case today, and a
+    // conditional render is correct at zero rows. There is deliberately no
+    // fallback that credits the brand for a scraped image.
+    const { container } = renderWithSources([undefined, undefined]);
+
+    expect(container.querySelector("[data-brand-supplied]")).toBeNull();
+  });
 });

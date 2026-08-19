@@ -21,7 +21,7 @@ export async function BrandAbout({ brand, locale }: BrandAboutProps) {
 
   return (
     <section>
-      <Typography as="h2" className="mb-4" variant="sectionTitle">
+      <Typography as="h2" className="mb-4" variant="sectionTitleLarge">
         {t("sections.about")}
       </Typography>
       <div className="space-y-3">

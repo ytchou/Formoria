@@ -69,7 +69,7 @@ export function EventCard({
     <Link
       href={routes.event(event.slug)}
       className={surfaceCardStyles({
-        className: 'group block hover:bg-secondary',
+        className: 'group block hover:bg-surface',
         interactive: true,
       })}
     >
@@ -90,7 +90,7 @@ export function EventCard({
             <p className="type-body-sm line-clamp-3">{summary}</p>
           </div>
         </div>
-        <div className="space-y-1 border-t border-border pt-4 md:w-56 md:shrink-0 md:border-t-0 md:border-l md:pt-0 md:pl-8">
+        <div className="space-y-1 border-t border-rule pt-4 md:w-56 md:shrink-0 md:border-t-0 md:border-l md:pt-0 md:pl-8">
           {dateLabel ? <p className="type-metadata">{dateLabel}</p> : null}
           <div className="flex flex-col gap-1 type-metadata">
             {venue ? <span>{venue}</span> : null}

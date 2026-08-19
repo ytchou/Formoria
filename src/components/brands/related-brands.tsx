@@ -38,10 +38,10 @@ export async function RelatedBrands({
       sourceBrandSlug={currentBrandSlug ?? ""}
       count={count}
     >
-      <section className="mt-16 border-t border-border pt-8">
+      <section className="mt-section border-t border-rule pt-stack">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-1">
-            <Typography as="h2" variant="sectionTitle">
+            <Typography as="h2" variant="sectionTitleLarge">
               {t("relatedBrands.heading", { category: displayLabel })}
             </Typography>
             <p className="type-body-sm">
@@ -50,7 +50,7 @@ export async function RelatedBrands({
           </div>
           <Link
             href={routes.category(category)}
-            className="group inline-flex min-h-12 items-center gap-1.5 self-start type-body-sm font-medium text-accent transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:self-auto"
+            className="group inline-flex min-h-12 items-center gap-1.5 self-start type-body-sm font-medium text-accent transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:self-auto"
           >
             {displayLabel}
             <ChevronRight

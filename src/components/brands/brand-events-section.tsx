@@ -35,7 +35,7 @@ export async function BrandEventsSection({
   return (
     <section className="space-y-6" data-brand-events>
       <div className="space-y-2">
-        <Typography as="h2" variant="sectionTitle">
+        <Typography as="h2" variant="sectionTitleLarge">
           {t("heading")}
         </Typography>
         <Typography as="p" variant="cardDescription">

@@ -50,7 +50,7 @@ type BrandListProps = {
  */
 export function BrandList({ children }: BrandListProps) {
   return (
-    <div className="my-8 grid grid-cols-[auto_minmax(0,1fr)] divide-y divide-border border-y border-border sm:grid-cols-[auto_minmax(0,17rem)_minmax(0,1fr)]">
+    <div className="my-8 grid grid-cols-[auto_minmax(0,1fr)] divide-y divide-rule border-y border-rule sm:grid-cols-[auto_minmax(0,17rem)_minmax(0,1fr)]">
       {children}
     </div>
   )

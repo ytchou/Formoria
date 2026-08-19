@@ -33,7 +33,7 @@ type EventExhibitorRowProps = {
 };
 
 const OUTBOUND_LINK_CLASS =
-  "inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "inline-flex size-11 shrink-0 items-center justify-center rounded-[4px] text-ink-muted transition-colors hover:bg-surface-deep hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
 /**
  * One exhibitor in the Creative Expo hall, listed by Formoria or not.
@@ -101,10 +101,10 @@ export function EventExhibitorRow({
       <div
         className={cn(
           "group relative flex gap-3 py-4 md:gap-4",
-          isRowLink && "transition-colors hover:bg-muted/40",
+          isRowLink && "transition-colors hover:bg-surface-deep/40",
         )}
       >
-        <div className="relative size-16 shrink-0 overflow-hidden rounded-lg bg-muted md:size-18">
+        <div className="relative size-16 shrink-0 overflow-hidden rounded-[3px] border border-rule bg-surface-deep md:size-18">
           {showImage ? (
             <SurfaceImage
               src={imageSrc}
@@ -125,7 +125,7 @@ export function EventExhibitorRow({
             <div className="flex h-full items-center justify-center">
               <span
                 aria-hidden="true"
-                className="type-card-title text-muted-foreground"
+                className="type-card-title text-ink-muted"
               >
                 {monogram}
               </span>

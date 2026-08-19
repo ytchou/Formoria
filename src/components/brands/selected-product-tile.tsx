@@ -1,8 +1,8 @@
 import { SurfaceImage } from "@/components/ui/image";
 import type { CSSProperties } from "react";
 import { Link } from "@/i18n/navigation";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { TrustLabel } from "@/components/ui/trust-label";
 import { surfaceCardStyles } from "@/components/ui/card";
 import { Typography } from "@/components/ui/typography";
 import type { AppLocale } from "@/i18n/locale-preference";
@@ -28,7 +28,18 @@ import { routes } from "@/lib/routes";
 export type SelectedProductTileLabels = {
   cta: string;
   brandSiteCta: string;
-  selectedBadge: string;
+  /**
+   * OPT-IN FLAG, NOT THE STRING THAT RENDERS. `TrustLabel` owns the label text
+   * and reads it from the catalogue itself — that is what stops three surfaces
+   * from drifting into three different trust strings, which is exactly what had
+   * already happened here: the trail's string was a different sentence
+   * entirely, naming the trail rather than the selection.
+   *
+   * Optional so a surface can stop asking for the label without the tile
+   * needing to know which surface it is. Supplying it is necessary but not
+   * sufficient: see `showsTrustLabel` below.
+   */
+  selectedBadge?: string;
   unavailable: string;
 };
 
@@ -97,6 +108,21 @@ export function SelectedProductTile({
     ? (product.productDescriptionEn ?? product.productDescriptionZh)
     : product.productDescriptionZh;
   const imageSrc = safeImageSrc(product.imageUrl);
+  /*
+   * D11, THE CONTRAST RULE: a label renders only where its opposite is visible.
+   *
+   * `outbound` is the brand page, and it is the only place a selected product
+   * sits among the brand's other things — so it is the only place the
+   * label distinguishes anything. On the wall and in a trail every tile is
+   * selected, so the label would repeat 32 times and say nothing; the trail's
+   * own string was a different commitment and is dropped rather
+   * than folded into this one.
+   *
+   * BOTH halves of the gate are load-bearing. The mode is Formoria's rule and
+   * holds even for a caller that still passes the label; the label is the
+   * caller's opt-in, so a surface can withdraw without editing this file.
+   */
+  const showsTrustLabel = mode === "outbound" && Boolean(labels.selectedBadge);
   const isBroken = product.linkState === BROKEN_LINK_STATE;
   const visitLink =
     (mode === "outbound" || mode === "trail") && brand
@@ -133,7 +159,7 @@ export function SelectedProductTile({
   const internalHref =
     mode === "wall" ? routes.brand(destinationSlug) : anchoredHref;
   const internalClassName =
-    "group flex h-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-3";
+    "group flex h-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-3";
   // One column on phones, two on tablets, four above 1024px. The four-column
   // measure is `(min(100vw, 100rem) - 5rem - 4.5rem) / 4`, which tops out at
   // 362px once the container hits its 100rem cap — so `25vw` below that and a
@@ -170,7 +196,7 @@ export function SelectedProductTile({
    */
   const wallCaptionClass = cn(
     "flex flex-col gap-1 pt-3",
-    "sm:absolute sm:inset-x-0 sm:bottom-0 sm:z-10 sm:rounded-b-lg sm:bg-background/94 sm:p-4",
+    "sm:absolute sm:inset-x-0 sm:bottom-0 sm:z-10 sm:rounded-b-[3px] sm:bg-ground/94 sm:p-4",
     "sm:transition-opacity sm:duration-300 motion-reduce:sm:duration-[0.01ms]",
     "[@media(hover:hover)]:sm:opacity-0",
     "[@media(hover:hover)]:sm:group-hover:opacity-100",
@@ -184,7 +210,7 @@ export function SelectedProductTile({
         style={{ aspectRatio: wallAspectRatio }}
         // Container radius: the photo box is a top-level surface of the wall,
         // so it takes DESIGN.md's 6px container step, not the nested 4.8px one.
-        className="relative w-full overflow-hidden rounded-lg bg-muted"
+        className="relative w-full overflow-hidden rounded-[3px] bg-muted"
       >
         {imageSrc ? (
           <SurfaceImage
@@ -217,7 +243,7 @@ export function SelectedProductTile({
       <div className={wallCaptionClass}>
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 -top-4 hidden h-4 bg-gradient-to-t from-background/94 to-transparent sm:block"
+          className="pointer-events-none absolute inset-x-0 -top-4 hidden h-4 bg-gradient-to-t from-ground/94 to-transparent sm:block"
         />
         <Typography
           as="h3"
@@ -300,7 +326,7 @@ export function SelectedProductTile({
           tracking ? (
             <SelectedProductTileLink
               href={internalHref}
-              className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               productKey={product.key}
               brandSlug={tracking.brandSlug}
               position={tracking.position}
@@ -317,7 +343,7 @@ export function SelectedProductTile({
           ) : (
             <Link
               href={internalHref}
-              className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               data-ph-no-autocapture
             >
               <Typography
@@ -342,14 +368,15 @@ export function SelectedProductTile({
         ) : null}
 
         {productDescription ? (
-          <>
-            <Typography as="p" variant="body">
-              {productDescription}
-            </Typography>
-            <div>
-              <Badge variant="secondary">{labels.selectedBadge}</Badge>
-            </div>
-          </>
+          <Typography as="p" variant="body">
+            {productDescription}
+          </Typography>
+        ) : null}
+
+        {showsTrustLabel ? (
+          <div>
+            <TrustLabel />
+          </div>
         ) : null}
 
         {isBroken ? (

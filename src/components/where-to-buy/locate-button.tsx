@@ -87,7 +87,7 @@ export function LocateButton({
       </Button>
       <p
         role="status"
-        className="mt-2 min-h-6 type-metadata text-muted-foreground"
+        className="mt-2 min-h-6 type-metadata text-ink-muted"
       >
         {status}
       </p>

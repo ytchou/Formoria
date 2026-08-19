@@ -80,13 +80,13 @@ export function BrandCard({
   return (
     <article
       className={surfaceCardStyles({
-        className: 'group relative block shadow-card has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring',
+        className: 'group relative block has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent',
         interactive: true,
         padding: 'none',
       })}
     >
       {/* Image */}
-      <div className="relative z-10 aspect-media overflow-hidden rounded-t-xl bg-muted">
+      <div className="relative z-10 aspect-media overflow-hidden rounded-t-[2px] bg-muted">
         {showImage ? (
           <SurfaceImage
             src={imageSrc}

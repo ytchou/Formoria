@@ -22,6 +22,7 @@ import {
   DialogClose,
 } from '@/components/ui/dialog'
 import { Button, buttonVariants } from '@/components/ui/button'
+import { Grid } from '@/components/ui/grid'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
@@ -161,12 +162,12 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
                 {t('stanceLabel')}
                 <span aria-hidden="true" className="text-destructive"> *</span>
               </legend>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <Grid cols="pair" gap="tight">
                 {(['supports', 'contradicts'] as const).map((value) => (
                   <Label
                     key={value}
                     className={cn(
-                      'flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border border-border px-4 py-3 transition-colors',
+                      'flex min-h-12 cursor-pointer items-center gap-3 rounded-[4px] border border-rule px-4 py-3 transition-colors',
                       stance === value && 'border-accent bg-accent/10 text-accent',
                     )}
                   >
@@ -182,7 +183,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
                     <span>{t(`stances.${value}`)}</span>
                   </Label>
                 ))}
-              </div>
+              </Grid>
             </fieldset>
 
             <div className="space-y-2">

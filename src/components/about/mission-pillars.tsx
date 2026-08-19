@@ -23,7 +23,7 @@ export default function MissionPillars({
   pillars,
 }: MissionPillarsProps) {
   return (
-    <section className="py-12 md:py-16">
+    <section className="py-section">
       <div className="page-gutter mx-auto max-w-6xl">
         <h2 className="type-page-title text-balance">{heading}</h2>
         <div className="mt-8 space-y-6">

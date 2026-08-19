@@ -438,4 +438,51 @@ describe("ProductWall", () => {
       "sm:grow-[var(--tile-ratio)]",
     );
   });
+
+  it("renders a repo-local hero path, which safeImageSrc drops on its own", () => {
+    // `safeImageSrc` (allowed-image-hosts.ts:47) builds `new URL(url)` with NO
+    // base, so every relative path throws and returns null — only
+    // `*.supabase.co` survived. A hero committed at `/images/trails/…` passed
+    // the frontmatter disk check, reserved a wall slot, and still rendered an
+    // imageless tile. This is the assertion for that whole class.
+    const trail = buildTrail();
+    trail.frontmatter.heroImage =
+      "/images/trails/small-space-reading-corner.webp";
+    trail.frontmatter.heroImageAlt = "A lamp beside a low chair";
+
+    const { container } = renderWall([
+      { kind: "trail", trail, format: "tall" },
+    ]);
+
+    const image = container.querySelector("img");
+    expect(image).not.toBeNull();
+    expect(image?.getAttribute("src")).toBe(
+      "/images/trails/small-space-reading-corner.webp",
+    );
+    expect(image?.getAttribute("alt")).toBe("A lamp beside a low chair");
+  });
+
+  it("falls back to an empty alt rather than repeating the title", () => {
+    // The link is already `aria-labelledby` the title, so an alt that repeats
+    // it announces the same words twice.
+    const trail = buildTrail();
+    trail.frontmatter.heroImage = "/images/trails/small-space-reading-corner.webp";
+    delete trail.frontmatter.heroImageAlt;
+
+    const { container } = renderWall([
+      { kind: "trail", trail, format: "wide" },
+    ]);
+
+    expect(container.querySelector("img")?.getAttribute("alt")).toBe("");
+  });
+
+  it("still renders a remote hero on an allowed host", () => {
+    const { container } = renderWall([
+      { kind: "trail", trail: buildTrail(), format: "tall" },
+    ]);
+
+    expect(container.querySelector("img")?.getAttribute("src")).toBe(
+      "https://project.supabase.co/storage/v1/object/public/t/hero.jpg",
+    );
+  });
 });

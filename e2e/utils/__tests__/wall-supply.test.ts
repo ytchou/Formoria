@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const skip = vi.fn();
 vi.mock("@playwright/test", () => ({ test: { skip: (...args: unknown[]) => skip(...args) } }));
 
-const trailFrontmatter = vi.fn<() => { heroImage?: string }[]>(() => []);
+const trailFrontmatter = vi.fn<() => { slug: string }[]>(() => []);
 vi.mock("../published-trails", () => ({
   publishedTrails: () => trailFrontmatter(),
   NO_PUBLISHED_TRAILS: "no published trails in content/trails",
@@ -183,7 +183,8 @@ function rowsPerBrand(...perBrand: number[]): { brand_id: string }[] {
   );
 }
 
-const withHeroImage = [{ heroImage: "/images/trails/hero.jpg" }];
+/** One published trail — the only condition gate 1 still measures. */
+const onePublishedTrail = [{ slug: "small-space-reading-corner" }];
 
 describe("homepage wall trail-tile guard", () => {
   beforeEach(() => {
@@ -211,21 +212,41 @@ describe("homepage wall trail-tile guard", () => {
     expect(calls()).toBe(0);
   });
 
-  it("skips without touching the database when no trail carries a heroImage", async () => {
-    // The live case as of DEV-1522: one published trail, no `heroImage`, so
-    // `buildWallSlots` reserves no trail slot whatever the product supply is.
-    trailFrontmatter.mockReturnValue([{}, { heroImage: "   " }]);
+  it("skips without touching the database when no trail is published", async () => {
+    // Gate 1 no longer reads `heroImage` (DEV-1514 Task 15): the hero is a
+    // publication precondition enforced at authoring time, so the wall reserves
+    // a slot for any published trail. An EMPTY `content/trails/` is the only
+    // thing that still closes this gate.
+    trailFrontmatter.mockReturnValue([]);
     const { client, calls } = supabaseReturning({ data: [], error: null });
 
     await expect(
       requireWallTrailTileOrSkip(true, client),
     ).resolves.toBeUndefined();
-    expect(skip).toHaveBeenCalledWith(true, expect.stringContaining("heroImage"));
+    expect(skip).toHaveBeenCalledWith(
+      true,
+      expect.stringContaining("No trail is published"),
+    );
     expect(calls()).toBe(0);
   });
 
+  it("opens gate 1 for a published trail that carries no heroImage", async () => {
+    // The inversion this ticket is about: the same fixture used to close the
+    // gate and skip the spec on every run since it was written.
+    trailFrontmatter.mockReturnValue(onePublishedTrail);
+    const { client } = supabaseReturning({
+      data: rowsPerBrand(...Array(TRAIL_SLOT_CADENCE).fill(1)),
+      error: null,
+    });
+
+    await expect(requireWallTrailTileOrSkip(true, client)).rejects.toThrow(
+      /no discovery trail tile/,
+    );
+    expect(skip).not.toHaveBeenCalled();
+  });
+
   it("skips when the wall composes fewer products than the trail cadence", async () => {
-    trailFrontmatter.mockReturnValue(withHeroImage);
+    trailFrontmatter.mockReturnValue(onePublishedTrail);
     const { client } = supabaseReturning({
       data: rowsPerBrand(...Array(TRAIL_SLOT_CADENCE - 1).fill(1)),
       error: null,
@@ -245,7 +266,7 @@ describe("homepage wall trail-tile guard", () => {
     // look like plenty, but three brands capped at two compose a wall of six —
     // below the cadence, so no trail slot is reserved and an absent tile is
     // correct. Gating on the raw row count would call that a regression.
-    trailFrontmatter.mockReturnValue(withHeroImage);
+    trailFrontmatter.mockReturnValue(onePublishedTrail);
     const { client } = supabaseReturning({
       data: rowsPerBrand(7, 7, 6),
       error: null,
@@ -263,7 +284,7 @@ describe("homepage wall trail-tile guard", () => {
   });
 
   it("throws when both gates are open and the tile is missing", async () => {
-    trailFrontmatter.mockReturnValue(withHeroImage);
+    trailFrontmatter.mockReturnValue(onePublishedTrail);
     const { client } = supabaseReturning({
       data: rowsPerBrand(...Array(TRAIL_SLOT_CADENCE).fill(1)),
       error: null,
@@ -276,7 +297,7 @@ describe("homepage wall trail-tile guard", () => {
   });
 
   it("never composes more than the wall's product cap", async () => {
-    trailFrontmatter.mockReturnValue(withHeroImage);
+    trailFrontmatter.mockReturnValue(onePublishedTrail);
     const { client } = supabaseReturning({
       data: rowsPerBrand(...Array(40).fill(2)),
       error: null,
@@ -288,7 +309,7 @@ describe("homepage wall trail-tile guard", () => {
   });
 
   it("skips rather than inventing a red when the row read fails", async () => {
-    trailFrontmatter.mockReturnValue(withHeroImage);
+    trailFrontmatter.mockReturnValue(onePublishedTrail);
     const { client } = supabaseReturning(new Error("network down"));
 
     await expect(
@@ -301,7 +322,7 @@ describe("homepage wall trail-tile guard", () => {
   });
 
   it("keeps its own cache, so a failure evicts only its own probe", async () => {
-    trailFrontmatter.mockReturnValue(withHeroImage);
+    trailFrontmatter.mockReturnValue(onePublishedTrail);
     const { client, calls } = supabaseReturning(new Error("timeout"), {
       data: rowsPerBrand(...Array(TRAIL_SLOT_CADENCE).fill(1)),
       error: null,

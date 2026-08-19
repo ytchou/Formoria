@@ -52,8 +52,25 @@ export function WallTrailTile({
 }) {
   const title = trail.frontmatter.title
   const promise = trail.frontmatter.promise ?? trail.frontmatter.description ?? ''
-  const imageSrc = safeImageSrc(trail.frontmatter.heroImage)
-  const imageAlt = trail.frontmatter.heroImageAlt ?? title
+  /*
+   * A repo path is taken as-is; only a remote URL goes through the host gate.
+   *
+   * `safeImageSrc` builds `new URL(url)` with NO base, so EVERY relative path
+   * throws and returns null — a hero committed at `/images/trails/x.webp`
+   * passed the frontmatter disk check, reserved a wall slot, and still rendered
+   * an imageless tile. Same branch as `stories/[slug]/page.tsx:292`.
+   *
+   * The imageless branch below stays: it is the degradation path for a 404 or a
+   * disallowed host, not a supply gate.
+   */
+  const heroImage = trail.frontmatter.heroImage
+  const imageSrc = heroImage?.startsWith('/') ? heroImage : safeImageSrc(heroImage)
+  /*
+   * Empty, never the title. The link is already `aria-labelledby` the title
+   * beside it, so repeating the title as image text announces the same words
+   * twice.
+   */
+  const imageAlt = trail.frontmatter.heroImageAlt ?? ''
   const titleId = `wall-trail-${trail.slug}-title`
 
   return (
@@ -101,7 +118,7 @@ export function WallTrailTile({
           className="absolute inset-0 bg-gradient-to-t from-foreground/95 via-foreground/55 to-foreground/10"
         />
         <span className="relative z-10 flex max-w-xl flex-col items-start gap-3">
-          <span className="rounded-full border border-background/30 bg-background/20 px-3 py-1 type-eyebrow text-background">
+          <span className="rounded-full border border-ground/30 bg-ground/20 px-3 py-1 type-eyebrow text-ground">
             {labels.eyebrow}
           </span>
           <span id={titleId} className="type-card-title md:type-section text-background">

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -12,6 +13,9 @@ import {
   RelatedStoryLink,
   RelatedTrailLink,
 } from "@/components/stories/related-story-link";
+import { formatStoryDate } from "@/components/stories/story-date";
+import { surfaceCardStyles } from "@/components/ui/card";
+import { SurfaceImage } from "@/components/ui/image";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import {
@@ -25,6 +29,7 @@ import {
   type TrailDetailResult,
 } from "@/lib/services/trails";
 import { getPublishedCuratedProductsForTrail, type TrailCuratedProduct } from "@/lib/services/curated-products";
+import { cn } from "@/lib/utils";
 import { TrailContent } from "./trail-content";
 import { routes } from "@/lib/routes";
 
@@ -124,6 +129,21 @@ function trailLabels(t: (key: string) => string): SelectedProductTileLabels {
     selectedBadge: t("selectedBadge"),
     unavailable: t("unavailable"),
   };
+}
+
+/**
+ * One line of the header band's meta table: an interface-face label, an
+ * interface-face value, a hairline between rows. It is a `<dl>`, not a list of
+ * paragraphs, because every row is a name/value pair and a screen reader should
+ * be able to say so.
+ */
+function MetaRow({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-6 py-3">
+      <dt className="type-metadata">{label}</dt>
+      <dd className="min-w-0 text-right type-metadata text-ink">{value}</dd>
+    </div>
+  );
 }
 
 function relatedLinks(
@@ -226,12 +246,26 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
     id: section.key,
     label: section.title,
   }));
+  const heroImage = frontmatter.heroImage;
+  // Falls back to the publication date: a trail that has never been revised is
+  // current as of the day it shipped, and an empty updated row reads as an omission.
+  const updatedLabel = formatStoryDate(
+    frontmatter.updatedAt ?? frontmatter.publishedAt,
+    safeLocale,
+  );
+  // What the selection actually IS, counted rather than claimed. `category` is
+  // the product's L1, so this is "how many kinds of thing", not how many tags.
+  const categoryCount = new Set(
+    safeProducts.map((product) => product.category),
+  ).size;
   const articleJsonLd = buildArticleJsonLd({
     title: frontmatter.title,
     description: frontmatter.description ?? "",
     path: routes.trail(frontmatter.slug),
     locale: safeLocale,
     author: frontmatter.editorialOwner ?? "Formoria",
+    // The same file the hero renders. Absolutised inside the builder.
+    image: heroImage ?? null,
   });
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(
     [{ label: t("breadcrumb"), href: routes.discover() }, { label: frontmatter.title }],
@@ -239,12 +273,8 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
   );
 
   return (
-    <main className="page-gutter mx-auto box-border w-full max-w-[920px] pt-8 pb-16 md:pt-12 md:pb-24">
-      <Breadcrumb
-        ariaLabel={t("breadcrumbAria")}
-        items={[{ label: t("breadcrumb"), href: routes.discover() }, { label: frontmatter.title }]}
-      />
-      <article className="space-y-8">
+    <main className="pb-16 md:pb-24">
+      <article>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -260,36 +290,147 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
         {safeProducts.length > 0 ? (
           <ViewItemListTracker listName={`trail:${slug}`} itemCount={safeProducts.length} />
         ) : null}
-        <header className="max-w-[720px] space-y-4">
-          <h1 className="type-page-title">{frontmatter.title}</h1>
-          {frontmatter.description ? (
-            <p className="type-body">{frontmatter.description}</p>
-          ) : null}
-          {frontmatter.promise ? (
-            <p className="type-body-sm">{frontmatter.promise}</p>
-          ) : null}
+        {/*
+          THE HEADER BAND. `surface` is the second material, not a tint: the band
+          is what separates the editorial frame — who chose this, when, how much
+          of it there is — from the objects below, and it does that with tone and
+          a rule rather than with a box around the title.
+        */}
+        <header className="border-b border-rule bg-surface">
+          <div className="page-gutter mx-auto box-border w-full page-measure pt-8 pb-10 md:pt-12 md:pb-14">
+            <Breadcrumb
+              ariaLabel={t("breadcrumbAria")}
+              items={[
+                { label: t("breadcrumb"), href: routes.discover() },
+                { label: frontmatter.title },
+              ]}
+            />
+            {/*
+              The page hero, above the `<h1>`, exactly as a feature opens in
+              print — same treatment as story detail. `priority` and
+              `fetchPriority="high"` because this becomes the route's LCP
+              element; deferring it defers the metric itself.
+
+              Two renderers, chosen by where the asset lives. A repo path can be
+              resized and served as WebP by `next/image`; an author-supplied
+              absolute URL would need its host in `remotePatterns`, and an editor
+              must not have to edit `next.config.ts` to publish a trail.
+            */}
+            {heroImage ? (
+              <div className="relative mb-10 aspect-[16/9] w-full overflow-hidden rounded-xl border border-rule bg-surface">
+                {heroImage.startsWith("/") ? (
+                  <SurfaceImage
+                    src={heroImage}
+                    alt={frontmatter.heroImageAlt ?? ""}
+                    fill
+                    priority
+                    fetchPriority="high"
+                    surface="banner"
+                    className="object-cover"
+                  />
+                ) : (
+                  /* eslint-disable-next-line @next/next/no-img-element -- remote author-supplied URL with no intrinsic size and no `remotePatterns` entry; see the note above. */
+                  <img
+                    src={heroImage}
+                    /* Empty alt when the frontmatter omits one: the `<h1>` right
+                       below already says what this is. */
+                    alt={frontmatter.heroImageAlt ?? ""}
+                    decoding="async"
+                    fetchPriority="high"
+                    className="size-full object-cover"
+                  />
+                )}
+              </div>
+            ) : null}
+            <div className="grid gap-10 md:grid-cols-[minmax(0,1fr)_minmax(15rem,20rem)] md:gap-16">
+              <div className="max-w-[46rem] space-y-4">
+                <h1 className="type-page-title">{frontmatter.title}</h1>
+                {frontmatter.description ? (
+                  <p className="type-body text-ink-soft">{frontmatter.description}</p>
+                ) : null}
+                {frontmatter.promise ? (
+                  <p className="type-body-sm">{frontmatter.promise}</p>
+                ) : null}
+              </div>
+              <dl className="divide-y divide-rule border-y border-rule md:self-start">
+                {frontmatter.editorialOwner ? (
+                  <MetaRow
+                    label={t("editorLabel")}
+                    value={frontmatter.editorialOwner}
+                  />
+                ) : null}
+                {updatedLabel ? (
+                  <MetaRow label={t("updatedLabel")} value={updatedLabel} />
+                ) : null}
+                {safeProducts.length > 0 ? (
+                  <MetaRow
+                    label={t("selectionLabel")}
+                    value={t("selectionSummary", {
+                      count: safeProducts.length,
+                      categories: categoryCount,
+                    })}
+                  />
+                ) : null}
+              </dl>
+            </div>
+          </div>
         </header>
-        {sections.length >= 2 ? (
-          <BrandSectionNav
-            sections={sections}
-            ariaLabel={t("sectionNavAria")}
-            orientation="horizontal"
-          />
-        ) : null}
-        <div className="max-w-[720px]">
-          <TrailContent
-            source={trail.content}
-            trailSlug={slug}
-            locale={safeLocale}
-            products={safeProducts}
-            labels={trailLabels(t)}
-          />
-        </div>
-        {frontmatter.faq.length > 0 ? <FaqBlock questions={frontmatter.faq} /> : null}
-        <div className="max-w-[720px] space-y-8">
-          {relatedLinks(t("relatedCategories"), frontmatter.relatedCategories, routes.categories())}
-          {relatedStoryLinks(t("relatedStories"), frontmatter.relatedStories)}
-          {relatedTrailLinks(t("relatedTrails"), frontmatter.relatedTrails)}
+        <div className="page-gutter mx-auto box-border w-full page-measure">
+          {sections.length >= 2 ? (
+            <BrandSectionNav
+              sections={sections}
+              ariaLabel={t("sectionNavAria")}
+              orientation="horizontal"
+            />
+          ) : null}
+          <div className="pt-10">
+            <TrailContent
+              source={trail.content}
+              trailSlug={slug}
+              locale={safeLocale}
+              products={safeProducts}
+              labels={trailLabels(t)}
+              sections={frontmatter.sections}
+            />
+          </div>
+          {frontmatter.faq.length > 0 ? (
+            <div className="mt-section max-w-[46rem]">
+              <FaqBlock questions={frontmatter.faq} />
+            </div>
+          ) : null}
+          {/*
+            THE CLOSING ZONE. What was deliberately left out sits beside where to
+            go next, because both answer the same reader question — "is this all
+            of it?" — and neither is a footnote. `exclusions` is authored
+            frontmatter that had no surface at all before this.
+          */}
+          <div className="mt-section grid gap-10 md:grid-cols-2 md:gap-16">
+            {frontmatter.exclusions ? (
+              <section
+                aria-labelledby="trail-exclusions"
+                className={cn(
+                  surfaceCardStyles({ padding: "lg" }),
+                  "h-full bg-surface",
+                )}
+              >
+                <h2 id="trail-exclusions" className="type-card-title">
+                  {t("exclusionsHeading")}
+                </h2>
+                <p className="mt-3 type-body-sm text-ink-soft">
+                  {frontmatter.exclusions}
+                </p>
+              </section>
+            ) : null}
+            <div className="space-y-8">
+              {relatedLinks(
+                t("relatedCategories"),
+                frontmatter.relatedCategories,
+                routes.categories(),
+              )}
+              {relatedStoryLinks(t("relatedStories"), frontmatter.relatedStories)}
+              {relatedTrailLinks(t("relatedTrails"), frontmatter.relatedTrails)}
+            </div>
+          </div>
         </div>
       </article>
     </main>

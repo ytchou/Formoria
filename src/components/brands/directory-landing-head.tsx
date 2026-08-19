@@ -139,7 +139,7 @@ export async function DirectoryLandingHead({
         category={category}
         subcategory={subcategory}
       />
-      <h1 className="text-balance type-section">{heading}</h1>
+      <h1 className="text-balance type-page-title">{heading}</h1>
       {intro ? (
         <p className="mt-3 type-body-sm">{intro}</p>
       ) : null}

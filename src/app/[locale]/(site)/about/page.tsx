@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { SurfaceImage } from "@/components/ui/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import {
   buildArticleJsonLd,
@@ -109,7 +108,7 @@ export default async function AboutPage({ params }: PageProps) {
           recentBrands={recentBrands ?? undefined}
         />
 
-        <section className="bg-secondary py-12 md:py-16">
+        <section className="bg-surface py-section">
           <div className="page-gutter mx-auto max-w-6xl">
             <h2 className="type-page-title text-balance">
               {t("audiences.heading")}
@@ -156,7 +155,7 @@ export default async function AboutPage({ params }: PageProps) {
           ]}
         />
 
-        <section className="bg-secondary py-12 md:py-16">
+        <section className="bg-surface py-section">
           <div className="page-gutter mx-auto max-w-6xl">
             <h2 className="type-page-title text-balance">
               {t("trust.heading")}
@@ -195,7 +194,7 @@ export default async function AboutPage({ params }: PageProps) {
           </div>
         </section>
 
-        <section id="vision" className="scroll-mt-32 py-12 md:py-20">
+        <section id="vision" className="scroll-mt-32 py-section">
           <div className="page-gutter mx-auto max-w-6xl">
             <h2 className="type-page-title text-balance">
               {t("vision.sectionHeading")}
@@ -242,19 +241,11 @@ export default async function AboutPage({ params }: PageProps) {
           sourceName={t("taiwanStats.sourceName")}
         />
 
-        <section className="relative overflow-hidden py-12 md:py-16">
-          <SurfaceImage
-            src="/images/hero-bg.webp"
-            alt=""
-            fill
-            surface="hero"
-            className="object-cover object-right"
-          />
-          <div
-            className="absolute inset-0 bg-background/75"
-            aria-hidden="true"
-          />
-          <div className="relative mx-auto max-w-6xl page-gutter">
+        {/* Closing band. Ink ground, not a photograph under a scrim — the same
+            removal made in `about-hero.tsx`, for the same reason: contrast that
+            depends on an image nobody re-checks is contrast nobody owns. */}
+        <section className="border-t border-rule bg-surface py-section">
+          <div className="mx-auto max-w-6xl page-gutter">
             <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
               <div>
                 <h2 className="type-page-title text-balance">

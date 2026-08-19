@@ -138,7 +138,7 @@ export async function EventInfo({
           // event half above it, it would read as a rule hanging off the top of
           // the card. `scroll-mt-24` keeps the `#series` target clear of the
           // sticky header.
-          className={cn('scroll-mt-24 p-5', event && 'border-t border-border')}
+          className={cn('scroll-mt-24 p-5', event && 'border-t border-rule')}
         >
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
             <h2 className="type-body-sm font-semibold text-ink">{t('seriesHeading')}</h2>
