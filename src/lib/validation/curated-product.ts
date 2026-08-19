@@ -12,13 +12,13 @@ import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
  */
 
 /**
- * The L1 CHECK list of `curated_products`
+ * The `category` CHECK list of `curated_products`
  * (supabase/migrations/20260813120000_curated_products.sql), which is itself the
  * same 12 values as `brands.category`. Derived from the ontology rather than
  * re-typed so a taxonomy change cannot leave two copies disagreeing; the length
  * assertion in the test is what pins it to the migration.
  */
-export const CURATED_PRODUCT_L1_VALUES = L1_CATEGORIES.map(
+export const CURATED_PRODUCT_CATEGORY_VALUES = L1_CATEGORIES.map(
   (category) => category.slug,
 ) as [string, ...string[]];
 
@@ -33,8 +33,8 @@ const MAX_URL = 2_000;
 export const MAX_NOTE = 10_000;
 /** A claim is a one-line factual note, not an essay. */
 const MAX_CLAIM = 1_000;
-/** L2 is capped by `normalizeSubcategories`; this is only a payload bound. */
-const MAX_L2 = 20;
+/** Subcategories are capped by `normalizeSubcategories`; this is only a payload bound. */
+const MAX_SUBCATEGORIES = 20;
 /** A product cites its provenance; it does not carry a bibliography. */
 const MAX_SOURCES = 20;
 
@@ -49,7 +49,9 @@ const httpUrlSchema = z.url({ protocol: /^https?$/ }).max(MAX_URL);
 
 const nameSchema = z.string().trim().min(1).max(MAX_CURATED_PRODUCT_NAME);
 const noteSchema = z.string().max(MAX_NOTE);
-const l2Schema = z.array(z.string().trim().min(1).max(100)).max(MAX_L2);
+const subcategoriesSchema = z
+  .array(z.string().trim().min(1).max(100))
+  .max(MAX_SUBCATEGORIES);
 /** `timestamptz` column; an offset-bearing ISO string is what Postgres stores. */
 const timestampSchema = z.iso.datetime({ offset: true });
 
@@ -84,8 +86,8 @@ export const curatedProductSourceSchema = z.object({
 const curatedProductFields = {
   nameZh: nameSchema,
   nameEn: nameSchema.nullable().optional(),
-  l1: z.enum(CURATED_PRODUCT_L1_VALUES),
-  l2: l2Schema.optional(),
+  category: z.enum(CURATED_PRODUCT_CATEGORY_VALUES),
+  subcategories: subcategoriesSchema.optional(),
   officialUrl: httpUrlSchema.nullable().optional(),
   /** The page an image was taken from, kept so usage rights stay re-checkable. */
   imageSourceUrl: httpUrlSchema.nullable().optional(),
@@ -138,17 +140,21 @@ export const curatedProductUpdateSchema = z
   .object(curatedProductFields)
   .partial()
   .superRefine((payload, ctx) => {
-    // An L2 slug is only meaningful inside one L1, so a patch that moves the
-    // subcategories without naming the category cannot be normalized.
+    // A subcategory slug is only meaningful inside one category, so a patch
+    // that moves the subcategories without naming the category cannot be
+    // normalized.
     // `updateCuratedProduct` throws on the same pair, but a service throw
     // reaches the editor as its raw message; refusing at the boundary turns it
     // into the generic `{ error: "Invalid curated product" }` the action
     // returns for every other malformed payload.
-    if (payload.l2 !== undefined && payload.l1 === undefined) {
+    if (
+      payload.subcategories !== undefined &&
+      payload.category === undefined
+    ) {
       ctx.addIssue({
         code: "custom",
-        path: ["l2"],
-        message: "Updating l2 requires l1 in the same patch",
+        path: ["subcategories"],
+        message: "Updating subcategories requires category in the same patch",
       });
     }
   });

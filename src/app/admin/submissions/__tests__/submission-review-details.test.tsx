@@ -271,8 +271,6 @@ describe("SubmissionReviewDetails", () => {
     ).not.toBeInTheDocument();
   });
 
-
-
   it("keeps image actions contained in drawer-safe gallery cards", async () => {
     const user = userEvent.setup();
     renderDetails(makeSubmission());
@@ -374,7 +372,6 @@ const reviewData = {
   blurb: "品牌摘要",
   blurbEn: "Brand summary",
   city: "台中",
-  categoryAttributes: null,
   reputationSummary: null,
   mitEvidence: null,
   siteContent: null,

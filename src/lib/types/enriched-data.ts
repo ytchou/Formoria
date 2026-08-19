@@ -12,7 +12,6 @@ export type EnrichedData = {
   blurb?: string;
   blurbEn?: string;
   city?: string;
-  categoryAttributes?: Json;
   reputationSummary?: Json;
   mitEvidence?: Json;
   siteContent?: Json;
@@ -81,9 +80,6 @@ export function enrichedDataFromDb(
     ...(typeof json.blurb === "string" ? { blurb: json.blurb } : {}),
     ...(typeof json.blurb_en === "string" ? { blurbEn: json.blurb_en } : {}),
     ...(typeof json.city === "string" ? { city: json.city } : {}),
-    ...(json.category_attributes !== undefined
-      ? { categoryAttributes: json.category_attributes as Json }
-      : {}),
     ...(json.reputation_summary !== undefined
       ? { reputationSummary: json.reputation_summary as Json }
       : {}),
@@ -155,8 +151,6 @@ export function enrichedDataToDb(data: EnrichedData): Record<string, unknown> {
   if (data.blurb !== undefined) result.blurb = data.blurb;
   if (data.blurbEn !== undefined) result.blurb_en = data.blurbEn;
   if (data.city !== undefined) result.city = data.city;
-  if (data.categoryAttributes !== undefined)
-    result.category_attributes = data.categoryAttributes;
   if (data.reputationSummary !== undefined)
     result.reputation_summary = data.reputationSummary;
   if (data.mitEvidence !== undefined) result.mit_evidence = data.mitEvidence;
@@ -167,7 +161,8 @@ export function enrichedDataToDb(data: EnrichedData): Record<string, unknown> {
     result.hero_image_url = data.heroImageUrl;
   if (data.categorySlug !== undefined) result.category = data.categorySlug;
   if (data.priceRange !== undefined) result.price_range = data.priceRange;
-  if (data.subcategories !== undefined) result.subcategories = data.subcategories;
+  if (data.subcategories !== undefined)
+    result.subcategories = data.subcategories;
   if (data.subcategoriesEn !== undefined)
     result.subcategories_en = data.subcategoriesEn;
   if (data.socialInstagram !== undefined)

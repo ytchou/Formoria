@@ -78,7 +78,6 @@ function prodBrandRow(overrides: Row = {}): Row {
     category: "home",
     subcategories: ["陶器"],
     subcategories_en: ["ceramics"],
-    category_attributes: { material: "clay" },
     hero_image_url: "https://images.example/hero.webp",
     other_urls: [],
     purchase_website: "https://kinyo.tw",

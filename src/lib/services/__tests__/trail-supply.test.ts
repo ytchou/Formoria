@@ -31,8 +31,8 @@ function trail(slug: string): TrailEntry {
 
 function fullSlate(): TrailIndexabilityProduct[] {
   return Array.from({ length: 6 }, (_, index) => ({
-    l1: "home",
-    l2: [index % 2 === 0 ? "lighting" : "furniture"],
+    category: "home",
+    subcategories: [index % 2 === 0 ? "lighting" : "furniture"],
     sectionKey: "desk",
   }));
 }
@@ -126,13 +126,13 @@ describe("shouldHideUnderSuppliedTrail", () => {
     // and `l2_dominance` describe a thin-but-real page: every section is
     // filled and the reader gets six products. It is delisted and noindex,
     // which is the whole remedy; a 404 would withhold a readable page.
-    const singleL2Slate: TrailIndexabilityProduct[] = Array.from(
+    const singleSubcategorySlate: TrailIndexabilityProduct[] = Array.from(
       { length: 6 },
-      () => ({ l1: "home", l2: ["lighting"], sectionKey: "desk" }),
+      () => ({ category: "home", subcategories: ["lighting"], sectionKey: "desk" }),
     );
 
     expect(
-      shouldHideUnderSuppliedTrail({ frontmatter, products: singleL2Slate }),
+      shouldHideUnderSuppliedTrail({ frontmatter, products: singleSubcategorySlate }),
     ).toBe(false);
   });
 });

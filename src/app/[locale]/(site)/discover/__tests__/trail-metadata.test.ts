@@ -63,8 +63,8 @@ describe("discovery trail metadata", () => {
 
   it("omits a blocked trail and includes a clear trail in the sitemap", () => {
     const sixProducts = Array.from({ length: 6 }, (_, index) => ({
-      l1: "home",
-      l2: [index % 2 === 0 ? "lighting" : "furniture"],
+      category: "home",
+      subcategories: [index % 2 === 0 ? "lighting" : "furniture"],
       sectionKey: "desk",
     }));
 

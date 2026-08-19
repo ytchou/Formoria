@@ -29,7 +29,6 @@ describe('enrichedDataFromDb', () => {
         blurb: '品牌摘要',
         blurb_en: 'Brand summary',
         city: '台北',
-        category_attributes: { material: '皮革' },
         reputation_summary: { text: '評價良好' },
         mit_evidence: { verified_source: 'enrichment_signal' },
         site_content: { title: 'Official site' },
@@ -41,13 +40,21 @@ describe('enrichedDataFromDb', () => {
       blurb: '品牌摘要',
       blurbEn: 'Brand summary',
       city: '台北',
-      categoryAttributes: { material: '皮革' },
       reputationSummary: { text: '評價良好' },
       mitEvidence: { verified_source: 'enrichment_signal' },
       siteContent: { title: 'Official site' },
       foundingYear: 2020,
       subcategoriesEn: ['Handmade'],
     })
+  })
+
+  it('ignores the dropped category_attributes key on historical blobs', () => {
+    expect(() =>
+      enrichedDataFromDb({ city: '台北', category_attributes: { material: '皮革' } }),
+    ).not.toThrow()
+    expect(
+      enrichedDataFromDb({ city: '台北', category_attributes: { material: '皮革' } }),
+    ).toEqual({ city: '台北' })
   })
 })
 
@@ -69,7 +76,6 @@ describe('enrichedDataToDb', () => {
         blurb: '品牌摘要',
         blurbEn: 'Brand summary',
         city: '台北',
-        categoryAttributes: { material: '皮革' },
         reputationSummary: { text: '評價良好' },
         mitEvidence: { verified_source: 'enrichment_signal' },
         siteContent: { title: 'Official site' },
@@ -81,7 +87,6 @@ describe('enrichedDataToDb', () => {
       blurb: '品牌摘要',
       blurb_en: 'Brand summary',
       city: '台北',
-      category_attributes: { material: '皮革' },
       reputation_summary: { text: '評價良好' },
       mit_evidence: { verified_source: 'enrichment_signal' },
       site_content: { title: 'Official site' },

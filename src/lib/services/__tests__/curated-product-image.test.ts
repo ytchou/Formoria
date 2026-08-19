@@ -232,7 +232,7 @@ describe("storeCuratedProductImage dimensions", () => {
       {
         brandId: BRAND_ID,
         nameZh: "Pick",
-        l1: "home",
+        category: "home",
         productDescriptionZh: "陶土燒製，容量約 200 毫升。",
         imageUrl: "https://cdn.example.com/stored.webp",
         imageWidth: 1200,

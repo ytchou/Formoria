@@ -13,7 +13,6 @@ const baseline: SubmissionReviewData = {
   blurb: null,
   blurbEn: null,
   city: "Taipei",
-  categoryAttributes: null,
   reputationSummary: null,
   channels: [],
   mitEvidence: null,

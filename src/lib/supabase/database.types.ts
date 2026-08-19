@@ -1046,7 +1046,6 @@ export type Database = {
           blurb_en: string | null
           brand_enriched_at: string | null
           category: string | null
-          category_attributes: Json | null
           city: string | null
           contact_email: string | null
           created_at: string | null
@@ -1058,6 +1057,7 @@ export type Database = {
           hero_image_url: string | null
           id: string
           is_demo: boolean
+          material: string[]
           mit_declared_at: string | null
           mit_declared_by: string | null
           mit_declared_scope: string | null
@@ -1096,7 +1096,6 @@ export type Database = {
           blurb_en?: string | null
           brand_enriched_at?: string | null
           category?: string | null
-          category_attributes?: Json | null
           city?: string | null
           contact_email?: string | null
           created_at?: string | null
@@ -1108,6 +1107,7 @@ export type Database = {
           hero_image_url?: string | null
           id?: string
           is_demo?: boolean
+          material?: string[]
           mit_declared_at?: string | null
           mit_declared_by?: string | null
           mit_declared_scope?: string | null
@@ -1146,7 +1146,6 @@ export type Database = {
           blurb_en?: string | null
           brand_enriched_at?: string | null
           category?: string | null
-          category_attributes?: Json | null
           city?: string | null
           contact_email?: string | null
           created_at?: string | null
@@ -1158,6 +1157,7 @@ export type Database = {
           hero_image_url?: string | null
           id?: string
           is_demo?: boolean
+          material?: string[]
           mit_declared_at?: string | null
           mit_declared_by?: string | null
           mit_declared_scope?: string | null
@@ -1464,6 +1464,7 @@ export type Database = {
       curated_products: {
         Row: {
           brand_id: string
+          category: string
           created_at: string
           id: string
           image_height: number | null
@@ -1471,10 +1472,9 @@ export type Database = {
           image_url: string | null
           image_width: number | null
           key: string
-          l1: string
-          l2: string[]
           link_checked_at: string | null
           link_state: string
+          material: string[]
           name_en: string | null
           name_zh: string
           official_url: string | null
@@ -1484,11 +1484,13 @@ export type Database = {
           proposed_by: string
           review_due_at: string | null
           source_checked_at: string | null
+          subcategories: string[]
           updated_at: string
           visible: boolean
         }
         Insert: {
           brand_id: string
+          category: string
           created_at?: string
           id?: string
           image_height?: number | null
@@ -1496,10 +1498,9 @@ export type Database = {
           image_url?: string | null
           image_width?: number | null
           key: string
-          l1: string
-          l2?: string[]
           link_checked_at?: string | null
           link_state?: string
+          material?: string[]
           name_en?: string | null
           name_zh: string
           official_url?: string | null
@@ -1509,11 +1510,13 @@ export type Database = {
           proposed_by?: string
           review_due_at?: string | null
           source_checked_at?: string | null
+          subcategories?: string[]
           updated_at?: string
           visible?: boolean
         }
         Update: {
           brand_id?: string
+          category?: string
           created_at?: string
           id?: string
           image_height?: number | null
@@ -1521,10 +1524,9 @@ export type Database = {
           image_url?: string | null
           image_width?: number | null
           key?: string
-          l1?: string
-          l2?: string[]
           link_checked_at?: string | null
           link_state?: string
+          material?: string[]
           name_en?: string | null
           name_zh?: string
           official_url?: string | null
@@ -1534,6 +1536,7 @@ export type Database = {
           proposed_by?: string
           review_due_at?: string | null
           source_checked_at?: string | null
+          subcategories?: string[]
           updated_at?: string
           visible?: boolean
         }

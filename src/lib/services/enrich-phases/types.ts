@@ -30,7 +30,6 @@ export type EnrichBrand = {
   founding_year?: number | null
   city?: string | null
   site_content?: SiteContent | null
-  category_attributes?: unknown | null
   category?: string | null
   purchase_website?: string | null
   purchaseWebsite?: string | null
@@ -88,7 +87,6 @@ export type EnrichPatch = Partial<BrandFlatLinkColumns> &
     description: string | null
     description_en: string | null
     city: string | null
-    category_attributes: unknown
     hero_image_url: string | null
     name: string
     reputation_summary: unknown

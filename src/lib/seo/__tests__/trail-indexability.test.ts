@@ -20,15 +20,18 @@ const baseFrontmatter: TrailIndexabilityFrontmatter = {
 }
 
 function product(
-  l2: string,
+  subcategory: string,
   sectionKey = 'first',
 ): TrailIndexabilityProduct {
-  return { l1: 'home', l2: [l2], sectionKey }
+  return { category: 'home', subcategories: [subcategory], sectionKey }
 }
 
-function products(count: number, l2 = 'lighting'): TrailIndexabilityProduct[] {
+function products(
+  count: number,
+  subcategory = 'lighting',
+): TrailIndexabilityProduct[] {
   return Array.from({ length: count }, (_, index) =>
-    product(l2, index % 2 === 0 ? 'first' : 'second'),
+    product(subcategory, index % 2 === 0 ? 'first' : 'second'),
   )
 }
 
@@ -38,7 +41,7 @@ describe('trailIndexBlockers', () => {
       frontmatter: { ...baseFrontmatter, draft: true },
       products: products(MIN_TRAIL_PRODUCTS, 'lighting').map((item) => ({
         ...item,
-        l2: ['lighting', 'furniture'],
+        subcategories: ['lighting', 'furniture'],
       })),
     })
 
@@ -56,7 +59,7 @@ describe('trailIndexBlockers', () => {
       },
       products: products(6, 'lighting').map((item, index) => ({
         ...item,
-        l2: [index === 0 ? 'lighting' : 'furniture'],
+        subcategories: [index === 0 ? 'lighting' : 'furniture'],
       })),
     })
 
@@ -70,7 +73,7 @@ describe('trailIndexBlockers', () => {
       frontmatter: baseFrontmatter,
       products: products(MIN_TRAIL_PRODUCTS - 1, 'lighting').map((item, index) => ({
         ...item,
-        l2: [index % 2 === 0 ? 'lighting' : 'furniture'],
+        subcategories: [index % 2 === 0 ? 'lighting' : 'furniture'],
       })),
     })
 
@@ -86,7 +89,7 @@ describe('trailIndexBlockers', () => {
     expect(blockers).toContain('empty_section')
   })
 
-  it('blocks single-L2 dominance', () => {
+  it('blocks single-subcategory dominance', () => {
     const blockers = trailIndexBlockers({
       frontmatter: baseFrontmatter,
       products: [
@@ -111,21 +114,24 @@ describe('trailIndexBlockers', () => {
     expect(trailIndexBlockers({ frontmatter: baseFrontmatter, products: pilot })).toEqual([])
   })
 
-  it('blocks fewer than 2 distinct L2s', () => {
+  it('blocks fewer than 2 distinct subcategories', () => {
     const blockers = trailIndexBlockers({
       frontmatter: baseFrontmatter,
-      products: products(6, 'lighting').map((item) => ({ ...item, l2: ['lighting'] })),
+      products: products(6, 'lighting').map((item) => ({
+        ...item,
+        subcategories: ['lighting'],
+      })),
     })
 
     expect(blockers).toContain('distinct_l2')
   })
 
-  it('rejects an L2 value absent from L2_SUBCATEGORIES', () => {
+  it('rejects a subcategory value absent from L2_SUBCATEGORIES', () => {
     const blockers = trailIndexBlockers({
       frontmatter: baseFrontmatter,
       products: products(6, 'not-a-real-subcategory').map((item, index) => ({
         ...item,
-        l2: [index === 0 ? 'not-a-real-subcategory' : 'furniture'],
+        subcategories: [index === 0 ? 'not-a-real-subcategory' : 'furniture'],
       })),
     })
 
