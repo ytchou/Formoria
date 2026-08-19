@@ -23,10 +23,15 @@ export function Hero({ brand, siteContent }: HeroProps) {
 
           {/*
             The BRAND's accent, not the system's — see `tokens.ts`. The label
-            colour is set inline rather than as a `text-[var(…)]` utility
-            because `type-button` carries `text-ink` of its own, and two
-            single-class colour rules leave CSS source order to decide which
-            one a brand's CTA gets.
+            colour is set inline rather than through an arbitrary-value colour
+            utility wrapping the CSS variable, because `type-button` carries
+            `text-ink` of its own and two single-class colour rules leave CSS
+            source order to decide which one a brand's CTA gets.
+
+            Do not write that utility's class name out here, even as an
+            example: Tailwind scans comments for candidates, so naming it
+            generates a rule with a literal ellipsis in it, which fails to
+            parse and 500s every route in the app.
 
             The focus ring is the brand accent held off the fill by a 2px
             ground offset, which is exactly how the system `Button` draws a
