@@ -43,9 +43,10 @@ const CORRECTION_SELECT =
  * The material axis, closed to the twelve agreed SLUGS.
  *
  * The gate matches on `slug` alone since DEV-1525. `nameZh` is display-only, so
- * a payload carrying the pre-migration 陶瓷 is rejected exactly like a term the
- * vocabulary never held — `brands.material` stores `ceramic` now, and accepting
- * the old spelling here would write a value `brands_material_check` bounces.
+ * a payload carrying the pre-migration zh label for `ceramic` is rejected
+ * exactly like a term the vocabulary never held — `brands.material` stores
+ * `ceramic` now, and accepting the old spelling here would write a value
+ * `brands_material_check` bounces.
  *
  * Both correctable arrays are closed now: DEV-1510 retired the subcategory
  * escape hatch of `docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md`,
