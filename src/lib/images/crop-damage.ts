@@ -50,7 +50,12 @@ export function cropDamage(input: CropDamageInput): number {
   // Fraction of the source area that survives a cover crop, and the damage as
   // its complement. Symmetric in a/t: the shorter ratio over the longer one is
   // the same whether the source is too tall or too wide, and only one axis is
-  // ever cut. That also bounds the result in [0, 1) without a clamp — `visible`
-  // is in (0, 1], so `1 - visible` cannot leave the range.
+  // ever cut. For a finite, positive `targetRatio` that also bounds the result
+  // in [0, 1) without a clamp: `visible` is in (0, 1], so `1 - visible` cannot
+  // leave the range. Nothing here enforces that precondition — the type says
+  // `targetRatio?: number` — and outside it the bound does not hold (0 returns
+  // 1, -1 returns 2). No guard, deliberately: every caller passes
+  // `HERO_TARGET_RATIO`, and `cropDamagePenalty` clamps the scaled result
+  // anyway.
   return 1 - Math.min(a, t) / Math.max(a, t)
 }

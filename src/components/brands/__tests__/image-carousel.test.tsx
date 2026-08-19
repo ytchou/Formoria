@@ -156,6 +156,10 @@ describe("ImageCarousel", () => {
     // Thumbnails: the logo is still contained and inset, the photo covers.
     expect(logoThumb).toHaveClass("object-contain", "p-1.5");
     expect(photoThumb).toHaveClass("object-cover");
+    // Cannot fail while the line above passes — the thumbnail class is
+    // `brandImageFill`'s return verbatim and its branches are disjoint. Kept as
+    // a guard against a future `cn('object-contain', thumbFill)` wrapper, which
+    // this line would catch and the one above would not.
     expect(photoThumb).not.toHaveClass("object-contain");
 
     // Advancing to the photo keeps the hero contained — the regression this

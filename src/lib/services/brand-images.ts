@@ -112,10 +112,9 @@ function brandHeroTable(supabase: unknown): BrandHeroTable {
  * brand with a null `heroImageUrl` shifts every later gallery position by one
  * against its metadata. That used to mis-assign only alt text; it now also
  * decides fill mode (`isLogo`), so a shift visibly letterboxes a product photo
- * and crops a logo. Callers that render metadata
- * alongside the image MUST index by `sourceIndex`, never by array position —
- * the same `sourceIndex` discipline `image-carousel.tsx` uses for its own
- * host-filter drop.
+ * and crops a logo. Callers that render metadata alongside the image MUST index
+ * by `sourceIndex`, never by array position — the same `sourceIndex` discipline
+ * `image-carousel.tsx` uses for its own host-filter drop.
  */
 export function getBrandGalleryImageEntries(brand: {
   heroImageUrl: string | null

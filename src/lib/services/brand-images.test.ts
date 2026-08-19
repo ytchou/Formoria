@@ -178,7 +178,11 @@ function createReadClient(rows: unknown[]) {
 }
 
 describe('getBrandImages', () => {
-  it('requests exactly the columns its callers consume, active rows only', async () => {
+  it('pins an explicit column list matching the row type, active rows only', async () => {
+    // What this pins is the explicit list, not a minimal one: `score` and
+    // `source_url` are part of `BrandImageRow` and are projected for it, and no
+    // current caller reads either. The list must stay in sync with that type.
+    //
     // Neither this query nor `toImageFields` is type-checked against the
     // database: `getBrandImages` takes an `unknown` client and the service
     // client carries no `<Database>` generic. A column named here that no
@@ -319,9 +323,8 @@ describe('getBrandGalleryImageEntries', () => {
    * The index a dropped entry shifts is not decorative any more. `imageAlts` is
    * built as `active.map(...)` over the UNFILTERED
    * `[heroImageUrl, ...productPhotos]` sequence, and that metadata now selects
-   * fill mode and object-position as well as alt text — so a one-place shift
-   * letterboxes a product photo and crops a logo, rather than merely mislabelling
-   * one.
+   * fill mode (`isLogo`) as well as alt text — so a one-place shift letterboxes
+   * a product photo and crops a logo, rather than merely mislabelling one.
    */
   it('reports the unfiltered position of each surviving url', () => {
     expect(

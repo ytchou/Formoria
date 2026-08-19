@@ -23,6 +23,15 @@
 -- window between the two statements. Functions first, columns second, one
 -- transaction, so a failure in either half rolls back both.
 --
+-- The ordering that spans artifacts matters just as much, and this file cannot
+-- enforce it: apply this migration only once the code that stopped selecting
+-- `focal_x` / `focal_y` is live in the target environment. Against an
+-- environment still running older code, PostgREST answers 42703 on the brand
+-- image read, and `getBrandImages` rethrows anything that is not PGRST205
+-- (src/lib/services/brand-images.ts), so `/brands/[slug]` and every microsite
+-- return 500 rather than degrade. 20260808160000:62-69 wrote its own deploy
+-- window down for the same reason, in the opposite direction.
+--
 -- FINGERPRINT PROVENANCE. Both md5s below were OBSERVED, not derived. Read
 -- read-only from staging on 2026-08-20, with the full chain through
 -- 20260821100000 applied and this branch's own migration not applied:
@@ -44,6 +53,23 @@
 -- The two CHECK constraints dropped at the tail are the only other dependents,
 -- and they are named explicitly rather than left to the implicit drop that
 -- `drop column` would perform, so the intent stays checkable.
+--
+-- BOTH FINGERPRINTS ARE STAGING-ONLY. They were never observed on production.
+-- Run the two `select md5(pg_get_functiondef(...))` commands above against
+-- PRODUCTION before the production apply, and reconcile any difference first: a
+-- one-byte divergence aborts the assert, rolls the whole transaction back, and
+-- strands the fleet staging-migrated and production-not.
+--
+-- RECOGNISING AN ALREADY-APPLIED RE-RUN. A second run of this file aborts at
+-- the same fingerprint assert, with `DEV-1503 function fingerprint drift...` —
+-- indistinguishable from the genuine hand-patch drift these two functions are
+-- known for. If that assert fires, check whether the migration already
+-- succeeded BEFORE treating it as drift: `select focal_x from
+-- public.brand_images limit 1` raising 42703 means it did, and there is nothing
+-- to repair. There is deliberately NO already-applied skip guard here (its
+-- predecessor 20260808160000 had one). This migration is one-shot and
+-- destructive, so a loud abort is the intended outcome and the operator
+-- disambiguates by hand.
 --
 -- THE READ-BACKS ARE NOT REDUNDANT. Each rewrite is assembled as text and then
 -- `execute`d; Postgres regenerates the definition from the catalog, so

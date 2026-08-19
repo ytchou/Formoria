@@ -51,10 +51,10 @@ export async function BrandGallery({
 
   // Entries, not bare URLs: `getBrandGalleryImageEntries` drops a null hero,
   // which shifts every later position against `source.imageAlts`. That index
-  // now selects fill mode and object-position as well as alt text, so indexing
-  // by array position would letterbox a photo and crop a logo. Two independent
-  // filters shift this list — the null hero here and the unsafe-host filter
-  // below — and `sourceIndex` survives both.
+  // now selects fill mode (`isLogo`) as well as alt text, so indexing by array
+  // position would letterbox a photo and crop a logo. Two independent filters
+  // shift this list — the null hero here and the unsafe-host filter below — and
+  // `sourceIndex` survives both.
   const entries = getBrandGalleryImageEntries(source)
   const locale = await getLocale()
   const isEnglish = locale === 'en'

@@ -53,7 +53,13 @@ describe('brandImageFill', () => {
     )
   })
 
-  it('covers by default, because most surfaces compare brands side by side', () => {
-    expect(brandImageFill({ isLogo: false })).toBe('object-cover')
+  it('covers a non-logo that asks for cover', () => {
+    // Cover is the default because most surfaces compare brands side by side;
+    // this is the case where an explicit `fit` agrees with that default. Until
+    // now `fit: 'cover'` was only ever exercised against a logo, where it loses
+    // to `object-contain`.
+    expect(brandImageFill({ isLogo: false }, { fit: 'cover' })).toBe(
+      'object-cover',
+    )
   })
 })
