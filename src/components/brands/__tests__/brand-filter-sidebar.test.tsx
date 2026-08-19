@@ -159,17 +159,33 @@ describe("BrandFilterSidebar", () => {
     });
   });
 
-  it("zero_count_materials_are_not_rendered", () => {
-    // `lacquer` is in the closed vocabulary with no brands behind it. A rail
-    // entry that can only ever return an empty page is worse than no entry, so
-    // the derivation drops every zero-count slug before the sidebar sees it.
-    renderSidebar({
-      materials: materialOptions("zh-TW", { ...MATERIAL_COUNTS, lacquer: 0 }),
-    });
+  it("sidebar_renders_every_material_option_it_is_handed", () => {
+    // `lacquer` is in the closed vocabulary with no brands behind it, and a
+    // rail entry that can only ever return an empty page is worse than no
+    // entry — but the drop that enforces that is PRODUCTION code living at
+    // `directory-view.tsx:121`, in an async server component jsdom cannot
+    // render. This case guards the sidebar's own half of the contract instead:
+    // it is presentational, so it renders exactly the options it is handed,
+    // zero counts included. Going through `materialOptions()` here would only
+    // assert the fixture, since that helper mirrors the upstream filter.
+    const options = MATERIALS.filter((material) =>
+      ["ceramic", "wood", "lacquer"].includes(material.slug),
+    ).map((material) => ({
+      value: material.slug,
+      label: material.nameZh,
+      count: MATERIAL_COUNTS[material.slug] ?? 0,
+    }));
+
+    renderSidebar({ materials: options });
 
     fireEvent.click(materialSection());
-    expect(within(materialPanel()).getAllByRole("checkbox")).toHaveLength(2);
-    expect(materialPanel().textContent).not.toContain("漆");
+    const panel = materialPanel();
+    expect(within(panel).getAllByRole("checkbox")).toHaveLength(options.length);
+    for (const option of options) {
+      expect(
+        within(panel).getByRole("checkbox", { name: new RegExp(option.label) }),
+      ).toBeInTheDocument();
+    }
   });
 
   it("unknown_url_terms_are_not_resurrected", () => {

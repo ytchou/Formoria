@@ -7,6 +7,15 @@
 --   psql "$SUPABASE_DB_URL" --single-transaction \
 --     -f supabase/migrations/reverse/20260820170000_revert_material_slugs.sql
 --
+-- The file opens its own `begin;` and closes its own `commit;`, exactly as the
+-- forward migration does, so it is all-or-nothing however it is invoked. That
+-- is deliberate rather than redundant: without it, a run that omitted
+-- `--single-transaction` would autocommit each statement, the
+-- `on commit drop` snapshot would be destroyed by the commit that created it,
+-- and every post-condition below would be skipped over a conversion that had
+-- already landed. `--single-transaction` is kept in the invocation because it
+-- stays correct — psql only warns about the nested begin/commit pair.
+--
 -- `supabase/migrations/reverse/` is a rollback holding area, NOT part of the
 -- forward ledger. `scripts/db-deploy.ts:430` enumerates `supabase/migrations`
 -- non-recursively and keeps only `*.sql`, and `supabase db push` reads the same
@@ -27,15 +36,19 @@
 --    reverting the ontology and re-running
 --    `pnpm exec tsx scripts/generate-taxonomy-terms.ts --write` against
 --    whichever migration `TAXONOMY_TERMS_MIGRATION` then names. Left as-is the
---    material rows stay slug-keyed while `brands.material` holds labels, which
---    costs CJK recall on the material axis only — the `cjk_bigrams` expansion
---    finds no row for `陶瓷` and falls through. Revert both or neither.
+--    material rows stay slug-keyed while `brands.material` holds zh-TW labels,
+--    so the two disagree about how the same term is spelled until both are
+--    reverted. Search is untouched either way: `taxonomy_expand_subcategories`
+--    joins the `l2` axis alone, and `brands.material` has no search arm at all
+--    (20260820110000_search_expands_slugs.sql). Revert both or neither.
 --  * `curated_products.material`, which the forward migration asserted was
 --    empty and did not convert. Only its CHECK moves back.
 --
 -- `brands_updated_at` is suppressed here for the same reason the forward
 -- migration suppresses it: a rollback of a spelling change is not an editorial
 -- edit, and a moved timestamp would churn sitemap `lastmod`.
+
+begin;
 
 -- 1. Precondition: both CHECKs must be holding the slug vocabulary. Running
 --    this against a database the forward migration never reached would drop a
@@ -142,3 +155,5 @@ begin
   raise notice 'DEV-1525 reverted: % brand(s) carry zh-TW material labels', v_labelled;
 end;
 $ledger$;
+
+commit;

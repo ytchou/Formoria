@@ -135,7 +135,7 @@ export type BrandFilters = {
   status?: BrandStatus
   category?: string[]
   /**
-   * `brands.material` terms, from the closed 12-term vocabulary (`MATERIALS`).
+   * `brands.material` slugs, from the closed 12-slug vocabulary (`MATERIALS`).
    * An orthogonal axis to `category`: both the browse query and the search RPC
    * apply it, or `?material=` breaks the moment a user types (DEV-1510).
    */

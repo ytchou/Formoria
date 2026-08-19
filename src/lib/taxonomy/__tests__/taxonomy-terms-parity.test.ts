@@ -75,7 +75,11 @@ describe("taxonomy_terms parity with the TypeScript ontology", () => {
 
   // Bug caught: a material seeded under its zh-TW label instead of its slug.
   // `brands.material` stores the slug (DEV-1525) and `?material=` carries it, so
-  // a label-keyed row expands nothing and the zh-TW query silently narrows.
+  // a label-keyed row leaves `taxonomy_terms` and the column disagreeing about
+  // how a material is spelled — the SQL mirror stops describing the data it
+  // mirrors. Search is not the symptom: the expansion in
+  // `20260820110000_search_expands_slugs.sql` joins the `l2` axis alone, and
+  // `brands.material` has no search arm at all.
   it("taxonomy_terms_material_rows_are_slug_keyed", () => {
     for (const material of MATERIALS) {
       const matches = seededRows.filter(
@@ -93,8 +97,12 @@ describe("taxonomy_terms parity with the TypeScript ontology", () => {
 
   // Bug caught: any axis regressing to zh-as-identifier. Materials were the last
   // axis whose slug echoed its label, so the exemption is gone and the rule is
-  // now unconditional — a row that carries its slug as its zh-TW label indexes
-  // the identifier into `cjk_bigrams` instead of the term a reader would type.
+  // now unconditional — a row that carries its slug as its zh-TW label has no
+  // readable term left to hand a reader, and on `l2` it also feeds the
+  // identifier into `cjk_bigrams` instead of the words someone would type. The
+  // `material` axis pays the first cost only: the expansion in
+  // `20260820110000_search_expands_slugs.sql` joins `l2` alone, and
+  // `brands.material` has no search arm at all.
   it("no_taxonomy_term_slug_echoes_its_label", () => {
     const offenders = seededRows
       .filter((row) => row.slug === row.nameZh)

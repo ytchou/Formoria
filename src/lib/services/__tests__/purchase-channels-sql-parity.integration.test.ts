@@ -155,6 +155,12 @@ describeWithDb("purchase channel registry / SQL parity", () => {
     for (const column of PURCHASE_COLUMNS) {
       expect(definition).toContain(`'${column}'`);
     }
+    // DEV-1525: the two correctable fields that are not purchase channels are
+    // pinned here because their only assertion moved out of
+    // `material-corrections.test.ts` when it retargeted its migration path.
+    for (const field of ["material", "subcategories"]) {
+      expect(definition).toContain(`'${field}'`);
+    }
   });
 
   it("approve_submission enumerates every registry column the expected number of times", () => {

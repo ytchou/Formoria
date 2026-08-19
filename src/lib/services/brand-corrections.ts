@@ -232,6 +232,14 @@ export type ValidateCorrectionBatchResult =
  * `scripts/check-test-boundaries.mjs` forbids mocking `@/lib/services/` and
  * `@/lib/supabase/` modules outright.
  */
+/**
+ * Injection seam for `reviewCorrection`, same reason as `ReviewCorrectionsDeps`
+ * below: `scripts/check-test-boundaries.mjs` forbids mocking `@/lib/supabase/`,
+ * so a test that has to reach the review path passes a double instead.
+ * Production callers pass nothing and get `createServiceClient()`.
+ */
+export type CorrectionSupabase = ReturnType<typeof createServiceClient>;
+
 export type ReviewCorrectionsDeps = {
   fetchPendingBrandIds: (
     ids: string[],
@@ -489,10 +497,12 @@ export type NormalizeProposedValueResult =
  * Idempotency holds against a FIXED ontology only. Two drift directions across
  * ontology EDITS are known and accepted:
  *
- * 1. Removal: reviewCorrection runs this guard BEFORE its rejection branch, so
- *    if a `nameZh` is later dropped from the ontology a stale pending row can
- *    become both un-approvable and un-rejectable. Pre-existing, not introduced
- *    here.
+ * 1. Removal: reviewCorrection decides rejection BEFORE reaching this guard
+ *    (see the branch above `normalizeProposedValue` in that function), so a
+ *    term later dropped from the ontology makes a stale pending row
+ *    un-approvable but never un-rejectable — an admin can always clear it.
+ *    DEV-1525 fixed the inverse ordering, which stranded such rows on both
+ *    decisions.
  * 2. Add-as-alias: a novel subcategory is persisted raw and the admin queue renders that
  *    stored string. If that exact string is later added to the ontology as an
  *    ALIAS of a subcategory, the approval-time re-normalization rewrites `add`
@@ -959,6 +969,7 @@ export async function reviewCorrection(
   decision: CorrectionDecision,
   notes: string,
   { reviewerId }: { reviewerId: string },
+  client?: CorrectionSupabase,
 ): Promise<ReviewCorrectionResult> {
   return auditedCall<ReviewCorrectionResult>(
     { provider: "brands", operation: "reviewCorrection", kind: "service" },
@@ -968,7 +979,7 @@ export async function reviewCorrection(
   }
 
   try {
-    const supabase = createServiceClient();
+    const supabase = client ?? createServiceClient();
     const { data, error } = await supabase
       .from("brand_field_corrections")
       .select(CORRECTION_SELECT)
@@ -988,17 +999,15 @@ export async function reviewCorrection(
       return { ok: false, code: "invalid_value" };
     }
     const applicationField = row.field;
-
-    // Re-normalizes an already-normalized stored value; idempotency is what
-    // keeps a row that passed at submit from failing here.
-    const normalized = normalizeProposedValue(
-      applicationField,
-      row.proposed_value,
-    );
-    if (!normalized.ok) return { ok: false, code: normalized.error };
-    const proposedValue = normalized.value;
-
     const reviewedAt = new Date().toISOString();
+
+    // Rejection is decided BEFORE the stored value is re-validated, and the
+    // order is the point: a reject is a decision about the ROW, not about the
+    // value it proposes, so it has to stay available when a vocabulary
+    // migration invalidates stored history. DEV-1525 respelled `material` from
+    // zh-TW labels to slugs; with the normalize gate above this branch, a row
+    // proposing a pre-migration label failed `invalid_value` on BOTH decisions
+    // and no admin action could clear it out of the queue.
     if (decision === "rejected") {
       return markReviewed(
         supabase,
@@ -1010,6 +1019,17 @@ export async function reviewCorrection(
         ctx,
       );
     }
+
+    // Approval re-normalizes an already-normalized stored value; idempotency is
+    // what keeps a row that passed at submit from failing here. When it does
+    // fail, refusing is correct — the value is one `apply_brand_patch` would
+    // bounce on the column CHECK — and rejection above is the reviewer's exit.
+    const normalized = normalizeProposedValue(
+      applicationField,
+      row.proposed_value,
+    );
+    if (!normalized.ok) return { ok: false, code: normalized.error };
+    const proposedValue = normalized.value;
 
     const currentValue = currentValueForField(applicationField, row.brands);
     // `null` means the brand already holds the proposed value. The dedup index

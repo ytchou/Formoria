@@ -10,7 +10,9 @@ import {
   isCorrectionField,
   isMaterialDelta,
   normalizeProposedValue,
+  reviewCorrection,
   sameMaterialSet,
+  type CorrectionSupabase,
 } from "../brand-corrections";
 import { PRE_MIGRATION_CORPUS } from "../../../../scripts/rehearse-slug-reverse";
 
@@ -71,6 +73,82 @@ function backfillPlan(): Map<string, string[]> {
     if (materials.size > 0) plan.set(brandSlug, [...materials]);
   }
   return plan;
+}
+
+const REVIEWER_ID = "7d2c1a94-3b60-4f18-9e52-8c41d0b7a396";
+const STALE_CORRECTION_ID = "5a3e9c07-42d1-4b86-9f30-1e72b8c5d04a";
+const STALE_BRAND_ID = "c81b6f25-0d73-49ae-b514-6a92f3e70dc8";
+
+type ReviewWriteBuilder = {
+  eq: () => ReviewWriteBuilder;
+  then: (
+    resolve: (result: { error: null; count: number }) => unknown,
+  ) => Promise<unknown>;
+};
+
+type ReviewReadBuilder = {
+  select: () => ReviewReadBuilder;
+  eq: () => ReviewReadBuilder;
+  maybeSingle: () => Promise<{ data: unknown; error: null }>;
+  update: (patch: Record<string, unknown>) => ReviewWriteBuilder;
+};
+
+/**
+ * Client double for `reviewCorrection`, passed through its `client` seam:
+ * `scripts/check-test-boundaries.mjs` hard-fails on any vi.mock of
+ * `@/lib/supabase/`, so injection IS the test strategy here (same shape as the
+ * `deps` seam in `brand-corrections-bulk.test.ts`).
+ *
+ * The stored row is deliberately UNCONVERTED — `{add:['陶瓷']}` is what the
+ * queue held the moment before DEV-1525 ran, and the whole case is about what
+ * the reviewer can still do with it.
+ */
+function createReviewClientDouble() {
+  const updates: Array<Record<string, unknown>> = [];
+  const row = {
+    id: STALE_CORRECTION_ID,
+    brand_id: STALE_BRAND_ID,
+    field: "material",
+    proposed_value: { add: ["陶瓷"], remove: [] },
+    status: "pending",
+    brands: {
+      id: STALE_BRAND_ID,
+      name: "窯物所",
+      slug: "yao-wu-suo",
+      price_range: 2,
+      category: "home-living",
+      subcategories: ["ceramics"],
+      material: ["ceramic"],
+      social_instagram: null,
+      social_threads: null,
+      social_facebook: null,
+    },
+  };
+
+  const client = {
+    from(table: string): ReviewReadBuilder {
+      expect(table).toBe("brand_field_corrections");
+      const builder: ReviewReadBuilder = {
+        select: () => builder,
+        eq: () => builder,
+        maybeSingle: async () => ({ data: row, error: null }),
+        update: (patch: Record<string, unknown>) => {
+          updates.push(patch);
+          // Thenable, not a promise: `markReviewed` awaits the filtered builder
+          // itself rather than a terminal method, so the chain has to resolve
+          // to `{ error, count }` on await.
+          const write: ReviewWriteBuilder = {
+            eq: () => write,
+            then: (resolve) => Promise.resolve(resolve({ error: null, count: 1 })),
+          };
+          return write;
+        },
+      };
+      return builder;
+    },
+  };
+
+  return { client: client as unknown as CorrectionSupabase, updates };
 }
 
 describe("DEV-1525 material axis", () => {
@@ -260,5 +338,48 @@ describe("DEV-1525 material axis", () => {
     expect(isCorrectionField("material")).toBe(true);
     expect(isMaterialDelta({ add: ["ceramic"], remove: [] })).toBe(true);
     expect(isMaterialDelta({ add: "ceramic", remove: [] })).toBe(false);
+  });
+
+  it("stale_material_correction_can_still_be_rejected", async () => {
+    // The queue outlives the vocabulary. A row submitted before the slug
+    // conversion still holds 陶瓷, which `normalizeProposedValue` now refuses —
+    // and a reject that ran through that gate would refuse too, stranding the
+    // row as pending forever with no admin action able to clear it. Rejecting
+    // is a decision about the ROW, so it must not depend on the proposed value
+    // still being spellable.
+    const stale = createReviewClientDouble();
+    await expect(
+      reviewCorrection(
+        STALE_CORRECTION_ID,
+        "rejected",
+        "pre-migration spelling",
+        { reviewerId: REVIEWER_ID },
+        stale.client,
+      ),
+    ).resolves.toEqual({ ok: true });
+    // Claimed as rejected, exactly once, with the reviewer's own notes.
+    expect(stale.updates).toEqual([
+      {
+        status: "rejected",
+        reviewed_at: expect.any(String),
+        reviewed_by: REVIEWER_ID,
+        reviewer_notes: "pre-migration spelling",
+      },
+    ]);
+
+    // Approval keeps refusing, and that is the correct half: writing 陶瓷 back
+    // is exactly what `brands_material_check` bounces. The row is claimed by
+    // neither decision path before the refusal, so nothing is left half-done.
+    const approval = createReviewClientDouble();
+    await expect(
+      reviewCorrection(
+        STALE_CORRECTION_ID,
+        "approved",
+        "",
+        { reviewerId: REVIEWER_ID },
+        approval.client,
+      ),
+    ).resolves.toEqual({ ok: false, code: "invalid_value" });
+    expect(approval.updates).toEqual([]);
   });
 });

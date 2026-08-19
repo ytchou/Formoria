@@ -199,11 +199,13 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
     })
   }
   for (const material of materials) {
-    // `materials` carries slugs. An unresolvable one cannot reach here — the
-    // parser drops it — but the chip falls back to the raw value rather than
-    // rendering an empty label if one ever does.
+    // `materials` carries slugs `parseDirectoryViewFilters` already gated
+    // against `VALID_MATERIALS`, so the guard below is unreachable. It is the
+    // same `continue` the category loop above uses rather than a second shape
+    // for the same situation.
     const entry = materialBySlug(material)
-    const value = entry ? (safeLocale === 'zh-TW' ? entry.nameZh : entry.nameEn) : material
+    if (!entry) continue
+    const value = safeLocale === 'zh-TW' ? entry.nameZh : entry.nameEn
     const remainingMaterials = materials.filter((item) => item !== material)
     activeFilters.push({
       id: `material-${material}`,

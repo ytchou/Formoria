@@ -196,8 +196,8 @@ export function BrandFilterSidebar({
   );
   const activeSubcategories = new Set(activeSubSlugs);
   // The server-validated list, and only that: `parseDirectoryViewFilters`
-  // drops any term outside the closed 12-term vocabulary, so reading
-  // `?material=` back here resurrected exactly the terms it rejected. On
+  // drops any value outside the closed 12-slug vocabulary, so reading
+  // `?material=` back here resurrected exactly the slugs it rejected. On
   // `/brands?material=xyz` that made ticking a box re-emit `xyz`, and unticking
   // rewrite the key instead of deleting it — the facet could not be cleared at
   // all, and the page stayed noindex with a self-canonical to the junk URL.

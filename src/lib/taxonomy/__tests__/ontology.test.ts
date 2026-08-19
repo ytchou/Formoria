@@ -428,14 +428,20 @@ describe('DEV-1510 closed vocabulary', () => {
   })
 
   it('material_slugs_do_not_collide_with_l2', () => {
-    // The material axis is a separate vocabulary from the use axis. A material
-    // slug that is also an L2 slug — or an L2 zh-TW name — would make
-    // `?material=` and `?sub=` collide.
+    // The material axis is a separate vocabulary from the use axis, and it is
+    // the IDENTIFIERS that have to stay disjoint: a material slug that is also
+    // an L2 slug, or a material zh-TW label spelled like an L2 slug, would make
+    // a `?material=` value and a `?sub=` value ambiguous.
+    //
+    // Labels may overlap, and one deliberately does: 陶瓷 is `MATERIALS[0].nameZh`
+    // and also an alias of the L2 `ceramics` (whose own name is 陶瓷・陶藝, not
+    // bare 陶瓷). That is benign. The two axes are separate URL params, and
+    // `material` resolves by slug only — `?material=陶瓷` is dropped, never read
+    // as the L2 the alias belongs to.
     const l2Slugs = new Set(L2_SUBCATEGORIES.map(sub => sub.slug))
-    const l2Names = new Set(L2_SUBCATEGORIES.map(sub => sub.nameZh))
     for (const material of MATERIALS) {
       expect(l2Slugs.has(material.slug), `${material.slug} is also an L2 slug`).toBe(false)
-      expect(l2Names.has(material.slug), `${material.slug} is also an L2 name`).toBe(false)
+      expect(l2Slugs.has(material.nameZh), `${material.nameZh} is also an L2 slug`).toBe(false)
     }
   })
 
