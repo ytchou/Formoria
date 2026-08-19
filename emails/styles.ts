@@ -5,11 +5,11 @@ import { getSiteUrl } from '../src/lib/site-url'
  * a face, a size or a radius — a test renders every template and fails on any
  * hex this file does not export.
  *
- * D17 — SANS ONLY, AND NO WEBFONT, EVER. Mail clients strip `@font-face`, so a
- * CJK webfont cannot ship here and 明體 is never named. Email aligns with design
- * system v2 through COLOUR, SPACING and LAYOUT instead: the warm paper ground,
- * the ink ramp, hairline rules in place of boxes and shadows, and the same
- * 24 / 32 / 48 rhythm.
+ * D17 — SANS ONLY, AND NO WEBFONT, EVER. Mail clients strip embedded font
+ * declarations, so a CJK webfont cannot ship here and no Ming face is ever
+ * named. Email aligns with design system v2 through COLOUR, SPACING and
+ * LAYOUT instead: the warm paper ground, the ink ramp, hairline rules in place
+ * of boxes and shadows, and the same 24 / 32 / 48 rhythm.
  *
  * Names are the v2 ROLES from `src/app/globals.css`, not descriptions of their
  * own values. The v1 names described values and went stale the moment a value
@@ -80,10 +80,11 @@ export const FONT_SIZE_MICRO = '12px'
 export const LINE_HEIGHT_MICRO = '18px'
 
 /**
- * Every family here ships WITH an operating system. Nothing is fetched, and no
- * `@font-face` is emitted anywhere in `emails/`. `Noto Sans CJK TC` is the
- * name Linux and Android install locally — it is not the `Noto Sans TC`
- * webfont the site loads through `next/font`.
+ * Every family here ships WITH an operating system. Nothing is fetched, and
+ * `emails/` emits no embedded font declaration anywhere — mail clients strip
+ * them, so the rule is enforced by a source scan and not left to taste.
+ * `Noto Sans CJK TC` is the name Linux and Android install locally — it is not
+ * the `Noto Sans TC` webfont the site loads through `next/font`.
  */
 export const FONT_STACK =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang TC', 'Heiti TC', 'Microsoft JhengHei', 'Noto Sans CJK TC', sans-serif"

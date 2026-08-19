@@ -202,7 +202,12 @@
   /* Colour */
   --ground: #FAF7F2; /* page background */
   --surface: #F1EAE0; /* bands, cards, inset blocks */
-  --surface-deep: #E8DFD2; /* third step; image placeholder */
+  /* Third step; image placeholder. NO TEXT SITS ON THIS. It is a hole in the
+     page waiting for a photograph, not a band — and `--ink-muted` measures
+     4.17:1 on it, under the 4.5:1 AA floor. Body or metadata belongs on
+     `--surface` (4.6:1) or `--ground` (5.1:1). Nothing checks this pair, so it
+     is written here rather than discovered later. */
+  --surface-deep: #E8DFD2;
   --ink: #1A1815; /* primary text — 18.9:1 on ground */
   --ink-soft: #4A443C; /* body prose — 10.2:1 on ground */
   --ink-muted: #6F685F; /* metadata — 5.1:1 ground / 4.6:1 surface */

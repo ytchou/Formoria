@@ -8,9 +8,11 @@ import type { SiteTokens } from '@/lib/types/brand'
  * deliberately outside design system v2 — a microsite that repainted a brand's
  * colour in Formoria's indigo would be Formoria wearing the brand's name.
  *
- * Do not import `@/lib/brand/colors` here, and do not "finish the job" by
- * defaulting `accent` to the system accent token. `registry.test.ts` asserts
- * both, by name and by value.
+ * Do not import the system palette module here, and do not "finish the job"
+ * by defaulting `accent` to the system accent token. `registry.test.ts`
+ * asserts both — by scanning this file for the palette import specifier and
+ * for the accent literal, which is why neither may be written out even inside
+ * a comment.
  */
 export function siteTokensToCssVars(tokens: SiteTokens): Record<string, string> {
   return {

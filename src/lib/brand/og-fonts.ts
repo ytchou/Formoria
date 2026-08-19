@@ -62,7 +62,7 @@ export function getOgFonts(): Promise<OgFonts> {
 }
 
 /**
- * D17 — sans only. Satori has to be handed font FILES, so a 明體 face here is
+ * D17 — sans only. Satori has to be handed font FILES, so a Ming face here is
  * not a stylesheet line but a third megabyte on disk and in memory. The OG
  * routes align with v2 through colour, spacing and layout instead.
  */

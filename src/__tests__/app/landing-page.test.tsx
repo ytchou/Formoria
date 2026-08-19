@@ -454,8 +454,18 @@ describe("landing page trust zones", () => {
     const { container } = await renderZones();
 
     expect(container.querySelectorAll('[data-landing-zone="directory"]')).toHaveLength(1);
+    // `level: 2`, and the query stays page-wide so a rail smuggled into any
+    // zone is still caught. The level is what makes that possible: the trust
+    // band's first column is titled with the SAME words — "Listed brands" is
+    // the trust label itself, so the glossary entry that defines it and the
+    // rail that heads a list of them read identically — but it is an `h3`
+    // under the band's own `h2`, and it is not a rail. Matching on text alone
+    // counted the definition as a second rail.
     expect(
-      screen.getAllByRole("heading", { name: en.landing.showcase.heading }),
+      screen.getAllByRole("heading", {
+        name: en.landing.showcase.heading,
+        level: 2,
+      }),
     ).toHaveLength(1);
 
     // The new-brands rail is gone with its copy: its two keys were deleted in

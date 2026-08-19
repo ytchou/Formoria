@@ -24,6 +24,6 @@ export const brand = {
   inkMuted: "#6F685F",
   /** `--rule` — hairlines. Elevation is the rule; nothing floats. */
   rule: "#DED5C8",
-  /** `--accent` — 藍染 indigo. The stripe and the one label that marks origin. */
+  /** `--accent` — indigo-dye. The stripe and the one label that marks origin. */
   accent: "#2F4F63",
 } as const;

@@ -18,9 +18,14 @@ vi.mock("@/lib/analytics", () => ({ trackCtaClicked: vi.fn() }));
 // The reader's actual URL, filters and all. `clearDirectoryFilters` is the REAL
 // helper the sidebar's clear-all uses — mocking it would leave this spec unable
 // to notice the two exits drifting apart.
+// `redirect`/`permanentRedirect` are never called here. They exist because the
+// import chain reaches next-intl's navigation factory, which reads both off
+// this module at import time — omitting them fails the whole file at load.
 vi.mock("next/navigation", () => ({
   usePathname: () => "/categories/home",
   useSearchParams: () => new URLSearchParams("price=1&search=kettle&page=3"),
+  redirect: vi.fn(),
+  permanentRedirect: vi.fn(),
 }));
 
 const FILTER: ActiveDirectoryFilter = {

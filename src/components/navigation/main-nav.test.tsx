@@ -102,8 +102,14 @@ describe("MainNav", () => {
 
     expect(L1_CATEGORIES).toHaveLength(13);
     for (const category of L1_CATEGORIES) {
+      // `/en/…`, with the prefix written out. The tabs are raw anchors, not
+      // `@/i18n/navigation`'s `Link`, because they must resolve with JS off, so
+      // they carry the locale themselves via `localizePath` — the router path
+      // handed to `router.push` stays prefix-free. ONE `/en`, never two: a
+      // second prefix here would be the double-prefix bug `@/lib/routes`
+      // exists to prevent, so the literal is spelled out rather than derived.
       const links = container.querySelectorAll(
-        `a[href="/categories/${category.slug}"]`,
+        `a[href="/en/categories/${category.slug}"]`,
       );
       expect(links, `nav link for ${category.slug}`).toHaveLength(1);
       expect(links[0]).toHaveTextContent(category.name);
@@ -114,8 +120,15 @@ describe("MainNav", () => {
     pathname = "/brands";
     const { container } = renderNav();
 
+    // Both shapes count. A clean category tab resolves to its taxonomy page,
+    // but `buildCategoryTabTarget` keeps the state on the filtered directory
+    // whenever a facet, a multi-select or a cross-L1 subcategory is live —
+    // this spec is about the row surviving the route, not about which of the
+    // two destinations a given tab picks.
     expect(
-      container.querySelectorAll('a[href^="/categories/"], a[href^="/brands?"]'),
+      container.querySelectorAll(
+        'a[href^="/en/categories/"], a[href^="/en/brands"]',
+      ),
     ).not.toHaveLength(0);
     expect(
       screen.getByRole("link", { name: en.nav.allBrands }),

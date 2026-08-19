@@ -47,7 +47,13 @@ export const gridStyles = cva("grid", {
     gap: {
       gutter: "gap-gutter",
       tight: "gap-[calc(var(--space-gutter)/2)]",
-      none: "gap-0",
+      /**
+       * NO CLASS, not `gap-0`. A grid's initial `gap` is already zero, so the
+       * utility bought nothing — and it was a raw numeric step in the one
+       * variant set whose whole point is that a gutter is never a raw number.
+       * Emitting nothing keeps that rule true for every value of `gap`.
+       */
+      none: "",
     },
   },
   defaultVariants: {
