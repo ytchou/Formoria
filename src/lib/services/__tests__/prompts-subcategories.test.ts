@@ -1,34 +1,95 @@
 import { describe, it, expect } from "vitest";
-import { DETECT_SYSTEM_PROMPT, FACTS_SYSTEM_PROMPT } from "@/lib/prompts";
+import {
+  DETECT_SYSTEM_PROMPT,
+  FACTS_SYSTEM_PROMPT,
+  SUBCATEGORY_VOCAB_BLOCK,
+} from "@/lib/prompts";
+import { L2_SUBCATEGORIES, MATERIALS } from "@/lib/taxonomy/ontology";
 
 describe("FACTS_SYSTEM_PROMPT subcategories vocabulary", () => {
-  it("embeds the subcategory tree grouped by L1 category", () => {
-    expect(FACTS_SYSTEM_PROMPT).toContain("包袋配件");
-    expect(FACTS_SYSTEM_PROMPT).toContain("口金包");
-    expect(FACTS_SYSTEM_PROMPT).toContain("托特包");
-    expect(FACTS_SYSTEM_PROMPT).toContain("手工皂");
+  it("vocab_block_emits_slugs_with_zh_gloss", () => {
+    // `brands.subcategories` stores slugs since DEV-1510, so the model has to
+    // emit the slug itself. The gloss keeps the slug recognisable to a model
+    // reading zh-TW source material — the shape `CATEGORY_LIST` already uses
+    // for L1 and which demonstrably works.
+    expect(SUBCATEGORY_VOCAB_BLOCK).toContain("- bags-accessories（包袋配件）：");
+    expect(SUBCATEGORY_VOCAB_BLOCK).toContain("tote-bags（托特包）");
+    expect(SUBCATEGORY_VOCAB_BLOCK).toContain("clasp-frame-bags（口金包）");
+    expect(SUBCATEGORY_VOCAB_BLOCK).toContain("handmade-soap（手工皂）");
+
+    // Every live node is offered, and every one of them carries its slug.
+    for (const subcategory of L2_SUBCATEGORIES) {
+      expect(SUBCATEGORY_VOCAB_BLOCK).toContain(
+        `${subcategory.slug}（${subcategory.nameZh}）`,
+      );
+    }
+    expect(FACTS_SYSTEM_PROMPT).toContain(SUBCATEGORY_VOCAB_BLOCK);
+
+    // The output contract asks for the slug, not the zh-TW label it replaced.
+    expect(FACTS_SYSTEM_PROMPT).toContain(
+      '"subcategories": ["子類別 slug（只能用下方「商品子類別詞彙表」中的 slug，一字不差）"]',
+    );
   });
+
+  it("material_is_requested_not_banned", () => {
+    // Rules 4 and 6 used to ban 材質 outright, which left the material axis
+    // with no way to be reported at all. The ban is now scoped to the USE axis
+    // and material is asked for on its own axis, against a closed 12-term list.
+    expect(FACTS_SYSTEM_PROMPT).toContain(
+      "6. 材質屬於另一個軸線：不要用材質詞當子類別，材質請改填 material 欄位。",
+    );
+    expect(FACTS_SYSTEM_PROMPT).toContain("material（材質）：");
+    expect(FACTS_SYSTEM_PROMPT).toContain(
+      '"material": ["材質（只能用下方「材質詞彙表」中的詞）"]',
+    );
+    for (const material of MATERIALS) {
+      expect(FACTS_SYSTEM_PROMPT).toContain(material);
+    }
+    // Rule 4 no longer lists 材質 or 原料 among the disqualifying kinds.
+    expect(FACTS_SYSTEM_PROMPT).not.toContain(
+      "不得是場合、收件對象、包裝形式、履約方式、服務或材質",
+    );
+    // Nor does the self-check.
+    expect(FACTS_SYSTEM_PROMPT).not.toContain(
+      "而不是 L1、場合、包裝、服務、材質或 SKU 層級詞",
+    );
+    expect(FACTS_SYSTEM_PROMPT).toContain(
+      "material 是否只使用材質詞彙表中的詞，且每一項都有來源依據？",
+    );
+    // Material is evidence-bound; it is never inferred from a photo.
+    expect(FACTS_SYSTEM_PROMPT).toContain("不可從照片外觀推測");
+  });
+
+  it("occasion_and_service_remain_banned", () => {
+    // Inverting the material half must not loosen the others: occasion,
+    // recipient, packaging and service are not product kinds and have no node
+    // at any level (`EVICTED_LABELS`).
+    expect(FACTS_SYSTEM_PROMPT).toContain(
+      "4. 場合、收件對象、包裝形式、履約方式與服務都不是商品種類（例如送禮、彌月、禮盒、伴手禮、體驗課程、服務），不得為了收錄它們而勉強對應到任何 slug。",
+    );
+    for (const banned of ["送禮", "彌月", "禮盒", "伴手禮", "體驗課程", "服務"]) {
+      expect(FACTS_SYSTEM_PROMPT).toContain(banned);
+    }
+    expect(FACTS_SYSTEM_PROMPT).toContain(
+      "是否沒有把 L1、場合、包裝、服務或 SKU 層級詞當成子類別？",
+    );
+  });
+
+  it("closes the vocabulary — no novel-subcategory escape hatch remains", () => {
+    expect(FACTS_SYSTEM_PROMPT).toContain(
+      "1. 只能輸出上表出現過的 slug，一字不差；找不到合適的 slug 時寧可少填，不可自創標籤。",
+    );
+    expect(FACTS_SYSTEM_PROMPT).not.toContain("僅當找不到合適詞彙時");
+    expect(FACTS_SYSTEM_PROMPT).not.toContain("novel subcategory");
+  });
+
   it("instructs two-step extraction and vocabulary preference", () => {
     expect(FACTS_SYSTEM_PROMPT).toMatch(/先.*產品線|先列出/);
     expect(FACTS_SYSTEM_PROMPT).toMatch(/優先.*詞彙表|從.*詞彙表.*選/);
   });
+
   it("no longer forbids broad categories (old instruction removed)", () => {
     expect(FACTS_SYSTEM_PROMPT).not.toContain("不要用寬泛分類");
-  });
-
-  it("the subcategories rule forbids the middle dot in novel subcategories", () => {
-    expect(FACTS_SYSTEM_PROMPT).toContain("不含「・」");
-  });
-
-  it("the subcategories rule forbids occasion, service and material tags", () => {
-    expect(FACTS_SYSTEM_PROMPT).toContain(
-      "4. 不得是場合、收件對象、包裝形式、履約方式、服務或材質（例如送禮、彌月、禮盒、伴手禮、體驗課程、服務、原料）。",
-    );
-  });
-
-  it("the output self-check list covers subcategory kind and the separator", () => {
-    expect(FACTS_SYSTEM_PROMPT).toContain("是否命名具體產品種類");
-    expect(FACTS_SYSTEM_PROMPT).toContain("是否不含「・」");
   });
 });
 

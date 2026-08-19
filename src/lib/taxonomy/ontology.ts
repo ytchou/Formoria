@@ -441,29 +441,14 @@ export const OUT_OF_FRAME_LABELS = [
   '淨潭淨山活動',
 ] as const
 
-/**
- * Labels retired by the DEV-1361 split. They remain explicit deny-list values
- * rather than aliases: an old middle-dot or compact spelling must not come
- * back as a novel subcategory after the atomic replacements are installed.
+/*
+ * `RETIRED_COMPOSITE_LABELS` and `isRetiredCompositeLabel` were deleted by
+ * DEV-1510. They were a deny-list guarding one entrance — the novel-subcategory
+ * escape hatch — and that entrance no longer exists. With the vocabulary closed,
+ * an old middle-dot spelling resolves through the atomic halves that replaced it
+ * or is rejected and logged; it can no longer be stored verbatim, which is the
+ * only thing the deny-list ever prevented.
  */
-export const RETIRED_COMPOSITE_LABELS = [
-  '香氛・蠟燭',
-  '鑰匙圈・吊飾',
-  '收納包・化妝包',
-  '茶包・茶飲',
-  '玩具・教具',
-  '花藝・植栽',
-  '毛巾・生活織品',
-  '手機袋・手機背帶',
-] as const
-
-const RETIRED_COMPOSITE_KEYS = new Set(
-  RETIRED_COMPOSITE_LABELS.map((label) => normalizeSubcategoryKey(label)),
-)
-
-export function isRetiredCompositeLabel(input: string): boolean {
-  return RETIRED_COMPOSITE_KEYS.has(normalizeSubcategoryKey(input))
-}
 
 /**
  * A composite subcategory bundles two concepts behind one label, joined by the

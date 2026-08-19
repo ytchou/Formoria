@@ -13,7 +13,6 @@ import {
   subcategoryLabel,
   deriveCategoryLabel,
   categoryTint,
-  RETIRED_COMPOSITE_LABELS,
 } from '../ontology'
 import corpusLabels from './fixtures/corpus-labels.json'
 
@@ -201,7 +200,20 @@ describe('matchSubcategory', () => {
   })
 
   it('does not resolve retired composite spellings while retaining the synonym pair', () => {
-    for (const label of RETIRED_COMPOSITE_LABELS) {
+    // Inlined by DEV-1510: the deny-list export is gone with the novel-subcategory
+    // escape hatch it guarded, but the invariant is not — none of these DEV-1361
+    // spellings may return as an alias of the atomic nodes that replaced them.
+    const retiredCompositeLabels = [
+      '香氛・蠟燭',
+      '鑰匙圈・吊飾',
+      '收納包・化妝包',
+      '茶包・茶飲',
+      '玩具・教具',
+      '花藝・植栽',
+      '毛巾・生活織品',
+      '手機袋・手機背帶',
+    ]
+    for (const label of retiredCompositeLabels) {
       expect(matchSubcategory(label), `${label} should be retired`).toBeNull()
       expect(matchSubcategory(label.replace('・', '')), `${label} compact spelling should be retired`).toBeNull()
     }

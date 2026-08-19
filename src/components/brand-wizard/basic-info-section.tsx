@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { DashboardFormField } from "./dashboard-form-field";
 import {
@@ -42,6 +42,7 @@ export function BrandBasicInfoSection({
   currentSlug?: string;
 }) {
   const form = useFormContext<BrandWizardCommonValues>();
+  const locale = useLocale();
   const t = useTranslations("dashboard.edit");
   const tSubmit = useTranslations("submit");
   const tCities = useTranslations("cities");
@@ -51,6 +52,12 @@ export function BrandBasicInfoSection({
   const romanizedName = useWatch({
     control: form.control,
     name: "romanizedName",
+  });
+  // Only orders the picker's offer set — every L1 is still offered, because a
+  // brand's products span L1s even though the brand carries one.
+  const watchedCategorySlug = useWatch({
+    control: form.control,
+    name: "categorySlug",
   });
   const isExistingBrand = Boolean(currentSlug);
   const previewSlug = slugifyRomanizedName(romanizedName) || currentSlug || "";
@@ -313,12 +320,35 @@ export function BrandBasicInfoSection({
                   value={field.value ?? []}
                   onChange={field.onChange}
                   suggestions={subcategorySuggestions}
-                  inputLabel={tx("fieldSubcategories", "Product subcategories")}
-                  placeholder={tx(
-                    "fieldSubcategoriesPlaceholder",
-                    "Add product subcategory",
-                  )}
-                  removeLabel={tx("removeSubcategory", "Remove subcategory")}
+                  categorySlug={watchedCategorySlug ?? null}
+                  locale={locale}
+                  labels={{
+                    search: tx("fieldSubcategories", "Product subcategories"),
+                    searchHint: tx(
+                      "subcategoriesSearchHint",
+                      "Type to filter, then pick a subcategory below.",
+                    ),
+                    selected: tx(
+                      "subcategoriesSelectedHeading",
+                      "Selected (tap to remove)",
+                    ),
+                    options: tx(
+                      "subcategoriesOptionsHeading",
+                      "Subcategories you can add",
+                    ),
+                    limit: tx(
+                      "subcategoriesMax",
+                      "Up to 5 subcategories.",
+                    ),
+                    rejected: tx(
+                      "subcategoriesRejected",
+                      "That term is not in the subcategory list. Pick the closest one below.",
+                    ),
+                    empty: tx(
+                      "subcategoriesEmpty",
+                      "No subcategory matches that search. Try another word.",
+                    ),
+                  }}
                 />
               )}
             />

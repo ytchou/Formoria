@@ -104,7 +104,7 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
     label: safeLocale === 'zh-TW' ? subcategory.nameZh : subcategory.nameEn,
     count: subcategory.count,
   }))
-  // 紙 / 石 / 藤 / 漆 are in the closed vocabulary with no brands behind them.
+  // Four material terms are in the closed vocabulary with no brands behind them.
   // A rail entry that can only ever return an empty page is worse than no entry,
   // so the zero terms are dropped here exactly as the L2 rail drops its own.
   const materialOptions = MATERIALS.map((material) => ({

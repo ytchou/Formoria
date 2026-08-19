@@ -520,15 +520,14 @@
       "currentSubcategoriesHeading": "目前子類別（點擊移除）",
       "changeToHeading": "改成",
       "addSubcategoriesHeading": "可加入的子類別",
-      "subcategoriesSubtitle": "{category} 的產品子類別（最多 5 項）",
+      "subcategoriesSubtitle": "產品子類別（最多 5 項，可跨分類）",
       "subcategoriesSelected": "已選 {count} / 5",
       "subcategoriesLimit": "最多選 5 項產品子類別。",
-      "otherSubcategoryChip": "其他",
-      "otherSubcategoryInputLabel": "其他子類別名稱",
-      "otherSubcategoryHint": "請輸入 2–8 個字，送出後由官方審核才會更新品牌資料。",
-      "otherSubcategoryConfirm": "加入",
-      "otherSubcategoryDuplicate": "這個子類別已列在上方，若要移除請點擊上方的標籤。",
       "success": "修正已送出，感謝你的協助。",
+      "subcategorySearchLabel": "搜尋子類別",
+      "subcategorySearchHint": "輸入關鍵字篩選，再點選下方標籤加入。",
+      "subcategoryRejected": "這個詞不在子類別清單中。請改用下方清單裡最接近的子類別。",
+      "subcategoryEmpty": "沒有符合的子類別，請換個關鍵字。",
       "errors": {
         "invalid_brand": "找不到這個品牌，請重新整理後再試。",
         "invalid_value": "這個修正內容無效，請重新選擇。",
@@ -536,9 +535,7 @@
         "unchanged": "這項資料目前沒有變更。",
         "already_submitted": "這項修正已經送出，請等待審核。",
         "rate_limited": "修正送出次數過多，請稍後再試。",
-        "unavailable": "目前無法送出修正，請稍後再試。",
-        "subcategoryLength": "請輸入 2–8 個字的子類別名稱。",
-        "subcategoryBlocked": "這個詞無法作為產品子類別，請改用能描述產品本身的名稱。"
+        "unavailable": "目前無法送出修正，請稍後再試。"
       }
     },
     "adminMenu": {
@@ -1782,8 +1779,6 @@
       "fieldCategoryHint": "用於導航、搜尋和篩選",
       "fieldDescription": "品牌介紹",
       "fieldSubcategories": "產品子類別",
-      "fieldSubcategoriesPlaceholder": "新增產品子類別",
-      "removeSubcategory": "移除子類別",
       "subcategoriesMax": "最多 5 個子類別。請描述產品，而非宣傳用語。",
       "fieldFoundingYear": "創立年份",
       "fieldPriceRange": "價格範圍",
@@ -1866,7 +1861,12 @@
         "excessiveEmoji": "這個欄位的 emoji 太多，請控制在十個以內。",
         "shortDescription": "這段介紹太短，請補充至少十個中文字的完整介紹。",
         "identicalDescription": "這段介紹只重複品牌名稱，請改為說明品牌製作或販售的內容。"
-      }
+      },
+      "subcategoriesSearchHint": "輸入關鍵字篩選，再點選下方標籤加入。",
+      "subcategoriesSelectedHeading": "已選子類別（點擊移除）",
+      "subcategoriesOptionsHeading": "可加入的子類別",
+      "subcategoriesRejected": "這個詞不在子類別清單中。請改用下方清單裡最接近的子類別。",
+      "subcategoriesEmpty": "沒有符合的子類別，請換個關鍵字。"
     },
     "brandProfile": {
       "productPhotos": "產品照片",

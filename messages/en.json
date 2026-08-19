@@ -520,15 +520,14 @@
       "currentSubcategoriesHeading": "Current (tap to remove)",
       "changeToHeading": "Change to",
       "addSubcategoriesHeading": "Categories you can add",
-      "subcategoriesSubtitle": "{category} product subcategories (up to 5)",
+      "subcategoriesSubtitle": "Product subcategories (up to 5, any category)",
       "subcategoriesSelected": "Selected {count} / 5",
       "subcategoriesLimit": "Select up to 5 product subcategories.",
-      "otherSubcategoryChip": "Other",
-      "otherSubcategoryInputLabel": "Other subcategory name",
-      "otherSubcategoryHint": "Use 2–8 characters. Every suggestion is reviewed before it updates the listing.",
-      "otherSubcategoryConfirm": "Add",
-      "otherSubcategoryDuplicate": "This subcategory is already listed above — remove it there instead.",
       "success": "Correction submitted. Thank you for helping keep this listing accurate.",
+      "subcategorySearchLabel": "Search subcategories",
+      "subcategorySearchHint": "Type to filter, then pick a chip below to add it.",
+      "subcategoryRejected": "That term is not in the subcategory list. Pick the closest subcategory from the list below.",
+      "subcategoryEmpty": "No subcategory matches that search. Try another word.",
       "errors": {
         "invalid_brand": "This brand could not be found. Please refresh and try again.",
         "invalid_value": "That correction is not valid. Please choose another value.",
@@ -536,9 +535,7 @@
         "unchanged": "This correction does not change the current information.",
         "already_submitted": "This correction has already been submitted. Please wait for review.",
         "rate_limited": "Too many correction submissions. Please try again later.",
-        "unavailable": "We could not submit the correction. Please try again later.",
-        "subcategoryLength": "Use 2–8 characters for the subcategory name.",
-        "subcategoryBlocked": "That word can't be used as a subcategory — try a name that describes the product itself."
+        "unavailable": "We could not submit the correction. Please try again later."
       }
     },
     "adminMenu": {
@@ -1782,8 +1779,6 @@
       "fieldCategoryHint": "Used for navigation, search, and filtering",
       "fieldDescription": "Description",
       "fieldSubcategories": "Product subcategories",
-      "fieldSubcategoriesPlaceholder": "Add product subcategory",
-      "removeSubcategory": "Remove subcategory",
       "subcategoriesMax": "Up to 5 subcategories. Describe products, not promotional claims.",
       "fieldFoundingYear": "Founding Year",
       "fieldPriceRange": "Price Range",
@@ -1866,7 +1861,12 @@
         "excessiveEmoji": "This field contains too many emoji. Keep it to ten emoji or fewer.",
         "shortDescription": "This description is too short. Add a fuller description with at least ten Chinese characters.",
         "identicalDescription": "This description repeats the brand name. Explain what the brand makes instead."
-      }
+      },
+      "subcategoriesSearchHint": "Type to filter, then pick a subcategory below.",
+      "subcategoriesSelectedHeading": "Selected (tap to remove)",
+      "subcategoriesOptionsHeading": "Subcategories you can add",
+      "subcategoriesRejected": "That term is not in the subcategory list. Pick the closest one from the list below.",
+      "subcategoriesEmpty": "No subcategory matches that search. Try another word."
     },
     "brandProfile": {
       "productPhotos": "Product Photos",
@@ -2717,7 +2717,6 @@
         "catalog": "Catalog classification",
         "priceRange": "Price range",
         "subcategories": "Product subcategories",
-        "subcategoriesPlaceholder": "Separate up to five subcategories with commas",
         "city": "City",
         "foundingYear": "Founding year",
         "links": "Links",
@@ -2751,7 +2750,13 @@
           "coordinates": "Coordinates: {latitude}, {longitude}",
           "evidence": "Evidence and source links",
           "remove": "Remove location {number}"
-        }
+        },
+        "subcategoriesSearchHint": "Type to filter, then pick a subcategory below.",
+        "subcategoriesSelectedHeading": "Selected (click to remove)",
+        "subcategoriesOptionsHeading": "Subcategories you can add",
+        "subcategoriesLimit": "Up to 5 product subcategories.",
+        "subcategoriesRejected": "That term is not in the subcategory list. Pick the closest one from the list below.",
+        "subcategoriesEmpty": "No subcategory matches that search. Try another word."
       },
       "links": {
         "official": "Official website"

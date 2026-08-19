@@ -25,7 +25,7 @@ export function updateDirectoryUrl(
 
   // `sub` is scoped to a single L1, so any change to `category` invalidates it.
   // `material` is deliberately NOT dropped here: it is an orthogonal axis —
-  // 陶瓷 means the same thing under every category — so clearing it would
+  // a material means the same thing under every category — so clearing it would
   // discard a filter the user never touched.
   //
   // The exception is a patch that sets `sub` itself: the subcategory chips move

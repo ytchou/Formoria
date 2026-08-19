@@ -48,7 +48,6 @@ export type DescriptionRewriteResult = {
     attempt: number;
   }>;
   rejected?: { tag: string; reason: string }[];
-  crossBranch?: string[];
   rawResponse?: unknown;
 };
 

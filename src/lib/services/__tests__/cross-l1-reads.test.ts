@@ -130,7 +130,10 @@ describe('cross-L1 reads', () => {
 
     // And it is still the function curated-products calls, with a category.
     const source = readFileSync('src/lib/services/curated-products.ts', 'utf8')
-    expect(source).toContain('resolveSubcategorySlugs(category, raw)')
+    // The conjunct, not the argument name: DEV-1510 Task 15 rewrote the
+    // normalizer around slug-native `normalizeSubcategories`, and pinning a
+    // local variable name would fail on a refactor that keeps the contract.
+    expect(source).toMatch(/resolveSubcategorySlugs\(\s*category,/)
     expect(source).not.toContain('resolveDirectorySubcategorySlugs')
   })
 

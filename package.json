@@ -66,7 +66,6 @@
     "image-eval:baseline": "tsx --env-file=.env.local scripts/image-eval/baseline.ts",
     "image-eval:score": "tsx --env-file=.env.local scripts/image-eval/score.ts",
     "image-recovery:audit": "tsx --env-file=.env.local scripts/image-recovery-audit.ts",
-    "normalize-subcategories-en": "tsx --env-file=.env.local scripts/normalize-subcategories-en.ts",
     "seo:counts": "tsx --env-file=.env.local scripts/seo/brand-counts.ts",
     "seo:gsc-export": "tsx --env-file=.env.local scripts/seo/search-console-export.ts",
     "seo:gsc-404": "tsx --env-file=.env.local scripts/seo/gsc-404-triage.ts",

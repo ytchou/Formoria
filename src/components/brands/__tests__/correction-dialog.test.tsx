@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   L2_SUBCATEGORIES,
   L1_CATEGORIES,
-  subcategoryLabel,
+  subcategoryDisplayLabel,
 } from "@/lib/taxonomy/ontology";
 
 const mocks = vi.hoisted(() => ({
@@ -58,10 +58,8 @@ const CHANGE_TO_HEADING = COPY.changeToHeading;
 const CURRENT_SUBCATEGORIES_HEADING = COPY.currentSubcategoriesHeading;
 const ADD_SUBCATEGORIES_HEADING = COPY.addSubcategoriesHeading;
 const PLACEHOLDER_COPY = COPY.selectPlaceholder;
-const OTHER_CHIP = COPY.otherSubcategoryChip;
-const OTHER_INPUT_LABEL = COPY.otherSubcategoryInputLabel;
-const OTHER_CONFIRM = COPY.otherSubcategoryConfirm;
-const OTHER_CANCEL = EDIT_COPY.cancel;
+const SUBCATEGORY_SEARCH_LABEL = COPY.subcategorySearchLabel;
+const SUBCATEGORY_REJECTED = COPY.subcategoryRejected;
 
 const PRICE_CHIP = {
   1: `$ · ${EDIT_COPY.fieldPriceRangeBudget}`,
@@ -135,24 +133,24 @@ const HOME_SUBCATEGORIES = L2_SUBCATEGORIES.filter(
   (subcategory) => subcategory.category === "home",
 );
 
+/** Stored values are slugs since DEV-1510; the chips render their labels. */
 function homeSubcategoriesAt(count: number) {
   return HOME_SUBCATEGORIES.slice(0, count).map(
-    (subcategory) => subcategory.nameZh,
+    (subcategory) => subcategory.slug,
   );
 }
 
-function expandOther() {
-  clickChip(ADD_SUBCATEGORIES_HEADING, OTHER_CHIP);
+function label(slug: string) {
+  return subcategoryDisplayLabel(slug, "zh-TW");
 }
 
-function typeOther(value: string) {
-  fireEvent.change(screen.getByLabelText(OTHER_INPUT_LABEL), {
-    target: { value },
-  });
+function searchField() {
+  return screen.getByLabelText(SUBCATEGORY_SEARCH_LABEL);
 }
 
-function confirmOther() {
-  clickChip(ADD_SUBCATEGORIES_HEADING, OTHER_CONFIRM);
+function typeAndCommit(value: string) {
+  fireEvent.change(searchField(), { target: { value } });
+  fireEvent.keyDown(searchField(), { key: "Enter" });
 }
 
 describe("CorrectionDialog", () => {
@@ -292,15 +290,17 @@ describe("CorrectionDialog", () => {
     });
 
     it("submit stays disabled while the subcategory set is unchanged", () => {
-      renderSubcategories(["寢具", "家具"]);
+      renderSubcategories(["bedding", "furniture"]);
       openSubcategoriesDialog();
 
       expect(submitButton()).toBeDisabled();
 
-      clickChip(ADD_SUBCATEGORIES_HEADING, "床墊");
+      clickChip(ADD_SUBCATEGORIES_HEADING, label("mattresses"));
       expect(submitButton()).toBeEnabled();
 
-      clickChip(ADD_SUBCATEGORIES_HEADING, "床墊");
+      // A picked node moves into the selected row, which is where it is
+      // deselected from — hunting for a pressed chip among 175 is worse.
+      clickChip(CURRENT_SUBCATEGORIES_HEADING, label("mattresses"));
       expect(submitButton()).toBeDisabled();
     });
   });
@@ -333,65 +333,65 @@ describe("CorrectionDialog", () => {
     });
 
     it("submits an add/remove delta, not a full set", async () => {
-      renderSubcategories(["寢具", "家具"]);
+      renderSubcategories(["bedding", "furniture"]);
       openSubcategoriesDialog();
 
-      clickChip(ADD_SUBCATEGORIES_HEADING, "床墊");
-      clickChip(CURRENT_SUBCATEGORIES_HEADING, "家具");
+      clickChip(ADD_SUBCATEGORIES_HEADING, label("mattresses"));
+      clickChip(CURRENT_SUBCATEGORIES_HEADING, label("furniture"));
       submit();
 
       await waitFor(() => {
         expect(mocks.submitCorrection).toHaveBeenCalledWith({
           brandId: BRAND_ID,
           field: "subcategories",
-          proposedValue: { add: ["床墊"], remove: ["家具"] },
+          proposedValue: { add: ["mattresses"], remove: ["furniture"] },
         });
       });
     });
 
-    it("uses canonical nameZh in both delta arrays", async () => {
-      renderSubcategories(["寢具"]);
+    it("uses stored slugs in both delta arrays, never the rendered label", async () => {
+      renderSubcategories(["bedding"]);
       openSubcategoriesDialog();
 
-      clickChip(CURRENT_SUBCATEGORIES_HEADING, "寢具");
-      clickChip(ADD_SUBCATEGORIES_HEADING, "床墊");
+      clickChip(CURRENT_SUBCATEGORIES_HEADING, label("bedding"));
+      clickChip(ADD_SUBCATEGORIES_HEADING, label("mattresses"));
       submit();
 
       await waitFor(() => {
         expect(mocks.submitCorrection).toHaveBeenCalledWith(
           expect.objectContaining({
-            proposedValue: { add: ["床墊"], remove: ["寢具"] },
+            proposedValue: { add: ["mattresses"], remove: ["bedding"] },
           }),
         );
       });
       expect(mocks.submitCorrection).not.toHaveBeenCalledWith(
         expect.objectContaining({
-          proposedValue: { add: ["mattresses"], remove: ["Bedding"] },
+          proposedValue: { add: ["床墊"], remove: ["寢具"] },
         }),
       );
     });
 
     it("omits untouched subcategories from the delta", async () => {
-      renderSubcategories(["寢具", "家具"]);
+      renderSubcategories(["bedding", "furniture"]);
       openSubcategoriesDialog();
 
-      clickChip(ADD_SUBCATEGORIES_HEADING, "床墊");
+      clickChip(ADD_SUBCATEGORIES_HEADING, label("mattresses"));
       submit();
 
       await waitFor(() => {
         expect(mocks.submitCorrection).toHaveBeenCalledWith({
           brandId: BRAND_ID,
           field: "subcategories",
-          proposedValue: { add: ["床墊"], remove: [] },
+          proposedValue: { add: ["mattresses"], remove: [] },
         });
       });
     });
 
     it("emits a remove-only delta", async () => {
-      renderSubcategories(["寢具", "上衣・T恤"]);
+      renderSubcategories(["bedding", "tops-and-tshirts"]);
       openSubcategoriesDialog();
 
-      clickChip(CURRENT_SUBCATEGORIES_HEADING, "上衣・T恤");
+      clickChip(CURRENT_SUBCATEGORIES_HEADING, label("tops-and-tshirts"));
       expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
 
       submit();
@@ -400,7 +400,7 @@ describe("CorrectionDialog", () => {
         expect(mocks.submitCorrection).toHaveBeenCalledWith({
           brandId: BRAND_ID,
           field: "subcategories",
-          proposedValue: { add: [], remove: ["上衣・T恤"] },
+          proposedValue: { add: [], remove: ["tops-and-tshirts"] },
         });
       });
     });
@@ -424,106 +424,116 @@ describe("CorrectionDialog", () => {
   });
 
   describe("subcategory rows", () => {
-    // A `home` brand can still carry `fashion` subcategories: normalizeSubcategories keeps
-    // cross-branch subcategories, and approving a category correction moves the
-    // category without re-deriving subcategories. Those subcategories consume the 5-subcategory
-    // cap, so they have to stay visible and removable.
+    // A `home` brand can carry `fashion` subcategories: one brand holds one L1
+    // while its products span several, and DEV-1510 stopped discarding those
+    // tags on the read side. They consume the 5-subcategory cap, so they have
+    // to stay visible and removable.
     it("renders every current subcategory in row 1, including out-of-category ones", () => {
-      renderSubcategories(["寢具", "上衣・T恤"]);
+      renderSubcategories(["bedding", "tops-and-tshirts"]);
       openSubcategoriesDialog();
 
       const current = group(CURRENT_SUBCATEGORIES_HEADING);
       expect(
-        within(current).getByRole("button", { name: "寢具" }),
+        within(current).getByRole("button", { name: label("bedding") }),
       ).toBeEnabled();
       const offCategory = within(current).getByRole("button", {
-        name: "上衣・T恤",
+        name: label("tops-and-tshirts"),
       });
       expect(offCategory).toBeEnabled();
       expect(offCategory).toHaveAttribute("aria-pressed", "true");
       expect(screen.getByText(selectedCount(2))).toBeInTheDocument();
     });
 
-    it("row 1 subcategories start pressed and flip to unpressed when marked for removal", () => {
-      renderSubcategories(["寢具"]);
+    it("renders stored slugs as zh labels, never as raw slugs", () => {
+      renderSubcategories(["bedding"]);
       openSubcategoriesDialog();
 
-      expect(chip(CURRENT_SUBCATEGORIES_HEADING, "寢具")).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      );
+      expect(screen.queryByText("bedding")).not.toBeInTheDocument();
+      expect(
+        within(group(CURRENT_SUBCATEGORIES_HEADING)).getByRole("button", {
+          name: "寢具",
+        }),
+      ).toBeInTheDocument();
+    });
 
-      clickChip(CURRENT_SUBCATEGORIES_HEADING, "寢具");
+    it("row 1 subcategories start pressed and flip to unpressed when marked for removal", () => {
+      renderSubcategories(["bedding"]);
+      openSubcategoriesDialog();
 
-      expect(chip(CURRENT_SUBCATEGORIES_HEADING, "寢具")).toHaveAttribute(
-        "aria-pressed",
-        "false",
-      );
+      expect(
+        chip(CURRENT_SUBCATEGORIES_HEADING, label("bedding")),
+      ).toHaveAttribute("aria-pressed", "true");
+
+      clickChip(CURRENT_SUBCATEGORIES_HEADING, label("bedding"));
+
+      expect(
+        chip(CURRENT_SUBCATEGORIES_HEADING, label("bedding")),
+      ).toHaveAttribute("aria-pressed", "false");
       expect(screen.getByText(selectedCount(0))).toBeInTheDocument();
     });
 
-    it("row 2 excludes subcategories already held", () => {
-      renderSubcategories(["寢具"]);
+    // The write-side counterpart of the cross-L1 read fix: a `home` brand can
+    // be given `backpacks`, which the brand's own L1 would never have offered.
+    it("offers all 175 nodes, not just the brand's own L1", () => {
+      renderSubcategories(["bedding"]);
       openSubcategoriesDialog();
 
       const options = group(ADD_SUBCATEGORIES_HEADING);
-      expect(
-        within(options).queryByRole("button", { name: "寢具" }),
-      ).not.toBeInTheDocument();
-      // Remaining in-category subcategories plus the 其他 chip.
       expect(within(options).getAllByRole("button")).toHaveLength(
-        HOME_SUBCATEGORIES.length - 1 + 1,
+        L2_SUBCATEGORIES.length - 1,
       );
-      for (const subcategory of HOME_SUBCATEGORIES.filter(
-        (item) => item.nameZh !== "寢具",
-      )) {
-        expect(
-          within(options).getByRole("button", {
-            name: subcategoryLabel(subcategory, "zh-TW"),
-          }),
-        ).toBeInTheDocument();
-      }
+      expect(
+        within(options).queryByRole("button", { name: label("bedding") }),
+      ).not.toBeInTheDocument();
+      expect(
+        within(options).getByRole("button", { name: label("backpacks") }),
+      ).toBeInTheDocument();
     });
 
-    it("counts out-of-category and novel subcategories against the 5 cap", () => {
-      renderSubcategories(["上衣・T恤", "褲裝", "裙裝", "洋裝"]);
+    it("counts out-of-category subcategories against the 5 cap", () => {
+      renderSubcategories([
+        "tops-and-tshirts",
+        "pants",
+        "skirts",
+        "dresses",
+      ]);
       openSubcategoriesDialog();
 
       expect(screen.getByText(selectedCount(4))).toBeInTheDocument();
 
-      expandOther();
-      typeOther("藤編椅");
-      confirmOther();
+      clickChip(ADD_SUBCATEGORIES_HEADING, label("bedding"));
 
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
       expect(screen.getByText(COPY.subcategoriesLimit)).toBeInTheDocument();
-      expect(chip(ADD_SUBCATEGORIES_HEADING, "寢具")).toBeDisabled();
+      expect(chip(ADD_SUBCATEGORIES_HEADING, label("mattresses"))).toBeDisabled();
     });
 
-    it("disables unselected row-2 chips at the cap while pressed ones stay enabled", () => {
+    it("disables the whole offer set at the cap while selected chips stay enabled", () => {
       const currentSubcategories = homeSubcategoriesAt(5);
       renderSubcategories(currentSubcategories);
       openSubcategoriesDialog();
 
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
 
-      const options = within(group(ADD_SUBCATEGORIES_HEADING)).getAllByRole("button");
+      const options = within(group(ADD_SUBCATEGORIES_HEADING)).getAllByRole(
+        "button",
+      );
       expect(options.length).toBeGreaterThan(0);
       expect(options.every((button) => button.hasAttribute("disabled"))).toBe(
         true,
       );
 
-      for (const subcategory of currentSubcategories) {
-        expect(chip(CURRENT_SUBCATEGORIES_HEADING, subcategory)).toBeEnabled();
+      for (const slug of currentSubcategories) {
+        expect(chip(CURRENT_SUBCATEGORIES_HEADING, label(slug))).toBeEnabled();
       }
     });
 
-    // Restoring a subcategory that was marked for removal is an add, and adds no-op at
+    // Restoring a subcategory marked for removal is an add, and adds no-op at
     // the cap. Without the guard the chip would look live and do nothing.
     it("disables a removed row-1 subcategory once the cap is refilled elsewhere", () => {
       const currentSubcategories = homeSubcategoriesAt(5);
       const [removed] = currentSubcategories;
-      const replacement = HOME_SUBCATEGORIES[5]?.nameZh;
+      const replacement = HOME_SUBCATEGORIES[5]?.slug;
       expect(removed).toBeDefined();
       expect(replacement).toBeDefined();
       if (!removed || !replacement) return;
@@ -531,36 +541,35 @@ describe("CorrectionDialog", () => {
       renderSubcategories(currentSubcategories);
       openSubcategoriesDialog();
 
-      clickChip(CURRENT_SUBCATEGORIES_HEADING, removed);
+      clickChip(CURRENT_SUBCATEGORIES_HEADING, label(removed));
       expect(screen.getByText(selectedCount(4))).toBeInTheDocument();
-      expect(chip(CURRENT_SUBCATEGORIES_HEADING, removed)).toBeEnabled();
+      expect(chip(CURRENT_SUBCATEGORIES_HEADING, label(removed))).toBeEnabled();
 
-      clickChip(ADD_SUBCATEGORIES_HEADING, replacement);
+      clickChip(ADD_SUBCATEGORIES_HEADING, label(replacement));
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
-      expect(chip(CURRENT_SUBCATEGORIES_HEADING, removed)).toBeDisabled();
-      expect(chip(CURRENT_SUBCATEGORIES_HEADING, removed)).toHaveAttribute(
-        "aria-pressed",
-        "false",
-      );
+      expect(chip(CURRENT_SUBCATEGORIES_HEADING, label(removed))).toBeDisabled();
+      expect(
+        chip(CURRENT_SUBCATEGORIES_HEADING, label(removed)),
+      ).toHaveAttribute("aria-pressed", "false");
     });
 
     it("counts a duplicated legacy subcategory once", () => {
-      renderSubcategories(["寢具", "寢具"]);
+      renderSubcategories(["bedding", "bedding"]);
       openSubcategoriesDialog();
 
       expect(
         within(group(CURRENT_SUBCATEGORIES_HEADING)).getAllByRole("button", {
-          name: "寢具",
+          name: label("bedding"),
         }),
       ).toHaveLength(1);
       expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
     });
 
     it("resets the selection after a successful submit", async () => {
-      renderSubcategories(["寢具"]);
+      renderSubcategories(["bedding"]);
       openSubcategoriesDialog();
 
-      clickChip(ADD_SUBCATEGORIES_HEADING, "床墊");
+      clickChip(ADD_SUBCATEGORIES_HEADING, label("mattresses"));
       submit();
 
       await waitFor(() => {
@@ -569,243 +578,60 @@ describe("CorrectionDialog", () => {
 
       openSubcategoriesDialog();
 
-      expect(chip(CURRENT_SUBCATEGORIES_HEADING, "寢具")).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      );
-      expect(chip(ADD_SUBCATEGORIES_HEADING, "床墊")).toHaveAttribute(
-        "aria-pressed",
-        "false",
-      );
+      expect(
+        chip(CURRENT_SUBCATEGORIES_HEADING, label("bedding")),
+      ).toHaveAttribute("aria-pressed", "true");
+      expect(
+        chip(ADD_SUBCATEGORIES_HEADING, label("mattresses")),
+      ).toHaveAttribute("aria-pressed", "false");
       expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
       expect(submitButton()).toBeDisabled();
     });
   });
 
-  describe("other subcategory flow", () => {
-    it("canonicalizes an alias to its nameZh instead of adding the typed string", () => {
+  // The free-text escape hatch is gone. What replaced it is not silence: a term
+  // the closed vocabulary does not know is announced to the person who typed it
+  // and recorded for the people who own the vocabulary.
+  describe("the closed vocabulary", () => {
+    it("commits an alias to its stored slug", async () => {
       renderSubcategories([]);
       openSubcategoriesDialog();
 
-      expandOther();
-      typeOther("T恤");
-      confirmOther();
+      typeAndCommit("T恤");
 
-      const added = chip(ADD_SUBCATEGORIES_HEADING, "上衣・T恤");
-      expect(added).toHaveAttribute("aria-pressed", "true");
       expect(
-        within(group(ADD_SUBCATEGORIES_HEADING)).queryByRole("button", { name: "T恤" }),
-      ).not.toBeInTheDocument();
-    });
-
-    it("selects the existing row-2 chip when the typed value is already offered", () => {
-      renderSubcategories([]);
-      openSubcategoriesDialog();
-
-      expandOther();
-      typeOther("床包");
-      confirmOther();
-
-      const options = group(ADD_SUBCATEGORIES_HEADING);
-      expect(
-        within(options).getAllByRole("button", { name: "寢具" }),
-      ).toHaveLength(1);
-      expect(chip(ADD_SUBCATEGORIES_HEADING, "寢具")).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      );
-    });
-
-    it("appends a cross-category canonical subcategory as a selected chip", () => {
-      renderSubcategories([]);
-      openSubcategoriesDialog();
-
-      expandOther();
-      typeOther("洋裝");
-      confirmOther();
-
-      expect(chip(ADD_SUBCATEGORIES_HEADING, "洋裝")).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      );
-      expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
-    });
-
-    it("appends an accepted novel subcategory as a selected chip", async () => {
-      renderSubcategories([]);
-      openSubcategoriesDialog();
-
-      expandOther();
-      typeOther("藤編椅");
-      confirmOther();
-
-      expect(chip(ADD_SUBCATEGORIES_HEADING, "藤編椅")).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      );
+        chip(CURRENT_SUBCATEGORIES_HEADING, label("tops-and-tshirts")),
+      ).toHaveAttribute("aria-pressed", "true");
 
       submit();
-
       await waitFor(() => {
-        expect(mocks.submitCorrection).toHaveBeenCalledWith({
-          brandId: BRAND_ID,
-          field: "subcategories",
-          proposedValue: { add: ["藤編椅"], remove: [] },
-        });
+        expect(mocks.submitCorrection).toHaveBeenCalledWith(
+          expect.objectContaining({
+            proposedValue: { add: ["tops-and-tshirts"], remove: [] },
+          }),
+        );
       });
     });
 
-    it("shows an inline reason for a blocklisted entry and does not add it", () => {
+    it("refuses a term the vocabulary does not know and says how to fix it", () => {
       renderSubcategories([]);
       openSubcategoriesDialog();
 
-      expandOther();
-      typeOther("限定");
-      confirmOther();
+      typeAndCommit("手工燈籠");
 
-      const input = screen.getByLabelText(OTHER_INPUT_LABEL);
-      expect(input).toHaveAttribute("aria-invalid", "true");
-      const describedBy = input.getAttribute("aria-describedby") ?? "";
-      expect(describedBy).not.toBe("");
-      const messageIds = describedBy.split(" ");
-      const text = messageIds
-        .map((id) => document.getElementById(id)?.textContent ?? "")
-        .join(" ");
-      expect(text).toContain(COPY.errors.subcategoryBlocked);
-      expect(
-        within(group(ADD_SUBCATEGORIES_HEADING)).queryByRole("button", {
-          name: "限定",
-        }),
-      ).not.toBeInTheDocument();
+      expect(screen.getByText(SUBCATEGORY_REJECTED)).toBeInTheDocument();
+      expect(searchField()).toHaveAttribute("aria-invalid", "true");
       expect(screen.getByText(selectedCount(0))).toBeInTheDocument();
+      expect(submitButton()).toBeDisabled();
     });
 
-    it("shows an inline reason for a too-short entry and does not add it", () => {
+    it("offers no free-text entry at all", () => {
       renderSubcategories([]);
       openSubcategoriesDialog();
 
-      expandOther();
-      typeOther("杯");
-      confirmOther();
-
-      expect(screen.getByLabelText(OTHER_INPUT_LABEL)).toHaveAttribute(
-        "aria-invalid",
-        "true",
-      );
-      expect(screen.getByText(COPY.errors.subcategoryLength)).toBeInTheDocument();
-      expect(screen.getByText(selectedCount(0))).toBeInTheDocument();
-    });
-
-    it("reports a duplicate when the typed value is already in row 1", () => {
-      renderSubcategories(["寢具"]);
-      openSubcategoriesDialog();
-
-      expandOther();
-      typeOther("床包");
-      confirmOther();
-
-      expect(screen.getByText(COPY.otherSubcategoryDuplicate)).toBeInTheDocument();
-      expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
-      expect(
-        within(group(CURRENT_SUBCATEGORIES_HEADING)).getAllByRole("button", {
-          name: "寢具",
-        }),
-      ).toHaveLength(1);
-    });
-
-    it("disables the 其他 affordance at the 5-subcategory cap", () => {
-      renderSubcategories(homeSubcategoriesAt(5));
-      openSubcategoriesDialog();
-
-      expect(chip(ADD_SUBCATEGORIES_HEADING, OTHER_CHIP)).toBeDisabled();
-      expect(
-        screen.queryByLabelText(OTHER_INPUT_LABEL),
-      ).not.toBeInTheDocument();
-    });
-
-    // Stored subcategories are not guaranteed canonical — the owner edit path persists
-    // whatever alias was typed — so the duplicate check has to compare on a
-    // canonical basis or the same subcategory lands twice.
-    it("reports a duplicate when the brand carries an alias of the typed subcategory", () => {
-      renderSubcategories(["床包"]);
-      openSubcategoriesDialog();
-
-      expandOther();
-      typeOther("寢具");
-      confirmOther();
-
-      expect(screen.getByText(COPY.otherSubcategoryDuplicate)).toBeInTheDocument();
-      expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
-      expect(
-        within(group(ADD_SUBCATEGORIES_HEADING)).queryByRole("button", {
-          name: "寢具",
-        }),
-      ).not.toBeInTheDocument();
-    });
-
-    // Disabling the 其他 chip does not unmount an entry panel opened below the
-    // cap, so the cap has to be stated inside the panel too.
-    it("keeps the entry open and explains the cap instead of dropping the subcategory", () => {
-      const replacement = HOME_SUBCATEGORIES[4]?.nameZh;
-      expect(replacement).toBeDefined();
-      if (!replacement) return;
-
-      renderSubcategories(homeSubcategoriesAt(4));
-      openSubcategoriesDialog();
-
-      expandOther();
-      // The cap is reached while the entry panel is already open.
-      clickChip(ADD_SUBCATEGORIES_HEADING, replacement);
-      expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
-
-      typeOther("藤編椅");
-      confirmOther();
-
-      const input = screen.getByLabelText(OTHER_INPUT_LABEL);
-      expect(input).toBeInTheDocument();
-      expect(input).toHaveAttribute("aria-invalid", "true");
-      expect(screen.getAllByText(COPY.subcategoriesLimit).length).toBeGreaterThan(
-        0,
-      );
-      expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
-      expect(
-        within(group(ADD_SUBCATEGORIES_HEADING)).queryByRole("button", {
-          name: "藤編椅",
-        }),
-      ).not.toBeInTheDocument();
-    });
-
-    // The 其他 chip is disabled at the cap, and focusing an element that is
-    // about to be disabled drops focus to <body> mid-dialog.
-    it("keeps focus inside the dialog after the confirmed subcategory fills the cap", () => {
-      renderSubcategories(homeSubcategoriesAt(4));
-      openSubcategoriesDialog();
-
-      expandOther();
-      typeOther("藤編椅");
-      confirmOther();
-
-      expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
-      expect(chip(ADD_SUBCATEGORIES_HEADING, OTHER_CHIP)).toBeDisabled();
-
-      const dialog = screen.getByRole("dialog");
-      expect(document.activeElement).not.toBe(document.body);
-      expect(dialog.contains(document.activeElement)).toBe(true);
-    });
-
-    it("returns focus to the 其他 chip when the entry is cancelled", () => {
-      renderSubcategories([]);
-      openSubcategoriesDialog();
-
-      expandOther();
-      expect(screen.getByLabelText(OTHER_INPUT_LABEL)).toHaveFocus();
-
-      clickChip(ADD_SUBCATEGORIES_HEADING, OTHER_CANCEL);
-
-      expect(
-        screen.queryByLabelText(OTHER_INPUT_LABEL),
-      ).not.toBeInTheDocument();
-      expect(chip(ADD_SUBCATEGORIES_HEADING, OTHER_CHIP)).toHaveFocus();
+      // One text field only — the filter — and it cannot commit free text.
+      expect(screen.getAllByRole("textbox")).toHaveLength(1);
+      expect(searchField()).toBeInTheDocument();
     });
   });
 

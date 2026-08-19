@@ -41,7 +41,6 @@ export type BrandFactsResult = {
    */
   listing?: ListingVerdict;
   rejected?: { subcategory: string; reason: string }[];
-  crossBranch?: string[];
   rawResponse?: unknown;
 };
 
@@ -178,7 +177,6 @@ export function parseBrandFactsResult(content: string): BrandFactsResult {
     foundingYear: extraction.foundingYear,
     mitIndicators,
     rejected: normalizedSubcategories.rejected,
-    crossBranch: normalizedSubcategories.crossBranch,
     ...(listing ? { listing } : {}),
   };
 }

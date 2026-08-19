@@ -509,19 +509,17 @@ export async function runDescriptionsPhase({
       (Array.isArray(existing) && existing.length === 0);
 
     let descriptionPatch: Record<string, unknown> = {};
-    let crossBranchSubcategories: string[] = [];
 
     if (brandFacts) {
+      // No brand-L1 conjunct: a brand carries one L1 while its products span
+      // several, and DEV-1510 stopped discarding those tags on the read side.
       const {
         subcategories: mergedSubcategories,
         subcategoriesEn: mergedSubcategoriesEn,
-        crossBranch,
       } = normalizeSubcategories(
         brandFacts.subcategories,
         brandFacts.subcategoriesEn,
-        brand.category ?? undefined,
       );
-      crossBranchSubcategories = crossBranch;
 
       descriptionPatch = {
         // Unlike every other field here, an absent price range is filled rather
@@ -594,7 +592,6 @@ export async function runDescriptionsPhase({
         factsAttempts,
         calls: factsOutput?.calls ?? noLlmCalls(),
         listingVerdict,
-        crossBranch: crossBranchSubcategories,
       };
     }
 
@@ -643,7 +640,6 @@ export async function runDescriptionsPhase({
       factsAttempts,
       calls,
       listingVerdict,
-      crossBranch: crossBranchSubcategories,
     };
   });
 

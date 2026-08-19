@@ -1,242 +1,204 @@
-import { describe, it, expect } from 'vitest'
+import { beforeEach, describe, it, expect } from 'vitest'
+import * as subcategoriesModule from '../subcategories'
+import * as ontologyModule from '@/lib/taxonomy/ontology'
 import {
   normalizeSubcategories,
   deriveSubcategoriesEn,
   planSubcategoryBackfill,
-  novelSubcategoryRejection,
-  resolveSubcategoryInput,
+  resolveSubcategorySelection,
+  recordRejectedSubcategoryInput,
+  readRejectedSubcategoryInputs,
+  clearRejectedSubcategoryInputs,
+  setRejectedSubcategorySink,
   applySubcategoryDelta,
   deriveCategoryFromSubcategories,
 } from '../subcategories'
 
+beforeEach(() => {
+  clearRejectedSubcategoryInputs()
+  setRejectedSubcategorySink(null)
+})
+
+describe('the closed vocabulary', () => {
+  it('novel_subcategory_rejection_is_gone', () => {
+    // The free-text escape hatch and the DEV-1361 deny-list are both gone: the
+    // vocabulary is closed, so there is no novel branch left to gate and no
+    // retired spelling left to keep out of it.
+    expect('novelSubcategoryRejection' in subcategoriesModule).toBe(false)
+    expect('resolveSubcategoryInput' in subcategoriesModule).toBe(false)
+    expect('RETIRED_COMPOSITE_LABELS' in ontologyModule).toBe(false)
+    expect('isRetiredCompositeLabel' in ontologyModule).toBe(false)
+  })
+
+  it('drops the crossBranch diagnostic — a cross-L1 tag is now expressible, not an anomaly', () => {
+    const result = normalizeSubcategories(['backpacks'], [])
+    expect(result).not.toHaveProperty('crossBranch')
+    expect(result.subcategories).toEqual(['backpacks'])
+  })
+})
+
 describe('normalizeSubcategories', () => {
-  it('replaces vocab matches with canonical zh/en pairs', () => {
+  it('resolves labels and aliases to stored slugs', () => {
     const result = normalizeSubcategories(['側背包', '托特包'], ['crossbody', 'tote'])
-    expect(result.subcategories).toEqual(['斜背包', '托特包'])
+    expect(result.subcategories).toEqual(['crossbody-bags', 'tote-bags'])
     expect(result.subcategoriesEn).toEqual(['Crossbody Bags', 'Tote Bags'])
   })
 
-  it('collapses SKU variants that map to the same canonical', () => {
+  it('is idempotent on slugs it already stores', () => {
+    const result = normalizeSubcategories(['crossbody-bags', 'tote-bags'], [])
+    expect(result.subcategories).toEqual(['crossbody-bags', 'tote-bags'])
+    expect(result.subcategoriesEn).toEqual(['Crossbody Bags', 'Tote Bags'])
+  })
+
+  it('collapses SKU variants that map to the same node', () => {
     const result = normalizeSubcategories(
       ['口金零錢包', '口金夾', '登山背包'],
       ['clasp coin purse', 'clasp wallet', 'hiking backpack'],
     )
-    expect(result.subcategories).toEqual(['口金包', '後背包'])
+    expect(result.subcategories).toEqual(['clasp-frame-bags', 'backpacks'])
     expect(result.subcategoriesEn).toEqual(['Clasp-Frame Bags', 'Backpacks'])
   })
 
-  it('keeps heuristic-clean novel subcategories with their EN, zh fallback when EN missing', () => {
-    const result = normalizeSubcategories(['手工燈籠'], [])
-    expect(result.subcategories).toEqual(['手工燈籠'])
-    expect(result.subcategoriesEn).toEqual(['手工燈籠'])
-  })
-
-  it('title-cases a novel subcategory EN so it matches ontology casing on cards', () => {
-    const result = normalizeSubcategories(
-      ['手工燈籠', '雨鞋', '臉部防曬'],
-      ['handmade lantern', 'rain boots', 'facial sunscreen'],
-    )
-    expect(result.subcategoriesEn).toEqual(['Handmade Lantern', 'Rain Boots', 'Facial Sunscreen'])
-  })
-
-  it('leaves an already-capitalized novel subcategory EN and its inner casing alone', () => {
-    const result = normalizeSubcategories(
-      ['手工燈籠', '無線充電盤'],
-      ['Handmade Lantern', 'USB-C charging pad'],
-    )
-    expect(result.subcategoriesEn).toEqual(['Handmade Lantern', 'USB-C Charging Pad'])
-  })
-
-  it('drops blocklisted and out-of-band novel subcategories, recording rejections', () => {
-    const result = normalizeSubcategories(
-      ['藍鵲系列襪子', '超值限定組', '襪'],
-      ['bluebird series socks', 'limited set', 'sock'],
-    )
+  it('rejects a term the vocabulary does not know instead of storing it', () => {
+    const result = normalizeSubcategories(['手工燈籠'], ['handmade lantern'])
     expect(result.subcategories).toEqual([])
-    expect(result.rejected.map((r) => r.subcategory)).toEqual(['藍鵲系列襪子', '超值限定組', '襪'])
+    expect(result.rejected).toEqual([
+      { subcategory: '手工燈籠', reason: 'unknown-term' },
+    ])
   })
 
-  it('caps at 5 and keeps arrays paired', () => {
+  it('logs every rejection — the closed vocabulary cannot otherwise report its gaps', () => {
+    normalizeSubcategories(['手工燈籠', '藍鵲系列襪子'], [])
+    expect(readRejectedSubcategoryInputs().map((entry) => entry.input)).toEqual([
+      '手工燈籠',
+      '藍鵲系列襪子',
+    ])
+  })
+
+  it('caps at 5 and keeps the two arrays paired', () => {
     const zh = ['托特包', '後背包', '斜背包', '手提包', '水桶包', '零錢包']
     const result = normalizeSubcategories(zh, [])
     expect(result.subcategories).toHaveLength(5)
     expect(result.subcategoriesEn).toHaveLength(5)
   })
 
-  it('flags cross-branch picks when brandCategory provided', () => {
-    const result = normalizeSubcategories(['手工皂'], [], 'fashion')
-    expect(result.crossBranch).toEqual(['手工皂'])
-  })
-
-  it('splits an unmatched composite subcategory and keeps the halves that resolve', () => {
+  it('splits an unmatched composite and keeps the halves that resolve', () => {
     const result = normalizeSubcategories(['糖果・糕點'], [])
-
-    expect(result.subcategories).toEqual(['甜點・糕點'])
+    expect(result.subcategories).toEqual(['desserts-and-pastries'])
     expect(result.subcategoriesEn).toEqual(['Desserts & Pastries'])
-    expect(result.subcategories).not.toContain('糖果・糕點')
   })
 
-  it('keeps a canonical composite subcategory untouched', () => {
+  it('keeps a canonical composite node untouched', () => {
     const result = normalizeSubcategories(['甜點・糕點'], [])
-
-    expect(result.subcategories).toEqual(['甜點・糕點'])
-    expect(result.subcategoriesEn).toEqual(['Desserts & Pastries'])
+    expect(result.subcategories).toEqual(['desserts-and-pastries'])
   })
 
-  it('rejects retired split composites after canonical synonym matching', () => {
-    const result = normalizeSubcategories(['香氛・蠟燭', '香氛蠟燭'], [])
-
-    expect(result.subcategories).toEqual([])
-    expect(result.rejected).toEqual([
-      { subcategory: '香氛・蠟燭', reason: 'retired-composite' },
-      { subcategory: '香氛蠟燭', reason: 'retired-composite' },
-    ])
-    expect(resolveSubcategoryInput('香氛・蠟燭')).toEqual({
-      ok: false,
-      reason: 'retired-composite',
-    })
-    expect(resolveSubcategoryInput('卡片・明信片')).toEqual({
-      ok: true,
-      subcategory: '卡片・明信片',
-      canonical: true,
-    })
-    expect(resolveSubcategoryInput('手機吊飾')).toEqual({
-      ok: true,
-      subcategory: '手機背帶',
-      canonical: true,
-    })
+  it('resolves a DEV-1361 retired composite through its halves rather than a deny-list', () => {
+    // `香氛・蠟燭` was split into atomic nodes; `蠟燭` is one of them and
+    // `香氛` is not a node on its own. The deny-list existed only to keep the
+    // old spelling out of the novel escape hatch, which no longer exists.
+    const result = normalizeSubcategories(['香氛・蠟燭'], [])
+    expect(result.subcategories).toEqual(['candles'])
   })
 
   it('drops an unmatched composite when neither half resolves', () => {
     const result = normalizeSubcategories(['地板・地板材料'], [])
-
-    expect(result.subcategories).not.toContain('地板・地板材料')
     expect(result.subcategories).toEqual([])
   })
 
-  it('preserves a non-composite novel subcategory', () => {
-    // Fixture changed 2026-08-19: DEV-1510 wave 1 admitted an `umbrellas` node
-    // carrying `雨傘` as an alias, so the old fixture stopped being novel and
-    // this case started asserting the opposite of its own name. `滑雪裝備` is
-    // absent from every node, alias, `EVICTED_LABELS` and `OUT_OF_FRAME_LABELS`.
-    const result = normalizeSubcategories(['滑雪裝備'], [])
+  it('ignores blank entries without logging them as vocabulary gaps', () => {
+    const result = normalizeSubcategories(['', '   ', '托特包'], [])
+    expect(result.subcategories).toEqual(['tote-bags'])
+    expect(result.rejected).toEqual([])
+    expect(readRejectedSubcategoryInputs()).toEqual([])
+  })
+})
 
-    expect(result.subcategories).toEqual(['滑雪裝備'])
+describe('resolveSubcategorySelection', () => {
+  it('resolves a stored slug', () => {
+    expect(resolveSubcategorySelection('dresses')).toMatchObject({
+      ok: true,
+      slug: 'dresses',
+    })
+  })
+
+  it('resolves a canonical nameZh, an alias and an English name to the same slug', () => {
+    expect(resolveSubcategorySelection('洋裝')).toMatchObject({ ok: true, slug: 'dresses' })
+    expect(resolveSubcategorySelection('T恤')).toMatchObject({
+      ok: true,
+      slug: 'tops-and-tshirts',
+    })
+    expect(resolveSubcategorySelection('Dresses')).toMatchObject({
+      ok: true,
+      slug: 'dresses',
+    })
+  })
+
+  it('trims before matching', () => {
+    expect(resolveSubcategorySelection('  洋裝  ')).toMatchObject({
+      ok: true,
+      slug: 'dresses',
+    })
+  })
+
+  it('rejects free text, an evicted label and an empty string', () => {
+    expect(resolveSubcategorySelection('手工燈籠')).toEqual({
+      ok: false,
+      reason: 'unknown-term',
+    })
+    expect(resolveSubcategorySelection('禮盒')).toEqual({
+      ok: false,
+      reason: 'unknown-term',
+    })
+    expect(resolveSubcategorySelection('   ')).toEqual({ ok: false, reason: 'empty' })
+  })
+})
+
+describe('the rejected-input log', () => {
+  it('records the input, the surface and when it happened', () => {
+    recordRejectedSubcategoryInput({ input: '止滑墊', surface: 'correction-dialog' })
+    const [entry] = readRejectedSubcategoryInputs()
+    expect(entry?.input).toBe('止滑墊')
+    expect(entry?.surface).toBe('correction-dialog')
+    expect(entry?.at).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+  })
+
+  it('forwards to an installed sink so a surface can persist the gap signal', () => {
+    const seen: string[] = []
+    setRejectedSubcategorySink((entry) => seen.push(entry.input))
+    recordRejectedSubcategoryInput({ input: '樂器', surface: 'admin-review' })
+    expect(seen).toEqual(['樂器'])
+  })
+
+  it('never lets an unbounded client session grow the buffer without limit', () => {
+    for (let index = 0; index < 260; index++) {
+      recordRejectedSubcategoryInput({ input: `gap-${index}`, surface: 'test' })
+    }
+    const entries = readRejectedSubcategoryInputs()
+    expect(entries.length).toBeLessThanOrEqual(200)
+    // The newest rejections are the ones worth keeping.
+    expect(entries.at(-1)?.input).toBe('gap-259')
   })
 })
 
 describe('deriveCategoryFromSubcategories', () => {
-  it('derives the only ontology category represented by accepted subcategories', () => {
-    expect(deriveCategoryFromSubcategories(['家具', '地板材料', '天花板材料'])).toBe('home')
+  it('derives the only L1 represented by the stored slugs', () => {
+    expect(deriveCategoryFromSubcategories(['furniture', 'candles'])).toBe('home')
   })
 
-  it('uses the unique category winner when recognized subcategories span categories', () => {
-    expect(deriveCategoryFromSubcategories(['休閒鞋', '洋裝', '家具'])).toBe('fashion')
+  it('still reads pre-migration labels', () => {
+    expect(deriveCategoryFromSubcategories(['家具', '蠟燭'])).toBe('home')
   })
 
-  it('leaves tied or entirely novel subcategory sets uncategorized', () => {
-    expect(deriveCategoryFromSubcategories(['休閒鞋', '家具'])).toBeNull()
+  it('uses the unique winner when the slugs span L1s', () => {
+    expect(deriveCategoryFromSubcategories(['casual-shoes', 'dresses', 'furniture'])).toBe(
+      'fashion',
+    )
+  })
+
+  it('leaves tied or entirely unknown sets uncategorized', () => {
+    expect(deriveCategoryFromSubcategories(['casual-shoes', 'furniture'])).toBeNull()
     expect(deriveCategoryFromSubcategories(['學步鞋', '機能鞋'])).toBeNull()
-  })
-})
-
-describe('resolveSubcategoryInput', () => {
-  it('resolves an exact canonical nameZh to itself', () => {
-    expect(resolveSubcategoryInput('洋裝')).toEqual({
-      ok: true,
-      subcategory: '洋裝',
-      canonical: true,
-    })
-  })
-
-  it('canonicalizes a known alias to its nameZh', () => {
-    expect(resolveSubcategoryInput('T恤')).toEqual({
-      ok: true,
-      subcategory: '上衣・T恤',
-      canonical: true,
-    })
-  })
-
-  it('canonicalizes an English name to its nameZh', () => {
-    expect(resolveSubcategoryInput('Dresses')).toEqual({
-      ok: true,
-      subcategory: '洋裝',
-      canonical: true,
-    })
-  })
-
-  it('accepts a genuinely novel subcategory', () => {
-    expect(resolveSubcategoryInput('手工燈籠')).toEqual({
-      ok: true,
-      subcategory: '手工燈籠',
-      canonical: false,
-    })
-  })
-
-  it('rejects a too-short input', () => {
-    expect(resolveSubcategoryInput('襪')).toEqual({ ok: false, reason: 'length' })
-  })
-
-  it('rejects a too-long input', () => {
-    expect(resolveSubcategoryInput('手工玻璃吹製花瓶器')).toEqual({
-      ok: false,
-      reason: 'length',
-    })
-  })
-
-  it('rejects a blocklisted input', () => {
-    expect(resolveSubcategoryInput('禮盒組')).toEqual({
-      ok: false,
-      reason: 'blocklist',
-    })
-    expect(resolveSubcategoryInput('迷你花瓶')).toEqual({
-      ok: false,
-      reason: 'blocklist',
-    })
-  })
-
-  it('trims surrounding whitespace before matching', () => {
-    expect(resolveSubcategoryInput('  洋裝  ')).toEqual({
-      ok: true,
-      subcategory: '洋裝',
-      canonical: true,
-    })
-    expect(resolveSubcategoryInput('  手工燈籠  ')).toEqual({
-      ok: true,
-      subcategory: '手工燈籠',
-      canonical: false,
-    })
-  })
-})
-
-describe('novelSubcategoryRejection', () => {
-  it('novelSubcategoryRejection returns null for an acceptable novel subcategory', () => {
-    expect(novelSubcategoryRejection('手工燈籠')).toBeNull()
-  })
-
-  it('rejects retired composite spellings before the novel-subcategory escape hatch', () => {
-    expect(novelSubcategoryRejection('香氛・蠟燭')).toBe('retired-composite')
-    expect(novelSubcategoryRejection('香氛蠟燭')).toBe('retired-composite')
-  })
-
-  it('agrees with the heuristics it replaced', () => {
-    expect(novelSubcategoryRejection('襪')).toBe('length')
-    expect(novelSubcategoryRejection('手工玻璃吹製花瓶器')).toBe('length')
-    expect(novelSubcategoryRejection('超值限定組')).toBe('blocklist')
-    expect(novelSubcategoryRejection('藍鵲系列襪子')).toBe('blocklist')
-  })
-
-  it('measures the band in code points, not UTF-16 units', () => {
-    // One emoji: 2 code units, 1 character — must fail the min like '襪' does.
-    expect(novelSubcategoryRejection('🧦')).toBe('length')
-    expect(resolveSubcategoryInput('🧦')).toEqual({
-      ok: false,
-      reason: 'length',
-    })
-    // Nine emoji: 9 characters, over the max.
-    expect(novelSubcategoryRejection('🧦🧦🧦🧦🧦🧦🧦🧦🧦')).toBe('length')
-    // The Han cases the band was written against are untouched.
-    expect(novelSubcategoryRejection('手工燈籠')).toBeNull()
   })
 })
 
@@ -248,53 +210,50 @@ describe('applySubcategoryDelta', () => {
     expect(applySubcategoryDelta([], { add: ['Vegan', 'vegan'], remove: [] })).toEqual([
       'Vegan',
     ])
-    // A removal typed in a different casing still removes the stored subcategory.
     expect(applySubcategoryDelta(['Vegan'], { add: [], remove: ['vegan'] })).toEqual([])
   })
 
-  it('preserves order and leaves unrelated subcategories alone', () => {
+  it('preserves order and leaves unrelated slugs alone', () => {
     expect(
-      applySubcategoryDelta(['托特包', '後背包'], { add: ['斜背包'], remove: ['後背包'] }),
-    ).toEqual(['托特包', '斜背包'])
+      applySubcategoryDelta(['tote-bags', 'backpacks'], {
+        add: ['crossbody-bags'],
+        remove: ['backpacks'],
+      }),
+    ).toEqual(['tote-bags', 'crossbody-bags'])
   })
 })
 
 describe('deriveSubcategoriesEn', () => {
-  it('maps vocab matches to canonical EN and falls back to zh for novels', () => {
-    expect(deriveSubcategoriesEn(['托特包', '手工燈籠'])).toEqual(['Tote Bags', '手工燈籠'])
+  it('maps a stored slug to its canonical EN', () => {
+    expect(deriveSubcategoriesEn(['tote-bags', 'backpacks'])).toEqual([
+      'Tote Bags',
+      'Backpacks',
+    ])
   })
+
+  it('still maps a pre-migration label', () => {
+    expect(deriveSubcategoriesEn(['托特包'])).toEqual(['Tote Bags'])
+  })
+
   it('returns empty for empty input', () => {
     expect(deriveSubcategoriesEn([])).toEqual([])
   })
 
-  it('lets an ontology hit override a stale stored EN', () => {
-    // The DEV-1266 drift case: '後背包' was stored as 'Backpack', not the
-    // canonical 'Backpacks'.
-    expect(deriveSubcategoriesEn(['後背包'], ['Backpack'])).toEqual(['Backpacks'])
+  it('lets a vocabulary hit override a stale stored EN', () => {
+    // The DEV-1266 drift case: '後背包' was stored as 'Backpack'.
+    expect(deriveSubcategoriesEn(['backpacks'], ['Backpack'])).toEqual(['Backpacks'])
     expect(deriveSubcategoriesEn(['後背包'], ['backpack'])).toEqual(['Backpacks'])
   })
 
-  it('keeps a novel subcategory stored EN, Title Cased', () => {
-    // '手工燈籠' misses the ontology, so the stored translation is the best
-    // English available and must survive.
+  it('keeps a value the vocabulary does not know, Title Cased from its stored EN', () => {
     expect(deriveSubcategoriesEn(['手工燈籠'], ['handmade lantern'])).toEqual([
       'Handmade Lantern',
     ])
-  })
-
-  it('falls back to the raw zh when a novel subcategory has no stored EN', () => {
     expect(deriveSubcategoriesEn(['手工燈籠'], [])).toEqual(['手工燈籠'])
-    expect(deriveSubcategoriesEn(['手工燈籠'], ['  '])).toEqual(['手工燈籠'])
   })
 
   it('aligns existingEn by index and ignores a shorter stored array', () => {
-    expect(
-      deriveSubcategoriesEn(['後背包', '手工燈籠'], ['backpack']),
-    ).toEqual(['Backpacks', '手工燈籠'])
-  })
-
-  it('behaves identically when called with one argument', () => {
-    expect(deriveSubcategoriesEn(['後背包', '手工燈籠'])).toEqual([
+    expect(deriveSubcategoriesEn(['backpacks', '手工燈籠'], ['backpack'])).toEqual([
       'Backpacks',
       '手工燈籠',
     ])
@@ -304,9 +263,10 @@ describe('deriveSubcategoriesEn', () => {
 describe('planSubcategoryBackfill', () => {
   it('splits subcategories into deterministic matches and llm candidates', () => {
     const plan = planSubcategoryBackfill(['側背包', '口金短夾', '登山背包'])
-    expect(plan.matched.map((m) => m.canonicalZh)).toEqual(['斜背包', '後背包'])
+    expect(plan.matched.map((m) => m.slug)).toEqual(['crossbody-bags', 'backpacks'])
     expect(plan.unmatched).toEqual(['口金短夾'])
   })
+
   it('is idempotent on already-canonical input', () => {
     const plan = planSubcategoryBackfill(['斜背包', '後背包'])
     expect(plan.matched.map((m) => m.canonicalZh)).toEqual(['斜背包', '後背包'])

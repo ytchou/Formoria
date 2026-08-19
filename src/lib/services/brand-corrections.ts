@@ -27,7 +27,8 @@ import {
   deriveSubcategoriesEn,
   isSubcategoriesDelta,
   MAX_SUBCATEGORIES,
-  resolveSubcategoryInput,
+  recordRejectedSubcategoryInput,
+  resolveSubcategorySelection,
   sameSubcategorySet,
   type SubcategoriesDelta,
 } from "./subcategories";
@@ -536,33 +537,29 @@ export function normalizeProposedValue(
 
   if (!isSubcategoriesDelta(value)) return { ok: false, error: "invalid_value" };
 
-  // Asymmetric on purpose. Every `add` is canonicalized through the ontology
-  // (alias or English name -> `nameZh`) before it is persisted: brands.subcategories
-  // stores canonical labels and the `?sub=` filter matches by exact-string array
-  // overlap, so an un-canonicalized addition would silently drop the brand from
-  // subcategory results. A subcategory the ontology does not know is still allowed
-  // through — that escape hatch is the point — but only if it clears the same
-  // novel-subcategory heuristics enrichment applies. `remove` stays unrestricted: a brand
-  // can carry novel subcategories persisted by normalizeSubcategories, and removing a bad
-  // value can never introduce one. Rejecting those removals would block exactly
-  // the repair this feature exists to perform.
-  // Ceiling: `novelSubcategoryRejection` is a code-point length band plus a
-  // marketing-noise regex whose terms are all Han — so non-CJK input passes
-  // with NO content filter at all, and admin review is the only gate on it;
-  // swap for a language-agnostic blocklist (or a moderation call) if reviewers
-  // report abusive submissions.
-  // Dedupe on the ontology's matching key, not the raw string: novel subcategories are
-  // stored as typed, so 'Vegan' and 'vegan' would otherwise both survive and
-  // take two of the five cap slots. First-seen casing wins.
+  // Asymmetric on purpose. Every `add` is resolved through the CLOSED
+  // vocabulary and stored as its SLUG: `brands.subcategories` is a slug column
+  // since DEV-1510 and the `?sub=` filter matches by exact array overlap, so an
+  // unresolved addition would silently drop the brand from subcategory results.
+  // There is no novel escape hatch left — a term the vocabulary does not know is
+  // refused and LOGGED, because with every free-text path gone that log is the
+  // only way a missing product kind can announce itself. `remove` stays
+  // unrestricted: a brand can still carry pre-migration values, and removing a
+  // bad value can never introduce one. Rejecting those removals would block
+  // exactly the repair this feature exists to perform.
+  // Dedupe on the ontology's matching key, not the raw string.
   const add: string[] = [];
   const seenAdd = new Set<string>();
   for (const raw of value.add) {
-    const resolved = resolveSubcategoryInput(raw);
-    if (!resolved.ok) return { ok: false, error: "invalid_value" };
-    const key = normalizeSubcategoryKey(resolved.subcategory);
+    const resolved = resolveSubcategorySelection(raw);
+    if (!resolved.ok) {
+      recordRejectedSubcategoryInput({ input: raw, surface: "correction-api" });
+      return { ok: false, error: "invalid_value" };
+    }
+    const key = normalizeSubcategoryKey(resolved.slug);
     if (seenAdd.has(key)) continue;
     seenAdd.add(key);
-    add.push(resolved.subcategory);
+    add.push(resolved.slug);
   }
 
   const remove: string[] = [];
