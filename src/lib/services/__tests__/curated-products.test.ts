@@ -943,6 +943,69 @@ describe("createCuratedProduct", () => {
     });
     expect(Object.keys(calls.insert.at(0) ?? {})).not.toContain("notes_zh");
   });
+
+  it("create_persists_material — a ratified slug round-trips onto the inserted row", async () => {
+    const { client, calls } = stubWriteClient([
+      { data: { id: PRODUCT_ID, key: "teacup" } },
+    ]);
+
+    await createCuratedProduct(
+      {
+        brandId: BRAND_ID,
+        nameZh: "Teacup",
+        category: "home",
+        productDescriptionZh: "陶土燒製，容量約 200 毫升。",
+        material: ["wood"],
+      },
+      client,
+    );
+
+    expect(calls.insert.at(0)?.material).toEqual(["wood"]);
+  });
+
+  it("create_rejects_unknown_material_slug — an unratified term is dropped, never handed to Postgres", async () => {
+    // The column carries a CHECK over the twelve ratified slugs
+    // (20260819140000_material_vocabulary_check.sql). Letting an unknown term
+    // through would 23514 the whole insert and lose the valid terms with it, so
+    // the service drops it — the same behaviour as an out-of-category
+    // subcategory.
+    const { client, calls } = stubWriteClient([
+      { data: { id: PRODUCT_ID, key: "teacup" } },
+    ]);
+
+    await createCuratedProduct(
+      {
+        brandId: BRAND_ID,
+        nameZh: "Teacup",
+        category: "home",
+        productDescriptionZh: "陶土燒製，容量約 200 毫升。",
+        material: ["wood", "plastic", "resin"],
+      },
+      client,
+    );
+
+    expect(calls.insert.at(0)?.material).toEqual(["wood"]);
+  });
+
+  it("create_defaults_material_to_empty_array — an omitted material inserts [], not null", async () => {
+    const { client, calls } = stubWriteClient([
+      { data: { id: PRODUCT_ID, key: "teacup" } },
+    ]);
+
+    await createCuratedProduct(
+      {
+        brandId: BRAND_ID,
+        nameZh: "Teacup",
+        category: "home",
+        productDescriptionZh: "陶土燒製，容量約 200 毫升。",
+      },
+      client,
+    );
+
+    // `material` is NOT NULL in Postgres: a null here is a 23502, so the writer
+    // must always send an array.
+    expect(calls.insert.at(0)?.material).toEqual([]);
+  });
 });
 
 describe("curated product writers", () => {

@@ -12,6 +12,7 @@ import {
 } from "@/lib/services/public-brand-filter";
 import {
   matchSubcategory,
+  materialBySlug,
   normalizeSubcategoryKey,
   resolveSubcategorySlugs,
 } from "@/lib/taxonomy/ontology";
@@ -645,6 +646,12 @@ export type CuratedProductWriteInput = {
   category: string;
   /** Subcategory slugs or labels; normalized to slugs within `category`. */
   subcategories?: string[];
+  /**
+   * Material slugs from the closed `MATERIALS` vocabulary. CHECK-constrained in
+   * Postgres, so unratified terms are dropped rather than forwarded; absent
+   * means `[]`, because the column is `not null default '{}'`.
+   */
+  material?: string[];
   officialUrl?: string | null;
   imageUrl?: string | null;
   imageSourceUrl?: string | null;
@@ -675,9 +682,15 @@ export type CuratedProductWriteInput = {
  * `link_checked_at` are absent on purpose: link health is written only by the
  * link checker. A generic patch that accepted them would let an edit form
  * silently overwrite a probe result with stale form state.
+ *
+ * `material` is omitted for the same class of reason, one step earlier:
+ * `updateCuratedProduct` has no branch for it yet, so inheriting the key from
+ * `CuratedProductWriteInput` would accept a material patch and drop it without
+ * an error. Removing it here makes that a compile error until the edit path
+ * exists.
  */
 export type CuratedProductUpdateInput = Partial<
-  Omit<CuratedProductWriteInput, "brandId">
+  Omit<CuratedProductWriteInput, "brandId" | "material">
 >;
 
 /**
@@ -721,6 +734,28 @@ function normalizeCuratedSubcategories(
     if (!sub || sub.category !== category) continue;
     if (slugs.includes(sub.slug)) continue;
     slugs.push(sub.slug);
+  }
+  return slugs;
+}
+
+/**
+ * Materials arrive as slugs of the closed `MATERIALS` vocabulary. Anything that
+ * does not resolve is DROPPED rather than thrown, matching
+ * `normalizeCuratedSubcategories`: both columns are slug columns whose values
+ * render as filters, and a term the ontology cannot resolve would render as a
+ * dead one.
+ *
+ * Dropping is also what keeps a partly-bad list writable. `material` carries a
+ * CHECK over the twelve ratified slugs, so one unknown term forwarded to
+ * Postgres 23514s the whole insert and loses the valid terms with it.
+ */
+function normalizeCuratedMaterials(values: readonly string[]): string[] {
+  const slugs: string[] = [];
+  for (const value of values) {
+    const material = materialBySlug(value.trim().toLowerCase());
+    if (!material) continue;
+    if (slugs.includes(material.slug)) continue;
+    slugs.push(material.slug);
   }
   return slugs;
 }
@@ -771,6 +806,7 @@ export async function createCuratedProduct(
           input.category,
           input.subcategories ?? [],
         ),
+        material: normalizeCuratedMaterials(input.material ?? []),
         official_url: input.officialUrl ?? null,
         image_url: input.imageUrl ?? null,
         image_source_url: input.imageSourceUrl ?? null,

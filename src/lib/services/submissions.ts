@@ -164,6 +164,13 @@ export type SubmissionReviewData = {
   socialFacebook: string | null;
   otherUrls: OtherUrl[];
 } & { [Field in PurchaseChannelCamelField]: string | null };
+/**
+ * `channels` is submission-only, so it is widened here. Curated-product
+ * proposals are NOT: `products` lives on `EnrichedData` itself, which is what
+ * puts it through `enrichedDataToDb`/`enrichedDataFromDb` and therefore through
+ * `enrichedDataFromSubmissionDb` below. Re-declaring it here would be a second
+ * copy of the same contract, free to drift.
+ */
 type EnrichedSubmissionData = EnrichedData & {
   channels?: ChannelCandidate[];
 };

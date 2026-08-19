@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   L1_CATEGORIES,
   L2_SUBCATEGORIES,
+  MATERIALS,
+  materialBySlug,
   isCompositeSubcategory,
   matchSubcategory,
   resolveSubcategorySlugs,
@@ -160,6 +162,59 @@ describe('L2_SUBCATEGORIES', () => {
     expect(matchSubcategory('花草茶')).toBeNull()
     expect(matchSubcategory('手機吊飾')?.slug).toBe('phone-straps')
     expect(matchSubcategory('吊飾')?.slug).toBe('charms')
+  })
+})
+
+describe('MATERIALS', () => {
+  const RATIFIED_ZH = [
+    '陶瓷',
+    '木',
+    '織品',
+    '玻璃',
+    '金屬',
+    '竹',
+    '羊毛',
+    '皮革',
+    '紙',
+    '石',
+    '藤',
+    '漆',
+  ]
+
+  it('materials_close_at_twelve_terms', () => {
+    // The vocabulary is closed, not seeded: the CHECK constraint on
+    // brands.material and curated_products.material mirrors this list, so an
+    // addition here without a migration writes rows Postgres will reject.
+    expect(MATERIALS).toHaveLength(12)
+    expect(new Set(MATERIALS.map((m) => m.nameZh))).toEqual(new Set(RATIFIED_ZH))
+  })
+
+  it('material_slugs_are_ascii_kebab_case', () => {
+    for (const material of MATERIALS) {
+      expect(material.slug, `${material.nameZh} slug`).toMatch(/^[a-z][a-z0-9-]*$/)
+      expect(material.nameEn, `${material.nameZh} nameEn`).toBeTruthy()
+    }
+  })
+
+  it('material_slugs_are_unique', () => {
+    const slugs = MATERIALS.map((m) => m.slug)
+    const namesZh = MATERIALS.map((m) => m.nameZh)
+    expect(new Set(slugs).size, `duplicate slug in ${slugs.join(',')}`).toBe(slugs.length)
+    expect(new Set(namesZh).size, `duplicate nameZh in ${namesZh.join(',')}`).toBe(
+      namesZh.length,
+    )
+  })
+})
+
+describe('materialBySlug', () => {
+  it('resolves a known slug to its material', () => {
+    expect(materialBySlug('ceramic')?.nameZh).toBe('陶瓷')
+    expect(materialBySlug('lacquer')?.nameZh).toBe('漆')
+  })
+
+  it('returns null for unknown slugs', () => {
+    expect(materialBySlug('plastic')).toBeNull()
+    expect(materialBySlug('')).toBeNull()
   })
 })
 

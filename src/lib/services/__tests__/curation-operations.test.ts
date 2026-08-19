@@ -14,6 +14,8 @@ import {
   submissionToEnrichBrand,
 } from '../curation-operations'
 import type { CurationConfig } from '../curation-operations'
+import { enrichedDataFromDb, enrichedDataToDb } from '@/lib/types/enriched-data'
+import type { CuratedProductProposal } from '@/lib/types/enriched-data'
 import { getDisplayBrandName, runCleanPhase } from '../enrich-phases'
 import { describeWithDb } from '@/test/setup'
 
@@ -165,6 +167,113 @@ describe('mergeSubmissionEnrichedData', () => {
 
     expect(secondRun).toEqual({ _cleared_fields: ['purchase_website'] })
     expect(secondRun.purchase_website).toBeUndefined()
+  })
+})
+
+/**
+ * The `enriched_data.products[]` payload contract (DEV-1469): the proposals an
+ * enrichment run makes ride the submission blob, so the blob's transforms and
+ * its rerun merge are the two places a proposal can be silently corrupted.
+ */
+describe('enriched_data.products[] payload contract', () => {
+  const proposal = (key: string): CuratedProductProposal => ({
+    key,
+    nameZh: `${key} 陶杯`,
+    nameEn: `${key} cup`,
+    category: 'home-living',
+    subcategories: ['tableware'],
+    material: ['ceramic'],
+    officialUrl: `https://example.com/products/${key}`,
+    imageSourceUrl: `https://example.com/products/${key}#photo`,
+    productDescriptionZh: '杯口收窄，握起來剛好一手。',
+    sources: [
+      {
+        url: `https://example.com/products/${key}`,
+        sourceType: 'official',
+        claimZh: '官網產品頁',
+      },
+    ],
+  })
+
+  // Object arrays inside the blob are camelCase passthrough (the `channels`
+  // precedent), so a round trip has to be lossless in BOTH directions — a
+  // one-sided transform would drop every proposal on the next read.
+  it('products_survive_the_db_round_trip', () => {
+    const input = { products: [proposal('a'), proposal('b')] }
+
+    const stored = enrichedDataToDb(input)
+    expect(stored.products).toEqual(input.products)
+
+    expect(enrichedDataFromDb(stored)).toEqual(input)
+  })
+
+  // deepMergeJsonObjects unions arrays through a Set, which is a no-op on
+  // object arrays: every rerun would append its proposals to the stored ones
+  // and the moderator would review 5 rows for a 2-product brand.
+  it('products_merge_replaces_not_unions', () => {
+    const base = { products: [proposal('a'), proposal('b'), proposal('c')] }
+    const patch = { products: [proposal('d'), proposal('e')] }
+
+    const merged = mergeSubmissionEnrichedData(base, patch)
+
+    expect(merged.products).toEqual(patch.products)
+    expect(merged.products).toHaveLength(2)
+    expect(
+      (merged.products as CuratedProductProposal[]).map((product) => product.key)
+    ).toEqual(['d', 'e'])
+  })
+
+  // An empty array is not the same statement as silence: `products: []` reads as
+  // "this run found nothing" and would wipe a stored proposal set, so a payload
+  // that never mentions products must not grow the key.
+  it('products_absent_stays_absent', () => {
+    const stored = enrichedDataToDb({ description: '品牌介紹' })
+    expect(stored).not.toHaveProperty('products')
+
+    const read = enrichedDataFromDb({ description: '品牌介紹' })
+    expect(read).not.toHaveProperty('products')
+
+    const merged = mergeSubmissionEnrichedData(
+      { products: [proposal('a')] },
+      { description: '品牌介紹' }
+    )
+    expect(merged.products).toEqual([proposal('a')])
+  })
+
+  // Commerce truth is excluded from the graph forever. The key list is typed as
+  // an exhaustive record, so adding a field to CuratedProductProposal fails to
+  // compile until it is named here — and then this scan is what rejects it.
+  it('payload_carries_no_commerce_fields', () => {
+    const fields: Record<keyof CuratedProductProposal, true> = {
+      key: true,
+      nameZh: true,
+      nameEn: true,
+      category: true,
+      subcategories: true,
+      material: true,
+      officialUrl: true,
+      imageSourceUrl: true,
+      productDescriptionZh: true,
+      sources: true,
+    }
+
+    const forbidden =
+      /price|cost|stock|inventory|discount|availab|offer|variant|sku|currency|checkout/i
+    const proposalKeys = Object.keys(fields)
+    expect(proposalKeys.filter((field) => forbidden.test(field))).toEqual([])
+
+    const sourceFields: Record<
+      keyof CuratedProductProposal['sources'][number],
+      true
+    > = { url: true, sourceType: true, claimZh: true }
+    expect(Object.keys(sourceFields).filter((f) => forbidden.test(f))).toEqual([])
+
+    // And no runtime key survives the transforms either.
+    const stored = enrichedDataToDb({ products: [proposal('a')] })
+    const storedKeys = (stored.products as CuratedProductProposal[]).flatMap(
+      (product) => Object.keys(product)
+    )
+    expect(storedKeys.filter((field) => forbidden.test(field))).toEqual([])
   })
 })
 

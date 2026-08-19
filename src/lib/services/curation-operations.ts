@@ -490,6 +490,14 @@ export function mergeSubmissionEnrichedData(
     // channels are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
     merged.channels = patch.channels;
   }
+  if (Object.hasOwn(patch, "products")) {
+    // Same reason as channels: curated-product proposals are object arrays, so
+    // the Set union is a no-op and every rerun would APPEND its proposals to the
+    // stored ones. A reviewer would then tick keepers from 5 rows for a
+    // 2-product brand, and a proposal the run has since dropped would survive
+    // forever. The newest run's list is the whole list.
+    merged.products = patch.products;
+  }
   if (Object.hasOwn(patch, CLEARED_FIELDS_KEY)) {
     // Replace, never union. A later run that finds real evidence has to be able
     // to un-clear the field; the array-union default would make the first clear

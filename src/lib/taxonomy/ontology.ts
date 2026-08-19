@@ -362,3 +362,56 @@ export function resolveSubcategorySlugs(
 export function subcategoryLabel(sub: L2Subcategory, locale: string): string {
   return locale === 'zh-TW' ? sub.nameZh : sub.nameEn
 }
+
+// ---------------------------------------------------------------------------
+// Materials
+// ---------------------------------------------------------------------------
+
+export type Material = {
+  slug: string
+  nameZh: string
+  nameEn: string
+}
+
+/**
+ * The closed material vocabulary (DEV-1506). Twelve terms, ratified, 1:1
+ * between slug and Chinese label.
+ *
+ * CLOSED, not seeded. `brands.material` and `curated_products.material` carry a
+ * CHECK constraint that mirrors this exact list
+ * (20260819140000_material_vocabulary_check.sql), so a term added here without
+ * a companion migration produces writes Postgres rejects with a 23514 — and a
+ * term removed here without one leaves stored rows no reader can resolve.
+ *
+ * Material is a property of the thing, never of the occasion or the technique:
+ * 漆 is in because a lacquered box is made of lacquer; 手工 is not a material,
+ * and neither is 禮盒. The `subcategories` axis already carries product kind,
+ * so a term that names a kind of product does not belong here.
+ */
+export const MATERIALS = [
+  { slug: 'ceramic', nameZh: '陶瓷', nameEn: 'Ceramic' },
+  { slug: 'wood', nameZh: '木', nameEn: 'Wood' },
+  { slug: 'textile', nameZh: '織品', nameEn: 'Textile' },
+  { slug: 'glass', nameZh: '玻璃', nameEn: 'Glass' },
+  { slug: 'metal', nameZh: '金屬', nameEn: 'Metal' },
+  { slug: 'bamboo', nameZh: '竹', nameEn: 'Bamboo' },
+  { slug: 'wool', nameZh: '羊毛', nameEn: 'Wool' },
+  { slug: 'leather', nameZh: '皮革', nameEn: 'Leather' },
+  { slug: 'paper', nameZh: '紙', nameEn: 'Paper' },
+  { slug: 'stone', nameZh: '石', nameEn: 'Stone' },
+  { slug: 'rattan', nameZh: '藤', nameEn: 'Rattan' },
+  { slug: 'lacquer', nameZh: '漆', nameEn: 'Lacquer' },
+] as const satisfies readonly Material[]
+
+let _materialSlugMap: Map<string, Material> | null = null
+
+function _getMaterialSlugMap(): Map<string, Material> {
+  if (!_materialSlugMap) {
+    _materialSlugMap = new Map(MATERIALS.map((material) => [material.slug, material]))
+  }
+  return _materialSlugMap
+}
+
+export function materialBySlug(slug: string): Material | null {
+  return _getMaterialSlugMap().get(slug) ?? null
+}
