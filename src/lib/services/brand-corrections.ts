@@ -40,7 +40,12 @@ const CORRECTION_SELECT =
   )}, social_instagram, social_threads, social_facebook)`;
 
 /**
- * The material axis, closed to the twelve agreed terms.
+ * The material axis, closed to the twelve agreed SLUGS.
+ *
+ * The gate matches on `slug` alone since DEV-1525. `nameZh` is display-only, so
+ * a payload carrying the pre-migration 陶瓷 is rejected exactly like a term the
+ * vocabulary never held — `brands.material` stores `ceramic` now, and accepting
+ * the old spelling here would write a value `brands_material_check` bounces.
  *
  * Both correctable arrays are closed now: DEV-1510 retired the subcategory
  * escape hatch of `docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md`,
@@ -53,17 +58,18 @@ const CORRECTION_SELECT =
  * `brands_material_check` would reject the write anyway. Failing in the service
  * layer turns a 23514 at apply time into an `invalid_value` at submit time.
  */
-const MATERIAL_TERMS = new Set<string>(MATERIALS);
+const MATERIAL_TERMS = new Set<string>(MATERIALS.map((m) => m.slug));
 
 /**
  * Canonical storage order for a material array: the `MATERIALS` order, not
- * first-seen. `20260820140000_material_check_and_backfill.sql` writes the
- * backfill that way, so a corrected row that kept insertion order would sort
- * differently from a backfilled one holding the same set — and array equality
- * is how `sameMaterialSet` and the staleness check both work.
+ * first-seen. `20260820170000_material_slugs.sql` converts every stored row in
+ * that order (its mapping ranks 1..12 are the `MATERIALS` indices), so a
+ * corrected row that kept insertion order would sort differently from a
+ * converted one holding the same set — and array equality is how
+ * `sameMaterialSet` and the staleness check both work.
  */
 const MATERIAL_ORDER = new Map<string, number>(
-  MATERIALS.map((material, index) => [material, index]),
+  MATERIALS.map((material, index) => [material.slug, index]),
 );
 
 const MAX_LINK_URL_LENGTH = 2048;
@@ -286,8 +292,9 @@ export function isMaterialDelta(value: unknown): value is MaterialDelta {
  * Applies a material delta and re-sorts into `MATERIALS` order.
  *
  * Membership is EXACT-STRING, not `normalizeSubcategoryKey`: the vocabulary is
- * twelve closed Han terms with no aliases, no casing and no middle dots, so
- * normalizing would only add a way for two spellings of one term to exist.
+ * twelve closed lowercase slugs with no aliases, no case variants and no middle
+ * dots, so normalizing would only add a way for two spellings of one term to
+ * exist.
  * `normalizeProposedValue` has already rejected anything outside the set.
  */
 export function applyMaterialDelta(

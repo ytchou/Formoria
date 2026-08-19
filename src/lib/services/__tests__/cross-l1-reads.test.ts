@@ -44,7 +44,7 @@ const CROSS_L1_BRAND: SubcategorySummaryRow = {
 const NATIVE_BRAND: SubcategorySummaryRow = {
   category: 'bags-accessories',
   subcategories: ['backpacks', 'tote-bags'],
-  material: ['皮革'],
+  material: ['leather'],
   updatedAt: '2026-08-17T00:00:00.000Z',
 }
 

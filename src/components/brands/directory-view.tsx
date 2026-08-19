@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getTranslations } from 'next-intl/server'
 import { directoryBrandCategoryFilter, getMaterialCounts, getPublicBrandCards, getRandomBrands, getSubcategorySummary } from '@/lib/services/brands'
-import { categoryLabel, L2_SUBCATEGORIES, L1_CATEGORIES, MATERIALS, resolveDirectorySubcategorySlugs } from '@/lib/taxonomy/ontology'
+import { categoryLabel, L2_SUBCATEGORIES, L1_CATEGORIES, MATERIALS, materialBySlug, resolveDirectorySubcategorySlugs } from '@/lib/taxonomy/ontology'
 import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildBrandsItemListJsonLd, buildWebSiteJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { DEFAULT_PAGE_SIZE, type BrandSortOption } from '@/lib/pagination'
 import {
@@ -49,10 +49,9 @@ export type DirectoryViewProps = {
 
 export async function DirectoryView({ locale, filters, page, sort, canonical, isCategoryRoute = false }: DirectoryViewProps) {
   const safeLocale = locale
-  const [t, verificationT, materialT, messages] = await Promise.all([
+  const [t, verificationT, messages] = await Promise.all([
     getTranslations({ locale: safeLocale, namespace: 'brands' }),
     getTranslations({ locale: safeLocale, namespace: 'brands.verificationFilter' }),
-    getTranslations({ locale: safeLocale, namespace: 'categories.materials' }),
     getMessages({ locale: safeLocale }),
   ])
 
@@ -110,13 +109,15 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
     label: safeLocale === 'zh-TW' ? subcategory.nameZh : subcategory.nameEn,
     count: subcategory.count,
   }))
-  // Four material terms are in the closed vocabulary with no brands behind them.
+  // Four material slugs are in the closed vocabulary with no brands behind them.
   // A rail entry that can only ever return an empty page is worse than no entry,
-  // so the zero terms are dropped here exactly as the L2 rail drops its own.
+  // so the zero-count slugs are dropped here exactly as the L2 rail drops its own.
+  // The label comes off the ontology, not a message catalogue: `?material=` and
+  // `brands.material` both carry the slug, and the zh/en pair travels with it.
   const materialOptions = MATERIALS.map((material) => ({
-    value: material,
-    label: materialT(material),
-    count: materialCounts.get(material) ?? 0,
+    value: material.slug,
+    label: safeLocale === 'zh-TW' ? material.nameZh : material.nameEn,
+    count: materialCounts.get(material.slug) ?? 0,
   })).filter((option) => option.count > 0)
 
   const totalPages = Math.ceil(totalCount / DEFAULT_PAGE_SIZE)
@@ -198,7 +199,11 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
     })
   }
   for (const material of materials) {
-    const value = materialT(material)
+    // `materials` carries slugs. An unresolvable one cannot reach here — the
+    // parser drops it — but the chip falls back to the raw value rather than
+    // rendering an empty label if one ever does.
+    const entry = materialBySlug(material)
+    const value = entry ? (safeLocale === 'zh-TW' ? entry.nameZh : entry.nameEn) : material
     const remainingMaterials = materials.filter((item) => item !== material)
     activeFilters.push({
       id: `material-${material}`,

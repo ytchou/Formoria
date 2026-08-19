@@ -31,7 +31,6 @@ import {
   L2_SUBCATEGORIES,
   MATERIALS,
 } from "@/lib/taxonomy/ontology";
-import enMessages from "../messages/en.json";
 
 export const TAXONOMY_TERM_AXES = ["l1", "l2", "material"] as const;
 
@@ -57,7 +56,7 @@ const ROOT = resolve(import.meta.dirname, "..");
  */
 export const TAXONOMY_TERMS_MIGRATION = resolve(
   ROOT,
-  "supabase/migrations/20260820100000_taxonomy_terms.sql",
+  "supabase/migrations/20260820170000_material_slugs.sql",
 );
 
 export const SEED_BEGIN_MARKER =
@@ -65,25 +64,15 @@ export const SEED_BEGIN_MARKER =
 export const SEED_END_MARKER = "-- <<< end generated block";
 
 /**
- * Material English names live in `messages/en.json`, not in the ontology:
- * `MATERIALS` is a list of the stored zh-TW terms and carries no English side.
- * `message-parity.test.ts:104` already pins those keys to `MATERIALS` in both
- * locales, so the pairing is guarded rather than assumed. A material's slug IS
- * its zh term — that is what `brands.material` stores and what `?material=`
- * carries in the URL.
+ * Every axis reads slug, zh-TW label and English label straight off its ontology
+ * entry — no external lookup on any arm.
+ *
+ * Materials used to be the exception: `MATERIALS` was a list of stored zh-TW
+ * terms whose slug WAS the zh term, and the English side lived in the message
+ * catalogue. DEV-1525 inverted that. `brands.material` stores `ceramic`,
+ * `?material=` carries `ceramic`, and both labels ride on the ontology entry, so
+ * no message catalogue is an input to this generator any more.
  */
-function materialNameEn(material: string): string {
-  const table = enMessages.categories.materials as Record<string, string>;
-  const nameEn = table[material];
-  if (!nameEn) {
-    throw new Error(
-      `messages/en.json is missing categories.materials["${material}"]; ` +
-        "add it in both locales before regenerating taxonomy_terms",
-    );
-  }
-  return nameEn;
-}
-
 export function buildTaxonomyTermRows(): TaxonomyTermRow[] {
   const rows: TaxonomyTermRow[] = [
     ...L1_CATEGORIES.map((category) => ({
@@ -100,9 +89,9 @@ export function buildTaxonomyTermRows(): TaxonomyTermRow[] {
     })),
     ...MATERIALS.map((material) => ({
       axis: "material" as const,
-      slug: material,
-      nameZh: material,
-      nameEn: materialNameEn(material),
+      slug: material.slug,
+      nameZh: material.nameZh,
+      nameEn: material.nameEn,
     })),
   ];
 

@@ -68,20 +68,38 @@ describe("taxonomy_terms parity with the TypeScript ontology", () => {
       });
     }
 
-    for (const material of MATERIALS) {
-      const matches = seededRows.filter(
-        (row) => row.axis === "material" && row.slug === material,
-      );
-      expect(matches, `material:${material}`).toHaveLength(1);
-      // A material's slug IS its zh-TW term: that is what `brands.material`
-      // stores and what `?material=` carries in the URL.
-      expect(matches[0]?.nameZh).toBe(material);
-      expect(matches[0]?.nameEn).toBeTruthy();
-    }
-
     // No orphans: a term removed from the ontology but left in the SQL seed
     // would keep expanding into the search document forever.
     expect(sortRows(seededRows)).toEqual(sortRows(ontologyRows));
+  });
+
+  // Bug caught: a material seeded under its zh-TW label instead of its slug.
+  // `brands.material` stores the slug (DEV-1525) and `?material=` carries it, so
+  // a label-keyed row expands nothing and the zh-TW query silently narrows.
+  it("taxonomy_terms_material_rows_are_slug_keyed", () => {
+    for (const material of MATERIALS) {
+      const matches = seededRows.filter(
+        (row) => row.axis === "material" && row.slug === material.slug,
+      );
+      expect(matches, `material:${material.slug}`).toHaveLength(1);
+      expect(matches[0]).toEqual({
+        axis: "material",
+        slug: material.slug,
+        nameZh: material.nameZh,
+        nameEn: material.nameEn,
+      });
+    }
+  });
+
+  // Bug caught: any axis regressing to zh-as-identifier. Materials were the last
+  // axis whose slug echoed its label, so the exemption is gone and the rule is
+  // now unconditional — a row that carries its slug as its zh-TW label indexes
+  // the identifier into `cjk_bigrams` instead of the term a reader would type.
+  it("no_taxonomy_term_slug_echoes_its_label", () => {
+    const offenders = seededRows
+      .filter((row) => row.slug === row.nameZh)
+      .map((row) => `${row.axis}:${row.slug}`);
+    expect(offenders).toEqual([]);
   });
 
   // Bug caught: an axis typo, or an L1 seeded onto the `l2` axis, which the
@@ -91,6 +109,16 @@ describe("taxonomy_terms parity with the TypeScript ontology", () => {
       expect(TAXONOMY_TERM_AXES, `${row.axis}:${row.slug}`).toContain(row.axis);
     }
 
+    // The composite primary key is (axis, slug), not slug alone — assert the
+    // pair is what is unique, so an L1 and an L2 sharing a slug stays legal.
+    const keys = seededRows.map((row) => `${row.axis}:${row.slug}`);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  // Bug caught: a truncated INSERT, or an axis that lost rows in a re-seed. The
+  // literals are restated on purpose — reading them off the ontology alone makes
+  // the assertion vacuous when the ontology is what regressed.
+  it("axis_counts_are_13_175_12", () => {
     const counts = { l1: 0, l2: 0, material: 0 };
     for (const row of seededRows) counts[row.axis] += 1;
 
@@ -98,11 +126,6 @@ describe("taxonomy_terms parity with the TypeScript ontology", () => {
     expect(counts.l1).toBe(L1_CATEGORIES.length);
     expect(counts.l2).toBe(L2_SUBCATEGORIES.length);
     expect(counts.material).toBe(MATERIALS.length);
-
-    // The composite primary key is (axis, slug), not slug alone — assert the
-    // pair is what is unique, so an L1 and an L2 sharing a slug stays legal.
-    const keys = seededRows.map((row) => `${row.axis}:${row.slug}`);
-    expect(new Set(keys).size).toBe(keys.length);
   });
 });
 

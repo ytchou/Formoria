@@ -8,6 +8,7 @@ import {
   isCompositeSubcategory,
   isKnownSubcategoryTerm,
   matchSubcategory,
+  materialBySlug,
   normalizeSubcategoryKey,
   resolveSubcategorySlugs,
   subcategoryBySlug,
@@ -383,8 +384,34 @@ describe('DEV-1510 closed vocabulary', () => {
     }
   })
 
-  it('materials_vocabulary_is_the_12_agreed_terms', () => {
-    expect([...MATERIALS]).toEqual([
+  it('materials_vocabulary_is_the_twelve_agreed_slugs', () => {
+    expect(MATERIALS.map(material => material.slug)).toEqual([
+      'ceramic',
+      'wood',
+      'textile',
+      'glass',
+      'metal',
+      'bamboo',
+      'wool',
+      'leather',
+      'paper',
+      'stone',
+      'rattan',
+      'lacquer',
+    ])
+    expect(new Set(MATERIALS.map(material => material.slug)).size).toBe(12)
+  })
+
+  it('every_material_carries_both_labels', () => {
+    // The slug is what `brands.material` stores and what `?material=` carries;
+    // both labels are display-only, so a blank one renders an empty rail chip
+    // rather than raising anywhere.
+    for (const material of MATERIALS) {
+      expect(material.nameZh, `${material.slug} nameZh`).toBeTruthy()
+      expect(material.nameEn, `${material.slug} nameEn`).toBeTruthy()
+    }
+
+    expect(MATERIALS.map(material => material.nameZh)).toEqual([
       '陶瓷',
       '木',
       '織品',
@@ -398,14 +425,30 @@ describe('DEV-1510 closed vocabulary', () => {
       '藤',
       '漆',
     ])
-    expect(new Set(MATERIALS).size).toBe(12)
+  })
 
-    // The material axis is a separate vocabulary from the use axis. A term that
-    // is also an L2 name would make `?material=` and `?sub=` collide.
+  it('material_slugs_do_not_collide_with_l2', () => {
+    // The material axis is a separate vocabulary from the use axis. A material
+    // slug that is also an L2 slug — or an L2 zh-TW name — would make
+    // `?material=` and `?sub=` collide.
+    const l2Slugs = new Set(L2_SUBCATEGORIES.map(sub => sub.slug))
     const l2Names = new Set(L2_SUBCATEGORIES.map(sub => sub.nameZh))
     for (const material of MATERIALS) {
-      expect(l2Names.has(material), `${material} is also an L2 name`).toBe(false)
+      expect(l2Slugs.has(material.slug), `${material.slug} is also an L2 slug`).toBe(false)
+      expect(l2Names.has(material.slug), `${material.slug} is also an L2 name`).toBe(false)
     }
+  })
+
+  it('material_by_slug_resolves_and_rejects', () => {
+    expect(materialBySlug('ceramic')).toEqual({
+      slug: 'ceramic',
+      nameZh: '陶瓷',
+      nameEn: 'Ceramic',
+    })
+
+    // The zh-TW label is display-only now: it resolves nothing, so a stored zh
+    // term left behind by a missed backfill fails loudly instead of filtering.
+    expect(materialBySlug('陶瓷')).toBeNull()
   })
 
   it('every_corpus_label_resolves', () => {

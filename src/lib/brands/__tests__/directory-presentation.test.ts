@@ -81,17 +81,18 @@ describe('directoryTaxonomyHref', () => {
     )
   })
 
-  it('keeps an orthogonal material facet when a taxonomy chip is removed', () => {
+  it('material_chip_survives_removing_a_taxonomy_chip', () => {
     const state = urlState({
       category: BAGS,
       subcategory: BACKPACKS,
       categorySlugs: [BAGS.slug],
       subcategorySlugs: [BACKPACKS.slug],
-      materials: ['陶瓷'],
+      materials: ['ceramic'],
     })
 
+    expect(state.normalizedParams.get('material')).toBe('ceramic')
     expect(directoryTaxonomyHref(state, [BAGS.slug], [])).toBe(
-      '/brands?material=%E9%99%B6%E7%93%B7&category=bags-accessories',
+      '/brands?material=ceramic&category=bags-accessories',
     )
   })
 
@@ -123,14 +124,14 @@ describe('buildDirectoryUrlState', () => {
   it('carries every orthogonal facet, and omits the defaults', () => {
     const state = urlState({
       search: 'tote',
-      materials: ['陶瓷'],
+      materials: ['ceramic'],
       priceRanges: [2],
       verificationFilter: 'mit-verified',
       sort: 'newest',
     })
 
     expect(state.normalizedParams.get('search')).toBe('tote')
-    expect(state.normalizedParams.get('material')).toBe('陶瓷')
+    expect(state.normalizedParams.get('material')).toBe('ceramic')
     expect(state.normalizedParams.get('price')).toBe('2')
     expect(state.normalizedParams.get('verification')).toBe('mit-verified')
     expect(state.normalizedParams.get('sort')).toBe('newest')
@@ -157,7 +158,7 @@ describe('shouldEmitDirectoryItemList', () => {
     // `index:false` with a self-canonical, so an ItemList naming the whole
     // directory would describe a page Google is told not to index.
     expect(
-      shouldEmitDirectoryItemList({ ...unfiltered, materials: ['陶瓷'] }),
+      shouldEmitDirectoryItemList({ ...unfiltered, materials: ['ceramic'] }),
     ).toBe(false)
   })
 

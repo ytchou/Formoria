@@ -49,13 +49,13 @@ describe('directory filter URLs', () => {
     const empty = new URLSearchParams('category=crafts')
 
     // Set, extend, and clear — the same comma-joined multi-select shape as
-    // `?category=`.
-    expect(updateDirectoryUrl('/brands', empty, { material: '陶瓷' })).toBe(
-      '/brands?category=crafts&material=%E9%99%B6%E7%93%B7',
+    // `?category=`. The value is the ontology slug, never a display label.
+    expect(updateDirectoryUrl('/brands', empty, { material: 'ceramic' })).toBe(
+      '/brands?category=crafts&material=ceramic',
     )
-    const applied = new URLSearchParams('category=crafts&material=陶瓷')
-    expect(updateDirectoryUrl('/brands', applied, { material: '陶瓷,木' })).toBe(
-      '/brands?category=crafts&material=%E9%99%B6%E7%93%B7%2C%E6%9C%A8',
+    const applied = new URLSearchParams('category=crafts&material=ceramic')
+    expect(updateDirectoryUrl('/brands', applied, { material: 'ceramic,wood' })).toBe(
+      '/brands?category=crafts&material=ceramic%2Cwood',
     )
     expect(updateDirectoryUrl('/brands', applied, { material: null })).toBe(
       '/brands?category=crafts',
@@ -65,17 +65,17 @@ describe('directory filter URLs', () => {
 
   it('material_survives_a_category_change', () => {
     // `sub` is scoped to one L1 and is meaningless under another, so changing
-    // the category drops it. `material` is an ORTHOGONAL axis — 陶瓷 means the
-    // same thing in every category — so dropping it would silently discard a
-    // filter the user did not touch.
-    const params = new URLSearchParams('category=crafts&sub=ceramics&material=陶瓷&sort=name')
+    // the category drops it. `material` is an ORTHOGONAL axis — `ceramic` means
+    // the same thing in every category — so dropping it would silently discard
+    // a filter the user did not touch.
+    const params = new URLSearchParams('category=crafts&sub=ceramics&material=ceramic&sort=name')
 
     expect(updateDirectoryUrl('/brands', params, { category: 'home' })).toBe(
-      '/brands?category=home&material=%E9%99%B6%E7%93%B7&sort=name',
+      '/brands?category=home&material=ceramic&sort=name',
     )
     // Clearing the category entirely still keeps it.
     expect(updateDirectoryUrl('/brands', params, { category: null })).toBe(
-      '/brands?material=%E9%99%B6%E7%93%B7&sort=name',
+      '/brands?material=ceramic&sort=name',
     )
   })
 

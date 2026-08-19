@@ -1972,13 +1972,14 @@ export function summarizeSubcategoryRows(
 }
 
 /**
- * Material counts over the whole approved corpus, keyed by the zh-TW term.
+ * Material counts over the whole approved corpus, keyed by the material slug.
  *
  * Deliberately NOT scoped to the selected L1. Material is an orthogonal axis —
- * a `crafts` brand and a `home` brand are both 陶瓷 — and re-introducing a
+ * a `crafts` brand and a `home` brand are both `ceramic` — and re-introducing a
  * category conjunct here would recreate exactly the class of silent drop this
- * ticket removes. Four of the twelve terms (紙 石 藤 漆) have no brands at all;
- * the rail renders a term only when its count is above zero.
+ * ticket removes. Four of the twelve slugs (`paper` `stone` `rattan` `lacquer`)
+ * have no brands at all; the rail renders a slug only when its count is above
+ * zero.
  */
 function summarizeMaterialCounts(
   rows: readonly SubcategorySummaryRow[],

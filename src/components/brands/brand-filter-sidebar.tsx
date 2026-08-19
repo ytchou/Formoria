@@ -53,12 +53,13 @@ type SubcategoryOption = {
 };
 
 /**
- * One term of the closed 12-term material vocabulary.
+ * One slug of the closed 12-slug material vocabulary.
  *
- * `value` is the zh-TW term itself — it is what `brands.material` stores and
- * what `?material=` carries — while `label` is the localized rendering. The
- * caller drops any term whose count is zero, so this list is never longer than
- * the terms a user can actually reach.
+ * `value` is the slug itself — it is what `brands.material` stores and what
+ * `?material=` carries — while `label` is the localized rendering the caller
+ * resolved from the ontology (`nameZh` / `nameEn`), not from a message
+ * catalogue. The caller also drops any slug whose count is zero, so this list
+ * is never longer than the slugs a user can actually reach.
  */
 type MaterialOption = {
   value: string;
