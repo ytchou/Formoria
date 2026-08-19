@@ -1,4 +1,3 @@
-import type { APIRequestContext } from "@playwright/test";
 import { load } from "cheerio";
 
 import { BUDGET } from "../budgets";
@@ -18,28 +17,14 @@ const TRAIL_URL = trail ? `/discover/${trail.slug}` : "/discover";
 const SELECTED_BADGE_LABEL = "為這個主題選入";
 const OFFICIAL_DESTINATION = /前往(?:產品|品牌)官方網站/;
 
-// The trail is published in MDX, but the page 404s when the database holds too
-// few curated products for it. Probe once per worker so those runs skip, not
-// fail: the answer is environment-level, so every test in the worker reuses it.
-// A transport error resolves to null, which skips nothing.
-let trailStatusProbe: Promise<number | null> | undefined;
-
-function probeTrailStatus(
-  request: APIRequestContext,
-): Promise<number | null> {
-  trailStatusProbe ??= request
-    .get(TRAIL_URL)
-    .then((response) => response.status())
-    .catch(() => null);
-  return trailStatusProbe;
-}
-
 test.describe("Discovery trail deep", () => {
-  test.beforeEach(async ({ request }) => {
+  // DEV-1518 deleted the supply gate, so `/discover/<slug>` no longer 404s for
+  // a thin slate — a published trail renders and is indexed whatever its
+  // product count. The 404 probe that used to skip here is gone with it: a 404
+  // now means the slug is wrong or the MDX is missing, which is a red, not a
+  // skip. `NO_PUBLISHED_TRAILS` stays — it guards an empty `content/trails/`.
+  test.beforeEach(() => {
     test.skip(trail === undefined, NO_PUBLISHED_TRAILS);
-
-    const status = await probeTrailStatus(request);
-    test.skip(status === 404, "trail has no published curated products");
   });
 
   test("trail entrance renders in server HTML", async ({ request }) => {
@@ -55,6 +40,22 @@ test.describe("Discovery trail deep", () => {
       expect(serverText).toContain(section.title);
     }
     expect(serverText).toContain(SELECTED_BADGE_LABEL);
+  });
+
+  // The regression guard for DEV-1518. Before it, four frontmatter blockers,
+  // two subcategory heuristics and a supply floor could each stamp
+  // `noindex` on a published trail with no signal to its author. Nothing else
+  // in the repo asserts trail robots meta, so this is the only thing standing
+  // between that gate and a quiet return.
+  test("published trail is not noindex", async ({ request }) => {
+    const response = await request.get(TRAIL_URL);
+    test.skip(response.status() === 503, "PREVIEW_MODE active");
+
+    expect(response.status()).toBe(200);
+    const $ = load(await response.text());
+
+    const robots = $('meta[name="robots"]').attr("content") ?? "";
+    expect(robots).not.toContain("noindex");
   });
 
   test("visitor moves situation → section → product → brand page", async ({
