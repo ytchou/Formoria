@@ -27,8 +27,9 @@ const STAGING_MUTATION_SKIP_REASON =
  * original value until an admin approves it.
  *
  * The value control is a two-row chip picker (DEV-1244): row 1 is the brand's
- * current value, row 2 is everything else. A visitor whose product subcategory is
- * missing from row 2 can type it via the 其他 escape hatch.
+ * current value, row 2 is everything else. DEV-1510 closed the vocabulary: row 2
+ * offers all 175 nodes and there is no free-text path, so a product kind the
+ * taxonomy lacks is rejected and logged rather than proposed.
  *
  * Admin approval is deliberately out of scope here — admin review paths are
  * exercised elsewhere and excluded from this journey.
@@ -46,10 +47,6 @@ const FIELD_PICKER_LABEL = '要修正哪一項?'; // brandDetail.correction.fiel
 // by the field label itself, so 品牌類別 addresses the options row, not the current one.
 const CURRENT_VALUE_LABEL = '目前'; // brandDetail.correction.currentHeading
 const CATEGORY_VALUE_LABEL = '品牌類別'; // brandDetail.label.category
-const ADD_SUBCATEGORIES_LABEL = '可加入的子類別'; // brandDetail.correction.addSubcategoriesHeading
-const OTHER_SUBCATEGORY_CHIP = '其他'; // brandDetail.correction.otherSubcategoryChip
-const OTHER_SUBCATEGORY_INPUT_LABEL = '其他子類別名稱'; // brandDetail.correction.otherSubcategoryInputLabel
-const OTHER_SUBCATEGORY_CONFIRM = '加入'; // brandDetail.correction.otherSubcategoryConfirm
 const SUBMIT_LABEL = '送出修正'; // brandDetail.correction.submit
 const CANCEL_LABEL = '取消'; // dashboard.edit.cancel
 const REVIEW_PROMISE = '感謝提供建議！送出後由 Formoria 審核決定是否更新。'; // brandDetail.correction.description
@@ -64,7 +61,6 @@ const PROPOSED_CATEGORY_LABEL = '文具設計';
 // ontology name or alias (grep 藺 in ontology.ts returns nothing), and it misses
 // either subcategory blocklist — no marketing-noise term and no leading
 // size qualifier. See `novelSubcategoryRejection`.
-const NOVEL_SUBCATEGORY = '藺草編織';
 
 /**
  * Correction submits and `/brands/` page loads are both rate limited per client
@@ -302,50 +298,10 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
     await expect(dialog).toBeVisible();
   });
 
-  test(
-    'a visitor can propose a subcategory the taxonomy does not offer',
-    async ({ anonPage }, testInfo) => {
-      test.skip(IS_CANONICAL_STAGING_TARGET, STAGING_MUTATION_SKIP_REASON);
-      test.setTimeout(BUDGET.TEST.MUTATION);
-      await isolateVisitorIp(anonPage, testInfo.workerIndex);
-      await openSeededBrand(anonPage, seeded);
-
-      const dialog = await openCorrectionDialog(anonPage, 'subcategories');
-      const options = optionsRow(dialog, ADD_SUBCATEGORIES_LABEL);
-      const submit = dialog.getByRole('button', { name: SUBMIT_LABEL, exact: true });
-
-      // Nothing picked yet — the seeded brand carries no subcategories at all.
-      await expect(submit).toBeDisabled();
-
-      // The escape hatch: the visitor's subcategory is not one of the offered chips.
-      await expect(
-        options.getByRole('button', { name: NOVEL_SUBCATEGORY, exact: true }),
-      ).toHaveCount(0);
-      await options
-        .getByRole('button', { name: OTHER_SUBCATEGORY_CHIP, exact: true })
-        .click();
-
-      await dialog
-        .getByRole('textbox', { name: OTHER_SUBCATEGORY_INPUT_LABEL })
-        .fill(NOVEL_SUBCATEGORY);
-      await dialog
-        .getByRole('button', { name: OTHER_SUBCATEGORY_CONFIRM, exact: true })
-        .click();
-
-      // Accepted: it joins the options row already selected, so the visitor sees
-      // what they are about to propose rather than a silent form change.
-      const novelChip = options.getByRole('button', {
-        name: NOVEL_SUBCATEGORY,
-        exact: true,
-      });
-      await expect(novelChip).toBeVisible();
-      await expect(novelChip).toHaveAttribute('aria-pressed', 'true');
-
-      await expect(submit).toBeEnabled();
-      await submit.click();
-
-      await expectToast(anonPage, 'success', SUCCESS_TOAST);
-      await expect(dialog).toBeHidden();
-    },
-  );
+  // DEV-1510 deleted the 其他 free-text escape hatch this journey exercised: the
+  // subcategory control is now a closed picker over the 175-node vocabulary, and a
+  // term outside it is rejected and logged rather than proposed. The replacement
+  // journey (rejection announced via aria-describedby, and the ?material= facet)
+  // is authored against deployed staging, because e2e/global-setup.ts pins the
+  // suite to https://staging.formoria.com and no local target can run it.
 });
