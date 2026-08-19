@@ -2778,6 +2778,24 @@ export type Database = {
         }
         Relationships: []
       }
+      subcategory_label_map: {
+        Row: {
+          disposition: string
+          label_key: string
+          target_slug: string | null
+        }
+        Insert: {
+          disposition: string
+          label_key: string
+          target_slug?: string | null
+        }
+        Update: {
+          disposition?: string
+          label_key?: string
+          target_slug?: string | null
+        }
+        Relationships: []
+      }
       submission_images: {
         Row: {
           alt_en: string | null
@@ -3639,6 +3657,16 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       staging_capture_auth_email: { Args: { event: Json }; Returns: Json }
+      subcategory_json_to_slugs: { Args: { p_value: Json }; Returns: Json }
+      subcategory_label_key: { Args: { p_label: string }; Returns: string }
+      subcategory_labels_to_slugs: {
+        Args: { p_labels: string[] }
+        Returns: string[]
+      }
+      subcategory_slugs_to_names_en: {
+        Args: { p_slugs: string[] }
+        Returns: string[]
+      }
       taxonomy_expand_subcategories: {
         Args: { p_values: string[] }
         Returns: string[]

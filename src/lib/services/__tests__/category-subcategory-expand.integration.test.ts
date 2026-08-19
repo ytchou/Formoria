@@ -505,10 +505,16 @@ describeWithDb("DEV-1503 contract category/subcategory vocabulary", () => {
       .eq("id", brandId!)
       .single();
     expect(brandError).toBeNull();
+    // DEV-1510: `approve_submission` converts subcategory labels to slugs ON
+    // READ (20260820130000, site 7/7), so a submission created before the
+    // migration still approves — and lands the storage representation
+    // `brands.subcategories` now uses. `subcategories_en` is re-DERIVED from
+    // `taxonomy_terms.name_en` rather than carried through, which is why the
+    // submitted `Woodwork` becomes the node's own `Woodcraft`.
     expect(brand).toEqual({
       category: "crafts",
-      subcategories: ["木工"],
-      subcategories_en: ["Woodwork"],
+      subcategories: ["woodcraft"],
+      subcategories_en: ["Woodcraft"],
     });
     const { data: states, error: stateError } = await untypedSupabase!
       .from("brand_field_state")

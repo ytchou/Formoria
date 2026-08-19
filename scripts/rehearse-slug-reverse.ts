@@ -79,10 +79,20 @@ export function survivingLabels(labels: readonly string[]): string[] {
  * out-of-frame labels, resolve everything else through the ontology, dedupe on
  * first occurrence. Unresolvable input throws — matching task 9's contract that
  * an unknown string fails the backfill rather than disappearing from it.
+ *
+ * IDEMPOTENT: a value that is already an L2 slug passes straight through. Task
+ * 9's migration carries the same rule, and this rehearsal depends on it — once
+ * the forward backfill is applied, staging holds slugs, and a model that threw
+ * on its own output could never be re-run against the real migration.
  */
 export function forwardSubcategories(labels: readonly string[]): string[] {
   const slugs: string[] = [];
   for (const label of labels) {
+    const alreadySlug = subcategoryBySlug(label);
+    if (alreadySlug) {
+      if (!slugs.includes(alreadySlug.slug)) slugs.push(alreadySlug.slug);
+      continue;
+    }
     if (isDroppedLabel(label)) continue;
     const match = matchSubcategory(label);
     if (!match) {
@@ -93,6 +103,15 @@ export function forwardSubcategories(labels: readonly string[]): string[] {
     if (!slugs.includes(match.slug)) slugs.push(match.slug);
   }
   return slugs;
+}
+
+/**
+ * True when a stored array is already in the post-backfill representation.
+ * An empty array counts: it has no zh-TW label left to restore, so the reverse
+ * is the identity either way.
+ */
+export function isSlugStored(values: readonly string[]): boolean {
+  return values.every((value) => subcategoryBySlug(value) !== null);
 }
 
 /**
@@ -413,17 +432,39 @@ function main(): void {
 
   let overlayHits = 0;
   let evicted = 0;
+  let corpusChecked = 0;
   for (const row of after) {
     const original = beforeBySlug.get(row.brandSlug);
     if (!original) {
       failures.push(`${row.brandSlug}: appeared during the rehearsal`);
       continue;
     }
-    const expected = survivingLabels(original.subcategories);
-    const predicted = reverseSubcategories(
-      row.brandSlug,
-      forwardSubcategories(original.subcategories),
-    );
+    const forwarded = forwardSubcategories(original.subcategories);
+    const predicted = reverseSubcategories(row.brandSlug, forwarded);
+
+    // Two states are legitimate here, and they need different oracles.
+    //
+    //   BEFORE the DEV-1510 task 9 backfill, staging holds zh-TW labels, so the
+    //   stored column itself is the pre-migration truth the reverse must restore.
+    //
+    //   AFTER it, staging holds slugs. The pre-migration labels then live only
+    //   in the committed corpus, and the restoration guard applies solely while
+    //   the brand still carries exactly the slug set the forward backfill
+    //   produced — a brand re-tagged since (every craft-kit triage keeper is
+    //   one) falls back to the slug-only reverse by design.
+    const corpusLabels = PRE_MIGRATION_CORPUS[row.brandSlug];
+    let expected: string[];
+    if (!isSlugStored(original.subcategories)) {
+      expected = survivingLabels(original.subcategories);
+    } else if (
+      corpusLabels &&
+      sameSet(forwardSubcategories(corpusLabels), original.subcategories)
+    ) {
+      expected = survivingLabels(corpusLabels);
+      corpusChecked += 1;
+    } else {
+      expected = predicted;
+    }
     if (JSON.stringify(row.subcategories) !== JSON.stringify(expected)) {
       failures.push(
         `${row.brandSlug}: SQL restored ${JSON.stringify(row.subcategories)}, stored ${JSON.stringify(expected)}`,
@@ -447,6 +488,7 @@ function main(): void {
 
   console.log(`brands rehearsed:        ${before.length}`);
   console.log(`restoration overlay hits: ${overlayHits}`);
+  console.log(`checked against the committed corpus: ${corpusChecked}`);
   console.log(`tag-uses dropped by eviction: ${evicted}`);
   for (const notice of rehearsal.stderr.split("\n")) {
     if (notice.includes("NOTICE:")) console.log(notice.trim());

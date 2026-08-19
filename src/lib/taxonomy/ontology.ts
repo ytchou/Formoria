@@ -226,7 +226,7 @@ export const L2_SUBCATEGORIES: readonly L2Subcategory[] = [
 
   // crafts (12)
   { slug: 'ceramics', nameZh: '陶瓷・陶藝', nameEn: 'Ceramics', category: 'crafts', aliases: ['陶瓷陶藝', '陶瓷', '陶藝'] },
-  { slug: 'woodcraft', nameZh: '木藝・木作', nameEn: 'Woodcraft', category: 'crafts', aliases: ['木藝木作', '木藝', '木作', '檜木製品'] },
+  { slug: 'woodcraft', nameZh: '木藝・木作', nameEn: 'Woodcraft', category: 'crafts', aliases: ['木藝木作', '木藝', '木作', '木工', '檜木製品'] },
   { slug: 'metalwork', nameZh: '金工', nameEn: 'Metalwork', category: 'crafts', aliases: [] },
   { slug: 'bamboo-craft', nameZh: '竹編・竹藝', nameEn: 'Bamboo Craft', category: 'crafts', aliases: ['竹編竹藝', '竹編', '竹藝'] },
   { slug: 'glass-art', nameZh: '玻璃・琉璃', nameEn: 'Glass Art', category: 'crafts', aliases: ['玻璃琉璃', '玻璃', '琉璃'] },

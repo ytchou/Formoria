@@ -115,9 +115,13 @@ describe('normalizeSubcategories', () => {
   })
 
   it('preserves a non-composite novel subcategory', () => {
-    const result = normalizeSubcategories(['雨傘'], [])
+    // Fixture changed 2026-08-19: DEV-1510 wave 1 admitted an `umbrellas` node
+    // carrying `雨傘` as an alias, so the old fixture stopped being novel and
+    // this case started asserting the opposite of its own name. `滑雪裝備` is
+    // absent from every node, alias, `EVICTED_LABELS` and `OUT_OF_FRAME_LABELS`.
+    const result = normalizeSubcategories(['滑雪裝備'], [])
 
-    expect(result.subcategories).toEqual(['雨傘'])
+    expect(result.subcategories).toEqual(['滑雪裝備'])
   })
 })
 
