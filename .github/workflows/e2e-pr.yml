@@ -94,6 +94,13 @@ jobs:
     needs: select
     if: needs.select.outputs.has_work == 'true'
     runs-on: ubuntu-latest
+    # Every secret this job reads is an environment secret, and GitHub injects
+    # those only into a job that names its environment. Without this line
+    # E2E_ADMIN_EMAIL and friends resolve to empty strings and global-setup
+    # throws before a single spec runs.
+    # Staging, never production: this suite seeds and deletes rows and its
+    # signup specs send real email.
+    environment: Formoria / staging
     timeout-minutes: 30
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
