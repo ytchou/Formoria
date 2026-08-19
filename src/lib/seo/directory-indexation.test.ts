@@ -55,6 +55,35 @@ describe('resolveDirectorySeo', () => {
     expect(result.canonical).toBe(`${base}${expectedPath}${query}`)
   })
 
+  it('material_makes_a_page_noindex', () => {
+    // `DirectoryFacets` carries a `[key: string]: unknown` index signature, so a
+    // `material` key type-checks whether or not `hasFacet` counts it. Omitting
+    // it from `hasFacet` compiles clean and leaves every `?material=` page
+    // INDEXABLE — one filtered permutation per term, all near-duplicates of the
+    // unfiltered directory. Nothing else in the type system would catch that,
+    // which is why this case exists.
+    const result = resolveDirectorySeo(
+      state({ categorySlug: 'home', facets: { material: ['陶瓷'] } }),
+    )
+
+    expect(result.robots).toEqual({ index: false, follow: true })
+    // Self-canonical, with the facet retained: a noindex page must not point at
+    // a different URL.
+    expect(result.canonical).toBe(`${base}/categories/home?material=%E9%99%B6%E7%93%B7`)
+    expect(result.languages?.en).toBe(
+      `${base}/en/categories/home?material=%E9%99%B6%E7%93%B7`,
+    )
+
+    // And on the bare directory, where there is no taxonomy to fall back to.
+    const bare = resolveDirectorySeo(state({ facets: { material: '陶瓷,木' } }))
+    expect(bare.robots).toEqual({ index: false, follow: true })
+    expect(bare.canonical).toBe(`${base}/brands?material=%E9%99%B6%E7%93%B7%2C%E6%9C%A8`)
+
+    // The control: no material, no noindex. Without it a bug that flips every
+    // page to noindex would pass the assertions above.
+    expect(resolveDirectorySeo(state({ categorySlug: 'home' })).robots).toBeUndefined()
+  })
+
   it('treats a sub without a valid category as a noindex self-canonical', () => {
     const result = resolveDirectorySeo(
       state({ subcategorySlug: 'furniture', facets: {} }),

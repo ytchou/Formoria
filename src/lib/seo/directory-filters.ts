@@ -1,15 +1,19 @@
 import type { BrandFilters } from '@/lib/types'
 import { parsePageParam, parseSortParam, type BrandSortOption } from '@/lib/pagination'
+import { MATERIALS } from '@/lib/taxonomy/ontology'
 
 export type DirectorySearchParams = Record<string, string | string[] | undefined>
 
 export type DirectoryViewFilters = Pick<
   BrandFilters,
-  'search' | 'priceRanges' | 'verificationFilter'
+  'search' | 'materials' | 'priceRanges' | 'verificationFilter'
 > & {
   categorySlugs: string[]
   subcategorySlugs: string[]
 }
+
+const VALID_MATERIALS: ReadonlySet<string> = new Set(MATERIALS)
+
 function parseCommaParam(value: string | string[] | undefined): string[] {
   const values = Array.isArray(value) ? value : value ? [value] : []
   return values.flatMap((item) =>
@@ -49,6 +53,13 @@ export function parseDirectoryViewFilters(
       search: typeof searchParams.search === 'string' ? searchParams.search.trim() : '',
       categorySlugs,
       subcategorySlugs: singleCategory ? parseCommaParam(searchParams.sub) : [],
+      // Closed vocabulary: an unknown term is dropped rather than passed to the
+      // query, so `?material=xyz` cannot render a chip for a facet that filters
+      // nothing. Unlike `sub` this is NOT scoped to a single category — material
+      // is an orthogonal axis.
+      materials: parseCommaParam(searchParams.material).filter((term) =>
+        VALID_MATERIALS.has(term),
+      ),
       priceRanges: parsePriceRanges(searchParams.price),
       verificationFilter: parseVerificationParam(searchParams.verification),
     },

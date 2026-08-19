@@ -26,6 +26,12 @@ type DirectoryFacets = {
   /** Raw values are accepted for callers that parse multi-select query params. */
   category?: unknown
   sub?: unknown
+  /**
+   * The material axis. Declared here AND counted in `hasFacet` — the index
+   * signature above accepts any key, so a facet that is declared but not
+   * counted type-checks perfectly and leaves the filtered page indexable.
+   */
+  material?: unknown
   multiCategory?: unknown
   multiSub?: unknown
 }
@@ -165,6 +171,7 @@ function hasFacet(facets: DirectoryFacets): boolean {
     (hasValue(verification) && verification !== 'all') ||
     hasValue(facets.category) ||
     hasValue(facets.sub) ||
+    hasValue(facets.material) ||
     hasValue(facets.multiCategory) ||
     hasValue(facets.multiSub)
   )
@@ -210,6 +217,9 @@ function selfCanonicalFacets(state: DirectoryState): DirectoryCanonicalFacets {
     verification,
     category,
     sub,
+    // Retained so a noindex `?material=` page self-canonicals instead of
+    // pointing at the unfiltered directory it is not a duplicate of.
+    material: serializableFacetValue(facets.material),
     sort: serializableFacetValue(facets.sort),
   }
 }

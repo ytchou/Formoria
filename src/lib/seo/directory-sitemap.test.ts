@@ -11,7 +11,9 @@ function brand(overrides: Partial<BrandSeoEntry> = {}): BrandSeoEntry {
     slug: 'sample-brand',
     updatedAt: '2026-01-01T00:00:00.000Z',
     categorySlug: 'home',
-    subcategories: ['家具'],
+    // Slugs, not zh-TW labels: `brands.subcategories` stores English slugs
+    // since DEV-1510 task 9.
+    subcategories: ['furniture'],
     description: null,
     descriptionEn: null,
     blurbEn: null,
@@ -58,6 +60,28 @@ describe('buildDirectorySitemapEntries', () => {
     const furniture = entries.find((entry) => entry.url.endsWith('/categories/home/furniture'))
 
     expect(furniture?.lastModified).toEqual(new Date('2026-04-12T00:00:00.000Z'))
+  })
+
+  it('dates an L2 entry from a cross-L1 brand while leaving the L1 entry alone', () => {
+    // The L2 target lists by tag alone, so a brand whose own L1 differs counts
+    // toward `/categories/home/furniture` — and must not leak into
+    // `/categories/home`, which lists by category (DEV-1510).
+    const entries = buildDirectorySitemapEntries([
+      brand({ slug: 'native', updatedAt: '2026-01-01T00:00:00.000Z' }),
+      brand({
+        slug: 'cross-l1',
+        categorySlug: 'crafts',
+        subcategories: ['furniture'],
+        updatedAt: '2026-05-20T00:00:00.000Z',
+      }),
+    ])
+
+    expect(
+      entries.find((entry) => entry.url.endsWith('/categories/home/furniture'))?.lastModified,
+    ).toEqual(new Date('2026-05-20T00:00:00.000Z'))
+    expect(
+      entries.find((entry) => entry.url.endsWith('/categories/home'))?.lastModified,
+    ).toEqual(new Date('2026-01-01T00:00:00.000Z'))
   })
 
   it('keeps the directory failure isolated from brand and story sections', async () => {

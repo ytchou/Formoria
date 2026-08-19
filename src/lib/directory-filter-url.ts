@@ -2,6 +2,7 @@ type DirectoryFilterKey =
   | 'search'
   | 'category'
   | 'sub'
+  | 'material'
   | 'price'
   | 'verification'
 
@@ -22,7 +23,17 @@ export function updateDirectoryUrl(
     else params.delete(key)
   }
 
-  if ('category' in updates && !updates.category) {
+  // `sub` is scoped to a single L1, so any change to `category` invalidates it.
+  // `material` is deliberately NOT dropped here: it is an orthogonal axis —
+  // 陶瓷 means the same thing under every category — so clearing it would
+  // discard a filter the user never touched.
+  //
+  // The exception is a patch that sets `sub` itself: the subcategory chips move
+  // category and sub together through `buildCategoryTabTarget`, and deleting
+  // the value the same call just set would make them dead links.
+  const changesCategory = 'category' in updates
+  const setsSubExplicitly = 'sub' in updates && Boolean(updates.sub)
+  if (changesCategory && !setsSubExplicitly) {
     params.delete('sub')
   }
 
@@ -40,6 +51,7 @@ export function clearDirectoryFilters(
     ...(options.includeSearch ? { search: null } : {}),
     category: null,
     sub: null,
+    material: null,
     price: null,
     verification: null,
   })

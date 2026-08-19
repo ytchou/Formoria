@@ -52,12 +52,28 @@ type SubcategoryOption = {
   count: number;
 };
 
+/**
+ * One term of the closed 12-term material vocabulary.
+ *
+ * `value` is the zh-TW term itself — it is what `brands.material` stores and
+ * what `?material=` carries — while `label` is the localized rendering. The
+ * caller drops any term whose count is zero, so this list is never longer than
+ * the terms a user can actually reach.
+ */
+type MaterialOption = {
+  value: string;
+  label: string;
+  count: number;
+};
+
 type BrandFilterSidebarProps = {
   activeFilters?: ActiveDirectoryFilter[];
   categories: CategoryOption[];
   activeCategorySlugs?: string[];
   subcategories?: SubcategoryOption[];
   activeSubSlugs?: string[];
+  materials?: MaterialOption[];
+  activeMaterials?: string[];
   className?: string;
   announceSearchLoading?: boolean;
   totalCount: number;
@@ -138,6 +154,8 @@ export function BrandFilterSidebar({
   activeCategorySlugs = [],
   subcategories = [],
   activeSubSlugs = [],
+  materials = [],
+  activeMaterials = [],
   className,
   announceSearchLoading = true,
   totalCount,
@@ -164,6 +182,15 @@ export function BrandFilterSidebar({
     [searchParams],
   );
   const activeSubcategories = new Set(activeSubSlugs);
+  const activeMaterialSet = useMemo(
+    () =>
+      new Set(
+        activeMaterials.length > 0
+          ? activeMaterials
+          : parseCommaParam(searchParams.get("material")),
+      ),
+    [activeMaterials, searchParams],
+  );
   const useZh = locale === "zh-TW";
   const [isPending, startTransition] = useTransition();
 
@@ -199,6 +226,21 @@ export function BrandFilterSidebar({
       router.replace(
         updateDirectoryUrl(pathname, searchParams, {
           verification: value === "all" ? null : value,
+        }),
+        { scroll: false },
+      );
+    });
+  }
+
+  function toggleMaterial(value: string, checked: boolean) {
+    const next = new Set(activeMaterialSet);
+    if (checked) next.add(value);
+    else next.delete(value);
+
+    startTransition(() => {
+      router.replace(
+        updateDirectoryUrl(pathname, searchParams, {
+          material: next.size > 0 ? Array.from(next).join(",") : null,
         }),
         { scroll: false },
       );
@@ -377,6 +419,48 @@ export function BrandFilterSidebar({
           </div>
         </FilterSection>
 
+        {materials.length > 0 ? (
+          <>
+            <Separator />
+
+            <FilterSection
+              title={t("material")}
+              defaultOpen={activeMaterialSet.size > 0}
+            >
+              <div className="space-y-1">
+                {materials.map((material) => {
+                  const checked = activeMaterialSet.has(material.value);
+                  return (
+                    // The visible text inside the <label> IS the accessible
+                    // name of the native checkbox it wraps — no aria-label.
+                    // The count rides along in that name deliberately: it is a
+                    // static fact about the option, not decoration.
+                    <Label
+                      key={material.value}
+                      className={cn(
+                        filterOptionClassName,
+                        checked && "bg-primary/10 font-medium text-primary",
+                      )}
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(value: boolean) =>
+                          toggleMaterial(material.value, value)
+                        }
+                        data-ph-no-autocapture
+                      />
+                      <span>{material.label}</span>
+                      <span className="ml-auto type-caption text-muted-foreground">
+                        {material.count}
+                      </span>
+                    </Label>
+                  );
+                })}
+              </div>
+            </FilterSection>
+          </>
+        ) : null}
+
         <Separator />
 
         <FilterSection title={t("priceRange")}>
@@ -460,6 +544,8 @@ export function BrandFilterDrawer({
   activeCategorySlugs = [],
   subcategories = [],
   activeSubSlugs = [],
+  materials = [],
+  activeMaterials = [],
   announceSearchLoading = true,
   totalCount,
 }: BrandFilterDrawerProps) {
@@ -491,6 +577,8 @@ export function BrandFilterDrawer({
             activeCategorySlugs={activeCategorySlugs}
             subcategories={subcategories}
             activeSubSlugs={activeSubSlugs}
+            materials={materials}
+            activeMaterials={activeMaterials}
             announceSearchLoading={announceSearchLoading}
             totalCount={totalCount}
           />

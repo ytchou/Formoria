@@ -12,6 +12,7 @@ import type { FaqBrandContext } from "@/lib/brands/faq-presets";
 import type { Brand } from "@/lib/types";
 import type { BrandFaqEntryRow } from "../../brand-faq";
 import {
+  contextFacts,
   faqCoverageIsComplete,
   localizedCityLabel,
   resolveFaqAttempts,
@@ -513,6 +514,37 @@ describe("resolveFaqAttempts", () => {
 
     expect(send).toHaveBeenCalledTimes(1);
     expect(outcome.calls.providerFailed).toBe(1);
+  });
+});
+
+describe("contextFacts", () => {
+  /**
+   * The facts block is appended to a zh-TW user prompt. `brands.subcategories`
+   * stores English slugs since DEV-1510, so without a lookup the model receives
+   * Latin tokens in an otherwise Chinese brief — input the phase never meant to
+   * send, and a silent quality regression rather than a failure.
+   */
+  it("enrichment_prompt_receives_zh_labels", () => {
+    const facts = contextFacts(
+      context({
+        subcategories: ["backpacks", "tote-bags"],
+        subcategoriesEn: ["Backpacks", "Tote Bags"],
+      }),
+    );
+
+    expect(facts).toContain("產品標籤=後背包、托特包");
+    expect(facts).not.toContain("backpacks");
+    expect(facts).not.toContain("tote-bags");
+  });
+
+  it("keeps a tag the vocabulary has never known", () => {
+    const facts = contextFacts(context({ subcategories: ["手工燈籠"] }));
+
+    expect(facts).toContain("產品標籤=手工燈籠");
+  });
+
+  it("says 無 when the brand carries no tags", () => {
+    expect(contextFacts(context())).toContain("產品標籤=無");
   });
 });
 

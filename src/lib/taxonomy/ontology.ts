@@ -502,6 +502,17 @@ export function subcategoryBySlug(slug: string): L2Subcategory | null {
   return _getSubcategorySlugMap().get(slug) ?? null
 }
 
+/**
+ * Resolve slugs that must belong to `categorySlug` — the **write-time**
+ * normalizer. A slug outside the given L1 is dropped.
+ *
+ * This is deliberately NOT what the public directory reads with. Curated
+ * products hard-drop a cross-L1 L2 on create and update
+ * (`curated-products.ts:710`), and that contract is the reason the conjunct
+ * survives here. Read paths use `resolveDirectorySubcategorySlugs` instead:
+ * conjoining the brand's own L1 discarded 429 of 2,446 approved tag-uses
+ * (DEV-1510). Do not merge the two.
+ */
 export function resolveSubcategorySlugs(
   categorySlug: string | null,
   slugs: string[],
@@ -520,6 +531,62 @@ export function resolveSubcategorySlugs(
   return subcategories
 }
 
+/**
+ * Resolve URL `sub` slugs for a directory READ, with no parent-L1 conjunct.
+ *
+ * The L2 slug already encodes its parent, so testing it against the *brand's*
+ * L1 is redundant — and destructive, because one brand carries exactly one L1
+ * while its products can span several. Unknown slugs are dropped rather than
+ * passed through, which is what keeps `?sub=` from reaching the query as free
+ * text. URL-pair validity is unaffected: `/categories/fashion/backpacks` still
+ * 404s at `category-params.ts`.
+ */
+export function resolveDirectorySubcategorySlugs(
+  slugs: readonly string[],
+): L2Subcategory[] {
+  const seen = new Set<string>()
+  const subcategories: L2Subcategory[] = []
+  for (const slug of slugs) {
+    if (seen.has(slug)) continue
+    seen.add(slug)
+
+    const subcategory = subcategoryBySlug(slug)
+    if (subcategory) subcategories.push(subcategory)
+  }
+  return subcategories
+}
+
 export function subcategoryLabel(sub: L2Subcategory, locale: string): string {
   return locale === 'zh-TW' ? sub.nameZh : sub.nameEn
+}
+
+/**
+ * Whether the vocabulary knows this stored string at all, on either basis.
+ *
+ * `brands.subcategories` stores slugs since DEV-1510, but a novel correction tag
+ * is still kept verbatim and pre-migration jsonb payloads still carry zh-TW
+ * labels — so a caller asking "is this a known term?" has to try both maps.
+ * Asking `matchSubcategory` alone flags every migrated row as novel, because a
+ * multi-word slug ('tote-bags') normalizes to neither name nor alias.
+ */
+export function isKnownSubcategoryTerm(value: string): boolean {
+  return subcategoryBySlug(value) !== null || matchSubcategory(value) !== null
+}
+
+/**
+ * The label a stored subcategory value renders as, in one locale.
+ *
+ * Resolution is by SLUG only, deliberately. A value the slug map does not know
+ * is returned verbatim rather than pushed through `matchSubcategory`: novel tags
+ * are kept as authored on purpose (`docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md`),
+ * and rewriting a human-authored string into a canonical one is a different
+ * decision from translating a slug. Use `isKnownSubcategoryTerm` for identity.
+ *
+ * Any locale tag is accepted — 'zh-TW', 'zh' and 'en' are all in use across the
+ * render, prompt and validator paths — so the narrowing happens once, here.
+ */
+export function subcategoryDisplayLabel(value: string, locale: string): string {
+  const sub = subcategoryBySlug(value)
+  if (!sub) return value
+  return subcategoryLabel(sub, locale.startsWith('en') ? 'en' : 'zh-TW')
 }

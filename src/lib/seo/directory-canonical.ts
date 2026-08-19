@@ -15,6 +15,7 @@ export type DirectoryCanonicalFacets = {
   verification?: unknown
   category?: unknown
   sub?: unknown
+  material?: unknown
   sort?: unknown
 }
 
@@ -42,6 +43,7 @@ function appendDirectoryQuery(
     ['verification', facets?.verification],
     ['category', facets?.category],
     ['sub', facets?.sub],
+    ['material', facets?.material],
     ['sort', facets?.sort],
   ]
   for (const [key, value] of recognizedFacets) {

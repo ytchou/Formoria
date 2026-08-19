@@ -30,7 +30,6 @@ import { isNonImageHost } from "@/lib/images/allowed-image-hosts";
 import { RESERVED_ROUTES } from "@/proxy";
 import {
   deriveCategoryLabel,
-  matchSubcategory,
   L1_CATEGORIES,
   subcategoryBySlug,
 } from "@/lib/taxonomy/ontology";
@@ -1537,27 +1536,25 @@ type GetBrandsFilters = BrandFilters & {
 };
 
 /**
- * Expand a taxonomy selection to every stored spelling for the concept.
- * Subcategories predate the slug ontology, so a brand can carry an alias (for
- * example `口金夾`) while the filter is selected by its slug or canonical name.
- * Both the browse query and the search RPC must receive this same list.
+ * The brand-L1 filter a directory read may apply, given the active L2 filter.
+ *
+ * An active L2 supersedes the L1: the slug already encodes its parent, so
+ * conjoining the *brand's* own `category` is redundant, and it silently
+ * discarded 429 of 2,446 approved tag-uses across 266 brands — a fashion label
+ * that also sells backpacks has no other way to say so under one-L1-per-brand
+ * (DEV-1510). The L1 conjunct still applies when no L2 is selected, which is
+ * what `/categories/<l1>` and `?category=` are.
+ *
+ * Presentation is deliberately NOT derived from this: the heading, breadcrumb,
+ * canonical path and the L1-scoped subcategory rail all keep reading the
+ * category the route or the query names.
  */
-function expandSubcategoryTags(tags: readonly string[] | undefined): string[] {
-  if (!tags || tags.length === 0) return [];
-
-  const expanded = new Set<string>();
-  for (const tag of tags) {
-    const trimmed = tag.trim();
-    if (!trimmed) continue;
-    const subcategory = subcategoryBySlug(trimmed) ?? matchSubcategory(trimmed);
-    if (!subcategory) {
-      expanded.add(trimmed);
-      continue;
-    }
-    expanded.add(subcategory.nameZh);
-    for (const alias of subcategory.aliases) expanded.add(alias);
-  }
-  return [...expanded];
+export function directoryBrandCategoryFilter(
+  categorySlugs: readonly string[],
+  subcategorySlugs: readonly string[],
+): string[] | undefined {
+  if (subcategorySlugs.length > 0) return undefined;
+  return categorySlugs.length > 0 ? [...categorySlugs] : undefined;
 }
 
 function getBrandsSelect(filters: GetBrandsFilters | undefined): "*" {
@@ -1595,7 +1592,14 @@ export async function getBrands(
   filters?: GetBrandsFilters,
 ): Promise<{ brands: Brand[]; totalCount: number }> {
   const supabase = createServiceClient();
-  const expandedSubcategoryTags = expandSubcategoryTags(filters?.subcategoryTags);
+  // `brands.subcategories` stores English slugs (DEV-1510 task 9), so the URL
+  // slug IS the stored value and `.overlaps` is direct. The fan-out that used to
+  // expand one selection into every stored zh-TW spelling existed only to paper
+  // over label storage; it is deleted, not ported.
+  const subcategoryTags = filters?.subcategoryTags?.length
+    ? filters.subcategoryTags
+    : null;
+  const materials = filters?.materials?.length ? filters.materials : null;
 
   // Card surfaces need the hero's `brand_images` metadata to render the logo
   // carve-out; the admin table does not. `includeDetailColumns` is admin-only
@@ -1638,9 +1642,12 @@ export async function getBrands(
       {
         search_query: trimmed,
         filter_categories: filters.category?.length ? filters.category : null,
-        filter_subcategories: expandedSubcategoryTags.length
-          ? expandedSubcategoryTags
-          : null,
+        filter_subcategories: subcategoryTags,
+        // Applied inside the RPC, not on the builder below: with a text query
+        // active this branch never reaches the query builder, so a material
+        // filter added only there would be silently dropped the moment a user
+        // types — the same defect class as the `?sub=` no-op (DEV-1510).
+        filter_materials: materials,
         filter_verification: verificationFilter,
         filter_price_ranges: filters.priceRanges?.length
           ? filters.priceRanges
@@ -1666,9 +1673,8 @@ export async function getBrands(
         {
           search_query: trimmed,
           filter_categories: filters.category?.length ? filters.category : null,
-          filter_subcategories: expandedSubcategoryTags.length
-            ? expandedSubcategoryTags
-            : null,
+          filter_subcategories: subcategoryTags,
+          filter_materials: materials,
           filter_verification: verificationFilter,
           filter_price_ranges: filters.priceRanges?.length
             ? filters.priceRanges
@@ -1735,8 +1741,11 @@ export async function getBrands(
   if (filters?.priceRanges && filters.priceRanges.length > 0) {
     query = query.in("price_range", filters.priceRanges);
   }
-  if (expandedSubcategoryTags.length > 0) {
-    query = query.overlaps("subcategories", expandedSubcategoryTags);
+  if (subcategoryTags) {
+    query = query.overlaps("subcategories", subcategoryTags);
+  }
+  if (materials) {
+    query = query.overlaps("material", materials);
   }
 
   // Sorting
@@ -1787,7 +1796,12 @@ export async function getBrands(
 export async function getPublicBrandCards(
   filters?: Pick<
     BrandFilters,
-    "category" | "priceRanges" | "verificationFilter" | "search" | "sort"
+    | "category"
+    | "materials"
+    | "priceRanges"
+    | "verificationFilter"
+    | "search"
+    | "sort"
   > & {
     page?: number;
     subcategoryTags?: string[];
@@ -1811,15 +1825,17 @@ export type SubcategorySummary = {
   latestUpdatedAt: string | null
 }
 
-type SubcategorySummaryRow = {
+export type SubcategorySummaryRow = {
+  category: string | null
   subcategories: string[]
+  material: string[]
   updatedAt: string
 }
 
 /**
- * Every approved brand in one category, as the taxonomy summary needs them.
+ * Every approved brand, as the taxonomy and material rails need them.
  *
- * This read has no `limit` — the counts are a whole-category aggregate, so it
+ * This read has no `limit` — the counts are a whole-corpus aggregate, so it
  * genuinely wants every row. That is affordable once an hour and not once a
  * request: `/[locale]/categories/[category]` awaits `searchParams`, so it
  * renders dynamically and `revalidate = 3600` on the page buys nothing (see the
@@ -1827,13 +1843,19 @@ type SubcategorySummaryRow = {
  * Uncached, every crawler hit on every filter permutation replayed a full scan
  * against PostgREST, which is what saturated the origin (DEV-1460).
  *
+ * **One cache entry, not twelve.** The `.eq("category", …)` this used to carry
+ * made it per-L1, and it also discarded the cross-L1 tag-uses the summary is
+ * supposed to count (DEV-1510). Dropping it turns twelve keyed reads of ~60 rows
+ * into a single category-independent read of ~718 — strictly less origin work,
+ * which is the direction DEV-1460 requires.
+ *
  * Cached at the row level rather than at the summary: the aggregation below is
- * cheap and varies by `subcategorySlug`, while the query is the expensive part
- * and varies only by category. `unstable_cache` serializes, so this returns
+ * cheap and varies by category/subcategory, while the query is the expensive
+ * part and now varies by nothing. `unstable_cache` serializes, so this returns
  * plain rows — the `Map` is rebuilt per call by the caller.
  */
 const getCachedSubcategoryRows = unstable_cache(
-  (categorySlug: string) =>
+  () =>
     auditedCall(
       {
         provider: "cache",
@@ -1845,15 +1867,16 @@ const getCachedSubcategoryRows = unstable_cache(
         const { data, error } = await excludeTestBrands(
           supabase
             .from("brands")
-            .select("subcategories, updated_at")
-            .eq("status", "approved")
-            .eq("category", categorySlug),
+            .select("category, subcategories, material, updated_at")
+            .eq("status", "approved"),
         );
 
         if (error) throw error;
 
         return (data ?? []).map((row) => ({
+          category: typeof row.category === "string" ? row.category : null,
           subcategories: Array.isArray(row.subcategories) ? row.subcategories : [],
+          material: Array.isArray(row.material) ? row.material : [],
           updatedAt: row.updated_at,
         }));
       },
@@ -1863,31 +1886,47 @@ const getCachedSubcategoryRows = unstable_cache(
   { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
 );
 
-export async function getSubcategorySummary(
+/**
+ * Facet counts for one L1, keyed by **L2 slug**.
+ *
+ * Grouping is by the L2's own parent — `subcategoryBySlug(tag).category` — and
+ * never by the brand's `category`. Those two agree for 83% of approved tag-uses
+ * and disagree for the other 17%, which is the entire defect: a `fashion` brand
+ * tagged `backpacks` belongs in the `backpacks` count, because one brand carries
+ * one L1 while its products span several (DEV-1510).
+ *
+ * Exported for the unit test: mocking `@/lib/supabase/*` is forbidden
+ * (`scripts/check-test-boundaries.mjs`), so the aggregation is asserted on rows
+ * directly and the SQL predicate is left to the integration suite.
+ */
+export function summarizeSubcategoryRows(
+  rows: readonly SubcategorySummaryRow[],
   categorySlug: string,
   subcategorySlug?: string,
-): Promise<SubcategorySummary> {
-  const brands = await getCachedSubcategoryRows(categorySlug);
+): SubcategorySummary {
   const counts = new Map<string, number>();
   let latestUpdatedAt: string | null = null;
 
-  for (const brand of brands) {
-    const canonicalTags = new Set<string>();
+  for (const brand of rows) {
+    const tagsInCategory = new Set<string>();
+    let matchesScope = !subcategorySlug;
     for (const tag of brand.subcategories) {
-      const subcategory = matchSubcategory(tag);
-      if (subcategory?.category === categorySlug) {
-        canonicalTags.add(subcategory.nameZh);
-      }
+      // Storage is slugs (DEV-1510 task 9), so resolve by slug. `matchSubcategory`
+      // reads labels and aliases and would miss any slug whose `nameEn` does not
+      // normalize back onto it — `belt-and-sling-bags` vs `Belt & Sling Bags`.
+      const subcategory = subcategoryBySlug(tag);
+      if (!subcategory) continue;
+      if (subcategory.slug === subcategorySlug) matchesScope = true;
+      if (subcategory.category === categorySlug) tagsInCategory.add(subcategory.slug);
     }
-    for (const tag of canonicalTags) {
-      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    for (const slug of tagsInCategory) {
+      counts.set(slug, (counts.get(slug) ?? 0) + 1);
     }
 
     const updatedAtTimestamp = Date.parse(brand.updatedAt);
     const latestTimestamp = latestUpdatedAt ? Date.parse(latestUpdatedAt) : Number.NaN;
-    const isInScope = !subcategorySlug || canonicalTagsHasSlug(brand.subcategories, subcategorySlug);
     if (
-      isInScope &&
+      matchesScope &&
       !Number.isNaN(updatedAtTimestamp) &&
       (Number.isNaN(latestTimestamp) || updatedAtTimestamp > latestTimestamp)
     ) {
@@ -1898,8 +1937,41 @@ export async function getSubcategorySummary(
   return { counts, latestUpdatedAt };
 }
 
-function canonicalTagsHasSlug(tags: string[], subcategorySlug: string): boolean {
-  return tags.some((tag) => matchSubcategory(tag)?.slug === subcategorySlug);
+/**
+ * Material counts over the whole approved corpus, keyed by the zh-TW term.
+ *
+ * Deliberately NOT scoped to the selected L1. Material is an orthogonal axis —
+ * a `crafts` brand and a `home` brand are both 陶瓷 — and re-introducing a
+ * category conjunct here would recreate exactly the class of silent drop this
+ * ticket removes. Four of the twelve terms (紙 石 藤 漆) have no brands at all;
+ * the rail renders a term only when its count is above zero.
+ */
+export function summarizeMaterialCounts(
+  rows: readonly SubcategorySummaryRow[],
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const brand of rows) {
+    for (const material of new Set(brand.material)) {
+      counts.set(material, (counts.get(material) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+export async function getSubcategorySummary(
+  categorySlug: string,
+  subcategorySlug?: string,
+): Promise<SubcategorySummary> {
+  return summarizeSubcategoryRows(
+    await getCachedSubcategoryRows(),
+    categorySlug,
+    subcategorySlug,
+  );
+}
+
+/** Material facet counts, from the same single cache entry as the L2 counts. */
+export async function getMaterialCounts(): Promise<Map<string, number>> {
+  return summarizeMaterialCounts(await getCachedSubcategoryRows());
 }
 
 export async function getSubcategoryCounts(

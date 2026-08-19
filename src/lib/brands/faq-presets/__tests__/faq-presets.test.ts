@@ -215,6 +215,58 @@ describe("FAQ preset catalog", () => {
     expect(mainProducts.authorable?.(zhOnly)).toBe(true);
   });
 
+  // `brands.subcategories` stores English slugs since DEV-1510. This floor
+  // writes that value straight into a published zh-TW answer and into the
+  // FAQPage JSON-LD, so an unresolved slug is Latin text in public copy.
+  it("public_faq_renders_zh_labels_not_slugs", () => {
+    const mainProducts = presetById("main-products");
+    const slugStored = makeContext({
+      brand: makeBrand({
+        categorySlug: "bags-accessories",
+        categoryLabel: "包袋配件",
+        subcategories: ["backpacks", "tote-bags"],
+        subcategoriesEn: ["Backpacks", "Tote Bags"],
+      }),
+    });
+
+    const zh = mainProducts.render?.templateFloor(
+      slugStored,
+      resolveBrandDetail,
+      "zh-TW",
+    );
+
+    expect(zh).toContain("後背包");
+    expect(zh).toContain("托特包");
+    expect(zh).not.toMatch(/backpacks|tote-bags/iu);
+
+    const en = mainProducts.render?.templateFloor(
+      slugStored,
+      resolveBrandDetail,
+      "en",
+    );
+
+    expect(en).toContain("Backpacks");
+    expect(en).toContain("Tote Bags");
+    expect(en).not.toContain("tote-bags");
+
+    // A string the vocabulary has never known is still rendered verbatim. That
+    // is the novel-tag escape hatch, not a slug that failed to resolve — see
+    // docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md.
+    const novel = makeContext({
+      brand: makeBrand({
+        subcategories: ["手工燈籠"],
+        subcategoriesEn: ["Handmade Lanterns"],
+      }),
+    });
+
+    expect(
+      mainProducts.render?.templateFloor(novel, resolveBrandDetail, "zh-TW"),
+    ).toContain("手工燈籠");
+    expect(
+      mainProducts.render?.templateFloor(novel, resolveBrandDetail, "en"),
+    ).toContain("Handmade Lanterns");
+  });
+
   it("derives groundedIn from requiredEvidence for every preset that declares it", () => {
     const withoutPeers = makeContext({ peerStats: null });
 

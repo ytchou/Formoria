@@ -6,7 +6,10 @@ import { InfoField, SurfaceCard } from '@/components/ui/card'
 import { Typography } from '@/components/ui/typography'
 import { CompletenessRing } from '@/components/dashboard/completeness-ring'
 import { Link } from '@/i18n/navigation'
-import { getCategoryLabel } from '@/lib/brands/category-label'
+import {
+  getBrandSubcategoryLabels,
+  getCategoryLabel,
+} from '@/lib/brands/category-label'
 import { getBrandGalleryImages } from '@/lib/services/brand-images'
 import {
   computeProfileCompleteness,
@@ -50,9 +53,8 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
       ) ?? brand.categorySlug)
     : '—'
   const priceRange = brand.priceRange != null ? '$'.repeat(brand.priceRange) : null
-  const subcategories = locale === 'en' && brand.subcategoriesEn.length > 0
-    ? brand.subcategoriesEn
-    : brand.subcategories
+  // `subcategories` stores slugs since DEV-1510; the owner sees labels.
+  const subcategories = getBrandSubcategoryLabels(brand, locale)
   const unknownValue = (
     <Typography as="span" className="text-muted-foreground" variant="fieldValue">
       {tBrandDetail('unknown')}

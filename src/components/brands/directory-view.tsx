@@ -1,8 +1,8 @@
 import { Suspense } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getTranslations } from 'next-intl/server'
-import { getPublicBrandCards, getRandomBrands, getSubcategorySummary } from '@/lib/services/brands'
-import { categoryLabel, L2_SUBCATEGORIES, L1_CATEGORIES, resolveSubcategorySlugs } from '@/lib/taxonomy/ontology'
+import { directoryBrandCategoryFilter, getMaterialCounts, getPublicBrandCards, getRandomBrands, getSubcategorySummary } from '@/lib/services/brands'
+import { categoryLabel, L2_SUBCATEGORIES, L1_CATEGORIES, MATERIALS, resolveDirectorySubcategorySlugs } from '@/lib/taxonomy/ontology'
 import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildBrandsItemListJsonLd, buildWebSiteJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { DEFAULT_PAGE_SIZE, type BrandSortOption } from '@/lib/pagination'
 import {
@@ -43,9 +43,10 @@ export type DirectoryViewProps = {
 
 export async function DirectoryView({ locale, filters, page, sort, canonical, isCategoryRoute = false }: DirectoryViewProps) {
   const safeLocale = locale
-  const [t, verificationT, messages] = await Promise.all([
+  const [t, verificationT, materialT, messages] = await Promise.all([
     getTranslations({ locale: safeLocale, namespace: 'brands' }),
     getTranslations({ locale: safeLocale, namespace: 'brands.verificationFilter' }),
+    getTranslations({ locale: safeLocale, namespace: 'categories.materials' }),
     getMessages({ locale: safeLocale }),
   ])
 
@@ -56,19 +57,28 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
   const categoryTag = singleValidCategory
     ? L1_CATEGORIES.find((category) => category.slug === singleValidCategory)
     : undefined
-  const resolvedSubs = resolveSubcategorySlugs(categoryTag?.slug ?? null, filters.subcategorySlugs)
+  // Resolved WITHOUT conjoining the selected L1: the L2 slug already encodes its
+  // parent, and testing it against the brand's own category is what discarded
+  // 429 approved tag-uses and turned `?sub=` into a silent no-op (DEV-1510).
+  const resolvedSubs = resolveDirectorySubcategorySlugs(filters.subcategorySlugs)
+  const activeSubSlugs = resolvedSubs.map((subcategory) => subcategory.slug)
   const activeSubcategory = resolvedSubs.length === 1 ? resolvedSubs[0] : undefined
+  // Presentation keeps the selected L1 (heading, breadcrumb, rail, canonical);
+  // only the brand query drops it, and only while an L2 filter is active.
+  const brandCategoryFilter = directoryBrandCategoryFilter(validCategoryFilter, activeSubSlugs)
   const pageHeading = categoryTag ? categoryLabel(categoryTag, safeLocale) : t('heading')
   const search = filters.search ?? ''
   const priceRanges = filters.priceRanges ?? []
   const verificationFilter = filters.verificationFilter ?? 'all'
   const shouldLoadTaxonomySummary = Boolean(singleValidCategory) && !search
+  const materials = filters.materials ?? []
 
-  const [{ brands, totalCount }, taxonomySummary] = await Promise.all([
+  const [{ brands, totalCount }, taxonomySummary, materialCounts] = await Promise.all([
     getPublicBrandCards({
       search: search || undefined,
-      category: validCategoryFilter.length > 0 ? validCategoryFilter : undefined,
-      subcategoryTags: resolvedSubs.map((subcategory) => subcategory.slug),
+      category: brandCategoryFilter,
+      subcategoryTags: activeSubSlugs,
+      materials: materials.length > 0 ? materials : undefined,
       priceRanges: priceRanges.length > 0 ? priceRanges : undefined,
       verificationFilter,
       sort,
@@ -77,13 +87,15 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
     shouldLoadTaxonomySummary && singleValidCategory
       ? getSubcategorySummary(singleValidCategory, activeSubcategory?.slug)
       : Promise.resolve({ counts: new Map<string, number>(), latestUpdatedAt: null }),
+    // Same single cache entry as the L2 counts, so this costs no extra query.
+    getMaterialCounts(),
   ])
   const subcategoriesWithCounts = singleValidCategory
     ? L2_SUBCATEGORIES
         .filter((subcategory) => subcategory.category === singleValidCategory)
         .map((subcategory) => ({
           ...subcategory,
-          count: taxonomySummary.counts.get(subcategory.nameZh) ?? 0,
+          count: taxonomySummary.counts.get(subcategory.slug) ?? 0,
         }))
         .filter((subcategory) => subcategory.count > 0)
     : []
@@ -92,7 +104,14 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
     label: safeLocale === 'zh-TW' ? subcategory.nameZh : subcategory.nameEn,
     count: subcategory.count,
   }))
-  const activeSubSlugs = resolvedSubs.map((subcategory) => subcategory.slug)
+  // 紙 / 石 / 藤 / 漆 are in the closed vocabulary with no brands behind them.
+  // A rail entry that can only ever return an empty page is worse than no entry,
+  // so the zero terms are dropped here exactly as the L2 rail drops its own.
+  const materialOptions = MATERIALS.map((material) => ({
+    value: material,
+    label: materialT(material),
+    count: materialCounts.get(material) ?? 0,
+  })).filter((option) => option.count > 0)
 
   const totalPages = Math.ceil(totalCount / DEFAULT_PAGE_SIZE)
   const clampedPage = totalCount > 0 && page > totalPages ? totalPages : page
@@ -100,8 +119,9 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
   if (clampedPage !== page && totalCount > 0 && !isCategoryRoute) {
     const refetched = await getPublicBrandCards({
       search: search || undefined,
-      category: validCategoryFilter.length > 0 ? validCategoryFilter : undefined,
-      subcategoryTags: resolvedSubs.map((subcategory) => subcategory.slug),
+      category: brandCategoryFilter,
+      subcategoryTags: activeSubSlugs,
+      materials: materials.length > 0 ? materials : undefined,
       priceRanges: priceRanges.length > 0 ? priceRanges : undefined,
       verificationFilter,
       sort,
@@ -112,7 +132,13 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
 
   const latestUpdatedAt = taxonomySummary.latestUpdatedAt
 
-  const routePath = categoryTag
+  // A sub whose parent L1 differs from the selected category has no
+  // `/categories/<l1>/<l2>` address — `category-params.ts` still 404s that pair
+  // and must keep doing so — so the whole view stays on `/brands` and both
+  // facets stay in the query string.
+  const subcategoryPairIsAddressable =
+    !activeSubcategory || activeSubcategory.category === categoryTag?.slug
+  const routePath = categoryTag && subcategoryPairIsAddressable
     ? `/categories/${categoryTag.slug}${activeSubcategory ? `/${activeSubcategory.slug}` : ''}`
     : '/brands'
   const directoryPath = localizePath(routePath, safeLocale)
@@ -122,6 +148,7 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
     normalizedParams.set('category', validCategoryFilter.join(','))
   }
   if (activeSubSlugs.length > 0 && routePath === '/brands') normalizedParams.set('sub', activeSubSlugs.join(','))
+  if (materials.length > 0) normalizedParams.set('material', materials.join(','))
   if (priceRanges.length > 0) normalizedParams.set('price', priceRanges.join(','))
   if (verificationFilter !== 'all') normalizedParams.set('verification', verificationFilter)
   if (sort !== 'random') normalizedParams.set('sort', sort)
@@ -163,6 +190,19 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
         sub: remainingSubs.length > 0 ? remainingSubs.map((item) => item.slug).join(',') : null,
       }),
       removeLabel: t('filters.removeFilter', { label: t('filters.activeSubcategory'), value }),
+    })
+  }
+  for (const material of materials) {
+    const value = materialT(material)
+    const remainingMaterials = materials.filter((item) => item !== material)
+    activeFilters.push({
+      id: `material-${material}`,
+      label: t('filters.activeMaterial'),
+      value,
+      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, {
+        material: remainingMaterials.length > 0 ? remainingMaterials.join(',') : null,
+      }),
+      removeLabel: t('filters.removeFilter', { label: t('filters.activeMaterial'), value }),
     })
   }
   for (const priceRange of priceRanges) {
@@ -293,6 +333,8 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
               activeCategorySlugs={validCategoryFilter}
               subcategories={subcategoryOptions}
               activeSubSlugs={activeSubSlugs}
+              materials={materialOptions}
+              activeMaterials={materials}
               announceSearchLoading={!isCategoryRoute}
               totalCount={totalCount}
             />
@@ -316,6 +358,8 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
                 activeCategorySlugs={validCategoryFilter}
                 subcategories={subcategoryOptions}
                 activeSubSlugs={activeSubSlugs}
+                materials={materialOptions}
+                activeMaterials={materials}
                 announceSearchLoading={!isCategoryRoute}
                 totalCount={totalCount}
               />

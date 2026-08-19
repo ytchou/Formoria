@@ -15,7 +15,7 @@ import { surfaceCardStyles } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { brandImageFill } from '@/lib/images/focal'
-import { getBrandCategoryLabel } from '@/lib/brands/category-label'
+import { getBrandCategoryLabel, getBrandSubcategoryLabels } from '@/lib/brands/category-label'
 import { selectBrandCardImage } from '@/lib/brands/image-selection'
 import { NO_SNIPPET } from '@/lib/seo/snippet'
 import { SaveBrandButton } from './save-brand-button'
@@ -62,6 +62,9 @@ export function BrandCard({
   const imageFill = brandImageFill(selectedImage?.meta, { inset: 'p-6' })
 
   const categoryLabel = getBrandCategoryLabel(brand, locale === 'en' ? 'en' : 'zh-TW')
+  // The card shows one L2 chip. `subcategories` stores slugs since DEV-1510, so
+  // the stored value is resolved to its label before it reaches the badge.
+  const primarySubcategory = getBrandSubcategoryLabels(brand, locale).at(0)
   // The directory blurb, resolved once: both the directory variant and the
   // editorial variant (as its fallback when there is no curator note) render it,
   // and two copies of this chain drift apart the next time it changes.
@@ -238,11 +241,9 @@ export function BrandCard({
               {brand.priceRange != null && (
                 <Badge variant="secondary">{'$'.repeat(brand.priceRange)}</Badge>
               )}
-              {brand.subcategories[0] && (
+              {primarySubcategory && (
                 <Badge variant="secondary" className="max-w-full truncate">
-                  {locale === 'en'
-                    ? (brand.subcategoriesEn[0] ?? brand.subcategories[0])
-                    : brand.subcategories[0]}
+                  {primarySubcategory}
                 </Badge>
               )}
             </div>
