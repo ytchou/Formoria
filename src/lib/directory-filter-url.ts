@@ -1,10 +1,32 @@
+/**
+ * Query keys that carry a REFINEMENT of the result set rather than a position
+ * in the taxonomy.
+ *
+ * One list, read by both predicates that answer "is this directory URL
+ * refined?" — indexability (`lib/seo/directory-indexation.ts`) and route shape
+ * (`components/navigation/category-tab-target.ts`). They were two hand-kept
+ * arrays until `material` reached one and not the other, and a subcategory
+ * chip then routed to a bare `/categories/<l1>/<l2>` that silently dropped the
+ * material filter. Adding a facet now means adding it here, once.
+ */
+export const DIRECTORY_REFINEMENT_KEYS = [
+  'search',
+  'price',
+  'verification',
+  'material',
+] as const
+
+/**
+ * Sort is presentation: it reorders the same rows rather than narrowing them,
+ * so indexation keeps it apart from the refinements above (a sorted page stays
+ * indexable). Route shape counts it, because a taxonomy path cannot carry it.
+ */
+export const DIRECTORY_SORT_KEY = 'sort'
+
 type DirectoryFilterKey =
-  | 'search'
+  | (typeof DIRECTORY_REFINEMENT_KEYS)[number]
   | 'category'
   | 'sub'
-  | 'material'
-  | 'price'
-  | 'verification'
 
 type SearchParamsLike = { toString(): string }
 type DirectoryFilterUpdates = Partial<

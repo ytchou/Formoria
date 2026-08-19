@@ -32,7 +32,7 @@ import {
   sameSubcategorySet,
   type SubcategoriesDelta,
 } from "./subcategories";
-import { updateBrand, type BrandWriteInput } from "./brands";
+import { brandPatchRpc, updateBrand, type BrandWriteInput } from "./brands";
 
 const CORRECTION_SELECT =
   `*, brands(name, slug, price_range, category, subcategories, material, ${PURCHASE_COLUMNS.join(
@@ -40,13 +40,18 @@ const CORRECTION_SELECT =
   )}, social_instagram, social_threads, social_facebook)`;
 
 /**
- * The material axis, closed to the twelve agreed terms. Unlike `subcategories`
- * — which keeps a deliberate novel-value escape hatch
- * (`docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md`) — a
- * material outside this set is rejected outright: the vocabulary is a fixed
- * property of matter, not a growing catalogue, and `brands_material_check`
- * would reject the write anyway. Failing in the service layer turns a 23514 at
- * apply time into an `invalid_value` at submit time.
+ * The material axis, closed to the twelve agreed terms.
+ *
+ * Both correctable arrays are closed now: DEV-1510 retired the subcategory
+ * escape hatch of `docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md`,
+ * so `normalizeProposedValue` returns `invalid_value` for any add the ontology
+ * cannot resolve. The reasons differ and are worth keeping apart — a material is
+ * a fixed property of matter rather than a growing catalogue, while the
+ * subcategory vocabulary grows by an admission round rather than by a
+ * correction — but neither admits a free-text value.
+ *
+ * `brands_material_check` would reject the write anyway. Failing in the service
+ * layer turns a 23514 at apply time into an `invalid_value` at submit time.
  */
 const MATERIAL_TERMS = new Set<string>(MATERIALS);
 
@@ -105,12 +110,26 @@ type SocialLinkCorrectionField = (typeof SOCIAL_LINK_FIELDS)[number];
 type LinkCorrectionField =
   | PurchaseLinkCorrectionField
   | SocialLinkCorrectionField;
-export type CorrectionField =
-  | "price_range"
-  | "category"
-  | "subcategories"
-  | "material"
-  | LinkCorrectionField;
+/**
+ * The correctable vocabulary as RUNTIME values, with `CorrectionField` derived
+ * from it rather than declared beside it.
+ *
+ * The action's `z.enum` gate needs the members at runtime, and while that list
+ * was written out a second time a field could reach the type, the service, the
+ * RPC and the DB CHECK while the gate still rejected it — which is exactly what
+ * happened to `material`, leaving the whole path unreachable from its only
+ * caller. Adding a field here now adds it everywhere, once.
+ */
+export const CORRECTION_FIELDS = [
+  "price_range",
+  "category",
+  "subcategories",
+  "material",
+  ...PURCHASE_COLUMNS,
+  ...SOCIAL_LINK_FIELDS,
+] as const;
+
+export type CorrectionField = (typeof CORRECTION_FIELDS)[number];
 
 /**
  * The two ARRAY-valued correctable fields. They share a delta shape and nothing
@@ -226,14 +245,7 @@ type CorrectionError = Extract<SubmitCorrectionResult, { ok: false }>["code"];
 type CurrentBrandValue = number | string | string[] | null;
 
 export function isCorrectionField(value: string): value is CorrectionField {
-  return (
-    value === "price_range" ||
-    value === "category" ||
-    value === "subcategories" ||
-    value === "material" ||
-    PURCHASE_COLUMNS.some((field) => field === value) ||
-    SOCIAL_LINK_FIELDS.some((field) => field === value)
-  );
+  return CORRECTION_FIELDS.some((field) => field === value);
 }
 
 function isPurchaseLinkField(
@@ -316,13 +328,13 @@ async function applyMaterialPatch(
   material: string[],
   reviewerId: string,
 ): Promise<void> {
-  const { error } = await supabase.rpc("apply_brand_patch", {
+  const { error } = await brandPatchRpc(supabase).rpc("apply_brand_patch", {
     p_brand_id: brandId,
-    p_patch: { material } as unknown as Json,
+    p_patch: { material },
     p_source: "admin",
     p_actor: reviewerId,
-    p_job_id: null as unknown as string,
-  } as never);
+    p_job_id: null,
+  });
   if (error) throw error;
 }
 

@@ -6,6 +6,7 @@ import {
   MATERIALS,
   OUT_OF_FRAME_LABELS,
   isCompositeSubcategory,
+  isKnownSubcategoryTerm,
   matchSubcategory,
   normalizeSubcategoryKey,
   resolveSubcategorySlugs,
@@ -169,6 +170,33 @@ describe('L2_SUBCATEGORIES', () => {
     expect(matchSubcategory('花草茶')).toBeNull()
     expect(matchSubcategory('手機吊飾')?.slug).toBe('phone-straps')
     expect(matchSubcategory('吊飾')?.slug).toBe('charms')
+  })
+})
+
+describe('isKnownSubcategoryTerm', () => {
+  it('answers on both bases: the stored slug and the label', () => {
+    expect(isKnownSubcategoryTerm('tote-bags')).toBe(true)
+    expect(isKnownSubcategoryTerm('托特包')).toBe(true)
+    expect(isKnownSubcategoryTerm('帆布包')).toBe(true)
+    expect(isKnownSubcategoryTerm('口金短夾')).toBe(false)
+    expect(isKnownSubcategoryTerm('')).toBe(false)
+  })
+
+  it('ignores surrounding whitespace, on the slug basis too', () => {
+    // One closed vocabulary, one membership rule. `matchSubcategory` trims
+    // through `normalizeSubcategoryKey` but `subcategoryBySlug` is an exact map
+    // hit, so an untrimmed predicate answered differently depending on whether
+    // the calling schema happened to `.trim()` its elements first —
+    // `adminReviewSchema` does, `brandWizardBasicInfoSchema` does not.
+    // The agreement with `resolveSubcategorySelection` is asserted in
+    // `services/__tests__/subcategories.test.ts`, which can import both.
+    for (const value of [' tote-bags', 'tote-bags ', '\ttote-bags\n', ' 托特包 ']) {
+      expect(isKnownSubcategoryTerm(value), `${JSON.stringify(value)} is known`).toBe(true)
+    }
+
+    // Trimming is not laxity: interior characters still have to match.
+    expect(isKnownSubcategoryTerm('tote bags')).toBe(true) // the EN name
+    expect(isKnownSubcategoryTerm('tote--bags')).toBe(false)
   })
 })
 

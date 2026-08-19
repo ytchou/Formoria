@@ -2,45 +2,20 @@
 
 import { runWithAuditContext } from "@/lib/audit/context";
 import { headers } from "next/headers";
-import { z } from "zod/v3";
 
 import { ensureVisitorHash } from "@/lib/actions/visitor-identity";
 import { getClientIpFromHeaders, rateLimit } from "@/lib/security/rate-limiter";
-import { PURCHASE_COLUMNS } from "@/lib/brands/purchase-channels";
 import {
   submitCorrection,
-  type CorrectionField,
   type SubmitCorrectionResult,
 } from "@/lib/services/brand-corrections";
-
-const brandIdSchema = z.string().uuid();
-// `PURCHASE_COLUMNS` is a readonly array, not a tuple, so spreading it erases
-// the tuple-ness `z.enum` requires. The assertion restores the tuple shape
-// without widening the member type past `CorrectionField`.
-const correctionFields = [
-  "price_range",
-  "category",
-  "subcategories",
-  ...PURCHASE_COLUMNS,
-  "social_instagram",
-  "social_threads",
-  "social_facebook",
-] as unknown as readonly [CorrectionField, ...CorrectionField[]];
-const correctionInputSchema = z.object({
-  brandId: brandIdSchema,
-  field: z.enum(correctionFields),
-  proposedValue: z.union([
-    z.number(),
-    z.string(),
-    // Payload-size bounds only. The tag rules (ontology match, 2-8 char novel
-    // band, blocklist) live in normalizeProposedValue so the client and the
-    // server share one implementation — do not restate them here.
-    z.object({
-      add: z.array(z.string().trim().min(1).max(40)).max(20),
-      remove: z.array(z.string().trim().min(1).max(40)).max(20),
-    }),
-  ]),
-});
+// A `"use server"` module may only export async functions, so the schema lives
+// beside it and is asserted on directly by `__tests__/brand-corrections.test.ts`.
+import {
+  brandIdSchema,
+  correctionInputSchema,
+  type SubmitCorrectionActionInput,
+} from "./brand-corrections-core";
 
 const CORRECTION_RATE_LIMIT = {
   windowMs: 60_000,
@@ -48,7 +23,7 @@ const CORRECTION_RATE_LIMIT = {
   prefix: "brand-correction",
 } as const;
 
-export type SubmitCorrectionActionInput = z.infer<typeof correctionInputSchema>;
+export type { SubmitCorrectionActionInput };
 
 export type SubmitCorrectionActionResult =
   | { ok: true; id: string }

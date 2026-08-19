@@ -1,10 +1,10 @@
 import { beforeEach, describe, it, expect } from 'vitest'
 import * as subcategoriesModule from '../subcategories'
 import * as ontologyModule from '@/lib/taxonomy/ontology'
+import { isKnownSubcategoryTerm } from '@/lib/taxonomy/ontology'
 import {
   normalizeSubcategories,
   deriveSubcategoriesEn,
-  planSubcategoryBackfill,
   resolveSubcategorySelection,
   recordRejectedSubcategoryInput,
   readRejectedSubcategoryInputs,
@@ -30,8 +30,16 @@ describe('the closed vocabulary', () => {
     expect('isRetiredCompositeLabel' in ontologyModule).toBe(false)
   })
 
+  it('the backfill planner went with the scripts that called it', () => {
+    // `planSubcategoryBackfill` (with SubcategoryBackfillMatch/Plan) split a
+    // list into deterministic matches and LLM candidates for the five backfill
+    // scripts this branch deleted. Nothing calls it now, and a closed
+    // vocabulary has no LLM-candidate branch left to feed.
+    expect('planSubcategoryBackfill' in subcategoriesModule).toBe(false)
+  })
+
   it('drops the crossBranch diagnostic — a cross-L1 tag is now expressible, not an anomaly', () => {
-    const result = normalizeSubcategories(['backpacks'], [])
+    const result = normalizeSubcategories(['backpacks'])
     expect(result).not.toHaveProperty('crossBranch')
     expect(result.subcategories).toEqual(['backpacks'])
   })
@@ -39,28 +47,25 @@ describe('the closed vocabulary', () => {
 
 describe('normalizeSubcategories', () => {
   it('resolves labels and aliases to stored slugs', () => {
-    const result = normalizeSubcategories(['側背包', '托特包'], ['crossbody', 'tote'])
+    const result = normalizeSubcategories(['側背包', '托特包'])
     expect(result.subcategories).toEqual(['crossbody-bags', 'tote-bags'])
     expect(result.subcategoriesEn).toEqual(['Crossbody Bags', 'Tote Bags'])
   })
 
   it('is idempotent on slugs it already stores', () => {
-    const result = normalizeSubcategories(['crossbody-bags', 'tote-bags'], [])
+    const result = normalizeSubcategories(['crossbody-bags', 'tote-bags'])
     expect(result.subcategories).toEqual(['crossbody-bags', 'tote-bags'])
     expect(result.subcategoriesEn).toEqual(['Crossbody Bags', 'Tote Bags'])
   })
 
   it('collapses SKU variants that map to the same node', () => {
-    const result = normalizeSubcategories(
-      ['口金零錢包', '口金夾', '登山背包'],
-      ['clasp coin purse', 'clasp wallet', 'hiking backpack'],
-    )
+    const result = normalizeSubcategories(['口金零錢包', '口金夾', '登山背包'])
     expect(result.subcategories).toEqual(['clasp-frame-bags', 'backpacks'])
     expect(result.subcategoriesEn).toEqual(['Clasp-Frame Bags', 'Backpacks'])
   })
 
   it('rejects a term the vocabulary does not know instead of storing it', () => {
-    const result = normalizeSubcategories(['手工燈籠'], ['handmade lantern'])
+    const result = normalizeSubcategories(['手工燈籠'])
     expect(result.subcategories).toEqual([])
     expect(result.rejected).toEqual([
       { subcategory: '手工燈籠', reason: 'unknown-term' },
@@ -68,7 +73,7 @@ describe('normalizeSubcategories', () => {
   })
 
   it('logs every rejection — the closed vocabulary cannot otherwise report its gaps', () => {
-    normalizeSubcategories(['手工燈籠', '藍鵲系列襪子'], [])
+    normalizeSubcategories(['手工燈籠', '藍鵲系列襪子'])
     expect(readRejectedSubcategoryInputs().map((entry) => entry.input)).toEqual([
       '手工燈籠',
       '藍鵲系列襪子',
@@ -77,19 +82,19 @@ describe('normalizeSubcategories', () => {
 
   it('caps at 5 and keeps the two arrays paired', () => {
     const zh = ['托特包', '後背包', '斜背包', '手提包', '水桶包', '零錢包']
-    const result = normalizeSubcategories(zh, [])
+    const result = normalizeSubcategories(zh)
     expect(result.subcategories).toHaveLength(5)
     expect(result.subcategoriesEn).toHaveLength(5)
   })
 
   it('splits an unmatched composite and keeps the halves that resolve', () => {
-    const result = normalizeSubcategories(['糖果・糕點'], [])
+    const result = normalizeSubcategories(['糖果・糕點'])
     expect(result.subcategories).toEqual(['desserts-and-pastries'])
     expect(result.subcategoriesEn).toEqual(['Desserts & Pastries'])
   })
 
   it('keeps a canonical composite node untouched', () => {
-    const result = normalizeSubcategories(['甜點・糕點'], [])
+    const result = normalizeSubcategories(['甜點・糕點'])
     expect(result.subcategories).toEqual(['desserts-and-pastries'])
   })
 
@@ -97,17 +102,17 @@ describe('normalizeSubcategories', () => {
     // `香氛・蠟燭` was split into atomic nodes; `蠟燭` is one of them and
     // `香氛` is not a node on its own. The deny-list existed only to keep the
     // old spelling out of the novel escape hatch, which no longer exists.
-    const result = normalizeSubcategories(['香氛・蠟燭'], [])
+    const result = normalizeSubcategories(['香氛・蠟燭'])
     expect(result.subcategories).toEqual(['candles'])
   })
 
   it('drops an unmatched composite when neither half resolves', () => {
-    const result = normalizeSubcategories(['地板・地板材料'], [])
+    const result = normalizeSubcategories(['地板・地板材料'])
     expect(result.subcategories).toEqual([])
   })
 
   it('ignores blank entries without logging them as vocabulary gaps', () => {
-    const result = normalizeSubcategories(['', '   ', '托特包'], [])
+    const result = normalizeSubcategories(['', '   ', '托特包'])
     expect(result.subcategories).toEqual(['tote-bags'])
     expect(result.rejected).toEqual([])
     expect(readRejectedSubcategoryInputs()).toEqual([])
@@ -151,6 +156,34 @@ describe('resolveSubcategorySelection', () => {
       reason: 'unknown-term',
     })
     expect(resolveSubcategorySelection('   ')).toEqual({ ok: false, reason: 'empty' })
+  })
+
+  it('agrees with isKnownSubcategoryTerm — one vocabulary, one membership rule', () => {
+    // The two predicates gate the same closed vocabulary from opposite sides:
+    // this one normalizes a value for storage, `isKnownSubcategoryTerm` refines
+    // the admin and wizard schemas. When only this one trimmed, ' tote-bags'
+    // was valid on `adminReviewSchema` (its elements are `.trim()`ed before the
+    // refine) and invalid on `brandWizardBasicInfoSchema` (they are not).
+    const values = [
+      'tote-bags',
+      ' tote-bags',
+      'tote-bags ',
+      '\t托特包\n',
+      '托特包',
+      '帆布包',
+      'Tote Bags',
+      '手工燈籠',
+      '禮盒',
+      '   ',
+      '',
+    ]
+
+    for (const value of values) {
+      expect(
+        isKnownSubcategoryTerm(value),
+        `isKnownSubcategoryTerm(${JSON.stringify(value)})`,
+      ).toBe(resolveSubcategorySelection(value).ok)
+    }
   })
 })
 
@@ -257,19 +290,5 @@ describe('deriveSubcategoriesEn', () => {
       'Backpacks',
       '手工燈籠',
     ])
-  })
-})
-
-describe('planSubcategoryBackfill', () => {
-  it('splits subcategories into deterministic matches and llm candidates', () => {
-    const plan = planSubcategoryBackfill(['側背包', '口金短夾', '登山背包'])
-    expect(plan.matched.map((m) => m.slug)).toEqual(['crossbody-bags', 'backpacks'])
-    expect(plan.unmatched).toEqual(['口金短夾'])
-  })
-
-  it('is idempotent on already-canonical input', () => {
-    const plan = planSubcategoryBackfill(['斜背包', '後背包'])
-    expect(plan.matched.map((m) => m.canonicalZh)).toEqual(['斜背包', '後背包'])
-    expect(plan.unmatched).toEqual([])
   })
 })

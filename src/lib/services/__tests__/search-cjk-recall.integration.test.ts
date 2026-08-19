@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
-import { expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { Database } from "@/lib/supabase/database.types";
 import { describeWithDb } from "@/test/setup";
 
@@ -162,12 +162,25 @@ const BASELINE = [
  * subcategory arms — `opus` ranks #1 for 金工 without carrying the label — and
  * every unchanged-content row must too. A re-pin that moved one of these is a
  * re-pin covering up a real regression.
+ *
+ * Written out by hand, NOT derived from `BASELINE` with the same
+ * `rankScore === preBackfill` predicate the assertions test under. A derived
+ * list re-states the baseline instead of constraining it: silently re-pinning
+ * one of these five would drop the row out of the derived list and out of the
+ * check in the same edit, and the suite would stay green. As a literal, that
+ * edit fails `baseline_re_pin_is_declared` below and has to be argued for.
+ *
+ * Membership is a fact about the CORPUS, not about the numbers: these are the
+ * five rows whose indexed content the backfill did not change, so their score
+ * is required to be bit-identical to the pre-migration capture.
  */
-const UNMOVED_BY_THE_BACKFILL = BASELINE.flatMap(({ term, rows }) =>
-  rows
-    .filter((row) => row.rankScore === row.preBackfill)
-    .map((row) => `${term}:${row.slug}`),
-);
+const UNMOVED_BY_THE_BACKFILL: readonly string[] = [
+  "後背包:kevin-mccartney",
+  "後背包:tagather-goods",
+  "後背包:74ounce",
+  "後背包:25togo",
+  "金工:opus",
+] as const;
 
 /** Brands seeded by an integration or e2e run are not part of the corpus. */
 const SEEDED_BRAND_NAME = /^DEV-\d+ |\[E2E-TEST\]/;
@@ -221,6 +234,37 @@ async function searchBrandPage(term: string): Promise<SearchRow[]> {
     };
   });
 }
+
+/**
+ * The honesty guard on the re-pin, and the reason `UNMOVED_BY_THE_BACKFILL` is a
+ * literal. It needs no database, so it runs on every `pnpm test` rather than
+ * only when the integration env is armed — a re-pin lands in a normal PR, not
+ * in an integration run.
+ */
+describe("search ranking baseline", () => {
+  it("baseline_re_pin_is_declared", () => {
+    const unchanged = BASELINE.flatMap(({ term, rows }) =>
+      rows
+        .filter((row) => row.rankScore === row.preBackfill)
+        .map((row) => `${term}:${row.slug}`),
+    );
+
+    // Set equality in both directions. Re-pinning `rankScore` on one of the five
+    // drops it out of `unchanged` and fails the first assertion; adding a row to
+    // the literal to make that pass fails the second. Either way the edit is
+    // visible in review instead of dissolving into a green suite.
+    expect([...unchanged].sort()).toEqual([...UNMOVED_BY_THE_BACKFILL].sort());
+    expect(UNMOVED_BY_THE_BACKFILL).toHaveLength(5);
+
+    // And every listed key names a row the baseline actually carries.
+    const baselineKeys = BASELINE.flatMap(({ term, rows }) =>
+      rows.map((row) => `${term}:${row.slug}`),
+    );
+    for (const key of UNMOVED_BY_THE_BACKFILL) {
+      expect(baselineKeys, `${key} is a baseline row`).toContain(key);
+    }
+  });
+});
 
 describeWithDb("search recall after slug storage", () => {
   /**
@@ -320,12 +364,11 @@ describeWithDb("search recall after slug storage", () => {
       expect(returned.length, `${term}: total_count`).toBe(expected.length);
 
       // Five of the nine rows carried the same content through the backfill and
-      // must therefore score EXACTLY what the pre-migration capture recorded.
-      // This is what keeps the re-pin above honest: it cannot be widened to
-      // absorb a regression without emptying this list.
+      // must therefore score EXACTLY what the PRE-migration capture recorded.
+      // Asserted against `preBackfill` rather than `rankScore`, so a re-pin of
+      // the live column cannot quietly move them.
       for (const row of expected) {
-        if (row.rankScore !== row.preBackfill) continue;
-        expect(UNMOVED_BY_THE_BACKFILL).toContain(`${term}:${row.slug}`);
+        if (!UNMOVED_BY_THE_BACKFILL.includes(`${term}:${row.slug}`)) continue;
         expect(
           returned.find((live) => live.slug === row.slug)?.rankScore,
           `${term}: ${row.slug} unmoved by the backfill`,

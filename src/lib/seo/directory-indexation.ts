@@ -1,4 +1,5 @@
 import { cache } from 'react'
+import { DIRECTORY_REFINEMENT_KEYS } from '@/lib/directory-filter-url'
 import {
   L1_CATEGORIES,
   subcategoryBySlug,
@@ -27,9 +28,10 @@ type DirectoryFacets = {
   category?: unknown
   sub?: unknown
   /**
-   * The material axis. Declared here AND counted in `hasFacet` — the index
-   * signature above accepts any key, so a facet that is declared but not
-   * counted type-checks perfectly and leaves the filtered page indexable.
+   * The material axis. Declared here AND named in `DIRECTORY_REFINEMENT_KEYS`,
+   * which is what `hasFacet` reads — the index signature above accepts any
+   * key, so a facet that is declared but not counted type-checks perfectly and
+   * leaves the filtered page indexable.
    */
   material?: unknown
   multiCategory?: unknown
@@ -163,15 +165,21 @@ function hasValue(value: unknown): boolean {
 }
 
 function hasFacet(facets: DirectoryFacets): boolean {
-  const verification =
-    typeof facets.verification === 'string' ? facets.verification : undefined
+  // The refinement keys come from the ONE shared list so this predicate and
+  // the route-shape one in `components/navigation/category-tab-target.ts`
+  // cannot disagree about what counts as a facet again.
+  const refined = DIRECTORY_REFINEMENT_KEYS.some((key) => {
+    if (key === 'verification') {
+      const verification =
+        typeof facets.verification === 'string' ? facets.verification : undefined
+      return hasValue(verification) && verification !== 'all'
+    }
+    return hasValue(facets[key])
+  })
   return (
-    hasValue(facets.search) ||
-    hasValue(facets.price) ||
-    (hasValue(verification) && verification !== 'all') ||
+    refined ||
     hasValue(facets.category) ||
     hasValue(facets.sub) ||
-    hasValue(facets.material) ||
     hasValue(facets.multiCategory) ||
     hasValue(facets.multiSub)
   )

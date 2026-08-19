@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { ChevronLeft, ChevronRight, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ImageUploader } from "@/components/upload/ImageUploader";
@@ -95,6 +95,7 @@ export function ReviewDetailsEditor({
   onCleanupDraftImages,
 }: Props) {
   const t = useTranslations("admin.submissions");
+  const locale = useLocale();
   const router = useRouter();
   const [editingSection, setEditingSection] = useState<EditableSection | null>(
     null,
@@ -383,13 +384,17 @@ export function ReviewDetailsEditor({
                 {data.subcategories.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {/*
-                      Stored values are slugs since DEV-1510. The admin surface
-                      is zh-only, so the locale is pinned rather than read from
-                      a route that has none.
+                      Stored values are slugs since DEV-1510, so they need a
+                      locale to render. `/admin` is English-pinned — `proxy.ts`
+                      sets ADMIN_DEFAULT_LOCALE, and the admin layout mounts
+                      `getMessages({ locale: "en" })` — so the real locale is
+                      read exactly as the corrections queue reads it. Pinning
+                      zh-TW here made one slug show two names across two admin
+                      screens.
                     */}
                     {data.subcategories.map((tag) => (
                       <Badge key={tag} variant="secondary">
-                        {subcategoryDisplayLabel(tag, "zh-TW")}
+                        {subcategoryDisplayLabel(tag, locale)}
                       </Badge>
                     ))}
                   </div>
@@ -716,6 +721,7 @@ function CatalogEditor({
   ) => void;
 }) {
   const t = useTranslations("admin.submissions");
+  const locale = useLocale();
   return (
     <div className="space-y-3">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -800,7 +806,11 @@ function CatalogEditor({
           onUpdate("subcategoriesEn", deriveSubcategoriesEn(next));
         }}
         surface="admin-review"
-        locale="zh-TW"
+        // The route's own locale, which `/admin` pins to English. The queue
+        // beside this editor renders the same slugs through `useLocale`, and
+        // two labels for one slug is how an admin reads a mismatch as a data
+        // problem.
+        locale={locale}
         priorityCategorySlug={draft.categorySlug}
         labels={{
           search: t("details.subcategories"),

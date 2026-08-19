@@ -57,9 +57,20 @@ export function parseDirectoryViewFilters(
       // query, so `?material=xyz` cannot render a chip for a facet that filters
       // nothing. Unlike `sub` this is NOT scoped to a single category — material
       // is an orthogonal axis.
-      materials: parseCommaParam(searchParams.material).filter((term) =>
-        VALID_MATERIALS.has(term),
-      ),
+      //
+      // Deduped as well as validated, mirroring the `seen` set in
+      // `resolveDirectorySubcategorySlugs`. Membership is not multiplicity:
+      // `?material=<term>,<term>,…` repeated 13 times passes every term and breaks
+      // the RPC's `cardinality > 12` bound, which raises 22023 — and `getBrands`
+      // swallows that into `{ brands: [], totalCount: 0 }`, so the page renders
+      // empty with the chip still shown and only the server log records why.
+      materials: [
+        ...new Set(
+          parseCommaParam(searchParams.material).filter((term) =>
+            VALID_MATERIALS.has(term),
+          ),
+        ),
+      ],
       priceRanges: parsePriceRanges(searchParams.price),
       verificationFilter: parseVerificationParam(searchParams.verification),
     },

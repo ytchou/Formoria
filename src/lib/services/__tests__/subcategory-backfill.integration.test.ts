@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
@@ -68,6 +69,74 @@ const UNINTENDED_ZERO_BRANDS = ["dawn-creative", "homm-sound", "tp-minihorn"];
  * mid-test. Same pattern, same regex, as `search-cjk-recall.integration.test.ts`.
  */
 const SEEDED_BRAND_NAME = /^DEV-\d+ |\[E2E-TEST\]/;
+
+/**
+ * The migration's site 6/7 statement, lifted verbatim out of the SQL file.
+ *
+ * Read rather than re-typed: a copy in this file could be corrected while the
+ * migration stayed wrong, which is the only failure the rehearsal below exists
+ * to catch.
+ */
+function migrationSite6Statement(): string {
+  const migration = readFileSync(MIGRATION_PATH, "utf8");
+  const sectionStart = migration.indexOf("-- 6/7 — brand_ai_results");
+  const sectionEnd = migration.indexOf("-- 7/7 —");
+  expect(sectionStart, "site 6/7 header").toBeGreaterThan(-1);
+  expect(sectionEnd).toBeGreaterThan(sectionStart);
+
+  const section = migration.slice(sectionStart, sectionEnd);
+  const start = section.indexOf("with latest as (");
+  const end = section.indexOf(";", start);
+  expect(start, "site 6/7 statement").toBeGreaterThan(-1);
+  expect(end).toBeGreaterThan(start);
+
+  const statement = section.slice(start, end + 1);
+  // Guards the extraction itself: a refactor that renames the CTE would
+  // otherwise hand the rehearsal a fragment that trivially passes.
+  expect(statement).toContain("distinct on");
+  expect(statement).toContain("update public.brand_ai_results");
+  return statement;
+}
+
+/**
+ * Runs one statement against staging through the CLI, because PostgREST cannot
+ * express `distinct on` and there is no exec RPC. Same harness as
+ * `category-subcategory-expand.integration.test.ts`.
+ *
+ * Callers pass a `do` block that ends in `raise exception`, so the whole
+ * rehearsal — fixtures included — rolls back and nothing is written to staging.
+ * The raised message is the assertion channel: stderr carries it back here.
+ */
+function runSqlRehearsal(sql: string): string {
+  if (!process.env.SUPABASE_DB_URL) {
+    throw new Error("SUPABASE_DB_URL is required for the migration rehearsal");
+  }
+  try {
+    return execFileSync(
+      "pnpm",
+      [
+        "exec",
+        "supabase",
+        "db",
+        "query",
+        "--db-url",
+        process.env.SUPABASE_DB_URL,
+        "--output-format",
+        "json",
+        sql,
+      ],
+      {
+        encoding: "utf8",
+        env: process.env,
+        maxBuffer: 4 * 1024 * 1024,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+  } catch (error) {
+    const failure = error as { stdout?: string; stderr?: string };
+    return `${failure.stdout ?? ""}${failure.stderr ?? ""}`;
+  }
+}
 
 async function labelsToSlugs(labels: string[]): Promise<string[]> {
   const { data, error } = await untypedSupabase!.rpc(
@@ -157,6 +226,27 @@ describeWithDb("DEV-1510 subcategory slug backfill", () => {
       ...new Set(live.flatMap((row) => row.subcategories ?? [])),
     ].toSorted();
     expect(distinct.length).toBeGreaterThan(0);
+
+    // Cross-implementation parity is asked on the PRE-migration labels, not on
+    // the live column. Post-backfill the column holds slugs, and on a slug both
+    // resolvers short-circuit to the identity — comparing them there compares
+    // nothing, which is exactly how a U+FEFF or middle-dot divergence between
+    // `subcategory_label_key` and `normalizeSubcategoryKey` would survive.
+    // These are the strings that actually exercise both normalizers.
+    const preMigrationLabels = [
+      ...new Set(Object.values(PRE_MIGRATION_CORPUS).flat()),
+    ].toSorted();
+    expect(preMigrationLabels.length).toBeGreaterThan(distinct.length);
+    expect(
+      preMigrationLabels.some((label) => label !== forwardSubcategories([label])[0]),
+      "the parity input must contain labels that are not already slugs",
+    ).toBe(true);
+    expect(await labelsToSlugs(preMigrationLabels)).toEqual(
+      forwardSubcategories(preMigrationLabels),
+    );
+
+    // The live column is still checked for resolvability, which is a different
+    // property: every stored string is one Postgres can map.
     expect(await labelsToSlugs(distinct)).toEqual(
       forwardSubcategories(distinct),
     );
@@ -388,90 +478,125 @@ describeWithDb("DEV-1510 subcategory slug backfill", () => {
   });
 
   it("ai_results_converts_only_latest_per_brand_per_phase", async () => {
-    const brandId = randomUUID();
-    const { error: brandError } = await supabase!.from("brands").insert({
-      id: brandId,
-      name: `DEV-1510 audit ${brandId.slice(0, 8)}`,
-      slug: `dev-1510-audit-${brandId.slice(0, 8)}`,
-      // `hidden` keeps the fixture off every public read while the audit rows
-      // under test still hang off a real brand.
-      status: "hidden",
-      is_demo: true,
-      category: "crafts",
-    });
-    expect(brandError).toBeNull();
-    brandIds.push(brandId);
+    // ADR decision 6, of 31,320 production rows: history is the evidence a
+    // replay depends on, so only the row a reader picks up is rewritten.
+    //
+    // Exercised by RUNNING the migration's own statement, not by asserting its
+    // text. The rule lives in a `distinct on` PostgREST cannot express, so a
+    // TypeScript re-implementation of the scope proves only that the
+    // re-implementation agrees with itself. Everything happens inside a `do`
+    // block that ends in `raise exception`, so the fixtures and the update roll
+    // back and staging is left exactly as it was found.
+    const statement = migrationSite6Statement();
 
-    const rows = [
-      { id: randomUUID(), phase: "facts", createdAt: "2026-08-01T00:00:00Z" },
-      { id: randomUUID(), phase: "facts", createdAt: "2026-08-02T00:00:00Z" },
-      {
-        id: randomUUID(),
-        phase: "descriptions",
-        createdAt: "2026-08-01T00:00:00Z",
-      },
-    ];
-    const { error: insertError } = await untypedSupabase!
+    const output = runSqlRehearsal(`
+do $rehearsal$
+declare
+  v_brand uuid := gen_random_uuid();
+  v_facts_old uuid := gen_random_uuid();
+  v_facts_new uuid := gen_random_uuid();
+  v_a uuid := gen_random_uuid();
+  v_b uuid := gen_random_uuid();
+  v_tie_low uuid;
+  v_tie_high uuid;
+  v_got text[];
+begin
+  if v_a < v_b then v_tie_low := v_a; v_tie_high := v_b;
+  else v_tie_low := v_b; v_tie_high := v_a; end if;
+
+  insert into public.brands (id, name, slug, status, is_demo, category)
+  values (
+    v_brand,
+    'DEV-1510 site6 rehearsal',
+    'dev-1510-site6-rehearsal-' || replace(v_brand::text, '-', ''),
+    'hidden',
+    true,
+    'crafts'
+  );
+
+  -- Two phases for one brand, and inside 'descriptions' two rows sharing a
+  -- created_at. Audit rows for one phase are written in a tight loop and share
+  -- a millisecond routinely, so the same-timestamp pair is the only fixture
+  -- that can tell the id tiebreak from no tiebreak at all.
+  insert into public.brand_ai_results (id, brand_id, phase, model, created_at, subcategories)
+  values
+    (v_facts_old, v_brand, 'facts', 'dev-1510-fixture', '2026-08-01T00:00:00Z', array['陶藝']),
+    (v_facts_new, v_brand, 'facts', 'dev-1510-fixture', '2026-08-02T00:00:00Z', array['陶藝']),
+    (v_tie_low,   v_brand, 'descriptions', 'dev-1510-fixture', '2026-08-01T00:00:00Z', array['陶藝']),
+    (v_tie_high,  v_brand, 'descriptions', 'dev-1510-fixture', '2026-08-01T00:00:00Z', array['陶藝']);
+
+  ${statement}
+
+  select subcategories into v_got from public.brand_ai_results where id = v_facts_new;
+  if v_got is distinct from array['ceramics'] then
+    raise exception 'latest facts row was not converted: %', v_got;
+  end if;
+
+  select subcategories into v_got from public.brand_ai_results where id = v_facts_old;
+  if v_got is distinct from array['陶藝'] then
+    raise exception 'history facts row was rewritten: %', v_got;
+  end if;
+
+  select subcategories into v_got from public.brand_ai_results where id = v_tie_high;
+  if v_got is distinct from array['ceramics'] then
+    raise exception 'id tiebreak did not pick the higher id: %', v_got;
+  end if;
+
+  select subcategories into v_got from public.brand_ai_results where id = v_tie_low;
+  if v_got is distinct from array['陶藝'] then
+    raise exception 'id tiebreak also converted the lower id: %', v_got;
+  end if;
+
+  raise exception 'DEV1510_SITE6_OK';
+end
+$rehearsal$;
+`);
+
+    // The harness reports the raised message. Any other message is a real
+    // failure, and its text is the diff.
+    expect(output).toContain("DEV1510_SITE6_OK");
+
+    // Nothing survived the rollback.
+    const { count, error: countError } = await untypedSupabase!
       .from("brand_ai_results")
-      .insert(
-        rows.map((row) => ({
-          id: row.id,
-          brand_id: brandId,
-          phase: row.phase,
-          model: "dev-1510-fixture",
-          created_at: row.createdAt,
-          subcategories: ["陶藝"],
-        })),
-      );
-    expect(insertError).toBeNull();
+      .select("id", { count: "exact", head: true })
+      .eq("model", "dev-1510-fixture");
+    expect(countError).toBeNull();
+    expect(count).toBe(0);
 
-    // The scope contract: latest row per target per phase, recency by
-    // (created_at desc, id desc). Two of three rows move; the 2026-08-01
-    // `facts` row is history and keeps the label the model actually returned.
-    const latest = latestAiResultIds(
-      rows.map((row) => ({
-        id: row.id,
-        brandId,
-        submissionId: null,
-        phase: row.phase,
-        createdAt: row.createdAt,
-      })),
-    );
-    expect(latest).toEqual(new Set([rows[1]!.id, rows[2]!.id]));
+    // The TypeScript half of the same scope, on the same discriminating
+    // fixture. `latestAiResultIds` is what the application reads with, so it has
+    // to break the created_at tie the way the migration did.
+    const shared = "2026-08-01T00:00:00Z";
+    const tie = [
+      { id: "00000000-0000-4000-8000-00000000000a", phase: "descriptions", createdAt: shared },
+      { id: "00000000-0000-4000-8000-00000000000b", phase: "descriptions", createdAt: shared },
+      { id: "00000000-0000-4000-8000-00000000000c", phase: "facts", createdAt: shared },
+      { id: "00000000-0000-4000-8000-00000000000d", phase: "facts", createdAt: "2026-08-02T00:00:00Z" },
+    ].map((row) => ({
+      ...row,
+      brandId: "00000000-0000-4000-8000-0000000000b1",
+      submissionId: null,
+    }));
 
-    for (const id of latest) {
-      const { error: updateError } = await untypedSupabase!
-        .from("brand_ai_results")
-        .update({ subcategories: await labelsToSlugs(["陶藝"]) })
-        .eq("id", id);
-      expect(updateError).toBeNull();
-    }
-
-    const { data: after, error: readError } = await untypedSupabase!
-      .from("brand_ai_results")
-      .select("id, subcategories")
-      .eq("brand_id", brandId);
-    expect(readError).toBeNull();
-    const byId = new Map(
-      (after as Array<{ id: string; subcategories: string[] }>).map((row) => [
-        row.id,
-        row.subcategories,
+    expect(latestAiResultIds(tie)).toEqual(
+      new Set([
+        "00000000-0000-4000-8000-00000000000b",
+        "00000000-0000-4000-8000-00000000000d",
       ]),
     );
-    expect(byId.get(rows[0]!.id)).toEqual(["陶藝"]);
-    expect(byId.get(rows[1]!.id)).toEqual(["ceramics"]);
-    expect(byId.get(rows[2]!.id)).toEqual(["ceramics"]);
 
-    // The migration's SQL half of the same scope. Ordering is the whole
-    // contract here: audit rows for one phase are written in a tight loop and
-    // share a millisecond routinely, so without the id tiebreak "latest" is
-    // whichever row the planner happened to emit first.
-    const migration = readFileSync(MIGRATION_PATH, "utf8");
-    expect(migration).toContain(
-      "select distinct on (coalesce(result.brand_id, result.submission_id), result.phase)",
-    );
-    expect(migration).toMatch(
-      /result\.created_at desc,\s*\n\s*result\.id desc/,
-    );
-  });
-});
+    // A different target is a different group, even at the same timestamp.
+    expect([
+      ...latestAiResultIds([
+        ...tie,
+        {
+          id: "00000000-0000-4000-8000-000000000001",
+          brandId: null,
+          submissionId: "submission-1",
+          phase: "facts",
+          createdAt: shared,
+        },
+      ]),
+    ]).toContain("00000000-0000-4000-8000-000000000001");
+  });});

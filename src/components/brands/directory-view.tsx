@@ -25,6 +25,12 @@ import type { Locale } from '@/lib/seo/alternates'
 import type { DirectoryViewFilters } from '@/lib/seo/directory-filters'
 import { localizePath } from '@/i18n/locale-preference'
 import { updateDirectoryUrl } from '@/lib/directory-filter-url'
+import {
+  buildDirectoryUrlState,
+  directoryCategoryChipSlugs,
+  directoryTaxonomyHref,
+  shouldEmitDirectoryItemList,
+} from '@/lib/brands/directory-presentation'
 import type { PublicBrandCard } from '@/lib/brands/contracts'
 import { DirectoryLandingHead, DirectoryResultStatus } from './directory-landing-head'
 
@@ -132,26 +138,24 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
 
   const latestUpdatedAt = taxonomySummary.latestUpdatedAt
 
-  // A sub whose parent L1 differs from the selected category has no
-  // `/categories/<l1>/<l2>` address — `category-params.ts` still 404s that pair
-  // and must keep doing so — so the whole view stays on `/brands` and both
-  // facets stay in the query string.
-  const subcategoryPairIsAddressable =
-    !activeSubcategory || activeSubcategory.category === categoryTag?.slug
-  const routePath = categoryTag && subcategoryPairIsAddressable
-    ? `/categories/${categoryTag.slug}${activeSubcategory ? `/${activeSubcategory.slug}` : ''}`
-    : '/brands'
-  const directoryPath = localizePath(routePath, safeLocale)
-  const normalizedParams = new URLSearchParams()
-  if (search) normalizedParams.set('search', search)
-  if (validCategoryFilter.length > 0 && routePath === '/brands') {
-    normalizedParams.set('category', validCategoryFilter.join(','))
-  }
-  if (activeSubSlugs.length > 0 && routePath === '/brands') normalizedParams.set('sub', activeSubSlugs.join(','))
-  if (materials.length > 0) normalizedParams.set('material', materials.join(','))
-  if (priceRanges.length > 0) normalizedParams.set('price', priceRanges.join(','))
-  if (verificationFilter !== 'all') normalizedParams.set('verification', verificationFilter)
-  if (sort !== 'random') normalizedParams.set('sort', sort)
+  // Surface, query string and taxonomy hrefs are all decisions over the parsed
+  // filters, so they are resolved by `lib/brands/directory-presentation.ts` and
+  // asserted there. The facet chips keep patching the query they live in.
+  const urlState = buildDirectoryUrlState({
+    locale: safeLocale,
+    category: categoryTag,
+    subcategory: activeSubcategory,
+    categorySlugs: validCategoryFilter,
+    subcategorySlugs: activeSubSlugs,
+    search,
+    materials,
+    priceRanges,
+    verificationFilter,
+    sort,
+  })
+  const { directoryPath, normalizedParams } = urlState
+  const taxonomyHref = (categorySlugs: string[], subSlugs: string[]) =>
+    directoryTaxonomyHref(urlState, categorySlugs, subSlugs)
 
   const activeFilters: ActiveDirectoryFilter[] = []
   if (search) {
@@ -163,19 +167,19 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
       removeLabel: t('filters.removeFilter', { label: t('filters.activeSearch'), value: search }),
     })
   }
-  for (const slug of validCategoryFilter) {
+  // Chips come from what the brand query actually conjoins, never from the raw
+  // selection — see `directoryCategoryChipSlugs`.
+  const categoryChipSlugs = directoryCategoryChipSlugs(validCategoryFilter, activeSubSlugs)
+  for (const slug of categoryChipSlugs) {
     const category = L1_CATEGORIES.find((item) => item.slug === slug)
     if (!category) continue
     const value = categoryLabel(category, safeLocale)
-    const remainingCategories = validCategoryFilter.filter((item) => item !== slug)
+    const remainingCategories = categoryChipSlugs.filter((item) => item !== slug)
     activeFilters.push({
       id: `category-${slug}`,
       label: t('filters.activeCategory'),
       value,
-      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, {
-        category: remainingCategories.length > 0 ? remainingCategories.join(',') : null,
-        sub: null,
-      }),
+      removeHref: taxonomyHref(remainingCategories, []),
       removeLabel: t('filters.removeFilter', { label: t('filters.activeCategory'), value }),
     })
   }
@@ -186,9 +190,10 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
       id: `subcategory-${subcategory.slug}`,
       label: t('filters.activeSubcategory'),
       value,
-      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, {
-        sub: remainingSubs.length > 0 ? remainingSubs.map((item) => item.slug).join(',') : null,
-      }),
+      removeHref: taxonomyHref(
+        validCategoryFilter,
+        remainingSubs.map((item) => item.slug),
+      ),
       removeLabel: t('filters.removeFilter', { label: t('filters.activeSubcategory'), value }),
     })
   }
@@ -255,11 +260,14 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
   let categoryBreadcrumbJsonLd = null
   let brandsItemListJsonLd = null
   if (
-    validCategoryFilter.length === 0 &&
-    !search &&
-    priceRanges.length === 0 &&
-    verificationFilter === 'all' &&
-    page === 1
+    shouldEmitDirectoryItemList({
+      categorySlugs: validCategoryFilter,
+      search,
+      materials,
+      priceRanges,
+      verificationFilter,
+      page,
+    })
   ) {
     brandsItemListJsonLd = buildBrandsItemListJsonLd(displayBrands, safeLocale)
   }
@@ -327,6 +335,16 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
 
         <aside className="hidden lg:block" aria-label={t('filters.title')}>
           <div className="sticky top-(--nav-height)">
+            {/*
+              `activeCategorySlugs` is SELECTION state, not a claim about what
+              filters: the checked L1 is what opens its L2 rail, and unchecking
+              it clears the pair. `?sub=` is only read alongside a single
+              `?category=` (`seo/directory-filters.ts`), so there is no
+              "subcategory without its L1" URL to preserve. What the L1 must not
+              do is advertise itself as an applied filter — that is why the
+              chips above and the count beside the box are both derived from
+              what the brand query actually conjoins.
+            */}
             <BrandFilterSidebar
               activeFilters={activeFilters}
               categories={[...L1_CATEGORIES]}

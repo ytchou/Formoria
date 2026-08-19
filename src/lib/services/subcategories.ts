@@ -144,15 +144,13 @@ export function resolveSubcategorySelection(input: string): SubcategorySelection
  * anything else is rejected and logged rather than stored, because
  * `brands.subcategories` is a slug column and a free-text value written there
  * renders as a dead filter.
+ *
+ * There is no English parameter. `subcategoriesEn` is DERIVED from the resolved
+ * node (`L2Subcategory.nameEn`), which is what keeps the two arrays
+ * index-aligned by construction rather than by a caller's discipline.
  */
 export function normalizeSubcategories(
   subcategories: string[],
-  // Vestigial. English is derived from the ontology (`L2Subcategory.nameEn`)
-  // now that storage is slugs, so whatever a caller passes here is ignored —
-  // the tests assert the derived spelling, not the supplied one. Kept only so
-  // the three callers need not change in this ticket; drop the parameter and
-  // its `subcategoriesEnRaw` source in a follow-up.
-  _subcategoriesEn: string[] = [],
 ): NormalizeSubcategoriesResult {
   const pairs: Array<{ slug: string; en: string }> = []
   const rejected: NormalizeSubcategoriesResult['rejected'] = []
@@ -308,43 +306,3 @@ export function sameSubcategorySet(left: string[], right: string[]): boolean {
   return left.every((subcategory) => rightSet.has(subcategory))
 }
 
-type SubcategoryBackfillMatch = {
-  original: string
-  canonicalZh: string
-  canonicalEn: string
-  slug: string
-}
-
-export type SubcategoryBackfillPlan = {
-  matched: SubcategoryBackfillMatch[]
-  unmatched: string[]
-}
-
-/**
- * Deterministic first pass for a subcategory backfill: values that hit the
- * vocabulary resolve to canonical zh/en/slug, values that miss are returned as
- * `unmatched` for follow-up. Deduplication is by slug — first occurrence wins.
- */
-export function planSubcategoryBackfill(subcategories: string[]): SubcategoryBackfillPlan {
-  const matched: SubcategoryBackfillMatch[] = []
-  const unmatched: string[] = []
-  const seenSlugs = new Set<string>()
-
-  for (const subcategory of subcategories) {
-    const resolved = resolveSubcategorySelection(subcategory)
-    if (resolved.ok) {
-      if (seenSlugs.has(resolved.slug)) continue
-      seenSlugs.add(resolved.slug)
-      matched.push({
-        original: subcategory,
-        canonicalZh: resolved.subcategory.nameZh,
-        canonicalEn: resolved.subcategory.nameEn,
-        slug: resolved.slug,
-      })
-    } else {
-      unmatched.push(subcategory)
-    }
-  }
-
-  return { matched, unmatched }
-}

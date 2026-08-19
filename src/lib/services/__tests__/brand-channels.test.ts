@@ -5,6 +5,7 @@ import {
   buildStockistPageRanges,
   CHANNEL_READ_SELECT,
   groupStockistsForCity,
+  matchesCategory,
   stockistDistrictSlugs,
   summarizeStockistCities,
   type StockistLocation,
@@ -117,5 +118,35 @@ describe('brand channel provenance', () => {
         location('hotel', null),
       ]),
     ).toEqual(['taipei-zhongshan'])
+  })
+})
+
+describe('stockist category filter over slug-stored subcategories', () => {
+  function stockist(subcategories: string[]): StockistLocation {
+    return {
+      ...location('india', '中山區'),
+      categorySlug: 'bags-accessories',
+      subcategories,
+    }
+  }
+
+  // A multi-word slug is the load-bearing case: 'tote-bags' normalizes to
+  // neither nameZh nor an alias, so a name-keyed lookup resolves it to null and
+  // the whole city page renders empty. The 58 single-word slugs pass either way.
+  it('matches a brand whose stored subcategory is a multi-word slug', () => {
+    expect(matchesCategory(stockist(['tote-bags']), 'tote-bags')).toBe(true)
+  })
+
+  it('still matches a pre-migration zh-TW label for the same node', () => {
+    expect(matchesCategory(stockist(['托特包']), 'tote-bags')).toBe(true)
+  })
+
+  it('does not match a different L2 of the same L1', () => {
+    expect(matchesCategory(stockist(['tote-bags']), 'backpacks')).toBe(false)
+  })
+
+  it('matches on the brand L1 and passes everything through with no filter', () => {
+    expect(matchesCategory(stockist([]), 'bags-accessories')).toBe(true)
+    expect(matchesCategory(stockist([]), undefined)).toBe(true)
   })
 })

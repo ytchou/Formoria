@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { useState } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -35,6 +36,34 @@ function renderPicker(
     />,
   );
   return { ...utils, onChange };
+}
+
+/**
+ * The picker is controlled, so a spy-only `onChange` never unmounts the chip
+ * that was just activated — which is exactly the condition every focus
+ * assertion below is about. This wrapper applies the change like a real caller.
+ */
+function ControlledPicker({
+  initialValue = [],
+  ...props
+}: { initialValue?: string[] } & Partial<
+  React.ComponentProps<typeof SubcategoryPicker>
+>) {
+  const [value, setValue] = useState<string[]>(initialValue);
+  return (
+    <SubcategoryPicker
+      labels={LABELS}
+      surface="test"
+      locale="zh-TW"
+      {...props}
+      value={value}
+      onChange={setValue}
+    />
+  );
+}
+
+function selectedGroup() {
+  return screen.getByRole("group", { name: LABELS.selected });
 }
 
 function searchField() {
@@ -171,20 +200,84 @@ describe("SubcategoryPicker", () => {
   });
 
   it("removes a selected chip and keeps a baseline value recoverable", () => {
-    const { onChange } = renderPicker({
-      value: ["backpacks"],
-      baseline: ["backpacks"],
-    });
-    const selected = screen.getByRole("group", { name: LABELS.selected });
+    render(
+      <ControlledPicker initialValue={["backpacks"]} baseline={["backpacks"]} />,
+    );
 
-    fireEvent.click(within(selected).getByRole("button", { name: /後背包/ }));
-    expect(onChange).toHaveBeenCalledWith([]);
+    const chip = () =>
+      within(selectedGroup()).getByRole("button", { name: /後背包/ });
 
-    // A removed baseline value stays on screen, unpressed, so the removal is
-    // reversible without hunting through 175 chips.
+    fireEvent.click(chip());
+    // Removed: the chip stays in the selected row, unpressed, rather than
+    // going back into the 175-item offer set.
+    expect(chip()).toHaveAttribute("aria-pressed", "false");
     expect(
-      within(selected).getByRole("button", { name: /後背包/ }),
-    ).toHaveAttribute("aria-pressed", "true");
+      within(optionsGroup()).queryByRole("button", { name: "後背包" }),
+    ).not.toBeInTheDocument();
+
+    // Recovered: pressing the same chip restores the value, which is the whole
+    // point of keeping a baseline row.
+    fireEvent.click(chip());
+    expect(chip()).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("moves focus to the same node after a selection instead of dropping it to the body", () => {
+    render(<ControlledPicker priorityCategorySlug="fashion" />);
+
+    fireEvent.click(
+      within(optionsGroup()).getByRole("button", { name: "後背包" }),
+    );
+
+    // The activated button unmounts — the offer set excludes what is already
+    // selected — so without a deliberate move focus lands on <body> and a
+    // keyboard user re-enters a 175-button list at position zero.
+    const focused = document.activeElement as HTMLElement | null;
+    expect(focused).not.toBe(document.body);
+    expect(focused?.dataset.subcategoryChip).toBe("backpacks");
+    expect(selectedGroup()).toContainElement(focused);
+  });
+
+  it("moves focus to the offer set after a deselection with no baseline", () => {
+    // The wizard and the admin editor both pass no baseline, so a deselected
+    // chip leaves the selected row entirely.
+    render(<ControlledPicker initialValue={["backpacks"]} />);
+
+    fireEvent.click(
+      within(selectedGroup()).getByRole("button", { name: /後背包/ }),
+    );
+
+    const focused = document.activeElement as HTMLElement | null;
+    expect(focused).not.toBe(document.body);
+    expect(focused?.dataset.subcategoryChip).toBe("backpacks");
+    expect(optionsGroup()).toContainElement(focused);
+  });
+
+  it("keeps focus in the filter field when a typed term commits", () => {
+    // Focus movement is the strongest announcement, but stealing it out of a
+    // text field the user is still typing in is not an announcement.
+    render(<ControlledPicker />);
+
+    const field = searchField();
+    field.focus();
+    fireEvent.change(field, { target: { value: "後背包" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+
+    expect(document.activeElement).toBe(searchField());
+  });
+
+  it("mounts both status regions before they have anything to say", () => {
+    // A live region has to exist and be empty BEFORE its content changes, or
+    // the announcement is routinely missed — including the at-limit case,
+    // where all 175 option chips go disabled at once.
+    render(<ControlledPicker />);
+
+    const regions = screen.getAllByRole("status");
+    expect(regions).toHaveLength(2);
+    for (const region of regions) expect(region).toBeEmptyDOMElement();
+
+    // And the cap message is what describes the group it disables.
+    const describedBy = optionsGroup().getAttribute("aria-describedby") ?? "";
+    expect(regions.map((region) => region.id)).toContain(describedBy);
   });
 
   it("stops offering nodes at the cap and says why", () => {

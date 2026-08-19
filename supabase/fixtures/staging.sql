@@ -13,6 +13,13 @@
 --
 -- The brands below are NOT invented — real names, real slugs, real
 -- purchase_website URLs. Only the fabricated channels are gone.
+--
+-- The `category` column here is an UPSERT that wins: `on conflict … do update`
+-- writes it back over whatever the row already holds. So every value must agree
+-- with `20260820090000_split_kids_pets_l1.sql`, which reassigns 1woof -> pets,
+-- 2angels -> kids, angle-wave -> pets, softie-bunny -> kids. Disagreeing is not
+-- self-healing: that migration's update is guarded by `category = 'kids-pets'`,
+-- which no longer matches any row, so re-running it cannot undo a wrong seed.
 
 with fixture(id, name, slug, category, city, purchase_website) as (
   values
@@ -42,7 +49,7 @@ with fixture(id, name, slug, category, city, purchase_website) as (
     ('51000000-0000-4000-8000-000000000024'::uuid, '5AM Jewelry', '5am-jewelry', 'jewelry', 'taipei', 'https://5amjewelry.com'),
     ('51000000-0000-4000-8000-000000000025'::uuid, 'AiliN', 'ailin', 'jewelry', null, null),
     ('51000000-0000-4000-8000-000000000026'::uuid, '波鳥 Bo-Bird', 'bobird', 'jewelry', 'hualien', null),
-    ('51000000-0000-4000-8000-000000000027'::uuid, '一屋 1woof', '1woof', 'kids', null, null),
+    ('51000000-0000-4000-8000-000000000027'::uuid, '一屋 1woof', '1woof', 'pets', null, null),
     ('51000000-0000-4000-8000-000000000028'::uuid, '2Angels', '2angels', 'kids', null, 'https://2angelsbaby.com'),
     ('51000000-0000-4000-8000-000000000029'::uuid, '安閣家 ANGLE WAVE', 'angle-wave', 'pets', 'changhua', 'https://www.anglewave.com'),
     ('51000000-0000-4000-8000-000000000030'::uuid, 'ACEKA', 'aceka', 'outdoor', null, 'https://www.aceka.com.tw'),

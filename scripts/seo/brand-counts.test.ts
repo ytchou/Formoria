@@ -61,6 +61,33 @@ describe('aggregateBrandCounts', () => {
     ])
   })
 
+  it('counts rows stored as slugs, including the multi-word ones', () => {
+    // `brands.subcategories` holds slugs since DEV-1510. A multi-word slug is
+    // the load-bearing case: it normalizes to neither nameZh nor an alias, so a
+    // name-keyed resolver drops all 117 of them into `unmatched` and publishes
+    // brand_count 0 for real landing pages.
+    const result = aggregateBrandCounts([
+      brand('bags-accessories', ['tote-bags']),
+      brand('fashion', ['pants']),
+    ])
+
+    expect(result.subcategories).toEqual([
+      expect.objectContaining({
+        slug: 'pants',
+        category: 'fashion',
+        brand_count: 1,
+        corpus_brand_count: 1,
+      }),
+      expect.objectContaining({
+        slug: 'tote-bags',
+        category: 'bags-accessories',
+        brand_count: 1,
+        corpus_brand_count: 1,
+      }),
+    ])
+    expect(result.unmatched).toEqual([])
+  })
+
   it('reports corpus_brand_count unscoped by category', () => {
     const result = aggregateBrandCounts([brand('beauty', ['家具'])])
 

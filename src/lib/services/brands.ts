@@ -151,6 +151,16 @@ type CuratedBrand = Partial<Brand> &
 
 export type BrandWriteInput = Partial<Brand> & { categorySlug?: string | null };
 type BrandWriteResult = Brand & { skipped: SkippedBrandField[] };
+/**
+ * The `apply_brand_patch` argument object, typed by hand.
+ *
+ * The generated `Database` signature declares `p_actor` and `p_job_id` as
+ * non-nullable `string` and `p_patch` as `Json`, none of which matches how the
+ * function is actually called (an unattributed write passes `null`, and a patch
+ * is a plain column map). Exported so every caller uses this one shape instead
+ * of casting its own argument object away — `as never` on an RPC turns a
+ * renamed parameter into a runtime error.
+ */
 type ApplyBrandPatchArgs = {
   p_brand_id: string;
   p_patch: Record<string, unknown>;
@@ -1040,7 +1050,12 @@ function brandFieldStateTable(client: unknown): BrandFieldStateTable {
   ).from("brand_field_state");
 }
 
-function brandPatchRpc(client: unknown): BrandPatchRpcClient {
+/**
+ * Narrows any Supabase client to the one RPC this module calls, with
+ * `ApplyBrandPatchArgs` in place of the generated signature. One cast, in one
+ * place, so the argument object itself stays type-checked at every call site.
+ */
+export function brandPatchRpc(client: unknown): BrandPatchRpcClient {
   return client as BrandPatchRpcClient;
 }
 
@@ -1835,11 +1850,11 @@ export type SubcategorySummaryRow = {
 /**
  * Every approved brand, as the taxonomy and material rails need them.
  *
- * This read has no `limit` — the counts are a whole-corpus aggregate, so it
- * genuinely wants every row. That is affordable once an hour and not once a
- * request: `/[locale]/categories/[category]` awaits `searchParams`, so it
- * renders dynamically and `revalidate = 3600` on the page buys nothing (see the
- * note in cache/public-brand-cache.ts — taxonomy routes have no ISR entries).
+ * The counts are a whole-corpus aggregate, so this read wants every row. That is
+ * affordable once an hour and not once a request:
+ * `/[locale]/categories/[category]` awaits `searchParams`, so it renders
+ * dynamically and `revalidate = 3600` on the page buys nothing (see the note in
+ * cache/public-brand-cache.ts — taxonomy routes have no ISR entries).
  * Uncached, every crawler hit on every filter permutation replayed a full scan
  * against PostgREST, which is what saturated the origin (DEV-1460).
  *
@@ -1853,6 +1868,15 @@ export type SubcategorySummaryRow = {
  * cheap and varies by category/subcategory, while the query is the expensive
  * part and now varies by nothing. `unstable_cache` serializes, so this returns
  * plain rows — the `Map` is rebuilt per call by the caller.
+ *
+ * Ceiling: ONE unpaged read of 1000 rows, the explicit form of what
+ * `supabase/config.toml`'s `max_rows = 1000` would enforce anyway — PostgREST
+ * truncates at that limit with HTTP 200 and no error, so an implicit cap reads
+ * as missing data rather than as a cap. Staging holds 104 approved brands and
+ * production ~795. Past 1000, both rails and `latestUpdatedAt` silently
+ * under-report and a term whose only holders sit past row 1000 disappears
+ * through `.filter(count > 0)`: move to a `.range()` loop then. Same ceiling
+ * and same wording as `getAdminBrandOptions`.
  */
 const getCachedSubcategoryRows = unstable_cache(
   () =>
@@ -1868,7 +1892,8 @@ const getCachedSubcategoryRows = unstable_cache(
           supabase
             .from("brands")
             .select("category, subcategories, material, updated_at")
-            .eq("status", "approved"),
+            .eq("status", "approved")
+            .limit(1000),
         );
 
         if (error) throw error;
@@ -1909,7 +1934,16 @@ export function summarizeSubcategoryRows(
 
   for (const brand of rows) {
     const tagsInCategory = new Set<string>();
-    let matchesScope = !subcategorySlug;
+    // Freshness is scoped to the page actually being rendered, on the same rule
+    // `isDirectoryTargetMember` applies to the sitemap: an L2 page is dated by
+    // the brands carrying that tag (cross-L1 ones included, resolved below), an
+    // L1 page by the brands whose own L1 is this one. This read lost its
+    // `.eq("category", …)` when it became one corpus-wide cache entry, so
+    // defaulting to `true` here put every approved brand in scope and dated all
+    // twelve L1 landing pages with the newest edit anywhere in the directory.
+    let matchesScope = subcategorySlug
+      ? false
+      : brand.category === categorySlug;
     for (const tag of brand.subcategories) {
       // Storage is slugs (DEV-1510 task 9), so resolve by slug. `matchSubcategory`
       // reads labels and aliases and would miss any slug whose `nameEn` does not
@@ -1946,7 +1980,7 @@ export function summarizeSubcategoryRows(
  * ticket removes. Four of the twelve terms (紙 石 藤 漆) have no brands at all;
  * the rail renders a term only when its count is above zero.
  */
-export function summarizeMaterialCounts(
+function summarizeMaterialCounts(
   rows: readonly SubcategorySummaryRow[],
 ): Map<string, number> {
   const counts = new Map<string, number>();

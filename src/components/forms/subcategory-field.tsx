@@ -1,12 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   SubcategoryPicker,
   type SubcategoryPickerLabels,
 } from "@/components/forms/subcategory-picker";
 import { resolveSubcategorySelection } from "@/lib/services/subcategories";
+
+/**
+ * Stable identity for the default. `suggestions = []` written inline is a new
+ * array on every render, which defeats the memo below and, through it, the
+ * picker's own 175-node memo.
+ */
+const NO_SUGGESTIONS: string[] = [];
 
 type SubcategoryFieldProps = {
   initialSubcategories?: string[];
@@ -36,7 +43,7 @@ export function SubcategoryField({
   initialSubcategories,
   value: controlledSubcategories,
   onChange,
-  suggestions = [],
+  suggestions = NO_SUGGESTIONS,
   categorySlug = null,
   locale = "zh-TW",
   labels,
@@ -46,9 +53,16 @@ export function SubcategoryField({
   );
   const subcategories = controlledSubcategories ?? internalSubcategories;
 
-  const prioritySlugs = suggestions
-    .map((suggestion) => resolveSubcategorySelection(suggestion))
-    .flatMap((resolved) => (resolved.ok ? [resolved.slug] : []));
+  // Memoized because the picker lists it as a dependency: rebuilt inline it
+  // handed the picker a new array on every keystroke of every other field in
+  // the wizard form, replaying the full 175-node scan each time.
+  const prioritySlugs = useMemo(
+    () =>
+      suggestions
+        .map((suggestion) => resolveSubcategorySelection(suggestion))
+        .flatMap((resolved) => (resolved.ok ? [resolved.slug] : [])),
+    [suggestions],
+  );
 
   function updateSubcategories(next: string[]) {
     if (controlledSubcategories === undefined) {

@@ -102,6 +102,29 @@ describe('cross-L1 reads', () => {
     ).toBe(CROSS_L1_BRAND.updatedAt)
   })
 
+  it('l1_freshness_is_scoped_to_the_l1', () => {
+    // No `?sub=`: the page lists brands whose OWN L1 is this one
+    // (`isDirectoryTargetMember` with no subcategorySlug), so only those may
+    // date it. The cross-L1 fashion row is the newer of the two and is exactly
+    // the row a whole-corpus scope would wrongly hand to
+    // /categories/bags-accessories.
+    expect(
+      summarizeSubcategoryRows([CROSS_L1_BRAND, NATIVE_BRAND], 'bags-accessories')
+        .latestUpdatedAt,
+    ).toBe(NATIVE_BRAND.updatedAt)
+
+    // And the fashion page is dated by the fashion brand, not by the newest
+    // edit anywhere in the directory.
+    expect(
+      summarizeSubcategoryRows([CROSS_L1_BRAND, NATIVE_BRAND], 'fashion').latestUpdatedAt,
+    ).toBe(CROSS_L1_BRAND.updatedAt)
+
+    // An L1 nobody belongs to has no date at all, rather than inheriting one.
+    expect(
+      summarizeSubcategoryRows([CROSS_L1_BRAND, NATIVE_BRAND], 'stationery').latestUpdatedAt,
+    ).toBeNull()
+  })
+
   it('sub_filter_is_no_longer_a_silent_noop', () => {
     // The defect: `/brands?category=fashion&sub=backpacks` resolved to zero
     // subcategories, applied no tag filter at all, and returned EVERY fashion

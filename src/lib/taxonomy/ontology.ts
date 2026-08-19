@@ -553,19 +553,35 @@ export function subcategoryLabel(sub: L2Subcategory, locale: string): string {
  * labels — so a caller asking "is this a known term?" has to try both maps.
  * Asking `matchSubcategory` alone flags every migrated row as novel, because a
  * multi-word slug ('tote-bags') normalizes to neither name nor alias.
+ *
+ * Trimmed first, so this predicate and `resolveSubcategorySelection` — the two
+ * membership tests over one closed vocabulary — cannot disagree. Untrimmed they
+ * did: `matchSubcategory` trims through `normalizeSubcategoryKey`, but
+ * `subcategoryBySlug` is an exact map hit, so `' tote-bags'` resolved in the
+ * write-time normalizer and failed here. Which answer a caller got then
+ * depended on whether its schema happened to trim first —
+ * `adminReviewSchema` does (element-level `.trim()`) and
+ * `brandWizardBasicInfoSchema` does not, so one payload was valid on one
+ * surface and invalid on the other.
  */
 export function isKnownSubcategoryTerm(value: string): boolean {
-  return subcategoryBySlug(value) !== null || matchSubcategory(value) !== null
+  const trimmed = value.trim()
+  return subcategoryBySlug(trimmed) !== null || matchSubcategory(trimmed) !== null
 }
 
 /**
  * The label a stored subcategory value renders as, in one locale.
  *
  * Resolution is by SLUG only, deliberately. A value the slug map does not know
- * is returned verbatim rather than pushed through `matchSubcategory`: novel tags
- * are kept as authored on purpose (`docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md`),
- * and rewriting a human-authored string into a canonical one is a different
- * decision from translating a slug. Use `isKnownSubcategoryTerm` for identity.
+ * is returned VERBATIM rather than pushed through `matchSubcategory`, because
+ * rewriting a human-authored string into a canonical one is a different decision
+ * from translating a slug. Use `isKnownSubcategoryTerm` for identity.
+ *
+ * Nothing writes such a value any more: DEV-1510 closed the vocabulary and
+ * retired the escape hatch of
+ * `docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md`. What remains
+ * is stored history — rows an admission round has not yet reached, and
+ * pre-migration jsonb payloads — which still has to render as authored.
  *
  * Any locale tag is accepted — 'zh-TW', 'zh' and 'en' are all in use across the
  * render, prompt and validator paths — so the narrowing happens once, here.

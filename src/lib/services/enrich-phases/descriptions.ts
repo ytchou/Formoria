@@ -516,10 +516,7 @@ export async function runDescriptionsPhase({
       const {
         subcategories: mergedSubcategories,
         subcategoriesEn: mergedSubcategoriesEn,
-      } = normalizeSubcategories(
-        brandFacts.subcategories,
-        brandFacts.subcategoriesEn,
-      );
+      } = normalizeSubcategories(brandFacts.subcategories);
 
       descriptionPatch = {
         // Unlike every other field here, an absent price range is filled rather

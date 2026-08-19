@@ -42,7 +42,7 @@ export const SUBCATEGORY_VOCAB_BLOCK = L1_CATEGORIES.map((c) => {
 }).join("\n");
 
 /** The material axis, closed to the twelve agreed terms (`MATERIALS`). */
-export const MATERIAL_VOCAB_BLOCK = MATERIALS.join("、");
+const MATERIAL_VOCAB_BLOCK = MATERIALS.join("、");
 
 export const CLASSIFY_SYSTEM_PROMPT = `你是台灣品牌分類專家。請根據品牌名稱和描述，將品牌分類到最適合的產品類別。
 
