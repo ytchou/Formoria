@@ -2778,24 +2778,6 @@ export type Database = {
         }
         Relationships: []
       }
-      subcategory_translations: {
-        Row: {
-          created_at: string | null
-          subcategory: string
-          translation: string
-        }
-        Insert: {
-          created_at?: string | null
-          subcategory: string
-          translation: string
-        }
-        Update: {
-          created_at?: string | null
-          subcategory?: string
-          translation?: string
-        }
-        Relationships: []
-      }
       submission_images: {
         Row: {
           alt_en: string | null
@@ -2901,6 +2883,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      taxonomy_terms: {
+        Row: {
+          axis: string
+          name_en: string
+          name_zh: string
+          slug: string
+        }
+        Insert: {
+          axis: string
+          name_en: string
+          name_zh: string
+          slug: string
+        }
+        Update: {
+          axis?: string
+          name_en?: string
+          name_zh?: string
+          slug?: string
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -3114,7 +3117,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      canonicalize_subcategory_translations: {
+      canonicalize_subcategory_slugs: {
         Args: { p_subcategories: string[]; p_subcategories_en: string[] }
         Returns: string[]
       }
@@ -3636,6 +3639,10 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       staging_capture_auth_email: { Args: { event: Json }; Returns: Json }
+      taxonomy_expand_subcategories: {
+        Args: { p_values: string[] }
+        Returns: string[]
+      }
       transition_health_fix: {
         Args: {
           p_confirmation_data?: Json

@@ -24,15 +24,22 @@ if (process.env.E2E_ADMIN_EMAIL) {
  * Retired L1 taxonomy slugs and the category that absorbed each one.
  *
  * Pairs, not a record, so the two slugs that both merged into
- * `bags-accessories` (and the two into `kids-pets`) stay expressible.
+ * `bags-accessories` stay expressible.
+ *
+ * Every `to` must be a LIVE L1 in `src/lib/taxonomy/ontology.ts`, and no live
+ * L1 may appear as a `from`. DEV-1510 split `kids-pets` into `kids` and `pets`,
+ * which broke both halves of that rule at once: `pets` became a live L1 while a
+ * `["pets", "kids-pets"]` row still shadowed it, and `baby-kids` still pointed
+ * at a slug that no longer renders. Both rows are gone — `pets` resolves in
+ * place, `baby-kids` lands on `kids`, and the merged parent leaves the
+ * `/categories` space entirely (below, with `others`).
  */
 const RETIRED_CATEGORY_SLUGS: ReadonlyArray<
   readonly [from: string, to: string]
 > = [
   ["accessories", "bags-accessories"],
   ["bags", "bags-accessories"],
-  ["baby-kids", "kids-pets"],
-  ["pets", "kids-pets"],
+  ["baby-kids", "kids"],
   ["food", "food-drink"],
   ["beverages", "food-drink"],
   ["clothing", "fashion"],
@@ -203,6 +210,28 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/zh-TW/categories/others",
+        destination: "/brands",
+        permanent: true,
+      },
+      // `kids-pets` was split into two live L1s (DEV-1510), so neither half is
+      // the successor — sending 母嬰 traffic to `pets` or the reverse is worse
+      // than sending both to the directory. It sits here rather than in
+      // RETIRED_CATEGORY_SLUGS because that table only expresses
+      // category-to-category moves, and it is added only now that both
+      // `-> kids-pets` rows above are gone: with either still standing this
+      // would be the second hop of a redirect chain.
+      {
+        source: "/categories/kids-pets",
+        destination: "/brands",
+        permanent: true,
+      },
+      {
+        source: "/en/categories/kids-pets",
+        destination: "/en/brands",
+        permanent: true,
+      },
+      {
+        source: "/zh-TW/categories/kids-pets",
         destination: "/brands",
         permanent: true,
       },

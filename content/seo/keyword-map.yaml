@@ -391,33 +391,65 @@ clusters:
     for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
     shape ships. target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until
     Ticket B.'
-- id: l1-kids-pets
-  primary_keyword: 台灣母嬰寵物品牌
+- id: l1-kids
+  primary_keyword: 台灣母嬰品牌
   secondary_keywords:
   - 台灣童裝品牌
-  - 台灣寵物品牌
   - MIT 嬰幼兒用品
   search_intent: commercial
   page_type: l1-category
-  target_url: /categories/kids-pets
+  target_url: /categories/kids
   target_status: live
-  ontology_slug: kids-pets
-  brand_count: 30
-  data_quality: pass
+  ontology_slug: kids
+  brand_count: 0
+  data_quality: thin
   intent_fit: 3
   differentiation: 2
-  priority: P1
+  priority: P2
   eligibility: launch
   composite: none
   content_requirement: Category intro explaining what makes this category's Taiwanese brands distinct,
     a brand grid with verification tiers, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'differentiation 2: 母嬰 and 寵物 are two audiences sharing one L1 slug — a known weakness of the
-    current ontology. Splitting the L1 is out of scope here; see DEV-1361. Cannibalization risk 3: today
-    the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query. Ticket B must
-    reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships. target_status
-    is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket B.'
+  notes: 'DEV-1510 split the retired kids-pets L1 into kids and pets, so the compound term 台灣母嬰寵物品牌
+    no longer has an owning page and /categories/kids-pets 301s to /brands. This row keeps the 母嬰 half
+    and absorbs the /categories/baby-kids redirect. brand_count is 0/thin on purpose: the pre-split L1
+    measured 30 brands on 2026-08-06 and that figure is NOT divided between the two halves — the file
+    header forbids presenting a derived split as measured demand, and priority is derived, so it reads
+    P2 until `pnpm seo:counts` re-runs against the split L1s. differentiation stays 2: the two-audience
+    defect that originally justified it is gone, but a re-measured supply of at most 30 brands does not
+    yet earn a 3. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and
+    L2 compete for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the
+    /categories/[l1]/[l2] shape ships.'
+- id: l1-pets
+  primary_keyword: 台灣寵物品牌
+  secondary_keywords:
+  - 台灣寵物用品品牌
+  - MIT 寵物用品
+  search_intent: commercial
+  page_type: l1-category
+  target_url: /categories/pets
+  target_status: proposed
+  ontology_slug: pets
+  brand_count: 0
+  data_quality: thin
+  intent_fit: 3
+  differentiation: 1
+  priority: P3
+  eligibility: defer-brands
+  composite: none
+  content_requirement: Category intro explaining what makes this category's Taiwanese brands distinct,
+    a brand grid with verification tiers, and CollectionPage + ItemList JSON-LD.
+  indexability: index
+  locale: zh-TW
+  notes: 'The 寵物 half of the retired kids-pets L1 (DEV-1510). /categories/pets renders — pets is a live
+    L1 in ontology.ts and no redirect shadows it — but the row ships eligibility defer-brands and stays
+    target_status proposed, matching l1-fitness and l1-tech: a correct node held below the supply bar,
+    not a node waiting on supply to be correct. brand_count 0/thin for the same reason as l1-kids: the
+    pre-split 30 is not divided. differentiation 1: the 寵物用品 SERP is owned by marketplaces and pet-retail
+    chains, and a thin brand set adds little against them. Promote to launch only when a re-run of
+    `pnpm seo:counts` against the split L1 supplies a real count.'
 - id: l1-stationery
   primary_keyword: 台灣文具設計品牌
   secondary_keywords:
@@ -2712,3 +2744,35 @@ unmapped_backlog:
 - slug: smart-doorbells
   brand_count: 1
   notes: Added 2026-08-11 alongside security-cameras, same reason - 智慧門鈴 was stored but unregistered.
+- slug: umbrellas
+  brand_count: 0
+  composite: synonym
+  notes: Added 2026-08-19 (DEV-1510) with eight sibling L2 nodes. Backlog, not a cluster — a node registered today has no scoped count until `pnpm seo:counts` re-runs against the new ontology, and a keyword row would claim demand this file cannot show. synonym because 雨傘 and 陽傘 come off the same shelf from the same makers (晴雨傘 covers both), so one brand set answers either query.
+- slug: gloves
+  brand_count: 0
+  notes: Added 2026-08-19 (DEV-1510), same reason as umbrellas — new ontology node, no scoped count yet.
+- slug: cufflinks-and-tie-clips
+  brand_count: 0
+  composite: synonym
+  notes: Added 2026-08-19 (DEV-1510). synonym on the same-shelf test that reclassified bracelets-and-bangles — 袖扣 and 領帶夾 are one formal-accessory shelf served by the same makers, and neither term has standalone demand here.
+- slug: feminine-care
+  brand_count: 0
+  notes: Added 2026-08-19 (DEV-1510), same reason as umbrellas — new ontology node, no scoped count yet.
+- slug: beauty-tools
+  brand_count: 0
+  composite: multi-intent
+  notes: Added 2026-08-19 (DEV-1510). multi-intent — 美妝工具 (brushes, puffs, mirrors) and 美容儀器 (powered devices) are different purchases at different price points from different makers. Never promotable by brand growth alone; it is unblocked only by an ontology split.
+- slug: pest-control
+  brand_count: 0
+  notes: Added 2026-08-19 (DEV-1510), same reason as umbrellas — new ontology node, no scoped count yet.
+- slug: figurines-and-plush
+  brand_count: 0
+  composite: synonym
+  notes: Added 2026-08-19 (DEV-1510). synonym — 公仔 is the general Taiwanese term for character goods and already covers plush (絨毛公仔), which is why the ontology aliases 公仔, 絨毛玩偶 and 羊毛氈公仔 onto one node.
+- slug: bookmarks
+  brand_count: 0
+  notes: Added 2026-08-19 (DEV-1510), same reason as umbrellas — new ontology node, no scoped count yet.
+- slug: craft-kits-and-supplies
+  brand_count: 0
+  composite: synonym
+  notes: Added 2026-08-19 (DEV-1510). synonym — 手作材料 and 手作工具 are one craft-supply shelf bought by the same maker in the same trip, unlike the retired 體驗課程・DIY材料 which mixed a service with a product.
