@@ -212,6 +212,7 @@ function validateWriterOptions({ maxAttempts }) {
 export async function writeAgentRun(
   input,
   {
+    normalizeInput = true,
     store,
     logger = (record) => console.log(JSON.stringify(record)),
     maxAttempts = DEFAULT_MAX_ATTEMPTS,
@@ -232,7 +233,7 @@ export async function writeAgentRun(
   let payload;
   let run;
   try {
-    payload = normalizeAgentRunEnvelope(input);
+    payload = normalizeInput ? normalizeAgentRunEnvelope(input) : input;
     run = buildRunPayload(payload, now);
   } catch (error) {
     logger(

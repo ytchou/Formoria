@@ -311,11 +311,29 @@ check_health_vars() {
 
   echo "Checking health agent ${mode} configuration..."
 
+  local delivery_mode="${AGENT_HUB_DELIVERY_MODE:-}"
+  if [ -z "$delivery_mode" ] && [ -f ".env.local" ]; then
+    delivery_mode="$(grep -m1 '^AGENT_HUB_DELIVERY_MODE=' .env.local 2>/dev/null | cut -d= -f2-)"
+  fi
+  case "$delivery_mode" in
+    dual|turso)
+      echo "  OK: AGENT_HUB_DELIVERY_MODE=$delivery_mode"
+      ;;
+    "")
+      echo "  MISSING: AGENT_HUB_DELIVERY_MODE"
+      ERRORS=$((ERRORS + 1))
+      return
+      ;;
+    *)
+      echo "  INVALID: AGENT_HUB_DELIVERY_MODE must be exactly dual or turso"
+      ERRORS=$((ERRORS + 1))
+      return
+      ;;
+  esac
+
   local read_only_vars=(
     FORMORIA_RAILWAY_URL
     ORIGIN_SECRET
-    AGENT_HUB_TURSO_DATABASE_URL
-    AGENT_HUB_TURSO_AUTH_TOKEN
     SLACK_HEALTH_WEBHOOK_URL
     SENTRY_BASE_URL
     SENTRY_ORGANIZATION
@@ -325,6 +343,16 @@ check_health_vars() {
     HEALTH_AGENT_READ_DATABASE_PASSWORD
     HEALTH_AGENT_READER_TOKEN
     CLAUDE_CODE_OAUTH_TOKEN
+  )
+  if [ "$delivery_mode" = "dual" ]; then
+    read_only_vars+=(
+      AGENT_HUB_INGEST_URL
+      AGENT_HUB_INGEST_TOKEN
+    )
+  fi
+  read_only_vars+=(
+    AGENT_HUB_TURSO_DATABASE_URL
+    AGENT_HUB_TURSO_AUTH_TOKEN
   )
   local live_vars=(
     LINEAR_OAUTH_CLIENT_ID

@@ -1,15 +1,39 @@
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
+import {
+  createAgentHubDelivery,
+  resolveAgentHubDeliveryMode,
+} from "./delivery.mjs";
 import { AgentHubReportError } from "./envelope.mjs";
-import { createTursoAgentHubWriter } from "./turso.mjs";
 
 export { AgentHubReportError };
 export { normalizeAgentRunEnvelope as normalizeRoutineEnvelope } from "./envelope.mjs";
 
-export async function reportAgentRun(input, { writer, ...writerOptions } = {}) {
-  const report = writer ?? createTursoAgentHubWriter(writerOptions);
-  return report(input);
+/** @param {Record<string, any>} [options] */
+export async function reportAgentRun(input, options = {}) {
+  const {
+    env = process.env,
+    logger,
+    mode,
+    supabaseOptions,
+    supabaseWriter,
+    tursoOptions,
+    tursoWriter,
+    writer,
+    ...writerOptions
+  } = options;
+  if (writer) return writer(input);
+  const delivery = createAgentHubDelivery({
+    env,
+    logger,
+    mode: resolveAgentHubDeliveryMode(mode, env),
+    supabaseOptions,
+    supabaseWriter,
+    tursoOptions: { ...writerOptions, ...tursoOptions },
+    tursoWriter,
+  });
+  return delivery(input);
 }
 
 function fileArgument(argv) {

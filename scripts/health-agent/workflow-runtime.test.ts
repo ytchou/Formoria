@@ -3481,7 +3481,7 @@ describe("default runtime dependencies", () => {
     );
   });
 
-  it("delivers terminal health reports through the injected Turso writer contract and preserves audits", async () => {
+  it("delivers terminal health reports through the injected delivery writer and preserves audits", async () => {
     const auditRecords: AuditRecord[] = [];
     let writerCalls = 0;
     let deliveredEnvelope: unknown;
@@ -3522,7 +3522,10 @@ describe("default runtime dependencies", () => {
         expect.objectContaining({
           adapter: "agent-hub-runtime",
           operation: "ingest_envelope",
-          response: { result: { duplicate: false, run_id: "run-health-123" } },
+          response: {
+            mode: "injected",
+            result: { duplicate: false, run_id: "run-health-123" },
+          },
           status: "success",
         }),
         expect.objectContaining({
