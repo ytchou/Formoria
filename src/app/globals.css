@@ -1,22 +1,36 @@
 @import "tailwindcss";
-@import "@heroui/styles/css";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
-
 :root {
-  /* Latin first (Inter / Bricolage); Traditional Chinese falls through to the
-     platform system face — no CJK webfont is shipped. See src/app/layout.tsx. */
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-heading: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  /* TWO CJK WEBFONTS, DELIBERATELY.
+   *
+   * This block used to read "no CJK webfont is shipped" and pinned three
+   * Latin-only faces. Design system v2 reverses that, and
+   * docs/decisions/2026-08-20-two-cjk-webfonts-supersede-the-system-face-rule.md
+   * SUPERSEDES the old rule — do not re-assert it.
+   *
+   * It is affordable because Google splits both families by `unicode-range`,
+   * so per-page transfer is bounded by the text on the page rather than by the
+   * size of the family, and because `next/font` self-hosts the files, which is
+   * what satisfies the CSP `font-src 'self'` at next.config.ts:101. The loader
+   * options that keep this off the cold-visit critical path (`preload: false`,
+   * `display: swap`, and NO `subsets`) live in
+   * src/components/shared/root-document.tsx.
+   *
+   * The two v1 names below are aliases, kept only so the 37 `type-*` utilities
+   * and `html { @apply font-sans }` keep compiling. Wave 2's type codemod
+   * replaces them with `font-ming` / `font-hei` and deletes these two lines.
+   * They restate the stacks rather than pointing at `var(--font-ming)` so they
+   * cannot break if the theme layer drops an unused variable. */
+  --font-sans: var(--font-noto-sans-tc), "PingFang TC", sans-serif;
+  --font-heading: var(--font-noto-serif-tc), "Songti TC", serif;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-heading);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -53,12 +67,28 @@
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Design system v2 — the utilities Tailwind generates from these are the
+     whole point: `bg-ground`, `bg-surface`, `text-ink-muted`, `border-rule`,
+     `text-accent`, `text-danger`, `gap-gutter`, `py-section`. Raw values live
+     in the v2 palette block below; these lines only name them for Tailwind. */
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-surface-deep: var(--surface-deep);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-muted: var(--ink-muted);
+  --color-rule: var(--rule);
+  --color-on-ink: var(--on-ink);
+  --color-on-ink-muted: var(--on-ink-muted);
+  --color-rule-on-ink: var(--rule-on-ink);
+  --color-danger: var(--danger);
+  --spacing-section: var(--space-section);
+  --spacing-stack: var(--space-stack);
+  --spacing-gutter: var(--space-gutter);
 }
 
 @theme {
-  --color-warm-caption: var(--warm-caption);
-  --color-warm-secondary: var(--warm-secondary);
-  --color-gold: var(--gold);
   --color-verified-green: var(--verified-green);
   --color-verified-green-bg: var(--verified-green-bg);
   --color-mit-verified: var(--mit-verified);
@@ -72,8 +102,15 @@
   --color-cta-foreground: var(--cta-foreground);
   --color-primary-dark: var(--primary-dark);
   --color-primary-light: var(--primary-light);
-  --shadow-card: 0 2px 8px oklch(0 0 0 / 0.06);
-  --shadow-card-hover: 0 4px 12px oklch(0 0 0 / 0.1);
+  --shadow-card: 0 2px 8px oklch(0 0 0 / 0.04);
+  --shadow-card-hover: 0 4px 12px oklch(0 0 0 / 0.08);
+
+  /* 明體 (content) and 黑體 (interface). One rule, no route exceptions. Declared
+     here rather than in `:root` so a single declaration both registers the
+     `font-ming` / `font-hei` utilities and stays the one value the design-token
+     generator reads. */
+  --font-ming: var(--font-noto-serif-tc), "Songti TC", serif;
+  --font-hei: var(--font-noto-sans-tc), "PingFang TC", sans-serif;
 }
 
 :root {
@@ -102,7 +139,12 @@
   --primary-light: oklch(0.72 0.08 37.6); /* Kiln light — subtle accents */
   --cta: oklch(0.563 0.16 37.6); /* Same as primary — single accent */
   --cta-foreground: oklch(1 0.0001 263.3); /* White */
-  --accent: oklch(0.21 0.0059 285.9); /* Ink — dark surfaces (footer/nav) */
+  /* v2 accent. In v1 this name meant INK, which is why the design-token
+     generator matched it on its first run and wrote a dark-neutral oklch into
+     DESIGN.md as if it were the new indigo. `--accent` now means one thing:
+     interaction. Links, CTAs, focus rings, active states — never a section
+     background and never a large decorative fill. */
+  --accent: #2F4F63;
   --accent-foreground: oklch(
     0.991 0.0029 84.6
   ); /* Paper — text on dark surfaces */
@@ -121,17 +163,11 @@
   --info-bg: oklch(0.97 0.02 250);
 
   /* Extended semantic tokens */
-  --warm-caption: oklch(0.528 0 0); /* Merged with muted-foreground */
-  --warm-secondary: oklch(0.528 0 0); /* Merged with muted-foreground */
-  --gold: oklch(0.74 0.08 65); /* Keep for decorative */
   --verified-green: oklch(0.4 0.1 140); /* Unchanged */
   --verified-green-bg: oklch(0.95 0.02 140); /* Unchanged */
   --mit-verified: oklch(0.4 0.08 65); /* Unchanged */
   --mit-verified-bg: oklch(0.96 0.03 65); /* Unchanged */
-  --shadow-card: 0 2px 8px oklch(0 0 0 / 0.04); /* Lighter shadow for flat design */
-  --shadow-card-hover: 0 4px 12px oklch(0 0 0 / 0.08);
   --nav-height: 100px;
-  --filter-bar-height: 48px;
 
   /* Motion tokens */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
@@ -140,9 +176,6 @@
   --duration-enter: 200ms;
   --duration-morph: 300ms;
   --duration-stagger: 60ms;
-
-  /* Signature token — seal-stamp for verified badges */
-  --signature-seal: oklch(0.563 0.16 37.6); /* Kiln — seal/stamp accent */
 
   /* Radius — 6px softened editorial */
   --radius: 0.375rem;
@@ -165,49 +198,55 @@
   --chart-5: oklch(0.4 0.1 140);
 }
 
-.dark {
-  --background: oklch(0.145 0.005 285);
-  --foreground: oklch(0.93 0.005 85);
-  --card: oklch(0.185 0.005 285);
-  --card-foreground: oklch(0.93 0.005 85);
-  --popover: oklch(0.185 0.005 285);
-  --popover-foreground: oklch(0.93 0.005 85);
-  --primary: oklch(0.68 0.14 37.6); /* Lighter kiln for dark bg */
-  --primary-foreground: oklch(0.145 0.005 285); /* Dark text on bright kiln */
-  --primary-dark: oklch(0.563 0.16 37.6); /* Standard kiln as dark variant */
-  --primary-light: oklch(0.78 0.06 37.6); /* Lighter for dark mode */
-  --cta: oklch(0.68 0.14 37.6); /* Same as primary */
-  --cta-foreground: oklch(0.145 0.005 285);
-  --secondary: oklch(0.22 0.005 285);
-  --secondary-foreground: oklch(0.93 0.005 85);
-  --muted: oklch(0.22 0.005 285);
-  --muted-foreground: oklch(0.6 0 0);
-  --accent: oklch(0.22 0.005 285);
-  --accent-foreground: oklch(0.93 0.005 85);
-  --destructive: oklch(0.704 0.191 22.216);
-  --warning: oklch(0.769 0.188 70.1);
-  --filter-active: oklch(0.72 0.09 140);
-  --filter-active-bg: oklch(0.23 0.025 140);
-  --info: oklch(0.75 0.1 250);
-  --info-bg: oklch(0.22 0.03 250);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.68 0.14 37.6);
-  --warm-caption: oklch(0.6 0 0);
-  --warm-secondary: oklch(0.6 0 0);
-  --chart-1: oklch(0.68 0.14 38);
-  --chart-2: oklch(0.5 0.08 60);
-  --chart-3: oklch(0.74 0.08 65);
-  --chart-4: oklch(0.3 0.02 50);
-  --chart-5: oklch(0.4 0.1 140);
-  --sidebar: oklch(0.185 0.005 285);
-  --sidebar-foreground: oklch(0.93 0.005 85);
-  --sidebar-primary: oklch(0.68 0.14 37.6);
-  --sidebar-primary-foreground: oklch(0.145 0.005 285);
-  --sidebar-accent: oklch(0.22 0.005 285);
-  --sidebar-accent-foreground: oklch(0.93 0.005 85);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.68 0.14 37.6);
+/*
+ * DESIGN SYSTEM v2 — the token layer.
+ *
+ * This block replaces the `.dark` palette that used to sit here: 44 lines that
+ * could never execute, because nothing in the app ever applied a `dark` class
+ * and there is no `next-themes` or ThemeProvider. Unreachable code, not a
+ * feature.
+ *
+ * THREE COLOUR ROLES, NOT A PALETTE. `ground` is the page. `surface` is the
+ * second material — bands, cards, inset blocks. `accent` is interaction and
+ * nothing else: links, CTAs, focus rings, active states. Never decorative,
+ * never a section background, never a large fill.
+ *
+ * Values are hex on purpose. `scripts/generate-design-tokens.mjs` derives the
+ * WCAG contrast table in DESIGN.md §9 from these literals, and it can only read
+ * hex — an oklch() here silently drops the row it was supposed to prove.
+ *
+ * The v1 palette above is still live and still wrong; waves 2-5 retire it.
+ */
+:root {
+  /* Colour */
+  --ground: #FAF7F2; /* page background */
+  --surface: #F1EAE0; /* bands, cards, inset blocks */
+  --surface-deep: #E8DFD2; /* third step; image placeholder */
+  --ink: #1A1815; /* primary text — 18.9:1 on ground */
+  --ink-soft: #4A443C; /* body prose — 10.2:1 on ground */
+  --ink-muted: #7A736A; /* metadata, secondary — 5.1:1 on ground */
+  --rule: #DED5C8; /* hairlines, borders */
+  /* `--accent` (藍染 indigo) is deliberately NOT restated here. It is declared
+     exactly once, in the palette block above, so the v1 meaning of that name
+     (ink) and the v2 meaning (interaction) cannot coexist. */
+
+  /* On ink grounds (footer, admin nav) the ramp inverts. `rule-on-ink` is a
+     non-text rule only — it does not meet a text contrast floor and must never
+     carry type. */
+  --on-ink: #D6CFC4; /* 11.5:1 on ink */
+  --on-ink-muted: #9A9288; /* 5.8:1 on ink */
+  --rule-on-ink: #3A352E; /* hairline on ink — non-text only */
+
+  /* Form errors. Separate from `--destructive`, which v1 uses for destructive
+     ACTIONS; this one carries validation messages. */
+  --danger: #B3261E; /* 6.1:1 on ground, 5.5:1 on surface */
+
+  /* Spacing — three names carry meaning and nothing else does. Local,
+     meaningless spacing (`gap-2`, `p-4`) needs no name and gets none. Do not
+     grow this into a scale. */
+  --space-section: 96px; /* between major page sections */
+  --space-stack: 32px; /* between blocks inside a section */
+  --space-gutter: 24px; /* grid column gap */
 }
 
 @utility scrollbar-none {
@@ -501,14 +540,5 @@ body:has([data-page-measure="wide"]) {
   }
   html {
     @apply font-sans;
-  }
-  h2::before {
-    content: "";
-    display: inline-block;
-    width: var(--spacing);
-    height: calc(var(--spacing) * 5);
-    margin-inline-end: calc(var(--spacing) * 3);
-    background-color: var(--primary);
-    vertical-align: middle;
   }
 }

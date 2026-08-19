@@ -63,7 +63,7 @@ export function SettingsForm({
           value={email}
           readOnly
           tabIndex={-1}
-          className="pointer-events-none cursor-not-allowed bg-input/50 opacity-50 dark:bg-input/80"
+          className="pointer-events-none cursor-not-allowed bg-input/50 opacity-50"
         />
       </div>
 

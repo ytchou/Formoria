@@ -20,7 +20,15 @@ const DOC = join(ROOT, "docs/designs/ux/DESIGN.md");
 const BEGIN = "<!-- BEGIN GENERATED TOKENS -->";
 const END = "<!-- END GENERATED TOKENS -->";
 
-/** Roles are documentation, not values — they explain what a token is *for*. */
+/**
+ * Roles are documentation, not values — they explain what a token is *for*.
+ *
+ * This list is a CONTRACT with `src/app/globals.css`: every name here must be
+ * declared there or the script refuses to write anything (see REQUIRED below).
+ * It was unsatisfiable when first committed — it demanded `paper-white`, which
+ * v2 never adopted, and omitted the four tokens the ink-ground and form-error
+ * ramps need. Reconciled to the exact 17-token v2 set on 2026-08-20 (DEV-1514).
+ */
 const ROLES = {
   ground: "page background",
   surface: "bands, cards, inset blocks",
@@ -30,7 +38,10 @@ const ROLES = {
   "ink-muted": "metadata, secondary",
   rule: "hairlines, borders",
   accent: "interaction only",
-  "paper-white": "input fields",
+  "on-ink": "text on ink grounds",
+  "on-ink-muted": "secondary text on ink grounds",
+  "rule-on-ink": "hairline on ink grounds; non-text only",
+  danger: "form errors",
   "font-ming": "content face",
   "font-hei": "interface face",
   "space-section": "between page sections",
