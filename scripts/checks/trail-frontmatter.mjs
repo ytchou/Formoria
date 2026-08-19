@@ -14,20 +14,23 @@ const PUBLIC_DIR = 'public'
 const FAQ_MIN = 4
 const FAQ_MAX = 6
 const LOCALES = new Set(['zh-TW', 'en'])
-const L1_CATEGORIES = new Set([
-  'fashion',
-  'bags-accessories',
-  'jewelry',
-  'beauty',
-  'home',
-  'food-drink',
-  'crafts',
-  'stationery',
-  'tech',
-  'outdoor',
-  'fitness',
-  'kids-pets',
-])
+
+/**
+ * Derived, not restated. This file is `.mjs`, so no type checker covers it and
+ * a hand-kept copy of the L1 slugs drifts silently — it held `kids-pets` for a
+ * whole ticket after the ontology split it into `kids` and `pets`, and the only
+ * symptom would have been a valid trail rejected as malformed.
+ *
+ * `messages/en.json` is the closest importable projection of `L1_CATEGORIES`:
+ * `categories.descriptions` carries exactly one key per L1, and
+ * `llms_txt_has_a_description_for_every_l1` in
+ * `src/i18n/__tests__/message-parity.test.ts` asserts that set equals the
+ * ontology's slugs in both directions. Parsing `ontology.ts` with a regex was
+ * the alternative and is the failure mode this comment exists to avoid.
+ */
+const L1_CATEGORIES = new Set(
+  Object.keys(JSON.parse(readFileSync(join('messages', 'en.json'), 'utf8')).categories.descriptions),
+)
 
 const failures = []
 

@@ -21,8 +21,9 @@ describe("staging fixture privacy contract", () => {
       "food-drink",
       "home",
       "jewelry",
-      "kids-pets",
+      "kids",
       "outdoor",
+      "pets",
       "stationery",
       "tech",
     ]) {
