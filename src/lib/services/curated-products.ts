@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
 import { auditedCall } from "@/lib/audit";
 import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
+import type { ExistingCuratedProduct } from "@/lib/services/curated-products/proposal-diff";
 import { withSlugSuffix } from "@/lib/brands/slug";
 import { generateSlug } from "@/lib/services/brands";
 import { normalizeSubcategories } from "@/lib/services/subcategories";
@@ -675,6 +676,14 @@ export type CuratedProductWriteInput = {
   productDescriptionZh: string;
   productDescriptionEn?: string | null;
   productPosition?: number | null;
+  /**
+   * Origin of the candidate, CHECK-constrained to the three values in
+   * `20260814140000_curated_products_proposed_by.sql`. Defaults to `admin`
+   * because hand entry is still the only interactive create path; the approval
+   * materializer passes `generated` so the review queue can sort a machine
+   * proposal apart from a curator's own row (DEV-1469).
+   */
+  proposedBy?: "admin" | "generated" | "owner";
 };
 
 /**
@@ -688,9 +697,13 @@ export type CuratedProductWriteInput = {
  * `CuratedProductWriteInput` would accept a material patch and drop it without
  * an error. Removing it here makes that a compile error until the edit path
  * exists.
+ *
+ * `proposedBy` is omitted on the same grounds AND on principle: origin is a
+ * fact about how the row came to exist, so an edit must never be able to
+ * relabel a generated proposal as hand-entered.
  */
 export type CuratedProductUpdateInput = Partial<
-  Omit<CuratedProductWriteInput, "brandId" | "material">
+  Omit<CuratedProductWriteInput, "brandId" | "material" | "proposedBy">
 >;
 
 /**
@@ -776,8 +789,9 @@ function curatedProductKey(input: CuratedProductWriteInput): string {
 /**
  * Creates a product. `visible` defaults to `false` — publication is a separate,
  * deliberate act, so no create path silently puts a new row on the site.
- * `proposed_by` records the origin: hand entry today, LLM proposals and owner
- * submissions later, which is what lets a review queue sort by trust.
+ * `proposed_by` records the origin: hand entry by default, `generated` from the
+ * approval materializer (DEV-1469), owner submissions later — which is what
+ * lets a review queue sort by trust.
  *
  * A `(brand_id, key)` collision is resolved by suffixing rather than thrown:
  * two products from one brand sharing a name is ordinary, and the insert is
@@ -818,7 +832,7 @@ export async function createCuratedProduct(
         product_description_en: input.productDescriptionEn ?? null,
         product_position: input.productPosition ?? null,
         visible: input.visible ?? false,
-        proposed_by: "admin",
+        proposed_by: input.proposedBy ?? "admin",
       };
 
       for (let attempt = 0; attempt < MAX_KEY_ATTEMPTS; attempt += 1) {
@@ -1337,6 +1351,79 @@ export async function listCuratedProductsForAdmin(
         position: selection.position ?? 0,
       })),
   }));
+}
+
+/**
+ * PostgREST caps a URL, and `.in()` renders every id into it. 200 is the value
+ * every other batch reader in the service layer uses (`brands.ts`,
+ * `submissions.ts`, `curation-jobs.ts`); it is repeated rather than shared for
+ * the same reason they repeat it.
+ */
+const CURATED_PRODUCT_IN_FILTER_CHUNK_SIZE = 200;
+
+/**
+ * Every listed brand's existing curated products, in the minimum shape
+ * `diffCuratedProductProposals` needs (DEV-1469).
+ *
+ * BATCHED because both callers hold a LIST of brands: the submission review
+ * queue classifies the proposals riding every pending submission at once, and
+ * approval consults the same rows before it creates anything. Reading per brand
+ * would issue one round trip per row on screen — this sits next to
+ * `getBrandSlugsBatch` in `/admin/submissions` and mirrors its shape.
+ *
+ * Visible AND hidden rows, deliberately. A hidden row IS how a rejection is
+ * recorded, so filtering on `visible` would erase the exact memory the diff
+ * exists to consult and every rejected proposal would read as new again.
+ *
+ * Schema lag is NOT swallowed here, unlike `listCuratedProductsForAdmin`: an
+ * empty answer would make the approval path treat known products as new and
+ * insert key-suffixed duplicates, which is worse than a loud failure.
+ */
+export async function getCuratedProductsByBrandBatch(
+  brandIds: string[],
+  client?: CuratedProductSupabase,
+): Promise<Map<string, ExistingCuratedProduct[]>> {
+  const uniqueIds = [...new Set(brandIds.filter(Boolean))];
+  const byBrandId = new Map<string, ExistingCuratedProduct[]>();
+  if (uniqueIds.length === 0) return byBrandId;
+
+  const supabase = curatedProductClient(client);
+  const chunks: string[][] = [];
+  for (
+    let index = 0;
+    index < uniqueIds.length;
+    index += CURATED_PRODUCT_IN_FILTER_CHUNK_SIZE
+  ) {
+    chunks.push(
+      uniqueIds.slice(index, index + CURATED_PRODUCT_IN_FILTER_CHUNK_SIZE),
+    );
+  }
+
+  const pages = await Promise.all(
+    chunks.map(async (chunk) => {
+      const { data, error } = await supabase
+        .from("curated_products")
+        .select("brand_id, key, official_url, visible")
+        .in("brand_id", chunk);
+      if (error) throw error;
+      return (data ?? []) as unknown as Pick<
+        ProductTable["Row"],
+        "brand_id" | "key" | "official_url" | "visible"
+      >[];
+    }),
+  );
+
+  for (const row of pages.flat()) {
+    const rows = byBrandId.get(row.brand_id) ?? [];
+    rows.push({
+      key: row.key,
+      officialUrl: row.official_url ?? null,
+      visible: row.visible,
+    });
+    byBrandId.set(row.brand_id, rows);
+  }
+
+  return byBrandId;
 }
 
 /**

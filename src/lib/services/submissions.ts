@@ -1985,6 +1985,65 @@ export async function applyBrandRefresh(
   );
 }
 
+/**
+ * What the review DECIDED about the curated-product proposals riding one
+ * submission (DEV-1469) — the effective layer, never the raw enrichment blob.
+ *
+ * Materialization must read this and not `enriched_data.products`: a reviewer's
+ * fix to a name, a category, or a description lands in `review_overrides` under
+ * the same `products` key, so reading the blob would silently publish the
+ * machine's first draft and drop every correction.
+ *
+ * Precedence mirrors `reviewDataFromDb` exactly — an override REPLACES the
+ * proposal array when the key is present, and falls through to the enrichment
+ * blob when it is absent. `base_brand_data` never carries either key (it is a
+ * `brands` row snapshot, and there is no products column), which is why this
+ * narrow read is equivalent to running the full three-layer merge.
+ *
+ * `keptProductKeys` is `undefined` when no decision was recorded, which is NOT
+ * the same as `[]`. Absent means "the reviewer never opened the section", and
+ * the caller applies the section's own default (every new proposal kept); `[]`
+ * means "the reviewer looked and kept nothing".
+ */
+export type SubmissionProductReview = {
+  products: CuratedProductProposal[];
+  keptProductKeys: string[] | undefined;
+};
+
+export async function getSubmissionProductReview(
+  id: string,
+): Promise<SubmissionProductReview> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("brand_submissions")
+    .select("enriched_data, review_overrides")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new NotFoundError("BrandSubmission", id);
+
+  const enrichedData: Record<string, unknown> = isJsonObject(data.enriched_data)
+    ? data.enriched_data
+    : {};
+  const overrides: Record<string, unknown> = isJsonObject(data.review_overrides)
+    ? data.review_overrides
+    : {};
+
+  const overriddenProducts = Array.isArray(overrides.products)
+    ? (overrides.products as CuratedProductProposal[])
+    : null;
+  const proposedProducts = Array.isArray(enrichedData.products)
+    ? (enrichedData.products as CuratedProductProposal[])
+    : null;
+
+  return {
+    products: overriddenProducts ?? proposedProducts ?? [],
+    keptProductKeys: Array.isArray(overrides.kept_product_keys)
+      ? normalizeStringArray(overrides.kept_product_keys)
+      : undefined,
+  };
+}
+
 export type SaveSubmissionReviewInput = SubmissionReviewData & {
   images: Array<{ id: string; sortOrder: number }>;
 };

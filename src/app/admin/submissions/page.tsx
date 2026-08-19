@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { getSubmissionsForReview } from "@/lib/services/submissions";
 import { getBrandSlugsBatch } from "@/lib/services/brands";
+import { getCuratedProductsByBrandBatch } from "@/lib/services/curated-products";
 import {
   SubmissionsReviewList,
   type TabValue,
@@ -39,13 +40,23 @@ export default async function ReviewQueueSubmissionsPage({
     .map((submission) => submission.brandId)
     .filter((brandId): brandId is string => Boolean(brandId));
 
-  const slugMap = await getBrandSlugsBatch(brandIds);
+  // Both batch reads take the same brand ids, so they run together. The curated
+  // products are what make the review's proposal diff truthful (DEV-1469):
+  // without them every proposal renders as new, and a product a reviewer
+  // already rejected would be offered again on every run.
+  const [slugMap, existingProductMap] = await Promise.all([
+    getBrandSlugsBatch(brandIds),
+    getCuratedProductsByBrandBatch(brandIds),
+  ]);
 
   const submissionsWithSlugs = submissions.map((submission) => ({
     ...submission,
     enriched_data: submission.enriched_data,
     brandSlug: slugMap.get(submission.brandId ?? "") ?? null,
   }));
+
+  // A plain object, not the Map: this crosses the server/client boundary.
+  const existingProductsByBrandId = Object.fromEntries(existingProductMap);
 
   return (
     <div>
@@ -55,6 +66,7 @@ export default async function ReviewQueueSubmissionsPage({
       <div className="mt-8">
         <SubmissionsReviewList
           submissions={submissionsWithSlugs}
+          existingProductsByBrandId={existingProductsByBrandId}
           initialTab={initialTab}
         />
       </div>

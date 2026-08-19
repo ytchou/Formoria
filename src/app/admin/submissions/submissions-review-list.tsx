@@ -43,6 +43,7 @@ import {
 } from "@/lib/date-range";
 import type { DenialReason } from "@/lib/types";
 import { DENIAL_REASONS } from "@/lib/types";
+import type { ExistingCuratedProduct } from "@/lib/services/curated-products/proposal-diff";
 import type { BrandSubmissionForReview } from "@/lib/services/submissions";
 import { renderEnrichment } from "./submission-enrichment-cell";
 import { SubmissionReviewDetails } from "./submission-review-details";
@@ -78,9 +79,19 @@ const getSubmissionId = (submission: ReviewSubmission) => submission.id;
 
 export function SubmissionsReviewList({
   submissions,
+  existingProductsByBrandId = {},
   initialTab = "needs_data",
 }: {
   submissions: ReviewSubmission[];
+  /**
+   * The curated products each refreshed brand already holds, keyed by brand id
+   * and read once on the server (DEV-1469). The drawer classifies this
+   * submission's proposals against them, so a proposal the catalog already
+   * holds — or already rejected, which is a hidden row — is not offered again.
+   * A new-brand submission has no brand id and no entry, which is correct:
+   * nothing can have been rejected yet.
+   */
+  existingProductsByBrandId?: Record<string, ExistingCuratedProduct[]>;
   initialTab?: TabValue;
 }) {
   const t = useTranslations("admin.submissions");
@@ -580,6 +591,9 @@ export function SubmissionsReviewList({
           <SubmissionReviewDetails
             key={submission.id}
             submission={submission}
+            existingProducts={
+              existingProductsByBrandId[submission.brandId ?? ""] ?? []
+            }
           />
         )}
       </ReviewQueueDrawer>

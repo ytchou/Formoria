@@ -32,6 +32,11 @@ import {
   getUserBrandByEmail,
   revokeOwnership,
 } from '@/lib/services/brand-owners'
+import { materializeSubmissionCuratedProducts } from '@/lib/services/curated-products/materialize'
+import {
+  requestCuratedProductBackfill,
+  type CuratedProductBackfillResult,
+} from '@/lib/services/curated-products/backfill'
 import {
   scanContent,
   saveModerationFlags,
@@ -222,6 +227,33 @@ export async function resendClaimInviteAction(
     }
   });
 }
+/**
+ * Curated-product proposals become rows only once the brand exists, so this
+ * runs AFTER the approval RPC on both paths (DEV-1469). The service reads the
+ * effective review layer — a reviewer's edits and their tick set — so nothing
+ * here needs to know how the two paths differ.
+ *
+ * Never at the cost of an approval that already succeeded: the RPC has
+ * committed by the time this runs, so a failure is reported and swallowed,
+ * exactly like the enriched-channels upsert in `approveSubmission`. Requesting
+ * another products refresh is the recovery path, and the hidden-row rejection
+ * memory makes that re-run idempotent.
+ */
+async function materializeProposedProducts(
+  submissionId: string,
+  brandId: string
+): Promise<void> {
+  try {
+    await materializeSubmissionCuratedProducts(submissionId, brandId)
+  } catch (err) {
+    console.error('[admin] materializeSubmissionCuratedProducts failed:', {
+      submissionId,
+      brandId,
+      error: err,
+    })
+  }
+}
+
 async function approveSubmissionForAdmin(
   submissionId: string,
   reviewerId: string
@@ -236,6 +268,7 @@ async function approveSubmissionForAdmin(
     if (brand.status === 'hidden') {
       await updateBrand(refresh.brandId, { status: 'approved' })
     }
+    await materializeProposedProducts(submissionId, refresh.brandId)
     return {
       brandSlug: brand.slug,
       refresh: true,
@@ -254,6 +287,8 @@ async function approveSubmissionForAdmin(
   } catch (err) {
     console.error('[admin] markFlagsReviewed failed:', err)
   }
+
+  await materializeProposedProducts(submissionId, brandId)
 
   if (brand.heroImageUrl) {
     try {
@@ -542,6 +577,64 @@ export async function requestBrandRefreshAction(
       return result
     } catch (err) {
       console.error('[admin:requestBrandRefresh]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
+    }
+  });
+}
+
+const MAX_BULK_PRODUCT_BACKFILL = 100
+
+/**
+ * Backfill entry point for generated curated products (DEV-1469): open a refresh
+ * per selected brand and queue ONE curation job scoped to the `products` phase.
+ *
+ * The job is queued, not dispatched. Dispatch needs the worker URL and control
+ * token, and a missing one marks the job failed — `/admin/jobs` already has a
+ * dispatch button for the deliberate "run it now", and the worker's scheduled
+ * pass claims a queued job either way.
+ *
+ * Per-brand outcomes rather than a single verdict: a brand already mid-refresh
+ * raises 23505, which is an ordinary answer ("not this one, not yet") and must
+ * reach the admin as a message, never as a thrown error.
+ */
+export async function requestCuratedProductBackfillAction(
+  brandIds: string[]
+): Promise<CuratedProductBackfillResult | { error: string }> {
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
+      if (!Array.isArray(brandIds)) {
+        return { error: 'Invalid brand selection' }
+      }
+
+      const ids = [...new Set(brandIds)]
+      if (
+        ids.length === 0 ||
+        ids.length > MAX_BULK_PRODUCT_BACKFILL ||
+        ids.some(
+          (id) =>
+            typeof id !== 'string' ||
+            !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+        )
+      ) {
+        return { error: 'Invalid brand selection' }
+      }
+      if (!auth.user.email) return { error: 'Admin email is required' }
+
+      const result = await requestCuratedProductBackfill(ids, {
+        id: auth.user.id,
+        email: auth.user.email,
+      })
+      revalidatePath('/admin/brands')
+      revalidatePath('/admin/submissions')
+      revalidatePath('/admin/jobs')
+      revalidatePath('/admin')
+      return result
+    } catch (err) {
+      console.error('[admin:requestCuratedProductBackfill]', err)
       return {
         error: err instanceof Error ? err.message : 'An unexpected error occurred',
       }
