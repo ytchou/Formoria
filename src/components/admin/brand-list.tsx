@@ -50,6 +50,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { statusStyles, textStyles } from "@/components/ui/text-styles";
+import { MAX_BULK_PRODUCT_BACKFILL } from "@/lib/constants/curated-products";
 import { routing } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
 
@@ -170,17 +171,13 @@ export function BrandList({
       setRefreshingBrandId(null);
     }
     // A queued selection must not outlive the rows it names, or the action would
-    // post ids the server no longer lists.
-    if (
-      [...productBackfillIds].some((brandId) => !brandsById.has(brandId))
-    ) {
-      setProductBackfillIds(
-        new Set(
-          [...productBackfillIds].filter((brandId) =>
-            brandsById.has(brandId),
-          ),
-        ),
-      );
+    // post ids the server no longer lists. One pass: the filtered set answers
+    // both "did anything drop?" and "what is left?".
+    const stillListed = [...productBackfillIds].filter((brandId) =>
+      brandsById.has(brandId),
+    );
+    if (stillListed.length !== productBackfillIds.size) {
+      setProductBackfillIds(new Set(stillListed));
     }
   }
 
@@ -213,12 +210,21 @@ export function BrandList({
   // Page-scoped, like the header checkbox it feeds: "select all" must never
   // reach rows the admin cannot see.
   const selectableVisible = visible.filter(canGenerateProducts);
+  // Declared once and reused by the header checkbox AND by the toggle it
+  // drives. The two used to compute the same predicate separately, which is one
+  // edit away from a header that says "all selected" while the toggle adds.
+  const everySelectableVisibleSelected = (selection: Set<string>): boolean =>
+    selectableVisible.every((brand) => selection.has(brand.id));
   const allVisibleSelected =
     selectableVisible.length > 0 &&
-    selectableVisible.every((brand) => productBackfillIds.has(brand.id));
+    everySelectableVisibleSelected(productBackfillIds);
   const someVisibleSelected =
     !allVisibleSelected &&
     selectableVisible.some((brand) => productBackfillIds.has(brand.id));
+  // The cap is enforced in the server action too — this is what stops the admin
+  // reaching it blind. Past the limit every UNSELECTED checkbox is disabled, so
+  // a selection can only shrink, and the bulk bar names the number.
+  const selectionAtCap = productBackfillIds.size >= MAX_BULK_PRODUCT_BACKFILL;
 
   function handleHide(brand: AdminBrandListItem) {
     startTransition(async () => {
@@ -261,7 +267,7 @@ export function BrandList({
     setProductBackfillIds((current) => {
       const next = new Set(current);
       if (next.has(brandId)) next.delete(brandId);
-      else next.add(brandId);
+      else if (next.size < MAX_BULK_PRODUCT_BACKFILL) next.add(brandId);
       return next;
     });
   }
@@ -269,12 +275,16 @@ export function BrandList({
   function toggleProductBackfillPage() {
     setProductBackfillIds((current) => {
       const next = new Set(current);
-      const allSelected = selectableVisible.every((brand) =>
-        current.has(brand.id),
-      );
+      if (everySelectableVisibleSelected(current)) {
+        for (const brand of selectableVisible) next.delete(brand.id);
+        return next;
+      }
+      // Fills to the cap and stops, rather than refusing the whole page: the
+      // page the admin is looking at is the selection they asked for, and a
+      // silent no-op would read as a broken checkbox.
       for (const brand of selectableVisible) {
-        if (allSelected) next.delete(brand.id);
-        else next.add(brand.id);
+        if (next.size >= MAX_BULK_PRODUCT_BACKFILL) break;
+        next.add(brand.id);
       }
       return next;
     });
@@ -429,13 +439,23 @@ export function BrandList({
             disabled={isPending}
             aria-label={`Generate products for ${productBackfillIds.size} selected ${
               productBackfillIds.size === 1 ? "brand" : "brands"
-            } — opens a refresh per brand and queues one enrichment job that calls the model`}
+            }, of ${MAX_BULK_PRODUCT_BACKFILL} per run — opens a refresh per brand and queues one enrichment job that calls the model`}
             onClick={handleGenerateProducts}
           >
             {`Generate products for ${productBackfillIds.size} selected ${
               productBackfillIds.size === 1 ? "brand" : "brands"
             }`}
           </Button>
+          {/*
+            The count against the limit, shown as plain text rather than only in
+            the accessible name: the bound is the one thing a growing selection
+            has to be able to see coming.
+          */}
+          <span className="type-body-muted">
+            {`${productBackfillIds.size} of ${MAX_BULK_PRODUCT_BACKFILL} per run${
+              selectionAtCap ? " — limit reached" : ""
+            }`}
+          </span>
           <Button
             type="button"
             variant="ghost"
@@ -459,10 +479,13 @@ export function BrandList({
               <TableHead className="w-14">
                 <Label className="flex min-h-12 min-w-12 cursor-pointer items-center">
                   <Checkbox
-                    aria-label="Select every eligible brand on this page for product generation"
+                    aria-label={`Select every eligible brand on this page for product generation, up to ${MAX_BULK_PRODUCT_BACKFILL} brands per run`}
                     checked={allVisibleSelected}
                     indeterminate={someVisibleSelected}
-                    disabled={selectableVisible.length === 0}
+                    disabled={
+                      selectableVisible.length === 0 ||
+                      (selectionAtCap && !allVisibleSelected)
+                    }
                     onCheckedChange={() => toggleProductBackfillPage()}
                   />
                 </Label>
@@ -505,9 +528,16 @@ export function BrandList({
                   <TableCell>
                     <Label className="flex min-h-12 min-w-12 cursor-pointer items-center">
                       <Checkbox
-                        aria-label={`Select ${brand.name} for product generation`}
+                        aria-label={
+                          selectionAtCap && !productBackfillIds.has(brand.id)
+                            ? `Cannot select ${brand.name}: product generation runs at most ${MAX_BULK_PRODUCT_BACKFILL} brands per run`
+                            : `Select ${brand.name} for product generation`
+                        }
                         checked={productBackfillIds.has(brand.id)}
-                        disabled={!canGenerateProducts(brand)}
+                        disabled={
+                          !canGenerateProducts(brand) ||
+                          (selectionAtCap && !productBackfillIds.has(brand.id))
+                        }
                         onCheckedChange={() => toggleProductBackfill(brand.id)}
                       />
                     </Label>

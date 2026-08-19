@@ -5,15 +5,19 @@ import type { ProductsSupabase } from "../products";
 import { runProductsPhase, validateProductProposals } from "../products";
 
 /**
- * The LLM call is the only thing stubbed. `createProfiledOpenAIClient` lives in
- * `../../llm-audit`, and the mock is registered on the RELATIVE path on purpose:
- * `check:test-boundaries` (run by `pnpm lint`) fails a test that mocks
- * `@/lib/services/*`, `@/lib/supabase/*` or `@supabase/*`, and this test mocks
- * neither Supabase nor a service the phase's own logic lives in. The Supabase
- * client is INJECTED instead of mocked, which is also what lets the
- * zero-writes assertion below observe every table the phase touches.
+ * The LLM call is the only thing stubbed. `createProfiledOpenAIClient` is a
+ * PROVIDER-CLIENT FACTORY — the adapter seam in front of OpenAI — so stubbing it
+ * replaces the network, not the phase: every accept/drop rule under test still
+ * runs for real. It does live in `src/lib/services/llm-audit.ts`, which is a
+ * service module; `check:test-boundaries` (run by `pnpm lint`) matches the
+ * `@/lib/services/` alias spelling only, so the relative path below passes the
+ * gate. That is a gap in the gate, filed separately, and NOT the licence this
+ * test relies on: the reason the mock is legitimate is that the mocked export
+ * is the adapter, and `site-identity.test.ts` stubs `../../site-identity-arbiter`
+ * on the same ground.
  *
- * `site-identity.test.ts` mocks `../../site-identity-arbiter` the same way.
+ * Supabase is INJECTED rather than mocked, which is also what lets the
+ * zero-writes assertion below observe every table the phase touches.
  */
 const createClient = vi.hoisted(() => vi.fn());
 vi.mock("../../llm-audit", async (importOriginal) => ({
@@ -215,7 +219,9 @@ describe("runProductsPhase", () => {
     await runProductsPhase({
       brand: { ...BRAND, purchase_website: "https://stale.example" },
       phases: PHASES,
-      scrapedData: null,
+      // Same-host pages are a precondition now, and they are the PATCHED site's:
+      // the phase mines the site this run resolved, not the stale column.
+      scrapedData: SCRAPED,
       pendingPatch: { purchase_website: SITE },
       target: { type: "submission", id: SUBMISSION_ID },
       supabase: injectedSupabase().client,
@@ -317,6 +323,71 @@ describe("runProductsPhase", () => {
     expect(result.phaseResult.status).toBe("failed");
     expect(result.phaseResult.providerFailure).toBe(true);
     expect(result.patch).toEqual({});
+  });
+
+  it("skips when the links phase left no page on the brand's own site", async () => {
+    // The phase declares a hard dependency on `links` / `site_identity`, and the
+    // only thing enforcing it was the job's phase list. A `phases: ['products']`
+    // run hands over `scrapedData: null`, so the model would be asked to pick
+    // product pages while being shown none — and nothing downstream can catch a
+    // fabricated `${SITE}/products/invented`, because the host matches, the path
+    // is non-root, and no URL is ever fetched.
+    const chat = modelReturns([]);
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: null,
+      target: { type: "submission", id: SUBMISSION_ID },
+    });
+
+    expect(result.phaseResult.status).toBe("skipped");
+    expect(result.phaseResult.detail).toContain("no scraped pages");
+    expect(chat).not.toHaveBeenCalled();
+    // No answer, no opinion: an empty patch leaves the stored list alone.
+    expect(result.patch).toEqual({});
+  });
+
+  it("skips when every scraped page belongs to someone else", async () => {
+    const chat = modelReturns([]);
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: {
+        ...SCRAPED,
+        perSourceText: {
+          "https://news.example/island-studio": {
+            title: "報導",
+            description: "第三方報導頁面，不是品牌自有網站。",
+          },
+        },
+        imageSources: [],
+      },
+      target: { type: "submission", id: SUBMISSION_ID },
+    });
+
+    expect(result.phaseResult.status).toBe("skipped");
+    expect(chat).not.toHaveBeenCalled();
+  });
+
+  it("clears a stale list when the run answered with nothing", async () => {
+    modelReturns([]);
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: SCRAPED,
+      target: { type: "submission", id: SUBMISSION_ID },
+    });
+
+    expect(result.phaseResult.status).toBe("succeeded");
+    // `mergeSubmissionEnrichedData` replaces `enriched_data.products` only when
+    // the patch CARRIES the key, so `{}` here left the previous run's proposals
+    // in the drawer — including proposals mined from a site `site_identity` has
+    // since revoked. A run that answered has a verdict; a skip does not.
+    expect(Object.hasOwn(result.patch, "products")).toBe(true);
+    expect(result.patch.products).toEqual([]);
   });
 
   it("runs only for submission targets", async () => {
@@ -437,6 +508,104 @@ describe("validateProductProposals", () => {
     ]) {
       expect(keys).not.toContain(forbidden);
     }
+  });
+
+  it("drops a proposal the review boundary could never save", () => {
+    // `adminReviewSchema` parses the whole stored list on EVERY save from every
+    // section, so one over-long value locks the reviewer out of saving anything
+    // at all, behind a generic "Invalid submission review" naming no field.
+    const { proposals, dropped, dropReasons } = validateProductProposals(
+      {
+        products: [
+          rawProposal({ name_zh: "陶".repeat(201) }),
+          rawProposal({ name_en: "Clay Plate ".repeat(30) }),
+          rawProposal({
+            official_url: `${SITE}/products/${"a".repeat(2100)}`,
+          }),
+          rawProposal(),
+        ],
+      },
+      { siteUrl: SITE },
+    );
+
+    expect(proposals).toHaveLength(1);
+    expect(dropped).toBe(3);
+    expect(dropReasons.outside_payload_bounds).toBe(3);
+    // A dropped candidate hands its key back, so the survivor is not suffixed
+    // for collisions that never made it into the list.
+    expect(proposals[0]!.key).not.toMatch(/-\d+$/u);
+  });
+
+  it("resolves a material slug whatever case the model returned", () => {
+    const { proposals } = validateProductProposals(
+      { products: [rawProposal({ material: ["Ceramic", " WOOD ", "陶瓷"] })] },
+      { siteUrl: SITE },
+    );
+
+    // `normalizeCuratedMaterials` on the write path lowercases before the
+    // lookup, so `createCuratedProduct` accepts these; resolving them verbatim
+    // here stored `material: []` and recorded no drop at all. A Chinese label
+    // still resolves on neither path.
+    expect(proposals[0]!.material).toEqual(["ceramic", "wood"]);
+  });
+
+  it("resolves a subcategory slug whatever case the model returned", () => {
+    const { proposals } = validateProductProposals(
+      { products: [rawProposal({ subcategories: ["Home-Fragrance"] })] },
+      { siteUrl: SITE },
+    );
+
+    // `matchSubcategory` normalises case itself; `subcategoryBySlug` does not,
+    // and a hyphenated slug matches no label, so this resolved through neither.
+    expect(proposals[0]!.subcategories).toEqual(["home-fragrance"]);
+  });
+
+  it("clears an image_source_url the brand does not own, and keeps the product", () => {
+    const { proposals, dropped } = validateProductProposals(
+      {
+        products: [
+          rawProposal({
+            image_source_url: "https://www.pinterest.com/pin/12345",
+          }),
+          rawProposal({
+            name_zh: "柴燒品茗杯",
+            official_url: `${SITE}/products/tea-cup`,
+            // The brand's own homepage is a legitimate image page, so the gate
+            // is host equality, not the non-root path `official_url` requires.
+            image_source_url: `${SITE}/`,
+            sources: [
+              { url: `${SITE}/products/tea-cup`, source_type: "official" },
+            ],
+          }),
+        ],
+      },
+      { siteUrl: SITE },
+    );
+
+    // The field records where an image came from so usage rights stay
+    // re-checkable; a pin on a host the brand does not own records a permission
+    // the brand cannot give. Clearing it keeps a good product proposal usable.
+    expect(dropped).toBe(0);
+    expect(proposals[0]!.imageSourceUrl).toBeUndefined();
+    expect(proposals[1]!.imageSourceUrl).toBe(`${SITE}/`);
+  });
+
+  it("keeps proposal keys unique when the caller raises the cap", () => {
+    const { proposals } = validateProductProposals(
+      {
+        products: Array.from({ length: 8 }, () =>
+          rawProposal({ name_zh: "陶土餐盤" }),
+        ),
+      },
+      { siteUrl: SITE, max: 8 },
+    );
+
+    // The suffix loop is bounded by the CALLER's cap. Pinned to the module
+    // constant it ran out at the sixth key and fell through to a fallback that
+    // never checked `taken` — a duplicate key from the one function whose job is
+    // to prevent duplicates.
+    expect(proposals).toHaveLength(8);
+    expect(new Set(proposals.map((proposal) => proposal.key)).size).toBe(8);
   });
 
   it("keeps a source with an unknown type by filing it as other", () => {

@@ -43,6 +43,22 @@ export type ExistingCuratedProduct = {
   officialUrl: string | null;
   /** `false` is the rejection record, not a delete. */
   visible: boolean;
+  /**
+   * All three are optional so every structural satisfier above keeps compiling.
+   * Supplied by `getCuratedProductsByBrandBatch`, and read only by the approval
+   * materializer: a `generated` row with `hasActiveSource === false` is not a
+   * decision, it is a half-finished create (the product row landed, its
+   * `curated_product_sources` upsert did not), and the materializer repairs it
+   * instead of skipping it. `undefined` means "the caller did not ask", which is
+   * why the repair is keyed on an explicit `false`.
+   *
+   * `proposedBy` narrows the repair to rows THIS materializer created. A curated
+   * row entered by hand with no citation is a curator's own decision, not a
+   * failed write, so machine-found sources must never be attached to it.
+   */
+  id?: string;
+  hasActiveSource?: boolean;
+  proposedBy?: string;
 };
 
 export type CuratedProductProposalDiff<
@@ -55,9 +71,58 @@ export type CuratedProductProposalDiff<
 };
 
 /**
- * "Is this the same page?" reduced to a host and a path: the scheme, a `www.`
- * prefix, a trailing slash, and the query string a copied link carries are all
- * noise, and a product URL that differs only in those names one page.
+ * Campaign and click-id parameters: values a COPIED link carries that say
+ * nothing about which page it is. Stripping is by exact name plus the `utm_`
+ * prefix, never "drop the whole query string" — that is the difference between
+ * removing noise and destroying identity.
+ *
+ * `ref` is deliberately NOT here. It reads like a referrer tag and is one on
+ * most sites, but it also routes real pages on some storefronts, and this list
+ * may only contain names that can never carry identity.
+ */
+const TRACKING_QUERY_PREFIXES = ["utm_"] as const;
+const TRACKING_QUERY_PARAMS = new Set([
+  "fbclid",
+  "gclid",
+  "gbraid",
+  "wbraid",
+  "dclid",
+  "msclkid",
+  "yclid",
+  "ttclid",
+  "twclid",
+  "igshid",
+  "li_fat_id",
+  "mc_cid",
+  "mc_eid",
+  "srsltid",
+  "_ga",
+  "_gl",
+]);
+
+function isTrackingQueryParam(name: string): boolean {
+  const key = name.toLowerCase();
+  return (
+    TRACKING_QUERY_PARAMS.has(key) ||
+    TRACKING_QUERY_PREFIXES.some((prefix) => key.startsWith(prefix))
+  );
+}
+
+/**
+ * "Is this the same page?" reduced to a host, a path, and the identity-bearing
+ * half of the query string: the scheme, a `www.` prefix, a trailing slash and
+ * the campaign parameters a copied link carries are all noise, and a product
+ * URL that differs only in those names one page.
+ *
+ * THE QUERY STRING IS NOT DISCARDED. Plenty of Taiwanese cart platforms key a
+ * product BY query string — `shop.tw/products/detail?id=123`,
+ * `shop.tw/product.php?pid=456` — so dropping it wholesale collapsed every
+ * product such a brand sells onto one diff key. `indexExistingProducts` keeps
+ * the first row per key, so a single stored product then answered for the whole
+ * line: every later proposal resolved to it, was classified matched or
+ * previously-rejected, and was silently never created. What survives is
+ * everything that is not a known tracking parameter, sorted so parameter order
+ * cannot fork one page into two keys.
  *
  * `pageKey` in `link-enrichment.ts` answers the same question, and is NOT
  * reused here: that module reaches `input-detector`, which pulls in cheerio and
@@ -75,7 +140,11 @@ function urlDiffKey(value: string | null | undefined): string | null {
   try {
     const url = new URL(trimmed);
     const host = url.hostname.toLowerCase().replace(/^www\./, "");
-    return `${host}${url.pathname.replace(/\/+$/, "")}`;
+    const identityParams = [...url.searchParams]
+      .filter(([name]) => !isTrackingQueryParam(name))
+      .sort(([left], [right]) => left.localeCompare(right));
+    const query = new URLSearchParams(identityParams).toString();
+    return `${host}${url.pathname.replace(/\/+$/, "")}${query ? `?${query}` : ""}`;
   } catch {
     // Not parseable as a URL. Compared as an opaque string rather than
     // discarded: a stored value that is not a URL is still an identity.

@@ -10,6 +10,7 @@ import {
 } from "@/lib/taxonomy/ontology";
 import {
   CURATED_PRODUCT_SOURCE_TYPES,
+  curatedProductProposalSchema,
   curatedProductSourceSchema,
   MAX_NOTE,
 } from "@/lib/validation/curated-product";
@@ -189,8 +190,11 @@ export type ProductsPhaseOptions = {
  * run for a brand target — see the gate in `runProductsPhase`. It reaches
  * `enriched_data.products[]` through `mergeSubmissionEnrichedData`, whose
  * replace-not-union branch keeps a rerun from appending to the stored list.
+ *
+ * Module-private on purpose: `ProductsPhaseOutput.patch` is the only reference,
+ * and an exported alias nobody imports is dead public surface.
  */
-export type ProductsPhasePatch = EnrichPatch & {
+type ProductsPhasePatch = EnrichPatch & {
   products?: CuratedProductProposal[];
 };
 
@@ -200,6 +204,17 @@ export type ProductsPhaseOutput = {
   proposals: CuratedProductProposal[];
 };
 
+/**
+ * THE PHASE PRODUCED NO ANSWER, so it has no opinion about the stored list.
+ *
+ * `patch: {}` is load-bearing rather than incidental: the replace-not-union
+ * branch of `mergeSubmissionEnrichedData` is gated on the patch CARRYING the
+ * `products` key, so an empty patch leaves the previous run's proposals exactly
+ * where they were. That is right here and on the provider-failure path — a
+ * transient 429 must never destroy good proposals — and wrong for a run that
+ * answered with nothing, which emits `products: []` instead. See the patch at
+ * the end of `runProductsPhase` for that third case.
+ */
 function skipped(detail: string): ProductsPhaseOutput {
   return {
     phaseResult: buildPhaseResult(
@@ -294,15 +309,24 @@ function validateSource(raw: unknown): CuratedProductProposalSource | null {
  * drops a label silently, and the prompt tells the model in as many words that a
  * label will be dropped. Repairing it here would make the prompt's own contract
  * a lie and hide the drift the next eval needs to see.
+ *
+ * CASE AND PADDING ARE NOT DRIFT, and the write path never treated them as
+ * such: `normalizeCuratedMaterials` looks the slug up after
+ * `.trim().toLowerCase()`, so `["Ceramic","Wood"]` — an ordinary shape for a
+ * model asked for English slugs — is accepted by `createCuratedProduct` and was
+ * silently dropped here, storing `material: []` with nothing in the audit to
+ * show for it. The lookup is folded the same way so both paths accept the same
+ * set. A Chinese label still resolves on neither.
  */
 function resolveMaterials(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   const slugs: string[] = [];
   for (const value of raw) {
-    const candidate = trimmedString(value);
-    if (!candidate || !materialBySlug(candidate)) continue;
-    if (slugs.includes(candidate)) continue;
-    slugs.push(candidate);
+    const candidate = trimmedString(value)?.toLowerCase();
+    const material = candidate ? materialBySlug(candidate) : null;
+    if (!material) continue;
+    if (slugs.includes(material.slug)) continue;
+    slugs.push(material.slug);
     if (slugs.length === MAX_MATERIALS_PER_PRODUCT) break;
   }
   return slugs;
@@ -315,6 +339,11 @@ function resolveMaterials(raw: unknown): string[] {
  * subcategory belonging to another L1 branch is dropped for the same reason
  * `normalizeCuratedSubcategories` drops it: it would never match the product's
  * own category.
+ *
+ * The slug half of the lookup is folded to lower case for the same reason
+ * `resolveMaterials` folds its own: `matchSubcategory` normalises case itself,
+ * but it matches LABELS, and `subcategoryBySlug` does not fold anything — so
+ * `"Home-Fragrance"` resolved through neither and was lost.
  */
 function resolveSubcategories(raw: unknown, category: string): string[] {
   if (!Array.isArray(raw)) return [];
@@ -323,7 +352,7 @@ function resolveSubcategories(raw: unknown, category: string): string[] {
     const candidate = trimmedString(value);
     if (!candidate) continue;
     const subcategory =
-      subcategoryBySlug(candidate) ?? matchSubcategory(candidate);
+      subcategoryBySlug(candidate.toLowerCase()) ?? matchSubcategory(candidate);
     if (!subcategory || subcategory.category !== category) continue;
     if (slugs.includes(subcategory.slug)) continue;
     slugs.push(subcategory.slug);
@@ -343,21 +372,28 @@ function proposalKey(
   nameZh: string,
   nameEn: string | null,
   taken: Set<string>,
+  max: number,
 ): string {
   const base = generateSlug(nameZh) || generateSlug(nameEn ?? "") || FALLBACK_KEY;
   if (!taken.has(base)) {
     taken.add(base);
     return base;
   }
-  for (let suffix = 2; suffix <= MAX_PROPOSALS + 1; suffix += 1) {
+  // Bounded by the CALLER'S cap, never by the module constant. At most `max`
+  // proposals are accepted, so of the `max + 1` candidates below one is always
+  // free. Pinned to `MAX_PROPOSALS` the loop instead ran out the moment a caller
+  // raised `max`, and fell through to an unchecked `${base}-${taken.size + 1}` —
+  // a duplicate key from the one function whose job is to prevent duplicates.
+  for (let suffix = 2; suffix <= max + 1; suffix += 1) {
     const candidate = `${base}-${suffix}`;
     if (taken.has(candidate)) continue;
     taken.add(candidate);
     return candidate;
   }
-  const fallback = `${base}-${taken.size + 1}`;
-  taken.add(fallback);
-  return fallback;
+  // Unreachable by the count above. Thrown rather than papered over with a key
+  // that was never checked: a colliding key becomes a second `curated_products`
+  // row under a name that already exists, and that is not worth hiding.
+  throw new Error(`products: no free proposal key for "${base}"`);
 }
 
 /**
@@ -432,19 +468,58 @@ export function validateProductProposals(
     }
 
     const nameEn = trimmedString(raw.name_en);
-    const imageSourceUrl = httpUrl(raw.image_source_url);
-    proposals.push({
-      key: proposalKey(nameZh, nameEn, takenKeys),
+    // HOST-GATED like `official_url`, then CLEARED rather than fatal.
+    // `imageSourceUrl` exists so usage rights stay re-checkable, and a
+    // provenance URL on a host the brand does not own records a permission the
+    // brand cannot give — `materialize.ts` forwards the value into the row
+    // verbatim and nothing re-checks it later. A `httpUrl()` protocol bar was
+    // the only gate, so a Pinterest pin was stored as provenance.
+    //
+    // The gate is HOST EQUALITY ALONE, not the whole of `isProductPageUrl`: an
+    // image legitimately comes from a page that is not a product page — the
+    // `classify_images` candidates this phase hands the model include the
+    // brand's own homepage — so the non-root-path half would clear provenance
+    // the phase itself proposed. The host half is what a stranger's shop fails.
+    //
+    // A failing URL CLEARS THE FIELD instead of dropping the proposal. That is
+    // the reversible choice: the product is still a good proposal, the
+    // moderator can paste the right page, and losing a real product over one
+    // optional citation costs more than it saves.
+    const imageSource = httpUrl(raw.image_source_url);
+    const imageSourceUrl =
+      imageSource && site && bareHost(imageSource) === bareHost(site)
+        ? imageSource.toString()
+        : null;
+
+    const key = proposalKey(nameZh, nameEn, takenKeys, max);
+    const proposal: CuratedProductProposal = {
+      key,
       nameZh,
       ...(nameEn ? { nameEn } : {}),
       category,
       subcategories: resolveSubcategories(raw.subcategories, category),
       material: resolveMaterials(raw.material),
       officialUrl: officialUrl.toString(),
-      ...(imageSourceUrl ? { imageSourceUrl: imageSourceUrl.toString() } : {}),
+      ...(imageSourceUrl ? { imageSourceUrl } : {}),
       productDescriptionZh,
       sources,
-    });
+    };
+    // THE BOUNDARY SCHEMA IS THE BOUND, re-checked here rather than re-typed:
+    // `adminReviewSchema` parses the whole stored list on every save from EVERY
+    // section of the review, so one proposal outside those bounds — an unbounded
+    // name, a 3 kB URL, a key `generateSlug` transliterated past 200 characters —
+    // locks the reviewer out of saving anything at all, behind a generic
+    // "Invalid submission review" that names no field. A proposal that cannot be
+    // saved must never be stored. Same call `validateSource` already makes
+    // against `curatedProductSourceSchema`, one level up.
+    if (!curatedProductProposalSchema.safeParse(proposal).success) {
+      // The key was reserved to build the candidate; a dropped candidate hands
+      // it back so the next proposal is not needlessly suffixed.
+      takenKeys.delete(key);
+      drop("outside_payload_bounds");
+      continue;
+    }
+    proposals.push(proposal);
   }
 
   return { proposals, dropped, dropReasons };
@@ -538,6 +613,7 @@ function buildProductsUserContent(
   brand: EnrichBrand,
   site: URL,
   scrapedData: EnrichScrapedData | null,
+  pages: string[],
   imageLines: string[],
 ): string {
   const siteUrl = site.toString();
@@ -558,7 +634,6 @@ function buildProductsUserContent(
     "",
     `${PRODUCTS_LABELS.siteUrl}${siteUrl}`,
   ];
-  const pages = candidatePages(site, scrapedData);
   if (pages.length > 0) {
     blocks.push("", PRODUCTS_LABELS.candidatePages, ...pages);
   }
@@ -614,6 +689,22 @@ export async function runProductsPhase({
   const site = httpUrl(siteUrl);
   if (!site) return skipped("no official site to propose products from");
 
+  // FAILS CLOSED ON A MISSING DEPENDENCY. `products` runs after `links` and
+  // `site_identity` by hard dependency (`enrich-phases.ts`), but the only thing
+  // enforcing that was the job's phase list: a run of `phases: ['products']`
+  // alone gets `scrapedData: null`, so the user message carries no candidate
+  // pages and the model is asked to pick product pages while being shown none.
+  // Nothing downstream can catch what comes back — `isProductPageUrl` checks the
+  // host and a non-root path and never fetches the URL, so an invented
+  // `https://brand.tw/products/made-up` passes, and `validateSource` accepts the
+  // same invented URL as its own citation. Zero proposals beats five fabricated
+  // ones, and this holds whether or not the caller's phase list is correct.
+  const pages = candidatePages(site, scrapedData);
+  if (pages.length === 0)
+    return skipped(
+      "no scraped pages on the brand's own site to mine for products",
+    );
+
   return auditedCall(
     { provider: "enrich", operation: "runProductsPhase", kind: "service" },
     async (ctx) => {
@@ -627,6 +718,7 @@ export async function runProductsPhase({
             brand,
             site,
             scrapedData,
+            pages,
             imageLines,
           );
           const config = buildProfiledEnrichmentConfig(
@@ -689,6 +781,9 @@ export async function runProductsPhase({
             ),
             providerFailure: true,
           },
+          // NO ANSWER, NO OPINION: an empty patch leaves the previous run's
+          // proposals alone. Clearing them on a transient provider error would
+          // destroy good proposals over a 429. See `skipped`.
           patch: {},
           proposals: [],
         };
@@ -705,12 +800,20 @@ export async function runProductsPhase({
             dryRun === true ? " (dry run — nothing written)" : ""
           }`,
         ),
+        // ALWAYS CARRIES THE KEY, empty list included. The phase ran and the
+        // model answered, so "nothing qualified" is a verdict about this brand's
+        // site — and `mergeSubmissionEnrichedData` only replaces
+        // `enriched_data.products` when the patch carries the key. Returning `{}`
+        // here left the previous run's proposals in the drawer for a moderator to
+        // approve, including proposals mined from a `purchase_website` that
+        // `site_identity` has since revoked as contaminated. The no-answer paths
+        // (`skipped`, provider failure) keep `{}` for the mirror-image reason.
+        //
         // A dry run still reports what it proposed; the patch is never persisted
         // on that path (`runEnrich` skips the persist call), so there is nothing
         // to suppress here and suppressing it would hide the phase's output from
         // the operator the dry run exists for.
-        patch:
-          result.proposals.length > 0 ? { products: result.proposals } : {},
+        patch: { products: result.proposals },
         proposals: result.proposals,
       };
     },

@@ -91,12 +91,12 @@ describe("curated product proposal diff", () => {
     expect(movedUrl?.existing).toBe(row);
   });
 
-  it("normalizes_url_before_comparing — a trailing slash, a query string and www. are noise", () => {
+  it("normalizes_url_before_comparing — a trailing slash, a tracking query and www. are noise", () => {
     // Keys deliberately disagree, so only the URL comparison can match here.
     const row = existingRow({
       key: "a-key-that-does-not-match",
       officialUrl:
-        "https://www.taoqi.com.tw/products/wood-fired-mug/?utm_source=newsletter",
+        "https://www.taoqi.com.tw/products/wood-fired-mug/?utm_source=newsletter&fbclid=IwAR123",
     });
 
     const [diff] = diffCuratedProductProposals(
@@ -110,6 +110,59 @@ describe("curated product proposal diff", () => {
 
     expect(diff?.state).toBe("matched");
     expect(diff?.existing).toBe(row);
+  });
+
+  it("keeps_identity_query_params_apart — a query-keyed storefront is not one product", () => {
+    // Many Taiwanese cart platforms key a product BY query string. Dropping the
+    // whole query mapped every one of this brand's products onto one diff key,
+    // so a single stored row answered for the entire line: every later proposal
+    // resolved to it, read as previously-rejected, and was never created.
+    const stored = existingRow({
+      key: "product-123",
+      officialUrl: "https://shop.tw/products/detail?id=123",
+      visible: false,
+    });
+
+    const diffs = diffCuratedProductProposals(
+      [
+        proposal({
+          key: "product-456",
+          nameZh: "另一個產品",
+          officialUrl: "https://shop.tw/products/detail?id=456",
+        }),
+        proposal({
+          key: "product-789",
+          nameZh: "第三個產品",
+          officialUrl: "https://shop.tw/product.php?pid=789",
+        }),
+      ],
+      [stored],
+    );
+
+    expect(diffs.map((diff) => diff.state)).toEqual(["new", "new"]);
+    expect(diffs.every((diff) => diff.existing === null)).toBe(true);
+  });
+
+  it("still_matches_a_query_keyed_page_carrying_tracking_params", () => {
+    // The identity param survives, the campaign params do not, and parameter
+    // ORDER does not fork one page into two keys.
+    const stored = existingRow({
+      key: "a-key-that-does-not-match",
+      officialUrl: "https://shop.tw/products/detail?id=123&series=chai",
+    });
+
+    const [diff] = diffCuratedProductProposals(
+      [
+        proposal({
+          officialUrl:
+            "https://shop.tw/products/detail?series=chai&utm_medium=email&id=123&gclid=abc",
+        }),
+      ],
+      [stored],
+    );
+
+    expect(diff?.state).toBe("matched");
+    expect(diff?.existing).toBe(stored);
   });
 
   it("marks_a_rejected_product_as_known — a hidden row is rejection memory, not a new proposal", () => {

@@ -3,8 +3,10 @@ import {
   evaluateLlmProviderGate,
   evaluateProviderGate,
   evaluateStorageGate,
+  hasMaterialPatchValues,
   hasNoEnrichmentInputs,
   isLlmProviderFailureMessage,
+  isProductsScopedRun,
   isProviderFailureMessage,
   llmStageFailure,
   serpStageFailure,
@@ -381,5 +383,65 @@ describe("isProviderFailureMessage", () => {
     expect(isLlmProviderFailureMessage("LLM provider unavailable — x")).toBe(
       true,
     );
+  });
+});
+
+/**
+ * Gate C's empty-patch branch. Both cases below produce the IDENTICAL patch —
+ * `{ products: [] }` — so the decision can only come from what the run was
+ * asked to do, which is why this is not a bare key count.
+ */
+describe("hasMaterialPatchValues", () => {
+  const productsScopedRun = { productsScopedRun: true };
+  const fullRun = { productsScopedRun: false };
+
+  it("keeps a full enrichment run that found nothing on the skipped path", () => {
+    // Fifteen phases ran and none found a field. That is the shape Gate C
+    // reports as `skipped`, with the WEAK-BRAND counter behind it — one phase's
+    // empty proposal list must not stand in for a patch and retire both.
+    expect(hasMaterialPatchValues({ products: [] }, fullRun)).toBe(false);
+    expect(hasMaterialPatchValues({}, fullRun)).toBe(false);
+  });
+
+  it("treats an empty proposal list as a real patch for a products-scoped run", () => {
+    // The products phase emits `products: []` when it RAN and found nothing, so
+    // a stale proposal list is cleared. Recording that as `skipped` leaves the
+    // refresh submission pending and un-approvable, and the brand's
+    // pending-refresh unique index (23505) then blocks every later refresh.
+    expect(hasMaterialPatchValues({ products: [] }, productsScopedRun)).toBe(
+      true,
+    );
+    expect(hasMaterialPatchValues({}, productsScopedRun)).toBe(false);
+  });
+
+  it("counts any other field, and a non-empty proposal list, on both paths", () => {
+    expect(hasMaterialPatchValues({ products: [], city: "台南" }, fullRun)).toBe(
+      true,
+    );
+    expect(
+      hasMaterialPatchValues({ products: [{ key: "mug" }] }, fullRun),
+    ).toBe(true);
+  });
+});
+
+describe("isProductsScopedRun", () => {
+  it("accepts the backfill's own phase set and nothing wider", () => {
+    expect(isProductsScopedRun(["links", "site_identity", "products"])).toBe(
+      true,
+    );
+    expect(isProductsScopedRun(["products"])).toBe(true);
+    // A full run names `products` too. It is not products-scoped.
+    expect(
+      isProductsScopedRun([
+        "clean",
+        "discover",
+        "links",
+        "site_identity",
+        "descriptions",
+        "products",
+      ]),
+    ).toBe(false);
+    expect(isProductsScopedRun(["links", "site_identity"])).toBe(false);
+    expect(isProductsScopedRun([])).toBe(false);
   });
 });

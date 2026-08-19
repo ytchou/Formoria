@@ -293,6 +293,13 @@ export type ApproveSubmissionResult = {
   brandName: string;
   submitterName: string | null;
   isBrandOwner: boolean;
+  /**
+   * The curated-product half of the effective review layer this approval
+   * already built (DEV-1469). Returned so the caller's materialization step
+   * does not re-read the row and re-derive it — two derivations of one decision
+   * are two chances to disagree about what the reviewer chose.
+   */
+  productReview: SubmissionProductReview;
 };
 
 function chunkValues<T>(values: T[], size: number): T[][] {
@@ -1994,54 +2001,64 @@ export async function applyBrandRefresh(
  * the same `products` key, so reading the blob would silently publish the
  * machine's first draft and drop every correction.
  *
- * Precedence mirrors `reviewDataFromDb` exactly — an override REPLACES the
- * proposal array when the key is present, and falls through to the enrichment
- * blob when it is absent. `base_brand_data` never carries either key (it is a
- * `brands` row snapshot, and there is no products column), which is why this
- * narrow read is equivalent to running the full three-layer merge.
+ * IT IS A PROJECTION OF `buildReviewLayers(...).effective`, not a second
+ * implementation of it. The precedence this needs is the precedence the whole
+ * review already has — an override replaces the proposal array when the key is
+ * present, otherwise the enrichment blob shows through — and the hand-rolled
+ * copy that used to live here was free to drift from the merge that actually
+ * decides what a reviewer sees.
  *
  * `keptProductKeys` is `undefined` when no decision was recorded, which is NOT
  * the same as `[]`. Absent means "the reviewer never opened the section", and
  * the caller applies the section's own default (every new proposal kept); `[]`
- * means "the reviewer looked and kept nothing".
+ * means "the reviewer looked and kept nothing". `SubmissionReviewData` keeps the
+ * distinction — the field is optional there for exactly this reason.
  */
 export type SubmissionProductReview = {
   products: CuratedProductProposal[];
   keptProductKeys: string[] | undefined;
 };
 
+function submissionProductReview(
+  reviewData: SubmissionReviewData,
+): SubmissionProductReview {
+  return {
+    products: reviewData.products ?? [],
+    keptProductKeys: reviewData.keptProductKeys,
+  };
+}
+
+/**
+ * The reading half. `approveSubmission` already holds the effective layer and
+ * hands it straight to the materializer; this is for the refresh path, which
+ * does not.
+ */
 export async function getSubmissionProductReview(
   id: string,
 ): Promise<SubmissionProductReview> {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("brand_submissions")
-    .select("enriched_data, review_overrides")
+    .select("*")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new NotFoundError("BrandSubmission", id);
 
-  const enrichedData: Record<string, unknown> = isJsonObject(data.enriched_data)
-    ? data.enriched_data
-    : {};
-  const overrides: Record<string, unknown> = isJsonObject(data.review_overrides)
-    ? data.review_overrides
-    : {};
-
-  const overriddenProducts = Array.isArray(overrides.products)
-    ? (overrides.products as CuratedProductProposal[])
-    : null;
-  const proposedProducts = Array.isArray(enrichedData.products)
-    ? (enrichedData.products as CuratedProductProposal[])
+  const row = {
+    ...data,
+    other_urls: normalizeOtherUrls(data.other_urls),
+  } as unknown as SubmissionRowWithCategoryNote;
+  const enrichedData = isEnrichedData(row.enriched_data)
+    ? enrichedDataFromSubmissionDb(row.enriched_data as Record<string, unknown>)
     : null;
 
-  return {
-    products: overriddenProducts ?? proposedProducts ?? [],
-    keptProductKeys: Array.isArray(overrides.kept_product_keys)
-      ? normalizeStringArray(overrides.kept_product_keys)
-      : undefined,
-  };
+  // Images are not passed: the only thing they can change on the effective
+  // layer is `heroImageUrl`, and this projection reads neither it nor anything
+  // derived from it.
+  return submissionProductReview(
+    buildReviewLayers(row, submissionToDomain(row), enrichedData).effective,
+  );
 }
 
 export type SaveSubmissionReviewInput = SubmissionReviewData & {
@@ -2338,6 +2355,10 @@ export async function approveSubmission(
     brandName: approval.brand_name,
     submitterName: approval.submitter_name ?? null,
     isBrandOwner: approval.is_brand_owner ?? false,
+    // `reviewData` is the effective layer built at the top of this function,
+    // from the row as it stood when the approval ran. Materialization is the
+    // caller's next step and consumes exactly this.
+    productReview: submissionProductReview(reviewData),
   };
     },
   );

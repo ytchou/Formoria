@@ -26,6 +26,26 @@
 -- needs its own change, so material simply cannot be cleared through a refresh
 -- until then.
 --
+-- LISTS 3 AND 4 CARRY THE SAME 23502 EXPOSURE, and are admitted anyway. They
+-- are built from `jsonb_each(enriched_data)` and `jsonb_each(review_overrides)`
+-- with no non-null constraint, so a JSON null stored under `material` in either
+-- blob would reach the same `update ... set material = ...` loop and fail the
+-- whole apply exactly as a list-5 clear would. What makes list 5 different is
+-- that it can ONLY produce JSON null — the exclusion there removes a certainty,
+-- not a risk — while lists 3 and 4 carry whatever a writer put in the blob.
+--
+-- Nothing writes `material` into either blob today: no enrichment phase emits
+-- it, and `SubmissionReviewData` has no material field, so `review_overrides`
+-- cannot acquire one through the review. These entries are forward-looking, for
+-- the writer DEV-1502 anticipated. THE INVARIANT THAT WRITER MUST HOLD: emit
+-- `[]` for "no materials" and omit the key for "unchanged", never JSON null.
+-- `material` is the first NOT NULL member of these lists — every other one is
+-- nullable, which is why the blobs have never had to observe this rule — so it
+-- is stated here rather than left to be rediscovered from a failed apply. It is
+-- not guarded in SQL because the guard would have to be material-specific: a
+-- blanket `entry.value <> 'null'` would silently retire the working NULL-clear
+-- path that every nullable member of these lists relies on.
+--
 -- `'products'` IS NOT ADDED TO ANY LIST, and must not be. The curated-product
 -- proposals ride `brand_submissions.enriched_data.products`, and this function
 -- never writes or deletes that column — it only reads it, so nothing about the

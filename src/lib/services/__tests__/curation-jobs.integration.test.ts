@@ -295,6 +295,11 @@ describeWithDb('durable curation job queue integration', () => {
    * `request_brand_refresh` per brand (three real arguments, no phase argument —
    * the RPC has none), then ONE curation job whose params carry the phase scope.
    * Scope lives on the job, which is exactly why no new target type is needed.
+   *
+   * The compensating rollback for a failed enqueue is unit-tested against the
+   * injected dependency seam (`curated-products/__tests__/backfill.test.ts`):
+   * this suite runs against a real database, where the enqueue does not fail
+   * on demand.
    */
   describe('curated product backfill', () => {
     const backfillBrandIds: string[] = []
@@ -348,10 +353,16 @@ describeWithDb('durable curation job queue integration', () => {
 
       const job = await getCurationJob(result.jobId!)
       const params = (job.params ?? {}) as Record<string, unknown>
-      // Exactly one phase. `steps` must stay absent: runEnrich resolves steps
-      // FIRST and lets them beat phases, so a job carrying both would silently
-      // widen to the whole step group.
-      expect(params.phases).toEqual(['products'])
+      // The products phase AND its two hard dependencies, because `runEnrich`
+      // expands nothing: `links` supplies the scraped candidate pages and the
+      // quarantine records, `site_identity` decides whether the resolved site
+      // may be mined at all. `['products']` alone ran the phase against an
+      // empty pipeline and the model invented product URLs.
+      //
+      // `steps` must stay absent: runEnrich resolves steps FIRST and lets them
+      // beat phases, so a job carrying both would silently widen to the whole
+      // step group.
+      expect(params.phases).toEqual(['links', 'site_identity', 'products'])
       expect(params.steps).toBeUndefined()
       expect(params.submissionIds).toEqual([result.outcomes[0]!.submissionId])
       expect(job.dry_run).toBe(false)

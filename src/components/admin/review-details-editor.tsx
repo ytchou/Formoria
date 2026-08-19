@@ -265,12 +265,17 @@ export function ReviewDetailsEditor({
   }
 
   function startEditing(section: EditableSection) {
-    // The products draft materializes the tick set the reviewer is looking at,
-    // so a save right after opening the section records exactly what was shown
-    // instead of "no decision" — the default comes from the diff, not the row.
-    setDraft(
-      section === "products" ? { ...reviewData, keptProductKeys } : reviewData,
-    );
+    // THE COMPUTED TICK SET IS NEVER SEEDED INTO THE DRAFT. It used to be, so
+    // that a save right after opening recorded what was shown — but the baseline
+    // carries no `keptProductKeys`, so an UNEDITED save wrote a phantom tick set
+    // to `review_overrides.kept_product_keys`. After a phase re-run `products`
+    // then comes from the fresh `enriched_data` while the stored keys still name
+    // the old proposals, and because the column is defined, `materialize` skips
+    // its "every new proposal is kept" default and files every fresh proposal as
+    // `visible=false` rejection memory for a decision nobody made. A real tick
+    // still persists: `setKept` rebuilds the full list from the displayed
+    // default, so the first click writes the whole set.
+    setDraft(reviewData);
     setDraftImages(activeImages(reviewImages));
     setUploadedDraftIds([]);
     setError(null);
@@ -1031,6 +1036,16 @@ function ProductProposalsEditor({
           (subcategory) => subcategory.category === proposal.category,
         );
 
+        const state = states.get(proposal.key) ?? "new";
+        // MATERIALIZATION IS CREATE-ONLY: approval inserts a row for a `new`
+        // proposal and does nothing at all for one the brand already holds,
+        // published or rejected. An enabled control on those rows asserts an
+        // effect it cannot have — the tick and the retyped name were accepted,
+        // saved, and then silently discarded at approval. Locking the row is the
+        // honest reading of that rule, and the note below says so on screen
+        // rather than only in a tooltip.
+        const locked = state !== "new";
+
         return (
           <fieldset
             key={proposal.key}
@@ -1040,24 +1055,39 @@ function ProductProposalsEditor({
               {t("details.productEditor.item", { number: index + 1 })}
             </legend>
             <div className="flex flex-wrap items-center gap-2">
-              <Checkbox
-                id={`${rowId}-keep`}
-                className="size-5"
-                checked={keptKeys.includes(proposal.key)}
-                onCheckedChange={(checked) => setKept(proposal.key, checked)}
-              />
-              <Label htmlFor={`${rowId}-keep`} className="min-h-12 py-3">
+              {/*
+                The box and its text share ONE 48x48 hit target, the treatment
+                `brand-list` gives its row checkboxes: a 20x20 box beside a
+                separate label is below the 44x44 minimum on touch.
+              */}
+              <Label
+                htmlFor={`${rowId}-keep`}
+                className="min-h-12 min-w-12 cursor-pointer py-3"
+              >
+                <Checkbox
+                  id={`${rowId}-keep`}
+                  className="size-5"
+                  checked={keptKeys.includes(proposal.key)}
+                  disabled={locked}
+                  onCheckedChange={(checked) => setKept(proposal.key, checked)}
+                />
                 {t("details.productEditor.keep", { name: proposal.nameZh })}
               </Label>
               <ProposalStateBadges
-                state={states.get(proposal.key) ?? "new"}
+                state={state}
                 kept={keptKeys.includes(proposal.key)}
               />
             </div>
+            {locked && (
+              <p className="type-form-hint">
+                {t("details.productEditor.locked")}
+              </p>
+            )}
             <div className="grid gap-4 md:grid-cols-2">
               <Field label={t("details.productEditor.nameZh")}>
                 <Input
                   value={proposal.nameZh ?? ""}
+                  disabled={locked}
                   onChange={(event) =>
                     patchProposal(index, { nameZh: event.target.value })
                   }
@@ -1066,6 +1096,7 @@ function ProductProposalsEditor({
               <Field label={t("details.productEditor.nameEn")}>
                 <Input
                   value={proposal.nameEn ?? ""}
+                  disabled={locked}
                   onChange={(event) =>
                     patchProposal(index, {
                       nameEn: emptyToNull(event.target.value) ?? undefined,
@@ -1077,6 +1108,7 @@ function ProductProposalsEditor({
             <Field label={t("details.productEditor.category")}>
               <NativeSelect
                 value={proposal.category}
+                disabled={locked}
                 onChange={(event) =>
                   // A subcategory slug exists only inside one category, so a
                   // category change clears them rather than carrying dead tags
@@ -1103,6 +1135,7 @@ function ProductProposalsEditor({
                   <ToggleChip
                     key={subcategory.slug}
                     pressed={subcategories.includes(subcategory.slug)}
+                    disabled={locked}
                     onPressedChange={(pressed) =>
                       patchProposal(index, {
                         subcategories: toggleSlug(
@@ -1127,6 +1160,7 @@ function ProductProposalsEditor({
                   <ToggleChip
                     key={option.slug}
                     pressed={material.includes(option.slug)}
+                    disabled={locked}
                     onPressedChange={(pressed) =>
                       patchProposal(index, {
                         material: toggleSlug(material, option.slug, pressed),
@@ -1142,6 +1176,7 @@ function ProductProposalsEditor({
               <Input
                 type="url"
                 value={proposal.officialUrl ?? ""}
+                disabled={locked}
                 onChange={(event) =>
                   patchProposal(index, { officialUrl: event.target.value })
                 }
@@ -1150,6 +1185,7 @@ function ProductProposalsEditor({
             <Field label={t("details.productEditor.description")}>
               <Textarea
                 value={proposal.productDescriptionZh ?? ""}
+                disabled={locked}
                 onChange={(event) =>
                   patchProposal(index, {
                     productDescriptionZh: event.target.value,

@@ -446,6 +446,27 @@ export function seedEnrichedDataFromOwnerData(
   return merged;
 }
 
+/**
+ * Keys whose array value REPLACES the stored one instead of unioning with it.
+ *
+ * The merge's default is a `Set` union, which is right for arrays of scalars
+ * and wrong for everything here. `channels` and `products` are arrays of
+ * OBJECTS, so the Set union is a no-op on identity and every rerun appends its
+ * whole list to the stored one; the newest run's list is the whole list.
+ * `_cleared_fields` is the mirror case — a later run that finds real evidence
+ * has to be able to un-clear a field, and a union would make the first clear
+ * permanent.
+ *
+ * A SET, not a third hand-written branch. Each of these was added as its own
+ * `if (Object.hasOwn(patch, …))` block after the merge, so a fourth key added
+ * without its block appended silently across every rerun and nothing failed.
+ */
+const REPLACE_NOT_UNION_KEYS = new Set<string>([
+  "channels",
+  "products",
+  CLEARED_FIELDS_KEY,
+]);
+
 function deepMergeJsonObjects(base: JsonObject, patch: JsonObject): JsonObject {
   const merged: JsonObject = { ...base };
 
@@ -456,6 +477,11 @@ function deepMergeJsonObjects(base: JsonObject, patch: JsonObject): JsonObject {
       Array.isArray(value)
     ) {
       merged[key] = value.slice(0, MAX_SUBCATEGORIES);
+      continue;
+    }
+
+    if (REPLACE_NOT_UNION_KEYS.has(key)) {
+      merged[key] = value;
       continue;
     }
 
@@ -486,24 +512,10 @@ export function mergeSubmissionEnrichedData(
   base: JsonObject,
   patch: JsonObject,
 ): JsonObject {
+  // `channels`, `products` and `_cleared_fields` are replaced, not unioned, by
+  // `deepMergeJsonObjects` itself — see REPLACE_NOT_UNION_KEYS.
   const merged = deepMergeJsonObjects(base, patch);
-  if (Object.hasOwn(patch, "channels")) {
-    // channels are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
-    merged.channels = patch.channels;
-  }
-  if (Object.hasOwn(patch, "products")) {
-    // Same reason as channels: curated-product proposals are object arrays, so
-    // the Set union is a no-op and every rerun would APPEND its proposals to the
-    // stored ones. A reviewer would then tick keepers from 5 rows for a
-    // 2-product brand, and a proposal the run has since dropped would survive
-    // forever. The newest run's list is the whole list.
-    merged.products = patch.products;
-  }
   if (Object.hasOwn(patch, CLEARED_FIELDS_KEY)) {
-    // Replace, never union. A later run that finds real evidence has to be able
-    // to un-clear the field; the array-union default would make the first clear
-    // permanent.
-    merged[CLEARED_FIELDS_KEY] = patch[CLEARED_FIELDS_KEY];
     // A clear from this run must beat a stale value in the stored base. The
     // sentinel is the only patch representation that can express deletion,
     // so remove fields it names before the existing value-wins filter runs.
@@ -607,6 +619,56 @@ function describeProviderFailure(
       : "provider call failed");
 
   return `${PROVIDER_FAILURE_PREFIX} — ${stage}: ${reason}`;
+}
+
+/**
+ * Phases a PRODUCTS-SCOPED run may name, and nothing else: the products phase
+ * plus its two hard dependencies. `lib/services/curated-products/backfill.ts`
+ * enqueues exactly this set, and the set is repeated here rather than imported
+ * because that module reaches `curation-jobs` and `submissions` — importing it
+ * from the runner would close a cycle to buy one array.
+ */
+const PRODUCTS_SCOPED_RUN_PHASES = new Set<string>([
+  "links",
+  "site_identity",
+  "products",
+]);
+
+export function isProductsScopedRun(phases: readonly string[]): boolean {
+  return (
+    phases.includes("products") &&
+    phases.every((phase) => PRODUCTS_SCOPED_RUN_PHASES.has(phase))
+  );
+}
+
+/**
+ * "Did this run learn anything?" — Gate C's question, and it is NOT the same as
+ * `hasPatchValues`, which is a bare key count.
+ *
+ * `patch.products` is the exception that forces the distinction. The products
+ * phase emits `products: []` when it RAN and found nothing, because a stale
+ * proposal list has to be cleared rather than left standing. That empty array
+ * is a real value for a products-scoped backfill: without it the target records
+ * `skipped`, its refresh submission stays pending and un-approvable, and the
+ * brand's pending-refresh unique index (23505) then blocks every future refresh
+ * of that brand.
+ *
+ * For a FULL enrichment run the same array must count for nothing. Fifteen
+ * phases ran, none of them found a field, and that is exactly the shape Gate C
+ * exists to report — `skipped`, plus the WEAK-BRAND counter. Letting one
+ * phase's empty list stand in for a patch would retire both, silently, for
+ * every run that includes `products`.
+ */
+export function hasMaterialPatchValues(
+  patch: object,
+  options: { productsScopedRun: boolean },
+): boolean {
+  if (options.productsScopedRun) return hasPatchValues(patch);
+
+  return Object.entries(patch as Record<string, unknown>).some(
+    ([key, value]) =>
+      !(key === "products" && Array.isArray(value) && value.length === 0),
+  );
 }
 
 /**
@@ -1262,11 +1324,6 @@ export function submissionToEnrichBrand(
     isRefresh && isPlainObject(submission.base_brand_data)
       ? deepMergeJsonObjects(submission.base_brand_data, existingEnriched)
       : seedEnrichedDataFromOwnerData(submission.owner_data, existingEnriched);
-  if (isRefresh && Object.hasOwn(existingEnriched, "channels")) {
-    // channels are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
-    // Overridden per-site until deepMergeJsonObjects handles object-array fields.
-    existing.channels = existingEnriched.channels;
-  }
 
   return {
     ...existing,
@@ -2641,7 +2698,12 @@ export async function runEnrich(
             state.phaseResults,
           );
 
-          if (!hasPatchValues(patch) && !hasCompletedTagClassification) {
+          if (
+            !hasMaterialPatchValues(patch, {
+              productsScopedRun: isProductsScopedRun(phases),
+            }) &&
+            !hasCompletedTagClassification
+          ) {
             // Gate C: "every LLM phase died at the provider" and "every LLM
             // phase ran and found nothing new" produce the identical empty
             // patch. Recording the first as `skipped` is the exact shape of the

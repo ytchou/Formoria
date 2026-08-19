@@ -410,6 +410,9 @@ describe("SubmissionReviewDetails — curated product proposals", () => {
       screen.getByRole("checkbox", { name: "Keep 柴燒手感馬克杯" }),
     ).toBeChecked();
     expect(
+      screen.getByRole("checkbox", { name: "Keep 柴燒手感馬克杯" }),
+    ).toBeEnabled();
+    expect(
       screen.getByRole("checkbox", { name: "Keep 竹編手織托盤" }),
     ).not.toBeChecked();
   });
@@ -430,11 +433,43 @@ describe("SubmissionReviewDetails — curated product proposals", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("saves_the_ticked_subset — the payload carries exactly the ticked keys", async () => {
+  it("locks_a_proposal_the_catalog_already_holds — materialization is create-only, so the controls must not promise an edit", async () => {
     const user = userEvent.setup();
     renderDetails(withProposals([mugProposal, trayProposal]), [
+      matchedRow(mugProposal),
       rejectedRow(trayProposal),
     ]);
+
+    await user.click(
+      within(productsSection()).getByRole("button", { name: "Edit" }),
+    );
+
+    // `materialize` inserts for `new` and does nothing for `matched` or
+    // `previously-rejected`, so a tick or a retyped name on those rows is
+    // accepted, saved, and then silently discarded at approval.
+    expect(
+      screen.getByRole("checkbox", { name: "Keep 柴燒手感馬克杯" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("checkbox", { name: "Keep 竹編手織托盤" }),
+    ).toBeDisabled();
+    for (const field of screen.getAllByLabelText("Product name (zh-TW)")) {
+      expect(field).toBeDisabled();
+    }
+    for (const field of screen.getAllByLabelText(
+      "Product description (zh-TW)",
+    )) {
+      expect(field).toBeDisabled();
+    }
+    // Said on screen, not only in a disabled attribute.
+    expect(
+      screen.getAllByText(/Approval creates products only from new proposals/),
+    ).toHaveLength(2);
+  });
+
+  it("saves_the_ticked_subset — the payload carries exactly the ticked keys", async () => {
+    const user = userEvent.setup();
+    renderDetails(withProposals([mugProposal, trayProposal]));
 
     await user.click(
       within(productsSection()).getByRole("button", { name: "Edit" }),
@@ -443,15 +478,34 @@ describe("SubmissionReviewDetails — curated product proposals", () => {
       screen.getByRole("checkbox", { name: "Keep 柴燒手感馬克杯" }),
     );
     await user.click(
-      screen.getByRole("checkbox", { name: "Keep 竹編手織托盤" }),
-    );
-    await user.click(
-      screen.getByRole("button", { name: "Save product selection" }),
+      screen.getByRole("button", { name: "Save product selection and edits" }),
     );
 
     expect(reviewActions.save).toHaveBeenCalledWith(
       "00000000-0000-4000-8000-000000000001",
       expect.objectContaining({ keptProductKeys: [trayProposal.key] }),
+    );
+  });
+
+  it("writes_no_kept_keys_when_nothing_was_ticked — an unedited save records no decision", async () => {
+    const user = userEvent.setup();
+    renderDetails(withProposals([mugProposal, trayProposal]));
+
+    await user.click(
+      within(productsSection()).getByRole("button", { name: "Edit" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Save product selection and edits" }),
+    );
+
+    // Seeding the computed default into the draft wrote a phantom
+    // `review_overrides.kept_product_keys`. After a phase re-run those keys name
+    // the OLD proposals, and because the value is defined, `materialize` skips
+    // its "every new proposal is kept" default and files every fresh proposal as
+    // permanent rejection memory for a decision the reviewer never made.
+    expect(reviewActions.save).toHaveBeenCalledWith(
+      "00000000-0000-4000-8000-000000000001",
+      expect.not.objectContaining({ keptProductKeys: expect.anything() }),
     );
   });
 
@@ -493,7 +547,7 @@ describe("SubmissionReviewDetails — curated product proposals", () => {
     await user.clear(nameField);
     await user.type(nameField, "柴燒馬克杯");
     await user.click(
-      screen.getByRole("button", { name: "Save product selection" }),
+      screen.getByRole("button", { name: "Save product selection and edits" }),
     );
 
     expect(reviewActions.save).toHaveBeenCalledWith(
@@ -556,6 +610,15 @@ function withProposals(
     enriched_data: { products },
     reviewData: { ...reviewData, products },
   });
+}
+
+/** The brand already publishes this product, so a re-proposal is not new. */
+function matchedRow(proposal: CuratedProductProposal): ExistingCuratedProduct {
+  return {
+    key: proposal.key,
+    officialUrl: proposal.officialUrl,
+    visible: true,
+  };
 }
 
 /** A rejected proposal materializes as a hidden row, never as a delete. */

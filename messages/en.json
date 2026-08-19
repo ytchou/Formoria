@@ -2720,7 +2720,8 @@
           "descriptionHint": "What the product IS: material, size, use, made-where. No price, stock, discount, variants, or delivery.",
           "officialUrl": "Official product URL",
           "sources": "Sources",
-          "save": "Save product selection"
+          "locked": "Already in this brand's catalog. Approval creates products only from new proposals, so a tick or an edit here has no effect.",
+          "save": "Save product selection and edits"
         },
         "priceRange": "Price range",
         "subcategories": "Product subcategories",

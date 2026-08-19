@@ -40,13 +40,23 @@ export default async function ReviewQueueSubmissionsPage({
     .map((submission) => submission.brandId)
     .filter((brandId): brandId is string => Boolean(brandId));
 
-  // Both batch reads take the same brand ids, so they run together. The curated
-  // products are what make the review's proposal diff truthful (DEV-1469):
-  // without them every proposal renders as new, and a product a reviewer
-  // already rejected would be offered again on every run.
+  // NARROWED, unlike the slug lookup beside it. The curated products make the
+  // review's proposal diff truthful (DEV-1469) — without them every proposal
+  // renders as new and a rejected product is offered again — but ONLY the
+  // drawer of a submission that actually carries proposals ever reads them.
+  // `getSubmissionsForReview` has no status filter, so `brandIds` grows with
+  // the lifetime submission count, and every row's products were being
+  // serialized into the client payload on every navigation to be read by none
+  // of them.
+  const productBrandIds = submissions
+    .filter((submission) => (submission.reviewData.products?.length ?? 0) > 0)
+    .map((submission) => submission.brandId)
+    .filter((brandId): brandId is string => Boolean(brandId));
+
+  // Both batch reads are independent, so they run together.
   const [slugMap, existingProductMap] = await Promise.all([
     getBrandSlugsBatch(brandIds),
-    getCuratedProductsByBrandBatch(brandIds),
+    getCuratedProductsByBrandBatch(productBrandIds),
   ]);
 
   const submissionsWithSlugs = submissions.map((submission) => ({
