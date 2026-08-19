@@ -67,6 +67,7 @@ import {
   runDiscoverPhase,
   runReputationPhase,
   runFaqPhase,
+  runProductsPhase,
   runClassifyImagesPhase,
   STORAGE_FAILURE_PREFIX,
   runImageSearchPhase,
@@ -2546,6 +2547,27 @@ export async function runEnrich(
           state.phaseResults.push(faqResult.phaseResult);
           await logCurrentPhase(ctx, faqResult.phaseResult);
           appendPatch(state, faqResult.patch);
+
+          await markCurrentPhase(ctx, "products");
+          const productsResult = await runProductsPhase({
+            brand,
+            phases,
+            scrapedData: state.scrapedData,
+            // The site the earlier phases resolved — or REVOKED. Reading the
+            // pre-run snapshot instead would mine a contaminated website.
+            pendingPatch: state.patches,
+            dryRun: config.dryRun,
+            target: { type: targetType, id: brand.id },
+            jobId: config.jobId,
+            supabase: batchContext.supabase,
+          });
+          state.phaseResults.push(productsResult.phaseResult);
+          await logCurrentPhase(ctx, productsResult.phaseResult);
+          // The proposals ride the patch as `products`, which
+          // `mergeSubmissionEnrichedData` replaces rather than unions. No target
+          // type is added and no row is written here: materialization is the
+          // moderator's approval.
+          appendPatch(state, productsResult.patch);
 
           let classification: ClassificationResult | null = null;
           let hasCompletedTagClassification = false;

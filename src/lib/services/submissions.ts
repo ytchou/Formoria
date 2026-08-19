@@ -13,7 +13,10 @@ import type {
   DuplicateCheckResult,
 } from "@/lib/types/submission";
 import type { Database, Json } from "@/lib/supabase/database.types";
-import type { EnrichedData } from "@/lib/types/enriched-data";
+import type {
+  CuratedProductProposal,
+  EnrichedData,
+} from "@/lib/types/enriched-data";
 import { enrichedDataFromDb } from "@/lib/types/enriched-data";
 import type { ChannelCandidate } from "@/lib/types/brand-channel";
 import type {
@@ -150,6 +153,22 @@ export type SubmissionReviewData = {
   city: string | null;
   reputationSummary: Json | null;
   channels?: ChannelCandidate[];
+  /**
+   * Curated-product proposals from the enrichment run (DEV-1469), seeded from
+   * `enriched_data.products` and editable in the review like every other
+   * field: a reviewer who fixes a name must not have that fix dropped. The
+   * enrichment blob itself is never written from the review — an edit lands in
+   * `review_overrides` under the same `products` key, which is why one mapper
+   * serves both layers.
+   */
+  products?: CuratedProductProposal[];
+  /**
+   * The proposal keys the reviewer ticked to keep. Absent means "no decision
+   * recorded yet", which is NOT the same as none kept: the review computes the
+   * default tick set from the proposal diff, and approval materializes the
+   * unticked ones as hidden rows rather than dropping them.
+   */
+  keptProductKeys?: string[];
   mitEvidence: Json | null;
   siteContent: Json | null;
   foundingYear: number | null;
@@ -717,6 +736,7 @@ export function buildSubmissionReviewData(
     city: normalizeString(enrichedData?.city),
     reputationSummary: enrichedData?.reputationSummary ?? null,
     channels: enrichedData?.channels,
+    products: enrichedData?.products,
     mitEvidence: enrichedData?.mitEvidence ?? null,
     siteContent: enrichedData?.siteContent ?? null,
     foundingYear: enrichedData?.foundingYear ?? null,
@@ -1033,6 +1053,12 @@ function submissionReviewDataToDb(
     city: data.city,
     reputation_summary: data.reputationSummary,
     channels: data.channels as unknown as Json,
+    // Same key the enrichment blob uses, so `buildRefreshSubmissionReviewData`
+    // reads proposals straight out of `enriched_data` through the same mapper
+    // that reads them back out of `review_overrides`. `kept_product_keys` only
+    // ever comes from a review — enrichment has no opinion on what to keep.
+    products: data.products as unknown as Json,
+    kept_product_keys: data.keptProductKeys as unknown as Json,
     mit_evidence: data.mitEvidence,
     site_content: data.siteContent,
     founding_year: mapped.founding_year,
@@ -1100,6 +1126,18 @@ function reviewDataFromDb(
         : Array.isArray(data.channels)
           ? (data.channels as ChannelCandidate[])
           : fallback.channels,
+    products:
+      data.products === undefined
+        ? fallback.products
+        : Array.isArray(data.products)
+          ? (data.products as CuratedProductProposal[])
+          : fallback.products,
+    keptProductKeys:
+      data.kept_product_keys === undefined
+        ? fallback.keptProductKeys
+        : Array.isArray(data.kept_product_keys)
+          ? normalizeStringArray(data.kept_product_keys)
+          : fallback.keptProductKeys,
     mitEvidence:
       data.mit_evidence === undefined
         ? fallback.mitEvidence

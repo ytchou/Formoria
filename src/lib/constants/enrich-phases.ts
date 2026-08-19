@@ -28,6 +28,12 @@ export const ENRICH_PHASES = [
   // FAQ must run after `descriptions` (for `facts`) and `reputation` (for
   // `reputationSummary`); both are hard ordering constraints.
   "faq",
+  // Curated-product proposals (DEV-1469). Last, and after `links` /
+  // `site_identity` by hard dependency: it proposes products from the brand's
+  // own site, so it needs the resolved `purchase_website` AND site-identity's
+  // verdict on it — a revoked site must never be mined for products. It also
+  // reuses `classify_images`' alt text as image evidence.
+  "products",
 ] as const;
 
 export type EnrichPhaseName = (typeof ENRICH_PHASES)[number];
@@ -100,6 +106,7 @@ export const ENRICH_LLM_PHASES = [
   "names",
   "site_identity",
   "faq",
+  "products",
 ] as const satisfies readonly EnrichPhaseName[];
 
 /**
@@ -181,7 +188,7 @@ export function isDeferredPhase(phase: string): boolean {
 export const CURATION_STEPS = {
   context: ["discover", "detect", "slugs", "clean", "links", "names", "site_identity"],
   image: ["images", "classify_images"],
-  detail: ["descriptions", "reputation", "faq", "tags"],
+  detail: ["descriptions", "reputation", "faq", "products", "tags"],
 } as const satisfies Record<string, readonly EnrichPhaseName[]>;
 
 export type CurationStep = keyof typeof CURATION_STEPS;

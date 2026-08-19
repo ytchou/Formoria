@@ -150,6 +150,7 @@ const PROVIDERS = {
     "runImageSearchPhase",
     "runLinksPhase",
     "runNamesPhase",
+    "runProductsPhase",
     "runReputationPhase",
     "runReputationResearch",
     "runSiteIdentityPhase",

@@ -25,6 +25,12 @@ const dropSubmissionIdsSchema = z
   .max(MAX_DROPPABLE_SUBMISSIONS)
   .refine((ids) => new Set(ids).size === ids.length);
 
+/**
+ * The whole review payload, products included (DEV-1469): `adminReviewSchema` is
+ * the only gate, and it declares `products` and `keptProductKeys` for exactly
+ * that reason — `z.object` strips what it does not declare, so an undeclared
+ * field would be dropped here in silence.
+ */
 export async function saveSubmissionReviewAction(
   submissionId: string,
   input: unknown,
