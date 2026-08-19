@@ -303,8 +303,15 @@ describe("nightly E2E batch self-heal contract", () => {
 
   it("retains complete Agent Hub, artifact, build-log, and source-failure evidence", async () => {
     const source = await workflow();
-    expect(source).toContain("AGENT_HUB_INGEST_URL");
-    expect(source).toContain("AGENT_HUB_INGEST_TOKEN");
+    for (const name of [
+      "AGENT_HUB_DELIVERY_MODE: dual",
+      "AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}",
+      "AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}",
+      "AGENT_HUB_TURSO_DATABASE_URL: ${{ secrets.AGENT_HUB_TURSO_DATABASE_URL }}",
+      "AGENT_HUB_TURSO_AUTH_TOKEN: ${{ secrets.AGENT_HUB_TURSO_AUTH_TOKEN }}",
+    ]) {
+      expect(source.split(name)).toHaveLength(3);
+    }
     expect(
       source.match(/node scripts\/agent-hub\/report-run\.mjs --file/g),
     ).toHaveLength(2);
