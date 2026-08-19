@@ -2446,8 +2446,8 @@ clusters:
   priority: P2
   eligibility: defer-data
   composite: none
-  content_requirement: Editorial trail with a stated life situation, cross-category product choices, selection rationales, and first-party sources; remains noindex until the trail gate clears.
-  indexability: noindex
+  content_requirement: Editorial trail with a stated life situation, cross-category product choices, and first-party sources; frontmatter must clear scripts/checks/trail-frontmatter.mjs before the trail can publish.
+  indexability: index
   locale: zh-TW
   notes: The first Discovery Trail pilot. Its URL owns the small-space reading-corner cluster while the editorial slate and governance evidence are being completed.
 unmapped_backlog:

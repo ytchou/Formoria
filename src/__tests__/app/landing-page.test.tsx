@@ -310,9 +310,9 @@ describe("landing page trust zones", () => {
 
   /**
    * The zone used to render only the trails the wall did NOT place. With a
-   * single indexable trail that trail is always a wall tile,
+   * single published trail that trail is always a wall tile,
    * so the zone disappeared from the homepage entirely. Its input is now every
-   * indexable trail, and wall placement is not a reason to withhold one: the
+   * published trail, and wall placement is not a reason to withhold one: the
    * tile is a picture, the row is the reader's route into /discover.
    */
   it("renders the trails zone when its only trail is also a wall tile", async () => {
@@ -351,7 +351,7 @@ describe("landing page trust zones", () => {
     ).toHaveAttribute("href", "/discover/small-kitchen");
   });
 
-  it("renders every indexable trail in the zone", async () => {
+  it("renders every published trail in the zone", async () => {
     const placed = buildTrail("small-kitchen");
     const unplaced = buildTrail("first-apartment");
     const { container } = await renderZones({
@@ -376,7 +376,7 @@ describe("landing page trust zones", () => {
     ).toBeInTheDocument();
   });
 
-  it("omits the trails zone when no trail is indexable", async () => {
+  it("omits the trails zone when no trail is published", async () => {
     const { container } = await renderZones({ trails: [] });
 
     expect(

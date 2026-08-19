@@ -7,12 +7,7 @@ import { buildBrandSitemapEntries } from "@/lib/seo/brand-sitemap";
 import { buildDirectorySitemapSection } from "@/lib/seo/directory-sitemap";
 import { getStockistDirectory } from "@/lib/services/brand-channels";
 import { buildWhereToBuySitemapSection } from "@/lib/seo/where-to-buy-sitemap";
-import { trailIndexBlockers } from "@/lib/seo/trail-indexability";
 import { getAllTrails, type TrailEntry } from "@/lib/services/trails";
-import {
-  getPublishedCuratedProductsForTrail,
-  type TrailCuratedProduct,
-} from "@/lib/services/curated-products";
 
 export const revalidate = 3600;
 
@@ -53,11 +48,13 @@ function validDate(value: string | undefined): Date | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
+// Published is the whole test. Trail quality is a precondition of publishing,
+// enforced at authoring time, so the sitemap re-reads nothing to second-guess
+// it: a curated-product query here could only ever remove a live URL from the
+// index for a full revalidate window, and it would do it silently.
 export function buildTrailSitemapEntries(
   trail: TrailEntry,
-  products: readonly TrailCuratedProduct[],
 ): MetadataRoute.Sitemap {
-  if (trailIndexBlockers({ frontmatter: trail.frontmatter, products }).length > 0) return [];
   return localizedEntries(
     `/discover/${trail.frontmatter.slug}`,
     ["zh-TW"],
@@ -68,14 +65,7 @@ export function buildTrailSitemapEntries(
 async function buildTrailSitemapSection(): Promise<MetadataRoute.Sitemap> {
   const result = await getAllTrails("zh-TW");
   if (!result.ok) return [];
-
-  const entries = await Promise.all(
-    result.trails.map(async (trail) => {
-      const products = await getPublishedCuratedProductsForTrail(trail.slug);
-      return buildTrailSitemapEntries(trail, products);
-    }),
-  );
-  return entries.flat();
+  return result.trails.flatMap((trail) => buildTrailSitemapEntries(trail));
 }
 
 export function latestBrandDate(
@@ -91,6 +81,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages = [
     "/",
     "/brands",
+    "/discover",
     // Deliberately in staticPages, not the try block: the hub is a real page with
     // zero events, and it must stay listed even when the dynamic block throws.
     "/events",

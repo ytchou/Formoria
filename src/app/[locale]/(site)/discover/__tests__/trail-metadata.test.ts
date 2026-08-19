@@ -29,30 +29,33 @@ const trail: TrailEntry = {
   },
 };
 
+/**
+ * `thin` is the shape the render-time blocker gate used to withhold: a trail
+ * carrying the bare minimum. Quality is a publish-time precondition now, so
+ * neither surface may re-judge it — a published trail is a listed trail.
+ */
+const thin: TrailEntry = {
+  ...trail,
+  frontmatter: { ...trail.frontmatter, promise: undefined },
+};
+
 describe("discovery trail metadata", () => {
-  it("emits robots noindex when blockers exist", () => {
-    const metadata = buildTrailMetadata({
-      locale: "en",
-      trail,
-      blockers: ["min_products"],
-    });
+  it("emits no robots directive for any published trail", () => {
+    for (const entry of [trail, thin]) {
+      for (const locale of ["en", "zh-TW"]) {
+        const metadata = buildTrailMetadata({ locale, trail: entry });
 
-    expect(metadata.robots).toEqual({ index: false, follow: true });
-  });
-
-  it("emits no robots directive when blockers are empty", () => {
-    const metadata = buildTrailMetadata({
-      locale: "zh-TW",
-      trail,
-      blockers: [],
-    });
-
-    expect(metadata.robots).toBeUndefined();
+        expect(metadata.robots).toBeUndefined();
+        // Absent, not merely undefined: `robots: undefined` would still be a
+        // key Next has to interpret, and the gate it came from is gone.
+        expect("robots" in metadata).toBe(false);
+      }
+    }
   });
 
   it("uses the prefix-free zh-TW canonical on both locales", () => {
     const [en, zh] = ["en", "zh-TW"].map((locale) =>
-      buildTrailMetadata({ locale, trail, blockers: [] }),
+      buildTrailMetadata({ locale, trail }),
     );
 
     expect(en.alternates?.canonical).toMatch(
@@ -61,38 +64,18 @@ describe("discovery trail metadata", () => {
     expect(zh.alternates?.canonical).toBe(en.alternates?.canonical);
   });
 
-  it("omits a blocked trail and includes a clear trail in the sitemap", () => {
-    const sixProducts = Array.from({ length: 6 }, (_, index) => ({
-      category: "home",
-      subcategories: [index % 2 === 0 ? "lighting" : "furniture"],
-      sectionKey: "desk",
-    }));
+  it("includes every published trail in the sitemap", () => {
+    // Curated-product supply is not an input here any more — the trail section
+    // performs no product read at all, so an under-stocked trail can no longer
+    // silently vanish from the sitemap for a whole revalidate window.
+    for (const entry of [trail, thin]) {
+      const entries = buildTrailSitemapEntries(entry);
 
-    expect(buildTrailSitemapEntries(trail, sixProducts as never)).toHaveLength(1);
-    expect(
-      buildTrailSitemapEntries(
-        { ...trail, frontmatter: { ...trail.frontmatter, promise: undefined } },
-        sixProducts as never,
-      ),
-    ).toEqual([]);
-  });
-
-  // The supply gate lives in the page body, below `markRenderDegraded`. These
-  // two guard the seams it must not move into: metadata has no degraded-render
-  // protection, and the sitemap keeps its own read.
-  it("blocked trail still produces noindex metadata", () => {
-    const metadata = buildTrailMetadata({
-      locale: "zh-TW",
-      trail,
-      blockers: ["min_products"],
-    });
-
-    expect(metadata.robots).toEqual({ index: false, follow: true });
-    expect(metadata.alternates?.canonical).toContain("/discover/small-space-reading-corner");
-  });
-
-  it("sitemap still omits a blocked trail", () => {
-    expect(buildTrailSitemapEntries(trail, [] as never)).toEqual([]);
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.url).toMatch(
+        /^https?:\/\/[^/]+\/discover\/small-space-reading-corner$/,
+      );
+    }
   });
 
   it("keeps the in-body FAQ block visual-only so the page emits one FAQPage", () => {

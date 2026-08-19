@@ -78,9 +78,6 @@ function revalidateCurated(brandSlug: string | null): void {
  */
 function revalidateTrail(trailSlug: string): void {
   revalidateLocalizedPath(`/discover/${encodeURIComponent(trailSlug)}`);
-  // The hub's trail list is supply-dependent, so a placement change can add or
-  // remove a row there too.
-  revalidateLocalizedPath("/discover");
 }
 
 /**

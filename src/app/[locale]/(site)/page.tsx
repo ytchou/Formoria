@@ -22,7 +22,6 @@ import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
 import { buildOpenGraph } from "@/lib/seo/open-graph";
 import { getAllStories } from "@/lib/services/stories";
-import { getIndexableTrailSlugs } from "@/lib/services/trail-supply";
 import { getAllTrails } from "@/lib/services/trails";
 import {
   getEventBrandCounts,
@@ -49,10 +48,10 @@ export const revalidate = 3600;
  * ANY failed read means this render is degraded, and a degraded render must
  * never be frozen by `revalidate = 3600`.
  *
- * `trailSupply` is deliberately NOT a parameter. Folding it in would let one
- * build-time blip demote the site's most-visited route to dynamic for the whole
- * deployment; a failed supply read hides the wall's trail tile instead. Pure and
- * exported so that exclusion is asserted rather than re-argued.
+ * Pure and exported so the exact set of inputs is asserted rather than
+ * re-argued. A read that only decorates the page stays out: folding one in
+ * would let a single build-time blip demote the site's most-visited route to
+ * dynamic for the whole deployment.
  */
 export function isLandingRenderDegraded({
   exploreResult,
@@ -125,7 +124,6 @@ export default async function LandingPage({ params }: PageProps) {
     storyResult,
     trailResult,
     eventResult,
-    trailSupply,
   ] = await Promise.all([
       getExploreBrands(EXPLORE_BRAND_LIMIT).catch(
         captureReadFailure("landing.exploreBrands"),
@@ -143,14 +141,6 @@ export default async function LandingPage({ params }: PageProps) {
         })
         .catch(captureReadFailure("landing.trails")),
       getPublishedEvents().catch(captureReadFailure("landing.events")),
-      // Supply gate for the wall's trail tile and the leftover-trail nav.
-      // Batched here because it depends on nothing else in this render — kept
-      // serial it put N curated-product round trips on the critical path.
-      // The service reports its own read failures to Sentry internally (under
-      // the scope passed here), so this `.catch` is belt-and-braces.
-      getIndexableTrailSlugs(safeLocale, "landing.trailSupply").catch(
-        captureReadFailure("landing.trailSupply"),
-      ),
     ]);
 
   // One Taipei "today" for the whole render: partitioning on one value and
@@ -192,19 +182,13 @@ export default async function LandingPage({ params }: PageProps) {
     ? storyResult.stories.slice(0, LANDING_STORY_LIMIT)
     : [];
   const curatedProducts = curatedProductsResult ?? [];
-  // Deliberately kept OUT of the `degraded` aggregate above: folding it in would
-  // let one build-time blip demote the site's most-visited route to dynamic for
-  // the whole deployment. A failed read hides the trail tile instead.
-  const indexableTrailSlugs = trailSupply?.indexableSlugs ?? new Set<string>();
   // One list, two consumers: the wall composes tiles from it and the trails
-  // zone lists all of it. Computed once from reads already in flight — the zone
-  // adds no query, so `/` stays statically rendered.
-  const indexableTrails = (trailResult?.ok ? trailResult.trails : []).filter(
-    (trail) => indexableTrailSlugs.has(trail.slug),
-  );
+  // zone lists all of it. Straight off the MDX read already in flight — no
+  // second query, so `/` stays statically rendered.
+  const publishedTrails = trailResult?.ok ? trailResult.trails : [];
   const wallSlots = buildWallSlots({
     products: curatedProducts,
-    trails: indexableTrails,
+    trails: publishedTrails,
   });
   const promotedEvents: PromotedEvent[] = liveEvents.map((event) => ({
     event,
@@ -239,7 +223,7 @@ export default async function LandingPage({ params }: PageProps) {
               ? { slots: wallSlots }
               : null
           }
-          trails={indexableTrails}
+          trails={publishedTrails}
           stories={latestStories}
           events={promotedEvents}
           brands={exploreBrands}

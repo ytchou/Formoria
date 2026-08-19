@@ -7,8 +7,8 @@ import {
   listCuratedProductsForAdmin,
   type TrailCuratedProduct,
 } from "@/lib/services/curated-products";
+import { trailAuthoringWarnings } from "@/lib/services/trail-authoring";
 import { getAllTrailsForAdmin } from "@/lib/services/trails";
-import { trailIndexBlockers } from "@/lib/seo/trail-indexability";
 import {
   CuratedProductsList,
   type CuratedProductTab,
@@ -62,9 +62,8 @@ export default async function CuratedProductsPage({
     getAllTrailsForAdmin("zh-TW"),
   ]);
   // Section keys that still carry ACTIVE selections, per trail. A section
-  // renamed or dropped from a trail's MDX leaves its rows behind: they render
-  // nowhere, but they still count toward `trailIndexBlockers` and hold the
-  // trail noindex. The editor's Section dropdown is the only retire path, so
+  // renamed or dropped from a trail's MDX leaves its rows behind, and they
+  // render nowhere. The editor's Section dropdown is the only retire path, so
   // those keys are unioned into it below — otherwise the rows are unreachable
   // from the admin UI entirely (DEV-1487).
   const liveSectionKeys = new Map<string, Set<string>>();
@@ -87,7 +86,7 @@ export default async function CuratedProductsPage({
             } catch {
               // Keep a failed read distinct from an empty result. The editor
               // can still place a product, but must not suggest that missing
-              // data is a real indexability blocker.
+              // data is a real authoring warning.
               placementReadError = true;
             }
             const declared = trail.frontmatter.sections;
@@ -102,9 +101,9 @@ export default async function CuratedProductsPage({
               slug: trail.slug,
               title: trail.frontmatter.title,
               sections: [...declared, ...orphaned],
-              blockers: placementReadError
+              warnings: placementReadError
                 ? []
-                : trailIndexBlockers({
+                : trailAuthoringWarnings({
                     frontmatter: trail.frontmatter,
                     products: productsForTrail,
                   }),
