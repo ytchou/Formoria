@@ -8,6 +8,7 @@ import {
   PURCHASE_COLUMNS,
   type PurchaseChannelCamelField,
 } from "@/lib/brands/purchase-channels";
+import { createTursoAgentHubWriter } from "../agent-hub/turso.mjs";
 import {
   createAgentHubAdapter,
   createGitHubAdapter,
@@ -191,12 +192,14 @@ export type WorkflowRuntimeCommand =
   | "prepare-repair-audit";
 
 export interface WorkflowRuntimeDependencies extends HealthAgentDependencies {
+  agentHubWriter?: (envelope: unknown) => Promise<unknown>;
   auditRecords?: AuditRecord[];
   fetchImplementation?: typeof fetch;
   isAncestor?: (tipSha: string, mainSha: string) => Promise<boolean>;
 }
 
 export interface RuntimeDependencyOptions {
+  agentHubWriter?: (envelope: unknown) => Promise<unknown>;
   audit?: AuditLogger;
   auditRecords?: AuditRecord[];
   env?: RuntimeEnvironment;
@@ -2149,66 +2152,57 @@ function healthAgentHubDependency(
   dependencies: WorkflowRuntimeDependencies,
 ): AgentHubAdapter {
   const environment = environmentFor(dependencies);
-  const fetchImplementation = fetchFor(dependencies);
+  let writer = dependencies.agentHubWriter;
   return createAgentHubAdapter({
     audit: auditFor(dependencies),
     runner: async (envelope) => {
       const audit = auditFor(dependencies);
       const startedAt = performance.now();
-      const request = { envelope: objectValue(envelope), method: "POST" };
-      let response: Response;
-      try {
-        response = await fetchImplementation(
-          requiredEnvironment(environment, "AGENT_HUB_INGEST_URL"),
-          {
-            body: JSON.stringify(envelope),
-            headers: {
-              Authorization: `Bearer ${requiredEnvironment(environment, "AGENT_HUB_INGEST_TOKEN")}`,
-              "Content-Type": "application/json",
-            },
-            method: "POST",
-            signal: signal(15_000),
-          },
-        );
-      } catch {
+      const request = { envelope: objectValue(envelope), method: "turso" };
+      let audited = false;
+      const record = (
+        status: "success" | "failure",
+        response: JsonObject,
+        schemaValid: boolean,
+      ) => {
+        audited = true;
         audit({
           adapter: "agent-hub-runtime",
           latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
           operation: "ingest_envelope",
           request,
-          response: { error: "request_failed" },
-          schemaValid: false,
-          status: "failure",
+          response,
+          schemaValid,
+          status,
         });
-        throw new Error("agent_hub_runtime_request_failed");
+      };
+      try {
+        if (!writer) {
+          writer = createTursoAgentHubWriter({
+            env: environment,
+            logger: () => undefined,
+          });
+        }
+        const body = await writer(envelope);
+        const schemaValid =
+          isRecord(body) &&
+          typeof body.duplicate === "boolean" &&
+          typeof body.run_id === "string";
+        record(
+          schemaValid ? "success" : "failure",
+          { result: objectValue(body) },
+          schemaValid,
+        );
+        if (!schemaValid) {
+          throw new Error("agent_hub_runtime_request_failed");
+        }
+        return body;
+      } catch (error) {
+        if (!audited) {
+          record("failure", { error: "request_failed" }, false);
+        }
+        throw error;
       }
-      const body = await jsonResponse(response);
-      const schemaValid =
-        response.ok &&
-        isRecord(body) &&
-        typeof body.duplicate === "boolean" &&
-        typeof body.run_id === "string";
-      audit({
-        adapter: "agent-hub-runtime",
-        latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
-        operation: "ingest_envelope",
-        request,
-        response: {
-          httpStatus: response.status,
-          result: objectValue(body),
-        },
-        schemaValid,
-        status: schemaValid ? "success" : "failure",
-      });
-      if (
-        !response.ok ||
-        !isRecord(body) ||
-        typeof body.duplicate !== "boolean" ||
-        typeof body.run_id !== "string"
-      ) {
-        throw new Error("agent_hub_runtime_request_failed");
-      }
-      return body;
     },
   });
 }
@@ -2219,6 +2213,7 @@ export function createWorkflowRuntimeDependencies(
   const records = options.auditRecords ?? [];
   const audit = options.audit ?? createWorkflowAudit(records).audit;
   const dependencies: WorkflowRuntimeDependencies = {
+    agentHubWriter: options.agentHubWriter,
     audit,
     auditRecords: records,
     env: options.env ?? process.env,
@@ -2563,9 +2558,7 @@ export async function collectSanitizedSentryArtifact(
     // issues and the run died four steps later with no trace of the cause
     // (DEV-1424). Record the reason and say so on stderr.
     const failure = internalErrorCode(error);
-    console.error(
-      `[health-agent] sentry collection failed: ${failure}`,
-    );
+    console.error(`[health-agent] sentry collection failed: ${failure}`);
     artifact = {
       candidateIssueCount: 0,
       classificationsRequired: 0,
