@@ -11,6 +11,7 @@ import { localizePath } from '@/i18n/locale-preference'
 import { useUser } from '@/lib/auth/use-user'
 import { trackBrandSaved, trackBrandUnsaved } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
+import { routes } from '@/lib/routes'
 
 type SaveBrandButtonProps = {
   brandId: string
@@ -49,7 +50,7 @@ export function SaveBrandButton({
       document.cookie = `post_auth_next=${encodeURIComponent(
         localizedPath
       )}; path=/; max-age=600; SameSite=Lax`
-      router.push('/auth/sign-in')
+      router.push(routes.auth.signIn())
       return
     }
 

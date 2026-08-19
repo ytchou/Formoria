@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Image from "next/image";
+import { SurfaceImage } from "@/components/ui/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import {
   buildArticleJsonLd,
@@ -21,6 +21,7 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { getBrandStats, getRecentBrandCount } from "@/lib/services/brands";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
+import { routes } from "@/lib/routes";
 
 export const revalidate = 3600;
 
@@ -37,7 +38,7 @@ export async function generateMetadata({
   const t = await getTranslations("about.metadata");
   const title = t("title");
   const description = t("description");
-  const { canonical, languages } = buildAlternates("/about", safeLocale);
+  const { canonical, languages } = buildAlternates(routes.about(), safeLocale);
   const ogLocale = safeLocale === "zh-TW" ? "zh_TW" : "en_US";
   const ogAlternateLocale = safeLocale === "zh-TW" ? "en_US" : "zh_TW";
 
@@ -70,7 +71,7 @@ export default async function AboutPage({ params }: PageProps) {
   const articleJsonLd = buildArticleJsonLd({
     title,
     description,
-    path: "/about",
+    path: routes.about(),
     locale: safeLocale,
   });
 
@@ -242,11 +243,11 @@ export default async function AboutPage({ params }: PageProps) {
         />
 
         <section className="relative overflow-hidden py-12 md:py-16">
-          <Image
+          <SurfaceImage
             src="/images/hero-bg.webp"
             alt=""
             fill
-            sizes="100vw"
+            surface="hero"
             className="object-cover object-right"
           />
           <div
@@ -262,7 +263,7 @@ export default async function AboutPage({ params }: PageProps) {
               </div>
               <div>
                 <Link
-                  href="/getting-started"
+                  href={routes.gettingStarted()}
                   className={buttonVariants({
                     variant: "primary",
                     size: "large",

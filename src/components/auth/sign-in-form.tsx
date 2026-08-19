@@ -10,6 +10,7 @@ import { GoogleButton } from "@/components/auth/google-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { routes } from "@/lib/routes";
 
 type SignInFormProps = {
   claimToken?: string;
@@ -57,9 +58,7 @@ export function SignInForm({
         )
       : undefined);
 
-  const signUpHref = claimToken
-    ? `/auth/sign-up?claim=${claimToken}`
-    : "/auth/sign-up";
+  const signUpHref = routes.auth.signUp({ claim: claimToken });
 
   return (
     <div className="space-y-6">
@@ -125,7 +124,7 @@ export function SignInForm({
         {!staging ? (
           <div className="flex justify-end">
             <Link
-              href="/auth/forgot-password"
+              href={routes.auth.forgotPassword()}
               className="type-metadata text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
             >
               {t("signIn.forgotPassword")}

@@ -18,6 +18,7 @@ import {
   JobStatusBadge,
 } from "./job-display";
 import { CancelJobButton } from "./cancel-job-button";
+import { routes } from "@/lib/routes";
 
 function formatProgress(job: CurationJob): string {
   const complete =
@@ -99,7 +100,7 @@ export function JobHistoryList({
                 <TableRow key={job.id}>
                   <TableCell>
                     <Link
-                      href={`/admin/jobs/${job.id}`}
+                      href={routes.admin.job(job.id)}
                       className="font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       {formatJobDate(job.created_at)}
@@ -155,7 +156,7 @@ function CursorLink({
   if (!cursor) return <span />;
   return (
     <Link
-      href={`/admin/jobs?cursor=${encodeURIComponent(cursor)}&direction=${direction}`}
+      href={routes.admin.jobs({ cursor, direction })}
       className={buttonVariants({
         variant: "secondary",
         size: "default",

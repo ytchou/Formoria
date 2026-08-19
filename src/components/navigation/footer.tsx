@@ -1,6 +1,7 @@
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { getFooterFullDocumentHref } from "./footer-links";
+import { routes } from "@/lib/routes";
 
 export function Footer() {
   const t = useTranslations("footer");
@@ -9,12 +10,13 @@ export function Footer() {
   return (
     <footer role="contentinfo" className="border-t border-border bg-card">
       {/* Not `page-shell`: that is a fixed 100rem, and every non-landing
-          `<main>` caps at `max-w-screen-xl` (80rem), so a fixed footer measure
-          diverged from the content above it by up to 160px on `/brands`,
-          `/about` and the rest. `--page-measure` is declared in globals.css and
-          defaults to 80rem; the landing page raises it to 100rem by marking its
-          `<main>` with `data-page-measure="wide"`. */}
-      <div className="page-gutter mx-auto w-full max-w-[var(--page-measure)] py-12">
+          `<main>` caps at 80rem, so a fixed footer measure diverged from the
+          content above it by up to 160px on `/brands`, `/about` and the rest.
+          `page-measure` reads `--page-measure` from globals.css, which defaults
+          to 80rem; the landing page raises it to 100rem by marking its `<main>`
+          with `data-page-measure="wide"`. The `<main>` elements now read the
+          same utility, so the footer and the page above it move together. */}
+      <div className="page-gutter mx-auto w-full page-measure py-12">
         {/* Multi-column link grid */}
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
           {/* Discover */}
@@ -23,7 +25,7 @@ export function Footer() {
             <ul className="mt-4 space-y-2">
               <li>
                 <Link
-                  href="/brands"
+                  href={routes.brands()}
                   prefetch={false}
                   className="type-body-sm hover:text-foreground transition-colors"
                 >
@@ -32,7 +34,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/where-to-buy"
+                  href={routes.whereToBuy()}
                   prefetch={false}
                   className="type-body-sm hover:text-foreground transition-colors"
                 >
@@ -41,7 +43,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/discover"
+                  href={routes.discover()}
                   prefetch={false}
                   className="type-body-sm hover:text-foreground transition-colors"
                 >
@@ -50,7 +52,7 @@ export function Footer() {
               </li>
               <li>
                 <a
-                  href={getFooterFullDocumentHref("/events", locale)}
+                  href={getFooterFullDocumentHref(routes.events(), locale)}
                   className="type-body-sm hover:text-foreground transition-colors"
                 >
                   {t("events")}
@@ -58,7 +60,7 @@ export function Footer() {
               </li>
               <li>
                 <a
-                  href={getFooterFullDocumentHref("/stories", locale)}
+                  href={getFooterFullDocumentHref(routes.stories(), locale)}
                   className="type-body-sm hover:text-foreground transition-colors"
                 >
                   {t("stories")}
@@ -66,7 +68,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/submit"
+                  href={routes.submit.index()}
                   prefetch={false}
                   className="type-body-sm hover:text-foreground transition-colors"
                 >
@@ -82,7 +84,7 @@ export function Footer() {
             <ul className="mt-4 space-y-2">
               <li>
                 <Link
-                  href="/about"
+                  href={routes.about()}
                   prefetch={false}
                   className="type-body-sm hover:text-foreground transition-colors"
                 >
@@ -91,7 +93,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/getting-started"
+                  href={routes.gettingStarted()}
                   prefetch={false}
                   className="type-body-sm hover:text-foreground transition-colors"
                 >
@@ -100,7 +102,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/faq"
+                  href={routes.faq()}
                   prefetch={false}
                   className="type-body-sm hover:text-foreground transition-colors"
                 >
@@ -116,7 +118,7 @@ export function Footer() {
             <ul className="mt-4 space-y-2">
               <li>
                 <Link
-                  href="/terms"
+                  href={routes.terms()}
                   prefetch={false}
                   className="type-body-sm hover:text-foreground transition-colors"
                 >
@@ -125,7 +127,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/privacy"
+                  href={routes.privacy()}
                   prefetch={false}
                   className="type-body-sm hover:text-foreground transition-colors"
                 >
@@ -141,7 +143,7 @@ export function Footer() {
             <ul className="mt-4 space-y-2">
               <li>
                 <Link
-                  href="/contact"
+                  href={routes.contact()}
                   prefetch={false}
                   className="type-body-sm hover:text-foreground transition-colors"
                 >
@@ -150,7 +152,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/feature-requests"
+                  href={routes.featureRequests()}
                   prefetch={false}
                   className="type-body-sm hover:text-foreground transition-colors"
                 >

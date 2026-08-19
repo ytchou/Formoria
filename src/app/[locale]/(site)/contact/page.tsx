@@ -8,6 +8,7 @@ import { CONTACT_EMAILS } from '@/lib/constants'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { buildOpenGraph } from '@/lib/seo/open-graph'
+import { routes } from '@/lib/routes'
 
 export const revalidate = 86400
 
@@ -22,7 +23,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const t = await getTranslations('contact.metadata')
   const title = t('title')
   const description = t('description')
-  const { canonical, languages } = buildAlternates('/contact', safeLocale)
+  const { canonical, languages } = buildAlternates(routes.contact(), safeLocale)
   const ogLocale = safeLocale === 'en' ? 'en_US' : 'zh_TW'
   const ogAlternateLocale = safeLocale === 'en' ? 'zh_TW' : 'en_US'
 
@@ -57,11 +58,11 @@ export default async function ContactPage({ params }: PageProps) {
     {
       key: 'feature',
       icon: Lightbulb,
-      href: '/feature-requests',
+      href: routes.featureRequests(),
       external: false,
     },
-    { key: 'brand', icon: Building2, href: '/brands', external: false },
-    { key: 'question', icon: HelpCircle, href: '/faq', external: false },
+    { key: 'brand', icon: Building2, href: routes.brands(), external: false },
+    { key: 'question', icon: HelpCircle, href: routes.faq(), external: false },
   ] as const
 
   const ctaClassName = buttonVariants({
@@ -71,7 +72,7 @@ export default async function ContactPage({ params }: PageProps) {
   })
 
   return (
-    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
+    <main className="page-gutter mx-auto w-full page-measure py-10">
       <section className="border-b border-border pb-10">
         <div className="max-w-3xl">
           <p className="type-eyebrow">{t('hero.eyebrow')}</p>

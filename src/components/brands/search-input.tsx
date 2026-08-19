@@ -18,6 +18,7 @@ import {
   SearchSuggestions,
   searchSuggestionOptionId,
 } from './search-suggestions'
+import { routes } from '@/lib/routes'
 
 interface SearchInputProps {
   redirectTo?: string
@@ -180,7 +181,7 @@ function SearchInput({
     trackSearchResultClicked(value, index, selected?.id, slug)
     trackSearchSuggestionSelect(slug, selected?.id)
     setShowDropdown(false)
-    router.push(`/brands/${slug}`)
+    router.push(routes.brand(slug))
   }
 
   function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {

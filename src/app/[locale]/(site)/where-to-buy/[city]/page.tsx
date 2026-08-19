@@ -19,6 +19,7 @@ import { L1_CATEGORIES, categoryLabel } from '@/lib/taxonomy/ontology'
 import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
 import { buildStockistItemListJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { captureReadFailure, markRenderDegraded } from '@/lib/degraded-render'
+import { routes } from '@/lib/routes'
 
 export const revalidate = 3600
 
@@ -56,7 +57,7 @@ export async function generateMetadata({
     getTranslations({ locale: safeLocale, namespace: 'whereToBuy' }),
     getTranslations({ locale: safeLocale, namespace: 'cities' }),
   ])
-  const path = `/where-to-buy/${citySlugToPath(city)}`
+  const path = routes.whereToBuyCity(citySlugToPath(city))
   const { canonical, languages } = buildAlternates(path, safeLocale)
   return {
     title: t('cityTitle', { city: tCities(city) }),
@@ -92,7 +93,7 @@ export default async function WhereToBuyCityPage({
   const availableDistrictSlugs = stockistDistrictSlugs(locations)
   const count = groups.reduce((sum, group) => sum + group.locations.length, 0)
   const cityName = tCities(city)
-  const cityUrl = `/where-to-buy/${citySlugToPath(city)}`
+  const cityUrl = routes.whereToBuyCity(citySlugToPath(city))
   const canonicalUrl = buildAlternates(cityUrl, safeLocale).canonical
   const jsonLd = buildStockistItemListJsonLd({
     locations: groups.flatMap((group) => group.locations),
@@ -112,7 +113,7 @@ export default async function WhereToBuyCityPage({
       <Breadcrumb
         ariaLabel={t('breadcrumbLabel')}
         items={[
-          { label: t('directory'), href: '/where-to-buy' },
+          { label: t('directory'), href: routes.whereToBuy() },
           { label: cityName },
         ]}
       />

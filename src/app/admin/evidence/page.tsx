@@ -10,6 +10,7 @@ import {
   reviewEvidence,
   type OriginEvidenceDecision,
 } from "@/lib/services/origin-evidence";
+import { routes } from "@/lib/routes";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("admin.evidence");
@@ -26,7 +27,7 @@ async function reviewEvidenceAction(
   "use server";
 
   return runWithAuditContext({}, async () => {
-    const user = await requireAdminPage("/admin/evidence");
+    const user = await requireAdminPage(routes.admin.evidence());
     const result = await reviewEvidence(id, decision, notes, {
       reviewerId: user.id,
       ...(tierAction ? { tierAction } : {}),
@@ -34,14 +35,14 @@ async function reviewEvidenceAction(
 
     if (!result.ok) return { error: result.code };
 
-    revalidatePath("/admin/evidence");
-    revalidatePath("/admin");
+    revalidatePath(routes.admin.evidence());
+    revalidatePath(routes.admin.index());
     return undefined;
   });
 }
 
 export default async function AdminEvidencePage() {
-  await requireAdminPage("/admin/evidence");
+  await requireAdminPage(routes.admin.evidence());
   const [evidence, t] = await Promise.all([
     listAllEvidence(),
     getTranslations("admin.evidence"),

@@ -24,6 +24,7 @@ import {
 } from '@/lib/services/claim-proofs'
 import { trackBrandClaimStarted, trackBrandClaimFormSubmitted } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
+import { routes } from '@/lib/routes'
 
 type ClaimBrandCtaProps = {
   brandId: string
@@ -329,7 +330,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
             <p className="type-body-sm font-semibold text-ink">{t('communityTitle')}</p>
             <p className="type-body-sm">
               {t('communityListing')}{' '}
-              <Link href="/faq#claim" className="type-nav font-semibold text-accent underline-offset-4 hover:underline">
+              <Link href={`${routes.faq()}#claim`} className="type-nav font-semibold text-accent underline-offset-4 hover:underline">
                 {t('whyClaim')}
               </Link>
             </p>

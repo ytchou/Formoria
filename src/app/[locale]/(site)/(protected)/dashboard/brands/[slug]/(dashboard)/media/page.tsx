@@ -1,9 +1,10 @@
-import Image from 'next/image'
+import { SurfaceImage } from '@/components/ui/image'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { SectionDetailLayout } from '@/components/dashboard/section-detail-layout'
 import { InfoGroup } from '@/components/ui/card'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandBySlug } from '@/lib/services/brands'
+import { routes } from '@/lib/routes'
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
@@ -25,7 +26,7 @@ export default async function MediaPage({ params }: Props) {
   return (
     <SectionDetailLayout
       description={t('sectionBrandImagesHint')}
-      editHref={`/dashboard/brands/${slug}/edit?step=1`}
+      editHref={`${routes.dashboard.brandEdit(slug)}?step=1`}
       editLabel={t('edit')}
       title={tEdit('wizardStepMedia')}
     >
@@ -36,10 +37,12 @@ export default async function MediaPage({ params }: Props) {
         >
           {heroImageUrl ? (
             <div className="relative aspect-video max-w-md overflow-hidden rounded-xl bg-muted">
-              <Image
+              <SurfaceImage
                 alt={tEdit('fieldHeroImage')}
                 className="object-cover"
                 fill
+                surface="thumb"
+                // The hero preview is a fixed 448px (`max-w-md`) box.
                 sizes="448px"
                 src={heroImageUrl}
               />
@@ -62,10 +65,12 @@ export default async function MediaPage({ params }: Props) {
                   key={`${photo}-${index}`}
                   className="relative aspect-square overflow-hidden rounded-xl bg-muted"
                 >
-                  <Image
+                  <SurfaceImage
                     alt={`${tEdit('fieldProductPhotos')} ${index + 1}`}
                     className="object-contain"
                     fill
+                    surface="thumb"
+                    // Four-up product grid inside the same `max-w-md` column: 176px.
                     sizes="176px"
                     src={photo}
                   />

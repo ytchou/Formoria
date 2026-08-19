@@ -12,6 +12,7 @@ import {
   getImpersonatedBrandSlug,
 } from '@/lib/auth/impersonation'
 import { logAdminAction } from '@/lib/services/admin-audit'
+import { routes } from '@/lib/routes'
 
 export async function startImpersonationAction(
   brandSlug: string
@@ -37,7 +38,7 @@ export async function startImpersonationAction(
       targetBrandSlug: brandSlug,
     })
 
-    revalidatePath('/dashboard')
+    revalidatePath(routes.dashboard.index())
     return { ok: true }
   });
 }
@@ -64,7 +65,7 @@ export async function endImpersonationAction(): Promise<{ ok: boolean; error?: s
       })
     }
 
-    revalidatePath('/dashboard')
+    revalidatePath(routes.dashboard.index())
     return { ok: true }
   });
 }

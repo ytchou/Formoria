@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { listCurationJobsAction } from "@/app/admin/operations/actions";
 import { JobHistoryList } from "./job-history-list";
+import { routes } from "@/lib/routes";
 
 export const metadata: Metadata = { title: "Data Jobs | Admin" };
 export const revalidate = 0;
@@ -16,7 +17,7 @@ export default async function JobsPage({
   }>;
 }) {
   const query = await searchParams;
-  if (query.view) redirect("/admin/jobs");
+  if (query.view) redirect(routes.admin.jobs());
   const cursor = first(query.cursor);
   const directionParam = first(query.direction);
   const direction = directionParam === "previous" ? "previous" : "next";

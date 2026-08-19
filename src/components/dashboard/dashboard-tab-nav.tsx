@@ -14,6 +14,7 @@ import { useTranslations } from 'next-intl'
 import { textStyles } from '@/components/ui/text-styles'
 import { Link } from '@/i18n/navigation'
 import { cn } from '@/lib/utils'
+import { routes } from '@/lib/routes'
 
 type DashboardTabNavProps = {
   brandSlug: string
@@ -32,7 +33,7 @@ const navItems = [
 export function DashboardTabNav({ brandSlug }: DashboardTabNavProps) {
   const pathname = usePathname()
   const t = useTranslations()
-  const baseHref = `/dashboard/brands/${brandSlug}`
+  const baseHref = routes.dashboard.brand(brandSlug)
 
   return (
     <nav aria-label={t('dashboard.sidebar.navLabel')}>

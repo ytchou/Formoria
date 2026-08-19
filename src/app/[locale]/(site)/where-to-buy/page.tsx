@@ -10,6 +10,7 @@ import {
 } from '@/lib/services/brand-channels'
 import { captureReadFailure, markRenderDegraded } from '@/lib/degraded-render'
 import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
+import { routes } from '@/lib/routes'
 
 export const revalidate = 3600
 
@@ -24,7 +25,7 @@ export async function generateMetadata({
     locale: safeLocale,
     namespace: 'whereToBuy',
   })
-  const { canonical, languages } = buildAlternates('/where-to-buy', safeLocale)
+  const { canonical, languages } = buildAlternates(routes.whereToBuy(), safeLocale)
   return {
     title: t('metaTitle'),
     description: t('metaDescription'),

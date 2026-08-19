@@ -18,6 +18,7 @@ import { getTranslations } from 'next-intl/server'
 import { Badge } from '@/components/ui/badge'
 import { SurfaceCard } from '@/components/ui/card'
 import type { ProfileCompleteness } from '@/lib/services/profile-completeness'
+import { routes } from '@/lib/routes'
 
 type Recommendation = ProfileCompleteness['recommendations'][number]
 type RecommendationKey = Recommendation['key']
@@ -98,7 +99,7 @@ export async function TodoSection({
                     </Badge>
                     <Link
                       className="inline-flex min-h-12 items-center rounded-lg px-3 type-body-sm font-medium text-accent hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      href={`/dashboard/brands/${slug}/edit?step=${recommendation.step}`}
+                      href={`${routes.dashboard.brandEdit(slug)}?step=${recommendation.step}`}
                     >
                       {tOverview('todoGoComplete')}
                     </Link>
@@ -121,7 +122,7 @@ export async function TodoSection({
                   </Badge>
                   <Link
                     className="inline-flex min-h-12 items-center rounded-lg px-3 type-body-sm font-medium text-accent hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    href={`/dashboard/brands/${slug}/verification`}
+                    href={routes.dashboard.brandSection(slug, 'verification')}
                   >
                     {tOverview('todoGoComplete')}
                   </Link>

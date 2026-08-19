@@ -23,6 +23,7 @@ import {
   useQueueAction,
   useReviewQueue,
 } from "./queue";
+import { routes } from "@/lib/routes";
 
 type SignedProofEvidence = ProofEvidence & { signedUrl?: string };
 export type ClaimRequestWithSignedProof = Omit<
@@ -218,7 +219,7 @@ export function ClaimRequestsList({
               })}
             </p>
             <a
-              href={`/brands/${item.existingOwnedBrand.brandSlug}`}
+              href={routes.brand(item.existingOwnedBrand.brandSlug)}
               className="mt-2 inline-block type-nav font-semibold text-accent underline-offset-4 hover:underline underline"
             >
               {item.existingOwnedBrand.brandName}

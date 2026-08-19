@@ -230,6 +230,27 @@
   --space-gutter: 24px; /* grid column gap */
 }
 
+/*
+ * MEDIA FRAMING — one ratio, declared once.
+ *
+ * Every brand, product and editorial image box used to hard-code
+ * a 4:3 arbitrary-value ratio, eighteen times across fourteen files.
+ * `aspect-media` is that literal, named.
+ *
+ * IT IS 1:1, NOT 4:3, AND THAT IS MEASURED. 53.5% of the image corpus is
+ * exactly square. Boxing it at 4:3 discards 25.1% of the average photo to
+ * `object-cover`; 1:1 discards 13.8%. The square box is not a style
+ * preference — it is the ratio that throws away the least of what was shot.
+ *
+ * `HERO_TARGET_RATIO` (`src/lib/constants/brand-images.ts`) is a separate
+ * number that scores crop damage during enrichment. It still reads 4/3. Moving
+ * it re-ranks every brand's hero image, which is a pipeline change with its own
+ * verification, so it is deliberately NOT changed here — see the comment there.
+ */
+@theme {
+  --aspect-media: 1 / 1;
+}
+
 @utility scrollbar-none {
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -276,25 +297,40 @@
  * The footer is rendered by the site layout, so it cannot know its route — and
  * a `usePathname()` check there would turn a static server component into a
  * client one to answer a question that is purely presentational. Instead the
- * measure is a custom property: 80rem by default, which is the `max-w-screen-xl`
- * every non-landing `<main>` carries, and 100rem when the page below declares
- * itself wide with `data-page-measure="wide"` (the landing page does).
+ * measure is a custom property: 80rem by default, which is what every
+ * non-landing `<main>` carries, and 100rem when the page below declares itself
+ * wide with `data-page-measure="wide"` (the landing page does).
  *
  * `:has()` reads DOWN the tree, which is what makes a child able to set a value
  * its PARENT's other subtree reads. If `:has()` is unsupported the rule simply
  * never matches and the footer keeps the 80rem default — the pre-existing
  * alignment for every route but one, never a broken layout.
  *
+ * Every `<main>` now reads the same property through `page-measure` below.
+ * Before that only the footer honoured it, and thirty hard-coded 80rem
+ * declarations across twenty-eight files were the real measure — so widening
+ * the token moved the footer and nothing above it.
+ *
  * The sticky header is deliberately NOT wired to this: it stays at 80rem on
  * every route, because a header that changes width between routes reads as the
- * page jumping.
+ * page jumping. `header-measure` is that fixed cap, named rather than spelled
+ * `max-w-[80rem]` in two files, so the exclusion reads as a decision.
  */
 :root {
   --page-measure: 80rem;
+  --header-measure: 80rem;
 }
 
 body:has([data-page-measure="wide"]) {
   --page-measure: 100rem;
+}
+
+@utility page-measure {
+  max-width: var(--page-measure);
+}
+
+@utility header-measure {
+  max-width: var(--header-measure);
 }
 
 /*

@@ -41,6 +41,7 @@ import { isOwnerOf } from '@/lib/services/brand-owners'
 import type { ChannelType } from '@/lib/types/brand-channel'
 import { createServiceClient } from '@/lib/supabase/service'
 import { trackOriginEvidenceSubmitted } from '@/lib/analytics'
+import { routes } from '@/lib/routes'
 
 const REPORT_REASONS = [
   'incorrect_info',
@@ -343,8 +344,8 @@ export async function submitClaimAction(
         })
       }
 
-      revalidatePath('/admin')
-      revalidatePath('/admin/claims')
+      revalidatePath(routes.admin.index())
+      revalidatePath(routes.admin.claims())
       return {
         ok: true,
         ...(claimRequest.emailVerificationTokens[0]
@@ -428,8 +429,8 @@ export async function submitReportAction(
         ...(reportedField ? { reportedField } : {}),
         ...(userId ? { userId } : {}),
       })
-      revalidatePath('/admin/reports')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.reports())
+      revalidatePath(routes.admin.index())
       return { success: true }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('unknown')
@@ -505,10 +506,10 @@ export async function submitEvidenceAction(
       if (!result.ok) return { error: result.code }
 
       trackOriginEvidenceSubmitted(brandId.trim(), brandSlug.trim(), stance)
-      revalidateLocalizedPath(`/brands/${brandSlug.trim()}`)
-      revalidateLocalizedPath('/contributions')
+      revalidateLocalizedPath(routes.brand(brandSlug.trim()))
+      revalidateLocalizedPath(routes.contributions())
       // `/admin` lives outside `[locale]`, so its cache key is already literal.
-      revalidatePath('/admin/evidence')
+      revalidatePath(routes.admin.evidence())
       return { success: true }
     } catch (err: unknown) {
       console.error('[brands:submitEvidence]', err)

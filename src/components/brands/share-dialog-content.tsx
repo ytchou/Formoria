@@ -3,7 +3,7 @@
 import type { CSSProperties, ReactNode, SVGProps } from 'react'
 import { useTranslations } from 'next-intl'
 import { AtSign, Check, Link as LinkIcon, MessageCircle, X } from 'lucide-react'
-import Image from 'next/image'
+import { SurfaceImage } from '@/components/ui/image'
 import { trackBrandPageShared, type ShareChannel } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
 import { DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog'
@@ -199,10 +199,13 @@ export function ShareDialogContent({
         <div className="overflow-hidden rounded-xl border border-border bg-muted">
           {safeImage ? (
             <div className="relative h-[74px] w-full">
-              <Image
+              <SurfaceImage
                 src={safeImage}
                 alt=""
                 fill
+                surface="thumb"
+                // A fixed 74px-tall preview strip: 256px on the narrow dialog,
+                // 336px otherwise. Neither is any of the grid surfaces.
                 sizes="(max-width: 352px) 256px, 336px"
                 className="object-cover"
               />

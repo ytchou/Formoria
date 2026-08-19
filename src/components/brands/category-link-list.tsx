@@ -3,6 +3,7 @@ import { categoryLabel, subcategoryBySlug } from '@/lib/taxonomy/ontology'
 import { localizePath } from '@/i18n/locale-preference'
 import { taxonomyLinkClasses } from '@/components/ui/toggle-chip'
 import type { Locale } from '@/lib/seo/alternates'
+import { routes } from '@/lib/routes'
 
 type CategoryLinkListProps = {
   locale: Locale
@@ -43,7 +44,7 @@ export function CategoryLinkList({
           return (
             <li key={target.subcategorySlug}>
               <a
-                href={localizePath(`/categories/${category.slug}/${subcategory.slug}`, locale)}
+                href={localizePath(routes.subcategory(category.slug, subcategory.slug), locale)}
                 className={taxonomyLinkClasses()}
               >
                 {subcategoryLabel}

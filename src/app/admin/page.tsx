@@ -10,6 +10,7 @@ import {
 } from "@/lib/services/admin-operations";
 import { isOwnerFeaturesEnabled } from "@/lib/services/app-settings";
 import { cn } from "@/lib/utils";
+import { routes } from "@/lib/routes";
 
 /**
  * One tile of the operations grid. Both the numeric queue metrics and the
@@ -68,56 +69,56 @@ const metrics: Metric[] = [
     key: "needsData",
     label: "Needs data",
     description: "Submissions awaiting enrichment",
-    href: "/admin/submissions?stage=needs_data",
+    href: routes.admin.submissions({ stage: "needs_data" }),
     requiresAction: true,
   },
   {
     key: "ready",
     label: "Ready",
     description: "Submissions ready for review",
-    href: "/admin/submissions?stage=ready",
+    href: routes.admin.submissions({ stage: "ready" }),
     requiresAction: true,
   },
   {
     key: "moderation",
     label: "Content flags",
     description: "Pending moderation decisions",
-    href: "/admin/moderation",
+    href: routes.admin.moderation(),
     requiresAction: true,
   },
   {
     key: "claims",
     label: "Claims",
     description: "Ownership requests awaiting review",
-    href: "/admin/claims",
+    href: routes.admin.claims(),
     requiresAction: true,
   },
   {
     key: "reports",
     label: "Reports",
     description: "Open brand reports",
-    href: "/admin/reports",
+    href: routes.admin.reports(),
     requiresAction: true,
   },
   {
     key: "activeJobs",
     label: "Active jobs",
     description: "Pending or running data jobs",
-    href: "/admin/jobs",
+    href: routes.admin.jobs(),
     requiresAction: true,
   },
   {
     key: "brands",
     label: "Total brands",
     description: "Records in the brand catalog",
-    href: "/admin/brands",
+    href: routes.admin.brands(),
     requiresAction: false,
   },
   {
     key: "subscribers",
     label: "Subscribers",
     description: "Active newsletter subscribers",
-    href: "/admin/newsletter?status=active",
+    href: routes.admin.newsletter() + "?status=active",
     requiresAction: false,
   },
 ];
@@ -134,7 +135,7 @@ export default async function AdminPage() {
       key: "evidence",
       label: t("evidence.label"),
       description: t("evidence.description"),
-      href: "/admin/evidence",
+      href: routes.admin.evidence(),
       requiresAction: true,
     },
     ...metrics.slice(3),
@@ -176,7 +177,7 @@ export default async function AdminPage() {
           {/* State is conveyed as text, never colour alone, so the accessible
               name reads "Owner features / Disabled / Manage feature flags". */}
           <OperationsCard
-            href="/admin/settings"
+            href={routes.admin.settings()}
             label={t("ownerFeatures.label")}
             value={
               ownerFeaturesEnabled
@@ -214,7 +215,7 @@ export default async function AdminPage() {
             </p>
           </div>
           <Link
-            href="/admin/jobs"
+            href={routes.admin.jobs()}
             className="inline-flex min-h-12 items-center text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             View all jobs
@@ -229,7 +230,7 @@ export default async function AdminPage() {
             snapshot.recentJobs.map((job) => (
               <Link
                 key={job.id}
-                href={`/admin/jobs/${job.id}`}
+                href={routes.admin.job(job.id)}
                 className="grid min-h-16 gap-2 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:grid-cols-[minmax(220px,1fr)_auto_auto] sm:items-center sm:px-3"
               >
                 <span className="font-medium">

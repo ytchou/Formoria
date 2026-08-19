@@ -9,6 +9,7 @@ import { trackTrailCardClicked } from "@/lib/analytics";
 import type { StoryEntry } from "@/lib/services/stories";
 import { NO_SNIPPET } from "@/lib/seo/snippet";
 import { formatStoryDate, toStoryIsoDate } from "./story-date";
+import { routes } from "@/lib/routes";
 
 export function StoryRow({
   story,
@@ -17,7 +18,7 @@ export function StoryRow({
   position,
   trackingSurface,
   trackingKind = "story",
-  hrefBase = '/stories',
+  hrefBase = routes.stories(),
   namespace = 'stories',
 }: {
   story: StoryEntry;

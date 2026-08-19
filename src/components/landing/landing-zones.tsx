@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { SurfaceImage } from "@/components/ui/image";
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 
@@ -16,6 +16,7 @@ import type { Locale } from "@/lib/seo/alternates";
 import type { Event, EventPhase } from "@/lib/services/events";
 import type { StoryEntry } from "@/lib/services/stories";
 import type { TrailEntry } from "@/lib/services/trails";
+import { routes } from "@/lib/routes";
 
 /** An event already resolved against the render's single Taipei "today". */
 export type PromotedEvent = {
@@ -149,7 +150,7 @@ export async function LandingZones({
                 id="landing-trails"
                 heading={t("trails.heading")}
                 note={t("trails.note")}
-                linkHref="/discover"
+                linkHref={routes.discover()}
                 linkLabel={t("trails.linkText")}
               />
               <div className="mt-8 divide-y divide-border border-y border-border">
@@ -162,7 +163,7 @@ export async function LandingZones({
                     position={index}
                     trackingSurface="homepage_trails"
                     trackingKind="trail"
-                    hrefBase="/discover"
+                    hrefBase={routes.discover()}
                     namespace="discover"
                   />
                 ))}
@@ -183,19 +184,19 @@ export async function LandingZones({
           stating the commitment even though no homepage section does. The
           `about` CTA below is the homepage's only remaining path to it.
 
-          `sizes="100vw"` and no `priority`: this band is well below the fold,
-          and the hero photograph above owns the preload.
+          `surface="hero"` (100vw) and no `priority`: this band is well below
+          the fold, and the hero photograph above owns the preload.
         */}
         <section
           data-landing-zone="manifesto"
           aria-labelledby="landing-manifesto"
           className="relative overflow-hidden py-12 md:py-16"
         >
-          <Image
+          <SurfaceImage
             src="/images/manifesto-bg.webp"
             alt=""
             fill
-            sizes="100vw"
+            surface="hero"
             className="object-cover"
           />
           {/* CONTRAST FLOOR — do not weaken either half of this.
@@ -225,7 +226,7 @@ export async function LandingZones({
               {t("manifesto.body2")}
             </p>
             <Link
-              href="/about"
+              href={routes.about()}
               className={buttonVariants({
                 variant: "primary",
                 className: "mt-4",
@@ -253,7 +254,7 @@ export async function LandingZones({
                   hasStories ? t("latestStories.heading") : t("events.heading")
                 }
                 note={hasStories ? t("latestStories.note") : undefined}
-                linkHref={hasStories ? "/stories" : "/events"}
+                linkHref={hasStories ? routes.stories() : routes.events()}
                 linkLabel={
                   hasStories
                     ? t("latestStories.linkText")
@@ -295,7 +296,7 @@ export async function LandingZones({
                       the header already carries this exact link. */}
                   {hasStories && (
                     <Link
-                      href="/events"
+                      href={routes.events()}
                       className="inline-flex min-h-12 items-center font-medium text-accent"
                     >
                       {t("events.linkText")}
@@ -330,7 +331,7 @@ export async function LandingZones({
                 heading={t("showcase.heading")}
                 subheading={t("showcase.subheading")}
                 linkText={t("showcase.browseAll")}
-                linkHref="/brands"
+                linkHref={routes.brands()}
                 ctaLocation="homepage_explore"
               />
             </div>

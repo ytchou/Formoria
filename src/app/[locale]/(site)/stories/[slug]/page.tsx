@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Image from "next/image";
+import { SurfaceImage } from "@/components/ui/image";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { ChevronRight } from "lucide-react";
@@ -34,6 +34,7 @@ import {
   L1_CATEGORIES,
 } from "@/lib/taxonomy/ontology";
 import { StoryContent } from "./story-content";
+import { routes } from "@/lib/routes";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
@@ -81,7 +82,7 @@ export async function generateMetadata({
   // duplicate of the prefix-free URL. `buildAlternates` is shared with /brands and
   // must stay locale-agnostic — the zh-TW-only decision belongs at this call site.
   const { canonical, languages } = buildAlternates(
-    `/stories/${story.entry.frontmatter.slug}`,
+    routes.story(story.entry.frontmatter.slug),
     "zh-TW",
     ["zh-TW"],
   );
@@ -161,7 +162,7 @@ export default async function StoryPage({ params }: PageProps) {
   const articleJsonLd = buildArticleJsonLd({
     title: story.entry.frontmatter.title,
     description: story.entry.frontmatter.description ?? "",
-    path: `/stories/${story.entry.frontmatter.slug}`,
+    path: routes.story(story.entry.frontmatter.slug),
     locale: safeLocale,
     author: story.entry.frontmatter.author ?? t("byline"),
   });
@@ -201,7 +202,7 @@ export default async function StoryPage({ params }: PageProps) {
   // builder every other content route uses (`/brands/[slug]`, `/events`).
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(
     [
-      { label: t("breadcrumb"), href: "/stories" },
+      { label: t("breadcrumb"), href: routes.stories() },
       { label: story.entry.frontmatter.title },
     ],
     safeLocale,
@@ -222,9 +223,14 @@ export default async function StoryPage({ params }: PageProps) {
       <nav aria-label={t("breadcrumbAria")} className="mb-6">
         <ol className="flex items-center gap-1.5 type-body-sm">
           <li>
-            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
+            {/* A raw `<a>`, not next/link. DEV-1280: full-document navigation avoids a
+              stalled RSC request across the locale proxy rewrite. The
+              `no-html-link-for-pages` suppression that used to sit here is gone with
+              the literal href — the rule only inspects string literals, so routing
+              this through `@/lib/routes` left the directive unused, which
+              `reportUnusedDisableDirectives: "error"` fails on. */}
             <a
-              href="/stories"
+              href={routes.stories()}
               className="hover:text-foreground transition-colors"
             >
               {t("breadcrumb")}
@@ -290,12 +296,12 @@ export default async function StoryPage({ params }: PageProps) {
               the story's LCP element, so deferring it defers the metric itself.
             */}
             {story.entry.frontmatter.heroImage.startsWith("/") ? (
-              <Image
+              <SurfaceImage
                 src={story.entry.frontmatter.heroImage}
                 alt={story.entry.frontmatter.heroImageAlt ?? ""}
                 fill
                 priority
-                sizes="(max-width: 1280px) 100vw, 1280px"
+                surface="banner"
                 className="object-cover"
               />
             ) : (

@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { ChevronRight } from 'lucide-react'
 import type { AppLocale } from '@/i18n/locale-preference'
+import { routes } from '@/lib/routes'
 
 interface BrandBreadcrumbProps {
   locale: AppLocale
@@ -53,12 +54,12 @@ export async function BrandBreadcrumb({ locale, categorySlug, categoryLabel, bra
     <Breadcrumb
       ariaLabel={t('breadcrumb.ariaLabel')}
       items={[
-        { label: t('breadcrumb.directory'), href: '/brands' },
+        { label: t('breadcrumb.directory'), href: routes.brands() },
         ...(categorySlug && categoryLabel
           ? [
               {
                 label: categoryLabel,
-                href: `/categories/${encodeURIComponent(categorySlug)}`,
+                href: routes.category(categorySlug),
               },
             ]
           : []),

@@ -16,6 +16,7 @@ import {
   type ProfileCompleteness,
 } from '@/lib/services/profile-completeness'
 import type { OwnerBrandEditor } from '@/lib/brands/contracts'
+import { routes } from '@/lib/routes'
 
 const infoLabelClassName = 'type-metadata uppercase tracking-[0.08em]'
 
@@ -189,7 +190,7 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
           nativeButton={false}
           render={
             <Link
-              href={`/dashboard/brands/${brand.slug}#profile-completeness`}
+              href={`${routes.dashboard.brand(brand.slug)}#profile-completeness`}
             />
           }
           variant="secondary"

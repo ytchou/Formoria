@@ -1,13 +1,14 @@
 import { getLocale, getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
+import { routes } from '@/lib/routes'
 
 export default async function NotFound() {
   const locale = await getLocale()
   const t = await getTranslations({ locale, namespace: 'errors' })
 
   return (
-    <main className="page-gutter mx-auto flex max-w-screen-xl flex-col items-center justify-center py-24 text-center">
+    <main className="page-gutter mx-auto flex page-measure flex-col items-center justify-center py-24 text-center">
       <h1 className="type-page-title">
         {t('notFound.title')}
       </h1>
@@ -22,7 +23,7 @@ export default async function NotFound() {
           {t('notFound.cta')}
         </Link>
         <Link
-          href="/brands"
+          href={routes.brands()}
           className={buttonVariants({ variant: 'secondary' })}
         >
           {t('notFound.browseDirectory')}

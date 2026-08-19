@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
+import { routes } from '@/lib/routes'
 
 type ContributionsListProps = {
   items: OriginEvidence[]
@@ -38,7 +39,7 @@ export function ContributionsList({ items }: ContributionsListProps) {
         </p>
         <Link
           className={buttonVariants({ className: 'mt-6 h-12' })}
-          href="/brands"
+          href={routes.brands()}
         >
           {t('exploreBrands')}
         </Link>
@@ -54,7 +55,7 @@ export function ContributionsList({ items }: ContributionsListProps) {
         const brandNameElement = item.brandSlug ? (
           <Link
             className="type-body-sm font-semibold text-ink underline-offset-4 hover:underline"
-            href={`/brands/${item.brandSlug}`}
+            href={routes.brand(item.brandSlug)}
           >
             {brandName}
           </Link>

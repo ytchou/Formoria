@@ -17,6 +17,20 @@ const eslintConfig = defineConfig([
   // suppression in email-capture-form.tsx. The ignore patterns encode intent that
   // already existed in the code: `_`-prefixed bindings are deliberate, and
   // rest-sibling destructuring is the idiom used to omit keys.
+  // `SurfaceImage` (`components/ui/image.tsx`) is the app's `next/image`
+  // wrapper, so every image call site now renders through a name that
+  // eslint-config-next's `alt-text` default (`img: ["Image"]`) does not know.
+  // Its own props type already makes `alt` required, but a type error and a
+  // lint warning catch different mistakes — `alt={undefined}` type-checks under
+  // a loose value while the rule sees a missing description.
+  {
+    rules: {
+      "jsx-a11y/alt-text": [
+        "warn",
+        { elements: ["img"], img: ["Image", "SurfaceImage"] },
+      ],
+    },
+  },
   {
     rules: {
       "@typescript-eslint/no-unused-vars": [

@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { surfaceCardStyles } from '@/components/ui/card'
 import type { Event, EventPhase } from '@/lib/services/events'
 import { formatEventDateRange } from './event-date'
+import { routes } from '@/lib/routes'
 
 /**
  * Exported (unlike the stories hub's local `StoryCard`) because the events hub
@@ -66,7 +67,7 @@ export function EventCard({
 
   return (
     <Link
-      href={`/events/${event.slug}`}
+      href={routes.event(event.slug)}
       className={surfaceCardStyles({
         className: 'group block hover:bg-secondary',
         interactive: true,

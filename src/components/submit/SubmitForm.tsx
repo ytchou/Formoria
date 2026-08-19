@@ -44,6 +44,7 @@ import {
   trackSubmissionFormErrorShown,
 } from "@/lib/analytics";
 import { useSubmissionAnalytics } from "@/hooks/use-submission-analytics";
+import { routes } from "@/lib/routes";
 
 /**
  * A duplicate hit reads as a plain red line, matching every other field error
@@ -70,7 +71,7 @@ function DuplicateNotice({
           <Fragment key={candidate.id}>
             {index === 0 ? " " : ", "}
             <Link
-              href={`/brands/${candidate.slug}`}
+              href={routes.brand(candidate.slug)}
               target="_blank"
               rel="noopener noreferrer"
               className="font-medium underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -334,7 +335,7 @@ export default function SubmitForm({
         if (result?.ownershipAdjusted) {
           query.set("ownership", "community");
         }
-        setPendingRedirect(`/submit/confirmation?${query.toString()}`);
+        setPendingRedirect(`${routes.submit.confirmation()}?${query.toString()}`);
 
         trackSubmissionCompleted(
           data.name,
@@ -623,7 +624,7 @@ export default function SubmitForm({
                       {tReview.rich("pdpaConsent", {
                         privacyPolicy: (chunks) => (
                           <Link
-                            href="/privacy"
+                            href={routes.privacy()}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

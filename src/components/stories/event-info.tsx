@@ -9,6 +9,7 @@ import { Link } from '@/i18n/navigation'
 import { getPublishedEventBySlug, type Event } from '@/lib/services/events'
 import { getStorySeries, type StoryListResult, type StoryLocale } from '@/lib/services/stories'
 import { cn } from '@/lib/utils'
+import { routes } from '@/lib/routes'
 
 type EventLoader = (slug: string) => Promise<Event | null>
 type SeriesLoader = (slug: string, locale: StoryLocale) => Promise<StoryListResult>
@@ -116,7 +117,7 @@ export async function EventInfo({
               </a>
             ) : null}
             <Link
-              href={`/events/${slug}`}
+              href={routes.event(slug)}
               className={buttonVariants({
                 variant: 'secondary',
                 size: 'large',

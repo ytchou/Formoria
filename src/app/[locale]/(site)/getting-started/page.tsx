@@ -8,6 +8,7 @@ import { surfaceCardStyles } from "@/components/ui/card";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
 import { buildOpenGraph } from "@/lib/seo/open-graph";
+import { routes } from "@/lib/routes";
 
 export const revalidate = 86400;
 
@@ -25,7 +26,7 @@ export async function generateMetadata({
   const title = t("title");
   const description = t("description");
   const { canonical, languages } = buildAlternates(
-    "/getting-started",
+    routes.gettingStarted(),
     safeLocale,
   );
   const ogLocale = safeLocale === "en" ? "en_US" : "zh_TW";
@@ -55,12 +56,12 @@ export default async function GettingStartedPage({ params }: PageProps) {
   const stepCtas: Partial<
     Record<(typeof steps)[number], { href: string; label: string }>
   > = {
-    discover: { href: "/brands", label: t("steps.discover.cta") },
-    submit: { href: "/brands", label: t("steps.submit.cta") },
+    discover: { href: routes.brands(), label: t("steps.discover.cta") },
+    submit: { href: routes.brands(), label: t("steps.submit.cta") },
   };
 
   return (
-    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
+    <main className="page-gutter mx-auto w-full page-measure py-10">
       <section className="grid gap-8 border-b border-border pb-10 md:grid-cols-[minmax(0,1fr)_18rem] md:items-end">
         <div className="max-w-3xl">
           <p className="type-eyebrow">{t("hero.eyebrow")}</p>
@@ -69,14 +70,14 @@ export default async function GettingStartedPage({ params }: PageProps) {
         </div>
         <div className="flex flex-col gap-3 sm:flex-row md:flex-col">
           <Link
-            href="/brands"
+            href={routes.brands()}
             className={buttonVariants({ variant: "primary" })}
           >
             {t("hero.primaryCta")}
             <ArrowRight aria-hidden="true" className="size-4" />
           </Link>
           <Link
-            href="/faq"
+            href={routes.faq()}
             className={buttonVariants({ variant: "secondary" })}
           >
             {t("hero.secondaryCta")}
@@ -151,13 +152,13 @@ export default async function GettingStartedPage({ params }: PageProps) {
         </div>
         <div className="mt-5 flex flex-col gap-3 sm:flex-row md:mt-0">
           <Link
-            href="/brands"
+            href={routes.brands()}
             className={buttonVariants({ variant: "primary" })}
           >
             {t("cta.browse")}
           </Link>
           <Link
-            href="/about#vision"
+            href={`${routes.about()}#vision`}
             className={buttonVariants({ variant: "secondary" })}
           >
             {t("cta.about")}

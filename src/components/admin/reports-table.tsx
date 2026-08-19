@@ -24,6 +24,7 @@ import {
   useQueueAction,
   useReviewQueue,
 } from "./queue";
+import { routes } from "@/lib/routes";
 
 type ReviewAction = (
   id: string,
@@ -141,15 +142,22 @@ export function ReportsTable({
     {
       id: "brand",
       header: t("table.brand"),
-      cell: (item) => (
-        <Link
-          href={`/brands/${item.brandSlug}`}
-          className="underline"
-          onClick={(event) => event.stopPropagation()}
-        >
-          {getRowName(item)}
-        </Link>
-      ),
+      // A report outlives the brand row it points at: the `brands` join in
+      // `getPendingReports` returns null when the brand is gone, so there is no
+      // slug to link to. Render the name as plain text rather than an href to
+      // `/brands/null`.
+      cell: (item) =>
+        item.brandSlug ? (
+          <Link
+            href={routes.brand(item.brandSlug)}
+            className="underline"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {getRowName(item)}
+          </Link>
+        ) : (
+          <span>{getRowName(item)}</span>
+        ),
       cellClassName: "font-medium",
     },
     {

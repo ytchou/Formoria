@@ -15,6 +15,7 @@ import {
   areAllWizardStepsComplete,
   WIZARD_STEPS,
 } from '@/lib/schemas/brand-edit'
+import { routes } from '@/lib/routes'
 
 type Props = {
   params: Promise<{ slug: string; locale: string }>
@@ -37,8 +38,8 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
   if ('error' in editor) {
     redirect(
       editor.error === 'notLoggedIn'
-        ? signInHref(`/dashboard/brands/${slug}/edit`, locale)
-        : localizePath('/dashboard', locale),
+        ? signInHref(routes.dashboard.brandEdit(slug), locale)
+        : localizePath(routes.dashboard.index(), locale),
     )
     return null
   }

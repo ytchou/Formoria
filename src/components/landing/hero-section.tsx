@@ -1,4 +1,4 @@
-import Image from 'next/image'
+import { SurfaceImage } from '@/components/ui/image'
 import { Suspense } from 'react'
 import { Link } from '@/i18n/navigation'
 import { getLocale, getTranslations } from 'next-intl/server'
@@ -6,6 +6,7 @@ import { HeroCategoryChips } from '@/components/landing/hero-category-chips'
 import { SearchInput } from '@/components/brands/search-input'
 import { buttonVariants } from '@/components/ui/button'
 import { categoryLabel, L1_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { routes } from '@/lib/routes'
 
 export default async function HeroSection() {
   const [t, locale] = await Promise.all([getTranslations('landing.hero'), getLocale()])
@@ -48,12 +49,12 @@ export default async function HeroSection() {
         4.5:1 AA floor. One value at /85 for every breakpoint, plus prose on the
         full-strength foreground token below, clears it with margin.
       */}
-      <Image
+      <SurfaceImage
         src="/images/hero-bg.webp"
         alt=""
         fill
         priority
-        sizes="100vw"
+        surface="hero"
         className="object-cover object-right"
       />
       <div
@@ -93,14 +94,14 @@ export default async function HeroSection() {
                 reserves the field's 48px height so the hero does not shift. */}
             <Suspense fallback={<div className="h-12 flex-1" aria-hidden="true" />}>
               <SearchInput
-                redirectTo="/brands"
+                redirectTo={routes.brands()}
                 placeholder={t('searchPlaceholder')}
                 formAriaLabel={t('searchLabel')}
                 className="max-w-none flex-1 text-start"
               />
             </Suspense>
             <Link
-              href="/brands"
+              href={routes.brands()}
               data-ph-no-autocapture
               className={buttonVariants({
                 variant: 'primary',

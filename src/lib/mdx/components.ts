@@ -151,7 +151,7 @@ export function createStoryComponentMap({ currentStorySlug }: { currentStorySlug
     // `object-cover` matches every other image surface in the product.
     //
     // Capped and centred rather than `w-full`: the story page runs the standard
-    // `max-w-screen-xl` container, and an unbounded 4:3 image in it renders
+    // `page-measure` container, and an unbounded 4:3 image in it renders
     // 1200x900 — taller than the viewport on a laptop, so a single photo became
     // a full-screen interruption in the middle of a paragraph. `max-w-2xl` keeps
     // an inline photo at roughly the size it was before the page widened.
@@ -161,7 +161,7 @@ export function createStoryComponentMap({ currentStorySlug }: { currentStorySlug
         decoding: 'async',
         ...props,
         className: cn(
-          'mx-auto my-6 aspect-[4/3] w-full max-w-2xl rounded-lg border border-border bg-muted object-cover',
+          'mx-auto my-6 aspect-media w-full max-w-2xl rounded-lg border border-border bg-muted object-cover',
           props.className,
         ),
       }),

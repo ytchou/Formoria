@@ -35,6 +35,7 @@ import { RerunJobButton } from "./rerun-job-button";
 import { DispatchJobButton } from "../dispatch-job-button";
 import { CancelJobButton } from "../cancel-job-button";
 import { ResumeJobButton } from "../resume-job-button";
+import { routes } from "@/lib/routes";
 
 const phaseDescriptions = {
   clean: "Normalizes the submitted brand name.",
@@ -155,7 +156,7 @@ export function JobDetailView({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
           <Link
-            href="/admin/jobs"
+            href={routes.admin.jobs()}
             className="inline-flex min-h-12 items-center type-body-sm font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             ← Back to Data Jobs
@@ -182,7 +183,7 @@ export function JobDetailView({
           ) : null}
           {canResume ? <ResumeJobButton jobId={job.id} /> : null}
           <Link
-            href={`/admin/jobs/${job.id}/runlog`}
+            href={`${routes.admin.job(job.id)}/runlog`}
             className={buttonVariants({
               variant: "secondary",
               size: "large",
@@ -192,7 +193,7 @@ export function JobDetailView({
             Run Log
           </Link>
           <a
-            href={`/admin/jobs/${job.id}/runlog?download=1`}
+            href={`${routes.admin.job(job.id)}/runlog?download=1`}
             className={buttonVariants({
               variant: "secondary",
               size: "large",
@@ -340,8 +341,8 @@ export function JobDetailView({
             const selected = selectedStatus === filter.value;
             const href =
               filter.value === "all"
-                ? `/admin/jobs/${job.id}`
-                : `/admin/jobs/${job.id}?status=${filter.value}`;
+                ? routes.admin.job(job.id)
+                : `${routes.admin.job(job.id)}?status=${filter.value}`;
             return (
               <Link
                 key={filter.value}
@@ -440,7 +441,7 @@ function targetReason(target: CurationJobTarget): string {
 function LineageLink({ id, label }: { id: string; label: string }) {
   return (
     <Link
-      href={`/admin/jobs/${id}`}
+      href={routes.admin.job(id)}
       className={buttonVariants({
         variant: "secondary",
         size: "large",

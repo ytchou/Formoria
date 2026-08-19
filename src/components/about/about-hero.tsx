@@ -1,7 +1,8 @@
-import Image from 'next/image'
+import { SurfaceImage } from '@/components/ui/image'
 import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
+import { routes } from '@/lib/routes'
 
 interface AboutHeroProps {
   /** Omitted when the count could not be read — renders no figure rather than a false zero. */
@@ -21,12 +22,12 @@ export default async function AboutHero({ brandCount, categoryCount, recentBrand
 
   return (
     <section className="relative overflow-hidden py-12 md:py-20">
-      <Image
+      <SurfaceImage
         src="/images/hero-bg.webp"
         alt=""
         fill
         preload
-        sizes="100vw"
+        surface="hero"
         className="object-cover object-right"
       />
       <div className="absolute inset-0 bg-background/70 md:bg-background/45" aria-hidden="true" />
@@ -37,7 +38,7 @@ export default async function AboutHero({ brandCount, categoryCount, recentBrand
 
           <div className="mt-6">
             <Link
-              href="/brands"
+              href={routes.brands()}
               className={buttonVariants({
                 variant: 'primary',
                 size: 'large',

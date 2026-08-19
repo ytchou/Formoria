@@ -207,8 +207,12 @@ describe("SelectedProductTile", () => {
 
     const box = container.querySelector("[data-wall-ratio]")!;
     expect(box.getAttribute("data-wall-ratio")).toBe("3:4");
-    expect(box.className).not.toContain("aspect-[4/3]");
-    expect(container.innerHTML).not.toContain("aspect-[4/3]");
+    // The bucket drives the box through an inline `aspect-ratio`, so NO aspect
+    // utility may appear — neither the retired 4:3 arbitrary value nor the
+    // shared `aspect-media` token that replaced it. Either would override the
+    // bucket and flatten every tile back to one shape.
+    expect(box.className).not.toMatch(/\baspect-/);
+    expect(container.innerHTML).not.toMatch(/aspect-\[|aspect-media/);
   });
 
   it("falls back to 4:3 when the bucket is absent", () => {
@@ -318,7 +322,10 @@ describe("SelectedProductTile", () => {
     const { view, img, box } = renderImageBox("outbound");
 
     expect(box.className).toContain("aspect-square");
-    expect(box.className).not.toContain("aspect-[4/3]");
+    // Square, stated locally. A curated product is 1:1 by DEV-1519's own
+    // measurement, not because it inherits the shared media ratio — so this
+    // box must not pick up an arbitrary-value ratio class either.
+    expect(box.className).not.toMatch(/aspect-\[/);
     expect(img.className).toContain("object-cover");
     view.unmount();
   });

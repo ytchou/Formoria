@@ -6,6 +6,7 @@ import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
+import { routes } from '@/lib/routes'
 
 type ConfirmationPageProps = {
   params: Promise<{ locale: string }>
@@ -25,7 +26,7 @@ export async function generateMetadata({ params }: ConfirmationPageProps): Promi
   return {
     title,
     description,
-    alternates: buildAlternates('/submit/confirmation', safeLocale),
+    alternates: buildAlternates(routes.submit.confirmation(), safeLocale),
     openGraph: {
       title,
       description,
@@ -123,7 +124,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
         <p className="mt-4 type-body-sm">
           {t.rich('whatNext.learnMore.answer', {
             link: (chunks) => (
-              <Link href="/getting-started" className="text-foreground underline">
+              <Link href={routes.gettingStarted()} className="text-foreground underline">
                 {chunks}
               </Link>
             ),
@@ -140,7 +141,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
             {t('cta.explore')}
           </Link>
           <Link
-            href="/submit"
+            href={routes.submit.index()}
             className={buttonVariants({ variant: 'secondary', className: 'w-full' })}
           >
             <Plus className="h-4 w-4" />

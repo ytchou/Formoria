@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { SurfaceCard } from "@/components/ui/card";
+import { routes } from "@/lib/routes";
 
 export const metadata: Metadata = { title: "Scripts | Admin" };
 
@@ -22,7 +23,7 @@ export default function AdminScriptsPage() {
             official websites.
           </p>
           <Link
-            href="/admin/scripts/bulk-community-submissions"
+            href={routes.admin.bulkCommunitySubmissions()}
             className={buttonVariants({ className: "mt-6 min-h-12" })}
           >
             Open tool

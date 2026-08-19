@@ -33,6 +33,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { trackSubmissionCompleted } from "@/lib/analytics";
 import { stripUrlQuery } from "@/lib/url";
 import { useSubmissionAnalytics } from "@/hooks/use-submission-analytics";
+import { routes } from "@/lib/routes";
 
 type Translator = (key: string) => string;
 
@@ -193,7 +194,7 @@ export default function SubmitQuickForm() {
           return;
         }
 
-        setPendingRedirect("/submit/confirmation?intent=owner_claim");
+        setPendingRedirect(routes.submit.confirmation({ intent: "owner_claim" }));
 
         trackSubmissionCompleted(
           data.name,
@@ -368,7 +369,7 @@ export default function SubmitQuickForm() {
                       {tReview.rich("pdpaConsent", {
                         privacyPolicy: (chunks) => (
                           <Link
-                            href="/privacy"
+                            href={routes.privacy()}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { routes } from "@/lib/routes";
 
 export type NavItem = {
   label: string;
@@ -18,7 +19,7 @@ export function AdminNav({ items }: AdminNavProps) {
   const pathname = usePathname();
 
   function isActive(href: string) {
-    if (href === "/admin") return pathname === "/admin";
+    if (href === routes.admin.index()) return pathname === routes.admin.index();
     return pathname.startsWith(href);
   }
 

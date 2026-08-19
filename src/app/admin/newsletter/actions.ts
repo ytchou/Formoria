@@ -9,6 +9,7 @@ import {
   adminUnsubscribeNewsletterSubscriber,
   resendNewsletterConfirmation,
 } from "@/lib/services/newsletter";
+import { routes } from "@/lib/routes";
 
 export async function resendNewsletterConfirmationAction(
   subscriberId: string,
@@ -25,7 +26,7 @@ export async function resendNewsletterConfirmationAction(
         action: "newsletter_confirmation_resent",
         metadata: { subscriberId },
       });
-      revalidatePath("/admin/newsletter");
+      revalidatePath(routes.admin.newsletter());
       return { resent: true };
     } catch (error) {
       console.error("[admin:newsletter:resend]", error);
@@ -49,8 +50,8 @@ export async function unsubscribeNewsletterSubscriberAction(
         action: "newsletter_unsubscribed",
         metadata: { subscriberId },
       });
-      revalidatePath("/admin");
-      revalidatePath("/admin/newsletter");
+      revalidatePath(routes.admin.index());
+      revalidatePath(routes.admin.newsletter());
       return { unsubscribed: true };
     } catch (error) {
       console.error("[admin:newsletter:unsubscribe]", error);

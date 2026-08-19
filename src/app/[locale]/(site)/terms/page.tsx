@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { buildOpenGraph } from '@/lib/seo/open-graph'
+import { routes } from '@/lib/routes'
 
 type PageProps = {
   params: Promise<{ locale: string }>
@@ -15,7 +16,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const t = await getTranslations('legal.terms.metadata')
   const title = t('title')
   const description = t('description')
-  const { canonical, languages } = buildAlternates('/terms', safeLocale)
+  const { canonical, languages } = buildAlternates(routes.terms(), safeLocale)
   const ogLocale = safeLocale === 'en' ? 'en_US' : 'zh_TW'
   const ogAlternateLocale = safeLocale === 'en' ? 'zh_TW' : 'en_US'
 
@@ -56,7 +57,7 @@ export default async function TermsPage({ params }: PageProps) {
   const t = await getTranslations('legal.terms')
 
   return (
-    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
+    <main className="page-gutter mx-auto w-full page-measure py-10">
       <div className="grid gap-10 md:grid-cols-[18rem_minmax(0,1fr)] md:gap-16">
         <aside className="space-y-4 md:sticky md:top-(--nav-height) md:self-start">
           <h1 className="type-section">{t('title')}</h1>

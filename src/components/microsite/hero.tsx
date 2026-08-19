@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { SurfaceImage } from "@/components/ui/image";
 import type { PublicMicrositeBrand } from "@/lib/brands/contracts";
 import { brandImageFill } from "@/lib/images/focal";
 
@@ -30,8 +30,8 @@ export function Hero({ brand, siteContent }: HeroProps) {
         </div>
 
         {brand.heroImageUrl && (
-          <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-border bg-card">
-            <Image
+          <div className="relative aspect-media overflow-hidden rounded-xl border border-border bg-card">
+            <SurfaceImage
               src={brand.heroImageUrl}
               alt={brand.name}
               fill
@@ -42,7 +42,7 @@ export function Hero({ brand, siteContent }: HeroProps) {
               className={heroFill.className}
               // Assigned, never spread — `undefined` is meaningful here.
               style={heroFill.style}
-              sizes="(max-width: 768px) 100vw, 50vw"
+              surface="split"
               preload
             />
           </div>

@@ -4,6 +4,7 @@ import { Store } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
+import { routes } from '@/lib/routes'
 
 export function DashboardEmptyState() {
   const t = useTranslations('dashboard.emptyState')
@@ -23,13 +24,13 @@ export function DashboardEmptyState() {
         <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
           <Link
             className={buttonVariants({ variant: 'primary' })}
-            href="/submit"
+            href={routes.submit.index()}
           >
             {t('submitCta')}
           </Link>
           <Link
             className={buttonVariants({ variant: 'secondary' })}
-            href="/brands"
+            href={routes.brands()}
           >
             {t('browseCta')}
           </Link>

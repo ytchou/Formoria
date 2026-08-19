@@ -1,6 +1,6 @@
 'use client'
 
-import Image from 'next/image'
+import { SurfaceImage } from '@/components/ui/image'
 import type { CSSProperties } from 'react'
 
 import { Link } from '@/i18n/navigation'
@@ -9,6 +9,7 @@ import { trackTrailCardClicked } from '@/lib/analytics'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import type { TrailEntry } from '@/lib/services/trails'
 import { cn } from '@/lib/utils'
+import { routes } from '@/lib/routes'
 
 export type WallTrailTileLabels = {
   eyebrow: string
@@ -70,7 +71,7 @@ export function WallTrailTile({
       )}
     >
       <Link
-        href={`/discover/${trail.slug}`}
+        href={routes.trail(trail.slug)}
         prefetch={false}
         aria-labelledby={titleId}
         data-ph-no-autocapture
@@ -78,7 +79,7 @@ export function WallTrailTile({
         className="group relative flex h-full min-h-80 flex-col justify-end overflow-hidden p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-3 sm:min-h-0 md:p-8"
       >
         {imageSrc ? (
-          <Image
+          <SurfaceImage
             src={imageSrc}
             alt={imageAlt}
             fill
@@ -86,6 +87,7 @@ export function WallTrailTile({
             // full-width band, so neither asks for a viewport-wide candidate on
             // desktop. `wide` is 3:2 against `tall`'s 3:4 — twice the width for
             // the same line height, hence 30vw against 20vw.
+            surface="tile"
             sizes={
               format === 'wide'
                 ? '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 30vw'

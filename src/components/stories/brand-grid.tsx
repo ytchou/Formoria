@@ -27,7 +27,7 @@ type BrandGridProps = {
  *
  * One batched lookup for the whole array — rendering N `<BrandCardMdx>` would
  * be N queries. Two columns, not three: the story page now runs the standard
- * `max-w-screen-xl` container, so width is no longer the constraint — a grid
+ * `page-measure` container, so width is no longer the constraint — a grid
  * dropped into prose reads as a break in the argument, and two columns keeps
  * it closer to the text than to the directory.
  */

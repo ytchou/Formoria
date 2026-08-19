@@ -43,6 +43,7 @@ import {
 import { BasicInfoSection } from './sections/BasicInfoSection'
 import { LinksSection } from './sections/LinksSection'
 import { MediaSection } from './sections/MediaSection'
+import { routes } from '@/lib/routes'
 
 type SubmissionWizardProps = {
   subcategorySuggestions?: string[]
@@ -218,7 +219,7 @@ export default function SubmissionWizard({
         if (result?.ownershipAdjusted) {
           params.set('ownership', 'community')
         }
-        router.push(`/submit/confirmation?${params.toString()}`)
+        router.push(`${routes.submit.confirmation()}?${params.toString()}`)
       } finally {
         setIsSubmitting(false)
       }
@@ -304,7 +305,7 @@ export default function SubmissionWizard({
                             {tReview.rich('pdpaConsent', {
                               privacyPolicy: (chunks) => (
                                 <Link
-                                  href="/privacy"
+                                  href={routes.privacy()}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { routes } from '@/lib/routes'
 
 function handleSignOut() {
   trackSignOut()
@@ -84,29 +85,29 @@ export function AccountMenu() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40 min-w-40">
         <DropdownMenuItem
-          render={<Link href="/settings" />}
+          render={<Link href={routes.settings()} />}
         >
           {t('account.settings')}
         </DropdownMenuItem>
         <DropdownMenuItem
-          render={<Link href="/favorites" />}
+          render={<Link href={routes.favorites()} />}
         >
           {t('account.favorites')}
         </DropdownMenuItem>
         <DropdownMenuItem
-          render={<Link href="/contributions" />}
+          render={<Link href={routes.contributions()} />}
         >
           {t('account.contributions')}
         </DropdownMenuItem>
         {viewer.ownerFeaturesEnabled ? (
           <DropdownMenuItem
-            render={<Link href="/my-submissions" />}
+            render={<Link href={routes.mySubmissions()} />}
           >
             {t('account.mySubmissions')}
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem
-          render={<Link href="/feature-requests" />}
+          render={<Link href={routes.featureRequests()} />}
         >
           {t('account.feedback')}
         </DropdownMenuItem>
@@ -133,7 +134,7 @@ export function AccountMenu() {
           </form>
         ))}
         <DropdownMenuSeparator />
-        <form action="/auth/sign-out" method="post" onSubmit={preserveCurrentUrl}>
+        <form action={routes.auth.signOut()} method="post" onSubmit={preserveCurrentUrl}>
           <input type="hidden" name="returnTo" defaultValue={pathname} />
           <DropdownMenuItem
             variant="destructive"

@@ -26,6 +26,7 @@ import {
 } from "@/lib/services/trails";
 import { getPublishedCuratedProductsForTrail, type TrailCuratedProduct } from "@/lib/services/curated-products";
 import { TrailContent } from "./trail-content";
+import { routes } from "@/lib/routes";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
@@ -59,7 +60,7 @@ export function buildTrailMetadata({
   productsReadFailed?: boolean;
 }): Metadata {
   const safeLocale: Locale = locale === "en" ? "en" : "zh-TW";
-  const path = `/discover/${trail.frontmatter.slug}`;
+  const path = routes.trail(trail.frontmatter.slug);
   const { canonical, languages } = buildAlternates(path, "zh-TW", ["zh-TW"]);
 
   return {
@@ -166,7 +167,7 @@ function relatedStoryLinks(
         {values.map((value, position) => (
           <li key={value}>
             <RelatedStoryLink
-              href={`/stories/${encodeURIComponent(value)}`}
+              href={routes.story(value)}
               storySlug={value}
               position={position}
               storySurface="trail_related_stories"
@@ -192,7 +193,7 @@ function relatedTrailLinks(title: string, values: string[]): React.ReactNode {
         {values.map((value, position) => (
           <li key={value}>
             <RelatedTrailLink
-              href={`/discover/${encodeURIComponent(value)}`}
+              href={routes.trail(value)}
               trailSlug={value}
               position={position}
               trailSurface="trail_related"
@@ -228,12 +229,12 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
   const articleJsonLd = buildArticleJsonLd({
     title: frontmatter.title,
     description: frontmatter.description ?? "",
-    path: `/discover/${frontmatter.slug}`,
+    path: routes.trail(frontmatter.slug),
     locale: safeLocale,
     author: frontmatter.editorialOwner ?? "Formoria",
   });
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(
-    [{ label: t("breadcrumb"), href: "/discover" }, { label: frontmatter.title }],
+    [{ label: t("breadcrumb"), href: routes.discover() }, { label: frontmatter.title }],
     safeLocale,
   );
 
@@ -241,7 +242,7 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
     <main className="page-gutter mx-auto box-border w-full max-w-[920px] pt-8 pb-16 md:pt-12 md:pb-24">
       <Breadcrumb
         ariaLabel={t("breadcrumbAria")}
-        items={[{ label: t("breadcrumb"), href: "/discover" }, { label: frontmatter.title }]}
+        items={[{ label: t("breadcrumb"), href: routes.discover() }, { label: frontmatter.title }]}
       />
       <article className="space-y-8">
         <script
@@ -286,7 +287,7 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
         </div>
         {frontmatter.faq.length > 0 ? <FaqBlock questions={frontmatter.faq} /> : null}
         <div className="max-w-[720px] space-y-8">
-          {relatedLinks(t("relatedCategories"), frontmatter.relatedCategories, "/categories")}
+          {relatedLinks(t("relatedCategories"), frontmatter.relatedCategories, routes.categories())}
           {relatedStoryLinks(t("relatedStories"), frontmatter.relatedStories)}
           {relatedTrailLinks(t("relatedTrails"), frontmatter.relatedTrails)}
         </div>

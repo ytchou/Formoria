@@ -4,6 +4,7 @@ import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
 import { trackHeroCategoryClicked } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
+import { routes } from '@/lib/routes'
 
 interface HeroCategoryChipsProps {
   categories: Array<{ slug: string; label: string }>
@@ -15,9 +16,9 @@ export function HeroCategoryChips({ categories }: HeroCategoryChipsProps) {
       {categories.map((cat) => (
         <Link
           key={cat.slug}
-          href={`/categories/${cat.slug}`}
+          href={routes.category(cat.slug)}
           data-ph-no-autocapture
-          onClick={() => trackHeroCategoryClicked(cat.slug, `/categories/${cat.slug}`)}
+          onClick={() => trackHeroCategoryClicked(cat.slug, routes.category(cat.slug))}
           // ui-exception: translucent hover border on hero, not in secondary variant; single site
           className={cn(
             buttonVariants({ variant: 'secondary', shape: 'pill', size: 'chip' }),

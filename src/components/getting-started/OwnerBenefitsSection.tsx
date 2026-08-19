@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
+import { routes } from '@/lib/routes'
 
 const benefits = [
   {
@@ -45,7 +46,7 @@ export function OwnerBenefitsSection() {
           interest on the feature request board — shown to every visitor, since
           signed-in owners have no dashboard to be sent to either. */}
       <Link
-        href="/feature-requests"
+        href={routes.featureRequests()}
         className={buttonVariants({ variant: 'primary' })}
       >
         {ctaT('cta')}

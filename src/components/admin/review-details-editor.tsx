@@ -599,7 +599,7 @@ export function ReviewDetailsEditor({
                         <img
                           src={image.url}
                           alt={image.altZh ?? t("imageAlt", { n: index + 1 })}
-                          className={cn("aspect-[4/3] w-full", fill.className)}
+                          className={cn("aspect-media w-full", fill.className)}
                           // Assigned, never spread — `undefined` is meaningful here.
                           style={fill.style}
                         />
@@ -688,7 +688,7 @@ export function ReviewDetailsEditor({
                           src={image.url}
                           alt={image.altZh ?? t("imageAlt", { n: index + 1 })}
                           className={cn(
-                            "aspect-[4/3] w-full rounded-md border",
+                            "aspect-media w-full rounded-md border",
                             fill.className,
                           )}
                           // Assigned, never spread — `undefined` is meaningful here.

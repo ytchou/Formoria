@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import type { AppLocale } from '@/i18n/locale-preference'
 import type { StoryEntry } from '@/lib/services/stories'
+import { routes } from '@/lib/routes'
 
 type SeriesNavProps = {
   /** Series members, already ordered by `getStorySeries`. */
@@ -61,7 +62,7 @@ export function SeriesList({ series, currentSlug }: Omit<SeriesNavProps, 'locale
               // Link by the top-level `slug` (the filename stem) — that is what
               // `generateStaticParams` registers. `frontmatter.slug` 404s.
               <Link
-                href={`/stories/${entry.slug}`}
+                href={routes.story(entry.slug)}
                 className="flex min-h-11 items-center gap-3 rounded-lg py-2 type-body-sm text-ink-soft transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {position}

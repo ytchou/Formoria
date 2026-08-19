@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import Image from 'next/image'
+import { SurfaceImage } from '@/components/ui/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
@@ -58,10 +58,11 @@ export function ImageCarousel({
   if (total === 0) {
     return (
       <div
-        className={cn(
-          'relative overflow-hidden rounded-xl bg-muted',
-          variant === 'detail' ? 'aspect-[4/3]' : 'aspect-square',
-        )}
+        // ONE ratio for both variants. It used to be 4:3 on detail and square
+        // in the grid, so the same photo was cropped two different ways
+        // depending on where you looked at it. `aspect-media` is 1:1 — see the
+        // token's comment in globals.css for the measurement.
+        className="relative aspect-media overflow-hidden rounded-xl bg-muted"
       >
         <BrandImageFallback name={alt} category={category ?? null} size="detail" />
       </div>
@@ -152,13 +153,14 @@ export function ImageCarousel({
     <div className={cn(variant === 'detail' && 'space-y-3')}>
       {/* Hero image */}
       <div
-        className={cn(
-          'relative overflow-hidden rounded-xl bg-muted',
-          variant === 'detail' ? 'aspect-[4/3]' : 'aspect-square',
-        )}
+        // ONE ratio for both variants. It used to be 4:3 on detail and square
+        // in the grid, so the same photo was cropped two different ways
+        // depending on where you looked at it. `aspect-media` is 1:1 — see the
+        // token's comment in globals.css for the measurement.
+        className="relative aspect-media overflow-hidden rounded-xl bg-muted"
       >
         {previousImage && (
-          <Image
+          <SurfaceImage
             src={previousImage.src}
             alt=""
             fill
@@ -173,6 +175,10 @@ export function ImageCarousel({
               ...previousFill.style,
               transitionTimingFunction: 'var(--ease-settle)',
             }}
+            surface="card"
+            // The detail hero is a single column capped at 580px; in the grid
+            // variant it is a fixed 192px cell. Neither is the four-up card
+            // measure the `card` surface describes, so both are stated.
             sizes={variant === 'detail' ? '(max-width: 1024px) 100vw, 580px' : '192px'}
             aria-hidden
           />
@@ -181,7 +187,7 @@ export function ImageCarousel({
         {isCurrentBroken || !currentImage ? (
           <BrandImageFallback name={alt} category={category ?? null} size="detail" />
         ) : (
-          <Image
+          <SurfaceImage
             key={current}
             src={currentImage.src}
             alt={getAlt(current)}
@@ -189,6 +195,10 @@ export function ImageCarousel({
             className={cn('animate-in fade-in duration-200', currentFill.className)}
             // Assigned, never spread — `undefined` is meaningful here.
             style={currentFill.style}
+            surface="card"
+            // The detail hero is a single column capped at 580px; in the grid
+            // variant it is a fixed 192px cell. Neither is the four-up card
+            // measure the `card` surface describes, so both are stated.
             sizes={variant === 'detail' ? '(max-width: 1024px) 100vw, 580px' : '192px'}
             preload={variant === 'detail' && current === 0}
             onError={() => handleImageError(current)}
@@ -274,13 +284,15 @@ export function ImageCarousel({
                   </span>
                 </div>
               ) : (
-                <Image
+                <SurfaceImage
                   src={src}
                   alt={getAlt(i)}
                   fill
                   className={thumbFill.className}
                   // Assigned, never spread — `undefined` is meaningful here.
                   style={thumbFill.style}
+                  surface="thumb"
+                  // The thumbnail strip is a fixed 64px square.
                   sizes="64px"
                   onError={() => handleImageError(i)}
                 />

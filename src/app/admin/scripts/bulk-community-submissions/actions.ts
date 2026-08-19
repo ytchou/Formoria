@@ -16,6 +16,7 @@ import {
 } from "@/lib/services/community-submissions";
 import { submitBrandForReview } from "@/lib/services/submission-pipeline";
 import { buildGuestSubmissionEmail } from "@/lib/services/submissions";
+import { routes } from "@/lib/routes";
 
 const draftSchema = z.object({
   id: z.string().min(1).max(100),
@@ -89,8 +90,8 @@ export async function executeCommunitySubmissionsAction(
         }),
       });
       if (results.some((result) => result.status === "created")) {
-        revalidatePath("/admin/submissions");
-        revalidatePath("/admin");
+        revalidatePath(routes.admin.submissions());
+        revalidatePath(routes.admin.index());
       }
       return { results };
     } catch (error) {

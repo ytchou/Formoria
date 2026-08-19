@@ -14,6 +14,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { trackCategoryFilterApplied } from '@/lib/analytics'
 import { categoryLabel } from '@/lib/taxonomy/ontology'
 import { buildCategoryTabTarget } from './category-tab-target'
+import { routes } from '@/lib/routes'
 
 interface NavCategoryTabsProps {
   categories: Array<{ slug: string; name: string; nameZh: string | null }>
@@ -26,7 +27,7 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
   const locale = useLocale()
   const t = useTranslations('nav')
 
-  const isBrandsPage = pathname === '/brands'
+  const isBrandsPage = pathname === routes.brands()
   const activeCategory = isBrandsPage ? (searchParams.get('category') ?? '') : ''
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -89,7 +90,10 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
   }
 
   return (
-    <nav className="page-gutter mx-auto max-w-screen-xl overflow-x-hidden">
+    // `header-measure`, not `page-measure`: this row is part of the sticky
+    // header, which is deliberately excluded from the landing page's wider
+    // measure. See the comment beside `--page-measure` in globals.css.
+    <nav className="page-gutter mx-auto header-measure overflow-x-hidden">
       <div ref={containerRef} className="relative flex min-h-12 items-center gap-1 overflow-x-auto scrollbar-none">
         <a
           href={targetFor('').href}
@@ -148,7 +152,7 @@ function NavCategoryTabsFallback() {
   return (
     <nav
       aria-hidden="true"
-      className="page-gutter mx-auto max-w-screen-xl overflow-x-hidden"
+      className="page-gutter mx-auto header-measure overflow-x-hidden"
     >
       <div className="min-h-12" />
     </nav>

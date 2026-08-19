@@ -14,6 +14,7 @@ import {
   parseAdminNewsletterFilters,
   VALID_INTERESTS,
 } from "@/lib/services/newsletter";
+import { routes } from "@/lib/routes";
 
 export const metadata: Metadata = { title: "Newsletter | Admin" };
 export const revalidate = 0;
@@ -61,7 +62,7 @@ export default async function AdminNewsletterPage({
             <p className="mt-1 type-body-sm">Manage consented subscribers without exposing email action tokens.</p>
           </div>
           <a
-            href={`/admin/newsletter/export${exportParams.size ? `?${exportParams}` : ""}`}
+            href={`${routes.admin.newsletterExport()}${exportParams.size ? `?${exportParams}` : ""}`}
             className={buttonVariants({ variant: "secondary", size: "large", className: "min-h-12" })}
           >
             <Download aria-hidden="true" />
@@ -123,7 +124,7 @@ function PaginationLink({ label, cursor, direction, filters }: {
   if (filters.q) query.set("q", filters.q);
   if (filters.status) query.set("status", filters.status);
   if (filters.interest) query.set("interest", filters.interest);
-  return <Link href={`/admin/newsletter?${query}`} className={buttonVariants({ variant: "secondary", className: "min-h-12" })}>{label}</Link>;
+  return <Link href={`${routes.admin.newsletter()}?${query}`} className={buttonVariants({ variant: "secondary", className: "min-h-12" })}>{label}</Link>;
 }
 
 function first(value: string | string[] | undefined): string | undefined {

@@ -53,6 +53,7 @@ import { statusStyles, textStyles } from "@/components/ui/text-styles";
 import { MAX_BULK_PRODUCT_BACKFILL } from "@/lib/constants/curated-products";
 import { routing } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
+import { routes } from "@/lib/routes";
 
 type TabValue = "all" | BrandStatus;
 type MitStatus = NonNullable<AdminBrandListItem["mitStatus"]>;
@@ -644,7 +645,7 @@ export function BrandList({
                       {(brand.status === "approved" ||
                         brand.status === "hidden") && (
                         <Link
-                          href={`/admin/curated-products?brand=${brand.slug}`}
+                          href={routes.admin.curatedProducts({ brand: brand.slug })}
                           aria-label={`Ingest curated products for ${brand.name}`}
                           className={buttonVariants({
                             variant: "secondary",

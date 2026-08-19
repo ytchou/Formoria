@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { ToggleChip } from "@/components/ui/toggle-chip";
 import { Link } from "@/i18n/navigation";
 import { trackNewsletterSubscribed } from "@/lib/analytics";
+import { routes } from "@/lib/routes";
 
 const INTEREST_CHIPS = [
   { slug: "curated-picks", labelKey: "interests.curated-picks" },
@@ -132,7 +133,7 @@ export function EmailCaptureForm() {
         {t.rich("consentNotice", {
           privacyPolicy: (chunks) => (
             <Link
-              href="/privacy"
+              href={routes.privacy()}
               target="_blank"
               rel="noopener noreferrer"
               className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

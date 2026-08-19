@@ -7,6 +7,7 @@ import { buildOpenGraph } from '@/lib/seo/open-graph'
 import { Link } from '@/i18n/navigation'
 import { FaqSection } from '@/components/shared/faq-section'
 import { OpenTargetDetails } from '@/components/shared/open-target-details'
+import { routes } from '@/lib/routes'
 
 type PageProps = {
   params: Promise<{ locale: string }>
@@ -21,7 +22,7 @@ export async function generateMetadata({
   const t = await getTranslations('faq.metadata')
   const title = t('title')
   const description = t('description')
-  const { canonical, languages } = buildAlternates('/faq', safeLocale)
+  const { canonical, languages } = buildAlternates(routes.faq(), safeLocale)
   const ogLocale = safeLocale === 'en' ? 'en_US' : 'zh_TW'
   const ogAlternateLocale = safeLocale === 'en' ? 'zh_TW' : 'en_US'
 
@@ -62,7 +63,7 @@ export default async function FaqPage({ params }: PageProps) {
   ] as const
 
   return (
-    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
+    <main className="page-gutter mx-auto w-full page-measure py-10">
       <OpenTargetDetails />
       <div className="grid gap-10 md:grid-cols-5 md:gap-16">
         <aside className="space-y-4 md:sticky md:top-(--nav-height) md:self-start">
@@ -89,7 +90,7 @@ export default async function FaqPage({ params }: PageProps) {
           <p className="type-body-sm">
             {t.rich('intro', {
               contact: (chunks) => (
-                <Link href="/contact" className="type-nav font-semibold text-accent underline-offset-4 hover:underline">
+                <Link href={routes.contact()} className="type-nav font-semibold text-accent underline-offset-4 hover:underline">
                   {chunks}
                 </Link>
               ),
@@ -122,7 +123,7 @@ export default async function FaqPage({ params }: PageProps) {
                 <p className="mt-3 type-body-sm">
                   {t.rich('items.contact.answer', {
                     link: (chunks) => (
-                      <Link href="/contact" className="underline underline-offset-4">
+                      <Link href={routes.contact()} className="underline underline-offset-4">
                         {chunks}
                       </Link>
                     ),
@@ -147,7 +148,7 @@ export default async function FaqPage({ params }: PageProps) {
                   {t.rich('items.ownerInterest.answer', {
                     link: (chunks) => (
                       <Link
-                        href="/feature-requests"
+                        href={routes.featureRequests()}
                         className="underline underline-offset-4"
                       >
                         {chunks}

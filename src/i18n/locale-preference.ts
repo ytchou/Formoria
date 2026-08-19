@@ -1,4 +1,5 @@
 import { routing } from './routing'
+import { routes } from '@/lib/routes'
 
 export type AppLocale = (typeof routing.locales)[number]
 
@@ -54,7 +55,7 @@ export function resolveAuthenticatedLocale({
 }
 
 export function signInHref(path: string, locale: string): string {
-  return `${localizePath('/auth/sign-in', locale)}?next=${encodeURIComponent(localizePath(path, locale))}`
+  return `${localizePath(routes.auth.signIn(), locale)}?next=${encodeURIComponent(localizePath(path, locale))}`
 }
 
 export function dateLocale(locale: string): string {

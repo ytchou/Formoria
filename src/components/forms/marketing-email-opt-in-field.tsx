@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Link } from '@/i18n/navigation'
+import { routes } from '@/lib/routes'
 
 type MarketingEmailOptInFieldProps = {
   id: string
@@ -52,7 +53,7 @@ export function MarketingEmailOptInField({
         {t.rich(descriptionKey, {
           privacyPolicy: (chunks) => (
             <Link
-              href="/privacy"
+              href={routes.privacy()}
               target="_blank"
               rel="noopener noreferrer"
               className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

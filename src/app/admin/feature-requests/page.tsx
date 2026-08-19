@@ -15,8 +15,9 @@ import {
   setFeatureRequestStatus,
   type FeatureRequestStatus,
 } from "@/lib/services/feature-requests";
+import { routes } from "@/lib/routes";
 
-const ADMIN_PATH = "/admin/feature-requests";
+const ADMIN_PATH = routes.admin.featureRequests();
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("admin.featureRequests");

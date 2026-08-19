@@ -7,6 +7,7 @@ import { Typography } from '@/components/ui/typography'
 import { FeatureRequestVotesProvider } from '@/hooks/use-feature-request-votes'
 import { buildAlternates, type Locale } from '@/lib/seo/alternates'
 import { listFeatureRequests } from '@/lib/services/feature-requests'
+import { routes } from '@/lib/routes'
 
 type PageProps = {
   params: Promise<{ locale: string }>
@@ -27,7 +28,7 @@ export async function generateMetadata({
   const title = t('title')
   const description = t('description')
   const { canonical, languages } = buildAlternates(
-    '/feature-requests',
+    routes.featureRequests(),
     safeLocale,
   )
   const ogLocale = safeLocale === 'en' ? 'en_US' : 'zh_TW'

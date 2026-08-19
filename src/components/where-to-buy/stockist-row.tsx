@@ -1,6 +1,7 @@
 import { ExternalLink, MapPin } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import type { StockistLocation } from '@/lib/services/brand-channels'
+import { routes } from '@/lib/routes'
 
 export function StockistRow({
   location,
@@ -18,7 +19,7 @@ export function StockistRow({
         <div className="min-w-0">
           <p className="type-body-sm font-medium text-foreground">{location.name}</p>
           <Link
-            href={`/brands/${location.brandSlug}`}
+            href={routes.brand(location.brandSlug)}
             className="mt-1 inline-flex min-h-8 items-center type-metadata text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent"
           >
             {location.brandName}

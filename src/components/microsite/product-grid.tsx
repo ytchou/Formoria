@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { SurfaceImage } from "@/components/ui/image";
 import { surfaceCardStyles } from "@/components/ui/card";
 import type {
   PublicMicrositeBrand,
@@ -36,13 +36,13 @@ export function ProductGrid({ brand, products }: ProductGridProps) {
               })}
             >
               {product.imageUrl && (
-                <div className="relative aspect-[4/3] overflow-hidden rounded-t-xl bg-secondary">
-                  <Image
+                <div className="relative aspect-media overflow-hidden rounded-t-xl bg-secondary">
+                  <SurfaceImage
                     src={product.imageUrl}
                     alt={`${brand.name} ${product.name}`}
                     fill
                     className="object-cover transition-transform group-hover:scale-[1.02]"
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    surface="tile"
                   />
                 </div>
               )}

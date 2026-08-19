@@ -77,6 +77,21 @@ function images(): HTMLElement[] {
 }
 
 describe("ImageCarousel", () => {
+  it("no longer boxes at 4:3", () => {
+    const { container } = renderCarousel();
+
+    // The hero frame is the first `.relative` box in the tree. Both variants
+    // now read the shared `aspect-media` token (1:1), replacing the split
+    // between a 4:3 detail frame and a square grid frame.
+    const heroBox = container.querySelector("div.relative");
+
+    expect(heroBox).not.toBeNull();
+    expect(heroBox).toHaveClass("aspect-media");
+    expect(heroBox).not.toHaveClass("aspect-square");
+    // No arbitrary-value ratio survives anywhere in the rendered tree.
+    expect(container.innerHTML).not.toMatch(/aspect-\[/);
+  });
+
   it("resolves alt text from the original index, not the filtered one", () => {
     renderCarousel();
     const [hero, firstThumb, secondThumb] = images();

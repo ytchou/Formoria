@@ -10,6 +10,7 @@ import type { StoryEntry } from "@/lib/services/stories";
 import { isStoryTag } from "@/lib/taxonomy/story-tags";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
+import { routes } from "@/lib/routes";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -25,7 +26,7 @@ export async function generateMetadata({
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "stories" });
   const { canonical, languages } = buildAlternates(
-    "/stories",
+    routes.stories(),
     "zh-TW",
     ["zh-TW"],
   );
@@ -70,7 +71,7 @@ export default async function StoriesHubPage({
   ];
 
   return (
-    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
+    <main className="page-gutter mx-auto w-full page-measure py-10">
       <div className="space-y-8">
         <header className="space-y-3">
           <h1 className="type-section">{t("heading")}</h1>

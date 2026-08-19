@@ -1,6 +1,7 @@
 import { Link } from '@/i18n/navigation'
 import { citySlugToPath } from '@/lib/constants/taiwan-cities'
 import type { StockistCitySummary } from '@/lib/services/brand-channels'
+import { routes } from '@/lib/routes'
 
 export function CityCard({
   summary,
@@ -13,7 +14,7 @@ export function CityCard({
   districtNames: Record<string, string>
   locationLabel: string
 }) {
-  const cityPath = `/where-to-buy/${citySlugToPath(summary.city)}`
+  const cityPath = routes.whereToBuyCity(citySlugToPath(summary.city))
   return (
     <article className="border-t border-border py-6">
       <div className="flex items-baseline justify-between gap-4">

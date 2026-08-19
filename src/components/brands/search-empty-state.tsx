@@ -12,6 +12,7 @@ import type { PublicBrandCard } from '@/lib/brands/contracts'
 import { SurfaceCard } from '@/components/ui/card'
 import { trackCtaClicked } from '@/lib/analytics'
 import { BrandCard } from './brand-card'
+import { routes } from '@/lib/routes'
 
 export type ActiveDirectoryFilter = {
   id: string
@@ -61,10 +62,15 @@ export function SearchEmptyState({
         </div>
         {query ? (
           <Link
-            href={`/submit/recommend?name=${encodeURIComponent(query)}`}
+            href={routes.submit.recommend({ name: query })}
             data-ph-no-autocapture
             onClick={() =>
-              trackCtaClicked('recommend_brand', 'empty_state', '/submit/recommend', '/brands')
+              trackCtaClicked(
+                'recommend_brand',
+                'empty_state',
+                routes.submit.recommend(),
+                routes.brands(),
+              )
             }
             className="inline-flex min-h-12 shrink-0 items-center gap-1 self-start type-nav font-semibold text-accent underline-offset-4 hover:underline sm:self-auto"
           >
@@ -93,7 +99,7 @@ export function SearchEmptyState({
             <Link
               href={recommendationsHref}
               data-ph-no-autocapture
-              onClick={() => trackCtaClicked('view_all', 'empty_state', recommendationsHref, '/brands')}
+              onClick={() => trackCtaClicked('view_all', 'empty_state', recommendationsHref, routes.brands())}
               className="inline-flex min-h-12 items-center gap-1 font-medium hover:text-accent"
             >
               {t('viewAll')}

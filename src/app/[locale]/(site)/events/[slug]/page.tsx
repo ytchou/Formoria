@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Image from "next/image";
+import { SurfaceImage } from "@/components/ui/image";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -42,6 +42,7 @@ import {
   buildEventJsonLd,
   safeJsonLdStringify,
 } from "@/lib/json-ld";
+import { routes } from "@/lib/routes";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
@@ -126,7 +127,7 @@ export async function generateMetadata({
   // `/stories/[slug]`, which is zh-TW-only across the board. Events that DO
   // carry English copy self-canonicalize per locale and advertise both.
   const { canonical, languages } = buildAlternates(
-    `/events/${event.slug}`,
+    routes.event(event.slug),
     event.nameEn ? safeLocale : "zh-TW",
     event.nameEn ? ["zh-TW", "en"] : ["zh-TW"],
   );
@@ -293,7 +294,7 @@ export default async function EventDetailPage({ params }: PageProps) {
   const eventJsonLd = buildEventJsonLd({
     name,
     description: summary,
-    path: `/events/${event.slug}`,
+    path: routes.event(event.slug),
     locale: safeLocale,
     startDate: event.startsOn,
     // `endDate` is omitted for a single-day event per `EventJsonLdInput`, so a
@@ -310,12 +311,12 @@ export default async function EventDetailPage({ params }: PageProps) {
   // Item-for-item mirror of the visible `<ol>` below — the two must never
   // disagree, which is why they are written next to each other.
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(
-    [{ label: t("breadcrumb"), href: "/events" }, { label: name }],
+    [{ label: t("breadcrumb"), href: routes.events() }, { label: name }],
     safeLocale,
   );
 
   return (
-    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10 md:py-12">
+    <main className="page-gutter mx-auto w-full page-measure py-10 md:py-12">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(eventJsonLd) }}
@@ -330,9 +331,14 @@ export default async function EventDetailPage({ params }: PageProps) {
       <nav aria-label={t("breadcrumbAria")} className="mb-6">
         <ol className="flex items-center gap-1.5 type-body-sm">
           <li>
-            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
+            {/* A raw `<a>`, not next/link. DEV-1280: full-document navigation avoids a
+              stalled RSC request across the locale proxy rewrite. The
+              `no-html-link-for-pages` suppression that used to sit here is gone with
+              the literal href — the rule only inspects string literals, so routing
+              this through `@/lib/routes` left the directive unused, which
+              `reportUnusedDisableDirectives: "error"` fails on. */}
             <a
-              href="/events"
+              href={routes.events()}
               className="transition-colors hover:text-foreground"
             >
               {t("breadcrumb")}
@@ -371,12 +377,12 @@ export default async function EventDetailPage({ params }: PageProps) {
           <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-muted">
             {/* Decorative: the event name is the adjacent `<h1>`, so alt text
                 here would only repeat it to a screen reader. */}
-            <Image
+            <SurfaceImage
               src={heroSrc}
               alt=""
               fill
               priority
-              sizes="100vw"
+              surface="hero"
               className="object-cover"
             />
           </div>

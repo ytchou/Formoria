@@ -5,6 +5,7 @@ import { getNewsletterPreferenceByEmail } from "@/lib/services/newsletter";
 import { getLifecycleEmailPreference } from "@/lib/services/email-lifecycle";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { requireUserPage } from "@/lib/auth/require-user";
+import { routes } from "@/lib/routes";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -24,7 +25,7 @@ export async function generateMetadata({ params }: Props) {
 export default async function SettingsPage({ params, searchParams }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const user = await requireUserPage("/settings", locale);
+  const user = await requireUserPage(routes.settings(), locale);
   const { saved } = await searchParams;
   const t = await getTranslations("settings");
 

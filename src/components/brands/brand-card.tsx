@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Link } from '@/i18n/navigation'
-import Image from 'next/image'
+import { SurfaceImage } from '@/components/ui/image'
 import { useTranslations, useLocale } from 'next-intl'
 import type { PublicBrandCard } from '@/lib/brands/contracts'
 import {
@@ -22,6 +22,7 @@ import { SaveBrandButton } from './save-brand-button'
 import { BrandImageFallback } from './brand-image-fallback'
 import { MitDeclaredBadge, MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
 import { cn } from '@/lib/utils'
+import { routes } from '@/lib/routes'
 
 interface BrandCardProps {
   brand: PublicBrandCard
@@ -85,9 +86,9 @@ export function BrandCard({
       })}
     >
       {/* Image */}
-      <div className="relative z-10 aspect-[4/3] overflow-hidden rounded-t-xl bg-muted">
+      <div className="relative z-10 aspect-media overflow-hidden rounded-t-xl bg-muted">
         {showImage ? (
-          <Image
+          <SurfaceImage
             src={imageSrc}
             alt=""
             fill
@@ -97,7 +98,7 @@ export function BrandCard({
             // there is nothing to position, and `{ ...undefined }` would turn
             // that into an empty object.
             style={imageFill.style}
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            surface="card"
             onError={() => setImgError(true)}
           />
         ) : (
@@ -133,7 +134,7 @@ export function BrandCard({
             )}
           >
             <Link
-              href={`/brands/${brand.slug}`}
+              href={routes.brand(brand.slug)}
               prefetch={variant === 'directory' ? false : undefined}
               className={cn(
                 'focus-visible:outline-none',
@@ -187,7 +188,7 @@ export function BrandCard({
               <p className="mt-1 truncate type-body-sm">{categoryLabel}</p>
             ) : null}
             <Link
-              href={`/brands/${brand.slug}`}
+              href={routes.brand(brand.slug)}
               className={buttonVariants({
                 variant: 'secondary',
                 className: 'relative z-20 mt-4 min-h-12 w-full',

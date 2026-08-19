@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MarketingEmailOptInField } from "@/components/forms/marketing-email-opt-in-field";
+import { routes } from "@/lib/routes";
 
 type SignUpFormProps = {
   claimToken?: string;
@@ -35,9 +36,7 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
   );
   const t = useTranslations("auth");
 
-  const signInHref = claimToken
-    ? `/auth/sign-in?claim=${claimToken}`
-    : "/auth/sign-in";
+  const signInHref = routes.auth.signIn({ claim: claimToken });
 
   return (
     <div className="space-y-6">

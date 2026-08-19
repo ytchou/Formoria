@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import { SurfaceImage } from "@/components/ui/image";
 import { ExternalLink } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
@@ -14,6 +14,7 @@ import {
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { NO_SNIPPET } from "@/lib/seo/snippet";
 import { cn } from "@/lib/utils";
+import { routes } from "@/lib/routes";
 
 type EventExhibitorRowProps = {
   entry: CreativeExpoEntry;
@@ -105,13 +106,15 @@ export function EventExhibitorRow({
       >
         <div className="relative size-16 shrink-0 overflow-hidden rounded-lg bg-muted md:size-18">
           {showImage ? (
-            <Image
+            <SurfaceImage
               src={imageSrc}
               alt={imageAlt}
               fill
+              surface="thumb"
               // Fixed, not viewport-relative: every row on the page renders a
               // thumbnail at this one size, and a `100vw` hint would have Next
-              // request a full-width variant for each of them.
+              // request a full-width variant for each of them. 72px, not the
+              // surface default of 96px, because this box is a 64/72px square.
               sizes="72px"
               className="object-contain"
               onError={() => setImgError(true)}
@@ -156,7 +159,7 @@ export function EventExhibitorRow({
             <p className="type-card-title">
               {brand ? (
                 <Link
-                  href={`/brands/${brand.slug}`}
+                  href={routes.brand(brand.slug)}
                   prefetch={false}
                   className="after:absolute after:inset-0 focus-visible:outline-none group-hover:underline"
                   onClick={() =>

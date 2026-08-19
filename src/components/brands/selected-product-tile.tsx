@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { SurfaceImage } from "@/components/ui/image";
 import type { CSSProperties } from "react";
 import { Link } from "@/i18n/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { BrandImageFallback } from "./brand-image-fallback";
 import { SelectedProductTileLink } from "./selected-product-tile-link";
 import { SelectedProductExternalLink } from "./selected-product-external-link";
+import { routes } from "@/lib/routes";
 
 export type SelectedProductTileLabels = {
   cta: string;
@@ -128,9 +129,9 @@ export function SelectedProductTile({
    * The `id="product-<key>"` on the tile below stays either way: it is what the
    * brand page's own anchors point AT, and removing it would break those.
    */
-  const anchoredHref = `/brands/${destinationSlug}#product-${product.key}`;
+  const anchoredHref = `${routes.brand(destinationSlug)}#product-${product.key}`;
   const internalHref =
-    mode === "wall" ? `/brands/${destinationSlug}` : anchoredHref;
+    mode === "wall" ? routes.brand(destinationSlug) : anchoredHref;
   const internalClassName =
     "group flex h-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-3";
   // One column on phones, two on tablets, four above 1024px. The four-column
@@ -186,7 +187,7 @@ export function SelectedProductTile({
         className="relative w-full overflow-hidden rounded-lg bg-muted"
       >
         {imageSrc ? (
-          <Image
+          <SurfaceImage
             src={imageSrc}
             alt={name}
             fill
@@ -196,6 +197,7 @@ export function SelectedProductTile({
             // against with a WALL_ABOVE_FOLD counter. The wall begins below
             // the hero at every breakpoint, so nothing here is above the fold.
             className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
+            surface="card"
             sizes={wallImageSizes}
           />
         ) : (
@@ -259,7 +261,7 @@ export function SelectedProductTile({
         )}
       >
         {imageSrc ? (
-          <Image
+          <SurfaceImage
             src={imageSrc}
             alt={name}
             fill
@@ -277,6 +279,7 @@ export function SelectedProductTile({
             // `next/image` under-served it by ~40% and the photo rendered
             // soft — which `object-contain`, showing more of the frame, makes
             // more visible.
+            surface="tile"
             sizes={
               mode === "trail"
                 ? "(max-width: 768px) 100vw, 720px"
@@ -361,7 +364,7 @@ export function SelectedProductTile({
               href={chipHref}
               brandSlug={brand.slug}
               linkType={chipLinkType}
-              referrerPage={tracking.referrerPage ?? "/discover"}
+              referrerPage={tracking.referrerPage ?? routes.discover()}
               surface={tracking.surface as `trail:${string}:${string}`}
               brandId={tracking.brandId}
               className={chipClassName}

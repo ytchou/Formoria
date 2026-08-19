@@ -10,6 +10,7 @@ import {
   SelectedProductTile,
   type SelectedProductTileLabels,
 } from '@/components/brands/selected-product-tile'
+import { routes } from '@/lib/routes'
 
 export type TrailProductsContextValue = {
   trailSlug: string
@@ -58,7 +59,7 @@ export function TrailProducts({ section }: { section: string }) {
             brandSlug: product.brandSlug,
             position: index,
             surface: `trail:${context.trailSlug}:${section}`,
-            referrerPage: `/discover/${context.trailSlug}`,
+            referrerPage: routes.trail(context.trailSlug),
             brandId: product.brandId,
           }}
         />

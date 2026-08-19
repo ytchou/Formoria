@@ -18,6 +18,7 @@ import { LocaleSwitcher } from '@/components/i18n/locale-switcher'
 import { buttonVariants } from '@/components/ui/button'
 import { useUser } from '@/lib/auth/use-user'
 import { trackCtaClicked } from '@/lib/analytics'
+import { routes } from '@/lib/routes'
 
 interface MainNavProps {
   categories: Array<{ slug: string; name: string; nameZh: string | null }>
@@ -98,8 +99,12 @@ export function MainNav({ categories }: MainNavProps) {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background">
-      {/* Row 1: Logo | Search | Actions */}
-      <div className="page-gutter mx-auto flex h-14 max-w-screen-xl items-center gap-4">
+      {/* Row 1: Logo | Search | Actions.
+          `header-measure`, NOT `page-measure`: the header stays at 80rem on
+          every route, while `--page-measure` widens to 100rem under the landing
+          page. A header that changed width between routes would read as the
+          page jumping. The exclusion is stated in globals.css. */}
+      <div className="page-gutter mx-auto flex h-14 header-measure items-center gap-4">
         {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <BrandMark size={32} />
@@ -135,35 +140,37 @@ export function MainNav({ categories }: MainNavProps) {
             off the homepage left the banner with none at all. */}
         <nav aria-label={t('navigation')} className="hidden items-center gap-4 md:flex">
           <Link
-            href="/where-to-buy"
+            href={routes.whereToBuy()}
             className="type-body-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
           >
             {t('whereToBuy')}
           </Link>
           <Link
-            href="/discover"
+            href={routes.discover()}
             className="type-body-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
           >
             {t('discover')}
           </Link>
           <Link
-            href="/about"
+            href={routes.about()}
             className="type-body-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
           >
             {t('about')}
           </Link>
           {hasOwnedBrand && ownerFeaturesEnabled ? (
             <Link
-              href="/dashboard"
+              href={routes.dashboard.index()}
               className={buttonVariants({ variant: 'primary' })}
             >
               {t('myBrands')}
             </Link>
           ) : (
             <Link
-              href="/submit"
+              href={routes.submit.index()}
               data-ph-no-autocapture
-              onClick={() => trackCtaClicked('submit_brand', 'header_nav', '/submit', pathname)}
+              onClick={() =>
+                trackCtaClicked('submit_brand', 'header_nav', routes.submit.index(), pathname)
+              }
               className={buttonVariants({ variant: 'primary' })}
             >
               {t('submitBrand')}
@@ -206,7 +213,7 @@ export function MainNav({ categories }: MainNavProps) {
                 </div>
 
                 <Link
-                  href="/where-to-buy"
+                  href={routes.whereToBuy()}
                   className="flex min-h-11 items-center px-1 type-body-sm font-medium text-ink"
                   onClick={() => setOpen(false)}
                 >
@@ -214,7 +221,7 @@ export function MainNav({ categories }: MainNavProps) {
                 </Link>
 
                 <Link
-                  href="/discover"
+                  href={routes.discover()}
                   className="flex min-h-11 items-center px-1 type-body-sm font-medium text-ink"
                   onClick={() => setOpen(false)}
                 >
@@ -222,7 +229,7 @@ export function MainNav({ categories }: MainNavProps) {
                 </Link>
 
                 <Link
-                  href="/about"
+                  href={routes.about()}
                   className="flex min-h-11 items-center px-1 type-body-sm font-medium text-ink"
                   onClick={() => setOpen(false)}
                 >
@@ -230,7 +237,7 @@ export function MainNav({ categories }: MainNavProps) {
                 </Link>
                 {hasOwnedBrand && ownerFeaturesEnabled ? (
                   <Link
-                    href="/dashboard"
+                    href={routes.dashboard.index()}
                     className={buttonVariants({ variant: 'primary', className: 'w-full' })}
                     onClick={() => setOpen(false)}
                   >
@@ -238,10 +245,10 @@ export function MainNav({ categories }: MainNavProps) {
                   </Link>
                 ) : (
                   <Link
-                    href="/submit"
+                    href={routes.submit.index()}
                     data-ph-no-autocapture
                     onClick={() => {
-                      trackCtaClicked('submit_brand', 'header_nav', '/submit', pathname)
+                      trackCtaClicked('submit_brand', 'header_nav', routes.submit.index(), pathname)
                       setOpen(false)
                     }}
                     className={buttonVariants({ variant: 'primary', className: 'w-full' })}

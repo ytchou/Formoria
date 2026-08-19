@@ -13,6 +13,7 @@ import {
   type TrailListResult,
 } from "@/lib/services/trails";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { routes } from "@/lib/routes";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -64,7 +65,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const t = await getTranslations({ locale, namespace: "discover" });
   const result = await getAllTrails(safeLocale);
-  const { canonical, languages } = buildAlternates("/discover", "zh-TW", ["zh-TW"]);
+  const { canonical, languages } = buildAlternates(routes.discover(), "zh-TW", ["zh-TW"]);
 
   return {
     title: t("metaTitle"),
@@ -98,7 +99,7 @@ export default async function DiscoverHubPage({ params, searchParams }: PageProp
   const view = selectHubView({ result, activeTag });
 
   return (
-    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
+    <main className="page-gutter mx-auto w-full page-measure py-10">
       <div className="space-y-8">
         <header className="space-y-3">
           <h1 className="type-section">{t("heading")}</h1>
@@ -124,7 +125,7 @@ export default async function DiscoverHubPage({ params, searchParams }: PageProp
                 position={index}
                 trackingSurface="discover_hub"
                 trackingKind="trail"
-                hrefBase="/discover"
+                hrefBase={routes.discover()}
                 namespace="discover"
               />
             ))}

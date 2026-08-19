@@ -6,6 +6,7 @@ import { ContributionsList } from '@/components/contributions/contributions-list
 import { signInHref } from '@/i18n/locale-preference'
 import { listMyEvidence } from '@/lib/services/origin-evidence'
 import { createClient } from '@/lib/supabase/server'
+import { routes } from '@/lib/routes'
 
 type ContributionsPageProps = {
   params: Promise<{ locale: string }>
@@ -37,7 +38,7 @@ export default async function ContributionsPage({ params }: ContributionsPagePro
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect(signInHref('/contributions', locale))
+    redirect(signInHref(routes.contributions(), locale))
   }
 
   const items = await listMyEvidence(user.id)

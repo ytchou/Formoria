@@ -13,6 +13,7 @@ import {
   reviewCorrection,
   type CorrectionDecision,
 } from "@/lib/services/brand-corrections";
+import { routes } from "@/lib/routes";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("admin.corrections");
@@ -28,21 +29,21 @@ async function reviewCorrectionAction(
   "use server";
 
   return runWithAuditContext({}, async () => {
-    const user = await requireAdminPage("/admin/corrections");
+    const user = await requireAdminPage(routes.admin.corrections());
     const result = await reviewCorrection(id, decision, notes, {
       reviewerId: user.id,
     });
 
     if (!result.ok) return { error: result.code };
 
-    revalidatePath("/admin/corrections");
-    revalidatePath("/admin");
+    revalidatePath(routes.admin.corrections());
+    revalidatePath(routes.admin.index());
     return undefined;
   });
 }
 
 export default async function AdminCorrectionsPage() {
-  await requireAdminPage("/admin/corrections");
+  await requireAdminPage(routes.admin.corrections());
   const [corrections, t] = await Promise.all([
     listCorrections({ status: "pending" }),
     getTranslations("admin.corrections"),

@@ -6,6 +6,8 @@ import type { AppLocale } from "@/i18n/locale-preference";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
 import { BrandCard } from "./brand-card";
 import { RelatedBrandsTracker } from "./related-brands-tracker";
+import { routes } from "@/lib/routes";
+import { Grid } from "@/components/ui/grid";
 
 interface RelatedBrandsProps {
   locale: AppLocale;
@@ -47,7 +49,7 @@ export async function RelatedBrands({
             </p>
           </div>
           <Link
-            href={`/categories/${encodeURIComponent(category)}`}
+            href={routes.category(category)}
             className="group inline-flex min-h-12 items-center gap-1.5 self-start type-body-sm font-medium text-accent transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:self-auto"
           >
             {displayLabel}
@@ -57,7 +59,7 @@ export async function RelatedBrands({
             />
           </Link>
         </div>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <Grid>
           {brands.map((brand, index) => (
             <BrandCard
               key={brand.id}
@@ -67,7 +69,7 @@ export async function RelatedBrands({
               position={index}
             />
           ))}
-        </div>
+        </Grid>
       </section>
     </RelatedBrandsTracker>
   );

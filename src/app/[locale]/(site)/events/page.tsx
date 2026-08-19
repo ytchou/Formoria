@@ -12,6 +12,7 @@ import {
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { captureReadFailure, markRenderDegraded } from '@/lib/degraded-render'
+import { routes } from '@/lib/routes'
 
 type PageProps = {
   params: Promise<{ locale: string }>
@@ -33,7 +34,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // Both locales, unlike `/stories/[slug]`: every string on this page comes
   // from the `events` message namespace, which is fully translated, so `/en`
   // serves genuinely English chrome rather than a zh-TW duplicate.
-  const { canonical, languages } = buildAlternates('/events', safeLocale)
+  const { canonical, languages } = buildAlternates(routes.events(), safeLocale)
 
   return {
     title: t('metaTitle'),
@@ -105,7 +106,7 @@ export default async function EventsHubPage({ params }: PageProps) {
   }
 
   return (
-    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
+    <main className="page-gutter mx-auto w-full page-measure py-10">
       <div className="space-y-8">
         <header className="space-y-3">
           <h1 className="type-section">{t('heading')}</h1>

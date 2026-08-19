@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { endImpersonationAction } from '@/lib/actions/impersonation'
 import { useUser } from '@/lib/auth/use-user'
+import { routes } from '@/lib/routes'
 
 function getMinutesLeft(expiresAt: number) {
   return Math.max(0, Math.ceil((expiresAt - Date.now() / 1000) / 60))
@@ -74,7 +75,7 @@ export function ImpersonationBanner() {
             startTransition(async () => {
               await endImpersonationAction()
               await refreshViewer()
-              router.push('/dashboard')
+              router.push(routes.dashboard.index())
             })
           }}
         >

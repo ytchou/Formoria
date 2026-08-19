@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import SubmitForm from '@/components/submit/SubmitForm'
+import { routes } from '@/lib/routes'
 
 type RecommendPageProps = {
   params: Promise<{ locale: string }>
@@ -19,7 +20,7 @@ export async function generateMetadata({
   return {
     title: t('title'),
     description: t('description'),
-    alternates: buildAlternates('/submit/recommend', locale as Locale),
+    alternates: buildAlternates(routes.submit.recommend(), locale as Locale),
   }
 }
 

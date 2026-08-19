@@ -19,6 +19,7 @@ import type { BrandWizardCommonValues } from "@/lib/schemas/brand-wizard";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { slugifyRomanizedName } from "@/lib/brands/slug";
 import { cn } from "@/lib/utils";
+import { routes } from "@/lib/routes";
 
 type RequiredBasicField =
   "name" | "categorySlug" | "description" | "subcategories" | "priceRange";
@@ -186,7 +187,7 @@ export function BrandBasicInfoSection({
           <Input
             id="brand-url-preview"
             readOnly
-            value={previewSlug ? `/brands/${previewSlug}` : ""}
+            value={previewSlug ? routes.brand(previewSlug) : ""}
             className="min-h-12 bg-muted text-muted-foreground"
           />
         </DashboardFormField>

@@ -3,6 +3,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { EmailCaptureForm } from '@/components/newsletter/email-capture-form'
 import { SectionBandCtaLink } from '@/components/landing/section-band-cta-link'
 import { cn } from '@/lib/utils'
+import { routes } from '@/lib/routes'
 
 export default async function SectionBand() {
   const tRecommend = await getTranslations('landing.submitBand')
@@ -19,7 +20,7 @@ export default async function SectionBand() {
               <h2 className="type-section">{tRecommend('headline')}</h2>
               <p className="mt-2 type-body-sm">{tRecommend('body')}</p>
               <SectionBandCtaLink
-                href="/submit"
+                href={routes.submit.index()}
                 label={tRecommend('cta')}
                 ctaName="submit_brand"
                 className={cn(buttonVariants({ variant: 'primary' }), 'mt-4')}
@@ -30,7 +31,7 @@ export default async function SectionBand() {
               <h2 className="type-section">{tFeatureRequest('headline')}</h2>
               <p className="mt-2 type-body-sm">{tFeatureRequest('body')}</p>
               <SectionBandCtaLink
-                href="/feature-requests"
+                href={routes.featureRequests()}
                 label={tFeatureRequest('cta')}
                 ctaName="feature_request"
                 className={cn(buttonVariants({ variant: 'primary' }), 'mt-4')}

@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { SurfaceImage } from "@/components/ui/image";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ExternalLink, Maximize2, X } from "lucide-react";
@@ -184,11 +184,14 @@ export function TaiwanCreativeExpoOfficialMap() {
                   className="relative aspect-[3200/2450] w-full overflow-hidden bg-muted"
                   data-map-image={EXPO_FLOOR_MAP_GEOMETRY.viewBox}
                 >
-                  <Image
+                  <SurfaceImage
                     alt={EXPO_FLOOR_MAP_ASSET.alt}
                     className={cn("object-fill", imageFailed && "invisible")}
                     fill
                     onError={() => setImageFailed(true)}
+                    surface="banner"
+                    // The zoomed floor map is a printed 3200x2450 asset shown at
+                    // 1200px on desktop, wider than any content surface.
                     sizes="(max-width: 640px) 100vw, 1200px"
                     src={EXPO_FLOOR_MAP_ASSET.src}
                   />
@@ -262,11 +265,13 @@ export function TaiwanCreativeExpoOfficialMap() {
         className="relative mx-auto aspect-[3200/2450] w-full max-w-4xl overflow-hidden rounded-xl border border-border bg-muted"
         data-map-image={EXPO_FLOOR_MAP_GEOMETRY.viewBox}
       >
-        <Image
+        <SurfaceImage
           alt={EXPO_FLOOR_MAP_ASSET.alt}
           className={cn("object-contain", imageFailed && "invisible")}
           fill
           onError={() => setImageFailed(true)}
+          surface="banner"
+          // The inline map caps at `max-w-4xl` (896px).
           sizes="(max-width: 640px) 100vw, 896px"
           src={EXPO_FLOOR_MAP_ASSET.src}
         />

@@ -8,6 +8,7 @@ import type { AuthState } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { routes } from "@/lib/routes";
 
 export function ForgotPasswordForm() {
   const [state, action, pending] = useActionState<AuthState, FormData>(
@@ -70,7 +71,7 @@ export function ForgotPasswordForm() {
       <p className="text-center type-body-sm">
         {t("forgotPassword.backToSignIn")}{" "}
         <Link
-          href="/auth/sign-in"
+          href={routes.auth.signIn()}
           className="font-medium text-foreground underline-offset-4 hover:underline"
         >
           {t("forgotPassword.signInLink")}

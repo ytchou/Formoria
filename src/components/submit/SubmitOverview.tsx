@@ -21,6 +21,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { Check, Info, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { routes } from '@/lib/routes'
 
 /**
  * The three selling points under each path. `muted` drops the CTA accent so the
@@ -68,8 +69,8 @@ type SubmitOverviewProps = {
 }
 
 export default function SubmitOverview({
-  ownerPath = '/submit/owner',
-  recommendPath = '/submit/recommend',
+  ownerPath = routes.submit.owner(),
+  recommendPath = routes.submit.recommend(),
   isLoggedIn = false,
   hasOwnedBrand = false,
   ownerFeaturesEnabled = false,

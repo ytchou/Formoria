@@ -6,6 +6,7 @@ import { BrandCard } from '@/components/brands/brand-card'
 import { SectionHeader } from '@/components/shared/section-header'
 import { trackCtaClicked } from '@/lib/analytics'
 import { useInView } from '@/hooks/use-in-view'
+import { Grid } from '@/components/ui/grid'
 
 interface BrandShowcaseProps {
   brands: PublicBrandCard[]
@@ -36,10 +37,7 @@ export default function BrandShowcase({
           empty: the rail's CTA is tracked, and one destination announced twice
           is a second tab stop to the same place. */}
       <SectionHeader heading={heading} note={subheading} className="mb-6" />
-      <div
-        ref={ref}
-        className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4"
-      >
+      <Grid ref={ref}>
         {brands.map((brand, index) => (
           <div
             key={brand.id}
@@ -49,7 +47,7 @@ export default function BrandShowcase({
             <BrandCard brand={brand} position={index} listSource={ctaLocation} />
           </div>
         ))}
-      </div>
+      </Grid>
       <div className="mt-6">
         <Link
           href={linkHref}

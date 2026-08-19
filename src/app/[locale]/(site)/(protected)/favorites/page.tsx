@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Image from 'next/image'
+import { SurfaceImage } from '@/components/ui/image'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Heart } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
@@ -11,6 +11,8 @@ import type { SavedBrand } from '@/lib/types/saved-brand'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { routes } from '@/lib/routes'
+import { Grid } from '@/components/ui/grid'
 
 type Props = {
   params: Promise<{ locale: string }>
@@ -44,13 +46,13 @@ function BrandImage({ brand }: { brand: SavedBrand }) {
   const imageFill = brandImageFill(selectedImage.meta, { inset: 'p-6' })
 
   return (
-    <Image
+    <SurfaceImage
       alt={brand.brandName}
       className={imageFill.className}
       // Assigned, never spread — `undefined` is meaningful here.
       style={imageFill.style}
       fill
-      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+      surface="card"
       src={selectedImage.src}
     />
   )
@@ -65,9 +67,9 @@ function SavedBrandCard({ brand }: { brand: SavedBrand }) {
         padding: 'none',
         tone: 'white',
       })}
-      href={`/brands/${brand.brandSlug}`}
+      href={routes.brand(brand.brandSlug)}
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+      <div className="relative aspect-media overflow-hidden bg-muted">
         <BrandImage brand={brand} />
         <div className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-accent shadow-sm">
           <Heart className="h-5 w-5" fill="currentColor" aria-hidden />
@@ -105,7 +107,7 @@ function EmptyState({
         </p>
         <Link
           className={cn(buttonVariants(), 'mt-6')}
-          href="/brands"
+          href={routes.brands()}
         >
           {action}
         </Link>
@@ -119,7 +121,7 @@ export default async function FavoritesPage({ params }: Props) {
   setRequestLocale(locale)
 
   const t = await getTranslations('favorites')
-  const user = await requireUserPage('/favorites', locale)
+  const user = await requireUserPage(routes.favorites(), locale)
 
   const brands = await getUserSavedBrands(user.id)
 
@@ -140,11 +142,11 @@ export default async function FavoritesPage({ params }: Props) {
 
       <main>
         {brands.length > 0 ? (
-          <div className="page-gutter grid grid-cols-1 gap-6 py-10 sm:grid-cols-2 lg:grid-cols-4">
+          <Grid className="page-gutter py-10">
             {brands.map((brand) => (
               <SavedBrandCard key={brand.brandId} brand={brand} />
             ))}
-          </div>
+          </Grid>
         ) : (
           <EmptyState
             title={t('emptyTitle')}

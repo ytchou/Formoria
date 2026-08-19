@@ -9,6 +9,8 @@ import {
 import { Link } from '@/i18n/navigation'
 import { getTranslations } from 'next-intl/server'
 import { SurfaceCard } from '@/components/ui/card'
+import { routes } from '@/lib/routes'
+import { Grid } from '@/components/ui/grid'
 
 type QuickAction = {
   descriptionKey: string
@@ -25,7 +27,7 @@ export async function QuickActions({ brandSlug }: { brandSlug: string }) {
   const actions: QuickAction[] = [
     {
       descriptionKey: 'quickActions.editProfile.description',
-      href: `/dashboard/brands/${brandSlug}/edit`,
+      href: routes.dashboard.brandEdit(brandSlug),
       icon: Pencil,
       titleKey: 'tips.editProfile',
     },
@@ -37,13 +39,13 @@ export async function QuickActions({ brandSlug }: { brandSlug: string }) {
     },
     {
       descriptionKey: 'quickActions.viewAnalytics.description',
-      href: `/dashboard/brands/${brandSlug}/analytics`,
+      href: routes.dashboard.brandSection(brandSlug, 'analytics'),
       icon: BarChart3,
       titleKey: 'tips.viewAnalytics',
     },
     {
       descriptionKey: 'quickActions.readFaq.description',
-      href: '/faq#for-owners',
+      href: `${routes.faq()}#for-owners`,
       icon: BookOpen,
       titleKey: 'tips.readFaq',
     },
@@ -54,7 +56,7 @@ export async function QuickActions({ brandSlug }: { brandSlug: string }) {
       <h2 className="type-card-title" id="quick-actions-title">
         {tOverview('quickActionsTitle')}
       </h2>
-      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <Grid className="mt-4">
         {actions.map((action) => {
           const Icon = action.icon
 
@@ -88,7 +90,7 @@ export async function QuickActions({ brandSlug }: { brandSlug: string }) {
             </Link>
           )
         })}
-      </div>
+      </Grid>
     </section>
   )
 }

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { isActingAsAdmin } from "@/lib/auth/admin-mode";
 import { createClient } from "@/lib/supabase/server";
+import { routes } from "@/lib/routes";
 
 type AdminUser = { id: string; email: string | null };
 type AdminAuthErrorCode = 'unauthenticated' | 'forbidden';
@@ -37,7 +38,7 @@ export async function requireAdminPage(nextPath: string): Promise<AdminUser> {
 
   if ("error" in auth) {
     // Admin is pinned to English (ADMIN_DEFAULT_LOCALE in proxy.ts).
-    redirect(`/en/auth/sign-in?next=${nextPath}`);
+    redirect(`/en${routes.auth.signIn({ next: nextPath })}`);
   }
 
   return auth.user;

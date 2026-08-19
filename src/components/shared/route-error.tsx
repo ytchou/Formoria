@@ -44,7 +44,7 @@ export function RouteError({
   }, [error, isStale])
 
   return (
-    <main className="page-gutter mx-auto flex max-w-screen-xl flex-col items-center justify-center py-24 text-center">
+    <main className="page-gutter mx-auto flex page-measure flex-col items-center justify-center py-24 text-center">
       <h1 className={titleClassName}>
         {isStale ? t('boundary.staleTitle') : t(titleKey)}
       </h1>

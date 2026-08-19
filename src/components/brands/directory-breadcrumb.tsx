@@ -1,6 +1,7 @@
 import { ChevronRight } from 'lucide-react'
 import type { AppLocale } from '@/i18n/locale-preference'
 import { localizePath } from '@/i18n/locale-preference'
+import { routes } from '@/lib/routes'
 
 export type DirectoryBreadcrumbItem = {
   label: string
@@ -22,16 +23,16 @@ export function buildDirectoryBreadcrumbItems({
 }: DirectoryBreadcrumbInput): DirectoryBreadcrumbItem[] {
   if (!category && !subcategory) return []
 
-  const categoryPath = category ? `/categories/${category.slug}` : null
+  const categoryPath = category ? routes.category(category.slug) : null
   const items: DirectoryBreadcrumbItem[] = [
-    { label: directoryLabel, href: localizePath('/brands', locale) },
+    { label: directoryLabel, href: localizePath(routes.brands(), locale) },
   ]
 
   if (category) {
     items.push({
       label: category.label,
       ...(subcategory
-        ? { href: localizePath(categoryPath ?? '/categories', locale) }
+        ? { href: localizePath(categoryPath ?? routes.categories(), locale) }
         : { current: true }),
     })
   }

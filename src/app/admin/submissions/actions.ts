@@ -16,6 +16,7 @@ import {
   saveSubmissionReview,
   type SaveSubmissionReviewInput,
 } from "@/lib/services/submissions";
+import { routes } from "@/lib/routes";
 
 type ActionResult = { error: string } | undefined;
 
@@ -50,7 +51,7 @@ export async function saveSubmissionReviewAction(
         idResult.data,
         reviewResult.data as SaveSubmissionReviewInput,
       );
-      revalidatePath("/admin/submissions");
+      revalidatePath(routes.admin.submissions());
       return undefined;
     } catch (error) {
       return {
@@ -76,7 +77,7 @@ export async function cleanupSubmissionDraftImagesAction(
 
     try {
       await cleanupSubmissionDraftImages(idResult.data, imagesResult.data);
-      revalidatePath("/admin/submissions");
+      revalidatePath(routes.admin.submissions());
       return undefined;
     } catch (error) {
       return {
@@ -102,8 +103,8 @@ export async function dropNeedsDataSubmissionsAction(
 
     try {
       const result = await dropNeedsDataSubmissions(idsResult.data);
-      revalidatePath("/admin");
-      revalidatePath("/admin/submissions");
+      revalidatePath(routes.admin.index());
+      revalidatePath(routes.admin.submissions());
       return {
         deletedCount: result.deletedCount,
         ...(result.cleanupFailed ? { storageCleanupWarning: true as const } : {}),

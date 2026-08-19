@@ -6,6 +6,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { Link } from '@/i18n/navigation'
 import { cn } from '@/lib/utils'
+import { routes } from '@/lib/routes'
 
 export default function OwnerForkClient() {
   const t = useTranslations('submit')
@@ -50,7 +51,7 @@ export default function OwnerForkClient() {
             ))}
           </ul>
           <Link
-            href="/submit/owner/quick"
+            href={routes.submit.ownerQuick()}
             className={cn(buttonVariants({ variant: 'primary' }), 'mt-6')}
           >
             {t('ownerFork.quickCta')}
@@ -85,7 +86,7 @@ export default function OwnerForkClient() {
             ))}
           </ul>
           <Link
-            href="/submit/owner/details"
+            href={routes.submit.ownerDetails()}
             className={cn(buttonVariants({ variant: 'primary' }), 'mt-6')}
           >
             {t('ownerFork.detailsCta')}
