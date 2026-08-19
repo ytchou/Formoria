@@ -10,21 +10,21 @@
  * - the frontmatter contract (promise, exclusions, editorialOwner, reviewedAt)
  *   is now a CI checker, so a missing field fails a build rather than quietly
  *   suppressing a page;
- * - the subcategory heuristics (`l2_dominance`, `distinct_l2`) were editorial
- *   judgment expressed as arithmetic, and produced false positives on real
- *   trails;
- * - the supply floor (`min_products`) is gone entirely — a small trail is a
- *   small trail, not a defective one.
+ * - the two subcategory heuristics (dominance of one subcategory over half the
+ *   slate, and a floor on distinct subcategories) were editorial judgment
+ *   expressed as arithmetic, and produced false positives on real trails;
+ * - the supply floor is gone entirely — a small trail is a small trail, not a
+ *   defective one.
  *
  * Kept pure and Supabase-free, exactly like the module it replaces: the caller
  * supplies the frontmatter and the products it already read.
  */
 
 /**
- * `unplaced_section` is a rename, not a port, of the old `empty_section`: the
- * old name described a render defect (a section box with nothing in it) that no
- * longer happens. What is left is an authoring gap — a section the editor
- * declared and never filled.
+ * `unplaced_section` is a rename, not a port, of the old render-time blocker for
+ * a section with no products. The old name described a render defect (a section
+ * box with nothing in it) that no longer happens. What is left is an authoring
+ * gap — a section the editor declared and never filled.
  */
 export type TrailAuthoringWarning = "draft" | "unplaced_section";
 
