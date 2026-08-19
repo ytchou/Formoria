@@ -11,11 +11,7 @@ import { SelectedProductTile } from "../selected-product-tile";
 // optimizer wrapper. `priority` is surfaced as a data attribute because React
 // would drop the unknown boolean prop from an `<img>`.
 vi.mock("next/image", () => ({
-  default: ({
-    fill: _fill,
-    priority,
-    ...props
-  }: Record<string, unknown>) => (
+  default: ({ fill: _fill, priority, ...props }: Record<string, unknown>) => (
     // eslint-disable-next-line @next/next/no-img-element -- this IS the mock of next/image
     <img alt="" data-priority={priority ? "true" : "false"} {...props} />
   ),
@@ -60,7 +56,8 @@ function buildProduct(overrides: Partial<CuratedProduct> = {}): CuratedProduct {
     category: "home",
     subcategories: [],
     officialUrl: "https://example.com/kettle",
-    imageUrl: "https://project.supabase.co/storage/v1/object/public/p/kettle.jpg",
+    imageUrl:
+      "https://project.supabase.co/storage/v1/object/public/p/kettle.jpg",
     imageSourceUrl: null,
     visible: true,
     linkState: "ok",
@@ -128,7 +125,7 @@ describe("SelectedProductTile", () => {
     // The 選物 commitment in brand-voice.md ("Trust labels": Formoria 選物 is a
     // deliberate editorial choice) now rests entirely on the
     // non-wall modes. If this goes red, the text has disappeared site-wide.
-    const { container } = renderWallTile({ mode: "internal" });
+    const { container } = renderWallTile({ mode: "outbound" });
 
     expect(container.textContent).toContain(
       "Steady in the hand, made for small kitchens",
@@ -161,7 +158,7 @@ describe("SelectedProductTile", () => {
   });
 
   it("carries no data-selection-rationale attribute in any mode", () => {
-    for (const mode of ["wall", "internal", "trail", "outbound"] as const) {
+    for (const mode of ["wall", "trail", "outbound"] as const) {
       const tile = renderWallTile({ mode });
       expect(
         tile.container.querySelectorAll("[data-selection-rationale]").length,
@@ -174,7 +171,7 @@ describe("SelectedProductTile", () => {
     // EN locale, no English twin: the reader gets the zh text rather than an
     // empty block, which is what `product_description_en` being nullable buys.
     const tile = renderWallTile({
-      mode: "internal",
+      mode: "outbound",
       product: buildProduct({ productDescriptionEn: null }),
     });
 
@@ -185,7 +182,7 @@ describe("SelectedProductTile", () => {
     // The second block was `notes` + a 品牌提供 badge. Both are gone: a product
     // now carries ONE description, so a second badge would have nothing behind
     // it (DEV-1496).
-    const tile = renderWallTile({ mode: "internal" });
+    const tile = renderWallTile({ mode: "outbound" });
 
     // Pinned by value: the label no longer exists as a tile prop, so the only
     // way to catch its return is to look for the text itself.
@@ -227,14 +224,14 @@ describe("SelectedProductTile", () => {
     // the hero image was restored, leaving a comparison that could never be
     // true — so the guard is now "no wall tile preloads, ever".
     for (const tile of [renderWallTile(), renderWallTile({ ratio: "1:1" })]) {
-      expect(tile.container.querySelector("img")?.getAttribute("data-priority")).toBe(
-        "false",
-      );
+      expect(
+        tile.container.querySelector("img")?.getAttribute("data-priority"),
+      ).toBe("false");
       tile.unmount();
     }
   });
 
-  it("leaves outbound, internal and trail modes unchanged", () => {
+  it("leaves outbound and trail modes unchanged", () => {
     const outbound = render(
       <ul>
         <SelectedProductTile
@@ -263,18 +260,13 @@ describe("SelectedProductTile", () => {
           locale="en"
           product={buildProduct({ linkState: "broken" })}
           labels={labels}
-          mode="internal"
+          mode="outbound"
           brandSlug="kettle-co"
           brandName="Kettle Co"
         />
       </ul>,
     );
     expect(broken.getByText("Link unavailable")).toBeInTheDocument();
-    // `internal` keeps the anchor — the reader is already on a brand page and
-    // asked for one product. Only `wall` drops it (see the wall spec below).
-    expect(
-      broken.getByRole("link", { name: /Pour-over kettle/ }),
-    ).toHaveAttribute("href", "/brands/kettle-co#product-kettle");
     broken.unmount();
 
     const trail = render(
@@ -298,6 +290,91 @@ describe("SelectedProductTile", () => {
       "https://example.com/kettle",
     );
     trail.unmount();
+  });
+
+  // DEV-1519: the image box is fitted to the corpus rather than steering the
+  // crop inside a box that fits nothing. Fit mode is chosen per surface.
+  // Rendered directly rather than through `renderWallTile`, whose name and
+  // wall-only `ratio` default would both be inert here.
+  function renderImageBox(mode: "outbound" | "trail") {
+    const view = render(
+      <ul>
+        <SelectedProductTile
+          locale="en"
+          product={buildProduct()}
+          labels={labels}
+          mode={mode}
+          brand={brand}
+          brandSlug="kettle-co"
+          brandName="Kettle Co"
+        />
+      </ul>,
+    );
+    const img = view.container.querySelector("img")!;
+    return { view, img, box: img.parentElement! };
+  }
+
+  it("renders a square image box on the brand page", () => {
+    const { view, img, box } = renderImageBox("outbound");
+
+    expect(box.className).toContain("aspect-square");
+    expect(box.className).not.toContain("aspect-[4/3]");
+    expect(img.className).toContain("object-cover");
+    view.unmount();
+  });
+
+  it("contains rather than crops the trail image", () => {
+    const { view, img, box } = renderImageBox("trail");
+
+    expect(img.className).toContain("object-contain");
+    expect(img.className).not.toContain("object-cover");
+    // A contained image letterboxes permanently, so the box must match the
+    // `surfaceCardStyles` surface it sits in — `bg-muted` would show as a
+    // visible band. Covered modes keep `bg-muted` as a loading tint.
+    expect(box.className).toContain("bg-card");
+    expect(box.className).not.toContain("bg-muted");
+    view.unmount();
+  });
+
+  it("serves a single-column image source on trail", () => {
+    // The trail is one column inside `max-w-[720px]`; the brand page's 3-col
+    // formula under-served it by ~40%, which `object-contain` makes visible.
+    const trail = renderImageBox("trail");
+    expect(trail.img.getAttribute("sizes")).toBe(
+      "(max-width: 768px) 100vw, 720px",
+    );
+    trail.view.unmount();
+
+    const outbound = renderImageBox("outbound");
+    expect(outbound.img.getAttribute("sizes")).toBe(
+      "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw",
+    );
+    outbound.view.unmount();
+  });
+
+  it("leaves the wall image box untouched by the per-surface branching", () => {
+    // DEV-1519 requires `wallContent` to stay byte-identical, and the new
+    // per-surface branching sits directly below it sharing the same
+    // `imageSrc`/`BrandImageFallback` shape. Without this, a refactor folding
+    // the wall into that branching would pass every other spec here while
+    // silently changing the wall's fit, its box tone or its `sizes`.
+    //
+    // This is also where the reduced-motion kill-switch is now pinned: the
+    // wall is the only surface that animates the image. `0.01ms` rather than
+    // `none` is the documented idiom — a zero-length transition still fires
+    // its events, where `none` removes them.
+    const { container, unmount } = renderWallTile();
+    const img = container.querySelector("img")!;
+    const box = img.parentElement!;
+
+    expect(img.className).toContain("object-cover");
+    expect(img.className).toContain("transition-transform");
+    expect(img.className).toContain("motion-reduce:duration-[0.01ms]");
+    expect(box.className).toContain("bg-muted");
+    expect(img.getAttribute("sizes")).toBe(
+      "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1600px) 25vw, 362px",
+    );
+    unmount();
   });
 
   it("suppresses the brand-page furniture in wall mode", () => {

@@ -16,6 +16,7 @@ import {
   type WallRatio,
 } from "@/lib/curated-products/wall-ratio";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
+import { brandImageFill } from "@/lib/images/focal";
 import type { CuratedProduct } from "@/lib/services/curated-products";
 import { sanitizeHref } from "@/lib/url";
 import { cn } from "@/lib/utils";
@@ -34,7 +35,7 @@ export type SelectedProductTileProps = {
   locale: AppLocale;
   product: CuratedProduct;
   labels: SelectedProductTileLabels;
-  mode: "outbound" | "internal" | "trail" | "wall";
+  mode: "outbound" | "trail" | "wall";
   /**
    * Wall geometry: the snapped ratio bucket the tile renders at. Absent means
    * the row carries no measurement yet, which renders the legacy 4:3.
@@ -64,9 +65,9 @@ const BROKEN_LINK_STATE = "broken";
 
 /**
  * The selected-product tile stays server-rendered. Outbound product chips
- * preserve the brand-page behavior; internal mode turns the whole tile into
- * one accessible link to the product anchor on that brand's page. The optional
- * client link child adds click tracking without moving the tile into the client graph.
+ * preserve the brand-page behavior; the wall turns the whole tile into one
+ * accessible link to that brand's page. The optional client link child adds
+ * click tracking without moving the tile into the client graph.
  */
 export function SelectedProductTile({
   locale,
@@ -152,7 +153,7 @@ export function SelectedProductTile({
    * brand-voice.md's commitment is carried only by the surfaces below.
    *
    * `productDescription` still renders on every NON-wall mode
-   * (internal/outbound/trail) further down this file. Do not remove it there
+   * (outbound/trail) further down this file. Do not remove it there
    * without re-reading the "Trust labels" section of
    * docs/strategy/brand-voice.md: the Formoria-selection label is a deliberate
    * editorial choice for a specific context, argued in the trail that gathers
@@ -236,18 +237,51 @@ export function SelectedProductTile({
 
   const content = (
     <>
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+      {/*
+       * 1:1 because that is the shape of the corpus, not a taste call — 53.5%
+       * of product photography is EXACTLY square. DESIGN.md §5 Photography
+       * owns the full measurement; do not restate the other figures here, or
+       * the two copies drift apart the next time the corpus is measured.
+       *
+       * Fit mode is per-surface, as DEV-1407 established: cover where products
+       * are compared side by side in a grid and a ragged edge would break the
+       * row, contain where one product is shown large and losing its edges is
+       * the worse cost.
+       */}
+      <div
+        className={cn(
+          "relative aspect-square w-full overflow-hidden",
+          // Not cosmetic. A contained image letterboxes PERMANENTLY, so the
+          // box must disappear into the `surfaceCardStyles` tone it sits in
+          // (`card`). A covered image only shows its box while loading, which
+          // is why every other mode keeps `bg-muted` as a loading tint.
+          mode === "trail" ? "bg-card" : "bg-muted",
+        )}
+      >
         {imageSrc ? (
           <Image
             src={imageSrc}
             alt={name}
             fill
+            // `brandImageFill` is the single definition of cover-vs-contain
+            // (DESIGN.md §5). `null` meta is the point: curated products carry
+            // no focal data, so there is nothing to anchor and the helper
+            // returns no `style` — see DEV-1519.
             className={
-              mode === "internal"
-                ? "object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
-                : "object-cover"
+              brandImageFill(null, {
+                fit: mode === "trail" ? "contain" : "cover",
+              }).className
             }
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            // Trail is ONE column inside a `max-w-[720px]` section
+            // (`discover/[slug]/page.tsx`). On the brand page's 3-col formula
+            // `next/image` under-served it by ~40% and the photo rendered
+            // soft — which `object-contain`, showing more of the frame, makes
+            // more visible.
+            sizes={
+              mode === "trail"
+                ? "(max-width: 768px) 100vw, 720px"
+                : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            }
           />
         ) : (
           <BrandImageFallback
@@ -293,18 +327,12 @@ export function SelectedProductTile({
             </Link>
           )
         ) : (
-          <Typography
-            as="h3"
-            variant="cardTitle"
-            className={
-              mode === "internal" ? "group-hover:text-primary" : undefined
-            }
-          >
+          <Typography as="h3" variant="cardTitle">
             {name}
           </Typography>
         )}
 
-        {(mode === "internal" || mode === "trail") && brandName ? (
+        {mode === "trail" && brandName ? (
           <Typography as="p" variant="metadata">
             {brandName}
           </Typography>
@@ -416,30 +444,7 @@ export function SelectedProductTile({
         className: cn("flex flex-col overflow-hidden", className),
       })}
     >
-      {mode === "internal" ? (
-        tracking ? (
-          <SelectedProductTileLink
-            href={internalHref}
-            className={internalClassName}
-            productKey={product.key}
-            brandSlug={tracking.brandSlug}
-            position={tracking.position}
-            surface={tracking.surface}
-          >
-            {content}
-          </SelectedProductTileLink>
-        ) : (
-          <Link
-            href={internalHref}
-            className={internalClassName}
-            data-ph-no-autocapture
-          >
-            {content}
-          </Link>
-        )
-      ) : (
-        content
-      )}
+      {content}
     </li>
   );
 }
