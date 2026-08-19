@@ -8,6 +8,7 @@ import {
 import {
   normalizeSubcategoryKey,
   L1_CATEGORIES,
+  MATERIALS,
 } from "@/lib/taxonomy/ontology";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -26,16 +27,44 @@ import {
   deriveSubcategoriesEn,
   isSubcategoriesDelta,
   MAX_SUBCATEGORIES,
-  resolveSubcategoryInput,
+  recordRejectedSubcategoryInput,
+  resolveSubcategorySelection,
   sameSubcategorySet,
   type SubcategoriesDelta,
 } from "./subcategories";
-import { updateBrand, type BrandWriteInput } from "./brands";
+import { brandPatchRpc, updateBrand, type BrandWriteInput } from "./brands";
 
 const CORRECTION_SELECT =
-  `*, brands(name, slug, price_range, category, subcategories, ${PURCHASE_COLUMNS.join(
+  `*, brands(name, slug, price_range, category, subcategories, material, ${PURCHASE_COLUMNS.join(
     ", ",
   )}, social_instagram, social_threads, social_facebook)`;
+
+/**
+ * The material axis, closed to the twelve agreed terms.
+ *
+ * Both correctable arrays are closed now: DEV-1510 retired the subcategory
+ * escape hatch of `docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md`,
+ * so `normalizeProposedValue` returns `invalid_value` for any add the ontology
+ * cannot resolve. The reasons differ and are worth keeping apart — a material is
+ * a fixed property of matter rather than a growing catalogue, while the
+ * subcategory vocabulary grows by an admission round rather than by a
+ * correction — but neither admits a free-text value.
+ *
+ * `brands_material_check` would reject the write anyway. Failing in the service
+ * layer turns a 23514 at apply time into an `invalid_value` at submit time.
+ */
+const MATERIAL_TERMS = new Set<string>(MATERIALS);
+
+/**
+ * Canonical storage order for a material array: the `MATERIALS` order, not
+ * first-seen. `20260820140000_material_check_and_backfill.sql` writes the
+ * backfill that way, so a corrected row that kept insertion order would sort
+ * differently from a backfilled one holding the same set — and array equality
+ * is how `sameMaterialSet` and the staleness check both work.
+ */
+const MATERIAL_ORDER = new Map<string, number>(
+  MATERIALS.map((material, index) => [material, index]),
+);
 
 const MAX_LINK_URL_LENGTH = 2048;
 const SOCIAL_LINK_FIELDS = [
@@ -59,6 +88,7 @@ type BrandCorrectionBrandRow = Pick<
   | "price_range"
   | "category"
   | "subcategories"
+  | "material"
   | "social_instagram"
   | "social_threads"
   | "social_facebook"
@@ -80,16 +110,47 @@ type SocialLinkCorrectionField = (typeof SOCIAL_LINK_FIELDS)[number];
 type LinkCorrectionField =
   | PurchaseLinkCorrectionField
   | SocialLinkCorrectionField;
-export type CorrectionField =
-  | "price_range"
-  | "category"
-  | "subcategories"
-  | LinkCorrectionField;
-type ScalarCorrectionField = Exclude<CorrectionField, "subcategories">;
+/**
+ * The correctable vocabulary as RUNTIME values, with `CorrectionField` derived
+ * from it rather than declared beside it.
+ *
+ * The action's `z.enum` gate needs the members at runtime, and while that list
+ * was written out a second time a field could reach the type, the service, the
+ * RPC and the DB CHECK while the gate still rejected it — which is exactly what
+ * happened to `material`, leaving the whole path unreachable from its only
+ * caller. Adding a field here now adds it everywhere, once.
+ */
+export const CORRECTION_FIELDS = [
+  "price_range",
+  "category",
+  "subcategories",
+  "material",
+  ...PURCHASE_COLUMNS,
+  ...SOCIAL_LINK_FIELDS,
+] as const;
+
+export type CorrectionField = (typeof CORRECTION_FIELDS)[number];
+
+/**
+ * The two ARRAY-valued correctable fields. They share a delta shape and nothing
+ * else: `subcategories` canonicalizes through the ontology and admits novel
+ * values, `material` is closed. Every site below branches on them separately
+ * rather than widening one union, so a rule written for one can never leak onto
+ * the other by accident.
+ */
+type ArrayCorrectionField = "subcategories" | "material";
+type ScalarCorrectionField = Exclude<CorrectionField, ArrayCorrectionField>;
+
+/** A `material` delta. Structurally like `SubcategoriesDelta`, semantically not. */
+export type MaterialDelta = { add: string[]; remove: string[] };
 type CorrectionStatus = "pending" | "approved" | "rejected";
 export type CorrectionDecision = Exclude<CorrectionStatus, "pending">;
 
-type CorrectionProposedValue = number | string | SubcategoriesDelta;
+type CorrectionProposedValue =
+  | number
+  | string
+  | SubcategoriesDelta
+  | MaterialDelta;
 
 export type BrandCorrection = {
   id: string;
@@ -184,13 +245,7 @@ type CorrectionError = Extract<SubmitCorrectionResult, { ok: false }>["code"];
 type CurrentBrandValue = number | string | string[] | null;
 
 export function isCorrectionField(value: string): value is CorrectionField {
-  return (
-    value === "price_range" ||
-    value === "category" ||
-    value === "subcategories" ||
-    PURCHASE_COLUMNS.some((field) => field === value) ||
-    SOCIAL_LINK_FIELDS.some((field) => field === value)
-  );
+  return CORRECTION_FIELDS.some((field) => field === value);
 }
 
 function isPurchaseLinkField(
@@ -207,6 +262,80 @@ function isSocialLinkField(
 
 function isLinkField(field: CorrectionField): field is LinkCorrectionField {
   return isPurchaseLinkField(field) || isSocialLinkField(field);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+/**
+ * Deliberately NOT `isSubcategoriesDelta`. The two guards accept the same JSON
+ * shape today; keeping them separate is what lets `material` gain a rule — a
+ * cap, a pairing, a required term — without silently changing what a
+ * subcategories correction may contain.
+ */
+export function isMaterialDelta(value: unknown): value is MaterialDelta {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  return isStringArray(record.add) && isStringArray(record.remove);
+}
+
+/**
+ * Applies a material delta and re-sorts into `MATERIALS` order.
+ *
+ * Membership is EXACT-STRING, not `normalizeSubcategoryKey`: the vocabulary is
+ * twelve closed Han terms with no aliases, no casing and no middle dots, so
+ * normalizing would only add a way for two spellings of one term to exist.
+ * `normalizeProposedValue` has already rejected anything outside the set.
+ */
+export function applyMaterialDelta(
+  current: string[],
+  delta: MaterialDelta,
+): string[] {
+  const removed = new Set(delta.remove);
+  const next = new Set(current.filter((material) => !removed.has(material)));
+  for (const material of delta.add) next.add(material);
+  return [...next].toSorted(
+    (left, right) =>
+      (MATERIAL_ORDER.get(left) ?? Number.MAX_SAFE_INTEGER) -
+      (MATERIAL_ORDER.get(right) ?? Number.MAX_SAFE_INTEGER),
+  );
+}
+
+export function sameMaterialSet(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  const rightSet = new Set(right);
+  return left.every((material) => rightSet.has(material));
+}
+
+/**
+ * Writes `material` through `apply_brand_patch` rather than `updateBrand`.
+ *
+ * `BrandWriteInput` is `Partial<Brand>` and the `Brand` domain type has no
+ * `material` yet (DEV-1502 shipped the column, not the mapper), so `updateBrand`
+ * would drop the key silently — `brandToUpdate` copies only mapped fields plus
+ * raw snake_case keys, and `material` is neither. The RPC is the same one
+ * `updateBrand` ends at, is column-generic (`format('%I', key)`), and writes the
+ * `brand_field_state` and `brand_field_events` provenance rows exactly as an
+ * admin edit does. Fold this back into `updateBrand` when `Brand` gains the
+ * field.
+ */
+async function applyMaterialPatch(
+  supabase: ReturnType<typeof createServiceClient>,
+  brandId: string,
+  material: string[],
+  reviewerId: string,
+): Promise<void> {
+  const { error } = await brandPatchRpc(supabase).rpc("apply_brand_patch", {
+    p_brand_id: brandId,
+    p_patch: { material },
+    p_source: "admin",
+    p_actor: reviewerId,
+    p_job_id: null,
+  });
+  if (error) throw error;
 }
 
 function hasHostname(url: URL, hostname: string): boolean {
@@ -390,35 +519,59 @@ export function normalizeProposedValue(
       : { ok: false, error: "invalid_value" };
   }
 
+  // The material branch. CLOSED, unlike the subcategories branch below: an
+  // unknown term is rejected here rather than persisted, because the twelve
+  // terms are the whole vocabulary and `brands_material_check` enforces the
+  // same set at the column. `remove` is validated too — there is no legacy
+  // material value to repair, so an unlisted removal is a malformed request,
+  // not a cleanup.
+  if (field === "material") {
+    if (!isMaterialDelta(value)) return { ok: false, error: "invalid_value" };
+
+    const add: string[] = [];
+    for (const raw of value.add) {
+      const material = raw.trim();
+      if (!MATERIAL_TERMS.has(material))
+        return { ok: false, error: "invalid_value" };
+      if (!add.includes(material)) add.push(material);
+    }
+
+    const remove: string[] = [];
+    for (const raw of value.remove) {
+      const material = raw.trim();
+      if (!MATERIAL_TERMS.has(material))
+        return { ok: false, error: "invalid_value" };
+      if (!remove.includes(material)) remove.push(material);
+    }
+
+    return { ok: true, value: { add, remove } };
+  }
+
   if (!isSubcategoriesDelta(value)) return { ok: false, error: "invalid_value" };
 
-  // Asymmetric on purpose. Every `add` is canonicalized through the ontology
-  // (alias or English name -> `nameZh`) before it is persisted: brands.subcategories
-  // stores canonical labels and the `?sub=` filter matches by exact-string array
-  // overlap, so an un-canonicalized addition would silently drop the brand from
-  // subcategory results. A subcategory the ontology does not know is still allowed
-  // through — that escape hatch is the point — but only if it clears the same
-  // novel-subcategory heuristics enrichment applies. `remove` stays unrestricted: a brand
-  // can carry novel subcategories persisted by normalizeSubcategories, and removing a bad
-  // value can never introduce one. Rejecting those removals would block exactly
-  // the repair this feature exists to perform.
-  // Ceiling: `novelSubcategoryRejection` is a code-point length band plus a
-  // marketing-noise regex whose terms are all Han — so non-CJK input passes
-  // with NO content filter at all, and admin review is the only gate on it;
-  // swap for a language-agnostic blocklist (or a moderation call) if reviewers
-  // report abusive submissions.
-  // Dedupe on the ontology's matching key, not the raw string: novel subcategories are
-  // stored as typed, so 'Vegan' and 'vegan' would otherwise both survive and
-  // take two of the five cap slots. First-seen casing wins.
+  // Asymmetric on purpose. Every `add` is resolved through the CLOSED
+  // vocabulary and stored as its SLUG: `brands.subcategories` is a slug column
+  // since DEV-1510 and the `?sub=` filter matches by exact array overlap, so an
+  // unresolved addition would silently drop the brand from subcategory results.
+  // There is no novel escape hatch left — a term the vocabulary does not know is
+  // refused and LOGGED, because with every free-text path gone that log is the
+  // only way a missing product kind can announce itself. `remove` stays
+  // unrestricted: a brand can still carry pre-migration values, and removing a
+  // bad value can never introduce one. Rejecting those removals would block
+  // exactly the repair this feature exists to perform.
+  // Dedupe on the ontology's matching key, not the raw string.
   const add: string[] = [];
   const seenAdd = new Set<string>();
   for (const raw of value.add) {
-    const resolved = resolveSubcategoryInput(raw);
-    if (!resolved.ok) return { ok: false, error: "invalid_value" };
-    const key = normalizeSubcategoryKey(resolved.subcategory);
+    const resolved = resolveSubcategorySelection(raw);
+    if (!resolved.ok) {
+      recordRejectedSubcategoryInput({ input: raw, surface: "correction-api" });
+      return { ok: false, error: "invalid_value" };
+    }
+    const key = normalizeSubcategoryKey(resolved.slug);
     if (seenAdd.has(key)) continue;
     seenAdd.add(key);
-    add.push(resolved.subcategory);
+    add.push(resolved.slug);
   }
 
   const remove: string[] = [];
@@ -523,6 +676,8 @@ function currentValueForField(
       return brand.category;
     case "subcategories":
       return Array.isArray(brand.subcategories) ? brand.subcategories : [];
+    case "material":
+      return Array.isArray(brand.material) ? brand.material : [];
     case "social_instagram":
       return brand.social_instagram;
     case "social_threads":
@@ -579,7 +734,7 @@ async function readBrand(
   const { data, error } = await supabase
     .from("brands")
     .select(
-      `id, name, slug, price_range, category, subcategories, ${PURCHASE_COLUMNS.join(
+      `id, name, slug, price_range, category, subcategories, material, ${PURCHASE_COLUMNS.join(
         ", ",
       )}, social_instagram, social_threads, social_facebook`,
     )
@@ -725,6 +880,16 @@ export async function submitCorrection(
         return { ok: false, code: "too_many_subcategories" };
       }
       previousValue = currentSubcategories;
+    } else if (input.field === "material") {
+      // The second array branch. No cap check: the vocabulary is closed at
+      // twelve terms, so the set is its own ceiling and a `MAX_MATERIALS`
+      // constant would be a second number to keep in step with the first.
+      const delta = proposedValue as MaterialDelta;
+      const currentMaterial = Array.isArray(currentValue) ? currentValue : [];
+      const next = applyMaterialDelta(currentMaterial, delta);
+      if (sameMaterialSet(currentMaterial, next))
+        return { ok: false, code: "unchanged" };
+      previousValue = currentMaterial;
     } else if (
       correctionValuesEqual(input.field, currentValue, proposedValue)
     ) {
@@ -845,8 +1010,18 @@ export async function reviewCorrection(
     // no-op. Those are still correct suggestions — approve them and let them
     // leave the queue instead of stranding them as un-approvable pending rows.
     let patch: BrandWriteInput | null;
+    // `material` does not go through `updateBrand` — see `applyMaterialPatch`.
+    // Held separately rather than folded into `patch` so the two array fields
+    // cannot be confused for one another at the write site either.
+    let materialPatch: string[] | null = null;
 
-    if (applicationField === "subcategories") {
+    if (applicationField === "material") {
+      const delta = proposedValue as MaterialDelta;
+      const currentMaterial = Array.isArray(currentValue) ? currentValue : [];
+      const next = applyMaterialDelta(currentMaterial, delta);
+      patch = null;
+      materialPatch = sameMaterialSet(currentMaterial, next) ? null : next;
+    } else if (applicationField === "subcategories") {
       const delta = proposedValue as SubcategoriesDelta;
       const currentSubcategories = Array.isArray(currentValue)
         ? currentValue
@@ -893,6 +1068,20 @@ export async function reviewCorrection(
           source: "admin",
           userId: reviewerId,
         });
+      } catch (writeError) {
+        await releaseClaim(supabase, id);
+        throw writeError;
+      }
+    }
+
+    if (materialPatch) {
+      try {
+        await applyMaterialPatch(
+          supabase,
+          row.brand_id,
+          materialPatch,
+          reviewerId,
+        );
       } catch (writeError) {
         await releaseClaim(supabase, id);
         throw writeError;

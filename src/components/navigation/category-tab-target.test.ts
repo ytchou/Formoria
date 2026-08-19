@@ -94,6 +94,45 @@ describe('category tab targets', () => {
     })
   })
 
+  it('keeps an active material facet instead of resolving to a bare taxonomy path', () => {
+    // The material axis is orthogonal to the taxonomy, so a category or
+    // subcategory click may not resolve to `/categories/...`: that path cannot
+    // carry `?material=` and the filter would vanish with no trace.
+    expect(
+      buildCategoryTabTarget({
+        pathname: '/brands',
+        searchParams: 'category=fashion&material=%E6%9C%A8',
+        slug: 'fashion',
+        subSlug: 'dresses',
+        locale: 'zh-TW',
+      }).routerPath,
+    ).toBe('/brands?category=fashion&material=%E6%9C%A8&sub=dresses')
+
+    expect(
+      buildCategoryTabTarget({
+        pathname: '/brands',
+        searchParams: 'material=%E6%9C%A8',
+        slug: 'fashion',
+        locale: 'zh-TW',
+      }).routerPath,
+    ).toBe('/brands?material=%E6%9C%A8&category=fashion')
+  })
+
+  it('keeps a cross-L1 subcategory in the query rather than dropping it', () => {
+    // `backpacks` belongs to `bags-accessories`, so `/categories/fashion/backpacks`
+    // 404s — but the pair is a live filter since the brand query stopped
+    // conjoining the L1, so it has to stay on `/brands`.
+    expect(
+      buildCategoryTabTarget({
+        pathname: '/brands',
+        searchParams: '',
+        slug: 'fashion',
+        subSlug: 'backpacks',
+        locale: 'zh-TW',
+      }).routerPath,
+    ).toBe('/brands?category=fashion&sub=backpacks')
+  })
+
   it('falls back to brands for multi-select taxonomy', () => {
     expect(buildCategoryTabTarget({
       pathname: '/brands',

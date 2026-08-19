@@ -128,11 +128,15 @@ export function aggregateBrandCounts(rows: BrandCountRow[]): BrandCountResult {
     const seenUnmatchedSubcategoryKeys = new Set<string>()
 
     for (const subcategoryValue of row.subcategories ?? []) {
-      const matchedSubcategory = matchSubcategory(subcategoryValue)
-      if (matchedSubcategory) {
-        const subcategory = subcategoryBySlug(matchedSubcategory.slug)
-        if (!subcategory) continue
-
+      // `brands.subcategories` stores SLUGS since DEV-1510, so the slug map is
+      // tried first and `matchSubcategory` only covers a row still holding a
+      // pre-migration zh-TW label. Name-keyed lookup alone resolves none of the
+      // 117 multi-word slugs, which silently reports brand_count 0 for their
+      // landing pages instead of failing. Same order as
+      // `resolveSubcategorySelection`.
+      const subcategory =
+        subcategoryBySlug(subcategoryValue) ?? matchSubcategory(subcategoryValue)
+      if (subcategory) {
         // Corpus measurement is deliberately unscoped: it answers how many
         // approved brands carry a subcategory anywhere in the directory, even when the
         // brand's L1 differs from the subcategory's parent. Keep this tally
@@ -158,7 +162,7 @@ export function aggregateBrandCounts(rows: BrandCountRow[]): BrandCountResult {
         // getSubcategoryCounts' `subcategory?.category === categorySlug`).
         // A cross-category subcategory is not "unmatched" either — it resolves to a
         // real subcategory, just not one this brand's page belongs to.
-        if (matchedSubcategory.category !== row.category) continue
+        if (subcategory.category !== row.category) continue
 
         if (seenSubcategorySlugs.has(subcategory.slug)) continue
 

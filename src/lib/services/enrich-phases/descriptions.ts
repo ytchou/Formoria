@@ -75,20 +75,36 @@ type DescriptionsPhaseOutput = {
   listingVerdict: ListingVerdict | null;
 };
 
-export async function canonicalizeSubcategoryTranslations(
+/**
+ * Canonical English names for the subcategories this run settled on.
+ *
+ * Inverted by DEV-1510. The old RPC was label-keyed: it INSERTed each zh-TW
+ * label into `subcategory_translations` and read back whichever English string
+ * happened to arrive first, so the canonical name was a cached model guess.
+ * `canonicalize_subcategory_slugs` resolves through `taxonomy_terms` instead —
+ * by slug first, then by zh-TW label so it is already correct in the window
+ * before the Task 9 backfill — and only falls back to the model's own
+ * translation for a value outside the closed vocabulary.
+ *
+ * Keeping this in SQL rather than reading `subcategoryBySlug(...).nameEn`
+ * locally is deliberate: `approve_submission` and the refresh gate write
+ * `subcategories_en` inside the database too, and one resolver is the only way
+ * those three agree.
+ */
+export async function canonicalizeSubcategorySlugs(
   client: ReturnType<typeof createServiceClient>,
   subcategories: string[],
   subcategoriesEn: string[],
 ): Promise<string[]> {
-  const { data, error } = await client.rpc(
-    "canonicalize_subcategory_translations",
-    {
-      p_subcategories: subcategories,
-      p_subcategories_en: subcategoriesEn,
-    },
-  );
+  const { data, error } = await client.rpc("canonicalize_subcategory_slugs", {
+    p_subcategories: subcategories,
+    p_subcategories_en: subcategoriesEn,
+  });
   if (error) throw error;
-  return data ?? subcategories.map((subcategory, index) => subcategoriesEn[index] ?? subcategory);
+  return (
+    data ??
+    subcategories.map((subcategory, index) => subcategoriesEn[index] ?? subcategory)
+  );
 }
 
 /**
@@ -493,19 +509,14 @@ export async function runDescriptionsPhase({
       (Array.isArray(existing) && existing.length === 0);
 
     let descriptionPatch: Record<string, unknown> = {};
-    let crossBranchSubcategories: string[] = [];
 
     if (brandFacts) {
+      // No brand-L1 conjunct: a brand carries one L1 while its products span
+      // several, and DEV-1510 stopped discarding those tags on the read side.
       const {
         subcategories: mergedSubcategories,
         subcategoriesEn: mergedSubcategoriesEn,
-        crossBranch,
-      } = normalizeSubcategories(
-        brandFacts.subcategories,
-        brandFacts.subcategoriesEn,
-        brand.category ?? undefined,
-      );
-      crossBranchSubcategories = crossBranch;
+      } = normalizeSubcategories(brandFacts.subcategories);
 
       descriptionPatch = {
         // Unlike every other field here, an absent price range is filled rather
@@ -559,12 +570,11 @@ export async function runDescriptionsPhase({
         Array.isArray(descriptionPatch.subcategories_en)
       ) {
         const supabase = createServiceClient();
-        descriptionPatch.subcategories_en =
-          await canonicalizeSubcategoryTranslations(
-            supabase,
-            mergedSubcategories,
-            mergedSubcategoriesEn,
-          );
+        descriptionPatch.subcategories_en = await canonicalizeSubcategorySlugs(
+          supabase,
+          mergedSubcategories,
+          mergedSubcategoriesEn,
+        );
       }
     }
 
@@ -579,7 +589,6 @@ export async function runDescriptionsPhase({
         factsAttempts,
         calls: factsOutput?.calls ?? noLlmCalls(),
         listingVerdict,
-        crossBranch: crossBranchSubcategories,
       };
     }
 
@@ -628,7 +637,6 @@ export async function runDescriptionsPhase({
       factsAttempts,
       calls,
       listingVerdict,
-      crossBranch: crossBranchSubcategories,
     };
   });
 

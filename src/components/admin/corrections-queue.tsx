@@ -19,7 +19,8 @@ import { formatPriceRange } from "@/lib/brands/price-range";
 import { PURCHASE_COLUMNS } from "@/lib/brands/purchase-channels";
 import {
   categoryLabel,
-  matchSubcategory,
+  isKnownSubcategoryTerm,
+  subcategoryDisplayLabel,
   L1_CATEGORIES,
 } from "@/lib/taxonomy/ontology";
 import {
@@ -118,6 +119,7 @@ function subcategoryDeltaState(
 function subcategoryBadges(
   subcategories: string[],
   emptyLabel: string,
+  locale: string,
 ): ReactNode {
   if (subcategories.length === 0) {
     return (
@@ -131,7 +133,7 @@ function subcategoryBadges(
     <div className="flex flex-wrap gap-2">
       {subcategories.map((subcategory, index) => (
         <Badge key={`${subcategory}-${index}`} variant="secondary">
-          {subcategory}
+          {subcategoryDisplayLabel(subcategory, locale)}
         </Badge>
       ))}
     </div>
@@ -212,7 +214,7 @@ export function CorrectionsQueue({
   function renderCurrentValue(item: CorrectionQueueItem): ReactNode {
     const value = item.currentValue;
     if (item.field === "subcategories") {
-      return subcategoryBadges(stringArray(value), t("notAvailable"));
+      return subcategoryBadges(stringArray(value), t("notAvailable"), locale);
     }
 
     return (
@@ -233,9 +235,16 @@ export function CorrectionsQueue({
                 key={`add-${subcategory}-${index}`}
                 className="inline-flex items-center gap-1"
               >
-                <Badge variant="secondary">+{subcategory}</Badge>
-                {/* Novel subcategories are display-only: they match no ?sub= filter. */}
-                {matchSubcategory(subcategory) === null && (
+                <Badge variant="secondary">
+                  +{subcategoryDisplayLabel(subcategory, locale)}
+                </Badge>
+                {/*
+                  Novel subcategories are display-only: they match no ?sub=
+                  filter. Membership is asked on both bases — storage is slugs
+                  since DEV-1510, and a label-only lookup flags every migrated
+                  row as novel, which would bury the real gap signal.
+                */}
+                {!isKnownSubcategoryTerm(subcategory) && (
                   <Badge variant="warning" title={t("novelSubcategoryTitle")}>
                     {t("novelSubcategory")}
                   </Badge>
@@ -248,7 +257,7 @@ export function CorrectionsQueue({
                 variant="secondary"
                 className="line-through"
               >
-                −{subcategory}
+                −{subcategoryDisplayLabel(subcategory, locale)}
               </Badge>
             ))}
           </div>
@@ -257,6 +266,7 @@ export function CorrectionsQueue({
             {subcategoryBadges(
               delta.projectedSubcategories,
               t("notAvailable"),
+              locale,
             )}
           </div>
         </div>

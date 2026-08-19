@@ -33,6 +33,12 @@ type OwnerRow = {
   description?: string
   hero_image_url?: string
   product_photos: string[]
+  /**
+   * English slugs as stored, deliberately unresolved: the only reader is
+   * `computeProfileCompleteness`, which asks whether the array carries anything
+   * at all. Resolve through `getBrandSubcategoryLabels` before any of these
+   * reach an email body — a slug in a zh-TW email is Latin text to the owner.
+   */
   subcategories: string[]
   price_range?: number
   city?: string

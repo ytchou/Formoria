@@ -39,6 +39,7 @@ export async function generateMetadata({ params, searchParams }: SubcategoryPage
       sort: typeof sp.sort === 'string' ? sp.sort : sort !== 'random' ? sort : undefined,
       category: sp.category,
       sub: sp.sub,
+      material: sp.material,
     },
   })
   const catT = await getTranslations({ locale: safeLocale, namespace: 'categories' })
@@ -97,6 +98,7 @@ export default async function SubcategoryPage({ params, searchParams }: Subcateg
       sort: typeof sp.sort === 'string' ? sp.sort : parsed.sort !== 'random' ? parsed.sort : undefined,
       category: sp.category,
       sub: sp.sub,
+      material: sp.material,
     },
   })
   return (

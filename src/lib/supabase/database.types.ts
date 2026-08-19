@@ -2778,21 +2778,21 @@ export type Database = {
         }
         Relationships: []
       }
-      subcategory_translations: {
+      subcategory_label_map: {
         Row: {
-          created_at: string | null
-          subcategory: string
-          translation: string
+          disposition: string
+          label_key: string
+          target_slug: string | null
         }
         Insert: {
-          created_at?: string | null
-          subcategory: string
-          translation: string
+          disposition: string
+          label_key: string
+          target_slug?: string | null
         }
         Update: {
-          created_at?: string | null
-          subcategory?: string
-          translation?: string
+          disposition?: string
+          label_key?: string
+          target_slug?: string | null
         }
         Relationships: []
       }
@@ -2901,6 +2901,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      taxonomy_terms: {
+        Row: {
+          axis: string
+          name_en: string
+          name_zh: string
+          slug: string
+        }
+        Insert: {
+          axis: string
+          name_en: string
+          name_zh: string
+          slug: string
+        }
+        Update: {
+          axis?: string
+          name_en?: string
+          name_zh?: string
+          slug?: string
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -3114,7 +3135,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      canonicalize_subcategory_translations: {
+      canonicalize_subcategory_slugs: {
         Args: { p_subcategories: string[]; p_subcategories_en: string[] }
         Returns: string[]
       }
@@ -3598,6 +3619,7 @@ export type Database = {
       search_brand_page: {
         Args: {
           filter_categories?: string[]
+          filter_materials?: string[]
           filter_price_ranges?: number[]
           filter_subcategories?: string[]
           filter_verification?: string
@@ -3615,6 +3637,7 @@ export type Database = {
       search_brands: {
         Args: {
           filter_categories?: string[]
+          filter_materials?: string[]
           filter_status?: string
           filter_subcategories?: string[]
           filter_verification?: string
@@ -3636,6 +3659,20 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       staging_capture_auth_email: { Args: { event: Json }; Returns: Json }
+      subcategory_json_to_slugs: { Args: { p_value: Json }; Returns: Json }
+      subcategory_label_key: { Args: { p_label: string }; Returns: string }
+      subcategory_labels_to_slugs: {
+        Args: { p_labels: string[] }
+        Returns: string[]
+      }
+      subcategory_slugs_to_names_en: {
+        Args: { p_slugs: string[] }
+        Returns: string[]
+      }
+      taxonomy_expand_subcategories: {
+        Args: { p_values: string[] }
+        Returns: string[]
+      }
       transition_health_fix: {
         Args: {
           p_confirmation_data?: Json

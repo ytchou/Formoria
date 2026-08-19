@@ -1,16 +1,14 @@
 "use client";
 
 import {
-  useEffect,
   useId,
-  useRef,
   useState,
   useTransition,
   type FormEvent,
   type ReactNode,
 } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Pencil, Plus, RotateCcw, X } from "lucide-react";
+import { Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { submitCorrectionAction } from "@/lib/actions/brand-corrections";
@@ -25,17 +23,11 @@ import {
 import type { CorrectionField } from "@/lib/services/brand-corrections";
 import {
   MAX_SUBCATEGORIES,
-  resolveSubcategoryInput,
   sameSubcategorySet,
 } from "@/lib/services/subcategories";
-import {
-  categoryLabel,
-  matchSubcategory,
-  L2_SUBCATEGORIES,
-  L1_CATEGORIES,
-  subcategoryLabel,
-} from "@/lib/taxonomy/ontology";
+import { categoryLabel, L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { sanitizeHref, stripUrlQuery } from "@/lib/url";
+import { SubcategoryPicker } from "@/components/forms/subcategory-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,10 +105,8 @@ export type CorrectionDialogProps = {
 type SelectionState = {
   key: string;
   value: string;
+  /** Ontology slugs — the stored representation since DEV-1510. */
   subcategories: string[];
-  // Subcategories resolved through the free-text ("other") escape hatch that row 2 does
-  // not already offer — kept so the chip stays visible after it is toggled off.
-  extras: string[];
 };
 
 function buildSubcategoryDelta(initialSubcategories: string[], selectedSubcategories: string[]) {
@@ -149,13 +139,6 @@ export function CorrectionDialog({
   const fieldSelectId = useId();
   const purchaseUrlInputId = useId();
   const currentHeadingId = `${baseId}-current`;
-  const optionsHeadingId = `${baseId}-options`;
-  const otherInputId = `${baseId}-other`;
-  const otherHintId = `${baseId}-other-hint`;
-  const otherMessageId = `${baseId}-other-message`;
-  const otherChipRef = useRef<HTMLButtonElement>(null);
-  const otherInputRef = useRef<HTMLInputElement>(null);
-  const addSubcategoriesGroupRef = useRef<HTMLDivElement>(null);
   const copy = COPY_KEYS[mode];
   // Starts empty so the dialog opens on the picker alone — no value control is
   // shown until the contributor says what they are correcting.
@@ -204,24 +187,14 @@ export function CorrectionDialog({
     key: selectionKey,
     value: isLinkField ? "" : originalSelection,
     subcategories: originalSubcategories,
-    extras: [],
   };
   const [selectionState, setSelectionState] = useState(baseline);
   const [open, setOpen] = useState(false);
-  const [otherOpen, setOtherOpen] = useState(false);
-  const [otherValue, setOtherValue] = useState("");
-  const [otherMessage, setOtherMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const active =
     selectionState.key === selectionKey ? selectionState : baseline;
   const selection = active.value;
   const selectedSubcategories = active.subcategories;
-  const extraSubcategories = active.extras;
-  const atSubcategoryLimit = selectedSubcategories.length >= MAX_SUBCATEGORIES;
-
-  useEffect(() => {
-    if (otherOpen) otherInputRef.current?.focus();
-  }, [otherOpen]);
 
   const hasChanged =
     field === ""
@@ -232,44 +205,6 @@ export function CorrectionDialog({
           ? selection.trim() !== "" &&
             sanitizeHref(selection) !== sanitizeHref(originalSelection)
           : selection !== "" && selection !== originalSelection;
-  const subcategoriesCategory = L1_CATEGORIES.find(
-    (category) => category.slug === categorySlug,
-  );
-  const subcategoriesCategoryLabel = subcategoriesCategory
-    ? categoryLabel(subcategoriesCategory, locale)
-    : (categorySlug ?? "");
-  const productSubcategories = L2_SUBCATEGORIES.filter(
-    (subcategory) => subcategory.category === categorySlug,
-  );
-  // Stored subcategories are not guaranteed canonical: the owner edit path only trims
-  // and de-dupes, so a brand can hold an alias of a subcategory. Comparing on a
-  // canonical basis is what stops a visitor adding the canonical twin of a subcategory
-  // the brand already carries.
-  const canonicalSubcategory = (subcategory: string) => matchSubcategory(subcategory)?.nameZh ?? subcategory;
-  const currentSubcategorySet = new Set(originalSubcategories.map(canonicalSubcategory));
-  // Row 2 offers only what the brand does not already carry — row 1 owns the
-  // rest, in-category or not.
-  const offeredSubcategories = productSubcategories.filter(
-    (subcategory) => !currentSubcategorySet.has(subcategory.nameZh),
-  );
-  const offeredSubcategoryNames = new Set(
-    offeredSubcategories.map((subcategory) => subcategory.nameZh),
-  );
-  const subcategoryLabelForInput = (subcategory: string) => {
-    const matched = matchSubcategory(subcategory);
-    return matched ? subcategoryLabel(matched, locale) : subcategory;
-  };
-  // Row 2 renders in one pass: the in-category subcategories the brand does not
-  // hold, then anything the free-text escape hatch resolved that row 2 did not
-  // offer.
-  const addableSubcategories = [
-    ...offeredSubcategories.map((subcategory) => ({
-      key: subcategory.slug,
-      subcategory: subcategory.nameZh,
-      label: subcategoryLabel(subcategory, locale),
-    })),
-    ...extraSubcategories.map((subcategory) => ({ key: subcategory, subcategory, label: subcategoryLabelForInput(subcategory) })),
-  ];
   const labelForField = (item: CorrectionField) => {
     const channel = Object.hasOwn(purchaseChannelByColumn, item)
       ? purchaseChannelByColumn[item as PurchaseChannelColumn]
@@ -294,15 +229,8 @@ export function CorrectionDialog({
   // Only read inside the value branches, which never render while field is "".
   const fieldLabel = field === "" ? "" : labelForField(field);
 
-  function resetOtherEntry() {
-    setOtherOpen(false);
-    setOtherValue("");
-    setOtherMessage(null);
-  }
-
   function handleOpenChange(next: boolean) {
     setOpen(next);
-    resetOtherEntry();
     // Every open starts at the picker, not at whatever was picked last time.
     if (!next) setField("");
   }
@@ -323,78 +251,12 @@ export function CorrectionDialog({
     }));
   }
 
-  function toggleSubcategory(subcategory: string, checked: boolean) {
-    updateSelection((base) => {
-      if (!checked) {
-        return {
-          ...base,
-          key: selectionKey,
-          subcategories: base.subcategories.filter((item) => item !== subcategory),
-        };
-      }
-      if (base.subcategories.includes(subcategory) || base.subcategories.length >= MAX_SUBCATEGORIES) {
-        return { ...base, key: selectionKey };
-      }
-      return { ...base, key: selectionKey, subcategories: [...base.subcategories, subcategory] };
-    });
-  }
-
-  function appendExtraSubcategory(subcategory: string) {
-    updateSelection((base) => {
-      if (base.subcategories.length >= MAX_SUBCATEGORIES) {
-        return { ...base, key: selectionKey };
-      }
-      return {
-        key: selectionKey,
-        value: base.value,
-        subcategories: base.subcategories.includes(subcategory) ? base.subcategories : [...base.subcategories, subcategory],
-        extras: base.extras.includes(subcategory) ? base.extras : [...base.extras, subcategory],
-      };
-    });
-  }
-
-  function closeOtherEntry(atLimitAfter = false) {
-    resetOtherEntry();
-    // The escape-hatch chip renders `disabled` at the cap. focus() here runs
-    // before React commits that attribute, and a focused element that becomes
-    // disabled drops focus to <body> — so when this confirmation fills the last
-    // slot, focus goes to the row that now owns the selection instead.
-    if (atLimitAfter) addSubcategoriesGroupRef.current?.focus();
-    else otherChipRef.current?.focus();
-  }
-
-  function confirmOtherSubcategory() {
-    const result = resolveSubcategoryInput(otherValue);
-    if (!result.ok) {
-      setOtherMessage(
-        result.reason === "length"
-          ? tCorrection("errors.subcategoryLength")
-          : tCorrection("errors.subcategoryBlocked"),
-      );
-      return;
-    }
-    if (currentSubcategorySet.has(result.subcategory)) {
-      setOtherMessage(tCorrection("otherSubcategoryDuplicate"));
-      return;
-    }
-    const alreadySelected = selectedSubcategories.includes(result.subcategory);
-    // Disabling the escape-hatch chip at the cap does not unmount an entry
-    // panel opened below the cap, so the cap has to be stated here too — both
-    // add paths no-op silently and the subcategory would vanish without a word.
-    if (!alreadySelected && atSubcategoryLimit) {
-      setOtherMessage(tCorrection("subcategoriesLimit"));
-      return;
-    }
-    if (offeredSubcategoryNames.has(result.subcategory)) {
-      // Already on screen in row 2 — select it instead of adding a twin.
-      toggleSubcategory(result.subcategory, true);
-    } else {
-      appendExtraSubcategory(result.subcategory);
-    }
-    const nextCount = alreadySelected
-      ? selectedSubcategories.length
-      : selectedSubcategories.length + 1;
-    closeOtherEntry(nextCount >= MAX_SUBCATEGORIES);
+  function setSelectedSubcategories(next: string[]) {
+    updateSelection((base) => ({
+      ...base,
+      key: selectionKey,
+      subcategories: next,
+    }));
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -424,7 +286,6 @@ export function CorrectionDialog({
             key: selectionKey,
             value: isLinkField ? "" : originalSelection,
             subcategories: originalSubcategories,
-            extras: [],
           });
           handleOpenChange(false);
           return;
@@ -531,11 +392,7 @@ export function CorrectionDialog({
             {tCorrection(copy.title)}
           </DialogTitle>
           {field === "subcategories" && (
-            <p className="type-caption">
-              {tCorrection("subcategoriesSubtitle", {
-                category: subcategoriesCategoryLabel,
-              })}
-            </p>
+            <p className="type-caption">{tCorrection("subcategoriesSubtitle")}</p>
           )}
         </DialogHeader>
 
@@ -560,7 +417,6 @@ export function CorrectionDialog({
                       (item) => item === event.target.value,
                     ) ?? "",
                   );
-                  resetOtherEntry();
                 }}
                 className="bg-card focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
               >
@@ -615,165 +471,33 @@ export function CorrectionDialog({
                     })}
                   </span>
                 </div>
-                {atSubcategoryLimit && (
-                  <p
-                    className="rounded-md bg-secondary px-3 py-2 type-caption"
-                    aria-live="polite"
-                  >
-                    {tCorrection("subcategoriesLimit")}
-                  </p>
-                )}
-
-                <div
-                  role="group"
-                  aria-labelledby={currentHeadingId}
-                  className="space-y-2"
-                >
-                  <Typography id={currentHeadingId} variant="subsectionTitle">
-                    {tCorrection("currentSubcategoriesHeading")}
-                  </Typography>
-                  {originalSubcategories.length === 0 ? (
-                    <p className="type-caption">
-                      {tCorrection("selectPlaceholder")}
-                    </p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {originalSubcategories.map((subcategory) => {
-                        const kept = selectedSubcategories.includes(subcategory);
-                        const Icon = kept ? X : RotateCcw;
-
-                        return (
-                          <ToggleChip
-                            key={subcategory}
-                            size="chip"
-                            tone="reference"
-                            pressed={kept}
-                            // Restoring a removed subcategory is an add, and adds no-op
-                            // at the cap — without this the chip would be a
-                            // dead control that never flips back.
-                            disabled={!kept && atSubcategoryLimit}
-                            onPressedChange={(next) => toggleSubcategory(subcategory, next)}
-                            data-ph-no-autocapture
-                          >
-                            {subcategoryLabelForInput(subcategory)}
-                            <Icon aria-hidden="true" />
-                          </ToggleChip>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <div
-                  ref={addSubcategoriesGroupRef}
-                  role="group"
-                  // Programmatic focus target only — see closeOtherEntry.
-                  tabIndex={-1}
-                  aria-labelledby={optionsHeadingId}
-                  className="space-y-2 outline-none"
-                >
-                  <Typography id={optionsHeadingId} variant="subsectionTitle">
-                    {tCorrection("addSubcategoriesHeading")}
-                  </Typography>
-                  <div className="flex flex-wrap gap-2">
-                    {addableSubcategories.map((option) => {
-                      const pressed = selectedSubcategories.includes(option.subcategory);
-
-                      return (
-                        <ToggleChip
-                          key={option.key}
-                          size="chip"
-                          pressed={pressed}
-                          disabled={!pressed && atSubcategoryLimit}
-                          onPressedChange={(next) =>
-                            toggleSubcategory(option.subcategory, next)
-                          }
-                          data-ph-no-autocapture
-                        >
-                          {option.label}
-                        </ToggleChip>
-                      );
-                    })}
-                    <Button
-                      ref={otherChipRef}
-                      type="button"
-                      variant="secondary"
-                      shape="pill"
-                      size="chip"
-                      disabled={atSubcategoryLimit}
-                      aria-expanded={otherOpen}
-                      onClick={() => {
-                        setOtherMessage(null);
-                        setOtherOpen(true);
-                      }}
-                      className="text-muted-foreground"
-                      data-ph-no-autocapture
-                    >
-                      <Plus aria-hidden="true" />
-                      {tCorrection("otherSubcategoryChip")}
-                    </Button>
-                  </div>
-
-                  {otherOpen && (
-                    <div className="space-y-2 rounded-lg border border-border p-3">
-                      <Label htmlFor={otherInputId}>
-                        {tCorrection("otherSubcategoryInputLabel")}
-                      </Label>
-                      <Input
-                        id={otherInputId}
-                        ref={otherInputRef}
-                        value={otherValue}
-                        aria-describedby={
-                          otherMessage
-                            ? `${otherHintId} ${otherMessageId}`
-                            : otherHintId
-                        }
-                        aria-invalid={otherMessage ? true : undefined}
-                        onChange={(event) => {
-                          setOtherValue(event.target.value);
-                          setOtherMessage(null);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key !== "Enter") return;
-                          // The dialog form would otherwise submit the
-                          // correction from inside the subcategory entry.
-                          event.preventDefault();
-                          confirmOtherSubcategory();
-                        }}
-                        data-ph-no-autocapture
-                      />
-                      <p id={otherHintId} className="type-caption">
-                        {tCorrection("otherSubcategoryHint")}
-                      </p>
-                      {otherMessage && (
-                        <p
-                          id={otherMessageId}
-                          className="type-caption text-destructive"
-                        >
-                          {otherMessage}
-                        </p>
-                      )}
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          onClick={confirmOtherSubcategory}
-                          className="focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
-                          data-ph-no-autocapture
-                        >
-                          {tCorrection("otherSubcategoryConfirm")}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => closeOtherEntry()}
-                          className="focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
-                        >
-                          {tEdit("cancel")}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                {/*
+                  One closed picker, shared with the owner wizard and admin
+                  review. The offer set is all 175 nodes, not the brand's own
+                  L1: a brand's products span L1s even though the brand carries
+                  one, and the read side stopped discarding those tags in
+                  DEV-1510. There is no free-text entry — a term the vocabulary
+                  does not know is refused and LOGGED, which is the only gap
+                  signal left once the escape hatch is gone.
+                */}
+                <SubcategoryPicker
+                  value={selectedSubcategories}
+                  baseline={originalSubcategories}
+                  onChange={setSelectedSubcategories}
+                  locale={locale}
+                  priorityCategorySlug={categorySlug}
+                  surface="correction-dialog"
+                  max={MAX_SUBCATEGORIES}
+                  labels={{
+                    search: tCorrection("subcategorySearchLabel"),
+                    searchHint: tCorrection("subcategorySearchHint"),
+                    selected: tCorrection("currentSubcategoriesHeading"),
+                    options: tCorrection("addSubcategoriesHeading"),
+                    limit: tCorrection("subcategoriesLimit"),
+                    rejected: tCorrection("subcategoryRejected"),
+                    empty: tCorrection("subcategoryEmpty"),
+                  }}
+                />
               </div>
             )}
 

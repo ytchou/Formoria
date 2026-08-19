@@ -8,6 +8,7 @@ import {
   type FaqBrandContext,
   type FaqPreset,
 } from "@/lib/brands/faq-presets";
+import { getBrandSubcategoryLabels } from "@/lib/brands/category-label";
 import { CITY_NAMES_ZH } from "@/lib/constants/taiwan-cities";
 import { getCategoryPeerStats } from "../brand-peer-stats";
 import { getBrandById } from "../brands";
@@ -200,10 +201,19 @@ function siteContentValue(brand: EnrichBrand): string | null {
     : JSON.stringify(brand.site_content);
 }
 
-function contextFacts(ctx: FaqBrandContext): string {
+/**
+ * The structured facts block appended to the FAQ user content.
+ *
+ * Exported for the phase's own suite. `brands.subcategories` stores English
+ * slugs since DEV-1510, and this string is a zh-TW brief: an unresolved slug
+ * puts Latin tokens in front of the model, which degrades the answer it writes
+ * without failing anything. The tags are resolved to their zh labels here.
+ */
+export function contextFacts(ctx: FaqBrandContext): string {
   const brand = ctx.brand;
+  const tags = getBrandSubcategoryLabels(brand, "zh-TW");
   return [
-    `結構化品牌事實：產品類型=${brand.categorySlug ?? "無"}；產品標籤=${brand.subcategories.join("、") || "無"}；價格序位=${brand.priceRange ?? "無"}；成立年份=${brand.foundingYear ?? "無"}；城市=${ctx.cityLabel ?? brand.city ?? "無"}；MIT 狀態=${brand.mitStatus ?? "無"}`,
+    `結構化品牌事實：產品類型=${brand.categorySlug ?? "無"}；產品標籤=${tags.join("、") || "無"}；價格序位=${brand.priceRange ?? "無"}；成立年份=${brand.foundingYear ?? "無"}；城市=${ctx.cityLabel ?? brand.city ?? "無"}；MIT 狀態=${brand.mitStatus ?? "無"}`,
     `聲譽摘要：${brand.reputationSummary?.text ?? brand.reputationSummary?.textEn ?? "無"}`,
     `同類品牌比較資料：${ctx.peerStats ? JSON.stringify(ctx.peerStats) : "無"}`,
   ].join("\n");

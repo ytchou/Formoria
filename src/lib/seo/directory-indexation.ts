@@ -1,4 +1,5 @@
 import { cache } from 'react'
+import { DIRECTORY_REFINEMENT_KEYS } from '@/lib/directory-filter-url'
 import {
   L1_CATEGORIES,
   subcategoryBySlug,
@@ -26,6 +27,13 @@ type DirectoryFacets = {
   /** Raw values are accepted for callers that parse multi-select query params. */
   category?: unknown
   sub?: unknown
+  /**
+   * The material axis. Declared here AND named in `DIRECTORY_REFINEMENT_KEYS`,
+   * which is what `hasFacet` reads — the index signature above accepts any
+   * key, so a facet that is declared but not counted type-checks perfectly and
+   * leaves the filtered page indexable.
+   */
+  material?: unknown
   multiCategory?: unknown
   multiSub?: unknown
 }
@@ -157,12 +165,19 @@ function hasValue(value: unknown): boolean {
 }
 
 function hasFacet(facets: DirectoryFacets): boolean {
-  const verification =
-    typeof facets.verification === 'string' ? facets.verification : undefined
+  // The refinement keys come from the ONE shared list so this predicate and
+  // the route-shape one in `components/navigation/category-tab-target.ts`
+  // cannot disagree about what counts as a facet again.
+  const refined = DIRECTORY_REFINEMENT_KEYS.some((key) => {
+    if (key === 'verification') {
+      const verification =
+        typeof facets.verification === 'string' ? facets.verification : undefined
+      return hasValue(verification) && verification !== 'all'
+    }
+    return hasValue(facets[key])
+  })
   return (
-    hasValue(facets.search) ||
-    hasValue(facets.price) ||
-    (hasValue(verification) && verification !== 'all') ||
+    refined ||
     hasValue(facets.category) ||
     hasValue(facets.sub) ||
     hasValue(facets.multiCategory) ||
@@ -210,6 +225,9 @@ function selfCanonicalFacets(state: DirectoryState): DirectoryCanonicalFacets {
     verification,
     category,
     sub,
+    // Retained so a noindex `?material=` page self-canonicals instead of
+    // pointing at the unfiltered directory it is not a duplicate of.
+    material: serializableFacetValue(facets.material),
     sort: serializableFacetValue(facets.sort),
   }
 }

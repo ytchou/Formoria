@@ -1,0 +1,1303 @@
+{
+  "source": "docs/reports/2026-08-19-taxonomy-pre-migration-corpus.csv",
+  "exportedAt": "2026-08-19",
+  "tagUses": 2446,
+  "distinctLabels": 259,
+  "labels": [
+    {
+      "label": "食品禮盒",
+      "tagUses": 86,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "洗沐清潔",
+      "tagUses": 65,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "居家擺飾",
+      "tagUses": 62,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "插畫・畫作",
+      "tagUses": 53,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "甜點・糕點",
+      "tagUses": 44,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "耳環",
+      "tagUses": 43,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "上衣・T恤",
+      "tagUses": 42,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "客製化禮品",
+      "tagUses": 42,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "項鍊",
+      "tagUses": 42,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "收納用品",
+      "tagUses": 41,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "餐具",
+      "tagUses": 40,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "家具",
+      "tagUses": 39,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "居家香氛",
+      "tagUses": 39,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "貼紙",
+      "tagUses": 38,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "斜背包",
+      "tagUses": 36,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "戒指",
+      "tagUses": 34,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "臉部保養",
+      "tagUses": 34,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "體驗課程・DIY材料",
+      "tagUses": 34,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "休閒鞋",
+      "tagUses": 33,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "吊飾",
+      "tagUses": 33,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "托特包",
+      "tagUses": 33,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "玩具",
+      "tagUses": 32,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "後背包",
+      "tagUses": 31,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "收納包",
+      "tagUses": 31,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "身體保養",
+      "tagUses": 30,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "卡片・明信片",
+      "tagUses": 29,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "陶瓷・陶藝",
+      "tagUses": 29,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "餅乾・米餅",
+      "tagUses": 29,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "褲裝",
+      "tagUses": 28,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "襪子",
+      "tagUses": 28,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "運動服飾",
+      "tagUses": 27,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "飲品",
+      "tagUses": 26,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "手提包",
+      "tagUses": 25,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "精油・純露",
+      "tagUses": 24,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "外套",
+      "tagUses": 22,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "手鍊・手環",
+      "tagUses": 22,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "手工皂",
+      "tagUses": 21,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "涼鞋・拖鞋",
+      "tagUses": 20,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "環保袋・購物袋",
+      "tagUses": 20,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "茶葉",
+      "tagUses": 20,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "鑰匙圈",
+      "tagUses": 20,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "香水",
+      "tagUses": 20,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "寢具",
+      "tagUses": 19,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "茶包",
+      "tagUses": 19,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "保健食品",
+      "tagUses": 18,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "戶外配件",
+      "tagUses": 18,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "機能服飾",
+      "tagUses": 18,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "皮鞋",
+      "tagUses": 17,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "貼身衣物",
+      "tagUses": 17,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "洋裝",
+      "tagUses": 16,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "面膜",
+      "tagUses": 16,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "料理包・加工食品",
+      "tagUses": 15,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "木藝・木作",
+      "tagUses": 15,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "皮夾・錢包",
+      "tagUses": 15,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "茶具・咖啡器具",
+      "tagUses": 15,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "蠟燭",
+      "tagUses": 15,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "髮品・頭皮護理",
+      "tagUses": 15,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "手帳・筆記本",
+      "tagUses": 14,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "果乾",
+      "tagUses": 14,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "防曬",
+      "tagUses": 14,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "隨行杯・保溫瓶",
+      "tagUses": 14,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "卡夾・證件套",
+      "tagUses": 13,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "帽子",
+      "tagUses": 13,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "床墊",
+      "tagUses": 13,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "手機殼",
+      "tagUses": 13,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "燈飾",
+      "tagUses": 13,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "環保餐具・吸管",
+      "tagUses": 13,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "茶飲",
+      "tagUses": 13,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "零錢包",
+      "tagUses": 13,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "毛巾",
+      "tagUses": 12,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "靴子",
+      "tagUses": 12,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "清潔用品",
+      "tagUses": 11,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "紙品",
+      "tagUses": 11,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "零食",
+      "tagUses": 11,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "居家織品",
+      "tagUses": 10,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "眼鏡・太陽眼鏡",
+      "tagUses": 10,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "紙膠帶",
+      "tagUses": 10,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "印章",
+      "tagUses": 9,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "口腔護理",
+      "tagUses": 9,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "生活家電",
+      "tagUses": 9,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "生鮮蔬果",
+      "tagUses": 9,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "筆具",
+      "tagUses": 9,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "調味料・醬料",
+      "tagUses": 9,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "果醬・抹醬",
+      "tagUses": 8,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "泳裝",
+      "tagUses": 8,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "編織・鉤織",
+      "tagUses": 8,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "乾燥花・花藝設計",
+      "tagUses": 7,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "寵物生活用品",
+      "tagUses": 7,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "手工具",
+      "tagUses": 7,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "按摩・放鬆",
+      "tagUses": 7,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "時鐘",
+      "tagUses": 7,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "玻璃・琉璃",
+      "tagUses": 7,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "瑜珈用品",
+      "tagUses": 7,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "童裝",
+      "tagUses": 7,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "育兒用品",
+      "tagUses": 7,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "裙裝",
+      "tagUses": 7,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "金工",
+      "tagUses": 7,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "鍋具",
+      "tagUses": 7,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "刺繡",
+      "tagUses": 6,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "寵物食品",
+      "tagUses": 6,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "手機袋",
+      "tagUses": 6,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "月曆・日曆",
+      "tagUses": 6,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "登山・露營用品",
+      "tagUses": 6,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "蜂蜜",
+      "tagUses": 6,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "兒童家具",
+      "tagUses": 5,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "兒童餐具",
+      "tagUses": 5,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "咖啡",
+      "tagUses": 5,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "圍兜・紗布巾",
+      "tagUses": 5,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "圍巾・披肩",
+      "tagUses": 5,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "嬰幼兒服飾",
+      "tagUses": 5,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "寵物服飾・配件",
+      "tagUses": 5,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "巧克力・可可",
+      "tagUses": 5,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "彌月禮盒",
+      "tagUses": 5,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "彩妝",
+      "tagUses": 5,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "教具",
+      "tagUses": 5,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "文具",
+      "tagUses": 5,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "行李箱・旅行袋",
+      "tagUses": 5,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "防蚊・止汗噴霧",
+      "tagUses": 5,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "高跟鞋",
+      "tagUses": 5,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "髮飾",
+      "tagUses": 5,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "乳製品",
+      "tagUses": 4,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "健身器材",
+      "tagUses": 4,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "充電器・充電線",
+      "tagUses": 4,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "化妝包",
+      "tagUses": 4,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "地墊・地毯",
+      "tagUses": 4,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "嬰幼兒寢具",
+      "tagUses": 4,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "寵物清潔・美容",
+      "tagUses": 4,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "手機背帶",
+      "tagUses": 4,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "植栽",
+      "tagUses": 4,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "竹編・竹藝",
+      "tagUses": 4,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "腰包・胸包",
+      "tagUses": 4,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "親子裝",
+      "tagUses": 4,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "遊戲地墊・圍欄",
+      "tagUses": 4,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "雨傘",
+      "tagUses": 4,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "保護套・皮套",
+      "tagUses": 3,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "口金包",
+      "tagUses": 3,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "寵物零食",
+      "tagUses": 3,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "手拿包",
+      "tagUses": 3,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "手機配件",
+      "tagUses": 3,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "照護輔具",
+      "tagUses": 3,
+      "verdicts": ["cross_l1_dropped"]
+    },
+    {
+      "label": "睡衣・居家服",
+      "tagUses": 3,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "筆電包",
+      "tagUses": 3,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "米・雜糧",
+      "tagUses": 3,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "羊毛氈",
+      "tagUses": 3,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "行動電源",
+      "tagUses": 3,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "衛浴用品",
+      "tagUses": 3,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "酒類",
+      "tagUses": 3,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "防寒衣・水上運動",
+      "tagUses": 3,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "卡套",
+      "tagUses": 2,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "口罩",
+      "tagUses": 2,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "安全帽",
+      "tagUses": 2,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "寵物保健",
+      "tagUses": 2,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "居家清潔",
+      "tagUses": 2,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "支架",
+      "tagUses": 2,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "文具收納",
+      "tagUses": 2,
+      "verdicts": ["cross_l1_dropped"]
+    },
+    {
+      "label": "書籤",
+      "tagUses": 2,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "桌墊",
+      "tagUses": 2,
+      "verdicts": ["cross_l1_dropped", "matched"]
+    },
+    {
+      "label": "無線充電",
+      "tagUses": 2,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "皮革工藝",
+      "tagUses": 2,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "相機包",
+      "tagUses": 2,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "窗簾",
+      "tagUses": 2,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "胸針",
+      "tagUses": 2,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "自行車・騎士用品",
+      "tagUses": 2,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "貓抓板・寵物床窩",
+      "tagUses": 2,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "陽傘",
+      "tagUses": 2,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "DIY材料包",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "保護貼",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "個人護理",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "儲存裝置",
+      "tagUses": 1,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "公仔",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "剪刀",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "創作工具",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "包包",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "可麗露",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "堅果",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "多肉園藝",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "天花板材料",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "奶粉",
+      "tagUses": 1,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "婚戒・對戒",
+      "tagUses": 1,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "嬰兒床",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "寵物玩具",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "居家修繕服務",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "居家生活",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "工業用布",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "布料",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "帆布包",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "彩妝刷具",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "徽章",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "手套",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "手帕",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "手機掛繩",
+      "tagUses": 1,
+      "verdicts": ["cross_l1_dropped"]
+    },
+    {
+      "label": "手錶",
+      "tagUses": 1,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "折疊傘",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "抱枕娃娃",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "擴香瓶",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "攝影機",
+      "tagUses": 1,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "文具用品",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "文具禮盒",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "旅行用品",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "旅行頸枕",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "智慧門鈴",
+      "tagUses": 1,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "服飾",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "服飾配件",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "束口袋",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "杯墊",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "桌面配件",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "樂器",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "模型擺飾",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "模型禮盒",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "止滑墊",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "毛毯",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "民宿住宿",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "水桶包",
+      "tagUses": 1,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "洗衣清潔用品",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "洗衣用品",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "洗衣精",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "清潔刷",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "牙間刷",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "玻璃杯盤",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "珍珠飾品",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "環境用藥",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "皮帶",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "盤香",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "盲包",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "石材",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "禮盒",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "童褲",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "絨毛玩偶",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "織物",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "羊毛氈公仔",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "美容儀器",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "肩背包",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "自然景觀體驗",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "花藝",
+      "tagUses": 1,
+      "verdicts": ["matched"]
+    },
+    {
+      "label": "茶會製作",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "萬年曆",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "蔬果清潔用品",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "虱目魚鱗胜肽服飾",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "蛋黃酥",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "衛生棉",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "袖套",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "袖扣",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "護具",
+      "tagUses": 1,
+      "verdicts": ["cross_l1_dropped"]
+    },
+    {
+      "label": "護墊",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "護理手套",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "邊桌",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "野餐用品",
+      "tagUses": 1,
+      "verdicts": ["cross_l1_dropped"]
+    },
+    {
+      "label": "鏡子",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "防護用品",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "防風傘",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "除蟲用品",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "雨靴",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "鞋子",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "飲料提繩",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "飾品珠寶",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "香粉",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "香道具",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "高爾夫球桿套",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    },
+    {
+      "label": "麵包",
+      "tagUses": 1,
+      "verdicts": ["novel"]
+    }
+  ]
+}

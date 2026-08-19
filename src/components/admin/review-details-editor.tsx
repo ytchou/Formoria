@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { ChevronLeft, ChevronRight, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ImageUploader } from "@/components/upload/ImageUploader";
 import type { ImageUploadMetadata } from "@/components/upload/useImageUpload";
 import { DetailSection } from "@/components/admin/detail-section";
+import { SubcategoryPicker } from "@/components/forms/subcategory-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +24,10 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { getCategoryLabel } from "@/lib/brands/category-label";
 import { brandImageFill } from "@/lib/images/focal";
-import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import {
+  L1_CATEGORIES,
+  subcategoryDisplayLabel,
+} from "@/lib/taxonomy/ontology";
 import type { OtherUrl } from "@/lib/types";
 import type {
   SaveSubmissionReviewInput,
@@ -91,6 +95,7 @@ export function ReviewDetailsEditor({
   onCleanupDraftImages,
 }: Props) {
   const t = useTranslations("admin.submissions");
+  const locale = useLocale();
   const router = useRouter();
   const [editingSection, setEditingSection] = useState<EditableSection | null>(
     null,
@@ -378,9 +383,18 @@ export function ReviewDetailsEditor({
                 </dl>
                 {data.subcategories.length > 0 && (
                   <div className="flex flex-wrap gap-2">
+                    {/*
+                      Stored values are slugs since DEV-1510, so they need a
+                      locale to render. `/admin` is English-pinned — `proxy.ts`
+                      sets ADMIN_DEFAULT_LOCALE, and the admin layout mounts
+                      `getMessages({ locale: "en" })` — so the real locale is
+                      read exactly as the corrections queue reads it. Pinning
+                      zh-TW here made one slug show two names across two admin
+                      screens.
+                    */}
                     {data.subcategories.map((tag) => (
                       <Badge key={tag} variant="secondary">
-                        {tag}
+                        {subcategoryDisplayLabel(tag, locale)}
                       </Badge>
                     ))}
                   </div>
@@ -707,7 +721,7 @@ function CatalogEditor({
   ) => void;
 }) {
   const t = useTranslations("admin.submissions");
-  const [tagsText, setTagsText] = useState(draft.subcategories.join(", "));
+  const locale = useLocale();
   return (
     <div className="space-y-3">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -779,18 +793,35 @@ function CatalogEditor({
           />
         </Field>
       </div>
-      <Field label={t("details.subcategories")}>
-        <Input
-          value={tagsText}
-          onChange={(event) => {
-            setTagsText(event.target.value);
-            const tags = parseTags(event.target.value);
-            onUpdate("subcategories", tags);
-            onUpdate("subcategoriesEn", deriveSubcategoriesEn(tags));
-          }}
-          placeholder={t("details.subcategoriesPlaceholder")}
-        />
-      </Field>
+      {/*
+        Was a comma-separated free-text field where admins typed 中文. It is now
+        the same closed picker the owner wizard and the correction dialog use:
+        one vocabulary, one component, and a rejected term is logged instead of
+        being typed straight into the column.
+      */}
+      <SubcategoryPicker
+        value={draft.subcategories}
+        onChange={(next) => {
+          onUpdate("subcategories", next);
+          onUpdate("subcategoriesEn", deriveSubcategoriesEn(next));
+        }}
+        surface="admin-review"
+        // The route's own locale, which `/admin` pins to English. The queue
+        // beside this editor renders the same slugs through `useLocale`, and
+        // two labels for one slug is how an admin reads a mismatch as a data
+        // problem.
+        locale={locale}
+        priorityCategorySlug={draft.categorySlug}
+        labels={{
+          search: t("details.subcategories"),
+          searchHint: t("details.subcategoriesSearchHint"),
+          selected: t("details.subcategoriesSelectedHeading"),
+          options: t("details.subcategoriesOptionsHeading"),
+          limit: t("details.subcategoriesLimit"),
+          rejected: t("details.subcategoriesRejected"),
+          empty: t("details.subcategoriesEmpty"),
+        }}
+      />
     </div>
   );
 }
@@ -1148,17 +1179,6 @@ function reorderImages(images: SubmissionReviewImage[]) {
 function emptyToNull(value: string) {
   const trimmed = value.trim();
   return trimmed || null;
-}
-
-function parseTags(value: string) {
-  return [
-    ...new Set(
-      value
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean),
-    ),
-  ].slice(0, 5);
 }
 
 function compactLinks(

@@ -1,6 +1,7 @@
 import {
   L2_SUBCATEGORIES,
   L1_CATEGORIES,
+  MATERIALS,
 } from "@/lib/taxonomy/ontology";
 
 const CATEGORY_EXAMPLES: Record<string, string> = {
@@ -15,7 +16,8 @@ const CATEGORY_EXAMPLES: Record<string, string> = {
   tech: "3C科技、電子產品、手機配件",
   outdoor: "戶外露營、登山背包、露營裝備、攀岩用品",
   fitness: "健身器材、瑜珈用品、運動服飾、運動配件、重訓裝備",
-  "kids-pets": "兒童、嬰兒、玩具、寵物用品",
+  kids: "兒童、嬰兒、童裝、玩具、育兒用品",
+  pets: "寵物用品、寵物食品、寵物服飾、寵物玩具",
 };
 
 const CATEGORY_LIST = L1_CATEGORIES.map(
@@ -25,14 +27,22 @@ const CATEGORY_LIST = L1_CATEGORIES.map(
 const _subcatByCategory = new Map<string, string[]>();
 for (const sub of L2_SUBCATEGORIES) {
   const arr = _subcatByCategory.get(sub.category) ?? [];
-  arr.push(sub.nameZh);
+  // Slug first, zh gloss in parentheses — the `CATEGORY_LIST` shape above, which
+  // has emitted L1 slugs this way since before DEV-1510 and demonstrably works.
+  // The slug is what gets STORED (`brands.subcategories`), so the model must
+  // emit it verbatim; the gloss is only there to make the slug recognisable to
+  // a model reasoning over zh-TW source material.
+  arr.push(`${sub.slug}（${sub.nameZh}）`);
   _subcatByCategory.set(sub.category, arr);
 }
 
-const SUBCATEGORY_VOCAB_BLOCK = L1_CATEGORIES.map((c) => {
+export const SUBCATEGORY_VOCAB_BLOCK = L1_CATEGORIES.map((c) => {
   const subs = _subcatByCategory.get(c.slug) ?? [];
-  return `- ${c.nameZh}：${subs.join("、")}`;
+  return `- ${c.slug}（${c.nameZh}）：${subs.join("、")}`;
 }).join("\n");
+
+/** The material axis, closed to the twelve agreed terms (`MATERIALS`). */
+const MATERIAL_VOCAB_BLOCK = MATERIALS.join("、");
 
 export const CLASSIFY_SYSTEM_PROMPT = `你是台灣品牌分類專家。請根據品牌名稱和描述，將品牌分類到最適合的產品類別。
 
@@ -256,8 +266,8 @@ listing.taiwan_connection 只能依據來源明確提到的事實填寫，不可
 
 {
   "category": "類別 slug 或 null（只能用下方「品牌分類」清單中的 slug）",
-  "subcategories": ["具體商品子類別（繁體中文）"],
-  "subcategories_en": ["specific product subcategories (English, same count and order as subcategories)"],
+  "subcategories": ["子類別 slug（只能用下方「商品子類別詞彙表」中的 slug，一字不差）"],
+  "material": ["材質（只能用下方「材質詞彙表」中的詞）"],
   "price_range": 1 | 2 | 3 | null,
   "city": "城市 slug 或 null（只能用以下值：taipei, new_taipei, taoyuan, taichung, tainan, kaohsiung, keelung, hsinchu_city, chiayi_city, hsinchu_county, miaoli, changhua, nantou, yunlin, chiayi_county, pingtung, yilan, hualien, taitung, penghu, kinmen, lienchiang）",
   "founding_year": 2015 | null,
@@ -290,17 +300,23 @@ ${CATEGORY_LIST}
 
 subcategories（商品子類別）：
 
-商品子類別詞彙表：
+商品子類別詞彙表（封閉清單，只能使用下列 slug）：
 ${SUBCATEGORY_VOCAB_BLOCK}
 
-先列出品牌的產品線，每條產品線從詞彙表中選取對應子類別（優先品牌所屬分類下的詞彙，明確跨分類時才選其他分支）。僅當找不到合適詞彙時，才輸出新的「子類別層級」標籤，且必須同時符合以下條件：
-1. 必須命名具體的產品種類，不得只描述用途或抽象範圍。
-2. 不含「・」；複合詞應拆成可獨立匹配的產品種類，不得原樣輸出。
-3. 不得是任何 L1 類別名稱（例如服飾鞋履、包袋配件、居家生活）。
-4. 不得是場合、收件對象、包裝形式、履約方式、服務或材質（例如送禮、彌月、禮盒、伴手禮、體驗課程、服務、原料）。
+先列出品牌的產品線，每條產品線從詞彙表中選出對應的 slug（優先品牌所屬分類下的 slug；產品明確屬於其他分類時，選該分類的 slug）。詞彙表是封閉的，必須同時符合以下條件：
+1. 只能輸出上表出現過的 slug，一字不差；找不到合適的 slug 時寧可少填，不可自創標籤。
+2. 不得輸出中文標籤、英文名稱或含「・」的複合字串；slug 一律是小寫英文與連字號。
+3. 不得是任何 L1 類別的 slug 或名稱（例如 fashion、bags-accessories、居家生活）。
+4. 場合、收件對象、包裝形式、履約方式與服務都不是商品種類（例如送禮、彌月、禮盒、伴手禮、體驗課程、服務），不得為了收錄它們而勉強對應到任何 slug。
 5. 不得是 SKU 層級的款式、型號、單一變體或規格。
-6. 禁止：材質前綴、行銷詞、系列/款/限定/客製、尺寸詞如短/長/迷你。
+6. 材質屬於另一個軸線：不要用材質詞當子類別，材質請改填 material 欄位。
 2–5 個，資料不足回傳 []。
+
+material（材質）：
+
+材質詞彙表（封閉清單）：${MATERIAL_VOCAB_BLOCK}
+
+填寫商品主要材質，只能使用上列詞彙，最多 3 個。材質必須有來源依據（商品說明、材質標示、產品規格），不可從照片外觀推測；沒有明確依據時回傳 []。
 
 city：只能填上方清單中的城市 slug。若來源未明確指出品牌所在地，回傳 null。
 
@@ -309,9 +325,9 @@ founding_year：只能填寫來源中明確提到的年份；若來源中未提�
 mit_indicators：是否在來源中提及台灣製造（MIT、台灣製造、100% Made in Taiwan 等）。evidence 引用原文。若無相關資訊回傳 null。
 
 ## 驗證檢查（輸出前自行確認）
-- [ ] subcategories 和 subcategories_en 數量是否一致？
-- [ ] 每個 novel subcategory 是否命名具體產品種類，而不是 L1、場合、包裝、服務、材質或 SKU 層級詞？
-- [ ] novel subcategory 是否不含「・」？
+- [ ] subcategories 是否每一項都逐字出現在商品子類別詞彙表中，沒有自創標籤或中文標籤？
+- [ ] 是否沒有把 L1、場合、包裝、服務或 SKU 層級詞當成子類別？
+- [ ] material 是否只使用材質詞彙表中的詞，且每一項都有來源依據？
 - [ ] 所有欄位是否可從提供的來源中找到依據？
 - [ ] category 與 city 是否只使用上列 slug？
 - [ ] 沒有依據的欄位是否已回傳 null 或 []，而不是猜測值？`;

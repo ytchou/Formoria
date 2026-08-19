@@ -176,6 +176,7 @@
       "all": "全部",
       "category": "分類",
       "priceRange": "價格區間",
+      "material": "材質",
       "brandStatus": "品牌狀態",
       "appliedHint": "點擊標籤上的 × 可移除篩選條件",
       "currentConditions": "目前套用的篩選",
@@ -185,6 +186,7 @@
       "activeSearch": "搜尋",
       "activeCategory": "分類",
       "activeSubcategory": "子分類",
+      "activeMaterial": "材質",
       "activePrice": "價格區間",
       "activeStatus": "品牌狀態",
       "removeFilter": "移除{label}：{value}",
@@ -518,15 +520,14 @@
       "currentSubcategoriesHeading": "目前子類別（點擊移除）",
       "changeToHeading": "改成",
       "addSubcategoriesHeading": "可加入的子類別",
-      "subcategoriesSubtitle": "{category} 的產品子類別（最多 5 項）",
+      "subcategoriesSubtitle": "產品子類別（最多 5 項，可跨分類）",
       "subcategoriesSelected": "已選 {count} / 5",
       "subcategoriesLimit": "最多選 5 項產品子類別。",
-      "otherSubcategoryChip": "其他",
-      "otherSubcategoryInputLabel": "其他子類別名稱",
-      "otherSubcategoryHint": "請輸入 2–8 個字，送出後由官方審核才會更新品牌資料。",
-      "otherSubcategoryConfirm": "加入",
-      "otherSubcategoryDuplicate": "這個子類別已列在上方，若要移除請點擊上方的標籤。",
       "success": "修正已送出，感謝你的協助。",
+      "subcategorySearchLabel": "搜尋子類別",
+      "subcategorySearchHint": "輸入關鍵字篩選，再點選下方標籤加入。",
+      "subcategoryRejected": "這個詞不在子類別清單中。請改用下方清單裡最接近的子類別。",
+      "subcategoryEmpty": "沒有符合的子類別，請換個關鍵字。",
       "errors": {
         "invalid_brand": "找不到這個品牌，請重新整理後再試。",
         "invalid_value": "這個修正內容無效，請重新選擇。",
@@ -534,9 +535,7 @@
         "unchanged": "這項資料目前沒有變更。",
         "already_submitted": "這項修正已經送出，請等待審核。",
         "rate_limited": "修正送出次數過多，請稍後再試。",
-        "unavailable": "目前無法送出修正，請稍後再試。",
-        "subcategoryLength": "請輸入 2–8 個字的子類別名稱。",
-        "subcategoryBlocked": "這個詞無法作為產品子類別，請改用能描述產品本身的名稱。"
+        "unavailable": "目前無法送出修正，請稍後再試。"
       }
     },
     "adminMenu": {
@@ -714,7 +713,8 @@
       "tech": "桌上多一條線就亂，充電、擴充與收線通常得一起解決。3C科技涵蓋消費電子、電腦周邊、創作者工具與智慧生活裝置。Formoria 收錄在台灣創立、設計或製造的 3C 科技品牌；規格、相容性與保固條件請以品牌官方說明為準。",
       "outdoor": "週末要上山，睡袋、爐具和背包都得自己揹。戶外露營涵蓋登山、露營、攀岩與旅行裝備，以及相關服裝、背包與配件；台灣的高山稜線與海岸營地，讓輕量與耐潮成為常見的設計取捨。Formoria 收錄在台灣創立、設計或製造的戶外露營品牌。",
       "fitness": "下班後在客廳鋪開一張墊子，就是今天的訓練空間。運動健身涵蓋瑜珈墊、阻力訓練器材、運動服飾與恢復工具；尺寸、重量與收納方式，往往決定它會不會被拿出來用。Formoria 收錄在台灣創立、設計或製造的運動健身品牌。",
-      "kids-pets": "孩子會把東西放進嘴巴，貓會把玩具咬開。母嬰寵物涵蓋童裝、木製與布製玩具、餐具、寵物用品與配件，材質與清洗方式通常是第一個要看的資訊。Formoria 收錄在台灣創立、設計或製造的母嬰寵物品牌；安全標示與檢驗資訊請以品牌與官方公告為準。"
+      "kids": "孩子會把東西放進嘴巴，也會在一季內長大半號。母嬰童涵蓋童裝、嬰幼兒服飾與寢具、木製與布製玩具、兒童餐具與育兒用品，材質與清洗方式通常是第一個要看的資訊。Formoria 收錄在台灣創立、設計或製造的母嬰童品牌；安全標示與檢驗資訊請以品牌與官方公告為準。",
+      "pets": "貓會把玩具咬開，牽繩會被拖過下過雨的柏油路。寵物涵蓋鮮食與零食、保健、服飾與配件、貓抓板與床窩，以及清潔美容用品，耐用度與清洗方式通常是第一個要看的資訊。Formoria 收錄在台灣創立、設計或製造的寵物品牌；成分與檢驗資訊請以品牌與官方公告為準。"
     },
     "l1": {
       "home": {
@@ -836,19 +836,19 @@
           }
         ]
       },
-      "kids-pets": {
-        "title": "台灣母嬰寵物品牌｜探索兒童用品、嬰幼兒與毛孩生活 | Formoria",
-        "description": "探索台灣母嬰寵物品牌，從兒童用品、嬰幼兒服飾到寵物用品，依使用對象認識品牌。",
-        "h1": "台灣母嬰寵物品牌",
-        "intro": "玩具、服飾、餐具、寵物用品與配件；會放進嘴巴、也會被咬開，所以材質和清洗方式要先看清楚。",
+      "kids": {
+        "title": "台灣母嬰童品牌｜探索童裝、玩具與育兒用品 | Formoria",
+        "description": "探索台灣母嬰童品牌，從童裝、嬰幼兒寢具到玩具與兒童餐具，依使用年齡認識品牌。",
+        "h1": "台灣母嬰童品牌",
+        "intro": "童裝、嬰幼兒服飾與寢具、玩具、餐具與育兒用品；會放進嘴巴，也會被洗上幾十次，所以材質和清洗方式要先看清楚。",
         "definition": "安全、尺寸與使用年齡是此分類的重要閱讀線索，但目錄不取代法規、檢驗或醫療建議。品牌可能在台灣創立、設計或製造，產品的適用年齡、材質與認證請回到品牌頁及包裝標示確認。",
         "faq": [
           {
-            "question": "母嬰寵物品牌會收錄哪些產品？",
-            "answer": "兒童與嬰幼兒服飾、玩具、餐具、居家用品，以及寵物食用品與配件都可能收錄。"
+            "question": "母嬰童品牌會收錄哪些產品？",
+            "answer": "兒童與嬰幼兒服飾、寢具、玩具、教具、餐具與育兒用品都可能收錄。"
           },
           {
-            "question": "Formoria 會確認產品適合所有孩子或寵物嗎？",
+            "question": "Formoria 會確認產品適合所有孩子嗎？",
             "answer": "不會。目錄整理品牌公開資訊，實際年齡、尺寸與安全條件仍應依產品標示及專業建議判斷。"
           }
         ]
@@ -1059,6 +1059,20 @@
           }
         ]
       }
+    },
+    "materials": {
+      "陶瓷": "陶瓷",
+      "木": "木",
+      "織品": "織品",
+      "玻璃": "玻璃",
+      "金屬": "金屬",
+      "竹": "竹",
+      "羊毛": "羊毛",
+      "皮革": "皮革",
+      "紙": "紙",
+      "石": "石",
+      "藤": "藤",
+      "漆": "漆"
     }
   },
   "legal": {
@@ -1762,11 +1776,9 @@
       "sectionLinks": "社群與購買連結",
       "fieldBrandName": "品牌名稱",
       "fieldCategory": "品牌類別",
-      "fieldCategoryHint": "用於導覽、搜尋與篩選",
+      "fieldCategoryHint": "用於導航、搜尋和篩選",
       "fieldDescription": "品牌介紹",
       "fieldSubcategories": "產品子類別",
-      "fieldSubcategoriesPlaceholder": "新增產品子類別",
-      "removeSubcategory": "移除子類別",
       "subcategoriesMax": "最多 5 個子類別。請描述產品，而非宣傳用語。",
       "fieldFoundingYear": "創立年份",
       "fieldPriceRange": "價格範圍",
@@ -1832,7 +1844,6 @@
       "addSource": "新增來源",
       "requiredHint": "為必填欄位",
       "requiredFieldError": "發布前請完成此必填欄位。",
-      "fieldCategoryHint": "用於導航、搜尋和篩選",
       "fieldDescriptionHint": "顯示在品牌頁面上的公開介紹",
       "fieldFoundingYearHint": "顯示在品牌頁面上",
       "mitStoryHint": "若有填寫會顯示在品牌頁面上",
@@ -1850,7 +1861,12 @@
         "excessiveEmoji": "這個欄位的 emoji 太多，請控制在十個以內。",
         "shortDescription": "這段介紹太短，請補充至少十個中文字的完整介紹。",
         "identicalDescription": "這段介紹只重複品牌名稱，請改為說明品牌製作或販售的內容。"
-      }
+      },
+      "subcategoriesSearchHint": "輸入關鍵字篩選，再點選下方標籤加入。",
+      "subcategoriesSelectedHeading": "已選子類別（點擊移除）",
+      "subcategoriesOptionsHeading": "可加入的子類別",
+      "subcategoriesRejected": "這個詞不在子類別清單中。請改用下方清單裡最接近的子類別。",
+      "subcategoriesEmpty": "沒有符合的子類別，請換個關鍵字。"
     },
     "brandProfile": {
       "productPhotos": "產品照片",
@@ -1983,7 +1999,7 @@
       "addMorePhotos": "新增更多照片",
       "fromWebsite": "來自網站",
       "uploaded": "已上傳",
-      "category": "類別",
+      "category": "品牌類別",
       "categoryPlaceholder": "選擇類別",
       "tags": "標籤",
       "tagsHint": "最多新增 5 個標籤，幫助大家找到這個品牌",
@@ -2010,7 +2026,6 @@
       "regionPlaceholder": "選擇地區",
       "regionHint": "品牌總部或主要營運的城市",
       "regionOptionalHint": "選填",
-      "category": "品牌類別",
       "categoryMultiSelect": "",
       "categoryHint": "選擇最符合的品牌類別",
       "categoryFreeTextToggle": "以上都不適合？",

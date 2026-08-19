@@ -72,14 +72,19 @@ const HINT_KEYWORD_MAP: Record<string, CategorySlug> = {
   illustration: 'crafts',
   art: 'crafts',
 
-  // kids-pets (媽媽包 is bags-accessories, not kids; 親子品牌 is kids)
-  嬰兒: 'kids-pets',
-  baby: 'kids-pets',
-  kids: 'kids-pets',
-  親子品牌: 'kids-pets',
-  母嬰: 'kids-pets',
-  寵物: 'kids-pets',
-  嬰幼兒: 'kids-pets',
+  // kids (媽媽包 is bags-accessories, not kids; 親子品牌 is kids)
+  嬰兒: 'kids',
+  baby: 'kids',
+  kids: 'kids',
+  親子品牌: 'kids',
+  母嬰: 'kids',
+  嬰幼兒: 'kids',
+
+  // pets — a separate L1 since DEV-1510. A pet keyword must never land on
+  // `kids`: the two audiences share nothing but the old slug.
+  寵物: 'pets',
+  pet: 'pets',
+  pets: 'pets',
 
   // beauty
   beauty: 'beauty',

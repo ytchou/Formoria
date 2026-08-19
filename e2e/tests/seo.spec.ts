@@ -379,7 +379,9 @@ test.describe("SEO deep", () => {
       "tech",
       "outdoor",
       "fitness",
-      "kids-pets",
+      // `kids-pets` was split into these two L1s by DEV-1510.
+      "kids",
+      "pets",
     ];
 
     for (const slug of categorySlugs) {

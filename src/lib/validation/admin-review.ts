@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_BRAND_IMAGE_SELECTION } from "@/lib/constants/brand-images";
+import { isKnownSubcategoryTerm } from "@/lib/taxonomy/ontology";
 import {
   PURCHASE_CAMEL_FIELDS,
   type PurchaseChannelCamelField,
@@ -51,7 +52,17 @@ export const adminReviewSchema = z.object({
   heroImageUrl: nullableText,
   categorySlug: z.string().max(100).nullable(),
   priceRange: z.number().int().nullable(),
-  subcategories: z.array(z.string().trim().min(1).max(100)).max(5),
+  // Closed vocabulary since DEV-1510. The review editor picks from the 175
+  // nodes, so a value the vocabulary does not know reached this payload past
+  // the picker — and `brands.subcategories` is a slug column, where it would
+  // render as a dead filter. Both bases are accepted: a submission created
+  // before the backfill still carries zh-TW labels into review.
+  subcategories: z
+    .array(z.string().trim().min(1).max(100))
+    .max(5)
+    .refine((values) => values.every(isKnownSubcategoryTerm), {
+      message: "Unknown subcategory",
+    }),
   subcategoriesEn: z.array(z.string().trim().min(1).max(100)).max(5),
   websiteUrl: nullableText,
   socialInstagram: nullableText,

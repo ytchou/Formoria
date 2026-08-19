@@ -1,97 +1,75 @@
 "use client";
 
-import { useState } from "react";
-import { X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { useMemo, useState } from "react";
+
+import {
+  SubcategoryPicker,
+  type SubcategoryPickerLabels,
+} from "@/components/forms/subcategory-picker";
+import { resolveSubcategorySelection } from "@/lib/services/subcategories";
+
+/**
+ * Stable identity for the default. `suggestions = []` written inline is a new
+ * array on every render, which defeats the memo below and, through it, the
+ * picker's own 175-node memo.
+ */
+const NO_SUGGESTIONS: string[] = [];
 
 type SubcategoryFieldProps = {
   initialSubcategories?: string[];
   value?: string[];
   onChange?: (subcategories: string[]) => void;
+  /**
+   * The directory's most-used subcategories, as stored values or labels. They
+   * do not widen the offer set — every one of the 175 nodes is offered either
+   * way — they only float to the top of their group, which is what keeps a
+   * closed picker of that size navigable.
+   */
   suggestions?: string[];
-  inputLabel: string;
-  placeholder: string;
-  removeLabel: string;
-  maxLabel?: string;
+  /** The brand's own L1, offered first. The other twelve still follow. */
+  categorySlug?: string | null;
+  locale?: string;
+  labels: SubcategoryPickerLabels;
 };
 
-const MAX_SUBCATEGORIES = 5;
-
-function normalizeSubcategory(value: string): string {
-  return value.trim().replace(/\s+/g, " ");
-}
-
+/**
+ * The owner-facing wrapper around the shared closed picker.
+ *
+ * The hidden input is TRANSPORT, not display: it carries the stored slugs to a
+ * server action verbatim. The chips beside it render localized labels through
+ * the picker, so no owner ever sees `tote-bags` on screen.
+ */
 export function SubcategoryField({
   initialSubcategories,
   value: controlledSubcategories,
   onChange,
-  suggestions = [],
-  inputLabel,
-  placeholder,
-  removeLabel,
-  maxLabel,
+  suggestions = NO_SUGGESTIONS,
+  categorySlug = null,
+  locale = "zh-TW",
+  labels,
 }: SubcategoryFieldProps) {
-  const [internalSubcategories, setInternalSubcategories] = useState(() =>
-    (initialSubcategories ?? []).slice(0, MAX_SUBCATEGORIES),
+  const [internalSubcategories, setInternalSubcategories] = useState(
+    () => initialSubcategories ?? [],
   );
-  const [value, setValue] = useState("");
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(-1);
   const subcategories = controlledSubcategories ?? internalSubcategories;
-  const normalizedValue = normalizeSubcategory(value).toLocaleLowerCase("en");
-  const filteredSuggestions = normalizedValue
-    ? suggestions
-        .filter((suggestion) =>
-          suggestion.toLocaleLowerCase("en").includes(normalizedValue),
-        )
-        .filter(
-          (suggestion) =>
-            !subcategories.some(
-              (subcategory) =>
-                subcategory.toLocaleLowerCase("en") ===
-                suggestion.toLocaleLowerCase("en"),
-            ),
-        )
-        .slice(0, 6)
-    : [];
 
-  function updateSubcategories(nextSubcategories: string[]) {
+  // Memoized because the picker lists it as a dependency: rebuilt inline it
+  // handed the picker a new array on every keystroke of every other field in
+  // the wizard form, replaying the full 175-node scan each time.
+  const prioritySlugs = useMemo(
+    () =>
+      suggestions
+        .map((suggestion) => resolveSubcategorySelection(suggestion))
+        .flatMap((resolved) => (resolved.ok ? [resolved.slug] : [])),
+    [suggestions],
+  );
+
+  function updateSubcategories(next: string[]) {
     if (controlledSubcategories === undefined) {
-      setInternalSubcategories(nextSubcategories);
+      setInternalSubcategories(next);
     }
-    onChange?.(nextSubcategories);
+    onChange?.(next);
   }
-
-  function addSubcategory(rawValue: string) {
-    const subcategory = normalizeSubcategory(rawValue);
-    if (
-      !subcategory ||
-      subcategory.length > 40 ||
-      subcategories.length >= MAX_SUBCATEGORIES
-    ) {
-      setValue("");
-      setShowSuggestions(false);
-      return;
-    }
-    if (
-      subcategories.some(
-        (current) => current.toLowerCase() === subcategory.toLowerCase(),
-      )
-    ) {
-      setValue("");
-      setShowSuggestions(false);
-      return;
-    }
-    updateSubcategories([...subcategories, subcategory]);
-    setValue("");
-    setShowSuggestions(false);
-    setSelectedIndex(-1);
-  }
-
-  const listboxId = "subcategories-listbox";
-  const isExpanded = showSuggestions && filteredSuggestions.length > 0;
 
   return (
     <div className="space-y-2">
@@ -100,114 +78,15 @@ export function SubcategoryField({
         name="subcategories"
         value={subcategories.join(",")}
       />
-      <div className="relative flex min-h-11 flex-wrap gap-2 rounded-lg border border-border bg-background p-2">
-        {subcategories.map((subcategory) => (
-          <span
-            key={subcategory.toLowerCase()}
-            className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 type-body-emphasis text-primary"
-          >
-            {subcategory}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              shape="pill"
-              aria-label={`${removeLabel}: ${subcategory}`}
-              className="size-6 min-h-0 min-w-0 p-0 text-primary hover:bg-primary/10"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() =>
-                updateSubcategories(
-                  subcategories.filter((item) => item !== subcategory),
-                )
-              }
-            >
-              <X className="size-3.5" />
-            </Button>
-          </span>
-        ))}
-        {subcategories.length < MAX_SUBCATEGORIES ? (
-          <Input
-            id="subcategories"
-            role="combobox"
-            aria-label={inputLabel}
-            aria-expanded={isExpanded}
-            aria-controls={isExpanded ? listboxId : undefined}
-            aria-autocomplete="list"
-            className="h-8 min-w-40 flex-1 border-0 px-1 shadow-none focus-visible:ring-0"
-            placeholder={placeholder}
-            value={value}
-            maxLength={40}
-            aria-activedescendant={
-              isExpanded &&
-              selectedIndex >= 0 &&
-              filteredSuggestions[selectedIndex]
-                ? `subcategory-suggestion-${selectedIndex}`
-                : undefined
-            }
-            onChange={(event) => {
-              setValue(event.target.value);
-              setShowSuggestions(true);
-              setSelectedIndex(-1);
-            }}
-            onFocus={() => setShowSuggestions(true)}
-            onBlur={() => addSubcategory(value)}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowDown") {
-                event.preventDefault();
-                if (isExpanded) {
-                  setSelectedIndex((prev) =>
-                    Math.min(prev + 1, filteredSuggestions.length - 1),
-                  );
-                }
-              } else if (event.key === "ArrowUp") {
-                event.preventDefault();
-                setSelectedIndex((prev) => Math.max(prev - 1, -1));
-              } else if (event.key === "Enter") {
-                event.preventDefault();
-                if (selectedIndex >= 0 && filteredSuggestions[selectedIndex]) {
-                  addSubcategory(filteredSuggestions[selectedIndex]);
-                } else {
-                  addSubcategory(value);
-                }
-              } else if (event.key === ",") {
-                event.preventDefault();
-                addSubcategory(value);
-              } else if (event.key === "Escape") {
-                setShowSuggestions(false);
-                setSelectedIndex(-1);
-              }
-            }}
-          />
-        ) : null}
-        {isExpanded ? (
-          <div
-            id={listboxId}
-            role="listbox"
-            aria-label={inputLabel}
-            className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-border bg-popover py-1 shadow-md"
-          >
-            {filteredSuggestions.map((suggestion, index) => (
-              <div
-                key={suggestion.toLocaleLowerCase("en")}
-                id={`subcategory-suggestion-${index}`}
-                role="option"
-                aria-selected={selectedIndex === index}
-                className={cn(
-                  "block w-full cursor-pointer px-3 py-2 text-left type-body",
-                  selectedIndex === index
-                    ? "bg-secondary"
-                    : "hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none",
-                )}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => addSubcategory(suggestion)}
-              >
-                {suggestion}
-              </div>
-            ))}
-          </div>
-        ) : null}
-      </div>
-      {maxLabel ? <p className="type-caption">{maxLabel}</p> : null}
+      <SubcategoryPicker
+        value={subcategories}
+        onChange={updateSubcategories}
+        labels={labels}
+        surface="brand-wizard"
+        locale={locale}
+        priorityCategorySlug={categorySlug}
+        prioritySlugs={prioritySlugs}
+      />
     </div>
   );
 }

@@ -41,6 +41,11 @@ const REPARENTED_OR_RETIRED_SLUGS = new Set([
   'custom-gifts',
   'workshops-and-diy-kits',
   'baby-gift-sets',
+  // Added by DEV-1510: `kids-pets` was split into the live L1s `kids` and
+  // `pets`, so no page owns the merged slug any more — /categories/kids-pets
+  // 301s to /brands. A live row pointing back at it would resurrect the exact
+  // chain the split had to remove.
+  'kids-pets',
 ])
 const REQUIRED_PAGE_ROLES = [
   'homepage',
@@ -253,6 +258,12 @@ describe('keyword map invariants', () => {
 
     expect(launch.length).toBeGreaterThanOrEqual(5)
     expect(launch.length).toBeLessThanOrEqual(10)
+    // Still 10 after DEV-1510. The kids/pets split moves L1 rows only, and the
+    // nine L2 nodes it added (umbrellas, gloves, cufflinks-and-tie-clips,
+    // feminine-care, beauty-tools, pest-control, figurines-and-plush,
+    // bookmarks, craft-kits-and-supplies) went to unmapped_backlog rather than
+    // becoming launch clusters: none has a scoped brand_count, and a launch row
+    // also requires bespoke zh-TW copy, which the case below enforces.
     expect(launch).toHaveLength(10)
   })
 
@@ -267,6 +278,9 @@ describe('keyword map invariants', () => {
         cluster.eligibility !== 'reject-taxonomy',
     )
 
+    // Still 25 after DEV-1510: every L2 node the split added carries
+    // brand_count 0, so none clears the 15-brand bar, and the split itself
+    // touched no L2 row's count.
     expect(deferredQualifying).toHaveLength(25)
     expect(
       deferredQualifying.every(
@@ -428,19 +442,54 @@ describe('keyword map invariants', () => {
     expect(mismatches).toEqual([])
   })
 
-  it('all 12 L1 categories are covered', () => {
+  it('all 13 L1 categories are covered', () => {
     const covered = new Set(
       clusters
         .filter(cluster => cluster.page_type === 'l1-category')
         .map(cluster => cluster.ontology_slug),
     )
 
-    expect(L1_CATEGORIES).toHaveLength(12)
+    // 12 -> 13: DEV-1510 split `kids-pets` into `kids` and `pets`, so one L1 row
+    // became two. An L1 that ships without a keyword row is a page nothing owns
+    // — that is how `pets` would have gone live with a redirect still shadowing
+    // it — so the count is pinned exactly, never widened to a floor.
+    expect(L1_CATEGORIES).toHaveLength(13)
     const missing = L1_CATEGORIES.map(category => category.slug).filter(
       slug => !covered.has(slug),
     )
     expect(missing).toEqual([])
-    expect(covered.size).toBe(12)
+    expect(covered.size).toBe(13)
+  })
+
+  // DEV-1510's Test Contract names this case. The three exact counts it pins
+  // are each asserted in their own case above; this one states them together so
+  // the taxonomy's shape is checkable in one place. Exact, never a floor — a
+  // count that drifts silently is how `pets` would have shipped with a redirect
+  // still shadowing it.
+  it('keyword_map_invariants_hold', () => {
+    const launch = clusters.filter(
+      cluster =>
+        cluster.locale === 'zh-TW' &&
+        cluster.page_type === 'l2-category' &&
+        cluster.eligibility === 'launch',
+    )
+    expect(launch).toHaveLength(10)
+
+    const deferredQualifying = clusters.filter(
+      cluster =>
+        cluster.locale === 'zh-TW' &&
+        cluster.page_type === 'l2-category' &&
+        cluster.brand_count >= 15 &&
+        cluster.composite !== 'multi-intent' &&
+        cluster.eligibility !== 'launch' &&
+        cluster.eligibility !== 'reject-taxonomy',
+    )
+    expect(deferredQualifying).toHaveLength(25)
+
+    // The merged slug must stay retired: a live row pointing back at it would
+    // rebuild the /categories/pets -> /categories/kids-pets -> /brands chain.
+    expect(REPARENTED_OR_RETIRED_SLUGS.has('kids-pets')).toBe(true)
+    expect(L1_CATEGORIES).toHaveLength(13)
   })
 
   it('every required page role has an owner', () => {

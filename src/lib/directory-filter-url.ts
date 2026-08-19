@@ -1,9 +1,32 @@
+/**
+ * Query keys that carry a REFINEMENT of the result set rather than a position
+ * in the taxonomy.
+ *
+ * One list, read by both predicates that answer "is this directory URL
+ * refined?" — indexability (`lib/seo/directory-indexation.ts`) and route shape
+ * (`components/navigation/category-tab-target.ts`). They were two hand-kept
+ * arrays until `material` reached one and not the other, and a subcategory
+ * chip then routed to a bare `/categories/<l1>/<l2>` that silently dropped the
+ * material filter. Adding a facet now means adding it here, once.
+ */
+export const DIRECTORY_REFINEMENT_KEYS = [
+  'search',
+  'price',
+  'verification',
+  'material',
+] as const
+
+/**
+ * Sort is presentation: it reorders the same rows rather than narrowing them,
+ * so indexation keeps it apart from the refinements above (a sorted page stays
+ * indexable). Route shape counts it, because a taxonomy path cannot carry it.
+ */
+export const DIRECTORY_SORT_KEY = 'sort'
+
 type DirectoryFilterKey =
-  | 'search'
+  | (typeof DIRECTORY_REFINEMENT_KEYS)[number]
   | 'category'
   | 'sub'
-  | 'price'
-  | 'verification'
 
 type SearchParamsLike = { toString(): string }
 type DirectoryFilterUpdates = Partial<
@@ -22,7 +45,17 @@ export function updateDirectoryUrl(
     else params.delete(key)
   }
 
-  if ('category' in updates && !updates.category) {
+  // `sub` is scoped to a single L1, so any change to `category` invalidates it.
+  // `material` is deliberately NOT dropped here: it is an orthogonal axis —
+  // a material means the same thing under every category — so clearing it would
+  // discard a filter the user never touched.
+  //
+  // The exception is a patch that sets `sub` itself: the subcategory chips move
+  // category and sub together through `buildCategoryTabTarget`, and deleting
+  // the value the same call just set would make them dead links.
+  const changesCategory = 'category' in updates
+  const setsSubExplicitly = 'sub' in updates && Boolean(updates.sub)
+  if (changesCategory && !setsSubExplicitly) {
     params.delete('sub')
   }
 
@@ -40,6 +73,7 @@ export function clearDirectoryFilters(
     ...(options.includeSearch ? { search: null } : {}),
     category: null,
     sub: null,
+    material: null,
     price: null,
     verification: null,
   })

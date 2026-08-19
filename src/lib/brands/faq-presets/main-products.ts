@@ -1,4 +1,5 @@
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { getBrandSubcategoryLabels } from "@/lib/brands/category-label";
 import {
   buildBrandContextSuffix,
   hasValue,
@@ -18,12 +19,23 @@ import {
  * The tags for one locale. The floor interpolates these directly, so an empty
  * result must never reach a rendered answer — eligibility is judged on the
  * *same* array the floor will read, for the *same* locale.
+ *
+ * Two arrays are in play and they answer different questions. The locale's own
+ * array decides *whether* this preset renders — a brand with no en tags must
+ * not produce an en answer. What the answer *says* comes from the ontology:
+ * `subcategories` stores English slugs since DEV-1510, and this is published
+ * zh-TW copy plus FAQPage JSON-LD, so a raw slug here is Latin text on a public
+ * page. The two arrays are index-aligned by `deriveSubcategoriesEn`.
  */
 function localeTags(ctx: FaqBrandContext, locale: string): string[] {
-  const tags = locale.startsWith("en")
+  const source = locale.startsWith("en")
     ? ctx.brand.subcategoriesEn
     : ctx.brand.subcategories;
-  return tags.filter(hasValue).slice(0, 3);
+  const labels = getBrandSubcategoryLabels(ctx.brand, locale);
+  return source
+    .map((tag, index) => (hasValue(tag) ? (labels.at(index) ?? tag) : null))
+    .filter(hasValue)
+    .slice(0, 3);
 }
 
 function subcategories(ctx: FaqBrandContext, t: FaqTFn, locale: string): string {

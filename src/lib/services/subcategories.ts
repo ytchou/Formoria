@@ -1,15 +1,17 @@
 import {
-  isRetiredCompositeLabel,
   matchSubcategory,
   normalizeSubcategoryKey,
+  subcategoryBySlug,
   type L2Subcategory,
 } from '@/lib/taxonomy/ontology'
 
+export type RejectedSubcategoryReason = 'unknown-term' | 'empty'
+
 export type NormalizeSubcategoriesResult = {
+  /** Stored representation: ontology slugs (DEV-1510). */
   subcategories: string[]
   subcategoriesEn: string[]
-  rejected: { subcategory: string; reason: string }[]
-  crossBranch: string[]
+  rejected: { subcategory: string; reason: RejectedSubcategoryReason }[]
 }
 
 export type SubcategoriesDelta = {
@@ -17,55 +19,96 @@ export type SubcategoriesDelta = {
   remove: string[]
 }
 
-export type NovelSubcategoryRejectionReason = 'length' | 'blocklist' | 'retired-composite'
-
-export type SubcategoryInputResult =
-  | { ok: true; subcategory: string; canonical: boolean }
-  | { ok: false; reason: NovelSubcategoryRejectionReason }
+export type SubcategorySelectionResult =
+  | { ok: true; slug: string; subcategory: L2Subcategory }
+  | { ok: false; reason: RejectedSubcategoryReason }
 
 export const MAX_SUBCATEGORIES = 5
-const MIN_NOVEL_LENGTH = 2
-const MAX_NOVEL_LENGTH = 8
 
-// Reject subcategories whose content signals a promotional/variant/series label
-const BLOCKLIST_CONTENT = /系列|限定|聯名|客製|訂製|優惠|折扣|禮盒組|組合|款$/u
+// ---------------------------------------------------------------------------
+// The rejected-input log
+// ---------------------------------------------------------------------------
 
-// Reject subcategories that open with a size/scale qualifier — too generic to be a product category
-const BLOCKLIST_SIZE_PREFIX = /^(超|迷你|小|大|長|短)/u
+export type RejectedSubcategoryInput = {
+  /** Exactly what was typed or sent, before any normalization. */
+  input: string
+  /** Which surface produced it — picker, correction validator, enrichment. */
+  surface: string
+  at: string
+}
 
 /**
- * The single novel-subcategory gate: a subcategory that misses the ontology is only kept when
- * this returns `null`. Both callers live in this module — the enrichment writer
- * (`normalizeSubcategories`) and the visitor-facing correction validator
- * (`resolveSubcategoryInput`) — so the two can never drift. The `export` exists
- * for the unit test.
- * Expects an already-trimmed subcategory.
+ * Rejected input is LOGGED, never dropped.
+ *
+ * Closing the vocabulary removed the only channel through which a missing
+ * product kind used to announce itself: before DEV-1510 an unrecognised term
+ * survived as a novel subcategory and showed up in the corrections queue. With
+ * every free-text path gone, a gap in the 175 nodes is otherwise invisible —
+ * the term simply fails to be selectable and nobody ever learns it was wanted.
+ * This log is that signal's only replacement, which is why a silent `return`
+ * on the reject branch is a defect, not a simplification.
+ *
+ * Ceiling: an in-memory ring plus a structured `console.warn`, so server-side
+ * rejections land in the platform log and client-side ones are readable by the
+ * surface that installed a sink. Upgrade path: persist to a `taxonomy_gaps`
+ * table and report on it per admission round, once the volume justifies a
+ * table.
  */
-export function novelSubcategoryRejection(subcategory: string): NovelSubcategoryRejectionReason | null {
-  if (isRetiredCompositeLabel(subcategory)) return 'retired-composite'
+const REJECTED_LOG_LIMIT = 200
+const rejectedInputs: RejectedSubcategoryInput[] = []
+let rejectedSink: ((entry: RejectedSubcategoryInput) => void) | null = null
 
-  // Code points, not `.length`: `String.prototype.length` counts UTF-16 code
-  // units, so one astral character (an emoji) would score 2 and clear the min,
-  // and four would score 8 and clear the max — the exact input the band exists
-  // to exclude.
-  const length = [...subcategory].length
-  if (length < MIN_NOVEL_LENGTH || length > MAX_NOVEL_LENGTH) {
-    return 'length'
+/**
+ * Installs a sink that receives every rejection as it happens. `null` restores
+ * the default (structured log line only). One sink at a time, deliberately:
+ * this is a diagnostic channel, not an event bus.
+ */
+export function setRejectedSubcategorySink(
+  sink: ((entry: RejectedSubcategoryInput) => void) | null,
+): void {
+  rejectedSink = sink
+}
+
+export function recordRejectedSubcategoryInput(entry: {
+  input: string
+  surface: string
+}): RejectedSubcategoryInput {
+  const record: RejectedSubcategoryInput = {
+    input: entry.input,
+    surface: entry.surface,
+    at: new Date().toISOString(),
   }
-  if (BLOCKLIST_CONTENT.test(subcategory) || BLOCKLIST_SIZE_PREFIX.test(subcategory)) {
-    return 'blocklist'
+
+  rejectedInputs.push(record)
+  if (rejectedInputs.length > REJECTED_LOG_LIMIT) {
+    rejectedInputs.splice(0, rejectedInputs.length - REJECTED_LOG_LIMIT)
   }
-  return null
+
+  if (rejectedSink) {
+    rejectedSink(record)
+  } else {
+    console.warn(
+      `[subcategory-vocabulary-gap] rejected input ${JSON.stringify(record)}`,
+    )
+  }
+
+  return record
+}
+
+export function readRejectedSubcategoryInputs(): readonly RejectedSubcategoryInput[] {
+  return [...rejectedInputs]
+}
+
+export function clearRejectedSubcategoryInputs(): void {
+  rejectedInputs.length = 0
 }
 
 /**
  * Every ontology `nameEn` is Title Case ('Rain Boots', 'Clasp-Frame Bags'), so a
- * novel subcategory that keeps the model's lowercase output ('rain boots') sits next to
- * canonical ones on the same card and reads as a data bug. Capitalizes the first
- * letter of each whitespace-separated word and touches nothing else, so existing
+ * value the vocabulary does not know that keeps its lowercase spelling ('rain boots')
+ * sits next to canonical ones on the same card and reads as a data bug. Capitalizes the
+ * first letter of each whitespace-separated word and touches nothing else, so existing
  * capitals survive ('USB-C' stays 'USB-C') and a Chinese fallback is a no-op.
- * Casing only — this does NOT drop or machine-translate the subcategory, which
- * `docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md` rules out.
  */
 function toSubcategoryTitleCase(value: string): string {
   return value.replace(/(^|\s)(\p{Ll})/gu, (_, lead: string, letter: string) =>
@@ -74,93 +117,86 @@ function toSubcategoryTitleCase(value: string): string {
 }
 
 /**
- * Resolves one free-text subcategory a person typed. An ontology hit (nameZh, nameEn or
- * any alias) is canonicalized to its nameZh; a miss is accepted as-is when it
- * clears `novelSubcategoryRejection`. Pure and ontology-only, so a client component can
- * import it for inline feedback and the server can reuse it as the guard.
- * `matchSubcategory` already NFKC-normalizes, so no extra normalization here.
+ * Resolves one subcategory a person picked or a model emitted, against the
+ * CLOSED vocabulary. Both bases are tried: the stored slug first (DEV-1510
+ * storage), then `nameZh` / `nameEn` / aliases, so a pre-migration payload and
+ * a freshly picked chip resolve the same way. Anything else is a rejection —
+ * there is no novel branch any more.
+ *
+ * Pure and ontology-only, so a client component can import it for inline
+ * feedback and the server can reuse it as the guard.
  */
-export function resolveSubcategoryInput(input: string): SubcategoryInputResult {
+export function resolveSubcategorySelection(input: string): SubcategorySelectionResult {
   const trimmed = input.trim()
+  if (!trimmed) return { ok: false, reason: 'empty' }
 
-  const sub = matchSubcategory(trimmed)
-  if (sub) return { ok: true, subcategory: sub.nameZh, canonical: true }
+  const subcategory = subcategoryBySlug(trimmed) ?? matchSubcategory(trimmed)
+  if (!subcategory) return { ok: false, reason: 'unknown-term' }
 
-  // Canonical ontology matching always wins first (for example, the accepted
-  // 卡片・明信片 synonym). Retired DEV-1361 composites are then blocked from
-  // the novel-subcategory escape hatch, including their compact no-dot spellings.
-  if (isRetiredCompositeLabel(trimmed)) {
-    return { ok: false, reason: 'retired-composite' }
-  }
-
-  const rejection = novelSubcategoryRejection(trimmed)
-  if (rejection) return { ok: false, reason: rejection }
-
-  return { ok: true, subcategory: trimmed, canonical: false }
+  return { ok: true, slug: subcategory.slug, subcategory }
 }
 
+/**
+ * Normalizes a set of subcategory values to STORED SLUGS.
+ *
+ * Callers hand this either slugs (the picker, the post-DEV-1510 model contract)
+ * or zh-TW labels (pre-migration jsonb payloads, a pasted list). Both resolve;
+ * anything else is rejected and logged rather than stored, because
+ * `brands.subcategories` is a slug column and a free-text value written there
+ * renders as a dead filter.
+ *
+ * There is no English parameter. `subcategoriesEn` is DERIVED from the resolved
+ * node (`L2Subcategory.nameEn`), which is what keeps the two arrays
+ * index-aligned by construction rather than by a caller's discipline.
+ */
 export function normalizeSubcategories(
   subcategories: string[],
-  subcategoriesEn: string[],
-  categorySlug?: string,
 ): NormalizeSubcategoriesResult {
-  const pairs: Array<{ zh: string; en: string }> = []
-  const rejected: { subcategory: string; reason: string }[] = []
-  const crossBranch: string[] = []
+  const pairs: Array<{ slug: string; en: string }> = []
+  const rejected: NormalizeSubcategoriesResult['rejected'] = []
   const seenSlugs = new Set<string>()
 
   const addCanonicalSubcategory = (sub: L2Subcategory): void => {
-    // Vocab match — dedupe by slug, first occurrence wins
     if (seenSlugs.has(sub.slug)) return
     seenSlugs.add(sub.slug)
-    pairs.push({ zh: sub.nameZh, en: sub.nameEn })
-    if (categorySlug !== undefined && sub.category !== categorySlug) {
-      crossBranch.push(sub.nameZh)
-    }
+    pairs.push({ slug: sub.slug, en: sub.nameEn })
   }
 
-  for (let i = 0; i < subcategories.length; i++) {
-    const rawZh = subcategories[i]
-    const rawEn = subcategoriesEn[i] ?? ''
-    const zh = rawZh.trim()
-    const en = rawEn.trim()
+  for (const rawValue of subcategories) {
+    const value = rawValue.trim()
+    // A blank entry is a shape problem, not a vocabulary gap — logging it would
+    // bury the signal this log exists to carry.
+    if (!value) continue
 
-    const sub = matchSubcategory(zh)
-    if (sub) {
-      addCanonicalSubcategory(sub)
-    } else {
-      if (isRetiredCompositeLabel(zh)) {
-        rejected.push({ subcategory: rawZh, reason: 'retired-composite' })
-        continue
-      }
-
-      // An unmatched composite is not a subcategory by itself. Keep only
-      // halves that resolve to canonical ontology subcategories; unresolved halves and
-      // the original composite must not become novel subcategories.
-      if (zh.includes('・')) {
-        for (const half of zh.split('・')) {
-          const halfSub = matchSubcategory(half.trim())
-          if (halfSub) addCanonicalSubcategory(halfSub)
-        }
-        continue
-      }
-
-      // Novel subcategory heuristics
-      const rejection = novelSubcategoryRejection(zh)
-      if (rejection) {
-        rejected.push({ subcategory: rawZh, reason: rejection })
-      } else {
-        pairs.push({ zh, en: toSubcategoryTitleCase(en || zh) })
-      }
+    const resolved = resolveSubcategorySelection(value)
+    if (resolved.ok) {
+      addCanonicalSubcategory(resolved.subcategory)
+      continue
     }
+
+    // An unmatched composite is not a subcategory by itself. Keep the halves
+    // that resolve to real nodes; the composite spelling itself is dropped.
+    if (value.includes('・')) {
+      let resolvedAnyHalf = false
+      for (const half of value.split('・')) {
+        const halfResolved = resolveSubcategorySelection(half)
+        if (halfResolved.ok) {
+          addCanonicalSubcategory(halfResolved.subcategory)
+          resolvedAnyHalf = true
+        }
+      }
+      if (resolvedAnyHalf) continue
+    }
+
+    rejected.push({ subcategory: rawValue, reason: resolved.reason })
+    recordRejectedSubcategoryInput({ input: rawValue, surface: 'normalize' })
   }
 
   const capped = pairs.slice(0, MAX_SUBCATEGORIES)
   return {
-    subcategories: capped.map((p) => p.zh),
-    subcategoriesEn: capped.map((p) => p.en),
+    subcategories: capped.map((pair) => pair.slug),
+    subcategoriesEn: capped.map((pair) => pair.en),
     rejected,
-    crossBranch,
   }
 }
 
@@ -171,10 +207,11 @@ export function deriveCategoryFromSubcategories(
   const seenSubcategories = new Set<string>()
 
   for (const subcategoryValue of subcategories) {
-    const subcategory = matchSubcategory(subcategoryValue)
-    if (!subcategory || seenSubcategories.has(subcategory.slug)) continue
-    seenSubcategories.add(subcategory.slug)
-    votes.set(subcategory.category, (votes.get(subcategory.category) ?? 0) + 1)
+    const resolved = resolveSubcategorySelection(subcategoryValue)
+    if (!resolved.ok || seenSubcategories.has(resolved.slug)) continue
+    seenSubcategories.add(resolved.slug)
+    const { category } = resolved.subcategory
+    votes.set(category, (votes.get(category) ?? 0) + 1)
   }
 
   let winner: L2Subcategory['category'] | null = null
@@ -195,31 +232,26 @@ export function deriveCategoryFromSubcategories(
 }
 
 /**
- * Derives `subcategories_en` from `subcategories`. `existingEn` is the currently
- * stored EN array, index-aligned with `subcategories`, and is only ever a fallback:
+ * Derives `subcategories_en` from the stored `subcategories`. `existingEn` is
+ * the currently stored EN array, index-aligned, and is only ever a fallback:
  *
- * - An ontology hit ALWAYS wins over the stored value. That is what repairs the
- *   drift DEV-1266 found — `後背包` stored as 'Backpack'/'backpack' becomes the
- *   canonical 'Backpacks', `面膜` becomes 'Face Masks'.
- * - A novel subcategory (ontology miss) keeps its stored EN, Title Cased, so a real
- *   human/LLM translation ('sling bag') survives as 'Sling Bag' instead of
- *   being thrown away.
+ * - A vocabulary hit ALWAYS wins over the stored value. That is what repairs the
+ *   drift DEV-1266 found — `backpacks` stored as 'Backpack'/'backpack' becomes the
+ *   canonical 'Backpacks'.
+ * - A value the vocabulary does not know keeps its stored EN, Title Cased, so a
+ *   real human translation ('sling bag') survives as 'Sling Bag' instead of
+ *   being thrown away. Since DEV-1510 the write paths cannot create such a
+ *   value, but pre-migration rows still carry them.
  *
  * Called with one argument it behaves exactly as before.
- *
- * ACCEPTED TRADEOFF, not a bug: when `existingEn` has nothing for a novel subcategory,
- * the raw (usually Chinese) string is written to `subcategories_en` verbatim and
- * renders untranslated on `/en`. `docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md`
- * weighs this against the alternatives and takes it deliberately — do not
- * "fix" it by dropping the subcategory or machine-translating it here.
  */
 export function deriveSubcategoriesEn(
   subcategories: string[],
   existingEn: string[] = [],
 ): string[] {
   return subcategories.map((subcategory, index) => {
-    const canonical = matchSubcategory(subcategory)?.nameEn
-    if (canonical) return canonical
+    const resolved = resolveSubcategorySelection(subcategory)
+    if (resolved.ok) return resolved.subcategory.nameEn
     return toSubcategoryTitleCase(existingEn[index]?.trim() || subcategory)
   })
 }
@@ -238,7 +270,7 @@ export function isSubcategoriesDelta(value: unknown): value is SubcategoriesDelt
 /**
  * Applies a correction delta. Membership — removal and dedupe alike — is keyed
  * by `normalizeSubcategoryKey`, the same basis `matchSubcategory` matches on, so a
- * novel subcategory stored raw ('Vegan') cannot coexist with a case or full-width
+ * legacy value stored raw ('Vegan') cannot coexist with a case or full-width
  * variant of itself ('vegan') and burn two of the five cap slots. The string
  * kept is always the FIRST-seen original, never the normalized key: the key is
  * an identity, not a display value.
@@ -274,44 +306,3 @@ export function sameSubcategorySet(left: string[], right: string[]): boolean {
   return left.every((subcategory) => rightSet.has(subcategory))
 }
 
-type SubcategoryBackfillMatch = {
-  original: string
-  canonicalZh: string
-  canonicalEn: string
-  slug: string
-}
-
-export type SubcategoryBackfillPlan = {
-  matched: SubcategoryBackfillMatch[]
-  unmatched: string[]
-}
-
-/**
- * Deterministic first pass for the normalize-subcategories backfill.
- * Subcategories that hit the ontology vocab are resolved to canonical zh/en/slug.
- * Subcategories that miss are returned as `unmatched` for LLM follow-up.
- * Deduplication is by slug — first occurrence wins.
- */
-export function planSubcategoryBackfill(subcategories: string[]): SubcategoryBackfillPlan {
-  const matched: SubcategoryBackfillMatch[] = []
-  const unmatched: string[] = []
-  const seenSlugs = new Set<string>()
-
-  for (const subcategory of subcategories) {
-    const sub = matchSubcategory(subcategory)
-    if (sub) {
-      if (seenSlugs.has(sub.slug)) continue
-      seenSlugs.add(sub.slug)
-      matched.push({
-        original: subcategory,
-        canonicalZh: sub.nameZh,
-        canonicalEn: sub.nameEn,
-        slug: sub.slug,
-      })
-    } else {
-      unmatched.push(subcategory)
-    }
-  }
-
-  return { matched, unmatched }
-}

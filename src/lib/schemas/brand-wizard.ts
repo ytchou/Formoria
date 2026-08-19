@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { MAX_BRAND_GALLERY_PHOTOS } from '@/lib/constants/brand-images'
+import { isKnownSubcategoryTerm } from '@/lib/taxonomy/ontology'
 import {
   PURCHASE_CAMEL_FIELDS,
   PURCHASE_CHANNELS,
@@ -39,7 +40,16 @@ export const brandWizardBasicInfoSchema = z.object({
   description: z.string().optional(),
   foundingYear: z.union([z.number(), z.string()]).optional(),
   mitStory: z.string().optional(),
-  subcategories: z.array(z.string().max(40)).max(5).optional(),
+  // Closed vocabulary since DEV-1510: the wizard's picker can only emit stored
+  // slugs, so anything else reached this schema by bypassing the UI. Membership
+  // is asked on both bases because a pre-migration draft still carries labels.
+  subcategories: z
+    .array(z.string().max(100))
+    .max(5)
+    .refine((values) => values.every(isKnownSubcategoryTerm), {
+      message: 'Choose subcategories from the list',
+    })
+    .optional(),
   city: z.string().optional(),
   priceRange: z.union([z.number(), z.string()]).optional(),
 })
