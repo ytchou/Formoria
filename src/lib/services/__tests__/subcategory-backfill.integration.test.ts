@@ -203,27 +203,40 @@ describeWithDb("DEV-1510 subcategory slug backfill", () => {
     expect(forwardSubcategories(gshop)).toEqual([]);
     expect(brandSubcategorySlugs("gshop", gshop)).toEqual([CRAFT_KIT_SLUG]);
 
+    // Non-vacuity guard: every check below passes trivially against an empty
+    // catalogue, which would prove nothing about the backfill.
+    const { count: approvedCount, error: countError } = await supabase!
+      .from("brands")
+      .select("slug", { count: "exact", head: true })
+      .eq("status", "approved");
+    expect(countError).toBeNull();
+    expect(approvedCount ?? 0).toBeGreaterThan(0);
+
     // Against the live catalogue: no approved brand outside the recorded four
-    // may hold an empty array.
+    // may hold an empty array. `{}` is the Postgres array literal and must go
+    // through `.filter` — supabase-js serializes a JS `[]` to an empty string,
+    // which Postgres rejects with `22P02 malformed array literal`, and the
+    // rejection surfaces as an error rather than a failing assertion, so the
+    // whole check silently stops running.
     const { data, error } = await supabase!
       .from("brands")
       .select("name, slug")
       .eq("status", "approved")
-      .eq("subcategories", []);
+      .filter("subcategories", "eq", "{}");
     expect(error).toBeNull();
     const liveZero = (data ?? [])
       .filter((row) => !SEEDED_BRAND_NAME.test(row.name))
       .map((row) => row.slug)
       .toSorted();
-    expect(liveZero).toEqual(
-      liveZero
-        .filter(
-          (slug) =>
-            UNINTENDED_ZERO_BRANDS.includes(slug) ||
-            INTENTIONAL_ZERO_BRANDS.includes(slug),
-        )
-        .toSorted(),
-    );
+
+    // Stated as "which slugs are unexpected" rather than `liveZero` against a
+    // filter of itself — the self-comparison form holds for any input and so
+    // reads as green whether or not the property is true.
+    const allowedZero = new Set<string>([
+      ...UNINTENDED_ZERO_BRANDS,
+      ...INTENTIONAL_ZERO_BRANDS,
+    ]);
+    expect(liveZero.filter((slug) => !allowedZero.has(slug))).toEqual([]);
   });
 
   it("draft_data_camelcase_keys_are_converted", async () => {

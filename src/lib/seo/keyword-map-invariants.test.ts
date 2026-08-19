@@ -461,6 +461,37 @@ describe('keyword map invariants', () => {
     expect(covered.size).toBe(13)
   })
 
+  // DEV-1510's Test Contract names this case. The three exact counts it pins
+  // are each asserted in their own case above; this one states them together so
+  // the taxonomy's shape is checkable in one place. Exact, never a floor — a
+  // count that drifts silently is how `pets` would have shipped with a redirect
+  // still shadowing it.
+  it('keyword_map_invariants_hold', () => {
+    const launch = clusters.filter(
+      cluster =>
+        cluster.locale === 'zh-TW' &&
+        cluster.page_type === 'l2-category' &&
+        cluster.eligibility === 'launch',
+    )
+    expect(launch).toHaveLength(10)
+
+    const deferredQualifying = clusters.filter(
+      cluster =>
+        cluster.locale === 'zh-TW' &&
+        cluster.page_type === 'l2-category' &&
+        cluster.brand_count >= 15 &&
+        cluster.composite !== 'multi-intent' &&
+        cluster.eligibility !== 'launch' &&
+        cluster.eligibility !== 'reject-taxonomy',
+    )
+    expect(deferredQualifying).toHaveLength(25)
+
+    // The merged slug must stay retired: a live row pointing back at it would
+    // rebuild the /categories/pets -> /categories/kids-pets -> /brands chain.
+    expect(REPARENTED_OR_RETIRED_SLUGS.has('kids-pets')).toBe(true)
+    expect(L1_CATEGORIES).toHaveLength(13)
+  })
+
   it('every required page role has an owner', () => {
     const rolesPresent = new Set(clusters.map(cluster => cluster.page_type))
     const missing = REQUIRED_PAGE_ROLES.filter(role => !rolesPresent.has(role))
