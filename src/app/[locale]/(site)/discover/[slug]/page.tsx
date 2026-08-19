@@ -14,7 +14,6 @@ import {
 } from "@/components/stories/related-story-link";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
-import { trailIndexBlockers, type TrailIndexBlocker } from "@/lib/seo/trail-indexability";
 import {
   buildArticleJsonLd,
   buildBreadcrumbJsonLd,
@@ -26,7 +25,6 @@ import {
   type TrailDetailResult,
 } from "@/lib/services/trails";
 import { getPublishedCuratedProductsForTrail, type TrailCuratedProduct } from "@/lib/services/curated-products";
-import { shouldHideUnderSuppliedTrail } from "@/lib/services/trail-supply";
 import { TrailContent } from "./trail-content";
 
 type PageProps = {
@@ -53,11 +51,12 @@ const getTrailPageData = cache(
 export function buildTrailMetadata({
   locale,
   trail,
-  blockers,
+  productsReadFailed = false,
 }: {
   locale: string;
   trail: TrailEntry;
-  blockers: TrailIndexBlocker[];
+  /** `products === null` from `getTrailPageData` — the read threw, see below. */
+  productsReadFailed?: boolean;
 }): Metadata {
   const safeLocale: Locale = locale === "en" ? "en" : "zh-TW";
   const path = `/discover/${trail.frontmatter.slug}`;
@@ -67,9 +66,6 @@ export function buildTrailMetadata({
     title: trail.frontmatter.title,
     description: trail.frontmatter.description,
     alternates: { canonical, languages },
-    ...(blockers.length > 0
-      ? { robots: { index: false, follow: true } }
-      : {}),
     openGraph: {
       title: trail.frontmatter.title,
       description: trail.frontmatter.description,
@@ -77,6 +73,13 @@ export function buildTrailMetadata({
       type: "article",
       locale: safeLocale === "en" ? "en_US" : "zh_TW",
     },
+    // Failure, not scarcity — this is not the deleted supply floor. `null` means
+    // the curated-product read threw, so the page renders zero tiles for a reason
+    // that has nothing to do with the trail; indexing that is indexing an outage.
+    // A read that succeeds and returns nothing is a published trail with an empty
+    // shelf, and stays indexable, which is the whole point of moving quality to
+    // authoring time.
+    ...(productsReadFailed ? { robots: { index: false, follow: true } } : {}),
   };
 }
 
@@ -84,10 +87,11 @@ export function buildTrailMetadata({
 // until `revalidate`. Same shape as `brands/[slug]`, for a second reason that
 // matters more here: enumerating trails made this route read the database during
 // `next build`, and a failed read there calls `markRenderDegraded`, which
-// demotes the route to dynamic for the whole deployment. Production is missing
-// the curated-product migrations (DEV-1482), so that read fails with 42703
-// today and would cost `/discover/[slug]` its ISR cache entirely. Returning no
-// params removes the build-time read, so the route cannot be demoted by one.
+// demotes the route to dynamic for the whole deployment. Production's curated
+// tables exist, but without `visible`, `category` and `subcategories`, so the
+// read fails with Postgres 42703 today and would cost `/discover/[slug]` its
+// ISR cache entirely. Returning no params removes the build-time read, so the
+// route cannot be demoted by one.
 //
 // This was invisible until the first trail was published: while every trail was
 // `draft: true` the list was empty anyway.
@@ -99,6 +103,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { locale, slug: rawSlug } = await params;
   const slug = decodeURIComponent(rawSlug);
   setRequestLocale(locale);
+  // Already in hand and request-cached, so reading `products` here costs no extra
+  // round trip: `getTrailPageData` is the same `cache`d call the page body makes.
   const { trail, products } = await getTrailPageData(slug);
 
   if (!trail) notFound();
@@ -106,10 +112,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return buildTrailMetadata({
     locale,
     trail: trail.entry,
-    blockers: trailIndexBlockers({
-      frontmatter: trail.entry.frontmatter,
-      products: products ?? [],
-    }),
+    productsReadFailed: products === null,
   });
 }
 
@@ -214,18 +217,6 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
 
   if (!trail) notFound();
   if (products === null) await markRenderDegraded("discover.trail.products");
-  // Supply gate, deliberately BELOW `markRenderDegraded`. Above it the route is
-  // still statically rendering, so a `notFound()` freezes a 404 into the whole
-  // deployment; below it a failed read has already demoted this render to
-  // dynamic. (The predicate's own null-read semantics are documented on it.)
-  if (
-    shouldHideUnderSuppliedTrail({
-      frontmatter: trail.entry.frontmatter,
-      products,
-    })
-  ) {
-    notFound();
-  }
   const safeProducts = products ?? [];
 
   const entry = trail.entry;

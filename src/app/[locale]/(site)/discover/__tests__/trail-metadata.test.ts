@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { TrailEntry } from "@/lib/services/trails";
 import { buildTrailMetadata } from "../[slug]/page";
-import { buildTrailSitemapEntries } from "@/app/sitemap";
+import {
+  buildTrailHubSitemapEntries,
+  buildTrailSitemapEntries,
+} from "@/app/sitemap";
 import { createStoryComponentMap } from "@/lib/mdx/components";
 
 const trail: TrailEntry = {
@@ -29,30 +32,57 @@ const trail: TrailEntry = {
   },
 };
 
-describe("discovery trail metadata", () => {
-  it("emits robots noindex when blockers exist", () => {
-    const metadata = buildTrailMetadata({
-      locale: "en",
-      trail,
-      blockers: ["min_products"],
-    });
+/**
+ * The shape the deleted render-time blocker gate used to withhold: a trail
+ * carrying only the required frontmatter. It is kept to hold one specific line —
+ * frontmatter completeness is no longer an input to metadata or to sitemap
+ * membership. Quality is a publish-time precondition, so neither surface
+ * re-judges it, and a published trail is a listed trail.
+ */
+const sparseFrontmatter: TrailEntry = {
+  ...trail,
+  frontmatter: { ...trail.frontmatter, promise: undefined },
+};
 
-    expect(metadata.robots).toEqual({ index: false, follow: true });
+describe("discovery trail metadata", () => {
+  it("emits no robots directive for a published trail, however sparse its frontmatter", () => {
+    for (const entry of [trail, sparseFrontmatter]) {
+      for (const locale of ["en", "zh-TW"]) {
+        const metadata = buildTrailMetadata({ locale, trail: entry });
+
+        expect(metadata.robots).toBeUndefined();
+        // Absent, not merely undefined: `robots: undefined` would still be a
+        // key Next has to interpret, and the gate it came from is gone.
+        expect("robots" in metadata).toBe(false);
+      }
+    }
   });
 
-  it("emits no robots directive when blockers are empty", () => {
-    const metadata = buildTrailMetadata({
+  it("noindexes a trail only when the curated-product read failed", () => {
+    // Failure, not scarcity, and not the deleted supply floor: `null` products
+    // mean the read threw, so the page renders zero tiles for a reason that has
+    // nothing to do with the trail. A read that succeeds and returns nothing
+    // stays indexable.
+    const readFailed = buildTrailMetadata({
       locale: "zh-TW",
       trail,
-      blockers: [],
+      productsReadFailed: true,
     });
 
-    expect(metadata.robots).toBeUndefined();
+    expect(readFailed.robots).toEqual({ index: false, follow: true });
+
+    const readEmpty = buildTrailMetadata({
+      locale: "zh-TW",
+      trail,
+      productsReadFailed: false,
+    });
+
+    expect("robots" in readEmpty).toBe(false);
   });
 
   it("uses the prefix-free zh-TW canonical on both locales", () => {
     const [en, zh] = ["en", "zh-TW"].map((locale) =>
-      buildTrailMetadata({ locale, trail, blockers: [] }),
+      buildTrailMetadata({ locale, trail }),
     );
 
     expect(en.alternates?.canonical).toMatch(
@@ -61,38 +91,27 @@ describe("discovery trail metadata", () => {
     expect(zh.alternates?.canonical).toBe(en.alternates?.canonical);
   });
 
-  it("omits a blocked trail and includes a clear trail in the sitemap", () => {
-    const sixProducts = Array.from({ length: 6 }, (_, index) => ({
-      category: "home",
-      subcategories: [index % 2 === 0 ? "lighting" : "furniture"],
-      sectionKey: "desk",
-    }));
+  it("includes a published trail in the sitemap regardless of frontmatter completeness", () => {
+    // Curated-product supply is not an input here any more — the trail section
+    // performs no product read at all, so an under-stocked trail can no longer
+    // silently vanish from the sitemap for a whole revalidate window.
+    for (const entry of [trail, sparseFrontmatter]) {
+      const entries = buildTrailSitemapEntries(entry);
 
-    expect(buildTrailSitemapEntries(trail, sixProducts as never)).toHaveLength(1);
-    expect(
-      buildTrailSitemapEntries(
-        { ...trail, frontmatter: { ...trail.frontmatter, promise: undefined } },
-        sixProducts as never,
-      ),
-    ).toEqual([]);
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.url).toMatch(
+        /^https?:\/\/[^/]+\/discover\/small-space-reading-corner$/,
+      );
+    }
   });
 
-  // The supply gate lives in the page body, below `markRenderDegraded`. These
-  // two guard the seams it must not move into: metadata has no degraded-render
-  // protection, and the sitemap keeps its own read.
-  it("blocked trail still produces noindex metadata", () => {
-    const metadata = buildTrailMetadata({
-      locale: "zh-TW",
-      trail,
-      blockers: ["min_products"],
-    });
+  it("lists the hub once, on the prefix-free zh-TW URL", () => {
+    // /en/discover serves the same content and canonicals to this URL, so
+    // submitting it too would be a self-inflicted duplicate-content signal.
+    const entries = buildTrailHubSitemapEntries();
 
-    expect(metadata.robots).toEqual({ index: false, follow: true });
-    expect(metadata.alternates?.canonical).toContain("/discover/small-space-reading-corner");
-  });
-
-  it("sitemap still omits a blocked trail", () => {
-    expect(buildTrailSitemapEntries(trail, [] as never)).toEqual([]);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.url).toMatch(/^https?:\/\/[^/]+\/discover$/);
   });
 
   it("keeps the in-body FAQ block visual-only so the page emits one FAQPage", () => {

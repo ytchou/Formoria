@@ -7,12 +7,8 @@ import { buildBrandSitemapEntries } from "@/lib/seo/brand-sitemap";
 import { buildDirectorySitemapSection } from "@/lib/seo/directory-sitemap";
 import { getStockistDirectory } from "@/lib/services/brand-channels";
 import { buildWhereToBuySitemapSection } from "@/lib/seo/where-to-buy-sitemap";
-import { trailIndexBlockers } from "@/lib/seo/trail-indexability";
 import { getAllTrails, type TrailEntry } from "@/lib/services/trails";
-import {
-  getPublishedCuratedProductsForTrail,
-  type TrailCuratedProduct,
-} from "@/lib/services/curated-products";
+import { shouldIndexTrailHub } from "@/lib/seo/trail-hub-indexability";
 
 export const revalidate = 3600;
 
@@ -53,11 +49,13 @@ function validDate(value: string | undefined): Date | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
+// Published is the whole test. Trail quality is a precondition of publishing,
+// enforced at authoring time, so the sitemap re-reads nothing to second-guess
+// it: a curated-product query here could only ever remove a live URL from the
+// index for a full revalidate window, and it would do it silently.
 export function buildTrailSitemapEntries(
   trail: TrailEntry,
-  products: readonly TrailCuratedProduct[],
 ): MetadataRoute.Sitemap {
-  if (trailIndexBlockers({ frontmatter: trail.frontmatter, products }).length > 0) return [];
   return localizedEntries(
     `/discover/${trail.frontmatter.slug}`,
     ["zh-TW"],
@@ -65,17 +63,26 @@ export function buildTrailSitemapEntries(
   );
 }
 
+// zh-TW only, exactly like `/stories` above and like every trail below: /en/discover
+// serves the same content and canonicals to the prefix-free twin, so submitting
+// it would be a self-inflicted duplicate-content signal with non-reciprocal
+// hreflang.
+export function buildTrailHubSitemapEntries(): MetadataRoute.Sitemap {
+  return localizedEntries("/discover", ["zh-TW"]);
+}
+
 async function buildTrailSitemapSection(): Promise<MetadataRoute.Sitemap> {
   const result = await getAllTrails("zh-TW");
+  // A failed read is not an empty slate: it drops the hub with its trails
+  // rather than submitting a URL nothing here could vouch for.
   if (!result.ok) return [];
-
-  const entries = await Promise.all(
-    result.trails.map(async (trail) => {
-      const products = await getPublishedCuratedProductsForTrail(trail.slug);
-      return buildTrailSitemapEntries(trail, products);
-    }),
-  );
-  return entries.flat();
+  // One read, one verdict. `shouldIndexTrailHub` is the hub page's own metadata
+  // gate, reused rather than restated, so the sitemap can never submit a URL
+  // that the page itself marks `noindex` — the two surfaces cannot drift.
+  return [
+    ...(shouldIndexTrailHub(result.trails) ? buildTrailHubSitemapEntries() : []),
+    ...result.trails.flatMap((trail) => buildTrailSitemapEntries(trail)),
+  ];
 }
 
 export function latestBrandDate(
