@@ -305,7 +305,13 @@ export function ImageCarousel({
               data-ph-no-autocapture
             >
               {brokenImages.has(i) ? (
-                <div className="flex h-full items-center justify-center bg-surface-deep">
+                // `surface`, not `surface-deep`: this fallback carries TEXT,
+                // and `--ink-muted` measures 4.17:1 on `surface-deep` — under
+                // the 4.5:1 floor. The token is the image slot ("no text sits
+                // on this", globals.css); the moment a slot renders a letter
+                // instead of a photograph it is a card, and cards are
+                // `surface` (4.6:1).
+                <div className="flex h-full items-center justify-center bg-surface">
                   <span className="type-label text-ink-muted">
                     {initial}
                   </span>

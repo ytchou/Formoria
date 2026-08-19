@@ -40,9 +40,10 @@ vi.mock("@/lib/analytics", () => ({
 }));
 
 // `TrustLabel` reads its own text from the catalogue — that is the whole point
-// of the component, and why `labels.selectedBadge` below is an opt-in flag
-// rather than the string that renders. The mock returns the real zh-TW value so
-// a spec that greps for the label greps for what a reader sees.
+// of the component, and why the caller's opt-in is the boolean `showsTrustLabel`
+// prop rather than a string whose value would be discarded. The mock returns the
+// real zh-TW value so a spec that greps for the label greps for what a reader
+// sees.
 const TRUST_LABEL_TEXT = "Formoria 選物";
 
 vi.mock("next-intl", () => ({
@@ -53,7 +54,6 @@ vi.mock("next-intl", () => ({
 const labels = {
   cta: "Visit product",
   brandSiteCta: "Visit brand site",
-  selectedBadge: "Formoria selection",
   unavailable: "Link unavailable",
 };
 
@@ -107,6 +107,9 @@ function renderWallTile(
         product={buildProduct()}
         labels={labels}
         mode="wall"
+        // The fixture opts IN on purpose, so a mode assertion below proves the
+        // mode alone suppresses the label rather than that nobody asked.
+        showsTrustLabel
         brand={brand}
         brandSlug="kettle-co"
         brandName="Kettle Co"
@@ -153,10 +156,10 @@ describe("SelectedProductTile", () => {
     // visible. Every tile on the wall and every tile in a trail is selected, so
     // the label carries no information there — and the trail's own string was
     // 為這個主題選入, a DIFFERENT commitment that must not be migrated into the
-    // 選物 label. Both real call sites have since stopped passing
-    // `selectedBadge` and `discover.selectedBadge` is gone from the catalogues,
-    // but the FIXTURE still passes it on purpose: this asserts the mode alone
-    // suppresses the label, not merely that the callers stopped asking.
+    // 選物 label. Both real call sites have since stopped opting in and
+    // `discover.selectedBadge` is gone from the catalogues, but the FIXTURE
+    // still opts in on purpose: this asserts the mode alone suppresses the
+    // label, not merely that the callers stopped asking.
     for (const mode of ["wall", "trail"] as const) {
       const tile = renderWallTile({ mode });
       expect(
@@ -167,14 +170,13 @@ describe("SelectedProductTile", () => {
     }
   });
 
-  it("renders no 選物 badge when the caller supplies no label", () => {
-    // The second half of the gate. A surface opts IN by passing the label; a
-    // surface that stops passing it stops rendering the badge without the tile
+  it("renders no 選物 badge when the caller does not opt in", () => {
+    // The second half of the gate. A surface opts IN with `showsTrustLabel`; a
+    // surface that stops opting in stops rendering the badge without the tile
     // needing to know which surface it is.
-    const { cta, brandSiteCta, unavailable } = labels;
     const { container } = renderWallTile({
       mode: "outbound",
-      labels: { cta, brandSiteCta, unavailable },
+      showsTrustLabel: false,
     });
 
     expect(container.textContent).toContain(

@@ -27,7 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ToggleChip } from "@/components/ui/toggle-chip";
+import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
 import { Typography } from "@/components/ui/typography";
 
 /**
@@ -339,7 +339,7 @@ export function SubcategoryPicker({
           {labels.selected}
         </Typography>
         {selectedRow.length === 0 ? null : (
-          <div className="flex flex-wrap gap-2">
+          <ChipRow>
             {selectedRow.map((item) => {
               const pressed = selectedSet.has(item.slug);
               return (
@@ -363,7 +363,7 @@ export function SubcategoryPicker({
                 </ToggleChip>
               );
             })}
-          </div>
+          </ChipRow>
         )}
         {/* Same contract as the rejection region above: present, then filled. */}
         <p
@@ -397,7 +397,7 @@ export function SubcategoryPicker({
               <p className="type-metadata text-muted-foreground">
                 {categoryLabel(category, l1Locale)}
               </p>
-              <div className="flex flex-wrap gap-2">
+              <ChipRow>
                 {nodes.map((node) => (
                   <ToggleChip
                     key={node.slug}
@@ -413,7 +413,7 @@ export function SubcategoryPicker({
                     {label(node.slug)}
                   </ToggleChip>
                 ))}
-              </div>
+              </ChipRow>
             </div>
           ))
         )}

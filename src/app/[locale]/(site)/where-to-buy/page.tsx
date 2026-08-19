@@ -65,10 +65,13 @@ export default async function WhereToBuyPage({ params }: PageProps) {
   const countryNames = new Intl.DisplayNames([safeLocale], { type: 'region' })
 
   return (
-    <main
-      id="main-content"
-      className="page-gutter mx-auto w-full page-measure pt-12 pb-section"
-    >
+    // NO `id="main-content"` HERE. The (site) layout already puts that id on
+    // the wrapper it renders around every route, so a second one on this
+    // `<main>` made the document carry two — invalid, and the skip link
+    // (`root-document.tsx`) resolves to the FIRST match, which meant these two
+    // routes alone skipped to a different element than every other route. One
+    // id per document, and it is the layout's.
+    <main className="page-gutter mx-auto w-full page-measure pt-12 pb-section">
       <header className="max-w-3xl">
         <p className="type-eyebrow text-accent">Formoria</p>
         <h1 className="mt-3 type-page-title text-ink">

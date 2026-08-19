@@ -13,14 +13,13 @@ import {
 } from "@/app/admin/curated-products/actions";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { inkActionClassName } from "@/components/admin/ink-action";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
-import { ToggleChip } from "@/components/ui/toggle-chip";
+import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
 import { L2_SUBCATEGORIES, L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import type { AdminCuratedProduct } from "@/lib/services/curated-products";
 import type { TrailAuthoringWarning } from "@/lib/services/trail-authoring";
@@ -595,7 +594,7 @@ export function CuratedProductEditor({
 
       <fieldset className="space-y-2">
         <legend className="type-body-sm font-semibold text-ink">{t("l2")}</legend>
-        <div className="flex flex-wrap gap-2">
+        <ChipRow>
           {subcategoryOptions.map((sub) => (
             <ToggleChip
               key={sub.slug}
@@ -611,7 +610,7 @@ export function CuratedProductEditor({
               {sub.nameEn}
             </ToggleChip>
           ))}
-        </div>
+        </ChipRow>
       </fieldset>
 
       <div className="space-y-2">
@@ -1039,7 +1038,7 @@ export function CuratedProductEditor({
         <Button
           type="button"
           variant="secondary"
-          className={cn("min-h-12", inkActionClassName)}
+          className={inkActionClassName}
           disabled={
             isPending ||
             nameZh.trim().length === 0 ||

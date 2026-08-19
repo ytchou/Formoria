@@ -148,7 +148,21 @@
   --verified-green-bg: oklch(0.95 0.02 140); /* Unchanged */
   --mit-verified: oklch(0.4 0.08 65); /* Unchanged */
   --mit-verified-bg: oklch(0.96 0.03 65); /* Unchanged */
-  --nav-height: 100px;
+  /* THE HEADER'S HEIGHT IS DERIVED, NOT TYPED TWICE.
+     Six sticky elements park below the header with `top-(--nav-height)`, so a
+     header row that grows without this number growing hides their first pixels
+     under the z-50 bar. It already happened once: row 1 went `h-14` -> `h-16`
+     and a `min-h-12` category row was added while this token still read 100px,
+     leaving the brand section nav 13px short. So the two rows now READ their
+     height from these tokens (`main-nav.tsx`, `nav-category-tabs.tsx`) and the
+     sum below is the only place the total exists. Change a row here, not
+     there. */
+  --nav-row-primary: 4rem; /* row 1: wordmark | search | links */
+  --nav-row-categories: 3rem; /* row 2: the L1 category tabs (minimum) */
+  --nav-rule: 1px; /* the header's bottom hairline */
+  --nav-height: calc(
+    var(--nav-row-primary) + var(--nav-row-categories) + var(--nav-rule)
+  );
 
   /* Motion tokens */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
@@ -501,8 +515,15 @@ body:has([data-page-measure="wide"]) {
   * {
     @apply border-rule outline-accent/50;
   }
+  /* The page ground is the v2 `ground`/`ink` pair, not the v1 `background`/
+     `foreground` pair. `--background` (#FDFCFA) is a quarter-step lighter than
+     `--ground` (#FAF7F2), so a body painted with it put a visible horizontal
+     seam under the sticky header on every route — the header is `bg-ground`.
+     It also made `focus-visible:ring-offset-ground` (11 declarations) paint a
+     ring gap in a colour the page never painted. `--background` and
+     `--foreground` are still live for the v1 surfaces waves 2-5 retire. */
   body {
-    @apply bg-background text-foreground;
+    @apply bg-ground text-ink;
   }
   html {
     @apply font-hei;

@@ -33,7 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
-import { ToggleChip } from "@/components/ui/toggle-chip";
+import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
 import { Typography } from "@/components/ui/typography";
 import {
   Dialog,
@@ -330,7 +330,7 @@ export function CorrectionDialog({
           <Typography variant="subsectionTitle">
             {tCorrection("changeToHeading")}
           </Typography>
-          <div className="flex flex-wrap gap-2">
+          <ChipRow>
             {options.map((option) => (
               <ToggleChip
                 key={option.key}
@@ -342,7 +342,7 @@ export function CorrectionDialog({
                 {option.label}
               </ToggleChip>
             ))}
-          </div>
+          </ChipRow>
         </div>
       </div>
     );

@@ -88,7 +88,6 @@ export const routes = {
   contact: () => '/contact',
   privacy: () => '/privacy',
   terms: () => '/terms',
-  vision: () => '/vision',
   gettingStarted: () => '/getting-started',
   challenge: () => '/challenge',
   contributions: () => '/contributions',
@@ -101,7 +100,6 @@ export const routes = {
 
   submit: {
     index: () => '/submit',
-    form: (query?: RouteQuery) => withQuery('/submit/form', query),
     recommend: (query?: RouteQuery) => withQuery('/submit/recommend', query),
     confirmation: (query?: RouteQuery) => withQuery('/submit/confirmation', query),
     owner: () => '/submit/owner',
@@ -133,34 +131,33 @@ export const routes = {
   admin: {
     index: () => '/admin',
     brands: (query?: RouteQuery) => withQuery('/admin/brands', query),
-    catalogBrands: (query?: RouteQuery) => withQuery('/admin/catalog/brands', query),
     claims: () => '/admin/claims',
-    claimRequests: () => '/admin/claim-requests',
     corrections: () => '/admin/corrections',
     curatedProducts: (query?: RouteQuery) => withQuery('/admin/curated-products', query),
     evidence: () => '/admin/evidence',
     featureRequests: () => '/admin/feature-requests',
     jobs: (query?: RouteQuery) => withQuery('/admin/jobs', query),
     job: (id: string) => `/admin/jobs/${seg(id)}`,
+    /** The job's rendered run log, served by a route handler under `/admin`. */
+    jobRunlog: (id: string) => `/admin/jobs/${seg(id)}/runlog`,
     moderation: () => '/admin/moderation',
     newsletter: () => '/admin/newsletter',
     newsletterExport: (query?: RouteQuery) =>
       withQuery('/admin/newsletter/export', query),
-    /** The server-action namespace the rate limiter buckets by. */
+    /**
+     * The server-action namespace the rate limiter buckets by:
+     * `RATE_LIMIT_RULES` in `lib/security/rate-limiter.ts` uses this builder as
+     * its key, so the 3-req/60s bucket moves with a rename here instead of
+     * quietly matching nothing.
+     */
     operations: () => '/admin/operations',
     /** The vendored Decap CMS build under `public/admin/content`. */
     content: () => '/admin/content',
     quality: () => '/admin/quality',
     reports: () => '/admin/reports',
-    reviewQueue: () => '/admin/review-queue',
-    reviewQueueModeration: (query?: RouteQuery) =>
-      withQuery('/admin/review-queue/moderation', query),
-    reviewQueueSubmissions: (query?: RouteQuery) =>
-      withQuery('/admin/review-queue/submissions', query),
     scripts: () => '/admin/scripts',
     bulkCommunitySubmissions: () => '/admin/scripts/bulk-community-submissions',
     settings: () => '/admin/settings',
-    signalsReports: () => '/admin/signals/reports',
     submissions: (query?: RouteQuery) => withQuery('/admin/submissions', query),
   },
 

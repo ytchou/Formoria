@@ -27,7 +27,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { ToggleChip } from "@/components/ui/toggle-chip";
+import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
 import type { BrandFilters } from "@/lib/types";
 import {
   clearDirectoryFilters,
@@ -492,7 +492,7 @@ export function BrandFilterSidebar({
         <Separator />
 
         <FilterSection title={t("priceRange")}>
-          <div className="flex flex-wrap gap-2">
+          <ChipRow>
             {priceRangeOptions.map((value) => {
               const checked = activePriceRanges.has(value);
               const label = "$".repeat(value);
@@ -501,14 +501,18 @@ export function BrandFilterSidebar({
                   key={value}
                   pressed={checked}
                   onPressedChange={(next) => togglePriceRange(value, next)}
-                  className="min-h-12 active:animate-spring-pop"
+                  // No height override. A chip is 36px; `min-h-12` rendered
+                  // this one row at 48px while every other chip row in the app
+                  // sat at 36px. The 14px `ChipRow` gap is what keeps the 36px
+                  // exception honest, not a taller box on one screen.
+                  className="active:animate-spring-pop"
                   data-ph-no-autocapture
                 >
                   {label}
                 </ToggleChip>
               );
             })}
-          </div>
+          </ChipRow>
         </FilterSection>
 
         <Separator />

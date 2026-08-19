@@ -1,5 +1,5 @@
 import { withAuditScope } from "@/lib/audit";
-import { requireAdminAction } from "@/lib/auth/require-admin";
+import { adminSignInPath, requireAdminAction } from "@/lib/auth/require-admin";
 import { getRequestOrigin } from "@/lib/auth/site-url";
 import { createServiceClient } from "@/lib/supabase/service";
 import {
@@ -15,8 +15,10 @@ export const GET = withAuditScope(async (request: Request): Promise<Response> =>
   const auth = await requireAdminAction();
   if ("error" in auth) {
     if (auth.code === "unauthenticated") {
-      const signInUrl = new URL(`/en${routes.auth.signIn()}`, await getRequestOrigin());
-      signInUrl.searchParams.set("next", routes.admin.newsletter());
+      const signInUrl = new URL(
+        adminSignInPath(routes.admin.newsletter()),
+        await getRequestOrigin(),
+      );
       return Response.redirect(signInUrl, 307);
     }
     return new Response(auth.error, { status: 403 });

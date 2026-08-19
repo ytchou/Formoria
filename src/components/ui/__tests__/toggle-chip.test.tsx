@@ -3,11 +3,12 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  ChipRow,
   TOGGLE_CHIP_GAP_PX,
   ToggleChip,
   taxonomyLinkClasses,
-  toggleChipRowClasses,
 } from "@/components/ui/toggle-chip";
+import { cn } from "@/lib/utils";
 
 describe("ToggleChip", () => {
   it("renders a native button with aria-pressed reflecting the pressed prop", () => {
@@ -202,31 +203,28 @@ describe("ToggleChip", () => {
     expect(chip).not.toHaveClass("h-11");
   });
 
-  it("carries its own >=14px spacing so the 36px exception holds", () => {
-    expect(TOGGLE_CHIP_GAP_PX).toBe(14);
-
+  it("carries no margin of its own, because the row owns the gap", () => {
     render(
       <ToggleChip pressed={false} onPressedChange={vi.fn()}>
         Ceramics
       </ToggleChip>,
     );
 
-    // Half the gap on every side: two flush chips still sit 14px apart, in
-    // both axes, whatever the parent does.
-    expect(screen.getByRole("button", { name: "Ceramics" })).toHaveClass(
-      "m-[7px]",
+    // The chip used to carry `m-[7px]` on all four sides. A margin is the one
+    // spacing mechanism a parent cannot see: rows kept their own `gap-2` on
+    // top of it (real gap 22px, not 14px) and every row sat 7px right of the
+    // heading above it. `gap` measures between margin boxes, so the row's
+    // 14px is only 14px while this stays empty.
+    expect(screen.getByRole("button", { name: "Ceramics" }).className).not.toMatch(
+      /(^|\s)-?m-\[/,
     );
-
-    // The row cancels only the OUTER half-gap, so the row still lines up flush
-    // with the column around it while the inner gaps survive.
-    expect(toggleChipRowClasses).toContain("-m-[7px]");
   });
 
   it("gives the link-shaped chip the same height and spacing contract", () => {
     const classes = taxonomyLinkClasses();
 
     expect(classes).toContain("h-9");
-    expect(classes).toContain("m-[7px]");
+    expect(classes).not.toMatch(/(^|\s)-?m-\[/);
     expect(classes).toContain("rounded-full");
   });
 
@@ -240,5 +238,57 @@ describe("ToggleChip", () => {
     const chip = screen.getByRole("button", { name: "Ceramics" });
     expect(chip).toHaveClass("border-rule");
     expect(chip).not.toHaveClass("border-ink");
+  });
+});
+
+describe("ChipRow", () => {
+  it("holds chips exactly TOGGLE_CHIP_GAP_PX apart", () => {
+    expect(TOGGLE_CHIP_GAP_PX).toBe(14);
+
+    render(
+      <ChipRow data-testid="row">
+        <ToggleChip pressed={false} onPressedChange={vi.fn()}>
+          Ceramics
+        </ToggleChip>
+      </ChipRow>,
+    );
+
+    const row = screen.getByTestId("row");
+    expect(row).toHaveClass("flex", "flex-wrap", `gap-[${TOGGLE_CHIP_GAP_PX}px]`);
+  });
+
+  it("keeps a caller's own margin instead of eating it", () => {
+    // THE REGRESSION THIS FILE MISSED. `city-card.tsx` wrote
+    // `cn("mt-3", rowClasses)` against the old `-m-[7px] flex flex-wrap` row,
+    // and tailwind-merge reads `-m-*` as covering `mt-*` — so `mt-3` was
+    // dropped and the district chips butted against the count line above
+    // them. Asserting the constant contained `-m-[7px]` could never see that;
+    // only composing the row the way a caller composes it can.
+    render(<ChipRow className="mt-3" data-testid="row" />);
+
+    expect(screen.getByTestId("row")).toHaveClass("mt-3");
+
+    // And the same check one level down, on `cn` itself, so the failure is
+    // legible as "the merge ate it" rather than "the class is missing".
+    expect(cn("mt-3", "flex flex-wrap gap-[14px]")).toContain("mt-3");
+  });
+
+  it("renders a ul when the chips are list items", () => {
+    render(
+      <ChipRow as="ul" aria-label="Districts">
+        <li>{"Da'an"}</li>
+      </ChipRow>,
+    );
+
+    expect(screen.getByRole("list", { name: "Districts" }).tagName).toBe("UL");
+  });
+
+  it("lets a caller change the flow without touching the gap", () => {
+    // The newsletter row scrolls rather than wraps. It must still be 14px.
+    render(<ChipRow className="flex-nowrap overflow-x-auto" data-testid="row" />);
+
+    const row = screen.getByTestId("row");
+    expect(row).toHaveClass("flex-nowrap", "gap-[14px]");
+    expect(row).not.toHaveClass("flex-wrap");
   });
 });

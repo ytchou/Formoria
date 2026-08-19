@@ -128,6 +128,36 @@ describe("admin chrome", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("gives the ink action one height, set by its size variant", () => {
+    // `inkActionClassName` is the ONE primary action on an admin screen, and
+    // it shipped at two heights: five call sites wrapped it in
+    // `cn("min-h-12", …)` and three did not, so the Save button in a detail
+    // section stood 48px while the Approve button in the review queue stood
+    // 44px — `min-h-12` silently wins over `size="default"`'s `h-11`, which
+    // button.tsx calls "the height of every button". The height belongs to the
+    // size variant. Nothing composed onto the ink fill may restate it.
+    const offenders: string[] = [];
+
+    for (const file of adminSources) {
+      const source = readFileSync(file, "utf8");
+      const lineAt = (index: number) => source.slice(0, index).split("\n").length;
+
+      for (const match of source.matchAll(/\bcn\(/g)) {
+        const args = callArguments(source, match.index + match[0].length);
+        if (!args.includes("inkActionClassName")) continue;
+        if (!/\b(min-)?h-\d/.test(args)) continue;
+
+        offenders.push(
+          `${relative(process.cwd(), file)}:${lineAt(match.index)} — a height ` +
+            `class composed onto inkActionClassName. Pass \`size\` to the ` +
+            `Button instead; the ink fill is a colour, not a size.`,
+        );
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
+
   it("sets every admin heading in 黑體, not 明體", () => {
     // The error boundary is exempt for the same reason the dashboard's
     // zero-state is: it is a page a person lands on with no shell above it,

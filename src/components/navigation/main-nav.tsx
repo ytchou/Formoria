@@ -51,11 +51,17 @@ export function MainNav({ categories }: MainNavProps) {
   return (
     <header className="sticky top-0 z-50 border-b border-rule bg-ground">
       {/* Row 1: wordmark | search | links.
+          THE HEIGHT IS `--nav-row-primary`, NOT A LITERAL. Six sticky elements
+          park below the header with `top-(--nav-height)`, and that token is a
+          `calc()` of this row, the category row and the bottom hairline. A
+          literal here desyncs the six the moment it changes — which is exactly
+          how they came to sit 13px under a z-50 bar. `nav-height.test.ts`
+          fails if this row stops reading the token.
           `header-measure`, NOT `page-measure`: the header stays at 80rem on
           every route, while `--page-measure` widens to 100rem under the landing
           page. A header that changed width between routes would read as the
           page jumping. The exclusion is stated in globals.css. */}
-      <div className="page-gutter mx-auto flex h-16 header-measure items-center gap-6">
+      <div className="page-gutter mx-auto flex h-(--nav-row-primary) header-measure items-center gap-6">
         {/* The wordmark alone — the content face (`font-ming`), no mark. The
             vectorized mark is still the favicon and still opens the auth
             layout; in the nav it competed with the wordmark beside it at

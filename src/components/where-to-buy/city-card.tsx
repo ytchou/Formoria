@@ -1,6 +1,5 @@
 import { Link } from '@/i18n/navigation'
-import { taxonomyLinkClasses, toggleChipRowClasses } from '@/components/ui/toggle-chip'
-import { cn } from '@/lib/utils'
+import { ChipRow, taxonomyLinkClasses } from '@/components/ui/toggle-chip'
 import { citySlugToPath } from '@/lib/constants/taiwan-cities'
 import type { StockistCitySummary } from '@/lib/services/brand-channels'
 import { routes } from '@/lib/routes'
@@ -32,10 +31,12 @@ export function CityCard({
           {summary.count} {locationLabel}
         </span>
       </div>
-      {/* The 36px chip primitive, not a hand-rolled 32px pill: the chip owns
-          its own 14px gap, which is what keeps the touch-target exception
-          honest whatever this row's parent does. */}
-      <ul className={cn('mt-3', toggleChipRowClasses)}>
+      {/* The 36px chip primitive, not a hand-rolled 32px pill, and a
+          `ChipRow` rather than a hand-rolled flex row: the row owns the 14px
+          gap that keeps the touch-target exception honest. `mt-3` survives
+          here — under the old negative-margin row it was silently dropped by
+          tailwind-merge, and these chips butted against the count line. */}
+      <ChipRow as="ul" className="mt-3">
         {summary.districts.map((district) => (
           <li key={district.slug}>
             <Link href={`${cityPath}#${district.slug}`} className={taxonomyLinkClasses()}>
@@ -43,7 +44,7 @@ export function CityCard({
             </Link>
           </li>
         ))}
-      </ul>
+      </ChipRow>
     </article>
   )
 }

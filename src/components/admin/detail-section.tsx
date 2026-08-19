@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { inkActionClassName } from "@/components/admin/ink-action";
-import { cn } from "@/lib/utils";
 
 type DetailSectionProps = {
   title: string;
@@ -70,7 +69,7 @@ export function DetailSection({
             {cancelLabel}
           </Button>
           <Button
-            className={cn("min-h-12", inkActionClassName)}
+            className={inkActionClassName}
             variant="secondary"
             onClick={onSave}
             disabled={isPending}

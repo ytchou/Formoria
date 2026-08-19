@@ -4,26 +4,65 @@ import { cn } from "@/lib/utils";
 type ButtonSize = React.ComponentProps<typeof Button>["size"];
 
 /**
- * THE 36px EXCEPTION, AND THE PRICE OF IT.
+ * THE 36px EXCEPTION, AND WHERE ITS PRICE IS PAID.
  *
  * Every other control in the system is 44px. A chip is 36px because a row of
  * 44px chips reads as a toolbar rather than as a set of options — but 36px
  * only clears the touch-target rule while neighbouring chips sit at least 14px
- * apart. A chip that a caller can render flush against its neighbour voids the
- * exception, so the gap is part of the chip and not of the caller's
- * discipline: every chip carries half the gap on all four sides, which means
- * two flush chips are 14px apart in either axis whatever the parent does.
+ * apart. The clear space is therefore not optional decoration; it is the other
+ * half of the exception.
  *
- * Containers that need the row to line up flush with the surrounding column
- * cancel the outer ring with `toggleChipRowClasses`.
+ * IT LIVES ON THE ROW, NOT ON THE CHIP. The chip used to carry `m-[7px]` on
+ * all four sides so that two flush chips were 14px apart whatever the parent
+ * did. That is a safe default and a bad contract: a margin can only be
+ * cancelled by a caller writing a matching negative margin, and 8 of 9 rows
+ * kept their own `gap-2` instead — so the real gap was 8 + 7 + 7 = 22px, every
+ * row sat 7px right of the heading above it, and `cn("mt-3", rowClasses)`
+ * silently lost its `mt-3` because tailwind-merge reads `-m-*` as covering
+ * `mt-*`. A gap cannot be double-counted, cannot shift a row, and cannot eat a
+ * caller's margin.
+ *
+ * So: render chips inside {@link ChipRow}. `chip-row-contract.test.ts` fails
+ * if a file renders a chip without one.
  */
 const TOGGLE_CHIP_GAP_PX = 14;
 
-/** Half of {@link TOGGLE_CHIP_GAP_PX}, on all four sides. */
-const toggleChipSpacingClasses = "m-[7px]";
+/**
+ * The row that owns the chip's clear space. Nothing else may set the gap.
+ *
+ * `gap` measures between margin boxes, so this only holds while the chip
+ * itself carries no margin — which is why the chip has none.
+ *
+ * Written out rather than interpolated from {@link TOGGLE_CHIP_GAP_PX}: the
+ * Tailwind compiler scans source text, so a template literal would emit no
+ * `gap-[14px]` rule at all. `toggle-chip.test.tsx` asserts the two agree.
+ */
+const chipRowClasses = "flex flex-wrap gap-[14px]";
 
-/** For a chip row: cancels the outer half-gap so the row aligns flush. */
-const toggleChipRowClasses = "-m-[7px] flex flex-wrap";
+type ChipRowProps = React.HTMLAttributes<HTMLElement> & {
+  /** `ul` when the chips are list items, which is the accessible shape for a
+   *  row of links. Defaults to `div`, which is right for a group of buttons. */
+  as?: "div" | "ul";
+};
+
+/**
+ * A row of chips. The gap is 14px and is not a prop: a caller that could pass
+ * `gap-2` would silently void the 36px exception, which is the whole reason
+ * this component exists rather than an exported class string.
+ *
+ * `className` is for the row's own placement (`mt-3`) and flow
+ * (`flex-nowrap overflow-x-auto`), and composes normally — no negative margin
+ * to collide with.
+ */
+function ChipRow({ as = "div", className, ...props }: ChipRowProps) {
+  const rowClassName = cn(chipRowClasses, className);
+
+  return as === "ul" ? (
+    <ul className={rowClassName} {...props} />
+  ) : (
+    <div className={rowClassName} {...props} />
+  );
+}
 
 /**
  * Default state — a rule outline, never an ink one. The chip is an option, not
@@ -62,7 +101,6 @@ function taxonomyLinkClasses({
     shape: "pill",
     size: "chip",
     className: cn(
-      toggleChipSpacingClasses,
       toggleChipDefaultClasses,
       active && toggleChipSelectedClasses,
       className,
@@ -112,7 +150,6 @@ function ToggleChip({
       // Reference tone restates every rule at hover scope for the same twMerge
       // reason documented on `toggleChipDefaultClasses`.
       className={cn(
-        toggleChipSpacingClasses,
         isReference
           ? cn(
               "border-border bg-secondary text-foreground",
@@ -130,9 +167,4 @@ function ToggleChip({
   );
 }
 
-export {
-  TOGGLE_CHIP_GAP_PX,
-  ToggleChip,
-  taxonomyLinkClasses,
-  toggleChipRowClasses,
-};
+export { ChipRow, TOGGLE_CHIP_GAP_PX, ToggleChip, taxonomyLinkClasses };

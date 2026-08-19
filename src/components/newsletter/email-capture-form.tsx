@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { subscribeToNewsletter } from "@/app/actions/newsletter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ToggleChip } from "@/components/ui/toggle-chip";
+import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
 import { Link } from "@/i18n/navigation";
 import { trackNewsletterSubscribed } from "@/lib/analytics";
 import { routes } from "@/lib/routes";
@@ -107,7 +107,10 @@ export function EmailCaptureForm() {
         <p className="type-body-sm font-medium text-secondary-foreground">
           {t("interestsLabel")}
         </p>
-        <div className="flex flex-row gap-2 overflow-x-auto">
+        {/* A scrolling row, not a wrapping one — but still a `ChipRow`, so
+            the 14px that keeps the 36px chip's touch target honest is the same
+            here as everywhere else. */}
+        <ChipRow className="flex-nowrap overflow-x-auto">
           {INTEREST_CHIPS.map((chip) => {
             const isSelected = selectedChips.includes(chip.slug);
 
@@ -122,7 +125,7 @@ export function EmailCaptureForm() {
               </ToggleChip>
             );
           })}
-        </div>
+        </ChipRow>
       </div>
 
       {selectedChips.map((slug) => (

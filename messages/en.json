@@ -354,7 +354,6 @@
     "selectedProducts": {
       "heading": "Formoria Selected",
       "note": "These are products Formoria picked from this brand, each described for what it is. Product details are supplied by the brand; refer to the brand's official page for the current information.",
-      "selectedBadge": "Formoria Selected",
       "cta": "Go to the brand's official website",
       "unavailable": "This product page is temporarily unreachable.",
       "brandSiteCta": "Go to the brand's website"

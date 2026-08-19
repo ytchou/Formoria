@@ -47,13 +47,12 @@ export const gridStyles = cva("grid", {
     gap: {
       gutter: "gap-gutter",
       tight: "gap-[calc(var(--space-gutter)/2)]",
-      /**
-       * NO CLASS, not `gap-0`. A grid's initial `gap` is already zero, so the
-       * utility bought nothing — and it was a raw numeric step in the one
-       * variant set whose whole point is that a gutter is never a raw number.
-       * Emitting nothing keeps that rule true for every value of `gap`.
+      /*
+       * NO `none`. It emitted no class at all — correct, since a grid's initial
+       * `gap` is already zero — which made it indistinguishable in the DOM from
+       * every other value, unobservable to any test, and callerless from the
+       * day it was written. A gap variant that cannot be seen is not a token.
        */
-      none: "",
     },
   },
   defaultVariants: {

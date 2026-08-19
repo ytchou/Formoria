@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
-import { SurfaceImage } from "@/components/ui/image";
+import {
+  EditorialHero,
+  editorialHeroSrc,
+} from "@/components/ui/editorial-hero";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { ChevronRight } from "lucide-react";
@@ -159,6 +162,10 @@ export default async function StoryPage({ params }: PageProps) {
     : null;
   const series = seriesResult?.ok ? seriesResult.stories : [];
 
+  // Resolved ONCE, and the same answer the hero renders from: an image the page
+  // cannot display must not be published as the article's image either. `null`
+  // is exactly the case where `EditorialHero` renders nothing.
+  const heroSrc = editorialHeroSrc(story.entry.frontmatter.heroImage);
   const articleJsonLd = buildArticleJsonLd({
     title: story.entry.frontmatter.title,
     description: story.entry.frontmatter.description ?? "",
@@ -166,9 +173,9 @@ export default async function StoryPage({ params }: PageProps) {
     locale: safeLocale,
     author: story.entry.frontmatter.author ?? t("byline"),
     // The story has carried a mandatory hero since it launched and never
-    // emitted one into structured data. Same file the `<img>` below renders;
-    // `buildArticleJsonLd` absolutises a repo path.
-    image: story.entry.frontmatter.heroImage ?? null,
+    // emitted one into structured data. `buildArticleJsonLd` absolutises a repo
+    // path.
+    image: heroSrc,
   });
   // Both are omitted rather than emitted raw when the frontmatter date is
   // missing or unparseable: schema.org date properties must be ISO-8601, and an
@@ -279,51 +286,15 @@ export default async function StoryPage({ params }: PageProps) {
           `<Figure>`s: this one is not illustrating a paragraph, it is the
           story's opening frame, and the wide crop keeps it from eating the
           fold on a laptop.
+
+          `EditorialHero` owns the box, the LCP hints and the "can this be
+          displayed" question — trail detail opens with the same frame, and the
+          two copies had already drifted apart on the placeholder colour.
         */}
-        {story.entry.frontmatter.heroImage ? (
-          <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-rule bg-surface-deep">
-            {/*
-              Two renderers, chosen by where the asset lives.
-
-              A path (`/images/…`) is a repo asset: `next/image` can resize it,
-              serve WebP, and emit a srcset, which matters because these are
-              committed PNGs — the current one is a 1.9MB file that would
-              otherwise ship whole as this page's LCP element.
-
-              An absolute URL is author-supplied and remote. `next/image` would
-              need the host in `remotePatterns`, and a story author adding an
-              image must not have to edit `next.config.ts` to make it render, so
-              that case stays a plain `<img>` — the same trade `StoryFigure` and
-              the `img` rule in `storyComponentMap` make.
-
-              Both are `priority`/`fetchPriority="high"` and never lazy: this is
-              the story's LCP element, so deferring it defers the metric itself.
-            */}
-            {story.entry.frontmatter.heroImage.startsWith("/") ? (
-              <SurfaceImage
-                src={story.entry.frontmatter.heroImage}
-                alt={story.entry.frontmatter.heroImageAlt ?? ""}
-                fill
-                priority
-                fetchPriority="high"
-                surface="banner"
-                className="object-cover"
-              />
-            ) : (
-              /* eslint-disable-next-line @next/next/no-img-element -- remote author-supplied URL with no intrinsic size and no `remotePatterns` entry; see the note above. */
-              <img
-                src={story.entry.frontmatter.heroImage}
-                /* Empty alt when the frontmatter omits one: the `<h1>` immediately
-                   below already says what this is, and a screen reader repeating
-                   the title as image text is noise, not description. */
-                alt={story.entry.frontmatter.heroImageAlt ?? ""}
-                decoding="async"
-                fetchPriority="high"
-                className="size-full object-cover"
-              />
-            )}
-          </div>
-        ) : null}
+        <EditorialHero
+          src={story.entry.frontmatter.heroImage}
+          alt={story.entry.frontmatter.heroImageAlt ?? ""}
+        />
         <header className="space-y-4">
           <h1 className="type-page-title">
             {story.entry.frontmatter.title}

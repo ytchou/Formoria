@@ -203,9 +203,9 @@ export function ShareDialogContent({
                 src={safeImage}
                 alt=""
                 fill
-                surface="thumb"
-                // A fixed 74px-tall preview strip: 256px on the narrow dialog,
-                // 336px otherwise. Neither is any of the grid surfaces.
+                // Measured, with no surface to name: a fixed 74px-tall preview
+                // strip, 256px wide on the narrow dialog and 336px otherwise.
+                // Neither width is any of the layout slots.
                 sizes="(max-width: 352px) 256px, 336px"
                 className="object-cover"
               />

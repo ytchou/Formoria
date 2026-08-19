@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { ToggleChip } from "@/components/ui/toggle-chip";
+import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
 import { getCategoryLabel } from "@/lib/brands/category-label";
 import { brandImageFill } from "@/lib/images/focal";
 import {
@@ -1159,7 +1159,7 @@ function ProductProposalsEditor({
               <legend className="type-metadata">
                 {t("details.productEditor.subcategories")}
               </legend>
-              <div className="flex flex-wrap gap-2">
+              <ChipRow>
                 {subcategoryOptions.map((subcategory) => (
                   <ToggleChip
                     key={subcategory.slug}
@@ -1178,13 +1178,13 @@ function ProductProposalsEditor({
                     {subcategory.nameZh}
                   </ToggleChip>
                 ))}
-              </div>
+              </ChipRow>
             </fieldset>
             <fieldset className="space-y-2">
               <legend className="type-metadata">
                 {t("details.productEditor.material")}
               </legend>
-              <div className="flex flex-wrap gap-2">
+              <ChipRow>
                 {MATERIALS.map((option) => (
                   <ToggleChip
                     key={option.slug}
@@ -1199,7 +1199,7 @@ function ProductProposalsEditor({
                     {option.nameZh}
                   </ToggleChip>
                 ))}
-              </div>
+              </ChipRow>
             </fieldset>
             <Field label={t("details.productEditor.officialUrl")}>
               <Input

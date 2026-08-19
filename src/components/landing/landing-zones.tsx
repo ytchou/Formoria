@@ -111,10 +111,10 @@ export async function LandingZones({
                 note: t("selectedProducts.note"),
                 showMore: t("selectedProducts.showMore"),
                 showLess: t("selectedProducts.showLess"),
-                // No `selectedBadge`. The wall renders `mode="wall"`, and the
-                // tile gates the trust label on `mode === "outbound"` — so the
-                // label could never render from here. Passing it anyway made
-                // the homepage look like it had opted in.
+                // No trust-label opt-in. The wall renders `mode="wall"`, and
+                // the tile gates the label on `mode === "outbound"` — so it
+                // could never render from here. Opting in anyway made the
+                // homepage look like it had asked for it.
                 product: {
                   cta: tSelected("cta"),
                   brandSiteCta: tSelected("brandSiteCta"),

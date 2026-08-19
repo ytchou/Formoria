@@ -110,12 +110,11 @@ export function EventExhibitorRow({
               src={imageSrc}
               alt={imageAlt}
               fill
+              // `thumb` IS this box — a 64/72px square — so there is nothing to
+              // override. The surface is fixed, not viewport-relative: every row
+              // on the page renders a thumbnail at this one size, and a `100vw`
+              // hint would have Next request a full-width variant for each.
               surface="thumb"
-              // Fixed, not viewport-relative: every row on the page renders a
-              // thumbnail at this one size, and a `100vw` hint would have Next
-              // request a full-width variant for each of them. 72px, not the
-              // surface default of 96px, because this box is a 64/72px square.
-              sizes="72px"
               className="object-contain"
               onError={() => setImgError(true)}
             />

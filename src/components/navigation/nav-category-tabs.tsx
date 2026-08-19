@@ -22,10 +22,15 @@ import { routes } from '@/lib/routes'
  * they must work with JS off and carry `aria-current`, so the focus ring the
  * primitives provide is restated here — the base layer sets an outline COLOUR
  * and no visible replacement of its own.
+ *
+ * The tap target reads `--nav-row-categories`, the same token as the row that
+ * holds it. A literal here would win over a smaller row token and grow the
+ * header without growing `--nav-height`, which is the drift this row already
+ * caused once. See `nav-height.test.ts`.
  */
 function tabClasses(active: boolean): string {
   return cn(
-    'type-nav flex min-h-12 items-center whitespace-nowrap rounded-[4px] px-3 py-2 transition-colors',
+    'type-nav flex min-h-(--nav-row-categories) items-center whitespace-nowrap rounded-[4px] px-3 py-2 transition-colors',
     'focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground',
     active ? 'text-ink' : 'text-ink-muted hover:text-ink',
   )
@@ -118,7 +123,7 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
       {/* One row that scrolls horizontally on a phone rather than wrapping:
           thirteen zh-TW labels wrap to three lines at 375px and push the page
           down by 96px before any content. */}
-      <div ref={containerRef} className="relative flex min-h-12 items-center gap-1 overflow-x-auto scrollbar-none">
+      <div ref={containerRef} className="relative flex min-h-(--nav-row-categories) items-center gap-1 overflow-x-auto scrollbar-none">
         <a
           href={targetFor('').href}
           data-active={isBrandsPage && !activeCategory ? 'true' : 'false'}
@@ -170,7 +175,7 @@ function NavCategoryTabsFallback() {
       aria-hidden="true"
       className="page-gutter mx-auto header-measure overflow-x-hidden"
     >
-      <div className="min-h-12" />
+      <div className="min-h-(--nav-row-categories)" />
     </nav>
   )
 }

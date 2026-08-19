@@ -81,7 +81,6 @@ describe('routes', () => {
     expect(routes.mySubmissions()).toBe('/my-submissions')
 
     expect(routes.submit.index()).toBe('/submit')
-    expect(routes.submit.form()).toBe('/submit/form')
     expect(routes.submit.recommend()).toBe('/submit/recommend')
     expect(routes.submit.confirmation()).toBe('/submit/confirmation')
     expect(routes.submit.owner()).toBe('/submit/owner')
@@ -110,10 +109,11 @@ describe('routes', () => {
     expect(routes.admin.brands({ edit: 'brand-1' })).toBe('/admin/brands?edit=brand-1')
     expect(routes.admin.jobs()).toBe('/admin/jobs')
     expect(routes.admin.job('job-1')).toBe('/admin/jobs/job-1')
+    expect(routes.admin.jobRunlog('job-1')).toBe('/admin/jobs/job-1/runlog')
     expect(routes.admin.submissions()).toBe('/admin/submissions')
     expect(routes.admin.moderation()).toBe('/admin/moderation')
-    expect(routes.admin.reviewQueueSubmissions()).toBe('/admin/review-queue/submissions')
-    expect(routes.admin.reviewQueueModeration()).toBe('/admin/review-queue/moderation')
+    // The bucket key in `RATE_LIMIT_RULES`, not a documentation claim about one.
+    expect(routes.admin.operations()).toBe('/admin/operations')
   })
 
   it('exposes the microsite route, which is not locale-prefixed by the router either', () => {

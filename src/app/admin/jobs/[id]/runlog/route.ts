@@ -1,5 +1,5 @@
 import { withAuditScope } from '@/lib/audit'
-import { requireAdminAction } from '@/lib/auth/require-admin'
+import { adminSignInPath, requireAdminAction } from '@/lib/auth/require-admin'
 import { getRequestOrigin } from '@/lib/auth/site-url'
 import { renderRunLogHtml } from '@/lib/runlog'
 import { exportJobRunLog } from '@/lib/services/runlog-export'
@@ -15,8 +15,10 @@ export const GET = withAuditScope(async (
   const auth = await requireAdminAction()
   if ('error' in auth) {
     if (auth.code === 'unauthenticated') {
-      const signInUrl = new URL(`/en${routes.auth.signIn()}`, await getRequestOrigin())
-      signInUrl.searchParams.set('next', `${routes.admin.job(id)}/runlog`)
+      const signInUrl = new URL(
+        adminSignInPath(routes.admin.jobRunlog(id)),
+        await getRequestOrigin(),
+      )
       return Response.redirect(signInUrl, 307)
     }
 

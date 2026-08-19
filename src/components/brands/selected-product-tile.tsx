@@ -28,18 +28,6 @@ import { routes } from "@/lib/routes";
 export type SelectedProductTileLabels = {
   cta: string;
   brandSiteCta: string;
-  /**
-   * OPT-IN FLAG, NOT THE STRING THAT RENDERS. `TrustLabel` owns the label text
-   * and reads it from the catalogue itself — that is what stops three surfaces
-   * from drifting into three different trust strings, which is exactly what had
-   * already happened here: the trail's string was a different sentence
-   * entirely, naming the trail rather than the selection.
-   *
-   * Optional so a surface can stop asking for the label without the tile
-   * needing to know which surface it is. Supplying it is necessary but not
-   * sufficient: see `showsTrustLabel` below.
-   */
-  selectedBadge?: string;
   unavailable: string;
 };
 
@@ -48,6 +36,18 @@ export type SelectedProductTileProps = {
   product: CuratedProduct;
   labels: SelectedProductTileLabels;
   mode: "outbound" | "trail" | "wall";
+  /**
+   * THE CALLER'S OPT-IN TO THE SELECTED LABEL — a flag, because that is all it
+   * ever was. It used to be `labels.selectedBadge`, a STRING whose value was
+   * discarded: `TrustLabel` reads its own text from `trustLabel.selected`, so
+   * the catalogue held the same sentence twice and only one copy could reach a
+   * reader. A translator editing the other one saw nothing change.
+   *
+   * A flag, not a mode test, so a surface can withdraw the label without this
+   * file learning which surface it is. Necessary but not sufficient: see
+   * `rendersTrustLabel` below.
+   */
+  showsTrustLabel?: boolean;
   /**
    * Wall geometry: the snapped ratio bucket the tile renders at. Absent means
    * the row carries no measurement yet, which renders the legacy 4:3.
@@ -86,6 +86,7 @@ export function SelectedProductTile({
   product,
   labels,
   mode,
+  showsTrustLabel = false,
   ratio,
   className,
   brand,
@@ -119,10 +120,10 @@ export function SelectedProductTile({
    * than folded into this one.
    *
    * BOTH halves of the gate are load-bearing. The mode is Formoria's rule and
-   * holds even for a caller that still passes the label; the label is the
-   * caller's opt-in, so a surface can withdraw without editing this file.
+   * holds even for a caller that still opts in; the flag is the caller's
+   * opt-in, so a surface can withdraw without editing this file.
    */
-  const showsTrustLabel = mode === "outbound" && Boolean(labels.selectedBadge);
+  const rendersTrustLabel = mode === "outbound" && showsTrustLabel;
   const isBroken = product.linkState === BROKEN_LINK_STATE;
   const visitLink =
     (mode === "outbound" || mode === "trail") && brand
@@ -375,7 +376,7 @@ export function SelectedProductTile({
           </Typography>
         ) : null}
 
-        {showsTrustLabel ? (
+        {rendersTrustLabel ? (
           <div>
             <TrustLabel />
           </div>

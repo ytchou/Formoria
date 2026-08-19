@@ -29,7 +29,7 @@ describe("Grid", () => {
 
   it("offers no ad-hoc numeric gap", () => {
     // Every gap variant reads a token, never a raw step.
-    for (const gap of ["gutter", "tight", "none"] as const) {
+    for (const gap of ["gutter", "tight"] as const) {
       expect(gridStyles({ gap })).not.toMatch(/\bgap-\d/);
     }
   });

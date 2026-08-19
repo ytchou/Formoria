@@ -47,12 +47,13 @@ describe("SurfaceImage", () => {
     expect(card.getAttribute("sizes")).not.toBe(hero.getAttribute("sizes"));
   });
 
-  it("lets a one-off box override the surface hint", () => {
+  it("lets one crop of a named slot override its hint", () => {
     render(
       <SurfaceImage
         surface="thumb"
-        // The admin media preview is a fixed 176px square.
-        sizes="176px"
+        // The carousel strip is a 64px square, narrower than the row thumbnail
+        // the surface is measured from.
+        sizes="64px"
         src="/images/hero-bg.webp"
         alt=""
         fill
@@ -60,7 +61,25 @@ describe("SurfaceImage", () => {
       />,
     );
 
-    expect(screen.getByTestId("override")).toHaveAttribute("sizes", "176px");
+    expect(screen.getByTestId("override")).toHaveAttribute("sizes", "64px");
+  });
+
+  it("takes a measurement from a box no surface describes", () => {
+    // The answer, not an override: a fixed-pixel admin preview is not a layout
+    // slot, and making it name one had every such box declare itself a `thumb`
+    // and then replace the hint anyway.
+    render(
+      <SurfaceImage
+        // The dashboard hero preview is a fixed 448px (`max-w-md`) box.
+        sizes="448px"
+        src="/images/hero-bg.webp"
+        alt=""
+        fill
+        data-testid="measured"
+      />,
+    );
+
+    expect(screen.getByTestId("measured")).toHaveAttribute("sizes", "448px");
   });
 
   it("keeps every surface hint distinct", () => {

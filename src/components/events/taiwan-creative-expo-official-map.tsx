@@ -36,7 +36,12 @@ function MapUnavailable() {
   const t = useTranslations("events");
 
   return (
-    <div className="absolute inset-0 grid place-items-center bg-surface-deep/95 p-6 text-center">
+    // OPAQUE `surface`, not `surface-deep/95`. Two reasons, both about the
+    // text this panel carries: `--ink-muted` (which `cardDescription` resolves
+    // to) measures 4.17:1 on `surface-deep`, under the 4.5:1 floor, and an
+    // alpha scrim has no fixed contrast at all — it inherits whatever the
+    // frame behind it happens to be. `surface` is 4.6:1 and is a number.
+    <div className="absolute inset-0 grid place-items-center bg-surface p-6 text-center">
       <div className="max-w-md space-y-2">
         <p className={textStyles({ variant: "cardTitle" })}>
           {t("floorMapUnavailable")}

@@ -23,7 +23,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { inkActionClassName } from "@/components/admin/ink-action";
-import { cn } from "@/lib/utils";
 import { MAX_COMMUNITY_SUBMISSIONS } from "@/lib/services/community-submissions.constants";
 import type {
   CommunitySubmissionDraft,
@@ -270,7 +269,7 @@ export function CommunitySubmissionsTable() {
               <Button
                 type="button"
                 variant="secondary"
-                className={cn("min-h-12", inkActionClassName)}
+                className={inkActionClassName}
                 disabled={isPending || selectedCount === 0}
                 onClick={executeRows}
               >

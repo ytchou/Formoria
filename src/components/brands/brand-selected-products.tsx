@@ -34,12 +34,6 @@ export async function BrandSelectedProducts({
   const labels: SelectedProductTileLabels = {
     cta: t("cta"),
     brandSiteCta: t("brandSiteCta"),
-    // THE ONE SURFACE THAT ASKS FOR THE TRUST LABEL (D11). Here a selected
-    // product sits among the brand's other things, so the label distinguishes
-    // something; on the homepage wall and in a trail every tile is selected and
-    // it would distinguish nothing. Passing this is the opt-in — `TrustLabel`
-    // renders the text, which is why the string is not threaded through it.
-    selectedBadge: t("selectedBadge"),
     unavailable: t("unavailable"),
   };
 
@@ -62,6 +56,13 @@ export async function BrandSelectedProducts({
             product={product}
             labels={labels}
             mode="outbound"
+            // THE ONE SURFACE THAT ASKS FOR THE TRUST LABEL (D11). Here a
+            // selected product sits among the brand's other things, so the
+            // label distinguishes something; on the homepage wall and in a
+            // trail every tile is selected and it would distinguish nothing.
+            // A flag, not a string: `TrustLabel` reads the text from
+            // `trustLabel.selected`, the one place that sentence is spelled.
+            showsTrustLabel
             brand={brand}
           />
         ))}

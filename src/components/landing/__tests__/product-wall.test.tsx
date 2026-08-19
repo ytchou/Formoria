@@ -62,7 +62,6 @@ const labels = {
   product: {
     cta: "Visit product",
     brandSiteCta: "Visit brand site",
-    selectedBadge: "Formoria selection",
     unavailable: "Link unavailable",
   },
   trail: { eyebrow: "Trail", cta: "Explore this trail" },

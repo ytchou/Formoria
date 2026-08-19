@@ -41,8 +41,8 @@ export default async function MediaPage({ params }: Props) {
                 alt={tEdit('fieldHeroImage')}
                 className="object-cover"
                 fill
-                surface="thumb"
-                // The hero preview is a fixed 448px (`max-w-md`) box.
+                // Measured, with no surface to name: `max-w-md` on THIS div caps
+                // the preview at a fixed 448px.
                 sizes="448px"
                 src={heroImageUrl}
               />
@@ -69,9 +69,19 @@ export default async function MediaPage({ params }: Props) {
                     alt={`${tEdit('fieldProductPhotos')} ${index + 1}`}
                     className="object-contain"
                     fill
-                    surface="thumb"
-                    // Four-up product grid inside the same `max-w-md` column: 176px.
-                    sizes="176px"
+                    /*
+                     * Measured, with no surface to name: 2/3/4 columns is this
+                     * page's grid alone, not any of the shared card grids.
+                     *
+                     * The old 176px cited `max-w-md`, which is on the hero
+                     * preview's SIBLING div above, not on any ancestor of this
+                     * grid. The real column is the dashboard `<main>`'s
+                     * `page-measure` (80rem), so a four-up cell is ~280px and
+                     * every thumbnail was being requested at a size it then had
+                     * to upscale. The vw steps read slightly high because they
+                     * ignore the gutters, which is the safe direction for a hint.
+                     */
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 288px"
                     src={photo}
                   />
                 </div>

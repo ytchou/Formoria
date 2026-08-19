@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { resumeCurationJobAction } from "@/app/admin/operations/actions";
 import { Button } from "@/components/ui/button";
 import { inkActionClassName } from "@/components/admin/ink-action";
-import { cn } from "@/lib/utils";
 
 export function ResumeJobButton({ jobId }: { jobId: string }) {
   const [isPending, setIsPending] = useState(false);
@@ -36,7 +35,7 @@ export function ResumeJobButton({ jobId }: { jobId: string }) {
       disabled={isPending}
       size="large"
       variant="secondary"
-      className={cn("min-h-12", inkActionClassName)}
+      className={inkActionClassName}
     >
       <PlayCircle aria-hidden="true" />
       {isPending ? "Queuing…" : "Resume failed targets"}

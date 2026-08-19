@@ -28,7 +28,7 @@ export default function AdminScriptsPage() {
             href={routes.admin.bulkCommunitySubmissions()}
             className={buttonVariants({
               variant: "secondary",
-              className: cn("mt-6 min-h-12", inkActionClassName),
+              className: cn("mt-6", inkActionClassName),
             })}
           >
             Open bulk community submissions

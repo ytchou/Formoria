@@ -12,7 +12,7 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Search, SearchX } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { ToggleChip } from "@/components/ui/toggle-chip";
+import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ViewItemListTracker } from "@/components/analytics/view-item-list-tracker";
@@ -290,11 +290,7 @@ export function TaiwanCreativeExpoExplorer({
           </div>
 
           {zoneOptions.length > 0 ? (
-            <div
-              role="group"
-              aria-label={t("zoneFilterAria")}
-              className="flex flex-wrap gap-2"
-            >
+            <ChipRow role="group" aria-label={t("zoneFilterAria")}>
               <ToggleChip
                 size="default"
                 pressed={state.zone === null}
@@ -324,7 +320,7 @@ export function TaiwanCreativeExpoExplorer({
                   </span>
                 </ToggleChip>
               ))}
-            </div>
+            </ChipRow>
           ) : null}
 
           {/*

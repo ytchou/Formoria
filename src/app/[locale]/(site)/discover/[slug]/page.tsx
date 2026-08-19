@@ -15,7 +15,10 @@ import {
 } from "@/components/stories/related-story-link";
 import { formatStoryDate } from "@/components/stories/story-date";
 import { surfaceCardStyles } from "@/components/ui/card";
-import { SurfaceImage } from "@/components/ui/image";
+import {
+  EditorialHero,
+  editorialHeroSrc,
+} from "@/components/ui/editorial-hero";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import {
@@ -123,11 +126,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 /*
- * No `selectedBadge`. A trail renders `mode="trail"`, and the tile gates the
- * trust label on `mode === "outbound"` (D11, the contrast rule: every tile in a
- * trail is selected, so the label would repeat and say nothing). The key it
- * used to read, `discover.selectedBadge`, was a different sentence from the
- * selection commitment `TrustLabel` owns, and is gone from both catalogues.
+ * No trust-label opt-in. A trail renders `mode="trail"`, and the tile gates the
+ * label on `mode === "outbound"` (D11, the contrast rule: every tile in a trail
+ * is selected, so the label would repeat and say nothing). The key it used to
+ * read, `discover.selectedBadge`, was a different sentence from the selection
+ * commitment `TrustLabel` owns, and is gone from both catalogues.
  */
 function trailLabels(t: (key: string) => string): SelectedProductTileLabels {
   return {
@@ -270,8 +273,10 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
     path: routes.trail(frontmatter.slug),
     locale: safeLocale,
     author: frontmatter.editorialOwner ?? "Formoria",
-    // The same file the hero renders. Absolutised inside the builder.
-    image: heroImage ?? null,
+    // The same image the hero renders, resolved by the same predicate: one the
+    // page cannot display takes the imageless path and is not published here
+    // either. Absolutised inside the builder.
+    image: editorialHeroSrc(heroImage),
   });
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(
     [{ label: t("breadcrumb"), href: routes.discover() }, { label: frontmatter.title }],
@@ -313,41 +318,16 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
             />
             {/*
               The page hero, above the `<h1>`, exactly as a feature opens in
-              print — same treatment as story detail. `priority` and
-              `fetchPriority="high"` because this becomes the route's LCP
-              element; deferring it defers the metric itself.
-
-              Two renderers, chosen by where the asset lives. A repo path can be
-              resized and served as WebP by `next/image`; an author-supplied
-              absolute URL would need its host in `remotePatterns`, and an editor
-              must not have to edit `next.config.ts` to publish a trail.
+              print — literally the same component story detail opens with, so
+              the two cannot drift again. The trail's copy had already drifted:
+              its placeholder was `bg-surface`, the colour of THIS band, so the
+              empty state was invisible against its own parent.
             */}
-            {heroImage ? (
-              <div className="relative mb-10 aspect-[16/9] w-full overflow-hidden rounded-xl border border-rule bg-surface">
-                {heroImage.startsWith("/") ? (
-                  <SurfaceImage
-                    src={heroImage}
-                    alt={frontmatter.heroImageAlt ?? ""}
-                    fill
-                    priority
-                    fetchPriority="high"
-                    surface="banner"
-                    className="object-cover"
-                  />
-                ) : (
-                  /* eslint-disable-next-line @next/next/no-img-element -- remote author-supplied URL with no intrinsic size and no `remotePatterns` entry; see the note above. */
-                  <img
-                    src={heroImage}
-                    /* Empty alt when the frontmatter omits one: the `<h1>` right
-                       below already says what this is. */
-                    alt={frontmatter.heroImageAlt ?? ""}
-                    decoding="async"
-                    fetchPriority="high"
-                    className="size-full object-cover"
-                  />
-                )}
-              </div>
-            ) : null}
+            <EditorialHero
+              src={heroImage}
+              alt={frontmatter.heroImageAlt ?? ""}
+              className="mb-10"
+            />
             <div className="grid gap-10 md:grid-cols-[minmax(0,1fr)_minmax(15rem,20rem)] md:gap-16">
               <div className="max-w-[46rem] space-y-4">
                 <h1 className="type-page-title">{frontmatter.title}</h1>
