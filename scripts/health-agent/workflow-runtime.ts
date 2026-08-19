@@ -8,7 +8,7 @@ import {
   PURCHASE_COLUMNS,
   type PurchaseChannelCamelField,
 } from "@/lib/brands/purchase-channels";
-import { createTursoAgentHubWriter } from "../agent-hub/turso.mjs";
+import { createAgentHubDelivery } from "../agent-hub/delivery.mjs";
 import {
   createAgentHubAdapter,
   createGitHubAdapter,
@@ -2152,35 +2152,60 @@ function healthAgentHubDependency(
   dependencies: WorkflowRuntimeDependencies,
 ): AgentHubAdapter {
   const environment = environmentFor(dependencies);
+  const audit = auditFor(dependencies);
   let writer = dependencies.agentHubWriter;
   return createAgentHubAdapter({
-    audit: auditFor(dependencies),
+    audit,
     runner: async (envelope) => {
-      const audit = auditFor(dependencies);
       const startedAt = performance.now();
-      const request = { envelope: objectValue(envelope), method: "turso" };
-      let audited = false;
-      const record = (
-        status: "success" | "failure",
-        response: JsonObject,
-        schemaValid: boolean,
-      ) => {
-        audited = true;
-        audit({
-          adapter: "agent-hub-runtime",
-          latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
-          operation: "ingest_envelope",
-          request,
-          response,
-          schemaValid,
-          status,
-        });
+      const request = {
+        envelope: objectValue(envelope),
+        method: "agent_hub_delivery",
       };
+      let responseRecorded = false;
       try {
         if (!writer) {
-          writer = createTursoAgentHubWriter({
+          writer = createAgentHubDelivery({
             env: environment,
-            logger: () => undefined,
+            supabaseOptions: {
+              fetchImplementation: fetchFor(dependencies),
+            },
+            logger: (record: unknown) => {
+              const value = isRecord(record) ? record : {};
+              const destination =
+                typeof value.destination === "string"
+                  ? value.destination
+                  : "unknown";
+              const status = value.status === "success" ? "success" : "failure";
+              audit({
+                adapter: `agent-hub-${destination}`,
+                latencyMs:
+                  typeof value.latency_ms === "number" &&
+                  Number.isFinite(value.latency_ms)
+                    ? Math.max(0, Math.round(value.latency_ms))
+                    : 0,
+                operation:
+                  typeof value.operation === "string"
+                    ? value.operation
+                    : "deliver",
+                request: {
+                  destination,
+                  mode: typeof value.mode === "string" ? value.mode : "unknown",
+                  source_run_id:
+                    typeof value.source_run_id === "string"
+                      ? value.source_run_id
+                      : "",
+                },
+                response: objectValue(
+                  value.response ??
+                    (typeof value.error === "string"
+                      ? { error: value.error }
+                      : {}),
+                ),
+                schemaValid: status === "success",
+                status,
+              });
+            },
           });
         }
         const body = await writer(envelope);
@@ -2188,18 +2213,37 @@ function healthAgentHubDependency(
           isRecord(body) &&
           typeof body.duplicate === "boolean" &&
           typeof body.run_id === "string";
-        record(
-          schemaValid ? "success" : "failure",
-          { result: objectValue(body) },
+        audit({
+          adapter: "agent-hub-runtime",
+          latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
+          operation: "ingest_envelope",
+          request,
+          response: {
+            mode:
+              typeof environment.AGENT_HUB_DELIVERY_MODE === "string"
+                ? environment.AGENT_HUB_DELIVERY_MODE
+                : "injected",
+            result: objectValue(body),
+          },
           schemaValid,
-        );
+          status: schemaValid ? "success" : "failure",
+        });
+        responseRecorded = true;
         if (!schemaValid) {
           throw new Error("agent_hub_runtime_request_failed");
         }
         return body;
       } catch (error) {
-        if (!audited) {
-          record("failure", { error: "request_failed" }, false);
+        if (!responseRecorded) {
+          audit({
+            adapter: "agent-hub-runtime",
+            latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
+            operation: "ingest_envelope",
+            request,
+            response: { error: "request_failed" },
+            schemaValid: false,
+            status: "failure",
+          });
         }
         throw error;
       }
