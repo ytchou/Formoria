@@ -41,8 +41,14 @@ export const SUBCATEGORY_VOCAB_BLOCK = L1_CATEGORIES.map((c) => {
   return `- ${c.slug}（${c.nameZh}）：${subs.join("、")}`;
 }).join("\n");
 
-/** The material axis, closed to the twelve agreed terms (`MATERIALS`). */
-const MATERIAL_VOCAB_BLOCK = MATERIALS.join("、");
+/**
+ * The material axis, closed to the twelve agreed slugs (`MATERIALS`). Slug plus
+ * zh gloss, so the model can recognise the term and still emit the slug — the
+ * schema accepts only the slug, and a Chinese label is discarded.
+ */
+const MATERIAL_VOCAB_BLOCK = MATERIALS.map(
+  (material) => `- ${material.slug}: ${material.nameZh}`,
+).join("\n");
 
 export const CLASSIFY_SYSTEM_PROMPT = `你是台灣品牌分類專家。請根據品牌名稱和描述，將品牌分類到最適合的產品類別。
 
@@ -267,7 +273,7 @@ listing.taiwan_connection 只能依據來源明確提到的事實填寫，不可
 {
   "category": "類別 slug 或 null（只能用下方「品牌分類」清單中的 slug）",
   "subcategories": ["子類別 slug（只能用下方「商品子類別詞彙表」中的 slug，一字不差）"],
-  "material": ["材質（只能用下方「材質詞彙表」中的詞）"],
+  "material": ["材質 slug（只能用下方「材質詞彙表」中的英文 slug，一字不差）"],
   "price_range": 1 | 2 | 3 | null,
   "city": "城市 slug 或 null（只能用以下值：taipei, new_taipei, taoyuan, taichung, tainan, kaohsiung, keelung, hsinchu_city, chiayi_city, hsinchu_county, miaoli, changhua, nantou, yunlin, chiayi_county, pingtung, yilan, hualien, taitung, penghu, kinmen, lienchiang）",
   "founding_year": 2015 | null,
@@ -314,9 +320,10 @@ ${SUBCATEGORY_VOCAB_BLOCK}
 
 material（材質）：
 
-材質詞彙表（封閉清單）：${MATERIAL_VOCAB_BLOCK}
+材質詞彙表（封閉清單，只能使用下列 slug）：
+${MATERIAL_VOCAB_BLOCK}
 
-填寫商品主要材質，只能使用上列詞彙，最多 3 個。材質必須有來源依據（商品說明、材質標示、產品規格），不可從照片外觀推測；沒有明確依據時回傳 []。
+填寫商品主要材質，最多 3 個。material 只接受英文 slug；填中文標籤（例如「陶瓷」）會被丟棄，slug 一律是小寫英文與連字號，且必須一字不差地出現在上表。材質必須有來源依據（商品說明、材質標示、產品規格），不可從照片外觀推測；沒有明確依據時回傳 []。
 
 city：只能填上方清單中的城市 slug。若來源未明確指出品牌所在地，回傳 null。
 
@@ -327,7 +334,7 @@ mit_indicators：是否在來源中提及台灣製造（MIT、台灣製造、100
 ## 驗證檢查（輸出前自行確認）
 - [ ] subcategories 是否每一項都逐字出現在商品子類別詞彙表中，沒有自創標籤或中文標籤？
 - [ ] 是否沒有把 L1、場合、包裝、服務或 SKU 層級詞當成子類別？
-- [ ] material 是否只使用材質詞彙表中的詞，且每一項都有來源依據？
+- [ ] material 是否全部是材質詞彙表中的英文 slug（沒有中文標籤），且每一項都有來源依據？
 - [ ] 所有欄位是否可從提供的來源中找到依據？
 - [ ] category 與 city 是否只使用上列 slug？
 - [ ] 沒有依據的欄位是否已回傳 null 或 []，而不是猜測值？`;

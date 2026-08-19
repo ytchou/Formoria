@@ -31,20 +31,50 @@ describe("FACTS_SYSTEM_PROMPT subcategories vocabulary", () => {
     );
   });
 
+  it("material_vocab_block_lists_slug_and_gloss", () => {
+    // `MATERIALS.join()` over the slug objects rendered `[object Object]` —
+    // the model was handed twelve of them and no vocabulary at all. Slug first
+    // because the slug is what `brands.material` stores and what the CHECK
+    // constraint accepts; the zh gloss rides along only so a model reading a
+    // zh-TW product page can recognise which slug it is looking at.
+    for (const material of MATERIALS) {
+      expect(FACTS_SYSTEM_PROMPT).toContain(
+        `- ${material.slug}: ${material.nameZh}`,
+      );
+    }
+    expect(FACTS_SYSTEM_PROMPT).toContain("- ceramic: 陶瓷");
+    expect(FACTS_SYSTEM_PROMPT).not.toContain("[object Object]");
+  });
+
+  it("material_rule_demands_slugs_and_bans_labels", () => {
+    // Same wording rule the subcategory half already carries at rule 2: the
+    // closed list is offered as slugs and only slugs come back. A zh label is
+    // not repaired downstream, it is dropped — so the prompt has to say so.
+    expect(FACTS_SYSTEM_PROMPT).toContain(
+      "材質詞彙表（封閉清單，只能使用下列 slug）：",
+    );
+    expect(FACTS_SYSTEM_PROMPT).toContain("material 只接受英文 slug");
+    expect(FACTS_SYSTEM_PROMPT).toContain(
+      "填中文標籤（例如「陶瓷」）會被丟棄",
+    );
+    expect(FACTS_SYSTEM_PROMPT).toContain("slug 一律是小寫英文與連字號");
+    // The output schema asks for the slug too, not the zh-TW term it replaced.
+    expect(FACTS_SYSTEM_PROMPT).toContain(
+      '"material": ["材質 slug（只能用下方「材質詞彙表」中的英文 slug，一字不差）"]',
+    );
+    expect(FACTS_SYSTEM_PROMPT).not.toContain(
+      '"material": ["材質（只能用下方「材質詞彙表」中的詞）"]',
+    );
+  });
+
   it("material_is_requested_not_banned", () => {
     // Rules 4 and 6 used to ban 材質 outright, which left the material axis
     // with no way to be reported at all. The ban is now scoped to the USE axis
-    // and material is asked for on its own axis, against a closed 12-term list.
+    // and material is asked for on its own axis, against a closed 12-slug list.
     expect(FACTS_SYSTEM_PROMPT).toContain(
       "6. 材質屬於另一個軸線：不要用材質詞當子類別，材質請改填 material 欄位。",
     );
     expect(FACTS_SYSTEM_PROMPT).toContain("material（材質）：");
-    expect(FACTS_SYSTEM_PROMPT).toContain(
-      '"material": ["材質（只能用下方「材質詞彙表」中的詞）"]',
-    );
-    for (const material of MATERIALS) {
-      expect(FACTS_SYSTEM_PROMPT).toContain(material);
-    }
     // Rule 4 no longer lists 材質 or 原料 among the disqualifying kinds.
     expect(FACTS_SYSTEM_PROMPT).not.toContain(
       "不得是場合、收件對象、包裝形式、履約方式、服務或材質",
@@ -54,7 +84,7 @@ describe("FACTS_SYSTEM_PROMPT subcategories vocabulary", () => {
       "而不是 L1、場合、包裝、服務、材質或 SKU 層級詞",
     );
     expect(FACTS_SYSTEM_PROMPT).toContain(
-      "material 是否只使用材質詞彙表中的詞，且每一項都有來源依據？",
+      "material 是否全部是材質詞彙表中的英文 slug（沒有中文標籤），且每一項都有來源依據？",
     );
     // Material is evidence-bound; it is never inferred from a photo.
     expect(FACTS_SYSTEM_PROMPT).toContain("不可從照片外觀推測");

@@ -1907,7 +1907,13 @@ const getCachedSubcategoryRows = unstable_cache(
       },
       { summary: { cached: true } },
     ),
-  ["subcategory-summary-rows"],
+  // The suffix is a PAYLOAD-SHAPE version, not decoration. These rows carry
+  // taxonomy values verbatim, so a migration that respells them leaves a warm
+  // entry serving spellings the reader can no longer resolve for a full hour —
+  // silently, since a Map lookup that misses every key reads as "no options"
+  // rather than as an error. `v2` is DEV-1525, which moved `material` from
+  // zh-TW labels to slugs. Bump it again on the next respelling.
+  ["subcategory-summary-rows-v2"],
   { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
 );
 
@@ -1972,13 +1978,14 @@ export function summarizeSubcategoryRows(
 }
 
 /**
- * Material counts over the whole approved corpus, keyed by the zh-TW term.
+ * Material counts over the whole approved corpus, keyed by the material slug.
  *
  * Deliberately NOT scoped to the selected L1. Material is an orthogonal axis —
- * a `crafts` brand and a `home` brand are both 陶瓷 — and re-introducing a
+ * a `crafts` brand and a `home` brand are both `ceramic` — and re-introducing a
  * category conjunct here would recreate exactly the class of silent drop this
- * ticket removes. Four of the twelve terms (紙 石 藤 漆) have no brands at all;
- * the rail renders a term only when its count is above zero.
+ * ticket removes. Four of the twelve slugs (`paper` `stone` `rattan` `lacquer`)
+ * have no brands at all; the rail renders a slug only when its count is above
+ * zero.
  */
 function summarizeMaterialCounts(
   rows: readonly SubcategorySummaryRow[],

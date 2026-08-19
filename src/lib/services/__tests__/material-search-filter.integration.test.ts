@@ -66,7 +66,7 @@ async function withMaterialFixtures(
       // set that `search-cjk-recall.integration.test.ts` pins — a fixture that
       // perturbs another file's whole-corpus baseline while both run.
       subcategories: [],
-      material: ["陶瓷"],
+      material: ["ceramic"],
     },
     {
       id: woodId,
@@ -77,7 +77,7 @@ async function withMaterialFixtures(
       is_demo: false,
       category: "crafts",
       subcategories: [],
-      material: ["木"],
+      material: ["wood"],
     },
   ]);
   expect(error).toBeNull();
@@ -94,7 +94,7 @@ async function withMaterialFixtures(
 }
 
 describeWithDb("material filter on both read paths", () => {
-  // Bug caught: `?material=陶瓷` works while browsing and quietly returns every
+  // Bug caught: `?material=ceramic` works while browsing and quietly returns every
   // material the moment the user also types a search term.
   it("material_filter_applies_under_an_active_text_query", async () => {
     await withMaterialFixtures(async ({ ceramicId, woodId, token }) => {
@@ -110,7 +110,7 @@ describeWithDb("material filter on both read paths", () => {
 
       const filtered = await supabase!.rpc("search_brand_page", {
         search_query: token,
-        filter_materials: ["陶瓷"],
+        filter_materials: ["ceramic"],
       });
       expect(filtered.error).toBeNull();
       const filteredIds = (filtered.data ?? []).map((row) => row.id);
@@ -120,7 +120,7 @@ describeWithDb("material filter on both read paths", () => {
       // `&&` is an overlap, so a multi-term filter is a union of terms.
       const union = await supabase!.rpc("search_brand_page", {
         search_query: token,
-        filter_materials: ["陶瓷", "木"],
+        filter_materials: ["ceramic", "wood"],
       });
       expect(union.error).toBeNull();
       expect((union.data ?? []).map((row) => row.id)).toEqual(
@@ -146,7 +146,7 @@ describeWithDb("material filter on both read paths", () => {
       const filtered = await getBrands({
         status: "approved",
         category: ["crafts"],
-        materials: ["陶瓷"],
+        materials: ["ceramic"],
         sort: "newest",
         limit: 200,
       });
@@ -165,7 +165,7 @@ describeWithDb("material filter on both read paths", () => {
       expect(rowsError).toBeNull();
       expect(rows).toHaveLength(filteredIds.length);
       for (const row of rows ?? []) {
-        expect(row.material, row.id).toContain("陶瓷");
+        expect(row.material, row.id).toContain("ceramic");
       }
     });
   });
@@ -180,13 +180,13 @@ describeWithDb("material filter on both read paths", () => {
 
     const asService = await supabase!.rpc("search_brand_page", {
       search_query: "zzgrantprobe",
-      filter_materials: ["陶瓷"],
+      filter_materials: ["ceramic"],
     });
     expect(asService.error).toBeNull();
 
     const asAnon = await anonymous.rpc("search_brand_page", {
       search_query: "zzgrantprobe",
-      filter_materials: ["陶瓷"],
+      filter_materials: ["ceramic"],
     });
     expect(asAnon.error).not.toBeNull();
 
@@ -194,13 +194,13 @@ describeWithDb("material filter on both read paths", () => {
     // hazard, so it is asserted here rather than left to a second file.
     const siblingAsAnon = await anonymous.rpc("search_brands", {
       search_query: "zzgrantprobe",
-      filter_materials: ["陶瓷"],
+      filter_materials: ["ceramic"],
     });
     expect(siblingAsAnon.error).not.toBeNull();
 
     const siblingAsService = await supabase!.rpc("search_brands", {
       search_query: "zzgrantprobe",
-      filter_materials: ["陶瓷"],
+      filter_materials: ["ceramic"],
     });
     expect(siblingAsService.error).toBeNull();
   });

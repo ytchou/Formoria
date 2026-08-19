@@ -1059,20 +1059,6 @@
           }
         ]
       }
-    },
-    "materials": {
-      "陶瓷": "Ceramic",
-      "木": "Wood",
-      "織品": "Textile",
-      "玻璃": "Glass",
-      "金屬": "Metal",
-      "竹": "Bamboo",
-      "羊毛": "Wool",
-      "皮革": "Leather",
-      "紙": "Paper",
-      "石": "Stone",
-      "藤": "Rattan",
-      "漆": "Lacquer"
     }
   },
   "legal": {

@@ -12,7 +12,7 @@ export type DirectoryViewFilters = Pick<
   subcategorySlugs: string[]
 }
 
-const VALID_MATERIALS: ReadonlySet<string> = new Set(MATERIALS)
+const VALID_MATERIALS: ReadonlySet<string> = new Set(MATERIALS.map((m) => m.slug))
 
 function parseCommaParam(value: string | string[] | undefined): string[] {
   const values = Array.isArray(value) ? value : value ? [value] : []

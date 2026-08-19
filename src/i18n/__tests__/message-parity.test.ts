@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { L1_CATEGORIES, L2_SUBCATEGORIES, MATERIALS } from '@/lib/taxonomy/ontology'
+import { L1_CATEGORIES, L2_SUBCATEGORIES } from '@/lib/taxonomy/ontology'
 import en from '../../../messages/en.json'
 import zhTW from '../../../messages/zh-TW.json'
 
@@ -94,20 +94,6 @@ describe('message catalogue parity', () => {
     expect(Object.keys(zhTW.categories.l2).sort()).toEqual(
       Object.keys(en.categories.l2).sort(),
     )
-    expect(Object.keys(zhTW.categories.materials).sort()).toEqual(
-      Object.keys(en.categories.materials).sort(),
-    )
-
-    // The material rail is keyed by the stored zh term, so the message keys are
-    // tied to `MATERIALS` rather than restated. A term with no key would render
-    // its own key path in English.
-    expect(Object.keys(zhTW.categories.materials)).toEqual([...MATERIALS])
-    expect(Object.keys(en.categories.materials)).toEqual([...MATERIALS])
-    for (const material of MATERIALS) {
-      const key = material as keyof typeof en.categories.materials
-      expect(zhTW.categories.materials[key], material).toBeTruthy()
-      expect(en.categories.materials[key], material).toBeTruthy()
-    }
 
     // `kids` and `pets` replaced `kids-pets` on every taxonomy block.
     for (const block of [zhTW.categories, en.categories]) {
@@ -122,6 +108,25 @@ describe('message catalogue parity', () => {
     const l2Slugs = new Set<string>(L2_SUBCATEGORIES.map(sub => sub.slug))
     expect(Object.keys(zhTW.categories.l1).filter(key => !l1Slugs.has(key))).toEqual([])
     expect(Object.keys(zhTW.categories.l2).filter(key => !l2Slugs.has(key))).toEqual([])
+  })
+
+  it('message_parity_holds_without_a_materials_block', () => {
+    // DEV-1525 moved the material labels into `MATERIALS` in the ontology, where
+    // the slug is the key and the labels ride along. A `categories.materials`
+    // block returning here would be a second, un-generated source of truth that
+    // no test compares against the stored vocabulary.
+    expect(zhTW.categories).not.toHaveProperty('materials')
+    expect(en.categories).not.toHaveProperty('materials')
+
+    expect(Object.keys(zhTW.categories).sort()).toEqual(Object.keys(en.categories).sort())
+  })
+
+  it('en_messages_carry_no_han_keys', () => {
+    // A Han key path is the zh-as-identifier shape the slug migration retires:
+    // it forces English readers to look a term up by its Chinese name, and it is
+    // unreachable from a URL. `categories.materials` was the last one.
+    const hanKeys = flatten(en.categories).filter(key => /[\u4e00-\u9fff]/.test(key))
+    expect(hanKeys).toEqual([])
   })
 
   it('llms_txt_has_a_description_for_every_l1', () => {

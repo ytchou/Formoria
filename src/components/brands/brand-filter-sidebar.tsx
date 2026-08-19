@@ -53,12 +53,13 @@ type SubcategoryOption = {
 };
 
 /**
- * One term of the closed 12-term material vocabulary.
+ * One slug of the closed 12-slug material vocabulary.
  *
- * `value` is the zh-TW term itself — it is what `brands.material` stores and
- * what `?material=` carries — while `label` is the localized rendering. The
- * caller drops any term whose count is zero, so this list is never longer than
- * the terms a user can actually reach.
+ * `value` is the slug itself — it is what `brands.material` stores and what
+ * `?material=` carries — while `label` is the localized rendering the caller
+ * resolved from the ontology (`nameZh` / `nameEn`), not from a message
+ * catalogue. The caller also drops any slug whose count is zero, so this list
+ * is never longer than the slugs a user can actually reach.
  */
 type MaterialOption = {
   value: string;
@@ -195,8 +196,8 @@ export function BrandFilterSidebar({
   );
   const activeSubcategories = new Set(activeSubSlugs);
   // The server-validated list, and only that: `parseDirectoryViewFilters`
-  // drops any term outside the closed 12-term vocabulary, so reading
-  // `?material=` back here resurrected exactly the terms it rejected. On
+  // drops any value outside the closed 12-slug vocabulary, so reading
+  // `?material=` back here resurrected exactly the slugs it rejected. On
   // `/brands?material=xyz` that made ticking a box re-emit `xyz`, and unticking
   // rewrite the key instead of deleting it — the facet could not be cleared at
   // all, and the page stayed noindex with a self-canonical to the junk URL.

@@ -6,7 +6,9 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh-TW.json";
+import { MATERIALS } from "@/lib/taxonomy/ontology";
 
 const { replace, push, searchParams } = vi.hoisted(() => ({
   replace: vi.fn(),
@@ -55,21 +57,46 @@ const CATEGORIES = [
   { slug: "fashion", name: "Fashion", nameZh: "時尚服飾" },
 ];
 
-const MATERIALS = [
-  { value: "陶瓷", label: "陶瓷", count: 29 },
-  { value: "木", label: "木", count: 12 },
-];
+type TestLocale = "zh-TW" | "en";
+
+const MATERIAL_COUNTS: Record<string, number> = { ceramic: 29, wood: 12 };
+
+/**
+ * The derivation `DirectoryView` runs at `directory-view.tsx`, mirrored: slug
+ * into `value`, ontology label into `label`, zero counts dropped. It is
+ * mirrored rather than imported because the rail's contract IS the shape it
+ * receives, and the server component that builds it is async and reaches the
+ * brand service, so it cannot be rendered in jsdom.
+ *
+ * There is no `categories.materials` namespace any more — the label comes off
+ * `MATERIALS`, so the twelve slugs and their two labels have exactly one home.
+ */
+function materialOptions(
+  locale: TestLocale,
+  counts: Record<string, number> = MATERIAL_COUNTS,
+) {
+  return MATERIALS.map((material) => ({
+    value: material.slug,
+    label: locale === "zh-TW" ? material.nameZh : material.nameEn,
+    count: counts[material.slug] ?? 0,
+  })).filter((option) => option.count > 0);
+}
+
+function messagesFor(locale: TestLocale) {
+  return locale === "zh-TW" ? zhMessages : enMessages;
+}
 
 function renderSidebar(
   props: Partial<React.ComponentProps<typeof BrandFilterSidebar>> = {},
   query = "",
+  locale: TestLocale = "zh-TW",
 ) {
   searchParams.current = new URLSearchParams(query);
   return render(
-    <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
+    <NextIntlClientProvider locale={locale} messages={messagesFor(locale)}>
       <BrandFilterSidebar
         categories={CATEGORIES}
-        materials={MATERIALS}
+        materials={materialOptions(locale)}
         totalCount={24}
         {...props}
       />
@@ -77,14 +104,14 @@ function renderSidebar(
   );
 }
 
-function materialSection() {
+function materialSection(locale: TestLocale = "zh-TW") {
   return screen.getByRole("button", {
-    name: zhMessages.brands.filters.material,
+    name: messagesFor(locale).brands.filters.material,
   });
 }
 
-function materialPanel() {
-  const id = materialSection().getAttribute("aria-controls") ?? "";
+function materialPanel(locale: TestLocale = "zh-TW") {
+  const id = materialSection(locale).getAttribute("aria-controls") ?? "";
   const panel = document.getElementById(id);
   if (!panel) throw new Error("material panel has no aria-controls target");
   return panel;
@@ -95,8 +122,74 @@ describe("BrandFilterSidebar", () => {
     vi.clearAllMocks();
   });
 
-  it("ignores a material term the server already rejected", () => {
-    // `parseDirectoryViewFilters` drops anything outside the closed 12-term
+  it("material_options_carry_the_locale_label — 陶瓷 in zh-TW, Ceramic in en, one slug behind both", () => {
+    const zh = renderSidebar({}, "", "zh-TW");
+    fireEvent.click(materialSection("zh-TW"));
+    expect(
+      within(materialPanel("zh-TW")).getByRole("checkbox", { name: /陶瓷/ }),
+    ).toBeInTheDocument();
+    zh.unmount();
+
+    renderSidebar({}, "", "en");
+    fireEvent.click(materialSection("en"));
+    const box = within(materialPanel("en")).getByRole("checkbox", {
+      name: /Ceramic/,
+    });
+    expect(box).toBeInTheDocument();
+
+    // Only the label is localized. The value behind both renderings is the
+    // slug, which is what the URL and `brands.material` carry.
+    fireEvent.click(box);
+    expect(replace).toHaveBeenCalledWith("/brands?material=ceramic", {
+      scroll: false,
+    });
+  });
+
+  it("material_toggle_writes_the_slug_to_the_url", () => {
+    renderSidebar({ activeMaterials: [] });
+
+    fireEvent.click(materialSection());
+    fireEvent.click(
+      within(materialPanel()).getByRole("checkbox", { name: /陶瓷/ }),
+    );
+    // Not the percent-encoded zh-TW term it used to write: `?material=` is a
+    // slug list now, readable in a log line and stable across locales.
+    expect(replace).toHaveBeenCalledWith("/brands?material=ceramic", {
+      scroll: false,
+    });
+  });
+
+  it("sidebar_renders_every_material_option_it_is_handed", () => {
+    // `lacquer` is in the closed vocabulary with no brands behind it, and a
+    // rail entry that can only ever return an empty page is worse than no
+    // entry — but the drop that enforces that is PRODUCTION code living at
+    // `directory-view.tsx:121`, in an async server component jsdom cannot
+    // render. This case guards the sidebar's own half of the contract instead:
+    // it is presentational, so it renders exactly the options it is handed,
+    // zero counts included. Going through `materialOptions()` here would only
+    // assert the fixture, since that helper mirrors the upstream filter.
+    const options = MATERIALS.filter((material) =>
+      ["ceramic", "wood", "lacquer"].includes(material.slug),
+    ).map((material) => ({
+      value: material.slug,
+      label: material.nameZh,
+      count: MATERIAL_COUNTS[material.slug] ?? 0,
+    }));
+
+    renderSidebar({ materials: options });
+
+    fireEvent.click(materialSection());
+    const panel = materialPanel();
+    expect(within(panel).getAllByRole("checkbox")).toHaveLength(options.length);
+    for (const option of options) {
+      expect(
+        within(panel).getByRole("checkbox", { name: new RegExp(option.label) }),
+      ).toBeInTheDocument();
+    }
+  });
+
+  it("unknown_url_terms_are_not_resurrected", () => {
+    // `parseDirectoryViewFilters` drops anything outside the closed 12-slug
     // vocabulary, so `activeMaterials` is empty here on purpose. Reading the
     // raw param back would tick nothing yet keep `xyz` in every URL the
     // sidebar writes.
@@ -110,16 +203,16 @@ describe("BrandFilterSidebar", () => {
     fireEvent.click(
       within(materialPanel()).getByRole("checkbox", { name: /陶瓷/ }),
     );
-    expect(replace).toHaveBeenCalledWith("/brands?material=%E9%99%B6%E7%93%B7", {
+    expect(replace).toHaveBeenCalledWith("/brands?material=ceramic", {
       scroll: false,
     });
   });
 
-  it("clears the material key entirely when the last term is unticked", () => {
-    // The bug this pins: with a rejected term surviving in the set, unticking
+  it("clears the material key entirely when the last slug is unticked", () => {
+    // The bug this pins: with a rejected slug surviving in the set, unticking
     // rewrote `?material=xyz` instead of deleting the key, so the facet could
     // not be cleared at all and the page stayed noindex.
-    renderSidebar({ activeMaterials: ["陶瓷"] }, "material=%E9%99%B6%E7%93%B7");
+    renderSidebar({ activeMaterials: ["ceramic"] }, "material=ceramic");
 
     fireEvent.click(
       within(materialPanel()).getByRole("checkbox", { name: /陶瓷/ }),

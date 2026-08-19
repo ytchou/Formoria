@@ -311,37 +311,63 @@ export const L2_SUBCATEGORIES: readonly L2Subcategory[] = [
 // Material axis
 // ---------------------------------------------------------------------------
 
+export type Material = {
+  slug: string
+  nameZh: string
+  nameEn: string
+}
+
 /**
  * The third axis cuts on material — what the object is made of — and closes at
- * 12 terms. This list is the CHECK constraint DEV-1502 deferred on
- * `brands.material` and `curated_products.material`.
+ * 12 slugs. `brands.material` and `curated_products.material` store the slug,
+ * and a CHECK constraint on both columns mirrors this exact list
+ * (20260820170000_material_slugs.sql), so a slug added here without a companion
+ * migration produces writes Postgres rejects with a 23514, and a slug removed
+ * here without one leaves stored rows no reader can resolve. `nameZh` and
+ * `nameEn` are display-only: nothing is stored or filtered by either.
  *
  * Technique is deliberately not modelled. A 藍染 scarf is technique 藍染 and
- * material 織品; only the second is stored, and 藍染 collapses into 織品. That
- * is an accepted cost — a technique axis must clear the
+ * material `textile`; only the second is stored, and 藍染 collapses into
+ * `textile`. That is an accepted cost — a technique axis must clear the
  * `2026-08-07-secondary-taxonomy-axes.md` bar first, and no ticket, supply
  * evidence or demand evidence exists for one.
  *
- * 紙, 石, 藤 and 漆 carry zero production evidence and are in the vocabulary
- * anyway: the CHECK is cheapest to widen now, while every row is still an
- * empty array. Render them only where the count is above zero.
+ * Material is a property of the thing, never of the occasion or the technique:
+ * `lacquer` is in because a lacquered box is made of lacquer; 手工 is not a
+ * material, and neither is 禮盒. The `subcategories` axis already carries
+ * product kind, so a term that names a kind of product does not belong here.
+ *
+ * `paper`, `stone`, `rattan` and `lacquer` carry zero production evidence and
+ * are in the vocabulary anyway: the CHECK is cheapest to widen now, while every
+ * row is still an empty array. Render them only where the count is above zero.
  */
 export const MATERIALS = [
-  '陶瓷',
-  '木',
-  '織品',
-  '玻璃',
-  '金屬',
-  '竹',
-  '羊毛',
-  '皮革',
-  '紙',
-  '石',
-  '藤',
-  '漆',
-] as const
+  { slug: 'ceramic', nameZh: '陶瓷', nameEn: 'Ceramic' },
+  { slug: 'wood', nameZh: '木', nameEn: 'Wood' },
+  { slug: 'textile', nameZh: '織品', nameEn: 'Textile' },
+  { slug: 'glass', nameZh: '玻璃', nameEn: 'Glass' },
+  { slug: 'metal', nameZh: '金屬', nameEn: 'Metal' },
+  { slug: 'bamboo', nameZh: '竹', nameEn: 'Bamboo' },
+  { slug: 'wool', nameZh: '羊毛', nameEn: 'Wool' },
+  { slug: 'leather', nameZh: '皮革', nameEn: 'Leather' },
+  { slug: 'paper', nameZh: '紙', nameEn: 'Paper' },
+  { slug: 'stone', nameZh: '石', nameEn: 'Stone' },
+  { slug: 'rattan', nameZh: '藤', nameEn: 'Rattan' },
+  { slug: 'lacquer', nameZh: '漆', nameEn: 'Lacquer' },
+] as const satisfies readonly Material[]
 
-export type Material = (typeof MATERIALS)[number]
+let _materialSlugMap: Map<string, Material> | null = null
+
+function _getMaterialSlugMap(): Map<string, Material> {
+  if (!_materialSlugMap) {
+    _materialSlugMap = new Map(MATERIALS.map((material) => [material.slug, material]))
+  }
+  return _materialSlugMap
+}
+
+export function materialBySlug(slug: string): Material | null {
+  return _getMaterialSlugMap().get(slug) ?? null
+}
 
 /**
  * The single matching basis for subcategory strings: NFKC (collapses full-width Latin),

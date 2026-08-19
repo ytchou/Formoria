@@ -94,28 +94,28 @@ describe('category tab targets', () => {
     })
   })
 
-  it('keeps an active material facet instead of resolving to a bare taxonomy path', () => {
+  it('category_tab_navigation_preserves_material', () => {
     // The material axis is orthogonal to the taxonomy, so a category or
     // subcategory click may not resolve to `/categories/...`: that path cannot
     // carry `?material=` and the filter would vanish with no trace.
     expect(
       buildCategoryTabTarget({
         pathname: '/brands',
-        searchParams: 'category=fashion&material=%E6%9C%A8',
+        searchParams: 'category=fashion&material=wood',
         slug: 'fashion',
         subSlug: 'dresses',
         locale: 'zh-TW',
       }).routerPath,
-    ).toBe('/brands?category=fashion&material=%E6%9C%A8&sub=dresses')
+    ).toBe('/brands?category=fashion&material=wood&sub=dresses')
 
     expect(
       buildCategoryTabTarget({
         pathname: '/brands',
-        searchParams: 'material=%E6%9C%A8',
+        searchParams: 'material=wood',
         slug: 'fashion',
         locale: 'zh-TW',
       }).routerPath,
-    ).toBe('/brands?material=%E6%9C%A8&category=fashion')
+    ).toBe('/brands?material=wood&category=fashion')
   })
 
   it('keeps a cross-L1 subcategory in the query rather than dropping it', () => {
