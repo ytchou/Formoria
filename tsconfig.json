@@ -31,5 +31,15 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "supabase/functions", "e2e", "playwright.config.ts"]
+  // `workers` joins `supabase/functions` for the same reason: both are
+  // non-Next.js runtimes with their own globals, bundled by their own
+  // toolchain (wrangler / the Supabase CLI), so checking them against the
+  // app's `lib` and paths reports errors that mean nothing.
+  "exclude": [
+    "node_modules",
+    "supabase/functions",
+    "workers",
+    "e2e",
+    "playwright.config.ts"
+  ]
 }
