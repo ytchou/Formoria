@@ -208,6 +208,15 @@ export const allowedMatches = [
     values: ["max-w-[200px]", "max-w-[240px]"],
   },
   {
+    // Table-cell truncation caps, as `brand-list.tsx`. Each pairs with a
+    // `<span className="block truncate">`, so the cap is what makes the
+    // ellipsis happen — replacing it with a measure would restore the
+    // row-stretching it exists to prevent.
+    file: "src/components/admin/stockist-queue.tsx",
+    names: ["unnamed page width"],
+    values: ["max-w-[200px]", "max-w-[240px]"],
+  },
+  {
     // Caps a single numeric `<input>` (placement position) so a 3-digit field
     // does not stretch to the form's width. A control's size, not a page's.
     // Note for future sweeps: this file carries a literal NUL byte in a
