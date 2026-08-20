@@ -178,11 +178,24 @@ export function ProductWall({
           edge. Declared in globals.css and applied through `PageShell` — never
           re-inline a cap here. */}
       <PageShell measure="page">
+        {/* Spacing only. Dropping `prose-measure` from this root is
+            unobservable HERE, which is weaker than inert. The note keeps a cap
+            of its own — `SectionHeader` puts `prose-measure` on the `<p>`
+            itself — but the `type-page-title` heading beside it loses the 48rem
+            bound the root used to lend it, and its wrap width is now whatever
+            the enclosing `PageShell` allows (100rem). Nothing moves at this
+            call site: it passes no `linkHref`/`linkLabel` to widen the flex
+            row, and `landing.selectedProducts.heading` is two words in both
+            catalogues (`Formoria Selection` in en; `Formoria` plus two
+            characters in zh-TW) — one short line at either bound. No Han in
+            this comment on purpose: `no-hardcoded-cjk.test.ts` line-scans this
+            file. A long heading, or that link pair, would make the wider bound
+            visible. The two caps were 72rem and 42rem before DEV-1529. */}
         <SectionHeader
           id="landing-selected-products"
           heading={labels.heading}
           note={labels.note}
-          className="mb-6 prose-measure"
+          className="mb-6"
         />
 
         <WallList

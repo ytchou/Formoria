@@ -358,9 +358,12 @@
  * panel is expected to look like, so it is the same width above a 100rem
  * directory and above a 48rem story. Nothing about the page it covers may
  * reach it. They are named for the same reason the measures are — an anonymous
- * `sm:max-w-6xl` on one admin sheet is exactly how ten unnamed page widths
- * accumulated — and they are deliberately NOT called `*-measure`, so that a
- * page width and a component width can never be confused in a class string.
+ * built-in 72rem step, dropped on one admin sheet at the `sm` breakpoint, is
+ * exactly how ten unnamed page widths accumulated — and they are deliberately
+ * NOT called `*-measure`, so that a page width and a component width can never
+ * be confused in a class string. (That step is described rather than typed:
+ * Tailwind scans this file's comments as content, and a class name written out
+ * in prose emits a real rule nothing uses.)
  *
  *   `overlay-compact`  20rem — an alert dialog: one sentence and two buttons.
  *   `overlay-panel`    24rem — the default floating panel above the phone

@@ -7,8 +7,12 @@ export default function Loading() {
   return (
     <div className="min-h-screen bg-ground">
       <header className="sticky top-(--nav-height) z-10 border-b border-rule bg-ground/95 backdrop-blur">
-        {/* Same shell as `page.tsx`: a different measure here reflows the row
-          the moment the real page swaps in. */}
+        {/* THE MEASURE matches `page.tsx`, so the row no longer changes width
+          when the real page swaps in. Only the measure. This header is `h-14`
+          and sticky under the nav; `page.tsx`'s is `h-16` and static, so the
+          swap still grows the row 8px and un-sticks it. That mismatch predates
+          DEV-1529 and outlives it — closing it moves rendered layout, which is
+          a behavioural change, not a width one. */}
         <PageShell measure="page" className="flex h-14 items-center">
           <Skeleton className="h-5 w-32" />
         </PageShell>

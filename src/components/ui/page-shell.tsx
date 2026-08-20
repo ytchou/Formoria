@@ -27,9 +27,13 @@ import { cn } from "@/lib/utils";
  * A variant name maps to a CLASS NAME, never to a raw value.
  *
  * The number itself lives in the `@utility` block in `globals.css` and appears
- * nowhere else in TypeScript. An entry here reading `max-w-[64rem]` would be a
- * second declaration of the same measure that no stylesheet edit could reach —
- * the exact drift this component exists to end.
+ * nowhere else in TypeScript. An entry here spelling the form measure as an
+ * arbitrary 64rem cap would be a second declaration of the same measure that no
+ * stylesheet edit could reach — the exact drift this component exists to end.
+ *
+ * That cap is described rather than typed on purpose. Tailwind scans comments
+ * as content, so writing the class out here emits a real CSS rule nothing uses,
+ * in the one file whose job is to make sure no such rule is ever needed.
  */
 export const PAGE_MEASURES = {
   page: "page-measure",

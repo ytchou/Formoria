@@ -30,4 +30,11 @@ export const MEASURE_PX = {
   prose: 768,
 } as const;
 
-export type PageMeasure = keyof typeof MEASURE_PX;
+/*
+ * NO EXPORTED KEY UNION HERE. A `PageMeasure = keyof typeof MEASURE_PX` shipped
+ * beside this map with zero consumers. The measure-name union that code reads
+ * is `PAGE_MEASURES` in `page-shell.tsx`; the lint script keeps its own copy
+ * because an `.mjs` file cannot import a type at all. A fourth spelling nobody
+ * imports is not a contract — it is one more name to keep in step. This map's
+ * job is the pixel mirror, and `check:design-tokens` is what holds it there.
+ */

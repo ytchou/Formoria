@@ -125,10 +125,14 @@ export default async function FavoritesPage({ params }: Props) {
 
   return (
     <div className="min-h-screen bg-ground">
-      {/* The rule is full-bleed, the row inside it is on the measure — the
-        same shape the sticky header in `loading.tsx` draws. Both containers
-        here were uncapped while that skeleton already capped at the measure,
-        so the page jumped wider the moment the real data arrived. */}
+      {/* The rule is full-bleed, the row inside it is on the measure — and
+        THE MEASURE is all this header shares with the one `loading.tsx` draws.
+        Both containers here were uncapped while that skeleton already capped at
+        the measure, so the page jumped wider the moment the real data arrived.
+        The skeleton header is `h-14` and sticky under the nav; this one is
+        `h-16` and static, so the swap still grows the row 8px and un-sticks it.
+        That mismatch predates DEV-1529 and outlives it — closing it moves
+        rendered layout, which is a behavioural change, not a width one. */}
       <header className="border-b border-rule bg-ground">
         <PageShell
           measure="page"

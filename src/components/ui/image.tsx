@@ -44,14 +44,20 @@ export const IMAGE_SURFACE_SIZES = {
    * measure must be written twice; `MEASURE_PX` is where the second copy is
    * anchored, and `check:design-tokens` fails if it and `globals.css` disagree.
    *
-   * KNOWN, DEFERRED: this one hint now serves two boxes moving in opposite
-   * directions. The trail hero is ~1472px of content at 1920px; the story hero
-   * is ~688px, because `/stories/[slug]` moved to `prose-measure` in the same
-   * ticket. Sized for the larger box, the story hero over-fetches roughly 2x.
-   * That is the deliberate direction — over-fetching costs bytes, under-
-   * fetching renders soft — and the fix when it is worth paying for is the
-   * per-call `sizes` override `editorial-hero.tsx` already documents, not a
-   * second surface name that both routes would then have to keep straight.
+   * KNOWN, NOT FIXED, AND WORSE THAN IT WAS: this one hint serves two boxes
+   * that now differ by roughly 2x. `EditorialHero` opens both the trail detail
+   * route (~1472px of content at 1920px) and the story detail route (~688px,
+   * because `/stories/[slug]` moved to `prose-measure` in DEV-1529) — and the
+   * same ticket raised this hint from 1280px to 1600px, so the story hero
+   * over-fetches more than before, not less. Sized for the larger box is the
+   * deliberate direction: over-fetching costs bytes, under-fetching renders
+   * soft.
+   *
+   * THERE IS NO PER-CALL ESCAPE HATCH TODAY. `EditorialHero` takes
+   * `{ src, alt, className }` and passes `surface="banner"` itself, so neither
+   * route can state its own box. Closing this means adding a `sizes` prop to
+   * `EditorialHero` and threading it from the two routes — not a second
+   * surface name that both routes would then have to keep straight.
    */
   banner: `(max-width: ${MEASURE_PX.page}px) 100vw, ${MEASURE_PX.page}px`,
   /** A cell of the four-up card grid. Mirrors `CARD_GRID_COLUMNS`. */

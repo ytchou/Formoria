@@ -113,14 +113,23 @@ const ROOT_PX = 16;
 
 function parseMeasures(css) {
   // `@utility <name> { max-width: … }` — a rule, not a custom property. The
-  // max-width must be the block's first declaration, which is what makes this
-  // skip `page-shell` (a cap behind an `@apply`) rather than mis-read it.
+  // max-width must be the block's FIRST declaration, which is what makes an
+  // `@utility` carrying no max-width of its own match nothing rather than
+  // borrow the next one in the file. `page-gutter-wide` is the live case: its
+  // body opens with `@apply page-gutter`, and a pattern willing to scan forward
+  // for a `max-width` would bind some later rule's width to that name and
+  // document it as a measure.
   const out = new Map();
   for (const m of css.matchAll(
     /@utility\s+([a-z0-9-]+)\s*\{\s*max-width:\s*([^;]+);/gi,
   )) {
     const [, name, raw] = m;
-    if (!(name in MEASURES)) continue; // `header-measure` is not one of the three
+    // The four component names — `overlay-compact`, `overlay-panel`,
+    // `overlay-wide`, `content-column` — DO open with a `max-width`, so they
+    // match above. They are a component's width rather than a page's and have
+    // no pixel mirror to agree with; this line is what keeps them out of the
+    // measure contract and out of the doc's Measure table.
+    if (!(name in MEASURES)) continue;
     out.set(name, raw.trim());
   }
   return out;
@@ -130,12 +139,63 @@ function parseMeasures(css) {
  * `MEASURE_PX` read as TEXT, not imported. This is an `.mjs` script running as
  * the first link of the `pnpm lint` chain, and standing up a TypeScript loader
  * there to read three integers costs more than it buys. Regex, like the CSS.
+ *
+ * THE OBJECT BODY IS BRACE-MATCHED, NOT REGEXED. A single `([^}]*)` stops at
+ * the first `}` in the file, so one `{@link …}` in a per-key JSDoc — or a
+ * nested object added later — would silently cut the map short after whatever
+ * keys came before it. That failure does not look like a parse failure: the
+ * short map simply lacks a key, and `checkMeasures` reports
+ * `MEASURE_PX.prose is missing from layout.ts` to a reader who can see it
+ * sitting there. A guard whose message points at the wrong file is worse than
+ * no guard, so the body is scanned to its matching close instead.
+ *
+ * Both ways of failing to FIND the object are loud, for the same reason: an
+ * empty map is indistinguishable downstream from three absent keys.
  */
 function parseMeasurePx(ts) {
+  const header = ts.match(/export const MEASURE_PX\s*(?::[^=]*)?=\s*\{/);
+  if (!header) {
+    console.error(
+      `design:tokens — could not find \`export const MEASURE_PX = {\` in ${PX}.\n` +
+        `That constant is the pixel mirror of the three page measures. If it was\n` +
+        `renamed or moved, this script has to be told; if it was deleted, the\n` +
+        `\`sizes\` hints that read it have lost their anchor to globals.css.`,
+    );
+    process.exit(1);
+  }
+
+  const open = header.index + header[0].length - 1;
+  let depth = 0;
+  let close = -1;
+  for (let i = open; i < ts.length; i += 1) {
+    if (ts[i] === "{") depth += 1;
+    else if (ts[i] === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        close = i;
+        break;
+      }
+    }
+  }
+
+  if (close === -1) {
+    console.error(
+      `design:tokens — the \`MEASURE_PX\` object literal in ${PX} never closes.\n` +
+        `Its braces are unbalanced from the declaration onward, so the pixel\n` +
+        `mirror cannot be read and no measure can be checked against it.`,
+    );
+    process.exit(1);
+  }
+
+  // Bare integer values only, which is all the three keys have ever held. A
+  // separator or an expression (`1_600`, `100 * 16`) would read as a different
+  // number and be reported as a disagreement rather than as a parse problem —
+  // acceptable, because that message still names the right file and the right
+  // key, which is the property the brace scan above exists to preserve.
   const out = new Map();
-  const block = ts.match(/export const MEASURE_PX\s*=\s*\{([^}]*)\}/);
-  if (!block) return out;
-  for (const m of block[1].matchAll(/([a-z]+)\s*:\s*(\d+)/gi)) {
+  for (const m of ts
+    .slice(open + 1, close)
+    .matchAll(/([a-z]+)\s*:\s*(\d+)/gi)) {
     out.set(m[1], Number(m[2]));
   }
   return out;
@@ -225,26 +285,29 @@ function render(tokens, measures) {
   // Its own table because it is its own contract: these are `@utility` rules
   // with a px counterpart to agree with, not entries in the colour table's
   // custom-property ramp.
-  if (measures.size) {
+  //
+  // UNCONDITIONAL, AND EVERY ROW RENDERS. `checkMeasures` runs before this and
+  // exits 1 unless all three are declared as bare rem literals agreeing with
+  // `MEASURE_PX`, so there is no absent measure to skip here and no
+  // non-literal to print a dash for. Both branches lived in this block until
+  // DEV-1529 and neither could be reached from any tree; a fallback that
+  // cannot fire is a claim the table can express something it cannot.
+  lines.push(
+    "### Measure",
+    "",
+    "| Utility | CSS | px | Role |",
+    "|---|---|---|---|",
+  );
+  for (const [name, spec] of Object.entries(MEASURES)) {
+    const value = measures.get(name);
+    // px derived from the CSS, NEVER from MEASURE_PX. The two agree — the check
+    // above proved it — but only one of them is what the browser obeys, and the
+    // doc has to quote that one.
     lines.push(
-      "### Measure",
-      "",
-      "| Utility | CSS | px | Role |",
-      "|---|---|---|---|",
+      `| \`${name}\` | \`${value}\` | ${remToPx(value)}px | ${spec.role} |`,
     );
-    for (const [name, spec] of Object.entries(MEASURES)) {
-      const value = measures.get(name);
-      if (value === undefined) continue;
-      // px derived from the CSS, NEVER from MEASURE_PX. A measure that is not
-      // a rem literal must not be documented at a number it has not adopted —
-      // that is the exact failure this file was written to end.
-      const px = remToPx(value);
-      lines.push(
-        `| \`${name}\` | \`${value}\` | ${px === null ? "—" : `${px}px`} | ${spec.role} |`,
-      );
-    }
-    lines.push("");
   }
+  lines.push("");
 
   // Contrast is derived, so it can never disagree with the palette above.
   const ground = tokens.get("ground");
