@@ -30,7 +30,7 @@ import type { ScrapedBrandData, ScrapedImageSource } from '@/lib/types/scraper'
 import type { EnrichScrapedData } from './types'
 import { brandTarget, type EnrichmentTarget } from '../_shared/enrichment-target'
 import { buildPhaseResult, hasPatchValues, timePhase, type EnrichBrand, type EnrichPhase } from './types'
-import { PURCHASE_CHANNELS } from '@/lib/brands/purchase-channels'
+import { ONLINE_STORES } from '@/lib/brands/online-stores'
 
 type LinksPhaseOptions = {
   brand: EnrichBrand
@@ -295,25 +295,25 @@ if (MAX_SECOND_PASS_CANDIDATES > MAX_SCRAPE_URLS_PER_BRAND) {
 
 /**
  * ORDER INVARIANT — `purchaseWebsite` must stay ahead of every marketplace
- * channel except the two below. The candidate list is truncated at
- * MAX_SECOND_PASS_URLS, so a channel slotted before the website silently
+ * store except the two below. The candidate list is truncated at
+ * MAX_SECOND_PASS_URLS, so a store slotted before the website silently
  * pushes the brand's own site — the highest-quality evidence source — out of
  * the pass entirely on exactly the sparse-link brands this pass exists for.
- * A newly added channel therefore lands in POST_WEBSITE_PURCHASE_CHANNELS by
+ * A newly added store therefore lands in POST_WEBSITE_ONLINE_STORES by
  * default; only these two predate the website because they always have.
  * The budget is two-tier: MAX_SECOND_PASS_URLS base candidates plus up to
  * MAX_ZERO_TOKEN_SOCIAL_URLS extras for a zero-token brand. Their combined
  * total must stay within MAX_SCRAPE_URLS_PER_BRAND or scrapeBrandUrls truncates silently.
  */
-const PRE_WEBSITE_PURCHASE_CHANNEL_KEYS: readonly string[] = ['pinkoi', 'shopee']
+const PRE_WEBSITE_ONLINE_STORE_KEYS: readonly string[] = ['pinkoi', 'shopee']
 
-const PRE_WEBSITE_PURCHASE_CHANNELS = PURCHASE_CHANNELS.filter((channel) =>
-  PRE_WEBSITE_PURCHASE_CHANNEL_KEYS.includes(channel.key),
+const PRE_WEBSITE_ONLINE_STORES = ONLINE_STORES.filter((channel) =>
+  PRE_WEBSITE_ONLINE_STORE_KEYS.includes(channel.key),
 )
 
-const POST_WEBSITE_PURCHASE_CHANNELS = PURCHASE_CHANNELS.filter(
+const POST_WEBSITE_ONLINE_STORES = ONLINE_STORES.filter(
   (channel) =>
-    channel.key !== 'website' && !PRE_WEBSITE_PURCHASE_CHANNEL_KEYS.includes(channel.key),
+    channel.key !== 'website' && !PRE_WEBSITE_ONLINE_STORE_KEYS.includes(channel.key),
 )
 
 /**
@@ -343,9 +343,9 @@ async function scrapeDiscoveredLinks(
     [
       firstPassData.socialInstagram,
       firstPassData.socialFacebook,
-      ...PRE_WEBSITE_PURCHASE_CHANNELS.map((channel) => firstPassData[channel.camel]),
+      ...PRE_WEBSITE_ONLINE_STORES.map((channel) => firstPassData[channel.camel]),
       firstPassData.purchaseWebsite,
-      ...POST_WEBSITE_PURCHASE_CHANNELS.map((channel) => firstPassData[channel.camel]),
+      ...POST_WEBSITE_ONLINE_STORES.map((channel) => firstPassData[channel.camel]),
     ].filter(hasLinkValue),
   )
     .filter((url) => !alreadyScraped.has(pageKey(url)))

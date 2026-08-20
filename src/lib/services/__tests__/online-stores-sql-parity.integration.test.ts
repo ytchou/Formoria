@@ -2,24 +2,27 @@ import { randomUUID } from "node:crypto";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import {
-  PURCHASE_CHANNELS,
-  PURCHASE_COLUMNS,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORES,
+  ONLINE_STORE_COLUMNS,
+} from "@/lib/brands/online-stores";
 import type { Database } from "@/lib/supabase/database.types";
 import { describeWithDb } from "@/test/setup";
 
 /**
  * Guards the registry/SQL boundary.
  *
- * `src/lib/brands/purchase-channels.ts` is the single source of truth for the
- * purchase channels, but SQL cannot import it: the column is re-listed by hand
+ * `src/lib/brands/online-stores.ts` is the single source of truth for the
+ * online stores, but SQL cannot import it: the column is re-listed by hand
  * in two tables, two CHECK constraints, and four functions. Adding a fourth
- * channel to the registry without touching SQL would silently drop the channel
+ * store to the registry without touching SQL would silently drop the store
  * at approval, refresh, correction, and link-check time.
  *
- * Every assertion below iterates `PURCHASE_COLUMNS` — never a hard-coded list —
- * so the suite passes on today's four channels and starts failing the moment a
+ * Every assertion below iterates `ONLINE_STORE_COLUMNS` — never a hard-coded list —
+ * so the suite passes on today's four stores and starts failing the moment a
  * registry entry is added without a matching migration.
+ *
+ * The RPC name below keeps its original spelling on purpose: it is a deployed
+ * database object, not a TypeScript symbol, so DEV-1513 does not rename it.
  *
  * Catalog access goes through `public.purchase_channel_sql_surface()`: PostgREST
  * exposes only the `public` schema, so `information_schema` and `pg_catalog` are
@@ -93,12 +96,12 @@ const RETIRED_L1_SLUG = "kids-pets";
 const CHECK_VIOLATION = "23514";
 
 /**
- * Expected enumerations per channel, verified against the post-migration
- * bodies. These are deliberately single numbers, not per-channel numbers: the
- * migration normalized `approve_submission` so all four channels are extracted
+ * Expected enumerations per store, verified against the post-migration
+ * bodies. These are deliberately single numbers, not per-store numbers: the
+ * migration normalized `approve_submission` so all four stores are extracted
  * through the same `jsonb_to_record` signature into a local variable, which
  * removed the pre-existing asymmetry (website 5 / pinkoi 4 / shopee 4). Baking
- * in that asymmetry would have let a new channel ship with the *lower* count
+ * in that asymmetry would have let a new store ship with the *lower* count
  * and still pass.
  */
 const EXPECTED_OCCURRENCES = {
@@ -125,7 +128,7 @@ function countOccurrences(haystack: string, needle: string): number {
   return count;
 }
 
-describeWithDb("purchase channel registry / SQL parity", () => {
+describeWithDb("online store registry / SQL parity", () => {
   let surface: SqlSurface;
 
   beforeAll(async () => {
@@ -136,7 +139,7 @@ describeWithDb("purchase channel registry / SQL parity", () => {
   });
 
   it("every registry column exists on brands and brand_submissions", () => {
-    for (const column of PURCHASE_COLUMNS) {
+    for (const column of ONLINE_STORE_COLUMNS) {
       expect(surface.columns).toContain(`brands.${column}`);
       expect(surface.columns).toContain(`brand_submissions.${column}`);
     }
@@ -145,7 +148,7 @@ describeWithDb("purchase channel registry / SQL parity", () => {
   it("every registry column appears in link_check_results_field_check", () => {
     const definition = surface.constraints.link_check_results_field_check;
     expect(definition).toBeTruthy();
-    for (const column of PURCHASE_COLUMNS) {
+    for (const column of ONLINE_STORE_COLUMNS) {
       expect(definition).toContain(`'${column}'`);
     }
   });
@@ -153,10 +156,10 @@ describeWithDb("purchase channel registry / SQL parity", () => {
   it("every registry column appears in brand_field_corrections_field_check", () => {
     const definition = surface.constraints.brand_field_corrections_field_check;
     expect(definition).toBeTruthy();
-    for (const column of PURCHASE_COLUMNS) {
+    for (const column of ONLINE_STORE_COLUMNS) {
       expect(definition).toContain(`'${column}'`);
     }
-    // DEV-1525: the two correctable fields that are not purchase channels are
+    // DEV-1525: the two correctable fields that are not online stores are
     // pinned here because their only assertion moved out of
     // `material-corrections.test.ts` when it retargeted its migration path.
     for (const field of ["material", "subcategories"]) {
@@ -168,14 +171,14 @@ describeWithDb("purchase channel registry / SQL parity", () => {
     const definition = surface.functions.approve_submission;
     expect(definition).toBeTruthy();
     const counts = Object.fromEntries(
-      PURCHASE_COLUMNS.map((column) => [
+      ONLINE_STORE_COLUMNS.map((column) => [
         column,
         countOccurrences(definition, column),
       ]),
     );
     expect(counts).toEqual(
       Object.fromEntries(
-        PURCHASE_COLUMNS.map((column) => [
+        ONLINE_STORE_COLUMNS.map((column) => [
           column,
           EXPECTED_OCCURRENCES.approve_submission,
         ]),
@@ -188,14 +191,14 @@ describeWithDb("purchase channel registry / SQL parity", () => {
       surface.functions.apply_brand_refresh_with_protected_location_gate;
     expect(definition).toBeTruthy();
     const counts = Object.fromEntries(
-      PURCHASE_COLUMNS.map((column) => [
+      ONLINE_STORE_COLUMNS.map((column) => [
         column,
         countOccurrences(definition, column),
       ]),
     );
     expect(counts).toEqual(
       Object.fromEntries(
-        PURCHASE_COLUMNS.map((column) => [
+        ONLINE_STORE_COLUMNS.map((column) => [
           column,
           EXPECTED_OCCURRENCES.apply_brand_refresh_with_protected_location_gate,
         ]),
@@ -207,7 +210,7 @@ describeWithDb("purchase channel registry / SQL parity", () => {
     const definition = surface.functions.correct_approved_submission_provenance;
     expect(definition).toBeTruthy();
 
-    for (const channel of PURCHASE_CHANNELS) {
+    for (const channel of ONLINE_STORES) {
       // Raw arm: the submission column is read directly. `purchase_website` is
       // wrapped in `coalesce(new.purchase_website, new.website_url)`, which
       // still contains the `new.<column>` reference asserted here.
@@ -217,14 +220,14 @@ describeWithDb("purchase channel registry / SQL parity", () => {
     }
 
     const counts = Object.fromEntries(
-      PURCHASE_COLUMNS.map((column) => [
+      ONLINE_STORE_COLUMNS.map((column) => [
         column,
         countOccurrences(definition, column),
       ]),
     );
     expect(counts).toEqual(
       Object.fromEntries(
-        PURCHASE_COLUMNS.map((column) => [
+        ONLINE_STORE_COLUMNS.map((column) => [
           column,
           EXPECTED_OCCURRENCES.correct_approved_submission_provenance,
         ]),
@@ -253,7 +256,7 @@ describeWithDb("purchase channel registry / SQL parity", () => {
     }
 
     // The third surface this RPC snapshots. DEV-1502 moves it; nothing in this
-    // task should, so its purchase-channel contract above must still hold.
+    // task should, so its online-store contract above must still hold.
     expect(
       surface.constraints.brand_field_corrections_field_check,
     ).toBeTruthy();

@@ -18,7 +18,7 @@ import type {
   EnrichedData,
 } from "@/lib/types/enriched-data";
 import { enrichedDataFromDb } from "@/lib/types/enriched-data";
-import type { ChannelCandidate } from "@/lib/types/brand-channel";
+import type { StockistCandidate } from "@/lib/types/stockist";
 import type {
   CurationDispatchStatus,
   CurationTargetStatus,
@@ -41,23 +41,23 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { deleteStoredImagePaths } from "./image-upload";
 import { slugifyRomanizedName } from "@/lib/brands/slug";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
-import { upsertEnrichedChannels } from "./brand-channels";
+import { upsertEnrichedStockists } from "./stockists";
 import { normalizeCommunityWebsite } from "./community-submissions";
 import {
-  PURCHASE_CAMEL_FIELDS,
-  PURCHASE_CHANNELS,
-  PURCHASE_COLUMNS,
-  purchaseChannelByKey,
-  type PurchaseChannelCamelField,
-  type PurchaseChannelColumn,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORE_CAMEL_FIELDS,
+  ONLINE_STORES,
+  ONLINE_STORE_COLUMNS,
+  onlineStoreByKey,
+  type OnlineStoreCamelField,
+  type OnlineStoreColumn,
+} from "@/lib/brands/online-stores";
 
 // ---------------------------------------------------------------------------
 // Row types
 // ---------------------------------------------------------------------------
 
 type SubmissionRow = Database["public"]["Tables"]["brand_submissions"]["Row"] & {
-  [Column in PurchaseChannelColumn]?: string | null;
+  [Column in OnlineStoreColumn]?: string | null;
 };
 type CurationTargetHistoryRow = Pick<
   Database["public"]["Tables"]["curation_job_targets"]["Row"],
@@ -75,7 +75,7 @@ type CurationJobReviewRow = Pick<
 >;
 type SubmissionRowWithCategoryNote = Omit<
   SubmissionRow,
-  "other_urls" | PurchaseChannelColumn
+  "other_urls" | OnlineStoreColumn
 > & {
   hero_image_url?: string | null;
   category_note?: string | null;
@@ -84,7 +84,7 @@ type SubmissionRowWithCategoryNote = Omit<
   social_facebook?: string | null;
   other_urls?: OtherUrl[] | null;
 } & {
-  [Column in PurchaseChannelColumn]?: string | null;
+  [Column in OnlineStoreColumn]?: string | null;
 };
 type SubmissionImageRow =
   Database["public"]["Tables"]["submission_images"]["Row"];
@@ -134,7 +134,7 @@ export type SubmissionReviewData = {
   blurbEn: string | null;
   city: string | null;
   reputationSummary: Json | null;
-  channels?: ChannelCandidate[];
+  channels?: StockistCandidate[];
   /**
    * Curated-product proposals from the enrichment run (DEV-1469), seeded from
    * `enriched_data.products` and editable in the review like every other
@@ -164,7 +164,7 @@ export type SubmissionReviewData = {
   socialThreads: string | null;
   socialFacebook: string | null;
   otherUrls: OtherUrl[];
-} & { [Field in PurchaseChannelCamelField]: string | null };
+} & { [Field in OnlineStoreCamelField]: string | null };
 /**
  * `channels` is submission-only, so it is widened here. Curated-product
  * proposals are NOT: `products` lives on `EnrichedData` itself, which is what
@@ -173,7 +173,7 @@ export type SubmissionReviewData = {
  * copy of the same contract, free to drift.
  */
 type EnrichedSubmissionData = EnrichedData & {
-  channels?: ChannelCandidate[];
+  channels?: StockistCandidate[];
 };
 type SubmissionReviewMissingField =
   | "description"
@@ -254,7 +254,7 @@ type SubmissionRowInput = Pick<
 type SuggestedSubcategoriesInput = string[] | { values?: string[] };
 type ServiceClient = SupabaseClient<Database>;
 type BrandInsert = Database["public"]["Tables"]["brands"]["Insert"] & {
-  [Column in PurchaseChannelColumn]?: string | null;
+  [Column in OnlineStoreColumn]?: string | null;
 };
 
 const GENERATED_GUEST_EMAIL_DOMAIN = "guest.formoria.invalid";
@@ -316,7 +316,7 @@ export type CreateSubmissionInput = {
   sourceAttribution?: SourceAttribution | null;
   categoryNote?: string | null;
   ownerData?: Record<string, unknown>;
-} & Partial<Pick<BrandSubmission, PurchaseChannelCamelField>>;
+} & Partial<Pick<BrandSubmission, OnlineStoreCamelField>>;
 
 export function buildSubmissionRecord(
   input: CreateSubmissionInput,
@@ -334,7 +334,7 @@ export function buildSubmissionRecord(
     socialThreads: input.socialThreads ?? null,
     socialFacebook: input.socialFacebook ?? null,
     ...Object.fromEntries(
-      PURCHASE_CHANNELS.map((channel) => [
+      ONLINE_STORES.map((channel) => [
         channel.camel,
         input[channel.camel] ?? null,
       ]),
@@ -360,7 +360,7 @@ export function buildSubmissionRecord(
     social_threads: mapped.social_threads,
     social_facebook: mapped.social_facebook,
     ...Object.fromEntries(
-      PURCHASE_COLUMNS.map((column) => [column, mapped[column]]),
+      ONLINE_STORE_COLUMNS.map((column) => [column, mapped[column]]),
     ),
     other_urls: mapped.other_urls,
     suggested_tags: mapped.suggested_tags,
@@ -380,11 +380,11 @@ function submissionToDomain(
   row: SubmissionRowInput,
 ): BrandSubmissionWithCategoryNote {
   const purchaseFields = Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel) => [
+    ONLINE_STORES.map((channel) => [
       channel.camel,
       row[channel.column] ?? null,
     ]),
-  ) as Pick<BrandSubmission, PurchaseChannelCamelField>;
+  ) as Pick<BrandSubmission, OnlineStoreCamelField>;
 
   return {
     id: row.id,
@@ -447,7 +447,7 @@ function enrichedDataFromSubmissionDb(
   return {
     ...enrichedDataFromDb(value),
     ...(Array.isArray(value.channels)
-      ? { channels: value.channels as ChannelCandidate[] }
+      ? { channels: value.channels as StockistCandidate[] }
       : {}),
   };
 }
@@ -682,7 +682,7 @@ type SubmissionReviewSource = Pick<
   | "socialFacebook"
   | "otherUrls"
   | "suggestedSubcategories"
-> & Pick<BrandSubmissionWithCategoryNote, PurchaseChannelCamelField>;
+> & Pick<BrandSubmissionWithCategoryNote, OnlineStoreCamelField>;
 
 export function buildSubmissionReviewData(
   submission: SubmissionReviewSource,
@@ -697,18 +697,18 @@ export function buildSubmissionReviewData(
   const activeImages = normalizeSubmissionReviewImages(images).filter(
     (image) => image.status === "active",
   );
-  const websiteField = purchaseChannelByKey.website.camel;
+  const websiteField = onlineStoreByKey.website.camel;
   const imageHero = activeImages.at(0);
   const websiteUrl = preferText(
     enrichedData?.[websiteField],
     submission[websiteField],
   );
   const purchaseFields = Object.fromEntries(
-    PURCHASE_CAMEL_FIELDS.map((field) => [
+    ONLINE_STORE_CAMEL_FIELDS.map((field) => [
       field,
       preferText(enrichedData?.[field], submission[field]),
     ]),
-  ) as Pick<SubmissionReviewData, PurchaseChannelCamelField>;
+  ) as Pick<SubmissionReviewData, OnlineStoreCamelField>;
 
   return {
     name:
@@ -766,19 +766,19 @@ function refreshReviewSource(
       ? baseBrandData.category
       : null,
   );
-  const websiteColumn = purchaseChannelByKey.website.column;
+  const websiteColumn = onlineStoreByKey.website.column;
   const websiteUrl =
     typeof baseBrandData[websiteColumn] === "string"
       ? baseBrandData[websiteColumn]
       : null;
   const purchaseFields = Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel) => [
+    ONLINE_STORES.map((channel) => [
       channel.camel,
       typeof baseBrandData[channel.column] === "string"
         ? baseBrandData[channel.column]
         : null,
     ]),
-  ) as Pick<SubmissionReviewSource, PurchaseChannelCamelField>;
+  ) as Pick<SubmissionReviewSource, OnlineStoreCamelField>;
 
   return {
     brandName:
@@ -913,8 +913,8 @@ export function getSubmissionReviewCompleteness(
   if (![1, 2, 3].includes(data.priceRange ?? 0)) {
     missingFields.push("priceRange");
   }
-  const purchaseLinkFields = PURCHASE_CAMEL_FIELDS.filter(
-    (field) => field !== purchaseChannelByKey.website.camel,
+  const purchaseLinkFields = ONLINE_STORE_CAMEL_FIELDS.filter(
+    (field) => field !== onlineStoreByKey.website.camel,
   );
   const hasAnyLink =
     isHttpUrl(data.websiteUrl) ||
@@ -936,8 +936,8 @@ function submissionToBrandBase(row: SubmissionRow): BrandInsert {
     hero_image_url?: string | null;
   };
   const purchaseFields = Object.fromEntries(
-    PURCHASE_COLUMNS.map((column) => [column, row[column]]),
-  ) as Pick<BrandInsert, PurchaseChannelColumn>;
+    ONLINE_STORE_COLUMNS.map((column) => [column, row[column]]),
+  ) as Pick<BrandInsert, OnlineStoreColumn>;
 
   return {
     name: row.brand_name,
@@ -976,9 +976,9 @@ function submissionReviewDataPrefix(data: SubmissionReviewData) {
     socialThreads: data.socialThreads,
     socialFacebook: data.socialFacebook,
     ...Object.fromEntries(
-      PURCHASE_CHANNELS.map((channel) => [
+      ONLINE_STORES.map((channel) => [
         channel.camel,
-        channel === purchaseChannelByKey.website
+        channel === onlineStoreByKey.website
           ? data.websiteUrl
           : data[channel.camel],
       ]),
@@ -989,8 +989,8 @@ function submissionReviewDataPrefix(data: SubmissionReviewData) {
     subcategoriesEn: data.subcategoriesEn,
   });
   const purchaseFields = Object.fromEntries(
-    PURCHASE_COLUMNS.map((column) => [column, mapped[column]]),
-  ) as Pick<BrandInsert, PurchaseChannelColumn>;
+    ONLINE_STORE_COLUMNS.map((column) => [column, mapped[column]]),
+  ) as Pick<BrandInsert, OnlineStoreColumn>;
 
   return { mapped, purchaseFields };
 }
@@ -1064,20 +1064,20 @@ function reviewDataFromDb(
   data: Record<string, unknown>,
   fallback: SubmissionReviewData,
 ): SubmissionReviewData {
-  const websiteColumn = purchaseChannelByKey.website.column;
+  const websiteColumn = onlineStoreByKey.website.column;
   const websiteUrl =
     data[websiteColumn] === null || typeof data[websiteColumn] === "string"
       ? (data[websiteColumn] as string | null)
       : fallback.websiteUrl;
   const purchaseFields = Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel) => [
+    ONLINE_STORES.map((channel) => [
       channel.camel,
       data[channel.column] === null ||
       typeof data[channel.column] === "string"
         ? data[channel.column]
         : fallback[channel.camel],
     ]),
-  ) as Pick<SubmissionReviewData, PurchaseChannelCamelField>;
+  ) as Pick<SubmissionReviewData, OnlineStoreCamelField>;
 
   return {
     name: typeof data.name === "string" ? data.name : fallback.name,
@@ -1109,7 +1109,7 @@ function reviewDataFromDb(
       data.channels === undefined
         ? fallback.channels
         : Array.isArray(data.channels)
-          ? (data.channels as ChannelCandidate[])
+          ? (data.channels as StockistCandidate[])
           : fallback.channels,
     products:
       data.products === undefined
@@ -1249,7 +1249,7 @@ export async function createSubmission(
         | "isBrandOwner"
         | "sourceAttribution"
       >
-    > & Partial<Pick<BrandSubmission, PurchaseChannelCamelField>> & {
+    > & Partial<Pick<BrandSubmission, OnlineStoreCamelField>> & {
       websiteUrl?: string | null;
       romanizedName?: string | null;
       suggestedSubcategories?: SuggestedSubcategoriesInput;
@@ -1361,7 +1361,7 @@ const ADMIN_REVIEW_SUBMISSIONS_SELECT = `
   social_instagram,
   social_threads,
   social_facebook,
-  ${PURCHASE_COLUMNS.join(",\n  ")},
+  ${ONLINE_STORE_COLUMNS.join(",\n  ")},
   other_urls,
   suggested_tags,
   status,
@@ -2305,20 +2305,20 @@ export async function approveSubmission(
   // channels. Keep draining those rows until the Phase 2 importer takes over.
   if (reviewData.channels) {
     try {
-      const channelsResult = await upsertEnrichedChannels(
+      const stockistsResult = await upsertEnrichedStockists(
         approval.brand_id,
         reviewData.channels,
       );
-      if (!channelsResult.ok) {
+      if (!stockistsResult.ok) {
         console.error(
           "[approveSubmission] Failed to upsert enriched channels:",
-          channelsResult.code,
+          stockistsResult.code,
         );
       }
-    } catch (channelError) {
+    } catch (stockistError) {
       console.error(
         "[approveSubmission] Failed to upsert enriched channels:",
-        channelError,
+        stockistError,
       );
     }
   }

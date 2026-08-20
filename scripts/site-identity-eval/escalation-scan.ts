@@ -20,12 +20,12 @@
 import { writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { PURCHASE_CHANNELS } from "@/lib/brands/purchase-channels";
+import { ONLINE_STORES } from "@/lib/brands/online-stores";
 import { brandNameTokens, linkIdentifiesBrand } from "@/lib/services/link-enrichment";
 
 const BATCH_SIZE = 500;
 const SOCIAL_COLUMNS = ["social_instagram", "social_threads", "social_facebook"] as const;
-const COLUMNS = [...SOCIAL_COLUMNS, ...PURCHASE_CHANNELS.map((channel) => channel.column)];
+const COLUMNS = [...SOCIAL_COLUMNS, ...ONLINE_STORES.map((channel) => channel.column)];
 
 type BrandRow = {
   slug: string;

@@ -1,8 +1,8 @@
 import type { BrandSortOption } from '@/lib/pagination'
 import type {
-  PurchaseChannelCamelField,
-  PurchaseChannelColumn,
-} from '@/lib/brands/purchase-channels'
+  OnlineStoreCamelField,
+  OnlineStoreColumn,
+} from '@/lib/brands/online-stores'
 
 export type BrandStatus = 'approved' | 'hidden'
 /** The `brands.mit_status` ladder. Mirrors the CHECK constraint in
@@ -30,7 +30,7 @@ export type BrandFlatLinkColumns = {
   social_threads?: string | null
   social_facebook?: string | null
   other_urls?: unknown
-} & { [Column in PurchaseChannelColumn]?: string | null }
+} & { [Column in OnlineStoreColumn]?: string | null }
 
 type MitEvidence = {
   mit_smile_listed?: boolean
@@ -137,7 +137,7 @@ export type Brand = {
   createdAt: string
   updatedAt: string
   onboardingDismissedAt: string | null
-} & { [Field in PurchaseChannelCamelField]: string | null }
+} & { [Field in OnlineStoreCamelField]: string | null }
 
 export type BrandFilters = {
   status?: BrandStatus

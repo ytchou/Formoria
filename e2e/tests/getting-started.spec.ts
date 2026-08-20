@@ -53,7 +53,7 @@ test.describe("Getting Started page deep", () => {
     ).toBeVisible();
     await expect(
       page.getByText(
-        "Continue to a brand's official or physical channels for price, variants, inventory, and purchase details.",
+        "Continue to the brand's own online store or a stockist for price, variants, inventory, and purchase details.",
       ),
     ).toBeVisible();
   });

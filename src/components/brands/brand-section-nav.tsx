@@ -78,7 +78,8 @@ export function BrandSectionNav({
 
   // min-w-0: as a grid item the nav defaults to min-width:auto, which pins it to its
   // min-content width and scrolls the whole page horizontally when labels are long
-  // (en "Locations & Channels" is 177px vs zh 130px). Shrinking to the grid track lets
+  // (measured on the longest label this nav has carried, the pre-DEV-1513 en
+  // "Locations & Channels", at 177px vs zh 130px). Shrinking to the grid track lets
   // the inner overflow-x-auto do the scrolling it was already there to do.
   return (
     // `border-b` only, never `border-y`: on mobile this strip is the first child

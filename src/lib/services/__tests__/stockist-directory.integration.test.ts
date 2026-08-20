@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { createTestClient, describeWithDb } from "@/test/setup";
-import { getStockistDirectory, type StockistLocation } from "../brand-channels";
+import { getStockistDirectory, type StockistLocation } from "../stockists";
 
 // The house gate: one env value ("true") for all integration suites, and the
 // production-database assertion that `describeWithDb` performs. A local
@@ -46,7 +46,6 @@ describeWithDb("stockist directory public read", () => {
         brand_id: brands[0].id,
         name: `山徑選物 中山館 ${suffix}`,
         normalized_name: `mountain-path-zhongshan-${suffix}`,
-        channel_type: "offline",
         region_label: "臺北市",
         district: "中山區",
         address: "臺北市中山區樂群二路199號2樓",
@@ -57,7 +56,6 @@ describeWithDb("stockist directory public read", () => {
         brand_id: brands[1].id,
         name: `隱藏品牌門市 ${suffix}`,
         normalized_name: `hidden-shop-${suffix}`,
-        channel_type: "offline",
         region_label: "臺北市",
         district: "中山區",
         address: "臺北市中山區南京東路一段1號",
@@ -68,7 +66,6 @@ describeWithDb("stockist directory public read", () => {
         brand_id: brands[2].id,
         name: `瀏覽器測試門市 ${suffix}`,
         normalized_name: `browser-shop-${suffix}`,
-        channel_type: "offline",
         region_label: "臺北市",
         district: "信義區",
         address: "臺北市信義區松高路11號",
@@ -77,18 +74,8 @@ describeWithDb("stockist directory public read", () => {
       },
       {
         brand_id: brands[0].id,
-        name: `線上商店 ${suffix}`,
-        normalized_name: `online-shop-${suffix}`,
-        channel_type: "online",
-        region_label: "臺北市",
-        country: "TW",
-        source: "import",
-      },
-      {
-        brand_id: brands[0].id,
         name: `已移除門市 ${suffix}`,
         normalized_name: `removed-shop-${suffix}`,
-        channel_type: "offline",
         region_label: "臺北市",
         district: "信義區",
         address: "臺北市信義區松仁路100號",
@@ -100,7 +87,6 @@ describeWithDb("stockist directory public read", () => {
         brand_id: brands[0].id,
         name: `店主拒絕門市 ${suffix}`,
         normalized_name: `rejected-shop-${suffix}`,
-        channel_type: "offline",
         region_label: "臺北市",
         district: "信義區",
         address: "臺北市信義區市府路1號",
@@ -109,10 +95,10 @@ describeWithDb("stockist directory public read", () => {
         owner_status: "rejected",
       },
     ];
-    const { error: channelError } = await supabase
+    const { error: stockistError } = await supabase
       .from("brand_channels")
       .insert(channels);
-    expect(channelError).toBeNull();
+    expect(stockistError).toBeNull();
     locations = await getStockistDirectory();
   });
 
@@ -144,12 +130,6 @@ describeWithDb("stockist directory public read", () => {
     );
   });
 
-  it("excludes online channels from the physical directory", () => {
-    expect(locations.some(({ name }) => name.startsWith("線上商店"))).toBe(
-      false,
-    );
-  });
-
   it("returns brand slug and name alongside each location", () => {
     expect(
       locations.find(({ name }) => name.startsWith("山徑選物 中山館")),
@@ -169,5 +149,31 @@ describeWithDb("stockist directory public read", () => {
       {},
     );
     expect(counts["taipei:中山區"]).toBeGreaterThanOrEqual(1);
+  });
+
+  // The DEV-1513 rename moved this read from `services/brand-channels.ts` to
+  // `services/stockists.ts` and renamed the row types around it. The public
+  // shape is what every caller binds to (`where-to-buy` pages, the sitemap,
+  // JSON-LD), and none of them would fail to compile if a field were quietly
+  // dropped from the mapper -- they would just render a blank. So the fixture
+  // row is asserted field by field, not merely counted.
+  it("directory read still returns rows after the rename", () => {
+    const seeded = locations.filter(({ name }) => name.endsWith(suffix));
+
+    // One visible row out of the five seeded: the other four are excluded by
+    // brand status, the [E2E-TEST] prefix, `removed_at`, and `owner_status`.
+    expect(seeded).toHaveLength(1);
+
+    expect(seeded[0]).toMatchObject({
+      name: `山徑選物 中山館 ${suffix}`,
+      address: "臺北市中山區樂群二路199號2樓",
+      country: "TW",
+      city: "taipei",
+      district: "中山區",
+      brandSlug: `maria-garcia-field-goods-${suffix}`,
+      categorySlug: "outdoor",
+    });
+    expect(typeof seeded[0].id).toBe("string");
+    expect(seeded[0].subcategories).toEqual(["登山背包"]);
   });
 });

@@ -6,10 +6,10 @@ import { SurfaceCard } from '@/components/ui/card'
 import { countDelta, percent } from '@/lib/analytics/delta-formatters'
 import type { OwnerAnalyticsSnapshotV1 } from '@/lib/analytics/posthog-types'
 import {
-  channelMessageKey,
-  purchaseChannelByKey,
-  type PurchaseChannelKey,
-} from '@/lib/brands/purchase-channels'
+  onlineStoreMessageKey,
+  onlineStoreByKey,
+  type OnlineStoreKey,
+} from '@/lib/brands/online-stores'
 import {
   outboundDestinationLabel,
   trafficSourceLabel,
@@ -53,36 +53,36 @@ export async function OverviewInlineAnalytics({
     direct: tAnalytics('trafficSourceDirect'),
     other: tAnalytics('trafficSourceOther'),
   }
-  // Spelled out one key per channel on purpose: an `Object.fromEntries` build
+  // Spelled out one key per store on purpose: an `Object.fromEntries` build
   // collapses to `{ [k: string]: string }`, which satisfies the Record below
-  // vacuously and lets a new channel fall through to `labels.other` unnoticed.
+  // vacuously and lets a new store fall through to `labels.other` unnoticed.
   // The literal is what makes `satisfies` a real gate.
   const purchaseOutboundDestinationLabels = {
     website: tAnalytics(
-      channelMessageKey(
-        purchaseChannelByKey.website.messageKeys.analyticsOutboundDestination,
+      onlineStoreMessageKey(
+        onlineStoreByKey.website.messageKeys.analyticsOutboundDestination,
         'dashboard.analytics',
       ),
     ),
     pinkoi: tAnalytics(
-      channelMessageKey(
-        purchaseChannelByKey.pinkoi.messageKeys.analyticsOutboundDestination,
+      onlineStoreMessageKey(
+        onlineStoreByKey.pinkoi.messageKeys.analyticsOutboundDestination,
         'dashboard.analytics',
       ),
     ),
     shopee: tAnalytics(
-      channelMessageKey(
-        purchaseChannelByKey.shopee.messageKeys.analyticsOutboundDestination,
+      onlineStoreMessageKey(
+        onlineStoreByKey.shopee.messageKeys.analyticsOutboundDestination,
         'dashboard.analytics',
       ),
     ),
     myship: tAnalytics(
-      channelMessageKey(
-        purchaseChannelByKey.myship.messageKeys.analyticsOutboundDestination,
+      onlineStoreMessageKey(
+        onlineStoreByKey.myship.messageKeys.analyticsOutboundDestination,
         'dashboard.analytics',
       ),
     ),
-  } satisfies Record<PurchaseChannelKey, string>
+  } satisfies Record<OnlineStoreKey, string>
   const outboundDestinationLabels = {
     ...purchaseOutboundDestinationLabels,
     instagram: tAnalytics('outboundDestinationInstagram'),

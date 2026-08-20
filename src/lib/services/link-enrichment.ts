@@ -12,8 +12,8 @@ import {
   type LinkField,
 } from '@/lib/types/link-fields'
 import {
-  PURCHASE_CHANNELS,
-} from '@/lib/brands/purchase-channels'
+  ONLINE_STORES,
+} from '@/lib/brands/online-stores'
 import { isNonBrandSiteHost } from './enrich-phases/scraper/input-detector'
 
 const MAX_PRODUCT_PHOTOS = 5
@@ -82,10 +82,10 @@ const URL_TO_LINK_COLUMN: Array<{ pattern: RegExp; column: LinkColumn }> = [
   // platform root ended up standing in for 22 brands' own websites.
   { pattern: /threads\.(?:net|com)\/@[^/?#]+\/?$/i, column: 'social_threads' },
   { pattern: FACEBOOK_PROFILE_URL_PATTERN, column: 'social_facebook' },
-  // Purchase patterns come from the registry, in registry order. A channel with
+  // Purchase patterns come from the registry, in registry order. A store with
   // no pattern (`website`) is the fallback bucket, never a match target — see
   // `classifySubmittedUrl` below.
-  ...PURCHASE_CHANNELS.flatMap((channel) =>
+  ...ONLINE_STORES.flatMap((channel) =>
     channel.urlPattern ? [{ pattern: channel.urlPattern, column: channel.column }] : []
   ),
 ]
@@ -232,7 +232,7 @@ function urlPathSegments(url: string): string[] | null {
  *
  * A curation refresh wrote `https://www.pinkoi.com/` into `purchase_pinkoi` on a
  * brand that had none, so the brand page grew a "buy on Pinkoi" link that lands
- * the reader on Pinkoi's homepage. A platform root is never a brand's channel:
+ * the reader on Pinkoi's homepage. A platform root is never a brand's own store:
  * it identifies the platform, not the seller.
  */
 export function isBareRootUrl(url: string): boolean {
@@ -282,7 +282,7 @@ const BARE_ROOT_REJECTING_FIELDS: readonly LinkField[] = [
   'socialInstagram',
   'socialThreads',
   'socialFacebook',
-  ...PURCHASE_CHANNELS.filter((channel) => !channel.allowBareRoot).map(
+  ...ONLINE_STORES.filter((channel) => !channel.allowBareRoot).map(
     (channel) => channel.camel
   ),
 ]
@@ -385,7 +385,7 @@ export function isForeignCountryTld(url: string): boolean {
 /**
  * True for government and university hosts. A Han-only-named brand's SERP can
  * surface government and university pages that mention it, and those pages were
- * being adopted as the brand's own site or purchase channel. Government and
+ * being adopted as the brand's own site or online store. Government and
  * education domains are blocked because institutional ownership is distinct from
  * commercial brand ownership. A malformed URL is not rejected here - unknown,
  * not blocked.

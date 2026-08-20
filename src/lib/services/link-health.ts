@@ -1,8 +1,8 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import {
-  PURCHASE_COLUMNS,
-  type PurchaseChannelColumn,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORE_COLUMNS,
+  type OnlineStoreColumn,
+} from "@/lib/brands/online-stores";
 
 export type LinkStatus = "ok" | "broken" | "blocked";
 export type LinkFailureReason =
@@ -40,8 +40,8 @@ export interface LinkHealthSummary {
   severity: "ok" | "warning" | "critical";
 }
 
-// `hero_image_url` is not a purchase channel — it is checked alongside them.
-type CheckedField = PurchaseChannelColumn | "hero_image_url";
+// `hero_image_url` is not an online store — it is checked alongside them.
+type CheckedField = OnlineStoreColumn | "hero_image_url";
 
 type BrandRow = { id: string } & Record<CheckedField, string | null>;
 
@@ -93,9 +93,9 @@ export interface LinkHealthDatabaseClient {
   ): QueryResult<LedgerResult | LedgerClaim[] | null>;
 }
 
-const CHECKED_FIELDS: CheckedField[] = [...PURCHASE_COLUMNS, "hero_image_url"];
+const CHECKED_FIELDS: CheckedField[] = [...ONLINE_STORE_COLUMNS, "hero_image_url"];
 
-const BRAND_SELECT_COLUMNS = ["id", ...PURCHASE_COLUMNS, "hero_image_url"].join(
+const BRAND_SELECT_COLUMNS = ["id", ...ONLINE_STORE_COLUMNS, "hero_image_url"].join(
   ", ",
 );
 

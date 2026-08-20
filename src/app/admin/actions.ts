@@ -74,7 +74,8 @@ import {
   type EvidenceBatchFailure,
   type OriginEvidenceDecision,
 } from '@/lib/services/origin-evidence'
-import { adminRemoveChannel } from '@/lib/services/brand-channels'
+import { reviewCommunityStockist } from '@/lib/services/stockists'
+import { logAdminAction } from '@/lib/services/admin-audit'
 import { FEATURE_FLAGS, setAppSetting } from '@/lib/services/app-settings'
 import {
   DENIAL_REASONS,
@@ -1249,26 +1250,56 @@ export async function deleteBrandAction(
   });
 }
 
-export async function adminRemoveChannelAction(
-  channelId: string,
-): Promise<{ success: true } | { error: string }> {
+/**
+ * Approve or reject one community stockist submission.
+ *
+ * A pending row is invisible on every public surface, so this is the only thing
+ * that publishes one — and rejecting it is what keeps a wrong shop out of the
+ * directory for good. Both the brand page and the city stockist pages are
+ * revalidated because an approved row appears on both.
+ *
+ * Audited for exactly that reason: publishing a stranger's claim about a shop
+ * onto a live brand page is an editorial decision on the same footing as
+ * promoting a curated product, and `brand_channels` records only
+ * `owner_status_by`, never which way the decision went or when a rejection
+ * happened. `logAdminAction` is fire-and-forget, so it cannot fail the review.
+ */
+export async function reviewStockistAction(
+  stockistId: string,
+  decision: 'confirmed' | 'rejected',
+): Promise<{ error: string } | undefined> {
   return runWithAuditContext({}, async () => {
     try {
       const auth = await requireAdminAction()
       if ('error' in auth) return auth
+      if (!isAdminEntityId(stockistId)) return { error: 'Invalid stockist ID' }
 
-      const result = await adminRemoveChannel(
-        channelId,
+      const result = await reviewCommunityStockist(
+        stockistId,
+        decision,
         auth.user.id,
-        auth.user.email ?? auth.user.id,
       )
       if (!result.ok) return { error: result.code }
 
-      revalidatePublicStockists(result.city)
+      if (auth.user.email) {
+        await logAdminAction({
+          adminUserId: auth.user.id,
+          adminEmail: auth.user.email,
+          action:
+            decision === 'confirmed' ? 'stockist_approved' : 'stockist_rejected',
+          targetBrandSlug: result.brandSlug,
+          targetBrandId: result.brandId,
+          metadata: { stockistId },
+        })
+      }
 
-      return { success: true }
+      revalidatePath(routes.admin.stockists())
+      revalidatePath(routes.admin.index())
+      revalidatePublicBrands([result.brandSlug])
+      revalidatePublicStockists(result.city)
+      return undefined
     } catch (error) {
-      console.error('[admin:removeChannel]', error)
+      console.error('[admin:reviewStockist]', error)
       return {
         error: error instanceof Error ? error.message : 'An unexpected error occurred',
       }

@@ -1,10 +1,10 @@
 import {
-  PURCHASE_CHANNELS,
-  PURCHASE_COLUMNS,
-  type PurchaseChannel,
-  type PurchaseChannelCamelField,
-  type PurchaseChannelColumn,
-} from '@/lib/brands/purchase-channels'
+  ONLINE_STORES,
+  ONLINE_STORE_COLUMNS,
+  type OnlineStore,
+  type OnlineStoreCamelField,
+  type OnlineStoreColumn,
+} from '@/lib/brands/online-stores'
 import type { Database } from '@/lib/supabase/database.types'
 import { createServiceClient } from '@/lib/supabase/service'
 import { languagePurity } from './eval/scorers'
@@ -14,17 +14,17 @@ type LinkMetric = {
   percentage: number
 }
 
-/** One `LinkMetric` per purchase channel, keyed by its camelCase `Brand` field. */
-type PurchaseLinkMetrics = { [K in PurchaseChannelCamelField]: LinkMetric }
+/** One `LinkMetric` per online store, keyed by its camelCase `Brand` field. */
+type PurchaseLinkMetrics = { [K in OnlineStoreCamelField]: LinkMetric }
 
-/** The `<column>_count` aggregate the RPC returns for each purchase channel. */
-type PurchaseCountColumn = `${PurchaseChannelColumn}_count`
+/** The `<column>_count` aggregate the RPC returns for each online store. */
+type PurchaseCountColumn = `${OnlineStoreColumn}_count`
 
 function purchaseLinkMetrics(
-  metric: (channel: PurchaseChannel) => LinkMetric,
+  metric: (channel: OnlineStore) => LinkMetric,
 ): PurchaseLinkMetrics {
   return Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel) => [channel.camel, metric(channel)]),
+    ONLINE_STORES.map((channel) => [channel.camel, metric(channel)]),
   ) as PurchaseLinkMetrics
 }
 
@@ -84,7 +84,7 @@ type BrandQualityRow = {
   description: string | null
   founding_year: number | null
   other_urls: unknown
-} & { [K in PurchaseChannelColumn]: string | null }
+} & { [K in OnlineStoreColumn]: string | null }
 
 type QualityMetricsRpcRow = {
   total_brands?: number | null
@@ -172,13 +172,13 @@ const EMPTY_QUALITY_METRICS: QualityMetrics = {
   enrichment: EMPTY_ENRICHMENT_QUALITY_METRICS,
 }
 
-/** Column list backing `BrandQualityRow`; purchase channels come from the registry. */
+/** Column list backing `BrandQualityRow`; online stores come from the registry. */
 const BRAND_QUALITY_SELECT = [
   'hero_image_url',
   'social_instagram',
   'social_threads',
   'social_facebook',
-  ...PURCHASE_COLUMNS,
+  ...ONLINE_STORE_COLUMNS,
   'description',
   'founding_year',
   'other_urls',
@@ -332,8 +332,8 @@ function metricsFromRows(rows: BrandQualityRow[]): QualityMetrics {
   let socialInstagramCount = 0
   let socialThreadsCount = 0
   let socialFacebookCount = 0
-  const purchaseCounts = new Map<PurchaseChannelColumn, number>(
-    PURCHASE_COLUMNS.map((column) => [column, 0]),
+  const purchaseCounts = new Map<OnlineStoreColumn, number>(
+    ONLINE_STORE_COLUMNS.map((column) => [column, 0]),
   )
   let descriptionCount = 0
   let descriptionLengthTotal = 0
@@ -344,7 +344,7 @@ function metricsFromRows(rows: BrandQualityRow[]): QualityMetrics {
     if (hasText(row.social_instagram)) socialInstagramCount += 1
     if (hasText(row.social_threads)) socialThreadsCount += 1
     if (hasText(row.social_facebook)) socialFacebookCount += 1
-    for (const column of PURCHASE_COLUMNS) {
+    for (const column of ONLINE_STORE_COLUMNS) {
       if (hasText(row[column])) {
         purchaseCounts.set(column, (purchaseCounts.get(column) ?? 0) + 1)
       }
@@ -442,7 +442,7 @@ function completenessBucket(row: BrandQualityRow): keyof QualityMetrics['complet
   const completed = [
     hasText(row.hero_image_url),
     (row.description?.trim().length ?? 0) >= 20,
-    PURCHASE_COLUMNS.some((column) => hasText(row[column])) || jsonArrayLength(row.other_urls) > 0,
+    ONLINE_STORE_COLUMNS.some((column) => hasText(row[column])) || jsonArrayLength(row.other_urls) > 0,
     hasText(row.social_instagram) || hasText(row.social_threads) || hasText(row.social_facebook),
     row.founding_year != null,
   ].filter(Boolean).length

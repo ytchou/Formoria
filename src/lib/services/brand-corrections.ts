@@ -16,12 +16,12 @@ import { auditedCall, type AuditCallContext } from "@/lib/audit";
 import { describeError } from "@/lib/errors";
 import { isUuid, validateIdBatch } from "@/lib/validation/id-batch";
 import {
-  PURCHASE_CHANNELS,
-  PURCHASE_COLUMNS,
-  purchaseChannelByColumn,
-  type PurchaseChannelCamelField,
-  type PurchaseChannelColumn,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORES,
+  ONLINE_STORE_COLUMNS,
+  onlineStoreByColumn,
+  type OnlineStoreCamelField,
+  type OnlineStoreColumn,
+} from "@/lib/brands/online-stores";
 import {
   applySubcategoryDelta,
   deriveSubcategoriesEn,
@@ -35,7 +35,7 @@ import {
 import { brandPatchRpc, updateBrand, type BrandWriteInput } from "./brands";
 
 const CORRECTION_SELECT =
-  `*, brands(name, slug, price_range, category, subcategories, material, ${PURCHASE_COLUMNS.join(
+  `*, brands(name, slug, price_range, category, subcategories, material, ${ONLINE_STORE_COLUMNS.join(
     ", ",
   )}, social_instagram, social_threads, social_facebook)`;
 
@@ -102,9 +102,9 @@ type BrandCorrectionBrandRow = Pick<
 >;
 type BrandCorrectionBrandPurchaseFields = Pick<
   Database["public"]["Tables"]["brands"]["Row"] & {
-    [Column in PurchaseChannelColumn]?: string | null;
+    [Column in OnlineStoreColumn]?: string | null;
   },
-  PurchaseChannelColumn
+  OnlineStoreColumn
 >;
 type BrandCorrectionBrand = BrandCorrectionBrandRow &
   BrandCorrectionBrandPurchaseFields;
@@ -112,7 +112,7 @@ type BrandCorrectionRowWithBrand = BrandCorrectionRow & {
   brands?: BrandCorrectionBrand | null;
 };
 
-type PurchaseLinkCorrectionField = PurchaseChannelColumn;
+type PurchaseLinkCorrectionField = OnlineStoreColumn;
 type SocialLinkCorrectionField = (typeof SOCIAL_LINK_FIELDS)[number];
 type LinkCorrectionField =
   | PurchaseLinkCorrectionField
@@ -132,7 +132,7 @@ export const CORRECTION_FIELDS = [
   "category",
   "subcategories",
   "material",
-  ...PURCHASE_COLUMNS,
+  ...ONLINE_STORE_COLUMNS,
   ...SOCIAL_LINK_FIELDS,
 ] as const;
 
@@ -266,7 +266,7 @@ export function isCorrectionField(value: string): value is CorrectionField {
 function isPurchaseLinkField(
   field: CorrectionField,
 ): field is PurchaseLinkCorrectionField {
-  return PURCHASE_COLUMNS.some((purchaseField) => purchaseField === field);
+  return ONLINE_STORE_COLUMNS.some((purchaseField) => purchaseField === field);
 }
 
 function isSocialLinkField(
@@ -395,11 +395,11 @@ function normalizePurchaseUrl(
   const url = parseLinkUrl(value, sanitizeHref);
   if (!url) return null;
 
-  const channel = purchaseChannelByColumn[field];
+  const channel = onlineStoreByColumn[field];
   const matchesExpectedHost = channel.hosts.some((host) =>
     hasHostname(url, host),
   );
-  const matchesOtherChannelHost = PURCHASE_CHANNELS.some(
+  const matchesOtherChannelHost = ONLINE_STORES.some(
     (candidate) =>
       candidate !== channel &&
       candidate.hosts.some((host) => hasHostname(url, host)),
@@ -609,8 +609,8 @@ export function buildScalarCorrectionPatch(
   proposedValue: number | string,
 ): BrandWriteInput {
   if (isPurchaseLinkField(field)) {
-    const camelField: PurchaseChannelCamelField =
-      purchaseChannelByColumn[field].camel;
+    const camelField: OnlineStoreCamelField =
+      onlineStoreByColumn[field].camel;
     const patch: BrandWriteInput = {};
     patch[camelField] = proposedValue as string;
     return patch;
@@ -681,7 +681,7 @@ function currentValueForField(
     // `?? null` because the purchase columns are optional on the row shape:
     // a projection that omits one yields undefined, which CurrentBrandValue
     // does not admit.
-    return brand[purchaseChannelByColumn[field].column] ?? null;
+    return brand[onlineStoreByColumn[field].column] ?? null;
   }
 
   // Exhaustive by design — no fallthrough default, so a field added to
@@ -752,7 +752,7 @@ async function readBrand(
   const { data, error } = await supabase
     .from("brands")
     .select(
-      `id, name, slug, price_range, category, subcategories, material, ${PURCHASE_COLUMNS.join(
+      `id, name, slug, price_range, category, subcategories, material, ${ONLINE_STORE_COLUMNS.join(
         ", ",
       )}, social_instagram, social_threads, social_facebook`,
     )

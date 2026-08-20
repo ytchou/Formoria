@@ -23,7 +23,6 @@ const EXPECTED_HEADER = [
   'brand_slug',
   'name',
   'location_type',
-  'channel_type',
   'region_label',
   'address',
   'url',
@@ -67,16 +66,28 @@ async function loadDataset(): Promise<{
 }
 
 describe('stockist import dataset', () => {
-  it('contains all twelve category files with one shared header', async () => {
+  /**
+   * The header is the contract between the versioned CSVs and
+   * `parseStockistCsv`, which rejects any file whose header is not this exact
+   * list. The sales-format column was dropped in DEV-1513: every row was
+   * offline, so the column carried no information, and a stray twelfth column
+   * in one file would fail the whole import rather than silently shift a field.
+   * The row and brand totals are asserted here too, so a column edit that also
+   * dropped or duplicated rows cannot pass this file alone.
+   */
+  it('pins the 11-column CSV header across all 12 files', async () => {
     const files = (await readdir(DATASET_DIR))
       .filter((file) => file.endsWith('.csv'))
       .sort()
-    const { headers } = await loadDataset()
+    const { headers, rows } = await loadDataset()
 
+    expect(EXPECTED_HEADER).toHaveLength(11)
     expect(files).toEqual(EXPECTED_FILES)
     expect(new Set(headers.map((header) => header.join(',')))).toEqual(
       new Set([EXPECTED_HEADER.join(',')]),
     )
+    expect(rows).toHaveLength(1_493)
+    expect(new Set(rows.map((row) => row.brand_slug)).size).toBe(205)
   })
 
   it('matches the audited row and brand totals', async () => {

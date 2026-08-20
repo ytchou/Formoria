@@ -1,30 +1,30 @@
-﻿brand_slug,name,location_type,channel_type,region_label,address,url,evidence_url,source_type,source_chain,confidence,notes
-bonbons,Bonbons 乳酪蛋糕專賣店,direct_store,offline,苗栗,苗栗縣苗栗市日新街5號,https://www.bonbonsstudio.com.tw/,https://www.bonbonsstudio.com.tw/page/11150/contact,official_website,official website → store/location page,high,
-bonbons,Bonbons 旗艦店,direct_store,offline,苗栗,苗栗縣苗栗市英明街68號,https://www.bonbonsstudio.com.tw/,https://www.bonbonsstudio.com.tw/page/11150/contact,official_website,official website → store/location page,high,
-bonbons,Bonbons 隱倉,direct_store,offline,苗栗,苗栗縣後龍鎮田心路51號,https://www.bonbonsstudio.com.tw/,https://www.bonbonsstudio.com.tw/page/11150/contact,official_website,official website → store/location page,high,
-cows-rock-ice-cream,Cows Rock Ice Cream 永康店,direct_store,offline,台北,台北市大安區永康街51號1樓,https://www.cowsrockicecream.com.tw/,https://www.cowsrockicecream.com.tw/about,official_website,official website → store/location page,high,
-danran-tea,淡然有味｜台北萬豪酒店櫃位,department_store_counter,offline,台北,台北市中山區樂群二路199號1樓,https://www.danran-tea.com/,https://www.danran-tea.com/zh-hant/pages/aboutus,official_website,official website → store/location page,high,
-danran-tea,淡然有味｜誠品松菸,department_store_counter,offline,台北,台北市信義區菸廠路88號2樓,https://www.danran-tea.com/,https://www.danran-tea.com/zh-hant/pages/aboutus,official_website,official website → store/location page,high,
-daughter-tea,女兒不懂茶 Daughter's Tea 茶空間,direct_store,offline,台東,台東縣鹿野鄉永安村永安路50號,https://www.daughter-tea.com/,https://ezgo.ardswc.gov.tw/zh-tw/spot/6885/,government_directory,government agritourism directory → brand location,high,政府農遊資料列示之品牌實體空間。
-jin-qi-shan-cheng,金旗山城｜大旗美直賣所,direct_store,offline,高雄,高雄市旗山區忠孝街33-33號,https://www.kaohsiungdiy.com/,https://www.kaohsiungdiy.com/,official_website,official website → store/location page,high,
-madoupim,柚一村 Madoupim 麻豆門市,direct_store,offline,台南,台南市麻豆區麻學路一段11號1樓,https://madoupim.com/,https://madoupim.com/,official_website,official website → store/location page,high,
-mazupu-tofu-zhang,媽祖埔豆腐張 虎尾直營門市,direct_store,offline,雲林,雲林縣虎尾鎮林森路二段471號1樓,https://www.mzp1991.com/,https://www.mzp1991.com,official_website,official website → store/location page,high,
-qn-dessert,QN Dessert 逢甲店,direct_store,offline,台中,台中市西屯區福星路511巷18號,https://www.instagram.com/qn__dessert/,https://blue74.net/79042/qn/,reliable_blog,current local dining source → official Instagram,medium,第二方近期店家資料；官方 Threads/IG handle 可交叉確認品牌身分。
-reshock-coffee,里響咖啡 RESHOCK COFFEE 總店,direct_store,offline,嘉義,嘉義市東區中正路355號,https://www.reshockcoffee.com/,https://www.reshockcoffee.com/about,official_website,official website → store/location page,high,
-shuang-chen-hsing-fu,Double Happiness 雙晨幸福 台中門市,direct_store,offline,台中,台中市西屯區何厝街31號1樓,https://www.dhac.com.tw/,https://www.dhac.com.tw/,official_website,official website → store/location page,high,
-shunyun-tea,福壽山順韻茶葉 梨山據點,direct_store,offline,台中,台中市和平區梨山里中正路37號,https://www.shunyuntea.com/,https://www.shunyuntea.com/en/pages/-brand-concept,official_website,official website → store/location page,high,官方網站列示廠址，且官網購物流程提供門市自取；保留為可消費者取貨／購買據點。
-smok,SMOK 製甜所 草屯本店,direct_store,offline,南投,南投縣草屯鎮碧山路282號,https://www.smokcafe.com/,https://www.smokcafe.com/Info/5.html,official_website,official website → store/location page,high,
-tipsy-farm,微醺農場,direct_store,offline,雲林,雲林縣水林鄉灣西村後湖路7-11號,https://www.whfarm.com.tw/index,https://www.whfarm.com.tw/index,official_website,official website → store/location page,high,品牌官方網站與既有實體資訊一致；農場提供直接消費／取貨。
-unocha,烏弄原茶 UNOCHA 三多三信店,direct_store,offline,高雄,高雄市苓雅區三多一路263號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
-unocha,烏弄原茶 UNOCHA 三民大昌店,direct_store,offline,高雄,高雄市三民區大昌二路514號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
-unocha,烏弄原茶 UNOCHA 博愛店,direct_store,offline,高雄,高雄市三民區博愛一路320號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
-unocha,烏弄原茶 UNOCHA 大同店,direct_store,offline,高雄,高雄市新興區大同一路154號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
-unocha,烏弄原茶 UNOCHA 大社中山店,direct_store,offline,高雄,高雄市大社區中山路203號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
-unocha,烏弄原茶 UNOCHA 左營富國店,direct_store,offline,高雄,高雄市左營區富國路259號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
-unocha,烏弄原茶 UNOCHA 林園仁愛店,direct_store,offline,高雄,高雄市林園區仁愛路5號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
-unocha,烏弄原茶 UNOCHA 楠梓德賢店,direct_store,offline,高雄,高雄市楠梓區德賢路230號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
-unocha,烏弄原茶 UNOCHA 覺民店,direct_store,offline,高雄,高雄市三民區覺民路181號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
-unocha,烏弄原茶 UNOCHA 高鐵文學店,direct_store,offline,高雄,高雄市左營區文學路35號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
-unocha,烏弄原茶 UNOCHA 高雄六合店,direct_store,offline,高雄,高雄市新興區六合路84號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
-unocha,烏弄原茶 UNOCHA 高雄嫩江店,direct_store,offline,高雄,高雄市三民區嫩江街63號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
-unocha,烏弄原茶 UNOCHA 高雄榮總店,direct_store,offline,高雄,高雄市左營區榮總路15號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
+﻿brand_slug,name,location_type,region_label,address,url,evidence_url,source_type,source_chain,confidence,notes
+bonbons,Bonbons 乳酪蛋糕專賣店,direct_store,苗栗,苗栗縣苗栗市日新街5號,https://www.bonbonsstudio.com.tw/,https://www.bonbonsstudio.com.tw/page/11150/contact,official_website,official website → store/location page,high,
+bonbons,Bonbons 旗艦店,direct_store,苗栗,苗栗縣苗栗市英明街68號,https://www.bonbonsstudio.com.tw/,https://www.bonbonsstudio.com.tw/page/11150/contact,official_website,official website → store/location page,high,
+bonbons,Bonbons 隱倉,direct_store,苗栗,苗栗縣後龍鎮田心路51號,https://www.bonbonsstudio.com.tw/,https://www.bonbonsstudio.com.tw/page/11150/contact,official_website,official website → store/location page,high,
+cows-rock-ice-cream,Cows Rock Ice Cream 永康店,direct_store,台北,台北市大安區永康街51號1樓,https://www.cowsrockicecream.com.tw/,https://www.cowsrockicecream.com.tw/about,official_website,official website → store/location page,high,
+danran-tea,淡然有味｜台北萬豪酒店櫃位,department_store_counter,台北,台北市中山區樂群二路199號1樓,https://www.danran-tea.com/,https://www.danran-tea.com/zh-hant/pages/aboutus,official_website,official website → store/location page,high,
+danran-tea,淡然有味｜誠品松菸,department_store_counter,台北,台北市信義區菸廠路88號2樓,https://www.danran-tea.com/,https://www.danran-tea.com/zh-hant/pages/aboutus,official_website,official website → store/location page,high,
+daughter-tea,女兒不懂茶 Daughter's Tea 茶空間,direct_store,台東,台東縣鹿野鄉永安村永安路50號,https://www.daughter-tea.com/,https://ezgo.ardswc.gov.tw/zh-tw/spot/6885/,government_directory,government agritourism directory → brand location,high,政府農遊資料列示之品牌實體空間。
+jin-qi-shan-cheng,金旗山城｜大旗美直賣所,direct_store,高雄,高雄市旗山區忠孝街33-33號,https://www.kaohsiungdiy.com/,https://www.kaohsiungdiy.com/,official_website,official website → store/location page,high,
+madoupim,柚一村 Madoupim 麻豆門市,direct_store,台南,台南市麻豆區麻學路一段11號1樓,https://madoupim.com/,https://madoupim.com/,official_website,official website → store/location page,high,
+mazupu-tofu-zhang,媽祖埔豆腐張 虎尾直營門市,direct_store,雲林,雲林縣虎尾鎮林森路二段471號1樓,https://www.mzp1991.com/,https://www.mzp1991.com,official_website,official website → store/location page,high,
+qn-dessert,QN Dessert 逢甲店,direct_store,台中,台中市西屯區福星路511巷18號,https://www.instagram.com/qn__dessert/,https://blue74.net/79042/qn/,reliable_blog,current local dining source → official Instagram,medium,第二方近期店家資料；官方 Threads/IG handle 可交叉確認品牌身分。
+reshock-coffee,里響咖啡 RESHOCK COFFEE 總店,direct_store,嘉義,嘉義市東區中正路355號,https://www.reshockcoffee.com/,https://www.reshockcoffee.com/about,official_website,official website → store/location page,high,
+shuang-chen-hsing-fu,Double Happiness 雙晨幸福 台中門市,direct_store,台中,台中市西屯區何厝街31號1樓,https://www.dhac.com.tw/,https://www.dhac.com.tw/,official_website,official website → store/location page,high,
+shunyun-tea,福壽山順韻茶葉 梨山據點,direct_store,台中,台中市和平區梨山里中正路37號,https://www.shunyuntea.com/,https://www.shunyuntea.com/en/pages/-brand-concept,official_website,official website → store/location page,high,官方網站列示廠址，且官網購物流程提供門市自取；保留為可消費者取貨／購買據點。
+smok,SMOK 製甜所 草屯本店,direct_store,南投,南投縣草屯鎮碧山路282號,https://www.smokcafe.com/,https://www.smokcafe.com/Info/5.html,official_website,official website → store/location page,high,
+tipsy-farm,微醺農場,direct_store,雲林,雲林縣水林鄉灣西村後湖路7-11號,https://www.whfarm.com.tw/index,https://www.whfarm.com.tw/index,official_website,official website → store/location page,high,品牌官方網站與既有實體資訊一致；農場提供直接消費／取貨。
+unocha,烏弄原茶 UNOCHA 三多三信店,direct_store,高雄,高雄市苓雅區三多一路263號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
+unocha,烏弄原茶 UNOCHA 三民大昌店,direct_store,高雄,高雄市三民區大昌二路514號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
+unocha,烏弄原茶 UNOCHA 博愛店,direct_store,高雄,高雄市三民區博愛一路320號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
+unocha,烏弄原茶 UNOCHA 大同店,direct_store,高雄,高雄市新興區大同一路154號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
+unocha,烏弄原茶 UNOCHA 大社中山店,direct_store,高雄,高雄市大社區中山路203號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
+unocha,烏弄原茶 UNOCHA 左營富國店,direct_store,高雄,高雄市左營區富國路259號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
+unocha,烏弄原茶 UNOCHA 林園仁愛店,direct_store,高雄,高雄市林園區仁愛路5號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
+unocha,烏弄原茶 UNOCHA 楠梓德賢店,direct_store,高雄,高雄市楠梓區德賢路230號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
+unocha,烏弄原茶 UNOCHA 覺民店,direct_store,高雄,高雄市三民區覺民路181號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
+unocha,烏弄原茶 UNOCHA 高鐵文學店,direct_store,高雄,高雄市左營區文學路35號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
+unocha,烏弄原茶 UNOCHA 高雄六合店,direct_store,高雄,高雄市新興區六合路84號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
+unocha,烏弄原茶 UNOCHA 高雄嫩江店,direct_store,高雄,高雄市三民區嫩江街63號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。
+unocha,烏弄原茶 UNOCHA 高雄榮總店,direct_store,高雄,高雄市左營區榮總路15號,https://unocha.com.tw/,https://unocha.com.tw/store.php,official_website,official website → store/location page,high,官方門市頁目前仍運作；分店地址與現有門市資料交叉比對。

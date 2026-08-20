@@ -5,8 +5,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { Check, Pencil, TriangleAlert } from "lucide-react";
 import { useActionState, useId, useState } from "react";
 import {
-  submitChannelInfoAction,
-  type ChannelFormState,
+  submitStockistInfoAction,
+  type StockistFormState,
 } from "@/app/[locale]/(site)/brands/[slug]/actions";
 import {
   Dialog,
@@ -52,30 +52,35 @@ const REGION_KEYS = [
   "lienchiang",
 ] as const;
 
-export type ProvideChannelInfoDialogProps = {
+export type ProvideStockistInfoDialogProps = {
   brandId: string;
   brandSlug: string;
 };
 
-export function ProvideChannelInfoDialog({
+export function ProvideStockistInfoDialog({
   brandId,
   brandSlug,
-}: ProvideChannelInfoDialogProps) {
+}: ProvideStockistInfoDialogProps) {
   const locale = useLocale();
   const pathname = usePathname();
   const t = useTranslations("brandDetail");
   const tCities = useTranslations("cities");
   const tNav = useTranslations("nav");
   const { user, loading } = useUser();
-  const [state, action, pending] = useActionState<ChannelFormState, FormData>(
-    submitChannelInfoAction,
+  const [state, action, pending] = useActionState<StockistFormState, FormData>(
+    submitStockistInfoAction,
     {},
-  );
-  const [channelType, setChannelType] = useState<"online" | "offline">(
-    "offline",
   );
   const fieldId = useId().replaceAll(":", "");
   const requiresSignIn = !loading && !user;
+  // The select offers Taiwan regions only, so a blank one is not "somewhere
+  // else" — it is a missing fact. Left optional, it stored `region_label: null`
+  // and the brand page grouped the approved row under the Overseas heading
+  // while `/where-to-buy` dropped it entirely. `required` is the enforcement
+  // here; the service rejects `invalid_region` for callers that skip it. This
+  // state is what makes the failure readable after the native bubble goes.
+  const [regionMissing, setRegionMissing] = useState(false);
+  const regionErrorId = `${fieldId}-region-error`;
 
   return (
     <Dialog>
@@ -126,6 +131,10 @@ export function ProvideChannelInfoDialog({
               <div className="space-y-2">
                 <Label htmlFor={`${fieldId}-name`}>
                   {t("channels.dialog.nameLabel")}
+                  <span aria-hidden="true" className="text-destructive">
+                    {" "}
+                    *
+                  </span>
                 </Label>
                 <Input
                   id={`${fieldId}-name`}
@@ -136,36 +145,27 @@ export function ProvideChannelInfoDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor={`${fieldId}-type`}>
-                  {t("channels.dialog.channelTypeLabel")}
-                </Label>
-                <NativeSelect
-                  id={`${fieldId}-type`}
-                  name="channelType"
-                  value={channelType}
-                  onChange={(event) =>
-                    setChannelType(
-                      event.currentTarget.value as "online" | "offline",
-                    )
-                  }
-                >
-                  <option value="online">
-                    {t("channels.dialog.channelTypeOnline")}
-                  </option>
-                  <option value="offline">
-                    {t("channels.dialog.channelTypeOffline")}
-                  </option>
-                </NativeSelect>
-              </div>
-
-              <div className="space-y-2">
                 <Label htmlFor={`${fieldId}-region`}>
                   {t("channels.dialog.regionLabel")}
+                  <span aria-hidden="true" className="text-destructive">
+                    {" "}
+                    *
+                  </span>
                 </Label>
                 <NativeSelect
                   id={`${fieldId}-region`}
                   name="region"
                   defaultValue=""
+                  required
+                  aria-invalid={regionMissing || undefined}
+                  // Only while the message exists: an `aria-describedby`
+                  // pointing at an id that never renders announces a region
+                  // that is not there.
+                  aria-describedby={regionMissing ? regionErrorId : undefined}
+                  onInvalid={() => setRegionMissing(true)}
+                  onChange={(event) => {
+                    if (event.currentTarget.value) setRegionMissing(false);
+                  }}
                 >
                   <option value="">
                     {t("channels.dialog.regionPlaceholder")}
@@ -176,20 +176,29 @@ export function ProvideChannelInfoDialog({
                     </option>
                   ))}
                 </NativeSelect>
+                {/* The native bubble says "please select an item"; this says
+                    which fact is missing and stays on screen until it is
+                    supplied. */}
+                {regionMissing ? (
+                  <Typography id={regionErrorId} variant="error" role="alert">
+                    {t("channels.dialog.regionRequired")}
+                  </Typography>
+                ) : null}
               </div>
 
-              {channelType === "offline" ? (
-                <div className="space-y-2">
-                  <Label htmlFor={`${fieldId}-address`}>
-                    {t("channels.dialog.addressLabel")}
-                  </Label>
-                  <Input
-                    id={`${fieldId}-address`}
-                    name="address"
-                    placeholder={t("channels.dialog.addressPlaceholder")}
-                  />
-                </div>
-              ) : null}
+              {/* Always rendered. It used to be gated on an offline selection;
+                  every stockist is a physical place now (DEV-1513), so the
+                  address is the field that identifies it. */}
+              <div className="space-y-2">
+                <Label htmlFor={`${fieldId}-address`}>
+                  {t("channels.dialog.addressLabel")}
+                </Label>
+                <Input
+                  id={`${fieldId}-address`}
+                  name="address"
+                  placeholder={t("channels.dialog.addressPlaceholder")}
+                />
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor={`${fieldId}-url`}>

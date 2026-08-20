@@ -1,0 +1,31 @@
+-- Drop the community channel-confirmation table (DEV-1513).
+--
+-- `brand_channel_confirmations` backed a "N readers confirmed this shop" flow
+-- that was never reachable in production: 0 rows in the table, and the
+-- promotion threshold it fed (3 confirmations) could therefore never fire. The
+-- replacement is an admin decision at `/admin/stockists`, which writes
+-- `brand_channels.owner_status` and needs no second table.
+--
+-- APPLY THIS ONLY AFTER THE DEPLOY THAT REMOVES THE READ HAS LANDED.
+-- The currently-deployed `CHANNEL_READ_SELECT` still embeds
+-- `brand_channel_confirmations(count)` in its PostgREST select. Dropping the
+-- table first turns every brand-detail channel read into a 42P01 while the old
+-- bundle is still serving traffic — a public 500 on 718 brand pages, for the
+-- length of one deploy. Order: merge and deploy, confirm the new bundle is
+-- live, then run this.
+--
+-- NO BACKFILL AND NO REVERSE SCRIPT. There is nothing to preserve: the table is
+-- empty, nothing references it inbound, and `scripts/sync-staging-from-prod.ts`
+-- never synced it. `20260724000001_brand_channels.sql` already contains the
+-- whole of the rollback (table, index, and the three RLS policies), so a
+-- reverse file would be a copy of it that restores zero rows.
+--
+-- One statement, not five: the two outbound foreign keys
+-- (`channel_id -> brand_channels`, `user_id -> auth.users`),
+-- `brand_channel_confirmations_channel_idx`, the unique
+-- `(channel_id, user_id)` constraint, and the three RLS policies are all
+-- dependent objects of this table and go with it. `cascade` is deliberately
+-- absent: nothing depends on the table from the outside, so a dependency error
+-- here would be news worth stopping on rather than something to force through.
+
+drop table if exists public.brand_channel_confirmations;

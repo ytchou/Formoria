@@ -36,6 +36,67 @@ function isEnOnly(key: string): boolean {
   return key === 'admin' || key.startsWith(EN_ONLY_PREFIX)
 }
 
+/** Every string leaf in a catalogue, paired with the dotted path that reaches
+ * it. `flatten` above answers "which keys exist"; this answers "what do they
+ * say", which is what a vocabulary lock has to read. */
+function stringEntries(
+  node: unknown,
+  prefix = '',
+  entries: [string, string][] = [],
+): [string, string][] {
+  if (typeof node === 'string') {
+    entries.push([prefix, node])
+    return entries
+  }
+  if (typeof node !== 'object' || node === null) return entries
+
+  for (const [key, value] of Object.entries(node)) {
+    stringEntries(value, prefix ? `${prefix}.${key}` : key, entries)
+  }
+
+  return entries
+}
+
+/**
+ * The vocabulary the product retired. Formoria names exactly two things: a
+ * physical place that carries a brand is 實體通路 (stockist), and a place to buy
+ * online is 線上購買 (online store). The umbrella — "channel" / 通路 on its own —
+ * is gone, because it made one word stand for a shop, a marketplace listing, a
+ * distributor, and a brand's own website at once.
+ *
+ * Each entry below was a real string on a live surface, so a hit here is not a
+ * style nit: it is a reader being handed a second name for something the rest of
+ * the site already named.
+ */
+const RETIRED_VOCABULARY = [
+  '販售地點',
+  '購買通路',
+  '購買管道',
+  '銷售通路',
+  '銷售管道',
+  '據點',
+  '門市',
+  '實體店',
+  '經銷',
+] as const
+
+/**
+ * 哪裡買 is deliberately NOT retired. It is a search-intent phrase people type,
+ * not a label Formoria uses for the concept — `{品牌名} 哪裡買` is a P0 secondary
+ * keyword in `content/seo/keyword-map.yaml` on the `brand-detail-template`, which
+ * covers every live brand page. Nothing else in CI enforces its survival, so the
+ * assertion below states it positively rather than trusting a reviewer to notice
+ * a deletion.
+ */
+const SEARCH_INTENT_KEYS = [
+  'nav.whereToBuy',
+  'footer.whereToBuy',
+  'whereToBuy.metaTitle',
+  'whereToBuy.indexTitle',
+  'whereToBuy.cityTitle',
+  'whereToBuy.directory',
+]
+
 describe('message catalogue parity', () => {
   it('en and zh-TW have identical key sets outside the admin namespace', () => {
     const enKeys = new Set(flatten(en).filter((key) => !isEnOnly(key)))
@@ -117,6 +178,54 @@ describe('message catalogue parity', () => {
     walk(zhTW.discover, 'discover')
 
     expect(stale).toEqual([])
+  })
+
+  it('retires the channel vocabulary from every namespace', () => {
+    // Both catalogues, every namespace: the retired words were spread across
+    // nine of them (品牌頁, 儀表板, 推薦流程, 常見問題, 關於, 開始使用, 功能建議,
+    // 品牌目錄, 哪裡買), which is exactly why a per-surface review kept missing
+    // them and a catalogue-wide assertion is the only thing that holds.
+    const stale: string[] = []
+    for (const [locale, catalogue] of [
+      ['zh-TW', zhTW],
+      ['en', en],
+    ] as const) {
+      for (const [path, value] of stringEntries(catalogue)) {
+        const term = RETIRED_VOCABULARY.find((retired) =>
+          value.includes(retired),
+        )
+        if (term) stale.push(`${locale}:${path} says ${term}`)
+      }
+    }
+
+    expect(stale).toEqual([])
+  })
+
+  it('keeps 哪裡買 as the search-intent phrase', () => {
+    const values = Object.fromEntries(stringEntries(zhTW))
+    const missing = SEARCH_INTENT_KEYS.filter(
+      (key) => !values[key]?.includes('哪裡買'),
+    )
+
+    // A find-and-replace that swept 哪裡買 along with the retired words would
+    // pass every other test in this file while dropping a keyword that ranks on
+    // hundreds of live pages.
+    expect(missing).toEqual([])
+  })
+
+  it('names the offline concept 實體通路 and the online concept 線上購買', () => {
+    const values = stringEntries(zhTW).map(([, value]) => value)
+
+    // The other half of the lock: retiring the old words is only half a rename
+    // if the new ones never arrive.
+    expect(values.some((value) => value.includes('實體通路'))).toBe(true)
+    expect(values.some((value) => value.includes('線上購買'))).toBe(true)
+
+    // Pinned on the two surfaces the reader meets the concepts on — the brand
+    // page's on-page nav and its purchase-links section — so renaming either
+    // concept has to be deliberate rather than incidental.
+    expect(zhTW.brandDetail.tabNav.locations).toBe('實體通路')
+    expect(zhTW.brandDetail.links.onlineStores).toBe('線上購買')
   })
 
   it('categories.l1 has the same launch-copy keys in both locales', () => {

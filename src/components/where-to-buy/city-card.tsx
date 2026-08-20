@@ -1,7 +1,7 @@
 import { Link } from '@/i18n/navigation'
 import { ChipRow, taxonomyLinkClasses } from '@/components/ui/toggle-chip'
 import { citySlugToPath } from '@/lib/constants/taiwan-cities'
-import type { StockistCitySummary } from '@/lib/services/brand-channels'
+import type { StockistCitySummary } from '@/lib/services/stockists'
 import { routes } from '@/lib/routes'
 
 export function CityCard({

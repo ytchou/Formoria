@@ -18,7 +18,7 @@ import type { Brand } from "@/lib/types";
 import { getSiteUrl } from "@/lib/site-url";
 import { faqItemsToQuestions, getBrandFaq } from "@/lib/services/brand-faq";
 import type { FaqSupabase } from "@/lib/services/brand-faq";
-import type { BrandChannel } from "@/lib/types/brand-channel";
+import type { Stockist } from "@/lib/types/stockist";
 
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
   return {
@@ -63,19 +63,17 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
 
 describe("buildBrandJsonLd", () => {
   function channel(
-    overrides: Partial<BrandChannel> & Pick<BrandChannel, "name">,
-  ): BrandChannel {
+    overrides: Partial<Stockist> & Pick<Stockist, "name">,
+  ): Stockist {
     const { name, ...rest } = overrides;
     return {
       id: `channel-${name}`,
       name,
-      channelType: "offline",
       regionLabel: "臺北市",
       address: null,
       url: null,
       ownerStatus: "none",
       source: "import",
-      confirmationCount: 0,
       status: "confirmed",
       confirmedBy: "evidence",
       ...rest,

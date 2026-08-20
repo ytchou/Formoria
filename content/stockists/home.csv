@@ -1,72 +1,72 @@
-﻿brand_slug,name,location_type,channel_type,region_label,address,url,evidence_url,source_type,source_chain,confidence,notes
-annahome,棉床本舖｜大里取貨／門市,direct_store,offline,台中,台中市大里區德芳南路375號,https://www.annahome.co/,https://www.annahome.co/pages/location,official_website,official website → store/location page,high,官方據點資訊；375號為取貨／門市據點。
-annahome,棉床本舖｜大里體驗門市,showroom_studio,offline,台中,台中市大里區德芳南路379號,https://www.annahome.co/,https://www.annahome.co/pages/location,official_website,official website → store/location page,high,官方據點資訊；可現場體驗。
-anta-pottery,安達窯 九份店,direct_store,offline,新北,新北市瑞芳區輕便路129號,https://www.anta.com.tw/,https://www.anta.com.tw/zh-TW/blogs/營業據點/httpsantacyberbizcozh-tw,official_website,official website → store/location page,high,
-anta-pottery,安達窯 鶯歌旗艦店,direct_store,offline,新北,新北市鶯歌區尖山埔路54號,https://www.anta.com.tw/,https://www.anta.com.tw/zh-TW/blogs/營業據點/httpsantacyberbizcozh-tw,official_website,official website → store/location page,high,
-anta-pottery,安達窯 鶯歌老街二館,direct_store,offline,新北,新北市鶯歌區尖山埔路21號,https://www.anta.com.tw/,https://www.anta.com.tw/zh-TW/blogs/營業據點/httpsantacyberbizcozh-tw,official_website,official website → store/location page,high,
-cypress-house,原木哲學 Feelosophy 展示／工作室,showroom_studio,offline,高雄,高雄市仁武區八德二路160巷77弄18-1號,https://www.feelosophydesign.com/,https://www.feelosophydesign.com/,official_website,official website → store/location page,high,官方空間；建議預約後前往。
-dasuit,大適 Dasuit 預約體驗空間,showroom_studio,offline,台北,台北市松山區南京東路四段186號7樓之8,https://www.dasuit.com.tw/,https://www.dasuit.com.tw/pages/contact-us,official_website,official website → store/location page,high,採預約制。
-float-living,TSUTAYA BOOKSTORE 南港店,stockist,offline,台北,台北市南港區忠孝東路七段369號A棟2樓,,https://www.floatliving.co/pages/store,official_website,official website → store/location page,high,官方販售據點頁目前列出的常態通路。
-float-living,TSUTAYA BOOKSTORE 高雄大立店,stockist,offline,高雄,高雄市前金區五福三路57號1、2樓,,https://www.floatliving.co/pages/store,official_website,official website → store/location page,high,官方販售據點頁目前列出的常態通路。
-hh-healthy-happy,HOW LIVING 美好生活家居,stockist,offline,台中,台中市南屯區文心南路289號5樓,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
-hh-healthy-happy,MARAIS 瑪黑家居 LaLaport 台中櫃位,stockist,offline,台中,台中市東區進德路600號北館2樓,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
-hh-healthy-happy,中友百貨｜生活好品,stockist,offline,台中,台中市北區三民路三段169號B棟13樓,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
-hh-healthy-happy,IUSE 台北旗艦店,stockist,offline,台北,台北市內湖區舊宗路二段135巷16號,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
-hh-healthy-happy,MARAIS 瑪黑家居 中山門市,stockist,offline,台北,台北市中山區中山北路二段36巷18號,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
-hh-healthy-happy,MARAIS 瑪黑家居 安和門市,stockist,offline,台北,台北市大安區安和路一段53號,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
-hh-healthy-happy,MARAIS 瑪黑家居 敦南門市,stockist,offline,台北,台北市松山區敦化南路一段57-1號,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
-hh-healthy-happy,TSUTAYA BOOKSTORE CITYLINK 內湖店,stockist,offline,台北,台北市內湖區成功路四段188號1樓,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
-hh-healthy-happy,TSUTAYA BOOKSTORE CITYLINK 南港店,stockist,offline,台北,台北市南港區忠孝東路七段369號A棟2樓,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
-hh-healthy-happy,TSUTAYA BOOKSTORE CITYLINK 松山店,stockist,offline,台北,台北市信義區松山路11號3樓,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
-hh-healthy-happy,新光三越台北信義新天地 A8 IUSE 櫃位,stockist,offline,台北,台北市信義區松高路12號7樓,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
-hh-healthy-happy,民藝埕,stockist,offline,台北,台北市大同區迪化街一段67號,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
-hh-healthy-happy,新光三越台南西門新天地 IUSE 櫃位,stockist,offline,台南,台南市中西區西門路一段658號B1,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
-hh-healthy-happy,CHOCOOLEE 巧克莉莉,stockist,offline,彰化,彰化縣員林市萬年路三段61號,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
-hh-healthy-happy,TSUTAYA BOOKSTORE 高雄大立店,stockist,offline,高雄,高雄市前金區五福三路57號1、2樓,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
-hokii,Bhome 詠晟國際,stockist,offline,台北,台北市大安區麗水街17巷8之1號,,https://hokii.com/pages/store-locator,official_website,official website → store/location page,high,
-hokii,在地台灣好物選品店,stockist,offline,桃園,桃園市桃園區新埔五街12號,,https://hokii.com/pages/store-locator,official_website,official website → store/location page,high,
-home-desyne,晴傢飾,stockist,offline,台中,台中市南屯區精科路132號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
-home-desyne,銘傑窗簾傢飾 台中店,stockist,offline,台中,台中市北屯區崇德八路一段134號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
-home-desyne,歐雅（雅閣）窗簾傢飾,stockist,offline,台南,台南市安平區文平路358號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
-home-desyne,清晨窗簾傢飾,stockist,offline,台南,台南市南區健康路二段537號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
-home-desyne,莉芙傢飾,stockist,offline,嘉義,嘉義市東區民樂街152號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
-home-desyne,藝樹窗簾傢飾,stockist,offline,宜蘭,宜蘭縣壯圍鄉壯五路298號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
-home-desyne,馥美家窗簾傢飾,stockist,offline,屏東,屏東縣屏東市廣東路1120號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
-home-desyne,嘉展窗簾傢飾,stockist,offline,彰化,彰化縣彰化市大埔路319號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
-home-desyne,Home Desyne 五股展示中心,showroom_studio,offline,新北,新北市五股區中興路二段20號5樓,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,採預約制。
-home-desyne,閣樓溪傢飾,stockist,offline,新竹,新竹市東區金城一路50號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
-home-desyne,銘傑窗簾傢飾 竹北店,stockist,offline,新竹縣,新竹縣竹北市文興路二段80號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
-home-desyne,弘宇窗簾傢飾,stockist,offline,花蓮,花蓮縣吉安鄉自強路561號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
-home-desyne,雅緻屋傢飾,stockist,offline,苗栗,苗栗縣頭份市中興路177號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
-home-desyne,帷品傢飾,stockist,offline,雲林,雲林縣斗六市鎮東路13號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
-home-desyne,可堤那窗簾傢飾,stockist,offline,高雄,高雄市新興區青年一路354號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
-hoyi,HOYI 好寓 林口門市,direct_store,offline,新北,新北市林口區文化一路一段41號1樓,https://www.hoyi.tw/,https://www.hoyi.tw/pages/linkou-store,official_website,official website → store/location page,high,
-jt-home,久泰家具 Jiou-Tai Furniture 潮州門市,direct_store,offline,屏東,屏東縣潮州鎮四維路150號,https://www.jt-home.com.tw/jt-home,https://www.jt-home.com.tw/news-detail-3916156.html,official_website,official website → store/location page,high,
-mattress-maker,造床者床墊工坊 台北體驗空間,showroom_studio,offline,台北,台北市大同區民族西路236號,https://mattress-maker.com/,https://mattress-maker.com/maps/,official_website,official website → store/location page,high,
-mattress-maker,造床者床墊工坊 林口體驗空間,showroom_studio,offline,新北,新北市林口區粉寮路二段131-3號,https://mattress-maker.com/,https://mattress-maker.com/maps/,official_website,official website → store/location page,high,
-mattress-maker,造床者床墊工坊 中壢體驗空間,showroom_studio,offline,桃園,桃園市中壢區環北路86號,https://mattress-maker.com/,https://mattress-maker.com/maps/,official_website,official website → store/location page,high,
-medgear,美而輔具 MedGear 旗艦店,direct_store,offline,台南,台南市北區開元路343-1號,https://shop.shihkuo.com/,https://shop.shihkuo.com/,official_website,official website → store/location page,high,
-mufurniture,沐家具 南屯門市,direct_store,offline,台中,台中市南屯區文山路52號,https://www.mufurniture.com.tw/,https://www.mufurniture.com.tw/,official_website,official website → store/location page,high,
-olive,ÓLIVE 自然睡眠計劃門市,showroom_studio,offline,台北,台北市信義區永吉路73號1樓,https://olive-mattress.com/,https://olive-mattress.com/pages/quick-start-store,official_website,official website → store/location page,high,
-olivia-bedding,OLIVIA 日式寢具生活館,direct_store,offline,台南,台南市安平區建平五街206號,https://www.olivia-bedding.com/,https://www.olivia-bedding.com/,official_website,official website → store/location page,high,
-playzu,泑儒婦嬰用品專賣店｜台中東勢店,stockist,offline,台中,台中市東勢區豐勢路618號,,https://www.playzu.com.tw/門市據點/,official_website,official website → store/location page,high,
-playzu,艾運斯坦居家軟裝,stockist,offline,台中,台中市龍井區遊園南路131號1樓,,https://www.playzu.com.tw/門市據點/,official_website,official website → store/location page,high,
-playzu,PLAYZU 彰化體驗工作室,showroom_studio,offline,彰化,彰化縣社頭鄉員集路二段541巷3號,,https://www.playzu.com.tw/門市據點/,official_website,official website → store/location page,high,採預約制。
-playzu,玩兔水工作室,stockist,offline,彰化,彰化市中正路一段134號,,https://www.playzu.com.tw/門市據點/,official_website,official website → store/location page,high,
-playzu,物物島 WUWU,stockist,offline,新北,新北市三峽區大義路195號,,https://www.playzu.com.tw/門市據點/,official_website,official website → store/location page,high,
-playzu,樂角 Love Corner,stockist,offline,高雄,高雄市前金區成功一路252號2樓,,https://www.playzu.com.tw/門市據點/,official_website,official website → store/location page,high,
-potato-sofa,馬鈴薯沙發 土城門市／工廠展示空間,showroom_studio,offline,新北,新北市土城區廣福街77巷6-6號,https://www.potatosofa.com/,https://www.potatosofa.com/,official_website,official website → store/location page,high,
-rewood,ReWood 木酢達人 湖口門市,direct_store,offline,新竹縣,新竹縣湖口鄉中正路三段162巷16號,https://www.dawoko.com.tw/,https://www.dawoko.com.tw/,official_website,official website → store/location page,high,
-sleepy-nest,喜巢床鋪 Sleepy Nest 床墊專賣店,direct_store,offline,嘉義,嘉義市西區自由路279號,https://sleepy-nest.com/,https://sleepy-nest.com/,official_website,official website → store/location page,high,
-tj-co,LIGHTWELL 中山旗艦店,stockist,offline,台北,台北市中山區中山北路二段20巷6-1號,,https://www.tjnco.com.tw/pages/士林展間,official_website,official website → store/location page,high,
-tj-co,LIGHTWELL 忠泰樂生活專櫃,stockist,offline,台北,台北市中山區樂群三路200號1樓,,https://www.tjnco.com.tw/pages/士林展間,official_website,official website → store/location page,high,
-tj-co,緹家 TJ&Co. 士林旗艦 SHOWROOM,showroom_studio,offline,台北,台北市士林區劍潭路38號1樓,,https://www.tjnco.com.tw/pages/士林展間,official_website,official website → store/location page,high,
-yingmulife,鶯目瓷器｜赤峰工藝體驗所,showroom_studio,offline,台北,台北市大同區赤峰街47巷8號1樓,https://www.yingmulife.com/,https://www.yingmulife.com/store-locator,official_website,official website → store/location page,high,
-yun-clean,雲御織 毛巾檜意館,direct_store,offline,嘉義,嘉義市東區共和路191巷9號 T20B,https://www.yun-clean.com.tw/,https://www.yun-clean.com.tw/pages/品牌故事,official_website,official website → store/location page,high,官方品牌故事明載首家直營門市位於檜意森活村。
-yvonne-collection,YVONNE COLLECTION｜新光三越台中中港店,department_store_counter,offline,台中,台中市西屯區臺灣大道三段301號7樓,,https://www.skm.com.tw/brand/11984,retailer_website,department-store official floor/brand directory,high,百貨官方品牌／樓層頁目前列示。
-yvonne-collection,YVONNE COLLECTION｜新光三越台北信義新天地 A8,department_store_counter,offline,台北,台北市信義區松高路12號6樓,,https://www.skm.com.tw/brand/11984,retailer_website,department-store official floor/brand directory,high,百貨官方品牌／樓層頁目前列示。
-yvonne-collection,YVONNE COLLECTION｜新光三越台南新天地,department_store_counter,offline,台南,台南市中西區西門路一段658號B1,,https://www.skm.com.tw/brand/11984,retailer_website,department-store official floor/brand directory,high,百貨官方品牌／樓層頁目前列示。
-yvonne-collection,YVONNE COLLECTION｜新光三越高雄左營店,department_store_counter,offline,高雄,高雄市左營區高鐵路123號8樓,,https://www.skm.com.tw/brand/11984,retailer_website,department-store official floor/brand directory,high,百貨官方品牌／樓層頁目前列示。
-yvonne-collection,YVONNE COLLECTION｜漢神巨蛋,department_store_counter,offline,高雄,高雄市左營區博愛二路777號B1,,https://www.hanshinarena.com.tw/漢神巨蛋/tw/Floor/B1F,retailer_website,department-store official floor/brand directory,high,百貨官方品牌／樓層頁目前列示。
-yvonne-collection,YVONNE COLLECTION｜漢神百貨,department_store_counter,offline,高雄,高雄市前金區成功一路266-1號6樓,,https://www.hanshinarena.com.tw/漢神百貨/tw/Floor/6F_Home_Collection,retailer_website,department-store official floor/brand directory,high,百貨官方品牌／樓層頁目前列示。
-阿媽牌生鐵鍋,阿媽牌生鐵鍋 幸福旗艦館,direct_store,offline,桃園,桃園市平鎮區平東路573巷68號,https://www.armarpot.com/,https://travel.tycg.gov.tw/zh-tw/consume/detail/1691,government_directory,official tourism directory → current flagship store,high,桃園市官方旅遊資料仍列示為實體旗艦館。
+﻿brand_slug,name,location_type,region_label,address,url,evidence_url,source_type,source_chain,confidence,notes
+annahome,棉床本舖｜大里取貨／門市,direct_store,台中,台中市大里區德芳南路375號,https://www.annahome.co/,https://www.annahome.co/pages/location,official_website,official website → store/location page,high,官方據點資訊；375號為取貨／門市據點。
+annahome,棉床本舖｜大里體驗門市,showroom_studio,台中,台中市大里區德芳南路379號,https://www.annahome.co/,https://www.annahome.co/pages/location,official_website,official website → store/location page,high,官方據點資訊；可現場體驗。
+anta-pottery,安達窯 九份店,direct_store,新北,新北市瑞芳區輕便路129號,https://www.anta.com.tw/,https://www.anta.com.tw/zh-TW/blogs/營業據點/httpsantacyberbizcozh-tw,official_website,official website → store/location page,high,
+anta-pottery,安達窯 鶯歌旗艦店,direct_store,新北,新北市鶯歌區尖山埔路54號,https://www.anta.com.tw/,https://www.anta.com.tw/zh-TW/blogs/營業據點/httpsantacyberbizcozh-tw,official_website,official website → store/location page,high,
+anta-pottery,安達窯 鶯歌老街二館,direct_store,新北,新北市鶯歌區尖山埔路21號,https://www.anta.com.tw/,https://www.anta.com.tw/zh-TW/blogs/營業據點/httpsantacyberbizcozh-tw,official_website,official website → store/location page,high,
+cypress-house,原木哲學 Feelosophy 展示／工作室,showroom_studio,高雄,高雄市仁武區八德二路160巷77弄18-1號,https://www.feelosophydesign.com/,https://www.feelosophydesign.com/,official_website,official website → store/location page,high,官方空間；建議預約後前往。
+dasuit,大適 Dasuit 預約體驗空間,showroom_studio,台北,台北市松山區南京東路四段186號7樓之8,https://www.dasuit.com.tw/,https://www.dasuit.com.tw/pages/contact-us,official_website,official website → store/location page,high,採預約制。
+float-living,TSUTAYA BOOKSTORE 南港店,stockist,台北,台北市南港區忠孝東路七段369號A棟2樓,,https://www.floatliving.co/pages/store,official_website,official website → store/location page,high,官方販售據點頁目前列出的常態通路。
+float-living,TSUTAYA BOOKSTORE 高雄大立店,stockist,高雄,高雄市前金區五福三路57號1、2樓,,https://www.floatliving.co/pages/store,official_website,official website → store/location page,high,官方販售據點頁目前列出的常態通路。
+hh-healthy-happy,HOW LIVING 美好生活家居,stockist,台中,台中市南屯區文心南路289號5樓,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
+hh-healthy-happy,MARAIS 瑪黑家居 LaLaport 台中櫃位,stockist,台中,台中市東區進德路600號北館2樓,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
+hh-healthy-happy,中友百貨｜生活好品,stockist,台中,台中市北區三民路三段169號B棟13樓,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
+hh-healthy-happy,IUSE 台北旗艦店,stockist,台北,台北市內湖區舊宗路二段135巷16號,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
+hh-healthy-happy,MARAIS 瑪黑家居 中山門市,stockist,台北,台北市中山區中山北路二段36巷18號,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
+hh-healthy-happy,MARAIS 瑪黑家居 安和門市,stockist,台北,台北市大安區安和路一段53號,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
+hh-healthy-happy,MARAIS 瑪黑家居 敦南門市,stockist,台北,台北市松山區敦化南路一段57-1號,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
+hh-healthy-happy,TSUTAYA BOOKSTORE CITYLINK 內湖店,stockist,台北,台北市內湖區成功路四段188號1樓,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
+hh-healthy-happy,TSUTAYA BOOKSTORE CITYLINK 南港店,stockist,台北,台北市南港區忠孝東路七段369號A棟2樓,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
+hh-healthy-happy,TSUTAYA BOOKSTORE CITYLINK 松山店,stockist,台北,台北市信義區松山路11號3樓,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
+hh-healthy-happy,新光三越台北信義新天地 A8 IUSE 櫃位,stockist,台北,台北市信義區松高路12號7樓,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
+hh-healthy-happy,民藝埕,stockist,台北,台北市大同區迪化街一段67號,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
+hh-healthy-happy,新光三越台南西門新天地 IUSE 櫃位,stockist,台南,台南市中西區西門路一段658號B1,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
+hh-healthy-happy,CHOCOOLEE 巧克莉莉,stockist,彰化,彰化縣員林市萬年路三段61號,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
+hh-healthy-happy,TSUTAYA BOOKSTORE 高雄大立店,stockist,高雄,高雄市前金區五福三路57號1、2樓,,https://www.pinkoi.com/product/3XwBjAhS,official_marketplace,official Pinkoi brand/product page → physical stockist list,high,品牌官方 Pinkoi 頁列示之實體販售點；現場庫存可能依店別變動。
+hokii,Bhome 詠晟國際,stockist,台北,台北市大安區麗水街17巷8之1號,,https://hokii.com/pages/store-locator,official_website,official website → store/location page,high,
+hokii,在地台灣好物選品店,stockist,桃園,桃園市桃園區新埔五街12號,,https://hokii.com/pages/store-locator,official_website,official website → store/location page,high,
+home-desyne,晴傢飾,stockist,台中,台中市南屯區精科路132號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
+home-desyne,銘傑窗簾傢飾 台中店,stockist,台中,台中市北屯區崇德八路一段134號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
+home-desyne,歐雅（雅閣）窗簾傢飾,stockist,台南,台南市安平區文平路358號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
+home-desyne,清晨窗簾傢飾,stockist,台南,台南市南區健康路二段537號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
+home-desyne,莉芙傢飾,stockist,嘉義,嘉義市東區民樂街152號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
+home-desyne,藝樹窗簾傢飾,stockist,宜蘭,宜蘭縣壯圍鄉壯五路298號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
+home-desyne,馥美家窗簾傢飾,stockist,屏東,屏東縣屏東市廣東路1120號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
+home-desyne,嘉展窗簾傢飾,stockist,彰化,彰化縣彰化市大埔路319號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
+home-desyne,Home Desyne 五股展示中心,showroom_studio,新北,新北市五股區中興路二段20號5樓,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,採預約制。
+home-desyne,閣樓溪傢飾,stockist,新竹,新竹市東區金城一路50號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
+home-desyne,銘傑窗簾傢飾 竹北店,stockist,新竹縣,新竹縣竹北市文興路二段80號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
+home-desyne,弘宇窗簾傢飾,stockist,花蓮,花蓮縣吉安鄉自強路561號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
+home-desyne,雅緻屋傢飾,stockist,苗栗,苗栗縣頭份市中興路177號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
+home-desyne,帷品傢飾,stockist,雲林,雲林縣斗六市鎮東路13號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
+home-desyne,可堤那窗簾傢飾,stockist,高雄,高雄市新興區青年一路354號,,https://www.homedesyne.com/pages/sales-office-1,official_website,official website → store/location page,high,
+hoyi,HOYI 好寓 林口門市,direct_store,新北,新北市林口區文化一路一段41號1樓,https://www.hoyi.tw/,https://www.hoyi.tw/pages/linkou-store,official_website,official website → store/location page,high,
+jt-home,久泰家具 Jiou-Tai Furniture 潮州門市,direct_store,屏東,屏東縣潮州鎮四維路150號,https://www.jt-home.com.tw/jt-home,https://www.jt-home.com.tw/news-detail-3916156.html,official_website,official website → store/location page,high,
+mattress-maker,造床者床墊工坊 台北體驗空間,showroom_studio,台北,台北市大同區民族西路236號,https://mattress-maker.com/,https://mattress-maker.com/maps/,official_website,official website → store/location page,high,
+mattress-maker,造床者床墊工坊 林口體驗空間,showroom_studio,新北,新北市林口區粉寮路二段131-3號,https://mattress-maker.com/,https://mattress-maker.com/maps/,official_website,official website → store/location page,high,
+mattress-maker,造床者床墊工坊 中壢體驗空間,showroom_studio,桃園,桃園市中壢區環北路86號,https://mattress-maker.com/,https://mattress-maker.com/maps/,official_website,official website → store/location page,high,
+medgear,美而輔具 MedGear 旗艦店,direct_store,台南,台南市北區開元路343-1號,https://shop.shihkuo.com/,https://shop.shihkuo.com/,official_website,official website → store/location page,high,
+mufurniture,沐家具 南屯門市,direct_store,台中,台中市南屯區文山路52號,https://www.mufurniture.com.tw/,https://www.mufurniture.com.tw/,official_website,official website → store/location page,high,
+olive,ÓLIVE 自然睡眠計劃門市,showroom_studio,台北,台北市信義區永吉路73號1樓,https://olive-mattress.com/,https://olive-mattress.com/pages/quick-start-store,official_website,official website → store/location page,high,
+olivia-bedding,OLIVIA 日式寢具生活館,direct_store,台南,台南市安平區建平五街206號,https://www.olivia-bedding.com/,https://www.olivia-bedding.com/,official_website,official website → store/location page,high,
+playzu,泑儒婦嬰用品專賣店｜台中東勢店,stockist,台中,台中市東勢區豐勢路618號,,https://www.playzu.com.tw/門市據點/,official_website,official website → store/location page,high,
+playzu,艾運斯坦居家軟裝,stockist,台中,台中市龍井區遊園南路131號1樓,,https://www.playzu.com.tw/門市據點/,official_website,official website → store/location page,high,
+playzu,PLAYZU 彰化體驗工作室,showroom_studio,彰化,彰化縣社頭鄉員集路二段541巷3號,,https://www.playzu.com.tw/門市據點/,official_website,official website → store/location page,high,採預約制。
+playzu,玩兔水工作室,stockist,彰化,彰化市中正路一段134號,,https://www.playzu.com.tw/門市據點/,official_website,official website → store/location page,high,
+playzu,物物島 WUWU,stockist,新北,新北市三峽區大義路195號,,https://www.playzu.com.tw/門市據點/,official_website,official website → store/location page,high,
+playzu,樂角 Love Corner,stockist,高雄,高雄市前金區成功一路252號2樓,,https://www.playzu.com.tw/門市據點/,official_website,official website → store/location page,high,
+potato-sofa,馬鈴薯沙發 土城門市／工廠展示空間,showroom_studio,新北,新北市土城區廣福街77巷6-6號,https://www.potatosofa.com/,https://www.potatosofa.com/,official_website,official website → store/location page,high,
+rewood,ReWood 木酢達人 湖口門市,direct_store,新竹縣,新竹縣湖口鄉中正路三段162巷16號,https://www.dawoko.com.tw/,https://www.dawoko.com.tw/,official_website,official website → store/location page,high,
+sleepy-nest,喜巢床鋪 Sleepy Nest 床墊專賣店,direct_store,嘉義,嘉義市西區自由路279號,https://sleepy-nest.com/,https://sleepy-nest.com/,official_website,official website → store/location page,high,
+tj-co,LIGHTWELL 中山旗艦店,stockist,台北,台北市中山區中山北路二段20巷6-1號,,https://www.tjnco.com.tw/pages/士林展間,official_website,official website → store/location page,high,
+tj-co,LIGHTWELL 忠泰樂生活專櫃,stockist,台北,台北市中山區樂群三路200號1樓,,https://www.tjnco.com.tw/pages/士林展間,official_website,official website → store/location page,high,
+tj-co,緹家 TJ&Co. 士林旗艦 SHOWROOM,showroom_studio,台北,台北市士林區劍潭路38號1樓,,https://www.tjnco.com.tw/pages/士林展間,official_website,official website → store/location page,high,
+yingmulife,鶯目瓷器｜赤峰工藝體驗所,showroom_studio,台北,台北市大同區赤峰街47巷8號1樓,https://www.yingmulife.com/,https://www.yingmulife.com/store-locator,official_website,official website → store/location page,high,
+yun-clean,雲御織 毛巾檜意館,direct_store,嘉義,嘉義市東區共和路191巷9號 T20B,https://www.yun-clean.com.tw/,https://www.yun-clean.com.tw/pages/品牌故事,official_website,official website → store/location page,high,官方品牌故事明載首家直營門市位於檜意森活村。
+yvonne-collection,YVONNE COLLECTION｜新光三越台中中港店,department_store_counter,台中,台中市西屯區臺灣大道三段301號7樓,,https://www.skm.com.tw/brand/11984,retailer_website,department-store official floor/brand directory,high,百貨官方品牌／樓層頁目前列示。
+yvonne-collection,YVONNE COLLECTION｜新光三越台北信義新天地 A8,department_store_counter,台北,台北市信義區松高路12號6樓,,https://www.skm.com.tw/brand/11984,retailer_website,department-store official floor/brand directory,high,百貨官方品牌／樓層頁目前列示。
+yvonne-collection,YVONNE COLLECTION｜新光三越台南新天地,department_store_counter,台南,台南市中西區西門路一段658號B1,,https://www.skm.com.tw/brand/11984,retailer_website,department-store official floor/brand directory,high,百貨官方品牌／樓層頁目前列示。
+yvonne-collection,YVONNE COLLECTION｜新光三越高雄左營店,department_store_counter,高雄,高雄市左營區高鐵路123號8樓,,https://www.skm.com.tw/brand/11984,retailer_website,department-store official floor/brand directory,high,百貨官方品牌／樓層頁目前列示。
+yvonne-collection,YVONNE COLLECTION｜漢神巨蛋,department_store_counter,高雄,高雄市左營區博愛二路777號B1,,https://www.hanshinarena.com.tw/漢神巨蛋/tw/Floor/B1F,retailer_website,department-store official floor/brand directory,high,百貨官方品牌／樓層頁目前列示。
+yvonne-collection,YVONNE COLLECTION｜漢神百貨,department_store_counter,高雄,高雄市前金區成功一路266-1號6樓,,https://www.hanshinarena.com.tw/漢神百貨/tw/Floor/6F_Home_Collection,retailer_website,department-store official floor/brand directory,high,百貨官方品牌／樓層頁目前列示。
+阿媽牌生鐵鍋,阿媽牌生鐵鍋 幸福旗艦館,direct_store,桃園,桃園市平鎮區平東路573巷68號,https://www.armarpot.com/,https://travel.tycg.gov.tw/zh-tw/consume/detail/1691,government_directory,official tourism directory → current flagship store,high,桃園市官方旅遊資料仍列示為實體旗艦館。

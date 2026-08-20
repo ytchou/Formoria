@@ -1,15 +1,16 @@
 import {
-  groupChannelsForDisplay,
-  normalizeChannelName,
-} from '@/lib/brands/channels'
+  applyPendingCommunityStockistFilter,
+  applyPublicStockistVisibility,
+  groupStockistsForDisplay,
+  normalizeStockistName,
+} from '@/lib/brands/stockist-display'
 import { auditedCall } from '@/lib/audit'
 import type {
-  BrandChannelInput,
-  ChannelCandidate,
-  ChannelLocationType,
-  ChannelSource,
-  ChannelType,
-} from '@/lib/types/brand-channel'
+  StockistInput,
+  StockistCandidate,
+  StockistLocationType,
+  StockistSource,
+} from '@/lib/types/stockist'
 import { unstable_cache } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/service'
 import {
@@ -28,47 +29,40 @@ import {
 } from '@/lib/taxonomy/ontology'
 import { districtSlugFromName } from '@/lib/constants/taiwan-districts'
 import { matchDistrict } from '@/lib/brands/district'
-import { logAdminAction } from './admin-audit'
-import { isOwnerOf } from './brand-owners'
+import { isOwnerOf, listBrandOwnerUserIds } from './brand-owners'
 
-const MAX_ACTIVE_CHANNELS_PER_BRAND = 5
+const MAX_ACTIVE_STOCKISTS_PER_BRAND = 5
 const MAX_SUBMISSIONS_PER_DAY = 20
 
 const REGION_LABEL_MAP = CITY_NAMES_ZH
 
-type SubmitChannelErrorCode =
+type SubmitStockistErrorCode =
   | 'invalid_name'
-  | 'invalid_channel_type'
+  | 'invalid_region'
   | 'invalid_url'
   | 'active_cap_reached'
   | 'daily_cap_reached'
   | 'duplicate_name'
   | 'database_error'
 
-export type SubmitChannelResult =
-  { ok: true; id: string } | { ok: false; code: SubmitChannelErrorCode }
+type SubmitStockistResult =
+  { ok: true; id: string } | { ok: false; code: SubmitStockistErrorCode }
 
-export type ChannelActionResult =
+type StockistActionResult =
   | { ok: true; city?: CitySlug | null }
   | {
       ok: false
       code: 'not_found' | 'not_owner' | 'invalid_status' | 'database_error'
     }
 
-export type EnrichedChannelsResult =
+type EnrichedStockistsResult =
   | { ok: true; count: number }
   | { ok: false; code: 'database_error' | 'invalid_name' }
 
-type ConfirmationEmbed = {
-  count?: number
-  user_id?: string
-}
-
-type BrandChannelRow = {
+type StockistTableRow = {
   id: string
   brand_id: string
   name: string
-  channel_type: string
   region_label: string | null
   address: string | null
   url: string | null
@@ -77,26 +71,25 @@ type BrandChannelRow = {
   location_type: string | null
   country: string | null
   owner_status: string
+  owner_status_by: string | null
   source: string
   removed_at: string | null
-  brand_channel_confirmations?: ConfirmationEmbed[] | ConfirmationEmbed | null
 }
 
-type ChannelLookupRow = Pick<BrandChannelRow, 'brand_id'> & {
+type StockistLookupRow = Pick<StockistTableRow, 'brand_id'> & {
   region_label?: string | null
 }
 
-type EnrichedChannelRow = {
+type EnrichedStockistRow = {
   name: string
   normalized_name: string
-  channel_type: ChannelType
   region_label: string | null
   address: string | null
   url: string | null
-  source?: ChannelSource
+  source?: StockistSource
   source_url?: string | null
   fetched_at?: string | null
-  location_type?: ChannelLocationType | null
+  location_type?: StockistLocationType | null
   country?: string | null
   district?: string | null
   last_confirmed_at?: string | null
@@ -154,15 +147,15 @@ type StockistReadRow = {
       }>
 }
 
-type ChannelDistrictBackfillRow = {
+type StockistDistrictBackfillRow = {
   id: string
   address: string
   regionLabel: string | null
   district: string | null
 }
 
-export const CHANNEL_READ_SELECT =
-  'id, name, channel_type, region_label, address, url, source_url, fetched_at, location_type, country, owner_status, source, removed_at, brand_channel_confirmations(count)'
+export const STOCKIST_DETAIL_READ_SELECT =
+  'id, name, region_label, address, url, source_url, fetched_at, location_type, country, owner_status, owner_status_by, source, removed_at'
 
 const STOCKIST_READ_SELECT =
   'id, name, address, url, country, region_label, district, brands!inner(slug, name, category, subcategories, status)'
@@ -331,16 +324,21 @@ function isMissingDistrictColumnError(error: unknown): boolean {
   )
 }
 
+/**
+ * Both queries below apply `applyPublicStockistVisibility`, and both have to: a
+ * filter on the first page only hides nothing past row 1000, and no type
+ * checker can see the difference. `stockists.test.ts` pins the count at
+ * two.
+ */
 async function fetchStockistRows(select: string): Promise<StockistReadRow[]> {
   const supabase = createServiceClient()
-  const { data, error, count } = await supabase
-    .from('brand_channels')
-    .select(select, { count: 'exact' })
-    .eq('brands.status', 'approved')
-    .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN)
-    .eq('channel_type', 'offline')
-    .is('removed_at', null)
-    .neq('owner_status', 'rejected')
+  const { data, error, count } = await applyPublicStockistVisibility(
+    supabase
+      .from('brand_channels')
+      .select(select, { count: 'exact' })
+      .eq('brands.status', 'approved')
+      .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN),
+  )
     .order('region_label')
     .order('name')
     .order('id')
@@ -354,14 +352,13 @@ async function fetchStockistRows(select: string): Promise<StockistReadRow[]> {
     buildStockistPageRanges(count)
       .slice(1)
       .map(async ({ from, to }) => {
-        const { data: page, error: pageError } = await supabase
-          .from('brand_channels')
-          .select(select)
-          .eq('brands.status', 'approved')
-          .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN)
-          .eq('channel_type', 'offline')
-          .is('removed_at', null)
-          .neq('owner_status', 'rejected')
+        const { data: page, error: pageError } = await applyPublicStockistVisibility(
+          supabase
+            .from('brand_channels')
+            .select(select)
+            .eq('brands.status', 'approved')
+            .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN),
+        )
           .order('region_label')
           .order('name')
           .order('id')
@@ -403,8 +400,8 @@ export const getStockistDirectory = unstable_cache(
   { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
 )
 
-export async function listChannelDistrictBackfillRows(): Promise<
-  ChannelDistrictBackfillRow[]
+export async function listStockistDistrictBackfillRows(): Promise<
+  StockistDistrictBackfillRow[]
 > {
   const supabase = createServiceClient()
   const { data, error } = await supabase
@@ -430,7 +427,7 @@ export async function listChannelDistrictBackfillRows(): Promise<
   }))
 }
 
-export async function updateChannelDistricts(
+export async function updateStockistDistricts(
   rows: Array<{ id: string; district: string | null }>,
 ): Promise<void> {
   if (rows.length === 0) return
@@ -440,12 +437,8 @@ export async function updateChannelDistricts(
   })
   if (error) throw error
   if (data !== rows.length) {
-    throw new Error(`Updated ${data} of ${rows.length} channel districts`)
+    throw new Error(`Updated ${data} of ${rows.length} stockist districts`)
   }
-}
-
-function isChannelType(value: string): value is ChannelType {
-  return value === 'online' || value === 'offline'
 }
 
 function trimNullable(value: string | null | undefined): string | null {
@@ -463,46 +456,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function confirmationDetails(value: unknown): {
-  count: number
-  userIds: string[]
-} {
-  const entries = Array.isArray(value)
-    ? value.filter(isRecord)
-    : isRecord(value)
-      ? [value]
-      : []
-  const countEntry = entries.find((entry) => typeof entry.count === 'number')
-
+function rowToDisplayRow(row: StockistTableRow) {
   return {
-    count:
-      typeof countEntry?.count === 'number' ? countEntry.count : entries.length,
-    userIds: entries.flatMap((entry) =>
-      typeof entry.user_id === 'string' ? [entry.user_id] : [],
-    ),
-  }
-}
-
-function rowToDisplayRow(row: BrandChannelRow) {
-  const confirmations = confirmationDetails(row.brand_channel_confirmations)
-  return {
-    displayRow: {
-      id: row.id,
-      name: row.name,
-      channelType: row.channel_type,
-      regionLabel: row.region_label,
-      address: row.address,
-      url: row.url,
-      sourceUrl: row.source_url,
-      fetchedAt: row.fetched_at,
-      locationType: row.location_type,
-      country: row.country,
-      ownerStatus: row.owner_status,
-      source: row.source,
-      confirmationCount: confirmations.count,
-      removedAt: row.removed_at,
-    },
-    confirmationUserIds: confirmations.userIds,
+    id: row.id,
+    name: row.name,
+    regionLabel: row.region_label,
+    address: row.address,
+    url: row.url,
+    sourceUrl: row.source_url,
+    fetchedAt: row.fetched_at,
+    locationType: row.location_type,
+    country: row.country,
+    ownerStatus: row.owner_status,
+    ownerStatusBy: row.owner_status_by,
+    source: row.source,
+    removedAt: row.removed_at,
   }
 }
 
@@ -515,25 +483,24 @@ function isDuplicateNameError(
   )
 }
 
-async function countConfirmations(channelId: string): Promise<number> {
+/**
+ * How many stockists the brand page actually shows.
+ *
+ * `applyPublicStockistVisibility`, not a hand-written pair of filters: the cap
+ * this feeds is refused with 此品牌的實體通路已達上限, a sentence the reader
+ * checks against the list in front of them. Counting rows the public read hides
+ * — a pending community submission is hidden until an admin approves it — lets
+ * one signed-in account wedge any brand with 5 invisible submissions, locking
+ * out the brand's own owner against a page that lists three.
+ */
+async function countActiveStockists(brandId: string): Promise<number> {
   const supabase = createServiceClient()
-  const { count, error } = await supabase
-    .from('brand_channel_confirmations')
-    .select('id', { count: 'exact', head: true })
-    .eq('channel_id', channelId)
-
-  if (error) throw error
-  return count ?? 0
-}
-
-async function countActiveChannels(brandId: string): Promise<number> {
-  const supabase = createServiceClient()
-  const { count, error } = await supabase
-    .from('brand_channels')
-    .select('id', { count: 'exact', head: true })
-    .eq('brand_id', brandId)
-    .is('removed_at', null)
-    .neq('owner_status', 'rejected')
+  const { count, error } = await applyPublicStockistVisibility(
+    supabase
+      .from('brand_channels')
+      .select('id', { count: 'exact', head: true })
+      .eq('brand_id', brandId),
+  )
 
   if (error) throw error
   return count ?? 0
@@ -555,97 +522,77 @@ async function countRecentSubmissions(userId: string): Promise<number> {
   return count ?? 0
 }
 
-export async function getChannelsForBrand(
+/**
+ * The owner ids `groupStockistsForDisplay` needs to label THESE rows, or `[]`.
+ *
+ * `brandOwnerUserIds` reaches exactly one expression in that function —
+ * `brandOwnerUserIdSet.has(row.ownerStatusBy)`, short-circuited behind
+ * `ownerConfirmed && row.ownerStatusBy != null`. The predicate below is total
+ * over the same rows the badge is computed from, so the skip path cannot miss a
+ * case: when no row satisfies both conditions, the set was going to be built
+ * and never read. Production holds 0 owner-confirmed rows of 1,354 and staging
+ * 0 of 568, which is currently every brand page.
+ *
+ * A failed read degrades to `[]` rather than rejecting. Both directions are
+ * deliberate. The brand page 500s if this throws — all to choose between two
+ * badge labels — and `[]` makes `approvedByNonOwner` TRUE, so an owner-confirmed
+ * row renders 站方確認 (`confirmedBy: 'formoria'`) instead of 品牌確認. That is
+ * the humbler claim: understating who confirmed a shop is recoverable, printing
+ * a confirmation the brand never made is not.
+ *
+ * Exported with an injectable loader so the degrade path is testable:
+ * `check-test-boundaries.mjs` forbids mocking `@/lib/services/*`.
+ */
+export async function resolveBrandOwnerUserIds(
   brandId: string,
-  viewerUserId?: string,
-): Promise<ReturnType<typeof groupChannelsForDisplay>> {
+  rows: ReadonlyArray<{ ownerStatus: string; ownerStatusBy?: string | null }>,
+  loadOwners: (brandId: string) => Promise<string[]> = listBrandOwnerUserIds,
+): Promise<string[]> {
+  const needsOwners = rows.some(
+    (row) => row.ownerStatus === 'confirmed' && row.ownerStatusBy != null,
+  )
+  if (!needsOwners) return []
+
+  try {
+    return await loadOwners(brandId)
+  } catch (error) {
+    console.error('[stockists:owners]', error)
+    return []
+  }
+}
+
+export async function getStockistsForBrand(
+  brandId: string,
+): Promise<ReturnType<typeof groupStockistsForDisplay>> {
   const supabase = createServiceClient()
-  const { data, error } = await supabase
-    .from('brand_channels')
-    .select(CHANNEL_READ_SELECT)
-    .eq('brand_id', brandId)
-    .is('removed_at', null)
-    .neq('owner_status', 'rejected')
+  const { data, error } = await applyPublicStockistVisibility(
+    supabase
+      .from('brand_channels')
+      .select(STOCKIST_DETAIL_READ_SELECT)
+      .eq('brand_id', brandId),
+  )
 
   if (error) throw error
 
-  const rows = (data ?? []) as unknown as BrandChannelRow[]
-  const displayRows = rows.map((row) => rowToDisplayRow(row).displayRow)
-
-  let viewerConfirmedIds: string[] | undefined
-  if (viewerUserId) {
-    const channelIds = rows.map((row) => row.id)
-    if (channelIds.length > 0) {
-      const { data: viewerData, error: viewerError } = await supabase
-        .from('brand_channel_confirmations')
-        .select('channel_id')
-        .eq('user_id', viewerUserId)
-        .in('channel_id', channelIds)
-      if (viewerError) throw viewerError
-      viewerConfirmedIds = (viewerData ?? []).map(
-        (row) => (row as { channel_id: string }).channel_id,
-      )
-    } else {
-      viewerConfirmedIds = []
-    }
-  }
-
-  return groupChannelsForDisplay(displayRows, viewerConfirmedIds)
-}
-
-export async function confirmChannel(
-  userId: string,
-  channelId: string,
-): Promise<number> {
-  return auditedCall(
-    { provider: 'brands', operation: 'confirmChannel', kind: 'service' },
-    async () => {
-      const supabase = createServiceClient()
-
-      const { data: channel, error: lookupError } = await supabase
-        .from('brand_channels')
-        .select('id')
-        .eq('id', channelId)
-        .is('removed_at', null)
-        .neq('owner_status', 'rejected')
-        .maybeSingle()
-
-      // A failed lookup must surface as an action error; returning 0 here would read
-      // to the caller as a successful write that simply changed nothing.
-      if (lookupError) throw lookupError
-      // Genuine miss: the channel was removed or the owner rejected it.
-      if (!channel) return 0
-
-      const { error } = await supabase
-        .from('brand_channel_confirmations')
-        .upsert(
-          {
-            channel_id: channelId,
-            user_id: userId,
-          },
-          { onConflict: 'channel_id,user_id' },
-        )
-
-      if (error) throw error
-      return countConfirmations(channelId)
-    },
+  const displayRows = ((data ?? []) as unknown as StockistTableRow[]).map(
+    rowToDisplayRow,
   )
+  const brandOwnerUserIds = await resolveBrandOwnerUserIds(brandId, displayRows)
+
+  return groupStockistsForDisplay(displayRows, brandOwnerUserIds)
 }
 
-export async function submitChannel(
+export async function submitStockist(
   userId: string,
   brandId: string,
-  input: BrandChannelInput,
-): Promise<SubmitChannelResult> {
+  input: StockistInput,
+): Promise<SubmitStockistResult> {
   return auditedCall(
-    { provider: 'brands', operation: 'submitChannel', kind: 'service' },
+    { provider: 'brands', operation: 'submitStockist', kind: 'service' },
     async () => {
       const name = input.name.trim()
       if (name.length < 1 || name.length > 80) {
         return { ok: false, code: 'invalid_name' }
-      }
-      if (!isChannelType(input.channelType)) {
-        return { ok: false, code: 'invalid_channel_type' }
       }
 
       const url = trimNullable(input.url)
@@ -654,12 +601,18 @@ export async function submitChannel(
       }
 
       try {
-        if (
-          (await countActiveChannels(brandId)) >= MAX_ACTIVE_CHANNELS_PER_BRAND
-        ) {
+        // Two counts over different keys with no shared input: the successful
+        // path pays one round trip instead of two. The ORDER of the checks is
+        // preserved on purpose — a submission that trips both caps still
+        // reports `active_cap_reached`, which is the one the reader can act on.
+        const [activeStockists, recentSubmissions] = await Promise.all([
+          countActiveStockists(brandId),
+          countRecentSubmissions(userId),
+        ])
+        if (activeStockists >= MAX_ACTIVE_STOCKISTS_PER_BRAND) {
           return { ok: false, code: 'active_cap_reached' }
         }
-        if ((await countRecentSubmissions(userId)) >= MAX_SUBMISSIONS_PER_DAY) {
+        if (recentSubmissions >= MAX_SUBMISSIONS_PER_DAY) {
           return { ok: false, code: 'daily_cap_reached' }
         }
       } catch {
@@ -668,6 +621,14 @@ export async function submitChannel(
 
       const supabase = createServiceClient()
       const regionLabel = regionSlugToLabel(input.region)
+      // A row with no resolvable region is grouped as `overseas` for display, and
+      // the submit dialog only ever offers Taiwan regions — so an unresolved
+      // region here means a Taiwanese shop would publish under 海外. The dialog
+      // marks the field required, but `required` is a browser courtesy: this is
+      // the check a non-browser caller cannot skip.
+      if (regionLabel == null) {
+        return { ok: false, code: 'invalid_region' }
+      }
       const regionValue = input.region?.trim()
       const city =
         CITY_SLUGS.find((slug) => slug === regionValue) ??
@@ -677,8 +638,7 @@ export async function submitChannel(
       const insertPayload = {
         brand_id: brandId,
         name,
-        normalized_name: normalizeChannelName(name),
-        channel_type: input.channelType,
+        normalized_name: normalizeStockistName(name),
         region_label: regionLabel,
         address,
         url,
@@ -686,7 +646,7 @@ export async function submitChannel(
         source: 'community' as const,
         created_by: userId,
       }
-      const insertChannel = (includeDistrict: boolean) => {
+      const insertStockist = (includeDistrict: boolean) => {
         if (includeDistrict) {
           return supabase
             .from('brand_channels')
@@ -701,9 +661,9 @@ export async function submitChannel(
           .single()
       }
 
-      let insertResult = await insertChannel(district !== null)
+      let insertResult = await insertStockist(district !== null)
       if (isMissingDistrictColumnError(insertResult.error)) {
-        insertResult = await insertChannel(false)
+        insertResult = await insertStockist(false)
       }
       const { data, error } = insertResult
 
@@ -713,50 +673,41 @@ export async function submitChannel(
         return { ok: false, code: 'database_error' }
       }
 
-      const channelId = (data as { id?: unknown } | null)?.id
-      if (typeof channelId !== 'string') {
+      const stockistId = (data as { id?: unknown } | null)?.id
+      if (typeof stockistId !== 'string') {
         return { ok: false, code: 'database_error' }
       }
 
-      const { error: confirmationError } = await supabase
-        .from('brand_channel_confirmations')
-        .upsert(
-          {
-            channel_id: channelId,
-            user_id: userId,
-          },
-          { onConflict: 'channel_id,user_id' },
-        )
-
-      if (confirmationError) return { ok: false, code: 'database_error' }
-      return { ok: true, id: channelId }
+      // The row is invisible to the public until an admin approves it in
+      // `/admin/stockists`; nothing else happens at submit time.
+      return { ok: true, id: stockistId }
     },
   )
 }
 
-export async function setOwnerChannelStatus(
+export async function setOwnerStockistStatus(
   userId: string,
-  channelId: string,
+  stockistId: string,
   status: 'confirmed' | 'rejected',
-): Promise<ChannelActionResult> {
+): Promise<StockistActionResult> {
   return auditedCall(
-    { provider: 'brands', operation: 'setOwnerChannelStatus', kind: 'service' },
+    { provider: 'brands', operation: 'setOwnerStockistStatus', kind: 'service' },
     async () => {
       if (status !== 'confirmed' && status !== 'rejected') {
         return { ok: false, code: 'invalid_status' }
       }
 
       const supabase = createServiceClient()
-      const { data: channel, error: lookupError } = await supabase
+      const { data: stockist, error: lookupError } = await supabase
         .from('brand_channels')
         .select('brand_id, region_label')
-        .eq('id', channelId)
+        .eq('id', stockistId)
         .maybeSingle()
 
       if (lookupError) return { ok: false, code: 'database_error' }
-      if (!channel) return { ok: false, code: 'not_found' }
+      if (!stockist) return { ok: false, code: 'not_found' }
 
-      const { brand_id: brandId } = channel as unknown as ChannelLookupRow
+      const { brand_id: brandId } = stockist as unknown as StockistLookupRow
       if (!(await isOwnerOf(userId, brandId))) {
         return { ok: false, code: 'not_owner' }
       }
@@ -767,66 +718,170 @@ export async function setOwnerChannelStatus(
           owner_status: status,
           owner_status_by: userId,
         })
-        .eq('id', channelId)
+        .eq('id', stockistId)
 
       if (updateError) return { ok: false, code: 'database_error' }
       return {
         ok: true,
-        city: citySlugFromName((channel as ChannelLookupRow).region_label),
+        city: citySlugFromName((stockist as StockistLookupRow).region_label),
       }
     },
   )
 }
 
-export async function adminRemoveChannel(
-  channelId: string,
-  adminId: string,
-  adminEmail: string,
-): Promise<ChannelActionResult> {
+/**
+ * One community submission awaiting an admin decision.
+ *
+ * Flat and brand-joined on purpose: the queue is cross-brand, so a reviewer
+ * needs the brand beside the shop name to judge whether the claim is plausible
+ * at all.
+ */
+export type PendingStockist = {
+  id: string
+  brandId: string
+  brandSlug: string
+  brandName: string
+  name: string
+  regionLabel: string | null
+  address: string | null
+  url: string | null
+  submittedAt: string
+}
+
+type PendingStockistRow = {
+  id: string
+  brand_id: string
+  name: string
+  region_label: string | null
+  address: string | null
+  url: string | null
+  created_at: string
+  brands:
+    | { slug: string; name: string }
+    | Array<{ slug: string; name: string }>
+    | null
+}
+
+export type StockistReviewResult =
+  /**
+   * `brandId` travels with the slug because the caller audits the decision:
+   * `admin_audit_log.target_brand_id` is the column that survives a brand
+   * rename, and the row is the only record that a stranger's claim was
+   * published onto this brand.
+   */
+  | { ok: true; brandId: string; brandSlug: string; city: CitySlug | null }
+  | { ok: false; code: 'not_found' | 'invalid_status' | 'database_error' }
+
+/**
+ * The admin queue behind `/admin/stockists`.
+ *
+ * Exactly the rows `PENDING_COMMUNITY_EXCLUSION` hides from the public: a
+ * community submission with no decision on it. Anything an owner or an admin
+ * has already decided is out of the queue by construction, so a row cannot be
+ * approved twice.
+ */
+export async function listPendingCommunityStockists(): Promise<
+  PendingStockist[]
+> {
+  const supabase = createServiceClient()
+  const { data, error } = await applyPendingCommunityStockistFilter(
+    supabase
+      .from('brand_channels')
+      .select(
+        'id, brand_id, name, region_label, address, url, created_at, brands!inner(slug, name)',
+      ),
+  ).order('created_at', { ascending: true })
+
+  if (error) throw error
+
+  return ((data ?? []) as unknown as PendingStockistRow[]).flatMap((row) => {
+    const brand = Array.isArray(row.brands) ? row.brands.at(0) : row.brands
+    if (!brand) return []
+    return [
+      {
+        id: row.id,
+        brandId: row.brand_id,
+        brandSlug: brand.slug,
+        brandName: brand.name,
+        name: row.name,
+        regionLabel: row.region_label,
+        address: row.address,
+        url: row.url,
+        submittedAt: row.created_at,
+      },
+    ]
+  })
+}
+
+/**
+ * An admin's decision on a community submission.
+ *
+ * `owner_status_by` records the ADMIN, not the brand. That is what stops the
+ * public page from printing 品牌確認 over a row the brand never touched — see
+ * `groupStockistsForDisplay`, which reads exactly this field to choose between
+ * the owner and the Formoria label.
+ */
+export async function reviewCommunityStockist(
+  stockistId: string,
+  status: 'confirmed' | 'rejected',
+  adminUserId: string,
+): Promise<StockistReviewResult> {
   return auditedCall(
-    { provider: 'brands', operation: 'adminRemoveChannel', kind: 'service' },
+    {
+      provider: 'brands',
+      operation: 'reviewCommunityStockist',
+      kind: 'service',
+    },
     async () => {
+      if (status !== 'confirmed' && status !== 'rejected') {
+        return { ok: false, code: 'invalid_status' }
+      }
+
       const supabase = createServiceClient()
-      const { data, error } = await supabase
-        .from('brand_channels')
-        .update({
-          removed_at: new Date().toISOString(),
-          removed_by: adminId,
-        })
-        .eq('id', channelId)
-        .select('brand_id, region_label')
+      // The same three conditions the queue read and the queue badge use, from
+      // one definition: this is the write, so a forgotten `removed_at is null`
+      // here approves a tombstoned row straight onto a public brand page.
+      const { data, error } = await applyPendingCommunityStockistFilter(
+        supabase
+          .from('brand_channels')
+          .update({
+            owner_status: status,
+            owner_status_by: adminUserId,
+          })
+          .eq('id', stockistId),
+      )
+        .select('brand_id, region_label, brands!inner(slug)')
         .maybeSingle()
 
       if (error) return { ok: false, code: 'database_error' }
       if (!data) return { ok: false, code: 'not_found' }
 
-      const { brand_id: brandId } = data as unknown as ChannelLookupRow
-      await logAdminAction({
-        adminUserId: adminId,
-        adminEmail,
-        action: 'channel_removed',
-        targetBrandId: brandId,
-        metadata: { channelId },
-      })
+      const row = data as unknown as StockistLookupRow & {
+        brands: { slug: string } | Array<{ slug: string }> | null
+      }
+      const brand = Array.isArray(row.brands) ? row.brands.at(0) : row.brands
+      if (!brand) return { ok: false, code: 'not_found' }
 
       return {
         ok: true,
-        city: citySlugFromName((data as ChannelLookupRow).region_label),
+        brandId: row.brand_id,
+        brandSlug: brand.slug,
+        city: citySlugFromName(row.region_label),
       }
     },
   )
 }
 
-export function buildEnrichedChannelRows(candidates: ChannelCandidate[]): {
-  rows: EnrichedChannelRow[]
+export function buildEnrichedStockistRows(candidates: StockistCandidate[]): {
+  rows: EnrichedStockistRow[]
   invalidCount: number
 } {
-  const rows: EnrichedChannelRow[] = []
+  const rows: EnrichedStockistRow[] = []
   let invalidCount = 0
   for (const candidate of candidates) {
     const name = candidate.name.trim()
     const normalizedName =
-      candidate.normalizedName.trim() || normalizeChannelName(name)
+      candidate.normalizedName.trim() || normalizeStockistName(name)
     if (
       name.length < 1 ||
       name.length > 80 ||
@@ -840,7 +895,6 @@ export function buildEnrichedChannelRows(candidates: ChannelCandidate[]): {
     rows.push({
       name,
       normalized_name: normalizedName,
-      channel_type: candidate.channelType,
       region_label: trimNullable(candidate.regionLabel),
       address: trimNullable(candidate.address),
       url: trimNullable(candidate.url),
@@ -858,18 +912,18 @@ export function buildEnrichedChannelRows(candidates: ChannelCandidate[]): {
   return { rows, invalidCount }
 }
 
-export async function upsertEnrichedChannels(
+export async function upsertEnrichedStockists(
   brandId: string,
-  candidates: ChannelCandidate[],
-): Promise<EnrichedChannelsResult> {
+  candidates: StockistCandidate[],
+): Promise<EnrichedStockistsResult> {
   return auditedCall(
     {
       provider: 'brands',
-      operation: 'upsertEnrichedChannels',
+      operation: 'upsertEnrichedStockists',
       kind: 'service',
     },
     async () => {
-      const { rows, invalidCount } = buildEnrichedChannelRows(candidates)
+      const { rows, invalidCount } = buildEnrichedStockistRows(candidates)
 
       if (rows.length === 0) {
         return invalidCount > 0

@@ -22,6 +22,13 @@ export type AdminAction =
   | 'curated_product_source_retired'
   | 'curated_product_selection_placed'
   | 'curated_product_selection_retired'
+  // Editorial decisions on community stockist submissions (DEV-1513):
+  // approving one publishes a stranger's claim about a shop onto a live brand
+  // page, and rejecting one keeps that claim out of the directory for good.
+  // Same class of decision as the curated-product pair above, and the ONLY
+  // record of who decided — the row itself keeps just `owner_status_by`.
+  | 'stockist_approved'
+  | 'stockist_rejected'
 
 export type LogAdminActionParams = {
   adminUserId: string
