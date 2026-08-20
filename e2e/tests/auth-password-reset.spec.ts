@@ -63,6 +63,15 @@ test.describe('Auth — forgot password request', () => {
   });
 
   test('sign-in page links to the forgot-password form', async ({ anonPage }) => {
+    // `sign-in-form.tsx` renders the forgot-password link only when
+    // `NEXT_PUBLIC_DEPLOYMENT_ENV !== "staging"`, so on the one environment this
+    // suite is allowed to target the link under test does not exist. Only the
+    // LINK is hidden — `/auth/forgot-password` itself still serves on staging,
+    // which is why the validation test below this one keeps running there.
+    test.skip(
+      process.env.FORMORIA_DEPLOYMENT_ENV === 'staging',
+      'staging hides the Google button and the forgot-password link',
+    );
     // Auth pages can cold-compile slowly in dev.
     test.setTimeout(BUDGET.TEST.ADMIN);
     await anonPage.goto('/auth/sign-in');

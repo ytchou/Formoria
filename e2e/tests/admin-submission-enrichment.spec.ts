@@ -173,7 +173,8 @@ test.describe("Admin submission enrichment lifecycle", () => {
           blurb: "完整品牌摘要",
           hero_image_url: imageUrls[0],
           category: "bags-accessories",
-          subcategories: ["手工包袋"],
+          // Slug, not the zh-TW label — DEV-1510 closed the vocabulary.
+          subcategories: ["handbags"],
           subcategories_en: ["Handmade Bags"],
           price_range: 2,
           purchase_website: "https://e2e-submission.example.com",
@@ -270,7 +271,13 @@ test.describe("Admin submission enrichment lifecycle", () => {
     expect(brand?.status).toBe("approved");
     expect(brand?.description_en).toBe("Complete enriched brand profile.");
     expect(brand?.blurb).toBe("完整品牌摘要");
-    expect(brand?.subcategories_en).toEqual(["Handmade Bags"]);
+    // "Handbags", not the submission's "Handmade Bags": since DEV-1510 made
+    // storage slug-native, approval DERIVES the English names from the ontology
+    // (`handbags` -> `nameEn`) instead of carrying the submitted free text
+    // through. The blob above still supplies `subcategories_en`, deliberately —
+    // asserting the derived value over a different submitted one is what proves
+    // the derivation actually runs rather than the input happening to match.
+    expect(brand?.subcategories_en).toEqual(["Handbags"]);
 
     const [{ count: stagedCount }, { data: promotedImages }] =
       await Promise.all([

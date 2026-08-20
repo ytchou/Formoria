@@ -26,8 +26,19 @@ export default async function SectionBand() {
   return (
     <section className="bg-surface py-section">
       <div className="page-shell">
+        {/* `min-w-0` on the items is load-bearing (DEV-1489). A grid item's
+            automatic minimum size is its content's min-content width, and the
+            newsletter column holds an `overflow-x-auto` chip row whose four
+            `shrink-0` chips measure 398px — wider than the 345px this shell
+            leaves at 393px. The item sized to the chips instead of the track, so
+            the scroll container never got to scroll and the PAGE scrolled
+            sideways instead (mobile.spec.ts read body.scrollWidth 422 against a
+            393px viewport). Putting `min-w-0` on the chip row does NOT fix it —
+            measured, it stays 422; the automatic minimum lives on the grid item.
+            Both columns carry it so the next block dropped into either one
+            cannot reintroduce the same overflow. */}
         <div className="grid gap-stack md:grid-cols-2 md:gap-16 items-start">
-          <div>
+          <div className="min-w-0">
             <h2 className="type-section">{tRecommend('headline')}</h2>
             <p className="mt-3 max-w-xl type-body-sm">{tRecommend('body')}</p>
             <div className="mt-6 flex flex-wrap gap-3">
@@ -47,7 +58,7 @@ export default async function SectionBand() {
           </div>
 
           {/* Newsletter */}
-          <div>
+          <div className="min-w-0">
             <h2 className="type-section">{tNewsletter('heading')}</h2>
             <p className="mt-3 type-body-sm">{tNewsletter('subtext')}</p>
             <div className="mt-6">
