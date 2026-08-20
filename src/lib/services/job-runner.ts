@@ -32,6 +32,7 @@ import {
 } from "@/lib/services/curation-jobs";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { Json } from "@/lib/supabase/database.types";
+import type { BrandStatus } from "@/lib/types";
 import type {
   CurationTargetProgressEvent,
   PhaseResult,
@@ -50,7 +51,6 @@ type OperationSupabase = Parameters<typeof runEnrich>[1];
 type ValidOperation = "enrich";
 type EnrichPhase = (typeof ENRICH_PHASES)[number];
 type EnrichTarget = "brands" | "submissions";
-type BrandStatus = "approved" | "hidden";
 
 type JobParams = {
   slugs?: string[];

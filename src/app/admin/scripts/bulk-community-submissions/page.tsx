@@ -1,18 +1,26 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { CommunitySubmissionsTable } from "@/components/admin/community-submissions-table";
+import { MAX_COMMUNITY_SUBMISSIONS } from "@/lib/services/community-submissions.constants";
 
 export const metadata: Metadata = {
   title: "Bulk Community Submissions | Admin",
 };
 
-export default function CommunitySubmissionsPage() {
+export default async function CommunitySubmissionsPage() {
+  const t = await getTranslations("admin.scripts.bulkSubmissions");
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="type-label">Bulk community submissions</h1>
+        <h1 className="type-label">{t("title")}</h1>
+        {/*
+          Reads the same constant the upload badge does. The copy used to say a
+          hardcoded "100" while the badge two elements away rendered "Up to 500
+          rows" from `MAX_COMMUNITY_SUBMISSIONS` — the page contradicted itself.
+        */}
         <p className="mt-1 type-body-sm">
-          Preview and import up to 100 brand recommendations. Exact duplicates
-          are blocked; similar matches require an explicit override.
+          {t("description", { max: MAX_COMMUNITY_SUBMISSIONS })}
         </p>
       </div>
       <CommunitySubmissionsTable />

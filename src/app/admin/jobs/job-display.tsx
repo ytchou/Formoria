@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import type {
   CurationJob,
@@ -58,12 +59,18 @@ export function targetStatusLabel(status: CurationTargetStatus): string {
 }
 
 export function JobStatusBadge({ job }: { job: CurationJob }) {
+  const t = useTranslations("admin.jobs");
+
   if (job.dispatch_status === "failed") {
-    return <Badge variant="destructive">Dispatch failed</Badge>;
+    return <Badge variant="destructive">{t("status.dispatchFailed")}</Badge>;
   }
 
   if (job.status === "completed" && job.failed_count > 0) {
-    return <Badge className="bg-warning/10 text-warning">Completed with failures</Badge>;
+    return (
+      <Badge className="bg-warning/10 text-warning">
+        {t("status.completedWithFailures")}
+      </Badge>
+    );
   }
 
   const statusMap: Record<string, { label: string; variant: "secondary" | "verified" | "destructive" }> = {

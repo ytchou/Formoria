@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Download } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { NewsletterSubscribersList } from "@/components/admin/newsletter-subscribers";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataCard } from "@/components/ui/card";
@@ -24,6 +25,7 @@ export default async function AdminNewsletterPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await getTranslations("admin.newsletter");
   const params = await searchParams;
   const filters = parseAdminNewsletterFilters({
     q: first(params.q),
@@ -44,8 +46,8 @@ export default async function AdminNewsletterPage({
   } catch (error) {
     return (
       <div className="space-y-3">
-        <h1 className="type-label">Newsletter</h1>
-        <p className="type-metadata text-danger">{error instanceof Error ? error.message : "Newsletter data is unavailable"}</p>
+        <h1 className="type-label">{t("title")}</h1>
+        <p className="type-metadata text-danger">{error instanceof Error ? error.message : t("unavailable")}</p>
       </div>
     );
   }
@@ -58,15 +60,15 @@ export default async function AdminNewsletterPage({
       <div className="space-y-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="type-label">Newsletter</h1>
-            <p className="mt-1 type-body-sm">Manage consented subscribers without exposing email action tokens.</p>
+            <h1 className="type-label">{t("title")}</h1>
+            <p className="mt-1 type-body-sm">{t("description")}</p>
           </div>
           <a
             href={`${routes.admin.newsletterExport()}${exportParams.size ? `?${exportParams}` : ""}`}
             className={buttonVariants({ variant: "secondary", size: "large", className: "min-h-12" })}
           >
             <Download aria-hidden="true" />
-            Export CSV
+            {t("exportCsv")}
           </a>
         </div>
 
@@ -80,31 +82,31 @@ export default async function AdminNewsletterPage({
 
         <form className="grid gap-3 rounded-[3px] border border-rule bg-surface p-4 lg:grid-cols-[minmax(260px,1fr)_220px_220px_auto] lg:items-end">
           <Label className="space-y-1 type-body-sm font-medium text-ink">
-            Search
-            <Input name="q" defaultValue={filters.q ?? ""} placeholder="Email or name" />
+            {t("filters.search")}
+            <Input name="q" defaultValue={filters.q ?? ""} placeholder={t("filters.searchPlaceholder")} />
           </Label>
           <Label className="space-y-1 type-body-sm font-medium text-ink">
-            Status
+            {t("filters.status")}
             <NativeSelect name="status" defaultValue={filters.status ?? ""}>
-              <option value="">All statuses</option>
-              <option value="active">Active</option>
-              <option value="pending">Pending</option>
-              <option value="unsubscribed">Unsubscribed</option>
+              <option value="">{t("filters.allStatuses")}</option>
+              <option value="active">{t("filters.active")}</option>
+              <option value="pending">{t("filters.pending")}</option>
+              <option value="unsubscribed">{t("filters.unsubscribed")}</option>
             </NativeSelect>
           </Label>
           <Label className="space-y-1 type-body-sm font-medium text-ink">
-            Interest
+            {t("filters.interest")}
             <NativeSelect name="interest" defaultValue={filters.interest ?? ""}>
-              <option value="">All interests</option>
+              <option value="">{t("filters.allInterests")}</option>
               {VALID_INTERESTS.map((interest) => <option key={interest} value={interest}>{interest}</option>)}
             </NativeSelect>
           </Label>
-          <Button type="submit" variant="secondary" className="min-h-12">Apply filters</Button>
+          <Button type="submit" variant="secondary" className="min-h-12">{t("filters.apply")}</Button>
         </form>
 
         <NewsletterSubscribersList subscribers={page.subscribers} />
         {(page.previousCursor || page.nextCursor) ? (
-          <nav aria-label="Newsletter pagination" className="flex justify-between gap-3">
+          <nav aria-label={t("pagination")} className="flex justify-between gap-3">
             <PaginationLink label="Newer" cursor={page.previousCursor} direction="previous" filters={filters} />
             <PaginationLink label="Older" cursor={page.nextCursor} direction="next" filters={filters} />
           </nav>

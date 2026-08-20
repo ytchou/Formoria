@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { auditedCall } from "@/lib/audit";
 import { DataCard, SurfaceCard } from "@/components/ui/card";
 import {
@@ -96,6 +97,7 @@ function ProgressBar({ value, label }: ProgressBarProps) {
 }
 
 export default async function AdminQualityPage() {
+  const t = await getTranslations("admin.quality");
   const metrics = await getCachedMetrics();
   const distributionTotal = Object.values(metrics.completeness).reduce(
     (total, count) => total + count,
@@ -105,11 +107,8 @@ export default async function AdminQualityPage() {
 
   return (
     <div>
-      <h1 className="type-label">Quality Dashboard</h1>
-      <p className="mt-2 text-ink-muted">
-        Track brand data quality for images, links, descriptions, and
-        completeness.
-      </p>
+      <h1 className="type-label">{t("title")}</h1>
+      <p className="mt-2 text-ink-muted">{t("description")}</p>
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         <DataCard
@@ -125,7 +124,7 @@ export default async function AdminQualityPage() {
         </DataCard>
 
         <SurfaceCard padding="sm">
-          <h2 className="type-metadata">Link Coverage</h2>
+          <h2 className="type-metadata">{t("linkCoverage")}</h2>
           <div className="mt-4 space-y-4">
             {linkRows.map((row) => {
               const metric = metrics.links[row.key];
@@ -163,7 +162,7 @@ export default async function AdminQualityPage() {
         </DataCard>
 
         <SurfaceCard padding="sm">
-          <h2 className="type-metadata">Completeness Distribution</h2>
+          <h2 className="type-metadata">{t("completenessDistribution")}</h2>
           <div className="mt-4 space-y-4">
             {distributionRows.map((row) => {
               const count = metrics.completeness[row.key];
@@ -193,7 +192,7 @@ export default async function AdminQualityPage() {
         </SurfaceCard>
 
         <SurfaceCard padding="sm" className="md:col-span-2">
-          <h2 className="type-metadata">Enrichment Quality</h2>
+          <h2 className="type-metadata">{t("enrichmentQuality")}</h2>
           <div className="mt-4 space-y-4">
             {enrichmentRows.map((row) => {
               const value = metrics.enrichment[row.key];
@@ -218,13 +217,13 @@ export default async function AdminQualityPage() {
 
             <div className="grid gap-4 border-t border-rule pt-4 sm:grid-cols-2">
               <div>
-                <p className="type-body-sm font-medium text-ink">Promo hero images</p>
+                <p className="type-body-sm font-medium text-ink">{t("promoHeroImages")}</p>
                 <p className="mt-1 type-section tabular-nums">
                   {metrics.enrichment.promoHeroCount}
                 </p>
               </div>
               <div>
-                <p className="type-body-sm font-medium text-ink">Validation failures</p>
+                <p className="type-body-sm font-medium text-ink">{t("validationFailures")}</p>
                 <p className="mt-1 type-section tabular-nums">
                   {metrics.enrichment.validationFailures}
                 </p>

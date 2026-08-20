@@ -2,12 +2,14 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { DatabaseZap } from "lucide-react";
 import { toast } from "sonner";
 import { startNeedsDataSubmissionEnrichmentAction } from "@/app/admin/operations/actions";
 import { Button } from "@/components/ui/button";
 
 export function AdminQuickActions({ needsDataCount }: { needsDataCount: number | null }) {
+  const t = useTranslations("admin.dashboard");
   const [isEnriching, startEnrichment] = useTransition();
   const router = useRouter();
 
@@ -35,7 +37,9 @@ export function AdminQuickActions({ needsDataCount }: { needsDataCount: number |
         variant="secondary"
       >
         <DatabaseZap aria-hidden="true" />
-        {isEnriching ? "Starting enrichment…" : "Enrich needs-data submissions"}
+        {isEnriching
+          ? t("quickActions.enriching")
+          : t("quickActions.enrichNeedsData")}
       </Button>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 import { cancelCurationJobAction } from "@/app/admin/operations/actions";
@@ -12,6 +13,7 @@ export function CancelJobButton({ jobId }: { jobId: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const router = useRouter();
+  const t = useTranslations("admin.jobs");
 
   async function handleCancel() {
     setIsPending(true);
@@ -38,12 +40,12 @@ export function CancelJobButton({ jobId }: { jobId: string }) {
         variant="secondary"
       >
         <X aria-hidden="true" />
-        Cancel job
+        {t("actions.cancelJob")}
       </Button>
       <ConfirmDialog
         open={isOpen}
         onOpenChange={setIsOpen}
-        title="Cancel this job?"
+        title={t("actions.cancelConfirmTitle")}
         description="The worker will stop before the next canonical write. A provider request already in progress may still finish, but its result will not be applied."
         onConfirm={handleCancel}
         confirmLabel="Cancel job"

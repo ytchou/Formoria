@@ -28,9 +28,6 @@ const USER_FACING_ATTRIBUTES = new Set([
 ]);
 
 const ALLOWLIST = [
-  // Admin surface is intentionally single-locale (Chinese-only).
-  "components/admin/",
-  "app/admin/",
   // Email copy lives in-file and is locale-branched inside the template.
   "lib/email/templates.ts",
   // Language endonyms (中文 / English) — correct in both locales.

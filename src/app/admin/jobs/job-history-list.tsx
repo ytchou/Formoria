@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { CurationJob } from "@/lib/services/curation-jobs";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -45,6 +46,7 @@ export function JobHistoryList({
   previousCursor?: string | null;
   railwayLogsUrl?: string;
 }) {
+  const t = useTranslations("admin.jobs");
   const hasActiveJob = initialJobs.some(
     (job) => job.status === "pending" || job.status === "running",
   );
@@ -65,7 +67,7 @@ export function JobHistoryList({
             })}
           >
             <ExternalLink aria-hidden="true" />
-            Railway Logs
+            {t("actions.railwayLogs")}
           </a>
         </div>
       ) : null}
@@ -74,15 +76,15 @@ export function JobHistoryList({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Created</TableHead>
-              <TableHead>Started</TableHead>
-              <TableHead>Trigger</TableHead>
-              <TableHead>Attempt</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Progress</TableHead>
-              <TableHead>Outcome</TableHead>
-              <TableHead>Duration</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>{t("history.table.created")}</TableHead>
+              <TableHead>{t("history.table.started")}</TableHead>
+              <TableHead>{t("history.table.trigger")}</TableHead>
+              <TableHead>{t("history.table.attempt")}</TableHead>
+              <TableHead>{t("history.table.status")}</TableHead>
+              <TableHead>{t("history.table.progress")}</TableHead>
+              <TableHead>{t("history.table.outcome")}</TableHead>
+              <TableHead>{t("history.table.duration")}</TableHead>
+              <TableHead>{t("history.table.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -92,7 +94,7 @@ export function JobHistoryList({
                   colSpan={9}
                   className="py-8 text-center text-ink-muted"
                 >
-                  No data jobs yet.
+                  {t("history.empty")}
                 </TableCell>
               </TableRow>
             ) : (
@@ -135,7 +137,10 @@ export function JobHistoryList({
         </Table>
       </div>
       {previousCursor || nextCursor ? (
-        <nav aria-label="Data jobs pagination" className="flex justify-between gap-3">
+        <nav
+          aria-label={t("history.pagination")}
+          className="flex justify-between gap-3"
+        >
           <CursorLink cursor={previousCursor} direction="previous" label="Newer" />
           <CursorLink cursor={nextCursor} direction="next" label="Older" />
         </nav>

@@ -2,7 +2,7 @@ export const RUNLOG_SCHEMA_VERSION = '1.0'
 
 export type RunStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'unknown'
 export type PhaseStatus = 'pending' | 'running' | 'succeeded' | 'failed' | 'skipped' | 'unknown'
-export type EventStatus = 'ok' | 'error' | 'warning' | 'unknown'
+export type StepEventStatus = 'ok' | 'error' | 'warning' | 'unknown'
 export type ActorKind = 'LLM' | 'HTTP' | 'SCRAPE' | 'DB' | 'STORAGE' | 'SCRIPT' | 'AGENT' | 'SYSTEM'
 export type PhaseKind = 'setup' | 'search' | 'llm' | 'scrape' | 'transform' | 'io' | 'persist' | 'mixed' | 'unknown'
 
@@ -28,7 +28,7 @@ export type StepEvent = {
   actor: ActorKind
   name?: string
   summary: string
-  status: EventStatus
+  status: StepEventStatus
   model?: string
   tokens?: TokenUsage
   latencyMs?: number

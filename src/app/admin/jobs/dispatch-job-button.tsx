@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Play } from "lucide-react";
 import { toast } from "sonner";
 import { dispatchCurationJobAction } from "@/app/admin/operations/actions";
@@ -16,6 +17,7 @@ export function DispatchJobButton({
 }) {
   const [isPending, setIsPending] = useState(false);
   const router = useRouter();
+  const t = useTranslations("admin.jobs");
   async function handleDispatch() {
     setIsPending(true);
     try {
@@ -41,7 +43,7 @@ export function DispatchJobButton({
       variant="secondary"
     >
       <Play aria-hidden="true" />
-      {isPending ? "Dispatching…" : label}
+      {isPending ? t("actions.dispatching") : label}
     </Button>
   );
 }

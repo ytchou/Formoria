@@ -84,7 +84,11 @@ test.describe('Content moderation flow', () => {
         status: 'approved',
         approved_at: new Date().toISOString(),
         category: 'crafts',
-        subcategories: ['木工'],
+        // Slug, not the zh-TW label: this writes straight into `brands`, so it
+        // bypasses every conversion path. `brands.subcategories` has no CHECK
+        // constraint, so a label would insert cleanly and then match no facet,
+        // no L2 page and no `?sub=`. `木工` is a `woodcraft` alias (DEV-1510).
+        subcategories: ['woodcraft'],
         price_range: 2,
         founding_year: 2020,
         description: cleanDescription,

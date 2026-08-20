@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { useParams } from 'next/navigation'
 import { X } from 'lucide-react'
 import { useMounted } from '@/hooks/use-mounted'
+import type { MitStatus } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { SurfaceCard } from '@/components/ui/card'
@@ -29,7 +30,7 @@ type MitScope = 'all' | 'most' | 'some'
 type InlineVerificationProps = {
   brandId: string
   embedded?: boolean
-  mitStatus: 'unverified' | 'declared' | 'verified'
+  mitStatus: MitStatus
   mitEvidence?: { mit_smile_cert?: string; mit_smile_listed?: boolean }
   mitDeclaredScope?: MitScope | null
   mitDeclaredAt?: string | null

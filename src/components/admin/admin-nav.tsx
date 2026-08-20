@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { routes } from "@/lib/routes";
 
@@ -17,6 +18,7 @@ type AdminNavProps = {
 
 export function AdminNav({ items }: AdminNavProps) {
   const pathname = usePathname();
+  const t = useTranslations("admin.common");
 
   function isActive(href: string) {
     if (href === routes.admin.index()) return pathname === routes.admin.index();
@@ -25,7 +27,7 @@ export function AdminNav({ items }: AdminNavProps) {
 
   return (
     <nav
-      aria-label="Admin main navigation"
+      aria-label={t("navLabel")}
       className="mt-6 overflow-x-auto border-b border-rule"
     >
       <div className="flex min-w-max gap-1">

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { isInteractiveTableTarget } from "@/components/admin/brand-detail-sheet";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ export function ReviewQueueTable<T>(props: {
     rowClassName,
     error,
   } = props;
+  const t = useTranslations("admin.queue");
   const visibleColumns = columns.filter(
     (column) => column.visibleOn?.(queue.activeTab) ?? true,
   );
@@ -136,11 +138,11 @@ export function ReviewQueueTable<T>(props: {
               ))}
               {rowActions ? (
                 <TableHead className="h-12 text-right">
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{t("actionsHeader")}</span>
                 </TableHead>
               ) : null}
               <TableHead className="h-12">
-                <span className="sr-only">Details</span>
+                <span className="sr-only">{t("detailsHeader")}</span>
               </TableHead>
             </TableRow>
           </TableHeader>

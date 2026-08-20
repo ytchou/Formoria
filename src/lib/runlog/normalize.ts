@@ -2,7 +2,6 @@ import {
   RUNLOG_SCHEMA_VERSION,
   type ActorKind,
   type CostEstimate,
-  type EventStatus,
   type Phase,
   type PhaseKind,
   type PhaseStatus,
@@ -13,6 +12,7 @@ import {
   type RunSummary,
   type RunStatus,
   type StepEvent,
+  type StepEventStatus,
   type SummaryChip,
   type TokenUsage,
 } from './schema'
@@ -21,7 +21,7 @@ type UnknownRecord = Record<string, unknown>
 
 const RUN_STATUSES = new Set<RunStatus>(['queued', 'running', 'completed', 'failed', 'cancelled', 'unknown'])
 const PHASE_STATUSES = new Set<PhaseStatus>(['pending', 'running', 'succeeded', 'failed', 'skipped', 'unknown'])
-const EVENT_STATUSES = new Set<EventStatus>(['ok', 'error', 'warning', 'unknown'])
+const EVENT_STATUSES = new Set<StepEventStatus>(['ok', 'error', 'warning', 'unknown'])
 const ACTORS = new Set<ActorKind>(['LLM', 'HTTP', 'SCRAPE', 'DB', 'STORAGE', 'SCRIPT', 'AGENT', 'SYSTEM'])
 const PHASE_KINDS = new Set<PhaseKind>([
   'setup',

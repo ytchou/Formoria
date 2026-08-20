@@ -112,6 +112,7 @@ export default async function SubcategoryPage({ params, searchParams }: Subcateg
       page={parsed.page}
       sort={parsed.sort}
       canonical={directorySeo.canonical}
+      indexable={directorySeo.robots?.index !== false}
       isCategoryRoute
     />
   )
