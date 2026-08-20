@@ -389,16 +389,150 @@ function databaseIsFresh(target: DeploymentTarget): boolean {
   throw new Error("Could not determine remote migration state");
 }
 
-// `--include-all` is required here, not a convenience. A migration that must
-// land *after* the deploy which stops reading its objects gets held back by
-// hand, and that leaves a hole in the remote ledger. `supabase db push` then
-// refuses to insert anything before the last applied migration, so one
-// held-back file wedges `preDeployCommand` permanently — and the deploy that
-// would make the migration safe to apply is exactly what can no longer run
-// (DEV-1533). Out-of-order merges on a shared trunk open the same hole without
-// anyone holding anything back deliberately.
-function migrationCheck(target: DeploymentTarget): void {
+/**
+ * The version Supabase records in its ledger: the digits before the first `_`.
+ * A migration file that does not carry one would never be applied and would
+ * never appear in the ledger, so it is a repo error rather than a skip.
+ */
+export function migrationVersion(fileName: string): string {
+  const match = /^(\d+)_/.exec(fileName);
+  if (!match?.[1]) {
+    throw new Error(`Migration file is missing a version prefix: ${fileName}`);
+  }
+  return match[1];
+}
+
+/**
+ * The two ways a migration ledger can disagree with the commit being deployed.
+ *
+ * `pending` — a local file with no ledger row. Work this deploy must do.
+ * `remoteAhead` — a ledger row with no local file, because the migration was
+ * pushed to the database from a branch that has not merged yet.
+ */
+export function migrationLedgerDiff(
+  localVersions: string[],
+  remoteVersions: string[],
+): { pending: string[]; remoteAhead: string[] } {
+  const remote = new Set(remoteVersions);
+  const local = new Set(localVersions);
+  return {
+    pending: localVersions.filter((version) => !remote.has(version)).sort(),
+    remoteAhead: remoteVersions.filter((version) => !local.has(version)).sort(),
+  };
+}
+
+export type MigrationPushPlan = {
+  pending: string[];
+  remoteAhead: string[];
+  action: "push" | "skip";
+};
+
+/**
+ * Decide whether this deploy has migrations to apply.
+ *
+ * A ledger that is *ahead* of the commit is not a reason to abort. The database
+ * already has those changes; refusing the deploy only keeps OLDER code serving
+ * against that same schema while everything else stops shipping. Ten of the
+ * twenty staging deploy failures up to 2026-08-20 died exactly here, and every
+ * one of them had nothing to apply (DEV-1534).
+ *
+ * `--include-all` covers the opposite hole: a migration held back for deploy
+ * ordering leaves a gap, and `supabase db push` refuses to insert anything
+ * before the last applied migration unless told to (DEV-1533).
+ *
+ * The CLI has no flag for a remote-only version — it refuses before it looks at
+ * anything else — so when both lists are non-empty we still cannot push, and we
+ * name the versions instead of leaving the CLI to suggest `migration repair`.
+ * That combination has not occurred; if it starts to, the upgrade path is to
+ * apply `pending` through psql and write the ledger rows directly rather than
+ * shelling out to `db push`.
+ */
+export function migrationPushPlan(
+  localVersions: string[],
+  remoteVersions: string[],
+): MigrationPushPlan {
+  const { pending, remoteAhead } = migrationLedgerDiff(
+    localVersions,
+    remoteVersions,
+  );
+  if (pending.length > 0 && remoteAhead.length > 0) {
+    throw new Error(
+      `Migration ledger is ahead of this commit and ${pending.length} migration(s) still need applying. ` +
+        `Applied without a local file: ${remoteAhead.join(", ")}. ` +
+        `Waiting to apply: ${pending.join(", ")}. ` +
+        "Merge the branch that owns the first list, then redeploy.",
+    );
+  }
+  return {
+    pending,
+    remoteAhead,
+    action: pending.length > 0 ? "push" : "skip",
+  };
+}
+
+function localMigrationVersions(): string[] {
+  return readdirSync(MIGRATIONS)
+    .filter((file) => file.endsWith(".sql"))
+    .map(migrationVersion);
+}
+
+export function parseVersionRows(result: string): string[] {
+  let parsed: { rows?: Array<Record<string, unknown>> };
+  try {
+    parsed = JSON.parse(result) as { rows?: Array<Record<string, unknown>> };
+  } catch {
+    throw new Error("Could not read the migration ledger as JSON");
+  }
+  if (!Array.isArray(parsed.rows)) {
+    throw new Error("Could not read migration versions from the ledger JSON");
+  }
+  return parsed.rows.map((row) => {
+    const version = row.version;
+    if (typeof version !== "string") {
+      throw new Error("The migration ledger returned a non-text version");
+    }
+    return version;
+  });
+}
+
+function remoteMigrationVersions(target: DeploymentTarget): string[] {
+  const state = query(
+    target,
+    "select case when to_regclass('supabase_migrations.schema_migrations') is null then 'FORMORIA_NO_LEDGER' else 'FORMORIA_LEDGER' end as ledger_state;",
+  );
+  if (state.includes("FORMORIA_NO_LEDGER")) return [];
+  return parseVersionRows(
+    query(
+      target,
+      "select version::text as version from supabase_migrations.schema_migrations order by version;",
+    ),
+  );
+}
+
+function reportRemoteAhead(
+  target: DeploymentTarget,
+  remoteAhead: string[],
+): void {
+  if (remoteAhead.length === 0) return;
+  console.warn(
+    `WARNING: ${remoteAhead.length} migration(s) are applied to ${target.environment} ` +
+      `but have no file on this commit: ${remoteAhead.join(", ")}. ` +
+      "They were pushed from a branch that has not merged yet.",
+  );
+}
+
+function migrationCheck(target: DeploymentTarget): MigrationPushPlan {
   supabase(["migration", "list", "--db-url", target.databaseUrl]);
+  const plan = migrationPushPlan(
+    localMigrationVersions(),
+    remoteMigrationVersions(target),
+  );
+  reportRemoteAhead(target, plan.remoteAhead);
+  if (plan.action === "skip") {
+    console.log("No migrations to apply.");
+    return plan;
+  }
+  console.log(`Migrations to apply: ${plan.pending.join(", ")}`);
   supabase([
     "db",
     "push",
@@ -407,6 +541,7 @@ function migrationCheck(target: DeploymentTarget): void {
     "--dry-run",
     "--include-all",
   ]);
+  return plan;
 }
 
 export function resultCount(result: string, column: string): number {
@@ -430,7 +565,6 @@ function verify(target: DeploymentTarget, includeSchemaDiff: boolean): void {
   const invariants = query(
     target,
     `select
-       (select count(*) from supabase_migrations.schema_migrations) as migration_count,
        (select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) as public_tables_without_rls,
        (select count(*) from storage.buckets) as storage_bucket_count,
        (select count(*) from pg_extension) as extension_count,
@@ -442,20 +576,31 @@ function verify(target: DeploymentTarget, includeSchemaDiff: boolean): void {
             else (select count(*) from cron.job where active)
        end as active_cron_jobs;`,
   );
-  const expectedMigrations = readdirSync(MIGRATIONS).filter((file) =>
-    file.endsWith(".sql"),
-  ).length;
-  const actualMigrations = resultCount(invariants, "migration_count");
   const publicTablesWithoutRls = resultCount(
     invariants,
     "public_tables_without_rls",
   );
   const storageBuckets = resultCount(invariants, "storage_bucket_count");
   const extensions = resultCount(invariants, "extension_count");
-  if (actualMigrations !== expectedMigrations) {
+  // Containment, not equality. Every local migration must be applied; a ledger
+  // row with no local file means an unmerged branch pushed to this database,
+  // which is tolerable on the shared staging target and never on production.
+  const ledger = migrationLedgerDiff(
+    localMigrationVersions(),
+    remoteMigrationVersions(target),
+  );
+  if (ledger.pending.length > 0) {
     throw new Error(
-      `Database verification failed: expected ${expectedMigrations} migrations, found ${actualMigrations}`,
+      `Database verification failed: ${ledger.pending.length} migration(s) are not applied: ${ledger.pending.join(", ")}`,
     );
+  }
+  if (ledger.remoteAhead.length > 0) {
+    if (target.environment === "production") {
+      throw new Error(
+        `Database verification failed: ${ledger.remoteAhead.length} ledger row(s) have no migration file: ${ledger.remoteAhead.join(", ")}`,
+      );
+    }
+    reportRemoteAhead(target, ledger.remoteAhead);
   }
   if (publicTablesWithoutRls !== 0) {
     throw new Error(
@@ -516,10 +661,18 @@ async function main(): Promise<void> {
       const fresh = databaseIsFresh(target);
       const safety = migrationSafetyPlan(target, fresh);
       if (safety.bootstrapStaging) queryFile(target, STAGING_BOOTSTRAP);
-      migrationCheck(target);
-      // Flags must match the dry-run in migrationCheck exactly. A check that
-      // pushes a different set from the real push is not a check.
-      supabase(["db", "push", "--db-url", target.databaseUrl, "--include-all"]);
+      const plan = migrationCheck(target);
+      if (plan.action === "push") {
+        // Flags must match the dry-run in migrationCheck exactly. A check that
+        // pushes a different set from the real push is not a check.
+        supabase([
+          "db",
+          "push",
+          "--db-url",
+          target.databaseUrl,
+          "--include-all",
+        ]);
+      }
       if (safety.finalizeStaging) queryFile(target, STAGING_FINALIZE);
       verify(target, false);
       return;
