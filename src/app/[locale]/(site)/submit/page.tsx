@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import SubmitOverview from '@/components/submit/SubmitOverview'
 import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
 import { getUserBrand } from '@/lib/services/brand-owners'
+import { routes } from '@/lib/routes'
 
 type SubmitPageProps = {
   params: Promise<{ locale: string }>
@@ -21,7 +22,7 @@ export async function generateMetadata({
   const t = await getTranslations('submit.metadata')
   const title = t('title')
   const description = t('description')
-  const { canonical, languages } = buildAlternates('/submit', safeLocale)
+  const { canonical, languages } = buildAlternates(routes.submit.index(), safeLocale)
   const ogLocale = safeLocale === 'en' ? 'en_US' : 'zh_TW'
   const ogAlternateLocale = safeLocale === 'en' ? 'zh_TW' : 'en_US'
 
@@ -56,7 +57,7 @@ export default async function SubmitPage({ params }: SubmitPageProps) {
 
   return (
     <SubmitOverview
-      recommendPath="/submit/recommend"
+      recommendPath={routes.submit.recommend()}
       isLoggedIn={isLoggedIn}
       hasOwnedBrand={hasOwnedBrand}
       ownerFeaturesEnabled={ownerFeaturesEnabled}

@@ -4,7 +4,15 @@ import { Button } from '@emails/components/button'
 import { EmailHeading } from '@emails/components/email-heading'
 import { EmailText } from '@emails/components/email-text'
 import { Layout } from '@emails/components/layout'
-import { FROM_ADDRESS, SITE_URL, TEXT_PRIMARY } from '@emails/styles'
+import {
+  FONT_SIZE_BODY,
+  FONT_STACK,
+  FROM_ADDRESS,
+  INK_SOFT,
+  LINE_HEIGHT_BODY,
+  SITE_URL,
+  SPACE_GUTTER,
+} from '@emails/styles'
 import type { EmailMessage } from '@emails/types'
 import { listUnsubscribeHeaders } from '@emails/utils'
 
@@ -49,7 +57,7 @@ export async function buildProfileNudgeEmail({
   const missingLabels = missingFields.map((field) => fieldLabels[field] ?? field)
   const html = await render(
     locale === 'en' ? (
-      <Layout
+      <Layout lang="en"
         previewText={`${brandName}'s brand profile is ${completenessPercent}% complete.`}
         unsubscribeUrl={unsubscribeUrl}
       >
@@ -93,9 +101,9 @@ export async function buildProfileNudgeEmail({
 }
 
 const listText = {
-  color: TEXT_PRIMARY,
-  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-  fontSize: '16px',
-  lineHeight: '24px',
-  margin: '0 0 16px',
+  color: INK_SOFT,
+  fontFamily: FONT_STACK,
+  fontSize: FONT_SIZE_BODY,
+  lineHeight: LINE_HEIGHT_BODY,
+  margin: `0 0 ${SPACE_GUTTER}`,
 }

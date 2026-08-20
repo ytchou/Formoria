@@ -222,19 +222,23 @@ function wallProductCount(
 }
 
 /**
- * Published trails the wall would ACCEPT, mirroring `eligibleTrail`
- * (src/lib/curated-products/home-wall.ts:177): a trail earns a slot only when
- * its frontmatter carries a non-blank `heroImage`.
+ * Published trails the wall would ACCEPT, mirroring `buildWallSlots`
+ * (src/lib/curated-products/home-wall.ts): every published trail earns a slot.
+ *
+ * The `heroImage` filter this used to apply is GONE with `eligibleTrail`
+ * (DEV-1514 Task 15). The hero is a publication precondition enforced at
+ * authoring time — see
+ * docs/decisions/2026-08-19-trail-hero-image-is-a-publish-precondition.md — so
+ * a hero-less trail now renders a visibly imageless tile instead of silently
+ * vanishing from the composition.
  *
  * Read from `content/trails` rather than the database because that is where
  * the homepage reads them from too — `/` composes the wall out of the MDX read
  * already in flight (app/[locale]/(site)/page.tsx:189). `publishedTrails`
  * applies the same draft and locale gate as `readPublishedEntries`.
  */
-function eligibleTrailCount(locale = "zh-TW"): number {
-  return publishedTrails(locale).filter((trail) =>
-    Boolean(trail.heroImage?.trim()),
-  ).length;
+function publishedTrailCount(locale = "zh-TW"): number {
+  return publishedTrails(locale).length;
 }
 
 /**
@@ -282,15 +286,14 @@ export async function requireWallOrSkip(
  * Reading `trailLinkIndex === -1` cannot tell "the wall reserved no trail slot"
  * from "the trail tile regressed out of the composition" — both are an empty
  * selector, and both report green. Here it was not a latent risk but a live
- * one: no published trail has ever carried a `heroImage`, so `eligibleTrails`
- * has been empty since the test was written and the skip fired on EVERY run.
- * Trail tiles could have been deleted from the composition outright and the
- * suite would still have passed (DEV-1522).
+ * one: gate 1 used to require a `heroImage` that no published trail carried, so
+ * the skip fired on EVERY run. Trail tiles could have been deleted from the
+ * composition outright and the suite would still have passed (DEV-1522).
  *
  * `buildWallSlots` reserves the first trail slot only when both of its gates
- * open (home-wall.ts:201-205), so this measures both:
+ * open, so this measures both:
  *
- *   1. at least one published trail carries a non-blank `heroImage`
+ *   1. at least one trail is published in `content/trails`
  *   2. the wall composes at least `TRAIL_SLOT_CADENCE` products, counted AFTER
  *      the per-brand cap
  *
@@ -303,14 +306,13 @@ export async function requireWallTrailTileOrSkip(
 ): Promise<void> {
   if (!trailTileIsAbsent) return;
 
-  // Checked first because it needs no database at all, and because it is the
-  // gate that is actually closed today.
-  const trails = eligibleTrailCount();
+  // Checked first because it needs no database at all.
+  const trails = publishedTrailCount();
   if (trails === 0) {
     test.skip(
       true,
-      "No published trail carries a heroImage, so the wall reserves no trail "
-        + "slot. See `eligibleTrail` in home-wall.ts.",
+      "No trail is published in content/trails, so the wall reserves no trail "
+        + "slot. See `buildWallSlots` in home-wall.ts.",
     );
     return;
   }
@@ -335,9 +337,9 @@ export async function requireWallTrailTileOrSkip(
   }
 
   throw new Error(
-    `The homepage wall has no discovery trail tile while ${trails} published `
-      + `trail(s) carry a heroImage and the wall composes ${composed} products `
-      + `— at or above TRAIL_SLOT_CADENCE (${TRAIL_SLOT_CADENCE}). `
+    `The homepage wall has no discovery trail tile while ${trails} trail(s) are `
+      + `published and the wall composes ${composed} products — at or above `
+      + `TRAIL_SLOT_CADENCE (${TRAIL_SLOT_CADENCE}). `
       + "`buildWallSlots` reserves a trail slot under exactly these two "
       + "conditions, so the tile regressed out of the composition; it did not "
       + "fall below a gate.",

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
+import { routes } from "@/lib/routes";
 
 export default function ReviewQueueRedirect(): never {
-  redirect("/admin/submissions");
+  redirect(routes.admin.submissions());
 }

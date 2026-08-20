@@ -33,6 +33,8 @@ import {
 } from '@/lib/brands/directory-presentation'
 import type { PublicBrandCard } from '@/lib/brands/contracts'
 import { DirectoryLandingHead, DirectoryResultStatus } from './directory-landing-head'
+import { routes } from '@/lib/routes'
+import { Grid } from '@/components/ui/grid'
 
 const EMPTY_STATE_RECOMMENDATION_LIMIT = 4
 const VALID_CATEGORY_SLUGS: ReadonlySet<string> = new Set(L1_CATEGORIES.map((category) => category.slug))
@@ -293,11 +295,11 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
       activeSubcategory ? categoryName : undefined,
     )
     categoryBreadcrumbJsonLd = buildBreadcrumbJsonLd([
-      { label: t('heading'), href: localizePath('/brands', safeLocale) },
+      { label: t('heading'), href: localizePath(routes.brands(), safeLocale) },
       {
         label: categoryName,
         ...(activeSubcategory
-          ? { href: localizePath(`/categories/${categoryTag.slug}`, safeLocale) }
+          ? { href: localizePath(routes.category(categoryTag.slug), safeLocale) }
           : {}),
       },
       ...(activeSubcategory
@@ -321,7 +323,14 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
 
   return (
     <NextIntlClientProvider messages={messages}>
-      <main className="page-gutter mx-auto grid w-full max-w-screen-xl gap-8 py-10 lg:grid-cols-[16rem_minmax(0,1fr)]">
+      {/* The shell is the shared grid too, not a formula that agrees with it by
+          coincidence — the rail measure and the column gap both belong to the
+          primitive, so a change to either moves every surface that uses it. */}
+      <Grid
+        as="main"
+        cols="sidebar"
+        className="page-gutter mx-auto w-full page-measure py-10"
+      >
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildWebSiteJsonLd(safeLocale)) }}
@@ -402,17 +411,17 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
 
           <Suspense
             fallback={
-              <div className="grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2 lg:grid-cols-4" aria-label={t('loadingAria')}>
+              <Grid aria-label={t('loadingAria')}>
                 {Array.from({ length: 8 }).map((_, index) => (
                   <div key={index} className={surfaceCardStyles({ padding: 'none' })}>
-                    <div className="aspect-[4/3] animate-pulse rounded-t-xl bg-muted" />
+                    <div className="aspect-media animate-pulse rounded-t-xl bg-muted" />
                     <div className="p-4">
                       <div className="h-4 animate-pulse rounded bg-muted" />
                       <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-muted" />
                     </div>
                   </div>
                 ))}
-              </div>
+              </Grid>
             }
           >
             <SavedBrandsProvider>
@@ -436,7 +445,7 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
 
           <Pagination totalCount={totalCount} currentPage={clampedPage} pageSize={DEFAULT_PAGE_SIZE} />
         </div>
-      </main>
+      </Grid>
     </NextIntlClientProvider>
   )
 }

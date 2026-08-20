@@ -10,6 +10,7 @@ import {
 } from '@/lib/services/brand-channels'
 import { captureReadFailure, markRenderDegraded } from '@/lib/degraded-render'
 import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
+import { routes } from '@/lib/routes'
 
 export const revalidate = 3600
 
@@ -24,7 +25,7 @@ export async function generateMetadata({
     locale: safeLocale,
     namespace: 'whereToBuy',
   })
-  const { canonical, languages } = buildAlternates('/where-to-buy', safeLocale)
+  const { canonical, languages } = buildAlternates(routes.whereToBuy(), safeLocale)
   return {
     title: t('metaTitle'),
     description: t('metaDescription'),
@@ -64,16 +65,19 @@ export default async function WhereToBuyPage({ params }: PageProps) {
   const countryNames = new Intl.DisplayNames([safeLocale], { type: 'region' })
 
   return (
-    <main
-      id="main-content"
-      className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 lg:py-16"
-    >
+    // NO `id="main-content"` HERE. The (site) layout already puts that id on
+    // the wrapper it renders around every route, so a second one on this
+    // `<main>` made the document carry two — invalid, and the skip link
+    // (`root-document.tsx`) resolves to the FIRST match, which meant these two
+    // routes alone skipped to a different element than every other route. One
+    // id per document, and it is the layout's.
+    <main className="page-gutter mx-auto w-full page-measure pt-12 pb-section">
       <header className="max-w-3xl">
-        <p className="type-eyebrow text-primary">Formoria</p>
-        <h1 className="mt-3 type-page-title-large text-foreground">
+        <p className="type-eyebrow text-accent">Formoria</p>
+        <h1 className="mt-3 type-page-title text-ink">
           {t('indexTitle')}
         </h1>
-        <p className="mt-4 type-page-subtitle text-muted-foreground">
+        <p className="mt-4 type-body text-ink-muted">
           {t('indexIntro')}
         </p>
         <div className="mt-6">
@@ -89,7 +93,7 @@ export default async function WhereToBuyPage({ params }: PageProps) {
         </div>
       </header>
 
-      <div className="mt-10">
+      <div className="mt-stack">
         {locations.length > 0 ? (
           <ViewItemListTracker
             listName="where-to-buy-index"
@@ -109,11 +113,11 @@ export default async function WhereToBuyPage({ params }: PageProps) {
       </div>
 
       {overseas.length > 0 ? (
-        <section className="mt-10 rounded-lg bg-secondary p-6 sm:p-8">
-          <h2 className="type-section-title text-foreground">
+        <section className="mt-section rounded-[3px] border border-rule bg-surface p-6 sm:p-8">
+          <h2 className="type-card-title text-ink">
             {t('overseasTitle')}
           </h2>
-          <p className="mt-2 type-body-muted">
+          <p className="mt-2 type-body-sm">
             {t('overseasDescription', {
               count: overseas.length,
               countries: countryCounts.size,
@@ -125,10 +129,10 @@ export default async function WhereToBuyPage({ params }: PageProps) {
               .map(([country, rows]) => (
                 <li
                   key={country}
-                  className="flex justify-between gap-3 border-t border-border py-2 type-caption"
+                  className="flex justify-between gap-3 border-t border-rule py-2 type-metadata"
                 >
                   <span>{countryNames.of(country) ?? country}</span>
-                  <span className="text-muted-foreground">{rows.length}</span>
+                  <span className="text-ink-muted">{rows.length}</span>
                 </li>
               ))}
           </ul>

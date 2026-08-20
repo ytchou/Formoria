@@ -32,7 +32,7 @@ export function RouteError({
   reset,
   titleKey = 'boundary.title',
   descriptionKey = 'boundary.description',
-  titleClassName = 'type-page-title',
+  titleClassName = 'type-section',
 }: RouteErrorProps) {
   const t = useTranslations('errors')
   const isStale = isDeploymentSkewError(error)
@@ -44,16 +44,15 @@ export function RouteError({
   }, [error, isStale])
 
   return (
-    <main className="page-gutter mx-auto flex max-w-screen-xl flex-col items-center justify-center py-24 text-center">
+    <main className="page-gutter mx-auto flex page-measure flex-col items-center justify-center py-section text-center">
       <h1 className={titleClassName}>
         {isStale ? t('boundary.staleTitle') : t(titleKey)}
       </h1>
-      <p className="mt-3 type-card-description">
+      <p className="mt-3 type-body-sm">
         {isStale ? t('boundary.staleDescription') : t(descriptionKey)}
       </p>
       <Button
         variant="primary"
-        tone="cta"
         onClick={isStale ? () => window.location.reload() : reset}
         className="mt-6"
       >

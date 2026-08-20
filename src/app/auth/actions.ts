@@ -24,6 +24,7 @@ import {
   resolveAuthenticatedLocale,
   type AppLocale,
 } from "@/i18n/locale-preference";
+import { routes } from "@/lib/routes";
 
 export type AuthState = {
   error?: string;
@@ -89,7 +90,7 @@ export async function signIn(
 
     const claimToken = formData.get("claimToken") as string | null;
     if (claimToken) {
-      redirect(`/auth/callback?claim=${claimToken}`);
+      redirect(routes.auth.callback({ claim: claimToken }));
     }
 
     const cookieStore = await cookies();
@@ -173,7 +174,7 @@ export async function signUp(
     await setLocaleCookie(locale);
 
     redirect(
-      localizePath(`/auth/sign-in?message=${encodeURIComponent(t("confirmEmail"))}`, locale)
+      localizePath(routes.auth.signIn({ message: t("confirmEmail") }), locale)
     );
   });
 }
@@ -226,7 +227,7 @@ export async function signInWithGoogle(
     });
 
     if (error || !data?.url) {
-      redirect(localizePath("/auth/sign-in?error=oauth-failed", locale));
+      redirect(localizePath(routes.auth.signIn({ error: "oauth-failed" }), locale));
     }
 
     redirect(data.url);
@@ -298,7 +299,7 @@ export async function updatePassword(
 
     redirect(
       localizePath(
-        `/auth/sign-in?message=${encodeURIComponent(t("resetPassword.success"))}`,
+        routes.auth.signIn({ message: t("resetPassword.success") }),
         await getLocale()
       )
     );

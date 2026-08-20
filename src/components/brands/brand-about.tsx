@@ -21,12 +21,12 @@ export async function BrandAbout({ brand, locale }: BrandAboutProps) {
 
   return (
     <section>
-      <Typography as="h2" className="mb-4" variant="sectionTitle">
+      <Typography as="h2" className="mb-4" variant="sectionTitleLarge">
         {t("sections.about")}
       </Typography>
       <div className="space-y-3">
         {paragraphs.map((paragraph, i) => (
-          <p key={i} className="type-section-description">
+          <p key={i} className="type-body-sm">
             {paragraph.split("\n").map((line, j) => (
               <span key={j}>
                 {j > 0 && <br />}

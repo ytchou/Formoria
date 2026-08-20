@@ -6,6 +6,11 @@ import {
   EXPECTED_OWNER_FEATURE_SKIP_REGISTRY,
   OWNER_FEATURE_CALLSITES,
 } from './e2e-owner-skip-registry';
+import {
+  ANONYMOUS_MUTATION_REASON,
+  EXPECTED_STAGING_CONSTRAINT_SKIP_REGISTRY,
+  HIDDEN_AUTH_AFFORDANCE_REASON,
+} from './e2e-staging-skip-registry';
 import { freezeFailures } from './selfheal/incident';
 import { buildExactSelectors } from './selfheal/exact-failure-runner';
 import {
@@ -62,17 +67,33 @@ describe('deployed Playwright report gate', () => {
     ]);
   });
 
-  it('keeps the checked manifest limited to the mutually exclusive owner suites', async () => {
+  // Two registries, one manifest. The owner class is gated by a feature flag and
+  // the staging class by the deployed environment; an entry belonging to
+  // neither is an unreviewed skip, which is the failure this gate exists to
+  // catch. Pinning the LENGTH as well as the membership is what makes that
+  // true — `arrayContaining` alone would wave through an extra row.
+  it('keeps the checked manifest limited to the two registered skip classes', async () => {
     const value = JSON.parse(await readFile('scripts/e2e-expected-skips.json', 'utf8')) as ExpectedSkipManifest;
+    const registeredReasons = new Set<string>([
+      OWNER_FEATURES_OFF_REASON,
+      OWNER_FEATURES_ON_REASON,
+      ANONYMOUS_MUTATION_REASON,
+      HIDDEN_AUTH_AFFORDANCE_REASON,
+    ]);
     expect(value.version).toBe(1);
-    expect(value.allowed).toHaveLength(EXPECTED_OWNER_FEATURE_SKIP_REGISTRY.length);
-    expect(value.allowed.every(({ reason }) => reason === OWNER_FEATURES_OFF_REASON || reason === OWNER_FEATURES_ON_REASON)).toBe(true);
+    expect(value.allowed).toHaveLength(
+      EXPECTED_OWNER_FEATURE_SKIP_REGISTRY.length + EXPECTED_STAGING_CONSTRAINT_SKIP_REGISTRY.length,
+    );
+    expect(value.allowed.every(({ reason }) => reason !== undefined && registeredReasons.has(reason))).toBe(true);
     const manifestEntries = value.allowed.map(({ file, title, reason }) => ({ file, title, reason }));
     expect(manifestEntries).toEqual(expect.arrayContaining(EXPECTED_OWNER_FEATURE_SKIP_REGISTRY.map((entry) => ({
       file: entry.file,
       title: entry.title,
       reason: entry.reason === 'off' ? OWNER_FEATURES_OFF_REASON : OWNER_FEATURES_ON_REASON,
     }))));
+    expect(manifestEntries).toEqual(expect.arrayContaining(
+      EXPECTED_STAGING_CONSTRAINT_SKIP_REGISTRY.map(({ file, title, reason }) => ({ file, title, reason })),
+    ));
     expect(JSON.stringify(value)).not.toMatch(/quota|rate\s*limit|\b429\b/i);
     for (const allowed of value.allowed) {
       expect(unexpectedSkips({
@@ -124,6 +145,26 @@ describe('deployed Playwright report gate', () => {
     const expectedSkipFiles = [...new Set(EXPECTED_OWNER_FEATURE_SKIP_REGISTRY.map((entry) => entry.file))].sort();
     expect(ownerSkipCallsites).toEqual(expectedSkipFiles);
     expect(ownerSkipCallsites.every((file) => ownerSkipCallsites.filter((candidate) => candidate === file).length === 1)).toBe(true);
+  });
+
+  // The owner reasons are imported constants, so a rename breaks the build. The
+  // staging reasons are literals at the call site, so nothing but this grep
+  // stops a spec from rewording its reason and silently un-allowlisting its own
+  // skip — the manifest would still name the file and title, and the runtime
+  // gate compares on the reason text.
+  it('fails when a staging-constraint skip reason drifts from its spec', async () => {
+    const specRoot = 'e2e/tests';
+    const specSource = Object.fromEntries(await Promise.all(
+      (await listSpecFiles(specRoot)).map(async (path) => [
+        relative(specRoot, path),
+        await readFile(path, 'utf8'),
+      ] as const),
+    ));
+
+    for (const entry of EXPECTED_STAGING_CONSTRAINT_SKIP_REGISTRY) {
+      expect(specSource[entry.file], `${entry.file} is registered but does not exist`).toBeDefined();
+      expect(specSource[entry.file], `${entry.file} no longer contains its registered skip reason`).toContain(entry.reason);
+    }
   });
 
   it('round-trips the original skip title into the exact runner with reason separate', () => {

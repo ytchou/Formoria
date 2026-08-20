@@ -106,7 +106,7 @@ export async function BrandGallery({
               loading="lazy"
               decoding="async"
               className={cn(
-                'aspect-[4/3] w-full rounded-lg border border-border bg-muted',
+                'aspect-media w-full rounded-[3px] border border-rule bg-surface-deep',
                 fill.className,
               )}
               // Assigned, never spread — `undefined` is meaningful here.
@@ -115,7 +115,7 @@ export async function BrandGallery({
           )
         })}
       </div>
-      {caption ? <figcaption className="mt-2 type-caption">{caption}</figcaption> : null}
+      {caption ? <figcaption className="mt-2 type-metadata">{caption}</figcaption> : null}
     </figure>
   )
 }

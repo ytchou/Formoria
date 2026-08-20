@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { routes } from '@/lib/routes'
 
 function handleSignOut() {
   trackSignOut()
@@ -65,7 +66,7 @@ export function AccountMenu() {
     return (
       <NextLink
         href={signInHref(pathname, locale)}
-        className="inline-flex h-9 items-center justify-center rounded-md px-2.5 type-metadata transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        className="inline-flex h-9 items-center justify-center rounded-[4px] px-2.5 type-metadata transition-colors hover:text-ink focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none"
       >
         {t('nav.signIn')}
       </NextLink>
@@ -78,35 +79,35 @@ export function AccountMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={t('account.menuLabel')}
-        className="inline-flex size-9 items-center justify-center rounded-full bg-secondary type-subsection-title text-secondary-foreground transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="inline-flex size-9 items-center justify-center rounded-full bg-surface type-body-sm font-semibold text-ink-soft transition-colors outline-none hover:bg-surface-deep focus-visible:ring-3 focus-visible:ring-accent/50"
       >
         {initial}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40 min-w-40">
         <DropdownMenuItem
-          render={<Link href="/settings" />}
+          render={<Link href={routes.settings()} />}
         >
           {t('account.settings')}
         </DropdownMenuItem>
         <DropdownMenuItem
-          render={<Link href="/favorites" />}
+          render={<Link href={routes.favorites()} />}
         >
           {t('account.favorites')}
         </DropdownMenuItem>
         <DropdownMenuItem
-          render={<Link href="/contributions" />}
+          render={<Link href={routes.contributions()} />}
         >
           {t('account.contributions')}
         </DropdownMenuItem>
         {viewer.ownerFeaturesEnabled ? (
           <DropdownMenuItem
-            render={<Link href="/my-submissions" />}
+            render={<Link href={routes.mySubmissions()} />}
           >
             {t('account.mySubmissions')}
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem
-          render={<Link href="/feature-requests" />}
+          render={<Link href={routes.featureRequests()} />}
         >
           {t('account.feedback')}
         </DropdownMenuItem>
@@ -133,7 +134,7 @@ export function AccountMenu() {
           </form>
         ))}
         <DropdownMenuSeparator />
-        <form action="/auth/sign-out" method="post" onSubmit={preserveCurrentUrl}>
+        <form action={routes.auth.signOut()} method="post" onSubmit={preserveCurrentUrl}>
           <input type="hidden" name="returnTo" defaultValue={pathname} />
           <DropdownMenuItem
             variant="destructive"

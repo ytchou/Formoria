@@ -250,6 +250,8 @@ test.describe("Static & compliance pages", () => {
 
     // /site/[slug] is NOT under [locale] — use bare path
     // ISR: allow time for the page to become available after the brand seed.
+    //
+    // `POLL.NAVIGATION` is `as const`, so its ladder is a readonly tuple while
     await expect(async () => {
       const resp = await anonPage.goto(`/site/${micrositeSlug}`, {
         timeout: BUDGET.SERVER_RENDER,
@@ -264,5 +266,15 @@ test.describe("Static & compliance pages", () => {
         anonPage.getByText(micrositeTagline, { exact: true }),
       ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     }).toPass(POLL.NAVIGATION);
+
+    // The microsite is `noindex` by design and no test asserted it until
+    // DEV-1514. That combination is the dangerous one: the page is invisible
+    // to every search-based check precisely BECAUSE it is noindex, so the day
+    // the directive is dropped, nothing goes red and brand microsites quietly
+    // start competing with `/brands/[slug]` for the same queries.
+    await expect(anonPage.locator('meta[name="robots"]')).toHaveAttribute(
+      "content",
+      /noindex/i,
+    );
   });
 });

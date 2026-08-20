@@ -51,11 +51,12 @@ import { NotFoundError } from "@/lib/errors";
 import { truncateForMeta } from "@/lib/text/truncate-for-meta";
 import { getBrandIndexability } from "@/lib/seo/brand-indexability";
 import { getBrandGalleryImages } from "@/lib/services/brand-images";
+import { routes } from "@/lib/routes";
 
 // Shared section rhythm: hairline rule above each section, and enough scroll offset to clear
 // the sticky main nav (100px) plus the mobile section-nav strip (48px).
 const brandSectionClassName =
-  "scroll-mt-40 border-t border-border pt-8 first:border-t-0 first:pt-0 md:scroll-mt-28";
+  "scroll-mt-40 border-t border-rule pt-stack first:border-t-0 first:pt-0 md:scroll-mt-28";
 
 // 1h ISR: ownership/verified-state changes propagate within ~an hour; paths
 // omitted from generateStaticParams are rendered on demand and cached between
@@ -118,7 +119,7 @@ export async function generateMetadata({
       ? { width: heroImageMetadata.width, height: heroImageMetadata.height }
       : {};
   const { canonical, languages } = buildAlternates(
-    `/brands/${brand.slug}`,
+    routes.brand(brand.slug),
     safeLocale,
     availableLocales,
   );
@@ -193,7 +194,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
   // Same builder generateMetadata uses for <link rel="canonical">, so the
   // structured data can never name a different URL than the page's own tag.
   const { canonical: canonicalUrl } = buildAlternates(
-    `/brands/${displayBrand.slug}`,
+    routes.brand(displayBrand.slug),
     safeLocale,
   );
   const faqJsonLd = buildFaqPageJsonLd(
@@ -263,12 +264,12 @@ export default async function BrandDetailPage({ params }: PageProps) {
       : categorySlugCategory.nameZh
     : getBrandCategoryLabel(displayBrand, safeLocale === "en" ? "en" : "zh-TW");
   const breadcrumbItems: BreadcrumbItem[] = [
-    { label: directoryLabel, href: "/brands" },
+    { label: directoryLabel, href: routes.brands() },
     ...(categoryTag
       ? [
           {
             label: categoryLabel || categoryTag.name,
-            href: `/categories/${categoryTag.slug}`,
+            href: routes.category(categoryTag.slug),
           },
         ]
       : []),
@@ -282,7 +283,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
     // already mounted on this page, only around the actions slot.
     <SavedBrandsProvider>
       <BrandEngagementTracker brandId={displayBrand.id} slug={slug}>
-        <main className="page-gutter mx-auto max-w-screen-xl py-10">
+        <main className="page-gutter mx-auto page-measure py-10">
           <BrandViewTracker brandId={displayBrand.id} brandSlug={slug} />
           {/* JSON-LD structured data */}
           <script
@@ -371,7 +372,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
           <div
             className={cn(
-              "mt-8 border-t border-border pt-8",
+              "mt-stack border-t border-rule pt-stack",
               hasSectionNav && "grid md:grid-cols-5 md:gap-16",
             )}
           >

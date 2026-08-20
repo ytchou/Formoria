@@ -150,11 +150,11 @@ export function FeatureRequestsQueue({
   }
 
   if (requests.length === 0) {
-    return <p className="type-empty-body mt-4">{t('empty')}</p>
+    return <p className="type-body-sm mt-4">{t('empty')}</p>
   }
 
   return (
-    <div className="mt-4 overflow-hidden rounded-lg border border-border bg-card">
+    <div className="mt-4 overflow-hidden rounded-[3px] border border-rule bg-surface">
       <Table>
         <TableHeader>
           <TableRow>

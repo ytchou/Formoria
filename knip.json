@@ -15,7 +15,6 @@
     "tailwindcss",
     "shadcn",
     "@react-email/ui",
-    "@heroui/styles",
     "react-simple-maps"
   ],
   "ignoreBinaries": ["gh", "lsof", "tesseract"],

@@ -85,7 +85,7 @@ export function ProvideChannelInfoDialog({
             type="button"
             variant="ghost"
             size="compact"
-            className="relative min-h-10 gap-1.5 px-1 type-metadata text-primary underline-offset-4 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[''] hover:bg-transparent hover:text-primary/80 hover:underline focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
+            className="relative min-h-10 gap-1.5 px-1 type-metadata text-accent underline-offset-4 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[''] hover:bg-transparent hover:text-accent/80 hover:underline focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
           />
         }
       >
@@ -94,7 +94,7 @@ export function ProvideChannelInfoDialog({
       </DialogTrigger>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto p-0 sm:max-w-lg">
         <DialogHeader className="flex-row gap-3 p-4 sm:p-6">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
             <TriangleAlert aria-hidden="true" className="size-5" />
           </span>
           <div className="min-w-0 space-y-1">

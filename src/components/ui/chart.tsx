@@ -8,7 +8,12 @@ import type { LegendPayload } from 'recharts'
 import { cn } from '@/lib/utils'
 
 // Format: { THEME_NAME: CSS class }
-const THEMES = { light: '', dark: '.dark' } as const
+//
+// Dark mode was deleted with the rest of the `.dark` palette (DEV-1514): nothing
+// in the app ever applied the class, so the second rule this emitted could never
+// match. The map is kept rather than inlined because `ChartConfig`'s `theme`
+// branch is typed from its keys, and a chart may still want a named theme later.
+const THEMES = { light: '' } as const
 
 export type ChartConfig = {
   [k in string]: {

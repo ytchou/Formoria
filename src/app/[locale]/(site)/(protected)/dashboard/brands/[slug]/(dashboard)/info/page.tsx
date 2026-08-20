@@ -7,6 +7,7 @@ import {
   getCategoryLabel,
 } from '@/lib/brands/category-label'
 import { getBrandBySlug } from '@/lib/services/brands'
+import { routes } from '@/lib/routes'
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
@@ -35,7 +36,7 @@ export default async function InfoPage({ params }: Props) {
   return (
     <SectionDetailLayout
       description={t('sectionBasicInfoHint')}
-      editHref={`/dashboard/brands/${slug}/edit?step=0`}
+      editHref={`${routes.dashboard.brandEdit(slug)}?step=0`}
       editLabel={t('edit')}
       title={tEdit('wizardStepBasicInfo')}
     >

@@ -5,14 +5,15 @@ import {
   summarizeStockistCities,
   type StockistLocation,
 } from '@/lib/services/brand-channels'
+import { routes } from '@/lib/routes'
 
 export function buildWhereToBuySitemapEntries(
   locations: StockistLocation[],
 ): MetadataRoute.Sitemap {
   return [
-    ...localizedEntries('/where-to-buy'),
+    ...localizedEntries(routes.whereToBuy()),
     ...summarizeStockistCities(locations).flatMap(({ city }) =>
-      localizedEntries(`/where-to-buy/${citySlugToPath(city)}`),
+      localizedEntries(routes.whereToBuyCity(citySlugToPath(city))),
     ),
   ]
 }

@@ -7,6 +7,7 @@ import { localizePath, signInHref } from '@/i18n/locale-preference'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import { computeProfileCompleteness } from '@/lib/services/profile-completeness'
 import { toOwnerEditorContract } from '@/lib/services/brands'
+import { routes } from '@/lib/routes'
 
 type DashboardBrandLayoutProps = {
   children: ReactNode
@@ -24,8 +25,8 @@ export default async function DashboardBrandLayout({
   if ('error' in editor) {
     redirect(
       editor.error === 'notLoggedIn'
-        ? signInHref(`/dashboard/brands/${slug}`, locale)
-        : localizePath('/dashboard', locale),
+        ? signInHref(routes.dashboard.brand(slug), locale)
+        : localizePath(routes.dashboard.index(), locale),
     )
   }
 
@@ -34,11 +35,11 @@ export default async function DashboardBrandLayout({
 
   return (
     <div className="min-h-screen">
-      <div className="mx-auto max-w-7xl px-6 md:px-8">
+      <div className="page-gutter mx-auto page-measure">
         <DashboardHeroCard brand={brand} completeness={completeness} />
         <DashboardTabNav brandSlug={brand.slug} />
       </div>
-      <main className="mx-auto max-w-7xl p-6 md:p-8">{children}</main>
+      <main className="page-gutter mx-auto page-measure py-stack">{children}</main>
     </div>
   )
 }

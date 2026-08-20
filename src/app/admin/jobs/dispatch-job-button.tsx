@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 
 export function DispatchJobButton({
   jobId,
-  label = "Run now",
+  label = "Run this job now",
 }: {
   jobId: string;
   label?: string;

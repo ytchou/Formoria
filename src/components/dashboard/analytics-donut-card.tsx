@@ -19,7 +19,7 @@ const PALETTE = [
   "var(--foreground)",
   "var(--chart-2)",
   "var(--chart-3)",
-  "var(--primary)",
+  "var(--accent)",
   "var(--muted-foreground)",
 ] as const;
 
@@ -44,10 +44,10 @@ export function AnalyticsDonutCard({
   );
 
   return (
-    <SurfaceCard className="rounded-md" padding="lg">
-      <h2 className="type-card-title">{title}</h2>
+    <SurfaceCard className="rounded-[4px]" padding="lg">
+      <h2 className="type-label">{title}</h2>
       {rows.length === 0 ? (
-        <p className="mt-4 type-body-muted">{emptyLabel}</p>
+        <p className="mt-4 type-body-sm">{emptyLabel}</p>
       ) : (
         <>
           <div className="relative mx-auto mt-4 w-full max-w-[280px]">
@@ -75,28 +75,28 @@ export function AnalyticsDonutCard({
               </PieChart>
             </ChartContainer>
             {centerLabel ? (
-              <span className="pointer-events-none absolute inset-0 flex items-center justify-center type-stat">
+              <span className="pointer-events-none absolute inset-0 flex items-center justify-center type-section tabular-nums">
                 {centerLabel}
               </span>
             ) : null}
           </div>
           <ul className="mt-5 space-y-3">
             {rows.map((row, index) => (
-              <li className="flex items-center gap-3 type-body" key={row.key}>
+              <li className="flex items-center gap-3 type-body-sm text-ink-soft" key={row.key}>
                 <span
                   aria-hidden="true"
                   className="h-2.5 w-2.5 shrink-0 rounded-full"
                   style={{ backgroundColor: paletteColor(index) }}
                 />
-                <span className="min-w-0 flex-1 text-foreground">
+                <span className="min-w-0 flex-1 text-ink">
                   {row.label}
                 </span>
-                <span className="text-muted-foreground tabular-nums">
+                <span className="text-ink-muted tabular-nums">
                   {total === 0
                     ? "0%"
                     : `${Math.round((row.sessions / total) * 100)}%`}
                 </span>
-                <span className="w-12 text-right font-medium text-foreground tabular-nums">
+                <span className="w-12 text-right font-medium text-ink tabular-nums">
                   {row.sessions.toLocaleString()}
                 </span>
               </li>

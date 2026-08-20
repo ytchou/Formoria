@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { useRouter } from '@/i18n/navigation'
 import { citySlugToPath } from '@/lib/constants/taiwan-cities'
 import { TAIWAN_DISTRICT_CENTROIDS } from '@/lib/constants/taiwan-district-centroids'
+import { routes } from '@/lib/routes'
 
 type LocateCopy = {
   idle: string
@@ -63,7 +64,7 @@ export function LocateButton({
         setLoading(false)
         setStatus('')
         router.push(
-          `/where-to-buy/${citySlugToPath(nearest.candidate.city)}#${nearest.candidate.district}`,
+          `${routes.whereToBuyCity(citySlugToPath(nearest.candidate.city))}#${nearest.candidate.district}`,
         )
       },
       (error) => {
@@ -86,7 +87,7 @@ export function LocateButton({
       </Button>
       <p
         role="status"
-        className="mt-2 min-h-6 type-caption text-muted-foreground"
+        className="mt-2 min-h-6 type-metadata text-ink-muted"
       >
         {status}
       </p>

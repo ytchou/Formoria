@@ -6,6 +6,7 @@ import type { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { isSubmissionEnrichmentFailure } from "@/lib/services/submission-review-stage";
 import type { ReviewSubmission } from "./submissions-review-list";
+import { routes } from "@/lib/routes";
 
 type SubmissionsT = ReturnType<typeof useTranslations<"admin.submissions">>;
 
@@ -18,20 +19,20 @@ export function renderEnrichment(submission: ReviewSubmission, t: SubmissionsT) 
         <Badge variant={enrichment.variant}>{enrichment.label}</Badge>
         {submission.latestCurationJobId && (
           <Link
-            className="type-link"
-            href={`/admin/jobs/${submission.latestCurationJobId}`}
+            className="type-nav font-semibold text-accent underline-offset-4 hover:underline"
+            href={routes.admin.job(submission.latestCurationJobId)}
           >
             {t("viewJob")}
           </Link>
         )}
       </div>
       {submission.latestCurationError && (
-        <p className="mt-1 max-w-72 type-caption text-muted-foreground">
+        <p className="mt-1 max-w-72 type-metadata text-ink-muted">
           {submission.latestCurationError}
         </p>
       )}
       {submission.reviewCompleteness.missingFields.length > 0 && (
-        <p className="mt-1 type-caption text-warning">
+        <p className="mt-1 type-metadata text-warning">
           {`${t("missingRequired")}: ${submission.reviewCompleteness.missingFields
             .map((field) => t(`missingFields.${field}`))
             .join(", ")}`}
@@ -40,7 +41,7 @@ export function renderEnrichment(submission: ReviewSubmission, t: SubmissionsT) 
       {/* Advisory only — approving is still allowed. The slug is deduped, so a
           duplicate approves cleanly and silently creates a second brand page. */}
       {submission.duplicateWarning && (
-        <p className="mt-1 type-caption text-warning">
+        <p className="mt-1 type-metadata text-warning">
           {submission.duplicateWarning.liveBrand
             ? t("duplicateWarning.liveBrand", {
                 name: submission.duplicateWarning.liveBrand.name,

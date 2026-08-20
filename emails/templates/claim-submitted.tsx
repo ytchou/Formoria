@@ -27,7 +27,7 @@ export default function ClaimSubmittedEmail({
 
   if (locale === "en") {
     return (
-      <Layout
+      <Layout lang="en"
         previewText={`Claim your brand page on Formoria - ${escapedBrandName}`}
       >
         <EmailHeading as="h2">

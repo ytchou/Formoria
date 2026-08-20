@@ -6,6 +6,7 @@ import { ContributionsList } from '@/components/contributions/contributions-list
 import { signInHref } from '@/i18n/locale-preference'
 import { listMyEvidence } from '@/lib/services/origin-evidence'
 import { createClient } from '@/lib/supabase/server'
+import { routes } from '@/lib/routes'
 
 type ContributionsPageProps = {
   params: Promise<{ locale: string }>
@@ -37,15 +38,15 @@ export default async function ContributionsPage({ params }: ContributionsPagePro
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect(signInHref('/contributions', locale))
+    redirect(signInHref(routes.contributions(), locale))
   }
 
   const items = await listMyEvidence(user.id)
 
   return (
     <main className="page-gutter mx-auto max-w-3xl py-12">
-      <h1 className="type-page-title-large">{t('heading')}</h1>
-      <p className="mt-2 type-body-muted">{t('subheading')}</p>
+      <h1 className="type-page-title">{t('heading')}</h1>
+      <p className="mt-2 type-body-sm">{t('subheading')}</p>
       <div className="mt-8">
         <ContributionsList items={items} />
       </div>

@@ -4,7 +4,17 @@ import { Layout } from "@emails/components/layout";
 import { EmailHeading } from "@emails/components/email-heading";
 import { EmailText } from "@emails/components/email-text";
 import { Button } from "@emails/components/button";
-import { FROM_ADDRESS, SITE_URL } from "@emails/styles";
+import {
+  FONT_SIZE_META,
+  FONT_STACK,
+  FROM_ADDRESS,
+  INK_MUTED,
+  LINE_HEIGHT_META,
+  RADIUS_SURFACE,
+  RULE,
+  SITE_URL,
+  SPACE_GUTTER,
+} from "@emails/styles";
 import type { EmailMessage } from "@emails/types";
 import { escapeHtml } from "@emails/utils";
 import { buildShareCardUrl } from "@/lib/growth/share-assets";
@@ -32,7 +42,7 @@ export default function ClaimApprovedEmail({
 
   if (locale === "en") {
     return (
-      <Layout
+      <Layout lang="en"
         previewText={`Your brand claim for ${escapedBrandName} has been approved`}
       >
         <EmailHeading as="h2">Your brand claim has been approved!</EmailHeading>
@@ -50,6 +60,7 @@ export default function ClaimApprovedEmail({
           src={cardUrl}
           width="270"
           height="338"
+          style={shareCard}
           alt={`${brandName} — Featured on Formoria share card`}
         />
         <Button href={downloadUrl}>Download share card</Button>
@@ -75,6 +86,7 @@ export default function ClaimApprovedEmail({
         src={cardUrl}
         width="270"
         height="338"
+        style={shareCard}
         alt={`${brandName} — Formoria 品牌分享卡`}
       />
       <Button href={downloadUrl}>下載分享卡</Button>
@@ -101,3 +113,20 @@ export async function buildClaimApprovedEmail(
     ),
   };
 }
+
+/**
+ * The one image these emails send, and the one place a blocked image leaves a
+ * hole. Most clients block images by default, so the alt text is typed as a
+ * caption and the frame keeps its hairline whether or not the card loads —
+ * the download button below it works either way.
+ */
+const shareCard = {
+  border: `1px solid ${RULE}`,
+  borderRadius: RADIUS_SURFACE,
+  color: INK_MUTED,
+  display: "block",
+  fontFamily: FONT_STACK,
+  fontSize: FONT_SIZE_META,
+  lineHeight: LINE_HEIGHT_META,
+  margin: `0 0 ${SPACE_GUTTER}`,
+};

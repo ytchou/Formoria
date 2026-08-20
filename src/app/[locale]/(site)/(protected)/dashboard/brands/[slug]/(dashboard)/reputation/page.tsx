@@ -3,6 +3,7 @@ import { SectionDetailLayout } from '@/components/dashboard/section-detail-layou
 import { EmptyValue, display } from '@/components/dashboard/display-helpers'
 import { InfoField } from '@/components/ui/card'
 import { getBrandBySlug } from '@/lib/services/brands'
+import { routes } from '@/lib/routes'
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
@@ -20,7 +21,7 @@ export default async function ReputationPage({ params }: Props) {
   return (
     <SectionDetailLayout
       description={t('sectionReputationHint')}
-      editHref={`/dashboard/brands/${slug}/edit?step=4`}
+      editHref={`${routes.dashboard.brandEdit(slug)}?step=4`}
       editLabel={t('edit')}
       title={tEdit('wizardStepReputation')}
     >

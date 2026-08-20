@@ -21,7 +21,7 @@ export function DashboardFormField({
     <FormField
       className={cn(
         'rounded-md transition-colors',
-        isDirty && 'bg-primary/5 ring-1 ring-primary/20',
+        isDirty && 'bg-accent/5 ring-1 ring-accent/20',
         className,
       )}
       {...props}

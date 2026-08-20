@@ -6,6 +6,7 @@ import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { ownerLandingPath } from '@/lib/auth/owner-landing'
 import { requireUserPage } from '@/lib/auth/require-user'
+import { routes } from '@/lib/routes'
 
 type MySubmissionsPageProps = {
   params: Promise<{ locale: string }>
@@ -18,7 +19,7 @@ export async function generateMetadata({ params }: MySubmissionsPageProps): Prom
   return {
     title: t('metadata.title'),
     description: t('subheading'),
-    alternates: buildAlternates('/my-submissions', locale as Locale),
+    alternates: buildAlternates(routes.mySubmissions(), locale as Locale),
     robots: { index: false, follow: true },
   }
 }
@@ -26,6 +27,6 @@ export async function generateMetadata({ params }: MySubmissionsPageProps): Prom
 export default async function MySubmissionsPage({ params }: MySubmissionsPageProps) {
   const { locale } = await params
   setRequestLocale(locale)
-  await requireUserPage('/my-submissions', locale)
+  await requireUserPage(routes.mySubmissions(), locale)
   redirect(localizePath(await ownerLandingPath(), locale))
 }

@@ -5,7 +5,13 @@ import { pathToFileURL } from "node:url";
 
 export const frontendTokenRoots = ["src/app", "src/components"];
 
-const allowedMatches = [
+/**
+ * Exported so a test can assert every entry still points at a file that exists.
+ * An allowlist has no existence check of its own, which is why the entry for a
+ * deleted microsite test sat here silently permitting two hexes in a file that
+ * had not existed for months.
+ */
+export const allowedMatches = [
   {
     file: "src/components/auth/google-button.tsx",
     names: ["raw hex color literal"],
@@ -57,14 +63,22 @@ const allowedMatches = [
     ],
   },
   {
-    file: "src/components/microsite/__tests__/default-template.test.tsx",
-    names: ["raw hex color literal"],
-    values: ["#7C5C3E", "#FFFFFF"],
-  },
-  {
+    // Per-brand accents are brand property, deliberately outside the palette
+    // (DESIGN.md §2's one documented exception). These are arbitrary fixture
+    // values standing in for whatever a brand actually picks — plus the system
+    // accent, which appears here only in the assertion that it must NOT leak
+    // into microsite output.
     file: "src/components/microsite/__tests__/registry.test.ts",
     names: ["raw hex color literal"],
-    values: ["#123456", "#FFFFFF", "#000000"],
+    values: [
+      "#123456",
+      "#FFFFFF",
+      "#000000",
+      "#2F5D50",
+      "#C4693B",
+      "#FF00FF",
+      "#2F4F63",
+    ],
   },
   {
     file: "src/components/microsite/tokens.ts",

@@ -78,7 +78,7 @@ Placeholders found across all four templates, grouped by role:
 
 | Token | Description |
 |---|---|
-| `{{ACCENT}}` | Accent color used for bullet dots, numbered counters, quote mark, and badge background |
+| `{{ACCENT}}` | Accent — the bullet dot and the MIT badge fill. NOT the numbered counter or the quote mark: both are read, and the accent fails 4.5:1 on every ground these cards use |
 | `{{TAG_BORDER}}` | Tag pill border color |
 | `{{TAG_TEXT}}` | Tag pill text color |
 | `{{RULE_COLOR}}` | Decorative horizontal rule color |
@@ -87,11 +87,36 @@ Placeholders found across all four templates, grouped by role:
 
 Values are drawn from `theme.accentRules` in `theme.json`:
 
-| Background mode | Accent color | Tag / rule / bar / counter | CTA button |
-|---|---|---|---|
-| `image` or `dark` | Terracotta `#C4693B` | `#C4693B` | Cream bg `#FFFDF8` / terracotta text |
-| `color` → green `#2F5D50` | White-tint `#FFFFFF66` border, `#FFFDF8` text/rule | `#FFFDF8` strip | Cream bg / green text |
-| `color` → terracotta `#C4693B` | White-tint `#FFFFFF40` border/bar, `#FFFDF8` text/rule | `#FFFDF8` counter | Cream bg / terracotta text |
+| Background mode | Bar (brand mark) | Tag / rule / counter | Strip | CTA button |
+|---|---|---|---|---|
+| `image` or `dark` | on-ink `#D6CFC4` | on-ink `#D6CFC4`, counter `#9A9288` | ink `#1A1815CC` | ground `#FAF7F2` / accent text |
+| `color` → accent `#2F4F63` | ground `#FAF7F2` | `#D6CFC466` border, `#FAF7F2` text/rule | `#1D3140` | ground `#FAF7F2` / accent text |
+
+Design system v2 has ONE accent, so the two coloured-background rows above
+became one. The terracotta and green the cards used to carry were a second and
+third accent that no other surface shared.
+
+**Every card ground is dark, so every card takes v2's INVERSE ramp** — `on-ink`
+`#D6CFC4` for text and the left edge bar, `on-ink-muted` `#9A9288` for the
+counter. The accent measures **2.2:1 against ink**: rendering one card and
+looking at it showed the 6px accent bar had simply vanished into the ground,
+and the numbered counter and quote mark were unreadable. All three moved onto
+the inverse ramp. That is a contrast fix, not a taste change.
+
+**The accent's remaining home on a card is the MIT badge fill** (`{{ACCENT}}`
+behind `{{TEXT}}`, 5.3:1) and the bullet dot, which is decorative. A social
+card has no interaction, and v2 reserves the accent for interaction — so the
+card carrying almost none of it is the system working, not a colour being
+lost. Identity here comes from the wordmark, the type and the warm ramp.
+
+Two values here are deliberately not the site's: `palette.dark` is `#1A1815`
+(v2 `ink`) where the `/content-cards` skill documents a fixed `#1C1C1C`, and
+`palette.cream` is `#FAF7F2` (v2 `ground`) where it was `#FFFDF8`. theme.json
+is the local override and wins; the skill's number is its default, not a
+contract.
+
+D17 — **sans only.** The card face is Noto Sans TC and there is no 明體 here,
+for the same reason there is none in email or in the `next/og` routes.
 
 Scrim gradient stops per card type (from `theme.background.scrim`):
 

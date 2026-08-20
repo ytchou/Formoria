@@ -16,8 +16,8 @@ export default async function AdminSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="type-section-title-large">Settings</h1>
-        <p className="mt-1 type-card-description">Control operator-managed product settings.</p>
+        <h1 className="type-label">Settings</h1>
+        <p className="mt-1 type-body-sm">Control operator-managed product settings.</p>
       </div>
       <FeatureTogglesCard initialValues={initialValues} />
     </div>

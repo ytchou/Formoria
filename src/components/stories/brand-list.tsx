@@ -50,7 +50,7 @@ type BrandListProps = {
  */
 export function BrandList({ children }: BrandListProps) {
   return (
-    <div className="my-8 grid grid-cols-[auto_minmax(0,1fr)] divide-y divide-border border-y border-border sm:grid-cols-[auto_minmax(0,17rem)_minmax(0,1fr)]">
+    <div className="my-8 grid grid-cols-[auto_minmax(0,1fr)] divide-y divide-rule border-y border-rule sm:grid-cols-[auto_minmax(0,17rem)_minmax(0,1fr)]">
       {children}
     </div>
   )
@@ -139,7 +139,7 @@ export async function BrandLine({
       </span>
       <BrandLineLink brand={brand} position={position} />
       {note ? (
-        <span className="col-span-2 min-w-0 type-body-muted sm:col-span-1">{note}</span>
+        <span className="col-span-2 min-w-0 type-body-sm sm:col-span-1">{note}</span>
       ) : null}
     </div>
   )

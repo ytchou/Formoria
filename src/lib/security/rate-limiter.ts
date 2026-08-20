@@ -1,6 +1,7 @@
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { NextRequest, NextResponse } from 'next/server'
+import { routes } from '@/lib/routes'
 import { CRAWLER_REGISTRY, matchCrawler } from './crawler-registry'
 import { isCrawlerVerificationEnforced, isVerifiedCrawler } from './verified-crawler'
 import { reportCrawlerChallenged, reportCrawlerRateLimited, reportCrawlerVerificationDisagreement } from './crawler-drift'
@@ -289,7 +290,11 @@ const BRANDS_DIRECTORY_RATE_LIMIT = 30
 
 // Rate limit rules per path prefix
 const RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
-  '/admin/operations': { windowMs: 60_000, maxRequests: 3, crawlerExempt: false },
+  // THE BUILDER, NOT A COPY OF ITS OUTPUT. `routes.admin.operations` documented
+  // this coupling in a comment while the two were merely string-equal, so
+  // renaming the segment there would have unbucketed the tightest budget in
+  // this table -- silently, because an unmatched prefix is simply no rule.
+  [routes.admin.operations()]: { windowMs: 60_000, maxRequests: 3, crawlerExempt: false },
   '/api/upload': { windowMs: 60_000, maxRequests: 20, crawlerExempt: false },
   '/api/': { windowMs: 60_000, maxRequests: 60, crawlerExempt: false },
   '/brands': {

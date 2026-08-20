@@ -4,6 +4,7 @@ import { formatEventDateRange } from "@/components/events/event-date";
 import { Link } from "@/i18n/navigation";
 import type { AppLocale } from "@/i18n/locale-preference";
 import type { BrandEventParticipation } from "@/lib/services/events";
+import { routes } from "@/lib/routes";
 
 export type BrandEventsSectionProps = {
   locale: AppLocale;
@@ -34,7 +35,7 @@ export async function BrandEventsSection({
   return (
     <section className="space-y-6" data-brand-events>
       <div className="space-y-2">
-        <Typography as="h2" variant="sectionTitle">
+        <Typography as="h2" variant="sectionTitleLarge">
           {t("heading")}
         </Typography>
         <Typography as="p" variant="cardDescription">
@@ -70,13 +71,13 @@ export async function BrandEventsSection({
                 unprefixed — next-intl's `Link` applies the active locale.
               */}
               <Link
-                href={`/events/${participation.eventSlug}`}
+                href={routes.event(participation.eventSlug)}
                 className="type-card-title hover:underline"
               >
                 {name}
               </Link>
               {dateLabel ? <p className="type-metadata">{dateLabel}</p> : null}
-              <div className="flex flex-wrap gap-x-3 type-caption">
+              <div className="flex flex-wrap gap-x-3 type-metadata">
                 {booth ? <span>{t("boothLabel", { booth })}</span> : null}
                 {area ? <span>{area}</span> : null}
               </div>

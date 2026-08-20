@@ -89,6 +89,7 @@ import {
   revalidatePublicBrands,
   revalidatePublicStockists,
 } from '@/lib/cache/public-brand-cache'
+import { routes } from '@/lib/routes'
 
 // Analytics runs inside withApprovalTimeout and after the DB commit, so an unbounded
 // flush could exhaust the approval budget and report failure for an approval that
@@ -231,7 +232,7 @@ export async function resendClaimInviteAction(
         throw new Error(delivery.error ?? 'Claim invitation could not be sent')
       }
 
-      revalidatePath('/admin/brands')
+      revalidatePath(routes.admin.brands())
       return { resent: true }
     } catch (err) {
       console.error('[admin:resendClaimInvite]', err)
@@ -372,10 +373,10 @@ async function approveSubmissionForAdmin(
 }
 
 function revalidateApprovals(results: ApprovalResult[]): void {
-  revalidatePath('/admin/submissions')
-  revalidatePath('/admin')
+  revalidatePath(routes.admin.submissions())
+  revalidatePath(routes.admin.index())
   if (results.some((result) => result.refresh)) {
-    revalidatePath('/admin/brands')
+    revalidatePath(routes.admin.brands())
   }
   revalidatePublicBrands(results.map((result) => result.brandSlug))
 }
@@ -529,8 +530,8 @@ export async function reviewCorrectionsAction(
       if ('error' in result) return result
 
       // The admin navigation badge reads the pending correction count too.
-      revalidatePath('/admin/corrections')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.corrections())
+      revalidatePath(routes.admin.index())
       return result
     } catch (err) {
       console.error('[admin:reviewCorrections]', err)
@@ -566,8 +567,8 @@ export async function reviewEvidenceBatchAction(
       )
       if ('error' in result) return result
 
-      revalidatePath('/admin/evidence')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.evidence())
+      revalidatePath(routes.admin.index())
       return result
     } catch (err) {
       console.error('[admin:reviewEvidenceBatch]', err)
@@ -594,9 +595,9 @@ export async function requestBrandRefreshAction(
         id: auth.user.id,
         email: auth.user.email,
       })
-      revalidatePath('/admin/brands')
-      revalidatePath('/admin/submissions')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.brands())
+      revalidatePath(routes.admin.submissions())
+      revalidatePath(routes.admin.index())
       return result
     } catch (err) {
       console.error('[admin:requestBrandRefresh]', err)
@@ -652,10 +653,10 @@ export async function requestCuratedProductBackfillAction(
         id: auth.user.id,
         email: auth.user.email,
       })
-      revalidatePath('/admin/brands')
-      revalidatePath('/admin/submissions')
-      revalidatePath('/admin/jobs')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.brands())
+      revalidatePath(routes.admin.submissions())
+      revalidatePath(routes.admin.jobs())
+      revalidatePath(routes.admin.index())
       return result
     } catch (err) {
       console.error('[admin:requestCuratedProductBackfill]', err)
@@ -761,10 +762,10 @@ async function rejectSubmissionForAdmin(
 }
 
 function revalidateRejections(): void {
-  revalidatePath('/admin/submissions')
+  revalidatePath(routes.admin.submissions())
   // getAdminNavCounts() drives the nav badges, so the dashboard shell has to be
   // revalidated alongside the queue page itself.
-  revalidatePath('/admin')
+  revalidatePath(routes.admin.index())
 }
 
 export async function rejectSubmissionAction(
@@ -909,8 +910,8 @@ export async function reopenSubmissionAction(
 
       await reopenSubmission(submissionId)
 
-      revalidatePath('/admin/submissions')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.submissions())
+      revalidatePath(routes.admin.index())
       return undefined
     } catch (err) {
       console.error('[admin:reopenSubmission]', err)
@@ -970,8 +971,8 @@ export async function approveClaimAction(
         }
       }
 
-      revalidatePath('/admin/claims')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.claims())
+      revalidatePath(routes.admin.index())
 
       if (claimRequest.brandSlug) {
         revalidatePublicBrands([claimRequest.brandSlug])
@@ -1026,8 +1027,8 @@ export async function rejectClaimAction(
       await rejectClaimRequest(claimRequestId, auth.user.id, notes)
       const cleanupWarning = await processImmediateClaimProofCleanup(claimRequestId)
 
-      revalidatePath('/admin/claims')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.claims())
+      revalidatePath(routes.admin.index())
 
       try {
         if (claimRequest.requesterEmail && claimRequest.brandName) {
@@ -1120,8 +1121,8 @@ export async function updateBrandAction(
         data as Parameters<typeof updateBrand>[1],
       )
 
-      revalidatePath('/admin/brands')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.brands())
+      revalidatePath(routes.admin.index())
       revalidatePublicBrands([updatedBrand.slug, previousBrand.slug])
       return undefined
     } catch (err) {
@@ -1143,8 +1144,8 @@ export async function hideBrandAction(
 
       const brand = await updateBrand(brandId, { status: 'hidden' })
 
-      revalidatePath('/admin/brands')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.brands())
+      revalidatePath(routes.admin.index())
       revalidatePublicBrands([brand.slug])
       return undefined
     } catch (err) {
@@ -1166,8 +1167,8 @@ export async function unhideBrandAction(
 
       const brand = await updateBrand(brandId, { status: 'approved' })
 
-      revalidatePath('/admin/brands')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.brands())
+      revalidatePath(routes.admin.index())
       revalidatePublicBrands([brand.slug])
       return undefined
     } catch (err) {
@@ -1190,8 +1191,8 @@ export async function deleteBrandAction(
       const brand = await getBrandById(brandId)
       await deleteBrand(brandId)
 
-      revalidatePath('/admin/brands')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.brands())
+      revalidatePath(routes.admin.index())
       revalidatePublicBrands([brand.slug])
       return undefined
     } catch (err) {
@@ -1250,8 +1251,8 @@ export async function reviewReportAction(
       })
       if (!result.ok) return { error: result.code }
 
-      revalidatePath('/admin/reports')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.reports())
+      revalidatePath(routes.admin.index())
       return undefined
     } catch (err) {
       console.error('[admin:reviewReport]', err)
@@ -1286,8 +1287,8 @@ export async function reviewModerationFlagAction(
       // untranslated. Matches `reviewReportAction` returning `result.code`.
       if (!result.ok) return { error: result.code }
 
-      revalidatePath('/admin/moderation')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.moderation())
+      revalidatePath(routes.admin.index())
       return undefined
     } catch (err) {
       console.error('[admin:reviewModerationFlag]', err)
@@ -1318,8 +1319,8 @@ export async function revokeOwnershipAction(
         reason: trimmedReason,
       }))
 
-      revalidatePath('/admin/reports')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.reports())
+      revalidatePath(routes.admin.index())
       revalidatePublicBrands([brand.slug])
       return undefined
     } catch (err) {

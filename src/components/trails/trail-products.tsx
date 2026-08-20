@@ -10,6 +10,8 @@ import {
   SelectedProductTile,
   type SelectedProductTileLabels,
 } from '@/components/brands/selected-product-tile'
+import { Grid } from '@/components/ui/grid'
+import { routes } from '@/lib/routes'
 
 export type TrailProductsContextValue = {
   trailSlug: string
@@ -34,6 +36,11 @@ export function TrailProductsProvider({
  * Renders the DB placements for one authored section. MDX expression props are
  * discarded by the renderer, so this component intentionally accepts only the
  * literal section key; products and labels arrive through the route context.
+ *
+ * THE HAIRLINE IS PART OF THE SECTION HEADER, not decoration on the grid. It
+ * closes the editorial block — ordinal, title, intro — and opens the objects,
+ * which is the whole shape of the style-page archetype: curation is stated
+ * once, up front, and never wrapped around each individual product.
  */
 export function TrailProducts({ section }: { section: string }) {
   const context = useContext(TrailProductsContext)
@@ -43,26 +50,28 @@ export function TrailProducts({ section }: { section: string }) {
   if (products.length === 0) return null
 
   return (
-    <ul className="grid list-none grid-cols-1 gap-6 p-0">
-      {products.map((product, index) => (
-        <SelectedProductTile
-          key={`${product.key}-${product.position ?? index}`}
-          locale={context.locale}
-          product={product}
-          labels={context.labels}
-          mode="trail"
-          brand={product.brand}
-          brandSlug={product.brandSlug}
-          brandName={product.brandName}
-          tracking={{
-            brandSlug: product.brandSlug,
-            position: index,
-            surface: `trail:${context.trailSlug}:${section}`,
-            referrerPage: `/discover/${context.trailSlug}`,
-            brandId: product.brandId,
-          }}
-        />
-      ))}
-    </ul>
+    <div className="mt-8 border-t border-rule pt-8">
+      <Grid as="ul" cols="thirds" className="list-none p-0">
+        {products.map((product, index) => (
+          <SelectedProductTile
+            key={`${product.key}-${product.position ?? index}`}
+            locale={context.locale}
+            product={product}
+            labels={context.labels}
+            mode="trail"
+            brand={product.brand}
+            brandSlug={product.brandSlug}
+            brandName={product.brandName}
+            tracking={{
+              brandSlug: product.brandSlug,
+              position: index,
+              surface: `trail:${context.trailSlug}:${section}`,
+              referrerPage: routes.trail(context.trailSlug),
+              brandId: product.brandId,
+            }}
+          />
+        ))}
+      </Grid>
+    </div>
   )
 }

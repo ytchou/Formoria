@@ -22,6 +22,7 @@ import {
   type AppLocale,
 } from "@/i18n/locale-preference";
 import { isStagingRequest } from "@/lib/deployment-environment";
+import { routes } from "@/lib/routes";
 
 function isRecentlyCreated(createdAt: string | undefined): boolean {
   if (!createdAt) return false;
@@ -71,7 +72,7 @@ export const GET = withAuditScope(async (request: NextRequest) => {
 
   if (!code && !testTokenHash && !claimToken) {
     return NextResponse.redirect(
-      new URL(localizePath("/auth/sign-in?error=missing-code", errorLocale), origin)
+      new URL(localizePath(routes.auth.signIn({ error: "missing-code" }), errorLocale), origin)
     );
   }
 
@@ -86,7 +87,7 @@ export const GET = withAuditScope(async (request: NextRequest) => {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
       return NextResponse.redirect(
-        new URL(localizePath("/auth/sign-in?error=expired-code", errorLocale), origin)
+        new URL(localizePath(routes.auth.signIn({ error: "expired-code" }), errorLocale), origin)
       );
     }
     userId = data.user?.id;
@@ -99,7 +100,7 @@ export const GET = withAuditScope(async (request: NextRequest) => {
     });
     if (error) {
       return NextResponse.redirect(
-        new URL(localizePath("/auth/sign-in?error=expired-code", errorLocale), origin)
+        new URL(localizePath(routes.auth.signIn({ error: "expired-code" }), errorLocale), origin)
       );
     }
     userId = data.user?.id;
@@ -153,13 +154,13 @@ export const GET = withAuditScope(async (request: NextRequest) => {
 
     if (!claim) {
       return NextResponse.redirect(
-        new URL(localizePath("/dashboard?error=invalid-claim", locale), origin)
+        new URL(localizePath(routes.dashboard.index({ error: "invalid-claim" }), locale), origin)
       );
     }
 
     if (claim.email !== userEmail) {
       return NextResponse.redirect(
-        new URL(localizePath("/dashboard?error=email-mismatch", locale), origin)
+        new URL(localizePath(routes.dashboard.index({ error: "email-mismatch" }), locale), origin)
       );
     }
 
@@ -184,7 +185,7 @@ export const GET = withAuditScope(async (request: NextRequest) => {
         await posthog.flush();
       }
       const url = new URL(
-        localizePath(`/dashboard/brands/${brand.slug}`, locale),
+        localizePath(routes.dashboard.brand(brand.slug), locale),
         origin,
       );
       if (isNewUser) {
@@ -198,7 +199,7 @@ export const GET = withAuditScope(async (request: NextRequest) => {
         ? 'owner-limit'
         : 'claim-failed'
       return NextResponse.redirect(
-        new URL(localizePath(`/dashboard?error=${reason}`, locale), origin)
+        new URL(localizePath(routes.dashboard.index({ error: reason }), locale), origin)
       );
     }
   }
@@ -229,7 +230,7 @@ export const GET = withAuditScope(async (request: NextRequest) => {
   const url = new URL(localizePath(redirectTo, locale), origin);
   if (isNewUser) {
     url.searchParams.set("is_new_user", "1");
-  } else if (!redirectTo.startsWith("/auth/reset-password")) {
+  } else if (!redirectTo.startsWith(routes.auth.resetPassword())) {
     // Recovery links exchange a code here too, but landing on the reset form is
     // not a login — the password hasn't been set yet. Marking it would inflate
     // `user_logged_in` with password-reset traffic.

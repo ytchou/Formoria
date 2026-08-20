@@ -3,6 +3,7 @@ import { localizePath } from '@/i18n/locale-preference'
 import type { BrandSortOption } from '@/lib/pagination'
 import type { DirectoryViewFilters } from '@/lib/seo/directory-filters'
 import { directoryBrandCategoryFilter } from '@/lib/services/brands'
+import { routes } from '@/lib/routes'
 
 /**
  * The directory's presentation decisions, as pure functions over the parsed
@@ -97,14 +98,14 @@ export function buildDirectoryUrlState(
   const subcategoryPairIsAddressable =
     !input.subcategory || input.subcategory.category === input.category?.slug
   const routePath = input.category && subcategoryPairIsAddressable
-    ? `/categories/${input.category.slug}${input.subcategory ? `/${input.subcategory.slug}` : ''}`
-    : '/brands'
+    ? routes.categoryPath(input.category.slug, input.subcategory?.slug)
+    : routes.brands()
   const normalizedParams = new URLSearchParams()
   if (input.search) normalizedParams.set('search', input.search)
-  if (input.categorySlugs.length > 0 && routePath === '/brands') {
+  if (input.categorySlugs.length > 0 && routePath === routes.brands()) {
     normalizedParams.set('category', input.categorySlugs.join(','))
   }
-  if (input.subcategorySlugs.length > 0 && routePath === '/brands') {
+  if (input.subcategorySlugs.length > 0 && routePath === routes.brands()) {
     normalizedParams.set('sub', input.subcategorySlugs.join(','))
   }
   if (input.materials.length > 0) normalizedParams.set('material', input.materials.join(','))

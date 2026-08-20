@@ -29,6 +29,7 @@ import { BasicInfoSection } from './sections/basic-info-section'
 import { MediaSection } from './sections/media-section'
 import { LinksSection } from './sections/links-section'
 import { ReputationSection } from './sections/reputation-section'
+import { routes } from '@/lib/routes'
 
 interface BrandEditWizardProps {
   brand: Pick<OwnerBrandEditor, 'id' | 'slug'>
@@ -261,7 +262,7 @@ export function BrandEditWizard({
   const isFocusedMode =
     isFocused || areAllWizardStepsComplete(completedSteps, WIZARD_STEPS.length)
   const handleExit = useCallback(() => {
-    router.push(`/dashboard/brands/${brand.slug}`)
+    router.push(routes.dashboard.brand(brand.slug))
   }, [brand.slug, router])
 
   return (

@@ -11,11 +11,9 @@ import en from "../../../../messages/en.json";
 import { buildWebSiteJsonLd } from "@/lib/json-ld";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
-// The hero carries a `priority` background photograph. `next/image` resolves a
-// local `src` against the loader's base URL, which jsdom does not provide, so
-// without this every spec in this file dies on "Invalid URL" inside getImgProps.
-// `priority` is surfaced as a data attribute because React drops the unknown
-// boolean prop from a plain `<img>`.
+// The opener renders no image at all now, but the mock stays: a regression that
+// puts a photograph back would otherwise die inside getImgProps on jsdom's
+// missing loader base URL rather than on the assertion that names the rule.
 vi.mock("next/image", () => ({
   default: ({ fill: _fill, priority, ...props }: Record<string, unknown>) => (
     // eslint-disable-next-line @next/next/no-img-element -- this IS the mock of next/image
@@ -71,7 +69,6 @@ vi.mock("@/lib/analytics", () => ({
   trackSearchExecuted: vi.fn(),
   trackSearchResultClicked: vi.fn(),
   trackSearchSuggestionSelect: vi.fn(),
-  trackHeroCategoryClicked: vi.fn(),
 }));
 
 const HeroSection = (await import("../hero-section")).default;
@@ -106,7 +103,7 @@ function stubLocation(): { current: string } {
   return captured;
 }
 
-describe("HeroSection", () => {
+describe("HeroSection — the editorial opener", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     global.fetch = vi.fn(() =>
@@ -114,21 +111,28 @@ describe("HeroSection", () => {
     ) as unknown as typeof fetch;
   });
 
-  it("renders the background photograph, decorative and preloaded", async () => {
-    // REVERSES DEV-1479 decision D2 ("the hero is photograph-free"), by product
-    // decision on 2026-08-17: production never stopped serving this image and
-    // the text-only hero read as unfinished above a wall of photographs.
+  it("opens editorially with search retained", async () => {
+    // D1/D18. The opener is an eyebrow, the promise line, a lede and a search
+    // field — the two halves this asserts together, because either one alone
+    // has shipped before: a text-only hero with no way to search, and a search
+    // bar with no point of view above it.
+    await renderHero();
+
+    expect(screen.getByText(en.landing.hero.eyebrow)).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: en.landing.hero.headline }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(en.landing.hero.lede)).toBeInTheDocument();
+    expect(screen.getByRole("searchbox")).toBeInTheDocument();
+  });
+
+  it("carries no photograph", async () => {
+    // Reverses the 2026-08-17 restoration. The wall below is a sheet of
+    // photographs; a scrimmed hero image above it made the page open on two
+    // competing images and cost `/` its only above-the-fold preload.
     const { container } = await renderHero();
 
-    const image = container.querySelector("img");
-    expect(image).not.toBeNull();
-    expect(image?.getAttribute("src")).toContain("hero-bg");
-    // Decorative: the headline beside it carries the meaning.
-    expect(image?.getAttribute("alt")).toBe("");
-    // It is the LCP element, so it preloads — and it is the ONLY image on the
-    // page that does. `selected-product-tile.tsx` marks no wall tile
-    // `priority`, so nothing competes with this request.
-    expect(image?.getAttribute("data-priority")).toBe("true");
+    expect(container.querySelector("img")).toBeNull();
   });
 
   it("renders exactly one search control that targets /brands?search=", async () => {
@@ -146,7 +150,7 @@ describe("HeroSection", () => {
     });
 
     // The WebSite JSON-LD promises search engines this exact entry point, so
-    // the hero form must submit into the same path and query parameter.
+    // the opener's form must submit into the same path and query parameter.
     const urlTemplate = (
       buildWebSiteJsonLd("en").potentialAction as {
         target: { urlTemplate: string };
@@ -161,7 +165,8 @@ describe("HeroSection", () => {
 
   it("subheadline is the first prose node in the DOM", async () => {
     // DEV-1320: the earliest body text on `/` must be the positioning line, or
-    // Google lifts a rotating brand blurb as the homepage snippet.
+    // Google lifts a rotating brand blurb as the homepage snippet. It is also
+    // asserted verbatim by seo.spec.ts, so it cannot be folded into the lede.
     const { container } = await renderHero();
 
     const paragraphs = [...container.querySelectorAll("p")];
@@ -169,69 +174,41 @@ describe("HeroSection", () => {
     expect(paragraphs[0]).toHaveTextContent(en.landing.hero.subheadline);
   });
 
-  it("the mobile chip row stays left-aligned and horizontally scrollable", async () => {
-    const { container } = await renderHero();
-
-    const scrollable = [...container.querySelectorAll("nav")].find((nav) =>
-      nav.className.includes("overflow-x-auto"),
-    );
-    expect(scrollable).toBeDefined();
-
-    // A centred row that overflows reads as broken and loses its scroll
-    // affordance, so only the desktop block (which never overflows) centres.
-    expect(scrollable!.className).not.toContain("text-center");
-    expect(scrollable!.className).not.toContain("justify-center");
-  });
-
-  it("every L1 category is reachable from the hero, with no all-categories link", async () => {
-    // The header drops its category tab row on `/`, so the hero is the only
-    // category entry point and must list the ontology in full.
+  it("hero category chips are gone", async () => {
+    // The whole L1 row moved into the persistent nav (D18), which is why
+    // `hero-category-chips.tsx` was deleted rather than restyled. A chip row
+    // returning here would put thirteen duplicate category links one viewport
+    // under the thirteen in the header.
     const { container } = await renderHero();
 
     for (const category of L1_CATEGORIES) {
-      const chips = container.querySelectorAll(
-        `a[href="/categories/${category.slug}"]`,
-      );
-      // One chip in the desktop block, one in the mobile scroller.
-      expect(chips).toHaveLength(2);
-      expect(chips[0]).toHaveTextContent(category.name);
+      expect(
+        container.querySelector(`a[href="/categories/${category.slug}"]`),
+        `chip for ${category.slug}`,
+      ).toBeNull();
     }
-
-    // Every category is on screen, so the escape hatch to /brands is dead
-    // weight — the only remaining /brands link is the browse CTA.
-    const brandsLinks = container.querySelectorAll('a[href="/brands"]');
-    expect(brandsLinks).toHaveLength(1);
-    expect(brandsLinks[0]).toHaveTextContent(en.landing.hero.browseCta);
+    expect(container.querySelectorAll("nav")).toHaveLength(0);
   });
 
-  it("labels the desktop chip block with the eyebrow line", async () => {
+  it("offers one secondary path beside the search field", async () => {
     const { container } = await renderHero();
 
-    const desktopNav = [...container.querySelectorAll("nav")].find(
-      (nav) => !nav.className.includes("overflow-x-auto"),
-    );
-    expect(desktopNav).toBeDefined();
-    expect(desktopNav!).toHaveTextContent(en.landing.hero.categoriesEyebrow);
-
-    // ONE wrapping row, not a hand-split 6+6: zh-TW's twelve four-character
-    // labels fit a single line at the 1120px cap, and EN's word labels wrap to
-    // a second by themselves. Asserting one container with all twelve chips
-    // keeps this test about "every category is reachable" rather than about a
-    // row count that legitimately differs per locale and viewport.
-    const rows = [...desktopNav!.querySelectorAll("div")].filter((row) =>
-      row.className.includes("justify-center"),
-    );
-    expect(rows).toHaveLength(1);
-    expect(rows[0]!.querySelectorAll("a")).toHaveLength(
-      L1_CATEGORIES.length,
-    );
+    const secondary = screen.getByRole("link", {
+      name: new RegExp(en.landing.hero.browseCta),
+    });
+    // /discover, not an in-page `#` anchor: the 風格 zone below is withheld
+    // when nothing is published, and a fragment with no target is a dead
+    // control that still looks live.
+    expect(secondary).toHaveAttribute("href", "/discover");
+    expect(container.querySelectorAll("a")).toHaveLength(1);
   });
 
-  it("keeps a single h1", async () => {
+  it("publishes no hero sentinel", async () => {
+    // `[data-hero-sentinel]` existed for exactly one reader: the header's
+    // IntersectionObserver, which revealed the nav search once the hero left
+    // the viewport. The nav search is unconditional now, so both sides go.
     const { container } = await renderHero();
 
-    const headings = container.querySelectorAll("h1");
-    expect(headings).toHaveLength(1);
-    expect(headings[0]).toHaveTextContent(en.landing.hero.headline);
+    expect(container.querySelector("[data-hero-sentinel]")).toBeNull();
   });
 });

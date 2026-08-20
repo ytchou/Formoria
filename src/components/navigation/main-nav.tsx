@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Link, usePathname } from '@/i18n/navigation'
 import { Menu } from 'lucide-react'
@@ -13,11 +13,11 @@ import { Dialog as SheetPrimitive } from '@base-ui/react/dialog'
 import { AccountMenu } from '@/components/auth/account-menu'
 import { NavSearchInput } from './nav-search-input'
 import { NavCategoryTabs } from './nav-category-tabs'
-import { BrandMark } from '@/lib/brand/BrandMark'
 import { LocaleSwitcher } from '@/components/i18n/locale-switcher'
 import { buttonVariants } from '@/components/ui/button'
 import { useUser } from '@/lib/auth/use-user'
 import { trackCtaClicked } from '@/lib/analytics'
+import { routes } from '@/lib/routes'
 
 interface MainNavProps {
   categories: Array<{ slug: string; name: string; nameZh: string | null }>
@@ -35,150 +35,98 @@ export function MainNav({ categories }: MainNavProps) {
   const ownerFeaturesEnabled = viewer.ownerFeaturesEnabled
   const pathname = usePathname()
 
-  // The homepage hero owns both entry modes — a search field and all 12 L1
-  // chips — so the header's copies of them are pure duplication within one
-  // viewport. Every other route keeps them; `/brands` in particular relies on
-  // the tab row as its primary control surface.
-  const isHome = pathname === '/'
-  // Starts `true` on every render path, server and client alike: the hero IS on
-  // screen at the top of `/`, so the header search starts hidden with no
-  // first-paint flash and no hydration mismatch. A browser global read in the
-  // initialiser would resolve differently on the two sides and cause one.
-  const [heroVisible, setHeroVisible] = useState(true)
-  useEffect(() => {
-    if (!isHome) return
-    // THE SEARCH MUST NEVER BE UNREACHABLE. Every branch below that cannot
-    // observe the hero resolves to "show it" — a hidden search with no way back
-    // is a dead end, an early-revealed one is only a duplicated control.
-    //
-    // The fallback is scheduled rather than called inline because a synchronous
-    // setState in an effect body trips react-hooks/set-state-in-effect. One
-    // frame of delay is invisible on a path that only runs when the observer
-    // cannot work at all.
-    const revealSearch = () => setHeroVisible(false)
-    if (typeof IntersectionObserver === 'undefined') {
-      const frame = requestAnimationFrame(revealSearch)
-      return () => cancelAnimationFrame(frame)
-    }
-
-    // The hero publishes its bottom edge as `[data-hero-sentinel]`
-    // (hero-section.tsx). Observing it replaces a hardcoded `scrollY > 420`
-    // that stood in for the hero's height while being coupled to nothing: the
-    // hero grows with the copy, the locale and the font, so the threshold was
-    // wrong on the EN homepage the day it was written.
-    //
-    // It also removes a mount-time latch. The old handler read `window.scrollY`
-    // eagerly, so a client-side navigation to `/` from a deep scroll position
-    // revealed the search before the router had reset the scroll. An observer
-    // has no such reading: its first callback reports where the sentinel
-    // actually is once the new page has laid out.
-    const sentinel = document.querySelector('[data-hero-sentinel]')
-    if (!sentinel) {
-      const frame = requestAnimationFrame(revealSearch)
-      return () => cancelAnimationFrame(frame)
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        // `.at(-1)` rather than `[0]`: a single observation can deliver several
-        // entries, and the last is the current state.
-        const entry = entries.at(-1)
-        if (!entry) return
-        setHeroVisible(entry.isIntersecting)
-      },
-      // The header is `h-14`, so the sentinel is "gone" once it slides under
-      // the sticky bar rather than when it leaves the viewport underneath it.
-      { rootMargin: '-56px 0px 0px 0px' },
-    )
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [isHome])
-
-  const showNavSearch = !isHome || !heroVisible
+  /**
+   * The mock's five destinations, in its order. Declared once and rendered
+   * twice — the desktop row and the mobile sheet used to be two hand-kept lists
+   * that had already drifted apart by one link.
+   */
+  const primaryLinks = [
+    { href: routes.discover(), label: t('discover') },
+    { href: routes.brands(), label: t('brands') },
+    { href: routes.stories(), label: t('stories') },
+    { href: routes.whereToBuy(), label: t('whereToBuy') },
+    { href: routes.about(), label: t('about') },
+  ]
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background">
-      {/* Row 1: Logo | Search | Actions */}
-      <div className="page-gutter mx-auto flex h-14 max-w-screen-xl items-center gap-4">
-        {/* Logo */}
-        <Link href="/" className="flex shrink-0 items-center gap-2">
-          <BrandMark size={32} />
-          <span className="type-section-title">
-            Formoria
-          </span>
+    <header className="sticky top-0 z-50 border-b border-rule bg-ground">
+      {/* Row 1: wordmark | search | links.
+          THE HEIGHT IS `--nav-row-primary`, NOT A LITERAL. Six sticky elements
+          park below the header with `top-(--nav-height)`, and that token is a
+          `calc()` of this row, the category row and the bottom hairline. A
+          literal here desyncs the six the moment it changes — which is exactly
+          how they came to sit 13px under a z-50 bar. `nav-height.test.ts`
+          fails if this row stops reading the token.
+          `header-measure`, NOT `page-measure`: the header stays at 80rem on
+          every route, while `--page-measure` widens to 100rem under the landing
+          page. A header that changed width between routes would read as the
+          page jumping. The exclusion is stated in globals.css. */}
+      <div className="page-gutter mx-auto flex h-(--nav-row-primary) header-measure items-center gap-6">
+        {/* The wordmark alone — the content face (`font-ming`), no mark. The
+            vectorized mark is still the favicon and still opens the auth
+            layout; in the nav it competed with the wordmark beside it at
+            32px. */}
+        <Link href={routes.home()} className="shrink-0 type-card-title">
+          Formoria
         </Link>
 
-        {/* Search — center, takes remaining space (desktop only). The wrapper
-            is unconditional so it keeps holding the `flex-1` gap between the
-            logo and the actions; only its contents come and go. */}
+        {/* THE HEADER SEARCH IS UNCONDITIONAL, INCLUDING ON `/`.
+            It used to be hidden on the homepage until an IntersectionObserver
+            reported the hero photograph had left the viewport — a state
+            machine, a sentinel element in another component, and a documented
+            "the search must never be unreachable" hazard, all to avoid showing
+            two search fields in one viewport. The opener is editorial now and
+            the approved mock draws both, so the whole mechanism is deleted
+            rather than re-tuned. The two fields carry different accessible
+            names (`landing.hero.searchLabel` and `brands.search.aria`), so they
+            are distinguishable to a screen reader. */}
         <div className="hidden flex-1 md:block">
-          {/* HIDDEN, NEVER UNMOUNTED. Unmounting threw away an in-progress
-              query the moment the reader scrolled back up to the hero, and the
-              field came back empty. `hidden` is `display: none`, so while it is
-              concealed the input is neither focusable nor announced — a
-              visually-hidden-but-focusable field here would be a tab stop
-              pointing at nothing on screen.
-
-              `animate-in fade-in-0` is neutralised by the global
-              prefers-reduced-motion rule in globals.css, so no extra guard here. */}
-          <div
-            className={
-              showNavSearch ? 'animate-in fade-in-0 duration-200' : 'hidden'
-            }
-          >
-            <NavSearchInput />
-          </div>
+          <NavSearchInput />
         </div>
 
-        {/* Right actions (desktop). A `nav` rather than a `div`: NavCategoryTabs
-            below used to be the header's only navigation landmark, so gating it
-            off the homepage left the banner with none at all. */}
-        <nav aria-label={t('navigation')} className="hidden items-center gap-4 md:flex">
-          <Link
-            href="/where-to-buy"
-            className="type-body-emphasis text-foreground/80 transition-colors hover:text-foreground"
-          >
-            {t('whereToBuy')}
-          </Link>
-          <Link
-            href="/discover"
-            className="type-body-emphasis text-foreground/80 transition-colors hover:text-foreground"
-          >
-            {t('discover')}
-          </Link>
-          <Link
-            href="/about"
-            className="type-body-emphasis text-foreground/80 transition-colors hover:text-foreground"
-          >
-            {t('about')}
-          </Link>
+        {/* Right actions (desktop). A `nav` rather than a `div`: this and the
+            category row below are the header's navigation landmarks. */}
+        <nav aria-label={t('navigation')} className="hidden items-center gap-5 md:flex">
+          {primaryLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="type-nav transition-colors hover:text-accent"
+            >
+              {link.label}
+            </Link>
+          ))}
+          {!user ? <LocaleSwitcher /> : null}
+          {/* NOT in the approved mock, and it stays: owner-features-flag-off
+              and dashboard-tabs both assert this link's presence or absence
+              inside `header`. */}
           {hasOwnedBrand && ownerFeaturesEnabled ? (
             <Link
-              href="/dashboard"
+              href={routes.dashboard.index()}
               className={buttonVariants({ variant: 'primary' })}
             >
               {t('myBrands')}
             </Link>
           ) : (
             <Link
-              href="/submit"
+              href={routes.submit.index()}
               data-ph-no-autocapture
-              onClick={() => trackCtaClicked('submit_brand', 'header_nav', '/submit', pathname)}
-              className={buttonVariants({ variant: 'primary', tone: 'cta' })}
+              onClick={() =>
+                trackCtaClicked('submit_brand', 'header_nav', routes.submit.index(), pathname)
+              }
+              className={buttonVariants({ variant: 'primary' })}
             >
               {t('submitBrand')}
             </Link>
           )}
-          {!user ? <LocaleSwitcher /> : null}
           <AccountMenu />
         </nav>
 
         {/* Mobile hamburger. A `nav` rather than a `div`, for the same reason
             the desktop actions are one: the actions element is `md:flex`, so it
-            is `display: none` below 768px and exposes no landmark there, and
-            NavCategoryTabs — the header's other navigation — is suppressed on
-            `/` entirely. Without this the homepage banner had no navigation
-            landmark at all on a phone, only a button. */}
+            is `display: none` below 768px and exposes no landmark there. This
+            is the first navigation landmark in the banner at 375px, which
+            mobile.spec.ts asserts by role. */}
         <nav aria-label={t('navigation')} className="ml-auto md:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetPrimitive.Trigger
@@ -205,32 +153,20 @@ export function MainNav({ categories }: MainNavProps) {
                   <NavSearchInput />
                 </div>
 
-                <Link
-                  href="/where-to-buy"
-                  className="flex min-h-11 items-center px-1 type-body-emphasis"
-                  onClick={() => setOpen(false)}
-                >
-                  {t('whereToBuy')}
-                </Link>
+                {primaryLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="flex min-h-11 items-center px-1 type-nav"
+                    onClick={() => setOpen(false)}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
 
-                <Link
-                  href="/discover"
-                  className="flex min-h-11 items-center px-1 type-body-emphasis"
-                  onClick={() => setOpen(false)}
-                >
-                  {t('discover')}
-                </Link>
-
-                <Link
-                  href="/about"
-                  className="flex min-h-11 items-center px-1 type-body-emphasis"
-                  onClick={() => setOpen(false)}
-                >
-                  {t('about')}
-                </Link>
                 {hasOwnedBrand && ownerFeaturesEnabled ? (
                   <Link
-                    href="/dashboard"
+                    href={routes.dashboard.index()}
                     className={buttonVariants({ variant: 'primary', className: 'w-full' })}
                     onClick={() => setOpen(false)}
                   >
@@ -238,13 +174,13 @@ export function MainNav({ categories }: MainNavProps) {
                   </Link>
                 ) : (
                   <Link
-                    href="/submit"
+                    href={routes.submit.index()}
                     data-ph-no-autocapture
                     onClick={() => {
-                      trackCtaClicked('submit_brand', 'header_nav', '/submit', pathname)
+                      trackCtaClicked('submit_brand', 'header_nav', routes.submit.index(), pathname)
                       setOpen(false)
                     }}
-                    className={buttonVariants({ variant: 'primary', tone: 'cta', className: 'w-full' })}
+                    className={buttonVariants({ variant: 'primary', className: 'w-full' })}
                   >
                     {t('submitBrand')}
                   </Link>
@@ -261,10 +197,10 @@ export function MainNav({ categories }: MainNavProps) {
         </nav>
       </div>
 
-      {/* Row 2: Category tabs — suppressed on `/`, where the hero renders all
-          12 L1s directly. Unlike the search field this does not come back on
-          scroll: the homepage below the hero is its own browse surface. */}
-      {isHome ? null : <NavCategoryTabs categories={categories} />}
+      {/* Row 2: the L1 category row, on EVERY route including `/` (D18). It was
+          suppressed on the homepage while the hero rendered its own chip block;
+          that block is deleted, so the categories live in exactly one place. */}
+      <NavCategoryTabs categories={categories} />
     </header>
   )
 }

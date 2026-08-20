@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
-import Image from "next/image";
+import {
+  EditorialHero,
+  editorialHeroSrc,
+} from "@/components/ui/editorial-hero";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { ChevronRight } from "lucide-react";
@@ -34,6 +37,7 @@ import {
   L1_CATEGORIES,
 } from "@/lib/taxonomy/ontology";
 import { StoryContent } from "./story-content";
+import { routes } from "@/lib/routes";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
@@ -81,7 +85,7 @@ export async function generateMetadata({
   // duplicate of the prefix-free URL. `buildAlternates` is shared with /brands and
   // must stay locale-agnostic — the zh-TW-only decision belongs at this call site.
   const { canonical, languages } = buildAlternates(
-    `/stories/${story.entry.frontmatter.slug}`,
+    routes.story(story.entry.frontmatter.slug),
     "zh-TW",
     ["zh-TW"],
   );
@@ -158,12 +162,20 @@ export default async function StoryPage({ params }: PageProps) {
     : null;
   const series = seriesResult?.ok ? seriesResult.stories : [];
 
+  // Resolved ONCE, and the same answer the hero renders from: an image the page
+  // cannot display must not be published as the article's image either. `null`
+  // is exactly the case where `EditorialHero` renders nothing.
+  const heroSrc = editorialHeroSrc(story.entry.frontmatter.heroImage);
   const articleJsonLd = buildArticleJsonLd({
     title: story.entry.frontmatter.title,
     description: story.entry.frontmatter.description ?? "",
-    path: `/stories/${story.entry.frontmatter.slug}`,
+    path: routes.story(story.entry.frontmatter.slug),
     locale: safeLocale,
     author: story.entry.frontmatter.author ?? t("byline"),
+    // The story has carried a mandatory hero since it launched and never
+    // emitted one into structured data. `buildArticleJsonLd` absolutises a repo
+    // path.
+    image: heroSrc,
   });
   // Both are omitted rather than emitted raw when the frontmatter date is
   // missing or unparseable: schema.org date properties must be ISO-8601, and an
@@ -201,7 +213,7 @@ export default async function StoryPage({ params }: PageProps) {
   // builder every other content route uses (`/brands/[slug]`, `/events`).
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(
     [
-      { label: t("breadcrumb"), href: "/stories" },
+      { label: t("breadcrumb"), href: routes.stories() },
       { label: story.entry.frontmatter.title },
     ],
     safeLocale,
@@ -218,14 +230,19 @@ export default async function StoryPage({ params }: PageProps) {
   return (
     // One centered, box-sized article container owns every story detail surface:
     // breadcrumb, hero, metadata, body, figures, cards, FAQ, and series nav.
-    <main className="mx-auto box-border w-full max-w-[920px] px-4 pt-8 pb-16 sm:px-5 md:px-8 md:pt-12 md:pb-24">
+    <main className="page-gutter mx-auto box-border w-full max-w-[920px] pt-8 pb-16 md:pt-12 md:pb-24">
       <nav aria-label={t("breadcrumbAria")} className="mb-6">
-        <ol className="flex items-center gap-1.5 type-card-description">
+        <ol className="flex items-center gap-1.5 type-body-sm">
           <li>
-            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
+            {/* A raw `<a>`, not next/link. DEV-1280: full-document navigation avoids a
+              stalled RSC request across the locale proxy rewrite. The
+              `no-html-link-for-pages` suppression that used to sit here is gone with
+              the literal href — the rule only inspects string literals, so routing
+              this through `@/lib/routes` left the directive unused, which
+              `reportUnusedDisableDirectives: "error"` fails on. */}
             <a
-              href="/stories"
-              className="hover:text-foreground transition-colors"
+              href={routes.stories()}
+              className="hover:text-ink transition-colors"
             >
               {t("breadcrumb")}
             </a>
@@ -234,7 +251,7 @@ export default async function StoryPage({ params }: PageProps) {
             <ChevronRight className="size-3.5" />
           </li>
           <li>
-            <span aria-current="page" className="text-foreground">
+            <span aria-current="page" className="text-ink">
               {story.entry.frontmatter.title}
             </span>
           </li>
@@ -269,74 +286,42 @@ export default async function StoryPage({ params }: PageProps) {
           `<Figure>`s: this one is not illustrating a paragraph, it is the
           story's opening frame, and the wide crop keeps it from eating the
           fold on a laptop.
+
+          `EditorialHero` owns the box, the LCP hints and the "can this be
+          displayed" question — trail detail opens with the same frame, and the
+          two copies had already drifted apart on the placeholder colour.
         */}
-        {story.entry.frontmatter.heroImage ? (
-          <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-border bg-muted">
-            {/*
-              Two renderers, chosen by where the asset lives.
-
-              A path (`/images/…`) is a repo asset: `next/image` can resize it,
-              serve WebP, and emit a srcset, which matters because these are
-              committed PNGs — the current one is a 1.9MB file that would
-              otherwise ship whole as this page's LCP element.
-
-              An absolute URL is author-supplied and remote. `next/image` would
-              need the host in `remotePatterns`, and a story author adding an
-              image must not have to edit `next.config.ts` to make it render, so
-              that case stays a plain `<img>` — the same trade `StoryFigure` and
-              the `img` rule in `storyComponentMap` make.
-
-              Both are `priority`/`fetchPriority="high"` and never lazy: this is
-              the story's LCP element, so deferring it defers the metric itself.
-            */}
-            {story.entry.frontmatter.heroImage.startsWith("/") ? (
-              <Image
-                src={story.entry.frontmatter.heroImage}
-                alt={story.entry.frontmatter.heroImageAlt ?? ""}
-                fill
-                priority
-                sizes="(max-width: 1280px) 100vw, 1280px"
-                className="object-cover"
-              />
-            ) : (
-              /* eslint-disable-next-line @next/next/no-img-element -- remote author-supplied URL with no intrinsic size and no `remotePatterns` entry; see the note above. */
-              <img
-                src={story.entry.frontmatter.heroImage}
-                /* Empty alt when the frontmatter omits one: the `<h1>` immediately
-                   below already says what this is, and a screen reader repeating
-                   the title as image text is noise, not description. */
-                alt={story.entry.frontmatter.heroImageAlt ?? ""}
-                decoding="async"
-                fetchPriority="high"
-                className="size-full object-cover"
-              />
-            )}
-          </div>
-        ) : null}
+        <EditorialHero
+          src={story.entry.frontmatter.heroImage}
+          alt={story.entry.frontmatter.heroImageAlt ?? ""}
+        />
         <header className="space-y-4">
-          <h1 className="type-page-title-large">
+          <h1 className="type-page-title">
             {story.entry.frontmatter.title}
           </h1>
-          <p className="type-page-subtitle">
+          <p className="max-w-[46rem] type-body text-ink-soft">
             {story.entry.frontmatter.description}
           </p>
-          <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 type-caption">
+          {/* The byline sits under a hairline, the way a feature's credits do in
+              print: it is the boundary between the opening and the article, not
+              a caption on the title. */}
+          <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 border-t border-rule pt-4 type-metadata">
             <div className="contents">
-              <dt className="border-r border-border pr-3 type-metadata">
+              <dt className="border-r border-rule pr-3 type-metadata">
                 {t("authorLabel")}
               </dt>
               <dd>{story.entry.frontmatter.author ?? t("byline")}</dd>
             </div>
             {seriesId && series.length >= 2 ? (
               <div className="contents">
-                <dt className="border-r border-border pr-3 type-metadata">
+                <dt className="border-r border-rule pr-3 type-metadata">
                   {t("seriesLabel")}
                 </dt>
                 <dd>
                   {/* Metadata navigation follows the breadcrumb treatment, not body-prose link styling. */}
                   <a
                     href="#series"
-                    className="rounded-sm hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="rounded-[2px] hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   >
                     {seriesTitle}
                   </a>
@@ -345,7 +330,7 @@ export default async function StoryPage({ params }: PageProps) {
             ) : null}
             {publishedLabel ? (
               <div className="contents">
-                <dt className="border-r border-border pr-3 type-metadata">
+                <dt className="border-r border-rule pr-3 type-metadata">
                   {t("publishedLabel")}
                 </dt>
                 <dd>{publishedLabel}</dd>
@@ -353,7 +338,7 @@ export default async function StoryPage({ params }: PageProps) {
             ) : null}
             {updatedLabel && updatedLabel !== publishedLabel ? (
               <div className="contents">
-                <dt className="border-r border-border pr-3 type-metadata">
+                <dt className="border-r border-rule pr-3 type-metadata">
                   {t("lastUpdatedLabel")}
                 </dt>
                 <dd>{updatedLabel}</dd>
@@ -361,7 +346,7 @@ export default async function StoryPage({ params }: PageProps) {
             ) : null}
             {storyTags.length > 0 ? (
               <div className="contents">
-                <dt className="border-r border-border pr-3 type-metadata">
+                <dt className="border-r border-rule pr-3 type-metadata">
                   {t("tagsLabel")}
                 </dt>
                 <dd className="min-w-0">

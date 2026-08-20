@@ -40,6 +40,7 @@ import {
 import { trackMitDeclared } from "@/lib/analytics";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
+import { routes } from "@/lib/routes";
 
 type ActionState =
   | {
@@ -272,7 +273,7 @@ export async function publishDraftAction(
         await releaseBrandImageUrls(supabase, brand.id, orphans);
 
         revalidatePublicBrands([publishedBrand.slug, brand.slug]);
-        revalidatePath("/dashboard");
+        revalidatePath(routes.dashboard.index());
       } else {
         const nextImageUrls = imageUrlsFromBrand({
           heroImageUrl:
@@ -313,7 +314,7 @@ export async function publishDraftAction(
         );
 
         revalidatePublicBrands([publishedBrand.slug, brand.slug]);
-        revalidatePath("/dashboard");
+        revalidatePath(routes.dashboard.index());
       }
 
       // Server-side: this publish never reaches the browser analytics sink. A PostHog
@@ -347,6 +348,6 @@ export async function publishDraftAction(
     }
 
     const locale = await getLocale();
-    redirect(localizePath(`/dashboard/brands/${redirectSlug}`, locale));
+    redirect(localizePath(routes.dashboard.brand(redirectSlug), locale));
   });
 }

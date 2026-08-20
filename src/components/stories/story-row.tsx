@@ -9,6 +9,7 @@ import { trackTrailCardClicked } from "@/lib/analytics";
 import type { StoryEntry } from "@/lib/services/stories";
 import { NO_SNIPPET } from "@/lib/seo/snippet";
 import { formatStoryDate, toStoryIsoDate } from "./story-date";
+import { routes } from "@/lib/routes";
 
 export function StoryRow({
   story,
@@ -17,7 +18,7 @@ export function StoryRow({
   position,
   trackingSurface,
   trackingKind = "story",
-  hrefBase = '/stories',
+  hrefBase = routes.stories(),
   namespace = 'stories',
 }: {
   story: StoryEntry;
@@ -52,7 +53,7 @@ export function StoryRow({
   return (
     <Link
       href={`${hrefBase.replace(/\/$/, '')}/${story.slug}`}
-      className="group flex min-h-12 flex-col gap-3 py-5 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex-row md:gap-8 md:py-6"
+      className="group flex min-h-12 flex-col gap-3 py-5 transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent md:flex-row md:gap-8 md:py-6"
       {...trackingProps}
     >
       {publishedLabel ? (
@@ -84,7 +85,7 @@ export function StoryRow({
         */}
         <p
           {...NO_SNIPPET}
-          className="max-w-3xl type-body-muted"
+          className="max-w-3xl type-body-sm"
           lang={isForeignLanguage ? storyLocale : undefined}
         >
           {story.frontmatter.description}

@@ -41,10 +41,10 @@ export function GoogleButton({ action }: GoogleButtonProps) {
     <div className="space-y-4">
       <div className="relative">
         <div className="absolute inset-0 flex items-center" aria-hidden="true">
-          <div className="w-full border-t border-border" />
+          <div className="w-full border-t border-rule" />
         </div>
-        <div className="relative flex justify-center type-card-description">
-          <span className="bg-background px-3">{t("orDivider")}</span>
+        <div className="relative flex justify-center type-body-sm">
+          <span className="bg-ground px-3">{t("orDivider")}</span>
         </div>
       </div>
 

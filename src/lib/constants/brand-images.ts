@@ -38,12 +38,19 @@ export const MAX_BRAND_IMAGE_SELECTION = 24
 // exactly the brands most likely to be re-edited.
 export const DRAFT_PARK_SORT_ORDER = MAX_BRAND_IMAGE_SELECTION
 
-// Aspect ratio of the box brand images render into — the `aspect-[4/3]` card
-// and detail frames, which use `object-cover` and therefore crop anything that
-// is not already this shape. Kept here so ranking scores the crop an image will
-// really receive against the same number the layout enforces; if the frames ever
-// change ratio, this constant must move with them or ranking silently optimises
-// for a box that no longer exists.
+// Aspect ratio ranking scores crop damage against.
+//
+// IT NO LONGER MATCHES THE RENDER BOX, AND THAT IS A KNOWN, DELIBERATE GAP.
+// The card and detail frames moved from 4:3 to 1:1 with the v2 `--aspect-media`
+// token (`app/globals.css`), because 53.5% of the corpus is exactly square and
+// a 4:3 box discards 25.1% of the average photo against 13.8% at 1:1. This
+// constant stayed at 4/3: changing it re-ranks every brand's hero image through
+// `crop-damage.ts` and `enrich-phases/classify-images.ts`, which is a pipeline
+// change with its own verification and its own backfill, not a styling change.
+//
+// Until it moves, ranking optimises for a box the layout no longer draws —
+// conservatively, since a 4:3-optimal image is still a reasonable 1:1 crop.
+// Whoever closes this changes the number here, not at a call site.
 export const HERO_TARGET_RATIO = 4 / 3
 
 // The classification tag that switches an image from cover-cropping to

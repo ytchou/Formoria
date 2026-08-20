@@ -19,6 +19,7 @@ import type { BrandWizardCommonValues } from "@/lib/schemas/brand-wizard";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { slugifyRomanizedName } from "@/lib/brands/slug";
 import { cn } from "@/lib/utils";
+import { routes } from "@/lib/routes";
 
 type RequiredBasicField =
   "name" | "categorySlug" | "description" | "subcategories" | "priceRange";
@@ -96,7 +97,7 @@ export function BrandBasicInfoSection({
   return (
     <StandardFormSection id="basic-info">
       <StandardFormStack>
-        <h2 className="type-section-title">{t("wizardStepBasicInfo")}</h2>
+        <h2 className="type-card-title">{t("wizardStepBasicInfo")}</h2>
         <RequiredFieldsHint />
 
         <DashboardFormField
@@ -126,7 +127,7 @@ export function BrandBasicInfoSection({
             }}
           />
           {nameSuggestion ? (
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body-sm text-ink-soft">
               <span>
                 {tSubmit("ownerForm.suggestedName")}{" "}
                 <strong>{nameSuggestion}</strong>
@@ -174,7 +175,7 @@ export function BrandBasicInfoSection({
             {...form.register("romanizedName")}
           />
           {isExistingBrand && (
-            <p className="type-body-muted mt-1">{t("slugChangeBlocked")}</p>
+            <p className="type-body-sm mt-1">{t("slugChangeBlocked")}</p>
           )}
         </DashboardFormField>
 
@@ -186,7 +187,7 @@ export function BrandBasicInfoSection({
           <Input
             id="brand-url-preview"
             readOnly
-            value={previewSlug ? `/brands/${previewSlug}` : ""}
+            value={previewSlug ? routes.brand(previewSlug) : ""}
             className="min-h-12 bg-muted text-muted-foreground"
           />
         </DashboardFormField>

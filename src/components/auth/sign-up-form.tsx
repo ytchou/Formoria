@@ -6,11 +6,13 @@ import { Link } from "@/i18n/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { signInWithGoogle, signUp } from "@/app/auth/actions";
 import type { AuthState } from "@/app/auth/actions";
+import { AuthFormError } from "@/components/auth/auth-form-error";
 import { GoogleButton } from "@/components/auth/google-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MarketingEmailOptInField } from "@/components/forms/marketing-email-opt-in-field";
+import { routes } from "@/lib/routes";
 
 type SignUpFormProps = {
   claimToken?: string;
@@ -35,19 +37,17 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
   );
   const t = useTranslations("auth");
 
-  const signInHref = claimToken
-    ? `/auth/sign-in?claim=${claimToken}`
-    : "/auth/sign-in";
+  const signInHref = routes.auth.signIn({ claim: claimToken });
 
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="type-section-title-large">{t("signUp.heading")}</h1>
-        <p className="type-card-description">{t("signUp.subheading")}</p>
+        <h1 className="type-section">{t("signUp.heading")}</h1>
+        <p className="type-body-sm">{t("signUp.subheading")}</p>
       </div>
 
       {claimToken && claimBrandName && (
-        <div className="rounded-lg border border-cta/20 bg-cta/5 px-4 py-3 type-body">
+        <div className="rounded-[3px] border border-rule bg-surface px-4 py-3 type-body-sm text-ink-soft">
           {t.rich("signUp.claimMessage", {
             brandName: claimBrandName,
             strong: (chunks) => <strong>{chunks}</strong>,
@@ -55,14 +55,7 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
         </div>
       )}
 
-      {state.error && (
-        <div
-          role="alert"
-          className="rounded-lg bg-destructive/10 px-4 py-3 type-body text-destructive"
-        >
-          {state.error}
-        </div>
-      )}
+      <AuthFormError message={state.error} />
 
       <form action={action} className="space-y-4">
         <input type="hidden" name="locale" value={locale} />
@@ -130,11 +123,11 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
 
       <GoogleButton action={googleAction} />
 
-      <p className="text-center type-card-description">
+      <p className="text-center type-body-sm">
         {t("signUp.hasAccount")}{" "}
         <Link
           href={signInHref}
-          className="font-medium text-foreground underline-offset-4 hover:underline"
+          className="font-medium text-accent underline-offset-4 hover:underline"
         >
           {t("signUp.signInLink")}
         </Link>

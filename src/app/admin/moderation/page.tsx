@@ -4,6 +4,7 @@ import { reviewModerationFlagAction } from '@/app/admin/actions'
 import { ModerationQueue } from '@/components/admin/moderation-queue'
 import { requireAdminPage } from '@/lib/auth/require-admin'
 import { getFlaggedContent } from '@/lib/services/moderation'
+import { routes } from '@/lib/routes'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,14 +17,14 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ReviewQueueModerationPage() {
-  await requireAdminPage('/admin/moderation')
+  await requireAdminPage(routes.admin.moderation())
   const t = await getTranslations('admin.moderation')
   const { items } = await getFlaggedContent({ status: 'pending' })
 
   return (
     <div>
-      <h1 className="type-page-title-large">{t('dashboard')}</h1>
-      <p className="mt-2 text-muted-foreground">
+      <h1 className="type-label">{t('dashboard')}</h1>
+      <p className="mt-2 text-ink-muted">
         {t('blockedCount', { count: items.length })}
       </p>
 

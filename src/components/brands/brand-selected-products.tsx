@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { Grid } from "@/components/ui/grid";
 import { Typography } from "@/components/ui/typography";
 import type { AppLocale } from "@/i18n/locale-preference";
 import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
@@ -33,14 +34,13 @@ export async function BrandSelectedProducts({
   const labels: SelectedProductTileLabels = {
     cta: t("cta"),
     brandSiteCta: t("brandSiteCta"),
-    selectedBadge: t("selectedBadge"),
     unavailable: t("unavailable"),
   };
 
   return (
-    <section className="space-y-6" data-brand-selected-products>
+    <section className="space-y-stack" data-brand-selected-products>
       <div className="space-y-2">
-        <Typography as="h2" variant="sectionTitle">
+        <Typography as="h2" variant="sectionTitleLarge">
           {t("heading")}
         </Typography>
         <Typography as="p" variant="cardDescription">
@@ -48,7 +48,7 @@ export async function BrandSelectedProducts({
         </Typography>
       </div>
 
-      <ul className="grid list-none grid-cols-1 gap-x-6 gap-y-8 p-0 sm:grid-cols-2 lg:grid-cols-3">
+      <Grid as="ul" cols="thirds" className="list-none gap-y-stack p-0">
         {products.map((product) => (
           <SelectedProductTile
             key={product.key}
@@ -56,10 +56,17 @@ export async function BrandSelectedProducts({
             product={product}
             labels={labels}
             mode="outbound"
+            // THE ONE SURFACE THAT ASKS FOR THE TRUST LABEL (D11). Here a
+            // selected product sits among the brand's other things, so the
+            // label distinguishes something; on the homepage wall and in a
+            // trail every tile is selected and it would distinguish nothing.
+            // A flag, not a string: `TrustLabel` reads the text from
+            // `trustLabel.selected`, the one place that sentence is spelled.
+            showsTrustLabel
             brand={brand}
           />
         ))}
-      </ul>
+      </Grid>
     </section>
   );
 }

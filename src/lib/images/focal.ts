@@ -50,8 +50,9 @@ export type BrandImageFillOptions = {
   inset?: string
   /**
    * Background plate painted behind a contained logo. The public surfaces get
-   * this from their own container's `bg-muted`; the admin review previews have
-   * no such container and pass it here.
+   * this from their own container's `bg-surface-deep` (DESIGN.md §2's image
+   * placeholder step); the admin review previews have no such container and
+   * pass it here, and still pass v1's `bg-muted`.
    */
   logoPlate?: string
   /**

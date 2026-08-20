@@ -293,19 +293,63 @@ function zoneOrder(container: HTMLElement): string[] {
 }
 
 describe("landing page trust zones", () => {
-  it("renders six sections in trust-zone order", async () => {
+  it("opens editorially, then names the labels before it shows the brands", async () => {
     const { container } = await renderZones({
       events: [{ event: buildEvent(), phase: "ongoing", brandCount: 3 }],
     });
 
+    // The approved mock's order, with two zones it does not draw kept in the
+    // slot they already occupied: `manifesto` is pinned on `/` by seo.spec.ts,
+    // and `topics` is the homepage's only path to a dated event.
     expect(zoneOrder(container)).toEqual([
       "hero",
       "selection",
+      "trust",
       "manifesto",
       "topics",
       "directory",
       "close",
     ]);
+  });
+
+  it("explains the three labels as prose, never as badges", async () => {
+    // D11's contrast rule at its clearest. The band states what 收錄品牌,
+    // Formoria 選物 and 品牌提供 each mean in running text; the only rendered
+    // trust BADGE in the product lives on brand detail, and putting one here
+    // would make the homepage look like it certifies something.
+    const { container } = await renderZones();
+
+    const trust = container.querySelector<HTMLElement>(
+      '[data-landing-zone="trust"]',
+    )!;
+    expect(
+      within(trust).getByRole("heading", {
+        level: 2,
+        name: en.landing.trustSeam.line,
+      }),
+    ).toBeInTheDocument();
+    expect(within(trust).getByText(en.landing.trust.note)).toBeInTheDocument();
+
+    for (const [title, body] of [
+      [en.landing.trust.listedTitle, en.landing.trust.listedBody],
+      [en.landing.trust.selectedTitle, en.landing.trust.selectedBody],
+      [en.landing.trust.suppliedTitle, en.landing.trust.suppliedBody],
+    ] as const) {
+      expect(
+        within(trust).getByRole("heading", { level: 3, name: title }),
+      ).toBeInTheDocument();
+      expect(within(trust).getByText(body)).toBeInTheDocument();
+    }
+
+    // `homepage-curated-product.spec.ts` finds the wall by the section whose h2
+    // reads exactly "Formoria 選物". The column title here is an h3 for that
+    // reason — an h2 would give that selector two matches.
+    expect(
+      within(trust).queryByRole("heading", {
+        level: 2,
+        name: en.landing.trust.selectedTitle,
+      }),
+    ).toBeNull();
   });
 
   /**
@@ -397,6 +441,7 @@ describe("landing page trust zones", () => {
     expect(zoneOrder(container)).toEqual([
       "hero",
       "selection",
+      "trust",
       "trails",
       "manifesto",
       "topics",
@@ -409,8 +454,18 @@ describe("landing page trust zones", () => {
     const { container } = await renderZones();
 
     expect(container.querySelectorAll('[data-landing-zone="directory"]')).toHaveLength(1);
+    // `level: 2`, and the query stays page-wide so a rail smuggled into any
+    // zone is still caught. The level is what makes that possible: the trust
+    // band's first column is titled with the SAME words — "Listed brands" is
+    // the trust label itself, so the glossary entry that defines it and the
+    // rail that heads a list of them read identically — but it is an `h3`
+    // under the band's own `h2`, and it is not a rail. Matching on text alone
+    // counted the definition as a second rail.
     expect(
-      screen.getAllByRole("heading", { name: en.landing.showcase.heading }),
+      screen.getAllByRole("heading", {
+        name: en.landing.showcase.heading,
+        level: 2,
+      }),
     ).toHaveLength(1);
 
     // The new-brands rail is gone with its copy: its two keys were deleted in

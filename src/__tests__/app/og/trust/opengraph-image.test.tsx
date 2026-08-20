@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, it, expect } from 'vitest'
 import OgImage, { alt, size } from '@/app/[locale]/og/trust/opengraph-image'
+import { brand } from '@/lib/brand/colors'
 import zhTW from '../../../../../messages/zh-TW.json'
 
 const source = readFileSync(
@@ -30,5 +31,19 @@ describe('Trust OG image route', () => {
     expect(source).toContain('namespace: "landing.trustSeam"')
     expect(source).toContain('zhTW.landing.trustSeam.line')
     expect(source).toContain('en.landing.trustSeam.line')
+  })
+
+  it('renders on the v2 palette, with every colour named in colors.ts', () => {
+    // BOTH branches matter here. This route renders the card twice — once from
+    // the translated string, once from the literal fallback — so a palette
+    // change applied to only one of them ships a card nobody sees until the
+    // translation lookup throws.
+    expect(source).not.toMatch(/#[0-9A-Fa-f]{3,8}\b/)
+    expect(source.match(/brand\.accent/g) ?? []).toHaveLength(2)
+    expect(brand.accent).toBeTruthy()
+  })
+
+  it('specifies a sans face only (D17)', () => {
+    expect(source.replaceAll('sans-serif', '')).not.toMatch(/serif|明體/i)
   })
 })

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Link } from '@/i18n/navigation'
-import Image from 'next/image'
+import { SurfaceImage } from '@/components/ui/image'
 import { useTranslations, useLocale } from 'next-intl'
 import type { PublicBrandCard } from '@/lib/brands/contracts'
 import {
@@ -22,6 +22,7 @@ import { SaveBrandButton } from './save-brand-button'
 import { BrandImageFallback } from './brand-image-fallback'
 import { MitDeclaredBadge, MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
 import { cn } from '@/lib/utils'
+import { routes } from '@/lib/routes'
 
 interface BrandCardProps {
   brand: PublicBrandCard
@@ -79,15 +80,18 @@ export function BrandCard({
   return (
     <article
       className={surfaceCardStyles({
-        className: 'group relative block shadow-card has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring',
+        className: 'group relative block has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent',
         interactive: true,
         padding: 'none',
       })}
     >
       {/* Image */}
-      <div className="relative z-10 aspect-[4/3] overflow-hidden rounded-t-xl bg-muted">
+      {/* `surface-deep` is DESIGN.md §2's third step, the documented image
+          placeholder. It replaces v1's `bg-muted` on every image plate in one
+          pass, so two adjacent image boxes can never sit in different tones. */}
+      <div className="relative z-10 aspect-media overflow-hidden rounded-t-[2px] bg-surface-deep">
         {showImage ? (
-          <Image
+          <SurfaceImage
             src={imageSrc}
             alt=""
             fill
@@ -97,7 +101,7 @@ export function BrandCard({
             // there is nothing to position, and `{ ...undefined }` would turn
             // that into an empty object.
             style={imageFill.style}
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            surface="card"
             onError={() => setImgError(true)}
           />
         ) : (
@@ -113,10 +117,10 @@ export function BrandCard({
         {variant === 'editorial' && eyebrow ? (
           /*
            * Micro-text, not a `Badge`: three grey pills across a `<BrandRow>`
-           * read as chrome inside prose. `type-eyebrow-muted` is the declared
+           * read as chrome inside prose. `type-eyebrow` is the declared
            * 11px uppercase tracked utility — never hand-pick the size here.
            */
-          <p className="mb-2 type-eyebrow-muted">{eyebrow}</p>
+          <p className="mb-2 type-eyebrow">{eyebrow}</p>
         ) : null}
         <div className="flex min-w-0 items-center gap-1.5">
           {/*
@@ -128,12 +132,12 @@ export function BrandCard({
            */}
           <h3
             className={cn(
-              'min-w-0 type-subsection-title',
+              'min-w-0 type-body-sm font-semibold text-ink',
               variant === 'editorial' ? 'line-clamp-2 min-h-10' : 'truncate',
             )}
           >
             <Link
-              href={`/brands/${brand.slug}`}
+              href={routes.brand(brand.slug)}
               prefetch={variant === 'directory' ? false : undefined}
               className={cn(
                 'focus-visible:outline-none',
@@ -184,10 +188,10 @@ export function BrandCard({
         {variant === 'recommendation' ? (
           <>
             {categoryLabel ? (
-              <p className="mt-1 truncate type-card-description">{categoryLabel}</p>
+              <p className="mt-1 truncate type-body-sm">{categoryLabel}</p>
             ) : null}
             <Link
-              href={`/brands/${brand.slug}`}
+              href={routes.brand(brand.slug)}
               className={buttonVariants({
                 variant: 'secondary',
                 className: 'relative z-20 mt-4 min-h-12 w-full',
@@ -218,7 +222,7 @@ export function BrandCard({
               selection — see NO_SNIPPET. The brand's own description still
               serves snippets from its detail page.
             */}
-            <p {...NO_SNIPPET} className="mt-1.5 min-h-[2.625rem] type-body line-clamp-2">
+            <p {...NO_SNIPPET} className="mt-1.5 min-h-[2.625rem] type-body-sm text-ink-soft line-clamp-2">
               {note ?? blurb ?? ' '}
             </p>
             {categoryLabel ? (
@@ -232,7 +236,7 @@ export function BrandCard({
             {/* Same snippet suppression as the editorial variant above. */}
             <p
               {...NO_SNIPPET}
-              className="mt-1.5 min-h-[2.625rem] type-section-description line-clamp-2"
+              className="mt-1.5 min-h-[2.625rem] type-body-sm line-clamp-2"
             >
               {blurb ?? ' '}
             </p>

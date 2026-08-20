@@ -8,20 +8,22 @@ import { Compass } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { EmptyState } from "@/components/ui/empty-state";
+import { buttonVariants } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
+import { routes } from "@/lib/routes";
 
 export default function DiscoverTrailNotFound() {
   const t = useTranslations("discover");
   return (
-    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
+    <main className="page-gutter mx-auto w-full page-measure py-10">
       <EmptyState
         icon={<Compass />}
         title={t("notFound.title")}
         body={t("notFound.description")}
         action={
           <Link
-            href="/discover"
-            className="inline-flex min-h-12 items-center rounded-md bg-primary px-4 type-button text-primary-foreground"
+            href={routes.discover()}
+            className={buttonVariants({ variant: "primary", size: "large" })}
           >
             {t("notFound.browseAll")}
           </Link>

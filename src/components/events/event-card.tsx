@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { surfaceCardStyles } from '@/components/ui/card'
 import type { Event, EventPhase } from '@/lib/services/events'
 import { formatEventDateRange } from './event-date'
+import { routes } from '@/lib/routes'
 
 /**
  * Exported (unlike the stories hub's local `StoryCard`) because the events hub
@@ -66,9 +67,9 @@ export function EventCard({
 
   return (
     <Link
-      href={`/events/${event.slug}`}
+      href={routes.event(event.slug)}
       className={surfaceCardStyles({
-        className: 'group block hover:bg-secondary',
+        className: 'group block hover:bg-surface',
         interactive: true,
       })}
     >
@@ -86,12 +87,12 @@ export function EventCard({
           <Badge variant={eventPhaseBadgeVariant[phase]}>{phaseLabel}</Badge>
           <div className="space-y-2">
             <Heading className="type-card-title group-hover:underline">{name}</Heading>
-            <p className="type-body-muted line-clamp-3">{summary}</p>
+            <p className="type-body-sm line-clamp-3">{summary}</p>
           </div>
         </div>
-        <div className="space-y-1 border-t border-border pt-4 md:w-56 md:shrink-0 md:border-t-0 md:border-l md:pt-0 md:pl-8">
+        <div className="space-y-1 border-t border-rule pt-4 md:w-56 md:shrink-0 md:border-t-0 md:border-l md:pt-0 md:pl-8">
           {dateLabel ? <p className="type-metadata">{dateLabel}</p> : null}
-          <div className="flex flex-col gap-1 type-caption">
+          <div className="flex flex-col gap-1 type-metadata">
             {venue ? <span>{venue}</span> : null}
             {brandCountLabel ? <span>{brandCountLabel}</span> : null}
           </div>

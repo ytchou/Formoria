@@ -27,7 +27,9 @@
     "stories": "Stories",
     "events": "Events",
     "whereToBuy": "Where to buy",
-    "discover": "Curated themes"
+    "discover": "Styles",
+    "brands": "Listed brands",
+    "categories": "Categories"
   },
   "footer": {
     "about": "About",
@@ -44,36 +46,40 @@
     "submit": "Recommend a Brand",
     "companyHeading": "Company",
     "faq": "FAQ",
-    "legalHeading": "Legal",
     "connectHeading": "Connect",
     "feedback": "Feature requests",
     "whereToBuy": "Where to buy",
-    "discover": "Curated themes"
+    "discover": "Styles",
+    "disclosure": "Formoria does not sell products. Every purchase happens on the brand's own channel."
   },
   "discover": {
-    "metaTitle": "Curated themes",
+    "metaTitle": "Styles",
     "metaDescription": "Moving into a new home, setting up a shop, changing a lamp — follow a concrete situation to find Taiwanese brands and products that fit.",
-    "heading": "Curated themes",
+    "heading": "Styles",
     "subheading": "Start from one concrete situation and see which Taiwanese products belong in it.",
-    "comingSoon": "The first curated theme is on its way.",
-    "loadError": "Curated themes are temporarily unavailable. Please try again later.",
+    "comingSoon": "The first style is on its way.",
+    "loadError": "Styles are temporarily unavailable. Please try again later.",
     "retry": "Try again",
-    "breadcrumb": "Curated themes",
-    "breadcrumbAria": "Curated themes breadcrumb",
-    "sectionNavAria": "Curated theme sections",
+    "breadcrumb": "Styles",
+    "breadcrumbAria": "Styles breadcrumb",
+    "sectionNavAria": "Style sections",
+    "editorLabel": "Editor",
+    "updatedLabel": "Updated",
+    "selectionLabel": "Selection",
+    "selectionSummary": "{count} items · {categories} categories",
+    "exclusionsHeading": "What this page leaves out",
     "languageBadge": "In Chinese",
     "productCta": "Visit product official site",
     "brandSiteCta": "Visit brand official site",
-    "selectedBadge": "Selected for this theme",
     "brandProvidedBadge": "Brand-provided information",
     "unavailable": "The official link is currently unavailable",
     "relatedCategories": "Explore related categories",
     "relatedStories": "Continue reading",
-    "relatedTrails": "More curated themes",
+    "relatedTrails": "More styles",
     "notFound": {
-      "title": "Curated theme not found",
-      "description": "This curated theme does not exist or has been removed.",
-      "browseAll": "Browse all curated themes"
+      "title": "Style not found",
+      "description": "This style does not exist or has been removed.",
+      "browseAll": "Browse all styles"
     }
   },
   "landing": {
@@ -85,18 +91,19 @@
       "headline": "Life can look a little more like you.",
       "subheadline": "Formoria is a Taiwanese brand discovery and curation platform — start from life, meet the products and the brands.",
       "searchLabel": "Search Taiwanese brands and products",
-      "searchPlaceholder": "Search brands, products, or categories",
-      "browseCta": "Start browsing",
-      "statsCategories": "categories",
-      "categoriesEyebrow": "Or start from a category"
+      "searchPlaceholder": "Find a specific brand or product",
+      "browseCta": "Start from a style",
+      "eyebrow": "Taiwanese brand discovery and curation",
+      "lede": "Moving into a new home, setting up a shop, stopping at a market stall — what you like should not stay a chance encounter. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
+      "browsePrefix": "or"
     },
     "selectedProducts": {
       "heading": "Formoria Selection",
       "note": "Moving in, styling a shop, changing a lamp — these products were chosen on purpose for moments like these; open one to meet the brand behind it.",
       "showMore": "See more selections",
       "showLess": "Show fewer selections",
-      "trailEyebrow": "Curated theme",
-      "trailCta": "Explore this theme →"
+      "trailEyebrow": "Style",
+      "trailCta": "Explore this style →"
     },
     "trustSeam": {
       "line": "Listings and selections stay distinct"
@@ -113,13 +120,11 @@
       "cta": "Read Our Vision"
     },
     "submitBand": {
-      "headline": "Recommend a Taiwanese brand worth discovering",
-      "body": "Found a brand that should not be missed? Tell us — approved brands join the directory.",
-      "cta": "Recommend a Brand"
+      "headline": "Found a brand that should not be missed?",
+      "body": "Tell us. Approved brands join the directory, and you need no connection to the brand.",
+      "cta": "Recommend a brand"
     },
     "featureRequestBand": {
-      "headline": "Tell us what Formoria should build next",
-      "body": "Want another category, another filter, or another way to browse? Send us the idea.",
       "cta": "Request a Feature"
     },
     "events": {
@@ -132,9 +137,18 @@
       "linkText": "View All Stories →"
     },
     "trails": {
-      "heading": "Discovery trails",
-      "note": "Start from one concrete situation and follow it to the products and brands that fit.",
-      "linkText": "Browse every trail →"
+      "heading": "Styles",
+      "note": "One situation, one set of things. Start from the days you are living, not from a brand name.",
+      "linkText": "See every style →"
+    },
+    "trust": {
+      "note": "Two different things. We never blur them.",
+      "listedTitle": "Listed brands",
+      "listedBody": "Meets the directory's listing rules and can be found in search. A listing is not a Formoria endorsement, selection, certification, or ranking.",
+      "selectedTitle": "Formoria Selection",
+      "selectedBody": "Products chosen on purpose for one situation. The reason is written on the style page that holds them.",
+      "suppliedTitle": "Brand-supplied",
+      "suppliedBody": "Facts, images, or corrections supplied by the brand. Taking part guarantees no coverage, and controls neither the selection nor the wording."
     }
   },
   "newsletter": {
@@ -315,6 +329,9 @@
     "kinmen": "Kinmen County",
     "lienchiang": "Lienchiang County"
   },
+  "trustLabel": {
+    "selected": "Formoria Selected"
+  },
   "brandDetail": {
     "metadata": {
       "fallbackDescription": "Explore {name}, a Taiwanese brand featured on Formoria."
@@ -337,7 +354,6 @@
     "selectedProducts": {
       "heading": "Formoria Selected",
       "note": "These are products Formoria picked from this brand, each described for what it is. Product details are supplied by the brand; refer to the brand's official page for the current information.",
-      "selectedBadge": "Formoria Selected",
       "cta": "Go to the brand's official website",
       "unavailable": "This product page is temporarily unreachable.",
       "brandSiteCta": "Go to the brand's website"
@@ -628,7 +644,8 @@
       "previous": "Previous photo",
       "next": "Next photo",
       "photoAltWithBrand": "{brand} product {n}",
-      "viewPhoto": "View photo {n}"
+      "viewPhoto": "View photo {n}",
+      "brandSupplied": "Image supplied by the brand"
     },
     "locations": {},
     "relatedBrands": {
@@ -1629,6 +1646,7 @@
       "shareOfVisits": "{share}% of visits",
       "tooltipProfileVisits": "Unique browsing sessions that opened your brand page in the last 30 days.",
       "tooltipOutboundClicks": "Sessions where a visitor clicked an external link from your brand page.",
+      "privacyBoundary": "An outbound click records only the moment a visitor leaves Formoria. Formoria does not track what visitors do on your own site — what happens next is visible to you alone.",
       "tooltipOutboundClickRate": "Outbound clicks ÷ profile visits. Measures how often visitors engage with your links.",
       "tooltipTopTrafficSource": "The most common way visitors find this brand page.",
       "definitionAria": "Definition",
@@ -1815,6 +1833,8 @@
       "wizardBack": "Back",
       "wizardBackToDashboard": "Back to dashboard",
       "wizardPublish": "Publish",
+      "curationNotice": "Formoria 選物 is decided by the editorial team and is not edited here. It is an editorial judgement, not a field a brand sets.",
+      "reviewNotice": "Publishing sends your changes for review. The public brand page keeps its current content until the review finishes, then switches to this version.",
       "wizardStepBasicInfo": "Basic Info",
       "wizardStepBasicInfoSub": "Brand identity & details",
       "wizardStepMedia": "Brand images",
@@ -2623,8 +2643,10 @@
       "searchLabel": "Search submissions",
       "searchPlaceholder": "Search brand, submitter, email, or website",
       "submittedDate": {
+        "label": "Submitted date",
         "from": "Submitted from",
-        "to": "Submitted through"
+        "to": "Submitted through",
+        "clear": "Clear the submitted date range"
       },
       "selectVisible": "Select submissions on this page",
       "imageAlt": "Review image {n}",

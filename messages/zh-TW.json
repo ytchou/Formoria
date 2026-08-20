@@ -27,7 +27,9 @@
     "stories": "專題",
     "events": "展會",
     "whereToBuy": "哪裡買",
-    "discover": "主題選物"
+    "discover": "風格",
+    "brands": "收錄品牌",
+    "categories": "商品分類"
   },
   "footer": {
     "about": "關於我們",
@@ -44,36 +46,40 @@
     "submit": "推薦品牌",
     "companyHeading": "關於",
     "faq": "常見問題",
-    "legalHeading": "法律",
     "connectHeading": "聯絡",
     "feedback": "功能建議",
     "whereToBuy": "哪裡買",
-    "discover": "主題選物"
+    "discover": "風格",
+    "disclosure": "Formoria 不販售商品，所有購買都在品牌自己的通路完成。"
   },
   "discover": {
-    "metaTitle": "主題選物",
+    "metaTitle": "風格",
     "metaDescription": "搬新家、佈置店面、換一盞燈——沿著具體的生活情境，找到適合你的台灣品牌與產品。",
-    "heading": "主題選物",
+    "heading": "風格",
     "subheading": "從一個具體情境出發，看看有哪些台灣產品適合放進去。",
-    "comingSoon": "第一個主題選物正在準備中，敬請期待。",
-    "loadError": "主題選物暫時無法載入，請稍後再試。",
+    "comingSoon": "第一個風格正在準備中，敬請期待。",
+    "loadError": "風格暫時無法載入，請稍後再試。",
     "retry": "再試一次",
-    "breadcrumb": "主題選物",
-    "breadcrumbAria": "主題選物麵包屑導覽",
-    "sectionNavAria": "主題選物段落",
+    "breadcrumb": "風格",
+    "breadcrumbAria": "風格麵包屑導覽",
+    "sectionNavAria": "風格段落",
+    "editorLabel": "編輯",
+    "updatedLabel": "更新",
+    "selectionLabel": "選物",
+    "selectionSummary": "{count} 件・{categories} 個分類",
+    "exclusionsHeading": "這一頁沒有放什麼",
     "languageBadge": "中文",
     "productCta": "前往產品官方網站",
     "brandSiteCta": "前往品牌官方網站",
-    "selectedBadge": "為這個主題選入",
     "brandProvidedBadge": "品牌提供資訊",
     "unavailable": "官方連結目前無法使用",
     "relatedCategories": "探索相關分類",
     "relatedStories": "繼續閱讀",
-    "relatedTrails": "其他主題選物",
+    "relatedTrails": "其他風格",
     "notFound": {
-      "title": "找不到主題選物",
-      "description": "這個主題不存在或已被移除。",
-      "browseAll": "瀏覽所有主題選物"
+      "title": "找不到這個風格",
+      "description": "這個風格不存在或已被移除。",
+      "browseAll": "瀏覽所有風格"
     }
   },
   "landing": {
@@ -85,18 +91,19 @@
       "headline": "生活可以更像自己一點。",
       "subheadline": "Formoria 是台灣品牌探索與選物平台，從生活出發認識產品與品牌。",
       "searchLabel": "搜尋台灣品牌與產品",
-      "searchPlaceholder": "搜尋品牌、產品或分類",
-      "browseCta": "開始逛逛",
-      "statsCategories": "分類",
-      "categoriesEyebrow": "或從分類開始"
+      "searchPlaceholder": "找特定的品牌或產品",
+      "browseCta": "從風格開始",
+      "eyebrow": "台灣品牌探索與選物",
+      "lede": "搬新家、佈置店面、在市集停下來的那一刻 — 喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
+      "browsePrefix": "或"
     },
     "selectedProducts": {
       "heading": "Formoria 選物",
       "note": "搬新家、佈置店面、想換一盞燈 — 這裡是為了這些時刻刻意挑出的產品，點進去認識做它的品牌。",
       "showMore": "看更多選物",
       "showLess": "收合選物",
-      "trailEyebrow": "主題選物",
-      "trailCta": "探索這個主題 →"
+      "trailEyebrow": "風格",
+      "trailCta": "探索這個風格 →"
     },
     "trustSeam": {
       "line": "收錄與選物，清楚分開"
@@ -113,13 +120,11 @@
       "cta": "認識 Formoria"
     },
     "submitBand": {
-      "headline": "推薦一個值得被看見的台灣品牌",
-      "body": "發現了不該被錯過的品牌嗎？告訴我們，通過審核後就會收錄進目錄。",
-      "cta": "推薦品牌"
+      "headline": "發現了不該被錯過的品牌嗎？",
+      "body": "告訴我們，通過審核後就會收錄進目錄。推薦不需要和品牌有關係。",
+      "cta": "推薦一個品牌"
     },
     "featureRequestBand": {
-      "headline": "一起讓 Formoria 更好用",
-      "body": "想多一種分類、一個篩選，或一種逛的方式嗎？把想法告訴我們。",
       "cta": "提出建議"
     },
     "events": {
@@ -132,9 +137,18 @@
       "linkText": "瀏覽所有專題 →"
     },
     "trails": {
-      "heading": "主題選物",
-      "note": "從一個具體的生活情境出發，沿著它認識合適的產品與品牌。",
-      "linkText": "瀏覽所有主題選物 →"
+      "heading": "風格",
+      "note": "一個情境、一組選物。從你正在過的日子開始，而不是從品牌名開始。",
+      "linkText": "看全部風格 →"
+    },
+    "trust": {
+      "note": "兩件事不一樣，我們不會混著講。",
+      "listedTitle": "收錄品牌",
+      "listedBody": "符合目錄收錄規則，可以在搜尋資料中找到。收錄不代表 Formoria 背書、選物、認證或排名。",
+      "selectedTitle": "Formoria 選物",
+      "selectedBody": "基於特定情境刻意挑選的產品，理由寫在收它的那個風格頁裡。",
+      "suppliedTitle": "品牌提供",
+      "suppliedBody": "由品牌提供的事實、圖片或更正。品牌參與不保證獲得報導，也不能控制選擇或詮釋。"
     }
   },
   "newsletter": {
@@ -315,6 +329,9 @@
     "kinmen": "金門縣",
     "lienchiang": "連江縣"
   },
+  "trustLabel": {
+    "selected": "Formoria 選物"
+  },
   "brandDetail": {
     "metadata": {
       "fallbackDescription": "探索 {name} 的品牌故事、產品與官方連結。"
@@ -337,7 +354,6 @@
     "selectedProducts": {
       "heading": "Formoria 選物",
       "note": "這裡是 Formoria 從這個品牌挑出的產品，並說明每一件是什麼；產品資料由品牌提供，實際內容請以品牌官方頁面為準。",
-      "selectedBadge": "Formoria 選物",
       "cta": "前往品牌官方網站",
       "unavailable": "這個產品頁面暫時無法連線。",
       "brandSiteCta": "前往品牌官網"
@@ -628,7 +644,8 @@
       "previous": "上一張",
       "next": "下一張",
       "photoAltWithBrand": "{brand} 產品 {n}",
-      "viewPhoto": "檢視第 {n} 張照片"
+      "viewPhoto": "檢視第 {n} 張照片",
+      "brandSupplied": "圖片由品牌提供"
     },
     "locations": {},
     "relatedBrands": {
@@ -1629,6 +1646,7 @@
       "shareOfVisits": "佔瀏覽量 {share}%",
       "tooltipProfileVisits": "過去 30 天內開啟品牌頁面的不重複瀏覽工作階段。",
       "tooltipOutboundClicks": "訪客在品牌頁面點擊外部連結的工作階段。",
+      "privacyBoundary": "外連點擊只記錄訪客離開 Formoria 的那一下。Formoria 不追蹤你在品牌官網上的行為，之後發生什麼事，只有你自己的網站看得到。",
       "tooltipOutboundClickRate": "外連點擊 ÷ 品牌頁瀏覽。衡量訪客與連結互動的頻率。",
       "tooltipTopTrafficSource": "訪客找到這個品牌頁面的最常見方式。",
       "definitionAria": "查看定義",
@@ -1815,6 +1833,8 @@
       "wizardBack": "上一步",
       "wizardBackToDashboard": "返回品牌管理",
       "wizardPublish": "發布",
+      "curationNotice": "「Formoria 選物」由編輯團隊決定，不在這裡編輯。它是編輯判斷，不是品牌可以設定的欄位。",
+      "reviewNotice": "發布後會先進入審核。審核期間，公開的品牌頁面維持現在的內容；通過之後才會換成你這次的修改。",
       "wizardStepBasicInfo": "基本資料",
       "wizardStepBasicInfoSub": "品牌基本資料",
       "wizardStepMedia": "品牌圖片",

@@ -101,9 +101,9 @@ export function ReviewQueueTable<T>(props: {
         </div>
       ) : null}
 
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="rounded-[3px] border border-rule bg-surface overflow-hidden">
         <Table>
-          <TableHeader className="bg-muted">
+          <TableHeader className="bg-surface">
             <TableRow className="h-12">
               {queue.selectionEnabled ? (
                 <TableHead className="h-12 w-14">
@@ -226,7 +226,7 @@ export function ReviewQueueTable<T>(props: {
               <TableRow>
                 <TableCell
                   colSpan={renderedColumnCount}
-                  className="py-10 text-center type-empty-body"
+                  className="py-10 text-center type-body-sm"
                 >
                   {emptyMessage}
                 </TableCell>
@@ -237,7 +237,7 @@ export function ReviewQueueTable<T>(props: {
       </div>
 
       {error ? (
-        <p className="mt-3 type-error" role="alert">
+        <p className="mt-3 type-metadata text-danger" role="alert">
           {error}
         </p>
       ) : null}

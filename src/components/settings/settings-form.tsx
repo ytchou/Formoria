@@ -9,6 +9,7 @@ import {
 } from "@/app/[locale]/(site)/(protected)/settings/actions";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FormField } from "@/components/forms/form-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -45,13 +46,13 @@ export function SettingsForm({
       <input type="hidden" name="_currentLocale" value={currentLocale} />
 
       {state.error && (
-        <div className="rounded-lg bg-destructive/10 px-4 py-3 type-error">
+        <div className="rounded-[3px] bg-danger/10 px-4 py-3 type-metadata text-danger">
           {state.error}
         </div>
       )}
 
       {state.message && (
-        <div className="type-success-panel">
+        <div className="panel-success">
           {state.message}
         </div>
       )}
@@ -63,13 +64,15 @@ export function SettingsForm({
           value={email}
           readOnly
           tabIndex={-1}
-          className="pointer-events-none cursor-not-allowed bg-input/50 opacity-50 dark:bg-input/80"
+          className="pointer-events-none cursor-not-allowed bg-surface opacity-70"
         />
       </div>
 
-      {/* Display Name */}
-      <div className="space-y-2">
-        <Label htmlFor="displayName">{t("displayNameLabel")}</Label>
+      <FormField
+        error={state.fieldErrors?.displayName}
+        id="displayName"
+        label={t("displayNameLabel")}
+      >
         <Input
           id="displayName"
           name="displayName"
@@ -77,17 +80,27 @@ export function SettingsForm({
           placeholder={t("displayNamePlaceholder")}
           maxLength={50}
         />
-        {state.fieldErrors?.displayName && (
-          <p className="type-error">
-            {state.fieldErrors.displayName}
-          </p>
-        )}
-      </div>
+      </FormField>
 
-      {/* Language Preference */}
-      <div className="space-y-2">
-        <Label htmlFor="localePreference">{t("localePreferenceLabel")}</Label>
+      <FormField
+        error={state.fieldErrors?.localePreference}
+        id="localePreference"
+        label={t("localePreferenceLabel")}
+      >
+        {/*
+          Wired by hand: `NativeSelect` stays a server-safe component and does
+          not read the field context the way `Input` does, so the association
+          lives at the call site rather than silently not happening.
+        */}
         <NativeSelect
+          aria-describedby={
+            state.fieldErrors?.localePreference
+              ? "localePreference-error"
+              : undefined
+          }
+          aria-invalid={
+            state.fieldErrors?.localePreference ? true : undefined
+          }
           id="localePreference"
           name="localePreference"
           defaultValue={profile?.localePreference ?? currentLocale}
@@ -95,17 +108,12 @@ export function SettingsForm({
           <option value="zh-TW">中文（繁體）</option>
           <option value="en">English</option>
         </NativeSelect>
-        {state.fieldErrors?.localePreference && (
-          <p className="type-error">
-            {state.fieldErrors.localePreference}
-          </p>
-        )}
-      </div>
+      </FormField>
 
-      <section className="space-y-4 rounded-lg border border-border p-4">
+      <section className="space-y-4 rounded-[3px] border border-rule p-4">
         <div>
-          <h2 className="type-subsection-title">{t("marketingHeading")}</h2>
-          <p className="mt-1 type-form-hint">{t("marketingDescription")}</p>
+          <h2 className="type-body-sm font-semibold text-ink">{t("marketingHeading")}</h2>
+          <p className="mt-1 type-metadata">{t("marketingDescription")}</p>
         </div>
 
         <div className="space-y-1">
@@ -122,11 +130,11 @@ export function SettingsForm({
               onCheckedChange={setNewsletterMarketing}
               className="mt-0.5 size-[18px] shrink-0"
             />
-            <span className="type-body font-normal">
+            <span className="type-body-sm text-ink-soft font-normal">
               {t("newsletterMarketingLabel")}
             </span>
           </Label>
-          <p className="pl-[30px] type-form-hint">
+          <p className="pl-[30px] type-metadata">
             {newsletterStatus === "pending"
               ? t("newsletterPending")
               : t("newsletterMarketingDescription")}
@@ -147,11 +155,11 @@ export function SettingsForm({
               onCheckedChange={setLifecycleMarketing}
               className="mt-0.5 size-[18px] shrink-0"
             />
-            <span className="type-body font-normal">
+            <span className="type-body-sm text-ink-soft font-normal">
               {t("lifecycleMarketingLabel")}
             </span>
           </Label>
-          <p className="pl-[30px] type-form-hint">
+          <p className="pl-[30px] type-metadata">
             {t("lifecycleMarketingDescription")}
           </p>
         </div>

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { routes } from '@/lib/routes'
 import { buildAlternates } from '../alternates'
 
 const base = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, '')
@@ -81,6 +82,17 @@ describe('buildAlternates', () => {
       expect(result.languages.en).toBe(
         `${base}/en/brands/%e9%98%bf%e5%aa%bd%e7%89%8c%e7%94%9f%e9%90%b5%e9%8d%8b`,
       )
+    })
+
+    it('does not escape a path that arrives already encoded', () => {
+      // `@/lib/routes` escapes each parameter once. Escaping the result again
+      // turns `%e9` into `%25e9`, a canonical that resolves to nothing.
+      const result = buildAlternates(routes.brand('阿媽牌生鐵鍋'), 'zh-TW')
+
+      expect(result.canonical).toBe(
+        `${base}/brands/%e9%98%bf%e5%aa%bd%e7%89%8c%e7%94%9f%e9%90%b5%e9%8d%8b`,
+      )
+      expect(result.canonical).not.toContain('%25')
     })
   })
 

@@ -18,6 +18,7 @@ import {
   JobStatusBadge,
 } from "./job-display";
 import { CancelJobButton } from "./cancel-job-button";
+import { routes } from "@/lib/routes";
 
 function formatProgress(job: CurationJob): string {
   const complete =
@@ -69,7 +70,7 @@ export function JobHistoryList({
         </div>
       ) : null}
 
-      <div className="overflow-x-auto rounded-xl border border-border bg-card">
+      <div className="overflow-x-auto rounded-[3px] border border-rule bg-surface">
         <Table>
           <TableHeader>
             <TableRow>
@@ -89,7 +90,7 @@ export function JobHistoryList({
               <TableRow>
                 <TableCell
                   colSpan={9}
-                  className="py-8 text-center text-muted-foreground"
+                  className="py-8 text-center text-ink-muted"
                 >
                   No data jobs yet.
                 </TableCell>
@@ -99,8 +100,8 @@ export function JobHistoryList({
                 <TableRow key={job.id}>
                   <TableCell>
                     <Link
-                      href={`/admin/jobs/${job.id}`}
-                      className="font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      href={routes.admin.job(job.id)}
+                      className="font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     >
                       {formatJobDate(job.created_at)}
                     </Link>
@@ -114,7 +115,7 @@ export function JobHistoryList({
                   <TableCell>{formatProgress(job)}</TableCell>
                   <TableCell
                     className={
-                      job.failed_count > 0 ? "font-medium text-destructive" : ""
+                      job.failed_count > 0 ? "font-medium text-danger" : ""
                     }
                   >
                     {formatOutcome(job)}
@@ -155,7 +156,7 @@ function CursorLink({
   if (!cursor) return <span />;
   return (
     <Link
-      href={`/admin/jobs?cursor=${encodeURIComponent(cursor)}&direction=${direction}`}
+      href={routes.admin.jobs({ cursor, direction })}
       className={buttonVariants({
         variant: "secondary",
         size: "default",

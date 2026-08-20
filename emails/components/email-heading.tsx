@@ -1,6 +1,14 @@
 import * as React from 'react'
 import { Heading } from '@react-email/components'
-import { FONT_STACK, TEXT_PRIMARY } from '@emails/styles'
+import {
+  FONT_SIZE_HEADING,
+  FONT_SIZE_TITLE,
+  FONT_STACK,
+  INK,
+  LINE_HEIGHT_HEADING,
+  LINE_HEIGHT_TITLE,
+  SPACE_GUTTER,
+} from '@emails/styles'
 
 type EmailHeadingProps = {
   children: React.ReactNode
@@ -16,21 +24,23 @@ export function EmailHeading({ children, as = 'h1' }: EmailHeadingProps) {
 }
 
 const baseHeading = {
-  color: TEXT_PRIMARY,
+  color: INK,
   fontFamily: FONT_STACK,
   fontWeight: '700',
-  letterSpacing: '0',
-  margin: '0 0 16px',
+  letterSpacing: '-0.01em',
+  margin: `0 0 ${SPACE_GUTTER}`,
 }
 
+/** The v2 page-title step, at the sans equivalent of 明體 26. */
 const h1 = {
   ...baseHeading,
-  fontSize: '28px',
-  lineHeight: '36px',
+  fontSize: FONT_SIZE_TITLE,
+  lineHeight: LINE_HEIGHT_TITLE,
 }
 
+/** The v2 card-title step. */
 const h2 = {
   ...baseHeading,
-  fontSize: '22px',
-  lineHeight: '30px',
+  fontSize: FONT_SIZE_HEADING,
+  lineHeight: LINE_HEIGHT_HEADING,
 }

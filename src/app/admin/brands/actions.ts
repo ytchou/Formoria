@@ -17,6 +17,7 @@ import {
   reviewImageIdsSchema,
 } from "@/lib/validation/admin-review";
 import { PURCHASE_CHANNELS } from "@/lib/brands/purchase-channels";
+import { routes } from "@/lib/routes";
 
 type ActionResult = { error: string } | undefined;
 
@@ -75,8 +76,8 @@ export async function saveAdminBrandReviewAction(
         review as SaveSubmissionReviewInput,
       );
       const updated = await getBrandById(idResult.data);
-      revalidatePath("/admin/brands");
-      revalidatePath("/admin");
+      revalidatePath(routes.admin.brands());
+      revalidatePath(routes.admin.index());
       revalidatePublicBrands([updated.slug, previous.slug]);
       return undefined;
     } catch (error) {

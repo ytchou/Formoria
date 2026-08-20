@@ -10,6 +10,7 @@
 // performance budget forbids `yaml` reaching the client bundle. These
 // classifiers are pure, so their import graph must stay pure too.
 import type { PageType } from '../keyword-map-constants'
+import { routes } from '@/lib/routes'
 
 export const QUERY_CLUSTERS = [
   'branded',
@@ -182,7 +183,7 @@ export function classifyLandingPage(raw: string): LandingPageClassification {
 
   if (path === '/') {
     pageType = 'homepage'
-  } else if (path === '/brands') {
+  } else if (path === routes.brands()) {
     if (category.kind === 'multi' || subcategory.kind === 'multi') {
       // Multi-select filter view: a `/brands` role, not a category page.
       pageType = 'directory'
@@ -198,16 +199,16 @@ export function classifyLandingPage(raw: string): LandingPageClassification {
       // A bare `sub` with no category is not a page the app can produce.
       pageType = 'directory'
     }
-  } else if (isSectionOrDescendant(path, '/categories')) {
+  } else if (isSectionOrDescendant(path, routes.categories())) {
     // Proposed URL shape for the L1/L2 category pages a later ticket ratifies;
     // every l1-category and l2-category target_url in the committed map is here.
     // The path IS the canonical key — no filter params participate.
-    const segments = segmentsBelow(path, '/categories')
+    const segments = segmentsBelow(path, routes.categories())
     pageType =
       segments.length === 1 ? 'l1-category' : segments.length === 2 ? 'l2-category' : 'other/static'
-  } else if (path.startsWith('/brands/')) {
+  } else if (path.startsWith(`${routes.brands()}/`)) {
     pageType = 'brand-detail'
-  } else if (isSectionOrDescendant(path, '/stories')) {
+  } else if (isSectionOrDescendant(path, routes.stories())) {
     pageType = 'story'
   } else if (isSectionOrDescendant(path, '/glossary')) {
     pageType = 'glossary'
@@ -215,7 +216,7 @@ export function classifyLandingPage(raw: string): LandingPageClassification {
     pageType = 'stats'
   } else if (isSectionOrDescendant(path, '/topics')) {
     pageType = 'topic-hub'
-  } else if (isSectionOrDescendant(path, '/events')) {
+  } else if (isSectionOrDescendant(path, routes.events())) {
     pageType = 'event'
   } else {
     pageType = 'other/static'

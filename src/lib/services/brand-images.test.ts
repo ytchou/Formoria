@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getBrandGalleryImageEntries,
   getBrandGalleryImages,
+  getBrandImages,
   insertBrandImage,
   rejectBrandImages,
   releaseBrandImageUrls,
@@ -186,10 +187,49 @@ describe('toImageFields', () => {
           isLogo: false,
           focalX: 0.25,
           focalY: 0.75,
+          isOwnerSupplied: false,
         },
-        { altZh: null, altEn: null, isLogo: false, focalX: null, focalY: null },
+        {
+          altZh: null,
+          altEn: null,
+          isLogo: false,
+          focalX: null,
+          focalY: null,
+          isOwnerSupplied: false,
+        },
       ],
     })
+  })
+
+  /*
+   * 品牌提供 is DERIVED here and nowhere else.
+   *
+   * `source` is the only rights signal on a brand image, and `'owner'` is the
+   * only value that means the brand handed us the file — `syncOwnerUploadedImages()`
+   * writes it when an owner uploads through the dashboard wizard. Every other
+   * value ('scrape', 'google_image', 'admin', 'legacy', 'json_ld') is Formoria
+   * or a crawler, so they all collapse to the same false rather than being
+   * enumerated: a new source value added upstream must fail closed, uncredited,
+   * until someone decides it is owner-supplied.
+   *
+   * It rides `imageAlts` because that array is already index-aligned with the
+   * unfiltered `[heroImageUrl, ...productPhotos]` sequence the gallery renders.
+   * A parallel array would be a second thing to keep aligned, and the
+   * misalignment would credit the brand for someone else's photograph.
+   */
+  it('marks only owner-uploaded images as brand-supplied', () => {
+    const sourced = [
+      { url: 'https://images.formoria.com/owner.webp', status: 'active', sort_order: 0, source: 'owner' },
+      { url: 'https://images.formoria.com/scraped.webp', status: 'active', sort_order: 1, source: 'scrape' },
+      { url: 'https://images.formoria.com/found.webp', status: 'active', sort_order: 2, source: 'google_image' },
+      { url: 'https://images.formoria.com/admin.webp', status: 'active', sort_order: 3, source: 'admin' },
+      { url: 'https://images.formoria.com/legacy.webp', status: 'active', sort_order: 4, source: 'legacy' },
+      { url: 'https://images.formoria.com/unknown.webp', status: 'active', sort_order: 5 },
+    ]
+
+    expect(
+      toImageFields(sourced as never).imageAlts.map((meta) => meta.isOwnerSupplied),
+    ).toEqual([true, false, false, false, false, false])
   })
 
   it('flags logo-tagged images so the renderer can contain rather than crop them', () => {
@@ -214,6 +254,35 @@ describe('toImageFields', () => {
       false,
       false,
     ])
+  })
+})
+
+describe('getBrandImages', () => {
+  /*
+   * The projection is asserted, not assumed.
+   *
+   * The service client carries no `Database` generic, so a column missing from
+   * this string is not a type error and not a query error — every row simply
+   * comes back with `source: undefined`, `isOwnerSupplied` is false everywhere,
+   * and the 品牌提供 credit silently never renders. That failure looks exactly
+   * like "no brand has uploaded an image yet", which is also the expected state
+   * today, so nothing else in the system could tell them apart.
+   */
+  it('projects the columns the gallery renders from, including the rights signal', async () => {
+    const order = vi.fn().mockResolvedValue({ data: [], error: null })
+    const statusEq = vi.fn(() => ({ order }))
+    const brandEq = vi.fn(() => ({ eq: statusEq }))
+    // Typed parameter, not a bare `vi.fn()`: the projection string is what this
+    // test reads back, and an untyped mock records it as `never`.
+    const select = vi.fn((_columns: string) => ({ eq: brandEq }))
+    const client = { from: vi.fn(() => ({ select })) }
+
+    await getBrandImages(client, 'brand-id')
+
+    const columns = (select.mock.calls[0]?.[0] ?? '').split(',').map((c) => c.trim())
+    expect(columns).toContain('source')
+    expect(columns).toContain('focal_x')
+    expect(columns).toContain('alt_zh')
   })
 })
 

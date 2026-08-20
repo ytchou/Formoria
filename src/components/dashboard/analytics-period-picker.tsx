@@ -35,7 +35,7 @@ export function AnalyticsPeriodPicker({ currentPeriod }: AnalyticsPeriodPickerPr
           </option>
         ))}
       </NativeSelect>
-      <span className="type-caption truncate text-muted-foreground">
+      <span className="type-metadata truncate text-ink-muted">
         {`${formatIsoDate(range.start, locale, false)} – ${formatIsoDate(range.end, locale, false)}`}
       </span>
     </div>

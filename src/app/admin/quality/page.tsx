@@ -84,11 +84,11 @@ function ProgressBar({ value, label }: ProgressBarProps) {
       aria-valuemax={100}
       aria-valuemin={0}
       aria-valuenow={Math.round(boundedValue)}
-      className="h-2 w-full overflow-hidden rounded-full bg-muted"
+      className="h-2 w-full overflow-hidden rounded-full bg-surface"
       role="progressbar"
     >
       <div
-        className="h-full rounded-full bg-primary"
+        className="h-full rounded-full bg-ink"
         style={{ width: `${boundedValue}%` }}
       />
     </div>
@@ -105,8 +105,8 @@ export default async function AdminQualityPage() {
 
   return (
     <div>
-      <h1 className="type-page-title-large">Quality Dashboard</h1>
-      <p className="mt-2 text-muted-foreground">
+      <h1 className="type-label">Quality Dashboard</h1>
+      <p className="mt-2 text-ink-muted">
         Track brand data quality for images, links, descriptions, and
         completeness.
       </p>
@@ -132,11 +132,11 @@ export default async function AdminQualityPage() {
 
               return (
                 <div key={row.key} className="space-y-2">
-                  <div className="flex min-h-6 items-center justify-between gap-4 type-body">
-                    <span className="font-medium text-foreground">
+                  <div className="flex min-h-6 items-center justify-between gap-4 type-body-sm text-ink-soft">
+                    <span className="font-medium text-ink">
                       {row.label}
                     </span>
-                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                    <span className="shrink-0 tabular-nums text-ink-muted">
                       {metric.count} / {metrics.totalBrands}
                     </span>
                   </div>
@@ -174,11 +174,11 @@ export default async function AdminQualityPage() {
 
               return (
                 <div key={row.key} className="space-y-2">
-                  <div className="flex min-h-6 items-center justify-between gap-4 type-body">
-                    <span className="font-medium text-foreground">
+                  <div className="flex min-h-6 items-center justify-between gap-4 type-body-sm text-ink-soft">
+                    <span className="font-medium text-ink">
                       {row.label}
                     </span>
-                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                    <span className="shrink-0 tabular-nums text-ink-muted">
                       {count} ({formatPercentage(percentage)})
                     </span>
                   </div>
@@ -200,11 +200,11 @@ export default async function AdminQualityPage() {
 
               return (
                 <div key={row.key} className="space-y-2">
-                  <div className="flex min-h-6 items-center justify-between gap-4 type-body">
-                    <span className="font-medium text-foreground">
+                  <div className="flex min-h-6 items-center justify-between gap-4 type-body-sm text-ink-soft">
+                    <span className="font-medium text-ink">
                       {row.label}
                     </span>
-                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                    <span className="shrink-0 tabular-nums text-ink-muted">
                       {formatPercentage(value)}
                     </span>
                   </div>
@@ -216,16 +216,16 @@ export default async function AdminQualityPage() {
               );
             })}
 
-            <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
+            <div className="grid gap-4 border-t border-rule pt-4 sm:grid-cols-2">
               <div>
-                <p className="type-body-emphasis">Promo hero images</p>
-                <p className="mt-1 type-stat">
+                <p className="type-body-sm font-medium text-ink">Promo hero images</p>
+                <p className="mt-1 type-section tabular-nums">
                   {metrics.enrichment.promoHeroCount}
                 </p>
               </div>
               <div>
-                <p className="type-body-emphasis">Validation failures</p>
-                <p className="mt-1 type-stat">
+                <p className="type-body-sm font-medium text-ink">Validation failures</p>
+                <p className="mt-1 type-section tabular-nums">
                   {metrics.enrichment.validationFailures}
                 </p>
               </div>

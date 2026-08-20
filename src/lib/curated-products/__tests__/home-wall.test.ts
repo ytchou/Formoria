@@ -55,13 +55,16 @@ function product(
   };
 }
 
-function trail(slug: string, heroImage?: string): TrailEntry {
+/**
+ * No `heroImage`: the wall stopped reading it (DEV-1514 Task 15). Keeping the
+ * parameter would suggest the composition still branches on it.
+ */
+function trail(slug: string): TrailEntry {
   return {
     slug,
     frontmatter: {
       title: slug,
       slug,
-      heroImage,
     } as TrailEntry["frontmatter"],
   };
 }
@@ -80,7 +83,7 @@ describe("buildWallSlots", () => {
   it("reserves one trail slot per eight products", () => {
     const slots = buildWallSlots({
       products: Array.from({ length: 16 }, (_, index) => product(`p-${index}`)),
-      trails: [trail("first", "/first.webp"), trail("second", "/second.webp")],
+      trails: [trail("first"), trail("second")],
       seed: SEED,
     });
 
@@ -94,7 +97,7 @@ describe("buildWallSlots", () => {
   it("reserves no trail slot below eight products", () => {
     const slots = buildWallSlots({
       products: Array.from({ length: 7 }, (_, index) => product(`p-${index}`)),
-      trails: [trail("small", "/small.webp")],
+      trails: [trail("small")],
       seed: SEED,
     });
 
@@ -111,14 +114,18 @@ describe("buildWallSlots", () => {
     expect(productSlots(slots)).toHaveLength(MAX_HOME_WALL_PRODUCTS);
   });
 
-  it("excludes trails without a heroImage", () => {
+  it("counts every published trail, hero image or not", () => {
+    // Replaces "excludes trails without a heroImage" (DEV-1514 Task 15). The
+    // hero is now a PUBLICATION precondition enforced at authoring time, not a
+    // runtime filter — see
+    // docs/decisions/2026-08-19-trail-hero-image-is-a-publish-precondition.md.
     const slots = buildWallSlots({
       products: Array.from({ length: 8 }, (_, index) => product(`p-${index}`)),
       trails: [trail("no-hero")],
       seed: SEED,
     });
 
-    expect(slots.some((slot) => slot.kind === "trail")).toBe(false);
+    expect(slots.some((slot) => slot.kind === "trail")).toBe(true);
   });
 
   it("snaps each product to the nearest of four ratio buckets", () => {
@@ -165,7 +172,7 @@ describe("buildWallSlots", () => {
   it("assigns trails their own two formats", () => {
     const slots = buildWallSlots({
       products: Array.from({ length: 24 }, (_, index) => product(`p-${index}`)),
-      trails: [trail("first", "/first.webp"), trail("second", "/second.webp")],
+      trails: [trail("first"), trail("second")],
       seed: SEED,
     });
 
@@ -208,7 +215,7 @@ describe("buildWallSlots", () => {
   it("no longer emits anchor spans", async () => {
     const slots = buildWallSlots({
       products: Array.from({ length: 20 }, (_, index) => product(`p-${index}`)),
-      trails: [trail("first", "/first.webp")],
+      trails: [trail("first")],
       seed: SEED,
     });
 

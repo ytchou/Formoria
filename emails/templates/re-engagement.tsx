@@ -28,7 +28,7 @@ export async function buildReEngagementEmail({
   const unsubscribeUrl = `${SITE_URL}/api/email/unsubscribe?token=${unsubscribeToken}`
   const html = await render(
     locale === 'en' ? (
-      <Layout
+      <Layout lang="en"
         previewText={`Come back to Formoria and complete ${brandName}'s brand page.`}
         unsubscribeUrl={unsubscribeUrl}
       >

@@ -3,6 +3,7 @@ import { localizedEntries } from '@/app/sitemap'
 import type { Locale } from './alternates'
 import { getBrandIndexability, getBrandPromotion } from './brand-indexability'
 import type { BrandSeoEntry } from '@/lib/services/brands'
+import { routes } from '@/lib/routes'
 
 const ALL_LOCALES: readonly Locale[] = ['zh-TW', 'en']
 
@@ -38,7 +39,7 @@ export function buildBrandSitemapEntries(
     )
     if (submittedLocales.length === 0) return []
     return localizedEntries(
-      `/brands/${brand.slug}`,
+      routes.brand(brand.slug),
       submittedLocales,
       validDate(brand.updatedAt),
       alternateLocales,

@@ -123,7 +123,7 @@ function subcategoryBadges(
 ): ReactNode {
   if (subcategories.length === 0) {
     return (
-      <span className="type-field-value text-muted-foreground">
+      <span className="type-body-sm text-ink-muted">
         {emptyLabel}
       </span>
     );
@@ -218,7 +218,7 @@ export function CorrectionsQueue({
     }
 
     return (
-      <span className="type-field-value">
+      <span className="type-body-sm text-ink">
         {scalarValue(item.field, value, locale, t("notAvailable"))}
       </span>
     );
@@ -274,7 +274,7 @@ export function CorrectionsQueue({
     }
 
     return (
-      <span className="type-field-value">
+      <span className="type-body-sm text-ink">
         {scalarValue(item.field, item.proposedValue, locale, t("notAvailable"))}
       </span>
     );
@@ -478,7 +478,7 @@ export function CorrectionsQueue({
                         the footer panel is deliberately given `eligible` only,
                         so this message is never duplicated down there. */}
                     {exceedsCap && delta ? (
-                      <p className="type-error" role="alert">
+                      <p className="type-metadata text-danger" role="alert">
                         {t("capBlocker", {
                           projected: delta.projectedSubcategories.length,
                           limit: MAX_SUBCATEGORIES,

@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { ToggleChip } from "@/components/ui/toggle-chip";
+import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
 import { getCategoryLabel } from "@/lib/brands/category-label";
 import { brandImageFill } from "@/lib/images/focal";
 import {
@@ -342,9 +342,9 @@ export function ReviewDetailsEditor({
       className="space-y-6"
     >
       {missingLabels.length > 0 && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4">
-          <p className="type-body-emphasis">{t("missingRequired")}</p>
-          <ul className="mt-2 list-disc space-y-1 pl-5 type-card-description">
+        <div className="rounded-[4px] border border-danger/30 bg-danger/5 p-4">
+          <p className="type-body-sm font-medium text-ink">{t("missingRequired")}</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 type-body-sm">
             {missingLabels.map((label) => (
               <li key={label}>{label}</li>
             ))}
@@ -587,26 +587,26 @@ export function ReviewDetailsEditor({
                   // public cards there is no container behind this image.
                   const fill = brandImageFill(image, {
                     inset: "p-6",
-                    logoPlate: "bg-muted",
+                    logoPlate: "bg-surface",
                   });
                   return (
                     <div
                       key={image.id}
-                      className="overflow-hidden rounded-md border bg-card"
+                      className="overflow-hidden rounded-[4px] border bg-surface"
                     >
                       <div className="relative">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={image.url}
                           alt={image.altZh ?? t("imageAlt", { n: index + 1 })}
-                          className={cn("aspect-[4/3] w-full", fill.className)}
+                          className={cn("aspect-media w-full", fill.className)}
                           // Assigned, never spread — `undefined` is meaningful here.
                           style={fill.style}
                         />
                         <Button
                           shape="pill"
                           variant={index === 0 ? "primary" : "secondary"}
-                          className="absolute left-2 top-2 h-12 w-12 p-0 shadow-sm"
+                          className="absolute left-2 top-2 h-12 w-12 border border-rule p-0"
                           onClick={() => setHero(image.id)}
                           aria-label={t("setHero", { n: index + 1 })}
                         >
@@ -676,7 +676,7 @@ export function ReviewDetailsEditor({
                     // Same helper, same reasoning as the draft grid above.
                     const fill = brandImageFill(image, {
                       inset: "p-6",
-                      logoPlate: "bg-muted",
+                      logoPlate: "bg-surface",
                     });
                     return (
                       <figure
@@ -688,14 +688,14 @@ export function ReviewDetailsEditor({
                           src={image.url}
                           alt={image.altZh ?? t("imageAlt", { n: index + 1 })}
                           className={cn(
-                            "aspect-[4/3] w-full rounded-md border",
+                            "aspect-media w-full rounded-[4px] border",
                             fill.className,
                           )}
                           // Assigned, never spread — `undefined` is meaningful here.
                           style={fill.style}
                         />
                         {index === 0 && (
-                          <figcaption className="mt-1 type-caption">
+                          <figcaption className="mt-1 type-metadata">
                             {t("fields.mainImage")}
                           </figcaption>
                         )}
@@ -704,7 +704,7 @@ export function ReviewDetailsEditor({
                   })}
                 </div>
               ) : (
-                <p className="type-card-description">{t("fields.noImages")}</p>
+                <p className="type-body-sm">{t("fields.noImages")}</p>
               )}
             </>
           )}
@@ -965,10 +965,10 @@ function ProductProposalsReadOnly({
         return (
           <li
             key={proposal.key}
-            className="space-y-3 rounded-md border border-border p-4"
+            className="space-y-3 rounded-[4px] border border-rule p-4"
           >
             <div className="flex flex-wrap items-center gap-2">
-              <p className="type-body-emphasis">{proposalTitle(proposal)}</p>
+              <p className="type-body-sm font-medium text-ink">{proposalTitle(proposal)}</p>
               <ProposalStateBadges
                 state={states.get(proposal.key) ?? "new"}
                 kept={keptKeys.includes(proposal.key)}
@@ -994,7 +994,7 @@ function ProductProposalsReadOnly({
                 ))}
               </div>
             )}
-            <p className="whitespace-pre-wrap type-body">
+            <p className="whitespace-pre-wrap type-body-sm text-ink-soft">
               {proposal.productDescriptionZh}
             </p>
             <ProposalSourceLinks proposal={proposal} />
@@ -1078,7 +1078,7 @@ function ProductProposalsEditor({
         return (
           <fieldset
             key={proposal.key}
-            className="space-y-3 rounded-md border border-border p-4"
+            className="space-y-3 rounded-[4px] border border-rule p-4"
           >
             <legend className="type-metadata">
               {t("details.productEditor.item", { number: index + 1 })}
@@ -1108,7 +1108,7 @@ function ProductProposalsEditor({
               />
             </div>
             {locked && (
-              <p className="type-form-hint">
+              <p className="type-metadata">
                 {t("details.productEditor.locked")}
               </p>
             )}
@@ -1159,7 +1159,7 @@ function ProductProposalsEditor({
               <legend className="type-metadata">
                 {t("details.productEditor.subcategories")}
               </legend>
-              <div className="flex flex-wrap gap-2">
+              <ChipRow>
                 {subcategoryOptions.map((subcategory) => (
                   <ToggleChip
                     key={subcategory.slug}
@@ -1178,13 +1178,13 @@ function ProductProposalsEditor({
                     {subcategory.nameZh}
                   </ToggleChip>
                 ))}
-              </div>
+              </ChipRow>
             </fieldset>
             <fieldset className="space-y-2">
               <legend className="type-metadata">
                 {t("details.productEditor.material")}
               </legend>
-              <div className="flex flex-wrap gap-2">
+              <ChipRow>
                 {MATERIALS.map((option) => (
                   <ToggleChip
                     key={option.slug}
@@ -1199,7 +1199,7 @@ function ProductProposalsEditor({
                     {option.nameZh}
                   </ToggleChip>
                 ))}
-              </div>
+              </ChipRow>
             </fieldset>
             <Field label={t("details.productEditor.officialUrl")}>
               <Input
@@ -1222,7 +1222,7 @@ function ProductProposalsEditor({
                 }
               />
             </Field>
-            <p className="type-form-hint">
+            <p className="type-metadata">
               {t("details.productEditor.descriptionHint")}
             </p>
             <ProposalSourceLinks proposal={proposal} />
@@ -1247,7 +1247,7 @@ function ProposalStateBadges({
       <Badge variant={state === "previously-rejected" ? "warning" : "outline"}>
         {t(`details.productEditor.state.${PRODUCT_STATE_KEYS[state]}`)}
       </Badge>
-      {/* Kiln means one thing in this system: a change being proposed. */}
+      {/* The accent means one thing here: a change being proposed. */}
       <Badge variant={kept ? "default" : "declared"}>
         {kept
           ? t("details.productEditor.keeping")
@@ -1288,7 +1288,7 @@ function ProposalSourceLinks({
         {urls.map((url) => (
           <a
             key={url}
-            className="type-link break-all"
+            className="type-nav font-semibold text-accent underline-offset-4 hover:underline break-all"
             href={url}
             target="_blank"
             rel="noreferrer"
@@ -1381,11 +1381,11 @@ function ReputationReadOnly({
 }) {
   const t = useTranslations("admin.submissions");
   if (!summary && sources.length === 0)
-    return <p className="type-card-description">—</p>;
+    return <p className="type-body-sm">—</p>;
 
   return (
     <>
-      {summary && <p className="whitespace-pre-wrap type-body">{summary}</p>}
+      {summary && <p className="whitespace-pre-wrap type-body-sm text-ink-soft">{summary}</p>}
       {sources.length > 0 && (
         <div className="space-y-1">
           <p className="type-metadata">{t("details.reputationSources")}</p>
@@ -1393,7 +1393,7 @@ function ReputationReadOnly({
             {sources.map((source) => (
               <li key={source.href}>
                 <a
-                  className="type-link"
+                  className="type-nav font-semibold text-accent underline-offset-4 hover:underline"
                   href={source.href}
                   target="_blank"
                   rel="noreferrer"
@@ -1479,7 +1479,7 @@ function ValueBlock({ label, value }: { label: string; value: string | null }) {
   return (
     <div>
       <p className="type-metadata">{label}</p>
-      <p className="mt-1 whitespace-pre-wrap type-body">{value}</p>
+      <p className="mt-1 whitespace-pre-wrap type-body-sm text-ink-soft">{value}</p>
     </div>
   );
 }
@@ -1488,7 +1488,7 @@ function Definition({ label, value }: { label: string; value: string | null }) {
   return (
     <div>
       <dt className="type-metadata">{label}</dt>
-      <dd className="mt-1 type-body">{value ?? "—"}</dd>
+      <dd className="mt-1 type-body-sm text-ink-soft">{value ?? "—"}</dd>
     </div>
   );
 }
@@ -1507,7 +1507,7 @@ function LinkList({
         {links.map(([label, url]) => (
           <li key={`${label}-${url}`}>
             <a
-              className="type-link break-all"
+              className="type-nav font-semibold text-accent underline-offset-4 hover:underline break-all"
               href={url}
               target="_blank"
               rel="noreferrer"
@@ -1522,9 +1522,9 @@ function LinkList({
 }
 
 function StringListReadOnly({ values }: { values: string[] }) {
-  if (values.length === 0) return <p className="type-card-description">—</p>;
+  if (values.length === 0) return <p className="type-body-sm">—</p>;
   return (
-    <ul className="list-disc space-y-1 pl-5 type-body">
+    <ul className="list-disc space-y-1 pl-5 type-body-sm text-ink-soft">
       {values.map((value) => (
         <li key={value}>{value}</li>
       ))}
