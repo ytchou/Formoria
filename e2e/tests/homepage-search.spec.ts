@@ -13,10 +13,11 @@ import { seedBrand, type SeededBrand } from "../helpers/seed";
  * navigation here because `router.push` intermittently drops the transition in
  * WebKit).
  *
- * The keyboard case is not a duplicate of the first. The hero field sits below
- * the header and above a twelve-chip category nav, so the number of tab stops in
- * front of it moves with the header, and a control that only a mouse can reach
- * would still pass every assertion in the mouse case.
+ * The keyboard case is not a duplicate of the first. DEV-1514 moved the category
+ * nav out of the hero and into the persistent header, so those links now sit
+ * BEFORE this field in the tab order rather than after it — the number of stops
+ * in front of it moves with both the header and the taxonomy, and a control that
+ * only a mouse can reach would still pass every assertion in the mouse case.
  */
 
 /**
@@ -30,11 +31,19 @@ const HERO_SEARCH_LABEL = "搜尋台灣品牌與產品";
 /**
  * Upper bound on tab stops between the document start and the hero field. It is
  * a countable DOM property, not a wait: the skip link, the header's controls and
- * the hero's own field all sit inside it, with room for a header to gain a
- * control before this needs revisiting. Exceeding it means the field moved
+ * the hero's own field all sit inside it. Exceeding it means the field moved
  * behind something new — a focus trap, or a widget that swallows Tab.
+ *
+ * Raised 25 → 40 on 2026-08-20. DEV-1514 stopped suppressing the category nav
+ * on `/` (D1/D18 moved the categories out of the hero and into the persistent
+ * header), which put its links ahead of this field. Measured against deployed
+ * staging at revision 68bd90e0: **26**. The headroom is deliberate — the nav
+ * renders one row per L1 category, so the true count moves with the taxonomy
+ * and a bound sitting one stop above the measurement would fail on the next
+ * category rather than on a real regression. A focus trap still fails here,
+ * because a trap never reaches the field at any bound.
  */
-const MAX_TAB_STOPS = 25;
+const MAX_TAB_STOPS = 40;
 
 /**
  * The searchbox is client-only: `SearchInput` reads `useSearchParams`, so under

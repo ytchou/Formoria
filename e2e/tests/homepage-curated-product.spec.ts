@@ -98,8 +98,13 @@ test.describe("Homepage curated product deep", () => {
     const trailLink = wallLinks.nth(trailLinkIndex);
     const destination = await trailLink.getAttribute("href");
     expect(destination).toMatch(/^\/discover\/[a-z0-9-]+$/);
+    // The trailing `:?` is load-bearing. Playwright ends a node's line with a
+    // colon when it has children, and this link has them — the snapshot reads
+    // `- link "<title>":` followed by `- /url:` and `- text:`. Without it the
+    // match returned undefined and the test failed on an empty title while the
+    // tile was rendering perfectly (DEV-1514).
     const trailTitle = (await trailLink.ariaSnapshot()).match(
-      /^- link "(.+)"$/m,
+      /^- link "(.+?)":?$/m,
     )?.[1];
     expect(trailTitle).toBeTruthy();
 
