@@ -22,13 +22,14 @@ interface StoryFigureProps {
  * in this setup (DEV-1302), so a shortcode that needs an object or array is a
  * shortcode that silently receives nothing.
  *
- * Uses an intermediate reading width so inline photos support the surrounding
- * content without taking over the full article column. Keeps the existing 4:3
- * crop and vertical spacing.
+ * Bounded by `prose-measure`, the same reading width the body copy runs at. On
+ * a story that is the width of the shell already, so a figure fills its reading
+ * column; on a wider surface the cap is what keeps an inline photo from growing
+ * past the text it illustrates. Keeps the existing 4:3 crop and spacing.
  */
 export function StoryFigure({ src, alt, caption }: StoryFigureProps) {
   return (
-    <figure className="mx-auto mt-7 mb-6 w-full max-w-2xl">
+    <figure className="prose-measure mx-auto mt-7 mb-6 w-full">
       {/* Raw `<img>`, matching the `img` rule in `storyComponentMap`: authors
           write arbitrary remote URLs and there is no intrinsic size to hand
           `next/image`'s optimizer. */}

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import SubmissionWizard from '@/components/submit/wizard/SubmissionWizard'
+import { PageShell } from '@/components/ui/page-shell'
 import { signInHref } from '@/i18n/locale-preference'
 import { buildAlternates, type Locale } from '@/lib/seo/alternates'
 import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
@@ -59,12 +60,12 @@ export default async function SubmitOwnerDetailsPage({
   ])
 
   return (
-    <div className="page-gutter mx-auto w-full max-w-6xl py-12">
-      <div className="mb-8 max-w-3xl">
+    <PageShell measure="form" className="py-12">
+      <div className="mb-8 prose-measure">
         <h1 className="text-balance type-page-title">{t('heading')}</h1>
         <p className="mt-3 type-body-sm">{t('subheading')}</p>
       </div>
       <SubmissionWizard subcategorySuggestions={subcategorySuggestions} />
-    </div>
+    </PageShell>
   )
 }

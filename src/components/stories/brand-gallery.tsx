@@ -91,7 +91,7 @@ export async function BrandGallery({
   if (images.length === 0) return null
 
   return (
-    <figure className="mx-auto mt-7 mb-6 w-full max-w-2xl">
+    <figure className="prose-measure mx-auto mt-7 mb-6 w-full">
       <div className="grid grid-cols-2 gap-2">
         {images.map(({ src, alt, meta }, index) => {
           // `cn()` like every other surface — this was the one site building its

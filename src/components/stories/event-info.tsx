@@ -57,9 +57,10 @@ export async function EventInfo({
     : null
 
   return (
-    // Full body width rather than the `max-w-2xl` an inline figure uses: this is
-    // a reference block, and at figure width its four fields stacked into a
-    // column tall enough to push the article's first section below the fold.
+    // Full body width rather than the `prose-measure` an inline figure is bounded
+    // by: this is a reference block, and at figure width its four fields stacked
+    // into a column tall enough to push the article's first section below the
+    // fold.
     <SurfaceCard padding="none" className="mx-auto mt-7 mb-6 w-full">
       {event ? (
         <section className="p-5">

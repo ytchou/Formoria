@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { ContributionsList } from '@/components/contributions/contributions-list'
+import { PageShell } from '@/components/ui/page-shell'
 import { signInHref } from '@/i18n/locale-preference'
 import { listMyEvidence } from '@/lib/services/origin-evidence'
 import { createClient } from '@/lib/supabase/server'
@@ -44,12 +45,12 @@ export default async function ContributionsPage({ params }: ContributionsPagePro
   const items = await listMyEvidence(user.id)
 
   return (
-    <main className="page-gutter mx-auto max-w-3xl py-12">
+    <PageShell as="main" measure="prose" className="py-12">
       <h1 className="type-page-title">{t('heading')}</h1>
       <p className="mt-2 type-body-sm">{t('subheading')}</p>
       <div className="mt-8">
         <ContributionsList items={items} />
       </div>
-    </main>
+    </PageShell>
   )
 }

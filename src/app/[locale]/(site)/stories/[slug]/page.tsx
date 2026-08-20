@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { PageShell } from "@/components/ui/page-shell";
 import {
   getAllStories,
   getPublishedStoryBySlug,
@@ -228,9 +229,13 @@ export default async function StoryPage({ params }: PageProps) {
   const hasEventInfo = hasEventInfoShortcode(story.content);
 
   return (
-    // One centered, box-sized article container owns every story detail surface:
-    // breadcrumb, hero, metadata, body, figures, cards, FAQ, and series nav.
-    <main className="page-gutter mx-auto box-border w-full max-w-[920px] pt-8 pb-16 md:pt-12 md:pb-24">
+    // One container owns every story detail surface: breadcrumb, hero,
+    // metadata, body, figures, cards, FAQ, and series nav. It runs on
+    // `prose-measure`, the named reading width, rather than the 920px literal
+    // that used to sit here — a reading page states which of the three measures
+    // it is, and the number itself stays in `globals.css` where one edit reaches
+    // every reading surface at once.
+    <PageShell as="main" measure="prose" className="pt-8 pb-16 md:pt-12 md:pb-24">
       <nav aria-label={t("breadcrumbAria")} className="mb-6">
         <ol className="flex items-center gap-1.5 type-body-sm">
           <li>
@@ -299,7 +304,7 @@ export default async function StoryPage({ params }: PageProps) {
           <h1 className="type-page-title">
             {story.entry.frontmatter.title}
           </h1>
-          <p className="max-w-[46rem] type-body text-ink-soft">
+          <p className="type-body text-ink-soft">
             {story.entry.frontmatter.description}
           </p>
           {/* The byline sits under a hairline, the way a feature's credits do in
@@ -398,6 +403,6 @@ export default async function StoryPage({ params }: PageProps) {
           />
         ) : null}
       </article>
-    </main>
+    </PageShell>
   );
 }

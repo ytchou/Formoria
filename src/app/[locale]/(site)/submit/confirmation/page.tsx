@@ -6,6 +6,7 @@ import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
+import { PageShell } from '@/components/ui/page-shell'
 import { routes } from '@/lib/routes'
 
 type ConfirmationPageProps = {
@@ -51,10 +52,13 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
   const isOwnerIntent = intent === 'owner_claim'
 
   return (
-    <div className="page-gutter flex min-h-screen items-center justify-center py-12">
+    <PageShell
+      measure="form"
+      className="flex min-h-screen items-center justify-center py-12"
+    >
       <div
         className={surfaceCardStyles({
-          className: 'w-full max-w-[560px] rounded-2xl p-10',
+          className: 'w-full prose-measure rounded-2xl p-10',
           padding: 'none',
           tone: 'white',
         })}
@@ -149,6 +153,6 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
           </Link>
         </div>
       </div>
-    </div>
+    </PageShell>
   )
 }

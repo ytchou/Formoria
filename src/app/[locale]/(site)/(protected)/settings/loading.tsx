@@ -1,8 +1,11 @@
+import { PageShell } from '@/components/ui/page-shell'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export default function Loading() {
   return (
-    <main className="page-gutter mx-auto max-w-2xl py-section">
+    // Same shell as `page.tsx`: a different measure here reflows the column the
+    // moment the real page swaps in.
+    <PageShell as="main" measure="form" className="py-section">
       <div className="space-y-stack">
         <Skeleton className="h-8 w-32" />
         <div className="space-y-4">
@@ -15,6 +18,6 @@ export default function Loading() {
         </div>
         <Skeleton className="h-10 w-24 rounded-[3px]" />
       </div>
-    </main>
+    </PageShell>
   )
 }
