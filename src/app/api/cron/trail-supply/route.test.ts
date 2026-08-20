@@ -86,6 +86,11 @@ describe("GET /api/cron/trail-supply", () => {
     const response = await GET(authorizedRequest());
 
     expect(response.status).toBe(200);
+    // This is the only GET under /api/cron/, and a GET is cacheable by
+    // intermediaries where the POST siblings are not. A cached supply report is
+    // a stale one presented as tonight's.
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("vary")).toBe("x-origin-verify");
     expect(await response.json()).toEqual({
       readUnavailable: false,
       trailsObserved: 1,

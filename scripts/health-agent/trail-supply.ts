@@ -4,11 +4,13 @@ import type {
   TrailSupplyReport,
 } from "@/lib/services/trail-supply-report";
 
+import { compareText } from "./brand-review";
 import {
   stableFingerprint,
   type HealthFinding,
   type JsonValue,
 } from "./contracts";
+import type { HealthCollectorArtifact } from "./orchestrator";
 
 /**
  * The agent-side half of the nightly trail supply-decay observation (DEV-1520).
@@ -58,18 +60,39 @@ export const UNOBSERVED_TRAIL_SUPPLY: TrailSupplyReport = {
   trailsObserved: 0,
 };
 
-export interface TrailSupplyArtifact {
-  collectedAt: string;
-  evidence: Record<string, JsonValue>;
-  failure?: string;
-  failures: string[];
-  findings: HealthFinding[];
+/**
+ * The collector artifact shape, expressed as the two intended differences from
+ * `HealthCollectorArtifact` rather than as a second copy of its field list.
+ *
+ * `routine` widens to `string` because `TRAIL_SUPPLY_ROUTINE` is deliberately
+ * not a `HealthRoutine` (see above), and `snapshot` narrows to required because
+ * the observation counts are the whole point of this artifact and must never be
+ * optional here.
+ */
+export type TrailSupplyArtifact = Omit<
+  HealthCollectorArtifact,
+  "routine" | "snapshot"
+> & {
   routine: string;
-  skippedActions: string[];
   snapshot: Record<string, JsonValue>;
-  status: "failed" | "skipped" | "success";
-  version: 1;
-}
+};
+
+/**
+ * The per-run finding ceiling.
+ *
+ * `MAX_ARTIFACT_BYTES` and `MAX_RESULT_BYTES` are both 512KB, so findings that
+ * just fit this artifact's own write check can still push the MERGED
+ * `directory-health.json` past `readBoundedJson` — and Stage 3 then discards
+ * the directory, brand AND trail findings behind one generic
+ * `collector_artifact_unavailable`. Trail supply is bounded by distinct
+ * (trail_slug, section_key) pairs in a column with no FK and no CHECK, which is
+ * the very reason this detector exists, so the bound is enforced here.
+ *
+ * Ceiling: 500 findings, roughly 200KB of merged JSON against a 512KB limit and
+ * an order of magnitude above any plausible real trail count. Raise it only
+ * together with the two byte limits in `orchestrator.ts`.
+ */
+const MAX_TRAIL_SUPPLY_FINDINGS = 500;
 
 export interface TrailSupplyArtifactInput {
   collectedAt: string;
@@ -120,6 +143,26 @@ function emptySectionFinding(section: TrailSupplyEmptySection): HealthFinding {
   );
 }
 
+/**
+ * `unknown_trail` and `undeclared_section` are different repairs — one
+ * retargets the row, the other re-declares or retires the section — so they
+ * must be distinguishable on the Linear ticket.
+ *
+ * The TITLE is what carries that distinction, because the title is the only
+ * per-finding text any adapter renders: `groupedLinearDescription`
+ * (`adapters.ts`) groups by title and prints `<count> x <title> - <samples>`,
+ * and no adapter renders `finding.evidence` at all. The reason still rides the
+ * evidence for the artifact and the audit trail, but a human reading the ticket
+ * learns which repair to make from the title.
+ */
+const ORPHAN_TITLES: Readonly<
+  Record<TrailSupplyOrphanedSelection["reason"], string>
+> = {
+  undeclared_section:
+    "Trail selection points at a section the trail no longer declares",
+  unknown_trail: "Trail selection points at a trail that no longer exists",
+};
+
 function orphanedSelectionFinding(
   selection: TrailSupplyOrphanedSelection,
 ): HealthFinding {
@@ -127,11 +170,8 @@ function orphanedSelectionFinding(
     "trail-orphaned-selection",
     selection.trailSlug,
     selection.sectionKey,
-    "Trail selection points at a trail or section that no longer exists",
+    ORPHAN_TITLES[selection.reason],
     {
-      // `unknown_trail` and `undeclared_section` are different repairs — one
-      // retargets the row, the other re-declares or retires the section — so
-      // the reason has to reach the ticket, not just the fingerprint.
       reason: selection.reason,
       sectionKey: selection.sectionKey,
       trailSlug: selection.trailSlug,
@@ -157,13 +197,7 @@ export function evaluateTrailSupply(
   return [
     ...report.emptySections.map(emptySectionFinding),
     ...report.orphanedSelections.map(orphanedSelectionFinding),
-  ].sort((left, right) =>
-    left.fingerprint < right.fingerprint
-      ? -1
-      : left.fingerprint > right.fingerprint
-        ? 1
-        : 0,
-  );
+  ].sort((left, right) => compareText(left.fingerprint, right.fingerprint));
 }
 
 /**
@@ -180,25 +214,37 @@ export function trailSupplyArtifact(
   input: TrailSupplyArtifactInput,
 ): TrailSupplyArtifact {
   const { report } = input;
-  const findings = evaluateTrailSupply(report);
+  const evaluated = evaluateTrailSupply(report);
+  const findings = evaluated.slice(0, MAX_TRAIL_SUPPLY_FINDINGS);
+  // Truncation must never read as a clean run. It reaches BOTH the evidence
+  // (the count a human sees in the digest) and `failures[]` (the array the
+  // Stage 5 gate reads), so neither surface can show a complete-looking result
+  // built from a partial list.
+  const omittedFindings = evaluated.length - findings.length;
   // A dormant run reports nothing, so it must also COUNT nothing: a malformed
   // payload carrying both the flag and populated arrays would otherwise publish
   // decay counts it was not allowed to turn into findings.
   const observed = report.readUnavailable ? UNOBSERVED_TRAIL_SUPPLY : report;
   const observation: Record<string, JsonValue> = {
     emptySectionCount: observed.emptySections.length,
+    findingCount: findings.length,
+    ...(omittedFindings > 0 ? { findingsOmitted: omittedFindings } : {}),
     ...(input.mode ? { mode: input.mode } : {}),
     orphanedSelectionCount: observed.orphanedSelections.length,
     readUnavailable: report.readUnavailable,
     selectionsObserved: observed.selectionsObserved,
     trailsObserved: observed.trailsObserved,
   };
-  const failures = [...(input.failures ?? [])];
+  const failures = [
+    ...(input.failures ?? []),
+    ...(omittedFindings > 0 ? ["trail_supply_findings_truncated"] : []),
+  ];
+  const failure = failures.at(0);
 
   return {
     collectedAt: input.collectedAt,
     evidence: observation,
-    ...(failures.at(0) ? { failure: failures[0] } : {}),
+    ...(failure ? { failure } : {}),
     failures,
     findings,
     routine: TRAIL_SUPPLY_ROUTINE,
@@ -280,4 +326,24 @@ export function parseTrailSupplyReport(value: unknown): TrailSupplyReport {
     ),
     trailsObserved: countField(value.trailsObserved, "trails_observed"),
   };
+}
+
+/**
+ * The non-throwing form of `parseTrailSupplyReport`, for the one caller that
+ * has to record schema validity BEFORE it decides what to throw.
+ *
+ * The audit record is written from the response the collector actually
+ * received, so it cannot be derived from `response.ok` alone: an intermediary
+ * (a Cloudflare interstitial, a Railway edge error page, the Next.js error
+ * shell) answers HTTP 200 with an HTML body, and an audit claiming
+ * `schemaValid: true` for that body would be the only distinguishing signal in
+ * the uploaded artifact telling a lie.
+ */
+export function isTrailSupplyReport(value: unknown): boolean {
+  try {
+    parseTrailSupplyReport(value);
+    return true;
+  } catch {
+    return false;
+  }
 }

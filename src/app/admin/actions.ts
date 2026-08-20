@@ -87,9 +87,9 @@ import { getPostHogClient } from '@/lib/posthog-server'
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events'
 import { buildBrandListingPublishedEvent } from '@/lib/analytics/server-supply-events'
 import {
-  revalidateLocalizedPath,
   revalidatePublicBrands,
   revalidatePublicStockists,
+  revalidateTrail,
 } from '@/lib/cache/public-brand-cache'
 import { routes } from '@/lib/routes'
 
@@ -297,6 +297,21 @@ async function approveSubmissionForAdmin(
       await updateBrand(refresh.brandId, { status: 'approved' })
     }
     await materializeProposedProducts(submissionId, refresh.brandId)
+    // The third hidden -> approved path, and the exact inverse of
+    // `unhideBrandAction`: approving a refresh restores this brand's products to
+    // every trail they are selected into, and `revalidateApprovals` reaches only
+    // `revalidatePublicBrands`, which deliberately does not cover
+    // `/discover/[slug]` (`public-brand-cache.ts`). Without this the trail keeps
+    // omitting the restored tiles for up to its ISR hour.
+    //
+    // Read AFTER `materializeProposedProducts`: the placements that call just
+    // wrote are part of what changed, and a read before it would miss them.
+    // Never a reason to fail the approval — the helper swallows its own errors.
+    for (const trailSlug of await brandTrailSlugsForRevalidation(
+      refresh.brandId
+    )) {
+      revalidateTrail(trailSlug)
+    }
     return {
       brandSlug: brand.slug,
       refresh: true,
@@ -1152,15 +1167,6 @@ async function brandTrailSlugsForRevalidation(
   brandId: string
 ): Promise<string[]> {
   return getBrandTrailSlugs(brandId).catch(() => [])
-}
-
-/**
- * `/discover/[slug]` lives under the `[locale]` segment, so a bare unprefixed
- * path invalidates nothing. Same body and same name as the helper in
- * `src/app/admin/curated-products/actions.ts` — one pattern per flow.
- */
-function revalidateTrail(trailSlug: string): void {
-  revalidateLocalizedPath(routes.trail(trailSlug))
 }
 
 export async function hideBrandAction(

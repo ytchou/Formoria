@@ -139,6 +139,75 @@ describe("trail supply decay detector", () => {
     ]);
   });
 
+  it("gives_each_orphan_reason_its_own_rendered_title", () => {
+    // `groupedLinearDescription` renders `<count> x <title> - <samples>` and no
+    // adapter renders `finding.evidence`, so the title is the only text that
+    // tells a human which repair to make: retarget the row, or re-declare or
+    // retire the section.
+    const orphans = evaluateTrailSupply(DECAYED).filter((entry) =>
+      entry.fingerprint.startsWith("directory:trail-orphaned-selection:"),
+    );
+    const titlesByReason = new Map(
+      orphans.map((entry) => [String(entry.evidence.reason), entry.title]),
+    );
+
+    expect(titlesByReason.size).toBe(2);
+    expect(new Set(titlesByReason.values()).size).toBe(2);
+    expect(titlesByReason.get("unknown_trail")).toContain("trail");
+    expect(titlesByReason.get("undeclared_section")).toContain("section");
+    // Distinct titles must not have bought a changed fingerprint: the
+    // fingerprint is the ticket identity and stays one kind per orphan class.
+    expect(orphans.map((entry) => entry.fingerprint)).toEqual([
+      "directory:trail-orphaned-selection:autumn-kitchen:dropped",
+      "directory:trail-orphaned-selection:retired-trail:mugs",
+    ]);
+  });
+
+  it("caps_the_findings_and_says_so_when_it_truncates", () => {
+    // MAX_ARTIFACT_BYTES and MAX_RESULT_BYTES are both 512KB, so findings that
+    // just fit this artifact's own write check can still push the MERGED
+    // directory-health.json past readBoundedJson — and Stage 3 then loses the
+    // directory, brand AND trail findings behind one generic string.
+    const storm = report({
+      emptySections: Array.from({ length: 640 }, (_, index) => ({
+        sectionKey: `section-${String(index).padStart(4, "0")}`,
+        sectionTitle: `Section ${index}`,
+        trailSlug: "autumn-kitchen",
+      })),
+      selectionsObserved: 640,
+      trailsObserved: 1,
+    });
+
+    const artifact = trailSupplyArtifact({
+      collectedAt: COLLECTED_AT,
+      report: storm,
+    });
+
+    expect(evaluateTrailSupply(storm)).toHaveLength(640);
+    expect(artifact.findings).toHaveLength(500);
+    // A truncated run must never read as a complete one, on either surface.
+    expect(artifact.evidence).toMatchObject({
+      emptySectionCount: 640,
+      findingCount: 500,
+      findingsOmitted: 140,
+    });
+    expect(artifact.failures).toContain("trail_supply_findings_truncated");
+    expect(artifact.failure).toBe("trail_supply_findings_truncated");
+  });
+
+  it("leaves_no_truncation_marker_on_a_complete_run", () => {
+    const artifact = trailSupplyArtifact({
+      collectedAt: COLLECTED_AT,
+      report: DECAYED,
+    });
+
+    expect(artifact.findings).toHaveLength(4);
+    expect(artifact.evidence).toMatchObject({ findingCount: 4 });
+    expect(artifact.evidence).not.toHaveProperty("findingsOmitted");
+    expect(artifact.failures).toEqual([]);
+    expect(artifact.failure).toBeUndefined();
+  });
+
   it("records_observation_counts_in_the_artifact", () => {
     const artifact = trailSupplyArtifact({
       collectedAt: COLLECTED_AT,

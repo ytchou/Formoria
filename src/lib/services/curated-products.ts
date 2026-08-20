@@ -1582,9 +1582,13 @@ export async function getCuratedProductTrailSlugs(
  * because a retired selection must never contribute a target even if the
  * filter is ever dropped from the query.
  *
- * Returns `[]` on schema lag rather than throwing: the callers are admin
- * writes that already succeeded, and a missing column must cost a stale cache
- * entry, not a failed action.
+ * THROWS on any read failure, schema lag included, exactly like its sibling
+ * `getCuratedProductTrailSlugs` above. Tolerating a missing column is the
+ * caller's decision and one layer owns it: `brandTrailSlugsForRevalidation` in
+ * `src/app/admin/actions.ts` already wraps this in `.catch(() => [])`, so an
+ * admin write that already succeeded still costs a stale cache entry rather
+ * than a failed action — while a caller that cannot afford a silent `[]` can
+ * still see the failure.
  */
 export async function getBrandTrailSlugs(
   brandId: string,
@@ -1595,10 +1599,7 @@ export async function getBrandTrailSlugs(
     .select("trail_slug, state, curated_products!inner(brand_id)")
     .eq("curated_products.brand_id", brandId)
     .eq("state", "active");
-  if (error) {
-    if (isSchemaLag(error)) return [];
-    throw error;
-  }
+  if (error) throw error;
   const rows =
     (data as unknown as { trail_slug: string; state: string }[] | null) ?? [];
   return [

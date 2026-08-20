@@ -57,6 +57,7 @@ import {
   loadCollectorArtifact,
   readBoundedJson,
   redactForAudit,
+  safeEndpoint,
   safeErrorCode,
   taipeiDate,
   validateCollectorArtifact,
@@ -92,6 +93,7 @@ import {
   type CronHttpLogRow,
 } from "./cron-health";
 import {
+  isTrailSupplyReport,
   parseTrailSupplyReport,
   trailSupplyArtifact,
   UNOBSERVED_TRAIL_SUPPLY,
@@ -3003,6 +3005,14 @@ export async function collectCronHealthArtifact(
  */
 const TRAIL_SUPPLY_PATH = "/api/cron/trail-supply";
 const TRAIL_SUPPLY_TIMEOUT_MS = 60_000;
+/**
+ * Mirrors `MAX_ARTIFACT_BYTES` in `orchestrator.ts`, which is not exported. The
+ * payload is bounded only by distinct (trail_slug, section_key) pairs in a
+ * column with no FK and no CHECK — the very condition this detector reports —
+ * so the body is measured before it is parsed, exactly as
+ * `executeLinkHealthRequest` measures its own.
+ */
+const MAX_TRAIL_SUPPLY_RESPONSE_BYTES = 512 * 1024;
 
 export interface TrailSupplyCollectInput {
   mode: "canary_fix" | "live" | "preflight";
@@ -3015,76 +3025,163 @@ export interface TrailSupplyCollectInput {
  * No new environment name exists for trail supply: a second URL variable would
  * be a second thing to rotate and a second way for the nightly run to point at
  * the wrong deployment.
+ *
+ * The normalization is `safeEndpoint`, shared with the link collector rather
+ * than restated, so the two can never disagree about what a safe base URL is.
+ * Only the failure CODE is trail-supply's own, because that code is what makes
+ * a broken repo variable diagnosable in the artifact.
  */
 function trailSupplyEndpoint(railwayUrl: string): string {
-  const url = new URL(railwayUrl);
-  if (!/^https?:$/.test(url.protocol) || url.username || url.password) {
+  let origin: string;
+  try {
+    // `new URL` throws its own TypeError on a malformed value, so the catch
+    // covers rejection and unparseability alike.
+    origin = safeEndpoint(railwayUrl);
+  } catch {
     throw new Error("trail_supply_endpoint_invalid");
   }
-  url.hash = "";
-  url.search = "";
-  return `${url.toString().replace(/\/$/, "")}${TRAIL_SUPPLY_PATH}`;
+  return `${origin}${TRAIL_SUPPLY_PATH}`;
+}
+
+/**
+ * Reads the response body under a byte ceiling, then parses.
+ *
+ * A body that is not JSON resolves to `null` rather than throwing: `null` is a
+ * schema failure the caller records honestly, and an HTML error page from an
+ * intermediary is the expected shape of that case.
+ */
+async function trailSupplyBody(response: Response): Promise<unknown> {
+  const text = await response.text();
+  if (
+    new TextEncoder().encode(text).byteLength > MAX_TRAIL_SUPPLY_RESPONSE_BYTES
+  ) {
+    throw new Error("trail_supply_response_too_large");
+  }
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
 }
 
 /**
  * A GET, because the route is a read-only report with no request body.
  *
- * The audit record is threaded on BOTH paths on purpose. The link collector
- * shipped six nights of failures that could not be told apart because its
- * failure record never reached the audit artifact (DEV-1381); an HTTP 401 here
- * must stay distinguishable from an unreachable host.
+ * The audit record is threaded on EVERY path on purpose, and the audit closure
+ * and the timer are therefore created before the first possible throw. The link
+ * collector shipped six nights of failures that could not be told apart because
+ * its failure record never reached the audit artifact (DEV-1381). A deleted
+ * `vars.FORMORIA_RAILWAY_URL` is worse than that here: repo VARIABLES are not
+ * covered by the Stage 0 credential loop, so with no audit record the run
+ * produced an artifact byte-identical to a dormant one and stayed green.
+ *
+ * Every failure code is snake_case so `internalErrorCode` can carry it verbatim
+ * into the artifact. `safeErrorCode` would collapse all of them to "Error".
  */
 async function requestTrailSupplyReport(
   dependencies: WorkflowRuntimeDependencies,
 ): Promise<unknown> {
-  const environment = environmentFor(dependencies);
-  const railwayUrl = optionalEnvironment(environment, "FORMORIA_RAILWAY_URL");
-  if (!railwayUrl) throw new Error("trail_supply_endpoint_missing");
-  const url = trailSupplyEndpoint(railwayUrl);
-  const originSecret = optionalEnvironment(environment, "ORIGIN_SECRET");
   const audit = auditFor(dependencies);
   const startedAt = performance.now();
   const request = { method: "GET", resource: TRAIL_SUPPLY_PATH };
+  const failed = (code: string, response: Record<string, JsonValue>): Error => {
+    audit({
+      adapter: "trail-supply",
+      latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
+      operation: "read_trail_supply_report",
+      request,
+      response,
+      schemaValid: false,
+      status: "failure",
+    });
+    return new Error(code);
+  };
 
+  const environment = environmentFor(dependencies);
+  const railwayUrl = optionalEnvironment(environment, "FORMORIA_RAILWAY_URL");
+  if (!railwayUrl) {
+    throw failed("trail_supply_endpoint_missing", {
+      error: "endpoint_missing",
+    });
+  }
+  let url: string;
   try {
-    const response = await fetchFor(dependencies)(url, {
+    url = trailSupplyEndpoint(railwayUrl);
+  } catch {
+    throw failed("trail_supply_endpoint_invalid", {
+      error: "endpoint_invalid",
+    });
+  }
+  // An absent secret used to omit the header, so the route answered 401 and the
+  // artifact reported `skipped` — which the Stage 3 merge accepts as success.
+  // Stage 0 does gate this secret, but the Stage 0 loop is skipped entirely in
+  // preflight mode. Name the failure instead of sending an unauthenticated
+  // request that is guaranteed to be rejected.
+  const originSecret = optionalEnvironment(environment, "ORIGIN_SECRET");
+  if (!originSecret) {
+    throw failed("trail_supply_origin_secret_missing", {
+      error: "origin_secret_missing",
+    });
+  }
+
+  let response: Response;
+  try {
+    response = await fetchFor(dependencies)(url, {
       headers: {
         Accept: "application/json",
-        ...(originSecret ? { "x-origin-verify": originSecret } : {}),
+        "x-origin-verify": originSecret,
       },
       method: "GET",
       signal: signal(TRAIL_SUPPLY_TIMEOUT_MS),
     });
-    const body = await jsonResponse(response);
-    audit({
-      adapter: "trail-supply",
-      latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
-      operation: "read_trail_supply_report",
-      request,
-      response: { httpStatus: response.status },
-      schemaValid: response.ok,
-      status: response.ok ? "success" : "failure",
-    });
-    if (!response.ok) throw new Error("trail_supply_request_failed");
-    return body;
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message === "trail_supply_request_failed"
-    ) {
-      throw error;
-    }
-    audit({
-      adapter: "trail-supply",
-      latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
-      operation: "read_trail_supply_report",
-      request,
-      response: { error: "request_failed" },
-      schemaValid: false,
-      status: "failure",
-    });
-    throw new Error("trail_supply_request_failed");
+    // A timeout and an unreachable host are different operational problems: one
+    // is the route getting slower, the other is the deployment being gone.
+    throw failed(
+      error instanceof Error && error.name === "TimeoutError"
+        ? "trail_supply_request_timeout"
+        : "trail_supply_request_unreachable",
+      { error: "request_failed" },
+    );
   }
+
+  let body: unknown;
+  try {
+    body = await trailSupplyBody(response);
+  } catch (error) {
+    throw failed(
+      error instanceof Error &&
+        error.message === "trail_supply_response_too_large"
+        ? "trail_supply_response_too_large"
+        : "trail_supply_body_unreadable",
+      { httpStatus: response.status },
+    );
+  }
+
+  // Validity is derived from the BODY, never from `response.ok`. An
+  // intermediary answering 200 with an HTML error page would otherwise be
+  // recorded as `status: "success", schemaValid: true` while the artifact was
+  // written `skipped` — and after the merge carries the counts, this audit
+  // record is the most precise signal in the uploaded run.
+  const schemaValid = response.ok && isTrailSupplyReport(body);
+  audit({
+    adapter: "trail-supply",
+    latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
+    operation: "read_trail_supply_report",
+    request,
+    response: { httpStatus: response.status },
+    schemaValid,
+    status: schemaValid ? "success" : "failure",
+  });
+  // The status rides the code, so a rotated secret (401), a gateway outage
+  // (502) and a route bug (500) are three different strings in the artifact,
+  // the merged `failures[]` and the Slack digest.
+  if (!response.ok) {
+    throw new Error(`trail_supply_request_status_${response.status}`);
+  }
+  // A 200 with a body that does not match the contract falls through to
+  // `parseTrailSupplyReport` in the caller, which names the exact field.
+  return body;
 }
 
 /**
@@ -3102,9 +3199,9 @@ export async function collectTrailSupplyArtifact(
   input: TrailSupplyCollectInput,
   dependencies: WorkflowRuntimeDependencies = createWorkflowRuntimeDependencies(),
 ): Promise<TrailSupplyArtifact> {
-  let artifact: TrailSupplyArtifact;
+  const files = filesFor(dependencies);
   try {
-    artifact = trailSupplyArtifact({
+    const artifact = trailSupplyArtifact({
       collectedAt: input.runAt,
       mode: input.mode,
       // The route is a read-only GET with nothing to rehearse away, so
@@ -3113,19 +3210,31 @@ export async function collectTrailSupplyArtifact(
         await requestTrailSupplyReport(dependencies),
       ),
     });
+    // Inside the try, like `collectCronHealthArtifact`. The write is the last
+    // thing that can throw here — `writeRedactedJson` rejects past
+    // MAX_RESULT_BYTES — and a throw would skip `main()`'s `writeAuditArtifact`
+    // as well, losing the audit file that is this collector's only remaining
+    // distinguishing signal.
+    await writeRedactedJson(input.outputPath, artifact, files);
+    return artifact;
   } catch (error) {
-    artifact = trailSupplyArtifact({
+    const artifact = trailSupplyArtifact({
       collectedAt: input.runAt,
-      // Keep the error class in the reason. `safeErrorCode` returns only
-      // `error.name`, never the message, so no URL or credential can reach the
-      // artifact.
-      failures: [`${safeErrorCode(error)}:trail_supply_collection_failed`],
+      // `internalErrorCode`, not `safeErrorCode`: the latter returns
+      // `error.name`, which is "Error" for every code this path throws, so a
+      // deleted repo variable, a 401, a timeout and nine parse-drift codes all
+      // arrived as one undiagnosable string. The allow-list is a bare
+      // snake_case token, so no URL or credential can reach the artifact.
+      failures: [`${internalErrorCode(error)}:trail_supply_collection_failed`],
       mode: input.mode,
       report: UNOBSERVED_TRAIL_SUPPLY,
     });
+    // Ceiling: a filesystem error on THIS write still escapes, exactly as it
+    // does for the sibling collector. The artifact is a fixed-size dormant
+    // record, so the size limit cannot be what fails here.
+    await writeRedactedJson(input.outputPath, artifact, files);
+    return artifact;
   }
-  await writeRedactedJson(input.outputPath, artifact, filesFor(dependencies));
-  return artifact;
 }
 
 export async function runAggregateAndDeliver(

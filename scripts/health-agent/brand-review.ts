@@ -39,7 +39,13 @@ export interface BrandReviewSnapshot {
   readonly nowIso: string;
 }
 
-function compareText(left: string, right: string): number {
+/**
+ * Locale-independent string ordering for finding sorts. Exported because
+ * `trail-supply.ts` sorts its findings by fingerprint the same way, and a
+ * second inline copy of this three-line comparator is how two detectors drift
+ * into two different orderings.
+ */
+export function compareText(left: string, right: string): number {
   if (left < right) return -1;
   if (left > right) return 1;
   return 0;

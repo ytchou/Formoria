@@ -39,8 +39,14 @@ export type TrailSupplyEmptySection = {
  * `unknown_trail` — no MDX file carries this slug (renamed, unpublished file,
  * deleted trail). `undeclared_section` — the trail exists but no longer
  * declares this section key.
+ *
+ * Deliberately not exported: it is reachable through
+ * `TrailSupplyOrphanedSelection`, and the health-agent detector re-validates
+ * the two literals itself rather than importing them
+ * (`scripts/health-agent/trail-supply.ts`). Exporting it made it the only
+ * unused export this feature introduced.
  */
-export type TrailSupplyOrphanReason = "unknown_trail" | "undeclared_section";
+type TrailSupplyOrphanReason = "unknown_trail" | "undeclared_section";
 
 /** An active placement row that renders on no surface at all. */
 export type TrailSupplyOrphanedSelection = {
@@ -57,6 +63,13 @@ export type TrailSupplyOrphanedSelection = {
  * `selectionsObserved` exist so a clean run ("looked at 1 trail and 9
  * selections, found nothing") is distinguishable from a dormant one ("looked at
  * nothing") without reading logs.
+ *
+ * `trailsObserved` counts the trails the empty-section pass actually EXAMINED,
+ * which is the published ones. Drafts are skipped by that pass on purpose, so
+ * counting them would break the very distinction the field exists to make: a
+ * tree of five drafts would claim five observations having checked none. Drafts
+ * are still read — the orphan diff runs against the full on-disk set — they are
+ * just not part of what was examined for a broken promise.
  */
 export type TrailSupplyReport = {
   readUnavailable: boolean;
@@ -104,6 +117,18 @@ const PRODUCTION_DEPS: TrailSupplyReportDeps = {
   // against: placements are prepared before publication, and reading published
   // trails only would report every one of those rows as an orphan.
   readTrails: (locale) => getAllTrailsForAdmin(locale),
+  // CEILING: this read is UNPAGED. `getPublishedCuratedProductsForTrail` issues
+  // one `.select()` with no `.range()`, so PostgREST clamps it silently at
+  // `max_rows = 1000` (`supabase/config.toml`). Above 1000 published placement
+  // rows on a single trail the tail never arrives, and the sections it supplied
+  // are reported as empty — INVENTED decay, not missed decay, which is the
+  // failure direction `SELECTION_PAGE_SIZE` below exists to prevent on the
+  // other read. Sound only below that ceiling; the pilot trail is nowhere near
+  // it. UPGRADE PATH: page that read the way `readActiveSelections` does, or
+  // derive the empty-section verdict from the already-paged selections read
+  // instead of a second trail-scoped one. Not done here because
+  // `getPublishedCuratedProductsForTrail` is shipped code serving the public
+  // `/discover/[slug]` page, and this branch changes no public read path.
   readTrailPlacements: (trailSlug) =>
     getPublishedCuratedProductsForTrail(trailSlug),
   selectionsClient: () =>
@@ -113,16 +138,54 @@ const PRODUCTION_DEPS: TrailSupplyReportDeps = {
 let activeDeps: TrailSupplyReportDeps = PRODUCTION_DEPS;
 
 /**
+ * Thrown when a test installs a PARTIAL seam and the report reaches a dependency
+ * the test never stubbed. It is re-thrown out of the `catch` blocks below
+ * instead of degrading to `readUnavailable`, because a swallowed seam error is a
+ * test that goes green while asserting the wrong thing.
+ */
+class TrailSupplyTestSeamError extends Error {
+  constructor(name: keyof TrailSupplyReportDeps) {
+    super(
+      `trail-supply-report test seam is active but \`${name}\` was not stubbed. ` +
+        `Stub it in setTrailSupplyReportDepsForTests, or clear the seam with null. ` +
+        `Falling through to the production dependency would run a live read against real credentials.`,
+    );
+    this.name = "TrailSupplyTestSeamError";
+  }
+}
+
+function unstubbed(name: keyof TrailSupplyReportDeps): never {
+  throw new TrailSupplyTestSeamError(name);
+}
+
+/**
  * Replaces the injected reads for the duration of a test; `null` restores the
- * production ones. Used by the cron route's test, which cannot pass arguments
- * through an HTTP handler. Always reset it in an `afterEach`.
+ * production ones exactly. THE CANONICAL SEAM — `loadTrailSupplyReport` takes no
+ * arguments, so this is the only way to drive it from a test, and both the cron
+ * route's test (which cannot pass arguments through an HTTP handler) and this
+ * service's own test go through it.
+ *
+ * A dependency the caller does not stub does NOT fall back to production: it
+ * throws. Merging over `PRODUCTION_DEPS` meant a test that stubbed only
+ * `readTrails` reached `createServiceClient()` — a live Supabase call, against
+ * whatever `.env` vitest loaded, swallowed by a `catch` into a green
+ * `readUnavailable: true`. Always reset it in an `afterEach`.
  */
 export function setTrailSupplyReportDepsForTests(
   overrides: Partial<TrailSupplyReportDeps> | null,
 ): void {
-  activeDeps = overrides
-    ? { ...PRODUCTION_DEPS, ...overrides }
-    : PRODUCTION_DEPS;
+  if (!overrides) {
+    activeDeps = PRODUCTION_DEPS;
+    return;
+  }
+
+  activeDeps = {
+    readTrails: overrides.readTrails ?? (() => unstubbed("readTrails")),
+    readTrailPlacements:
+      overrides.readTrailPlacements ?? (() => unstubbed("readTrailPlacements")),
+    selectionsClient:
+      overrides.selectionsClient ?? (() => unstubbed("selectionsClient")),
+  };
 }
 
 /**
@@ -156,6 +219,41 @@ function unavailableReport(): TrailSupplyReport {
     emptySections: [],
     orphanedSelections: [],
   };
+}
+
+/**
+ * A loggable label for a failed read. Never the message: a PostgREST error can
+ * echo row values, and this line goes to the deploy log. A Supabase error is a
+ * plain object rather than an `Error`, so its `code` is the only thing that
+ * separates schema lag from a 429 or a socket reset.
+ */
+function readFailureLabel(err: unknown): string {
+  if (typeof err === "object" && err !== null && "code" in err) {
+    const { code } = err as { code: unknown };
+    if (typeof code === "string" && code) return code;
+  }
+  return err instanceof Error ? err.name : "UnknownError";
+}
+
+/**
+ * The declared title for a key the empty-section pass just produced.
+ *
+ * Both exits are honest about their reachability. The loop ALWAYS matches:
+ * `unplacedSectionKeys` returns keys it read off this very array, so the old
+ * `declared?.title` optional chain guarded nothing and read like a guard. The
+ * `?? sectionKey` inside it exists only because the narrow local
+ * `TrailSupplySection` admits a missing title — `trails.ts:85` always writes a
+ * string (possibly `''`) — and the trailing `return` exists only because
+ * TypeScript cannot see that the loop must match. Neither is a defect handler.
+ */
+function sectionTitle(
+  sections: readonly TrailSupplySection[],
+  sectionKey: string,
+): string {
+  for (const section of sections) {
+    if (section.key === sectionKey) return section.title ?? sectionKey;
+  }
+  return sectionKey;
 }
 
 /**
@@ -207,14 +305,19 @@ async function readActiveSelections(
  * production and throws `42703` / `PGRST205` rather than returning `[]`
  * (`curated-products.ts:552-562`), so zero rows would read as "every section
  * lost its slate".
+ *
+ * AN EMPTY TRAIL LIST IS UNOBSERVABLE, NOT EVIDENCE. `getAllTrailsForAdmin`
+ * returns `{ ok: true, trails: [] }` — not an error — when `content/trails/`
+ * exists but holds no `.mdx`, and `content/trails/.gitkeep` is TRACKED, so that
+ * state survives deleting every trail file and is exactly what a checkout of a
+ * branch without the content looks like. `ok: true` alone would let the orphan
+ * storm through the guard by the front door.
  */
-export async function loadTrailSupplyReport(
-  overrides?: Partial<TrailSupplyReportDeps>,
-): Promise<TrailSupplyReport> {
-  const deps = overrides ? { ...activeDeps, ...overrides } : activeDeps;
+export async function loadTrailSupplyReport(): Promise<TrailSupplyReport> {
+  const deps = activeDeps;
 
   const trails = await deps.readTrails("zh-TW");
-  if (!trails.ok) return unavailableReport();
+  if (!trails.ok || trails.trails.length === 0) return unavailableReport();
 
   const declaredByTrail = new Map<string, readonly TrailSupplySection[]>();
   for (const entry of trails.trails) {
@@ -222,14 +325,29 @@ export async function loadTrailSupplyReport(
   }
 
   const emptySections: TrailSupplyEmptySection[] = [];
+  // Counts what the pass EXAMINED, which is what `trailsObserved` reports.
+  let publishedExamined = 0;
   for (const entry of trails.trails) {
     // A draft promises nothing yet, so it cannot have broken a promise.
     if (entry.frontmatter.draft) continue;
+    publishedExamined += 1;
 
     let placements: readonly TrailSupplyPlacement[];
     try {
       placements = await deps.readTrailPlacements(entry.slug);
-    } catch {
+    } catch (err) {
+      if (err instanceof TrailSupplyTestSeamError) throw err;
+      // Without this line a 429, an auth failure, a socket reset and by-design
+      // dormancy are byte-identical in the artifact, in the response, AND in
+      // the logs. The return value is deliberately unchanged: this adds
+      // observability, it decides nothing.
+      console.error(
+        JSON.stringify({
+          event: "trail_supply_placement_read_failed",
+          trailSlug: entry.slug,
+          error: readFailureLabel(err),
+        }),
+      );
       return unavailableReport();
     }
 
@@ -237,15 +355,15 @@ export async function loadTrailSupplyReport(
       frontmatter: entry.frontmatter,
       products: placements,
     })) {
-      const declared = entry.frontmatter.sections.find(
-        (section) => section.key === sectionKey,
-      );
       emptySections.push({
         trailSlug: entry.slug,
         sectionKey,
         // The title is what the visitor actually reads above the empty space,
         // so the report names it; the key alone means nothing to the founder.
-        sectionTitle: declared?.title ?? sectionKey,
+        // No `?? sectionKey` fallback: `unplacedSectionKeys` returns keys it
+        // read off THIS frontmatter, so the lookup cannot miss. A fallback here
+        // would read as a missing-title guard while being unreachable.
+        sectionTitle: sectionTitle(entry.frontmatter.sections, sectionKey),
       });
     }
   }
@@ -253,7 +371,17 @@ export async function loadTrailSupplyReport(
   let selections: ActiveSelectionRow[];
   try {
     selections = await readActiveSelections(deps.selectionsClient());
-  } catch {
+  } catch (err) {
+    if (err instanceof TrailSupplyTestSeamError) throw err;
+    // Covers the `SELECTION_MAX_PAGES` throw above as well as any Supabase
+    // failure: without it the one guard that stops a partial read from
+    // publishing invented decay is invisible when it fires.
+    console.error(
+      JSON.stringify({
+        event: "trail_supply_selection_read_failed",
+        error: readFailureLabel(err),
+      }),
+    );
     return unavailableReport();
   }
 
@@ -281,7 +409,8 @@ export async function loadTrailSupplyReport(
 
   return {
     readUnavailable: false,
-    trailsObserved: trails.trails.length,
+    // The trails EXAMINED, not the trails read: drafts are skipped above.
+    trailsObserved: publishedExamined,
     selectionsObserved: selections.length,
     emptySections,
     orphanedSelections: [...orphaned.values()].sort(

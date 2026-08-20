@@ -1576,7 +1576,7 @@ describe("getBrandTrailSlugs", () => {
     ]);
   });
 
-  it("returns_empty_rather_than_throwing_on_schema_lag", async () => {
+  it("throws_on_schema_lag_and_lets_the_caller_decide", async () => {
     const { client } = stubClient({
       error: {
         code: "42703",
@@ -1585,7 +1585,13 @@ describe("getBrandTrailSlugs", () => {
     });
 
     // A hidden-brand action must not start failing because production's schema
-    // is a deploy behind. The caller loses a cache invalidation, not the write.
-    await expect(getBrandTrailSlugs(BRAND_ID, client)).resolves.toEqual([]);
+    // is a deploy behind — but the layer that decides that is the caller, not
+    // this read. `brandTrailSlugsForRevalidation` in `src/app/admin/actions.ts`
+    // wraps it in `.catch(() => [])`, so the admin write still loses only a
+    // cache invalidation. Swallowing it here as well made the tolerance
+    // invisible and diverged from the sibling `getCuratedProductTrailSlugs`.
+    await expect(getBrandTrailSlugs(BRAND_ID, client)).rejects.toMatchObject({
+      code: "42703",
+    });
   });
 });

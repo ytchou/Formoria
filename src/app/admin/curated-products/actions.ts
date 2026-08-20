@@ -6,8 +6,8 @@ import { runWithAuditContext } from "@/lib/audit/context";
 import { planVisibilityChange } from "@/app/admin/curated-products/visibility-change";
 import { requireAdminAction } from "@/lib/auth/require-admin";
 import {
-  revalidateLocalizedPath,
   revalidatePublicBrands,
+  revalidateTrail,
 } from "@/lib/cache/public-brand-cache";
 import { logAdminAction } from "@/lib/services/admin-audit";
 import {
@@ -71,14 +71,6 @@ type ActionResult =
 function revalidateCurated(brandSlug: string | null): void {
   if (brandSlug) revalidatePublicBrands([brandSlug]);
   revalidatePath(routes.admin.curatedProducts());
-}
-
-/**
- * Cache invalidation for a trail placement. `/discover/[slug]` lives under the
- * `[locale]` segment, so a bare unprefixed path invalidates nothing.
- */
-function revalidateTrail(trailSlug: string): void {
-  revalidateLocalizedPath(routes.trail(trailSlug));
 }
 
 /**
@@ -394,14 +386,17 @@ export async function retireCuratedProductSourceAction(
     }
 
     try {
-      // Read the trail slugs BEFORE the write, for the same reason
-      // `retireCuratedProductAction` does: withdrawing the last active source
-      // unpublishes the product, and an unpublished product is exactly what a
-      // later read may no longer resolve placements through. Without this the
-      // trail keeps serving a tile whose claim no longer has evidence.
-      const trailSlugs = await trailSlugsForRevalidation(productResult.data);
+      // BOTH lookups before the write, concurrently, exactly as
+      // `retireCuratedProductAction` does them: withdrawing the last active
+      // source unpublishes the product, and an unpublished product is what a
+      // later read may no longer resolve either the placements or the brand
+      // through. Without this the trail keeps serving a tile whose claim no
+      // longer has evidence. Two round trips, not three.
+      const [brandSlug, trailSlugs] = await Promise.all([
+        getCuratedProductBrandSlug(productResult.data),
+        trailSlugsForRevalidation(productResult.data),
+      ]);
       await retireCuratedProductSource(sourceResult.data);
-      const brandSlug = await getCuratedProductBrandSlug(productResult.data);
 
       // Audited for the same reason a retire is: withdrawing the last active
       // source removes the evidence behind a published claim, so it is an

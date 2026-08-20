@@ -9,11 +9,15 @@ export const maxDuration = 300;
 /**
  * The nightly trail supply-decay observation (DEV-1520).
  *
- * A GET because it is a read-only report with no request body, exactly like
- * `/api/cron/spend-report`. Machine callers only — no public surface consumes
- * it, and no public surface changes because of it: the report names decayed
- * sections for the founder and the health agent, and decides nothing about what
- * a visitor sees.
+ * A GET, and the only one under `/api/cron/`: every sibling route is a POST.
+ * The divergence is deliberate — this route performs no write, takes no request
+ * body, and returns a report — but it is a divergence, so the response is
+ * pinned `no-store`. A GET is cacheable by intermediaries where a POST is not,
+ * and a cached supply report is a stale one presented as tonight's.
+ *
+ * Machine callers only — no public surface consumes it, and no public surface
+ * changes because of it: the report names decayed sections for the founder and
+ * the health agent, and decides nothing about what a visitor sees.
  *
  * `readUnavailable: true` is a normal 200. Dormancy is the EXPECTED production
  * state while `curated_products` is a stub, and a scheduled run whose branch
@@ -28,7 +32,15 @@ export const GET = withAuditScope(async (req: Request) => {
 
   try {
     const report = await loadTrailSupplyReport();
-    return NextResponse.json(report);
+    return NextResponse.json(report, {
+      headers: {
+        // The plan's performance budget: this route must not be cached.
+        "Cache-Control": "no-store",
+        // The response is a function of the caller's credential, so anything
+        // that does cache it must key on the header the gate above reads.
+        Vary: "x-origin-verify",
+      },
+    });
   } catch (err) {
     console.error(
       JSON.stringify({

@@ -333,12 +333,34 @@ jobs:
         if: always() && steps.admission.outputs.claimed == 'true'
         continue-on-error: true
         run: |
-          jq -s '.[0] as $directory | .[1] as $brand | .[2] as $trail |
+          # Stage 3 aggregate is passed only --directory-artifact, so THIS merge
+          # is the brand review findings' only route to a human. `jq -s` aborts
+          # on a file it cannot open (exit 2) and on a null input (exit 5), and
+          # then `mv` never runs and the night's brand findings are silently
+          # discarded — one new, non-critical detector taking out an established
+          # one. The trail-supply step is continue-on-error, so its artifact is
+          # genuinely allowed to be absent. Stand a `missing_output` artifact in
+          # for it first, then default every slurped input in jq, so a broken
+          # trail arm can only ever cost the trail arm.
+          #
+          # Directory and brand stay fail-closed on an absent FILE on purpose:
+          # they are required inputs, and an absent one carries no findings to
+          # lose.
+          trail_supply="$HEALTH_ARTIFACT_DIR/trail-supply.json"
+          jq -e 'type == "object"' "$trail_supply" >/dev/null 2>&1 ||
+            printf '{"version":1,"routine":"trail-supply","status":"failed","findings":[],"failures":["missing_output"],"skippedActions":[],"evidence":{},"snapshot":{}}\n' > "$trail_supply"
+          jq -s '{status:"failed",failures:["missing_output"],findings:[],skippedActions:[],evidence:{},snapshot:{}} as $missing |
+            (if (.[0]|type) == "object" then .[0] else $missing end) as $directory |
+            (if (.[1]|type) == "object" then .[1] else $missing end) as $brand |
+            (if (.[2]|type) == "object" then .[2] else $missing end) as $trail |
             $directory + {
-              findings: ([$directory.findings[], $brand.findings[], $trail.findings[]] | unique_by(.fingerprint)),
-              failures: ([$directory.failures[], $brand.failures[], $trail.failures[]] | unique),
+              findings: ((($directory.findings // []) + ($brand.findings // []) + ($trail.findings // [])) | unique_by(.fingerprint)),
+              failures: ((($directory.failures // []) + ($brand.failures // []) + ($trail.failures // [])) | unique),
+              skippedActions: ((($directory.skippedActions // []) + ($brand.skippedActions // []) + ($trail.skippedActions // [])) | unique),
+              evidence: (($directory.evidence // {}) + {trailSupply: (($trail.evidence // {}) + {status: ($trail.status // "failed")})}),
+              snapshot: (($directory.snapshot // $directory.evidence // {}) + {trailSupply: (($trail.snapshot // $trail.evidence // {}) + {status: ($trail.status // "failed")})}),
               status: (if $directory.status == "success" and ($brand.status == "success" or $brand.status == "skipped") and ($trail.status == "success" or $trail.status == "skipped") then "success" else "failed" end)
-            }' "$HEALTH_ARTIFACT_DIR/directory-health.json" "$HEALTH_ARTIFACT_DIR/brand-review.json" "$HEALTH_ARTIFACT_DIR/trail-supply.json" > "$HEALTH_ARTIFACT_DIR/product-health.json"
+            }' "$HEALTH_ARTIFACT_DIR/directory-health.json" "$HEALTH_ARTIFACT_DIR/brand-review.json" "$trail_supply" > "$HEALTH_ARTIFACT_DIR/product-health.json"
           mv "$HEALTH_ARTIFACT_DIR/product-health.json" "$HEALTH_ARTIFACT_DIR/directory-health.json"
       - name: "Stage 3 · Consolidate — validate, deduplicate, Linear"
         id: aggregate
