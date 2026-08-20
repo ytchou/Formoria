@@ -10,11 +10,14 @@ test.describe("Directory sort deep", () => {
       timeout: BUDGET.INTERACTIVE,
     });
     await expect(
-      // DEV-1479 replaced the known-intent line with the hero's browse CTA,
-      // which is the same journey into the directory from the homepage.
-      page.getByRole("main").getByRole("link", {
-        name: "開始逛逛",
-      }),
+      // Third owner of this assertion. DEV-1479 replaced the known-intent line
+      // with the hero's browse CTA (開始逛逛); DEV-1514 then removed that CTA
+      // with the whole search-and-grid opener — the homepage now opens
+      // editorially and its search field is the hero's only control. The
+      // directory link that survived is the one at the foot of the brand rail,
+      // and it is matched by its /brands href rather than its copy so the next
+      // rewrite of the wording does not silently empty this selector.
+      page.getByRole("main").locator('a[href="/brands"]'),
     ).toBeVisible();
   });
 
