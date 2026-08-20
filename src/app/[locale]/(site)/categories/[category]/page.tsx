@@ -109,6 +109,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       page={parsed.page}
       sort={parsed.sort}
       canonical={directorySeo.canonical}
+      indexable={directorySeo.robots?.index !== false}
       isCategoryRoute
     />
   )

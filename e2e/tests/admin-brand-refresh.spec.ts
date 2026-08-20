@@ -64,7 +64,11 @@ test.describe("Scheduled brand refresh review", () => {
       city: "tainan",
       hero_image_url: heroUrl,
       category: "crafts",
-      subcategories: ["木工"],
+      // Slug, not the zh-TW label: this writes straight into `brands`, so it
+      // bypasses every conversion path. `brands.subcategories` has no CHECK
+      // constraint, so a label would insert cleanly and then match no facet,
+      // no L2 page and no `?sub=`. `木工` is a `woodcraft` alias (DEV-1510).
+      subcategories: ["woodcraft"],
       price_range: 2,
       purchase_website: "https://refresh-e2e.example.com",
       updated_at: new Date().toISOString(),
@@ -245,7 +249,7 @@ test.describe("Scheduled brand refresh review", () => {
         enriched_data: {
           description: "排程更新後的品牌介紹",
           category: "crafts",
-          subcategories: ["木工"],
+          subcategories: ["woodcraft"],
           price_range: 2,
           purchase_website: "https://refresh-e2e.example.com",
           hero_image_url: heroSubmissionUrl,
@@ -402,7 +406,7 @@ test.describe("Bulk refresh approval", () => {
         enriched_data: {
           description: "完整的品牌介紹",
           category: "crafts",
-          subcategories: ["木工"],
+          subcategories: ["woodcraft"],
           price_range: 2,
           purchase_website: "https://bulk-approval.example.com",
           hero_image_url: validHeroUrl,
@@ -444,7 +448,9 @@ test.describe("Bulk refresh approval", () => {
       description: "完整的品牌介紹",
       hero_image_url: staleHeroUrl,
       category: "crafts",
-      subcategories: ["木工"],
+      // Slug, not the zh-TW label — direct `brands` insert, same reason as the
+      // seed above.
+      subcategories: ["woodcraft"],
       price_range: 2,
       purchase_website: "https://bulk-refresh.example.com",
     });

@@ -35,12 +35,27 @@ export function directoryCategoryChipSlugs(
 /**
  * Whether the page may publish the directory-wide `ItemList`.
  *
- * Any facet, any taxonomy selection, or any page past the first makes the page
- * `index:false` with a self-canonical, so an `ItemList` naming the directory
- * would describe a page Google is told not to index. `material` is a facet like
- * every other one here — it was the axis this predicate forgot.
+ * INVARIANT: the directory `ItemList` ships only on a page that is INDEXABLE.
+ * `indexable` is the robots decision `resolveDirectorySeo` already took for
+ * this exact request — one source of truth, read rather than re-derived.
+ *
+ * The two used to be derived independently and disagreed on invalid input:
+ * this predicate read the PARSED filters, where the closed vocabulary has
+ * already dropped an unknown term, so `?material=xyz` arrived here as an empty
+ * `materials` array and read as the unfiltered directory — while
+ * `resolveDirectorySeo` reads the RAW query and marks that same URL
+ * `noindex, follow`. The junk URL therefore shipped an `ItemList` of every
+ * approved brand while telling crawlers not to index the page it described
+ * (DEV-1524). Adding a second facet list here is what caused it; reading the
+ * indexation decision itself is what cannot drift from it.
+ *
+ * The parsed checks below are kept because they are STRICTER than
+ * indexability, not a second opinion on it: page 2 is indexable and still must
+ * not republish the directory-wide list.
  */
 export function shouldEmitDirectoryItemList(input: {
+  /** The robots decision `resolveDirectorySeo` returned for this request. */
+  indexable: boolean
   categorySlugs: readonly string[]
   search: string
   materials: readonly string[]
@@ -49,6 +64,7 @@ export function shouldEmitDirectoryItemList(input: {
   page: number
 }): boolean {
   return (
+    input.indexable &&
     input.categorySlugs.length === 0 &&
     !input.search &&
     input.materials.length === 0 &&
