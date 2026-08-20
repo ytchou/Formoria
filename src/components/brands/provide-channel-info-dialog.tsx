@@ -3,7 +3,7 @@
 import NextLink from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Pencil, TriangleAlert } from "lucide-react";
-import { useActionState, useId, useState } from "react";
+import { useActionState, useId } from "react";
 import {
   submitChannelInfoAction,
   type ChannelFormState,
@@ -71,9 +71,6 @@ export function ProvideChannelInfoDialog({
     submitChannelInfoAction,
     {},
   );
-  const [channelType, setChannelType] = useState<"online" | "offline">(
-    "offline",
-  );
   const fieldId = useId().replaceAll(":", "");
   const requiresSignIn = !loading && !user;
 
@@ -136,29 +133,6 @@ export function ProvideChannelInfoDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor={`${fieldId}-type`}>
-                  {t("channels.dialog.channelTypeLabel")}
-                </Label>
-                <NativeSelect
-                  id={`${fieldId}-type`}
-                  name="channelType"
-                  value={channelType}
-                  onChange={(event) =>
-                    setChannelType(
-                      event.currentTarget.value as "online" | "offline",
-                    )
-                  }
-                >
-                  <option value="online">
-                    {t("channels.dialog.channelTypeOnline")}
-                  </option>
-                  <option value="offline">
-                    {t("channels.dialog.channelTypeOffline")}
-                  </option>
-                </NativeSelect>
-              </div>
-
-              <div className="space-y-2">
                 <Label htmlFor={`${fieldId}-region`}>
                   {t("channels.dialog.regionLabel")}
                 </Label>
@@ -178,18 +152,19 @@ export function ProvideChannelInfoDialog({
                 </NativeSelect>
               </div>
 
-              {channelType === "offline" ? (
-                <div className="space-y-2">
-                  <Label htmlFor={`${fieldId}-address`}>
-                    {t("channels.dialog.addressLabel")}
-                  </Label>
-                  <Input
-                    id={`${fieldId}-address`}
-                    name="address"
-                    placeholder={t("channels.dialog.addressPlaceholder")}
-                  />
-                </div>
-              ) : null}
+              {/* Always rendered. It used to be gated on an offline selection;
+                  every stockist is a physical place now (DEV-1513), so the
+                  address is the field that identifies it. */}
+              <div className="space-y-2">
+                <Label htmlFor={`${fieldId}-address`}>
+                  {t("channels.dialog.addressLabel")}
+                </Label>
+                <Input
+                  id={`${fieldId}-address`}
+                  name="address"
+                  placeholder={t("channels.dialog.addressPlaceholder")}
+                />
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor={`${fieldId}-url`}>

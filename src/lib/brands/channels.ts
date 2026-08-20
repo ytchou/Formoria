@@ -109,7 +109,6 @@ export function normalizeChannelName(name: string): string {
 type ChannelRow = {
   id: string;
   name: string;
-  channelType: string;
   regionLabel: string | null;
   address: string | null;
   url: string | null;
@@ -155,14 +154,15 @@ export function groupChannelsByRegion(
     const regionSlug = channel.regionLabel
       ? regionLabelToSlug(channel.regionLabel)
       : null;
+    // Three buckets, and `overseas` is the fallback: a row with no resolvable
+    // Taiwan region has no other honest home. Every stockist is a physical
+    // place since DEV-1513, so there is no online bucket to divert into.
     const key =
-      channel.channelType === "online"
-        ? "online"
-        : channel.country != null && channel.country !== "TW"
-          ? "overseas"
-          : channel.regionLabel === CHAIN_REGION_LABEL
-            ? "all_taiwan"
-            : (regionSlug ?? "overseas");
+      channel.country != null && channel.country !== "TW"
+        ? "overseas"
+        : channel.regionLabel === CHAIN_REGION_LABEL
+          ? "all_taiwan"
+          : (regionSlug ?? "overseas");
     const group = grouped.get(key) ?? [];
     group.push(channel);
     grouped.set(key, group);
@@ -173,14 +173,11 @@ export function groupChannelsByRegion(
       key,
       channels: [...group].sort(sortChannelsForDisplay),
     }))
-    .sort((left, right) => {
-      if (left.key === "online") return 1;
-      if (right.key === "online") return -1;
-      return (
+    .sort(
+      (left, right) =>
         right.channels.length - left.channels.length ||
-        compareText(left.key, right.key)
-      );
-    });
+        compareText(left.key, right.key),
+    );
 }
 
 export function groupChannelsForDisplay(
@@ -225,7 +222,6 @@ export function groupChannelsForDisplay(
     const channel: BrandChannel = {
       id: row.id,
       name: row.name,
-      channelType: row.channelType as BrandChannel["channelType"],
       regionLabel: row.regionLabel,
       address: row.address,
       url: row.url,

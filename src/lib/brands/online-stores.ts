@@ -58,7 +58,12 @@ export function onlineStoreMessageKey(fullKey: string, namespace: string): strin
   return fullKey.startsWith(prefix) ? fullKey.slice(prefix.length) : fullKey
 }
 
-export interface OnlineStoreDescriptor {
+/**
+ * The shape `ONLINE_STORES` is checked against. Module-private: no consumer
+ * needs the descriptor type, they derive from the registry or from the
+ * `OnlineStore` alias below.
+ */
+interface OnlineStoreDescriptor {
   /** Stable store identifier. Persisted in analytics as `link_type` — frozen. */
   readonly key: string
   /** camelCase field name on the `Brand` type. */
@@ -209,6 +214,11 @@ export const onlineStoreByKey = indexBy<OnlineStoreKey>((store) => store.key)
  * `website` has no pattern and is therefore never returned: it is the fallback
  * bucket a caller falls into when this returns null, mirroring how
  * `classifySubmittedUrl` treats an unmatched URL today.
+ *
+ * Still exported, and only `online-stores.test.ts` imports it. The export is
+ * what the test reaches through — un-exporting it would mean deleting the
+ * coverage that pins each store's `urlPattern` against a real URL, which is the
+ * part `classifySubmittedUrl` depends on and does not test directly.
  */
 export function onlineStoreForUrl(url: string): OnlineStore | null {
   for (const store of ONLINE_STORES) {

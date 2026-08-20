@@ -577,8 +577,7 @@
       "provideInfo": "Provide retail location",
       "groups": {
         "all_taiwan": "Across Taiwan",
-        "overseas": "Overseas",
-        "online": "Online"
+        "overseas": "Overseas"
       },
       "confirmed": {
         "officialPageLink": "Official page"
@@ -602,9 +601,6 @@
         "title": "Provide retail location",
         "nameLabel": "Retail location name",
         "namePlaceholder": "e.g. Eslite Bookstore Xinyi",
-        "channelTypeLabel": "Sales format",
-        "channelTypeOnline": "Online sales",
-        "channelTypeOffline": "Physical location",
         "regionLabel": "Region",
         "regionPlaceholder": "Select region",
         "addressLabel": "Address",
@@ -620,7 +616,6 @@
         "missing_brand_id": "Missing brand information",
         "missing_brand_slug": "Missing brand information",
         "invalid_name": "Please enter a valid retail location name",
-        "invalid_channel_type": "Please select a sales format",
         "invalid_url": "Please enter a valid URL",
         "active_cap_reached": "Retail location limit reached for this brand",
         "daily_cap_reached": "Today's submission limit has been reached, please try again tomorrow",
@@ -2597,21 +2592,15 @@
       "table": {
         "brand": "Brand",
         "stockist": "Stockist",
-        "format": "Format",
         "region": "Region",
         "submitted": "Submitted"
       },
       "fields": {
         "brand": "Brand",
-        "format": "Sales format",
         "region": "Region",
         "address": "Address",
         "url": "URL",
         "submitted": "Submitted"
-      },
-      "format": {
-        "online": "Online",
-        "offline": "Physical location"
       },
       "approve": "Approve this stockist",
       "reject": "Reject this stockist",

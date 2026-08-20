@@ -63,7 +63,6 @@ describeWithDb("admin stockist queue", () => {
       brand_id: brandId,
       name: row.name,
       normalized_name: `${row.name}-${channelId}`.slice(0, 80),
-      channel_type: "offline",
       region_label: "臺北市",
       source: row.source,
       owner_status: row.ownerStatus,
@@ -133,7 +132,6 @@ describeWithDb("admin stockist queue", () => {
     expect(pending.at(0)).toMatchObject({
       brandSlug: `stockist-queue-${brandId}`,
       name: "待審核社群通路",
-      channelType: "offline",
     });
   });
 

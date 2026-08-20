@@ -17,7 +17,6 @@ import {
   type ReviewColumn,
   type ReviewFilter,
 } from "@/components/admin/queue";
-import { Badge } from "@/components/ui/badge";
 import type { PendingStockist } from "@/lib/services/brand-channels";
 
 const getStockistId = (stockist: PendingStockist) => stockist.id;
@@ -93,13 +92,6 @@ export function StockistQueue({
         <span className="block truncate">{stockist.name}</span>
       ),
       cellClassName: "max-w-[240px] font-medium",
-    },
-    {
-      id: "format",
-      header: t("table.format"),
-      cell: (stockist) => (
-        <Badge variant="secondary">{t(`format.${stockist.channelType}`)}</Badge>
-      ),
     },
     {
       id: "region",
@@ -198,12 +190,6 @@ export function StockistQueue({
             <div>
               <dt className="type-metadata">{t("fields.brand")}</dt>
               <dd className="type-body-sm">{stockist.brandName}</dd>
-            </div>
-            <div>
-              <dt className="type-metadata">{t("fields.format")}</dt>
-              <dd className="type-body-sm">
-                {t(`format.${stockist.channelType}`)}
-              </dd>
             </div>
             <div>
               <dt className="type-metadata">{t("fields.region")}</dt>

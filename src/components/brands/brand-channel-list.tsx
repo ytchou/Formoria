@@ -92,18 +92,13 @@ function ChannelRow({
   ownerRejectLabel,
   onModerate,
 }: ChannelRowProps) {
-  const isOnline = channel.channelType === "online";
-  // An ONLINE channel has no location, so it must never print one. Some rows
-  // carry a region_label and even a street address anyway (a head-office
-  // address on a webshop row), and printing it filed an online entry under a
-  // city in the reader's mind. The online group heading is the only location
-  // an online channel has.
-  const region = isOnline ? null : (channel.address ?? channel.regionLabel);
+  // Every channel is a physical place since DEV-1513, so the address is always
+  // the location worth printing and the region label is its fallback.
+  const region = channel.address ?? channel.regionLabel;
   const mapsHref = channel.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(channel.address)}`
     : null;
-  // Only a rendered Maps link counts as a way through: an online row with a
-  // head-office address builds a mapsHref it never prints.
+  // Only a rendered Maps link counts as a way through.
   const showsMapsLink = region !== null && mapsHref !== null;
   // The href itself rather than a boolean beside it: `channel.url` is
   // `string | null`, and a separate flag proves nothing to the compiler at the
@@ -162,8 +157,7 @@ function ChannelRow({
         {/* Exactly one way through per channel. When the address renders as a
             Google Maps link that IS the way through, so the outbound button
             would send the reader to a second page saying the same thing. When
-            there is no rendered address — every online row, and an offline row
-            whose address is unknown — the outbound link is the only way
+            there is no rendered address, the outbound link is the only way
             through and it stays. */}
         {outboundHref !== null ? (
           <a
@@ -217,12 +211,11 @@ type ChannelChipProps = {
 };
 
 function ChannelChip({ channel, t }: ChannelChipProps) {
-  const isOnline = channel.channelType === "online";
   const isConfirmed = channel.status === "confirmed";
-  // Same rule as the row: an online channel prints no location. This is what
-  // printed a city in parentheses beside an official-website chip.
+  // The chain sentinel is a marker, not a place, so it is the one region label
+  // that never prints.
   const region =
-    !isOnline && channel.regionLabel && channel.regionLabel !== CHAIN_MARKER
+    channel.regionLabel && channel.regionLabel !== CHAIN_MARKER
       ? channel.regionLabel
       : null;
   const mapsHref = channel.address
@@ -268,10 +261,10 @@ function ChannelChip({ channel, t }: ChannelChipProps) {
           )
         </span>
       ) : null}
-      {/* A physical location with a printed region reaches its destination
-          through the Maps link above, so the icon would duplicate it. Without
-          that link — an online chip, or a chip whose region is the chain
-          sentinel or unknown — this icon is the only way through. */}
+      {/* A location with a printed region reaches its destination through the
+          Maps link above, so the icon would duplicate it. Without that link — a
+          chip whose region is the chain sentinel or unknown — this icon is the
+          only way through. */}
       {outboundHref !== null ? (
         <a
           href={outboundHref}
@@ -442,9 +435,7 @@ export function BrandChannelList({
       (channel) => !rendersAsRow(channel),
     );
     const heading =
-      group.key === "online" ||
-      group.key === "overseas" ||
-      group.key === "all_taiwan"
+      group.key === "overseas" || group.key === "all_taiwan"
         ? t(`channels.groups.${group.key}`)
         : tCities(group.key);
 

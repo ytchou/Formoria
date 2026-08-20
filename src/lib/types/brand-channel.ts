@@ -15,7 +15,6 @@ type ChannelConfirmedBy = 'owner' | 'formoria' | 'evidence'
 type ChannelEvidenceSource = 'official_website' | 'other'
 export type ChannelSource =
   'backfill' | 'enriched' | 'community' | 'owner' | 'admin' | 'import'
-export type ChannelType = 'online' | 'offline'
 type OwnerStatus = 'none' | 'confirmed' | 'rejected'
 
 export type ChannelLocationType =
@@ -27,10 +26,16 @@ export type ChannelLocationType =
   | 'shop_in_shop'
   | 'other_physical_retail'
 
+/**
+ * A stockist: a physical place a brand's products can be found in.
+ *
+ * There is no online/offline discriminator any more (DEV-1513). Every row in
+ * `brand_channels` was `offline`, and the online branch it gated only ever
+ * suppressed a location label on rows that had none to print.
+ */
 export interface BrandChannel {
   id: string
   name: string
-  channelType: ChannelType
   regionLabel: string | null
   address: string | null
   url: string | null
@@ -49,7 +54,6 @@ export interface BrandChannel {
 export interface ChannelCandidate {
   name: string
   normalizedName: string
-  channelType: ChannelType
   regionLabel?: string | null
   address?: string | null
   url?: string | null
@@ -65,7 +69,6 @@ export interface ChannelCandidate {
 
 export interface BrandChannelInput {
   name: string
-  channelType: ChannelType
   region?: string
   address?: string
   url?: string

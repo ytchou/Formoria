@@ -2,7 +2,6 @@ import { parseCsvRecords } from '../seo/gsc-404-triage'
 import type {
   ChannelCandidate,
   ChannelLocationType,
-  ChannelType,
 } from '@/lib/types/brand-channel'
 import { citySlugFromName } from '@/lib/constants/taiwan-cities'
 import { matchDistrict } from '@/lib/brands/district'
@@ -11,7 +10,6 @@ export const STOCKIST_HEADER = [
   'brand_slug',
   'name',
   'location_type',
-  'channel_type',
   'region_label',
   'address',
   'url',
@@ -184,10 +182,6 @@ function isLocationType(value: string): value is ChannelLocationType {
   return Object.hasOwn(LOCATION_TYPES, value)
 }
 
-function isChannelType(value: string): value is ChannelType {
-  return value === 'online' || value === 'offline'
-}
-
 export function normalizeStockistRow(
   raw: StockistCsvRow,
   fetchedAt = '2026-08-11T00:00:00.000Z',
@@ -199,14 +193,6 @@ export function normalizeStockistRow(
       ok: false,
       brandSlug,
       reason: `unknown location type: ${locationType}`,
-    }
-  }
-  const channelType = raw.channel_type.trim()
-  if (!isChannelType(channelType)) {
-    return {
-      ok: false,
-      brandSlug,
-      reason: `unknown channel type: ${channelType}`,
     }
   }
   const region = canonicalizeRegion(raw.region_label)
@@ -223,7 +209,6 @@ export function normalizeStockistRow(
       candidate: {
         name,
         normalizedName: name,
-        channelType,
         regionLabel: region.regionLabel,
         address,
         district: address && city ? matchDistrict(address, city) : null,

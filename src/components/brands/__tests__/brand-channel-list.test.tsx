@@ -30,7 +30,6 @@ function makeChannel(
   return {
     id: `channel-${index}`,
     name: `測試通路 ${index}`,
-    channelType: "offline",
     regionLabel: "臺北市",
     address: null,
     url: null,
@@ -105,7 +104,14 @@ describe("BrandChannelList", () => {
       possible: [
         makeChannel(2, { name: "有地址門市", address: "台北市信義區" }),
         makeChannel(3, { name: "連鎖門市" }),
-        makeChannel(4, { name: "線上商城", channelType: "online" }),
+        // The second region is an overseas stockist. It used to be an online
+        // channel, which was the only other group a fixture could reach before
+        // DEV-1513 removed that bucket.
+        makeChannel(4, {
+          name: "香港門市",
+          regionLabel: "香港",
+          country: "HK",
+        }),
       ],
     });
 
@@ -113,27 +119,27 @@ describe("BrandChannelList", () => {
       screen.getByRole("heading", { level: 3, name: "臺北市 (3)" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { level: 3, name: "線上販售 (1)" }),
+      screen.getByRole("heading", { level: 3, name: "海外 (1)" }),
     ).toBeInTheDocument();
 
     const taipei = container.querySelector<HTMLDetailsElement>(
       '[data-channel-kind="taipei"]',
     );
-    const online = container.querySelector<HTMLDetailsElement>(
-      '[data-channel-kind="online"]',
+    const overseas = container.querySelector<HTMLDetailsElement>(
+      '[data-channel-kind="overseas"]',
     );
     expect(taipei).not.toHaveAttribute("open");
-    expect(online).not.toHaveAttribute("open");
+    expect(overseas).not.toHaveAttribute("open");
 
     await user.click(
       screen.getByRole("heading", { level: 3, name: "臺北市 (3)" }),
     );
     await user.click(
-      screen.getByRole("heading", { level: 3, name: "線上販售 (1)" }),
+      screen.getByRole("heading", { level: 3, name: "海外 (1)" }),
     );
 
     expect(taipei).toHaveAttribute("open");
-    expect(online).toHaveAttribute("open");
+    expect(overseas).toHaveAttribute("open");
   });
 
   it("renders an evidence-backed stockist as a full row", () => {
@@ -208,7 +214,8 @@ describe("BrandChannelList", () => {
   });
 
   // 14 rows in content/stockists/*.csv are offline with a url and no address.
-  // Gating the outbound link on channelType left them with no way through.
+  // Gating the outbound link on the old channel type left them with no way
+  // through.
   it("falls back to the outbound link when an offline row has no address", () => {
     renderList({
       confirmed: [

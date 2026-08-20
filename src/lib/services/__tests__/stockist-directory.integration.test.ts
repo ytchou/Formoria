@@ -46,7 +46,6 @@ describeWithDb("stockist directory public read", () => {
         brand_id: brands[0].id,
         name: `山徑選物 中山館 ${suffix}`,
         normalized_name: `mountain-path-zhongshan-${suffix}`,
-        channel_type: "offline",
         region_label: "臺北市",
         district: "中山區",
         address: "臺北市中山區樂群二路199號2樓",
@@ -57,7 +56,6 @@ describeWithDb("stockist directory public read", () => {
         brand_id: brands[1].id,
         name: `隱藏品牌門市 ${suffix}`,
         normalized_name: `hidden-shop-${suffix}`,
-        channel_type: "offline",
         region_label: "臺北市",
         district: "中山區",
         address: "臺北市中山區南京東路一段1號",
@@ -68,7 +66,6 @@ describeWithDb("stockist directory public read", () => {
         brand_id: brands[2].id,
         name: `瀏覽器測試門市 ${suffix}`,
         normalized_name: `browser-shop-${suffix}`,
-        channel_type: "offline",
         region_label: "臺北市",
         district: "信義區",
         address: "臺北市信義區松高路11號",
@@ -77,18 +74,8 @@ describeWithDb("stockist directory public read", () => {
       },
       {
         brand_id: brands[0].id,
-        name: `線上商店 ${suffix}`,
-        normalized_name: `online-shop-${suffix}`,
-        channel_type: "online",
-        region_label: "臺北市",
-        country: "TW",
-        source: "import",
-      },
-      {
-        brand_id: brands[0].id,
         name: `已移除門市 ${suffix}`,
         normalized_name: `removed-shop-${suffix}`,
-        channel_type: "offline",
         region_label: "臺北市",
         district: "信義區",
         address: "臺北市信義區松仁路100號",
@@ -100,7 +87,6 @@ describeWithDb("stockist directory public read", () => {
         brand_id: brands[0].id,
         name: `店主拒絕門市 ${suffix}`,
         normalized_name: `rejected-shop-${suffix}`,
-        channel_type: "offline",
         region_label: "臺北市",
         district: "信義區",
         address: "臺北市信義區市府路1號",
@@ -140,12 +126,6 @@ describeWithDb("stockist directory public read", () => {
       false,
     );
     expect(locations.some(({ name }) => name.startsWith("店主拒絕門市"))).toBe(
-      false,
-    );
-  });
-
-  it("excludes online channels from the physical directory", () => {
-    expect(locations.some(({ name }) => name.startsWith("線上商店"))).toBe(
       false,
     );
   });

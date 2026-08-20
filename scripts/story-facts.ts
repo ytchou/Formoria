@@ -298,7 +298,6 @@ async function fetchFaqRows(
 
 type ChannelFact = {
   name: string;
-  channelType: string;
   url: string | null;
   address: string | null;
   regionLabel: string | null;
@@ -324,7 +323,7 @@ async function fetchChannels(
     const { data, error } = await applyPublicChannelVisibility(
       supabase
         .from("brand_channels")
-        .select("brand_id, name, channel_type, url, address, region_label")
+        .select("brand_id, name, url, address, region_label")
         .in("brand_id", ids),
     );
     if (error) throw new Error(`brand_channels read failed: ${error.message}`);
@@ -332,7 +331,6 @@ async function fetchChannels(
     for (const row of (data ?? []) as Array<{
       brand_id: string;
       name: string;
-      channel_type: string;
       url: string | null;
       address: string | null;
       region_label: string | null;
@@ -340,7 +338,6 @@ async function fetchChannels(
       const existing = byBrandId.get(row.brand_id) ?? [];
       existing.push({
         name: row.name,
-        channelType: row.channel_type,
         url: row.url,
         address: row.address,
         regionLabel: row.region_label,

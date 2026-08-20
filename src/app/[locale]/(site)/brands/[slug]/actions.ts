@@ -36,7 +36,6 @@ import {
 } from '@/lib/cache/public-brand-cache'
 import { CITY_SLUGS, citySlugFromName } from '@/lib/constants/taiwan-cities'
 import { isOwnerOf } from '@/lib/services/brand-owners'
-import type { ChannelType } from '@/lib/types/brand-channel'
 import { createServiceClient } from '@/lib/supabase/service'
 import { trackOriginEvidenceSubmitted } from '@/lib/analytics'
 import { routes } from '@/lib/routes'
@@ -139,7 +138,6 @@ export async function submitChannelInfoAction(
       const region = getFormString(formData, 'region')
       const result = await submitChannel(user.id, brandId, {
         name: getFormString(formData, 'name'),
-        channelType: getFormString(formData, 'channelType') as ChannelType,
         region,
         address: getFormString(formData, 'address'),
         url: getFormString(formData, 'url'),

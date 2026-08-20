@@ -9,7 +9,6 @@ import type {
   ChannelCandidate,
   ChannelLocationType,
   ChannelSource,
-  ChannelType,
 } from '@/lib/types/brand-channel'
 import { unstable_cache } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -38,24 +37,23 @@ const REGION_LABEL_MAP = CITY_NAMES_ZH
 
 type SubmitChannelErrorCode =
   | 'invalid_name'
-  | 'invalid_channel_type'
   | 'invalid_url'
   | 'active_cap_reached'
   | 'daily_cap_reached'
   | 'duplicate_name'
   | 'database_error'
 
-export type SubmitChannelResult =
+type SubmitChannelResult =
   { ok: true; id: string } | { ok: false; code: SubmitChannelErrorCode }
 
-export type ChannelActionResult =
+type ChannelActionResult =
   | { ok: true; city?: CitySlug | null }
   | {
       ok: false
       code: 'not_found' | 'not_owner' | 'invalid_status' | 'database_error'
     }
 
-export type EnrichedChannelsResult =
+type EnrichedChannelsResult =
   | { ok: true; count: number }
   | { ok: false; code: 'database_error' | 'invalid_name' }
 
@@ -63,7 +61,6 @@ type BrandChannelRow = {
   id: string
   brand_id: string
   name: string
-  channel_type: string
   region_label: string | null
   address: string | null
   url: string | null
@@ -84,7 +81,6 @@ type ChannelLookupRow = Pick<BrandChannelRow, 'brand_id'> & {
 type EnrichedChannelRow = {
   name: string
   normalized_name: string
-  channel_type: ChannelType
   region_label: string | null
   address: string | null
   url: string | null
@@ -157,7 +153,7 @@ type ChannelDistrictBackfillRow = {
 }
 
 export const CHANNEL_READ_SELECT =
-  'id, name, channel_type, region_label, address, url, source_url, fetched_at, location_type, country, owner_status, owner_status_by, source, removed_at'
+  'id, name, region_label, address, url, source_url, fetched_at, location_type, country, owner_status, owner_status_by, source, removed_at'
 
 const STOCKIST_READ_SELECT =
   'id, name, address, url, country, region_label, district, brands!inner(slug, name, category, subcategories, status)'
@@ -339,8 +335,7 @@ async function fetchStockistRows(select: string): Promise<StockistReadRow[]> {
       .from('brand_channels')
       .select(select, { count: 'exact' })
       .eq('brands.status', 'approved')
-      .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN)
-      .eq('channel_type', 'offline'),
+      .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN),
   )
     .order('region_label')
     .order('name')
@@ -360,8 +355,7 @@ async function fetchStockistRows(select: string): Promise<StockistReadRow[]> {
             .from('brand_channels')
             .select(select)
             .eq('brands.status', 'approved')
-            .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN)
-            .eq('channel_type', 'offline'),
+            .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN),
         )
           .order('region_label')
           .order('name')
@@ -438,10 +432,6 @@ export async function updateChannelDistricts(
   }
 }
 
-function isChannelType(value: string): value is ChannelType {
-  return value === 'online' || value === 'offline'
-}
-
 function trimNullable(value: string | null | undefined): string | null {
   const trimmed = value?.trim()
   return trimmed ? trimmed : null
@@ -461,7 +451,6 @@ function rowToDisplayRow(row: BrandChannelRow) {
   return {
     id: row.id,
     name: row.name,
-    channelType: row.channel_type,
     regionLabel: row.region_label,
     address: row.address,
     url: row.url,
@@ -547,9 +536,6 @@ export async function submitChannel(
       if (name.length < 1 || name.length > 80) {
         return { ok: false, code: 'invalid_name' }
       }
-      if (!isChannelType(input.channelType)) {
-        return { ok: false, code: 'invalid_channel_type' }
-      }
 
       const url = trimNullable(input.url)
       if (url && !/^https?:\/\/\S+$/i.test(url)) {
@@ -581,7 +567,6 @@ export async function submitChannel(
         brand_id: brandId,
         name,
         normalized_name: normalizeChannelName(name),
-        channel_type: input.channelType,
         region_label: regionLabel,
         address,
         url,
@@ -685,7 +670,6 @@ export type PendingStockist = {
   brandSlug: string
   brandName: string
   name: string
-  channelType: ChannelType
   regionLabel: string | null
   address: string | null
   url: string | null
@@ -696,7 +680,6 @@ type PendingStockistRow = {
   id: string
   brand_id: string
   name: string
-  channel_type: string
   region_label: string | null
   address: string | null
   url: string | null
@@ -726,7 +709,7 @@ export async function listPendingCommunityStockists(): Promise<
   const { data, error } = await supabase
     .from('brand_channels')
     .select(
-      'id, brand_id, name, channel_type, region_label, address, url, created_at, brands!inner(slug, name)',
+      'id, brand_id, name, region_label, address, url, created_at, brands!inner(slug, name)',
     )
     .eq('source', 'community')
     .eq('owner_status', 'none')
@@ -745,7 +728,6 @@ export async function listPendingCommunityStockists(): Promise<
         brandSlug: brand.slug,
         brandName: brand.name,
         name: row.name,
-        channelType: row.channel_type as ChannelType,
         regionLabel: row.region_label,
         address: row.address,
         url: row.url,
@@ -833,7 +815,6 @@ export function buildEnrichedChannelRows(candidates: ChannelCandidate[]): {
     rows.push({
       name,
       normalized_name: normalizedName,
-      channel_type: candidate.channelType,
       region_label: trimNullable(candidate.regionLabel),
       address: trimNullable(candidate.address),
       url: trimNullable(candidate.url),

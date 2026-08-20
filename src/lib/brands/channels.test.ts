@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   applyPublicChannelVisibility,
+  CHAIN_REGION_LABEL,
   groupChannelsByRegion,
   groupChannelsForDisplay,
   normalizeChannelName,
@@ -11,7 +12,6 @@ import type { BrandChannel } from "@/lib/types/brand-channel";
 type ChannelRow = {
   id: string;
   name: string;
-  channelType: string;
   regionLabel: string | null;
   address: string | null;
   url: string | null;
@@ -29,7 +29,6 @@ function channelRow(overrides: Partial<ChannelRow> = {}): ChannelRow {
   return {
     id: "channel-1",
     name: "登山友",
-    channelType: "online",
     regionLabel: null,
     address: null,
     url: null,
@@ -229,7 +228,6 @@ describe("groupChannelsByRegion", () => {
     return {
       id: "channel-1",
       name: "通路",
-      channelType: "offline",
       regionLabel: null,
       address: null,
       url: null,
@@ -288,22 +286,39 @@ describe("groupChannelsByRegion", () => {
     expect(groups.at(0)?.channels).toHaveLength(2);
   });
 
-  it("keeps online rows in a trailing group", () => {
+  // Every stockist is a physical place since DEV-1513 dropped the sales-format
+  // column, so there is no "online" bucket left to fall into. A row lands in a
+  // city, in `all_taiwan` when it carries the chain sentinel, or in `overseas` —
+  // including a row with no region at all, which is the fallback branch and not
+  // a fourth category.
+  it("groups stockists by region without an online bucket", () => {
     const groups = groupChannelsByRegion([
-      channel({
-        id: "online",
-        name: "官方商城",
-        channelType: "online",
-      }),
+      channel({ id: "unlocated", name: "官方商城" }),
       channel({
         id: "taipei",
         name: "臺北店",
         regionLabel: "臺北市",
         country: "TW",
       }),
+      channel({
+        id: "chain",
+        name: "全台連鎖",
+        regionLabel: CHAIN_REGION_LABEL,
+        country: "TW",
+      }),
+      channel({
+        id: "hong-kong",
+        name: "香港店",
+        regionLabel: "香港",
+        country: "HK",
+      }),
     ]);
 
-    expect(groups.map((group) => group.key)).toEqual(["taipei", "online"]);
+    expect(groups.map((group) => [group.key, group.channels.length])).toEqual([
+      ["overseas", 2],
+      ["all_taiwan", 1],
+      ["taipei", 1],
+    ]);
   });
 
   it("keeps Chinese channel order stable across runtime locale differences", () => {

@@ -146,7 +146,6 @@ function channelRow(overrides: Row = {}): Row {
     brand_id: PROD_BRAND_ID,
     name: "誠品信義店",
     normalized_name: "eslite-xinyi",
-    channel_type: "offline",
     location_type: "department_store",
     region_label: "北部",
     country: "TW",

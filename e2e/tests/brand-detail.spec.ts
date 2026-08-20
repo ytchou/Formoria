@@ -585,7 +585,10 @@ test.describe("Brand detail — public locations and retail channels", () => {
 
   const confirmedStoreName = "[E2E-TEST] Brand direct store";
   const confirmedStoreAddress = "台北市信義區信義路五段 7 號";
-  const confirmedOnlineName = "[E2E-TEST] Brand online channel";
+  // A confirmed stockist with no region and no address. It is what keeps the
+  // grouped layout above its four-channel threshold, and it lands in the
+  // overseas fallback group because no Taiwan region resolves for it.
+  const unlocatedChannelName = "[E2E-TEST] Brand channel without a location";
   // Community submissions are invisible until they are approved (DEV-1513), so
   // the only community rows that can render are ones already decided on. Two of
   // them, because the grouped layout needs four visible channels to switch on.
@@ -624,7 +627,6 @@ test.describe("Brand detail — public locations and retail channels", () => {
         brand_id: seeded.brand.id,
         name: confirmedStoreName,
         normalized_name: "e2e-brand-direct-store",
-        channel_type: "offline",
         region_label: "臺北市",
         address: confirmedStoreAddress,
         url: confirmedStoreUrl,
@@ -637,9 +639,8 @@ test.describe("Brand detail — public locations and retail channels", () => {
       },
       {
         brand_id: seeded.brand.id,
-        name: confirmedOnlineName,
-        normalized_name: "e2e-brand-online-channel",
-        channel_type: "online",
+        name: unlocatedChannelName,
+        normalized_name: "e2e-brand-unlocated-channel",
         region_label: null,
         address: null,
         url: null,
@@ -650,7 +651,6 @@ test.describe("Brand detail — public locations and retail channels", () => {
         brand_id: seeded.brand.id,
         name: approvedCommunityName,
         normalized_name: "e2e-approved-community-channel",
-        channel_type: "offline",
         region_label: "臺中市",
         address: null,
         url: null,
@@ -661,7 +661,6 @@ test.describe("Brand detail — public locations and retail channels", () => {
         brand_id: seeded.brand.id,
         name: ownerConfirmedCommunityName,
         normalized_name: "e2e-owner-confirmed-community-channel",
-        channel_type: "offline",
         region_label: "新北市",
         address: null,
         url: null,
@@ -799,9 +798,11 @@ test.describe("Brand detail — public locations and retail channels", () => {
     await dialog
       .getByRole("textbox", { name: "販售地點名稱" })
       .fill(submittedChannelName);
-    await dialog
-      .getByRole("combobox", { name: "販售方式" })
-      .selectOption("online");
+    // Neither a sales-format picker nor a location-category picker: every
+    // stockist is a physical place, and its category is the brand's.
+    await expect(
+      dialog.getByRole("combobox", { name: "販售方式" }),
+    ).toHaveCount(0);
     await expect(
       dialog.getByRole("combobox", { name: "地點分類" }),
     ).toHaveCount(0);
@@ -820,17 +821,18 @@ test.describe("Brand detail — public locations and retail channels", () => {
 
     // The row is written, but a community submission is a stranger's claim about
     // a shop until an admin approves it in /admin/stockists (DEV-1513). So the
-    // public list must NOT grow: the online group stays at one entry and the
-    // submitted name appears nowhere in the section.
+    // public list must NOT grow: the submission named 臺北市, so that is the
+    // group whose count must not move, and the submitted name must appear
+    // nowhere in the section.
     //
     // Not wrapped in `toPass`: the assertion is that a value did NOT change, and
     // retrying that would go green on the very first request no matter what the
     // write did. One reload, after the success toast, is the honest check.
     await userPage.reload({ waitUntil: "domcontentloaded" });
     await expect(
-      userPage.getByRole("heading", { name: "線上販售 (1)", level: 3 }),
+      userPage.getByRole("heading", { name: "臺北市 (1)", level: 3 }),
     ).toBeVisible();
-    await openChannelGroup(userPage, "online");
+    await openChannelGroup(userPage, "taipei");
     await expect(
       userPage
         .locator("[data-brand-channels-section]")

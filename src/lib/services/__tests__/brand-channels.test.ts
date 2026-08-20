@@ -35,7 +35,6 @@ describe('brand channel provenance', () => {
       {
         name: '好丘 信義店',
         normalizedName: '好丘信義',
-        channelType: 'offline',
         regionLabel: '臺北市',
         address: '臺北市信義區松勤街54號',
         url: 'https://www.goodcho.com.tw/stores/xinyi',
@@ -72,7 +71,6 @@ describe('brand channel provenance', () => {
       {
         name: '誠品生活松菸店',
         normalizedName: '誠品生活松菸',
-        channelType: 'offline',
       },
     ])
 

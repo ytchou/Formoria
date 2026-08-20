@@ -577,8 +577,7 @@
       "provideInfo": "提供販售地點",
       "groups": {
         "all_taiwan": "全台",
-        "overseas": "海外",
-        "online": "線上販售"
+        "overseas": "海外"
       },
       "confirmed": {
         "officialPageLink": "前往官方頁面"
@@ -602,9 +601,6 @@
         "title": "提供販售地點",
         "nameLabel": "販售地點名稱",
         "namePlaceholder": "例如：誠品書店 信義店",
-        "channelTypeLabel": "販售方式",
-        "channelTypeOnline": "線上販售",
-        "channelTypeOffline": "實體地點",
         "regionLabel": "地區",
         "regionPlaceholder": "選擇地區",
         "addressLabel": "地址",
@@ -620,7 +616,6 @@
         "missing_brand_id": "缺少品牌資訊",
         "missing_brand_slug": "缺少品牌資訊",
         "invalid_name": "請輸入有效的販售地點名稱",
-        "invalid_channel_type": "請選擇販售方式",
         "invalid_url": "請輸入有效的網址",
         "active_cap_reached": "此品牌的販售地點已達上限",
         "daily_cap_reached": "今日提供的資訊已達上限，請明天再試",
