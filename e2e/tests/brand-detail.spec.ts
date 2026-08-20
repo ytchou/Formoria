@@ -81,7 +81,7 @@ test.describe("Brand detail deep", () => {
 
     // Verify the purchase section heading is visible
     await expect(
-      page.getByRole("heading", { name: "購買管道", level: 2 }),
+      page.getByRole("heading", { name: "線上購買", level: 2 }),
     ).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
@@ -92,7 +92,7 @@ test.describe("Brand detail deep", () => {
       level: 2,
     });
     const purchaseSection = page.getByRole("heading", {
-      name: "購買管道",
+      name: "線上購買",
       level: 2,
     });
     await expect(socialSection).toBeVisible();
@@ -109,7 +109,7 @@ test.describe("Brand detail deep", () => {
       level: 2,
     });
     const purchaseHeading = page.getByRole("heading", {
-      name: "購買管道",
+      name: "線上購買",
       level: 2,
     });
 
@@ -181,7 +181,7 @@ test.describe("Brand detail deep", () => {
     // coverage below.
     await nav.getByRole("link", { name: "購買資訊" }).click();
     await expect(
-      page.getByRole("heading", { name: "購買管道", level: 2 }),
+      page.getByRole("heading", { name: "線上購買", level: 2 }),
     ).toBeInViewport({
       timeout: BUDGET.RENDERED,
     });
@@ -378,7 +378,7 @@ test.describe("Brand detail — brand without links", () => {
       page.getByRole("heading", { name: "社群平台", level: 2 }),
     ).toHaveCount(1);
     await expect(
-      page.getByRole("heading", { name: "購買管道", level: 2 }),
+      page.getByRole("heading", { name: "線上購買", level: 2 }),
     ).toHaveCount(1);
 
     for (const label of ["Instagram", "Threads", "Facebook", "品牌官網"]) {
@@ -707,7 +707,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
       await expect(
         page
           .getByRole("navigation", { name: "本頁導覽" })
-          .getByRole("link", { name: "販售地點", exact: true }),
+          .getByRole("link", { name: "實體通路", exact: true }),
       ).toBeVisible();
     }).toPass(POLL.DB);
 
@@ -780,7 +780,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
     // regression rather than a timing problem. Assert it before the retry loop so
     // that case does not surface as an opaque "predicate timed out" on the dialog.
     const trigger = userPage.getByRole("button", {
-      name: "提供販售地點",
+      name: "提供實體通路",
       exact: true,
     });
     await expect(trigger).toBeVisible();
@@ -790,13 +790,13 @@ test.describe("Brand detail — public locations and retail channels", () => {
     // on a dialog that was never opened. Retry the idempotent open instead of
     // sleeping on a guessed hydration delay — same pattern as openCategoryDialog in
     // brand-corrections.spec.ts.
-    const dialog = userPage.getByRole("dialog", { name: "提供販售地點" });
+    const dialog = userPage.getByRole("dialog", { name: "提供實體通路" });
     await expect(async () => {
       if (!(await dialog.isVisible())) await trigger.click();
       await expect(dialog).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     }).toPass(POLL.UI);
     await dialog
-      .getByRole("textbox", { name: "販售地點名稱" })
+      .getByRole("textbox", { name: "實體通路名稱" })
       .fill(submittedChannelName);
     // Neither a sales-format picker nor a location-category picker: every
     // stockist is a physical place, and its category is the brand's.
@@ -850,7 +850,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
     await expect(page.locator("[data-brand-channels-section]")).toHaveCount(0);
     await expect(
       page.getByRole("navigation", { name: "本頁導覽" }).getByRole("link", {
-        name: "販售地點",
+        name: "實體通路",
       }),
     ).toHaveCount(0);
   });

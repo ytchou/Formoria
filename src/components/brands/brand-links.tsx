@@ -296,7 +296,7 @@ function BrandPurchaseLinks({
   return (
     <LinkSection
       id={sectionIds?.purchase}
-      label={t("links.purchaseChannels")}
+      label={t("links.onlineStores")}
       slots={purchaseSlots}
       brand={brand}
       className={sectionClassName}
