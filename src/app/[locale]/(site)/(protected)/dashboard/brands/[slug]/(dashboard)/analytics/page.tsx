@@ -1,10 +1,10 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import type { OwnerAnalyticsSnapshotV1 } from '@/lib/analytics/posthog-types'
 import {
-  channelMessageKey,
-  purchaseChannelByKey,
-  type PurchaseChannelKey,
-} from '@/lib/brands/purchase-channels'
+  onlineStoreMessageKey,
+  onlineStoreByKey,
+  type OnlineStoreKey,
+} from '@/lib/brands/online-stores'
 import {
   countDelta,
   percent,
@@ -279,36 +279,36 @@ export default async function AnalyticsPage({ params, searchParams }: Props) {
   const brand = await getBrandBySlug(slug)
 
   const t = await getTranslations({ locale, namespace: 'dashboard.analytics' })
-  // Spelled out one key per channel on purpose: an `Object.fromEntries` build
+  // Spelled out one key per store on purpose: an `Object.fromEntries` build
   // collapses to `{ [k: string]: string }`, which satisfies the Record below
-  // vacuously and lets a new channel fall through to `labels.other` unnoticed.
+  // vacuously and lets a new store fall through to `labels.other` unnoticed.
   // The literal is what makes `satisfies` a real gate.
   const purchaseOutboundDestinationLabels = {
     website: t(
-      channelMessageKey(
-        purchaseChannelByKey.website.messageKeys.analyticsOutboundDestination,
+      onlineStoreMessageKey(
+        onlineStoreByKey.website.messageKeys.analyticsOutboundDestination,
         'dashboard.analytics',
       ),
     ),
     pinkoi: t(
-      channelMessageKey(
-        purchaseChannelByKey.pinkoi.messageKeys.analyticsOutboundDestination,
+      onlineStoreMessageKey(
+        onlineStoreByKey.pinkoi.messageKeys.analyticsOutboundDestination,
         'dashboard.analytics',
       ),
     ),
     shopee: t(
-      channelMessageKey(
-        purchaseChannelByKey.shopee.messageKeys.analyticsOutboundDestination,
+      onlineStoreMessageKey(
+        onlineStoreByKey.shopee.messageKeys.analyticsOutboundDestination,
         'dashboard.analytics',
       ),
     ),
     myship: t(
-      channelMessageKey(
-        purchaseChannelByKey.myship.messageKeys.analyticsOutboundDestination,
+      onlineStoreMessageKey(
+        onlineStoreByKey.myship.messageKeys.analyticsOutboundDestination,
         'dashboard.analytics',
       ),
     ),
-  } satisfies Record<PurchaseChannelKey, string>
+  } satisfies Record<OnlineStoreKey, string>
   const copy: OwnerAnalyticsCopy = {
     profileVisits: t('profileVisits'),
     outboundClicks: t('outboundClicks'),

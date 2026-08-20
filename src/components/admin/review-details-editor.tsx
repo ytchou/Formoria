@@ -51,10 +51,10 @@ import { deriveSubcategoriesEn } from "@/lib/services/subcategories";
 import { cn } from "@/lib/utils";
 import { MAX_BRAND_ACTIVE_IMAGES } from "@/lib/constants/brand-images";
 import {
-  PURCHASE_CHANNELS,
-  type PurchaseChannelCamelField,
-  type PurchaseChannelKey,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORES,
+  type OnlineStoreCamelField,
+  type OnlineStoreKey,
+} from "@/lib/brands/online-stores";
 
 const EMPTY_SELECT_VALUE = "__none";
 
@@ -63,7 +63,7 @@ const EMPTY_SELECT_VALUE = "__none";
  * names, so they stay literal; only `website` has a translated label, keyed
  * under the `admin.review` namespace this component already reads.
  *
- * `website` is also the one channel whose value is NOT stored under its camel
+ * `website` is also the one store whose value is NOT stored under its camel
  * field in the review draft: the submission pipeline carries it as
  * `websiteUrl`, and `purchaseWebsite` is derived from it on save. Every read
  * and write below therefore special-cases `channel.key === "website"`.
@@ -73,7 +73,7 @@ const PURCHASE_DISPLAY_LABELS = {
   pinkoi: "Pinkoi",
   shopee: "Shopee",
   myship: "MyShip",
-} satisfies Record<PurchaseChannelKey, string>;
+} satisfies Record<OnlineStoreKey, string>;
 
 type EditableSection =
   | "content"
@@ -153,7 +153,7 @@ export function ReviewDetailsEditor({
 
   const data = reviewData;
   const purchaseLinks = compactLinks([
-    ...PURCHASE_CHANNELS.map(
+    ...ONLINE_STORES.map(
       (channel) =>
         [
           channel.key === "website"
@@ -289,11 +289,11 @@ export function ReviewDetailsEditor({
     const orderedImages = reorderImages(draftImages);
     const hero = orderedImages[0] ?? null;
     const purchaseFields = Object.fromEntries(
-      PURCHASE_CHANNELS.map((channel) => [
+      ONLINE_STORES.map((channel) => [
         channel.camel,
         channel.key === "website" ? draft.websiteUrl : draft[channel.camel],
       ]),
-    ) as Pick<SubmissionReviewData, PurchaseChannelCamelField>;
+    ) as Pick<SubmissionReviewData, OnlineStoreCamelField>;
     const input: SaveSubmissionReviewInput = {
       ...draft,
       heroImageUrl: hero?.url ?? null,
@@ -1326,7 +1326,7 @@ function LinksEditor({
   return (
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {PURCHASE_CHANNELS.map((channel) => (
+        {ONLINE_STORES.map((channel) => (
           <UrlField
             key={channel.camel}
             label={

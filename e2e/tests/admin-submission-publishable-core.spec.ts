@@ -171,7 +171,7 @@ async function cleanupSubmission(
 /**
  * DEV-1345 — covers `approve_submission`'s publishable-core link guard, a
  * hand-maintained SQL allow-list with no compile-time tie to the TypeScript
- * purchase-channel registry. `seedBrand({ purchaseChannel: 'myship' })` cannot
+ * online-store registry. `seedBrand({ onlineStore: 'myship' })` cannot
  * reach it: that fixture inserts straight into `brands`, while the guard only
  * runs on `brand_submissions` during admin approval.
  */

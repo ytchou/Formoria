@@ -73,7 +73,7 @@ import {
   type EvidenceBatchFailure,
   type OriginEvidenceDecision,
 } from '@/lib/services/origin-evidence'
-import { adminRemoveChannel } from '@/lib/services/brand-channels'
+import { reviewCommunityStockist } from '@/lib/services/brand-channels'
 import { FEATURE_FLAGS, setAppSetting } from '@/lib/services/app-settings'
 import {
   DENIAL_REASONS,
@@ -1204,26 +1204,38 @@ export async function deleteBrandAction(
   });
 }
 
-export async function adminRemoveChannelAction(
+/**
+ * Approve or reject one community stockist submission.
+ *
+ * A pending row is invisible on every public surface, so this is the only thing
+ * that publishes one — and rejecting it is what keeps a wrong shop out of the
+ * directory for good. Both the brand page and the city stockist pages are
+ * revalidated because an approved row appears on both.
+ */
+export async function reviewStockistAction(
   channelId: string,
-): Promise<{ success: true } | { error: string }> {
+  decision: 'confirmed' | 'rejected',
+): Promise<{ error: string } | undefined> {
   return runWithAuditContext({}, async () => {
     try {
       const auth = await requireAdminAction()
       if ('error' in auth) return auth
+      if (!isAdminEntityId(channelId)) return { error: 'Invalid stockist ID' }
 
-      const result = await adminRemoveChannel(
+      const result = await reviewCommunityStockist(
         channelId,
+        decision,
         auth.user.id,
-        auth.user.email ?? auth.user.id,
       )
       if (!result.ok) return { error: result.code }
 
+      revalidatePath(routes.admin.stockists())
+      revalidatePath(routes.admin.index())
+      revalidatePublicBrands([result.brandSlug])
       revalidatePublicStockists(result.city)
-
-      return { success: true }
+      return undefined
     } catch (error) {
-      console.error('[admin:removeChannel]', error)
+      console.error('[admin:reviewStockist]', error)
       return {
         error: error instanceof Error ? error.message : 'An unexpected error occurred',
       }

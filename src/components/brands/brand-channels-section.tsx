@@ -1,6 +1,5 @@
 import { getTranslations } from "next-intl/server";
 import { Typography } from "@/components/ui/typography";
-import { CHANNEL_CONFIRMATION_THRESHOLD } from "@/lib/brands/channels";
 import type { AppLocale } from "@/i18n/locale-preference";
 import type { BrandChannel } from "@/lib/types";
 import { BrandChannelList } from "./brand-channel-list";
@@ -34,13 +33,7 @@ export async function BrandChannelsSection({
           <Typography as="h2" variant="sectionTitleLarge">
             {t("sections.locationsAndRetailChannels")}
           </Typography>
-          <p className="type-body-sm">
-            {possible.length > 0
-              ? t("channels.unconfirmed.thresholdNote", {
-                  threshold: CHANNEL_CONFIRMATION_THRESHOLD,
-                })
-              : t("channels.subtitle")}
-          </p>
+          <p className="type-body-sm">{t("channels.subtitle")}</p>
         </div>
         <ProvideChannelInfoDialog brandId={brandId} brandSlug={brandSlug} />
       </div>
@@ -50,7 +43,6 @@ export async function BrandChannelsSection({
         possible={possible}
         brandId={brandId}
         brandSlug={brandSlug}
-        threshold={CHANNEL_CONFIRMATION_THRESHOLD}
       />
     </section>
   );

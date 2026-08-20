@@ -4,9 +4,9 @@ import { EmptyValue, display } from '@/components/dashboard/display-helpers'
 import { InfoField } from '@/components/ui/card'
 import { getBrandBySlug } from '@/lib/services/brands'
 import {
-  channelMessageKey,
-  PURCHASE_CHANNELS,
-} from '@/lib/brands/purchase-channels'
+  onlineStoreMessageKey,
+  ONLINE_STORES,
+} from '@/lib/brands/online-stores'
 import { routes } from '@/lib/routes'
 
 type Props = {
@@ -42,11 +42,11 @@ export default async function LinksPage({ params }: Props) {
             label={tEdit('fieldFacebook')}
             value={display(brand.socialFacebook, t('notSet'))}
           />
-          {PURCHASE_CHANNELS.map((channel) => (
+          {ONLINE_STORES.map((channel) => (
             <InfoField
               key={channel.key}
               label={tEdit(
-                channelMessageKey(
+                onlineStoreMessageKey(
                   channel.messageKeys.dashboardEditField,
                   'dashboard.edit',
                 ),

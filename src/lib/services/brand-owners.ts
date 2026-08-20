@@ -87,6 +87,25 @@ export async function isOwnerOf(
 }
 
 
+/**
+ * Every claimed owner of one brand.
+ *
+ * `isOwnerOf` answers "is THIS user an owner", which cannot classify a row
+ * written by someone else. The public channel labels need the set: an
+ * `owner_status = 'confirmed'` row is 品牌確認 only when the approver is in it.
+ */
+export async function listBrandOwnerUserIds(brandId: string): Promise<string[]> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brand_owners')
+    .select('user_id')
+    .eq('brand_id', brandId)
+
+  if (error) throw error
+  return ((data ?? []) as Array<{ user_id: string }>).map((row) => row.user_id)
+}
+
+
 export async function getBrandBySlugForAdmin(slug: string): Promise<OwnedBrand | null> {
   const supabase = createServiceClient()
   const { data, error } = await supabase

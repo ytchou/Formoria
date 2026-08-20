@@ -75,7 +75,6 @@ describe("buildBrandJsonLd", () => {
       url: null,
       ownerStatus: "none",
       source: "import",
-      confirmationCount: 0,
       status: "confirmed",
       confirmedBy: "evidence",
       ...rest,

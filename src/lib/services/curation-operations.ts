@@ -20,9 +20,9 @@ import {
 } from "@/lib/constants/enrich-phases";
 import { normalizeToRootUrl } from "@/lib/url";
 import {
-  PURCHASE_CHANNELS,
-  type PurchaseChannelColumn,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORES,
+  type OnlineStoreColumn,
+} from "@/lib/brands/online-stores";
 import {
   buildLinkEnrichPatch,
   buildTextEnrichPatch,
@@ -384,7 +384,7 @@ type ProcessEnrichResult = {
   hasChanges: boolean;
 };
 
-type SubmissionEnrichmentRow = Record<PurchaseChannelColumn, string | null> & {
+type SubmissionEnrichmentRow = Record<OnlineStoreColumn, string | null> & {
   id: string;
   brand_id: string | null;
   intent: string;
@@ -432,7 +432,7 @@ export function seedEnrichedDataFromOwnerData(
     ["socialInstagram", "social_instagram"],
     ["socialThreads", "social_threads"],
     ["socialFacebook", "social_facebook"],
-    ...PURCHASE_CHANNELS.map(
+    ...ONLINE_STORES.map(
       (channel) => [channel.camel, channel.column] as const,
     ),
   ] as const;
@@ -897,15 +897,15 @@ function normalizeScrapedData(
     social_threads: scrapedData.social_threads ?? scrapedData.socialThreads,
     social_facebook: scrapedData.social_facebook ?? scrapedData.socialFacebook,
     // Scrapers emit either the snake_case column or the camelCase field; the
-    // column wins. Derived per channel rather than restated three times.
+    // column wins. Derived per store rather than restated three times.
     ...(Object.fromEntries(
-      PURCHASE_CHANNELS.map(
-        (channel): [PurchaseChannelColumn, string | null | undefined] => [
+      ONLINE_STORES.map(
+        (channel): [OnlineStoreColumn, string | null | undefined] => [
           channel.column,
           scrapedData[channel.column] ?? scrapedData[channel.camel],
         ],
       ),
-    ) as Partial<Record<PurchaseChannelColumn, string | null>>),
+    ) as Partial<Record<OnlineStoreColumn, string | null>>),
   };
 }
 
@@ -1290,17 +1290,17 @@ export async function persistSubmissionEnrichmentResults(
  * Fill-gaps merge of the purchase columns: whatever enrichment already produced
  * wins, otherwise the submitted value is used.
  *
- * The submitted value is reduced to its origin only for a channel that accepts a
+ * The submitted value is reduced to its origin only for a store that accepts a
  * bare root (today: the brand's own website) — that column is meant to hold the
- * site, not a page on it. A marketplace channel is the opposite: its bare root
+ * site, not a page on it. A marketplace store is the opposite: its bare root
  * is the platform's front door, so the submitted URL is carried through intact.
  */
 function mergeSubmittedPurchaseColumns(
   existing: JsonObject,
-  submission: Record<PurchaseChannelColumn, string | null>,
-): Record<PurchaseChannelColumn, string | null> {
+  submission: Record<OnlineStoreColumn, string | null>,
+): Record<OnlineStoreColumn, string | null> {
   return Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel): [PurchaseChannelColumn, string | null] => {
+    ONLINE_STORES.map((channel): [OnlineStoreColumn, string | null] => {
       const enriched = existing[channel.column];
       if (typeof enriched === "string") return [channel.column, enriched];
       const submitted = submission[channel.column];
@@ -1309,7 +1309,7 @@ function mergeSubmittedPurchaseColumns(
         channel.allowBareRoot ? normalizeToRootUrl(submitted) : submitted,
       ];
     }),
-  ) as Record<PurchaseChannelColumn, string | null>;
+  ) as Record<OnlineStoreColumn, string | null>;
 }
 
 export function submissionToEnrichBrand(

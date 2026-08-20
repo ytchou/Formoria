@@ -583,20 +583,12 @@
       "confirmed": {
         "officialPageLink": "Official page"
       },
-      "unconfirmed": {
-        "confirmAction": "I confirm they sell here",
-        "confirmed": "Confirmed",
-        "progress": "{count}/{threshold} confirmed",
-        "thresholdNote": "Dashed entries are community-submitted and not yet confirmed; at {threshold} confirmations they move to the confirmed list with a Community confirmed badge",
-        "signInToConfirm": "Sign in to confirm"
-      },
       "chips": {
-        "showRest": "Show {count} more",
-        "confirmAria": "Confirm {name} sells this brand"
+        "showRest": "Show {count} more"
       },
       "provenance": {
         "owner": "Brand confirmed",
-        "community": "Community confirmed",
+        "formoria": "Confirmed by Formoria",
         "evidence": "From the official website",
         "evidenceOther": "Source verified"
       },
@@ -2313,7 +2305,8 @@
         "scripts": "Scripts",
         "settings": "Settings",
         "corrections": "Corrections",
-        "curatedProducts": "Curated Products"
+        "curatedProducts": "Curated Products",
+        "stockists": "Stockists"
       }
     },
     "queue": {
@@ -2595,6 +2588,38 @@
         "rejectNotesRequired": "Rejection notes are required.",
         "generic": "Something went wrong. Please try again."
       }
+    },
+    "stockists": {
+      "title": "Community Stockists",
+      "description": "Retail locations readers submitted. A submission stays invisible on the public site until it is approved here, and an approved one is labelled as confirmed by Formoria, not by the brand.",
+      "searchLabel": "Search stockists",
+      "searchPlaceholder": "Brand or stockist name",
+      "table": {
+        "brand": "Brand",
+        "stockist": "Stockist",
+        "format": "Format",
+        "region": "Region",
+        "submitted": "Submitted"
+      },
+      "fields": {
+        "brand": "Brand",
+        "format": "Sales format",
+        "region": "Region",
+        "address": "Address",
+        "url": "URL",
+        "submitted": "Submitted"
+      },
+      "format": {
+        "online": "Online",
+        "offline": "Physical location"
+      },
+      "approve": "Approve this stockist",
+      "reject": "Reject this stockist",
+      "notProvided": "Not provided",
+      "empty": "No community stockists are waiting for review.",
+      "notFound": "No stockists match this search.",
+      "expandStockist": "Show details for {name}",
+      "collapseStockist": "Hide details for {name}"
     },
     "submissions": {
       "denialReasons": {

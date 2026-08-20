@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { MAX_BRAND_GALLERY_PHOTOS } from '@/lib/constants/brand-images'
-import { purchaseChannelByKey } from '@/lib/brands/purchase-channels'
+import { onlineStoreByKey } from '@/lib/brands/online-stores'
 import {
   BRAND_WIZARD_SHARED_SECTION_FIELDS,
   brandWizardBasicInfoSchema,
@@ -27,7 +27,7 @@ const reputationSchema = z.object({
 export const brandEditSchema = brandWizardCommonSchema.merge(reputationSchema)
 
 const publishPurchaseRequirements = {
-  [purchaseChannelByKey.website.camel]: z.string().url(),
+  [onlineStoreByKey.website.camel]: z.string().url(),
 }
 
 export const brandPublishRequirementsSchema = z.object({

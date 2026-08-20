@@ -583,20 +583,12 @@
       "confirmed": {
         "officialPageLink": "前往官方頁面"
       },
-      "unconfirmed": {
-        "confirmAction": "我確認這裡有販售",
-        "confirmed": "已確認",
-        "progress": "{count}/{threshold} 人確認",
-        "thresholdNote": "虛線為社群提供、尚待確認的販售地點；累積 {threshold} 人確認後會移入已確認清單並標示「社群確認」",
-        "signInToConfirm": "登入後即可確認"
-      },
       "chips": {
-        "showRest": "顯示其餘 {count} 家",
-        "confirmAria": "我確認{name}有販售"
+        "showRest": "顯示其餘 {count} 家"
       },
       "provenance": {
         "owner": "品牌確認",
-        "community": "社群確認",
+        "formoria": "站方確認",
         "evidence": "來自官網",
         "evidenceOther": "來源佐證"
       },

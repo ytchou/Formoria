@@ -1,5 +1,5 @@
 import type { ScrapedBrandData } from '@/lib/types/scraper'
-import { PURCHASE_CHANNELS, type PurchaseChannelCamelField } from '@/lib/brands/purchase-channels'
+import { ONLINE_STORES, type OnlineStoreCamelField } from '@/lib/brands/online-stores'
 import { LINK_FIELDS, pageKey, type LinkField } from '@/lib/services/link-enrichment'
 import type { InputType } from './strategies/types'
 
@@ -10,7 +10,7 @@ type SocialLinkFields = Pick<
 >
 type PurchaseLinkFields = Pick<
   ScrapedBrandData,
-  PurchaseChannelCamelField
+  OnlineStoreCamelField
 >
 
 const MAX_CATEGORY_HINTS = 5
@@ -123,7 +123,7 @@ export function mergePurchaseLinks(
   next: PurchaseLinkFields
 ): PurchaseLinkFields {
   return Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel) => [
+    ONLINE_STORES.map((channel) => [
       channel.camel,
       base[channel.camel] ?? next[channel.camel],
     ]),

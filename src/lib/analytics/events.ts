@@ -701,7 +701,7 @@ export interface AnalyticsEventPayloads {
   }
   [ANALYTICS_EVENTS.BRAND_DETAIL_ENGAGED]: {
     brand_slug: string
-    trigger: 'dwell' | 'gallery' | 'faq' | 'channel' | 'scroll_50'
+    trigger: 'dwell' | 'gallery' | 'faq' | 'scroll_50'
     brand_id?: string
   }
   [ANALYTICS_EVENTS.EXTERNAL_LINK_CLICKED]: {

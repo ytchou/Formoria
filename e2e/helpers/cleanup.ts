@@ -398,10 +398,6 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
   const originEvidence = brandIds.length
     ? await queryRows(supabase, 'origin_evidence', 'photo_paths, brand_id', failures)
     : [];
-  const channels = brandIds.length
-    ? (await queryRows(supabase, 'brand_channels', 'id, brand_id', failures)).filter((row) => brandIds.includes(String(row.brand_id)))
-    : [];
-  const channelIds = channels.map((row) => String(row.id)).filter(Boolean);
   const reports = (await queryRows(
     supabase,
     'brand_reports',
@@ -493,7 +489,6 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
   await deleteWhereIn(supabase, 'moderation_flags', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'pending_brand_edits', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'brand_saves', 'brand_id', brandIds, failures);
-  await deleteWhereIn(supabase, 'brand_channel_confirmations', 'channel_id', channelIds, failures);
   await deleteWhereIn(supabase, 'brand_channels', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'claim_proof_cleanup_jobs', 'claim_request_id', claimIds, failures);
   await deleteWhereIn(supabase, 'claim_requests', 'id', claimIds, failures);
@@ -566,7 +561,6 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
     ['pending_brand_edits', 'brand_id', brandIds],
     ['brand_saves', 'brand_id', brandIds],
     ['brand_channels', 'brand_id', brandIds],
-    ['brand_channel_confirmations', 'channel_id', channelIds],
     ['claim_requests', 'id', claimIds],
     ['claim_proof_cleanup_jobs', 'claim_request_id', claimIds],
     ['origin_evidence', 'brand_id', brandIds],

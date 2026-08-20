@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  applyPublicChannelVisibility,
   groupChannelsByRegion,
   groupChannelsForDisplay,
   normalizeChannelName,
+  PENDING_COMMUNITY_EXCLUSION,
 } from "./channels";
 import type { BrandChannel } from "@/lib/types/brand-channel";
 
@@ -18,8 +20,8 @@ type ChannelRow = {
   locationType?: string | null;
   country?: string | null;
   ownerStatus: string;
+  ownerStatusBy?: string | null;
   source: string;
-  confirmationCount: number;
   removedAt: string | null;
 };
 
@@ -33,17 +35,17 @@ function channelRow(overrides: Partial<ChannelRow> = {}): ChannelRow {
     url: null,
     ownerStatus: "none",
     source: "backfill",
-    confirmationCount: 0,
     removedAt: null,
     ...overrides,
   };
 }
 
 describe("groupChannelsForDisplay", () => {
-  it("groups owner-confirmed channel into confirmed with owner provenance", () => {
-    const result = groupChannelsForDisplay([
-      channelRow({ ownerStatus: "confirmed", confirmationCount: 0 }),
-    ]);
+  it("promotes an owner-confirmed row to confirmed", () => {
+    const result = groupChannelsForDisplay(
+      [channelRow({ ownerStatus: "confirmed", ownerStatusBy: "owner-user" })],
+      ["owner-user"],
+    );
 
     expect(result.confirmed).toEqual([
       expect.objectContaining({
@@ -51,50 +53,23 @@ describe("groupChannelsForDisplay", () => {
         confirmedBy: "owner",
       }),
     ]);
+    expect(result.confirmed.at(0)).not.toHaveProperty("confirmationCount");
     expect(result.possible).toEqual([]);
   });
 
-  it("promotes at exactly the threshold", () => {
+  // `owner_status_by` is null on every row the 2026-07 backfill promoted out of
+  // `brands.retail_locations`. Those WERE owner confirmations, so an unknown
+  // approver keeps the owner claim; only a positively identified non-owner
+  // downgrades it (see `stockist-queue.test.ts`).
+  it("keeps owner provenance when no approver was recorded", () => {
     const result = groupChannelsForDisplay([
-      channelRow({
-        id: "channel-2",
-        source: "community",
-        confirmationCount: 2,
-      }),
-      channelRow({
-        id: "channel-3",
-        source: "community",
-        confirmationCount: 3,
-      }),
+      channelRow({ ownerStatus: "confirmed", ownerStatusBy: null }),
     ]);
 
-    expect(result.possible).toEqual([
-      expect.objectContaining({
-        id: "channel-2",
-        status: "unconfirmed",
-      }),
-    ]);
-    expect(result.confirmed).toEqual([
-      expect.objectContaining({
-        id: "channel-3",
-        status: "confirmed",
-        confirmedBy: "community",
-      }),
-    ]);
+    expect(result.confirmed.at(0)).toMatchObject({ confirmedBy: "owner" });
   });
 
-  it("owner provenance wins over community", () => {
-    const result = groupChannelsForDisplay([
-      channelRow({ ownerStatus: "confirmed", confirmationCount: 5 }),
-    ]);
-
-    expect(result.confirmed[0]).toMatchObject({
-      status: "confirmed",
-      confirmedBy: "owner",
-    });
-  });
-
-  it("marks an imported source-backed row as evidence confirmed", () => {
+  it("promotes an evidence-backed row to confirmed", () => {
     const result = groupChannelsForDisplay([
       channelRow({
         source: "import",
@@ -146,21 +121,9 @@ describe("groupChannelsForDisplay", () => {
     expect(result.confirmed.at(0)).not.toHaveProperty("sourceUrl");
   });
 
-  it("keeps source evidence authoritative after community confirmations", () => {
-    const result = groupChannelsForDisplay([
-      channelRow({
-        source: "import",
-        sourceUrl: "https://hanchor.com.tw/pages/stockists",
-        confirmationCount: 3,
-      }),
-    ]);
-
-    expect(result.confirmed.at(0)).toMatchObject({
-      status: "confirmed",
-      confirmedBy: "evidence",
-    });
-  });
-
+  // LOAD-BEARING. `evidenceBacked` is `sourceUrl != null && source !== "community"`,
+  // and dropping the second operand would promote every community row carrying a
+  // URL to "confirmed" on 718 live brand pages.
   it("does not treat a community row with a source URL as evidence backed", () => {
     const result = groupChannelsForDisplay([
       channelRow({
@@ -205,21 +168,59 @@ describe("groupChannelsForDisplay", () => {
     expect(result).toEqual({ confirmed: [], possible: [] });
   });
 
-  it("marks viewer confirmation state", () => {
-    const result = groupChannelsForDisplay(
-      [
-        channelRow({ id: "confirmed", ownerStatus: "confirmed" }),
-        channelRow({ id: "possible" }),
-      ],
-      ["confirmed"],
-    );
+});
 
-    expect(result.confirmed[0]).toMatchObject({
-      hasCurrentUserConfirmed: true,
-    });
-    expect(result.possible[0]).toMatchObject({
-      hasCurrentUserConfirmed: false,
-    });
+/**
+ * Structurally satisfies the `applyPublicChannelVisibility` constraint without
+ * any Supabase machinery — the real `PostgrestFilterBuilder` also returns itself
+ * from each of these. `check-test-boundaries.mjs` forbids mocking the client, so
+ * a spy is the only way to assert the emitted filters directly.
+ */
+function createQuerySpy() {
+  const calls: string[] = [];
+  const query = {
+    calls,
+    is(column: string, value: null) {
+      calls.push(`is(${column},${String(value)})`);
+      return query;
+    },
+    neq(column: string, value: string) {
+      calls.push(`neq(${column},${value})`);
+      return query;
+    },
+    or(filters: string) {
+      calls.push(`or(${filters})`);
+      return query;
+    },
+  };
+  return query;
+}
+
+describe("applyPublicChannelVisibility", () => {
+  it("hides tombstoned, owner-rejected, and unreviewed community rows", () => {
+    const query = createQuerySpy();
+
+    applyPublicChannelVisibility(query);
+
+    expect(query.calls).toEqual([
+      "is(removed_at,null)",
+      "neq(owner_status,rejected)",
+      "or(source.neq.community,owner_status.neq.none)",
+    ]);
+  });
+
+  // De Morgan of `source = 'community' AND owner_status = 'none'`. Both columns
+  // are NOT NULL, so the negation has no null hole to fall through.
+  it("excludes exactly the community rows with no decision on them", () => {
+    expect(PENDING_COMMUNITY_EXCLUSION).toBe(
+      "source.neq.community,owner_status.neq.none",
+    );
+  });
+
+  it("returns the same query so it stays chainable", () => {
+    const query = createQuerySpy();
+
+    expect(applyPublicChannelVisibility(query)).toBe(query);
   });
 });
 
@@ -234,7 +235,6 @@ describe("groupChannelsByRegion", () => {
       url: null,
       ownerStatus: "none",
       source: "community",
-      confirmationCount: 0,
       status: "unconfirmed",
       ...overrides,
     };

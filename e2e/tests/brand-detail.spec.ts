@@ -407,7 +407,7 @@ test.describe("Brand detail — myship-only purchase channel", () => {
       status: "approved",
       workerIndex: workerInfo.workerIndex,
       withLinks: true,
-      purchaseChannel: "myship",
+      onlineStore: "myship",
     });
   });
 
@@ -586,8 +586,12 @@ test.describe("Brand detail — public locations and retail channels", () => {
   const confirmedStoreName = "[E2E-TEST] Brand direct store";
   const confirmedStoreAddress = "台北市信義區信義路五段 7 號";
   const confirmedOnlineName = "[E2E-TEST] Brand online channel";
-  const anonymousChannelName = "[E2E-TEST] Anonymous confirmation channel";
-  const signedInChannelName = "[E2E-TEST] Signed-in confirmation channel";
+  // Community submissions are invisible until they are approved (DEV-1513), so
+  // the only community rows that can render are ones already decided on. Two of
+  // them, because the grouped layout needs four visible channels to switch on.
+  const approvedCommunityName = "[E2E-TEST] Approved community channel";
+  const ownerConfirmedCommunityName =
+    "[E2E-TEST] Owner-confirmed community channel";
   const submittedChannelName = "[E2E-TEST] Submitted community channel";
   const confirmedStoreUrl = "https://example.com/e2e-brand-store";
   const evidenceSourceUrl = "https://example.com/e2e-stockists";
@@ -614,18 +618,6 @@ test.describe("Brand detail — public locations and retail channels", () => {
     const serviceClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-
-    const { data: usersData, error: usersError } =
-      await serviceClient.auth.admin.listUsers();
-    if (usersError) {
-      throw new Error(`Failed to list E2E users: ${usersError.message}`);
-    }
-    const confirmationUser = usersData.users.find(
-      (user) => user.email === process.env.E2E_ADMIN_EMAIL,
-    );
-    if (!confirmationUser) {
-      throw new Error("E2E admin user not found for channel confirmation seed");
-    }
 
     const channelRows = [
       {
@@ -656,58 +648,33 @@ test.describe("Brand detail — public locations and retail channels", () => {
       },
       {
         brand_id: seeded.brand.id,
-        name: anonymousChannelName,
-        normalized_name: "e2e-anonymous-confirmation-channel",
+        name: approvedCommunityName,
+        normalized_name: "e2e-approved-community-channel",
         channel_type: "offline",
         region_label: "臺中市",
         address: null,
         url: null,
         source: "community",
-        owner_status: "none",
+        owner_status: "confirmed",
       },
       {
         brand_id: seeded.brand.id,
-        name: signedInChannelName,
-        normalized_name: "e2e-signed-in-confirmation-channel",
+        name: ownerConfirmedCommunityName,
+        normalized_name: "e2e-owner-confirmed-community-channel",
         channel_type: "offline",
         region_label: "新北市",
         address: null,
         url: null,
         source: "community",
-        owner_status: "none",
+        owner_status: "confirmed",
       },
     ];
 
-    const { data: channels, error: channelsError } = await serviceClient
+    const { error: channelsError } = await serviceClient
       .from("brand_channels")
-      .insert(channelRows)
-      .select("id, name");
-    if (channelsError || !channels) {
-      throw new Error(
-        `Failed to seed brand channels: ${channelsError?.message ?? "missing rows"}`,
-      );
-    }
-
-    const channelIds = new Map(
-      channels.map((channel) => [channel.name, channel.id]),
-    );
-    const getChannelId = (name: string): string => {
-      const id = channelIds.get(name);
-      if (!id) throw new Error(`Seeded channel not found: ${name}`);
-      return id;
-    };
-    const { error: confirmationsError } = await serviceClient
-      .from("brand_channel_confirmations")
-      .insert([
-        {
-          channel_id: getChannelId(confirmedOnlineName),
-          user_id: confirmationUser.id,
-        },
-      ]);
-    if (confirmationsError) {
-      throw new Error(
-        `Failed to seed channel confirmations: ${confirmationsError.message}`,
-      );
+      .insert(channelRows);
+    if (channelsError) {
+      throw new Error(`Failed to seed brand channels: ${channelsError.message}`);
     }
   });
 
@@ -778,24 +745,6 @@ test.describe("Brand detail — public locations and retail channels", () => {
     ).toHaveCount(0);
   });
 
-  test("an imported stockist shows no confirmation prompt", async ({
-    page,
-  }) => {
-    await page.goto(`/brands/${seeded.slug}`, {
-      waitUntil: "domcontentloaded",
-    });
-    await openChannelGroup(page, "taipei");
-
-    const stockistRow = page
-      .locator("[data-channel-row]")
-      .filter({ hasText: confirmedStoreName });
-    await expect(stockistRow).toBeVisible();
-    await expect(stockistRow.getByRole("button", { name: /確認/ })).toHaveCount(
-      0,
-    );
-    await expect(stockistRow.getByText(/人確認/)).toHaveCount(0);
-  });
-
   test("an addressed location links through its address, not a second outbound link", async ({
     page,
   }) => {
@@ -820,78 +769,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
     ).toHaveCount(0);
   });
 
-  test("anonymous confirm shows a sign-in prompt", async ({ anonPage }) => {
-    await anonPage.goto(`/brands/${seeded.slug}`, {
-      waitUntil: "domcontentloaded",
-    });
-    await openChannelGroup(anonPage, "taichung");
-
-    const channelChip = anonPage
-      .locator("[data-channel-chip]")
-      .filter({ hasText: anonymousChannelName });
-    await channelChip
-      .getByRole("button", {
-        name: `我確認${anonymousChannelName}有販售`,
-        exact: true,
-      })
-      .click();
-
-    const chipGroup = anonPage
-      .locator("[data-channel-chip-group]")
-      .filter({ hasText: anonymousChannelName });
-    await expect(chipGroup.getByText("登入後即可確認")).toBeVisible();
-    await expect(
-      chipGroup.getByRole("link", { name: "登入", exact: true }),
-    ).toHaveAttribute("href", /\/auth\/sign-in\?next=/);
-  });
-
-  test("signed-in confirm increments the confirmation count", async ({
-    userPage,
-  }) => {
-    test.setTimeout(BUDGET.TEST.MUTATION);
-    await userPage.goto(`/brands/${seeded.slug}`, {
-      waitUntil: "domcontentloaded",
-    });
-    await openChannelGroup(userPage, "new_taipei");
-
-    const channelChip = userPage
-      .locator("[data-channel-chip]")
-      .filter({ hasText: signedInChannelName });
-    await expect(channelChip.getByText("0/3 人確認")).toBeVisible();
-    await channelChip
-      .getByRole("button", {
-        name: `我確認${signedInChannelName}有販售`,
-        exact: true,
-      })
-      .click();
-    await expect(channelChip.getByText("1/3 人確認")).toBeVisible();
-
-    // That count is optimistic: Next.js serializes server actions into one global
-    // queue, so the confirm can still be waiting behind the mount-time actions.
-    // Reloading now would tear the page down before the write is ever dispatched.
-    await expect(channelChip).not.toHaveAttribute("data-confirm-pending", "", {
-      timeout: BUDGET.SERVER_RENDER,
-    });
-
-    // The page uses on-demand ISR with `revalidate = 3600`, so revalidation is
-    // stale-while-revalidate: the first request after the
-    // mutation can still be served from the old cache entry while the
-    // regeneration runs. Retry the reload rather than assuming the write is
-    // readable on the very next request. Same pattern as the submitted-channel
-    // test below.
-    await expect(async () => {
-      await userPage.reload({ waitUntil: "domcontentloaded" });
-      await openChannelGroup(userPage, "new_taipei");
-      await expect(
-        userPage
-          .locator("[data-channel-chip]")
-          .filter({ hasText: signedInChannelName })
-          .getByText("1/3 人確認"),
-      ).toBeVisible();
-    }).toPass(POLL.DB);
-  });
-
-  test("submitted channel appears in the online group", async ({
+  test("a submitted channel stays out of the public list until it is approved", async ({
     userPage,
   }) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
@@ -940,21 +818,24 @@ test.describe("Brand detail — public locations and retail channels", () => {
     });
     await dialog.getByRole("button", { name: "關閉", exact: true }).click();
 
-    await expect(async () => {
-      await userPage.reload({ waitUntil: "domcontentloaded" });
-      await expect(
-        userPage.getByRole("heading", {
-          name: "線上販售 (2)",
-          level: 3,
-        }),
-      ).toBeVisible();
-      await openChannelGroup(userPage, "online");
-      await expect(
-        userPage
-          .locator("[data-channel-chip]")
-          .filter({ hasText: submittedChannelName }),
-      ).toBeVisible();
-    }).toPass(POLL.DB);
+    // The row is written, but a community submission is a stranger's claim about
+    // a shop until an admin approves it in /admin/stockists (DEV-1513). So the
+    // public list must NOT grow: the online group stays at one entry and the
+    // submitted name appears nowhere in the section.
+    //
+    // Not wrapped in `toPass`: the assertion is that a value did NOT change, and
+    // retrying that would go green on the very first request no matter what the
+    // write did. One reload, after the success toast, is the honest check.
+    await userPage.reload({ waitUntil: "domcontentloaded" });
+    await expect(
+      userPage.getByRole("heading", { name: "線上販售 (1)", level: 3 }),
+    ).toBeVisible();
+    await openChannelGroup(userPage, "online");
+    await expect(
+      userPage
+        .locator("[data-brand-channels-section]")
+        .getByText(submittedChannelName),
+    ).toHaveCount(0);
   });
 
   test("a brand with no channels renders no locations surface", async ({

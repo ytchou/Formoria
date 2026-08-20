@@ -1,28 +1,28 @@
 import type { TablesInsert } from '@/lib/supabase/database.types'
 import { deriveSubcategoriesEn } from '@/lib/services/subcategories'
 import {
-  PURCHASE_CHANNELS,
-  type PurchaseChannelCamelField,
-  type PurchaseChannelColumn,
-} from '@/lib/brands/purchase-channels'
+  ONLINE_STORES,
+  type OnlineStoreCamelField,
+  type OnlineStoreColumn,
+} from '@/lib/brands/online-stores'
 
-type PurchaseChannelInsertFields = {
-  [Column in PurchaseChannelColumn]?: string | null
+type OnlineStoreInsertFields = {
+  [Column in OnlineStoreColumn]?: string | null
 }
 type BrandInsertRow = TablesInsert<'brands'> &
-  PurchaseChannelInsertFields
-type SubmissionInsertRow = TablesInsert<'brand_submissions'> & PurchaseChannelInsertFields
+  OnlineStoreInsertFields
+type SubmissionInsertRow = TablesInsert<'brand_submissions'> & OnlineStoreInsertFields
 
 /**
  * The camelCase link fields both write boundaries accept. The purchase half is
- * derived from the channel registry so a new channel does not have to be
+ * derived from the online-store registry so a new store does not have to be
  * re-typed here (and in the two public input signatures below).
  */
 export type CamelSocialPurchaseFields = {
   socialInstagram?: string | null
   socialThreads?: string | null
   socialFacebook?: string | null
-} & { [Field in PurchaseChannelCamelField]?: string | null }
+} & { [Field in OnlineStoreCamelField]?: string | null }
 
 type FieldMap<Source extends object, Target extends object> = ReadonlyArray<
   readonly [keyof Source, keyof Target]
@@ -70,7 +70,7 @@ const SOCIAL_PURCHASE_FIELD_MAP = [
   ['socialInstagram', 'social_instagram'],
   ['socialThreads', 'social_threads'],
   ['socialFacebook', 'social_facebook'],
-  ...PURCHASE_CHANNELS.map((channel) => [channel.camel, channel.column] as const),
+  ...ONLINE_STORES.map((channel) => [channel.camel, channel.column] as const),
 ] as const satisfies FieldMap<
   CamelSocialPurchaseFields,
   BrandInsertRow & SubmissionInsertRow

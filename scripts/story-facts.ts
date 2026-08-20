@@ -31,6 +31,7 @@ import { dirname, resolve } from "node:path";
 
 import { createServiceClient } from "@/lib/supabase/service";
 import { getBrandsBySlugs } from "@/lib/services/brands";
+import { applyPublicChannelVisibility } from "@/lib/brands/channels";
 import type { Brand } from "@/lib/types";
 
 /**
@@ -306,11 +307,13 @@ type ChannelFact = {
 /**
  * Raw batched read rather than `getChannelsForBrand`: that service is per-brand
  * (123 sequential round trips for one event) and returns rows already grouped
- * for display, with viewer-confirmation state a script has no use for. Its two
- * visibility filters are what matter and are reproduced exactly — a removed or
- * owner-rejected channel must never reach a draft, because sending a reader to
- * a stockist the brand has disowned is precisely the kind of error this file
- * exists to prevent.
+ * for display, which a script has no use for. Its visibility filters are what
+ * matter and are reproduced exactly — a removed channel, an owner-rejected one,
+ * or a community submission no admin has approved yet must never reach a draft,
+ * because sending a reader to a stockist the brand has disowned (or that nobody
+ * has checked at all) is precisely the kind of error this file exists to
+ * prevent. All three are one shared call, `applyPublicChannelVisibility`, so
+ * this script cannot drift away from the service again.
  */
 async function fetchChannels(
   supabase: SupabaseClient,
@@ -318,14 +321,12 @@ async function fetchChannels(
 ): Promise<Map<string, ChannelFact[]>> {
   const byBrandId = new Map<string, ChannelFact[]>();
   for (const ids of chunk(brandIds, IN_FILTER_CHUNK_SIZE)) {
-    const { data, error } = await supabase
-      .from("brand_channels")
-      .select(
-        "brand_id, name, channel_type, url, address, region_label",
-      )
-      .in("brand_id", ids)
-      .is("removed_at", null)
-      .neq("owner_status", "rejected");
+    const { data, error } = await applyPublicChannelVisibility(
+      supabase
+        .from("brand_channels")
+        .select("brand_id, name, channel_type, url, address, region_label")
+        .in("brand_id", ids),
+    );
     if (error) throw new Error(`brand_channels read failed: ${error.message}`);
 
     for (const row of (data ?? []) as Array<{

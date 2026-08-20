@@ -16,7 +16,7 @@ import {
   reviewEntityIdSchema,
   reviewImageIdsSchema,
 } from "@/lib/validation/admin-review";
-import { PURCHASE_CHANNELS } from "@/lib/brands/purchase-channels";
+import { ONLINE_STORES } from "@/lib/brands/online-stores";
 import { routes } from "@/lib/routes";
 
 type ActionResult = { error: string } | undefined;
@@ -46,7 +46,7 @@ export async function saveAdminBrandReviewAction(
         socialFacebook: review.socialFacebook ?? undefined,
         purchaseWebsite: review.websiteUrl ?? undefined,
         ...Object.fromEntries(
-          PURCHASE_CHANNELS.filter((channel) => channel.key !== "website").map(
+          ONLINE_STORES.filter((channel) => channel.key !== "website").map(
             (channel) => [channel.camel, review[channel.camel] ?? undefined],
           ),
         ),

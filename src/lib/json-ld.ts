@@ -1,6 +1,6 @@
 import type { Locale } from "@/lib/seo/alternates";
 import { buildAlternates } from "@/lib/seo/alternates";
-import { PURCHASE_CHANNELS } from "@/lib/brands/purchase-channels";
+import { ONLINE_STORES } from "@/lib/brands/online-stores";
 import { FORMORIA_SOCIALS } from "./constants";
 import { getSiteUrl } from "./seo/site-url";
 import type { BrandChannel } from "./types/brand-channel";
@@ -66,7 +66,7 @@ export function buildBrandJsonLd(
     brand.socialInstagram,
     brand.socialThreads,
     brand.socialFacebook,
-    ...PURCHASE_CHANNELS.map((channel) => brand[channel.camel]),
+    ...ONLINE_STORES.map((channel) => brand[channel.camel]),
     ...(brand.otherUrls ?? []).map((link) => link.url),
   ].filter(
     (url): url is string => typeof url === "string" && url.trim().length > 0,
@@ -86,7 +86,7 @@ export function buildBrandJsonLd(
   };
 
   const url =
-    PURCHASE_CHANNELS.map((channel) => brand[channel.camel]).find(
+    ONLINE_STORES.map((channel) => brand[channel.camel]).find(
       (value): value is string => value !== null && value !== undefined,
     ) ?? null;
   if (url) jsonLd.url = url;

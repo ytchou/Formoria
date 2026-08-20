@@ -76,24 +76,36 @@ export const getAdminOperationsSnapshot = cache(
 
 export const getAdminNavCounts = cache(async () => {
   const supabase = createServiceClient();
-  const [submissions, moderation, evidence, reports, corrections] = await Promise.allSettled([
+  const [submissions, moderation, evidence, reports, corrections, stockists] = await Promise.allSettled([
     exactCount(supabase.from("brand_submissions").select("id", { count: "exact", head: true }).eq("status", "pending")),
     exactCount(supabase.from("moderation_flags").select("id", { count: "exact", head: true }).eq("status", "pending")),
     exactCount(supabase.from("origin_evidence").select("id", { count: "exact", head: true }).eq("status", "pending")),
     exactCount(supabase.from("brand_reports").select("id", { count: "exact", head: true }).eq("status", "pending")),
     exactCount(supabase.from("brand_field_corrections").select("id", { count: "exact", head: true }).eq("status", "pending")),
+    // A pending community stockist is invisible to the public until an admin
+    // decides on it, so an un-advertised queue is a queue nobody empties.
+    exactCount(
+      supabase
+        .from("brand_channels")
+        .select("id", { count: "exact", head: true })
+        .eq("source", "community")
+        .eq("owner_status", "none")
+        .is("removed_at", null),
+    ),
   ]);
   logRejected("nav:submissions", submissions);
   logRejected("nav:moderation", moderation);
   logRejected("nav:evidence", evidence);
   logRejected("nav:reports", reports);
   logRejected("nav:corrections", corrections);
+  logRejected("nav:stockists", stockists);
   return {
     submissions: settledValue(submissions),
     moderation: settledValue(moderation),
     evidence: settledValue(evidence),
     reports: settledValue(reports),
     corrections: settledValue(corrections),
+    stockists: settledValue(stockists),
   };
 });
 

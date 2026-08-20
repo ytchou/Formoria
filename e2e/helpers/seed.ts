@@ -35,7 +35,7 @@ export async function seedBrand(opts: {
    * cannot: that a non-website channel alone is enough to render the purchase
    * section. Implies `withLinks` for social accounts.
    */
-  purchaseChannel?: 'website' | 'myship';
+  onlineStore?: 'website' | 'myship';
   /**
    * Seed the brand evidence the FAQ presets gate their template floors on, so
    * a fixture renders several FAQ items. `taiwan-origin` requires a verified
@@ -97,7 +97,7 @@ export async function seedBrand(opts: {
   if (opts.withLinks) {
     brandData.social_instagram = 'https://instagram.com/e2e-test';
     brandData.social_facebook = 'https://facebook.com/e2e-test';
-    if ((opts.purchaseChannel ?? 'website') === 'myship') {
+    if ((opts.onlineStore ?? 'website') === 'myship') {
       brandData.purchase_myship = 'https://myship.7-11.com.tw/general/detail/GM2410161234567';
     } else {
       brandData.purchase_website = 'https://e2e-test.com/shop';

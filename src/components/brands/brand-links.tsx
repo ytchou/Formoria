@@ -26,11 +26,11 @@ import {
 } from "@/components/ui/tooltip";
 import type { PublicBrandDetail } from "@/lib/brands/contracts";
 import {
-  channelMessageKey,
-  PURCHASE_CHANNELS,
-  type PurchaseChannelColumn,
-  type PurchaseChannelKey,
-} from "@/lib/brands/purchase-channels";
+  onlineStoreMessageKey,
+  ONLINE_STORES,
+  type OnlineStoreColumn,
+  type OnlineStoreKey,
+} from "@/lib/brands/online-stores";
 import { cn } from "@/lib/utils";
 import { trackExternalLinkClicked } from "@/lib/analytics";
 import { CorrectionDialog } from "./correction-dialog";
@@ -63,7 +63,7 @@ function FacebookIcon({ className }: { className?: string }) {
 }
 
 type LinkDestination =
-  PurchaseChannelKey | "instagram" | "threads" | "facebook";
+  OnlineStoreKey | "instagram" | "threads" | "facebook";
 
 type LinkSlot = {
   label: string;
@@ -107,7 +107,7 @@ const PURCHASE_PRESENTATION = {
     accentClassName: "text-[#FF6600]",
   },
 } satisfies Record<
-  PurchaseChannelKey,
+  OnlineStoreKey,
   { icon: ReactNode; accentClassName: string }
 >;
 
@@ -165,7 +165,7 @@ function LinkSection({
             const slotKey = `${slot.linkType}:${slot.label}:${index}`;
 
             // A destination we hold no URL for stays on screen as an inert,
-            // dimmed chip: the set of channels a brand could be on is itself
+            // dimmed chip: the set of stores a brand could be on is itself
             // useful, and hiding the gap reads as "not on Instagram" rather
             // than "we do not know".
             if (!slot.url) {
@@ -281,17 +281,17 @@ function BrandPurchaseLinks({
 }: BrandLinksProps) {
   const t = useTranslations("brandDetail");
 
-  const purchaseSlots: LinkSlot[] = PURCHASE_CHANNELS.map((channel) => ({
+  const purchaseSlots: LinkSlot[] = ONLINE_STORES.map((channel) => ({
     label: t(
-      channelMessageKey(channel.messageKeys.brandDetailLink, "brandDetail"),
+      onlineStoreMessageKey(channel.messageKeys.brandDetailLink, "brandDetail"),
     ),
     url: normalizeDirectUrl(brand[channel.camel]),
     linkType: channel.key,
     ...PURCHASE_PRESENTATION[channel.key],
   }));
   const purchaseLinks = Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel) => [channel.column, brand[channel.camel]]),
-  ) as Record<PurchaseChannelColumn, string | null>;
+    ONLINE_STORES.map((channel) => [channel.column, brand[channel.camel]]),
+  ) as Record<OnlineStoreColumn, string | null>;
 
   return (
     <LinkSection

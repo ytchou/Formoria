@@ -1,5 +1,12 @@
 type ChannelStatus = 'confirmed' | 'unconfirmed'
-type ChannelConfirmedBy = 'owner' | 'community' | 'evidence'
+/**
+ * Who vouches for a confirmed channel. These are public trust claims, so each
+ * one must be literally true: `owner` means the brand itself said so,
+ * `formoria` means an admin approved a community submission the brand never
+ * touched, `evidence` means a cited source backs it. Collapsing `formoria` into
+ * `owner` would print 品牌確認 over a claim the brand never made.
+ */
+type ChannelConfirmedBy = 'owner' | 'formoria' | 'evidence'
 /**
  * Which kind of evidence backs a `confirmedBy: 'evidence'` channel. The public
  * label differs by kind, so this must never be widened to a boolean: only
@@ -34,11 +41,9 @@ export interface BrandChannel {
   country?: string | null
   ownerStatus: OwnerStatus
   source: ChannelSource
-  confirmationCount: number
   status: ChannelStatus
   confirmedBy?: ChannelConfirmedBy
   evidenceSource?: ChannelEvidenceSource
-  hasCurrentUserConfirmed?: boolean
 }
 
 export interface ChannelCandidate {

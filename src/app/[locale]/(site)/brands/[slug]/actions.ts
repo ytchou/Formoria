@@ -26,8 +26,6 @@ import {
 } from '@/lib/services/origin-evidence'
 import { enrollInMarketingEmails } from '@/lib/services/marketing-email-consent'
 import {
-  confirmChannel,
-  getChannelsForBrand,
   setOwnerChannelStatus,
   submitChannel,
 } from '@/lib/services/brand-channels'
@@ -105,45 +103,19 @@ function getFormString(formData: FormData, key: string): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-export async function confirmChannelAction(
-  channelId: string,
-  brandSlug: string,
-): Promise<{ confirmationCount: number } | { error: string }> {
-  return runWithAuditContext({}, async () => {
-    try {
-      const user = await requireClaimUser()
-      if (!user) return { error: 'not_logged_in' }
-
-      const confirmationCount = await confirmChannel(user.id, channelId)
-      revalidatePublicBrands([brandSlug])
-      revalidatePublicStockists()
-      return { confirmationCount }
-    } catch (error) {
-      console.error('[brands:confirmChannel]', error)
-      return { error: 'unknown' }
-    }
-  })
-}
-
+/**
+ * Ownership is the only viewer-dependent state the channel list still has: it
+ * decides whether the owner moderation controls render. It stays a client-side
+ * action rather than a page prop because the brand page is statically rendered.
+ */
 export async function getChannelViewerStateAction(
   brandId: string,
-): Promise<{ isOwner: boolean; confirmedChannelIds: string[] }> {
+): Promise<{ isOwner: boolean }> {
   return runWithAuditContext({}, async () => {
     const user = await requireClaimUser()
-    if (!user) return { isOwner: false, confirmedChannelIds: [] }
+    if (!user) return { isOwner: false }
 
-    const [channels, isOwner] = await Promise.all([
-      getChannelsForBrand(brandId, user.id),
-      isOwnerOf(user.id, brandId),
-    ])
-    const allChannels = [...channels.confirmed, ...channels.possible]
-
-    return {
-      isOwner,
-      confirmedChannelIds: allChannels
-        .filter((channel) => channel.hasCurrentUserConfirmed === true)
-        .map((channel) => channel.id),
-    }
+    return { isOwner: await isOwnerOf(user.id, brandId) }
   })
 }
 

@@ -25,10 +25,10 @@ export function brandToReviewData(
     socialInstagram: brand.socialInstagram ?? null,
     socialThreads: brand.socialThreads ?? null,
     socialFacebook: brand.socialFacebook ?? null,
-    // Spelled out per channel rather than built with Object.fromEntries: the
+    // Spelled out per store rather than built with Object.fromEntries: the
     // latter widens to a string index signature, which does not satisfy
     // SubmissionReviewData's required purchase keys. Listing them keeps tsc as
-    // the gate — adding a channel to PURCHASE_CHANNELS breaks this literal.
+    // the gate — adding a store to ONLINE_STORES breaks this literal.
     purchaseWebsite: brand.purchaseWebsite ?? null,
     purchasePinkoi: brand.purchasePinkoi ?? null,
     purchaseShopee: brand.purchaseShopee ?? null,

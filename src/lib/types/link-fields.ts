@@ -1,18 +1,18 @@
 import type { BrandFlatLinkColumns } from './brand'
 import {
-  PURCHASE_CAMEL_FIELDS,
-  PURCHASE_CHANNELS,
-  type PurchaseChannelCamelField,
-  type PurchaseChannelColumn,
-} from '@/lib/brands/purchase-channels'
+  ONLINE_STORE_CAMEL_FIELDS,
+  ONLINE_STORES,
+  type OnlineStoreCamelField,
+  type OnlineStoreColumn,
+} from '@/lib/brands/online-stores'
 
 // Socials stay listed here — they have no registry. The purchase half is spliced
-// in from `PURCHASE_CHANNELS`, preserving the existing field order.
+// in from `ONLINE_STORES`, preserving the existing field order.
 export const LINK_FIELDS = [
   'socialInstagram',
   'socialThreads',
   'socialFacebook',
-  ...PURCHASE_CAMEL_FIELDS,
+  ...ONLINE_STORE_CAMEL_FIELDS,
 ] as const
 
 export type LinkField = (typeof LINK_FIELDS)[number]
@@ -23,6 +23,6 @@ export const LINK_FIELD_TO_COLUMN: Record<LinkField, LinkColumn> = {
   socialThreads: 'social_threads',
   socialFacebook: 'social_facebook',
   ...(Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel) => [channel.camel, channel.column])
-  ) as Record<PurchaseChannelCamelField, PurchaseChannelColumn>),
+    ONLINE_STORES.map((channel) => [channel.camel, channel.column])
+  ) as Record<OnlineStoreCamelField, OnlineStoreColumn>),
 }

@@ -1,4 +1,5 @@
 import {
+  applyPublicChannelVisibility,
   groupChannelsForDisplay,
   normalizeChannelName,
 } from '@/lib/brands/channels'
@@ -28,8 +29,7 @@ import {
 } from '@/lib/taxonomy/ontology'
 import { districtSlugFromName } from '@/lib/constants/taiwan-districts'
 import { matchDistrict } from '@/lib/brands/district'
-import { logAdminAction } from './admin-audit'
-import { isOwnerOf } from './brand-owners'
+import { isOwnerOf, listBrandOwnerUserIds } from './brand-owners'
 
 const MAX_ACTIVE_CHANNELS_PER_BRAND = 5
 const MAX_SUBMISSIONS_PER_DAY = 20
@@ -59,11 +59,6 @@ export type EnrichedChannelsResult =
   | { ok: true; count: number }
   | { ok: false; code: 'database_error' | 'invalid_name' }
 
-type ConfirmationEmbed = {
-  count?: number
-  user_id?: string
-}
-
 type BrandChannelRow = {
   id: string
   brand_id: string
@@ -77,9 +72,9 @@ type BrandChannelRow = {
   location_type: string | null
   country: string | null
   owner_status: string
+  owner_status_by: string | null
   source: string
   removed_at: string | null
-  brand_channel_confirmations?: ConfirmationEmbed[] | ConfirmationEmbed | null
 }
 
 type ChannelLookupRow = Pick<BrandChannelRow, 'brand_id'> & {
@@ -162,7 +157,7 @@ type ChannelDistrictBackfillRow = {
 }
 
 export const CHANNEL_READ_SELECT =
-  'id, name, channel_type, region_label, address, url, source_url, fetched_at, location_type, country, owner_status, source, removed_at, brand_channel_confirmations(count)'
+  'id, name, channel_type, region_label, address, url, source_url, fetched_at, location_type, country, owner_status, owner_status_by, source, removed_at'
 
 const STOCKIST_READ_SELECT =
   'id, name, address, url, country, region_label, district, brands!inner(slug, name, category, subcategories, status)'
@@ -331,16 +326,22 @@ function isMissingDistrictColumnError(error: unknown): boolean {
   )
 }
 
+/**
+ * Both queries below apply `applyPublicChannelVisibility`, and both have to: a
+ * filter on the first page only hides nothing past row 1000, and no type
+ * checker can see the difference. `brand-channels.test.ts` pins the count at
+ * two.
+ */
 async function fetchStockistRows(select: string): Promise<StockistReadRow[]> {
   const supabase = createServiceClient()
-  const { data, error, count } = await supabase
-    .from('brand_channels')
-    .select(select, { count: 'exact' })
-    .eq('brands.status', 'approved')
-    .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN)
-    .eq('channel_type', 'offline')
-    .is('removed_at', null)
-    .neq('owner_status', 'rejected')
+  const { data, error, count } = await applyPublicChannelVisibility(
+    supabase
+      .from('brand_channels')
+      .select(select, { count: 'exact' })
+      .eq('brands.status', 'approved')
+      .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN)
+      .eq('channel_type', 'offline'),
+  )
     .order('region_label')
     .order('name')
     .order('id')
@@ -354,14 +355,14 @@ async function fetchStockistRows(select: string): Promise<StockistReadRow[]> {
     buildStockistPageRanges(count)
       .slice(1)
       .map(async ({ from, to }) => {
-        const { data: page, error: pageError } = await supabase
-          .from('brand_channels')
-          .select(select)
-          .eq('brands.status', 'approved')
-          .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN)
-          .eq('channel_type', 'offline')
-          .is('removed_at', null)
-          .neq('owner_status', 'rejected')
+        const { data: page, error: pageError } = await applyPublicChannelVisibility(
+          supabase
+            .from('brand_channels')
+            .select(select)
+            .eq('brands.status', 'approved')
+            .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN)
+            .eq('channel_type', 'offline'),
+        )
           .order('region_label')
           .order('name')
           .order('id')
@@ -456,46 +457,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function confirmationDetails(value: unknown): {
-  count: number
-  userIds: string[]
-} {
-  const entries = Array.isArray(value)
-    ? value.filter(isRecord)
-    : isRecord(value)
-      ? [value]
-      : []
-  const countEntry = entries.find((entry) => typeof entry.count === 'number')
-
-  return {
-    count:
-      typeof countEntry?.count === 'number' ? countEntry.count : entries.length,
-    userIds: entries.flatMap((entry) =>
-      typeof entry.user_id === 'string' ? [entry.user_id] : [],
-    ),
-  }
-}
-
 function rowToDisplayRow(row: BrandChannelRow) {
-  const confirmations = confirmationDetails(row.brand_channel_confirmations)
   return {
-    displayRow: {
-      id: row.id,
-      name: row.name,
-      channelType: row.channel_type,
-      regionLabel: row.region_label,
-      address: row.address,
-      url: row.url,
-      sourceUrl: row.source_url,
-      fetchedAt: row.fetched_at,
-      locationType: row.location_type,
-      country: row.country,
-      ownerStatus: row.owner_status,
-      source: row.source,
-      confirmationCount: confirmations.count,
-      removedAt: row.removed_at,
-    },
-    confirmationUserIds: confirmations.userIds,
+    id: row.id,
+    name: row.name,
+    channelType: row.channel_type,
+    regionLabel: row.region_label,
+    address: row.address,
+    url: row.url,
+    sourceUrl: row.source_url,
+    fetchedAt: row.fetched_at,
+    locationType: row.location_type,
+    country: row.country,
+    ownerStatus: row.owner_status,
+    ownerStatusBy: row.owner_status_by,
+    source: row.source,
+    removedAt: row.removed_at,
   }
 }
 
@@ -506,17 +483,6 @@ function isDuplicateNameError(
     error?.code === '23505' ||
     error?.message?.toLowerCase().includes('normalized_name') === true
   )
-}
-
-async function countConfirmations(channelId: string): Promise<number> {
-  const supabase = createServiceClient()
-  const { count, error } = await supabase
-    .from('brand_channel_confirmations')
-    .select('id', { count: 'exact', head: true })
-    .eq('channel_id', channelId)
-
-  if (error) throw error
-  return count ?? 0
 }
 
 async function countActiveChannels(brandId: string): Promise<number> {
@@ -550,79 +516,23 @@ async function countRecentSubmissions(userId: string): Promise<number> {
 
 export async function getChannelsForBrand(
   brandId: string,
-  viewerUserId?: string,
 ): Promise<ReturnType<typeof groupChannelsForDisplay>> {
   const supabase = createServiceClient()
-  const { data, error } = await supabase
-    .from('brand_channels')
-    .select(CHANNEL_READ_SELECT)
-    .eq('brand_id', brandId)
-    .is('removed_at', null)
-    .neq('owner_status', 'rejected')
+  const { data, error } = await applyPublicChannelVisibility(
+    supabase
+      .from('brand_channels')
+      .select(CHANNEL_READ_SELECT)
+      .eq('brand_id', brandId),
+  )
 
   if (error) throw error
 
   const rows = (data ?? []) as unknown as BrandChannelRow[]
-  const displayRows = rows.map((row) => rowToDisplayRow(row).displayRow)
+  // The owners are read even when no row is owner-confirmed: the alternative is
+  // a conditional read whose skip path silently relabels 站方確認 as 品牌確認.
+  const brandOwnerUserIds = await listBrandOwnerUserIds(brandId)
 
-  let viewerConfirmedIds: string[] | undefined
-  if (viewerUserId) {
-    const channelIds = rows.map((row) => row.id)
-    if (channelIds.length > 0) {
-      const { data: viewerData, error: viewerError } = await supabase
-        .from('brand_channel_confirmations')
-        .select('channel_id')
-        .eq('user_id', viewerUserId)
-        .in('channel_id', channelIds)
-      if (viewerError) throw viewerError
-      viewerConfirmedIds = (viewerData ?? []).map(
-        (row) => (row as { channel_id: string }).channel_id,
-      )
-    } else {
-      viewerConfirmedIds = []
-    }
-  }
-
-  return groupChannelsForDisplay(displayRows, viewerConfirmedIds)
-}
-
-export async function confirmChannel(
-  userId: string,
-  channelId: string,
-): Promise<number> {
-  return auditedCall(
-    { provider: 'brands', operation: 'confirmChannel', kind: 'service' },
-    async () => {
-      const supabase = createServiceClient()
-
-      const { data: channel, error: lookupError } = await supabase
-        .from('brand_channels')
-        .select('id')
-        .eq('id', channelId)
-        .is('removed_at', null)
-        .neq('owner_status', 'rejected')
-        .maybeSingle()
-
-      // A failed lookup must surface as an action error; returning 0 here would read
-      // to the caller as a successful write that simply changed nothing.
-      if (lookupError) throw lookupError
-      // Genuine miss: the channel was removed or the owner rejected it.
-      if (!channel) return 0
-
-      const { error } = await supabase
-        .from('brand_channel_confirmations')
-        .upsert(
-          {
-            channel_id: channelId,
-            user_id: userId,
-          },
-          { onConflict: 'channel_id,user_id' },
-        )
-
-      if (error) throw error
-      return countConfirmations(channelId)
-    },
-  )
+  return groupChannelsForDisplay(rows.map(rowToDisplayRow), brandOwnerUserIds)
 }
 
 export async function submitChannel(
@@ -711,17 +621,8 @@ export async function submitChannel(
         return { ok: false, code: 'database_error' }
       }
 
-      const { error: confirmationError } = await supabase
-        .from('brand_channel_confirmations')
-        .upsert(
-          {
-            channel_id: channelId,
-            user_id: userId,
-          },
-          { onConflict: 'channel_id,user_id' },
-        )
-
-      if (confirmationError) return { ok: false, code: 'database_error' }
+      // The row is invisible to the public until an admin approves it in
+      // `/admin/stockists`; nothing else happens at submit time.
       return { ok: true, id: channelId }
     },
   )
@@ -771,40 +672,139 @@ export async function setOwnerChannelStatus(
   )
 }
 
-export async function adminRemoveChannel(
+/**
+ * One community submission awaiting an admin decision.
+ *
+ * Flat and brand-joined on purpose: the queue is cross-brand, so a reviewer
+ * needs the brand beside the shop name to judge whether the claim is plausible
+ * at all.
+ */
+export type PendingStockist = {
+  id: string
+  brandId: string
+  brandSlug: string
+  brandName: string
+  name: string
+  channelType: ChannelType
+  regionLabel: string | null
+  address: string | null
+  url: string | null
+  submittedAt: string
+}
+
+type PendingStockistRow = {
+  id: string
+  brand_id: string
+  name: string
+  channel_type: string
+  region_label: string | null
+  address: string | null
+  url: string | null
+  created_at: string
+  brands:
+    | { slug: string; name: string }
+    | Array<{ slug: string; name: string }>
+    | null
+}
+
+export type StockistReviewResult =
+  | { ok: true; brandSlug: string; city: CitySlug | null }
+  | { ok: false; code: 'not_found' | 'invalid_status' | 'database_error' }
+
+/**
+ * The admin queue behind `/admin/stockists`.
+ *
+ * Exactly the rows `PENDING_COMMUNITY_EXCLUSION` hides from the public: a
+ * community submission with no decision on it. Anything an owner or an admin
+ * has already decided is out of the queue by construction, so a row cannot be
+ * approved twice.
+ */
+export async function listPendingCommunityStockists(): Promise<
+  PendingStockist[]
+> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brand_channels')
+    .select(
+      'id, brand_id, name, channel_type, region_label, address, url, created_at, brands!inner(slug, name)',
+    )
+    .eq('source', 'community')
+    .eq('owner_status', 'none')
+    .is('removed_at', null)
+    .order('created_at', { ascending: true })
+
+  if (error) throw error
+
+  return ((data ?? []) as unknown as PendingStockistRow[]).flatMap((row) => {
+    const brand = Array.isArray(row.brands) ? row.brands.at(0) : row.brands
+    if (!brand) return []
+    return [
+      {
+        id: row.id,
+        brandId: row.brand_id,
+        brandSlug: brand.slug,
+        brandName: brand.name,
+        name: row.name,
+        channelType: row.channel_type as ChannelType,
+        regionLabel: row.region_label,
+        address: row.address,
+        url: row.url,
+        submittedAt: row.created_at,
+      },
+    ]
+  })
+}
+
+/**
+ * An admin's decision on a community submission.
+ *
+ * `owner_status_by` records the ADMIN, not the brand. That is what stops the
+ * public page from printing 品牌確認 over a row the brand never touched — see
+ * `groupChannelsForDisplay`, which reads exactly this field to choose between
+ * the owner and the Formoria label.
+ */
+export async function reviewCommunityStockist(
   channelId: string,
-  adminId: string,
-  adminEmail: string,
-): Promise<ChannelActionResult> {
+  status: 'confirmed' | 'rejected',
+  adminUserId: string,
+): Promise<StockistReviewResult> {
   return auditedCall(
-    { provider: 'brands', operation: 'adminRemoveChannel', kind: 'service' },
+    {
+      provider: 'brands',
+      operation: 'reviewCommunityStockist',
+      kind: 'service',
+    },
     async () => {
+      if (status !== 'confirmed' && status !== 'rejected') {
+        return { ok: false, code: 'invalid_status' }
+      }
+
       const supabase = createServiceClient()
       const { data, error } = await supabase
         .from('brand_channels')
         .update({
-          removed_at: new Date().toISOString(),
-          removed_by: adminId,
+          owner_status: status,
+          owner_status_by: adminUserId,
         })
         .eq('id', channelId)
-        .select('brand_id, region_label')
+        .eq('source', 'community')
+        .eq('owner_status', 'none')
+        .select('brand_id, region_label, brands!inner(slug)')
         .maybeSingle()
 
       if (error) return { ok: false, code: 'database_error' }
       if (!data) return { ok: false, code: 'not_found' }
 
-      const { brand_id: brandId } = data as unknown as ChannelLookupRow
-      await logAdminAction({
-        adminUserId: adminId,
-        adminEmail,
-        action: 'channel_removed',
-        targetBrandId: brandId,
-        metadata: { channelId },
-      })
+      const row = data as unknown as ChannelLookupRow & {
+        brands: { slug: string } | Array<{ slug: string }> | null
+      }
+      const brand = Array.isArray(row.brands) ? row.brands.at(0) : row.brands
+      if (!brand) return { ok: false, code: 'not_found' }
 
       return {
         ok: true,
-        city: citySlugFromName((data as ChannelLookupRow).region_label),
+        brandSlug: brand.slug,
+        city: citySlugFromName(row.region_label),
       }
     },
   )
