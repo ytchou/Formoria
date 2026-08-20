@@ -383,7 +383,7 @@ describe("SubmissionReviewDetails — curated product proposals", () => {
     expect(
       within(section).getByText("竹編手織托盤 (Handwoven Bamboo Tray)"),
     ).toBeInTheDocument();
-    expect(within(section).getAllByText("工藝文創")).toHaveLength(2);
+    expect(within(section).getAllByText("居家生活")).toHaveLength(2);
     expect(within(section).getByText("陶瓷")).toBeInTheDocument();
     expect(within(section).getByText("竹")).toBeInTheDocument();
     expect(
@@ -565,8 +565,8 @@ const mugProposal: CuratedProductProposal = {
   key: "chai-shao-shou-kan-ma-ko-pei",
   nameZh: "柴燒手感馬克杯",
   nameEn: "Wood-fired Mug",
-  category: "crafts",
-  subcategories: ["ceramics"],
+  category: "home",
+  subcategories: ["tableware"],
   material: ["ceramic"],
   officialUrl: "https://taoqi.com.tw/products/wood-fired-mug",
   productDescriptionZh:
@@ -583,8 +583,8 @@ const trayProposal: CuratedProductProposal = {
   key: "chu-pien-shou-chih-to-pan",
   nameZh: "竹編手織托盤",
   nameEn: "Handwoven Bamboo Tray",
-  category: "crafts",
-  subcategories: ["bamboo-craft"],
+  category: "home",
+  subcategories: ["storage"],
   material: ["bamboo"],
   officialUrl: "https://taoqi.com.tw/products/bamboo-tray",
   productDescriptionZh: "南投竹山的桂竹，師傅手工編成的方形托盤，可以水洗。",
@@ -640,10 +640,10 @@ const reviewData = {
   siteContent: null,
   foundingYear: 2018,
   heroImageUrl: "https://cdn.example.com/hero.webp",
-  categorySlug: "crafts",
+  categorySlug: "home",
   priceRange: 2,
-  subcategories: ["木工"],
-  subcategoriesEn: ["Woodwork"],
+  subcategories: ["家具"],
+  subcategoriesEn: ["Furniture"],
   websiteUrl: "https://brand.example.com",
   socialInstagram: null,
   socialThreads: null,

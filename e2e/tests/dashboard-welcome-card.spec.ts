@@ -70,7 +70,7 @@ test.beforeAll(async ({ isolatedUser }) => {
       slug: brandSlug,
       status: 'approved',
       approved_at: new Date().toISOString(),
-      category: 'crafts',
+      category: 'home',
       description: '[E2E-TEST] Quick actions fixture.',
     })
     .select('id')

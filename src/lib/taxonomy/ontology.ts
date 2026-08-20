@@ -1,13 +1,14 @@
 /**
- * The use axis: 13 L1 categories carrying 175 L2 subcategories.
+ * The use axis: 12 L1 categories carrying 164 L2 subcategories.
  *
- * This is a transitional shape, agreed in
+ * This is the end state agreed in
  * `docs/decisions/2026-08-19-taxonomy-vocabulary-and-gifting-facet.md`. DEV-1510
- * splits `kids-pets` into `kids` and `pets` and admits 9 new L2s, taking 166 to
- * 175. DEV-1507 then retires `crafts` — 12 L2s leave and `illustration-and-art`
- * relocates to `home` as `wall-art`, so `175 - 12 + 1 == 164` across 12 L1s,
- * which is the end state that decision names. `crafts` is deliberately
- * untouched here: `e2e/helpers/seed.ts` and two published stories depend on it.
+ * split `kids-pets` into `kids` and `pets` and admitted 9 new L2s, taking 166 to
+ * 175. DEV-1507 then retired `crafts`: ten technique nodes leave the vocabulary,
+ * `dried-flowers-and-floral-design` folds into `floral-arrangements`, and
+ * `illustration-and-art` relocates to `home` as `wall-art` — `175 - 12 + 1 == 164`
+ * across 12 L1s. 工藝 named how a thing was made, never what it is, and the
+ * material axis below already carries that fact.
  *
  * A node is admitted only when at least one of Faire / Pinkoi / Ankorstore
  * carries it as a real taxonomy node AND it passes the is-a test below. Use
@@ -20,7 +21,6 @@ export const L1_CATEGORIES = [
   { slug: 'beauty', name: 'Beauty & Personal Care', nameZh: '美妝保養', tint: 'oklch(0.935 0.022 330)' },
   { slug: 'home', name: 'Home & Living', nameZh: '居家生活', tint: 'oklch(0.935 0.022 80)' },
   { slug: 'food-drink', name: 'Food & Beverage', nameZh: '食品飲料', tint: 'oklch(0.935 0.022 100)' },
-  { slug: 'crafts', name: 'Crafts & Art', nameZh: '工藝文創', tint: 'oklch(0.935 0.022 140)' },
   { slug: 'stationery', name: 'Stationery & Design', nameZh: '文具設計', tint: 'oklch(0.935 0.022 200)' },
   { slug: 'tech', name: 'Tech & Electronics', nameZh: '3C科技', tint: 'oklch(0.935 0.022 240)' },
   { slug: 'outdoor', name: 'Outdoor & Camping', nameZh: '戶外露營', tint: 'oklch(0.935 0.022 160)' },
@@ -86,9 +86,10 @@ export type L2Subcategory = {
 /**
  * L2 admission rule: an entry must name a kind of product that is a proper
  * subset of its parent L1. Occasion, recipient, packaging format, fulfilment
- * mode, price tier, and service are not product kinds and do not qualify as
- * L2s. Crafts is the recorded technique exception: 陶瓷, 木藝, and 金工 are
- * kinds of 工藝, so technique-based entries pass the same is-a test.
+ * mode, price tier, service, and technique are not product kinds and do not
+ * qualify as L2s. Technique had one recorded exception and lost it with the
+ * `crafts` L1 (DEV-1507): 陶瓷, 木藝 and 金工 named how a thing is made, which is
+ * what the material axis stores, so they never passed the is-a test at all.
  */
 export const L2_SUBCATEGORIES: readonly L2Subcategory[] = [
   // fashion (16)
@@ -169,7 +170,7 @@ export const L2_SUBCATEGORIES: readonly L2Subcategory[] = [
   { slug: 'feminine-care', nameZh: '生理用品', nameEn: 'Feminine Care', category: 'beauty', aliases: ['衛生棉', '護墊'] },
   { slug: 'beauty-tools', nameZh: '美妝工具・儀器', nameEn: 'Beauty Tools & Devices', category: 'beauty', aliases: ['美容儀器', '彩妝刷具', '鏡子'] },
 
-  // home (27)
+  // home (28)
   { slug: 'bedding', nameZh: '寢具', nameEn: 'Bedding', category: 'home', aliases: ['床包', '涼被', '枕頭'] },
   { slug: 'mattresses', nameZh: '床墊', nameEn: 'Mattresses', category: 'home', aliases: ['乳膠墊', '獨立筒'] },
   { slug: 'furniture', nameZh: '家具', nameEn: 'Furniture', category: 'home', aliases: ['沙發', '餐桌', '書桌', '櫃', '椅', '邊桌'] },
@@ -177,6 +178,12 @@ export const L2_SUBCATEGORIES: readonly L2Subcategory[] = [
   { slug: 'lighting', nameZh: '燈飾', nameEn: 'Lighting', category: 'home', aliases: ['桌燈', '夜燈'] },
   { slug: 'clocks', nameZh: '時鐘', nameEn: 'Clocks', category: 'home', aliases: ['掛鐘', '桌鐘'] },
   { slug: 'home-decor', nameZh: '居家擺飾', nameEn: 'Home Décor', category: 'home', aliases: ['壁飾', '裝飾畫', '擴香石'] },
+  // Relocated from the retired `crafts` L1 by DEV-1507; was `illustration-and-art`
+  // 插畫・畫作, whose aliases carry over verbatim — 53 recorded tag-uses hang on
+  // that spelling, the largest single label in the retired bucket. A hung picture
+  // is a kind of 居家生活 object; it was never a kind of 工藝. Distinct from
+  // `home-decor`'s 裝飾畫, which is an ornament rather than something framed.
+  { slug: 'wall-art', nameZh: '掛畫・畫作', nameEn: 'Wall Art', category: 'home', aliases: ['插畫畫作', '插畫', '畫作', '水彩', '版畫', '無框畫'] },
   { slug: 'towels', nameZh: '毛巾', nameEn: 'Towels', category: 'home', aliases: ['浴巾'] },
   { slug: 'home-textiles', nameZh: '居家織品', nameEn: 'Home Textiles', category: 'home', aliases: ['抱枕', '毯', '毛毯'] },
   { slug: 'rugs-and-mats', nameZh: '地墊・地毯', nameEn: 'Rugs & Mats', category: 'home', aliases: ['地墊地毯', '地墊', '地毯'] },
@@ -190,7 +197,10 @@ export const L2_SUBCATEGORIES: readonly L2Subcategory[] = [
   { slug: 'home-appliances', nameZh: '生活家電', nameEn: 'Home Appliances', category: 'home', aliases: ['吸塵器', '吊扇', '空氣清淨機'] },
   { slug: 'home-fragrance', nameZh: '居家香氛', nameEn: 'Home Fragrance', category: 'home', aliases: ['線香', '擴香', '香氛袋', '擴香瓶', '盤香', '香粉', '香道具'] },
   { slug: 'candles', nameZh: '蠟燭', nameEn: 'Candles', category: 'home', aliases: [] },
-  { slug: 'floral-arrangements', nameZh: '花藝', nameEn: 'Floral Arrangements', category: 'home', aliases: [] },
+  // Absorbed `dried-flowers-and-floral-design` (DEV-1507): a dried or preserved
+  // bouquet is a kind of 花藝, not a technique of its own, so the spellings fold
+  // in here rather than dying with the L1 that happened to hold them.
+  { slug: 'floral-arrangements', nameZh: '花藝', nameEn: 'Floral Arrangements', category: 'home', aliases: ['乾燥花花藝設計', '乾燥花', '花藝設計', '永生花'] },
   { slug: 'plants', nameZh: '植栽', nameEn: 'Plants', category: 'home', aliases: ['盆栽', '多肉園藝'] },
   { slug: 'curtains', nameZh: '窗簾', nameEn: 'Curtains', category: 'home', aliases: [] },
   { slug: 'bath-accessories', nameZh: '衛浴用品', nameEn: 'Bath Accessories', category: 'home', aliases: [] },
@@ -223,20 +233,6 @@ export const L2_SUBCATEGORIES: readonly L2Subcategory[] = [
   { slug: 'seasonings-and-sauces', nameZh: '調味料・醬料', nameEn: 'Seasonings & Sauces', category: 'food-drink', aliases: ['調味料醬料', '調味料', '醬料', '味噌', '醋'] },
   { slug: 'ready-meals', nameZh: '料理包・加工食品', nameEn: 'Ready Meals', category: 'food-drink', aliases: ['料理包加工食品', '料理包', '加工食品'] },
   { slug: 'supplements', nameZh: '保健食品', nameEn: 'Supplements', category: 'food-drink', aliases: ['益生菌', '膠囊', '機能食品'] },
-
-  // crafts (12)
-  { slug: 'ceramics', nameZh: '陶瓷・陶藝', nameEn: 'Ceramics', category: 'crafts', aliases: ['陶瓷陶藝', '陶瓷', '陶藝'] },
-  { slug: 'woodcraft', nameZh: '木藝・木作', nameEn: 'Woodcraft', category: 'crafts', aliases: ['木藝木作', '木藝', '木作', '木工', '檜木製品'] },
-  { slug: 'metalwork', nameZh: '金工', nameEn: 'Metalwork', category: 'crafts', aliases: [] },
-  { slug: 'bamboo-craft', nameZh: '竹編・竹藝', nameEn: 'Bamboo Craft', category: 'crafts', aliases: ['竹編竹藝', '竹編', '竹藝'] },
-  { slug: 'glass-art', nameZh: '玻璃・琉璃', nameEn: 'Glass Art', category: 'crafts', aliases: ['玻璃琉璃', '玻璃', '琉璃'] },
-  { slug: 'natural-dyeing', nameZh: '藍染・植物染', nameEn: 'Natural Dyeing', category: 'crafts', aliases: ['藍染植物染', '藍染', '植物染', '手染'] },
-  { slug: 'leather-craft', nameZh: '皮革工藝', nameEn: 'Leather Craft', category: 'crafts', aliases: ['手工皮件'] },
-  { slug: 'embroidery', nameZh: '刺繡', nameEn: 'Embroidery', category: 'crafts', aliases: [] },
-  { slug: 'needle-felting', nameZh: '羊毛氈', nameEn: 'Needle Felting', category: 'crafts', aliases: [] },
-  { slug: 'weaving-and-crochet', nameZh: '編織・鉤織', nameEn: 'Weaving & Crochet', category: 'crafts', aliases: ['編織鉤織', '編織', '鉤織'] },
-  { slug: 'illustration-and-art', nameZh: '插畫・畫作', nameEn: 'Illustration & Art', category: 'crafts', aliases: ['插畫畫作', '插畫', '畫作', '水彩', '版畫', '無框畫'] },
-  { slug: 'dried-flowers-and-floral-design', nameZh: '乾燥花・花藝設計', nameEn: 'Dried Flowers & Floral Design', category: 'crafts', aliases: ['乾燥花花藝設計', '乾燥花', '花藝設計'] },
 
   // stationery (12)
   { slug: 'journals-and-notebooks', nameZh: '手帳・筆記本', nameEn: 'Journals & Notebooks', category: 'stationery', aliases: ['手帳筆記本', '手帳', '筆記本'] },
@@ -415,6 +411,20 @@ export const EVICTED_LABELS = [
   '模型禮盒',
   // Service — decision 5's 體驗課程 half.
   '體驗課程・DIY材料',
+  // Technique — the `crafts` L1 retired by DEV-1507. Nine labels carrying 81
+  // recorded tag-uses; each names how the object was made, which the material
+  // axis stores, so no surviving use node can absorb them. 藍染 and 植物染 are
+  // deliberately absent: neither appears in the corpus, and listing a label no
+  // row uses would make this set a wish rather than a record.
+  '陶瓷・陶藝',
+  '木藝・木作',
+  '編織・鉤織',
+  '玻璃・琉璃',
+  '金工',
+  '刺繡',
+  '竹編・竹藝',
+  '羊毛氈',
+  '皮革工藝',
   // L1 names and L1-level generics used as L2s.
   '文具',
   '文具用品',

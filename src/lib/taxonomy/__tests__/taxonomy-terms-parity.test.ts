@@ -126,11 +126,11 @@ describe("taxonomy_terms parity with the TypeScript ontology", () => {
   // Bug caught: a truncated INSERT, or an axis that lost rows in a re-seed. The
   // literals are restated on purpose — reading them off the ontology alone makes
   // the assertion vacuous when the ontology is what regressed.
-  it("axis_counts_are_13_175_12", () => {
+  it("axis_counts_are_12_164_12", () => {
     const counts = { l1: 0, l2: 0, material: 0 };
     for (const row of seededRows) counts[row.axis] += 1;
 
-    expect(counts).toEqual({ l1: 13, l2: 175, material: 12 });
+    expect(counts).toEqual({ l1: 12, l2: 164, material: 12 });
     expect(counts.l1).toBe(L1_CATEGORIES.length);
     expect(counts.l2).toBe(L2_SUBCATEGORIES.length);
     expect(counts.material).toBe(MATERIALS.length);

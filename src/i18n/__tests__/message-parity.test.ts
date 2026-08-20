@@ -123,10 +123,10 @@ describe('message catalogue parity', () => {
     expect(Object.keys(zhTW.categories.l1).sort()).toEqual(
       Object.keys(en.categories.l1).sort(),
     )
-    // Still 10 after the kids/pets split: `kids-pets` became `kids`, and `pets`
-    // ships `eligibility: defer-brands` — a correct node held below the supply
-    // bar, which is not a launch page.
-    expect(Object.keys(zhTW.categories.l1)).toHaveLength(10)
+    // 10 after the kids/pets split, 9 after DEV-1507 retired `crafts`:
+    // `kids-pets` became `kids`, and `pets` ships `eligibility: defer-brands` —
+    // a correct node held below the supply bar, which is not a launch page.
+    expect(Object.keys(zhTW.categories.l1)).toHaveLength(9)
   })
 
   it('message_parity_holds_for_new_taxonomy_keys', () => {
@@ -180,7 +180,7 @@ describe('message catalogue parity', () => {
     // `formatLlmsTxt` omits a missing description rather than printing
     // "undefined" (`llms.txt/route.ts:26-27`), so a gap here is invisible in the
     // output — the AI-crawler surface just loses a line.
-    expect(L1_CATEGORIES).toHaveLength(13)
+    expect(L1_CATEGORIES).toHaveLength(12)
 
     const missing: string[] = []
     for (const category of L1_CATEGORIES) {

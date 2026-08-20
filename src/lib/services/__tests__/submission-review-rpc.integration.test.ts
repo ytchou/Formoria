@@ -101,8 +101,8 @@ describeWithDb("trusted submission review RPCs", () => {
       enriched_data: null,
       review_overrides: expect.objectContaining({
         description: "完整中文介紹",
-        category: "crafts",
-        subcategories: ["木工"],
+        category: "home",
+        subcategories: ["家具"],
         price_range: 2,
         purchase_website: "https://trusted.example.com",
       }),
@@ -378,8 +378,8 @@ describeWithDb("trusted submission review RPCs", () => {
       .from("brand_submissions")
       .update({
         social_instagram: "https://instagram.com/community-submitted",
-        suggested_tags: { values: ["木工"], category: "crafts" },
-        enriched_data: { subcategories: ["木工"], category: "crafts" },
+        suggested_tags: { values: ["家具"], category: "home" },
+        enriched_data: { subcategories: ["家具"], category: "home" },
       })
       .eq("id", submissionId);
     expect(candidateError).toBeNull();
@@ -451,8 +451,8 @@ describeWithDb("trusted submission review RPCs", () => {
       .single();
     expect(readError).toBeNull();
     expect(unchanged).toEqual({
-      category: "crafts",
-      subcategories: ["木工"],
+      category: "home",
+      subcategories: ["家具"],
       subcategories_en: null,
     });
   });
@@ -1188,7 +1188,7 @@ describeWithDb("trusted submission review RPCs", () => {
     return {
       key,
       nameZh: `${nameZh}-${key}`,
-      category: "crafts",
+      category: "home",
       subcategories: [],
       material: ["wood"],
       officialUrl: `https://products.example.com/${key}`,
@@ -1353,8 +1353,8 @@ describeWithDb("trusted submission review RPCs", () => {
       status,
       description: "原本完整的品牌介紹",
       hero_image_url: heroUrl,
-      category: "crafts",
-      subcategories: ["木工"],
+      category: "home",
+      subcategories: ["家具"],
       city: "taichung",
       approved_at: status === "approved" ? new Date().toISOString() : null,
       price_range: 2,
@@ -1415,10 +1415,10 @@ describeWithDb("trusted submission review RPCs", () => {
       siteContent: null,
       foundingYear: 2018,
       heroImageUrl: images.hero.url,
-      categorySlug: "crafts",
+      categorySlug: "home",
       priceRange: 2,
-      subcategories: ["木工"],
-      subcategoriesEn: ["Woodwork"],
+      subcategories: ["家具"],
+      subcategoriesEn: ["Furniture"],
       websiteUrl: "https://trusted.example.com",
       socialInstagram: null,
       socialThreads: null,

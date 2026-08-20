@@ -118,12 +118,15 @@ Two vocabularies, and the skill must not mix them up:
   read better as section titles and are what the 小編 voice would actually say.
 - **Link text uses the canonical taxonomy label** from
   `src/lib/taxonomy/ontology.ts` (`categoryLabelZh()`) — 服飾鞋履, 文具設計,
-  工藝文創, 美妝保養, 居家生活. A reader who clicks 「瀏覽本站全部服飾鞋履品牌」
+  居家生活, 美妝保養, 包袋配件. A reader who clicks 「瀏覽本站全部服飾鞋履品牌」
   must land on a page whose heading says the same words.
+- **工藝文創 is retired.** There is no crafts category and no
+  `/brands?category=crafts` page. Craft stories link to `/brands?material=ceramic,wood,metal,bamboo,glass,textile`
+  and name the materials in the link text.
 
 Never invent a category slug. The twelve L1 categories are fixed: `fashion`,
-`bags-accessories`, `jewelry`, `beauty`, `home`, `food-drink`, `crafts`,
-`stationery`, `tech`, `outdoor`, `fitness`, `kids-pets`.
+`bags-accessories`, `jewelry`, `beauty`, `home`, `food-drink`, `stationery`,
+`tech`, `outdoor`, `fitness`, `kids`, `pets`.
 
 ## 8. Structure
 

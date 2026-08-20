@@ -1900,9 +1900,14 @@ const getCachedSubcategoryRows = unstable_cache(
   // taxonomy values verbatim, so a migration that respells them leaves a warm
   // entry serving spellings the reader can no longer resolve for a full hour —
   // silently, since a Map lookup that misses every key reads as "no options"
-  // rather than as an error. `v2` is DEV-1525, which moved `material` from
-  // zh-TW labels to slugs. Bump it again on the next respelling.
-  ["subcategory-summary-rows-v2"],
+  // rather than as an error. `v2` was DEV-1525, which moved `material` from
+  // zh-TW labels to slugs; `v3` is DEV-1507, which retired the `crafts` L1 and
+  // re-filed its L2s. Nothing else invalidates that respelling —
+  // `revalidatePublicBrands` returns early on an empty slug list, a SQL
+  // migration calls no TypeScript at all, and taxonomy pages are not in its
+  // path list — so without this bump the subcategory and material rails render
+  // empty for an hour. Bump it again on the next respelling.
+  ["subcategory-summary-rows-v3"],
   { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
 );
 
@@ -1970,7 +1975,7 @@ export function summarizeSubcategoryRows(
  * Material counts over the whole approved corpus, keyed by the material slug.
  *
  * Deliberately NOT scoped to the selected L1. Material is an orthogonal axis —
- * a `crafts` brand and a `home` brand are both `ceramic` — and re-introducing a
+ * a `home` brand and a `jewelry` brand are both `ceramic` — and re-introducing a
  * category conjunct here would recreate exactly the class of silent drop this
  * ticket removes. Four of the twelve slugs (`paper` `stone` `rattan` `lacquer`)
  * have no brands at all; the rail renders a slug only when its count is above
@@ -2028,7 +2033,16 @@ const getCachedExploreBrandPool = unstable_cache(
         }),
       { summary: { cached: true } },
     ),
-  ["homepage-explore-brand-pool"],
+  // PAYLOAD-SHAPE version, the same rule as `subcategory-summary-rows-v3`
+  // above: these are whole `Brand` rows carrying `categorySlug` and
+  // `subcategories` verbatim, and nothing invalidates a taxonomy respelling, so
+  // a warm entry keeps a retired L1 alive for a full hour. It surfaces as
+  // `getBrandCategoryLabel` falling back to the raw slug — the bare Latin
+  // `crafts` printed inside zh-TW homepage copy — because
+  // `selectCategoryBalancedBrands`'s fill loop applies no L1 test. `v2` is
+  // DEV-1507, which retired `crafts`. Bump it again on the next respelling,
+  // in step with `subcategory-summary-rows-*` and `stockist-directory-*`.
+  ["homepage-explore-brand-pool-v2"],
   { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
 );
 

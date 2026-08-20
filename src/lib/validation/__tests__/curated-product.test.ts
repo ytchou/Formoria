@@ -31,9 +31,10 @@ describe("curated product validation", () => {
   it("rejects_category_outside_the_twelve", () => {
     // The CHECK constraint in 20260813120000_curated_products.sql would reject
     // this too, but only after a round trip that surfaces as a 500.
-    // Thirteen since DEV-1510 split `kids-pets` into `kids` and `pets`; the
-    // list itself is derived from `L1_CATEGORIES`, so only this pin moved.
-    expect(CURATED_PRODUCT_CATEGORY_VALUES).toHaveLength(13);
+    // Thirteen after DEV-1510 split `kids-pets`, twelve after DEV-1507 retired
+    // `crafts`; the list itself is derived from `L1_CATEGORIES`, so only this
+    // pin moved.
+    expect(CURATED_PRODUCT_CATEGORY_VALUES).toHaveLength(12);
     expect(
       curatedProductCreateSchema.safeParse(validCreate({ category: "furniture" }))
         .success,

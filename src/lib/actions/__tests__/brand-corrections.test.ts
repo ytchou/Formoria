@@ -29,7 +29,7 @@ const ARRAY_VALUED_FIELDS = ["subcategories", "material"] as const;
  */
 function proposedValueFor(field: string): unknown {
   return (ARRAY_VALUED_FIELDS as readonly string[]).includes(field)
-    ? { add: ["ceramics"], remove: [] }
+    ? { add: ["ceramic"], remove: [] }
     : "https://example.com/brand";
 }
 
@@ -46,13 +46,13 @@ describe("correctionInputSchema field gate", () => {
     const parsed = correctionInputSchema.safeParse({
       brandId: BRAND_ID,
       field: "material",
-      proposedValue: { add: ["ceramics"], remove: ["wood"] },
+      proposedValue: { add: ["ceramic"], remove: ["wood"] },
     });
 
     expect(parsed.success).toBe(true);
     expect(parsed.success && parsed.data.field).toBe("material");
     expect(parsed.success && parsed.data.proposedValue).toEqual({
-      add: ["ceramics"],
+      add: ["ceramic"],
       remove: ["wood"],
     });
   });
@@ -87,7 +87,7 @@ describe("correctionInputSchema field gate", () => {
       correctionInputSchema.safeParse({
         brandId: BRAND_ID,
         field: "material",
-        proposedValue: ["ceramics"],
+        proposedValue: ["ceramic"],
       }).success,
     ).toBe(false);
   });
@@ -97,7 +97,7 @@ describe("correctionInputSchema field gate", () => {
       correctionInputSchema.safeParse({
         brandId: "not-a-uuid",
         field: "material",
-        proposedValue: { add: ["ceramics"], remove: [] },
+        proposedValue: { add: ["ceramic"], remove: [] },
       }).success,
     ).toBe(false);
   });

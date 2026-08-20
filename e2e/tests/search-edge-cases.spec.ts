@@ -84,7 +84,7 @@ test.describe.serial('Public brand search edge cases', () => {
           slug: exactSlug,
           status: 'approved',
           approved_at: new Date().toISOString(),
-          category: 'crafts',
+          category: 'home',
           description: `[E2E-TEST] Exact-name search probe ${suffix}.`,
           blurb_en: `Exact prism teaware ${suffix}.`,
           is_demo: false,
@@ -94,7 +94,7 @@ test.describe.serial('Public brand search edge cases', () => {
           slug: descriptionSlug,
           status: 'approved',
           approved_at: new Date().toISOString(),
-          category: 'crafts',
+          category: 'home',
           description: `[E2E-TEST] Description-only phrase ${exactQuery}.`,
           is_demo: false,
         },
@@ -103,7 +103,7 @@ test.describe.serial('Public brand search edge cases', () => {
           slug: bilingualSlug,
           status: 'approved',
           approved_at: new Date().toISOString(),
-          category: 'crafts',
+          category: 'home',
           description: `[E2E-TEST] Bilingual search probe ${suffix}.`,
           blurb_en: `${englishToken} Aurora Copper Vessel.`,
           subcategories_en: [englishToken, 'teaware'],
@@ -113,7 +113,7 @@ test.describe.serial('Public brand search edge cases', () => {
           name: `[E2E-TEST] ${exactQuery} 隱藏`,
           slug: hiddenSlug,
           status: 'hidden',
-          category: 'crafts',
+          category: 'home',
           description: `[E2E-TEST] Hidden search probe ${suffix}.`,
           blurb_en: `${englishToken} hidden result.`,
           is_demo: false,
@@ -123,7 +123,7 @@ test.describe.serial('Public brand search edge cases', () => {
           slug: `e2e-search-sort-last-${suffix}`,
           status: 'approved',
           approved_at: new Date().toISOString(),
-          category: 'crafts',
+          category: 'home',
           description: `[E2E-TEST] A-Z search sort probe ${sortQuery}.`,
           is_demo: false,
         },
@@ -132,7 +132,7 @@ test.describe.serial('Public brand search edge cases', () => {
           slug: `e2e-search-sort-first-${suffix}`,
           status: 'approved',
           approved_at: new Date().toISOString(),
-          category: 'crafts',
+          category: 'home',
           description: `[E2E-TEST] A-Z search sort probe ${sortQuery}.`,
           is_demo: false,
         },
@@ -243,7 +243,7 @@ test.describe.serial('Public brand search edge cases', () => {
   test('directory sidebar and nav stay synchronized while unrelated filters survive', async ({ page }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
-    await page.goto('/categories/crafts?sort=name&page=2');
+    await page.goto('/categories/home?sort=name&page=2');
     const sidebarSearch = page.locator(
       'main form[aria-label="依品牌或產品關鍵字篩選"] input[role="searchbox"]',
     );
@@ -252,7 +252,7 @@ test.describe.serial('Public brand search edge cases', () => {
 
     await expect(page).toHaveURL(
       (url) =>
-        url.pathname === '/categories/crafts' &&
+        url.pathname === '/categories/home' &&
         url.searchParams.get('search') === exactQuery &&
         url.searchParams.get('sort') === 'name' &&
         !url.searchParams.has('page'),
@@ -266,7 +266,7 @@ test.describe.serial('Public brand search edge cases', () => {
       .click();
     await expect(page).toHaveURL(
       (url) =>
-        url.pathname === '/categories/crafts' &&
+        url.pathname === '/categories/home' &&
         !url.searchParams.has('search') &&
         url.searchParams.get('sort') === 'name',
     );
@@ -308,7 +308,7 @@ test.describe.serial('Public brand search edge cases', () => {
       await route.fulfill({
         contentType: 'application/json',
         body: JSON.stringify({
-          results: [{ id: 'latest', name: 'Latest Result', slug: 'latest', category: 'crafts' }],
+          results: [{ id: 'latest', name: 'Latest Result', slug: 'latest', category: 'home' }],
         }),
       });
     });
@@ -325,7 +325,7 @@ test.describe.serial('Public brand search edge cases', () => {
     await routeToRelease.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({
-        results: [{ id: 'stale', name: 'Stale Result', slug: 'stale', category: 'crafts' }],
+        results: [{ id: 'stale', name: 'Stale Result', slug: 'stale', category: 'home' }],
       }),
     });
 

@@ -11,8 +11,13 @@ import { test, expect, type Page } from "@playwright/test";
  * while the L2 taxonomy cleanup program is actively reshaping that list. A reorder
  * silently changed what was covered, and an L2 chip appearing among the checkboxes
  * changed it again (DEV-1414).
+ *
+ * The third subject was `crafts` until DEV-1507 retired that L1; `stationery` takes
+ * its place rather than a second reference to `home`, because a repeated subject
+ * would test the same filter twice. Counts stay read from the page, so the supply
+ * DEV-1507 moved into `home` needs no expectation update here.
  */
-const FILTER_SUBJECTS = ["fashion", "home", "crafts"].map((slug) => {
+const FILTER_SUBJECTS = ["fashion", "home", "stationery"].map((slug) => {
   const category = L1_CATEGORIES.find((item) => item.slug === slug);
   if (!category) {
     // A renamed or removed L1 slug must break this loudly. Falling back to a
@@ -112,7 +117,7 @@ test.describe("Directory deep", () => {
               id: "directory-search-result",
               name: "Directory Search Result",
               slug: "directory-search-result",
-              category: "crafts",
+              category: "stationery",
             },
           ],
         }),

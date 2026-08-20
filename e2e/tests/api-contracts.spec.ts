@@ -101,7 +101,7 @@ test.describe('API — health + search', () => {
         slug: `e2e-api-contract-${suffix}`,
         status: 'approved',
         approved_at: new Date().toISOString(),
-        category: 'crafts',
+        category: 'home',
         description: `[E2E-TEST] API contract search probe ${suffix}.`,
         is_demo: false,
       })

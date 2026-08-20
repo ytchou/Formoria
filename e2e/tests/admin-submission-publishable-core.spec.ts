@@ -120,13 +120,14 @@ async function seedReadySubmission(
         description_en: "Taiwanese handmade wooden tableware.",
         blurb: "手工木器品牌",
         hero_image_url: imageUrl,
-        category: "crafts",
+        category: "home",
         // Slug, not the zh-TW label: DEV-1510 closed the vocabulary and
         // `approve_submission` raises on any string that resolves to no slug,
-        // alias or recorded removal. `woodcraft` is crafts-native, matching
-        // `category` above.
-        subcategories: ["woodcraft"],
-        subcategories_en: ["Handmade Woodware"],
+        // alias or recorded removal. `tableware` is home-native, matching
+        // `category` above — DEV-1507 deleted `woodcraft` with the rest of the
+        // crafts L1.
+        subcategories: ["tableware"],
+        subcategories_en: ["Tableware"],
         price_range: 2,
         ...enrichedLinks,
       },
@@ -280,8 +281,8 @@ test.describe("Submission publishable-core link guard", () => {
             status: "approved",
             approved_at: new Date().toISOString(),
             description: "台灣本地手工木器，以榫接工法製作日常餐廚用品。",
-            category: "crafts",
-            subcategories: ["woodcraft"],
+            category: "home",
+            subcategories: ["tableware"],
             price_range: 2,
           },
         },

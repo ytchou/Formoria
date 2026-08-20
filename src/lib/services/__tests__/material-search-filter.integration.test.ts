@@ -60,11 +60,11 @@ async function withMaterialFixtures(
       status: "approved",
       approved_at: approvedAt,
       is_demo: false,
-      category: "crafts",
-      // Deliberately NO subcategories. `ceramics` expands to 陶瓷・陶藝 through
-      // `taxonomy_terms`, which would put this fixture into the `陶藝` result
-      // set that `search-cjk-recall.integration.test.ts` pins — a fixture that
-      // perturbs another file's whole-corpus baseline while both run.
+      category: "home",
+      // Deliberately NO subcategories. Any tag here expands through
+      // `taxonomy_terms` into a label result set that
+      // `search-cjk-recall.integration.test.ts` pins — a fixture that perturbs
+      // another file's whole-corpus baseline while both run.
       subcategories: [],
       material: ["ceramic"],
     },
@@ -75,7 +75,7 @@ async function withMaterialFixtures(
       status: "approved",
       approved_at: approvedAt,
       is_demo: false,
-      category: "crafts",
+      category: "home",
       subcategories: [],
       material: ["wood"],
     },
@@ -135,7 +135,7 @@ describeWithDb("material filter on both read paths", () => {
     await withMaterialFixtures(async ({ ceramicId, woodId }) => {
       const unfiltered = await getBrands({
         status: "approved",
-        category: ["crafts"],
+        category: ["home"],
         sort: "newest",
         limit: 200,
       });
@@ -145,7 +145,7 @@ describeWithDb("material filter on both read paths", () => {
 
       const filtered = await getBrands({
         status: "approved",
-        category: ["crafts"],
+        category: ["home"],
         materials: ["ceramic"],
         sort: "newest",
         limit: 200,

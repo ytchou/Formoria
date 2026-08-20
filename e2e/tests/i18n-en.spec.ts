@@ -73,7 +73,7 @@ test.describe("i18n English browse", () => {
       "Brand category",
       "Price",
       "Product subcategory",
-      "Crafts & Art",
+      "Home & Living",
     ]) {
       expect(document.mainText).toContain(text);
     }
@@ -85,7 +85,7 @@ test.describe("i18n English browse", () => {
       "品牌類別",
       "價格區間",
       "商品子類別",
-      "工藝文創",
+      "居家生活",
     ]) {
       expect(document.mainText).not.toContain(text);
     }
@@ -112,7 +112,7 @@ test.describe("i18n English browse", () => {
       "品牌類別",
       "價格區間",
       "商品子類別",
-      "工藝文創",
+      "居家生活",
     ]) {
       expect(document.mainText).toContain(text);
     }
@@ -123,7 +123,7 @@ test.describe("i18n English browse", () => {
       "Founded",
       "Brand category",
       "Product subcategory",
-      "Crafts & Art",
+      "Home & Living",
     ]) {
       expect(document.mainText).not.toContain(text);
     }

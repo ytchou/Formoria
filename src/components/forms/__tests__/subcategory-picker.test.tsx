@@ -86,7 +86,7 @@ describe("SubcategoryPicker", () => {
     vi.restoreAllMocks();
   });
 
-  it("picker_offers_all_175_nodes_not_just_the_brands_l1", () => {
+  it("picker_offers_all_164_nodes_not_just_the_brands_l1", () => {
     // A `fashion` brand. Its own L1 is offered first, and every other L1 is
     // still offered below it — that is what makes a cross-L1 tag expressible
     // on the write side, and it is the counterpart of the cross-L1 read fix.
@@ -94,7 +94,7 @@ describe("SubcategoryPicker", () => {
 
     const options = within(optionsGroup()).getAllByRole("button");
     expect(options).toHaveLength(L2_SUBCATEGORIES.length);
-    expect(L2_SUBCATEGORIES).toHaveLength(175);
+    expect(L2_SUBCATEGORIES).toHaveLength(164);
 
     // `backpacks` lives under `bags-accessories`, not under `fashion`.
     fireEvent.click(within(optionsGroup()).getByRole("button", { name: "後背包" }));
