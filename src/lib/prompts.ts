@@ -6,12 +6,11 @@ import {
 
 const CATEGORY_EXAMPLES: Record<string, string> = {
   fashion: "服飾、鞋履、上衣、褲子、洋裝等穿戴服裝",
-  "bags-accessories": "包袋、皮件、帽子、圍巾、配件",
+  "bags-accessories": "包袋、皮件、帽子、圍巾、配件、皮革工藝",
   jewelry: "飾品、珠寶、耳環、項鍊、戒指、手鍊",
   beauty: "美妝、保養、清潔、沐浴、香氛、蠟燭",
-  home: "居家用品、餐具、陶瓷、家具、廚具、園藝",
+  home: "居家用品、餐具、陶瓷、家具、廚具、園藝、陶藝、木工、手作工藝、藝術、插畫",
   "food-drink": "食品、飲料、茶、咖啡、農產品",
-  crafts: "手作工藝、皮革工藝、陶藝、木工、藝術、插畫",
   stationery: "文具、筆記本、鋼筆、紙膠帶、手帳、桌面配件",
   tech: "3C科技、電子產品、手機配件",
   outdoor: "戶外露營、登山背包、露營裝備、攀岩用品",

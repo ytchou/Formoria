@@ -72,7 +72,7 @@ test.describe("Claim request smoke", () => {
         slug: brandSlug,
         status: "approved",
         approved_at: new Date().toISOString(),
-        category: "crafts",
+        category: "home",
         description: "Throwaway community brand for claim smoke coverage.",
       })
       .select("id")

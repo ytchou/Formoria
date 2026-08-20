@@ -83,8 +83,8 @@ test.describe('Content moderation flow', () => {
         romanized_name: `E2E Moderation Flow ${timestamp}`,
         status: 'approved',
         approved_at: new Date().toISOString(),
-        category: 'crafts',
-        subcategories: ['木工'],
+        category: 'home',
+        subcategories: ['tableware'],
         price_range: 2,
         founding_year: 2020,
         description: cleanDescription,
@@ -143,7 +143,7 @@ test.describe('Content moderation flow', () => {
     await expect(ownerPage.locator('#name')).toHaveValue(brandName, {
       timeout: BUDGET.GATED_UI,
     });
-    await expect(ownerPage.locator('#categorySlug')).toHaveValue('crafts', {
+    await expect(ownerPage.locator('#categorySlug')).toHaveValue('home', {
       timeout: BUDGET.GATED_UI,
     });
     await expect(ownerPage.locator('#priceRange')).toHaveValue('2', {

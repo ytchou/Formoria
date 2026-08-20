@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  EVICTED_LABELS,
   MATERIALS,
   matchSubcategory,
-  subcategoryBySlug,
+  normalizeSubcategoryKey,
 } from "@/lib/taxonomy/ontology";
 import {
   applyMaterialDelta,
@@ -18,10 +19,12 @@ import { PRE_MIGRATION_CORPUS } from "../../../../scripts/rehearse-slug-reverse"
 
 /**
  * DEV-1510 Task 10 made `material` the SECOND array-valued correctable field,
- * with a closed CHECK on both columns and a backfill derived from the still-live
- * craft L2s. DEV-1525 then moved the axis off zh-TW labels: the column, the
- * CHECK and the corrections gate all speak SLUGS now, and 陶瓷 is a display
- * string on the `MATERIALS` entry that nothing stores or filters by.
+ * with a closed CHECK on both columns and a backfill derived from the craft L2s
+ * DEV-1507 has since retired. DEV-1525 then moved the axis off zh-TW labels:
+ * the column, the CHECK and the corrections gate all speak SLUGS now, and 陶瓷
+ * is a display string on the `MATERIALS` entry that nothing stores or filters
+ * by. The material axis outlives the use nodes it was seeded from — that is the
+ * point of a separate axis, and this file is where the two stop being coupled.
  *
  * The counts below are sized against PRODUCTION — 795 approved brands — and are
  * asserted over the committed corpus rather than a live query. Staging holds
@@ -38,36 +41,52 @@ const MIGRATION_PATH =
 const MATERIAL_SLUGS = MATERIALS.map((material) => material.slug);
 
 /**
- * The mapping the backfill implements, in TypeScript — re-keyed to slugs by
- * DEV-1525. Ten still-live craft L2s onto eight terms; three of them share
- * `textile`, which is why the backfill needs a DISTINCT and this fixture needs
- * a Set.
+ * The mapping the backfill implemented, in TypeScript — keyed to slugs by
+ * DEV-1525, then back to LABELS by DEV-1507. Nine stored labels onto eight
+ * terms; two of them share `textile`, which is why the backfill needs a
+ * DISTINCT and this fixture needs a Set.
  *
- * `illustration-and-art` and `dried-flowers-and-floral-design` are absent on
- * purpose: they name a medium of expression, not a material the object is made
- * of, and guessing `paper` for an illustration would put a wrong fact behind a
- * public filter.
+ * The key is the stored label, not an L2 slug, because the ten craft L2s the
+ * lookup used to route through left the vocabulary with the `crafts` L1. That
+ * is not a workaround: a transform that already ran against a recorded corpus
+ * must state its own inputs, never re-derive them through a vocabulary written
+ * afterwards. Resolving these through `matchSubcategory` would silently zero
+ * the plan the moment a node moved — which is exactly what DEV-1507 did.
+ *
+ * 藍染・植物染 is absent because no corpus row carries it, and 插畫・畫作 and
+ * 乾燥花・花藝設計 because they name a medium of expression, not a material the
+ * object is made of — guessing `paper` for an illustration would put a wrong
+ * fact behind a public filter. Both of the latter survived the retirement, as
+ * `wall-art` and inside `floral-arrangements`, and neither gained a material.
  */
-const MATERIAL_BY_CRAFT_SLUG: Record<string, string> = {
-  ceramics: "ceramic",
-  woodcraft: "wood",
-  "natural-dyeing": "textile",
-  embroidery: "textile",
-  "weaving-and-crochet": "textile",
-  "glass-art": "glass",
-  metalwork: "metal",
-  "bamboo-craft": "bamboo",
-  "needle-felting": "wool",
-  "leather-craft": "leather",
+const MATERIAL_BY_RETIRED_LABEL: Record<string, string> = {
+  "陶瓷・陶藝": "ceramic",
+  "木藝・木作": "wood",
+  刺繡: "textile",
+  "編織・鉤織": "textile",
+  "玻璃・琉璃": "glass",
+  金工: "metal",
+  "竹編・竹藝": "bamboo",
+  羊毛氈: "wool",
+  皮革工藝: "leather",
 };
+
+/** Matched on the ontology's own basis, so a ・ variant resolves identically. */
+const MATERIAL_BY_NORMALIZED_LABEL = new Map(
+  Object.entries(MATERIAL_BY_RETIRED_LABEL).map(([label, material]) => [
+    normalizeSubcategoryKey(label),
+    material,
+  ]),
+);
 
 function backfillPlan(): Map<string, string[]> {
   const plan = new Map<string, string[]>();
   for (const [brandSlug, labels] of Object.entries(PRE_MIGRATION_CORPUS)) {
     const materials = new Set<string>();
     for (const label of labels) {
-      const node = matchSubcategory(label);
-      const material = node ? MATERIAL_BY_CRAFT_SLUG[node.slug] : undefined;
+      const material = MATERIAL_BY_NORMALIZED_LABEL.get(
+        normalizeSubcategoryKey(label),
+      );
       if (material) materials.add(material);
     }
     if (materials.size > 0) plan.set(brandSlug, [...materials]);
@@ -117,7 +136,7 @@ function createReviewClientDouble() {
       slug: "yao-wu-suo",
       price_range: 2,
       category: "home-living",
-      subcategories: ["ceramics"],
+      subcategories: ["tableware"],
       material: ["ceramic"],
       social_instagram: null,
       social_threads: null,
@@ -322,15 +341,17 @@ describe("DEV-1525 material axis", () => {
     }
   });
 
-  it("craft_labels_remain_in_subcategories", () => {
-    // The nodes the backfill read are still live, and still under `crafts`.
-    // `subcategoryBySlug`, not `matchSubcategory`: `brands.subcategories` is a
-    // SLUG column since DEV-1510, and a slug is not a key in the label map.
-    expect(matchSubcategory("陶瓷・陶藝")?.slug).toBe("ceramics");
-    for (const slug of Object.keys(MATERIAL_BY_CRAFT_SLUG)) {
-      const node = subcategoryBySlug(slug);
-      expect(node?.slug).toBe(slug);
-      expect(node?.category).toBe("crafts");
+  it("craft_labels_are_evicted_not_reclaimed", () => {
+    // The nodes the backfill read left the vocabulary with the `crafts` L1
+    // (DEV-1507), so each input label must now resolve to nothing AND be
+    // recorded as evicted. Either half alone is a silent failure: a label that
+    // resolves again has been reclaimed by a surviving node and would re-tag
+    // these brands by accident, and a label that resolves to nothing without an
+    // eviction row is a production value the next backfill aborts on.
+    const evicted = new Set<string>(EVICTED_LABELS);
+    for (const label of Object.keys(MATERIAL_BY_RETIRED_LABEL)) {
+      expect(matchSubcategory(label), `${label} must not resolve`).toBeNull();
+      expect(evicted.has(label), `${label} must be an evicted label`).toBe(true);
     }
   });
 

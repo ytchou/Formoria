@@ -127,7 +127,7 @@ version: 1
 generated_at: '2026-08-06'
 source: pnpm seo:counts (live Supabase, status=approved AND is_demo<>true)
 owner: DEV-1354
-notes: '94 clusters over 718 approved brands. l1-category and l2-category rows are target_status: proposed
+notes: '91 clusters over 718 approved brands. l1-category and l2-category rows are target_status: proposed
   — the /categories/[l1] and /categories/[l1]/[l2] URL shape is ratified by Ticket B, not by this file.
   Priority is derived; see the header block.'
 clusters:
@@ -308,35 +308,6 @@ clusters:
   locale: zh-TW
   notes: 'Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
     for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
-    shape ships. target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until
-    Ticket B.'
-- id: l1-crafts
-  primary_keyword: 台灣工藝文創品牌
-  secondary_keywords:
-  - 台灣文創商品品牌
-  - 台灣工藝品牌推薦
-  - 手作工藝品牌
-  search_intent: commercial
-  page_type: l1-category
-  target_url: /categories/crafts
-  target_status: live
-  ontology_slug: crafts
-  brand_count: 83
-  data_quality: pass
-  intent_fit: 3
-  differentiation: 3
-  priority: P0
-  eligibility: launch
-  composite: none
-  content_requirement: Category intro explaining what makes this category's Taiwanese brands distinct,
-    a brand grid with verification tiers, and CollectionPage + ItemList JSON-LD.
-  indexability: index
-  locale: zh-TW
-  notes: 'Cannibalization risk 1 (highest): the topic hubs 台灣文創品牌 / 台灣工藝品牌 / 台灣手作品牌 / 台灣設計品牌 overlap each
-    other, the crafts L1 category, and editorial stories. This is why Ticket C (topic hubs) is sequenced
-    last. This L1 page owns the compound term 台灣工藝文創品牌 only; the bare 工藝 / 文創 / 手作 terms belong to the
-    topic hubs. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and
-    L2 compete for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
     shape ships. target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until
     Ticket B.'
 - id: l1-bags-accessories
@@ -1394,7 +1365,7 @@ clusters:
     B. composite synonym: 甜點・糕點 is two words for one intent, so one page legitimately owns both. Cannibalization
     risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query.
     Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
-- id: l2-illustration-and-art
+- id: l2-wall-art
   primary_keyword: 台灣插畫品牌
   secondary_keywords:
   - 台灣插畫家品牌
@@ -1402,9 +1373,9 @@ clusters:
   - 無框畫
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/crafts/illustration-and-art
+  target_url: /categories/home/wall-art
   target_status: proposed
-  ontology_slug: illustration-and-art
+  ontology_slug: wall-art
   brand_count: 22
   data_quality: pass
   intent_fit: 3
@@ -1417,7 +1388,7 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
-    B. composite synonym: 插畫・畫作 is two words for one intent, so one page legitimately owns both. Cannibalization
+    B. composite synonym: 掛畫・畫作 is two words for one intent, so one page legitimately owns both. Cannibalization
     risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query.
     Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
 - id: l2-cookies-and-rice-crackers
@@ -1469,32 +1440,6 @@ clusters:
   locale: zh-TW
   notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
     B. composite synonym: 卡片・明信片 is two words for one intent, so one page legitimately owns both. Cannibalization
-    risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query.
-    Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
-- id: l2-ceramics
-  primary_keyword: 台灣陶瓷品牌
-  secondary_keywords:
-  - 台灣陶藝品牌
-  - 台灣陶瓷工作室
-  - 手作陶器
-  search_intent: commercial
-  page_type: l2-category
-  target_url: /categories/crafts/ceramics
-  target_status: proposed
-  ontology_slug: ceramics
-  brand_count: 17
-  data_quality: pass
-  intent_fit: 3
-  differentiation: 3
-  priority: P1
-  eligibility: defer-no-demand
-  composite: synonym
-  content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
-    grid, and CollectionPage + ItemList JSON-LD.
-  indexability: index
-  locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
-    B. composite synonym: 陶瓷・陶藝 is two words for one intent, so one page legitimately owns both. Cannibalization
     risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query.
     Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
 - id: l2-sandals-and-slippers
@@ -1965,80 +1910,6 @@ clusters:
   locale: zh-TW
   notes: 'Atomic replacement for retired 毛巾・生活織品. brand_count is intentionally 0 until the reviewed DEV-1361
     split artifact supplies scoped assignments; no GSC demand is claimed. Keep proposed/noindex pending DEV-1366.'
-- id: topic-cultural-creative
-  primary_keyword: 台灣文創品牌
-  secondary_keywords:
-  - 文創商品品牌
-  - 台灣文創小物
-  - 文創市集品牌
-  search_intent: commercial
-  page_type: topic-hub
-  target_url: /topics/cultural-creative
-  target_status: proposed
-  brand_count: 83
-  data_quality: pass
-  intent_fit: 3
-  differentiation: 2
-  priority: P1
-  eligibility: defer-overlap
-  composite: none
-  content_requirement: Editorial hub intro with a point of view, a curated brand set drawn across L1s,
-    and internal links down to the L1/L2 pages it summarises.
-  indexability: index
-  locale: zh-TW
-  notes: 'Addressable set is the crafts L1 (83 brands). Cannibalization risk 1 (highest): the topic hubs
-    台灣文創品牌 / 台灣工藝品牌 / 台灣手作品牌 / 台灣設計品牌 overlap each other, the crafts L1 category, and editorial stories.
-    This is why Ticket C (topic hubs) is sequenced last.'
-- id: topic-craft
-  primary_keyword: 台灣工藝品牌
-  secondary_keywords:
-  - 台灣傳統工藝品牌
-  - 台灣工藝師品牌
-  search_intent: commercial
-  page_type: topic-hub
-  target_url: /topics/craft
-  target_status: proposed
-  brand_count: 83
-  data_quality: pass
-  intent_fit: 3
-  differentiation: 2
-  priority: P1
-  eligibility: defer-overlap
-  composite: none
-  content_requirement: Editorial hub intro with a point of view, a curated brand set drawn across L1s,
-    and internal links down to the L1/L2 pages it summarises.
-  indexability: index
-  locale: zh-TW
-  notes: 'Addressable set is the crafts L1 (83 brands). Nearest neighbour of 台灣手作品牌 — the two hubs must
-    be given visibly different angles (工藝 = maker lineage and technique; 手作 = small-batch handmade goods)
-    or one should be folded into the other at Ticket C. Cannibalization risk 1 (highest): the topic hubs
-    台灣文創品牌 / 台灣工藝品牌 / 台灣手作品牌 / 台灣設計品牌 overlap each other, the crafts L1 category, and editorial stories.
-    This is why Ticket C (topic hubs) is sequenced last.'
-- id: topic-handmade
-  primary_keyword: 台灣手作品牌
-  secondary_keywords:
-  - 台灣手工品牌
-  - 手作小物品牌
-  - 台灣手工藝品牌
-  search_intent: commercial
-  page_type: topic-hub
-  target_url: /topics/handmade
-  target_status: proposed
-  brand_count: 83
-  data_quality: pass
-  intent_fit: 3
-  differentiation: 2
-  priority: P1
-  eligibility: defer-overlap
-  composite: none
-  content_requirement: Editorial hub intro with a point of view, a curated brand set drawn across L1s,
-    and internal links down to the L1/L2 pages it summarises.
-  indexability: index
-  locale: zh-TW
-  notes: 'Addressable set is the crafts L1 (83 brands). Highest merge candidate: if Ticket C cannot give
-    this a distinct angle from 台灣工藝品牌, demote it to a secondary of that hub. Cannibalization risk 1 (highest):
-    the topic hubs 台灣文創品牌 / 台灣工藝品牌 / 台灣手作品牌 / 台灣設計品牌 overlap each other, the crafts L1 category, and editorial
-    stories. This is why Ticket C (topic hubs) is sequenced last.'
 - id: topic-design
   primary_keyword: 台灣設計品牌
   secondary_keywords:
@@ -2520,9 +2391,6 @@ unmapped_backlog:
 - slug: card-holders
   brand_count: 11
   composite: synonym
-- slug: woodcraft
-  brand_count: 9
-  composite: synonym
 - slug: cleaning
   brand_count: 9
 - slug: eyewear
@@ -2551,9 +2419,6 @@ unmapped_backlog:
   brand_count: 6
 - slug: cookware
   brand_count: 7
-- slug: dried-flowers-and-floral-design
-  brand_count: 5
-  composite: multi-intent
 - slug: hiking-and-camping-gear
   brand_count: 6
   composite: multi-intent
@@ -2563,9 +2428,6 @@ unmapped_backlog:
   brand_count: 7
 - slug: snacks
   brand_count: 7
-- slug: weaving-and-crochet
-  brand_count: 7
-  composite: synonym
 - slug: yoga-gear
   brand_count: 6
 - slug: calendars
@@ -2573,9 +2435,6 @@ unmapped_backlog:
   composite: synonym
 - slug: clocks
   brand_count: 6
-- slug: glass-art
-  brand_count: 6
-  composite: synonym
 - slug: honey
   brand_count: 6
 - slug: jams-and-spreads
@@ -2584,8 +2443,6 @@ unmapped_backlog:
 - slug: massage-and-recovery
   brand_count: 4
   composite: multi-intent
-- slug: metalwork
-  brand_count: 2
 - slug: parenting-essentials
   brand_count: 6
 - slug: pet-apparel
@@ -2626,8 +2483,6 @@ unmapped_backlog:
   composite: multi-intent
 - slug: dairy
   brand_count: 4
-- slug: embroidery
-  brand_count: 4
 - slug: family-matching
   brand_count: 1
 - slug: hair-accessories
@@ -2665,8 +2520,6 @@ unmapped_backlog:
   composite: multi-intent
 - slug: makeup
   brand_count: 3
-- slug: needle-felting
-  brand_count: 3
 - slug: pet-treats
   brand_count: 3
 - slug: power-banks
@@ -2674,9 +2527,6 @@ unmapped_backlog:
 - slug: rice-and-grains
   brand_count: 3
   composite: multi-intent
-- slug: bamboo-craft
-  brand_count: 2
-  composite: synonym
 - slug: brooches
   brand_count: 2
 - slug: camera-bags
@@ -2709,8 +2559,6 @@ unmapped_backlog:
 - slug: desk-organization
   brand_count: 0
   notes: Kept as a legitimate stationery product kind; supply controls rendering, not ontology structure.
-- slug: leather-craft
-  brand_count: 1
 - slug: milk-powder
   brand_count: 1
 - slug: picnic-supplies
@@ -2731,10 +2579,6 @@ unmapped_backlog:
 - slug: earphones-and-headphones
   brand_count: 0
   notes: Kept as a legitimate tech product kind; supply controls rendering, not ontology structure.
-- slug: natural-dyeing
-  brand_count: 0
-  composite: synonym
-  notes: Kept as a signature Taiwanese craft product kind; supply controls rendering, not ontology structure.
 - slug: speakers
   brand_count: 0
   notes: Kept as a legitimate tech product kind; supply controls rendering, not ontology structure.

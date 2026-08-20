@@ -67,8 +67,10 @@ interface SqlSurface {
  * two function bodies from `pg_get_functiondef` at call time, so these
  * assertions read the LIVE catalog rather than a checked-in dump.
  *
- * `crafts` stays in every list on purpose. DEV-1507 retires it; DEV-1510 does
- * not, and 19 e2e files seed `category: 'crafts'`.
+ * The list tracks the ontology exactly. DEV-1510 split `kids-pets` into two
+ * rows; DEV-1507 then retired one L1 outright. Either edit has to reach all
+ * four enumerations in the same migration, or a category valid at insert is
+ * rejected at approval.
  */
 const VALID_L1_SLUGS = [
   "fashion",
@@ -77,7 +79,6 @@ const VALID_L1_SLUGS = [
   "beauty",
   "home",
   "food-drink",
-  "crafts",
   "stationery",
   "tech",
   "outdoor",

@@ -239,7 +239,7 @@ describe('EventBrandGrid', () => {
   it('event_brand_grid_ignores_an_unknown_category_param', async () => {
     // Same reasoning as the area allowlist: applying a category this event has
     // no brands in would render an empty grid for a link that looks legitimate.
-    mocks.useSearchParams.mockReturnValue(new URLSearchParams('category=ceramics'))
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams('category=jewelry'))
     renderGrid(
       [makeEntry('Warmwood', 'A', 'apparel'), makeEntry('Kiln', 'A', 'homeware')],
       [{ value: 'A', label: 'Hall A' }],

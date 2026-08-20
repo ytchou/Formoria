@@ -57,9 +57,10 @@ Two things keep it honest, and both belong in the prose:
 - **Tag with the L1 category slugs the story actually covers**, plus `event`
   and `creative-expo` when it is tied to an expo.
 - **Headings may use an editorial gloss; link text uses the canonical taxonomy
-  label.** 「瀏覽本站全部工藝文創品牌」 must land on a page whose heading agrees.
+  label.** 「瀏覽本站全部居家生活品牌」 must land on a page whose heading agrees.
 - A `[探索更多… →](/brands?category=<slug>)` link at the end of a section is
-  service, not a CTA — it goes to the directory, not to a conversion.
+  service, not a CTA — it goes to the directory, not to a conversion. Craft
+  and material sections use the material facet instead: `/brands?material=ceramic,wood,metal,bamboo,glass,textile`.
 
 ## When this is the wrong config
 

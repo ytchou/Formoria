@@ -53,8 +53,8 @@ const REVIEW_PROMISE = '感謝提供建議！送出後由 Formoria 審核決定�
 const SUCCESS_TOAST = '修正已送出，感謝你的協助。'; // brandDetail.correction.success
 const ALREADY_SUBMITTED_TOAST = '這項修正已經送出，請等待審核。'; // ...correction.errors.already_submitted
 
-// seedBrand() always writes category: 'crafts' and no subcategories.
-const CURRENT_CATEGORY_LABEL = '工藝文創';
+// seedBrand() always writes category: 'home' and no subcategories.
+const CURRENT_CATEGORY_LABEL = '居家生活';
 const PROPOSED_CATEGORY_LABEL = '文具設計';
 
 // A subcategory the taxonomy does not know: 4 characters (inside the 2–8 rule), no
@@ -148,7 +148,7 @@ async function openCategoryDialog(page: Page) {
 }
 
 // Every chip lookup goes through one of these two. Bare
-// getByRole('button', { name: '工藝文創' }) is strict-mode ambiguous — the
+// getByRole('button', { name: '居家生活' }) is strict-mode ambiguous — the
 // category labels also render in the breadcrumb and the related-brands rail.
 function optionsRow(dialog: Locator, name: string) {
   return dialog.getByRole('group', { name });

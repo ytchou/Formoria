@@ -109,7 +109,7 @@ describe('aggregateBrandCounts', () => {
     const result = aggregateBrandCounts([
       brand('home', ['家具']),
       brand('beauty', ['家具']),
-      brand('crafts', ['家具']),
+      brand('stationery', ['家具']),
     ])
 
     expect(result.subcategories).toEqual([

@@ -204,7 +204,7 @@ function exhibitorRow(overrides: Row = {}): Row {
 // Selection
 // ---------------------------------------------------------------------------
 
-const CATEGORIES = ["home", "food-drink", "beauty", "crafts"];
+const CATEGORIES = ["home", "food-drink", "beauty", "stationery"];
 
 function selectionCandidates(): SelectionCandidate[] {
   const candidates: SelectionCandidate[] = [];
@@ -235,7 +235,7 @@ describe("planBrandSelection", () => {
   const pinnedSlugs = [
     "home-1",
     "beauty-2",
-    "crafts-3",
+    "stationery-3",
     "gone-from-production",
   ];
 
@@ -258,9 +258,9 @@ describe("planBrandSelection", () => {
       seed: 1,
     });
     expect(plan.slugs).toEqual(
-      expect.arrayContaining(["home-1", "beauty-2", "crafts-3"]),
+      expect.arrayContaining(["home-1", "beauty-2", "stationery-3"]),
     );
-    expect(plan.rationale.pinned).toEqual(["beauty-2", "crafts-3", "home-1"]);
+    expect(plan.rationale.pinned).toEqual(["beauty-2", "home-1", "stationery-3"]);
     // A staging brand with no production row cannot be copied onto, and is
     // reported rather than silently dropped.
     expect(plan.rationale.pinnedMissingFromProduction).toEqual([

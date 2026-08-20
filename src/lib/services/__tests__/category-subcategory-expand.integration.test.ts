@@ -296,7 +296,7 @@ describeWithDb("DEV-1503 contract category/subcategory vocabulary", () => {
     // second source of truth after the compatibility columns are removed.
     const { error: legacyWriteError } = await untypedSupabase!
       .from("brands")
-      .update({ [["product", "type"].join("_")]: "crafts" })
+      .update({ [["product", "type"].join("_")]: "home" })
       .eq("id", brandId);
     expect(legacyWriteError).not.toBeNull();
   });
@@ -309,9 +309,9 @@ describeWithDb("DEV-1503 contract category/subcategory vocabulary", () => {
   it("keeps multiple anonymous pending corrections for the final field", async () => {
     expect(() => runPendingCorrectionMigrationHarness()).not.toThrow();
     const brandId = await insertBrand("anonymous-corrections", {
-      category: "crafts",
-      subcategories: ["木工"],
-      subcategories_en: ["Woodwork"],
+      category: "home",
+      subcategories: ["家具"],
+      subcategories_en: ["Furniture"],
     });
     const { error: insertError } = await untypedSupabase!
       .from("brand_field_corrections")
@@ -319,16 +319,16 @@ describeWithDb("DEV-1503 contract category/subcategory vocabulary", () => {
         {
           brand_id: brandId,
           field: "subcategories",
-          proposed_value: ["陶藝"],
-          previous_value: ["木工"],
+          proposed_value: ["餐具"],
+          previous_value: ["家具"],
           status: "pending",
           visitor_hash: null,
         },
         {
           brand_id: brandId,
           field: "subcategories",
-          proposed_value: ["金工"],
-          previous_value: ["木工"],
+          proposed_value: ["手工具"],
+          previous_value: ["家具"],
           status: "pending",
           visitor_hash: null,
         },
@@ -347,7 +347,7 @@ describeWithDb("DEV-1503 contract category/subcategory vocabulary", () => {
       corrections?.every((correction) => correction.visitor_hash === null),
     ).toBe(true);
     expect(corrections?.map((correction) => correction.proposed_value)).toEqual(
-      expect.arrayContaining([["陶藝"], ["金工"]]),
+      expect.arrayContaining([["餐具"], ["手工具"]]),
     );
   });
 
@@ -362,9 +362,9 @@ describeWithDb("DEV-1503 contract category/subcategory vocabulary", () => {
         _cleared_fields: ["category", "subcategories"],
       },
       review_overrides: {
-        categorySlug: "crafts",
-        subcategories: ["陶藝"],
-        subcategoriesEn: ["Ceramics"],
+        categorySlug: "stationery",
+        subcategories: ["貼紙"],
+        subcategoriesEn: ["Stickers"],
       },
       base_brand_data: {
         category: "beauty",
@@ -422,8 +422,8 @@ describeWithDb("DEV-1503 contract category/subcategory vocabulary", () => {
     const submissionId = await insertSubmission("contract-approval", {
       description: "可以公開的品牌介紹",
       website_url: "https://contract-approval.example.com",
-      suggested_tags: { values: ["木工"], category: "crafts" },
-      owner_data: { categorySlug: "crafts", subcategories: ["木工"] },
+      suggested_tags: { values: ["家具"], category: "home" },
+      owner_data: { categorySlug: "home", subcategories: ["家具"] },
     });
     const { error: imageError } = await supabase!
       .from("submission_images")
@@ -484,9 +484,9 @@ describeWithDb("DEV-1503 contract category/subcategory vocabulary", () => {
           name: "DEV-1503 Contract Approval Brand",
           slug: `dev-1503-contract-approval-${randomUUID().slice(0, 8)}`,
           description: "可以公開的品牌介紹",
-          category: "crafts",
-          subcategories: ["木工"],
-          subcategories_en: ["Woodwork"],
+          category: "home",
+          subcategories: ["家具"],
+          subcategories_en: ["Home Furniture"],
           price_range: 2,
           approved_at: new Date().toISOString(),
           purchase_website: "https://contract-approval.example.com",
@@ -510,11 +510,11 @@ describeWithDb("DEV-1503 contract category/subcategory vocabulary", () => {
     // migration still approves — and lands the storage representation
     // `brands.subcategories` now uses. `subcategories_en` is re-DERIVED from
     // `taxonomy_terms.name_en` rather than carried through, which is why the
-    // submitted `Woodwork` becomes the node's own `Woodcraft`.
+    // submitted `Home Furniture` becomes the node's own `Furniture`.
     expect(brand).toEqual({
-      category: "crafts",
-      subcategories: ["woodcraft"],
-      subcategories_en: ["Woodcraft"],
+      category: "home",
+      subcategories: ["furniture"],
+      subcategories_en: ["Furniture"],
     });
     const { data: states, error: stateError } = await untypedSupabase!
       .from("brand_field_state")
@@ -535,9 +535,9 @@ describeWithDb("DEV-1503 contract category/subcategory vocabulary", () => {
   it("refreshes final category data and records final provenance identifiers", async () => {
     const brandId = await insertBrand("final-refresh", {
       description: "原本完整的品牌介紹",
-      category: "crafts",
-      subcategories: ["木工"],
-      subcategories_en: ["Woodwork"],
+      category: "home",
+      subcategories: ["家具"],
+      subcategories_en: ["Furniture"],
       price_range: 2,
       purchase_website: "https://contract-refresh.example.com",
     });
@@ -562,9 +562,9 @@ describeWithDb("DEV-1503 contract category/subcategory vocabulary", () => {
         base_brand_data: {
           name: `DEV-1503 final-refresh-${brandId.slice(0, 8)}`,
           description: "原本完整的品牌介紹",
-          category: "crafts",
-          subcategories: ["木工"],
-          subcategories_en: ["Woodwork"],
+          category: "home",
+          subcategories: ["家具"],
+          subcategories_en: ["Furniture"],
           price_range: 2,
           purchase_website: "https://contract-refresh.example.com",
           _active_images: [],
@@ -689,15 +689,15 @@ describeWithDb("DEV-1503 contract category/subcategory vocabulary", () => {
       `search-home-other-${suffix}`,
       {
         category: "home",
-        subcategories: ["陶藝"],
-        subcategories_en: ["Ceramics"],
+        subcategories: ["蠟燭"],
+        subcategories_en: ["Candles"],
       },
       false,
     );
-    const craftsOverlapId = await insertBrand(
-      `search-crafts-overlap-${suffix}`,
+    const stationeryOverlapId = await insertBrand(
+      `search-stationery-overlap-${suffix}`,
       {
-        category: "crafts",
+        category: "stationery",
         subcategories: ["木工"],
         subcategories_en: ["Woodwork"],
       },
@@ -718,7 +718,7 @@ describeWithDb("DEV-1503 contract category/subcategory vocabulary", () => {
       homeOtherId,
     );
     expect(categoryAndOverlap.data?.map((row) => row.id)).not.toContain(
-      craftsOverlapId,
+      stationeryOverlapId,
     );
 
     for (const query of ["木工", "Woodwork"]) {
@@ -729,7 +729,7 @@ describeWithDb("DEV-1503 contract category/subcategory vocabulary", () => {
       });
       expect(result.error).toBeNull();
       expect(result.data?.map((row) => row.id)).toEqual(
-        expect.arrayContaining([homeOverlapId, craftsOverlapId]),
+        expect.arrayContaining([homeOverlapId, stationeryOverlapId]),
       );
     }
 
@@ -744,7 +744,7 @@ describeWithDb("DEV-1503 contract category/subcategory vocabulary", () => {
       expect.arrayContaining([homeOverlapId, homeOtherId]),
     );
     expect(unchangedAutocomplete.data?.map((row) => row.id)).not.toContain(
-      craftsOverlapId,
+      stationeryOverlapId,
     );
 
     const document = await supabase!.rpc("brands_search_document", {
@@ -765,9 +765,9 @@ describeWithDb("DEV-1503 contract category/subcategory vocabulary", () => {
   // diverge from the final application vocabulary.
   it("accepts final persisted identifiers and rejects removed ones", async () => {
     const brandId = await insertBrand("final-provenance", {
-      category: "crafts",
-      subcategories: ["木工"],
-      subcategories_en: ["Woodwork"],
+      category: "home",
+      subcategories: ["家具"],
+      subcategories_en: ["Furniture"],
     });
     const { error: stateError } = await untypedSupabase!
       .from("brand_field_state")
@@ -783,7 +783,7 @@ describeWithDb("DEV-1503 contract category/subcategory vocabulary", () => {
         brand_id: brandId,
         field: "subcategories",
         source: "owner",
-        new_value: ["木工"],
+        new_value: ["家具"],
       });
     expect(eventError).toBeNull();
     const { error: correctionError } = await untypedSupabase!
@@ -791,7 +791,7 @@ describeWithDb("DEV-1503 contract category/subcategory vocabulary", () => {
       .insert({
         brand_id: brandId,
         field: "subcategories",
-        proposed_value: ["木工"],
+        proposed_value: ["家具"],
         status: "pending",
         visitor_hash: `dev-1503-${randomUUID()}`,
       });

@@ -17,8 +17,8 @@ describe("getCategoryLabel", () => {
   });
 
   it("resolves localized display values to the canonical slug", () => {
-    expect(resolveCategorySlug("工藝文創")).toBe("crafts");
-    expect(resolveCategorySlug("Crafts & Art")).toBe("crafts");
+    expect(resolveCategorySlug("居家生活")).toBe("home");
+    expect(resolveCategorySlug("Home & Living")).toBe("home");
   });
 });
 
