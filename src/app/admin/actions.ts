@@ -33,6 +33,7 @@ import {
   getUserBrandByEmail,
   revokeOwnership,
 } from '@/lib/services/brand-owners'
+import { getBrandTrailSlugs } from '@/lib/services/curated-products'
 import { materializeSubmissionCuratedProducts } from '@/lib/services/curated-products/materialize'
 import {
   requestCuratedProductBackfill,
@@ -86,6 +87,7 @@ import { getPostHogClient } from '@/lib/posthog-server'
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events'
 import { buildBrandListingPublishedEvent } from '@/lib/analytics/server-supply-events'
 import {
+  revalidateLocalizedPath,
   revalidatePublicBrands,
   revalidatePublicStockists,
 } from '@/lib/cache/public-brand-cache'
@@ -1134,6 +1136,33 @@ export async function updateBrandAction(
   });
 }
 
+/**
+ * The `/discover` half of a brand-visibility change.
+ *
+ * `revalidatePublicBrands` covers the brand's own surfaces; it deliberately
+ * does NOT cover `/discover/[slug]`, which renders the brand's curated products
+ * as trail tiles. Hiding a brand drops those tiles and unhiding restores them,
+ * so both directions leave a trail stale for up to its ISR hour without this.
+ *
+ * Never a reason to fail the action: the write either already happened or is
+ * about to, so a failed lookup costs a stale tile, not correctness. Mirrors
+ * `trailSlugsForRevalidation` in the curated-products actions.
+ */
+async function brandTrailSlugsForRevalidation(
+  brandId: string
+): Promise<string[]> {
+  return getBrandTrailSlugs(brandId).catch(() => [])
+}
+
+/**
+ * `/discover/[slug]` lives under the `[locale]` segment, so a bare unprefixed
+ * path invalidates nothing. Same body and same name as the helper in
+ * `src/app/admin/curated-products/actions.ts` — one pattern per flow.
+ */
+function revalidateTrail(trailSlug: string): void {
+  revalidateLocalizedPath(routes.trail(trailSlug))
+}
+
 export async function hideBrandAction(
   brandId: string
 ): Promise<{ error: string } | undefined> {
@@ -1142,11 +1171,16 @@ export async function hideBrandAction(
       const auth = await requireAdminAction()
       if ('error' in auth) return auth
 
+      // Resolved BEFORE the write: the placements this reads are the ones the
+      // write is about to take off every trail, and the read is deliberately
+      // not allowed to fail the hide.
+      const trailSlugs = await brandTrailSlugsForRevalidation(brandId)
       const brand = await updateBrand(brandId, { status: 'hidden' })
 
       revalidatePath(routes.admin.brands())
       revalidatePath(routes.admin.index())
       revalidatePublicBrands([brand.slug])
+      for (const trailSlug of trailSlugs) revalidateTrail(trailSlug)
       return undefined
     } catch (err) {
       console.error('[admin:hideBrand]', err)
@@ -1165,11 +1199,16 @@ export async function unhideBrandAction(
       const auth = await requireAdminAction()
       if ('error' in auth) return auth
 
+      // Read before the write here too. Unhiding restores the brand's tiles to
+      // the same trails, which is the identical staleness in the other
+      // direction, and the placement rows are unchanged by the status write.
+      const trailSlugs = await brandTrailSlugsForRevalidation(brandId)
       const brand = await updateBrand(brandId, { status: 'approved' })
 
       revalidatePath(routes.admin.brands())
       revalidatePath(routes.admin.index())
       revalidatePublicBrands([brand.slug])
+      for (const trailSlug of trailSlugs) revalidateTrail(trailSlug)
       return undefined
     } catch (err) {
       console.error('[admin:unhideBrand]', err)

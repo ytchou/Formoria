@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createCuratedProduct,
   CuratedProductSchemaLagError,
+  getBrandTrailSlugs,
   getCuratedProductsByBrandBatch,
   getCuratedProductWriteContext,
   getPublishedCuratedProductsForHomepage,
@@ -1526,5 +1527,65 @@ describe("getCuratedProductsByBrandBatch", () => {
     );
 
     expect(byBrand.get(BATCH_BRAND_ID)?.at(0)?.hasActiveSource).toBe(false);
+  });
+});
+
+describe("getBrandTrailSlugs", () => {
+  const BRAND_ID = "3f2a1c66-0a5e-4a4c-9d3b-1b7c9a2d5e40";
+
+  it("returns_every_active_trail_slug_for_a_brand", async () => {
+    const { client, calls } = stubClient({
+      data: [
+        { trail_slug: "small-space-reading-corner", state: "active" },
+        { trail_slug: "first-apartment-kitchen", state: "active" },
+        // Two products of one brand can sit in the same trail. That is one
+        // revalidation target, not two.
+        { trail_slug: "small-space-reading-corner", state: "active" },
+      ],
+    });
+
+    const slugs = await getBrandTrailSlugs(BRAND_ID, client);
+
+    expect([...slugs].sort()).toEqual([
+      "first-apartment-kitchen",
+      "small-space-reading-corner",
+    ]);
+    // Keyed on the brand through the inner-joined parent: the selections table
+    // has no brand_id of its own.
+    expect(calls.table).toEqual(["curated_product_selections"]);
+    expect(calls.select.at(0)).toContain("curated_products!inner(brand_id)");
+    expect(calls.eq).toEqual([
+      ["curated_products.brand_id", BRAND_ID],
+      ["state", "active"],
+    ]);
+  });
+
+  it("excludes_retired_selections", async () => {
+    const { client } = stubClient({
+      data: [
+        { trail_slug: "small-space-reading-corner", state: "active" },
+        { trail_slug: "first-apartment-kitchen", state: "retired" },
+      ],
+    });
+
+    // The stub replays its canned rows without evaluating the filters, so this
+    // asserts the in-process guard. The `state = active` filter above is what
+    // keeps the retired row off the wire in production.
+    await expect(getBrandTrailSlugs(BRAND_ID, client)).resolves.toEqual([
+      "small-space-reading-corner",
+    ]);
+  });
+
+  it("returns_empty_rather_than_throwing_on_schema_lag", async () => {
+    const { client } = stubClient({
+      error: {
+        code: "42703",
+        message: "column curated_product_selections.state does not exist",
+      },
+    });
+
+    // A hidden-brand action must not start failing because production's schema
+    // is a deploy behind. The caller loses a cache invalidation, not the write.
+    await expect(getBrandTrailSlugs(BRAND_ID, client)).resolves.toEqual([]);
   });
 });

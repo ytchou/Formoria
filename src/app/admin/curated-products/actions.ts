@@ -394,6 +394,12 @@ export async function retireCuratedProductSourceAction(
     }
 
     try {
+      // Read the trail slugs BEFORE the write, for the same reason
+      // `retireCuratedProductAction` does: withdrawing the last active source
+      // unpublishes the product, and an unpublished product is exactly what a
+      // later read may no longer resolve placements through. Without this the
+      // trail keeps serving a tile whose claim no longer has evidence.
+      const trailSlugs = await trailSlugsForRevalidation(productResult.data);
       await retireCuratedProductSource(sourceResult.data);
       const brandSlug = await getCuratedProductBrandSlug(productResult.data);
 
@@ -412,6 +418,7 @@ export async function retireCuratedProductSourceAction(
           },
         });
       }
+      for (const trailSlug of trailSlugs) revalidateTrail(trailSlug);
       revalidateCurated(brandSlug);
       return undefined;
     } catch (error) {
