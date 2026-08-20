@@ -13,7 +13,7 @@ The canonical browser suite targets the isolated staging Supabase project. Deep 
 | Submission publishable-core guard | admin submission review | `e2e/tests/admin-submission-publishable-core.spec.ts` | deep | valid myship-only approval and no-channel rejection |
 | Public API contracts | `/api/health`, `/api/search`, newsletter endpoints | `e2e/tests/api-contracts.spec.ts` | deep | status, result shape, validation, subscription lifecycle |
 | Brand city badge | `/brands/[slug]` | `e2e/tests/brand-city.spec.ts` | deep | localized city display |
-| Anonymous brand corrections | `/brands/[slug]` | `e2e/tests/brand-corrections.spec.ts` | deep | category and novel-subcategory proposals, duplicate guard |
+| Anonymous brand corrections | `/brands/[slug]` | `e2e/tests/brand-corrections.spec.ts` | deep | category proposals, duplicate guard, closed subcategory picker rejects out-of-vocabulary terms |
 | Brand detail discovery | `/brands/[slug]` | `e2e/tests/brand-detail.spec.ts` | deep | sections, links, FAQ, SEO, locations, slugs, hidden brands |
 | Brand save and unsave | directory, detail, `/dashboard` | `e2e/tests/brand-save.spec.ts` | deep | authenticated persistence and anonymous redirect |
 | Claim lifecycle | claim routes and admin review | `e2e/tests/claim-lifecycle.spec.ts` | deep | domain verification, document rejection, ownership integrity |
@@ -21,6 +21,7 @@ The canonical browser suite targets the isolated staging Supabase project. Deep 
 | Owned-brand editing | `/dashboard/brands/[slug]/edit` | `e2e/tests/dashboard-brand-owned-edit.spec.ts` | deep | wizard, draft persistence, uploads, governed fields |
 | Dashboard quick actions | `/dashboard` | `e2e/tests/dashboard-welcome-card.spec.ts` | deep | four primary owner actions |
 | Directory filtering and search | `/brands`, `/categories/*` | `e2e/tests/directory.spec.ts` | deep | L1 filters, autocomplete, taxonomy landing, empty states |
+| Directory material facet | `/brands?material=` | `e2e/tests/directory-material.spec.ts` | deep | narrowing, chip clearing, facet survives a category click, unknown term emits no chip and no ItemList |
 | Localized taxonomy copy | zh-TW and `/en` brand/directory surfaces | `e2e/tests/i18n-en.spec.ts` | deep | server-rendered and hydrated locale separation, final L1/L2 labels |
 | MIT and owner verification badges | `/brands/[slug]` | `e2e/tests/mit-verification.spec.ts` | deep | mutually correct trust labels |
 | Public data boundary | public HTML, RSC, JSON-LD | `e2e/tests/public-data-boundary.spec.ts` | deep | private fields absent across public surfaces |

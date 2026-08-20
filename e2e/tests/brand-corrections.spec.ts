@@ -2,6 +2,8 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures/auth';
 import { seedBrand, SeededBrand } from '../helpers/seed';
 import { BUDGET, POLL } from '../budgets';
+import { L2_SUBCATEGORIES } from '../../src/lib/taxonomy/ontology';
+import zhTW from '../../messages/zh-TW.json';
 
 const IS_CANONICAL_STAGING_TARGET =
   new URL(
@@ -57,10 +59,47 @@ const ALREADY_SUBMITTED_TOAST = '這項修正已經送出，請等待審核。';
 const CURRENT_CATEGORY_LABEL = '居家生活';
 const PROPOSED_CATEGORY_LABEL = '文具設計';
 
-// A subcategory the taxonomy does not know: 4 characters (inside the 2–8 rule), no
-// ontology name or alias (grep 藺 in ontology.ts returns nothing), and it misses
-// either subcategory blocklist — no marketing-noise term and no leading
-// size qualifier. See `novelSubcategoryRejection`.
+// The subcategory-picker journey below reads its copy out of the catalogue
+// rather than restating it: three of the five strings are whole sentences, and
+// a hand-copied sentence drifts silently the day the wording changes.
+const SUBCATEGORY_SEARCH_LABEL =
+  zhTW.brandDetail.correction.subcategorySearchLabel;
+const SUBCATEGORY_REJECTED = zhTW.brandDetail.correction.subcategoryRejected;
+const SUBCATEGORY_EMPTY = zhTW.brandDetail.correction.subcategoryEmpty;
+const CURRENT_SUBCATEGORIES_HEADING =
+  zhTW.brandDetail.correction.currentSubcategoriesHeading;
+const ADD_SUBCATEGORIES_HEADING =
+  zhTW.brandDetail.correction.addSubcategoriesHeading;
+
+/**
+ * A term the closed vocabulary can neither resolve NOR narrow to one node.
+ *
+ * Both halves are load-bearing. `commitTypedTerm` accepts a typed term when
+ * `resolveSubcategorySelection` knows it — slug, zh name, en name or alias —
+ * OR when the filter has left exactly ONE node on offer, which it reads as a
+ * disambiguated selection rather than as free text. A term that narrows to a
+ * single chip is therefore committed silently, and swapping one in here would
+ * make the test below assert the opposite of its own name. 燈籠 appears
+ * nowhere in `ontology.ts`, so 手工燈籠 matches zero nodes and the
+ * rejection path is the only one it can take.
+ */
+const OUT_OF_VOCABULARY_TERM = '手工燈籠';
+
+/**
+ * The known-good half of the same journey, resolved from the ontology so a
+ * renamed node breaks this loudly instead of quietly becoming a second
+ * rejection — which would leave the test green while proving nothing.
+ */
+const KNOWN_SUBCATEGORY = (() => {
+  const slug = 'tableware';
+  const node = L2_SUBCATEGORIES.find((item) => item.slug === slug);
+  if (!node) {
+    throw new Error(
+      `brand-corrections spec pins a subcategory that no longer exists: ${slug}`,
+    );
+  }
+  return node;
+})();
 
 /**
  * Correction submits and `/brands/` page loads are both rate limited per client
@@ -298,10 +337,75 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
     await expect(dialog).toBeVisible();
   });
 
-  // DEV-1510 deleted the 其他 free-text escape hatch this journey exercised: the
-  // subcategory control is now a closed picker over the 175-node vocabulary, and a
-  // term outside it is rejected and logged rather than proposed. The replacement
-  // journey (rejection announced via aria-describedby, and the ?material= facet)
-  // is authored against deployed staging, because e2e/global-setup.ts pins the
-  // suite to https://staging.formoria.com and no local target can run it.
+  /*
+   * The journey that replaces the deleted 其他 free-text escape hatch (DEV-1510).
+   *
+   * It is READ-ONLY: it opens the picker, is refused, and closes. Nothing is
+   * submitted, so it deliberately carries no `IS_CANONICAL_STAGING_TARGET` skip
+   * — the mutating tests above need one because anonymous correction writes are
+   * disabled on canonical staging, and this one writes nothing to disable.
+   * The refusal is logged in memory on the client only
+   * (`recordRejectedSubcategoryInput`), never persisted.
+   *
+   * The `?material=` half of DEV-1524 lives in `directory-material.spec.ts`.
+   */
+  test('the closed subcategory picker refuses a term outside the vocabulary', async ({
+    anonPage,
+  }, testInfo) => {
+    test.setTimeout(BUDGET.TEST.JOURNEY);
+    await isolateVisitorIp(anonPage, testInfo.workerIndex);
+    await openSeededBrand(anonPage, seeded);
+
+    const dialog = await openCorrectionDialog(anonPage, 'subcategories');
+    const filterField = dialog.getByRole('textbox', {
+      name: SUBCATEGORY_SEARCH_LABEL,
+    });
+    const submit = dialog.getByRole('button', { name: SUBMIT_LABEL, exact: true });
+    // The picker's two role="group" rows. `getByRole('status')` is deliberately
+    // not used anywhere below: the picker mounts two status regions of its own
+    // and the Next.js route announcer adds a third.
+    const selectedRow = optionsRow(dialog, CURRENT_SUBCATEGORIES_HEADING);
+    const offeredRow = optionsRow(dialog, ADD_SUBCATEGORIES_HEADING);
+
+    // The field claims invalidity only after a refusal, never on arrival.
+    await expect(filterField).not.toHaveAttribute('aria-invalid');
+    await expect(submit).toBeDisabled();
+
+    await filterField.fill(OUT_OF_VOCABULARY_TERM);
+    await filterField.press('Enter');
+
+    await expect(filterField).toHaveAttribute('aria-invalid', 'true');
+    // The refusal is ANNOUNCED through the field, not merely printed beside it:
+    // one of the nodes `aria-describedby` points at has to be what carries the
+    // text. `[id="…"]` rather than `#…` because these ids come from `useId`.
+    const describedBy =
+      (await filterField.getAttribute('aria-describedby')) ?? '';
+    const describedIds = describedBy.split(/\s+/).filter(Boolean);
+    expect(describedIds.length).toBeGreaterThan(0);
+    const rejection = anonPage
+      .locator(describedIds.map((id) => `[id="${id}"]`).join(','))
+      .filter({ hasText: SUBCATEGORY_REJECTED });
+    await expect(rejection).toHaveCount(1);
+    await expect(rejection).toBeVisible();
+
+    // Zero matches, stated rather than assumed: the empty-offer message proves
+    // the term took the rejection path instead of the one-node auto-commit path
+    // documented on OUT_OF_VOCABULARY_TERM.
+    await expect(offeredRow.getByText(SUBCATEGORY_EMPTY)).toBeVisible();
+    await expect(selectedRow).not.toContainText(OUT_OF_VOCABULARY_TERM);
+    await expect(submit).toBeDisabled();
+
+    // Cleared on the next keystroke: the message describes the term that was
+    // typed, not a state the field is stuck in.
+    await filterField.fill(KNOWN_SUBCATEGORY.slug);
+    await expect(filterField).not.toHaveAttribute('aria-invalid');
+
+    // A term the vocabulary DOES know still commits — which is what separates a
+    // closed field from a broken one. The chip renders the zh-TW label even
+    // though a slug was typed, because the stored value is the slug.
+    await filterField.press('Enter');
+    await expect(selectedRow).toContainText(KNOWN_SUBCATEGORY.nameZh);
+    await expect(filterField).toHaveValue('');
+    await expect(submit).toBeEnabled();
+  });
 });

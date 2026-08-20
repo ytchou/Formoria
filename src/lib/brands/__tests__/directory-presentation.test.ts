@@ -141,6 +141,7 @@ describe('buildDirectoryUrlState', () => {
 
 describe('shouldEmitDirectoryItemList', () => {
   const unfiltered = {
+    indexable: true,
     categorySlugs: [] as string[],
     search: '',
     materials: [] as string[],
@@ -160,6 +161,18 @@ describe('shouldEmitDirectoryItemList', () => {
     expect(
       shouldEmitDirectoryItemList({ ...unfiltered, materials: ['ceramic'] }),
     ).toBe(false)
+  })
+
+  it('never emits it on a page the SEO matrix marked noindex', () => {
+    // The invalid-term case, which is where the two decisions used to diverge.
+    // On `?material=xyz` the closed vocabulary drops the unknown term, so every
+    // PARSED field below is the unfiltered directory — while
+    // `resolveDirectorySeo` reads the RAW query and returns `noindex, follow`.
+    // The ItemList of all approved brands shipped anyway, describing a page
+    // crawlers were told to skip (DEV-1524).
+    expect(shouldEmitDirectoryItemList({ ...unfiltered, indexable: false })).toBe(
+      false,
+    )
   })
 
   it('suppresses it for every other narrowing axis', () => {

@@ -1,3 +1,5 @@
+import type { MitStatus } from "@/lib/types";
+
 import {
   stableFingerprint,
   type HealthFinding,
@@ -17,7 +19,7 @@ export interface RecentBrandEdit {
   readonly name: string;
   readonly description: string | null;
   readonly descriptionEn: string | null;
-  readonly mitStatus: "unverified" | "declared" | "verified" | null;
+  readonly mitStatus: MitStatus | null;
   readonly mitDeclaredScope: "all" | "most" | "some" | null;
   readonly mitDeclaredAt: string | null;
   readonly mitVerifiedAt: string | null;

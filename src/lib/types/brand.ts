@@ -5,6 +5,9 @@ import type {
 } from '@/lib/brands/purchase-channels'
 
 export type BrandStatus = 'approved' | 'hidden'
+/** The `brands.mit_status` ladder. Mirrors the CHECK constraint in
+ *  20260722100000_mit_status_ladder.sql — keep in lockstep. */
+export type MitStatus = 'unverified' | 'declared' | 'verified'
 export type SubmissionStatus = 'pending' | 'approved' | 'rejected'
 
 export type OtherUrl = {
@@ -108,7 +111,7 @@ export type Brand = {
   city: string | null
   categoryLabel: string | null
   isVerified: boolean
-  mitStatus?: 'unverified' | 'declared' | 'verified'
+  mitStatus?: MitStatus
   mitDeclaredScope?: 'all' | 'most' | 'some' | null
   mitDeclaredAt?: string | null
   mitVerifiedAt?: string | null

@@ -46,10 +46,16 @@ export type DirectoryViewProps = {
   sort: BrandSortOption
   /** Canonical resolved by the route's SEO matrix for this exact request. */
   canonical: string
+  /**
+   * Whether that same matrix left this request indexable — `robots.index`, not
+   * a second reading of the query string. It gates the directory `ItemList`
+   * below, which must never describe a page marked `noindex`.
+   */
+  indexable: boolean
   isCategoryRoute?: boolean
 }
 
-export async function DirectoryView({ locale, filters, page, sort, canonical, isCategoryRoute = false }: DirectoryViewProps) {
+export async function DirectoryView({ locale, filters, page, sort, canonical, indexable, isCategoryRoute = false }: DirectoryViewProps) {
   const safeLocale = locale
   const [t, verificationT, messages] = await Promise.all([
     getTranslations({ locale: safeLocale, namespace: 'brands' }),
@@ -270,6 +276,7 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
   let brandsItemListJsonLd = null
   if (
     shouldEmitDirectoryItemList({
+      indexable,
       categorySlugs: validCategoryFilter,
       search,
       materials,

@@ -1,6 +1,7 @@
 import type {
   Brand,
   BrandImageMeta,
+  MitStatus,
   OtherUrl,
   ReputationSummary,
   SiteContent,
@@ -29,7 +30,7 @@ export type PublicBrandCard = {
   categorySlug?: string | null
   categoryLabel: string | null
   isVerified: boolean
-  mitStatus?: 'unverified' | 'declared' | 'verified'
+  mitStatus?: MitStatus
   priceRange: number | null
   subcategories: string[]
   subcategoriesEn: string[]
@@ -120,7 +121,7 @@ export type PublicBrandFaqContext = {
   priceRange: number | null
   foundingYear: number | null
   reputationSummary?: ReputationSummary | null
-  mitStatus?: 'unverified' | 'declared' | 'verified'
+  mitStatus?: MitStatus
   mitDeclaredScope?: 'all' | 'most' | 'some' | null
   mitStory?: string | null
 }
@@ -142,7 +143,7 @@ export type AdminBrandListItem = {
   categoryLabel: string | null
   createdAt: string
   updatedAt: string
-  mitStatus?: 'unverified' | 'declared' | 'verified'
+  mitStatus?: MitStatus
   mitCertificateNumber?: string | null
   mitVerified?: boolean
   isVerified?: boolean

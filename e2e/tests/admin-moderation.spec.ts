@@ -84,6 +84,10 @@ test.describe('Content moderation flow', () => {
         status: 'approved',
         approved_at: new Date().toISOString(),
         category: 'home',
+        // Slug, not the zh-TW label: this writes straight into `brands`, so it
+        // bypasses every conversion path. `brands.subcategories` has no CHECK
+        // constraint, so a label would insert cleanly and then match no facet,
+        // no L2 page and no `?sub=`. `餐具` is a `tableware` alias.
         subcategories: ['tableware'],
         price_range: 2,
         founding_year: 2020,

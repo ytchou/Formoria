@@ -13,6 +13,7 @@ import {
   runEnrich,
 } from '@/lib/services/curation-operations'
 import { requestBrandRefreshesBySlugs } from '@/lib/services/submissions'
+import type { BrandStatus } from '@/lib/types'
 import {
   classificationPrecision,
   languagePurity,
@@ -136,8 +137,10 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
   const slugs = parseCsvFlag(args, 'slugs')
   const limit = parseNumberFlag(args, 'limit')
   const statusRaw = parseStringFlag(args, 'status')
-  const VALID_BRAND_STATUSES = ['approved', 'hidden'] as const
-  type BrandStatus = (typeof VALID_BRAND_STATUSES)[number]
+  const VALID_BRAND_STATUSES = [
+    'approved',
+    'hidden',
+  ] as const satisfies readonly BrandStatus[]
   const status = VALID_BRAND_STATUSES.includes(statusRaw as BrandStatus)
     ? (statusRaw as BrandStatus)
     : undefined

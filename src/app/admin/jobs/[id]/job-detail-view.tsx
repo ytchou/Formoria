@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { DataCard, InfoField, SurfaceCard } from "@/components/ui/card";
@@ -106,6 +107,7 @@ export function JobDetailView({
   railwayLogsUrl?: string;
   snapshotUrl?: string | null;
 }) {
+  const t = useTranslations("admin.jobs");
   const { job, targets, parent, children } = detail;
   const visibleTargets =
     selectedStatus === "all"
@@ -159,10 +161,10 @@ export function JobDetailView({
             href={routes.admin.jobs()}
             className="inline-flex min-h-12 items-center type-body-sm font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
-            ← Back to Data Jobs
+            {t("actions.backToList")}
           </Link>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="type-label">Job Detail</h1>
+            <h1 className="type-label">{t("detail.title")}</h1>
             <JobStatusBadge job={job} />
           </div>
           <p className="break-all type-metadata tabular-nums">{job.id}</p>
@@ -190,7 +192,7 @@ export function JobDetailView({
               className: "min-h-12",
             })}
           >
-            Run Log
+            {t("actions.runLog")}
           </Link>
           <a
             href={`${routes.admin.job(job.id)}/runlog?download=1`}
@@ -200,7 +202,7 @@ export function JobDetailView({
               className: "min-h-12",
             })}
           >
-            Download HTML
+            {t("actions.downloadHtml")}
           </a>
           {snapshotUrl ? (
             <a
@@ -214,7 +216,7 @@ export function JobDetailView({
               })}
             >
               <ExternalLink aria-hidden="true" />
-              Snapshot
+              {t("actions.snapshot")}
             </a>
           ) : null}
           {railwayLogsUrl ? (
@@ -229,7 +231,7 @@ export function JobDetailView({
               })}
             >
               <ExternalLink aria-hidden="true" />
-              Railway Logs
+              {t("actions.railwayLogs")}
             </a>
           ) : null}
         </div>
@@ -244,7 +246,7 @@ export function JobDetailView({
       </div>
 
       <SurfaceCard padding="lg">
-        <h2 className="type-label">Execution Info</h2>
+        <h2 className="type-label">{t("detail.executionInfo")}</h2>
         <dl className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <InfoField label="Trigger" value={jobTriggerLabel(job.trigger)} />
           <InfoField label="Attempt" value={job.attempt} />
@@ -292,7 +294,7 @@ export function JobDetailView({
 
       {parent || children.length > 0 ? (
         <SurfaceCard padding="lg">
-          <h2 className="type-label">Retry Lineage</h2>
+          <h2 className="type-label">{t("detail.retryLineage")}</h2>
           <div className="mt-4 flex flex-wrap gap-3">
             {parent ? (
               <LineageLink
@@ -314,14 +316,14 @@ export function JobDetailView({
       <section className="space-y-4" aria-labelledby="job-targets-heading">
         <div>
           <h2 id="job-targets-heading" className="type-label">
-            Brand Details
+            {t("detail.brandDetails")}
           </h2>
           <p className="mt-1 type-body-sm">
-            Phase results, changed fields, and error summary per brand.
+            {t("detail.brandDetailsDescription")}
           </p>
           <details className="mt-2">
             <summary className="flex min-h-12 cursor-pointer items-center font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-              What do phases mean?
+              {t("detail.phaseHelp")}
             </summary>
             <dl className="grid gap-x-6 gap-y-3 rounded-[3px] bg-surface/40 p-4 sm:grid-cols-2 lg:grid-cols-3">
               {phaseDefinitions.map(([phase, description]) => (
@@ -334,7 +336,7 @@ export function JobDetailView({
           </details>
         </div>
         <nav
-          aria-label="Filter brands by status"
+          aria-label={t("detail.filterLabel")}
           className="flex flex-wrap gap-2"
         >
           {filters.map((filter) => {
@@ -363,19 +365,19 @@ export function JobDetailView({
         <SurfaceCard padding="none" className="overflow-x-auto">
           {visibleTargets.length === 0 ? (
             <p className="p-6 text-center text-ink-muted">
-              No brands match this filter.
+              {t("detail.empty")}
             </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Brand</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Current Phase</TableHead>
-                  <TableHead>Reason</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Details</TableHead>
+                  <TableHead>{t("detail.table.brand")}</TableHead>
+                  <TableHead>{t("detail.table.type")}</TableHead>
+                  <TableHead>{t("detail.table.status")}</TableHead>
+                  <TableHead>{t("detail.table.currentPhase")}</TableHead>
+                  <TableHead>{t("detail.table.reason")}</TableHead>
+                  <TableHead>{t("detail.table.duration")}</TableHead>
+                  <TableHead>{t("detail.table.details")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -385,9 +387,7 @@ export function JobDetailView({
                       {target.brand_name}
                     </TableCell>
                     <TableCell>
-                      {target.target_type === "submission"
-                        ? "Submission"
-                        : "Brand"}
+                      {t(`targetType.${target.target_type}`)}
                     </TableCell>
                     <TableCell>
                       <TargetStatusBadge target={target} />
@@ -454,12 +454,13 @@ function LineageLink({ id, label }: { id: string; label: string }) {
 }
 
 function TargetDetail({ target }: { target: CurationJobTarget }) {
+  const t = useTranslations("admin.jobs");
   const phases = parsePhaseResults(target.phase_results);
 
   return (
     <details className="group min-w-72">
       <summary className="flex min-h-12 cursor-pointer list-none items-center font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-        View details
+        {t("actions.viewDetails")}
       </summary>
       <div className="pb-4 pr-4">
         <dl className="grid gap-4 rounded-[3px] bg-surface/40 p-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -481,9 +482,11 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
           ) : null}
         </dl>
         <div className="mt-4 space-y-2">
-          <h3 className="type-body-sm font-medium text-ink">Phase log</h3>
+          <h3 className="type-body-sm font-medium text-ink">
+            {t("detail.phaseLog")}
+          </h3>
           {phases.length === 0 ? (
-            <p className="type-body-sm">No phase records yet.</p>
+            <p className="type-body-sm">{t("detail.noPhaseRecords")}</p>
           ) : (
             <ol className="space-y-2">
               {phases.map((phase, index) => (

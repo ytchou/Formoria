@@ -3,11 +3,13 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
 
 import AdminError from "../error";
+import messages from "../../../../messages/en.json";
 
 /**
  * The v1 colour names. Every one of them still resolves — the shadcn palette
@@ -56,7 +58,13 @@ describe("error and loading boundaries", () => {
     const reset = vi.fn();
     const user = userEvent.setup();
 
-    render(<AdminError error={new Error("boom")} reset={reset} />);
+    // The boundary renders inside the admin layout, which mounts
+    // NextIntlClientProvider — its copy comes from `admin.common`.
+    render(
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <AdminError error={new Error("boom")} reset={reset} />
+      </NextIntlClientProvider>,
+    );
 
     expect(
       screen.getByRole("heading", { name: /something went wrong/i }),

@@ -145,5 +145,5 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
     },
   })
 
-  return <DirectoryView locale={safeLocale} filters={filters} page={page} sort={sort} canonical={directorySeo.canonical} />
+  return <DirectoryView locale={safeLocale} filters={filters} page={page} sort={sort} canonical={directorySeo.canonical} indexable={directorySeo.robots?.index !== false} />
 }

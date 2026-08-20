@@ -1,4 +1,4 @@
-import type { PhaseResult, PhaseStatus } from '@/lib/types/curation'
+import type { PhaseResult, PhaseResultStatus } from '@/lib/types/curation'
 import { auditedCall } from '@/lib/audit'
 import { batchSearchBrandsWithSnippets, parseBrandSearchEntries } from './scraper/search'
 import { getLatestSearchResults } from '../search-results'
@@ -20,7 +20,7 @@ type DiscoverAttempt = {
   searchError: string | null
   changedFields: string[]
   detail: string | undefined
-  status: PhaseStatus
+  status: PhaseResultStatus
   providerError: string | null
 }
 

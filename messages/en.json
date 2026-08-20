@@ -2307,7 +2307,9 @@
       "previousPage": "Previous page",
       "nextPage": "Next page",
       "showDetails": "Show details for {name}",
-      "hideDetails": "Hide details for {name}"
+      "hideDetails": "Hide details for {name}",
+      "actionsHeader": "Actions",
+      "detailsHeader": "Details"
     },
     "dashboard": {
       "description": "Review queues, brand data, and categorization status requiring action.",
@@ -2334,6 +2336,19 @@
           "title": "Brand Reports",
           "empty": "No pending brand reports."
         }
+      },
+      "operationsOverview": "Operations overview",
+      "operationsOverviewDescription": "Triage the queues that need a decision, then open the workspace that owns the work.",
+      "quickOperations": "Quick operations",
+      "recentJobs": {
+        "title": "Recent data jobs",
+        "description": "The five newest runs, ordered by creation time.",
+        "viewAll": "View all jobs",
+        "empty": "No data jobs yet."
+      },
+      "quickActions": {
+        "enriching": "Starting enrichment…",
+        "enrichNeedsData": "Enrich needs-data submissions"
       }
     },
     "enrichment": {
@@ -2576,7 +2591,9 @@
       "errors": {
         "rejectNotesRequired": "Rejection notes are required.",
         "generic": "Something went wrong. Please try again."
-      }
+      },
+      "title": "Claim Requests",
+      "description": "Review and manage brand ownership claims."
     },
     "submissions": {
       "denialReasons": {
@@ -2806,7 +2823,8 @@
         "url": "URL",
         "remove": "Remove",
         "addLink": "Add link",
-        "mainImage": "Main image"
+        "mainImage": "Main image",
+        "urlPlaceholder": "https://..."
       },
       "placeholders": {
         "description": "Brand description",
@@ -2963,6 +2981,226 @@
           "required": "Choose a trail and a section.",
           "createFirst": "Save the product before placing it on a trail."
         }
+      }
+    },
+    "brands": {
+      "title": "Brands",
+      "description": "Manage all brands in the directory, including MIT verification status.",
+      "tabs": {
+        "all": "All ({count})",
+        "live": "Live ({count})",
+        "hidden": "Hidden ({count})"
+      },
+      "filters": {
+        "searchPlaceholder": "Search brand name...",
+        "allMitStatus": "All MIT status",
+        "allCategories": "All categories"
+      },
+      "mitStatus": {
+        "unverified": "MIT Unverified",
+        "declared": "MIT Self-Declared",
+        "verified": "MIT Smile Certified"
+      },
+      "bulk": {
+        "clearSelection": "Clear selection"
+      },
+      "table": {
+        "brand": "Brand",
+        "status": "Status",
+        "mit": "MIT",
+        "category": "Category",
+        "created": "Created",
+        "lastUpdatedAt": "Last updated at",
+        "actions": "Actions",
+        "details": "Details",
+        "demo": "Demo",
+        "cert": "Cert: {cert}",
+        "empty": "No brands found."
+      },
+      "actions": {
+        "viewInDashboard": "View in Dashboard",
+        "resendClaimInvite": "Resend claim invite",
+        "hide": "Hide",
+        "unhide": "Unhide",
+        "requestReenrichment": "Request re-enrichment",
+        "curatedProducts": "Curated products",
+        "delete": "Delete"
+      },
+      "pagination": {
+        "summary": "Showing {from}–{to} of {total} brands",
+        "perPageLabel": "Brands per page",
+        "perPageOption": "{size} per page",
+        "previousPage": "Previous page",
+        "nextPage": "Next page"
+      },
+      "detail": {
+        "created": "Created {date}"
+      },
+      "refreshDialog": {
+        "title": "Request re-enrichment"
+      },
+      "deleteDialog": {
+        "title": "Delete brand"
+      }
+    },
+    "scripts": {
+      "title": "Scripts",
+      "description": "Run guarded administrative utilities without leaving the dashboard.",
+      "bulkSubmissions": {
+        "title": "Bulk community submissions",
+        "cardDescription": "Bulk create pending community recommendations from brand names and official websites.",
+        "openCta": "Open bulk community submissions",
+        "description": "Preview and import up to {max} brand recommendations. Exact duplicates are blocked; similar matches require an explicit override.",
+        "upload": {
+          "inputLabel": "Upload CSV",
+          "reading": "Reading and checking CSV…",
+          "choose": "Choose a CSV file",
+          "hint": "Rows are checked for duplicates and selected automatically.",
+          "loadedFile": "Loaded: {name}",
+          "maxRows": "Up to {max} rows"
+        },
+        "preview": {
+          "title": "Review import",
+          "summary": "Showing {shown} of {total} rows · {selected} selected. Similar matches require an explicit selection.",
+          "statusFilterLabel": "Status",
+          "allStatuses": "All statuses",
+          "selectAll": "Select all filtered rows",
+          "remove": "Remove",
+          "empty": "No rows match this status."
+        },
+        "table": {
+          "name": "Brand name",
+          "website": "Official website",
+          "status": "Status",
+          "actions": "Actions"
+        },
+        "status": {
+          "ready": "Ready",
+          "similar": "Similar",
+          "duplicate": "Exact duplicate",
+          "invalid": "Invalid",
+          "edited": "Edited",
+          "editedHint": "Rechecks when you leave the field.",
+          "created": "Done",
+          "skipped_duplicate": "Skipped duplicate",
+          "failed": "Failed"
+        }
+      }
+    },
+    "jobs": {
+      "title": "Data Jobs",
+      "description": "Track data enrichment job dispatch, execution progress, and results.",
+      "actions": {
+        "railwayLogs": "Railway Logs",
+        "cancelJob": "Cancel job",
+        "cancelConfirmTitle": "Cancel this job?",
+        "dispatching": "Dispatching…",
+        "queuing": "Queuing…",
+        "resumeFailedTargets": "Resume failed targets",
+        "backToList": "← Back to Data Jobs",
+        "runLog": "Run Log",
+        "downloadHtml": "Download HTML",
+        "snapshot": "Snapshot",
+        "viewDetails": "View details"
+      },
+      "status": {
+        "dispatchFailed": "Dispatch failed",
+        "completedWithFailures": "Completed with failures"
+      },
+      "history": {
+        "empty": "No data jobs yet.",
+        "pagination": "Data jobs pagination",
+        "table": {
+          "created": "Created",
+          "started": "Started",
+          "trigger": "Trigger",
+          "attempt": "Attempt",
+          "status": "Status",
+          "progress": "Progress",
+          "outcome": "Outcome",
+          "duration": "Duration",
+          "actions": "Actions"
+        }
+      },
+      "detail": {
+        "title": "Job Detail",
+        "executionInfo": "Execution Info",
+        "retryLineage": "Retry Lineage",
+        "brandDetails": "Brand Details",
+        "brandDetailsDescription": "Phase results, changed fields, and error summary per brand.",
+        "phaseHelp": "What do phases mean?",
+        "filterLabel": "Filter brands by status",
+        "empty": "No brands match this filter.",
+        "phaseLog": "Phase log",
+        "noPhaseRecords": "No phase records yet.",
+        "table": {
+          "brand": "Brand",
+          "type": "Type",
+          "status": "Status",
+          "currentPhase": "Current Phase",
+          "reason": "Reason",
+          "duration": "Duration",
+          "details": "Details"
+        }
+      },
+      "targetType": {
+        "submission": "Submission",
+        "brand": "Brand"
+      }
+    },
+    "newsletter": {
+      "title": "Newsletter",
+      "unavailable": "Newsletter data is unavailable",
+      "description": "Manage consented subscribers without exposing email action tokens.",
+      "exportCsv": "Export CSV",
+      "pagination": "Newsletter pagination",
+      "filters": {
+        "search": "Search",
+        "searchPlaceholder": "Email or name",
+        "status": "Status",
+        "allStatuses": "All statuses",
+        "active": "Active",
+        "pending": "Pending",
+        "unsubscribed": "Unsubscribed",
+        "interest": "Interest",
+        "allInterests": "All interests",
+        "apply": "Apply filters"
+      },
+      "table": {
+        "subscriber": "Subscriber",
+        "status": "Status",
+        "interests": "Interests",
+        "locale": "Locale",
+        "subscribed": "Subscribed",
+        "actions": "Actions"
+      },
+      "empty": "No subscribers match these filters.",
+      "resendConfirmation": "Resend confirmation",
+      "unsubscribe": "Unsubscribe",
+      "confirmUnsubscribeTitle": "Unsubscribe this address?"
+    },
+    "quality": {
+      "title": "Quality Dashboard",
+      "description": "Track brand data quality for images, links, descriptions, and completeness.",
+      "linkCoverage": "Link Coverage",
+      "completenessDistribution": "Completeness Distribution",
+      "enrichmentQuality": "Enrichment Quality",
+      "promoHeroImages": "Promo hero images",
+      "validationFailures": "Validation failures"
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "Control operator-managed product settings.",
+      "featureToggles": "Feature Toggles"
+    },
+    "common": {
+      "navLabel": "Admin main navigation",
+      "cancel": "Cancel",
+      "processing": "Processing…",
+      "error": {
+        "title": "Something went wrong",
+        "description": "An unexpected error occurred while loading this admin page. Please try again.",
+        "retry": "Try again"
       }
     }
   },
