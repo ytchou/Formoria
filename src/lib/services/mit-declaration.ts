@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { auditedCall } from '@/lib/audit'
+import type { MitStatus } from '@/lib/types'
 
 export type MitDeclarationScope = 'all' | 'most' | 'some'
 
@@ -8,9 +9,8 @@ export type MitDeclarationResult =
   | { ok: false; code: string }
 
 type QueryError = { message?: string }
-type BrandStatus = 'unverified' | 'declared' | 'verified'
 type BrandDeclarationPatch = {
-  mit_status: BrandStatus
+  mit_status: MitStatus
   mit_declared_scope: MitDeclarationScope | null
   mit_declared_at: string | null
   mit_declared_by: string | null
@@ -18,7 +18,7 @@ type BrandDeclarationPatch = {
 
 type UpdateQuery = {
   eq: (column: 'id' | 'mit_status', value: string) => UpdateQuery
-  in: (column: 'mit_status', values: BrandStatus[]) => UpdateQuery
+  in: (column: 'mit_status', values: MitStatus[]) => UpdateQuery
   select: (columns: 'id') => {
     maybeSingle: () => Promise<{
       data: { id: string } | null
@@ -30,7 +30,7 @@ type UpdateQuery = {
 type SelectQuery = {
   eq: (column: 'id', value: string) => {
     maybeSingle: () => Promise<{
-      data: { mit_status: BrandStatus } | null
+      data: { mit_status: MitStatus } | null
       error: QueryError | null
     }>
   }

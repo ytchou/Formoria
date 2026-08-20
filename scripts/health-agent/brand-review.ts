@@ -1,3 +1,5 @@
+import type { MitStatus } from "@/lib/types";
+
 import {
   stableFingerprint,
   type HealthFinding,
@@ -17,7 +19,7 @@ export interface RecentBrandEdit {
   readonly name: string;
   readonly description: string | null;
   readonly descriptionEn: string | null;
-  readonly mitStatus: "unverified" | "declared" | "verified" | null;
+  readonly mitStatus: MitStatus | null;
   readonly mitDeclaredScope: "all" | "most" | "some" | null;
   readonly mitDeclaredAt: string | null;
   readonly mitVerifiedAt: string | null;
@@ -37,7 +39,13 @@ export interface BrandReviewSnapshot {
   readonly nowIso: string;
 }
 
-function compareText(left: string, right: string): number {
+/**
+ * Locale-independent string ordering for finding sorts. Exported because
+ * `trail-supply.ts` sorts its findings by fingerprint the same way, and a
+ * second inline copy of this three-line comparator is how two detectors drift
+ * into two different orderings.
+ */
+export function compareText(left: string, right: string): number {
   if (left < right) return -1;
   if (left > right) return 1;
   return 0;

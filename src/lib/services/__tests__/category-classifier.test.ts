@@ -199,7 +199,7 @@ describe("detectBrandsBatch", () => {
                   slug: `brand-${i}`,
                   isNonBrand: false,
                   slug_generated: `brand-${i}`,
-                  category: "crafts",
+                  category: "home",
                   confidence: "medium",
                 })),
               ),

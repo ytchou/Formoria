@@ -1067,9 +1067,9 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
         name: `[TEST] Refresh subcategory pair ${testSubmissionId}`,
         slug: `test-refresh-subcategory-pair-${testSubmissionId}`,
         status: 'hidden',
-        category: 'crafts',
-        subcategories: ['木工'],
-        subcategories_en: ['Woodwork'],
+        category: 'home',
+        subcategories: ['家具'],
+        subcategories_en: ['Furniture'],
       })
       .select('id')
       .single()
@@ -1086,9 +1086,9 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
         intent: 'refresh',
         brand_id: testRefreshBrandId,
         base_brand_data: {
-          category: 'crafts',
-          subcategories: ['木工'],
-          subcategories_en: ['Woodwork'],
+          category: 'home',
+          subcategories: ['家具'],
+          subcategories_en: ['Furniture'],
         },
         base_brand_updated_at: new Date().toISOString(),
       })

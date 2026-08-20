@@ -35,13 +35,13 @@ describe("GET /llms.txt", () => {
     }
   });
 
-  it("publishes a non-empty description for every one of the 13 categories", async () => {
+  it("publishes a non-empty description for every one of the 12 categories", async () => {
     const body = await (await GET()).text();
 
     // `formatLlmsTxt` *omits* a missing description rather than printing
     // "undefined", so a scan for a sentinel would pass while silently dropping
     // copy. Assert the description text is present instead.
-    expect(L1_CATEGORIES).toHaveLength(13);
+    expect(L1_CATEGORIES).toHaveLength(12);
 
     for (const category of L1_CATEGORIES) {
       const description =

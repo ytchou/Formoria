@@ -200,4 +200,31 @@ describe('retired L1 taxonomy redirects', () => {
       permanent: true,
     })
   })
+
+  it('crafts_redirects_to_brands', async () => {
+    const rules = await configuredRedirects()
+
+    // `crafts` was dissolved rather than merged (DEV-1507): its L2s scattered
+    // across `home`, `jewelry`, `bags-accessories` and `stationery`, so no
+    // single L1 is the successor and the directory root is the closest
+    // surviving intent — the same shape as `kids-pets` and `others`.
+    expect(ruleFor(rules, '/categories/crafts')).toMatchObject({
+      destination: '/brands',
+      permanent: true,
+    })
+    expect(ruleFor(rules, '/en/categories/crafts')).toMatchObject({
+      destination: '/en/brands',
+      permanent: true,
+    })
+    expect(ruleFor(rules, '/zh-TW/categories/crafts')).toMatchObject({
+      destination: '/brands',
+      permanent: true,
+    })
+
+    // Nothing may hop through the dissolved parent on the way somewhere else.
+    const chained = rules
+      .filter(rule => rule.destination.endsWith('/categories/crafts'))
+      .map(rule => `${rule.source} -> ${rule.destination}`)
+    expect(chained).toEqual([])
+  })
 })

@@ -39,7 +39,7 @@ describe("image-eval capture recovery", () => {
     expect(
       buildCaptureQueries({
         name: "稜光 AURA",
-        categorySlug: "crafts",
+        categorySlug: "home",
         purchaseWebsite: "https://www.aura-craft.com/shop",
       }).at(-1),
     ).toBe("site:aura-craft.com AURA");

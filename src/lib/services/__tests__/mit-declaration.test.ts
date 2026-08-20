@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { MitStatus } from '@/lib/types'
 import {
   declareMit,
   withdrawDeclaration,
@@ -7,7 +8,7 @@ import {
 
 type BrandRow = {
   id: string
-  mit_status: 'unverified' | 'declared' | 'verified'
+  mit_status: MitStatus
   mit_declared_scope: 'all' | 'most' | 'some' | null
   mit_declared_at: string | null
   mit_declared_by: string | null

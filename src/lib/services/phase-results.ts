@@ -1,11 +1,11 @@
 import type { Json } from "@/lib/supabase/database.types";
-import type { PhaseResult, PhaseStatus } from "@/lib/types/curation";
+import type { PhaseResult, PhaseResultStatus } from "@/lib/types/curation";
 
 const PHASE_STATUSES: readonly string[] = [
   "succeeded",
   "skipped",
   "failed",
-] satisfies readonly PhaseStatus[];
+] satisfies readonly PhaseResultStatus[];
 
 /**
  * Single reader for `curation_job_targets.phase_results`.
@@ -37,7 +37,7 @@ export function parsePhaseResults(value: Json): PhaseResult[] {
     return [
       {
         phase: item.phase,
-        status: item.status as PhaseStatus,
+        status: item.status as PhaseResultStatus,
         changedFields: Array.isArray(item.changedFields)
           ? item.changedFields.filter(
               (field): field is string => typeof field === "string",

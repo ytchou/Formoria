@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 import { getBrands, toAdminListContract } from '@/lib/services/brands'
 import { getApprovedOwnerSubmissionRecipients } from '@/lib/services/submissions'
 import { BrandList } from '@/components/admin/brand-list'
@@ -21,6 +22,7 @@ function first(value: string | string[] | undefined): string | undefined {
 }
 
 export default async function BrandsPage({ searchParams }: BrandsPageProps) {
+  const t = await getTranslations('admin.brands')
   // Admin table renders brand.mitEvidence, which the narrow directory
   // projection omits — opt back into the full column list here.
   const { brands: internalBrands } = await getBrands({
@@ -48,10 +50,10 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
   return (
     <div>
       <h1 className="type-label">
-        Brands
+        {t('title')}
       </h1>
       <p className="mt-2 type-body-sm">
-        Manage all brands in the directory, including MIT verification status.
+        {t('description')}
       </p>
 
       <div className="mt-8">

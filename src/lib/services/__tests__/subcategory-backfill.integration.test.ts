@@ -276,7 +276,7 @@ describeWithDb("DEV-1510 subcategory slug backfill", () => {
 
     // A recorded removal is the opposite outcome and must NOT raise: it is
     // dropped silently BECAUSE the drop is recorded.
-    expect(await labelsToSlugs(["客製化禮品", "陶藝"])).toEqual(["ceramics"]);
+    expect(await labelsToSlugs(["客製化禮品", "餐具"])).toEqual(["tableware"]);
   });
 
   it("exactly_three_brands_reach_zero_unintentionally", async () => {
@@ -340,9 +340,9 @@ describeWithDb("DEV-1510 subcategory slug backfill", () => {
       {
         p_value: {
           name: "陶作坊",
-          categorySlug: "crafts",
-          subcategories: ["陶藝", "客製化禮品", "手工皮件"],
-          subcategoriesEn: ["Ceramics", "Custom Gifts", "Leather Craft"],
+          categorySlug: "home",
+          subcategories: ["餐具", "客製化禮品", "收納用品"],
+          subcategoriesEn: ["Tableware", "Custom Gifts", "Storage"],
           priceRange: 2,
         },
       },
@@ -351,11 +351,11 @@ describeWithDb("DEV-1510 subcategory slug backfill", () => {
     expect(data).toEqual({
       name: "陶作坊",
       // Already the storage representation — read, never rewritten.
-      categorySlug: "crafts",
-      subcategories: ["ceramics", "leather-craft"],
+      categorySlug: "home",
+      subcategories: ["tableware", "storage"],
       // Re-DERIVED from the surviving slugs, not translated from the labels:
       // the evicted entry has to leave both arrays or they desynchronise.
-      subcategoriesEn: ["Ceramics", "Leather Craft"],
+      subcategoriesEn: ["Tableware", "Storage"],
       priceRange: 2,
     });
 
@@ -363,16 +363,16 @@ describeWithDb("DEV-1510 subcategory slug backfill", () => {
     // same path through the same function.
     const snake = await untypedSupabase!.rpc("subcategory_json_to_slugs", {
       p_value: {
-        category: "crafts",
-        subcategories: ["陶藝"],
-        subcategories_en: ["Ceramics"],
+        category: "home",
+        subcategories: ["餐具"],
+        subcategories_en: ["Tableware"],
       },
     });
     expect(snake.error).toBeNull();
     expect(snake.data).toEqual({
-      category: "crafts",
-      subcategories: ["ceramics"],
-      subcategories_en: ["Ceramics"],
+      category: "home",
+      subcategories: ["tableware"],
+      subcategories_en: ["Tableware"],
     });
   });
 
@@ -450,9 +450,9 @@ describeWithDb("DEV-1510 subcategory slug backfill", () => {
           name: `DEV-1510 pre-deploy ${suffix}`,
           slug: `dev-1510-pre-deploy-${suffix}`,
           description: "遷移前建立的送件，遷移後才被核准。",
-          category: "crafts",
-          subcategories: ["陶藝", "手工皮件", "客製化禮品"],
-          subcategories_en: ["Ceramics", "Leather Craft", "Custom Gifts"],
+          category: "home",
+          subcategories: ["餐具", "收納用品", "客製化禮品"],
+          subcategories_en: ["Tableware", "Storage", "Custom Gifts"],
           price_range: 2,
           purchase_website: `https://pre-deploy-${suffix}.example.com`,
           is_demo: true,
@@ -473,8 +473,8 @@ describeWithDb("DEV-1510 subcategory slug backfill", () => {
       .eq("id", approvedBrandId!)
       .single();
     expect(brandError).toBeNull();
-    expect(brand?.subcategories).toEqual(["ceramics", "leather-craft"]);
-    expect(brand?.subcategories_en).toEqual(["Ceramics", "Leather Craft"]);
+    expect(brand?.subcategories).toEqual(["tableware", "storage"]);
+    expect(brand?.subcategories_en).toEqual(["Tableware", "Storage"]);
   });
 
   it("ai_results_converts_only_latest_per_brand_per_phase", async () => {
@@ -511,7 +511,7 @@ begin
     'dev-1510-site6-rehearsal-' || replace(v_brand::text, '-', ''),
     'hidden',
     true,
-    'crafts'
+    'home'
   );
 
   -- Two phases for one brand, and inside 'descriptions' two rows sharing a
@@ -520,30 +520,30 @@ begin
   -- that can tell the id tiebreak from no tiebreak at all.
   insert into public.brand_ai_results (id, brand_id, phase, model, created_at, subcategories)
   values
-    (v_facts_old, v_brand, 'facts', 'dev-1510-fixture', '2026-08-01T00:00:00Z', array['陶藝']),
-    (v_facts_new, v_brand, 'facts', 'dev-1510-fixture', '2026-08-02T00:00:00Z', array['陶藝']),
-    (v_tie_low,   v_brand, 'descriptions', 'dev-1510-fixture', '2026-08-01T00:00:00Z', array['陶藝']),
-    (v_tie_high,  v_brand, 'descriptions', 'dev-1510-fixture', '2026-08-01T00:00:00Z', array['陶藝']);
+    (v_facts_old, v_brand, 'facts', 'dev-1510-fixture', '2026-08-01T00:00:00Z', array['餐具']),
+    (v_facts_new, v_brand, 'facts', 'dev-1510-fixture', '2026-08-02T00:00:00Z', array['餐具']),
+    (v_tie_low,   v_brand, 'descriptions', 'dev-1510-fixture', '2026-08-01T00:00:00Z', array['餐具']),
+    (v_tie_high,  v_brand, 'descriptions', 'dev-1510-fixture', '2026-08-01T00:00:00Z', array['餐具']);
 
   ${statement}
 
   select subcategories into v_got from public.brand_ai_results where id = v_facts_new;
-  if v_got is distinct from array['ceramics'] then
+  if v_got is distinct from array['tableware'] then
     raise exception 'latest facts row was not converted: %', v_got;
   end if;
 
   select subcategories into v_got from public.brand_ai_results where id = v_facts_old;
-  if v_got is distinct from array['陶藝'] then
+  if v_got is distinct from array['餐具'] then
     raise exception 'history facts row was rewritten: %', v_got;
   end if;
 
   select subcategories into v_got from public.brand_ai_results where id = v_tie_high;
-  if v_got is distinct from array['ceramics'] then
+  if v_got is distinct from array['tableware'] then
     raise exception 'id tiebreak did not pick the higher id: %', v_got;
   end if;
 
   select subcategories into v_got from public.brand_ai_results where id = v_tie_low;
-  if v_got is distinct from array['陶藝'] then
+  if v_got is distinct from array['餐具'] then
     raise exception 'id tiebreak also converted the lower id: %', v_got;
   end if;
 

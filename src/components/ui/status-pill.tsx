@@ -2,6 +2,15 @@
 
 import { cn } from '@/lib/utils'
 
+/**
+ * Deliberately not folded into `Badge`, despite four variant names overlapping
+ * (DEV-1527). They are different affordances: this is a coloured dot beside
+ * plain label text, `Badge` is a filled pill with a background, a border and a
+ * fixed height. The shared names also resolve to different tokens — `declared`
+ * is `text-mit-verified` here and `bg-secondary text-muted-foreground` there —
+ * so a merge would be a visual change, not a refactor. Reconcile the palettes
+ * first if these should ever converge.
+ */
 type StatusPillVariant = 'verified' | 'declared' | 'unverified' | 'pending'
 
 const variants: Record<StatusPillVariant, { dot: string; text: string }> = {

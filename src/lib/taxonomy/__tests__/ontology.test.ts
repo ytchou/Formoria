@@ -19,8 +19,8 @@ import {
 import corpusLabels from './fixtures/corpus-labels.json'
 
 describe('L1_CATEGORIES', () => {
-  it('has exactly 13 entries', () => {
-    expect(L1_CATEGORIES).toHaveLength(13)
+  it('has exactly 12 entries', () => {
+    expect(L1_CATEGORIES).toHaveLength(12)
   })
 
   it('each entry has slug, name, nameZh, tint', () => {
@@ -40,7 +40,6 @@ describe('L1_CATEGORIES', () => {
     expect(slugs).toContain('beauty')
     expect(slugs).toContain('home')
     expect(slugs).toContain('food-drink')
-    expect(slugs).toContain('crafts')
     expect(slugs).toContain('stationery')
     expect(slugs).toContain('tech')
     expect(slugs).toContain('outdoor')
@@ -155,7 +154,10 @@ describe('L2_SUBCATEGORIES', () => {
       'tea-drinks': { nameZh: '茶飲', category: 'food-drink', aliases: ['冷泡茶'] },
       toys: { nameZh: '玩具', category: 'kids', aliases: ['布偶', '益智玩具'] },
       'learning-aids': { nameZh: '教具', category: 'kids', aliases: [] },
-      'floral-arrangements': { nameZh: '花藝', category: 'home', aliases: [] },
+      // DEV-1507 folded `dried-flowers-and-floral-design` in here, so the pin
+      // now carries its four spellings. Exactness is the point: the absorbed
+      // aliases must land on this node and nowhere else.
+      'floral-arrangements': { nameZh: '花藝', category: 'home', aliases: ['乾燥花花藝設計', '乾燥花', '花藝設計', '永生花'] },
       plants: { nameZh: '植栽', category: 'home', aliases: ['盆栽', '多肉園藝'] },
       towels: { nameZh: '毛巾', category: 'home', aliases: ['浴巾'] },
       'home-textiles': { nameZh: '居家織品', category: 'home', aliases: ['抱枕', '毯', '毛毯'] },
@@ -326,9 +328,9 @@ const NEW_NODES_2026_08_19: Record<string, string> = {
 }
 
 describe('DEV-1510 closed vocabulary', () => {
-  it('l2_count_is_175_across_13_l1s', () => {
-    expect(L2_SUBCATEGORIES).toHaveLength(175)
-    expect(L1_CATEGORIES).toHaveLength(13)
+  it('l2_count_is_164_across_12_l1s', () => {
+    expect(L2_SUBCATEGORIES).toHaveLength(164)
+    expect(L1_CATEGORIES).toHaveLength(12)
 
     // The header comment's per-L1 counts drifted before (22/22/19/16 against an
     // actual 25/25/20/17), so assert the shape the comment claims.
@@ -339,9 +341,8 @@ describe('DEV-1510 closed vocabulary', () => {
       'bags-accessories': 27,
       jewelry: 8,
       beauty: 14,
-      home: 27,
+      home: 28,
       'food-drink': 20,
-      crafts: 12,
       stationery: 12,
       tech: 11,
       outdoor: 6,
@@ -349,10 +350,6 @@ describe('DEV-1510 closed vocabulary', () => {
       kids: 10,
       pets: 7,
     })
-
-    // DEV-1507 retires crafts' 12 L2s and relocates illustration-and-art to
-    // home as wall-art: 175 - 12 + 1 == 164, the end state that decision names.
-    expect(L2_SUBCATEGORIES.length - 12 + 1).toBe(164)
   })
 
   it('kids_and_pets_are_separate_l1s', () => {
@@ -372,16 +369,53 @@ describe('DEV-1510 closed vocabulary', () => {
     }
   })
 
-  it('crafts_remains_live_with_12_l2s', () => {
-    expect(L1_CATEGORIES.map(category => category.slug)).toContain('crafts')
-    expect(L2_SUBCATEGORIES.filter(sub => sub.category === 'crafts')).toHaveLength(12)
+  it('crafts_is_retired', () => {
+    // 工藝 named a technique, not a product kind, so the L1 and the ten
+    // technique nodes under it leave together (DEV-1507). The material axis
+    // already carries what the object is made of.
+    expect(L1_CATEGORIES.map(category => category.slug)).not.toContain('crafts')
+    expect(L2_SUBCATEGORIES.filter(sub => (sub.category as string) === 'crafts')).toHaveLength(0)
 
-    // DEV-1507 retires crafts, not this ticket. e2e seeds hardcode
-    // `category: 'crafts'` across 19 files and two published stories carry the
-    // tag, so removing it here fails CI rather than shipping the split.
-    for (const slug of ['ceramics', 'woodcraft', 'metalwork', 'natural-dyeing', 'illustration-and-art']) {
-      expect(subcategoryBySlug(slug)?.category, `${slug} must still be crafts`).toBe('crafts')
+    for (const slug of [
+      'ceramics',
+      'woodcraft',
+      'metalwork',
+      'bamboo-craft',
+      'glass-art',
+      'natural-dyeing',
+      'leather-craft',
+      'embroidery',
+      'needle-felting',
+      'weaving-and-crochet',
+      'illustration-and-art',
+      'dried-flowers-and-floral-design',
+    ]) {
+      expect(subcategoryBySlug(slug), `${slug} must be gone`).toBeNull()
     }
+  })
+
+  it('wall_art_inherits_the_illustration_aliases', () => {
+    // 插畫・畫作 carries 53 recorded tag-uses — the largest single label in the
+    // retired bucket — so the relocation has to keep every spelling resolving.
+    expect(matchSubcategory('插畫・畫作')?.slug).toBe('wall-art')
+    expect(subcategoryBySlug('wall-art')).toMatchObject({
+      nameZh: '掛畫・畫作',
+      category: 'home',
+      aliases: ['插畫畫作', '插畫', '畫作', '水彩', '版畫', '無框畫'],
+    })
+
+    // Still distinct from home-decor's 裝飾畫: an ornament is not a hung picture.
+    expect(matchSubcategory('裝飾畫')?.slug).toBe('home-decor')
+  })
+
+  it('floral_arrangements_absorbs_the_dried_flower_spellings', () => {
+    // A dried bouquet is a kind of 花藝, so the node folds in rather than dying
+    // with the L1 that happened to hold it.
+    expect(matchSubcategory('乾燥花・花藝設計')?.slug).toBe('floral-arrangements')
+    for (const spelling of ['乾燥花花藝設計', '乾燥花', '花藝設計', '永生花']) {
+      expect(matchSubcategory(spelling)?.slug, spelling).toBe('floral-arrangements')
+    }
+    expect(subcategoryBySlug('floral-arrangements')?.category).toBe('home')
   })
 
   it('materials_vocabulary_is_the_twelve_agreed_slugs', () => {
@@ -443,11 +477,11 @@ describe('DEV-1510 closed vocabulary', () => {
     // an L2 slug, or a material zh-TW label spelled like an L2 slug, would make
     // a `?material=` value and a `?sub=` value ambiguous.
     //
-    // Labels may overlap, and one deliberately does: 陶瓷 is `MATERIALS[0].nameZh`
-    // and also an alias of the L2 `ceramics` (whose own name is 陶瓷・陶藝, not
-    // bare 陶瓷). That is benign. The two axes are separate URL params, and
-    // `material` resolves by slug only — `?material=陶瓷` is dropped, never read
-    // as the L2 the alias belongs to.
+    // Labels are allowed to overlap and the rule does not depend on whether any
+    // currently do: 陶瓷 is `MATERIALS[0].nameZh` and was an L2 alias until
+    // DEV-1507 retired the node that held it. Either way it is benign — the two
+    // axes are separate URL params, and `material` resolves by slug only, so
+    // `?material=陶瓷` is dropped rather than read as an L2.
     const l2Slugs = new Set(L2_SUBCATEGORIES.map(sub => sub.slug))
     for (const material of MATERIALS) {
       expect(l2Slugs.has(material.slug), `${material.slug} is also an L2 slug`).toBe(false)

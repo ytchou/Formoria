@@ -149,12 +149,9 @@ export default async function AdminPage() {
             id="operations-overview-heading"
             className="type-label"
           >
-            Operations overview
+            {t("operationsOverview")}
           </h2>
-          <p className="mt-1 type-body-sm">
-            Triage the queues that need a decision, then open the workspace that
-            owns the work.
-          </p>
+          <p className="mt-1 type-body-sm">{t("operationsOverviewDescription")}</p>
         </div>
         <div className="grid overflow-hidden rounded-[3px] border-l border-t border-rule sm:grid-cols-2 xl:grid-cols-5">
           {dashboardMetrics.map((metric) => {
@@ -195,7 +192,7 @@ export default async function AdminPage() {
       >
         <div className="mb-4">
           <h2 id="quick-operations-heading" className="type-label">
-            Quick operations
+            {t("quickOperations")}
           </h2>
         </div>
         <AdminQuickActions needsDataCount={snapshot.metrics.needsData} />
@@ -208,23 +205,21 @@ export default async function AdminPage() {
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
             <h2 id="recent-jobs-heading" className="type-label">
-              Recent data jobs
+              {t("recentJobs.title")}
             </h2>
-            <p className="mt-1 type-body-sm">
-              The five newest runs, ordered by creation time.
-            </p>
+            <p className="mt-1 type-body-sm">{t("recentJobs.description")}</p>
           </div>
           <Link
             href={routes.admin.jobs()}
             className="inline-flex min-h-12 items-center text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
-            View all jobs
+            {t("recentJobs.viewAll")}
           </Link>
         </div>
         <div className="divide-y divide-rule border-y border-rule">
           {snapshot.recentJobs.length === 0 ? (
             <p className="py-8 text-center text-ink-muted">
-              No data jobs yet.
+              {t("recentJobs.empty")}
             </p>
           ) : (
             snapshot.recentJobs.map((job) => (

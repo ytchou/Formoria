@@ -83,8 +83,12 @@ test.describe('Content moderation flow', () => {
         romanized_name: `E2E Moderation Flow ${timestamp}`,
         status: 'approved',
         approved_at: new Date().toISOString(),
-        category: 'crafts',
-        subcategories: ['木工'],
+        category: 'home',
+        // Slug, not the zh-TW label: this writes straight into `brands`, so it
+        // bypasses every conversion path. `brands.subcategories` has no CHECK
+        // constraint, so a label would insert cleanly and then match no facet,
+        // no L2 page and no `?sub=`. `餐具` is a `tableware` alias.
+        subcategories: ['tableware'],
         price_range: 2,
         founding_year: 2020,
         description: cleanDescription,
@@ -143,7 +147,7 @@ test.describe('Content moderation flow', () => {
     await expect(ownerPage.locator('#name')).toHaveValue(brandName, {
       timeout: BUDGET.GATED_UI,
     });
-    await expect(ownerPage.locator('#categorySlug')).toHaveValue('crafts', {
+    await expect(ownerPage.locator('#categorySlug')).toHaveValue('home', {
       timeout: BUDGET.GATED_UI,
     });
     await expect(ownerPage.locator('#priceRange')).toHaveValue('2', {

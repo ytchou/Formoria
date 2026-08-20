@@ -235,6 +235,25 @@ const nextConfig: NextConfig = {
         destination: "/brands",
         permanent: true,
       },
+      // `crafts` was dissolved, not merged (DEV-1507): its L2s scattered across
+      // `home`, `jewelry`, `bags-accessories` and `stationery`, so no single L1
+      // is the successor and RETIRED_CATEGORY_SLUGS — whose every `to` must be
+      // a live L1 — cannot express it. Same shape as `kids-pets` above.
+      {
+        source: "/categories/crafts",
+        destination: "/brands",
+        permanent: true,
+      },
+      {
+        source: "/en/categories/crafts",
+        destination: "/en/brands",
+        permanent: true,
+      },
+      {
+        source: "/zh-TW/categories/crafts",
+        destination: "/brands",
+        permanent: true,
+      },
       {
         source: "/about-us",
         destination: "/about",

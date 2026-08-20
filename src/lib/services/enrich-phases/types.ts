@@ -4,7 +4,7 @@ import type { BrandFlatLinkColumns } from '@/lib/types'
 import type {
   CurationConfig,
   PhaseResult,
-  PhaseStatus,
+  PhaseResultStatus,
 } from '@/lib/types/curation'
 import type { SiteContent } from '@/lib/types/brand'
 import type { Database } from '@/lib/supabase/database.types'
@@ -153,7 +153,7 @@ export async function timePhase<T>(
 
 export function buildPhaseResult(
   phase: string,
-  status: PhaseStatus,
+  status: PhaseResultStatus,
   changedFields: string[],
   durationMs: number,
   error?: string,

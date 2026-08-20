@@ -1567,3 +1567,44 @@ export async function getCuratedProductTrailSlugs(
   const rows = (data as unknown as { trail_slug: string }[] | null) ?? [];
   return [...new Set(rows.map((row) => row.trail_slug))];
 }
+
+/**
+ * The trail slugs a BRAND-level write must revalidate.
+ *
+ * Hiding or unhiding a brand adds or removes every one of its products from
+ * the trails they are selected into, and `revalidatePublicBrands` does not
+ * reach `/discover/[slug]` (see `public-brand-cache.ts`) — so without this a
+ * trail keeps serving tiles for a hidden brand, or keeps omitting a restored
+ * one, for up to the ISR hour.
+ *
+ * `curated_product_selections` carries no `brand_id`, so the brand is applied
+ * through the inner-joined parent row. `state` is selected as well as filtered
+ * because a retired selection must never contribute a target even if the
+ * filter is ever dropped from the query.
+ *
+ * THROWS on any read failure, schema lag included, exactly like its sibling
+ * `getCuratedProductTrailSlugs` above. Tolerating a missing column is the
+ * caller's decision and one layer owns it: `brandTrailSlugsForRevalidation` in
+ * `src/app/admin/actions.ts` already wraps this in `.catch(() => [])`, so an
+ * admin write that already succeeded still costs a stale cache entry rather
+ * than a failed action — while a caller that cannot afford a silent `[]` can
+ * still see the failure.
+ */
+export async function getBrandTrailSlugs(
+  brandId: string,
+  client?: CuratedProductSupabase,
+): Promise<string[]> {
+  const { data, error } = await curatedProductClient(client)
+    .from("curated_product_selections")
+    .select("trail_slug, state, curated_products!inner(brand_id)")
+    .eq("curated_products.brand_id", brandId)
+    .eq("state", "active");
+  if (error) throw error;
+  const rows =
+    (data as unknown as { trail_slug: string; state: string }[] | null) ?? [];
+  return [
+    ...new Set(
+      rows.filter((row) => row.state === "active").map((row) => row.trail_slug),
+    ),
+  ];
+}

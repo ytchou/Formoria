@@ -10,6 +10,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import type { BrandStatus } from "@/lib/types";
 import type { AdminBrandListItem } from "@/lib/brands/contracts";
 import type { SubmissionReviewImage } from "@/lib/services/submissions";
@@ -60,20 +61,16 @@ type TabValue = "all" | BrandStatus;
 type MitStatus = NonNullable<AdminBrandListItem["mitStatus"]>;
 const PAGE_SIZES = [10, 25, 50] as const;
 
-const MIT_STATUS_CONFIG: Record<
-  MitStatus,
-  { label: string; className: string }
-> = {
+// Labels live in `admin.brands.mitStatus.*` and are looked up by status inside
+// `MitStatusBadge`: this map is module scope, where `t()` cannot be called.
+const MIT_STATUS_CONFIG: Record<MitStatus, { className: string }> = {
   unverified: {
-    label: "MIT Unverified",
     className: "bg-surface text-ink-muted",
   },
   declared: {
-    label: "品牌聲明",
     className: "bg-surface text-ink-muted",
   },
   verified: {
-    label: "MIT Smile Certified",
     className: "bg-verified-green-bg text-verified-green",
   },
 };
@@ -93,6 +90,7 @@ function canGenerateProducts(brand: AdminBrandListItem): boolean {
 }
 
 function MitStatusBadge({ status }: { status: MitStatus }) {
+  const t = useTranslations("admin.brands");
   const config = MIT_STATUS_CONFIG[status];
 
   return (
@@ -102,7 +100,7 @@ function MitStatusBadge({ status }: { status: MitStatus }) {
         config.className,
       )}
     >
-      {config.label}
+      {t(`mitStatus.${status}`)}
     </span>
   );
 }
@@ -122,6 +120,7 @@ export function BrandList({
   initialSearchQuery?: string;
   initialTab?: TabValue;
 }) {
+  const t = useTranslations("admin.brands");
   const [activeTab, setActiveTab] = useState<TabValue>(initialTab);
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [mitFilter, setMitFilter] = useState<"all" | MitStatus>("all");
@@ -360,12 +359,18 @@ export function BrandList({
         }}
       >
         <TabsList>
-          <TabsTrigger value="all">All ({brands.length})</TabsTrigger>
+          <TabsTrigger value="all">
+            {t("tabs.all", { count: brands.length })}
+          </TabsTrigger>
           <TabsTrigger value="approved">
-            Live ({brands.filter((b) => b.status === "approved").length})
+            {t("tabs.live", {
+              count: brands.filter((b) => b.status === "approved").length,
+            })}
           </TabsTrigger>
           <TabsTrigger value="hidden">
-            Hidden ({brands.filter((b) => b.status === "hidden").length})
+            {t("tabs.hidden", {
+              count: brands.filter((b) => b.status === "hidden").length,
+            })}
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -390,7 +395,7 @@ export function BrandList({
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Input
-          placeholder="Search brand name..."
+          placeholder={t("filters.searchPlaceholder")}
           value={searchQuery}
           onChange={(e) => {
             setSearchQuery(e.target.value);
@@ -406,9 +411,9 @@ export function BrandList({
           }}
           className="w-fit"
         >
-          <option value="all">All MIT status</option>
-          <option value="unverified">MIT Unverified</option>
-          <option value="verified">MIT Smile Certified</option>
+          <option value="all">{t("filters.allMitStatus")}</option>
+          <option value="unverified">{t("mitStatus.unverified")}</option>
+          <option value="verified">{t("mitStatus.verified")}</option>
         </NativeSelect>
         <NativeSelect
           value={categoryFilter}
@@ -418,7 +423,7 @@ export function BrandList({
           }}
           className="w-fit"
         >
-          <option value="all">All categories</option>
+          <option value="all">{t("filters.allCategories")}</option>
           {categories.map((cat) => (
             <option key={cat} value={cat}>
               {cat}
@@ -466,7 +471,7 @@ export function BrandList({
             disabled={isPending}
             onClick={() => setProductBackfillIds(new Set())}
           >
-            Clear selection
+            {t("bulk.clearSelection")}
           </Button>
         </div>
       )}
@@ -494,17 +499,17 @@ export function BrandList({
                   />
                 </Label>
               </TableHead>
-              <TableHead>Brand</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>MIT</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Last updated at</TableHead>
+              <TableHead>{t("table.brand")}</TableHead>
+              <TableHead>{t("table.status")}</TableHead>
+              <TableHead>{t("table.mit")}</TableHead>
+              <TableHead>{t("table.category")}</TableHead>
+              <TableHead>{t("table.created")}</TableHead>
+              <TableHead>{t("table.lastUpdatedAt")}</TableHead>
               <TableHead className="min-w-[300px] text-right">
-                Actions
+                {t("table.actions")}
               </TableHead>
               <TableHead className="w-12">
-                <span className="sr-only">Details</span>
+                <span className="sr-only">{t("table.details")}</span>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -556,7 +561,7 @@ export function BrandList({
                           statusStyles.demoBadge,
                         )}
                       >
-                        Demo
+                        {t("table.demo")}
                       </span>
                     )}
                   </TableCell>
@@ -568,7 +573,9 @@ export function BrandList({
                       <MitStatusBadge status={getMitStatus(brand)} />
                       {brand.mitEvidence?.mit_smile_cert && (
                         <p className="type-metadata">
-                          Cert: {brand.mitEvidence.mit_smile_cert}
+                          {t("table.cert", {
+                            cert: brand.mitEvidence.mit_smile_cert,
+                          })}
                         </p>
                       )}
                     </div>
@@ -585,7 +592,7 @@ export function BrandList({
                           size: "compact",
                         })}
                       >
-                        View in Dashboard
+                        {t("actions.viewInDashboard")}
                       </Link>
                       {claimInviteBrandIdSet.has(brand.id) && (
                         <Button
@@ -595,7 +602,7 @@ export function BrandList({
                           disabled={isPending}
                         >
                           <MailCheck className="size-4" aria-hidden />
-                          Resend claim invite
+                          {t("actions.resendClaimInvite")}
                         </Button>
                       )}
                       {brand.status === "approved" && (
@@ -605,7 +612,7 @@ export function BrandList({
                           onClick={() => handleHide(brand)}
                           disabled={isPending}
                         >
-                          Hide
+                          {t("actions.hide")}
                         </Button>
                       )}
                       {brand.status === "hidden" && (
@@ -615,7 +622,7 @@ export function BrandList({
                           onClick={() => handleUnhide(brand)}
                           disabled={isPending}
                         >
-                          Unhide
+                          {t("actions.unhide")}
                         </Button>
                       )}
                       {(brand.status === "approved" ||
@@ -640,7 +647,7 @@ export function BrandList({
                               className="text-ink hover:bg-surface focus:bg-surface"
                               onClick={() => setRefreshingBrandId(brand.id)}
                             >
-                              Request re-enrichment
+                              {t("actions.requestReenrichment")}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -655,7 +662,7 @@ export function BrandList({
                             size: "compact",
                           })}
                         >
-                          Curated products
+                          {t("actions.curatedProducts")}
                         </Link>
                       )}
                       <Button
@@ -664,7 +671,7 @@ export function BrandList({
                         className="text-danger hover:text-danger"
                         onClick={() => setDeletingBrandId(brand.id)}
                       >
-                        Delete
+                        {t("actions.delete")}
                       </Button>
                     </div>
                   </TableCell>
@@ -695,7 +702,7 @@ export function BrandList({
                   colSpan={9}
                   className="py-8 text-center text-ink-muted"
                 >
-                  No brands found.
+                  {t("table.empty")}
                 </TableCell>
               </TableRow>
             )}
@@ -705,13 +712,15 @@ export function BrandList({
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="type-body-sm">
-          Showing {filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}
-          –{Math.min(currentPage * pageSize, filtered.length)} of{" "}
-          {filtered.length} brands
+          {t("pagination.summary", {
+            from: filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1,
+            to: Math.min(currentPage * pageSize, filtered.length),
+            total: filtered.length,
+          })}
         </p>
         <div className="flex items-center gap-2">
           <NativeSelect
-            aria-label="Brands per page"
+            aria-label={t("pagination.perPageLabel")}
             value={pageSize}
             onChange={(event) => {
               setPageSize(
@@ -723,7 +732,7 @@ export function BrandList({
           >
             {PAGE_SIZES.map((size) => (
               <option key={size} value={size}>
-                {size} per page
+                {t("pagination.perPageOption", { size })}
               </option>
             ))}
           </NativeSelect>
@@ -733,7 +742,7 @@ export function BrandList({
             className="h-12 w-12 p-0"
             onClick={() => setPage((value) => Math.max(1, value - 1))}
             disabled={currentPage === 1}
-            aria-label="Previous page"
+            aria-label={t("pagination.previousPage")}
           >
             <ChevronLeft className="size-4" aria-hidden />
           </Button>
@@ -746,7 +755,7 @@ export function BrandList({
             className="h-12 w-12 p-0"
             onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
             disabled={currentPage === pageCount}
-            aria-label="Next page"
+            aria-label={t("pagination.nextPage")}
           >
             <ChevronRight className="size-4" aria-hidden />
           </Button>
@@ -762,7 +771,9 @@ export function BrandList({
         metadata={
           selectedBrand ? (
             <p className="type-metadata">
-              Created {formatDate(selectedBrand.createdAt)}
+              {t("detail.created", {
+                date: formatDate(selectedBrand.createdAt),
+              })}
             </p>
           ) : null
         }
@@ -781,7 +792,7 @@ export function BrandList({
         onOpenChange={(open) => {
           if (!open) setRefreshingBrandId(null);
         }}
-        title="Request re-enrichment"
+        title={t("refreshDialog.title")}
         description="A refresh will run on the next six-hour schedule and return to the submissions queue for review. The live brand will not change until the refresh is applied."
         onConfirm={handleRequestRefresh}
         confirmLabel="Request re-enrichment"
@@ -793,7 +804,7 @@ export function BrandList({
         onOpenChange={(open) => {
           if (!open) setDeletingBrandId(null);
         }}
-        title="Delete brand"
+        title={t("deleteDialog.title")}
         description="This action cannot be undone. The brand and all associated data will be permanently deleted."
         onConfirm={handleDelete}
         confirmLabel="Delete this brand permanently"

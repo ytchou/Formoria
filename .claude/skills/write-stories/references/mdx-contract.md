@@ -57,8 +57,8 @@ silently costs the rich result, which is most of why the FAQ is worth writing.
 Twelve L1 category slugs, derived from `L1_CATEGORIES`
 (`src/lib/taxonomy/ontology.ts`):
 
-`fashion` `bags-accessories` `jewelry` `beauty` `home` `food-drink` `crafts`
-`stationery` `tech` `outdoor` `fitness` `kids-pets`
+`fashion` `bags-accessories` `jewelry` `beauty` `home` `food-drink`
+`stationery` `tech` `outdoor` `fitness` `kids` `pets`
 
 Plus two editorial tags (`STORY_EDITORIAL_TAGS`): `event` `creative-expo`
 
@@ -112,8 +112,12 @@ Two vocabularies that must not be mixed:
 
 - **Headings** may use an editorial gloss — 個人風格, 紙品文具.
 - **Link text** uses the canonical label from `categoryLabelZh()` — 服飾鞋履,
-  文具設計, 工藝文創, 美妝保養, 居家生活. A reader clicking
-  「瀏覽本站全部工藝文創品牌」 must land on a page whose heading says the same words.
+  文具設計, 居家生活, 美妝保養, 包袋配件. A reader clicking
+  「瀏覽本站全部居家生活品牌」 must land on a page whose heading says the same words.
+- **Craft coverage has no L1 any more.** 工藝文創 was retired; a story about
+  makers and materials links to the material facet instead —
+  `/brands?material=ceramic,wood,metal,bamboo,glass,textile` — and its link text
+  names the materials, never a category.
 
 ## Hero image
 

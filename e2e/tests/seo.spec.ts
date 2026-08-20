@@ -381,7 +381,7 @@ test.describe("SEO deep", () => {
       "beauty",
       "home",
       "food-drink",
-      "crafts",
+      // `crafts` was retired by DEV-1507 and redirects to /brands.
       "stationery",
       "tech",
       "outdoor",

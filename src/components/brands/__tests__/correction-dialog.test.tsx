@@ -79,7 +79,7 @@ function renderDialog(
       <CorrectionDialog
         brandId={BRAND_ID}
         brandSlug="warmwood"
-        categorySlug="crafts"
+        categorySlug="home"
         priceRange={2}
         subcategories={[]}
         {...props}
@@ -161,19 +161,19 @@ describe("CorrectionDialog", () => {
 
   describe("structure", () => {
     it("renders the current category as a non-interactive reference, not a button", () => {
-      renderDialog({ categorySlug: "crafts" });
+      renderDialog({ categorySlug: "home" });
       openDialog();
       selectField("category");
 
       const current = group(CURRENT_HEADING);
-      expect(within(current).getByText("工藝文創")).toBeInTheDocument();
+      expect(within(current).getByText("居家生活")).toBeInTheDocument();
       expect(within(current).queryAllByRole("button")).toHaveLength(0);
     });
 
     // The dialog reads as a diff: 目前 / 改成. The field label stays the group's
     // accessible name so the row is still addressable as 類別 / 價格區間.
     it("heads the options row with 改成 while keeping the field label as its name", () => {
-      renderDialog({ categorySlug: "crafts" });
+      renderDialog({ categorySlug: "home" });
       openDialog();
       selectField("category");
 
@@ -185,20 +185,20 @@ describe("CorrectionDialog", () => {
     });
 
     it("excludes the current value from the options row", () => {
-      renderDialog({ categorySlug: "crafts" });
+      renderDialog({ categorySlug: "home" });
       openDialog();
       selectField("category");
 
-      expect(screen.getAllByText("工藝文創")).toHaveLength(1);
+      expect(screen.getAllByText("居家生活")).toHaveLength(1);
       expect(
         within(group(CATEGORY_LABEL)).queryByRole("button", {
-          name: "工藝文創",
+          name: "居家生活",
         }),
       ).not.toBeInTheDocument();
     });
 
     it("renders one option chip per remaining category", () => {
-      renderDialog({ categorySlug: "crafts" });
+      renderDialog({ categorySlug: "home" });
       openDialog();
       selectField("category");
 

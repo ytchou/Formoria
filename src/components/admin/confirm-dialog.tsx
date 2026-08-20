@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -36,6 +37,7 @@ export function ConfirmDialog({
   confirmText,
   isPending = false,
 }: ConfirmDialogProps) {
+  const t = useTranslations('admin.common')
   const [inputValue, setInputValue] = useState('')
 
   function handleOpenChange(nextOpen: boolean) {
@@ -66,13 +68,13 @@ export function ConfirmDialog({
         )}
 
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
           <Button
             variant={variant}
             onClick={onConfirm}
             disabled={isConfirmDisabled}
           >
-            {isPending ? 'Processing…' : confirmLabel}
+            {isPending ? t('processing') : confirmLabel}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

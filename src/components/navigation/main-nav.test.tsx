@@ -93,14 +93,14 @@ describe("MainNav", () => {
     ) as unknown as typeof fetch;
   });
 
-  it("renders all 13 categories on the homepage", () => {
-    // THIRTEEN, not the twelve the mock draws: the mock merged `kids` and
+  it("renders all 12 categories on the homepage", () => {
+    // Read from the ontology, not from the mock: the mock merged `kids` and
     // `pets` into one chip, and DEV-1510 split them for a reason the nav does
-    // not get to overrule. The count is read from the ontology so a future
-    // split or merge moves this assertion with it.
+    // not get to overrule. DEV-1507 then retired `crafts`, taking 13 to 12 —
+    // the count moves with the vocabulary rather than being restated here.
     const { container } = renderNav();
 
-    expect(L1_CATEGORIES).toHaveLength(13);
+    expect(L1_CATEGORIES).toHaveLength(12);
     for (const category of L1_CATEGORIES) {
       // `/en/…`, with the prefix written out. The tabs are raw anchors, not
       // `@/i18n/navigation`'s `Link`, because they must resolve with JS off, so
