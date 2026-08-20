@@ -18,7 +18,7 @@ import type {
   EnrichedData,
 } from "@/lib/types/enriched-data";
 import { enrichedDataFromDb } from "@/lib/types/enriched-data";
-import type { ChannelCandidate } from "@/lib/types/brand-channel";
+import type { StockistCandidate } from "@/lib/types/stockist";
 import type {
   CurationDispatchStatus,
   CurationTargetStatus,
@@ -41,7 +41,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { deleteStoredImagePaths } from "./image-upload";
 import { slugifyRomanizedName } from "@/lib/brands/slug";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
-import { upsertEnrichedChannels } from "./brand-channels";
+import { upsertEnrichedStockists } from "./stockists";
 import { normalizeCommunityWebsite } from "./community-submissions";
 import {
   ONLINE_STORE_CAMEL_FIELDS,
@@ -134,7 +134,7 @@ export type SubmissionReviewData = {
   blurbEn: string | null;
   city: string | null;
   reputationSummary: Json | null;
-  channels?: ChannelCandidate[];
+  channels?: StockistCandidate[];
   /**
    * Curated-product proposals from the enrichment run (DEV-1469), seeded from
    * `enriched_data.products` and editable in the review like every other
@@ -173,7 +173,7 @@ export type SubmissionReviewData = {
  * copy of the same contract, free to drift.
  */
 type EnrichedSubmissionData = EnrichedData & {
-  channels?: ChannelCandidate[];
+  channels?: StockistCandidate[];
 };
 type SubmissionReviewMissingField =
   | "description"
@@ -447,7 +447,7 @@ function enrichedDataFromSubmissionDb(
   return {
     ...enrichedDataFromDb(value),
     ...(Array.isArray(value.channels)
-      ? { channels: value.channels as ChannelCandidate[] }
+      ? { channels: value.channels as StockistCandidate[] }
       : {}),
   };
 }
@@ -1109,7 +1109,7 @@ function reviewDataFromDb(
       data.channels === undefined
         ? fallback.channels
         : Array.isArray(data.channels)
-          ? (data.channels as ChannelCandidate[])
+          ? (data.channels as StockistCandidate[])
           : fallback.channels,
     products:
       data.products === undefined
@@ -2305,20 +2305,20 @@ export async function approveSubmission(
   // channels. Keep draining those rows until the Phase 2 importer takes over.
   if (reviewData.channels) {
     try {
-      const channelsResult = await upsertEnrichedChannels(
+      const stockistsResult = await upsertEnrichedStockists(
         approval.brand_id,
         reviewData.channels,
       );
-      if (!channelsResult.ok) {
+      if (!stockistsResult.ok) {
         console.error(
           "[approveSubmission] Failed to upsert enriched channels:",
-          channelsResult.code,
+          stockistsResult.code,
         );
       }
-    } catch (channelError) {
+    } catch (stockistError) {
       console.error(
         "[approveSubmission] Failed to upsert enriched channels:",
-        channelError,
+        stockistError,
       );
     }
   }

@@ -4,7 +4,7 @@ import { citySlugToPath } from '@/lib/constants/taiwan-cities'
 import {
   summarizeStockistCities,
   type StockistLocation,
-} from '@/lib/services/brand-channels'
+} from '@/lib/services/stockists'
 import { routes } from '@/lib/routes'
 
 export function buildWhereToBuySitemapEntries(

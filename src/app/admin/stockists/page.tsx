@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 
 import { StockistQueue } from "@/components/admin/stockist-queue";
 import { requireAdminPage } from "@/lib/auth/require-admin";
-import { listPendingCommunityStockists } from "@/lib/services/brand-channels";
+import { listPendingCommunityStockists } from "@/lib/services/stockists";
 import { routes } from "@/lib/routes";
 
 export async function generateMetadata(): Promise<Metadata> {

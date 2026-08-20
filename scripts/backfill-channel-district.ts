@@ -1,14 +1,14 @@
 import { citySlugFromName } from "@/lib/constants/taiwan-cities";
 import { matchDistrict } from "@/lib/brands/district";
 import {
-  listChannelDistrictBackfillRows,
-  updateChannelDistricts,
-} from "@/lib/services/brand-channels";
+  listStockistDistrictBackfillRows,
+  updateStockistDistricts,
+} from "@/lib/services/stockists";
 
 const APPLY = process.argv.includes("--apply");
 
 async function main() {
-  const rows = await listChannelDistrictBackfillRows();
+  const rows = await listStockistDistrictBackfillRows();
   const updates: Array<{ id: string; district: string | null }> = [];
   const summaries = new Map<string, { matched: number; unmatched: string[] }>();
 
@@ -44,7 +44,7 @@ async function main() {
   );
   if (rate < 90)
     throw new Error("District match rate is below the 90% stop threshold");
-  if (APPLY) await updateChannelDistricts(updates);
+  if (APPLY) await updateStockistDistricts(updates);
 }
 
 main().catch((error: unknown) => {

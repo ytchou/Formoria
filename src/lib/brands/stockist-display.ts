@@ -1,4 +1,4 @@
-import type { BrandChannel } from "@/lib/types/brand-channel";
+import type { Stockist } from "@/lib/types/stockist";
 import { CITY_NAMES_ZH } from "@/lib/constants/taiwan-cities";
 
 const REGION_SLUG_BY_LABEL: Readonly<Record<string, string>> =
@@ -23,16 +23,16 @@ export const PENDING_COMMUNITY_EXCLUSION =
   "source.neq.community,owner_status.neq.none";
 
 /**
- * Deliberately NOT `<Q extends PublicChannelQuery<Q>>`. A self-referential
+ * Deliberately NOT `<Q extends PublicStockistQuery<Q>>`. A self-referential
  * constraint makes tsc structurally re-check the whole PostgREST builder once
- * per method, and three methods against `.select(CHANNEL_READ_SELECT)` exceeds
+ * per method, and three methods against `.select(STOCKIST_DETAIL_READ_SELECT)` exceeds
  * the instantiation depth limit (TS2589). `excludeTestBrands` gets away with
  * the recursive form because it constrains exactly one method.
  */
-type PublicChannelQuery = {
-  is(column: string, value: null): PublicChannelQuery;
-  neq(column: string, value: string): PublicChannelQuery;
-  or(filters: string): PublicChannelQuery;
+type PublicStockistQuery = {
+  is(column: string, value: null): PublicStockistQuery;
+  neq(column: string, value: string): PublicStockistQuery;
+  or(filters: string): PublicStockistQuery;
 };
 
 /**
@@ -52,8 +52,8 @@ type PublicChannelQuery = {
  * the only unit-testable shape available (`check-test-boundaries.mjs` forbids
  * mocking the Supabase client).
  */
-export function applyPublicChannelVisibility<Q>(query: Q): Q {
-  return (query as PublicChannelQuery)
+export function applyPublicStockistVisibility<Q>(query: Q): Q {
+  return (query as PublicStockistQuery)
     .is("removed_at", null)
     .neq("owner_status", "rejected")
     .or(PENDING_COMMUNITY_EXCLUSION) as Q;
@@ -85,7 +85,7 @@ const RETAILER_NAME_NOISE: readonly string[] = [
   "店",
 ];
 
-export function normalizeChannelName(name: string): string {
+export function normalizeStockistName(name: string): string {
   let normalized = name.toLocaleLowerCase().replace(/\s+/g, "");
 
   let stripped: boolean;
@@ -106,7 +106,7 @@ export function normalizeChannelName(name: string): string {
   return normalized;
 }
 
-type ChannelRow = {
+type StockistDisplayRow = {
   id: string;
   name: string;
   regionLabel: string | null;
@@ -123,9 +123,9 @@ type ChannelRow = {
   removedAt: string | null;
 };
 
-export type ChannelRegionGroup = {
+export type StockistRegionGroup = {
   key: string;
-  channels: BrandChannel[];
+  stockists: Stockist[];
 };
 
 function compareText(left: string, right: string): number {
@@ -133,7 +133,7 @@ function compareText(left: string, right: string): number {
   return left < right ? -1 : 1;
 }
 
-function sortChannelsForDisplay(a: BrandChannel, b: BrandChannel): number {
+function sortStockistsForDisplay(a: Stockist, b: Stockist): number {
   const statusOrder =
     Number(a.status !== "confirmed") - Number(b.status !== "confirmed");
   if (statusOrder !== 0) return statusOrder;
@@ -145,53 +145,53 @@ function regionLabelToSlug(regionLabel: string): string | null {
   return REGION_SLUG_BY_LABEL[regionLabel] ?? null;
 }
 
-export function groupChannelsByRegion(
-  channels: BrandChannel[],
-): ChannelRegionGroup[] {
-  const grouped = new Map<string, BrandChannel[]>();
+export function groupStockistsByRegion(
+  stockists: Stockist[],
+): StockistRegionGroup[] {
+  const grouped = new Map<string, Stockist[]>();
 
-  for (const channel of channels) {
-    const regionSlug = channel.regionLabel
-      ? regionLabelToSlug(channel.regionLabel)
+  for (const stockist of stockists) {
+    const regionSlug = stockist.regionLabel
+      ? regionLabelToSlug(stockist.regionLabel)
       : null;
     // Three buckets, and `overseas` is the fallback: a row with no resolvable
     // Taiwan region has no other honest home. Every stockist is a physical
     // place since DEV-1513, so there is no online bucket to divert into.
     const key =
-      channel.country != null && channel.country !== "TW"
+      stockist.country != null && stockist.country !== "TW"
         ? "overseas"
-        : channel.regionLabel === CHAIN_REGION_LABEL
+        : stockist.regionLabel === CHAIN_REGION_LABEL
           ? "all_taiwan"
           : (regionSlug ?? "overseas");
     const group = grouped.get(key) ?? [];
-    group.push(channel);
+    group.push(stockist);
     grouped.set(key, group);
   }
 
   return [...grouped.entries()]
     .map(([key, group]) => ({
       key,
-      channels: [...group].sort(sortChannelsForDisplay),
+      stockists: [...group].sort(sortStockistsForDisplay),
     }))
     .sort(
       (left, right) =>
-        right.channels.length - left.channels.length ||
+        right.stockists.length - left.stockists.length ||
         compareText(left.key, right.key),
     );
 }
 
-export function groupChannelsForDisplay(
-  rows: Array<ChannelRow>,
+export function groupStockistsForDisplay(
+  rows: Array<StockistDisplayRow>,
   /**
    * `auth.users.id` of every owner of the brand these rows belong to. It is what
    * separates 品牌確認 from 站方確認: an admin approving a community submission
    * sets the same `owner_status = 'confirmed'` the brand's own owner does.
    */
   brandOwnerUserIds: readonly string[] = [],
-): { confirmed: BrandChannel[]; possible: BrandChannel[] } {
+): { confirmed: Stockist[]; possible: Stockist[] } {
   const brandOwnerUserIdSet = new Set(brandOwnerUserIds);
-  const confirmed: BrandChannel[] = [];
-  const possible: BrandChannel[] = [];
+  const confirmed: Stockist[] = [];
+  const possible: Stockist[] = [];
 
   for (const row of rows) {
     if (row.removedAt !== null || row.ownerStatus === "rejected") continue;
@@ -215,21 +215,21 @@ export function groupChannelsForDisplay(
     // source_type is `official_website`. Every other evidence-backed source
     // (enriched, backfill, admin, owner) may cite a directory, a social post or
     // a retailer page, so it gets the generic source-attested label instead.
-    const evidenceSource: BrandChannel["evidenceSource"] =
+    const evidenceSource: Stockist["evidenceSource"] =
       row.source === "import" ? "official_website" : "other";
-    const status: BrandChannel["status"] =
+    const status: Stockist["status"] =
       ownerConfirmed || evidenceBacked ? "confirmed" : "unconfirmed";
-    const channel: BrandChannel = {
+    const stockist: Stockist = {
       id: row.id,
       name: row.name,
       regionLabel: row.regionLabel,
       address: row.address,
       url: row.url,
       fetchedAt: row.fetchedAt ?? null,
-      locationType: (row.locationType as BrandChannel["locationType"]) ?? null,
+      locationType: (row.locationType as Stockist["locationType"]) ?? null,
       country: row.country ?? null,
-      ownerStatus: row.ownerStatus as BrandChannel["ownerStatus"],
-      source: row.source as BrandChannel["source"],
+      ownerStatus: row.ownerStatus as Stockist["ownerStatus"],
+      source: row.source as Stockist["source"],
       status,
       ...(status === "confirmed"
         ? {
@@ -246,9 +246,9 @@ export function groupChannelsForDisplay(
     };
 
     if (status === "confirmed") {
-      confirmed.push(channel);
+      confirmed.push(stockist);
     } else {
-      possible.push(channel);
+      possible.push(stockist);
     }
   }
 

@@ -17,7 +17,7 @@ import {
   type ReviewColumn,
   type ReviewFilter,
 } from "@/components/admin/queue";
-import type { PendingStockist } from "@/lib/services/brand-channels";
+import type { PendingStockist } from "@/lib/services/stockists";
 
 const getStockistId = (stockist: PendingStockist) => stockist.id;
 

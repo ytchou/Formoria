@@ -3,15 +3,15 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import {
-  buildEnrichedChannelRows,
+  buildEnrichedStockistRows,
   buildStockistPageRanges,
-  CHANNEL_READ_SELECT,
+  STOCKIST_DETAIL_READ_SELECT,
   groupStockistsForCity,
   matchesCategory,
   stockistDistrictSlugs,
   summarizeStockistCities,
   type StockistLocation,
-} from '../brand-channels'
+} from '../stockists'
 
 function location(id: string, district: string | null): StockistLocation {
   return {
@@ -31,7 +31,7 @@ function location(id: string, district: string | null): StockistLocation {
 
 describe('brand channel provenance', () => {
   it('forwards imported provenance into the RPC row payload', () => {
-    const { rows, invalidCount } = buildEnrichedChannelRows([
+    const { rows, invalidCount } = buildEnrichedStockistRows([
       {
         name: '好丘 信義店',
         normalizedName: '好丘信義',
@@ -67,7 +67,7 @@ describe('brand channel provenance', () => {
   })
 
   it('defaults legacy enriched candidates to the enriched source', () => {
-    const { rows } = buildEnrichedChannelRows([
+    const { rows } = buildEnrichedStockistRows([
       {
         name: '誠品生活松菸店',
         normalizedName: '誠品生活松菸',
@@ -78,10 +78,10 @@ describe('brand channel provenance', () => {
   })
 
   it('selects every provenance field exposed on a displayed channel', () => {
-    expect(CHANNEL_READ_SELECT).toContain('source_url')
-    expect(CHANNEL_READ_SELECT).toContain('fetched_at')
-    expect(CHANNEL_READ_SELECT).toContain('location_type')
-    expect(CHANNEL_READ_SELECT).toContain('country')
+    expect(STOCKIST_DETAIL_READ_SELECT).toContain('source_url')
+    expect(STOCKIST_DETAIL_READ_SELECT).toContain('fetched_at')
+    expect(STOCKIST_DETAIL_READ_SELECT).toContain('location_type')
+    expect(STOCKIST_DETAIL_READ_SELECT).toContain('country')
   })
 
   it('orders district sections by location count and leaves unmatched locations last', () => {
@@ -168,7 +168,7 @@ describe('stockist category filter over slug-stored subcategories', () => {
  */
 describe('pending community stockists are hidden from public reads', () => {
   const serviceSource = readFileSync(
-    resolve(process.cwd(), 'src/lib/services/brand-channels.ts'),
+    resolve(process.cwd(), 'src/lib/services/stockists.ts'),
     'utf8',
   )
   const storyFactsSource = readFileSync(
@@ -192,8 +192,8 @@ describe('pending community stockists are hidden from public reads', () => {
   }
 
   it('hides pending community rows from the brand-detail read', () => {
-    expect(functionBody(serviceSource, 'getChannelsForBrand')).toContain(
-      'applyPublicChannelVisibility(',
+    expect(functionBody(serviceSource, 'getStockistsForBrand')).toContain(
+      'applyPublicStockistVisibility(',
     )
   })
 
@@ -203,21 +203,82 @@ describe('pending community stockists are hidden from public reads', () => {
     // nothing beyond row 1000.
     const body = functionBody(serviceSource, 'fetchStockistRows')
 
-    expect(body.match(/applyPublicChannelVisibility\(/g)).toHaveLength(2)
+    expect(body.match(/applyPublicStockistVisibility\(/g)).toHaveLength(2)
   })
 
   it('keeps pending community rows out of story facts', () => {
     // `scripts/story-facts.ts` runs `main()` at module scope, so it cannot be
     // imported by a test — importing it would run the script.
-    expect(functionBody(storyFactsSource, 'fetchChannels')).toContain(
-      'applyPublicChannelVisibility(',
+    expect(functionBody(storyFactsSource, 'fetchStockists')).toContain(
+      'applyPublicStockistVisibility(',
     )
   })
 
-  it('CHANNEL_READ_SELECT no longer embeds confirmations', () => {
-    expect(CHANNEL_READ_SELECT).not.toContain('brand_channel_confirmations')
-    expect(CHANNEL_READ_SELECT).not.toContain('confirmation')
+  it('STOCKIST_DETAIL_READ_SELECT no longer embeds confirmations', () => {
+    expect(STOCKIST_DETAIL_READ_SELECT).not.toContain('brand_channel_confirmations')
+    expect(STOCKIST_DETAIL_READ_SELECT).not.toContain('confirmation')
     // The approver is what separates a brand's own confirmation from an admin's.
-    expect(CHANNEL_READ_SELECT).toContain('owner_status_by')
+    expect(STOCKIST_DETAIL_READ_SELECT).toContain('owner_status_by')
+  })
+})
+
+/**
+ * `src/lib/audit/providers.ts` holds audited operation names as BARE STRING
+ * LITERALS. No compiler relates them to the functions they name, so a rename
+ * that misses one does not fail to build, fail to lint, or throw at runtime —
+ * the operation simply stops being recorded, silently and forever.
+ *
+ * The DEV-1513 rename moved three of those names at once
+ * (`setOwnerChannelStatus`, `submitChannel`, `upsertEnrichedChannels`), which
+ * is exactly the shape of change that leaves a stale literal behind. This
+ * asserts the registry against the SOURCE of the service: each audited
+ * stockist operation must exist as an exported function with a
+ * character-identical name.
+ */
+describe('audit registry names every audited stockist operation', () => {
+  const serviceSource = readFileSync(
+    resolve(process.cwd(), 'src/lib/services/stockists.ts'),
+    'utf8',
+  )
+  const providersSource = readFileSync(
+    resolve(process.cwd(), 'src/lib/audit/providers.ts'),
+    'utf8',
+  )
+
+  /** Every `export function` / `export async function` name in the service. */
+  const exportedFunctions = new Set(
+    [...serviceSource.matchAll(/^export\s+(?:async\s+)?function\s+(\w+)/gm)].map(
+      (match) => match[1],
+    ),
+  )
+
+  /** Every quoted string in the audit registry. */
+  const registryStrings = new Set(
+    [...providersSource.matchAll(/"([A-Za-z_][A-Za-z0-9_]*)"/g)].map(
+      (match) => match[1],
+    ),
+  )
+
+  const auditedStockistOperations = [
+    'setOwnerStockistStatus',
+    'submitStockist',
+    'upsertEnrichedStockists',
+  ]
+
+  it.each(auditedStockistOperations)(
+    'registers %s under a name the service actually exports',
+    (operation) => {
+      expect(registryStrings.has(operation)).toBe(true)
+      expect(exportedFunctions.has(operation)).toBe(true)
+    },
+  )
+
+  it('leaves no channel-named operation behind in the registry', () => {
+    // Matched by PATTERN, not against the three retired literals: the registry
+    // covers every audited provider, so a channel-named survivor anywhere in it
+    // is a dead hook whether or not it was one of the names this task moved.
+    expect(
+      [...registryStrings].filter((name) => /channel/i.test(name)),
+    ).toEqual([])
   })
 })

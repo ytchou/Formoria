@@ -6,8 +6,8 @@ import { seedBrand, SeededBrand } from "../helpers/seed";
 
 import { BUDGET, POLL } from "../budgets";
 
-async function openChannelGroup(page: Page, key: string) {
-  const group = page.locator(`details[data-channel-kind="${key}"]`);
+async function openStockistGroup(page: Page, key: string) {
+  const group = page.locator(`details[data-stockist-kind="${key}"]`);
   await expect(group).toBeVisible();
   if ((await group.getAttribute("open")) === null) {
     await group.locator("summary").click();
@@ -579,35 +579,35 @@ test.describe("Brand detail — historical slugs", () => {
   });
 });
 
-test.describe("Brand detail — public locations and retail channels", () => {
+test.describe("Brand detail — public locations and retail stockists", () => {
   let seeded: SeededBrand;
   let emptySeeded: SeededBrand;
 
   const confirmedStoreName = "[E2E-TEST] Brand direct store";
   const confirmedStoreAddress = "台北市信義區信義路五段 7 號";
   // A confirmed stockist with no region and no address. It is what keeps the
-  // grouped layout above its four-channel threshold, and it lands in the
+  // grouped layout above its four-stockist threshold, and it lands in the
   // overseas fallback group because no Taiwan region resolves for it.
-  const unlocatedChannelName = "[E2E-TEST] Brand channel without a location";
+  const unlocatedStockistName = "[E2E-TEST] Brand stockist without a location";
   // Community submissions are invisible until they are approved (DEV-1513), so
   // the only community rows that can render are ones already decided on. Two of
-  // them, because the grouped layout needs four visible channels to switch on.
-  const approvedCommunityName = "[E2E-TEST] Approved community channel";
+  // them, because the grouped layout needs four visible stockists to switch on.
+  const approvedCommunityName = "[E2E-TEST] Approved community stockist";
   const ownerConfirmedCommunityName =
-    "[E2E-TEST] Owner-confirmed community channel";
-  const submittedChannelName = "[E2E-TEST] Submitted community channel";
+    "[E2E-TEST] Owner-confirmed community stockist";
+  const submittedStockistName = "[E2E-TEST] Submitted community stockist";
   const confirmedStoreUrl = "https://example.com/e2e-brand-store";
   const evidenceSourceUrl = "https://example.com/e2e-stockists";
-  const submittedChannelUrl = "https://example.com/e2e-submitted-channel";
+  const submittedStockistUrl = "https://example.com/e2e-submitted-stockist";
 
   test.beforeAll(async ({}, workerInfo) => {
     seeded = await seedBrand({
-      name: "mixed-channels",
+      name: "mixed-stockists",
       status: "approved",
       workerIndex: workerInfo.workerIndex,
     });
     emptySeeded = await seedBrand({
-      name: "without-channels",
+      name: "without-stockists",
       status: "approved",
       workerIndex: workerInfo.workerIndex,
     });
@@ -622,7 +622,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    const channelRows = [
+    const stockistRows = [
       {
         brand_id: seeded.brand.id,
         name: confirmedStoreName,
@@ -639,8 +639,8 @@ test.describe("Brand detail — public locations and retail channels", () => {
       },
       {
         brand_id: seeded.brand.id,
-        name: unlocatedChannelName,
-        normalized_name: "e2e-brand-unlocated-channel",
+        name: unlocatedStockistName,
+        normalized_name: "e2e-brand-unlocated-stockist",
         region_label: null,
         address: null,
         url: null,
@@ -650,7 +650,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
       {
         brand_id: seeded.brand.id,
         name: approvedCommunityName,
-        normalized_name: "e2e-approved-community-channel",
+        normalized_name: "e2e-approved-community-stockist",
         region_label: "臺中市",
         address: null,
         url: null,
@@ -660,7 +660,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
       {
         brand_id: seeded.brand.id,
         name: ownerConfirmedCommunityName,
-        normalized_name: "e2e-owner-confirmed-community-channel",
+        normalized_name: "e2e-owner-confirmed-community-stockist",
         region_label: "新北市",
         address: null,
         url: null,
@@ -669,11 +669,11 @@ test.describe("Brand detail — public locations and retail channels", () => {
       },
     ];
 
-    const { error: channelsError } = await serviceClient
+    const { error: stockistsError } = await serviceClient
       .from("brand_channels")
-      .insert(channelRows);
-    if (channelsError) {
-      throw new Error(`Failed to seed brand channels: ${channelsError.message}`);
+      .insert(stockistRows);
+    if (stockistsError) {
+      throw new Error(`Failed to seed brand stockists: ${stockistsError.message}`);
     }
   });
 
@@ -711,13 +711,13 @@ test.describe("Brand detail — public locations and retail channels", () => {
       ).toBeVisible();
     }).toPass(POLL.DB);
 
-    const taipei = page.locator('details[data-channel-kind="taipei"]');
-    const taichung = page.locator('details[data-channel-kind="taichung"]');
+    const taipei = page.locator('details[data-stockist-kind="taipei"]');
+    const taichung = page.locator('details[data-stockist-kind="taichung"]');
     await expect(taipei).not.toHaveAttribute("open");
     await expect(taichung).not.toHaveAttribute("open");
 
-    await openChannelGroup(page, "taipei");
-    await openChannelGroup(page, "taichung");
+    await openStockistGroup(page, "taipei");
+    await openStockistGroup(page, "taichung");
     await expect(taipei).toHaveAttribute("open", "");
     await expect(taichung).toHaveAttribute("open", "");
   });
@@ -728,7 +728,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
     await page.goto(`/brands/${seeded.slug}`, {
       waitUntil: "domcontentloaded",
     });
-    await openChannelGroup(page, "taipei");
+    await openStockistGroup(page, "taipei");
 
     await expect(
       page.getByRole("link", { name: confirmedStoreAddress, exact: true }),
@@ -739,7 +739,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
     // trips it.
     await expect(
       page
-        .locator("[data-brand-channels-section]")
+        .locator("[data-stockists-section]")
         .getByText(/\d{4}\s*[年/-]\s*\d{1,2}/),
     ).toHaveCount(0);
   });
@@ -750,7 +750,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
     await page.goto(`/brands/${seeded.slug}`, {
       waitUntil: "domcontentloaded",
     });
-    await openChannelGroup(page, "taipei");
+    await openStockistGroup(page, "taipei");
 
     // The row carries `url: confirmedStoreUrl` AND an address, so this asserts
     // the outbound link is suppressed because the address already links
@@ -758,7 +758,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
     // href, which is what the reader follows: a label-only assertion would go
     // green on any copy change.
     const stockistRow = page
-      .locator("[data-channel-row]")
+      .locator("[data-stockist-row]")
       .filter({ hasText: confirmedStoreName });
     await expect(
       stockistRow.getByRole("link", { name: confirmedStoreAddress, exact: true }),
@@ -768,7 +768,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
     ).toHaveCount(0);
   });
 
-  test("a submitted channel stays out of the public list until it is approved", async ({
+  test("a submitted stockist stays out of the public list until it is approved", async ({
     userPage,
   }) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
@@ -797,7 +797,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
     }).toPass(POLL.UI);
     await dialog
       .getByRole("textbox", { name: "實體通路名稱" })
-      .fill(submittedChannelName);
+      .fill(submittedStockistName);
     // Neither a sales-format picker nor a location-category picker: every
     // stockist is a physical place, and its category is the brand's.
     await expect(
@@ -811,7 +811,7 @@ test.describe("Brand detail — public locations and retail channels", () => {
     await region.selectOption("taipei");
     await dialog
       .getByRole("textbox", { name: "網址" })
-      .fill(submittedChannelUrl);
+      .fill(submittedStockistUrl);
     await dialog.getByRole("button", { name: "送出", exact: true }).click();
     // The submit still queues behind the like-button action, so give it 30s.
     await expect(dialog.getByText("感謝提供資訊！")).toBeVisible({
@@ -832,22 +832,22 @@ test.describe("Brand detail — public locations and retail channels", () => {
     await expect(
       userPage.getByRole("heading", { name: "臺北市 (1)", level: 3 }),
     ).toBeVisible();
-    await openChannelGroup(userPage, "taipei");
+    await openStockistGroup(userPage, "taipei");
     await expect(
       userPage
-        .locator("[data-brand-channels-section]")
-        .getByText(submittedChannelName),
+        .locator("[data-stockists-section]")
+        .getByText(submittedStockistName),
     ).toHaveCount(0);
   });
 
-  test("a brand with no channels renders no locations surface", async ({
+  test("a brand with no stockists renders no locations surface", async ({
     page,
   }) => {
     await page.goto(`/brands/${emptySeeded.slug}`, {
       waitUntil: "domcontentloaded",
     });
 
-    await expect(page.locator("[data-brand-channels-section]")).toHaveCount(0);
+    await expect(page.locator("[data-stockists-section]")).toHaveCount(0);
     await expect(
       page.getByRole("navigation", { name: "本頁導覽" }).getByRole("link", {
         name: "實體通路",

@@ -99,15 +99,15 @@ const ALLOWLIST = [
   "lib/growth/share-card.tsx",
   // Badge embed snippet alt text is intentional zh-TW brand copy pasted into third-party sites.
   "lib/growth/share-assets.ts",
-  // Channel name normalization uses Chinese retailer noise words for stripping (data constants, not UI copy).
-  "lib/brands/channels.ts",
+  // Stockist name normalization uses Chinese retailer noise words for stripping (data constants, not UI copy).
+  "lib/brands/stockist-display.ts",
   // FAQ preset LLM prompt fragments are Chinese model instructions, not UI copy.
   "lib/brands/faq-presets/",
   // FAQ phase prompt fragments and repair instructions are Chinese model
   // instructions, not UI copy.
   "lib/services/enrich-phases/faq.ts",
   // Region slug-to-label map uses Chinese city names for display (data constants, not UI copy).
-  "lib/services/brand-channels.ts",
+  "lib/services/stockists.ts",
   // City labels the curation worker needs outside any request scope. They cannot
   // live in `messages/*.json`: the worker runs `tsx` with no bundler and its
   // image ships no `messages/` directory, so importing the catalog crashes at

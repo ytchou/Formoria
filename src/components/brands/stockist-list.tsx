@@ -4,23 +4,23 @@ import { useTranslations } from "next-intl";
 import { Check, ChevronDown, ExternalLink, TriangleAlert } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import {
-  getChannelViewerStateAction,
-  ownerModerateChannelAction,
+  getStockistViewerStateAction,
+  ownerModerateStockistAction,
 } from "@/app/[locale]/(site)/brands/[slug]/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useUser } from "@/lib/auth/use-user";
 import {
   CHAIN_REGION_LABEL,
-  groupChannelsByRegion,
-  type ChannelRegionGroup,
-} from "@/lib/brands/channels";
-import type { BrandChannel } from "@/lib/types";
+  groupStockistsByRegion,
+  type StockistRegionGroup,
+} from "@/lib/brands/stockist-display";
+import type { Stockist } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const MAX_VISIBLE_CHIPS = 6;
 /** Below this count the grouping is noise — entries render without headings. */
-const GROUPED_LAYOUT_MIN_CHANNELS = 4;
+const GROUPED_LAYOUT_MIN_STOCKISTS = 4;
 /** Chain marker written by the enrichment phase; it carries no location worth repeating. */
 const CHAIN_MARKER = CHAIN_REGION_LABEL;
 
@@ -29,9 +29,9 @@ type Translate = (
   values?: Record<string, string | number>,
 ) => string;
 
-export type BrandChannelListProps = {
-  confirmed: BrandChannel[];
-  possible: BrandChannel[];
+export type StockistListProps = {
+  confirmed: Stockist[];
+  possible: Stockist[];
   brandId: string;
   brandSlug: string;
 };
@@ -71,19 +71,19 @@ function StatusMarker({ confirmed }: { confirmed: boolean }) {
   );
 }
 
-type ChannelRowProps = {
-  channel: BrandChannel;
+type StockistListRowProps = {
+  stockist: Stockist;
   isPending: boolean;
   isOwner: boolean;
   error: string | undefined;
   t: Translate;
   ownerConfirmLabel: string;
   ownerRejectLabel: string;
-  onModerate: (channel: BrandChannel, status: "confirmed" | "rejected") => void;
+  onModerate: (stockist: Stockist, status: "confirmed" | "rejected") => void;
 };
 
-function ChannelRow({
-  channel,
+function StockistListRow({
+  stockist,
   isPending,
   isOwner,
   error,
@@ -91,39 +91,39 @@ function ChannelRow({
   ownerConfirmLabel,
   ownerRejectLabel,
   onModerate,
-}: ChannelRowProps) {
-  // Every channel is a physical place since DEV-1513, so the address is always
+}: StockistListRowProps) {
+  // Every stockist is a physical place since DEV-1513, so the address is always
   // the location worth printing and the region label is its fallback.
-  const region = channel.address ?? channel.regionLabel;
-  const mapsHref = channel.address
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(channel.address)}`
+  const region = stockist.address ?? stockist.regionLabel;
+  const mapsHref = stockist.address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stockist.address)}`
     : null;
   // Only a rendered Maps link counts as a way through.
   const showsMapsLink = region !== null && mapsHref !== null;
-  // The href itself rather than a boolean beside it: `channel.url` is
+  // The href itself rather than a boolean beside it: `stockist.url` is
   // `string | null`, and a separate flag proves nothing to the compiler at the
   // point of use — the anchor below needs the narrowing, not the answer.
-  const outboundHref = showsMapsLink ? null : channel.url;
+  const outboundHref = showsMapsLink ? null : stockist.url;
   // No `?? "community"` fallback: `confirmedBy` is set by
-  // `groupChannelsForDisplay` for every confirmed row and read only here, and
+  // `groupStockistsForDisplay` for every confirmed row and read only here, and
   // guessing a provenance for a row the server declined to vouch for is how a
   // trust label gets printed without anything behind it.
   const provenanceKey =
-    channel.confirmedBy === "evidence" &&
-    channel.evidenceSource !== "official_website"
+    stockist.confirmedBy === "evidence" &&
+    stockist.evidenceSource !== "official_website"
       ? "evidenceOther"
-      : channel.confirmedBy;
-  const isConfirmed = channel.status === "confirmed";
+      : stockist.confirmedBy;
+  const isConfirmed = stockist.status === "confirmed";
 
   return (
     <div
       className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between"
-      data-channel-row
+      data-stockist-row
     >
       <div className="flex min-w-0 items-start gap-3">
         <StatusMarker confirmed={isConfirmed} />
         <div className="min-w-0">
-          <p className="type-label">{channel.name}</p>
+          <p className="type-label">{stockist.name}</p>
           {region ? (
             <div className="mt-2 type-body-sm text-ink-soft">
               {mapsHref ? (
@@ -154,7 +154,7 @@ function ChannelRow({
             {t(`channels.provenance.${provenanceKey}`)}
           </Badge>
         ) : null}
-        {/* Exactly one way through per channel. When the address renders as a
+        {/* Exactly one way through per stockist. When the address renders as a
             Google Maps link that IS the way through, so the outbound button
             would send the reader to a second page saying the same thing. When
             there is no rendered address, the outbound link is the only way
@@ -180,9 +180,9 @@ function ChannelRow({
               type="button"
               variant="secondary"
               size="compact"
-              aria-pressed={channel.ownerStatus === "confirmed"}
+              aria-pressed={stockist.ownerStatus === "confirmed"}
               disabled={isPending}
-              onClick={() => onModerate(channel, "confirmed")}
+              onClick={() => onModerate(stockist, "confirmed")}
             >
               <Check aria-hidden="true" className="size-4" />
               {ownerConfirmLabel}
@@ -191,9 +191,9 @@ function ChannelRow({
               type="button"
               variant="secondary"
               size="compact"
-              aria-pressed={channel.ownerStatus === "rejected"}
+              aria-pressed={stockist.ownerStatus === "rejected"}
               disabled={isPending}
-              onClick={() => onModerate(channel, "rejected")}
+              onClick={() => onModerate(stockist, "rejected")}
             >
               <TriangleAlert aria-hidden="true" className="size-4" />
               {ownerRejectLabel}
@@ -205,26 +205,26 @@ function ChannelRow({
   );
 }
 
-type ChannelChipProps = {
-  channel: BrandChannel;
+type StockistChipProps = {
+  stockist: Stockist;
   t: Translate;
 };
 
-function ChannelChip({ channel, t }: ChannelChipProps) {
-  const isConfirmed = channel.status === "confirmed";
+function StockistChip({ stockist, t }: StockistChipProps) {
+  const isConfirmed = stockist.status === "confirmed";
   // The chain sentinel is a marker, not a place, so it is the one region label
   // that never prints.
   const region =
-    channel.regionLabel && channel.regionLabel !== CHAIN_MARKER
-      ? channel.regionLabel
+    stockist.regionLabel && stockist.regionLabel !== CHAIN_MARKER
+      ? stockist.regionLabel
       : null;
-  const mapsHref = channel.address
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(channel.address)}`
+  const mapsHref = stockist.address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stockist.address)}`
     : null;
   // Same rule as the row: the outbound icon is a fallback, not a duplicate.
   const showsMapsLink = region !== null && mapsHref !== null;
   // Held as the href, not as a boolean — see the row above.
-  const outboundHref = showsMapsLink ? null : channel.url;
+  const outboundHref = showsMapsLink ? null : stockist.url;
 
   return (
     <li
@@ -234,7 +234,7 @@ function ChannelChip({ channel, t }: ChannelChipProps) {
           ? "border-rule bg-verified-green-bg text-verified-green"
           : "border-dashed border-rule",
       )}
-      data-channel-chip
+      data-stockist-chip
     >
       {isConfirmed ? (
         <Check aria-hidden="true" className="size-3.5 shrink-0" />
@@ -242,7 +242,7 @@ function ChannelChip({ channel, t }: ChannelChipProps) {
       {/* A retailer name is interface, not content: it labels a place you can
           go, and it sits inside a chip beside a state marker. The interface
           face at the label step, not the content face at a body step. */}
-      <span className="type-label">{channel.name}</span>
+      <span className="type-label">{stockist.name}</span>
       {region ? (
         <span className="type-metadata text-ink-muted">
           (
@@ -270,12 +270,12 @@ function ChannelChip({ channel, t }: ChannelChipProps) {
           href={outboundHref}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label={`${channel.name} ${t("channels.confirmed.officialPageLink")}`}
+          aria-label={`${stockist.name} ${t("channels.confirmed.officialPageLink")}`}
           // ::after grows the 32px icon to a 44px touch target, the same way the
           // confirm button below and `ui/switch` do it — the visible mark stays
           // small because it sits inside a dense chip row, but the target does
           // not. The accessible name comes from `aria-label` and names the
-          // ACTION plus the channel it acts on, not the glyph.
+          // ACTION plus the stockist it acts on, not the glyph.
           className="relative inline-flex min-h-8 min-w-8 items-center justify-center text-ink-muted after:absolute after:-inset-1.5 after:content-[''] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <ExternalLink aria-hidden="true" className="size-4" />
@@ -285,30 +285,30 @@ function ChannelChip({ channel, t }: ChannelChipProps) {
   );
 }
 
-export function BrandChannelList({
+export function StockistList({
   confirmed,
   possible,
   brandId,
   brandSlug,
-}: BrandChannelListProps) {
+}: StockistListProps) {
   const t = useTranslations("brandDetail");
   const tErrors = useTranslations("brandDetail.channels.errors");
   const tCities = useTranslations("cities");
   const { user, loading } = useUser();
   const [, startTransition] = useTransition();
-  const allChannels = [...confirmed, ...possible];
+  const allStockists = [...confirmed, ...possible];
   const [expandedChipGroups, setExpandedChipGroups] = useState<
     Partial<Record<string, boolean>>
   >({});
   const [isOwner, setIsOwner] = useState(false);
-  const [pendingChannelId, setPendingChannelId] = useState<string | null>(null);
+  const [pendingStockistId, setPendingStockistId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (loading || !user) return;
 
     let active = true;
-    void getChannelViewerStateAction(brandId)
+    void getStockistViewerStateAction(brandId)
       .then((viewerState) => {
         if (!active) return;
         setIsOwner(viewerState.isOwner);
@@ -323,60 +323,60 @@ export function BrandChannelList({
     };
   }, [brandId, loading, user]);
 
-  const displayGroups = groupChannelsByRegion(allChannels);
+  const displayGroups = groupStockistsByRegion(allStockists);
   const ownerConfirmLabel = t("channels.ownerBanner.confirm");
   const ownerRejectLabel = t("channels.ownerBanner.reject");
 
-  function setChannelError(channelId: string, message: string | null) {
+  function setStockistError(stockistId: string, message: string | null) {
     setErrors((current) => {
       const next = { ...current };
-      if (message) next[channelId] = message;
-      else delete next[channelId];
+      if (message) next[stockistId] = message;
+      else delete next[stockistId];
       return next;
     });
   }
 
   function handleOwnerModeration(
-    channel: BrandChannel,
+    stockist: Stockist,
     status: "confirmed" | "rejected",
   ) {
-    setChannelError(channel.id, null);
-    setPendingChannelId(channel.id);
+    setStockistError(stockist.id, null);
+    setPendingStockistId(stockist.id);
 
     startTransition(() => {
       void (async () => {
         try {
-          const result = await ownerModerateChannelAction(
-            channel.id,
+          const result = await ownerModerateStockistAction(
+            stockist.id,
             brandSlug,
             status,
           );
           if ("error" in result) throw new Error(result.error);
         } catch (error) {
-          setChannelError(channel.id, getActionErrorMessage(error, tErrors));
+          setStockistError(stockist.id, getActionErrorMessage(error, tErrors));
         } finally {
-          setPendingChannelId((current) =>
-            current === channel.id ? null : current,
+          setPendingStockistId((current) =>
+            current === stockist.id ? null : current,
           );
         }
       })();
     });
   }
 
-  function rendersAsRow(channel: BrandChannel) {
-    if (channel.status === "confirmed") return true;
+  function rendersAsRow(stockist: Stockist) {
+    if (stockist.status === "confirmed") return true;
     // The owner needs the moderation controls, which do not fit inside a chip.
     return isOwner;
   }
 
-  function renderRow(channel: BrandChannel) {
+  function renderRow(stockist: Stockist) {
     return (
-      <ChannelRow
-        key={channel.id}
-        channel={channel}
-        isPending={pendingChannelId === channel.id}
+      <StockistListRow
+        key={stockist.id}
+        stockist={stockist}
+        isPending={pendingStockistId === stockist.id}
         isOwner={isOwner}
-        error={errors[channel.id]}
+        error={errors[stockist.id]}
         t={t}
         ownerConfirmLabel={ownerConfirmLabel}
         ownerRejectLabel={ownerRejectLabel}
@@ -385,13 +385,13 @@ export function BrandChannelList({
     );
   }
 
-  function renderRowStack(rows: BrandChannel[]) {
+  function renderRowStack(rows: Stockist[]) {
     if (rows.length === 0) return null;
 
     return <div className="divide-y divide-rule">{rows.map(renderRow)}</div>;
   }
 
-  function renderChipStack(kind: string, chips: BrandChannel[]) {
+  function renderChipStack(kind: string, chips: Stockist[]) {
     if (chips.length === 0) return null;
 
     const isExpanded = expandedChipGroups[kind] === true;
@@ -399,10 +399,10 @@ export function BrandChannelList({
     const visibleChips = isExpanded ? chips : chips.slice(0, MAX_VISIBLE_CHIPS);
 
     return (
-      <div className="space-y-3" data-channel-chip-group={kind}>
+      <div className="space-y-3" data-stockist-chip-group={kind}>
         <ul className="flex flex-wrap gap-2">
-          {visibleChips.map((channel) => (
-            <ChannelChip key={channel.id} channel={channel} t={t} />
+          {visibleChips.map((stockist) => (
+            <StockistChip key={stockist.id} stockist={stockist} t={t} />
           ))}
         </ul>
         {hiddenChipCount > 0 ? (
@@ -423,16 +423,16 @@ export function BrandChannelList({
         ) : null}
         {/* No live region here any more. It existed for the community confirm
             round-trip, which is gone: a chip is a static entry now, and the only
-            message a channel can still raise (owner moderation) belongs to the
+            message a stockist can still raise (owner moderation) belongs to the
             row that raised it. */}
       </div>
     );
   }
 
-  function renderGroup(group: ChannelRegionGroup) {
-    const rowChannels = group.channels.filter(rendersAsRow);
-    const chipChannels = group.channels.filter(
-      (channel) => !rendersAsRow(channel),
+  function renderGroup(group: StockistRegionGroup) {
+    const rowStockists = group.stockists.filter(rendersAsRow);
+    const chipStockists = group.stockists.filter(
+      (stockist) => !rendersAsRow(stockist),
     );
     const heading =
       group.key === "overseas" || group.key === "all_taiwan"
@@ -440,35 +440,35 @@ export function BrandChannelList({
         : tCities(group.key);
 
     return (
-      <details key={group.key} className="group" data-channel-kind={group.key}>
+      <details key={group.key} className="group" data-stockist-kind={group.key}>
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-          <h3 className="type-body-sm font-semibold text-ink">{`${heading} (${group.channels.length})`}</h3>
+          <h3 className="type-body-sm font-semibold text-ink">{`${heading} (${group.stockists.length})`}</h3>
           <ChevronDown
             aria-hidden="true"
             className="size-5 shrink-0 text-ink-muted transition-transform duration-200 group-open:rotate-180"
           />
         </summary>
         <div className="space-y-4 pb-4">
-          {renderChipStack(group.key, chipChannels)}
-          {renderRowStack(rowChannels)}
+          {renderChipStack(group.key, chipStockists)}
+          {renderRowStack(rowStockists)}
         </div>
       </details>
     );
   }
 
   // Too few entries for grouping to earn headings: render one flat list.
-  if (allChannels.length < GROUPED_LAYOUT_MIN_CHANNELS) {
-    const rowChannels = displayGroups.flatMap((group) =>
-      group.channels.filter(rendersAsRow),
+  if (allStockists.length < GROUPED_LAYOUT_MIN_STOCKISTS) {
+    const rowStockists = displayGroups.flatMap((group) =>
+      group.stockists.filter(rendersAsRow),
     );
-    const chipChannels = displayGroups.flatMap((group) =>
-      group.channels.filter((channel) => !rendersAsRow(channel)),
+    const chipStockists = displayGroups.flatMap((group) =>
+      group.stockists.filter((stockist) => !rendersAsRow(stockist)),
     );
 
     return (
-      <div className="space-y-8" data-brand-channel-list>
-        {renderChipStack("all_taiwan", chipChannels)}
-        {renderRowStack(rowChannels)}
+      <div className="space-y-8" data-stockist-list>
+        {renderChipStack("all_taiwan", chipStockists)}
+        {renderRowStack(rowStockists)}
       </div>
     );
   }
@@ -476,7 +476,7 @@ export function BrandChannelList({
   return (
     <div
       className="divide-y divide-rule border-y border-rule"
-      data-brand-channel-list
+      data-stockist-list
     >
       {displayGroups.map(renderGroup)}
     </div>

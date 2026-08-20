@@ -1,15 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  applyPublicChannelVisibility,
+  applyPublicStockistVisibility,
   CHAIN_REGION_LABEL,
-  groupChannelsByRegion,
-  groupChannelsForDisplay,
-  normalizeChannelName,
+  groupStockistsByRegion,
+  groupStockistsForDisplay,
+  normalizeStockistName,
   PENDING_COMMUNITY_EXCLUSION,
-} from "./channels";
-import type { BrandChannel } from "@/lib/types/brand-channel";
+} from "./stockist-display";
+import type { Stockist } from "@/lib/types/stockist";
 
-type ChannelRow = {
+type StockistDisplayRow = {
   id: string;
   name: string;
   regionLabel: string | null;
@@ -25,9 +25,9 @@ type ChannelRow = {
   removedAt: string | null;
 };
 
-function channelRow(overrides: Partial<ChannelRow> = {}): ChannelRow {
+function stockistDisplayRow(overrides: Partial<StockistDisplayRow> = {}): StockistDisplayRow {
   return {
-    id: "channel-1",
+    id: "stockist-1",
     name: "登山友",
     regionLabel: null,
     address: null,
@@ -39,10 +39,10 @@ function channelRow(overrides: Partial<ChannelRow> = {}): ChannelRow {
   };
 }
 
-describe("groupChannelsForDisplay", () => {
+describe("groupStockistsForDisplay", () => {
   it("promotes an owner-confirmed row to confirmed", () => {
-    const result = groupChannelsForDisplay(
-      [channelRow({ ownerStatus: "confirmed", ownerStatusBy: "owner-user" })],
+    const result = groupStockistsForDisplay(
+      [stockistDisplayRow({ ownerStatus: "confirmed", ownerStatusBy: "owner-user" })],
       ["owner-user"],
     );
 
@@ -61,16 +61,16 @@ describe("groupChannelsForDisplay", () => {
   // approver keeps the owner claim; only a positively identified non-owner
   // downgrades it (see `stockist-queue.test.ts`).
   it("keeps owner provenance when no approver was recorded", () => {
-    const result = groupChannelsForDisplay([
-      channelRow({ ownerStatus: "confirmed", ownerStatusBy: null }),
+    const result = groupStockistsForDisplay([
+      stockistDisplayRow({ ownerStatus: "confirmed", ownerStatusBy: null }),
     ]);
 
     expect(result.confirmed.at(0)).toMatchObject({ confirmedBy: "owner" });
   });
 
   it("promotes an evidence-backed row to confirmed", () => {
-    const result = groupChannelsForDisplay([
-      channelRow({
+    const result = groupStockistsForDisplay([
+      stockistDisplayRow({
         source: "import",
         sourceUrl: "https://hanchor.com.tw/pages/stockists",
       }),
@@ -86,8 +86,8 @@ describe("groupChannelsForDisplay", () => {
   // Only the curated import guarantees the evidence is the brand's own site, so
   // every other evidence-backed source must not claim it.
   it("marks non-import evidence as a generic source, not the official website", () => {
-    const result = groupChannelsForDisplay([
-      channelRow({
+    const result = groupStockistsForDisplay([
+      stockistDisplayRow({
         source: "enriched",
         sourceUrl: "https://www.example-directory.tw/shops/1",
       }),
@@ -101,8 +101,8 @@ describe("groupChannelsForDisplay", () => {
   });
 
   it("leaves evidenceSource unset when nothing backs the row", () => {
-    const result = groupChannelsForDisplay([
-      channelRow({ ownerStatus: "confirmed", sourceUrl: null }),
+    const result = groupStockistsForDisplay([
+      stockistDisplayRow({ ownerStatus: "confirmed", sourceUrl: null }),
     ]);
 
     expect(result.confirmed.at(0)).toMatchObject({ confirmedBy: "owner" });
@@ -110,8 +110,8 @@ describe("groupChannelsForDisplay", () => {
   });
 
   it("does not send the evidence source URL to the client", () => {
-    const result = groupChannelsForDisplay([
-      channelRow({
+    const result = groupStockistsForDisplay([
+      stockistDisplayRow({
         source: "import",
         sourceUrl: "https://hanchor.com.tw/pages/stockists",
       }),
@@ -124,8 +124,8 @@ describe("groupChannelsForDisplay", () => {
   // and dropping the second operand would promote every community row carrying a
   // URL to "confirmed" on 718 live brand pages.
   it("does not treat a community row with a source URL as evidence backed", () => {
-    const result = groupChannelsForDisplay([
-      channelRow({
+    const result = groupStockistsForDisplay([
+      stockistDisplayRow({
         source: "community",
         sourceUrl: "https://example.com/community-submission",
       }),
@@ -134,34 +134,34 @@ describe("groupChannelsForDisplay", () => {
     expect(result.possible.at(0)).toMatchObject({ status: "unconfirmed" });
   });
 
-  it("normalizeChannelName strips whitespace, case, and retailer noise suffixes", () => {
-    expect(normalizeChannelName("登山友 店")).toBe(
-      normalizeChannelName("登山友"),
+  it("normalizeStockistName strips whitespace, case, and retailer noise suffixes", () => {
+    expect(normalizeStockistName("登山友 店")).toBe(
+      normalizeStockistName("登山友"),
     );
-    expect(normalizeChannelName("登山友\t店")).toBe(
-      normalizeChannelName("登山友"),
+    expect(normalizeStockistName("登山友\t店")).toBe(
+      normalizeStockistName("登山友"),
     );
-    expect(normalizeChannelName("登山友 內湖店")).not.toBe(
-      normalizeChannelName("登山友"),
+    expect(normalizeStockistName("登山友 內湖店")).not.toBe(
+      normalizeStockistName("登山友"),
     );
-    expect(normalizeChannelName("登山友")).not.toBe(
-      normalizeChannelName("登山王"),
+    expect(normalizeStockistName("登山友")).not.toBe(
+      normalizeStockistName("登山王"),
     );
   });
 
-  it("normalizeChannelName strips compound suffixes sequentially", () => {
+  it("normalizeStockistName strips compound suffixes sequentially", () => {
     // '登山友門市專賣店': strip '專賣店' → '登山友門市', then strip '門市' → '登山友'
-    expect(normalizeChannelName("登山友門市專賣店")).toBe("登山友");
+    expect(normalizeStockistName("登山友門市專賣店")).toBe("登山友");
     // Should NOT return '登山友門市' (the old single-pass behaviour)
-    expect(normalizeChannelName("登山友門市專賣店")).not.toBe("登山友門市");
+    expect(normalizeStockistName("登山友門市專賣店")).not.toBe("登山友門市");
     // Stripping must not reduce to empty string: '店' alone stays '店'
-    expect(normalizeChannelName("店")).toBe("店");
+    expect(normalizeStockistName("店")).toBe("店");
   });
 
-  it("excludes tombstoned and rejected channels from both groups", () => {
-    const result = groupChannelsForDisplay([
-      channelRow({ id: "removed", removedAt: "2026-07-24T00:00:00Z" }),
-      channelRow({ id: "rejected", ownerStatus: "rejected" }),
+  it("excludes tombstoned and rejected stockists from both groups", () => {
+    const result = groupStockistsForDisplay([
+      stockistDisplayRow({ id: "removed", removedAt: "2026-07-24T00:00:00Z" }),
+      stockistDisplayRow({ id: "rejected", ownerStatus: "rejected" }),
     ]);
 
     expect(result).toEqual({ confirmed: [], possible: [] });
@@ -170,7 +170,7 @@ describe("groupChannelsForDisplay", () => {
 });
 
 /**
- * Structurally satisfies the `applyPublicChannelVisibility` constraint without
+ * Structurally satisfies the `applyPublicStockistVisibility` constraint without
  * any Supabase machinery — the real `PostgrestFilterBuilder` also returns itself
  * from each of these. `check-test-boundaries.mjs` forbids mocking the client, so
  * a spy is the only way to assert the emitted filters directly.
@@ -195,11 +195,11 @@ function createQuerySpy() {
   return query;
 }
 
-describe("applyPublicChannelVisibility", () => {
+describe("applyPublicStockistVisibility", () => {
   it("hides tombstoned, owner-rejected, and unreviewed community rows", () => {
     const query = createQuerySpy();
 
-    applyPublicChannelVisibility(query);
+    applyPublicStockistVisibility(query);
 
     expect(query.calls).toEqual([
       "is(removed_at,null)",
@@ -219,14 +219,14 @@ describe("applyPublicChannelVisibility", () => {
   it("returns the same query so it stays chainable", () => {
     const query = createQuerySpy();
 
-    expect(applyPublicChannelVisibility(query)).toBe(query);
+    expect(applyPublicStockistVisibility(query)).toBe(query);
   });
 });
 
-describe("groupChannelsByRegion", () => {
-  function channel(overrides: Partial<BrandChannel> = {}): BrandChannel {
+describe("groupStockistsByRegion", () => {
+  function stockist(overrides: Partial<Stockist> = {}): Stockist {
     return {
-      id: "channel-1",
+      id: "stockist-1",
       name: "通路",
       regionLabel: null,
       address: null,
@@ -239,20 +239,20 @@ describe("groupChannelsByRegion", () => {
   }
 
   it("groups Taiwan rows by canonical region ordered by count", () => {
-    const groups = groupChannelsByRegion([
-      channel({
+    const groups = groupStockistsByRegion([
+      stockist({
         id: "taipei-one",
         name: "臺北一店",
         regionLabel: "臺北市",
         country: "TW",
       }),
-      channel({
+      stockist({
         id: "taichung",
         name: "臺中店",
         regionLabel: "臺中市",
         country: "TW",
       }),
-      channel({
+      stockist({
         id: "taipei-two",
         name: "臺北二店",
         regionLabel: "臺北市",
@@ -260,21 +260,21 @@ describe("groupChannelsByRegion", () => {
       }),
     ]);
 
-    expect(groups.map((group) => [group.key, group.channels.length])).toEqual([
+    expect(groups.map((group) => [group.key, group.stockists.length])).toEqual([
       ["taipei", 2],
       ["taichung", 1],
     ]);
   });
 
   it("collapses non-Taiwan rows into one overseas group", () => {
-    const groups = groupChannelsByRegion([
-      channel({
+    const groups = groupStockistsByRegion([
+      stockist({
         id: "hong-kong",
         name: "香港店",
         regionLabel: "香港",
         country: "HK",
       }),
-      channel({
+      stockist({
         id: "new-york",
         name: "紐約店",
         regionLabel: "美國・New York",
@@ -283,7 +283,7 @@ describe("groupChannelsByRegion", () => {
     ]);
 
     expect(groups).toEqual([expect.objectContaining({ key: "overseas" })]);
-    expect(groups.at(0)?.channels).toHaveLength(2);
+    expect(groups.at(0)?.stockists).toHaveLength(2);
   });
 
   // Every stockist is a physical place since DEV-1513 dropped the sales-format
@@ -292,21 +292,21 @@ describe("groupChannelsByRegion", () => {
   // including a row with no region at all, which is the fallback branch and not
   // a fourth category.
   it("groups stockists by region without an online bucket", () => {
-    const groups = groupChannelsByRegion([
-      channel({ id: "unlocated", name: "官方商城" }),
-      channel({
+    const groups = groupStockistsByRegion([
+      stockist({ id: "unlocated", name: "官方商城" }),
+      stockist({
         id: "taipei",
         name: "臺北店",
         regionLabel: "臺北市",
         country: "TW",
       }),
-      channel({
+      stockist({
         id: "chain",
         name: "全台連鎖",
         regionLabel: CHAIN_REGION_LABEL,
         country: "TW",
       }),
-      channel({
+      stockist({
         id: "hong-kong",
         name: "香港店",
         regionLabel: "香港",
@@ -314,14 +314,14 @@ describe("groupChannelsByRegion", () => {
       }),
     ]);
 
-    expect(groups.map((group) => [group.key, group.channels.length])).toEqual([
+    expect(groups.map((group) => [group.key, group.stockists.length])).toEqual([
       ["overseas", 2],
       ["all_taiwan", 1],
       ["taipei", 1],
     ]);
   });
 
-  it("keeps Chinese channel order stable across runtime locale differences", () => {
+  it("keeps Chinese stockist order stable across runtime locale differences", () => {
     const localeCompare = vi
       .spyOn(String.prototype, "localeCompare")
       .mockImplementation(function (this: string, compareString: string) {
@@ -329,12 +329,12 @@ describe("groupChannelsByRegion", () => {
       });
 
     try {
-      const groups = groupChannelsByRegion([
-        channel({ id: "shoe-store", name: "美仕鞋行", regionLabel: "新北市" }),
-        channel({ id: "shoe-shop", name: "萬花筒鞋舖", regionLabel: "新北市" }),
+      const groups = groupStockistsByRegion([
+        stockist({ id: "shoe-store", name: "美仕鞋行", regionLabel: "新北市" }),
+        stockist({ id: "shoe-shop", name: "萬花筒鞋舖", regionLabel: "新北市" }),
       ]);
 
-      expect(groups.at(0)?.channels.map(({ name }) => name)).toEqual([
+      expect(groups.at(0)?.stockists.map(({ name }) => name)).toEqual([
         "美仕鞋行",
         "萬花筒鞋舖",
       ]);

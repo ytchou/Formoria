@@ -6,10 +6,10 @@ import en from "../../../../messages/en.json";
 import type { Database } from "@/lib/supabase/database.types";
 import { describeWithDb } from "@/test/setup";
 import {
-  getChannelsForBrand,
+  getStockistsForBrand,
   listPendingCommunityStockists,
   reviewCommunityStockist,
-} from "../brand-channels";
+} from "../stockists";
 
 const supabase =
   process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -27,7 +27,7 @@ const supabase =
  * Against a real database, not a fake: these functions build their own service
  * client and `check-test-boundaries.mjs` forbids mocking it. The static half of
  * the contract — that every public read applies the filter at all — is asserted
- * in `brand-channels.test.ts`.
+ * in `stockists.test.ts`.
  */
 describeWithDb("admin stockist queue", () => {
   const brandIds: string[] = [];
@@ -47,7 +47,7 @@ describeWithDb("admin stockist queue", () => {
     return brandId;
   }
 
-  async function seedChannel(
+  async function seedStockist(
     brandId: string,
     row: {
       name: string;
@@ -57,12 +57,12 @@ describeWithDb("admin stockist queue", () => {
       removedAt?: string | null;
     },
   ): Promise<string> {
-    const channelId = randomUUID();
+    const stockistId = randomUUID();
     const { error } = await supabase!.from("brand_channels").insert({
-      id: channelId,
+      id: stockistId,
       brand_id: brandId,
       name: row.name,
-      normalized_name: `${row.name}-${channelId}`.slice(0, 80),
+      normalized_name: `${row.name}-${stockistId}`.slice(0, 80),
       region_label: "臺北市",
       source: row.source,
       owner_status: row.ownerStatus,
@@ -70,7 +70,7 @@ describeWithDb("admin stockist queue", () => {
       removed_at: row.removedAt ?? null,
     });
     if (error) throw error;
-    return channelId;
+    return stockistId;
   }
 
   /**
@@ -100,22 +100,22 @@ describeWithDb("admin stockist queue", () => {
 
   it("lists only pending community rows", async () => {
     const brandId = await seedBrand();
-    const pendingId = await seedChannel(brandId, {
+    const pendingId = await seedStockist(brandId, {
       name: "待審核社群通路",
       source: "community",
       ownerStatus: "none",
     });
-    await seedChannel(brandId, {
+    await seedStockist(brandId, {
       name: "品牌已確認的社群通路",
       source: "community",
       ownerStatus: "confirmed",
     });
-    await seedChannel(brandId, {
+    await seedStockist(brandId, {
       name: "匯入的通路",
       source: "import",
       ownerStatus: "none",
     });
-    await seedChannel(brandId, {
+    await seedStockist(brandId, {
       name: "已移除的社群通路",
       source: "community",
       ownerStatus: "none",
@@ -137,7 +137,7 @@ describeWithDb("admin stockist queue", () => {
 
   it("approving sets owner_status to confirmed", async () => {
     const brandId = await seedBrand();
-    const channelId = await seedChannel(brandId, {
+    const stockistId = await seedStockist(brandId, {
       name: "核准後應公開的通路",
       source: "community",
       ownerStatus: "none",
@@ -145,7 +145,7 @@ describeWithDb("admin stockist queue", () => {
     const adminUserId = await anyUserId();
 
     const result = await reviewCommunityStockist(
-      channelId,
+      stockistId,
       "confirmed",
       adminUserId,
     );
@@ -154,7 +154,7 @@ describeWithDb("admin stockist queue", () => {
     const { data } = await supabase!
       .from("brand_channels")
       .select("owner_status, owner_status_by")
-      .eq("id", channelId)
+      .eq("id", stockistId)
       .maybeSingle();
     expect(data).toMatchObject({
       owner_status: "confirmed",
@@ -167,13 +167,13 @@ describeWithDb("admin stockist queue", () => {
       ),
     ).toEqual([]);
     expect(
-      await reviewCommunityStockist(channelId, "rejected", adminUserId),
+      await reviewCommunityStockist(stockistId, "rejected", adminUserId),
     ).toMatchObject({ ok: false, code: "not_found" });
   });
 
   it("rejecting sets owner_status to rejected", async () => {
     const brandId = await seedBrand();
-    const channelId = await seedChannel(brandId, {
+    const stockistId = await seedStockist(brandId, {
       name: "應被退回的通路",
       source: "community",
       ownerStatus: "none",
@@ -181,7 +181,7 @@ describeWithDb("admin stockist queue", () => {
     const adminUserId = await anyUserId();
 
     const result = await reviewCommunityStockist(
-      channelId,
+      stockistId,
       "rejected",
       adminUserId,
     );
@@ -190,20 +190,20 @@ describeWithDb("admin stockist queue", () => {
     const { data } = await supabase!
       .from("brand_channels")
       .select("owner_status, owner_status_by")
-      .eq("id", channelId)
+      .eq("id", stockistId)
       .maybeSingle();
     expect(data).toMatchObject({
       owner_status: "rejected",
       owner_status_by: adminUserId,
     });
     // A rejected row is invisible on the brand page too, not merely dequeued.
-    const channels = await getChannelsForBrand(brandId);
+    const channels = await getStockistsForBrand(brandId);
     expect([...channels.confirmed, ...channels.possible]).toEqual([]);
   });
 
   it("renders an empty state when nothing is pending", async () => {
     const brandId = await seedBrand();
-    await seedChannel(brandId, {
+    await seedStockist(brandId, {
       name: "匯入的通路，不需要審核",
       source: "import",
       ownerStatus: "none",
@@ -228,7 +228,7 @@ describeWithDb("admin stockist queue", () => {
     const approverId = await anyUserId();
 
     const adminBrandId = await seedBrand();
-    await seedChannel(adminBrandId, {
+    await seedStockist(adminBrandId, {
       name: "站方核准的通路",
       source: "community",
       ownerStatus: "confirmed",
@@ -240,23 +240,23 @@ describeWithDb("admin stockist queue", () => {
       .from("brand_owners")
       .insert({ brand_id: ownedBrandId, user_id: approverId });
     if (ownerError) throw ownerError;
-    await seedChannel(ownedBrandId, {
+    await seedStockist(ownedBrandId, {
       name: "品牌自己確認的通路",
       source: "community",
       ownerStatus: "confirmed",
       ownerStatusBy: approverId,
     });
 
-    const [adminChannels, ownedChannels] = await Promise.all([
-      getChannelsForBrand(adminBrandId),
-      getChannelsForBrand(ownedBrandId),
+    const [adminStockists, ownedStockists] = await Promise.all([
+      getStockistsForBrand(adminBrandId),
+      getStockistsForBrand(ownedBrandId),
     ]);
 
-    expect(adminChannels.confirmed.at(0)).toMatchObject({
+    expect(adminStockists.confirmed.at(0)).toMatchObject({
       confirmedBy: "formoria",
     });
     // Same approver, same row shape — only the ownership row differs.
-    expect(ownedChannels.confirmed.at(0)).toMatchObject({
+    expect(ownedStockists.confirmed.at(0)).toMatchObject({
       confirmedBy: "owner",
     });
   });

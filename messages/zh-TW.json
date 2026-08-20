@@ -569,7 +569,7 @@
       "tags": "標籤",
       "photos": "照片",
       "locations": "地點",
-      "locationsAndRetailChannels": "實體通路",
+      "retailLocations": "實體通路",
       "faq": "常見問題"
     },
     "channels": {

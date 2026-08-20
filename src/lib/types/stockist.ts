@@ -1,23 +1,23 @@
-type ChannelStatus = 'confirmed' | 'unconfirmed'
+type StockistStatus = 'confirmed' | 'unconfirmed'
 /**
- * Who vouches for a confirmed channel. These are public trust claims, so each
+ * Who vouches for a confirmed stockist. These are public trust claims, so each
  * one must be literally true: `owner` means the brand itself said so,
  * `formoria` means an admin approved a community submission the brand never
  * touched, `evidence` means a cited source backs it. Collapsing `formoria` into
  * `owner` would print 品牌確認 over a claim the brand never made.
  */
-type ChannelConfirmedBy = 'owner' | 'formoria' | 'evidence'
+type StockistConfirmedBy = 'owner' | 'formoria' | 'evidence'
 /**
- * Which kind of evidence backs a `confirmedBy: 'evidence'` channel. The public
+ * Which kind of evidence backs a `confirmedBy: 'evidence'` stockist. The public
  * label differs by kind, so this must never be widened to a boolean: only
  * `official_website` may claim the brand's own site as the source.
  */
-type ChannelEvidenceSource = 'official_website' | 'other'
-export type ChannelSource =
+type StockistEvidenceSource = 'official_website' | 'other'
+export type StockistSource =
   'backfill' | 'enriched' | 'community' | 'owner' | 'admin' | 'import'
 type OwnerStatus = 'none' | 'confirmed' | 'rejected'
 
-export type ChannelLocationType =
+export type StockistLocationType =
   | 'stockist'
   | 'distributor_retailer'
   | 'direct_store'
@@ -33,7 +33,7 @@ export type ChannelLocationType =
  * `brand_channels` was `offline`, and the online branch it gated only ever
  * suppressed a location label on rows that had none to print.
  */
-export interface BrandChannel {
+export interface Stockist {
   id: string
   name: string
   regionLabel: string | null
@@ -42,16 +42,16 @@ export interface BrandChannel {
   // `sourceUrl` is deliberately absent: it is a server-side input used to derive
   // `confirmedBy` and `evidenceSource`, and no client surface renders it.
   fetchedAt?: string | null
-  locationType?: ChannelLocationType | null
+  locationType?: StockistLocationType | null
   country?: string | null
   ownerStatus: OwnerStatus
-  source: ChannelSource
-  status: ChannelStatus
-  confirmedBy?: ChannelConfirmedBy
-  evidenceSource?: ChannelEvidenceSource
+  source: StockistSource
+  status: StockistStatus
+  confirmedBy?: StockistConfirmedBy
+  evidenceSource?: StockistEvidenceSource
 }
 
-export interface ChannelCandidate {
+export interface StockistCandidate {
   name: string
   normalizedName: string
   regionLabel?: string | null
@@ -59,15 +59,15 @@ export interface ChannelCandidate {
   url?: string | null
   sourceUrl?: string | null
   fetchedAt?: string | null
-  locationType?: ChannelLocationType | null
+  locationType?: StockistLocationType | null
   country?: string | null
   district?: string | null
   lastConfirmedAt?: string | null
   providerMetadata?: Record<string, unknown> | null
-  source?: ChannelSource
+  source?: StockistSource
 }
 
-export interface BrandChannelInput {
+export interface StockistInput {
   name: string
   region?: string
   address?: string

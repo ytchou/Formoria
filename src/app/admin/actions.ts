@@ -73,7 +73,7 @@ import {
   type EvidenceBatchFailure,
   type OriginEvidenceDecision,
 } from '@/lib/services/origin-evidence'
-import { reviewCommunityStockist } from '@/lib/services/brand-channels'
+import { reviewCommunityStockist } from '@/lib/services/stockists'
 import { FEATURE_FLAGS, setAppSetting } from '@/lib/services/app-settings'
 import {
   DENIAL_REASONS,
@@ -1213,17 +1213,17 @@ export async function deleteBrandAction(
  * revalidated because an approved row appears on both.
  */
 export async function reviewStockistAction(
-  channelId: string,
+  stockistId: string,
   decision: 'confirmed' | 'rejected',
 ): Promise<{ error: string } | undefined> {
   return runWithAuditContext({}, async () => {
     try {
       const auth = await requireAdminAction()
       if ('error' in auth) return auth
-      if (!isAdminEntityId(channelId)) return { error: 'Invalid stockist ID' }
+      if (!isAdminEntityId(stockistId)) return { error: 'Invalid stockist ID' }
 
       const result = await reviewCommunityStockist(
-        channelId,
+        stockistId,
         decision,
         auth.user.id,
       )

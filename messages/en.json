@@ -569,7 +569,7 @@
       "tags": "Tags",
       "photos": "Photos",
       "locations": "Locations",
-      "locationsAndRetailChannels": "Retail locations",
+      "retailLocations": "Retail locations",
       "faq": "Frequently Asked Questions"
     },
     "channels": {

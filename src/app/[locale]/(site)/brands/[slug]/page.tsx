@@ -32,7 +32,7 @@ import { BrandAbout } from "@/components/brands/brand-about";
 import { BrandFaqAccordion } from "@/components/brands/brand-faq-accordion";
 import { BrandLinks } from "@/components/brands/brand-links";
 import { BrandSectionNav } from "@/components/brands/brand-section-nav";
-import { BrandChannelsSection } from "@/components/brands/brand-channels-section";
+import { StockistsSection } from "@/components/brands/stockists-section";
 import { BrandSelectedProducts } from "@/components/brands/brand-selected-products";
 import { BrandEventsSection } from "@/components/brands/brand-events-section";
 import { RelatedBrands } from "@/components/brands/related-brands";
@@ -41,7 +41,7 @@ import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { getBrandCategoryLabel } from "@/lib/brands/category-label";
 import { getBrandVisitLink } from "@/lib/brands/link-fallback";
 import { faqItemsToQuestions, getBrandFaq } from "@/lib/services/brand-faq";
-import { getChannelsForBrand } from "@/lib/services/brand-channels";
+import { getStockistsForBrand } from "@/lib/services/stockists";
 import { getPublishedCuratedProductsForBrand } from "@/lib/services/curated-products";
 import { getBrandEventParticipations } from "@/lib/services/events";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
@@ -180,17 +180,17 @@ export default async function BrandDetailPage({ params }: PageProps) {
     tBrandDetail(key, params as never)) as BrandFaqTranslateFn;
   const cityLabel = displayBrand.city ? tCities(displayBrand.city) : null;
   const faqContext = await getPublicBrandFaqContextById(displayBrand.id);
-  const [faqItems, channels, curatedProducts, eventParticipations] =
+  const [faqItems, stockists, curatedProducts, eventParticipations] =
     await Promise.all([
       getBrandFaq(displayBrand.id, faqContext, tBrandFaq, safeLocale, cityLabel),
-      getChannelsForBrand(displayBrand.id),
+      getStockistsForBrand(displayBrand.id),
       getPublishedCuratedProductsForBrand(displayBrand.id),
       // Composed here rather than folded into `PublicBrandDetail`: the page
       // already assembles independent services around one brand, and widening
       // the brand projection would put an event join on every brand card query.
       getBrandEventParticipations(displayBrand.id),
     ]);
-  const channelCount = channels.confirmed.length + channels.possible.length;
+  const stockistCount = stockists.confirmed.length + stockists.possible.length;
   // Same builder generateMetadata uses for <link rel="canonical">, so the
   // structured data can never name a different URL than the page's own tag.
   const { canonical: canonicalUrl } = buildAlternates(
@@ -232,11 +232,11 @@ export default async function BrandDetailPage({ params }: PageProps) {
     ...(description
       ? [{ id: "about", label: tBrandDetail("tabNav.about") }]
       : []),
-    // Both link sections render unconditionally now — a channel with no known
+    // Both link sections render unconditionally now — a stockist with no known
     // URL shows as a dimmed chip rather than disappearing.
     { id: "social", label: tBrandDetail("tabNav.social") },
     { id: "purchase", label: tBrandDetail("tabNav.purchase") },
-    ...(channelCount > 0
+    ...(stockistCount > 0
       ? [{ id: "locations", label: tBrandDetail("tabNav.locations") }]
       : []),
     ...(curatedProducts.length > 0
@@ -278,7 +278,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
   return (
     // The saved-brands and engagement providers wrap the whole page: the view
-    // tracker needs saved state, and the gallery/FAQ/channel sections all report
+    // tracker needs saved state, and the gallery/FAQ/stockist sections all report
     // engagement. Hoisting the saved provider here does not add a fetch — it was
     // already mounted on this page, only around the actions slot.
     <SavedBrandsProvider>
@@ -291,8 +291,8 @@ export default async function BrandDetailPage({ params }: PageProps) {
             dangerouslySetInnerHTML={{
               __html: safeJsonLdStringify(
                 buildBrandJsonLd(displayBrand, safeLocale, canonicalUrl, [
-                  ...channels.confirmed,
-                  ...channels.possible,
+                  ...stockists.confirmed,
+                  ...stockists.possible,
                 ]),
               ),
             }}
@@ -401,12 +401,12 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 sectionClassName={brandSectionClassName}
               />
 
-              {channelCount > 0 && (
+              {stockistCount > 0 && (
                 <section id="locations" className={brandSectionClassName}>
-                  <BrandChannelsSection
+                  <StockistsSection
                     locale={safeLocale}
-                    confirmed={channels.confirmed}
-                    possible={channels.possible}
+                    confirmed={stockists.confirmed}
+                    possible={stockists.possible}
                     brandId={displayBrand.id}
                     brandSlug={displayBrand.slug}
                   />

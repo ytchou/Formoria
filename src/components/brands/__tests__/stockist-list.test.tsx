@@ -4,31 +4,31 @@ import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import zh from "../../../../messages/zh-TW.json";
-import type { BrandChannel } from "@/lib/types";
+import type { Stockist } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
-  getChannelViewerStateAction: vi.fn(),
-  ownerModerateChannelAction: vi.fn(),
+  getStockistViewerStateAction: vi.fn(),
+  ownerModerateStockistAction: vi.fn(),
   useUser: vi.fn(),
 }));
 
 vi.mock("@/app/[locale]/(site)/brands/[slug]/actions", () => ({
-  getChannelViewerStateAction: mocks.getChannelViewerStateAction,
-  ownerModerateChannelAction: mocks.ownerModerateChannelAction,
+  getStockistViewerStateAction: mocks.getStockistViewerStateAction,
+  ownerModerateStockistAction: mocks.ownerModerateStockistAction,
 }));
 
 vi.mock("@/lib/auth/use-user", () => ({
   useUser: mocks.useUser,
 }));
 
-import { BrandChannelList } from "../brand-channel-list";
+import { StockistList } from "../stockist-list";
 
-function makeChannel(
+function makeStockist(
   index: number,
-  overrides: Partial<BrandChannel> = {},
-): BrandChannel {
+  overrides: Partial<Stockist> = {},
+): Stockist {
   return {
-    id: `channel-${index}`,
+    id: `stockist-${index}`,
     name: `測試通路 ${index}`,
     regionLabel: "臺北市",
     address: null,
@@ -40,22 +40,22 @@ function makeChannel(
   };
 }
 
-/** The grouped layout only kicks in at 4+ channels, so chip cases need padding. */
-function makeChannels(count: number, overrides: Partial<BrandChannel> = {}) {
+/** The grouped layout only kicks in at 4+ stockists, so chip cases need padding. */
+function makeStockists(count: number, overrides: Partial<Stockist> = {}) {
   return Array.from({ length: count }, (_, index) =>
-    makeChannel(index + 1, overrides),
+    makeStockist(index + 1, overrides),
   );
 }
 
 function renderList(
   options: {
-    confirmed?: BrandChannel[];
-    possible?: BrandChannel[];
+    confirmed?: Stockist[];
+    possible?: Stockist[];
   } = {},
 ) {
   return render(
     <NextIntlClientProvider locale="zh-TW" messages={zh}>
-      <BrandChannelList
+      <StockistList
         confirmed={options.confirmed ?? []}
         possible={options.possible ?? []}
         brandId="brand-1"
@@ -67,33 +67,82 @@ function renderList(
 
 function getChip(container: HTMLElement, name: string): HTMLElement {
   const chip = Array.from(
-    container.querySelectorAll<HTMLElement>("[data-channel-chip]"),
+    container.querySelectorAll<HTMLElement>("[data-stockist-chip]"),
   ).find((element) => element.textContent?.includes(name));
   if (!chip) throw new Error(`Chip not found: ${name}`);
   return chip;
 }
 
-describe("BrandChannelList", () => {
+describe("StockistList", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.useUser.mockReturnValue({ user: { id: "user-1" }, loading: false });
-    mocks.getChannelViewerStateAction.mockResolvedValue({ isOwner: false });
-    mocks.ownerModerateChannelAction.mockResolvedValue({ success: true });
+    mocks.getStockistViewerStateAction.mockResolvedValue({ isOwner: false });
+    mocks.ownerModerateStockistAction.mockResolvedValue({ success: true });
   });
 
-  it("renders a flat chip list without group headings below four channels", () => {
-    const { container } = renderList({ possible: makeChannels(3) });
+  it("renders a flat chip list without group headings below four stockists", () => {
+    const { container } = renderList({ possible: makeStockists(3) });
 
-    expect(container.querySelectorAll("[data-channel-chip]")).toHaveLength(3);
-    expect(container.querySelectorAll("[data-channel-row]")).toHaveLength(0);
+    expect(container.querySelectorAll("[data-stockist-chip]")).toHaveLength(3);
+    expect(container.querySelectorAll("[data-stockist-row]")).toHaveLength(0);
     expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
+  });
+
+  /**
+   * The four `data-stockist-*` hooks are the ONLY contract between this
+   * component and `e2e/tests/brand-detail.spec.ts`. `tsconfig` excludes `e2e/`,
+   * so neither `tsc` nor `vitest` reads that spec: a renamed attribute breaks
+   * it at runtime, in CI, with nothing failing here first. This test is the
+   * unit-side anchor for the rename -- it fails loudly in the same suite that
+   * the wave gate runs.
+   */
+  it("renders stockist rows with the renamed data attributes", () => {
+    const { container } = renderList({
+      // An evidence-backed entry with an address renders as a full row; the
+      // three plain entries render as chips. Four entries in total is what
+      // tips the layout into groups, so all four hooks appear at once.
+      confirmed: [
+        makeStockist(1, {
+          name: "茶籽堂大稻埕門市",
+          address: "臺北市大同區迪化街一段94號",
+          source: "import",
+          status: "confirmed",
+          confirmedBy: "evidence",
+          evidenceSource: "official_website",
+        }),
+      ],
+      possible: makeStockists(3),
+    });
+
+    expect(container.querySelectorAll("[data-stockist-kind]")).toHaveLength(1);
+    expect(
+      container.querySelector('[data-stockist-kind="taipei"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-stockist-chip-group="taipei"]'),
+    ).not.toBeNull();
+    expect(container.querySelectorAll("[data-stockist-chip]")).toHaveLength(3);
+    expect(container.querySelectorAll("[data-stockist-row]")).toHaveLength(1);
+
+    // The pre-rename hooks must be gone, or the e2e spec would keep passing
+    // against a stale attribute while the new one goes unasserted. Scanned by
+    // PREFIX rather than by four literals: this also catches a retired-vocabulary
+    // attribute nobody enumerated, and it keeps that token itself out
+    // of the tree, where a repo-wide sweep would read it as a missed rename.
+    const staleAttributes = Array.from(container.querySelectorAll("*"))
+      .flatMap((element) => Array.from(element.attributes))
+      .map((attribute) => attribute.name)
+      .filter((name) => name.startsWith("data-channel"));
+
+    expect(staleAttributes).toEqual([]);
   });
 
   it("starts every region collapsed and allows multiple regions to stay open", async () => {
     const user = userEvent.setup();
     const { container } = renderList({
       confirmed: [
-        makeChannel(1, {
+        makeStockist(1, {
           name: "官方門市",
           ownerStatus: "confirmed",
           source: "owner",
@@ -102,12 +151,12 @@ describe("BrandChannelList", () => {
         }),
       ],
       possible: [
-        makeChannel(2, { name: "有地址門市", address: "台北市信義區" }),
-        makeChannel(3, { name: "連鎖門市" }),
+        makeStockist(2, { name: "有地址門市", address: "台北市信義區" }),
+        makeStockist(3, { name: "連鎖門市" }),
         // The second region is an overseas stockist. It used to be an online
-        // channel, which was the only other group a fixture could reach before
+        // stockist, which was the only other group a fixture could reach before
         // DEV-1513 removed that bucket.
-        makeChannel(4, {
+        makeStockist(4, {
           name: "香港門市",
           regionLabel: "香港",
           country: "HK",
@@ -123,10 +172,10 @@ describe("BrandChannelList", () => {
     ).toBeInTheDocument();
 
     const taipei = container.querySelector<HTMLDetailsElement>(
-      '[data-channel-kind="taipei"]',
+      '[data-stockist-kind="taipei"]',
     );
     const overseas = container.querySelector<HTMLDetailsElement>(
-      '[data-channel-kind="overseas"]',
+      '[data-stockist-kind="overseas"]',
     );
     expect(taipei).not.toHaveAttribute("open");
     expect(overseas).not.toHaveAttribute("open");
@@ -146,7 +195,7 @@ describe("BrandChannelList", () => {
     const address = "臺北市大同區迪化街一段94號";
     const { container } = renderList({
       confirmed: [
-        makeChannel(1, {
+        makeStockist(1, {
           name: "茶籽堂大稻埕門市",
           address,
           source: "import",
@@ -158,7 +207,7 @@ describe("BrandChannelList", () => {
       ],
     });
 
-    expect(container.querySelectorAll("[data-channel-row]")).toHaveLength(1);
+    expect(container.querySelectorAll("[data-stockist-row]")).toHaveLength(1);
     expect(screen.getByRole("link", { name: address })).toHaveAttribute(
       "href",
       `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
@@ -175,14 +224,14 @@ describe("BrandChannelList", () => {
   it("labels official-website evidence 來自官網 and other evidence 來源佐證", () => {
     renderList({
       confirmed: [
-        makeChannel(1, {
+        makeStockist(1, {
           name: "官網列出的門市",
           source: "import",
           status: "confirmed",
           confirmedBy: "evidence",
           evidenceSource: "official_website",
         }),
-        makeChannel(2, {
+        makeStockist(2, {
           name: "其他來源的門市",
           source: "enriched",
           status: "confirmed",
@@ -199,7 +248,7 @@ describe("BrandChannelList", () => {
   it("shows neither evidence label when the row has no evidence", () => {
     renderList({
       confirmed: [
-        makeChannel(1, {
+        makeStockist(1, {
           name: "品牌自己確認的門市",
           ownerStatus: "confirmed",
           status: "confirmed",
@@ -214,12 +263,12 @@ describe("BrandChannelList", () => {
   });
 
   // 14 rows in content/stockists/*.csv are offline with a url and no address.
-  // Gating the outbound link on the old channel type left them with no way
+  // Gating the outbound link on the old stockist type left them with no way
   // through.
   it("falls back to the outbound link when an offline row has no address", () => {
     renderList({
       confirmed: [
-        makeChannel(1, {
+        makeStockist(1, {
           name: "穿山甲裝備門市",
           address: null,
           url: "https://pngl.com.tw/",
@@ -240,7 +289,7 @@ describe("BrandChannelList", () => {
     const address = "臺北市大同區迪化街一段94號";
     renderList({
       confirmed: [
-        makeChannel(1, {
+        makeStockist(1, {
           name: "有地址的門市",
           address,
           url: "https://example.com/store",
@@ -265,14 +314,14 @@ describe("BrandChannelList", () => {
     const address = "台北市信義區信義路五段 7 號";
     const { container } = renderList({
       possible: [
-        makeChannel(1, { name: "有地址門市", address }),
-        ...makeChannels(4).slice(1),
+        makeStockist(1, { name: "有地址門市", address }),
+        ...makeStockists(4).slice(1),
       ],
     });
 
     expect(getChip(container, "有地址門市")).toBeInTheDocument();
-    expect(container.querySelectorAll("[data-channel-chip]")).toHaveLength(4);
-    expect(container.querySelectorAll("[data-channel-row]")).toHaveLength(0);
+    expect(container.querySelectorAll("[data-stockist-chip]")).toHaveLength(4);
+    expect(container.querySelectorAll("[data-stockist-row]")).toHaveLength(0);
     expect(screen.getByRole("link", { name: "臺北市" })).toHaveAttribute(
       "href",
       `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
@@ -281,15 +330,15 @@ describe("BrandChannelList", () => {
 
   it("caps a chip group at 6 and reveals the rest behind a toggle", async () => {
     const user = userEvent.setup();
-    const { container } = renderList({ possible: makeChannels(10) });
+    const { container } = renderList({ possible: makeStockists(10) });
 
-    expect(container.querySelectorAll("[data-channel-chip]")).toHaveLength(6);
+    expect(container.querySelectorAll("[data-stockist-chip]")).toHaveLength(6);
     const showRest = screen.getByRole("button", { name: "顯示其餘 4 家" });
     expect(showRest).toHaveAttribute("aria-expanded", "false");
 
     await user.click(showRest);
 
-    expect(container.querySelectorAll("[data-channel-chip]")).toHaveLength(10);
+    expect(container.querySelectorAll("[data-stockist-chip]")).toHaveLength(10);
     expect(
       screen.getByRole("button", { name: "顯示其餘 4 家" }),
     ).toHaveAttribute("aria-expanded", "true");
@@ -298,7 +347,7 @@ describe("BrandChannelList", () => {
   it("keeps community chips inside the collapsed region without a second fold", () => {
     const { container } = renderList({
       confirmed: [
-        makeChannel(1, {
+        makeStockist(1, {
           name: "官方門市",
           address: "台北市信義區",
           ownerStatus: "confirmed",
@@ -307,11 +356,11 @@ describe("BrandChannelList", () => {
           confirmedBy: "owner",
         }),
       ],
-      possible: makeChannels(3, { address: "台中市西區" }),
+      possible: makeStockists(3, { address: "台中市西區" }),
     });
 
     expect(container.querySelector("details")).not.toHaveAttribute("open");
-    expect(container.querySelectorAll("[data-channel-chip]")).toHaveLength(3);
+    expect(container.querySelectorAll("[data-stockist-chip]")).toHaveLength(3);
     expect(
       screen.queryByRole("button", { name: /顯示其餘/ }),
     ).not.toBeInTheDocument();
@@ -321,12 +370,12 @@ describe("BrandChannelList", () => {
   });
 
   it("renders owner moderation rows instead of chips for the brand owner", async () => {
-    mocks.getChannelViewerStateAction.mockResolvedValue({ isOwner: true });
-    const { container } = renderList({ possible: makeChannels(4) });
+    mocks.getStockistViewerStateAction.mockResolvedValue({ isOwner: true });
+    const { container } = renderList({ possible: makeStockists(4) });
 
     await waitFor(() => {
-      expect(container.querySelectorAll("[data-channel-row]")).toHaveLength(4);
-      expect(container.querySelectorAll("[data-channel-chip]")).toHaveLength(0);
+      expect(container.querySelectorAll("[data-stockist-row]")).toHaveLength(4);
+      expect(container.querySelectorAll("[data-stockist-chip]")).toHaveLength(0);
       expect(screen.getAllByRole("button", { name: "確認販售" })).toHaveLength(
         4,
       );

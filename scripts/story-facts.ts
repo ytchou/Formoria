@@ -31,7 +31,7 @@ import { dirname, resolve } from "node:path";
 
 import { createServiceClient } from "@/lib/supabase/service";
 import { getBrandsBySlugs } from "@/lib/services/brands";
-import { applyPublicChannelVisibility } from "@/lib/brands/channels";
+import { applyPublicStockistVisibility } from "@/lib/brands/stockist-display";
 import type { Brand } from "@/lib/types";
 
 /**
@@ -296,7 +296,7 @@ async function fetchFaqRows(
   return { rows: byBrandId, warnings: [] };
 }
 
-type ChannelFact = {
+type StockistFact = {
   name: string;
   url: string | null;
   address: string | null;
@@ -304,23 +304,23 @@ type ChannelFact = {
 };
 
 /**
- * Raw batched read rather than `getChannelsForBrand`: that service is per-brand
+ * Raw batched read rather than `getStockistsForBrand`: that service is per-brand
  * (123 sequential round trips for one event) and returns rows already grouped
  * for display, which a script has no use for. Its visibility filters are what
  * matter and are reproduced exactly — a removed channel, an owner-rejected one,
  * or a community submission no admin has approved yet must never reach a draft,
  * because sending a reader to a stockist the brand has disowned (or that nobody
  * has checked at all) is precisely the kind of error this file exists to
- * prevent. All three are one shared call, `applyPublicChannelVisibility`, so
+ * prevent. All three are one shared call, `applyPublicStockistVisibility`, so
  * this script cannot drift away from the service again.
  */
-async function fetchChannels(
+async function fetchStockists(
   supabase: SupabaseClient,
   brandIds: string[],
-): Promise<Map<string, ChannelFact[]>> {
-  const byBrandId = new Map<string, ChannelFact[]>();
+): Promise<Map<string, StockistFact[]>> {
+  const byBrandId = new Map<string, StockistFact[]>();
   for (const ids of chunk(brandIds, IN_FILTER_CHUNK_SIZE)) {
-    const { data, error } = await applyPublicChannelVisibility(
+    const { data, error } = await applyPublicStockistVisibility(
       supabase
         .from("brand_channels")
         .select("brand_id, name, url, address, region_label")
@@ -531,10 +531,10 @@ async function main(): Promise<void> {
   );
 
   const brandIds = [...new Set(resolved.map((row) => row.brand.id))];
-  const [siteContentById, faqResult, channelsByBrandId] = await Promise.all([
+  const [siteContentById, faqResult, stockistsByBrandId] = await Promise.all([
     fetchSiteContent(supabase, brandIds),
     fetchFaqRows(supabase, brandIds),
-    fetchChannels(supabase, brandIds),
+    fetchStockists(supabase, brandIds),
   ]);
 
   const brands: BrandSheet[] = resolved.map(({ slug, brand }) => {
@@ -555,7 +555,7 @@ async function main(): Promise<void> {
     collectFaqFacts(faqResult.rows.get(brand.id), collector);
     collector.add(
       "channels",
-      channelsByBrandId.get(brand.id),
+      stockistsByBrandId.get(brand.id),
       "db:brand_channels",
     );
 

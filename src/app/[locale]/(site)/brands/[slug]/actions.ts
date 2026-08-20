@@ -26,9 +26,9 @@ import {
 } from '@/lib/services/origin-evidence'
 import { enrollInMarketingEmails } from '@/lib/services/marketing-email-consent'
 import {
-  setOwnerChannelStatus,
-  submitChannel,
-} from '@/lib/services/brand-channels'
+  setOwnerStockistStatus,
+  submitStockist,
+} from '@/lib/services/stockists'
 import {
   revalidateLocalizedPath,
   revalidatePublicBrands,
@@ -82,7 +82,7 @@ type EvidenceErrorCode =
 
 export type EvidenceState = { error?: EvidenceErrorCode; success?: boolean }
 
-export type ChannelFormState = { error?: string; success?: true }
+export type StockistFormState = { error?: string; success?: true }
 
 export type SubmitClaimInput = {
   brandId: string
@@ -103,11 +103,11 @@ function getFormString(formData: FormData, key: string): string {
 }
 
 /**
- * Ownership is the only viewer-dependent state the channel list still has: it
+ * Ownership is the only viewer-dependent state the stockist list still has: it
  * decides whether the owner moderation controls render. It stays a client-side
  * action rather than a page prop because the brand page is statically rendered.
  */
-export async function getChannelViewerStateAction(
+export async function getStockistViewerStateAction(
   brandId: string,
 ): Promise<{ isOwner: boolean }> {
   return runWithAuditContext({}, async () => {
@@ -118,10 +118,10 @@ export async function getChannelViewerStateAction(
   })
 }
 
-export async function submitChannelInfoAction(
-  _prevState: ChannelFormState,
+export async function submitStockistInfoAction(
+  _prevState: StockistFormState,
   formData: FormData,
-): Promise<ChannelFormState> {
+): Promise<StockistFormState> {
   return runWithAuditContext({}, async () => {
     const t = await getTranslations('brandDetail.channels.errors')
 
@@ -136,7 +136,7 @@ export async function submitChannelInfoAction(
       if (!brandSlug) return { error: t('missing_brand_slug') }
 
       const region = getFormString(formData, 'region')
-      const result = await submitChannel(user.id, brandId, {
+      const result = await submitStockist(user.id, brandId, {
         name: getFormString(formData, 'name'),
         region,
         address: getFormString(formData, 'address'),
@@ -149,14 +149,14 @@ export async function submitChannelInfoAction(
       revalidatePublicStockists(city)
       return { success: true }
     } catch (error) {
-      console.error('[brands:submitChannelInfo]', error)
+      console.error('[brands:submitStockistInfo]', error)
       return { error: t('unknown') }
     }
   })
 }
 
-export async function ownerModerateChannelAction(
-  channelId: string,
+export async function ownerModerateStockistAction(
+  stockistId: string,
   brandSlug: string,
   status: 'confirmed' | 'rejected',
 ): Promise<{ success: true } | { error: string }> {
@@ -165,14 +165,14 @@ export async function ownerModerateChannelAction(
       const user = await requireClaimUser()
       if (!user) return { error: 'not_logged_in' }
 
-      const result = await setOwnerChannelStatus(user.id, channelId, status)
+      const result = await setOwnerStockistStatus(user.id, stockistId, status)
       if (!result.ok) return { error: result.code }
 
       revalidatePublicBrands([brandSlug])
       revalidatePublicStockists(result.city)
       return { success: true }
     } catch (error) {
-      console.error('[brands:ownerModerateChannel]', error)
+      console.error('[brands:ownerModerateStockist]', error)
       return { error: 'unknown' }
     }
   })

@@ -3,8 +3,8 @@ import { buildAlternates } from "@/lib/seo/alternates";
 import { ONLINE_STORES } from "@/lib/brands/online-stores";
 import { FORMORIA_SOCIALS } from "./constants";
 import { getSiteUrl } from "./seo/site-url";
-import type { BrandChannel } from "./types/brand-channel";
-import type { StockistLocation } from "./services/brand-channels";
+import type { Stockist } from "./types/stockist";
+import type { StockistLocation } from "./services/stockists";
 
 export type BreadcrumbItem = {
   label: string;
@@ -60,7 +60,7 @@ export function buildBrandJsonLd(
   brand: BrandJsonLdInput,
   locale: Locale = "zh-TW",
   canonicalUrl?: string,
-  channels: BrandChannel[] = [],
+  stockists: Stockist[] = [],
 ): JsonLdObject {
   const allSameAs = [
     brand.socialInstagram,
@@ -94,17 +94,17 @@ export function buildBrandJsonLd(
   if (brand.foundingYear) jsonLd.foundingDate = String(brand.foundingYear);
   if (allSameAs.length > 0) jsonLd.sameAs = allSameAs;
 
-  const ownPlaces = channels
+  const ownPlaces = stockists
     .filter(
-      (channel) =>
-        channel.locationType === "direct_store" ||
-        channel.locationType === "showroom_studio",
+      (stockist) =>
+        stockist.locationType === "direct_store" ||
+        stockist.locationType === "showroom_studio",
     )
-    .map((channel) => ({
+    .map((stockist) => ({
       "@type": "Place",
-      name: channel.name,
-      ...(channel.address ? { address: channel.address } : {}),
-      ...(channel.url ? { url: channel.url } : {}),
+      name: stockist.name,
+      ...(stockist.address ? { address: stockist.address } : {}),
+      ...(stockist.url ? { url: stockist.url } : {}),
     }));
   if (ownPlaces.length > 0) jsonLd.location = ownPlaces;
 

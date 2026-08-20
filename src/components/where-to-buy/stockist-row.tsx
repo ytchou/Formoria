@@ -1,6 +1,6 @@
 import { ExternalLink, MapPin } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
-import type { StockistLocation } from '@/lib/services/brand-channels'
+import type { StockistLocation } from '@/lib/services/stockists'
 import { routes } from '@/lib/routes'
 
 export function StockistRow({

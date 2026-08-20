@@ -5,8 +5,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { Check, Pencil, TriangleAlert } from "lucide-react";
 import { useActionState, useId } from "react";
 import {
-  submitChannelInfoAction,
-  type ChannelFormState,
+  submitStockistInfoAction,
+  type StockistFormState,
 } from "@/app/[locale]/(site)/brands/[slug]/actions";
 import {
   Dialog,
@@ -52,23 +52,23 @@ const REGION_KEYS = [
   "lienchiang",
 ] as const;
 
-export type ProvideChannelInfoDialogProps = {
+export type ProvideStockistInfoDialogProps = {
   brandId: string;
   brandSlug: string;
 };
 
-export function ProvideChannelInfoDialog({
+export function ProvideStockistInfoDialog({
   brandId,
   brandSlug,
-}: ProvideChannelInfoDialogProps) {
+}: ProvideStockistInfoDialogProps) {
   const locale = useLocale();
   const pathname = usePathname();
   const t = useTranslations("brandDetail");
   const tCities = useTranslations("cities");
   const tNav = useTranslations("nav");
   const { user, loading } = useUser();
-  const [state, action, pending] = useActionState<ChannelFormState, FormData>(
-    submitChannelInfoAction,
+  const [state, action, pending] = useActionState<StockistFormState, FormData>(
+    submitStockistInfoAction,
     {},
   );
   const fieldId = useId().replaceAll(":", "");
