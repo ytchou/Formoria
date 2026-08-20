@@ -65,7 +65,8 @@ const HINT_KEYWORD_MAP: Record<string, CategorySlug> = {
 
   // was `crafts` until DEV-1507 retired that L1. The technique words follow the
   // same redistribution as CATEGORY_EXAMPLES in src/lib/prompts.ts: 工藝/手作/插畫
-  // land on `home`, where `wall-art` now lives. `stationery` mapping to crafts was
+  // land on `home`, where `wall-art` now lives; 金工 and 編織/鉤織 follow their
+  // own re-file targets instead. `stationery` mapping to crafts was
   // always wrong and now says what it means.
   craft: 'home',
   crafts: 'home',
@@ -74,6 +75,11 @@ const HINT_KEYWORD_MAP: Record<string, CategorySlug> = {
   stationery: 'stationery',
   illustration: 'home',
   art: 'home',
+  // The two technique words the migration filed elsewhere: 金工 brands became
+  // `jewelry`, 編織・鉤織 brands became `stationery`.
+  金工: 'jewelry',
+  編織: 'stationery',
+  鉤織: 'stationery',
 
   // kids (媽媽包 is bags-accessories, not kids; 親子品牌 is kids)
   嬰兒: 'kids',

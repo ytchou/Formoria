@@ -2033,7 +2033,16 @@ const getCachedExploreBrandPool = unstable_cache(
         }),
       { summary: { cached: true } },
     ),
-  ["homepage-explore-brand-pool"],
+  // PAYLOAD-SHAPE version, the same rule as `subcategory-summary-rows-v3`
+  // above: these are whole `Brand` rows carrying `categorySlug` and
+  // `subcategories` verbatim, and nothing invalidates a taxonomy respelling, so
+  // a warm entry keeps a retired L1 alive for a full hour. It surfaces as
+  // `getBrandCategoryLabel` falling back to the raw slug — the bare Latin
+  // `crafts` printed inside zh-TW homepage copy — because
+  // `selectCategoryBalancedBrands`'s fill loop applies no L1 test. `v2` is
+  // DEV-1507, which retired `crafts`. Bump it again on the next respelling,
+  // in step with `subcategory-summary-rows-*` and `stockist-directory-*`.
+  ["homepage-explore-brand-pool-v2"],
   { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
 );
 

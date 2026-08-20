@@ -69,9 +69,37 @@
 -- **Every md5 pinned by an earlier migration is STALE.** 20260820090000:48,50
 -- and :275,279 pin `2206671cb5ec…` / `e5d67079…`; 20260821100000:166 pins
 -- `5615ed85…`. 20260821100000 rewrote the gate again after those were written.
+--
+-- The one that matters most is the LAST one. 20260821110000:143,147 pins
+-- `4d107ce1c764e920c0a601379cae1da8` (approve_submission) and
+-- `401a5c499848fc3c2d0e1571db269e72` (the refresh gate), and its :132-266 block
+-- then rewrote BOTH bodies to strip the focal-point columns. It is the
+-- migration immediately before this one, so those two values — not the older
+-- three — are exactly what the two fingerprints above supersede.
+--
 -- The two fingerprints above are asserted below BEFORE anything is rewritten,
 -- so an unexpected live deploy fails here rather than silently re-materializing
 -- a body from a stale assumption.
+--
+-- **BOTH FINGERPRINTS ARE STAGING-ONLY**, the same warning 20260821110000:57-61
+-- carried about its own pair. They were never observed on production. Run both
+-- commands below against PRODUCTION before the production apply and reconcile
+-- any difference first: a one-byte divergence aborts the assert, rolls the
+-- whole transaction back, and strands the fleet staging-migrated and
+-- production-not. `SUPABASE_DB_URL` must hold the PRODUCTION connection string
+-- for this check — the one `.env.staging` exports points at staging, and a
+-- staging read here proves nothing.
+--
+--   psql "$SUPABASE_DB_URL" -At -c "
+--     select md5(pg_get_functiondef(
+--       'public.approve_submission(uuid,uuid,jsonb)'::regprocedure));"
+--   -- 912cfb416ad6e5d6baed4cc067d90736
+--
+--   psql "$SUPABASE_DB_URL" -At -c "
+--     select md5(pg_get_functiondef(
+--       'public.apply_brand_refresh_with_protected_location_gate(uuid,uuid)'
+--       ::regprocedure));"
+--   -- 755f6933919d0f4eb1b8aeb59d9d29d5
 --
 -- **The six-space continuation indent is part of the byte anchor.**
 -- `dev1503_contract_replace_exact` matches BYTES, not SQL tokens, and the
@@ -98,8 +126,9 @@
 --      re-seed — otherwise `wall-art` projects to itself instead of "Wall Art"
 --      and indexes with no zh-TW label at all.
 --
---   1  rewrite slugs      brands.subcategories, curated_products.subcategories
---                         + the pending submission blobs
+--   1  rewrite slugs      brands.subcategories, brands.draft_data,
+--                         curated_products.subcategories + the pending
+--                         submission blobs
 --   2  delete             the `hidden` crafts brands
 --   3  re-file            brands.category, by map + tiebreak + 13 explicit
 --   4  label ledger       13 rows re-point, 42 -> disposition 'evicted'
@@ -160,6 +189,10 @@
 -- can still be approved — `status = 'pending'` — are converted; a non-pending
 -- submission is never approved again.
 --
+-- `brands.draft_data` is NOT in that list. It is live, not historical: an owner
+-- republishes it with one click, so it is rewritten at step 1b for the same
+-- reason 20260820130000:1468-1480 rewrote it.
+--
 -- ---------------------------------------------------------------------------
 -- TRIGGERS
 -- ---------------------------------------------------------------------------
@@ -183,6 +216,26 @@
 -- against the OLD `taxonomy_terms`. Step 7 recomputes them after the re-seed,
 -- which is what makes the intermediate state harmless. `brands_content_
 -- provenance` fires only on the four description columns and is untouched.
+--
+-- `protect_refresh_snapshot` (20260720140736:282-307) is SUPPRESSED for the two
+-- statements that write `brand_submissions.base_brand_data` — step 1d and step
+-- 7 — and re-enabled immediately after each. That BEFORE UPDATE guard raises
+-- 'Refresh snapshot is immutable' on ANY change to that column of a `refresh`
+-- row, which is exactly what step 1d does to a pending refresh on a crafts
+-- brand. Left armed it does not skip the row, it aborts all seven steps.
+--
+-- The invariant yields because the snapshot is not being EDITED here, it is
+-- being respelled: the guard defends a captured base against operator and owner
+-- writes during normal operation, and this migration is rewriting the taxonomy
+-- vocabulary INSIDE that capture. Leaving the snapshot on the retired L1 is the
+-- outcome the guard would buy — the refresh gate then feeds `crafts` into a
+-- column whose step-5 CHECK no longer admits it and raises 23514 inside the
+-- admin queue, days later.
+--
+-- NOT VERIFIABLE ON STAGING, the same class as the md5 pins above: staging
+-- holds ZERO rows in `brand_submissions`, so the rehearsal never fires the
+-- trigger at all. Production holds 1434 submissions, six of them pending on
+-- crafts brands, plus a scheduled refresh job.
 --
 -- ---------------------------------------------------------------------------
 -- THE DELETE
@@ -630,9 +683,34 @@ $migration$;
 
 -- The pending submissions the retired L1 can still reach. Captured now so step
 -- 7 can re-project exactly these rows and no others.
+--
+-- THE SELECTION MUST NOT KEY ON ONE CONTAINER. `enriched_data ->> 'categorySlug'`
+-- alone finds almost none of them:
+--
+--   * a refresh snapshot carries the L1 as `base_brand_data ->> 'category'` —
+--     20260720140736:112 builds it as `to_jsonb(v_brand) - …`, so it holds the
+--     snake_case ROW columns and never a `categorySlug` key at all, which is
+--     what `refreshReviewSource` reads back (src/lib/services/submissions.ts:759-767);
+--   * `owner_data` and `suggested_tags` key on `category` too
+--     (src/lib/services/submissions.ts:464-466) — the same two spellings
+--     `dev1507_retire_craft_json` already handles on the WRITE side;
+--   * `->>` on an absent key or a NULL column yields NULL, and `NULL = 'crafts'`
+--     is NULL, so a missing key excludes the row SILENTLY rather than failing.
+--
+-- 20260820130000:1491-1504 set the precedent by converting all five columns for
+-- every `status = 'pending'` row with no container filter at all. The predicate
+-- below is that predicate plus a reason to be there: it asks the transform
+-- itself whether the row moves, and adds the ten L1 spellings the L2-only
+-- transform cannot see. Keeping the filter is what lets step 7 re-project
+-- exactly these rows, and what keeps the unresolved-target assertion below
+-- about crafts rather than about every pending submission in the queue.
 create temporary table dev1507_pending_submissions on commit drop as
 select
   submission.id,
+  -- The owning brand's status, carried so the assertion below can tell an
+  -- unresolved submission that needs a human from one whose brand step 2 is
+  -- about to delete.
+  plan.status as brand_status,
   coalesce(
     plan.target,
     public.dev1507_refile_l1(
@@ -652,7 +730,38 @@ select
 from public.brand_submissions as submission
 left join dev1507_refile_plan as plan on plan.id = submission.brand_id
 where submission.status = 'pending'
-  and submission.enriched_data ->> 'categorySlug' = 'crafts';
+  and (
+    -- Any container carrying a retired L2, asked of the transform rather than
+    -- guessed. The one-argument form leaves the L1 alone, so this tests the L2
+    -- axis only.
+    submission.base_brand_data
+      is distinct from public.dev1507_retire_craft_json(submission.base_brand_data)
+    or submission.review_overrides
+      is distinct from public.dev1507_retire_craft_json(submission.review_overrides)
+    or submission.owner_data
+      is distinct from public.dev1507_retire_craft_json(submission.owner_data)
+    or submission.enriched_data
+      is distinct from public.dev1507_retire_craft_json(submission.enriched_data)
+    or submission.suggested_tags
+      is distinct from public.dev1507_retire_craft_json(submission.suggested_tags)
+    -- Plus any container naming the retired L1 under either spelling. `= any`
+    -- over an array of NULLs is NULL, not false, so the coalesce is required.
+    or coalesce(
+      'crafts' = any (array[
+        submission.base_brand_data  ->> 'category',
+        submission.base_brand_data  ->> 'categorySlug',
+        submission.review_overrides ->> 'category',
+        submission.review_overrides ->> 'categorySlug',
+        submission.owner_data       ->> 'category',
+        submission.owner_data       ->> 'categorySlug',
+        submission.enriched_data    ->> 'category',
+        submission.enriched_data    ->> 'categorySlug',
+        submission.suggested_tags   ->> 'category',
+        submission.suggested_tags   ->> 'categorySlug'
+      ]),
+      false
+    )
+  );
 
 -- ===========================================================================
 -- Step 1 — rewrite the slugs
@@ -665,15 +774,45 @@ update public.brands as b
 set subcategories = public.dev1507_retire_craft_slugs(b.subcategories)
 where b.subcategories is distinct from public.dev1507_retire_craft_slugs(b.subcategories);
 
+-- 1b. brands.draft_data — the camelCase container holding an owner's unsaved
+-- edit (`BRAND_DRAFT_EDITABLE_KEYS`, src/lib/services/brands.ts:495-512), and
+-- one of the four load-bearing jsonb shapes listed at 20260820130000:1173-1188.
+-- Rewritten for the same reason 20260820130000:1468-1480 rewrote it: nothing
+-- else does. `publishDraft` (src/lib/services/brands.ts:2376) feeds the
+-- snapshot straight back through `updateBrand`, so a draft still naming the
+-- retired L1 writes `crafts` into a column whose step-5 CHECK no longer admits
+-- it and raises 23514 — days after this migration, inside the owner's UI. Short
+-- of that, the edit form preselects a `categorySlug` that is not in its own
+-- `<select>` and renders the retired L2s as chips resolving to nothing.
+--
+-- The L1 comes from the plan, so a draft receives exactly the L1 its brand is
+-- about to receive at step 3. A brand that never sat on `crafts` and merely
+-- carries a retired L2 in its draft has no plan row; the scalar subquery is
+-- NULL there, which leaves `categorySlug` untouched — correct, that brand's L1
+-- was never `crafts` — while the L2s are still stripped.
+--
+-- No step-7 companion: `BRAND_DRAFT_EDITABLE_KEYS` carries no `subcategoriesEn`
+-- key, so this container holds no English projection to re-derive.
+update public.brands as b
+set draft_data = public.dev1507_retire_craft_json(
+      b.draft_data,
+      (select plan.target from dev1507_refile_plan as plan where plan.id = b.id)
+    )
+where b.draft_data is not null
+  and b.draft_data is distinct from public.dev1507_retire_craft_json(
+        b.draft_data,
+        (select plan.target from dev1507_refile_plan as plan where plan.id = b.id)
+      );
+
 alter table public.brands enable trigger brands_updated_at;
 
--- 1b. curated_products.subcategories. The table has no `subcategories_en`
+-- 1c. curated_products.subcategories. The table has no `subcategories_en`
 -- column, so there is nothing to re-project at step 7.
 update public.curated_products as p
 set subcategories = public.dev1507_retire_craft_slugs(p.subcategories)
 where p.subcategories is distinct from public.dev1507_retire_craft_slugs(p.subcategories);
 
--- 1c. The pending submission blobs, all five jsonb containers.
+-- 1d. The pending submission blobs, all five jsonb containers.
 --
 -- The L2 arrays would in fact self-heal: `approve_submission` and the refresh
 -- gate both pass their payload through `subcategory_json_to_slugs`
@@ -685,6 +824,19 @@ where p.subcategories is distinct from public.dev1507_retire_craft_slugs(p.subca
 -- The L1 does NOT self-heal — no resolver exists for `categorySlug` — so
 -- without this a pending crafts submission would pass every check until an
 -- admin clicked approve, and then raise inside the queue.
+--
+-- `protect_refresh_snapshot` (20260720140736:282-307) is suppressed for this
+-- statement and re-enabled immediately after — see the header. It raises
+-- 'Refresh snapshot is immutable' the moment `base_brand_data` differs on a
+-- `refresh` row, and on a pending refresh over a crafts brand it genuinely
+-- does differ: `category`/`categorySlug` becomes the plan's L1 and the retired
+-- L2 slugs are stripped. The guard protects a captured base from being edited
+-- during normal operation, not from having its vocabulary respelled by a
+-- migration, and a snapshot left naming the retired L1 is what raises 23514
+-- inside the admin queue later. Staging could not exercise it: it holds no
+-- `brand_submissions` rows.
+alter table public.brand_submissions disable trigger protect_refresh_snapshot;
+
 update public.brand_submissions as submission
 set base_brand_data  = public.dev1507_retire_craft_json(submission.base_brand_data, pending.target),
     review_overrides = public.dev1507_retire_craft_json(submission.review_overrides, pending.target),
@@ -694,18 +846,42 @@ set base_brand_data  = public.dev1507_retire_craft_json(submission.base_brand_da
 from dev1507_pending_submissions as pending
 where pending.id = submission.id;
 
+alter table public.brand_submissions enable trigger protect_refresh_snapshot;
+
 do $migration$
 declare
   v_pending integer;
+  v_doomed text;
   v_unresolved text;
 begin
   select count(*) into v_pending from dev1507_pending_submissions;
   raise notice 'DEV-1507 converted % pending submission blob(s)', v_pending;
 
+  -- Reported, not raised — the same choice step 0 makes for the same condition,
+  -- and for the same reason. The owning brand is `hidden`, so step 2 deletes it
+  -- and 20260626150000:38-41 nulls this row's `brand_id`; the submission can
+  -- never be applied again and never needs a target. Raising here would also
+  -- print a hint ("add the owning brand slug to the explicit block") that is
+  -- meaningless advice about a brand which is about to stop existing.
+  -- 20260720140736:98 admits `hidden` brands to refresh, so the path is real:
+  -- production held 18 hidden crafts brands on 2026-08-20.
+  select string_agg(pending.id::text, ', ' order by pending.id::text)
+  into v_doomed
+  from dev1507_pending_submissions as pending
+  where pending.target is null
+    and pending.brand_status = 'hidden';
+
+  if v_doomed is not null then
+    raise notice
+      'DEV-1507 pending submission(s) left without a target because their hidden crafts brand is deleted at step 2: %',
+      v_doomed;
+  end if;
+
   select string_agg(pending.id::text, ', ' order by pending.id::text)
   into v_unresolved
   from dev1507_pending_submissions as pending
-  where pending.target is null;
+  where pending.target is null
+    and pending.brand_status is distinct from 'hidden';
 
   if v_unresolved is not null then
     raise exception
@@ -1254,6 +1430,12 @@ where before.id = b.id
 
 alter table public.brands enable trigger brands_updated_at;
 
+-- `protect_refresh_snapshot` is suppressed a second time, for the reason step
+-- 1d gives: this statement writes `base_brand_data` on the same pending rows,
+-- and the guard cannot tell an English re-projection from an operator's edit.
+-- Both sites need it — suppressing only one still aborts the transaction.
+alter table public.brand_submissions disable trigger protect_refresh_snapshot;
+
 update public.brand_submissions as submission
 set base_brand_data  = public.dev1507_project_json_en(submission.base_brand_data),
     review_overrides = public.dev1507_project_json_en(submission.review_overrides),
@@ -1261,6 +1443,8 @@ set base_brand_data  = public.dev1507_project_json_en(submission.base_brand_data
     enriched_data    = public.dev1507_project_json_en(submission.enriched_data)
 from dev1507_pending_submissions as pending
 where pending.id = submission.id;
+
+alter table public.brand_submissions enable trigger protect_refresh_snapshot;
 
 -- The four DEV-1507 helpers are dropped HERE, not at the tail, and the reason
 -- is the contract that follows: `dev1507_retire_craft_json` carries the literal
@@ -1380,6 +1564,43 @@ begin
       using errcode = 'P0001';
   end if;
 
+  -- brands.draft_data (step 1b). It gets its own proof because it is the one
+  -- container an ordinary user action replays into a live column: `publishDraft`
+  -- writes `categorySlug` back to `brands.category`, so a draft this step missed
+  -- would raise 23514 against the CHECK step 5 just installed. Both axes are
+  -- checked — the L1 under either spelling, and the L2 array.
+  select string_agg(b.slug, ', ' order by b.slug)
+  into v_offenders
+  from public.brands as b
+  where b.draft_data is not null
+    and (
+      coalesce(
+        'crafts' = any (array[
+          b.draft_data ->> 'categorySlug',
+          b.draft_data ->> 'category'
+        ]),
+        false
+      )
+      or exists (
+        select 1
+        from jsonb_array_elements_text(
+          case
+            when jsonb_typeof(b.draft_data -> 'subcategories') = 'array'
+              then b.draft_data -> 'subcategories'
+            else '[]'::jsonb
+          end
+        ) as entry(slug)
+        where entry.slug = any (v_craft_slugs)
+      )
+    );
+
+  if v_offenders is not null then
+    raise exception
+      'DEV-1507 brand(s) whose draft_data still names the retired L1 or a retired craft slug: %',
+      v_offenders
+      using errcode = 'P0001';
+  end if;
+
   -- The timestamp split, proved rather than asserted in prose: step 3 is the
   -- only step allowed to move a brand's updated_at.
   select string_agg(b.slug, ', ' order by b.slug)
@@ -1401,13 +1622,22 @@ begin
   -- The tracked debt, reported so DEV-1509 gets a number rather than a guess.
   -- ~20 is expected and correct: the map is L1-only and no receiving L2 is
   -- invented (ADR decision 3).
+  --
+  -- Counted against the step-0 snapshot, NOT against `dev1507_refile_plan`. The
+  -- plan is built `where before.category = 'crafts'`, but step 1a strips the ten
+  -- retired slugs from EVERY brand, so a brand already on `home` whose only tag
+  -- was `ceramics` is emptied by this migration and belongs in the number —
+  -- while a crafts brand that was already empty before it ran does not. Joining
+  -- the plan gets both cases backwards, and the `&& v_craft_slugs` assertion
+  -- above cannot catch either: an empty array intersects nothing.
   select count(*) into v_thin
   from public.brands as b
-  join dev1507_refile_plan as plan on plan.id = b.id
-  where coalesce(cardinality(b.subcategories), 0) = 0;
+  join dev1507_brands_before as before on before.id = b.id
+  where coalesce(cardinality(b.subcategories), 0) = 0
+    and coalesce(cardinality(before.subcategories), 0) > 0;
 
   raise notice
-    'DEV-1507 % re-filed brand(s) now hold an empty subcategories array; export them for DEV-1509',
+    'DEV-1507 % brand(s) were emptied of subcategories by this migration; export them for DEV-1509',
     v_thin;
 end
 $migration$;

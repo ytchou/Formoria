@@ -1,5 +1,13 @@
 export const EVAL_SCHEMA_VERSION = 1 as const;
 
+// LIVE L1 slugs, not fixture typing: `capture.ts` feeds this list straight into
+// `.in("category", ...)` against `brands` and throws on any stratum shorter than
+// `BRANDS_PER_CATEGORY`, so a retired slug matches zero rows and crashes every
+// roster rebuild. `crafts` is retired (DEV-1507) and `kids-pets` split into
+// `kids` and `pets` (DEV-1510). The 10-stratum shape is the corpus size, not
+// the full L1 set — `fitness` and `pets` stay out on purpose.
+// `corpus/roster.json` still holds the pre-DEV-1507 strata; it only changes on a
+// live `--force` capture.
 export const EVAL_CATEGORY_SLUGS = [
   "fashion",
   "bags-accessories",
@@ -7,10 +15,10 @@ export const EVAL_CATEGORY_SLUGS = [
   "beauty",
   "home",
   "food-drink",
-  "crafts",
+  "stationery",
   "tech",
   "outdoor",
-  "kids-pets",
+  "kids",
 ] as const;
 
 export type EvalCategory = (typeof EVAL_CATEGORY_SLUGS)[number];

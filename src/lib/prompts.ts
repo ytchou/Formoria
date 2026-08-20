@@ -4,14 +4,21 @@ import {
   MATERIALS,
 } from "@/lib/taxonomy/ontology";
 
+// Object kinds, not techniques — a technique word classifies the same product
+// kind into two L1s. Since DEV-1507 retired `crafts` these follow the
+// re-file map its migration applied: 金工 → `jewelry`, 編織・鉤織 →
+// `stationery` (where `craft-kits-and-supplies` lives), and only the object
+// kinds 陶藝・木工・插畫 → `home` (where `wall-art` lives). Keep this in step
+// with `SUBCATEGORY_VOCAB_BLOCK` below and with `HINT_KEYWORD_MAP` in
+// scripts/threads-scraper/finalize.ts.
 const CATEGORY_EXAMPLES: Record<string, string> = {
   fashion: "服飾、鞋履、上衣、褲子、洋裝等穿戴服裝",
   "bags-accessories": "包袋、皮件、帽子、圍巾、配件、皮革工藝",
-  jewelry: "飾品、珠寶、耳環、項鍊、戒指、手鍊",
+  jewelry: "飾品、珠寶、耳環、項鍊、戒指、手鍊、金工",
   beauty: "美妝、保養、清潔、沐浴、香氛、蠟燭",
-  home: "居家用品、餐具、陶瓷、家具、廚具、園藝、陶藝、木工、手作工藝、藝術、插畫",
+  home: "居家用品、餐具、陶瓷、家具、廚具、園藝、陶藝、木工、插畫",
   "food-drink": "食品、飲料、茶、咖啡、農產品",
-  stationery: "文具、筆記本、鋼筆、紙膠帶、手帳、桌面配件",
+  stationery: "文具、筆記本、鋼筆、紙膠帶、手帳、桌面配件、編織、鉤織",
   tech: "3C科技、電子產品、手機配件",
   outdoor: "戶外露營、登山背包、露營裝備、攀岩用品",
   fitness: "健身器材、瑜珈用品、運動服飾、運動配件、重訓裝備",

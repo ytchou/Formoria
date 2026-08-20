@@ -20,10 +20,14 @@ describe('Search Console segmentation', () => {
   })
 
   it('classifies each of the seven clusters', () => {
-    // Representatives are the REAL 品牌-suffixed keywords shipped in
-    // content/seo/keyword-map.yaml, not bare stems. Bare stems (台灣 文創,
-    // 台灣 手作, 台灣 包包) classify correctly under either ordering, which is
-    // exactly how core-taiwan-brand shadowing three clusters stayed invisible.
+    // Representatives are the REAL 品牌-suffixed keywords, not bare stems. Two
+    // of them, 台灣文創品牌 and 台灣手作品牌, are no longer shipped in
+    // content/seo/keyword-map.yaml: DEV-1507 deleted the three topic hubs that
+    // owned them along with the `crafts` L1, so they now stand only for their
+    // CLUSTER_PATTERNS row, which stays for the reason noted there. Bare stems
+    // (台灣 文創, 台灣 手作, 台灣 包包) classify correctly under either ordering,
+    // which is exactly how core-taiwan-brand shadowing three clusters stayed
+    // invisible.
     // Listed in CLUSTER_PATTERNS order so the reachability assertion below can
     // compare the two directly.
     const representatives = [

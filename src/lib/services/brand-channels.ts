@@ -392,7 +392,14 @@ export const getStockistDirectory = unstable_cache(
       .filter((location): location is StockistLocation => Boolean(location))
       .filter((location) => matchesCategory(location, category))
   },
-  ['stockist-directory'],
+  // PAYLOAD-SHAPE version, in step with `subcategory-summary-rows-*` and
+  // `homepage-explore-brand-pool-*` in `brands.ts`: these rows carry
+  // `categorySlug` and subcategory slugs verbatim and nothing invalidates a
+  // taxonomy respelling, so a warm entry keeps filtering on a retired spelling
+  // for a full hour — `?category=home` would drop every re-filed brand's
+  // stockists. `v2` is DEV-1507, which retired the `crafts` L1 and re-filed its
+  // L2s. Bump it again on the next respelling.
+  ['stockist-directory-v2'],
   { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
 )
 

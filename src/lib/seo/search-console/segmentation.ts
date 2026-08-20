@@ -42,6 +42,15 @@ export type QueryCluster = (typeof QUERY_CLUSTERS)[number]
  */
 export const CLUSTER_PATTERNS = [
   { cluster: 'branded', pattern: /formoria/ },
+  // UNOWNED since DEV-1507. Retiring the `crafts` L1 deleted the
+  // `topic-cultural-creative`, `topic-craft` and `topic-handmade` rows from
+  // content/seo/keyword-map.yaml, and no surviving row carries 台灣文創品牌 /
+  // 台灣手作品牌 / 台灣工藝品牌 / 台灣職人品牌 as a primary or secondary
+  // keyword — so these two clusters currently have no owning page and
+  // one-intent-one-owner does not hold for them. The patterns STAY: Search
+  // Console keeps returning those queries, and deleting a row here only moves
+  // them into `core-taiwan-brand` where the demand becomes invisible. Giving
+  // them an owner again is a separate decision (DEV-1507 follow-up).
   { cluster: 'cultural-creative', pattern: /台灣.*(文創|文化創意)/ },
   { cluster: 'craft-handmade', pattern: /台灣.*(工藝|手作|手工|職人)/ },
   { cluster: 'design', pattern: /台灣.*(設計品牌|原創品牌|獨立品牌)/ },

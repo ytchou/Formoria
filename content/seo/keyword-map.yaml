@@ -1919,7 +1919,7 @@ clusters:
   page_type: topic-hub
   target_url: /topics/design
   target_status: proposed
-  brand_count: 108
+  brand_count: 25
   data_quality: pass
   intent_fit: 3
   differentiation: 2
@@ -1930,9 +1930,12 @@ clusters:
     and internal links down to the L1/L2 pages it summarises.
   indexability: index
   locale: zh-TW
-  notes: 'Addressable set is crafts + stationery (108 brands), the two L1s whose brands are design-led.
-    Cannibalization risk 1 (highest): the topic hubs 台灣文創品牌 / 台灣工藝品牌 / 台灣手作品牌 / 台灣設計品牌 overlap each other,
-    the crafts L1 category, and editorial stories. This is why Ticket C (topic hubs) is sequenced last.'
+  notes: 'Addressable set is stationery (25 brands), the one surviving L1 whose brands are design-led.
+    DEV-1507 retired crafts and scattered its design-led brands across home, jewelry and bags-accessories,
+    so no single L1 replaces the other half of the old set and the count is now stationery-scoped;
+    priority is unchanged, since any count >= 20 buckets at 3 and scores 3+3+2 = 8 -> P1.
+    Cannibalization risk 1 (highest): this hub overlaps the L1 category pages it summarises and
+    editorial stories. This is why Ticket C (topic hubs) is sequenced last.'
 - id: story-gift-boxes
   primary_keyword: 台灣禮盒推薦
   secondary_keywords:

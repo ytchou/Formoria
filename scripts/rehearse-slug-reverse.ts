@@ -116,9 +116,10 @@ export function isSlugStored(values: readonly string[]): boolean {
 
 /**
  * Slug-only reverse: every slug becomes its node's canonical zh-TW name. This
- * is correct in meaning for every row and exact for all but the 51 brands that
- * stored an alias spelling or two labels that collapsed onto one slug — those
- * are what the restoration overlay exists for.
+ * is correct in meaning for every row and exact for all but the 107 brands that
+ * stored an alias spelling, two labels that collapsed onto one slug, or a label
+ * belonging to a node DEV-1507 renamed — those are what the restoration overlay
+ * exists for.
  */
 export function canonicalLabels(slugs: readonly string[]): string[] {
   return slugs.map((slug) => subcategoryBySlug(slug)?.nameZh ?? slug);
@@ -133,8 +134,10 @@ export type RestorationEntry = {
 /**
  * Per-brand exact restorations, derived from the corpus rather than hand-listed.
  * A brand earns an entry only when the slug-only reverse would not reproduce its
- * stored array — 51 of 795 brands, all of them alias spellings (`帆布包` for
- * `tote-bags`) or collisions (`雨傘` + `陽傘` both on `umbrellas`).
+ * stored array — 107 of 795 brands: alias spellings (`帆布包` for `tote-bags`),
+ * collisions (`雨傘` + `陽傘` both on `umbrellas`), and — since DEV-1507 — labels
+ * whose node was renamed, which is why 插畫・畫作 now needs an entry to restore
+ * onto `wall-art`.
  *
  * `expectedSlugs` is a guard, not a key: the entry applies only while the brand
  * still carries exactly the slug set the forward backfill produced. A brand
