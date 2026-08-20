@@ -65,6 +65,16 @@ test.describe("Auth — Google OAuth offline guard", () => {
   test("@smoke sign-in page renders the heading and Google entry point", async ({
     anonPage,
   }) => {
+    // `sign-in-form.tsx` renders the Google button, the forgot-password link and
+    // the sign-up link only when `NEXT_PUBLIC_DEPLOYMENT_ENV !== "staging"`, so
+    // on the one environment this suite is allowed to target the entry point
+    // under test does not exist. Asserted as a skip rather than deleted: the
+    // journey is real everywhere else, and the day staging stops hiding it this
+    // guard is the thing that brings the coverage back.
+    test.skip(
+      process.env.FORMORIA_DEPLOYMENT_ENV === "staging",
+      "staging hides the Google button and the forgot-password link",
+    );
     test.setTimeout(BUDGET.TEST.ADMIN);
     let capturedAuthorizeUrl: string | null = null;
 

@@ -46,8 +46,14 @@ test.describe("SEO deep", () => {
       {
         path: "/en",
         title: "Formoria — Taiwanese Brand Discovery & Curation",
+        // `landing.metadata.description` as DEV-1486 reconciled it. The literal
+        // that stood here asserted no rendered value at all: it spliced
+        // `about.hero.subtitle` onto a variant of `landing.subheadline`, so the
+        // EN half of this test could never pass while the zh-TW half — which
+        // does quote `landing.metadata.description` — always did. Nothing caught
+        // it because the suite only runs against deployed staging (DEV-1489).
         description:
-          "Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it. A Taiwanese brand discovery and curation platform — start from life, meet the products and the brands.",
+          "Taiwanese brand discovery and curation: from one thing you love, to its brand, its story, and the place you can buy it. Formoria reconnects that path.",
         heading: "Life can look a little more like you.",
         positioning:
           "Formoria is a Taiwanese brand discovery and curation platform — start from life, meet the products and the brands.",
@@ -68,7 +74,8 @@ test.describe("SEO deep", () => {
         title: "About Formoria | Formoria",
         description:
           "How Formoria works: the inclusion rules, editorial choices, and labels behind a Taiwanese brand discovery and curation platform.",
-        heading: "Moving into a new home, setting up a shop, stopping at a market stall",
+        heading:
+          "Moving into a new home, setting up a shop, stopping at a market stall",
       },
     ] as const;
 

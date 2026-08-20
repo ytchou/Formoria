@@ -66,7 +66,8 @@ test.describe('Admin dashboard deep', () => {
           description: 'Complete dashboard test enrichment.',
           hero_image_url: imageUrls[0],
           category: 'bags-accessories',
-          subcategories: ['手工包袋'],
+          // Slug, not the zh-TW label — DEV-1510 closed the vocabulary.
+          subcategories: ['handbags'],
           price_range: 2,
           purchase_website: 'https://e2e-dashboard.example.com',
         },
