@@ -33,6 +33,7 @@ import {
   getUserBrandByEmail,
   revokeOwnership,
 } from '@/lib/services/brand-owners'
+import { getBrandTrailSlugs } from '@/lib/services/curated-products'
 import { materializeSubmissionCuratedProducts } from '@/lib/services/curated-products/materialize'
 import {
   requestCuratedProductBackfill,
@@ -73,7 +74,8 @@ import {
   type EvidenceBatchFailure,
   type OriginEvidenceDecision,
 } from '@/lib/services/origin-evidence'
-import { adminRemoveChannel } from '@/lib/services/brand-channels'
+import { reviewCommunityStockist } from '@/lib/services/stockists'
+import { logAdminAction } from '@/lib/services/admin-audit'
 import { FEATURE_FLAGS, setAppSetting } from '@/lib/services/app-settings'
 import {
   DENIAL_REASONS,
@@ -88,6 +90,7 @@ import { buildBrandListingPublishedEvent } from '@/lib/analytics/server-supply-e
 import {
   revalidatePublicBrands,
   revalidatePublicStockists,
+  revalidateTrail,
 } from '@/lib/cache/public-brand-cache'
 import { routes } from '@/lib/routes'
 
@@ -295,6 +298,21 @@ async function approveSubmissionForAdmin(
       await updateBrand(refresh.brandId, { status: 'approved' })
     }
     await materializeProposedProducts(submissionId, refresh.brandId)
+    // The third hidden -> approved path, and the exact inverse of
+    // `unhideBrandAction`: approving a refresh restores this brand's products to
+    // every trail they are selected into, and `revalidateApprovals` reaches only
+    // `revalidatePublicBrands`, which deliberately does not cover
+    // `/discover/[slug]` (`public-brand-cache.ts`). Without this the trail keeps
+    // omitting the restored tiles for up to its ISR hour.
+    //
+    // Read AFTER `materializeProposedProducts`: the placements that call just
+    // wrote are part of what changed, and a read before it would miss them.
+    // Never a reason to fail the approval — the helper swallows its own errors.
+    for (const trailSlug of await brandTrailSlugsForRevalidation(
+      refresh.brandId
+    )) {
+      revalidateTrail(trailSlug)
+    }
     return {
       brandSlug: brand.slug,
       refresh: true,
@@ -1134,6 +1152,24 @@ export async function updateBrandAction(
   });
 }
 
+/**
+ * The `/discover` half of a brand-visibility change.
+ *
+ * `revalidatePublicBrands` covers the brand's own surfaces; it deliberately
+ * does NOT cover `/discover/[slug]`, which renders the brand's curated products
+ * as trail tiles. Hiding a brand drops those tiles and unhiding restores them,
+ * so both directions leave a trail stale for up to its ISR hour without this.
+ *
+ * Never a reason to fail the action: the write either already happened or is
+ * about to, so a failed lookup costs a stale tile, not correctness. Mirrors
+ * `trailSlugsForRevalidation` in the curated-products actions.
+ */
+async function brandTrailSlugsForRevalidation(
+  brandId: string
+): Promise<string[]> {
+  return getBrandTrailSlugs(brandId).catch(() => [])
+}
+
 export async function hideBrandAction(
   brandId: string
 ): Promise<{ error: string } | undefined> {
@@ -1142,11 +1178,16 @@ export async function hideBrandAction(
       const auth = await requireAdminAction()
       if ('error' in auth) return auth
 
+      // Resolved BEFORE the write: the placements this reads are the ones the
+      // write is about to take off every trail, and the read is deliberately
+      // not allowed to fail the hide.
+      const trailSlugs = await brandTrailSlugsForRevalidation(brandId)
       const brand = await updateBrand(brandId, { status: 'hidden' })
 
       revalidatePath(routes.admin.brands())
       revalidatePath(routes.admin.index())
       revalidatePublicBrands([brand.slug])
+      for (const trailSlug of trailSlugs) revalidateTrail(trailSlug)
       return undefined
     } catch (err) {
       console.error('[admin:hideBrand]', err)
@@ -1165,11 +1206,16 @@ export async function unhideBrandAction(
       const auth = await requireAdminAction()
       if ('error' in auth) return auth
 
+      // Read before the write here too. Unhiding restores the brand's tiles to
+      // the same trails, which is the identical staleness in the other
+      // direction, and the placement rows are unchanged by the status write.
+      const trailSlugs = await brandTrailSlugsForRevalidation(brandId)
       const brand = await updateBrand(brandId, { status: 'approved' })
 
       revalidatePath(routes.admin.brands())
       revalidatePath(routes.admin.index())
       revalidatePublicBrands([brand.slug])
+      for (const trailSlug of trailSlugs) revalidateTrail(trailSlug)
       return undefined
     } catch (err) {
       console.error('[admin:unhideBrand]', err)
@@ -1204,26 +1250,56 @@ export async function deleteBrandAction(
   });
 }
 
-export async function adminRemoveChannelAction(
-  channelId: string,
-): Promise<{ success: true } | { error: string }> {
+/**
+ * Approve or reject one community stockist submission.
+ *
+ * A pending row is invisible on every public surface, so this is the only thing
+ * that publishes one — and rejecting it is what keeps a wrong shop out of the
+ * directory for good. Both the brand page and the city stockist pages are
+ * revalidated because an approved row appears on both.
+ *
+ * Audited for exactly that reason: publishing a stranger's claim about a shop
+ * onto a live brand page is an editorial decision on the same footing as
+ * promoting a curated product, and `brand_channels` records only
+ * `owner_status_by`, never which way the decision went or when a rejection
+ * happened. `logAdminAction` is fire-and-forget, so it cannot fail the review.
+ */
+export async function reviewStockistAction(
+  stockistId: string,
+  decision: 'confirmed' | 'rejected',
+): Promise<{ error: string } | undefined> {
   return runWithAuditContext({}, async () => {
     try {
       const auth = await requireAdminAction()
       if ('error' in auth) return auth
+      if (!isAdminEntityId(stockistId)) return { error: 'Invalid stockist ID' }
 
-      const result = await adminRemoveChannel(
-        channelId,
+      const result = await reviewCommunityStockist(
+        stockistId,
+        decision,
         auth.user.id,
-        auth.user.email ?? auth.user.id,
       )
       if (!result.ok) return { error: result.code }
 
-      revalidatePublicStockists(result.city)
+      if (auth.user.email) {
+        await logAdminAction({
+          adminUserId: auth.user.id,
+          adminEmail: auth.user.email,
+          action:
+            decision === 'confirmed' ? 'stockist_approved' : 'stockist_rejected',
+          targetBrandSlug: result.brandSlug,
+          targetBrandId: result.brandId,
+          metadata: { stockistId },
+        })
+      }
 
-      return { success: true }
+      revalidatePath(routes.admin.stockists())
+      revalidatePath(routes.admin.index())
+      revalidatePublicBrands([result.brandSlug])
+      revalidatePublicStockists(result.city)
+      return undefined
     } catch (error) {
-      console.error('[admin:removeChannel]', error)
+      console.error('[admin:reviewStockist]', error)
       return {
         error: error instanceof Error ? error.message : 'An unexpected error occurred',
       }

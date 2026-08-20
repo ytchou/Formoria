@@ -50,7 +50,7 @@
     "feedback": "Feature requests",
     "whereToBuy": "Where to buy",
     "discover": "Styles",
-    "disclosure": "Formoria does not sell products. Every purchase happens on the brand's own channel."
+    "disclosure": "Formoria does not sell products. Every purchase happens on the brand's own website or at a stockist."
   },
   "discover": {
     "metaTitle": "Styles",
@@ -115,7 +115,7 @@
     },
     "manifesto": {
       "headline": "Make Taiwanese brands easier to discover, choose, and grow",
-      "body1": "We first organize fragmented brand, product, and purchase-channel information so worthwhile Taiwanese brands are easier to find.",
+      "body1": "We first organize fragmented brand, product, and where-to-buy information so worthwhile Taiwanese brands are easier to find.",
       "body2": "Curation can then help people choose, while owner tools support brands as they grow.",
       "cta": "Read Our Vision"
     },
@@ -341,7 +341,7 @@
       "about": "About",
       "social": "Social",
       "purchase": "Purchase",
-      "locations": "Retail locations",
+      "locations": "Stockists",
       "selectedProducts": "Formoria Selected",
       "events": "Event appearances",
       "faq": "FAQ"
@@ -403,7 +403,7 @@
     },
     "links": {
       "socialPlatforms": "Social Platforms",
-      "purchaseChannels": "Where to Buy",
+      "onlineStores": "Online Stores",
       "otherLinks": "Other Links",
       "instagram": "Instagram",
       "threads": "Threads",
@@ -484,7 +484,7 @@
         "product_label": "Product label",
         "packaging": "Packaging",
         "official_site": "Official website",
-        "in_store": "In store",
+        "in_store": "At a stockist",
         "other": "Other"
       },
       "notesLabel": "Additional notes",
@@ -517,14 +517,14 @@
       "title": "Correct brand information",
       "purchaseTrigger": "Provide a purchase link",
       "purchaseTitle": "Provide a purchase link",
-      "purchaseFieldPickerLabel": "Which purchase channel are you adding?",
-      "purchaseFieldPickerPlaceholder": "Choose a purchase channel…",
+      "purchaseFieldPickerLabel": "Which online store are you adding?",
+      "purchaseFieldPickerPlaceholder": "Choose an online store…",
       "purchaseUrlLabel": "Link URL",
       "purchaseUrlPlaceholder": "https://example.com/shop",
       "socialTrigger": "Provide a social link",
       "socialTitle": "Provide a social link",
-      "socialFieldPickerLabel": "Which social channel are you adding?",
-      "socialFieldPickerPlaceholder": "Choose a social channel…",
+      "socialFieldPickerLabel": "Which social profile are you adding?",
+      "socialFieldPickerPlaceholder": "Choose a social profile…",
       "close": "Close",
       "fieldPickerLabel": "Which field is wrong?",
       "fieldPickerPlaceholder": "Choose a field…",
@@ -569,74 +569,60 @@
       "tags": "Tags",
       "photos": "Photos",
       "locations": "Locations",
-      "locationsAndRetailChannels": "Retail locations",
+      "retailLocations": "Stockists",
       "faq": "Frequently Asked Questions"
     },
     "channels": {
       "subtitle": "Places where this brand may be available, with some information provided by the community",
-      "provideInfo": "Provide retail location",
+      "provideInfo": "Provide a stockist",
       "groups": {
         "all_taiwan": "Across Taiwan",
-        "overseas": "Overseas",
-        "online": "Online"
+        "overseas": "Overseas"
       },
       "confirmed": {
         "officialPageLink": "Official page"
       },
-      "unconfirmed": {
-        "confirmAction": "I confirm they sell here",
-        "confirmed": "Confirmed",
-        "progress": "{count}/{threshold} confirmed",
-        "thresholdNote": "Dashed entries are community-submitted and not yet confirmed; at {threshold} confirmations they move to the confirmed list with a Community confirmed badge",
-        "signInToConfirm": "Sign in to confirm"
-      },
       "chips": {
-        "showRest": "Show {count} more",
-        "confirmAria": "Confirm {name} sells this brand"
+        "showRest": "Show {count} more"
       },
       "provenance": {
         "owner": "Brand confirmed",
-        "community": "Community confirmed",
+        "formoria": "Confirmed by Formoria",
         "evidence": "From the official website",
         "evidenceOther": "Source verified"
       },
       "ownerBanner": {
-        "title": "This is the brand you manage",
-        "description": "Confirm or flag the accuracy of retail locations",
         "confirm": "Confirm sold here",
         "reject": "Not sold here"
       },
       "dialog": {
-        "title": "Provide retail location",
-        "nameLabel": "Retail location name",
+        "title": "Provide a stockist",
+        "nameLabel": "Stockist name",
         "namePlaceholder": "e.g. Eslite Bookstore Xinyi",
-        "channelTypeLabel": "Sales format",
-        "channelTypeOnline": "Online sales",
-        "channelTypeOffline": "Physical location",
         "regionLabel": "Region",
         "regionPlaceholder": "Select region",
+        "regionRequired": "Select the city or county where this stockist is",
         "addressLabel": "Address",
         "addressPlaceholder": "Full address (optional)",
         "urlLabel": "URL",
         "urlPlaceholder": "https://...",
         "submit": "Submit",
-        "success": "Thanks for the information!",
-        "signInRequired": "Please sign in to provide a retail location"
+        "success": "Thank you. We check every submission before it appears on the brand page.",
+        "signInRequired": "Please sign in to provide a stockist"
       },
       "errors": {
         "not_logged_in": "Please sign in",
         "missing_brand_id": "Missing brand information",
         "missing_brand_slug": "Missing brand information",
-        "invalid_name": "Please enter a valid retail location name",
-        "invalid_channel_type": "Please select a sales format",
+        "invalid_name": "Please enter a valid stockist name",
+        "invalid_region": "Choose the region this stockist is in",
         "invalid_url": "Please enter a valid URL",
-        "active_cap_reached": "Retail location limit reached for this brand",
+        "active_cap_reached": "Stockist limit reached for this brand",
         "daily_cap_reached": "Today's submission limit has been reached, please try again tomorrow",
-        "duplicate_name": "This retail location name already exists",
+        "duplicate_name": "This stockist has already been submitted",
         "database_error": "System error, please try again later",
         "unknown": "An error occurred, please try again later"
-      },
-      "countLabel": "{count} retail locations"
+      }
     },
     "gallery": {
       "viewer": "Photo viewer",
@@ -720,12 +706,11 @@
     },
     "descriptions": {
       "fashion": "The wardrobe is missing one jacket you can wear to work and then straight out to dinner. Fashion and apparel covers everyday basics, commuting and outerwear, technical outdoor layers, footwear, and the accessories worn with them; materials, sizing, and place of manufacture follow each brand's own statements. Formoria lists apparel and footwear brands founded, designed, or made in Taiwan.",
-      "bags-accessories": "A bag has to hold a laptop, a water bottle, and a lunch box — without the strap digging in. Bags and accessories covers commuter bags, backpacks, travel bags, wallets, and small leather goods, and some brands work with recycled fabrics or vegetable-tanned leather. Formoria lists bag and accessory brands founded, designed, or made in Taiwan, and gathers each brand's official and physical retail channels.",
+      "bags-accessories": "A bag has to hold a laptop, a water bottle, and a lunch box — without the strap digging in. Bags and accessories covers commuter bags, backpacks, travel bags, wallets, and small leather goods, and some brands work with recycled fabrics or vegetable-tanned leather. Formoria lists bag and accessory brands founded, designed, or made in Taiwan, and gathers each brand's online stores and stockists.",
       "jewelry": "A pair of earrings you can wear every day and keep on in the shower. Jewelry covers earrings, necklaces, rings, bracelets, and hair accessories, in materials from sterling silver, brass, and stainless steel to natural stones and freshwater pearls; metal composition and care instructions are stated by each brand. Formoria lists jewelry brands founded, designed, or made in Taiwan.",
       "beauty": "Taiwanese summers are hot and humid, so texture is often decided before the ingredient list is. Beauty and personal care covers facial skincare, haircare, body cleansing, and makeup, and many brands use local plants, mineral springs, or fermented ingredients. Formoria lists beauty brands founded, designed, or made in Taiwan; for ingredients and suitability, follow each brand's own labelling.",
       "home": "Moving into a new home, changing a lamp, wanting the dining table to look different. Home and living covers furniture, storage, lighting, tableware, and decor, often in ceramics, wood, woven bamboo, and metalwork; in a small apartment the dimensions usually settle the choice before the style does. Formoria lists home and living brands founded, designed, or made in Taiwan.",
       "food-drink": "A gift to send home, or a bag of coffee beans that runs out every morning. Food and beverage covers tea, coffee, fruit and farm produce, snacks, sauces, and traditional confections, and some brands work directly with growers. Formoria lists food and drink brands founded, designed, or made in Taiwan; for storage, ingredients, and delivery terms, see each brand's own pages.",
-      "crafts": "The moment you stop at a craft fair or a market, and still want to find it again once you are home. Crafts and art covers ceramics, textiles, woodwork, metalwork, letterpress, and hand bookbinding, mostly made in small batches by hand, so no two pieces carry quite the same grain. Formoria lists craft and design brands founded, designed, or made in Taiwan.",
       "stationery": "A notebook that lies flat and doesn't bleed through under a fountain pen. Stationery and design covers notebooks, paper goods, pens, washi tape, stamps, and desk tools, and many brands work with local paper mills, printers, or illustrators. Formoria lists stationery and design brands founded, designed, or made in Taiwan.",
       "tech": "One more cable on the desk and it is a mess, so charging, expansion, and cable management usually get solved together. Tech and electronics covers consumer electronics, computer peripherals, creator tools, and smart home devices. Formoria lists tech brands founded, designed, or made in Taiwan; for specifications, compatibility, and warranty terms, follow each brand's official documentation.",
       "outdoor": "A weekend in the mountains means carrying the sleeping bag, the stove, and the pack yourself. Outdoor and camping covers hiking, camping, climbing, and travel gear, along with the apparel, packs, and accessories that go with them; between high ridgelines and coastal campsites, low weight and damp resistance are the usual trade-off. Formoria lists outdoor and camping brands founded, designed, or made in Taiwan.",
@@ -799,23 +784,6 @@
           {
             "question": "Does a category label mean all ingredients are from Taiwan?",
             "answer": "No. The label is a discovery path, not an origin claim. Check each brand page for ingredient, source, and manufacturing information."
-          }
-        ]
-      },
-      "crafts": {
-        "title": "Taiwan Crafts & Art Brands | Ceramics, Woodwork, Textiles & Handmade Design | Formoria",
-        "description": "Explore Taiwanese crafts and art brands across ceramics, woodwork, textiles, metalwork, print, and contemporary making.",
-        "h1": "Taiwan Crafts & Art Brands",
-        "intro": "Ceramics, woodwork, textiles, metalwork, and printing; mostly made in small batches by hand, so no two pieces carry quite the same grain.",
-        "definition": "Craft does not mean every piece is entirely handmade, nor does it stand for one cultural tradition. Formoria looks at a brand's published processes, categories, and Taiwan connection so visitors can learn more about studio scale, materials, and making on the brand page.",
-        "faq": [
-          {
-            "question": "How is Crafts & Art different from Home & Living?",
-            "answer": "The categories can overlap. Crafts & Art foregrounds process, material, and cultural context, while Home & Living foregrounds how an object works in a space."
-          },
-          {
-            "question": "Are handmade brands automatically made in Taiwan?",
-            "answer": "No. Formoria keeps founding, design, and manufacturing details separate instead of using a category name as a substitute for origin information."
           }
         ]
       },
@@ -987,7 +955,7 @@
           },
           {
             "question": "Can I buy furniture directly from Formoria?",
-            "answer": "Formoria is a brand discovery directory. Visit the official channel provided by each brand for pricing, dimensions, delivery, and purchase details."
+            "answer": "Formoria is a brand discovery directory. Visit each brand's own website or a stockist for pricing, dimensions, delivery, and purchase details."
           }
         ]
       },
@@ -1072,7 +1040,7 @@
           },
           {
             "question": "Is this a food-safety recommendation?",
-            "answer": "No. The directory is a discovery entry point. Use packaging, storage, allergen, and official-channel information when deciding what to buy."
+            "answer": "No. The directory is a discovery entry point. Use packaging, storage, allergen, and official-website information when deciding what to buy."
           }
         ]
       }
@@ -1158,7 +1126,7 @@
   "faq": {
     "metadata": {
       "title": "FAQ",
-      "description": "Frequently asked questions about Formoria's Taiwanese brand discovery and curation platform, including listings versus selections, purchase channels, trust tiers, recommendations, and the review process."
+      "description": "Frequently asked questions about Formoria's Taiwanese brand discovery and curation platform, including listings versus selections, online stores and stockists, trust tiers, recommendations, and the review process."
     },
     "title": "Frequently Asked Questions",
     "intro": "Inclusion rules, curation labels, where to buy — the questions we are asked most, gathered here. If the answer is not here, please <contact>contact us</contact>.",
@@ -1170,7 +1138,7 @@
     "items": {
       "whatIsFormoria": {
         "question": "What is Formoria?",
-        "answer": "Formoria is a Taiwanese brand discovery and curation platform. It currently starts with a searchable directory of listed brands, bringing together brand information, product highlights, and official purchase channels; content selected by Formoria is labelled separately."
+        "answer": "Formoria is a Taiwanese brand discovery and curation platform. It currently starts with a searchable directory of listed brands, bringing together brand information, product highlights, and each brand's own online stores and stockists; content selected by Formoria is labelled separately."
       },
       "listingVsSelection": {
         "question": "What is the difference between a listed brand and a Formoria Selection?",
@@ -1190,7 +1158,7 @@
       },
       "notListedBrands": {
         "question": "What kinds of brands are not listed?",
-        "answer": "Formoria lists brands with their own products, so we do not list proxy buyers, curated or multi-brand shops without a product line of their own, platforms and retail channels, media and review sites, importers or distributors of foreign brands, or personal accounts offering only services or digital goods. A curated shop that makes its own product line, or a creator with their own physical products, does qualify."
+        "answer": "Formoria lists brands with their own products, so we do not list proxy buyers, curated or multi-brand shops without a product line of their own, platforms and retailers, media and review sites, importers of foreign brands, or personal accounts offering only services or digital goods. A curated shop that makes its own product line, or a creator with their own physical products, does qualify."
       },
       "whatDoesMitMean": {
         "question": "What do the MIT tiers mean?",
@@ -1214,11 +1182,11 @@
       },
       "ownerInterest": {
         "question": "I own a brand — can I manage my own brand page?",
-        "answer": "Yes. On the brand page, select “Claim this brand” and submit one piece of ownership proof for our review; once it is approved you can edit brand details, product highlights, and official purchase channels, and submit an MIT brand declaration. If the brand page is already claimed, the claim button will not appear — tell us on the contact page. While a claim is under review the page stays with our team, and corrections can be reported directly on the brand page. For any other owner tools, tell us on the <link>feature request board</link>."
+        "answer": "Yes. On the brand page, select “Claim this brand” and submit one piece of ownership proof for our review; once it is approved you can edit brand details, product highlights, and online store and stockist information, and submit an MIT brand declaration. If the brand page is already claimed, the claim button will not appear — tell us on the contact page. While a claim is under review the page stays with our team, and corrections can be reported directly on the brand page. For any other owner tools, tell us on the <link>feature request board</link>."
       },
       "whatCategories": {
         "question": "What product categories does Formoria cover?",
-        "answer": "Formoria covers twelve categories: Fashion & Apparel, Bags & Accessories, Jewelry, Beauty & Personal Care, Home & Living, Food & Beverage, Crafts & Art, Stationery & Design, Tech & Electronics, Outdoor & Camping, Sports & Fitness, and Kids Baby & Pets."
+        "answer": "Formoria covers twelve categories: Fashion & Apparel, Bags & Accessories, Jewelry, Beauty & Personal Care, Home & Living, Food & Beverage, Stationery & Design, Tech & Electronics, Outdoor & Camping, Sports & Fitness, Kids & Baby, and Pets."
       },
       "languageSupport": {
         "question": "Is Formoria available in English?",
@@ -1290,12 +1258,12 @@
       },
       "research": {
         "heading": "When you know the direction",
-        "body": "Search for a brand or category, then review brand information, product highlights, and official or physical channels."
+        "body": "Search for a brand or category, then review brand information, product highlights, online stores, and stockists."
       }
     },
     "mission": {
       "heading": "Formoria's three roles",
-      "statement": "Formoria is a Taiwanese brand discovery and curation platform. It currently starts with a searchable directory of listed brands, bringing together brand information, product highlights, and official purchase channels; content selected by Formoria is labelled separately.",
+      "statement": "Formoria is a Taiwanese brand discovery and curation platform. It currently starts with a searchable directory of listed brands, bringing together brand information, product highlights, and each brand's own online stores and stockists; content selected by Formoria is labelled separately.",
       "context": "Directory listing, editorial selection, and the route to purchase each have a clear boundary, so visitors know what they are seeing and who owns the next step.",
       "directory": {
         "heading": "An inclusive brand directory",
@@ -1306,8 +1274,8 @@
         "body": "Formoria uses “Formoria Selection” only for products or content deliberately chosen for a situation, use, preference, or editorial argument, described for what it is and where to order it from the brand."
       },
       "connection": {
-        "heading": "A connection to real purchase channels",
-        "body": "Provide the next step to a brand's official website or a physical channel. Formoria does not accept orders or guarantee price, inventory, or transaction outcomes."
+        "heading": "A connection to real online stores and stockists",
+        "body": "Provide the next step to a brand's official website or a stockist. Formoria does not accept orders or guarantee price, inventory, or transaction outcomes."
       }
     },
     "trust": {
@@ -1335,7 +1303,7 @@
     },
     "vision": {
       "sectionHeading": "Our Vision",
-      "heading": "Build an online select space for Taiwanese brands where people can browse at their own pace, discover new preferences, get to know the brands behind the products, then continue to brands' official or physical channels.",
+      "heading": "Build an online select space for Taiwanese brands where people can browse at their own pace, discover new preferences, get to know the brands behind the products, then continue to the brands' own online stores and stockists.",
       "body": "This is a long-term direction, not a claim that Formoria currently accepts orders, holds inventory, processes payments, or provides after-sales service.",
       "principleHeading": "Transactions stay with brands and retailers",
       "principleBody": "Formoria owns inspiration, selection, context, and the outbound route; brands or retailers remain responsible for price, variants, inventory, checkout, fulfilment, and after-sales service."
@@ -1537,7 +1505,7 @@
       "overview": "Overview",
       "info": "Brand Info",
       "media": "Media & Photos",
-      "links": "Links & Locations",
+      "links": "Links & Online Stores",
       "verification": "MIT Verification",
       "reputation": "Reputation",
       "analytics": "Analytics",
@@ -1583,7 +1551,7 @@
         "city": "Add your brand's founding city",
         "foundingYear": "Add your brand's founding year",
         "socialPresence": "Connect social accounts for more exposure",
-        "additionalSalesChannel": "Add physical or online sales locations",
+        "additionalSalesChannel": "Add another online store or social link",
         "reputation": "Add reputation sources to build credibility"
       },
       "todoEmpty": "All items complete!",
@@ -1697,7 +1665,7 @@
         "city": "Add your founding city",
         "foundingYear": "Add your founding year",
         "socialPresence": "Connect a social account",
-        "additionalSalesChannel": "Add another sales channel",
+        "additionalSalesChannel": "Add another online store",
         "reputation": "Add reputation evidence"
       }
     },
@@ -1884,7 +1852,7 @@
       "notSet": "Not set",
       "sectionBasicInfoHint": "The core information shown on the public page, to help visitors quickly understand this brand.",
       "sectionBrandImagesHint": "Manage the brand images shown in search results and on your public brand page.",
-      "sectionLinksHint": "Keep official social profiles, websites, and purchase channels together so visitors can find this brand more easily.",
+      "sectionLinksHint": "Keep official social profiles, websites, and online stores together so visitors can find this brand more easily.",
       "sectionVerification": "Manufacturing verification",
       "sectionVerificationHint": "Match an MIT Smile registry entry to show verification for the products covered by that entry.",
       "sectionReputationHint": "Add press coverage, awards, and external references that strengthen brand credibility.",
@@ -1954,7 +1922,7 @@
         "brandInfo": "Brand Info",
         "tags": "Categories & Values",
         "products": "Products",
-        "links": "Locations",
+        "links": "Links",
         "review": "Review"
       }
     },
@@ -1974,7 +1942,7 @@
     },
     "attribution": {
       "bought_product": "Bought their products",
-      "saw_at_market": "Saw at a market or physical store",
+      "saw_at_market": "Saw at a market or a stockist",
       "found_online": "Found online",
       "friend_recommended": "Friend recommended",
       "work_there": "Work there"
@@ -2197,7 +2165,7 @@
       "detailsDescription": "Fill in the complete brand information yourself, so every detail is presented the way the brand decides.",
       "detailsPoint1": "Write your brand story and product descriptions",
       "detailsPoint2": "Upload brand logo, cover photo, and product images",
-      "detailsPoint3": "Add social accounts, website, and sales channels",
+      "detailsPoint3": "Add social accounts, website, and online stores",
       "detailsCta": "Fill in Details"
     },
     "quickForm": {
@@ -2234,12 +2202,12 @@
   "gettingStarted": {
     "metadata": {
       "title": "Explore Formoria",
-      "description": "Stopped at a market stall? How to find that brand on Formoria: browse listed brands, read the details, then head to official or physical channels."
+      "description": "Stopped at a market stall? How to find that brand on Formoria: browse listed brands, read the details, then head to the brand's own online store or a stockist."
     },
     "hero": {
       "eyebrow": "Explore Formoria",
       "title": "From one thing you love to its brand and the place you can buy it",
-      "intro": "Browse or search listed brands, then review brand information, product highlights, and official purchase channels. Content selected by Formoria is labelled separately.",
+      "intro": "Browse or search listed brands, then review brand information, product highlights, and each brand's own online stores and stockists. Content selected by Formoria is labelled separately.",
       "primaryCta": "Browse brands",
       "secondaryCta": "Read the FAQ"
     },
@@ -2247,7 +2215,7 @@
       "heading": "How to explore Formoria",
       "discover": {
         "title": "Start with what interests you",
-        "body": "Browse by category, values, location, or shopping channel to find brands that match your interests.",
+        "body": "Browse by category, values, location, or online store to find brands that match your interests.",
         "cta": "Browse brands"
       },
       "submit": {
@@ -2268,7 +2236,7 @@
       "heading": "While you browse",
       "accurate": "Read the description and product details to understand what each brand offers.",
       "photos": "Use product photos to get a feel for the brand's materials, style, and range.",
-      "links": "Continue to a brand's official or physical channels for price, variants, inventory, and purchase details."
+      "links": "Continue to the brand's own online store or a stockist for price, variants, inventory, and purchase details."
     },
     "forOwners": {
       "heading": "If you own a brand",
@@ -2313,7 +2281,8 @@
         "scripts": "Scripts",
         "settings": "Settings",
         "corrections": "Corrections",
-        "curatedProducts": "Curated Products"
+        "curatedProducts": "Curated Products",
+        "stockists": "Stockists"
       }
     },
     "queue": {
@@ -2613,6 +2582,31 @@
       "title": "Claim Requests",
       "description": "Review and manage brand ownership claims."
     },
+    "stockists": {
+      "title": "Community Stockists",
+      "description": "Stockists readers submitted. A submission stays invisible on the public site until it is approved here, and an approved one is labelled as confirmed by Formoria, not by the brand.",
+      "searchLabel": "Search stockists",
+      "searchPlaceholder": "Brand or stockist name",
+      "table": {
+        "brand": "Brand",
+        "stockist": "Stockist",
+        "region": "Region",
+        "submitted": "Submitted"
+      },
+      "fields": {
+        "brand": "Brand",
+        "region": "Region",
+        "address": "Address",
+        "url": "URL"
+      },
+      "approve": "Approve this stockist",
+      "reject": "Reject this stockist",
+      "notProvided": "Not provided",
+      "empty": "No community stockists are waiting for review.",
+      "notFound": "No stockists match this search.",
+      "expandStockist": "Show details for {name}",
+      "collapseStockist": "Hide details for {name}"
+    },
     "submissions": {
       "denialReasons": {
         "not_mit": "Not a Taiwanese Brand",
@@ -2773,32 +2767,6 @@
         "reputation": "Reputation",
         "reputationSources": "Sources",
         "locations": "Retail locations",
-        "locationEditor": {
-          "item": "Location {number}",
-          "kind": "Information type",
-          "chain": "Retail chain",
-          "name": "Name",
-          "relationship": {
-            "brand_store": "Brand store",
-            "stockist": "Stockist",
-            "department_counter": "Department counter"
-          },
-          "statusLabel": "Verification status",
-          "status": {
-            "verified": "Verified",
-            "manual": "Manual address",
-            "needs_review": "Needs review",
-            "rejected": "Rejected"
-          },
-          "address": "Address",
-          "city": "City",
-          "venue": "Venue",
-          "latitude": "Latitude",
-          "longitude": "Longitude",
-          "coordinates": "Coordinates: {latitude}, {longitude}",
-          "evidence": "Evidence and source links",
-          "remove": "Remove location {number}"
-        },
         "subcategoriesSearchHint": "Type to filter, then pick a subcategory below.",
         "subcategoriesSelectedHeading": "Selected (click to remove)",
         "subcategoriesOptionsHeading": "Subcategories you can add",
@@ -3463,7 +3431,7 @@
       },
       "owner_claim_flow": {
         "title": "Let brand owners claim and manage their brand page",
-        "body": "Let a brand's owner verify they represent the brand, then keep its description, links, and purchase channels up to date themselves."
+        "body": "Let a brand's owner verify they represent the brand, then keep its description, official links, and stockists up to date themselves."
       },
       "brand_retail_locations": {
         "title": "Show a brand's retail locations on its page",

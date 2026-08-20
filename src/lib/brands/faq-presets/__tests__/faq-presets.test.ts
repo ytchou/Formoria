@@ -54,8 +54,8 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     blurbEn: null,
     heroImageUrl: null,
     status: "approved",
-    categorySlug: "crafts",
-    categoryLabel: "工藝文創",
+    categorySlug: "home",
+    categoryLabel: "居家生活",
     city: "taipei",
     isVerified: false,
     mitStatus: undefined,
@@ -84,8 +84,8 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     imageAlts: [],
     contactEmail: null,
     priceRange: 2,
-    subcategories: ["陶藝", "茶具"],
-    subcategoriesEn: ["ceramics", "tea ware"],
+    subcategories: ["餐具", "茶具"],
+    subcategoriesEn: ["tableware", "tea ware"],
     siteContent: null,
     submittedAt: "2026-01-01T00:00:00.000Z",
     approvedAt: "2026-01-02T00:00:00.000Z",
@@ -204,7 +204,7 @@ describe("FAQ preset catalog", () => {
   it("main-products render eligibility is per locale", () => {
     const mainProducts = presetById("main-products");
     const zhOnly = makeContext({
-      brand: makeBrand({ subcategories: ["陶藝"], subcategoriesEn: [] }),
+      brand: makeBrand({ subcategories: ["餐具"], subcategoriesEn: [] }),
     });
 
     expect(mainProducts.eligible(zhOnly, "zh-TW")).toBe(true);
@@ -403,7 +403,7 @@ describe("FAQ preset catalog", () => {
 
   it("lengthBand rejects an out-of-band zh answer", () => {
     // 40 字 — well short of the zh 200–320 band.
-    const shortAnswer = "這個品牌以陶藝與茶具為主要產品，於台北設立".repeat(2);
+    const shortAnswer = "這個品牌以餐具與茶具為主要產品，於台北設立".repeat(2);
 
     expect(Array.from(shortAnswer).length).toBeLessThan(200);
     expect(withinLengthBand()(shortAnswer, makeValidatorContext("zh")).ok).toBe(
@@ -412,7 +412,7 @@ describe("FAQ preset catalog", () => {
   });
 
   it("notDuplicateOf rejects a custom restating a preset topic", () => {
-    const presetAnswer = "Harbor Form makes ceramics and tea ware in Taipei.";
+    const presetAnswer = "Harbor Form makes tableware and tea ware in Taipei.";
     const result = notDuplicateOf([presetAnswer])(
       presetAnswer,
       makeValidatorContext("en"),

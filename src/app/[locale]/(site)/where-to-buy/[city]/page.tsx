@@ -15,7 +15,7 @@ import {
   resolveStockistCategory,
   stockistDistrictSlugs,
   summarizeStockistCities,
-} from '@/lib/services/brand-channels'
+} from '@/lib/services/stockists'
 import { L1_CATEGORIES, categoryLabel } from '@/lib/taxonomy/ontology'
 import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
 import { buildStockistItemListJsonLd, safeJsonLdStringify } from '@/lib/json-ld'

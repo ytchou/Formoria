@@ -16,7 +16,7 @@ import {
   type CreativeExpoExplorerState,
 } from "./creative-expo-explorer";
 
-function brand(name: string, category = "crafts"): PublicBrandCard {
+function brand(name: string, category = "home"): PublicBrandCard {
   return {
     id: name,
     name,
@@ -218,7 +218,7 @@ describe("Creative Expo explorer state", () => {
     ).toMatchObject({ query: null });
 
     const url = new URL(
-      "https://formoria.test/en/events/creative?booth=K2-022&category=crafts&ref=story",
+      "https://formoria.test/en/events/creative?booth=K2-022&category=home&ref=story",
     );
     buildCreativeExpoUrl(url, { zone: null, listedOnly: false, page: 1 });
     expect(url.search).toBe("?ref=story");

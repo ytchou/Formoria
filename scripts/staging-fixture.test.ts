@@ -15,7 +15,6 @@ describe("staging fixture privacy contract", () => {
     for (const category of [
       "bags-accessories",
       "beauty",
-      "crafts",
       "fashion",
       "fitness",
       "food-drink",

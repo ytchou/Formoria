@@ -4,10 +4,10 @@ import { getTranslations } from "next-intl/server";
 import { auditedCall } from "@/lib/audit";
 import { DataCard, SurfaceCard } from "@/components/ui/card";
 import {
-  PURCHASE_CHANNELS,
-  type PurchaseChannelCamelField,
-  type PurchaseChannelKey,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORES,
+  type OnlineStoreCamelField,
+  type OnlineStoreKey,
+} from "@/lib/brands/online-stores";
 import { getQualityMetrics } from "@/lib/services/brand-quality";
 
 export const metadata: Metadata = {
@@ -32,7 +32,7 @@ const PURCHASE_LINK_PRESENTATION = {
   pinkoi: { label: "Pinkoi" },
   shopee: { label: "Shopee" },
   myship: { label: "MyShip" },
-} satisfies Record<PurchaseChannelKey, { label: string }>;
+} satisfies Record<OnlineStoreKey, { label: string }>;
 
 type LinkRow = {
   label: string;
@@ -40,14 +40,14 @@ type LinkRow = {
     | "socialInstagram"
     | "socialThreads"
     | "socialFacebook"
-    | PurchaseChannelCamelField;
+    | OnlineStoreCamelField;
 };
 
 const linkRows: LinkRow[] = [
   { label: "Instagram", key: "socialInstagram" },
   { label: "Threads", key: "socialThreads" },
   { label: "Facebook", key: "socialFacebook" },
-  ...PURCHASE_CHANNELS.map((channel) => ({
+  ...ONLINE_STORES.map((channel) => ({
     ...PURCHASE_LINK_PRESENTATION[channel.key],
     key: channel.camel,
   })),

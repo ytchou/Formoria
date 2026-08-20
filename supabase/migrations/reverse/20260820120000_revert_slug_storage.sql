@@ -19,12 +19,15 @@
 --
 -- WHAT THIS FILE RESTORES
 --
--- Every stored slug becomes a zh-TW label again. For 744 of the 795 brands in
+-- Every stored slug becomes a zh-TW label again. For 688 of the 795 brands in
 -- the pre-migration corpus the node's canonical `nameZh` IS the stored string,
--- so the slug alone is enough. The other 51 stored something the slug cannot
--- reproduce — an alias spelling (`帆布包` for `tote-bags`), or two labels that
--- collapsed onto one slug (`雨傘` and `陽傘` both on `umbrellas`). Those brands
--- get an exact per-brand restoration, generated from the corpus.
+-- so the slug alone is enough. The other 107 stored something the slug cannot
+-- reproduce — an alias spelling (`帆布包` for `tote-bags`), two labels that
+-- collapsed onto one slug (`雨傘` and `陽傘` both on `umbrellas`), or a label
+-- DEV-1507 renamed out from under them (`插畫・畫作`, stored against the
+-- `illustration-and-art` node that relocated to `home` as `wall-art` /
+-- `掛畫・畫作` and keeps the old spelling only as an alias). Those brands get an
+-- exact per-brand restoration, generated from the corpus.
 --
 -- The restoration applies only while a brand still carries exactly the slug set
 -- the forward backfill produced. A brand re-tagged after the forward migration
@@ -32,10 +35,13 @@
 --
 -- WHAT THIS FILE DOES NOT RESTORE — AND WHY THAT IS ACCEPTED
 --
--- The forward backfill DELETES the 28 `EVICTED_LABELS` and the 14
--- `OUT_OF_FRAME_LABELS` (`src/lib/taxonomy/ontology.ts:381,427`) instead of
+-- The forward backfill DELETES the 37 `EVICTED_LABELS` and the 14
+-- `OUT_OF_FRAME_LABELS` (`src/lib/taxonomy/ontology.ts:403,463`) instead of
 -- converting them. They leave no slug behind, so no reverse can reconstruct
--- them from storage — 35 of the 42 appear in the corpus, across 205 tag-uses.
+-- them from storage — 44 of the 51 appear in the corpus, across 286 tag-uses.
+-- Nine of the evicted labels and 81 of those tag-uses arrived with DEV-1507's
+-- retirement of the `crafts` L1: they name a technique, which the material axis
+-- stores, so no surviving use node can absorb them.
 --
 -- That loss is accepted because it is recoverable out of band and because it is
 -- not part of the storage swap: eviction is an editorial closure of the
@@ -54,6 +60,11 @@
 --  * The `kids-pets` L1 split (`20260820090000_split_kids_pets_l1.sql`) is a
 --    different axis with its own rollback. This file does not touch
 --    `brands.category` or `draft_data->>'categorySlug'`.
+--  * The `crafts` L1 retirement (`20260822090000_retire_crafts_l1.sql`) is a
+--    different axis and has no rollback here. Reverting this file restores the
+--    zh-TW labels but leaves every re-filed brand on its new L1: nothing here
+--    puts a brand back on `crafts`, and the CHECK constraint that migration
+--    installs no longer admits it.
 --  * If `20260820110000_search_expands_slugs.sql` was also deployed, revert it
 --    separately and in the same window. Left in place it expands stored values
 --    through `taxonomy_terms` as if they were slugs, so restored zh-TW labels
@@ -66,7 +77,11 @@
 -- Data blocks between the `-- >>>` / `-- <<<` markers are generated from
 -- `src/lib/taxonomy/ontology.ts` and `scripts/slug-reverse-corpus.json`.
 -- `scripts/__tests__/rehearse-slug-reverse.test.ts` parses them back out and
--- fails on drift.
+-- fails on drift. They were last regenerated for DEV-1507, which took the label
+-- map from 175 rows to 164 (12 `crafts` L2s retired, `wall-art` added) and the
+-- restoration overlay from 51 brands to 107. No brand left the overlay; of the
+-- 56 that joined, 50 store `插畫・畫作` — now an alias rather than a canonical
+-- `nameZh` — and 6 lost a newly evicted technique label.
 
 create temp table pg_temp.reverse_label_map (
   slug text primary key,
@@ -80,7 +95,6 @@ insert into pg_temp.reverse_label_map (slug, name_zh) values
   ('baby-bedding', '嬰幼兒寢具'),
   ('baby-clothing', '嬰幼兒服飾'),
   ('backpacks', '後背包'),
-  ('bamboo-craft', '竹編・竹藝'),
   ('bath-accessories', '衛浴用品'),
   ('bath-and-shower', '洗沐清潔'),
   ('beauty-tools', '美妝工具・儀器'),
@@ -101,7 +115,6 @@ insert into pg_temp.reverse_label_map (slug, name_zh) values
   ('cards-and-postcards', '卡片・明信片'),
   ('care-and-mobility-aids', '照護輔具'),
   ('casual-shoes', '休閒鞋'),
-  ('ceramics', '陶瓷・陶藝'),
   ('chargers-and-cables', '充電器・充電線'),
   ('charms', '吊飾'),
   ('chocolate-and-cacao', '巧克力・可可'),
@@ -125,12 +138,10 @@ insert into pg_temp.reverse_label_map (slug, name_zh) values
   ('desserts-and-pastries', '甜點・糕點'),
   ('device-sleeves', '保護套・皮套'),
   ('dresses', '洋裝'),
-  ('dried-flowers-and-floral-design', '乾燥花・花藝設計'),
   ('dried-fruits', '果乾'),
   ('earphones-and-headphones', '耳機'),
   ('earrings', '耳環'),
   ('eco-and-shopping-bags', '環保袋・購物袋'),
-  ('embroidery', '刺繡'),
   ('essential-oils-and-hydrosols', '精油・純露'),
   ('eyewear', '眼鏡・太陽眼鏡'),
   ('face-masks', '面膜'),
@@ -142,7 +153,6 @@ insert into pg_temp.reverse_label_map (slug, name_zh) values
   ('fragrance', '香水'),
   ('fresh-produce', '生鮮蔬果'),
   ('furniture', '家具'),
-  ('glass-art', '玻璃・琉璃'),
   ('gloves', '手套'),
   ('hair-accessories', '髮飾'),
   ('hair-care', '髮品・頭皮護理'),
@@ -158,7 +168,6 @@ insert into pg_temp.reverse_label_map (slug, name_zh) values
   ('home-fragrance', '居家香氛'),
   ('home-textiles', '居家織品'),
   ('honey', '蜂蜜'),
-  ('illustration-and-art', '插畫・畫作'),
   ('jams-and-spreads', '果醬・抹醬'),
   ('journals-and-notebooks', '手帳・筆記本'),
   ('keychains', '鑰匙圈'),
@@ -167,7 +176,6 @@ insert into pg_temp.reverse_label_map (slug, name_zh) values
   ('kids-tableware', '兒童餐具'),
   ('laptop-bags', '筆電包'),
   ('learning-aids', '教具'),
-  ('leather-craft', '皮革工藝'),
   ('leather-shoes', '皮鞋'),
   ('lighting', '燈飾'),
   ('loungewear', '睡衣・居家服'),
@@ -175,11 +183,8 @@ insert into pg_temp.reverse_label_map (slug, name_zh) values
   ('makeup', '彩妝'),
   ('massage-and-recovery', '按摩・放鬆'),
   ('mattresses', '床墊'),
-  ('metalwork', '金工'),
   ('milk-powder', '奶粉'),
-  ('natural-dyeing', '藍染・植物染'),
   ('necklaces', '項鍊'),
-  ('needle-felting', '羊毛氈'),
   ('oral-care', '口腔護理'),
   ('outdoor-accessories', '戶外配件'),
   ('outerwear', '外套'),
@@ -241,14 +246,13 @@ insert into pg_temp.reverse_label_map (slug, name_zh) values
   ('tumblers-and-bottles', '隨行杯・保溫瓶'),
   ('umbrellas', '雨傘・陽傘'),
   ('underwear-and-intimates', '貼身衣物'),
+  ('wall-art', '掛畫・畫作'),
   ('wallets', '皮夾・錢包'),
   ('washi-tape', '紙膠帶'),
   ('watches', '手錶'),
-  ('weaving-and-crochet', '編織・鉤織'),
   ('wedding-and-couple-rings', '婚戒・對戒'),
   ('wetsuits-and-water-sports', '防寒衣・水上運動'),
   ('wireless-charging', '無線充電'),
-  ('woodcraft', '木藝・木作'),
   ('yoga-gear', '瑜珈用品');
 -- <<< label map
 
@@ -262,65 +266,121 @@ create temp table pg_temp.reverse_restoration (
 insert into pg_temp.reverse_restoration (brand_slug, expected_slugs, restored_labels) values
   ('25togo', array['home-decor', 'furniture', 'backpacks', 'luggage-and-travel']::text[], array['居家擺飾', '家具', '後背包', '旅行頸枕']::text[]),
   ('74ounce', array['handbags', 'backpacks', 'wallets', 'kids-tableware', 'belt-and-sling-bags']::text[], array['手提包', '後背包', '皮夾・錢包', '兒童餐具', '皮帶']::text[]),
+  ('a-plant-studio', array['home-decor', 'wall-art', 'plants']::text[], array['居家擺飾', '插畫・畫作', '植栽']::text[]),
+  ('acui-a-cui-studio', array['tote-bags', 'wall-art', 'keychains', 'scarves-and-shawls']::text[], array['托特包', '插畫・畫作', '鑰匙圈', '圍巾・披肩']::text[]),
+  ('atw-studio', array['wall-art']::text[], array['插畫・畫作']::text[]),
+  ('auspicious-pattern-archeology', array['wall-art']::text[], array['插畫・畫作']::text[]),
   ('bobird', array['scarves-and-shawls', 'hats', 'hair-accessories']::text[], array['圍巾・披肩', '帽子', '手帕', '髮飾']::text[]),
-  ('celebrate-today', array['illustration-and-art', 'craft-kits-and-supplies']::text[], array['插畫・畫作', '創作工具']::text[]),
+  ('bonnie-lu', array['phone-cases', 'wall-art']::text[], array['手機殼', '插畫・畫作']::text[]),
+  ('brainholesky', array['stickers', 'cards-and-postcards', 'wall-art']::text[], array['貼紙', '卡片・明信片', '插畫・畫作']::text[]),
+  ('celebrate-today', array['wall-art', 'craft-kits-and-supplies']::text[], array['插畫・畫作', '創作工具']::text[]),
+  ('chang-che', array['wall-art']::text[], array['插畫・畫作']::text[]),
   ('chia-pei-ya-shua', array['parenting-essentials', 'oral-care']::text[], array['育兒用品', '牙間刷']::text[]),
   ('chiiz-bear', array['card-holders', 'figurines-and-plush']::text[], array['卡套', '抱枕娃娃']::text[]),
+  ('chou-s-cat', array['wall-art', 'stickers', 'cards-and-postcards', 'eco-and-shopping-bags']::text[], array['插畫・畫作', '貼紙', '卡片・明信片', '環保袋・購物袋']::text[]),
+  ('cindy-chien', array['wall-art', 'stickers']::text[], array['插畫・畫作', '貼紙']::text[]),
+  ('circular', array['wall-art', 'stickers', 'charms']::text[], array['插畫・畫作', '貼紙', '吊飾']::text[]),
+  ('cookies', array['cookies-and-rice-crackers', 'desserts-and-pastries', 'wall-art']::text[], array['餅乾・米餅', '甜點・糕點', '插畫・畫作']::text[]),
   ('cucare', array['socks', 'hats', 'gloves']::text[], array['襪子', '帽子', '護理手套']::text[]),
   ('dear-nuts', array['snacks', 'dried-fruits']::text[], array['堅果', '果乾']::text[]),
   ('decus', array['umbrellas']::text[], array['雨傘', '折疊傘', '陽傘', '防風傘']::text[]),
-  ('dong-tang', array['calendars', 'ceramics']::text[], array['萬年曆', '陶瓷・陶藝']::text[]),
+  ('dong-tang', array['calendars']::text[], array['萬年曆']::text[]),
+  ('drunkfoodsss', array['wall-art', 'charms']::text[], array['插畫・畫作', '吊飾']::text[]),
+  ('dumbradio', array['wall-art', 'stickers']::text[], array['插畫・畫作', '貼紙']::text[]),
   ('eco-hukurou', array['pest-control', 'cleaning']::text[], array['除蟲用品', '環境用藥', '居家清潔']::text[]),
-  ('fluffystar', array['phone-cases', 'stands-and-mounts', 'card-holders', 'eco-and-shopping-bags', 'brooches', 'illustration-and-art']::text[], array['手機殼', '支架', '卡套', '環保袋・購物袋', '徽章', '插畫・畫作']::text[]),
+  ('essence-design-craft', array['floral-arrangements', 'home-decor']::text[], array['乾燥花・花藝設計', '居家擺飾']::text[]),
+  ('evies-drawing-daily', array['phone-cases', 'wall-art']::text[], array['手機殼', '插畫・畫作']::text[]),
+  ('farmy-life', array['honey', 'tea-bags', 'floral-arrangements']::text[], array['蜂蜜', '茶包', '乾燥花・花藝設計']::text[]),
+  ('fluffystar', array['phone-cases', 'stands-and-mounts', 'card-holders', 'eco-and-shopping-bags', 'brooches', 'wall-art']::text[], array['手機殼', '支架', '卡套', '環保袋・購物袋', '徽章', '插畫・畫作']::text[]),
+  ('goanywheredesign', array['wall-art', 'cards-and-postcards']::text[], array['插畫・畫作', '卡片・明信片']::text[]),
+  ('goblin-elder', array['wall-art']::text[], array['插畫・畫作']::text[]),
   ('good-good-goods', array['tote-bags', 'storage-pouches']::text[], array['托特包', '收納包', '帆布包']::text[]),
   ('hank-max', array['wallets', 'casual-shoes', 'backpacks', 'umbrellas']::text[], array['皮夾・錢包', '休閒鞋', '後背包', '雨傘']::text[]),
   ('heyyou-moment', array['storage', 'cards-and-postcards', 'stickers', 'home-fragrance', 'desk-organization']::text[], array['收納用品', '卡片・明信片', '貼紙', '居家香氛', '桌面配件']::text[]),
   ('hmm', array['tea-and-coffee-ware', 'pens-and-writing', 'hand-tools', 'tableware']::text[], array['茶具・咖啡器具', '筆具', '剪刀', '玻璃杯盤']::text[]),
   ('huei-hei-ji-bai', array['journals-and-notebooks', 'stickers', 'stamps-and-seals', 'phone-cases', 'figurines-and-plush']::text[], array['手帳・筆記本', '貼紙', '印章', '手機殼', '絨毛玩偶']::text[]),
   ('hueiyeh', array['home-appliances', 'massage-and-recovery', 'kids-furniture']::text[], array['生活家電', '按摩・放鬆', '嬰兒床']::text[]),
+  ('icelolly', array['desserts-and-pastries', 'wall-art']::text[], array['甜點・糕點', '插畫・畫作']::text[]),
+  ('iii-sum', array['earrings', 'necklaces', 'rings', 'socks', 'wall-art']::text[], array['耳環', '項鍊', '戒指', '襪子', '插畫・畫作']::text[]),
   ('inblooom', array['laptop-bags', 'tote-bags', 'eco-and-shopping-bags', 'craft-kits-and-supplies']::text[], array['筆電包', '托特包', '環保袋・購物袋', '布料']::text[]),
   ('innx', array['card-holders', 'umbrellas']::text[], array['卡夾・證件套', '雨傘']::text[]),
   ('j-s', array['desserts-and-pastries', 'chocolate-and-cacao']::text[], array['可麗露', '甜點・糕點', '巧克力・可可']::text[]),
+  ('jennyhua', array['wall-art', 'stickers', 'cards-and-postcards', 'keychains']::text[], array['插畫・畫作', '貼紙', '卡片・明信片', '鑰匙圈']::text[]),
+  ('jswood', array['home-fragrance', 'floral-arrangements', 'home-decor']::text[], array['居家香氛', '乾燥花・花藝設計', '居家擺飾']::text[]),
+  ('kaishodo-calligraphy', array['wall-art']::text[], array['插畫・畫作']::text[]),
   ('kuo-jewellery', array['rings', 'earrings', 'necklaces', 'cufflinks-and-tie-clips']::text[], array['戒指', '耳環', '項鍊', '袖扣']::text[]),
   ('la-one-bakery', array['desserts-and-pastries', 'jams-and-spreads', 'ready-meals']::text[], array['麵包', '甜點・糕點', '果醬・抹醬', '料理包・加工食品']::text[]),
+  ('lifedecor', array['home-decor', 'wall-art']::text[], array['居家擺飾', '插畫・畫作']::text[]),
+  ('lin-tsao-kung-fang', array['wall-art']::text[], array['插畫・畫作']::text[]),
+  ('littdlework', array['wall-art', 'cards-and-postcards']::text[], array['插畫・畫作', '卡片・明信片']::text[]),
+  ('littmatter', array['keychains', 'charms', 'home-decor', 'floral-arrangements']::text[], array['鑰匙圈', '吊飾', '居家擺飾', '乾燥花・花藝設計']::text[]),
   ('loginheart', array['card-holders', 'keychains', 'eco-and-shopping-bags']::text[], array['卡夾・證件套', '鑰匙圈', '飲料提繩']::text[]),
   ('lsy-lamsamyick', array['beauty-tools', 'cosmetic-bags']::text[], array['彩妝刷具', '化妝包', '鏡子']::text[]),
   ('lumoef', array['home-fragrance', 'pet-grooming', 'cleaning', 'bath-and-shower', 'fragrance']::text[], array['居家香氛', '寵物清潔・美容', '洗衣精', '洗沐清潔', '香水']::text[]),
   ('mi-mi-leo', array['outerwear', 'pants', 'tops-and-tshirts', 'socks', 'gloves']::text[], array['外套', '褲裝', '上衣・T恤', '襪子', '袖套']::text[]),
   ('miin', array['skincare', 'home-decor', 'furniture']::text[], array['臉部保養', '居家擺飾', '邊桌']::text[]),
   ('moek-x-jesper', array['kids-tableware', 'tableware', 'crossbody-bags', 'storage-pouches']::text[], array['兒童餐具', '餐具', '肩背包', '束口袋']::text[]),
+  ('my-girl-aiko', array['wall-art', 'charms']::text[], array['插畫・畫作', '吊飾']::text[]),
   ('nagi-nagi', array['stickers', 'figurines-and-plush']::text[], array['貼紙', '公仔']::text[]),
+  ('oranpeel', array['phone-cases', 'wall-art']::text[], array['手機殼', '插畫・畫作']::text[]),
+  ('osun-i', array['wall-art', 'cards-and-postcards', 'stickers']::text[], array['插畫・畫作', '卡片・明信片', '貼紙']::text[]),
   ('overdigi', array['phone-cases', 'phone-straps']::text[], array['手機殼', '手機掛繩']::text[]),
+  ('overloaddance', array['toys', 'wall-art']::text[], array['玩具', '插畫・畫作']::text[]),
+  ('papir-lab', array['wall-art']::text[], array['插畫・畫作']::text[]),
+  ('penpenpen-studio', array['wall-art', 'cards-and-postcards']::text[], array['插畫・畫作', '卡片・明信片']::text[]),
+  ('phenshyshy', array['wall-art', 'charms']::text[], array['插畫・畫作', '吊飾']::text[]),
   ('picupi', array['bath-and-shower', 'cleaning']::text[], array['洗沐清潔', '洗衣用品', '蔬果清潔用品']::text[]),
+  ('pikang', array['wall-art', 'stickers', 'calendars']::text[], array['插畫・畫作', '貼紙', '月曆・日曆']::text[]),
+  ('piper-piper-illu', array['wall-art', 'hats', 'paper-goods', 'stickers']::text[], array['插畫・畫作', '帽子', '紙品', '貼紙']::text[]),
+  ('point-chen', array['wall-art', 'journals-and-notebooks', 'cards-and-postcards', 'stickers', 'pens-and-writing']::text[], array['插畫・畫作', '手帳・筆記本', '卡片・明信片', '貼紙', '筆具']::text[]),
   ('popola', array['sun-care', 'face-masks', 'pet-supplies']::text[], array['防曬', '面膜', '寵物玩具']::text[]),
+  ('qrying-bb-garden', array['wall-art', 'stickers', 'cards-and-postcards', 'charms']::text[], array['插畫・畫作', '貼紙', '卡片・明信片', '吊飾']::text[]),
+  ('quemoy-memory-creative-studio', array['wall-art', 'paper-goods']::text[], array['插畫・畫作', '紙品']::text[]),
+  ('rainbow-creative', array['wall-art']::text[], array['插畫・畫作']::text[]),
+  ('sanaxillu', array['cards-and-postcards', 'storage', 'wall-art']::text[], array['卡片・明信片', '收納用品', '插畫・畫作']::text[]),
+  ('severus-lian', array['stickers', 'cards-and-postcards', 'wall-art', 'paper-goods']::text[], array['貼紙', '卡片・明信片', '插畫・畫作', '紙品']::text[]),
+  ('sheep-mountain', array['home-decor', 'keychains', 'charms', 'wall-art']::text[], array['居家擺飾', '鑰匙圈', '吊飾', '插畫・畫作']::text[]),
   ('shianey', array['underwear-and-intimates', 'kids-clothing']::text[], array['貼身衣物', '童褲']::text[]),
   ('simple-is', array['journals-and-notebooks', 'washi-tape', 'stickers', 'tableware']::text[], array['手帳・筆記本', '紙膠帶', '貼紙', '杯墊']::text[]),
-  ('strong-love', array['dried-flowers-and-floral-design', 'paper-goods', 'plants']::text[], array['乾燥花・花藝設計', '紙品', '多肉園藝']::text[]),
-  ('su-felting', array['figurines-and-plush', 'illustration-and-art', 'phone-cases', 'stickers']::text[], array['羊毛氈公仔', '插畫・畫作', '手機殼', '貼紙']::text[]),
+  ('skycoffee-studio', array['wall-art', 'charms', 'toys']::text[], array['插畫・畫作', '吊飾', '玩具']::text[]),
+  ('step-cultural-and-creative', array['wall-art', 'toys', 'home-decor', 'calendars']::text[], array['插畫・畫作', '玩具', '居家擺飾', '月曆・日曆']::text[]),
+  ('strong-love', array['floral-arrangements', 'paper-goods', 'plants']::text[], array['乾燥花・花藝設計', '紙品', '多肉園藝']::text[]),
+  ('su-felting', array['figurines-and-plush', 'wall-art', 'phone-cases', 'stickers']::text[], array['羊毛氈公仔', '插畫・畫作', '手機殼', '貼紙']::text[]),
   ('t-i-n-t-studio', array['home-fragrance', 'home-decor']::text[], array['居家香氛', '居家擺飾', '擴香瓶']::text[]),
+  ('tabbi-l', array['wall-art', 'charms']::text[], array['插畫・畫作', '吊飾']::text[]),
   ('taiwan-acheng', array['keychains', 'storage', 'hand-tools', 'craft-kits-and-supplies']::text[], array['鑰匙圈', '收納用品', '手工具', 'DIY材料包']::text[]),
   ('taiwan-wader', array['boots']::text[], array['雨靴']::text[]),
   ('tan-huang-chia', array['desserts-and-pastries']::text[], array['蛋黃酥', '甜點・糕點']::text[]),
+  ('tc-hotdog', array['wall-art', 'tops-and-tshirts', 'charms', 'cards-and-postcards', 'eco-and-shopping-bags']::text[], array['插畫・畫作', '上衣・T恤', '吊飾', '卡片・明信片', '環保袋・購物袋']::text[]),
   ('tcf', array['pet-apparel', 'hats', 'handbags', 'umbrellas']::text[], array['寵物服飾・配件', '帽子', '手提包', '雨傘', '陽傘']::text[]),
-  ('tshapeof', array['home-fragrance', 'ceramics']::text[], array['香道具', '陶瓷・陶藝']::text[]),
+  ('teddy-fluffy', array['wall-art', 'eco-and-shopping-bags', 'keychains', 'charms', 'storage-pouches']::text[], array['插畫・畫作', '環保袋・購物袋', '鑰匙圈', '吊飾', '收納包']::text[]),
+  ('todayforhan', array['cards-and-postcards', 'stickers', 'washi-tape', 'eco-and-shopping-bags', 'wall-art']::text[], array['卡片・明信片', '貼紙', '紙膠帶', '環保袋・購物袋', '插畫・畫作']::text[]),
+  ('tranquil-island', array['floral-arrangements', 'home-decor', 'tableware']::text[], array['乾燥花・花藝設計', '居家擺飾', '餐具']::text[]),
+  ('tshapeof', array['home-fragrance']::text[], array['香道具']::text[]),
   ('tsnowstationery-design-studio', array['paper-goods', 'figurines-and-plush']::text[], array['紙品', '模型擺飾']::text[]),
   ('uffy', array['hair-care', 'cleaning']::text[], array['髮品・頭皮護理', '清潔刷']::text[]),
+  ('v-j-studio', array['floral-arrangements']::text[], array['乾燥花・花藝設計']::text[]),
   ('vichy-s-diary', array['feminine-care']::text[], array['衛生棉', '護墊']::text[]),
   ('viigour', array['bath-and-shower', 'skincare', 'cleaning']::text[], array['洗沐清潔', '臉部保養', '洗衣清潔用品']::text[]),
   ('woolimoo', array['socks', 'scarves-and-shawls', 'tops-and-tshirts', 'home-textiles']::text[], array['襪子', '圍巾・披肩', '上衣・T恤', '毛毯']::text[]),
+  ('wtfff-morning', array['stickers', 'wall-art']::text[], array['貼紙', '插畫・畫作']::text[]),
+  ('yueatgreen', array['wall-art', 'cards-and-postcards']::text[], array['插畫・畫作', '卡片・明信片']::text[]),
   ('yufutang', array['skincare', 'face-masks', 'hair-care', 'supplements', 'beauty-tools']::text[], array['臉部保養', '面膜', '髮品・頭皮護理', '保健食品', '美容儀器']::text[]),
+  ('yuwu-design', array['home-decor', 'lighting', 'wall-art']::text[], array['居家擺飾', '燈飾', '插畫・畫作']::text[]),
   ('zuyun', array['home-fragrance']::text[], array['居家香氛', '盤香', '香粉']::text[]),
-  ('專業研發-雙認證工廠製作', array['cleaning']::text[], array['清潔用品', '居家清潔']::text[]);
+  ('來好-lai-hao', array['wall-art']::text[], array['插畫・畫作']::text[]),
+  ('專業研發-雙認證工廠製作', array['cleaning']::text[], array['清潔用品', '居家清潔']::text[]),
+  ('尾八', array['home-decor', 'wall-art', 'paper-goods']::text[], array['居家擺飾', '插畫・畫作', '紙品']::text[]);
 -- <<< restoration overlay
 
 do $guard$
 begin
-  if (select count(*) from pg_temp.reverse_label_map) <> 175 then
-    raise exception 'reverse label map has % rows, expected 175 live L2 nodes',
+  if (select count(*) from pg_temp.reverse_label_map) <> 164 then
+    raise exception 'reverse label map has % rows, expected 164 live L2 nodes',
       (select count(*) from pg_temp.reverse_label_map);
   end if;
-  if (select count(*) from pg_temp.reverse_restoration) <> 51 then
-    raise exception 'restoration overlay has % rows, expected 51 brands',
+  if (select count(*) from pg_temp.reverse_restoration) <> 107 then
+    raise exception 'restoration overlay has % rows, expected 107 brands',
       (select count(*) from pg_temp.reverse_restoration);
   end if;
 end;

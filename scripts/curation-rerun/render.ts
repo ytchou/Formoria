@@ -12,9 +12,9 @@ import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
-  PURCHASE_COLUMNS,
-  purchaseChannelByKey,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORE_COLUMNS,
+  onlineStoreByKey,
+} from "@/lib/brands/online-stores";
 import { loadCohort, snapshotDir } from "./cohort";
 // artifactPath / esc are shared with
 // scripts/resort-heroes/render.ts; see scripts/shared/artifact.ts.
@@ -73,17 +73,17 @@ const SOCIAL_FIELDS = [
   "social_facebook",
 ] as const;
 
-const WEBSITE_COLUMN = purchaseChannelByKey.website.column;
+const WEBSITE_COLUMN = onlineStoreByKey.website.column;
 
 /**
- * Own-site link first, then socials, then every marketplace channel in registry
- * order — the historical row order, now derived so a new purchase channel shows
+ * Own-site link first, then socials, then every marketplace store in registry
+ * order — the historical row order, now derived so a new online store shows
  * up in the review diff automatically.
  */
 const LINK_FIELDS: readonly string[] = [
   WEBSITE_COLUMN,
   ...SOCIAL_FIELDS,
-  ...PURCHASE_COLUMNS.filter((column) => column !== WEBSITE_COLUMN),
+  ...ONLINE_STORE_COLUMNS.filter((column) => column !== WEBSITE_COLUMN),
 ];
 
 const IDENTITY_FIELDS: ReadonlyArray<readonly [string, string]> = [

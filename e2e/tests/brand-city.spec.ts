@@ -28,7 +28,7 @@ test.describe('Brand city badge', () => {
         slug: brandSlug,
         status: 'approved',
         approved_at: new Date().toISOString(),
-        category: 'crafts',
+        category: 'home',
         city: 'taipei',
       })
       .select('id')

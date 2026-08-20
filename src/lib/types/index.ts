@@ -8,7 +8,7 @@ export type {
   SubmissionStatus,
 } from './brand'
 
-export type { BrandChannel } from './brand-channel'
+export type { Stockist } from './stockist'
 
 export type {
   BrandSubmission,

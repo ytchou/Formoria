@@ -104,7 +104,7 @@ test.describe("Static & compliance pages", () => {
         boundary:
           "Brands or retailers remain responsible for price, variants, inventory, checkout, fulfilment, and after-sales service.",
         vision:
-          "Build an online select space for Taiwanese brands where people can browse at their own pace, discover new preferences, get to know the brands behind the products, then continue to brands' official or physical channels.",
+          "Build an online select space for Taiwanese brands where people can browse at their own pace, discover new preferences, get to know the brands behind the products, then continue to the brands' own online stores and stockists.",
       },
     ] as const;
 

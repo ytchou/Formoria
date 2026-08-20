@@ -35,7 +35,7 @@ export async function seedBrand(opts: {
    * cannot: that a non-website channel alone is enough to render the purchase
    * section. Implies `withLinks` for social accounts.
    */
-  purchaseChannel?: 'website' | 'myship';
+  onlineStore?: 'website' | 'myship';
   /**
    * Seed the brand evidence the FAQ presets gate their template floors on, so
    * a fixture renders several FAQ items. `taiwan-origin` requires a verified
@@ -73,7 +73,7 @@ export async function seedBrand(opts: {
     slug,
     status,
     ...(status === 'approved' ? { approved_at: new Date().toISOString() } : {}),
-    category: 'crafts',
+    category: 'home',
     founding_year: '2020',
   };
 
@@ -85,19 +85,20 @@ export async function seedBrand(opts: {
     brandData.mit_declared_scope = 'all';
     // Slugs, not zh-TW labels: DEV-1510 made `subcategories` slug-native and
     // closed the vocabulary, so `approve_submission` now raises on any string
-    // that resolves to no slug, alias or recorded removal. Both are crafts-native
-    // to match `category` above — the old '茶具' resolves to `tea-and-coffee-ware`,
-    // which lives under `home`, and a cross-L1 tag is exactly the state DEV-1510
-    // measured as unusable for facets and L2 pages.
-    brandData.subcategories = ['ceramics', 'metalwork'];
-    brandData.subcategories_en = ['Ceramics', 'Metalwork'];
+    // that resolves to no slug, alias or recorded removal. Both are home-native
+    // to match `category` above — DEV-1507 retired `crafts`, so the old
+    // ['ceramics', 'metalwork'] pair now spans two L1s and neither one is the
+    // seeded L1, and a cross-L1 tag is exactly the state DEV-1510 measured as
+    // unusable for facets and L2 pages.
+    brandData.subcategories = ['tableware', 'storage'];
+    brandData.subcategories_en = ['Tableware', 'Storage'];
     brandData.price_range = 2;
   }
 
   if (opts.withLinks) {
     brandData.social_instagram = 'https://instagram.com/e2e-test';
     brandData.social_facebook = 'https://facebook.com/e2e-test';
-    if ((opts.purchaseChannel ?? 'website') === 'myship') {
+    if ((opts.onlineStore ?? 'website') === 'myship') {
       brandData.purchase_myship = 'https://myship.7-11.com.tw/general/detail/GM2410161234567';
     } else {
       brandData.purchase_website = 'https://e2e-test.com/shop';

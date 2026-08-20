@@ -5,7 +5,7 @@ import { getAllStories } from "@/lib/services/stories";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
 import { buildBrandSitemapEntries } from "@/lib/seo/brand-sitemap";
 import { buildDirectorySitemapSection } from "@/lib/seo/directory-sitemap";
-import { getStockistDirectory } from "@/lib/services/brand-channels";
+import { getStockistDirectory } from "@/lib/services/stockists";
 import { buildWhereToBuySitemapSection } from "@/lib/seo/where-to-buy-sitemap";
 import { getAllTrails, type TrailEntry } from "@/lib/services/trails";
 import { shouldIndexTrailHub } from "@/lib/seo/trail-hub-indexability";

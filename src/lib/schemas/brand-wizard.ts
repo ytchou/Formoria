@@ -2,10 +2,10 @@ import { z } from 'zod'
 import { MAX_BRAND_GALLERY_PHOTOS } from '@/lib/constants/brand-images'
 import { isKnownSubcategoryTerm } from '@/lib/taxonomy/ontology'
 import {
-  PURCHASE_CAMEL_FIELDS,
-  PURCHASE_CHANNELS,
-  type PurchaseChannelCamelField,
-} from '@/lib/brands/purchase-channels'
+  ONLINE_STORE_CAMEL_FIELDS,
+  ONLINE_STORES,
+  type OnlineStoreCamelField,
+} from '@/lib/brands/online-stores'
 
 const romanizedNameSchema = z
   .string()
@@ -79,8 +79,8 @@ const otherUrlSchema = z
   })
 
 const purchaseUrlSchemas = Object.fromEntries(
-  PURCHASE_CHANNELS.map((channel) => [channel.camel, optionalUrlSchema]),
-) as { [Field in PurchaseChannelCamelField]: typeof optionalUrlSchema }
+  ONLINE_STORES.map((channel) => [channel.camel, optionalUrlSchema]),
+) as { [Field in OnlineStoreCamelField]: typeof optionalUrlSchema }
 
 const brandWizardLinksSchema = z.object({
   socialInstagram: socialHandleOrUrlSchema,
@@ -117,7 +117,7 @@ export const BRAND_WIZARD_SHARED_SECTION_FIELDS: Record<
     'socialInstagram',
     'socialThreads',
     'socialFacebook',
-    ...PURCHASE_CAMEL_FIELDS,
+    ...ONLINE_STORE_CAMEL_FIELDS,
     'otherUrls',
   ],
 }

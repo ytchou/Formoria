@@ -273,7 +273,7 @@ test.describe("Submit funnel", () => {
       timeout: BUDGET.GATED_UI,
     });
     await expect(userPage.locator("#purchase fieldset")).toHaveCount(3);
-    // 3 social + 4 purchase channels (PURCHASE_CHANNELS). Bump when a channel is added.
+    // 3 social + 4 online stores (ONLINE_STORES). Bump when a store is added.
     await expect(userPage.locator("#purchase [data-platform-row]")).toHaveCount(
       7,
     );

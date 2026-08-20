@@ -76,9 +76,11 @@ describe("slug storage reverse migration", () => {
     expect(
       [...declared].filter((label) => carried.has(label) && !lost.has(label)),
     ).toEqual([]);
-    // Seven out-of-frame labels never appear in the corpus, so the lossy set is
-    // the 35 declared labels the catalogue actually carried.
-    expect(lost.size).toBe(35);
+    // Seven of the 14 out-of-frame labels never appear in the corpus, so the
+    // lossy set is the 44 declared labels the catalogue actually carried: all
+    // 37 evicted — 28 from the storage swap plus the 9 composite technique
+    // labels DEV-1507 retired with the `crafts` L1 — and 7 out-of-frame.
+    expect(lost.size).toBe(44);
   });
 
   it("reverse_migration_sql_matches_the_typescript_tables", () => {

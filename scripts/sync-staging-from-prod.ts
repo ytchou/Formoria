@@ -320,7 +320,6 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "brand_id",
     "name",
     "normalized_name",
-    "channel_type",
     "location_type",
     "region_label",
     "country",

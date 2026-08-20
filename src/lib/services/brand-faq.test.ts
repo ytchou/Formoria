@@ -265,7 +265,7 @@ describe("getBrandFaq", () => {
 
   it("renders main-products in en when English tags exist", async () => {
     const { items } = await getFaq(
-      makeBrand({ subcategories: ["陶瓷"], subcategoriesEn: ["ceramics"] }),
+      makeBrand({ subcategories: ["餐具"], subcategoriesEn: ["tableware"] }),
       [],
       t,
       "en",
@@ -274,7 +274,7 @@ describe("getBrandFaq", () => {
     expect(items.map((item) => item.id)).toContain("main-products");
     expect(
       items.find((item) => item.id === "main-products")?.answer,
-    ).toContain("ceramics");
+    ).toContain("tableware");
   });
 
   it("renders every stored custom row in position order", async () => {

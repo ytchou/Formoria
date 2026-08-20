@@ -2,9 +2,9 @@ import { z } from "zod";
 import { MAX_BRAND_IMAGE_SELECTION } from "@/lib/constants/brand-images";
 import { isKnownSubcategoryTerm } from "@/lib/taxonomy/ontology";
 import {
-  PURCHASE_CAMEL_FIELDS,
-  type PurchaseChannelCamelField,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORE_CAMEL_FIELDS,
+  type OnlineStoreCamelField,
+} from "@/lib/brands/online-stores";
 import {
   curatedProductProposalSchema,
   MAX_CURATED_PRODUCT_PROPOSALS,
@@ -12,8 +12,8 @@ import {
 
 const nullableText = z.string().max(10_000).nullable();
 const purchaseFieldSchemas = Object.fromEntries(
-  PURCHASE_CAMEL_FIELDS.map((field) => [field, nullableText]),
-) as { [Field in PurchaseChannelCamelField]: typeof nullableText };
+  ONLINE_STORE_CAMEL_FIELDS.map((field) => [field, nullableText]),
+) as { [Field in OnlineStoreCamelField]: typeof nullableText };
 export const reviewEntityIdSchema = z.uuid();
 
 // Bounded by the submission cap, not the display cap: legacy brands carry more

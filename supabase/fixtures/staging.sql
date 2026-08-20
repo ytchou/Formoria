@@ -20,6 +20,13 @@
 -- 2angels -> kids, angle-wave -> pets, softie-bunny -> kids. Disagreeing is not
 -- self-healing: that migration's update is guarded by `category = 'kids-pets'`,
 -- which no longer matches any row, so re-running it cannot undo a wrong seed.
+--
+-- Same rule for DEV-1507, which retired the `crafts` L1: the three fixture
+-- brands that sat there carry the L1 the D3 re-file map gives them —
+-- 1cmhandmake -> home (陶瓷・陶藝), 91art-studio -> home (陶瓷・陶藝 + 居家擺飾),
+-- acui-a-cui-studio -> bags-accessories (three bags tags outvote 插畫・畫作).
+-- `crafts` is no longer in the CHECK constraint, so seeding it now fails 23514
+-- rather than merely disagreeing.
 
 with fixture(id, name, slug, category, city, purchase_website) as (
   values
@@ -30,9 +37,9 @@ with fixture(id, name, slug, category, city, purchase_website) as (
     ('51000000-0000-4000-8000-000000000005'::uuid, 'TRIFORCE 翠芙思', '3triforce', 'beauty', 'kaohsiung', 'https://www.3triforce.com.tw'),
     ('51000000-0000-4000-8000-000000000006'::uuid, '天天', '8vd', 'beauty', 'taoyuan', 'https://www.shop8vd.com'),
     ('51000000-0000-4000-8000-000000000007'::uuid, 'ADELA', 'adela', 'beauty', 'taichung', 'https://www.adela.tw'),
-    ('51000000-0000-4000-8000-000000000008'::uuid, '一公分手作 1Cmhandmake', '1cmhandmake', 'crafts', null, 'https://1cmhandmade.com'),
-    ('51000000-0000-4000-8000-000000000009'::uuid, '玖一藝術工作室 91art.studio', '91art-studio', 'crafts', 'taipei', null),
-    ('51000000-0000-4000-8000-000000000010'::uuid, 'Acuí A Cui studio', 'acui-a-cui-studio', 'crafts', null, 'https://www.acuiart.com'),
+    ('51000000-0000-4000-8000-000000000008'::uuid, '一公分手作 1Cmhandmake', '1cmhandmake', 'home', null, 'https://1cmhandmade.com'),
+    ('51000000-0000-4000-8000-000000000009'::uuid, '玖一藝術工作室 91art.studio', '91art-studio', 'home', 'taipei', null),
+    ('51000000-0000-4000-8000-000000000010'::uuid, 'Acuí A Cui studio', 'acui-a-cui-studio', 'bags-accessories', null, 'https://www.acuiart.com'),
     ('51000000-0000-4000-8000-000000000011'::uuid, '母子鱷魚 2BM', '2bm', 'fashion', null, 'https://www.2bm.com.tw'),
     ('51000000-0000-4000-8000-000000000012'::uuid, '333 Slippers', '333-slippers', 'fashion', null, 'https://www.333-slippers.com'),
     ('51000000-0000-4000-8000-000000000013'::uuid, '7th Island', '7th-island', 'fashion', null, null),

@@ -19,8 +19,8 @@ function proposal(
     key: "chai-shao-shou-kan-ma-ko-pei",
     nameZh: "柴燒手感馬克杯",
     nameEn: "Wood-fired Mug",
-    category: "crafts",
-    subcategories: ["ceramics"],
+    category: "home",
+    subcategories: ["tableware"],
     material: ["ceramic"],
     officialUrl: "https://taoqi.com.tw/products/wood-fired-mug",
     productDescriptionZh:

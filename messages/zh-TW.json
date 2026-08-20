@@ -50,7 +50,7 @@
     "feedback": "功能建議",
     "whereToBuy": "哪裡買",
     "discover": "風格",
-    "disclosure": "Formoria 不販售商品，所有購買都在品牌自己的通路完成。"
+    "disclosure": "Formoria 不販售商品，所有購買都在品牌自己的官方網站或實體通路完成。"
   },
   "discover": {
     "metaTitle": "風格",
@@ -175,7 +175,7 @@
   "brands": {
     "breadcrumbAria": "品牌目錄麵包屑導覽",
     "metadata": {
-      "title": "台灣品牌目錄｜依分類探索品牌、產品與購買通路 | Formoria",
+      "title": "台灣品牌目錄｜依分類探索品牌、產品、線上購買與實體通路 | Formoria",
       "description": "探索台灣品牌，依分類瀏覽、搜尋，認識在台灣創立、設計或製造的品牌。"
     },
     "heading": "台灣品牌目錄",
@@ -341,7 +341,7 @@
       "about": "品牌介紹",
       "social": "社群平台",
       "purchase": "購買資訊",
-      "locations": "販售地點",
+      "locations": "實體通路",
       "selectedProducts": "Formoria 選物",
       "events": "展會紀錄",
       "faq": "常見問題"
@@ -403,7 +403,7 @@
     },
     "links": {
       "socialPlatforms": "社群平台",
-      "purchaseChannels": "購買管道",
+      "onlineStores": "線上購買",
       "otherLinks": "其他連結",
       "instagram": "Instagram",
       "threads": "Threads",
@@ -484,7 +484,7 @@
         "product_label": "產品標籤",
         "packaging": "產品包裝",
         "official_site": "官方網站",
-        "in_store": "實體店面",
+        "in_store": "實體通路",
         "other": "其他"
       },
       "notesLabel": "補充說明",
@@ -517,8 +517,8 @@
       "title": "修正品牌資訊",
       "purchaseTrigger": "提供購買連結",
       "purchaseTitle": "提供購買連結",
-      "purchaseFieldPickerLabel": "要提供哪一個購買管道?",
-      "purchaseFieldPickerPlaceholder": "請選擇購買管道…",
+      "purchaseFieldPickerLabel": "要提供哪一個線上購買連結?",
+      "purchaseFieldPickerPlaceholder": "請選擇線上購買連結…",
       "purchaseUrlLabel": "連結網址",
       "purchaseUrlPlaceholder": "https://example.com/shop",
       "socialTrigger": "提供社群連結",
@@ -569,74 +569,60 @@
       "tags": "標籤",
       "photos": "照片",
       "locations": "地點",
-      "locationsAndRetailChannels": "販售地點",
+      "retailLocations": "實體通路",
       "faq": "常見問題"
     },
     "channels": {
-      "subtitle": "以下為品牌可能的販售地點，部分資料為社群提供",
-      "provideInfo": "提供販售地點",
+      "subtitle": "以下為品牌可能的實體通路，部分資料為社群提供",
+      "provideInfo": "提供實體通路",
       "groups": {
         "all_taiwan": "全台",
-        "overseas": "海外",
-        "online": "線上販售"
+        "overseas": "海外"
       },
       "confirmed": {
         "officialPageLink": "前往官方頁面"
       },
-      "unconfirmed": {
-        "confirmAction": "我確認這裡有販售",
-        "confirmed": "已確認",
-        "progress": "{count}/{threshold} 人確認",
-        "thresholdNote": "虛線為社群提供、尚待確認的販售地點；累積 {threshold} 人確認後會移入已確認清單並標示「社群確認」",
-        "signInToConfirm": "登入後即可確認"
-      },
       "chips": {
-        "showRest": "顯示其餘 {count} 家",
-        "confirmAria": "我確認{name}有販售"
+        "showRest": "顯示其餘 {count} 家"
       },
       "provenance": {
         "owner": "品牌確認",
-        "community": "社群確認",
+        "formoria": "站方確認",
         "evidence": "來自官網",
         "evidenceOther": "來源佐證"
       },
       "ownerBanner": {
-        "title": "這是你經營的品牌",
-        "description": "可以確認或標記販售地點的正確性",
         "confirm": "確認販售",
         "reject": "未販售"
       },
       "dialog": {
-        "title": "提供販售地點",
-        "nameLabel": "販售地點名稱",
+        "title": "提供實體通路",
+        "nameLabel": "實體通路名稱",
         "namePlaceholder": "例如：誠品書店 信義店",
-        "channelTypeLabel": "販售方式",
-        "channelTypeOnline": "線上販售",
-        "channelTypeOffline": "實體地點",
         "regionLabel": "地區",
         "regionPlaceholder": "選擇地區",
+        "regionRequired": "請選擇這個實體通路所在的縣市",
         "addressLabel": "地址",
         "addressPlaceholder": "完整地址（選填）",
         "urlLabel": "網址",
         "urlPlaceholder": "https://...",
         "submit": "送出",
-        "success": "感謝提供資訊！",
-        "signInRequired": "請先登入才能提供販售地點"
+        "success": "謝謝你提供。這筆實體通路資料會先經過我們確認，之後才會出現在品牌頁面上。",
+        "signInRequired": "請先登入才能提供實體通路"
       },
       "errors": {
         "not_logged_in": "請先登入",
         "missing_brand_id": "缺少品牌資訊",
         "missing_brand_slug": "缺少品牌資訊",
-        "invalid_name": "請輸入有效的販售地點名稱",
-        "invalid_channel_type": "請選擇販售方式",
+        "invalid_name": "請輸入有效的實體通路名稱",
+        "invalid_region": "請選擇這個實體通路所在的地區",
         "invalid_url": "請輸入有效的網址",
-        "active_cap_reached": "此品牌的販售地點已達上限",
+        "active_cap_reached": "此品牌的實體通路已達上限",
         "daily_cap_reached": "今日提供的資訊已達上限，請明天再試",
-        "duplicate_name": "此販售地點名稱已存在",
+        "duplicate_name": "這個實體通路已經有人提供過了",
         "database_error": "系統錯誤，請稍後再試",
         "unknown": "發生錯誤，請稍後再試"
-      },
-      "countLabel": "{count} 個販售地點"
+      }
     },
     "gallery": {
       "viewer": "照片檢視",
@@ -725,7 +711,6 @@
       "beauty": "台灣的夏天又濕又熱，質地往往比成分表更早被決定。美妝保養涵蓋臉部保養、髮品、身體清潔與彩妝，不少品牌使用在地植物、礦泉或發酵原料。Formoria 收錄在台灣創立、設計或製造的美妝保養品牌；成分說明與適用膚況請以品牌與官方標示為準。",
       "home": "搬新家、換一盞燈、想讓餐桌看起來不一樣。居家生活涵蓋家具、收納、照明、餐桌器皿與佈置小物，材質常見陶瓷、木作、竹編與金工；在小坪數的房間裡，尺寸標示通常比風格更早決定。Formoria 收錄在台灣創立、設計或製造的居家生活品牌。",
       "food-drink": "想寄一份伴手禮回家，或找一包每天早上會用完的咖啡豆。食品飲料涵蓋茶葉、咖啡、水果與農產、零食、醬料與傳統點心，部分品牌直接與產地農友合作。Formoria 收錄在台灣創立、設計或製造的食品飲料品牌；保存方式、成分與配送條件請看品牌自己的頁面。",
-      "crafts": "在文博會或市集停下來的那一刻，回家之後還想找到它。工藝文創涵蓋陶作、織品、木工、金工、活版印刷與手工裝幀，多以小批量與手工流程製作，因此每一件的紋理不會完全相同。Formoria 收錄在台灣創立、設計或製造的工藝文創品牌。",
       "stationery": "一本攤得平、寫鋼筆不會透背的筆記本。文具設計涵蓋筆記本、紙品、筆具、紙膠帶、印章與桌面工具，不少品牌與在地紙廠、印刷廠或插畫家合作。Formoria 收錄在台灣創立、設計或製造的文具設計品牌。",
       "tech": "桌上多一條線就亂，充電、擴充與收線通常得一起解決。3C科技涵蓋消費電子、電腦周邊、創作者工具與智慧生活裝置。Formoria 收錄在台灣創立、設計或製造的 3C 科技品牌；規格、相容性與保固條件請以品牌官方說明為準。",
       "outdoor": "週末要上山，睡袋、爐具和背包都得自己揹。戶外露營涵蓋登山、露營、攀岩與旅行裝備，以及相關服裝、背包與配件；台灣的高山稜線與海岸營地，讓輕量與耐潮成為常見的設計取捨。Formoria 收錄在台灣創立、設計或製造的戶外露營品牌。",
@@ -799,23 +784,6 @@
           {
             "question": "分類頁代表產品原料都來自台灣嗎？",
             "answer": "不代表。分類呈現品牌與產品範圍，不對所有原料或製造地做概括；請查看品牌頁的來源與製造資訊。"
-          }
-        ]
-      },
-      "crafts": {
-        "title": "台灣工藝文創品牌｜探索陶作、木工、織品與手作 | Formoria",
-        "description": "探索台灣工藝文創品牌，認識陶作、木工、金工、織品與當代手作的不同做法。",
-        "h1": "台灣工藝文創品牌",
-        "intro": "陶作、木工、織品、金工與印刷；多以小批量與手工流程製作，每一件的紋理不會完全相同。",
-        "definition": "工藝不等於每件作品都由手工完成，也不等於單一地方文化的代表。Formoria 看的是品牌公開的製作方式、產品類型與台灣連結，讓讀者能從品牌頁進一步了解工作室規模、材料與製作細節。",
-        "faq": [
-          {
-            "question": "工藝文創和居家品牌有什麼不同？",
-            "answer": "兩者可能重疊；工藝文創更重視技法、材料與文化脈絡，居家生活則以產品在空間中的用途作為主要分類線索。"
-          },
-          {
-            "question": "手作品牌一定是台灣製造嗎？",
-            "answer": "不一定。Formoria 會分開呈現創立、設計與製造的資料，不以分類名稱代替品牌的實際產地說明。"
           }
         ]
       },
@@ -987,7 +955,7 @@
           },
           {
             "question": "家具可以直接在 Formoria 購買嗎？",
-            "answer": "Formoria 是品牌探索目錄；實際購買、尺寸與交貨方式請前往品牌提供的官方通路確認。"
+            "answer": "Formoria 是品牌探索目錄；實際購買、尺寸與交貨方式請前往品牌的官方網站或實體通路確認。"
           }
         ]
       },
@@ -1072,7 +1040,7 @@
           },
           {
             "question": "可以把這裡的品牌當作食品安全推薦嗎？",
-            "answer": "不行。目錄提供品牌探索入口，請以產品包裝、保存方式、過敏原與官方通路資訊做購買判斷。"
+            "answer": "不行。目錄提供品牌探索入口，請以產品包裝、保存方式、過敏原與品牌官方網站的資訊做購買判斷。"
           }
         ]
       }
@@ -1158,10 +1126,10 @@
   "faq": {
     "metadata": {
       "title": "常見問題",
-      "description": "Formoria 台灣品牌探索與選物平台常見問題：了解收錄與選物的差別、購買通路、信任層級、推薦與審核方式。"
+      "description": "Formoria 台灣品牌探索與選物平台常見問題：了解收錄與選物的差別、線上購買與實體通路、信任層級、推薦與審核方式。"
     },
     "title": "常見問題",
-    "intro": "收錄規則、選物標示、購買通路——這裡整理了最常被問到的問題；如果沒有找到答案，請<contact>與我們聯繫</contact>。",
+    "intro": "收錄規則、選物標示、線上購買與實體通路——這裡整理了最常被問到的問題；如果沒有找到答案，請<contact>與我們聯繫</contact>。",
     "sections": {
       "navigation": "常見問題分類",
       "general": "一般問題",
@@ -1170,7 +1138,7 @@
     "items": {
       "whatIsFormoria": {
         "question": "Formoria 是什麼？",
-        "answer": "Formoria 是台灣品牌探索與選物平台。目前從可搜尋的品牌收錄出發，整理品牌資料、產品特色與官方購買通路；由 Formoria 挑選的內容會另外標示。"
+        "answer": "Formoria 是台灣品牌探索與選物平台。目前從可搜尋的品牌收錄出發，整理品牌資料、產品特色，以及品牌官方的線上購買與實體通路；由 Formoria 挑選的內容會另外標示。"
       },
       "listingVsSelection": {
         "question": "收錄品牌和 Formoria 選物有什麼不同？",
@@ -1190,7 +1158,7 @@
       },
       "notListedBrands": {
         "question": "哪些類型的品牌不會被收錄？",
-        "answer": "Formoria 收錄擁有自主商品的品牌，因此代購、沒有自有商品線的選物店、平台與零售通路、媒體與評測網站、代理進口國外品牌的經銷商，以及只提供服務或數位商品的個人帳號，都不在收錄範圍內。若選物店有自己的商品線，或創作者有自己的實體商品，則符合收錄資格。"
+        "answer": "Formoria 收錄擁有自主商品的品牌，因此代購、沒有自有商品線的選物店、平台與零售商、媒體與評測網站、進口國外品牌的代理商，以及只提供服務或數位商品的個人帳號，都不在收錄範圍內。若選物店有自己的商品線，或創作者有自己的實體商品，則符合收錄資格。"
       },
       "whatDoesMitMean": {
         "question": "MIT 層級代表什麼？",
@@ -1214,11 +1182,11 @@
       },
       "ownerInterest": {
         "question": "我是品牌主，可以自己管理品牌頁面嗎？",
-        "answer": "可以。到品牌頁點「認領這個品牌」，提交一項擁有證明後由我們審核；通過後就能編輯品牌資料、產品特色與官方購買通路，也能提交 MIT 品牌聲明。品牌頁已經被認領的話，頁面上不會出現認領按鈕，請到「聯絡我們」頁面告訴我們。審核期間品牌頁仍由團隊維護，資訊有誤也可以直接在品牌頁回報勘誤。還想要其他品牌主功能，歡迎到<link>功能許願板</link>提出。"
+        "answer": "可以。到品牌頁點「認領這個品牌」，提交一項擁有證明後由我們審核；通過後就能編輯品牌資料、產品特色，以及線上購買與實體通路資訊，也能提交 MIT 品牌聲明。品牌頁已經被認領的話，頁面上不會出現認領按鈕，請到「聯絡我們」頁面告訴我們。審核期間品牌頁仍由團隊維護，資訊有誤也可以直接在品牌頁回報勘誤。還想要其他品牌主功能，歡迎到<link>功能許願板</link>提出。"
       },
       "whatCategories": {
         "question": "Formoria 收錄哪些產品分類？",
-        "answer": "Formoria 目前涵蓋十二個分類：服飾鞋履、包袋配件、飾品珠寶、美妝保養、居家生活、食品飲料、工藝文創、文具設計、3C科技、戶外露營、運動健身，以及母嬰寵物。"
+        "answer": "Formoria 目前涵蓋十二個分類：服飾鞋履、包袋配件、飾品珠寶、美妝保養、居家生活、食品飲料、文具設計、3C科技、戶外露營、運動健身、母嬰童，以及寵物。"
       },
       "languageSupport": {
         "question": "Formoria 有英文版嗎？",
@@ -1295,8 +1263,8 @@
     },
     "mission": {
       "heading": "Formoria 的三個角色",
-      "statement": "Formoria 是台灣品牌探索與選物平台。目前從可搜尋的品牌收錄出發，整理品牌資料、產品特色與官方購買通路；由 Formoria 挑選的內容會另外標示。",
-      "context": "收錄、編輯選擇與前往購買通路各有清楚邊界，讓人知道自己正在看什麼，也知道下一步由誰負責。",
+      "statement": "Formoria 是台灣品牌探索與選物平台。目前從可搜尋的品牌收錄出發，整理品牌資料、產品特色，以及品牌官方的線上購買與實體通路；由 Formoria 挑選的內容會另外標示。",
+      "context": "收錄、編輯選擇，以及前往品牌官方網站或實體通路，各有清楚邊界，讓人知道自己正在看什麼，也知道下一步由誰負責。",
       "directory": {
         "heading": "包容的品牌目錄",
         "body": "依公開收錄規則整理台灣品牌，讓已知的名稱能被查找，也讓不同生活分類有可探索的入口。"
@@ -1306,7 +1274,7 @@
         "body": "Formoria 只把基於特定情境、用途、偏好或編輯觀點挑選的內容稱為「Formoria 選物」，並說明產品是什麼、可以在哪裡向品牌訂購。"
       },
       "connection": {
-        "heading": "接上真實的購買通路",
+        "heading": "接上真實的線上購買與實體通路",
         "body": "提供前往品牌官方網站或實體通路的下一步；Formoria 不接受訂單，也不保證價格、庫存或交易結果。"
       }
     },
@@ -1537,7 +1505,7 @@
       "overview": "總覽",
       "info": "品牌資訊",
       "media": "媒體與圖片",
-      "links": "連結與販售地點",
+      "links": "連結與線上購買",
       "verification": "MIT 驗證",
       "reputation": "品牌口碑",
       "analytics": "數據分析",
@@ -1583,7 +1551,7 @@
         "city": "新增品牌創立城市資訊",
         "foundingYear": "新增品牌創立年份",
         "socialPresence": "連結社群帳號以增加曝光",
-        "additionalSalesChannel": "新增實體或線上販售地點",
+        "additionalSalesChannel": "新增其他線上購買或社群連結",
         "reputation": "新增口碑來源以提升品牌可信度"
       },
       "todoEmpty": "所有項目已完成！",
@@ -1697,7 +1665,7 @@
         "city": "新增品牌創立城市",
         "foundingYear": "新增創立年份",
         "socialPresence": "連結社群帳號",
-        "additionalSalesChannel": "新增其他銷售管道",
+        "additionalSalesChannel": "新增其他線上購買連結",
         "reputation": "新增口碑佐證"
       }
     },
@@ -1884,7 +1852,7 @@
       "notSet": "未設定",
       "sectionBasicInfoHint": "公開頁面會顯示的品牌核心資訊，幫助訪客快速認識這個品牌。",
       "sectionBrandImagesHint": "管理品牌圖片，決定搜尋結果封面與品牌頁面的圖片內容。",
-      "sectionLinksHint": "整理官方社群、網站與購買管道，讓訪客更容易找到這個品牌。",
+      "sectionLinksHint": "整理官方社群、網站與線上購買連結，讓訪客更容易找到這個品牌。",
       "sectionVerification": "製造驗證",
       "sectionVerificationHint": "比對 MIT 微笑標章登錄資料，顯示該筆登錄涵蓋產品的驗證資訊。",
       "sectionReputationHint": "補充媒體報導、獎項與外部評價，建立品牌可信度。",
@@ -1954,7 +1922,7 @@
         "brandInfo": "品牌資訊",
         "tags": "分類與特色",
         "products": "產品",
-        "links": "販售地點",
+        "links": "連結",
         "review": "確認"
       }
     },
@@ -1974,7 +1942,7 @@
     },
     "attribution": {
       "bought_product": "買過他們的產品",
-      "saw_at_market": "在市集或實體店看到",
+      "saw_at_market": "在市集或實體通路看到",
       "found_online": "在網路上發現",
       "friend_recommended": "朋友推薦",
       "work_there": "在這裡工作"
@@ -2197,7 +2165,7 @@
       "detailsDescription": "親自填寫完整品牌資訊，每個細節都由品牌自己決定怎麼呈現。",
       "detailsPoint1": "自行填寫品牌故事與產品介紹",
       "detailsPoint2": "上傳品牌 Logo、封面照與產品圖",
-      "detailsPoint3": "填寫社群帳號、官網與銷售通路",
+      "detailsPoint3": "填寫社群帳號、官網與線上購買連結",
       "detailsCta": "填寫完整資料"
     },
     "quickForm": {
@@ -2239,7 +2207,7 @@
     "hero": {
       "eyebrow": "探索 Formoria",
       "title": "從一件喜歡的東西，走到它的品牌和買得到它的地方",
-      "intro": "依分類或搜尋探索收錄品牌，查看品牌資料、產品特色與官方購買通路；由 Formoria 挑選的內容會另外標示。",
+      "intro": "依分類或搜尋探索收錄品牌，查看品牌資料、產品特色，以及品牌官方的線上購買與實體通路；由 Formoria 挑選的內容會另外標示。",
       "primaryCta": "瀏覽品牌",
       "secondaryCta": "閱讀常見問題"
     },
@@ -2252,7 +2220,7 @@
       },
       "submit": {
         "title": "打開品牌頁面",
-        "body": "在品牌頁查看品牌介紹、產品照片、販售地點與官方連結。",
+        "body": "在品牌頁查看品牌介紹、產品照片、實體通路與官方連結。",
         "cta": "探索品牌"
       },
       "review": {
@@ -2533,19 +2501,19 @@
       },
       "nearby_brand_map": {
         "title": "在地圖上查看附近的台灣品牌",
-        "body": "讓訪客在同一張地圖瀏覽有實體據點的品牌，並依縣市、行政區與分類篩選，找到附近可以造訪的地點。"
+        "body": "讓訪客在同一張地圖瀏覽有實體通路的品牌，並依縣市、行政區與分類篩選，找到附近可以造訪的地點。"
       },
       "owner_claim_flow": {
         "title": "讓品牌主認領並管理自己的品牌頁",
-        "body": "讓品牌經營者驗證身分後，自行維護品牌介紹、連結與購買通路，不必再等我們更新。"
+        "body": "讓品牌經營者驗證身分後，自行維護品牌介紹、官方連結與實體通路，不必再等我們更新。"
       },
       "brand_retail_locations": {
-        "title": "在品牌頁顯示實體銷售據點",
-        "body": "在品牌頁直接列出買得到該品牌的門市、櫃位與寄售點，讓訪客知道能去哪裡親眼看到、當場買到。"
+        "title": "在品牌頁顯示實體通路",
+        "body": "在品牌頁直接列出販售該品牌的實體通路，包含直營店、百貨櫃位與寄售點，讓訪客知道可以去哪裡親眼看看。"
       },
       "origin_evidence_reports": {
         "title": "讓任何人都能在品牌頁回報產地資訊",
-        "body": "讓訪客不必註冊也能提供產地佐證，例如產品標籤、包裝或門市現場照片，讓「台灣製造」的標示能由真正買過的人一起查核。"
+        "body": "讓訪客不必註冊也能提供產地佐證，例如產品標籤、包裝或實體通路的現場照片，讓「台灣製造」的標示能由真正買過的人一起查核。"
       },
       "brand_events": {
         "title": "串連實體活動與參展品牌",
@@ -2957,24 +2925,24 @@
   },
   "whereToBuy": {
     "metaTitle": "台灣品牌哪裡買",
-    "metaDescription": "依縣市與行政區尋找販售台灣品牌的實體店家。",
+    "metaDescription": "依縣市與行政區尋找販售台灣品牌的實體通路。",
     "indexTitle": "哪裡買",
     "indexIntro": "瀏覽台灣各地與海外販售台灣品牌的實體通路。",
     "cityTitle": "{city}哪裡買",
-    "cityDescription": "探索 {city} 的 {count} 個實體販售地點，依行政區整理。",
+    "cityDescription": "探索 {city} 的 {count} 個實體通路，依行政區整理。",
     "locations": "個地點",
     "maps": "地圖",
     "useLocation": "使用我的位置",
     "locating": "正在尋找最近的行政區…",
     "locationDenied": "位置權限已被拒絕，請改從下方選擇縣市。",
     "locationUnavailable": "目前無法判斷所在位置，請改從下方選擇縣市。",
-    "overseasTitle": "海外販售地點",
+    "overseasTitle": "海外實體通路",
     "overseasDescription": "共有 {count} 個地點，分布於 {countries} 個國家與地區。",
     "unassigned": "其他地點",
     "breadcrumbLabel": "麵包屑導覽",
     "directory": "哪裡買",
     "allCategories": "所有分類",
     "categoryNavLabel": "依商品分類篩選地點",
-    "empty": "目前沒有符合條件的販售地點。"
+    "empty": "目前沒有符合條件的實體通路。"
   }
 }

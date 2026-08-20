@@ -38,15 +38,15 @@ import { downloadAndStoreImages } from "./image-download";
 import { excludeTestBrands } from "./public-brand-filter";
 import { PUBLIC_BRAND_DATA_TAG } from "@/lib/cache/public-brand-cache";
 import {
-  PURCHASE_CAMEL_FIELDS,
-  PURCHASE_CHANNELS,
-  PURCHASE_COLUMNS,
-  purchaseChannelByKey,
-  purchaseChannelByPlatformSlug,
-  type PurchaseChannelCamelField,
-  type PurchaseChannelColumn,
-  type PurchaseChannelPlatformSlug,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORE_CAMEL_FIELDS,
+  ONLINE_STORES,
+  ONLINE_STORE_COLUMNS,
+  onlineStoreByKey,
+  onlineStoreByPlatformSlug,
+  type OnlineStoreCamelField,
+  type OnlineStoreColumn,
+  type OnlineStorePlatformSlug,
+} from "@/lib/brands/online-stores";
 import {
   mergeBrandFieldStates,
   resolveWritablePatch,
@@ -112,7 +112,7 @@ type BrandFlatLinkColumns = {
   social_facebook?: string | null;
   other_urls?: unknown;
 } & {
-  [Column in PurchaseChannelColumn]?: string | null;
+  [Column in OnlineStoreColumn]?: string | null;
 };
 
 export type CuratedSubmissionInput = {
@@ -144,7 +144,7 @@ type CuratedBrand = Partial<Brand> &
     | "contactEmail"
     | "foundingYear"
   > &
-  Pick<Brand, PurchaseChannelCamelField> & {
+  Pick<Brand, OnlineStoreCamelField> & {
     categorySlug: string;
     categoryLabel: string;
   };
@@ -434,18 +434,18 @@ export function curatedSubmissionToBrand(
   input: CuratedSubmissionInput,
 ): CuratedBrand {
   const purchaseValues: Partial<
-    Record<PurchaseChannelCamelField, string>
+    Record<OnlineStoreCamelField, string>
   > = {};
   const otherUrls: OtherUrl[] = [];
   for (const link of input.purchaseLinks) {
     const platform = link.platform.toLowerCase();
     const platformSlug =
       platform === "official"
-        ? purchaseChannelByKey.website.platformSlug
+        ? onlineStoreByKey.website.platformSlug
         : platform;
-    const channel = Object.hasOwn(purchaseChannelByPlatformSlug, platformSlug)
-      ? purchaseChannelByPlatformSlug[
-          platformSlug as PurchaseChannelPlatformSlug
+    const channel = Object.hasOwn(onlineStoreByPlatformSlug, platformSlug)
+      ? onlineStoreByPlatformSlug[
+          platformSlug as OnlineStorePlatformSlug
         ]
       : undefined;
 
@@ -460,13 +460,13 @@ export function curatedSubmissionToBrand(
   }
 
   const purchaseFields = Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel) => [
+    ONLINE_STORES.map((channel) => [
       channel.camel,
-      channel === purchaseChannelByKey.website
+      channel === onlineStoreByKey.website
         ? input.socialLinks.website || purchaseValues[channel.camel] || null
         : purchaseValues[channel.camel] ?? null,
     ]),
-  ) as Pick<Brand, PurchaseChannelCamelField>;
+  ) as Pick<Brand, OnlineStoreCamelField>;
 
   return {
     name: input.name,
@@ -505,7 +505,7 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
   "productPhotos",
   "priceRange",
   "subcategories",
-  ...PURCHASE_CAMEL_FIELDS,
+  ...ONLINE_STORE_CAMEL_FIELDS,
   "mitStory",
   "otherUrls",
   "reputationSummary",
@@ -627,13 +627,13 @@ export function draftSnapshotToDomain(
   for (const key of BRAND_DRAFT_EDITABLE_KEYS) {
     if (!(key in snapshot)) continue;
 
-    if (PURCHASE_CAMEL_FIELDS.includes(key as PurchaseChannelCamelField)) {
-      const purchaseField = key as PurchaseChannelCamelField;
+    if (ONLINE_STORE_CAMEL_FIELDS.includes(key as OnlineStoreCamelField)) {
+      const purchaseField = key as OnlineStoreCamelField;
       (
-        partial as Partial<Pick<Brand, PurchaseChannelCamelField>>
+        partial as Partial<Pick<Brand, OnlineStoreCamelField>>
       )[purchaseField] = snapshot[purchaseField] as Pick<
         Brand,
-        PurchaseChannelCamelField
+        OnlineStoreCamelField
       >[typeof purchaseField];
       continue;
     }
@@ -725,11 +725,11 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
       : [];
 
   const purchaseFields = Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel) => [
+    ONLINE_STORES.map((channel) => [
       channel.camel,
       row[channel.column] ?? null,
     ]),
-  ) as Pick<Brand, PurchaseChannelCamelField>;
+  ) as Pick<Brand, OnlineStoreCamelField>;
 
   const brand = {
     id: row.id,
@@ -1078,7 +1078,7 @@ export const BRAND_COLUMN_LIST = [
   "category",
   "contact_email",
   "city",
-  ...PURCHASE_COLUMNS,
+  ...ONLINE_STORE_COLUMNS,
   "social_instagram",
   "social_threads",
   "social_facebook",
@@ -1151,7 +1151,7 @@ export const PUBLIC_BRAND_CARD_COLUMN_LIST = [
 export const PUBLIC_BRAND_DETAIL_COLUMN_LIST = [
   ...PUBLIC_BRAND_CARD_COLUMN_LIST,
   "city",
-  ...PURCHASE_COLUMNS,
+  ...ONLINE_STORE_COLUMNS,
   "social_instagram",
   "social_threads",
   "social_facebook",
@@ -1900,9 +1900,14 @@ const getCachedSubcategoryRows = unstable_cache(
   // taxonomy values verbatim, so a migration that respells them leaves a warm
   // entry serving spellings the reader can no longer resolve for a full hour —
   // silently, since a Map lookup that misses every key reads as "no options"
-  // rather than as an error. `v2` is DEV-1525, which moved `material` from
-  // zh-TW labels to slugs. Bump it again on the next respelling.
-  ["subcategory-summary-rows-v2"],
+  // rather than as an error. `v2` was DEV-1525, which moved `material` from
+  // zh-TW labels to slugs; `v3` is DEV-1507, which retired the `crafts` L1 and
+  // re-filed its L2s. Nothing else invalidates that respelling —
+  // `revalidatePublicBrands` returns early on an empty slug list, a SQL
+  // migration calls no TypeScript at all, and taxonomy pages are not in its
+  // path list — so without this bump the subcategory and material rails render
+  // empty for an hour. Bump it again on the next respelling.
+  ["subcategory-summary-rows-v3"],
   { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
 );
 
@@ -1970,7 +1975,7 @@ export function summarizeSubcategoryRows(
  * Material counts over the whole approved corpus, keyed by the material slug.
  *
  * Deliberately NOT scoped to the selected L1. Material is an orthogonal axis —
- * a `crafts` brand and a `home` brand are both `ceramic` — and re-introducing a
+ * a `home` brand and a `jewelry` brand are both `ceramic` — and re-introducing a
  * category conjunct here would recreate exactly the class of silent drop this
  * ticket removes. Four of the twelve slugs (`paper` `stone` `rattan` `lacquer`)
  * have no brands at all; the rail renders a slug only when its count is above
@@ -2028,7 +2033,16 @@ const getCachedExploreBrandPool = unstable_cache(
         }),
       { summary: { cached: true } },
     ),
-  ["homepage-explore-brand-pool"],
+  // PAYLOAD-SHAPE version, the same rule as `subcategory-summary-rows-v3`
+  // above: these are whole `Brand` rows carrying `categorySlug` and
+  // `subcategories` verbatim, and nothing invalidates a taxonomy respelling, so
+  // a warm entry keeps a retired L1 alive for a full hour. It surfaces as
+  // `getBrandCategoryLabel` falling back to the raw slug — the bare Latin
+  // `crafts` printed inside zh-TW homepage copy — because
+  // `selectCategoryBalancedBrands`'s fill loop applies no L1 test. `v2` is
+  // DEV-1507, which retired `crafts`. Bump it again on the next respelling,
+  // in step with `subcategory-summary-rows-*` and `stockist-directory-*`.
+  ["homepage-explore-brand-pool-v2"],
   { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
 );
 

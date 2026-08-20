@@ -158,6 +158,8 @@ export const routes = {
     scripts: () => '/admin/scripts',
     bulkCommunitySubmissions: () => '/admin/scripts/bulk-community-submissions',
     settings: () => '/admin/settings',
+    /** Review queue for reader-submitted stockists; nothing else publishes one. */
+    stockists: () => '/admin/stockists',
     submissions: (query?: RouteQuery) => withQuery('/admin/submissions', query),
   },
 

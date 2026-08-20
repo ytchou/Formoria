@@ -46,19 +46,19 @@ describe('directory filter URLs', () => {
   })
 
   it('material_round_trips_through_the_url', () => {
-    const empty = new URLSearchParams('category=crafts')
+    const empty = new URLSearchParams('category=stationery')
 
     // Set, extend, and clear — the same comma-joined multi-select shape as
     // `?category=`. The value is the ontology slug, never a display label.
     expect(updateDirectoryUrl('/brands', empty, { material: 'ceramic' })).toBe(
-      '/brands?category=crafts&material=ceramic',
+      '/brands?category=stationery&material=ceramic',
     )
-    const applied = new URLSearchParams('category=crafts&material=ceramic')
+    const applied = new URLSearchParams('category=stationery&material=ceramic')
     expect(updateDirectoryUrl('/brands', applied, { material: 'ceramic,wood' })).toBe(
-      '/brands?category=crafts&material=ceramic%2Cwood',
+      '/brands?category=stationery&material=ceramic%2Cwood',
     )
     expect(updateDirectoryUrl('/brands', applied, { material: null })).toBe(
-      '/brands?category=crafts',
+      '/brands?category=stationery',
     )
     expect(clearDirectoryFilters('/brands', applied)).toBe('/brands')
   })
@@ -68,7 +68,7 @@ describe('directory filter URLs', () => {
     // the category drops it. `material` is an ORTHOGONAL axis — `ceramic` means
     // the same thing in every category — so dropping it would silently discard
     // a filter the user did not touch.
-    const params = new URLSearchParams('category=crafts&sub=ceramics&material=ceramic&sort=name')
+    const params = new URLSearchParams('category=stationery&sub=washi-tape&material=ceramic&sort=name')
 
     expect(updateDirectoryUrl('/brands', params, { category: 'home' })).toBe(
       '/brands?category=home&material=ceramic&sort=name',
@@ -81,11 +81,11 @@ describe('directory filter URLs', () => {
 
   it('adds search while preserving category and sort and removing page', () => {
     const params = new URLSearchParams(
-      'category=crafts&sort=newest&page=4',
+      'category=stationery&sort=newest&page=4',
     )
 
     expect(updateDirectoryUrl('/en/brands', params, { search: '台 茶' })).toBe(
-      '/en/brands?category=crafts&sort=newest&search=%E5%8F%B0+%E8%8C%B6',
+      '/en/brands?category=stationery&sort=newest&search=%E5%8F%B0+%E8%8C%B6',
     )
   })
 })

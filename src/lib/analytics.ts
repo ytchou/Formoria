@@ -597,7 +597,7 @@ export function trackBrandSaved(brandId: string, slug: string, location: string)
 }
 
 /** First qualifying signal that a visitor actually engaged with a brand page. */
-export type EngagementTrigger = 'dwell' | 'gallery' | 'faq' | 'channel' | 'scroll_50'
+export type EngagementTrigger = 'dwell' | 'gallery' | 'faq' | 'scroll_50'
 
 // PostHog-only, like trackBrandSaved: engagement depth is a product metric, not a
 // GA conversion signal, and GA4 event quota is better spent elsewhere.

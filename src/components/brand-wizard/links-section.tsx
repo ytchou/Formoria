@@ -23,19 +23,19 @@ import { Label } from '@/components/ui/label'
 import { fieldTextStyles } from '@/components/ui/text-styles'
 import type { BrandWizardCommonValues } from '@/lib/schemas/brand-wizard'
 import {
-  channelMessageKey,
-  PURCHASE_CHANNELS,
-  purchaseChannelByKey,
-  type PurchaseChannelCamelField,
-  type PurchaseChannelKey,
-} from '@/lib/brands/purchase-channels'
+  onlineStoreMessageKey,
+  ONLINE_STORES,
+  onlineStoreByKey,
+  type OnlineStoreCamelField,
+  type OnlineStoreKey,
+} from '@/lib/brands/online-stores'
 import { cn } from '@/lib/utils'
 
 type FixedLinkName =
   | 'socialInstagram'
   | 'socialThreads'
   | 'socialFacebook'
-  | PurchaseChannelCamelField
+  | OnlineStoreCamelField
 
 type PlatformRow = {
   name: FixedLinkName
@@ -76,7 +76,7 @@ const PURCHASE_PRESENTATION = {
     iconClassName: 'bg-accent/10 text-accent',
     inputType: 'url',
   },
-} satisfies Record<PurchaseChannelKey, PurchasePresentation>
+} satisfies Record<OnlineStoreKey, PurchasePresentation>
 
 export function BrandLinksSection({
   officialWebsiteRequired,
@@ -118,12 +118,12 @@ export function BrandLinksSection({
       inputType: 'url',
     },
   ]
-  const purchaseRows: PlatformRow[] = PURCHASE_CHANNELS.map((channel) => ({
+  const purchaseRows: PlatformRow[] = ONLINE_STORES.map((channel) => ({
     name: channel.camel,
-    label: t(channelMessageKey(channel.messageKeys.dashboardEditField, 'dashboard.edit')),
+    label: t(onlineStoreMessageKey(channel.messageKeys.dashboardEditField, 'dashboard.edit')),
     ...PURCHASE_PRESENTATION[channel.key],
   }))
-  const officialWebsiteField = purchaseChannelByKey.website.camel
+  const officialWebsiteField = onlineStoreByKey.website.camel
 
   return (
     <section id="purchase" className="scroll-mt-8 space-y-5">

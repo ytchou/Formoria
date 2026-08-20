@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio'
-import type { PurchaseChannelCamelField } from '@/lib/brands/purchase-channels'
+import type { OnlineStoreCamelField } from '@/lib/brands/online-stores'
 import {
   domBreadcrumbs,
   emptyResult,
@@ -30,7 +30,7 @@ export interface MarketplaceAdapterConfig {
   host: string
   titleSuffixPatterns: RegExp[]
   productImageExtractor: ($: cheerio.CheerioAPI, limit?: number) => string[]
-  purchaseKey: PurchaseChannelCamelField
+  purchaseKey: OnlineStoreCamelField
   /** Stable provenance slug recorded on every image this adapter yields. */
   imageMethod: string
   /**

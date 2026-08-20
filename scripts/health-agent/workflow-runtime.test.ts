@@ -3736,3 +3736,329 @@ describe("link collection audit trail", () => {
     await rm(dir, { force: true, recursive: true });
   });
 });
+
+describe("collect-trail-supply", () => {
+  const input = {
+    mode: "live",
+    outputPath: "trail-supply.json",
+    runAt: now,
+  };
+  const env = {
+    FORMORIA_RAILWAY_URL: "https://app.example",
+    ORIGIN_SECRET: "origin-secret-value",
+  };
+
+  function trailSupplyFiles() {
+    const contents = new Map<string, string>();
+    return {
+      contents,
+      files: {
+        read: async (path: string) => contents.get(path) ?? "",
+        write: async (path: string, value: string) => {
+          contents.set(path, value);
+        },
+      },
+    };
+  }
+
+  const summary = {
+    emptySections: [
+      {
+        sectionKey: "tableware",
+        sectionTitle: "Everyday tableware",
+        trailSlug: "autumn-kitchen",
+      },
+    ],
+    orphanedSelections: [
+      {
+        reason: "unknown_trail",
+        sectionKey: "mugs",
+        trailSlug: "retired-trail",
+      },
+    ],
+    readUnavailable: false,
+    selectionsObserved: 9,
+    trailsObserved: 2,
+  };
+
+  it("collect-trail-supply writes its artifact to --output", async () => {
+    const { contents, files } = trailSupplyFiles();
+    const auditRecords: AuditRecord[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>(async () =>
+      Promise.resolve(new Response(JSON.stringify(summary), { status: 200 })),
+    );
+
+    await runWorkflowCommand("collect-trail-supply", input, {
+      auditRecords,
+      env,
+      fetchImplementation,
+      files,
+    });
+
+    const artifact = JSON.parse(
+      contents.get(input.outputPath) ?? "{}",
+    ) as Record<string, unknown>;
+    expect(artifact).toMatchObject({
+      failures: [],
+      routine: "trail-supply",
+      status: "success",
+    });
+    expect(artifact.findings).toHaveLength(2);
+    expect(artifact.snapshot).toMatchObject({
+      selectionsObserved: 9,
+      trailsObserved: 2,
+    });
+
+    // A GET at the endpoint derived from the repo variable the link collector
+    // already uses, carrying the machine-caller credential.
+    expect(String(fetchImplementation.mock.calls[0]?.[0])).toBe(
+      "https://app.example/api/cron/trail-supply",
+    );
+    const init = fetchImplementation.mock.calls[0]?.[1];
+    expect(init?.method).toBe("GET");
+    expect(
+      (init?.headers as Record<string, string> | undefined)?.[
+        "x-origin-verify"
+      ],
+    ).toBe("origin-secret-value");
+
+    const record = auditRecords.find(
+      (entry) => entry.adapter === "trail-supply",
+    );
+    expect(record, "trail-supply audit record must be emitted").toBeDefined();
+    expect(record?.status).toBe("success");
+    // The credential must never reach the audit trail.
+    expect(JSON.stringify(record)).not.toContain("origin-secret-value");
+  });
+
+  it("collect-trail-supply degrades to skipped when the endpoint is unreachable", async () => {
+    const { contents, files } = trailSupplyFiles();
+    const auditRecords: AuditRecord[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>(async () => {
+      throw new TypeError("fetch failed");
+    });
+
+    await expect(
+      runWorkflowCommand("collect-trail-supply", input, {
+        auditRecords,
+        env,
+        fetchImplementation,
+        files,
+      }),
+    ).resolves.toBeDefined();
+
+    const artifact = JSON.parse(
+      contents.get(input.outputPath) ?? "{}",
+    ) as Record<string, unknown>;
+    expect(artifact).toMatchObject({
+      findings: [],
+      routine: "trail-supply",
+      status: "skipped",
+    });
+    expect(artifact.failures).toHaveLength(1);
+    expect(String((artifact.failures as string[])[0])).toContain(
+      "trail_supply_collection_failed",
+    );
+
+    const record = auditRecords.find(
+      (entry) => entry.adapter === "trail-supply",
+    );
+    expect(record?.status).toBe("failure");
+  });
+
+  it("collect-trail-supply degrades to skipped when the endpoint answers non-2xx", async () => {
+    const { contents, files } = trailSupplyFiles();
+    const auditRecords: AuditRecord[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>(async () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+        }),
+      ),
+    );
+
+    await runWorkflowCommand("collect-trail-supply", input, {
+      auditRecords,
+      env,
+      fetchImplementation,
+      files,
+    });
+
+    const artifact = JSON.parse(
+      contents.get(input.outputPath) ?? "{}",
+    ) as Record<string, unknown>;
+    expect(artifact).toMatchObject({
+      findings: [],
+      status: "skipped",
+    });
+    expect(
+      auditRecords.find((entry) => entry.adapter === "trail-supply")?.response,
+    ).toMatchObject({ httpStatus: 401 });
+    // The status rides the failure code, so a rotated secret stays
+    // distinguishable from a gateway outage or a route bug.
+    expect(String((artifact.failures as string[])[0])).toContain(
+      "trail_supply_request_status_401",
+    );
+  });
+
+  it("collect-trail-supply records an audit record when the endpoint variable is missing", async () => {
+    // Repo VARIABLES are not covered by the Stage 0 credential loop, so a
+    // renamed or deleted FORMORIA_RAILWAY_URL used to produce zero audit
+    // records — an artifact byte-identical to a dormant one, on a green run.
+    const { contents, files } = trailSupplyFiles();
+    const auditRecords: AuditRecord[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>();
+
+    await runWorkflowCommand("collect-trail-supply", input, {
+      auditRecords,
+      env: { ORIGIN_SECRET: "origin-secret-value" },
+      fetchImplementation,
+      files,
+    });
+
+    const artifact = JSON.parse(
+      contents.get(input.outputPath) ?? "{}",
+    ) as Record<string, unknown>;
+    expect(artifact).toMatchObject({ findings: [], status: "skipped" });
+    expect(String((artifact.failures as string[])[0])).toContain(
+      "trail_supply_endpoint_missing",
+    );
+    expect(fetchImplementation).not.toHaveBeenCalled();
+
+    const record = auditRecords.find(
+      (entry) => entry.adapter === "trail-supply",
+    );
+    expect(
+      record,
+      "a missing endpoint variable must still reach the audit artifact",
+    ).toBeDefined();
+    expect(record?.status).toBe("failure");
+    expect(record?.schemaValid).toBe(false);
+  });
+
+  it("collect-trail-supply records an audit record when the endpoint variable is malformed", async () => {
+    const { contents, files } = trailSupplyFiles();
+    const auditRecords: AuditRecord[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>();
+
+    await runWorkflowCommand("collect-trail-supply", input, {
+      auditRecords,
+      env: {
+        FORMORIA_RAILWAY_URL: "ftp://app.example",
+        ORIGIN_SECRET: "origin-secret-value",
+      },
+      fetchImplementation,
+      files,
+    });
+
+    const artifact = JSON.parse(
+      contents.get(input.outputPath) ?? "{}",
+    ) as Record<string, unknown>;
+    expect(String((artifact.failures as string[])[0])).toContain(
+      "trail_supply_endpoint_invalid",
+    );
+    expect(fetchImplementation).not.toHaveBeenCalled();
+    expect(
+      auditRecords.find((entry) => entry.adapter === "trail-supply")?.status,
+      "a malformed endpoint variable must still reach the audit artifact",
+    ).toBe("failure");
+  });
+
+  it("collect-trail-supply names an absent origin secret instead of sending an unauthenticated request", async () => {
+    // Omitting the header made the route answer 401 and the artifact report
+    // `skipped`, which the Stage 3 merge accepts as success. Stage 0 gates this
+    // secret, but the Stage 0 loop is skipped entirely in preflight mode.
+    const { contents, files } = trailSupplyFiles();
+    const auditRecords: AuditRecord[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>();
+
+    await runWorkflowCommand("collect-trail-supply", input, {
+      auditRecords,
+      env: { FORMORIA_RAILWAY_URL: "https://app.example" },
+      fetchImplementation,
+      files,
+    });
+
+    const artifact = JSON.parse(
+      contents.get(input.outputPath) ?? "{}",
+    ) as Record<string, unknown>;
+    expect(String((artifact.failures as string[])[0])).toContain(
+      "trail_supply_origin_secret_missing",
+    );
+    expect(fetchImplementation).not.toHaveBeenCalled();
+    expect(
+      auditRecords.find((entry) => entry.adapter === "trail-supply")?.status,
+    ).toBe("failure");
+  });
+
+  it("collect-trail-supply never records schemaValid for an unvalidated body", async () => {
+    // An intermediary — a Cloudflare interstitial, a Railway edge error page,
+    // the Next.js error shell — answers HTTP 200 with HTML. Deriving
+    // schemaValid from response.ok made the audit claim success while the
+    // artifact was written skipped, and the audit is the uploaded one.
+    const { contents, files } = trailSupplyFiles();
+    const auditRecords: AuditRecord[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>(async () =>
+      Promise.resolve(
+        new Response("<html><body>Just a moment…</body></html>", {
+          status: 200,
+        }),
+      ),
+    );
+
+    await runWorkflowCommand("collect-trail-supply", input, {
+      auditRecords,
+      env,
+      fetchImplementation,
+      files,
+    });
+
+    const record = auditRecords.find(
+      (entry) => entry.adapter === "trail-supply",
+    );
+    expect(record?.schemaValid).toBe(false);
+    expect(record?.status).toBe("failure");
+    expect(record?.response).toMatchObject({ httpStatus: 200 });
+
+    const artifact = JSON.parse(
+      contents.get(input.outputPath) ?? "{}",
+    ) as Record<string, unknown>;
+    expect(artifact).toMatchObject({ findings: [], status: "skipped" });
+    expect(String((artifact.failures as string[])[0])).toContain(
+      "trail_supply_summary_invalid",
+    );
+  });
+
+  it("collect-trail-supply bounds the response body before parsing it", async () => {
+    // The payload is bounded only by distinct (trail_slug, section_key) pairs
+    // in a column with no FK and no CHECK — the condition this detector exists
+    // to report — so the body is measured the way the link collector measures
+    // its own.
+    const { contents, files } = trailSupplyFiles();
+    const auditRecords: AuditRecord[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>(async () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ pad: "x".repeat(600 * 1024) }), {
+          status: 200,
+        }),
+      ),
+    );
+
+    await runWorkflowCommand("collect-trail-supply", input, {
+      auditRecords,
+      env,
+      fetchImplementation,
+      files,
+    });
+
+    const artifact = JSON.parse(
+      contents.get(input.outputPath) ?? "{}",
+    ) as Record<string, unknown>;
+    expect(String((artifact.failures as string[])[0])).toContain(
+      "trail_supply_response_too_large",
+    );
+    expect(
+      auditRecords.find((entry) => entry.adapter === "trail-supply")?.status,
+    ).toBe("failure");
+  });
+});

@@ -3,7 +3,7 @@ import { auditedCall, type AuditStatus } from '@/lib/audit'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import { fetchHtmlWithMetadata } from './fetch-guards'
 import { classifyByDomain, detectInputType, isThirdPartyDirectoryHost } from './input-detector'
-import { PURCHASE_CHANNELS } from '@/lib/brands/purchase-channels'
+import { ONLINE_STORES } from '@/lib/brands/online-stores'
 import { mergeScrapedData } from './merge'
 import { emptyResult } from './parse/extractors'
 import { getRenderProvider } from './render/index'
@@ -68,7 +68,7 @@ function withoutThirdPartyLinks(url: string, data: ScrapedBrandData): ScrapedBra
     socialInstagram: null,
     socialThreads: null,
     socialFacebook: null,
-    ...Object.fromEntries(PURCHASE_CHANNELS.map((channel) => [channel.camel, null])),
+    ...Object.fromEntries(ONLINE_STORES.map((channel) => [channel.camel, null])),
   }
 }
 

@@ -70,7 +70,7 @@ describe('buildDirectorySitemapEntries', () => {
       brand({ slug: 'native', updatedAt: '2026-01-01T00:00:00.000Z' }),
       brand({
         slug: 'cross-l1',
-        categorySlug: 'crafts',
+        categorySlug: 'stationery',
         subcategories: ['furniture'],
         updatedAt: '2026-05-20T00:00:00.000Z',
       }),

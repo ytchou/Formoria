@@ -53,6 +53,9 @@ test.describe("Public routing regressions deep", () => {
       // the merged parent has no successor category, so it exits to /brands.
       ["/categories/baby-kids", "/categories/kids"],
       ["/categories/kids-pets", "/brands"],
+      // DEV-1507 dissolved crafts across four live L1s, so like kids-pets it
+      // has no successor category and exits to the directory root.
+      ["/categories/crafts", "/brands"],
       ["/categories/food", "/categories/food-drink"],
       ["/categories/beverages", "/categories/food-drink"],
       ["/en/categories/clothing", "/en/categories/fashion"],

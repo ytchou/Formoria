@@ -117,7 +117,7 @@ test.beforeAll(async ({ isolatedUser }) => {
       status: 'approved',
       approved_at: new Date().toISOString(),
       mit_status: 'unverified',
-      category: 'crafts',
+      category: 'home',
       description: initialDescription,
     })
     .select('id')
@@ -134,7 +134,7 @@ test.beforeAll(async ({ isolatedUser }) => {
       slug: wizardBrandSlug,
       status: 'approved',
       approved_at: new Date().toISOString(),
-      category: 'crafts',
+      category: 'home',
       description: '[E2E-TEST] Wizard test brand.',
     })
     .select('id')
@@ -151,7 +151,7 @@ test.beforeAll(async ({ isolatedUser }) => {
       slug: imageUploadBrandSlug,
       status: 'approved',
       approved_at: new Date().toISOString(),
-      category: 'crafts',
+      category: 'home',
       description: '[E2E-TEST] Image upload test brand.',
     })
     .select('id')
@@ -172,7 +172,7 @@ test.beforeAll(async ({ isolatedUser }) => {
       mit_declared_scope: 'most',
       mit_declared_at: '2026-07-22T01:02:03+00:00',
       mit_declared_by: testUserId,
-      category: 'crafts',
+      category: 'home',
       description: '[E2E-TEST] Initial governed description.',
     })
     .select('id')
@@ -189,7 +189,7 @@ test.beforeAll(async ({ isolatedUser }) => {
       slug: adminBrandSlug,
       status: 'approved',
       approved_at: new Date().toISOString(),
-      category: 'crafts',
+      category: 'home',
       description: '[E2E-TEST] Admin-owned brand for redirect guard test.',
     })
     .select('id')
@@ -407,7 +407,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     if (linksResp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     await expect(userPage.locator('#purchase fieldset')).toHaveCount(3);
-    // 3 social + 4 purchase channels (PURCHASE_CHANNELS). Bump when a channel is added.
+    // 3 social + 4 online stores (ONLINE_STORES). Bump when a store is added.
     await expect(userPage.locator('#purchase [data-platform-row]')).toHaveCount(7);
     for (const field of [
       'socialInstagram',

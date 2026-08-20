@@ -77,6 +77,7 @@ export default async function AdminLayout({
     { label: t("nav.brands"), href: routes.admin.brands() },
     { label: t("nav.curatedProducts"), href: routes.admin.curatedProducts() },
     { label: t("nav.corrections"), href: routes.admin.corrections(), count: counts.corrections ?? undefined },
+    { label: t("nav.stockists"), href: routes.admin.stockists(), count: counts.stockists ?? undefined },
     { label: t("nav.quality"), href: routes.admin.quality() },
     { label: t("nav.newsletter"), href: routes.admin.newsletter() },
     { label: t("nav.scripts"), href: routes.admin.scripts() },

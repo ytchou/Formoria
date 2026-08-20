@@ -16,7 +16,7 @@ import {
   type SubcategoriesDelta,
 } from "@/lib/services/subcategories";
 import { formatPriceRange } from "@/lib/brands/price-range";
-import { PURCHASE_COLUMNS } from "@/lib/brands/purchase-channels";
+import { ONLINE_STORE_COLUMNS } from "@/lib/brands/online-stores";
 import {
   categoryLabel,
   isKnownSubcategoryTerm,
@@ -77,7 +77,7 @@ type SubcategoryDeltaState = {
  * where prefix matching would silently swallow it.
  */
 const LINK_FIELDS: readonly CorrectionQueueItem["field"][] = [
-  ...PURCHASE_COLUMNS,
+  ...ONLINE_STORE_COLUMNS,
   "social_instagram",
   "social_threads",
   "social_facebook",

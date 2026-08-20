@@ -383,7 +383,14 @@ export interface LinkHealthRequestInput {
   workflowRunId?: string | number;
 }
 
-function safeEndpoint(value: string): string {
+/**
+ * Normalizes a caller-supplied base URL: rejects anything that is not plain
+ * http(s) or that carries embedded credentials, drops the query and fragment,
+ * and strips the trailing slash. Exported because the trail-supply collector
+ * derives its endpoint from the same repo variable and must apply exactly these
+ * checks in exactly this order.
+ */
+export function safeEndpoint(value: string): string {
   const url = new URL(value);
   if (!/^https?:$/.test(url.protocol) || url.username || url.password) {
     throw new Error("Invalid link health endpoint");

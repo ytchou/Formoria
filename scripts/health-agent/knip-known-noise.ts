@@ -27,28 +27,6 @@ export const KNIP_KNOWN_NOISE = [
       "Used by src/lib/services/__tests__/job-alerts.test.ts through a namespace import (slack.resetSlackAdapterForTests()), which knip does not resolve to the member.",
     signature: "resetSlackAdapterForTests",
   },
-  // The retail-location domain model. Unused since the stockist surface was
-  // unwired, but DEV-1432 rebuilds acquisition against exactly these shapes and
-  // keeps the tables and UI as the landing zone — deleting them now only means
-  // rewriting them later. Suppressed here rather than in knip.json so `pnpm
-  // knip` keeps reporting them honestly; this only stops the health agent from
-  // queueing them for automated deletion.
-  ...(
-    [
-      "PhysicalRetailLocation",
-      "RetailChainChannel",
-      "RetailLocation",
-      "RetailLocationRelationshipType",
-      "RetailLocationType",
-      "RetailLocationVerificationStatus",
-    ] as const
-  ).map((signature) => ({
-    file: "src/lib/types/brand.ts",
-    kind: "types" as const,
-    reason:
-      "Retail-location domain model kept for the DEV-1432 stockist rebuild.",
-    signature,
-  })),
   {
     file: "src/lib/constants/brand-images.ts",
     kind: "duplicates",

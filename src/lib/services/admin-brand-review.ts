@@ -19,10 +19,10 @@ import {
 } from "@/lib/services/brand-images";
 import { getBrandById, updateBrand } from "@/lib/services/brands";
 import {
-  PURCHASE_CHANNELS,
-  purchaseChannelByKey,
-  type PurchaseChannelCamelField,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORES,
+  onlineStoreByKey,
+  type OnlineStoreCamelField,
+} from "@/lib/brands/online-stores";
 import type {
   SaveSubmissionReviewInput,
   SubmissionReviewImage,
@@ -193,13 +193,13 @@ export async function saveAdminBrandReview(
   });
 
   const purchaseFields = Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel) => [
+    ONLINE_STORES.map((channel) => [
       channel.camel,
-      channel === purchaseChannelByKey.website
+      channel === onlineStoreByKey.website
         ? input.websiteUrl
         : input[channel.camel],
     ]),
-  ) as Pick<SaveSubmissionReviewInput, PurchaseChannelCamelField>;
+  ) as Pick<SaveSubmissionReviewInput, OnlineStoreCamelField>;
 
   await updateBrand(brandId, {
     name: input.name,

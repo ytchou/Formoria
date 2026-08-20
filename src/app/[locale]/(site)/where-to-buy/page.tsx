@@ -8,7 +8,7 @@ import {
   getStockistDirectory,
   stockistDistrictSlugs,
   summarizeStockistCities,
-} from '@/lib/services/brand-channels'
+} from '@/lib/services/stockists'
 import { captureReadFailure, markRenderDegraded } from '@/lib/degraded-render'
 import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
 import { routes } from '@/lib/routes'

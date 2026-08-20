@@ -15,11 +15,11 @@ import { submitCorrectionAction } from "@/lib/actions/brand-corrections";
 import { trackCorrectionSubmitted } from "@/lib/analytics";
 import { PRICE_RANGE_TIERS } from "@/lib/brands/price-range";
 import {
-  channelMessageKey,
-  PURCHASE_COLUMNS,
-  purchaseChannelByColumn,
-  type PurchaseChannelColumn,
-} from "@/lib/brands/purchase-channels";
+  onlineStoreMessageKey,
+  ONLINE_STORE_COLUMNS,
+  onlineStoreByColumn,
+  type OnlineStoreColumn,
+} from "@/lib/brands/online-stores";
 import type { CorrectionField } from "@/lib/services/brand-corrections";
 import {
   MAX_SUBCATEGORIES,
@@ -96,7 +96,7 @@ export type CorrectionDialogProps = {
   categorySlug?: string | null;
   priceRange?: number | null;
   subcategories?: string[];
-  purchaseLinks?: Record<PurchaseChannelColumn, string | null>;
+  purchaseLinks?: Record<OnlineStoreColumn, string | null>;
   socialInstagram?: string | null;
   socialThreads?: string | null;
   socialFacebook?: string | null;
@@ -126,7 +126,7 @@ export function CorrectionDialog({
   categorySlug = null,
   priceRange = null,
   subcategories = [],
-  purchaseLinks = {} as Record<PurchaseChannelColumn, string | null>,
+  purchaseLinks = {} as Record<OnlineStoreColumn, string | null>,
   socialInstagram = null,
   socialThreads = null,
   socialFacebook = null,
@@ -143,12 +143,12 @@ export function CorrectionDialog({
   // Starts empty so the dialog opens on the picker alone — no value control is
   // shown until the contributor says what they are correcting.
   const [field, setField] = useState<CorrectionField | "">("");
-  const purchaseChannel = Object.hasOwn(purchaseChannelByColumn, field)
-    ? purchaseChannelByColumn[field as PurchaseChannelColumn]
+  const onlineStore = Object.hasOwn(onlineStoreByColumn, field)
+    ? onlineStoreByColumn[field as OnlineStoreColumn]
     : undefined;
   const availableFields: CorrectionField[] =
     mode === "purchaseLinks"
-      ? [...PURCHASE_COLUMNS]
+      ? [...ONLINE_STORE_COLUMNS]
       : mode === "socialLinks"
         ? ["social_instagram", "social_threads", "social_facebook"]
         : categorySlug != null
@@ -157,7 +157,7 @@ export function CorrectionDialog({
   // Every link field — purchase and social alike — is edited as a free-text URL
   // rather than a chip, so they share the baseline, diff and body branches.
   const isLinkField =
-    purchaseChannel !== undefined ||
+    onlineStore !== undefined ||
     field === "social_instagram" ||
     field === "social_threads" ||
     field === "social_facebook";
@@ -166,8 +166,8 @@ export function CorrectionDialog({
       ? (categorySlug ?? "")
       : field === "price_range" && priceRange != null
         ? String(priceRange)
-        : purchaseChannel
-          ? (purchaseLinks[purchaseChannel.column] ?? "")
+        : onlineStore
+          ? (purchaseLinks[onlineStore.column] ?? "")
           : field === "social_instagram"
             ? (socialInstagram ?? "")
             : field === "social_threads"
@@ -206,12 +206,12 @@ export function CorrectionDialog({
             sanitizeHref(selection) !== sanitizeHref(originalSelection)
           : selection !== "" && selection !== originalSelection;
   const labelForField = (item: CorrectionField) => {
-    const channel = Object.hasOwn(purchaseChannelByColumn, item)
-      ? purchaseChannelByColumn[item as PurchaseChannelColumn]
+    const channel = Object.hasOwn(onlineStoreByColumn, item)
+      ? onlineStoreByColumn[item as OnlineStoreColumn]
       : undefined;
     if (channel) {
       return tBrandDetail(
-        channelMessageKey(channel.messageKeys.brandDetailLink, "brandDetail"),
+        onlineStoreMessageKey(channel.messageKeys.brandDetailLink, "brandDetail"),
       );
     }
     return item === "category"

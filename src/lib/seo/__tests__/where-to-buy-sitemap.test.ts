@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CITY_SLUGS, type CitySlug } from '@/lib/constants/taiwan-cities'
-import type { StockistLocation } from '@/lib/services/brand-channels'
+import type { StockistLocation } from '@/lib/services/stockists'
 import {
   buildWhereToBuySitemapEntries,
   buildWhereToBuySitemapSection,

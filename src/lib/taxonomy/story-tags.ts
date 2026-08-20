@@ -4,7 +4,7 @@ import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
  * Editorial tags live alongside the L1 category vocabulary on the same axis.
  * They describe what a story *is* rather than what it is *about* — an expo
  * report is `event`, with `creative-expo` identifying the specific expo and
- * category tags such as `crafts` describing its subject matter.
+ * category tags such as `home` describing its subject matter.
  */
 export const STORY_EDITORIAL_TAGS = ["event", "creative-expo"] as const;
 

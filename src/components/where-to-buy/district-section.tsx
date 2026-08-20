@@ -1,5 +1,5 @@
 import { StockistRow } from './stockist-row'
-import type { StockistDistrictGroup } from '@/lib/services/brand-channels'
+import type { StockistDistrictGroup } from '@/lib/services/stockists'
 
 export function DistrictSection({
   group,

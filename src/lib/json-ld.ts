@@ -1,10 +1,10 @@
 import type { Locale } from "@/lib/seo/alternates";
 import { buildAlternates } from "@/lib/seo/alternates";
-import { PURCHASE_CHANNELS } from "@/lib/brands/purchase-channels";
+import { ONLINE_STORES } from "@/lib/brands/online-stores";
 import { FORMORIA_SOCIALS } from "./constants";
 import { getSiteUrl } from "./seo/site-url";
-import type { BrandChannel } from "./types/brand-channel";
-import type { StockistLocation } from "./services/brand-channels";
+import type { Stockist } from "./types/stockist";
+import type { StockistLocation } from "./services/stockists";
 
 export type BreadcrumbItem = {
   label: string;
@@ -60,13 +60,13 @@ export function buildBrandJsonLd(
   brand: BrandJsonLdInput,
   locale: Locale = "zh-TW",
   canonicalUrl?: string,
-  channels: BrandChannel[] = [],
+  stockists: Stockist[] = [],
 ): JsonLdObject {
   const allSameAs = [
     brand.socialInstagram,
     brand.socialThreads,
     brand.socialFacebook,
-    ...PURCHASE_CHANNELS.map((channel) => brand[channel.camel]),
+    ...ONLINE_STORES.map((channel) => brand[channel.camel]),
     ...(brand.otherUrls ?? []).map((link) => link.url),
   ].filter(
     (url): url is string => typeof url === "string" && url.trim().length > 0,
@@ -86,7 +86,7 @@ export function buildBrandJsonLd(
   };
 
   const url =
-    PURCHASE_CHANNELS.map((channel) => brand[channel.camel]).find(
+    ONLINE_STORES.map((channel) => brand[channel.camel]).find(
       (value): value is string => value !== null && value !== undefined,
     ) ?? null;
   if (url) jsonLd.url = url;
@@ -94,17 +94,17 @@ export function buildBrandJsonLd(
   if (brand.foundingYear) jsonLd.foundingDate = String(brand.foundingYear);
   if (allSameAs.length > 0) jsonLd.sameAs = allSameAs;
 
-  const ownPlaces = channels
+  const ownPlaces = stockists
     .filter(
-      (channel) =>
-        channel.locationType === "direct_store" ||
-        channel.locationType === "showroom_studio",
+      (stockist) =>
+        stockist.locationType === "direct_store" ||
+        stockist.locationType === "showroom_studio",
     )
-    .map((channel) => ({
+    .map((stockist) => ({
       "@type": "Place",
-      name: channel.name,
-      ...(channel.address ? { address: channel.address } : {}),
-      ...(channel.url ? { url: channel.url } : {}),
+      name: stockist.name,
+      ...(stockist.address ? { address: stockist.address } : {}),
+      ...(stockist.url ? { url: stockist.url } : {}),
     }));
   if (ownPlaces.length > 0) jsonLd.location = ownPlaces;
 

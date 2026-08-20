@@ -1,5 +1,5 @@
-import { normalizeChannelName } from '@/lib/brands/channels'
-import type { ChannelCandidate } from '@/lib/types/brand-channel'
+import { normalizeStockistName } from '@/lib/brands/stockist-display'
+import type { StockistCandidate } from '@/lib/types/stockist'
 import { normalizeStockistRow, type StockistCsvRow } from './normalize'
 
 export type ApprovedBrand = { id: string; slug: string }
@@ -7,7 +7,7 @@ export type ApprovedBrand = { id: string; slug: string }
 export type BrandImportPlan = {
   brandId: string
   brandSlug: string
-  candidates: ChannelCandidate[]
+  candidates: StockistCandidate[]
   heldBack: number
   collapsed: number
 }
@@ -42,7 +42,7 @@ export function planStockistImport(
   const rejected: Array<{ brandSlug: string; reason: string }> = []
   const grouped = new Map<
     string,
-    { brandId: string; publish: ChannelCandidate[]; heldBack: number }
+    { brandId: string; publish: StockistCandidate[]; heldBack: number }
   >()
   let unmatched = 0
 
@@ -82,9 +82,9 @@ export function planStockistImport(
     a.localeCompare(b),
   )) {
     publish += group.publish.length
-    const byBaseAndRegion = new Map<string, ChannelCandidate>()
+    const byBaseAndRegion = new Map<string, StockistCandidate>()
     for (const candidate of group.publish) {
-      const base = normalizeChannelName(candidate.name)
+      const base = normalizeStockistName(candidate.name)
       const key = `${base}\u0000${candidate.regionLabel ?? ''}`
       if (byBaseAndRegion.has(key)) {
         collapsed++
@@ -93,7 +93,7 @@ export function planStockistImport(
       byBaseAndRegion.set(key, { ...candidate, normalizedName: base })
     }
 
-    const byBase = new Map<string, ChannelCandidate[]>()
+    const byBase = new Map<string, StockistCandidate[]>()
     for (const candidate of byBaseAndRegion.values()) {
       const base = candidate.normalizedName
       const candidates = byBase.get(base) ?? []

@@ -1,9 +1,8 @@
 import { parseCsvRecords } from '../seo/gsc-404-triage'
 import type {
-  ChannelCandidate,
-  ChannelLocationType,
-  ChannelType,
-} from '@/lib/types/brand-channel'
+  StockistCandidate,
+  StockistLocationType,
+} from '@/lib/types/stockist'
 import { citySlugFromName } from '@/lib/constants/taiwan-cities'
 import { matchDistrict } from '@/lib/brands/district'
 
@@ -11,7 +10,6 @@ export const STOCKIST_HEADER = [
   'brand_slug',
   'name',
   'location_type',
-  'channel_type',
   'region_label',
   'address',
   'url',
@@ -29,7 +27,7 @@ export type StockistCsvRow = {
 export type NormalizedStockist = {
   brandSlug: string
   sourceType: string
-  candidate: ChannelCandidate
+  candidate: StockistCandidate
 }
 
 export type NormalizeResult =
@@ -160,9 +158,9 @@ export function canonicalizeRegion(
 
 /**
  * A keyset, not an array, and that shape is load-bearing. `satisfies
- * Record<ChannelLocationType, true>` makes a missing member a compile error, so
+ * Record<StockistLocationType, true>` makes a missing member a compile error, so
  * adding a location type to the union breaks the build until this map is
- * updated. An array with `satisfies readonly ChannelLocationType[]` would only
+ * updated. An array with `satisfies readonly StockistLocationType[]` would only
  * check that every entry is valid, not that every member is present — a new
  * type would compile clean and then be rejected row by row at import time with
  * a generic reason, silently dropping stockists. The object also stops the
@@ -176,16 +174,12 @@ const LOCATION_TYPES = {
   showroom_studio: true,
   shop_in_shop: true,
   other_physical_retail: true,
-} satisfies Record<ChannelLocationType, true>
+} satisfies Record<StockistLocationType, true>
 
-function isLocationType(value: string): value is ChannelLocationType {
+function isLocationType(value: string): value is StockistLocationType {
   // `Object.hasOwn`, not `in`: `in` walks the prototype, so a CSV row saying
-  // `constructor` or `toString` would type-narrow to ChannelLocationType.
+  // `constructor` or `toString` would type-narrow to StockistLocationType.
   return Object.hasOwn(LOCATION_TYPES, value)
-}
-
-function isChannelType(value: string): value is ChannelType {
-  return value === 'online' || value === 'offline'
 }
 
 export function normalizeStockistRow(
@@ -199,14 +193,6 @@ export function normalizeStockistRow(
       ok: false,
       brandSlug,
       reason: `unknown location type: ${locationType}`,
-    }
-  }
-  const channelType = raw.channel_type.trim()
-  if (!isChannelType(channelType)) {
-    return {
-      ok: false,
-      brandSlug,
-      reason: `unknown channel type: ${channelType}`,
     }
   }
   const region = canonicalizeRegion(raw.region_label)
@@ -223,7 +209,6 @@ export function normalizeStockistRow(
       candidate: {
         name,
         normalizedName: name,
-        channelType,
         regionLabel: region.regionLabel,
         address,
         district: address && city ? matchDistrict(address, city) : null,
