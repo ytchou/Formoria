@@ -4,7 +4,8 @@ type StockistStatus = 'confirmed' | 'unconfirmed'
  * one must be literally true: `owner` means the brand itself said so,
  * `formoria` means an admin approved a community submission the brand never
  * touched, `evidence` means a cited source backs it. Collapsing `formoria` into
- * `owner` would print 品牌確認 over a claim the brand never made.
+ * `owner` would print `brandDetail.channels.provenance.owner` over a claim the
+ * brand never made.
  */
 type StockistConfirmedBy = 'owner' | 'formoria' | 'evidence'
 /**
