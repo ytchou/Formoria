@@ -5,7 +5,7 @@ import { SurfaceImage } from '@/components/ui/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
-import { brandImageFill } from '@/lib/images/focal'
+import { brandImageFill } from '@/lib/images/fill'
 import type { BrandImageMeta } from '@/lib/types/brand'
 import { trackGalleryPhotoView, trackGalleryCompleted } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
@@ -182,15 +182,8 @@ export function ImageCarousel({
             src={previousImage.src}
             alt=""
             fill
-            className={cn(
-              'transition-opacity duration-200 opacity-0',
-              previousFill.className,
-            )}
-            // Merged rather than assigned, because there IS another real
-            // property here. The spread of a possibly-undefined
-            // `previousFill.style` is safe in that case.
+            className={cn('transition-opacity duration-200 opacity-0', previousFill)}
             style={{
-              ...previousFill.style,
               transitionTimingFunction: 'var(--ease-settle)',
             }}
             surface="card"
@@ -210,9 +203,7 @@ export function ImageCarousel({
             src={currentImage.src}
             alt={getAlt(current)}
             fill
-            className={cn('animate-in fade-in duration-200', currentFill.className)}
-            // Assigned, never spread — `undefined` is meaningful here.
-            style={currentFill.style}
+            className={cn('animate-in fade-in duration-200', currentFill)}
             surface="card"
             // The detail hero is a single column capped at 580px; in the grid
             // variant it is a fixed 192px cell. Neither is the four-up card
@@ -321,9 +312,7 @@ export function ImageCarousel({
                   src={src}
                   alt={getAlt(i)}
                   fill
-                  className={thumbFill.className}
-                  // Assigned, never spread — `undefined` is meaningful here.
-                  style={thumbFill.style}
+                  className={thumbFill}
                   surface="thumb"
                   // The thumbnail strip is a fixed 64px square.
                   sizes="64px"

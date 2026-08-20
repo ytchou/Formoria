@@ -14,7 +14,7 @@ export type SelectedBrandCardImage = {
 /**
  * Selects the first renderable product photo, falling back to the first
  * renderable image. `imageAlts` stays paired with the same source index so
- * fill mode and focal position cannot drift from the image that renders.
+ * fill mode cannot drift from the image that renders.
  */
 export function selectBrandCardImage(
   fields: BrandCardImageFields,

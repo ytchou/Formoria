@@ -299,8 +299,6 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "entropy",
     "phash",
     "dominant_color",
-    "focal_x",
-    "focal_y",
     "provider_metadata",
     "rejected_at",
     "rejection_reasons",

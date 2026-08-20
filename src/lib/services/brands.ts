@@ -796,7 +796,7 @@ async function brandToDomainWithImages(
 }
 
 const CARD_IMAGE_SELECT =
-  "brand_id, url, tags, alt_zh, alt_en, sort_order, width, height, focal_x, focal_y";
+  "brand_id, url, tags, alt_zh, alt_en, sort_order, width, height";
 
 type CardImageRow = Pick<
   Database["public"]["Tables"]["brand_images"]["Row"],
@@ -808,12 +808,7 @@ type CardImageRow = Pick<
   | "sort_order"
   | "width"
   | "height"
-> & {
-  // The generated database types intentionally lag the applied migration;
-  // keep this narrow query forward-compatible until the next type refresh.
-  focal_x: number | null;
-  focal_y: number | null;
-};
+>;
 
 /**
  * Fills in card image metadata and the best product photo for a list of cards.
@@ -836,12 +831,12 @@ type CardImageRow = Pick<
  *
  * CACHE INTERACTION, recorded because it is invisible from here: results flow
  * into `getCachedExploreBrandPool`, which freezes them in `unstable_cache` for
- * an hour under PUBLIC_BRAND_DATA_TAG. Re-classification and the focal-point
- * backfill both write `brand_images` WITHOUT touching the `brands` table, so
- * neither invalidates that cache on its own — the homepage can keep serving the
- * old fill mode and object-position for up to `revalidate` seconds. Accepted:
- * the stale render is the previous correct render, not a broken one. After a
- * backfill, revalidate PUBLIC_BRAND_DATA_TAG to pick the change up immediately.
+ * an hour under PUBLIC_BRAND_DATA_TAG. Re-classification writes `brand_images`
+ * WITHOUT touching the `brands` table, so it does not invalidate that cache on
+ * its own — the homepage can keep serving the old fill mode for up to
+ * `revalidate` seconds. Accepted: the stale render is the previous correct
+ * render, not a broken one. After a bulk rewrite of `brand_images`, revalidate
+ * PUBLIC_BRAND_DATA_TAG to pick the change up immediately.
  *
  * Batching, paging and the `.order()`-before-`.range()` invariant live in
  * `_shared/brand-image-batch.ts`, shared with `getAdminBrandReviewImages`.
@@ -908,18 +903,18 @@ export async function hydrateCardImageMeta<
      * Degrade, never throw. Two independent reasons, both of which have to hold
      * for this to go back to a bare rethrow — do not "tidy" it:
      *
-     * 1. This is DECORATIVE per-image metadata: alt text, a logo flag, a focal
-     *    point. Falling back to unhydrated brands reproduces exactly the
-     *    behaviour these surfaces had before this function existed
-     *    (`imageAlts: []`, centred `object-cover`). Taking down /brands, the
-     *    homepage, /favorites, story galleries and every microsite because a
-     *    decoration could not be loaded is never the right trade.
+     * 1. This is DECORATIVE per-image metadata: alt text and a logo flag.
+     *    Falling back to unhydrated brands reproduces exactly the behaviour
+     *    these surfaces had before this function existed (`imageAlts: []`,
+     *    centred `object-cover`). Taking down /brands, the homepage,
+     *    /favorites, story galleries and every microsite because a decoration
+     *    could not be loaded is never the right trade.
      * 2. It closes the deploy-order window. Railway deploys on a push to main
-     *    but Supabase migrations are applied by hand, so between the two
-     *    `focal_x` does not exist, PostgREST answers 42703, and the service
-     *    client has no `<Database>` generic to have caught it at compile time.
-     *    Without this catch that window is a site-wide outage on every card
-     *    surface.
+     *    but Supabase migrations are applied by hand, so between the two a
+     *    column this projection reads can be absent, PostgREST answers 42703,
+     *    and the service client has no `<Database>` generic to have caught it
+     *    at compile time. Without this catch that window is a site-wide outage
+     *    on every card surface.
      *
      * Reported through `captureReadFailure`, the same observability path as
      * every other degraded page read, so this stays visible in Sentry rather
@@ -969,16 +964,12 @@ export async function hydrateCardImageMeta<
           altZh: heroRow.alt_zh ?? null,
           altEn: heroRow.alt_en ?? null,
           isLogo: isLogoImageTags(heroRow.tags),
-          focalX: heroRow.focal_x ?? null,
-          focalY: heroRow.focal_y ?? null,
         }
       : {
           altZh: null,
           altEn: null,
           // Unknown hero metadata must not win over a known product photo.
           isLogo: true,
-          focalX: null,
-          focalY: null,
         };
 
     // `imageAlts` stays index-aligned with `[heroImageUrl, ...productPhotos]`.
@@ -996,8 +987,6 @@ export async function hydrateCardImageMeta<
                 altZh: productRow.alt_zh ?? null,
                 altEn: productRow.alt_en ?? null,
                 isLogo: false,
-                focalX: productRow.focal_x ?? null,
-                focalY: productRow.focal_y ?? null,
               },
             ]
           : []),

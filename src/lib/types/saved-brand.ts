@@ -8,7 +8,7 @@ export interface SavedBrand {
   /**
    * The image list and metadata share the same index alignment as
    * `[heroImageUrl, ...productPhotos]`, allowing the card to choose a product
-   * photo without losing its fill mode or focal point.
+   * photo without losing its fill mode.
    */
   productPhotos: string[]
   imageAlts: BrandImageMeta[]

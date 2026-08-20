@@ -262,14 +262,6 @@ type ClassifiedImage = {
   width?: number | null;
   height?: number | null;
   /**
-   * Normalised focal point in [0, 1], null when the image was never measured.
-   * The renderers position `object-cover` from these (`src/lib/images/focal.ts`),
-   * so ranking reads them too — otherwise it would score a crop the page does
-   * not actually perform.
-   */
-  focalX?: number | null;
-  focalY?: number | null;
-  /**
    * Whether the RENDERER will treat this image as a logo, i.e. whether `logo`
    * appears anywhere in the row's `tags` array — the same question
    * `isLogoImageTags` answers for every render site.
@@ -446,8 +438,6 @@ function classifiedImageFromRow(
     storage_path: row.storage_path,
     width: row.width ?? null,
     height: row.height ?? null,
-    focalX: row.focal_x ?? null,
-    focalY: row.focal_y ?? null,
     // From the whole `tags` array, not from `storedTag` above: `storedTag` is
     // the first classification tag, while the renderer asks whether `logo` is
     // present at all. Reading the array here is what keeps ranking and
@@ -637,21 +627,9 @@ const CROP_DAMAGE_CEILING = 0.5;
 const SHAPE_CORRECTION_STEPS_PER_POINT = 10;
 
 function cropDamagePenalty(image: ClassifiedImage): number {
-  // `focalAware: true` because the renderers now emit `object-position` from the
-  // stored focal point (`src/lib/images/focal.ts`, applied in `brand-card.tsx`,
-  // `image-carousel.tsx`, `hero.tsx`, `brand-gallery.tsx`). MUST STAY IN SYNC
-  // WITH THE RENDERER: if ranking and rendering disagree about whether the crop
-  // window follows the subject, ranking systematically mis-scores exactly the
-  // images the page frames well, and nothing here would catch it.
-  //
-  // Safe to land ahead of the focal backfill — with focal_x/focal_y still null
-  // everywhere, `cropDamage` treats the window as centred and this evaluates
-  // identically to the focal-unaware path.
   const damage = cropDamage({
     width: image.width,
     height: image.height,
-    focalX: image.focalX,
-    focalY: image.focalY,
     // Logos render `object-contain` and are never cut, so they must take zero
     // crop damage whatever their shape. 83 of 844 production heroes are logos;
     // charging them for a crop that does not happen would demote a tenth of the
@@ -663,7 +641,6 @@ function cropDamagePenalty(image: ClassifiedImage): number {
     // predicate so there is still exactly one definition of "is a logo".
     isLogo: image.isLogo ?? isLogoImageTags([image.tag]),
     targetRatio: HERO_TARGET_RATIO,
-    focalAware: true,
   });
 
   const scaled =
@@ -916,7 +893,7 @@ async function getUnclassifiedImages(
   const { data, error } = await classifyImagesClient(supabase)
     .from(storage.table)
     .select(
-      "id, url, source, status, tags, score, sort_order, storage_path, width, height, focal_x, focal_y",
+      "id, url, source, status, tags, score, sort_order, storage_path, width, height",
     )
     .eq(storage.foreignKey, target.id)
     .in("status", ["active", "candidate"])
@@ -937,7 +914,7 @@ async function getActiveImages(
   const { data, error } = await classifyImagesClient(supabase)
     .from(storage.table)
     .select(
-      "id, url, source, status, tags, score, sort_order, storage_path, width, height, focal_x, focal_y",
+      "id, url, source, status, tags, score, sort_order, storage_path, width, height",
     )
     .eq(storage.foreignKey, target.id)
     .eq("status", "active")

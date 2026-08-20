@@ -42,14 +42,10 @@ type BrandImageRow = {
   width: number | null;
   height: number | null;
   source_url: string | null;
-  // The generated database types intentionally lag the applied migration; this
-  // is a hand-written projection, so it can carry the columns already.
-  focal_x: number | null;
-  focal_y: number | null;
 };
 
 const ADMIN_BRAND_IMAGE_SELECT =
-  "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, source_url, focal_x, focal_y";
+  "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, source_url";
 
 export async function getAdminBrandReviewImages(
   brandIds: string[],
@@ -272,8 +268,6 @@ function toReviewImage(row: BrandImageRow): SubmissionReviewImage {
     altZh: row.alt_zh,
     altEn: row.alt_en,
     isLogo: isLogoImageTags(row.tags),
-    focalX: row.focal_x ?? null,
-    focalY: row.focal_y ?? null,
     width: row.width,
     height: row.height,
     originBrandImageId: row.status === "draft" ? null : row.id,

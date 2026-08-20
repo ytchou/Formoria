@@ -3,7 +3,7 @@ import { SurfaceImage } from '@/components/ui/image'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Heart } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
-import { brandImageFill } from '@/lib/images/focal'
+import { brandImageFill } from '@/lib/images/fill'
 import { selectBrandCardImage } from '@/lib/brands/image-selection'
 import { getUserSavedBrands } from '@/lib/services/saved-brands'
 import { requireUserPage } from '@/lib/auth/require-user'
@@ -41,16 +41,13 @@ function BrandImage({ brand }: { brand: SavedBrand }) {
   }
 
   // Shared with every other brand image surface: a logo is contained (its
-  // whitespace is part of the mark), everything else covers and is anchored on
-  // its focal point.
+  // whitespace is part of the mark), everything else covers.
   const imageFill = brandImageFill(selectedImage.meta, { inset: 'p-6' })
 
   return (
     <SurfaceImage
       alt={brand.brandName}
-      className={imageFill.className}
-      // Assigned, never spread — `undefined` is meaningful here.
-      style={imageFill.style}
+      className={imageFill}
       fill
       surface="card"
       src={selectedImage.src}

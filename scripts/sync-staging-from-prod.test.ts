@@ -132,8 +132,6 @@ function imageRow(overrides: Row = {}): Row {
     entropy: 6.1,
     phash: "ff00ff00",
     dominant_color: "#c8b8a0",
-    focal_x: 0.5,
-    focal_y: 0.5,
     provider_metadata: { provider: "site-crawl" },
     rejected_at: null,
     rejection_reasons: null,

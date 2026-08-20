@@ -60,7 +60,6 @@
     "resort-heroes:render": "tsx --env-file=.env.local scripts/resort-heroes/render.ts",
     "resort-heroes:apply": "tsx --env-file=.env.local scripts/resort-heroes/apply.ts",
     "resort-heroes:rollback": "tsx --env-file=.env.local scripts/resort-heroes/rollback.ts",
-    "backfill-image-focal-points": "tsx --env-file=.env.local scripts/backfill-image-focal-points.ts",
     "image-eval:capture": "tsx --env-file=.env.local scripts/image-eval/capture.ts",
     "image-eval:review": "tsx --env-file=.env.local scripts/image-eval/review.ts",
     "image-eval:baseline": "tsx --env-file=.env.local scripts/image-eval/baseline.ts",

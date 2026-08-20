@@ -67,19 +67,11 @@ export type SiteContent = {
  * mark itself, while a product photo letterboxed by `object-contain` is what
  * makes a grid of mixed aspect ratios read as ragged. The renderer cannot infer
  * this from the URL, so the classifier's tag has to travel with the image.
- *
- * `focalX`/`focalY` are the same idea one step further: `object-cover` crops
- * from the centre, which can cut the subject out of frame, so the measured
- * subject position travels with the image and becomes `object-position`. Both
- * are `null` for every image that has not been measured, which renders as the
- * centre — i.e. today's behavior.
  */
 export type BrandImageMeta = {
   altZh: string | null
   altEn: string | null
   isLogo: boolean
-  focalX: number | null
-  focalY: number | null
   /**
    * `brand_images.source === 'owner'` — the brand handed us this file through
    * the dashboard wizard. It is the ONLY rights signal on an image and the only

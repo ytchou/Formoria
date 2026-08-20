@@ -51,9 +51,9 @@ const IMAGES = [
   `${ALLOWED_HOST}/third.jpg`,
 ];
 const IMAGE_ALTS: BrandImageMeta[] = [
-  { altZh: "第一張", altEn: "First logo", isLogo: true, focalX: null, focalY: null },
-  { altZh: "第二張", altEn: "Second photo", isLogo: false, focalX: 0.25, focalY: 0.75 },
-  { altZh: "第三張", altEn: "Third logo", isLogo: true, focalX: null, focalY: null },
+  { altZh: "第一張", altEn: "First logo", isLogo: true },
+  { altZh: "第二張", altEn: "Second photo", isLogo: false },
+  { altZh: "第三張", altEn: "Third logo", isLogo: true },
 ];
 
 function renderCarousel() {
@@ -144,12 +144,12 @@ describe("ImageCarousel", () => {
   });
 
   /*
-   * Focal positioning belongs to whatever COVERS, and in this component that is
-   * the thumbnail strip, not the hero. The hero contains (DEV-1407), and a
-   * contained image has no crop window to anchor — `object-position` would only
-   * slide it around inside its own letterbox.
+   * The two fill modes split by role inside this one component: the hero
+   * contains (DEV-1407, one product shown large with nothing beside it), while
+   * the thumbnail strip covers because a row of small indicative tiles reads
+   * better as a uniform strip than as a row of letterboxes.
    */
-  it("applies focal positioning to covering thumbnails but never to the contained hero", () => {
+  it("contains the hero but covers the thumbnails", () => {
     render(
       <ImageCarousel
         images={[`${ALLOWED_HOST}/logo.jpg`, `${ALLOWED_HOST}/photo.jpg`]}
@@ -157,31 +157,31 @@ describe("ImageCarousel", () => {
         brandId="brand-id"
         brandSlug="formoria"
         imageAlts={[
-          { altZh: null, altEn: null, isLogo: true, focalX: 0.1, focalY: 0.2 },
-          { altZh: null, altEn: null, isLogo: false, focalX: 0.25, focalY: 0.75 },
+          { altZh: null, altEn: null, isLogo: true },
+          { altZh: null, altEn: null, isLogo: false },
         ]}
       />,
     );
 
     const [logoHero, logoThumb, photoThumb] = images();
 
-    // Hero: contained, so no anchoring regardless of what was measured.
+    // Hero: contained whatever the image is.
     expect(logoHero).toHaveClass("object-contain");
-    expect(logoHero).not.toHaveStyle({ objectPosition: "10% 20%" });
 
-    // Thumbnails: the logo is still contained and unanchored, the photo covers
-    // and carries its measured point.
+    // Thumbnails: the logo is still contained and inset, the photo covers.
     expect(logoThumb).toHaveClass("object-contain", "p-1.5");
-    expect(logoThumb).not.toHaveStyle({ objectPosition: "10% 20%" });
     expect(photoThumb).toHaveClass("object-cover");
-    expect(photoThumb).toHaveStyle({ objectPosition: "25% 75%" });
+    // Cannot fail while the line above passes — the thumbnail class is
+    // `brandImageFill`'s return verbatim and its branches are disjoint. Kept as
+    // a guard against a future `cn('object-contain', thumbFill)` wrapper, which
+    // this line would catch and the one above would not.
+    expect(photoThumb).not.toHaveClass("object-contain");
 
-    // Advancing to the photo keeps the hero contained and unanchored — the
-    // regression this guards is a future "just use cover everywhere" change.
+    // Advancing to the photo keeps the hero contained — the regression this
+    // guards is a future "just use cover everywhere" change.
     fireEvent.click(screen.getByRole("button", { name: "gallery.next" }));
     const [photoHero] = images();
     expect(photoHero).toHaveClass("object-contain");
-    expect(photoHero).not.toHaveStyle({ objectPosition: "25% 75%" });
   });
 
   /*
@@ -209,8 +209,6 @@ describe("ImageCarousel", () => {
           altZh: null,
           altEn: null,
           isLogo: false,
-          focalX: null,
-          focalY: null,
           isOwnerSupplied,
         }))}
       />,
