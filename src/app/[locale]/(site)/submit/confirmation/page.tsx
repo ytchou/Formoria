@@ -135,8 +135,14 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
           })}
         </p>
 
-        {/* CTAs */}
-        <div className="mt-8 space-y-3">
+        {/*
+          CTAs, capped at `content-column` (28rem). The card's `prose-measure`
+          is right for the copy above it; what was wrong was letting two
+          `w-full` buttons inherit it, which drew each one ~688px wide — that
+          reads as a banner, not as a button. The cap belongs to the STACK, so
+          the card keeps its measure and the two axes stay off one element.
+        */}
+        <div className="mx-auto mt-8 content-column space-y-3">
           <Link
             href="/"
             className={buttonVariants({ variant: 'primary', className: 'w-full' })}

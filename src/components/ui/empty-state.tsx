@@ -46,7 +46,7 @@ export function EmptyState({
         </span>
       ) : null}
       <p className="type-card-title text-ink-muted">{title}</p>
-      {body ? <p className="mt-2 max-w-md type-body-sm">{body}</p> : null}
+      {body ? <p className="mt-2 content-column type-body-sm">{body}</p> : null}
       {action ? <div className="mt-6">{action}</div> : null}
     </div>
   )

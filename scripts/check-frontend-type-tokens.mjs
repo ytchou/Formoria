@@ -110,6 +110,114 @@ export const allowedMatches = [
     names: ["direct text size", "raw-type-combo"],
     values: ["text-3xl", "text-5xl", "font-bold text-foreground"],
   },
+
+  /**
+   * Page-width escapes below this line. Every one of them is a COMPONENT's own
+   * cap or a viewport clamp, never a page shell — none may be rewritten as
+   * `page-measure` / `form-measure` / `prose-measure`, which is exactly why
+   * they survive a check named for page widths. Ceiling: a row here is a
+   * standing permission for one value in one file. A new page-scale width does
+   * not belong here; it belongs in `PageShell`.
+   */
+  {
+    // `max-w-[calc(100%-2rem)]` is a VIEWPORT CLAMP, not a size. It says "never
+    // touch the screen edge" and carries whatever width the panel itself takes
+    // (`sm:overlay-panel`, one class along). Naming it as a measure would
+    // declare a width the dialog does not have. The value appears twice: once
+    // in the comment that explains it, once in the class string — this guard
+    // reads comments too.
+    file: "src/components/ui/dialog.tsx",
+    names: ["unnamed page width"],
+    values: ["max-w-[calc(100%-2rem)]"],
+  },
+  {
+    // Prose, not markup: the doc block above `PAGE_MEASURES` cites
+    // `max-w-[64rem]` as the second declaration of a measure that the component
+    // exists to prevent. The shell's own variants hold class names only.
+    // Ceiling: this permits the literal inside the file that forbids it. If
+    // `max-w-[64rem]` ever reaches real markup here, delete this row instead of
+    // widening it.
+    file: "src/components/ui/page-shell.tsx",
+    names: ["unnamed page width"],
+    values: ["max-w-[64rem]"],
+  },
+  {
+    // The share panel's own width. `21rem` pairs with the `w-[21rem]` beside it
+    // and falls between `overlay-compact` (20rem) and `overlay-panel` (24rem),
+    // so no overlay name states it; the `calc` is the same viewport clamp as
+    // `dialog.tsx`.
+    file: "src/components/brands/share-dialog.tsx",
+    names: ["unnamed page width"],
+    values: ["max-w-[calc(100%-2rem)]", "max-w-[21rem]"],
+  },
+  {
+    // The loaded half of the same share panel — same clamp, same reason.
+    file: "src/components/brands/share-dialog-content.tsx",
+    names: ["unnamed page width"],
+    values: ["max-w-[calc(100%-2rem)]"],
+  },
+  {
+    // The `!` prefix overrides `AlertDialogContent`'s built-in clamp with the
+    // identical value so the `sm:!max-w-lg` step below it wins in order; it is
+    // the same edge-gutter clamp, not a width.
+    file: "src/components/submit/SubmitOverview.tsx",
+    names: ["unnamed page width"],
+    values: ["max-w-[calc(100%-2rem)]"],
+  },
+  {
+    // The floor-map dialog is sized by the MAP's legibility, and needs a
+    // viewport-relative cap that no fixed overlay name can express:
+    // `overlay-wide` is a flat 72rem and would overflow a 1024px laptop.
+    file: "src/components/events/taiwan-creative-expo-official-map.tsx",
+    names: ["unnamed page width"],
+    values: ["max-w-[min(96vw,1100px)]"],
+  },
+  {
+    // Caps the donut GRAPHIC so it stays circular and legible inside a card of
+    // any width. A drawing's size, not a text column's.
+    file: "src/components/dashboard/analytics-donut-card.tsx",
+    names: ["unnamed page width"],
+    values: ["max-w-[280px]"],
+  },
+  {
+    // An empty state's centred body column. Its near neighbour `content-column`
+    // is 28rem/448px, so converting it is plausible but would move the rendered
+    // width by 32px — a visual change, which is out of scope for a lint gate.
+    file: "src/components/dashboard/dashboard-empty-state.tsx",
+    names: ["unnamed page width"],
+    values: ["max-w-[480px]"],
+  },
+  {
+    // Table-cell truncation caps. They bound a `<td>` so a long brand name
+    // ellipses instead of stretching its column — a cell width, which no page
+    // measure and no overlay name describes.
+    file: "src/components/admin/brand-list.tsx",
+    names: ["unnamed page width"],
+    values: ["max-w-[180px]"],
+  },
+  {
+    // Table-cell truncation caps, as `brand-list.tsx`.
+    file: "src/app/admin/submissions/submissions-review-list.tsx",
+    names: ["unnamed page width"],
+    values: ["max-w-[240px]", "max-w-[200px]"],
+  },
+  {
+    // Table-cell truncation caps, as `brand-list.tsx`.
+    file: "src/app/admin/curated-products/curated-products-list.tsx",
+    names: ["unnamed page width"],
+    values: ["max-w-[200px]", "max-w-[240px]"],
+  },
+  {
+    // Caps a single numeric `<input>` (placement position) so a 3-digit field
+    // does not stretch to the form's width. A control's size, not a page's.
+    // Note for future sweeps: this file carries a literal NUL byte in a
+    // `.join()` separator, so `rg` and `grep` classify it as binary and report
+    // ZERO matches in all 1060 lines. Only a reader that does not sniff for
+    // binary — this script, or Python — sees it.
+    file: "src/app/admin/curated-products/curated-product-editor.tsx",
+    names: ["unnamed page width"],
+    values: ["max-w-[8rem]"],
+  },
 ];
 
 export const frontendTokenChecks = [
@@ -137,6 +245,22 @@ export const frontendTokenChecks = [
     name: "raw-type-combo",
     pattern:
       /\btext-(xs|sm|base|lg|xl|[2-9]xl)\b.*\bfont-(medium|semibold|bold)\b|\bfont-(medium|semibold|bold)\b.*\btext-(xs|sm|base|lg|xl|[2-9]xl)\b/g,
+  },
+  {
+    /**
+     * PAGE-SCALE widths only. `max-w-5xl/6xl/7xl` (64/72/80rem), any
+     * `max-w-screen-*`, and any arbitrary `max-w-[…]` are sizes a component
+     * does not ask for — they are page shells, and the page has three named
+     * measures. Ten unnamed caps accumulated one reasonable-looking call site
+     * at a time and nothing noticed; this is what notices.
+     *
+     * DELIBERATELY NOT A BLANKET `max-w-*` BAN. `xs`…`4xl`, `none`, and `full`
+     * stay legal: they are how a card, a button, or a table cell sizes itself,
+     * and banning them would need ~38 allowlist rows — an allowlist that long
+     * is the drift problem wearing a lint rule's hat.
+     */
+    name: "unnamed page width",
+    pattern: /\bmax-w-(?:[5-7]xl\b|screen-[a-z0-9]+|\[[^\]]+\])/g,
   },
 ];
 
@@ -233,6 +357,11 @@ export function reportFrontendTokenFailures(failures) {
     console.error(
       "Use semantic type-* utilities, Typography/textStyles variants, and design tokens. Add an allowlist only for real platform/brand-color exceptions.",
     );
+    if (failures.some((failure) => failure.name === "unnamed page width")) {
+      console.error(
+        "For a page width use PageShell or shellStyles from src/components/ui/page-shell.tsx - page-measure (100rem), form-measure (64rem), prose-measure (48rem). For a component's own width use overlay-compact, overlay-panel, overlay-wide, or content-column. Allowlist a width only when it is neither: a viewport clamp, a graphic, or a table cell.",
+      );
+    }
     return 1;
   }
 

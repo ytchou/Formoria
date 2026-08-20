@@ -350,6 +350,72 @@
 }
 
 /*
+ * FOUR COMPONENT SIZES — A DIFFERENT AXIS FROM THE THREE MEASURES ABOVE.
+ *
+ * A measure answers "how wide is this PAGE". These four answer "how wide is
+ * this COMPONENT", which is a different question with different inputs: a
+ * confirm dialog is sized by the decision it carries and by what a floating
+ * panel is expected to look like, so it is the same width above a 100rem
+ * directory and above a 48rem story. Nothing about the page it covers may
+ * reach it. They are named for the same reason the measures are — an anonymous
+ * `sm:max-w-6xl` on one admin sheet is exactly how ten unnamed page widths
+ * accumulated — and they are deliberately NOT called `*-measure`, so that a
+ * page width and a component width can never be confused in a class string.
+ *
+ *   `overlay-compact`  20rem — an alert dialog: one sentence and two buttons.
+ *   `overlay-panel`    24rem — the default floating panel above the phone
+ *                      breakpoint: a dialog, a sheet docked to the left or
+ *                      right edge, a full-size alert dialog.
+ *   `overlay-wide`     72rem — a sheet that is a WORKSPACE rather than a
+ *                      message: the admin brand detail sheet, which holds a
+ *                      record's whole field set beside the table it opened
+ *                      from. Wide because of what it contains, not because of
+ *                      the page underneath it.
+ *   `content-column`   28rem — a short column inside a component wider than
+ *                      it: an empty state's body copy, a stack of CTA buttons
+ *                      in a card. It caps a line length and a button, never a
+ *                      page.
+ *
+ * NEVER A MEASURE AND ONE OF THESE ON THE SAME ELEMENT, and never two of
+ * these. Both set `max-width`, and the order between two custom `@utility`
+ * rules is undefined — the winner is whichever Tailwind emits last, which no
+ * call site can read and no test can pin. An element is a page shell or it is
+ * a component: if a component needs a page's width, it IS a page shell and it
+ * takes `PageShell`.
+ *
+ * A BREAKPOINT STEP IS SPELLED AT THE CALL SITE (`sm:overlay-panel`), not
+ * baked in here. That is safe where two bare custom utilities are not: a
+ * variant-prefixed utility is always sorted after an unprefixed one, so
+ * `max-w-[calc(100%-2rem)] sm:overlay-panel` resolves the same way it did when
+ * both halves were built-ins.
+ *
+ * `cn()` CANNOT SEE THESE ON ITS OWN. tailwind-merge only knows the class
+ * groups it ships with, so a call site overriding `sm:overlay-panel` with
+ * `sm:max-w-lg` would keep BOTH unless it is told they collide — which is why
+ * all four names are registered into the `max-w` group in `src/lib/utils`. A
+ * name added here without an entry there silently stops being overridable.
+ *
+ * LITERALS, NOT `var()`, for the same reason as the measures: a custom
+ * property is an override seam any ancestor can redeclare from a part of the
+ * cascade the call site cannot see.
+ */
+@utility overlay-compact {
+  max-width: 20rem;
+}
+
+@utility overlay-panel {
+  max-width: 24rem;
+}
+
+@utility overlay-wide {
+  max-width: 72rem;
+}
+
+@utility content-column {
+  max-width: 28rem;
+}
+
+/*
  * COMPOSES `page-gutter` instead of restating its two steps: written out, the
  * shared half would be a byte-identical copy a few lines from the original, and
  * the next edit to the gutter would land on only one of them.
