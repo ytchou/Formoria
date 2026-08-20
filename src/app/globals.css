@@ -287,6 +287,70 @@
 }
 
 /*
+ * THREE MEASURES, THREE JOBS. Nothing else may name a page width.
+ *
+ * The public site carried ten unnamed horizontal widths — 96/80/72/64/57.5/48/
+ * 42rem plus a handful of in-flow caps — none of which said what they were for.
+ * The visible cost: at 1920px the sticky header's content began 360px from the
+ * viewport edge while the landing bands began at 200px, a 160px seam down one
+ * page. Three names is the fewest that still distinguishes a job.
+ *
+ *   `page-measure`   100rem — discovery and chrome: directory, landing bands,
+ *                    header, footer. Still the `var()` declared below; it
+ *                    becomes this literal in a later wave.
+ *   `form-measure`    64rem — a page whose content IS a form.
+ *   `prose-measure`   48rem — a reading page, and any reading column inside a
+ *                    wider page.
+ *
+ * LITERALS, NOT `var()`. A custom property is an override seam: any ancestor
+ * rule, inline style or later stylesheet can redeclare it and silently
+ * re-measure everything beneath, from a part of the cascade the call site
+ * cannot see. A literal inside `@utility` can only be changed on this line, in
+ * this file. That is the point, and it is why `--page-measure` below is
+ * deliberately the opposite — that one is a var BECAUSE the page is meant to
+ * override it for the footer.
+ *
+ * ONE NAME FOR ONE NUMBER. `prose-measure` is both a reading page's shell and a
+ * reading cap nested inside a wider page, because both are the same 48rem and a
+ * second name would drift away from the first the week after it was added. Read
+ * the SHAPE, not the name: `mx-auto prose-measure` alongside a gutter is a page
+ * shell; a bare `prose-measure` on a child is an inner cap.
+ *
+ * NEVER TWO `*-measure` CLASSES ON ONE ELEMENT. Both set `max-width`, and the
+ * ordering between two custom `@utility` rules is undefined — the winner is
+ * whichever Tailwind happens to emit last, which no call site can read and no
+ * test can pin.
+ *
+ * WHY ONLY `page` GETS A 1280px GUTTER STEP. The edge was proportionally
+ * TIGHTER on a laptop than on a phone: 2.8% of the viewport at 1440px against
+ * 6.4% at 375px. Only the widest surfaces feel that, and `form`/`prose` bind at
+ * 1024px and 768px — by the time a viewport reaches 1280px their columns are
+ * already capped, so a bigger gutter there would not move the edge, it would
+ * only shrink the column the gutter exists to frame.
+ */
+@utility form-measure {
+  max-width: 64rem;
+}
+
+@utility prose-measure {
+  max-width: 48rem;
+}
+
+/*
+ * COMPOSES `page-gutter` instead of restating its two steps, for exactly the
+ * reason `page-shell` gives below: written out, the shared half would be a
+ * byte-identical copy a few lines from the original, and the next edit to the
+ * gutter would land on only one of them.
+ */
+@utility page-gutter-wide {
+  @apply page-gutter;
+
+  @media (width >= 80rem) {
+    padding-inline: calc(var(--spacing) * 16);
+  }
+}
+
+/*
  * The landing page's shared measure: `page-gutter` plus a 100rem cap, centred.
  *
  * ONE declaration, because every landing section has to agree with the product
