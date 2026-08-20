@@ -19,6 +19,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
+import { PageShell } from '@/components/ui/page-shell'
 import { Check, Info, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { routes } from '@/lib/routes'
@@ -92,8 +93,8 @@ export default function SubmitOverview({
   }
 
   return (
-    <main className="page-gutter mx-auto max-w-5xl py-20">
-      <div className="max-w-3xl">
+    <PageShell as="main" measure="form" className="py-20">
+      <div className="prose-measure">
         <h1 className="text-balance type-page-title">{t('heading')}</h1>
         <p className="mt-4 type-body-sm">{t('description')}</p>
       </div>
@@ -244,6 +245,6 @@ export default function SubmitOverview({
           </section>
         )}
       </div>
-    </main>
+    </PageShell>
   )
 }

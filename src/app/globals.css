@@ -287,69 +287,148 @@
 }
 
 /*
- * The landing page's shared measure: `page-gutter` plus a 100rem cap, centred.
+ * THREE MEASURES, THREE JOBS. Nothing else may name a page width.
  *
- * ONE declaration, because every landing section has to agree with the product
- * wall down to the pixel — a section 8px narrower than the wall above it reads
- * as a mistake, and three copies of `mx-auto max-w-[100rem] page-gutter`
- * scattered across four files drift the moment one of them is edited. Change
- * the cap here and the whole page moves together.
+ * The public site carried ten unnamed horizontal widths — 96/80/72/64/57.5/48/
+ * 42rem plus a handful of in-flow caps — none of which said what they were for.
+ * The visible cost: at 1920px the sticky header's content began 360px from the
+ * viewport edge while the landing bands began at 200px, a 160px seam down one
+ * page. Three names is the fewest that still distinguishes a job.
  *
- * At 1920px this leaves 160px each side. The narrower `max-w-6xl` (72rem) that
- * several of these sections used to carry left 384px, which made every band
- * look inset from the wall.
+ *   `page-measure`   100rem — discovery and chrome: directory, landing bands,
+ *                    header, footer.
+ *   `form-measure`    64rem — a page whose content IS a form.
+ *   `prose-measure`   48rem — a reading page, and any reading column inside a
+ *                    wider page.
  *
- * It COMPOSES `page-gutter` rather than restating it. The two declarations were
- * byte-identical copies twenty lines apart, so a change to the gutter silently
- * applied to every non-landing route and to nothing on the landing page.
+ * A PAGE PICKS ONE; IT NEVER SPELLS A WIDTH ITSELF. The choice a route makes is
+ * which of three jobs it is doing, not how many rem that job is worth — so no
+ * call site carries a number, and changing one of the three is an edit to one
+ * line here rather than a sweep of the call sites that guessed it.
+ *
+ * LITERALS, NOT `var()`. A custom property is an override seam: any ancestor
+ * rule, inline style or later stylesheet can redeclare it and silently
+ * re-measure everything beneath, from a part of the cascade the call site
+ * cannot see. That unlimited customization is exactly what these three names
+ * remove. A literal inside `@utility` can only be changed on this line, in this
+ * file.
+ *
+ * ONE MEASURE FOR CHROME AND CONTENT. The header, the footer and every
+ * discovery `<main>` now carry the same `page-measure`. Holding the chrome out
+ * at its own narrower width is what put the 160px seam down the landing page at
+ * 1920px; sharing one name is what closed it, and is why the footer no longer
+ * needs to learn anything about the route rendered above it.
+ *
+ * ONE NAME FOR ONE NUMBER. `prose-measure` is both a reading page's shell and a
+ * reading cap nested inside a wider page, because both are the same 48rem and a
+ * second name would drift away from the first the week after it was added. Read
+ * the SHAPE, not the name: `mx-auto prose-measure` alongside a gutter is a page
+ * shell; a bare `prose-measure` on a child is an inner cap.
+ *
+ * NEVER TWO `*-measure` CLASSES ON ONE ELEMENT. Both set `max-width`, and the
+ * ordering between two custom `@utility` rules is undefined — the winner is
+ * whichever Tailwind happens to emit last, which no call site can read and no
+ * test can pin.
+ *
+ * WHY ONLY `page` GETS A 1280px GUTTER STEP. The edge was proportionally
+ * TIGHTER on a laptop than on a phone: 2.8% of the viewport at 1440px against
+ * 6.4% at 375px. Only the widest surfaces feel that, and `form`/`prose` bind at
+ * 1024px and 768px — by the time a viewport reaches 1280px their columns are
+ * already capped, so a bigger gutter there would not move the edge, it would
+ * only shrink the column the gutter exists to frame.
  */
-@utility page-shell {
-  @apply page-gutter;
-
-  margin-inline: auto;
+@utility page-measure {
   max-width: 100rem;
 }
 
+@utility form-measure {
+  max-width: 64rem;
+}
+
+@utility prose-measure {
+  max-width: 48rem;
+}
+
 /*
- * THE FOOTER FOLLOWS THE PAGE IT SITS UNDER.
+ * FOUR COMPONENT SIZES — A DIFFERENT AXIS FROM THE THREE MEASURES ABOVE.
  *
- * The footer is rendered by the site layout, so it cannot know its route — and
- * a `usePathname()` check there would turn a static server component into a
- * client one to answer a question that is purely presentational. Instead the
- * measure is a custom property: 80rem by default, which is what every
- * non-landing `<main>` carries, and 100rem when the page below declares itself
- * wide with `data-page-measure="wide"` (the landing page does).
+ * A measure answers "how wide is this PAGE". These four answer "how wide is
+ * this COMPONENT", which is a different question with different inputs: a
+ * confirm dialog is sized by the decision it carries and by what a floating
+ * panel is expected to look like, so it is the same width above a 100rem
+ * directory and above a 48rem story. Nothing about the page it covers may
+ * reach it. They are named for the same reason the measures are — an anonymous
+ * built-in 72rem step, dropped on one admin sheet at the `sm` breakpoint, is
+ * exactly how ten unnamed page widths accumulated — and they are deliberately
+ * NOT called `*-measure`, so that a page width and a component width can never
+ * be confused in a class string. (That step is described rather than typed:
+ * Tailwind scans this file's comments as content, and a class name written out
+ * in prose emits a real rule nothing uses.)
  *
- * `:has()` reads DOWN the tree, which is what makes a child able to set a value
- * its PARENT's other subtree reads. If `:has()` is unsupported the rule simply
- * never matches and the footer keeps the 80rem default — the pre-existing
- * alignment for every route but one, never a broken layout.
+ *   `overlay-compact`  20rem — an alert dialog: one sentence and two buttons.
+ *   `overlay-panel`    24rem — the default floating panel above the phone
+ *                      breakpoint: a dialog, a sheet docked to the left or
+ *                      right edge, a full-size alert dialog.
+ *   `overlay-wide`     72rem — a sheet that is a WORKSPACE rather than a
+ *                      message: the admin brand detail sheet, which holds a
+ *                      record's whole field set beside the table it opened
+ *                      from. Wide because of what it contains, not because of
+ *                      the page underneath it.
+ *   `content-column`   28rem — a short column inside a component wider than
+ *                      it: an empty state's body copy, a stack of CTA buttons
+ *                      in a card. It caps a line length and a button, never a
+ *                      page.
  *
- * Every `<main>` now reads the same property through `page-measure` below.
- * Before that only the footer honoured it, and thirty hard-coded 80rem
- * declarations across twenty-eight files were the real measure — so widening
- * the token moved the footer and nothing above it.
+ * NEVER A MEASURE AND ONE OF THESE ON THE SAME ELEMENT, and never two of
+ * these. Both set `max-width`, and the order between two custom `@utility`
+ * rules is undefined — the winner is whichever Tailwind emits last, which no
+ * call site can read and no test can pin. An element is a page shell or it is
+ * a component: if a component needs a page's width, it IS a page shell and it
+ * takes `PageShell`.
  *
- * The sticky header is deliberately NOT wired to this: it stays at 80rem on
- * every route, because a header that changes width between routes reads as the
- * page jumping. `header-measure` is that fixed cap, named rather than spelled
- * `max-w-[80rem]` in two files, so the exclusion reads as a decision.
+ * A BREAKPOINT STEP IS SPELLED AT THE CALL SITE (`sm:overlay-panel`), not
+ * baked in here. That is safe where two bare custom utilities are not: a
+ * variant-prefixed utility is always sorted after an unprefixed one, so
+ * `max-w-[calc(100%-2rem)] sm:overlay-panel` resolves the same way it did when
+ * both halves were built-ins.
+ *
+ * `cn()` CANNOT SEE THESE ON ITS OWN. tailwind-merge only knows the class
+ * groups it ships with, so a call site overriding `sm:overlay-panel` with
+ * `sm:max-w-lg` would keep BOTH unless it is told they collide — which is why
+ * all four names are registered into the `max-w` group in `src/lib/utils`. A
+ * name added here without an entry there silently stops being overridable.
+ *
+ * LITERALS, NOT `var()`, for the same reason as the measures: a custom
+ * property is an override seam any ancestor can redeclare from a part of the
+ * cascade the call site cannot see.
  */
-:root {
-  --page-measure: 80rem;
-  --header-measure: 80rem;
+@utility overlay-compact {
+  max-width: 20rem;
 }
 
-body:has([data-page-measure="wide"]) {
-  --page-measure: 100rem;
+@utility overlay-panel {
+  max-width: 24rem;
 }
 
-@utility page-measure {
-  max-width: var(--page-measure);
+@utility overlay-wide {
+  max-width: 72rem;
 }
 
-@utility header-measure {
-  max-width: var(--header-measure);
+@utility content-column {
+  max-width: 28rem;
+}
+
+/*
+ * COMPOSES `page-gutter` instead of restating its two steps: written out, the
+ * shared half would be a byte-identical copy a few lines from the original, and
+ * the next edit to the gutter would land on only one of them.
+ */
+@utility page-gutter-wide {
+  @apply page-gutter;
+
+  @media (width >= 80rem) {
+    padding-inline: calc(var(--spacing) * 16);
+  }
 }
 
 /*

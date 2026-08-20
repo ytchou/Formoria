@@ -5,6 +5,7 @@ import { Link } from "@/i18n/navigation";
 import { OwnerBenefitsSection } from "@/components/getting-started/OwnerBenefitsSection";
 import { buttonVariants } from "@/components/ui/button";
 import { surfaceCardStyles } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
 import { buildOpenGraph } from "@/lib/seo/open-graph";
@@ -61,12 +62,12 @@ export default async function GettingStartedPage({ params }: PageProps) {
   };
 
   return (
-    <main className="page-gutter mx-auto w-full page-measure py-10">
+    <PageShell as="main" measure="page" className="py-10">
       <section className="grid gap-8 border-b border-border pb-10 md:grid-cols-[minmax(0,1fr)_18rem] md:items-end">
-        <div className="max-w-3xl">
+        <div className="prose-measure">
           <p className="type-eyebrow">{t("hero.eyebrow")}</p>
           <h1 className="mt-3 type-display">{t("hero.title")}</h1>
-          <p className="mt-4 max-w-2xl type-body">{t("hero.intro")}</p>
+          <p className="mt-4 type-body">{t("hero.intro")}</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row md:flex-col">
           <Link
@@ -122,7 +123,10 @@ export default async function GettingStartedPage({ params }: PageProps) {
 
       <section className="grid gap-8 border-t border-border py-10 md:grid-cols-[18rem_minmax(0,1fr)]">
         <h2 className="type-section">{t("tips.heading")}</h2>
-        <ul className="grid gap-3">
+        {/* The reading track of a two-track section. Nothing above it caps a
+            width, so uncapped it takes the page measure less the 18rem heading
+            rail — about 1150px of unbroken line at 1920. */}
+        <ul className="prose-measure grid gap-3">
           {tips.map((tip) => (
             <li key={tip} className="flex gap-3 type-body-sm">
               <CheckCircle2
@@ -148,7 +152,7 @@ export default async function GettingStartedPage({ params }: PageProps) {
       >
         <div>
           <h2 className="type-section">{t("cta.heading")}</h2>
-          <p className="mt-2 type-body-sm">{t("cta.body")}</p>
+          <p className="mt-2 prose-measure type-body-sm">{t("cta.body")}</p>
         </div>
         <div className="mt-5 flex flex-col gap-3 sm:flex-row md:mt-0">
           <Link
@@ -165,6 +169,6 @@ export default async function GettingStartedPage({ params }: PageProps) {
           </Link>
         </div>
       </section>
-    </main>
+    </PageShell>
   );
 }

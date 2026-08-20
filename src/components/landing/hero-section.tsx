@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { Link } from '@/i18n/navigation'
 import { getTranslations } from 'next-intl/server'
 import { SearchInput } from '@/components/brands/search-input'
+import { PageShell } from '@/components/ui/page-shell'
 import { routes } from '@/lib/routes'
 
 /**
@@ -28,11 +29,19 @@ export default async function HeroSection() {
   const t = await getTranslations('landing.hero')
 
   return (
-    <section className="page-shell py-section">
-      {/* `max-w-4xl` (56rem) against the 100rem shell: the lede wraps at a
-          readable measure while the display line still runs long enough to
-          read as a headline rather than as a stacked column of characters. */}
-      <div className="max-w-4xl">
+    <PageShell as="section" measure="page" className="py-section">
+      {/* WAS a 56rem cap of its own, held against the 100rem shell so the
+          lede wrapped at a readable measure while the display line still ran
+          long enough to read as a headline rather than as a stacked column of
+          characters. That fourth width is no longer available: the page runs
+          on three named measures, and the reading one is 48rem. The opener is
+          8rem narrower now, and the EN headline stopped fitting on one line —
+          but the remedy was balance, not width. `text-balance` on the h1 splits
+          it into even lines instead of dropping a one-word orphan, so the
+          display line stays bounded by prose-measure like every other node in
+          here. Do not add a fourth measure for a wrap, and never re-inline an
+          anonymous cap. */}
+      <div className="prose-measure">
         {/* A `span`, not a `p`. DEV-1320 requires the positioning line to be
             the FIRST paragraph in the document — Google lifted a rotating brand
             blurb as the homepage snippet when it was not — and an eyebrow
@@ -43,22 +52,22 @@ export default async function HeroSection() {
         {/* The consumer promise, verbatim. `type-display` from `md` up; the
             page-title role below it, because 46px zh-TW characters overflow a
             390px viewport at this string's length. */}
-        <h1 className="mt-4 type-page-title md:type-display">{t('headline')}</h1>
+        <h1 className="mt-4 type-page-title md:type-display text-balance">{t('headline')}</h1>
 
         {/* FIRST PROSE NODE, AND IT STAYS THAT WAY (DEV-1320). Google lifted a
             rotating brand blurb as the homepage snippet when it was not, and
             seo.spec.ts asserts this exact string is visible on `/`. The lede
             under it is the mock's editorial copy, which is longer and cannot
             take this position. */}
-        <p className="mt-6 max-w-2xl type-body text-ink-soft">
+        <p className="mt-6 type-body text-ink-soft">
           {t('subheadline')}
         </p>
-        <p className="mt-3 max-w-2xl type-body text-ink-soft">{t('lede')}</p>
+        <p className="mt-3 type-body text-ink-soft">{t('lede')}</p>
 
         {/* One control, one alternative. The field redirects to
             /brands?search=, which is the exact entry point the WebSite JSON-LD
             declares as its SearchAction. */}
-        <div className="mt-8 flex w-full max-w-3xl flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-6">
+        <div className="mt-8 flex w-full flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-6">
           {/* SearchInput reads useSearchParams, which bails out of static
               prerendering unless it sits under a Suspense boundary. The
               fallback reserves the field's height so the opener does not
@@ -90,6 +99,6 @@ export default async function HeroSection() {
           </div>
         </div>
       </div>
-    </section>
+    </PageShell>
   )
 }

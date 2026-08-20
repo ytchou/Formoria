@@ -27,7 +27,7 @@ export function BrandDetailSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="gap-0 p-0 data-[side=right]:w-[calc(100vw-1rem)] data-[side=right]:max-w-none data-[side=right]:sm:w-3/4 data-[side=right]:sm:max-w-6xl"
+        className="gap-0 p-0 data-[side=right]:w-[calc(100vw-1rem)] data-[side=right]:max-w-none data-[side=right]:sm:w-3/4 data-[side=right]:sm:overlay-wide"
       >
         <SheetHeader className="border-b p-5 pr-16">
           <SheetTitle>{title}</SheetTitle>

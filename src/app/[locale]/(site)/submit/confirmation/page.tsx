@@ -6,6 +6,7 @@ import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
+import { PageShell } from '@/components/ui/page-shell'
 import { routes } from '@/lib/routes'
 
 type ConfirmationPageProps = {
@@ -51,10 +52,13 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
   const isOwnerIntent = intent === 'owner_claim'
 
   return (
-    <div className="page-gutter flex min-h-screen items-center justify-center py-12">
+    <PageShell
+      measure="form"
+      className="flex min-h-screen items-center justify-center py-12"
+    >
       <div
         className={surfaceCardStyles({
-          className: 'w-full max-w-[560px] rounded-2xl p-10',
+          className: 'w-full prose-measure rounded-2xl p-10',
           padding: 'none',
           tone: 'white',
         })}
@@ -131,8 +135,14 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
           })}
         </p>
 
-        {/* CTAs */}
-        <div className="mt-8 space-y-3">
+        {/*
+          CTAs, capped at `content-column` (28rem). The card's `prose-measure`
+          is right for the copy above it; what was wrong was letting two
+          `w-full` buttons inherit it, which drew each one ~688px wide — that
+          reads as a banner, not as a button. The cap belongs to the STACK, so
+          the card keeps its measure and the two axes stay off one element.
+        */}
+        <div className="mx-auto mt-8 content-column space-y-3">
           <Link
             href="/"
             className={buttonVariants({ variant: 'primary', className: 'w-full' })}
@@ -149,6 +159,6 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
           </Link>
         </div>
       </div>
-    </div>
+    </PageShell>
   )
 }

@@ -13,6 +13,7 @@ import { StoryRow } from "@/components/stories/story-row";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageShell } from "@/components/ui/page-shell";
 import { textStyles } from "@/components/ui/text-styles";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { safeDecodeSlug } from "@/lib/url";
@@ -316,7 +317,7 @@ export default async function EventDetailPage({ params }: PageProps) {
   );
 
   return (
-    <main className="page-gutter mx-auto w-full page-measure pt-12 pb-section">
+    <PageShell as="main" measure="page" className="pt-12 pb-section">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(eventJsonLd) }}
@@ -367,10 +368,13 @@ export default async function EventDetailPage({ params }: PageProps) {
             ) : null}
           </div>
           <h1 className="type-page-title text-balance">{name}</h1>
-          {/* Full measure, not `max-w-2xl`: the summary is one or two lines of
-              scene-setting, not body copy, and a half-width block under a
-              full-width `h1` read as an unfinished column. */}
-          <p className="max-w-[46rem] type-body text-ink-soft">{summary}</p>
+          {/* The reading measure, not the page's: at 100rem an uncapped line
+              here would run the full width of the container, and the summary
+              is read rather than scanned. It is still deliberately WIDER than
+              the block it replaced — a half-width column under a full-width
+              `h1` read as unfinished — the hand-picked 46rem just said that
+              with a number nothing else on the site shared. */}
+          <p className="prose-measure type-body text-ink-soft">{summary}</p>
         </header>
 
         {heroSrc ? (
@@ -642,6 +646,6 @@ export default async function EventDetailPage({ params }: PageProps) {
           )}
         </section>
       </article>
-    </main>
+    </PageShell>
   );
 }

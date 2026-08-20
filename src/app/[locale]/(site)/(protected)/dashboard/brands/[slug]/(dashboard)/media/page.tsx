@@ -76,12 +76,13 @@ export default async function MediaPage({ params }: Props) {
                      * The old 176px cited `max-w-md`, which is on the hero
                      * preview's SIBLING div above, not on any ancestor of this
                      * grid. The real column is the dashboard `<main>`'s
-                     * `page-measure` (80rem), so a four-up cell is ~280px and
-                     * every thumbnail was being requested at a size it then had
-                     * to upscale. The vw steps read slightly high because they
-                     * ignore the gutters, which is the safe direction for a hint.
+                     * `page-measure` — 100rem since DEV-1529, so 1472px of
+                     * content once the wide gutter is taken off, and a four-up
+                     * cell is ~368px rather than the ~280px it was at 80rem.
+                     * The vw steps read slightly high because they ignore the
+                     * gutters, which is the safe direction for a hint.
                      */
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 288px"
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 368px"
                     src={photo}
                   />
                 </div>

@@ -1,3 +1,5 @@
+import { PageShell } from "@/components/ui/page-shell";
+
 import {
   AboutCard,
   AboutCardContent,
@@ -24,11 +26,11 @@ export default function MissionPillars({
 }: MissionPillarsProps) {
   return (
     <section className="py-section">
-      <div className="page-gutter mx-auto max-w-6xl">
+      <PageShell measure="page">
         <h2 className="type-page-title text-balance">{heading}</h2>
         <div className="mt-8 space-y-6">
-          <p className="type-section text-balance">{statement}</p>
-          <p className="type-body text-pretty">{context}</p>
+          <p className="prose-measure type-section text-balance">{statement}</p>
+          <p className="prose-measure type-body text-pretty">{context}</p>
         </div>
         <AboutCardGrid>
           {pillars.map((pillar, index) => (
@@ -41,7 +43,7 @@ export default function MissionPillars({
             </AboutCard>
           ))}
         </AboutCardGrid>
-      </div>
+      </PageShell>
     </section>
   );
 }

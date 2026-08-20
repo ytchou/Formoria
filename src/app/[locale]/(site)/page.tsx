@@ -209,12 +209,7 @@ export default async function LandingPage({ params }: PageProps) {
           __html: safeJsonLdStringify(organizationJsonLd),
         }}
       />
-      {/* `data-page-measure="wide"` is read by a `:has()` rule in globals.css
-          and raises `--page-measure` to the 100rem `page-shell` measure this
-          page uses, so the footer below lines up with the wall rather than with
-          the 80rem every other route caps at. Declarative on purpose: the
-          footer stays a server component with no route check of its own. */}
-      <main data-page-measure="wide">
+      <main>
         <LandingZones
           locale={safeLocale}
           hero={<HeroSection />}

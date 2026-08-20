@@ -4,6 +4,7 @@ import { Building2, HelpCircle, Lightbulb, Mail } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
+import { PageShell } from '@/components/ui/page-shell'
 import { CONTACT_EMAILS } from '@/lib/constants'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
@@ -72,12 +73,12 @@ export default async function ContactPage({ params }: PageProps) {
   })
 
   return (
-    <main className="page-gutter mx-auto w-full page-measure py-10">
+    <PageShell as="main" measure="page" className="py-10">
       <section className="border-b border-border pb-10">
-        <div className="max-w-3xl">
+        <div className="prose-measure">
           <p className="type-eyebrow">{t('hero.eyebrow')}</p>
           <h1 className="mt-3 type-display">{t('hero.title')}</h1>
-          <p className="mt-4 max-w-2xl type-body">{t('hero.intro')}</p>
+          <p className="mt-4 type-body">{t('hero.intro')}</p>
         </div>
       </section>
 
@@ -107,6 +108,6 @@ export default async function ContactPage({ params }: PageProps) {
           ))}
         </div>
       </section>
-    </main>
+    </PageShell>
   )
 }

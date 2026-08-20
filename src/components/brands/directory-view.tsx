@@ -35,6 +35,8 @@ import type { PublicBrandCard } from '@/lib/brands/contracts'
 import { DirectoryLandingHead, DirectoryResultStatus } from './directory-landing-head'
 import { routes } from '@/lib/routes'
 import { Grid } from '@/components/ui/grid'
+import { shellStyles } from '@/components/ui/page-shell'
+import { cn } from '@/lib/utils'
 
 const EMPTY_STATE_RECOMMENDATION_LIMIT = 4
 const VALID_CATEGORY_SLUGS: ReadonlySet<string> = new Set(L1_CATEGORIES.map((category) => category.slug))
@@ -336,7 +338,7 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, in
       <Grid
         as="main"
         cols="sidebar"
-        className="page-gutter mx-auto w-full page-measure py-10"
+        className={cn(shellStyles({ measure: 'page' }), 'py-10')}
       >
         <script
           type="application/ld+json"

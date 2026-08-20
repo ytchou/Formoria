@@ -2,6 +2,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { getFooterFullDocumentHref } from "./footer-links";
 import { routes } from "@/lib/routes";
+import { PageShell } from "@/components/ui/page-shell";
 
 /**
  * The footer is the page's one ink ground, so every colour here comes from the
@@ -25,14 +26,14 @@ export function Footer() {
 
   return (
     <footer role="contentinfo" className="bg-ink py-section">
-      {/* Not `page-shell`: that is a fixed 100rem, and every non-landing
-          `<main>` caps at 80rem, so a fixed footer measure diverged from the
-          content above it by up to 160px on `/brands`, `/about` and the rest.
-          `page-measure` reads `--page-measure` from globals.css, which defaults
-          to 80rem; the landing page raises it to 100rem by marking its `<main>`
-          with `data-page-measure="wide"`. The `<main>` elements now read the
-          same utility, so the footer and the page above it move together. */}
-      <div className="page-gutter mx-auto w-full page-measure">
+      {/* THE SAME SHELL AS THE PAGE ABOVE IT, and no route knowledge of its
+          own. The footer is rendered by the site layout, so it cannot know its
+          route; it used to track the page through an overridable custom
+          property because the measures disagreed — a fixed footer cap sat up to
+          160px away from the content above it. Every discovery `<main>` reads
+          `page-measure` now, so following the page is just reading the same
+          shell, and the property is gone. */}
+      <PageShell measure="page">
         <div className="flex flex-col gap-stack lg:flex-row lg:gap-16">
           {/* The wordmark and the consumer promise. The content face
               (`font-ming`) on both: this is the only content on the page's
@@ -151,7 +152,7 @@ export function Footer() {
           </p>
           <p className="type-metadata text-on-ink-muted">{t("disclosure")}</p>
         </div>
-      </div>
+      </PageShell>
     </footer>
   );
 }

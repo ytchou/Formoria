@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 import { Check } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
+import { PageShell } from '@/components/ui/page-shell'
 import { Link } from '@/i18n/navigation'
 import { cn } from '@/lib/utils'
 import { routes } from '@/lib/routes'
@@ -12,8 +13,8 @@ export default function OwnerForkClient() {
   const t = useTranslations('submit')
 
   return (
-    <main className="page-gutter mx-auto max-w-5xl py-20">
-      <div className="max-w-3xl">
+    <PageShell as="main" measure="form" className="py-20">
+      <div className="prose-measure">
         <h1 className="text-balance type-page-title">
           {t('ownerFork.heading')}
         </h1>
@@ -93,6 +94,6 @@ export default function OwnerForkClient() {
           </Link>
         </section>
       </div>
-    </main>
+    </PageShell>
   )
 }

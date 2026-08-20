@@ -78,7 +78,7 @@ export function BrandFaqAccordion({
                 element, so the whole visual row is the hit target (~62px, over
                 the 44px minimum) and the focus ring wraps it. The answer
                 carries the closing padding the <details> used to. */}
-            <p className="pb-5 type-body-sm">
+            <p className="pb-5 prose-measure type-body-sm">
               {renderLinkedText(item.answer)}
             </p>
           </details>

@@ -16,6 +16,7 @@ import { categoryLabel } from '@/lib/taxonomy/ontology'
 import { buildCategoryTabTarget } from './category-tab-target'
 import { cn } from '@/lib/utils'
 import { routes } from '@/lib/routes'
+import { PageShell } from '@/components/ui/page-shell'
 
 /**
  * One tab's classes. These are raw anchors rather than `Button` links because
@@ -110,15 +111,18 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
   }
 
   return (
-    // `header-measure`, not `page-measure`: this row is part of the sticky
-    // header, which is deliberately excluded from the landing page's wider
-    // measure. See the comment beside `--page-measure` in globals.css.
+    // `PageShell`: this row is part of the sticky header, which carries no
+    // measure of its own — header and content read the same shell, so they
+    // share a left edge at every breakpoint, gutter step included. See the
+    // three-measures comment in globals.css.
     // NAMED, because it is no longer the header's only navigation landmark and
     // is no longer suppressed on `/` — three unnamed `nav` elements in one
     // banner are three identical entries in a landmark list.
-    <nav
+    <PageShell
+      as="nav"
+      measure="page"
       aria-label={t('categories')}
-      className="page-gutter mx-auto header-measure overflow-x-hidden"
+      className="overflow-x-hidden"
     >
       {/* One row that scrolls horizontally on a phone rather than wrapping:
           thirteen zh-TW labels wrap to three lines at 375px and push the page
@@ -165,18 +169,22 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
           />
         )}
       </div>
-    </nav>
+    </PageShell>
   )
 }
 
 function NavCategoryTabsFallback() {
   return (
-    <nav
+    // The same shell as the live row above, because a fallback at a different
+    // width shifts the header's left edge while the row resolves.
+    <PageShell
+      as="nav"
+      measure="page"
       aria-hidden="true"
-      className="page-gutter mx-auto header-measure overflow-x-hidden"
+      className="overflow-x-hidden"
     >
       <div className="min-h-(--nav-row-categories)" />
-    </nav>
+    </PageShell>
   )
 }
 

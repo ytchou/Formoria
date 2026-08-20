@@ -36,6 +36,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
+import { PageShell } from "@/components/ui/page-shell";
 import { Textarea } from "@/components/ui/textarea";
 import { TurnstileWidget } from "@/components/submit/TurnstileWidget";
 import { cn } from "@/lib/utils";
@@ -378,7 +379,7 @@ export default function SubmitForm({
     isSubmitting;
 
   return (
-    <div className="page-gutter mx-auto max-w-5xl py-20">
+    <PageShell measure="form" className="py-20">
       <div className="mb-10">
         <h1 className="text-balance text-center type-page-title">
           {tForm("heading")}
@@ -689,6 +690,6 @@ export default function SubmitForm({
           />
         </div>
       </StandardForm>
-    </div>
+    </PageShell>
   );
 }

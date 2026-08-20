@@ -55,7 +55,11 @@ export function SectionHeader({
         <h2 id={id} className="type-page-title">
           {heading}
         </h2>
-        {note ? <p className="mt-2 max-w-2xl type-body-sm">{note}</p> : null}
+        {note ? (
+          // `prose-measure`, the one reading width — the note is a sentence of
+          // body copy under a page title, and its band is as wide as the page.
+          <p className="prose-measure mt-2 type-body-sm">{note}</p>
+        ) : null}
       </div>
 
       {linkHref && linkLabel ? (

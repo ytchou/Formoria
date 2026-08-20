@@ -2,6 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { buttonVariants } from '@/components/ui/button'
+import { PageShell } from '@/components/ui/page-shell'
 import { cn } from '@/lib/utils'
 import { routes } from '@/lib/routes'
 
@@ -9,7 +10,13 @@ export default function EventNotFound() {
   const t = useTranslations('events')
 
   return (
-    <main className="page-gutter mx-auto flex page-measure flex-col items-center justify-center py-section text-center">
+    // `prose`, as at every error boundary: a centred message reads at the
+    // reading measure, not across the full discovery width.
+    <PageShell
+      as="main"
+      measure="prose"
+      className="flex flex-col items-center justify-center py-section text-center"
+    >
       <h1 className="type-section">{t('notFound.title')}</h1>
       <p className="mt-3 type-body-sm">{t('notFound.description')}</p>
       {/* A raw `<a>`, not next/link. DEV-1280: full-document navigation avoids a
@@ -24,6 +31,6 @@ export default function EventNotFound() {
       >
         {t('notFound.browseAll')}
       </a>
-    </main>
+    </PageShell>
   )
 }

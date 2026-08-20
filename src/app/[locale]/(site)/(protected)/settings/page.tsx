@@ -4,6 +4,7 @@ import { getProfile } from "@/lib/services/profiles";
 import { getNewsletterPreferenceByEmail } from "@/lib/services/newsletter";
 import { getLifecycleEmailPreference } from "@/lib/services/email-lifecycle";
 import { SettingsForm } from "@/components/settings/settings-form";
+import { PageShell } from "@/components/ui/page-shell";
 import { requireUserPage } from "@/lib/auth/require-user";
 import { routes } from "@/lib/routes";
 
@@ -37,7 +38,7 @@ export default async function SettingsPage({ params, searchParams }: Props) {
   ]);
 
   return (
-    <div className="page-gutter mx-auto max-w-2xl py-section">
+    <PageShell measure="form" className="py-section">
       <h1 className="type-page-title">
         {t("heading")}
       </h1>
@@ -58,6 +59,6 @@ export default async function SettingsPage({ params, searchParams }: Props) {
           lifecycleOptedIn={lifecyclePreference.isOptedIn}
         />
       </div>
-    </div>
+    </PageShell>
   );
 }

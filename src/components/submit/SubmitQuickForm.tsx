@@ -28,6 +28,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageShell } from "@/components/ui/page-shell";
 import { Textarea } from "@/components/ui/textarea";
 import { Link, useRouter } from "@/i18n/navigation";
 import { trackSubmissionCompleted } from "@/lib/analytics";
@@ -221,7 +222,7 @@ export default function SubmitQuickForm() {
   const isSubmitDisabled = !isValid || !pdpaConsent || isSubmitting;
 
   return (
-    <div className="page-gutter mx-auto max-w-2xl py-12">
+    <PageShell measure="form" className="py-12">
       <div className="mb-8">
         <h1 className="text-balance text-center type-section">
           {t("quickForm.heading")}
@@ -443,6 +444,6 @@ export default function SubmitQuickForm() {
           />
         </StandardFormStack>
       </StandardForm>
-    </div>
+    </PageShell>
   );
 }

@@ -170,20 +170,26 @@ export function createStoryComponentMap({
         ...props,
         className: cn('mt-6 mb-2 scroll-mt-24 type-label', props.className),
       }),
+    // `prose-measure` on the block rules (`p`, `ul`, `ol`, `blockquote`) rather
+    // than on the container: the same map renders inside a story's
+    // `prose-measure` shell and inside a discovery trail's much wider one, and
+    // only these rules know that body copy should be read at one width on both.
+    // `li` is deliberately left out — it sits inside an already-capped list, so
+    // a cap there could only subtract the list indent a second time.
     p: (props: ComponentPropsWithoutRef<'p'>) =>
       createElement('p', {
         ...props,
-        className: cn('my-4 type-body text-ink-soft', props.className),
+        className: cn('prose-measure my-4 type-body text-ink-soft', props.className),
       }),
     ul: (props: ComponentPropsWithoutRef<'ul'>) =>
       createElement('ul', {
         ...props,
-        className: cn('my-4 list-disc space-y-2 pl-5 type-body text-ink-soft', props.className),
+        className: cn('prose-measure my-4 list-disc space-y-2 pl-5 type-body text-ink-soft', props.className),
       }),
     ol: (props: ComponentPropsWithoutRef<'ol'>) =>
       createElement('ol', {
         ...props,
-        className: cn('my-4 list-decimal space-y-2 pl-5 type-body text-ink-soft', props.className),
+        className: cn('prose-measure my-4 list-decimal space-y-2 pl-5 type-body text-ink-soft', props.className),
       }),
     li: (props: ComponentPropsWithoutRef<'li'>) =>
       createElement('li', {
@@ -201,7 +207,7 @@ export function createStoryComponentMap({
     blockquote: (props: ComponentPropsWithoutRef<'blockquote'>) =>
       createElement('blockquote', {
         ...props,
-        className: cn('my-6 border-l-2 border-accent pl-5 type-body text-ink-soft', props.className),
+        className: cn('prose-measure my-6 border-l-2 border-accent pl-5 type-body text-ink-soft', props.className),
       }),
     hr: (props: ComponentPropsWithoutRef<'hr'>) =>
       createElement('hr', {
@@ -213,18 +219,20 @@ export function createStoryComponentMap({
     // remote URLs and there is no intrinsic size to hand the optimizer. 4:3 with
     // `object-cover` matches every other image surface in the product.
     //
-    // Capped and centred rather than `w-full`: the story page runs the standard
-    // `page-measure` container, and an unbounded 4:3 image in it renders
-    // 1200x900 — taller than the viewport on a laptop, so a single photo became
-    // a full-screen interruption in the middle of a paragraph. `max-w-2xl` keeps
-    // an inline photo at roughly the size it was before the page widened.
+    // Capped and centred rather than `w-full`, because this map serves two
+    // surfaces of different widths. On a story the shell is already
+    // `prose-measure`, so the cap is inert and the photo fills the reading
+    // column. On a discovery trail the shell is the wide page measure, where an
+    // uncapped 4:3 image renders taller than a laptop viewport — one photo
+    // becoming a full-screen interruption mid-paragraph. The same class does
+    // nothing on the first surface and the whole job on the second.
     img: (props: ComponentPropsWithoutRef<'img'>) =>
       createElement('img', {
         loading: 'lazy',
         decoding: 'async',
         ...props,
         className: cn(
-          'mx-auto my-6 aspect-media w-full max-w-2xl rounded-[3px] border border-rule bg-surface-deep object-cover',
+          'mx-auto my-6 aspect-media w-full prose-measure rounded-[3px] border border-rule bg-surface-deep object-cover',
           props.className,
         ),
       }),

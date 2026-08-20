@@ -74,8 +74,15 @@ describe("check-frontend-type-tokens", () => {
     );
     writeFixture(
       cwd,
-      "src/components/microsite/contact-cta.tsx",
-      '<p className="text-[13px]">CTA</p>',
+      "src/lib/mdx/components.ts",
+      // Proves a LIVE allowlist row still suppresses a real match. The
+      // em-relative MDX code face is an "arbitrary numeric text size" that only
+      // the `src/lib/mdx/components.ts` row permits; delete that row and the
+      // assertion below goes to three. This fixture used to manufacture
+      // `text-[13px]` in `microsite/contact-cta.tsx`, which kept passing after
+      // the literal — and then the row — left the real tree, so the test was
+      // guarding a permission the codebase no longer had.
+      '<code className="text-[0.85em]">x</code>',
     );
     writeFixture(
       cwd,

@@ -27,8 +27,9 @@ type BrandGridProps = {
  * `<BrandGrid slugs={[…]} />` inside story MDX.
  *
  * One batched lookup for the whole array — rendering N `<BrandCardMdx>` would
- * be N queries. Two columns, not three: the story page now runs the standard
- * `page-measure` container, so width is no longer the constraint — a grid
+ * be N queries. Two columns, not three: on a story this sits inside the
+ * route's `prose-measure`, where two is all the width allows, and on a trail
+ * inside `page-measure`, where three would fit and still be wrong — a grid
  * dropped into prose reads as a break in the argument, and two columns keeps
  * it closer to the text than to the directory.
  */

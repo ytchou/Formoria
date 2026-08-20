@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { PageShell } from '@/components/ui/page-shell'
 import { endImpersonationAction } from '@/lib/actions/impersonation'
 import { useUser } from '@/lib/auth/use-user'
 import { routes } from '@/lib/routes'
@@ -52,7 +53,14 @@ export function ImpersonationBanner() {
 
   return (
     <div className="border-b border-mit-verified/20 bg-mit-verified-bg px-3 py-2">
-      <div className="mx-auto flex header-measure items-center justify-between gap-3">
+      {/* `gutter="none"`: the outer strip already carries the horizontal
+          padding (`px-3`), and the shell's own gutter would inset the row a
+          second time. The banner is chrome, so it takes the page measure. */}
+      <PageShell
+        measure="page"
+        gutter="none"
+        className="flex items-center justify-between gap-3"
+      >
         <div className="flex min-w-0 items-center gap-2">
           {/* ui-exception: inverse badge on dark impersonation banner; single site, no variant warranted */}
           <Badge className="bg-ground text-mit-verified">
@@ -81,7 +89,7 @@ export function ImpersonationBanner() {
         >
           {t('exit')}
         </Button>
-      </div>
+      </PageShell>
     </div>
   )
 }

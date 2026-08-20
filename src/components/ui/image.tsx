@@ -1,5 +1,7 @@
 import NextImage, { type ImageProps as NextImageProps } from "next/image";
 
+import { MEASURE_PX } from "@/lib/constants/layout";
+
 /**
  * `next/image`, with `sizes` derived from the surface instead of retyped.
  *
@@ -30,8 +32,34 @@ import NextImage, { type ImageProps as NextImageProps } from "next/image";
 export const IMAGE_SURFACE_SIZES = {
   /** Full-bleed band: page hero, section backdrop. */
   hero: "100vw",
-  /** Content-column image capped at the measure — a story or trail hero. */
-  banner: "(max-width: 1280px) 100vw, 1280px",
+  /**
+   * Content-column image capped at the page measure — a trail hero, the expo
+   * floor map, a story hero.
+   *
+   * THE NUMBER COMES FROM `MEASURE_PX`, NOT FROM THIS FILE. It read a literal
+   * `1280px` until DEV-1529, which was the 80rem measure of the day arrived at
+   * independently — so widening the measure would have left every banner
+   * fetching a crop one size too small, with no test and no lint rule able to
+   * see it. A `sizes` hint is parsed at build time and cannot read CSS, so the
+   * measure must be written twice; `MEASURE_PX` is where the second copy is
+   * anchored, and `check:design-tokens` fails if it and `globals.css` disagree.
+   *
+   * KNOWN, NOT FIXED, AND WORSE THAN IT WAS: this one hint serves two boxes
+   * that now differ by roughly 2x. `EditorialHero` opens both the trail detail
+   * route (~1472px of content at 1920px) and the story detail route (~688px,
+   * because `/stories/[slug]` moved to `prose-measure` in DEV-1529) — and the
+   * same ticket raised this hint from 1280px to 1600px, so the story hero
+   * over-fetches more than before, not less. Sized for the larger box is the
+   * deliberate direction: over-fetching costs bytes, under-fetching renders
+   * soft.
+   *
+   * THERE IS NO PER-CALL ESCAPE HATCH TODAY. `EditorialHero` takes
+   * `{ src, alt, className }` and passes `surface="banner"` itself, so neither
+   * route can state its own box. Closing this means adding a `sizes` prop to
+   * `EditorialHero` and threading it from the two routes — not a second
+   * surface name that both routes would then have to keep straight.
+   */
+  banner: `(max-width: ${MEASURE_PX.page}px) 100vw, ${MEASURE_PX.page}px`,
   /** A cell of the four-up card grid. Mirrors `CARD_GRID_COLUMNS`. */
   card: "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw",
   /** A cell of a three-up grid. */

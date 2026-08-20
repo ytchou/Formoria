@@ -42,13 +42,37 @@ describe("--nav-height", () => {
 
   it("has row 1 reading `--nav-row-primary` rather than a literal height", () => {
     const source = read("src/components/navigation/main-nav.tsx");
+    // ANCHORED TO THE ELEMENT, NOT TO A CLASS SUFFIX. Row 1 is a `PageShell`
+    // now that the header shares the page measure, and the whole invariant sits
+    // on ONE element: it is the page shell (`measure="page"` — same measure,
+    // same gutter step as the content below it, which is the 160px seam this
+    // ticket closed) AND it takes its height from `--nav-row-primary`. Matching
+    // the opening tag keeps both halves of that together.
+    //
+    // An earlier revision matched only a class string ending `items-center
+    // gap-6`. That is anchored to nothing: it takes the FIRST such string in
+    // the file, so an element added above row 1 silently retargets the test,
+    // and it requires a literal `className="…"`, so the day row 1 needs a
+    // conditional and becomes `className={cn(...)}` the regex walks past it —
+    // and a regex that matches nothing passes vacuously while the six sticky
+    // elements go unguarded. It also stopped proving row 1 carries the shell.
+    //
+    // `(?:[^<>]|=>)` is "still inside this one tag" — it stops at the next
+    // element boundary — and `(?<!=)>` is what makes the tag end the tag: a
+    // lazy match would otherwise close on the `>` of an `onClick={() => …}`
+    // and cut the class string off before the height token.
+    //
+    // A null match still FAILS here rather than skipping the two assertions
+    // below, which is what keeps a reordered or deleted row loud. The height
+    // token is asserted rather than matched, so a row that kept the shell and
+    // lost the token fails on the token instead of on a null.
     const row = source.match(
-      /<div className="page-gutter mx-auto flex ([^"]*) items-center gap-6">/,
+      /<PageShell\b(?:[^<>]|=>)*?measure="page"(?:[^<>]|=>)*?(?<!=)>/,
     );
 
     expect(row).not.toBeNull();
-    expect(row?.[1]).toContain("h-(--nav-row-primary)");
-    expect(row?.[1]).not.toMatch(/\bh-\d/);
+    expect(row?.[0]).toContain("h-(--nav-row-primary)");
+    expect(row?.[0]).not.toMatch(/\bh-\d/);
   });
 
   it("has row 2 reading `--nav-row-categories`, including its fallback", () => {

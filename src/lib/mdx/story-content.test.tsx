@@ -16,7 +16,7 @@ describe('story MDX rendering', () => {
     expect(html).toContain('Editorial fine print.')
     // Tracks the `p` rule in `storyComponentMap`; a role rename that leaves this
     // literal behind makes the assertion pass by matching nothing.
-    expect(html).not.toContain('<p class="my-4 type-body text-ink-soft"><p')
+    expect(html).not.toContain('<p class="prose-measure my-4 type-body text-ink-soft"><p')
   })
 
   it('passes evaluated expression attributes to story shortcodes', async () => {

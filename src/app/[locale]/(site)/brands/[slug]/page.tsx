@@ -36,6 +36,7 @@ import { StockistsSection } from "@/components/brands/stockists-section";
 import { BrandSelectedProducts } from "@/components/brands/brand-selected-products";
 import { BrandEventsSection } from "@/components/brands/brand-events-section";
 import { RelatedBrands } from "@/components/brands/related-brands";
+import { PageShell } from "@/components/ui/page-shell";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { getBrandCategoryLabel } from "@/lib/brands/category-label";
@@ -286,7 +287,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
     // around the actions slot.
     <SavedBrandsProvider>
       <BrandEngagementTracker brandId={displayBrand.id} slug={slug}>
-        <main className="page-gutter mx-auto page-measure py-10">
+        <PageShell as="main" measure="page" className="py-10">
           <BrandViewTracker brandId={displayBrand.id} brandSlug={slug} />
           {/* JSON-LD structured data */}
           <script
@@ -461,7 +462,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
               currentBrandSlug={displayBrand.slug}
             />
           )}
-        </main>
+        </PageShell>
       </BrandEngagementTracker>
     </SavedBrandsProvider>
   );

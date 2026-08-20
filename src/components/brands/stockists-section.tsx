@@ -33,7 +33,7 @@ export async function StockistsSection({
           <Typography as="h2" variant="sectionTitleLarge">
             {t("sections.retailLocations")}
           </Typography>
-          <p className="type-body-sm">{t("channels.subtitle")}</p>
+          <p className="prose-measure type-body-sm">{t("channels.subtitle")}</p>
         </div>
         <ProvideStockistInfoDialog brandId={brandId} brandSlug={brandSlug} />
       </div>

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { CityCard } from '@/components/where-to-buy/city-card'
 import { LocateButton } from '@/components/where-to-buy/locate-button'
+import { PageShell } from '@/components/ui/page-shell'
 import { buildAlternates, type Locale } from '@/lib/seo/alternates'
 import {
   getStockistDirectory,
@@ -71,8 +72,8 @@ export default async function WhereToBuyPage({ params }: PageProps) {
     // (`root-document.tsx`) resolves to the FIRST match, which meant these two
     // routes alone skipped to a different element than every other route. One
     // id per document, and it is the layout's.
-    <main className="page-gutter mx-auto w-full page-measure pt-12 pb-section">
-      <header className="max-w-3xl">
+    <PageShell as="main" measure="page" className="pt-12 pb-section">
+      <header className="prose-measure">
         <p className="type-eyebrow text-accent">Formoria</p>
         <h1 className="mt-3 type-page-title text-ink">
           {t('indexTitle')}
@@ -117,7 +118,7 @@ export default async function WhereToBuyPage({ params }: PageProps) {
           <h2 className="type-card-title text-ink">
             {t('overseasTitle')}
           </h2>
-          <p className="mt-2 type-body-sm">
+          <p className="mt-2 prose-measure type-body-sm">
             {t('overseasDescription', {
               count: overseas.length,
               countries: countryCounts.size,
@@ -138,6 +139,6 @@ export default async function WhereToBuyPage({ params }: PageProps) {
           </ul>
         </section>
       ) : null}
-    </main>
+    </PageShell>
   )
 }

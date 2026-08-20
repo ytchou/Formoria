@@ -6,6 +6,7 @@ import {
 } from '@/components/brands/selected-product-tile'
 import type { AppLocale } from '@/i18n/locale-preference'
 import { SectionHeader } from '@/components/shared/section-header'
+import { PageShell } from '@/components/ui/page-shell'
 import type { WallSlot } from '@/lib/curated-products/home-wall'
 import { cn } from '@/lib/utils'
 import { WallList } from './wall-list'
@@ -169,18 +170,32 @@ export function ProductWall({
   return (
     <section aria-labelledby="landing-selected-products" className="py-section">
       {/* Wide, but no longer edge to edge. Three measures were on the table at
-          1920px: the original `max-w-6xl` left 384px of margin each side (too
-          much — the wall read as a narrow column), true full bleed left 40px
-          (too little — the photographs ran off the page). `page-shell` is the
-          100rem middle ground, and it is now shared by every landing section
-          and the footer, so the page has ONE left edge. Declared in
-          globals.css — never re-inline the cap here. */}
-      <div className="page-shell">
+          1920px: the original 72rem left 384px of margin each side (too much —
+          the wall read as a narrow column), true full bleed left 40px (too
+          little — the photographs ran off the page). `page-measure` is the
+          middle ground, 100rem, and it is the same measure every landing
+          section, the header and the footer read, so the page has ONE left
+          edge. Declared in globals.css and applied through `PageShell` — never
+          re-inline a cap here. */}
+      <PageShell measure="page">
+        {/* Spacing only. Dropping `prose-measure` from this root is
+            unobservable HERE, which is weaker than inert. The note keeps a cap
+            of its own — `SectionHeader` puts `prose-measure` on the `<p>`
+            itself — but the `type-page-title` heading beside it loses the 48rem
+            bound the root used to lend it, and its wrap width is now whatever
+            the enclosing `PageShell` allows (100rem). Nothing moves at this
+            call site: it passes no `linkHref`/`linkLabel` to widen the flex
+            row, and `landing.selectedProducts.heading` is two words in both
+            catalogues (`Formoria Selection` in en; `Formoria` plus two
+            characters in zh-TW) — one short line at either bound. No Han in
+            this comment on purpose: `no-hardcoded-cjk.test.ts` line-scans this
+            file. A long heading, or that link pair, would make the wider bound
+            visible. The two caps were 72rem and 42rem before DEV-1529. */}
         <SectionHeader
           id="landing-selected-products"
           heading={labels.heading}
           note={labels.note}
-          className="mb-6 max-w-6xl"
+          className="mb-6"
         />
 
         <WallList
@@ -271,7 +286,7 @@ export function ProductWall({
             editorial content it pointed at. The category nav and the brands
             button that also lived here were removed earlier; both destinations
             are still linked from the hero. */}
-      </div>
+      </PageShell>
     </section>
   )
 }

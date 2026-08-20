@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/page-shell'
 import type { PublicMicrositeBrand } from '@/lib/brands/contracts'
 
 type MicrositeFooterProps = {
@@ -6,8 +7,14 @@ type MicrositeFooterProps = {
 
 export function MicrositeFooter({ brand }: MicrositeFooterProps) {
   return (
-    <footer className="px-6 pb-10 pt-6 md:px-10">
-      <div className="mx-auto flex max-w-[1280px] flex-col gap-gutter border-t border-rule pt-6 type-metadata sm:flex-row sm:items-center sm:justify-between">
+    <footer className="pb-10 pt-6">
+      {/* Gutter and measure both from the shell — see `hero.tsx`. The footer
+        moves with the bands above it so the rule it draws lines up with the
+        content it closes. */}
+      <PageShell
+        measure="page"
+        className="flex flex-col gap-gutter border-t border-rule pt-6 type-metadata sm:flex-row sm:items-center sm:justify-between"
+      >
         <a
           href={`https://formoria.com/brands/${brand.slug}`}
           target="_blank"
@@ -22,7 +29,7 @@ export function MicrositeFooter({ brand }: MicrositeFooterProps) {
             MIT 微笑認證
           </span>
         )}
-      </div>
+      </PageShell>
     </footer>
   )
 }
