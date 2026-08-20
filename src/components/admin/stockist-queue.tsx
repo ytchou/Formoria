@@ -151,6 +151,10 @@ export function StockistQueue({
           // The drawer renders the same error while it is open; showing it here
           // too would emit two role="alert" nodes for one failure.
           error={openStockist === null ? queueAction.error : null}
+          // Paired with the drawer's `bodyId` below. `ReviewQueueTable` always
+          // emits `aria-controls`, so leaving this defaulted announces a
+          // controlled region that never renders.
+          disclosureControlsId={(stockist) => `stockist-details-${stockist.id}`}
           disclosureLabel={(stockist, expanded) =>
             t(expanded ? "collapseStockist" : "expandStockist", {
               name: stockist.name,
@@ -171,6 +175,7 @@ export function StockistQueue({
             {`${stockist.brandName} · ${formatReviewDate(stockist.submittedAt)}`}
           </p>
         )}
+        bodyId={(stockist) => `stockist-details-${stockist.id}`}
         footer={(stockist) => (
           <div className="pt-5">
             <ReviewDecisionPanel

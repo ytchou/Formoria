@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { afterEach, expect, it } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 
-import en from "../../../../messages/en.json";
 import type { Database } from "@/lib/supabase/database.types";
 import { describeWithDb } from "@/test/setup";
 import {
@@ -201,7 +200,12 @@ describeWithDb("admin stockist queue", () => {
     expect([...channels.confirmed, ...channels.possible]).toEqual([]);
   });
 
-  it("renders an empty state when nothing is pending", async () => {
+  // The queue is for reader submissions only: an imported row is already
+  // published and has nothing to decide. The empty state the reviewer then sees
+  // is asserted by rendering the component, in
+  // `src/components/admin/__tests__/stockist-queue.test.tsx` — this test mounts
+  // nothing and must not claim to.
+  it("keeps a non-community row out of the pending queue", async () => {
     const brandId = await seedBrand();
     await seedStockist(brandId, {
       name: "匯入的通路，不需要審核",
@@ -214,11 +218,6 @@ describeWithDb("admin stockist queue", () => {
         (stockist) => stockist.brandId === brandId,
       ),
     ).toEqual([]);
-    // An empty table with no sentence in it reads as a broken page. The queue
-    // hands this string to `ReviewQueueTable`'s `emptyMessage`, so a missing key
-    // would render the raw key path to the reviewer.
-    expect(en.admin.stockists.empty).toEqual(expect.any(String));
-    expect(en.admin.stockists.empty.length).toBeGreaterThan(0);
   });
 
   it("admin approval renders as Formoria provenance, not brand provenance", async () => {

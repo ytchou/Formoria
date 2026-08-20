@@ -74,6 +74,7 @@ import {
   type OriginEvidenceDecision,
 } from '@/lib/services/origin-evidence'
 import { reviewCommunityStockist } from '@/lib/services/stockists'
+import { logAdminAction } from '@/lib/services/admin-audit'
 import { FEATURE_FLAGS, setAppSetting } from '@/lib/services/app-settings'
 import {
   DENIAL_REASONS,
@@ -1211,6 +1212,12 @@ export async function deleteBrandAction(
  * that publishes one — and rejecting it is what keeps a wrong shop out of the
  * directory for good. Both the brand page and the city stockist pages are
  * revalidated because an approved row appears on both.
+ *
+ * Audited for exactly that reason: publishing a stranger's claim about a shop
+ * onto a live brand page is an editorial decision on the same footing as
+ * promoting a curated product, and `brand_channels` records only
+ * `owner_status_by`, never which way the decision went or when a rejection
+ * happened. `logAdminAction` is fire-and-forget, so it cannot fail the review.
  */
 export async function reviewStockistAction(
   stockistId: string,
@@ -1228,6 +1235,18 @@ export async function reviewStockistAction(
         auth.user.id,
       )
       if (!result.ok) return { error: result.code }
+
+      if (auth.user.email) {
+        await logAdminAction({
+          adminUserId: auth.user.id,
+          adminEmail: auth.user.email,
+          action:
+            decision === 'confirmed' ? 'stockist_approved' : 'stockist_rejected',
+          targetBrandSlug: result.brandSlug,
+          targetBrandId: result.brandId,
+          metadata: { stockistId },
+        })
+      }
 
       revalidatePath(routes.admin.stockists())
       revalidatePath(routes.admin.index())

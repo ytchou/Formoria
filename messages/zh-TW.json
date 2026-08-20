@@ -592,8 +592,6 @@
         "evidenceOther": "來源佐證"
       },
       "ownerBanner": {
-        "title": "這是你經營的品牌",
-        "description": "可以確認或標記實體通路的正確性",
         "confirm": "確認販售",
         "reject": "未販售"
       },
@@ -603,12 +601,13 @@
         "namePlaceholder": "例如：誠品書店 信義店",
         "regionLabel": "地區",
         "regionPlaceholder": "選擇地區",
+        "regionRequired": "請選擇這個實體通路所在的縣市",
         "addressLabel": "地址",
         "addressPlaceholder": "完整地址（選填）",
         "urlLabel": "網址",
         "urlPlaceholder": "https://...",
         "submit": "送出",
-        "success": "感謝提供資訊！",
+        "success": "謝謝你提供。這筆實體通路資料會先經過我們確認，之後才會出現在品牌頁面上。",
         "signInRequired": "請先登入才能提供實體通路"
       },
       "errors": {
@@ -616,14 +615,14 @@
         "missing_brand_id": "缺少品牌資訊",
         "missing_brand_slug": "缺少品牌資訊",
         "invalid_name": "請輸入有效的實體通路名稱",
+        "invalid_region": "請選擇這個實體通路所在的地區",
         "invalid_url": "請輸入有效的網址",
         "active_cap_reached": "此品牌的實體通路已達上限",
         "daily_cap_reached": "今日提供的資訊已達上限，請明天再試",
-        "duplicate_name": "此實體通路名稱已存在",
+        "duplicate_name": "這個實體通路已經有人提供過了",
         "database_error": "系統錯誤，請稍後再試",
         "unknown": "發生錯誤，請稍後再試"
-      },
-      "countLabel": "{count} 個實體通路"
+      }
     },
     "gallery": {
       "viewer": "照片檢視",

@@ -34,7 +34,6 @@ import {
   revalidatePublicBrands,
   revalidatePublicStockists,
 } from '@/lib/cache/public-brand-cache'
-import { CITY_SLUGS, citySlugFromName } from '@/lib/constants/taiwan-cities'
 import { isOwnerOf } from '@/lib/services/brand-owners'
 import { createServiceClient } from '@/lib/supabase/service'
 import { trackOriginEvidenceSubmitted } from '@/lib/analytics'
@@ -144,9 +143,12 @@ export async function submitStockistInfoAction(
       })
       if (!result.ok) return { error: t(result.code) }
 
-      revalidatePublicBrands([brandSlug])
-      const city = citySlugFromName(region) ?? CITY_SLUGS.find((slug) => slug === region)
-      revalidatePublicStockists(city)
+      // Deliberately NOT revalidated. The submitted row is invisible until an
+      // admin approves it, so no cached page renders anything different — and
+      // `revalidatePublicBrands` purges the `public-brand-data` tag for all 718
+      // brand pages plus a dozen paths, which any signed-in reader could then
+      // trigger 20 times a day for zero rendered change. `reviewStockistAction`
+      // fires exactly that revalidation at the moment the row becomes public.
       return { success: true }
     } catch (error) {
       console.error('[brands:submitStockistInfo]', error)

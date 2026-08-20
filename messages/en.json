@@ -341,7 +341,7 @@
       "about": "About",
       "social": "Social",
       "purchase": "Purchase",
-      "locations": "Retail locations",
+      "locations": "Stockists",
       "selectedProducts": "Formoria Selected",
       "events": "Event appearances",
       "faq": "FAQ"
@@ -569,12 +569,12 @@
       "tags": "Tags",
       "photos": "Photos",
       "locations": "Locations",
-      "retailLocations": "Retail locations",
+      "retailLocations": "Stockists",
       "faq": "Frequently Asked Questions"
     },
     "channels": {
       "subtitle": "Places where this brand may be available, with some information provided by the community",
-      "provideInfo": "Provide retail location",
+      "provideInfo": "Provide a stockist",
       "groups": {
         "all_taiwan": "Across Taiwan",
         "overseas": "Overseas"
@@ -592,38 +592,37 @@
         "evidenceOther": "Source verified"
       },
       "ownerBanner": {
-        "title": "This is the brand you manage",
-        "description": "Confirm or flag the accuracy of retail locations",
         "confirm": "Confirm sold here",
         "reject": "Not sold here"
       },
       "dialog": {
-        "title": "Provide retail location",
-        "nameLabel": "Retail location name",
+        "title": "Provide a stockist",
+        "nameLabel": "Stockist name",
         "namePlaceholder": "e.g. Eslite Bookstore Xinyi",
         "regionLabel": "Region",
         "regionPlaceholder": "Select region",
+        "regionRequired": "Select the city or county where this stockist is",
         "addressLabel": "Address",
         "addressPlaceholder": "Full address (optional)",
         "urlLabel": "URL",
         "urlPlaceholder": "https://...",
         "submit": "Submit",
-        "success": "Thanks for the information!",
-        "signInRequired": "Please sign in to provide a retail location"
+        "success": "Thank you. We check every submission before it appears on the brand page.",
+        "signInRequired": "Please sign in to provide a stockist"
       },
       "errors": {
         "not_logged_in": "Please sign in",
         "missing_brand_id": "Missing brand information",
         "missing_brand_slug": "Missing brand information",
-        "invalid_name": "Please enter a valid retail location name",
+        "invalid_name": "Please enter a valid stockist name",
+        "invalid_region": "Choose the region this stockist is in",
         "invalid_url": "Please enter a valid URL",
-        "active_cap_reached": "Retail location limit reached for this brand",
+        "active_cap_reached": "Stockist limit reached for this brand",
         "daily_cap_reached": "Today's submission limit has been reached, please try again tomorrow",
-        "duplicate_name": "This retail location name already exists",
+        "duplicate_name": "This stockist has already been submitted",
         "database_error": "System error, please try again later",
         "unknown": "An error occurred, please try again later"
-      },
-      "countLabel": "{count} retail locations"
+      }
     },
     "gallery": {
       "viewer": "Photo viewer",
@@ -2586,7 +2585,7 @@
     },
     "stockists": {
       "title": "Community Stockists",
-      "description": "Retail locations readers submitted. A submission stays invisible on the public site until it is approved here, and an approved one is labelled as confirmed by Formoria, not by the brand.",
+      "description": "Stockists readers submitted. A submission stays invisible on the public site until it is approved here, and an approved one is labelled as confirmed by Formoria, not by the brand.",
       "searchLabel": "Search stockists",
       "searchPlaceholder": "Brand or stockist name",
       "table": {
@@ -2599,8 +2598,7 @@
         "brand": "Brand",
         "region": "Region",
         "address": "Address",
-        "url": "URL",
-        "submitted": "Submitted"
+        "url": "URL"
       },
       "approve": "Approve this stockist",
       "reject": "Reject this stockist",

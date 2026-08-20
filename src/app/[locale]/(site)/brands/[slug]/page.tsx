@@ -278,9 +278,12 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
   return (
     // The saved-brands and engagement providers wrap the whole page: the view
-    // tracker needs saved state, and the gallery/FAQ/stockist sections all report
-    // engagement. Hoisting the saved provider here does not add a fetch — it was
-    // already mounted on this page, only around the actions slot.
+    // tracker needs saved state, and the gallery and FAQ sections report
+    // engagement (dwell and scroll depth come from the tracker itself). The
+    // stockist section reports nothing since DEV-1513 removed the community
+    // confirm button, which was its only emitter. Hoisting the saved provider
+    // here does not add a fetch — it was already mounted on this page, only
+    // around the actions slot.
     <SavedBrandsProvider>
       <BrandEngagementTracker brandId={displayBrand.id} slug={slug}>
         <main className="page-gutter mx-auto page-measure py-10">

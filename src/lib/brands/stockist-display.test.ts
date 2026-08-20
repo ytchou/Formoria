@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  applyPendingCommunityStockistFilter,
   applyPublicStockistVisibility,
   CHAIN_REGION_LABEL,
   groupStockistsByRegion,
@@ -64,6 +65,41 @@ describe("groupStockistsForDisplay", () => {
     const result = groupStockistsForDisplay([
       stockistDisplayRow({ ownerStatus: "confirmed", ownerStatusBy: null }),
     ]);
+
+    expect(result.confirmed.at(0)).toMatchObject({ confirmedBy: "owner" });
+  });
+
+  // 站方確認 and 品牌確認 are different public trust claims, and an admin
+  // approving a stranger's submission sets exactly the `owner_status` the
+  // brand's own owner sets — `owner_status_by` against the owner set is the
+  // only thing telling them apart. Asserted here, on the pure function,
+  // because the only other assertion of the 'formoria' branch lives in
+  // `stockist-queue.integration.test.ts` under `describeWithDb`, which skips
+  // without an integration database and therefore guards nothing in CI.
+  it("attributes an approval by a non-owner to Formoria, not to the brand", () => {
+    const result = groupStockistsForDisplay(
+      [
+        stockistDisplayRow({
+          ownerStatus: "confirmed",
+          ownerStatusBy: "reviewing-admin",
+        }),
+      ],
+      ["brand-owner"],
+    );
+
+    expect(result.confirmed.at(0)).toMatchObject({ confirmedBy: "formoria" });
+  });
+
+  it("attributes an approval by any of the brand's owners to the brand", () => {
+    const result = groupStockistsForDisplay(
+      [
+        stockistDisplayRow({
+          ownerStatus: "confirmed",
+          ownerStatusBy: "second-owner",
+        }),
+      ],
+      ["first-owner", "second-owner"],
+    );
 
     expect(result.confirmed.at(0)).toMatchObject({ confirmedBy: "owner" });
   });
@@ -220,6 +256,149 @@ describe("applyPublicStockistVisibility", () => {
     const query = createQuerySpy();
 
     expect(applyPublicStockistVisibility(query)).toBe(query);
+  });
+});
+
+type StockistTableRow = Record<string, string | null>;
+
+/**
+ * A query spy that also DECIDES which rows survive.
+ *
+ * Recording the emitted filters proves the predicate was spelled; it cannot
+ * show that a public read and the submission cap agree about one row, which is
+ * the invariant that broke: the cap counted rows nobody could see, so five
+ * hidden submissions locked a brand whose page listed three. That is a property
+ * of the ROW SET, so this evaluates the same three operators PostgREST does —
+ * `eq`, `neq`, `is` as conjunctions, and `or` as a disjunction of its
+ * comma-separated `column.op.value` terms. Nothing wider is implemented: every
+ * filter these two helpers emit is one of those four forms.
+ */
+type FilteringQuerySpy = {
+  calls: string[];
+  eq(column: string, value: string): FilteringQuerySpy;
+  neq(column: string, value: string): FilteringQuerySpy;
+  is(column: string, value: null): FilteringQuerySpy;
+  or(filters: string): FilteringQuerySpy;
+  readonly rows: StockistTableRow[];
+};
+
+function createFilteringQuerySpy(
+  rows: readonly StockistTableRow[],
+): FilteringQuerySpy {
+  const calls: string[] = [];
+  const predicates: Array<(row: StockistTableRow) => boolean> = [];
+  const matches = (term: string, row: StockistTableRow): boolean => {
+    const [column, operator, value] = term.split(".");
+    return operator === "neq" ? row[column] !== value : row[column] === value;
+  };
+  const query: FilteringQuerySpy = {
+    calls,
+    eq(column: string, value: string) {
+      calls.push(`eq(${column},${value})`);
+      predicates.push((row) => row[column] === value);
+      return query;
+    },
+    neq(column: string, value: string) {
+      calls.push(`neq(${column},${value})`);
+      predicates.push((row) => row[column] !== value);
+      return query;
+    },
+    is(column: string, value: null) {
+      calls.push(`is(${column},${String(value)})`);
+      predicates.push((row) => row[column] === value);
+      return query;
+    },
+    or(filters: string) {
+      calls.push(`or(${filters})`);
+      predicates.push((row) =>
+        filters.split(",").some((term) => matches(term, row)),
+      );
+      return query;
+    },
+    /** What the query returns; its length is what `head: true, count` returns. */
+    get rows(): StockistTableRow[] {
+      return rows.filter((row) =>
+        predicates.every((predicate) => predicate(row)),
+      );
+    },
+  };
+  return query;
+}
+
+describe("applyPendingCommunityStockistFilter", () => {
+  // One brand's rows, one of each kind the two predicates have to separate.
+  const brandRows: readonly StockistTableRow[] = [
+    { id: "imported", source: "import", owner_status: "none", removed_at: null },
+    {
+      id: "admin-approved",
+      source: "community",
+      owner_status: "confirmed",
+      removed_at: null,
+    },
+    {
+      id: "pending-community",
+      source: "community",
+      owner_status: "none",
+      removed_at: null,
+    },
+    {
+      id: "owner-rejected",
+      source: "community",
+      owner_status: "rejected",
+      removed_at: null,
+    },
+    {
+      id: "tombstoned-community",
+      source: "community",
+      owner_status: "none",
+      removed_at: "2026-08-19T00:00:00.000Z",
+    },
+  ];
+
+  it("selects a pending community row, and never a tombstoned one", () => {
+    const query = applyPendingCommunityStockistFilter(
+      createFilteringQuerySpy(brandRows),
+    );
+
+    expect(query.rows.map((row) => row.id)).toEqual(["pending-community"]);
+    expect(query.calls).toEqual([
+      "eq(source,community)",
+      "eq(owner_status,none)",
+      // The condition the approve/reject WRITE was missing. Without it an admin
+      // can approve a tombstoned row — one that never appeared in the queue —
+      // straight onto a public brand page.
+      "is(removed_at,null)",
+    ]);
+  });
+
+  it("returns the same query so it stays chainable", () => {
+    const query = createFilteringQuerySpy(brandRows);
+
+    expect(applyPendingCommunityStockistFilter(query)).toBe(query);
+  });
+
+  /**
+   * The submission cap refuses with 此品牌的實體通路已達上限, a sentence the
+   * reader checks against the list in front of them. The count therefore has to
+   * be taken over the rows the public read returns and no others — so both are
+   * asserted here, over the same row set, in one test.
+   */
+  it("hides a pending row from the public read, so the cap cannot count it", () => {
+    const visible = applyPublicStockistVisibility(
+      createFilteringQuerySpy(brandRows),
+    );
+    const queued = applyPendingCommunityStockistFilter(
+      createFilteringQuerySpy(brandRows),
+    );
+
+    expect(visible.rows.map((row) => row.id)).toEqual([
+      "imported",
+      "admin-approved",
+    ]);
+    expect(visible.rows).toHaveLength(2);
+    expect(
+      visible.rows.some((row) => row.id === queued.rows.at(0)?.id),
+    ).toBe(false);
   });
 });
 

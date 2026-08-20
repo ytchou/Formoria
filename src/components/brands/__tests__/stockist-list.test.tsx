@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import zh from "../../../../messages/zh-TW.json";
+import { CHAIN_REGION_LABEL } from "@/lib/brands/stockist-display";
 import type { Stockist } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
@@ -127,13 +128,16 @@ describe("StockistList", () => {
 
     // The pre-rename hooks must be gone, or the e2e spec would keep passing
     // against a stale attribute while the new one goes unasserted. Scanned by
-    // PREFIX rather than by four literals: this also catches a retired-vocabulary
-    // attribute nobody enumerated, and it keeps that token itself out
-    // of the tree, where a repo-wide sweep would read it as a missed rename.
+    // SUBSTRING rather than by a prefix or by four literals: two of the real
+    // pre-rename hooks were `data-brand-channel-list` (on the list root, which
+    // is in this render tree) and `data-brand-channels-section`, and a
+    // `data-channel` prefix scan reports neither. It also keeps the retired
+    // token itself out of the file, where a repo-wide sweep would read it as a
+    // missed rename.
     const staleAttributes = Array.from(container.querySelectorAll("*"))
       .flatMap((element) => Array.from(element.attributes))
       .map((attribute) => attribute.name)
-      .filter((name) => name.startsWith("data-channel"));
+      .filter((name) => name.includes("channel"));
 
     expect(staleAttributes).toEqual([]);
   });
@@ -217,6 +221,30 @@ describe("StockistList", () => {
       screen.queryByRole("button", { name: /我確認/ }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText(/人確認/)).not.toBeInTheDocument();
+  });
+
+  // The chain sentinel is a marker the enrichment phase writes, not a place.
+  // The chip guarded it and the row did not, so `content/stockists/crafts.csv`
+  // shipped one published row that printed the marker where an address goes —
+  // and with it a retired term, onto a live brand page, through a data path the
+  // message-catalogue lock cannot see. Referenced by the exported constant so
+  // the token itself stays out of this file.
+  it("never prints the chain sentinel as a row location", () => {
+    renderList({
+      confirmed: [
+        makeStockist(1, {
+          name: "有情門",
+          regionLabel: CHAIN_REGION_LABEL,
+          address: null,
+          source: "import",
+          status: "confirmed",
+          confirmedBy: "evidence",
+          evidenceSource: "official_website",
+        }),
+      ],
+    });
+
+    expect(screen.queryByText(CHAIN_REGION_LABEL)).not.toBeInTheDocument();
   });
 
   // 來自官網 is a trust claim about WHERE the fact came from, so it may only

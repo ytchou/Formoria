@@ -1,4 +1,5 @@
 import {
+  applyPendingCommunityStockistFilter,
   applyPublicStockistVisibility,
   groupStockistsForDisplay,
   normalizeStockistName,
@@ -37,6 +38,7 @@ const REGION_LABEL_MAP = CITY_NAMES_ZH
 
 type SubmitStockistErrorCode =
   | 'invalid_name'
+  | 'invalid_region'
   | 'invalid_url'
   | 'active_cap_reached'
   | 'daily_cap_reached'
@@ -474,14 +476,24 @@ function isDuplicateNameError(
   )
 }
 
+/**
+ * How many stockists the brand page actually shows.
+ *
+ * `applyPublicStockistVisibility`, not a hand-written pair of filters: the cap
+ * this feeds is refused with 此品牌的實體通路已達上限, a sentence the reader
+ * checks against the list in front of them. Counting rows the public read hides
+ * — a pending community submission is hidden until an admin approves it — lets
+ * one signed-in account wedge any brand with 5 invisible submissions, locking
+ * out the brand's own owner against a page that lists three.
+ */
 async function countActiveStockists(brandId: string): Promise<number> {
   const supabase = createServiceClient()
-  const { count, error } = await supabase
-    .from('brand_channels')
-    .select('id', { count: 'exact', head: true })
-    .eq('brand_id', brandId)
-    .is('removed_at', null)
-    .neq('owner_status', 'rejected')
+  const { count, error } = await applyPublicStockistVisibility(
+    supabase
+      .from('brand_channels')
+      .select('id', { count: 'exact', head: true })
+      .eq('brand_id', brandId),
+  )
 
   if (error) throw error
   return count ?? 0
@@ -503,6 +515,45 @@ async function countRecentSubmissions(userId: string): Promise<number> {
   return count ?? 0
 }
 
+/**
+ * The owner ids `groupStockistsForDisplay` needs to label THESE rows, or `[]`.
+ *
+ * `brandOwnerUserIds` reaches exactly one expression in that function —
+ * `brandOwnerUserIdSet.has(row.ownerStatusBy)`, short-circuited behind
+ * `ownerConfirmed && row.ownerStatusBy != null`. The predicate below is total
+ * over the same rows the badge is computed from, so the skip path cannot miss a
+ * case: when no row satisfies both conditions, the set was going to be built
+ * and never read. Production holds 0 owner-confirmed rows of 1,354 and staging
+ * 0 of 568, which is currently every brand page.
+ *
+ * A failed read degrades to `[]` rather than rejecting. Both directions are
+ * deliberate. The brand page 500s if this throws — all to choose between two
+ * badge labels — and `[]` makes `approvedByNonOwner` TRUE, so an owner-confirmed
+ * row renders 站方確認 (`confirmedBy: 'formoria'`) instead of 品牌確認. That is
+ * the humbler claim: understating who confirmed a shop is recoverable, printing
+ * a confirmation the brand never made is not.
+ *
+ * Exported with an injectable loader so the degrade path is testable:
+ * `check-test-boundaries.mjs` forbids mocking `@/lib/services/*`.
+ */
+export async function resolveBrandOwnerUserIds(
+  brandId: string,
+  rows: ReadonlyArray<{ ownerStatus: string; ownerStatusBy?: string | null }>,
+  loadOwners: (brandId: string) => Promise<string[]> = listBrandOwnerUserIds,
+): Promise<string[]> {
+  const needsOwners = rows.some(
+    (row) => row.ownerStatus === 'confirmed' && row.ownerStatusBy != null,
+  )
+  if (!needsOwners) return []
+
+  try {
+    return await loadOwners(brandId)
+  } catch (error) {
+    console.error('[stockists:owners]', error)
+    return []
+  }
+}
+
 export async function getStockistsForBrand(
   brandId: string,
 ): Promise<ReturnType<typeof groupStockistsForDisplay>> {
@@ -516,12 +567,12 @@ export async function getStockistsForBrand(
 
   if (error) throw error
 
-  const rows = (data ?? []) as unknown as StockistTableRow[]
-  // The owners are read even when no row is owner-confirmed: the alternative is
-  // a conditional read whose skip path silently relabels 站方確認 as 品牌確認.
-  const brandOwnerUserIds = await listBrandOwnerUserIds(brandId)
+  const displayRows = ((data ?? []) as unknown as StockistTableRow[]).map(
+    rowToDisplayRow,
+  )
+  const brandOwnerUserIds = await resolveBrandOwnerUserIds(brandId, displayRows)
 
-  return groupStockistsForDisplay(rows.map(rowToDisplayRow), brandOwnerUserIds)
+  return groupStockistsForDisplay(displayRows, brandOwnerUserIds)
 }
 
 export async function submitStockist(
@@ -543,12 +594,18 @@ export async function submitStockist(
       }
 
       try {
-        if (
-          (await countActiveStockists(brandId)) >= MAX_ACTIVE_STOCKISTS_PER_BRAND
-        ) {
+        // Two counts over different keys with no shared input: the successful
+        // path pays one round trip instead of two. The ORDER of the checks is
+        // preserved on purpose — a submission that trips both caps still
+        // reports `active_cap_reached`, which is the one the reader can act on.
+        const [activeStockists, recentSubmissions] = await Promise.all([
+          countActiveStockists(brandId),
+          countRecentSubmissions(userId),
+        ])
+        if (activeStockists >= MAX_ACTIVE_STOCKISTS_PER_BRAND) {
           return { ok: false, code: 'active_cap_reached' }
         }
-        if ((await countRecentSubmissions(userId)) >= MAX_SUBMISSIONS_PER_DAY) {
+        if (recentSubmissions >= MAX_SUBMISSIONS_PER_DAY) {
           return { ok: false, code: 'daily_cap_reached' }
         }
       } catch {
@@ -557,6 +614,14 @@ export async function submitStockist(
 
       const supabase = createServiceClient()
       const regionLabel = regionSlugToLabel(input.region)
+      // A row with no resolvable region is grouped as `overseas` for display, and
+      // the submit dialog only ever offers Taiwan regions — so an unresolved
+      // region here means a Taiwanese shop would publish under 海外. The dialog
+      // marks the field required, but `required` is a browser courtesy: this is
+      // the check a non-browser caller cannot skip.
+      if (regionLabel == null) {
+        return { ok: false, code: 'invalid_region' }
+      }
       const regionValue = input.region?.trim()
       const city =
         CITY_SLUGS.find((slug) => slug === regionValue) ??
@@ -691,7 +756,13 @@ type PendingStockistRow = {
 }
 
 export type StockistReviewResult =
-  | { ok: true; brandSlug: string; city: CitySlug | null }
+  /**
+   * `brandId` travels with the slug because the caller audits the decision:
+   * `admin_audit_log.target_brand_id` is the column that survives a brand
+   * rename, and the row is the only record that a stranger's claim was
+   * published onto this brand.
+   */
+  | { ok: true; brandId: string; brandSlug: string; city: CitySlug | null }
   | { ok: false; code: 'not_found' | 'invalid_status' | 'database_error' }
 
 /**
@@ -706,15 +777,13 @@ export async function listPendingCommunityStockists(): Promise<
   PendingStockist[]
 > {
   const supabase = createServiceClient()
-  const { data, error } = await supabase
-    .from('brand_channels')
-    .select(
-      'id, brand_id, name, region_label, address, url, created_at, brands!inner(slug, name)',
-    )
-    .eq('source', 'community')
-    .eq('owner_status', 'none')
-    .is('removed_at', null)
-    .order('created_at', { ascending: true })
+  const { data, error } = await applyPendingCommunityStockistFilter(
+    supabase
+      .from('brand_channels')
+      .select(
+        'id, brand_id, name, region_label, address, url, created_at, brands!inner(slug, name)',
+      ),
+  ).order('created_at', { ascending: true })
 
   if (error) throw error
 
@@ -762,15 +831,18 @@ export async function reviewCommunityStockist(
       }
 
       const supabase = createServiceClient()
-      const { data, error } = await supabase
-        .from('brand_channels')
-        .update({
-          owner_status: status,
-          owner_status_by: adminUserId,
-        })
-        .eq('id', stockistId)
-        .eq('source', 'community')
-        .eq('owner_status', 'none')
+      // The same three conditions the queue read and the queue badge use, from
+      // one definition: this is the write, so a forgotten `removed_at is null`
+      // here approves a tombstoned row straight onto a public brand page.
+      const { data, error } = await applyPendingCommunityStockistFilter(
+        supabase
+          .from('brand_channels')
+          .update({
+            owner_status: status,
+            owner_status_by: adminUserId,
+          })
+          .eq('id', stockistId),
+      )
         .select('brand_id, region_label, brands!inner(slug)')
         .maybeSingle()
 
@@ -785,6 +857,7 @@ export async function reviewCommunityStockist(
 
       return {
         ok: true,
+        brandId: row.brand_id,
         brandSlug: brand.slug,
         city: citySlugFromName(row.region_label),
       }

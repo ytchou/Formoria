@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { applyPendingCommunityStockistFilter } from "@/lib/brands/stockist-display";
 import { createServiceClient } from "@/lib/supabase/service";
 import { listCurationJobs, type CurationJob } from "@/lib/services/curation-jobs";
 import { getSubmissionsForReview } from "@/lib/services/submissions";
@@ -83,14 +84,13 @@ export const getAdminNavCounts = cache(async () => {
     exactCount(supabase.from("brand_reports").select("id", { count: "exact", head: true }).eq("status", "pending")),
     exactCount(supabase.from("brand_field_corrections").select("id", { count: "exact", head: true }).eq("status", "pending")),
     // A pending community stockist is invisible to the public until an admin
-    // decides on it, so an un-advertised queue is a queue nobody empties.
+    // decides on it, so an un-advertised queue is a queue nobody empties. The
+    // badge must count exactly what `listPendingCommunityStockists` lists, so
+    // both spell the queue through the same predicate.
     exactCount(
-      supabase
-        .from("brand_channels")
-        .select("id", { count: "exact", head: true })
-        .eq("source", "community")
-        .eq("owner_status", "none")
-        .is("removed_at", null),
+      applyPendingCommunityStockistFilter(
+        supabase.from("brand_channels").select("id", { count: "exact", head: true }),
+      ),
     ),
   ]);
   logRejected("nav:submissions", submissions);

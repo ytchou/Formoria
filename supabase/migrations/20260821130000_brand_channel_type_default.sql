@@ -11,8 +11,8 @@
 -- `channel_type` is `not null` with no default today. A column DEFAULT fires
 -- only when the column is OMITTED from the INSERT, and
 -- `upsert_enriched_brand_channels` names `channel_type` explicitly and supplies
--- `v_candidate ->> 'channel_type'`. Once the new `buildEnrichedChannelRows`
--- (src/lib/services/brand-channels.ts) stops putting that key in the candidate
+-- `v_candidate ->> 'channel_type'`. Once the new `buildEnrichedStockistRows`
+-- (src/lib/services/stockists.ts) stops putting that key in the candidate
 -- JSON, the expression evaluates to an explicitly-supplied NULL, the table
 -- default never fires, and every enriched or imported upsert raises 23502. The
 -- `coalesce` below is what actually closes that window; the `set default`

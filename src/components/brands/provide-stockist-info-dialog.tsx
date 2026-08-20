@@ -3,7 +3,7 @@
 import NextLink from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Pencil, TriangleAlert } from "lucide-react";
-import { useActionState, useId } from "react";
+import { useActionState, useId, useState } from "react";
 import {
   submitStockistInfoAction,
   type StockistFormState,
@@ -73,6 +73,14 @@ export function ProvideStockistInfoDialog({
   );
   const fieldId = useId().replaceAll(":", "");
   const requiresSignIn = !loading && !user;
+  // The select offers Taiwan regions only, so a blank one is not "somewhere
+  // else" — it is a missing fact. Left optional, it stored `region_label: null`
+  // and the brand page grouped the approved row under the Overseas heading
+  // while `/where-to-buy` dropped it entirely. `required` is the enforcement
+  // here; the service rejects `invalid_region` for callers that skip it. This
+  // state is what makes the failure readable after the native bubble goes.
+  const [regionMissing, setRegionMissing] = useState(false);
+  const regionErrorId = `${fieldId}-region-error`;
 
   return (
     <Dialog>
@@ -123,6 +131,10 @@ export function ProvideStockistInfoDialog({
               <div className="space-y-2">
                 <Label htmlFor={`${fieldId}-name`}>
                   {t("channels.dialog.nameLabel")}
+                  <span aria-hidden="true" className="text-destructive">
+                    {" "}
+                    *
+                  </span>
                 </Label>
                 <Input
                   id={`${fieldId}-name`}
@@ -135,11 +147,25 @@ export function ProvideStockistInfoDialog({
               <div className="space-y-2">
                 <Label htmlFor={`${fieldId}-region`}>
                   {t("channels.dialog.regionLabel")}
+                  <span aria-hidden="true" className="text-destructive">
+                    {" "}
+                    *
+                  </span>
                 </Label>
                 <NativeSelect
                   id={`${fieldId}-region`}
                   name="region"
                   defaultValue=""
+                  required
+                  aria-invalid={regionMissing || undefined}
+                  // Only while the message exists: an `aria-describedby`
+                  // pointing at an id that never renders announces a region
+                  // that is not there.
+                  aria-describedby={regionMissing ? regionErrorId : undefined}
+                  onInvalid={() => setRegionMissing(true)}
+                  onChange={(event) => {
+                    if (event.currentTarget.value) setRegionMissing(false);
+                  }}
                 >
                   <option value="">
                     {t("channels.dialog.regionPlaceholder")}
@@ -150,6 +176,14 @@ export function ProvideStockistInfoDialog({
                     </option>
                   ))}
                 </NativeSelect>
+                {/* The native bubble says "please select an item"; this says
+                    which fact is missing and stays on screen until it is
+                    supplied. */}
+                {regionMissing ? (
+                  <Typography id={regionErrorId} variant="error" role="alert">
+                    {t("channels.dialog.regionRequired")}
+                  </Typography>
+                ) : null}
               </div>
 
               {/* Always rendered. It used to be gated on an offline selection;

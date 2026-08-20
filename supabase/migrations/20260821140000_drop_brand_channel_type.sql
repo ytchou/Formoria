@@ -2,12 +2,13 @@
 --
 -- Same convention as 20260817054048_remove_brand_channel_category_label.sql.
 -- Railway auto-deploys on push but Supabase migrations are applied by hand, so
--- code and schema move at different times. The pre-change CHANNEL_READ_SELECT
--- (src/lib/services/brand-channels.ts), the two stockist-directory filters, and
--- scripts/story-facts.ts all name `channel_type`. Applying this migration
--- before the deploy lands makes Postgres return 42703 on every brand-detail
--- channel read until it does; the reverse order is safe because the new code
--- never names the column.
+-- code and schema move at different times. The brand-detail read select — today
+-- `STOCKIST_DETAIL_READ_SELECT` in src/lib/services/stockists.ts — the two
+-- stockist-directory filters, and scripts/story-facts.ts all named
+-- `channel_type` before this PR. Applying this migration before the deploy
+-- lands makes Postgres return 42703 on every brand-detail stockist read until
+-- it does; the reverse order is safe because the new code never names the
+-- column.
 --
 -- Nothing catches this at build time: the Supabase service client is created
 -- without the <Database> generic, so tsc and ESLint accept a .select() string

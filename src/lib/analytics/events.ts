@@ -187,7 +187,7 @@ export const ANALYTICS_EVENTS = {
    * rather than bouncing. Emitted at most once per page view, on the first trigger.
    * This is the engagement qualification gate for the north-star metric.
    * @property brand_slug {string} Brand slug.
-   * @property trigger {string} Which signal qualified: dwell (>=15s) / gallery / faq / channel / scroll_50.
+   * @property trigger {string} Which signal qualified: dwell (>=15s) / gallery / faq / scroll_50.
    * @property brand_id {string | undefined} Brand UUID; omitted when unavailable at emit time.
    */
   BRAND_DETAIL_ENGAGED: 'brand_detail_engaged',

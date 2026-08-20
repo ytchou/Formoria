@@ -91,9 +91,14 @@ export async function isOwnerOf(
  * Every claimed owner of one brand.
  *
  * `isOwnerOf` answers "is THIS user an owner", which cannot classify a row
- * written by someone else. The public channel labels need the set: an
- * `owner_status = 'confirmed'` row renders `brandDetail.channels.provenance.owner`
- * only when the approver is in it.
+ * written by someone else. The public stockist provenance labels need the set:
+ * an `owner_status = 'confirmed'` row renders
+ * `brandDetail.channels.provenance.owner` only when the approver is in it, and
+ * `...provenance.formoria` otherwise.
+ *
+ * This throws on a PostgREST error. `resolveBrandOwnerUserIds` in
+ * `stockists.ts` is what converts that into `[]`, which degrades to the
+ * humbler of the two labels rather than failing the whole brand page.
  */
 export async function listBrandOwnerUserIds(brandId: string): Promise<string[]> {
   const supabase = createServiceClient()

@@ -59,6 +59,32 @@ export function applyPublicStockistVisibility<Q>(query: Q): Q {
     .or(PENDING_COMMUNITY_EXCLUSION) as Q;
 }
 
+/** Same reason as `PublicStockistQuery` for not being self-referential. */
+type PendingCommunityQuery = {
+  eq(column: string, value: string): PendingCommunityQuery;
+  is(column: string, value: null): PendingCommunityQuery;
+};
+
+/**
+ * The exact complement of `PENDING_COMMUNITY_EXCLUSION`: a community
+ * submission with no decision on it, and not tombstoned.
+ *
+ * Three unrelated sites need all THREE conditions — the admin queue read
+ * (`listPendingCommunityStockists`), the queue badge count
+ * (`getAdminNavCounts`), and the approve/reject write
+ * (`reviewCommunityStockist`) — and the write is the one that must not drift:
+ * a missing `removed_at is null` there publishes a tombstoned row onto a live
+ * brand page, a row no admin could have seen in the queue. Stated once, here,
+ * for the same reason the exclusion above is: the untyped service client
+ * accepts a query that simply forgets a condition.
+ */
+export function applyPendingCommunityStockistFilter<Q>(query: Q): Q {
+  return (query as PendingCommunityQuery)
+    .eq("source", "community")
+    .eq("owner_status", "none")
+    .is("removed_at", null) as Q;
+}
+
 /**
  * Region-label sentinel the enrichment phase writes for multi-branch retailers.
  * Data value, not UI copy — the UI matches on it to suppress a location label.
@@ -154,9 +180,15 @@ export function groupStockistsByRegion(
     const regionSlug = stockist.regionLabel
       ? regionLabelToSlug(stockist.regionLabel)
       : null;
-    // Three buckets, and `overseas` is the fallback: a row with no resolvable
-    // Taiwan region has no other honest home. Every stockist is a physical
-    // place since DEV-1513, so there is no online bucket to divert into.
+    // Three buckets, and `overseas` is the fallback. It is honest only for a
+    // row whose region really is outside Taiwan or unmappable. A region-LESS
+    // row lands here too, and for that row it is a false claim: the submit
+    // dialog offers Taiwan regions only, which is why it now requires one
+    // (`provide-stockist-info-dialog.tsx`). Imported and backfilled rows can
+    // still carry `region_label: null` and will read as 海外 on the brand page
+    // while being absent from `/where-to-buy` entirely, until one is supplied.
+    // Every stockist is a physical place since DEV-1513, so there is no online
+    // bucket to divert into.
     const key =
       stockist.country != null && stockist.country !== "TW"
         ? "overseas"

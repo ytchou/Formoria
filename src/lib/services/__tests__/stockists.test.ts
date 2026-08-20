@@ -1,17 +1,39 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
+import { groupStockistsForDisplay } from '@/lib/brands/stockist-display'
 import {
   buildEnrichedStockistRows,
   buildStockistPageRanges,
   STOCKIST_DETAIL_READ_SELECT,
   groupStockistsForCity,
   matchesCategory,
+  resolveBrandOwnerUserIds,
   stockistDistrictSlugs,
   summarizeStockistCities,
   type StockistLocation,
 } from '../stockists'
+
+const serviceSource = readFileSync(
+  resolve(process.cwd(), 'src/lib/services/stockists.ts'),
+  'utf8',
+)
+
+/** The body of one top-level function, up to the next declaration. */
+function functionBody(source: string, name: string): string {
+  const declaration = /^(?:export\s+)?(?:async\s+)?function\s+(\w+)/gm
+  const starts = [...source.matchAll(declaration)].map((match) => ({
+    name: match[1],
+    index: match.index ?? 0,
+  }))
+  const position = starts.findIndex((entry) => entry.name === name)
+  if (position === -1) throw new Error(`No function ${name} in source`)
+  return source.slice(
+    starts[position].index,
+    starts[position + 1]?.index ?? source.length,
+  )
+}
 
 function location(id: string, district: string | null): StockistLocation {
   return {
@@ -167,29 +189,10 @@ describe('stockist category filter over slug-stored subcategories', () => {
  * exactly as `scripts/check-test-brand-filter.mjs` does for brands.
  */
 describe('pending community stockists are hidden from public reads', () => {
-  const serviceSource = readFileSync(
-    resolve(process.cwd(), 'src/lib/services/stockists.ts'),
-    'utf8',
-  )
   const storyFactsSource = readFileSync(
     resolve(process.cwd(), 'scripts/story-facts.ts'),
     'utf8',
   )
-
-  /** The body of one top-level function, up to the next declaration. */
-  function functionBody(source: string, name: string): string {
-    const declaration = /^(?:export\s+)?(?:async\s+)?function\s+(\w+)/gm
-    const starts = [...source.matchAll(declaration)].map((match) => ({
-      name: match[1],
-      index: match.index ?? 0,
-    }))
-    const position = starts.findIndex((entry) => entry.name === name)
-    if (position === -1) throw new Error(`No function ${name} in source`)
-    return source.slice(
-      starts[position].index,
-      starts[position + 1]?.index ?? source.length,
-    )
-  }
 
   it('hides pending community rows from the brand-detail read', () => {
     expect(functionBody(serviceSource, 'getStockistsForBrand')).toContain(
@@ -219,6 +222,161 @@ describe('pending community stockists are hidden from public reads', () => {
     expect(STOCKIST_DETAIL_READ_SELECT).not.toContain('confirmation')
     // The approver is what separates a brand's own confirmation from an admin's.
     expect(STOCKIST_DETAIL_READ_SELECT).toContain('owner_status_by')
+  })
+
+  /**
+   * The submission cap is refused with 此品牌的實體通路已達上限 — a sentence
+   * the reader checks against the list on the page. Counting rows that list
+   * cannot show lets one account wedge a brand with 5 hidden submissions, and
+   * the brand's own owner is locked out too. Same predicate as the read, from
+   * the same helper: the rows a hand-written filter list forgets are exactly
+   * the invisible ones. Which rows survive is asserted over a row set in
+   * `stockist-display.test.ts`.
+   */
+  it('counts the cap over exactly the rows the public read returns', () => {
+    const body = functionBody(serviceSource, 'countActiveStockists')
+
+    expect(body).toContain('applyPublicStockistVisibility(')
+    expect(body).not.toContain(".neq('owner_status'")
+    expect(body).not.toContain(".is('removed_at'")
+  })
+
+  it('decides a community submission only while it is still in the queue', () => {
+    // The write, the queue read, and the queue badge share one predicate. The
+    // write is the one that matters: without `removed_at is null` an admin can
+    // approve a tombstoned row the queue never showed them.
+    expect(functionBody(serviceSource, 'reviewCommunityStockist')).toContain(
+      'applyPendingCommunityStockistFilter(',
+    )
+    expect(functionBody(serviceSource, 'listPendingCommunityStockists')).toContain(
+      'applyPendingCommunityStockistFilter(',
+    )
+    expect(
+      readFileSync(
+        resolve(process.cwd(), 'src/lib/services/admin-operations.ts'),
+        'utf8',
+      ),
+    ).toContain('applyPendingCommunityStockistFilter(')
+  })
+})
+
+/**
+ * Approving a community submission publishes a stranger's claim about a shop
+ * onto a live brand page — the same class of editorial decision as promoting a
+ * curated product, which `admin-audit.ts` already names as the reason those are
+ * logged. `brand_channels` keeps only `owner_status_by`, so without this row
+ * there is no record of which way a decision went or that a rejection happened
+ * at all.
+ *
+ * Asserted against the SOURCE: `reviewStockistAction` is a `'use server'`
+ * action that authenticates and revalidates, so importing it into a unit test
+ * would pull the whole Next.js request context. What can drift is the call
+ * simply not being there.
+ */
+describe('community stockist reviews are audited', () => {
+  const reviewAction = functionBody(
+    readFileSync(resolve(process.cwd(), 'src/app/admin/actions.ts'), 'utf8'),
+    'reviewStockistAction',
+  )
+
+  it('logs the decision with the action value for each direction', () => {
+    expect(reviewAction).toContain('logAdminAction(')
+    expect(reviewAction).toContain("'stockist_approved'")
+    expect(reviewAction).toContain("'stockist_rejected'")
+  })
+
+  it('records the brand the claim was published onto', () => {
+    // `target_brand_id` survives a slug rename; the slug alone does not.
+    expect(reviewAction).toContain('targetBrandId: result.brandId')
+  })
+})
+
+/**
+ * The badge on a confirmed stockist says either 品牌確認 or 站方確認, and
+ * `brandOwnerUserIds` is the only input that separates them.
+ */
+describe('resolveBrandOwnerUserIds', () => {
+  const approverId = '11111111-1111-4111-8111-111111111111'
+
+  function displayRow(
+    overrides: Partial<{ ownerStatus: string; ownerStatusBy: string | null }> = {},
+  ) {
+    return { ownerStatus: 'none', ownerStatusBy: null, ...overrides }
+  }
+
+  it('reads the owners when a row was confirmed by a recorded approver', async () => {
+    const brandOwnerUserIds = await resolveBrandOwnerUserIds(
+      'brand-id',
+      [displayRow({ ownerStatus: 'confirmed', ownerStatusBy: approverId })],
+      async (brandId) => (brandId === 'brand-id' ? [approverId] : []),
+    )
+
+    expect(brandOwnerUserIds).toEqual([approverId])
+  })
+
+  // Production holds 0 owner-confirmed rows of 1,354 and staging 0 of 568, so
+  // this is currently every brand page. The predicate is TOTAL over the rows
+  // the badge is computed from: `brandOwnerUserIds` reaches exactly one
+  // expression, guarded by `ownerConfirmed && ownerStatusBy != null`. A row
+  // confirmed by an unrecorded approver is the 2026-07 backfill, which keeps
+  // its owner claim without consulting the set at all.
+  it('skips the read when no row can use the result', async () => {
+    let reads = 0
+
+    const brandOwnerUserIds = await resolveBrandOwnerUserIds(
+      'brand-id',
+      [
+        displayRow(),
+        displayRow({ ownerStatus: 'confirmed', ownerStatusBy: null }),
+        displayRow({ ownerStatus: 'rejected', ownerStatusBy: approverId }),
+      ],
+      async () => {
+        reads += 1
+        return [approverId]
+      },
+    )
+
+    expect(brandOwnerUserIds).toEqual([])
+    expect(reads).toBe(0)
+  })
+
+  it('degrades to the humbler badge when the owners read fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      const rows = [
+        {
+          id: 'stockist-1',
+          name: '登山友',
+          regionLabel: '臺北市',
+          address: null,
+          url: null,
+          ownerStatus: 'confirmed',
+          ownerStatusBy: approverId,
+          source: 'community',
+          removedAt: null,
+        },
+      ]
+      // A brand page must not 500 over a badge label, and `[]` is safe in the
+      // right DIRECTION: an empty set makes every owner-confirmed row read as
+      // 站方確認. Understating who confirmed a shop is recoverable; printing a
+      // 品牌確認 the brand never made is not.
+      const brandOwnerUserIds = await resolveBrandOwnerUserIds(
+        'brand-id',
+        rows,
+        async () => {
+          throw new Error('brand_owners is unavailable')
+        },
+      )
+
+      expect(brandOwnerUserIds).toEqual([])
+      expect(consoleError).toHaveBeenCalled()
+      expect(
+        groupStockistsForDisplay(rows, brandOwnerUserIds).confirmed.at(0),
+      ).toMatchObject({ status: 'confirmed', confirmedBy: 'formoria' })
+    } finally {
+      consoleError.mockRestore()
+    }
   })
 })
 

@@ -814,7 +814,10 @@ test.describe("Brand detail — public locations and retail stockists", () => {
       .fill(submittedStockistUrl);
     await dialog.getByRole("button", { name: "送出", exact: true }).click();
     // The submit still queues behind the like-button action, so give it 30s.
-    await expect(dialog.getByText("感謝提供資訊！")).toBeVisible({
+    // Matched on the clause that carries the promise — the submission is
+    // reviewed BEFORE it appears — rather than on the whole sentence, because
+    // that clause is what the rest of this test then verifies.
+    await expect(dialog.getByText("先經過我們確認")).toBeVisible({
       timeout: BUDGET.GATED_UI,
     });
     await dialog.getByRole("button", { name: "關閉", exact: true }).click();

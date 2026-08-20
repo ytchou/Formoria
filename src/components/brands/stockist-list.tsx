@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Check, ChevronDown, ExternalLink, TriangleAlert } from "lucide-react";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import {
   getStockistViewerStateAction,
   ownerModerateStockistAction,
@@ -21,13 +21,24 @@ import { cn } from "@/lib/utils";
 const MAX_VISIBLE_CHIPS = 6;
 /** Below this count the grouping is noise — entries render without headings. */
 const GROUPED_LAYOUT_MIN_STOCKISTS = 4;
-/** Chain marker written by the enrichment phase; it carries no location worth repeating. */
-const CHAIN_MARKER = CHAIN_REGION_LABEL;
 
 type Translate = (
   key: string,
   values?: Record<string, string | number>,
 ) => string;
+
+/**
+ * The chain sentinel is a marker, not a place: it is the one region label that
+ * must never print. Row and chip both call this — the row printed it raw until
+ * DEV-1513's review, which put CHAIN_REGION_LABEL under the all-Taiwan heading
+ * of a live brand page. That value carries a retired term, and the
+ * message-catalogue lock cannot see it because it arrives as data, not copy.
+ */
+function printableRegionLabel(stockist: Stockist): string | null {
+  return stockist.regionLabel && stockist.regionLabel !== CHAIN_REGION_LABEL
+    ? stockist.regionLabel
+    : null;
+}
 
 export type StockistListProps = {
   confirmed: Stockist[];
@@ -35,21 +46,6 @@ export type StockistListProps = {
   brandId: string;
   brandSlug: string;
 };
-
-function getActionErrorMessage(
-  error: unknown,
-  translateError: (key: string) => string,
-): string {
-  if (error instanceof Error && error.message && error.message !== "unknown") {
-    try {
-      return translateError(error.message);
-    } catch {
-      return error.message;
-    }
-  }
-
-  return translateError("unknown");
-}
 
 function StatusMarker({ confirmed }: { confirmed: boolean }) {
   if (confirmed) {
@@ -93,8 +89,9 @@ function StockistListRow({
   onModerate,
 }: StockistListRowProps) {
   // Every stockist is a physical place since DEV-1513, so the address is always
-  // the location worth printing and the region label is its fallback.
-  const region = stockist.address ?? stockist.regionLabel;
+  // the location worth printing and the region label is its fallback — except
+  // the chain sentinel, which is not a location at all.
+  const region = stockist.address ?? printableRegionLabel(stockist);
   const mapsHref = stockist.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stockist.address)}`
     : null;
@@ -212,12 +209,7 @@ type StockistChipProps = {
 
 function StockistChip({ stockist, t }: StockistChipProps) {
   const isConfirmed = stockist.status === "confirmed";
-  // The chain sentinel is a marker, not a place, so it is the one region label
-  // that never prints.
-  const region =
-    stockist.regionLabel && stockist.regionLabel !== CHAIN_MARKER
-      ? stockist.regionLabel
-      : null;
+  const region = printableRegionLabel(stockist);
   const mapsHref = stockist.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stockist.address)}`
     : null;
@@ -295,7 +287,6 @@ export function StockistList({
   const tErrors = useTranslations("brandDetail.channels.errors");
   const tCities = useTranslations("cities");
   const { user, loading } = useUser();
-  const [, startTransition] = useTransition();
   const allStockists = [...confirmed, ...possible];
   const [expandedChipGroups, setExpandedChipGroups] = useState<
     Partial<Record<string, boolean>>
@@ -336,31 +327,37 @@ export function StockistList({
     });
   }
 
-  function handleOwnerModeration(
+  async function handleOwnerModeration(
     stockist: Stockist,
     status: "confirmed" | "rejected",
   ) {
     setStockistError(stockist.id, null);
     setPendingStockistId(stockist.id);
 
-    startTransition(() => {
-      void (async () => {
-        try {
-          const result = await ownerModerateStockistAction(
-            stockist.id,
-            brandSlug,
-            status,
-          );
-          if ("error" in result) throw new Error(result.error);
-        } catch (error) {
-          setStockistError(stockist.id, getActionErrorMessage(error, tErrors));
-        } finally {
-          setPendingStockistId((current) =>
-            current === stockist.id ? null : current,
-          );
-        }
-      })();
-    });
+    try {
+      const result = await ownerModerateStockistAction(
+        stockist.id,
+        brandSlug,
+        status,
+      );
+      // The action returns a machine-readable code, never a sentence. Codes it
+      // can return that this catalogue has no entry for (`not_owner`,
+      // `not_found`, `invalid_status`) would otherwise render as a raw key
+      // path, so an unknown code falls back to the generic failure.
+      if ("error" in result) {
+        setStockistError(
+          stockist.id,
+          tErrors.has(result.error) ? tErrors(result.error) : tErrors("unknown"),
+        );
+      }
+    } catch {
+      // A thrown action is a transport failure, which carries no code.
+      setStockistError(stockist.id, tErrors("unknown"));
+    } finally {
+      setPendingStockistId((current) =>
+        current === stockist.id ? null : current,
+      );
+    }
   }
 
   function rendersAsRow(stockist: Stockist) {

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestClient, describeWithDb } from '@/test/setup'
 import {
@@ -27,6 +27,8 @@ const ALL_ACTIONS = [
   'curated_product_source_retired',
   'curated_product_selection_placed',
   'curated_product_selection_retired',
+  'stockist_approved',
+  'stockist_rejected',
 ] as const satisfies readonly AdminAction[]
 
 type MissingAdminAction = Exclude<AdminAction, (typeof ALL_ACTIONS)[number]>
@@ -78,6 +80,52 @@ describeWithDb('admin audit log', () => {
     expect(error).toBeNull()
   })
 
+})
+
+/**
+ * The union is a TypeScript claim; the CHECK constraint is the database's. A
+ * new member with no migration behind it raises 23514 at runtime — and
+ * `logAdminAction` is fire-and-forget, so the insert is refused into a `catch
+ * {}` and the action simply goes unrecorded. Neither tsc nor ESLint sees it:
+ * the service client is created without the <Database> generic.
+ *
+ * `admin audit log` above asserts the same thing against a real database, but
+ * only when credentials are present. This half needs none, so it runs on every
+ * machine and in CI.
+ */
+describe('admin_audit_log action CHECK constraint', () => {
+  const migrationsDirectory = resolve(process.cwd(), 'supabase/migrations')
+  const constraintPattern =
+    /admin_audit_log_action_check check \(action in \(([\s\S]*?)\)\)/
+
+  /** The last migration that redefines the constraint wins; it drops the prior one. */
+  const latestConstraint = readdirSync(migrationsDirectory)
+    .filter((file) => file.endsWith('.sql'))
+    .sort()
+    .map((file) => ({
+      file,
+      match: readFileSync(join(migrationsDirectory, file), 'utf8').match(
+        constraintPattern,
+      ),
+    }))
+    .filter((entry) => entry.match !== null)
+    .at(-1)
+
+  const acceptedActions = new Set(
+    [...(latestConstraint?.match?.[1] ?? '').matchAll(/'([a-z_]+)'/g)].map(
+      (match) => match[1],
+    ),
+  )
+
+  it.each([...ALL_ACTIONS])('%s is accepted by the constraint', (action) => {
+    expect(acceptedActions.has(action)).toBe(true)
+  })
+
+  // Its writer (`adminRemoveChannel`) was deleted by DEV-1513, but historical
+  // rows carry the value: dropping it would make the table fail its own check.
+  it('keeps a retired action whose rows still exist', () => {
+    expect(acceptedActions.has('channel_removed')).toBe(true)
+  })
 })
 
 describe('dashboard brand overview', () => {
