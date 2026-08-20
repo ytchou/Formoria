@@ -4,7 +4,11 @@ import {
   planStagingAccountActions,
   paginateAuthUsers,
   assertStagingSeed,
+  migrationLedgerDiff,
+  migrationPushPlan,
   migrationSafetyPlan,
+  migrationVersion,
+  parseVersionRows,
   projectRefFromDatabaseUrl,
   resultCount,
   validateDeploymentTarget,
@@ -105,9 +109,25 @@ describe("database deployment identity guard", () => {
       E2E_ADMIN_PASSWORD: "admin-password",
       ADMIN_EMAILS: "e2e-admin@example.test",
     };
-    expect(validateStagingSeedEnvironment({ ...base, STAGING_BASE_URL: "https://staging.formoria.com" }).accounts).toHaveLength(2);
-    expect(() => validateStagingSeedEnvironment({ ...base, STAGING_BASE_URL: "https://formoria.com" })).toThrow(/staging\.formoria\.com/);
-    expect(() => validateStagingSeedEnvironment({ ...base, STAGING_BASE_URL: "https://staging.formoria.com", ADMIN_EMAILS: "owner@example.test" })).toThrow(/ADMIN_EMAILS/);
+    expect(
+      validateStagingSeedEnvironment({
+        ...base,
+        STAGING_BASE_URL: "https://staging.formoria.com",
+      }).accounts,
+    ).toHaveLength(2);
+    expect(() =>
+      validateStagingSeedEnvironment({
+        ...base,
+        STAGING_BASE_URL: "https://formoria.com",
+      }),
+    ).toThrow(/staging\.formoria\.com/);
+    expect(() =>
+      validateStagingSeedEnvironment({
+        ...base,
+        STAGING_BASE_URL: "https://staging.formoria.com",
+        ADMIN_EMAILS: "owner@example.test",
+      }),
+    ).toThrow(/ADMIN_EMAILS/);
   });
 
   it("seed:staging applies the brand fixture only", () => {
@@ -178,11 +198,15 @@ describe("database deployment identity guard", () => {
 
     expect(findStagingAccount(firstSeedUsers, target.email)).toEqual(target);
     expect(findStagingAccount(secondSeedUsers, target.email)).toEqual(target);
-    expect(planStagingAccountActions(firstSeedUsers, [account])[0]).toMatchObject({
+    expect(
+      planStagingAccountActions(firstSeedUsers, [account])[0],
+    ).toMatchObject({
       account,
       existingUser: target,
     });
-    expect(planStagingAccountActions(secondSeedUsers, [account])[0]).toMatchObject({
+    expect(
+      planStagingAccountActions(secondSeedUsers, [account])[0],
+    ).toMatchObject({
       account,
       existingUser: target,
     });
@@ -192,9 +216,85 @@ describe("database deployment identity guard", () => {
   it("fails closed on an unbounded or repeated Auth pagination response", async () => {
     await expect(
       paginateAuthUsers(async () => ({
-        data: { users: [{ id: "same-user", email: "one@example.test" }, ...Array.from({ length: 999 }, (_, i) => ({ id: `u-${i}`, email: null }))] },
+        data: {
+          users: [
+            { id: "same-user", email: "one@example.test" },
+            ...Array.from({ length: 999 }, (_, i) => ({
+              id: `u-${i}`,
+              email: null,
+            })),
+          ],
+        },
         error: null,
       })),
     ).rejects.toThrow(/repeated user|pagination exceeded/);
+  });
+});
+
+describe("migration ledger drift", () => {
+  it("skips the push when the ledger is ahead and nothing is pending", () => {
+    // The exact shape of ten of the twenty staging deploy failures up to
+    // 2026-08-20: versions applied from an unmerged branch, no local work.
+    const plan = migrationPushPlan(
+      ["20260819090000", "20260819100000"],
+      ["20260819090000", "20260819100000", "20260820090000", "20260820100000"],
+    );
+
+    expect(plan.action).toBe("skip");
+    expect(plan.pending).toEqual([]);
+    expect(plan.remoteAhead).toEqual(["20260820090000", "20260820100000"]);
+  });
+
+  it("pushes when local files are pending and the ledger holds nothing extra", () => {
+    const plan = migrationPushPlan(
+      ["20260821120000", "20260821130000", "20260821140000"],
+      ["20260821130000"],
+    );
+
+    expect(plan.action).toBe("push");
+    expect(plan.pending).toEqual(["20260821120000", "20260821140000"]);
+    expect(plan.remoteAhead).toEqual([]);
+  });
+
+  it("refuses to guess when the ledger is ahead and migrations are also pending", () => {
+    // `supabase db push` cannot run in this state at all, so the deploy fails
+    // either way — but it fails naming both lists instead of suggesting repair.
+    expect(() =>
+      migrationPushPlan(["20260821120000"], ["20260822090000"]),
+    ).toThrow(/Applied without a local file: 20260822090000/);
+  });
+
+  it("treats an empty ledger as every migration pending", () => {
+    const plan = migrationPushPlan(["20260819090000"], []);
+
+    expect(plan.action).toBe("push");
+    expect(plan.pending).toEqual(["20260819090000"]);
+  });
+
+  it("reports both directions of drift without ordering assumptions", () => {
+    expect(migrationLedgerDiff(["3", "1"], ["2", "1"])).toEqual({
+      pending: ["3"],
+      remoteAhead: ["2"],
+    });
+  });
+
+  it("reads the version prefix and rejects a file that has none", () => {
+    expect(migrationVersion("20260821120000_drop_brand_channels.sql")).toBe(
+      "20260821120000",
+    );
+    expect(() => migrationVersion("drop_brand_channels.sql")).toThrow(
+      "missing a version prefix",
+    );
+  });
+
+  it("reads ledger versions from psql JSON and rejects table output", () => {
+    expect(
+      parseVersionRows(
+        JSON.stringify({ rows: [{ version: "20260821120000" }] }),
+      ),
+    ).toEqual(["20260821120000"]);
+    expect(() => parseVersionRows("version\n--------\n20260821120000")).toThrow(
+      "Could not read the migration ledger as JSON",
+    );
   });
 });
