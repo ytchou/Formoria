@@ -25,9 +25,9 @@ export function Footer() {
 
   return (
     <footer role="contentinfo" className="bg-ink py-section">
-      {/* Not `page-shell`: that is a fixed 100rem, and every non-landing
-          `<main>` caps at 80rem, so a fixed footer measure diverged from the
-          content above it by up to 160px on `/brands`, `/about` and the rest.
+      {/* Not a fixed 100rem cap: every non-landing `<main>` caps at 80rem, so
+          a fixed footer measure diverged from the content above it by up to
+          160px on `/brands`, `/about` and the rest.
           `page-measure` reads `--page-measure` from globals.css, which defaults
           to 80rem; the landing page raises it to 100rem by marking its `<main>`
           with `data-page-measure="wide"`. The `<main>` elements now read the

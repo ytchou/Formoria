@@ -169,13 +169,14 @@ export function ProductWall({
   return (
     <section aria-labelledby="landing-selected-products" className="py-section">
       {/* Wide, but no longer edge to edge. Three measures were on the table at
-          1920px: the original `max-w-6xl` left 384px of margin each side (too
-          much — the wall read as a narrow column), true full bleed left 40px
-          (too little — the photographs ran off the page). `page-shell` is the
-          100rem middle ground, and it is now shared by every landing section
-          and the footer, so the page has ONE left edge. Declared in
-          globals.css — never re-inline the cap here. */}
-      <div className="page-shell">
+          1920px: the original 72rem left 384px of margin each side (too much —
+          the wall read as a narrow column), true full bleed left 40px (too
+          little — the photographs ran off the page). `page-measure` is the
+          middle ground, 100rem under this page, and it is the same measure
+          every landing section, the header and the footer read, so the page has
+          ONE left edge. Declared in globals.css — never re-inline a cap here.
+          */}
+      <div className="page-gutter mx-auto page-measure">
         <SectionHeader
           id="landing-selected-products"
           heading={labels.heading}

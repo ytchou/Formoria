@@ -25,7 +25,7 @@ export default async function SectionBand() {
 
   return (
     <section className="bg-surface py-section">
-      <div className="page-shell">
+      <div className="page-gutter mx-auto page-measure">
         {/* `min-w-0` on the items is load-bearing (DEV-1489). A grid item's
             automatic minimum size is its content's min-content width, and the
             newsletter column holds an `overflow-x-auto` chip row whose four

@@ -52,7 +52,7 @@ export function ImpersonationBanner() {
 
   return (
     <div className="border-b border-mit-verified/20 bg-mit-verified-bg px-3 py-2">
-      <div className="mx-auto flex header-measure items-center justify-between gap-3">
+      <div className="mx-auto flex page-measure items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           {/* ui-exception: inverse badge on dark impersonation banner; single site, no variant warranted */}
           <Badge className="bg-ground text-mit-verified">

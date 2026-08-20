@@ -337,10 +337,9 @@
 }
 
 /*
- * COMPOSES `page-gutter` instead of restating its two steps, for exactly the
- * reason `page-shell` gives below: written out, the shared half would be a
- * byte-identical copy a few lines from the original, and the next edit to the
- * gutter would land on only one of them.
+ * COMPOSES `page-gutter` instead of restating its two steps: written out, the
+ * shared half would be a byte-identical copy a few lines from the original, and
+ * the next edit to the gutter would land on only one of them.
  */
 @utility page-gutter-wide {
   @apply page-gutter;
@@ -348,30 +347,6 @@
   @media (width >= 80rem) {
     padding-inline: calc(var(--spacing) * 16);
   }
-}
-
-/*
- * The landing page's shared measure: `page-gutter` plus a 100rem cap, centred.
- *
- * ONE declaration, because every landing section has to agree with the product
- * wall down to the pixel — a section 8px narrower than the wall above it reads
- * as a mistake, and three copies of `mx-auto max-w-[100rem] page-gutter`
- * scattered across four files drift the moment one of them is edited. Change
- * the cap here and the whole page moves together.
- *
- * At 1920px this leaves 160px each side. The narrower `max-w-6xl` (72rem) that
- * several of these sections used to carry left 384px, which made every band
- * look inset from the wall.
- *
- * It COMPOSES `page-gutter` rather than restating it. The two declarations were
- * byte-identical copies twenty lines apart, so a change to the gutter silently
- * applied to every non-landing route and to nothing on the landing page.
- */
-@utility page-shell {
-  @apply page-gutter;
-
-  margin-inline: auto;
-  max-width: 100rem;
 }
 
 /*
@@ -394,14 +369,12 @@
  * declarations across twenty-eight files were the real measure — so widening
  * the token moved the footer and nothing above it.
  *
- * The sticky header is deliberately NOT wired to this: it stays at 80rem on
- * every route, because a header that changes width between routes reads as the
- * page jumping. `header-measure` is that fixed cap, named rather than spelled
- * `max-w-[80rem]` in two files, so the exclusion reads as a decision.
+ * The sticky header reads it too. It used to be held out at its own fixed
+ * 80rem, which is what put a 160px seam between the header and the landing
+ * bands at 1920px; one measure for chrome and content is what closed it.
  */
 :root {
   --page-measure: 80rem;
-  --header-measure: 80rem;
 }
 
 body:has([data-page-measure="wide"]) {
@@ -410,10 +383,6 @@ body:has([data-page-measure="wide"]) {
 
 @utility page-measure {
   max-width: var(--page-measure);
-}
-
-@utility header-measure {
-  max-width: var(--header-measure);
 }
 
 /*

@@ -28,7 +28,7 @@ export default async function HeroSection() {
   const t = await getTranslations('landing.hero')
 
   return (
-    <section className="page-shell py-section">
+    <section className="page-gutter mx-auto page-measure py-section">
       {/* `max-w-4xl` (56rem) against the 100rem shell: the lede wraps at a
           readable measure while the display line still runs long enough to
           read as a headline rather than as a stacked column of characters. */}

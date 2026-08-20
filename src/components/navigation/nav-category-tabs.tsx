@@ -110,15 +110,15 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
   }
 
   return (
-    // `header-measure`, not `page-measure`: this row is part of the sticky
-    // header, which is deliberately excluded from the landing page's wider
-    // measure. See the comment beside `--page-measure` in globals.css.
+    // `page-measure`: this row is part of the sticky header, which no longer
+    // carries a measure of its own — header and content share one, so they
+    // share a left edge. See the comment beside `--page-measure` in globals.css.
     // NAMED, because it is no longer the header's only navigation landmark and
     // is no longer suppressed on `/` — three unnamed `nav` elements in one
     // banner are three identical entries in a landmark list.
     <nav
       aria-label={t('categories')}
-      className="page-gutter mx-auto header-measure overflow-x-hidden"
+      className="page-gutter mx-auto page-measure overflow-x-hidden"
     >
       {/* One row that scrolls horizontally on a phone rather than wrapping:
           thirteen zh-TW labels wrap to three lines at 375px and push the page
@@ -173,7 +173,7 @@ function NavCategoryTabsFallback() {
   return (
     <nav
       aria-hidden="true"
-      className="page-gutter mx-auto header-measure overflow-x-hidden"
+      className="page-gutter mx-auto page-measure overflow-x-hidden"
     >
       <div className="min-h-(--nav-row-categories)" />
     </nav>

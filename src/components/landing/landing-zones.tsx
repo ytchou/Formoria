@@ -154,7 +154,7 @@ export async function LandingZones({
           aria-labelledby="landing-trust"
           className="bg-surface py-section"
         >
-          <div className="page-shell flex flex-col gap-stack lg:flex-row lg:gap-gutter">
+          <div className="page-gutter mx-auto page-measure flex flex-col gap-stack lg:flex-row lg:gap-gutter">
             <div className="lg:w-1/4">
               <h2 id="landing-trust" className="type-section">
                 {t("trustSeam.line")}
@@ -208,7 +208,7 @@ export async function LandingZones({
             aria-labelledby="landing-trails"
             className="py-section"
           >
-            <div className="page-shell">
+            <div className="page-gutter mx-auto page-measure">
               <SectionHeader
                 id="landing-trails"
                 heading={t("trails.heading")}
@@ -275,7 +275,7 @@ export async function LandingZones({
               `type-page-title`, whose default ink is the full-strength token, so
               it has the same margin. Anything below /85 re-breaks AA. */}
           <div className="absolute inset-0 bg-ground/85" aria-hidden="true" />
-          <div className="relative page-shell text-center">
+          <div className="relative page-gutter mx-auto page-measure text-center">
             <h2
               id="landing-manifesto"
               className="mx-auto max-w-4xl type-page-title"
@@ -306,7 +306,7 @@ export async function LandingZones({
             aria-labelledby="landing-topics"
             className="py-section"
           >
-            <div className="page-shell">
+            <div className="page-gutter mx-auto page-measure">
               {/* The zone renders whenever it has events OR stories, so its
                   heading, note and link follow what it actually contains — an
                   events-only zone headed "Stories", linking to /stories, would
@@ -388,7 +388,7 @@ export async function LandingZones({
 
         {brands.length > 0 && (
           <div data-landing-zone="directory" className="py-section">
-            <div className="page-shell">
+            <div className="page-gutter mx-auto page-measure">
               <BrandShowcase
                 brands={brands}
                 heading={t("showcase.heading")}
