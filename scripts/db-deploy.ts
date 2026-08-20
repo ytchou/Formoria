@@ -389,9 +389,24 @@ function databaseIsFresh(target: DeploymentTarget): boolean {
   throw new Error("Could not determine remote migration state");
 }
 
+// `--include-all` is required here, not a convenience. A migration that must
+// land *after* the deploy which stops reading its objects gets held back by
+// hand, and that leaves a hole in the remote ledger. `supabase db push` then
+// refuses to insert anything before the last applied migration, so one
+// held-back file wedges `preDeployCommand` permanently — and the deploy that
+// would make the migration safe to apply is exactly what can no longer run
+// (DEV-1533). Out-of-order merges on a shared trunk open the same hole without
+// anyone holding anything back deliberately.
 function migrationCheck(target: DeploymentTarget): void {
   supabase(["migration", "list", "--db-url", target.databaseUrl]);
-  supabase(["db", "push", "--db-url", target.databaseUrl, "--dry-run"]);
+  supabase([
+    "db",
+    "push",
+    "--db-url",
+    target.databaseUrl,
+    "--dry-run",
+    "--include-all",
+  ]);
 }
 
 export function resultCount(result: string, column: string): number {
@@ -502,7 +517,9 @@ async function main(): Promise<void> {
       const safety = migrationSafetyPlan(target, fresh);
       if (safety.bootstrapStaging) queryFile(target, STAGING_BOOTSTRAP);
       migrationCheck(target);
-      supabase(["db", "push", "--db-url", target.databaseUrl]);
+      // Flags must match the dry-run in migrationCheck exactly. A check that
+      // pushes a different set from the real push is not a check.
+      supabase(["db", "push", "--db-url", target.databaseUrl, "--include-all"]);
       if (safety.finalizeStaging) queryFile(target, STAGING_FINALIZE);
       verify(target, false);
       return;
