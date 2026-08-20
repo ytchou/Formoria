@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import Image from 'next/image'
+import { SurfaceImage } from '@/components/ui/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
@@ -58,10 +58,11 @@ export function ImageCarousel({
   if (total === 0) {
     return (
       <div
-        className={cn(
-          'relative overflow-hidden rounded-xl bg-muted',
-          variant === 'detail' ? 'aspect-[4/3]' : 'aspect-square',
-        )}
+        // ONE ratio for both variants. It used to be 4:3 on detail and square
+        // in the grid, so the same photo was cropped two different ways
+        // depending on where you looked at it. `aspect-media` is 1:1 — see the
+        // token's comment in globals.css for the measurement.
+        className="relative aspect-media overflow-hidden rounded-[3px] bg-surface-deep"
       >
         <BrandImageFallback name={alt} category={category ?? null} size="detail" />
       </div>
@@ -89,7 +90,8 @@ export function ImageCarousel({
   }
 
   // Shared with every other brand image surface. The container already paints
-  // the `bg-muted` plate a contained logo sits on, so no `logoPlate` here.
+  // the `bg-surface-deep` plate a contained logo sits on, so no `logoPlate`
+  // here.
   function fill(index: number, inset: string) {
     return brandImageFill(metaFor(index), { inset })
   }
@@ -147,18 +149,36 @@ export function ImageCarousel({
     inset: heroInset,
     fit: 'contain',
   })
+  /*
+   * The brand-supplied credit — a credit, not a badge.
+   *
+   * It states where ONE file came from, so it sits under that file and moves
+   * with it; a badge would put it in the same register as the selection
+   * label, which is an
+   * editorial commitment Formoria makes rather than a fact about provenance.
+   *
+   * Read off `metaFor(current)`, which resolves through `sourceIndex` — the
+   * same discipline alt text and fill mode use. Indexing the FILTERED list here
+   * would credit the brand for a photograph it never supplied, which is the one
+   * way this line can be actively wrong rather than merely absent.
+   *
+   * Absent is the common case and is correct: a brand with no owner uploads has
+   * nothing to credit. There is no fallback.
+   */
+  const isCurrentBrandSupplied = metaFor(current)?.isOwnerSupplied === true
 
   return (
     <div className={cn(variant === 'detail' && 'space-y-3')}>
       {/* Hero image */}
       <div
-        className={cn(
-          'relative overflow-hidden rounded-xl bg-muted',
-          variant === 'detail' ? 'aspect-[4/3]' : 'aspect-square',
-        )}
+        // ONE ratio for both variants. It used to be 4:3 on detail and square
+        // in the grid, so the same photo was cropped two different ways
+        // depending on where you looked at it. `aspect-media` is 1:1 — see the
+        // token's comment in globals.css for the measurement.
+        className="relative aspect-media overflow-hidden rounded-[3px] bg-surface-deep"
       >
         {previousImage && (
-          <Image
+          <SurfaceImage
             src={previousImage.src}
             alt=""
             fill
@@ -166,6 +186,10 @@ export function ImageCarousel({
             style={{
               transitionTimingFunction: 'var(--ease-settle)',
             }}
+            surface="card"
+            // The detail hero is a single column capped at 580px; in the grid
+            // variant it is a fixed 192px cell. Neither is the four-up card
+            // measure the `card` surface describes, so both are stated.
             sizes={variant === 'detail' ? '(max-width: 1024px) 100vw, 580px' : '192px'}
             aria-hidden
           />
@@ -174,12 +198,16 @@ export function ImageCarousel({
         {isCurrentBroken || !currentImage ? (
           <BrandImageFallback name={alt} category={category ?? null} size="detail" />
         ) : (
-          <Image
+          <SurfaceImage
             key={current}
             src={currentImage.src}
             alt={getAlt(current)}
             fill
             className={cn('animate-in fade-in duration-200', currentFill)}
+            surface="card"
+            // The detail hero is a single column capped at 580px; in the grid
+            // variant it is a fixed 192px cell. Neither is the four-up card
+            // measure the `card` surface describes, so both are stated.
             sizes={variant === 'detail' ? '(max-width: 1024px) 100vw, 580px' : '192px'}
             preload={variant === 'detail' && current === 0}
             onError={() => handleImageError(current)}
@@ -191,11 +219,15 @@ export function ImageCarousel({
             {/* Prev button */}
             <Button
               type="button"
-              variant="overlay"
+              variant="secondary"
               shape="pill"
               size="icon"
+              // The v2 `overlay` variant is gone with the second interaction
+              // colour. Over a photograph an outline alone is illegible, so
+              // the control wears a paper fill here — a call-site treatment,
+              // not a new variant.
               className={cn(
-                'absolute top-1/2 -translate-y-1/2',
+                'absolute top-1/2 -translate-y-1/2 bg-ground/90 hover:bg-ground',
                 variant === 'detail' ? 'left-4' : 'left-2',
               )}
               onClick={() => goTo(current - 1)}
@@ -208,11 +240,11 @@ export function ImageCarousel({
             {/* Next button */}
             <Button
               type="button"
-              variant="overlay"
+              variant="secondary"
               shape="pill"
               size="icon"
               className={cn(
-                'absolute top-1/2 -translate-y-1/2',
+                'absolute top-1/2 -translate-y-1/2 bg-ground/90 hover:bg-ground',
                 variant === 'detail' ? 'right-4' : 'right-2',
               )}
               onClick={() => goTo(current + 1)}
@@ -225,7 +257,7 @@ export function ImageCarousel({
             {/* Counter badge */}
             <span
               className={cn(
-                'absolute rounded-full bg-accent/80 px-2.5 py-1 type-field-label text-accent-foreground backdrop-blur-sm',
+                'absolute rounded-full bg-accent/80 px-2.5 py-1 type-metadata text-accent-foreground backdrop-blur-sm',
                 variant === 'detail' ? 'bottom-4 right-4' : 'bottom-2 right-2',
               )}
             >
@@ -234,6 +266,15 @@ export function ImageCarousel({
           </>
         )}
       </div>
+
+      {/* Brand-supplied credit — beside the image, never over it. Interface
+          type (the metadata step of the interface face), because it is a note
+          about the asset rather than part of the brand's own content. */}
+      {isCurrentBrandSupplied && variant === 'detail' ? (
+        <p data-brand-supplied className="type-metadata">
+          {t('gallery.brandSupplied')}
+        </p>
+      ) : null}
 
       {/* Thumbnail grid */}
       {total > 1 && variant === 'detail' && (
@@ -246,26 +287,34 @@ export function ImageCarousel({
               type="button"
               variant="ghost"
               onClick={() => goTo(i)}
-              className={`relative size-16 overflow-hidden rounded-lg p-0 hover:bg-transparent ${
+              className={`relative size-16 overflow-hidden rounded-[4px] p-0 hover:bg-transparent ${
                 i === current
-                  ? 'ring-2 ring-primary ring-offset-2'
+                  ? 'ring-2 ring-accent ring-offset-2'
                   : 'opacity-70 hover:opacity-100'
               }`}
               aria-label={t('gallery.viewPhoto', { n: i + 1 })}
               data-ph-no-autocapture
             >
               {brokenImages.has(i) ? (
-                <div className="flex h-full items-center justify-center bg-muted">
-                  <span className="type-label text-muted-foreground">
+                // `surface`, not `surface-deep`: this fallback carries TEXT,
+                // and `--ink-muted` measures 4.17:1 on `surface-deep` — under
+                // the 4.5:1 floor. The token is the image slot ("no text sits
+                // on this", globals.css); the moment a slot renders a letter
+                // instead of a photograph it is a card, and cards are
+                // `surface` (4.6:1).
+                <div className="flex h-full items-center justify-center bg-surface">
+                  <span className="type-label text-ink-muted">
                     {initial}
                   </span>
                 </div>
               ) : (
-                <Image
+                <SurfaceImage
                   src={src}
                   alt={getAlt(i)}
                   fill
                   className={thumbFill}
+                  surface="thumb"
+                  // The thumbnail strip is a fixed 64px square.
                   sizes="64px"
                   onError={() => handleImageError(i)}
                 />

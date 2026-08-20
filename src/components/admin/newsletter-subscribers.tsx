@@ -84,7 +84,7 @@ export function NewsletterSubscribersList({
               <TableRow>
                 <TableCell
                   colSpan={6}
-                  className="py-8 text-center text-muted-foreground"
+                  className="py-8 text-center text-ink-muted"
                 >
                   No subscribers match these filters.
                 </TableCell>
@@ -95,7 +95,7 @@ export function NewsletterSubscribersList({
                   <TableCell>
                     <p className="font-medium">{subscriber.email}</p>
                     {subscriber.name ? (
-                      <p className="type-body-muted">{subscriber.name}</p>
+                      <p className="type-body-sm">{subscriber.name}</p>
                     ) : null}
                   </TableCell>
                   <TableCell>

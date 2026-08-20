@@ -2,11 +2,15 @@
  * Crop damage — how much of a source image is destroyed by the fixed-ratio box
  * it renders into.
  *
- * Brand images render into an `aspect-[4/3]` box with `object-cover`, so any
- * source that is not already 4/3 gets cut on one axis. Hero ranking used to
+ * Brand images render into a fixed box with `object-cover`, so any source that
+ * is not already that shape gets cut on one axis. Hero ranking used to
  * approximate that with a flat portrait penalty; this computes the damage the
  * image will actually receive, so a mildly-tall photo and a phone-screenshot
  * strip are no longer charged the same amount.
+ *
+ * The default `targetRatio` is `HERO_TARGET_RATIO`, which still reads 4/3 while
+ * the render box is 1:1 — see the comment on that constant for why the two are
+ * deliberately not moved together.
  *
  * Pure and client-safe by construction: no `sharp`, no services, no DB, no Node
  * built-ins.

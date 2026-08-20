@@ -32,24 +32,24 @@ export function ProgressStepCard({
   return (
     <section
       className={cn(
-        surfaceCardStyles({ elevated: true }),
+        surfaceCardStyles(),
         className,
       )}
     >
       <div className="flex items-center gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
           <ListChecks className="size-5" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="type-card-title">
+          <h2 className="type-label">
             {title}
           </h2>
-          <p className="mt-0.5 type-card-description">{progressText}</p>
+          <p className="mt-0.5 type-body-sm">{progressText}</p>
         </div>
       </div>
 
       <div
-        className="mt-4 h-2 overflow-hidden rounded-full bg-muted"
+        className="mt-4 h-2 overflow-hidden rounded-full bg-surface"
         role="progressbar"
         aria-label={progressLabel}
         aria-valuemin={0}
@@ -57,7 +57,7 @@ export function ProgressStepCard({
         aria-valuenow={value}
       >
         <div
-          className="h-full rounded-full bg-primary transition-[width]"
+          className="h-full rounded-full bg-accent transition-[width]"
           style={{ width: `${percentage}%` }}
         />
       </div>

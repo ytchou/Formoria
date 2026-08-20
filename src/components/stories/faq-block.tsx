@@ -37,10 +37,20 @@ export function FaqBlock({ questions, emitJsonLd = true }: FaqBlockProps) {
       ) : null}
       {items.map((item) => (
         <details key={item.q} className={surfaceCardStyles({ className: 'px-4 py-3', padding: 'none' })}>
-          <summary className="cursor-pointer type-card-title">
+          {/*
+            Native `<details>`, never a scripted accordion: the answer ships in
+            the server HTML either way, which is what makes it readable by a
+            crawler that never opens the panel. `summary` is focusable by
+            default, so the only thing it needs from us is a visible ring.
+
+            Padding, never `flex`: `display:flex` suppresses the ::marker, and
+            the disclosure triangle is the only affordance saying this opens.
+            `py-2` on a 28px line is the 44px target.
+          */}
+          <summary className="cursor-pointer rounded-[2px] py-2 type-card-title focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground">
             {item.q}
           </summary>
-          <div className="mt-3 type-body-muted">
+          <div className="mt-3 type-body-sm text-ink-soft">
             {item.a}
           </div>
         </details>

@@ -4,7 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Breadcrumb } from '@/components/brands/brand-breadcrumb'
 import { DistrictSection } from '@/components/where-to-buy/district-section'
 import { LocateButton } from '@/components/where-to-buy/locate-button'
-import { taxonomyLinkClasses } from '@/components/ui/toggle-chip'
+import { ChipRow, taxonomyLinkClasses } from '@/components/ui/toggle-chip'
 import { localizePath } from '@/i18n/locale-preference'
 import { citySlugFromPath, citySlugToPath } from '@/lib/constants/taiwan-cities'
 import { buildAlternates, type Locale } from '@/lib/seo/alternates'
@@ -19,6 +19,7 @@ import { L1_CATEGORIES, categoryLabel } from '@/lib/taxonomy/ontology'
 import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
 import { buildStockistItemListJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { captureReadFailure, markRenderDegraded } from '@/lib/degraded-render'
+import { routes } from '@/lib/routes'
 
 export const revalidate = 3600
 
@@ -56,7 +57,7 @@ export async function generateMetadata({
     getTranslations({ locale: safeLocale, namespace: 'whereToBuy' }),
     getTranslations({ locale: safeLocale, namespace: 'cities' }),
   ])
-  const path = `/where-to-buy/${citySlugToPath(city)}`
+  const path = routes.whereToBuyCity(citySlugToPath(city))
   const { canonical, languages } = buildAlternates(path, safeLocale)
   return {
     title: t('cityTitle', { city: tCities(city) }),
@@ -92,7 +93,7 @@ export default async function WhereToBuyCityPage({
   const availableDistrictSlugs = stockistDistrictSlugs(locations)
   const count = groups.reduce((sum, group) => sum + group.locations.length, 0)
   const cityName = tCities(city)
-  const cityUrl = `/where-to-buy/${citySlugToPath(city)}`
+  const cityUrl = routes.whereToBuyCity(citySlugToPath(city))
   const canonicalUrl = buildAlternates(cityUrl, safeLocale).canonical
   const jsonLd = buildStockistItemListJsonLd({
     locations: groups.flatMap((group) => group.locations),
@@ -101,10 +102,13 @@ export default async function WhereToBuyCityPage({
   })
 
   return (
-    <main
-      id="main-content"
-      className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 lg:py-16"
-    >
+    // NO `id="main-content"` HERE. The (site) layout already puts that id on
+    // the wrapper it renders around every route, so a second one on this
+    // `<main>` made the document carry two — invalid, and the skip link
+    // (`root-document.tsx`) resolves to the FIRST match, which meant these two
+    // routes alone skipped to a different element than every other route. One
+    // id per document, and it is the layout's.
+    <main className="page-gutter mx-auto w-full page-measure pt-12 pb-section">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(jsonLd) }}
@@ -112,15 +116,15 @@ export default async function WhereToBuyCityPage({
       <Breadcrumb
         ariaLabel={t('breadcrumbLabel')}
         items={[
-          { label: t('directory'), href: '/where-to-buy' },
+          { label: t('directory'), href: routes.whereToBuy() },
           { label: cityName },
         ]}
       />
       <header className="max-w-3xl">
-        <h1 className="type-page-title-large text-foreground">
+        <h1 className="type-page-title text-ink">
           {t('cityTitle', { city: cityName })}
         </h1>
-        <p className="mt-4 type-page-subtitle text-muted-foreground">
+        <p className="mt-4 type-body text-ink-muted">
           {t('cityDescription', { city: cityName, count })}
         </p>
         <div className="mt-6">
@@ -136,8 +140,8 @@ export default async function WhereToBuyCityPage({
         </div>
       </header>
 
-      <nav aria-label={t('categoryNavLabel')} className="mt-8">
-        <ul className="flex flex-wrap gap-2">
+      <nav aria-label={t('categoryNavLabel')} className="mt-stack">
+        <ChipRow as="ul">
           <li>
             <a
               href={localizePath(cityUrl, safeLocale)}
@@ -161,10 +165,10 @@ export default async function WhereToBuyCityPage({
               </a>
             </li>
           ))}
-        </ul>
+        </ChipRow>
       </nav>
 
-      <div className="mt-8">
+      <div className="mt-stack">
         {count > 0 ? (
           <ViewItemListTracker
             listName={`where-to-buy-${city}`}
@@ -183,7 +187,7 @@ export default async function WhereToBuyCityPage({
             />
           ))
         ) : (
-          <p className="rounded-lg bg-secondary p-6 text-muted-foreground">
+          <p className="rounded-[3px] border border-rule bg-surface p-6 type-body-sm">
             {t('empty')}
           </p>
         )}

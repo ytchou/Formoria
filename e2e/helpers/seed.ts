@@ -83,8 +83,14 @@ export async function seedBrand(opts: {
     // fixture stays valid without seeding MIT registry rows.
     brandData.mit_status = 'declared';
     brandData.mit_declared_scope = 'all';
-    brandData.subcategories = ['手工陶器', '茶具'];
-    brandData.subcategories_en = ['Handmade ceramics', 'Teaware'];
+    // Slugs, not zh-TW labels: DEV-1510 made `subcategories` slug-native and
+    // closed the vocabulary, so `approve_submission` now raises on any string
+    // that resolves to no slug, alias or recorded removal. Both are crafts-native
+    // to match `category` above — the old '茶具' resolves to `tea-and-coffee-ware`,
+    // which lives under `home`, and a cross-L1 tag is exactly the state DEV-1510
+    // measured as unusable for facets and L2 pages.
+    brandData.subcategories = ['ceramics', 'metalwork'];
+    brandData.subcategories_en = ['Ceramics', 'Metalwork'];
     brandData.price_range = 2;
   }
 

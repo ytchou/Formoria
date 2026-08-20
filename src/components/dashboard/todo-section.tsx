@@ -18,6 +18,7 @@ import { getTranslations } from 'next-intl/server'
 import { Badge } from '@/components/ui/badge'
 import { SurfaceCard } from '@/components/ui/card'
 import type { ProfileCompleteness } from '@/lib/services/profile-completeness'
+import { routes } from '@/lib/routes'
 
 type Recommendation = ProfileCompleteness['recommendations'][number]
 type RecommendationKey = Recommendation['key']
@@ -56,20 +57,20 @@ export async function TodoSection({
 
   return (
     <section aria-labelledby="todo-section-title" id="profile-completeness">
-      <h2 className="type-section-title" id="todo-section-title">
+      <h2 className="type-label" id="todo-section-title">
         {tOverview('todoTitle')}
       </h2>
-      <SurfaceCard className="mt-4 rounded-lg" padding="lg">
+      <SurfaceCard className="mt-4 rounded-[3px]" padding="lg">
         {isEmpty ? (
           <div className="flex items-center justify-center gap-3 py-4">
             <CircleCheck
               aria-hidden="true"
-              className="size-5 shrink-0 text-primary"
+              className="size-5 shrink-0 text-accent"
             />
-            <p className="type-body-emphasis">{tOverview('todoEmpty')}</p>
+            <p className="type-body-sm font-medium text-ink">{tOverview('todoEmpty')}</p>
           </div>
         ) : (
-          <ul className="divide-y divide-border">
+          <ul className="divide-y divide-rule">
             {completeness.recommendations.map((recommendation) => {
               const Icon = recommendationIcons[recommendation.key]
 
@@ -80,13 +81,13 @@ export async function TodoSection({
                 >
                   <Icon
                     aria-hidden="true"
-                    className="size-5 shrink-0 text-primary"
+                    className="size-5 shrink-0 text-accent"
                   />
                   <div className="min-w-0 flex-1">
-                    <h3 className="type-body-emphasis">
+                    <h3 className="type-body-sm font-medium text-ink">
                       {tProfile(`component.${recommendation.key}`)}
                     </h3>
-                    <p className="mt-1 type-body-muted">
+                    <p className="mt-1 type-body-sm">
                       {tOverview(
                         `todoDescription.${recommendation.key}`,
                       )}
@@ -97,8 +98,8 @@ export async function TodoSection({
                       {tOverview('todoRemaining', { count: 1 })}
                     </Badge>
                     <Link
-                      className="inline-flex min-h-12 items-center rounded-lg px-3 type-body-emphasis text-primary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      href={`/dashboard/brands/${slug}/edit?step=${recommendation.step}`}
+                      className="inline-flex min-h-12 items-center rounded-[3px] px-3 type-body-sm font-medium text-accent hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      href={`${routes.dashboard.brandEdit(slug)}?step=${recommendation.step}`}
                     >
                       {tOverview('todoGoComplete')}
                     </Link>
@@ -110,9 +111,9 @@ export async function TodoSection({
               <li className="flex items-center gap-4 py-4">
                 <ShieldCheck
                   aria-hidden="true"
-                  className="size-5 shrink-0 text-primary"
+                  className="size-5 shrink-0 text-accent"
                 />
-                <h3 className="min-w-0 flex-1 type-body-emphasis">
+                <h3 className="min-w-0 flex-1 type-body-sm font-medium text-ink">
                   {tOverview('todoVerification')}
                 </h3>
                 <div className="flex shrink-0 items-center gap-3">
@@ -120,8 +121,8 @@ export async function TodoSection({
                     {tOverview('todoRemaining', { count: 1 })}
                   </Badge>
                   <Link
-                    className="inline-flex min-h-12 items-center rounded-lg px-3 type-body-emphasis text-primary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    href={`/dashboard/brands/${slug}/verification`}
+                    className="inline-flex min-h-12 items-center rounded-[3px] px-3 type-body-sm font-medium text-accent hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    href={routes.dashboard.brandSection(slug, 'verification')}
                   >
                     {tOverview('todoGoComplete')}
                   </Link>

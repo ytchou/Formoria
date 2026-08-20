@@ -13,6 +13,7 @@ import {
   type TrailListResult,
 } from "@/lib/services/trails";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { routes } from "@/lib/routes";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -64,7 +65,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const t = await getTranslations({ locale, namespace: "discover" });
   const result = await getAllTrails(safeLocale);
-  const { canonical, languages } = buildAlternates("/discover", "zh-TW", ["zh-TW"]);
+  const { canonical, languages } = buildAlternates(routes.discover(), "zh-TW", ["zh-TW"]);
 
   return {
     title: t("metaTitle"),
@@ -98,23 +99,23 @@ export default async function DiscoverHubPage({ params, searchParams }: PageProp
   const view = selectHubView({ result, activeTag });
 
   return (
-    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
-      <div className="space-y-8">
-        <header className="space-y-3">
+    <main className="page-gutter mx-auto w-full page-measure pt-12 pb-section">
+      <div className="space-y-stack">
+        <header className="max-w-[46rem] space-y-3">
           <h1 className="type-page-title">{t("heading")}</h1>
-          <p className="max-w-2xl type-body-muted">{t("subheading")}</p>
+          <p className="type-body text-ink-soft">{t("subheading")}</p>
         </header>
         {view.kind === "loadError" ? (
           <div
             role="alert"
-            className="rounded-2xl border border-border bg-secondary px-6 py-16 text-center"
+            className="rounded-[3px] border border-rule bg-surface px-6 py-16 text-center"
           >
-            <p className="type-empty-title">{t("loadError")}</p>
+            <p className="type-card-title text-ink-muted">{t("loadError")}</p>
           </div>
         ) : view.kind === "comingSoon" ? (
           <EmptyState icon={<Compass />} title={t("comingSoon")} />
         ) : (
-          <div className="divide-y divide-border border-y border-border">
+          <div className="divide-y divide-rule border-y border-rule">
             {view.trails.map((trail, index) => (
               <StoryRow
                 key={trail.slug}
@@ -124,7 +125,7 @@ export default async function DiscoverHubPage({ params, searchParams }: PageProp
                 position={index}
                 trackingSurface="discover_hub"
                 trackingKind="trail"
-                hrefBase="/discover"
+                hrefBase={routes.discover()}
                 namespace="discover"
               />
             ))}

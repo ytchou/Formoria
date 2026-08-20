@@ -36,7 +36,7 @@ export function FeatureTogglesCard({
   return (
     <section>
       <div className="mb-4">
-        <h2 className="type-section-title-large">Feature Toggles</h2>
+        <h2 className="type-label">Feature Toggles</h2>
       </div>
       <SurfaceCard padding="lg">
         {FEATURE_FLAGS.map((flag) => (
@@ -46,7 +46,7 @@ export function FeatureTogglesCard({
           >
             <div>
               <Label htmlFor={`${flag.key}-toggle`}>{flag.label}</Label>
-              <p className="mt-1 type-card-description">{flag.description}</p>
+              <p className="mt-1 type-body-sm">{flag.description}</p>
             </div>
             <Switch
               id={`${flag.key}-toggle`}

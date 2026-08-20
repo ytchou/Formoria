@@ -8,6 +8,7 @@ import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
 import { createClient } from '@/lib/supabase/server'
 import { getUserBrand } from '@/lib/services/brand-owners'
 import OwnerForkClient from './owner-fork-client'
+import { routes } from '@/lib/routes'
 
 type OwnerPageProps = {
   params: Promise<{ locale: string }>
@@ -23,7 +24,7 @@ export async function generateMetadata({
   return {
     title: t('title'),
     description: t('description'),
-    alternates: buildAlternates('/submit/owner', locale as Locale),
+    alternates: buildAlternates(routes.submit.owner(), locale as Locale),
   }
 }
 
@@ -48,12 +49,12 @@ export default async function SubmitOwnerPage({ params }: OwnerPageProps) {
   }
 
   if (error || !user) {
-    redirect(signInHref('/submit/owner', locale))
+    redirect(signInHref(routes.submit.owner(), locale))
   }
 
   const hasOwnedBrand = Boolean(await getUserBrand(user.id))
   if (hasOwnedBrand) {
-    redirect(localizePath('/submit/recommend', locale))
+    redirect(localizePath(routes.submit.recommend(), locale))
   }
 
   return <OwnerForkClient />

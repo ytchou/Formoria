@@ -1,6 +1,6 @@
 'use client'
 
-import Image from 'next/image'
+import { SurfaceImage } from '@/components/ui/image'
 import type { CSSProperties } from 'react'
 
 import { Link } from '@/i18n/navigation'
@@ -9,6 +9,7 @@ import { trackTrailCardClicked } from '@/lib/analytics'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import type { TrailEntry } from '@/lib/services/trails'
 import { cn } from '@/lib/utils'
+import { routes } from '@/lib/routes'
 
 export type WallTrailTileLabels = {
   eyebrow: string
@@ -51,8 +52,25 @@ export function WallTrailTile({
 }) {
   const title = trail.frontmatter.title
   const promise = trail.frontmatter.promise ?? trail.frontmatter.description ?? ''
-  const imageSrc = safeImageSrc(trail.frontmatter.heroImage)
-  const imageAlt = trail.frontmatter.heroImageAlt ?? title
+  /*
+   * A repo path is taken as-is; only a remote URL goes through the host gate.
+   *
+   * `safeImageSrc` builds `new URL(url)` with NO base, so EVERY relative path
+   * throws and returns null — a hero committed at `/images/trails/x.webp`
+   * passed the frontmatter disk check, reserved a wall slot, and still rendered
+   * an imageless tile. Same branch as `stories/[slug]/page.tsx:292`.
+   *
+   * The imageless branch below stays: it is the degradation path for a 404 or a
+   * disallowed host, not a supply gate.
+   */
+  const heroImage = trail.frontmatter.heroImage
+  const imageSrc = heroImage?.startsWith('/') ? heroImage : safeImageSrc(heroImage)
+  /*
+   * Empty, never the title. The link is already `aria-labelledby` the title
+   * beside it, so repeating the title as image text announces the same words
+   * twice.
+   */
+  const imageAlt = trail.frontmatter.heroImageAlt ?? ''
   const titleId = `wall-trail-${trail.slug}-title`
 
   return (
@@ -70,7 +88,7 @@ export function WallTrailTile({
       )}
     >
       <Link
-        href={`/discover/${trail.slug}`}
+        href={routes.trail(trail.slug)}
         prefetch={false}
         aria-labelledby={titleId}
         data-ph-no-autocapture
@@ -78,7 +96,7 @@ export function WallTrailTile({
         className="group relative flex h-full min-h-80 flex-col justify-end overflow-hidden p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-3 sm:min-h-0 md:p-8"
       >
         {imageSrc ? (
-          <Image
+          <SurfaceImage
             src={imageSrc}
             alt={imageAlt}
             fill
@@ -86,6 +104,7 @@ export function WallTrailTile({
             // full-width band, so neither asks for a viewport-wide candidate on
             // desktop. `wide` is 3:2 against `tall`'s 3:4 — twice the width for
             // the same line height, hence 30vw against 20vw.
+            surface="tile"
             sizes={
               format === 'wide'
                 ? '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 30vw'
@@ -99,13 +118,13 @@ export function WallTrailTile({
           className="absolute inset-0 bg-gradient-to-t from-foreground/95 via-foreground/55 to-foreground/10"
         />
         <span className="relative z-10 flex max-w-xl flex-col items-start gap-3">
-          <span className="rounded-full border border-background/30 bg-background/20 px-3 py-1 type-eyebrow text-background">
+          <span className="rounded-full border border-ground/30 bg-ground/20 px-3 py-1 type-eyebrow text-ground">
             {labels.eyebrow}
           </span>
-          <span id={titleId} className="type-card-title md:type-display text-background">
+          <span id={titleId} className="type-card-title md:type-section text-background">
             {title}
           </span>
-          {promise ? <span className="type-body-inverse line-clamp-3">{promise}</span> : null}
+          {promise ? <span className="type-body text-on-ink line-clamp-3">{promise}</span> : null}
           <span className="inline-flex min-h-12 items-center font-medium text-background underline underline-offset-4 transition-colors group-hover:text-background/80">
             {labels.cta}
           </span>

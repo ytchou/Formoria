@@ -10,6 +10,7 @@ import {
 } from "@/lib/services/admin-operations";
 import { isOwnerFeaturesEnabled } from "@/lib/services/app-settings";
 import { cn } from "@/lib/utils";
+import { routes } from "@/lib/routes";
 
 /**
  * One tile of the operations grid. Both the numeric queue metrics and the
@@ -34,22 +35,22 @@ function OperationsCard({
     <Link
       href={href}
       className={cn(
-        "group flex min-h-40 flex-col justify-between border-b border-r border-border p-5 transition-colors focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "group flex min-h-40 flex-col justify-between border-b border-r border-rule p-5 transition-colors focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
         needsAttention
           ? "bg-warning/10 hover:bg-warning/20"
-          : "bg-card hover:bg-muted/50",
+          : "bg-ground hover:bg-surface",
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <span className="type-body-emphasis">{label}</span>
+        <span className="type-body-sm font-medium text-ink">{label}</span>
         <ArrowUpRight
-          className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+          className="size-4 text-ink-muted transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
           aria-hidden="true"
         />
       </div>
       <div>
-        <p className="type-stat">{value}</p>
-        <p className="mt-1 type-card-description">{description}</p>
+        <p className="type-section tabular-nums">{value}</p>
+        <p className="mt-1 type-body-sm">{description}</p>
       </div>
     </Link>
   );
@@ -68,56 +69,56 @@ const metrics: Metric[] = [
     key: "needsData",
     label: "Needs data",
     description: "Submissions awaiting enrichment",
-    href: "/admin/submissions?stage=needs_data",
+    href: routes.admin.submissions({ stage: "needs_data" }),
     requiresAction: true,
   },
   {
     key: "ready",
     label: "Ready",
     description: "Submissions ready for review",
-    href: "/admin/submissions?stage=ready",
+    href: routes.admin.submissions({ stage: "ready" }),
     requiresAction: true,
   },
   {
     key: "moderation",
     label: "Content flags",
     description: "Pending moderation decisions",
-    href: "/admin/moderation",
+    href: routes.admin.moderation(),
     requiresAction: true,
   },
   {
     key: "claims",
     label: "Claims",
     description: "Ownership requests awaiting review",
-    href: "/admin/claims",
+    href: routes.admin.claims(),
     requiresAction: true,
   },
   {
     key: "reports",
     label: "Reports",
     description: "Open brand reports",
-    href: "/admin/reports",
+    href: routes.admin.reports(),
     requiresAction: true,
   },
   {
     key: "activeJobs",
     label: "Active jobs",
     description: "Pending or running data jobs",
-    href: "/admin/jobs",
+    href: routes.admin.jobs(),
     requiresAction: true,
   },
   {
     key: "brands",
     label: "Total brands",
     description: "Records in the brand catalog",
-    href: "/admin/brands",
+    href: routes.admin.brands(),
     requiresAction: false,
   },
   {
     key: "subscribers",
     label: "Subscribers",
     description: "Active newsletter subscribers",
-    href: "/admin/newsletter?status=active",
+    href: routes.admin.newsletter() + "?status=active",
     requiresAction: false,
   },
 ];
@@ -134,28 +135,28 @@ export default async function AdminPage() {
       key: "evidence",
       label: t("evidence.label"),
       description: t("evidence.description"),
-      href: "/admin/evidence",
+      href: routes.admin.evidence(),
       requiresAction: true,
     },
     ...metrics.slice(3),
   ];
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-stack">
       <section aria-labelledby="operations-overview-heading">
         <div className="mb-5 max-w-2xl">
           <h2
             id="operations-overview-heading"
-            className="type-section-title-large"
+            className="type-label"
           >
             Operations overview
           </h2>
-          <p className="mt-1 type-card-description">
+          <p className="mt-1 type-body-sm">
             Triage the queues that need a decision, then open the workspace that
             owns the work.
           </p>
         </div>
-        <div className="grid overflow-hidden rounded-xl border-l border-t border-border sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid overflow-hidden rounded-[3px] border-l border-t border-rule sm:grid-cols-2 xl:grid-cols-5">
           {dashboardMetrics.map((metric) => {
             const value = snapshot.metrics[metric.key];
             return (
@@ -176,7 +177,7 @@ export default async function AdminPage() {
           {/* State is conveyed as text, never colour alone, so the accessible
               name reads "Owner features / Disabled / Manage feature flags". */}
           <OperationsCard
-            href="/admin/settings"
+            href={routes.admin.settings()}
             label={t("ownerFeatures.label")}
             value={
               ownerFeaturesEnabled
@@ -190,10 +191,10 @@ export default async function AdminPage() {
 
       <section
         aria-labelledby="quick-operations-heading"
-        className="border-t border-border pt-8"
+        className="border-t border-rule pt-8"
       >
         <div className="mb-4">
-          <h2 id="quick-operations-heading" className="type-card-title">
+          <h2 id="quick-operations-heading" className="type-label">
             Quick operations
           </h2>
         </div>
@@ -202,40 +203,40 @@ export default async function AdminPage() {
 
       <section
         aria-labelledby="recent-jobs-heading"
-        className="border-t border-border pt-8"
+        className="border-t border-rule pt-8"
       >
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
-            <h2 id="recent-jobs-heading" className="type-card-title">
+            <h2 id="recent-jobs-heading" className="type-label">
               Recent data jobs
             </h2>
-            <p className="mt-1 type-card-description">
+            <p className="mt-1 type-body-sm">
               The five newest runs, ordered by creation time.
             </p>
           </div>
           <Link
-            href="/admin/jobs"
-            className="inline-flex min-h-12 items-center text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            href={routes.admin.jobs()}
+            className="inline-flex min-h-12 items-center text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             View all jobs
           </Link>
         </div>
-        <div className="divide-y divide-border border-y border-border">
+        <div className="divide-y divide-rule border-y border-rule">
           {snapshot.recentJobs.length === 0 ? (
-            <p className="py-8 text-center text-muted-foreground">
+            <p className="py-8 text-center text-ink-muted">
               No data jobs yet.
             </p>
           ) : (
             snapshot.recentJobs.map((job) => (
               <Link
                 key={job.id}
-                href={`/admin/jobs/${job.id}`}
-                className="grid min-h-16 gap-2 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:grid-cols-[minmax(220px,1fr)_auto_auto] sm:items-center sm:px-3"
+                href={routes.admin.job(job.id)}
+                className="grid min-h-16 gap-2 py-3 transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:grid-cols-[minmax(220px,1fr)_auto_auto] sm:items-center sm:px-3"
               >
                 <span className="font-medium">
                   {formatJobDate(job.created_at)}
                 </span>
-                <span className="type-body-muted">
+                <span className="type-body-sm">
                   {job.succeeded_count +
                     job.skipped_count +
                     job.failed_count +

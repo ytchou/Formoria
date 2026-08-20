@@ -7,16 +7,6 @@ export type PublishedTrail = {
   slug: string;
   title: string;
   locale: string;
-  /**
-   * Raw frontmatter value, read the way `readTrailEntry` reads it
-   * (src/lib/services/trails.ts:139) so a non-string authored value lands here
-   * exactly as it lands in the app.
-   *
-   * NOT pre-trimmed: the wall's eligibility gate treats a blank string as
-   * absent (`eligibleTrail`, src/lib/curated-products/home-wall.ts:177), so a
-   * reader must apply `.trim()` rather than a bare truthiness check.
-   */
-  heroImage?: string;
   sections: Array<{ key: string; title: string }>;
 };
 
@@ -69,7 +59,6 @@ export function publishedTrails(locale = "zh-TW"): PublishedTrail[] {
         slug,
         title: data.title ?? "",
         locale: authoredLocale,
-        heroImage: data.heroImage == null ? undefined : String(data.heroImage),
         sections,
       },
     ];

@@ -125,7 +125,7 @@ export function LikeBrandButton({
       disabled={!isReady || isPending}
       className={cn(
         'relative overflow-visible rounded-xl',
-        liked && 'border-primary/40 text-primary',
+        liked && 'border-accent/40 text-accent',
         className,
       )}
       onClick={handleClick}
@@ -140,7 +140,7 @@ export function LikeBrandButton({
                 key={particle.key}
                 data-like-burst-particle
                 className={cn(
-                  'absolute size-1 rounded-full bg-primary motion-safe:animate-ping',
+                  'absolute size-1 rounded-full bg-accent motion-safe:animate-ping',
                   particle.className,
                 )}
               />

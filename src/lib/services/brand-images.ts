@@ -165,6 +165,17 @@ export function toImageFields(rows: BrandImageRow[]): {
       altZh: row.alt_zh ?? null,
       altEn: row.alt_en ?? null,
       isLogo: isLogoImageTags(row.tags),
+      /*
+       * The brand-supplied credit, derived once and never inferred.
+       *
+       * `'owner'` is written by `syncOwnerUploadedImages()` when a brand owner
+       * uploads through the dashboard wizard. Every other value — 'scrape',
+       * 'google_image', 'admin', 'legacy', 'json_ld' — is Formoria or a
+       * crawler, so they are NOT enumerated here: an equality test against the
+       * one value that grants the credit makes a new source added upstream fail
+       * closed rather than silently inherit it.
+       */
+      isOwnerSupplied: row.source === 'owner',
     })),
   }
 }
@@ -174,7 +185,11 @@ export async function getBrandImages(
   brandId: string,
 ): Promise<BrandImageRow[]> {
   const { data, error } = await brandImagesTable(supabase)
-    .select('url, status, tags, score, sort_order, source_url, alt_zh, alt_en, width, height')
+    // `source` is in the projection for the brand-supplied credit. The client is
+    // untyped, so dropping it here is neither a type error nor a query error —
+    // every row would just come back unattributed and the credit would silently
+    // never render. `brand-images.test.ts` asserts this string for that reason.
+    .select('url, status, tags, score, sort_order, source, source_url, alt_zh, alt_en, width, height')
     .eq('brand_id', brandId)
     .eq('status', 'active')
     .order('sort_order', { ascending: true })

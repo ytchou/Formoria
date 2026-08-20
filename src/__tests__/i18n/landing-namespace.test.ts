@@ -62,10 +62,19 @@ const DEAD_KEYS = [
   // `hero-stats.tsx` was deleted with the hero recut. `about.hero.statsBrands`
   // is a DIFFERENT namespace and still ships — only the landing copy is dead.
   "hero.statsBrands",
+  // The hero's chip row moved into the persistent nav (D18), so both keys that
+  // existed only to label it — the nav landmark's name and the eyebrow above
+  // the block — died with `hero-category-chips.tsx`.
+  "hero.statsCategories",
+  "hero.categoriesEyebrow",
   // The seam section was replaced by that band, so its supporting copy has no
   // renderer. Only `trustSeam.line` survives, for /og/trust.
   "trustSeam.note",
   "trustSeam.cta",
+  // The closing band folded two stacked asks into one block with two buttons,
+  // so the feature request keeps only its button label.
+  "featureRequestBand.headline",
+  "featureRequestBand.body",
   // The wall's continuation strip is gone; its trails moved to their own zone.
   "selectedProducts.continuationHeading",
   "selectedProducts.trailLinksLabel",
@@ -113,12 +122,11 @@ describe("landing namespace", () => {
     }
   });
 
-  it("the trust commitment ships even though no homepage section states it", () => {
-    // The manifesto band replaced the trust seam on the homepage (2026-08-17),
-    // so `/og/trust/opengraph-image.tsx` is now the only build-time consumer of
-    // this line. It statically imports both catalogues and reads the key —
-    // deleting it is a build-time type error, and it is the commitment in
-    // docs/strategy/brand-voice.md, so it is pinned by value here.
+  it("the trust commitment ships and the homepage states it again", () => {
+    // `/og/trust/opengraph-image.tsx` statically imports both catalogues and
+    // reads this key, so deleting it is a build-time type error. The homepage
+    // trust band renders it as a heading again as of the v2 rebuild. It is the
+    // commitment in docs/strategy/brand-voice.md, so it is pinned by value.
     expect(resolve(zhLanding, "trustSeam.line")).toBe("收錄與選物，清楚分開");
     expect(resolve(enLanding, "trustSeam.line")).toBeTruthy();
   });
@@ -139,19 +147,29 @@ describe("landing namespace", () => {
       "hero.searchLabel",
       "hero.searchPlaceholder",
       "hero.browseCta",
-      // Also the aria-label on both hero category navs, not just HeroStats.
-      "hero.statsCategories",
-      // The hero now lists every L1, so the "all categories" escape hatch is
-      // gone and this eyebrow labels the chip block in its place.
-      "hero.categoriesEyebrow",
+      // The editorial opener's own three lines: a 黑體 eyebrow, the promise as
+      // the display line (`headline`, above), and the lede under it. The
+      // secondary path reads "or <browseCta>", so its connector is copy too.
+      "hero.eyebrow",
+      "hero.lede",
+      "hero.browsePrefix",
       "selectedProducts.heading",
       "selectedProducts.note",
       "selectedProducts.showMore",
       // The reveal control is a disclosure, so it needs both of its labels.
       "selectedProducts.showLess",
-      // `.line` only — it is read by /og/trust, not by any landing zone. The
-      // seam section it used to render was replaced by the manifesto band.
+      // Read by /og/trust AND, since the v2 rebuild, by the homepage trust band
+      // that renders it as a heading over the three-column explanation below.
       "trustSeam.line",
+      // The trust IA as prose, never as badges: one note plus a title and a
+      // body for each of the three labels the homepage is allowed to explain.
+      "trust.note",
+      "trust.listedTitle",
+      "trust.listedBody",
+      "trust.selectedTitle",
+      "trust.selectedBody",
+      "trust.suppliedTitle",
+      "trust.suppliedBody",
       "latestStories.heading",
       "trails.heading",
       "trails.note",

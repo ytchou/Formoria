@@ -517,6 +517,49 @@ describe("buildArticleJsonLd", () => {
     expect(ld.headline).toBe("About");
     expect(ld.publisher["@type"]).toBe("Organization");
   });
+
+  it("absolutises a repo-relative image against the site URL", () => {
+    // Article `image` is what Google reads for the rich result. A leading-slash
+    // repo path is valid on the page and meaningless in structured data, so it
+    // is resolved here rather than at each caller.
+    const ld = buildArticleJsonLd({
+      title: "Story",
+      description: "desc",
+      path: "/stories/a-story",
+      locale: "zh-TW",
+      image: "/images/stories/hero.webp",
+    }) as JsonLdObject;
+
+    expect(ld.image).toMatch(/^https?:\/\//);
+    expect(ld.image).toMatch(/\/images\/stories\/hero\.webp$/);
+    expect(ld.image).not.toContain("//images/");
+  });
+
+  it("passes an absolute image URL through untouched", () => {
+    const image = "https://project.supabase.co/storage/v1/object/public/t/a.jpg";
+    const ld = buildArticleJsonLd({
+      title: "Story",
+      description: "desc",
+      path: "/stories/a-story",
+      image,
+    }) as JsonLdObject;
+
+    expect(ld.image).toBe(image);
+  });
+
+  it("omits image entirely when the entry declares none", () => {
+    // Omitted rather than stubbed, exactly like `buildEventJsonLd`: an empty
+    // string is reported by Google as an invalid value, which is worse than
+    // no key at all.
+    const ld = buildArticleJsonLd({
+      title: "Story",
+      description: "desc",
+      path: "/stories/a-story",
+      image: null,
+    }) as JsonLdObject;
+
+    expect("image" in ld).toBe(false);
+  });
 });
 
 describe("buildEventJsonLd", () => {

@@ -9,22 +9,40 @@ function readProjectFile(path: string) {
   return readFileSync(join(projectRoot, path), 'utf8')
 }
 
-describe('zh-TW heading font configuration', () => {
-  it('uses the sans CJK fallback without loading the serif family', () => {
-    // The font declarations moved out of the deleted src/app/layout.tsx into the
-    // shared RootDocument, which now wraps every layout (locale, microsite, admin,
-    // auth) rather than only the root.
-    const rootDocument = readProjectFile('src/components/shared/root-document.tsx')
-    const globals = readProjectFile('src/app/globals.css')
+// The font declarations live in the shared RootDocument, which wraps every
+// layout (locale, microsite, admin, auth) rather than only the root.
+const rootDocument = readProjectFile('src/components/shared/root-document.tsx')
+const globals = readProjectFile('src/app/globals.css')
 
-    expect(rootDocument).not.toContain('Noto_Serif_TC')
-    expect(rootDocument).not.toContain('--font-noto-serif-tc')
-    expect(globals).not.toContain('var(--font-noto-serif-tc)')
+// The v1 gate asserted the opposite of every case below: it pinned three Latin
+// faces and forbade a CJK webfont. Design system v2 reverses that decision — see
+// docs/decisions/2026-08-20-two-cjk-webfonts-supersede-the-system-face-rule.md.
+//
+// The assertions stay `toContain` on byte-exact literals rather than regexes.
+// That is the whole point of this gate: a silent change to the font stack (a
+// renamed CSS variable, a dropped fallback, a re-added Latin face) has to fail
+// here, and a regex loose enough to survive refactoring is loose enough to miss
+// the change it exists to catch.
+describe('zh-TW heading font configuration', () => {
+  it('root document loads both v2 font families', () => {
+    expect(rootDocument).toContain('Noto_Serif_TC')
+    expect(rootDocument).toContain('Noto_Sans_TC')
+    expect(rootDocument).toContain('--font-noto-serif-tc')
+    expect(rootDocument).toContain('--font-noto-sans-tc')
+  })
+
+  it('root document loads no Latin-only face', () => {
+    expect(rootDocument).not.toContain('Inter')
+    expect(rootDocument).not.toContain('Bricolage_Grotesque')
+    expect(rootDocument).not.toContain('Geist_Mono')
+  })
+
+  it('globals declares both v2 font stacks', () => {
     expect(globals).toContain(
-      // The latin-only Noto TC webfont was removed in 06f7e077 — it declared
-      // `subsets: ["latin"]` so it never served CJK glyphs. CJK now falls
-      // through to the platform system face.
-      '--font-heading: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;',
+      '--font-ming: var(--font-noto-serif-tc), "Songti TC", serif;',
+    )
+    expect(globals).toContain(
+      '--font-hei: var(--font-noto-sans-tc), "PingFang TC", sans-serif;',
     )
   })
 })

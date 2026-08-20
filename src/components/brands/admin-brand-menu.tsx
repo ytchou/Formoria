@@ -16,6 +16,7 @@ import {
 import { startImpersonationAction } from '@/lib/actions/impersonation'
 import { hideBrandAction } from '@/app/admin/actions'
 import { useUser } from '@/lib/auth/use-user'
+import { routes } from '@/lib/routes'
 
 interface AdminBrandMenuProps {
   brandId: string
@@ -37,7 +38,7 @@ export function AdminBrandMenu({ brandId, brandName, brandSlug }: AdminBrandMenu
       const result = await startImpersonationAction(brandSlug)
       if (result.ok) {
         await refreshViewer()
-        router.push(`/dashboard/brands/${brandSlug}`)
+        router.push(routes.dashboard.brand(brandSlug))
       }
     })
   }
@@ -51,7 +52,7 @@ export function AdminBrandMenu({ brandId, brandName, brandSlug }: AdminBrandMenu
       }
 
       const params = new URLSearchParams({ status: 'hidden', search: brandName })
-      adminRouter.push(`/admin/brands?${params}`)
+      adminRouter.push(`${routes.admin.brands()}?${params}`)
     })
   }
 
@@ -69,7 +70,7 @@ export function AdminBrandMenu({ brandId, brandName, brandSlug }: AdminBrandMenu
           {t('viewAsOwner')}
         </DropdownMenuItem>
         <DropdownMenuLinkItem
-          href={`/admin/brands?edit=${encodeURIComponent(brandId)}`}
+          href={routes.admin.brands({ edit: brandId })}
         >
           <Pencil className="size-4" />
           {t('editFields')}

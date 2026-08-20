@@ -174,10 +174,6 @@ function capProductsPerBrand(
   return kept;
 }
 
-function eligibleTrail(trail: TrailEntry): boolean {
-  return Boolean(trail.frontmatter.heroImage?.trim());
-}
-
 /**
  * Composes the finite wall: the day's shuffle, then the per-brand cap, then the
  * slice to `MAX_HOME_WALL_PRODUCTS`, then the trail interleave. That is the
@@ -189,6 +185,18 @@ function eligibleTrail(trail: TrailEntry): boolean {
  * and it fought the one rule that DOES earn its place — the daily rotation. A
  * wall of sixteen `home` products is simply what a day of `home` supply looks
  * like.
+ *
+ * NO `eligibleTrail` FILTER, AND DO NOT ADD ONE BACK. It read
+ * `frontmatter.heroImage` and silently dropped every trail without one — which
+ * was every published trail, so the wall reserved a slot for none of them and
+ * the e2e guard skipped on every run for months (DEV-1522). The hero image is
+ * now a PUBLICATION PRECONDITION checked at authoring time, not a runtime
+ * filter:
+ * docs/decisions/2026-08-19-trail-hero-image-is-a-publish-precondition.md.
+ *
+ * PRECONDITION: every published trail carries a renderable `heroImage`. A trail
+ * that does not still reserves its slot and renders an imageless tile — visibly
+ * wrong on the homepage, which is the point. A silent drop is not.
  */
 export function buildWallSlots({
   products,
@@ -198,12 +206,11 @@ export function buildWallSlots({
   const editorialProducts = capProductsPerBrand(
     shuffleWithSeed(products, seed),
   ).slice(0, MAX_HOME_WALL_PRODUCTS);
-  const eligibleTrails = trails.filter(eligibleTrail);
   const trailSlotCount = Math.min(
     Math.floor(editorialProducts.length / TRAIL_SLOT_CADENCE),
-    eligibleTrails.length,
+    trails.length,
   );
-  const reservedTrails = eligibleTrails.slice(0, trailSlotCount);
+  const reservedTrails = trails.slice(0, trailSlotCount);
   const reservedSlots = new Map<number, TrailEntry>();
   const trailFormats = new Map<string, WallTrailFormat>();
   reservedTrails.forEach((trail, index) => {

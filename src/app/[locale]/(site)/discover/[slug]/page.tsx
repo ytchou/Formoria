@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -12,6 +13,12 @@ import {
   RelatedStoryLink,
   RelatedTrailLink,
 } from "@/components/stories/related-story-link";
+import { formatStoryDate } from "@/components/stories/story-date";
+import { surfaceCardStyles } from "@/components/ui/card";
+import {
+  EditorialHero,
+  editorialHeroSrc,
+} from "@/components/ui/editorial-hero";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import {
@@ -25,7 +32,9 @@ import {
   type TrailDetailResult,
 } from "@/lib/services/trails";
 import { getPublishedCuratedProductsForTrail, type TrailCuratedProduct } from "@/lib/services/curated-products";
+import { cn } from "@/lib/utils";
 import { TrailContent } from "./trail-content";
+import { routes } from "@/lib/routes";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
@@ -59,7 +68,7 @@ export function buildTrailMetadata({
   productsReadFailed?: boolean;
 }): Metadata {
   const safeLocale: Locale = locale === "en" ? "en" : "zh-TW";
-  const path = `/discover/${trail.frontmatter.slug}`;
+  const path = routes.trail(trail.frontmatter.slug);
   const { canonical, languages } = buildAlternates(path, "zh-TW", ["zh-TW"]);
 
   return {
@@ -116,13 +125,34 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   });
 }
 
+/*
+ * No trust-label opt-in. A trail renders `mode="trail"`, and the tile gates the
+ * label on `mode === "outbound"` (D11, the contrast rule: every tile in a trail
+ * is selected, so the label would repeat and say nothing). The key it used to
+ * read, `discover.selectedBadge`, was a different sentence from the selection
+ * commitment `TrustLabel` owns, and is gone from both catalogues.
+ */
 function trailLabels(t: (key: string) => string): SelectedProductTileLabels {
   return {
     cta: t("productCta"),
     brandSiteCta: t("brandSiteCta"),
-    selectedBadge: t("selectedBadge"),
     unavailable: t("unavailable"),
   };
+}
+
+/**
+ * One line of the header band's meta table: an interface-face label, an
+ * interface-face value, a hairline between rows. It is a `<dl>`, not a list of
+ * paragraphs, because every row is a name/value pair and a screen reader should
+ * be able to say so.
+ */
+function MetaRow({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-6 py-3">
+      <dt className="type-metadata">{label}</dt>
+      <dd className="min-w-0 text-right type-metadata text-ink">{value}</dd>
+    </div>
+  );
 }
 
 function relatedLinks(
@@ -133,15 +163,15 @@ function relatedLinks(
   if (values.length === 0) return null;
   return (
     <section aria-labelledby={`${hrefBase.slice(1)}-related`} className="space-y-3">
-      <h2 id={`${hrefBase.slice(1)}-related`} className="type-section-title">
+      <h2 id={`${hrefBase.slice(1)}-related`} className="type-card-title">
         {title}
       </h2>
-      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body">
+      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm text-ink-soft">
         {values.map((value) => (
           <li key={value}>
             <a
               href={`${hrefBase}/${encodeURIComponent(value)}`}
-              className="text-primary underline underline-offset-4 hover:text-primary-dark"
+              className="text-accent underline underline-offset-4 hover:text-ink"
             >
               {value}
             </a>
@@ -159,18 +189,18 @@ function relatedStoryLinks(
   if (values.length === 0) return null;
   return (
     <section aria-labelledby="stories-related" className="space-y-3">
-      <h2 id="stories-related" className="type-section-title">
+      <h2 id="stories-related" className="type-card-title">
         {title}
       </h2>
-      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body">
+      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm text-ink-soft">
         {values.map((value, position) => (
           <li key={value}>
             <RelatedStoryLink
-              href={`/stories/${encodeURIComponent(value)}`}
+              href={routes.story(value)}
               storySlug={value}
               position={position}
               storySurface="trail_related_stories"
-              className="text-primary underline underline-offset-4 hover:text-primary-dark"
+              className="text-accent underline underline-offset-4 hover:text-ink"
             >
               {value}
             </RelatedStoryLink>
@@ -185,18 +215,18 @@ function relatedTrailLinks(title: string, values: string[]): React.ReactNode {
   if (values.length === 0) return null;
   return (
     <section aria-labelledby="trails-related" className="space-y-3">
-      <h2 id="trails-related" className="type-section-title">
+      <h2 id="trails-related" className="type-card-title">
         {title}
       </h2>
-      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body">
+      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm text-ink-soft">
         {values.map((value, position) => (
           <li key={value}>
             <RelatedTrailLink
-              href={`/discover/${encodeURIComponent(value)}`}
+              href={routes.trail(value)}
               trailSlug={value}
               position={position}
               trailSurface="trail_related"
-              className="text-primary underline underline-offset-4 hover:text-primary-dark"
+              className="text-accent underline underline-offset-4 hover:text-ink"
             >
               {value}
             </RelatedTrailLink>
@@ -225,25 +255,37 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
     id: section.key,
     label: section.title,
   }));
+  const heroImage = frontmatter.heroImage;
+  // Falls back to the publication date: a trail that has never been revised is
+  // current as of the day it shipped, and an empty updated row reads as an omission.
+  const updatedLabel = formatStoryDate(
+    frontmatter.updatedAt ?? frontmatter.publishedAt,
+    safeLocale,
+  );
+  // What the selection actually IS, counted rather than claimed. `category` is
+  // the product's L1, so this is "how many kinds of thing", not how many tags.
+  const categoryCount = new Set(
+    safeProducts.map((product) => product.category),
+  ).size;
   const articleJsonLd = buildArticleJsonLd({
     title: frontmatter.title,
     description: frontmatter.description ?? "",
-    path: `/discover/${frontmatter.slug}`,
+    path: routes.trail(frontmatter.slug),
     locale: safeLocale,
     author: frontmatter.editorialOwner ?? "Formoria",
+    // The same image the hero renders, resolved by the same predicate: one the
+    // page cannot display takes the imageless path and is not published here
+    // either. Absolutised inside the builder.
+    image: editorialHeroSrc(heroImage),
   });
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(
-    [{ label: t("breadcrumb"), href: "/discover" }, { label: frontmatter.title }],
+    [{ label: t("breadcrumb"), href: routes.discover() }, { label: frontmatter.title }],
     safeLocale,
   );
 
   return (
-    <main className="page-gutter mx-auto box-border w-full max-w-[920px] pt-8 pb-16 md:pt-12 md:pb-24">
-      <Breadcrumb
-        ariaLabel={t("breadcrumbAria")}
-        items={[{ label: t("breadcrumb"), href: "/discover" }, { label: frontmatter.title }]}
-      />
-      <article className="space-y-8">
+    <main className="pb-16 md:pb-24">
+      <article>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -259,36 +301,122 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
         {safeProducts.length > 0 ? (
           <ViewItemListTracker listName={`trail:${slug}`} itemCount={safeProducts.length} />
         ) : null}
-        <header className="max-w-[720px] space-y-4">
-          <h1 className="type-page-title-large">{frontmatter.title}</h1>
-          {frontmatter.description ? (
-            <p className="type-page-subtitle">{frontmatter.description}</p>
-          ) : null}
-          {frontmatter.promise ? (
-            <p className="type-body-muted">{frontmatter.promise}</p>
-          ) : null}
+        {/*
+          THE HEADER BAND. `surface` is the second material, not a tint: the band
+          is what separates the editorial frame — who chose this, when, how much
+          of it there is — from the objects below, and it does that with tone and
+          a rule rather than with a box around the title.
+        */}
+        <header className="border-b border-rule bg-surface">
+          <div className="page-gutter mx-auto box-border w-full page-measure pt-8 pb-10 md:pt-12 md:pb-14">
+            <Breadcrumb
+              ariaLabel={t("breadcrumbAria")}
+              items={[
+                { label: t("breadcrumb"), href: routes.discover() },
+                { label: frontmatter.title },
+              ]}
+            />
+            {/*
+              The page hero, above the `<h1>`, exactly as a feature opens in
+              print — literally the same component story detail opens with, so
+              the two cannot drift again. The trail's copy had already drifted:
+              its placeholder was `bg-surface`, the colour of THIS band, so the
+              empty state was invisible against its own parent.
+            */}
+            <EditorialHero
+              src={heroImage}
+              alt={frontmatter.heroImageAlt ?? ""}
+              className="mb-10"
+            />
+            <div className="grid gap-10 md:grid-cols-[minmax(0,1fr)_minmax(15rem,20rem)] md:gap-16">
+              <div className="max-w-[46rem] space-y-4">
+                <h1 className="type-page-title">{frontmatter.title}</h1>
+                {frontmatter.description ? (
+                  <p className="type-body text-ink-soft">{frontmatter.description}</p>
+                ) : null}
+                {frontmatter.promise ? (
+                  <p className="type-body-sm">{frontmatter.promise}</p>
+                ) : null}
+              </div>
+              <dl className="divide-y divide-rule border-y border-rule md:self-start">
+                {frontmatter.editorialOwner ? (
+                  <MetaRow
+                    label={t("editorLabel")}
+                    value={frontmatter.editorialOwner}
+                  />
+                ) : null}
+                {updatedLabel ? (
+                  <MetaRow label={t("updatedLabel")} value={updatedLabel} />
+                ) : null}
+                {safeProducts.length > 0 ? (
+                  <MetaRow
+                    label={t("selectionLabel")}
+                    value={t("selectionSummary", {
+                      count: safeProducts.length,
+                      categories: categoryCount,
+                    })}
+                  />
+                ) : null}
+              </dl>
+            </div>
+          </div>
         </header>
-        {sections.length >= 2 ? (
-          <BrandSectionNav
-            sections={sections}
-            ariaLabel={t("sectionNavAria")}
-            orientation="horizontal"
-          />
-        ) : null}
-        <div className="max-w-[720px]">
-          <TrailContent
-            source={trail.content}
-            trailSlug={slug}
-            locale={safeLocale}
-            products={safeProducts}
-            labels={trailLabels(t)}
-          />
-        </div>
-        {frontmatter.faq.length > 0 ? <FaqBlock questions={frontmatter.faq} /> : null}
-        <div className="max-w-[720px] space-y-8">
-          {relatedLinks(t("relatedCategories"), frontmatter.relatedCategories, "/categories")}
-          {relatedStoryLinks(t("relatedStories"), frontmatter.relatedStories)}
-          {relatedTrailLinks(t("relatedTrails"), frontmatter.relatedTrails)}
+        <div className="page-gutter mx-auto box-border w-full page-measure">
+          {sections.length >= 2 ? (
+            <BrandSectionNav
+              sections={sections}
+              ariaLabel={t("sectionNavAria")}
+              orientation="horizontal"
+            />
+          ) : null}
+          <div className="pt-10">
+            <TrailContent
+              source={trail.content}
+              trailSlug={slug}
+              locale={safeLocale}
+              products={safeProducts}
+              labels={trailLabels(t)}
+              sections={frontmatter.sections}
+            />
+          </div>
+          {frontmatter.faq.length > 0 ? (
+            <div className="mt-section max-w-[46rem]">
+              <FaqBlock questions={frontmatter.faq} />
+            </div>
+          ) : null}
+          {/*
+            THE CLOSING ZONE. What was deliberately left out sits beside where to
+            go next, because both answer the same reader question — "is this all
+            of it?" — and neither is a footnote. `exclusions` is authored
+            frontmatter that had no surface at all before this.
+          */}
+          <div className="mt-section grid gap-10 md:grid-cols-2 md:gap-16">
+            {frontmatter.exclusions ? (
+              <section
+                aria-labelledby="trail-exclusions"
+                className={cn(
+                  surfaceCardStyles({ padding: "lg" }),
+                  "h-full bg-surface",
+                )}
+              >
+                <h2 id="trail-exclusions" className="type-card-title">
+                  {t("exclusionsHeading")}
+                </h2>
+                <p className="mt-3 type-body-sm text-ink-soft">
+                  {frontmatter.exclusions}
+                </p>
+              </section>
+            ) : null}
+            <div className="space-y-8">
+              {relatedLinks(
+                t("relatedCategories"),
+                frontmatter.relatedCategories,
+                routes.categories(),
+              )}
+              {relatedStoryLinks(t("relatedStories"), frontmatter.relatedStories)}
+              {relatedTrailLinks(t("relatedTrails"), frontmatter.relatedTrails)}
+            </div>
+          </div>
         </div>
       </article>
     </main>

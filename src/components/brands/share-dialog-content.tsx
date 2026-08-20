@@ -3,7 +3,7 @@
 import type { CSSProperties, ReactNode, SVGProps } from 'react'
 import { useTranslations } from 'next-intl'
 import { AtSign, Check, Link as LinkIcon, MessageCircle, X } from 'lucide-react'
-import Image from 'next/image'
+import { SurfaceImage } from '@/components/ui/image'
 import { trackBrandPageShared, type ShareChannel } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
 import { DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog'
@@ -26,7 +26,7 @@ interface ShareDialogContentProps {
 
 // Brand marks only — these hex values exist so each channel disc reads as the
 // platform's own logo. Never reuse them for Formoria chrome; all Formoria
-// interactive emphasis comes from the single kiln accent (`bg-primary`).
+// interactive emphasis comes from the single accent (`bg-accent`).
 const LINE_DISC = 'bg-[#06C755]'
 const FACEBOOK_DISC = 'bg-[#1877F2]'
 const INSTAGRAM_DISC_STYLE: CSSProperties = {
@@ -199,10 +199,13 @@ export function ShareDialogContent({
         <div className="overflow-hidden rounded-xl border border-border bg-muted">
           {safeImage ? (
             <div className="relative h-[74px] w-full">
-              <Image
+              <SurfaceImage
                 src={safeImage}
                 alt=""
                 fill
+                // Measured, with no surface to name: a fixed 74px-tall preview
+                // strip, 256px wide on the narrow dialog and 336px otherwise.
+                // Neither width is any of the layout slots.
                 sizes="(max-width: 352px) 256px, 336px"
                 className="object-cover"
               />
@@ -212,16 +215,16 @@ export function ShareDialogContent({
               aria-hidden="true"
               className="flex h-[74px] w-full items-center justify-center bg-linear-to-br from-secondary to-muted"
             >
-              <span className="type-page-title text-muted-foreground">
+              <span className="type-section text-muted-foreground">
                 {Array.from(brandName)[0] ?? ''}
               </span>
             </div>
           )}
           <div className="space-y-0.5 px-3 py-2.5">
-            <p className="truncate type-body-emphasis">{brandName}</p>
+            <p className="truncate type-body-sm font-medium text-ink">{brandName}</p>
             {/* text-foreground/70, not text-muted-foreground: muted-on-muted
                 computes to 4.39:1 in the dark theme, below the 4.5:1 minimum. */}
-            <p className="truncate type-caption text-foreground/70">
+            <p className="truncate type-metadata text-foreground/70">
               {host}
               {categoryLabel ? ` · ${categoryLabel}` : ''}
             </p>

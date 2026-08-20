@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
-import { ToggleChip } from "@/components/ui/toggle-chip";
+import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
 import type {
   EventAreaOption,
   EventBrandEntry,
@@ -254,7 +254,7 @@ export function EventBrandGrid({
           <div className="relative w-full sm:max-w-xs">
             <Search
               aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted"
             />
             <Input
               type="search"
@@ -285,14 +285,11 @@ export function EventBrandGrid({
         </div>
 
         {areaOptions.length > 0 ? (
-          // `gap-2` (8px) rather than the tighter default: chips render at 32px
-          // tall, below the 44px touch target, so the clear space between them
-          // is what keeps neighbouring chips from stealing each other's taps.
-          <div
-            role="group"
-            aria-label={t("areaFilterAria")}
-            className="flex flex-wrap gap-2"
-          >
+          // `ChipRow` rather than a hand-rolled flex row: a chip is 36px, below
+          // the 44px touch target, and the 14px gap the row owns is what keeps
+          // neighbouring chips from stealing each other's taps. The old `gap-2`
+          // here stacked on the chip's own margin and rendered 22px.
+          <ChipRow role="group" aria-label={t("areaFilterAria")}>
             {/*
               `ToggleChip` renders a native `<button>` carrying `aria-pressed`,
               so the selected state is announced rather than signalled by fill
@@ -317,19 +314,14 @@ export function EventBrandGrid({
                 {option.label}
               </ToggleChip>
             ))}
-          </div>
+          </ChipRow>
         ) : null}
 
         {categoryOptions.length > 0 ? (
-          // Same `gap-2` (8px) as the area row above, for the same reason:
-          // chips render at 32px tall, below the 44px touch target, so the
-          // clear space between them is what keeps neighbouring chips from
-          // stealing each other's taps.
-          <div
-            role="group"
-            aria-label={t("categoryFilterAria")}
-            className="flex flex-wrap gap-2"
-          >
+          // Same `ChipRow` as the area row above, for the same reason: 36px
+          // chips clear the 44px touch target only while the row holds them
+          // 14px apart.
+          <ChipRow role="group" aria-label={t("categoryFilterAria")}>
             <ToggleChip
               size="chip"
               pressed={activeCategory === null}
@@ -349,7 +341,7 @@ export function EventBrandGrid({
                 {option.label}
               </ToggleChip>
             ))}
-          </div>
+          </ChipRow>
         ) : null}
 
         {/*
@@ -357,7 +349,7 @@ export function EventBrandGrid({
           the new result count without interrupting, and focus deliberately
           stays on the chip the reader just pressed.
         */}
-        <p role="status" className="type-caption">
+        <p role="status" className="type-metadata">
           {/*
             A filtered view states what it was filtered from: "0 brands" alone
             reads as "this event has no lineup", which is a different and much

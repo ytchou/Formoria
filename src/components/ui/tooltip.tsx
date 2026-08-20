@@ -1,33 +1,39 @@
 "use client"
 
-import * as React from "react"
-import * as TooltipPrimitive from "@radix-ui/react-tooltip"
+import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Base UI, not Radix. This was the repo's last Radix-backed primitive, behind
+ * three call sites, against a Base UI dependency every other primitive here
+ * already uses — two floating-element libraries for one component.
+ *
+ * The four exports keep their Radix names and shapes so the call sites did not
+ * move. What changed underneath: Base UI splits the content into
+ * Portal → Positioner → Popup, and it deliberately gives the popup NO ARIA role
+ * of its own, because its own documentation says a tooltip is a visual
+ * affordance for sighted pointer and keyboard users and is not a way to deliver
+ * information to assistive technology. `role="tooltip"` is set here anyway — an
+ * unlabelled floating div is worse than a labelled one — but the rule that
+ * follows from that doc still binds every caller: THE TRIGGER CARRIES ITS OWN
+ * ACCESSIBLE NAME, and anything a user actually needs belongs in the page.
+ */
 function TooltipProvider({
-  delayDuration = 0,
+  delay = 0,
   ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
-  return (
-    <TooltipPrimitive.Provider
-      data-slot="tooltip-provider"
-      delayDuration={delayDuration}
-      {...props}
-    />
-  )
+}: TooltipPrimitive.Provider.Props) {
+  return <TooltipPrimitive.Provider delay={delay} {...props} />
 }
 
-function Tooltip({
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Root>) {
-  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />
+function Tooltip({ ...props }: TooltipPrimitive.Root.Props) {
+  return <TooltipPrimitive.Root {...props} />
 }
 
 function TooltipTrigger({
   className,
   ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
+}: TooltipPrimitive.Trigger.Props) {
   return (
     <TooltipPrimitive.Trigger
       data-slot="tooltip-trigger"
@@ -42,20 +48,28 @@ function TooltipTrigger({
 
 function TooltipContent({
   className,
+  side = "top",
   sideOffset = 4,
   ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Content>) {
+}: TooltipPrimitive.Popup.Props &
+  Pick<TooltipPrimitive.Positioner.Props, "side" | "sideOffset">) {
   return (
     <TooltipPrimitive.Portal>
-      <TooltipPrimitive.Content
-        data-slot="tooltip-content"
+      <TooltipPrimitive.Positioner
+        className="isolate z-50"
+        side={side}
         sideOffset={sideOffset}
-        className={cn(
-          "z-50 origin-(--radix-tooltip-content-transform-origin) rounded-md border border-border bg-card px-3 py-1.5 text-xs text-foreground shadow-sm data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=instant-open]:animate-in data-[state=instant-open]:fade-in-0",
-          className,
-        )}
-        {...props}
-      />
+      >
+        <TooltipPrimitive.Popup
+          role="tooltip"
+          data-slot="tooltip-content"
+          className={cn(
+            "origin-(--transform-origin) rounded-md border border-rule bg-surface px-3 py-1.5 type-metadata text-ink transition-opacity duration-100 outline-none data-ending-style:opacity-0 data-instant:duration-0 data-starting-style:opacity-0",
+            className,
+          )}
+          {...props}
+        />
+      </TooltipPrimitive.Positioner>
     </TooltipPrimitive.Portal>
   )
 }

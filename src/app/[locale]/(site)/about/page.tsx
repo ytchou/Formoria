@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import {
   buildArticleJsonLd,
@@ -21,6 +20,7 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { getBrandStats, getRecentBrandCount } from "@/lib/services/brands";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
+import { routes } from "@/lib/routes";
 
 export const revalidate = 3600;
 
@@ -37,7 +37,7 @@ export async function generateMetadata({
   const t = await getTranslations("about.metadata");
   const title = t("title");
   const description = t("description");
-  const { canonical, languages } = buildAlternates("/about", safeLocale);
+  const { canonical, languages } = buildAlternates(routes.about(), safeLocale);
   const ogLocale = safeLocale === "zh-TW" ? "zh_TW" : "en_US";
   const ogAlternateLocale = safeLocale === "zh-TW" ? "en_US" : "zh_TW";
 
@@ -70,7 +70,7 @@ export default async function AboutPage({ params }: PageProps) {
   const articleJsonLd = buildArticleJsonLd({
     title,
     description,
-    path: "/about",
+    path: routes.about(),
     locale: safeLocale,
   });
 
@@ -108,12 +108,12 @@ export default async function AboutPage({ params }: PageProps) {
           recentBrands={recentBrands ?? undefined}
         />
 
-        <section className="bg-secondary py-12 md:py-16">
+        <section className="bg-surface py-section">
           <div className="page-gutter mx-auto max-w-6xl">
-            <h2 className="type-page-title-large text-balance">
+            <h2 className="type-page-title text-balance">
               {t("audiences.heading")}
             </h2>
-            <p className="mt-4 max-w-4xl type-page-subtitle text-pretty">
+            <p className="mt-4 max-w-4xl type-body text-pretty">
               {t("audiences.intro")}
             </p>
             <AboutCardGrid className="md:grid-cols-2">
@@ -155,12 +155,12 @@ export default async function AboutPage({ params }: PageProps) {
           ]}
         />
 
-        <section className="bg-secondary py-12 md:py-16">
+        <section className="bg-surface py-section">
           <div className="page-gutter mx-auto max-w-6xl">
-            <h2 className="type-page-title-large text-balance">
+            <h2 className="type-page-title text-balance">
               {t("trust.heading")}
             </h2>
-            <p className="mt-4 max-w-4xl type-page-subtitle text-pretty">
+            <p className="mt-4 max-w-4xl type-body text-pretty">
               {t("trust.intro")}
             </p>
             <AboutCardGrid className="md:grid-cols-2">
@@ -176,17 +176,17 @@ export default async function AboutPage({ params }: PageProps) {
                 </AboutCard>
               ))}
             </AboutCardGrid>
-            <h3 className="mt-10 type-section-title-large text-balance">
+            <h3 className="mt-10 type-section text-balance">
               {t("trust.commerceHeading")}
             </h3>
             <AboutCardGrid className="md:grid-cols-2">
               <AboutCard>
-                <p className="type-page-subtitle text-pretty">
+                <p className="type-body text-pretty">
                   {t("trust.formoriaOwns")}
                 </p>
               </AboutCard>
               <AboutCard>
-                <p className="type-page-subtitle text-pretty">
+                <p className="type-body text-pretty">
                   {t("trust.merchantOwns")}
                 </p>
               </AboutCard>
@@ -194,17 +194,17 @@ export default async function AboutPage({ params }: PageProps) {
           </div>
         </section>
 
-        <section id="vision" className="scroll-mt-32 py-12 md:py-20">
+        <section id="vision" className="scroll-mt-32 py-section">
           <div className="page-gutter mx-auto max-w-6xl">
-            <h2 className="type-page-title-large text-balance">
+            <h2 className="type-page-title text-balance">
               {t("vision.sectionHeading")}
             </h2>
             <div className="mt-8 grid gap-8 md:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)] md:items-start">
               <div>
-                <h3 className="type-section-title-large text-balance">
+                <h3 className="type-section text-balance">
                   {t("vision.heading")}
                 </h3>
-                <p className="mt-5 type-page-subtitle text-pretty">
+                <p className="mt-5 type-body text-pretty">
                   {t("vision.body")}
                 </p>
               </div>
@@ -212,7 +212,7 @@ export default async function AboutPage({ params }: PageProps) {
                 <h3 className="type-card-title">
                   {t("vision.principleHeading")}
                 </h3>
-                <p className="mt-3 type-page-subtitle text-pretty">
+                <p className="mt-3 type-body text-pretty">
                   {t("vision.principleBody")}
                 </p>
               </AboutCard>
@@ -241,31 +241,22 @@ export default async function AboutPage({ params }: PageProps) {
           sourceName={t("taiwanStats.sourceName")}
         />
 
-        <section className="relative overflow-hidden py-12 md:py-16">
-          <Image
-            src="/images/hero-bg.webp"
-            alt=""
-            fill
-            sizes="100vw"
-            className="object-cover object-right"
-          />
-          <div
-            className="absolute inset-0 bg-background/75"
-            aria-hidden="true"
-          />
-          <div className="relative mx-auto max-w-6xl page-gutter">
+        {/* Closing band. Ink ground, not a photograph under a scrim — the same
+            removal made in `about-hero.tsx`, for the same reason: contrast that
+            depends on an image nobody re-checks is contrast nobody owns. */}
+        <section className="border-t border-rule bg-surface py-section">
+          <div className="mx-auto max-w-6xl page-gutter">
             <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
               <div>
-                <h2 className="type-page-title-large text-balance">
+                <h2 className="type-page-title text-balance">
                   {t("guide.heading")}
                 </h2>
               </div>
               <div>
                 <Link
-                  href="/getting-started"
+                  href={routes.gettingStarted()}
                   className={buttonVariants({
                     variant: "primary",
-                    tone: "cta",
                     size: "large",
                     className: "min-h-12",
                   })}

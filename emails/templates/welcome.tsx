@@ -1,6 +1,6 @@
 import { render } from '@react-email/render'
-import { Link } from '@react-email/components'
 import { Button } from '@emails/components/button'
+import { EmailLink } from '@emails/components/email-link'
 import { EmailHeading } from '@emails/components/email-heading'
 import { EmailText } from '@emails/components/email-text'
 import { Layout } from '@emails/components/layout'
@@ -30,7 +30,7 @@ export async function buildWelcomeEmail({
   const unsubscribeUrl = `${SITE_URL}/api/email/unsubscribe?token=${unsubscribeToken}`
   const html = await render(
     locale === 'en' ? (
-      <Layout
+      <Layout lang="en"
         previewText={`Welcome to Formoria. ${brandName}'s brand workspace is ready.`}
         unsubscribeUrl={unsubscribeUrl}
       >
@@ -42,9 +42,7 @@ export async function buildWelcomeEmail({
         <Button href={dashboardUrl}>Go to brand dashboard</Button>
         <EmailText>
           Your brand page has also been created:{' '}
-          <Link href={micrositeUrl} style={link}>
-            {micrositeUrl}
-          </Link>
+          <EmailLink href={micrositeUrl}>{micrositeUrl}</EmailLink>
         </EmailText>
       </Layout>
     ) : (
@@ -59,9 +57,7 @@ export async function buildWelcomeEmail({
         <Button href={dashboardUrl}>前往品牌後台</Button>
         <EmailText>
           品牌頁面也已建立：
-          <Link href={micrositeUrl} style={link}>
-            {micrositeUrl}
-          </Link>
+          <EmailLink href={micrositeUrl}>{micrositeUrl}</EmailLink>
         </EmailText>
       </Layout>
     )
@@ -77,9 +73,4 @@ export async function buildWelcomeEmail({
     html,
     headers: listUnsubscribeHeaders(unsubscribeUrl),
   }
-}
-
-const link = {
-  color: '#2563eb',
-  textDecoration: 'underline',
 }

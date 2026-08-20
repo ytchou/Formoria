@@ -43,6 +43,7 @@ import {
 import { BasicInfoSection } from './sections/BasicInfoSection'
 import { LinksSection } from './sections/LinksSection'
 import { MediaSection } from './sections/MediaSection'
+import { routes } from '@/lib/routes'
 
 type SubmissionWizardProps = {
   subcategorySuggestions?: string[]
@@ -218,7 +219,7 @@ export default function SubmissionWizard({
         if (result?.ownershipAdjusted) {
           params.set('ownership', 'community')
         }
-        router.push(`/submit/confirmation?${params.toString()}`)
+        router.push(`${routes.submit.confirmation()}?${params.toString()}`)
       } finally {
         setIsSubmitting(false)
       }
@@ -285,7 +286,7 @@ export default function SubmissionWizard({
 
             {activeStep === SUBMISSION_WIZARD_STEPS.length - 1 ? (
               <>
-                <div className="mt-6 space-y-4 rounded-lg border border-border bg-card p-6">
+                <div className="mt-6 space-y-4 rounded-[3px] border border-rule bg-surface p-6">
                   <Controller
                     name="pdpaConsent"
                     control={form.control}
@@ -300,14 +301,14 @@ export default function SubmissionWizard({
                             }
                             className="mt-0.5 size-[18px] shrink-0"
                           />
-                          <span className="type-body font-normal">
+                          <span className="type-body-sm text-ink-soft font-normal">
                             {tReview.rich('pdpaConsent', {
                               privacyPolicy: (chunks) => (
                                 <Link
-                                  href="/privacy"
+                                  href={routes.privacy()}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                  className="text-ink underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                                 >
                                   {chunks}
                                 </Link>
@@ -316,7 +317,7 @@ export default function SubmissionWizard({
                           </span>
                         </Label>
                         {fieldState.error ? (
-                          <p className="type-error">
+                          <p className="type-metadata text-danger">
                             {t('validation.pdpaRequired')}
                           </p>
                         ) : null}
@@ -364,7 +365,7 @@ export default function SubmissionWizard({
                     />
                   </div>
                   {turnstileError || form.formState.errors.turnstileToken ? (
-                    <p className="type-error text-center" role="alert">
+                    <p className="type-metadata text-danger text-center" role="alert">
                       {turnstileError
                         ? t('errors.turnstileError')
                         : t('validation.turnstileRequired')}
@@ -372,13 +373,13 @@ export default function SubmissionWizard({
                   ) : null}
 
                   {submitError ? (
-                    <p className="type-error" role="alert" aria-live="polite">
+                    <p className="type-metadata text-danger" role="alert" aria-live="polite">
                       {submitError}
                     </p>
                   ) : null}
                 </div>
 
-                <footer className="mt-8 flex items-center justify-between border-t border-border pt-6">
+                <footer className="mt-8 flex items-center justify-between border-t border-rule pt-6">
                   <Button
                     type="button"
                     variant="secondary"
@@ -390,7 +391,6 @@ export default function SubmissionWizard({
                   <Button
                     type="submit"
                     variant="primary"
-                    tone="cta"
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? (

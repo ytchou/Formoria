@@ -14,6 +14,27 @@ import { useLocale, useTranslations } from 'next-intl'
 import { trackCategoryFilterApplied } from '@/lib/analytics'
 import { categoryLabel } from '@/lib/taxonomy/ontology'
 import { buildCategoryTabTarget } from './category-tab-target'
+import { cn } from '@/lib/utils'
+import { routes } from '@/lib/routes'
+
+/**
+ * One tab's classes. These are raw anchors rather than `Button` links because
+ * they must work with JS off and carry `aria-current`, so the focus ring the
+ * primitives provide is restated here — the base layer sets an outline COLOUR
+ * and no visible replacement of its own.
+ *
+ * The tap target reads `--nav-row-categories`, the same token as the row that
+ * holds it. A literal here would win over a smaller row token and grow the
+ * header without growing `--nav-height`, which is the drift this row already
+ * caused once. See `nav-height.test.ts`.
+ */
+function tabClasses(active: boolean): string {
+  return cn(
+    'type-nav flex min-h-(--nav-row-categories) items-center whitespace-nowrap rounded-[4px] px-3 py-2 transition-colors',
+    'focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground',
+    active ? 'text-ink' : 'text-ink-muted hover:text-ink',
+  )
+}
 
 interface NavCategoryTabsProps {
   categories: Array<{ slug: string; name: string; nameZh: string | null }>
@@ -26,7 +47,7 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
   const locale = useLocale()
   const t = useTranslations('nav')
 
-  const isBrandsPage = pathname === '/brands'
+  const isBrandsPage = pathname === routes.brands()
   const activeCategory = isBrandsPage ? (searchParams.get('category') ?? '') : ''
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -89,19 +110,27 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
   }
 
   return (
-    <nav className="page-gutter mx-auto max-w-screen-xl overflow-x-hidden">
-      <div ref={containerRef} className="relative flex min-h-12 items-center gap-1 overflow-x-auto scrollbar-none">
+    // `header-measure`, not `page-measure`: this row is part of the sticky
+    // header, which is deliberately excluded from the landing page's wider
+    // measure. See the comment beside `--page-measure` in globals.css.
+    // NAMED, because it is no longer the header's only navigation landmark and
+    // is no longer suppressed on `/` — three unnamed `nav` elements in one
+    // banner are three identical entries in a landmark list.
+    <nav
+      aria-label={t('categories')}
+      className="page-gutter mx-auto header-measure overflow-x-hidden"
+    >
+      {/* One row that scrolls horizontally on a phone rather than wrapping:
+          thirteen zh-TW labels wrap to three lines at 375px and push the page
+          down by 96px before any content. */}
+      <div ref={containerRef} className="relative flex min-h-(--nav-row-categories) items-center gap-1 overflow-x-auto scrollbar-none">
         <a
           href={targetFor('').href}
           data-active={isBrandsPage && !activeCategory ? 'true' : 'false'}
           aria-current={isBrandsPage && !activeCategory ? 'page' : undefined}
           data-ph-no-autocapture
           onClick={(event) => handleClick(event, '')}
-          className={
-            isBrandsPage && !activeCategory
-              ? 'type-body-emphasis flex min-h-12 items-center whitespace-nowrap px-3 py-2'
-              : 'type-card-description hover:text-foreground flex min-h-12 items-center whitespace-nowrap px-3 py-2 transition-colors'
-          }
+          className={tabClasses(isBrandsPage && !activeCategory)}
         >
           {t('allBrands')}
         </a>
@@ -117,11 +146,7 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
               aria-current={isActive ? 'page' : undefined}
               data-ph-no-autocapture
               onClick={(event) => handleClick(event, cat.slug)}
-              className={
-                isActive
-                  ? 'type-body-emphasis flex min-h-12 items-center whitespace-nowrap px-3 py-2'
-                  : 'type-card-description hover:text-foreground flex min-h-12 items-center whitespace-nowrap px-3 py-2 transition-colors'
-              }
+              className={tabClasses(isActive)}
             >
               {label}
             </a>
@@ -131,7 +156,7 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
         {hasIndicator && (
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-primary"
+            className="pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-accent"
             style={{
               left: indicator.left,
               width: indicator.width,
@@ -148,9 +173,9 @@ function NavCategoryTabsFallback() {
   return (
     <nav
       aria-hidden="true"
-      className="page-gutter mx-auto max-w-screen-xl overflow-x-hidden"
+      className="page-gutter mx-auto header-measure overflow-x-hidden"
     >
-      <div className="min-h-12" />
+      <div className="min-h-(--nav-row-categories)" />
     </nav>
   )
 }

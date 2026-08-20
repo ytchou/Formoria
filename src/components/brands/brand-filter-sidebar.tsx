@@ -27,7 +27,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { ToggleChip } from "@/components/ui/toggle-chip";
+import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
 import type { BrandFilters } from "@/lib/types";
 import {
   clearDirectoryFilters,
@@ -92,7 +92,7 @@ const verificationOptions: VerificationFilterValue[] = [
 ];
 const priceRangeOptions = [1, 2, 3] as const;
 const filterOptionClassName =
-  "flex min-h-12 cursor-pointer items-center gap-2 rounded-lg px-2 type-card-description transition-colors hover:bg-muted hover:text-foreground";
+  "flex min-h-12 cursor-pointer items-center gap-2 rounded-[4px] px-2 type-body-sm transition-colors hover:bg-surface hover:text-ink";
 
 function parseCommaParam(value: string | null): string[] {
   return value
@@ -126,10 +126,10 @@ function FilterSection({
           onClick={() => setOpen((value) => !value)}
           className="min-h-12 min-w-0 flex-1 justify-between px-2 text-left"
         >
-          <span className="type-body-emphasis">{title}</span>
+          <span className="type-body-sm font-medium text-ink">{title}</span>
           <ChevronDown
             className={cn(
-              "h-4 w-4 text-muted-foreground transition-transform duration-200",
+              "h-4 w-4 text-ink-muted transition-transform duration-200 motion-reduce:duration-[0.01ms]",
               !open && "-rotate-90",
             )}
             aria-hidden="true"
@@ -293,7 +293,7 @@ export function BrandFilterSidebar({
       >
         <Loader2
           className={cn(
-            "size-4 text-muted-foreground transition-opacity",
+            "size-4 text-ink-muted transition-opacity",
             isPending ? "animate-spin opacity-100" : "opacity-0",
           )}
         />
@@ -305,7 +305,7 @@ export function BrandFilterSidebar({
         >
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="size-5 shrink-0" aria-hidden="true" />
-            <h2 className="type-body-emphasis text-inherit">
+            <h2 className="type-body-sm font-medium text-inherit">
               {t("currentConditions")}
             </h2>
           </div>
@@ -321,15 +321,15 @@ export function BrandFilterSidebar({
               />
             ))}
           </div>
-          <p className="type-caption text-inherit/80">{t("appliedHint")}</p>
+          <p className="type-metadata text-inherit/80">{t("appliedHint")}</p>
         </section>
       ) : null}
 
       <div className="space-y-6 p-4">
         <section className="space-y-3">
           <div className="flex items-center gap-1.5">
-            <h2 className="type-body-emphasis">{t("brandSearch")}</h2>
-            <Info className="size-4 text-muted-foreground" aria-hidden="true" />
+            <h2 className="type-body-sm font-medium text-ink">{t("brandSearch")}</h2>
+            <Info className="size-4 text-ink-muted" aria-hidden="true" />
           </div>
           <SearchInput
             className="max-w-none"
@@ -337,7 +337,7 @@ export function BrandFilterSidebar({
             showAutocomplete={false}
             announceLoading={announceSearchLoading}
           />
-          <p className="type-caption">{t("brandSearchHelp")}</p>
+          <p className="type-metadata">{t("brandSearchHelp")}</p>
         </section>
 
         <Separator />
@@ -351,7 +351,7 @@ export function BrandFilterSidebar({
                   <Label
                     className={cn(
                       filterOptionClassName,
-                      checked && "bg-primary/10 font-medium text-primary",
+                      checked && "bg-accent/10 font-medium text-accent",
                     )}
                   >
                     {/*
@@ -379,7 +379,7 @@ export function BrandFilterSidebar({
                       activeCategories.size === 1 &&
                       activeSubSlugs.length === 0 && (
                         <span
-                          className="ml-auto type-caption text-inherit"
+                          className="ml-auto type-metadata text-inherit"
                           aria-hidden="true"
                         >
                           {totalCount}
@@ -411,7 +411,7 @@ export function BrandFilterSidebar({
                             className={cn(
                               buttonVariants({ variant: 'secondary', shape: 'pill' }),
                               'min-h-12',
-                              subcategoryChecked && 'border-primary bg-primary text-primary-foreground hover:border-primary hover:bg-primary hover:text-primary-foreground',
+                              subcategoryChecked && 'border-accent bg-accent text-ground hover:border-accent hover:bg-accent hover:text-ground',
                             )}
                             data-ph-no-autocapture
                             onClick={() => {
@@ -430,8 +430,8 @@ export function BrandFilterSidebar({
                             <span
                               className={cn(
                                 subcategoryChecked
-                                  ? "text-primary-foreground/70"
-                                  : "text-muted-foreground",
+                                  ? "text-ground/70"
+                                  : "text-ink-muted",
                               )}
                             >
                               {subcategory.count}
@@ -467,7 +467,7 @@ export function BrandFilterSidebar({
                       key={material.value}
                       className={cn(
                         filterOptionClassName,
-                        checked && "bg-primary/10 font-medium text-primary",
+                        checked && "bg-accent/10 font-medium text-accent",
                       )}
                     >
                       <Checkbox
@@ -478,7 +478,7 @@ export function BrandFilterSidebar({
                         data-ph-no-autocapture
                       />
                       <span>{material.label}</span>
-                      <span className="ml-auto type-caption text-muted-foreground">
+                      <span className="ml-auto type-metadata text-ink-muted">
                         {material.count}
                       </span>
                     </Label>
@@ -492,7 +492,7 @@ export function BrandFilterSidebar({
         <Separator />
 
         <FilterSection title={t("priceRange")}>
-          <div className="flex flex-wrap gap-2">
+          <ChipRow>
             {priceRangeOptions.map((value) => {
               const checked = activePriceRanges.has(value);
               const label = "$".repeat(value);
@@ -501,14 +501,18 @@ export function BrandFilterSidebar({
                   key={value}
                   pressed={checked}
                   onPressedChange={(next) => togglePriceRange(value, next)}
-                  className="min-h-12 active:animate-spring-pop"
+                  // No height override. A chip is 36px; `min-h-12` rendered
+                  // this one row at 48px while every other chip row in the app
+                  // sat at 36px. The 14px `ChipRow` gap is what keeps the 36px
+                  // exception honest, not a taller box on one screen.
+                  className="active:animate-spring-pop"
                   data-ph-no-autocapture
                 >
                   {label}
                 </ToggleChip>
               );
             })}
-          </div>
+          </ChipRow>
         </FilterSection>
 
         <Separator />
@@ -550,7 +554,7 @@ function FilterRadio({
     <Label
       className={cn(
         filterOptionClassName,
-        checked && "bg-primary/10 font-medium text-primary",
+        checked && "bg-accent/10 font-medium text-accent",
       )}
     >
       <input
@@ -558,7 +562,7 @@ function FilterRadio({
         name={name}
         checked={checked}
         onChange={onChange}
-        className="h-4 w-4 accent-primary"
+        className="h-4 w-4 accent-accent"
         data-ph-no-autocapture
       />
       <span>{label}</span>
@@ -595,7 +599,7 @@ export function BrandFilterDrawer({
         className="w-[86vw] max-w-sm gap-0 p-0"
         showCloseButton
       >
-        <SheetHeader className="border-b border-border">
+        <SheetHeader className="border-b border-rule">
           <SheetTitle>{t("title")}</SheetTitle>
         </SheetHeader>
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -611,7 +615,7 @@ export function BrandFilterDrawer({
             totalCount={totalCount}
           />
         </div>
-        <SheetFooter className="sticky bottom-0 border-t border-border bg-popover">
+        <SheetFooter className="sticky bottom-0 border-t border-rule bg-popover">
           <Button
             type="button"
             className="w-full"
@@ -649,7 +653,7 @@ function MobileClearAll({ onClear }: { onClear: () => void }) {
       type="button"
       variant="ghost"
       onClick={clearAll}
-      className="mx-auto min-h-12 type-card-description underline-offset-2 hover:text-foreground hover:underline"
+      className="mx-auto min-h-12 type-body-sm underline-offset-2 hover:text-ink hover:underline"
       data-ph-no-autocapture
     >
       {t("clearAll")}

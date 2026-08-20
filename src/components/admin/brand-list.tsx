@@ -53,6 +53,8 @@ import { statusStyles, textStyles } from "@/components/ui/text-styles";
 import { MAX_BULK_PRODUCT_BACKFILL } from "@/lib/constants/curated-products";
 import { routing } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
+import { inkActionClassName } from "@/components/admin/ink-action";
+import { routes } from "@/lib/routes";
 
 type TabValue = "all" | BrandStatus;
 type MitStatus = NonNullable<AdminBrandListItem["mitStatus"]>;
@@ -64,11 +66,11 @@ const MIT_STATUS_CONFIG: Record<
 > = {
   unverified: {
     label: "MIT Unverified",
-    className: "bg-secondary text-muted-foreground",
+    className: "bg-surface text-ink-muted",
   },
   declared: {
     label: "品牌聲明",
-    className: "bg-secondary text-muted-foreground",
+    className: "bg-surface text-ink-muted",
   },
   verified: {
     label: "MIT Smile Certified",
@@ -96,7 +98,7 @@ function MitStatusBadge({ status }: { status: MitStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 type-field-label",
+        "inline-flex items-center rounded-full px-2.5 py-0.5 type-metadata",
         config.className,
       )}
     >
@@ -368,7 +370,7 @@ export function BrandList({
         </TabsList>
       </Tabs>
 
-      {error && <p className="mt-2 type-body text-destructive">{error}</p>}
+      {error && <p className="mt-2 type-body-sm text-danger">{error}</p>}
 
       {/*
         A status, not an alert: "a refresh is already pending" is an ordinary
@@ -379,7 +381,7 @@ export function BrandList({
       <p
         role="status"
         className={cn(
-          "type-body text-muted-foreground",
+          "type-body-sm text-ink-muted",
           productBackfillStatus && "mt-2",
         )}
       >
@@ -436,6 +438,8 @@ export function BrandList({
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Button
             type="button"
+            variant="secondary"
+            className={inkActionClassName}
             disabled={isPending}
             aria-label={`Generate products for ${productBackfillIds.size} selected ${
               productBackfillIds.size === 1 ? "brand" : "brands"
@@ -451,7 +455,7 @@ export function BrandList({
             the accessible name: the bound is the one thing a growing selection
             has to be able to see coming.
           */}
-          <span className="type-body-muted">
+          <span className="type-body-sm">
             {`${productBackfillIds.size} of ${MAX_BULK_PRODUCT_BACKFILL} per run${
               selectionAtCap ? " — limit reached" : ""
             }`}
@@ -508,7 +512,7 @@ export function BrandList({
             {visible.map((brand) => (
               <Fragment key={brand.id}>
                 <TableRow
-                  className="cursor-pointer hover:bg-secondary"
+                  className="cursor-pointer hover:bg-surface"
                   data-state={
                     productBackfillIds.has(brand.id) ? "selected" : undefined
                   }
@@ -563,7 +567,7 @@ export function BrandList({
                     <div className="space-y-1">
                       <MitStatusBadge status={getMitStatus(brand)} />
                       {brand.mitEvidence?.mit_smile_cert && (
-                        <p className="type-caption">
+                        <p className="type-metadata">
                           Cert: {brand.mitEvidence.mit_smile_cert}
                         </p>
                       )}
@@ -629,11 +633,11 @@ export function BrandList({
                           </DropdownMenuTrigger>
                           <DropdownMenuContent
                             align="end"
-                            className="w-40 min-w-40 rounded-lg border border-border bg-card shadow-card-hover"
+                            className="w-40 min-w-40 rounded-[3px] border border-rule bg-surface"
                           >
                             <DropdownMenuItem
                               disabled={isPending}
-                              className="text-foreground hover:bg-muted focus:bg-muted"
+                              className="text-ink hover:bg-surface focus:bg-surface"
                               onClick={() => setRefreshingBrandId(brand.id)}
                             >
                               Request re-enrichment
@@ -644,7 +648,7 @@ export function BrandList({
                       {(brand.status === "approved" ||
                         brand.status === "hidden") && (
                         <Link
-                          href={`/admin/curated-products?brand=${brand.slug}`}
+                          href={routes.admin.curatedProducts({ brand: brand.slug })}
                           aria-label={`Ingest curated products for ${brand.name}`}
                           className={buttonVariants({
                             variant: "secondary",
@@ -657,7 +661,7 @@ export function BrandList({
                       <Button
                         variant="secondary"
                         size="compact"
-                        className="text-destructive hover:text-destructive"
+                        className="text-danger hover:text-danger"
                         onClick={() => setDeletingBrandId(brand.id)}
                       >
                         Delete
@@ -689,7 +693,7 @@ export function BrandList({
               <TableRow>
                 <TableCell
                   colSpan={9}
-                  className="py-8 text-center text-muted-foreground"
+                  className="py-8 text-center text-ink-muted"
                 >
                   No brands found.
                 </TableCell>
@@ -700,7 +704,7 @@ export function BrandList({
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="type-card-description">
+        <p className="type-body-sm">
           Showing {filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}
           –{Math.min(currentPage * pageSize, filtered.length)} of{" "}
           {filtered.length} brands
@@ -733,7 +737,7 @@ export function BrandList({
           >
             <ChevronLeft className="size-4" aria-hidden />
           </Button>
-          <span className="min-w-16 text-center type-card-description">
+          <span className="min-w-16 text-center type-body-sm">
             {currentPage} / {pageCount}
           </span>
           <Button
@@ -792,7 +796,7 @@ export function BrandList({
         title="Delete brand"
         description="This action cannot be undone. The brand and all associated data will be permanently deleted."
         onConfirm={handleDelete}
-        confirmLabel="Delete"
+        confirmLabel="Delete this brand permanently"
         variant="destructive"
         confirmText={deletingBrand?.name}
         isPending={isPending}

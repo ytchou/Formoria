@@ -92,7 +92,7 @@ const destinationLinkClassName = buttonVariants({
 const PURCHASE_PRESENTATION = {
   website: {
     icon: <Globe className="size-4 text-current" />,
-    accentClassName: "text-primary",
+    accentClassName: "text-accent",
   },
   pinkoi: {
     icon: <Store className="size-4 text-current" />,
@@ -136,7 +136,7 @@ function DestinationLinkButton({
 
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <Typography as="h2" variant="sectionTitle">
+    <Typography as="h2" variant="sectionTitleLarge">
       {children}
     </Typography>
   );

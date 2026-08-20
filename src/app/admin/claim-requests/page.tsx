@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
+import { routes } from '@/lib/routes'
 
 export default function ClaimRequestsPage(): never {
-  redirect('/admin/claims')
+  redirect(routes.admin.claims())
 }

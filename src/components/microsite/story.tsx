@@ -16,13 +16,13 @@ export function Story({ brand, story }: StoryProps) {
       aria-labelledby="microsite-story"
     >
       <div className="mx-auto max-w-[1280px]">
-        <div className="max-w-3xl space-y-4">
-          <h2 id="microsite-story" className="type-section-title">
+        <div className="max-w-3xl space-y-gutter">
+          <h2 id="microsite-story" className="type-section">
             品牌故事
           </h2>
-          <p className="type-body-muted">{story}</p>
+          <p className="type-body">{story}</p>
           {brand.foundingYear && (
-            <p className="type-form-hint">創立於 {brand.foundingYear}</p>
+            <p className="type-metadata">創立於 {brand.foundingYear}</p>
           )}
         </div>
       </div>

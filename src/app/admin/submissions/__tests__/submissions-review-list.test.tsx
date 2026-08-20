@@ -271,7 +271,7 @@ describe("SubmissionsReviewList", () => {
     expect(
       screen.getByRole("checkbox", { name: "Select Ready Brand 2" }),
     ).toBeChecked();
-    // The e2e suite selects `p.type-error` and asserts it names the brand.
+    // The e2e suite selects `p.type-metadata.text-danger` and asserts it names the brand.
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Ready Brand 2: Base brand changed",
     );

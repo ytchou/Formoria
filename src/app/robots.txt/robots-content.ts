@@ -3,6 +3,7 @@ import {
   robotsTokenFor,
 } from "@/lib/security/crawler-registry";
 import { isStagingEnvironment } from "@/lib/deployment-environment";
+import { routes } from "@/lib/routes";
 
 /**
  * Declares that AI training is disallowed while search indexing and answer-time
@@ -20,11 +21,11 @@ export const CONTENT_SIGNAL = "ai-train=no, search=yes, ai-input=yes";
  * crawlable.
  */
 const WILDCARD_DISALLOW = [
-  "/admin",
+  routes.admin.index(),
   "/api/",
   "/auth/",
   "/en/auth/",
-  "/challenge",
+  routes.challenge(),
 ] as const;
 
 interface RobotsRule {

@@ -566,6 +566,6 @@ test.describe("Bulk refresh approval", () => {
     await expect(validRow).toBeHidden({ timeout: BUDGET.GATED_UI });
     await expect(staleRow).toBeVisible();
     await expect(staleRow.getByRole("checkbox")).toBeChecked();
-    await expect(adminPage.locator("p.type-error")).toContainText(staleName);
+    await expect(adminPage.locator("p.type-metadata.text-danger")).toContainText(staleName);
   });
 });

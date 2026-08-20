@@ -11,6 +11,10 @@ interface ShareCardBrand {
  * Returns the satori JSX tree for a 1080×1350 share card.
  * The caller is responsible for loading markDataUri (via getOgMarkDataUri)
  * and passing fonts to ImageResponse.
+ *
+ * Inline styles are not drift here — satori resolves nothing else. What v2
+ * changes is the palette and the rhythm: warm paper ground, the ink ramp for
+ * hierarchy, a 96px accent rule, and 48 / 32 / 24 spacing at card scale.
  */
 export function renderShareCard(
   brandData: ShareCardBrand,
@@ -25,7 +29,7 @@ export function renderShareCard(
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: brandColors.bg,
+        backgroundColor: brandColors.ground,
         padding: '80px',
       }}
     >
@@ -34,7 +38,7 @@ export function renderShareCard(
         style={{
           display: 'flex',
           alignItems: 'center',
-          marginBottom: '56px',
+          marginBottom: '48px',
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -44,7 +48,7 @@ export function renderShareCard(
             marginLeft: 16,
             fontSize: 32,
             fontWeight: 700,
-            color: brandColors.primary,
+            color: brandColors.ink,
             fontFamily: 'Bricolage Grotesque',
           }}
         >
@@ -52,14 +56,14 @@ export function renderShareCard(
         </div>
       </div>
 
-      {/* Kiln accent bar */}
+      {/* Accent rule */}
       <div
         style={{
           display: 'flex',
-          width: 80,
-          height: 6,
-          backgroundColor: brandColors.cta,
-          marginBottom: '56px',
+          width: 96,
+          height: 4,
+          backgroundColor: brandColors.accent,
+          marginBottom: '48px',
         }}
       />
 
@@ -69,12 +73,14 @@ export function renderShareCard(
           display: 'flex',
           fontSize: 52,
           fontWeight: 700,
-          // Muted grey so the ink brand name below stays the dominant element —
-          // `primary` now equals `fg`, so colour is the only separation left.
-          color: brandColors.espresso,
+          // Muted so the ink brand name below stays the dominant element.
+          // Colour is the separation: both lines are the same face and weight.
+          color: brandColors.inkMuted,
           fontFamily: 'Noto Sans TC',
-          lineHeight: 1.7,
-          marginBottom: '48px',
+          // 1.3, not 1.7. Body leading on a 52px headline opened a gap the
+          // card could not spare and read as two unrelated lines.
+          lineHeight: 1.3,
+          marginBottom: '32px',
         }}
       >
         我們上架了 Formoria
@@ -93,9 +99,9 @@ export function renderShareCard(
             display: 'flex',
             fontSize: nameFontSize,
             fontWeight: 700,
-            color: brandColors.fg,
+            color: brandColors.ink,
             fontFamily: 'Noto Sans TC',
-            lineHeight: 1.7,
+            lineHeight: 1.15,
             overflow: 'hidden',
           }}
         >
@@ -109,9 +115,9 @@ export function renderShareCard(
           display: 'flex',
           fontSize: 28,
           fontWeight: 700,
-          color: brandColors.primary,
+          color: brandColors.inkMuted,
           fontFamily: 'Bricolage Grotesque',
-          marginTop: '48px',
+          marginTop: '32px',
         }}
       >
         formoria.com/brands/{brandData.slug}

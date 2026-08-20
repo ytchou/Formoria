@@ -14,6 +14,7 @@ import { useTranslations } from 'next-intl'
 import { textStyles } from '@/components/ui/text-styles'
 import { Link } from '@/i18n/navigation'
 import { cn } from '@/lib/utils'
+import { routes } from '@/lib/routes'
 
 type DashboardTabNavProps = {
   brandSlug: string
@@ -32,11 +33,11 @@ const navItems = [
 export function DashboardTabNav({ brandSlug }: DashboardTabNavProps) {
   const pathname = usePathname()
   const t = useTranslations()
-  const baseHref = `/dashboard/brands/${brandSlug}`
+  const baseHref = routes.dashboard.brand(brandSlug)
 
   return (
     <nav aria-label={t('dashboard.sidebar.navLabel')}>
-      <div className="scrollbar-hide flex gap-1 overflow-x-auto border-b border-border">
+      <div className="scrollbar-hide flex gap-1 overflow-x-auto border-b border-rule">
         {navItems.map((item) => {
           const href = `${baseHref}${item.segment}`
           const isActive = item.segment === ''
@@ -49,9 +50,9 @@ export function DashboardTabNav({ brandSlug }: DashboardTabNavProps) {
               key={item.key}
               aria-current={isActive ? 'page' : undefined}
               className={cn(
-                'relative inline-flex min-h-12 flex-none items-center justify-center gap-1.5 whitespace-nowrap px-4 py-2 text-muted-foreground transition-[background-color,color] after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:bg-primary after:opacity-0 after:transition-opacity hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:after:transition-none',
+                'relative inline-flex min-h-12 flex-none items-center justify-center gap-1.5 whitespace-nowrap px-4 py-2 text-ink-muted transition-[background-color,color] after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:bg-accent after:opacity-0 after:transition-opacity hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent motion-reduce:after:transition-none',
                 textStyles({ variant: 'navItem' }),
-                isActive && 'text-foreground after:opacity-100',
+                isActive && 'text-ink after:opacity-100',
               )}
               href={href}
             >

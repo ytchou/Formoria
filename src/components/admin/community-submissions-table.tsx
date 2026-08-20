@@ -22,6 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { inkActionClassName } from "@/components/admin/ink-action";
 import { MAX_COMMUNITY_SUBMISSIONS } from "@/lib/services/community-submissions.constants";
 import type {
   CommunitySubmissionDraft,
@@ -200,17 +201,17 @@ export function CommunitySubmissionsTable() {
         <Label
           htmlFor={`${idBase}-csv`}
           aria-disabled={isPending}
-          className="flex min-h-36 cursor-pointer items-center justify-between gap-6 rounded-lg border border-dashed border-border bg-background p-6 transition-colors hover:bg-muted aria-disabled:pointer-events-none aria-disabled:opacity-50"
+          className="flex min-h-36 cursor-pointer items-center justify-between gap-6 rounded-[3px] border border-dashed border-rule bg-ground p-6 transition-colors hover:bg-surface aria-disabled:pointer-events-none aria-disabled:opacity-50"
         >
           <span className="flex items-center gap-4">
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-border bg-card">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-[3px] border border-rule bg-surface">
               <FileUp aria-hidden="true" />
             </span>
             <span className="space-y-1">
               <span className="block type-card-title">
                 {isPending ? "Reading and checking CSV…" : "Choose a CSV file"}
               </span>
-              <span className="block type-form-hint">
+              <span className="block type-metadata">
                 Rows are checked for duplicates and selected automatically.
               </span>
               {fileName ? (
@@ -226,7 +227,7 @@ export function CommunitySubmissionsTable() {
           </span>
         </Label>
         {error ? (
-          <p role="alert" className="mt-4 type-error">
+          <p role="alert" className="mt-4 type-metadata text-danger">
             {error}
           </p>
         ) : null}
@@ -236,8 +237,8 @@ export function CommunitySubmissionsTable() {
         <div className="space-y-3">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 className="type-section-title">Review import</h2>
-              <p className="mt-1 type-card-description">
+              <h2 className="type-label">Review import</h2>
+              <p className="mt-1 type-body-sm">
                 Showing {filteredRows.length} of {rows.length} rows ·{" "}
                 {selectedCount} selected. Similar matches require an explicit
                 selection.
@@ -267,7 +268,8 @@ export function CommunitySubmissionsTable() {
               </div>
               <Button
                 type="button"
-                className="min-h-12"
+                variant="secondary"
+                className={inkActionClassName}
                 disabled={isPending || selectedCount === 0}
                 onClick={executeRows}
               >
@@ -379,7 +381,7 @@ export function CommunitySubmissionsTable() {
                   <TableRow>
                     <TableCell
                       colSpan={5}
-                      className="py-12 text-center type-card-description"
+                      className="py-12 text-center type-body-sm"
                     >
                       No rows match this status.
                     </TableCell>
@@ -408,7 +410,7 @@ function RowStatus({ row }: { row: EditableRow }) {
       <div className="space-y-1">
         <Badge variant={config.variant}>{config.label}</Badge>
         {"message" in row.result ? (
-          <p className="type-form-hint">{row.result.message}</p>
+          <p className="type-metadata">{row.result.message}</p>
         ) : null}
       </div>
     );
@@ -417,7 +419,7 @@ function RowStatus({ row }: { row: EditableRow }) {
     return (
       <div className="space-y-1">
         <Badge variant="outline">Edited</Badge>
-        <p className="type-form-hint">Rechecks when you leave the field.</p>
+        <p className="type-metadata">Rechecks when you leave the field.</p>
       </div>
     );
   }
@@ -431,7 +433,7 @@ function RowStatus({ row }: { row: EditableRow }) {
     <div className="space-y-1">
       <Badge variant={config.variant}>{config.label}</Badge>
       {row.preview.message ? (
-        <p className="type-form-hint">{row.preview.message}</p>
+        <p className="type-metadata">{row.preview.message}</p>
       ) : null}
     </div>
   );

@@ -3,21 +3,22 @@ import { ClaimRequestsList } from '@/components/admin/claim-requests-list'
 import { approveClaimAction, rejectClaimAction } from '@/app/admin/actions'
 import { requireAdminPage } from '@/lib/auth/require-admin'
 import { attachSignedProofUrls, listClaimRequests } from '@/lib/services/claim-requests'
+import { routes } from '@/lib/routes'
 
 export const metadata: Metadata = {
   title: 'Claim Requests | Admin',
 }
 
 export default async function ClaimRequestsPage() {
-  await requireAdminPage('/admin/claims')
+  await requireAdminPage(routes.admin.claims())
   const claimRequests = await attachSignedProofUrls(await listClaimRequests())
 
   return (
     <div>
-      <h1 className="type-page-title-large">
+      <h1 className="type-label">
         Claim Requests
       </h1>
-      <p className="mt-2 type-body-muted">
+      <p className="mt-2 type-body-sm">
         Review and manage brand ownership claims.
       </p>
 

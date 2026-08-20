@@ -15,8 +15,9 @@ import {
   setFeatureRequestStatus,
   type FeatureRequestStatus,
 } from "@/lib/services/feature-requests";
+import { routes } from "@/lib/routes";
 
-const ADMIN_PATH = "/admin/feature-requests";
+const ADMIN_PATH = routes.admin.featureRequests();
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("admin.featureRequests");
@@ -81,8 +82,8 @@ export default async function AdminFeatureRequestsPage() {
 
   return (
     <div>
-      <h1 className="type-page-title-large">{t("title")}</h1>
-      <p className="mt-2 type-body-muted">{t("description")}</p>
+      <h1 className="type-label">{t("title")}</h1>
+      <p className="mt-2 type-body-sm">{t("description")}</p>
 
       <div className="mt-8">
         <FeatureRequestsQueue

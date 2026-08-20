@@ -30,7 +30,7 @@ export default async function BrandOverviewPage({ params, searchParams }: Props)
   ])
 
   return (
-    <div className="space-y-8" data-testid="brand-profile">
+    <div className="space-y-stack" data-testid="brand-profile">
       <QuickActions brandSlug={slug} />
       <TodoSection completeness={completeness} slug={slug} mitStatus={brand.mitStatus ?? 'unverified'} />
       <OverviewInlineAnalytics snapshot={analytics} period={period} />

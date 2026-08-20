@@ -84,7 +84,7 @@ function StatusMarker({ confirmed }: { confirmed: boolean }) {
   return (
     <span
       aria-hidden="true"
-      className="mt-0.5 size-6 shrink-0 rounded-full border-2 border-dashed border-muted-foreground/60"
+      className="mt-0.5 size-6 shrink-0 rounded-full border-2 border-dashed border-ink-muted/60"
     />
   );
 }
@@ -164,9 +164,9 @@ function ChannelRow({
       <div className="flex min-w-0 items-start gap-3">
         <StatusMarker confirmed={isConfirmed} />
         <div className="min-w-0">
-          <p className="type-body-emphasis">{channel.name}</p>
+          <p className="type-label">{channel.name}</p>
           {region ? (
-            <div className="mt-2 type-body">
+            <div className="mt-2 type-body-sm text-ink-soft">
               {mapsHref ? (
                 <a
                   href={mapsHref}
@@ -182,18 +182,18 @@ function ChannelRow({
             </div>
           ) : null}
           {signInChannelId === channel.id ? (
-            <p className="mt-2 rounded-lg border border-border bg-muted/50 p-3 type-card-description">
+            <p className="mt-2 rounded-lg border border-rule bg-muted/50 p-3 type-body-sm">
               <span>{t("channels.unconfirmed.signInToConfirm")}</span>{" "}
               <NextLink
                 href={signInHrefValue}
-                className="font-medium text-foreground underline underline-offset-4"
+                className="font-medium text-ink underline underline-offset-4"
               >
                 {tNav("signIn")}
               </NextLink>
             </p>
           ) : null}
           {error ? (
-            <p className="mt-2 type-error" role="alert">
+            <p className="mt-2 type-metadata text-danger" role="alert">
               {error}
             </p>
           ) : null}
@@ -323,8 +323,8 @@ function ChannelChip({
       className={cn(
         "inline-flex items-center gap-2 rounded-full border px-3 py-1.5",
         isConfirmed
-          ? "border-border bg-verified-green-bg text-verified-green"
-          : "border-dashed border-border",
+          ? "border-rule bg-verified-green-bg text-verified-green"
+          : "border-dashed border-rule",
       )}
       data-channel-chip
       data-confirm-pending={isPending ? "" : undefined}
@@ -332,16 +332,19 @@ function ChannelChip({
       {isConfirmed ? (
         <Check aria-hidden="true" className="size-3.5 shrink-0" />
       ) : null}
-      <span className="type-body-emphasis">{channel.name}</span>
+      {/* A retailer name is interface, not content: it labels a place you can
+          go, and it sits inside a chip beside a state marker. The interface
+          face at the label step, not the content face at a body step. */}
+      <span className="type-label">{channel.name}</span>
       {region ? (
-        <span className="type-metadata text-muted-foreground">
+        <span className="type-metadata text-ink-muted">
           (
           {mapsHref ? (
             <a
               href={mapsHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="underline underline-offset-4 hover:text-foreground"
+              className="underline underline-offset-4 hover:text-ink"
             >
               {region}
             </a>
@@ -361,7 +364,12 @@ function ChannelChip({
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`${channel.name} ${t("channels.confirmed.officialPageLink")}`}
-          className="inline-flex min-h-8 min-w-8 items-center justify-center text-muted-foreground hover:text-foreground"
+          // ::after grows the 32px icon to a 44px touch target, the same way the
+          // confirm button below and `ui/switch` do it — the visible mark stays
+          // small because it sits inside a dense chip row, but the target does
+          // not. The accessible name comes from `aria-label` and names the
+          // ACTION plus the channel it acts on, not the glyph.
+          className="relative inline-flex min-h-8 min-w-8 items-center justify-center text-ink-muted after:absolute after:-inset-1.5 after:content-[''] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <ExternalLink aria-hidden="true" className="size-4" />
         </a>
@@ -589,7 +597,7 @@ export function BrandChannelList({
   function renderRowStack(rows: BrandChannel[]) {
     if (rows.length === 0) return null;
 
-    return <div className="divide-y divide-border">{rows.map(renderRow)}</div>;
+    return <div className="divide-y divide-rule">{rows.map(renderRow)}</div>;
   }
 
   function renderChipStack(kind: string, chips: BrandChannel[]) {
@@ -647,19 +655,19 @@ export function BrandChannelList({
         {/* One live region per chip group — a chip is too small to host its own message. */}
         <div role="status" data-channel-chip-status>
           {attemptedChannel && showsSignInPrompt ? (
-            <p className="rounded-lg border border-border bg-muted/50 p-3 type-card-description">
+            <p className="rounded-lg border border-rule bg-muted/50 p-3 type-body-sm">
               <span className="font-medium">{attemptedChannel.name}</span>{" "}
               <span>{t("channels.unconfirmed.signInToConfirm")}</span>{" "}
               <NextLink
                 href={signInHrefValue}
-                className="font-medium text-foreground underline underline-offset-4"
+                className="font-medium text-ink underline underline-offset-4"
               >
                 {tNav("signIn")}
               </NextLink>
             </p>
           ) : null}
           {attemptedChannel && !showsSignInPrompt && attemptedError ? (
-            <p className="type-error" role="alert">
+            <p className="type-metadata text-danger" role="alert">
               <span className="font-medium">{attemptedChannel.name}</span>{" "}
               <span>{attemptedError}</span>
             </p>
@@ -684,10 +692,10 @@ export function BrandChannelList({
     return (
       <details key={group.key} className="group" data-channel-kind={group.key}>
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-          <h3 className="type-subsection-title">{`${heading} (${group.channels.length})`}</h3>
+          <h3 className="type-body-sm font-semibold text-ink">{`${heading} (${group.channels.length})`}</h3>
           <ChevronDown
             aria-hidden="true"
-            className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180"
+            className="size-5 shrink-0 text-ink-muted transition-transform duration-200 group-open:rotate-180"
           />
         </summary>
         <div className="space-y-4 pb-4">
@@ -717,7 +725,7 @@ export function BrandChannelList({
 
   return (
     <div
-      className="divide-y divide-border border-y border-border"
+      className="divide-y divide-rule border-y border-rule"
       data-brand-channel-list
     >
       {displayGroups.map(renderGroup)}

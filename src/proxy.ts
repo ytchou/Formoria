@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import createMiddleware from "next-intl/middleware";
 import { NextResponse, type NextRequest } from "next/server";
 import { routing } from "@/i18n/routing";
+import { routes } from "@/lib/routes";
 import {
   isAppLocale,
   localizePath,
@@ -124,7 +125,7 @@ export function decideBareBrandSlug(
   isApproved: boolean,
 ): BareBrandSlugDecision {
   return isApproved
-    ? { action: "redirect", status: 301, pathname: `/brands/${slug}` }
+    ? { action: "redirect", status: 301, pathname: routes.brand(slug) }
     : { action: "not-found", status: 404 };
 }
 
@@ -132,7 +133,10 @@ const intlMiddleware = createMiddleware(routing);
 const KNOWN_LOCALES = new Set<string>(routing.locales);
 const ADMIN_DEFAULT_LOCALE = "en";
 const NEXT_INTL_LOCALE_HEADER = "X-NEXT-INTL-LOCALE";
-const NON_LOCALIZED_AUTH_ROUTES = new Set(["/auth/callback", "/auth/sign-out"]);
+const NON_LOCALIZED_AUTH_ROUTES = new Set([
+  routes.auth.callback(),
+  routes.auth.signOut(),
+]);
 /**
  * First path segments that carry a locale. Drives locale inference for
  * prefix-free (zh-TW) URLs. Every `src/app/[locale]` route with a `page.tsx`
@@ -166,8 +170,8 @@ const SOFT_LIMIT_PREFIXES = ["/brands/"];
 const DIRECTORY_EDGE_CACHE_CONTROL =
   "public, s-maxage=3600, stale-while-revalidate=86400";
 const DIRECTORY_INDEX_PATHS = new Set([
-  "/brands",
-  ...routing.locales.map((locale) => `/${locale}/brands`),
+  routes.brands(),
+  ...routing.locales.map((locale) => `/${locale}${routes.brands()}`),
 ]);
 
 function parseDirectoryPath(pathname: string): {
@@ -229,7 +233,7 @@ export function decideDirectoryTaxonomyRedirect(
       ? new URLSearchParams(searchParams)
       : searchParams;
   const { locale, path } = parseDirectoryPath(pathname);
-  if (path !== "/brands") return { action: "none" };
+  if (path !== routes.brands()) return { action: "none" };
 
   for (const facet of ["search", "price", "verification", "sort"]) {
     if (params.get(facet)?.trim()) return { action: "none" };
@@ -259,7 +263,7 @@ export function decideDirectoryTaxonomyRedirect(
     }
   }
 
-  const destinationPath = `/categories/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`;
+  const destinationPath = routes.categoryPath(categorySlug, subcategorySlug);
   const destination = new URLSearchParams(params.toString());
   destination.delete("category");
   destination.delete("sub");
@@ -576,11 +580,11 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  if (pathname === "/auth/callback") {
+  if (pathname === routes.auth.callback()) {
     return finalizeResponse(NextResponse.next(), staging);
   }
 
-  if (pathname.startsWith("/admin/content")) {
+  if (pathname.startsWith(routes.admin.content())) {
     return finalizeResponse(NextResponse.next(), staging);
   }
 
@@ -637,7 +641,7 @@ export async function proxy(request: NextRequest) {
       const shouldChallenge = await checkSoftRateLimit(request);
       if (shouldChallenge) {
         const url = request.nextUrl.clone();
-        url.pathname = "/challenge";
+        url.pathname = routes.challenge();
         url.searchParams.set("returnTo", pathname + request.nextUrl.search);
         return finalizeResponse(NextResponse.redirect(url), staging);
       }
@@ -658,10 +662,7 @@ export async function proxy(request: NextRequest) {
     if (redirectSlug) {
       const url = request.nextUrl.clone();
       const locale = isAppLocale(segments[0]) ? segments[0] : "zh-TW";
-      url.pathname = localizePath(
-        `/brands/${encodeURIComponent(redirectSlug)}`,
-        locale,
-      );
+      url.pathname = localizePath(routes.brand(redirectSlug), locale);
       return finalizeResponse(NextResponse.redirect(url, 308), staging);
     }
   }
@@ -741,7 +742,10 @@ export async function proxy(request: NextRequest) {
     response = intlMiddleware(request);
   } else {
     const requestHeaders = new Headers(request.headers);
-    if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    if (
+      pathname === routes.admin.index() ||
+      pathname.startsWith(`${routes.admin.index()}/`)
+    ) {
       requestHeaders.set(NEXT_INTL_LOCALE_HEADER, ADMIN_DEFAULT_LOCALE);
     }
     // Hand the limiter's breaker state to `/api/health`: middleware and route

@@ -283,10 +283,22 @@ export function toPublicBrandDetail(brand: Brand): PublicBrandDetail {
     otherUrls: brand.otherUrls.map((link) => ({ label: link.label, url: link.url })),
     mitStory: brand.mitStory ?? null,
     mitCertificateNumber: brand.mitEvidence?.mit_smile_cert ?? null,
+    /*
+     * The detail projection carries image provenance; the card projection above
+     * deliberately does not.
+     *
+     * `isOwnerSupplied` exists to render the brand-supplied credit, and D11
+     * puts that
+     * credit on brand detail and nowhere else — beside the image it credits.
+     * A directory page ships 24 cards, so carrying a field no card can render
+     * would put provenance on every list payload to serve one page that already
+     * has it.
+     */
     imageAlts: brand.imageAlts.map((alt) => ({
       altZh: alt.altZh,
       altEn: alt.altEn,
       isLogo: alt.isLogo,
+      isOwnerSupplied: alt.isOwnerSupplied ?? false,
     })),
     heroImageMetadata: brand.heroImageMetadata ?? null,
   }

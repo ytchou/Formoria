@@ -47,10 +47,10 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
 
   return (
     <div>
-      <h1 className="type-page-title-large">
+      <h1 className="type-label">
         Brands
       </h1>
-      <p className="mt-2 type-body-muted">
+      <p className="mt-2 type-body-sm">
         Manage all brands in the directory, including MIT verification status.
       </p>
 

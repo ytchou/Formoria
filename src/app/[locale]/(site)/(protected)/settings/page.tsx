@@ -5,6 +5,7 @@ import { getNewsletterPreferenceByEmail } from "@/lib/services/newsletter";
 import { getLifecycleEmailPreference } from "@/lib/services/email-lifecycle";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { requireUserPage } from "@/lib/auth/require-user";
+import { routes } from "@/lib/routes";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -24,7 +25,7 @@ export async function generateMetadata({ params }: Props) {
 export default async function SettingsPage({ params, searchParams }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const user = await requireUserPage("/settings", locale);
+  const user = await requireUserPage(routes.settings(), locale);
   const { saved } = await searchParams;
   const t = await getTranslations("settings");
 
@@ -36,14 +37,14 @@ export default async function SettingsPage({ params, searchParams }: Props) {
   ]);
 
   return (
-    <div className="page-gutter mx-auto max-w-2xl py-12">
-      <h1 className="type-page-title-large">
+    <div className="page-gutter mx-auto max-w-2xl py-section">
+      <h1 className="type-page-title">
         {t("heading")}
       </h1>
-      <p className="mt-2 type-body-muted">{t("subheading")}</p>
+      <p className="mt-2 type-body-sm">{t("subheading")}</p>
 
       {saved && (
-        <div className="mt-4 type-success-panel">
+        <div className="mt-4 panel-success">
           {t("saved")}
         </div>
       )}

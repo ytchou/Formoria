@@ -7,7 +7,7 @@ export function RequiredFieldsHint({ className }: { className?: string }) {
   const t = useTranslations('dashboard.edit')
 
   return (
-    <p className={cn('type-caption', className)}>
+    <p className={cn('type-metadata', className)}>
       <span aria-hidden="true" className="text-destructive">
         *
       </span>{' '}

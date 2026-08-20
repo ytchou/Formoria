@@ -36,6 +36,7 @@ import {
   curatedProductUpdateSchema,
   prefillUrlSchema,
 } from "@/lib/validation/curated-product";
+import { routes } from "@/lib/routes";
 
 /**
  * Server actions for the curated-product admin queue (DEV-1465).
@@ -69,7 +70,7 @@ type ActionResult =
  */
 function revalidateCurated(brandSlug: string | null): void {
   if (brandSlug) revalidatePublicBrands([brandSlug]);
-  revalidatePath("/admin/curated-products");
+  revalidatePath(routes.admin.curatedProducts());
 }
 
 /**
@@ -77,7 +78,7 @@ function revalidateCurated(brandSlug: string | null): void {
  * `[locale]` segment, so a bare unprefixed path invalidates nothing.
  */
 function revalidateTrail(trailSlug: string): void {
-  revalidateLocalizedPath(`/discover/${encodeURIComponent(trailSlug)}`);
+  revalidateLocalizedPath(routes.trail(trailSlug));
 }
 
 /**
@@ -189,7 +190,7 @@ export async function createCuratedProductAction(
         // outright (see the write-path rules in services/curated-products.ts).
         // Naming the created product steers the editor to editing it instead
         // of creating a duplicate.
-        revalidatePath("/admin/curated-products");
+        revalidatePath(routes.admin.curatedProducts());
         const detail =
           error instanceof Error && error.message ? error.message : "";
         return {
@@ -201,7 +202,7 @@ export async function createCuratedProductAction(
 
       // A new product is hidden, so no public page renders it yet — only the
       // queue needs invalidating.
-      revalidatePath("/admin/curated-products");
+      revalidatePath(routes.admin.curatedProducts());
       return undefined;
     } catch (error) {
       return actionError(error, "Unable to create the curated product");

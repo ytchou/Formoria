@@ -57,7 +57,7 @@
     .frame {
       position: absolute;
       inset: 0;
-      padding: 72px 80px 0 80px;
+      padding: 80px 80px 0 80px;
       display: flex;
       flex-direction: column;
       color: {{TEXT}};
@@ -86,7 +86,7 @@
       font-size: 16px;
       font-weight: 400;
       color: {{TEXT}};
-      opacity: 0.67;
+      opacity: 0.78;
       line-height: 1;
     }
 
@@ -98,7 +98,7 @@
     /* Bottom content block */
     .bottom-block {
       flex-shrink: 0;
-      margin-bottom: 88px;
+      margin-bottom: 96px;
     }
 
     /* Tag pill */
@@ -106,12 +106,12 @@
       display: inline-flex;
       align-self: flex-start;
       padding: 8px 16px;
-      border: 1.5px solid {{TAG_BORDER}};
+      border: 1px solid {{TAG_BORDER}};
       color: {{TAG_TEXT}};
       border-radius: 999px;
       font-size: 18px;
       font-weight: 500;
-      margin-bottom: 28px;
+      margin-bottom: 24px;
     }
 
     .tag:empty {
@@ -126,21 +126,21 @@
       line-height: 1.22;
       max-width: 920px;
       color: {{TEXT}};
-      margin-bottom: 36px;
+      margin-bottom: 32px;
     }
 
-    /* Decorative rule */
+    /* Decorative rule — a hairline, not a bar */
     .rule {
-      width: 40px;
-      height: 3px;
+      width: 96px;
+      height: 1px;
       background: {{RULE_COLOR}};
-      margin-bottom: 28px;
+      margin-bottom: 24px;
     }
 
     /* Body content */
     .body {
       color: {{TEXT}};
-      opacity: 0.85;
+      opacity: 0.92;
     }
 
     /* Quote mark — hidden by default, shown in quote mode */
@@ -149,7 +149,10 @@
       font-family: {{FONT_HEADING}};
       font-size: 64px;
       font-weight: 700;
-      color: {{ACCENT}};
+      /* Decorative glyph on a dark ground, so it takes the hairline colour
+         rather than the accent. The accent measures 2.2:1 against ink — fine
+         for a 6px bar, not for a 64px mark someone is meant to read past. */
+      color: {{RULE_COLOR}};
       line-height: 1;
       margin-bottom: 8px;
     }
@@ -206,7 +209,10 @@
     .mode-numbered .body ol li::before {
       content: counter(item);
       display: inline-block;
-      color: {{ACCENT}};
+      /* A counter is READ. On a dark ground the accent fails 4.5:1, so the
+         numeral takes the on-ink text colour and the accent keeps the bullet
+         dot below, which is decorative. */
+      color: {{TEXT}};
       font-weight: 700;
       font-size: 22px;
       line-height: 1.5;
@@ -229,8 +235,8 @@
       font-size: 18px;
       font-weight: 400;
       color: {{TEXT}};
-      opacity: 0.60;
-      margin-top: 20px;
+      opacity: 0.72;
+      margin-top: 24px;
     }
 
     /* ── Mode: big-statement ── */
@@ -262,7 +268,7 @@
       font-size: 13px;
       font-weight: 400;
       color: {{TEXT}};
-      opacity: 0.8;
+      opacity: 0.85;
       white-space: nowrap;
     }
 

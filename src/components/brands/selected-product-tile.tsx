@@ -1,8 +1,8 @@
-import Image from "next/image";
+import { SurfaceImage } from "@/components/ui/image";
 import type { CSSProperties } from "react";
 import { Link } from "@/i18n/navigation";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { TrustLabel } from "@/components/ui/trust-label";
 import { surfaceCardStyles } from "@/components/ui/card";
 import { Typography } from "@/components/ui/typography";
 import type { AppLocale } from "@/i18n/locale-preference";
@@ -23,11 +23,11 @@ import { cn } from "@/lib/utils";
 import { BrandImageFallback } from "./brand-image-fallback";
 import { SelectedProductTileLink } from "./selected-product-tile-link";
 import { SelectedProductExternalLink } from "./selected-product-external-link";
+import { routes } from "@/lib/routes";
 
 export type SelectedProductTileLabels = {
   cta: string;
   brandSiteCta: string;
-  selectedBadge: string;
   unavailable: string;
 };
 
@@ -36,6 +36,18 @@ export type SelectedProductTileProps = {
   product: CuratedProduct;
   labels: SelectedProductTileLabels;
   mode: "outbound" | "trail" | "wall";
+  /**
+   * THE CALLER'S OPT-IN TO THE SELECTED LABEL — a flag, because that is all it
+   * ever was. It used to be `labels.selectedBadge`, a STRING whose value was
+   * discarded: `TrustLabel` reads its own text from `trustLabel.selected`, so
+   * the catalogue held the same sentence twice and only one copy could reach a
+   * reader. A translator editing the other one saw nothing change.
+   *
+   * A flag, not a mode test, so a surface can withdraw the label without this
+   * file learning which surface it is. Necessary but not sufficient: see
+   * `rendersTrustLabel` below.
+   */
+  showsTrustLabel?: boolean;
   /**
    * Wall geometry: the snapped ratio bucket the tile renders at. Absent means
    * the row carries no measurement yet, which renders the legacy 4:3.
@@ -74,6 +86,7 @@ export function SelectedProductTile({
   product,
   labels,
   mode,
+  showsTrustLabel = false,
   ratio,
   className,
   brand,
@@ -96,6 +109,21 @@ export function SelectedProductTile({
     ? (product.productDescriptionEn ?? product.productDescriptionZh)
     : product.productDescriptionZh;
   const imageSrc = safeImageSrc(product.imageUrl);
+  /*
+   * D11, THE CONTRAST RULE: a label renders only where its opposite is visible.
+   *
+   * `outbound` is the brand page, and it is the only place a selected product
+   * sits among the brand's other things — so it is the only place the
+   * label distinguishes anything. On the wall and in a trail every tile is
+   * selected, so the label would repeat 32 times and say nothing; the trail's
+   * own string was a different commitment and is dropped rather
+   * than folded into this one.
+   *
+   * BOTH halves of the gate are load-bearing. The mode is Formoria's rule and
+   * holds even for a caller that still opts in; the flag is the caller's
+   * opt-in, so a surface can withdraw without editing this file.
+   */
+  const rendersTrustLabel = mode === "outbound" && showsTrustLabel;
   const isBroken = product.linkState === BROKEN_LINK_STATE;
   const visitLink =
     (mode === "outbound" || mode === "trail") && brand
@@ -128,11 +156,11 @@ export function SelectedProductTile({
    * The `id="product-<key>"` on the tile below stays either way: it is what the
    * brand page's own anchors point AT, and removing it would break those.
    */
-  const anchoredHref = `/brands/${destinationSlug}#product-${product.key}`;
+  const anchoredHref = `${routes.brand(destinationSlug)}#product-${product.key}`;
   const internalHref =
-    mode === "wall" ? `/brands/${destinationSlug}` : anchoredHref;
+    mode === "wall" ? routes.brand(destinationSlug) : anchoredHref;
   const internalClassName =
-    "group flex h-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-3";
+    "group flex h-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-3";
   // One column on phones, two on tablets, four above 1024px. The four-column
   // measure is `(min(100vw, 100rem) - 5rem - 4.5rem) / 4`, which tops out at
   // 362px once the container hits its 100rem cap — so `25vw` below that and a
@@ -169,7 +197,7 @@ export function SelectedProductTile({
    */
   const wallCaptionClass = cn(
     "flex flex-col gap-1 pt-3",
-    "sm:absolute sm:inset-x-0 sm:bottom-0 sm:z-10 sm:rounded-b-lg sm:bg-background/94 sm:p-4",
+    "sm:absolute sm:inset-x-0 sm:bottom-0 sm:z-10 sm:rounded-b-[3px] sm:bg-ground/94 sm:p-4",
     "sm:transition-opacity sm:duration-300 motion-reduce:sm:duration-[0.01ms]",
     "[@media(hover:hover)]:sm:opacity-0",
     "[@media(hover:hover)]:sm:group-hover:opacity-100",
@@ -183,10 +211,10 @@ export function SelectedProductTile({
         style={{ aspectRatio: wallAspectRatio }}
         // Container radius: the photo box is a top-level surface of the wall,
         // so it takes DESIGN.md's 6px container step, not the nested 4.8px one.
-        className="relative w-full overflow-hidden rounded-lg bg-muted"
+        className="relative w-full overflow-hidden rounded-[3px] bg-surface-deep"
       >
         {imageSrc ? (
-          <Image
+          <SurfaceImage
             src={imageSrc}
             alt={name}
             fill
@@ -196,6 +224,7 @@ export function SelectedProductTile({
             // against with a WALL_ABOVE_FOLD counter. The wall begins below
             // the hero at every breakpoint, so nothing here is above the fold.
             className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
+            surface="card"
             sizes={wallImageSizes}
           />
         ) : (
@@ -215,12 +244,12 @@ export function SelectedProductTile({
       <div className={wallCaptionClass}>
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 -top-4 hidden h-4 bg-gradient-to-t from-background/94 to-transparent sm:block"
+          className="pointer-events-none absolute inset-x-0 -top-4 hidden h-4 bg-gradient-to-t from-ground/94 to-transparent sm:block"
         />
         <Typography
           as="h3"
           variant="cardTitle"
-          className="group-hover:text-primary"
+          className="group-hover:text-accent"
         >
           {name}
         </Typography>
@@ -252,14 +281,16 @@ export function SelectedProductTile({
         className={cn(
           "relative aspect-square w-full overflow-hidden",
           // Not cosmetic. A contained image letterboxes PERMANENTLY, so the
-          // box must disappear into the `surfaceCardStyles` tone it sits in
-          // (`card`). A covered image only shows its box while loading, which
-          // is why every other mode keeps `bg-muted` as a loading tint.
-          mode === "trail" ? "bg-card" : "bg-muted",
+          // box must disappear into the `surfaceCardStyles` tone it sits in,
+          // and that tone is still `bg-card` — `surfaceCardStyles` carries no
+          // `bg-muted` to migrate, so this branch does not move with the rest.
+          // A covered image only shows its box while loading, which is why
+          // every other mode takes the `surface-deep` plate instead.
+          mode === "trail" ? "bg-card" : "bg-surface-deep",
         )}
       >
         {imageSrc ? (
-          <Image
+          <SurfaceImage
             src={imageSrc}
             alt={name}
             fill
@@ -269,16 +300,17 @@ export function SelectedProductTile({
             className={brandImageFill(null, {
               fit: mode === "trail" ? "contain" : "cover",
             })}
-            // Trail is ONE column inside a `max-w-[720px]` section
-            // (`discover/[slug]/page.tsx`). On the brand page's 3-col formula
-            // `next/image` under-served it by ~40% and the photo rendered
-            // soft — which `object-contain`, showing more of the frame, makes
-            // more visible.
-            sizes={
-              mode === "trail"
-                ? "(max-width: 768px) 100vw, 720px"
-                : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            }
+            // NO `sizes` OVERRIDE, IN EITHER MODE. Both the brand page and the
+            // trail lay these tiles out with `Grid cols="thirds"`
+            // (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`), which is exactly
+            // what the `tile` surface describes — so the surface IS the hint.
+            //
+            // The trail used to override with `(max-width: 768px) 100vw,
+            // 720px`, written when a trail was a single 720px column. It is now
+            // three-up, so that hint asked for roughly three times the pixels
+            // it displays on every trail product image. An override is a string
+            // nothing keeps honest: the column count moved and it did not.
+            surface="tile"
           />
         ) : (
           <BrandImageFallback
@@ -294,7 +326,7 @@ export function SelectedProductTile({
           tracking ? (
             <SelectedProductTileLink
               href={internalHref}
-              className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               productKey={product.key}
               brandSlug={tracking.brandSlug}
               position={tracking.position}
@@ -303,7 +335,7 @@ export function SelectedProductTile({
               <Typography
                 as="h3"
                 variant="cardTitle"
-                className="hover:text-primary"
+                className="hover:text-accent"
               >
                 {name}
               </Typography>
@@ -311,13 +343,13 @@ export function SelectedProductTile({
           ) : (
             <Link
               href={internalHref}
-              className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               data-ph-no-autocapture
             >
               <Typography
                 as="h3"
                 variant="cardTitle"
-                className="hover:text-primary"
+                className="hover:text-accent"
               >
                 {name}
               </Typography>
@@ -336,14 +368,15 @@ export function SelectedProductTile({
         ) : null}
 
         {productDescription ? (
-          <>
-            <Typography as="p" variant="body">
-              {productDescription}
-            </Typography>
-            <div>
-              <Badge variant="secondary">{labels.selectedBadge}</Badge>
-            </div>
-          </>
+          <Typography as="p" variant="body">
+            {productDescription}
+          </Typography>
+        ) : null}
+
+        {rendersTrustLabel ? (
+          <div>
+            <TrustLabel />
+          </div>
         ) : null}
 
         {isBroken ? (
@@ -358,7 +391,7 @@ export function SelectedProductTile({
               href={chipHref}
               brandSlug={brand.slug}
               linkType={chipLinkType}
-              referrerPage={tracking.referrerPage ?? "/discover"}
+              referrerPage={tracking.referrerPage ?? routes.discover()}
               surface={tracking.surface as `trail:${string}:${string}`}
               brandId={tracking.brandId}
               className={chipClassName}

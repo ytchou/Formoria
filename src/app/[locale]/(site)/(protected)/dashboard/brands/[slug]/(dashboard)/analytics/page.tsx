@@ -32,6 +32,13 @@ type Props = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
+/**
+ * A literal, not `useId()`: this page is a server component and the two cards
+ * that reference the note render in a different subtree from the note itself,
+ * so both sides have to agree on a name that survives serialisation.
+ */
+const PRIVACY_BOUNDARY_ID = 'owner-analytics-privacy-boundary'
+
 type OwnerAnalyticsCopy = {
   profileVisits: string
   outboundClicks: string
@@ -62,6 +69,7 @@ type OwnerAnalyticsCopy = {
   sectionUnavailable: string
   unavailableTitle: string
   unavailableBody: string
+  privacyBoundary: string
 }
 
 function comparisonDescription(
@@ -89,7 +97,7 @@ function KpiLabel({
       <Tooltip>
         <TooltipTrigger
           aria-label={definitionAria}
-          className="flex min-h-12 min-w-12 items-center justify-center rounded-md text-muted-foreground"
+          className="flex min-h-12 min-w-12 items-center justify-center rounded-[4px] text-ink-muted"
           type="button"
         >
           ⓘ
@@ -139,6 +147,7 @@ function OwnerAnalytics({
               : copy.currentRateUnavailable}
           />
           <DataCard
+            aria-describedby={PRIVACY_BOUNDARY_ID}
             tone="white"
             label={<KpiLabel definition={copy.tooltipOutboundClicks} definitionAria={copy.definitionAria} label={copy.outboundClicks} />}
             value={snapshot.outboundSessions?.current ?? '—'}
@@ -154,6 +163,7 @@ function OwnerAnalytics({
               : copy.currentRateUnavailable}
           />
           <DataCard
+            aria-describedby={PRIVACY_BOUNDARY_ID}
             tone="white"
             label={(
               <KpiLabel
@@ -197,8 +207,12 @@ function OwnerAnalytics({
           />
         </div>
 
+        <p className="type-metadata text-ink-muted" id={PRIVACY_BOUNDARY_ID}>
+          {copy.privacyBoundary}
+        </p>
+
         <SurfaceCard padding="lg">
-          <h2 className="type-card-title">{copy.trendTitle}</h2>
+          <h2 className="type-label">{copy.trendTitle}</h2>
           {snapshot.daily && hasDailySessions ? (
             <div className="mt-6">
               <AnalyticsTrendChart
@@ -215,7 +229,7 @@ function OwnerAnalytics({
               />
             </div>
           ) : (
-            <p className="mt-6 type-card-description">
+            <p className="mt-6 type-body-sm">
               {snapshot.daily === null ? copy.trendUnavailable : copy.trendEmpty}
             </p>
           )}
@@ -331,6 +345,7 @@ export default async function AnalyticsPage({ params, searchParams }: Props) {
     sectionUnavailable: t('sectionUnavailable'),
     unavailableTitle: t('unavailableTitle'),
     unavailableBody: t('unavailableBody'),
+    privacyBoundary: t('privacyBoundary'),
   }
 
   let snapshot: OwnerAnalyticsSnapshotV1 | null = null
@@ -341,17 +356,17 @@ export default async function AnalyticsPage({ params, searchParams }: Props) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-stack">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <h1 className="type-page-title">{t('pageTitle')}</h1>
+        <h1 className="type-label">{t('pageTitle')}</h1>
         <AnalyticsPeriodPicker currentPeriod={period} />
       </div>
       {snapshot ? (
         <OwnerAnalytics snapshot={snapshot} copy={copy} />
       ) : (
         <SurfaceCard padding="lg">
-          <h2 className="type-card-title">{copy.unavailableTitle}</h2>
-          <p className="mt-2 type-card-description">{copy.unavailableBody}</p>
+          <h2 className="type-label">{copy.unavailableTitle}</h2>
+          <p className="mt-2 type-body-sm">{copy.unavailableBody}</p>
         </SurfaceCard>
       )}
     </div>

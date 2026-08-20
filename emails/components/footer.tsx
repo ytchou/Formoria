@@ -1,30 +1,42 @@
-import { Hr, Link, Text } from "@react-email/components";
+import { Hr, Text } from "@react-email/components";
+import { EmailLink } from "@emails/components/email-link";
 import {
-  BORDER,
+  FONT_SIZE_META,
+  FONT_SIZE_MICRO,
   FONT_STACK,
-  TEXT_PRIMARY,
-  TEXT_SECONDARY,
+  INK,
+  INK_MUTED,
+  LINE_HEIGHT_META,
+  LINE_HEIGHT_MICRO,
+  RULE,
+  SPACE_GUTTER,
+  SPACE_SECTION,
 } from "@emails/styles";
 
 type FooterProps = {
   unsubscribeUrl?: string;
 };
 
+/**
+ * Left-aligned, matching the masthead. v1 centred all three lines, which put
+ * the unsubscribe link in the optical centre of the message — the one place a
+ * reader's eye lands on the way down.
+ */
 export function Footer({ unsubscribeUrl }: FooterProps) {
   return (
     <>
-      <Hr style={divider} />
+      <Hr style={rule} />
       <Text style={tagline}>Formoria — 台灣品牌探索與選物平台</Text>
       <Text style={contact}>
-        <Link href="mailto:ops@formoria.com" style={link}>
+        <EmailLink href="mailto:ops@formoria.com" tone="muted">
           ops@formoria.com
-        </Link>
+        </EmailLink>
       </Text>
       {unsubscribeUrl ? (
         <Text style={unsubscribe}>
-          <Link href={unsubscribeUrl} style={link}>
+          <EmailLink href={unsubscribeUrl} tone="muted">
             取消訂閱
-          </Link>{" "}
+          </EmailLink>{" "}
           / Unsubscribe
         </Text>
       ) : null}
@@ -32,39 +44,36 @@ export function Footer({ unsubscribeUrl }: FooterProps) {
   );
 }
 
-const divider = {
-  borderColor: BORDER,
-  margin: "32px 0 20px",
+const rule = {
+  border: "none",
+  borderTop: `1px solid ${RULE}`,
+  margin: `${SPACE_SECTION} 0 ${SPACE_GUTTER}`,
+  width: "100%",
 };
 
 const tagline = {
-  color: TEXT_PRIMARY,
+  color: INK,
   fontFamily: FONT_STACK,
-  fontSize: "14px",
-  lineHeight: "22px",
+  fontSize: FONT_SIZE_META,
+  lineHeight: LINE_HEIGHT_META,
   margin: "0 0 8px",
-  textAlign: "center" as const,
+  textAlign: "left" as const,
 };
 
 const contact = {
-  color: TEXT_SECONDARY,
+  color: INK_MUTED,
   fontFamily: FONT_STACK,
-  fontSize: "13px",
-  lineHeight: "20px",
+  fontSize: FONT_SIZE_META,
+  lineHeight: LINE_HEIGHT_META,
   margin: "0 0 8px",
-  textAlign: "center" as const,
+  textAlign: "left" as const,
 };
 
 const unsubscribe = {
-  color: TEXT_SECONDARY,
+  color: INK_MUTED,
   fontFamily: FONT_STACK,
-  fontSize: "12px",
-  lineHeight: "18px",
+  fontSize: FONT_SIZE_MICRO,
+  lineHeight: LINE_HEIGHT_MICRO,
   margin: "0",
-  textAlign: "center" as const,
-};
-
-const link = {
-  color: TEXT_SECONDARY,
-  textDecoration: "underline",
+  textAlign: "left" as const,
 };

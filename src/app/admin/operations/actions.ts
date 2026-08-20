@@ -24,6 +24,7 @@ import {
 } from "@/lib/services/curation-dispatch";
 import { logAdminAction } from "@/lib/services/admin-audit";
 import { getSubmissionsForReview } from "@/lib/services/submissions";
+import { routes } from "@/lib/routes";
 
 type StartCurationOperation = "enrich" | "clean-names";
 export type QueuedJobResult = {
@@ -52,8 +53,8 @@ export async function startCurationJobAction(
         dryRun,
         startedBy: auth.user.email ?? auth.user.id,
       });
-      revalidatePath("/admin/jobs");
-      revalidatePath("/admin/submissions");
+      revalidatePath(routes.admin.jobs());
+      revalidatePath(routes.admin.submissions());
 
       return dispatchQueuedJob(job.id, "Data job created.");
     } catch (error) {
@@ -86,9 +87,9 @@ export async function startNeedsDataSubmissionEnrichmentAction(): Promise<
         dryRun: false,
         startedBy: auth.user.email ?? auth.user.id,
       });
-      revalidatePath("/admin");
-      revalidatePath("/admin/jobs");
-      revalidatePath("/admin/submissions");
+      revalidatePath(routes.admin.index());
+      revalidatePath(routes.admin.jobs());
+      revalidatePath(routes.admin.submissions());
       return dispatchQueuedJob(
         job.id,
         `${submissionIds.length} submissions added to enrichment.`,
@@ -118,8 +119,8 @@ export async function rerunCurationJobAction(
         auth.user.email ?? auth.user.id,
         { overwrite },
       );
-      revalidatePath("/admin/jobs");
-      revalidatePath(`/admin/jobs/${jobId}`);
+      revalidatePath(routes.admin.jobs());
+      revalidatePath(routes.admin.job(jobId));
 
       return dispatchQueuedJob(
         job.id,
@@ -158,8 +159,8 @@ export async function resumeCurationJobAction(
         jobId,
         auth.user.email ?? auth.user.id,
       );
-      revalidatePath("/admin/jobs");
-      revalidatePath(`/admin/jobs/${jobId}`);
+      revalidatePath(routes.admin.jobs());
+      revalidatePath(routes.admin.job(jobId));
 
       const firstJob = jobs.at(0);
       if (!firstJob) return { error: "No targets were eligible to resume" };
@@ -233,8 +234,8 @@ export async function dispatchCurationJobAction(
         job.id,
         "Job dispatch request accepted.",
       );
-      revalidatePath("/admin/jobs");
-      revalidatePath(`/admin/jobs/${jobId}`);
+      revalidatePath(routes.admin.jobs());
+      revalidatePath(routes.admin.job(jobId));
       return result;
     } catch (error) {
       console.error("[admin:dispatchCurationJobAction]", error);
@@ -268,9 +269,9 @@ export async function cancelCurationJobAction(
         metadata: { jobId },
       });
 
-      revalidatePath("/admin");
-      revalidatePath("/admin/jobs");
-      revalidatePath(`/admin/jobs/${jobId}`);
+      revalidatePath(routes.admin.index());
+      revalidatePath(routes.admin.jobs());
+      revalidatePath(routes.admin.job(jobId));
       return { cancelled: true };
     } catch (error) {
       console.error("[admin:cancelCurationJobAction]", error);
@@ -356,7 +357,7 @@ function queuedJobResult(
 ): QueuedJobResult {
   return {
     jobId,
-    detailPath: `/admin/jobs/${jobId}`,
+    detailPath: routes.admin.job(jobId),
     queued: true,
     dispatchStatus,
     message,

@@ -4,6 +4,7 @@ import { Store } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
+import { routes } from '@/lib/routes'
 
 export function DashboardEmptyState() {
   const t = useTranslations('dashboard.emptyState')
@@ -11,25 +12,25 @@ export function DashboardEmptyState() {
   return (
     <section className="flex min-h-[calc(100vh-8rem)] items-center justify-center px-4 py-16">
       <div className="mx-auto flex max-w-[480px] flex-col items-center text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-          <Store className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface">
+          <Store className="h-7 w-7 text-ink-muted" aria-hidden="true" />
         </div>
-        <h1 className="mt-6 type-section-title-large">
+        <h1 className="mt-6 type-section">
           {t('title')}
         </h1>
-        <p className="mt-3 type-card-description">
+        <p className="mt-3 type-body-sm">
           {t('description')}
         </p>
         <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
           <Link
-            className={buttonVariants({ variant: 'primary', tone: 'cta' })}
-            href="/submit"
+            className={buttonVariants({ variant: 'primary' })}
+            href={routes.submit.index()}
           >
             {t('submitCta')}
           </Link>
           <Link
             className={buttonVariants({ variant: 'secondary' })}
-            href="/brands"
+            href={routes.brands()}
           >
             {t('browseCta')}
           </Link>

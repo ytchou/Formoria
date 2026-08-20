@@ -3,6 +3,7 @@ import { localizedEntries, latestBrandDate } from '@/app/sitemap'
 import { subcategoryBySlug } from '@/lib/taxonomy/ontology'
 import { listIndexableTargets, type DirectoryTarget } from './directory-indexation'
 import type { BrandSeoEntry } from '@/lib/services/brands'
+import { routes } from '@/lib/routes'
 
 const DIRECTORY_LOCALES = ['zh-TW', 'en'] as const
 
@@ -40,8 +41,8 @@ export function buildDirectorySitemapEntries(
   return listIndexableTargets().flatMap((target) => {
     const members = brands.filter((brand) => isDirectoryTargetMember(brand, target))
     const path = target.subcategorySlug
-      ? `/categories/${target.categorySlug}/${target.subcategorySlug}`
-      : `/categories/${target.categorySlug}`
+      ? routes.subcategory(target.categorySlug, target.subcategorySlug)
+      : routes.category(target.categorySlug)
 
     return localizedEntries(
       path,

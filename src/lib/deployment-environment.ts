@@ -1,3 +1,5 @@
+import { routes } from '@/lib/routes'
+
 const STAGING_HOST = "staging.formoria.com";
 
 export function isStagingEnvironment(): boolean {
@@ -24,9 +26,9 @@ const STAGING_GET_MUTATION_PATHS = new Set([
 ]);
 
 const STAGING_PUBLIC_AUTH_PATHS = new Set([
-  "/auth/forgot-password",
-  "/auth/reset-password",
-  "/auth/sign-up",
+  routes.auth.forgotPassword(),
+  routes.auth.resetPassword(),
+  routes.auth.signUp(),
 ]);
 
 function withoutLocale(pathname: string): string {
@@ -46,8 +48,8 @@ export function isAllowedStagingRequest(
 
   if (
     method === "POST" &&
-    (normalizedPath === "/auth/sign-in" ||
-      normalizedPath === "/auth/sign-out" ||
+    (normalizedPath === routes.auth.signIn() ||
+      normalizedPath === routes.auth.signOut() ||
       STAGING_PUBLIC_AUTH_PATHS.has(normalizedPath))
   ) {
     return true;

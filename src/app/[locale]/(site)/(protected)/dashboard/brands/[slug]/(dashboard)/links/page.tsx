@@ -7,6 +7,7 @@ import {
   channelMessageKey,
   PURCHASE_CHANNELS,
 } from '@/lib/brands/purchase-channels'
+import { routes } from '@/lib/routes'
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
@@ -23,7 +24,7 @@ export default async function LinksPage({ params }: Props) {
   return (
     <SectionDetailLayout
       description={t('sectionLinksHint')}
-      editHref={`/dashboard/brands/${slug}/edit?step=2`}
+      editHref={`${routes.dashboard.brandEdit(slug)}?step=2`}
       editLabel={t('edit')}
       title={tEdit('wizardStepLinks')}
     >

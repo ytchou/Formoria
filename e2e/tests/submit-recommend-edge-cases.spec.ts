@@ -45,6 +45,21 @@ test.describe('Submit recommendation edge cases', () => {
   // a retry would hide a duplicate-row race behind a second clean run.
   test.describe.configure({ mode: 'serial', retries: 0 })
 
+  // Every case in this group is an ANONYMOUS submission, and deployed staging
+  // answers 403 to anonymous mutations (`isAllowedStagingRequest` in
+  // src/lib/deployment-environment.ts allows only GET plus the /auth/* POSTs).
+  // Measured, not inferred: anonymous POSTs to /submit/recommend,
+  // /api/newsletter/subscribe and /api/feature-requests* all return 403 there,
+  // while /auth/sign-up returns 200.
+  //
+  // Guarded at group scope rather than per test BECAUSE the group is serial: a
+  // failing case cascades a skip onto the ones after it, so guarding only the
+  // first left the second failing and the third reported as an unexplained skip.
+  test.skip(
+    process.env.FORMORIA_DEPLOYMENT_ENV === 'staging',
+    'staging blocks anonymous mutations',
+  );
+
   let supabaseAdmin: SupabaseClient
   let duplicateBrandName = ''
   let cleanupDuplicateBrand: (() => Promise<void>) | undefined

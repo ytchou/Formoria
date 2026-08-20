@@ -221,7 +221,7 @@ export function CuratedProductsList({
       </div>
 
       {creating ? (
-        <div className="mb-6 rounded-lg border border-border p-4">
+        <div className="mb-6 rounded-[3px] border border-rule p-4">
           <DetailSection
             title={t("newProduct")}
             editLabel={t("editor.edit")}
@@ -247,7 +247,7 @@ export function CuratedProductsList({
 
       {scopedBrand || brandScope ? (
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <p className="type-body-muted">
+          <p className="type-body-sm">
             {t("brandScope", { brand: scopedBrand?.name ?? brandScope ?? "" })}
           </p>
           <Button
@@ -278,7 +278,7 @@ export function CuratedProductsList({
             queue.toggleOpen(product.id);
           }}
           isRowPending={(product) => queueAction.isRowPending(product.id)}
-          rowClassName={() => "hover:bg-secondary"}
+          rowClassName={() => "hover:bg-surface"}
           // The drawer's decision panel renders the action error while it is
           // open; surfacing it here too would emit two role="alert" nodes.
           error={openProduct === null ? queueAction.error : null}
@@ -308,7 +308,7 @@ export function CuratedProductsList({
           // nothing to put on its approve side.
           <div className="space-y-3 pt-5">
             {queueAction.error ? (
-              <p className="type-error" role="alert">
+              <p className="type-metadata text-danger" role="alert">
                 {queueAction.error}
               </p>
             ) : null}

@@ -1,6 +1,6 @@
 import { render } from '@react-email/render'
-import { Link } from '@react-email/components'
 import { Button } from '@emails/components/button'
+import { EmailLink } from '@emails/components/email-link'
 import { EmailHeading } from '@emails/components/email-heading'
 import { EmailText } from '@emails/components/email-text'
 import { Layout } from '@emails/components/layout'
@@ -29,7 +29,7 @@ export async function buildMicrositeSpotlightEmail({
   const unsubscribeUrl = `${SITE_URL}/api/email/unsubscribe?token=${unsubscribeToken}`
   const html = await render(
     locale === 'en' ? (
-      <Layout
+      <Layout lang="en"
         previewText={`${brandName}'s Formoria brand page is ready to share.`}
         unsubscribeUrl={unsubscribeUrl}
       >
@@ -41,9 +41,7 @@ export async function buildMicrositeSpotlightEmail({
         <Button href={micrositeUrl}>View brand page</Button>
         <EmailText>
           Share link:{' '}
-          <Link href={micrositeUrl} style={link}>
-            {micrositeUrl}
-          </Link>
+          <EmailLink href={micrositeUrl}>{micrositeUrl}</EmailLink>
         </EmailText>
       </Layout>
     ) : (
@@ -58,9 +56,7 @@ export async function buildMicrositeSpotlightEmail({
         <Button href={micrositeUrl}>查看品牌頁</Button>
         <EmailText>
           分享連結：
-          <Link href={micrositeUrl} style={link}>
-            {micrositeUrl}
-          </Link>
+          <EmailLink href={micrositeUrl}>{micrositeUrl}</EmailLink>
         </EmailText>
       </Layout>
     )
@@ -76,9 +72,4 @@ export async function buildMicrositeSpotlightEmail({
     html,
     headers: listUnsubscribeHeaders(unsubscribeUrl),
   }
-}
-
-const link = {
-  color: '#2563eb',
-  textDecoration: 'underline',
 }

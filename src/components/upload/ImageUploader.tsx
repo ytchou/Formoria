@@ -161,7 +161,7 @@ export function ImageUploader({
                   shape="pill"
                   onClick={() => onRemove(index)}
                   aria-label={t("ariaRemove", { n: index + 1 })}
-                  className="absolute -right-3 -top-3 h-12 w-12 p-0 text-background opacity-0 transition-opacity hover:bg-transparent group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary"
+                  className="absolute -right-3 -top-3 h-12 w-12 p-0 text-background opacity-0 transition-opacity hover:bg-transparent group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   <span className="flex size-6 items-center justify-center rounded-full bg-foreground shadow-sm">
                     <X className="size-3" />
@@ -198,14 +198,14 @@ export function ImageUploader({
           }}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
-          className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted p-6 transition-colors hover:border-cta"
+          className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted p-6 transition-colors hover:border-accent"
         >
           {status === "uploading" ? (
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           ) : (
             <Upload className="h-6 w-6 text-muted-foreground" />
           )}
-          <span className="type-card-description">
+          <span className="type-body-sm">
             {status === "uploading"
               ? t("uploading")
               : mode === "single" && urls.length > 0
@@ -228,12 +228,12 @@ export function ImageUploader({
 
       {/* Error message */}
       {error && (
-        <p className="type-error" aria-live="polite">
+        <p className="type-metadata text-danger" aria-live="polite">
           {error}
         </p>
       )}
       {failedFiles.length > 0 && (
-        <p className="type-error" aria-live="polite">
+        <p className="type-metadata text-danger" aria-live="polite">
           {t("uploadFailed", { files: failedFiles.join(", ") })}
         </p>
       )}

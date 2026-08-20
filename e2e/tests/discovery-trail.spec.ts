@@ -5,18 +5,31 @@ import { test, expect } from "../fixtures/auth";
 import {
   NO_PUBLISHED_TRAILS,
   publishedTrails,
+  type PublishedTrail,
 } from "../utils/published-trails";
 
 const trails = publishedTrails("zh-TW");
-const trail =
-  trails.find((candidate) => candidate.sections.length >= 3) ?? trails.at(0);
+// Index access, not `.at()`: `e2e/` is excluded from `tsconfig.json`, so the
+// editor type-checks this file against default compiler options whose `lib`
+// predates `Array.prototype.at`. The annotation is what keeps the empty-array
+// case honest — `trails[0]` widens to `PublishedTrail` without
+// `noUncheckedIndexedAccess`, and the `test.skip` below reads `undefined`.
+const trail: PublishedTrail | undefined =
+  trails.find((candidate) => candidate.sections.length >= 3) ?? trails[0];
 const TRAIL_URL = trail ? `/discover/${trail.slug}` : "/discover";
-// Not a per-product selection reason — DEV-1496 removed those. This is the
-// generic badge `SelectedProductTile` renders beside the product description,
-// from its `labels.selectedBadge` block, so it is still live on every trail
-// tile.
-const SELECTED_BADGE_LABEL = "為這個主題選入";
+// NO BADGE ON A TRAIL TILE ANY MORE (D11, DEV-1514). A trust label only says
+// something where its opposite is visible, and every tile in a trail is
+// selected — so the label was removed here rather than migrated into
+// `TrustLabel`, whose text is the 選物 commitment and not the trail's own
+// sentence. A trail tile is now identified the way it identifies itself: an
+// anchor into the brand page at this product.
+const PRODUCT_ANCHOR = 'a[href*="#product-"]';
 const OFFICIAL_DESTINATION = /前往(?:產品|品牌)官方網站/;
+// `discover.sectionNavAria`. 風格 is the ONE name this surface has (DESIGN.md,
+// D5/D10): the nav link, the footer link, the `<h1>` and this landmark all say
+// it. The old 主題選物段落 was the second name the same surface used to carry,
+// and the two disagreeing is the seam DEV-1514 closes.
+const SECTION_NAV = "風格段落";
 
 test.describe("Discovery trail deep", () => {
   // DEV-1518 deleted the supply gate, so `/discover/<slug>` no longer 404s for
@@ -40,7 +53,10 @@ test.describe("Discovery trail deep", () => {
     for (const section of trail!.sections) {
       expect(serverText).toContain(section.title);
     }
-    expect(serverText).toContain(SELECTED_BADGE_LABEL);
+    // The tiles themselves are in the server HTML, not just the section
+    // scaffolding: every trail product carries its outbound destination, which
+    // is the one piece of a tile a reader cannot get to any other way.
+    expect(serverText).toMatch(OFFICIAL_DESTINATION);
   });
 
   // The regression guard for DEV-1518. Before it, four frontmatter blockers,
@@ -73,7 +89,7 @@ test.describe("Discovery trail deep", () => {
     const section = trail?.sections.at(0);
     test.skip(!section, "published trail has no sections");
     await anonPage
-      .getByRole("navigation", { name: "主題選物段落" })
+      .getByRole("navigation", { name: SECTION_NAV })
       .getByRole("link", { name: section?.title ?? "", exact: true })
       .click();
 
@@ -85,15 +101,15 @@ test.describe("Discovery trail deep", () => {
     await expect(sectionHeading).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     // The tile is matched the way SelectedProductTile identifies itself: the h3
-    // product name the next lines read, PLUS the selection badge it renders
-    // beside every product description, from its `labels.selectedBadge` block
-    // and asserted in server HTML above. "Any listitem containing an h3" would
-    // also match an unrelated card list and make `.first()` pick a tile with no
-    // product href — the badge filter is what rules that out.
+    // product name the next lines read, PLUS the anchor into the brand page at
+    // that product. "Any listitem containing an h3" would also match an
+    // unrelated card list and make `.first()` pick a tile with no product href
+    // — the anchor filter is what rules that out, and unlike the badge it used
+    // to filter on, it is the thing the next assertions actually follow.
     const productTile = anonPage
       .getByRole("listitem")
       .filter({ has: anonPage.getByRole("heading", { level: 3 }) })
-      .filter({ hasText: SELECTED_BADGE_LABEL })
+      .filter({ has: anonPage.locator(PRODUCT_ANCHOR) })
       .first();
     await expect(productTile).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
@@ -149,7 +165,7 @@ test.describe("Discovery trail deep", () => {
       exact: true,
     });
     await anonPage
-      .getByRole("navigation", { name: "主題選物段落" })
+      .getByRole("navigation", { name: SECTION_NAV })
       .getByRole("link", { name: section?.title ?? "", exact: true })
       .click();
 

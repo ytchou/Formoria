@@ -1,5 +1,6 @@
 import { getContentGroup } from '@/lib/analytics'
 import { isAppLocale } from '@/i18n/locale-preference'
+import { routes } from '@/lib/routes'
 
 const UTM_KEYS = new Set([
   'utm_source',
@@ -61,7 +62,13 @@ const URL_PROPERTY_KEYS = new Set([
   '$referrer',
 ])
 
-const BLOCKED_PATH_SEGMENTS = ['/admin', '/auth', '/challenge', '/api', '/_next']
+const BLOCKED_PATH_SEGMENTS = [
+  routes.admin.index(),
+  routes.auth.index(),
+  routes.challenge(),
+  '/api',
+  '/_next',
+]
 
 type PostHogEvent = {
   event: string
@@ -185,7 +192,9 @@ export function sanitizePostHogEvent<T extends PostHogEvent>(event: T): T | null
     : null
   scrubbed.locale = explicitLocale ?? analyticsLocale(pathname)
   scrubbed.content_group = getContentGroup(pathname)
-  scrubbed.surface = stripLocale(pathname).startsWith('/dashboard') ? 'product' : 'public'
+  scrubbed.surface = stripLocale(pathname).startsWith(routes.dashboard.index())
+    ? 'product'
+    : 'public'
 
   return { ...event, properties: scrubbed }
 }

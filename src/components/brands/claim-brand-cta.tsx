@@ -9,6 +9,7 @@ import {
 } from '@/app/[locale]/(site)/brands/[slug]/actions'
 import NextLink from 'next/link'
 import { Button, buttonVariants } from '@/components/ui/button'
+import { Grid } from '@/components/ui/grid'
 import { MarketingEmailOptInField } from '@/components/forms/marketing-email-opt-in-field'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -24,6 +25,7 @@ import {
 } from '@/lib/services/claim-proofs'
 import { trackBrandClaimStarted, trackBrandClaimFormSubmitted } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
+import { routes } from '@/lib/routes'
 
 type ClaimBrandCtaProps = {
   brandId: string
@@ -126,12 +128,12 @@ function ClaimProofUpload({
 
   return (
     <div className="space-y-2">
-      <p className="type-body-emphasis">{label}</p>
+      <p className="type-body-sm font-medium text-ink">{label}</p>
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
-        className="flex min-h-24 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted px-4 py-4 type-metadata transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex min-h-24 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted px-4 py-4 type-metadata transition-colors hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
       >
         <Upload className="h-4 w-4" aria-hidden="true" />
         <span>{uploading ? t('uploadingLabel') : hint}</span>
@@ -145,9 +147,9 @@ function ClaimProofUpload({
         onChange={handleFileSelect}
       />
       {typeof uploadState.progress === 'number' && uploadState.progress > 0 && (
-        <p className="type-caption">{uploadState.progress}%</p>
+        <p className="type-metadata">{uploadState.progress}%</p>
       )}
-      {uploadState.error && <p className="type-error">{uploadState.error}</p>}
+      {uploadState.error && <p className="type-metadata text-danger">{uploadState.error}</p>}
     </div>
   )
 }
@@ -304,8 +306,8 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
         })}
       >
         <div className="space-y-1">
-          <p className="type-subsection-title">{t('pendingTitle')}</p>
-          <p className="type-card-description">
+          <p className="type-body-sm font-semibold text-ink">{t('pendingTitle')}</p>
+          <p className="type-body-sm">
             {verificationEmail
               ? t('pendingDomainEmailBody', { email: verificationEmail })
               : t('pendingBody')}
@@ -326,10 +328,10 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
       {!isOpen ? (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 space-y-1 sm:basis-4/5">
-            <p className="type-subsection-title">{t('communityTitle')}</p>
-            <p className="type-card-description">
+            <p className="type-body-sm font-semibold text-ink">{t('communityTitle')}</p>
+            <p className="type-body-sm">
               {t('communityListing')}{' '}
-              <Link href="/faq#claim" className="type-link">
+              <Link href={`${routes.faq()}#claim`} className="type-nav font-semibold text-accent underline-offset-4 hover:underline">
                 {t('whyClaim')}
               </Link>
             </p>
@@ -338,7 +340,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
             {user ? (
               <Button
                 type="button"
-                variant="primary" tone="cta"
+                variant="primary"
                 data-ph-no-autocapture
                 onClick={openForm}
               >
@@ -347,7 +349,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
             ) : (
               <NextLink
                 href={signInHref(pathname, locale)}
-                className={buttonVariants({ variant: 'primary', tone: 'cta' })}
+                className={buttonVariants({ variant: 'primary' })}
               >
                 {t('signIn')}
               </NextLink>
@@ -358,12 +360,12 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-1">
             <p className="type-card-title">{t('communityTitle')}</p>
-            <p className="type-card-description">{t('communityListing')}</p>
+            <p className="type-body-sm">{t('communityListing')}</p>
           </div>
 
           <div className="space-y-1">
-            <h2 className="type-subsection-title">{t('proofHeading')}</h2>
-            <p className="type-card-description">{t('pickOneInstruction')}</p>
+            <h2 className="type-body-sm font-semibold text-ink">{t('proofHeading')}</h2>
+            <p className="type-body-sm">{t('pickOneInstruction')}</p>
           </div>
 
           <div
@@ -372,7 +374,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
               stillNeedCount > 0
                 ? 'border-border bg-muted text-muted-foreground'
                 : canSubmit
-                  ? 'border-primary bg-primary/10 text-primary'
+                  ? 'border-accent bg-accent/10 text-accent'
                   : 'border-border bg-muted text-muted-foreground',
             )}
             aria-live="polite"
@@ -391,7 +393,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
                   key={type}
                   className={cn(
                     surfaceCardStyles({ className: 'space-y-4', padding: 'sm' }),
-                    proof.selected && 'border-primary bg-primary/5',
+                    proof.selected && 'border-accent bg-accent/5',
                   )}
                 >
                   <div className="flex gap-3">
@@ -400,20 +402,20 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
                       type="checkbox"
                       checked={proof.selected}
                       onChange={(event) => updateProof(type, { selected: event.target.checked })}
-                      className="mt-1 h-5 w-5 rounded border-border accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="mt-1 h-5 w-5 rounded border-border accent-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
                     <div className="min-w-0 flex-1 space-y-1">
-                      <label htmlFor={`claim-proof-${type}`} className="block min-h-6 cursor-pointer type-subsection-title">
+                      <label htmlFor={`claim-proof-${type}`} className="block min-h-6 cursor-pointer type-body-sm font-semibold text-ink">
                         {label}
                       </label>
-                      <p className="type-card-description">{description}</p>
+                      <p className="type-body-sm">{description}</p>
                       {type === 'domain_email' && (
-                        <p className="type-form-hint">
+                        <p className="type-metadata">
                           {t('proofTypes.domainEmail.helperText')}
                         </p>
                       )}
                       {type === 'business_doc' && (
-                        <p className="type-form-hint">
+                        <p className="type-metadata">
                           {t('proofTypes.businessDoc.privacyNote')}
                         </p>
                       )}
@@ -421,10 +423,10 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
                   </div>
 
                   {proof.selected && (
-                    <div className="grid gap-4 border-t border-border pt-4 md:grid-cols-2">
+                    <Grid cols="pair" className="border-t border-rule pt-4">
                       {type === 'domain_email' && (
                         <div className="space-y-2 md:col-span-2">
-                          <label htmlFor={`claim-${type}-email`} className="block type-body-emphasis">
+                          <label htmlFor={`claim-${type}-email`} className="block type-body-sm font-medium text-ink">
                             {t('proofTypes.domainEmail.emailLabel')}
                           </label>
                           <Input
@@ -435,7 +437,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
                             placeholder={t('proofTypes.domainEmail.placeholder')}
                             className="min-h-12 bg-card px-3.5 py-2.5 focus-visible:ring-2 focus-visible:ring-ring"
                           />
-                          <p className="type-form-hint">
+                          <p className="type-metadata">
                             {t('proofTypes.domainEmail.helperText')}
                           </p>
                         </div>
@@ -443,7 +445,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
 
                       {type === 'backend_screenshot' && (
                         <div className="space-y-3 md:col-span-2">
-                          <ul className="list-disc space-y-1 pl-5 type-form-hint">
+                          <ul className="list-disc space-y-1 pl-5 type-metadata">
                             {(t.raw('proofTypes.backendScreenshot.examples') as string[]).map((example) => (
                               <li key={example}>{example}</li>
                             ))}
@@ -457,7 +459,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
                             accept="image/*"
                             onUploaded={(imageKey) => updateProof(type, { imageKey })}
                           />
-                          <p className="type-form-hint">
+                          <p className="type-metadata">
                             {t('proofTypes.backendScreenshot.loginNote')}
                           </p>
                         </div>
@@ -479,17 +481,17 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
                       )}
 
                       <div className="space-y-2 md:col-span-2">
-                        <label htmlFor={`claim-${type}-note`} className="block type-body-emphasis">
+                        <label htmlFor={`claim-${type}-note`} className="block type-body-sm font-medium text-ink">
                           {t('noteLabel')}
                         </label>
                         <Textarea
                           id={`claim-${type}-note`}
                           value={proof.note}
                           onChange={(event) => updateProof(type, { note: event.target.value })}
-                          className="min-h-24 bg-card px-3.5 py-2.5 focus-visible:ring-2 focus-visible:ring-ring"
+                          className="min-h-24 bg-card px-3.5 py-2.5 focus-visible:ring-2 focus-visible:ring-accent"
                         />
                       </div>
-                    </div>
+                    </Grid>
                   )}
                 </div>
               )
@@ -497,7 +499,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="claim-mit-smile-cert" className="block type-body-emphasis">
+            <label htmlFor="claim-mit-smile-cert" className="block type-body-sm font-medium text-ink">
               {t('mitCertLabel')}
             </label>
             <Input
@@ -508,7 +510,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
               onChange={(event) => setMitSmileCert(event.target.value)}
               className="min-h-12 bg-card px-3.5 py-2.5 focus-visible:ring-2 focus-visible:ring-ring"
             />
-            <p className="type-caption">{t('mitCertHint')}</p>
+            <p className="type-metadata">{t('mitCertHint')}</p>
           </div>
 
           <MarketingEmailOptInField
@@ -520,10 +522,10 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
           />
 
           {feedback.type === 'error' && (
-            <div aria-live="polite" className="space-y-2 rounded-lg bg-destructive/10 px-4 py-3 type-body text-destructive">
+            <div aria-live="polite" className="space-y-2 rounded-lg bg-destructive/10 px-4 py-3 type-body-sm text-destructive">
               <p>{feedback.message}</p>
               {feedback.authRequired && (
-                <NextLink href={signInHref(pathname, locale)} className="inline-flex type-body-emphasis underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <NextLink href={signInHref(pathname, locale)} className="inline-flex type-body-sm font-medium text-ink underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   {t('signIn')}
                 </NextLink>
               )}
@@ -533,7 +535,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button
               type="submit"
-              variant="primary" tone="cta"
+              variant="primary"
               data-ph-no-autocapture
               disabled={!canSubmit}
             >

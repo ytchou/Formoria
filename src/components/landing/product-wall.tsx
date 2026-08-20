@@ -167,7 +167,7 @@ export function ProductWall({
   const productCount = visibleSlots.filter((slot) => slot.kind === 'product').length
 
   return (
-    <section aria-labelledby="landing-selected-products" className="py-6 md:py-8">
+    <section aria-labelledby="landing-selected-products" className="py-section">
       {/* Wide, but no longer edge to edge. Three measures were on the table at
           1920px: the original `max-w-6xl` left 384px of margin each side (too
           much — the wall read as a narrow column), true full bleed left 40px

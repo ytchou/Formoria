@@ -38,12 +38,12 @@ export function StoryFigure({ src, alt, caption }: StoryFigureProps) {
         alt={alt}
         loading="lazy"
         decoding="async"
-        className="aspect-[4/3] w-full rounded-lg border border-border bg-muted object-cover"
+        className="aspect-media w-full rounded-[3px] border border-rule bg-surface-deep object-cover"
       />
       {/* Left-aligned to the image's own edge, not centred: a centred caption
           under an off-centre-width image reads as a standalone line of prose
           rather than as the image's subtext. */}
-      {caption ? <figcaption className="mt-2 type-caption">{caption}</figcaption> : null}
+      {caption ? <figcaption className="mt-2 type-metadata">{caption}</figcaption> : null}
     </figure>
   )
 }

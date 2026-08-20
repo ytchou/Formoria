@@ -12,6 +12,7 @@ import {
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { captureReadFailure, markRenderDegraded } from '@/lib/degraded-render'
+import { routes } from '@/lib/routes'
 
 type PageProps = {
   params: Promise<{ locale: string }>
@@ -33,7 +34,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // Both locales, unlike `/stories/[slug]`: every string on this page comes
   // from the `events` message namespace, which is fully translated, so `/en`
   // serves genuinely English chrome rather than a zh-TW duplicate.
-  const { canonical, languages } = buildAlternates('/events', safeLocale)
+  const { canonical, languages } = buildAlternates(routes.events(), safeLocale)
 
   return {
     title: t('metaTitle'),
@@ -105,11 +106,11 @@ export default async function EventsHubPage({ params }: PageProps) {
   }
 
   return (
-    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
-      <div className="space-y-8">
-        <header className="space-y-3">
+    <main className="page-gutter mx-auto w-full page-measure pt-12 pb-section">
+      <div className="space-y-stack">
+        <header className="max-w-[46rem] space-y-3">
           <h1 className="type-page-title">{t('heading')}</h1>
-          <p className="max-w-2xl type-body-muted">{t('subheading')}</p>
+          <p className="type-body text-ink-soft">{t('subheading')}</p>
         </header>
 
         {/*
@@ -118,8 +119,8 @@ export default async function EventsHubPage({ params }: PageProps) {
           yet. Same shape as the stories hub's `comingSoon` block.
         */}
         {safeEvents.length === 0 ? (
-          <div className="flex min-h-[40vh] items-center justify-center rounded-2xl border border-border bg-secondary px-6 py-16 text-center">
-            <p className="type-empty-body">{t('comingSoon')}</p>
+          <div className="flex min-h-[40vh] items-center justify-center rounded-[3px] border border-rule bg-surface px-6 py-16 text-center">
+            <p className="type-body-sm">{t('comingSoon')}</p>
           </div>
         ) : (
           <div className="space-y-10">
@@ -127,7 +128,7 @@ export default async function EventsHubPage({ params }: PageProps) {
                 above an empty grid, in either direction. */}
             {upcoming.length > 0 ? (
               <section aria-labelledby="events-upcoming" className="space-y-4">
-                <h2 id="events-upcoming" className="type-section-title">
+                <h2 id="events-upcoming" className="type-section">
                   {t('upcomingHeading')}
                 </h2>
                 <div className="flex flex-col gap-4">
@@ -138,7 +139,7 @@ export default async function EventsHubPage({ params }: PageProps) {
 
             {past.length > 0 ? (
               <section aria-labelledby="events-past" className="space-y-4">
-                <h2 id="events-past" className="type-section-title">
+                <h2 id="events-past" className="type-section">
                   {t('pastHeading')}
                 </h2>
                 <div className="flex flex-col gap-4">

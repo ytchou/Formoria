@@ -5,6 +5,7 @@ import {
   updateDirectoryUrl,
 } from '@/lib/directory-filter-url'
 import { L1_CATEGORIES, subcategoryBySlug } from '@/lib/taxonomy/ontology'
+import { routes } from '@/lib/routes'
 
 export type CategoryTabTargetInput = {
   pathname: string
@@ -63,14 +64,14 @@ export function buildCategoryTabTarget({
 
   let routerPath: string
   if (pureTaxonomy) {
-    routerPath = `/categories/${categorySlug}${validSub ? `/${validSub}` : ''}`
+    routerPath = routes.categoryPath(categorySlug, validSub)
   } else if (!categorySlug) {
     routerPath = !clearingAll && hasFacet
-      ? updateDirectoryUrl('/brands', params, { category: null, sub: null })
-      : '/brands'
+      ? updateDirectoryUrl(routes.brands(), params, { category: null, sub: null })
+      : routes.brands()
   } else {
     const nextCategory = validCategories.join(',')
-    routerPath = updateDirectoryUrl('/brands', params, {
+    routerPath = updateDirectoryUrl(routes.brands(), params, {
       category: nextCategory,
       // `validSub` gates the PATH, not the query: the query carries any
       // requested sub verbatim, including a cross-L1 one.

@@ -1,3 +1,5 @@
+import { routes } from '@/lib/routes'
+
 export type FeatureFlag = {
   key: string
   label: string
@@ -16,6 +18,6 @@ export const FEATURE_FLAGS: FeatureFlag[] = [
       'Enables brand claiming and the owner dashboard; off hides both surfaces',
     defaultValue: false,
     // Owner surfaces are gated per-request, so only the toggle page needs busting.
-    revalidatePaths: ['/admin/settings'],
+    revalidatePaths: [routes.admin.settings()],
   },
 ]
