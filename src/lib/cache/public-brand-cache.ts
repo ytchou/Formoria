@@ -17,6 +17,21 @@ export function revalidateLocalizedPath(path: string): void {
   }
 }
 
+/**
+ * Cache invalidation for one discovery trail. `/discover/[slug]` lives under the
+ * `[locale]` segment, so a bare unprefixed path invalidates nothing.
+ *
+ * Lives here rather than in the two action files that call it: it was
+ * byte-for-byte duplicated between `src/app/admin/actions.ts` and
+ * `src/app/admin/curated-products/actions.ts`, and a trail is a public cached
+ * surface like every other one this module owns. `revalidatePublicBrands`
+ * deliberately does NOT reach `/discover/[slug]`, so a brand- or product-level
+ * write needs this as well, not instead.
+ */
+export function revalidateTrail(trailSlug: string): void {
+  revalidateLocalizedPath(routes.trail(trailSlug))
+}
+
 function uniqueSlugs(slugs: readonly string[]): string[] {
   return [
     ...new Set(

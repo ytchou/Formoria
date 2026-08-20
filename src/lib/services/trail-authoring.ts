@@ -30,6 +30,14 @@
  * nothing. That is the defect — a promised slate that renders nothing. It is now
  * surfaced to the editor as an authoring warning instead of being hidden from
  * visitors by a render-time 404, and NO automated gate blocks publishing one.
+ *
+ * It now has two readers (DEV-1520). The admin panel asks whether a warning
+ * exists at authoring time; the nightly supply-decay report asks the same
+ * question of every published trail and names the sections, because a trail
+ * that was fully placed at publication can lose a section afterwards — a
+ * product retired, a link broken, a brand unapproved. Both read the SAME
+ * comparison, below, so the two surfaces can never disagree about what an
+ * unplaced section is. Neither one hides, unpublishes, or de-indexes anything.
  */
 export type TrailAuthoringWarning = "draft" | "unplaced_section";
 
@@ -44,6 +52,36 @@ type TrailAuthoringProduct = {
 
 function present(value: string | null | undefined): boolean {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+/**
+ * The declared sections carrying no product, in DECLARATION order — the single
+ * definition of an unplaced section, shared by the admin warning above and the
+ * nightly supply-decay report.
+ *
+ * `products: null` means the caller could not read the placements, and returns
+ * `[]`. A failed read must never look like total decay: reporting every
+ * declared key would turn one broken query into a report saying an intact trail
+ * lost its whole slate.
+ */
+export function unplacedSectionKeys({
+  frontmatter,
+  products,
+}: {
+  frontmatter: TrailAuthoringFrontmatter;
+  products: readonly TrailAuthoringProduct[] | null;
+}): string[] {
+  if (products === null) return [];
+
+  const productSections = new Set(
+    products
+      .map((product) => product.sectionKey)
+      .filter((sectionKey): sectionKey is string => present(sectionKey)),
+  );
+
+  return frontmatter.sections
+    .filter((section) => !productSections.has(section.key))
+    .map((section) => section.key);
 }
 
 /**
@@ -67,14 +105,7 @@ export function trailAuthoringWarnings({
 
   if (products === null) return warnings;
 
-  const productSections = new Set(
-    products
-      .map((product) => product.sectionKey)
-      .filter((sectionKey): sectionKey is string => present(sectionKey)),
-  );
-  if (
-    frontmatter.sections.some((section) => !productSections.has(section.key))
-  ) {
+  if (unplacedSectionKeys({ frontmatter, products }).length > 0) {
     warnings.push("unplaced_section");
   }
 

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { trailAuthoringWarnings } from "../trail-authoring";
+import {
+  trailAuthoringWarnings,
+  unplacedSectionKeys,
+} from "../trail-authoring";
 
 /**
  * `trailAuthoringWarnings` is an AUTHORING aid, not a render gate: nothing it
@@ -80,5 +83,44 @@ describe("trailAuthoringWarnings", () => {
     });
 
     expect(warnings).toEqual([]);
+  });
+});
+
+/**
+ * The same comparison `trailAuthoringWarnings` reduces to a boolean, exposed as
+ * the keys themselves (DEV-1520). The nightly supply-decay report names the
+ * decayed section, so it needs the keys; the admin panel only needs to know
+ * that one exists.
+ */
+describe("unplacedSectionKeys", () => {
+  it("returns the keys of declared sections with no products", () => {
+    expect(
+      unplacedSectionKeys({
+        frontmatter: baseFrontmatter,
+        products: [product("second")],
+      }),
+    ).toEqual(["first", "third"]);
+  });
+
+  it("returns empty for a fully placed trail", () => {
+    // The real pilot shape: 9 products spread across the 3 declared sections.
+    const pilot = [
+      ...Array.from({ length: 4 }, () => product("first")),
+      ...Array.from({ length: 3 }, () => product("second")),
+      ...Array.from({ length: 2 }, () => product("third")),
+    ];
+
+    expect(
+      unplacedSectionKeys({ frontmatter: baseFrontmatter, products: pilot }),
+    ).toEqual([]);
+  });
+
+  // A failed placement read must never read as total decay: reporting every
+  // declared key would turn one broken query into a report that says the whole
+  // trail lost its slate.
+  it("returns empty when products is null", () => {
+    expect(
+      unplacedSectionKeys({ frontmatter: baseFrontmatter, products: null }),
+    ).toEqual([]);
   });
 });
