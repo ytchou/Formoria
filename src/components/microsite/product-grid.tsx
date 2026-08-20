@@ -1,5 +1,6 @@
 import { SurfaceImage } from "@/components/ui/image";
 import { surfaceCardStyles } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
 import type {
   PublicMicrositeBrand,
   PublicSiteProduct,
@@ -16,11 +17,9 @@ export function ProductGrid({ brand, products }: ProductGridProps) {
   }
 
   return (
-    <section
-      className="px-6 py-12 md:px-10 md:py-16"
-      aria-labelledby="microsite-products"
-    >
-      <div className="mx-auto max-w-[1280px] space-y-stack">
+    <section className="py-12 md:py-16" aria-labelledby="microsite-products">
+      {/* Gutter and measure both from the shell — see `hero.tsx`. */}
+      <PageShell measure="page" className="space-y-stack">
         <h2 id="microsite-products" className="type-section">
           精選商品
         </h2>
@@ -78,7 +77,7 @@ export function ProductGrid({ brand, products }: ProductGridProps) {
             </article>
           ))}
         </div>
-      </div>
+      </PageShell>
     </section>
   );
 }

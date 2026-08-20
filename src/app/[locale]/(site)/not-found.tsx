@@ -1,6 +1,7 @@
 import { getLocale, getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
+import { PageShell } from '@/components/ui/page-shell'
 import { routes } from '@/lib/routes'
 
 export default async function NotFound() {
@@ -8,7 +9,13 @@ export default async function NotFound() {
   const t = await getTranslations({ locale, namespace: 'errors' })
 
   return (
-    <main className="page-gutter mx-auto flex page-measure flex-col items-center justify-center py-section text-center">
+    // `prose`, as at every error boundary: a centred message reads at the
+    // reading measure, not across the full discovery width.
+    <PageShell
+      as="main"
+      measure="prose"
+      className="flex flex-col items-center justify-center py-section text-center"
+    >
       <h1 className="type-page-title">
         {t('notFound.title')}
       </h1>
@@ -29,6 +36,6 @@ export default async function NotFound() {
           {t('notFound.browseDirectory')}
         </Link>
       </div>
-    </main>
+    </PageShell>
   )
 }

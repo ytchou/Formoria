@@ -15,6 +15,7 @@ import { NavSearchInput } from './nav-search-input'
 import { NavCategoryTabs } from './nav-category-tabs'
 import { LocaleSwitcher } from '@/components/i18n/locale-switcher'
 import { buttonVariants } from '@/components/ui/button'
+import { PageShell } from '@/components/ui/page-shell'
 import { useUser } from '@/lib/auth/use-user'
 import { trackCtaClicked } from '@/lib/analytics'
 import { routes } from '@/lib/routes'
@@ -56,13 +57,19 @@ export function MainNav({ categories }: MainNavProps) {
           `calc()` of this row, the category row and the bottom hairline. A
           literal here desyncs the six the moment it changes — which is exactly
           how they came to sit 13px under a z-50 bar. `nav-height.test.ts`
-          fails if this row stops reading the token.
-          `page-measure`, the same measure every other shell reads. The header
-          used to be held at its own fixed 80rem while the landing bands sat at
-          100rem, which is the 160px seam down one page this ticket was filed
-          for. Sharing ONE measure is what closed it: the header now begins at
-          the same left edge as the content under it, on every route. */}
-      <div className="page-gutter mx-auto flex h-(--nav-row-primary) page-measure items-center gap-6">
+          fails if this row stops reading the token — it reads this className,
+          so keep the height token IN the class string rather than moving it
+          onto a wrapper.
+          THE WIDTH IS `PageShell`, the same shell every route root reads. The
+          header used to be held at its own fixed 80rem while the landing bands
+          sat at 100rem, which is the 160px seam down one page this ticket was
+          filed for. Sharing ONE measure is what closed it: the header begins at
+          the same left edge as the content under it, on every route, and it
+          takes the same 1280px gutter step the content takes. */}
+      <PageShell
+        measure="page"
+        className="flex h-(--nav-row-primary) items-center gap-6"
+      >
         {/* The wordmark alone — the content face (`font-ming`), no mark. The
             vectorized mark is still the favicon and still opens the auth
             layout; in the nav it competed with the wordmark beside it at
@@ -196,7 +203,7 @@ export function MainNav({ categories }: MainNavProps) {
             </SheetContent>
           </Sheet>
         </nav>
-      </div>
+      </PageShell>
 
       {/* Row 2: the L1 category row, on EVERY route including `/` (D18). It was
           suppressed on the homepage while the hero rendered its own chip block;

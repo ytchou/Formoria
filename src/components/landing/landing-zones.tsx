@@ -11,6 +11,7 @@ import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { Link } from "@/i18n/navigation";
 import { buttonVariants } from "@/components/ui/button";
 import { Grid } from "@/components/ui/grid";
+import { PageShell } from "@/components/ui/page-shell";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
 import type { WallSlot } from "@/lib/curated-products/home-wall";
 import type { Locale } from "@/lib/seo/alternates";
@@ -154,7 +155,10 @@ export async function LandingZones({
           aria-labelledby="landing-trust"
           className="bg-surface py-section"
         >
-          <div className="page-gutter mx-auto page-measure flex flex-col gap-stack lg:flex-row lg:gap-gutter">
+          <PageShell
+            measure="page"
+            className="flex flex-col gap-stack lg:flex-row lg:gap-gutter"
+          >
             <div className="lg:w-1/4">
               <h2 id="landing-trust" className="type-section">
                 {t("trustSeam.line")}
@@ -178,7 +182,7 @@ export async function LandingZones({
                 </div>
               ))}
             </Grid>
-          </div>
+          </PageShell>
         </section>
 
         {/*
@@ -208,7 +212,7 @@ export async function LandingZones({
             aria-labelledby="landing-trails"
             className="py-section"
           >
-            <div className="page-gutter mx-auto page-measure">
+            <PageShell measure="page">
               <SectionHeader
                 id="landing-trails"
                 heading={t("trails.heading")}
@@ -231,7 +235,7 @@ export async function LandingZones({
                   />
                 ))}
               </div>
-            </div>
+            </PageShell>
           </section>
         ) : null}
 
@@ -275,17 +279,18 @@ export async function LandingZones({
               `type-page-title`, whose default ink is the full-strength token, so
               it has the same margin. Anything below /85 re-breaks AA. */}
           <div className="absolute inset-0 bg-ground/85" aria-hidden="true" />
-          <div className="relative page-gutter mx-auto page-measure text-center">
+          {/* `relative` keeps this above the absolute scrim behind it. */}
+          <PageShell measure="page" className="relative text-center">
             <h2
               id="landing-manifesto"
-              className="mx-auto max-w-4xl type-page-title"
+              className="mx-auto prose-measure type-page-title"
             >
               {t("manifesto.headline")}
             </h2>
-            <p className="mx-auto mt-3 max-w-3xl type-body-sm text-ink-soft">
+            <p className="mx-auto mt-3 prose-measure type-body-sm text-ink-soft">
               {t("manifesto.body1")}
             </p>
-            <p className="mx-auto mt-3 max-w-3xl type-body-sm text-ink-soft">
+            <p className="mx-auto mt-3 prose-measure type-body-sm text-ink-soft">
               {t("manifesto.body2")}
             </p>
             <Link
@@ -297,7 +302,7 @@ export async function LandingZones({
             >
               {t("manifesto.cta")}
             </Link>
-          </div>
+          </PageShell>
         </section>
 
         {(events.length > 0 || stories.length > 0) && (
@@ -306,7 +311,7 @@ export async function LandingZones({
             aria-labelledby="landing-topics"
             className="py-section"
           >
-            <div className="page-gutter mx-auto page-measure">
+            <PageShell measure="page">
               {/* The zone renders whenever it has events OR stories, so its
                   heading, note and link follow what it actually contains — an
                   events-only zone headed "Stories", linking to /stories, would
@@ -382,13 +387,13 @@ export async function LandingZones({
                   ))}
                 </div>
               )}
-            </div>
+            </PageShell>
           </section>
         )}
 
         {brands.length > 0 && (
           <div data-landing-zone="directory" className="py-section">
-            <div className="page-gutter mx-auto page-measure">
+            <PageShell measure="page">
               <BrandShowcase
                 brands={brands}
                 heading={t("showcase.heading")}
@@ -397,7 +402,7 @@ export async function LandingZones({
                 linkHref={routes.brands()}
                 ctaLocation="homepage_explore"
               />
-            </div>
+            </PageShell>
           </div>
         )}
       </SavedBrandsProvider>

@@ -144,7 +144,7 @@ export default async function AdminPage() {
   return (
     <div className="space-y-stack">
       <section aria-labelledby="operations-overview-heading">
-        <div className="mb-5 max-w-2xl">
+        <div className="mb-5 prose-measure">
           <h2
             id="operations-overview-heading"
             className="type-label"

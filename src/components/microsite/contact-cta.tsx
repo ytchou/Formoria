@@ -1,4 +1,5 @@
 import { surfaceCardStyles } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
 import type { PublicMicrositeBrand } from "@/lib/brands/contracts";
 
 type ContactCtaProps = {
@@ -11,10 +12,11 @@ export function ContactCta({ siteContent }: ContactCtaProps) {
   return (
     <section
       id="contact"
-      className="px-6 py-12 md:px-10 md:py-16"
+      className="py-12 md:py-16"
       aria-labelledby="contact-title"
     >
-      <div className="mx-auto max-w-[1280px]">
+      {/* Gutter and measure both from the shell — see `hero.tsx`. */}
+      <PageShell measure="page">
         <div
           className={surfaceCardStyles({ className: "md:p-8", padding: "lg" })}
         >
@@ -39,7 +41,7 @@ export function ContactCta({ siteContent }: ContactCtaProps) {
             )}
           </div>
         </div>
-      </div>
+      </PageShell>
     </section>
   );
 }

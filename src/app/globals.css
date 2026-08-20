@@ -296,19 +296,28 @@
  * page. Three names is the fewest that still distinguishes a job.
  *
  *   `page-measure`   100rem — discovery and chrome: directory, landing bands,
- *                    header, footer. Still the `var()` declared below; it
- *                    becomes this literal in a later wave.
+ *                    header, footer.
  *   `form-measure`    64rem — a page whose content IS a form.
  *   `prose-measure`   48rem — a reading page, and any reading column inside a
  *                    wider page.
  *
+ * A PAGE PICKS ONE; IT NEVER SPELLS A WIDTH ITSELF. The choice a route makes is
+ * which of three jobs it is doing, not how many rem that job is worth — so no
+ * call site carries a number, and changing one of the three is an edit to one
+ * line here rather than a sweep of the call sites that guessed it.
+ *
  * LITERALS, NOT `var()`. A custom property is an override seam: any ancestor
  * rule, inline style or later stylesheet can redeclare it and silently
  * re-measure everything beneath, from a part of the cascade the call site
- * cannot see. A literal inside `@utility` can only be changed on this line, in
- * this file. That is the point, and it is why `--page-measure` below is
- * deliberately the opposite — that one is a var BECAUSE the page is meant to
- * override it for the footer.
+ * cannot see. That unlimited customization is exactly what these three names
+ * remove. A literal inside `@utility` can only be changed on this line, in this
+ * file.
+ *
+ * ONE MEASURE FOR CHROME AND CONTENT. The header, the footer and every
+ * discovery `<main>` now carry the same `page-measure`. Holding the chrome out
+ * at its own narrower width is what put the 160px seam down the landing page at
+ * 1920px; sharing one name is what closed it, and is why the footer no longer
+ * needs to learn anything about the route rendered above it.
  *
  * ONE NAME FOR ONE NUMBER. `prose-measure` is both a reading page's shell and a
  * reading cap nested inside a wider page, because both are the same 48rem and a
@@ -328,6 +337,10 @@
  * already capped, so a bigger gutter there would not move the edge, it would
  * only shrink the column the gutter exists to frame.
  */
+@utility page-measure {
+  max-width: 100rem;
+}
+
 @utility form-measure {
   max-width: 64rem;
 }
@@ -347,42 +360,6 @@
   @media (width >= 80rem) {
     padding-inline: calc(var(--spacing) * 16);
   }
-}
-
-/*
- * THE FOOTER FOLLOWS THE PAGE IT SITS UNDER.
- *
- * The footer is rendered by the site layout, so it cannot know its route — and
- * a `usePathname()` check there would turn a static server component into a
- * client one to answer a question that is purely presentational. Instead the
- * measure is a custom property: 80rem by default, which is what every
- * non-landing `<main>` carries, and 100rem when the page below declares itself
- * wide with `data-page-measure="wide"` (the landing page does).
- *
- * `:has()` reads DOWN the tree, which is what makes a child able to set a value
- * its PARENT's other subtree reads. If `:has()` is unsupported the rule simply
- * never matches and the footer keeps the 80rem default — the pre-existing
- * alignment for every route but one, never a broken layout.
- *
- * Every `<main>` now reads the same property through `page-measure` below.
- * Before that only the footer honoured it, and thirty hard-coded 80rem
- * declarations across twenty-eight files were the real measure — so widening
- * the token moved the footer and nothing above it.
- *
- * The sticky header reads it too. It used to be held out at its own fixed
- * 80rem, which is what put a 160px seam between the header and the landing
- * bands at 1920px; one measure for chrome and content is what closed it.
- */
-:root {
-  --page-measure: 80rem;
-}
-
-body:has([data-page-measure="wide"]) {
-  --page-measure: 100rem;
-}
-
-@utility page-measure {
-  max-width: var(--page-measure);
 }
 
 /*

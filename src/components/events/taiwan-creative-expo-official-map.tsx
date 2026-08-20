@@ -276,7 +276,7 @@ export function TaiwanCreativeExpoOfficialMap() {
           fill
           onError={() => setImageFailed(true)}
           surface="banner"
-          // The inline map caps at `max-w-4xl` (896px).
+          // The inline map frame caps at 896px.
           sizes="(max-width: 640px) 100vw, 896px"
           src={EXPO_FLOOR_MAP_ASSET.src}
         />

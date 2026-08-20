@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { Link } from '@/i18n/navigation'
 import { getTranslations } from 'next-intl/server'
 import { SearchInput } from '@/components/brands/search-input'
+import { PageShell } from '@/components/ui/page-shell'
 import { routes } from '@/lib/routes'
 
 /**
@@ -28,11 +29,16 @@ export default async function HeroSection() {
   const t = await getTranslations('landing.hero')
 
   return (
-    <section className="page-gutter mx-auto page-measure py-section">
-      {/* `max-w-4xl` (56rem) against the 100rem shell: the lede wraps at a
-          readable measure while the display line still runs long enough to
-          read as a headline rather than as a stacked column of characters. */}
-      <div className="max-w-4xl">
+    <PageShell as="section" measure="page" className="py-section">
+      {/* WAS a 56rem cap of its own, held against the 100rem shell so the
+          lede wrapped at a readable measure while the display line still ran
+          long enough to read as a headline rather than as a stacked column of
+          characters. That fourth width is no longer available: the page runs
+          on three named measures, and the reading one is 48rem. The opener is
+          now 8rem narrower, so the display line sits closer to wrapping. If it
+          wraps badly, the fix is a fourth measure declared and named in
+          globals.css — never an anonymous cap re-inlined here. */}
+      <div className="prose-measure">
         {/* A `span`, not a `p`. DEV-1320 requires the positioning line to be
             the FIRST paragraph in the document — Google lifted a rotating brand
             blurb as the homepage snippet when it was not — and an eyebrow
@@ -50,15 +56,15 @@ export default async function HeroSection() {
             seo.spec.ts asserts this exact string is visible on `/`. The lede
             under it is the mock's editorial copy, which is longer and cannot
             take this position. */}
-        <p className="mt-6 max-w-2xl type-body text-ink-soft">
+        <p className="mt-6 prose-measure type-body text-ink-soft">
           {t('subheadline')}
         </p>
-        <p className="mt-3 max-w-2xl type-body text-ink-soft">{t('lede')}</p>
+        <p className="mt-3 prose-measure type-body text-ink-soft">{t('lede')}</p>
 
         {/* One control, one alternative. The field redirects to
             /brands?search=, which is the exact entry point the WebSite JSON-LD
             declares as its SearchAction. */}
-        <div className="mt-8 flex w-full max-w-3xl flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-6">
+        <div className="mt-8 flex w-full prose-measure flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-6">
           {/* SearchInput reads useSearchParams, which bails out of static
               prerendering unless it sits under a Suspense boundary. The
               fallback reserves the field's height so the opener does not
@@ -90,6 +96,6 @@ export default async function HeroSection() {
           </div>
         </div>
       </div>
-    </section>
+    </PageShell>
   )
 }

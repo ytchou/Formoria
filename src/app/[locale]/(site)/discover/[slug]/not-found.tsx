@@ -9,13 +9,16 @@ import { useTranslations } from "next-intl";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonVariants } from "@/components/ui/button";
+import { PageShell } from "@/components/ui/page-shell";
 import { Link } from "@/i18n/navigation";
 import { routes } from "@/lib/routes";
 
 export default function DiscoverTrailNotFound() {
   const t = useTranslations("discover");
   return (
-    <main className="page-gutter mx-auto w-full page-measure py-10">
+    // `prose`, as at every error boundary: the empty state is one centred
+    // message, and the trail's own 100rem shell would strand it in whitespace.
+    <PageShell as="main" measure="prose" className="py-10">
       <EmptyState
         icon={<Compass />}
         title={t("notFound.title")}
@@ -29,6 +32,6 @@ export default function DiscoverTrailNotFound() {
           </Link>
         }
       />
-    </main>
+    </PageShell>
   );
 }

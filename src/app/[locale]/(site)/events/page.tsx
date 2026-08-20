@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { EventCard } from '@/components/events/event-card'
+import { PageShell } from '@/components/ui/page-shell'
 import {
   getEventBrandCounts,
   getPublishedEvents,
@@ -106,9 +107,9 @@ export default async function EventsHubPage({ params }: PageProps) {
   }
 
   return (
-    <main className="page-gutter mx-auto w-full page-measure pt-12 pb-section">
+    <PageShell as="main" measure="page" className="pt-12 pb-section">
       <div className="space-y-stack">
-        <header className="max-w-[46rem] space-y-3">
+        <header className="prose-measure space-y-3">
           <h1 className="type-page-title">{t('heading')}</h1>
           <p className="type-body text-ink-soft">{t('subheading')}</p>
         </header>
@@ -150,6 +151,6 @@ export default async function EventsHubPage({ params }: PageProps) {
           </div>
         )}
       </div>
-    </main>
+    </PageShell>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { PageShell } from "@/components/ui/page-shell";
 
 export default function DiscoverTrailError({
   reset,
@@ -11,7 +12,12 @@ export default function DiscoverTrailError({
 }) {
   const t = useTranslations("discover");
   return (
-    <main className="page-gutter mx-auto flex min-h-[40vh] w-full page-measure items-center justify-center py-10">
+    // `prose`, as at every error boundary: one centred line and a retry.
+    <PageShell
+      as="main"
+      measure="prose"
+      className="flex min-h-[40vh] items-center justify-center py-10"
+    >
       <div role="alert" className="space-y-4 text-center">
         <p className="type-card-title text-ink-muted">{t("loadError")}</p>
         <Button
@@ -23,6 +29,6 @@ export default function DiscoverTrailError({
           {t("retry")}
         </Button>
       </div>
-    </main>
+    </PageShell>
   );
 }

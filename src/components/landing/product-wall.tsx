@@ -6,6 +6,7 @@ import {
 } from '@/components/brands/selected-product-tile'
 import type { AppLocale } from '@/i18n/locale-preference'
 import { SectionHeader } from '@/components/shared/section-header'
+import { PageShell } from '@/components/ui/page-shell'
 import type { WallSlot } from '@/lib/curated-products/home-wall'
 import { cn } from '@/lib/utils'
 import { WallList } from './wall-list'
@@ -172,16 +173,16 @@ export function ProductWall({
           1920px: the original 72rem left 384px of margin each side (too much —
           the wall read as a narrow column), true full bleed left 40px (too
           little — the photographs ran off the page). `page-measure` is the
-          middle ground, 100rem under this page, and it is the same measure
-          every landing section, the header and the footer read, so the page has
-          ONE left edge. Declared in globals.css — never re-inline a cap here.
-          */}
-      <div className="page-gutter mx-auto page-measure">
+          middle ground, 100rem, and it is the same measure every landing
+          section, the header and the footer read, so the page has ONE left
+          edge. Declared in globals.css and applied through `PageShell` — never
+          re-inline a cap here. */}
+      <PageShell measure="page">
         <SectionHeader
           id="landing-selected-products"
           heading={labels.heading}
           note={labels.note}
-          className="mb-6 max-w-6xl"
+          className="mb-6 prose-measure"
         />
 
         <WallList
@@ -272,7 +273,7 @@ export function ProductWall({
             editorial content it pointed at. The category nav and the brands
             button that also lived here were removed earlier; both destinations
             are still linked from the hero. */}
-      </div>
+      </PageShell>
     </section>
   )
 }

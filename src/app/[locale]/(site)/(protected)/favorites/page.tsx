@@ -13,6 +13,7 @@ import { surfaceCardStyles } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { routes } from '@/lib/routes'
 import { Grid } from '@/components/ui/grid'
+import { PageShell, shellStyles } from '@/components/ui/page-shell'
 
 type Props = {
   params: Promise<{ locale: string }>
@@ -124,8 +125,15 @@ export default async function FavoritesPage({ params }: Props) {
 
   return (
     <div className="min-h-screen bg-ground">
+      {/* The rule is full-bleed, the row inside it is on the measure — the
+        same shape the sticky header in `loading.tsx` draws. Both containers
+        here were uncapped while that skeleton already capped at the measure,
+        so the page jumped wider the moment the real data arrived. */}
       <header className="border-b border-rule bg-ground">
-        <div className="page-gutter flex h-16 items-center justify-between gap-4">
+        <PageShell
+          measure="page"
+          className="flex h-16 items-center justify-between gap-4"
+        >
           <h1 className="type-section">
             {t('heading')}
           </h1>
@@ -134,12 +142,14 @@ export default async function FavoritesPage({ params }: Props) {
               {t('count', { count: brands.length })}
             </p>
           )}
-        </div>
+        </PageShell>
       </header>
 
       <main>
         {brands.length > 0 ? (
-          <Grid className="page-gutter py-stack">
+          // The shell as a class string, not a wrapper: `Grid` owns the
+          // element, exactly as `directory-view.tsx` reads it.
+          <Grid className={cn(shellStyles({ measure: 'page' }), 'py-stack')}>
             {brands.map((brand) => (
               <SavedBrandCard key={brand.brandId} brand={brand} />
             ))}

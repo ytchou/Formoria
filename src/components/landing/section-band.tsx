@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server'
 import { buttonVariants } from '@/components/ui/button'
 import { EmailCaptureForm } from '@/components/newsletter/email-capture-form'
 import { SectionBandCtaLink } from '@/components/landing/section-band-cta-link'
+import { PageShell } from '@/components/ui/page-shell'
 import { routes } from '@/lib/routes'
 
 /**
@@ -25,7 +26,9 @@ export default async function SectionBand() {
 
   return (
     <section className="bg-surface py-section">
-      <div className="page-gutter mx-auto page-measure">
+      {/* The band's `surface` runs edge to edge; only its CONTENT takes the
+          page shell, which is what keeps its left edge on the zones above. */}
+      <PageShell measure="page">
         {/* `min-w-0` on the items is load-bearing (DEV-1489). A grid item's
             automatic minimum size is its content's min-content width, and the
             newsletter column holds an `overflow-x-auto` chip row whose four
@@ -40,7 +43,7 @@ export default async function SectionBand() {
         <div className="grid gap-stack md:grid-cols-2 md:gap-16 items-start">
           <div className="min-w-0">
             <h2 className="type-section">{tRecommend('headline')}</h2>
-            <p className="mt-3 max-w-xl type-body-sm">{tRecommend('body')}</p>
+            <p className="mt-3 prose-measure type-body-sm">{tRecommend('body')}</p>
             <div className="mt-6 flex flex-wrap gap-3">
               <SectionBandCtaLink
                 href={routes.submit.index()}
@@ -66,7 +69,7 @@ export default async function SectionBand() {
             </div>
           </div>
         </div>
-      </div>
+      </PageShell>
     </section>
   )
 }

@@ -5,6 +5,7 @@ import { Breadcrumb } from '@/components/brands/brand-breadcrumb'
 import { DistrictSection } from '@/components/where-to-buy/district-section'
 import { LocateButton } from '@/components/where-to-buy/locate-button'
 import { ChipRow, taxonomyLinkClasses } from '@/components/ui/toggle-chip'
+import { PageShell } from '@/components/ui/page-shell'
 import { localizePath } from '@/i18n/locale-preference'
 import { citySlugFromPath, citySlugToPath } from '@/lib/constants/taiwan-cities'
 import { buildAlternates, type Locale } from '@/lib/seo/alternates'
@@ -108,7 +109,7 @@ export default async function WhereToBuyCityPage({
     // (`root-document.tsx`) resolves to the FIRST match, which meant these two
     // routes alone skipped to a different element than every other route. One
     // id per document, and it is the layout's.
-    <main className="page-gutter mx-auto w-full page-measure pt-12 pb-section">
+    <PageShell as="main" measure="page" className="pt-12 pb-section">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(jsonLd) }}
@@ -120,7 +121,7 @@ export default async function WhereToBuyCityPage({
           { label: cityName },
         ]}
       />
-      <header className="max-w-3xl">
+      <header className="prose-measure">
         <h1 className="type-page-title text-ink">
           {t('cityTitle', { city: cityName })}
         </h1>
@@ -192,6 +193,6 @@ export default async function WhereToBuyCityPage({
           </p>
         )}
       </div>
-    </main>
+    </PageShell>
   )
 }

@@ -85,7 +85,7 @@ export function StoryRow({
         */}
         <p
           {...NO_SNIPPET}
-          className="max-w-3xl type-body-sm"
+          className="prose-measure type-body-sm"
           lang={isForeignLanguage ? storyLocale : undefined}
         >
           {story.frontmatter.description}

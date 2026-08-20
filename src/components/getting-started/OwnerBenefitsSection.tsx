@@ -26,7 +26,13 @@ export function OwnerBenefitsSection() {
   const ctaT = useTranslations('gettingStarted.ctaFooter')
 
   return (
-    <div className="space-y-5">
+    // `prose-measure` for the same reason the tips list beside it carries one:
+    // this is the right-hand track of getting-started's two-track section, and
+    // nothing between the route shell and here sets a width. It sits on the
+    // component's own root rather than on a wrapper at the call site because
+    // the component is rendered in exactly one place and a wrapper would only
+    // add an element to hold one class.
+    <div className="prose-measure space-y-5">
       <p className="type-body-sm">{t('comingSoon')}</p>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

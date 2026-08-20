@@ -42,9 +42,15 @@ describe("--nav-height", () => {
 
   it("has row 1 reading `--nav-row-primary` rather than a literal height", () => {
     const source = read("src/components/navigation/main-nav.tsx");
-    const row = source.match(
-      /<div className="page-gutter mx-auto flex ([^"]*) items-center gap-6">/,
-    );
+    // MATCHED ON THE CLASS STRING, NOT ON `<div …>`. Row 1 is a `PageShell`
+    // now that the header shares the page measure, and the previous regex named
+    // the tag — a tag rename left it matching nothing, and a regex that matches
+    // nothing passes vacuously while the six sticky elements go unguarded. The
+    // element may change again; the row's own classes are the invariant.
+    //
+    // A null match still FAILS here rather than skipping the two assertions
+    // below, which is what keeps a reordered or deleted row loud.
+    const row = source.match(/className="([^"]*items-center gap-6)"/);
 
     expect(row).not.toBeNull();
     expect(row?.[1]).toContain("h-(--nav-row-primary)");

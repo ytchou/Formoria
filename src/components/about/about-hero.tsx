@@ -1,6 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
+import { PageShell } from '@/components/ui/page-shell'
 import { routes } from '@/lib/routes'
 
 interface AboutHeroProps {
@@ -30,10 +31,10 @@ export default async function AboutHero({ brandCount, categoryCount, recentBrand
       surface v2 exists to remove. The opening is the sentence, on paper.
     */
     <section className="py-section">
-      <div className="mx-auto max-w-6xl page-gutter">
-        <div className="max-w-3xl">
+      <PageShell measure="page">
+        <div className="prose-measure">
           <h1 className="type-display text-balance">{t('title')}</h1>
-          <p className="mt-4 max-w-2xl type-body text-ink-soft text-pretty">{t('subtitle')}</p>
+          <p className="mt-4 type-body text-ink-soft text-pretty">{t('subtitle')}</p>
 
           <div className="mt-6">
             <Link
@@ -60,7 +61,7 @@ export default async function AboutHero({ brandCount, categoryCount, recentBrand
             </p>
           )}
         </div>
-      </div>
+      </PageShell>
     </section>
   )
 }

@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { buildOpenGraph } from '@/lib/seo/open-graph'
+import { PageShell } from '@/components/ui/page-shell'
 import { routes } from '@/lib/routes'
 
 type PageProps = {
@@ -51,7 +52,9 @@ export default async function PrivacyPage({ params }: PageProps) {
   const t = await getTranslations('legal.privacy')
 
   return (
-    <main className="page-gutter mx-auto w-full page-measure py-10">
+    // Wide shell, narrow prose, no `mx-auto` on the cap — same two-column
+    // arrangement as `terms/page.tsx`, and the reasoning is written out there.
+    <PageShell as="main" measure="page" className="py-10">
       <div className="grid gap-10 md:grid-cols-[18rem_minmax(0,1fr)] md:gap-16">
         <aside className="space-y-4 md:sticky md:top-(--nav-height) md:self-start">
           <h1 className="type-section">{t('title')}</h1>
@@ -64,13 +67,13 @@ export default async function PrivacyPage({ params }: PageProps) {
               <h2 className="type-section">
                 {t(`${key}.heading`)}
               </h2>
-              <p className="type-body-sm">
+              <p className="prose-measure type-body-sm">
                 {t(`${key}.body`)}
               </p>
             </section>
           ))}
         </div>
       </div>
-    </main>
+    </PageShell>
   )
 }

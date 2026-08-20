@@ -7,6 +7,7 @@ import { buildOpenGraph } from '@/lib/seo/open-graph'
 import { Link } from '@/i18n/navigation'
 import { FaqSection } from '@/components/shared/faq-section'
 import { OpenTargetDetails } from '@/components/shared/open-target-details'
+import { PageShell } from '@/components/ui/page-shell'
 import { routes } from '@/lib/routes'
 
 type PageProps = {
@@ -63,7 +64,7 @@ export default async function FaqPage({ params }: PageProps) {
   ] as const
 
   return (
-    <main className="page-gutter mx-auto w-full page-measure py-10">
+    <PageShell as="main" measure="page" className="py-10">
       <OpenTargetDetails />
       <div className="grid gap-10 md:grid-cols-5 md:gap-16">
         <aside className="space-y-4 md:sticky md:top-(--nav-height) md:self-start">
@@ -110,7 +111,7 @@ export default async function FaqPage({ params }: PageProps) {
                     {t(`items.${key}.question`)}
                     <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
                   </summary>
-                  <p className="mt-3 type-body-sm">
+                  <p className="mt-3 prose-measure type-body-sm">
                     {t(`items.${key}.answer`)}
                   </p>
                 </details>
@@ -120,7 +121,7 @@ export default async function FaqPage({ params }: PageProps) {
                   {t('items.contact.question')}
                   <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
                 </summary>
-                <p className="mt-3 type-body-sm">
+                <p className="mt-3 prose-measure type-body-sm">
                   {t.rich('items.contact.answer', {
                     link: (chunks) => (
                       <Link href={routes.contact()} className="underline underline-offset-4">
@@ -144,7 +145,7 @@ export default async function FaqPage({ params }: PageProps) {
                   {t('items.ownerInterest.question')}
                   <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
                 </summary>
-                <p className="mt-3 type-body-sm">
+                <p className="mt-3 prose-measure type-body-sm">
                   {t.rich('items.ownerInterest.answer', {
                     link: (chunks) => (
                       <Link
@@ -161,6 +162,6 @@ export default async function FaqPage({ params }: PageProps) {
           </FaqSection>
         </div>
       </div>
-    </main>
+    </PageShell>
   )
 }

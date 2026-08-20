@@ -18,6 +18,7 @@ import {
   AboutCardGrid,
 } from "@/components/about/about-card-grid";
 import { buttonVariants } from "@/components/ui/button";
+import { PageShell } from "@/components/ui/page-shell";
 import { getBrandStats, getRecentBrandCount } from "@/lib/services/brands";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import { routes } from "@/lib/routes";
@@ -109,11 +110,11 @@ export default async function AboutPage({ params }: PageProps) {
         />
 
         <section className="bg-surface py-section">
-          <div className="page-gutter mx-auto max-w-6xl">
+          <PageShell measure="page">
             <h2 className="type-page-title text-balance">
               {t("audiences.heading")}
             </h2>
-            <p className="mt-4 max-w-4xl type-body text-pretty">
+            <p className="mt-4 prose-measure type-body text-pretty">
               {t("audiences.intro")}
             </p>
             <AboutCardGrid className="md:grid-cols-2">
@@ -132,7 +133,7 @@ export default async function AboutPage({ params }: PageProps) {
                 />
               </AboutCard>
             </AboutCardGrid>
-          </div>
+          </PageShell>
         </section>
 
         <MissionPillars
@@ -156,11 +157,11 @@ export default async function AboutPage({ params }: PageProps) {
         />
 
         <section className="bg-surface py-section">
-          <div className="page-gutter mx-auto max-w-6xl">
+          <PageShell measure="page">
             <h2 className="type-page-title text-balance">
               {t("trust.heading")}
             </h2>
-            <p className="mt-4 max-w-4xl type-body text-pretty">
+            <p className="mt-4 prose-measure type-body text-pretty">
               {t("trust.intro")}
             </p>
             <AboutCardGrid className="md:grid-cols-2">
@@ -191,11 +192,11 @@ export default async function AboutPage({ params }: PageProps) {
                 </p>
               </AboutCard>
             </AboutCardGrid>
-          </div>
+          </PageShell>
         </section>
 
         <section id="vision" className="scroll-mt-32 py-section">
-          <div className="page-gutter mx-auto max-w-6xl">
+          <PageShell measure="page">
             <h2 className="type-page-title text-balance">
               {t("vision.sectionHeading")}
             </h2>
@@ -204,7 +205,7 @@ export default async function AboutPage({ params }: PageProps) {
                 <h3 className="type-section text-balance">
                   {t("vision.heading")}
                 </h3>
-                <p className="mt-5 type-body text-pretty">
+                <p className="mt-5 prose-measure type-body text-pretty">
                   {t("vision.body")}
                 </p>
               </div>
@@ -217,7 +218,7 @@ export default async function AboutPage({ params }: PageProps) {
                 </p>
               </AboutCard>
             </div>
-          </div>
+          </PageShell>
         </section>
 
         <TaiwanStats
@@ -245,7 +246,7 @@ export default async function AboutPage({ params }: PageProps) {
             removal made in `about-hero.tsx`, for the same reason: contrast that
             depends on an image nobody re-checks is contrast nobody owns. */}
         <section className="border-t border-rule bg-surface py-section">
-          <div className="mx-auto max-w-6xl page-gutter">
+          <PageShell measure="page">
             <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
               <div>
                 <h2 className="type-page-title text-balance">
@@ -265,7 +266,7 @@ export default async function AboutPage({ params }: PageProps) {
                 </Link>
               </div>
             </div>
-          </div>
+          </PageShell>
         </section>
       </main>
     </>

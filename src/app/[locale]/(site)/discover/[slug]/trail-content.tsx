@@ -42,11 +42,17 @@ export function TrailContent({
         states WHY a group was gathered, once, up front — so they get the
         measure, not a caption treatment.
 
-        The 46rem cap is on PROSE only. The product grid inside each section
-        spans the full container, so a paragraph and a three-up row of objects
-        do not have to share one width.
+        NO READING WIDTH IS SPELLED HERE. It comes from the shared MDX map
+        (`createStoryComponentMap`), which puts `prose-measure` on `p`, the
+        lists and `blockquote` — prose only, so the product grid inside each
+        section still spans the full container and a paragraph never has to
+        share a width with a three-up row of objects. The two arbitrary 46rem
+        paragraph rules that used to sit here were child selectors, so they
+        compiled to a higher specificity than the map's own single class,
+        silently outranked it, and held trail prose 32px narrower than every
+        other reading column on the site.
       */}
-      <div className="[&>p]:max-w-[46rem] [&>section>p]:max-w-[46rem] [&>section>p]:md:pl-16 [&>section]:scroll-mt-24">
+      <div className="[&>section>p]:md:pl-16 [&>section]:scroll-mt-24">
         <MDXRemote
           source={source}
           options={{ blockJS: false, blockDangerousJS: true }}

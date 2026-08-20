@@ -1,6 +1,15 @@
+import { PageShell } from '@/components/ui/page-shell'
+
 export default function DashboardLoading() {
   return (
-    <div className="grid page-measure gap-gutter lg:grid-cols-[400px_minmax(0,1fr)] animate-pulse">
+    // `gutter="none"`: the dashboard layout's `<main>` has already inset this,
+    // and a second gutter here would inset the skeleton twice — so it would
+    // sit narrower than the page it stands in for.
+    <PageShell
+      measure="page"
+      gutter="none"
+      className="grid gap-gutter lg:grid-cols-[400px_minmax(0,1fr)] animate-pulse"
+    >
       <div className="w-full lg:w-[400px]">
         <div className="h-64 w-full rounded-[3px] bg-surface-deep lg:w-[400px]" />
       </div>
@@ -18,7 +27,7 @@ export default function DashboardLoading() {
             <div className="h-10 w-20 rounded-[8px] bg-surface-deep" />
           </div>
 
-          <div className="max-w-3xl space-y-2">
+          <div className="prose-measure space-y-2">
             <div className="h-4 w-full rounded bg-surface-deep" />
             <div className="h-4 w-11/12 rounded bg-surface-deep" />
             <div className="h-4 w-2/3 rounded bg-surface-deep" />
@@ -45,6 +54,6 @@ export default function DashboardLoading() {
           </div>
         </div>
       </div>
-    </div>
+    </PageShell>
   )
 }

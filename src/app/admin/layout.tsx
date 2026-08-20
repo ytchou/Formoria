@@ -6,6 +6,7 @@ import { RootDocument } from "@/components/shared/root-document";
 import { createClient } from "@/lib/supabase/server";
 import { isActingAsAdmin } from "@/lib/auth/admin-mode";
 import { AdminNav } from "@/components/admin/admin-nav";
+import { PageShell } from "@/components/ui/page-shell";
 import type { NavItem } from "@/components/admin/admin-nav";
 import { getAdminNavCounts } from "@/lib/services/admin-operations";
 import { isOwnerFeaturesEnabled } from "@/lib/services/app-settings";
@@ -89,11 +90,19 @@ export default async function AdminLayout({
     >
       <NextIntlClientProvider locale="en" messages={messages}>
         <div className="min-h-screen bg-ground">
-          <main id="main-content" className="page-gutter mx-auto max-w-screen-2xl py-stack">
+          {/* Admin is on the same three measures as the public site. The
+            screen-scale cap this replaces was 96rem — a fourth width, picked
+            once and never named, 4rem off the measure it meant. */}
+          <PageShell
+            as="main"
+            id="main-content"
+            measure="page"
+            className="py-stack"
+          >
             <h1 className="type-label">{t("title")}</h1>
             <AdminNav items={navItems} />
             <div className="mt-8">{children}</div>
-          </main>
+          </PageShell>
         </div>
       </NextIntlClientProvider>
     </RootDocument>

@@ -3,6 +3,7 @@ import { setRequestLocale } from 'next-intl/server'
 import { redirect } from 'next/navigation'
 import { DashboardHeroCard } from '@/components/dashboard/dashboard-hero-card'
 import { DashboardTabNav } from '@/components/dashboard/dashboard-tab-nav'
+import { PageShell } from '@/components/ui/page-shell'
 import { localizePath, signInHref } from '@/i18n/locale-preference'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import { computeProfileCompleteness } from '@/lib/services/profile-completeness'
@@ -35,11 +36,17 @@ export default async function DashboardBrandLayout({
 
   return (
     <div className="min-h-screen">
-      <div className="page-gutter mx-auto page-measure">
+      {/* Both take `gutter="none"`. Neither nests inside the other, but both
+        render inside `dashboard/layout.tsx`'s `<main>`, which is already on
+        the measure and already gutter'd — the two hand-written gutters here
+        were insetting the whole brand dashboard a second time. */}
+      <PageShell measure="page" gutter="none">
         <DashboardHeroCard brand={brand} completeness={completeness} />
         <DashboardTabNav brandSlug={brand.slug} />
-      </div>
-      <main className="page-gutter mx-auto page-measure py-stack">{children}</main>
+      </PageShell>
+      <PageShell as="main" measure="page" gutter="none" className="py-stack">
+        {children}
+      </PageShell>
     </div>
   )
 }

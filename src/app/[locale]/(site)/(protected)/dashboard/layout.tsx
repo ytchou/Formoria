@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
 import { resolveDashboardBrand } from '@/lib/services/resolve-dashboard-brand'
 import { DashboardEmptyState } from '@/components/dashboard/dashboard-empty-state'
+import { PageShell } from '@/components/ui/page-shell'
 
 type DashboardLayoutProps = {
   children: ReactNode
@@ -45,9 +46,12 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-ground">
-      <main className="page-gutter mx-auto page-measure py-stack">
+      {/* THE ONLY GUTTER IN THE DASHBOARD TREE. Everything below — the brand
+        layout's two containers, the loading skeleton — renders inside this
+        element, so each of them takes `gutter="none"`. */}
+      <PageShell as="main" measure="page" className="py-stack">
         <div className="space-y-stack">{children}</div>
-      </main>
+      </PageShell>
     </div>
   )
 }

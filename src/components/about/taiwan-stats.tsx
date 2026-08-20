@@ -1,3 +1,5 @@
+import { PageShell } from '@/components/ui/page-shell'
+
 import {
   AboutCard,
   AboutCardContent,
@@ -26,10 +28,10 @@ export default function TaiwanStats({
 }: TaiwanStatsProps) {
   return (
     <section className="py-section">
-      <div className="page-gutter mx-auto max-w-6xl">
+      <PageShell measure="page">
         <div>
           <h2 className="type-page-title text-balance">{heading}</h2>
-          <p className="mt-4 type-body text-pretty">{intro}</p>
+          <p className="mt-4 prose-measure type-body text-pretty">{intro}</p>
         </div>
         <AboutCardGrid>
           {items.map((item) => (
@@ -49,7 +51,7 @@ export default function TaiwanStats({
             {sourceName}
           </a>
         </p>
-      </div>
+      </PageShell>
     </section>
   )
 }

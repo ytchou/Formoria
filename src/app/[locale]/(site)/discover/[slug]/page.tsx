@@ -19,6 +19,7 @@ import {
   EditorialHero,
   editorialHeroSrc,
 } from "@/components/ui/editorial-hero";
+import { PageShell } from "@/components/ui/page-shell";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import {
@@ -308,7 +309,7 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
           a rule rather than with a box around the title.
         */}
         <header className="border-b border-rule bg-surface">
-          <div className="page-gutter mx-auto box-border w-full page-measure pt-8 pb-10 md:pt-12 md:pb-14">
+          <PageShell measure="page" className="pt-8 pb-10 md:pt-12 md:pb-14">
             <Breadcrumb
               ariaLabel={t("breadcrumbAria")}
               items={[
@@ -329,7 +330,7 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
               className="mb-10"
             />
             <div className="grid gap-10 md:grid-cols-[minmax(0,1fr)_minmax(15rem,20rem)] md:gap-16">
-              <div className="max-w-[46rem] space-y-4">
+              <div className="prose-measure space-y-4">
                 <h1 className="type-page-title">{frontmatter.title}</h1>
                 {frontmatter.description ? (
                   <p className="type-body text-ink-soft">{frontmatter.description}</p>
@@ -359,9 +360,9 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
                 ) : null}
               </dl>
             </div>
-          </div>
+          </PageShell>
         </header>
-        <div className="page-gutter mx-auto box-border w-full page-measure">
+        <PageShell measure="page">
           {sections.length >= 2 ? (
             <BrandSectionNav
               sections={sections}
@@ -380,7 +381,7 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
             />
           </div>
           {frontmatter.faq.length > 0 ? (
-            <div className="mt-section max-w-[46rem]">
+            <div className="mt-section prose-measure">
               <FaqBlock questions={frontmatter.faq} />
             </div>
           ) : null}
@@ -417,7 +418,7 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
               {relatedTrailLinks(t("relatedTrails"), frontmatter.relatedTrails)}
             </div>
           </div>
-        </div>
+        </PageShell>
       </article>
     </main>
   );

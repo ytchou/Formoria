@@ -78,12 +78,15 @@ function parseTokens(css) {
 /**
  * THE SAME CONTRACT, FOR THE THREE PAGE MEASURES.
  *
- * Kept as its own map rather than folded into ROLES, for two reasons. The
- * measures are `@utility` rules, not `--custom-properties`, so `parseTokens`
- * cannot see them at all. And `:root` separately declares a property literally
- * named `--page-measure` holding a DIFFERENT value — the footer's overridable
- * default — so one map covering both would quietly match the wrong declaration
- * and document a width the utility does not ship.
+ * Kept as its own map rather than folded into ROLES because the measures are
+ * `@utility` rules, not `--custom-properties`, so `parseTokens` cannot see them
+ * at all.
+ *
+ * All three are now bare rem literals, so every entry binds to the same hard
+ * assertion and there is no accepted non-literal. `page-measure` briefly
+ * resolved through an overridable `--page-measure` so the footer could follow
+ * the page above it; that property is gone, and a `var()` here would again be
+ * an override seam this contract could not price in px.
  *
  * `px` names the key in `MEASURE_PX` that must agree with the rem literal. The
  * two copies exist because `next/image` `sizes` hints are static strings and
@@ -94,15 +97,6 @@ const MEASURES = {
   "page-measure": {
     px: "page",
     role: "discovery and chrome: directory, landing, header, footer",
-    /**
-     * PENDING, and only this exact string. `page-measure` still resolves
-     * through the footer's overridable `--page-measure`; it becomes the 100rem
-     * literal when the call sites are converted. Any other non-literal — a
-     * different `var()`, a `min()`, a wrong number — fails now. When the
-     * literal lands, the rem branch below binds on its own and this line is
-     * deleted with no other change to the script.
-     */
-    pending: "var(--page-measure)",
   },
   "form-measure": {
     px: "form",
@@ -171,10 +165,10 @@ function checkMeasures(declared, px) {
 
     const got = remToPx(value);
     if (got === null) {
-      if (value === spec.pending) continue; // the one documented interim state
+      // No accepted non-literal is left: the contract above retired the last
+      // one, so anything that is not a bare rem is a failure outright.
       problems.push(
-        `${name}: declared \`${value}\`, which is not a rem literal` +
-          (spec.pending ? ` and not the accepted interim \`${spec.pending}\`` : ""),
+        `${name}: declared \`${value}\`, which is not a rem literal`,
       );
       continue;
     }
@@ -228,9 +222,9 @@ function render(tokens, measures) {
     lines.push("");
   }
 
-  // Its own table because it is its own contract, and because a row named
-  // `--page-measure` sitting in the colour table above would be a different
-  // declaration with a different value.
+  // Its own table because it is its own contract: these are `@utility` rules
+  // with a px counterpart to agree with, not entries in the colour table's
+  // custom-property ramp.
   if (measures.size) {
     lines.push(
       "### Measure",
@@ -241,9 +235,9 @@ function render(tokens, measures) {
     for (const [name, spec] of Object.entries(MEASURES)) {
       const value = measures.get(name);
       if (value === undefined) continue;
-      // px derived from the CSS, NEVER from MEASURE_PX. A measure still holding
-      // its interim `var()` must not be documented at a number it has not
-      // adopted — that is the exact failure this file was written to end.
+      // px derived from the CSS, NEVER from MEASURE_PX. A measure that is not
+      // a rem literal must not be documented at a number it has not adopted —
+      // that is the exact failure this file was written to end.
       const px = remToPx(value);
       lines.push(
         `| \`${name}\` | \`${value}\` | ${px === null ? "—" : `${px}px`} | ${spec.role} |`,
