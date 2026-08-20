@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { MailCheck, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -34,6 +35,7 @@ export function NewsletterSubscribersList({
 }: {
   subscribers: AdminNewsletterSubscriber[];
 }) {
+  const t = useTranslations("admin.newsletter");
   const [unsubscribeId, setUnsubscribeId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -71,12 +73,12 @@ export function NewsletterSubscribersList({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Subscriber</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Interests</TableHead>
-              <TableHead>Locale</TableHead>
-              <TableHead>Subscribed</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>{t("table.subscriber")}</TableHead>
+              <TableHead>{t("table.status")}</TableHead>
+              <TableHead>{t("table.interests")}</TableHead>
+              <TableHead>{t("table.locale")}</TableHead>
+              <TableHead>{t("table.subscribed")}</TableHead>
+              <TableHead>{t("table.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -86,7 +88,7 @@ export function NewsletterSubscribersList({
                   colSpan={6}
                   className="py-8 text-center text-ink-muted"
                 >
-                  No subscribers match these filters.
+                  {t("empty")}
                 </TableCell>
               </TableRow>
             ) : (
@@ -122,7 +124,7 @@ export function NewsletterSubscribersList({
                           onClick={() => resend(subscriber.id)}
                         >
                           <MailCheck aria-hidden="true" />
-                          Resend confirmation
+                          {t("resendConfirmation")}
                         </Button>
                       ) : null}
                       {subscriber.status !== "unsubscribed" ? (
@@ -133,7 +135,7 @@ export function NewsletterSubscribersList({
                           onClick={() => setUnsubscribeId(subscriber.id)}
                         >
                           <UserMinus aria-hidden="true" />
-                          Unsubscribe
+                          {t("unsubscribe")}
                         </Button>
                       ) : null}
                     </div>
@@ -149,7 +151,7 @@ export function NewsletterSubscribersList({
         onOpenChange={(open) => {
           if (!open) setUnsubscribeId(null);
         }}
-        title="Unsubscribe this address?"
+        title={t("confirmUnsubscribeTitle")}
         description="This immediately opts the subscriber out and rotates their email tokens. Reactivation is not available from admin."
         onConfirm={unsubscribe}
         confirmLabel="Confirm unsubscribe"

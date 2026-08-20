@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import messages from "../../../../messages/en.json";
 
 const actions = vi.hoisted(() => ({
   loadCsv: vi.fn(),
@@ -15,6 +18,16 @@ vi.mock("@/app/admin/scripts/bulk-community-submissions/actions", () => ({
 }));
 
 import { CommunitySubmissionsTable } from "../community-submissions-table";
+
+// The component reads its copy from the `admin.scripts` namespace, which the
+// `/admin` layout supplies through NextIntlClientProvider (DEV-1528).
+function renderTable() {
+  return render(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <CommunitySubmissionsTable />
+    </NextIntlClientProvider>,
+  );
+}
 
 describe("CommunitySubmissionsTable", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -37,7 +50,7 @@ describe("CommunitySubmissionsTable", () => {
         },
       ],
     });
-    render(<CommunitySubmissionsTable />);
+    renderTable();
 
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(
@@ -113,7 +126,7 @@ describe("CommunitySubmissionsTable", () => {
         ],
       }),
     );
-    render(<CommunitySubmissionsTable />);
+    renderTable();
     await uploadCsv(user);
 
     const table = await screen.findByRole("table");
@@ -160,7 +173,7 @@ describe("CommunitySubmissionsTable", () => {
           { id: drafts[0].id, status: "created", submissionId: "submission-1" },
         ],
       }));
-    render(<CommunitySubmissionsTable />);
+    renderTable();
     await uploadCsv(user);
     await user.click(
       await screen.findByRole("button", { name: "Import 1 selected" }),

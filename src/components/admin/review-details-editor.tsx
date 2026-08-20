@@ -897,7 +897,7 @@ function CatalogEditor({
         </Field>
       </div>
       {/*
-        Was a comma-separated free-text field where admins typed 中文. It is now
+        Was a comma-separated free-text field where admins typed Chinese labels by hand. It is now
         the same closed picker the owner wizard and the correction dialog use:
         one vocabulary, one component, and a rejected term is logged instead of
         being typed straight into the column.
@@ -1458,7 +1458,7 @@ function ReputationEditor({
       <Field label={t("details.reputationSources")}>
         <Textarea
           value={sourcesText}
-          placeholder="https://..."
+          placeholder={t("fields.urlPlaceholder")}
           onChange={(event) => {
             setSourcesText(event.target.value);
             sync(textZh, textEn, event.target.value);

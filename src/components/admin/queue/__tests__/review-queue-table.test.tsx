@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
 import { useReviewQueue } from "../use-review-queue";
 import { describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/components/ui/button";
 import type { ReviewBulkAction, ReviewColumn } from "../types";
 import { ReviewQueueTable } from "../review-queue-table";
+import messages from "../../../../../messages/en.json";
 
 type Row = {
   id: string;
@@ -45,16 +47,20 @@ function QueueTableHarness({
     ...(selectionEnabled ? { isSelectable: () => true } : {}),
   });
 
+  // The sr-only column headers come from `admin.queue`, which the admin
+  // layout supplies through NextIntlClientProvider.
   return (
-    <ReviewQueueTable
-      queue={queue}
-      columns={columns}
-      emptyMessage="No reviews"
-      getRowName={(item) => item.name}
-      bulkActions={bulkActions}
-      onRowActivate={onRowActivate}
-      rowActions={rowActions}
-    />
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <ReviewQueueTable
+        queue={queue}
+        columns={columns}
+        emptyMessage="No reviews"
+        getRowName={(item) => item.name}
+        bulkActions={bulkActions}
+        onRowActivate={onRowActivate}
+        rowActions={rowActions}
+      />
+    </NextIntlClientProvider>
   );
 }
 

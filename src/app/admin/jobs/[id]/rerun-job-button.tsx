@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { rerunCurationJobAction } from "@/app/admin/operations/actions";
@@ -17,6 +18,7 @@ export function RerunJobButton({
 }) {
   const [isPending, setIsPending] = useState(false);
   const router = useRouter();
+  const t = useTranslations("admin.jobs");
 
   async function handleRerun() {
     setIsPending(true);
@@ -44,7 +46,7 @@ export function RerunJobButton({
       className={inkActionClassName}
     >
       <RotateCcw aria-hidden="true" />
-      {isPending ? "Queuing…" : label}
+      {isPending ? t("actions.queuing") : label}
     </Button>
   );
 }
