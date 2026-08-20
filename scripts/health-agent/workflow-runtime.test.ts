@@ -3736,3 +3736,162 @@ describe("link collection audit trail", () => {
     await rm(dir, { force: true, recursive: true });
   });
 });
+
+describe("collect-trail-supply", () => {
+  const input = {
+    mode: "live",
+    outputPath: "trail-supply.json",
+    runAt: now,
+  };
+  const env = {
+    FORMORIA_RAILWAY_URL: "https://app.example",
+    ORIGIN_SECRET: "origin-secret-value",
+  };
+
+  function trailSupplyFiles() {
+    const contents = new Map<string, string>();
+    return {
+      contents,
+      files: {
+        read: async (path: string) => contents.get(path) ?? "",
+        write: async (path: string, value: string) => {
+          contents.set(path, value);
+        },
+      },
+    };
+  }
+
+  const summary = {
+    emptySections: [
+      {
+        sectionKey: "tableware",
+        sectionTitle: "Everyday tableware",
+        trailSlug: "autumn-kitchen",
+      },
+    ],
+    orphanedSelections: [
+      {
+        reason: "unknown_trail",
+        sectionKey: "mugs",
+        trailSlug: "retired-trail",
+      },
+    ],
+    readUnavailable: false,
+    selectionsObserved: 9,
+    trailsObserved: 2,
+  };
+
+  it("collect-trail-supply writes its artifact to --output", async () => {
+    const { contents, files } = trailSupplyFiles();
+    const auditRecords: AuditRecord[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>(async () =>
+      Promise.resolve(new Response(JSON.stringify(summary), { status: 200 })),
+    );
+
+    await runWorkflowCommand("collect-trail-supply", input, {
+      auditRecords,
+      env,
+      fetchImplementation,
+      files,
+    });
+
+    const artifact = JSON.parse(
+      contents.get(input.outputPath) ?? "{}",
+    ) as Record<string, unknown>;
+    expect(artifact).toMatchObject({
+      failures: [],
+      routine: "trail-supply",
+      status: "success",
+    });
+    expect(artifact.findings).toHaveLength(2);
+    expect(artifact.snapshot).toMatchObject({
+      selectionsObserved: 9,
+      trailsObserved: 2,
+    });
+
+    // A GET at the endpoint derived from the repo variable the link collector
+    // already uses, carrying the machine-caller credential.
+    expect(String(fetchImplementation.mock.calls[0]?.[0])).toBe(
+      "https://app.example/api/cron/trail-supply",
+    );
+    const init = fetchImplementation.mock.calls[0]?.[1];
+    expect(init?.method).toBe("GET");
+    expect(
+      (init?.headers as Record<string, string> | undefined)?.[
+        "x-origin-verify"
+      ],
+    ).toBe("origin-secret-value");
+
+    const record = auditRecords.find(
+      (entry) => entry.adapter === "trail-supply",
+    );
+    expect(record, "trail-supply audit record must be emitted").toBeDefined();
+    expect(record?.status).toBe("success");
+    // The credential must never reach the audit trail.
+    expect(JSON.stringify(record)).not.toContain("origin-secret-value");
+  });
+
+  it("collect-trail-supply degrades to skipped when the endpoint is unreachable", async () => {
+    const { contents, files } = trailSupplyFiles();
+    const auditRecords: AuditRecord[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>(async () => {
+      throw new TypeError("fetch failed");
+    });
+
+    await expect(
+      runWorkflowCommand("collect-trail-supply", input, {
+        auditRecords,
+        env,
+        fetchImplementation,
+        files,
+      }),
+    ).resolves.toBeDefined();
+
+    const artifact = JSON.parse(
+      contents.get(input.outputPath) ?? "{}",
+    ) as Record<string, unknown>;
+    expect(artifact).toMatchObject({
+      findings: [],
+      routine: "trail-supply",
+      status: "skipped",
+    });
+    expect(artifact.failures).toHaveLength(1);
+    expect(String((artifact.failures as string[])[0])).toContain(
+      "trail_supply_collection_failed",
+    );
+
+    const record = auditRecords.find(
+      (entry) => entry.adapter === "trail-supply",
+    );
+    expect(record?.status).toBe("failure");
+  });
+
+  it("collect-trail-supply degrades to skipped when the endpoint answers non-2xx", async () => {
+    const { contents, files } = trailSupplyFiles();
+    const auditRecords: AuditRecord[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>(async () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+        }),
+      ),
+    );
+
+    await runWorkflowCommand("collect-trail-supply", input, {
+      auditRecords,
+      env,
+      fetchImplementation,
+      files,
+    });
+
+    expect(
+      JSON.parse(contents.get(input.outputPath) ?? "{}"),
+    ).toMatchObject({
+      findings: [],
+      status: "skipped",
+    });
+    expect(
+      auditRecords.find((entry) => entry.adapter === "trail-supply")?.response,
+    ).toMatchObject({ httpStatus: 401 });
+  });
+});

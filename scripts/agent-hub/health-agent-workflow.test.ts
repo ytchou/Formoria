@@ -35,9 +35,23 @@ afterEach(async () => {
 
 type ArtifactStatus = "failed" | "skipped" | "success";
 
+type MergeFinding = { fingerprint: string; source: string; title: string };
+
+type TrailSupplyFixture = {
+  findings?: readonly MergeFinding[];
+  status: ArtifactStatus;
+} | null;
+
+interface ProductMergeOptions {
+  directoryFindings?: readonly MergeFinding[];
+  /** `null` omits trail-supply.json entirely, so the merge fails closed. */
+  trailSupply?: TrailSupplyFixture;
+}
+
 async function runProductMerge(
   directoryStatus: ArtifactStatus,
   brandStatus?: ArtifactStatus,
+  options: ProductMergeOptions = {},
 ): Promise<Record<string, unknown>> {
   const artifactRoot = await mkdtemp(
     path.join(tmpdir(), "formoria-product-merge-"),
@@ -58,11 +72,15 @@ async function runProductMerge(
     throw new Error("product merge command is missing from workflow");
   }
 
-  const artifact = (routine: string, status: ArtifactStatus) => ({
+  const artifact = (
+    routine: string,
+    status: ArtifactStatus,
+    findings: readonly MergeFinding[] = [],
+  ) => ({
     collectedAt: "2026-08-08T10:00:00.000Z",
     evidence: { mode: "preflight" },
     failures: [],
-    findings: [],
+    findings,
     routine,
     skippedActions: status === "skipped" ? [`${routine}_collection`] : [],
     status,
@@ -70,12 +88,37 @@ async function runProductMerge(
   });
   await writeFile(
     path.join(artifactRoot, "directory-health.json"),
-    `${JSON.stringify(artifact("directory-health", directoryStatus))}\n`,
+    `${JSON.stringify(
+      artifact(
+        "directory-health",
+        directoryStatus,
+        options.directoryFindings ?? [],
+      ),
+    )}\n`,
   );
   if (brandStatus) {
     await writeFile(
       path.join(artifactRoot, "brand-review.json"),
       `${JSON.stringify(artifact("brand-review", brandStatus))}\n`,
+    );
+  }
+  // DEV-1520: the merge slurps three artifacts. Every existing case gets a
+  // clean, finding-free trail-supply fixture by default so the third input
+  // never changes what those cases assert.
+  const trailSupply =
+    options.trailSupply === undefined
+      ? { status: "success" as ArtifactStatus }
+      : options.trailSupply;
+  if (trailSupply) {
+    await writeFile(
+      path.join(artifactRoot, "trail-supply.json"),
+      `${JSON.stringify(
+        artifact(
+          "trail-supply",
+          trailSupply.status,
+          trailSupply.findings ?? [],
+        ),
+      )}\n`,
     );
   }
 
@@ -496,6 +539,74 @@ describe("unified health-agent workflow contract", () => {
 
   it("fails closed when the brand review artifact is missing", async () => {
     await expect(runProductMerge("success")).rejects.toThrow();
+  });
+
+  it("merges trail supply findings deduplicated by fingerprint", async () => {
+    // DEV-1520: trail supply is REPORT ONLY, so the only way a finding reaches
+    // a human is by riding the merged directory artifact into Stage 3. The
+    // shared fingerprint proves the union deduplicates rather than double-
+    // ticketing a decayed section the directory arm already reported.
+    const shared = {
+      fingerprint: "directory:trail-empty-section:autumn-kitchen:tableware",
+      source: "directory",
+      title: "Trail section promises a slate it no longer has",
+    };
+    const merged = await runProductMerge("success", "success", {
+      directoryFindings: [shared],
+      trailSupply: {
+        findings: [
+          shared,
+          {
+            fingerprint:
+              "directory:trail-orphaned-selection:retired-trail:mugs",
+            source: "directory",
+            title:
+              "Trail selection points at a trail or section that no longer exists",
+          },
+        ],
+        status: "success",
+      },
+    });
+
+    expect(merged.status).toBe("success");
+    expect(
+      (merged.findings as Array<{ fingerprint: string }>).map(
+        (finding) => finding.fingerprint,
+      ),
+    ).toEqual([
+      "directory:trail-empty-section:autumn-kitchen:tableware",
+      "directory:trail-orphaned-selection:retired-trail:mugs",
+    ]);
+  });
+
+  it("merged status stays success when trail-supply is skipped", async () => {
+    // Dormancy is the expected production state: scheduled runs check out
+    // `main`, which carries no content/trails/. A skipped trail-supply artifact
+    // must not fail the merged directory status, exactly as brand review's
+    // skipped artifact already does not.
+    const merged = await runProductMerge("success", "success", {
+      trailSupply: { status: "skipped" },
+    });
+
+    expect(merged).toMatchObject({
+      failures: [],
+      findings: [],
+      status: "success",
+    });
+  });
+
+  it("fails closed when the trail supply artifact is missing", async () => {
+    await expect(
+      runProductMerge("success", "success", { trailSupply: null }),
+    ).rejects.toThrow();
+  });
+
+  it("fails the merged status when trail supply failed", async () => {
+    const merged = await runProductMerge("success", "success", {
+      trailSupply: { status: "failed" },
+    });
+
+    expect(merged.status).toBe("failed");
   });
 
   it("classifies failed artifact uploads and gates terminal success on both attempts", async () => {

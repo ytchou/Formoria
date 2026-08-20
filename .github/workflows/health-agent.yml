@@ -177,6 +177,20 @@ jobs:
           --run-at "${{ steps.setup.outputs.run_at }}"
           --attempt "$GITHUB_RUN_ATTEMPT" --run-id "$GITHUB_RUN_ID"
           --audit "$HEALTH_ARTIFACT_DIR/brand-audit.json"
+      - name: "Stage 2 · Product health — trail supply"
+        id: trail-supply
+        if: steps.admission.outputs.claimed == 'true'
+        continue-on-error: true
+        env:
+          FORMORIA_RAILWAY_URL: ${{ vars.FORMORIA_RAILWAY_URL }}
+          ORIGIN_SECRET: ${{ secrets.ORIGIN_SECRET }}
+        run: >-
+          pnpm exec tsx scripts/health-agent/workflow-runtime.ts collect-trail-supply
+          --mode "${{ steps.setup.outputs.mode }}"
+          --output "$HEALTH_ARTIFACT_DIR/trail-supply.json"
+          --run-at "${{ steps.setup.outputs.run_at }}"
+          --attempt "$GITHUB_RUN_ATTEMPT" --run-id "$GITHUB_RUN_ID"
+          --audit "$HEALTH_ARTIFACT_DIR/trail-supply-audit.json"
       - name: "Stage 2 · Product health — cron health"
         id: cron
         if: steps.admission.outputs.claimed == 'true'
@@ -319,12 +333,12 @@ jobs:
         if: always() && steps.admission.outputs.claimed == 'true'
         continue-on-error: true
         run: |
-          jq -s '.[0] as $directory | .[1] as $brand |
+          jq -s '.[0] as $directory | .[1] as $brand | .[2] as $trail |
             $directory + {
-              findings: ([$directory.findings[], $brand.findings[]] | unique_by(.fingerprint)),
-              failures: ([$directory.failures[], $brand.failures[]] | unique),
-              status: (if $directory.status == "success" and ($brand.status == "success" or $brand.status == "skipped") then "success" else "failed" end)
-            }' "$HEALTH_ARTIFACT_DIR/directory-health.json" "$HEALTH_ARTIFACT_DIR/brand-review.json" > "$HEALTH_ARTIFACT_DIR/product-health.json"
+              findings: ([$directory.findings[], $brand.findings[], $trail.findings[]] | unique_by(.fingerprint)),
+              failures: ([$directory.failures[], $brand.failures[], $trail.failures[]] | unique),
+              status: (if $directory.status == "success" and ($brand.status == "success" or $brand.status == "skipped") and ($trail.status == "success" or $trail.status == "skipped") then "success" else "failed" end)
+            }' "$HEALTH_ARTIFACT_DIR/directory-health.json" "$HEALTH_ARTIFACT_DIR/brand-review.json" "$HEALTH_ARTIFACT_DIR/trail-supply.json" > "$HEALTH_ARTIFACT_DIR/product-health.json"
           mv "$HEALTH_ARTIFACT_DIR/product-health.json" "$HEALTH_ARTIFACT_DIR/directory-health.json"
       - name: "Stage 3 · Consolidate — validate, deduplicate, Linear"
         id: aggregate
