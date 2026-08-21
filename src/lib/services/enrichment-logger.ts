@@ -1,4 +1,4 @@
-export const ENRICH_PREFIX = '[ENRICH]'
+const ENRICH_PREFIX = '[ENRICH]'
 
 export const SEPARATOR = `${ENRICH_PREFIX} ════════════════════════════════════════`
 

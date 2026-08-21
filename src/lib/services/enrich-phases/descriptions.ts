@@ -91,7 +91,7 @@ type DescriptionsPhaseOutput = {
  * `subcategories_en` inside the database too, and one resolver is the only way
  * those three agree.
  */
-export async function canonicalizeSubcategorySlugs(
+async function canonicalizeSubcategorySlugs(
   client: ReturnType<typeof createServiceClient>,
   subcategories: string[],
   subcategoriesEn: string[],

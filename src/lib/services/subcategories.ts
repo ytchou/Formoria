@@ -5,7 +5,7 @@ import {
   type L2Subcategory,
 } from '@/lib/taxonomy/ontology'
 
-export type RejectedSubcategoryReason = 'unknown-term' | 'empty'
+type RejectedSubcategoryReason = 'unknown-term' | 'empty'
 
 export type NormalizeSubcategoriesResult = {
   /** Stored representation: ontology slugs (DEV-1510). */

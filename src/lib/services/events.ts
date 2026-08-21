@@ -892,7 +892,7 @@ export async function fetchEventExhibitors(
  * batched query. `event_exhibitor_id` is nullable on legacy rows, and the
  * inner brand embed intentionally omits links whose brand has no slug.
  */
-export async function fetchEventExhibitorBrandSlugs(
+async function fetchEventExhibitorBrandSlugs(
   supabase: ServiceClient,
   exhibitorIds: string[],
 ): Promise<Map<string, string>> {

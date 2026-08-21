@@ -105,4 +105,3 @@ function Button({
 }
 
 export { BUTTON_VARIANTS, Button, buttonVariants }
-export type { ButtonVariant }
