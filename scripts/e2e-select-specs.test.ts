@@ -205,7 +205,18 @@ describe("selective E2E workflow project routing", () => {
       "utf8",
     );
     expect(workflow).toContain("branches: [main]");
-    expect(workflow).toContain("github.event.pull_request.head.ref == 'staging'");
+    // DEV-1536 removed the job-level head-ref condition on purpose: a job that
+    // skips itself reports SUCCESS to a required check, so an unrecognised head
+    // reached production through a green tick (PR #808). The head is now
+    // validated inside a step, where a wrong one is a FAILURE. Assert that
+    // shape, and assert the old one is gone.
+    expect(workflow).toContain(
+      "RELEASE_HEAD_REF: ${{ github.event.pull_request.head.ref }}",
+    );
+    expect(workflow).toContain('if [[ "$RELEASE_HEAD_REF" != "staging" ]]; then');
+    expect(workflow).not.toContain(
+      "github.event.pull_request.head.ref == 'staging'",
+    );
     expect(workflow).toContain("--project=mobile");
     expect(workflow).toContain("X-Formoria-Revision");
     expect(workflow).not.toContain("Formoria / production");

@@ -131,7 +131,15 @@ describe("staging E2E release and self-heal contract", () => {
     expect(manual).toContain("workflow_dispatch");
     expect(release).toContain("pull_request:");
     expect(release).toContain("branches: [main]");
-    expect(release).toContain("github.event.pull_request.head.ref == 'staging'");
+    // DEV-1536: the head is validated in a step that exits 1, not in a
+    // job-level `if` that would skip and report SUCCESS to a required check.
+    expect(release).toContain(
+      "RELEASE_HEAD_REF: ${{ github.event.pull_request.head.ref }}",
+    );
+    expect(release).toContain('if [[ "$RELEASE_HEAD_REF" != "staging" ]]; then');
+    expect(release).not.toContain(
+      "github.event.pull_request.head.ref == 'staging'",
+    );
     expect(release).toContain("github.event.pull_request.head.sha");
     expect(release).toContain("git ls-remote");
     expect(release).toContain("X-Formoria-Revision");
