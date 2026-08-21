@@ -69,7 +69,16 @@ export default defineConfig({
   },
   use: {
     baseURL,
-    extraHTTPHeaders: isLocalTarget ? undefined : remoteHeaders,
+    // `use.locale` below only reaches BROWSER contexts. The `request` fixture is
+    // an APIRequestContext and inherits none of it, so it sends no
+    // Accept-Language at all. proxy.ts:721 then infers the locale from
+    // cf-ipcountry and 307s every public path to /en/..., which is invisible
+    // from Taiwan and unavoidable from a US-hosted runner. Declared here rather
+    // than in remoteHeaders so a local run outside Taiwan behaves the same.
+    extraHTTPHeaders: {
+      "Accept-Language": "zh-TW",
+      ...(isLocalTarget ? {} : remoteHeaders),
+    },
     // Not 'on-first-retry': with retries=1 a fail-then-pass keeps only the
     // passing attempt's trace, which is how flakes became unfixable after
     // the fact. Retain the attempt that actually failed.
