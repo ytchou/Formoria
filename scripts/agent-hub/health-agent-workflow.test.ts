@@ -613,6 +613,34 @@ describe("unified health-agent workflow contract", () => {
     );
   });
 
+  it("uses Turso-only Agent Hub delivery while retaining rollback credentials", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+    const setup = workflow.slice(
+      workflow.indexOf("id: setup"),
+      workflow.indexOf("id: admission"),
+    );
+    const finalReport = workflow.slice(
+      workflow.indexOf("id: final-report"),
+      workflow.indexOf("id: duplicate-terminal"),
+    );
+
+    for (const section of [setup, finalReport]) {
+      expect(section).toContain("AGENT_HUB_DELIVERY_MODE: turso");
+      expect(section).toContain(
+        "AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}",
+      );
+      expect(section).toContain(
+        "AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}",
+      );
+      expect(section).toContain(
+        "AGENT_HUB_TURSO_DATABASE_URL: ${{ secrets.AGENT_HUB_TURSO_DATABASE_URL }}",
+      );
+      expect(section).toContain(
+        "AGENT_HUB_TURSO_AUTH_TOKEN: ${{ secrets.AGENT_HUB_TURSO_AUTH_TOKEN }}",
+      );
+    }
+  });
+
   it("removes every superseded control-plane file", async () => {
     for (const path of retiredPaths) {
       await expect(access(path)).rejects.toThrow();
