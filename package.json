@@ -9,7 +9,7 @@
     "build": "next build && node scripts/check-brand-prerender-budget.mjs",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "lint": "pnpm check:design-tokens && pnpm check:category-redirects && pnpm check:zh-terms && eslint && pnpm check:frontend-tokens && pnpm check:test-boundaries && pnpm check:audited-calls && pnpm check:storage-transforms && pnpm check:test-brand-filter && pnpm check:e2e-timeouts && pnpm check:service-registry && pnpm check:photo-bands",
+    "lint": "pnpm check:design-tokens && pnpm check:category-redirects && pnpm check:zh-terms && pnpm check:photo-bands && eslint && pnpm check:frontend-tokens && pnpm check:test-boundaries && pnpm check:audited-calls && pnpm check:storage-transforms && pnpm check:test-brand-filter && pnpm check:e2e-timeouts && pnpm check:service-registry",
     "check:favicon": "node scripts/check-favicon-rgba.mjs",
     "test": "vitest run",
     "test:watch": "vitest",

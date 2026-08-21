@@ -1,6 +1,6 @@
 import { once } from "node:events";
 import { createWriteStream } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -58,6 +58,20 @@ import { artifactPath } from "./shared/artifact";
  * is also greppable, and a crash mid-run leaves a partial artifact instead of
  * none.
  *
+ * DEV-1547: the report is also the APPLY MANIFEST. A run has exactly two
+ * modes, and neither of them writes anything the reviewer did not mark:
+ *
+ *   `--dry-run`               scan every table, write the report, write nothing
+ *                             to the database;
+ *   `--apply <report.ndjson>` replay the patch lines the reviewer marked
+ *                             `"approve": true`, verbatim, after checking each
+ *                             row still holds the text they reviewed.
+ *
+ * The apply-everything-it-computed mode this script used to have is gone: the
+ * first production dry run proposed 15 patches of which 5 were right, and
+ * all-or-none is not a decision a reviewer can make. See the apply section
+ * below for why the manifest is replayed rather than recomputed.
+ *
  * Run: `pnpm backfill:tw -- --dry-run` (staging by construction; see the
  * package script's `--env-file`).
  */
@@ -71,9 +85,27 @@ export const PAGE_SIZE = 500;
 /** Only `from` is used, so a test double is a legitimate client here. */
 export type BackfillSupabase = Pick<SupabaseClient, "from">;
 
-export type CliOptions = {
-  dryRun: boolean;
-};
+/**
+ * The two things this script can be asked to do.
+ *
+ * There is no third mode, and in particular no "apply everything it finds":
+ * that mode existed until DEV-1547 E1 and is what made the first production run
+ * unusable — 15 patches were proposed, 5 were right, and the CLI could only
+ * take all 15 or none. A write now happens ONLY by replaying an approved
+ * manifest, so the set of rows a run touches is a file a human edited.
+ */
+export type CliOptions =
+  { mode: "dry-run" } | { mode: "apply"; manifestPath: string };
+
+/**
+ * How a report entry's `before` / `after` map back onto the column.
+ *
+ * `text` is a text column, replayed verbatim. `json` is a jsonb column, whose
+ * only textual form is `JSON.stringify` — carried on the entry so the apply
+ * pass knows to parse `after` back into an object instead of writing the
+ * stringified form into jsonb as a string.
+ */
+export type ValueEncoding = "text" | "json";
 
 export type BrandRow = {
   id: string;
@@ -159,8 +191,21 @@ export type DryRunEntry = {
   field: string;
   before: string;
   after: string;
+  /** Whether `before` / `after` are the column's text, or stringified jsonb. */
+  encoding: ValueEncoding;
   /** The banned terms that fired IN THIS FIELD, with per-occurrence counts. */
   terms: TermCount[];
+  /**
+   * The reviewer's decision, and the ONLY thing that makes this patch eligible
+   * to be written. Absent when the report is produced: a dry run approves
+   * nothing, so an unedited manifest applies nothing.
+   *
+   * Opt-in rather than delete-the-lines-you-reject, so the artifact the
+   * reviewer approved still records what they turned down. Any value other than
+   * `true` or absent is rejected by `parseManifest` rather than read as "no" —
+   * a typo must not silently drop a patch the reviewer meant to apply.
+   */
+  approve?: boolean;
 };
 
 /**
@@ -208,15 +253,16 @@ export type DryRunSummary = {
 
 export type DryRunLine = DryRunHeader | DryRunPatchLine | DryRunSummary;
 
-/** What a dry run reports beyond the row count. */
-export type DryRunDetail = {
-  terms: TermCount[];
-};
-
+/**
+ * What one table's scan found. `updated` is the number of ROWS that would be
+ * rewritten; `terms` are the banned terms behind them, merged per term.
+ *
+ * There is no mode flag on this any more: a scan never writes, so there is no
+ * second shape it can return.
+ */
 export type BackfillCounts = {
   updated: number;
-  /** Present only on `--dry-run`; a real run keeps its concise output. */
-  dryRun?: DryRunDetail;
+  terms: TermCount[];
 };
 
 /**
@@ -269,8 +315,32 @@ function createServiceClient(): BackfillSupabase {
   return createSupabaseClient(url, serviceRoleKey);
 }
 
-function parseArgs(argv: string[]): CliOptions {
-  return { dryRun: argv.includes("--dry-run") };
+/**
+ * `--dry-run` or `--apply <manifest.ndjson>`, and never both or neither.
+ *
+ * A bare invocation is an ERROR rather than a default, in either direction: a
+ * default of dry-run would make `--apply` look optional, and a default of apply
+ * is the DEV-1547 E1 defect itself. The operator states which one they mean.
+ */
+export function parseArgs(argv: string[]): CliOptions {
+  const dryRun = argv.includes("--dry-run");
+  const applyIndex = argv.indexOf("--apply");
+  const manifestPath = applyIndex >= 0 ? argv[applyIndex + 1] : undefined;
+
+  if (dryRun && applyIndex >= 0) {
+    throw new Error("Pass either --dry-run or --apply <manifest>, not both");
+  }
+  if (applyIndex >= 0) {
+    if (!manifestPath || manifestPath.startsWith("--")) {
+      throw new Error("--apply needs the path of a reviewed dry-run report");
+    }
+    return { mode: "apply", manifestPath };
+  }
+  if (dryRun) return { mode: "dry-run" };
+
+  throw new Error(
+    "Nothing to do. Run --dry-run first, approve patches in the report, then --apply <report>",
+  );
 }
 
 /** Sum `counts` into `into`, merging on the term. */
@@ -580,15 +650,16 @@ async function recordDryRun(
       field,
       before: toText(row[field]),
       after: toText(after),
+      // Taken from the value the patch would WRITE, which is the value the
+      // apply pass has to reconstruct from this line.
+      encoding: typeof after === "string" ? "text" : "json",
       terms,
     });
   }
 }
 
-function finishDryRun(accumulator: DryRunAccumulator): DryRunDetail {
-  return {
-    terms: [...accumulator.terms.values()].sort((a, b) => b.count - a.count),
-  };
+function sortedTerms(accumulator: DryRunAccumulator): TermCount[] {
+  return [...accumulator.terms.values()].sort((a, b) => b.count - a.count);
 }
 
 /** The per-table shape a generic backfill needs. */
@@ -646,18 +717,20 @@ export const ID_TABLES = [
 ] as const;
 
 /**
- * Read → patch → write one `id`-keyed table.
+ * Read → patch → REPORT one `id`-keyed table. This function never writes.
  *
- * `--dry-run` stops before the write: patches are built and reported, never
- * issued. That is a contract, not an optimisation.
+ * The write it used to carry when `--dry-run` was absent applied every patch it
+ * had just computed, which is the DEV-1547 E1 defect: a reviewer who wanted 5
+ * of 15 patches had no way to ask for 5. Writing now happens only in
+ * `applyApproved`, from a manifest a human edited — so "scan" and "write" are
+ * separate functions reading separate inputs, not one function with a flag.
  */
-export async function backfillTable(
+export async function scanTable(
   supabase: BackfillSupabase,
   config: IdTableConfig,
-  options: CliOptions,
   sink: DryRunEntrySink | null = null,
 ): Promise<BackfillCounts> {
-  const accumulator = options.dryRun ? createDryRunAccumulator() : null;
+  const accumulator = createDryRunAccumulator();
   const entrySink = sink ?? NULL_SINK;
   let updated = 0;
 
@@ -673,51 +746,36 @@ export async function backfillTable(
       const patches = config.buildPatches(rows);
       updated += patches.length;
 
-      if (accumulator) {
-        const byId = new Map(rows.map((row) => [String(row.id), row]));
-        for (const { id, patch, terms } of patches) {
-          await recordDryRun(
-            accumulator,
-            entrySink,
-            config.table,
-            { id },
-            byId.get(id) ?? {},
-            patch,
-            terms,
-          );
-        }
-      }
-
-      if (!options.dryRun) {
-        await inBatches(patches, async ({ id, patch }) => {
-          const { error } = await supabase
-            .from(config.table)
-            .update(patch)
-            .eq("id", id);
-          if (error) throw error;
-        });
+      const byId = new Map(rows.map((row) => [String(row.id), row]));
+      for (const { id, patch, terms } of patches) {
+        await recordDryRun(
+          accumulator,
+          entrySink,
+          config.table,
+          { id },
+          byId.get(id) ?? {},
+          patch,
+          terms,
+        );
       }
     },
   );
 
-  return accumulator
-    ? { updated, dryRun: finishDryRun(accumulator) }
-    : { updated };
+  return { updated, terms: sortedTerms(accumulator) };
 }
 
 /**
- * `brand_faq_entries` keeps its own function: its primary key is the composite
+ * `brand_faq_entries` keeps its own scan: its primary key is the composite
  * `(brand_id, preset_id, position)`, so both the page ordering and the update
  * predicate take three columns instead of one. Folding it into the generic
  * `IdTableConfig` would mean parameterising the key everywhere to save four
  * lines here.
  */
-export async function backfillFaq(
+export async function scanFaq(
   supabase: BackfillSupabase,
-  options: CliOptions,
   sink: DryRunEntrySink | null = null,
 ): Promise<BackfillCounts> {
-  const accumulator = options.dryRun ? createDryRunAccumulator() : null;
+  const accumulator = createDryRunAccumulator();
   const entrySink = sink ?? NULL_SINK;
   let updated = 0;
 
@@ -733,50 +791,31 @@ export async function backfillFaq(
       const updates = buildFaqPatches(rows);
       updated += updates.length;
 
-      if (accumulator) {
-        for (const update of updates) {
-          const row = rows.find(
-            (candidate) =>
-              candidate.brand_id === update.brandId &&
-              candidate.preset_id === update.presetId &&
-              candidate.position === update.position,
-          );
-          await recordDryRun(
-            accumulator,
-            entrySink,
-            "brand_faq_entries",
-            {
-              brand_id: update.brandId,
-              preset_id: update.presetId,
-              position: update.position,
-            },
-            (row ?? {}) as unknown as Record<string, unknown>,
-            update.patch,
-            update.terms,
-          );
-        }
-      }
-
-      if (!options.dryRun) {
-        await inBatches(
-          updates,
-          async ({ brandId, presetId, position, patch }) => {
-            const { error } = await supabase
-              .from("brand_faq_entries")
-              .update(patch)
-              .eq("brand_id", brandId)
-              .eq("preset_id", presetId)
-              .eq("position", position);
-            if (error) throw error;
+      for (const update of updates) {
+        const row = rows.find(
+          (candidate) =>
+            candidate.brand_id === update.brandId &&
+            candidate.preset_id === update.presetId &&
+            candidate.position === update.position,
+        );
+        await recordDryRun(
+          accumulator,
+          entrySink,
+          "brand_faq_entries",
+          {
+            brand_id: update.brandId,
+            preset_id: update.presetId,
+            position: update.position,
           },
+          (row ?? {}) as unknown as Record<string, unknown>,
+          update.patch,
+          update.terms,
         );
       }
     },
   );
 
-  return accumulator
-    ? { updated, dryRun: finishDryRun(accumulator) }
-    : { updated };
+  return { updated, terms: sortedTerms(accumulator) };
 }
 
 /**
@@ -834,7 +873,7 @@ export function buildDryRunSummary(
 
   for (const [label, counts] of sections) {
     rowsByTable[label] = counts.updated;
-    addTermCounts(terms, counts.dryRun?.terms ?? []);
+    addTermCounts(terms, counts.terms);
   }
 
   return {
@@ -928,7 +967,7 @@ export async function openDryRunReport(
   filePath?: string,
   now: Date = new Date(),
 ): Promise<DryRunReportWriter | null> {
-  if (!options.dryRun) return null;
+  if (options.mode !== "dry-run") return null;
   return createDryRunReport(
     filePath ?? dryRunReportPath({ projectRef: environment.projectRef, now }),
     environment,
@@ -936,17 +975,399 @@ export async function openDryRunReport(
   );
 }
 
+/**
+ * ------------------------------------------------------------------------
+ * Apply from an approved manifest (DEV-1547 E1 + E2)
+ * ------------------------------------------------------------------------
+ *
+ * The reviewer opens the NDJSON report and, on each `patch` line they accept,
+ * adds `"approve": true`. `--apply <report>` then replays THOSE LINES and
+ * nothing else. That single mechanism answers both escalations:
+ *
+ *   E1 (apply-all-or-none): the applied set is a subset the human chose, and it
+ *   is durable and reviewable — a file they edited and can re-read, diff and
+ *   keep, not an id list retyped into argv.
+ *
+ *   E2 (approved diff not bound to applied diff): the value written is the
+ *   `after` STRING from the manifest, never a value recomputed from today's row
+ *   against today's term list. A prune of the term list, or a formatting fix,
+ *   landing between review and apply therefore cannot change what is written.
+ *
+ * Chosen over the alternative the ticket names — recompute the patch and gate
+ * it on a per-row content hash — because a hash proves the row did not move but
+ * still writes a value nobody read, and it needs a second artifact (the hash
+ * list) kept beside the report anyway. The manifest IS the precondition: it
+ * carries the full `before` text, untruncated, which is strictly stronger than
+ * a digest of it and needs no extra file.
+ *
+ * The precondition is checked in a pass of its own BEFORE the first write, and
+ * any drift fails the whole run: a half-applied manifest is the one outcome a
+ * reviewer cannot reason about afterwards.
+ *
+ * CEILING: verification reads one row per approved row, unpaged and unbatched,
+ * and the gap between that read and the update is not transactional. Both are
+ * sized for a human-approved manifest — tens of rows, and a gap of milliseconds
+ * against a review window of hours. To replay thousands of rows, move the
+ * precondition into the UPDATE itself as an `.eq(column, before)` filter with
+ * `.select()` to count affected rows, which closes the gap entirely; that is
+ * not done here because jsonb equality through PostgREST is untested in this
+ * repo and `brands.reputation_summary` is jsonb.
+ */
+
+/** One approved patch line: what to write, and what must still be there. */
+export type ApprovedEntry = {
+  table: string;
+  key: Record<string, string | number>;
+  field: string;
+  before: string;
+  after: string;
+  encoding: ValueEncoding;
+};
+
+/** What `--apply` was handed, before anything is read from the database. */
+export type ManifestReview = {
+  /** The header line's environment, or `null` if the file carries no header. */
+  environment: SupabaseEnvironment | null;
+  /** Every `patch` line, approved or not — the denominator the operator sees. */
+  totalPatches: number;
+  approved: ApprovedEntry[];
+};
+
+/** A row that no longer matches what the reviewer approved. */
+export type ApplyConflict = {
+  table: string;
+  key: Record<string, string | number>;
+  field: string;
+  reason: "row_missing" | "row_ambiguous" | "value_changed";
+};
+
+export type ApplyResult = {
+  /** Fields written. */
+  applied: number;
+  /** Rows written, per table. */
+  rowsByTable: Record<string, number>;
+};
+
+function manifestError(line: number, detail: string): Error {
+  return new Error(`Manifest line ${line}: ${detail}`);
+}
+
+function readKey(
+  value: unknown,
+  line: number,
+): Record<string, string | number> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw manifestError(line, "patch has no key object");
+  }
+  const key: Record<string, string | number> = {};
+  for (const [column, entry] of Object.entries(value)) {
+    if (typeof entry !== "string" && typeof entry !== "number") {
+      throw manifestError(
+        line,
+        `key column ${column} is neither text nor a number`,
+      );
+    }
+    key[column] = entry;
+  }
+  if (Object.keys(key).length === 0) {
+    throw manifestError(line, "patch key is empty");
+  }
+  return key;
+}
+
+/**
+ * Read a reviewed report.
+ *
+ * Every malformed line THROWS rather than being skipped. A manifest is the
+ * operator's statement of intent about production text; silently ignoring a
+ * line they edited by hand is the failure this mechanism exists to prevent.
+ */
+export function parseManifest(contents: string): ManifestReview {
+  let environment: SupabaseEnvironment | null = null;
+  let totalPatches = 0;
+  const approved: ApprovedEntry[] = [];
+
+  const lines = contents.split("\n");
+  for (let index = 0; index < lines.length; index += 1) {
+    const raw = lines[index]!.trim();
+    if (raw.length === 0) continue;
+    const lineNumber = index + 1;
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw manifestError(lineNumber, "not valid JSON");
+    }
+    if (!parsed || typeof parsed !== "object") {
+      throw manifestError(lineNumber, "not a JSON object");
+    }
+    const line = parsed as Record<string, unknown>;
+
+    if (line.kind === "header") {
+      environment = (line.environment as SupabaseEnvironment) ?? null;
+      continue;
+    }
+    if (line.kind !== "patch") continue;
+
+    totalPatches += 1;
+    // Anything but `true` or absent: the reviewer wrote something the format
+    // does not define, and guessing which way they meant it is not a decision
+    // this script gets to make.
+    if (line.approve !== undefined && line.approve !== true) {
+      throw manifestError(
+        lineNumber,
+        "approve must be true or absent, and nothing else",
+      );
+    }
+    if (line.approve !== true) continue;
+
+    const { table, field, before, after, encoding } = line;
+    if (typeof table !== "string" || table.length === 0) {
+      throw manifestError(lineNumber, "patch has no table");
+    }
+    if (typeof field !== "string" || field.length === 0) {
+      throw manifestError(lineNumber, "patch has no field");
+    }
+    if (typeof before !== "string" || typeof after !== "string") {
+      throw manifestError(lineNumber, "patch before/after must both be text");
+    }
+    if (encoding !== "text" && encoding !== "json") {
+      throw manifestError(lineNumber, "patch encoding must be text or json");
+    }
+
+    approved.push({
+      table,
+      key: readKey(line.key, lineNumber),
+      field,
+      before,
+      after,
+      encoding,
+    });
+  }
+
+  return { environment, totalPatches, approved };
+}
+
+/**
+ * Refuse a manifest produced against a different database.
+ *
+ * Both `.env.local` and `.env.staging` point at staging and production
+ * credentials arrive separately, so this comparison is the only thing standing
+ * between "reviewed on staging" and "applied to production".
+ */
+export function assertSameEnvironment(
+  manifest: SupabaseEnvironment | null,
+  current: SupabaseEnvironment,
+): void {
+  if (!manifest) {
+    throw new Error(
+      "Manifest has no header line, so the database it describes is unknown",
+    );
+  }
+  if (
+    manifest.projectRef !== current.projectRef ||
+    manifest.host !== current.host
+  ) {
+    throw new Error(
+      `Manifest was produced against ${manifest.projectRef} (${manifest.host}), but this run is connected to ${current.projectRef} (${current.host})`,
+    );
+  }
+}
+
+/** The value to write back into the column, decoded per its encoding. */
+function decodeValue(entry: ApprovedEntry): unknown {
+  if (entry.encoding === "text") return entry.after;
+  try {
+    return JSON.parse(entry.after) as unknown;
+  } catch {
+    throw new Error(
+      `Approved patch for ${entry.table}.${entry.field} is not valid JSON`,
+    );
+  }
+}
+
+/**
+ * The keyed single-row read the precondition needs, declared structurally for
+ * the same reason `PagedQuery` is: the test double stays a few lines.
+ */
+type KeyedRead = {
+  eq(column: string, value: string | number): KeyedRead;
+  limit(count: number): PromiseLike<{ data: unknown[] | null; error: unknown }>;
+};
+
+type KeyedUpdate = {
+  eq(column: string, value: string | number): KeyedUpdate;
+  then(
+    resolve: (value: { error: unknown }) => void,
+    reject?: (reason: unknown) => void,
+  ): void;
+};
+
+/** All approved fields of one row, in one group. */
+type ApprovedRow = {
+  table: string;
+  key: Record<string, string | number>;
+  entries: ApprovedEntry[];
+};
+
+function groupByRow(entries: readonly ApprovedEntry[]): ApprovedRow[] {
+  const rows = new Map<string, ApprovedRow>();
+  for (const entry of entries) {
+    // The key object is emitted by this script in a fixed column order, so its
+    // JSON form is a stable identity without a canonicalising sort.
+    const identity = `${entry.table} ${JSON.stringify(entry.key)}`;
+    const existing = rows.get(identity);
+    if (existing) existing.entries.push(entry);
+    else
+      rows.set(identity, {
+        table: entry.table,
+        key: entry.key,
+        entries: [entry],
+      });
+  }
+  return [...rows.values()];
+}
+
+function applyKey<T extends { eq(column: string, value: string | number): T }>(
+  query: T,
+  key: Record<string, string | number>,
+): T {
+  let out = query;
+  for (const [column, value] of Object.entries(key)) {
+    out = out.eq(column, value);
+  }
+  return out;
+}
+
+function conflictOf(entry: ApprovedEntry): Omit<ApplyConflict, "reason"> {
+  return { table: entry.table, key: entry.key, field: entry.field };
+}
+
+function describeConflict(conflict: ApplyConflict): string {
+  const key = Object.entries(conflict.key)
+    .map(([column, value]) => `${column}=${String(value)}`)
+    .join(" ");
+  return `  ${conflict.table}.${conflict.field} [${key}]: ${conflict.reason}`;
+}
+
+/**
+ * Verify every approved row still holds the text that was reviewed, then write.
+ *
+ * Two passes over the whole manifest, in that order: one drifted row aborts the
+ * run before any write, so an apply is all-or-nothing and the operator's next
+ * action is always "re-run the dry run", never "work out how far it got".
+ */
+export async function applyApproved(
+  supabase: BackfillSupabase,
+  entries: readonly ApprovedEntry[],
+): Promise<ApplyResult> {
+  const rows = groupByRow(entries);
+  const conflicts: ApplyConflict[] = [];
+
+  for (const row of rows) {
+    const fields = [...new Set(row.entries.map((entry) => entry.field))];
+    const query = applyKey(
+      supabase
+        .from(row.table)
+        .select(fields.join(", ")) as unknown as KeyedRead,
+      row.key,
+    );
+    // `limit(2)`, not `limit(1)`: a key matching more than one row means the
+    // manifest's key is not the row identity it claims to be, and an update
+    // issued on it would rewrite rows nobody reviewed.
+    const { data, error } = await query.limit(2);
+    if (error) throw error;
+
+    const found = (data ?? []) as Record<string, unknown>[];
+    if (found.length !== 1) {
+      const reason = found.length === 0 ? "row_missing" : "row_ambiguous";
+      for (const entry of row.entries) {
+        conflicts.push({ ...conflictOf(entry), reason });
+      }
+      continue;
+    }
+
+    const current = found[0]!;
+    for (const entry of row.entries) {
+      if (toText(current[entry.field]) !== entry.before) {
+        conflicts.push({ ...conflictOf(entry), reason: "value_changed" });
+      }
+    }
+  }
+
+  if (conflicts.length > 0) {
+    throw new Error(
+      [
+        `${conflicts.length} approved patch(es) no longer match the reviewed text. Nothing was written.`,
+        ...conflicts.map(describeConflict),
+        "Re-run --dry-run and review the current text.",
+      ].join("\n"),
+    );
+  }
+
+  const rowsByTable: Record<string, number> = {};
+  let applied = 0;
+
+  await inBatches(rows, async (row) => {
+    const patch: Record<string, unknown> = {};
+    for (const entry of row.entries) patch[entry.field] = decodeValue(entry);
+
+    const update = applyKey(
+      supabase.from(row.table).update(patch) as unknown as KeyedUpdate,
+      row.key,
+    );
+    const { error } = await update;
+    if (error) throw error;
+
+    rowsByTable[row.table] = (rowsByTable[row.table] ?? 0) + 1;
+    applied += row.entries.length;
+  });
+
+  return { applied, rowsByTable };
+}
+
+/** Read, check, and replay a reviewed manifest. */
+export async function runApply(
+  supabase: BackfillSupabase,
+  environment: SupabaseEnvironment,
+  manifestPath: string,
+): Promise<ApplyResult> {
+  const manifest = parseManifest(await readFile(manifestPath, "utf8"));
+  assertSameEnvironment(manifest.environment, environment);
+
+  if (manifest.approved.length === 0) {
+    throw new Error(
+      `No patch in ${manifestPath} carries "approve": true (${manifest.totalPatches} patches in the file). Nothing to apply.`,
+    );
+  }
+
+  const result = await applyApproved(supabase, manifest.approved);
+  console.log(
+    `Applied ${result.applied} of ${manifest.totalPatches} patches from ${manifestPath}`,
+  );
+  console.log(`Database: ${environment.projectRef} (${environment.host})`);
+  for (const [table, count] of Object.entries(result.rowsByTable)) {
+    console.log(`  ${table}: ${count} rows`);
+  }
+  return result;
+}
+
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const environment = supabaseEnvironment(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const supabase = createServiceClient();
+
+  if (options.mode === "apply") {
+    await runApply(supabase, environment, options.manifestPath);
+    return;
+  }
+
   const report = await openDryRunReport(options, environment);
 
   const [brands, images, products, exhibitors, faq] = await Promise.all([
-    ...ID_TABLES.map((config) =>
-      backfillTable(supabase, config, options, report),
-    ),
-    backfillFaq(supabase, options, report),
+    ...ID_TABLES.map((config) => scanTable(supabase, config, report)),
+    scanFaq(supabase, report),
   ]);
 
   console.log(
@@ -977,7 +1398,10 @@ async function main(): Promise<void> {
     console.log(
       `Full diff (${summary.entryCount} patches, untruncated, one JSON object per line): ${report.path}`,
     );
-    console.log("Review it before running without --dry-run.");
+    console.log(
+      'Review it, add "approve": true to each patch line you accept, then:',
+    );
+    console.log(`  pnpm backfill:tw -- --apply ${report.path}`);
   }
 }
 

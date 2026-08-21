@@ -3,7 +3,7 @@
  */
 import type { ComponentProps, ReactNode } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
-import { scrimBackgroundImage } from "@/lib/design/photo-band-scrims";
+import { scrimClassName } from "@/lib/design/photo-band-scrims";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,13 +12,15 @@ import en from "../../../../messages/en.json";
 import { buildWebSiteJsonLd } from "@/lib/json-ld";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
-// The opener renders no image at all now, but the mock stays: a regression that
-// puts a photograph back would otherwise die inside getImgProps on jsdom's
-// missing loader base URL rather than on the assertion that names the rule.
+// LOAD-BEARING. The opener renders a photograph — the suite below asserts it —
+// and the real `next/image` dies inside `getImgProps` on jsdom's missing loader
+// base URL before any assertion runs. The mock keeps `preload` observable as an
+// attribute, because "this band owns the page's single preload" is a claim two
+// other components' comments depend on.
 vi.mock("next/image", () => ({
-  default: ({ fill: _fill, priority, ...props }: Record<string, unknown>) => (
+  default: ({ fill: _fill, preload, ...props }: Record<string, unknown>) => (
     // eslint-disable-next-line @next/next/no-img-element -- this IS the mock of next/image
-    <img alt="" data-priority={priority ? "true" : "false"} {...props} />
+    <img alt="" data-preload={preload ? "true" : "false"} {...props} />
   ),
 }));
 
@@ -145,24 +147,47 @@ describe("HeroSection — the editorial opener", () => {
     // centred or flat scrim over it either bleaches the photograph (the flat
     // `/85` this shipped with for one afternoon) or shadows one side.
     //
-    // `priority` is asserted, not incidental. Both `landing-zones.tsx` and
-    // `selected-product-tile.tsx` withhold `priority` "because the photograph
-    // in the opener owns the preload". If this assertion is ever deleted,
-    // those two comments become lies again.
+    // `preload` is asserted, not incidental. Both `landing-zones.tsx` and
+    // `selected-product-tile.tsx` withhold it "because the photograph in the
+    // opener owns the preload". If this assertion is ever deleted, those two
+    // comments become lies again.
     const { container } = await renderHero();
 
     const hero = container.querySelector("img");
     expect(hero).not.toBeNull();
     expect(hero).toHaveAttribute("src", expect.stringContaining("home-hero"));
-    expect(hero).toHaveAttribute("data-priority", "true");
+    expect(hero).toHaveAttribute("data-preload", "true");
 
-    const scrim = container.querySelector<HTMLElement>(".absolute.inset-0");
-    expect(scrim?.style.backgroundImage).toBe(scrimBackgroundImage("left"));
+    const scrim = container.querySelector<HTMLElement>(
+      `.${scrimClassName("left")}`,
+    );
+    expect(scrim).not.toBeNull();
+    expect(scrim).toHaveClass("absolute", "inset-0");
 
-    // The heading is not inside the image's box — it is a sibling layer above
-    // the scrim, which is what "background" means here.
+    // THE LAYER ORDER IS THE ASSERTION, and it is asserted structurally
+    // because the obvious version is vacuous: `img.contains(heading)` is false
+    // for every DOM this component could produce — `<img>` is a void element —
+    // so it stayed green through exactly the regressions it was written to
+    // catch, including the 2026-08-17 / DEV-1544 layout that put the
+    // photograph in the flow as a block above the text.
+    //
+    // What "background" means here: one `relative overflow-hidden` section
+    // holding three siblings — the image, the scrim, and the copy shell — with
+    // the scrim BEFORE the shell that holds the heading, so the copy paints on
+    // top of it.
     const heading = screen.getByRole("heading", { level: 1 });
-    expect(hero!.contains(heading)).toBe(false);
+    const band = hero!.parentElement!;
+    expect(band.tagName).toBe("SECTION");
+    expect(band).toHaveClass("relative", "overflow-hidden");
+
+    const shell = heading.closest(".relative");
+    expect(shell).not.toBeNull();
+    expect(shell!.parentElement).toBe(band);
+    expect(scrim!.parentElement).toBe(band);
+
+    const layers = [...band.children];
+    expect(layers.indexOf(hero!)).toBeLessThan(layers.indexOf(scrim!));
+    expect(layers.indexOf(scrim!)).toBeLessThan(layers.indexOf(shell!));
   });
 
   it("keeps the photograph decorative", async () => {

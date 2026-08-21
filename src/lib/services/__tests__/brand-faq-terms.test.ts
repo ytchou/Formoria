@@ -145,16 +145,24 @@ describe("upsertBrandFaqEntries vocabulary report", () => {
 
   /**
    * THE regression test for DEV-1546. Every string here is correct zh-TW that
-   * merely contains a banned substring:
+   * merely contains a banned substring, and the mutating guard rewrote all of
+   * them. A write must return each one untouched, byte for byte:
    *   - 保安 inside a Tainan street name
    *   - 質量 as the physics term (mass), which is valid zh-TW
+   *   - 接口 straddling 直接 and 口頭
    *   - 全局 straddling 安全 and 局
-   * The mutating guard rewrote all three. A write must return them untouched.
+   *   - 外賣 straddling 戶外 and 賣場
+   *   - 當前 straddling 便當 and 前
+   *
+   * Every fixture must still CONTAIN a listed term, or the case is vacuous:
+   * a string with nothing to rewrite passes even if the guard regresses to
+   * mutating. That is what happened to the fixture 人潮密集成長, whose only
+   * banned substring 集成 was pruned from the list in DEV-1547.
    */
   it.each([
     "台南市保安路",
     "質量輕的材料",
-    "人潮密集成長",
+    "直接口頭說明",
     "公共安全局",
     "戶外賣場",
     "便當前的準備",

@@ -3,7 +3,8 @@ import type { ComponentProps, ReactNode } from "react";
 import { SurfaceImage } from "@/components/ui/image";
 import { PageShell } from "@/components/ui/page-shell";
 import {
-  scrimBackgroundImage,
+  scrimClassName,
+  scrimStyleRules,
   type ScrimVariant,
 } from "@/lib/design/photo-band-scrims";
 import { cn } from "@/lib/utils";
@@ -28,11 +29,22 @@ import { cn } from "@/lib/utils";
  * per image; see that module for why.
  *
  * Hand-rolling this construction elsewhere is a lint failure, not a style
- * preference — the same gate scans for a stray `absolute inset-0` scrim over
- * `--ground`. Add a variant there rather than an exception here.
+ * preference — the same gate scans for a full-bleed absolutely positioned
+ * scrim (a translucent background, an arbitrary colour, or a gradient) outside
+ * this file, whether the classes are written inline, through `cn`, or in a
+ * template literal. Add a variant there rather than an exception here. Two
+ * surfaces that predate the gate carry named exemptions in it; a third needs a
+ * ticket, not a third entry.
  */
 export type PhotoBandProps = {
-  /** Repo path under `/public`, or an allowed remote host. */
+  /**
+   * Repo path under `/public`, and only that. `SurfaceImage` itself accepts a
+   * remote host, but `scripts/check-photo-band-contrast.ts` has to open the
+   * file to measure it, so a band whose photograph lives off disk cannot be
+   * proved legible and is rejected by name at lint time rather than shipped
+   * unchecked. Supporting one means giving the gate a way to fetch and cache
+   * it, which nothing has needed yet.
+   */
   image: string;
   /**
    * Empty for decorative, which is the usual case: the band's own heading says
@@ -49,9 +61,13 @@ export type PhotoBandProps = {
   /**
    * `true` only for a band inside the first viewport. At most ONE surface on a
    * route may claim it; `landing-zones.tsx` and `selected-product-tile.tsx`
-   * both withhold `priority` on the grounds that the homepage opener has it.
+   * both withhold it on the grounds that the homepage opener has it.
+   *
+   * `preload`, not `priority`: next 16 deprecated the older name and tsc
+   * reports it. The behaviour is the same preload link and the same high
+   * fetch priority.
    */
-  priority?: boolean;
+  preload?: boolean;
   /** Classes for the `<section>` — spacing, mostly. */
   className?: string;
   /** Classes for the inner `PageShell` — alignment of the copy. */
@@ -63,7 +79,7 @@ export function PhotoBand({
   image,
   alt,
   scrim,
-  priority = false,
+  preload = false,
   className,
   contentClassName,
   children,
@@ -78,23 +94,29 @@ export function PhotoBand({
         src={image}
         alt={alt}
         fill
-        priority={priority}
-        // `fetchPriority` follows `priority` rather than being a second knob:
+        preload={preload}
+        // `fetchPriority` follows `preload` rather than being a second knob:
         // a band that claims the preload wants the high hint too, and one that
         // does not must not send it.
-        fetchPriority={priority ? "high" : "auto"}
+        fetchPriority={preload ? "high" : "auto"}
         surface="hero"
         className="object-cover"
       />
 
       {/* THE SCRIM. Its opacity is not editable here — it comes from the
           variant's stops, which the contrast gate checks against this exact
-          photograph. If a band looks too washed or too dark, the remedy is the
-          photograph or the variant, never a local opacity. */}
+          photograph, at every width the variant declares. If a band looks too
+          washed or too dark, the remedy is the photograph or the variant,
+          never a local opacity.
+
+          A stylesheet rather than an inline `style` because the stops differ
+          per breakpoint and the `style` prop cannot hold a media query; the
+          rules are generated from the same spec the gate measures, so there is
+          no second copy of the numbers to drift. */}
+      <style>{scrimStyleRules(scrim)}</style>
       <div
         aria-hidden="true"
-        className="absolute inset-0"
-        style={{ backgroundImage: scrimBackgroundImage(scrim) }}
+        className={cn("absolute inset-0", scrimClassName(scrim))}
       />
 
       {/* `relative` keeps the copy above the absolute scrim behind it. */}

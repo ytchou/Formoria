@@ -269,7 +269,12 @@ describe("terms pruned on production evidence", () => {
     ["有數組不同顏色的平底鍋", "數組"],
     // 集成 straddles 密集 and 成長; 九款茶集成的 is 集 + 成, not "integrate".
     ["九款茶集成的台灣茶辦桌", "集成"],
-  ])("no longer flags %s", (text) => {
+  ])("no longer flags %s, which carried %s", (text, pruned) => {
+    // Both halves, or the row is comment-grade data dressed as test data: a
+    // sentence that never contained the pruned term would pass this case with
+    // the term still on the list, and the table's second column would be free
+    // to say anything.
+    expect(text, pruned).toContain(pruned);
     expect(detectBannedTerms(text)).toHaveLength(0);
   });
 
@@ -280,14 +285,25 @@ describe("terms pruned on production evidence", () => {
     }
   });
 
-  it("still flags the five terms the same run got right", () => {
-    for (const [text, term] of [
-      ["用戶回饋", "用戶"],
-      ["更多信息", "信息"],
-    ] as const) {
-      const hits = detectBannedTerms(text);
-      expect(hits, text).toHaveLength(1);
-      expect(hits[0]?.term, text).toBe(term);
-    }
+  /**
+   * The other half of the same production evidence: of the 15 patches that run
+   * proposed, 5 were correct, and every one of them is pinned here as the text
+   * that produced it rather than as a bare term.
+   *
+   * The five patches carry only TWO distinct terms — 信息 on four image alt
+   * texts and 用戶 on one brand description — which is why this is stated as
+   * five patches and not, as the test was once named, five terms. Pruning is
+   * decided on corpus hits, so the corpus strings are the fixture.
+   */
+  it.each([
+    ["AROMASE促銷活動，介紹產品及優惠信息，包含插圖和文字。", "信息"],
+    ["一個促銷活動的海報，包含多個商品和折扣信息。", "信息"],
+    ["促銷活動，顯示折扣信息", "信息"],
+    ["AROMASE夏季促銷活動，展示產品及優惠信息，包含日期。", "信息"],
+    ["台灣用戶影像存放於台灣在地資料中心", "用戶"],
+  ])("still flags the correct production patch on %s", (text, term) => {
+    const hits = detectBannedTerms(text);
+    expect(hits, text).toHaveLength(1);
+    expect(hits[0]?.term, text).toBe(term);
   });
 });

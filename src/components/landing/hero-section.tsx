@@ -27,12 +27,17 @@ import { routes } from "@/lib/routes";
  *    afternoon, sized off the WHOLE frame when the copy occupies only the left
  *    60% — the bright plaster wall — so the shelves nobody reads over set the
  *    opacity and the photograph bleached to nothing. `--ink-muted` is the one
- *    role that still fails over this photograph (3.8:1), which is why the
- *    eyebrow and the browse prefix override their role's default ink below.
+ *    role that still fails over this photograph (2.75:1 in the darkest 1% of
+ *    the wide text zone), which is why the eyebrow and the browse prefix
+ *    override their role's default ink below. That override is ENFORCED, not
+ *    trusted: the gate reads the ink each node in here actually paints and
+ *    checks those tokens, so deleting a `text-ink-soft` below fails the lint
+ *    chain by name.
  *
- *    `priority` and `fetchPriority="high"`: this is the LCP element, so
- *    deferring it defers the metric. `landing-zones.tsx` and
- *    `selected-product-tile.tsx` both withhold `priority` on the grounds that
+ *    `preload` and `fetchPriority="high"`: this is the LCP element, so
+ *    deferring it defers the metric. (`preload` is the prop; `priority` is the
+ *    same behaviour under the name next 16 deprecated.) `landing-zones.tsx`
+ *    and `selected-product-tile.tsx` both withhold it on the grounds that
  *    this photograph owns the page's single preload; if it is ever deleted
  *    again, both of those comments have to move with it.
  * 2. **No chip row.** All thirteen L1s moved into the persistent nav, which
@@ -56,7 +61,7 @@ export default async function HeroSection() {
    * chain rather than going unchecked.
    */
   return (
-    <PhotoBand image="/images/home-hero.webp" alt="" scrim="left" priority>
+    <PhotoBand image="/images/home-hero.webp" alt="" scrim="left" preload>
       {/* WAS a 56rem cap of its own, held against the 100rem shell so the
           lede wrapped at a readable measure while the display line still ran
           long enough to read as a headline rather than as a stacked column of
@@ -75,7 +80,7 @@ export default async function HeroSection() {
             wrapped in `p` would take that position for six characters of
             category descriptor. */}
         {/* `text-ink-soft` overrides `type-eyebrow`'s muted ink: over the
-            scrim the muted token measures 3.8:1 in this photograph's darkest
+            scrim the muted token measures 2.75:1 in this photograph's darkest
             regions, under the AA floor. */}
         <span className="block type-eyebrow text-ink-soft">{t("eyebrow")}</span>
 
