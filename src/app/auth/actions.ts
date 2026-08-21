@@ -300,9 +300,10 @@ export async function updatePassword(
     // End the recovery session before leaving. `updateUser` keeps it alive, and
     // the destination is the sign-in page, which calls `redirectIfAuthenticated`
     // — so a still-signed-in visitor was bounced straight to `/` and never saw
-    // the confirmation. The copy says 請使用新密碼登入, which only makes sense
-    // once the old session is gone. Signing out also means a stolen recovery
-    // link cannot leave a live session behind after the password changes.
+    // the confirmation. `resetPassword.success` tells the visitor to sign in
+    // with the new password, which only makes sense once the old session is
+    // gone. Signing out also means a stolen recovery link cannot leave a live
+    // session behind after the password changes.
     await supabase.auth.signOut();
 
     redirect(
