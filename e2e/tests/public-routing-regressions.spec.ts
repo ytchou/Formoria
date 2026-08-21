@@ -125,17 +125,33 @@ test.describe("Public routing regressions deep", () => {
       ["/categories/kids-pets/pet-supplies", "/categories/pets/pet-supplies"],
     ] as const;
 
-    for (const [source, destination] of redirects) {
-      const response = await request.get(source, { maxRedirects: 0 });
+    // Issued concurrently, and destinations deduped. The table grew to 39 rows
+    // when the retired L2 URLs joined it (DEV-1531); serially that is 78 remote
+    // round trips against deployed staging, which overran the test budget and
+    // tore the request context down mid-flight rather than failing an
+    // assertion. Ten of the rows share `/brands` as their destination, so the
+    // distinct-destination set is far smaller than the row count.
+    const sourceResults = await Promise.all(
+      redirects.map(async ([source, destination]) => ({
+        source,
+        destination,
+        response: await request.get(source, { maxRedirects: 0 }),
+      })),
+    );
+    for (const { source, destination, response } of sourceResults) {
       expect(response.status(), `${source} should redirect`).toBe(308);
       expect(response.headers().location, `${source} target`).toBe(destination);
+    }
 
-      const destinationResponse = await request.get(destination, {
-        maxRedirects: 0,
-      });
-      expect(destinationResponse.status(), `${destination} should render`).toBe(
-        200,
-      );
+    const destinations = [...new Set(redirects.map(([, to]) => to))];
+    const destinationResults = await Promise.all(
+      destinations.map(async (destination) => ({
+        destination,
+        response: await request.get(destination, { maxRedirects: 0 }),
+      })),
+    );
+    for (const { destination, response } of destinationResults) {
+      expect(response.status(), `${destination} should render`).toBe(200);
     }
   });
 
