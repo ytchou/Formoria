@@ -61,6 +61,68 @@ test.describe("Public routing regressions deep", () => {
       ["/en/categories/clothing", "/en/categories/fashion"],
       ["/categories/others", "/brands"],
       ["/about-us", "/about"],
+      // DEV-1531: the L1 rows above rescue /categories/crafts and
+      // /categories/kids-pets, but a Next `source` is a literal path, so every
+      // L2 URL beneath them still 404s. These 29 were indexed before the
+      // taxonomy transform retired them. Generated into next.config.ts by
+      // `pnpm exec tsx scripts/generate-category-redirects.ts --write`.
+      //
+      // The ten crafts L2s with no successor exit to the directory root.
+      ["/categories/crafts/ceramics", "/brands"],
+      ["/categories/crafts/woodcraft", "/brands"],
+      ["/categories/crafts/metalwork", "/brands"],
+      ["/categories/crafts/bamboo-craft", "/brands"],
+      ["/categories/crafts/glass-art", "/brands"],
+      ["/categories/crafts/natural-dyeing", "/brands"],
+      ["/categories/crafts/leather-craft", "/brands"],
+      ["/categories/crafts/embroidery", "/brands"],
+      ["/categories/crafts/needle-felting", "/brands"],
+      ["/categories/crafts/weaving-and-crochet", "/brands"],
+      // Two crafts L2s were relocated rather than dissolved.
+      ["/categories/crafts/illustration-and-art", "/categories/home/wall-art"],
+      [
+        "/categories/crafts/dried-flowers-and-floral-design",
+        "/categories/home/floral-arrangements",
+      ],
+      // The kids-pets split kept every slug; only the parent changed.
+      ["/categories/kids-pets/kids-clothing", "/categories/kids/kids-clothing"],
+      [
+        "/categories/kids-pets/family-matching",
+        "/categories/kids/family-matching",
+      ],
+      ["/categories/kids-pets/baby-clothing", "/categories/kids/baby-clothing"],
+      ["/categories/kids-pets/baby-bedding", "/categories/kids/baby-bedding"],
+      [
+        "/categories/kids-pets/bibs-and-muslin",
+        "/categories/kids/bibs-and-muslin",
+      ],
+      [
+        "/categories/kids-pets/kids-tableware",
+        "/categories/kids/kids-tableware",
+      ],
+      ["/categories/kids-pets/toys", "/categories/kids/toys"],
+      ["/categories/kids-pets/learning-aids", "/categories/kids/learning-aids"],
+      [
+        "/categories/kids-pets/play-mats-and-fences",
+        "/categories/kids/play-mats-and-fences",
+      ],
+      [
+        "/categories/kids-pets/parenting-essentials",
+        "/categories/kids/parenting-essentials",
+      ],
+      ["/categories/kids-pets/pet-food", "/categories/pets/pet-food"],
+      ["/categories/kids-pets/pet-treats", "/categories/pets/pet-treats"],
+      [
+        "/categories/kids-pets/pet-supplements",
+        "/categories/pets/pet-supplements",
+      ],
+      ["/categories/kids-pets/pet-apparel", "/categories/pets/pet-apparel"],
+      [
+        "/categories/kids-pets/pet-beds-and-scratchers",
+        "/categories/pets/pet-beds-and-scratchers",
+      ],
+      ["/categories/kids-pets/pet-grooming", "/categories/pets/pet-grooming"],
+      ["/categories/kids-pets/pet-supplies", "/categories/pets/pet-supplies"],
     ] as const;
 
     for (const [source, destination] of redirects) {
