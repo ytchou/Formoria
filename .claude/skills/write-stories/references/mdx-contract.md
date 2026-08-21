@@ -114,10 +114,13 @@ Two vocabularies that must not be mixed:
 - **Link text** uses the canonical label from `categoryLabelZh()` — 服飾鞋履,
   文具設計, 居家生活, 美妝保養, 包袋配件. A reader clicking
   「瀏覽本站全部居家生活品牌」 must land on a page whose heading says the same words.
-- **Craft coverage has no L1 any more.** 工藝文創 was retired; a story about
-  makers and materials links to the material facet instead —
-  `/brands?material=ceramic,wood,metal,bamboo,glass,textile` — and its link text
-  names the materials, never a category.
+- **Craft coverage has no L1 any more.** 工藝文創 was retired and its brands
+  were re-filed onto `home`, `jewelry` and `stationery`. A craft story links to
+  whichever of those it actually covers — `/brands?category=home` — under that
+  category's canonical label. **Never `/brands?material=…`:** every key in
+  `DIRECTORY_REFINEMENT_KEYS` (`search`, `price`, `verification`, `material`) is
+  noindex by the taxonomy decision of 2026-08-19, so a story CTA pointing there
+  sends the reader and the crawler into a page we tell Google to ignore.
 
 ## Hero image
 

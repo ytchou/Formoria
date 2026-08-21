@@ -42,6 +42,11 @@ function validFrontmatter(
     'reviewedAt: 2026-08-15',
     'reviewDueAt: 2027-08-15',
     'exclusions: Prices and stock are not covered.',
+    // Required since DEV-1538 — a trail without a hero renders an imageless
+    // homepage tile, so the guard rejects it at authoring time. Remote so the
+    // checker's on-disk branch stays exercised only by the real content file.
+    'heroImage: https://images.example.com/hero.webp',
+    'heroImageAlt: A reading corner',
     'sources:',
     '  - https://example.com/source',
     'faq:',
@@ -76,8 +81,6 @@ describe('trail content loader', () => {
         'series: reading',
         'seriesTitle: Reading series',
         'seriesOrder: 1',
-        'heroImage: https://images.example.com/hero.webp',
-        'heroImageAlt: A reading corner',
         'voiceCanonical: true',
         'relatedCategories:',
         '  - home',

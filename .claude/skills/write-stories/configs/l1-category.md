@@ -59,8 +59,10 @@ Two things keep it honest, and both belong in the prose:
 - **Headings may use an editorial gloss; link text uses the canonical taxonomy
   label.** 「瀏覽本站全部居家生活品牌」 must land on a page whose heading agrees.
 - A `[探索更多… →](/brands?category=<slug>)` link at the end of a section is
-  service, not a CTA — it goes to the directory, not to a conversion. Craft
-  and material sections use the material facet instead: `/brands?material=ceramic,wood,metal,bamboo,glass,textile`.
+  service, not a CTA — it goes to the directory, not to a conversion. Craft and
+  material sections use `?category=` too, on the L1 those brands were re-filed
+  onto (usually `home`); `?material=` is noindex and must never be a link
+  destination in a story.
 
 ## When this is the wrong config
 
