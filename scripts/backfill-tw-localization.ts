@@ -38,8 +38,8 @@ import { artifactPath } from "./shared/artifact";
  * the ONLY thing that rewrites stored zh-TW text — and a human reading its dry
  * run is the entire safety mechanism. `fixBannedTerms` matches substrings
  * (Chinese has no word delimiters), so it also rewrites correct Taiwanese words
- * that merely CONTAIN a banned term: 台南市保安路 -> 保全路, 人潮密集成長 ->
- * 密整合長. Only a reader can tell those apart from a real correction, so
+ * that merely CONTAIN a banned term: 台南市保安路 -> 保全路, 公共安全局 ->
+ * 公共安全域. Only a reader can tell those apart from a real correction, so
  * `--dry-run` STREAMS the complete diff to a file — every patch, every table,
  * full before/after — and the terminal keeps only counts.
  *
@@ -312,12 +312,10 @@ function countTerms(
 export function localizeString(
   value: unknown,
   brandName?: string,
+  language: "zh" | "en" = "zh",
 ): { value: string; changed: boolean; terms: TermCount[] } | null {
   if (typeof value !== "string" || value.length === 0) return null;
-  const formatted = localizeToTW(
-    value,
-    brandName ? { brandName } : undefined,
-  ).text;
+  const formatted = localizeToTW(value, { brandName, language }).text;
   const { text: corrected, substitutions } = fixBannedTerms(formatted);
   return {
     value: corrected,
@@ -330,6 +328,13 @@ export function localizeString(
  * `reputation_summary` is jsonb with a zh `text` and an English `textEn`. Both
  * render, so both are cleaned — the English side still carries the formatting
  * pass, and the vocabulary list includes romanised slang that reaches it.
+ *
+ * The two keys are cleaned in DIFFERENT LANGUAGES, and that is the whole point
+ * of naming them here rather than looping over the object's own keys: `textEn`
+ * is English prose, so punctuation normalization is suppressed on it. Without
+ * that, a studio name in Han inside an English sentence dragged the surrounding
+ * ASCII brackets to full-width and produced a patch with an empty `terms` array
+ * — a rewrite no reviewer could attribute to anything (DEV-1547 Class 2).
  */
 export function localizeReputationSummary(
   value: unknown,
@@ -342,7 +347,11 @@ export function localizeReputationSummary(
   const patch: Record<string, unknown> = {};
   const terms = new Map<string, TermCount>();
   for (const key of ["text", "textEn"] as const) {
-    const localized = localizeString(summary[key], brandName);
+    const localized = localizeString(
+      summary[key],
+      brandName,
+      key === "textEn" ? "en" : "zh",
+    );
     if (localized?.changed) {
       patch[key] = localized.value;
       addTermCounts(terms, localized.terms);

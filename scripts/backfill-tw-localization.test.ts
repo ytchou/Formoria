@@ -668,3 +668,53 @@ describe("dry-run report file", () => {
     );
   });
 });
+
+describe("English fields keep ASCII punctuation", () => {
+  /*
+   * DEV-1547 Class 2. `reputation_summary.textEn` is an ENGLISH sentence that
+   * may name a studio in Han characters. `normalizePunctuation` full-widths any
+   * punctuation touching CJK, which is right inside a Chinese sentence and
+   * wrong inside an English one: the production dry-run turned
+   * `T Shape Of (謝工作室) focuses` into `（謝工作室）` on two brands with an
+   * EMPTY terms array — no banned term fired, the formatting pass did it alone.
+   *
+   * Pruning the term list cannot reach this, which is why it is pinned here.
+   */
+  const EN_WITH_HAN =
+    "T Shape Of (謝工作室) focuses on handmade ceramic creations.";
+
+  it("leaves textEn byte-identical when no banned term fires", () => {
+    const result = localizeReputationSummary({
+      text: "評價集中在手感。",
+      textEn: EN_WITH_HAN,
+      sources: ["https://example.com"],
+    });
+
+    expect(result.changed).toBe(false);
+    expect((result.value as { textEn: string }).textEn).toBe(EN_WITH_HAN);
+  });
+
+  it("still applies the vocabulary pass to textEn", () => {
+    const result = localizeReputationSummary({
+      text: "評價集中在手感。",
+      textEn: `Reviews call it YYDS (${"謝工作室"}).`,
+    });
+
+    expect(result.changed).toBe(true);
+    expect((result.value as { textEn: string }).textEn).toBe(
+      "Reviews call it 太神了 (謝工作室).",
+    );
+  });
+
+  it("keeps full-width punctuation on the Chinese side", () => {
+    const result = localizeReputationSummary({
+      text: "評價集中在(手感)。",
+      textEn: "Nothing to change here.",
+    });
+
+    expect(result.changed).toBe(true);
+    expect((result.value as { text: string }).text).toBe(
+      "評價集中在（手感）。",
+    );
+  });
+});

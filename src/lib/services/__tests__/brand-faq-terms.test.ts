@@ -148,7 +148,7 @@ describe("upsertBrandFaqEntries vocabulary report", () => {
    * merely contains a banned substring:
    *   - 保安 inside a Tainan street name
    *   - 質量 as the physics term (mass), which is valid zh-TW
-   *   - 集成 straddling 密集 and 成長
+   *   - 全局 straddling 安全 and 局
    * The mutating guard rewrote all three. A write must return them untouched.
    */
   it.each([

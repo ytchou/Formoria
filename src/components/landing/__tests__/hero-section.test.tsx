@@ -3,6 +3,7 @@
  */
 import type { ComponentProps, ReactNode } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
+import { scrimBackgroundImage } from "@/lib/design/photo-band-scrims";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -126,29 +127,46 @@ describe("HeroSection — the editorial opener", () => {
     expect(screen.getByRole("searchbox")).toBeInTheDocument();
   });
 
-  it("opens on a lead photograph that claims the page preload", async () => {
-    // ROUND FIVE, AND THE HISTORY IS THE POINT. This assertion has been
-    // inverted before: the 2026-08-17 restoration added a hero image, the
-    // 2026-08-19 overhaul removed it again ("carries no photograph"), and
-    // DEV-1544 restores it as an ORIGINATED editorial frame — one that depicts
-    // no product, so it no longer competes with the wall of product
-    // photographs below, which was the removal's actual argument.
+  it("renders the photograph as a scrimmed background, not a block in the flow", async () => {
+    // ROUND EIGHT, AND THE CONSTRUCTION IS THE ASSERTION. The image has been
+    // added and removed four times (2026-08-17 added above the text,
+    // 2026-08-19 removed, DEV-1544 restored above, removed again, then placed
+    // below). Every one of those put it in the document flow as a block of its
+    // own, where it read as a second picture competing with the wall of
+    // product photographs one viewport down. It is a BACKGROUND now: the text
+    // sits on top of it behind a scrim, the same construction as the manifesto
+    // band in `landing-zones.tsx`.
     //
-    // `priority` is asserted, not incidental. Between the removal and DEV-1544
-    // both `landing-zones.tsx` and `selected-product-tile.tsx` still withheld
-    // `priority` "because the hero owns the preload" while no hero existed, so
-    // `/` ran on a text LCP with an unclaimed preload budget. If this assertion
-    // is ever deleted, those two comments become lies again.
+    // The VARIANT is asserted, not an opacity: the stops belong to
+    // `@/lib/design/photo-band-scrims` and the numbers are proved against this
+    // photograph's real pixels by `scripts/check-photo-band-contrast.ts` on
+    // every `pnpm lint`. What this test owns is that the opener asks for the
+    // left-weighted scrim at all — the copy here is left-aligned, and a
+    // centred or flat scrim over it either bleaches the photograph (the flat
+    // `/85` this shipped with for one afternoon) or shadows one side.
+    //
+    // `priority` is asserted, not incidental. Both `landing-zones.tsx` and
+    // `selected-product-tile.tsx` withhold `priority` "because the photograph
+    // in the opener owns the preload". If this assertion is ever deleted,
+    // those two comments become lies again.
     const { container } = await renderHero();
 
     const hero = container.querySelector("img");
     expect(hero).not.toBeNull();
     expect(hero).toHaveAttribute("src", expect.stringContaining("home-hero"));
     expect(hero).toHaveAttribute("data-priority", "true");
+
+    const scrim = container.querySelector<HTMLElement>(".absolute.inset-0");
+    expect(scrim?.style.backgroundImage).toBe(scrimBackgroundImage("left"));
+
+    // The heading is not inside the image's box — it is a sibling layer above
+    // the scrim, which is what "background" means here.
+    const heading = screen.getByRole("heading", { level: 1 });
+    expect(hero!.contains(heading)).toBe(false);
   });
 
-  it("keeps the lead photograph decorative", async () => {
-    // `alt=""` follows story and trail detail: the `<h1>` below states the
+  it("keeps the photograph decorative", async () => {
+    // `alt=""` follows story and trail detail: the `<h1>` above states the
     // promise, and a screen reader repeating it as image text is noise. This
     // is also why no `landing.hero.alt` message key exists — if descriptive
     // alt is ever wanted, it has to land in BOTH locale catalogues.
