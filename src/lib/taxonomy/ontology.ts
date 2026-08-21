@@ -98,9 +98,9 @@ export const L2_SUBCATEGORIES: readonly L2Subcategory[] = [
   { slug: 'skirts', nameZh: '裙裝', nameEn: 'Skirts', category: 'fashion', aliases: [] },
   { slug: 'pants', nameZh: '褲裝', nameEn: 'Pants', category: 'fashion', aliases: ['牛仔褲', '內搭褲'] },
   { slug: 'outerwear', nameZh: '外套', nameEn: 'Outerwear', category: 'fashion', aliases: ['夾克', '防曬外套'] },
-  { slug: 'underwear-and-intimates', nameZh: '貼身衣物', nameEn: 'Underwear & Intimates', category: 'fashion', aliases: ['內衣', '內褲', '塑身衣', '運動內衣'] },
+  { slug: 'underwear-and-intimates', nameZh: '貼身衣物', nameEn: 'Underwear & Intimates', category: 'fashion', aliases: ['內衣', '內褲', '塑身衣', '運動內衣', '三角褲', '平口褲', '束衣褲'] },
   { slug: 'loungewear', nameZh: '睡衣・居家服', nameEn: 'Loungewear', category: 'fashion', aliases: ['睡衣居家服', '睡衣', '居家服'] },
-  { slug: 'swimwear', nameZh: '泳裝', nameEn: 'Swimwear', category: 'fashion', aliases: [] },
+  { slug: 'swimwear', nameZh: '泳裝', nameEn: 'Swimwear', category: 'fashion', aliases: ['比基尼', '衝浪褲'] },
   { slug: 'performance-apparel', nameZh: '機能服飾', nameEn: 'Performance Apparel', category: 'fashion', aliases: ['排汗衣', '壓力褲'] },
   { slug: 'activewear', nameZh: '運動服飾', nameEn: 'Activewear', category: 'fashion', aliases: ['瑜珈服'] },
   { slug: 'socks', nameZh: '襪子', nameEn: 'Socks', category: 'fashion', aliases: ['除臭襪', '機能襪', '隱形襪', '壓力襪'] },
@@ -108,7 +108,7 @@ export const L2_SUBCATEGORIES: readonly L2Subcategory[] = [
   { slug: 'leather-shoes', nameZh: '皮鞋', nameEn: 'Leather Shoes', category: 'fashion', aliases: ['樂福鞋', '牛津鞋', '德比鞋', '孟克鞋', '瑪莉珍鞋'] },
   { slug: 'heels', nameZh: '高跟鞋', nameEn: 'Heels', category: 'fashion', aliases: ['婚鞋'] },
   { slug: 'sandals-and-slippers', nameZh: '涼鞋・拖鞋', nameEn: 'Sandals & Slippers', category: 'fashion', aliases: ['涼鞋拖鞋', '涼鞋', '拖鞋', '穆勒鞋'] },
-  { slug: 'boots', nameZh: '靴子', nameEn: 'Boots', category: 'fashion', aliases: ['短靴', '雨靴'] },
+  { slug: 'boots', nameZh: '靴子', nameEn: 'Boots', category: 'fashion', aliases: ['短靴', '雨靴', '雨鞋'] },
 
   // bags-accessories (27)
   { slug: 'backpacks', nameZh: '後背包', nameEn: 'Backpacks', category: 'bags-accessories', aliases: ['登山背包', '媽媽包'] },
@@ -160,7 +160,7 @@ export const L2_SUBCATEGORIES: readonly L2Subcategory[] = [
   { slug: 'face-masks', nameZh: '面膜', nameEn: 'Face Masks', category: 'beauty', aliases: [] },
   { slug: 'body-care', nameZh: '身體保養', nameEn: 'Body Care', category: 'beauty', aliases: [] },
   { slug: 'bath-and-shower', nameZh: '洗沐清潔', nameEn: 'Bath & Shower', category: 'beauty', aliases: ['沐浴乳', '洗面露'] },
-  { slug: 'hair-care', nameZh: '髮品・頭皮護理', nameEn: 'Hair Care', category: 'beauty', aliases: ['髮品頭皮護理', '髮品', '頭皮護理', '洗髮精', '洗髮餅', '護髮'] },
+  { slug: 'hair-care', nameZh: '髮品・頭皮護理', nameEn: 'Hair Care', category: 'beauty', aliases: ['髮品頭皮護理', '髮品', '頭皮護理', '洗髮精', '洗髮餅', '護髮', '護髮產品'] },
   { slug: 'makeup', nameZh: '彩妝', nameEn: 'Makeup', category: 'beauty', aliases: ['唇膏', '底妝'] },
   { slug: 'sun-care', nameZh: '防曬', nameEn: 'Sun Care', category: 'beauty', aliases: [] },
   { slug: 'fragrance', nameZh: '香水', nameEn: 'Fragrance', category: 'beauty', aliases: [] },
@@ -183,7 +183,7 @@ export const L2_SUBCATEGORIES: readonly L2Subcategory[] = [
   // that spelling, the largest single label in the retired bucket. A hung picture
   // is a kind of 居家生活 object; it was never a kind of 工藝. Distinct from
   // `home-decor`'s 裝飾畫, which is an ornament rather than something framed.
-  { slug: 'wall-art', nameZh: '掛畫・畫作', nameEn: 'Wall Art', category: 'home', aliases: ['插畫畫作', '插畫', '畫作', '水彩', '版畫', '無框畫'] },
+  { slug: 'wall-art', nameZh: '掛畫・畫作', nameEn: 'Wall Art', category: 'home', aliases: ['插畫畫作', '插畫', '畫作', '水彩', '版畫', '無框畫', '掛畫'] },
   { slug: 'towels', nameZh: '毛巾', nameEn: 'Towels', category: 'home', aliases: ['浴巾'] },
   { slug: 'home-textiles', nameZh: '居家織品', nameEn: 'Home Textiles', category: 'home', aliases: ['抱枕', '毯', '毛毯'] },
   { slug: 'rugs-and-mats', nameZh: '地墊・地毯', nameEn: 'Rugs & Mats', category: 'home', aliases: ['地墊地毯', '地墊', '地毯'] },
@@ -195,7 +195,7 @@ export const L2_SUBCATEGORIES: readonly L2Subcategory[] = [
   { slug: 'storage', nameZh: '收納用品', nameEn: 'Storage', category: 'home', aliases: ['收納盒', '置物架', '衣架'] },
   { slug: 'cleaning', nameZh: '清潔用品', nameEn: 'Cleaning', category: 'home', aliases: ['抹布', '清潔液', '居家清潔', '洗衣用品', '洗衣清潔用品', '洗衣精', '蔬果清潔用品', '清潔刷'] },
   { slug: 'home-appliances', nameZh: '生活家電', nameEn: 'Home Appliances', category: 'home', aliases: ['吸塵器', '吊扇', '空氣清淨機'] },
-  { slug: 'home-fragrance', nameZh: '居家香氛', nameEn: 'Home Fragrance', category: 'home', aliases: ['線香', '擴香', '香氛袋', '擴香瓶', '盤香', '香粉', '香道具'] },
+  { slug: 'home-fragrance', nameZh: '居家香氛', nameEn: 'Home Fragrance', category: 'home', aliases: ['線香', '擴香', '香氛袋', '擴香瓶', '盤香', '香粉', '香道具', '香氛蠟燭'] },
   { slug: 'candles', nameZh: '蠟燭', nameEn: 'Candles', category: 'home', aliases: [] },
   // Absorbed `dried-flowers-and-floral-design` (DEV-1507): a dried or preserved
   // bouquet is a kind of 花藝, not a technique of its own, so the spellings fold
@@ -288,7 +288,7 @@ export const L2_SUBCATEGORIES: readonly L2Subcategory[] = [
   { slug: 'baby-bedding', nameZh: '嬰幼兒寢具', nameEn: 'Baby Bedding', category: 'kids', aliases: ['防踢被', '洞洞毯'] },
   { slug: 'bibs-and-muslin', nameZh: '圍兜・紗布巾', nameEn: 'Bibs & Muslin', category: 'kids', aliases: ['圍兜紗布巾', '圍兜', '紗布巾', '口水巾', '安撫巾'] },
   { slug: 'kids-tableware', nameZh: '兒童餐具', nameEn: "Kids' Tableware", category: 'kids', aliases: ['學習湯匙', '吸盤碗'] },
-  { slug: 'toys', nameZh: '玩具', nameEn: 'Toys', category: 'kids', aliases: ['布偶', '益智玩具'] },
+  { slug: 'toys', nameZh: '玩具', nameEn: 'Toys', category: 'kids', aliases: ['布偶', '益智玩具', '玩具教具'] },
   { slug: 'learning-aids', nameZh: '教具', nameEn: 'Learning Aids', category: 'kids', aliases: [] },
   { slug: 'play-mats-and-fences', nameZh: '遊戲地墊・圍欄', nameEn: 'Play Mats & Fences', category: 'kids', aliases: ['遊戲地墊圍欄', '遊戲地墊', '圍欄'] },
   { slug: 'parenting-essentials', nameZh: '育兒用品', nameEn: 'Parenting Essentials', category: 'kids', aliases: ['濕紙巾'] },

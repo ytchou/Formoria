@@ -1091,7 +1091,17 @@ values
   ('髮飾', 'hair-accessories', 'resolve'),
   ('鮮乳', 'dairy', 'resolve'),
   ('鮮食', 'pet-food', 'resolve'),
-  ('麵包', 'desserts-and-pastries', 'resolve');
+  ('麵包', 'desserts-and-pastries', 'resolve'),
+  ('三角褲', 'underwear-and-intimates', 'resolve'),
+  ('平口褲', 'underwear-and-intimates', 'resolve'),
+  ('束衣褲', 'underwear-and-intimates', 'resolve'),
+  ('比基尼', 'swimwear', 'resolve'),
+  ('衝浪褲', 'swimwear', 'resolve'),
+  ('雨鞋', 'boots', 'resolve'),
+  ('掛畫', 'illustration-and-art', 'resolve'),
+  ('護髮產品', 'hair-care', 'resolve'),
+  ('玩具教具', 'toys', 'resolve'),
+  ('香氛蠟燭', 'home-fragrance', 'resolve');
 -- <<< label map
 
 -- Strict resolver. Raises on anything the map does not know; drops recorded
