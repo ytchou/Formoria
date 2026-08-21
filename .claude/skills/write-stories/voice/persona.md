@@ -121,8 +121,9 @@ Two vocabularies, and the skill must not mix them up:
   居家生活, 美妝保養, 包袋配件. A reader who clicks 「瀏覽本站全部服飾鞋履品牌」
   must land on a page whose heading says the same words.
 - **工藝文創 is retired.** There is no crafts category and no
-  `/brands?category=crafts` page. Craft stories link to `/brands?material=ceramic,wood,metal,bamboo,glass,textile`
-  and name the materials in the link text.
+  `/brands?category=crafts` page. Craft brands were re-filed onto `home`,
+  `jewelry` and `stationery`; link to the one the story covers, under its
+  canonical label. Never `/brands?material=…` — the material facet is noindex.
 
 Never invent a category slug. The twelve L1 categories are fixed: `fashion`,
 `bags-accessories`, `jewelry`, `beauty`, `home`, `food-drink`, `stationery`,

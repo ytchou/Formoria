@@ -52,7 +52,22 @@ function checkTrail(file, raw) {
   }
 
   const fileFailures = []
-  for (const field of ['title', 'description', 'promise', 'readerSituation', 'exclusions', 'editorialOwner']) {
+  for (const field of [
+    'title',
+    'description',
+    'promise',
+    'readerSituation',
+    'exclusions',
+    'editorialOwner',
+    /*
+     * Required, not optional-if-present. The homepage wall reserves a trail
+     * slot from the trail list alone, so a trail with no hero rendered an
+     * imageless tile behind the gradient — visible on the homepage, invisible
+     * to every check. Same required-field list as `story-frontmatter.mjs`.
+     */
+    'heroImage',
+    'heroImageAlt',
+  ]) {
     if (!isNonEmptyString(data[field])) fileFailures.push(`${file}: missing \`${field}\``)
   }
 
