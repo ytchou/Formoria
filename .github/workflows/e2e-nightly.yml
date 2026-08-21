@@ -201,9 +201,6 @@ jobs:
         if: always()
         continue-on-error: true
         env:
-          AGENT_HUB_DELIVERY_MODE: dual
-          AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}
-          AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}
           AGENT_HUB_TURSO_DATABASE_URL: ${{ secrets.AGENT_HUB_TURSO_DATABASE_URL }}
           AGENT_HUB_TURSO_AUTH_TOKEN: ${{ secrets.AGENT_HUB_TURSO_AUTH_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -877,9 +874,6 @@ jobs:
         if: always()
         continue-on-error: true
         env:
-          AGENT_HUB_DELIVERY_MODE: dual
-          AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}
-          AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}
           AGENT_HUB_TURSO_DATABASE_URL: ${{ secrets.AGENT_HUB_TURSO_DATABASE_URL }}
           AGENT_HUB_TURSO_AUTH_TOKEN: ${{ secrets.AGENT_HUB_TURSO_AUTH_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

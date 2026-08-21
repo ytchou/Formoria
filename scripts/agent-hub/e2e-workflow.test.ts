@@ -145,22 +145,22 @@ describe("staging E2E release and self-heal contract", () => {
     }
   });
 
-  // Bug caught: one report step can silently stay Turso-only and invalidate the
-  // source/target comparison even while the other step dual-writes correctly.
-  it("keeps nightly and self-heal reports in Agent Hub dual-write mode", async () => {
+  // Bug caught: one report step can silently reintroduce the retired Agent Hub
+  // destination while the other remains Turso-only.
+  it("keeps nightly and self-heal reports Turso-only", async () => {
     const nightly = await source(nightlyPath);
     const selfHeal = nightly.slice(nightly.indexOf("  self-heal:"));
 
     for (const name of [
-      "AGENT_HUB_DELIVERY_MODE: dual",
-      "AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}",
-      "AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}",
       "AGENT_HUB_TURSO_DATABASE_URL: ${{ secrets.AGENT_HUB_TURSO_DATABASE_URL }}",
       "AGENT_HUB_TURSO_AUTH_TOKEN: ${{ secrets.AGENT_HUB_TURSO_AUTH_TOKEN }}",
     ]) {
       expect(nightly.split(name)).toHaveLength(3);
       expect(selfHeal).toContain(name);
     }
+    expect(nightly).not.toMatch(
+      /AGENT_HUB_(?:DELIVERY_MODE|INGEST_URL|INGEST_TOKEN)/,
+    );
     expect(
       nightly.match(/node scripts\/agent-hub\/report-run\.mjs --file/g),
     ).toHaveLength(2);

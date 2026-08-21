@@ -3523,7 +3523,6 @@ describe("default runtime dependencies", () => {
           adapter: "agent-hub-runtime",
           operation: "ingest_envelope",
           response: {
-            mode: "injected",
             result: { duplicate: false, run_id: "run-health-123" },
           },
           status: "success",
