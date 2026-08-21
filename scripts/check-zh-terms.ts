@@ -38,7 +38,7 @@
  *    an allowlist entry classified in neither fails this check.
  */
 
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -235,7 +235,10 @@ export const EXCLUDED_SOURCE_FILES = new Map([
   // read it. Upgrade path for all three: they come in the moment their copy
   // also renders as HTML text (an alt attribute, a caption, a fallback).
   ["app/opengraph-image.tsx", "rendered to PNG, not text"],
-  ["app/[locale]/brands/[slug]/opengraph-image.tsx", "rendered to PNG, not text"],
+  [
+    "app/[locale]/brands/[slug]/opengraph-image.tsx",
+    "rendered to PNG, not text",
+  ],
   ["lib/growth/share-card.tsx", "rendered to PNG, not text"],
   [
     "lib/growth/share-assets.ts",
@@ -278,15 +281,22 @@ function readCjkAllowlist(): string[] {
  * Every allowlisted file must be either scanned or excluded with a reason.
  * Without this, a new allowlist entry — a new file permitted to hold Han in
  * source — would silently escape the gate.
+ *
+ * Split from `allowlistSyncProblems` so the rule can be exercised against a
+ * synthetic entry; the real gate reads the real allowlist.
  */
-export function allowlistSyncProblems(): string[] {
-  const scanned = new Set(
-    SCANNED_SOURCE_FILES.map((path) => path.replace(/^src\//, "")),
-  );
+export function allowlistSyncProblemsFor(entries: readonly string[]): string[] {
   const problems: string[] = [];
 
-  for (const entry of readCjkAllowlist()) {
-    if (scanned.has(entry) || EXCLUDED_SOURCE_FILES.has(entry)) continue;
+  for (const entry of entries) {
+    // The two lists use different key conventions: SCANNED_SOURCE_FILES is
+    // repo-relative (`src/…`), the allowlist and EXCLUDED_SOURCE_FILES are
+    // `src/`-relative. Converting UP to the repo-relative form is what lets the
+    // scanned side reuse `isScannedSourceFile` — the same rule the scan itself
+    // runs — instead of a second, path-exact reimplementation that a directory
+    // entry such as `src/components/microsite/` silently defeats.
+    if (isScannedSourceFile(`src/${entry}`)) continue;
+    if (EXCLUDED_SOURCE_FILES.has(entry)) continue;
     problems.push(
       `${CJK_ALLOWLIST_SOURCE} allows Han in "src/${entry}", which scripts/check-zh-terms.ts classifies nowhere.\n` +
         "  Add it to SCANNED_SOURCE_FILES (user-facing) or EXCLUDED_SOURCE_FILES (with the reason it is not).",
@@ -296,15 +306,32 @@ export function allowlistSyncProblems(): string[] {
   return problems;
 }
 
+export function allowlistSyncProblems(): string[] {
+  return allowlistSyncProblemsFor(readCjkAllowlist());
+}
+
+/**
+ * Test files and `__tests__` directories are not copy, and a test that names a
+ * banned term as its fixture — which `scripts/check-zh-terms.test.ts` does —
+ * would be a false positive. The no-hardcoded-cjk guard skips the same two
+ * things for the same reason.
+ */
+const TEST_FILE = /(?:^|\/)__tests__\/|\.test\.tsx?$/;
+
 /**
  * @param file repo-relative path
  *
  * A `SCANNED_SOURCE_FILES` entry ending in `/` is a directory prefix, read the
  * same way `no-hardcoded-cjk.test.ts` reads its own: it covers everything
  * beneath it. Anything else is a path-exact match.
+ *
+ * This is the ONE membership rule. `scannedSourceFiles()` filters its walk
+ * through it, `scanSourceFile` gates on it, and `allowlistSyncProblemsFor` asks
+ * it — so the enumerated set and the predicate cannot disagree about a file.
  */
 export function isScannedSourceFile(file: string): boolean {
   const path = file.split(sep).join("/");
+  if (TEST_FILE.test(path)) return false;
   return SCANNED_SOURCE_FILES.some((entry) =>
     entry.endsWith("/") ? path.startsWith(entry) : path === entry,
   );
@@ -334,18 +361,28 @@ function walk(dir: string, pattern: RegExp): string[] {
 
 /**
  * Expand `SCANNED_SOURCE_FILES` into concrete repo-relative files, resolving
- * directory entries. Test files and `__tests__` directories are left out: they
- * are not copy, and a test that names a banned term as its fixture — which
- * `scripts/check-zh-terms.test.ts` does — would be a false positive. The
- * no-hardcoded-cjk guard skips the same two things for the same reason.
+ * directory entries. Membership is `isScannedSourceFile`, so the enumerated
+ * files are exactly the files the predicate accepts — test files and
+ * `__tests__` directories drop out there, in one place.
+ *
+ * A missing entry is a CONFIGURATION problem, reported as one. Left to
+ * `readdirSync`, renaming a route group (`src/app/(microsite)/`) kills the whole
+ * lint chain with a raw ENOENT stack trace that names neither this file nor the
+ * stale entry.
  */
-export function scannedSourceFiles(): string[] {
-  return SCANNED_SOURCE_FILES.flatMap((entry) => {
+export function scannedSourceFiles(
+  entries: readonly string[] = SCANNED_SOURCE_FILES,
+): string[] {
+  return entries.flatMap((entry) => {
+    if (!existsSync(join(ROOT, entry))) {
+      throw new Error(
+        `SCANNED_SOURCE_FILES in scripts/check-zh-terms.ts names "${entry}", which does not exist.\n` +
+          "  It was renamed, moved or deleted. Update the entry — do NOT drop it silently, or\n" +
+          "  the reader-facing copy it covered stops being scanned.",
+      );
+    }
     if (!entry.endsWith("/")) return [entry];
-    return walk(join(ROOT, entry), /\.tsx?$/).filter(
-      (file) =>
-        !file.includes("/__tests__/") && !/\.test\.tsx?$/.test(file),
-    );
+    return walk(join(ROOT, entry), /\.tsx?$/).filter(isScannedSourceFile);
   });
 }
 

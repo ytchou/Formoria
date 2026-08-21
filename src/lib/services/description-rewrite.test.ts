@@ -104,10 +104,16 @@ describe("parseDescriptionRewriteResult", () => {
     vi.mocked(createProfiledOpenAIClient).mockReturnValue({ chat } as never);
     vi.stubEnv("OPENAI_API_KEY", "test-key");
 
-    const output = await rewriteBrandDescription("信息設計坊", null, ["摘要"], null, {
-      jobId: "job-1",
-      target: { type: "brand", id: "brand-1" },
-    });
+    const output = await rewriteBrandDescription(
+      "信息設計坊",
+      null,
+      ["摘要"],
+      null,
+      {
+        jobId: "job-1",
+        target: { type: "brand", id: "brand-1" },
+      },
+    );
 
     expect(output?.result?.description_zh).toContain("視頻");
 

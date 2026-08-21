@@ -12,7 +12,10 @@ import {
   excludeTestBrands,
   TEST_BRAND_NAME_PREFIX,
 } from "@/lib/services/public-brand-filter";
-import { materialBySlug, resolveSubcategorySlugs } from "@/lib/taxonomy/ontology";
+import {
+  materialBySlug,
+  resolveSubcategorySlugs,
+} from "@/lib/taxonomy/ontology";
 import { getPublishedTrailBySlug, getTrailBySlug } from "@/lib/services/trails";
 
 /** The tables are reached through the untyped `from` surface, with generated DB shapes at the boundary. */
@@ -211,10 +214,14 @@ function winningSelection(
   selections: CuratedProductSelectionRow[] | null,
 ): CuratedProductSelectionRow | null {
   if (!selections || selections.length === 0) return null;
-  return [...selections].sort(
-    (a, b) =>
-      a.position - b.position || a.trail_slug.localeCompare(b.trail_slug),
-  ).at(0) ?? null;
+  return (
+    [...selections]
+      .sort(
+        (a, b) =>
+          a.position - b.position || a.trail_slug.localeCompare(b.trail_slug),
+      )
+      .at(0) ?? null
+  );
 }
 
 function toCuratedProduct(row: CuratedProductReadRow): CuratedProduct {
@@ -329,9 +336,9 @@ export class CuratedProductSchemaLagError extends Error {
     const code = (cause as { code?: string }).code ?? "unknown";
     const message = (cause as { message?: string }).message ?? "";
     super(
-      `[${scope}] curated-product read hit a schema older than this deploy `
-        + `(${code}${message ? `: ${message}` : ""}). The migration for this `
-        + "column or table has not been applied to the target database yet.",
+      `[${scope}] curated-product read hit a schema older than this deploy ` +
+        `(${code}${message ? `: ${message}` : ""}). The migration for this ` +
+        "column or table has not been applied to the target database yet.",
     );
     this.name = "CuratedProductSchemaLagError";
   }
@@ -375,7 +382,8 @@ export async function getPublishedCuratedProductsForBrand(
     // a page whose subject is the brand — but it is no longer silent.
     if (isSchemaLag(error)) {
       console.error(
-        new CuratedProductSchemaLagError("curatedProducts.brand", error).message,
+        new CuratedProductSchemaLagError("curatedProducts.brand", error)
+          .message,
       );
       return [];
     }
@@ -564,7 +572,10 @@ export async function getPublishedCuratedProductsForTrail(
 
   const trail = await getPublishedTrailBySlug(trailSlug).catch(() => null);
   const sectionOrder = new Map(
-    trail?.entry.frontmatter.sections.map((section, index) => [section.key, index]) ?? [],
+    trail?.entry.frontmatter.sections.map((section, index) => [
+      section.key,
+      index,
+    ]) ?? [],
   );
 
   const products: TrailCuratedProduct[] = [];
@@ -735,7 +746,9 @@ function normalizeCuratedSubcategories(
   values: readonly string[],
 ): string[] {
   const { subcategories } = normalizeSubcategories([...values]);
-  return resolveSubcategorySlugs(category, subcategories).map((sub) => sub.slug);
+  return resolveSubcategorySlugs(category, subcategories).map(
+    (sub) => sub.slug,
+  );
 }
 
 /**
@@ -865,13 +878,9 @@ export async function createCuratedProduct(
 
       reportZhVocabulary(row, ctx);
 
-      // Keyed from the INPUT name. The guard no longer corrects `name_zh`, so
-      // there is no corrected name to key from and the payload-derived variant
-      // this replaced (DEV-1543) would only re-read the identical string.
-      //
-      // Rejection memory is untouched (DEV-1469): a caller-supplied `key` still
-      // wins inside `curatedProductKey`, and the approval materializer always
-      // supplies the PROPOSAL's key, so a create can never lose its match.
+      // Rejection memory (DEV-1469): a caller-supplied `key` wins inside
+      // `curatedProductKey`, and the approval materializer always supplies the
+      // PROPOSAL's key, so a create can never lose its match.
       const baseKey = curatedProductKey(input);
 
       for (let attempt = 0; attempt < MAX_KEY_ATTEMPTS; attempt += 1) {
@@ -1121,8 +1130,14 @@ async function validateSelectionInput(
 
   const trail = await getTrailBySlug(trailSlug);
   if (!trail) throw new Error(`Unknown discovery trail: ${trailSlug}`);
-  if (!trail.entry.frontmatter.sections.some((section) => section.key === sectionKey)) {
-    throw new Error(`Unknown section "${sectionKey}" for discovery trail "${trailSlug}"`);
+  if (
+    !trail.entry.frontmatter.sections.some(
+      (section) => section.key === sectionKey,
+    )
+  ) {
+    throw new Error(
+      `Unknown section "${sectionKey}" for discovery trail "${trailSlug}"`,
+    );
   }
 
   return { trailSlug, sectionKey, position };
@@ -1150,7 +1165,8 @@ export async function upsertCuratedProductSelection(
       if (productError) throw productError;
 
       const brandId = (productRow as { brand_id?: string } | null)?.brand_id;
-      if (!brandId) throw new Error(`Curated product not found: ${input.productId}`);
+      if (!brandId)
+        throw new Error(`Curated product not found: ${input.productId}`);
 
       const { data: conflicts, error: conflictError } = await supabase
         .from("curated_product_selections")
@@ -1206,7 +1222,9 @@ export async function retireCuratedProductSelection(
       const trailSlug = input.trailSlug.trim();
       const sectionKey = input.sectionKey.trim();
       if (!trailSlug || !sectionKey) {
-        throw new Error("Trail and section are required for a product placement");
+        throw new Error(
+          "Trail and section are required for a product placement",
+        );
       }
       const { data, error } = await curatedProductClient(client)
         .from("curated_product_selections")

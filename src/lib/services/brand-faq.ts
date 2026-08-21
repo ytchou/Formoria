@@ -301,8 +301,10 @@ export async function upsertBrandFaqEntries(
       );
 
       const payload: FaqEntryInsert[] = [];
-      // The rows whose zh side this write is authoring. Same object references
-      // as `payload`, so the guard's in-place correction reaches the upsert.
+      // The rows whose zh side this write is authoring. Held by reference into
+      // `payload` so the vocabulary report is attributed to the rows this write
+      // authored, and not to zh text an unrelated English-side write carried
+      // forward.
       const zhAuthored: FaqEntryInsert[] = [];
       for (const candidate of candidates) {
         const current = existingByKey.get(

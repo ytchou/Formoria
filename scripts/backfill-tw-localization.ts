@@ -1,5 +1,7 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { once } from "node:events";
+import { createWriteStream } from "node:fs";
+import { mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
@@ -7,12 +9,9 @@ import {
   type SupabaseClient,
 } from "@supabase/supabase-js";
 
-import {
-  detectBannedTerms,
-  fixBannedTerms,
-} from "../src/lib/i18n/banned-terms";
+import { fixBannedTerms } from "../src/lib/i18n/banned-terms";
 import { localizeToTW } from "../src/lib/services/taiwan-localization";
-import { ARTIFACT_ROOT } from "./shared/artifact";
+import { artifactPath } from "./shared/artifact";
 
 /**
  * Cleans already-stored zh-TW text: FORMATTING via `localizeToTW` (markdown,
@@ -41,11 +40,23 @@ import { ARTIFACT_ROOT } from "./shared/artifact";
  * (Chinese has no word delimiters), so it also rewrites correct Taiwanese words
  * that merely CONTAIN a banned term: 台南市保安路 -> 保全路, 人潮密集成長 ->
  * 密整合長. Only a reader can tell those apart from a real correction, so
- * `--dry-run` writes the COMPLETE diff to a file — every patch, every table,
- * full before/after — and the terminal keeps only a preview. The old 10-row /
- * 80-character terminal sample could not carry that review: on staging one
- * sample line printed an identical before and after, because the actual change
- * sat past the elision cutoff.
+ * `--dry-run` STREAMS the complete diff to a file — every patch, every table,
+ * full before/after — and the terminal keeps only counts.
+ *
+ * The report is NDJSON, one JSON object per line, written as patches are
+ * produced:
+ *
+ *   1. a `header` line — when, and WHICH DATABASE (see `supabaseEnvironment`);
+ *   2. one `patch` line per rewritten field, untruncated;
+ *   3. a `summary` line — entry count, per-table row counts, per-term totals,
+ *      and the environment again, so a grep for either finds it.
+ *
+ * Streaming rather than one `JSON.stringify` of an accumulated array: a first
+ * full-table run holds every before AND after of every patched field across
+ * five tables resident at once, plus the pretty-printer's buffer, and an OOM
+ * there loses the exact artifact this design depends on. A line-per-patch file
+ * is also greppable, and a crash mid-run leaves a partial artifact instead of
+ * none.
  *
  * Run: `pnpm backfill:tw -- --dry-run` (staging by construction; see the
  * package script's `--env-file`).
@@ -56,16 +67,6 @@ const BATCH_SIZE = 10;
 
 /** Rows read per select. Must stay at or below PostgREST's `db-max-rows`. */
 export const PAGE_SIZE = 500;
-
-/**
- * How many `id | field | before -> after` lines a dry run PREVIEWS per table.
- * A preview only — the reviewable record is the report file, which is capped by
- * nothing.
- */
-const DRY_RUN_SAMPLE_LIMIT = 10;
-
-/** How much of a value a dry-run preview line shows before eliding. */
-const SAMPLE_TEXT_LIMIT = 80;
 
 /** Only `from` is used, so a test double is a legitimate client here. */
 export type BackfillSupabase = Pick<SupabaseClient, "from">;
@@ -107,10 +108,27 @@ export type ExhibitorRow = {
   image_alt_zh: string | null;
 };
 
+/** One banned term, and how many times a patch corrected it. */
+export type TermCount = {
+  term: string;
+  replacement: string;
+  count: number;
+};
+
+/**
+ * The banned terms a patch actually corrected, keyed by column.
+ *
+ * Carried on the patch rather than recomputed: `fixBannedTerms` already returns
+ * its substitutions, and re-scanning every patched value a second time across
+ * five tables is both wasted work and a second answer to the same question.
+ */
+export type PatchTerms = Record<string, TermCount[]>;
+
 /** An update keyed by `id`, carrying only the columns that actually changed. */
 export type IdPatch = {
   id: string;
   patch: Record<string, unknown>;
+  terms: PatchTerms;
 };
 
 /** `brand_faq_entries` has a composite key, so its patch carries all three. */
@@ -119,13 +137,7 @@ export type FaqPatch = {
   presetId: string;
   position: number;
   patch: Record<string, unknown>;
-};
-
-/** One banned term, and how many times a patch corrected it. */
-export type TermCount = {
-  term: string;
-  replacement: string;
-  count: number;
+  terms: PatchTerms;
 };
 
 /**
@@ -152,27 +164,53 @@ export type DryRunEntry = {
 };
 
 /**
- * What a dry run reports beyond the row count. The counts alone are unfalsifiable
- * — the operator's safety check is "which terms did this want to rewrite", and
- * that question needs the terms themselves in the output.
+ * Which database a report describes.
+ *
+ * Both `.env.local` and `.env.staging` point at the STAGING project, and
+ * production credentials arrive through a separate `supabase projects api-keys
+ * --reveal` step — so two reports are otherwise indistinguishable, and a
+ * reviewer can approve one environment's diff and apply it against the other.
+ * Derived from `NEXT_PUBLIC_SUPABASE_URL`; no new env var, and the service-role
+ * key never appears here.
  */
-export type DryRunDetail = {
-  terms: TermCount[];
-  /** `key | column | before -> after`, capped at DRY_RUN_SAMPLE_LIMIT. */
-  samples: string[];
-  /** Every patched field, uncapped and untruncated. Serialised to the report. */
-  entries: DryRunEntry[];
+export type SupabaseEnvironment = {
+  /** The Supabase project ref, e.g. `xwkigpvnheecihpxyvsl`. */
+  projectRef: string;
+  /** The host it came from, so a self-hosted or local URL is still identified. */
+  host: string;
 };
 
-/** The on-disk dry-run artifact. JSON so it is greppable and diffable. */
-export type DryRunReport = {
+/** First line of the report. */
+export type DryRunHeader = {
+  kind: "header";
   generatedAt: string;
+  environment: SupabaseEnvironment;
+};
+
+/** One line per rewritten field. */
+export type DryRunPatchLine = DryRunEntry & { kind: "patch" };
+
+/**
+ * Last line of the report. The counts alone are unfalsifiable — the operator's
+ * safety check is "which terms did this want to rewrite", and that question
+ * needs the terms themselves in the output.
+ */
+export type DryRunSummary = {
+  kind: "summary";
+  generatedAt: string;
+  environment: SupabaseEnvironment;
   entryCount: number;
   /** Patched-row counts per table, matching the terminal summary. */
   rowsByTable: Record<string, number>;
   /** Banned-term totals across all tables. */
   terms: TermCount[];
-  entries: DryRunEntry[];
+};
+
+export type DryRunLine = DryRunHeader | DryRunPatchLine | DryRunSummary;
+
+/** What a dry run reports beyond the row count. */
+export type DryRunDetail = {
+  terms: TermCount[];
 };
 
 export type BackfillCounts = {
@@ -180,6 +218,45 @@ export type BackfillCounts = {
   /** Present only on `--dry-run`; a real run keeps its concise output. */
   dryRun?: DryRunDetail;
 };
+
+/**
+ * Where a dry-run entry goes. Declared as the narrowest possible interface so
+ * the backfill functions do not depend on a file, and a test can pass an array.
+ */
+export type DryRunEntrySink = {
+  write(entry: DryRunEntry): Promise<void>;
+};
+
+const NULL_SINK: DryRunEntrySink = {
+  write: async () => {},
+};
+
+/**
+ * Identify the Supabase project a URL points at.
+ *
+ * Hosted URLs are `https://<ref>.supabase.co`, so the ref is the first label.
+ * Anything else (a local stack, a self-hosted host) has no ref, and the host
+ * itself is the most specific identity available — reported rather than
+ * dropped, because "which database was this" must always have an answer.
+ */
+export function supabaseEnvironment(
+  url: string | undefined,
+): SupabaseEnvironment {
+  if (!url) return { projectRef: "unknown", host: "unknown" };
+
+  let host: string;
+  try {
+    host = new URL(url).host;
+  } catch {
+    return { projectRef: "unknown", host: "unknown" };
+  }
+
+  const hosted = /^([a-z0-9-]+)\.supabase\.(?:co|in|net)$/i.exec(host);
+  return {
+    projectRef: hosted ? hosted[1]! : host.replace(/[^a-z0-9-]+/gi, "-"),
+    host,
+  };
+}
 
 function createServiceClient(): BackfillSupabase {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -196,22 +273,57 @@ function parseArgs(argv: string[]): CliOptions {
   return { dryRun: argv.includes("--dry-run") };
 }
 
+/** Sum `counts` into `into`, merging on the term. */
+function addTermCounts(
+  into: Map<string, TermCount>,
+  counts: Iterable<TermCount>,
+): void {
+  for (const entry of counts) {
+    const existing = into.get(entry.term);
+    if (existing) existing.count += entry.count;
+    else into.set(entry.term, { ...entry });
+  }
+}
+
+/** Collapse per-occurrence substitutions into one entry per term. */
+function countTerms(
+  hits: readonly { term: string; replacement: string }[],
+): TermCount[] {
+  const into = new Map<string, TermCount>();
+  addTermCounts(
+    into,
+    hits.map((hit) => ({
+      term: hit.term,
+      replacement: hit.replacement,
+      count: 1,
+    })),
+  );
+  return [...into.values()];
+}
+
 /**
  * Formatting first, vocabulary second. Order matters: `localizeToTW` strips
  * markdown and emoji, which can otherwise sit inside a banned term and hide it
  * from the matcher.
+ *
+ * `terms` is what `fixBannedTerms` reports it substituted — the authoritative
+ * answer, threaded out to the dry-run report instead of being recomputed there.
  */
 export function localizeString(
   value: unknown,
   brandName?: string,
-): { value: string; changed: boolean } | null {
+): { value: string; changed: boolean; terms: TermCount[] } | null {
   if (typeof value !== "string" || value.length === 0) return null;
   const formatted = localizeToTW(
     value,
     brandName ? { brandName } : undefined,
   ).text;
-  const corrected = fixBannedTerms(formatted).text;
-  return { value: corrected, changed: corrected !== value };
+  const { text: corrected, substitutions } = fixBannedTerms(formatted);
+  return {
+    value: corrected,
+    changed: corrected !== value,
+    terms: countTerms(substitutions),
+  };
 }
 
 /**
@@ -222,56 +334,78 @@ export function localizeString(
 export function localizeReputationSummary(
   value: unknown,
   brandName?: string,
-): { value: unknown; changed: boolean } {
+): { value: unknown; changed: boolean; terms: TermCount[] } {
   if (!value || typeof value !== "object" || Array.isArray(value))
-    return { value, changed: false };
+    return { value, changed: false, terms: [] };
   const summary = value as Record<string, unknown>;
 
   const patch: Record<string, unknown> = {};
+  const terms = new Map<string, TermCount>();
   for (const key of ["text", "textEn"] as const) {
     const localized = localizeString(summary[key], brandName);
-    if (localized?.changed) patch[key] = localized.value;
+    if (localized?.changed) {
+      patch[key] = localized.value;
+      addTermCounts(terms, localized.terms);
+    }
   }
-  if (Object.keys(patch).length === 0) return { value, changed: false };
+  if (Object.keys(patch).length === 0)
+    return { value, changed: false, terms: [] };
 
-  return { value: { ...summary, ...patch }, changed: true };
+  return {
+    value: { ...summary, ...patch },
+    changed: true,
+    terms: [...terms.values()],
+  };
 }
 
 /**
- * Build a patch from a fixed column list. Returns `{}` when nothing changed, so
- * a caller can skip the row on `Object.keys(...).length === 0` — an untouched
- * column is never rewritten with its own value.
+ * Build a patch from a fixed column list. Returns an empty patch when nothing
+ * changed, so a caller can skip the row on `Object.keys(...).length === 0` — an
+ * untouched column is never rewritten with its own value.
  */
 function patchColumns<T extends Record<string, unknown>>(
   row: T,
   columns: readonly (keyof T & string)[],
   brandName?: string,
-): Record<string, unknown> {
+): { patch: Record<string, unknown>; terms: PatchTerms } {
   const patch: Record<string, unknown> = {};
+  const terms: PatchTerms = {};
   for (const column of columns) {
     const localized = localizeString(row[column], brandName);
-    if (localized?.changed) patch[column] = localized.value;
+    if (localized?.changed) {
+      patch[column] = localized.value;
+      terms[column] = localized.terms;
+    }
   }
-  return patch;
+  return { patch, terms };
 }
 
 export function buildBrandPatches(rows: readonly BrandRow[]): IdPatch[] {
   return rows.flatMap((brand) => {
     const brandName = brand.name ?? undefined;
-    const patch = patchColumns(brand, ["description", "blurb"], brandName);
+    const { patch, terms } = patchColumns(
+      brand,
+      ["description", "blurb"],
+      brandName,
+    );
     const reputation = localizeReputationSummary(
       brand.reputation_summary,
       brandName,
     );
-    if (reputation.changed) patch.reputation_summary = reputation.value;
+    if (reputation.changed) {
+      patch.reputation_summary = reputation.value;
+      terms.reputation_summary = reputation.terms;
+    }
 
-    return Object.keys(patch).length > 0 ? [{ id: brand.id, patch }] : [];
+    return Object.keys(patch).length > 0
+      ? [{ id: brand.id, patch, terms }]
+      : [];
   });
 }
 
 export function buildFaqPatches(rows: readonly FaqRow[]): FaqPatch[] {
   return rows.flatMap((row) => {
-    const patch = patchColumns(row, ["question_zh", "answer_zh"]);
+    const { patch, terms } = patchColumns(row, ["question_zh", "answer_zh"]);
     return Object.keys(patch).length > 0
       ? [
           {
@@ -279,6 +413,7 @@ export function buildFaqPatches(rows: readonly FaqRow[]): FaqPatch[] {
             presetId: row.preset_id,
             position: row.position,
             patch,
+            terms,
           },
         ]
       : [];
@@ -287,8 +422,10 @@ export function buildFaqPatches(rows: readonly FaqRow[]): FaqPatch[] {
 
 export function buildImagePatches(rows: readonly ImageRow[]): IdPatch[] {
   return rows.flatMap((image) => {
-    const patch = patchColumns(image, ["alt_zh"]);
-    return Object.keys(patch).length > 0 ? [{ id: image.id, patch }] : [];
+    const { patch, terms } = patchColumns(image, ["alt_zh"]);
+    return Object.keys(patch).length > 0
+      ? [{ id: image.id, patch, terms }]
+      : [];
   });
 }
 
@@ -296,8 +433,13 @@ export function buildCuratedProductPatches(
   rows: readonly CuratedProductRow[],
 ): IdPatch[] {
   return rows.flatMap((product) => {
-    const patch = patchColumns(product, ["name_zh", "product_description_zh"]);
-    return Object.keys(patch).length > 0 ? [{ id: product.id, patch }] : [];
+    const { patch, terms } = patchColumns(product, [
+      "name_zh",
+      "product_description_zh",
+    ]);
+    return Object.keys(patch).length > 0
+      ? [{ id: product.id, patch, terms }]
+      : [];
   });
 }
 
@@ -305,8 +447,13 @@ export function buildExhibitorPatches(
   rows: readonly ExhibitorRow[],
 ): IdPatch[] {
   return rows.flatMap((exhibitor) => {
-    const patch = patchColumns(exhibitor, ["summary_zh", "image_alt_zh"]);
-    return Object.keys(patch).length > 0 ? [{ id: exhibitor.id, patch }] : [];
+    const { patch, terms } = patchColumns(exhibitor, [
+      "summary_zh",
+      "image_alt_zh",
+    ]);
+    return Object.keys(patch).length > 0
+      ? [{ id: exhibitor.id, patch, terms }]
+      : [];
   });
 }
 
@@ -377,14 +524,16 @@ async function readPaged<Row>(
   }
 }
 
+/**
+ * What a dry run keeps in memory: per-term totals only. Every entry goes
+ * straight to the sink, so the resident set does not grow with the table.
+ */
 type DryRunAccumulator = {
   terms: Map<string, TermCount>;
-  samples: string[];
-  entries: DryRunEntry[];
 };
 
 function createDryRunAccumulator(): DryRunAccumulator {
-  return { terms: new Map(), samples: [], entries: [] };
+  return { terms: new Map() };
 }
 
 /**
@@ -396,76 +545,40 @@ function toText(value: unknown): string {
   return typeof value === "string" ? value : (JSON.stringify(value) ?? "");
 }
 
-/** Collapse to one line. Preview only; never applied to a report entry. */
-function toLine(value: unknown): string {
-  return toText(value).replace(/\s+/g, " ").trim();
-}
-
-function elide(text: string): string {
-  return text.length > SAMPLE_TEXT_LIMIT
-    ? `${text.slice(0, SAMPLE_TEXT_LIMIT)}…`
-    : text;
-}
-
-function countTerm(
-  into: Map<string, TermCount>,
-  term: string,
-  replacement: string,
-): void {
-  const existing = into.get(term);
-  if (existing) existing.count += 1;
-  else into.set(term, { term, replacement, count: 1 });
-}
-
 /**
- * Record what one patch would change: one uncapped report entry per patched
- * field, plus the terminal preview line while it is under its cap.
+ * Emit what one patch would change: one report entry per patched field.
  *
- * Terms are counted from the BEFORE value, so a patch caused purely by
- * formatting contributes an entry and no term — which is itself the signal the
- * operator wants.
+ * Terms come from the substitution list `fixBannedTerms` already returned, so a
+ * patch caused purely by formatting carries an entry and no term — which is
+ * itself the signal the operator wants.
  */
-function recordDryRun(
+async function recordDryRun(
   accumulator: DryRunAccumulator,
+  sink: DryRunEntrySink,
   table: string,
   key: Record<string, string | number>,
   row: Record<string, unknown>,
   patch: Record<string, unknown>,
-): void {
+  patchTerms: PatchTerms,
+): Promise<void> {
   for (const [field, after] of Object.entries(patch)) {
-    const before = toText(row[field]);
-    const afterText = toText(after);
+    const terms = patchTerms[field] ?? [];
+    addTermCounts(accumulator.terms, terms);
 
-    const fieldTerms = new Map<string, TermCount>();
-    for (const hit of detectBannedTerms(before)) {
-      countTerm(fieldTerms, hit.term, hit.replacement);
-      countTerm(accumulator.terms, hit.term, hit.replacement);
-    }
-
-    accumulator.entries.push({
+    await sink.write({
       table,
       key,
       field,
-      before,
-      after: afterText,
-      terms: [...fieldTerms.values()],
+      before: toText(row[field]),
+      after: toText(after),
+      terms,
     });
-
-    if (accumulator.samples.length < DRY_RUN_SAMPLE_LIMIT) {
-      accumulator.samples.push(
-        `${Object.values(key).join("/")} | ${field} | ${elide(
-          toLine(before),
-        )} -> ${elide(toLine(afterText))}`,
-      );
-    }
   }
 }
 
 function finishDryRun(accumulator: DryRunAccumulator): DryRunDetail {
   return {
     terms: [...accumulator.terms.values()].sort((a, b) => b.count - a.count),
-    samples: accumulator.samples,
-    entries: accumulator.entries,
   };
 }
 
@@ -533,8 +646,10 @@ export async function backfillTable(
   supabase: BackfillSupabase,
   config: IdTableConfig,
   options: CliOptions,
+  sink: DryRunEntrySink | null = null,
 ): Promise<BackfillCounts> {
   const accumulator = options.dryRun ? createDryRunAccumulator() : null;
+  const entrySink = sink ?? NULL_SINK;
   let updated = 0;
 
   await readPaged<Record<string, unknown>>(
@@ -551,13 +666,15 @@ export async function backfillTable(
 
       if (accumulator) {
         const byId = new Map(rows.map((row) => [String(row.id), row]));
-        for (const { id, patch } of patches) {
-          recordDryRun(
+        for (const { id, patch, terms } of patches) {
+          await recordDryRun(
             accumulator,
+            entrySink,
             config.table,
             { id },
             byId.get(id) ?? {},
             patch,
+            terms,
           );
         }
       }
@@ -589,8 +706,10 @@ export async function backfillTable(
 export async function backfillFaq(
   supabase: BackfillSupabase,
   options: CliOptions,
+  sink: DryRunEntrySink | null = null,
 ): Promise<BackfillCounts> {
   const accumulator = options.dryRun ? createDryRunAccumulator() : null;
+  const entrySink = sink ?? NULL_SINK;
   let updated = 0;
 
   await readPaged<FaqRow>(
@@ -613,8 +732,9 @@ export async function backfillFaq(
               candidate.preset_id === update.presetId &&
               candidate.position === update.position,
           );
-          recordDryRun(
+          await recordDryRun(
             accumulator,
+            entrySink,
             "brand_faq_entries",
             {
               brand_id: update.brandId,
@@ -623,6 +743,7 @@ export async function backfillFaq(
             },
             (row ?? {}) as unknown as Record<string, unknown>,
             update.patch,
+            update.terms,
           );
         }
       }
@@ -650,23 +771,18 @@ export async function backfillFaq(
 }
 
 /**
- * The dry-run report for one table. Without the terms, the operator's safety
- * check ("does this rewrite anything it should not?") has nothing to read.
+ * The per-term totals for the terminal. Without them, the operator's safety
+ * check ("does this rewrite anything it should not?") has nothing to read
+ * before opening the file.
  */
-export function formatDryRunDetail(
-  label: string,
-  detail: DryRunDetail,
-): string {
-  const terms =
-    detail.terms.length > 0
-      ? detail.terms
-          .map((entry) => `${entry.term}->${entry.replacement} x${entry.count}`)
-          .join(", ")
-      : "no banned terms (formatting only)";
-
-  return [`${label}: ${terms}`, ...detail.samples.map((s) => `    ${s}`)].join(
-    "\n",
-  );
+export function formatTermTotals(terms: readonly TermCount[]): string {
+  if (terms.length === 0) return "Banned terms: none (formatting changes only)";
+  return [
+    "Banned terms this run would rewrite:",
+    ...terms.map(
+      (entry) => `  ${entry.term} -> ${entry.replacement}  x${entry.count}`,
+    ),
+  ].join("\n");
 }
 
 /**
@@ -677,79 +793,151 @@ export function formatDryRunDetail(
  * neither committed nor destroyed by `git clean -xdf`. Nothing new is invented
  * and no `.gitignore` entry is required.
  *
- * The name carries a second-resolution timestamp AND the pid, so two concurrent
- * runs cannot overwrite each other's evidence — the failure mode that matters
- * here is a reviewer approving a diff they did not read.
+ * The name carries the SUPABASE PROJECT REF, a second-resolution timestamp and
+ * the pid. The ref because two environments' reports are otherwise
+ * indistinguishable on disk; the pid because a second-resolution stamp alone
+ * lets two concurrent runs overwrite each other's evidence — and the failure
+ * mode that matters here is a reviewer approving a diff they did not read, or
+ * read for the wrong database.
  */
-export function dryRunReportPath(
-  now: Date = new Date(),
-  pid: number = process.pid,
-): string {
-  const pad = (value: number): string => String(value).padStart(2, "0");
-  const stamp =
-    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` +
-    `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-  return resolve(ARTIFACT_ROOT, `backfill-tw-dry-run_${stamp}_${pid}.json`);
+export function dryRunReportPath(options: {
+  projectRef: string;
+  now?: Date;
+  pid?: number;
+}): string {
+  return artifactPath(`backfill-tw-dry-run_${options.projectRef}`, {
+    prefix: "",
+    ext: "ndjson",
+    suffix: options.pid ?? process.pid,
+    now: options.now,
+  });
 }
 
-/** Merge the per-table dry-run details into one whole-run report. */
-export function buildDryRunReport(
+/** Merge the per-table dry-run details into the report's closing line. */
+export function buildDryRunSummary(
   sections: readonly (readonly [string, BackfillCounts])[],
+  entryCount: number,
+  environment: SupabaseEnvironment,
   now: Date = new Date(),
-): DryRunReport {
-  const entries: DryRunEntry[] = [];
+): DryRunSummary {
   const rowsByTable: Record<string, number> = {};
   const terms = new Map<string, TermCount>();
 
   for (const [label, counts] of sections) {
     rowsByTable[label] = counts.updated;
-    for (const entry of counts.dryRun?.entries ?? []) entries.push(entry);
-    for (const term of counts.dryRun?.terms ?? []) {
-      const existing = terms.get(term.term);
-      if (existing) existing.count += term.count;
-      else terms.set(term.term, { ...term });
-    }
+    addTermCounts(terms, counts.dryRun?.terms ?? []);
   }
 
   return {
+    kind: "summary",
     generatedAt: now.toISOString(),
-    entryCount: entries.length,
+    environment,
+    entryCount,
     rowsByTable,
     terms: [...terms.values()].sort((a, b) => b.count - a.count),
-    entries,
   };
 }
 
+export type DryRunReportWriter = DryRunEntrySink & {
+  /** The file being written. Always a real path — never `null`. */
+  readonly path: string;
+  /** Write the summary line, close the file, and return what it summarises. */
+  finish(
+    sections: readonly (readonly [string, BackfillCounts])[],
+  ): Promise<DryRunSummary>;
+};
+
 /**
- * Write the complete dry-run diff, and only on a dry run. Returns the path
- * written, or `null` when there was nothing to write — a real run keeps its
- * concise output and leaves no artifact behind.
+ * Open the streaming dry-run report and write its header.
  *
  * `JSON.stringify` emits zh-TW as literal characters (it escapes only control
  * characters and lone surrogates), so the file is readable without any
  * post-processing. That is a requirement, not a happy accident: an operator who
  * has to un-escape `\uXXXX` before reviewing will not review.
  */
-export async function reportDryRun(
-  options: CliOptions,
-  sections: readonly (readonly [string, BackfillCounts])[],
-  filePath: string = dryRunReportPath(),
-): Promise<string | null> {
-  if (!options.dryRun) return null;
-
-  const report = buildDryRunReport(sections);
+export async function createDryRunReport(
+  filePath: string,
+  environment: SupabaseEnvironment,
+  now: Date = new Date(),
+): Promise<DryRunReportWriter> {
   await mkdir(dirname(filePath), { recursive: true });
-  await writeFile(filePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-  return filePath;
+  const stream = createWriteStream(filePath, { encoding: "utf8" });
+
+  // A stream error while nothing is awaiting `drain` would otherwise be an
+  // unhandled 'error' event; captured here and rethrown at the next write, so a
+  // half-written report fails the run rather than passing as a complete one.
+  const failures: Error[] = [];
+  stream.on("error", (error: Error) => failures.push(error));
+
+  let entryCount = 0;
+
+  const writeLine = async (line: DryRunLine): Promise<void> => {
+    const failure = failures[0];
+    if (failure) throw failure;
+    // One `write` call per line, so concurrent producers can interleave lines
+    // but never split one.
+    if (!stream.write(`${JSON.stringify(line)}\n`)) await once(stream, "drain");
+  };
+
+  await writeLine({
+    kind: "header",
+    generatedAt: now.toISOString(),
+    environment,
+  });
+
+  return {
+    path: filePath,
+    async write(entry: DryRunEntry): Promise<void> {
+      entryCount += 1;
+      await writeLine({ kind: "patch", ...entry });
+    },
+    async finish(sections): Promise<DryRunSummary> {
+      const summary = buildDryRunSummary(
+        sections,
+        entryCount,
+        environment,
+        now,
+      );
+      await writeLine(summary);
+      stream.end();
+      await once(stream, "close");
+      const failure = failures[0];
+      if (failure) throw failure;
+      return summary;
+    },
+  };
+}
+
+/**
+ * The report, or `null` on a real run — a real run keeps its concise output and
+ * leaves no artifact behind. This is the single place that decision is made,
+ * and `main` calls it in both modes.
+ */
+export async function openDryRunReport(
+  options: CliOptions,
+  environment: SupabaseEnvironment,
+  filePath?: string,
+  now: Date = new Date(),
+): Promise<DryRunReportWriter | null> {
+  if (!options.dryRun) return null;
+  return createDryRunReport(
+    filePath ?? dryRunReportPath({ projectRef: environment.projectRef, now }),
+    environment,
+    now,
+  );
 }
 
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
+  const environment = supabaseEnvironment(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const supabase = createServiceClient();
+  const report = await openDryRunReport(options, environment);
 
   const [brands, images, products, exhibitors, faq] = await Promise.all([
-    ...ID_TABLES.map((config) => backfillTable(supabase, config, options)),
-    backfillFaq(supabase, options),
+    ...ID_TABLES.map((config) =>
+      backfillTable(supabase, config, options, report),
+    ),
+    backfillFaq(supabase, options, report),
   ]);
 
   console.log(
@@ -762,25 +950,24 @@ async function main(): Promise<void> {
     ].join(", "),
   );
 
-  if (options.dryRun) {
-    const labelled: [string, BackfillCounts][] = [
+  if (report) {
+    const summary = await report.finish([
       ["brands", brands],
       ["brand_images", images],
       ["curated_products", products],
       ["event_exhibitors", exhibitors],
       ["brand_faq_entries", faq],
-    ];
-    for (const [label, counts] of labelled) {
-      if (counts.dryRun && counts.updated > 0) {
-        console.log(formatDryRunDetail(label, counts.dryRun));
-      }
-    }
+    ]);
 
-    // The sample lines above are a preview. This file is the thing to review.
-    const reportPath = await reportDryRun(options, labelled);
-    console.log("Dry run complete. No changes made.");
+    console.log(formatTermTotals(summary.terms));
     console.log("");
-    console.log(`Full diff (every patch, untruncated): ${reportPath}`);
+    console.log("Dry run complete. No changes made.");
+    console.log(
+      `Database: ${summary.environment.projectRef} (${summary.environment.host})`,
+    );
+    console.log(
+      `Full diff (${summary.entryCount} patches, untruncated, one JSON object per line): ${report.path}`,
+    );
     console.log("Review it before running without --dry-run.");
   }
 }
