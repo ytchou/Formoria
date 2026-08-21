@@ -47,11 +47,6 @@
       "reason": "app_settings.owner_features_enabled is false — /submit/owner 404s and every owner surface (claiming, owner dashboard, owner submit fork) is unreachable. Set owner_features_enabled to true to bring this suite back."
     },
     {
-      "file": "dashboard-locale.spec.ts",
-      "title": "protected dashboard locale routing",
-      "reason": "app_settings.owner_features_enabled is false — /submit/owner 404s and every owner surface (claiming, owner dashboard, owner submit fork) is unreachable. Set owner_features_enabled to true to bring this suite back."
-    },
-    {
       "file": "dashboard-tabs.spec.ts",
       "title": "Dashboard — tab navigation",
       "reason": "app_settings.owner_features_enabled is false — /submit/owner 404s and every owner surface (claiming, owner dashboard, owner submit fork) is unreachable. Set owner_features_enabled to true to bring this suite back."
@@ -59,11 +54,6 @@
     {
       "file": "dashboard-tabs.spec.ts",
       "title": "Dashboard — legacy brand route redirect",
-      "reason": "app_settings.owner_features_enabled is false — /submit/owner 404s and every owner surface (claiming, owner dashboard, owner submit fork) is unreachable. Set owner_features_enabled to true to bring this suite back."
-    },
-    {
-      "file": "dashboard-welcome-card.spec.ts",
-      "title": "Dashboard — quick actions",
       "reason": "app_settings.owner_features_enabled is false — /submit/owner 404s and every owner surface (claiming, owner dashboard, owner submit fork) is unreachable. Set owner_features_enabled to true to bring this suite back."
     },
     {
@@ -115,11 +105,6 @@
       "file": "brand-corrections.spec.ts",
       "title": "Brand corrections — anonymous crowd QA",
       "reason": "Anonymous correction mutations are intentionally disabled on canonical staging"
-    },
-    {
-      "file": "seo.spec.ts",
-      "title": "robots.txt is accessible and allows crawling",
-      "reason": "Staging intentionally disables indexing."
     },
     {
       "file": "seo.spec.ts",

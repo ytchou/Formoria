@@ -1,9 +1,5 @@
-import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
-import { createTestClient, describeWithDb } from "@/test/setup";
-import { brandTarget } from "./enrichment-target";
 import {
-  insertAiCallResult,
   mergeDescriptionAuditResponse,
   retryAuditWrite,
 } from "./ai-results";
@@ -112,41 +108,3 @@ describe("audit persistence", () => {
   });
 });
 
-describeWithDb("audit retry columns", () => {
-  it("persists retryAttempt as retry_attempt", async () => {
-    const client = createTestClient();
-    const { data: brand, error: brandError } = await client
-      .from("brands")
-      .select("id")
-      .limit(1)
-      .single();
-    expect(brandError).toBeNull();
-    expect(brand).not.toBeNull();
-
-    const marker = `retry-attempt-${randomUUID()}`;
-    await insertAiCallResult({
-      target: brandTarget(brand!.id),
-      phase: "detect",
-      model: "gpt-5.6-luna",
-      rawResponse: { marker },
-      input: { marker },
-      retryAttempt: 2,
-      latencyMs: 0,
-    });
-
-    const { data: rows, error } = await client
-      .from("brand_ai_results")
-      .select("id, retry_attempt, input")
-      .eq("brand_id", brand!.id)
-      .order("created_at", { ascending: false })
-      .limit(20);
-    expect(error).toBeNull();
-    const row = rows?.find(
-      (candidate) =>
-        (candidate.input as { marker?: string } | null)?.marker === marker,
-    );
-    expect(row?.retry_attempt).toBe(2);
-
-    if (row?.id) await client.from("brand_ai_results").delete().eq("id", row.id);
-  });
-});

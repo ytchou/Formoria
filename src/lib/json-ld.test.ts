@@ -601,7 +601,7 @@ describe("buildEventJsonLd", () => {
     expect(ld.eventStatus).toBe("https://schema.org/EventScheduled");
   });
 
-  it("buildEventJsonLd_emits_raw_date_strings", () => {
+  it("emits calendar dates verbatim, with no time or zone appended", () => {
     const ld = buildEventJsonLd(
       makeEventInput({ startDate: "2026-08-06", endDate: "2026-08-10" }),
     );
@@ -621,67 +621,69 @@ describe("buildEventJsonLd", () => {
     expect("endDate" in ld).toBe(false);
   });
 
-  it("buildEventJsonLd_omits_location_without_venue", () => {
-    const ld = buildEventJsonLd(
-      makeEventInput({ venueName: null, venueAddress: null, city: null }),
-    );
-    expect("location" in ld).toBe(false);
-  });
-
-  it("builds a Place with a TW PostalAddress when a venue exists", () => {
-    const ld = buildEventJsonLd(makeEventInput());
-    expect(ld.location).toEqual({
-      "@type": "Place",
-      name: "松山文創園區",
-      address: {
-        "@type": "PostalAddress",
-        streetAddress: "光復南路 133 號",
-        addressLocality: "台北市",
-        addressCountry: "TW",
+  // `venue_name`, `venue_address` and `city` are independently nullable, and
+  // `location` is a required property of Google's Event rich result while
+  // schema.org does NOT require `Place.name`. Every combination therefore has
+  // its own answer: a curator who filled only the address must still get a
+  // Place, and a name with nothing to address must not get an address stub
+  // carrying only `addressCountry`.
+  it.each([
+    [
+      "no venue at all",
+      { venueName: null, venueAddress: null, city: null },
+      undefined,
+    ],
+    [
+      "venue name, address and city",
+      {},
+      {
+        "@type": "Place",
+        name: "松山文創園區",
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: "光復南路 133 號",
+          addressLocality: "台北市",
+          addressCountry: "TW",
+        },
       },
-    });
-  });
-
-  it("buildEventJsonLd_location_survives_a_missing_venue_name", () => {
-    // `venue_name`, `venue_address` and `city` are independently nullable, so a
-    // curator who fills only the address must still get a `location`: it is a
-    // required property of Google's Event rich result, and schema.org does NOT
-    // require `Place.name`. Gating the whole block on the name silently dropped
-    // both the requirement and the address that was actually entered.
-    const addressOnly = buildEventJsonLd(makeEventInput({ venueName: null }));
-    expect(addressOnly.location).toEqual({
-      "@type": "Place",
-      address: {
-        "@type": "PostalAddress",
-        streetAddress: "光復南路 133 號",
-        addressLocality: "台北市",
-        addressCountry: "TW",
+    ],
+    [
+      "an address and city but no venue name",
+      { venueName: null },
+      {
+        "@type": "Place",
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: "光復南路 133 號",
+          addressLocality: "台北市",
+          addressCountry: "TW",
+        },
       },
-    });
-    expect("name" in addressOnly.location).toBe(false);
-
-    // City alone is enough for an `addressLocality`-only Place.
-    const cityOnly = buildEventJsonLd(
-      makeEventInput({ venueName: null, venueAddress: null }),
-    );
-    expect(cityOnly.location).toEqual({
-      "@type": "Place",
-      address: {
-        "@type": "PostalAddress",
-        addressLocality: "台北市",
-        addressCountry: "TW",
+    ],
+    [
+      "a city alone",
+      { venueName: null, venueAddress: null },
+      {
+        "@type": "Place",
+        address: {
+          "@type": "PostalAddress",
+          addressLocality: "台北市",
+          addressCountry: "TW",
+        },
       },
-    });
-  });
-
-  it("buildEventJsonLd_named_venue_without_address_has_no_address_key", () => {
-    // The inverse gap: a name with nothing to put in the PostalAddress emits
-    // the Place alone rather than an address stub carrying only `addressCountry`.
-    const ld = buildEventJsonLd(
-      makeEventInput({ venueAddress: null, city: null }),
-    );
-    expect(ld.location).toEqual({ "@type": "Place", name: "松山文創園區" });
-    expect("address" in ld.location).toBe(false);
+    ],
+    [
+      "a venue name alone",
+      { venueAddress: null, city: null },
+      { "@type": "Place", name: "松山文創園區" },
+    ],
+  ] as const)("builds the location from %s", (_label, overrides, expected) => {
+    const ld = buildEventJsonLd(makeEventInput(overrides));
+    if (expected === undefined) {
+      expect("location" in ld).toBe(false);
+    } else {
+      expect(ld.location).toEqual(expected);
+    }
   });
 
   it("omits organizer and image entirely when null", () => {
@@ -692,39 +694,29 @@ describe("buildEventJsonLd", () => {
     expect("image" in ld).toBe(false);
   });
 
-  it("buildEventJsonLd_omits_offers_when_isFree_null", () => {
-    const unknown = buildEventJsonLd(makeEventInput({ isFree: null }));
-    expect("offers" in unknown).toBe(false);
-
-    const free = buildEventJsonLd(makeEventInput({ isFree: true }));
-    expect(free.offers).toMatchObject({
-      "@type": "Offer",
-      price: "0",
-      priceCurrency: "TWD",
-    });
-  });
-
-  it("buildEventJsonLd_ticketed_offer_has_no_price", () => {
-    const ld = buildEventJsonLd(
-      makeEventInput({
-        isFree: false,
-        ticketUrl: "https://tickets.example.com/expo",
-      }),
-    );
-
-    expect(ld.offers).toEqual({
-      "@type": "Offer",
-      url: "https://tickets.example.com/expo",
-    });
-    expect("price" in ld.offers).toBe(false);
-    expect("priceCurrency" in ld.offers).toBe(false);
-  });
-
-  it("omits offers for a ticketed event with no ticket URL", () => {
-    const ld = buildEventJsonLd(
-      makeEventInput({ isFree: false, ticketUrl: null }),
-    );
-    expect("offers" in ld).toBe(false);
+  // `isFree: null` means "ticketing unknown", which is not the same as free and
+  // must not be published as a price of any kind.
+  it.each([
+    ["ticketing is unknown", { isFree: null, ticketUrl: null }, undefined],
+    [
+      "the event is free",
+      { isFree: true, ticketUrl: null },
+      { "@type": "Offer", price: "0", priceCurrency: "TWD" },
+    ],
+    [
+      // Formoria never stores a price, so a ticketed event links out instead.
+      "the event is ticketed and links out",
+      { isFree: false, ticketUrl: "https://tickets.example.com/expo" },
+      { "@type": "Offer", url: "https://tickets.example.com/expo" },
+    ],
+    ["the event is ticketed with no ticket URL", { isFree: false, ticketUrl: null }, undefined],
+  ] as const)("emits the right offers when %s", (_label, overrides, expected) => {
+    const ld = buildEventJsonLd(makeEventInput(overrides));
+    if (expected === undefined) {
+      expect("offers" in ld).toBe(false);
+    } else {
+      expect(ld.offers).toEqual(expected);
+    }
   });
 });
 

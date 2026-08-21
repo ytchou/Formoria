@@ -13,7 +13,6 @@ import {
   isPinkoiStorefrontUrl,
   isInstitutionalHost,
   linkIdentifiesBrand,
-  LINK_FIELDS,
   linkColumnFor,
   type LinkField,
 } from '../link-enrichment'
@@ -114,10 +113,6 @@ describe('linkColumnFor', () => {
   ] as const)('maps %s to %s', (field, column) => {
     expect(linkColumnFor(field)).toBe(column)
   })
-})
-
-describe('LINK_FIELDS', () => {
-  it('LINK_FIELDS contains exactly 7 fields', () => { expect(LINK_FIELDS).toHaveLength(7) })
 })
 
 describe('linkIdentifiesBrand', () => {
@@ -341,38 +336,17 @@ describe('buildLinkEnrichPatch', () => {
 })
 
 describe('extractLinksFromUrls', () => {
-  it('maps Instagram URL to social_instagram', () => {
-    const result = extractLinksFromUrls(['https://www.instagram.com/mybrand/'])
-    expect(result.social_instagram).toBe('https://www.instagram.com/mybrand/')
-  })
-
-  it('maps Threads URL to social_threads', () => {
-    const result = extractLinksFromUrls(['https://www.threads.net/@mybrand'])
-    expect(result.social_threads).toBe('https://www.threads.net/@mybrand')
-  })
-
-  it('maps Facebook URL to social_facebook', () => {
-    const result = extractLinksFromUrls(['https://www.facebook.com/mybrand'])
-    expect(result.social_facebook).toBe('https://www.facebook.com/mybrand')
-  })
-
-  it('maps Pinkoi URL to purchase_pinkoi', () => {
-    const result = extractLinksFromUrls(['https://www.pinkoi.com/store/mybrand'])
-    expect(result.purchase_pinkoi).toBe('https://www.pinkoi.com/store/mybrand')
-  })
-
-  it('maps Shopee URL to purchase_shopee', () => {
-    const result = extractLinksFromUrls(['https://shopee.tw/mybrand'])
-    expect(result.purchase_shopee).toBe('https://shopee.tw/mybrand')
-  })
-
-  it('maps a MyShip detail URL to purchase_myship', () => {
-    const result = extractLinksFromUrls([
-      'https://myship.7-11.com.tw/general/detail/GM123456',
-    ])
-    expect(result.purchase_myship).toBe(
-      'https://myship.7-11.com.tw/general/detail/GM123456',
-    )
+  it.each([
+    ['https://www.instagram.com/mybrand/', 'social_instagram'],
+    ['https://www.threads.net/@mybrand', 'social_threads'],
+    ['https://www.facebook.com/mybrand', 'social_facebook'],
+    ['https://www.pinkoi.com/store/mybrand', 'purchase_pinkoi'],
+    ['https://shopee.tw/mybrand', 'purchase_shopee'],
+    // MyShip routes on the path, not just the host — the non-detail paths are
+    // rejected by the case below.
+    ['https://myship.7-11.com.tw/general/detail/GM123456', 'purchase_myship'],
+  ] as const)('maps %s to %s', (url, column) => {
+    expect(extractLinksFromUrls([url])).toEqual({ [column]: url })
   })
 
   it.each([
@@ -663,45 +637,23 @@ describe('buildLinkEnrichPatch — scraped social identity gate', () => {
 })
 
 describe('classifySubmittedUrl', () => {
-  it('classifies Instagram URL to socialInstagram', () => {
-    const result = classifySubmittedUrl('https://www.instagram.com/mybrand/')
-    expect(result).toEqual({ socialInstagram: 'https://www.instagram.com/mybrand/' })
-  })
-
-  it('classifies Threads URL to socialThreads', () => {
-    const result = classifySubmittedUrl('https://www.threads.net/@mybrand')
-    expect(result).toEqual({ socialThreads: 'https://www.threads.net/@mybrand' })
-  })
-
-  it('classifies Facebook profile to socialFacebook', () => {
-    const result = classifySubmittedUrl('https://www.facebook.com/mybrand')
-    expect(result).toEqual({ socialFacebook: 'https://www.facebook.com/mybrand' })
-  })
-
-  it('classifies Pinkoi URL to purchasePinkoi', () => {
-    const result = classifySubmittedUrl('https://www.pinkoi.com/store/mybrand')
-    expect(result).toEqual({ purchasePinkoi: 'https://www.pinkoi.com/store/mybrand' })
-  })
-
-  it('classifies Shopee URL to purchaseShopee', () => {
-    const result = classifySubmittedUrl('https://shopee.tw/mybrand')
-    expect(result).toEqual({ purchaseShopee: 'https://shopee.tw/mybrand' })
-  })
-
-  it('classifies regular website to purchaseWebsite', () => {
-    const result = classifySubmittedUrl('https://mybrand.com')
-    expect(result).toEqual({ purchaseWebsite: 'https://mybrand.com' })
+  it.each([
+    ['https://www.instagram.com/mybrand/', 'socialInstagram'],
+    ['https://www.threads.net/@mybrand', 'socialThreads'],
+    // threads.com must land on socialThreads too, not on the purchaseWebsite
+    // fallback that any unmatched host would otherwise take.
+    ['https://www.threads.com/@mybrand', 'socialThreads'],
+    ['https://www.facebook.com/mybrand', 'socialFacebook'],
+    ['https://www.pinkoi.com/store/mybrand', 'purchasePinkoi'],
+    ['https://shopee.tw/mybrand', 'purchaseShopee'],
+    ['https://mybrand.com', 'purchaseWebsite'],
+  ] as const)('classifies %s as %s', (url, field) => {
+    expect(classifySubmittedUrl(url)).toEqual({ [field]: url })
   })
 
   it('discards corporate account URLs (returns empty)', () => {
     const result = classifySubmittedUrl('https://www.instagram.com/ilovepinkoi/')
     expect(result).toEqual({})
-  })
-
-  it('classifies a threads.com profile to socialThreads, not purchaseWebsite', () => {
-    expect(classifySubmittedUrl('https://www.threads.com/@mybrand')).toEqual({
-      socialThreads: 'https://www.threads.com/@mybrand',
-    })
   })
 
   // The fallback is "it must be their own website" — a platform URL no profile
@@ -716,50 +668,28 @@ describe('classifySubmittedUrl', () => {
   })
 })
 
-describe('buildLinkEnrichPatch — overwrite-with-validation', () => {
+// The scraped argument here is keyed by COLUMN (snake_case), not by field
+// (camelCase) as everywhere else in this file. `getScrapedLinkValue` accepts
+// both, and this block is the only coverage of the `column in scraped` branch —
+// callers that hand it a flat brand row rather than a ScrapedBrandData.
+describe('buildLinkEnrichPatch — column-keyed scraped input', () => {
   const baseBrand = {
     social_instagram: null, social_threads: null, social_facebook: null,
     purchase_pinkoi: null, purchase_shopee: null, website_url: null,
   }
 
-  it('fills empty fields', () => {
+  it.each([
+    ['fills an empty field', null, 'https://www.instagram.com/mybrand/', 'https://www.instagram.com/mybrand/'],
+    ['overwrites an existing value', 'https://www.instagram.com/oldbrand/', 'https://www.instagram.com/newbrand/', 'https://www.instagram.com/newbrand/'],
+    ['skips a write when the value is unchanged', 'https://www.instagram.com/mybrand/', 'https://www.instagram.com/mybrand/', undefined],
+    ['rejects a scraped corporate account', null, 'https://www.instagram.com/ilovepinkoi/', undefined],
+    ['clears an existing corporate account with no replacement', 'https://www.instagram.com/ilovepinkoi/', undefined, null],
+  ] as const)('%s', (_label, existing, scraped, expected) => {
     const patch = buildLinkEnrichPatch(
-      { ...baseBrand },
-      { social_instagram: 'https://www.instagram.com/mybrand/' }
+      { ...baseBrand, social_instagram: existing },
+      scraped === undefined ? {} : { social_instagram: scraped },
     )
-    expect(patch.social_instagram).toBe('https://www.instagram.com/mybrand/')
-  })
-
-  it('overwrites existing values with new scraped values', () => {
-    const patch = buildLinkEnrichPatch(
-      { ...baseBrand, social_instagram: 'https://www.instagram.com/oldbrand/' },
-      { social_instagram: 'https://www.instagram.com/newbrand/' }
-    )
-    expect(patch.social_instagram).toBe('https://www.instagram.com/newbrand/')
-  })
-
-  it('skips when new value equals existing (no unnecessary write)', () => {
-    const patch = buildLinkEnrichPatch(
-      { ...baseBrand, social_instagram: 'https://www.instagram.com/mybrand/' },
-      { social_instagram: 'https://www.instagram.com/mybrand/' }
-    )
-    expect(patch.social_instagram).toBeUndefined()
-  })
-
-  it('rejects scraped corporate account values', () => {
-    const patch = buildLinkEnrichPatch(
-      { ...baseBrand },
-      { social_instagram: 'https://www.instagram.com/ilovepinkoi/' }
-    )
-    expect(patch.social_instagram).toBeUndefined()
-  })
-
-  it('clears existing corporate value even when no scraped replacement', () => {
-    const patch = buildLinkEnrichPatch(
-      { ...baseBrand, social_instagram: 'https://www.instagram.com/ilovepinkoi/' },
-      {}
-    )
-    expect(patch.social_instagram).toBeNull()
+    expect(patch.social_instagram).toBe(expected)
   })
 })
 

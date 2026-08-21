@@ -46,6 +46,9 @@ describe('CITY_REGION_LABELS_ZH', () => {
 })
 
 describe('TAIWAN_CITIES', () => {
+  // 22 is Taiwan's administrative-division count (6 special municipalities,
+  // 3 provincial cities, 13 counties) — an external fact, not a magic number.
+  // Never "derive" it from the array under test; that makes the check vacuous.
   it('exports exactly 22 cities', () => {
     expect(TAIWAN_CITIES).toHaveLength(22)
   })
@@ -69,6 +72,8 @@ describe('TAIWAN_CITIES', () => {
   })
 
   it('CITY_SLUGS is a flat array of all slugs', () => {
+    // Literal 22, not `TAIWAN_CITIES.length`: CITY_SLUGS is derived from
+    // TAIWAN_CITIES, so comparing the two can never fail.
     expect(CITY_SLUGS).toHaveLength(22)
     expect(CITY_SLUGS).toContain('taipei')
     expect(CITY_SLUGS).toContain('kaohsiung')

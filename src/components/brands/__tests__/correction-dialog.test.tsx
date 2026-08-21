@@ -129,6 +129,12 @@ function openSubcategoriesDialog() {
   selectField("subcategories");
 }
 
+function openCategoryDialog(categorySlug: string | null = "home") {
+  renderDialog({ categorySlug });
+  openDialog();
+  selectField("category");
+}
+
 const HOME_SUBCATEGORIES = L2_SUBCATEGORIES.filter(
   (subcategory) => subcategory.category === "home",
 );
@@ -161,9 +167,7 @@ describe("CorrectionDialog", () => {
 
   describe("structure", () => {
     it("renders the current category as a non-interactive reference, not a button", () => {
-      renderDialog({ categorySlug: "home" });
-      openDialog();
-      selectField("category");
+      openCategoryDialog();
 
       const current = group(CURRENT_HEADING);
       expect(within(current).getByText("居家生活")).toBeInTheDocument();
@@ -172,10 +176,8 @@ describe("CorrectionDialog", () => {
 
     // The dialog reads as a diff: 目前 / 改成. The field label stays the group's
     // accessible name so the row is still addressable as 類別 / 價格區間.
-    it("heads the options row with 改成 while keeping the field label as its name", () => {
-      renderDialog({ categorySlug: "home" });
-      openDialog();
-      selectField("category");
+    it("heads the options row with the change-to heading while keeping the field label as its name", () => {
+      openCategoryDialog();
 
       const options = group(CATEGORY_LABEL);
       expect(within(options).getByText(CHANGE_TO_HEADING)).toBeInTheDocument();
@@ -185,9 +187,7 @@ describe("CorrectionDialog", () => {
     });
 
     it("excludes the current value from the options row", () => {
-      renderDialog({ categorySlug: "home" });
-      openDialog();
-      selectField("category");
+      openCategoryDialog();
 
       expect(screen.getAllByText("居家生活")).toHaveLength(1);
       expect(
@@ -197,27 +197,28 @@ describe("CorrectionDialog", () => {
       ).not.toBeInTheDocument();
     });
 
-    it("renders one option chip per remaining category", () => {
-      renderDialog({ categorySlug: "home" });
-      openDialog();
-      selectField("category");
+    // One chip per category the brand is not already in — so an unset brand is
+    // offered the whole list, and a set one is offered the list minus itself.
+    it.each([
+      ["a brand with a category", "home", L1_CATEGORIES.length - 1],
+      ["a brand with none", null, L1_CATEGORIES.length],
+    ] as const)(
+      "renders one option chip per selectable category for %s",
+      (_label, categorySlug, expected) => {
+        openCategoryDialog(categorySlug);
 
-      expect(within(group(CATEGORY_LABEL)).getAllByRole("button")).toHaveLength(
-        L1_CATEGORIES.length - 1,
-      );
-    });
+        expect(
+          within(group(CATEGORY_LABEL)).getAllByRole("button"),
+        ).toHaveLength(expected);
+      },
+    );
 
     it("renders a placeholder in row 1 when the field is unset", () => {
-      renderDialog({ categorySlug: null });
-      openDialog();
-      selectField("category");
+      openCategoryDialog(null);
 
       expect(
         within(group(CURRENT_HEADING)).getByText(PLACEHOLDER_COPY),
       ).toBeInTheDocument();
-      expect(within(group(CATEGORY_LABEL)).getAllByRole("button")).toHaveLength(
-        L1_CATEGORIES.length,
-      );
       expect(submitButton()).toBeDisabled();
     });
 
@@ -299,7 +300,8 @@ describe("CorrectionDialog", () => {
       expect(submitButton()).toBeEnabled();
 
       // A picked node moves into the selected row, which is where it is
-      // deselected from — hunting for a pressed chip among 175 is worse.
+      // deselected from — hunting for one pressed chip among the whole L2
+      // vocabulary is worse.
       clickChip(CURRENT_SUBCATEGORIES_HEADING, label("mattresses"));
       expect(submitButton()).toBeDisabled();
     });
@@ -474,7 +476,7 @@ describe("CorrectionDialog", () => {
 
     // The write-side counterpart of the cross-L1 read fix: a `home` brand can
     // be given `backpacks`, which the brand's own L1 would never have offered.
-    it("offers all 175 nodes, not just the brand's own L1", () => {
+    it("offers every L2 node, not just the brand's own L1", () => {
       renderSubcategories(["bedding"]);
       openSubcategoriesDialog();
 

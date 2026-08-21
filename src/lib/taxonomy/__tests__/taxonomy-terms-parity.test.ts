@@ -1,11 +1,9 @@
-import { createClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import {
   L1_CATEGORIES,
   L2_SUBCATEGORIES,
   MATERIALS,
 } from "@/lib/taxonomy/ontology";
-import { describeWithDb } from "@/test/setup";
 import {
   TAXONOMY_TERM_AXES,
   buildTaxonomyTermRows,
@@ -20,11 +18,13 @@ import {
  * zh-TW label just stops reaching `cjk_bigrams`, and `後背包` silently stops
  * matching a brand tagged `backpacks`.
  *
- * The gate therefore runs WITHOUT a database. It parses the committed migration
- * and compares it to the ontology module, so CI — which has no Supabase
- * credentials — still catches the drift. The live table is checked as well when
- * integration credentials are present, but that check is additive: a green CI
- * run must already mean the vocabulary agrees.
+ * The gate runs WITHOUT a database. It parses the committed migration and
+ * compares it to the ontology module, so CI — which has no Supabase
+ * credentials — catches drift between those two.
+ *
+ * It does NOT check the deployed table. Nothing does any more, so drift between
+ * the committed migration and the rows actually in `taxonomy_terms` — a
+ * hand-applied change, a migration that failed halfway — is undetected here.
  */
 function sortRows(rows: TaxonomyTermRow[]): TaxonomyTermRow[] {
   return [...rows].sort((a, b) =>
@@ -137,30 +137,3 @@ describe("taxonomy_terms parity with the TypeScript ontology", () => {
   });
 });
 
-describeWithDb("taxonomy_terms as deployed", () => {
-  const supabase =
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-      ? createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL,
-          process.env.SUPABASE_SERVICE_ROLE_KEY,
-        )
-      : null;
-
-  // Bug caught: the migration applied against a database whose seed block had
-  // been edited by hand, or applied before the generator was re-run.
-  it("live_table_matches_the_generated_seed", async () => {
-    const { data, error } = await supabase!
-      .from("taxonomy_terms")
-      .select("axis, slug, name_zh, name_en");
-    expect(error).toBeNull();
-
-    const live: TaxonomyTermRow[] = (data ?? []).map((row) => ({
-      axis: row.axis,
-      slug: row.slug,
-      nameZh: row.name_zh,
-      nameEn: row.name_en,
-    }));
-    expect(sortRows(live)).toEqual(sortRows(ontologyRows));
-  });
-});

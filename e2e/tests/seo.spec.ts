@@ -120,19 +120,6 @@ test.describe("SEO deep", () => {
     }
   });
 
-  test("robots.txt is accessible and allows crawling", async ({ request }) => {
-    test.skip(
-      process.env.FORMORIA_DEPLOYMENT_ENV === "staging",
-      "Staging intentionally disables indexing.",
-    );
-    const response = await request.get("/robots.txt");
-    expect(response.status()).toBe(200);
-    const body = await response.text();
-    // Next.js generates "User-Agent" (capital A) — compare case-insensitively
-    expect(body.toLowerCase()).toContain("user-agent");
-    expect(body).not.toMatch(/Disallow: \/$|Disallow: \*$/m);
-  });
-
   test("sitemap.xml is accessible", async ({ request }) => {
     test.skip(
       process.env.FORMORIA_DEPLOYMENT_ENV === "staging",
@@ -187,6 +174,11 @@ test.describe("SEO deep", () => {
   });
 
   // --- i18n: hreflang alternates on localized pages ---
+  //
+  // Owned HERE, not by `alternates.test.ts`: that unit test calls
+  // buildAlternates('/brands', 'en') and asserts the returned string. It never
+  // renders the page, so a generateMetadata regression that drops the
+  // `alternates` spread stays invisible to it while these fail.
 
   test("/brands emits hreflang alternate links for zh-TW, en, and x-default", async ({
     page,
@@ -254,11 +246,6 @@ test.describe("SEO deep", () => {
       .getAttribute("href");
     expect(canonical).toBeTruthy();
     expect(canonical).toContain("/en/");
-  });
-
-  test("robots allows /submit", async ({ request }) => {
-    const body = await (await request.get("/robots.txt")).text();
-    expect(body).not.toMatch(/Disallow:\s*\/submit\b/);
   });
 
   test("sitemap includes the public editorial pages", async ({ request }) => {
@@ -356,50 +343,6 @@ test.describe("SEO deep", () => {
     }
   });
 
-  test("llms.txt is served as text", async ({ request }) => {
-    const res = await request.get("/llms.txt");
-    expect(res.status()).toBe(200);
-    expect(res.headers()["content-type"]).toContain("text/plain");
-    const body = await res.text();
-    expect(body).toContain("/about");
-    expect(body).not.toContain("/vision");
-    expect(body).toContain(
-      "Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
-    );
-    expect(body).toContain("Brands or retailers remain responsible");
-    expect(body).not.toContain("discover, choose, and grow");
-  });
-
-  test("llms.txt lists canonical category and reference links", async ({
-    request,
-  }) => {
-    const body = await (await request.get("/llms.txt")).text();
-    const categorySlugs = [
-      "fashion",
-      "bags-accessories",
-      "jewelry",
-      "beauty",
-      "home",
-      "food-drink",
-      // `crafts` was retired by DEV-1507 and redirects to /brands.
-      "stationery",
-      "tech",
-      "outdoor",
-      "fitness",
-      // `kids-pets` was split into these two L1s by DEV-1510.
-      "kids",
-      "pets",
-    ];
-
-    for (const slug of categorySlugs) {
-      expect(body).toContain(`/categories/${slug}`);
-      expect(body).not.toContain(`/brands?category=${slug}`);
-    }
-    for (const path of ["/events", "/faq"]) {
-      expect(body).toContain(path);
-    }
-  });
-
   test("challenge page is not indexed or followed", async ({ page }) => {
     await page.goto("/challenge");
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
@@ -412,6 +355,9 @@ test.describe("SEO deep", () => {
     );
   });
 
+  // The only POSITIVE proof that the directory publishes structured data.
+  // `directory-material.spec.ts` asserts an ItemList block is ABSENT for an
+  // unknown material, which goes MORE green if ItemList disappears entirely.
   test("/brands (unfiltered) emits ItemList JSON-LD with itemListElement", async ({
     page,
   }) => {

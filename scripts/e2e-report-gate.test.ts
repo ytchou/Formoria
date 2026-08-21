@@ -12,7 +12,6 @@ import {
   EVENT_AREA_FILTER_REASON,
   EXPECTED_STAGING_CONSTRAINT_SKIP_REGISTRY,
   HIDDEN_AUTH_AFFORDANCE_REASON,
-  STAGING_NOINDEX_REASON,
   STAGING_NO_SITEMAP_REASON,
 } from './e2e-staging-skip-registry';
 import { freezeFailures } from './selfheal/incident';
@@ -84,8 +83,7 @@ describe('deployed Playwright report gate', () => {
       ANONYMOUS_MUTATION_REASON,
       HIDDEN_AUTH_AFFORDANCE_REASON,
       ANONYMOUS_CORRECTION_REASON,
-      STAGING_NOINDEX_REASON,
-      STAGING_NO_SITEMAP_REASON,
+          STAGING_NO_SITEMAP_REASON,
       EVENT_AREA_FILTER_REASON,
     ]);
     expect(value.version).toBe(1);

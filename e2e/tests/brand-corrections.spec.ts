@@ -2,7 +2,6 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures/auth';
 import { seedBrand, SeededBrand } from '../helpers/seed';
 import { BUDGET, POLL } from '../budgets';
-import { L2_SUBCATEGORIES } from '../../src/lib/taxonomy/ontology';
 import zhTW from '../../messages/zh-TW.json';
 
 const IS_CANONICAL_STAGING_TARGET =
@@ -29,9 +28,13 @@ const STAGING_MUTATION_SKIP_REASON =
  * original value until an admin approves it.
  *
  * The value control is a two-row chip picker (DEV-1244): row 1 is the brand's
- * current value, row 2 is everything else. DEV-1510 closed the vocabulary: row 2
- * offers all 175 nodes and there is no free-text path, so a product kind the
- * taxonomy lacks is rejected and logged rather than proposed.
+ * current value, row 2 is everything else.
+ *
+ * Scope: only what crosses the server boundary. The dialog's own behaviour —
+ * submit gating, the delta payload, the subcategory cap, and the DEV-1510 closed
+ * vocabulary that refuses an unknown term — is owned by
+ * `src/components/brands/__tests__/correction-dialog.test.tsx`, which asserts all
+ * of it without a browser or a seeded brand.
  *
  * Admin approval is deliberately out of scope here — admin review paths are
  * exercised elsewhere and excluded from this journey.
@@ -84,22 +87,6 @@ const ADD_SUBCATEGORIES_HEADING =
  * rejection path is the only one it can take.
  */
 const OUT_OF_VOCABULARY_TERM = '手工燈籠';
-
-/**
- * The known-good half of the same journey, resolved from the ontology so a
- * renamed node breaks this loudly instead of quietly becoming a second
- * rejection — which would leave the test green while proving nothing.
- */
-const KNOWN_SUBCATEGORY = (() => {
-  const slug = 'tableware';
-  const node = L2_SUBCATEGORIES.find((item) => item.slug === slug);
-  if (!node) {
-    throw new Error(
-      `brand-corrections spec pins a subcategory that no longer exists: ${slug}`,
-    );
-  }
-  return node;
-})();
 
 /**
  * Correction submits and `/brands/` page loads are both rate limited per client
@@ -261,58 +248,13 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
       // Never bounced to sign-in. (Site chrome legitimately links to sign-in for
       // anonymous visitors, so the no-auth check is scoped to the dialog above.)
       await expect(anonPage).toHaveURL(new RegExp(`/brands/${seeded.slug}`));
-    },
-  );
 
-  test('submit stays disabled until the value changes', async ({ anonPage }, testInfo) => {
-    test.setTimeout(BUDGET.TEST.MUTATION);
-    await isolateVisitorIp(anonPage, testInfo.workerIndex);
-    await openSeededBrand(anonPage, seeded);
-
-    const dialog = await openCategoryDialog(anonPage);
-    const options = optionsRow(dialog, CATEGORY_VALUE_LABEL);
-    const proposed = options.getByRole('button', { name: PROPOSED_CATEGORY_LABEL, exact: true });
-    const submit = dialog.getByRole('button', { name: SUBMIT_LABEL, exact: true });
-
-    // The brand's current category is shown as a reference, not as something to
-    // click: it sits in row 1 and is deliberately absent from the options row,
-    // so there is nothing to propose yet.
-    await expect(currentRow(dialog)).toContainText(CURRENT_CATEGORY_LABEL);
-    await expect(
-      options.getByRole('button', { name: CURRENT_CATEGORY_LABEL, exact: true }),
-    ).toHaveCount(0);
-    await expect(proposed).toHaveAttribute('aria-pressed', 'false');
-    await expect(submit).toBeDisabled();
-
-    await proposed.click();
-    await expect(proposed).toHaveAttribute('aria-pressed', 'true');
-    await expect(submit).toBeEnabled();
-
-    // Row 2 never offers the current value, so the way back to the baseline is a
-    // second click on the same chip — which clears the selection.
-    await proposed.click();
-    await expect(proposed).toHaveAttribute('aria-pressed', 'false');
-    await expect(submit).toBeDisabled();
-  });
-
-  test(
-    'page still shows the original value after submitting',
-    async ({ anonPage }, testInfo) => {
-      test.skip(IS_CANONICAL_STAGING_TARGET, STAGING_MUTATION_SKIP_REASON);
-      test.setTimeout(BUDGET.TEST.MUTATION);
-      await isolateVisitorIp(anonPage, testInfo.workerIndex);
-      await openSeededBrand(anonPage, seeded);
-
-      await expect(categoryValue(anonPage)).toContainText(CURRENT_CATEGORY_LABEL);
-
-      const dialog = await proposeCategoryChange(anonPage);
-      await expectToast(anonPage, 'success', SUCCESS_TOAST);
-      await expect(dialog).toBeHidden();
-
-      // Pending, not applied: the header must still read the original category.
+      // Pending, NOT applied — folded in from a separate test that re-ran this
+      // whole submit only to check the header afterwards. A crowd proposal must
+      // land in the queue without touching the public value, before OR after a
+      // reload.
       await expect(categoryValue(anonPage)).toContainText(CURRENT_CATEGORY_LABEL);
       await expect(categoryValue(anonPage)).not.toContainText(PROPOSED_CATEGORY_LABEL);
-
       await anonPage.reload({ waitUntil: 'domcontentloaded' });
       await expect(categoryValue(anonPage)).toContainText(CURRENT_CATEGORY_LABEL);
       await expect(categoryValue(anonPage)).not.toContainText(PROPOSED_CATEGORY_LABEL);
@@ -338,7 +280,15 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   });
 
   /*
-   * The journey that replaces the deleted 其他 free-text escape hatch (DEV-1510).
+   * The a11y and zero-match half of the closed-vocabulary journey (DEV-1510).
+   *
+   * `correction-dialog.test.tsx` owns the refusal itself — it asserts
+   * `getByText(SUBCATEGORY_REJECTED)` and `aria-invalid="true"`. It does NOT
+   * assert `aria-describedby`, so a rejection rendered as a plain sibling <p>
+   * passes there and leaves a screen-reader user with no reason. That, plus the
+   * zero-match empty message, is what this case exists for. The typed-slug
+   * commit path is genuinely owned by that unit test ('commits an alias to its
+   * stored slug') and is deliberately NOT duplicated here.
    *
    * It is READ-ONLY: it opens the picker, is refused, and closes. Nothing is
    * submitted, so it deliberately carries no `IS_CANONICAL_STAGING_TARGET` skip
@@ -346,10 +296,8 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
    * disabled on canonical staging, and this one writes nothing to disable.
    * The refusal is logged in memory on the client only
    * (`recordRejectedSubcategoryInput`), never persisted.
-   *
-   * The `?material=` half of DEV-1524 lives in `directory-material.spec.ts`.
    */
-  test('the closed subcategory picker refuses a term outside the vocabulary', async ({
+  test('the closed subcategory picker announces its refusal through the field', async ({
     anonPage,
   }, testInfo) => {
     test.setTimeout(BUDGET.TEST.JOURNEY);
@@ -394,18 +342,5 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
     await expect(offeredRow.getByText(SUBCATEGORY_EMPTY)).toBeVisible();
     await expect(selectedRow).not.toContainText(OUT_OF_VOCABULARY_TERM);
     await expect(submit).toBeDisabled();
-
-    // Cleared on the next keystroke: the message describes the term that was
-    // typed, not a state the field is stuck in.
-    await filterField.fill(KNOWN_SUBCATEGORY.slug);
-    await expect(filterField).not.toHaveAttribute('aria-invalid');
-
-    // A term the vocabulary DOES know still commits — which is what separates a
-    // closed field from a broken one. The chip renders the zh-TW label even
-    // though a slug was typed, because the stored value is the slug.
-    await filterField.press('Enter');
-    await expect(selectedRow).toContainText(KNOWN_SUBCATEGORY.nameZh);
-    await expect(filterField).toHaveValue('');
-    await expect(submit).toBeEnabled();
   });
 });

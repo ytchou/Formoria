@@ -86,19 +86,12 @@ test.describe("Brand detail deep", () => {
       timeout: BUDGET.INTERACTIVE,
     });
 
-    // Both sections must appear on the same page — confirming structural separation
-    const socialSection = page.getByRole("heading", {
-      name: "社群平台",
-      level: 2,
-    });
-    const purchaseSection = page.getByRole("heading", {
-      name: "線上購買",
-      level: 2,
-    });
-    await expect(socialSection).toBeVisible();
-    await expect(purchaseSection).toBeVisible();
   });
 
+  // Ordering is a separate failure from presence, so it is a separate test: a
+  // merged case would hide the ordering result the moment a heading is missing
+  // (see commit 4a4fc7a8). The extra `goto` is one cached load of an
+  // already-seeded brand.
   test("links sections are structurally separate (social before purchase)", async ({
     page,
   }) => {
@@ -202,6 +195,11 @@ test.describe("Brand detail deep", () => {
     }
   });
 
+  // The ONLY assertion anywhere in the repo that a brand page emits og:title.
+  // Restored deliberately: this repo has already shipped og:image suppressed
+  // site-wide while every unit metadata test passed. The canonical and JSON-LD
+  // assertions that used to sit here are NOT restored — both are re-asserted
+  // later in this same file.
   test("SEO meta tags are present", async ({ page }) => {
     await page.goto(brandHref);
     const title = await page.title();
@@ -214,26 +212,6 @@ test.describe("Brand detail deep", () => {
       .locator('meta[name="description"]')
       .getAttribute("content");
     expect(description?.length).toBeGreaterThan(0);
-  });
-
-  test("JSON-LD structured data is present", async ({ page }) => {
-    await page.goto(brandHref);
-    const jsonLd = await page
-      .locator('script[type="application/ld+json"]')
-      .first()
-      .textContent();
-    const parsed = JSON.parse(jsonLd || "{}");
-    expect(parsed["@type"]).toBeTruthy();
-  });
-
-  test("canonical URL matches current URL", async ({ page }) => {
-    await page.goto(brandHref);
-    const canonical = await page
-      .locator('link[rel="canonical"]')
-      .getAttribute("href");
-    expect(decodeURIComponent(canonical ?? "")).toContain(
-      decodeURIComponent(brandHref),
-    );
   });
 
   test("FAQ renders on a data-rich brand", async ({ page }) => {

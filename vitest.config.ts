@@ -1,22 +1,5 @@
-import { configDefaults, defineConfig } from "vitest/config";
+import { defineConfig } from "vitest/config";
 import path from "path";
-
-/**
- * These suites all mutate the SAME global row in `app_settings`
- * (`owner_features_enabled`): one sets it true, one sets it false and asserts a
- * short-circuit, one deletes the row outright. Vitest runs test files in
- * parallel workers, so with RUN_SUPABASE_INTEGRATION_TESTS=true they interleave
- * and go red with no code defect. They are pinned to a project with
- * `fileParallelism: false` so they run one at a time — every other test file
- * keeps its parallelism.
- *
- * Add a file here only if it writes a globally shared `app_settings` key.
- */
-const APP_SETTINGS_SERIAL_TESTS = [
-  "src/lib/actions/viewer-context.test.ts",
-  "src/lib/services/app-settings.test.ts",
-  "src/lib/services/drip-processing.test.ts",
-];
 
 const include = [
   "src/**/*.test.ts",
@@ -75,16 +58,6 @@ export default defineConfig({
           ...sharedTestConfig,
           name: "unit",
           include,
-          exclude: [...configDefaults.exclude, ...APP_SETTINGS_SERIAL_TESTS],
-        },
-      },
-      {
-        resolve,
-        test: {
-          ...sharedTestConfig,
-          name: "app-settings-serial",
-          include: APP_SETTINGS_SERIAL_TESTS,
-          fileParallelism: false,
         },
       },
     ],

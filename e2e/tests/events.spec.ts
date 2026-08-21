@@ -23,4 +23,26 @@ test.describe("Events hub deep", () => {
       await expect(cards.first()).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     }
   });
+
+  /*
+   * The footer's entry point to this hub, folded in from the deleted
+   * `events-navigation.spec.ts`.
+   *
+   * Not owned by `src/components/navigation/footer-links.test.ts`: that unit
+   * test calls `getFooterFullDocumentHref()` and compares strings without ever
+   * rendering a footer. Not owned by the case above either — it `goto()`s the
+   * hub directly and never touches `contentinfo`. Scoped to `contentinfo`
+   * because 展會 is also a header nav label; the deleted spec used an unscoped
+   * locator, which is strict-mode ambiguous.
+   */
+  test("footer has a visible 展會 link pointing to /events", async ({
+    anonPage,
+  }) => {
+    await anonPage.goto("/");
+    const eventsLink = anonPage
+      .getByRole("contentinfo")
+      .getByRole("link", { name: "展會", exact: true });
+    await expect(eventsLink).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+    await expect(eventsLink).toHaveAttribute("href", "/events");
+  });
 });

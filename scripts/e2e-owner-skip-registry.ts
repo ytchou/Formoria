@@ -72,12 +72,6 @@ export const OWNER_FEATURE_CALLSITES: readonly OwnerFeatureCallsite[] = [
     kind: "skip",
   },
   {
-    file: "dashboard-locale.spec.ts",
-    title: "protected dashboard locale routing",
-    reason: "off",
-    kind: "skip",
-  },
-  {
     file: "dashboard-tabs.spec.ts",
     title: "Dashboard — tab navigation",
     reason: "off",
@@ -86,12 +80,6 @@ export const OWNER_FEATURE_CALLSITES: readonly OwnerFeatureCallsite[] = [
   {
     file: "dashboard-tabs.spec.ts",
     title: "Dashboard — legacy brand route redirect",
-    reason: "off",
-    kind: "skip",
-  },
-  {
-    file: "dashboard-welcome-card.spec.ts",
-    title: "Dashboard — quick actions",
     reason: "off",
     kind: "skip",
   },
