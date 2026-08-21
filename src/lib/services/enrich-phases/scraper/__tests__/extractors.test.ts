@@ -78,28 +78,6 @@ describe('extractSocialLinks', () => {
 })
 
 describe('extractPurchaseLinks', () => {
-  it('extracts Pinkoi link from href', () => {
-    const $ = cheerio.load('<a href="https://www.pinkoi.com/store/mybrand">Pinkoi</a>')
-    const links = extractPurchaseLinks($)
-    expect(links.purchasePinkoi).toBe('https://www.pinkoi.com/store/mybrand')
-    expect(links.purchaseShopee).toBeNull()
-    expect(links.purchaseWebsite).toBeNull()
-  })
-
-  it('extracts Shopee link from href', () => {
-    const $ = cheerio.load('<a href="https://shopee.tw/mybrand">Shopee</a>')
-    const links = extractPurchaseLinks($)
-    expect(links.purchaseShopee).toBe('https://shopee.tw/mybrand')
-    expect(links.purchasePinkoi).toBeNull()
-  })
-
-  it('extracts Shopee com.tw link from href', () => {
-    const $ = cheerio.load('<a href="https://shopee.com.tw/mybrand">Shopee</a>')
-    const links = extractPurchaseLinks($)
-    expect(links.purchaseShopee).toBe('https://shopee.com.tw/mybrand')
-    expect(links.purchasePinkoi).toBeNull()
-  })
-
   it('extracts both Pinkoi and Shopee links', () => {
     const $ = cheerio.load(
       '<a href="https://www.pinkoi.com/store/mybrand">Pinkoi</a><a href="https://shopee.tw/mybrand">Shopee</a>'
@@ -121,15 +99,24 @@ describe('extractPurchaseLinks', () => {
   // `urlPattern`. Every URL below was harvested before the registry refactor
   // and must keep being harvested — `urlPattern` would reject all five.
   it.each([
+    ['https://www.pinkoi.com/store/mybrand', 'purchasePinkoi'],
     ['https://pinkoi.com/product/abc', 'purchasePinkoi'],
     ['https://www.pinkoi.com/zh-TW/store/mybrand', 'purchasePinkoi'],
+    ['https://shopee.tw/mybrand', 'purchaseShopee'],
+    ['https://shopee.com.tw/mybrand', 'purchaseShopee'],
     ['https://shopee.tw/shop/12345', 'purchaseShopee'],
     ['https://shopee.tw/mybrand?smtt=1', 'purchaseShopee'],
     ['https://shopee.com.tw/shop/123', 'purchaseShopee'],
     ['https://myship.7-11.com.tw/general/detail/GM123', 'purchaseMyship'],
-  ] as const)('harvests %s into %s', (href, field) => {
+  ] as const)('harvests %s into %s, and nothing else', (href, field) => {
     const $ = cheerio.load(`<a href="${href}">Buy</a>`)
-    expect(extractPurchaseLinks($)[field]).toBe(href)
+    const links = extractPurchaseLinks($)
+    expect(links[field]).toBe(href)
+    // One href must not populate a second column: a Pinkoi link is not also a
+    // website, and a marketplace host is not a second marketplace.
+    for (const [key, value] of Object.entries(links)) {
+      if (key !== field) expect(value, `${key} from ${href}`).toBeNull()
+    }
   })
 
   it('does not harvest a lookalike host', () => {
@@ -293,59 +280,38 @@ describe('extractAllJsonLd', () => {
 })
 
 describe('extractJsonLdImages', () => {
-  it('extracts image string from Product', () => {
-    const jsonLd = [{ '@type': 'Product', image: 'https://cdn.example.com/product.jpg' }]
-    const images = extractJsonLdImages(jsonLd, 'https://example.com')
-    expect(images).toContain('https://cdn.example.com/product.jpg')
+  // The `image` value arrives in three shapes and the node carrying it sits at
+  // three depths; every combination has to yield the same URL.
+  it.each([
+    ['a Product image string', [{ '@type': 'Product', image: 'https://cdn.example.com/product.jpg' }], ['https://cdn.example.com/product.jpg']],
+    ['a Product image array', [{ '@type': 'Product', image: ['https://cdn.example.com/a.jpg', 'https://cdn.example.com/b.jpg'] }], ['https://cdn.example.com/a.jpg', 'https://cdn.example.com/b.jpg']],
+    ['a Product ImageObject', [{ '@type': 'Product', image: { '@type': 'ImageObject', url: 'https://cdn.example.com/img.jpg' } }], ['https://cdn.example.com/img.jpg']],
+    ['a Product nested in @graph', [{ '@graph': [{ '@type': 'Product', image: 'https://cdn.example.com/graph.jpg' }] }], ['https://cdn.example.com/graph.jpg']],
+    [
+      'Products nested in an ItemList',
+      [{
+        '@type': 'ItemList',
+        itemListElement: [
+          { '@type': 'ListItem', item: { '@type': 'Product', image: 'https://cdn.example.com/item1.jpg' } },
+          { '@type': 'ListItem', item: { '@type': 'Product', image: 'https://cdn.example.com/item2.jpg' } },
+        ],
+      }],
+      ['https://cdn.example.com/item1.jpg', 'https://cdn.example.com/item2.jpg'],
+    ],
+    ['an Organization image', [{ '@type': 'Organization', image: 'https://cdn.example.com/org.jpg' }], ['https://cdn.example.com/org.jpg']],
+    // A relative src resolves against the page it was scraped from.
+    ['a relative Product image', [{ '@type': 'Product', image: '/images/product.jpg' }], ['https://example.com/images/product.jpg']],
+    // A thumbnail in JSON-LD is upgraded on the way out, same as an <img> src.
+    ['a Shopify thumbnail, upgraded to full size', [{ '@type': 'Product', image: 'https://cdn.shopify.com/s/files/1/products/widget_300x300.jpg' }], ['https://cdn.shopify.com/s/files/1/products/widget.jpg']],
+  ])('extracts %s', (_label, jsonLd, expected) => {
+    expect(extractJsonLdImages(jsonLd, 'https://example.com')).toEqual(expected)
   })
 
-  it('extracts image array from Product', () => {
-    const jsonLd = [{ '@type': 'Product', image: ['https://cdn.example.com/a.jpg', 'https://cdn.example.com/b.jpg'] }]
-    const images = extractJsonLdImages(jsonLd, 'https://example.com')
-    expect(images).toHaveLength(2)
-  })
-
-  it('extracts ImageObject url from Product', () => {
-    const jsonLd = [{ '@type': 'Product', image: { '@type': 'ImageObject', url: 'https://cdn.example.com/img.jpg' } }]
-    const images = extractJsonLdImages(jsonLd, 'https://example.com')
-    expect(images).toContain('https://cdn.example.com/img.jpg')
-  })
-
-  it('extracts images from @graph array', () => {
-    const jsonLd = [{ '@graph': [{ '@type': 'Product', image: 'https://cdn.example.com/graph.jpg' }] }]
-    const images = extractJsonLdImages(jsonLd, 'https://example.com')
-    expect(images).toContain('https://cdn.example.com/graph.jpg')
-  })
-
-  it('extracts images from ItemList', () => {
-    const jsonLd = [{
-      '@type': 'ItemList',
-      itemListElement: [
-        { '@type': 'ListItem', item: { '@type': 'Product', image: 'https://cdn.example.com/item1.jpg' } },
-        { '@type': 'ListItem', item: { '@type': 'Product', image: 'https://cdn.example.com/item2.jpg' } },
-      ],
-    }]
-    const images = extractJsonLdImages(jsonLd, 'https://example.com')
-    expect(images).toContain('https://cdn.example.com/item1.jpg')
-    expect(images).toContain('https://cdn.example.com/item2.jpg')
-  })
-
-  it('extracts image from Organization', () => {
-    const jsonLd = [{ '@type': 'Organization', image: 'https://cdn.example.com/org.jpg' }]
-    const images = extractJsonLdImages(jsonLd, 'https://example.com')
-    expect(images).toContain('https://cdn.example.com/org.jpg')
-  })
-
-  it('skips data: URIs', () => {
-    const jsonLd = [{ '@type': 'Product', image: 'data:image/png;base64,abc' }]
-    const images = extractJsonLdImages(jsonLd, 'https://example.com')
-    expect(images).toEqual([])
-  })
-
-  it('filters logo/icon paths', () => {
-    const jsonLd = [{ '@type': 'Product', image: 'https://cdn.example.com/logo/brand.png' }]
-    const images = extractJsonLdImages(jsonLd, 'https://example.com')
-    expect(images).toEqual([])
+  it.each([
+    ['a data: URI', 'data:image/png;base64,abc'],
+    ['a logo/icon path', 'https://cdn.example.com/logo/brand.png'],
+  ])('drops %s', (_label, image) => {
+    expect(extractJsonLdImages([{ '@type': 'Product', image }], 'https://example.com')).toEqual([])
   })
 
   it('deduplicates URLs', () => {
@@ -364,55 +330,22 @@ describe('extractJsonLdImages', () => {
     const images = extractJsonLdImages(products, 'https://example.com')
     expect(images).toHaveLength(10)
   })
-
-  it('resolves relative URLs', () => {
-    const jsonLd = [{ '@type': 'Product', image: '/images/product.jpg' }]
-    const images = extractJsonLdImages(jsonLd, 'https://example.com')
-    expect(images).toContain('https://example.com/images/product.jpg')
-  })
-
-  it('upgrades Shopify thumbnail URLs to full-size', () => {
-    const jsonLd = [{ '@type': 'Product', image: 'https://cdn.shopify.com/s/files/1/products/widget_300x300.jpg' }]
-    const images = extractJsonLdImages(jsonLd, 'https://example.com')
-    expect(images[0]).toBe('https://cdn.shopify.com/s/files/1/products/widget.jpg')
-  })
 })
 
 describe('upgradeEcommerceImageUrl', () => {
-  it('strips _NxN from Shopify CDN URLs', () => {
-    expect(upgradeEcommerceImageUrl('https://cdn.shopify.com/s/files/1/products/photo_300x300.jpg'))
-      .toBe('https://cdn.shopify.com/s/files/1/products/photo.jpg')
-  })
-
-  it('strips _Nx from Shopify CDN URLs', () => {
-    expect(upgradeEcommerceImageUrl('https://cdn.shopify.com/s/files/1/products/photo_800x.jpg'))
-      .toBe('https://cdn.shopify.com/s/files/1/products/photo.jpg')
-  })
-
-  it('strips -NxN from Cyberbiz URLs', () => {
-    expect(upgradeEcommerceImageUrl('https://cyfood.cyberbiz.co/uploads/image-300x300.jpg'))
-      .toBe('https://cyfood.cyberbiz.co/uploads/image.jpg')
-  })
-
-  it('strips w query param from Shopline URLs', () => {
-    expect(upgradeEcommerceImageUrl('https://img.shoplineapp.com/media/image/original.png?w=300'))
-      .toBe('https://img.shoplineapp.com/media/image/original.png')
-  })
-
-  it('strips width param but keeps other params from Shopline URLs', () => {
-    const result = upgradeEcommerceImageUrl('https://shoplineimg.com/media/file.jpg?width=400&quality=80')
-    expect(result).toContain('quality=80')
-    expect(result).not.toContain('width=')
-  })
-
-  it('passes through non-matching URLs unchanged', () => {
-    const url = 'https://cdn.example.com/photo.jpg'
-    expect(upgradeEcommerceImageUrl(url)).toBe(url)
-  })
-
-  it('passes through URLs without dimension patterns', () => {
-    const url = 'https://cdn.shopify.com/s/files/1/products/photo.jpg'
-    expect(upgradeEcommerceImageUrl(url)).toBe(url)
+  it.each([
+    // Each platform encodes the thumbnail dimension differently; the upgrade
+    // strips the token and leaves everything else alone.
+    ['Shopify _NxN', 'https://cdn.shopify.com/s/files/1/products/photo_300x300.jpg', 'https://cdn.shopify.com/s/files/1/products/photo.jpg'],
+    ['Shopify _Nx', 'https://cdn.shopify.com/s/files/1/products/photo_800x.jpg', 'https://cdn.shopify.com/s/files/1/products/photo.jpg'],
+    ['Cyberbiz -NxN', 'https://cyfood.cyberbiz.co/uploads/image-300x300.jpg', 'https://cyfood.cyberbiz.co/uploads/image.jpg'],
+    ['Shopline ?w=', 'https://img.shoplineapp.com/media/image/original.png?w=300', 'https://img.shoplineapp.com/media/image/original.png'],
+    // The sibling query params survive — only the width is dropped.
+    ['Shopline ?width= among other params', 'https://shoplineimg.com/media/file.jpg?width=400&quality=80', 'https://shoplineimg.com/media/file.jpg?quality=80'],
+    ['an unrecognised host', 'https://cdn.example.com/photo.jpg', 'https://cdn.example.com/photo.jpg'],
+    ['a known host with no dimension token', 'https://cdn.shopify.com/s/files/1/products/photo.jpg', 'https://cdn.shopify.com/s/files/1/products/photo.jpg'],
+  ])('upgrades %s', (_label, input, expected) => {
+    expect(upgradeEcommerceImageUrl(input)).toBe(expected)
   })
 })
 

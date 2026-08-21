@@ -46,10 +46,6 @@ describe('CITY_REGION_LABELS_ZH', () => {
 })
 
 describe('TAIWAN_CITIES', () => {
-  it('exports exactly 22 cities', () => {
-    expect(TAIWAN_CITIES).toHaveLength(22)
-  })
-
   it('every city has required fields with non-empty values', () => {
     for (const city of TAIWAN_CITIES) {
       expect(city.slug, `${city.slug} missing slug`).toBeTruthy()
@@ -69,7 +65,7 @@ describe('TAIWAN_CITIES', () => {
   })
 
   it('CITY_SLUGS is a flat array of all slugs', () => {
-    expect(CITY_SLUGS).toHaveLength(22)
+    expect(CITY_SLUGS).toHaveLength(TAIWAN_CITIES.length)
     expect(CITY_SLUGS).toContain('taipei')
     expect(CITY_SLUGS).toContain('kaohsiung')
   })

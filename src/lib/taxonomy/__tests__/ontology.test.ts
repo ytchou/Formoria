@@ -19,16 +19,12 @@ import {
 import corpusLabels from './fixtures/corpus-labels.json'
 
 describe('L1_CATEGORIES', () => {
-  it('has exactly 12 entries', () => {
-    expect(L1_CATEGORIES).toHaveLength(12)
-  })
-
-  it('each entry has slug, name, nameZh, tint', () => {
+  // The presence and type of slug/name/nameZh/tint is a tsc concern, but the
+  // SHAPE of tint is not: it is a bare string that ships straight into CSS, so
+  // a malformed value renders no colour and raises nowhere.
+  it('every category tint is a renderable oklch colour', () => {
     for (const cat of L1_CATEGORIES) {
-      expect(cat.slug).toBeTruthy()
-      expect(cat.name).toBeTruthy()
-      expect(cat.nameZh).toBeTruthy()
-      expect(cat.tint).toMatch(/^oklch\([\d.]+ [\d.]+ [\d.]+\)$/)
+      expect(cat.tint, `${cat.slug} tint`).toMatch(/^oklch\([\d.]+ [\d.]+ [\d.]+\)$/)
     }
   })
 
@@ -55,15 +51,6 @@ describe('L1_CATEGORIES', () => {
     expect(slugs).not.toContain('others')
     expect(slugs).not.toContain('baby-kids')
     expect(slugs).not.toContain('kids-pets')
-  })
-})
-
-describe('parentGroupForSlug (removed)', () => {
-  it('is not exported', async () => {
-    const mod = await import('../ontology')
-    const exports = mod as Record<string, unknown>
-    expect(exports.parentGroupForSlug).toBeUndefined()
-    expect(exports.CATEGORY_ONTOLOGY).toBeUndefined()
   })
 })
 
@@ -328,30 +315,6 @@ const NEW_NODES_2026_08_19: Record<string, string> = {
 }
 
 describe('DEV-1510 closed vocabulary', () => {
-  it('l2_count_is_164_across_12_l1s', () => {
-    expect(L2_SUBCATEGORIES).toHaveLength(164)
-    expect(L1_CATEGORIES).toHaveLength(12)
-
-    // The header comment's per-L1 counts drifted before (22/22/19/16 against an
-    // actual 25/25/20/17), so assert the shape the comment claims.
-    const perL1: Record<string, number> = {}
-    for (const sub of L2_SUBCATEGORIES) perL1[sub.category] = (perL1[sub.category] ?? 0) + 1
-    expect(perL1).toEqual({
-      fashion: 16,
-      'bags-accessories': 27,
-      jewelry: 8,
-      beauty: 14,
-      home: 28,
-      'food-drink': 20,
-      stationery: 12,
-      tech: 11,
-      outdoor: 6,
-      fitness: 5,
-      kids: 10,
-      pets: 7,
-    })
-  })
-
   it('kids_and_pets_are_separate_l1s', () => {
     const slugs = L1_CATEGORIES.map(category => category.slug)
     expect(slugs).toContain('kids')

@@ -50,7 +50,12 @@ const submissionInput = {
 }
 
 describe('field-map', () => {
-  it('brands mapper output is byte-identical to pre-refactor fixture', () => {
+  // Most of this table is a mechanical camelCase -> snake_case rename, but two
+  // entries are not, and they are why the assertion is exhaustive rather than
+  // spot-checked: `categorySlug` becomes `category`, and `subcategories_en` is
+  // DERIVED, not copied. An exhaustive toEqual also catches a leaked key —
+  // `toBrandRow` omits undefined inputs, so an added column does not break it.
+  it('renames every brand field to its column and derives subcategories_en', () => {
     expect(toBrandRow(brandInput)).toEqual({
       name: '森之好物',
       slug: 'sen-zi-hao-wu',

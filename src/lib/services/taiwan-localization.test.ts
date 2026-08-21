@@ -4,30 +4,25 @@ import { localizeToTW, stripAiToolArtifacts } from "./taiwan-localization";
 const FORMATTING_LABEL = /^(markdown|emoji|punctuation):/u;
 
 describe("localizeToTW — no vocabulary substitution", () => {
-  it("leaves 審核通過 unchanged", () => {
-    const r = localizeToTW("審核通過");
-    expect(r.text).toBe("審核通過");
+  // Vocabulary substitution was removed: 支語 is a review concern, not a
+  // find-and-replace one, and rewriting a brand's own words was the bug. Each
+  // row is a term the old table would have rewritten.
+  it.each([
+    "審核通過",
+    "支持台灣製造",
+    "落地燈",
+    "程序",
+    "點擊",
+    "視頻",
+    "質量",
+    "信息",
+    "用戶",
+    "台灣品牌以品質著稱",
+    "",
+  ])("leaves %s unchanged, with no substitution recorded", (source) => {
+    const r = localizeToTW(source);
+    expect(r.text).toBe(source);
     expect(r.substitutions).toEqual([]);
-  });
-
-  it("leaves 支持台灣製造 unchanged", () => {
-    const r = localizeToTW("支持台灣製造");
-    expect(r.text).toBe("支持台灣製造");
-    expect(r.substitutions).toEqual([]);
-  });
-
-  it("leaves 落地燈 unchanged", () => {
-    const r = localizeToTW("落地燈");
-    expect(r.text).toBe("落地燈");
-    expect(r.substitutions).toEqual([]);
-  });
-
-  it("leaves other formerly-substituted terms unchanged", () => {
-    for (const source of ["程序", "點擊", "視頻", "質量", "信息", "用戶"]) {
-      const r = localizeToTW(source);
-      expect(r.text).toBe(source);
-      expect(r.substitutions).toEqual([]);
-    }
   });
 
   it("substitutions no longer contain vocabulary labels", () => {
@@ -68,50 +63,26 @@ describe("localizeToTW — no vocabulary substitution", () => {
     const r = localizeToTW("詳見 https://example.com/视频信息 的說明");
     expect(r.text).toContain("https://example.com/视频信息");
   });
-
-  it("returns empty substitutions for plain text", () => {
-    const r = localizeToTW("台灣品牌以品質著稱");
-    expect(r.text).toBe("台灣品牌以品質著稱");
-    expect(r.substitutions).toEqual([]);
-  });
-
-  it("handles empty string", () => {
-    const r = localizeToTW("");
-    expect(r.text).toBe("");
-    expect(r.substitutions).toEqual([]);
-  });
 });
 
 describe("localizeToTW — punctuation", () => {
-  it("normalizes half-width punctuation between CJK characters", () => {
-    const r = localizeToTW("品牌,設計:好;用!");
-    expect(r.text).toBe("品牌，設計：好；用！");
+  it.each([
+    ["half-width , : ; ! between CJK", "品牌,設計:好;用!", "品牌，設計：好；用！"],
+    ["an ellipsis", "品牌創立於2015年...至今已十年", "品牌創立於2015年⋯⋯至今已十年"],
+    ["a sentence-final period", "這是台灣品牌.", "這是台灣品牌。"],
+    ["parentheses", "台灣(品牌)設計", "台灣（品牌）設計"],
+    ["a question mark", "這是台灣品牌?", "這是台灣品牌？"],
+  ])("normalizes %s", (_label, source, expected) => {
+    const r = localizeToTW(source);
+    expect(r.text).toBe(expected);
     expect(r.substitutions).toContain("punctuation:normalized");
   });
 
+  // The rule is positional, not global: half-width punctuation in an English
+  // run is correct as typed.
   it("preserves half-width punctuation in English context", () => {
     const r = localizeToTW("Hello, world! 你好");
     expect(r.text).toContain("Hello, world!");
-  });
-
-  it("normalizes ellipsis to ⋯⋯", () => {
-    const r = localizeToTW("品牌創立於2015年...至今已十年");
-    expect(r.text).toBe("品牌創立於2015年⋯⋯至今已十年");
-  });
-
-  it("normalizes half-width period at CJK sentence end", () => {
-    const r = localizeToTW("這是台灣品牌.");
-    expect(r.text).toBe("這是台灣品牌。");
-  });
-
-  it("normalizes parentheses between CJK characters", () => {
-    const r = localizeToTW("台灣(品牌)設計");
-    expect(r.text).toBe("台灣（品牌）設計");
-  });
-
-  it("normalizes question marks adjacent to CJK", () => {
-    const r = localizeToTW("這是台灣品牌?");
-    expect(r.text).toBe("這是台灣品牌？");
   });
 });
 
