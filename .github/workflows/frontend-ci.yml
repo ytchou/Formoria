@@ -55,6 +55,10 @@ jobs:
               # It reads only globals.css — `docs/` is gitignored, so a check
               # that needed DESIGN.md could never pass in CI.
               node scripts/generate-design-tokens.mjs --check
+              # The release-gate drift assertions read .github/workflows/*.yml
+              # as text, so `vitest --changed` never selects them when only the
+              # YAML moves. Run them unconditionally instead.
+              pnpm exec vitest run scripts/check-release-source.test.ts
               pnpm lint
               ;;
             type-check)

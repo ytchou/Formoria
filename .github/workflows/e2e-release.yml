@@ -12,7 +12,10 @@ concurrency:
 jobs:
   staging-release-e2e:
     name: Staging E2E
-    if: github.event.pull_request.head.ref == 'staging'
+    # No head-ref condition. A job that skips itself reports SUCCESS to a
+    # required check, so a head this gate does not understand used to reach
+    # production through a green tick (PR #808). The head is validated in a
+    # step below instead, where an illegal head is a failure.
     runs-on: ubuntu-latest
     environment: "Formoria / staging"
     timeout-minutes: 60
@@ -45,6 +48,16 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 1
           persist-credentials: false
+      - name: Verify the head is a legal release source
+        env:
+          GITHUB_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          GITHUB_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          GITHUB_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        # The single source of truth for what a release head may be. The gate
+        # keeps no second list of its own: the two drifted once already, and the
+        # workflow was the half that stayed narrow.
+        run: node scripts/check-release-source.mjs
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -55,14 +68,23 @@ jobs:
         shell: bash
         env:
           RELEASE_SHA: ${{ github.event.pull_request.head.sha }}
+          RELEASE_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          if [[ "$RELEASE_HEAD_REF" != "staging" ]]; then
+            # A release/candidate-* branch is cherry-picked onto main, so its
+            # tree is never what Railway deployed to staging. Running the suite
+            # anyway would certify staging's revision under the candidate's
+            # name. Refuse instead of manufacturing evidence.
+            echo "::error::$RELEASE_HEAD_REF cannot be certified against deployed staging, which only ever serves the staging branch; promote all of staging, or give the candidate its own deployment before promoting it"
+            exit 1
+          fi
           staging_sha="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/staging | awk '{print $1}')"
           [[ "$staging_sha" == "$RELEASE_SHA" ]] || {
             echo "::error::release E2E must test the current staging head ($RELEASE_SHA), observed $staging_sha"
             exit 1
           }
-          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
       - name: Wait for the exact staging deployment revision
         shell: bash
         env:
