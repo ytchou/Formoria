@@ -8,8 +8,11 @@ import {
 } from './e2e-owner-skip-registry';
 import {
   ANONYMOUS_MUTATION_REASON,
+  ANONYMOUS_CORRECTION_REASON,
+  EVENT_AREA_FILTER_REASON,
   EXPECTED_STAGING_CONSTRAINT_SKIP_REGISTRY,
   HIDDEN_AUTH_AFFORDANCE_REASON,
+  STAGING_NO_SITEMAP_REASON,
 } from './e2e-staging-skip-registry';
 import { freezeFailures } from './selfheal/incident';
 import { buildExactSelectors } from './selfheal/exact-failure-runner';
@@ -79,6 +82,9 @@ describe('deployed Playwright report gate', () => {
       OWNER_FEATURES_ON_REASON,
       ANONYMOUS_MUTATION_REASON,
       HIDDEN_AUTH_AFFORDANCE_REASON,
+      ANONYMOUS_CORRECTION_REASON,
+          STAGING_NO_SITEMAP_REASON,
+      EVENT_AREA_FILTER_REASON,
     ]);
     expect(value.version).toBe(1);
     expect(value.allowed).toHaveLength(
