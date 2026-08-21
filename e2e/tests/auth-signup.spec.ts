@@ -1,6 +1,7 @@
 import { test, expect } from '../fixtures/auth';
 import {
   deleteSignupTestUsers,
+  namespacedTestUserExists,
   signupTestEmail,
 } from '../helpers/signup-namespace';
 import {
@@ -24,8 +25,13 @@ test.describe('Auth — sign-up flow', () => {
   test.afterAll(async () => {
     // Sweep the whole namespace, not just signupEmail — a crashed run would
     // otherwise leak an account that blocks the next run on "already registered".
-    const deleted = await deleteSignupTestUsers(undefined, { throwOnError: true });
-    if (signupEmail && deleted === 0) {
+    await deleteSignupTestUsers(undefined, { throwOnError: true });
+    // Assert ABSENCE, not the delete count. This sweep clears the whole
+    // namespace, and so does every other worker's afterAll and the global
+    // `[e2e-cleanup]` pass — so whoever runs second legitimately deletes 0 rows.
+    // The old `deleted === 0` check read that as a leak and failed the release
+    // gate while the account was, in fact, already gone.
+    if (signupEmail && (await namespacedTestUserExists(signupEmail))) {
       throw new Error(`[e2e-cleanup] sign-up account was not swept: ${signupEmail}`);
     }
   });

@@ -141,6 +141,37 @@ export async function deleteNamespacedTestUsers(
  * best-effort for spec afterAll hooks; global teardown opts into throwing so a
  * persistent cleanup failure cannot certify a green run.
  */
+/**
+ * Whether a namespaced test account still exists.
+ *
+ * The cleanup invariant is "no signup account leaks", which is a statement about
+ * ABSENCE. Counting how many rows a particular sweep deleted cannot express it:
+ * the global `[e2e-cleanup]` sweep and every other worker delete the same
+ * namespace, so a count of 0 usually means someone else got there first, not
+ * that anything leaked.
+ */
+export async function namespacedTestUserExists(email: string): Promise<boolean> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error('[e2e-cleanup] staging service role is required for auth cleanup');
+  }
+  const admin = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const target = normalizeEmail(email);
+  for (let page = 1; page <= LIST_USERS_MAX_PAGES; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage: LIST_USERS_PAGE_SIZE,
+    });
+    if (error) throw error;
+    if (data.users.some((user) => normalizeEmail(user.email) === target)) return true;
+    if (data.users.length < LIST_USERS_PAGE_SIZE) return false;
+  }
+  return false;
+}
+
 export async function deleteSignupTestUsers(
   createdBefore?: string,
   options: DeleteTestUserOptions = {},
