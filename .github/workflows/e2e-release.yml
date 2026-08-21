@@ -92,15 +92,28 @@ jobs:
         run: |
           set -euo pipefail
           # X-Formoria-Revision must equal the release PR head SHA.
+          #
+          # Cloudflare's bot challenge 403s a default curl User-Agent before the
+          # request ever reaches Access or the app, so the probe has to present a
+          # browser one. Measured 2026-08-21 against staging.formoria.com/about:
+          # default curl UA -> 403 "Just a moment..."; browser UA -> the app.
+          BROWSER_UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          revision=""
           for attempt in $(seq 1 60); do
-            revision="$(curl --fail --silent --show-error --location \
+            # A failed request must not abort the loop. This step exists to WAIT
+            # for a deployment, so a 403/404/503 while Railway swaps containers is
+            # expected and retryable — but `--fail` under `set -e` turned the very
+            # first one into a step failure, making all 60 attempts unreachable.
+            headers="$(curl --silent --show-error --location \
+              -A "$BROWSER_UA" \
               -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
               -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
-              -D - -o /dev/null "$STAGING_BASE_URL/about" \
+              -D - -o /dev/null "$STAGING_BASE_URL/about" 2>/dev/null || true)"
+            revision="$(printf '%s' "$headers" \
               | awk -F': ' 'tolower($1) == "x-formoria-revision" {gsub("\\r", "", $2); print $2; exit}')"
             if [[ "$revision" == "$RELEASE_SHA" ]]; then exit 0; fi
             if [[ "$attempt" == 60 ]]; then
-              echo "::error::missing or mismatched X-Formoria-Revision; refusing release certification"
+              echo "::error::missing or mismatched X-Formoria-Revision after 60 attempts; last seen '${revision:-<none>}', expected '$RELEASE_SHA'"
               exit 1
             fi
             sleep 10
