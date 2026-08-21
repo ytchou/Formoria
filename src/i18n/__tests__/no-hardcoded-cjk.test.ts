@@ -62,7 +62,8 @@ const ALLOWLIST = [
   "lib/services/brands.ts",
   // AI-slop detector uses Chinese regex patterns (not UI copy).
   "lib/services/enrich-validators.ts",
-  // zh-CN→zh-TW vocabulary and punctuation rules (not UI copy).
+  // Punctuation normalizer: a CJK character-range regex written with literal
+  // range endpoints (not UI copy). The vocabulary table is gone.
   "lib/services/taiwan-localization.ts",
   // Subcategory validator uses Chinese blocklist regex patterns (not UI copy).
   "lib/services/subcategories.ts",
