@@ -7,19 +7,21 @@ describe("localizeToTW — no vocabulary substitution", () => {
   // Vocabulary substitution was removed: 支語 is a review concern, not a
   // find-and-replace one, and rewriting a brand's own words was the bug. Each
   // row is a term the old table would have rewritten.
+  // Labelled rows, not bare inputs: the empty-string case rendered a blank
+  // subject in the reporter and could not be targeted with `-t`.
   it.each([
-    "審核通過",
-    "支持台灣製造",
-    "落地燈",
-    "程序",
-    "點擊",
-    "視頻",
-    "質量",
-    "信息",
-    "用戶",
-    "台灣品牌以品質著稱",
-    "",
-  ])("leaves %s unchanged, with no substitution recorded", (source) => {
+    ["an approval verb", "審核通過"],
+    ["a made-in-Taiwan phrase", "支持台灣製造"],
+    ["a floor-lamp noun", "落地燈"],
+    ["a process noun", "程序"],
+    ["a click verb", "點擊"],
+    ["a video noun", "視頻"],
+    ["a quality noun", "質量"],
+    ["an information noun", "信息"],
+    ["a user noun", "用戶"],
+    ["a full sentence", "台灣品牌以品質著稱"],
+    ["an empty string", ""],
+  ])("leaves %s unchanged, with no substitution recorded", (_label, source) => {
     const r = localizeToTW(source);
     expect(r.text).toBe(source);
     expect(r.substitutions).toEqual([]);

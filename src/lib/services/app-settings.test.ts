@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { FEATURE_FLAGS, OWNER_FEATURES_KEY } from './app-settings'
 
-
 describe('feature flag registry', () => {
   it('exports a non-empty FEATURE_FLAGS array', () => {
     expect(FEATURE_FLAGS.length).toBeGreaterThan(0)

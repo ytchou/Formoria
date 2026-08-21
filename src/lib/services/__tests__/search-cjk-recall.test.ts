@@ -1,31 +1,29 @@
 import { describe, expect, it } from "vitest";
 
 /**
- * DEV-1510 Task 7. `brands.subcategories` becomes English slugs, so the
- * `cjk_bigrams` weight-C arm of `brands_search_document` loses every zh-TW
- * token it used to index. `20260820110000_search_expands_slugs.sql` expands
- * each stored slug back to `taxonomy_terms.name_zh` before tokenising.
+ * DEV-1510 Task 7 — the honesty guard on the search ranking baseline.
  *
- * Nothing else in the suite asserts a search weight, so this file is the only
- * detector: without it, `後背包` silently stops matching a brand tagged
- * `backpacks` while the `?sub=backpacks` filter keeps working perfectly.
+ * This file no longer queries anything. It holds the captured baseline as a
+ * literal and asserts ONE thing about it: that the set of rows the backfill
+ * left bit-identical is declared by hand and agrees with the captured numbers.
+ * That makes a silent re-pin of a score fail here instead of dissolving into a
+ * green suite.
  *
- * Run scoped. `ranking_matches_the_baseline` compares against a whole-corpus
- * capture, and other integration files seed approved non-demo brands; those
- * are filtered out by name below, but a scoped run is what the plan's
- * verification step specifies.
+ * It does NOT detect a search regression. There is no database connection and
+ * no `searchBrandPage` call, so nothing here would notice `後背包` ceasing to
+ * match a brand tagged `backpacks`. That behaviour is unowned by the unit
+ * suite; only a live query against a seeded corpus can assert it.
  */
-
 
 /**
  * `docs/reports/2026-08-20-search-ranking-baseline.md`, captured 2026-08-19
  * 07:55:34 UTC against staging BEFORE any DEV-1510 migration landed.
  *
  * Every term returned fewer than the 12-row page size, so these are complete
- * result sets and `total_count` equals the row count. That is why RECALL, not
- * rank drift, is the primary signal: eight of the nine rows exist only because
- * of the subcategory arm, and a mis-wired expansion makes them vanish rather
- * than move.
+ * result sets. Eight of the nine rows exist only because of the subcategory
+ * arm — which is what made recall the primary signal when this file still ran
+ * the query. It no longer does; the numbers survive here only as the record a
+ * re-pin has to be declared against.
  *
  * `subcategoryDriven` is the baseline's own "does the subcategory arm control
  * this row?" column. `opus` ranks #1 for `金工` WITHOUT carrying that label —
@@ -65,11 +63,11 @@ import { describe, expect, it } from "vitest";
  * `taxonomy_expand_subcategories` — matches. That is the intended end state:
  * `english_query_still_matches` requires the raw slug to stay indexed.
  *
- * What did NOT change, and is still asserted strictly below: recall (9 of 9
- * rows returned), `search_source = 'fts'` for every row (no trgm fallback), and
+ * What did NOT change, as recorded at capture time: recall (9 of 9 rows
+ * returned), `search_source = 'fts'` for every row (no trgm fallback), and
  * `total_count`. Emitted ORDER moved by exactly one position, in one term:
- * `金工` swaps rows 2 and 3. The plan's pivot trigger for a mis-wired expansion
- * is a move of MORE than one position, so this does not fire it.
+ * `金工` swaps rows 2 and 3. None of that is asserted below any more — the
+ * query that checked it is gone. It is kept as the provenance of the numbers.
  *
  * `後背包` is the control for the whole re-pin — all four rows are unchanged to
  * six decimals, which is only possible if the expansion is wired correctly.
@@ -170,8 +168,6 @@ const UNMOVED_BY_THE_BACKFILL: readonly string[] = [
   "後背包:25togo",
   "金工:opus",
 ] as const;
-
-
 
 /**
  * The honesty guard on the re-pin, and the reason `UNMOVED_BY_THE_BACKFILL` is a

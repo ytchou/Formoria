@@ -18,11 +18,13 @@ import {
  * zh-TW label just stops reaching `cjk_bigrams`, and `後背包` silently stops
  * matching a brand tagged `backpacks`.
  *
- * The gate therefore runs WITHOUT a database. It parses the committed migration
- * and compares it to the ontology module, so CI — which has no Supabase
- * credentials — still catches the drift. The live table is checked as well when
- * integration credentials are present, but that check is additive: a green CI
- * run must already mean the vocabulary agrees.
+ * The gate runs WITHOUT a database. It parses the committed migration and
+ * compares it to the ontology module, so CI — which has no Supabase
+ * credentials — catches drift between those two.
+ *
+ * It does NOT check the deployed table. Nothing does any more, so drift between
+ * the committed migration and the rows actually in `taxonomy_terms` — a
+ * hand-applied change, a migration that failed halfway — is undetected here.
  */
 function sortRows(rows: TaxonomyTermRow[]): TaxonomyTermRow[] {
   return [...rows].sort((a, b) =>

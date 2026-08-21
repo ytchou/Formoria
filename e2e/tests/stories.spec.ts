@@ -60,4 +60,26 @@ test.describe("Stories hub deep", () => {
       timeout: BUDGET.INTERACTIVE,
     });
   });
+
+  /*
+   * The footer's entry point to this hub, folded in from the deleted
+   * `stories-navigation.spec.ts`.
+   *
+   * Not owned by `src/components/navigation/footer-links.test.ts`: that unit
+   * test calls `getFooterFullDocumentHref()` and compares strings without ever
+   * rendering a footer. Not owned by the cases above either — they `goto()` the
+   * hub directly and never touch `contentinfo`. Scoped to `contentinfo` because
+   * 專題 is also a header nav label, so an unscoped locator is strict-mode
+   * ambiguous.
+   */
+  test("footer has a visible 專題 link pointing to /stories", async ({
+    anonPage,
+  }) => {
+    await anonPage.goto("/");
+    const storiesLink = anonPage
+      .getByRole("contentinfo")
+      .getByRole("link", { name: "專題", exact: true });
+    await expect(storiesLink).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+    await expect(storiesLink).toHaveAttribute("href", "/stories");
+  });
 });

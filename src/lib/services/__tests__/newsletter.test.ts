@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import {
   normalizeEmail,
   validateEmail,
+  VALID_INTERESTS,
   normalizeInterests,
   deriveNewsletterStatus,
   calculateConfirmationRate,
@@ -40,6 +41,20 @@ describe('newsletter service — pure functions', () => {
 
     it('deduplicates', () => {
       expect(normalizeInterests(['new-brands', 'new-brands'])).toEqual(['new-brands'])
+    })
+  })
+
+  describe('VALID_INTERESTS', () => {
+    // The slugs are spelled out as literals on purpose. `interests` is a
+    // persisted `text[]` on `newsletter_subscribers`, so renaming a slug in TS
+    // keeps tsc green while every stored row keeps the old value and
+    // `normalizeInterests` silently drops it. Only a literal catches that.
+    it('contains exactly 4 interest slugs', () => {
+      expect(VALID_INTERESTS).toHaveLength(4)
+      expect(VALID_INTERESTS).toContain('brand-stories')
+      expect(VALID_INTERESTS).toContain('new-brands')
+      expect(VALID_INTERESTS).toContain('curated-picks')
+      expect(VALID_INTERESTS).toContain('mit-trends')
     })
   })
 

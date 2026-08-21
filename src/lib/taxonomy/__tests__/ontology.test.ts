@@ -19,11 +19,16 @@ import {
 import corpusLabels from './fixtures/corpus-labels.json'
 
 describe('L1_CATEGORIES', () => {
-  // The presence and type of slug/name/nameZh/tint is a tsc concern, but the
-  // SHAPE of tint is not: it is a bare string that ships straight into CSS, so
-  // a malformed value renders no colour and raises nowhere.
-  it('every category tint is a renderable oklch colour', () => {
+  // The PRESENCE and type of slug/name/nameZh/tint is a tsc concern; their
+  // EMPTINESS is not. `nameZh: ''` type-checks fine and renders a blank
+  // category label, so the labels are asserted non-empty here. Likewise the
+  // shape of tint: it is a bare string that ships straight into CSS, so a
+  // malformed value renders no colour and raises nowhere.
+  it('every category carries non-empty labels and a renderable oklch tint', () => {
     for (const cat of L1_CATEGORIES) {
+      expect(cat.slug, `${cat.slug} slug`).toBeTruthy()
+      expect(cat.name, `${cat.slug} name`).toBeTruthy()
+      expect(cat.nameZh, `${cat.slug} nameZh`).toBeTruthy()
       expect(cat.tint, `${cat.slug} tint`).toMatch(/^oklch\([\d.]+ [\d.]+ [\d.]+\)$/)
     }
   })
@@ -315,6 +320,30 @@ const NEW_NODES_2026_08_19: Record<string, string> = {
 }
 
 describe('DEV-1510 closed vocabulary', () => {
+  it('every L1 carries its documented subcategory count', () => {
+    expect(L2_SUBCATEGORIES).toHaveLength(164)
+    expect(L1_CATEGORIES).toHaveLength(12)
+
+    // The header comment's per-L1 counts drifted before (22/22/19/16 against an
+    // actual 25/25/20/17), so assert the shape the comment claims.
+    const perL1: Record<string, number> = {}
+    for (const sub of L2_SUBCATEGORIES) perL1[sub.category] = (perL1[sub.category] ?? 0) + 1
+    expect(perL1).toEqual({
+      fashion: 16,
+      'bags-accessories': 27,
+      jewelry: 8,
+      beauty: 14,
+      home: 28,
+      'food-drink': 20,
+      stationery: 12,
+      tech: 11,
+      outdoor: 6,
+      fitness: 5,
+      kids: 10,
+      pets: 7,
+    })
+  })
+
   it('kids_and_pets_are_separate_l1s', () => {
     const slugs = L1_CATEGORIES.map(category => category.slug)
     expect(slugs).toContain('kids')

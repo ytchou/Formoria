@@ -1,4 +1,4 @@
-import { configDefaults, defineConfig } from "vitest/config";
+import { defineConfig } from "vitest/config";
 import path from "path";
 
 const include = [
@@ -58,7 +58,6 @@ export default defineConfig({
           ...sharedTestConfig,
           name: "unit",
           include,
-          exclude: [...configDefaults.exclude],
         },
       },
     ],

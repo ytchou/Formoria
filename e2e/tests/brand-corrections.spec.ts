@@ -2,6 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures/auth';
 import { seedBrand, SeededBrand } from '../helpers/seed';
 import { BUDGET, POLL } from '../budgets';
+import zhTW from '../../messages/zh-TW.json';
 
 const IS_CANONICAL_STAGING_TARGET =
   new URL(
@@ -60,6 +61,32 @@ const ALREADY_SUBMITTED_TOAST = '這項修正已經送出，請等待審核。';
 // seedBrand() always writes category: 'home' and no subcategories.
 const CURRENT_CATEGORY_LABEL = '居家生活';
 const PROPOSED_CATEGORY_LABEL = '文具設計';
+
+// The subcategory-picker journey below reads its copy out of the catalogue
+// rather than restating it: three of the five strings are whole sentences, and
+// a hand-copied sentence drifts silently the day the wording changes.
+const SUBCATEGORY_SEARCH_LABEL =
+  zhTW.brandDetail.correction.subcategorySearchLabel;
+const SUBCATEGORY_REJECTED = zhTW.brandDetail.correction.subcategoryRejected;
+const SUBCATEGORY_EMPTY = zhTW.brandDetail.correction.subcategoryEmpty;
+const CURRENT_SUBCATEGORIES_HEADING =
+  zhTW.brandDetail.correction.currentSubcategoriesHeading;
+const ADD_SUBCATEGORIES_HEADING =
+  zhTW.brandDetail.correction.addSubcategoriesHeading;
+
+/**
+ * A term the closed vocabulary can neither resolve NOR narrow to one node.
+ *
+ * Both halves are load-bearing. `commitTypedTerm` accepts a typed term when
+ * `resolveSubcategorySelection` knows it — slug, zh name, en name or alias —
+ * OR when the filter has left exactly ONE node on offer, which it reads as a
+ * disambiguated selection rather than as free text. A term that narrows to a
+ * single chip is therefore committed silently, and swapping one in here would
+ * make the test below assert the opposite of its own name. 燈籠 appears
+ * nowhere in `ontology.ts`, so 手工燈籠 matches zero nodes and the
+ * rejection path is the only one it can take.
+ */
+const OUT_OF_VOCABULARY_TERM = '手工燈籠';
 
 /**
  * Correction submits and `/brands/` page loads are both rate limited per client
@@ -122,7 +149,7 @@ function categoryValue(page: Page) {
 // The brand page is statically served and hydrates afterwards, so a click that
 // lands too early is a no-op. Retry the (idempotent) open until the dialog is up
 // rather than sleeping on a guessed hydration delay.
-async function openCategoryDialog(page: Page) {
+async function openCorrectionDialog(page: Page, field: 'category' | 'subcategories') {
   // The trigger ships in the server-rendered HTML, so a missing one is never a
   // hydration race — it means the page under test doesn't have this feature at
   // all. Assert it up front: folded into the retry loop below it surfaces as an
@@ -138,8 +165,12 @@ async function openCategoryDialog(page: Page) {
   // The field picker is the one control that is still a real <select>. The
   // picker opens on a disabled placeholder with no field selected, so the value
   // rows only exist after this selection.
-  await dialog.getByRole('combobox', { name: FIELD_PICKER_LABEL }).selectOption('category');
+  await dialog.getByRole('combobox', { name: FIELD_PICKER_LABEL }).selectOption(field);
   return dialog;
+}
+
+async function openCategoryDialog(page: Page) {
+  return openCorrectionDialog(page, 'category');
 }
 
 // Every chip lookup goes through one of these two. Bare
@@ -246,5 +277,70 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
     await expectToast(anonPage, 'error', ALREADY_SUBMITTED_TOAST);
     // The dialog stays open on failure so the visitor can see what happened.
     await expect(dialog).toBeVisible();
+  });
+
+  /*
+   * The a11y and zero-match half of the closed-vocabulary journey (DEV-1510).
+   *
+   * `correction-dialog.test.tsx` owns the refusal itself — it asserts
+   * `getByText(SUBCATEGORY_REJECTED)` and `aria-invalid="true"`. It does NOT
+   * assert `aria-describedby`, so a rejection rendered as a plain sibling <p>
+   * passes there and leaves a screen-reader user with no reason. That, plus the
+   * zero-match empty message, is what this case exists for. The typed-slug
+   * commit path is genuinely owned by that unit test ('commits an alias to its
+   * stored slug') and is deliberately NOT duplicated here.
+   *
+   * It is READ-ONLY: it opens the picker, is refused, and closes. Nothing is
+   * submitted, so it deliberately carries no `IS_CANONICAL_STAGING_TARGET` skip
+   * — the mutating tests above need one because anonymous correction writes are
+   * disabled on canonical staging, and this one writes nothing to disable.
+   * The refusal is logged in memory on the client only
+   * (`recordRejectedSubcategoryInput`), never persisted.
+   */
+  test('the closed subcategory picker announces its refusal through the field', async ({
+    anonPage,
+  }, testInfo) => {
+    test.setTimeout(BUDGET.TEST.JOURNEY);
+    await isolateVisitorIp(anonPage, testInfo.workerIndex);
+    await openSeededBrand(anonPage, seeded);
+
+    const dialog = await openCorrectionDialog(anonPage, 'subcategories');
+    const filterField = dialog.getByRole('textbox', {
+      name: SUBCATEGORY_SEARCH_LABEL,
+    });
+    const submit = dialog.getByRole('button', { name: SUBMIT_LABEL, exact: true });
+    // The picker's two role="group" rows. `getByRole('status')` is deliberately
+    // not used anywhere below: the picker mounts two status regions of its own
+    // and the Next.js route announcer adds a third.
+    const selectedRow = optionsRow(dialog, CURRENT_SUBCATEGORIES_HEADING);
+    const offeredRow = optionsRow(dialog, ADD_SUBCATEGORIES_HEADING);
+
+    // The field claims invalidity only after a refusal, never on arrival.
+    await expect(filterField).not.toHaveAttribute('aria-invalid');
+    await expect(submit).toBeDisabled();
+
+    await filterField.fill(OUT_OF_VOCABULARY_TERM);
+    await filterField.press('Enter');
+
+    await expect(filterField).toHaveAttribute('aria-invalid', 'true');
+    // The refusal is ANNOUNCED through the field, not merely printed beside it:
+    // one of the nodes `aria-describedby` points at has to be what carries the
+    // text. `[id="…"]` rather than `#…` because these ids come from `useId`.
+    const describedBy =
+      (await filterField.getAttribute('aria-describedby')) ?? '';
+    const describedIds = describedBy.split(/\s+/).filter(Boolean);
+    expect(describedIds.length).toBeGreaterThan(0);
+    const rejection = anonPage
+      .locator(describedIds.map((id) => `[id="${id}"]`).join(','))
+      .filter({ hasText: SUBCATEGORY_REJECTED });
+    await expect(rejection).toHaveCount(1);
+    await expect(rejection).toBeVisible();
+
+    // Zero matches, stated rather than assumed: the empty-offer message proves
+    // the term took the rejection path instead of the one-node auto-commit path
+    // documented on OUT_OF_VOCABULARY_TERM.
+    await expect(offeredRow.getByText(SUBCATEGORY_EMPTY)).toBeVisible();
+    await expect(selectedRow).not.toContainText(OUT_OF_VOCABULARY_TERM);
+    await expect(submit).toBeDisabled();
   });
 });

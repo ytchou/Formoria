@@ -211,4 +211,3 @@ describe('story content event info shortcode', () => {
     ).toBe(false)
   })
 })
-

@@ -38,7 +38,6 @@ const dashboardPagePath = resolve(
   'src/app/[locale]/(site)/(protected)/dashboard/brands/[slug]/(dashboard)/page.tsx',
 )
 
-
 /**
  * The union is a TypeScript claim; the CHECK constraint is the database's. A
  * new member with no migration behind it raises 23514 at runtime — and
@@ -46,9 +45,11 @@ const dashboardPagePath = resolve(
  * {}` and the action simply goes unrecorded. Neither tsc nor ESLint sees it:
  * the service client is created without the <Database> generic.
  *
- * `admin audit log` above asserts the same thing against a real database, but
- * only when credentials are present. This half needs none, so it runs on every
- * machine and in CI.
+ * Parsing the committed migration is the WHOLE guard: nothing else compares
+ * the union to the constraint. It needs no credentials, so it runs on every
+ * machine and in CI — but it constrains the migration text, not the deployed
+ * database. A constraint hand-patched in the cloud and never written down here
+ * is out of its reach.
  */
 describe('admin_audit_log action CHECK constraint', () => {
   const migrationsDirectory = resolve(process.cwd(), 'supabase/migrations')

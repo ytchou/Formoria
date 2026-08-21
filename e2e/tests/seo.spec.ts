@@ -131,6 +131,21 @@ test.describe("SEO deep", () => {
     expect(body).toContain("<urlset");
   });
 
+  test("directory page 2 keeps its page query in canonical metadata", async ({
+    page,
+  }) => {
+    await page.goto("/brands?page=2");
+    const canonical = await page
+      .locator('link[rel="canonical"]')
+      .getAttribute("href");
+    const ogUrl = await page
+      .locator('meta[property="og:url"]')
+      .getAttribute("content");
+
+    expect(canonical).toMatch(/\?.*page=2(?:&|$)/);
+    expect(ogUrl).toBe(canonical);
+  });
+
   test("an unknown eligible bare slug returns a direct 404", async ({
     request,
   }) => {
@@ -156,6 +171,81 @@ test.describe("SEO deep", () => {
     const response = await page.goto("/");
     expect(response?.status()).toBe(200);
     expect(page.url()).not.toContain("/zh-TW/");
+  });
+
+  // --- i18n: hreflang alternates on localized pages ---
+  //
+  // Owned HERE, not by `alternates.test.ts`: that unit test calls
+  // buildAlternates('/brands', 'en') and asserts the returned string. It never
+  // renders the page, so a generateMetadata regression that drops the
+  // `alternates` spread stays invisible to it while these fail.
+
+  test("/brands emits hreflang alternate links for zh-TW, en, and x-default", async ({
+    page,
+  }) => {
+    await page.goto("/brands");
+    // Next.js emits <link rel="alternate" hreflang="..."> via metadata.alternates.languages
+    const zhAlternate = await page
+      .locator('link[rel="alternate"][hreflang="zh-TW"]')
+      .getAttribute("href");
+    const enAlternate = await page
+      .locator('link[rel="alternate"][hreflang="en"]')
+      .getAttribute("href");
+    const xDefault = await page
+      .locator('link[rel="alternate"][hreflang="x-default"]')
+      .getAttribute("href");
+
+    expect(zhAlternate).toBeTruthy();
+    expect(enAlternate).toBeTruthy();
+    expect(xDefault).toBeTruthy();
+
+    // zh-TW URL must be prefix-free (no /en/ segment)
+    expect(zhAlternate).not.toContain("/en/");
+    // en URL must be under /en/
+    expect(enAlternate).toContain("/en/");
+    // x-default should resolve to the zh-TW (prefix-free) URL
+    expect(xDefault).not.toContain("/en/");
+  });
+
+  test("/en/brands emits hreflang alternate links", async ({ page }) => {
+    await page.goto("/en/brands");
+    const zhAlternate = await page
+      .locator('link[rel="alternate"][hreflang="zh-TW"]')
+      .getAttribute("href");
+    const enAlternate = await page
+      .locator('link[rel="alternate"][hreflang="en"]')
+      .getAttribute("href");
+    const xDefault = await page
+      .locator('link[rel="alternate"][hreflang="x-default"]')
+      .getAttribute("href");
+
+    expect(zhAlternate).toBeTruthy();
+    expect(enAlternate).toBeTruthy();
+    expect(xDefault).toBeTruthy();
+  });
+
+  test("/brands has a canonical link pointing to the zh-TW (prefix-free) URL", async ({
+    page,
+  }) => {
+    await page.goto("/brands");
+    const canonical = await page
+      .locator('link[rel="canonical"]')
+      .getAttribute("href");
+    expect(canonical).toBeTruthy();
+    expect(canonical).toMatch(/^https?:\/\//);
+    // Canonical for default locale must NOT include /en/
+    expect(canonical).not.toContain("/en/");
+  });
+
+  test("/en/brands has a canonical link pointing to the /en/ URL", async ({
+    page,
+  }) => {
+    await page.goto("/en/brands");
+    const canonical = await page
+      .locator('link[rel="canonical"]')
+      .getAttribute("href");
+    expect(canonical).toBeTruthy();
+    expect(canonical).toContain("/en/");
   });
 
   test("sitemap includes the public editorial pages", async ({ request }) => {
@@ -263,5 +353,39 @@ test.describe("SEO deep", () => {
       "content",
       /nofollow/i,
     );
+  });
+
+  // The only POSITIVE proof that the directory publishes structured data.
+  // `directory-material.spec.ts` asserts an ItemList block is ABSENT for an
+  // unknown material, which goes MORE green if ItemList disappears entirely.
+  test("/brands (unfiltered) emits ItemList JSON-LD with itemListElement", async ({
+    page,
+  }) => {
+    await page.goto("/brands");
+    const blocks = await page
+      .locator('script[type="application/ld+json"]')
+      .allTextContents();
+    // The unfiltered /brands page emits an ItemList block alongside the WebSite block
+    const itemListBlock = blocks.find((b) => b.includes('"ItemList"'));
+    expect(itemListBlock).toBeTruthy();
+    // itemListElement array must be present (may be empty if no approved brands exist)
+    expect(itemListBlock).toContain('"itemListElement"');
+    const parsed = JSON.parse(itemListBlock!) as {
+      itemListElement?: Array<{
+        position?: unknown;
+        name?: unknown;
+        url?: unknown;
+      }>;
+    };
+    expect(Array.isArray(parsed.itemListElement)).toBe(true);
+    const items = parsed.itemListElement ?? [];
+    expect(
+      items.every(
+        (item) =>
+          typeof item.position === "number" &&
+          typeof item.name === "string" &&
+          String(item.url).includes("/brands/"),
+      ),
+    ).toBe(true);
   });
 });

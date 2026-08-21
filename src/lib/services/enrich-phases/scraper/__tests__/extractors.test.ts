@@ -342,10 +342,17 @@ describe('upgradeEcommerceImageUrl', () => {
     ['Shopline ?w=', 'https://img.shoplineapp.com/media/image/original.png?w=300', 'https://img.shoplineapp.com/media/image/original.png'],
     // The sibling query params survive — only the width is dropped.
     ['Shopline ?width= among other params', 'https://shoplineimg.com/media/file.jpg?width=400&quality=80', 'https://shoplineimg.com/media/file.jpg?quality=80'],
-    ['an unrecognised host', 'https://cdn.example.com/photo.jpg', 'https://cdn.example.com/photo.jpg'],
-    ['a known host with no dimension token', 'https://cdn.shopify.com/s/files/1/products/photo.jpg', 'https://cdn.shopify.com/s/files/1/products/photo.jpg'],
   ])('upgrades %s', (_label, input, expected) => {
     expect(upgradeEcommerceImageUrl(input)).toBe(expected)
+  })
+
+  // Separate table: these assert the URL comes back UNCHANGED, so reporting
+  // them under 'upgrades %s' would name the opposite of what is checked.
+  it.each([
+    ['an unrecognised host', 'https://cdn.example.com/photo.jpg'],
+    ['a known host with no dimension token', 'https://cdn.shopify.com/s/files/1/products/photo.jpg'],
+  ])('leaves %s untouched', (_label, input) => {
+    expect(upgradeEcommerceImageUrl(input)).toBe(input)
   })
 })
 

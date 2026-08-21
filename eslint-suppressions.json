@@ -80,6 +80,11 @@
       "count": 11
     }
   },
+  "e2e/tests/brand-share.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 4
+    }
+  },
   "e2e/tests/claim-lifecycle.spec.ts": {
     "playwright/no-conditional-in-test": {
       "count": 9
@@ -154,7 +159,7 @@
   },
   "e2e/tests/og-images.spec.ts": {
     "playwright/expect-expect": {
-      "count": 2
+      "count": 4
     }
   },
   "e2e/tests/owner-features-flag-off.spec.ts": {
@@ -173,6 +178,11 @@
   "e2e/tests/search-edge-cases.spec.ts": {
     "playwright/no-conditional-in-test": {
       "count": 7
+    }
+  },
+  "e2e/tests/settings.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 1
     }
   },
   "e2e/tests/share-card-api.spec.ts": {
