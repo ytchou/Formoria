@@ -252,7 +252,12 @@ export async function LandingZones({
           `about` CTA below is the homepage's only remaining path to it.
 
           `surface="hero"` (100vw) and no `priority`: this band is well below
-          the fold, and the hero photograph above owns the preload.
+          the fold, and the hero photograph above owns the preload. That claim
+          was FALSE between the 2026-08-19 overhaul and DEV-1544 — the hero it
+          defers to had been deleted and nothing claimed the preload, so `/`
+          ran on a text LCP. If the hero photograph is ever removed again, this
+          comment and `selected-product-tile.tsx`'s copy of it both have to move
+          with it, or one of the wall surfaces must take `priority` instead.
         */}
         <section
           data-landing-zone="manifesto"
