@@ -15,7 +15,7 @@ test.describe("Getting Started page deep", () => {
     await expect(
       page.getByRole("heading", {
         level: 1,
-        name: "Find your next favorite brand",
+        name: "From one thing you love to its brand and the place you can buy it",
       }),
     ).toBeVisible();
   });
@@ -53,7 +53,7 @@ test.describe("Getting Started page deep", () => {
     ).toBeVisible();
     await expect(
       page.getByText(
-        "Follow official links to learn more or shop directly from the brand.",
+        "Continue to the brand's own online store or a stockist for price, variants, inventory, and purchase details.",
       ),
     ).toBeVisible();
   });
@@ -75,12 +75,14 @@ test.describe("Getting Started page deep", () => {
     ).toBeVisible();
   });
 
-  test("links to the FAQ and mission pages", async ({ page }) => {
+  test("links to the FAQ and About vision section", async ({ page }) => {
     await expect(
       page.getByRole("link", { name: "Read the FAQ" }),
     ).toHaveAttribute("href", /\/faq/);
     await expect(
-      page.getByRole("link", { name: "Read our mission and vision" }),
+      page
+        .locator("#main-content")
+        .getByRole("link", { name: "About Formoria" }),
     ).toHaveAttribute("href", /\/about#vision/);
   });
 
@@ -101,5 +103,24 @@ test.describe("Getting Started page deep", () => {
       .getByRole("contentinfo")
       .getByRole("link", { name: "Getting Started" });
     await expect(footerLink).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+  });
+
+  test("zh-TW introduction names the path after the encounter and uses outbound language", async ({
+    page,
+  }) => {
+    await page.goto("/getting-started");
+
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: "從一件喜歡的東西，走到它的品牌和買得到它的地方",
+      }),
+    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+    await expect(
+      page.getByText(
+        "前往品牌官方或實體通路查看價格、規格選項、庫存與購買方式。",
+        { exact: true },
+      ),
+    ).toBeVisible();
   });
 });

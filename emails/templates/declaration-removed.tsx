@@ -1,5 +1,5 @@
-import { Link } from "@react-email/components";
 import { render } from "@react-email/render";
+import { EmailLink } from "@emails/components/email-link";
 import { Layout } from "@emails/components/layout";
 import { EmailHeading } from "@emails/components/email-heading";
 import { EmailText } from "@emails/components/email-text";
@@ -30,7 +30,7 @@ export default function DeclarationRemovedEmail({
 
   if (locale === "en") {
     return (
-      <Layout previewText={`MIT declaration removed for ${escapedBrandName}`}>
+      <Layout lang="en" previewText={`MIT declaration removed for ${escapedBrandName}`}>
         <EmailHeading as="h2">MIT declaration removed</EmailHeading>
         <EmailText>
           After reviewing community-submitted origin evidence, we removed the
@@ -47,7 +47,7 @@ export default function DeclarationRemovedEmail({
           registry verification with valid MIT certification.
         </EmailText>
         <EmailText>
-          <Link href={dashboardUrl}>Open the MIT status card</Link>
+          <EmailLink href={dashboardUrl}>Open the MIT status card</EmailLink>
         </EmailText>
         <EmailText>
           Formoria — Taiwanese Brand Discovery &amp; Curation
@@ -71,7 +71,7 @@ export default function DeclarationRemovedEmail({
         級登錄驗證。
       </EmailText>
       <EmailText>
-        <Link href={dashboardUrl}>前往台灣製造狀態卡</Link>
+        <EmailLink href={dashboardUrl}>前往台灣製造狀態卡</EmailLink>
       </EmailText>
       <EmailText>Formoria — 台灣品牌探索與選物平台</EmailText>
     </Layout>

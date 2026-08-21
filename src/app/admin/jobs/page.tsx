@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { listCurationJobsAction } from "@/app/admin/operations/actions";
 import { JobHistoryList } from "./job-history-list";
+import { routes } from "@/lib/routes";
 
 export const metadata: Metadata = { title: "Data Jobs | Admin" };
 export const revalidate = 0;
@@ -16,17 +18,18 @@ export default async function JobsPage({
   }>;
 }) {
   const query = await searchParams;
-  if (query.view) redirect("/admin/jobs");
+  if (query.view) redirect(routes.admin.jobs());
   const cursor = first(query.cursor);
   const directionParam = first(query.direction);
   const direction = directionParam === "previous" ? "previous" : "next";
   const result = await listCurationJobsAction({ cursor, direction, limit: 50 });
+  const t = await getTranslations("admin.jobs");
 
   if ("error" in result) {
     return (
       <div className="space-y-4">
-        <h1 className="type-section-title-large">Data Jobs</h1>
-        <p className="type-error">
+        <h1 className="type-label">{t("title")}</h1>
+        <p className="type-metadata text-danger">
           {result.error}
         </p>
       </div>
@@ -36,10 +39,8 @@ export default async function JobsPage({
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="type-section-title-large">Data Jobs</h1>
-        <p className="mt-1 type-card-description">
-          Track data enrichment job dispatch, execution progress, and results.
-        </p>
+        <h1 className="type-label">{t("title")}</h1>
+        <p className="mt-1 type-body-sm">{t("description")}</p>
       </div>
       <JobHistoryList
         initialJobs={result.jobs}

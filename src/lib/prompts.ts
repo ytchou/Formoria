@@ -1,38 +1,67 @@
 import {
-  PRODUCT_SUBCATEGORIES,
-  PRODUCT_TYPE_CATEGORIES,
+  L2_SUBCATEGORIES,
+  L1_CATEGORIES,
+  MATERIALS,
 } from "@/lib/taxonomy/ontology";
 
+// Object kinds, not techniques — a technique word classifies the same product
+// kind into two L1s. Since DEV-1507 retired `crafts` these follow the
+// re-file map its migration applied: 金工 → `jewelry`, 編織・鉤織 →
+// `stationery` (where `craft-kits-and-supplies` lives), and only the object
+// kinds 陶藝・木工・插畫 → `home` (where `wall-art` lives). Keep this in step
+// with `SUBCATEGORY_VOCAB_BLOCK` below and with `HINT_KEYWORD_MAP` in
+// scripts/threads-scraper/finalize.ts.
 const CATEGORY_EXAMPLES: Record<string, string> = {
   fashion: "服飾、鞋履、上衣、褲子、洋裝等穿戴服裝",
-  "bags-accessories": "包袋、皮件、帽子、圍巾、配件",
-  jewelry: "飾品、珠寶、耳環、項鍊、戒指、手鍊",
+  "bags-accessories": "包袋、皮件、帽子、圍巾、配件、皮革工藝",
+  jewelry: "飾品、珠寶、耳環、項鍊、戒指、手鍊、金工",
   beauty: "美妝、保養、清潔、沐浴、香氛、蠟燭",
-  home: "居家用品、餐具、陶瓷、家具、廚具、園藝",
+  home: "居家用品、餐具、陶瓷、家具、廚具、園藝、陶藝、木工、插畫",
   "food-drink": "食品、飲料、茶、咖啡、農產品",
-  crafts: "手作工藝、皮革工藝、陶藝、木工、藝術、插畫",
-  stationery: "文具、筆記本、鋼筆、紙膠帶、手帳、桌面配件",
+  stationery: "文具、筆記本、鋼筆、紙膠帶、手帳、桌面配件、編織、鉤織",
   tech: "3C科技、電子產品、手機配件",
   outdoor: "戶外露營、登山背包、露營裝備、攀岩用品",
   fitness: "健身器材、瑜珈用品、運動服飾、運動配件、重訓裝備",
-  "kids-pets": "兒童、嬰兒、玩具、寵物用品",
+  kids: "兒童、嬰兒、童裝、玩具、育兒用品",
+  pets: "寵物用品、寵物食品、寵物服飾、寵物玩具",
 };
 
-const CATEGORY_LIST = PRODUCT_TYPE_CATEGORIES.map(
+const CATEGORY_LIST = L1_CATEGORIES.map(
   (c) => `- ${c.slug}: ${CATEGORY_EXAMPLES[c.slug] ?? c.nameZh}`,
 ).join("\n");
 
 const _subcatByCategory = new Map<string, string[]>();
-for (const sub of PRODUCT_SUBCATEGORIES) {
+for (const sub of L2_SUBCATEGORIES) {
   const arr = _subcatByCategory.get(sub.category) ?? [];
-  arr.push(sub.nameZh);
+  // Slug first, zh gloss in parentheses — the `CATEGORY_LIST` shape above, which
+  // has emitted L1 slugs this way since before DEV-1510 and demonstrably works.
+  // The slug is what gets STORED (`brands.subcategories`), so the model must
+  // emit it verbatim; the gloss is only there to make the slug recognisable to
+  // a model reasoning over zh-TW source material.
+  arr.push(`${sub.slug}（${sub.nameZh}）`);
   _subcatByCategory.set(sub.category, arr);
 }
 
-const PRODUCT_VOCAB_BLOCK = PRODUCT_TYPE_CATEGORIES.map((c) => {
+export const SUBCATEGORY_VOCAB_BLOCK = L1_CATEGORIES.map((c) => {
   const subs = _subcatByCategory.get(c.slug) ?? [];
-  return `- ${c.nameZh}：${subs.join("、")}`;
+  return `- ${c.slug}（${c.nameZh}）：${subs.join("、")}`;
 }).join("\n");
+
+/**
+ * The material axis, closed to the twelve agreed slugs. Interpolated from
+ * `MATERIALS` for the same reason `CATEGORY_LIST` is interpolated from
+ * `L1_CATEGORIES`: the vocabulary is CLOSED and mirrored by a Postgres CHECK,
+ * so a hand-typed copy here would ask the model for values the write path
+ * rejects with a 23514.
+ *
+ * Slug plus zh gloss, because the model reads a zh-TW product page but the
+ * value it must RETURN is the English slug — the schema accepts only the slug,
+ * and `createCuratedProduct`'s material normalisation resolves slugs only and
+ * discards a Chinese label silently.
+ */
+const MATERIAL_VOCAB_BLOCK = MATERIALS.map(
+  (material) => `- ${material.slug}: ${material.nameZh}`,
+).join("\n");
 
 export const CLASSIFY_SYSTEM_PROMPT = `你是台灣品牌分類專家。請根據品牌名稱和描述，將品牌分類到最適合的產品類別。
 
@@ -44,8 +73,8 @@ ${CATEGORY_LIST}
 - 如果品牌跨多個類別，選擇主要產品線所屬類別
 
 回應格式（嚴格 JSON，不加任何其他文字）：
-單一品牌：{"productType":"<類別 slug>","confidence":"high|medium|low"}
-多個品牌：[{"slug":"<品牌 slug>","productType":"<類別 slug>","confidence":"high|medium|low"}]`;
+單一品牌：{"category":"<類別 slug>","confidence":"high|medium|low"}
+多個品牌：[{"slug":"<品牌 slug>","category":"<類別 slug>","confidence":"high|medium|low"}]`;
 
 export const DETECT_SYSTEM_PROMPT = `You triage submissions to Formoria, a directory of Taiwanese product brands. You do two things: flag entities that are definitionally not a product brand, and normalise the brand's name and slug.
 
@@ -255,9 +284,9 @@ listing.taiwan_connection 只能依據來源明確提到的事實填寫，不可
 ## 輸出格式（嚴格 JSON，不加 Markdown 或額外說明）
 
 {
-  "product_type": "類別 slug 或 null（只能用下方「品牌分類」清單中的 slug）",
-  "product_tags": ["具體商品類型（繁體中文）"],
-  "product_tags_en": ["specific product types (English, same count and order as product_tags)"],
+  "category": "類別 slug 或 null（只能用下方「品牌分類」清單中的 slug）",
+  "subcategories": ["子類別 slug（只能用下方「商品子類別詞彙表」中的 slug，一字不差）"],
+  "material": ["材質 slug（只能用下方「材質詞彙表」中的英文 slug，一字不差）"],
   "price_range": 1 | 2 | 3 | null,
   "city": "城市 slug 或 null（只能用以下值：taipei, new_taipei, taoyuan, taichung, tainan, kaohsiung, keelung, hsinchu_city, chiayi_city, hsinchu_county, miaoli, changhua, nantou, yunlin, chiayi_county, pingtung, yilan, hualien, taitung, penghu, kinmen, lienchiang）",
   "founding_year": 2015 | null,
@@ -283,24 +312,31 @@ price_range 分級：
 - 3：高價／精品，平均商品價格高於 NT$5,000
 - 若價格線索不足，回傳 null
 
-product_type（品牌分類）：
+category（品牌分類）：
 ${CATEGORY_LIST}
 
 選出最符合品牌「核心產品線」的單一類別，只能填上列 slug。判斷依據以網站內容與商品圖片描述為主，搜尋摘要為輔；跨多類別時選主要產品線所屬類別。證據不足以支持任一類別時回傳 null，不可猜測。
 
-product_tags：
+subcategories（商品子類別）：
 
-產品類型詞彙表：
-${PRODUCT_VOCAB_BLOCK}
+商品子類別詞彙表（封閉清單，只能使用下列 slug）：
+${SUBCATEGORY_VOCAB_BLOCK}
 
-先列出品牌的產品線，每條產品線從詞彙表中選取對應類型（優先品牌所屬分類下的詞彙，明確跨分類時才選其他分支）。僅當找不到合適詞彙時，才輸出新的「類型層級」標籤，且必須同時符合以下條件：
-1. 必須命名具體的產品種類，不得只描述用途或抽象範圍。
-2. 不含「・」；複合詞應拆成可獨立匹配的產品種類，不得原樣輸出。
-3. 不得是任何 L1 類別名稱（例如服飾鞋履、包袋配件、居家生活）。
-4. 不得是場合、收件對象、包裝形式、履約方式、服務或材質（例如送禮、彌月、禮盒、伴手禮、體驗課程、服務、原料）。
+先列出品牌的產品線，每條產品線從詞彙表中選出對應的 slug（優先品牌所屬分類下的 slug；產品明確屬於其他分類時，選該分類的 slug）。詞彙表是封閉的，必須同時符合以下條件：
+1. 只能輸出上表出現過的 slug，一字不差；找不到合適的 slug 時寧可少填，不可自創標籤。
+2. 不得輸出中文標籤、英文名稱或含「・」的複合字串；slug 一律是小寫英文與連字號。
+3. 不得是任何 L1 類別的 slug 或名稱（例如 fashion、bags-accessories、居家生活）。
+4. 場合、收件對象、包裝形式、履約方式與服務都不是商品種類（例如送禮、彌月、禮盒、伴手禮、體驗課程、服務），不得為了收錄它們而勉強對應到任何 slug。
 5. 不得是 SKU 層級的款式、型號、單一變體或規格。
-6. 禁止：材質前綴、行銷詞、系列/款/限定/客製、尺寸詞如短/長/迷你。
+6. 材質屬於另一個軸線：不要用材質詞當子類別，材質請改填 material 欄位。
 2–5 個，資料不足回傳 []。
+
+material（材質）：
+
+材質詞彙表（封閉清單，只能使用下列 slug）：
+${MATERIAL_VOCAB_BLOCK}
+
+填寫商品主要材質，最多 3 個。material 只接受英文 slug；填中文標籤（例如「陶瓷」）會被丟棄，slug 一律是小寫英文與連字號，且必須一字不差地出現在上表。材質必須有來源依據（商品說明、材質標示、產品規格），不可從照片外觀推測；沒有明確依據時回傳 []。
 
 city：只能填上方清單中的城市 slug。若來源未明確指出品牌所在地，回傳 null。
 
@@ -309,11 +345,11 @@ founding_year：只能填寫來源中明確提到的年份；若來源中未提�
 mit_indicators：是否在來源中提及台灣製造（MIT、台灣製造、100% Made in Taiwan 等）。evidence 引用原文。若無相關資訊回傳 null。
 
 ## 驗證檢查（輸出前自行確認）
-- [ ] product_tags 和 product_tags_en 數量是否一致？
-- [ ] 每個 novel tag 是否命名具體產品種類，而不是 L1、場合、包裝、服務、材質或 SKU 層級詞？
-- [ ] novel tag 是否不含「・」？
+- [ ] subcategories 是否每一項都逐字出現在商品子類別詞彙表中，沒有自創標籤或中文標籤？
+- [ ] 是否沒有把 L1、場合、包裝、服務或 SKU 層級詞當成子類別？
+- [ ] material 是否全部是材質詞彙表中的英文 slug（沒有中文標籤），且每一項都有來源依據？
 - [ ] 所有欄位是否可從提供的來源中找到依據？
-- [ ] product_type 與 city 是否只使用上列 slug？
+- [ ] category 與 city 是否只使用上列 slug？
 - [ ] 沒有依據的欄位是否已回傳 null 或 []，而不是猜測值？`;
 
 export const REPUTATION_SYSTEM_PROMPT = `你是台灣品牌聲譽研究專家。請根據搜尋摘要與網站內容，抽取品牌聲譽資訊。
@@ -534,7 +570,7 @@ export const NAME_ARBITER_SYSTEM_PROMPT = `你是 Formoria 的品牌名稱裁決
 
 export const SITE_IDENTITY_LABELS = {
   brandName: "品牌名稱",
-  productType: "產品類型",
+  categorySlug: "品牌類別",
   subjectKind: {
     website: "宣稱的官方網站",
     "source-page": "抓取來源頁面",
@@ -579,3 +615,95 @@ export const SITE_IDENTITY_SYSTEM_PROMPT = `你是 Formoria 的品牌網站身�
 回應格式（嚴格 JSON 物件，不加 Markdown、說明文字或其他欄位）：
 一律回傳一個最外層是物件的 JSON，物件只有一個欄位 results，其值是陣列。results 必須為每一個編號的輸入行各給出一個物件，數量與順序都和輸入完全相同；輸入 20 行就要回傳 20 個物件，輸入只有 1 行 results 也要是只含 1 個物件的陣列。絕對不可只回答第一筆，也不可把最外層寫成陣列。
 {"results":[{"slug":"<品牌 slug>","subjectUrl":"<原樣回傳輸入的網址>","owned":true,"confidence":"high|medium|low","reason":"一句簡短的繁體中文理由"}]}`;
+
+/**
+ * Chinese field labels for the products user message, kept here rather than in
+ * the phase for the same reason `SITE_IDENTITY_LABELS` is: the phase file is not
+ * on the `no-hardcoded-cjk` allowlist, and prompt copy belongs in the prompt
+ * module anyway.
+ */
+export const PRODUCTS_LABELS = {
+  userPreamble: "請從以下品牌自有網站資料中挑出最值得收錄的商品：",
+  siteUrl: "品牌官方網站：",
+  candidatePages: "候選頁面（網址 | 頁面標題與描述）：",
+  imageCandidates: "已分類的商品圖片（替代文字 | 圖片所在頁面）：",
+} as const;
+
+/**
+ * Curated-product proposals from the brand's own site (DEV-1469).
+ *
+ * The model does BOTH halves of the job: it decides which candidate pages are
+ * single-product pages, and it classifies the ones it keeps against the three
+ * closed vocabularies. Splitting those into two calls was considered and
+ * rejected — the evidence is the same page text either way, and a second call
+ * would double the cost of a phase whose output is a moderator's tick-list.
+ *
+ * Proposals are NOT rows. They ride the submission's `enriched_data.products[]`
+ * until an admin ticks the keepers in the existing submission review, so a
+ * false positive here costs a moderator one glance, while an invented material
+ * slug costs a rejected write. That asymmetry is why every "no evidence" branch
+ * below says `null`/`[]`/"drop the product" rather than "make a best guess".
+ *
+ * NO COMMERCE TRUTH: price, stock, availability, discounts, shipping, offers and
+ * variants are forbidden in every field, and the prohibition is stated twice
+ * (once as a rule, once in the self-check) because a single mention in a long
+ * prompt is the one that gets lost.
+ */
+export const PRODUCTS_SYSTEM_PROMPT = `你是 Formoria 的選物編輯助理。請根據品牌自有網站的內容、候選頁面清單與商品圖片描述，挑出這個品牌最值得收錄的商品，並為每一件商品填寫分類欄位與一段中文事實描述。
+
+你要同時完成兩件事：
+1. 判斷哪些候選頁面是「單一商品頁」。首頁、全部商品列表、分類頁、關於品牌、部落格文章、最新消息、活動公告、社群帳號、購物說明與退換貨頁面都不是商品頁。
+2. 為挑出的商品填寫 category、subcategories、material 與 product_description_zh。
+
+## 絕對不可出現的商業交易資訊
+以下事實一律不可寫進任何欄位，即使來源頁面清楚寫著：
+- 售價、金額、價格級距、運費、匯率
+- 折扣、優惠、促銷、活動價、免運門檻
+- 庫存、現貨、缺貨、預購、售完、補貨
+- 供應狀況（availability）與到貨時間
+- 規格變體（variant）：尺寸選項、顏色選項、口味選項、款式選項、組合包
+- 任何 offer、加入購物車、結帳或下單流程的敘述
+這些事實會隨交易與庫存改變，Formoria 永遠不儲存它們；讀者需要時會自己點 official_url 到品牌頁面看。
+單一固定規格（例如「容量 200ml」「尺寸 15×15 公分」）是商品本身的耐久事實，可以寫；一組可選規格是變體，不可寫。
+
+## 數量上限與證據要求
+- 最多 5 件商品，寧可少不可湊數。同一件商品的不同款式只算一件。
+- sources 至少一筆，url 必須是你實際讀到該事實的頁面；沒有來源的商品不要輸出。
+- official_url 必須是這一件商品自己的商品頁；首頁、分類頁、社群貼文、平台搜尋結果都不算，找不到就不要輸出這件商品。
+- 只能使用提供的資料。提供的資料裡沒有的商品，不可憑印象補上。
+
+## 分類詞彙（三份封閉清單）
+category（單選，只能填下列 slug）：
+${CATEGORY_LIST}
+
+subcategories（0-3 個，只能填下列詞彙表中的 slug，優先選 category 分支下的詞彙）：
+${SUBCATEGORY_VOCAB_BLOCK}
+
+material（0-3 個，只能填下列英文 slug，不可填中文，不可自創）：
+${MATERIAL_VOCAB_BLOCK}
+
+三份清單都是封閉的：清單以外的值一律不可輸出。找不到對應的值時回傳 null 或 []，不可猜測，也不可自創 slug 或新標籤。category 判斷不出來就回傳 null——category 為 null 的商品會被丟棄，這比塞一個錯的類別好。material 只接受英文 slug；填中文標籤（例如「陶瓷」）會被丟棄。
+
+## product_description_zh
+只寫可驗證的耐久事實：材質、單一固定規格、用途或使用情境、產地或製作方式。
+- 60-160 字繁體中文，純文字。
+- 不寫選物理由、推薦語或評價：「值得」「必買」「療癒」「質感絕佳」都不可出現。這個欄位不是行銷文案，也不是編輯推薦。
+- 不寫售價、折扣、庫存、供應狀況、運費或變體（見上）。
+- 不寫品牌整體介紹或創辦故事，只寫這一件商品。
+- 沒有把握的事實直接省略，不可推測。
+${TAIWAN_USAGE_RULES}
+
+## 輸出格式（嚴格 JSON 物件，不加 Markdown、說明文字或其他欄位）
+一律回傳一個最外層是物件的 JSON，物件只有一個欄位 products，其值是陣列。沒有任何商品符合條件時回傳 {"products":[]}，絕對不可把最外層寫成陣列。
+
+{"products":[{"name_zh":"商品的中文名稱","name_en":"English product name 或 null","category":"類別 slug 或 null","subcategories":["詞彙表中的 slug"],"material":["材質 slug"],"official_url":"這件商品的商品頁網址","image_source_url":"圖片所在頁面的網址或 null","product_description_zh":"60-160 字耐久事實描述","sources":[{"url":"你讀到事實的頁面網址","source_type":"official|press|retailer|other","claim_zh":"這個來源支持的事實，一句話或 null"}]}]}
+
+## 驗證檢查（輸出前自行確認）
+- [ ] products 是否最多 5 筆，且每一筆都是單一商品，而不是分類頁或商品列表頁？
+- [ ] category、material 與 subcategories 是否只填上列 slug，沒有中文標籤或括號內的中文？
+- [ ] material 是否全部是英文 slug，沒有中文標籤？
+- [ ] 找不到對應值的欄位是否已回傳 null 或 []，而不是自創 slug 或猜測值？
+- [ ] 每一筆是否都有至少一個 sources 項目，且 official_url 指向該商品自己的商品頁？
+- [ ] 全部欄位是否完全沒有售價、折扣、庫存、供應狀況、運費、變體或 offer？
+- [ ] product_description_zh 是否只有耐久事實，沒有選物理由、推薦語或行銷語氣？
+- [ ] 最外層是否為物件而不是陣列？`;

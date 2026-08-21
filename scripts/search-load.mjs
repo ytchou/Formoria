@@ -49,7 +49,7 @@ async function seedProbe(supabaseUrl, serviceRoleKey, token) {
       name: `[E2E-TEST] ${token} Search Load Probe`,
       slug: `e2e-search-load-${token}`,
       status: 'approved',
-      product_type: 'crafts',
+      category: 'home',
       description: `[E2E-TEST] Search load probe ${token}.`,
       blurb_en: `${token} punctuation load probe.`,
       is_demo: false,

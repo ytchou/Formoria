@@ -1,8 +1,8 @@
 import * as cheerio from 'cheerio'
 import {
-  PURCHASE_CHANNELS,
-  type PurchaseChannelCamelField,
-} from '@/lib/brands/purchase-channels'
+  ONLINE_STORES,
+  type OnlineStoreCamelField,
+} from '@/lib/brands/online-stores'
 import type { ScrapedBrandData, ScrapedImageSource } from '@/lib/types/scraper'
 import { resolveUrl } from '../fetch-guards'
 
@@ -199,14 +199,14 @@ export function extractSocialLinks($: cheerio.CheerioAPI) {
 
 export function extractPurchaseLinks(
   $: cheerio.CheerioAPI,
-): Pick<ScrapedBrandData, PurchaseChannelCamelField> {
+): Pick<ScrapedBrandData, OnlineStoreCamelField> {
   const links = Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel) => [channel.camel, null]),
-  ) as Pick<ScrapedBrandData, PurchaseChannelCamelField>
+    ONLINE_STORES.map((channel) => [channel.camel, null]),
+  ) as Pick<ScrapedBrandData, OnlineStoreCamelField>
 
   $('a[href]').each((_, el) => {
     const href = $(el).attr('href') ?? ''
-    for (const channel of PURCHASE_CHANNELS) {
+    for (const channel of ONLINE_STORES) {
       if (links[channel.camel]) continue
       // Harvesting is deliberately host-level, NOT `channel.urlPattern`. The
       // registry's `urlPattern` is the STRICT classification matcher used by
@@ -214,7 +214,7 @@ export function extractPurchaseLinks(
       // to; reusing it here would silently narrow the harvest and drop
       // `pinkoi.com/product/…`, `shopee.tw/shop/…` and query-string variants
       // that this extractor has always kept. `hosts` covers `shopee.com.tw`
-      // too, so no per-channel exception is needed.
+      // too, so no per-store exception is needed.
       if (!channel.hosts.some((host) => hostMatches(href, host))) continue
       links[channel.camel] = href
     }

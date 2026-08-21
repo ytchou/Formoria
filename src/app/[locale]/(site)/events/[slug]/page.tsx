@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Image from "next/image";
+import { SurfaceImage } from "@/components/ui/image";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -13,6 +13,7 @@ import { StoryRow } from "@/components/stories/story-row";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageShell } from "@/components/ui/page-shell";
 import { textStyles } from "@/components/ui/text-styles";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { safeDecodeSlug } from "@/lib/url";
@@ -42,6 +43,7 @@ import {
   buildEventJsonLd,
   safeJsonLdStringify,
 } from "@/lib/json-ld";
+import { routes } from "@/lib/routes";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
@@ -126,7 +128,7 @@ export async function generateMetadata({
   // `/stories/[slug]`, which is zh-TW-only across the board. Events that DO
   // carry English copy self-canonicalize per locale and advertise both.
   const { canonical, languages } = buildAlternates(
-    `/events/${event.slug}`,
+    routes.event(event.slug),
     event.nameEn ? safeLocale : "zh-TW",
     event.nameEn ? ["zh-TW", "en"] : ["zh-TW"],
   );
@@ -293,7 +295,7 @@ export default async function EventDetailPage({ params }: PageProps) {
   const eventJsonLd = buildEventJsonLd({
     name,
     description: summary,
-    path: `/events/${event.slug}`,
+    path: routes.event(event.slug),
     locale: safeLocale,
     startDate: event.startsOn,
     // `endDate` is omitted for a single-day event per `EventJsonLdInput`, so a
@@ -310,12 +312,12 @@ export default async function EventDetailPage({ params }: PageProps) {
   // Item-for-item mirror of the visible `<ol>` below — the two must never
   // disagree, which is why they are written next to each other.
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(
-    [{ label: t("breadcrumb"), href: "/events" }, { label: name }],
+    [{ label: t("breadcrumb"), href: routes.events() }, { label: name }],
     safeLocale,
   );
 
   return (
-    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10 md:py-12">
+    <PageShell as="main" measure="page" className="pt-12 pb-section">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(eventJsonLd) }}
@@ -328,12 +330,17 @@ export default async function EventDetailPage({ params }: PageProps) {
       />
 
       <nav aria-label={t("breadcrumbAria")} className="mb-6">
-        <ol className="flex items-center gap-1.5 type-card-description">
+        <ol className="flex items-center gap-1.5 type-body-sm">
           <li>
-            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
+            {/* A raw `<a>`, not next/link. DEV-1280: full-document navigation avoids a
+              stalled RSC request across the locale proxy rewrite. The
+              `no-html-link-for-pages` suppression that used to sit here is gone with
+              the literal href — the rule only inspects string literals, so routing
+              this through `@/lib/routes` left the directive unused, which
+              `reportUnusedDisableDirectives: "error"` fails on. */}
             <a
-              href="/events"
-              className="transition-colors hover:text-foreground"
+              href={routes.events()}
+              className="transition-colors hover:text-ink"
             >
               {t("breadcrumb")}
             </a>
@@ -342,14 +349,14 @@ export default async function EventDetailPage({ params }: PageProps) {
             <ChevronRight className="size-3.5" />
           </li>
           <li>
-            <span aria-current="page" className="text-foreground">
+            <span aria-current="page" className="text-ink">
               {name}
             </span>
           </li>
         </ol>
       </nav>
 
-      <article className="space-y-12">
+      <article className="space-y-stack">
         {/* Band A — hero, full width. */}
         <header className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -360,23 +367,26 @@ export default async function EventDetailPage({ params }: PageProps) {
               <Badge variant="outline">{t("free")}</Badge>
             ) : null}
           </div>
-          <h1 className="type-page-title-large text-balance">{name}</h1>
-          {/* Full measure, not `max-w-2xl`: the summary is one or two lines of
-              scene-setting, not body copy, and a half-width block under a
-              full-width `h1` read as an unfinished column. */}
-          <p className="type-page-subtitle">{summary}</p>
+          <h1 className="type-page-title text-balance">{name}</h1>
+          {/* The reading measure, not the page's: at 100rem an uncapped line
+              here would run the full width of the container, and the summary
+              is read rather than scanned. It is still deliberately WIDER than
+              the block it replaced — a half-width column under a full-width
+              `h1` read as unfinished — the hand-picked 46rem just said that
+              with a number nothing else on the site shared. */}
+          <p className="prose-measure type-body text-ink-soft">{summary}</p>
         </header>
 
         {heroSrc ? (
-          <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-muted">
+          <div className="relative aspect-[16/9] overflow-hidden rounded-xl border border-rule bg-surface-deep">
             {/* Decorative: the event name is the adjacent `<h1>`, so alt text
                 here would only repeat it to a screen reader. */}
-            <Image
+            <SurfaceImage
               src={heroSrc}
               alt=""
               fill
               priority
-              sizes="100vw"
+              surface="hero"
               className="object-cover"
             />
           </div>
@@ -392,7 +402,6 @@ export default async function EventDetailPage({ params }: PageProps) {
                   rel="noopener noreferrer"
                   className={buttonVariants({
                     variant: "primary",
-                    tone: "cta",
                     size: "large",
                     className: "w-full sm:w-auto",
                   })}
@@ -440,7 +449,7 @@ export default async function EventDetailPage({ params }: PageProps) {
                   is full", a question that only exists once there is
                   something to book. */}
             {event.ticketUrl ? (
-              <p className="type-caption">{t("reserveNote")}</p>
+              <p className="type-metadata">{t("reserveNote")}</p>
             ) : null}
           </div>
         ) : null}
@@ -464,13 +473,13 @@ export default async function EventDetailPage({ params }: PageProps) {
           fact list they landed under the page fold on a laptop.
         */}
         <section aria-labelledby="event-about" className="space-y-8">
-          <h2 id="event-about" className="type-section-title">
+          <h2 id="event-about" className="type-section">
             {t("about")}
           </h2>
 
           <dl
             aria-label={t("visitInfo")}
-            className="divide-y divide-border border-t border-border"
+            className="divide-y divide-rule border-t border-rule"
           >
             {dateLabel ? (
               <div className="grid gap-x-6 gap-y-1 py-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
@@ -511,7 +520,7 @@ export default async function EventDetailPage({ params }: PageProps) {
                 <dd className={textStyles({ variant: "fieldValue" })}>
                   {venueName}
                   {event.venueAddress ? (
-                    <span className="block type-caption">
+                    <span className="block type-metadata">
                       {event.venueAddress}
                     </span>
                   ) : null}
@@ -568,7 +577,7 @@ export default async function EventDetailPage({ params }: PageProps) {
         */}
         <section aria-label={t("brandsHeading")} className="space-y-4">
           {isCreativeExpo ? null : (
-            <h2 className="type-section-title">{t("brandsHeading")}</h2>
+            <h2 className="type-section">{t("brandsHeading")}</h2>
           )}
           {/*
             Source attribution plus the "exhibiting is not an endorsement"
@@ -577,7 +586,7 @@ export default async function EventDetailPage({ params }: PageProps) {
             tinted box here would outweigh the lineup it introduces. No label
             key — the heading above already names what is being qualified.
           */}
-          {lineupNote ? <p className="type-caption">{lineupNote}</p> : null}
+          {lineupNote ? <p className="type-metadata">{lineupNote}</p> : null}
           {/*
             A lineup that has not been published yet renders the message and
             nothing else: no filter bar (there is nothing to filter) and no
@@ -594,7 +603,7 @@ export default async function EventDetailPage({ params }: PageProps) {
               />
             </Suspense>
           ) : entries.length === 0 ? (
-            <p className="type-empty-body">{t("noBrands")}</p>
+            <p className="type-body-sm">{t("noBrands")}</p>
           ) : (
             <EventBrandGrid
               entries={lineup}
@@ -612,7 +621,7 @@ export default async function EventDetailPage({ params }: PageProps) {
           reads. Separated by whitespace only, never a tinted band.
         */}
         <section aria-labelledby="event-related-stories" className="space-y-4">
-          <h2 id="event-related-stories" className="type-section-title">
+          <h2 id="event-related-stories" className="type-section">
             {t("relatedStories")}
           </h2>
           {relatedStories.length === 0 ? (
@@ -624,7 +633,7 @@ export default async function EventDetailPage({ params }: PageProps) {
             // Same `StoryRow` list as the homepage and /stories: one story
             // presentation across the site, and a date-led row reads at any
             // count, unlike a grid that had to drop to one column below two.
-            <div className="divide-y divide-border border-y border-border">
+            <div className="divide-y divide-rule border-y border-rule">
               {relatedStories.map((story) => (
                 <StoryRow
                   key={story.slug}
@@ -637,6 +646,6 @@ export default async function EventDetailPage({ params }: PageProps) {
           )}
         </section>
       </article>
-    </main>
+    </PageShell>
   );
 }

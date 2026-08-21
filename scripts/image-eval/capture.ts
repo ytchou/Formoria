@@ -45,7 +45,7 @@ type DatabaseBrand = {
   id: string;
   slug: string;
   name: string;
-  product_type: string | null;
+  category: string | null;
   purchase_website: string | null;
 };
 
@@ -73,19 +73,19 @@ async function loadOrCreateRoster(
 
   const { data, error } = await createServiceClient()
     .from("brands")
-    .select("id, slug, name, product_type, purchase_website")
+    .select("id, slug, name, category, purchase_website")
     .eq("status", "approved")
-    .in("product_type", [...EVAL_CATEGORY_SLUGS])
+    .in("category", [...EVAL_CATEGORY_SLUGS])
     .order("slug", { ascending: true });
 
   if (error) throw error;
 
   const byCategory = new Map<string, DatabaseBrand[]>();
   for (const row of (data ?? []) as DatabaseBrand[]) {
-    if (!row.product_type) continue;
-    const category = byCategory.get(row.product_type) ?? [];
+    if (!row.category) continue;
+    const category = byCategory.get(row.category) ?? [];
     category.push(row);
-    byCategory.set(row.product_type, category);
+    byCategory.set(row.category, category);
   }
 
   const selected: Omit<GoldenRosterBrand, "split">[] = [];
@@ -103,7 +103,7 @@ async function loadOrCreateRoster(
         id: brand.id,
         slug: brand.slug,
         name: brand.name,
-        productType: category,
+        categorySlug: category,
         purchaseWebsite: brand.purchase_website,
       })),
     );
@@ -141,7 +141,7 @@ async function captureSerperCandidates(
       brand.name,
       buildCaptureQueries({
         name: brand.name,
-        productType: brand.productType,
+        categorySlug: brand.categorySlug,
         purchaseWebsite: brand.purchaseWebsite,
       }),
     ]),
@@ -339,7 +339,7 @@ async function capture(): Promise<void> {
       const firstQuery =
         buildCaptureQueries({
           name: brand.name,
-          productType: brand.productType,
+          categorySlug: brand.categorySlug,
           purchaseWebsite: brand.purchaseWebsite,
         })[0] ?? brand.name;
       return outcome.candidates.map((candidate, index) => ({
@@ -400,7 +400,7 @@ async function capture(): Promise<void> {
       brandId: brand.id,
       brandSlug: brand.slug,
       brandName: brand.name,
-      category: brand.productType,
+      category: brand.categorySlug,
       split: brand.split,
       query,
       position: candidate.position ?? index + 1,

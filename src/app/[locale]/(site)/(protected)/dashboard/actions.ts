@@ -8,6 +8,7 @@ import { isOwnerOf } from '@/lib/services/brand-owners'
 import { verifyMitByCert } from '@/lib/services/mit-verification'
 import { getBrandById } from '@/lib/services/brands'
 import { revalidatePublicBrands } from '@/lib/cache/public-brand-cache'
+import { routes } from '@/lib/routes'
 
 export async function verifyMitAction(
   brandId: string,
@@ -40,7 +41,7 @@ export async function verifyMitAction(
 
       const brand = await getBrandById(brandId)
       revalidatePublicBrands([brand.slug])
-      revalidatePath('/dashboard')
+      revalidatePath(routes.dashboard.index())
 
       return undefined
     } catch (err) {

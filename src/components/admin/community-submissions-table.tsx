@@ -2,6 +2,7 @@
 
 import { useId, useState, useTransition } from "react";
 import { FileUp } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   executeCommunitySubmissionsAction,
   loadCommunitySubmissionsCsvAction,
@@ -22,12 +23,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { inkActionClassName } from "@/components/admin/ink-action";
 import { MAX_COMMUNITY_SUBMISSIONS } from "@/lib/services/community-submissions.constants";
 import type {
   CommunitySubmissionDraft,
   CommunitySubmissionPreview,
   CommunitySubmissionResult,
 } from "@/lib/services/community-submissions";
+
+/**
+ * The required CSV header line, shown to the operator verbatim. A data format,
+ * not translatable copy — it stays in source next to the code that parses it
+ * rather than moving into `messages/en.json`.
+ */
+const CSV_HEADER = "name,website";
 
 type EditableRow = CommunitySubmissionDraft & {
   preview?: CommunitySubmissionPreview;
@@ -38,6 +47,7 @@ type EditableRow = CommunitySubmissionDraft & {
 type StatusFilter = "all" | ReturnType<typeof getRowStatus>;
 
 export function CommunitySubmissionsTable() {
+  const t = useTranslations("admin.scripts.bulkSubmissions");
   const idBase = useId();
   const [rows, setRows] = useState<EditableRow[]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -188,7 +198,7 @@ export function CommunitySubmissionsTable() {
           id={`${idBase}-csv`}
           type="file"
           accept=".csv,text/csv"
-          aria-label="Upload CSV"
+          aria-label={t("upload.inputLabel")}
           className="sr-only"
           disabled={isPending}
           onChange={(event) => {
@@ -200,33 +210,33 @@ export function CommunitySubmissionsTable() {
         <Label
           htmlFor={`${idBase}-csv`}
           aria-disabled={isPending}
-          className="flex min-h-36 cursor-pointer items-center justify-between gap-6 rounded-lg border border-dashed border-border bg-background p-6 transition-colors hover:bg-muted aria-disabled:pointer-events-none aria-disabled:opacity-50"
+          className="flex min-h-36 cursor-pointer items-center justify-between gap-6 rounded-[3px] border border-dashed border-rule bg-ground p-6 transition-colors hover:bg-surface aria-disabled:pointer-events-none aria-disabled:opacity-50"
         >
           <span className="flex items-center gap-4">
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-border bg-card">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-[3px] border border-rule bg-surface">
               <FileUp aria-hidden="true" />
             </span>
             <span className="space-y-1">
               <span className="block type-card-title">
-                {isPending ? "Reading and checking CSV…" : "Choose a CSV file"}
+                {isPending ? t("upload.reading") : t("upload.choose")}
               </span>
-              <span className="block type-form-hint">
-                Rows are checked for duplicates and selected automatically.
-              </span>
+              <span className="block type-metadata">{t("upload.hint")}</span>
               {fileName ? (
-                <span className="block type-metadata">Loaded: {fileName}</span>
+                <span className="block type-metadata">
+                  {t("upload.loadedFile", { name: fileName })}
+                </span>
               ) : null}
             </span>
           </span>
           <span className="flex shrink-0 flex-col items-end gap-2">
-            <Badge variant="outline">name,website</Badge>
+            <Badge variant="outline">{CSV_HEADER}</Badge>
             <span className="type-metadata">
-              Up to {MAX_COMMUNITY_SUBMISSIONS} rows
+              {t("upload.maxRows", { max: MAX_COMMUNITY_SUBMISSIONS })}
             </span>
           </span>
         </Label>
         {error ? (
-          <p role="alert" className="mt-4 type-error">
+          <p role="alert" className="mt-4 type-metadata text-danger">
             {error}
           </p>
         ) : null}
@@ -236,16 +246,20 @@ export function CommunitySubmissionsTable() {
         <div className="space-y-3">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 className="type-section-title">Review import</h2>
-              <p className="mt-1 type-card-description">
-                Showing {filteredRows.length} of {rows.length} rows ·{" "}
-                {selectedCount} selected. Similar matches require an explicit
-                selection.
+              <h2 className="type-label">{t("preview.title")}</h2>
+              <p className="mt-1 type-body-sm">
+                {t("preview.summary", {
+                  shown: filteredRows.length,
+                  total: rows.length,
+                  selected: selectedCount,
+                })}
               </p>
             </div>
             <div className="flex w-full flex-wrap items-end gap-3 sm:w-auto">
               <div className="min-w-56 flex-1 space-y-1 sm:flex-none">
-                <Label htmlFor={`${idBase}-status-filter`}>Status</Label>
+                <Label htmlFor={`${idBase}-status-filter`}>
+                  {t("preview.statusFilterLabel")}
+                </Label>
                 <NativeSelect
                   id={`${idBase}-status-filter`}
                   value={statusFilter}
@@ -254,20 +268,23 @@ export function CommunitySubmissionsTable() {
                     setStatusFilter(event.currentTarget.value as StatusFilter)
                   }
                 >
-                  <option value="all">All statuses</option>
-                  <option value="ready">Ready</option>
-                  <option value="similar">Similar</option>
-                  <option value="duplicate">Exact duplicate</option>
-                  <option value="invalid">Invalid</option>
-                  <option value="edited">Edited</option>
-                  <option value="created">Done</option>
-                  <option value="skipped_duplicate">Skipped duplicate</option>
-                  <option value="failed">Failed</option>
+                  <option value="all">{t("preview.allStatuses")}</option>
+                  <option value="ready">{t("status.ready")}</option>
+                  <option value="similar">{t("status.similar")}</option>
+                  <option value="duplicate">{t("status.duplicate")}</option>
+                  <option value="invalid">{t("status.invalid")}</option>
+                  <option value="edited">{t("status.edited")}</option>
+                  <option value="created">{t("status.created")}</option>
+                  <option value="skipped_duplicate">
+                    {t("status.skipped_duplicate")}
+                  </option>
+                  <option value="failed">{t("status.failed")}</option>
                 </NativeSelect>
               </div>
               <Button
                 type="button"
-                className="min-h-12"
+                variant="secondary"
+                className={inkActionClassName}
                 disabled={isPending || selectedCount === 0}
                 onClick={executeRows}
               >
@@ -288,7 +305,7 @@ export function CommunitySubmissionsTable() {
                     >
                       <Checkbox
                         id={`${idBase}-select-all`}
-                        aria-label="Select all filtered rows"
+                        aria-label={t("preview.selectAll")}
                         checked={allFilteredSelected}
                         indeterminate={someFilteredSelected}
                         disabled={isPending || selectableFilteredRows.length === 0}
@@ -296,10 +313,10 @@ export function CommunitySubmissionsTable() {
                       />
                     </Label>
                   </TableHead>
-                  <TableHead>Brand name</TableHead>
-                  <TableHead>Official website</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-24">Actions</TableHead>
+                  <TableHead>{t("table.name")}</TableHead>
+                  <TableHead>{t("table.website")}</TableHead>
+                  <TableHead>{t("table.status")}</TableHead>
+                  <TableHead className="w-24">{t("table.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -369,7 +386,7 @@ export function CommunitySubmissionsTable() {
                           aria-label={`Remove row ${index + 1}`}
                           onClick={() => removeRow(row.id)}
                         >
-                          Remove
+                          {t("preview.remove")}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -379,9 +396,9 @@ export function CommunitySubmissionsTable() {
                   <TableRow>
                     <TableCell
                       colSpan={5}
-                      className="py-12 text-center type-card-description"
+                      className="py-12 text-center type-body-sm"
                     >
-                      No rows match this status.
+                      {t("preview.empty")}
                     </TableCell>
                   </TableRow>
                 ) : null}
@@ -395,6 +412,7 @@ export function CommunitySubmissionsTable() {
 }
 
 function RowStatus({ row }: { row: EditableRow }) {
+  const t = useTranslations("admin.scripts.bulkSubmissions");
   if (row.result) {
     const config = {
       created: { label: "Done", variant: "success" as const },
@@ -408,7 +426,7 @@ function RowStatus({ row }: { row: EditableRow }) {
       <div className="space-y-1">
         <Badge variant={config.variant}>{config.label}</Badge>
         {"message" in row.result ? (
-          <p className="type-form-hint">{row.result.message}</p>
+          <p className="type-metadata">{row.result.message}</p>
         ) : null}
       </div>
     );
@@ -416,8 +434,8 @@ function RowStatus({ row }: { row: EditableRow }) {
   if (!row.preview) {
     return (
       <div className="space-y-1">
-        <Badge variant="outline">Edited</Badge>
-        <p className="type-form-hint">Rechecks when you leave the field.</p>
+        <Badge variant="outline">{t("status.edited")}</Badge>
+        <p className="type-metadata">{t("status.editedHint")}</p>
       </div>
     );
   }
@@ -431,7 +449,7 @@ function RowStatus({ row }: { row: EditableRow }) {
     <div className="space-y-1">
       <Badge variant={config.variant}>{config.label}</Badge>
       {row.preview.message ? (
-        <p className="type-form-hint">{row.preview.message}</p>
+        <p className="type-metadata">{row.preview.message}</p>
       ) : null}
     </div>
   );

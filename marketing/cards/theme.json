@@ -1,21 +1,22 @@
 {
   "dimensions": { "card": { "width": 1080, "height": 1350 } },
   "palette": {
-    "terracotta": "#C4693B",
-    "green": "#2F5D50",
-    "dark": "#1C1C1C",
-    "cream": "#FFFDF8",
+    "accent": "#2F4F63",
+    "dark": "#1A1815",
+    "cream": "#FAF7F2",
+    "onInk": "#D6CFC4",
+    "onInkMuted": "#9A9288",
+    "ruleOnInk": "#3A352E",
     "scrimBlack": "#000000",
-    "stripDark": "#000000CC",
-    "stripGreen": "#1D3D34",
-    "stripTerracotta": "#A3542A"
+    "stripDark": "#1A1815CC",
+    "stripAccent": "#1D3140"
   },
   "colors": {
-    "background": "#1C1C1C",
-    "text": "#FFFDF8",
-    "secondary": "#FFFFFFCC",
-    "muted": "#FFFFFF99",
-    "accent": "#C4693B"
+    "background": "#1A1815",
+    "text": "#D6CFC4",
+    "secondary": "#9A9288",
+    "muted": "#9A9288",
+    "accent": "#2F4F63"
   },
   "typography": {
     "fontHeading": "'Noto Sans TC', system-ui, -apple-system, sans-serif",
@@ -72,41 +73,32 @@
   },
   "accentRules": {
     "image": {
-      "tagBorder": "#C4693B",
-      "tagText": "#C4693B",
-      "ruleColor": "#C4693B",
-      "barColor": "#C4693B",
-      "counter": "#C4693B",
-      "strip": "#000000CC",
-      "ctaBtn": { "bg": "#FFFDF8", "text": "#C4693B" }
+      "tagBorder": "#D6CFC466",
+      "tagText": "#D6CFC4",
+      "ruleColor": "#D6CFC4AA",
+      "barColor": "#D6CFC4",
+      "counter": "#9A9288",
+      "strip": "#1A1815CC",
+      "ctaBtn": { "bg": "#FAF7F2", "text": "#2F4F63" }
     },
     "dark": {
-      "tagBorder": "#C4693B",
-      "tagText": "#C4693B",
-      "ruleColor": "#C4693B",
-      "barColor": "#C4693B",
-      "counter": "#C4693B",
-      "strip": "#000000CC",
-      "ctaBtn": { "bg": "#FFFDF8", "text": "#C4693B" }
+      "tagBorder": "#D6CFC466",
+      "tagText": "#D6CFC4",
+      "ruleColor": "#D6CFC4AA",
+      "barColor": "#D6CFC4",
+      "counter": "#9A9288",
+      "strip": "#1A1815CC",
+      "ctaBtn": { "bg": "#FAF7F2", "text": "#2F4F63" }
     },
     "color": {
-      "#2F5D50": {
-        "tagBorder": "#FFFFFF66",
-        "tagText": "#FFFDF8",
-        "ruleColor": "#FFFDF8AA",
-        "barColor": "#FFFDF8AA",
-        "counter": "#FFFDF8",
-        "strip": "#1D3D34",
-        "ctaBtn": { "bg": "#FFFDF8", "text": "#2F5D50" }
-      },
-      "#C4693B": {
-        "tagBorder": "#FFFFFF40",
-        "tagText": "#FFFDF8",
-        "ruleColor": "#FFFDF8",
-        "barColor": "#FFFFFF40",
-        "counter": "#FFFDF8",
-        "strip": "#A3542A",
-        "ctaBtn": { "bg": "#FFFDF8", "text": "#C4693B" }
+      "#2F4F63": {
+        "tagBorder": "#D6CFC466",
+        "tagText": "#FAF7F2",
+        "ruleColor": "#FAF7F2AA",
+        "barColor": "#FAF7F2",
+        "counter": "#FAF7F2",
+        "strip": "#1D3140",
+        "ctaBtn": { "bg": "#FAF7F2", "text": "#2F4F63" }
       }
     }
   },

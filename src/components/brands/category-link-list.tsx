@@ -1,8 +1,9 @@
 import { listIndexableTargets } from '@/lib/seo/directory-indexation'
 import { categoryLabel, subcategoryBySlug } from '@/lib/taxonomy/ontology'
 import { localizePath } from '@/i18n/locale-preference'
-import { taxonomyLinkClasses } from '@/components/ui/toggle-chip'
+import { ChipRow, taxonomyLinkClasses } from '@/components/ui/toggle-chip'
 import type { Locale } from '@/lib/seo/alternates'
+import { routes } from '@/lib/routes'
 
 type CategoryLinkListProps = {
   locale: Locale
@@ -25,7 +26,7 @@ export function CategoryLinkList({
 
   return (
     <nav aria-label={ariaLabel} className="mt-5">
-      <ul className="flex flex-wrap gap-2">
+      <ChipRow as="ul">
         {childTargets.map((target) => {
           const subcategory = target.subcategorySlug
             ? subcategoryBySlug(target.subcategorySlug)
@@ -43,7 +44,7 @@ export function CategoryLinkList({
           return (
             <li key={target.subcategorySlug}>
               <a
-                href={localizePath(`/categories/${category.slug}/${subcategory.slug}`, locale)}
+                href={localizePath(routes.subcategory(category.slug, subcategory.slug), locale)}
                 className={taxonomyLinkClasses()}
               >
                 {subcategoryLabel}
@@ -51,7 +52,7 @@ export function CategoryLinkList({
             </li>
           )
         })}
-      </ul>
+      </ChipRow>
     </nav>
   )
 }

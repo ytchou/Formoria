@@ -32,26 +32,32 @@ import { BrandAbout } from "@/components/brands/brand-about";
 import { BrandFaqAccordion } from "@/components/brands/brand-faq-accordion";
 import { BrandLinks } from "@/components/brands/brand-links";
 import { BrandSectionNav } from "@/components/brands/brand-section-nav";
-import { BrandChannelsSection } from "@/components/brands/brand-channels-section";
+import { StockistsSection } from "@/components/brands/stockists-section";
+import { BrandSelectedProducts } from "@/components/brands/brand-selected-products";
+import { BrandEventsSection } from "@/components/brands/brand-events-section";
 import { RelatedBrands } from "@/components/brands/related-brands";
+import { PageShell } from "@/components/ui/page-shell";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { getBrandCategoryLabel } from "@/lib/brands/category-label";
 import { getBrandVisitLink } from "@/lib/brands/link-fallback";
 import { faqItemsToQuestions, getBrandFaq } from "@/lib/services/brand-faq";
-import { getChannelsForBrand } from "@/lib/services/brand-channels";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { getStockistsForBrand } from "@/lib/services/stockists";
+import { getPublishedCuratedProductsForBrand } from "@/lib/services/curated-products";
+import { getBrandEventParticipations } from "@/lib/services/events";
+import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { cn } from "@/lib/utils";
 import { shouldShowBrandSectionNav } from "@/lib/brands/section-nav";
 import { NotFoundError } from "@/lib/errors";
 import { truncateForMeta } from "@/lib/text/truncate-for-meta";
 import { getBrandIndexability } from "@/lib/seo/brand-indexability";
 import { getBrandGalleryImages } from "@/lib/services/brand-images";
+import { routes } from "@/lib/routes";
 
 // Shared section rhythm: hairline rule above each section, and enough scroll offset to clear
 // the sticky main nav (100px) plus the mobile section-nav strip (48px).
 const brandSectionClassName =
-  "scroll-mt-40 border-t border-border pt-8 first:border-t-0 first:pt-0 md:scroll-mt-28";
+  "scroll-mt-40 border-t border-rule pt-stack first:border-t-0 first:pt-0 md:scroll-mt-28";
 
 // 1h ISR: ownership/verified-state changes propagate within ~an hour; paths
 // omitted from generateStaticParams are rendered on demand and cached between
@@ -114,7 +120,7 @@ export async function generateMetadata({
       ? { width: heroImageMetadata.width, height: heroImageMetadata.height }
       : {};
   const { canonical, languages } = buildAlternates(
-    `/brands/${brand.slug}`,
+    routes.brand(brand.slug),
     safeLocale,
     availableLocales,
   );
@@ -175,15 +181,21 @@ export default async function BrandDetailPage({ params }: PageProps) {
     tBrandDetail(key, params as never)) as BrandFaqTranslateFn;
   const cityLabel = displayBrand.city ? tCities(displayBrand.city) : null;
   const faqContext = await getPublicBrandFaqContextById(displayBrand.id);
-  const [faqItems, channels] = await Promise.all([
-    getBrandFaq(displayBrand.id, faqContext, tBrandFaq, safeLocale, cityLabel),
-    getChannelsForBrand(displayBrand.id),
-  ]);
-  const channelCount = channels.confirmed.length + channels.possible.length;
+  const [faqItems, stockists, curatedProducts, eventParticipations] =
+    await Promise.all([
+      getBrandFaq(displayBrand.id, faqContext, tBrandFaq, safeLocale, cityLabel),
+      getStockistsForBrand(displayBrand.id),
+      getPublishedCuratedProductsForBrand(displayBrand.id),
+      // Composed here rather than folded into `PublicBrandDetail`: the page
+      // already assembles independent services around one brand, and widening
+      // the brand projection would put an event join on every brand card query.
+      getBrandEventParticipations(displayBrand.id),
+    ]);
+  const stockistCount = stockists.confirmed.length + stockists.possible.length;
   // Same builder generateMetadata uses for <link rel="canonical">, so the
   // structured data can never name a different URL than the page's own tag.
   const { canonical: canonicalUrl } = buildAlternates(
-    `/brands/${displayBrand.slug}`,
+    routes.brand(displayBrand.slug),
     safeLocale,
   );
   const faqJsonLd = buildFaqPageJsonLd(
@@ -194,15 +206,15 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
   const galleryImages = getBrandGalleryImages(displayBrand);
 
-  const productTypeSlug = displayBrand.productType;
-  const productTypeCategory = PRODUCT_TYPE_CATEGORIES.find(
-    (category) => category.slug === productTypeSlug,
+  const categorySlugSlug = displayBrand.categorySlug;
+  const categorySlugCategory = L1_CATEGORIES.find(
+    (category) => category.slug === categorySlugSlug,
   );
-  const categoryTag = productTypeCategory
+  const categoryTag = categorySlugCategory
     ? {
-        slug: productTypeCategory.slug,
-        name: productTypeCategory.name,
-        nameZh: productTypeCategory.nameZh,
+        slug: categorySlugCategory.slug,
+        name: categorySlugCategory.name,
+        nameZh: categorySlugCategory.nameZh,
       }
     : null;
 
@@ -221,12 +233,23 @@ export default async function BrandDetailPage({ params }: PageProps) {
     ...(description
       ? [{ id: "about", label: tBrandDetail("tabNav.about") }]
       : []),
-    // Both link sections render unconditionally now — a channel with no known
+    // Both link sections render unconditionally now — a stockist with no known
     // URL shows as a dimmed chip rather than disappearing.
     { id: "social", label: tBrandDetail("tabNav.social") },
     { id: "purchase", label: tBrandDetail("tabNav.purchase") },
-    ...(channelCount > 0
+    ...(stockistCount > 0
       ? [{ id: "locations", label: tBrandDetail("tabNav.locations") }]
+      : []),
+    ...(curatedProducts.length > 0
+      ? [
+          {
+            id: "selected-products",
+            label: tBrandDetail("tabNav.selectedProducts"),
+          },
+        ]
+      : []),
+    ...(eventParticipations.length > 0
+      ? [{ id: "events", label: tBrandDetail("tabNav.events") }]
       : []),
     ...(faqItems.length > 0
       ? [{ id: "faq", label: tBrandDetail("tabNav.faq") }]
@@ -236,18 +259,18 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
   // Breadcrumb items for JSON-LD
   const directoryLabel = tBrandDetail("breadcrumb.directory");
-  const categoryLabel = productTypeCategory
+  const categoryLabel = categorySlugCategory
     ? safeLocale === "en"
-      ? productTypeCategory.name
-      : productTypeCategory.nameZh
+      ? categorySlugCategory.name
+      : categorySlugCategory.nameZh
     : getBrandCategoryLabel(displayBrand, safeLocale === "en" ? "en" : "zh-TW");
   const breadcrumbItems: BreadcrumbItem[] = [
-    { label: directoryLabel, href: "/brands" },
+    { label: directoryLabel, href: routes.brands() },
     ...(categoryTag
       ? [
           {
             label: categoryLabel || categoryTag.name,
-            href: `/categories/${categoryTag.slug}`,
+            href: routes.category(categoryTag.slug),
           },
         ]
       : []),
@@ -256,12 +279,15 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
   return (
     // The saved-brands and engagement providers wrap the whole page: the view
-    // tracker needs saved state, and the gallery/FAQ/channel sections all report
-    // engagement. Hoisting the saved provider here does not add a fetch — it was
-    // already mounted on this page, only around the actions slot.
+    // tracker needs saved state, and the gallery and FAQ sections report
+    // engagement (dwell and scroll depth come from the tracker itself). The
+    // stockist section reports nothing since DEV-1513 removed the community
+    // confirm button, which was its only emitter. Hoisting the saved provider
+    // here does not add a fetch — it was already mounted on this page, only
+    // around the actions slot.
     <SavedBrandsProvider>
       <BrandEngagementTracker brandId={displayBrand.id} slug={slug}>
-        <main className="page-gutter mx-auto max-w-screen-xl py-10">
+        <PageShell as="main" measure="page" className="py-10">
           <BrandViewTracker brandId={displayBrand.id} brandSlug={slug} />
           {/* JSON-LD structured data */}
           <script
@@ -269,8 +295,8 @@ export default async function BrandDetailPage({ params }: PageProps) {
             dangerouslySetInnerHTML={{
               __html: safeJsonLdStringify(
                 buildBrandJsonLd(displayBrand, safeLocale, canonicalUrl, [
-                  ...channels.confirmed,
-                  ...channels.possible,
+                  ...stockists.confirmed,
+                  ...stockists.possible,
                 ]),
               ),
             }}
@@ -307,7 +333,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 alt={displayBrand.name}
                 brandId={displayBrand.id}
                 brandSlug={displayBrand.slug}
-                category={productTypeSlug}
+                category={categorySlugSlug}
                 imageAlts={displayBrand.imageAlts}
               />
             </div>
@@ -350,7 +376,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
           <div
             className={cn(
-              "mt-8 border-t border-border pt-8",
+              "mt-stack border-t border-rule pt-stack",
               hasSectionNav && "grid md:grid-cols-5 md:gap-16",
             )}
           >
@@ -379,14 +405,36 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 sectionClassName={brandSectionClassName}
               />
 
-              {channelCount > 0 && (
+              {stockistCount > 0 && (
                 <section id="locations" className={brandSectionClassName}>
-                  <BrandChannelsSection
+                  <StockistsSection
                     locale={safeLocale}
-                    confirmed={channels.confirmed}
-                    possible={channels.possible}
+                    confirmed={stockists.confirmed}
+                    possible={stockists.possible}
                     brandId={displayBrand.id}
                     brandSlug={displayBrand.slug}
+                  />
+                </section>
+              )}
+
+              {curatedProducts.length > 0 && (
+                <section
+                  id="selected-products"
+                  className={brandSectionClassName}
+                >
+                  <BrandSelectedProducts
+                    locale={safeLocale}
+                    brand={displayBrand}
+                    products={curatedProducts}
+                  />
+                </section>
+              )}
+
+              {eventParticipations.length > 0 && (
+                <section id="events" className={brandSectionClassName}>
+                  <BrandEventsSection
+                    locale={safeLocale}
+                    participations={eventParticipations}
                   />
                 </section>
               )}
@@ -414,7 +462,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
               currentBrandSlug={displayBrand.slug}
             />
           )}
-        </main>
+        </PageShell>
       </BrandEngagementTracker>
     </SavedBrandsProvider>
   );

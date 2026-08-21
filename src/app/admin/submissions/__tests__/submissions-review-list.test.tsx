@@ -271,7 +271,7 @@ describe("SubmissionsReviewList", () => {
     expect(
       screen.getByRole("checkbox", { name: "Select Ready Brand 2" }),
     ).toBeChecked();
-    // The e2e suite selects `p.type-error` and asserts it names the brand.
+    // The e2e suite selects `p.type-metadata.text-danger` and asserts it names the brand.
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Ready Brand 2: Base brand changed",
     );
@@ -576,16 +576,15 @@ const baseReviewData = {
   blurb: "品牌摘要",
   blurbEn: "Brand summary",
   city: "台中",
-  categoryAttributes: null,
   reputationSummary: null,
   mitEvidence: null,
   siteContent: null,
   foundingYear: 2018,
   heroImageUrl: "https://cdn.example.com/hero.webp",
-  productType: "crafts",
+  categorySlug: "home",
   priceRange: 2,
-  productTags: ["木工"],
-  productTagsEn: ["Woodwork"],
+  subcategories: ["家具"],
+  subcategoriesEn: ["Furniture"],
   websiteUrl: "https://brand.example.com",
   socialInstagram: null,
   socialThreads: null,
@@ -623,7 +622,7 @@ function makeSubmission(
     purchaseShopee: null,
     purchaseMyship: null,
     otherUrls: [],
-    suggestedTags: [],
+    suggestedSubcategories: [],
     status: "pending",
     reviewerNotes: null,
     submittedAt: "2026-07-18T00:00:00.000Z",
@@ -636,7 +635,7 @@ function makeSubmission(
     isBrandOwner: false,
     sourceAttribution: "found_online",
     intent: "recommend",
-    productTypeNote: null,
+    categoryNote: null,
     reviewKind: "new",
     duplicateWarning: null,
     baseBrandData: null,
@@ -675,8 +674,6 @@ function image(id: string, url: string, sortOrder: number) {
     width: 1200,
     height: 900,
     isLogo: false,
-    focalX: null,
-    focalY: null,
     originBrandImageId: null,
   };
 }

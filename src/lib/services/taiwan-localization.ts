@@ -1,68 +1,37 @@
+/**
+ * Formatting-only zh-TW normalizer.
+ *
+ * Vocabulary substitution was removed deliberately: a blind zh-CN -> zh-TW
+ * word-swap table corrupted correct zh-TW prose (it rewrote the standard
+ * approval phrase, the "made in Taiwan" support phrase, and the word for a
+ * floor lamp). This function now only strips markdown, strips emoji, and
+ * normalizes punctuation. Banned-term handling belongs to a curated,
+ * review-gated list elsewhere -- never re-add automatic rewriting here.
+ */
 type LocalizationOptions = {
   brandName?: string;
 };
-
-type VocabularyRule = readonly [
-  pattern: RegExp,
-  replacement: string,
-  label: string,
-];
-
-const ZH_CN_TO_TW: readonly VocabularyRule[] = [
-  [/人工智能/gu, "人工智慧", "人工智能→人工智慧"],
-  [/數據庫/gu, "資料庫", "數據庫→資料庫"],
-  [/短視頻/gu, "短影音", "短視頻→短影音"],
-  [/互聯網/gu, "網際網路", "互聯網→網際網路"],
-  [/用戶端/gu, "使用者端", "用戶端→使用者端"],
-  [/直播帶貨/gu, "直播銷售", "直播帶貨→直播銷售"],
-  [/視頻/gu, "影片", "視頻→影片"],
-  [/質量/gu, "品質", "質量→品質"],
-  [/信息/gu, "資訊", "信息→資訊"],
-  [/網絡/gu, "網路", "網絡→網路"],
-  [/軟件/gu, "軟體", "軟件→軟體"],
-  [/硬件/gu, "硬體", "硬件→硬體"],
-  [/服務器/gu, "伺服器", "服務器→伺服器"],
-  [/屏幕/gu, "螢幕", "屏幕→螢幕"],
-  [/鼠標/gu, "滑鼠", "鼠標→滑鼠"],
-  [/打印/gu, "列印", "打印→列印"],
-  [/用戶/gu, "使用者", "用戶→使用者"],
-  [/智能/gu, "智慧", "智能→智慧"],
-  [/移動端/gu, "行動裝置", "移動端→行動裝置"],
-  [/博主/gu, "創作者", "博主→創作者"],
-  [/UP主/gu, "創作者", "UP主→創作者"],
-  [/粉絲量/gu, "粉絲數", "粉絲量→粉絲數"],
-  [/漲粉/gu, "粉絲成長", "漲粉→粉絲成長"],
-  [/水平/gu, "水準", "水平→水準"],
-  [/立馬/gu, "馬上", "立馬→馬上"],
-  [/給力/gu, "有力", "給力→有力"],
-  [/靠譜/gu, "可靠", "靠譜→可靠"],
-  [/貓膩/gu, "蹊蹺", "貓膩→蹊蹺"],
-  [/性價比/gu, "CP 值", "性價比→CP 值"],
-  [/顏值/gu, "外型", "顏值→外型"],
-  [/默認/gu, "預設", "默認→預設"],
-  [/支持/gu, "支援", "支持→支援"],
-  [/兼容/gu, "相容", "兼容→相容"],
-  [/卸載/gu, "移除", "卸載→移除"],
-  [/反饋/gu, "回饋", "反饋→回饋"],
-  [/鏈接/gu, "連結", "鏈接→連結"],
-  [/程序/gu, "程式", "程序→程式"],
-  [/在線/gu, "線上", "在線→線上"],
-  [/點擊/gu, "點選", "點擊→點選"],
-  [/內存/gu, "記憶體", "內存→記憶體"],
-  [/博客/gu, "部落格", "博客→部落格"],
-  [/顆粒度/gu, "細緻度", "顆粒度→細緻度"],
-  [/小夥伴/gu, "夥伴", "小夥伴→夥伴"],
-  [/落地/gu, "執行", "落地→執行"],
-  [/打法/gu, "做法", "打法→做法"],
-  [/抓手/gu, "切入點", "抓手→切入點"],
-  [/通過/gu, "透過", "通過→透過"],
-  [/接地氣/gu, "生活化", "接地氣→生活化"],
-] as const;
 
 const PROTECTED_SPAN_PATTERN = /\u0000TW_PROTECTED_(\d+)\u0000/gu;
 const URL_PATTERN = /https?:\/\/\S+/gu;
 const QUOTED_SPAN_PATTERN = /「[^」]*」/gu;
 const CJK_CHARACTER = "[一-鿿]";
+
+/**
+ * CJK Unified Ideographs, the same range the punctuation rules above use.
+ *
+ * Exported because callers elsewhere need the identical question ("is there Han
+ * in this string?") and had each grown their own regex: `brand-facts.ts` had a
+ * fourth copy whose range already disagreed with `curated-product-ingest.ts`'s
+ * (that one also covers Extension A). One shared predicate, defined next to the
+ * range it must agree with, rather than a fifth.
+ */
+const HAN_CHARACTER = new RegExp(CJK_CHARACTER, "u");
+
+/** True when `text` contains at least one CJK Unified Ideograph. */
+export function containsHan(text: string): boolean {
+  return HAN_CHARACTER.test(text);
+}
 
 function protectSpans(
   text: string,
@@ -83,23 +52,6 @@ function protectSpans(
   }
 
   return { text: protectedText, spans };
-}
-
-function applyVocabulary(text: string, substitutions: string[]): string {
-  let localized = text;
-
-  for (const [pattern, replacement, label] of ZH_CN_TO_TW) {
-    let matched = false;
-    pattern.lastIndex = 0;
-    localized = localized.replace(pattern, () => {
-      matched = true;
-      return replacement;
-    });
-
-    if (matched) substitutions.push(label);
-  }
-
-  return localized;
 }
 
 function stripMarkdown(text: string, substitutions: string[]): string {
@@ -213,9 +165,8 @@ export function localizeToTW(
 ): { text: string; substitutions: string[] } {
   const substitutions: string[] = [];
   const protectedText = protectSpans(text, options.brandName);
-  let localized = applyVocabulary(protectedText.text, substitutions);
 
-  localized = stripMarkdown(localized, substitutions);
+  let localized = stripMarkdown(protectedText.text, substitutions);
   localized = stripEmoji(localized, substitutions);
   localized = normalizePunctuation(localized, substitutions);
 

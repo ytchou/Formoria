@@ -14,7 +14,8 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     description: null,
     heroImageUrl: null,
     status: "approved",
-    category: null,
+    categorySlug: null,
+    categoryLabel: null,
     city: null,
     isVerified: false,
     mitStatus: "unverified",
@@ -32,8 +33,8 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     productPhotos: [],
     contactEmail: null,
     priceRange: null,
-    productTags: [],
-    productTagsEn: [],
+    subcategories: [],
+    subcategoriesEn: [],
     descriptionEn: null,
     blurb: null,
     blurbEn: null,
@@ -126,7 +127,7 @@ async function getFaq(
 
 describe("getBrandFaq", () => {
   it("renders template floor when no stored answer exists", async () => {
-    const { items, selectCalls } = await getFaq(makeBrand({ productTags: ["陶瓷"] }));
+    const { items, selectCalls } = await getFaq(makeBrand({ subcategories: ["陶瓷"] }));
 
     expect(items.find((item) => item.id === "main-products")?.answer).toContain(
       "brandFaq.mainProducts.",
@@ -136,7 +137,7 @@ describe("getBrandFaq", () => {
 
   it("prefers a stored model answer over the template floor", async () => {
     const { items } = await getFaq(
-      makeBrand({ productTags: ["陶瓷"] }),
+      makeBrand({ subcategories: ["陶瓷"] }),
       [
         row({
           preset_id: "main-products",
@@ -154,7 +155,7 @@ describe("getBrandFaq", () => {
   });
 
   it("prefers a human row over a model row", async () => {
-    const { items } = await getFaq(makeBrand({ productTags: ["陶瓷"] }), [
+    const { items } = await getFaq(makeBrand({ subcategories: ["陶瓷"] }), [
       row({
         preset_id: "main-products",
         position: 0,
@@ -177,7 +178,7 @@ describe("getBrandFaq", () => {
   });
 
   it("keeps template floors for other presets when one preset has a stored answer", async () => {
-    const { items } = await getFaq(makeBrand({ productTags: ["陶瓷"] }), [
+    const { items } = await getFaq(makeBrand({ subcategories: ["陶瓷"] }), [
       row({
         preset_id: "main-products",
         question_zh: "主要產品？",
@@ -202,7 +203,7 @@ describe("getBrandFaq", () => {
 
   it("orders verified taiwan-origin before other presets", async () => {
     const { items } = await getFaq(
-      makeBrand({ mitStatus: "verified", productTags: ["陶瓷"] }),
+      makeBrand({ mitStatus: "verified", subcategories: ["陶瓷"] }),
     );
 
     expect(items[0].id).toBe("taiwan-origin");
@@ -225,7 +226,7 @@ describe("getBrandFaq", () => {
     const { items } = await getFaq(
       makeBrand({
         priceRange: 2,
-        productTags: ["陶瓷"],
+        subcategories: ["陶瓷"],
         reputationSummary: {
           text: "被設計媒體報導過的小型工作室。",
           textEn: "Covered by a named design publication.",
@@ -253,7 +254,7 @@ describe("getBrandFaq", () => {
   // I10: the floor interpolates the locale's own tag array, so eligibility has
   // to be judged per locale or an empty string reaches the page and the JSON-LD.
   it("omits main-products in en when the brand has no English tags", async () => {
-    const brand = makeBrand({ productTags: ["陶瓷"], productTagsEn: [] });
+    const brand = makeBrand({ subcategories: ["陶瓷"], subcategoriesEn: [] });
 
     const zh = await getFaq(brand, [], t, "zh-TW");
     const en = await getFaq(brand, [], t, "en");
@@ -264,7 +265,7 @@ describe("getBrandFaq", () => {
 
   it("renders main-products in en when English tags exist", async () => {
     const { items } = await getFaq(
-      makeBrand({ productTags: ["陶瓷"], productTagsEn: ["ceramics"] }),
+      makeBrand({ subcategories: ["餐具"], subcategoriesEn: ["tableware"] }),
       [],
       t,
       "en",
@@ -273,7 +274,7 @@ describe("getBrandFaq", () => {
     expect(items.map((item) => item.id)).toContain("main-products");
     expect(
       items.find((item) => item.id === "main-products")?.answer,
-    ).toContain("ceramics");
+    ).toContain("tableware");
   });
 
   it("renders every stored custom row in position order", async () => {

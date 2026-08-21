@@ -196,54 +196,30 @@ describe("targeted PR selection contract", () => {
 });
 
 describe("selective E2E workflow project routing", () => {
-  it("runs every case in affected specs while keeping cross-browser filtering scoped", () => {
-    const workflow = readFileSync(".github/workflows/e2e-pr.yml", "utf8");
+  it("does not run an E2E job on ordinary pull requests", () => {
+    expect(() => readFileSync(".github/workflows/e2e-pr.yml", "utf8")).toThrow();
+    const workflow = readFileSync(".github/workflows/e2e-release.yml", "utf8");
     const config = readFileSync("playwright.config.ts", "utf8");
     const frontendCi = readFileSync(
       ".github/workflows/frontend-ci.yml",
       "utf8",
     );
-    const workflowTrigger = workflow.slice(
-      workflow.indexOf("on:\n"),
-      workflow.indexOf("\nconcurrency:"),
-    );
-
-    expect(workflowTrigger).not.toContain("paths:");
-
-    const selectedChromiumCommand = workflow
-      .split("\n")
-      .find((line) =>
-        line.includes("pnpm exec playwright test --project=deep"),
-      );
-    expect(selectedChromiumCommand).toBe(
-      '          pnpm exec playwright test --project=deep "${SPEC_PATHS[@]}"',
-    );
-    expect(selectedChromiumCommand).not.toContain("--grep");
-    expect(workflow).toContain("--grep '@cross-browser'");
+    expect(workflow).toContain("branches: [main]");
+    // DEV-1536 removed the job-level head-ref condition on purpose: a job that
+    // skips itself reports SUCCESS to a required check, so an unrecognised head
+    // reached production through a green tick (PR #808). The head is now
+    // validated inside a step, where a wrong one is a FAILURE. Assert that
+    // shape, and assert the old one is gone.
     expect(workflow).toContain(
-      "SMOKE_TEST_COUNT=$(jq -r '.smoke_test_count' <<< \"$SELECTION\")",
+      "RELEASE_HEAD_REF: ${{ github.event.pull_request.head.ref }}",
     );
-    expect(workflow).toContain("printf -- '- `%s`\\n' \"$spec\"");
-    expect(workflow).not.toContain("for spec in $SPECS; do echo");
-    expect(workflow).toContain(
-      "printf 'Selected @smoke test count: %s\\n' \"$SMOKE_TEST_COUNT\"",
+    expect(workflow).toContain('if [[ "$RELEASE_HEAD_REF" != "staging" ]]; then');
+    expect(workflow).not.toContain(
+      "github.event.pull_request.head.ref == 'staging'",
     );
-    expect(workflow).not.toContain("Selected smoke spec count:");
-    expect(workflow).toContain("--project=cross-browser-chromium");
-    expect(workflow).toContain(
-      "e2e/tests/landing-search-cross-browser.spec.ts",
-    );
-    expect(workflow).toContain(
-      "cross_browser: ${{ steps.select-specs.outputs.cross_browser }}",
-    );
-    expect(workflow).toContain("if: needs.select.outputs.has_work == 'true'");
-    expect(workflow).not.toContain("smoke-cross-browser");
-    expect(workflow).toContain("branches: [main, staging]");
-    expect(workflow).not.toContain("    paths:");
-    expect(workflow).toContain("BASE_REF: ${{ github.base_ref || 'main' }}");
-    expect(workflow).toContain(
-      "E2E_SELECT_BASE: origin/${{ github.base_ref || 'main' }}",
-    );
+    expect(workflow).toContain("--project=mobile");
+    expect(workflow).toContain("X-Formoria-Revision");
+    expect(workflow).not.toContain("Formoria / production");
     expect(frontendCi).toContain("branches: [main, staging]");
 
     expect(config).toMatch(

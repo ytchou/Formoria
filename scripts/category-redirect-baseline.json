@@ -1,0 +1,671 @@
+{
+  "baselineCommit": "1132c01d209e04fd6f476f6c569ef341d56eea1f",
+  "ontologyPath": "src/lib/taxonomy/ontology.ts",
+  "exportName": "PRODUCT_SUBCATEGORIES",
+  "subcategories": [
+    {
+      "slug": "tops-and-tshirts",
+      "category": "fashion"
+    },
+    {
+      "slug": "dresses",
+      "category": "fashion"
+    },
+    {
+      "slug": "skirts",
+      "category": "fashion"
+    },
+    {
+      "slug": "pants",
+      "category": "fashion"
+    },
+    {
+      "slug": "outerwear",
+      "category": "fashion"
+    },
+    {
+      "slug": "underwear-and-intimates",
+      "category": "fashion"
+    },
+    {
+      "slug": "loungewear",
+      "category": "fashion"
+    },
+    {
+      "slug": "swimwear",
+      "category": "fashion"
+    },
+    {
+      "slug": "performance-apparel",
+      "category": "fashion"
+    },
+    {
+      "slug": "activewear",
+      "category": "fashion"
+    },
+    {
+      "slug": "socks",
+      "category": "fashion"
+    },
+    {
+      "slug": "casual-shoes",
+      "category": "fashion"
+    },
+    {
+      "slug": "leather-shoes",
+      "category": "fashion"
+    },
+    {
+      "slug": "heels",
+      "category": "fashion"
+    },
+    {
+      "slug": "sandals-and-slippers",
+      "category": "fashion"
+    },
+    {
+      "slug": "boots",
+      "category": "fashion"
+    },
+    {
+      "slug": "backpacks",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "tote-bags",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "crossbody-bags",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "handbags",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "clutches",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "clasp-frame-bags",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "bucket-bags",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "belt-and-sling-bags",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "eco-and-shopping-bags",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "wallets",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "coin-purses",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "card-holders",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "storage-pouches",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "cosmetic-bags",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "laptop-bags",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "camera-bags",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "luggage-and-travel",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "hats",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "scarves-and-shawls",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "eyewear",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "watches",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "keychains",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "charms",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "phone-bags",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "phone-straps",
+      "category": "bags-accessories"
+    },
+    {
+      "slug": "earrings",
+      "category": "jewelry"
+    },
+    {
+      "slug": "necklaces",
+      "category": "jewelry"
+    },
+    {
+      "slug": "rings",
+      "category": "jewelry"
+    },
+    {
+      "slug": "bracelets-and-bangles",
+      "category": "jewelry"
+    },
+    {
+      "slug": "wedding-and-couple-rings",
+      "category": "jewelry"
+    },
+    {
+      "slug": "brooches",
+      "category": "jewelry"
+    },
+    {
+      "slug": "hair-accessories",
+      "category": "jewelry"
+    },
+    {
+      "slug": "handmade-soap",
+      "category": "beauty"
+    },
+    {
+      "slug": "skincare",
+      "category": "beauty"
+    },
+    {
+      "slug": "face-masks",
+      "category": "beauty"
+    },
+    {
+      "slug": "body-care",
+      "category": "beauty"
+    },
+    {
+      "slug": "bath-and-shower",
+      "category": "beauty"
+    },
+    {
+      "slug": "hair-care",
+      "category": "beauty"
+    },
+    {
+      "slug": "makeup",
+      "category": "beauty"
+    },
+    {
+      "slug": "sun-care",
+      "category": "beauty"
+    },
+    {
+      "slug": "fragrance",
+      "category": "beauty"
+    },
+    {
+      "slug": "essential-oils-and-hydrosols",
+      "category": "beauty"
+    },
+    {
+      "slug": "oral-care",
+      "category": "beauty"
+    },
+    {
+      "slug": "protective-sprays",
+      "category": "beauty"
+    },
+    {
+      "slug": "bedding",
+      "category": "home"
+    },
+    {
+      "slug": "mattresses",
+      "category": "home"
+    },
+    {
+      "slug": "furniture",
+      "category": "home"
+    },
+    {
+      "slug": "kids-furniture",
+      "category": "home"
+    },
+    {
+      "slug": "lighting",
+      "category": "home"
+    },
+    {
+      "slug": "clocks",
+      "category": "home"
+    },
+    {
+      "slug": "home-decor",
+      "category": "home"
+    },
+    {
+      "slug": "towels",
+      "category": "home"
+    },
+    {
+      "slug": "home-textiles",
+      "category": "home"
+    },
+    {
+      "slug": "rugs-and-mats",
+      "category": "home"
+    },
+    {
+      "slug": "tableware",
+      "category": "home"
+    },
+    {
+      "slug": "tea-and-coffee-ware",
+      "category": "home"
+    },
+    {
+      "slug": "cookware",
+      "category": "home"
+    },
+    {
+      "slug": "tumblers-and-bottles",
+      "category": "home"
+    },
+    {
+      "slug": "reusable-utensils-and-straws",
+      "category": "home"
+    },
+    {
+      "slug": "storage",
+      "category": "home"
+    },
+    {
+      "slug": "cleaning",
+      "category": "home"
+    },
+    {
+      "slug": "home-appliances",
+      "category": "home"
+    },
+    {
+      "slug": "home-fragrance",
+      "category": "home"
+    },
+    {
+      "slug": "candles",
+      "category": "home"
+    },
+    {
+      "slug": "floral-arrangements",
+      "category": "home"
+    },
+    {
+      "slug": "plants",
+      "category": "home"
+    },
+    {
+      "slug": "curtains",
+      "category": "home"
+    },
+    {
+      "slug": "bath-accessories",
+      "category": "home"
+    },
+    {
+      "slug": "hand-tools",
+      "category": "home"
+    },
+    {
+      "slug": "tea",
+      "category": "food-drink"
+    },
+    {
+      "slug": "tea-bags",
+      "category": "food-drink"
+    },
+    {
+      "slug": "tea-drinks",
+      "category": "food-drink"
+    },
+    {
+      "slug": "coffee",
+      "category": "food-drink"
+    },
+    {
+      "slug": "chocolate-and-cacao",
+      "category": "food-drink"
+    },
+    {
+      "slug": "honey",
+      "category": "food-drink"
+    },
+    {
+      "slug": "jams-and-spreads",
+      "category": "food-drink"
+    },
+    {
+      "slug": "desserts-and-pastries",
+      "category": "food-drink"
+    },
+    {
+      "slug": "cookies-and-rice-crackers",
+      "category": "food-drink"
+    },
+    {
+      "slug": "snacks",
+      "category": "food-drink"
+    },
+    {
+      "slug": "dried-fruits",
+      "category": "food-drink"
+    },
+    {
+      "slug": "rice-and-grains",
+      "category": "food-drink"
+    },
+    {
+      "slug": "fresh-produce",
+      "category": "food-drink"
+    },
+    {
+      "slug": "dairy",
+      "category": "food-drink"
+    },
+    {
+      "slug": "milk-powder",
+      "category": "food-drink"
+    },
+    {
+      "slug": "alcohol",
+      "category": "food-drink"
+    },
+    {
+      "slug": "beverages",
+      "category": "food-drink"
+    },
+    {
+      "slug": "seasonings-and-sauces",
+      "category": "food-drink"
+    },
+    {
+      "slug": "ready-meals",
+      "category": "food-drink"
+    },
+    {
+      "slug": "supplements",
+      "category": "food-drink"
+    },
+    {
+      "slug": "ceramics",
+      "category": "crafts"
+    },
+    {
+      "slug": "woodcraft",
+      "category": "crafts"
+    },
+    {
+      "slug": "metalwork",
+      "category": "crafts"
+    },
+    {
+      "slug": "bamboo-craft",
+      "category": "crafts"
+    },
+    {
+      "slug": "glass-art",
+      "category": "crafts"
+    },
+    {
+      "slug": "natural-dyeing",
+      "category": "crafts"
+    },
+    {
+      "slug": "leather-craft",
+      "category": "crafts"
+    },
+    {
+      "slug": "embroidery",
+      "category": "crafts"
+    },
+    {
+      "slug": "needle-felting",
+      "category": "crafts"
+    },
+    {
+      "slug": "weaving-and-crochet",
+      "category": "crafts"
+    },
+    {
+      "slug": "illustration-and-art",
+      "category": "crafts"
+    },
+    {
+      "slug": "dried-flowers-and-floral-design",
+      "category": "crafts"
+    },
+    {
+      "slug": "journals-and-notebooks",
+      "category": "stationery"
+    },
+    {
+      "slug": "washi-tape",
+      "category": "stationery"
+    },
+    {
+      "slug": "stickers",
+      "category": "stationery"
+    },
+    {
+      "slug": "stamps-and-seals",
+      "category": "stationery"
+    },
+    {
+      "slug": "cards-and-postcards",
+      "category": "stationery"
+    },
+    {
+      "slug": "pens-and-writing",
+      "category": "stationery"
+    },
+    {
+      "slug": "calendars",
+      "category": "stationery"
+    },
+    {
+      "slug": "desk-mats",
+      "category": "stationery"
+    },
+    {
+      "slug": "paper-goods",
+      "category": "stationery"
+    },
+    {
+      "slug": "desk-organization",
+      "category": "stationery"
+    },
+    {
+      "slug": "phone-cases",
+      "category": "tech"
+    },
+    {
+      "slug": "device-sleeves",
+      "category": "tech"
+    },
+    {
+      "slug": "chargers-and-cables",
+      "category": "tech"
+    },
+    {
+      "slug": "power-banks",
+      "category": "tech"
+    },
+    {
+      "slug": "wireless-charging",
+      "category": "tech"
+    },
+    {
+      "slug": "earphones-and-headphones",
+      "category": "tech"
+    },
+    {
+      "slug": "speakers",
+      "category": "tech"
+    },
+    {
+      "slug": "stands-and-mounts",
+      "category": "tech"
+    },
+    {
+      "slug": "storage-devices",
+      "category": "tech"
+    },
+    {
+      "slug": "security-cameras",
+      "category": "tech"
+    },
+    {
+      "slug": "smart-doorbells",
+      "category": "tech"
+    },
+    {
+      "slug": "hiking-and-camping-gear",
+      "category": "outdoor"
+    },
+    {
+      "slug": "picnic-supplies",
+      "category": "outdoor"
+    },
+    {
+      "slug": "wetsuits-and-water-sports",
+      "category": "outdoor"
+    },
+    {
+      "slug": "cycling-and-riding",
+      "category": "outdoor"
+    },
+    {
+      "slug": "helmets",
+      "category": "outdoor"
+    },
+    {
+      "slug": "outdoor-accessories",
+      "category": "outdoor"
+    },
+    {
+      "slug": "yoga-gear",
+      "category": "fitness"
+    },
+    {
+      "slug": "fitness-equipment",
+      "category": "fitness"
+    },
+    {
+      "slug": "massage-and-recovery",
+      "category": "fitness"
+    },
+    {
+      "slug": "protective-gear",
+      "category": "fitness"
+    },
+    {
+      "slug": "care-and-mobility-aids",
+      "category": "fitness"
+    },
+    {
+      "slug": "kids-clothing",
+      "category": "kids-pets"
+    },
+    {
+      "slug": "family-matching",
+      "category": "kids-pets"
+    },
+    {
+      "slug": "baby-clothing",
+      "category": "kids-pets"
+    },
+    {
+      "slug": "baby-bedding",
+      "category": "kids-pets"
+    },
+    {
+      "slug": "bibs-and-muslin",
+      "category": "kids-pets"
+    },
+    {
+      "slug": "kids-tableware",
+      "category": "kids-pets"
+    },
+    {
+      "slug": "toys",
+      "category": "kids-pets"
+    },
+    {
+      "slug": "learning-aids",
+      "category": "kids-pets"
+    },
+    {
+      "slug": "play-mats-and-fences",
+      "category": "kids-pets"
+    },
+    {
+      "slug": "parenting-essentials",
+      "category": "kids-pets"
+    },
+    {
+      "slug": "pet-food",
+      "category": "kids-pets"
+    },
+    {
+      "slug": "pet-treats",
+      "category": "kids-pets"
+    },
+    {
+      "slug": "pet-supplements",
+      "category": "kids-pets"
+    },
+    {
+      "slug": "pet-apparel",
+      "category": "kids-pets"
+    },
+    {
+      "slug": "pet-beds-and-scratchers",
+      "category": "kids-pets"
+    },
+    {
+      "slug": "pet-grooming",
+      "category": "kids-pets"
+    },
+    {
+      "slug": "pet-supplies",
+      "category": "kids-pets"
+    }
+  ]
+}

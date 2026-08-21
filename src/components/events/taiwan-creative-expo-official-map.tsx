@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { SurfaceImage } from "@/components/ui/image";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ExternalLink, Maximize2, X } from "lucide-react";
@@ -36,7 +36,12 @@ function MapUnavailable() {
   const t = useTranslations("events");
 
   return (
-    <div className="absolute inset-0 grid place-items-center bg-muted/95 p-6 text-center">
+    // OPAQUE `surface`, not `surface-deep/95`. Two reasons, both about the
+    // text this panel carries: `--ink-muted` (which `cardDescription` resolves
+    // to) measures 4.17:1 on `surface-deep`, under the 4.5:1 floor, and an
+    // alpha scrim has no fixed contrast at all — it inherits whatever the
+    // frame behind it happens to be. `surface` is 4.6:1 and is a number.
+    <div className="absolute inset-0 grid place-items-center bg-surface p-6 text-center">
       <div className="max-w-md space-y-2">
         <p className={textStyles({ variant: "cardTitle" })}>
           {t("floorMapUnavailable")}
@@ -144,7 +149,7 @@ export function TaiwanCreativeExpoOfficialMap() {
             {t("floorMapOpenViewer")}
           </DialogTrigger>
           <DialogContent
-            className="h-[100dvh] w-screen max-w-none gap-0 rounded-none p-0 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-[min(96vw,1100px)] sm:rounded-xl"
+            className="h-[100dvh] w-screen max-w-none gap-0 rounded-none p-0 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-[min(96vw,1100px)] sm:rounded-[3px]"
             showCloseButton={false}
           >
             <DialogHeader className="flex-row items-start justify-between gap-3 border-b p-4 sm:p-5">
@@ -171,7 +176,7 @@ export function TaiwanCreativeExpoOfficialMap() {
 
             <div
               aria-label={t("floorMapLabel")}
-              className="min-h-0 flex-1 overflow-auto overscroll-contain bg-muted p-2 touch-pan-x touch-pan-y sm:p-4"
+              className="min-h-0 flex-1 overflow-auto overscroll-contain bg-surface-deep p-2 touch-pan-x touch-pan-y sm:p-4"
               ref={viewportRef}
               role="region"
               tabIndex={0}
@@ -181,14 +186,17 @@ export function TaiwanCreativeExpoOfficialMap() {
                 style={{ width: `${zoom * 100}%` }}
               >
                 <div
-                  className="relative aspect-[3200/2450] w-full overflow-hidden bg-muted"
+                  className="relative aspect-[3200/2450] w-full overflow-hidden bg-surface-deep"
                   data-map-image={EXPO_FLOOR_MAP_GEOMETRY.viewBox}
                 >
-                  <Image
+                  <SurfaceImage
                     alt={EXPO_FLOOR_MAP_ASSET.alt}
                     className={cn("object-fill", imageFailed && "invisible")}
                     fill
                     onError={() => setImageFailed(true)}
+                    surface="banner"
+                    // The zoomed floor map is a printed 3200x2450 asset shown at
+                    // 1200px on desktop, wider than any content surface.
                     sizes="(max-width: 640px) 100vw, 1200px"
                     src={EXPO_FLOOR_MAP_ASSET.src}
                   />
@@ -197,7 +205,7 @@ export function TaiwanCreativeExpoOfficialMap() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-background p-3 sm:p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-ground p-3 sm:p-4">
               <span className={textStyles({ variant: "caption" })}>
                 {t("floorMapZoom")}
               </span>
@@ -259,14 +267,16 @@ export function TaiwanCreativeExpoOfficialMap() {
         booth numbers on a 3200px plan are not legible.
       */}
       <div
-        className="relative mx-auto aspect-[3200/2450] w-full max-w-4xl overflow-hidden rounded-xl border border-border bg-muted"
+        className="relative mx-auto aspect-[3200/2450] w-full max-w-4xl overflow-hidden rounded-[3px] border border-rule bg-surface-deep"
         data-map-image={EXPO_FLOOR_MAP_GEOMETRY.viewBox}
       >
-        <Image
+        <SurfaceImage
           alt={EXPO_FLOOR_MAP_ASSET.alt}
           className={cn("object-contain", imageFailed && "invisible")}
           fill
           onError={() => setImageFailed(true)}
+          surface="banner"
+          // The inline map frame caps at 896px.
           sizes="(max-width: 640px) 100vw, 896px"
           src={EXPO_FLOOR_MAP_ASSET.src}
         />

@@ -1,3 +1,5 @@
+import { routes } from '@/lib/routes'
+
 const STAGING_HOST = "staging.formoria.com";
 
 export function isStagingEnvironment(): boolean {
@@ -23,10 +25,10 @@ const STAGING_GET_MUTATION_PATHS = new Set([
   "/api/newsletter/unsubscribe",
 ]);
 
-const STAGING_DISABLED_AUTH_PATHS = new Set([
-  "/auth/forgot-password",
-  "/auth/reset-password",
-  "/auth/sign-up",
+const STAGING_PUBLIC_AUTH_PATHS = new Set([
+  routes.auth.forgotPassword(),
+  routes.auth.resetPassword(),
+  routes.auth.signUp(),
 ]);
 
 function withoutLocale(pathname: string): string {
@@ -36,20 +38,22 @@ function withoutLocale(pathname: string): string {
 export function isAllowedStagingRequest(
   method: string,
   pathname: string,
+  authenticated = false,
 ): boolean {
   const normalizedPath = withoutLocale(pathname);
 
   if (method === "GET" || method === "HEAD" || method === "OPTIONS") {
-    return (
-      !STAGING_GET_MUTATION_PATHS.has(normalizedPath) &&
-      !STAGING_DISABLED_AUTH_PATHS.has(normalizedPath)
-    );
+    return !STAGING_GET_MUTATION_PATHS.has(normalizedPath);
   }
 
-  if (method !== "POST") return false;
+  if (
+    method === "POST" &&
+    (normalizedPath === routes.auth.signIn() ||
+      normalizedPath === routes.auth.signOut() ||
+      STAGING_PUBLIC_AUTH_PATHS.has(normalizedPath))
+  ) {
+    return true;
+  }
 
-  return (
-    normalizedPath === "/auth/sign-in" ||
-    normalizedPath === "/auth/sign-out"
-  );
+  return authenticated && ["POST", "PUT", "PATCH", "DELETE"].includes(method);
 }

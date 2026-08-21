@@ -22,15 +22,15 @@ import { BRAND_SORT_CONFIG, DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { isLogoImageTags } from "@/lib/constants/brand-images";
 import {
   chunkBrandHeroUrlBatches,
+  chunkBrandIdBatches,
   fetchActiveBrandImageRows,
   type BrandImageQueryClient,
 } from "./_shared/brand-image-batch";
 import { isNonImageHost } from "@/lib/images/allowed-image-hosts";
 import { RESERVED_ROUTES } from "@/proxy";
 import {
-  deriveCategoryFromProductType,
-  matchSubcategory,
-  PRODUCT_TYPE_CATEGORIES,
+  deriveCategoryLabel,
+  L1_CATEGORIES,
   subcategoryBySlug,
 } from "@/lib/taxonomy/ontology";
 import { slugifyRomanizedName, withSlugSuffix } from "@/lib/brands/slug";
@@ -38,17 +38,19 @@ import { downloadAndStoreImages } from "./image-download";
 import { excludeTestBrands } from "./public-brand-filter";
 import { PUBLIC_BRAND_DATA_TAG } from "@/lib/cache/public-brand-cache";
 import {
-  PURCHASE_CAMEL_FIELDS,
-  PURCHASE_CHANNELS,
-  PURCHASE_COLUMNS,
-  purchaseChannelByKey,
-  purchaseChannelByPlatformSlug,
-  type PurchaseChannelCamelField,
-  type PurchaseChannelColumn,
-  type PurchaseChannelPlatformSlug,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORE_CAMEL_FIELDS,
+  ONLINE_STORES,
+  ONLINE_STORE_COLUMNS,
+  onlineStoreByKey,
+  onlineStoreByPlatformSlug,
+  type OnlineStoreCamelField,
+  type OnlineStoreColumn,
+  type OnlineStorePlatformSlug,
+} from "@/lib/brands/online-stores";
 import {
+  mergeBrandFieldStates,
   resolveWritablePatch,
+  type BrandFieldStateRow,
   type BrandFieldWriteState,
   type BrandWriteActor,
   type SkippedBrandField,
@@ -110,15 +112,14 @@ type BrandFlatLinkColumns = {
   social_facebook?: string | null;
   other_urls?: unknown;
 } & {
-  [Column in PurchaseChannelColumn]?: string | null;
+  [Column in OnlineStoreColumn]?: string | null;
 };
 
 export type CuratedSubmissionInput = {
   name: string;
   slug: string;
   description: string;
-  category: string;
-  productType?: string;
+  categorySlug: string;
   heroImageUrl?: string | null;
   productPhotos: string[];
   purchaseLinks: Array<{ platform: string; url: string }>;
@@ -143,21 +144,29 @@ type CuratedBrand = Partial<Brand> &
     | "contactEmail"
     | "foundingYear"
   > &
-  Pick<Brand, PurchaseChannelCamelField> & { productType: string };
+  Pick<Brand, OnlineStoreCamelField> & {
+    categorySlug: string;
+    categoryLabel: string;
+  };
 
-export type BrandWriteInput = Partial<Brand> & { productType?: string | null };
+export type BrandWriteInput = Partial<Brand> & { categorySlug?: string | null };
 type BrandWriteResult = Brand & { skipped: SkippedBrandField[] };
+/**
+ * The `apply_brand_patch` argument object, typed by hand.
+ *
+ * The generated `Database` signature declares `p_actor` and `p_job_id` as
+ * non-nullable `string` and `p_patch` as `Json`, none of which matches how the
+ * function is actually called (an unattributed write passes `null`, and a patch
+ * is a plain column map). Exported so every caller uses this one shape instead
+ * of casting its own argument object away — `as never` on an RPC turns a
+ * renamed parameter into a runtime error.
+ */
 type ApplyBrandPatchArgs = {
   p_brand_id: string;
   p_patch: Record<string, unknown>;
   p_source: BrandWriteActor["source"];
   p_actor: string | null;
   p_job_id: string | null;
-};
-type BrandFieldStateRow = {
-  field: string;
-  source: string;
-  updated_at: string;
 };
 type BrandFieldStateTable = {
   select: (columns: "field, source, updated_at") => {
@@ -185,17 +194,17 @@ type BrandOwnerRef = { user_id: string };
 /**
  * Full joined row from BRAND_SELECT. Extends Partial<BrandRow> so that
  * unit test fixtures can omit columns added in later migrations (is_demo,
- * price_range, product_tags) without a cast — the mapper uses
+ * price_range, subcategories) without a cast — the mapper uses
  * ?? defaults for all optional fields.
  */
 export type BrandRowWithJoins = Partial<BrandRow> &
   BrandFlatLinkColumns & {
     price_range?: number | null;
-    product_tags?: string[] | null;
+    subcategories?: string[] | null;
     description_en?: string | null;
     blurb?: string | null;
     blurb_en?: string | null;
-    product_tags_en?: string[] | null;
+    subcategories_en?: string[] | null;
   } & Pick<
     BrandRow,
     | "id"
@@ -425,18 +434,18 @@ export function curatedSubmissionToBrand(
   input: CuratedSubmissionInput,
 ): CuratedBrand {
   const purchaseValues: Partial<
-    Record<PurchaseChannelCamelField, string>
+    Record<OnlineStoreCamelField, string>
   > = {};
   const otherUrls: OtherUrl[] = [];
   for (const link of input.purchaseLinks) {
     const platform = link.platform.toLowerCase();
     const platformSlug =
       platform === "official"
-        ? purchaseChannelByKey.website.platformSlug
+        ? onlineStoreByKey.website.platformSlug
         : platform;
-    const channel = Object.hasOwn(purchaseChannelByPlatformSlug, platformSlug)
-      ? purchaseChannelByPlatformSlug[
-          platformSlug as PurchaseChannelPlatformSlug
+    const channel = Object.hasOwn(onlineStoreByPlatformSlug, platformSlug)
+      ? onlineStoreByPlatformSlug[
+          platformSlug as OnlineStorePlatformSlug
         ]
       : undefined;
 
@@ -451,13 +460,13 @@ export function curatedSubmissionToBrand(
   }
 
   const purchaseFields = Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel) => [
+    ONLINE_STORES.map((channel) => [
       channel.camel,
-      channel === purchaseChannelByKey.website
+      channel === onlineStoreByKey.website
         ? input.socialLinks.website || purchaseValues[channel.camel] || null
         : purchaseValues[channel.camel] ?? null,
     ]),
-  ) as Pick<Brand, PurchaseChannelCamelField>;
+  ) as Pick<Brand, OnlineStoreCamelField>;
 
   return {
     name: input.name,
@@ -465,8 +474,9 @@ export function curatedSubmissionToBrand(
     description: input.description,
     heroImageUrl: input.heroImageUrl || null,
     status: "approved",
-    category: input.category,
-    productType: input.productType ?? input.category,
+    categorySlug: input.categorySlug,
+    categoryLabel:
+      deriveCategoryLabel(input.categorySlug) ?? input.categorySlug,
     foundingYear: null,
     socialInstagram: input.socialLinks.instagram || null,
     socialThreads: input.socialLinks.threads || null,
@@ -486,7 +496,7 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
   "name",
   "romanizedName",
   "description",
-  "productType",
+  "categorySlug",
   "foundingYear",
   "socialInstagram",
   "socialThreads",
@@ -494,8 +504,8 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
   "heroImageUrl",
   "productPhotos",
   "priceRange",
-  "productTags",
-  ...PURCHASE_CAMEL_FIELDS,
+  "subcategories",
+  ...ONLINE_STORE_CAMEL_FIELDS,
   "mitStory",
   "otherUrls",
   "reputationSummary",
@@ -617,13 +627,13 @@ export function draftSnapshotToDomain(
   for (const key of BRAND_DRAFT_EDITABLE_KEYS) {
     if (!(key in snapshot)) continue;
 
-    if (PURCHASE_CAMEL_FIELDS.includes(key as PurchaseChannelCamelField)) {
-      const purchaseField = key as PurchaseChannelCamelField;
+    if (ONLINE_STORE_CAMEL_FIELDS.includes(key as OnlineStoreCamelField)) {
+      const purchaseField = key as OnlineStoreCamelField;
       (
-        partial as Partial<Pick<Brand, PurchaseChannelCamelField>>
+        partial as Partial<Pick<Brand, OnlineStoreCamelField>>
       )[purchaseField] = snapshot[purchaseField] as Pick<
         Brand,
-        PurchaseChannelCamelField
+        OnlineStoreCamelField
       >[typeof purchaseField];
       continue;
     }
@@ -639,11 +649,11 @@ export function draftSnapshotToDomain(
       case "description":
         partial.description = snapshot.description as Brand["description"];
         break;
-      case "productType": {
-        const productType = snapshot.productType as Brand["productType"];
-        partial.productType = productType;
-        partial.category = productType
-          ? (deriveCategoryFromProductType(productType) ?? productType)
+      case "categorySlug": {
+        const categorySlug = snapshot.categorySlug as Brand["categorySlug"];
+        partial.categorySlug = categorySlug;
+        partial.categoryLabel = categorySlug
+          ? (deriveCategoryLabel(categorySlug) ?? categorySlug)
           : null;
         break;
       }
@@ -672,9 +682,9 @@ export function draftSnapshotToDomain(
       case "priceRange":
         partial.priceRange = snapshot.priceRange as Brand["priceRange"];
         break;
-      case "productTags":
-        partial.productTags =
-          (snapshot.productTags as Brand["productTags"]) ?? [];
+      case "subcategories":
+        partial.subcategories =
+          (snapshot.subcategories as Brand["subcategories"]) ?? [];
         break;
       case "mitStory":
         partial.mitStory = snapshot.mitStory as string | null;
@@ -715,11 +725,11 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
       : [];
 
   const purchaseFields = Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel) => [
+    ONLINE_STORES.map((channel) => [
       channel.camel,
       row[channel.column] ?? null,
     ]),
-  ) as Pick<Brand, PurchaseChannelCamelField>;
+  ) as Pick<Brand, OnlineStoreCamelField>;
 
   const brand = {
     id: row.id,
@@ -734,11 +744,10 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     heroImageMetadata: null,
     // status is text in the DB — cast to BrandStatus at the boundary
     status: row.status as Brand["status"],
-    product_type: row.product_type ?? null,
-    productType: row.product_type ?? null,
-    category:
-      deriveCategoryFromProductType(row.product_type ?? "") ??
-      row.product_type ??
+    categorySlug: row.category ?? null,
+    categoryLabel:
+      deriveCategoryLabel(row.category ?? "") ??
+      row.category ??
       null,
     isVerified: owners.length > 0,
     mitStatus: (row.mit_status as Brand["mitStatus"]) ?? "unverified",
@@ -761,9 +770,9 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     imageAlts: [],
     contactEmail: row.contact_email ?? null,
     priceRange: row.price_range ?? null,
-    productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
-    productTagsEn: Array.isArray(row.product_tags_en)
-      ? row.product_tags_en
+    subcategories: Array.isArray(row.subcategories) ? row.subcategories : [],
+    subcategoriesEn: Array.isArray(row.subcategories_en)
+      ? row.subcategories_en
       : [],
     reputationSummary: normalizeReputationSummary(row.reputation_summary),
     siteContent: normalizeSiteContent(row.site_content as Brand["siteContent"]),
@@ -787,7 +796,7 @@ async function brandToDomainWithImages(
 }
 
 const CARD_IMAGE_SELECT =
-  "brand_id, url, tags, alt_zh, alt_en, sort_order, width, height, focal_x, focal_y";
+  "brand_id, url, tags, alt_zh, alt_en, sort_order, width, height";
 
 type CardImageRow = Pick<
   Database["public"]["Tables"]["brand_images"]["Row"],
@@ -799,15 +808,10 @@ type CardImageRow = Pick<
   | "sort_order"
   | "width"
   | "height"
-> & {
-  // The generated database types intentionally lag the applied migration;
-  // keep this narrow query forward-compatible until the next type refresh.
-  focal_x: number | null;
-  focal_y: number | null;
-};
+>;
 
 /**
- * Fills in the hero image's `brand_images` metadata for a list of cards.
+ * Fills in card image metadata and the best product photo for a list of cards.
  *
  * `brandToDomain` hard-codes `imageAlts: []` because the narrow directory
  * projection reads the `brands` table only, and `brandToDomainWithImages` is
@@ -816,22 +820,23 @@ type CardImageRow = Pick<
  * renders a logo `object-contain` instead of cover-cropping it) never fires
  * outside the detail page. This batches the lookup for the whole page instead.
  *
- * REPLACES, never merges: `imageAlts` and `heroImageMetadata` are overwritten
+ * REPLACES, never merges: `productPhotos`, `imageAlts` and `heroImageMetadata` are overwritten
  * wholesale, so passing an already-hydrated brand through this DISCARDS what it
  * carried. The generic signature accepts any `{ id, heroImageUrl }`, which
  * makes a pre-hydrated caller look legal — it is not. This is for card
- * projections, whose `productPhotos` are empty by construction; a detail brand
- * carries per-image metadata for its whole gallery and must use
+ * projections, whose `productPhotos` are hydrated from the best active image
+ * tagged `product`; a detail brand carries per-image metadata for its whole
+ * gallery and must use
  * `brandToDomainWithImages` instead.
  *
  * CACHE INTERACTION, recorded because it is invisible from here: results flow
  * into `getCachedExploreBrandPool`, which freezes them in `unstable_cache` for
- * an hour under PUBLIC_BRAND_DATA_TAG. Re-classification and the focal-point
- * backfill both write `brand_images` WITHOUT touching the `brands` table, so
- * neither invalidates that cache on its own — the homepage can keep serving the
- * old fill mode and object-position for up to `revalidate` seconds. Accepted:
- * the stale render is the previous correct render, not a broken one. After a
- * backfill, revalidate PUBLIC_BRAND_DATA_TAG to pick the change up immediately.
+ * an hour under PUBLIC_BRAND_DATA_TAG. Re-classification writes `brand_images`
+ * WITHOUT touching the `brands` table, so it does not invalidate that cache on
+ * its own — the homepage can keep serving the old fill mode for up to
+ * `revalidate` seconds. Accepted: the stale render is the previous correct
+ * render, not a broken one. After a bulk rewrite of `brand_images`, revalidate
+ * PUBLIC_BRAND_DATA_TAG to pick the change up immediately.
  *
  * Batching, paging and the `.order()`-before-`.range()` invariant live in
  * `_shared/brand-image-batch.ts`, shared with `getAdminBrandReviewImages`.
@@ -841,11 +846,14 @@ export async function hydrateCardImageMeta<
 >(
   supabase: ReturnType<typeof createServiceClient>,
   brands: T[],
-): Promise<Array<T & Pick<Brand, "imageAlts" | "heroImageMetadata">>> {
+): Promise<
+  Array<T & Pick<Brand, "productPhotos" | "imageAlts" | "heroImageMetadata">>
+> {
   const withDefaults = (
     brand: T,
-  ): T & Pick<Brand, "imageAlts" | "heroImageMetadata"> => ({
+  ): T & Pick<Brand, "productPhotos" | "imageAlts" | "heroImageMetadata"> => ({
     ...brand,
+    productPhotos: [],
     imageAlts: [],
     heroImageMetadata: null,
   });
@@ -873,30 +881,40 @@ export async function hydrateCardImageMeta<
 
   if (pairs.length === 0) return brands.map(withDefaults);
 
-  let rows: CardImageRow[];
+  let heroRows: CardImageRow[];
+  let productRows: CardImageRow[];
   try {
-    rows = await fetchActiveBrandImageRows<CardImageRow>(
-      supabase as unknown as BrandImageQueryClient,
-      CARD_IMAGE_SELECT,
-      chunkBrandHeroUrlBatches(pairs),
-    );
+    const imageClient = supabase as unknown as BrandImageQueryClient;
+    const brandIds = [...new Set(pairs.map((pair) => pair.brandId))];
+    [heroRows, productRows] = await Promise.all([
+      fetchActiveBrandImageRows<CardImageRow>(
+        imageClient,
+        CARD_IMAGE_SELECT,
+        chunkBrandHeroUrlBatches(pairs),
+      ),
+      fetchActiveBrandImageRows<CardImageRow>(
+        imageClient,
+        CARD_IMAGE_SELECT,
+        chunkBrandIdBatches(brandIds),
+      ),
+    ]);
   } catch (error) {
     /*
      * Degrade, never throw. Two independent reasons, both of which have to hold
      * for this to go back to a bare rethrow — do not "tidy" it:
      *
-     * 1. This is DECORATIVE per-image metadata: alt text, a logo flag, a focal
-     *    point. Falling back to unhydrated brands reproduces exactly the
-     *    behaviour these surfaces had before this function existed
-     *    (`imageAlts: []`, centred `object-cover`). Taking down /brands, the
-     *    homepage, /favorites, story galleries and every microsite because a
-     *    decoration could not be loaded is never the right trade.
+     * 1. This is DECORATIVE per-image metadata: alt text and a logo flag.
+     *    Falling back to unhydrated brands reproduces exactly the behaviour
+     *    these surfaces had before this function existed (`imageAlts: []`,
+     *    centred `object-cover`). Taking down /brands, the homepage,
+     *    /favorites, story galleries and every microsite because a decoration
+     *    could not be loaded is never the right trade.
      * 2. It closes the deploy-order window. Railway deploys on a push to main
-     *    but Supabase migrations are applied by hand, so between the two
-     *    `focal_x` does not exist, PostgREST answers 42703, and the service
-     *    client has no `<Database>` generic to have caught it at compile time.
-     *    Without this catch that window is a site-wide outage on every card
-     *    surface.
+     *    but Supabase migrations are applied by hand, so between the two a
+     *    column this projection reads can be absent, PostgREST answers 42703,
+     *    and the service client has no `<Database>` generic to have caught it
+     *    at compile time. Without this catch that window is a site-wide outage
+     *    on every card surface.
      *
      * Reported through `captureReadFailure`, the same observability path as
      * every other degraded page read, so this stays visible in Sentry rather
@@ -907,10 +925,18 @@ export async function hydrateCardImageMeta<
   }
 
   const rowsByBrand = new Map<string, CardImageRow[]>();
-  for (const row of rows) {
+  for (const row of heroRows) {
     const brandRows = rowsByBrand.get(row.brand_id) ?? [];
     brandRows.push(row);
     rowsByBrand.set(row.brand_id, brandRows);
+  }
+
+  const productRowsByBrand = new Map<string, CardImageRow[]>();
+  for (const row of productRows) {
+    if (!row.tags?.includes("product") || isLogoImageTags(row.tags)) continue;
+    const brandRows = productRowsByBrand.get(row.brand_id) ?? [];
+    brandRows.push(row);
+    productRowsByBrand.set(row.brand_id, brandRows);
   }
 
   return brands.map((brand) => {
@@ -924,31 +950,55 @@ export async function hydrateCardImageMeta<
       .get(brand.id)
       ?.find((row) => row.url === brand.heroImageUrl);
 
-    // No matching row is not an error: brands whose hero predates
-    // `brand_images` (or whose row was rejected) simply keep `imageAlts: []`
-    // and degrade to the uncarved `object-cover` render they get today.
-    if (!heroRow) return withDefaults(brand);
+    const productRow = productRowsByBrand
+      .get(brand.id)
+      ?.find((row) => row.url !== brand.heroImageUrl);
 
-    // `imageAlts` is index-aligned with `[heroImageUrl, ...productPhotos]`, and
-    // the card projection leaves `productPhotos` empty — so exactly one entry.
-    // Widening this to every image would silently desync those indices.
-    return {
-      ...brand,
-      imageAlts: [
-        {
+    // No matching row is not an error: brands whose hero predates
+    // `brand_images` (or whose row was rejected) keep the old hero behavior,
+    // while a separately classified product photo can still improve the card.
+    if (!heroRow && !productRow) return withDefaults(brand);
+
+    const heroMeta = heroRow
+      ? {
           altZh: heroRow.alt_zh ?? null,
           altEn: heroRow.alt_en ?? null,
           isLogo: isLogoImageTags(heroRow.tags),
-          focalX: heroRow.focal_x ?? null,
-          focalY: heroRow.focal_y ?? null,
-        },
+        }
+      : {
+          altZh: null,
+          altEn: null,
+          // Unknown hero metadata must not win over a known product photo.
+          isLogo: true,
+        };
+
+    // `imageAlts` stays index-aligned with `[heroImageUrl, ...productPhotos]`.
+    // The product lookup intentionally contributes only the first product row:
+    // cards need one object-first lead image, while detail galleries retain
+    // their complete per-image projection through `brandToDomainWithImages`.
+    return {
+      ...brand,
+      productPhotos: productRow ? [productRow.url] : [],
+      imageAlts: [
+        heroMeta,
+        ...(productRow
+          ? [
+              {
+                altZh: productRow.alt_zh ?? null,
+                altEn: productRow.alt_en ?? null,
+                isLogo: false,
+              },
+            ]
+          : []),
       ],
-      heroImageMetadata: {
-        altZh: heroRow.alt_zh ?? null,
-        altEn: heroRow.alt_en ?? null,
-        width: heroRow.width && heroRow.width > 0 ? heroRow.width : null,
-        height: heroRow.height && heroRow.height > 0 ? heroRow.height : null,
-      },
+      heroImageMetadata: heroRow
+        ? {
+            altZh: heroRow.alt_zh ?? null,
+            altEn: heroRow.alt_en ?? null,
+            width: heroRow.width && heroRow.width > 0 ? heroRow.width : null,
+            height: heroRow.height && heroRow.height > 0 ? heroRow.height : null,
+          }
+        : null,
     };
   });
 }
@@ -978,8 +1028,8 @@ function brandToUpdate(data: BrandWriteInput): Record<string, unknown> {
   const raw = data as Record<string, unknown>;
   if (data.priceRange === undefined && raw.price_range === undefined)
     delete row.price_range;
-  if (data.productTags === undefined && raw.product_tags === undefined)
-    delete row.product_tags;
+  if (data.subcategories === undefined && raw.subcategories === undefined)
+    delete row.subcategories;
   return row;
 }
 
@@ -989,7 +1039,12 @@ function brandFieldStateTable(client: unknown): BrandFieldStateTable {
   ).from("brand_field_state");
 }
 
-function brandPatchRpc(client: unknown): BrandPatchRpcClient {
+/**
+ * Narrows any Supabase client to the one RPC this module calls, with
+ * `ApplyBrandPatchArgs` in place of the generated signature. One cast, in one
+ * place, so the argument object itself stays type-checked at every call site.
+ */
+export function brandPatchRpc(client: unknown): BrandPatchRpcClient {
   return client as BrandPatchRpcClient;
 }
 
@@ -1003,15 +1058,7 @@ async function loadBrandFieldState(
 
   if (error) throw error;
 
-  return Object.fromEntries(
-    (data ?? []).map((row) => [
-      row.field,
-      {
-        source: row.source,
-        updatedAt: row.updated_at,
-      },
-    ]),
-  );
+  return mergeBrandFieldStates(data ?? []);
 }
 
 // ---------------------------------------------------------------------------
@@ -1028,10 +1075,10 @@ export const BRAND_COLUMN_LIST = [
   "blurb",
   "blurb_en",
   "hero_image_url",
-  "product_type",
+  "category",
   "contact_email",
   "city",
-  ...PURCHASE_COLUMNS,
+  ...ONLINE_STORE_COLUMNS,
   "social_instagram",
   "social_threads",
   "social_facebook",
@@ -1047,8 +1094,8 @@ export const BRAND_COLUMN_LIST = [
   "draft_updated_at",
   "founding_year",
   "price_range",
-  "product_tags",
-  "product_tags_en",
+  "subcategories",
+  "subcategories_en",
   "reputation_summary",
   "mit_status",
   "mit_declared_scope",
@@ -1091,12 +1138,12 @@ export const PUBLIC_BRAND_CARD_COLUMN_LIST = [
   "blurb",
   "blurb_en",
   "hero_image_url",
-  "product_type",
+  "category",
   "status",
   "founding_year",
   "price_range",
-  "product_tags",
-  "product_tags_en",
+  "subcategories",
+  "subcategories_en",
   "mit_status",
 ] as const;
 
@@ -1104,7 +1151,7 @@ export const PUBLIC_BRAND_CARD_COLUMN_LIST = [
 export const PUBLIC_BRAND_DETAIL_COLUMN_LIST = [
   ...PUBLIC_BRAND_CARD_COLUMN_LIST,
   "city",
-  ...PURCHASE_COLUMNS,
+  ...ONLINE_STORE_COLUMNS,
   "social_instagram",
   "social_threads",
   "social_facebook",
@@ -1120,11 +1167,11 @@ export const PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST = [
   "slug",
   "status",
   "city",
-  "product_type",
+  "category",
   "founding_year",
   "price_range",
-  "product_tags",
-  "product_tags_en",
+  "subcategories",
+  "subcategories_en",
   "reputation_summary",
   "mit_status",
   "mit_declared_scope",
@@ -1179,6 +1226,38 @@ const PUBLIC_MICROSITE_BRAND_SELECT =
  */
 const SUPABASE_IN_FILTER_CHUNK_SIZE = 200;
 
+/**
+ * The id/slug/name triple an admin picker needs.
+ *
+ * MUST MATCH THE ENTRY POINT: the admin brand list renders its "add a curated
+ * product" deep link for `approved` AND `hidden` brands, so a picker limited to
+ * `approved` opens a form in which the brand that was clicked is absent from
+ * the select — and the next save files the product against whichever unrelated
+ * brand the select defaulted to.
+ *
+ * No `excludeTestBrands()` here on purpose; the ALLOWED_UNFILTERED entry in
+ * `scripts/check-test-brand-filter.mjs` records why (an admin picker must be
+ * able to reach a test brand).
+ *
+ * Deliberately not `getBrands`: that hydrates the full card projection (hero
+ * image metadata, channels, tags) for a select element that renders three
+ * strings. Ceiling: one unpaged read. Move to a `.range()` loop if the visible
+ * corpus approaches Supabase's 1000-row `db-max-rows` default.
+ */
+export async function getAdminBrandOptions(): Promise<
+  { id: string; slug: string; name: string }[]
+> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("brands")
+    .select("id, slug, name")
+    .in("status", ["approved", "hidden"])
+    .order("name", { ascending: true })
+    .limit(1000);
+  if (error) throw new Error(`Failed to fetch brand options: ${error.message}`);
+  return data ?? [];
+}
+
 export async function getBrandSlugsBatch(
   brandIds: string[],
 ): Promise<Map<string, string>> {
@@ -1227,9 +1306,9 @@ export async function getBrandSlugsBatch(
  *    instead, which keeps the last good page served and surfaces the error.
  *
  * Uses the narrow `BRAND_LIST_SELECT` projection and plain `brandToDomain` —
- * `brandToDomainWithImages` would fire one extra query per brand. Under this
- * projection `productPhotos` stays `[]`, so cards fall back to `heroImageUrl`
- * and then `BrandImageFallback`.
+ * `brandToDomainWithImages` would fire one query per brand. The shared card
+ * hydration that follows the projection batches the hero metadata and best
+ * product photo for the full slug set.
  *
  * Cached per request, keyed on a joined slug string rather than the array:
  * React's `cache()` compares arguments by identity, and every shortcode builds
@@ -1438,10 +1517,9 @@ export type BrandImageFields = ReturnType<typeof toImageFields>;
 /**
  * The full `brand_images` list for one brand, as domain image fields.
  *
- * `getBrandsBySlugs` runs the narrow directory projection, which leaves
- * `productPhotos` empty — enough for a card that shows one hero, not enough for
- * a story gallery that wants four photos. Rather than widen that projection for
- * every card on the directory, gallery callers pay one extra query here.
+ * `getBrandsBySlugs` runs the narrow directory projection, which hydrates one
+ * best product photo for a card but not the complete gallery. Gallery callers
+ * pay one extra query here for every active image.
  * Cached per request so repeated galleries for the same brand share it.
  */
 export const getBrandImageFields = cache(
@@ -1462,27 +1540,25 @@ type GetBrandsFilters = BrandFilters & {
 };
 
 /**
- * Expand a taxonomy selection to every stored spelling for the concept.
- * Product tags predate the slug ontology, so a brand can carry an alias (for
- * example `口金夾`) while the filter is selected by its slug or canonical name.
- * Both the browse query and the search RPC must receive this same list.
+ * The brand-L1 filter a directory read may apply, given the active L2 filter.
+ *
+ * An active L2 supersedes the L1: the slug already encodes its parent, so
+ * conjoining the *brand's* own `category` is redundant, and it silently
+ * discarded 429 of 2,446 approved tag-uses across 266 brands — a fashion label
+ * that also sells backpacks has no other way to say so under one-L1-per-brand
+ * (DEV-1510). The L1 conjunct still applies when no L2 is selected, which is
+ * what `/categories/<l1>` and `?category=` are.
+ *
+ * Presentation is deliberately NOT derived from this: the heading, breadcrumb,
+ * canonical path and the L1-scoped subcategory rail all keep reading the
+ * category the route or the query names.
  */
-function expandSubcategoryTags(tags: readonly string[] | undefined): string[] {
-  if (!tags || tags.length === 0) return [];
-
-  const expanded = new Set<string>();
-  for (const tag of tags) {
-    const trimmed = tag.trim();
-    if (!trimmed) continue;
-    const subcategory = subcategoryBySlug(trimmed) ?? matchSubcategory(trimmed);
-    if (!subcategory) {
-      expanded.add(trimmed);
-      continue;
-    }
-    expanded.add(subcategory.nameZh);
-    for (const alias of subcategory.aliases) expanded.add(alias);
-  }
-  return [...expanded];
+export function directoryBrandCategoryFilter(
+  categorySlugs: readonly string[],
+  subcategorySlugs: readonly string[],
+): string[] | undefined {
+  if (subcategorySlugs.length > 0) return undefined;
+  return categorySlugs.length > 0 ? [...categorySlugs] : undefined;
 }
 
 function getBrandsSelect(filters: GetBrandsFilters | undefined): "*" {
@@ -1520,7 +1596,14 @@ export async function getBrands(
   filters?: GetBrandsFilters,
 ): Promise<{ brands: Brand[]; totalCount: number }> {
   const supabase = createServiceClient();
-  const expandedSubcategoryTags = expandSubcategoryTags(filters?.subcategoryTags);
+  // `brands.subcategories` stores English slugs (DEV-1510 task 9), so the URL
+  // slug IS the stored value and `.overlaps` is direct. The fan-out that used to
+  // expand one selection into every stored zh-TW spelling existed only to paper
+  // over label storage; it is deleted, not ported.
+  const subcategoryTags = filters?.subcategoryTags?.length
+    ? filters.subcategoryTags
+    : null;
+  const materials = filters?.materials?.length ? filters.materials : null;
 
   // Card surfaces need the hero's `brand_images` metadata to render the logo
   // carve-out; the admin table does not. `includeDetailColumns` is admin-only
@@ -1563,9 +1646,12 @@ export async function getBrands(
       {
         search_query: trimmed,
         filter_categories: filters.category?.length ? filters.category : null,
-        filter_tags: expandedSubcategoryTags.length
-          ? expandedSubcategoryTags
-          : null,
+        filter_subcategories: subcategoryTags,
+        // Applied inside the RPC, not on the builder below: with a text query
+        // active this branch never reaches the query builder, so a material
+        // filter added only there would be silently dropped the moment a user
+        // types — the same defect class as the `?sub=` no-op (DEV-1510).
+        filter_materials: materials,
         filter_verification: verificationFilter,
         filter_price_ranges: filters.priceRanges?.length
           ? filters.priceRanges
@@ -1591,9 +1677,8 @@ export async function getBrands(
         {
           search_query: trimmed,
           filter_categories: filters.category?.length ? filters.category : null,
-          filter_tags: expandedSubcategoryTags.length
-            ? expandedSubcategoryTags
-            : null,
+          filter_subcategories: subcategoryTags,
+          filter_materials: materials,
           filter_verification: verificationFilter,
           filter_price_ranges: filters.priceRanges?.length
             ? filters.priceRanges
@@ -1655,13 +1740,16 @@ export async function getBrands(
     query = query.eq("status", filters.status);
   }
   if (filters?.category && filters.category.length > 0) {
-    query = query.in("product_type", filters.category);
+    query = query.in("category", filters.category);
   }
   if (filters?.priceRanges && filters.priceRanges.length > 0) {
     query = query.in("price_range", filters.priceRanges);
   }
-  if (expandedSubcategoryTags.length > 0) {
-    query = query.overlaps("product_tags", expandedSubcategoryTags);
+  if (subcategoryTags) {
+    query = query.overlaps("subcategories", subcategoryTags);
+  }
+  if (materials) {
+    query = query.overlaps("material", materials);
   }
 
   // Sorting
@@ -1712,7 +1800,12 @@ export async function getBrands(
 export async function getPublicBrandCards(
   filters?: Pick<
     BrandFilters,
-    "category" | "priceRanges" | "verificationFilter" | "search" | "sort"
+    | "category"
+    | "materials"
+    | "priceRanges"
+    | "verificationFilter"
+    | "search"
+    | "sort"
   > & {
     page?: number;
     subcategoryTags?: string[];
@@ -1736,29 +1829,46 @@ export type SubcategorySummary = {
   latestUpdatedAt: string | null
 }
 
-type SubcategorySummaryRow = {
-  productTags: string[]
+export type SubcategorySummaryRow = {
+  category: string | null
+  subcategories: string[]
+  material: string[]
   updatedAt: string
 }
 
 /**
- * Every approved brand in one category, as the taxonomy summary needs them.
+ * Every approved brand, as the taxonomy and material rails need them.
  *
- * This read has no `limit` — the counts are a whole-category aggregate, so it
- * genuinely wants every row. That is affordable once an hour and not once a
- * request: `/[locale]/categories/[category]` awaits `searchParams`, so it
- * renders dynamically and `revalidate = 3600` on the page buys nothing (see the
- * note in cache/public-brand-cache.ts — taxonomy routes have no ISR entries).
+ * The counts are a whole-corpus aggregate, so this read wants every row. That is
+ * affordable once an hour and not once a request:
+ * `/[locale]/categories/[category]` awaits `searchParams`, so it renders
+ * dynamically and `revalidate = 3600` on the page buys nothing (see the note in
+ * cache/public-brand-cache.ts — taxonomy routes have no ISR entries).
  * Uncached, every crawler hit on every filter permutation replayed a full scan
  * against PostgREST, which is what saturated the origin (DEV-1460).
  *
+ * **One cache entry, not twelve.** The `.eq("category", …)` this used to carry
+ * made it per-L1, and it also discarded the cross-L1 tag-uses the summary is
+ * supposed to count (DEV-1510). Dropping it turns twelve keyed reads of ~60 rows
+ * into a single category-independent read of ~718 — strictly less origin work,
+ * which is the direction DEV-1460 requires.
+ *
  * Cached at the row level rather than at the summary: the aggregation below is
- * cheap and varies by `subcategorySlug`, while the query is the expensive part
- * and varies only by category. `unstable_cache` serializes, so this returns
+ * cheap and varies by category/subcategory, while the query is the expensive
+ * part and now varies by nothing. `unstable_cache` serializes, so this returns
  * plain rows — the `Map` is rebuilt per call by the caller.
+ *
+ * Ceiling: ONE unpaged read of 1000 rows, the explicit form of what
+ * `supabase/config.toml`'s `max_rows = 1000` would enforce anyway — PostgREST
+ * truncates at that limit with HTTP 200 and no error, so an implicit cap reads
+ * as missing data rather than as a cap. Staging holds 104 approved brands and
+ * production ~795. Past 1000, both rails and `latestUpdatedAt` silently
+ * under-report and a term whose only holders sit past row 1000 disappears
+ * through `.filter(count > 0)`: move to a `.range()` loop then. Same ceiling
+ * and same wording as `getAdminBrandOptions`.
  */
 const getCachedSubcategoryRows = unstable_cache(
-  (categorySlug: string) =>
+  () =>
     auditedCall(
       {
         provider: "cache",
@@ -1770,49 +1880,87 @@ const getCachedSubcategoryRows = unstable_cache(
         const { data, error } = await excludeTestBrands(
           supabase
             .from("brands")
-            .select("product_tags, updated_at")
+            .select("category, subcategories, material, updated_at")
             .eq("status", "approved")
-            .eq("product_type", categorySlug),
+            .limit(1000),
         );
 
         if (error) throw error;
 
         return (data ?? []).map((row) => ({
-          productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
+          category: typeof row.category === "string" ? row.category : null,
+          subcategories: Array.isArray(row.subcategories) ? row.subcategories : [],
+          material: Array.isArray(row.material) ? row.material : [],
           updatedAt: row.updated_at,
         }));
       },
       { summary: { cached: true } },
     ),
-  ["subcategory-summary-rows"],
+  // The suffix is a PAYLOAD-SHAPE version, not decoration. These rows carry
+  // taxonomy values verbatim, so a migration that respells them leaves a warm
+  // entry serving spellings the reader can no longer resolve for a full hour —
+  // silently, since a Map lookup that misses every key reads as "no options"
+  // rather than as an error. `v2` was DEV-1525, which moved `material` from
+  // zh-TW labels to slugs; `v3` is DEV-1507, which retired the `crafts` L1 and
+  // re-filed its L2s. Nothing else invalidates that respelling —
+  // `revalidatePublicBrands` returns early on an empty slug list, a SQL
+  // migration calls no TypeScript at all, and taxonomy pages are not in its
+  // path list — so without this bump the subcategory and material rails render
+  // empty for an hour. Bump it again on the next respelling.
+  ["subcategory-summary-rows-v3"],
   { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
 );
 
-export async function getSubcategorySummary(
+/**
+ * Facet counts for one L1, keyed by **L2 slug**.
+ *
+ * Grouping is by the L2's own parent — `subcategoryBySlug(tag).category` — and
+ * never by the brand's `category`. Those two agree for 83% of approved tag-uses
+ * and disagree for the other 17%, which is the entire defect: a `fashion` brand
+ * tagged `backpacks` belongs in the `backpacks` count, because one brand carries
+ * one L1 while its products span several (DEV-1510).
+ *
+ * Exported for the unit test: mocking `@/lib/supabase/*` is forbidden
+ * (`scripts/check-test-boundaries.mjs`), so the aggregation is asserted on rows
+ * directly and the SQL predicate is left to the integration suite.
+ */
+export function summarizeSubcategoryRows(
+  rows: readonly SubcategorySummaryRow[],
   categorySlug: string,
   subcategorySlug?: string,
-): Promise<SubcategorySummary> {
-  const brands = await getCachedSubcategoryRows(categorySlug);
+): SubcategorySummary {
   const counts = new Map<string, number>();
   let latestUpdatedAt: string | null = null;
 
-  for (const brand of brands) {
-    const canonicalTags = new Set<string>();
-    for (const tag of brand.productTags) {
-      const subcategory = matchSubcategory(tag);
-      if (subcategory?.category === categorySlug) {
-        canonicalTags.add(subcategory.nameZh);
-      }
+  for (const brand of rows) {
+    const tagsInCategory = new Set<string>();
+    // Freshness is scoped to the page actually being rendered, on the same rule
+    // `isDirectoryTargetMember` applies to the sitemap: an L2 page is dated by
+    // the brands carrying that tag (cross-L1 ones included, resolved below), an
+    // L1 page by the brands whose own L1 is this one. This read lost its
+    // `.eq("category", …)` when it became one corpus-wide cache entry, so
+    // defaulting to `true` here put every approved brand in scope and dated all
+    // twelve L1 landing pages with the newest edit anywhere in the directory.
+    let matchesScope = subcategorySlug
+      ? false
+      : brand.category === categorySlug;
+    for (const tag of brand.subcategories) {
+      // Storage is slugs (DEV-1510 task 9), so resolve by slug. `matchSubcategory`
+      // reads labels and aliases and would miss any slug whose `nameEn` does not
+      // normalize back onto it — `belt-and-sling-bags` vs `Belt & Sling Bags`.
+      const subcategory = subcategoryBySlug(tag);
+      if (!subcategory) continue;
+      if (subcategory.slug === subcategorySlug) matchesScope = true;
+      if (subcategory.category === categorySlug) tagsInCategory.add(subcategory.slug);
     }
-    for (const tag of canonicalTags) {
-      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    for (const slug of tagsInCategory) {
+      counts.set(slug, (counts.get(slug) ?? 0) + 1);
     }
 
     const updatedAtTimestamp = Date.parse(brand.updatedAt);
     const latestTimestamp = latestUpdatedAt ? Date.parse(latestUpdatedAt) : Number.NaN;
-    const isInScope = !subcategorySlug || canonicalTagsHasSlug(brand.productTags, subcategorySlug);
     if (
-      isInScope &&
+      matchesScope &&
       !Number.isNaN(updatedAtTimestamp) &&
       (Number.isNaN(latestTimestamp) || updatedAtTimestamp > latestTimestamp)
     ) {
@@ -1823,8 +1971,42 @@ export async function getSubcategorySummary(
   return { counts, latestUpdatedAt };
 }
 
-function canonicalTagsHasSlug(tags: string[], subcategorySlug: string): boolean {
-  return tags.some((tag) => matchSubcategory(tag)?.slug === subcategorySlug);
+/**
+ * Material counts over the whole approved corpus, keyed by the material slug.
+ *
+ * Deliberately NOT scoped to the selected L1. Material is an orthogonal axis —
+ * a `home` brand and a `jewelry` brand are both `ceramic` — and re-introducing a
+ * category conjunct here would recreate exactly the class of silent drop this
+ * ticket removes. Four of the twelve slugs (`paper` `stone` `rattan` `lacquer`)
+ * have no brands at all; the rail renders a slug only when its count is above
+ * zero.
+ */
+function summarizeMaterialCounts(
+  rows: readonly SubcategorySummaryRow[],
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const brand of rows) {
+    for (const material of new Set(brand.material)) {
+      counts.set(material, (counts.get(material) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+export async function getSubcategorySummary(
+  categorySlug: string,
+  subcategorySlug?: string,
+): Promise<SubcategorySummary> {
+  return summarizeSubcategoryRows(
+    await getCachedSubcategoryRows(),
+    categorySlug,
+    subcategorySlug,
+  );
+}
+
+/** Material facet counts, from the same single cache entry as the L2 counts. */
+export async function getMaterialCounts(): Promise<Map<string, number>> {
+  return summarizeMaterialCounts(await getCachedSubcategoryRows());
 }
 
 export async function getSubcategoryCounts(
@@ -1851,7 +2033,16 @@ const getCachedExploreBrandPool = unstable_cache(
         }),
       { summary: { cached: true } },
     ),
-  ["homepage-explore-brand-pool"],
+  // PAYLOAD-SHAPE version, the same rule as `subcategory-summary-rows-v3`
+  // above: these are whole `Brand` rows carrying `categorySlug` and
+  // `subcategories` verbatim, and nothing invalidates a taxonomy respelling, so
+  // a warm entry keeps a retired L1 alive for a full hour. It surfaces as
+  // `getBrandCategoryLabel` falling back to the raw slug — the bare Latin
+  // `crafts` printed inside zh-TW homepage copy — because
+  // `selectCategoryBalancedBrands`'s fill loop applies no L1 test. `v2` is
+  // DEV-1507, which retired `crafts`. Bump it again on the next respelling,
+  // in step with `subcategory-summary-rows-*` and `stockist-directory-*`.
+  ["homepage-explore-brand-pool-v2"],
   { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
 );
 
@@ -1869,7 +2060,7 @@ function selectCategoryBalancedBrands(
 
     const brand = brands.find(
       (candidate) =>
-        candidate.productType === categorySlug &&
+        candidate.categorySlug === categorySlug &&
         !selectedIds.has(candidate.id),
     );
     if (!brand) continue;
@@ -1893,7 +2084,7 @@ export async function getExploreBrands(
   limit = EXPLORE_BRAND_LIMIT,
 ): Promise<{ brands: Brand[]; totalCount: number }> {
   const { brands, totalCount } = await getCachedExploreBrandPool();
-  const categorySlugs = PRODUCT_TYPE_CATEGORIES.map(({ slug }) => slug);
+  const categorySlugs = L1_CATEGORIES.map(({ slug }) => slug);
 
   return {
     brands: selectCategoryBalancedBrands(brands, categorySlugs, limit),
@@ -1922,7 +2113,7 @@ export async function searchBrandsAutocomplete(
     id: row.id,
     slug: row.slug,
     name: row.name,
-    category: row.primary_category_name ?? "",
+    categoryLabel: row.primary_category_name ?? "",
   }));
 }
 
@@ -2307,8 +2498,8 @@ export async function getRelatedBrands(
 export type BrandSeoEntry = {
   slug: string;
   updatedAt: string;
-  productType: string | null;
-  productTags: string[];
+  categorySlug: string | null;
+  subcategories: string[];
   description: string | null;
   descriptionEn: string | null;
   blurbEn: string | null;
@@ -2322,7 +2513,7 @@ export async function getBrandSeoEntries(): Promise<BrandSeoEntry[]> {
     supabase
       .from("brands")
       .select(
-        "slug, updated_at, product_type, product_tags, description, description_en, blurb_en, seo_promoted",
+        "slug, updated_at, category, subcategories, description, description_en, blurb_en, seo_promoted",
       ),
   )
     .eq("status", "approved");
@@ -2331,8 +2522,8 @@ export async function getBrandSeoEntries(): Promise<BrandSeoEntry[]> {
   return (data ?? []).map((row) => ({
     slug: row.slug,
     updatedAt: row.updated_at,
-    productType: row.product_type,
-    productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
+    categorySlug: row.category,
+    subcategories: Array.isArray(row.subcategories) ? row.subcategories : [],
     description: row.description,
     descriptionEn: row.description_en,
     blurbEn: row.blurb_en,
@@ -2657,14 +2848,14 @@ export async function getBrandStats(): Promise<{
           .eq("status", "approved"),
       ),
       excludeTestBrands(
-        supabase.from("brands").select("product_type").eq("status", "approved"),
-      ).not("product_type", "is", null),
+        supabase.from("brands").select("category").eq("status", "approved"),
+      ).not("category", "is", null),
     ]);
 
   if (error) throw error;
   if (categoryError) throw categoryError;
   const categoryCount = new Set(
-    (categoryRows ?? []).map((row) => row.product_type).filter(Boolean),
+    (categoryRows ?? []).map((row) => row.category).filter(Boolean),
   ).size;
   return { brandCount: count ?? 0, categoryCount };
 }

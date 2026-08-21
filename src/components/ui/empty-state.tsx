@@ -45,8 +45,8 @@ export function EmptyState({
           {icon}
         </span>
       ) : null}
-      <p className="type-empty-title">{title}</p>
-      {body ? <p className="mt-2 max-w-md type-empty-body">{body}</p> : null}
+      <p className="type-card-title text-ink-muted">{title}</p>
+      {body ? <p className="mt-2 content-column type-body-sm">{body}</p> : null}
       {action ? <div className="mt-6">{action}</div> : null}
     </div>
   )

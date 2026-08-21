@@ -28,11 +28,13 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageShell } from "@/components/ui/page-shell";
 import { Textarea } from "@/components/ui/textarea";
 import { Link, useRouter } from "@/i18n/navigation";
 import { trackSubmissionCompleted } from "@/lib/analytics";
 import { stripUrlQuery } from "@/lib/url";
 import { useSubmissionAnalytics } from "@/hooks/use-submission-analytics";
+import { routes } from "@/lib/routes";
 
 type Translator = (key: string) => string;
 
@@ -193,7 +195,7 @@ export default function SubmitQuickForm() {
           return;
         }
 
-        setPendingRedirect("/submit/confirmation?intent=owner_claim");
+        setPendingRedirect(routes.submit.confirmation({ intent: "owner_claim" }));
 
         trackSubmissionCompleted(
           data.name,
@@ -220,12 +222,12 @@ export default function SubmitQuickForm() {
   const isSubmitDisabled = !isValid || !pdpaConsent || isSubmitting;
 
   return (
-    <div className="page-gutter mx-auto max-w-2xl py-12">
+    <PageShell measure="form" className="py-12">
       <div className="mb-8">
-        <h1 className="text-balance text-center type-page-title">
+        <h1 className="text-balance text-center type-section">
           {t("quickForm.heading")}
         </h1>
-        <p className="mt-3 text-center type-card-description">
+        <p className="mt-3 text-center type-body-sm">
           {t("quickForm.subheading")}
         </p>
       </div>
@@ -255,7 +257,7 @@ export default function SubmitQuickForm() {
             />
             {nameSuggestion ? (
               <div className="animate-reveal-up">
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body">
+                <div className="flex items-center justify-between gap-3 rounded-[3px] border border-rule bg-surface p-3 type-body-sm text-ink-soft">
                   <span>
                     {t("ownerForm.suggestedName")}{" "}
                     <strong>{nameSuggestion}</strong>
@@ -315,7 +317,7 @@ export default function SubmitQuickForm() {
             />
             {urlSuggestion ? (
               <div className="animate-reveal-up">
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body">
+                <div className="flex items-center justify-between gap-3 rounded-[3px] border border-rule bg-surface p-3 type-body-sm text-ink-soft">
                   <span>
                     {t("ownerForm.suggestedUrl")}{" "}
                     <strong>{urlSuggestion}</strong>
@@ -364,14 +366,14 @@ export default function SubmitQuickForm() {
                       onCheckedChange={(checked) => field.onChange(checked)}
                       className="mt-0.5 size-[18px] shrink-0"
                     />
-                    <span className="type-body font-normal">
+                    <span className="type-body-sm text-ink-soft font-normal">
                       {tReview.rich("pdpaConsent", {
                         privacyPolicy: (chunks) => (
                           <Link
-                            href="/privacy"
+                            href={routes.privacy()}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="text-ink underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                           >
                             {chunks}
                           </Link>
@@ -380,7 +382,7 @@ export default function SubmitQuickForm() {
                     </span>
                   </Label>
                   {fieldState.error ? (
-                    <p className="type-error">{fieldState.error.message}</p>
+                    <p className="type-metadata text-danger">{fieldState.error.message}</p>
                   ) : null}
                 </div>
               )}
@@ -418,7 +420,7 @@ export default function SubmitQuickForm() {
             />
           </div>
           {turnstileError ? (
-            <p className="type-body text-destructive" role="alert">
+            <p className="type-body-sm text-danger" role="alert">
               {t("errors.turnstileError")}
             </p>
           ) : null}
@@ -426,7 +428,7 @@ export default function SubmitQuickForm() {
           {submitError ? (
             <p
               role="alert"
-              className="type-body text-destructive"
+              className="type-body-sm text-danger"
               aria-live="polite"
             >
               {submitError}
@@ -435,7 +437,6 @@ export default function SubmitQuickForm() {
 
           <SubmitButton
             variant="primary"
-            tone="cta"
             disabled={isSubmitDisabled}
             isSubmitting={isSubmitting}
             idleLabel={t("quickForm.submitButton")}
@@ -443,6 +444,6 @@ export default function SubmitQuickForm() {
           />
         </StandardFormStack>
       </StandardForm>
-    </div>
+    </PageShell>
   );
 }

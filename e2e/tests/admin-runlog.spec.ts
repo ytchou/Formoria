@@ -51,7 +51,7 @@ test.describe('Admin run log', () => {
 
     const { error } = await supabase.from('curation_jobs').delete().eq('id', jobId);
     if (error) {
-      console.warn(`[e2e-cleanup] run-log job deletion failed: ${error.message}`);
+      throw new Error(`[e2e-cleanup] run-log job deletion failed: ${error.message}`);
     }
   });
 

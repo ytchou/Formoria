@@ -5,10 +5,18 @@ import type { Database } from "@/lib/supabase/database.types";
 import {
   approveSubmission,
   dropNeedsDataSubmissions,
+  getSubmissionProductReview,
   getSubmissionsForReview,
   saveSubmissionReview,
 } from "../submissions";
+import { updateBrand } from "../brands";
+import { materializeSubmissionCuratedProducts } from "../curated-products/materialize";
+import type { CuratedProductProposal } from "@/lib/types/enriched-data";
 import { describeWithDb } from "@/test/setup";
+
+const CATEGORY_FIELD = "category";
+const SUBCATEGORIES_FIELD = "subcategories";
+const SUBCATEGORIES_EN_FIELD = "subcategories_en";
 
 const supabase =
   process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -84,17 +92,17 @@ describeWithDb("trusted submission review RPCs", () => {
       .eq("id", submissionId)
       .single();
     expect(submission).toMatchObject({
-      brand_name: "Trusted Save Brand",
+      brand_name: "Trusted save Brand",
       description: "原始介紹",
       website_url: "https://original.example.com",
       purchase_website: null,
       hero_image_url: null,
-      suggested_tags: null,
+      suggested_tags: [],
       enriched_data: null,
       review_overrides: expect.objectContaining({
         description: "完整中文介紹",
-        product_type: "crafts",
-        product_tags: ["木工"],
+        category: "home",
+        subcategories: ["家具"],
         price_range: 2,
         purchase_website: "https://trusted.example.com",
       }),
@@ -363,15 +371,15 @@ describeWithDb("trusted submission review RPCs", () => {
     expect(brand?.mit_story).toBe(mitStory);
   });
 
-  it("records matching community suggested tags as submitted provenance", async () => {
+  it("records matching community suggested subcategories as final provenance", async () => {
     const submissionId = await seedSubmission("submitted-provenance");
     const images = await seedImages(submissionId);
     const { error: candidateError } = await supabase!
       .from("brand_submissions")
       .update({
         social_instagram: "https://instagram.com/community-submitted",
-        suggested_tags: { values: ["木工"], productType: "crafts" },
-        enriched_data: { product_tags: ["木工"], product_type: "crafts" },
+        suggested_tags: { values: ["家具"], category: "home" },
+        enriched_data: { subcategories: ["家具"], category: "home" },
       })
       .eq("id", submissionId);
     expect(candidateError).toBeNull();
@@ -384,17 +392,136 @@ describeWithDb("trusted submission review RPCs", () => {
       .from("brand_field_state")
       .select("field, source")
       .eq("brand_id", result.brandId)
-      .in("field", ["product_tags", "product_type", "social_instagram"]);
+      .in("field", [SUBCATEGORIES_FIELD, CATEGORY_FIELD, "social_instagram"]);
     expect(stateError).toBeNull();
     expect(
       Object.fromEntries(
         (states ?? []).map((state) => [state.field, state.source]),
       ),
     ).toEqual({
-      product_tags: "submitted",
-      product_type: "submitted",
+      [SUBCATEGORIES_FIELD]: "submitted",
+      [CATEGORY_FIELD]: "submitted",
       social_instagram: "admin",
     });
+  });
+
+  // Bug caught: a contracted application write could ignore existing owner
+  // locks, allowing enrichment to overwrite protected final fields.
+  it("protects target category and subcategories through owner locks", async () => {
+    const brand = await seedRefreshBrand("owner-locks", "approved");
+    const { error: lockError } = await untypedSupabase!
+      .from("brand_field_state")
+      .insert([
+        {
+          brand_id: brand.id,
+          field: CATEGORY_FIELD,
+          source: "owner",
+          updated_by: reviewerId,
+        },
+        {
+          brand_id: brand.id,
+          field: SUBCATEGORIES_FIELD,
+          source: "owner",
+          updated_by: reviewerId,
+        },
+      ]);
+    expect(lockError).toBeNull();
+
+    const result = await updateBrand(
+      brand.id,
+      {
+        categorySlug: "jewelry",
+        subcategories: ["戒指"],
+        subcategoriesEn: ["Rings"],
+      },
+      { source: "enriched" },
+    );
+
+    expect(result.skipped).toEqual(
+      expect.arrayContaining([
+        { field: "category", reason: "protected:owner" },
+        { field: "subcategories", reason: "protected:owner" },
+        { field: "subcategories_en", reason: "protected:owner" },
+      ]),
+    );
+    const { data: unchanged, error: readError } = await supabase!
+      .from("brands")
+      .select("category, subcategories, subcategories_en")
+      .eq("id", brand.id)
+      .single();
+    expect(readError).toBeNull();
+    expect(unchanged).toEqual({
+      category: "home",
+      subcategories: ["家具"],
+      subcategories_en: null,
+    });
+  });
+
+  // Bug caught: a direct final-vocabulary patch could update the brand while
+  // leaving state and events under a different identifier contract.
+  it("writes target brand values with final provenance identifiers", async () => {
+    const brand = await seedRefreshBrand("final-provenance-write", "approved");
+
+    const result = await updateBrand(
+      brand.id,
+      {
+        categorySlug: "jewelry",
+        subcategories: ["戒指"],
+        subcategoriesEn: ["Rings"],
+      },
+      { source: "enriched" },
+    );
+    expect(result.skipped).toEqual([]);
+
+    const { data: updated, error: brandError } = await supabase!
+      .from("brands")
+      .select("*")
+      .eq("id", brand.id)
+      .single();
+    expect(brandError).toBeNull();
+    expect(updated?.category).toBe("jewelry");
+    const updatedRecord = updated as unknown as Record<string, unknown> | null;
+    expect(updatedRecord?.[CATEGORY_FIELD]).toBe("jewelry");
+    expect(updated?.subcategories).toEqual(["戒指"]);
+    expect(updatedRecord?.[SUBCATEGORIES_FIELD]).toEqual(["戒指"]);
+    expect(updated?.subcategories_en).toEqual(["Rings"]);
+    expect(updatedRecord?.[SUBCATEGORIES_EN_FIELD]).toEqual(["Rings"]);
+
+    const { data: states, error: stateError } = await untypedSupabase!
+      .from("brand_field_state")
+      .select("field, source")
+      .eq("brand_id", brand.id)
+      .in("field", [
+        CATEGORY_FIELD,
+        SUBCATEGORIES_FIELD,
+        SUBCATEGORIES_EN_FIELD,
+      ]);
+    expect(stateError).toBeNull();
+    expect(states).toEqual(
+      expect.arrayContaining([
+        { field: CATEGORY_FIELD, source: "enriched" },
+        { field: SUBCATEGORIES_FIELD, source: "enriched" },
+        { field: SUBCATEGORIES_EN_FIELD, source: "enriched" },
+      ]),
+    );
+    expect(states).toHaveLength(3);
+
+    const { data: events, error: eventError } = await untypedSupabase!
+      .from("brand_field_events")
+      .select("field, source")
+      .eq("brand_id", brand.id)
+      .in("field", [
+        CATEGORY_FIELD,
+        SUBCATEGORIES_FIELD,
+        SUBCATEGORIES_EN_FIELD,
+      ]);
+    expect(eventError).toBeNull();
+    expect(events).toHaveLength(3);
+    expect(events?.map((event) => event.field).sort()).toEqual([
+      CATEGORY_FIELD,
+      SUBCATEGORIES_FIELD,
+      SUBCATEGORIES_EN_FIELD,
+    ]);
   });
 
   it("requests and applies a refresh to exactly one existing hidden brand", async () => {
@@ -752,7 +879,10 @@ describeWithDb("trusted submission review RPCs", () => {
       .update({ enriched_data: { description: "不應套用的介紹" } })
       .eq("id", submissionId!);
     await seedSuccessfulTarget(submissionId!, "refresh-stale");
-    await supabase!.from("brands").update({ city: "台北" }).eq("id", brand.id);
+    await supabase!
+      .from("brands")
+      .update({ city: "taipei" })
+      .eq("id", brand.id);
 
     const { error } = await supabase!.rpc("apply_brand_refresh", {
       p_submission_id: submissionId!,
@@ -797,7 +927,7 @@ describeWithDb("trusted submission review RPCs", () => {
     expect(error?.message).toContain("brand images changed");
   });
 
-  it("enforces the seven-image limit even when review was never saved", async () => {
+  it("enforces the image ceiling even when review was never saved", async () => {
     const brand = await seedRefreshBrand("image-limit", "approved");
     const { data: submissionId, error: requestError } = await supabase!.rpc(
       "request_brand_refresh",
@@ -813,7 +943,7 @@ describeWithDb("trusted submission review RPCs", () => {
     const { error: imageError } = await supabase!
       .from("submission_images")
       .insert(
-        Array.from({ length: 6 }, (_, index) => ({
+        Array.from({ length: 9 }, (_, index) => ({
           submission_id: submissionId!,
           storage_path: `submissions/${submissionId}/candidate-${index}.webp`,
           url: `https://cdn.example.com/${submissionId}/candidate-${index}.webp`,
@@ -831,6 +961,284 @@ describeWithDb("trusted submission review RPCs", () => {
     });
     expect(error?.message).toContain("publishable core");
   });
+
+  /**
+   * DEV-1469 — materialization at approval.
+   *
+   * A row is how a decision is remembered: a ticked proposal becomes a visible
+   * product, an unticked one becomes a hidden product, and that hidden row IS
+   * the rejection record the next run's diff consults.
+   */
+  it("approval_creates_ticked_products_visible", async () => {
+    const kept = productProposal("kept", "木盤");
+    const dropped = productProposal("dropped", "陶碗");
+    const { brandId } = await approveWithProductProposals(
+      "products-visible",
+      [kept, dropped],
+      [kept.key],
+    );
+
+    const { data: products, error } = await untypedSupabase!
+      .from("curated_products")
+      .select("name_zh, official_url, visible, proposed_by")
+      .eq("brand_id", brandId)
+      .order("name_zh");
+    expect(error).toBeNull();
+    expect(products).toEqual(
+      expect.arrayContaining([
+        {
+          name_zh: kept.nameZh,
+          official_url: kept.officialUrl,
+          visible: true,
+          // Origin, not actor: the queue has to tell a machine proposal from a
+          // curator's own row.
+          proposed_by: "generated",
+        },
+      ]),
+    );
+  });
+
+  it("approval_creates_unticked_products_hidden", async () => {
+    const kept = productProposal("kept", "木盤");
+    const dropped = productProposal("dropped", "陶碗");
+    const { brandId } = await approveWithProductProposals(
+      "products-hidden",
+      [kept, dropped],
+      [kept.key],
+    );
+
+    const { data: hidden, error } = await untypedSupabase!
+      .from("curated_products")
+      .select("name_zh, visible")
+      .eq("brand_id", brandId)
+      .eq("name_zh", dropped.nameZh)
+      .single();
+    expect(error).toBeNull();
+    // Not a delete and not a skip. Skipping would make every later run
+    // re-propose the product a human already declined.
+    expect(hidden).toEqual({ name_zh: dropped.nameZh, visible: false });
+  });
+
+  it("hidden_rows_have_no_mirrored_image", async () => {
+    const dropped = productProposal("dropped", "陶碗");
+    const { brandId } = await approveWithProductProposals(
+      "products-image",
+      [dropped],
+      [],
+    );
+
+    const { data: row, error } = await untypedSupabase!
+      .from("curated_products")
+      .select("visible, image_url, image_source_url")
+      .eq("brand_id", brandId)
+      .single();
+    expect(error).toBeNull();
+    // The page the image was taken from is kept so usage rights stay
+    // re-checkable; no object is stored for a product nobody published.
+    expect(row).toEqual({
+      visible: false,
+      image_url: null,
+      image_source_url: dropped.imageSourceUrl,
+    });
+  });
+
+  it("every_created_product_has_a_source_row", async () => {
+    const kept = productProposal("kept", "木盤");
+    const dropped = productProposal("dropped", "陶碗");
+    const { brandId } = await approveWithProductProposals(
+      "products-sources",
+      [kept, dropped],
+      [kept.key],
+    );
+
+    const { data: products, error: productsError } = await untypedSupabase!
+      .from("curated_products")
+      .select("id, name_zh")
+      .eq("brand_id", brandId);
+    expect(productsError).toBeNull();
+    expect(products).toHaveLength(2);
+
+    // The public read joins sources with `!inner`, so a product with no
+    // provenance row is a row nothing can render.
+    const { data: sources, error: sourcesError } = await untypedSupabase!
+      .from("curated_product_sources")
+      .select("product_id, url, source_type, state")
+      .in(
+        "product_id",
+        (products as { id: string }[]).map((product) => product.id),
+      );
+    expect(sourcesError).toBeNull();
+    expect(
+      new Set((sources as { product_id: string }[]).map((s) => s.product_id))
+        .size,
+    ).toBe(2);
+    expect(sources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: kept.sources[0]!.url,
+          source_type: "official",
+          state: "active",
+        }),
+      ]),
+    );
+  });
+
+  /**
+   * The refresh path is the one the products backfill uses, and its five field
+   * allow-lists are where a key goes to die silently.
+   *
+   * `products` must stay OUT of them: the apply loop treats every patch key as a
+   * `brands` column (`select to_jsonb(<key>) from public.brands`), and there is
+   * no `brands.products` column — so a `products` entry in the enrichment patch
+   * would 42703 exactly this path. The proposals ride
+   * `brand_submissions.enriched_data`, which the function only ever reads, and
+   * approval materializes them from there afterwards.
+   */
+  it("refresh_preserves_products_in_enriched_data", async () => {
+    const brand = await seedRefreshBrand("products-payload", "approved");
+    const proposal = productProposal("refresh", "木盤");
+    const { data: submissionId, error: requestError } = await supabase!.rpc(
+      "request_brand_refresh",
+      {
+        p_brand_id: brand.id,
+        p_requested_by: reviewerId,
+        p_requester_email: "admin@formoria.com",
+      },
+    );
+    expect(requestError).toBeNull();
+    submissionIds.push(submissionId!);
+    const { error: enrichError } = await untypedSupabase!
+      .from("brand_submissions")
+      .update({
+        enriched_data: {
+          description: "排程更新後的品牌介紹",
+          products: [proposal],
+        },
+      })
+      .eq("id", submissionId!);
+    expect(enrichError).toBeNull();
+    await seedSuccessfulTarget(submissionId!, "refresh-products-payload");
+
+    const { error: applyError } = await supabase!.rpc("apply_brand_refresh", {
+      p_submission_id: submissionId!,
+      p_reviewer_id: reviewerId,
+    });
+    expect(applyError).toBeNull();
+
+    // Survives the apply, and is still readable by the materializer afterwards.
+    const review = await getSubmissionProductReview(submissionId!);
+    expect(review.products).toEqual([proposal]);
+    expect(review.keptProductKeys).toBeUndefined();
+  });
+
+  /**
+   * `brands.material` shipped in DEV-1502 without reaching any of the refresh
+   * allow-lists, so a material value on a submission was filtered out and lost
+   * at every apply. Fixed by 20260821100000_refresh_allowlist_material.sql;
+   * this is the behavioural proof.
+   */
+  it("refresh_preserves_material", async () => {
+    const brand = await seedRefreshBrand("material-payload", "approved");
+    const { data: submissionId, error: requestError } = await supabase!.rpc(
+      "request_brand_refresh",
+      {
+        p_brand_id: brand.id,
+        p_requested_by: reviewerId,
+        p_requester_email: "admin@formoria.com",
+      },
+    );
+    expect(requestError).toBeNull();
+    submissionIds.push(submissionId!);
+    const { error: enrichError } = await untypedSupabase!
+      .from("brand_submissions")
+      .update({ enriched_data: { material: ["wood", "ceramic"] } })
+      .eq("id", submissionId!);
+    expect(enrichError).toBeNull();
+    await seedSuccessfulTarget(submissionId!, "refresh-material-payload");
+
+    const { error: applyError } = await supabase!.rpc("apply_brand_refresh", {
+      p_submission_id: submissionId!,
+      p_reviewer_id: reviewerId,
+    });
+    expect(applyError).toBeNull();
+
+    const { data: refreshed, error } = await untypedSupabase!
+      .from("brands")
+      .select("material")
+      .eq("id", brand.id)
+      .single();
+    expect(error).toBeNull();
+    expect(refreshed).toEqual({ material: ["wood", "ceramic"] });
+    const { data: state } = await supabase!
+      .from("brand_field_state")
+      .select("source")
+      .eq("brand_id", brand.id)
+      .eq("field", "material")
+      .single();
+    expect(state?.source).toBe("enriched");
+  });
+
+  /**
+   * One proposal, shaped the way the enrichment phase writes them: top-level
+   * keys of `enriched_data` are snake_case, its object arrays are camelCase
+   * passthrough. NO COMMERCE TRUTH — there is no price, stock, discount,
+   * availability, offer, or variant field to write.
+   */
+  function productProposal(key: string, nameZh: string): CuratedProductProposal {
+    return {
+      key,
+      nameZh: `${nameZh}-${key}`,
+      category: "home",
+      subcategories: [],
+      material: ["wood"],
+      officialUrl: `https://products.example.com/${key}`,
+      imageSourceUrl: `https://products.example.com/${key}/photo`,
+      productDescriptionZh: "以榫接工法製作，邊緣手工打磨。",
+      sources: [
+        {
+          url: `https://products.example.com/${key}`,
+          sourceType: "official",
+          claimZh: "品牌官網商品頁",
+        },
+      ],
+    };
+  }
+
+  /**
+   * The whole new-brand path: an enrichment run proposes products, the review
+   * records which ones to keep, approval publishes the brand, and
+   * materialization turns the decision into rows.
+   *
+   * `keptProductKeys` is passed explicitly because absent and empty mean
+   * different things — absent is "no decision recorded" and falls back to the
+   * section's default (keep every new proposal), `[]` is "kept nothing".
+   */
+  async function approveWithProductProposals(
+    suffix: string,
+    proposals: CuratedProductProposal[],
+    keptProductKeys: string[],
+  ): Promise<{ submissionId: string; brandId: string }> {
+    const submissionId = await seedSubmission(suffix);
+    const images = await seedImages(submissionId);
+    await seedSuccessfulTarget(submissionId, suffix);
+    const { error: enrichError } = await untypedSupabase!
+      .from("brand_submissions")
+      .update({ enriched_data: { products: proposals } })
+      .eq("id", submissionId);
+    expect(enrichError).toBeNull();
+
+    await saveSubmissionReview(submissionId, {
+      ...completeReviewInput(images),
+      products: proposals,
+      keptProductKeys,
+    });
+
+    const approval = await approveSubmission(supabase!, submissionId, reviewerId);
+    brandIds.push(approval.brandId);
+    await materializeSubmissionCuratedProducts(submissionId, approval.brandId);
+
+    return { submissionId, brandId: approval.brandId };
+  }
 
   async function seedSubmission(suffix: string): Promise<string> {
     const id = randomUUID();
@@ -945,8 +1353,10 @@ describeWithDb("trusted submission review RPCs", () => {
       status,
       description: "原本完整的品牌介紹",
       hero_image_url: heroUrl,
-      product_type: "crafts",
-      product_tags: ["木工"],
+      category: "home",
+      subcategories: ["家具"],
+      city: "taichung",
+      approved_at: status === "approved" ? new Date().toISOString() : null,
       price_range: 2,
       purchase_website:
         links.purchaseWebsite === undefined
@@ -998,18 +1408,17 @@ describeWithDb("trusted submission review RPCs", () => {
       descriptionEn: "Complete English description",
       blurb: "品牌摘要",
       blurbEn: "Brand summary",
-      city: "台中",
-      categoryAttributes: null,
+      city: "taichung",
       reputationSummary: null,
       channels: [],
       mitEvidence: null,
       siteContent: null,
       foundingYear: 2018,
       heroImageUrl: images.hero.url,
-      productType: "crafts",
+      categorySlug: "home",
       priceRange: 2,
-      productTags: ["木工"],
-      productTagsEn: ["Woodwork"],
+      subcategories: ["家具"],
+      subcategoriesEn: ["Furniture"],
       websiteUrl: "https://trusted.example.com",
       socialInstagram: null,
       socialThreads: null,

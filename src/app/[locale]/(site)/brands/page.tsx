@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { DirectoryView } from '@/components/brands/directory-view'
-import { PRODUCT_TYPE_CATEGORIES, categoryLabel, resolveSubcategorySlugs } from '@/lib/taxonomy/ontology'
+import { L1_CATEGORIES, categoryLabel, resolveDirectorySubcategorySlugs } from '@/lib/taxonomy/ontology'
 import { parseDirectoryViewFilters, type DirectorySearchParams } from '@/lib/seo/directory-filters'
 import type { Locale } from '@/lib/seo/alternates'
 import { buildOpenGraph } from '@/lib/seo/open-graph'
@@ -12,7 +12,7 @@ import { truncateForMeta } from '@/lib/text/truncate-for-meta'
 // into dynamic rendering. Keep this value for path revalidation parity.
 export const revalidate = 3600
 
-const VALID_CATEGORY_SLUGS = new Set(PRODUCT_TYPE_CATEGORIES.map((category) => category.slug))
+const VALID_CATEGORY_SLUGS = new Set(L1_CATEGORIES.map((category) => category.slug))
 
 interface BrandsPageProps {
   params: Promise<{ locale: string }>
@@ -27,9 +27,13 @@ export async function generateMetadata({ params, searchParams }: BrandsPageProps
   const { filters, page } = parseDirectoryViewFilters(sp, VALID_CATEGORY_SLUGS)
   const categorySlug = filters.categorySlugs.length === 1 ? filters.categorySlugs[0] ?? null : null
   const category = categorySlug
-    ? PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === categorySlug)
+    ? L1_CATEGORIES.find((item) => item.slug === categorySlug)
     : undefined
-  const subcategory = resolveSubcategorySlugs(categorySlug, filters.subcategorySlugs)
+  // No parent-L1 conjunct: `?category=fashion&sub=backpacks` must name the sub
+  // it is actually filtering by. `resolveDirectorySeo` still treats the
+  // cross-L1 pair as invalid, so the canonical stays `/brands?category=&sub=`
+  // and never points at the 404 that `/categories/fashion/backpacks` is.
+  const subcategory = resolveDirectorySubcategorySlugs(filters.subcategorySlugs)
   const activeSubcategory = subcategory.length === 1 ? subcategory[0] : undefined
   const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
   const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
@@ -46,6 +50,7 @@ export async function generateMetadata({ params, searchParams }: BrandsPageProps
       sort: typeof sp.sort === 'string' ? sp.sort : undefined,
       category: sp.category,
       sub: sp.sub,
+      material: sp.material,
       multiCategory: filters.categorySlugs.length > 1,
       multiSub: filters.subcategorySlugs.length > 1,
     },
@@ -119,7 +124,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   const sp = await searchParams
   const { filters, page, sort } = parseDirectoryViewFilters(sp, VALID_CATEGORY_SLUGS)
   const categorySlug = filters.categorySlugs.length === 1 ? filters.categorySlugs[0] ?? null : null
-  const resolvedSubcategories = resolveSubcategorySlugs(categorySlug, filters.subcategorySlugs)
+  const resolvedSubcategories = resolveDirectorySubcategorySlugs(filters.subcategorySlugs)
   const activeSubcategory = resolvedSubcategories.length === 1 ? resolvedSubcategories.at(0) : undefined
   const directorySeo = resolveDirectorySeo({
     locale: safeLocale,
@@ -134,10 +139,11 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
       sort: typeof sp.sort === 'string' ? sp.sort : sort !== 'random' ? sort : undefined,
       category: sp.category,
       sub: sp.sub,
+      material: sp.material,
       multiCategory: filters.categorySlugs.length > 1,
       multiSub: filters.subcategorySlugs.length > 1,
     },
   })
 
-  return <DirectoryView locale={safeLocale} filters={filters} page={page} sort={sort} canonical={directorySeo.canonical} />
+  return <DirectoryView locale={safeLocale} filters={filters} page={page} sort={sort} canonical={directorySeo.canonical} indexable={directorySeo.robots?.index !== false} />
 }

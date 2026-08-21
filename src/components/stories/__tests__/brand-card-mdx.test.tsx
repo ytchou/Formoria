@@ -102,8 +102,8 @@ function makeBrand(slug: string, name: string): Brand {
     name,
     slug,
     status: 'approved',
-    category: 'bags-accessories',
-    productType: 'bags-accessories',
+    categorySlug: 'bags-accessories',
+    categoryLabel: 'Bags & Accessories',
     heroImageUrl: null,
     productPhotos: [],
     imageAlts: [],
@@ -114,8 +114,8 @@ function makeBrand(slug: string, name: string): Brand {
     isVerified: false,
     mitStatus: 'unverified',
     priceRange: null,
-    productTags: [],
-    productTagsEn: [],
+    subcategories: [],
+    subcategoriesEn: [],
   } as unknown as Brand
 }
 
@@ -218,7 +218,7 @@ describe('BrandGrid', () => {
 
     expect(vi.mocked(trackBrandCardClicked)).toHaveBeenCalledWith(
       'paper-mill',
-      'bags-accessories',
+      'Bags & Accessories',
       4,
       'id-paper-mill',
     )

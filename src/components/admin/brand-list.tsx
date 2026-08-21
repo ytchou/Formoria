@@ -10,6 +10,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import type { BrandStatus } from "@/lib/types";
 import type { AdminBrandListItem } from "@/lib/brands/contracts";
 import type { SubmissionReviewImage } from "@/lib/services/submissions";
@@ -27,6 +28,7 @@ import {
   unhideBrandAction,
   deleteBrandAction,
   requestBrandRefreshAction,
+  requestCuratedProductBackfillAction,
   resendClaimInviteAction,
 } from "@/app/admin/actions";
 import {
@@ -45,29 +47,30 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { statusStyles, textStyles } from "@/components/ui/text-styles";
+import { MAX_BULK_PRODUCT_BACKFILL } from "@/lib/constants/curated-products";
 import { routing } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
+import { inkActionClassName } from "@/components/admin/ink-action";
+import { routes } from "@/lib/routes";
 
 type TabValue = "all" | BrandStatus;
 type MitStatus = NonNullable<AdminBrandListItem["mitStatus"]>;
 const PAGE_SIZES = [10, 25, 50] as const;
 
-const MIT_STATUS_CONFIG: Record<
-  MitStatus,
-  { label: string; className: string }
-> = {
+// Labels live in `admin.brands.mitStatus.*` and are looked up by status inside
+// `MitStatusBadge`: this map is module scope, where `t()` cannot be called.
+const MIT_STATUS_CONFIG: Record<MitStatus, { className: string }> = {
   unverified: {
-    label: "MIT Unverified",
-    className: "bg-secondary text-muted-foreground",
+    className: "bg-surface text-ink-muted",
   },
   declared: {
-    label: "品牌聲明",
-    className: "bg-secondary text-muted-foreground",
+    className: "bg-surface text-ink-muted",
   },
   verified: {
-    label: "MIT Smile Certified",
     className: "bg-verified-green-bg text-verified-green",
   },
 };
@@ -77,17 +80,27 @@ function getMitStatus(brand: AdminBrandListItem): MitStatus {
   return brand.mitVerified ? "verified" : "unverified";
 }
 
+/**
+ * `request_brand_refresh` accepts approved and hidden brands only (it raises on
+ * anything else), so an ineligible brand is unselectable rather than one row of
+ * a batch failing after the admin has already clicked.
+ */
+function canGenerateProducts(brand: AdminBrandListItem): boolean {
+  return brand.status === "approved" || brand.status === "hidden";
+}
+
 function MitStatusBadge({ status }: { status: MitStatus }) {
+  const t = useTranslations("admin.brands");
   const config = MIT_STATUS_CONFIG[status];
 
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 type-field-label",
+        "inline-flex items-center rounded-full px-2.5 py-0.5 type-metadata",
         config.className,
       )}
     >
-      {config.label}
+      {t(`mitStatus.${status}`)}
     </span>
   );
 }
@@ -107,6 +120,7 @@ export function BrandList({
   initialSearchQuery?: string;
   initialTab?: TabValue;
 }) {
+  const t = useTranslations("admin.brands");
   const [activeTab, setActiveTab] = useState<TabValue>(initialTab);
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [mitFilter, setMitFilter] = useState<"all" | MitStatus>("all");
@@ -123,6 +137,15 @@ export function BrandList({
   const [refreshingBrandId, setRefreshingBrandId] = useState<string | null>(
     null,
   );
+  // Ids, never brand objects, for the same reason as `selectedBrandId` above:
+  // the server re-sends `brands` after a revalidate, and a captured object would
+  // queue work against pre-edit values.
+  const [productBackfillIds, setProductBackfillIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [productBackfillStatus, setProductBackfillStatus] = useState<
+    string | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const claimInviteBrandIdSet = new Set(claimInviteBrandIds);
@@ -148,6 +171,15 @@ export function BrandList({
     if (refreshingBrandId && !brandsById.has(refreshingBrandId)) {
       setRefreshingBrandId(null);
     }
+    // A queued selection must not outlive the rows it names, or the action would
+    // post ids the server no longer lists. One pass: the filtered set answers
+    // both "did anything drop?" and "what is left?".
+    const stillListed = [...productBackfillIds].filter((brandId) =>
+      brandsById.has(brandId),
+    );
+    if (stillListed.length !== productBackfillIds.size) {
+      setProductBackfillIds(new Set(stillListed));
+    }
   }
 
   const selectedBrand =
@@ -158,7 +190,7 @@ export function BrandList({
     (refreshingBrandId ? brandsById.get(refreshingBrandId) : null) ?? null;
 
   const categories = Array.from(
-    new Set(brands.map((b) => b.category).filter(Boolean) as string[]),
+    new Set(brands.map((b) => b.categoryLabel).filter(Boolean) as string[]),
   ).sort();
 
   const filtered = brands
@@ -169,13 +201,31 @@ export function BrandList({
         b.name.toLowerCase().includes(searchQuery.toLowerCase()),
     )
     .filter((b) => mitFilter === "all" || getMitStatus(b) === mitFilter)
-    .filter((b) => categoryFilter === "all" || b.category === categoryFilter);
+    .filter((b) => categoryFilter === "all" || b.categoryLabel === categoryFilter);
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visible = filtered.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize,
   );
+  // Page-scoped, like the header checkbox it feeds: "select all" must never
+  // reach rows the admin cannot see.
+  const selectableVisible = visible.filter(canGenerateProducts);
+  // Declared once and reused by the header checkbox AND by the toggle it
+  // drives. The two used to compute the same predicate separately, which is one
+  // edit away from a header that says "all selected" while the toggle adds.
+  const everySelectableVisibleSelected = (selection: Set<string>): boolean =>
+    selectableVisible.every((brand) => selection.has(brand.id));
+  const allVisibleSelected =
+    selectableVisible.length > 0 &&
+    everySelectableVisibleSelected(productBackfillIds);
+  const someVisibleSelected =
+    !allVisibleSelected &&
+    selectableVisible.some((brand) => productBackfillIds.has(brand.id));
+  // The cap is enforced in the server action too — this is what stops the admin
+  // reaching it blind. Past the limit every UNSELECTED checkbox is disabled, so
+  // a selection can only shrink, and the bulk bar names the number.
+  const selectionAtCap = productBackfillIds.size >= MAX_BULK_PRODUCT_BACKFILL;
 
   function handleHide(brand: AdminBrandListItem) {
     startTransition(async () => {
@@ -214,6 +264,69 @@ export function BrandList({
     });
   }
 
+  function toggleProductBackfill(brandId: string) {
+    setProductBackfillIds((current) => {
+      const next = new Set(current);
+      if (next.has(brandId)) next.delete(brandId);
+      else if (next.size < MAX_BULK_PRODUCT_BACKFILL) next.add(brandId);
+      return next;
+    });
+  }
+
+  function toggleProductBackfillPage() {
+    setProductBackfillIds((current) => {
+      const next = new Set(current);
+      if (everySelectableVisibleSelected(current)) {
+        for (const brand of selectableVisible) next.delete(brand.id);
+        return next;
+      }
+      // Fills to the cap and stops, rather than refusing the whole page: the
+      // page the admin is looking at is the selection they asked for, and a
+      // silent no-op would read as a broken checkbox.
+      for (const brand of selectableVisible) {
+        if (next.size >= MAX_BULK_PRODUCT_BACKFILL) break;
+        next.add(brand.id);
+      }
+      return next;
+    });
+  }
+
+  function handleGenerateProducts() {
+    const brandIds = [...productBackfillIds];
+    if (brandIds.length === 0) return;
+    startTransition(async () => {
+      setError(null);
+      setProductBackfillStatus(null);
+      const result = await requestCuratedProductBackfillAction(brandIds);
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+      const queued = result.outcomes.filter(
+        (outcome) => outcome.submissionId !== null,
+      ).length;
+      // "A refresh is already pending" is an ordinary answer, not a failure, so
+      // it is reported in the same status line as the successes.
+      const skipped = result.outcomes.filter((outcome) => outcome.error !== null);
+      setProductBackfillStatus(
+        [
+          queued > 0
+            ? `Queued product generation for ${queued} ${
+                queued === 1 ? "brand" : "brands"
+              }. It runs on the next worker pass.`
+            : "No brand was queued.",
+          ...skipped.map(
+            (outcome) =>
+              `${brandsById.get(outcome.brandId)?.name ?? outcome.brandId}: ${
+                outcome.error
+              }`,
+          ),
+        ].join(" "),
+      );
+      setProductBackfillIds(new Set());
+    });
+  }
+
   function handleRequestRefresh() {
     if (!refreshingBrand) return;
     startTransition(async () => {
@@ -246,21 +359,43 @@ export function BrandList({
         }}
       >
         <TabsList>
-          <TabsTrigger value="all">All ({brands.length})</TabsTrigger>
+          <TabsTrigger value="all">
+            {t("tabs.all", { count: brands.length })}
+          </TabsTrigger>
           <TabsTrigger value="approved">
-            Live ({brands.filter((b) => b.status === "approved").length})
+            {t("tabs.live", {
+              count: brands.filter((b) => b.status === "approved").length,
+            })}
           </TabsTrigger>
           <TabsTrigger value="hidden">
-            Hidden ({brands.filter((b) => b.status === "hidden").length})
+            {t("tabs.hidden", {
+              count: brands.filter((b) => b.status === "hidden").length,
+            })}
           </TabsTrigger>
         </TabsList>
       </Tabs>
 
-      {error && <p className="mt-2 type-body text-destructive">{error}</p>}
+      {error && <p className="mt-2 type-body-sm text-danger">{error}</p>}
+
+      {/*
+        A status, not an alert: "a refresh is already pending" is an ordinary
+        answer to the request, and interrupting the admin for it would be wrong.
+        Rendered unconditionally so the live region exists BEFORE it has text —
+        a region added at the same moment as its content is not announced.
+      */}
+      <p
+        role="status"
+        className={cn(
+          "type-body-sm text-ink-muted",
+          productBackfillStatus && "mt-2",
+        )}
+      >
+        {productBackfillStatus}
+      </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Input
-          placeholder="Search brand name..."
+          placeholder={t("filters.searchPlaceholder")}
           value={searchQuery}
           onChange={(e) => {
             setSearchQuery(e.target.value);
@@ -276,9 +411,9 @@ export function BrandList({
           }}
           className="w-fit"
         >
-          <option value="all">All MIT status</option>
-          <option value="unverified">MIT Unverified</option>
-          <option value="verified">MIT Smile Certified</option>
+          <option value="all">{t("filters.allMitStatus")}</option>
+          <option value="unverified">{t("mitStatus.unverified")}</option>
+          <option value="verified">{t("mitStatus.verified")}</option>
         </NativeSelect>
         <NativeSelect
           value={categoryFilter}
@@ -288,7 +423,7 @@ export function BrandList({
           }}
           className="w-fit"
         >
-          <option value="all">All categories</option>
+          <option value="all">{t("filters.allCategories")}</option>
           {categories.map((cat) => (
             <option key={cat} value={cat}>
               {cat}
@@ -296,6 +431,50 @@ export function BrandList({
           ))}
         </NativeSelect>
       </div>
+
+      {/*
+        Shown only once something is selected, like the review queue's bulk bar.
+        The label names its exact scope and its count — "Refresh" would not say
+        what runs, and a curated-product run is neither free nor instant. The
+        cost and the queue behaviour ride the accessible name rather than a
+        confirm dialog nobody would read twice.
+      */}
+      {productBackfillIds.size > 0 && (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            variant="secondary"
+            className={inkActionClassName}
+            disabled={isPending}
+            aria-label={`Generate products for ${productBackfillIds.size} selected ${
+              productBackfillIds.size === 1 ? "brand" : "brands"
+            }, of ${MAX_BULK_PRODUCT_BACKFILL} per run — opens a refresh per brand and queues one enrichment job that calls the model`}
+            onClick={handleGenerateProducts}
+          >
+            {`Generate products for ${productBackfillIds.size} selected ${
+              productBackfillIds.size === 1 ? "brand" : "brands"
+            }`}
+          </Button>
+          {/*
+            The count against the limit, shown as plain text rather than only in
+            the accessible name: the bound is the one thing a growing selection
+            has to be able to see coming.
+          */}
+          <span className="type-body-sm">
+            {`${productBackfillIds.size} of ${MAX_BULK_PRODUCT_BACKFILL} per run${
+              selectionAtCap ? " — limit reached" : ""
+            }`}
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={isPending}
+            onClick={() => setProductBackfillIds(new Set())}
+          >
+            {t("bulk.clearSelection")}
+          </Button>
+        </div>
+      )}
 
       <div
         className={surfaceCardStyles({
@@ -306,17 +485,31 @@ export function BrandList({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Brand</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>MIT</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Last updated at</TableHead>
+              <TableHead className="w-14">
+                <Label className="flex min-h-12 min-w-12 cursor-pointer items-center">
+                  <Checkbox
+                    aria-label={`Select every eligible brand on this page for product generation, up to ${MAX_BULK_PRODUCT_BACKFILL} brands per run`}
+                    checked={allVisibleSelected}
+                    indeterminate={someVisibleSelected}
+                    disabled={
+                      selectableVisible.length === 0 ||
+                      (selectionAtCap && !allVisibleSelected)
+                    }
+                    onCheckedChange={() => toggleProductBackfillPage()}
+                  />
+                </Label>
+              </TableHead>
+              <TableHead>{t("table.brand")}</TableHead>
+              <TableHead>{t("table.status")}</TableHead>
+              <TableHead>{t("table.mit")}</TableHead>
+              <TableHead>{t("table.category")}</TableHead>
+              <TableHead>{t("table.created")}</TableHead>
+              <TableHead>{t("table.lastUpdatedAt")}</TableHead>
               <TableHead className="min-w-[300px] text-right">
-                Actions
+                {t("table.actions")}
               </TableHead>
               <TableHead className="w-12">
-                <span className="sr-only">Details</span>
+                <span className="sr-only">{t("table.details")}</span>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -324,12 +517,40 @@ export function BrandList({
             {visible.map((brand) => (
               <Fragment key={brand.id}>
                 <TableRow
-                  className="cursor-pointer hover:bg-secondary"
+                  className="cursor-pointer hover:bg-surface"
+                  data-state={
+                    productBackfillIds.has(brand.id) ? "selected" : undefined
+                  }
                   onClick={(event) => {
                     if (isInteractiveTableTarget(event.target)) return;
+                    // The checkbox's own 48px hit area is a <label>, and its
+                    // padding is not an interactive element — without this, half
+                    // of every tick would also open the detail sheet.
+                    if (
+                      event.target instanceof Element &&
+                      event.target.closest("label")
+                    )
+                      return;
                     setSelectedBrandId(brand.id);
                   }}
                 >
+                  <TableCell>
+                    <Label className="flex min-h-12 min-w-12 cursor-pointer items-center">
+                      <Checkbox
+                        aria-label={
+                          selectionAtCap && !productBackfillIds.has(brand.id)
+                            ? `Cannot select ${brand.name}: product generation runs at most ${MAX_BULK_PRODUCT_BACKFILL} brands per run`
+                            : `Select ${brand.name} for product generation`
+                        }
+                        checked={productBackfillIds.has(brand.id)}
+                        disabled={
+                          !canGenerateProducts(brand) ||
+                          (selectionAtCap && !productBackfillIds.has(brand.id))
+                        }
+                        onCheckedChange={() => toggleProductBackfill(brand.id)}
+                      />
+                    </Label>
+                  </TableCell>
                   <TableCell className="max-w-[180px] font-medium">
                     <span className="block truncate">{brand.name}</span>
                     {brand.isDemo && (
@@ -340,7 +561,7 @@ export function BrandList({
                           statusStyles.demoBadge,
                         )}
                       >
-                        Demo
+                        {t("table.demo")}
                       </span>
                     )}
                   </TableCell>
@@ -351,13 +572,15 @@ export function BrandList({
                     <div className="space-y-1">
                       <MitStatusBadge status={getMitStatus(brand)} />
                       {brand.mitEvidence?.mit_smile_cert && (
-                        <p className="type-caption">
-                          Cert: {brand.mitEvidence.mit_smile_cert}
+                        <p className="type-metadata">
+                          {t("table.cert", {
+                            cert: brand.mitEvidence.mit_smile_cert,
+                          })}
                         </p>
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>{brand.category ?? "-"}</TableCell>
+                  <TableCell>{brand.categoryLabel ?? "-"}</TableCell>
                   <TableCell>{formatDate(brand.createdAt)}</TableCell>
                   <TableCell>{formatDate(brand.updatedAt)}</TableCell>
                   <TableCell className="text-right">
@@ -369,7 +592,7 @@ export function BrandList({
                           size: "compact",
                         })}
                       >
-                        View in Dashboard
+                        {t("actions.viewInDashboard")}
                       </Link>
                       {claimInviteBrandIdSet.has(brand.id) && (
                         <Button
@@ -379,7 +602,7 @@ export function BrandList({
                           disabled={isPending}
                         >
                           <MailCheck className="size-4" aria-hidden />
-                          Resend claim invite
+                          {t("actions.resendClaimInvite")}
                         </Button>
                       )}
                       {brand.status === "approved" && (
@@ -389,7 +612,7 @@ export function BrandList({
                           onClick={() => handleHide(brand)}
                           disabled={isPending}
                         >
-                          Hide
+                          {t("actions.hide")}
                         </Button>
                       )}
                       {brand.status === "hidden" && (
@@ -399,7 +622,7 @@ export function BrandList({
                           onClick={() => handleUnhide(brand)}
                           disabled={isPending}
                         >
-                          Unhide
+                          {t("actions.unhide")}
                         </Button>
                       )}
                       {(brand.status === "approved" ||
@@ -417,25 +640,38 @@ export function BrandList({
                           </DropdownMenuTrigger>
                           <DropdownMenuContent
                             align="end"
-                            className="w-40 min-w-40 rounded-lg border border-border bg-card shadow-card-hover"
+                            className="w-40 min-w-40 rounded-[3px] border border-rule bg-surface"
                           >
                             <DropdownMenuItem
                               disabled={isPending}
-                              className="text-foreground hover:bg-muted focus:bg-muted"
+                              className="text-ink hover:bg-surface focus:bg-surface"
                               onClick={() => setRefreshingBrandId(brand.id)}
                             >
-                              Request re-enrichment
+                              {t("actions.requestReenrichment")}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       )}
+                      {(brand.status === "approved" ||
+                        brand.status === "hidden") && (
+                        <Link
+                          href={routes.admin.curatedProducts({ brand: brand.slug })}
+                          aria-label={`Ingest curated products for ${brand.name}`}
+                          className={buttonVariants({
+                            variant: "secondary",
+                            size: "compact",
+                          })}
+                        >
+                          {t("actions.curatedProducts")}
+                        </Link>
+                      )}
                       <Button
                         variant="secondary"
                         size="compact"
-                        className="text-destructive hover:text-destructive"
+                        className="text-danger hover:text-danger"
                         onClick={() => setDeletingBrandId(brand.id)}
                       >
-                        Delete
+                        {t("actions.delete")}
                       </Button>
                     </div>
                   </TableCell>
@@ -463,10 +699,10 @@ export function BrandList({
             {visible.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={8}
-                  className="py-8 text-center text-muted-foreground"
+                  colSpan={9}
+                  className="py-8 text-center text-ink-muted"
                 >
-                  No brands found.
+                  {t("table.empty")}
                 </TableCell>
               </TableRow>
             )}
@@ -475,14 +711,16 @@ export function BrandList({
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="type-card-description">
-          Showing {filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}
-          –{Math.min(currentPage * pageSize, filtered.length)} of{" "}
-          {filtered.length} brands
+        <p className="type-body-sm">
+          {t("pagination.summary", {
+            from: filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1,
+            to: Math.min(currentPage * pageSize, filtered.length),
+            total: filtered.length,
+          })}
         </p>
         <div className="flex items-center gap-2">
           <NativeSelect
-            aria-label="Brands per page"
+            aria-label={t("pagination.perPageLabel")}
             value={pageSize}
             onChange={(event) => {
               setPageSize(
@@ -494,7 +732,7 @@ export function BrandList({
           >
             {PAGE_SIZES.map((size) => (
               <option key={size} value={size}>
-                {size} per page
+                {t("pagination.perPageOption", { size })}
               </option>
             ))}
           </NativeSelect>
@@ -504,11 +742,11 @@ export function BrandList({
             className="h-12 w-12 p-0"
             onClick={() => setPage((value) => Math.max(1, value - 1))}
             disabled={currentPage === 1}
-            aria-label="Previous page"
+            aria-label={t("pagination.previousPage")}
           >
             <ChevronLeft className="size-4" aria-hidden />
           </Button>
-          <span className="min-w-16 text-center type-card-description">
+          <span className="min-w-16 text-center type-body-sm">
             {currentPage} / {pageCount}
           </span>
           <Button
@@ -517,7 +755,7 @@ export function BrandList({
             className="h-12 w-12 p-0"
             onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
             disabled={currentPage === pageCount}
-            aria-label="Next page"
+            aria-label={t("pagination.nextPage")}
           >
             <ChevronRight className="size-4" aria-hidden />
           </Button>
@@ -533,7 +771,9 @@ export function BrandList({
         metadata={
           selectedBrand ? (
             <p className="type-metadata">
-              Created {formatDate(selectedBrand.createdAt)}
+              {t("detail.created", {
+                date: formatDate(selectedBrand.createdAt),
+              })}
             </p>
           ) : null
         }
@@ -552,7 +792,7 @@ export function BrandList({
         onOpenChange={(open) => {
           if (!open) setRefreshingBrandId(null);
         }}
-        title="Request re-enrichment"
+        title={t("refreshDialog.title")}
         description="A refresh will run on the next six-hour schedule and return to the submissions queue for review. The live brand will not change until the refresh is applied."
         onConfirm={handleRequestRefresh}
         confirmLabel="Request re-enrichment"
@@ -564,10 +804,10 @@ export function BrandList({
         onOpenChange={(open) => {
           if (!open) setDeletingBrandId(null);
         }}
-        title="Delete brand"
+        title={t("deleteDialog.title")}
         description="This action cannot be undone. The brand and all associated data will be permanently deleted."
         onConfirm={handleDelete}
-        confirmLabel="Delete"
+        confirmLabel="Delete this brand permanently"
         variant="destructive"
         confirmText={deletingBrand?.name}
         isPending={isPending}

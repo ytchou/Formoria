@@ -23,8 +23,8 @@ export default async function AdminReportsPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="type-section-title-large">Brand Reports</h1>
-        <p className="mt-1 type-body-muted">{t("description")}</p>
+        <h1 className="type-label">{t("title")}</h1>
+        <p className="mt-1 type-body-sm">{t("description")}</p>
       </div>
       <ReportsTable
         reports={reports}

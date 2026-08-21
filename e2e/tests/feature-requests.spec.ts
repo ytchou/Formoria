@@ -90,9 +90,9 @@ async function resolveUserId(
 }
 
 /**
- * Removes every row this spec created. `feature_requests` is not swept by
- * `global-teardown` (the `[E2E-TEST]` sweep covers brands and submissions only),
- * so each test owns its own cleanup and calls it from a `finally`.
+ * Removes every row this spec created. Global teardown also audits the
+ * `[E2E-TEST]` namespace, while this local cleanup handles merge pointers
+ * before deleting requests and fails closed on every database operation.
  */
 async function cleanupFeatureRequests(
   supabase: AnySupabaseClient,
@@ -100,27 +100,33 @@ async function cleanupFeatureRequests(
   titles: string[] = [],
 ): Promise<void> {
   if (ids.length > 0) {
-    await supabase.from('feature_request_votes').delete().in('request_id', ids);
+    const { error: voteError } = await supabase.from('feature_request_votes').delete().in('request_id', ids);
+    if (voteError) throw new Error(`[e2e-cleanup] feature request vote deletion failed: ${voteError.message}`);
     // Clear the merge pointer first: a tombstone still referencing a target we
     // are about to delete would otherwise be orphaned by the FK's SET NULL.
-    await supabase
+    const { error: mergeError } = await supabase
       .from('feature_requests')
       .update({ merged_into_id: null })
       .in('id', ids);
-    await supabase.from('feature_requests').delete().in('id', ids);
+    if (mergeError) throw new Error(`[e2e-cleanup] feature request merge reset failed: ${mergeError.message}`);
+    const { error: deleteError } = await supabase.from('feature_requests').delete().in('id', ids);
+    if (deleteError) throw new Error(`[e2e-cleanup] feature request deletion failed: ${deleteError.message}`);
   }
   for (const title of titles) {
-    const { data } = await supabase
+    const { data, error: lookupError } = await supabase
       .from('feature_requests')
       .select('id')
       .eq('title', title);
+    if (lookupError) throw new Error(`[e2e-cleanup] feature request lookup failed: ${lookupError.message}`);
     const extraIds = ((data ?? []) as { id: string }[]).map((row) => row.id);
     if (extraIds.length === 0) continue;
-    await supabase
+    const { error: extraVoteError } = await supabase
       .from('feature_request_votes')
       .delete()
       .in('request_id', extraIds);
-    await supabase.from('feature_requests').delete().in('id', extraIds);
+    if (extraVoteError) throw new Error(`[e2e-cleanup] extra feature request vote deletion failed: ${extraVoteError.message}`);
+    const { error: extraDeleteError } = await supabase.from('feature_requests').delete().in('id', extraIds);
+    if (extraDeleteError) throw new Error(`[e2e-cleanup] extra feature request deletion failed: ${extraDeleteError.message}`);
   }
 }
 
@@ -190,6 +196,16 @@ test.describe('Public feature request board', () => {
     anonPage,
   }) => {
     test.setTimeout(BUDGET.TEST.ADMIN);
+    // Deployed staging answers 403 to every anonymous mutation
+    // (`isAllowedStagingRequest` in src/lib/deployment-environment.ts allows only
+    // GET plus the /auth/* POSTs), so this journey's write cannot complete on the
+    // one environment this suite targets. Measured, not inferred: anonymous POSTs
+    // to /submit/recommend, /api/newsletter/subscribe and /api/feature-requests*
+    // all return 403 there while /auth/sign-up returns 200.
+    test.skip(
+      process.env.FORMORIA_DEPLOYMENT_ENV === 'staging',
+      'staging blocks anonymous mutations',
+    );
     const supabase = serviceClient();
     const created: string[] = [];
 

@@ -2,11 +2,13 @@ import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import SubmissionWizard from '@/components/submit/wizard/SubmissionWizard'
+import { PageShell } from '@/components/ui/page-shell'
 import { signInHref } from '@/i18n/locale-preference'
 import { buildAlternates, type Locale } from '@/lib/seo/alternates'
 import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
-import { getApprovedProductTagSuggestions } from '@/lib/services/product-tag-suggestions'
+import { getApprovedSubcategorySuggestions } from '@/lib/services/subcategory-suggestions'
 import { createClient } from '@/lib/supabase/server'
+import { routes } from '@/lib/routes'
 
 type OwnerDetailsPageProps = {
   params: Promise<{ locale: string }>
@@ -22,7 +24,7 @@ export async function generateMetadata({
   return {
     title: t('title'),
     description: t('description'),
-    alternates: buildAlternates('/submit/owner/details', locale as Locale),
+    alternates: buildAlternates(routes.submit.ownerDetails(), locale as Locale),
   }
 }
 
@@ -49,21 +51,21 @@ export default async function SubmitOwnerDetailsPage({
   }
 
   if (error || !user) {
-    redirect(signInHref('/submit/owner/details', locale))
+    redirect(signInHref(routes.submit.ownerDetails(), locale))
   }
 
-  const [t, productTagSuggestions] = await Promise.all([
+  const [t, subcategorySuggestions] = await Promise.all([
     getTranslations('submit.submissionWizard'),
-    getApprovedProductTagSuggestions(),
+    getApprovedSubcategorySuggestions(),
   ])
 
   return (
-    <div className="page-gutter mx-auto w-full max-w-6xl py-12">
-      <div className="mb-8 max-w-3xl">
-        <h1 className="text-balance type-page-title-large">{t('heading')}</h1>
-        <p className="mt-3 type-card-description">{t('subheading')}</p>
+    <PageShell measure="form" className="py-12">
+      <div className="mb-8 prose-measure">
+        <h1 className="text-balance type-page-title">{t('heading')}</h1>
+        <p className="mt-3 type-body-sm">{t('subheading')}</p>
       </div>
-      <SubmissionWizard productTagSuggestions={productTagSuggestions} />
-    </div>
+      <SubmissionWizard subcategorySuggestions={subcategorySuggestions} />
+    </PageShell>
   )
 }

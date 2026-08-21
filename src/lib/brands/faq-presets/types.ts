@@ -4,8 +4,8 @@ import type { PublicBrandFaqContext } from "@/lib/brands/contracts";
 export type EvidenceKey =
   | "mitStatus"
   | "mitStory"
-  | "productType"
-  | "productTags"
+  | "categorySlug"
+  | "subcategories"
   | "priceRange"
   | "reputationSummary"
   | "foundingYear"
@@ -60,7 +60,7 @@ export type FaqPreset = {
    * them belongs in `authorable`, not here.
    *
    * `locale` is passed because a floor can be renderable in one language and
-   * not the other (a brand with zh product tags and no English ones).
+   * not the other (a brand with zh subcategories and no English ones).
    */
   eligible: (ctx: FaqBrandContext, locale?: string) => boolean;
   /**

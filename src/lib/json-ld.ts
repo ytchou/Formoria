@@ -1,9 +1,10 @@
 import type { Locale } from "@/lib/seo/alternates";
 import { buildAlternates } from "@/lib/seo/alternates";
-import { PURCHASE_CHANNELS } from "@/lib/brands/purchase-channels";
+import { ONLINE_STORES } from "@/lib/brands/online-stores";
 import { FORMORIA_SOCIALS } from "./constants";
 import { getSiteUrl } from "./seo/site-url";
-import type { BrandChannel } from "./types/brand-channel";
+import type { Stockist } from "./types/stockist";
+import type { StockistLocation } from "./services/stockists";
 
 export type BreadcrumbItem = {
   label: string;
@@ -59,13 +60,13 @@ export function buildBrandJsonLd(
   brand: BrandJsonLdInput,
   locale: Locale = "zh-TW",
   canonicalUrl?: string,
-  channels: BrandChannel[] = [],
+  stockists: Stockist[] = [],
 ): JsonLdObject {
   const allSameAs = [
     brand.socialInstagram,
     brand.socialThreads,
     brand.socialFacebook,
-    ...PURCHASE_CHANNELS.map((channel) => brand[channel.camel]),
+    ...ONLINE_STORES.map((channel) => brand[channel.camel]),
     ...(brand.otherUrls ?? []).map((link) => link.url),
   ].filter(
     (url): url is string => typeof url === "string" && url.trim().length > 0,
@@ -85,7 +86,7 @@ export function buildBrandJsonLd(
   };
 
   const url =
-    PURCHASE_CHANNELS.map((channel) => brand[channel.camel]).find(
+    ONLINE_STORES.map((channel) => brand[channel.camel]).find(
       (value): value is string => value !== null && value !== undefined,
     ) ?? null;
   if (url) jsonLd.url = url;
@@ -93,17 +94,17 @@ export function buildBrandJsonLd(
   if (brand.foundingYear) jsonLd.foundingDate = String(brand.foundingYear);
   if (allSameAs.length > 0) jsonLd.sameAs = allSameAs;
 
-  const ownPlaces = channels
+  const ownPlaces = stockists
     .filter(
-      (channel) =>
-        channel.locationType === "direct_store" ||
-        channel.locationType === "showroom_studio",
+      (stockist) =>
+        stockist.locationType === "direct_store" ||
+        stockist.locationType === "showroom_studio",
     )
-    .map((channel) => ({
+    .map((stockist) => ({
       "@type": "Place",
-      name: channel.name,
-      ...(channel.address ? { address: channel.address } : {}),
-      ...(channel.url ? { url: channel.url } : {}),
+      name: stockist.name,
+      ...(stockist.address ? { address: stockist.address } : {}),
+      ...(stockist.url ? { url: stockist.url } : {}),
     }));
   if (ownPlaces.length > 0) jsonLd.location = ownPlaces;
 
@@ -260,8 +261,8 @@ export function buildOrganizationJsonLd(locale?: string): JsonLdObject {
     logo: `${siteUrl}/images/formoria-mark.png`,
     description:
       inLanguage === "zh-TW"
-        ? "Formoria 是台灣品牌探索與選物平台，讓台灣品牌更容易被看見、被選擇，也更容易成長。"
-        : "Formoria is a Taiwanese brand discovery and curation platform that makes brands easier to discover, choose, and grow.",
+        ? "Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。Formoria 負責靈感、選擇、脈絡與前往外部通路的路徑；品牌或零售通路負責價格、規格選項、庫存、結帳、出貨與售後服務。"
+        : "Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it. Formoria owns inspiration, selection, context, and the outbound route. Brands or retailers remain responsible for price, variants, inventory, checkout, fulfilment, and after-sales service.",
     inLanguage,
     ...(FORMORIA_SOCIALS.length > 0 ? { sameAs: FORMORIA_SOCIALS } : {}),
   };
@@ -276,6 +277,7 @@ export function buildArticleJsonLd({
   path,
   locale,
   author,
+  image,
 }: {
   title: string;
   description: string;
@@ -283,11 +285,27 @@ export function buildArticleJsonLd({
   locale?: string;
   /** Visible byline, when the story names one. Falls back to the publisher. */
   author?: string;
+  /**
+   * The entry's lead image — the same file the page renders as its LCP element.
+   * A repo-relative path (`/images/…`) is absolutised below; an absolute URL is
+   * passed through. Absent or blank emits no `image` key at all.
+   */
+  image?: string | null;
 }): JsonLdObject {
   const siteUrl = getSiteUrl();
   const absoluteUrl = `${siteUrl}${path.startsWith("/") ? path : `/${path}`}`;
+  // Structured data has no page to resolve a relative reference against, so a
+  // leading-slash repo path is meaningless there even though it renders fine in
+  // the `<img>`. Resolved once here rather than at each caller, because both
+  // callers hold exactly the same kind of value.
+  const trimmedImage = image?.trim();
+  const imageUrl = trimmedImage
+    ? trimmedImage.startsWith("/")
+      ? `${siteUrl}${trimmedImage}`
+      : trimmedImage
+    : null;
 
-  return {
+  const jsonLd: JsonLdObject = {
     "@context": "https://schema.org",
     "@type": "Article",
     headline: title,
@@ -303,6 +321,12 @@ export function buildArticleJsonLd({
     publisher: buildOrganizationJsonLd(locale),
     isPartOf: buildWebSiteJsonLd(locale === "zh-TW" ? "zh-TW" : "en"),
   };
+
+  // Conditional, exactly like `buildEventJsonLd`'s `imageUrl`: an empty string
+  // is reported by Google as an invalid value, which is worse than no key.
+  if (imageUrl) jsonLd.image = imageUrl;
+
+  return jsonLd;
 }
 
 export type EventJsonLdInput = {
@@ -409,6 +433,41 @@ export function buildEventJsonLd({
   }
 
   return jsonLd;
+}
+
+export function buildStockistItemListJsonLd({
+  locations,
+  cityName,
+  canonicalUrl,
+}: {
+  locations: StockistLocation[];
+  cityName: string;
+  canonicalUrl: string;
+}): JsonLdObject {
+  const places = locations.filter(
+    (location): location is StockistLocation & { address: string } =>
+      Boolean(location.address),
+  );
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    numberOfItems: places.length,
+    itemListElement: places.map((location, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      item: {
+        "@type": "Place",
+        "@id": `${canonicalUrl}#stockist-${location.id}`,
+        name: location.name,
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: location.address,
+          addressLocality: cityName,
+          addressCountry: "TW",
+        },
+      },
+    })),
+  };
 }
 
 export type FaqQuestion = {

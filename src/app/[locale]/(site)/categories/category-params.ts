@@ -1,12 +1,12 @@
 import {
-  PRODUCT_TYPE_CATEGORIES,
+  L1_CATEGORIES,
   subcategoryBySlug,
-  type ProductSubcategory,
+  type L2Subcategory,
 } from '@/lib/taxonomy/ontology'
 
 export type CategoryRouteResolution = {
-  category: (typeof PRODUCT_TYPE_CATEGORIES)[number]
-  subcategory: ProductSubcategory | null
+  category: (typeof L1_CATEGORIES)[number]
+  subcategory: L2Subcategory | null
 }
 export function resolveCategoryRouteParams({
   categorySlug,
@@ -15,7 +15,7 @@ export function resolveCategoryRouteParams({
   categorySlug: string
   subcategorySlug?: string
 }): CategoryRouteResolution | null {
-  const category = PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === categorySlug)
+  const category = L1_CATEGORIES.find((item) => item.slug === categorySlug)
   if (!category) return null
 
   if (!subcategorySlug) return { category, subcategory: null }

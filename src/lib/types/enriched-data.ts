@@ -2,6 +2,59 @@ import type { Json } from "@/lib/supabase/database.types";
 import type { OtherUrl } from "@/lib/types/brand";
 
 /**
+ * One provenance citation on a proposed product. Mirrors
+ * `curatedProductSourceSchema` in `@/lib/validation/curated-product` minus its
+ * `id` — a proposal has no row yet — and stays a plain type rather than a second
+ * schema, so the bounds and the `source_type` CHECK list keep exactly one owner.
+ */
+export type CuratedProductProposalSource = {
+  url: string;
+  /** One of `CURATED_PRODUCT_SOURCE_TYPES`; the enum is enforced at validation. */
+  sourceType: string;
+  claimZh?: string;
+};
+
+/**
+ * One product an enrichment run proposes from the brand's own site. Proposals
+ * ride the submission's `enriched_data` blob until a moderator ticks the keepers
+ * in the existing submission review; approval is what materializes
+ * `curated_products` rows.
+ *
+ * Shaped like `channels`: the blob's TOP-LEVEL keys are snake_case, its object
+ * arrays are camelCase passthrough. No per-item key transform in either
+ * direction, so a round trip is lossless by construction.
+ *
+ * NO COMMERCE TRUTH, ever: no price, stock, inventory, discount, availability,
+ * offer or variant field. Anything a transaction or an inventory event can
+ * change is linked to through `officialUrl` instead of copied here.
+ *
+ * No gifting and no customization field either — DEV-1506 ruled there is no such
+ * facet at any taxonomy level, so a proposal has nowhere to put one.
+ */
+export type CuratedProductProposal = {
+  /** Stable within one brand; becomes `curated_products.key`. */
+  key: string;
+  nameZh: string;
+  nameEn?: string;
+  /** L1 category slug. */
+  category: string;
+  subcategories: string[];
+  /**
+   * Slugs from the closed `MATERIALS` vocabulary. Deliberately `string[]` and
+   * not the union: this is a wire payload, and the vocabulary check belongs to
+   * the enrichment phase and the service that writes the rows, not to a type
+   * that only describes what a JSONB blob may hold.
+   */
+  material: string[];
+  officialUrl: string;
+  /** The page an image was taken from, kept so usage rights stay re-checkable. */
+  imageSourceUrl?: string;
+  /** The one editorial text field a curated product carries (DEV-1496). */
+  productDescriptionZh: string;
+  sources: CuratedProductProposalSource[];
+};
+
+/**
  * FAQ deliberately has no field here. The dedicated `faq` phase writes
  * `brand_faq_entries` directly, behind the preset validators; carrying a copy
  * on this blob would be a second, unvalidated write door into the same table.
@@ -12,16 +65,15 @@ export type EnrichedData = {
   blurb?: string;
   blurbEn?: string;
   city?: string;
-  categoryAttributes?: Json;
   reputationSummary?: Json;
   mitEvidence?: Json;
   siteContent?: Json;
   foundingYear?: number;
   heroImageUrl?: string;
-  productType?: string;
+  categorySlug?: string;
   priceRange?: number;
-  productTags?: string[];
-  productTagsEn?: string[];
+  subcategories?: string[];
+  subcategoriesEn?: string[];
   socialInstagram?: string;
   socialThreads?: string;
   socialFacebook?: string;
@@ -30,6 +82,12 @@ export type EnrichedData = {
   purchaseShopee?: string;
   purchaseMyship?: string;
   otherUrls?: OtherUrl[];
+  /**
+   * Curated-product proposals from the enrichment run (DEV-1469). Absent means
+   * "this run proposed nothing about products"; an empty array is a different
+   * statement and no transform invents one.
+   */
+  products?: CuratedProductProposal[];
   name?: string;
 };
 
@@ -50,7 +108,7 @@ function getEnrichmentCompleteness(
   const complete =
     hasText(enrichedData.description) &&
     (hasText(enrichedData.heroImageUrl) || hasText(heroImageUrl)) &&
-    hasText(enrichedData.productType);
+    hasText(enrichedData.categorySlug);
 
   if (complete) return "complete";
   return "partial";
@@ -81,9 +139,6 @@ export function enrichedDataFromDb(
     ...(typeof json.blurb === "string" ? { blurb: json.blurb } : {}),
     ...(typeof json.blurb_en === "string" ? { blurbEn: json.blurb_en } : {}),
     ...(typeof json.city === "string" ? { city: json.city } : {}),
-    ...(json.category_attributes !== undefined
-      ? { categoryAttributes: json.category_attributes as Json }
-      : {}),
     ...(json.reputation_summary !== undefined
       ? { reputationSummary: json.reputation_summary as Json }
       : {}),
@@ -100,17 +155,17 @@ export function enrichedDataFromDb(
     ...(typeof json.hero_image_url === "string"
       ? { heroImageUrl: json.hero_image_url }
       : {}),
-    ...(typeof json.product_type === "string"
-      ? { productType: json.product_type }
+    ...(typeof json.category === "string"
+      ? { categorySlug: json.category }
       : {}),
     ...(typeof json.price_range === "number"
       ? { priceRange: json.price_range }
       : {}),
-    ...(Array.isArray(json.product_tags)
-      ? { productTags: json.product_tags as string[] }
+    ...(Array.isArray(json.subcategories)
+      ? { subcategories: json.subcategories as string[] }
       : {}),
-    ...(Array.isArray(json.product_tags_en)
-      ? { productTagsEn: json.product_tags_en as string[] }
+    ...(Array.isArray(json.subcategories_en)
+      ? { subcategoriesEn: json.subcategories_en as string[] }
       : {}),
     ...(typeof json.social_instagram === "string"
       ? { socialInstagram: json.social_instagram }
@@ -132,6 +187,9 @@ export function enrichedDataFromDb(
       : {}),
     ...(typeof json.purchase_myship === "string"
       ? { purchaseMyship: json.purchase_myship }
+      : {}),
+    ...(Array.isArray(json.products)
+      ? { products: json.products as CuratedProductProposal[] }
       : {}),
     ...(Array.isArray(json.other_urls)
       ? {
@@ -155,8 +213,6 @@ export function enrichedDataToDb(data: EnrichedData): Record<string, unknown> {
   if (data.blurb !== undefined) result.blurb = data.blurb;
   if (data.blurbEn !== undefined) result.blurb_en = data.blurbEn;
   if (data.city !== undefined) result.city = data.city;
-  if (data.categoryAttributes !== undefined)
-    result.category_attributes = data.categoryAttributes;
   if (data.reputationSummary !== undefined)
     result.reputation_summary = data.reputationSummary;
   if (data.mitEvidence !== undefined) result.mit_evidence = data.mitEvidence;
@@ -165,11 +221,12 @@ export function enrichedDataToDb(data: EnrichedData): Record<string, unknown> {
   if (data.name !== undefined) result.name = data.name;
   if (data.heroImageUrl !== undefined)
     result.hero_image_url = data.heroImageUrl;
-  if (data.productType !== undefined) result.product_type = data.productType;
+  if (data.categorySlug !== undefined) result.category = data.categorySlug;
   if (data.priceRange !== undefined) result.price_range = data.priceRange;
-  if (data.productTags !== undefined) result.product_tags = data.productTags;
-  if (data.productTagsEn !== undefined)
-    result.product_tags_en = data.productTagsEn;
+  if (data.subcategories !== undefined)
+    result.subcategories = data.subcategories;
+  if (data.subcategoriesEn !== undefined)
+    result.subcategories_en = data.subcategoriesEn;
   if (data.socialInstagram !== undefined)
     result.social_instagram = data.socialInstagram;
   if (data.socialThreads !== undefined)
@@ -185,5 +242,6 @@ export function enrichedDataToDb(data: EnrichedData): Record<string, unknown> {
   if (data.purchaseMyship !== undefined)
     result.purchase_myship = data.purchaseMyship;
   if (data.otherUrls !== undefined) result.other_urls = data.otherUrls;
+  if (data.products !== undefined) result.products = data.products;
   return result;
 }

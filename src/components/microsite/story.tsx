@@ -1,3 +1,4 @@
+import { PageShell } from "@/components/ui/page-shell";
 import type { PublicMicrositeBrand } from "@/lib/brands/contracts";
 
 type StoryProps = {
@@ -11,21 +12,22 @@ export function Story({ brand, story }: StoryProps) {
   }
 
   return (
-    <section
-      className="px-6 py-12 md:px-10 md:py-16"
-      aria-labelledby="microsite-story"
-    >
-      <div className="mx-auto max-w-[1280px]">
-        <div className="max-w-3xl space-y-4">
-          <h2 id="microsite-story" className="type-section-title">
+    <section className="py-12 md:py-16" aria-labelledby="microsite-story">
+      {/* Gutter and measure both from the shell — see `hero.tsx`. The reading
+        column inside it keeps its own cap, now named: the hand-written cap it
+        replaces was already 48rem, so `prose-measure` is the same width with a
+        reason attached. */}
+      <PageShell measure="page">
+        <div className="prose-measure space-y-gutter">
+          <h2 id="microsite-story" className="type-section">
             品牌故事
           </h2>
-          <p className="type-body-muted">{story}</p>
+          <p className="type-body">{story}</p>
           {brand.foundingYear && (
-            <p className="type-form-hint">創立於 {brand.foundingYear}</p>
+            <p className="type-metadata">創立於 {brand.foundingYear}</p>
           )}
         </div>
-      </div>
+      </PageShell>
     </section>
   );
 }

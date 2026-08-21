@@ -57,7 +57,7 @@
     .frame {
       position: absolute;
       inset: 0;
-      padding: 72px 80px 0 80px;
+      padding: 80px 80px 0 80px;
       display: flex;
       flex-direction: column;
       color: {{TEXT}};
@@ -86,7 +86,7 @@
       font-size: 16px;
       font-weight: 400;
       color: {{TEXT}};
-      opacity: 0.67;
+      opacity: 0.78;
       line-height: 1;
     }
 
@@ -101,7 +101,7 @@
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      margin-bottom: 88px;
+      margin-bottom: 96px;
     }
 
     /* Tag pill */
@@ -109,12 +109,12 @@
       display: inline-flex;
       align-self: flex-start;
       padding: 8px 16px;
-      border: 1.5px solid {{TAG_BORDER}};
+      border: 1px solid {{TAG_BORDER}};
       color: {{TAG_TEXT}};
       border-radius: 999px;
       font-size: 18px;
       font-weight: 500;
-      margin-bottom: 28px;
+      margin-bottom: 24px;
     }
 
     .tag:empty {
@@ -129,7 +129,7 @@
       line-height: 1.22;
       max-width: 920px;
       color: {{TEXT}};
-      margin-bottom: 36px;
+      margin-bottom: 32px;
     }
 
     /* Inverted CTA button */
@@ -139,11 +139,12 @@
       background: {{CTA_BTN_BG}};
       color: {{CTA_BTN_TEXT}};
       padding: 20px 40px;
-      border-radius: 6px;
+      /* 4px on controls — a paper edge, not app chrome. */
+      border-radius: 4px;
       font-size: 24px;
       font-weight: 700;
       text-decoration: none;
-      margin-bottom: 20px;
+      margin-bottom: 24px;
     }
 
     /* Per-platform note */
@@ -151,7 +152,7 @@
       font-size: 18px;
       font-weight: 400;
       color: {{TEXT}};
-      opacity: 0.80;
+      opacity: 0.90;
     }
 
     /* Layer 5: Bottom strip */
@@ -172,7 +173,7 @@
       font-size: 13px;
       font-weight: 400;
       color: {{TEXT}};
-      opacity: 0.8;
+      opacity: 0.85;
       white-space: nowrap;
     }
 

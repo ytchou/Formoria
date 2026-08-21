@@ -31,6 +31,7 @@ jobs:
   link-cleanup:
     name: Remove proven-dead brand links
     runs-on: ubuntu-latest
+    environment: "Formoria / production"
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

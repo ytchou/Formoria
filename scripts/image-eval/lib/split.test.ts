@@ -3,13 +3,13 @@ import { countSplits, splitRoster } from "./split";
 import { EVAL_CATEGORY_SLUGS, type GoldenRosterBrand } from "./types";
 
 function brands(): Omit<GoldenRosterBrand, "split">[] {
-  return EVAL_CATEGORY_SLUGS.flatMap((productType) =>
+  return EVAL_CATEGORY_SLUGS.flatMap((categorySlug) =>
     Array.from({ length: 5 }, (_, index) => ({
-      id: `${productType}-${index}`,
-      slug: `${productType}-${index}`,
-      name: `${productType} brand ${index}`,
-      productType,
-      purchaseWebsite: `https://${productType}-${index}.example`,
+      id: `${categorySlug}-${index}`,
+      slug: `${categorySlug}-${index}`,
+      name: `${categorySlug} brand ${index}`,
+      categorySlug,
+      purchaseWebsite: `https://${categorySlug}-${index}.example`,
     })),
   );
 }
@@ -23,7 +23,7 @@ describe("golden brand split", () => {
 
     for (const category of EVAL_CATEGORY_SLUGS) {
       const categoryBrands = first.filter(
-        (brand) => brand.productType === category,
+        (brand) => brand.categorySlug === category,
       );
       expect(categoryBrands.some((brand) => brand.split === "dev")).toBe(true);
       expect(categoryBrands.some((brand) => brand.split === "holdout")).toBe(

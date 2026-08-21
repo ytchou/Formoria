@@ -7,6 +7,8 @@ import { buildOpenGraph } from '@/lib/seo/open-graph'
 import { Link } from '@/i18n/navigation'
 import { FaqSection } from '@/components/shared/faq-section'
 import { OpenTargetDetails } from '@/components/shared/open-target-details'
+import { PageShell } from '@/components/ui/page-shell'
+import { routes } from '@/lib/routes'
 
 type PageProps = {
   params: Promise<{ locale: string }>
@@ -21,7 +23,7 @@ export async function generateMetadata({
   const t = await getTranslations('faq.metadata')
   const title = t('title')
   const description = t('description')
-  const { canonical, languages } = buildAlternates('/faq', safeLocale)
+  const { canonical, languages } = buildAlternates(routes.faq(), safeLocale)
   const ogLocale = safeLocale === 'en' ? 'en_US' : 'zh_TW'
   const ogAlternateLocale = safeLocale === 'en' ? 'zh_TW' : 'en_US'
 
@@ -46,6 +48,8 @@ export default async function FaqPage({ params }: PageProps) {
 
   const generalItemKeys = [
     'whatIsFormoria',
+    'listingVsSelection',
+    'purchaseThroughFormoria',
     'taiwaneseBrandCriteria',
     'notListedBrands',
     'whoCanSubmit',
@@ -60,11 +64,11 @@ export default async function FaqPage({ params }: PageProps) {
   ] as const
 
   return (
-    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
+    <PageShell as="main" measure="page" className="py-10">
       <OpenTargetDetails />
       <div className="grid gap-10 md:grid-cols-5 md:gap-16">
         <aside className="space-y-4 md:sticky md:top-(--nav-height) md:self-start">
-          <h1 id="faq-heading" className="type-page-title">
+          <h1 id="faq-heading" className="type-section">
             {t('title')}
           </h1>
           <nav
@@ -73,21 +77,21 @@ export default async function FaqPage({ params }: PageProps) {
           >
             <a
               href="#general"
-              className="flex min-h-12 items-center px-3 type-nav-item focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-h-12 items-center px-3 type-nav hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {t('sections.general')}
             </a>
             <a
               href="#for-owners"
-              className="flex min-h-12 items-center px-3 type-nav-item focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-h-12 items-center px-3 type-nav hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {t('sections.forOwners')}
             </a>
           </nav>
-          <p className="type-body-muted">
+          <p className="type-body-sm">
             {t.rich('intro', {
               contact: (chunks) => (
-                <Link href="/contact" className="type-link">
+                <Link href={routes.contact()} className="type-nav font-semibold text-accent underline-offset-4 hover:underline">
                   {chunks}
                 </Link>
               ),
@@ -103,24 +107,24 @@ export default async function FaqPage({ params }: PageProps) {
             <div className="divide-y divide-border">
               {generalItemKeys.map((key, i) => (
                 <details key={i} className="group scroll-mt-24 py-5">
-                  <summary className="flex cursor-pointer list-none items-center justify-between type-faq-question [&::-webkit-details-marker]:hidden">
+                  <summary className="flex cursor-pointer list-none items-center justify-between type-card-title [&::-webkit-details-marker]:hidden">
                     {t(`items.${key}.question`)}
                     <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
                   </summary>
-                  <p className="mt-3 type-body-muted">
+                  <p className="mt-3 prose-measure type-body-sm">
                     {t(`items.${key}.answer`)}
                   </p>
                 </details>
               ))}
               <details className="group py-5">
-                <summary className="flex cursor-pointer list-none items-center justify-between type-faq-question [&::-webkit-details-marker]:hidden">
+                <summary className="flex cursor-pointer list-none items-center justify-between type-card-title [&::-webkit-details-marker]:hidden">
                   {t('items.contact.question')}
                   <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
                 </summary>
-                <p className="mt-3 type-body-muted">
+                <p className="mt-3 prose-measure type-body-sm">
                   {t.rich('items.contact.answer', {
                     link: (chunks) => (
-                      <Link href="/contact" className="underline underline-offset-4">
+                      <Link href={routes.contact()} className="underline underline-offset-4">
                         {chunks}
                       </Link>
                     ),
@@ -131,19 +135,21 @@ export default async function FaqPage({ params }: PageProps) {
           </FaqSection>
           <FaqSection id="for-owners" title={t('sections.forOwners')}>
             <div className="divide-y divide-border">
-              {/* Owner self-serve is not open yet, so the whole section is one
-                  interest-collection item. `id="claim"` is kept so legacy
-                  /faq#claim deep links still land on an answer. */}
+              {/* Brand claiming is live (`ClaimBrandCta` on the brand page), so
+                  this answer describes the claim flow; the remaining owner
+                  features are still collected via the feature-request link.
+                  `id="claim"` is kept so legacy /faq#claim deep links still
+                  land on an answer. */}
               <details id="claim" className="group scroll-mt-24 py-5">
-                <summary className="flex cursor-pointer list-none items-center justify-between type-faq-question [&::-webkit-details-marker]:hidden">
+                <summary className="flex cursor-pointer list-none items-center justify-between type-card-title [&::-webkit-details-marker]:hidden">
                   {t('items.ownerInterest.question')}
                   <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
                 </summary>
-                <p className="mt-3 type-body-muted">
+                <p className="mt-3 prose-measure type-body-sm">
                   {t.rich('items.ownerInterest.answer', {
                     link: (chunks) => (
                       <Link
-                        href="/feature-requests"
+                        href={routes.featureRequests()}
                         className="underline underline-offset-4"
                       >
                         {chunks}
@@ -156,6 +162,6 @@ export default async function FaqPage({ params }: PageProps) {
           </FaqSection>
         </div>
       </div>
-    </main>
+    </PageShell>
   )
 }

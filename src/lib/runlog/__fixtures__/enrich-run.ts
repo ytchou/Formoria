@@ -65,7 +65,7 @@ export const enrichRunFixture = {
           timestamp: "2026-07-15T02:00:03.100Z",
           actor: "LLM",
           name: "chat.completion",
-          summary: "Classified brand and product type",
+          summary: "Classified brand category and subcategories",
           status: "ok",
           model: LLM_MODELS.text,
           tokens: { input: 2_100, output: 410, total: 2_510 },

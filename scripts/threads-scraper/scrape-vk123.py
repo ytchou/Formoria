@@ -18,7 +18,7 @@ from bs4 import BeautifulSoup
 OUTPUT_DIR = Path(__file__).parent / "output"
 OUTPUT_FILE = OUTPUT_DIR / "vk123-mit-brands.json"
 
-# Blog category → productTypes slug mapping
+# Blog category → categories slug mapping
 CATEGORY_MAP = {
     "鞋": "fashion",
     "shoes": "fashion",
@@ -51,12 +51,13 @@ CATEGORY_MAP = {
     "beauty": "beauty",
     "skincare": "beauty",
     "保養": "beauty",
-    "母嬰": "kids-pets",
-    "baby": "kids-pets",
-    "parenting": "kids-pets",
-    "童": "kids-pets",
-    "寵物": "kids-pets",
-    "pets": "kids-pets",
+    "母嬰": "kids",
+    "baby": "kids",
+    "parenting": "kids",
+    "童": "kids",
+    # pets is a separate L1 since DEV-1510 — never route a pet keyword to kids.
+    "寵物": "pets",
+    "pets": "pets",
     "健康": "outdoor",
     "health": "outdoor",
     "biotech": "outdoor",
@@ -77,8 +78,8 @@ SKIP_CATEGORIES = {"curation", "retail", "選品", "平台", "物流", "logistic
                    "更新歷程", "留言", "回應", "akismet"}
 
 
-def guess_product_type(category_text: str) -> str:
-    """Map a blog section heading to a productTypes slug."""
+def guess_category(category_text: str) -> str:
+    """Map a blog section heading to a categories slug."""
     lower = category_text.lower()
     for keyword, slug in CATEGORY_MAP.items():
         if keyword in lower:
@@ -99,7 +100,7 @@ def extract_ig_url(handle: str) -> str:
     return ""
 
 
-def parse_brand_line(text: str, current_category: str, product_type: str) -> dict | None:
+def parse_brand_line(text: str, current_category: str, category: str) -> dict | None:
     """Parse a single brand entry line into a brand dict."""
     if not text.strip():
         return None
@@ -159,8 +160,8 @@ def parse_brand_line(text: str, current_category: str, product_type: str) -> dic
     if instagram:
         entry["instagram"] = instagram
 
-    if product_type:
-        entry["productType"] = product_type
+    if category:
+        entry["categorySlug"] = category
 
     return entry
 
@@ -184,7 +185,7 @@ def scrape_blog():
 
     brands = []
     current_category = ""
-    current_product_type = ""
+    current_category = ""
     seen_names = set()
 
     # Walk through all elements looking for headings (categories) and list items (brands)
@@ -196,10 +197,10 @@ def scrape_blog():
             heading_text = el.get_text(strip=True)
             if should_skip_category(heading_text):
                 current_category = ""
-                current_product_type = ""
+                current_category = ""
                 continue
             current_category = heading_text
-            current_product_type = guess_product_type(heading_text)
+            current_category = guess_category(heading_text)
             continue
 
         if not current_category:
@@ -220,7 +221,7 @@ def scrape_blog():
             elif href.startswith("http") and "vk123" not in href:
                 link_url = href
 
-        brand = parse_brand_line(text, current_category, current_product_type)
+        brand = parse_brand_line(text, current_category, current_category)
         if brand:
             if link_url and "url" not in brand:
                 brand["url"] = link_url
@@ -246,16 +247,16 @@ def main():
 
     print(f"\nExtracted {len(brands)} brands to {OUTPUT_FILE}", file=sys.stderr)
 
-    # Summary by product type
+    # Summary by category
     by_type: dict[str, int] = {}
     no_url = 0
     for b in brands:
-        pt = b.get("productType", "(unmapped)")
+        pt = b.get("categorySlug", "(unmapped)")
         by_type[pt] = by_type.get(pt, 0) + 1
         if "url" not in b and "instagram" not in b:
             no_url += 1
 
-    print("\nBy productType:", file=sys.stderr)
+    print("\nBy categorySlug:", file=sys.stderr)
     for pt, count in sorted(by_type.items(), key=lambda x: -x[1]):
         print(f"  {pt}: {count}", file=sys.stderr)
     print(f"\n{no_url} brands with no URL or Instagram", file=sys.stderr)

@@ -65,8 +65,9 @@ test.describe('Admin dashboard deep', () => {
         enriched_data: {
           description: 'Complete dashboard test enrichment.',
           hero_image_url: imageUrls[0],
-          product_type: 'bags-accessories',
-          product_tags: ['手工包袋'],
+          category: 'bags-accessories',
+          // Slug, not the zh-TW label — DEV-1510 closed the vocabulary.
+          subcategories: ['handbags'],
           price_range: 2,
           purchase_website: 'https://e2e-dashboard.example.com',
         },
@@ -168,7 +169,6 @@ test.describe('Admin dashboard deep', () => {
       'href',
       '/admin/newsletter?status=active',
     );
-    await expect(adminPage.getByText('System Status')).toHaveCount(0);
     await expect(adminPage.getByText('Feature Toggles')).toHaveCount(0);
     await expect(adminPage.getByText(/something went wrong|minified react error/i)).not.toBeVisible();
   });

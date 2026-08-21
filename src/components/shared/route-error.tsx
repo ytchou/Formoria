@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import * as Sentry from '@sentry/nextjs'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import { PageShell } from '@/components/ui/page-shell'
 
 /**
  * A tab left open across a deploy posts a Server Action ID the new build no
@@ -32,7 +33,7 @@ export function RouteError({
   reset,
   titleKey = 'boundary.title',
   descriptionKey = 'boundary.description',
-  titleClassName = 'type-page-title',
+  titleClassName = 'type-section',
 }: RouteErrorProps) {
   const t = useTranslations('errors')
   const isStale = isDeploymentSkewError(error)
@@ -44,21 +45,27 @@ export function RouteError({
   }, [error, isStale])
 
   return (
-    <main className="page-gutter mx-auto flex max-w-screen-xl flex-col items-center justify-center py-24 text-center">
+    // `prose`, not `page`: this is one centred sentence and a button. On the
+    // page measure the line would run the full 1472px of content, which is
+    // three times the length anything here reads at.
+    <PageShell
+      as="main"
+      measure="prose"
+      className="flex flex-col items-center justify-center py-section text-center"
+    >
       <h1 className={titleClassName}>
         {isStale ? t('boundary.staleTitle') : t(titleKey)}
       </h1>
-      <p className="mt-3 type-card-description">
+      <p className="mt-3 type-body-sm">
         {isStale ? t('boundary.staleDescription') : t(descriptionKey)}
       </p>
       <Button
         variant="primary"
-        tone="cta"
         onClick={isStale ? () => window.location.reload() : reset}
         className="mt-6"
       >
         {isStale ? t('boundary.staleRetry') : t('boundary.retry')}
       </Button>
-    </main>
+    </PageShell>
   )
 }

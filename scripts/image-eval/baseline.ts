@@ -9,7 +9,7 @@ import {
   IMAGE_CLASSIFY_SYSTEM_PROMPT,
   LEGACY_IMAGE_CLASSIFY_SYSTEM_PROMPT,
 } from "@/lib/prompts";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { buildBrandContext } from "@/lib/services/enrich-phases/classify-images";
 import { createImageEvalSignedUrls } from "@/lib/services/image-eval-storage";
 import {
@@ -314,7 +314,7 @@ function brandContext(
   prompt: "legacy" | "current",
 ): string {
   if (prompt === "legacy") {
-    const category = PRODUCT_TYPE_CATEGORIES.find(
+    const category = L1_CATEGORIES.find(
       (candidate) => candidate.slug === entry.category,
     )?.nameZh;
     return category
@@ -329,7 +329,7 @@ function brandContext(
   // manifest with the link columns before reading that number as production's.
   return buildBrandContext({
     name: entry.brandName,
-    productType: entry.category,
+    categorySlug: entry.category,
     website: null,
   });
 }

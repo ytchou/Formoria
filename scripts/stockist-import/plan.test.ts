@@ -9,8 +9,6 @@ function row(overrides: Partial<StockistCsvRow> = {}): StockistCsvRow {
     brand_slug: 'hanchor',
     name: '登山友',
     location_type: 'stockist',
-    channel_type: 'offline',
-    category_label: 'outdoor',
     region_label: '臺北市',
     address: '臺北市中正區中山北路一段18號',
     url: '',

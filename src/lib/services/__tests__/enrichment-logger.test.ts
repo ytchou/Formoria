@@ -6,7 +6,6 @@ import {
   formatEnrichPatchField,
   formatJobStart,
   formatJobSummary,
-  ENRICH_PREFIX,
   SEPARATOR,
   logEnrichmentProgress,
   type EnrichmentSummary,
@@ -17,10 +16,6 @@ afterEach(() => {
 })
 
 describe('enrichment-logger', () => {
-  it('exports the enrichment log prefix', () => {
-    expect(ENRICH_PREFIX).toBe('[ENRICH]')
-  })
-
   describe('formatPhaseProgress', () => {
     it('formats successful phase with brand and phase counters', () => {
       const result = formatPhaseProgress({
@@ -80,8 +75,8 @@ describe('enrichment-logger', () => {
     })
 
     it('formats an enrichment patch field with compact values', () => {
-      expect(formatEnrichPatchField('productTags', ['handmade', 'local'])).toBe(
-        '  [ENRICH] productTags: [2 items]',
+      expect(formatEnrichPatchField('subcategories', ['handmade', 'local'])).toBe(
+        '  [ENRICH] subcategories: [2 items]',
       )
       expect(formatEnrichPatchField('description', 'a'.repeat(61))).toBe(
         `  [ENRICH] description: ${'a'.repeat(60)}…`,

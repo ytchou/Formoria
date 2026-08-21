@@ -5,9 +5,11 @@ import { Link } from "@/i18n/navigation";
 import { OwnerBenefitsSection } from "@/components/getting-started/OwnerBenefitsSection";
 import { buttonVariants } from "@/components/ui/button";
 import { surfaceCardStyles } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
 import { buildOpenGraph } from "@/lib/seo/open-graph";
+import { routes } from "@/lib/routes";
 
 export const revalidate = 86400;
 
@@ -25,7 +27,7 @@ export async function generateMetadata({
   const title = t("title");
   const description = t("description");
   const { canonical, languages } = buildAlternates(
-    "/getting-started",
+    routes.gettingStarted(),
     safeLocale,
   );
   const ogLocale = safeLocale === "en" ? "en_US" : "zh_TW";
@@ -55,28 +57,28 @@ export default async function GettingStartedPage({ params }: PageProps) {
   const stepCtas: Partial<
     Record<(typeof steps)[number], { href: string; label: string }>
   > = {
-    discover: { href: "/brands", label: t("steps.discover.cta") },
-    submit: { href: "/brands", label: t("steps.submit.cta") },
+    discover: { href: routes.brands(), label: t("steps.discover.cta") },
+    submit: { href: routes.brands(), label: t("steps.submit.cta") },
   };
 
   return (
-    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
+    <PageShell as="main" measure="page" className="py-10">
       <section className="grid gap-8 border-b border-border pb-10 md:grid-cols-[minmax(0,1fr)_18rem] md:items-end">
-        <div className="max-w-3xl">
+        <div className="prose-measure">
           <p className="type-eyebrow">{t("hero.eyebrow")}</p>
-          <h1 className="mt-3 type-hero">{t("hero.title")}</h1>
-          <p className="mt-4 max-w-2xl type-page-subtitle">{t("hero.intro")}</p>
+          <h1 className="mt-3 type-display">{t("hero.title")}</h1>
+          <p className="mt-4 type-body">{t("hero.intro")}</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row md:flex-col">
           <Link
-            href="/brands"
-            className={buttonVariants({ variant: "primary", tone: "cta" })}
+            href={routes.brands()}
+            className={buttonVariants({ variant: "primary" })}
           >
             {t("hero.primaryCta")}
             <ArrowRight aria-hidden="true" className="size-4" />
           </Link>
           <Link
-            href="/faq"
+            href={routes.faq()}
             className={buttonVariants({ variant: "secondary" })}
           >
             {t("hero.secondaryCta")}
@@ -85,20 +87,20 @@ export default async function GettingStartedPage({ params }: PageProps) {
       </section>
 
       <section className="py-10">
-        <h2 className="type-section-title-large">{t("steps.heading")}</h2>
+        <h2 className="type-section">{t("steps.heading")}</h2>
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           {steps.map((step, index) => {
             const cta = stepCtas[step];
 
             return (
               <article key={step} className={surfaceCardStyles()}>
-                <div className="flex size-8 items-center justify-center rounded-full bg-primary type-subsection-title text-primary-foreground">
+                <div className="flex size-8 items-center justify-center rounded-full bg-accent type-body-sm font-semibold text-ground">
                   {index + 1}
                 </div>
                 <h3 className="mt-4 type-card-title">
                   {t(`steps.${step}.title`)}
                 </h3>
-                <p className="mt-2 type-card-description">
+                <p className="mt-2 type-body-sm">
                   {t(`steps.${step}.body`)}
                 </p>
                 {cta ? (
@@ -120,13 +122,16 @@ export default async function GettingStartedPage({ params }: PageProps) {
       </section>
 
       <section className="grid gap-8 border-t border-border py-10 md:grid-cols-[18rem_minmax(0,1fr)]">
-        <h2 className="type-section-title-large">{t("tips.heading")}</h2>
-        <ul className="grid gap-3">
+        <h2 className="type-section">{t("tips.heading")}</h2>
+        {/* The reading track of a two-track section. Nothing above it caps a
+            width, so uncapped it takes the page measure less the 18rem heading
+            rail — about 1150px of unbroken line at 1920. */}
+        <ul className="prose-measure grid gap-3">
           {tips.map((tip) => (
-            <li key={tip} className="flex gap-3 type-card-description">
+            <li key={tip} className="flex gap-3 type-body-sm">
               <CheckCircle2
                 aria-hidden="true"
-                className="mt-0.5 size-5 shrink-0 text-primary"
+                className="mt-0.5 size-5 shrink-0 text-accent"
               />
               <span>{t(`tips.${tip}`)}</span>
             </li>
@@ -135,7 +140,7 @@ export default async function GettingStartedPage({ params }: PageProps) {
       </section>
 
       <section className="grid gap-8 border-t border-border py-10 md:grid-cols-[18rem_minmax(0,1fr)]">
-        <h2 className="type-section-title-large">{t("forOwners.heading")}</h2>
+        <h2 className="type-section">{t("forOwners.heading")}</h2>
         <OwnerBenefitsSection />
       </section>
 
@@ -146,24 +151,24 @@ export default async function GettingStartedPage({ params }: PageProps) {
         })}
       >
         <div>
-          <h2 className="type-section-title-large">{t("cta.heading")}</h2>
-          <p className="mt-2 type-card-description">{t("cta.body")}</p>
+          <h2 className="type-section">{t("cta.heading")}</h2>
+          <p className="mt-2 prose-measure type-body-sm">{t("cta.body")}</p>
         </div>
         <div className="mt-5 flex flex-col gap-3 sm:flex-row md:mt-0">
           <Link
-            href="/brands"
-            className={buttonVariants({ variant: "primary", tone: "cta" })}
+            href={routes.brands()}
+            className={buttonVariants({ variant: "primary" })}
           >
             {t("cta.browse")}
           </Link>
           <Link
-            href="/about#vision"
+            href={`${routes.about()}#vision`}
             className={buttonVariants({ variant: "secondary" })}
           >
-            {t("cta.faq")}
+            {t("cta.about")}
           </Link>
         </div>
       </section>
-    </main>
+    </PageShell>
   );
 }

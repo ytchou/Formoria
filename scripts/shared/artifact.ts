@@ -18,12 +18,46 @@ import { resolve } from "node:path";
  */
 export const ARTIFACT_ROOT = resolve(homedir(), "project/.artifact/formoria");
 
-/** review_<name>_<YYYY-MM-DD-HHmmss>.html, matching the existing artifact naming. */
-export function artifactPath(name: string): string {
-  const t = new Date();
+export interface ArtifactNameOptions {
+  /**
+   * Leading segment. Defaults to `review`, which is what the two HTML
+   * renderers emit; pass `""` for an artifact that is not a review page.
+   */
+  prefix?: string;
+  /** Extension, without the dot. */
+  ext?: string;
+  /**
+   * Trailing segment after the timestamp. The stamp is second-resolution, so a
+   * caller whose runs can overlap passes its pid here — otherwise two
+   * concurrent runs overwrite each other's evidence.
+   */
+  suffix?: string | number;
+  /** Injectable clock, so one run can stamp several files identically. */
+  now?: Date;
+}
+
+/**
+ * `<prefix>_<name>_<YYYY-MM-DD-HHmmss>[_<suffix>].<ext>` under ARTIFACT_ROOT.
+ *
+ * Defaults reproduce the original `review_<name>_<stamp>.html` exactly, so the
+ * HTML renderers are unchanged; the options exist for the dry-run report, which
+ * needs its own prefix, extension and pid suffix and had hand-rolled the whole
+ * builder a third time.
+ */
+export function artifactPath(
+  name: string,
+  options: ArtifactNameOptions = {},
+): string {
+  const { prefix = "review", ext = "html", suffix, now = new Date() } = options;
   const p = (n: number): string => String(n).padStart(2, "0");
-  const stamp = `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}-${p(t.getHours())}${p(t.getMinutes())}${p(t.getSeconds())}`;
-  return resolve(ARTIFACT_ROOT, `review_${name}_${stamp}.html`);
+  const stamp = `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}-${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`;
+  const parts = [
+    prefix,
+    name,
+    stamp,
+    suffix === undefined ? "" : String(suffix),
+  ].filter((part) => part !== "");
+  return resolve(ARTIFACT_ROOT, `${parts.join("_")}.${ext}`);
 }
 
 /**

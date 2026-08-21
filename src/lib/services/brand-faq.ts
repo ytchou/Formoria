@@ -8,7 +8,8 @@ import {
 } from "@/lib/brands/faq-presets";
 import type { FaqQuestion } from "@/lib/json-ld";
 import type { Database } from "@/lib/supabase/database.types";
-import { auditedCall } from "@/lib/audit";
+import { auditedCall, type AuditCallContext } from "@/lib/audit";
+import { reportBannedTerms } from "@/lib/i18n/banned-terms";
 
 export type TFn = (key: string, params?: Record<string, unknown>) => string;
 
@@ -206,6 +207,40 @@ function normalize(value: string | null | undefined): string | null {
   return hasValue(value) ? value.trim() : null;
 }
 
+/** The zh columns this table publishes. `FAQPage` JSON-LD reads both. */
+const GUARDED_ZH_FIELDS = ["question_zh", "answer_zh"] as const;
+
+/**
+ * Last stop before the Supabase client: REPORT mainland-Chinese vocabulary in
+ * the zh columns on the enclosing audit span, and store the text exactly as the
+ * model wrote it.
+ *
+ * Report-only, and permanently so (DEV-1546). The rewriting version of this
+ * guard corrupted correct Taiwan-Mandarin: with no word delimiters, a banned
+ * term is indistinguishable from a substring of a correct word, a street name,
+ * or a proper noun, and no shield list or allowlist can enumerate those. The
+ * backfill script stays the only mutator, gated on a human reading its diff.
+ *
+ * Human-authored rows never reach here — `upsertBrandFaqEntries` skips them
+ * before the payload is built — so this only ever reports on model copy.
+ *
+ * `rows` is the subset of the payload whose zh side THIS write authored, not
+ * the whole payload. The upsert carries existing zh values forward whenever
+ * `takeZh` is false, and reporting a hit on text this write did not author
+ * would attribute a stored-text finding to an unrelated English-side write.
+ */
+function reportZhVocabulary(
+  rows: readonly FaqEntryInsert[],
+  ctx: AuditCallContext,
+): void {
+  reportBannedTerms(
+    ctx,
+    rows.flatMap((row) =>
+      GUARDED_ZH_FIELDS.map((field) => [field, row[field]] as const),
+    ),
+  );
+}
+
 /**
  * Writes model-authored FAQ entries, one row per `(preset_id, position)`.
  *
@@ -234,7 +269,7 @@ export async function upsertBrandFaqEntries(
       operation: "upsertBrandFaqEntries",
       kind: "service",
     },
-    async () => {
+    async (ctx) => {
       const candidates = (entries ?? [])
         .map((entry) => ({
           presetId: entry.presetId,
@@ -266,6 +301,11 @@ export async function upsertBrandFaqEntries(
       );
 
       const payload: FaqEntryInsert[] = [];
+      // The rows whose zh side this write is authoring. Held by reference into
+      // `payload` so the vocabulary report is attributed to the rows this write
+      // authored, and not to zh text an unrelated English-side write carried
+      // forward.
+      const zhAuthored: FaqEntryInsert[] = [];
       for (const candidate of candidates) {
         const current = existingByKey.get(
           entryKey(candidate.presetId, candidate.position),
@@ -281,7 +321,7 @@ export async function upsertBrandFaqEntries(
           (overwrite || !sideRenders(current?.questionEn, current?.answerEn));
         if (!takeZh && !takeEn) continue;
 
-        payload.push({
+        const row: FaqEntryInsert = {
           preset_id: candidate.presetId,
           position: candidate.position,
           question_zh: takeZh
@@ -293,9 +333,13 @@ export async function upsertBrandFaqEntries(
             : (current?.questionEn ?? null),
           answer_en: takeEn ? candidate.answerEn : (current?.answerEn ?? null),
           source: "model",
-        });
+        };
+        payload.push(row);
+        if (takeZh) zhAuthored.push(row);
       }
       if (payload.length === 0) return;
+
+      reportZhVocabulary(zhAuthored, ctx);
 
       // `upsert` rather than branching on `current`: it inserts when the row is
       // absent and updates the listed columns when it is not, which also closes

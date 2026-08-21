@@ -9,7 +9,8 @@
 // that module pulls `node:fs`, `node:path`, `yaml` and `zod`, and the plan's
 // performance budget forbids `yaml` reaching the client bundle. These
 // classifiers are pure, so their import graph must stay pure too.
-import { PAGE_TYPES } from '../keyword-map-constants'
+import type { PageType } from '../keyword-map-constants'
+import { routes } from '@/lib/routes'
 
 export const QUERY_CLUSTERS = [
   'branded',
@@ -41,6 +42,15 @@ export type QueryCluster = (typeof QUERY_CLUSTERS)[number]
  */
 export const CLUSTER_PATTERNS = [
   { cluster: 'branded', pattern: /formoria/ },
+  // UNOWNED since DEV-1507. Retiring the `crafts` L1 deleted the
+  // `topic-cultural-creative`, `topic-craft` and `topic-handmade` rows from
+  // content/seo/keyword-map.yaml, and no surviving row carries 台灣文創品牌 /
+  // 台灣手作品牌 / 台灣工藝品牌 / 台灣職人品牌 as a primary or secondary
+  // keyword — so these two clusters currently have no owning page and
+  // one-intent-one-owner does not hold for them. The patterns STAY: Search
+  // Console keeps returning those queries, and deleting a row here only moves
+  // them into `core-taiwan-brand` where the demand becomes invisible. Giving
+  // them an owner again is a separate decision (DEV-1507 follow-up).
   { cluster: 'cultural-creative', pattern: /台灣.*(文創|文化創意)/ },
   { cluster: 'craft-handmade', pattern: /台灣.*(工藝|手作|手工|職人)/ },
   { cluster: 'design', pattern: /台灣.*(設計品牌|原創品牌|獨立品牌)/ },
@@ -81,9 +91,7 @@ export function classifyQuery(raw: string): QueryClassification {
   }
 }
 
-const LANDING_PAGE_TYPES = [...PAGE_TYPES, 'event', 'other/static'] as const
-
-export type LandingPageType = (typeof LANDING_PAGE_TYPES)[number]
+export type LandingPageType = PageType | 'event' | 'other/static'
 
 export type LandingPageClassification = {
   raw: string
@@ -184,7 +192,7 @@ export function classifyLandingPage(raw: string): LandingPageClassification {
 
   if (path === '/') {
     pageType = 'homepage'
-  } else if (path === '/brands') {
+  } else if (path === routes.brands()) {
     if (category.kind === 'multi' || subcategory.kind === 'multi') {
       // Multi-select filter view: a `/brands` role, not a category page.
       pageType = 'directory'
@@ -200,16 +208,16 @@ export function classifyLandingPage(raw: string): LandingPageClassification {
       // A bare `sub` with no category is not a page the app can produce.
       pageType = 'directory'
     }
-  } else if (isSectionOrDescendant(path, '/categories')) {
+  } else if (isSectionOrDescendant(path, routes.categories())) {
     // Proposed URL shape for the L1/L2 category pages a later ticket ratifies;
     // every l1-category and l2-category target_url in the committed map is here.
     // The path IS the canonical key — no filter params participate.
-    const segments = segmentsBelow(path, '/categories')
+    const segments = segmentsBelow(path, routes.categories())
     pageType =
       segments.length === 1 ? 'l1-category' : segments.length === 2 ? 'l2-category' : 'other/static'
-  } else if (path.startsWith('/brands/')) {
+  } else if (path.startsWith(`${routes.brands()}/`)) {
     pageType = 'brand-detail'
-  } else if (isSectionOrDescendant(path, '/stories')) {
+  } else if (isSectionOrDescendant(path, routes.stories())) {
     pageType = 'story'
   } else if (isSectionOrDescendant(path, '/glossary')) {
     pageType = 'glossary'
@@ -217,7 +225,7 @@ export function classifyLandingPage(raw: string): LandingPageClassification {
     pageType = 'stats'
   } else if (isSectionOrDescendant(path, '/topics')) {
     pageType = 'topic-hub'
-  } else if (isSectionOrDescendant(path, '/events')) {
+  } else if (isSectionOrDescendant(path, routes.events())) {
     pageType = 'event'
   } else {
     pageType = 'other/static'

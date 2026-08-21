@@ -166,7 +166,7 @@ VALUES (
 ON CONFLICT (slug) DO NOTHING;
 
 -- -----------------------------------------------------------------------------
--- Part 2: Brand-taxonomy links (product_type + value tags)
+-- Part 2: Brand-taxonomy links (category + value tags)
 -- -----------------------------------------------------------------------------
 
 -- 山霧茶坊 → food, sustainability, handmade

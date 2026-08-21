@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { createTestClient, describeWithDb } from '@/test/setup'
 import {
   claimCurationDispatchWork,
@@ -10,6 +10,7 @@ import {
   finalizeCurationJob,
   getCurationJob,
 } from '../curation-jobs'
+import { requestCuratedProductBackfill } from '../curated-products/backfill'
 
 const createdJobIds = new Set<string>()
 
@@ -285,6 +286,153 @@ describeWithDb('durable curation job queue integration', () => {
     expect(retries.some((job) => job.parent_job_id === firstRetry!.id && job.attempt === 3)).toBe(
       true,
     )
+  })
+
+  /**
+   * DEV-1469 — the curated-product backfill entry point.
+   *
+   * It composes two existing primitives and adds no new ones: one
+   * `request_brand_refresh` per brand (three real arguments, no phase argument —
+   * the RPC has none), then ONE curation job whose params carry the phase scope.
+   * Scope lives on the job, which is exactly why no new target type is needed.
+   *
+   * The compensating rollback for a failed enqueue is unit-tested against the
+   * injected dependency seam (`curated-products/__tests__/backfill.test.ts`):
+   * this suite runs against a real database, where the enqueue does not fail
+   * on demand.
+   */
+  describe('curated product backfill', () => {
+    const backfillBrandIds: string[] = []
+    const backfillSubmissionIds: string[] = []
+    let requester = { id: '', email: '' }
+
+    beforeAll(async () => {
+      const client = createTestClient()
+      const email = `products-backfill-${randomUUID()}@example.com`
+      const { data, error } = await client.auth.admin.createUser({
+        email,
+        password: `Products-backfill-${randomUUID()}`,
+        email_confirm: true,
+      })
+      if (error || !data.user) throw error ?? new Error('Requester creation failed')
+      requester = { id: data.user.id, email }
+    })
+
+    afterEach(async () => {
+      const client = createTestClient()
+      if (backfillSubmissionIds.length > 0) {
+        await client.from('brand_submissions').delete().in('id', backfillSubmissionIds)
+        backfillSubmissionIds.length = 0
+      }
+      if (backfillBrandIds.length > 0) {
+        await client.from('brands').delete().in('id', backfillBrandIds)
+        backfillBrandIds.length = 0
+      }
+    })
+
+    afterAll(async () => {
+      if (!requester.id) return
+      const client = createTestClient()
+      // request_brand_refresh writes a 'refresh_requested' audit row per call,
+      // and admin_audit_log.admin_user_id references auth.users.
+      await client.from('admin_audit_log').delete().eq('admin_user_id', requester.id)
+      await client.auth.admin.deleteUser(requester.id)
+    })
+
+    it('backfill_enqueues_a_products_scoped_job', async () => {
+      const brandId = await seedBackfillBrand('scoped')
+
+      const result = await requestCuratedProductBackfill([brandId], requester)
+
+      expect(result.outcomes).toEqual([
+        { brandId, submissionId: expect.any(String), error: null },
+      ])
+      backfillSubmissionIds.push(result.outcomes[0]!.submissionId!)
+      expect(result.jobId).toBeTruthy()
+      createdJobIds.add(result.jobId!)
+
+      const job = await getCurationJob(result.jobId!)
+      const params = (job.params ?? {}) as Record<string, unknown>
+      // The products phase AND its two hard dependencies, because `runEnrich`
+      // expands nothing: `links` supplies the scraped candidate pages and the
+      // quarantine records, `site_identity` decides whether the resolved site
+      // may be mined at all. `['products']` alone ran the phase against an
+      // empty pipeline and the model invented product URLs.
+      //
+      // `steps` must stay absent: runEnrich resolves steps FIRST and lets them
+      // beat phases, so a job carrying both would silently widen to the whole
+      // step group.
+      expect(params.phases).toEqual(['links', 'site_identity', 'products'])
+      expect(params.steps).toBeUndefined()
+      expect(params.submissionIds).toEqual([result.outcomes[0]!.submissionId])
+      expect(job.dry_run).toBe(false)
+    })
+
+    it('backfill_is_sequential_per_brand', async () => {
+      const brandId = await seedBackfillBrand('sequential')
+
+      const first = await requestCuratedProductBackfill([brandId], requester)
+      backfillSubmissionIds.push(first.outcomes[0]!.submissionId!)
+      createdJobIds.add(first.jobId!)
+
+      // The RPC raises 23505 while a refresh is still pending. That is an
+      // ordinary answer — "not this one, not yet" — so it must arrive as a
+      // message on the outcome and never as a thrown error.
+      const second = await requestCuratedProductBackfill([brandId], requester)
+
+      expect(second.jobId).toBeNull()
+      expect(second.outcomes).toEqual([
+        {
+          brandId,
+          submissionId: null,
+          error: 'A refresh is already pending for this brand',
+        },
+      ])
+    })
+
+    it('backfill_creates_no_new_target_type', async () => {
+      const brandId = await seedBackfillBrand('target-type')
+
+      const result = await requestCuratedProductBackfill([brandId], requester)
+      backfillSubmissionIds.push(result.outcomes[0]!.submissionId!)
+      createdJobIds.add(result.jobId!)
+
+      const client = createTestClient()
+      const { data: targets, error } = await client
+        .from('curation_job_targets')
+        .select('target_type, target_id')
+        .eq('job_id', result.jobId!)
+
+      expect(error).toBeNull()
+      expect(targets).toEqual([
+        { target_type: 'submission', target_id: result.outcomes[0]!.submissionId },
+      ])
+    })
+
+    /**
+     * `request_brand_refresh` requires an approved or hidden brand with a
+     * non-null `updated_at`; a missing brand raises P0002.
+     */
+    async function seedBackfillBrand(suffix: string): Promise<string> {
+      const client = createTestClient()
+      const id = randomUUID()
+      const { error } = await client.from('brands').insert({
+        id,
+        name: `Backfill ${suffix} Brand`,
+        slug: `products-backfill-${suffix}-${id.slice(0, 8)}`,
+        status: 'approved',
+        description: '原本完整的品牌介紹',
+        category: 'home',
+        subcategories: ['家具'],
+        price_range: 2,
+        purchase_website: 'https://backfill.example.com',
+        approved_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      expect(error).toBeNull()
+      backfillBrandIds.push(id)
+      return id
+    }
   })
 })
 

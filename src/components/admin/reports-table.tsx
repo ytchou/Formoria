@@ -24,6 +24,7 @@ import {
   useQueueAction,
   useReviewQueue,
 } from "./queue";
+import { routes } from "@/lib/routes";
 
 type ReviewAction = (
   id: string,
@@ -141,15 +142,22 @@ export function ReportsTable({
     {
       id: "brand",
       header: t("table.brand"),
-      cell: (item) => (
-        <Link
-          href={`/brands/${item.brandSlug}`}
-          className="underline"
-          onClick={(event) => event.stopPropagation()}
-        >
-          {getRowName(item)}
-        </Link>
-      ),
+      // A report outlives the brand row it points at: the `brands` join in
+      // `getPendingReports` returns null when the brand is gone, so there is no
+      // slug to link to. Render the name as plain text rather than an href to
+      // `/brands/null`.
+      cell: (item) =>
+        item.brandSlug ? (
+          <Link
+            href={routes.brand(item.brandSlug)}
+            className="underline"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {getRowName(item)}
+          </Link>
+        ) : (
+          <span>{getRowName(item)}</span>
+        ),
       cellClassName: "font-medium",
     },
     {
@@ -280,7 +288,7 @@ export function ReportsTable({
             {item.notes ? (
               <div>
                 <p className="type-metadata">{t("notes")}</p>
-                <p className="mt-1 whitespace-pre-wrap type-body">
+                <p className="mt-1 whitespace-pre-wrap type-body-sm text-ink-soft">
                   {item.notes}
                 </p>
               </div>
@@ -291,7 +299,7 @@ export function ReportsTable({
               <dl>
                 <div>
                   <dt className="type-metadata">{t("reporterEmail")}</dt>
-                  <dd className="mt-1 type-field-value">
+                  <dd className="mt-1 type-body-sm text-ink">
                     {item.reporterEmail ?? t("unavailable")}
                   </dd>
                 </div>

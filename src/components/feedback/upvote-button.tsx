@@ -82,10 +82,11 @@ export function UpvoteButton({
         // Rest fill is warm surface, not card: a white bordered control on a
         // white row reads as a hairline box under this flat-elevation system.
         'h-auto w-14 flex-col gap-1 rounded-xl border-border bg-secondary px-0 py-2 text-foreground',
-        // `primary-dark`, not `primary`: kiln on a 10% kiln tint measures 4.31:1
-        // for the 13px count, under the 4.5:1 AA floor.
+        // Hover is pinned to the rest values on purpose: a voted chip must not
+        // repaint on hover, and the accent on its own 10% tint stays above the
+        // 4.5:1 AA floor for the 13px count.
         voted &&
-          'border-primary bg-primary/10 text-primary-dark hover:bg-primary/10 hover:text-primary-dark',
+          'border-accent bg-accent/10 text-accent hover:bg-accent/10 hover:text-accent',
         className,
       )}
       data-ph-no-autocapture

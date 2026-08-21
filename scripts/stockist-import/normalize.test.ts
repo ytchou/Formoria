@@ -10,8 +10,6 @@ function row(overrides: Partial<StockistCsvRow> = {}): StockistCsvRow {
     brand_slug: 'hanchor',
     name: '登山友 中山店',
     location_type: 'stockist',
-    channel_type: 'offline',
-    category_label: 'outdoor',
     region_label: '臺北市',
     address: '臺北市中正區中山北路一段18號',
     url: 'https://example.com/shops/zhongshan',
@@ -40,7 +38,7 @@ describe('stockist normalization', () => {
     })
   })
 
-  it('derives category labels from all location types and discards the CSV category', () => {
+  it('accepts every supported location type and ignores a CSV category column', () => {
     const types = [
       'stockist',
       'distributor_retailer',
@@ -50,23 +48,28 @@ describe('stockist normalization', () => {
       'shop_in_shop',
       'other_physical_retail',
     ] as const
-    const labels = types.map((locationType) => {
+    const locationTypes = types.map((locationType) => {
       const result = normalizeStockistRow(
-        row({ location_type: locationType, category_label: 'kids-pets' }),
+        row({ location_type: locationType }),
       )
-      return result.ok ? result.row.candidate.categoryLabel : result.reason
+      return result.ok ? result.row.candidate.locationType : result.reason
     })
 
-    expect(labels).toEqual([
-      '選品店',
-      '經銷門市',
-      '品牌直營',
-      '百貨專櫃',
-      '展示空間',
-      '店中店',
-      '實體零售',
-    ])
-    expect(labels).not.toContain('kids-pets')
+    expect(locationTypes).toEqual([...types])
+
+    // The dropped `category_label` column is the invariant worth guarding: a
+    // stray category supplied by a CSV must never reach the candidate, because
+    // a channel's category is the brand's, derived server-side, and not
+    // something an import file gets to assert.
+    const withStrayCategory = normalizeStockistRow({
+      ...row(),
+      category_label: 'kids-pets',
+    } as StockistCsvRow)
+
+    expect(withStrayCategory.ok).toBe(true)
+    expect(
+      JSON.stringify(withStrayCategory.ok ? withStrayCategory.row : {}),
+    ).not.toContain('kids-pets')
   })
 
   it('resolves countries from region prefixes and rejects an unknown foreign region', () => {
@@ -96,5 +99,30 @@ describe('stockist normalization', () => {
     const result = normalizeStockistRow(row({ region_label: '全台多間門市' }))
 
     expect(result.ok && result.row.candidate.regionLabel).toBe('全台多間門市')
+  })
+
+  it('derives district from the address for a matched row', () => {
+    const result = normalizeStockistRow(
+      row({ address: '104臺北市中山區樂群二路199號2樓' }),
+    )
+
+    expect(result.ok && result.row.candidate.district).toBe('中山區')
+  })
+
+  it('leaves district null when the address does not match', () => {
+    const result = normalizeStockistRow(
+      row({ region_label: '臺中市', address: '臺中市台灣大道三段251號9樓' }),
+    )
+
+    expect(result.ok).toBe(true)
+    expect(result.ok && result.row.candidate.district).toBeNull()
+  })
+
+  it('leaves district null for a non-TW row', () => {
+    const result = normalizeStockistRow(
+      row({ region_label: '日本・東京', address: '東京都渋谷区神宮前1-1' }),
+    )
+
+    expect(result.ok && result.row.candidate.district).toBeNull()
   })
 })

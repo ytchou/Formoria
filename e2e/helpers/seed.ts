@@ -2,7 +2,12 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 let _client: SupabaseClient | null = null;
 
-function getServiceClient(): SupabaseClient {
+/**
+ * Exported so e2e utils share ONE service-role client instead of each keeping a
+ * private copy of this construction (there were six). Memoized: callers may
+ * rely on repeated calls returning the same instance.
+ */
+export function getServiceClient(): SupabaseClient {
   if (!_client) {
     _client = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,12 +35,12 @@ export async function seedBrand(opts: {
    * cannot: that a non-website channel alone is enough to render the purchase
    * section. Implies `withLinks` for social accounts.
    */
-  purchaseChannel?: 'website' | 'myship';
+  onlineStore?: 'website' | 'myship';
   /**
    * Seed the brand evidence the FAQ presets gate their template floors on, so
    * a fixture renders several FAQ items. `taiwan-origin` requires a verified
    * `mit_status` and is intentionally absent from this declared fixture:
-   *   - `main-products`  — needs `product_tags` (and `product_tags_en` for /en).
+   *   - `main-products`  — needs `subcategories` (and `subcategories_en` for /en).
    *   - `price-positioning` — needs `price_range` (smallint ordinal 1/2/3).
    *   - `reputation`     — needs `reputation_summary.text`; deliberately left
    *     unseeded, since no e2e journey asserts on it and it is the one field
@@ -43,7 +48,7 @@ export async function seedBrand(opts: {
    *   - `custom`         — model-authored only, no template floor to seed for.
    *
    * Opt-in and default-off on purpose: many specs share `seedBrand`, and these
-   * columns change the rendered header badge, tags, and price row.
+   * columns change the rendered header badge, subcategories, and price row.
    */
   withFaqEvidence?: boolean;
 }): Promise<SeededBrand> {
@@ -68,7 +73,7 @@ export async function seedBrand(opts: {
     slug,
     status,
     ...(status === 'approved' ? { approved_at: new Date().toISOString() } : {}),
-    product_type: 'crafts',
+    category: 'home',
     founding_year: '2020',
   };
 
@@ -78,15 +83,22 @@ export async function seedBrand(opts: {
     // fixture stays valid without seeding MIT registry rows.
     brandData.mit_status = 'declared';
     brandData.mit_declared_scope = 'all';
-    brandData.product_tags = ['手工陶器', '茶具'];
-    brandData.product_tags_en = ['Handmade ceramics', 'Teaware'];
+    // Slugs, not zh-TW labels: DEV-1510 made `subcategories` slug-native and
+    // closed the vocabulary, so `approve_submission` now raises on any string
+    // that resolves to no slug, alias or recorded removal. Both are home-native
+    // to match `category` above — DEV-1507 retired `crafts`, so the old
+    // ['ceramics', 'metalwork'] pair now spans two L1s and neither one is the
+    // seeded L1, and a cross-L1 tag is exactly the state DEV-1510 measured as
+    // unusable for facets and L2 pages.
+    brandData.subcategories = ['tableware', 'storage'];
+    brandData.subcategories_en = ['Tableware', 'Storage'];
     brandData.price_range = 2;
   }
 
   if (opts.withLinks) {
     brandData.social_instagram = 'https://instagram.com/e2e-test';
     brandData.social_facebook = 'https://facebook.com/e2e-test';
-    if ((opts.purchaseChannel ?? 'website') === 'myship') {
+    if ((opts.onlineStore ?? 'website') === 'myship') {
       brandData.purchase_myship = 'https://myship.7-11.com.tw/general/detail/GM2410161234567';
     } else {
       brandData.purchase_website = 'https://e2e-test.com/shop';
@@ -122,7 +134,7 @@ export async function seedBrand(opts: {
 
   const cleanup = async () => {
     const { error } = await supabase.from('brands').delete().eq('id', brand.id);
-    if (error) console.warn('[e2e-seed] cleanup failed:', error.message);
+    if (error) throw new Error(`[e2e-cleanup] seed brand ${brand.id} cleanup failed: ${error.message}`);
   };
 
   return { brand, slug, cleanup };

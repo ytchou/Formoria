@@ -1,7 +1,7 @@
-import { PRODUCT_TYPE_CATEGORIES } from "../../src/lib/taxonomy/ontology";
+import { L1_CATEGORIES } from "../../src/lib/taxonomy/ontology";
 import zhTW from "../../messages/zh-TW.json";
 import { BUDGET } from "../budgets";
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 /**
  * Three named L1 categories, resolved from the taxonomy the sidebar itself renders.
@@ -11,9 +11,14 @@ import { test, expect } from "@playwright/test";
  * while the L2 taxonomy cleanup program is actively reshaping that list. A reorder
  * silently changed what was covered, and an L2 chip appearing among the checkboxes
  * changed it again (DEV-1414).
+ *
+ * The third subject was `crafts` until DEV-1507 retired that L1; `stationery` takes
+ * its place rather than a second reference to `home`, because a repeated subject
+ * would test the same filter twice. Counts stay read from the page, so the supply
+ * DEV-1507 moved into `home` needs no expectation update here.
  */
-const FILTER_SUBJECTS = ["fashion", "home", "crafts"].map((slug) => {
-  const category = PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === slug);
+const FILTER_SUBJECTS = ["fashion", "home", "stationery"].map((slug) => {
+  const category = L1_CATEGORIES.find((item) => item.slug === slug);
   if (!category) {
     // A renamed or removed L1 slug must break this loudly. Falling back to a
     // positional pick is how the drift went unnoticed in the first place.
@@ -24,11 +29,33 @@ const FILTER_SUBJECTS = ["fashion", "home", "crafts"].map((slug) => {
   return category;
 });
 
+/**
+ * The result count the directory publishes ("共 N 個品牌", `brands.count`).
+ * It is the one number that is a *positive* fact about a filtered request, so
+ * a filter that quietly returns nothing has to move it. Read from `main`
+ * rather than from the live region, because the region role is only attached
+ * on category routes (`announceLiveRegion={isCategoryRoute}`).
+ */
+async function readAnnouncedCount(page: Page): Promise<number> {
+  const status = page.locator("main").getByText(/共 \d+ 個品牌/).first();
+  await expect(status).toBeVisible({ timeout: BUDGET.RENDERED });
+  const matched = (await status.innerText()).match(/共 (\d+) 個品牌/);
+  expect(matched).not.toBeNull();
+  return Number(matched![1]);
+}
+
 test.describe("Directory deep", () => {
-  test("all filter combinations return results or empty state", async ({
+  test("each category filter narrows the directory to a non-empty result set", async ({
     page,
   }) => {
     await page.goto("/brands");
+    // Baseline: every filtered request below must return fewer brands than
+    // this, and more than zero. The old form accepted the empty state as an
+    // alternative, so a filter returning nothing for every category — the
+    // exact regression this test names — passed.
+    const unfilteredCount = await readAnnouncedCount(page);
+    expect(unfilteredCount).toBeGreaterThan(0);
+
     // The sidebar is the one named `filters.title`; `page.locator("aside")`
     // alone also matched the mobile filter sheet's aside once it existed.
     const sidebar = page.getByRole("complementary", {
@@ -49,19 +76,33 @@ test.describe("Directory deep", () => {
         await categoryToggle.click();
         await expect(categoryToggle).toHaveAttribute("aria-expanded", "true");
       }
-      // Each checkbox carries `aria-label={categoryLabel(category)}`, so the
-      // zh-TW name is its accessible name on the prefix-free directory.
+      // The zh-TW name is the checkbox's accessible name because the visible
+      // `<span>` sits inside the wrapping `<label>` and the count `<span>` is
+      // `aria-hidden`. There is deliberately no `aria-label` — DEV-1510 removed
+      // it as a duplicate of the visible text, against accessible-name
+      // precedence. `exact: true` holds only while that count stays hidden.
       const filter = sidebar.getByRole("checkbox", {
         name: category.nameZh,
         exact: true,
       });
       await filter.click();
+      // Selecting is a route change that remounts the sidebar; wait for the
+      // filtered render before reading its count.
+      await expect(filter).toBeChecked({ timeout: BUDGET.RENDERED });
+
+      const filteredCount = await readAnnouncedCount(page);
+      // A category with no seeded supply is a data state, not a filter bug —
+      // but it is stated as an explicit skip so it is reported, instead of an
+      // `.or(emptyState)` that would swallow a genuinely broken filter too.
+      test.skip(
+        filteredCount === 0,
+        `No brands are seeded under ${category.slug} at the current supply gate.`,
+      );
+      expect(filteredCount).toBeLessThan(unfilteredCount);
       await expect(
-        page
-          .locator('main [role="list"] [role="listitem"]')
-          .first()
-          .or(page.locator("[data-empty]").first()),
+        page.locator('main [role="list"] [role="listitem"]').first(),
       ).toBeVisible({ timeout: BUDGET.RENDERED });
+
       await filter.click(); // deselect
     }
   });
@@ -76,7 +117,7 @@ test.describe("Directory deep", () => {
               id: "directory-search-result",
               name: "Directory Search Result",
               slug: "directory-search-result",
-              category: "crafts",
+              category: "stationery",
             },
           ],
         }),
@@ -95,12 +136,13 @@ test.describe("Directory deep", () => {
   test("category landing loads with filtered brands", async ({ page }) => {
     const response = await page.goto("/categories/home");
     expect(response?.status()).toBe(200);
-    // The filtered directory renders brand list items or the recovery empty state.
+    // `home` is a launch category, so an empty result here is a regression,
+    // not a data state — asserted as real brands rather than "results OR the
+    // empty state", which passed on both.
+    const announced = await readAnnouncedCount(page);
+    expect(announced).toBeGreaterThan(0);
     await expect(
-      page
-        .locator('main [role="list"] [role="listitem"]')
-        .first()
-        .or(page.locator("[data-empty]").first()),
+      page.locator('main [role="list"] [role="listitem"]').first(),
     ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   });
 

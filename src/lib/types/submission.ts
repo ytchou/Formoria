@@ -1,5 +1,5 @@
 import type { OtherUrl, SubmissionStatus } from './brand'
-import type { PurchaseChannelCamelField } from '@/lib/brands/purchase-channels'
+import type { OnlineStoreCamelField } from '@/lib/brands/online-stores'
 
 type ValidationStatus = 'valid' | 'incomplete'
 export type SubmissionIntent = 'recommend' | 'owner_claim' | 'refresh'
@@ -52,7 +52,7 @@ export type BrandSubmission = {
   socialThreads: string | null
   socialFacebook: string | null
   otherUrls: OtherUrl[]
-  suggestedTags: string[] | { values?: string[]; productType?: string }
+  suggestedSubcategories: string[] | { values?: string[]; categorySlug?: string }
   status: SubmissionStatus
   reviewerNotes: string | null
   submittedAt: string
@@ -65,7 +65,7 @@ export type BrandSubmission = {
   isBrandOwner: boolean
   sourceAttribution?: SourceAttribution | null
   denialReason?: DenialReason | null
-} & { [Field in PurchaseChannelCamelField]: string | null }
+} & { [Field in OnlineStoreCamelField]: string | null }
 
 export type DuplicateCandidate = {
   id: string

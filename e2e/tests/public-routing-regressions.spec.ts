@@ -48,26 +48,110 @@ test.describe("Public routing regressions deep", () => {
     const redirects = [
       ["/categories/accessories", "/categories/bags-accessories"],
       ["/categories/bags", "/categories/bags-accessories"],
-      ["/categories/baby-kids", "/categories/kids-pets"],
-      ["/categories/pets", "/categories/kids-pets"],
+      // DEV-1510 split kids-pets into the live L1s kids and pets: baby-kids
+      // now lands on kids, `pets` is a page rather than a redirect source, and
+      // the merged parent has no successor category, so it exits to /brands.
+      ["/categories/baby-kids", "/categories/kids"],
+      ["/categories/kids-pets", "/brands"],
+      // DEV-1507 dissolved crafts across four live L1s, so like kids-pets it
+      // has no successor category and exits to the directory root.
+      ["/categories/crafts", "/brands"],
       ["/categories/food", "/categories/food-drink"],
       ["/categories/beverages", "/categories/food-drink"],
       ["/en/categories/clothing", "/en/categories/fashion"],
       ["/categories/others", "/brands"],
       ["/about-us", "/about"],
+      // DEV-1531: the L1 rows above rescue /categories/crafts and
+      // /categories/kids-pets, but a Next `source` is a literal path, so every
+      // L2 URL beneath them still 404s. These 29 were indexed before the
+      // taxonomy transform retired them. Generated into next.config.ts by
+      // `pnpm exec tsx scripts/generate-category-redirects.ts --write`.
+      //
+      // The ten crafts L2s with no successor exit to the directory root.
+      ["/categories/crafts/ceramics", "/brands"],
+      ["/categories/crafts/woodcraft", "/brands"],
+      ["/categories/crafts/metalwork", "/brands"],
+      ["/categories/crafts/bamboo-craft", "/brands"],
+      ["/categories/crafts/glass-art", "/brands"],
+      ["/categories/crafts/natural-dyeing", "/brands"],
+      ["/categories/crafts/leather-craft", "/brands"],
+      ["/categories/crafts/embroidery", "/brands"],
+      ["/categories/crafts/needle-felting", "/brands"],
+      ["/categories/crafts/weaving-and-crochet", "/brands"],
+      // Two crafts L2s were relocated rather than dissolved.
+      ["/categories/crafts/illustration-and-art", "/categories/home/wall-art"],
+      [
+        "/categories/crafts/dried-flowers-and-floral-design",
+        "/categories/home/floral-arrangements",
+      ],
+      // The kids-pets split kept every slug; only the parent changed.
+      ["/categories/kids-pets/kids-clothing", "/categories/kids/kids-clothing"],
+      [
+        "/categories/kids-pets/family-matching",
+        "/categories/kids/family-matching",
+      ],
+      ["/categories/kids-pets/baby-clothing", "/categories/kids/baby-clothing"],
+      ["/categories/kids-pets/baby-bedding", "/categories/kids/baby-bedding"],
+      [
+        "/categories/kids-pets/bibs-and-muslin",
+        "/categories/kids/bibs-and-muslin",
+      ],
+      [
+        "/categories/kids-pets/kids-tableware",
+        "/categories/kids/kids-tableware",
+      ],
+      ["/categories/kids-pets/toys", "/categories/kids/toys"],
+      ["/categories/kids-pets/learning-aids", "/categories/kids/learning-aids"],
+      [
+        "/categories/kids-pets/play-mats-and-fences",
+        "/categories/kids/play-mats-and-fences",
+      ],
+      [
+        "/categories/kids-pets/parenting-essentials",
+        "/categories/kids/parenting-essentials",
+      ],
+      ["/categories/kids-pets/pet-food", "/categories/pets/pet-food"],
+      ["/categories/kids-pets/pet-treats", "/categories/pets/pet-treats"],
+      [
+        "/categories/kids-pets/pet-supplements",
+        "/categories/pets/pet-supplements",
+      ],
+      ["/categories/kids-pets/pet-apparel", "/categories/pets/pet-apparel"],
+      [
+        "/categories/kids-pets/pet-beds-and-scratchers",
+        "/categories/pets/pet-beds-and-scratchers",
+      ],
+      ["/categories/kids-pets/pet-grooming", "/categories/pets/pet-grooming"],
+      ["/categories/kids-pets/pet-supplies", "/categories/pets/pet-supplies"],
     ] as const;
 
-    for (const [source, destination] of redirects) {
-      const response = await request.get(source, { maxRedirects: 0 });
+    // Issued concurrently, and destinations deduped. The table grew to 39 rows
+    // when the retired L2 URLs joined it (DEV-1531); serially that is 78 remote
+    // round trips against deployed staging, which overran the test budget and
+    // tore the request context down mid-flight rather than failing an
+    // assertion. Ten of the rows share `/brands` as their destination, so the
+    // distinct-destination set is far smaller than the row count.
+    const sourceResults = await Promise.all(
+      redirects.map(async ([source, destination]) => ({
+        source,
+        destination,
+        response: await request.get(source, { maxRedirects: 0 }),
+      })),
+    );
+    for (const { source, destination, response } of sourceResults) {
       expect(response.status(), `${source} should redirect`).toBe(308);
       expect(response.headers().location, `${source} target`).toBe(destination);
+    }
 
-      const destinationResponse = await request.get(destination, {
-        maxRedirects: 0,
-      });
-      expect(destinationResponse.status(), `${destination} should render`).toBe(
-        200,
-      );
+    const destinations = [...new Set(redirects.map(([, to]) => to))];
+    const destinationResults = await Promise.all(
+      destinations.map(async (destination) => ({
+        destination,
+        response: await request.get(destination, { maxRedirects: 0 }),
+      })),
+    );
+    for (const { destination, response } of destinationResults) {
+      expect(response.status(), `${destination} should render`).toBe(200);
     }
   });
 

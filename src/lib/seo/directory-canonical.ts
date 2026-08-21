@@ -1,4 +1,5 @@
 import { buildAlternates, type AlternatesResult, type Locale } from './alternates'
+import { routes } from '@/lib/routes'
 
 type DirectoryCanonicalOptions = {
   locale: Locale
@@ -15,6 +16,7 @@ export type DirectoryCanonicalFacets = {
   verification?: unknown
   category?: unknown
   sub?: unknown
+  material?: unknown
   sort?: unknown
 }
 
@@ -42,6 +44,7 @@ function appendDirectoryQuery(
     ['verification', facets?.verification],
     ['category', facets?.category],
     ['sub', facets?.sub],
+    ['material', facets?.material],
     ['sort', facets?.sort],
   ]
   for (const [key, value] of recognizedFacets) {
@@ -61,8 +64,8 @@ export function buildDirectoryCanonicals({
   preserveFacets,
 }: DirectoryCanonicalOptions): AlternatesResult {
   const directoryPath = categorySlug
-    ? `/categories/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ''}`
-    : '/brands'
+    ? routes.categoryPath(categorySlug, subcategorySlug)
+    : routes.brands()
   const { canonical, languages } = buildAlternates(directoryPath, locale)
   const append = (url: string) => appendDirectoryQuery(url, page, preserveFacets)
 

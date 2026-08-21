@@ -23,19 +23,19 @@ import { Label } from '@/components/ui/label'
 import { fieldTextStyles } from '@/components/ui/text-styles'
 import type { BrandWizardCommonValues } from '@/lib/schemas/brand-wizard'
 import {
-  channelMessageKey,
-  PURCHASE_CHANNELS,
-  purchaseChannelByKey,
-  type PurchaseChannelCamelField,
-  type PurchaseChannelKey,
-} from '@/lib/brands/purchase-channels'
+  onlineStoreMessageKey,
+  ONLINE_STORES,
+  onlineStoreByKey,
+  type OnlineStoreCamelField,
+  type OnlineStoreKey,
+} from '@/lib/brands/online-stores'
 import { cn } from '@/lib/utils'
 
 type FixedLinkName =
   | 'socialInstagram'
   | 'socialThreads'
   | 'socialFacebook'
-  | PurchaseChannelCamelField
+  | OnlineStoreCamelField
 
 type PlatformRow = {
   name: FixedLinkName
@@ -61,7 +61,7 @@ const PURCHASE_PRESENTATION = {
   pinkoi: {
     placeholder: 'https://pinkoi.com/store/yourbrand',
     icon: Store,
-    iconClassName: 'bg-primary/10 text-primary',
+    iconClassName: 'bg-accent/10 text-accent',
     inputType: 'url',
   },
   shopee: {
@@ -76,7 +76,7 @@ const PURCHASE_PRESENTATION = {
     iconClassName: 'bg-accent/10 text-accent',
     inputType: 'url',
   },
-} satisfies Record<PurchaseChannelKey, PurchasePresentation>
+} satisfies Record<OnlineStoreKey, PurchasePresentation>
 
 export function BrandLinksSection({
   officialWebsiteRequired,
@@ -100,7 +100,7 @@ export function BrandLinksSection({
       label: t('fieldInstagram'),
       placeholder: 'https://instagram.com/yourbrand',
       icon: Camera,
-      iconClassName: 'bg-primary/10 text-primary',
+      iconClassName: 'bg-accent/10 text-accent',
     },
     {
       name: 'socialThreads',
@@ -114,28 +114,28 @@ export function BrandLinksSection({
       label: t('fieldFacebook'),
       placeholder: 'https://facebook.com/yourbrand',
       icon: Share2,
-      iconClassName: 'bg-primary-light/20 text-primary-dark',
+      iconClassName: 'bg-accent/10 text-accent',
       inputType: 'url',
     },
   ]
-  const purchaseRows: PlatformRow[] = PURCHASE_CHANNELS.map((channel) => ({
+  const purchaseRows: PlatformRow[] = ONLINE_STORES.map((channel) => ({
     name: channel.camel,
-    label: t(channelMessageKey(channel.messageKeys.dashboardEditField, 'dashboard.edit')),
+    label: t(onlineStoreMessageKey(channel.messageKeys.dashboardEditField, 'dashboard.edit')),
     ...PURCHASE_PRESENTATION[channel.key],
   }))
-  const officialWebsiteField = purchaseChannelByKey.website.camel
+  const officialWebsiteField = onlineStoreByKey.website.camel
 
   return (
     <section id="purchase" className="scroll-mt-8 space-y-5">
       <div className="space-y-1">
-        <h2 className="type-section-title">{t('sectionLinks')}</h2>
+        <h2 className="type-card-title">{t('sectionLinks')}</h2>
         {officialWebsiteRequired ? <RequiredFieldsHint /> : null}
       </div>
 
       <LinkGroup
         label={t('socialLinksLabel')}
         icon={UsersRound}
-        iconClassName="bg-primary/10 text-primary"
+        iconClassName="bg-accent/10 text-accent"
       >
         {socialRows.map((row) => (
           <FixedPlatformRow key={row.name} row={row} required={false} />
@@ -159,12 +159,12 @@ export function BrandLinksSection({
       <LinkGroup
         label={t('fieldOtherLinks')}
         icon={Link2}
-        iconClassName="bg-secondary text-primary"
+        iconClassName="bg-secondary text-accent"
       >
         <div className="space-y-3 p-4">
           <div className="grid grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)_3rem] gap-2">
-            <span className="type-caption">{t('fieldLabelPlaceholder')}</span>
-            <span className="type-caption">{t('fieldUrlPlaceholder')}</span>
+            <span className="type-metadata">{t('fieldLabelPlaceholder')}</span>
+            <span className="type-metadata">{t('fieldUrlPlaceholder')}</span>
             <span />
           </div>
           {fields.map((field, index) => (
@@ -237,7 +237,7 @@ function LinkGroup({
         >
           <Icon className="size-4" />
         </span>
-        <h3 className="type-subsection-title">{label}</h3>
+        <h3 className="type-body-sm font-semibold text-ink">{label}</h3>
       </div>
       <div className="divide-y divide-border">{children}</div>
     </fieldset>

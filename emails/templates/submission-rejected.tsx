@@ -1,11 +1,21 @@
 import * as React from 'react'
-import { Link, Text } from '@react-email/components'
+import { Text } from '@react-email/components'
 import { render } from '@react-email/render'
 import { Button } from '@emails/components/button'
+import { EmailLink } from '@emails/components/email-link'
 import { EmailHeading } from '@emails/components/email-heading'
 import { EmailText } from '@emails/components/email-text'
 import { Layout } from '@emails/components/layout'
-import { FROM_ADDRESS, SITE_URL } from '@emails/styles'
+import {
+  FONT_SIZE_BODY,
+  FONT_STACK,
+  FROM_ADDRESS,
+  INK_SOFT,
+  LINE_HEIGHT_BODY,
+  RULE,
+  SITE_URL,
+  SPACE_GUTTER,
+} from '@emails/styles'
 import type { EmailMessage } from '@emails/types'
 import { escapeHtml } from '@emails/utils'
 import type { DenialReason } from '@/lib/types'
@@ -92,7 +102,7 @@ export default function SubmissionRejectedEmail({
 
   if (locale === 'en') {
     return (
-      <Layout previewText="Your submission needs revision">
+      <Layout lang="en" previewText="Your submission needs revision">
         <EmailHeading>Your submission needs revision</EmailHeading>
         <EmailText>
           Thank you for submitting <strong dangerouslySetInnerHTML={{ __html: brandNameHtml }} /> to Formoria.
@@ -105,7 +115,7 @@ export default function SubmissionRejectedEmail({
         {reviewerNotesHtml ? <ReviewerNotes label="Reviewer notes:" notesHtml={reviewerNotesHtml} /> : null}
         <EmailText>
           If you believe this decision was made in error, contact us at{' '}
-          <Link href="mailto:ops@formoria.com">ops@formoria.com</Link>.
+          <EmailLink href="mailto:ops@formoria.com">ops@formoria.com</EmailLink>.
         </EmailText>
         <EmailText>You are welcome to revise and resubmit.</EmailText>
         <Button href={SITE_URL}>Visit Formoria</Button>
@@ -127,7 +137,9 @@ export default function SubmissionRejectedEmail({
       <EmailText>{guidance}</EmailText>
       {reviewerNotesHtml ? <ReviewerNotes label="審核意見：" notesHtml={reviewerNotesHtml} /> : null}
       <EmailText>
-        如果您認為此決定有誤，請透過 <Link href="mailto:ops@formoria.com">ops@formoria.com</Link> 聯絡我們。
+        如果您認為此決定有誤，請透過{' '}
+        <EmailLink href="mailto:ops@formoria.com">ops@formoria.com</EmailLink>{' '}
+        聯絡我們。
       </EmailText>
       <EmailText>您可以修改資料後重新提交。</EmailText>
       <Button href={SITE_URL}>前往 Formoria</Button>
@@ -152,11 +164,15 @@ function ReviewerNotes({
   )
 }
 
+/** A hairline in the left margin, not a grey slab: quoted reviewer copy. */
 const blockquote = {
-  borderLeft: '3px solid #d1d5db',
-  color: '#374151',
-  margin: '0 0 16px',
-  paddingLeft: '12px',
+  borderLeft: `2px solid ${RULE}`,
+  color: INK_SOFT,
+  fontFamily: FONT_STACK,
+  fontSize: FONT_SIZE_BODY,
+  lineHeight: LINE_HEIGHT_BODY,
+  margin: `0 0 ${SPACE_GUTTER}`,
+  paddingLeft: SPACE_GUTTER,
 }
 
 export async function buildRejectionEmail(params: RejectionEmailProps): Promise<EmailMessage> {

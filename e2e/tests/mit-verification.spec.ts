@@ -49,7 +49,7 @@ test.describe('MIT verification badges', () => {
         slug: mitBrandSlug,
         status: 'approved',
         approved_at: new Date().toISOString(),
-        product_type: 'crafts',
+        category: 'home',
         description: 'E2E throwaway — MIT verified brand.',
         mit_status: 'verified',
         mit_verified_at: new Date().toISOString(),
@@ -69,7 +69,7 @@ test.describe('MIT verification badges', () => {
         slug: ownerBrandSlug,
         status: 'approved',
         approved_at: new Date().toISOString(),
-        product_type: 'crafts',
+        category: 'home',
         description: 'E2E throwaway — owner-managed brand.',
       })
       .select('id')
@@ -86,15 +86,23 @@ test.describe('MIT verification badges', () => {
 
   test.afterAll(async () => {
     if (!supabase) return;
+    const cleanupErrors: string[] = [];
     if (ownerBrandId) {
-      await supabase.from('brand_owners').delete().eq('brand_id', ownerBrandId);
-      await supabase.from('brands').delete().eq('id', ownerBrandId);
+      const { error: ownerError } = await supabase.from('brand_owners').delete().eq('brand_id', ownerBrandId);
+      if (ownerError) cleanupErrors.push(`owner deletion failed: ${ownerError.message}`);
+      const { error: ownerBrandError } = await supabase.from('brands').delete().eq('id', ownerBrandId);
+      if (ownerBrandError) cleanupErrors.push(`owner brand deletion failed: ${ownerBrandError.message}`);
     }
     if (mitBrandId) {
-      await supabase.from('brands').delete().eq('id', mitBrandId);
+      const { error: mitBrandError } = await supabase.from('brands').delete().eq('id', mitBrandId);
+      if (mitBrandError) cleanupErrors.push(`MIT brand deletion failed: ${mitBrandError.message}`);
     }
     if (throwawayOwnerId) {
-      await supabase.auth.admin.deleteUser(throwawayOwnerId);
+      const { error: userError } = await supabase.auth.admin.deleteUser(throwawayOwnerId);
+      if (userError) cleanupErrors.push(`throwaway owner deletion failed: ${userError.message}`);
+    }
+    if (cleanupErrors.length > 0) {
+      throw new Error(`[e2e-cleanup] MIT verification cleanup failed — ${cleanupErrors.join('; ')}`);
     }
   });
 

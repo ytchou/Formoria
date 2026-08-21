@@ -7,11 +7,11 @@ import {
 import { sendEmail } from '@/lib/email/send'
 import { auditedCall } from '@/lib/audit'
 import {
-  PURCHASE_CHANNELS,
-  PURCHASE_COLUMNS,
-  type PurchaseChannelCamelField,
-  type PurchaseChannelColumn,
-} from '@/lib/brands/purchase-channels'
+  ONLINE_STORES,
+  ONLINE_STORE_COLUMNS,
+  type OnlineStoreCamelField,
+  type OnlineStoreColumn,
+} from '@/lib/brands/online-stores'
 import { createServiceClient } from '@/lib/supabase/service'
 import type { EmailMessage } from '@/lib/email/types'
 import { normalizeOwnerLocale, type OwnerLocale } from '@/lib/types'
@@ -33,7 +33,13 @@ type OwnerRow = {
   description?: string
   hero_image_url?: string
   product_photos: string[]
-  product_tags: string[]
+  /**
+   * English slugs as stored, deliberately unresolved: the only reader is
+   * `computeProfileCompleteness`, which asks whether the array carries anything
+   * at all. Resolve through `getBrandSubcategoryLabels` before any of these
+   * reach an email body — a slug in a zh-TW email is Latin text to the owner.
+   */
+  subcategories: string[]
   price_range?: number
   city?: string
   social_instagram?: string
@@ -44,30 +50,30 @@ type OwnerRow = {
   founding_year?: number
   site_enabled?: boolean
   locale_preference: OwnerLocale
-} & { [K in PurchaseChannelColumn]?: string }
+} & { [K in OnlineStoreColumn]?: string }
 
 /** Registry-derived purchase columns off the joined `brands` row. */
 function purchaseColumnValues(
   brand: Record<string, unknown> | undefined,
-): { [K in PurchaseChannelColumn]?: string } {
+): { [K in OnlineStoreColumn]?: string } {
   return Object.fromEntries(
-    PURCHASE_COLUMNS.map((column) => [
+    ONLINE_STORE_COLUMNS.map((column) => [
       column,
       stringValue(brand?.[column]) || undefined,
     ]),
-  ) as { [K in PurchaseChannelColumn]?: string }
+  ) as { [K in OnlineStoreColumn]?: string }
 }
 
 /** The same values keyed by their camelCase `Brand` field, for the profile scorer. */
 function purchaseCamelValues(
   owner: OwnerRow,
-): Record<PurchaseChannelCamelField, string | null> {
+): Record<OnlineStoreCamelField, string | null> {
   return Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel) => [
+    ONLINE_STORES.map((channel) => [
       channel.camel,
       owner[channel.column] ?? null,
     ]),
-  ) as Record<PurchaseChannelCamelField, string | null>
+  ) as Record<OnlineStoreCamelField, string | null>
 }
 
 type QueryResult<T> = {
@@ -320,7 +326,7 @@ function queryEligibleOwners(
   const query = supabase.from<Record<string, unknown>>('brand_owners').select(`
       user_id,
       claimed_at,
-      brands!inner(name, slug, description, hero_image_url, founding_year, product_tags, price_range, ${PURCHASE_COLUMNS.join(', ')}, city, social_instagram, social_threads, social_facebook, other_urls, reputation_summary, site_content, brand_images(url, status, sort_order)),
+      brands!inner(name, slug, description, hero_image_url, founding_year, subcategories, price_range, ${ONLINE_STORE_COLUMNS.join(', ')}, city, social_instagram, social_threads, social_facebook, other_urls, reputation_summary, site_content, brand_images(url, status, sort_order)),
       owner_email_preferences!inner(unsubscribe_token),
       email:users!brand_owners_user_id_fkey(email)
     `)
@@ -378,8 +384,8 @@ function normalizeOwnerRow(row: Record<string, unknown>): OwnerRow {
       .slice(1)
       .map((image) => stringValue(objectValue(image)?.url))
       .filter(Boolean),
-    product_tags: Array.isArray(brand?.product_tags)
-      ? brand.product_tags.filter(
+    subcategories: Array.isArray(brand?.subcategories)
+      ? brand.subcategories.filter(
           (tag): tag is string => typeof tag === 'string',
         )
       : [],
@@ -411,7 +417,7 @@ function profileCompleteness(owner: OwnerRow): {
 } {
   const completeness = computeProfileCompleteness({
     description: owner.description ?? null,
-    productTags: owner.product_tags,
+    subcategories: owner.subcategories,
     priceRange: owner.price_range ?? null,
     heroImageUrl: owner.hero_image_url ?? null,
     productPhotos: owner.product_photos,

@@ -1,24 +1,16 @@
 import { cleanupTestData } from './helpers/cleanup';
+import { validateStagingTarget } from '../scripts/staging-target';
 
 async function globalTeardown() {
-  try {
-    // Previous runs' orphans, then this run's own rows. Without the second
-    // sweep nothing the run created is ever deleted here — the orphan window is
-    // 6h — so a crashed worker left approved [E2E-TEST] brands live in the
-    // public catalog until some later run happened to pass the window.
-    await cleanupTestData();
-    const createdSince = process.env.E2E_RUN_STARTED_AT;
-    if (createdSince) {
-      await cleanupTestData({ createdSince, runId: process.env.E2E_RUN_ID });
-    } else {
-      console.warn(
-        '[E2E teardown] E2E_RUN_STARTED_AT unset — skipping the run-scoped sweep',
-      );
-    }
-  } catch (err) {
-    console.error('[E2E teardown] cleanup failed — orphaned rows may remain:', err);
-    // Do not rethrow — allow runner to exit cleanly
+  validateStagingTarget(process.env);
+  // Previous runs' orphans, then this run's own rows. The second sweep is a
+  // hard integrity gate: a green deployed run must not leave E2E data behind.
+  await cleanupTestData();
+  const createdSince = process.env.E2E_RUN_STARTED_AT;
+  if (!createdSince) {
+    throw new Error('[E2E teardown] E2E_RUN_STARTED_AT is missing; refusing to certify cleanup');
   }
+  await cleanupTestData({ createdSince });
 }
 
 export default globalTeardown;

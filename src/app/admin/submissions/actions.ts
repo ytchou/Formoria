@@ -16,6 +16,7 @@ import {
   saveSubmissionReview,
   type SaveSubmissionReviewInput,
 } from "@/lib/services/submissions";
+import { routes } from "@/lib/routes";
 
 type ActionResult = { error: string } | undefined;
 
@@ -25,6 +26,12 @@ const dropSubmissionIdsSchema = z
   .max(MAX_DROPPABLE_SUBMISSIONS)
   .refine((ids) => new Set(ids).size === ids.length);
 
+/**
+ * The whole review payload, products included (DEV-1469): `adminReviewSchema` is
+ * the only gate, and it declares `products` and `keptProductKeys` for exactly
+ * that reason — `z.object` strips what it does not declare, so an undeclared
+ * field would be dropped here in silence.
+ */
 export async function saveSubmissionReviewAction(
   submissionId: string,
   input: unknown,
@@ -44,7 +51,7 @@ export async function saveSubmissionReviewAction(
         idResult.data,
         reviewResult.data as SaveSubmissionReviewInput,
       );
-      revalidatePath("/admin/submissions");
+      revalidatePath(routes.admin.submissions());
       return undefined;
     } catch (error) {
       return {
@@ -70,7 +77,7 @@ export async function cleanupSubmissionDraftImagesAction(
 
     try {
       await cleanupSubmissionDraftImages(idResult.data, imagesResult.data);
-      revalidatePath("/admin/submissions");
+      revalidatePath(routes.admin.submissions());
       return undefined;
     } catch (error) {
       return {
@@ -96,8 +103,8 @@ export async function dropNeedsDataSubmissionsAction(
 
     try {
       const result = await dropNeedsDataSubmissions(idsResult.data);
-      revalidatePath("/admin");
-      revalidatePath("/admin/submissions");
+      revalidatePath(routes.admin.index());
+      revalidatePath(routes.admin.submissions());
       return {
         deletedCount: result.deletedCount,
         ...(result.cleanupFailed ? { storageCleanupWarning: true as const } : {}),

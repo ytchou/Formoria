@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
@@ -14,7 +14,11 @@ import {
   trackSearchSuggestionSelect,
 } from '@/lib/analytics'
 import type { SearchSuggestion } from '@/lib/brands/contracts'
-import { SearchSuggestions, SEARCH_SUGGESTIONS_ID } from './search-suggestions'
+import {
+  SearchSuggestions,
+  searchSuggestionOptionId,
+} from './search-suggestions'
+import { routes } from '@/lib/routes'
 
 interface SearchInputProps {
   redirectTo?: string
@@ -47,6 +51,10 @@ function SearchInput({
   const abortRef = useRef<AbortController | null>(null)
   const containerRef = useRef<HTMLFormElement>(null)
   const router = useRouter()
+  // Per-instance, not a module constant: the homepage renders this field twice
+  // at `md+` (hero and nav), and one shared listbox id pointed `aria-controls`
+  // at whichever list happened to be first in the DOM.
+  const suggestionsId = useId()
 
   if (filters.search !== lastUrlSearch) {
     setLastUrlSearch(filters.search)
@@ -173,7 +181,7 @@ function SearchInput({
     trackSearchResultClicked(value, index, selected?.id, slug)
     trackSearchSuggestionSelect(slug, selected?.id)
     setShowDropdown(false)
-    router.push(`/brands/${slug}`)
+    router.push(routes.brand(slug))
   }
 
   function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
@@ -237,12 +245,12 @@ function SearchInput({
       {/* Search icon */}
       {isBusy ? (
         <Loader2
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-ink-muted"
           aria-hidden="true"
         />
       ) : (
         <svg
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
@@ -264,10 +272,13 @@ function SearchInput({
         role="searchbox"
         aria-label={t('search.aria')}
         aria-autocomplete="list"
-        aria-controls={showDropdown ? SEARCH_SUGGESTIONS_ID : undefined}
+        aria-controls={showDropdown ? suggestionsId : undefined}
         aria-activedescendant={
           showDropdown && selectedIndex >= 0 && suggestions[selectedIndex]
-            ? `search-suggestion-${suggestions[selectedIndex].id}`
+            ? searchSuggestionOptionId(
+                suggestionsId,
+                suggestions[selectedIndex].id,
+              )
             : undefined
         }
         placeholder={placeholder ?? t('search.placeholder')}
@@ -285,7 +296,7 @@ function SearchInput({
           onClick={handleClear}
           aria-label={t('search.clear')}
           // eslint-disable-next-line no-restricted-syntax -- ui-exception: inline clear button inside custom search form, tightly coupled to search input layout
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-muted-foreground hover:text-foreground"
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-ink-muted hover:text-ink"
         >
           <svg
             className="h-4 w-4"
@@ -306,6 +317,7 @@ function SearchInput({
 
       {showDropdown && (
         <SearchSuggestions
+          id={suggestionsId}
           suggestions={suggestions}
           selectedIndex={selectedIndex}
           onSelect={handleSelect}

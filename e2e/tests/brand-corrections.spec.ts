@@ -2,6 +2,18 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures/auth';
 import { seedBrand, SeededBrand } from '../helpers/seed';
 import { BUDGET, POLL } from '../budgets';
+import { L2_SUBCATEGORIES } from '../../src/lib/taxonomy/ontology';
+import zhTW from '../../messages/zh-TW.json';
+
+const IS_CANONICAL_STAGING_TARGET =
+  new URL(
+    process.env.BASE_URL ??
+      process.env.PLAYWRIGHT_BASE_URL ??
+      process.env.STAGING_BASE_URL ??
+      'http://localhost:3000',
+  ).origin === 'https://staging.formoria.com';
+const STAGING_MUTATION_SKIP_REASON =
+  'Anonymous correction mutations are intentionally disabled on canonical staging';
 // DEV-1261 note: deliberately NOT gated on `owner_features_enabled`. This is an
 // anonymous crowd-QA journey that touches no owner surface, and it is live at
 // launch — pausing it would take consumer coverage dark for no reason. Verified
@@ -17,8 +29,9 @@ import { BUDGET, POLL } from '../budgets';
  * original value until an admin approves it.
  *
  * The value control is a two-row chip picker (DEV-1244): row 1 is the brand's
- * current value, row 2 is everything else. A visitor whose product category is
- * missing from row 2 can type it via the 其他 escape hatch.
+ * current value, row 2 is everything else. DEV-1510 closed the vocabulary: row 2
+ * offers all 175 nodes and there is no free-text path, so a product kind the
+ * taxonomy lacks is rejected and logged rather than proposed.
  *
  * Admin approval is deliberately out of scope here — admin review paths are
  * exercised elsewhere and excluded from this journey.
@@ -33,28 +46,60 @@ const CORRECTION_DIALOG_TITLE = '修正品牌資訊'; // brandDetail.correction.
 const FIELD_PICKER_LABEL = '要修正哪一項?'; // brandDetail.correction.fieldPickerLabel
 // The value control is two role="group" rows. Row 1 (the brand's current value)
 // is named by the 目前 heading; row 2 (the options a visitor may pick) is named
-// by the field label itself, so 類別 addresses the options row, not the current one.
+// by the field label itself, so 品牌類別 addresses the options row, not the current one.
 const CURRENT_VALUE_LABEL = '目前'; // brandDetail.correction.currentHeading
-const CATEGORY_VALUE_LABEL = '類別'; // brandDetail.label.category
-const ADD_TAGS_LABEL = '可加入的類別'; // brandDetail.correction.addTagsHeading
-const OTHER_TAG_CHIP = '其他'; // brandDetail.correction.otherTagChip
-const OTHER_TAG_INPUT_LABEL = '其他類別名稱'; // brandDetail.correction.otherTagInputLabel
-const OTHER_TAG_CONFIRM = '加入'; // brandDetail.correction.otherTagConfirm
+const CATEGORY_VALUE_LABEL = '品牌類別'; // brandDetail.label.category
 const SUBMIT_LABEL = '送出修正'; // brandDetail.correction.submit
 const CANCEL_LABEL = '取消'; // dashboard.edit.cancel
-const REVIEW_PROMISE = '感謝您的建議！送出後將由官方審核決定是否更新。'; // brandDetail.correction.description
+const REVIEW_PROMISE = '感謝提供建議！送出後由 Formoria 審核決定是否更新。'; // brandDetail.correction.description
 const SUCCESS_TOAST = '修正已送出，感謝你的協助。'; // brandDetail.correction.success
-const ALREADY_SUBMITTED_TOAST = '你已經送出過這項修正，請等待審核。'; // ...correction.errors.already_submitted
+const ALREADY_SUBMITTED_TOAST = '這項修正已經送出，請等待審核。'; // ...correction.errors.already_submitted
 
-// seedBrand() always writes product_type: 'crafts' and no product_tags
-const CURRENT_CATEGORY_LABEL = '工藝文創';
+// seedBrand() always writes category: 'home' and no subcategories.
+const CURRENT_CATEGORY_LABEL = '居家生活';
 const PROPOSED_CATEGORY_LABEL = '文具設計';
 
-// A tag the taxonomy does not know: 4 characters (inside the 2–8 rule), no
-// ontology name or alias (grep 藺 in ontology.ts returns nothing), and it misses
-// both blocklists in product-tags.ts — no marketing-noise term and no leading
-// size qualifier. See `novelTagRejection`.
-const NOVEL_TAG = '藺草編織';
+// The subcategory-picker journey below reads its copy out of the catalogue
+// rather than restating it: three of the five strings are whole sentences, and
+// a hand-copied sentence drifts silently the day the wording changes.
+const SUBCATEGORY_SEARCH_LABEL =
+  zhTW.brandDetail.correction.subcategorySearchLabel;
+const SUBCATEGORY_REJECTED = zhTW.brandDetail.correction.subcategoryRejected;
+const SUBCATEGORY_EMPTY = zhTW.brandDetail.correction.subcategoryEmpty;
+const CURRENT_SUBCATEGORIES_HEADING =
+  zhTW.brandDetail.correction.currentSubcategoriesHeading;
+const ADD_SUBCATEGORIES_HEADING =
+  zhTW.brandDetail.correction.addSubcategoriesHeading;
+
+/**
+ * A term the closed vocabulary can neither resolve NOR narrow to one node.
+ *
+ * Both halves are load-bearing. `commitTypedTerm` accepts a typed term when
+ * `resolveSubcategorySelection` knows it — slug, zh name, en name or alias —
+ * OR when the filter has left exactly ONE node on offer, which it reads as a
+ * disambiguated selection rather than as free text. A term that narrows to a
+ * single chip is therefore committed silently, and swapping one in here would
+ * make the test below assert the opposite of its own name. 燈籠 appears
+ * nowhere in `ontology.ts`, so 手工燈籠 matches zero nodes and the
+ * rejection path is the only one it can take.
+ */
+const OUT_OF_VOCABULARY_TERM = '手工燈籠';
+
+/**
+ * The known-good half of the same journey, resolved from the ontology so a
+ * renamed node breaks this loudly instead of quietly becoming a second
+ * rejection — which would leave the test green while proving nothing.
+ */
+const KNOWN_SUBCATEGORY = (() => {
+  const slug = 'tableware';
+  const node = L2_SUBCATEGORIES.find((item) => item.slug === slug);
+  if (!node) {
+    throw new Error(
+      `brand-corrections spec pins a subcategory that no longer exists: ${slug}`,
+    );
+  }
+  return node;
+})();
 
 /**
  * Correction submits and `/brands/` page loads are both rate limited per client
@@ -104,20 +149,20 @@ function correctionDialog(page: Page) {
   return page.getByRole('dialog', { name: CORRECTION_DIALOG_TITLE });
 }
 
-// The 類別 value cell. Scoping here matters: the category label also appears in
-// the breadcrumb and the related-brands rail. `:text-is` is exact on purpose —
-// a substring match would also select the 產品類別 row.
+// The 品牌類別 value cell. Scoping here matters: the category value also appears
+// in the breadcrumb and the related-brands rail. `:text-is` is exact on purpose
+// so this can never select the 商品子類別 row.
 function categoryValue(page: Page) {
   return page
     .locator('#brand-info-section > dl > div')
-    .filter({ has: page.locator('dt:text-is("類別")') })
+    .filter({ has: page.locator('dt:text-is("品牌類別")') })
     .locator('dd');
 }
 
 // The brand page is statically served and hydrates afterwards, so a click that
 // lands too early is a no-op. Retry the (idempotent) open until the dialog is up
 // rather than sleeping on a guessed hydration delay.
-async function openCorrectionDialog(page: Page, field: 'product_type' | 'product_tags') {
+async function openCorrectionDialog(page: Page, field: 'category' | 'subcategories') {
   // The trigger ships in the server-rendered HTML, so a missing one is never a
   // hydration race — it means the page under test doesn't have this feature at
   // all. Assert it up front: folded into the retry loop below it surfaces as an
@@ -138,11 +183,11 @@ async function openCorrectionDialog(page: Page, field: 'product_type' | 'product
 }
 
 async function openCategoryDialog(page: Page) {
-  return openCorrectionDialog(page, 'product_type');
+  return openCorrectionDialog(page, 'category');
 }
 
 // Every chip lookup goes through one of these two. Bare
-// getByRole('button', { name: '工藝文創' }) is strict-mode ambiguous — the
+// getByRole('button', { name: '居家生活' }) is strict-mode ambiguous — the
 // category labels also render in the breadcrumb and the related-brands rail.
 function optionsRow(dialog: Locator, name: string) {
   return dialog.getByRole('group', { name });
@@ -185,6 +230,7 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   test(
     'anonymous visitor can submit a category correction',
     async ({ anonPage }, testInfo) => {
+      test.skip(IS_CANONICAL_STAGING_TARGET, STAGING_MUTATION_SKIP_REASON);
       test.setTimeout(BUDGET.TEST.MUTATION);
       await isolateVisitorIp(anonPage, testInfo.workerIndex);
       await openSeededBrand(anonPage, seeded);
@@ -252,6 +298,7 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   test(
     'page still shows the original value after submitting',
     async ({ anonPage }, testInfo) => {
+      test.skip(IS_CANONICAL_STAGING_TARGET, STAGING_MUTATION_SKIP_REASON);
       test.setTimeout(BUDGET.TEST.MUTATION);
       await isolateVisitorIp(anonPage, testInfo.workerIndex);
       await openSeededBrand(anonPage, seeded);
@@ -273,6 +320,7 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   );
 
   test('a second submission for the same field is rejected', async ({ anonPage }, testInfo) => {
+    test.skip(IS_CANONICAL_STAGING_TARGET, STAGING_MUTATION_SKIP_REASON);
     test.setTimeout(BUDGET.TEST.ADMIN);
     await isolateVisitorIp(anonPage, testInfo.workerIndex);
     await openSeededBrand(anonPage, seeded);
@@ -289,40 +337,75 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
     await expect(dialog).toBeVisible();
   });
 
-  test(
-    'a visitor can propose a tag the taxonomy does not offer',
-    async ({ anonPage }, testInfo) => {
-      test.setTimeout(BUDGET.TEST.MUTATION);
-      await isolateVisitorIp(anonPage, testInfo.workerIndex);
-      await openSeededBrand(anonPage, seeded);
+  /*
+   * The journey that replaces the deleted 其他 free-text escape hatch (DEV-1510).
+   *
+   * It is READ-ONLY: it opens the picker, is refused, and closes. Nothing is
+   * submitted, so it deliberately carries no `IS_CANONICAL_STAGING_TARGET` skip
+   * — the mutating tests above need one because anonymous correction writes are
+   * disabled on canonical staging, and this one writes nothing to disable.
+   * The refusal is logged in memory on the client only
+   * (`recordRejectedSubcategoryInput`), never persisted.
+   *
+   * The `?material=` half of DEV-1524 lives in `directory-material.spec.ts`.
+   */
+  test('the closed subcategory picker refuses a term outside the vocabulary', async ({
+    anonPage,
+  }, testInfo) => {
+    test.setTimeout(BUDGET.TEST.JOURNEY);
+    await isolateVisitorIp(anonPage, testInfo.workerIndex);
+    await openSeededBrand(anonPage, seeded);
 
-      const dialog = await openCorrectionDialog(anonPage, 'product_tags');
-      const options = optionsRow(dialog, ADD_TAGS_LABEL);
-      const submit = dialog.getByRole('button', { name: SUBMIT_LABEL, exact: true });
+    const dialog = await openCorrectionDialog(anonPage, 'subcategories');
+    const filterField = dialog.getByRole('textbox', {
+      name: SUBCATEGORY_SEARCH_LABEL,
+    });
+    const submit = dialog.getByRole('button', { name: SUBMIT_LABEL, exact: true });
+    // The picker's two role="group" rows. `getByRole('status')` is deliberately
+    // not used anywhere below: the picker mounts two status regions of its own
+    // and the Next.js route announcer adds a third.
+    const selectedRow = optionsRow(dialog, CURRENT_SUBCATEGORIES_HEADING);
+    const offeredRow = optionsRow(dialog, ADD_SUBCATEGORIES_HEADING);
 
-      // Nothing picked yet — the seeded brand carries no tags at all.
-      await expect(submit).toBeDisabled();
+    // The field claims invalidity only after a refusal, never on arrival.
+    await expect(filterField).not.toHaveAttribute('aria-invalid');
+    await expect(submit).toBeDisabled();
 
-      // The escape hatch: the visitor's tag is not one of the offered chips.
-      await expect(
-        options.getByRole('button', { name: NOVEL_TAG, exact: true }),
-      ).toHaveCount(0);
-      await options.getByRole('button', { name: OTHER_TAG_CHIP, exact: true }).click();
+    await filterField.fill(OUT_OF_VOCABULARY_TERM);
+    await filterField.press('Enter');
 
-      await dialog.getByRole('textbox', { name: OTHER_TAG_INPUT_LABEL }).fill(NOVEL_TAG);
-      await dialog.getByRole('button', { name: OTHER_TAG_CONFIRM, exact: true }).click();
+    await expect(filterField).toHaveAttribute('aria-invalid', 'true');
+    // The refusal is ANNOUNCED through the field, not merely printed beside it:
+    // one of the nodes `aria-describedby` points at has to be what carries the
+    // text. `[id="…"]` rather than `#…` because these ids come from `useId`.
+    const describedBy =
+      (await filterField.getAttribute('aria-describedby')) ?? '';
+    const describedIds = describedBy.split(/\s+/).filter(Boolean);
+    expect(describedIds.length).toBeGreaterThan(0);
+    const rejection = anonPage
+      .locator(describedIds.map((id) => `[id="${id}"]`).join(','))
+      .filter({ hasText: SUBCATEGORY_REJECTED });
+    await expect(rejection).toHaveCount(1);
+    await expect(rejection).toBeVisible();
 
-      // Accepted: it joins the options row already selected, so the visitor sees
-      // what they are about to propose rather than a silent form change.
-      const novelChip = options.getByRole('button', { name: NOVEL_TAG, exact: true });
-      await expect(novelChip).toBeVisible();
-      await expect(novelChip).toHaveAttribute('aria-pressed', 'true');
+    // Zero matches, stated rather than assumed: the empty-offer message proves
+    // the term took the rejection path instead of the one-node auto-commit path
+    // documented on OUT_OF_VOCABULARY_TERM.
+    await expect(offeredRow.getByText(SUBCATEGORY_EMPTY)).toBeVisible();
+    await expect(selectedRow).not.toContainText(OUT_OF_VOCABULARY_TERM);
+    await expect(submit).toBeDisabled();
 
-      await expect(submit).toBeEnabled();
-      await submit.click();
+    // Cleared on the next keystroke: the message describes the term that was
+    // typed, not a state the field is stuck in.
+    await filterField.fill(KNOWN_SUBCATEGORY.slug);
+    await expect(filterField).not.toHaveAttribute('aria-invalid');
 
-      await expectToast(anonPage, 'success', SUCCESS_TOAST);
-      await expect(dialog).toBeHidden();
-    },
-  );
+    // A term the vocabulary DOES know still commits — which is what separates a
+    // closed field from a broken one. The chip renders the zh-TW label even
+    // though a slug was typed, because the stored value is the slug.
+    await filterField.press('Enter');
+    await expect(selectedRow).toContainText(KNOWN_SUBCATEGORY.nameZh);
+    await expect(filterField).toHaveValue('');
+    await expect(submit).toBeEnabled();
+  });
 });

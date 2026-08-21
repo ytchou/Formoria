@@ -1,8 +1,20 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { collectFrontendTokenFailures } from "./check-frontend-type-tokens.mjs";
+import {
+  allowedMatches,
+  collectFrontendTokenFailures,
+} from "./check-frontend-type-tokens.mjs";
+
+const projectRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 function writeFixture(cwd: string, file: string, source: string) {
   const path = join(cwd, file);
@@ -62,8 +74,15 @@ describe("check-frontend-type-tokens", () => {
     );
     writeFixture(
       cwd,
-      "src/components/microsite/contact-cta.tsx",
-      '<p className="text-[13px]">CTA</p>',
+      "src/lib/mdx/components.ts",
+      // Proves a LIVE allowlist row still suppresses a real match. The
+      // em-relative MDX code face is an "arbitrary numeric text size" that only
+      // the `src/lib/mdx/components.ts` row permits; delete that row and the
+      // assertion below goes to three. This fixture used to manufacture
+      // `text-[13px]` in `microsite/contact-cta.tsx`, which kept passing after
+      // the literal — and then the row — left the real tree, so the test was
+      // guarding a permission the codebase no longer had.
+      '<code className="text-[0.85em]">x</code>',
     );
     writeFixture(
       cwd,
@@ -141,5 +160,36 @@ describe("check-frontend-type-tokens", () => {
 
     const failures = collectFrontendTokenFailures({ cwd });
     expect(failures.some((f) => f.name === "raw-type-combo")).toBe(false);
+  });
+});
+
+/**
+ * An allowlist entry for a file that no longer exists fails nothing — which is
+ * exactly why three of them rotted here and in `eslint.config.mjs` unnoticed.
+ * A stale entry is not inert: it is a standing permission that will silently
+ * apply again the day someone recreates the path.
+ */
+describe("allowlist hygiene", () => {
+  it("no frontend-token allowlist entry points at a missing file", () => {
+    const missing = allowedMatches
+      .map((entry: { file: string }) => entry.file)
+      .filter((file: string) => !existsSync(join(projectRoot, file)));
+
+    expect(missing).toEqual([]);
+  });
+
+  it("no eslint grandfather entry points at a missing file", () => {
+    // Read as text rather than imported: loading the flat config pulls in every
+    // eslint plugin, and this assertion needs one array of strings.
+    const config = readFileSync(join(projectRoot, "eslint.config.mjs"), "utf8");
+    const block = config.slice(config.indexOf("Grandfather block:"));
+    const files = [...block.matchAll(/"(src\/[^"]+\.tsx?)"/g)].map(
+      (match) => match[1],
+    );
+
+    expect(files.length).toBeGreaterThan(0);
+    expect(
+      files.filter((file) => !existsSync(join(projectRoot, file))),
+    ).toEqual([]);
   });
 });

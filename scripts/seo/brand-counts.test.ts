@@ -2,21 +2,21 @@ import { describe, it, expect } from 'vitest'
 import { aggregateBrandCounts, isTestBrandName, type BrandCountRow } from './brand-counts'
 
 function brand(
-  product_type: string | null,
-  product_tags: string[],
+  category: string | null,
+  subcategories: string[],
   overrides: Partial<BrandCountRow> = {},
 ): BrandCountRow {
   return {
     name: 'A Brand',
-    product_type,
-    product_tags,
+    category,
+    subcategories,
     status: 'approved',
     ...overrides,
   }
 }
 
 describe('aggregateBrandCounts', () => {
-  it('aggregates brand counts per L1 product_type', () => {
+  it('aggregates brand counts per L1 category', () => {
     const result = aggregateBrandCounts([
       brand('fashion', ['牛仔褲']),
       brand('fashion', ['裙裝']),
@@ -25,13 +25,13 @@ describe('aggregateBrandCounts', () => {
       brand('not-a-category', ['手鍊']),
     ])
 
-    expect(result.product_type_totals.fashion).toBe(2)
-    expect(result.product_type_totals.jewelry).toBe(1)
-    expect(result.product_type_totals).not.toHaveProperty('not-a-category')
-    expect(result.product_type_totals).not.toHaveProperty('null')
+    expect(result.category_totals.fashion).toBe(2)
+    expect(result.category_totals.jewelry).toBe(1)
+    expect(result.category_totals).not.toHaveProperty('not-a-category')
+    expect(result.category_totals).not.toHaveProperty('null')
   })
 
-  it('resolves product tags to ontology slugs within the brand product_type', () => {
+  it('resolves subcategories to ontology slugs within the brand category', () => {
     const result = aggregateBrandCounts([
       brand('fashion', ['牛仔褲', '褲裝']),
       brand('jewelry', ['手鍊', '手鍊手環']),
@@ -61,7 +61,34 @@ describe('aggregateBrandCounts', () => {
     ])
   })
 
-  it('reports corpus_brand_count unscoped by product_type', () => {
+  it('counts rows stored as slugs, including the multi-word ones', () => {
+    // `brands.subcategories` holds slugs since DEV-1510. A multi-word slug is
+    // the load-bearing case: it normalizes to neither nameZh nor an alias, so a
+    // name-keyed resolver drops all 117 of them into `unmatched` and publishes
+    // brand_count 0 for real landing pages.
+    const result = aggregateBrandCounts([
+      brand('bags-accessories', ['tote-bags']),
+      brand('fashion', ['pants']),
+    ])
+
+    expect(result.subcategories).toEqual([
+      expect.objectContaining({
+        slug: 'pants',
+        category: 'fashion',
+        brand_count: 1,
+        corpus_brand_count: 1,
+      }),
+      expect.objectContaining({
+        slug: 'tote-bags',
+        category: 'bags-accessories',
+        brand_count: 1,
+        corpus_brand_count: 1,
+      }),
+    ])
+    expect(result.unmatched).toEqual([])
+  })
+
+  it('reports corpus_brand_count unscoped by category', () => {
     const result = aggregateBrandCounts([brand('beauty', ['家具'])])
 
     expect(result.subcategories).toEqual([
@@ -78,11 +105,11 @@ describe('aggregateBrandCounts', () => {
     ])
   })
 
-  it('reports l1_branches as the number of distinct product_types carrying the tag', () => {
+  it('reports l1_branches as the number of distinct categories carrying the subcategory', () => {
     const result = aggregateBrandCounts([
       brand('home', ['家具']),
       brand('beauty', ['家具']),
-      brand('crafts', ['家具']),
+      brand('stationery', ['家具']),
     ])
 
     expect(result.subcategories).toEqual([
@@ -95,9 +122,9 @@ describe('aggregateBrandCounts', () => {
     ])
   })
 
-  it('does not count a tag whose subcategory belongs to another product_type', () => {
-    // `/brands?category=jewelry` filters on product_type, so a fashion brand
-    // tagged 手鍊 never renders on the jewelry subcategory page.
+  it('does not count a subcategory whose parent belongs to another category', () => {
+    // `/brands?category=jewelry` filters on category, so a fashion brand
+    // A fashion brand carrying 手鍊 never renders on the jewelry subcategory page.
     const result = aggregateBrandCounts([brand('fashion', ['牛仔褲', '手鍊'])])
 
     expect(result.subcategories).toEqual([
@@ -120,7 +147,7 @@ describe('aggregateBrandCounts', () => {
     expect(result.unmatched).toEqual([])
   })
 
-  it('drops cross-category tags on rows with no recognised product_type', () => {
+  it('drops cross-category subcategories on rows with no recognised category', () => {
     const result = aggregateBrandCounts([
       brand(null, ['手鍊']),
       brand('not-a-category', ['手鍊']),
@@ -136,16 +163,16 @@ describe('aggregateBrandCounts', () => {
     ])
   })
 
-  it('collects unmatched tags separately', () => {
+  it('collects unmatched subcategories separately', () => {
     const result = aggregateBrandCounts([
       brand('fashion', ['Custom Gizmo', 'custom gizmo', '未分類']),
       brand('fashion', ['CUSTOM GIZMO', '其他']),
     ])
 
     expect(result.unmatched).toEqual([
-      { tag: 'Custom Gizmo', brand_count: 2 },
-      { tag: '其他', brand_count: 1 },
-      { tag: '未分類', brand_count: 1 },
+      { subcategory: 'Custom Gizmo', brand_count: 2 },
+      { subcategory: '其他', brand_count: 1 },
+      { subcategory: '未分類', brand_count: 1 },
     ])
   })
 
@@ -159,8 +186,8 @@ describe('aggregateBrandCounts', () => {
       brand('fashion', ['裙裝'], { name: '[E2E-TEST] Seeded Brand' }),
     ])
 
-    expect(result.product_type_totals.fashion).toBe(2)
-    expect(result.product_type_totals.jewelry).toBe(0)
+    expect(result.category_totals.fashion).toBe(2)
+    expect(result.category_totals.jewelry).toBe(0)
     expect(result.subcategories.map(({ slug }) => slug)).toEqual(['outerwear', 'pants'])
     expect(result.unmatched).toEqual([])
   })

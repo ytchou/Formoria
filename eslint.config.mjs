@@ -6,6 +6,46 @@ import playwright from "eslint-plugin-playwright";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // A suppression that suppresses nothing is worse than no suppression: it reads
+  // as a deliberate, reviewed exemption while the rule it names is still firing
+  // one line away. email-capture-form.tsx had exactly that — a
+  // react-hooks/exhaustive-deps directive placed on the hook opening when the
+  // rule reports at the dependency array.
+  { linterOptions: { reportUnusedDisableDirectives: "error" } },
+  // no-unused-vars is an error, not a warning. Warnings do not fail CI, which is
+  // how 66 of them accumulated unnoticed — and one was masking a misplaced
+  // suppression in email-capture-form.tsx. The ignore patterns encode intent that
+  // already existed in the code: `_`-prefixed bindings are deliberate, and
+  // rest-sibling destructuring is the idiom used to omit keys.
+  // `SurfaceImage` (`components/ui/image.tsx`) is the app's `next/image`
+  // wrapper, so every image call site now renders through a name that
+  // eslint-config-next's `alt-text` default (`img: ["Image"]`) does not know.
+  // Its own props type already makes `alt` required, but a type error and a
+  // lint warning catch different mistakes — `alt={undefined}` type-checks under
+  // a loose value while the rule sees a missing description.
+  {
+    rules: {
+      "jsx-a11y/alt-text": [
+        "warn",
+        { elements: ["img"], img: ["Image", "SurfaceImage"] },
+      ],
+    },
+  },
+  {
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          args: "all",
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+          ignoreRestSiblings: true,
+        },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
@@ -115,10 +155,7 @@ const eslintConfig = defineConfig([
       "src/components/brands/image-carousel.tsx",
       "src/components/brands/report-dialog.tsx",
       "src/components/brands/save-brand-button.tsx",
-      "src/components/dashboard/analytics-chart.tsx",
       "src/components/dashboard/onboarding-step-list.tsx",
-      "src/components/forms/product-tag-field.tsx",
-      "src/components/landing/filterable-brand-showcase.tsx",
       "src/components/navigation/nav-category-tabs.tsx",
       "src/components/newsletter/email-capture-form.tsx",
       "src/components/upload/ImageUploader.tsx",

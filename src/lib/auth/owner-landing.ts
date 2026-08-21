@@ -1,11 +1,12 @@
 import { routing } from '@/i18n/routing'
 import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
+import { routes } from '@/lib/routes'
 
 /**
  * Routes that 404 while the owner-features kill switch is off. Matched as path
  * prefixes, so `/dashboard/brands/foo` and `/submit/owner/quick` are covered.
  */
-const GATED_OWNER_PREFIXES = ['/dashboard', '/submit/owner']
+const GATED_OWNER_PREFIXES = [routes.dashboard.index(), routes.submit.owner()]
 
 function stripLocalePrefix(pathname: string): string {
   for (const locale of routing.locales) {
@@ -35,7 +36,7 @@ function isGatedOwnerPath(target: string): boolean {
  * With owner features off the dashboard 404s, so land signed-in users home.
  */
 export async function ownerLandingPath(): Promise<string> {
-  return (await isOwnerFeaturesEnabled()) ? '/dashboard' : '/'
+  return (await isOwnerFeaturesEnabled()) ? routes.dashboard.index() : '/'
 }
 
 /**
@@ -52,7 +53,7 @@ export async function resolvePostAuthPath(
   requestedNext: string | null | undefined
 ): Promise<string> {
   const ownerFeaturesEnabled = await isOwnerFeaturesEnabled()
-  const landingPath = ownerFeaturesEnabled ? '/dashboard' : '/'
+  const landingPath = ownerFeaturesEnabled ? routes.dashboard.index() : '/'
   if (!requestedNext) return landingPath
   if (!ownerFeaturesEnabled && isGatedOwnerPath(requestedNext)) return landingPath
   return requestedNext

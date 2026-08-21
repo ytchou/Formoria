@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { setFeatureFlagAction } from '@/app/admin/actions'
 import { SurfaceCard } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -12,6 +13,7 @@ export function FeatureTogglesCard({
 }: {
   initialValues: Record<string, boolean>
 }) {
+  const t = useTranslations('admin.settings')
   const [values, setValues] = useState(initialValues)
   const [savingKeys, setSavingKeys] = useState<Set<string>>(() => new Set())
 
@@ -36,7 +38,7 @@ export function FeatureTogglesCard({
   return (
     <section>
       <div className="mb-4">
-        <h2 className="type-section-title-large">Feature Toggles</h2>
+        <h2 className="type-label">{t('featureToggles')}</h2>
       </div>
       <SurfaceCard padding="lg">
         {FEATURE_FLAGS.map((flag) => (
@@ -46,7 +48,7 @@ export function FeatureTogglesCard({
           >
             <div>
               <Label htmlFor={`${flag.key}-toggle`}>{flag.label}</Label>
-              <p className="mt-1 type-card-description">{flag.description}</p>
+              <p className="mt-1 type-body-sm">{flag.description}</p>
             </div>
             <Switch
               id={`${flag.key}-toggle`}

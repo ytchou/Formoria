@@ -6,11 +6,13 @@ import { RootDocument } from "@/components/shared/root-document";
 import { createClient } from "@/lib/supabase/server";
 import { isActingAsAdmin } from "@/lib/auth/admin-mode";
 import { AdminNav } from "@/components/admin/admin-nav";
+import { PageShell } from "@/components/ui/page-shell";
 import type { NavItem } from "@/components/admin/admin-nav";
 import { getAdminNavCounts } from "@/lib/services/admin-operations";
 import { isOwnerFeaturesEnabled } from "@/lib/services/app-settings";
 import { getSiteUrl } from "@/lib/seo/site-url";
 import "../globals.css";
+import { routes } from "@/lib/routes";
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
@@ -51,48 +53,57 @@ export default async function AdminLayout({
     ]);
 
   const navItems: NavItem[] = [
-    { label: t("nav.overview"), href: "/admin" },
+    { label: t("nav.overview"), href: routes.admin.index() },
     {
       label: t("nav.submissions"),
-      href: "/admin/submissions",
+      href: routes.admin.submissions(),
       count: counts.submissions ?? undefined,
     },
-    { label: t("nav.jobs"), href: "/admin/jobs" },
+    { label: t("nav.jobs"), href: routes.admin.jobs() },
     {
       label: t("nav.moderation"),
-      href: "/admin/moderation",
+      href: routes.admin.moderation(),
       count: counts.moderation ?? undefined,
     },
     {
       label: t("nav.evidence"),
-      href: "/admin/evidence",
+      href: routes.admin.evidence(),
       count: counts.evidence ?? undefined,
     },
     ...(ownerFeaturesEnabled
-      ? [{ label: t("nav.claims"), href: "/admin/claims" }]
+      ? [{ label: t("nav.claims"), href: routes.admin.claims() }]
       : []),
-    { label: t("nav.reports"), href: "/admin/reports", count: counts.reports ?? undefined },
-    { label: t("nav.brands"), href: "/admin/brands" },
-    { label: t("nav.corrections"), href: "/admin/corrections", count: counts.corrections ?? undefined },
-    { label: t("nav.quality"), href: "/admin/quality" },
-    { label: t("nav.newsletter"), href: "/admin/newsletter" },
-    { label: t("nav.scripts"), href: "/admin/scripts" },
-    { label: t("nav.settings"), href: "/admin/settings" },
+    { label: t("nav.reports"), href: routes.admin.reports(), count: counts.reports ?? undefined },
+    { label: t("nav.brands"), href: routes.admin.brands() },
+    { label: t("nav.curatedProducts"), href: routes.admin.curatedProducts() },
+    { label: t("nav.corrections"), href: routes.admin.corrections(), count: counts.corrections ?? undefined },
+    { label: t("nav.stockists"), href: routes.admin.stockists(), count: counts.stockists ?? undefined },
+    { label: t("nav.quality"), href: routes.admin.quality() },
+    { label: t("nav.newsletter"), href: routes.admin.newsletter() },
+    { label: t("nav.scripts"), href: routes.admin.scripts() },
+    { label: t("nav.settings"), href: routes.admin.settings() },
   ];
 
   return (
     <RootDocument
       locale="en"
       skipToContentLabel={tCommon("skipToContent")}
-      feedbackCopy={messages.feedbackWidget as Record<string, string>}
     >
       <NextIntlClientProvider locale="en" messages={messages}>
-        <div className="min-h-screen bg-background">
-          <main id="main-content" className="mx-auto max-w-screen-2xl px-10 pb-8 pt-8">
-            <h1 className="type-page-title-large">{t("title")}</h1>
+        <div className="min-h-screen bg-ground">
+          {/* Admin is on the same three measures as the public site. The
+            screen-scale cap this replaces was 96rem — a fourth width, picked
+            once and never named, 4rem off the measure it meant. */}
+          <PageShell
+            as="main"
+            id="main-content"
+            measure="page"
+            className="py-stack"
+          >
+            <h1 className="type-label">{t("title")}</h1>
             <AdminNav items={navItems} />
             <div className="mt-8">{children}</div>
-          </main>
+          </PageShell>
         </div>
       </NextIntlClientProvider>
     </RootDocument>

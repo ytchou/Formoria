@@ -1,7 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { createServiceClient } from '@/lib/supabase/service'
-import { upsertEnrichedChannels } from '@/lib/services/brand-channels'
+import { upsertEnrichedStockists } from '@/lib/services/stockists'
 import { parseStockistCsv, type StockistCsvRow } from './normalize'
 import { planStockistImport, type ApprovedBrand } from './plan'
 
@@ -110,7 +110,7 @@ async function main(): Promise<void> {
   for (const batch of chunked(plan.brands, WRITE_BATCH_SIZE)) {
     await Promise.all(
       batch.map(async (brand) => {
-        const result = await upsertEnrichedChannels(
+        const result = await upsertEnrichedStockists(
           brand.brandId,
           brand.candidates,
         )

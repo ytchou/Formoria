@@ -2,7 +2,7 @@
  * Applies the reviewed corrections from the 2026-08 outdoor + tech content audit.
  *
  * Scope: STRUCTURED FIELDS ONLY — status, name/slug, founding_year, city,
- * product_type, product_tags, socials, purchase_website.
+ * category, subcategories, socials, purchase_website.
  * Long-form description rewrites are deliberately NOT in here; they are bilingual
  * editorial copy that needs its own review pass. `pnpm exec tsx … --pending` prints
  * the manifest of description edits still owed.
@@ -13,6 +13,12 @@
  *   pnpm exec tsx --env-file=.env.local scripts/apply-audit-corrections.ts --apply
  *   pnpm exec tsx --env-file=.env.local scripts/apply-audit-corrections.ts --pending
  *
+ * `subcategories` patches are written as ONTOLOGY SLUGS, because that is what the
+ * column stores since DEV-1510 and `updateBrand` copies the array through
+ * verbatim. Writing zh-TW labels here un-migrates a row per `--apply` run, and
+ * defeats the "already applied" check below as well: a label never equals the
+ * stored slug, so the diff is never empty and every run rewrites every row.
+ *
  * Provenance: every change below was verified against a primary source during the
  * 2026-08-11 review. Rows the audit got wrong (MONOCEAN's description, MXM's history,
  * PhotoFast's origin, ENABLE's ODM years, Allite's operating company, VIGHT's city)
@@ -21,7 +27,7 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { updateBrand, type BrandWriteInput } from "@/lib/services/brands";
 import { requestPublicBrandRevalidation } from "@/lib/cache/revalidate-client";
-import { matchSubcategory } from "@/lib/taxonomy/ontology";
+import { matchSubcategory, subcategoryBySlug } from "@/lib/taxonomy/ontology";
 
 type Change = {
   ref: string;
@@ -57,7 +63,7 @@ const CHANGES: Change[] = [
     ref: "DUP-01",
     brand: "HANDMADESHIP",
     brandId: "7070b13d-2b43-46eb-9d97-5af8a3b847a2",
-    why: "Hong Kong brand — handmadeshiphk.com serves <html lang='zh-HK'>, its Pinkoi designer location reads 香港, and its products are 香港霓虹招牌 / 懷舊香港 subjects. Taiwan presence is cross-border marketplace distribution only. Same eligibility rule as HEREAFTER. Surfaced by the duplicate sweep, not by the original audit — it sits in crafts, which the audit never covered.",
+    why: "Hong Kong brand — handmadeshiphk.com serves <html lang='zh-HK'>, its Pinkoi designer location reads 香港, and its products are 香港霓虹招牌 / 懷舊香港 subjects. Taiwan presence is cross-border marketplace distribution only. Same eligibility rule as HEREAFTER. Surfaced by the duplicate sweep, not by the original audit — it sat in the retired 工藝 L1, which the audit never covered.",
     patch: { status: "hidden" },
   },
 
@@ -158,7 +164,7 @@ const CHANGES: Change[] = [
       name: "張萬春洋傘",
       socialInstagram: null,
       socialFacebook: null,
-      productTags: ["戶外配件"],
+      subcategories: ["outdoor-accessories"],
     },
   },
 
@@ -231,43 +237,43 @@ const CHANGES: Change[] = [
     patch: { city: null },
   },
 
-  // -------------------------------------------------------- product_type
+  // -------------------------------------------------------- category
   {
     ref: "TC-27",
     brand: "MXM",
     brandId: "8760c48e-6c10-476b-9042-894f6c1e846c",
     why: "Professional hand tools, not consumer electronics. Also takes MXM from 0 live facets to 1 — 手工具 is registered under home.",
-    patch: { productType: "home" },
+    patch: { categorySlug: "home" },
   },
   {
     ref: "TC-01",
     brand: "YUJ",
     brandId: "1f482cc1-99cf-47c4-ae87-fef649c87bd0",
     why: "Catalogue is fans, dish dryers, mosquito traps, baby and kitchen goods. 生活家電 is the ontology-valid home tag; the stored 螺絲/螺帽/螺栓 exist in no category.",
-    patch: { productType: "home", productTags: ["生活家電"] },
+    patch: { categorySlug: "home", subcategories: ["home-appliances"] },
   },
   {
     ref: "OD-36",
     brand: "Arsenal Tool Inc. 愛森諾工具",
     brandId: "57571a79-fec9-489a-b0a7-ea364306981f",
     why: "Scissors, drivers, sockets, torque wrenches — hand tools, not outdoor gear. 手工具 goes live under home.",
-    patch: { productType: "home" },
+    patch: { categorySlug: "home" },
   },
   {
     ref: "TC-19b",
     brand: "Sweet House 松尼",
     brandId: "79b9bd21-e769-4e60-84c0-6a54a4e96f90",
-    why: "Plush, calendars, 春聯, homeware. No tag change — crafts has no character-goods entry, so this brand lands on 0 live facets until the ontology grows.",
-    patch: { productType: "crafts" },
+    why: "Plush, calendars, 春聯, homeware. No tag change — the ontology has no character-goods entry, so this brand lands on 0 live facets until it grows. `stationery` is the hand assignment DEV-1507 froze for character-IP goods brands, the same class as nagi-nagi and jmofinger.",
+    patch: { categorySlug: "stationery" },
   },
   {
     ref: "TC-20",
     brand: "兔君 Bonnie Lu",
     brandId: "d1485433-c519-4f95-a18f-613c930f37aa",
-    why: "Character IP licensed onto CASETiFY, not a tech brand. purchase_website moves off bonnielu.com, which is a portfolio site rather than a shop.",
+    why: "Character IP licensed onto CASETiFY, not a tech brand. purchase_website moves off bonnielu.com, which is a portfolio site rather than a shop. DEV-1507 retired the 工藝 L1: 插畫・畫作 became `home/wall-art`, and the D3 tiebreak (craft node beats a tied use-axis vote) lands this brand on `home`.",
     patch: {
-      productType: "crafts",
-      productTags: ["手機殼", "插畫・畫作"],
+      categorySlug: "home",
+      subcategories: ["phone-cases", "wall-art"],
       purchaseWebsite: "https://www.casetify.com/artist/bonnielu",
     },
   },
@@ -275,35 +281,35 @@ const CHANGES: Change[] = [
     ref: "TC-22",
     brand: "橘皮 oranpeel",
     brandId: "84ff072a-30a5-4700-9e4b-640dbc36c8a7",
-    why: "Illustration and character IP; 3C accessories are one licensed line among many.",
-    patch: { productType: "crafts", productTags: ["手機殼", "插畫・畫作"] },
+    why: "Illustration and character IP; 3C accessories are one licensed line among many. Same DEV-1507 re-file as 兔君 — 插畫・畫作 is now `home/wall-art` and decides the tie against 手機殼.",
+    patch: { categorySlug: "home", subcategories: ["phone-cases", "wall-art"] },
   },
   {
     ref: "TC-24",
     brand: "毛絨絨星人 fluffystar",
     brandId: "a233c361-5d7a-4518-99bd-66bc6933ea95",
-    why: "Original character brand with CASETiFY, apparel and jewellery collabs.",
+    why: "Original character brand with CASETiFY, apparel and jewellery collabs. DEV-1507 re-file: tech and bags-accessories tie 2-2 on the use axis, so the one craft node (插畫・畫作, now `home/wall-art`) decides.",
     patch: {
-      productType: "crafts",
-      productTags: [
-        "手機殼",
-        "支架",
-        "卡套",
-        "環保袋・購物袋",
-        "徽章",
-        "插畫・畫作",
+      categorySlug: "home",
+      subcategories: [
+        "phone-cases",
+        "stands-and-mounts",
+        "card-holders",
+        "eco-and-shopping-bags",
+        "brooches",
+        "wall-art",
       ],
     },
   },
 
-  // -------------------------------------------------------- product_tags
+  // -------------------------------------------------------- subcategories
   {
     ref: "OD-18",
     brand: "Gallop Kustom Kulture",
     brandId: "35b24101-b8af-4e6f-9e3b-9ffd273bd8a1",
     why: "Apparel is unsupported on the Pinkoi store (rider face masks do exist, but those are accessories). Facebook was MOONEYES樂多 Kaohsiung, cleared per your call.",
     patch: {
-      productTags: ["安全帽", "戶外配件"],
+      subcategories: ["helmets", "outdoor-accessories"],
       socialFacebook: null,
     },
   },
@@ -311,29 +317,29 @@ const CHANGES: Change[] = [
     ref: "OD-23",
     brand: "Taiwan Wader 台興",
     brandId: "15f71688-d68f-419c-856d-fab2ac7a3940",
-    why: "Neither pet clothing nor wetsuits. Waders keep you dry (PVC/mesh); wetsuits keep you warm while wet. 雨靴 is kept although unregistered — it is existing data, not a new write.",
-    patch: { productTags: ["雨靴"] },
+    why: "Neither pet clothing nor wetsuits. Waders keep you dry (PVC/mesh); wetsuits keep you warm while wet. 雨靴 is now registered as an alias of `boots` (fashion), so the tag it used to carry unregistered resolves to a live slug.",
+    patch: { subcategories: ["boots"] },
   },
   {
     ref: "OD-24",
     brand: "ZIV",
     brandId: "1d39c063-5220-411a-96fb-33685b9b3f60",
     why: "No wetsuits and no water-sports equipment — only a 水上運動款 sunglasses sub-line.",
-    patch: { productTags: ["眼鏡・太陽眼鏡", "戶外配件"] },
+    patch: { subcategories: ["eyewear", "outdoor-accessories"] },
   },
   {
     ref: "OD-25",
     brand: "衣力美 EasyMain",
     brandId: "03bb5608-bfe9-4d92-b561-ac99b6fe64f8",
     why: "Mountaineering apparel and sun-protection layers; no water-sports products of any kind.",
-    patch: { productTags: ["機能服飾", "戶外配件"] },
+    patch: { subcategories: ["performance-apparel", "outdoor-accessories"] },
   },
   {
     ref: "TC-17",
     brand: "PhotoFast 銀箭",
     brandId: "f498ec88-8b5a-49e0-b7aa-947b31b736c3",
     why: "Current categories are backup/storage, power/charging and gaming accessories. Phone cases are no longer a product line.",
-    patch: { productTags: ["充電器・充電線", "行動電源", "儲存裝置"] },
+    patch: { subcategories: ["chargers-and-cables", "power-banks", "storage-devices"] },
   },
 
   {
@@ -341,7 +347,7 @@ const CHANGES: Change[] = [
     brand: "SpotCam",
     brandId: "85a43352-88b9-4030-8076-535ee92d9f8b",
     why: "Drops 手機應用程式 — a mobile app is a feature of the product, not a product category, so registering it in the ontology would create a facet nobody browses by. 攝影機 and 智慧門鈴 were registered under tech on 2026-08-12 and now render as live facets.",
-    patch: { productTags: ["攝影機", "智慧門鈴"] },
+    patch: { subcategories: ["security-cameras", "smart-doorbells"] },
   },
 
   // ---------------------------------------------------- retail + channels
@@ -534,7 +540,7 @@ async function main(): Promise<void> {
     .select(
       // Every column any patch touches must be selected — a missing one reads as
       // undefined, so the diff never matches and the script rewrites it forever.
-      "id, name, slug, status, product_type, founding_year, city, product_tags, social_instagram, social_facebook, purchase_website, other_urls",
+      "id, name, slug, status, category, founding_year, city, subcategories, social_instagram, social_facebook, purchase_website, other_urls",
     )
     .in("id", ids);
 
@@ -578,13 +584,16 @@ async function main(): Promise<void> {
     }
 
     // Surface tags that will render as invisible labels under the target category.
-    const nextTags = change.patch.productTags as string[] | undefined;
+    const nextTags = change.patch.subcategories as string[] | undefined;
     const nextType =
-      (change.patch.productType as string | undefined) ??
-      (before.product_type as string);
+      (change.patch.categorySlug as string | undefined) ??
+      (before.category as string);
     if (nextTags) {
       const dead = nextTags.filter(
-        (t) => matchSubcategory(t)?.category !== nextType,
+        // Slug-first, matching the column the patches now carry. Name-keyed
+        // lookup alone reports every multi-word slug as a dead facet.
+        (t) =>
+          (subcategoryBySlug(t) ?? matchSubcategory(t))?.category !== nextType,
       );
       const live = nextTags.length - dead.length;
       if (dead.length > 0) {

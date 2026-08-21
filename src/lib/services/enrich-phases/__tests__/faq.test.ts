@@ -12,6 +12,7 @@ import type { FaqBrandContext } from "@/lib/brands/faq-presets";
 import type { Brand } from "@/lib/types";
 import type { BrandFaqEntryRow } from "../../brand-faq";
 import {
+  contextFacts,
   faqCoverageIsComplete,
   localizedCityLabel,
   resolveFaqAttempts,
@@ -38,9 +39,9 @@ const BRAND: Brand = {
   blurbEn: null,
   heroImageUrl: null,
   status: "approved",
-  productType: "crafts",
+  categorySlug: "home",
   city: "臺南",
-  category: "手作工藝",
+  categoryLabel: "居家生活",
   isVerified: false,
   mitStatus: "unverified",
   mitStory: null,
@@ -55,8 +56,8 @@ const BRAND: Brand = {
   imageAlts: [],
   contactEmail: null,
   priceRange: null,
-  productTags: [],
-  productTagsEn: [],
+  subcategories: [],
+  subcategoriesEn: [],
   siteContent: null,
   submittedAt: "2026-01-01T00:00:00.000Z",
   approvedAt: null,
@@ -167,13 +168,17 @@ describe("faq phase wiring", () => {
     expect(ENRICH_PHASES.indexOf("faq")).toBeGreaterThan(
       ENRICH_PHASES.indexOf("reputation"),
     );
-    expect(ENRICH_PHASES.at(-1)).toBe("faq");
+    // `products` runs after faq, so the last-phase claim now lives in
+    // src/lib/constants/__tests__/enrich-phases.test.ts, which owns that ordering.
+    expect(ENRICH_PHASES.indexOf("products")).toBeGreaterThan(
+      ENRICH_PHASES.indexOf("faq"),
+    );
   });
 });
 
 describe("validateFaqEntries", () => {
   it("drops an answer for an ineligible preset", () => {
-    // No product tags on file, so `main-products` never entered the prompt and
+    // No subcategories on file, so `main-products` never entered the prompt and
     // must not be storable even when the model answers it anyway.
     const ctx = context();
     const presets = authorable(ctx);
@@ -513,6 +518,37 @@ describe("resolveFaqAttempts", () => {
 
     expect(send).toHaveBeenCalledTimes(1);
     expect(outcome.calls.providerFailed).toBe(1);
+  });
+});
+
+describe("contextFacts", () => {
+  /**
+   * The facts block is appended to a zh-TW user prompt. `brands.subcategories`
+   * stores English slugs since DEV-1510, so without a lookup the model receives
+   * Latin tokens in an otherwise Chinese brief — input the phase never meant to
+   * send, and a silent quality regression rather than a failure.
+   */
+  it("enrichment_prompt_receives_zh_labels", () => {
+    const facts = contextFacts(
+      context({
+        subcategories: ["backpacks", "tote-bags"],
+        subcategoriesEn: ["Backpacks", "Tote Bags"],
+      }),
+    );
+
+    expect(facts).toContain("產品標籤=後背包、托特包");
+    expect(facts).not.toContain("backpacks");
+    expect(facts).not.toContain("tote-bags");
+  });
+
+  it("keeps a tag the vocabulary has never known", () => {
+    const facts = contextFacts(context({ subcategories: ["手工燈籠"] }));
+
+    expect(facts).toContain("產品標籤=手工燈籠");
+  });
+
+  it("says 無 when the brand carries no tags", () => {
+    expect(contextFacts(context())).toContain("產品標籤=無");
   });
 });
 

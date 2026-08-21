@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { auditedCall } from "@/lib/audit";
 import { DataCard, SurfaceCard } from "@/components/ui/card";
 import {
-  PURCHASE_CHANNELS,
-  type PurchaseChannelCamelField,
-  type PurchaseChannelKey,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORES,
+  type OnlineStoreCamelField,
+  type OnlineStoreKey,
+} from "@/lib/brands/online-stores";
 import { getQualityMetrics } from "@/lib/services/brand-quality";
 
 export const metadata: Metadata = {
@@ -31,7 +32,7 @@ const PURCHASE_LINK_PRESENTATION = {
   pinkoi: { label: "Pinkoi" },
   shopee: { label: "Shopee" },
   myship: { label: "MyShip" },
-} satisfies Record<PurchaseChannelKey, { label: string }>;
+} satisfies Record<OnlineStoreKey, { label: string }>;
 
 type LinkRow = {
   label: string;
@@ -39,14 +40,14 @@ type LinkRow = {
     | "socialInstagram"
     | "socialThreads"
     | "socialFacebook"
-    | PurchaseChannelCamelField;
+    | OnlineStoreCamelField;
 };
 
 const linkRows: LinkRow[] = [
   { label: "Instagram", key: "socialInstagram" },
   { label: "Threads", key: "socialThreads" },
   { label: "Facebook", key: "socialFacebook" },
-  ...PURCHASE_CHANNELS.map((channel) => ({
+  ...ONLINE_STORES.map((channel) => ({
     ...PURCHASE_LINK_PRESENTATION[channel.key],
     key: channel.camel,
   })),
@@ -84,11 +85,11 @@ function ProgressBar({ value, label }: ProgressBarProps) {
       aria-valuemax={100}
       aria-valuemin={0}
       aria-valuenow={Math.round(boundedValue)}
-      className="h-2 w-full overflow-hidden rounded-full bg-muted"
+      className="h-2 w-full overflow-hidden rounded-full bg-surface"
       role="progressbar"
     >
       <div
-        className="h-full rounded-full bg-primary"
+        className="h-full rounded-full bg-ink"
         style={{ width: `${boundedValue}%` }}
       />
     </div>
@@ -96,6 +97,7 @@ function ProgressBar({ value, label }: ProgressBarProps) {
 }
 
 export default async function AdminQualityPage() {
+  const t = await getTranslations("admin.quality");
   const metrics = await getCachedMetrics();
   const distributionTotal = Object.values(metrics.completeness).reduce(
     (total, count) => total + count,
@@ -105,11 +107,8 @@ export default async function AdminQualityPage() {
 
   return (
     <div>
-      <h1 className="type-page-title-large">Quality Dashboard</h1>
-      <p className="mt-2 text-muted-foreground">
-        Track brand data quality for images, links, descriptions, and
-        completeness.
-      </p>
+      <h1 className="type-label">{t("title")}</h1>
+      <p className="mt-2 text-ink-muted">{t("description")}</p>
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         <DataCard
@@ -125,18 +124,18 @@ export default async function AdminQualityPage() {
         </DataCard>
 
         <SurfaceCard padding="sm">
-          <h2 className="type-metadata">Link Coverage</h2>
+          <h2 className="type-metadata">{t("linkCoverage")}</h2>
           <div className="mt-4 space-y-4">
             {linkRows.map((row) => {
               const metric = metrics.links[row.key];
 
               return (
                 <div key={row.key} className="space-y-2">
-                  <div className="flex min-h-6 items-center justify-between gap-4 type-body">
-                    <span className="font-medium text-foreground">
+                  <div className="flex min-h-6 items-center justify-between gap-4 type-body-sm text-ink-soft">
+                    <span className="font-medium text-ink">
                       {row.label}
                     </span>
-                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                    <span className="shrink-0 tabular-nums text-ink-muted">
                       {metric.count} / {metrics.totalBrands}
                     </span>
                   </div>
@@ -163,7 +162,7 @@ export default async function AdminQualityPage() {
         </DataCard>
 
         <SurfaceCard padding="sm">
-          <h2 className="type-metadata">Completeness Distribution</h2>
+          <h2 className="type-metadata">{t("completenessDistribution")}</h2>
           <div className="mt-4 space-y-4">
             {distributionRows.map((row) => {
               const count = metrics.completeness[row.key];
@@ -174,11 +173,11 @@ export default async function AdminQualityPage() {
 
               return (
                 <div key={row.key} className="space-y-2">
-                  <div className="flex min-h-6 items-center justify-between gap-4 type-body">
-                    <span className="font-medium text-foreground">
+                  <div className="flex min-h-6 items-center justify-between gap-4 type-body-sm text-ink-soft">
+                    <span className="font-medium text-ink">
                       {row.label}
                     </span>
-                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                    <span className="shrink-0 tabular-nums text-ink-muted">
                       {count} ({formatPercentage(percentage)})
                     </span>
                   </div>
@@ -193,18 +192,18 @@ export default async function AdminQualityPage() {
         </SurfaceCard>
 
         <SurfaceCard padding="sm" className="md:col-span-2">
-          <h2 className="type-metadata">Enrichment Quality</h2>
+          <h2 className="type-metadata">{t("enrichmentQuality")}</h2>
           <div className="mt-4 space-y-4">
             {enrichmentRows.map((row) => {
               const value = metrics.enrichment[row.key];
 
               return (
                 <div key={row.key} className="space-y-2">
-                  <div className="flex min-h-6 items-center justify-between gap-4 type-body">
-                    <span className="font-medium text-foreground">
+                  <div className="flex min-h-6 items-center justify-between gap-4 type-body-sm text-ink-soft">
+                    <span className="font-medium text-ink">
                       {row.label}
                     </span>
-                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                    <span className="shrink-0 tabular-nums text-ink-muted">
                       {formatPercentage(value)}
                     </span>
                   </div>
@@ -216,16 +215,16 @@ export default async function AdminQualityPage() {
               );
             })}
 
-            <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
+            <div className="grid gap-4 border-t border-rule pt-4 sm:grid-cols-2">
               <div>
-                <p className="type-body-emphasis">Promo hero images</p>
-                <p className="mt-1 type-stat">
+                <p className="type-body-sm font-medium text-ink">{t("promoHeroImages")}</p>
+                <p className="mt-1 type-section tabular-nums">
                   {metrics.enrichment.promoHeroCount}
                 </p>
               </div>
               <div>
-                <p className="type-body-emphasis">Validation failures</p>
-                <p className="mt-1 type-stat">
+                <p className="type-body-sm font-medium text-ink">{t("validationFailures")}</p>
+                <p className="mt-1 type-section tabular-nums">
                   {metrics.enrichment.validationFailures}
                 </p>
               </div>

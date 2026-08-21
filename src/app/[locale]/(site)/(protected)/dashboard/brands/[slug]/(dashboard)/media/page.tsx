@@ -1,9 +1,10 @@
-import Image from 'next/image'
+import { SurfaceImage } from '@/components/ui/image'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { SectionDetailLayout } from '@/components/dashboard/section-detail-layout'
 import { InfoGroup } from '@/components/ui/card'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandBySlug } from '@/lib/services/brands'
+import { routes } from '@/lib/routes'
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
@@ -25,7 +26,7 @@ export default async function MediaPage({ params }: Props) {
   return (
     <SectionDetailLayout
       description={t('sectionBrandImagesHint')}
-      editHref={`/dashboard/brands/${slug}/edit?step=1`}
+      editHref={`${routes.dashboard.brandEdit(slug)}?step=1`}
       editLabel={t('edit')}
       title={tEdit('wizardStepMedia')}
     >
@@ -35,17 +36,19 @@ export default async function MediaPage({ params }: Props) {
           label={tEdit('fieldHeroImage')}
         >
           {heroImageUrl ? (
-            <div className="relative aspect-video max-w-md overflow-hidden rounded-xl bg-muted">
-              <Image
+            <div className="relative aspect-video max-w-md overflow-hidden rounded-[3px] bg-surface-deep">
+              <SurfaceImage
                 alt={tEdit('fieldHeroImage')}
                 className="object-cover"
                 fill
+                // Measured, with no surface to name: `max-w-md` on THIS div caps
+                // the preview at a fixed 448px.
                 sizes="448px"
                 src={heroImageUrl}
               />
             </div>
           ) : (
-            <p className="type-field-value text-muted-foreground">
+            <p className="type-body-sm text-ink-muted">
               {t('notSet')}
             </p>
           )}
@@ -60,20 +63,33 @@ export default async function MediaPage({ params }: Props) {
               {productPhotos.map((photo, index) => (
                 <div
                   key={`${photo}-${index}`}
-                  className="relative aspect-square overflow-hidden rounded-xl bg-muted"
+                  className="relative aspect-square overflow-hidden rounded-[3px] bg-surface-deep"
                 >
-                  <Image
+                  <SurfaceImage
                     alt={`${tEdit('fieldProductPhotos')} ${index + 1}`}
                     className="object-contain"
                     fill
-                    sizes="176px"
+                    /*
+                     * Measured, with no surface to name: 2/3/4 columns is this
+                     * page's grid alone, not any of the shared card grids.
+                     *
+                     * The old 176px cited `max-w-md`, which is on the hero
+                     * preview's SIBLING div above, not on any ancestor of this
+                     * grid. The real column is the dashboard `<main>`'s
+                     * `page-measure` — 100rem since DEV-1529, so 1472px of
+                     * content once the wide gutter is taken off, and a four-up
+                     * cell is ~368px rather than the ~280px it was at 80rem.
+                     * The vw steps read slightly high because they ignore the
+                     * gutters, which is the safe direction for a hint.
+                     */
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 368px"
                     src={photo}
                   />
                 </div>
               ))}
             </div>
           ) : (
-            <p className="type-field-value text-muted-foreground">
+            <p className="type-body-sm text-ink-muted">
               {t('notSet')}
             </p>
           )}

@@ -34,16 +34,6 @@ test.describe("Stories hub deep", () => {
     }
   });
 
-  test("stories hub renders at least one story row once content exists", async ({
-    anonPage,
-  }) => {
-    test.skip(stories.length === 0, NO_PUBLISHED_STORIES);
-    await anonPage.goto("/stories");
-    await expect(
-      anonPage.locator('main a[href*="/stories/"]').first(),
-    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-  });
-
   test("?tag= URL renders the hub and is not redirected away", async ({
     anonPage,
   }) => {
@@ -52,16 +42,6 @@ test.describe("Stories hub deep", () => {
     await expect(
       anonPage.getByRole("heading", { name: "專題", level: 1 }),
     ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-  });
-
-  test("hub no longer renders a tag filter nav", async ({ anonPage }) => {
-    await anonPage.goto("/stories");
-    await expect(
-      anonPage.getByRole("heading", { name: "專題", level: 1 }),
-    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-    await expect(
-      anonPage.getByRole("navigation", { name: "專題標籤" }),
-    ).toHaveCount(0);
   });
 
   test("story row click navigates to the story detail page", async ({

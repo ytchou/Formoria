@@ -1,11 +1,12 @@
 import {
-  PURCHASE_CHANNELS,
-  type PurchaseChannel,
-  type PurchaseChannelCamelField,
-  type PurchaseChannelKey,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORES,
+  type OnlineStore,
+  type OnlineStoreCamelField,
+  type OnlineStoreKey,
+} from "@/lib/brands/online-stores";
 import { DESCRIPTION_SYSTEM_PROMPT } from "@/lib/prompts";
 import { auditedCall } from "@/lib/audit";
+import { reportBannedTerms } from "@/lib/i18n/banned-terms";
 import { parseJson } from "./openai-client";
 import {
   buildProfiledEnrichmentConfig,
@@ -23,11 +24,11 @@ const ZH_BLURB_BAND = [40, 80] as const;
 const EN_BLURB_BAND = [60, 150] as const;
 
 /**
- * Prompt-facing display labels for the purchase channels. The registry supplies
+ * Prompt-facing display labels for the online stores. The registry supplies
  * the field list and order; the Han-character labels stay local to this server
  * module so the project's hardcoded-CJK guard keeps passing on the registry.
  */
-const PURCHASE_CHANNEL_PROMPT_LABELS: Record<PurchaseChannelKey, string> = {
+const ONLINE_STORE_PROMPT_LABELS: Record<OnlineStoreKey, string> = {
   website: "官方購買網站",
   pinkoi: "Pinkoi",
   shopee: "蝦皮",
@@ -48,7 +49,6 @@ export type DescriptionRewriteResult = {
     attempt: number;
   }>;
   rejected?: { tag: string; reason: string }[];
-  crossBranch?: string[];
   rawResponse?: unknown;
 };
 
@@ -58,7 +58,7 @@ export type DescriptionEvidence = {
     socialInstagram?: string | null;
     socialThreads?: string | null;
     socialFacebook?: string | null;
-  } & { [K in PurchaseChannelCamelField]?: string | null };
+  } & { [K in OnlineStoreCamelField]?: string | null };
   productCategoryZh?: string | null;
   /** Alt text of the brand's classified images — direct evidence that physical products exist. */
   imageAlts?: string[];
@@ -92,18 +92,18 @@ export function buildEnrichmentUserContent(
 
   // Stage-2 listing evidence. Appended, never interleaved: the four fields above
   // are the description inputs and their labels are what the tuned prompt reads.
-  // Purchase channels and image alt text cannot be inferred from prose, so the
+  // Online stores and image alt text cannot be inferred from prose, so the
   // listing verdict is only as good as these lines.
   const purchaseEntry = (
-    channel: PurchaseChannel,
+    channel: OnlineStore,
   ): [string, string | null | undefined] => [
-    PURCHASE_CHANNEL_PROMPT_LABELS[channel.key],
+    ONLINE_STORE_PROMPT_LABELS[channel.key],
     evidence?.links?.[channel.camel],
   ];
   // Line order is prompt-visible, so it is preserved verbatim: the brand's own
   // site leads, socials sit in the middle, marketplaces close. This relies on
   // the registry's documented order invariant (`website` is always first).
-  const [ownSiteChannel, ...marketplaceChannels] = PURCHASE_CHANNELS;
+  const [ownSiteChannel, ...marketplaceChannels] = ONLINE_STORES;
   const labelledLinks: Array<[string, string | null | undefined]> = [
     purchaseEntry(ownSiteChannel),
     ["Instagram", evidence?.links?.socialInstagram],
@@ -561,7 +561,7 @@ export async function rewriteBrandDescription(
 ): Promise<DescriptionRewriteOutput | null> {
   return auditedCall(
     { provider: "enrich", operation: "rewriteBrandDescription", kind: "service" },
-    async () => {
+    async (ctx) => {
   const token = process.env.OPENAI_API_KEY;
   if (!token) return null;
   if (snippets.length === 0 && !existingDescription) return null;
@@ -596,8 +596,19 @@ export async function rewriteBrandDescription(
   const allValidationRejections: DescriptionRewriteResult["validationRejections"] =
     [];
   const attempts: DescriptionAttempt[] = [];
-  const localizeAcceptedZh = (value: string | null): string | null =>
-    value ? localizeToTW(value, { brandName }).text : null;
+  // Report-only vocabulary check (DEV-1546): the accepted text is stored exactly
+  // as the model wrote it, and any mainland-Chinese term found in it is recorded
+  // on this span for a human to act on. `localizeToTW` no longer carries the
+  // vocabulary table, so nothing here rewrites words either.
+  const localizeAcceptedZh = (
+    field: string,
+    value: string | null,
+  ): string | null => {
+    if (!value) return null;
+    const localized = localizeToTW(value, { brandName }).text;
+    reportBannedTerms(ctx, [[field, localized]]);
+    return localized;
+  };
 
   // The retry needs the previous attempt's own text to measure, so the pre-validation
   // parse is carried forward rather than the accumulated (already nulled) result.
@@ -707,9 +718,9 @@ export async function rewriteBrandDescription(
       allValidationRejections.push(...validated.validationRejections);
       lastRejections = validated.validationRejections;
       lastParsed = parsedResult;
-      acceptedDescriptionZh ??= localizeAcceptedZh(validated.description_zh);
+      acceptedDescriptionZh ??= localizeAcceptedZh("description_zh", validated.description_zh);
       acceptedDescriptionEn ??= validated.description_en;
-      acceptedBlurbZh ??= localizeAcceptedZh(validated.blurb_zh);
+      acceptedBlurbZh ??= localizeAcceptedZh("blurb_zh", validated.blurb_zh);
       acceptedBlurbEn ??= validated.blurb_en;
       bestResult = {
         ...validated,

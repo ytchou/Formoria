@@ -3,6 +3,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { useEffect, useSyncExternalStore } from "react";
 import { Button } from '@/components/ui/button';
+import { PageShell } from '@/components/ui/page-shell';
 import en from '../../messages/en.json';
 import zhTW from '../../messages/zh-TW.json';
 import './globals.css';
@@ -41,11 +42,17 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <html lang={locale} data-feedback-copy={JSON.stringify(locale === 'en' ? en.feedbackWidget : zhTW.feedbackWidget)}>
-      <body className="min-h-screen bg-background text-foreground">
-        <main className="page-gutter mx-auto flex min-h-screen max-w-screen-xl flex-col items-center justify-center py-24 text-center">
-          <h1 className="type-page-title-large">{copy.title}</h1>
-          <p className="mt-3 type-card-description">{copy.description}</p>
+    <html lang={locale}>
+      <body className="min-h-screen bg-ground text-ink">
+        {/* `prose`, as at every other error boundary: a title, a sentence and
+          a button read at the reading measure, not at the discovery one. */}
+        <PageShell
+          as="main"
+          measure="prose"
+          className="flex min-h-screen flex-col items-center justify-center py-section text-center"
+        >
+          <h1 className="type-page-title">{copy.title}</h1>
+          <p className="mt-3 type-body-sm">{copy.description}</p>
           <Button
             type="button"
             variant="primary"
@@ -54,7 +61,7 @@ export default function GlobalError({
           >
             {copy.retry}
           </Button>
-        </main>
+        </PageShell>
       </body>
     </html>
   );

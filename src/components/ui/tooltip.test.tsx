@@ -26,4 +26,26 @@ describe('Tooltip', () => {
       'A browsing session that opened your brand page.',
     )
   })
+
+  it('leaves the trigger to carry its own accessible name', async () => {
+    // Base UI treats a tooltip as a visual affordance and wires no
+    // `aria-describedby`, so a trigger whose name lives only in the popup would
+    // be announced as nothing at all. This is the contract every call site has
+    // to meet, asserted once here rather than three times at the call sites.
+    const user = userEvent.setup()
+    render(
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger aria-label="What counts as a visit?">ⓘ</TooltipTrigger>
+          <TooltipContent>A browsing session that opened your brand page.</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>,
+    )
+
+    const trigger = screen.getByRole('button', { name: 'What counts as a visit?' })
+    expect(trigger).toBeInTheDocument()
+
+    await user.tab()
+    expect(await screen.findByRole('tooltip')).toBeInTheDocument()
+  })
 })

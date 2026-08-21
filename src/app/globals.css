@@ -1,23 +1,10 @@
 @import "tailwindcss";
-@import "@heroui/styles/css";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-
-@custom-variant dark (&:is(.dark *));
-
-:root {
-  /* Latin first (Inter / Bricolage); Traditional Chinese falls through to the
-     platform system face — no CJK webfont is shipped. See src/app/layout.tsx. */
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-heading: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
-}
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-heading);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -41,8 +28,6 @@
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -52,14 +37,29 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Design system v2 — the utilities Tailwind generates from these are the
+     whole point: `bg-ground`, `bg-surface`, `text-ink-muted`, `border-rule`,
+     `text-accent`, `text-danger`, `gap-gutter`, `py-section`. Raw values live
+     in the v2 palette block below; these lines only name them for Tailwind. */
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-surface-deep: var(--surface-deep);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-muted: var(--ink-muted);
+  --color-rule: var(--rule);
+  --color-on-ink: var(--on-ink);
+  --color-on-ink-muted: var(--on-ink-muted);
+  --color-rule-on-ink: var(--rule-on-ink);
+  --color-danger: var(--danger);
+  --spacing-section: var(--space-section);
+  --spacing-stack: var(--space-stack);
+  --spacing-gutter: var(--space-gutter);
 }
 
 @theme {
-  --color-warm-caption: var(--warm-caption);
-  --color-warm-secondary: var(--warm-secondary);
-  --color-gold: var(--gold);
   --color-verified-green: var(--verified-green);
   --color-verified-green-bg: var(--verified-green-bg);
   --color-mit-verified: var(--mit-verified);
@@ -69,12 +69,27 @@
   --color-filter-active-bg: var(--filter-active-bg);
   --color-info: var(--info);
   --color-info-bg: var(--info-bg);
-  --color-cta: var(--cta);
-  --color-cta-foreground: var(--cta-foreground);
-  --color-primary-dark: var(--primary-dark);
-  --color-primary-light: var(--primary-light);
-  --shadow-card: 0 2px 8px oklch(0 0 0 / 0.06);
-  --shadow-card-hover: 0 4px 12px oklch(0 0 0 / 0.1);
+  --shadow-card: 0 2px 8px oklch(0 0 0 / 0.04);
+  --shadow-card-hover: 0 4px 12px oklch(0 0 0 / 0.08);
+
+  /* 明體 (content) and 黑體 (interface). One rule, no route exceptions.
+     Declared here rather than in `:root` so a single declaration both registers
+     the `font-ming` / `font-hei` utilities and stays the one value the
+     design-token generator reads.
+     TWO CJK WEBFONTS, DELIBERATELY. This file used to declare three Latin-only
+     faces and a comment forbidding a CJK webfont;
+     docs/decisions/2026-08-20-two-cjk-webfonts-supersede-the-system-face-rule.md
+     SUPERSEDES that rule — do not re-assert it. It is affordable because Google
+     splits both families by `unicode-range`, so per-page transfer is bounded by
+     the text on the page, and because `next/font` self-hosts the files, which
+     is what satisfies the CSP `font-src 'self'` at next.config.ts:101. The
+     loader options that keep this off the cold-visit critical path live in
+     src/components/shared/root-document.tsx.
+     The two v1 aliases that pointed at these stacks are gone: every `type-*`
+     role below binds `--font-ming` or `--font-hei` directly, so there is no
+     second name for either face. */
+  --font-ming: var(--font-noto-serif-tc), "Songti TC", serif;
+  --font-hei: var(--font-noto-sans-tc), "PingFang TC", sans-serif;
 }
 
 :root {
@@ -96,14 +111,21 @@
     0.528 0 0
   ); /* Neutral gray #6B6B6B — WCAG 5.2:1 on Paper */
 
-  /* Interactive — single accent discipline */
-  --primary: oklch(0.563 0.16 37.6); /* Kiln #C04A24 — WCAG 4.95:1 with white */
-  --primary-foreground: oklch(1 0.0001 263.3); /* White */
-  --primary-dark: oklch(0.48 0.14 37.6); /* Kiln dark — hover/pressed */
-  --primary-light: oklch(0.72 0.08 37.6); /* Kiln light — subtle accents */
-  --cta: oklch(0.563 0.16 37.6); /* Same as primary — single accent */
-  --cta-foreground: oklch(1 0.0001 263.3); /* White */
-  --accent: oklch(0.21 0.0059 285.9); /* Ink — dark surfaces (footer/nav) */
+  /* Interactive — ONE token, not three.
+     `--primary`, `--primary-dark`, `--primary-light`, `--cta` and
+     `--cta-foreground` all lived here and all meant the same thing:
+     "interaction". Two names for one role is how a palette drifts — a button
+     filled from the first token and a button filled from the second were
+     indistinguishable on screen and independently editable in code, so they
+     could and did diverge. v2 keeps `--accent` and nothing
+     else; paper on accent (`text-ground`) is the fill's text colour.
+
+     In v1 `--accent` meant INK, which is why the design-token generator matched
+     it on its first run and wrote a dark-neutral oklch into DESIGN.md as if it
+     were the new indigo. It now means one thing: interaction. Links, CTAs,
+     focus rings, active states — never a section background and never a large
+     decorative fill. */
+  --accent: #2F4F63;
   --accent-foreground: oklch(
     0.991 0.0029 84.6
   ); /* Paper — text on dark surfaces */
@@ -111,7 +133,7 @@
   /* Borders */
   --border: oklch(0.923 0.0075 80.7); /* Rule #E8E5E0 */
   --input: oklch(0.923 0.0075 80.7); /* Same as border */
-  --ring: oklch(0.563 0.16 37.6); /* Kiln — focus ring */
+  --ring: var(--accent); /* Focus ring follows the single accent */
 
   /* Semantic — unchanged */
   --destructive: oklch(0.58 0.18 30);
@@ -122,17 +144,25 @@
   --info-bg: oklch(0.97 0.02 250);
 
   /* Extended semantic tokens */
-  --warm-caption: oklch(0.528 0 0); /* Merged with muted-foreground */
-  --warm-secondary: oklch(0.528 0 0); /* Merged with muted-foreground */
-  --gold: oklch(0.74 0.08 65); /* Keep for decorative */
   --verified-green: oklch(0.4 0.1 140); /* Unchanged */
   --verified-green-bg: oklch(0.95 0.02 140); /* Unchanged */
   --mit-verified: oklch(0.4 0.08 65); /* Unchanged */
   --mit-verified-bg: oklch(0.96 0.03 65); /* Unchanged */
-  --shadow-card: 0 2px 8px oklch(0 0 0 / 0.04); /* Lighter shadow for flat design */
-  --shadow-card-hover: 0 4px 12px oklch(0 0 0 / 0.08);
-  --nav-height: 100px;
-  --filter-bar-height: 48px;
+  /* THE HEADER'S HEIGHT IS DERIVED, NOT TYPED TWICE.
+     Six sticky elements park below the header with `top-(--nav-height)`, so a
+     header row that grows without this number growing hides their first pixels
+     under the z-50 bar. It already happened once: row 1 went `h-14` -> `h-16`
+     and a `min-h-12` category row was added while this token still read 100px,
+     leaving the brand section nav 13px short. So the two rows now READ their
+     height from these tokens (`main-nav.tsx`, `nav-category-tabs.tsx`) and the
+     sum below is the only place the total exists. Change a row here, not
+     there. */
+  --nav-row-primary: 4rem; /* row 1: wordmark | search | links */
+  --nav-row-categories: 3rem; /* row 2: the L1 category tabs (minimum) */
+  --nav-rule: 1px; /* the header's bottom hairline */
+  --nav-height: calc(
+    var(--nav-row-primary) + var(--nav-row-categories) + var(--nav-rule)
+  );
 
   /* Motion tokens */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
@@ -142,21 +172,18 @@
   --duration-morph: 300ms;
   --duration-stagger: 60ms;
 
-  /* Signature token — seal-stamp for verified badges */
-  --signature-seal: oklch(0.563 0.16 37.6); /* Kiln — seal/stamp accent */
-
   /* Radius — 6px softened editorial */
   --radius: 0.375rem;
 
   /* Sidebar */
   --sidebar: oklch(0.975 0.003 85);
   --sidebar-foreground: oklch(0.21 0.0059 285.9);
-  --sidebar-primary: oklch(0.563 0.16 37.6);
+  --sidebar-primary: var(--accent);
   --sidebar-primary-foreground: oklch(1 0.0001 263.3);
   --sidebar-accent: oklch(0.963 0.004 80);
   --sidebar-accent-foreground: oklch(0.21 0.0059 285.9);
   --sidebar-border: oklch(0.923 0.0075 80.7);
-  --sidebar-ring: oklch(0.563 0.16 37.6);
+  --sidebar-ring: var(--accent);
 
   /* Chart colors (warm palette) */
   --chart-1: oklch(0.63 0.17 45);
@@ -166,49 +193,81 @@
   --chart-5: oklch(0.4 0.1 140);
 }
 
-.dark {
-  --background: oklch(0.145 0.005 285);
-  --foreground: oklch(0.93 0.005 85);
-  --card: oklch(0.185 0.005 285);
-  --card-foreground: oklch(0.93 0.005 85);
-  --popover: oklch(0.185 0.005 285);
-  --popover-foreground: oklch(0.93 0.005 85);
-  --primary: oklch(0.68 0.14 37.6); /* Lighter kiln for dark bg */
-  --primary-foreground: oklch(0.145 0.005 285); /* Dark text on bright kiln */
-  --primary-dark: oklch(0.563 0.16 37.6); /* Standard kiln as dark variant */
-  --primary-light: oklch(0.78 0.06 37.6); /* Lighter for dark mode */
-  --cta: oklch(0.68 0.14 37.6); /* Same as primary */
-  --cta-foreground: oklch(0.145 0.005 285);
-  --secondary: oklch(0.22 0.005 285);
-  --secondary-foreground: oklch(0.93 0.005 85);
-  --muted: oklch(0.22 0.005 285);
-  --muted-foreground: oklch(0.6 0 0);
-  --accent: oklch(0.22 0.005 285);
-  --accent-foreground: oklch(0.93 0.005 85);
-  --destructive: oklch(0.704 0.191 22.216);
-  --warning: oklch(0.769 0.188 70.1);
-  --filter-active: oklch(0.72 0.09 140);
-  --filter-active-bg: oklch(0.23 0.025 140);
-  --info: oklch(0.75 0.1 250);
-  --info-bg: oklch(0.22 0.03 250);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.68 0.14 37.6);
-  --warm-caption: oklch(0.6 0 0);
-  --warm-secondary: oklch(0.6 0 0);
-  --chart-1: oklch(0.68 0.14 38);
-  --chart-2: oklch(0.5 0.08 60);
-  --chart-3: oklch(0.74 0.08 65);
-  --chart-4: oklch(0.3 0.02 50);
-  --chart-5: oklch(0.4 0.1 140);
-  --sidebar: oklch(0.185 0.005 285);
-  --sidebar-foreground: oklch(0.93 0.005 85);
-  --sidebar-primary: oklch(0.68 0.14 37.6);
-  --sidebar-primary-foreground: oklch(0.145 0.005 285);
-  --sidebar-accent: oklch(0.22 0.005 285);
-  --sidebar-accent-foreground: oklch(0.93 0.005 85);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.68 0.14 37.6);
+/*
+ * DESIGN SYSTEM v2 — the token layer.
+ *
+ * This block replaces the `.dark` palette that used to sit here: 44 lines that
+ * could never execute, because nothing in the app ever applied a `dark` class
+ * and there is no `next-themes` or ThemeProvider. Unreachable code, not a
+ * feature.
+ *
+ * THREE COLOUR ROLES, NOT A PALETTE. `ground` is the page. `surface` is the
+ * second material — bands, cards, inset blocks. `accent` is interaction and
+ * nothing else: links, CTAs, focus rings, active states. Never decorative,
+ * never a section background, never a large fill.
+ *
+ * Values are hex on purpose. `scripts/generate-design-tokens.mjs` derives the
+ * WCAG contrast table in DESIGN.md §9 from these literals, and it can only read
+ * hex — an oklch() here silently drops the row it was supposed to prove.
+ *
+ * The v1 palette above is still live and still wrong; waves 2-5 retire it.
+ */
+:root {
+  /* Colour */
+  --ground: #FAF7F2; /* page background */
+  --surface: #F1EAE0; /* bands, cards, inset blocks */
+  /* Third step; image placeholder. NO TEXT SITS ON THIS. It is a hole in the
+     page waiting for a photograph, not a band — and `--ink-muted` measures
+     4.17:1 on it, under the 4.5:1 AA floor. Body or metadata belongs on
+     `--surface` (4.6:1) or `--ground` (5.1:1). Nothing checks this pair, so it
+     is written here rather than discovered later. */
+  --surface-deep: #E8DFD2;
+  --ink: #1A1815; /* primary text — 18.9:1 on ground */
+  --ink-soft: #4A443C; /* body prose — 10.2:1 on ground */
+  --ink-muted: #6F685F; /* metadata — 5.1:1 ground / 4.6:1 surface */
+  --rule: #DED5C8; /* hairlines, borders */
+  /* `--accent` (藍染 indigo) is deliberately NOT restated here. It is declared
+     exactly once, in the palette block above, so the v1 meaning of that name
+     (ink) and the v2 meaning (interaction) cannot coexist. */
+
+  /* On ink grounds (footer, admin nav) the ramp inverts. `rule-on-ink` is a
+     non-text rule only — it does not meet a text contrast floor and must never
+     carry type. */
+  --on-ink: #D6CFC4; /* 11.5:1 on ink */
+  --on-ink-muted: #9A9288; /* 5.8:1 on ink */
+  --rule-on-ink: #3A352E; /* hairline on ink — non-text only */
+
+  /* Form errors. Separate from `--destructive`, which v1 uses for destructive
+     ACTIONS; this one carries validation messages. */
+  --danger: #B3261E; /* 6.1:1 on ground, 5.5:1 on surface */
+
+  /* Spacing — three names carry meaning and nothing else does. Local,
+     meaningless spacing (`gap-2`, `p-4`) needs no name and gets none. Do not
+     grow this into a scale. */
+  --space-section: 96px; /* between major page sections */
+  --space-stack: 32px; /* between blocks inside a section */
+  --space-gutter: 24px; /* grid column gap */
+}
+
+/*
+ * MEDIA FRAMING — one ratio, declared once.
+ *
+ * Every brand, product and editorial image box used to hard-code
+ * a 4:3 arbitrary-value ratio, eighteen times across fourteen files.
+ * `aspect-media` is that literal, named.
+ *
+ * IT IS 1:1, NOT 4:3, AND THAT IS MEASURED. 53.5% of the image corpus is
+ * exactly square. Boxing it at 4:3 discards 25.1% of the average photo to
+ * `object-cover`; 1:1 discards 13.8%. The square box is not a style
+ * preference — it is the ratio that throws away the least of what was shot.
+ *
+ * `HERO_TARGET_RATIO` (`src/lib/constants/brand-images.ts`) is a separate
+ * number that scores crop damage during enrichment. It still reads 4/3. Moving
+ * it re-ranks every brand's hero image, which is a pipeline change with its own
+ * verification, so it is deliberately NOT changed here — see the comment there.
+ */
+@theme {
+  --aspect-media: 1 / 1;
 }
 
 @utility scrollbar-none {
@@ -227,172 +286,236 @@
   }
 }
 
-@utility inline-link {
-  @apply text-primary underline-offset-4 hover:underline;
+/*
+ * THREE MEASURES, THREE JOBS. Nothing else may name a page width.
+ *
+ * The public site carried ten unnamed horizontal widths — 96/80/72/64/57.5/48/
+ * 42rem plus a handful of in-flow caps — none of which said what they were for.
+ * The visible cost: at 1920px the sticky header's content began 360px from the
+ * viewport edge while the landing bands began at 200px, a 160px seam down one
+ * page. Three names is the fewest that still distinguishes a job.
+ *
+ *   `page-measure`   100rem — discovery and chrome: directory, landing bands,
+ *                    header, footer.
+ *   `form-measure`    64rem — a page whose content IS a form.
+ *   `prose-measure`   48rem — a reading page, and any reading column inside a
+ *                    wider page.
+ *
+ * A PAGE PICKS ONE; IT NEVER SPELLS A WIDTH ITSELF. The choice a route makes is
+ * which of three jobs it is doing, not how many rem that job is worth — so no
+ * call site carries a number, and changing one of the three is an edit to one
+ * line here rather than a sweep of the call sites that guessed it.
+ *
+ * LITERALS, NOT `var()`. A custom property is an override seam: any ancestor
+ * rule, inline style or later stylesheet can redeclare it and silently
+ * re-measure everything beneath, from a part of the cascade the call site
+ * cannot see. That unlimited customization is exactly what these three names
+ * remove. A literal inside `@utility` can only be changed on this line, in this
+ * file.
+ *
+ * ONE MEASURE FOR CHROME AND CONTENT. The header, the footer and every
+ * discovery `<main>` now carry the same `page-measure`. Holding the chrome out
+ * at its own narrower width is what put the 160px seam down the landing page at
+ * 1920px; sharing one name is what closed it, and is why the footer no longer
+ * needs to learn anything about the route rendered above it.
+ *
+ * ONE NAME FOR ONE NUMBER. `prose-measure` is both a reading page's shell and a
+ * reading cap nested inside a wider page, because both are the same 48rem and a
+ * second name would drift away from the first the week after it was added. Read
+ * the SHAPE, not the name: `mx-auto prose-measure` alongside a gutter is a page
+ * shell; a bare `prose-measure` on a child is an inner cap.
+ *
+ * NEVER TWO `*-measure` CLASSES ON ONE ELEMENT. Both set `max-width`, and the
+ * ordering between two custom `@utility` rules is undefined — the winner is
+ * whichever Tailwind happens to emit last, which no call site can read and no
+ * test can pin.
+ *
+ * WHY ONLY `page` GETS A 1280px GUTTER STEP. The edge was proportionally
+ * TIGHTER on a laptop than on a phone: 2.8% of the viewport at 1440px against
+ * 6.4% at 375px. Only the widest surfaces feel that, and `form`/`prose` bind at
+ * 1024px and 768px — by the time a viewport reaches 1280px their columns are
+ * already capped, so a bigger gutter there would not move the edge, it would
+ * only shrink the column the gutter exists to frame.
+ */
+@utility page-measure {
+  max-width: 100rem;
 }
+
+@utility form-measure {
+  max-width: 64rem;
+}
+
+@utility prose-measure {
+  max-width: 48rem;
+}
+
+/*
+ * FOUR COMPONENT SIZES — A DIFFERENT AXIS FROM THE THREE MEASURES ABOVE.
+ *
+ * A measure answers "how wide is this PAGE". These four answer "how wide is
+ * this COMPONENT", which is a different question with different inputs: a
+ * confirm dialog is sized by the decision it carries and by what a floating
+ * panel is expected to look like, so it is the same width above a 100rem
+ * directory and above a 48rem story. Nothing about the page it covers may
+ * reach it. They are named for the same reason the measures are — an anonymous
+ * built-in 72rem step, dropped on one admin sheet at the `sm` breakpoint, is
+ * exactly how ten unnamed page widths accumulated — and they are deliberately
+ * NOT called `*-measure`, so that a page width and a component width can never
+ * be confused in a class string. (That step is described rather than typed:
+ * Tailwind scans this file's comments as content, and a class name written out
+ * in prose emits a real rule nothing uses.)
+ *
+ *   `overlay-compact`  20rem — an alert dialog: one sentence and two buttons.
+ *   `overlay-panel`    24rem — the default floating panel above the phone
+ *                      breakpoint: a dialog, a sheet docked to the left or
+ *                      right edge, a full-size alert dialog.
+ *   `overlay-wide`     72rem — a sheet that is a WORKSPACE rather than a
+ *                      message: the admin brand detail sheet, which holds a
+ *                      record's whole field set beside the table it opened
+ *                      from. Wide because of what it contains, not because of
+ *                      the page underneath it.
+ *   `content-column`   28rem — a short column inside a component wider than
+ *                      it: an empty state's body copy, a stack of CTA buttons
+ *                      in a card. It caps a line length and a button, never a
+ *                      page.
+ *
+ * NEVER A MEASURE AND ONE OF THESE ON THE SAME ELEMENT, and never two of
+ * these. Both set `max-width`, and the order between two custom `@utility`
+ * rules is undefined — the winner is whichever Tailwind emits last, which no
+ * call site can read and no test can pin. An element is a page shell or it is
+ * a component: if a component needs a page's width, it IS a page shell and it
+ * takes `PageShell`.
+ *
+ * A BREAKPOINT STEP IS SPELLED AT THE CALL SITE (`sm:overlay-panel`), not
+ * baked in here. That is safe where two bare custom utilities are not: a
+ * variant-prefixed utility is always sorted after an unprefixed one, so
+ * `max-w-[calc(100%-2rem)] sm:overlay-panel` resolves the same way it did when
+ * both halves were built-ins.
+ *
+ * `cn()` CANNOT SEE THESE ON ITS OWN. tailwind-merge only knows the class
+ * groups it ships with, so a call site overriding `sm:overlay-panel` with
+ * `sm:max-w-lg` would keep BOTH unless it is told they collide — which is why
+ * all four names are registered into the `max-w` group in `src/lib/utils`. A
+ * name added here without an entry there silently stops being overridable.
+ *
+ * LITERALS, NOT `var()`, for the same reason as the measures: a custom
+ * property is an override seam any ancestor can redeclare from a part of the
+ * cascade the call site cannot see.
+ */
+@utility overlay-compact {
+  max-width: 20rem;
+}
+
+@utility overlay-panel {
+  max-width: 24rem;
+}
+
+@utility overlay-wide {
+  max-width: 72rem;
+}
+
+@utility content-column {
+  max-width: 28rem;
+}
+
+/*
+ * COMPOSES `page-gutter` instead of restating its two steps: written out, the
+ * shared half would be a byte-identical copy a few lines from the original, and
+ * the next edit to the gutter would land on only one of them.
+ */
+@utility page-gutter-wide {
+  @apply page-gutter;
+
+  @media (width >= 80rem) {
+    padding-inline: calc(var(--spacing) * 16);
+  }
+}
+
+/*
+ * THE TYPE LAYER — 12 ROLES, TWO FACES.
+ *
+ * v1 had 37 `type-*` utilities across 838 call sites. Thirty-seven names cannot
+ * be held in a head, so authors picked by guess: three separate v1 names for a
+ * heading all resolved to the same declaration, and `type-button` was used on a
+ * live CTA that no block ever defined. Twelve roles are the fewest that still
+ * say something.
+ *
+ * 明體 (`font-ming`) carries CONTENT: prose, titles, story and brand copy.
+ * 黑體 (`font-hei`) carries INTERFACE: navigation, controls, metadata, chrome.
+ * The face is decided by the ROLE, never by the route — a dashboard reads as a
+ * tool because its roles are interface roles, not because it opted out.
+ *
+ * Each role carries size, line-height, face and a DEFAULT ink, and NOTHING
+ * role-specific beyond that. A colour that belongs to one surface (danger,
+ * verified green, on-ink) is added at the call site as a `text-*` class, which
+ * is also what lets tailwind-merge resolve it: `cn()` has never understood
+ * `type-*`, so two `type-*` classes in one call BOTH survive and CSS source
+ * order silently decides. It does understand colour groups.
+ */
+
+/* ── 明體 (font-ming) — content ─────────────────────────────────────────── */
 
 @utility type-display {
-  @apply font-heading text-[1.625rem] font-[560] tracking-[-0.02em] leading-[1.2] text-foreground;
-}
-
-@utility type-hero {
-  @apply font-heading text-4xl font-[560] tracking-[-0.02em] leading-tight text-foreground md:text-5xl;
-}
-
-@utility type-hero-inverse {
-  @apply font-heading text-3xl font-[560] tracking-[-0.02em] leading-tight text-white lg:text-5xl;
+  @apply font-ming text-[2.875rem] font-[560] tracking-[-0.02em] leading-[1.1] text-ink;
 }
 
 @utility type-page-title {
-  @apply font-heading text-[1.625rem] font-[560] tracking-[-0.02em] leading-[1.2] text-foreground;
+  @apply font-ming text-[2.5rem] font-[560] tracking-[-0.02em] leading-[1.15] text-ink;
 }
 
-@utility type-page-title-large {
-  @apply font-heading text-3xl font-[560] tracking-[-0.02em] leading-tight text-foreground md:text-4xl;
-}
-
-@utility type-page-subtitle {
-  @apply text-base leading-7 text-muted-foreground;
-}
-
-@utility type-section-title {
-  @apply font-heading text-base font-semibold leading-[1.3] text-foreground;
-}
-
-@utility type-section-title-large {
-  @apply font-heading text-2xl font-[560] tracking-[-0.02em] leading-tight text-foreground;
-}
-
-@utility type-section-description {
-  @apply text-sm leading-[1.7] text-muted-foreground;
+@utility type-section {
+  @apply font-ming text-[1.625rem] font-[560] tracking-[-0.015em] leading-[1.25] text-ink;
 }
 
 @utility type-card-title {
-  @apply font-heading text-base font-semibold leading-[1.3] text-foreground;
-}
-
-@utility type-faq-question {
-  @apply font-heading text-base font-normal leading-[1.4] text-foreground;
-}
-
-@utility type-card-title-small {
-  @apply font-heading text-[0.9375rem] font-semibold leading-[1.3] text-foreground;
-}
-
-@utility type-card-description {
-  @apply text-sm leading-6 text-muted-foreground;
-}
-
-@utility type-subsection-title {
-  @apply text-sm font-semibold leading-snug text-foreground;
-}
-
-@utility type-label {
-  @apply text-xs font-semibold leading-[1.4] text-foreground;
-}
-
-@utility type-field-label {
-  @apply text-xs font-medium leading-5 text-muted-foreground;
-}
-
-@utility type-field-value {
-  @apply text-sm leading-relaxed text-foreground;
-}
-
-@utility type-form-label {
-  @apply text-sm font-semibold leading-none text-foreground;
-}
-
-@utility type-form-hint {
-  @apply text-xs leading-5 text-muted-foreground;
+  @apply font-ming text-[1.3125rem] font-semibold leading-[1.35] text-ink;
 }
 
 @utility type-body {
-  @apply text-sm leading-[1.7] text-foreground;
+  @apply font-ming text-[1.03125rem] leading-[1.75] text-ink-muted;
 }
 
-@utility type-body-muted {
-  @apply text-sm leading-[1.7] text-muted-foreground;
+@utility type-body-sm {
+  @apply font-ming text-[0.9375rem] leading-[1.7] text-ink-muted;
 }
 
-@utility type-body-inverse {
-  @apply text-base leading-relaxed text-white/80;
+/* ── 黑體 (font-hei) — interface ────────────────────────────────────────── */
+
+/* Used on a live CTA (`discover/[slug]/not-found.tsx`) since before v2 with no
+   `@utility` block behind it, so that button rendered at the browser default.
+   Declaring it is a bug fix, not a new role. */
+@utility type-button {
+  @apply font-hei text-[0.875rem] font-semibold leading-none text-ink;
 }
 
-@utility type-body-emphasis {
-  @apply text-sm font-medium leading-6 text-foreground;
+@utility type-nav {
+  @apply font-hei text-[0.8125rem] font-medium leading-[1.4] text-ink;
 }
 
-@utility type-body-emphasis-inverse {
-  @apply text-sm font-medium text-white/70;
+@utility type-label {
+  @apply font-hei text-[0.8125rem] font-semibold leading-[1.4] text-ink;
 }
 
 @utility type-metadata {
-  @apply text-[0.8125rem] font-medium leading-[1.4] text-muted-foreground;
-}
-
-@utility type-caption {
-  @apply text-xs leading-[1.4] text-muted-foreground;
+  @apply font-hei text-[0.75rem] font-medium leading-[1.4] text-ink-muted;
 }
 
 @utility type-micro {
-  @apply text-[0.6875rem] font-medium leading-[1.3] tracking-wide text-muted-foreground;
+  @apply font-hei text-[0.6875rem] font-medium leading-[1.3] tracking-wide text-ink-muted;
 }
 
 @utility type-eyebrow {
-  @apply text-[0.8125rem] font-semibold leading-[1.4] tracking-wide text-primary;
+  @apply font-hei text-[0.6875rem] font-semibold uppercase tracking-widest text-ink-muted;
 }
 
-@utility type-eyebrow-muted {
-  @apply text-[0.6875rem] font-medium uppercase tracking-widest text-muted-foreground;
-}
-
-@utility type-eyebrow-cta {
-  @apply text-[0.8125rem] font-semibold leading-[1.4] text-cta;
-}
-
-@utility type-eyebrow-foreground {
-  @apply text-xs font-semibold uppercase tracking-wider text-foreground;
-}
-
-@utility type-stat {
-  @apply font-heading text-[1.625rem] font-[560] tracking-[-0.02em] leading-[1.2] tabular-nums text-foreground;
-}
-
-@utility type-stat-large {
-  @apply font-heading text-5xl font-[560] tracking-[-0.02em] leading-none tabular-nums text-primary md:text-6xl;
-}
-
-@utility type-nav-item {
-  @apply text-sm font-medium text-muted-foreground transition-colors hover:text-foreground;
-}
-
-@utility type-nav-item-active {
-  @apply text-sm font-semibold text-foreground;
-}
-
-@utility type-link {
-  @apply text-sm font-semibold text-primary underline-offset-4 hover:underline;
-}
-
-@utility type-error {
-  @apply text-xs leading-5 text-destructive;
-}
-
-@utility type-success {
-  @apply text-sm font-medium text-verified-green;
-}
-
-@utility type-success-panel {
-  @apply rounded-lg bg-verified-green-bg px-4 py-3 type-success;
-}
-
-@utility type-empty-title {
-  @apply text-base font-medium text-muted-foreground;
-}
-
-@utility type-empty-body {
-  @apply text-sm leading-6 text-muted-foreground;
+/*
+ * NOT a type role. Its v1 name began `type-` while its declaration was
+ * `rounded-lg bg-… px-4 py-3` — a surface wearing a type name, which is how it
+ * survived the type layer's own review three times. Renamed so the type layer
+ * means one thing, and so a reader searching the type scale cannot find it.
+ */
+@utility panel-success {
+  @apply rounded-lg bg-verified-green-bg px-4 py-3 type-body-sm font-medium text-verified-green;
 }
 
 @keyframes spring-pop {
@@ -463,22 +586,25 @@
 }
 
 @layer base {
+  /* The default border and outline COLOUR for every element in the app. `*` is
+     the highest-leverage selector in the stylesheet, so it names v2 tokens
+     directly: `rule` is the v2 hairline, and the outline follows `accent`,
+     which is what `--ring` already aliased. Anything that needs a different
+     border states one; this is only the fallback. */
   * {
-    @apply border-border outline-ring/50;
+    @apply border-rule outline-accent/50;
   }
+  /* The page ground is the v2 `ground`/`ink` pair, not the v1 `background`/
+     `foreground` pair. `--background` (#FDFCFA) is a quarter-step lighter than
+     `--ground` (#FAF7F2), so a body painted with it put a visible horizontal
+     seam under the sticky header on every route — the header is `bg-ground`.
+     It also made `focus-visible:ring-offset-ground` (11 declarations) paint a
+     ring gap in a colour the page never painted. `--background` and
+     `--foreground` are still live for the v1 surfaces waves 2-5 retire. */
   body {
-    @apply bg-background text-foreground;
+    @apply bg-ground text-ink;
   }
   html {
-    @apply font-sans;
-  }
-  h2::before {
-    content: "";
-    display: inline-block;
-    width: var(--spacing);
-    height: calc(var(--spacing) * 5);
-    margin-inline-end: calc(var(--spacing) * 3);
-    background-color: var(--primary);
-    vertical-align: middle;
+    @apply font-hei;
   }
 }

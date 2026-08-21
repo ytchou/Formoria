@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import createMiddleware from "next-intl/middleware";
 import { NextResponse, type NextRequest } from "next/server";
 import { routing } from "@/i18n/routing";
+import { routes } from "@/lib/routes";
 import {
   isAppLocale,
   localizePath,
@@ -21,14 +22,16 @@ import {
   checkSoftRateLimit,
   getClientIp,
   isLikelyCrawler,
+  isRateLimitStoreDegraded,
   isRouterRequest,
 } from "@/lib/security/rate-limiter";
+import { RATE_LIMIT_STORE_HEADER } from "@/lib/security/rate-limit-observability";
 import {
   hasApprovedBrandSlug,
   resolveApprovedBrandRedirect,
 } from "@/lib/services/brand-redirects-edge";
 import {
-  PRODUCT_TYPE_CATEGORIES,
+  L1_CATEGORIES,
   subcategoryBySlug,
 } from "@/lib/taxonomy/ontology";
 import { recordCrawlerHit } from "@/lib/security/crawler-telemetry";
@@ -55,7 +58,9 @@ export const RESERVED_ROUTES = new Set([
   "categories",
   "contact",
   "stories",
+  "discover",
   "events",
+  "where-to-buy",
   "site",
   "dashboard",
   "favorites",
@@ -120,7 +125,7 @@ export function decideBareBrandSlug(
   isApproved: boolean,
 ): BareBrandSlugDecision {
   return isApproved
-    ? { action: "redirect", status: 301, pathname: `/brands/${slug}` }
+    ? { action: "redirect", status: 301, pathname: routes.brand(slug) }
     : { action: "not-found", status: 404 };
 }
 
@@ -128,7 +133,10 @@ const intlMiddleware = createMiddleware(routing);
 const KNOWN_LOCALES = new Set<string>(routing.locales);
 const ADMIN_DEFAULT_LOCALE = "en";
 const NEXT_INTL_LOCALE_HEADER = "X-NEXT-INTL-LOCALE";
-const NON_LOCALIZED_AUTH_ROUTES = new Set(["/auth/callback", "/auth/sign-out"]);
+const NON_LOCALIZED_AUTH_ROUTES = new Set([
+  routes.auth.callback(),
+  routes.auth.signOut(),
+]);
 /**
  * First path segments that carry a locale. Drives locale inference for
  * prefix-free (zh-TW) URLs. Every `src/app/[locale]` route with a `page.tsx`
@@ -139,7 +147,9 @@ export const PUBLIC_INTL_SEGMENTS = new Set([
   "brands",
   "categories",
   "stories",
+  "discover",
   "events",
+  "where-to-buy",
   "about",
   "vision",
   "contact",
@@ -160,8 +170,8 @@ const SOFT_LIMIT_PREFIXES = ["/brands/"];
 const DIRECTORY_EDGE_CACHE_CONTROL =
   "public, s-maxage=3600, stale-while-revalidate=86400";
 const DIRECTORY_INDEX_PATHS = new Set([
-  "/brands",
-  ...routing.locales.map((locale) => `/${locale}/brands`),
+  routes.brands(),
+  ...routing.locales.map((locale) => `/${locale}${routes.brands()}`),
 ]);
 
 function parseDirectoryPath(pathname: string): {
@@ -189,7 +199,7 @@ export function isDirectoryIndexPath(pathname: string, search = ""): boolean {
   ) {
     return false;
   }
-  const category = PRODUCT_TYPE_CATEGORIES.find(
+  const category = L1_CATEGORIES.find(
     (item) => item.slug === segments[1],
   );
   if (!category) return false;
@@ -223,7 +233,7 @@ export function decideDirectoryTaxonomyRedirect(
       ? new URLSearchParams(searchParams)
       : searchParams;
   const { locale, path } = parseDirectoryPath(pathname);
-  if (path !== "/brands") return { action: "none" };
+  if (path !== routes.brands()) return { action: "none" };
 
   for (const facet of ["search", "price", "verification", "sort"]) {
     if (params.get(facet)?.trim()) return { action: "none" };
@@ -232,7 +242,7 @@ export function decideDirectoryTaxonomyRedirect(
   const categorySlug = singleQueryValue(params, "category");
   if (
     !categorySlug ||
-    !PRODUCT_TYPE_CATEGORIES.some((category) => category.slug === categorySlug)
+    !L1_CATEGORIES.some((category) => category.slug === categorySlug)
   ) {
     return { action: "none" };
   }
@@ -253,7 +263,7 @@ export function decideDirectoryTaxonomyRedirect(
     }
   }
 
-  const destinationPath = `/categories/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`;
+  const destinationPath = routes.categoryPath(categorySlug, subcategorySlug);
   const destination = new URLSearchParams(params.toString());
   destination.delete("category");
   destination.delete("sub");
@@ -334,6 +344,25 @@ function getBrandDetailSlug(segments: string[]): string | null {
 /** One-shot latch so the missing-credentials error is not logged per request. */
 let supabaseCredentialsWarningEmitted = false;
 
+async function hasAuthenticatedUser(request: NextRequest): Promise<boolean> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) return false;
+
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll: () => request.cookies.getAll(),
+      setAll: () => {},
+    },
+  });
+  try {
+    const { data } = await supabase.auth.getUser();
+    return data.user !== null;
+  } catch {
+    return false;
+  }
+}
+
 async function refreshSupabaseSession(
   request: NextRequest,
   response: NextResponse,
@@ -409,6 +438,8 @@ function finalizeResponse(
   if (staging) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
     response.headers.set("Cache-Control", "private, no-store");
+    const revision = process.env.RAILWAY_GIT_COMMIT_SHA?.trim();
+    if (revision) response.headers.set("X-Formoria-Revision", revision);
   }
   return response;
 }
@@ -426,9 +457,51 @@ export async function proxy(request: NextRequest) {
     );
   }
 
-  if (staging && !isAllowedStagingRequest(request.method, pathname)) {
+  // The mutation lockdown exists to protect the DEPLOYED staging environment.
+  // A local `next dev` server that merely points `.env.local` at staging is not
+  // that — but `isStagingRequest` only reads env vars and the staging hostname,
+  // so it cannot tell the two apart. Without this gate, aiming local dev at
+  // staging 403s every unauthenticated POST on localhost, which silently kills
+  // dev tooling (the Next.js devtools annotation panel among it) with an error
+  // that reads like a deployment problem.
+  //
+  // The exemption keys on DEPLOYMENT, not on build mode. RAILWAY_GIT_COMMIT_SHA
+  // is injected by the container that serves deployed staging and is absent on
+  // a laptop, so a deployed container stays locked down even if something sets
+  // NODE_ENV=development (a debug build, a container misconfiguration).
+  // NODE_ENV alone would be a convention, not a constraint, and getting it
+  // wrong opens every unauthenticated mutation on deployed staging.
+  //
+  // NODE_ENV still narrows the local case to `next dev`, which is the only
+  // runner that sets `development`: the lockdown therefore stays armed under
+  // `test` (where middleware-staging.test.ts asserts it) and under
+  // `production`.
+  //
+  // Deliberately narrower than relaxing `isStagingEnvironment()`, which must
+  // stay true here — lib/email/send.ts keys outbound email suppression off it,
+  // and flipping it would make a laptop pointed at staging send real mail.
+  const isDeployedRuntime = Boolean(process.env.RAILWAY_GIT_COMMIT_SHA?.trim());
+  const enforceStagingLockdown =
+    staging && (isDeployedRuntime || process.env.NODE_ENV !== "development");
+  const initiallyAllowed = isAllowedStagingRequest(request.method, pathname);
+  const mayAuthenticateMutation = ["POST", "PUT", "PATCH", "DELETE"].includes(
+    request.method,
+  );
+  const authenticated =
+    enforceStagingLockdown && !initiallyAllowed && mayAuthenticateMutation
+      ? await hasAuthenticatedUser(request)
+      : false;
+  const stagingRequestAllowed =
+    !enforceStagingLockdown ||
+    initiallyAllowed ||
+    isAllowedStagingRequest(request.method, pathname, authenticated);
+
+  if (!stagingRequestAllowed) {
     return finalizeResponse(
-      NextResponse.json({ error: "Staging is read-only" }, { status: 403 }),
+      NextResponse.json(
+        { error: "This flow is disabled in staging" },
+        { status: 403 },
+      ),
       staging,
     );
   }
@@ -507,11 +580,11 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  if (pathname === "/auth/callback") {
+  if (pathname === routes.auth.callback()) {
     return finalizeResponse(NextResponse.next(), staging);
   }
 
-  if (pathname.startsWith("/admin/content")) {
+  if (pathname.startsWith(routes.admin.content())) {
     return finalizeResponse(NextResponse.next(), staging);
   }
 
@@ -568,7 +641,7 @@ export async function proxy(request: NextRequest) {
       const shouldChallenge = await checkSoftRateLimit(request);
       if (shouldChallenge) {
         const url = request.nextUrl.clone();
-        url.pathname = "/challenge";
+        url.pathname = routes.challenge();
         url.searchParams.set("returnTo", pathname + request.nextUrl.search);
         return finalizeResponse(NextResponse.redirect(url), staging);
       }
@@ -589,10 +662,7 @@ export async function proxy(request: NextRequest) {
     if (redirectSlug) {
       const url = request.nextUrl.clone();
       const locale = isAppLocale(segments[0]) ? segments[0] : "zh-TW";
-      url.pathname = localizePath(
-        `/brands/${encodeURIComponent(redirectSlug)}`,
-        locale,
-      );
+      url.pathname = localizePath(routes.brand(redirectSlug), locale);
       return finalizeResponse(NextResponse.redirect(url, 308), staging);
     }
   }
@@ -672,9 +742,22 @@ export async function proxy(request: NextRequest) {
     response = intlMiddleware(request);
   } else {
     const requestHeaders = new Headers(request.headers);
-    if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    if (
+      pathname === routes.admin.index() ||
+      pathname.startsWith(`${routes.admin.index()}/`)
+    ) {
       requestHeaders.set(NEXT_INTL_LOCALE_HEADER, ADMIN_DEFAULT_LOCALE);
     }
+    // Hand the limiter's breaker state to `/api/health`: middleware and route
+    // handlers are separate isolates, so the route cannot read the module-scoped
+    // breaker itself. Written on every pass, never conditionally --
+    // `new Headers(request.headers)` above copies any client-supplied value, so
+    // an unconditional overwrite is what makes the header unspoofable.
+    // `/api/health` is not a localized public path, so it always reaches here.
+    requestHeaders.set(
+      RATE_LIMIT_STORE_HEADER,
+      isRateLimitStoreDegraded() ? "degraded" : "ok",
+    );
     response = NextResponse.next({ request: { headers: requestHeaders } });
   }
 

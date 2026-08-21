@@ -6,9 +6,10 @@ import { useLocale, useTranslations } from "next-intl";
 import { subscribeToNewsletter } from "@/app/actions/newsletter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ToggleChip } from "@/components/ui/toggle-chip";
+import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
 import { Link } from "@/i18n/navigation";
 import { trackNewsletterSubscribed } from "@/lib/analytics";
+import { routes } from "@/lib/routes";
 
 const INTEREST_CHIPS = [
   { slug: "curated-picks", labelKey: "interests.curated-picks" },
@@ -28,11 +29,11 @@ export function EmailCaptureForm() {
     "curated-picks",
   ]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (state.success) {
       trackNewsletterSubscribed(selectedChips, true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ui-exception: fires once when state.success flips, reporting the chips as they were at submit time. The component early-returns into the success view immediately after, so selectedChips cannot change afterwards; adding it would only re-fire on an edit that can never happen.
   }, [state.success]);
 
   function toggleChip(slug: string) {
@@ -45,7 +46,7 @@ export function EmailCaptureForm() {
 
   if (state.success) {
     return (
-      <div className="rounded-lg bg-verified-green-bg px-4 py-3 type-body-emphasis text-verified-green">
+      <div className="rounded-lg bg-verified-green-bg px-4 py-3 type-body-sm font-medium text-ink text-verified-green">
         {t("success")}
       </div>
     );
@@ -53,7 +54,12 @@ export function EmailCaptureForm() {
 
   return (
     <form action={formAction} className="space-y-4 text-foreground">
-      {/* eslint-disable no-restricted-syntax -- ui-exception: honeypot anti-spam field must be raw HTML */}
+      {/* ui-exception: the honeypot anti-spam field must stay a raw <input>.
+          Routing it through <Input> would give it the primitive's visible
+          styling and focus behaviour, which is exactly what must not happen to
+          a field only a bot should ever fill. No eslint-disable is needed here:
+          no-restricted-syntax is already off for this file via the grandfather
+          block in eslint.config.mjs. */}
       <input
         aria-hidden="true"
         autoComplete="off"
@@ -62,7 +68,6 @@ export function EmailCaptureForm() {
         tabIndex={-1}
         type="text"
       />
-      {/* eslint-enable no-restricted-syntax */}
       <input type="hidden" name="locale" value={locale} />
 
       <div className="flex flex-col gap-2 sm:flex-row">
@@ -76,7 +81,7 @@ export function EmailCaptureForm() {
             type="email"
           />
           {state.error ? (
-            <p className="mt-2 type-body text-destructive" role="alert">
+            <p className="mt-2 type-body-sm text-destructive" role="alert">
               {state.error}
             </p>
           ) : null}
@@ -84,7 +89,6 @@ export function EmailCaptureForm() {
 
         <Button
           variant="primary"
-          tone="cta"
           data-ph-no-autocapture
           disabled={isPending}
           type="submit"
@@ -100,10 +104,13 @@ export function EmailCaptureForm() {
       </div>
 
       <div className="space-y-2">
-        <p className="type-body-emphasis text-secondary-foreground">
+        <p className="type-body-sm font-medium text-secondary-foreground">
           {t("interestsLabel")}
         </p>
-        <div className="flex flex-row gap-2 overflow-x-auto">
+        {/* A scrolling row, not a wrapping one — but still a `ChipRow`, so
+            the 14px that keeps the 36px chip's touch target honest is the same
+            here as everywhere else. */}
+        <ChipRow className="flex-nowrap overflow-x-auto">
           {INTEREST_CHIPS.map((chip) => {
             const isSelected = selectedChips.includes(chip.slug);
 
@@ -118,18 +125,18 @@ export function EmailCaptureForm() {
               </ToggleChip>
             );
           })}
-        </div>
+        </ChipRow>
       </div>
 
       {selectedChips.map((slug) => (
         <input key={slug} name="interests" type="hidden" value={slug} />
       ))}
 
-      <p className="type-form-hint">
+      <p className="type-metadata">
         {t.rich("consentNotice", {
           privacyPolicy: (chunks) => (
             <Link
-              href="/privacy"
+              href={routes.privacy()}
               target="_blank"
               rel="noopener noreferrer"
               className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

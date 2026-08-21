@@ -1,5 +1,7 @@
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { routing } from '@/i18n/routing'
+import { citySlugToPath, type CitySlug } from '@/lib/constants/taiwan-cities'
+import { routes } from '@/lib/routes'
 
 export const PUBLIC_BRAND_DATA_TAG = 'public-brand-data'
 
@@ -13,6 +15,21 @@ export function revalidateLocalizedPath(path: string): void {
   for (const locale of routing.locales) {
     revalidatePath(path === '/' ? `/${locale}` : `/${locale}${path}`)
   }
+}
+
+/**
+ * Cache invalidation for one discovery trail. `/discover/[slug]` lives under the
+ * `[locale]` segment, so a bare unprefixed path invalidates nothing.
+ *
+ * Lives here rather than in the two action files that call it: it was
+ * byte-for-byte duplicated between `src/app/admin/actions.ts` and
+ * `src/app/admin/curated-products/actions.ts`, and a trail is a public cached
+ * surface like every other one this module owns. `revalidatePublicBrands`
+ * deliberately does NOT reach `/discover/[slug]`, so a brand- or product-level
+ * write needs this as well, not instead.
+ */
+export function revalidateTrail(trailSlug: string): void {
+  revalidateLocalizedPath(routes.trail(trailSlug))
 }
 
 function uniqueSlugs(slugs: readonly string[]): string[] {
@@ -40,15 +57,15 @@ export function revalidatePublicBrands(slugs: readonly string[]): void {
   revalidateTag(PUBLIC_BRAND_DATA_TAG, 'max')
 
   for (const slug of unique) {
-    revalidatePath(`/brands/${slug}`)
-    revalidatePath(`/en/brands/${slug}`)
-    revalidatePath(`/site/${slug}`)
+    revalidatePath(routes.brand(slug))
+    revalidatePath(`/en${routes.brand(slug)}`)
+    revalidatePath(routes.microsite(slug))
   }
 
   // These shared pages read brand data and must be invalidated once per batch.
   revalidateLocalizedPath('/')
-  revalidateLocalizedPath('/about')
-  revalidateLocalizedPath('/events')
+  revalidateLocalizedPath(routes.about())
+  revalidateLocalizedPath(routes.events())
   revalidatePath('/sitemap.xml')
   revalidatePath('/[locale]/events/[slug]', 'page')
   revalidatePath('/[locale]/stories/[slug]', 'page')
@@ -61,9 +78,17 @@ export function revalidatePublicBrands(slugs: readonly string[]): void {
  */
 export function revalidatePublicEvents(slugs: readonly string[]): void {
   for (const slug of uniqueSlugs(slugs)) {
-    revalidateLocalizedPath(`/events/${slug}`)
+    revalidateLocalizedPath(routes.event(slug))
   }
 
-  revalidateLocalizedPath('/events')
+  revalidateLocalizedPath(routes.events())
   revalidatePath('/sitemap.xml')
+}
+
+export function revalidatePublicStockists(city?: CitySlug | null): void {
+  revalidateTag(PUBLIC_BRAND_DATA_TAG, 'max')
+  revalidateLocalizedPath(routes.whereToBuy())
+  if (city) {
+    revalidateLocalizedPath(routes.whereToBuyCity(citySlugToPath(city)))
+  }
 }

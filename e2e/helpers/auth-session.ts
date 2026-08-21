@@ -1,23 +1,26 @@
-import { createClient } from '@supabase/supabase-js';
-import path from 'path';
-import fs from 'fs';
+import { createClient } from "@supabase/supabase-js";
+import path from "path";
+import fs from "fs";
 
-const BASE64_PREFIX = 'base64-';
+const BASE64_PREFIX = "base64-";
 const MAX_CHUNK_SIZE = 3180;
 
 function stringToBase64URL(str: string): string {
-  return Buffer.from(str, 'utf-8')
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
+  return Buffer.from(str, "utf-8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
 }
 
 /**
  * Split a value into URL-safe chunks of MAX_CHUNK_SIZE encoded bytes.
  * Mirrors @supabase/ssr's createChunks logic.
  */
-function createChunks(key: string, value: string): Array<{ name: string; value: string }> {
+function createChunks(
+  key: string,
+  value: string,
+): Array<{ name: string; value: string }> {
   const encoded = `${BASE64_PREFIX}${stringToBase64URL(value)}`;
   let remaining = encodeURIComponent(encoded);
   if (remaining.length <= MAX_CHUNK_SIZE) {
@@ -26,11 +29,11 @@ function createChunks(key: string, value: string): Array<{ name: string; value: 
   const rawChunks: string[] = [];
   while (remaining.length > 0) {
     let head = remaining.slice(0, MAX_CHUNK_SIZE);
-    const lastEscape = head.lastIndexOf('%');
+    const lastEscape = head.lastIndexOf("%");
     if (lastEscape > MAX_CHUNK_SIZE - 3) {
       head = head.slice(0, lastEscape);
     }
-    let decoded = '';
+    let decoded = "";
     while (head.length > 0) {
       try {
         decoded = decodeURIComponent(head);
@@ -57,24 +60,31 @@ export async function writeAuthStorageStateForCredentials(
   email: string,
   password: string,
   outputPath: string,
-  label = 'user',
+  label = "user",
 ): Promise<void> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   const hostname = new URL(supabaseUrl).hostname;
-  const projectRef = hostname.split('.')[0];
+  const projectRef = hostname.split(".")[0];
   const storageKey = `sb-${projectRef}-auth-token`;
 
-  const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
+  const baseURL =
+    process.env.PLAYWRIGHT_BASE_URL ??
+    process.env.BASE_URL ??
+    process.env.STAGING_BASE_URL ??
+    "https://staging.formoria.com";
   const domain = new URL(baseURL).hostname;
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey);
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
 
   if (error || !data.session) {
     throw new Error(
-      `Auth failed for ${label} (${email}): ${error?.message ?? 'no session returned'}`
+      `Auth failed for ${label} (${email}): ${error?.message ?? "no session returned"}`,
     );
   }
 
@@ -95,11 +105,11 @@ export async function writeAuthStorageStateForCredentials(
     name,
     value,
     domain,
-    path: '/',
+    path: "/",
     expires: expiresAt,
     httpOnly: false,
     secure: false,
-    sameSite: 'Lax' as const,
+    sameSite: "Lax" as const,
   }));
 
   const storageState = { cookies, origins: [] };
@@ -107,16 +117,23 @@ export async function writeAuthStorageStateForCredentials(
   const dir = path.dirname(outputPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(outputPath, JSON.stringify(storageState, null, 2));
-  console.log(`[auth-session] ${label}: wrote ${cookies.length} cookie chunk(s) to ${outputPath}`);
+  console.log(
+    `[auth-session] ${label}: wrote ${cookies.length} cookie chunk(s) to ${outputPath}`,
+  );
 }
 
 export async function writeAuthStorageState(
-  role: 'admin' | 'user',
+  role: "admin" | "user",
   outputPath: string,
 ): Promise<void> {
-  const email = role === 'admin' ? process.env.E2E_ADMIN_EMAIL! : process.env.E2E_USER_EMAIL!;
+  const email =
+    role === "admin"
+      ? process.env.E2E_ADMIN_EMAIL!
+      : process.env.E2E_USER_EMAIL!;
   const password =
-    role === 'admin' ? process.env.E2E_ADMIN_PASSWORD! : process.env.E2E_USER_PASSWORD!;
+    role === "admin"
+      ? process.env.E2E_ADMIN_PASSWORD!
+      : process.env.E2E_USER_PASSWORD!;
 
   await writeAuthStorageStateForCredentials(email, password, outputPath, role);
 }

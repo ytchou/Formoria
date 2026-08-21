@@ -1,6 +1,7 @@
 import type {
   Brand,
   BrandImageMeta,
+  MitStatus,
   OtherUrl,
   ReputationSummary,
   SiteContent,
@@ -26,13 +27,13 @@ export type PublicBrandCard = {
   blurbEn: string | null
   heroImageUrl: string | null
   status: 'approved' | 'hidden'
-  productType?: string | null
-  category: string | null
+  categorySlug?: string | null
+  categoryLabel: string | null
   isVerified: boolean
-  mitStatus?: 'unverified' | 'declared' | 'verified'
+  mitStatus?: MitStatus
   priceRange: number | null
-  productTags: string[]
-  productTagsEn: string[]
+  subcategories: string[]
+  subcategoriesEn: string[]
   foundingYear: number | null
   productPhotos: string[]
   imageAlts: BrandImageMeta[]
@@ -88,11 +89,9 @@ export type PublicMicrositeBrand = {
    * so a full index-aligned `imageAlts` array would be dishonest about what is
    * carried. Nullable because a brand's hero can predate `brand_images`.
    *
-   * Deliberately a whole `BrandImageMeta` rather than the flattened
-   * `isLogo`/`focalX`/`focalY` triple it replaces: the flattened names only
-   * satisfied `objectPositionStyle` by coinciding with its structural
-   * parameter, so nothing tied them to `BrandImageMeta` and a field added there
-   * would never have reached this contract.
+   * Deliberately a whole `BrandImageMeta` rather than the flattened fields it
+   * replaces: a flattened copy is tied to nothing, so a field added to
+   * `BrandImageMeta` would never have reached this contract.
    */
   heroImageMeta: BrandImageMeta | null
   foundingYear: number | null
@@ -104,7 +103,7 @@ export type SearchSuggestion = {
   id: string
   slug: string
   name: string
-  category: string
+  categoryLabel: string
 }
 
 /**
@@ -114,15 +113,15 @@ export type SearchSuggestion = {
  */
 export type PublicBrandFaqContext = {
   name: string
-  category: string | null
+  categoryLabel: string | null
   city: string | null
-  productType?: string | null
-  productTags: string[]
-  productTagsEn: string[]
+  categorySlug?: string | null
+  subcategories: string[]
+  subcategoriesEn: string[]
   priceRange: number | null
   foundingYear: number | null
   reputationSummary?: ReputationSummary | null
-  mitStatus?: 'unverified' | 'declared' | 'verified'
+  mitStatus?: MitStatus
   mitDeclaredScope?: 'all' | 'most' | 'some' | null
   mitStory?: string | null
 }
@@ -141,10 +140,10 @@ export type AdminBrandListItem = {
   slug: string
   status: 'approved' | 'hidden'
   isDemo: boolean
-  category: string | null
+  categoryLabel: string | null
   createdAt: string
   updatedAt: string
-  mitStatus?: 'unverified' | 'declared' | 'verified'
+  mitStatus?: MitStatus
   mitCertificateNumber?: string | null
   mitVerified?: boolean
   isVerified?: boolean
@@ -153,15 +152,15 @@ export type AdminBrandListItem = {
   blurb?: string | null
   blurbEn?: string | null
   city?: string | null
-  productType?: string | null
+  categorySlug?: string | null
   heroImageUrl?: string | null
   foundingYear?: number | null
   reputationSummary?: ReputationSummary | null
   mitEvidence?: Brand['mitEvidence']
   siteContent?: SiteContent | null
   priceRange?: number | null
-  productTags?: string[]
-  productTagsEn?: string[]
+  subcategories?: string[]
+  subcategoriesEn?: string[]
   purchaseWebsite?: string | null
   purchasePinkoi?: string | null
   purchaseShopee?: string | null
@@ -207,21 +206,19 @@ export function toPublicBrandCard(brand: Brand): PublicBrandCard {
     blurbEn: brand.blurbEn,
     heroImageUrl: brand.heroImageUrl,
     status: brand.status,
-    productType: brand.productType ?? null,
-    category: brand.category,
+    categorySlug: brand.categorySlug ?? null,
+    categoryLabel: brand.categoryLabel,
     isVerified: brand.isVerified,
     mitStatus: brand.mitStatus ?? 'unverified',
     priceRange: brand.priceRange,
-    productTags: [...brand.productTags],
-    productTagsEn: [...brand.productTagsEn],
+    subcategories: [...brand.subcategories],
+    subcategoriesEn: [...brand.subcategoriesEn],
     foundingYear: brand.foundingYear,
     productPhotos: [...brand.productPhotos],
     imageAlts: brand.imageAlts.map((alt) => ({
       altZh: alt.altZh,
       altEn: alt.altEn,
       isLogo: alt.isLogo,
-      focalX: alt.focalX,
-      focalY: alt.focalY,
     })),
     heroImageMetadata: brand.heroImageMetadata ?? null,
   }
@@ -230,11 +227,11 @@ export function toPublicBrandCard(brand: Brand): PublicBrandCard {
 export function toPublicBrandFaqContext(brand: Brand): PublicBrandFaqContext {
   return {
     name: brand.name,
-    category: brand.category,
+    categoryLabel: brand.categoryLabel,
     city: brand.city,
-    productType: brand.productType ?? null,
-    productTags: Array.isArray(brand.productTags) ? [...brand.productTags] : [],
-    productTagsEn: Array.isArray(brand.productTagsEn) ? [...brand.productTagsEn] : [],
+    categorySlug: brand.categorySlug ?? null,
+    subcategories: Array.isArray(brand.subcategories) ? [...brand.subcategories] : [],
+    subcategoriesEn: Array.isArray(brand.subcategoriesEn) ? [...brand.subcategoriesEn] : [],
     priceRange: brand.priceRange,
     foundingYear: brand.foundingYear,
     reputationSummary: brand.reputationSummary ?? null,
@@ -257,18 +254,16 @@ export function normalizePublicBrandCard(
   }
   return {
     ...brand,
-    productType: brand.productType ?? null,
+    categorySlug: brand.categorySlug ?? null,
     mitStatus: brand.mitStatus ?? 'unverified',
-    productTags: Array.isArray(brand.productTags) ? [...brand.productTags] : [],
-    productTagsEn: Array.isArray(brand.productTagsEn) ? [...brand.productTagsEn] : [],
+    subcategories: Array.isArray(brand.subcategories) ? [...brand.subcategories] : [],
+    subcategoriesEn: Array.isArray(brand.subcategoriesEn) ? [...brand.subcategoriesEn] : [],
     productPhotos: Array.isArray(brand.productPhotos) ? [...brand.productPhotos] : [],
     imageAlts: Array.isArray(brand.imageAlts)
       ? brand.imageAlts.map((alt) => ({
           altZh: alt.altZh,
           altEn: alt.altEn,
           isLogo: alt.isLogo,
-          focalX: alt.focalX,
-          focalY: alt.focalY,
         }))
       : [],
     heroImageMetadata: brand.heroImageMetadata ?? null,
@@ -289,12 +284,22 @@ export function toPublicBrandDetail(brand: Brand): PublicBrandDetail {
     otherUrls: brand.otherUrls.map((link) => ({ label: link.label, url: link.url })),
     mitStory: brand.mitStory ?? null,
     mitCertificateNumber: brand.mitEvidence?.mit_smile_cert ?? null,
+    /*
+     * The detail projection carries image provenance; the card projection above
+     * deliberately does not.
+     *
+     * `isOwnerSupplied` exists to render the brand-supplied credit, and D11
+     * puts that
+     * credit on brand detail and nowhere else — beside the image it credits.
+     * A directory page ships 24 cards, so carrying a field no card can render
+     * would put provenance on every list payload to serve one page that already
+     * has it.
+     */
     imageAlts: brand.imageAlts.map((alt) => ({
       altZh: alt.altZh,
       altEn: alt.altEn,
       isLogo: alt.isLogo,
-      focalX: alt.focalX,
-      focalY: alt.focalY,
+      isOwnerSupplied: alt.isOwnerSupplied ?? false,
     })),
     heroImageMetadata: brand.heroImageMetadata ?? null,
   }
@@ -334,7 +339,7 @@ export function toAdminBrandListItem(brand: Brand): AdminBrandListItem {
     slug: brand.slug,
     status: brand.status,
     isDemo: brand.isDemo,
-    category: brand.category,
+    categoryLabel: brand.categoryLabel,
     createdAt: brand.createdAt,
     updatedAt: brand.updatedAt,
     mitStatus: brand.mitStatus ?? (brand.mitVerified ? 'verified' : 'unverified'),
@@ -346,15 +351,15 @@ export function toAdminBrandListItem(brand: Brand): AdminBrandListItem {
     blurb: brand.blurb,
     blurbEn: brand.blurbEn,
     city: brand.city,
-    productType: brand.productType ?? null,
+    categorySlug: brand.categorySlug ?? null,
     heroImageUrl: brand.heroImageUrl,
     foundingYear: brand.foundingYear,
     reputationSummary: brand.reputationSummary ?? null,
     mitEvidence: brand.mitEvidence ?? null,
     siteContent: brand.siteContent ?? null,
     priceRange: brand.priceRange,
-    productTags: [...brand.productTags],
-    productTagsEn: [...brand.productTagsEn],
+    subcategories: [...brand.subcategories],
+    subcategoriesEn: [...brand.subcategoriesEn],
     purchaseWebsite: brand.purchaseWebsite,
     purchasePinkoi: brand.purchasePinkoi,
     purchaseShopee: brand.purchaseShopee,

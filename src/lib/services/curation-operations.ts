@@ -4,6 +4,7 @@ import { cleanBrandName, type NameCleanupResult } from "./brand-cleanup";
 import { ENRICH_CHUNK_SIZE, mapWithConcurrency } from "./_shared/concurrency";
 import {
   CLEARED_FIELDS_KEY,
+  mergeBrandFieldStates,
   resolveRefreshEnrichmentPatch,
 } from "./brand-write-policy";
 import type { BrandFlatLinkColumns } from "@/lib/types";
@@ -19,9 +20,9 @@ import {
 } from "@/lib/constants/enrich-phases";
 import { normalizeToRootUrl } from "@/lib/url";
 import {
-  PURCHASE_CHANNELS,
-  type PurchaseChannelColumn,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORES,
+  type OnlineStoreColumn,
+} from "@/lib/brands/online-stores";
 import {
   buildLinkEnrichPatch,
   buildTextEnrichPatch,
@@ -33,7 +34,7 @@ import {
 import {
   type ClassificationResult,
   type DetectResult,
-} from "./product-type-classifier";
+} from "./category-classifier";
 import type { DescriptionAttempt } from "./description-rewrite";
 import type { BrandFactsAttempt } from "./brand-facts";
 import { SEARCH_DELAY_MS } from "./enrich-phases/scraper/search";
@@ -66,6 +67,7 @@ import {
   runDiscoverPhase,
   runReputationPhase,
   runFaqPhase,
+  runProductsPhase,
   runClassifyImagesPhase,
   STORAGE_FAILURE_PREFIX,
   runImageSearchPhase,
@@ -81,7 +83,10 @@ import type { NameCandidate } from "./name-arbiter";
 import type { BrandImageSearchOutcome } from "./enrich-phases/scraper/types";
 import { buildCandidatePool } from "./enrich-phases/candidate-pool";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
-import { deriveProductTypeFromTags, MAX_PRODUCT_TAGS } from "./product-tags";
+import {
+  deriveCategoryFromSubcategories,
+  MAX_SUBCATEGORIES,
+} from "./subcategories";
 import {
   formatBrandComplete,
   formatEnrichError,
@@ -109,9 +114,8 @@ type CurationBrand = {
   description?: string | null;
   description_en?: string | null;
   city?: string | null;
-  product_type?: string | null;
-  product_tags?: string[] | null;
-  category_attributes?: unknown | null;
+  category?: string | null;
+  subcategories?: string[] | null;
   site_content?: SiteContent | null;
   reputation_summary?: unknown | null;
   mit_evidence?: unknown | null;
@@ -343,9 +347,8 @@ type EnrichDescriptionPatch = Partial<{
   description: string | null;
   description_en: string | null;
   price_range: number | null;
-  product_tags: string[] | null;
+  subcategories: string[] | null;
   city: string | null;
-  category_attributes: unknown;
 }>;
 
 type EnrichProcessPhases = {
@@ -366,13 +369,13 @@ type EnrichPatches = {
   names?: Partial<Pick<CurationBrand, "name">>;
   images?: EnrichImagePatch;
   descriptions?: EnrichDescriptionPatch;
-  tags?: Partial<Pick<CurationBrand, "product_type">>;
+  tags?: Partial<Pick<CurationBrand, "category">>;
 };
 
 type EnrichPatch = Partial<BrandFlatLinkColumns> &
   EnrichImagePatch &
   EnrichDescriptionPatch &
-  Partial<Pick<EnrichBrand, "product_type" | "name">>;
+  Partial<Pick<EnrichBrand, "category" | "name">>;
 
 type ProcessEnrichResult = {
   phases: EnrichProcessPhases;
@@ -381,7 +384,7 @@ type ProcessEnrichResult = {
   hasChanges: boolean;
 };
 
-type SubmissionEnrichmentRow = Record<PurchaseChannelColumn, string | null> & {
+type SubmissionEnrichmentRow = Record<OnlineStoreColumn, string | null> & {
   id: string;
   brand_id: string | null;
   intent: string;
@@ -416,11 +419,12 @@ export function seedEnrichedDataFromOwnerData(
 
   const merged = { ...existing };
   const fieldMappings = [
-    ["productType", "product_type"],
+    ["categorySlug", "category"],
     ["foundingYear", "founding_year"],
     ["city", "city"],
     ["priceRange", "price_range"],
-    ["productTags", "product_tags"],
+    ["subcategories", "subcategories"],
+    ["subcategories_en", "subcategories_en"],
     ["productPhotos", "product_photos"],
     ["mitStory", "mit_story"],
     ["heroImageUrl", "hero_image_url"],
@@ -428,7 +432,7 @@ export function seedEnrichedDataFromOwnerData(
     ["socialInstagram", "social_instagram"],
     ["socialThreads", "social_threads"],
     ["socialFacebook", "social_facebook"],
-    ...PURCHASE_CHANNELS.map(
+    ...ONLINE_STORES.map(
       (channel) => [channel.camel, channel.column] as const,
     ),
   ] as const;
@@ -442,16 +446,42 @@ export function seedEnrichedDataFromOwnerData(
   return merged;
 }
 
+/**
+ * Keys whose array value REPLACES the stored one instead of unioning with it.
+ *
+ * The merge's default is a `Set` union, which is right for arrays of scalars
+ * and wrong for everything here. `channels` and `products` are arrays of
+ * OBJECTS, so the Set union is a no-op on identity and every rerun appends its
+ * whole list to the stored one; the newest run's list is the whole list.
+ * `_cleared_fields` is the mirror case — a later run that finds real evidence
+ * has to be able to un-clear a field, and a union would make the first clear
+ * permanent.
+ *
+ * A SET, not a third hand-written branch. Each of these was added as its own
+ * `if (Object.hasOwn(patch, …))` block after the merge, so a fourth key added
+ * without its block appended silently across every rerun and nothing failed.
+ */
+const REPLACE_NOT_UNION_KEYS = new Set<string>([
+  "channels",
+  "products",
+  CLEARED_FIELDS_KEY,
+]);
+
 function deepMergeJsonObjects(base: JsonObject, patch: JsonObject): JsonObject {
   const merged: JsonObject = { ...base };
 
   for (const [key, value] of Object.entries(patch)) {
     const existing = merged[key];
     if (
-      (key === "product_tags" || key === "product_tags_en") &&
+      (key === "subcategories" || key === "subcategories_en") &&
       Array.isArray(value)
     ) {
-      merged[key] = value.slice(0, MAX_PRODUCT_TAGS);
+      merged[key] = value.slice(0, MAX_SUBCATEGORIES);
+      continue;
+    }
+
+    if (REPLACE_NOT_UNION_KEYS.has(key)) {
+      merged[key] = value;
       continue;
     }
 
@@ -482,16 +512,10 @@ export function mergeSubmissionEnrichedData(
   base: JsonObject,
   patch: JsonObject,
 ): JsonObject {
+  // `channels`, `products` and `_cleared_fields` are replaced, not unioned, by
+  // `deepMergeJsonObjects` itself — see REPLACE_NOT_UNION_KEYS.
   const merged = deepMergeJsonObjects(base, patch);
-  if (Object.hasOwn(patch, "channels")) {
-    // channels are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
-    merged.channels = patch.channels;
-  }
   if (Object.hasOwn(patch, CLEARED_FIELDS_KEY)) {
-    // Replace, never union. A later run that finds real evidence has to be able
-    // to un-clear the field; the array-union default would make the first clear
-    // permanent.
-    merged[CLEARED_FIELDS_KEY] = patch[CLEARED_FIELDS_KEY];
     // A clear from this run must beat a stale value in the stored base. The
     // sentinel is the only patch representation that can express deletion,
     // so remove fields it names before the existing value-wins filter runs.
@@ -595,6 +619,56 @@ function describeProviderFailure(
       : "provider call failed");
 
   return `${PROVIDER_FAILURE_PREFIX} — ${stage}: ${reason}`;
+}
+
+/**
+ * Phases a PRODUCTS-SCOPED run may name, and nothing else: the products phase
+ * plus its two hard dependencies. `lib/services/curated-products/backfill.ts`
+ * enqueues exactly this set, and the set is repeated here rather than imported
+ * because that module reaches `curation-jobs` and `submissions` — importing it
+ * from the runner would close a cycle to buy one array.
+ */
+const PRODUCTS_SCOPED_RUN_PHASES = new Set<string>([
+  "links",
+  "site_identity",
+  "products",
+]);
+
+export function isProductsScopedRun(phases: readonly string[]): boolean {
+  return (
+    phases.includes("products") &&
+    phases.every((phase) => PRODUCTS_SCOPED_RUN_PHASES.has(phase))
+  );
+}
+
+/**
+ * "Did this run learn anything?" — Gate C's question, and it is NOT the same as
+ * `hasPatchValues`, which is a bare key count.
+ *
+ * `patch.products` is the exception that forces the distinction. The products
+ * phase emits `products: []` when it RAN and found nothing, because a stale
+ * proposal list has to be cleared rather than left standing. That empty array
+ * is a real value for a products-scoped backfill: without it the target records
+ * `skipped`, its refresh submission stays pending and un-approvable, and the
+ * brand's pending-refresh unique index (23505) then blocks every future refresh
+ * of that brand.
+ *
+ * For a FULL enrichment run the same array must count for nothing. Fifteen
+ * phases ran, none of them found a field, and that is exactly the shape Gate C
+ * exists to report — `skipped`, plus the WEAK-BRAND counter. Letting one
+ * phase's empty list stand in for a patch would retire both, silently, for
+ * every run that includes `products`.
+ */
+export function hasMaterialPatchValues(
+  patch: object,
+  options: { productsScopedRun: boolean },
+): boolean {
+  if (options.productsScopedRun) return hasPatchValues(patch);
+
+  return Object.entries(patch as Record<string, unknown>).some(
+    ([key, value]) =>
+      !(key === "products" && Array.isArray(value) && value.length === 0),
+  );
 }
 
 /**
@@ -823,15 +897,15 @@ function normalizeScrapedData(
     social_threads: scrapedData.social_threads ?? scrapedData.socialThreads,
     social_facebook: scrapedData.social_facebook ?? scrapedData.socialFacebook,
     // Scrapers emit either the snake_case column or the camelCase field; the
-    // column wins. Derived per channel rather than restated three times.
+    // column wins. Derived per store rather than restated three times.
     ...(Object.fromEntries(
-      PURCHASE_CHANNELS.map(
-        (channel): [PurchaseChannelColumn, string | null | undefined] => [
+      ONLINE_STORES.map(
+        (channel): [OnlineStoreColumn, string | null | undefined] => [
           channel.column,
           scrapedData[channel.column] ?? scrapedData[channel.camel],
         ],
       ),
-    ) as Partial<Record<PurchaseChannelColumn, string | null>>),
+    ) as Partial<Record<OnlineStoreColumn, string | null>>),
   };
 }
 
@@ -1145,16 +1219,11 @@ export async function persistSubmissionEnrichmentResults(
     }
     const { data: fieldStates, error: fieldStateError } = await supabase
       .from("brand_field_state")
-      .select("field, source")
+      .select("field, source, updated_at")
       .eq("brand_id", row.brand_id);
     if (fieldStateError) throw fieldStateError;
 
-    const fieldState = Object.fromEntries(
-      (fieldStates ?? []).map((state) => [
-        state.field,
-        { source: state.source },
-      ]),
-    );
+    const fieldState = mergeBrandFieldStates(fieldStates ?? []);
     const filtered = resolveRefreshEnrichmentPatch(
       persistablePatch,
       fieldState,
@@ -1221,17 +1290,17 @@ export async function persistSubmissionEnrichmentResults(
  * Fill-gaps merge of the purchase columns: whatever enrichment already produced
  * wins, otherwise the submitted value is used.
  *
- * The submitted value is reduced to its origin only for a channel that accepts a
+ * The submitted value is reduced to its origin only for a store that accepts a
  * bare root (today: the brand's own website) — that column is meant to hold the
- * site, not a page on it. A marketplace channel is the opposite: its bare root
+ * site, not a page on it. A marketplace store is the opposite: its bare root
  * is the platform's front door, so the submitted URL is carried through intact.
  */
 function mergeSubmittedPurchaseColumns(
   existing: JsonObject,
-  submission: Record<PurchaseChannelColumn, string | null>,
-): Record<PurchaseChannelColumn, string | null> {
+  submission: Record<OnlineStoreColumn, string | null>,
+): Record<OnlineStoreColumn, string | null> {
   return Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel): [PurchaseChannelColumn, string | null] => {
+    ONLINE_STORES.map((channel): [OnlineStoreColumn, string | null] => {
       const enriched = existing[channel.column];
       if (typeof enriched === "string") return [channel.column, enriched];
       const submitted = submission[channel.column];
@@ -1240,7 +1309,7 @@ function mergeSubmittedPurchaseColumns(
         channel.allowBareRoot ? normalizeToRootUrl(submitted) : submitted,
       ];
     }),
-  ) as Record<PurchaseChannelColumn, string | null>;
+  ) as Record<OnlineStoreColumn, string | null>;
 }
 
 export function submissionToEnrichBrand(
@@ -1255,11 +1324,6 @@ export function submissionToEnrichBrand(
     isRefresh && isPlainObject(submission.base_brand_data)
       ? deepMergeJsonObjects(submission.base_brand_data, existingEnriched)
       : seedEnrichedDataFromOwnerData(submission.owner_data, existingEnriched);
-  if (isRefresh && Object.hasOwn(existingEnriched, "channels")) {
-    // channels are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
-    // Overridden per-site until deepMergeJsonObjects handles object-array fields.
-    existing.channels = existingEnriched.channels;
-  }
 
   return {
     ...existing,
@@ -1281,14 +1345,13 @@ export function submissionToEnrichBrand(
         ? existing.description_en
         : null,
     city: typeof existing.city === "string" ? existing.city : null,
-    category_attributes: existing.category_attributes ?? null,
     site_content: isPlainObject(existing.site_content)
       ? (existing.site_content as EnrichBrand["site_content"])
       : null,
     reputation_summary: existing.reputation_summary ?? null,
     mit_evidence: existing.mit_evidence ?? null,
-    product_type:
-      typeof existing.product_type === "string" ? existing.product_type : null,
+    category:
+      typeof existing.category === "string" ? existing.category : null,
     social_instagram:
       typeof existing.social_instagram === "string"
         ? existing.social_instagram
@@ -1956,7 +2019,7 @@ export async function runEnrich(
                 isNonBrand: true,
                 nonBrandReason: detectResult?.nonBrandReason ?? null,
                 slugGenerated: detectResult?.slugGenerated ?? null,
-                productType: detectResult?.productType ?? null,
+                categorySlug: detectResult?.categorySlug ?? null,
                 confidence: detectResult?.confidence ?? "high",
               });
             }
@@ -2392,35 +2455,35 @@ export async function runEnrich(
           // The descriptions phase now assigns the category explicitly, from
           // site content and image alt text. That value wins: the tag-vote
           // derivation below is a fallback for when the model returned null.
-          const effectiveProductType =
-            typeof descriptionsResult.patch.product_type === "string"
-              ? descriptionsResult.patch.product_type
-              : typeof state.patches.product_type === "string"
-                ? state.patches.product_type
-                : brand.product_type;
-          const effectiveProductTags = Array.isArray(
-            descriptionsResult.patch.product_tags,
+          const effectiveCategory =
+            typeof descriptionsResult.patch.category === "string"
+              ? descriptionsResult.patch.category
+              : typeof state.patches.category === "string"
+                ? state.patches.category
+                : brand.category;
+          const effectiveSubcategories = Array.isArray(
+            descriptionsResult.patch.subcategories,
           )
-            ? descriptionsResult.patch.product_tags.filter(
+            ? descriptionsResult.patch.subcategories.filter(
                 (tag): tag is string => typeof tag === "string",
               )
-            : (brand.product_tags ?? []);
+            : (brand.subcategories ?? []);
           if (
             descriptionsResult.phaseResult.status === "succeeded" &&
-            !effectiveProductType
+            !effectiveCategory
           ) {
-            const derivedProductType =
-              deriveProductTypeFromTags(effectiveProductTags);
-            if (derivedProductType) {
-              descriptionsResult.patch.product_type = derivedProductType;
+            const derivedCategory =
+              deriveCategoryFromSubcategories(effectiveSubcategories);
+            if (derivedCategory) {
+              descriptionsResult.patch.category = derivedCategory;
               descriptionsResult.phaseResult.changedFields = [
                 ...new Set([
                   ...descriptionsResult.phaseResult.changedFields,
-                  "product_type",
+                  "category",
                 ]),
               ];
               onProgress(
-                `  [CATEGORY] ${brand.slug}: derived ${derivedProductType} from product tags`,
+                `  [CATEGORY] ${brand.slug}: derived ${derivedCategory} from subcategories`,
               );
             }
           }
@@ -2461,7 +2524,7 @@ export async function runEnrich(
                   isNonBrand: true,
                   nonBrandReason: `listing_reject: ${listingReason}`,
                   slugGenerated: null,
-                  productType: effectiveProductType ?? null,
+                  categorySlug: effectiveCategory ?? null,
                   confidence: "medium",
                 });
               }
@@ -2542,6 +2605,27 @@ export async function runEnrich(
           await logCurrentPhase(ctx, faqResult.phaseResult);
           appendPatch(state, faqResult.patch);
 
+          await markCurrentPhase(ctx, "products");
+          const productsResult = await runProductsPhase({
+            brand,
+            phases,
+            scrapedData: state.scrapedData,
+            // The site the earlier phases resolved — or REVOKED. Reading the
+            // pre-run snapshot instead would mine a contaminated website.
+            pendingPatch: state.patches,
+            dryRun: config.dryRun,
+            target: { type: targetType, id: brand.id },
+            jobId: config.jobId,
+            supabase: batchContext.supabase,
+          });
+          state.phaseResults.push(productsResult.phaseResult);
+          await logCurrentPhase(ctx, productsResult.phaseResult);
+          // The proposals ride the patch as `products`, which
+          // `mergeSubmissionEnrichedData` replaces rather than unions. No target
+          // type is added and no row is written here: materialization is the
+          // moderator's approval.
+          appendPatch(state, productsResult.patch);
+
           let classification: ClassificationResult | null = null;
           let hasCompletedTagClassification = false;
           if (
@@ -2568,18 +2652,18 @@ export async function runEnrich(
             await markCurrentPhase(ctx, "tags");
             const tagStartedAt = Date.now();
             hasCompletedTagClassification = true;
-            if (classification.productType !== brand.product_type) {
-              appendPatch(state, { product_type: classification.productType });
+            if (classification.categorySlug !== brand.category) {
+              appendPatch(state, { category: classification.categorySlug });
               const tagPhaseResult = buildPhaseResult(
                 "tags",
                 "succeeded",
-                ["product_type"],
+                ["category"],
                 Date.now() - tagStartedAt,
               );
               state.phaseResults.push(tagPhaseResult);
               await logCurrentPhase(ctx, tagPhaseResult);
               onProgress(
-                `  [TAG] ${brand.slug}: ${brand.product_type ?? "null"} → ${classification.productType} (${classification.confidence})`,
+                `  [CATEGORY] ${brand.slug}: ${brand.category ?? "null"} → ${classification.categorySlug} (${classification.confidence})`,
               );
             } else {
               const tagPhaseResult = buildPhaseResult(
@@ -2591,7 +2675,7 @@ export async function runEnrich(
               state.phaseResults.push(tagPhaseResult);
               await logCurrentPhase(ctx, tagPhaseResult);
               onProgress(
-                `  [TAG] ${brand.slug}: ${brand.product_type} (unchanged)`,
+                `  [CATEGORY] ${brand.slug}: ${brand.category ?? "null"} (unchanged)`,
               );
             }
           }
@@ -2614,7 +2698,12 @@ export async function runEnrich(
             state.phaseResults,
           );
 
-          if (!hasPatchValues(patch) && !hasCompletedTagClassification) {
+          if (
+            !hasMaterialPatchValues(patch, {
+              productsScopedRun: isProductsScopedRun(phases),
+            }) &&
+            !hasCompletedTagClassification
+          ) {
             // Gate C: "every LLM phase died at the provider" and "every LLM
             // phase ran and found nothing new" produce the identical empty
             // patch. Recording the first as `skipped` is the exact shape of the
@@ -2683,7 +2772,7 @@ export async function runEnrich(
                 isNonBrand: false,
                 nonBrandReason: null,
                 slugGenerated: detectResult.slugGenerated,
-                productType: detectResult.productType,
+                categorySlug: detectResult.categorySlug,
                 confidence: detectResult.confidence,
               });
             }
@@ -2705,7 +2794,7 @@ export async function runEnrich(
               await insertClassificationResult({
                 brandId: brand.id,
                 target: { type: targetType, id: brand.id },
-                productType: classification.productType,
+                categorySlug: classification.categorySlug,
                 confidence: classification.confidence,
               });
             }

@@ -1,6 +1,6 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
-import { PURCHASE_COLUMNS } from '@/lib/brands/purchase-channels'
+import { ONLINE_STORE_COLUMNS } from '@/lib/brands/online-stores'
 
 type Source = 'enriched' | 'owner'
 
@@ -34,10 +34,10 @@ const BRAND_FIELDS: readonly string[] = [
   'slug',
   'description',
   'hero_image_url',
-  'product_type',
+  'category',
   'contact_email',
   'city',
-  ...PURCHASE_COLUMNS,
+  ...ONLINE_STORE_COLUMNS,
   'social_instagram',
   'social_threads',
   'social_facebook',
@@ -48,7 +48,7 @@ const BRAND_FIELDS: readonly string[] = [
   'approved_at',
   'founding_year',
   'price_range',
-  'product_tags',
+  'subcategories',
   'reputation_summary',
   'mit_status',
   'mit_verified_at',

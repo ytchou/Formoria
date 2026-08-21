@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { DataCard, InfoField, SurfaceCard } from "@/components/ui/card";
@@ -35,13 +36,14 @@ import { RerunJobButton } from "./rerun-job-button";
 import { DispatchJobButton } from "../dispatch-job-button";
 import { CancelJobButton } from "../cancel-job-button";
 import { ResumeJobButton } from "../resume-job-button";
+import { routes } from "@/lib/routes";
 
 const phaseDescriptions = {
   clean: "Normalizes the submitted brand name.",
   detect:
     "Checks whether the entry is a real brand and validates its identity.",
   slugs: "Generates a stable URL slug from the validated brand name.",
-  tags: "Classifies the brand's product type and tags.",
+  tags: "Classifies the brand's category and subcategories.",
   discover: "Searches the web for useful official sources and brand context.",
   links: "Extracts and verifies official website and social links.",
   images: "Finds and selects usable brand and product images.",
@@ -53,12 +55,14 @@ const phaseDescriptions = {
   reputation:
     "Adds third-party reputation context — coverage, awards, ratings.",
   faq: "Writes the bilingual FAQ answers the brand's evidence supports.",
+  products:
+    "Proposes curated products from the brand's own site; a moderator ticks the keepers at approval.",
   names:
     "Arbitrates the competing brand names the other context phases proposed; the only phase that writes the brand name.",
   site_identity:
     "Adjudicates quarantined websites and links before they reach downstream enrichment.",
   classification:
-    "Classifies the product type on its own, when descriptions did not decide it.",
+    "Classifies the category on its own, when descriptions did not decide it.",
   "image-search": "Searches for candidate images before image selection.",
   persist: "Writes the accumulated patch back to the brand record.",
   // Legacy: `reputation` was called `expansion` until 2026-08-03 and historical
@@ -103,6 +107,7 @@ export function JobDetailView({
   railwayLogsUrl?: string;
   snapshotUrl?: string | null;
 }) {
+  const t = useTranslations("admin.jobs");
   const { job, targets, parent, children } = detail;
   const visibleTargets =
     selectedStatus === "all"
@@ -153,20 +158,20 @@ export function JobDetailView({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
           <Link
-            href="/admin/jobs"
-            className="inline-flex min-h-12 items-center type-body-emphasis text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            href={routes.admin.jobs()}
+            className="inline-flex min-h-12 items-center type-body-sm font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
-            ← Back to Data Jobs
+            {t("actions.backToList")}
           </Link>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="type-section-title-large">Job Detail</h1>
+            <h1 className="type-label">{t("detail.title")}</h1>
             <JobStatusBadge job={job} />
           </div>
-          <p className="break-all font-mono type-body-muted">{job.id}</p>
+          <p className="break-all type-metadata tabular-nums">{job.id}</p>
         </div>
         <div className="flex flex-wrap gap-3">
           {canDispatch ? (
-            <DispatchJobButton jobId={job.id} label="Run now" />
+            <DispatchJobButton jobId={job.id} label="Run this job now" />
           ) : null}
           {active ? <CancelJobButton jobId={job.id} /> : null}
           {canRerunCompleted ? (
@@ -180,24 +185,24 @@ export function JobDetailView({
           ) : null}
           {canResume ? <ResumeJobButton jobId={job.id} /> : null}
           <Link
-            href={`/admin/jobs/${job.id}/runlog`}
+            href={`${routes.admin.job(job.id)}/runlog`}
             className={buttonVariants({
               variant: "secondary",
               size: "large",
               className: "min-h-12",
             })}
           >
-            Run Log
+            {t("actions.runLog")}
           </Link>
           <a
-            href={`/admin/jobs/${job.id}/runlog?download=1`}
+            href={`${routes.admin.job(job.id)}/runlog?download=1`}
             className={buttonVariants({
               variant: "secondary",
               size: "large",
               className: "min-h-12",
             })}
           >
-            Download HTML
+            {t("actions.downloadHtml")}
           </a>
           {snapshotUrl ? (
             <a
@@ -211,7 +216,7 @@ export function JobDetailView({
               })}
             >
               <ExternalLink aria-hidden="true" />
-              Snapshot
+              {t("actions.snapshot")}
             </a>
           ) : null}
           {railwayLogsUrl ? (
@@ -226,7 +231,7 @@ export function JobDetailView({
               })}
             >
               <ExternalLink aria-hidden="true" />
-              Railway Logs
+              {t("actions.railwayLogs")}
             </a>
           ) : null}
         </div>
@@ -241,7 +246,7 @@ export function JobDetailView({
       </div>
 
       <SurfaceCard padding="lg">
-        <h2 className="type-card-title">Execution Info</h2>
+        <h2 className="type-label">{t("detail.executionInfo")}</h2>
         <dl className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <InfoField label="Trigger" value={jobTriggerLabel(job.trigger)} />
           <InfoField label="Attempt" value={job.attempt} />
@@ -289,7 +294,7 @@ export function JobDetailView({
 
       {parent || children.length > 0 ? (
         <SurfaceCard padding="lg">
-          <h2 className="type-card-title">Retry Lineage</h2>
+          <h2 className="type-label">{t("detail.retryLineage")}</h2>
           <div className="mt-4 flex flex-wrap gap-3">
             {parent ? (
               <LineageLink
@@ -310,36 +315,36 @@ export function JobDetailView({
 
       <section className="space-y-4" aria-labelledby="job-targets-heading">
         <div>
-          <h2 id="job-targets-heading" className="type-card-title">
-            Brand Details
+          <h2 id="job-targets-heading" className="type-label">
+            {t("detail.brandDetails")}
           </h2>
-          <p className="mt-1 type-card-description">
-            Phase results, changed fields, and error summary per brand.
+          <p className="mt-1 type-body-sm">
+            {t("detail.brandDetailsDescription")}
           </p>
           <details className="mt-2">
-            <summary className="flex min-h-12 cursor-pointer items-center font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              What do phases mean?
+            <summary className="flex min-h-12 cursor-pointer items-center font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+              {t("detail.phaseHelp")}
             </summary>
-            <dl className="grid gap-x-6 gap-y-3 rounded-lg bg-muted/40 p-4 sm:grid-cols-2 lg:grid-cols-3">
+            <dl className="grid gap-x-6 gap-y-3 rounded-[3px] bg-surface/40 p-4 sm:grid-cols-2 lg:grid-cols-3">
               {phaseDefinitions.map(([phase, description]) => (
                 <div key={phase}>
-                  <dt className="type-body-emphasis capitalize">{phase}</dt>
-                  <dd className="mt-1 type-body-muted">{description}</dd>
+                  <dt className="type-body-sm font-medium text-ink capitalize">{phase}</dt>
+                  <dd className="mt-1 type-body-sm">{description}</dd>
                 </div>
               ))}
             </dl>
           </details>
         </div>
         <nav
-          aria-label="Filter brands by status"
+          aria-label={t("detail.filterLabel")}
           className="flex flex-wrap gap-2"
         >
           {filters.map((filter) => {
             const selected = selectedStatus === filter.value;
             const href =
               filter.value === "all"
-                ? `/admin/jobs/${job.id}`
-                : `/admin/jobs/${job.id}?status=${filter.value}`;
+                ? routes.admin.job(job.id)
+                : `${routes.admin.job(job.id)}?status=${filter.value}`;
             return (
               <Link
                 key={filter.value}
@@ -359,20 +364,20 @@ export function JobDetailView({
 
         <SurfaceCard padding="none" className="overflow-x-auto">
           {visibleTargets.length === 0 ? (
-            <p className="p-6 text-center text-muted-foreground">
-              No brands match this filter.
+            <p className="p-6 text-center text-ink-muted">
+              {t("detail.empty")}
             </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Brand</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Current Phase</TableHead>
-                  <TableHead>Reason</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Details</TableHead>
+                  <TableHead>{t("detail.table.brand")}</TableHead>
+                  <TableHead>{t("detail.table.type")}</TableHead>
+                  <TableHead>{t("detail.table.status")}</TableHead>
+                  <TableHead>{t("detail.table.currentPhase")}</TableHead>
+                  <TableHead>{t("detail.table.reason")}</TableHead>
+                  <TableHead>{t("detail.table.duration")}</TableHead>
+                  <TableHead>{t("detail.table.details")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -382,15 +387,13 @@ export function JobDetailView({
                       {target.brand_name}
                     </TableCell>
                     <TableCell>
-                      {target.target_type === "submission"
-                        ? "Submission"
-                        : "Brand"}
+                      {t(`targetType.${target.target_type}`)}
                     </TableCell>
                     <TableCell>
                       <TargetStatusBadge target={target} />
                     </TableCell>
                     <TableCell>{target.current_phase ?? "-"}</TableCell>
-                    <TableCell className="max-w-80 whitespace-normal type-body-muted">
+                    <TableCell className="max-w-80 whitespace-normal type-body-sm">
                       {targetReason(target)}
                     </TableCell>
                     <TableCell>{formatTargetDuration(target)}</TableCell>
@@ -438,7 +441,7 @@ function targetReason(target: CurationJobTarget): string {
 function LineageLink({ id, label }: { id: string; label: string }) {
   return (
     <Link
-      href={`/admin/jobs/${id}`}
+      href={routes.admin.job(id)}
       className={buttonVariants({
         variant: "secondary",
         size: "large",
@@ -451,15 +454,16 @@ function LineageLink({ id, label }: { id: string; label: string }) {
 }
 
 function TargetDetail({ target }: { target: CurationJobTarget }) {
+  const t = useTranslations("admin.jobs");
   const phases = parsePhaseResults(target.phase_results);
 
   return (
     <details className="group min-w-72">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        View details
+      <summary className="flex min-h-12 cursor-pointer list-none items-center font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+        {t("actions.viewDetails")}
       </summary>
       <div className="pb-4 pr-4">
-        <dl className="grid gap-4 rounded-lg bg-muted/40 p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <dl className="grid gap-4 rounded-[3px] bg-surface/40 p-4 sm:grid-cols-2 lg:grid-cols-4">
           <InfoField label="Slug" value={target.brand_slug ?? "-"} />
           <InfoField
             label="Changed fields"
@@ -478,15 +482,17 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
           ) : null}
         </dl>
         <div className="mt-4 space-y-2">
-          <h3 className="type-body-emphasis">Phase log</h3>
+          <h3 className="type-body-sm font-medium text-ink">
+            {t("detail.phaseLog")}
+          </h3>
           {phases.length === 0 ? (
-            <p className="type-body-muted">No phase records yet.</p>
+            <p className="type-body-sm">{t("detail.noPhaseRecords")}</p>
           ) : (
             <ol className="space-y-2">
               {phases.map((phase, index) => (
                 <li
                   key={`${phase.phase}-${index}`}
-                  className="rounded-lg border border-border p-3"
+                  className="rounded-[3px] border border-rule p-3"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-medium">{phase.phase}</span>
@@ -506,22 +512,22 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
                       )}
                     </Badge>
                   </div>
-                  <p className="mt-1 type-body-muted">
+                  <p className="mt-1 type-body-sm">
                     {formatMilliseconds(phase.durationMs)}
                     {phase.changedFields.length
                       ? ` · Changed: ${phase.changedFields.join(", ")}`
                       : ""}
                   </p>
                   {phaseDescription(phase.phase) ? (
-                    <p className="mt-2 type-body">
+                    <p className="mt-2 type-body-sm text-ink-soft">
                       {phaseDescription(phase.phase)}
                     </p>
                   ) : null}
                   {phase.detail ? (
-                    <p className="mt-2 type-body">{formatPhaseDetail(phase)}</p>
+                    <p className="mt-2 type-body-sm text-ink-soft">{formatPhaseDetail(phase)}</p>
                   ) : null}
                   {phase.error ? (
-                    <p className="mt-2 type-body text-destructive">
+                    <p className="mt-2 type-body-sm text-danger">
                       {phase.error}
                     </p>
                   ) : null}
@@ -537,7 +543,7 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
 
 function phaseDescription(phase: string): string | null {
   if (phase === "detect") {
-    return "Checks whether this entry is a real brand and may update its name, slug, or product type.";
+    return "Checks whether this entry is a real brand and may update its name, slug, or category.";
   }
 
   return null;

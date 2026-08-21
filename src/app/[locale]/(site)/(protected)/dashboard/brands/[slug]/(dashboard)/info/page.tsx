@@ -2,8 +2,12 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { SectionDetailLayout } from '@/components/dashboard/section-detail-layout'
 import { EmptyValue, display } from '@/components/dashboard/display-helpers'
 import { InfoField } from '@/components/ui/card'
-import { getProductTypeLabel } from '@/lib/brands/category-label'
+import {
+  getBrandSubcategoryLabels,
+  getCategoryLabel,
+} from '@/lib/brands/category-label'
 import { getBrandBySlug } from '@/lib/services/brands'
+import { routes } from '@/lib/routes'
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
@@ -17,6 +21,8 @@ export default async function InfoPage({ params }: Props) {
     getTranslations({ locale, namespace: 'dashboard.brandProfile' }),
     getTranslations({ locale, namespace: 'dashboard.edit' }),
   ])
+  // `subcategories` stores slugs since DEV-1510; the owner reads labels.
+  const subcategoryLabels = getBrandSubcategoryLabels(brand, locale)
   const priceRange = brand.priceRange
     ? tEdit(
         brand.priceRange === 1
@@ -30,7 +36,7 @@ export default async function InfoPage({ params }: Props) {
   return (
     <SectionDetailLayout
       description={t('sectionBasicInfoHint')}
-      editHref={`/dashboard/brands/${slug}/edit?step=0`}
+      editHref={`${routes.dashboard.brandEdit(slug)}?step=0`}
       editLabel={t('edit')}
       title={tEdit('wizardStepBasicInfo')}
     >
@@ -40,14 +46,14 @@ export default async function InfoPage({ params }: Props) {
           value={display(brand.name, t('notSet'))}
         />
         <InfoField
-          label={tEdit('fieldProductType')}
+          label={tEdit('fieldCategory')}
           value={
-            brand.productType
+            brand.categorySlug
               ? (
-                  getProductTypeLabel(
-                    brand.productType,
+                  getCategoryLabel(
+                    brand.categorySlug,
                     locale === 'zh-TW' ? 'zh-TW' : 'en',
-                  ) ?? brand.productType
+                  ) ?? brand.categorySlug
                 )
               : <EmptyValue>{t('notSet')}</EmptyValue>
           }
@@ -70,10 +76,10 @@ export default async function InfoPage({ params }: Props) {
           value={priceRange}
         />
         <InfoField
-          label={tEdit('fieldProductTags')}
+          label={tEdit('fieldSubcategories')}
           value={
-            brand.productTags.length > 0
-              ? brand.productTags.join(' · ')
+            subcategoryLabels.length > 0
+              ? subcategoryLabels.join(' · ')
               : <EmptyValue>{t('notSet')}</EmptyValue>
           }
         />

@@ -1,10 +1,10 @@
-import { Link } from "@react-email/components";
 import { render } from "@react-email/render";
+import { EmailLink } from "@emails/components/email-link";
 import { Layout } from "@emails/components/layout";
 import { EmailHeading } from "@emails/components/email-heading";
 import { EmailText } from "@emails/components/email-text";
 import { Button } from "@emails/components/button";
-import { FROM_ADDRESS, SITE_URL, TEXT_SECONDARY } from "@emails/styles";
+import { FROM_ADDRESS, SITE_URL } from "@emails/styles";
 import type { EmailMessage } from "@emails/types";
 import { escapeHtml } from "@emails/utils";
 
@@ -30,7 +30,7 @@ export default function ClaimVerifiedEmail({
 
   if (locale === "en") {
     return (
-      <Layout previewText="Verify your claim email - Formoria">
+      <Layout lang="en" previewText="Verify your claim email - Formoria">
         <EmailHeading as="h2">Verify your claim email</EmailHeading>
         <EmailText>
           You requested to claim{" "}
@@ -44,7 +44,7 @@ export default function ClaimVerifiedEmail({
         <Button href={escapedVerifyUrl}>Verify email</Button>
         <EmailText>If the button does not work, open this link:</EmailText>
         <EmailText>
-          <Link href={escapedVerifyUrl}>{escapedVerifyUrl}</Link>
+          <EmailLink href={escapedVerifyUrl}>{escapedVerifyUrl}</EmailLink>
         </EmailText>
         <EmailText>
           This link expires in 7 days. If you did not request this claim, you
@@ -54,9 +54,9 @@ export default function ClaimVerifiedEmail({
           Formoria — Taiwanese Brand Discovery &amp; Curation
         </EmailText>
         <EmailText>
-          <Link href={escapedSiteUrl} style={smallLink}>
+          <EmailLink href={escapedSiteUrl} tone="muted">
             {escapedSiteUrl}
-          </Link>
+          </EmailLink>
         </EmailText>
       </Layout>
     );
@@ -73,16 +73,16 @@ export default function ClaimVerifiedEmail({
       <Button href={escapedVerifyUrl}>驗證信箱</Button>
       <EmailText>若按鈕無法使用，請開啟此連結：</EmailText>
       <EmailText>
-        <Link href={escapedVerifyUrl}>{escapedVerifyUrl}</Link>
+        <EmailLink href={escapedVerifyUrl}>{escapedVerifyUrl}</EmailLink>
       </EmailText>
       <EmailText>
         此連結將在 7 天後失效。如果您並未提出此認領申請，可安全忽略此郵件。
       </EmailText>
       <EmailText>Formoria — 台灣品牌探索與選物平台</EmailText>
       <EmailText>
-        <Link href={escapedSiteUrl} style={smallLink}>
+        <EmailLink href={escapedSiteUrl} tone="muted">
           {escapedSiteUrl}
-        </Link>
+        </EmailLink>
       </EmailText>
     </Layout>
   );
@@ -105,8 +105,3 @@ export async function buildClaimEmailVerificationEmail(
     ),
   };
 }
-
-const smallLink = {
-  color: TEXT_SECONDARY,
-  fontSize: "12px",
-};

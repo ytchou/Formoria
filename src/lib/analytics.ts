@@ -1,5 +1,6 @@
 import { capturePostHogEvent, resetPostHogUser } from './analytics/posthog-provider'
 import { ANALYTICS_EVENTS } from './analytics/events'
+import { routes } from '@/lib/routes'
 
 const UTM_KEYS = [
   'utm_source',
@@ -12,7 +13,11 @@ const UTM_KEYS = [
 const UTM_FIRST_TOUCH_KEY = 'formoria_utm_first_touch'
 const UTM_LAST_TOUCH_KEY = 'formoria_utm_last_touch'
 
-const PROTECTED_ANALYTICS_SEGMENTS = ['/admin', '/dashboard', '/auth'] as const
+const PROTECTED_ANALYTICS_SEGMENTS = [
+  routes.admin.index(),
+  routes.dashboard.index(),
+  routes.auth.index(),
+] as const
 
 function stripLocale(pathname: string): string {
   return pathname.replace(/^\/(?:zh-TW|en)(?=\/|$)/, '') || '/'
@@ -58,23 +63,36 @@ export function getUtmParams(search: string): Record<string, string> {
 export function getContentGroup(pathname: string): string {
   const pathWithoutLocale = stripLocale(pathname)
 
-  if (pathWithoutLocale === '/' || pathWithoutLocale === '/brands') {
+  if (pathWithoutLocale === '/' || pathWithoutLocale === routes.brands()) {
     return 'directory'
   }
 
-  if (pathWithoutLocale.startsWith('/brands/')) {
+  if (
+    pathWithoutLocale === routes.whereToBuy() ||
+    pathWithoutLocale.startsWith(`${routes.whereToBuy()}/`)
+  ) {
+    return 'where_to_buy'
+  }
+
+  if (pathWithoutLocale.startsWith(`${routes.brands()}/`)) {
     return 'brand_detail'
   }
 
-  if (pathWithoutLocale === '/submit' || pathWithoutLocale.startsWith('/submit/')) {
+  if (
+    pathWithoutLocale === routes.submit.index() ||
+    pathWithoutLocale.startsWith(`${routes.submit.index()}/`)
+  ) {
     return 'submission'
   }
 
-  if (pathWithoutLocale === '/admin' || pathWithoutLocale.startsWith('/admin/')) {
+  if (
+    pathWithoutLocale === routes.admin.index() ||
+    pathWithoutLocale.startsWith(`${routes.admin.index()}/`)
+  ) {
     return 'admin'
   }
 
-  if (pathWithoutLocale === '/about') {
+  if (pathWithoutLocale === routes.about()) {
     return 'about'
   }
 
@@ -160,11 +178,13 @@ export function trackBrandCardClicked(
   category: string | null | undefined,
   positionInGrid: number,
   brandId?: string,
+  listSource?: string,
 ) {
   safeGAEvent('event', 'select_item', {
     item_id: slug,
     category: category ?? null,
     position_in_grid: positionInGrid,
+    ...(listSource ? { item_list_name: listSource } : {}),
   })
   if (brandId) {
     capturePostHogEvent(ANALYTICS_EVENTS.BRAND_CARD_CLICKED, {
@@ -172,6 +192,7 @@ export function trackBrandCardClicked(
       brand_slug: slug,
       category: category ?? null,
       position_in_grid: positionInGrid,
+      ...(listSource ? { list_source: listSource } : {}),
     })
   }
 }
@@ -203,7 +224,12 @@ export function trackExhibitorSiteClicked(
   capturePostHogEvent(ANALYTICS_EVENTS.EXHIBITOR_SITE_CLICKED, properties)
 }
 
-export type ExternalLinkSurface = 'detail_page' | 'card' | 'recommendation'
+export type ExternalLinkSurface =
+  | 'detail_page'
+  | 'card'
+  | 'recommendation'
+  | 'selected_product'
+  | `trail:${string}:${string}`
 
 export function trackExternalLinkClicked(
   slug: string,
@@ -451,8 +477,57 @@ export function trackViewItemList(listName: string, itemCount: number) {
   })
 }
 
+export function trackStockistListViewed(listName: string, itemCount: number) {
+  safeGAEvent('event', 'view_item_list', {
+    item_list_name: listName,
+    item_count: itemCount,
+  })
+  capturePostHogEvent(ANALYTICS_EVENTS.STOCKIST_LIST_VIEWED, {
+    list_name: listName,
+    item_count: itemCount,
+  })
+}
+
 export function trackHeroCategoryClicked(category: string, destinationUrl: string) {
   capturePostHogEvent(ANALYTICS_EVENTS.HERO_CATEGORY_CLICKED, { category, destination_url: destinationUrl })
+}
+
+export function trackCuratedProductClicked(
+  productKey: string,
+  brandSlug: string,
+  position: number,
+  selectionSurface: string,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.CURATED_PRODUCT_CLICKED, {
+    product_key: productKey,
+    brand_slug: brandSlug,
+    position,
+    selection_surface: selectionSurface,
+  })
+}
+
+export function trackStoryCardClicked(
+  storySlug: string,
+  position: number,
+  storySurface: string,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.STORY_CARD_CLICKED, {
+    story_slug: storySlug,
+    position,
+    story_surface: storySurface,
+  })
+}
+
+export function trackTrailCardClicked(
+  trailSlug: string,
+  position: number,
+  trailSurface: string,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.TRAIL_CARD_CLICKED, {
+    trail_slug: trailSlug,
+    position,
+    trail_surface: trailSurface,
+  })
 }
 
 export function trackDirectorySortChanged(sortValue: string, previousSort: string) {
@@ -522,7 +597,7 @@ export function trackBrandSaved(brandId: string, slug: string, location: string)
 }
 
 /** First qualifying signal that a visitor actually engaged with a brand page. */
-export type EngagementTrigger = 'dwell' | 'gallery' | 'faq' | 'channel' | 'scroll_50'
+export type EngagementTrigger = 'dwell' | 'gallery' | 'faq' | 'scroll_50'
 
 // PostHog-only, like trackBrandSaved: engagement depth is a product metric, not a
 // GA conversion signal, and GA4 event quota is better spent elsewhere.
@@ -719,14 +794,6 @@ export function trackSubmissionFormErrorShown(field: string, errorType: string, 
     field,
     error_type: errorType,
     step,
-  })
-}
-
-export function trackApiErrorShown(endpoint: string, statusCode: number, userAction: string) {
-  capturePostHogEvent(ANALYTICS_EVENTS.API_ERROR_SHOWN, {
-    endpoint,
-    status_code: statusCode,
-    user_action: userAction,
   })
 }
 

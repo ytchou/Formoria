@@ -87,7 +87,7 @@ async function seedBrand(supabase: AnySupabaseClient, suffix: string): Promise<S
       slug,
       status: 'approved',
       approved_at: new Date().toISOString(),
-      product_type: 'crafts',
+      category: 'home',
       description: `Disposable ${suffix} claim lifecycle brand.`,
     })
     .select('id')
@@ -187,7 +187,7 @@ test.describe('Claim request lifecycle', () => {
       const submit = isolatedUserPage.getByRole('button', { name: '送出認領申請' });
       await expect(submit).toBeEnabled();
       await submit.click();
-      await expect(isolatedUserPage.getByText('已收到你的認領申請')).toBeVisible();
+      await expect(isolatedUserPage.getByText('已收到認領申請')).toBeVisible();
 
       await expect
         .poll(
@@ -330,7 +330,7 @@ test.describe('Claim request lifecycle', () => {
       const submit = isolatedUserPage.getByRole('button', { name: '送出認領申請' });
       await expect(submit).toBeEnabled({ timeout: BUDGET.SERVER_RENDER });
       await submit.click();
-      await expect(isolatedUserPage.getByText('已收到你的認領申請')).toBeVisible();
+      await expect(isolatedUserPage.getByText('已收到認領申請')).toBeVisible();
 
       await expect
         .poll(

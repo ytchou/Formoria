@@ -32,11 +32,11 @@ export interface CurationPatchEvent {
   phaseResults: PhaseResult[];
 }
 
-export type PhaseStatus = "succeeded" | "skipped" | "failed";
+export type PhaseResultStatus = "succeeded" | "skipped" | "failed";
 
 export interface PhaseResult {
   phase: string;
-  status: PhaseStatus;
+  status: PhaseResultStatus;
   changedFields: string[];
   durationMs: number;
   error?: string;

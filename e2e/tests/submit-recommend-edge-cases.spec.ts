@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { randomUUID } from 'node:crypto'
 import type { Page } from '@playwright/test'
 import { test, expect } from '../fixtures/auth'
 import { POLL } from '../budgets'
@@ -39,7 +40,25 @@ async function fillRequiredFields(
 }
 
 test.describe('Submit recommendation edge cases', () => {
-  test.describe.configure({ mode: 'serial' })
+  // DEV-1416 regression: a browser can submit the same recommendation six
+  // times before the first response returns. This test must not retry because
+  // a retry would hide a duplicate-row race behind a second clean run.
+  test.describe.configure({ mode: 'serial', retries: 0 })
+
+  // Every case in this group is an ANONYMOUS submission, and deployed staging
+  // answers 403 to anonymous mutations (`isAllowedStagingRequest` in
+  // src/lib/deployment-environment.ts allows only GET plus the /auth/* POSTs).
+  // Measured, not inferred: anonymous POSTs to /submit/recommend,
+  // /api/newsletter/subscribe and /api/feature-requests* all return 403 there,
+  // while /auth/sign-up returns 200.
+  //
+  // Guarded at group scope rather than per test BECAUSE the group is serial: a
+  // failing case cascades a skip onto the ones after it, so guarding only the
+  // first left the second failing and the third reported as an unexplained skip.
+  test.skip(
+    process.env.FORMORIA_DEPLOYMENT_ENV === 'staging',
+    'staging blocks anonymous mutations',
+  );
 
   let supabaseAdmin: SupabaseClient
   let duplicateBrandName = ''
@@ -60,10 +79,11 @@ test.describe('Submit recommendation edge cases', () => {
   })
 
   test.afterAll(async () => {
-    await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from('brand_submissions')
       .delete()
       .like('brand_name', `${SUBMISSION_PREFIX}%`)
+    if (error) throw new Error(`[e2e-cleanup] submission edge cleanup failed: ${error.message}`)
     await cleanupDuplicateBrand?.()
   })
 
@@ -147,5 +167,84 @@ test.describe('Submit recommendation edge cases', () => {
         POLL.UI,
       )
       .toBe(1)
+  })
+
+  test('DEV-1416 six concurrent browser submissions return one id and six confirmations', async ({
+    browser,
+  }, workerInfo) => {
+    test.setTimeout(BUDGET.TEST.JOURNEY)
+    const suffix = `${Date.now()}-${workerInfo.workerIndex}`
+    const brandName = `${SUBMISSION_PREFIX} DEV-1416 ${suffix}`
+    const website = `https://submit-dev-1416-${suffix}.example.com`
+    const idempotencyKey = randomUUID()
+    const pages = await Promise.all(Array.from({ length: 6 }, () => browser.newPage()))
+
+    try {
+      await Promise.all(
+        pages.map(async (page) => {
+          await page.addInitScript((key) => {
+            Object.defineProperty(window.crypto, 'randomUUID', {
+              configurable: true,
+              value: () => key,
+            })
+          }, idempotencyKey)
+          await installTurnstileStub(page)
+          await gotoSubmitRecommend(page)
+          await fillRequiredFields(page, { name: brandName, website })
+        }),
+      )
+
+      const confirmations = await Promise.all(
+        pages.map(async (page) => {
+          const submitButton = page.getByRole('button', { name: '送出推薦' })
+          await expect(submitButton).toBeEnabled({ timeout: BUDGET.SERVER_RENDER })
+          await submitButton.click()
+          await page.waitForURL(/\/submit\/confirmation/, { timeout: BUDGET.GATED_UI })
+          await expect(page.getByRole('heading', { name: '我們已收到你的品牌推薦' })).toBeVisible({
+            timeout: BUDGET.SERVER_RENDER,
+          })
+          const { data, error } = await supabaseAdmin
+            .from('brand_submissions')
+            .select('id')
+            .eq('idempotency_key', idempotencyKey)
+            .maybeSingle()
+          expect(error).toBeNull()
+          expect(data?.id).toBeTruthy()
+          return { url: page.url(), id: data?.id }
+        }),
+      )
+      expect(confirmations).toHaveLength(6)
+      expect(confirmations.every(({ url }) => url.includes('/submit/confirmation'))).toBe(true)
+      expect(new Set(confirmations.map(({ id }) => id)).size).toBe(1)
+
+      await expect
+        .poll(
+          async () => {
+            const { data, error } = await supabaseAdmin
+              .from('brand_submissions')
+              .select('id, brand_name, idempotency_key')
+              .eq('idempotency_key', idempotencyKey)
+            expect(error).toBeNull()
+            return data ?? []
+          },
+          POLL.UI,
+        )
+        .toHaveLength(1)
+      const { data: persisted, error: persistedError } = await supabaseAdmin
+        .from('brand_submissions')
+        .select('id, brand_name, idempotency_key')
+        .eq('idempotency_key', idempotencyKey)
+      expect(persistedError).toBeNull()
+      expect(persisted).toHaveLength(1)
+      expect(persisted?.[0]).toMatchObject({ brand_name: brandName, idempotency_key: idempotencyKey })
+      expect(confirmations.map(({ id }) => id)).toEqual(Array(6).fill(persisted?.[0]?.id))
+    } finally {
+      const { error } = await supabaseAdmin
+        .from('brand_submissions')
+        .delete()
+        .eq('idempotency_key', idempotencyKey)
+      expect(error, 'DEV-1416 submission cleanup must succeed').toBeNull()
+      await Promise.all(pages.map((page) => page.close()))
+    }
   })
 })

@@ -21,12 +21,19 @@ export async function BrandAbout({ brand, locale }: BrandAboutProps) {
 
   return (
     <section>
-      <Typography as="h2" className="mb-4" variant="sectionTitle">
+      <Typography as="h2" className="mb-4" variant="sectionTitleLarge">
         {t("sections.about")}
       </Typography>
-      <div className="space-y-3">
+      {/*
+        THE CAP LIVES HERE, not on the route. Nothing between the brand page's
+        `page-measure` shell and this column sets a width: with the section nav
+        present the body is 4/5 of the page, and without it the whole page, so
+        at 100rem these paragraphs ran past 1200px of unbroken line. Every
+        other body column on the site is already `prose-measure`.
+      */}
+      <div className="prose-measure space-y-3">
         {paragraphs.map((paragraph, i) => (
-          <p key={i} className="type-section-description">
+          <p key={i} className="type-body-sm">
             {paragraph.split("\n").map((line, j) => (
               <span key={j}>
                 {j > 0 && <br />}

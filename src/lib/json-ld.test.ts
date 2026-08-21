@@ -6,6 +6,7 @@ import {
   buildCategoryItemListJsonLd,
   buildBrandsItemListJsonLd,
   buildEventJsonLd,
+  buildStockistItemListJsonLd,
   buildFaqPageJsonLd,
   buildOrganizationJsonLd,
   buildWebSiteJsonLd,
@@ -17,7 +18,7 @@ import type { Brand } from "@/lib/types";
 import { getSiteUrl } from "@/lib/site-url";
 import { faqItemsToQuestions, getBrandFaq } from "@/lib/services/brand-faq";
 import type { FaqSupabase } from "@/lib/services/brand-faq";
-import type { BrandChannel } from "@/lib/types/brand-channel";
+import type { Stockist } from "@/lib/types/stockist";
 
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
   return {
@@ -29,7 +30,8 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     status: "approved",
     isVerified: false,
     isDemo: false,
-    category: "Food & Beverage",
+    categorySlug: "food-drink",
+    categoryLabel: "Food & Beverage",
     foundingYear: 2004,
     city: null,
     purchaseWebsite: "https://chatzutang.com",
@@ -43,8 +45,8 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     productPhotos: [],
     siteContent: null,
     priceRange: null,
-    productTags: [],
-    productTagsEn: [],
+    subcategories: [],
+    subcategoriesEn: [],
     descriptionEn: null,
     blurb: null,
     blurbEn: null,
@@ -61,20 +63,17 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
 
 describe("buildBrandJsonLd", () => {
   function channel(
-    overrides: Partial<BrandChannel> & Pick<BrandChannel, "name">,
-  ): BrandChannel {
+    overrides: Partial<Stockist> & Pick<Stockist, "name">,
+  ): Stockist {
     const { name, ...rest } = overrides;
     return {
       id: `channel-${name}`,
       name,
-      channelType: "offline",
-      categoryLabel: null,
       regionLabel: "臺北市",
       address: null,
       url: null,
       ownerStatus: "none",
       source: "import",
-      confirmationCount: 0,
       status: "confirmed",
       confirmedBy: "evidence",
       ...rest,
@@ -401,10 +400,8 @@ describe("buildBreadcrumbJsonLd", () => {
 });
 
 describe("buildBrandsItemListJsonLd", () => {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://formoria.com";
 
   it("returns valid ItemList schema with correct structure", () => {
-    expect(siteUrl).toBeTruthy();
     const brands = [
       { name: "Brand Alpha", slug: "brand-alpha" },
       { name: "Brand Beta", slug: "brand-beta" },
@@ -483,17 +480,26 @@ describe("buildWebSiteJsonLd", () => {
 });
 
 describe("buildOrganizationJsonLd", () => {
-  it("emits an Organization with name and absolute url", () => {
-    const ld = buildOrganizationJsonLd("zh-TW") as JsonLdObject;
-    expect(ld["@type"]).toBe("Organization");
-    expect(ld.name).toBe("Formoria");
-    expect(ld.url).toMatch(/^https?:\/\//);
-    expect(ld.description).toContain("台灣品牌探索與選物平台");
+  it("describes the mission and commerce boundary in both public languages", () => {
+    const zh = buildOrganizationJsonLd("zh-TW") as JsonLdObject;
+    const en = buildOrganizationJsonLd("en") as JsonLdObject;
+
+    expect(zh["@type"]).toBe("Organization");
+    expect(zh.name).toBe("Formoria");
+    expect(zh.url).toMatch(/^https?:\/\//);
+    expect(zh.description).toContain(
+      "Formoria 把相遇之後的路接起來",
+    );
+    expect(zh.description).toContain("品牌或零售通路負責價格");
+    expect(en.description).toContain(
+      "Formoria reconnects the path after that moment",
+    );
+    expect(en.description).toContain("Brands or retailers remain responsible");
   });
+
   it("omits sameAs when no socials are configured", () => {
     const ld = buildOrganizationJsonLd("en") as JsonLdObject;
     expect("sameAs" in ld).toBe(false);
-    expect(ld.description).toContain("discovery and curation platform");
   });
 });
 
@@ -508,6 +514,49 @@ describe("buildArticleJsonLd", () => {
     expect(ld["@type"]).toBe("Article");
     expect(ld.headline).toBe("About");
     expect(ld.publisher["@type"]).toBe("Organization");
+  });
+
+  it("absolutises a repo-relative image against the site URL", () => {
+    // Article `image` is what Google reads for the rich result. A leading-slash
+    // repo path is valid on the page and meaningless in structured data, so it
+    // is resolved here rather than at each caller.
+    const ld = buildArticleJsonLd({
+      title: "Story",
+      description: "desc",
+      path: "/stories/a-story",
+      locale: "zh-TW",
+      image: "/images/stories/hero.webp",
+    }) as JsonLdObject;
+
+    expect(ld.image).toMatch(/^https?:\/\//);
+    expect(ld.image).toMatch(/\/images\/stories\/hero\.webp$/);
+    expect(ld.image).not.toContain("//images/");
+  });
+
+  it("passes an absolute image URL through untouched", () => {
+    const image = "https://project.supabase.co/storage/v1/object/public/t/a.jpg";
+    const ld = buildArticleJsonLd({
+      title: "Story",
+      description: "desc",
+      path: "/stories/a-story",
+      image,
+    }) as JsonLdObject;
+
+    expect(ld.image).toBe(image);
+  });
+
+  it("omits image entirely when the entry declares none", () => {
+    // Omitted rather than stubbed, exactly like `buildEventJsonLd`: an empty
+    // string is reported by Google as an invalid value, which is worse than
+    // no key at all.
+    const ld = buildArticleJsonLd({
+      title: "Story",
+      description: "desc",
+      path: "/stories/a-story",
+      image: null,
+    }) as JsonLdObject;
+
+    expect("image" in ld).toBe(false);
   });
 });
 
@@ -772,7 +821,7 @@ describe("buildFaqPageJsonLd", () => {
       `${key}|${JSON.stringify(params ?? {})}`;
     const items = await getBrandFaq(
       "123",
-      makeBrand({ productTags: ["陶瓷"] }),
+      makeBrand({ subcategories: ["陶瓷"] }),
       translate,
       "zh-TW",
       null,
@@ -789,6 +838,68 @@ describe("buildFaqPageJsonLd", () => {
     expect(
       ld.mainEntity.map((entry: JsonLdObject) => entry.acceptedAnswer.text),
     ).toEqual(items.map((item) => item.answer));
+  });
+});
+
+describe("buildStockistItemListJsonLd", () => {
+  const location = (address: string | null) => ({
+    id: "8a8b35c9-6168-4899-87b4-24a48d647d1c",
+    name: "María García & Sons <Flagship>",
+    address,
+    url: null,
+    country: "TW",
+    city: "taipei" as const,
+    district: "中山區",
+    brandSlug: "maria-garcia-ceramics",
+    brandName: "María García Ceramics",
+    categorySlug: "home",
+    subcategories: [],
+  });
+
+  it("builds a Place with a PostalAddress for a location with an address", () => {
+    const result = buildStockistItemListJsonLd({
+      locations: [location("臺北市中山區樂群二路199號")],
+      cityName: "臺北市",
+      canonicalUrl: "https://formoria.com/where-to-buy/taipei",
+    });
+
+    expect(result.itemListElement[0].item).toMatchObject({
+      "@type": "Place",
+      address: {
+        "@type": "PostalAddress",
+        streetAddress: "臺北市中山區樂群二路199號",
+        addressLocality: "臺北市",
+        addressCountry: "TW",
+      },
+    });
+  });
+
+  it("omits the Place entirely when the location has no address", () => {
+    const result = buildStockistItemListJsonLd({
+      locations: [location(null)],
+      cityName: "臺北市",
+      canonicalUrl: "https://formoria.com/where-to-buy/taipei",
+    });
+    expect(result.itemListElement).toEqual([]);
+  });
+
+  it("builds an ItemList of the city's locations in order", () => {
+    const result = buildStockistItemListJsonLd({
+      locations: [location("第一個地址"), { ...location("第二個地址"), id: "second" }],
+      cityName: "臺北市",
+      canonicalUrl: "https://formoria.com/where-to-buy/taipei",
+    });
+    expect(result.numberOfItems).toBe(2);
+    expect(result.itemListElement.map((item: { position: number }) => item.position)).toEqual([1, 2]);
+  });
+
+  it("escapes safely", () => {
+    const result = buildStockistItemListJsonLd({
+      locations: [location("臺北市</script><script>alert(1)</script>")],
+      cityName: "臺北市",
+      canonicalUrl: "https://formoria.com/where-to-buy/taipei",
+    });
+    expect(safeJsonLdStringify(result)).not.toContain("</script>");
   });
 });
 

@@ -2,14 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { PlayCircle } from "lucide-react";
 import { toast } from "sonner";
 import { resumeCurationJobAction } from "@/app/admin/operations/actions";
 import { Button } from "@/components/ui/button";
+import { inkActionClassName } from "@/components/admin/ink-action";
 
 export function ResumeJobButton({ jobId }: { jobId: string }) {
   const [isPending, setIsPending] = useState(false);
   const router = useRouter();
+  const t = useTranslations("admin.jobs");
 
   async function handleResume() {
     setIsPending(true);
@@ -33,10 +36,11 @@ export function ResumeJobButton({ jobId }: { jobId: string }) {
       onClick={handleResume}
       disabled={isPending}
       size="large"
-      className="min-h-12"
+      variant="secondary"
+      className={inkActionClassName}
     >
       <PlayCircle aria-hidden="true" />
-      {isPending ? "Queuing…" : "Resume failed targets"}
+      {isPending ? t("actions.queuing") : t("actions.resumeFailedTargets")}
     </Button>
   );
 }

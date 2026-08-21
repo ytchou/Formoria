@@ -21,7 +21,7 @@ export function FaqSection({
   return (
     <section id={id} className={cn('scroll-mt-24', className)}>
       <div className={headerClassName ?? 'mb-4 border-b border-border pb-3'}>
-        <h2 className={titleClassName ?? 'type-section-title'}>{title}</h2>
+        <h2 className={titleClassName ?? 'type-card-title'}>{title}</h2>
       </div>
       {children}
     </section>

@@ -40,16 +40,24 @@ test.describe("Mobile responsive", () => {
     });
   });
 
-  test("navigation is accessible (hamburger or nav visible)", async ({
+  test("the homepage banner exposes a navigation landmark at 375px", async ({
     page,
   }) => {
     await page.goto("/");
-    const hamburger = page.getByRole("button", {
-      name: "Open menu",
-      exact: true,
-    });
-    const nav = page.getByRole("banner").getByRole("navigation");
-    await expect(hamburger.or(nav)).toBeVisible({ timeout: BUDGET.RENDERED });
+    // LANDMARK, not a button label. The previous form of this test looked for a
+    // button named "Open menu", which never matched: the suite runs at the
+    // default locale, where that name is 開啟選單. It passed only because it
+    // fell through to NavCategoryTabs' <nav> — and that row is suppressed on
+    // `/` now, so the fallback carried the whole assertion and then went away.
+    // A role query is also the contract that actually matters: the banner must
+    // offer a navigation landmark on a phone, in either locale.
+    const bannerNav = page.getByRole("banner").getByRole("navigation");
+    await expect(bannerNav.first()).toBeVisible({ timeout: BUDGET.RENDERED });
+    // It contains the menu control, which is the only way into the header's
+    // links at this width.
+    await expect(
+      bannerNav.first().getByRole("button").first(),
+    ).toBeVisible();
   });
 
   test("sign-in page has no horizontal overflow at 375px", async ({ page }) => {

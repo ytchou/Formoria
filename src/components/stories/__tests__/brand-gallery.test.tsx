@@ -49,7 +49,7 @@ function makeBrand(
     slug,
     status: "approved",
     category: "bags-accessories",
-    productType: "bags-accessories",
+    categorySlug: "bags-accessories",
     heroImageUrl,
     productPhotos,
     imageAlts,
@@ -61,8 +61,8 @@ function makeBrand(
     isVerified: false,
     mitStatus: "unverified",
     priceRange: null,
-    productTags: [],
-    productTagsEn: [],
+    subcategories: [],
+    subcategoriesEn: [],
   } as unknown as Brand;
 }
 
@@ -231,7 +231,7 @@ describe("BrandGallery", () => {
             "Molasses",
             imageUrl("hero"),
             [imageUrl("one")],
-            [{ altZh: null, altEn: "A product hero", isLogo: false, focalX: null, focalY: null }],
+            [{ altZh: null, altEn: "A product hero", isLogo: false }],
           ),
         ],
       ]),

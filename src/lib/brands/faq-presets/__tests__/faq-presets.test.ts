@@ -54,8 +54,8 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     blurbEn: null,
     heroImageUrl: null,
     status: "approved",
-    productType: "crafts",
-    category: "工藝文創",
+    categorySlug: "home",
+    categoryLabel: "居家生活",
     city: "taipei",
     isVerified: false,
     mitStatus: undefined,
@@ -84,8 +84,8 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     imageAlts: [],
     contactEmail: null,
     priceRange: 2,
-    productTags: ["陶藝", "茶具"],
-    productTagsEn: ["ceramics", "tea ware"],
+    subcategories: ["餐具", "茶具"],
+    subcategoriesEn: ["tableware", "tea ware"],
     siteContent: null,
     submittedAt: "2026-01-01T00:00:00.000Z",
     approvedAt: "2026-01-02T00:00:00.000Z",
@@ -157,9 +157,9 @@ describe("FAQ preset catalog", () => {
     const withoutEvidence = makeContext({
       peerStats: null,
       brand: makeBrand({
-        productType: null,
-        productTags: [],
-        productTagsEn: [],
+        categorySlug: null,
+        subcategories: [],
+        subcategoriesEn: [],
         priceRange: null,
         reputationSummary: null,
       }),
@@ -177,7 +177,7 @@ describe("FAQ preset catalog", () => {
       expect(item.eligible(withoutEvidence)).toBe(false);
     }
     expect(presetById("category-position").requiredEvidence).toEqual([
-      "productType",
+      "categorySlug",
       "peerStats",
     ]);
   });
@@ -204,7 +204,7 @@ describe("FAQ preset catalog", () => {
   it("main-products render eligibility is per locale", () => {
     const mainProducts = presetById("main-products");
     const zhOnly = makeContext({
-      brand: makeBrand({ productTags: ["陶藝"], productTagsEn: [] }),
+      brand: makeBrand({ subcategories: ["餐具"], subcategoriesEn: [] }),
     });
 
     expect(mainProducts.eligible(zhOnly, "zh-TW")).toBe(true);
@@ -213,6 +213,58 @@ describe("FAQ preset catalog", () => {
     expect(mainProducts.eligible(zhOnly, "en")).toBe(false);
     // Authoring still runs: the model writes both sides from the zh evidence.
     expect(mainProducts.authorable?.(zhOnly)).toBe(true);
+  });
+
+  // `brands.subcategories` stores English slugs since DEV-1510. This floor
+  // writes that value straight into a published zh-TW answer and into the
+  // FAQPage JSON-LD, so an unresolved slug is Latin text in public copy.
+  it("public_faq_renders_zh_labels_not_slugs", () => {
+    const mainProducts = presetById("main-products");
+    const slugStored = makeContext({
+      brand: makeBrand({
+        categorySlug: "bags-accessories",
+        categoryLabel: "包袋配件",
+        subcategories: ["backpacks", "tote-bags"],
+        subcategoriesEn: ["Backpacks", "Tote Bags"],
+      }),
+    });
+
+    const zh = mainProducts.render?.templateFloor(
+      slugStored,
+      resolveBrandDetail,
+      "zh-TW",
+    );
+
+    expect(zh).toContain("後背包");
+    expect(zh).toContain("托特包");
+    expect(zh).not.toMatch(/backpacks|tote-bags/iu);
+
+    const en = mainProducts.render?.templateFloor(
+      slugStored,
+      resolveBrandDetail,
+      "en",
+    );
+
+    expect(en).toContain("Backpacks");
+    expect(en).toContain("Tote Bags");
+    expect(en).not.toContain("tote-bags");
+
+    // A string the vocabulary has never known is still rendered verbatim. That
+    // is the novel-tag escape hatch, not a slug that failed to resolve — see
+    // docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md.
+    const novel = makeContext({
+      brand: makeBrand({
+        subcategories: ["手工燈籠"],
+        subcategoriesEn: ["Handmade Lanterns"],
+      }),
+    });
+
+    expect(
+      mainProducts.render?.templateFloor(novel, resolveBrandDetail, "zh-TW"),
+    ).toContain("手工燈籠");
+    expect(
+      mainProducts.render?.templateFloor(novel, resolveBrandDetail, "en"),
+    ).toContain("Handmade Lanterns");
   });
 
   it("derives groundedIn from requiredEvidence for every preset that declares it", () => {
@@ -351,7 +403,7 @@ describe("FAQ preset catalog", () => {
 
   it("lengthBand rejects an out-of-band zh answer", () => {
     // 40 字 — well short of the zh 200–320 band.
-    const shortAnswer = "這個品牌以陶藝與茶具為主要產品，於台北設立".repeat(2);
+    const shortAnswer = "這個品牌以餐具與茶具為主要產品，於台北設立".repeat(2);
 
     expect(Array.from(shortAnswer).length).toBeLessThan(200);
     expect(withinLengthBand()(shortAnswer, makeValidatorContext("zh")).ok).toBe(
@@ -360,7 +412,7 @@ describe("FAQ preset catalog", () => {
   });
 
   it("notDuplicateOf rejects a custom restating a preset topic", () => {
-    const presetAnswer = "Harbor Form makes ceramics and tea ware in Taipei.";
+    const presetAnswer = "Harbor Form makes tableware and tea ware in Taipei.";
     const result = notDuplicateOf([presetAnswer])(
       presetAnswer,
       makeValidatorContext("en"),

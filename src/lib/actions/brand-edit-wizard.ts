@@ -12,6 +12,7 @@ import {
 } from '@/lib/services/brands'
 import { WIZARD_STEPS } from '@/lib/schemas/brand-edit'
 import type { Brand } from '@/lib/types'
+import { routes } from '@/lib/routes'
 
 type BrandDraftUpdate = Partial<Brand>
 
@@ -142,7 +143,7 @@ export async function saveSectionDraftAction(
       }
 
       await saveDraft(brandId, mergedData as Partial<Brand>)
-      revalidatePath(`/dashboard/brands/${brandSlug}`)
+      revalidatePath(routes.dashboard.brand(brandSlug))
 
       return { success: true }
     } catch (error) {

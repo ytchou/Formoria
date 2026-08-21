@@ -25,8 +25,6 @@ export type BrandImageRow = {
   alt_en?: string | null
   width?: number | null
   height?: number | null
-  focal_x?: number | null
-  focal_y?: number | null
 }
 
 export type BrandImageInsert = {
@@ -42,8 +40,6 @@ export type BrandImageInsert = {
   tags?: string[] | null
   score?: number | null
   sort_order?: number
-  focal_x?: number | null
-  focal_y?: number | null
 }
 
 type QueryError = { code?: string; message?: string }
@@ -115,11 +111,10 @@ function brandHeroTable(supabase: unknown): BrandHeroTable {
  * `toImageFields` as `active.map(...)` over that same unfiltered sequence, so a
  * brand with a null `heroImageUrl` shifts every later gallery position by one
  * against its metadata. That used to mis-assign only alt text; it now also
- * decides fill mode (`isLogo`) and `object-position`, so a shift visibly
- * letterboxes a product photo and crops a logo. Callers that render metadata
- * alongside the image MUST index by `sourceIndex`, never by array position —
- * the same `sourceIndex` discipline `image-carousel.tsx` uses for its own
- * host-filter drop.
+ * decides fill mode (`isLogo`), so a shift visibly letterboxes a product photo
+ * and crops a logo. Callers that render metadata alongside the image MUST index
+ * by `sourceIndex`, never by array position — the same `sourceIndex` discipline
+ * `image-carousel.tsx` uses for its own host-filter drop.
  */
 export function getBrandGalleryImageEntries(brand: {
   heroImageUrl: string | null
@@ -170,8 +165,17 @@ export function toImageFields(rows: BrandImageRow[]): {
       altZh: row.alt_zh ?? null,
       altEn: row.alt_en ?? null,
       isLogo: isLogoImageTags(row.tags),
-      focalX: row.focal_x ?? null,
-      focalY: row.focal_y ?? null,
+      /*
+       * The brand-supplied credit, derived once and never inferred.
+       *
+       * `'owner'` is written by `syncOwnerUploadedImages()` when a brand owner
+       * uploads through the dashboard wizard. Every other value — 'scrape',
+       * 'google_image', 'admin', 'legacy', 'json_ld' — is Formoria or a
+       * crawler, so they are NOT enumerated here: an equality test against the
+       * one value that grants the credit makes a new source added upstream fail
+       * closed rather than silently inherit it.
+       */
+      isOwnerSupplied: row.source === 'owner',
     })),
   }
 }
@@ -181,7 +185,11 @@ export async function getBrandImages(
   brandId: string,
 ): Promise<BrandImageRow[]> {
   const { data, error } = await brandImagesTable(supabase)
-    .select('url, status, tags, score, sort_order, source_url, alt_zh, alt_en, width, height, focal_x, focal_y')
+    // `source` is in the projection for the brand-supplied credit. The client is
+    // untyped, so dropping it here is neither a type error nor a query error —
+    // every row would just come back unattributed and the credit would silently
+    // never render. `brand-images.test.ts` asserts this string for that reason.
+    .select('url, status, tags, score, sort_order, source, source_url, alt_zh, alt_en, width, height')
     .eq('brand_id', brandId)
     .eq('status', 'active')
     .order('sort_order', { ascending: true })

@@ -1,4 +1,5 @@
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { getBrandSubcategoryLabels } from "@/lib/brands/category-label";
 import {
   buildBrandContextSuffix,
   hasValue,
@@ -18,52 +19,63 @@ import {
  * The tags for one locale. The floor interpolates these directly, so an empty
  * result must never reach a rendered answer — eligibility is judged on the
  * *same* array the floor will read, for the *same* locale.
+ *
+ * Two arrays are in play and they answer different questions. The locale's own
+ * array decides *whether* this preset renders — a brand with no en tags must
+ * not produce an en answer. What the answer *says* comes from the ontology:
+ * `subcategories` stores English slugs since DEV-1510, and this is published
+ * zh-TW copy plus FAQPage JSON-LD, so a raw slug here is Latin text on a public
+ * page. The two arrays are index-aligned by `deriveSubcategoriesEn`.
  */
 function localeTags(ctx: FaqBrandContext, locale: string): string[] {
-  const tags = locale.startsWith("en")
-    ? ctx.brand.productTagsEn
-    : ctx.brand.productTags;
-  return tags.filter(hasValue).slice(0, 3);
+  const source = locale.startsWith("en")
+    ? ctx.brand.subcategoriesEn
+    : ctx.brand.subcategories;
+  const labels = getBrandSubcategoryLabels(ctx.brand, locale);
+  return source
+    .map((tag, index) => (hasValue(tag) ? (labels.at(index) ?? tag) : null))
+    .filter(hasValue)
+    .slice(0, 3);
 }
 
-function productTags(ctx: FaqBrandContext, t: FaqTFn, locale: string): string {
+function subcategories(ctx: FaqBrandContext, t: FaqTFn, locale: string): string {
   return localeTags(ctx, locale).join(t("brandFaq.listSeparator"));
 }
 
 const mainProducts: FaqPreset = {
   id: "main-products",
-  // A brand with zh tags and an empty `productTagsEn` is eligible in zh and
+  // A brand with zh tags and an empty `subcategoriesEn` is eligible in zh and
   // not in en. Rendering it in en would interpolate an empty string into both
   // the page and the FAQPage JSON-LD ("Acme makes  as signature products.").
   eligible: (ctx, locale = "zh-TW") => localeTags(ctx, locale).length > 0,
   // Authoring writes both locale sides from the zh evidence, so the zh tags
   // are what decide whether the model has anything to work from.
-  authorable: (ctx) => ctx.brand.productTags.some(hasValue),
-  requiredEvidence: ["productTags"],
+  authorable: (ctx) => ctx.brand.subcategories.some(hasValue),
+  requiredEvidence: ["subcategories"],
   render: {
     questionKey: "brandFaq.mainProducts.question",
     templateFloor: (ctx, t, locale) => {
       const isEnglish = locale.startsWith("en");
       const category = isEnglish
-        ? PRODUCT_TYPE_CATEGORIES.find(
-            (item) => item.slug === ctx.brand.productType,
+        ? L1_CATEGORIES.find(
+            (item) => item.slug === ctx.brand.categorySlug,
           )?.name
-        : ctx.brand.category;
-      const tags = productTags(ctx, t, locale);
+        : ctx.brand.categoryLabel;
+      const tags = subcategories(ctx, t, locale);
       const context = buildBrandContextSuffix(ctx, t);
 
       if (category && tags) {
-        return t("brandFaq.mainProducts.answerWithCategoryAndTags", {
+        return t("brandFaq.mainProducts.answerWithCategoryAndSubcategories", {
           brandName: ctx.brand.name,
           category,
-          productTags: tags,
+          subcategories: tags,
           context,
         });
       }
 
-      return t("brandFaq.mainProducts.answerWithTags", {
+      return t("brandFaq.mainProducts.answerWithSubcategories", {
         brandName: ctx.brand.name,
-        productTags: tags,
+        subcategories: tags,
         context,
       });
     },

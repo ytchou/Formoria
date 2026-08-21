@@ -56,10 +56,10 @@ function StepItem({
   showArrow: boolean
 }) {
   const itemClasses = cn(
-    'group flex h-auto w-full items-start gap-3 whitespace-normal rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+    'group flex h-auto w-full items-start gap-3 whitespace-normal rounded-[3px] border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2',
     step.isHighlighted
-      ? 'border-primary/30 bg-primary/5 hover:bg-primary/10'
-      : 'border-transparent hover:bg-muted'
+      ? 'border-accent/30 bg-accent/5 hover:bg-accent/10'
+      : 'border-transparent hover:bg-surface'
   )
 
   const content = (
@@ -67,13 +67,13 @@ function StepItem({
       <span
         className={cn(
           'mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full',
-          step.isCompleted && 'bg-primary text-primary-foreground',
+          step.isCompleted && 'bg-accent text-ground',
           !step.isCompleted &&
             step.isHighlighted &&
-            'bg-primary/15 text-primary',
+            'bg-accent/15 text-accent',
           !step.isCompleted &&
             !step.isHighlighted &&
-            'bg-muted text-muted-foreground'
+            'bg-surface text-ink-muted'
         )}
       >
         {step.isCompleted ? (
@@ -83,11 +83,11 @@ function StepItem({
         )}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block type-subsection-title">
+        <span className="block type-body-sm font-semibold text-ink">
           {step.title}
         </span>
         {step.description ? (
-          <span className="mt-1 block type-form-hint">
+          <span className="mt-1 block type-metadata">
             {step.description}
           </span>
         ) : null}
@@ -98,7 +98,7 @@ function StepItem({
         ) : null}
       </span>
       {showArrow && step.isHighlighted ? (
-        <ArrowRight className="mt-1 size-4 shrink-0 text-primary transition-transform group-hover:translate-x-0.5" />
+        <ArrowRight className="mt-1 size-4 shrink-0 text-accent transition-transform group-hover:translate-x-0.5" />
       ) : null}
     </>
   )

@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { auditedCall } from "@/lib/audit";
+import { auditedCall, type AuditCallContext } from "@/lib/audit";
+import { reportBannedTerms } from "@/lib/i18n/banned-terms";
 import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "@/lib/prompts";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import {
   BRAND_IMAGE_LOGO_TAG,
   HERO_TARGET_RATIO,
@@ -262,14 +263,6 @@ type ClassifiedImage = {
   width?: number | null;
   height?: number | null;
   /**
-   * Normalised focal point in [0, 1], null when the image was never measured.
-   * The renderers position `object-cover` from these (`src/lib/images/focal.ts`),
-   * so ranking reads them too — otherwise it would score a crop the page does
-   * not actually perform.
-   */
-  focalX?: number | null;
-  focalY?: number | null;
-  /**
    * Whether the RENDERER will treat this image as a logo, i.e. whether `logo`
    * appears anywhere in the row's `tags` array — the same question
    * `isLogoImageTags` answers for every render site.
@@ -446,8 +439,6 @@ function classifiedImageFromRow(
     storage_path: row.storage_path,
     width: row.width ?? null,
     height: row.height ?? null,
-    focalX: row.focal_x ?? null,
-    focalY: row.focal_y ?? null,
     // From the whole `tags` array, not from `storedTag` above: `storedTag` is
     // the first classification tag, while the renderer asks whether `logo` is
     // present at all. Reading the array here is what keeps ranking and
@@ -637,21 +628,9 @@ const CROP_DAMAGE_CEILING = 0.5;
 const SHAPE_CORRECTION_STEPS_PER_POINT = 10;
 
 function cropDamagePenalty(image: ClassifiedImage): number {
-  // `focalAware: true` because the renderers now emit `object-position` from the
-  // stored focal point (`src/lib/images/focal.ts`, applied in `brand-card.tsx`,
-  // `image-carousel.tsx`, `hero.tsx`, `brand-gallery.tsx`). MUST STAY IN SYNC
-  // WITH THE RENDERER: if ranking and rendering disagree about whether the crop
-  // window follows the subject, ranking systematically mis-scores exactly the
-  // images the page frames well, and nothing here would catch it.
-  //
-  // Safe to land ahead of the focal backfill — with focal_x/focal_y still null
-  // everywhere, `cropDamage` treats the window as centred and this evaluates
-  // identically to the focal-unaware path.
   const damage = cropDamage({
     width: image.width,
     height: image.height,
-    focalX: image.focalX,
-    focalY: image.focalY,
     // Logos render `object-contain` and are never cut, so they must take zero
     // crop damage whatever their shape. 83 of 844 production heroes are logos;
     // charging them for a crop that does not happen would demote a tenth of the
@@ -663,7 +642,6 @@ function cropDamagePenalty(image: ClassifiedImage): number {
     // predicate so there is still exactly one definition of "is a logo".
     isLogo: image.isLogo ?? isLogoImageTags([image.tag]),
     targetRatio: HERO_TARGET_RATIO,
-    focalAware: true,
   });
 
   const scaled =
@@ -916,7 +894,7 @@ async function getUnclassifiedImages(
   const { data, error } = await classifyImagesClient(supabase)
     .from(storage.table)
     .select(
-      "id, url, source, status, tags, score, sort_order, storage_path, width, height, focal_x, focal_y",
+      "id, url, source, status, tags, score, sort_order, storage_path, width, height",
     )
     .eq(storage.foreignKey, target.id)
     .in("status", ["active", "candidate"])
@@ -937,7 +915,7 @@ async function getActiveImages(
   const { data, error } = await classifyImagesClient(supabase)
     .from(storage.table)
     .select(
-      "id, url, source, status, tags, score, sort_order, storage_path, width, height, focal_x, focal_y",
+      "id, url, source, status, tags, score, sort_order, storage_path, width, height",
     )
     .eq(storage.foreignKey, target.id)
     .eq("status", "active")
@@ -1234,6 +1212,13 @@ export function planChunkImageWrites(input: {
   unavailableIds: readonly string[];
   /** Passed in rather than read from the clock so the plan stays reproducible. */
   now: string;
+  /**
+   * The enclosing phase span, REQUIRED. Vocabulary is reported from the plan
+   * rather than from the parse so the audit describes text that is actually
+   * stored: a batch of ten images whose three failed to load still yields ten
+   * parsed verdicts, and those three are written nowhere.
+   */
+  ctx: AuditCallContext;
 }): ChunkWritePlan {
   const unavailable = new Set(input.unavailableIds);
   const writes: ChunkImageWrite[] = [];
@@ -1285,6 +1270,16 @@ export function planChunkImageWrites(input: {
       },
     });
   }
+
+  // Report-only (DEV-1546), over the WRITES and nothing else. The alt text is
+  // stored exactly as the model wrote it; a banned term is recorded on the span
+  // for a human, never substituted, because substring matching cannot tell a
+  // banned term from a correct word, a street name, or a proper noun that
+  // contains one.
+  reportBannedTerms(
+    input.ctx,
+    writes.map((write) => ["alt_zh", write.row.alt_zh] as const),
+  );
 
   return { writes, classifications, rejectedCount, unjudgedCount };
 }
@@ -1348,15 +1343,15 @@ function instagramHandle(url: string | null | undefined): string | null {
 
 export function buildBrandContext(brand: {
   name: string | null;
-  productType: string | null;
+  categorySlug: string | null;
   website: string | null;
   pinkoi?: string | null;
   instagram?: string | null;
 }): string {
   const parts: string[] = [`Brand: ${brand.name ?? "unknown"}.`];
 
-  const category = brand.productType
-    ? PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === brand.productType)?.name
+  const category = brand.categorySlug
+    ? L1_CATEGORIES.find((c) => c.slug === brand.categorySlug)?.name
     : undefined;
   if (category) parts.push(`Category: ${category}.`);
 
@@ -1430,7 +1425,7 @@ export async function runClassifyImagesPhase({
       operation: "runClassifyImagesPhase",
       kind: "service",
     },
-    async () => {
+    async (ctx) => {
       const target = requestedTarget ?? brandTarget(brand.id);
       const supabase = createServiceClient();
 
@@ -1488,7 +1483,7 @@ export async function runClassifyImagesPhase({
 
         const brandContext = buildBrandContext({
           name: brand.name ?? brand.slug,
-          productType: brand.product_type ?? null,
+          categorySlug: brand.category ?? null,
           website: preferPatched(
             pendingPatch,
             brand.purchase_website,
@@ -1530,6 +1525,7 @@ export async function runClassifyImagesPhase({
             verdictsByImageId: outcome.verdictsByImageId,
             unavailableIds: outcome.unavailableIds,
             now: new Date().toISOString(),
+            ctx,
           });
           classifications.push(...plan.classifications);
           rejectedCount += plan.rejectedCount;

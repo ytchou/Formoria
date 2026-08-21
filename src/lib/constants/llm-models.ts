@@ -104,6 +104,19 @@ export const LLM_PROFILES = {
     reasoningEffort: "none",
     timeoutMs: 60_000,
   },
+  /**
+   * Curated-product proposals from the brand's own site. Its own key rather than
+   * a borrowed one: five proposals each carrying a 60-160 character description
+   * is a different token shape from any other phase, and sharing `faq`'s numbers
+   * would mean retuning FAQ silently retunes this call.
+   */
+  products: {
+    model: "text",
+    maxTokens: 3000,
+    temperature: 0.1,
+    reasoningEffort: "none",
+    timeoutMs: 60_000,
+  },
   /** Single-brand triage. */
   detect: {
     model: "text",
@@ -153,7 +166,7 @@ export const LLM_PROFILES = {
     timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
   },
   /**
-   * Single-brand product-type classification. 300, not 100: maxTokens is
+   * Single-brand category classification. 300, not 100: maxTokens is
    * max_completion_tokens on gpt-5, so any preamble the model emits before the
    * JSON eats the same budget and truncates the answer.
    */
@@ -164,7 +177,7 @@ export const LLM_PROFILES = {
     reasoningEffort: "none",
     timeoutMs: CLASSIFY_TIMEOUT_MS,
   },
-  /** Batched product-type classification — up to 20 brands per call. */
+  /** Batched category classification — up to 20 brands per call. */
   classificationBatch: {
     model: "text",
     maxTokens: 1500,

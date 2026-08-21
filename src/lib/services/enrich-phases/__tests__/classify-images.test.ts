@@ -24,9 +24,8 @@ import type { OpenAIChatResult } from "../../openai-client";
  *        heroQuality = score - cropDamagePenalty - portraitQualityPrior
  *      `cropDamagePenalty` computes how much of the image the 4/3 hero frame
  *      actually destroys, scaled across damage 0.10-0.50 to CROP_DAMAGE_WEIGHT
- *      points, and reads the stored focal point because the renderers now
- *      position `object-cover` from it. Logos take zero crop damage — they
- *      render `object-contain` and are never cut.
+ *      points. Logos take zero crop damage — they render `object-contain` and
+ *      are never cut.
  *      `PORTRAIT_QUALITY_PRIOR` is the residual QUALITY effect that survives
  *      conditioning on crop damage (portraits skew toward Instagram crops and
  *      screenshots), which is why it survived the rewrite and the old flat
@@ -176,32 +175,6 @@ describe("applyClassifications ordering", () => {
     ]);
 
     expect(ordered.map((image) => image.id)).toEqual(["framed", "boxy"]);
-  });
-
-  it("prefers the portrait whose subject sits where the crop can reach it", () => {
-    // Proves the stored focal point reaches ranking, not just rendering. Both
-    // are 900x1200 with identical scores; the crop window slides to follow the
-    // subject, so a centred subject survives (10.1 crop + 6 prior = 16.1) while
-    // one pinned to the top edge cannot be framed at all and takes the full cap
-    // (12 + 6 = 18).
-    const { ordered } = applyClassifications([
-      {
-        ...classified("edge", "product", 84),
-        width: 900,
-        height: 1200,
-        focalX: 0.5,
-        focalY: 0,
-      },
-      {
-        ...classified("centred", "product", 84),
-        width: 900,
-        height: 1200,
-        focalX: 0.5,
-        focalY: 0.5,
-      },
-    ]);
-
-    expect(ordered.map((image) => image.id)).toEqual(["centred", "edge"]);
   });
 
   it("never crops a logo, however far from 4/3 it is", () => {
@@ -563,7 +536,10 @@ describe("partitionLoadedImages", () => {
     // `provider` is the kind that sets providerFailure, which feeds Gate C and
     // the LLM circuit breaker; three of those cancel every unstarted target in
     // the job and page for an OpenAI outage that never happened.
-    const result = partitionLoadedImages([image("a"), image("b")], [null, null]);
+    const result = partitionLoadedImages(
+      [image("a"), image("b")],
+      [null, null],
+    );
 
     expect(result.failure?.kind).toBe("storage");
     expect(result.sendable).toEqual([]);
@@ -667,6 +643,7 @@ describe("planChunkImageWrites", () => {
       ]),
       unavailableIds: ["unloadable"],
       now,
+      ctx: { summary: {} },
     });
 
     expect(plan.writes.map((write) => write.id)).toEqual(["loaded"]);
@@ -681,6 +658,7 @@ describe("planChunkImageWrites", () => {
       verdictsByImageId: new Map(),
       unavailableIds: [],
       now,
+      ctx: { summary: {} },
     });
 
     expect(plan.writes).toEqual([]);
@@ -699,6 +677,7 @@ describe("planChunkImageWrites", () => {
       ]),
       unavailableIds: [],
       now,
+      ctx: { summary: {} },
     });
 
     expect(plan.rejectedCount).toBe(1);
@@ -748,18 +727,20 @@ describe("buildBrandContext identifiers", () => {
     );
     const context = buildBrandContext({
       name: "A brand",
-      productType: null,
+      categorySlug: null,
       website,
     });
 
     expect(context).not.toContain("impostor.example");
-    expect(context).toContain("No verified identifier available for this brand.");
+    expect(context).toContain(
+      "No verified identifier available for this brand.",
+    );
   });
 
   it("uses the Pinkoi store slug when the brand has no website", () => {
     const context = buildBrandContext({
       name: "I.A.N Design",
-      productType: null,
+      categorySlug: null,
       website: null,
       pinkoi: "https://hk.pinkoi.com/store/ian-design?ref_posn=20",
     });
@@ -771,7 +752,7 @@ describe("buildBrandContext identifiers", () => {
   it("uses an Instagram profile handle", () => {
     const context = buildBrandContext({
       name: "7th Island",
-      productType: null,
+      categorySlug: null,
       website: null,
       instagram: "https://www.instagram.com/7th_island",
     });
@@ -782,7 +763,7 @@ describe("buildBrandContext identifiers", () => {
   it("ignores an Instagram post permalink, which identifies nothing", () => {
     const context = buildBrandContext({
       name: "新夭 BrainHoleSky",
-      productType: null,
+      categorySlug: null,
       website: null,
       instagram: "https://www.instagram.com/p/DWd7Jm9k_xS/",
     });
@@ -797,7 +778,7 @@ describe("buildBrandContext identifiers", () => {
   it("declares the absence so the prompt can withhold wrong_brand", () => {
     const context = buildBrandContext({
       name: "Some Brand",
-      productType: null,
+      categorySlug: null,
       website: null,
     });
 
@@ -809,7 +790,7 @@ describe("buildBrandContext identifiers", () => {
   it("stays silent about absence when any identifier is present", () => {
     const context = buildBrandContext({
       name: "TopNutree",
-      productType: null,
+      categorySlug: null,
       website: "https://www.topnutree.com.tw",
     });
 

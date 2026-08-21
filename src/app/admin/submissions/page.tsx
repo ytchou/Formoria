@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { getSubmissionsForReview } from "@/lib/services/submissions";
 import { getBrandSlugsBatch } from "@/lib/services/brands";
+import { getCuratedProductsByBrandBatch } from "@/lib/services/curated-products";
 import {
   SubmissionsReviewList,
   type TabValue,
@@ -39,7 +40,24 @@ export default async function ReviewQueueSubmissionsPage({
     .map((submission) => submission.brandId)
     .filter((brandId): brandId is string => Boolean(brandId));
 
-  const slugMap = await getBrandSlugsBatch(brandIds);
+  // NARROWED, unlike the slug lookup beside it. The curated products make the
+  // review's proposal diff truthful (DEV-1469) — without them every proposal
+  // renders as new and a rejected product is offered again — but ONLY the
+  // drawer of a submission that actually carries proposals ever reads them.
+  // `getSubmissionsForReview` has no status filter, so `brandIds` grows with
+  // the lifetime submission count, and every row's products were being
+  // serialized into the client payload on every navigation to be read by none
+  // of them.
+  const productBrandIds = submissions
+    .filter((submission) => (submission.reviewData.products?.length ?? 0) > 0)
+    .map((submission) => submission.brandId)
+    .filter((brandId): brandId is string => Boolean(brandId));
+
+  // Both batch reads are independent, so they run together.
+  const [slugMap, existingProductMap] = await Promise.all([
+    getBrandSlugsBatch(brandIds),
+    getCuratedProductsByBrandBatch(productBrandIds),
+  ]);
 
   const submissionsWithSlugs = submissions.map((submission) => ({
     ...submission,
@@ -47,14 +65,18 @@ export default async function ReviewQueueSubmissionsPage({
     brandSlug: slugMap.get(submission.brandId ?? "") ?? null,
   }));
 
+  // A plain object, not the Map: this crosses the server/client boundary.
+  const existingProductsByBrandId = Object.fromEntries(existingProductMap);
+
   return (
     <div>
-      <h1 className="type-page-title-large">{t("title")}</h1>
-      <p className="mt-2 type-body-muted">{t("description")}</p>
+      <h1 className="type-label">{t("title")}</h1>
+      <p className="mt-2 type-body-sm">{t("description")}</p>
 
       <div className="mt-8">
         <SubmissionsReviewList
           submissions={submissionsWithSlugs}
+          existingProductsByBrandId={existingProductsByBrandId}
           initialTab={initialTab}
         />
       </div>

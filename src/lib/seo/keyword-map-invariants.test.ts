@@ -3,8 +3,8 @@ import { resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import { describe, expect, it } from 'vitest'
 import {
-  PRODUCT_TYPE_CATEGORIES,
-  PRODUCT_SUBCATEGORIES,
+  L1_CATEGORIES,
+  L2_SUBCATEGORIES,
   isCompositeSubcategory,
   subcategoryBySlug,
 } from '@/lib/taxonomy/ontology'
@@ -27,7 +27,7 @@ import {
 const map: KeywordMap = loadKeywordMap(DEFAULT_KEYWORD_MAP_PATH)
 const { clusters, unmapped_backlog: backlog } = map
 
-const L1_SLUGS = new Set<string>(PRODUCT_TYPE_CATEGORIES.map(category => category.slug))
+const L1_SLUGS = new Set<string>(L1_CATEGORIES.map(category => category.slug))
 const TAXONOMY_PAGE_TYPES = new Set(['l1-category', 'l2-category'])
 const RECLASSIFIED_SYNONYM_SLUGS = new Set([
   'essential-oils-and-hydrosols',
@@ -41,6 +41,11 @@ const REPARENTED_OR_RETIRED_SLUGS = new Set([
   'custom-gifts',
   'workshops-and-diy-kits',
   'baby-gift-sets',
+  // Added by DEV-1510: `kids-pets` was split into the live L1s `kids` and
+  // `pets`, so no page owns the merged slug any more — /categories/kids-pets
+  // 301s to /brands. A live row pointing back at it would resurrect the exact
+  // chain the split had to remove.
+  'kids-pets',
 ])
 const REQUIRED_PAGE_ROLES = [
   'homepage',
@@ -253,6 +258,12 @@ describe('keyword map invariants', () => {
 
     expect(launch.length).toBeGreaterThanOrEqual(5)
     expect(launch.length).toBeLessThanOrEqual(10)
+    // Still 10 after DEV-1510. The kids/pets split moves L1 rows only, and the
+    // nine L2 nodes it added (umbrellas, gloves, cufflinks-and-tie-clips,
+    // feminine-care, beauty-tools, pest-control, figurines-and-plush,
+    // bookmarks, craft-kits-and-supplies) went to unmapped_backlog rather than
+    // becoming launch clusters: none has a scoped brand_count, and a launch row
+    // also requires bespoke zh-TW copy, which the case below enforces.
     expect(launch).toHaveLength(10)
   })
 
@@ -267,7 +278,12 @@ describe('keyword map invariants', () => {
         cluster.eligibility !== 'reject-taxonomy',
     )
 
-    expect(deferredQualifying).toHaveLength(25)
+    // 25 -> 24 at DEV-1507. The crafts retirement removed exactly one
+    // qualifying row: `l2-ceramics` (17 brands). `l2-illustration-and-art`
+    // kept its slot as `l2-wall-art` — a rename plus a reparent to `home`,
+    // not a deletion, so its 22 brands still clear the 15-brand bar. The other
+    // ten crafts L2s lived in unmapped_backlog and were never counted here.
+    expect(deferredQualifying).toHaveLength(24)
     expect(
       deferredQualifying.every(
         cluster => cluster.eligibility === 'defer-no-demand' && cluster.target_status === 'proposed',
@@ -386,7 +402,7 @@ describe('keyword map invariants', () => {
 
     const missing: string[] = []
     const duplicate: string[] = []
-    for (const subcategory of PRODUCT_SUBCATEGORIES) {
+    for (const subcategory of L2_SUBCATEGORIES) {
       const rows = rowsBySlug.get(subcategory.slug) ?? []
       if (rows.length === 0) missing.push(subcategory.slug)
       if (rows.length > 1) duplicate.push(`${subcategory.slug}: ${rows.join(', ')}`)
@@ -435,12 +451,49 @@ describe('keyword map invariants', () => {
         .map(cluster => cluster.ontology_slug),
     )
 
-    expect(PRODUCT_TYPE_CATEGORIES).toHaveLength(12)
-    const missing = PRODUCT_TYPE_CATEGORIES.map(category => category.slug).filter(
+    // 13 -> 12: DEV-1507 retired `crafts`, which was cut on a different dimension
+    // than the other eleven — they answer what the object is for, it answered how
+    // it was made. (DEV-1510 had taken 12 -> 13 by splitting `kids-pets`.) An L1
+    // that ships without a keyword row is a page nothing owns — that is how `pets`
+    // would have gone live with a redirect still shadowing it — so the count is
+    // pinned exactly, never widened to a floor.
+    expect(L1_CATEGORIES).toHaveLength(12)
+    const missing = L1_CATEGORIES.map(category => category.slug).filter(
       slug => !covered.has(slug),
     )
     expect(missing).toEqual([])
     expect(covered.size).toBe(12)
+  })
+
+  // DEV-1510's Test Contract names this case. The three exact counts it pins
+  // are each asserted in their own case above; this one states them together so
+  // the taxonomy's shape is checkable in one place. Exact, never a floor — a
+  // count that drifts silently is how `pets` would have shipped with a redirect
+  // still shadowing it.
+  it('keyword_map_invariants_hold', () => {
+    const launch = clusters.filter(
+      cluster =>
+        cluster.locale === 'zh-TW' &&
+        cluster.page_type === 'l2-category' &&
+        cluster.eligibility === 'launch',
+    )
+    expect(launch).toHaveLength(10)
+
+    const deferredQualifying = clusters.filter(
+      cluster =>
+        cluster.locale === 'zh-TW' &&
+        cluster.page_type === 'l2-category' &&
+        cluster.brand_count >= 15 &&
+        cluster.composite !== 'multi-intent' &&
+        cluster.eligibility !== 'launch' &&
+        cluster.eligibility !== 'reject-taxonomy',
+    )
+    expect(deferredQualifying).toHaveLength(24)
+
+    // The merged slug must stay retired: a live row pointing back at it would
+    // rebuild the /categories/pets -> /categories/kids-pets -> /brands chain.
+    expect(REPARENTED_OR_RETIRED_SLUGS.has('kids-pets')).toBe(true)
+    expect(L1_CATEGORIES).toHaveLength(12)
   })
 
   it('every required page role has an owner', () => {
@@ -543,7 +596,7 @@ describe('keyword map invariants', () => {
   it('every composite ontology subcategory is classified with a definite value', () => {
     // The separator predicate lives in ontology.ts, which owns U+30FB — two
     // hand-rolled `includes('・')` spellings across two files was the bug.
-    const compositeSubcategories = PRODUCT_SUBCATEGORIES.filter(isCompositeSubcategory)
+    const compositeSubcategories = L2_SUBCATEGORIES.filter(isCompositeSubcategory)
     expect(compositeSubcategories.length).toBeGreaterThan(0)
 
     // Record WHICH classification, and treat a second, different classification

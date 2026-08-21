@@ -24,6 +24,7 @@ import {
   resolveAuthenticatedLocale,
   type AppLocale,
 } from "@/i18n/locale-preference";
+import { routes } from "@/lib/routes";
 
 export type AuthState = {
   error?: string;
@@ -89,7 +90,7 @@ export async function signIn(
 
     const claimToken = formData.get("claimToken") as string | null;
     if (claimToken) {
-      redirect(`/auth/callback?claim=${claimToken}`);
+      redirect(routes.auth.callback({ claim: claimToken }));
     }
 
     const cookieStore = await cookies();
@@ -173,7 +174,7 @@ export async function signUp(
     await setLocaleCookie(locale);
 
     redirect(
-      localizePath(`/auth/sign-in?message=${encodeURIComponent(t("confirmEmail"))}`, locale)
+      localizePath(routes.auth.signIn({ message: t("confirmEmail") }), locale)
     );
   });
 }
@@ -226,7 +227,7 @@ export async function signInWithGoogle(
     });
 
     if (error || !data?.url) {
-      redirect(localizePath("/auth/sign-in?error=oauth-failed", locale));
+      redirect(localizePath(routes.auth.signIn({ error: "oauth-failed" }), locale));
     }
 
     redirect(data.url);
@@ -296,9 +297,18 @@ export async function updatePassword(
       return { error: error.message };
     }
 
+    // End the recovery session before leaving. `updateUser` keeps it alive, and
+    // the destination is the sign-in page, which calls `redirectIfAuthenticated`
+    // — so a still-signed-in visitor was bounced straight to `/` and never saw
+    // the confirmation. `resetPassword.success` tells the visitor to sign in
+    // with the new password, which only makes sense once the old session is
+    // gone. Signing out also means a stolen recovery link cannot leave a live
+    // session behind after the password changes.
+    await supabase.auth.signOut();
+
     redirect(
       localizePath(
-        `/auth/sign-in?message=${encodeURIComponent(t("resetPassword.success"))}`,
+        routes.auth.signIn({ message: t("resetPassword.success") }),
         await getLocale()
       )
     );

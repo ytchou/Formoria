@@ -2,7 +2,7 @@ import { BUDGET } from "../budgets";
 import { test, expect } from "@playwright/test";
 
 test.describe("Directory sort deep", () => {
-  test("@smoke landing page renders the public search entry point", async ({
+  test("@smoke landing page renders the public directory entry point", async ({
     page,
   }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
@@ -10,7 +10,14 @@ test.describe("Directory sort deep", () => {
       timeout: BUDGET.INTERACTIVE,
     });
     await expect(
-      page.locator('main form[role="search"] input[role="searchbox"]'),
+      // Third owner of this assertion. DEV-1479 replaced the known-intent line
+      // with the hero's browse CTA (開始逛逛); DEV-1514 then removed that CTA
+      // with the whole search-and-grid opener — the homepage now opens
+      // editorially and its search field is the hero's only control. The
+      // directory link that survived is the one at the foot of the brand rail,
+      // and it is matched by its /brands href rather than its copy so the next
+      // rewrite of the wording does not silently empty this selector.
+      page.getByRole("main").locator('a[href="/brands"]'),
     ).toBeVisible();
   });
 

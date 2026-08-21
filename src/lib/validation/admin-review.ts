@@ -1,14 +1,19 @@
 import { z } from "zod";
 import { MAX_BRAND_IMAGE_SELECTION } from "@/lib/constants/brand-images";
+import { isKnownSubcategoryTerm } from "@/lib/taxonomy/ontology";
 import {
-  PURCHASE_CAMEL_FIELDS,
-  type PurchaseChannelCamelField,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORE_CAMEL_FIELDS,
+  type OnlineStoreCamelField,
+} from "@/lib/brands/online-stores";
+import {
+  curatedProductProposalSchema,
+  MAX_CURATED_PRODUCT_PROPOSALS,
+} from "@/lib/validation/curated-product";
 
 const nullableText = z.string().max(10_000).nullable();
 const purchaseFieldSchemas = Object.fromEntries(
-  PURCHASE_CAMEL_FIELDS.map((field) => [field, nullableText]),
-) as { [Field in PurchaseChannelCamelField]: typeof nullableText };
+  ONLINE_STORE_CAMEL_FIELDS.map((field) => [field, nullableText]),
+) as { [Field in OnlineStoreCamelField]: typeof nullableText };
 export const reviewEntityIdSchema = z.uuid();
 
 // Bounded by the submission cap, not the display cap: legacy brands carry more
@@ -44,16 +49,25 @@ export const adminReviewSchema = z.object({
   blurb: nullableText,
   blurbEn: nullableText,
   city: z.string().max(200).nullable(),
-  categoryAttributes: z.unknown().nullable(),
   reputationSummary: z.unknown().nullable(),
   mitEvidence: z.unknown().nullable(),
   siteContent: z.unknown().nullable(),
   foundingYear: z.number().int().min(1800).max(2200).nullable(),
   heroImageUrl: nullableText,
-  productType: z.string().max(100).nullable(),
+  categorySlug: z.string().max(100).nullable(),
   priceRange: z.number().int().nullable(),
-  productTags: z.array(z.string().trim().min(1).max(100)).max(5),
-  productTagsEn: z.array(z.string().trim().min(1).max(100)).max(5),
+  // Closed vocabulary since DEV-1510. The review editor picks from the 175
+  // nodes, so a value the vocabulary does not know reached this payload past
+  // the picker — and `brands.subcategories` is a slug column, where it would
+  // render as a dead filter. Both bases are accepted: a submission created
+  // before the backfill still carries zh-TW labels into review.
+  subcategories: z
+    .array(z.string().trim().min(1).max(100))
+    .max(5)
+    .refine((values) => values.every(isKnownSubcategoryTerm), {
+      message: "Unknown subcategory",
+    }),
+  subcategoriesEn: z.array(z.string().trim().min(1).max(100)).max(5),
   websiteUrl: nullableText,
   socialInstagram: nullableText,
   socialThreads: nullableText,
@@ -67,6 +81,24 @@ export const adminReviewSchema = z.object({
       }),
     )
     .max(20),
+  /**
+   * Curated-product proposals and the reviewer's tick set (DEV-1469). BOTH must
+   * be declared here or they never reach the service: `z.object` strips unknown
+   * keys, so an undeclared field is dropped in silence — the review would look
+   * saved and materialize the machine's original proposals at approval.
+   *
+   * Optional, not defaulted. Absent means "this save did not touch products",
+   * which is what a save from any other section is; an empty array means the
+   * reviewer kept nothing.
+   */
+  products: z
+    .array(curatedProductProposalSchema)
+    .max(MAX_CURATED_PRODUCT_PROPOSALS)
+    .optional(),
+  keptProductKeys: z
+    .array(z.string().trim().min(1).max(200))
+    .max(MAX_CURATED_PRODUCT_PROPOSALS)
+    .optional(),
   images: imageSelectionSchema,
 });
 

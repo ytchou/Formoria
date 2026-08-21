@@ -113,7 +113,7 @@ type EvalBrand = {
   slug: string;
   name: string;
   nameAfter: string;
-  productTypeBefore: string | null;
+  categorySlugBefore: string | null;
   routingBranch: string;
   imageQuery: string;
   scrapedUrls: string[];
@@ -396,7 +396,7 @@ async function main(): Promise<void> {
   const { data: brandRows, error } = await supabase
     .from("brands")
     .select(
-      "id, slug, name, product_type, description, purchase_website, social_instagram, social_threads, social_facebook, purchase_pinkoi, purchase_shopee",
+      "id, slug, name, category, description, purchase_website, social_instagram, social_threads, social_facebook, purchase_pinkoi, purchase_shopee",
     )
     .in("slug", slugs);
   if (error) throw error;
@@ -436,7 +436,7 @@ async function main(): Promise<void> {
     is_brand_owner: false,
     pdpa_consent_at: null,
     source_attribution: null,
-    product_type_note: null,
+    category_note: null,
     social_instagram: b.social_instagram,
     social_threads: b.social_threads,
     social_facebook: b.social_facebook,
@@ -540,7 +540,7 @@ async function main(): Promise<void> {
 
     const queries = buildImageQueryVariants({
       brandName: nameAfter,
-      productType: b.product_type,
+      categorySlug: b.category,
       purchaseWebsite: websiteAfter,
     });
     const imageQuery = queries.at(0) ?? "";
@@ -586,7 +586,7 @@ async function main(): Promise<void> {
       const verdicts = await classifyBatch(
         buildBrandContext({
           name: nameAfter,
-          productType: b.product_type,
+          categorySlug: b.category,
           website: websiteAfter,
           // Must mirror runClassifyImagesPhase exactly: the prompt withholds
           // the wrong_brand verdict when no identifier is present, so omitting
@@ -635,7 +635,7 @@ async function main(): Promise<void> {
       slug,
       name: String(b.name ?? slug),
       nameAfter,
-      productTypeBefore: b.product_type,
+      categorySlugBefore: b.category,
       routingBranch,
       imageQuery,
       scrapedUrls: scrapeSet,

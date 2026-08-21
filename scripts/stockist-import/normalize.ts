@@ -1,16 +1,15 @@
 import { parseCsvRecords } from '../seo/gsc-404-triage'
 import type {
-  ChannelCandidate,
-  ChannelLocationType,
-  ChannelType,
-} from '@/lib/types/brand-channel'
+  StockistCandidate,
+  StockistLocationType,
+} from '@/lib/types/stockist'
+import { citySlugFromName } from '@/lib/constants/taiwan-cities'
+import { matchDistrict } from '@/lib/brands/district'
 
 export const STOCKIST_HEADER = [
   'brand_slug',
   'name',
   'location_type',
-  'channel_type',
-  'category_label',
   'region_label',
   'address',
   'url',
@@ -28,7 +27,7 @@ export type StockistCsvRow = {
 export type NormalizedStockist = {
   brandSlug: string
   sourceType: string
-  candidate: ChannelCandidate
+  candidate: StockistCandidate
 }
 
 export type NormalizeResult =
@@ -36,16 +35,6 @@ export type NormalizeResult =
   | { ok: false; brandSlug: string; reason: string }
 
 const CHAIN_REGION_LABEL = '全台多間門市'
-const LOCATION_CATEGORY: Record<ChannelLocationType, string> = {
-  stockist: '選品店',
-  distributor_retailer: '經銷門市',
-  direct_store: '品牌直營',
-  department_store_counter: '百貨專櫃',
-  showroom_studio: '展示空間',
-  shop_in_shop: '店中店',
-  other_physical_retail: '實體零售',
-}
-
 const TAIWAN_REGIONS = new Map<string, string>([
   ['臺北市', '臺北市'],
   ['台北市', '臺北市'],
@@ -167,12 +156,30 @@ export function canonicalizeRegion(
   return { ok: false, reason: `unmapped foreign region: ${value}` }
 }
 
-function isLocationType(value: string): value is ChannelLocationType {
-  return value in LOCATION_CATEGORY
-}
+/**
+ * A keyset, not an array, and that shape is load-bearing. `satisfies
+ * Record<StockistLocationType, true>` makes a missing member a compile error, so
+ * adding a location type to the union breaks the build until this map is
+ * updated. An array with `satisfies readonly StockistLocationType[]` would only
+ * check that every entry is valid, not that every member is present — a new
+ * type would compile clean and then be rejected row by row at import time with
+ * a generic reason, silently dropping stockists. The object also stops the
+ * per-call allocation the array version paid.
+ */
+const LOCATION_TYPES = {
+  stockist: true,
+  distributor_retailer: true,
+  direct_store: true,
+  department_store_counter: true,
+  showroom_studio: true,
+  shop_in_shop: true,
+  other_physical_retail: true,
+} satisfies Record<StockistLocationType, true>
 
-function isChannelType(value: string): value is ChannelType {
-  return value === 'online' || value === 'offline'
+function isLocationType(value: string): value is StockistLocationType {
+  // `Object.hasOwn`, not `in`: `in` walks the prototype, so a CSV row saying
+  // `constructor` or `toString` would type-narrow to StockistLocationType.
+  return Object.hasOwn(LOCATION_TYPES, value)
 }
 
 export function normalizeStockistRow(
@@ -188,18 +195,12 @@ export function normalizeStockistRow(
       reason: `unknown location type: ${locationType}`,
     }
   }
-  const channelType = raw.channel_type.trim()
-  if (!isChannelType(channelType)) {
-    return {
-      ok: false,
-      brandSlug,
-      reason: `unknown channel type: ${channelType}`,
-    }
-  }
   const region = canonicalizeRegion(raw.region_label)
   if (!region.ok) return { ok: false, brandSlug, reason: region.reason }
 
   const name = raw.name.trim()
+  const address = trimNullable(raw.address)
+  const city = region.country === 'TW' ? citySlugFromName(region.regionLabel) : null
   return {
     ok: true,
     row: {
@@ -208,10 +209,9 @@ export function normalizeStockistRow(
       candidate: {
         name,
         normalizedName: name,
-        channelType,
-        categoryLabel: LOCATION_CATEGORY[locationType],
         regionLabel: region.regionLabel,
-        address: trimNullable(raw.address),
+        address,
+        district: address && city ? matchDistrict(address, city) : null,
         url: trimNullable(raw.url),
         sourceUrl: raw.evidence_url.trim(),
         fetchedAt,

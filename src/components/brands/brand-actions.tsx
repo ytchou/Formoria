@@ -6,10 +6,10 @@ import { ExternalLink } from 'lucide-react'
 import { trackExternalLinkClicked } from '@/lib/analytics'
 import type { BrandVisitLinkKind } from '@/lib/brands/link-fallback'
 import {
-  channelMessageKey,
-  purchaseChannelByKey,
-  type PurchaseChannelKey,
-} from '@/lib/brands/purchase-channels'
+  onlineStoreMessageKey,
+  onlineStoreByKey,
+  type OnlineStoreKey,
+} from '@/lib/brands/online-stores'
 import { ReportDialog } from '@/components/brands/report-dialog'
 import { buttonVariants } from '@/components/ui/button'
 import { LikeBrandButton } from './like-brand-button'
@@ -17,26 +17,26 @@ import { SaveBrandButton } from './save-brand-button'
 import { ShareDialog } from './share-dialog'
 
 /**
- * The channel's visit-label message key, relative to the `brandDetail`
+ * The store's visit-label message key, relative to the `brandDetail`
  * namespace this component translates in.
  */
-function visitLabelKey(key: PurchaseChannelKey): string {
-  return channelMessageKey(
-    purchaseChannelByKey[key].messageKeys.brandDetailAction,
+function visitLabelKey(key: OnlineStoreKey): string {
+  return onlineStoreMessageKey(
+    onlineStoreByKey[key].messageKeys.brandDetailAction,
     'brandDetail'
   )
 }
 
-// Spelled out one key per channel on purpose: an `Object.fromEntries` build
+// Spelled out one key per store on purpose: an `Object.fromEntries` build
 // collapses to `{ [k: string]: string }`, which satisfies the Record below
-// vacuously and lets a new channel through unnoticed. The literal is what makes
-// `satisfies` a real gate — adding a channel to the registry breaks this line.
+// vacuously and lets a new store through unnoticed. The literal is what makes
+// `satisfies` a real gate — adding a store to the registry breaks this line.
 const PURCHASE_VISIT_LABEL_KEYS = {
   website: visitLabelKey('website'),
   pinkoi: visitLabelKey('pinkoi'),
   shopee: visitLabelKey('shopee'),
   myship: visitLabelKey('myship'),
-} satisfies Record<PurchaseChannelKey, string>
+} satisfies Record<OnlineStoreKey, string>
 
 const VISIT_LABEL_KEYS = {
   ...PURCHASE_VISIT_LABEL_KEYS,
@@ -86,7 +86,7 @@ export function BrandActions({
           href={websiteUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className={buttonVariants({ variant: 'primary', tone: 'cta', className: 'w-full' })}
+          className={buttonVariants({ variant: 'primary', className: 'w-full' })}
           data-ph-no-autocapture
           onClick={handleWebsiteClick}
         >

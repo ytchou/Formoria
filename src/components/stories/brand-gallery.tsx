@@ -9,7 +9,7 @@ import {
 import { normalizePublicBrandCard } from '@/lib/brands/contracts'
 import { getBrandGalleryImageEntries } from '@/lib/services/brand-images'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
-import { brandImageFill } from '@/lib/images/focal'
+import { brandImageFill } from '@/lib/images/fill'
 import { cn } from '@/lib/utils'
 
 type BrandGalleryProps = {
@@ -51,10 +51,10 @@ export async function BrandGallery({
 
   // Entries, not bare URLs: `getBrandGalleryImageEntries` drops a null hero,
   // which shifts every later position against `source.imageAlts`. That index
-  // now selects fill mode and object-position as well as alt text, so indexing
-  // by array position would letterbox a photo and crop a logo. Two independent
-  // filters shift this list — the null hero here and the unsafe-host filter
-  // below — and `sourceIndex` survives both.
+  // now selects fill mode (`isLogo`) as well as alt text, so indexing by array
+  // position would letterbox a photo and crop a logo. Two independent filters
+  // shift this list — the null hero here and the unsafe-host filter below — and
+  // `sourceIndex` survives both.
   const entries = getBrandGalleryImageEntries(source)
   const locale = await getLocale()
   const isEnglish = locale === 'en'
@@ -91,7 +91,7 @@ export async function BrandGallery({
   if (images.length === 0) return null
 
   return (
-    <figure className="mx-auto mt-7 mb-6 w-full max-w-2xl">
+    <figure className="prose-measure mx-auto mt-7 mb-6 w-full">
       <div className="grid grid-cols-2 gap-2">
         {images.map(({ src, alt, meta }, index) => {
           // `cn()` like every other surface — this was the one site building its
@@ -106,16 +106,14 @@ export async function BrandGallery({
               loading="lazy"
               decoding="async"
               className={cn(
-                'aspect-[4/3] w-full rounded-lg border border-border bg-muted',
-                fill.className,
+                'aspect-media w-full rounded-[3px] border border-rule bg-surface-deep',
+                fill,
               )}
-              // Assigned, never spread — `undefined` is meaningful here.
-              style={fill.style}
             />
           )
         })}
       </div>
-      {caption ? <figcaption className="mt-2 type-caption">{caption}</figcaption> : null}
+      {caption ? <figcaption className="mt-2 type-metadata">{caption}</figcaption> : null}
     </figure>
   )
 }

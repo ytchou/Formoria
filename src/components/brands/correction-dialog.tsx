@@ -1,47 +1,39 @@
 "use client";
 
 import {
-  useEffect,
   useId,
-  useRef,
   useState,
   useTransition,
   type FormEvent,
   type ReactNode,
 } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Pencil, Plus, RotateCcw, X } from "lucide-react";
+import { Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { submitCorrectionAction } from "@/lib/actions/brand-corrections";
 import { trackCorrectionSubmitted } from "@/lib/analytics";
 import { PRICE_RANGE_TIERS } from "@/lib/brands/price-range";
 import {
-  channelMessageKey,
-  PURCHASE_COLUMNS,
-  purchaseChannelByColumn,
-  type PurchaseChannelColumn,
-} from "@/lib/brands/purchase-channels";
+  onlineStoreMessageKey,
+  ONLINE_STORE_COLUMNS,
+  onlineStoreByColumn,
+  type OnlineStoreColumn,
+} from "@/lib/brands/online-stores";
 import type { CorrectionField } from "@/lib/services/brand-corrections";
 import {
-  MAX_PRODUCT_TAGS,
-  resolveProductTagInput,
-  sameTagSet,
-} from "@/lib/services/product-tags";
-import {
-  categoryLabel,
-  matchSubcategory,
-  PRODUCT_SUBCATEGORIES,
-  PRODUCT_TYPE_CATEGORIES,
-  subcategoryLabel,
-} from "@/lib/taxonomy/ontology";
+  MAX_SUBCATEGORIES,
+  sameSubcategorySet,
+} from "@/lib/services/subcategories";
+import { categoryLabel, L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { sanitizeHref, stripUrlQuery } from "@/lib/url";
+import { SubcategoryPicker } from "@/components/forms/subcategory-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
-import { ToggleChip } from "@/components/ui/toggle-chip";
+import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
 import { Typography } from "@/components/ui/typography";
 import {
   Dialog,
@@ -57,7 +49,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 const CORRECTION_ERROR_KEYS = {
   invalid_brand: "errors.invalid_brand",
   invalid_value: "errors.invalid_value",
-  too_many_tags: "errors.too_many_tags",
+  too_many_subcategories: "errors.too_many_subcategories",
   unchanged: "errors.unchanged",
   already_submitted: "errors.already_submitted",
   rate_limited: "errors.rate_limited",
@@ -101,10 +93,10 @@ export type CorrectionDialogProps = {
   brandId: string;
   brandSlug: string;
   mode?: CorrectionDialogMode;
-  productType?: string | null;
+  categorySlug?: string | null;
   priceRange?: number | null;
-  productTags?: string[];
-  purchaseLinks?: Record<PurchaseChannelColumn, string | null>;
+  subcategories?: string[];
+  purchaseLinks?: Record<OnlineStoreColumn, string | null>;
   socialInstagram?: string | null;
   socialThreads?: string | null;
   socialFacebook?: string | null;
@@ -113,19 +105,17 @@ export type CorrectionDialogProps = {
 type SelectionState = {
   key: string;
   value: string;
-  tags: string[];
-  // Tags resolved through the free-text ("other") escape hatch that row 2 does
-  // not already offer — kept so the chip stays visible after it is toggled off.
-  extras: string[];
+  /** Ontology slugs — the stored representation since DEV-1510. */
+  subcategories: string[];
 };
 
-function buildTagDelta(initialTags: string[], selectedTags: string[]) {
-  const initialSet = new Set(initialTags);
-  const selectedSet = new Set(selectedTags);
+function buildSubcategoryDelta(initialSubcategories: string[], selectedSubcategories: string[]) {
+  const initialSet = new Set(initialSubcategories);
+  const selectedSet = new Set(selectedSubcategories);
 
   return {
-    add: selectedTags.filter((tag) => !initialSet.has(tag)),
-    remove: initialTags.filter((tag) => !selectedSet.has(tag)),
+    add: selectedSubcategories.filter((subcategory) => !initialSet.has(subcategory)),
+    remove: initialSubcategories.filter((subcategory) => !selectedSet.has(subcategory)),
   };
 }
 
@@ -133,10 +123,10 @@ export function CorrectionDialog({
   brandId,
   brandSlug,
   mode = "brandInfo",
-  productType = null,
+  categorySlug = null,
   priceRange = null,
-  productTags = [],
-  purchaseLinks = {} as Record<PurchaseChannelColumn, string | null>,
+  subcategories = [],
+  purchaseLinks = {} as Record<OnlineStoreColumn, string | null>,
   socialInstagram = null,
   socialThreads = null,
   socialFacebook = null,
@@ -149,42 +139,35 @@ export function CorrectionDialog({
   const fieldSelectId = useId();
   const purchaseUrlInputId = useId();
   const currentHeadingId = `${baseId}-current`;
-  const optionsHeadingId = `${baseId}-options`;
-  const otherInputId = `${baseId}-other`;
-  const otherHintId = `${baseId}-other-hint`;
-  const otherMessageId = `${baseId}-other-message`;
-  const otherChipRef = useRef<HTMLButtonElement>(null);
-  const otherInputRef = useRef<HTMLInputElement>(null);
-  const addTagsGroupRef = useRef<HTMLDivElement>(null);
   const copy = COPY_KEYS[mode];
   // Starts empty so the dialog opens on the picker alone — no value control is
   // shown until the contributor says what they are correcting.
   const [field, setField] = useState<CorrectionField | "">("");
-  const purchaseChannel = Object.hasOwn(purchaseChannelByColumn, field)
-    ? purchaseChannelByColumn[field as PurchaseChannelColumn]
+  const onlineStore = Object.hasOwn(onlineStoreByColumn, field)
+    ? onlineStoreByColumn[field as OnlineStoreColumn]
     : undefined;
   const availableFields: CorrectionField[] =
     mode === "purchaseLinks"
-      ? [...PURCHASE_COLUMNS]
+      ? [...ONLINE_STORE_COLUMNS]
       : mode === "socialLinks"
         ? ["social_instagram", "social_threads", "social_facebook"]
-        : productType != null
-          ? ["product_type", "price_range", "product_tags"]
-          : ["product_type", "price_range"];
+        : categorySlug != null
+          ? ["category", "price_range", "subcategories"]
+          : ["category", "price_range"];
   // Every link field — purchase and social alike — is edited as a free-text URL
   // rather than a chip, so they share the baseline, diff and body branches.
   const isLinkField =
-    purchaseChannel !== undefined ||
+    onlineStore !== undefined ||
     field === "social_instagram" ||
     field === "social_threads" ||
     field === "social_facebook";
   const originalSelection =
-    field === "product_type"
-      ? (productType ?? "")
+    field === "category"
+      ? (categorySlug ?? "")
       : field === "price_range" && priceRange != null
         ? String(priceRange)
-        : purchaseChannel
-          ? (purchaseLinks[purchaseChannel.column] ?? "")
+        : onlineStore
+          ? (purchaseLinks[onlineStore.column] ?? "")
           : field === "social_instagram"
             ? (socialInstagram ?? "")
             : field === "social_threads"
@@ -192,99 +175,51 @@ export function CorrectionDialog({
               : field === "social_facebook"
                 ? (socialFacebook ?? "")
                 : "";
-  // `brands.product_tags` is a bare text[] with no unique constraint, so a
-  // legacy row can carry the same tag twice. De-duplicating once here keeps the
-  // counter, the 5-tag cap and the row-1 chips reading the same list.
-  const originalTags =
-    field === "product_tags" ? Array.from(new Set(productTags)) : [];
+  // `brands.subcategories` is a bare text[] with no unique constraint, so a
+  // legacy row can carry the same subcategory twice. De-duplicating once here keeps the
+  // counter, the 5-subcategory cap and the row-1 chips reading the same list.
+  const originalSubcategories =
+    field === "subcategories" ? Array.from(new Set(subcategories)) : [];
   // Both branches share one reset key so a changed `currentValue` re-baselines
-  // the scalar chips and the tag chips alike.
-  const selectionKey = `${field}:${originalSelection}:${originalTags.join("\u0000")}`;
+  // the scalar chips and the subcategory chips alike.
+  const selectionKey = `${field}:${originalSelection}:${originalSubcategories.join("\u0000")}`;
   const baseline: SelectionState = {
     key: selectionKey,
     value: isLinkField ? "" : originalSelection,
-    tags: originalTags,
-    extras: [],
+    subcategories: originalSubcategories,
   };
   const [selectionState, setSelectionState] = useState(baseline);
   const [open, setOpen] = useState(false);
-  const [otherOpen, setOtherOpen] = useState(false);
-  const [otherValue, setOtherValue] = useState("");
-  const [otherMessage, setOtherMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const active =
     selectionState.key === selectionKey ? selectionState : baseline;
   const selection = active.value;
-  const selectedTags = active.tags;
-  const extraTags = active.extras;
-  const atTagLimit = selectedTags.length >= MAX_PRODUCT_TAGS;
-
-  useEffect(() => {
-    if (otherOpen) otherInputRef.current?.focus();
-  }, [otherOpen]);
+  const selectedSubcategories = active.subcategories;
 
   const hasChanged =
     field === ""
       ? false
-      : field === "product_tags"
-        ? !sameTagSet(originalTags, selectedTags)
+      : field === "subcategories"
+        ? !sameSubcategorySet(originalSubcategories, selectedSubcategories)
         : isLinkField
           ? selection.trim() !== "" &&
             sanitizeHref(selection) !== sanitizeHref(originalSelection)
           : selection !== "" && selection !== originalSelection;
-  const productTagsCategory = PRODUCT_TYPE_CATEGORIES.find(
-    (category) => category.slug === productType,
-  );
-  const productTagsCategoryLabel = productTagsCategory
-    ? categoryLabel(productTagsCategory, locale)
-    : (productType ?? "");
-  const productSubcategories = PRODUCT_SUBCATEGORIES.filter(
-    (subcategory) => subcategory.category === productType,
-  );
-  // Stored tags are not guaranteed canonical: the owner edit path only trims
-  // and de-dupes, so a brand can hold an alias of a subcategory. Comparing on a
-  // canonical basis is what stops a visitor adding the canonical twin of a tag
-  // the brand already carries.
-  const canonicalTag = (tag: string) => matchSubcategory(tag)?.nameZh ?? tag;
-  const currentTagSet = new Set(originalTags.map(canonicalTag));
-  // Row 2 offers only what the brand does not already carry — row 1 owns the
-  // rest, in-category or not.
-  const offeredSubcategories = productSubcategories.filter(
-    (subcategory) => !currentTagSet.has(subcategory.nameZh),
-  );
-  const offeredTagNames = new Set(
-    offeredSubcategories.map((subcategory) => subcategory.nameZh),
-  );
-  const tagLabel = (tag: string) => {
-    const subcategory = matchSubcategory(tag);
-    return subcategory ? subcategoryLabel(subcategory, locale) : tag;
-  };
-  // Row 2 renders in one pass: the in-category subcategories the brand does not
-  // hold, then anything the free-text escape hatch resolved that row 2 did not
-  // offer.
-  const addableTags = [
-    ...offeredSubcategories.map((subcategory) => ({
-      key: subcategory.slug,
-      tag: subcategory.nameZh,
-      label: subcategoryLabel(subcategory, locale),
-    })),
-    ...extraTags.map((tag) => ({ key: tag, tag, label: tagLabel(tag) })),
-  ];
   const labelForField = (item: CorrectionField) => {
-    const channel = Object.hasOwn(purchaseChannelByColumn, item)
-      ? purchaseChannelByColumn[item as PurchaseChannelColumn]
+    const channel = Object.hasOwn(onlineStoreByColumn, item)
+      ? onlineStoreByColumn[item as OnlineStoreColumn]
       : undefined;
     if (channel) {
       return tBrandDetail(
-        channelMessageKey(channel.messageKeys.brandDetailLink, "brandDetail"),
+        onlineStoreMessageKey(channel.messageKeys.brandDetailLink, "brandDetail"),
       );
     }
-    return item === "product_type"
+    return item === "category"
       ? tBrandDetail("label.category")
       : item === "price_range"
         ? tBrandDetail("label.priceRange")
-        : item === "product_tags"
-          ? tBrandDetail("label.productCategories")
+        : item === "subcategories"
+          ? tBrandDetail("label.subcategories")
           : item === "social_instagram"
             ? tBrandDetail("links.instagram")
             : item === "social_threads"
@@ -294,15 +229,8 @@ export function CorrectionDialog({
   // Only read inside the value branches, which never render while field is "".
   const fieldLabel = field === "" ? "" : labelForField(field);
 
-  function resetOtherEntry() {
-    setOtherOpen(false);
-    setOtherValue("");
-    setOtherMessage(null);
-  }
-
   function handleOpenChange(next: boolean) {
     setOpen(next);
-    resetOtherEntry();
     // Every open starts at the picker, not at whatever was picked last time.
     if (!next) setField("");
   }
@@ -323,78 +251,12 @@ export function CorrectionDialog({
     }));
   }
 
-  function toggleTag(tag: string, checked: boolean) {
-    updateSelection((base) => {
-      if (!checked) {
-        return {
-          ...base,
-          key: selectionKey,
-          tags: base.tags.filter((item) => item !== tag),
-        };
-      }
-      if (base.tags.includes(tag) || base.tags.length >= MAX_PRODUCT_TAGS) {
-        return { ...base, key: selectionKey };
-      }
-      return { ...base, key: selectionKey, tags: [...base.tags, tag] };
-    });
-  }
-
-  function appendExtraTag(tag: string) {
-    updateSelection((base) => {
-      if (base.tags.length >= MAX_PRODUCT_TAGS) {
-        return { ...base, key: selectionKey };
-      }
-      return {
-        key: selectionKey,
-        value: base.value,
-        tags: base.tags.includes(tag) ? base.tags : [...base.tags, tag],
-        extras: base.extras.includes(tag) ? base.extras : [...base.extras, tag],
-      };
-    });
-  }
-
-  function closeOtherEntry(atLimitAfter = false) {
-    resetOtherEntry();
-    // The escape-hatch chip renders `disabled` at the cap. focus() here runs
-    // before React commits that attribute, and a focused element that becomes
-    // disabled drops focus to <body> — so when this confirmation fills the last
-    // slot, focus goes to the row that now owns the selection instead.
-    if (atLimitAfter) addTagsGroupRef.current?.focus();
-    else otherChipRef.current?.focus();
-  }
-
-  function confirmOtherTag() {
-    const result = resolveProductTagInput(otherValue);
-    if (!result.ok) {
-      setOtherMessage(
-        result.reason === "length"
-          ? tCorrection("errors.tagLength")
-          : tCorrection("errors.tagBlocked"),
-      );
-      return;
-    }
-    if (currentTagSet.has(result.tag)) {
-      setOtherMessage(tCorrection("otherTagDuplicate"));
-      return;
-    }
-    const alreadySelected = selectedTags.includes(result.tag);
-    // Disabling the escape-hatch chip at the cap does not unmount an entry
-    // panel opened below the cap, so the cap has to be stated here too — both
-    // add paths no-op silently and the tag would vanish without a word.
-    if (!alreadySelected && atTagLimit) {
-      setOtherMessage(tCorrection("productTagsLimit"));
-      return;
-    }
-    if (offeredTagNames.has(result.tag)) {
-      // Already on screen in row 2 — select it instead of adding a twin.
-      toggleTag(result.tag, true);
-    } else {
-      appendExtraTag(result.tag);
-    }
-    const nextCount = alreadySelected
-      ? selectedTags.length
-      : selectedTags.length + 1;
-    closeOtherEntry(nextCount >= MAX_PRODUCT_TAGS);
+  function setSelectedSubcategories(next: string[]) {
+    updateSelection((base) => ({
+      ...base,
+      key: selectionKey,
+      subcategories: next,
+    }));
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -404,9 +266,9 @@ export function CorrectionDialog({
     const proposedValue =
       field === "price_range"
         ? Number(selection)
-        : field !== "product_tags"
+        : field !== "subcategories"
           ? selection
-          : buildTagDelta(originalTags, selectedTags);
+          : buildSubcategoryDelta(originalSubcategories, selectedSubcategories);
     startTransition(async () => {
       try {
         const result = await submitCorrectionAction({
@@ -423,8 +285,7 @@ export function CorrectionDialog({
           setSelectionState({
             key: selectionKey,
             value: isLinkField ? "" : originalSelection,
-            tags: originalTags,
-            extras: [],
+            subcategories: originalSubcategories,
           });
           handleOpenChange(false);
           return;
@@ -469,7 +330,7 @@ export function CorrectionDialog({
           <Typography variant="subsectionTitle">
             {tCorrection("changeToHeading")}
           </Typography>
-          <div className="flex flex-wrap gap-2">
+          <ChipRow>
             {options.map((option) => (
               <ToggleChip
                 key={option.key}
@@ -481,7 +342,7 @@ export function CorrectionDialog({
                 {option.label}
               </ToggleChip>
             ))}
-          </div>
+          </ChipRow>
         </div>
       </div>
     );
@@ -490,7 +351,7 @@ export function CorrectionDialog({
   const currentPriceTier = PRICE_RANGE_TIERS.find(
     (tier) => String(tier.value) === originalSelection,
   );
-  const currentCategory = PRODUCT_TYPE_CATEGORIES.find(
+  const currentCategory = L1_CATEGORIES.find(
     (item) => item.slug === originalSelection,
   );
 
@@ -502,7 +363,7 @@ export function CorrectionDialog({
             type="button"
             variant="ghost"
             size="compact"
-            className="relative min-h-10 gap-1.5 px-1 type-metadata text-primary underline-offset-4 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[''] hover:bg-transparent hover:text-primary/80 hover:underline focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
+            className="relative min-h-10 gap-1.5 px-1 type-metadata text-accent underline-offset-4 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[''] hover:bg-transparent hover:text-accent/80 hover:underline focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
           />
         }
       >
@@ -530,12 +391,8 @@ export function CorrectionDialog({
           <DialogTitle>
             {tCorrection(copy.title)}
           </DialogTitle>
-          {field === "product_tags" && (
-            <p className="type-caption">
-              {tCorrection("productTagsSubtitle", {
-                category: productTagsCategoryLabel,
-              })}
-            </p>
+          {field === "subcategories" && (
+            <p className="type-metadata">{tCorrection("subcategoriesSubtitle")}</p>
           )}
         </DialogHeader>
 
@@ -560,9 +417,8 @@ export function CorrectionDialog({
                       (item) => item === event.target.value,
                     ) ?? "",
                   );
-                  resetOtherEntry();
                 }}
-                className="bg-card focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
+                className="bg-card focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
               >
                 {field === "" && (
                   <option value="" disabled>
@@ -591,10 +447,10 @@ export function CorrectionDialog({
                 })),
               )}
 
-            {field === "product_type" &&
+            {field === "category" &&
               scalarRows(
                 currentCategory ? categoryLabel(currentCategory, locale) : null,
-                PRODUCT_TYPE_CATEGORIES.filter(
+                L1_CATEGORIES.filter(
                   (item) => item.slug !== originalSelection,
                 ).map((item) => ({
                   key: item.slug,
@@ -603,177 +459,45 @@ export function CorrectionDialog({
                 })),
               )}
 
-            {field === "product_tags" && (
+            {field === "subcategories" && (
               <div className="space-y-4 p-4">
                 <div className="flex items-center justify-end">
                   <span
-                    className="type-caption tabular-nums"
+                    className="type-metadata tabular-nums"
                     aria-live="polite"
                   >
-                    {tCorrection("productTagsSelected", {
-                      count: selectedTags.length,
+                    {tCorrection("subcategoriesSelected", {
+                      count: selectedSubcategories.length,
                     })}
                   </span>
                 </div>
-                {atTagLimit && (
-                  <p
-                    className="rounded-md bg-secondary px-3 py-2 type-caption"
-                    aria-live="polite"
-                  >
-                    {tCorrection("productTagsLimit")}
-                  </p>
-                )}
-
-                <div
-                  role="group"
-                  aria-labelledby={currentHeadingId}
-                  className="space-y-2"
-                >
-                  <Typography id={currentHeadingId} variant="subsectionTitle">
-                    {tCorrection("currentTagsHeading")}
-                  </Typography>
-                  {originalTags.length === 0 ? (
-                    <p className="type-caption">
-                      {tCorrection("selectPlaceholder")}
-                    </p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {originalTags.map((tag) => {
-                        const kept = selectedTags.includes(tag);
-                        const Icon = kept ? X : RotateCcw;
-
-                        return (
-                          <ToggleChip
-                            key={tag}
-                            size="chip"
-                            tone="reference"
-                            pressed={kept}
-                            // Restoring a removed tag is an add, and adds no-op
-                            // at the cap — without this the chip would be a
-                            // dead control that never flips back.
-                            disabled={!kept && atTagLimit}
-                            onPressedChange={(next) => toggleTag(tag, next)}
-                            data-ph-no-autocapture
-                          >
-                            {tagLabel(tag)}
-                            <Icon aria-hidden="true" />
-                          </ToggleChip>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <div
-                  ref={addTagsGroupRef}
-                  role="group"
-                  // Programmatic focus target only — see closeOtherEntry.
-                  tabIndex={-1}
-                  aria-labelledby={optionsHeadingId}
-                  className="space-y-2 outline-none"
-                >
-                  <Typography id={optionsHeadingId} variant="subsectionTitle">
-                    {tCorrection("addTagsHeading")}
-                  </Typography>
-                  <div className="flex flex-wrap gap-2">
-                    {addableTags.map((option) => {
-                      const pressed = selectedTags.includes(option.tag);
-
-                      return (
-                        <ToggleChip
-                          key={option.key}
-                          size="chip"
-                          pressed={pressed}
-                          disabled={!pressed && atTagLimit}
-                          onPressedChange={(next) =>
-                            toggleTag(option.tag, next)
-                          }
-                          data-ph-no-autocapture
-                        >
-                          {option.label}
-                        </ToggleChip>
-                      );
-                    })}
-                    <Button
-                      ref={otherChipRef}
-                      type="button"
-                      variant="secondary"
-                      shape="pill"
-                      size="chip"
-                      disabled={atTagLimit}
-                      aria-expanded={otherOpen}
-                      onClick={() => {
-                        setOtherMessage(null);
-                        setOtherOpen(true);
-                      }}
-                      className="text-muted-foreground"
-                      data-ph-no-autocapture
-                    >
-                      <Plus aria-hidden="true" />
-                      {tCorrection("otherTagChip")}
-                    </Button>
-                  </div>
-
-                  {otherOpen && (
-                    <div className="space-y-2 rounded-lg border border-border p-3">
-                      <Label htmlFor={otherInputId}>
-                        {tCorrection("otherTagInputLabel")}
-                      </Label>
-                      <Input
-                        id={otherInputId}
-                        ref={otherInputRef}
-                        value={otherValue}
-                        aria-describedby={
-                          otherMessage
-                            ? `${otherHintId} ${otherMessageId}`
-                            : otherHintId
-                        }
-                        aria-invalid={otherMessage ? true : undefined}
-                        onChange={(event) => {
-                          setOtherValue(event.target.value);
-                          setOtherMessage(null);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key !== "Enter") return;
-                          // The dialog form would otherwise submit the
-                          // correction from inside the tag entry.
-                          event.preventDefault();
-                          confirmOtherTag();
-                        }}
-                        data-ph-no-autocapture
-                      />
-                      <p id={otherHintId} className="type-caption">
-                        {tCorrection("otherTagHint")}
-                      </p>
-                      {otherMessage && (
-                        <p
-                          id={otherMessageId}
-                          className="type-caption text-destructive"
-                        >
-                          {otherMessage}
-                        </p>
-                      )}
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          onClick={confirmOtherTag}
-                          className="focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
-                          data-ph-no-autocapture
-                        >
-                          {tCorrection("otherTagConfirm")}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => closeOtherEntry()}
-                          className="focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
-                        >
-                          {tEdit("cancel")}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                {/*
+                  One closed picker, shared with the owner wizard and admin
+                  review. The offer set is all 175 nodes, not the brand's own
+                  L1: a brand's products span L1s even though the brand carries
+                  one, and the read side stopped discarding those tags in
+                  DEV-1510. There is no free-text entry — a term the vocabulary
+                  does not know is refused and LOGGED, which is the only gap
+                  signal left once the escape hatch is gone.
+                */}
+                <SubcategoryPicker
+                  value={selectedSubcategories}
+                  baseline={originalSubcategories}
+                  onChange={setSelectedSubcategories}
+                  locale={locale}
+                  priorityCategorySlug={categorySlug}
+                  surface="correction-dialog"
+                  max={MAX_SUBCATEGORIES}
+                  labels={{
+                    search: tCorrection("subcategorySearchLabel"),
+                    searchHint: tCorrection("subcategorySearchHint"),
+                    selected: tCorrection("currentSubcategoriesHeading"),
+                    options: tCorrection("addSubcategoriesHeading"),
+                    limit: tCorrection("subcategoriesLimit"),
+                    rejected: tCorrection("subcategoryRejected"),
+                    empty: tCorrection("subcategoryEmpty"),
+                  }}
+                />
               </div>
             )}
 
@@ -787,7 +511,7 @@ export function CorrectionDialog({
                   <Typography id={currentHeadingId} variant="subsectionTitle">
                     {tCorrection("currentHeading")}
                   </Typography>
-                  <p className="type-field-value break-all">
+                  <p className="type-body-sm text-ink break-all">
                     {originalSelection || tCorrection("selectPlaceholder")}
                   </p>
                 </div>
@@ -831,7 +555,7 @@ export function CorrectionDialog({
           </div>
 
           <DialogFooter className="mx-0 mb-0 flex-col gap-3 rounded-b-xl bg-background px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="type-caption sm:max-w-xs">
+            <p className="type-metadata sm:max-w-xs">
               {tCorrection("description")}
             </p>
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
@@ -840,7 +564,7 @@ export function CorrectionDialog({
                   <Button
                     type="button"
                     variant="secondary"
-                    className="focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary sm:w-auto"
+                    className="focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent sm:w-auto"
                   />
                 }
               >
@@ -851,7 +575,7 @@ export function CorrectionDialog({
                 idleLabel={tCorrection("submit")}
                 submittingLabel={tCorrection("submitting")}
                 disabled={!hasChanged || isPending}
-                className="focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary sm:w-auto"
+                className="focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent sm:w-auto"
                 data-ph-no-autocapture
               />
             </div>

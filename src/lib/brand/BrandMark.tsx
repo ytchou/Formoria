@@ -7,7 +7,7 @@ interface BrandMarkProps {
 
 // Vectorized from public/images/formoria-mark.png so the nav mark stays in sync
 // with the favicon/app icon. Single-color path, recolorable via `color`.
-export function BrandMark({ color = brand.primary, size = 32 }: BrandMarkProps) {
+export function BrandMark({ color = brand.ink, size = 32 }: BrandMarkProps) {
   return (
     <svg
       viewBox="0 0 1254 1254"

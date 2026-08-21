@@ -1,0 +1,13 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "deploy": {
+    "healthcheckPath": "/api/health"
+  },
+  "environments": {
+    "staging": {
+      "deploy": {
+        "preDeployCommand": ["pnpm db:migrate"]
+      }
+    }
+  }
+}

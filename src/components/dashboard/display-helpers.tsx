@@ -1,5 +1,5 @@
 export function EmptyValue({ children }: { children: React.ReactNode }) {
-  return <span className="text-muted-foreground">{children}</span>
+  return <span className="text-ink-muted">{children}</span>
 }
 
 export function display(value: string | number | null | undefined, fallback: string) {

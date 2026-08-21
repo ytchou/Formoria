@@ -13,6 +13,7 @@ import {
   reopenSubmission,
   requestBrandRefresh,
   isGeneratedGuestSubmissionEmail,
+  type SubmissionProductReview,
 } from '@/lib/services/submissions'
 import { getOwnerLocale } from '@/lib/services/profiles'
 import {
@@ -32,6 +33,12 @@ import {
   getUserBrandByEmail,
   revokeOwnership,
 } from '@/lib/services/brand-owners'
+import { getBrandTrailSlugs } from '@/lib/services/curated-products'
+import { materializeSubmissionCuratedProducts } from '@/lib/services/curated-products/materialize'
+import {
+  requestCuratedProductBackfill,
+  type CuratedProductBackfillResult,
+} from '@/lib/services/curated-products/backfill'
 import {
   scanContent,
   saveModerationFlags,
@@ -41,6 +48,9 @@ import {
 import { sendEmail } from '@/lib/email/send'
 import type { EmailSendResult } from '@/lib/email/types'
 import { validateIdBatch } from '@/lib/validation/id-batch'
+import { reviewEntityIdSchema } from '@/lib/validation/admin-review'
+import { MAX_BULK_PRODUCT_BACKFILL } from '@/lib/constants/curated-products'
+import { z } from 'zod'
 import {
   buildApprovalEmail,
   buildRejectionEmail,
@@ -64,7 +74,8 @@ import {
   type EvidenceBatchFailure,
   type OriginEvidenceDecision,
 } from '@/lib/services/origin-evidence'
-import { adminRemoveChannel } from '@/lib/services/brand-channels'
+import { reviewCommunityStockist } from '@/lib/services/stockists'
+import { logAdminAction } from '@/lib/services/admin-audit'
 import { FEATURE_FLAGS, setAppSetting } from '@/lib/services/app-settings'
 import {
   DENIAL_REASONS,
@@ -76,7 +87,12 @@ import { getSiteUrl } from '@/lib/site-url'
 import { getPostHogClient } from '@/lib/posthog-server'
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events'
 import { buildBrandListingPublishedEvent } from '@/lib/analytics/server-supply-events'
-import { revalidatePublicBrands } from '@/lib/cache/public-brand-cache'
+import {
+  revalidatePublicBrands,
+  revalidatePublicStockists,
+  revalidateTrail,
+} from '@/lib/cache/public-brand-cache'
+import { routes } from '@/lib/routes'
 
 // Analytics runs inside withApprovalTimeout and after the DB commit, so an unbounded
 // flush could exhaust the approval budget and report failure for an approval that
@@ -108,8 +124,18 @@ async function captureSupplyEvent(
   }
 }
 
-const MODERATION_FLAG_ID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+/**
+ * ONE validator for the admin id value class, reused rather than restated.
+ * `reviewEntityIdSchema` (`lib/validation/admin-review.ts`) is the declared
+ * schema for it and already gates the review payload and the drop queue; this
+ * file used to carry three hand-rolled copies instead, and they had drifted —
+ * the named one accepted UUID versions 1-5 while two inline copies accepted
+ * 1-8, so the same value was valid or invalid depending on which action
+ * received it.
+ */
+function isAdminEntityId(value: unknown): boolean {
+  return reviewEntityIdSchema.safeParse(value).success
+}
 
 type ApprovalResult = {
   brandSlug: string
@@ -209,7 +235,7 @@ export async function resendClaimInviteAction(
         throw new Error(delivery.error ?? 'Claim invitation could not be sent')
       }
 
-      revalidatePath('/admin/brands')
+      revalidatePath(routes.admin.brands())
       return { resent: true }
     } catch (err) {
       console.error('[admin:resendClaimInvite]', err)
@@ -219,6 +245,44 @@ export async function resendClaimInviteAction(
     }
   });
 }
+/**
+ * Curated-product proposals become rows only once the brand exists, so this
+ * runs AFTER the approval RPC on both paths (DEV-1469). It works from the
+ * effective review layer — a reviewer's edits and their tick set — which the
+ * new-brand path already computed and hands over, and the refresh path leaves
+ * the service to read.
+ *
+ * Never at the cost of an approval that already succeeded: the RPC has
+ * committed by the time this runs, so a failure is reported and swallowed,
+ * exactly like the enriched-channels upsert in `approveSubmission`.
+ *
+ * WHAT THE RECOVERY ACTUALLY IS. Requesting another products refresh re-runs
+ * the phase and re-materializes, and that re-run is a repair, not a no-op:
+ * the materializer writes per proposal, so one failure costs one product, and a
+ * product whose row landed while its `curated_product_sources` write did not is
+ * re-attached to its evidence by the diff's repair branch rather than skipped
+ * as a decision. Without that branch the half-created row was permanent — every
+ * public read drops it on the `!inner` evidence join, and the re-run matched it
+ * and moved on.
+ */
+async function materializeProposedProducts(
+  submissionId: string,
+  brandId: string,
+  review?: SubmissionProductReview
+): Promise<void> {
+  try {
+    await materializeSubmissionCuratedProducts(submissionId, brandId, {
+      ...(review ? { review } : {}),
+    })
+  } catch (err) {
+    console.error('[admin] materializeSubmissionCuratedProducts failed:', {
+      submissionId,
+      brandId,
+      error: err,
+    })
+  }
+}
+
 async function approveSubmissionForAdmin(
   submissionId: string,
   reviewerId: string
@@ -233,6 +297,22 @@ async function approveSubmissionForAdmin(
     if (brand.status === 'hidden') {
       await updateBrand(refresh.brandId, { status: 'approved' })
     }
+    await materializeProposedProducts(submissionId, refresh.brandId)
+    // The third hidden -> approved path, and the exact inverse of
+    // `unhideBrandAction`: approving a refresh restores this brand's products to
+    // every trail they are selected into, and `revalidateApprovals` reaches only
+    // `revalidatePublicBrands`, which deliberately does not cover
+    // `/discover/[slug]` (`public-brand-cache.ts`). Without this the trail keeps
+    // omitting the restored tiles for up to its ISR hour.
+    //
+    // Read AFTER `materializeProposedProducts`: the placements that call just
+    // wrote are part of what changed, and a read before it would miss them.
+    // Never a reason to fail the approval — the helper swallows its own errors.
+    for (const trailSlug of await brandTrailSlugsForRevalidation(
+      refresh.brandId
+    )) {
+      revalidateTrail(trailSlug)
+    }
     return {
       brandSlug: brand.slug,
       refresh: true,
@@ -242,7 +322,7 @@ async function approveSubmissionForAdmin(
 
   const siteUrl = getSiteUrl()
 
-  const { brandId, submitterEmail, brandName, isBrandOwner } = await approveSubmission(submissionId, reviewerId)
+  const { brandId, submitterEmail, brandName, isBrandOwner, productReview } = await approveSubmission(submissionId, reviewerId)
   const brand = await getBrandById(brandId)
   let imageSyncWarning: { synced: number; failed: number } | undefined
 
@@ -251,6 +331,8 @@ async function approveSubmissionForAdmin(
   } catch (err) {
     console.error('[admin] markFlagsReviewed failed:', err)
   }
+
+  await materializeProposedProducts(submissionId, brandId, productReview)
 
   if (brand.heroImageUrl) {
     try {
@@ -309,10 +391,10 @@ async function approveSubmissionForAdmin(
 }
 
 function revalidateApprovals(results: ApprovalResult[]): void {
-  revalidatePath('/admin/submissions')
-  revalidatePath('/admin')
+  revalidatePath(routes.admin.submissions())
+  revalidatePath(routes.admin.index())
   if (results.some((result) => result.refresh)) {
-    revalidatePath('/admin/brands')
+    revalidatePath(routes.admin.brands())
   }
   revalidatePublicBrands(results.map((result) => result.brandSlug))
 }
@@ -466,8 +548,8 @@ export async function reviewCorrectionsAction(
       if ('error' in result) return result
 
       // The admin navigation badge reads the pending correction count too.
-      revalidatePath('/admin/corrections')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.corrections())
+      revalidatePath(routes.admin.index())
       return result
     } catch (err) {
       console.error('[admin:reviewCorrections]', err)
@@ -503,8 +585,8 @@ export async function reviewEvidenceBatchAction(
       )
       if ('error' in result) return result
 
-      revalidatePath('/admin/evidence')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.evidence())
+      revalidatePath(routes.admin.index())
       return result
     } catch (err) {
       console.error('[admin:reviewEvidenceBatch]', err)
@@ -522,9 +604,7 @@ export async function requestBrandRefreshAction(
     try {
       const auth = await requireAdminAction()
       if ('error' in auth) return auth
-      if (
-        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(brandId)
-      ) {
+      if (!isAdminEntityId(brandId)) {
         return { error: 'Invalid brand ID' }
       }
       if (!auth.user.email) return { error: 'Admin email is required' }
@@ -533,12 +613,71 @@ export async function requestBrandRefreshAction(
         id: auth.user.id,
         email: auth.user.email,
       })
-      revalidatePath('/admin/brands')
-      revalidatePath('/admin/submissions')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.brands())
+      revalidatePath(routes.admin.submissions())
+      revalidatePath(routes.admin.index())
       return result
     } catch (err) {
       console.error('[admin:requestBrandRefresh]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
+    }
+  });
+}
+
+/**
+ * Backfill entry point for generated curated products (DEV-1469): open a refresh
+ * per selected brand and queue ONE curation job scoped to the products phase and
+ * the two phases it depends on (see the backfill service for the derivation).
+ *
+ * The job is queued, not dispatched. Dispatch needs the worker URL and control
+ * token, and a missing one marks the job failed — `/admin/jobs` already has a
+ * dispatch button for the deliberate "run it now", and the worker's scheduled
+ * pass claims a queued job either way.
+ *
+ * Per-brand outcomes rather than a single verdict: a brand already mid-refresh
+ * raises 23505, which is an ordinary answer ("not this one, not yet") and must
+ * reach the admin as a message, never as a thrown error.
+ */
+export async function requestCuratedProductBackfillAction(
+  brandIds: string[]
+): Promise<CuratedProductBackfillResult | { error: string }> {
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
+      if (!Array.isArray(brandIds)) {
+        return { error: 'Invalid brand selection' }
+      }
+
+      const ids = [...new Set(brandIds)]
+      // The cap gets its OWN message. Selecting 101 brands out of a directory
+      // of 718 is an ordinary intent, not a malformed request, and returning
+      // the same 'Invalid brand selection' string for both named neither the
+      // limit nor the fix — the admin retried the identical selection and got
+      // the identical error.
+      if (ids.length > MAX_BULK_PRODUCT_BACKFILL) {
+        return {
+          error: `Product generation runs up to ${MAX_BULK_PRODUCT_BACKFILL} brands at a time. ${ids.length} are selected — deselect ${ids.length - MAX_BULK_PRODUCT_BACKFILL} and run the rest afterwards.`,
+        }
+      }
+      if (!z.array(reviewEntityIdSchema).min(1).safeParse(ids).success) {
+        return { error: 'Invalid brand selection' }
+      }
+      if (!auth.user.email) return { error: 'Admin email is required' }
+
+      const result = await requestCuratedProductBackfill(ids, {
+        id: auth.user.id,
+        email: auth.user.email,
+      })
+      revalidatePath(routes.admin.brands())
+      revalidatePath(routes.admin.submissions())
+      revalidatePath(routes.admin.jobs())
+      revalidatePath(routes.admin.index())
+      return result
+    } catch (err) {
+      console.error('[admin:requestCuratedProductBackfill]', err)
       return {
         error: err instanceof Error ? err.message : 'An unexpected error occurred',
       }
@@ -641,10 +780,10 @@ async function rejectSubmissionForAdmin(
 }
 
 function revalidateRejections(): void {
-  revalidatePath('/admin/submissions')
+  revalidatePath(routes.admin.submissions())
   // getAdminNavCounts() drives the nav badges, so the dashboard shell has to be
   // revalidated alongside the queue page itself.
-  revalidatePath('/admin')
+  revalidatePath(routes.admin.index())
 }
 
 export async function rejectSubmissionAction(
@@ -789,8 +928,8 @@ export async function reopenSubmissionAction(
 
       await reopenSubmission(submissionId)
 
-      revalidatePath('/admin/submissions')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.submissions())
+      revalidatePath(routes.admin.index())
       return undefined
     } catch (err) {
       console.error('[admin:reopenSubmission]', err)
@@ -850,8 +989,8 @@ export async function approveClaimAction(
         }
       }
 
-      revalidatePath('/admin/claims')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.claims())
+      revalidatePath(routes.admin.index())
 
       if (claimRequest.brandSlug) {
         revalidatePublicBrands([claimRequest.brandSlug])
@@ -906,8 +1045,8 @@ export async function rejectClaimAction(
       await rejectClaimRequest(claimRequestId, auth.user.id, notes)
       const cleanupWarning = await processImmediateClaimProofCleanup(claimRequestId)
 
-      revalidatePath('/admin/claims')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.claims())
+      revalidatePath(routes.admin.index())
 
       try {
         if (claimRequest.requesterEmail && claimRequest.brandName) {
@@ -941,7 +1080,7 @@ export async function updateBrandAction(
     status?: string
     website?: string
     purchaseUrl?: string
-    productType?: string
+    categorySlug?: string
     socialInstagram?: string | null
     socialThreads?: string | null
     socialFacebook?: string | null
@@ -1000,8 +1139,8 @@ export async function updateBrandAction(
         data as Parameters<typeof updateBrand>[1],
       )
 
-      revalidatePath('/admin/brands')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.brands())
+      revalidatePath(routes.admin.index())
       revalidatePublicBrands([updatedBrand.slug, previousBrand.slug])
       return undefined
     } catch (err) {
@@ -1013,6 +1152,24 @@ export async function updateBrandAction(
   });
 }
 
+/**
+ * The `/discover` half of a brand-visibility change.
+ *
+ * `revalidatePublicBrands` covers the brand's own surfaces; it deliberately
+ * does NOT cover `/discover/[slug]`, which renders the brand's curated products
+ * as trail tiles. Hiding a brand drops those tiles and unhiding restores them,
+ * so both directions leave a trail stale for up to its ISR hour without this.
+ *
+ * Never a reason to fail the action: the write either already happened or is
+ * about to, so a failed lookup costs a stale tile, not correctness. Mirrors
+ * `trailSlugsForRevalidation` in the curated-products actions.
+ */
+async function brandTrailSlugsForRevalidation(
+  brandId: string
+): Promise<string[]> {
+  return getBrandTrailSlugs(brandId).catch(() => [])
+}
+
 export async function hideBrandAction(
   brandId: string
 ): Promise<{ error: string } | undefined> {
@@ -1021,11 +1178,16 @@ export async function hideBrandAction(
       const auth = await requireAdminAction()
       if ('error' in auth) return auth
 
+      // Resolved BEFORE the write: the placements this reads are the ones the
+      // write is about to take off every trail, and the read is deliberately
+      // not allowed to fail the hide.
+      const trailSlugs = await brandTrailSlugsForRevalidation(brandId)
       const brand = await updateBrand(brandId, { status: 'hidden' })
 
-      revalidatePath('/admin/brands')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.brands())
+      revalidatePath(routes.admin.index())
       revalidatePublicBrands([brand.slug])
+      for (const trailSlug of trailSlugs) revalidateTrail(trailSlug)
       return undefined
     } catch (err) {
       console.error('[admin:hideBrand]', err)
@@ -1044,11 +1206,16 @@ export async function unhideBrandAction(
       const auth = await requireAdminAction()
       if ('error' in auth) return auth
 
+      // Read before the write here too. Unhiding restores the brand's tiles to
+      // the same trails, which is the identical staleness in the other
+      // direction, and the placement rows are unchanged by the status write.
+      const trailSlugs = await brandTrailSlugsForRevalidation(brandId)
       const brand = await updateBrand(brandId, { status: 'approved' })
 
-      revalidatePath('/admin/brands')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.brands())
+      revalidatePath(routes.admin.index())
       revalidatePublicBrands([brand.slug])
+      for (const trailSlug of trailSlugs) revalidateTrail(trailSlug)
       return undefined
     } catch (err) {
       console.error('[admin:unhideBrand]', err)
@@ -1070,8 +1237,8 @@ export async function deleteBrandAction(
       const brand = await getBrandById(brandId)
       await deleteBrand(brandId)
 
-      revalidatePath('/admin/brands')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.brands())
+      revalidatePath(routes.admin.index())
       revalidatePublicBrands([brand.slug])
       return undefined
     } catch (err) {
@@ -1083,24 +1250,56 @@ export async function deleteBrandAction(
   });
 }
 
-export async function adminRemoveChannelAction(
-  channelId: string,
-): Promise<{ success: true } | { error: string }> {
+/**
+ * Approve or reject one community stockist submission.
+ *
+ * A pending row is invisible on every public surface, so this is the only thing
+ * that publishes one — and rejecting it is what keeps a wrong shop out of the
+ * directory for good. Both the brand page and the city stockist pages are
+ * revalidated because an approved row appears on both.
+ *
+ * Audited for exactly that reason: publishing a stranger's claim about a shop
+ * onto a live brand page is an editorial decision on the same footing as
+ * promoting a curated product, and `brand_channels` records only
+ * `owner_status_by`, never which way the decision went or when a rejection
+ * happened. `logAdminAction` is fire-and-forget, so it cannot fail the review.
+ */
+export async function reviewStockistAction(
+  stockistId: string,
+  decision: 'confirmed' | 'rejected',
+): Promise<{ error: string } | undefined> {
   return runWithAuditContext({}, async () => {
     try {
       const auth = await requireAdminAction()
       if ('error' in auth) return auth
+      if (!isAdminEntityId(stockistId)) return { error: 'Invalid stockist ID' }
 
-      const result = await adminRemoveChannel(
-        channelId,
+      const result = await reviewCommunityStockist(
+        stockistId,
+        decision,
         auth.user.id,
-        auth.user.email ?? auth.user.id,
       )
       if (!result.ok) return { error: result.code }
 
-      return { success: true }
+      if (auth.user.email) {
+        await logAdminAction({
+          adminUserId: auth.user.id,
+          adminEmail: auth.user.email,
+          action:
+            decision === 'confirmed' ? 'stockist_approved' : 'stockist_rejected',
+          targetBrandSlug: result.brandSlug,
+          targetBrandId: result.brandId,
+          metadata: { stockistId },
+        })
+      }
+
+      revalidatePath(routes.admin.stockists())
+      revalidatePath(routes.admin.index())
+      revalidatePublicBrands([result.brandSlug])
+      revalidatePublicStockists(result.city)
+      return undefined
     } catch (error) {
-      console.error('[admin:removeChannel]', error)
+      console.error('[admin:reviewStockist]', error)
       return {
         error: error instanceof Error ? error.message : 'An unexpected error occurred',
       }
@@ -1128,8 +1327,8 @@ export async function reviewReportAction(
       })
       if (!result.ok) return { error: result.code }
 
-      revalidatePath('/admin/reports')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.reports())
+      revalidatePath(routes.admin.index())
       return undefined
     } catch (err) {
       console.error('[admin:reviewReport]', err)
@@ -1149,7 +1348,7 @@ export async function reviewModerationFlagAction(
       const auth = await requireAdminAction()
       if ('error' in auth) return auth
 
-      if (!MODERATION_FLAG_ID_REGEX.test(flagId)) {
+      if (!isAdminEntityId(flagId)) {
         return { error: 'Invalid moderation flag ID' }
       }
       if (decision !== 'reviewed' && decision !== 'dismissed') {
@@ -1164,8 +1363,8 @@ export async function reviewModerationFlagAction(
       // untranslated. Matches `reviewReportAction` returning `result.code`.
       if (!result.ok) return { error: result.code }
 
-      revalidatePath('/admin/moderation')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.moderation())
+      revalidatePath(routes.admin.index())
       return undefined
     } catch (err) {
       console.error('[admin:reviewModerationFlag]', err)
@@ -1196,8 +1395,8 @@ export async function revokeOwnershipAction(
         reason: trimmedReason,
       }))
 
-      revalidatePath('/admin/reports')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.reports())
+      revalidatePath(routes.admin.index())
       revalidatePublicBrands([brand.slug])
       return undefined
     } catch (err) {

@@ -4,10 +4,12 @@ import { Building2, HelpCircle, Lightbulb, Mail } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
+import { PageShell } from '@/components/ui/page-shell'
 import { CONTACT_EMAILS } from '@/lib/constants'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { buildOpenGraph } from '@/lib/seo/open-graph'
+import { routes } from '@/lib/routes'
 
 export const revalidate = 86400
 
@@ -22,7 +24,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const t = await getTranslations('contact.metadata')
   const title = t('title')
   const description = t('description')
-  const { canonical, languages } = buildAlternates('/contact', safeLocale)
+  const { canonical, languages } = buildAlternates(routes.contact(), safeLocale)
   const ogLocale = safeLocale === 'en' ? 'en_US' : 'zh_TW'
   const ogAlternateLocale = safeLocale === 'en' ? 'zh_TW' : 'en_US'
 
@@ -57,11 +59,11 @@ export default async function ContactPage({ params }: PageProps) {
     {
       key: 'feature',
       icon: Lightbulb,
-      href: '/feature-requests',
+      href: routes.featureRequests(),
       external: false,
     },
-    { key: 'brand', icon: Building2, href: '/brands', external: false },
-    { key: 'question', icon: HelpCircle, href: '/faq', external: false },
+    { key: 'brand', icon: Building2, href: routes.brands(), external: false },
+    { key: 'question', icon: HelpCircle, href: routes.faq(), external: false },
   ] as const
 
   const ctaClassName = buttonVariants({
@@ -71,12 +73,12 @@ export default async function ContactPage({ params }: PageProps) {
   })
 
   return (
-    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
+    <PageShell as="main" measure="page" className="py-10">
       <section className="border-b border-border pb-10">
-        <div className="max-w-3xl">
+        <div className="prose-measure">
           <p className="type-eyebrow">{t('hero.eyebrow')}</p>
-          <h1 className="mt-3 type-hero">{t('hero.title')}</h1>
-          <p className="mt-4 max-w-2xl type-page-subtitle">{t('hero.intro')}</p>
+          <h1 className="mt-3 type-display">{t('hero.title')}</h1>
+          <p className="mt-4 type-body">{t('hero.intro')}</p>
         </div>
       </section>
 
@@ -84,13 +86,13 @@ export default async function ContactPage({ params }: PageProps) {
         <div className="grid gap-4 md:grid-cols-2">
           {channels.map(({ key, icon: Icon, href, external }) => (
             <article key={key} className={surfaceCardStyles()}>
-              <div className="flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <div className="flex size-8 items-center justify-center rounded-full bg-accent text-ground">
                 <Icon aria-hidden="true" className="size-4" />
               </div>
               <h2 className="mt-4 type-card-title">
                 {t(`channels.${key}.title`)}
               </h2>
-              <p className="mt-2 type-card-description">
+              <p className="mt-2 type-body-sm">
                 {t(`channels.${key}.body`)}
               </p>
               {external ? (
@@ -106,6 +108,6 @@ export default async function ContactPage({ params }: PageProps) {
           ))}
         </div>
       </section>
-    </main>
+    </PageShell>
   )
 }

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Link } from '@/i18n/navigation'
-import Image from 'next/image'
+import { SurfaceImage } from '@/components/ui/image'
 import { useTranslations, useLocale } from 'next-intl'
 import type { PublicBrandCard } from '@/lib/brands/contracts'
 import {
@@ -14,14 +14,15 @@ import { useSavedBrands } from '@/hooks/use-saved-brands'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
-import { brandImageFill } from '@/lib/images/focal'
-import { getBrandCategoryLabel } from '@/lib/brands/category-label'
+import { brandImageFill } from '@/lib/images/fill'
+import { getBrandCategoryLabel, getBrandSubcategoryLabels } from '@/lib/brands/category-label'
+import { selectBrandCardImage } from '@/lib/brands/image-selection'
 import { NO_SNIPPET } from '@/lib/seo/snippet'
 import { SaveBrandButton } from './save-brand-button'
 import { BrandImageFallback } from './brand-image-fallback'
 import { MitDeclaredBadge, MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
 import { cn } from '@/lib/utils'
+import { routes } from '@/lib/routes'
 
 interface BrandCardProps {
   brand: PublicBrandCard
@@ -29,6 +30,8 @@ interface BrandCardProps {
   preload?: boolean
   variant?: 'directory' | 'recommendation' | 'editorial'
   sourceBrandSlug?: string
+  /** Stable analytics identifier for the list or rail containing this card. */
+  listSource?: string
   /**
    * Editorial variant only: the author's line about this brand, shown in place
    * of the generated blurb so a story's own voice wins over directory copy.
@@ -44,6 +47,7 @@ export function BrandCard({
   preload = false,
   variant = 'directory',
   sourceBrandSlug,
+  listSource,
   note,
   eyebrow,
 }: BrandCardProps) {
@@ -53,19 +57,15 @@ export function BrandCard({
   // Safe on surfaces with no SavedBrandsProvider — the hook falls back to an empty set.
   const { savedIds } = useSavedBrands()
   const [imgError, setImgError] = useState(false)
-  // Index-tracked rather than `.find()`: `imageAlts` is index-aligned with
-  // `[heroImageUrl, ...productPhotos]`, and the fill mode below needs the
-  // metadata of whichever candidate actually renders.
-  const imageCandidates = [brand.heroImageUrl, ...brand.productPhotos].map((url) =>
-    safeImageSrc(url),
-  )
-  const imageIndex = imageCandidates.findIndex((src) => src !== null)
-  const imageSrc = imageIndex === -1 ? null : imageCandidates[imageIndex]
+  const selectedImage = selectBrandCardImage(brand)
+  const imageSrc = selectedImage?.src ?? null
   const showImage = imageSrc != null && !imgError
-  const imageMeta = imageIndex >= 0 ? brand.imageAlts.at(imageIndex) : undefined
-  const imageFill = brandImageFill(imageMeta, { inset: 'p-6' })
+  const imageFill = brandImageFill(selectedImage?.meta, { inset: 'p-6' })
 
   const categoryLabel = getBrandCategoryLabel(brand, locale === 'en' ? 'en' : 'zh-TW')
+  // The card shows one L2 chip. `subcategories` stores slugs since DEV-1510, so
+  // the stored value is resolved to its label before it reaches the badge.
+  const primarySubcategory = getBrandSubcategoryLabels(brand, locale).at(0)
   // The directory blurb, resolved once: both the directory variant and the
   // editorial variant (as its fallback when there is no curator note) render it,
   // and two copies of this chain drift apart the next time it changes.
@@ -80,29 +80,28 @@ export function BrandCard({
   return (
     <article
       className={surfaceCardStyles({
-        className: 'group relative block shadow-card has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring',
+        className: 'group relative block has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent',
         interactive: true,
         padding: 'none',
       })}
     >
       {/* Image */}
-      <div className="relative z-10 aspect-[4/3] overflow-hidden rounded-t-xl bg-muted">
+      {/* `surface-deep` is DESIGN.md §2's third step, the documented image
+          placeholder. It replaces v1's `bg-muted` on every image plate in one
+          pass, so two adjacent image boxes can never sit in different tones. */}
+      <div className="relative z-10 aspect-media overflow-hidden rounded-t-[2px] bg-surface-deep">
         {showImage ? (
-          <Image
+          <SurfaceImage
             src={imageSrc}
             alt=""
             fill
             preload={preload}
-            className={cn('transition-transform group-hover:scale-[1.02]', imageFill.className)}
-            // Assigned, never spread: `brandImageFill` returns `undefined` when
-            // there is nothing to position, and `{ ...undefined }` would turn
-            // that into an empty object.
-            style={imageFill.style}
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            className={cn('transition-transform group-hover:scale-[1.02]', imageFill)}
+            surface="card"
             onError={() => setImgError(true)}
           />
         ) : (
-          <BrandImageFallback name={brand.name} category={brand.category} size="card" />
+          <BrandImageFallback name={brand.name} category={brand.categoryLabel} size="card" />
         )}
         {isWholeCardLink ? (
           <SaveBrandButton brandId={brand.id} slug={brand.slug} variant="overlay" />
@@ -114,10 +113,10 @@ export function BrandCard({
         {variant === 'editorial' && eyebrow ? (
           /*
            * Micro-text, not a `Badge`: three grey pills across a `<BrandRow>`
-           * read as chrome inside prose. `type-eyebrow-muted` is the declared
+           * read as chrome inside prose. `type-eyebrow` is the declared
            * 11px uppercase tracked utility — never hand-pick the size here.
            */
-          <p className="mb-2 type-eyebrow-muted">{eyebrow}</p>
+          <p className="mb-2 type-eyebrow">{eyebrow}</p>
         ) : null}
         <div className="flex min-w-0 items-center gap-1.5">
           {/*
@@ -129,12 +128,12 @@ export function BrandCard({
            */}
           <h3
             className={cn(
-              'min-w-0 type-subsection-title',
+              'min-w-0 type-body-sm font-semibold text-ink',
               variant === 'editorial' ? 'line-clamp-2 min-h-10' : 'truncate',
             )}
           >
             <Link
-              href={`/brands/${brand.slug}`}
+              href={routes.brand(brand.slug)}
               prefetch={variant === 'directory' ? false : undefined}
               className={cn(
                 'focus-visible:outline-none',
@@ -144,7 +143,11 @@ export function BrandCard({
                 if (variant === 'recommendation') {
                   trackRecommendationBrandClicked(brand.id, brand.slug, sourceBrandSlug ?? '', position)
                 } else {
-                  trackBrandCardClicked(brand.slug, brand.category, position, brand.id)
+                  if (listSource) {
+                    trackBrandCardClicked(brand.slug, brand.categoryLabel, position, brand.id, listSource)
+                  } else {
+                    trackBrandCardClicked(brand.slug, brand.categoryLabel, position, brand.id)
+                  }
                 }
                 if (savedIds.has(brand.id)) {
                   trackSavedBrandRevisited(brand.slug, 'card', brand.id)
@@ -181,10 +184,10 @@ export function BrandCard({
         {variant === 'recommendation' ? (
           <>
             {categoryLabel ? (
-              <p className="mt-1 truncate type-card-description">{categoryLabel}</p>
+              <p className="mt-1 truncate type-body-sm">{categoryLabel}</p>
             ) : null}
             <Link
-              href={`/brands/${brand.slug}`}
+              href={routes.brand(brand.slug)}
               className={buttonVariants({
                 variant: 'secondary',
                 className: 'relative z-20 mt-4 min-h-12 w-full',
@@ -215,7 +218,7 @@ export function BrandCard({
               selection — see NO_SNIPPET. The brand's own description still
               serves snippets from its detail page.
             */}
-            <p {...NO_SNIPPET} className="mt-1.5 min-h-[2.625rem] type-body line-clamp-2">
+            <p {...NO_SNIPPET} className="mt-1.5 min-h-[2.625rem] type-body-sm text-ink-soft line-clamp-2">
               {note ?? blurb ?? ' '}
             </p>
             {categoryLabel ? (
@@ -229,7 +232,7 @@ export function BrandCard({
             {/* Same snippet suppression as the editorial variant above. */}
             <p
               {...NO_SNIPPET}
-              className="mt-1.5 min-h-[2.625rem] type-section-description line-clamp-2"
+              className="mt-1.5 min-h-[2.625rem] type-body-sm line-clamp-2"
             >
               {blurb ?? ' '}
             </p>
@@ -238,11 +241,9 @@ export function BrandCard({
               {brand.priceRange != null && (
                 <Badge variant="secondary">{'$'.repeat(brand.priceRange)}</Badge>
               )}
-              {brand.productTags[0] && (
+              {primarySubcategory && (
                 <Badge variant="secondary" className="max-w-full truncate">
-                  {locale === 'en'
-                    ? (brand.productTagsEn[0] ?? brand.productTags[0])
-                    : brand.productTags[0]}
+                  {primarySubcategory}
                 </Badge>
               )}
             </div>

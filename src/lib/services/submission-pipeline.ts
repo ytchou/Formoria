@@ -4,9 +4,9 @@ import type { SourceAttribution } from '@/lib/types/submission'
 import { createSubmission } from '@/lib/services/submissions'
 import { classifySubmittedUrl } from '@/lib/services/link-enrichment'
 import {
-  PURCHASE_CHANNELS,
-  type PurchaseChannelCamelField,
-} from '@/lib/brands/purchase-channels'
+  ONLINE_STORES,
+  type OnlineStoreCamelField,
+} from '@/lib/brands/online-stores'
 
 export interface SubmitBrandForReviewParams {
   idempotencyKey?: string | null
@@ -32,9 +32,9 @@ export interface SubmitBrandForReviewParams {
   } | null
   purchaseLinks?: Array<{ platform: string; url: string }> | null
   otherUrls?: OtherUrl[] | null
-  suggestedTags?: { values?: string[]; productType?: string }
-  productType?: string | null
-  productTypeNote?: string | null
+  suggestedSubcategories?: { values?: string[]; categorySlug?: string }
+  categorySlug?: string | null
+  categoryNote?: string | null
   mitSmileCert?: string
   ownerData?: Record<string, unknown>
 }
@@ -57,19 +57,19 @@ export async function submitBrandForReview(
   let socialFacebook = params.socialLinks?.facebook || null
 
   // Map purchase links: known platforms get dedicated columns; others go to otherUrls.
-  // "Known" means a channel that owns a host in the registry — the brand's own
+  // "Known" means a store that owns a host in the registry — the brand's own
   // website owns none, arrives via `params.purchaseWebsite`, and a purchaseLinks
   // entry naming it has always fallen through to otherUrls. That is preserved.
   const purchaseLinks = params.purchaseLinks ?? []
-  const platformChannels = PURCHASE_CHANNELS.filter((channel) => channel.hosts.length > 0)
+  const platformChannels = ONLINE_STORES.filter((channel) => channel.hosts.length > 0)
   const platformSlugs = new Set<string>(platformChannels.map((channel) => channel.platformSlug))
   const submittedSocialLinks = { ...params.socialLinks } as Record<string, string | undefined>
 
   const purchaseValues = Object.fromEntries(
-    PURCHASE_CHANNELS.map(
-      (channel): [PurchaseChannelCamelField, string | null] => [channel.camel, null],
+    ONLINE_STORES.map(
+      (channel): [OnlineStoreCamelField, string | null] => [channel.camel, null],
     ),
-  ) as Record<PurchaseChannelCamelField, string | null>
+  ) as Record<OnlineStoreCamelField, string | null>
 
   for (const channel of platformChannels) {
     purchaseValues[channel.camel] =
@@ -81,7 +81,7 @@ export async function submitBrandForReview(
     .filter((l) => !platformSlugs.has(l.platform))
     .map((l) => ({ label: l.platform, url: l.url }))
 
-  for (const channel of PURCHASE_CHANNELS) {
+  for (const channel of ONLINE_STORES) {
     if (channel.hosts.length > 0) continue
     purchaseValues[channel.camel] = params.purchaseWebsite?.trim() || null
   }
@@ -91,7 +91,7 @@ export async function submitBrandForReview(
     if (classified.socialInstagram && !socialInstagram) socialInstagram = classified.socialInstagram
     if (classified.socialThreads && !socialThreads) socialThreads = classified.socialThreads
     if (classified.socialFacebook && !socialFacebook) socialFacebook = classified.socialFacebook
-    for (const channel of PURCHASE_CHANNELS) {
+    for (const channel of ONLINE_STORES) {
       const classifiedUrl = classified[channel.camel]
       if (classifiedUrl && !purchaseValues[channel.camel]) {
         purchaseValues[channel.camel] = classifiedUrl
@@ -99,9 +99,9 @@ export async function submitBrandForReview(
     }
   }
 
-  const suggestedTags = {
-    ...(params.suggestedTags ?? {}),
-    ...(params.productType ? { productType: params.productType } : {}),
+  const suggestedSubcategories = {
+    ...(params.suggestedSubcategories ?? {}),
+    ...(params.categorySlug ? { categorySlug: params.categorySlug } : {}),
     ...(params.mitSmileCert ? { mitSmileCert: params.mitSmileCert } : {}),
   }
 
@@ -121,11 +121,11 @@ export async function submitBrandForReview(
     socialFacebook,
     ...purchaseValues,
     otherUrls: [...(params.otherUrls ?? []), ...otherPurchaseUrls],
-    suggestedTags,
+    suggestedSubcategories,
     isBrandOwner: params.isBrandOwner ?? false,
     sourceAttribution: params.sourceAttribution ?? null,
     pdpaConsentAt: params.pdpaConsent ? new Date().toISOString() : undefined,
-    productTypeNote: params.productTypeNote ?? null,
+    categoryNote: params.categoryNote ?? null,
     ownerData: params.ownerData,
   }, options)
 

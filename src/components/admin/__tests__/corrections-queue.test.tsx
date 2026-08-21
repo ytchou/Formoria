@@ -5,7 +5,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
 
 import messages from "../../../../messages/en.json";
-import { MAX_PRODUCT_TAGS } from "@/lib/services/product-tags";
+import { MAX_SUBCATEGORIES } from "@/lib/services/subcategories";
 import type {
   CorrectionBatchFailure,
   CorrectionDecision,
@@ -15,23 +15,23 @@ import {
   type CorrectionQueueItem,
 } from "../corrections-queue";
 
-const NOVEL_TAG = "手工皂磨具";
-const CANONICAL_TAG = "洋裝";
-const REMOVED_TAG = "冷製皂";
-const NOVEL_MARKER = messages.admin.corrections.novelTag;
+const NOVEL_SUBCATEGORY = "手工皂磨具";
+const CANONICAL_SUBCATEGORY = "洋裝";
+const REMOVED_SUBCATEGORY = "冷製皂";
+const NOVEL_MARKER = messages.admin.corrections.novelSubcategory;
 const NOT_AVAILABLE = messages.admin.corrections.notAvailable;
 const INSTAGRAM_URL = "https://instagram.com/formoria";
 const WEBSITE_URL = "https://formoria.example.com";
-const CAP_TAGS = ["洋裝", "後背包", "耳環", "手工皂", "茶葉"];
+const CAP_SUBCATEGORIES = ["洋裝", "後背包", "耳環", "手工皂", "茶葉"];
 
-const TAG_CORRECTION: CorrectionQueueItem = {
-  id: "correction-tags",
+const SUBCATEGORY_CORRECTION: CorrectionQueueItem = {
+  id: "correction-subcategories",
   brandName: "Formoria Studio",
-  field: "product_tags",
-  currentValue: [REMOVED_TAG],
+  field: "subcategories",
+  currentValue: [REMOVED_SUBCATEGORY],
   proposedValue: {
-    add: [NOVEL_TAG, CANONICAL_TAG],
-    remove: [REMOVED_TAG],
+    add: [NOVEL_SUBCATEGORY, CANONICAL_SUBCATEGORY],
+    remove: [REMOVED_SUBCATEGORY],
   },
   stale: false,
   createdAt: "2026-07-27T00:00:00.000Z",
@@ -57,7 +57,7 @@ function correction(
 }
 
 function renderQueue(
-  corrections: CorrectionQueueItem[] = [TAG_CORRECTION],
+  corrections: CorrectionQueueItem[] = [SUBCATEGORY_CORRECTION],
   actions: {
     reviewAction?: (
       id: string,
@@ -96,35 +96,37 @@ function disclosureName(brandName: string, expanded = false): string {
 }
 
 describe("CorrectionsQueue", () => {
-  it("renders the proposed value for a tag-delta correction", () => {
+  it("renders the proposed value for a subcategory-delta correction", () => {
     renderQueue();
 
     expect(
       within(
         screen.getByRole("cell", {
-          name: new RegExp(`\\+${NOVEL_TAG}`),
+          name: new RegExp(`\\+${NOVEL_SUBCATEGORY}`),
         }),
-      ).getByText(`+${NOVEL_TAG}`),
+      ).getByText(`+${NOVEL_SUBCATEGORY}`),
     ).toBeInTheDocument();
     expect(
       within(
         screen.getByRole("cell", {
-          name: new RegExp(`\\+${CANONICAL_TAG}`),
+          name: new RegExp(`\\+${CANONICAL_SUBCATEGORY}`),
         }),
-      ).getByText(`+${CANONICAL_TAG}`),
+      ).getByText(`+${CANONICAL_SUBCATEGORY}`),
     ).toBeInTheDocument();
   });
 
-  it("marks a novel tag exactly once", () => {
+  it("marks a novel subcategory exactly once", () => {
     renderQueue();
 
     const proposed = screen.getByRole("cell", {
-      name: new RegExp(`\\+${NOVEL_TAG}`),
+      name: new RegExp(`\\+${NOVEL_SUBCATEGORY}`),
     });
     expect(within(proposed).getAllByText(NOVEL_MARKER)).toHaveLength(1);
-    const canonicalTag = within(proposed).getByText(`+${CANONICAL_TAG}`);
-    const canonicalGroup = canonicalTag.parentElement;
-    if (!canonicalGroup) throw new Error("expected canonical tag group");
+    const canonicalSubcategory = within(proposed).getByText(
+      `+${CANONICAL_SUBCATEGORY}`,
+    );
+    const canonicalGroup = canonicalSubcategory.parentElement;
+    if (!canonicalGroup) throw new Error("expected canonical subcategory group");
     expect(within(canonicalGroup).queryByText(NOVEL_MARKER)).toBeNull();
   });
 
@@ -133,14 +135,14 @@ describe("CorrectionsQueue", () => {
     const capCorrection = correction({
       id: "correction-cap-exceeded",
       brandName: "Formoria Cap Review",
-      field: "product_tags",
-      currentValue: CAP_TAGS,
-      proposedValue: { add: [NOVEL_TAG], remove: [] },
+      field: "subcategories",
+      currentValue: CAP_SUBCATEGORIES,
+      proposedValue: { add: [NOVEL_SUBCATEGORY], remove: [] },
     });
     const eligibleCorrection = correction({
       id: "correction-eligible",
       brandName: "Formoria Eligible Review",
-      field: "product_type",
+      field: "category",
       currentValue: "beauty",
       proposedValue: "fashion",
     });
@@ -149,7 +151,7 @@ describe("CorrectionsQueue", () => {
       .mockResolvedValue({ failures: [] });
     renderQueue([capCorrection, eligibleCorrection], { bulkReviewAction });
 
-    expect(CAP_TAGS).toHaveLength(MAX_PRODUCT_TAGS);
+    expect(CAP_SUBCATEGORIES).toHaveLength(MAX_SUBCATEGORIES);
     const capCheckbox = screen.getByRole("checkbox", {
       name: `Select ${capCorrection.brandName}`,
     });
@@ -179,7 +181,7 @@ describe("CorrectionsQueue", () => {
     const selected = correction({
       id: "correction-selected",
       brandName: "Formoria Selected Review",
-      field: "product_type",
+      field: "category",
       currentValue: "beauty",
       proposedValue: "fashion",
     });
@@ -229,7 +231,7 @@ describe("CorrectionsQueue", () => {
     renderQueue();
 
     const disclosure = screen.getByRole("button", {
-      name: disclosureName(TAG_CORRECTION.brandName ?? ""),
+      name: disclosureName(SUBCATEGORY_CORRECTION.brandName ?? ""),
     });
     disclosure.focus();
     await user.keyboard("{Enter}");
@@ -296,20 +298,20 @@ describe("CorrectionsQueue", () => {
     expect(within(proposed).queryByText(NOT_AVAILABLE)).toBeNull();
   });
 
-  it("renders a remove badge for a tag-delta correction", () => {
+  it("renders a remove badge for a subcategory-delta correction", () => {
     renderQueue();
 
-    const cell = within(rowFor(TAG_CORRECTION.brandName ?? "")).getByRole(
+    const cell = within(rowFor(SUBCATEGORY_CORRECTION.brandName ?? "")).getByRole(
       "cell",
-      { name: new RegExp(`−${REMOVED_TAG}`) },
+      { name: new RegExp(`−${REMOVED_SUBCATEGORY}`) },
     );
-    expect(within(cell).getByText(`−${REMOVED_TAG}`)).toBeInTheDocument();
-    // The novel marker belongs to the added novel tag's group, not to the
+    expect(within(cell).getByText(`−${REMOVED_SUBCATEGORY}`)).toBeInTheDocument();
+    // The novel marker belongs to the added novel subcategory's group, not to the
     // removal — the whole Proposed cell holds exactly one.
-    const novelGroup = within(cell).getByText(`+${NOVEL_TAG}`)
+    const novelGroup = within(cell).getByText(`+${NOVEL_SUBCATEGORY}`)
       .parentElement as HTMLElement;
     expect(within(novelGroup).getByText(NOVEL_MARKER)).toBeInTheDocument();
-    const canonicalGroup = within(cell).getByText(`+${CANONICAL_TAG}`)
+    const canonicalGroup = within(cell).getByText(`+${CANONICAL_SUBCATEGORY}`)
       .parentElement as HTMLElement;
     expect(within(canonicalGroup).queryByText(NOVEL_MARKER)).toBeNull();
     expect(within(cell).getAllByText(NOVEL_MARKER)).toHaveLength(1);

@@ -4,7 +4,6 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import zh from '../../../../messages/zh-TW.json'
-import { trackBrandReported } from '@/lib/analytics'
 
 vi.mock('@/lib/analytics', () => ({
   trackBrandReported: vi.fn(),
@@ -270,10 +269,10 @@ describe('ReportDialog', () => {
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
     await findLoadedDialog()
     await user.click(screen.getByRole('button', { name: /要求移除品牌頁/i }))
-    expect(screen.queryByText('你已回報過此品牌')).not.toBeInTheDocument()
+    expect(screen.queryByText('這個品牌已經回報過了')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /連結失效/i }))
-    expect(await screen.findByText('你已回報過此品牌')).toBeInTheDocument()
+    expect(await screen.findByText('這個品牌已經回報過了')).toBeInTheDocument()
   })
 
   it('shows success confirmation when state.success is true', async () => {

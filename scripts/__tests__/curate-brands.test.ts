@@ -38,6 +38,7 @@ describe("parseCliArgs", () => {
       "locations",
       "reputation",
       "faq",
+      "products",
     ]);
   });
 

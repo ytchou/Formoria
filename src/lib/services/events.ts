@@ -98,6 +98,25 @@ export type EventBrandEntry = Omit<EventBrandLink, "brandSlug"> & {
   brand: PublicBrandCard;
 };
 
+/**
+ * One event appearance as a brand page renders it: the event identity plus the
+ * placement columns, and nothing else. Deliberately not `Event` — the brand
+ * page shows a line, not a card, and widening this to the full event row would
+ * pull the whole `EVENT_SELECT` projection onto every brand detail render.
+ */
+export type BrandEventParticipation = {
+  eventSlug: string;
+  eventName: string;
+  eventNameEn: string | null;
+  /** Taipei calendar date, `'YYYY-MM-DD'`. Never a `Date` — see `taipeiToday`. */
+  startsOn: string;
+  /** Taipei calendar date, `'YYYY-MM-DD'`, inclusive of the last day. */
+  endsOn: string;
+  booth: string | null;
+  area: string | null;
+  areaEn: string | null;
+};
+
 /** Canonical event roster row, independent of whether Formoria has a brand. */
 export type EventExhibitor = {
   id: string;
@@ -215,6 +234,25 @@ const EVENT_EXHIBITOR_SELECT =
   "id, event_id, source_key, name, name_en, booth, area, area_en, zone, event_category, source_url, website_url, verified_at, sort_order, image_url, image_alt_zh, image_alt_en, summary_zh, summary_en, content_source, content_verified_at, events!inner(slug, status)";
 
 const EVENT_EXHIBITOR_BRAND_SELECT = "event_exhibitor_id, brands!inner(slug)";
+
+/**
+ * The per-brand reverse of the lineup query: one brand, every published event
+ * it appeared at. `events!inner` resolves the event in the same round trip, and
+ * the `status = 'published'` guard is applied on the embedded column exactly as
+ * `EVENT_BRAND_SELECT` does.
+ *
+ * BOOTH SOURCE: `event_brands.booth` and only that. `event_exhibitors` carries
+ * its own `booth`, and `event_brands.event_exhibitor_id` looks like an obvious
+ * second route to it — but there are TWO foreign keys from `event_brands` to
+ * `event_exhibitors` (a single-column one and a composite `(event_id, id)`
+ * one), so an unhinted PostgREST embed of that table is ambiguous and fails.
+ * Even with a hint, reconciling two booth columns is precisely where a swapped
+ * booth label slips through unnoticed: nothing in the schema forces the two to
+ * agree, and no automatic guard exists that would catch a disagreement. One
+ * column, one source of truth — if a booth is wrong, it is wrong in one place.
+ */
+const BRAND_EVENT_PARTICIPATION_SELECT =
+  "booth, area, area_en, sort_order, events!inner(slug, name, name_en, starts_on, ends_on, status)";
 
 // ---------------------------------------------------------------------------
 // Dates
@@ -400,6 +438,52 @@ export function eventExhibitorRowToDomain(
   };
 }
 
+/**
+ * Projection returned by the per-brand participation query. Same to-one embed
+ * caveat as `EventBrandJoinRow`: PostgREST hands a to-one embed back as an
+ * object, older stacks as a single-element array, so the transform accepts both.
+ */
+type BrandEventJoinRow = {
+  booth: string | null;
+  area: string | null;
+  area_en: string | null;
+  sort_order: number;
+  events: BrandEventEmbeddedEvent | Array<BrandEventEmbeddedEvent> | null;
+};
+
+type BrandEventEmbeddedEvent = {
+  slug: string;
+  name: string;
+  name_en: string | null;
+  starts_on: string;
+  ends_on: string;
+  status: string;
+};
+
+/**
+ * Returns `null` for a row whose event is missing or not published. The
+ * `status` re-check duplicates the query's `.eq()` on purpose, mirroring
+ * `eventExhibitorRowToDomain`: this transform is exported and unit-tested on
+ * raw rows, so it must not depend on the caller having filtered first.
+ */
+function brandEventRowToDomain(
+  row: BrandEventJoinRow,
+): BrandEventParticipation | null {
+  const embedded = Array.isArray(row.events) ? row.events[0] : row.events;
+  if (!embedded?.slug || embedded.status !== "published") return null;
+
+  return {
+    eventSlug: embedded.slug,
+    eventName: embedded.name,
+    eventNameEn: embedded.name_en,
+    startsOn: embedded.starts_on,
+    endsOn: embedded.ends_on,
+    booth: row.booth,
+    area: row.area,
+    areaEn: row.area_en,
+  };
+}
+
 type EventExhibitorBrandJoinRow = {
   event_exhibitor_id: string | null;
   brands: { slug: string } | Array<{ slug: string }> | null;
@@ -580,7 +664,7 @@ export function deriveCategoryOptions(
   const options = new Map<string, EventCategoryOption>();
 
   for (const entry of entries) {
-    const category = entry.brand.category;
+    const category = entry.brand.categoryLabel;
     if (!category) continue;
     if (options.has(category)) continue;
 
@@ -725,6 +809,57 @@ export async function fetchEventBrandLinks(
 }
 
 /**
+ * Every published event one brand appeared at, most recent first.
+ *
+ * Error handling deliberately DEPARTS from this module's throw convention: this
+ * read hangs off the brand detail page, which is owned by the brands service
+ * and renders fine without it. Throwing here would take a brand page down over
+ * a supplementary section — 579 of 790 approved brands have no event link at
+ * all, so an absent section is already the normal state and degrading to `[]`
+ * is indistinguishable from it. The error is still logged, which is the signal
+ * the event pages themselves (which do throw) would surface loudly.
+ *
+ * Bounded by `event_brands_brand_idx` on `(brand_id)` and by the UNIQUE
+ * `(event_id, brand_id)`: one row per event, so no brand can reach `max_rows`
+ * and this needs no `fetchAllPages` loop.
+ */
+export async function fetchBrandEventParticipations(
+  supabase: ServiceClient,
+  brandId: string,
+): Promise<BrandEventParticipation[]> {
+  const { data, error } = await supabase
+    .from("event_brands")
+    .select(BRAND_EVENT_PARTICIPATION_SELECT)
+    .eq("brand_id", brandId)
+    .eq("events.status", "published")
+    // A stable order off the base table only. The display order is
+    // `starts_on desc`, which lives on the EMBEDDED event, and no query in this
+    // module orders by an embedded column — an order term PostgREST rejects
+    // comes back as an error, and the degrade-to-`[]` above would then hide
+    // this section on every brand at once, silently. Sorting the handful of
+    // rows in memory below cannot fail that way.
+    .order("sort_order")
+    .order("id");
+
+  if (error) {
+    console.error("fetchBrandEventParticipations query error:", error);
+    return [];
+  }
+
+  const rows = (data ?? []) as unknown as BrandEventJoinRow[];
+
+  return rows
+    .map(brandEventRowToDomain)
+    .filter((row): row is BrandEventParticipation => row !== null)
+    // Most recent appearance first; `'YYYY-MM-DD'` compares correctly as a
+    // plain string, so no date parsing is involved. `Array#sort` is stable, and
+    // the rows arrive in `(sort_order, id)` order, so two events starting the
+    // same day keep `sort_order` as their tiebreak without restating it here —
+    // which is why `sortOrder` is not carried onto the domain type.
+    .sort((a, b) => compareStrings(b.startsOn, a.startsOn));
+}
+
+/**
  * Reads the canonical exhibitor roster for one published event. The roster is
  * paged independently from event_brands because an official event can include
  * exhibitors that have no Formoria brand row yet.
@@ -837,6 +972,16 @@ export const getPublishedEventBySlug = cache(
 
 const getEventBrandLinks = cache((slug: string): Promise<EventBrandLink[]> =>
   fetchEventBrandLinks(createServiceClient(), slug),
+);
+
+/**
+ * Event appearances for one brand. Keyed on the brand id alone — a primitive,
+ * per the note above — so the brand page and anything else on the same render
+ * share one round trip.
+ */
+export const getBrandEventParticipations = cache(
+  (brandId: string): Promise<BrandEventParticipation[]> =>
+    fetchBrandEventParticipations(createServiceClient(), brandId),
 );
 
 const getEventExhibitors = cache((slug: string): Promise<EventExhibitor[]> =>

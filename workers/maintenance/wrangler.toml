@@ -1,0 +1,33 @@
+# DEV-1530 — production maintenance gate.
+#
+# Deploy:  cd workers/maintenance && pnpm dlx wrangler deploy
+# Lift:    disable the routes in the Cloudflare dashboard (no deploy), or
+#          `pnpm dlx wrangler delete`. See README.md.
+
+name = "formoria-maintenance-gate"
+main = "src/index.ts"
+compatibility_date = "2026-08-20"
+
+# NO *.workers.dev URL. Left enabled, this Worker would also answer on
+# formoria-maintenance-gate.<subdomain>.workers.dev — a second, crawlable origin
+# serving the holding page under a hostname nobody is watching.
+workers_dev = false
+
+# THE ROUTES ARE THE SWITCH.
+#
+# The gate is lifted by disabling these routes in the Cloudflare dashboard,
+# which takes effect at the edge immediately and needs no deploy — which is the
+# ticket's "can be lifted and re-applied without a deploy" requirement. A
+# `MAINTENANCE_MODE` env var would have needed a `wrangler deploy` each way.
+#
+# `www` is listed even though it currently 301s to the apex at the edge before
+# Workers run, so this route never fires today. It is here because a gate that
+# depends on a redirect rule surviving is a gate with a hole in it, and the
+# ticket's rule is that a half-open surface defeats the purpose.
+[[routes]]
+pattern = "formoria.com/*"
+zone_name = "formoria.com"
+
+[[routes]]
+pattern = "www.formoria.com/*"
+zone_name = "formoria.com"

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { getCurationJobDetailAction } from "@/app/admin/operations/actions";
 import type { CurationTargetStatus } from "@/lib/services/curation-jobs";
 import { getRunLogSnapshotUrl } from "@/lib/services/runlog-storage";
@@ -32,12 +33,13 @@ export default async function JobDetailPage({
       ? (statusParam as CurationTargetStatus)
       : "all";
   const result = await getCurationJobDetailAction(id);
+  const t = await getTranslations("admin.jobs");
 
   if ("error" in result) {
     return (
       <div className="space-y-4">
-        <h1 className="type-section-title-large">Job Detail</h1>
-        <p className="type-error">{result.error}</p>
+        <h1 className="type-label">{t("detail.title")}</h1>
+        <p className="type-metadata text-danger">{result.error}</p>
       </div>
     );
   }

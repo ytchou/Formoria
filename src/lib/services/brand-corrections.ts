@@ -6,8 +6,9 @@ import {
   sanitizeHref,
 } from "@/lib/url";
 import {
-  normalizeTagKey,
-  PRODUCT_TYPE_CATEGORIES,
+  normalizeSubcategoryKey,
+  L1_CATEGORIES,
+  MATERIALS,
 } from "@/lib/taxonomy/ontology";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -15,27 +16,62 @@ import { auditedCall, type AuditCallContext } from "@/lib/audit";
 import { describeError } from "@/lib/errors";
 import { isUuid, validateIdBatch } from "@/lib/validation/id-batch";
 import {
-  PURCHASE_CHANNELS,
-  PURCHASE_COLUMNS,
-  purchaseChannelByColumn,
-  type PurchaseChannelCamelField,
-  type PurchaseChannelColumn,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORES,
+  ONLINE_STORE_COLUMNS,
+  onlineStoreByColumn,
+  type OnlineStoreCamelField,
+  type OnlineStoreColumn,
+} from "@/lib/brands/online-stores";
 import {
-  applyTagDelta,
-  deriveProductTagsEn,
-  isProductTagsDelta,
-  MAX_PRODUCT_TAGS,
-  resolveProductTagInput,
-  sameTagSet,
-  type ProductTagsDelta,
-} from "./product-tags";
-import { updateBrand, type BrandWriteInput } from "./brands";
+  applySubcategoryDelta,
+  deriveSubcategoriesEn,
+  isSubcategoriesDelta,
+  MAX_SUBCATEGORIES,
+  recordRejectedSubcategoryInput,
+  resolveSubcategorySelection,
+  sameSubcategorySet,
+  type SubcategoriesDelta,
+} from "./subcategories";
+import { brandPatchRpc, updateBrand, type BrandWriteInput } from "./brands";
 
 const CORRECTION_SELECT =
-  `*, brands(name, slug, price_range, product_type, product_tags, ${PURCHASE_COLUMNS.join(
+  `*, brands(name, slug, price_range, category, subcategories, material, ${ONLINE_STORE_COLUMNS.join(
     ", ",
   )}, social_instagram, social_threads, social_facebook)`;
+
+/**
+ * The material axis, closed to the twelve agreed SLUGS.
+ *
+ * The gate matches on `slug` alone since DEV-1525. `nameZh` is display-only, so
+ * a payload carrying the pre-migration zh label for `ceramic` is rejected
+ * exactly like a term the vocabulary never held — `brands.material` stores
+ * `ceramic` now, and accepting the old spelling here would write a value
+ * `brands_material_check` bounces.
+ *
+ * Both correctable arrays are closed now: DEV-1510 retired the subcategory
+ * escape hatch of `docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md`,
+ * so `normalizeProposedValue` returns `invalid_value` for any add the ontology
+ * cannot resolve. The reasons differ and are worth keeping apart — a material is
+ * a fixed property of matter rather than a growing catalogue, while the
+ * subcategory vocabulary grows by an admission round rather than by a
+ * correction — but neither admits a free-text value.
+ *
+ * `brands_material_check` would reject the write anyway. Failing in the service
+ * layer turns a 23514 at apply time into an `invalid_value` at submit time.
+ */
+const MATERIAL_TERMS = new Set<string>(MATERIALS.map((m) => m.slug));
+
+/**
+ * Canonical storage order for a material array: the `MATERIALS` order, not
+ * first-seen. `20260820170000_material_slugs.sql` converts every stored row in
+ * that order (its mapping ranks 1..12 are the `MATERIALS` indices), so a
+ * corrected row that kept insertion order would sort differently from a
+ * converted one holding the same set — and array equality is how
+ * `sameMaterialSet` and the staleness check both work.
+ */
+const MATERIAL_ORDER = new Map<string, number>(
+  MATERIALS.map((material, index) => [material.slug, index]),
+);
 
 const MAX_LINK_URL_LENGTH = 2048;
 const SOCIAL_LINK_FIELDS = [
@@ -44,8 +80,8 @@ const SOCIAL_LINK_FIELDS = [
   "social_facebook",
 ] as const;
 
-const PRODUCT_TYPE_SLUGS = new Set<string>(
-  PRODUCT_TYPE_CATEGORIES.map((category) => category.slug),
+const CATEGORY_SLUGS = new Set<string>(
+  L1_CATEGORIES.map((category) => category.slug),
 );
 type BrandCorrectionRow =
   Database["public"]["Tables"]["brand_field_corrections"]["Row"];
@@ -57,17 +93,18 @@ type BrandCorrectionBrandRow = Pick<
   | "name"
   | "slug"
   | "price_range"
-  | "product_type"
-  | "product_tags"
+  | "category"
+  | "subcategories"
+  | "material"
   | "social_instagram"
   | "social_threads"
   | "social_facebook"
 >;
 type BrandCorrectionBrandPurchaseFields = Pick<
   Database["public"]["Tables"]["brands"]["Row"] & {
-    [Column in PurchaseChannelColumn]?: string | null;
+    [Column in OnlineStoreColumn]?: string | null;
   },
-  PurchaseChannelColumn
+  OnlineStoreColumn
 >;
 type BrandCorrectionBrand = BrandCorrectionBrandRow &
   BrandCorrectionBrandPurchaseFields;
@@ -75,21 +112,52 @@ type BrandCorrectionRowWithBrand = BrandCorrectionRow & {
   brands?: BrandCorrectionBrand | null;
 };
 
-type PurchaseLinkCorrectionField = PurchaseChannelColumn;
+type PurchaseLinkCorrectionField = OnlineStoreColumn;
 type SocialLinkCorrectionField = (typeof SOCIAL_LINK_FIELDS)[number];
 type LinkCorrectionField =
   | PurchaseLinkCorrectionField
   | SocialLinkCorrectionField;
-export type CorrectionField =
-  | "price_range"
-  | "product_type"
-  | "product_tags"
-  | LinkCorrectionField;
-type ScalarCorrectionField = Exclude<CorrectionField, "product_tags">;
+/**
+ * The correctable vocabulary as RUNTIME values, with `CorrectionField` derived
+ * from it rather than declared beside it.
+ *
+ * The action's `z.enum` gate needs the members at runtime, and while that list
+ * was written out a second time a field could reach the type, the service, the
+ * RPC and the DB CHECK while the gate still rejected it — which is exactly what
+ * happened to `material`, leaving the whole path unreachable from its only
+ * caller. Adding a field here now adds it everywhere, once.
+ */
+export const CORRECTION_FIELDS = [
+  "price_range",
+  "category",
+  "subcategories",
+  "material",
+  ...ONLINE_STORE_COLUMNS,
+  ...SOCIAL_LINK_FIELDS,
+] as const;
+
+export type CorrectionField = (typeof CORRECTION_FIELDS)[number];
+
+/**
+ * The two ARRAY-valued correctable fields. They share a delta shape and nothing
+ * else: `subcategories` canonicalizes through the ontology and admits novel
+ * values, `material` is closed. Every site below branches on them separately
+ * rather than widening one union, so a rule written for one can never leak onto
+ * the other by accident.
+ */
+type ArrayCorrectionField = "subcategories" | "material";
+type ScalarCorrectionField = Exclude<CorrectionField, ArrayCorrectionField>;
+
+/** A `material` delta. Structurally like `SubcategoriesDelta`, semantically not. */
+export type MaterialDelta = { add: string[]; remove: string[] };
 type CorrectionStatus = "pending" | "approved" | "rejected";
 export type CorrectionDecision = Exclude<CorrectionStatus, "pending">;
 
-type CorrectionProposedValue = number | string | ProductTagsDelta;
+type CorrectionProposedValue =
+  | number
+  | string
+  | SubcategoriesDelta
+  | MaterialDelta;
 
 export type BrandCorrection = {
   id: string;
@@ -124,7 +192,7 @@ export type SubmitCorrectionResult =
         | "invalid_field"
         | "invalid_value"
         | "unchanged"
-        | "too_many_tags"
+        | "too_many_subcategories"
         | "already_submitted"
         | "not_found"
         | "database_error";
@@ -142,7 +210,7 @@ export type ReviewCorrectionResult =
       ok: false;
       code:
         | "invalid_value"
-        | "too_many_tags"
+        | "too_many_subcategories"
         | "not_found"
         | "already_reviewed"
         | "database_error";
@@ -164,6 +232,14 @@ export type ValidateCorrectionBatchResult =
  * `scripts/check-test-boundaries.mjs` forbids mocking `@/lib/services/` and
  * `@/lib/supabase/` modules outright.
  */
+/**
+ * Injection seam for `reviewCorrection`, same reason as `ReviewCorrectionsDeps`
+ * below: `scripts/check-test-boundaries.mjs` forbids mocking `@/lib/supabase/`,
+ * so a test that has to reach the review path passes a double instead.
+ * Production callers pass nothing and get `createServiceClient()`.
+ */
+export type CorrectionSupabase = ReturnType<typeof createServiceClient>;
+
 export type ReviewCorrectionsDeps = {
   fetchPendingBrandIds: (
     ids: string[],
@@ -184,19 +260,13 @@ type CorrectionError = Extract<SubmitCorrectionResult, { ok: false }>["code"];
 type CurrentBrandValue = number | string | string[] | null;
 
 export function isCorrectionField(value: string): value is CorrectionField {
-  return (
-    value === "price_range" ||
-    value === "product_type" ||
-    value === "product_tags" ||
-    PURCHASE_COLUMNS.some((field) => field === value) ||
-    SOCIAL_LINK_FIELDS.some((field) => field === value)
-  );
+  return CORRECTION_FIELDS.some((field) => field === value);
 }
 
 function isPurchaseLinkField(
   field: CorrectionField,
 ): field is PurchaseLinkCorrectionField {
-  return PURCHASE_COLUMNS.some((purchaseField) => purchaseField === field);
+  return ONLINE_STORE_COLUMNS.some((purchaseField) => purchaseField === field);
 }
 
 function isSocialLinkField(
@@ -207,6 +277,81 @@ function isSocialLinkField(
 
 function isLinkField(field: CorrectionField): field is LinkCorrectionField {
   return isPurchaseLinkField(field) || isSocialLinkField(field);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+/**
+ * Deliberately NOT `isSubcategoriesDelta`. The two guards accept the same JSON
+ * shape today; keeping them separate is what lets `material` gain a rule — a
+ * cap, a pairing, a required term — without silently changing what a
+ * subcategories correction may contain.
+ */
+export function isMaterialDelta(value: unknown): value is MaterialDelta {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  return isStringArray(record.add) && isStringArray(record.remove);
+}
+
+/**
+ * Applies a material delta and re-sorts into `MATERIALS` order.
+ *
+ * Membership is EXACT-STRING, not `normalizeSubcategoryKey`: the vocabulary is
+ * twelve closed lowercase slugs with no aliases, no case variants and no middle
+ * dots, so normalizing would only add a way for two spellings of one term to
+ * exist.
+ * `normalizeProposedValue` has already rejected anything outside the set.
+ */
+export function applyMaterialDelta(
+  current: string[],
+  delta: MaterialDelta,
+): string[] {
+  const removed = new Set(delta.remove);
+  const next = new Set(current.filter((material) => !removed.has(material)));
+  for (const material of delta.add) next.add(material);
+  return [...next].toSorted(
+    (left, right) =>
+      (MATERIAL_ORDER.get(left) ?? Number.MAX_SAFE_INTEGER) -
+      (MATERIAL_ORDER.get(right) ?? Number.MAX_SAFE_INTEGER),
+  );
+}
+
+export function sameMaterialSet(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  const rightSet = new Set(right);
+  return left.every((material) => rightSet.has(material));
+}
+
+/**
+ * Writes `material` through `apply_brand_patch` rather than `updateBrand`.
+ *
+ * `BrandWriteInput` is `Partial<Brand>` and the `Brand` domain type has no
+ * `material` yet (DEV-1502 shipped the column, not the mapper), so `updateBrand`
+ * would drop the key silently — `brandToUpdate` copies only mapped fields plus
+ * raw snake_case keys, and `material` is neither. The RPC is the same one
+ * `updateBrand` ends at, is column-generic (`format('%I', key)`), and writes the
+ * `brand_field_state` and `brand_field_events` provenance rows exactly as an
+ * admin edit does. Fold this back into `updateBrand` when `Brand` gains the
+ * field.
+ */
+async function applyMaterialPatch(
+  supabase: ReturnType<typeof createServiceClient>,
+  brandId: string,
+  material: string[],
+  reviewerId: string,
+): Promise<void> {
+  const { error } = await brandPatchRpc(supabase).rpc("apply_brand_patch", {
+    p_brand_id: brandId,
+    p_patch: { material },
+    p_source: "admin",
+    p_actor: reviewerId,
+    p_job_id: null,
+  });
+  if (error) throw error;
 }
 
 function hasHostname(url: URL, hostname: string): boolean {
@@ -250,11 +395,11 @@ function normalizePurchaseUrl(
   const url = parseLinkUrl(value, sanitizeHref);
   if (!url) return null;
 
-  const channel = purchaseChannelByColumn[field];
+  const channel = onlineStoreByColumn[field];
   const matchesExpectedHost = channel.hosts.some((host) =>
     hasHostname(url, host),
   );
-  const matchesOtherChannelHost = PURCHASE_CHANNELS.some(
+  const matchesOtherChannelHost = ONLINE_STORES.some(
     (candidate) =>
       candidate !== channel &&
       candidate.hosts.some((host) => hasHostname(url, host)),
@@ -352,11 +497,13 @@ export type NormalizeProposedValueResult =
  * Idempotency holds against a FIXED ontology only. Two drift directions across
  * ontology EDITS are known and accepted:
  *
- * 1. Removal: reviewCorrection runs this guard BEFORE its rejection branch, so
- *    if a `nameZh` is later dropped from the ontology a stale pending row can
- *    become both un-approvable and un-rejectable. Pre-existing, not introduced
- *    here.
- * 2. Add-as-alias: a novel tag is persisted raw and the admin queue renders that
+ * 1. Removal: reviewCorrection decides rejection BEFORE reaching this guard
+ *    (see the branch above `normalizeProposedValue` in that function), so a
+ *    term later dropped from the ontology makes a stale pending row
+ *    un-approvable but never un-rejectable — an admin can always clear it.
+ *    DEV-1525 fixed the inverse ordering, which stranded such rows on both
+ *    decisions.
+ * 2. Add-as-alias: a novel subcategory is persisted raw and the admin queue renders that
  *    stored string. If that exact string is later added to the ontology as an
  *    ALIAS of a subcategory, the approval-time re-normalization rewrites `add`
  *    to that subcategory's `nameZh` — so the reviewer approves a label they
@@ -377,8 +524,8 @@ export function normalizeProposedValue(
       : { ok: false, error: "invalid_value" };
   }
 
-  if (field === "product_type") {
-    return typeof value === "string" && PRODUCT_TYPE_SLUGS.has(value)
+  if (field === "category") {
+    return typeof value === "string" && CATEGORY_SLUGS.has(value)
       ? { ok: true, value }
       : { ok: false, error: "invalid_value" };
   }
@@ -390,35 +537,59 @@ export function normalizeProposedValue(
       : { ok: false, error: "invalid_value" };
   }
 
-  if (!isProductTagsDelta(value)) return { ok: false, error: "invalid_value" };
+  // The material branch. CLOSED, unlike the subcategories branch below: an
+  // unknown term is rejected here rather than persisted, because the twelve
+  // terms are the whole vocabulary and `brands_material_check` enforces the
+  // same set at the column. `remove` is validated too — there is no legacy
+  // material value to repair, so an unlisted removal is a malformed request,
+  // not a cleanup.
+  if (field === "material") {
+    if (!isMaterialDelta(value)) return { ok: false, error: "invalid_value" };
 
-  // Asymmetric on purpose. Every `add` is canonicalized through the ontology
-  // (alias or English name -> `nameZh`) before it is persisted: brands.product_tags
-  // stores canonical labels and the `?sub=` filter matches by exact-string array
-  // overlap, so an un-canonicalized addition would silently drop the brand from
-  // subcategory results. A tag the ontology does not know is still allowed
-  // through — that escape hatch is the point — but only if it clears the same
-  // novel-tag heuristics enrichment applies. `remove` stays unrestricted: a brand
-  // can carry novel tags persisted by normalizeProductTags, and removing a bad
-  // value can never introduce one. Rejecting those removals would block exactly
-  // the repair this feature exists to perform.
-  // Ceiling: `novelTagRejection` is a code-point length band plus a
-  // marketing-noise regex whose terms are all Han — so non-CJK input passes
-  // with NO content filter at all, and admin review is the only gate on it;
-  // swap for a language-agnostic blocklist (or a moderation call) if reviewers
-  // report abusive submissions.
-  // Dedupe on the ontology's matching key, not the raw string: novel tags are
-  // stored as typed, so 'Vegan' and 'vegan' would otherwise both survive and
-  // take two of the five cap slots. First-seen casing wins.
+    const add: string[] = [];
+    for (const raw of value.add) {
+      const material = raw.trim();
+      if (!MATERIAL_TERMS.has(material))
+        return { ok: false, error: "invalid_value" };
+      if (!add.includes(material)) add.push(material);
+    }
+
+    const remove: string[] = [];
+    for (const raw of value.remove) {
+      const material = raw.trim();
+      if (!MATERIAL_TERMS.has(material))
+        return { ok: false, error: "invalid_value" };
+      if (!remove.includes(material)) remove.push(material);
+    }
+
+    return { ok: true, value: { add, remove } };
+  }
+
+  if (!isSubcategoriesDelta(value)) return { ok: false, error: "invalid_value" };
+
+  // Asymmetric on purpose. Every `add` is resolved through the CLOSED
+  // vocabulary and stored as its SLUG: `brands.subcategories` is a slug column
+  // since DEV-1510 and the `?sub=` filter matches by exact array overlap, so an
+  // unresolved addition would silently drop the brand from subcategory results.
+  // There is no novel escape hatch left — a term the vocabulary does not know is
+  // refused and LOGGED, because with every free-text path gone that log is the
+  // only way a missing product kind can announce itself. `remove` stays
+  // unrestricted: a brand can still carry pre-migration values, and removing a
+  // bad value can never introduce one. Rejecting those removals would block
+  // exactly the repair this feature exists to perform.
+  // Dedupe on the ontology's matching key, not the raw string.
   const add: string[] = [];
   const seenAdd = new Set<string>();
   for (const raw of value.add) {
-    const resolved = resolveProductTagInput(raw);
-    if (!resolved.ok) return { ok: false, error: "invalid_value" };
-    const key = normalizeTagKey(resolved.tag);
+    const resolved = resolveSubcategorySelection(raw);
+    if (!resolved.ok) {
+      recordRejectedSubcategoryInput({ input: raw, surface: "correction-api" });
+      return { ok: false, error: "invalid_value" };
+    }
+    const key = normalizeSubcategoryKey(resolved.slug);
     if (seenAdd.has(key)) continue;
     seenAdd.add(key);
-    add.push(resolved.tag);
+    add.push(resolved.slug);
   }
 
   const remove: string[] = [];
@@ -438,8 +609,8 @@ export function buildScalarCorrectionPatch(
   proposedValue: number | string,
 ): BrandWriteInput {
   if (isPurchaseLinkField(field)) {
-    const camelField: PurchaseChannelCamelField =
-      purchaseChannelByColumn[field].camel;
+    const camelField: OnlineStoreCamelField =
+      onlineStoreByColumn[field].camel;
     const patch: BrandWriteInput = {};
     patch[camelField] = proposedValue as string;
     return patch;
@@ -448,8 +619,8 @@ export function buildScalarCorrectionPatch(
   switch (field) {
     case "price_range":
       return { priceRange: proposedValue as number };
-    case "product_type":
-      return { productType: proposedValue as string };
+    case "category":
+      return { categorySlug: proposedValue as string };
     case "social_instagram":
       return { socialInstagram: proposedValue as string };
     case "social_threads":
@@ -510,7 +681,7 @@ function currentValueForField(
     // `?? null` because the purchase columns are optional on the row shape:
     // a projection that omits one yields undefined, which CurrentBrandValue
     // does not admit.
-    return brand[purchaseChannelByColumn[field].column] ?? null;
+    return brand[onlineStoreByColumn[field].column] ?? null;
   }
 
   // Exhaustive by design — no fallthrough default, so a field added to
@@ -519,10 +690,12 @@ function currentValueForField(
   switch (field) {
     case "price_range":
       return brand.price_range;
-    case "product_type":
-      return brand.product_type;
-    case "product_tags":
-      return Array.isArray(brand.product_tags) ? brand.product_tags : [];
+    case "category":
+      return brand.category;
+    case "subcategories":
+      return Array.isArray(brand.subcategories) ? brand.subcategories : [];
+    case "material":
+      return Array.isArray(brand.material) ? brand.material : [];
     case "social_instagram":
       return brand.social_instagram;
     case "social_threads":
@@ -533,7 +706,10 @@ function currentValueForField(
 }
 
 function rowToCorrection(row: BrandCorrectionRowWithBrand): BrandCorrection {
-  const field = row.field as CorrectionField;
+  if (!isCorrectionField(row.field)) {
+    throw new Error(`Unsupported persisted correction field: ${row.field}`);
+  }
+  const field = row.field;
   const currentValue = currentValueForField(field, row.brands);
 
   return {
@@ -576,7 +752,7 @@ async function readBrand(
   const { data, error } = await supabase
     .from("brands")
     .select(
-      `id, name, slug, price_range, product_type, product_tags, ${PURCHASE_COLUMNS.join(
+      `id, name, slug, price_range, category, subcategories, material, ${ONLINE_STORE_COLUMNS.join(
         ", ",
       )}, social_instagram, social_threads, social_facebook`,
     )
@@ -653,7 +829,7 @@ async function releaseClaim(
     .eq("id", id);
 }
 
-async function supersedePendingTags(
+async function supersedePendingSubcategories(
   supabase: ReturnType<typeof createServiceClient>,
   brandId: string,
   reviewerId: string,
@@ -669,11 +845,14 @@ async function supersedePendingTags(
       reviewer_notes: "superseded_by_category_change",
     })
     .eq("brand_id", brandId)
-    .eq("field", "product_tags")
+    .eq("field", "subcategories")
     .eq("status", "pending");
 
   if (error) {
-    console.error("[brand-corrections] supersedePendingTags failed:", error);
+    console.error(
+      "[brand-corrections] supersedePendingSubcategories failed:",
+      error,
+    );
     if (ctx) ctx.summary.supersedeError = describeError(error);
     return { ok: false, code: "database_error" };
   }
@@ -707,16 +886,28 @@ export async function submitCorrection(
     const currentValue = currentValueForField(input.field, brand);
     let previousValue: Json | null = currentValue;
 
-    if (input.field === "product_tags") {
-      const delta = proposedValue as ProductTagsDelta;
-      const currentTags = Array.isArray(currentValue) ? currentValue : [];
-      const next = applyTagDelta(currentTags, delta);
-      if (sameTagSet(currentTags, next))
+    if (input.field === "subcategories") {
+      const delta = proposedValue as SubcategoriesDelta;
+      const currentSubcategories = Array.isArray(currentValue)
+        ? currentValue
+        : [];
+      const next = applySubcategoryDelta(currentSubcategories, delta);
+      if (sameSubcategorySet(currentSubcategories, next))
         return { ok: false, code: "unchanged" };
-      if (next.length > MAX_PRODUCT_TAGS) {
-        return { ok: false, code: "too_many_tags" };
+      if (next.length > MAX_SUBCATEGORIES) {
+        return { ok: false, code: "too_many_subcategories" };
       }
-      previousValue = currentTags;
+      previousValue = currentSubcategories;
+    } else if (input.field === "material") {
+      // The second array branch. No cap check: the vocabulary is closed at
+      // twelve terms, so the set is its own ceiling and a `MAX_MATERIALS`
+      // constant would be a second number to keep in step with the first.
+      const delta = proposedValue as MaterialDelta;
+      const currentMaterial = Array.isArray(currentValue) ? currentValue : [];
+      const next = applyMaterialDelta(currentMaterial, delta);
+      if (sameMaterialSet(currentMaterial, next))
+        return { ok: false, code: "unchanged" };
+      previousValue = currentMaterial;
     } else if (
       correctionValuesEqual(input.field, currentValue, proposedValue)
     ) {
@@ -778,6 +969,7 @@ export async function reviewCorrection(
   decision: CorrectionDecision,
   notes: string,
   { reviewerId }: { reviewerId: string },
+  client?: CorrectionSupabase,
 ): Promise<ReviewCorrectionResult> {
   return auditedCall<ReviewCorrectionResult>(
     { provider: "brands", operation: "reviewCorrection", kind: "service" },
@@ -787,7 +979,7 @@ export async function reviewCorrection(
   }
 
   try {
-    const supabase = createServiceClient();
+    const supabase = client ?? createServiceClient();
     const { data, error } = await supabase
       .from("brand_field_corrections")
       .select(CORRECTION_SELECT)
@@ -806,14 +998,16 @@ export async function reviewCorrection(
     if (!isCorrectionField(row.field) || !row.brands) {
       return { ok: false, code: "invalid_value" };
     }
-
-    // Re-normalizes an already-normalized stored value; idempotency is what
-    // keeps a row that passed at submit from failing here.
-    const normalized = normalizeProposedValue(row.field, row.proposed_value);
-    if (!normalized.ok) return { ok: false, code: normalized.error };
-    const proposedValue = normalized.value;
-
+    const applicationField = row.field;
     const reviewedAt = new Date().toISOString();
+
+    // Rejection is decided BEFORE the stored value is re-validated, and the
+    // order is the point: a reject is a decision about the ROW, not about the
+    // value it proposes, so it has to stay available when a vocabulary
+    // migration invalidates stored history. DEV-1525 respelled `material` from
+    // zh-TW labels to slugs; with the normalize gate above this branch, a row
+    // proposing a pre-migration label failed `invalid_value` on BOTH decisions
+    // and no admin action could clear it out of the queue.
     if (decision === "rejected") {
       return markReviewed(
         supabase,
@@ -826,33 +1020,58 @@ export async function reviewCorrection(
       );
     }
 
-    const currentValue = currentValueForField(row.field, row.brands);
+    // Approval re-normalizes an already-normalized stored value; idempotency is
+    // what keeps a row that passed at submit from failing here. When it does
+    // fail, refusing is correct — the value is one `apply_brand_patch` would
+    // bounce on the column CHECK — and rejection above is the reviewer's exit.
+    const normalized = normalizeProposedValue(
+      applicationField,
+      row.proposed_value,
+    );
+    if (!normalized.ok) return { ok: false, code: normalized.error };
+    const proposedValue = normalized.value;
+
+    const currentValue = currentValueForField(applicationField, row.brands);
     // `null` means the brand already holds the proposed value. The dedup index
     // is per visitor_hash, so N visitors reporting the same wrong value each
     // create a row; approving the first applies it and every later row is a
     // no-op. Those are still correct suggestions — approve them and let them
     // leave the queue instead of stranding them as un-approvable pending rows.
     let patch: BrandWriteInput | null;
+    // `material` does not go through `updateBrand` — see `applyMaterialPatch`.
+    // Held separately rather than folded into `patch` so the two array fields
+    // cannot be confused for one another at the write site either.
+    let materialPatch: string[] | null = null;
 
-    if (row.field === "product_tags") {
-      const delta = proposedValue as ProductTagsDelta;
-      const currentTags = Array.isArray(currentValue) ? currentValue : [];
-      const next = applyTagDelta(currentTags, delta);
-      if (sameTagSet(currentTags, next)) {
+    if (applicationField === "material") {
+      const delta = proposedValue as MaterialDelta;
+      const currentMaterial = Array.isArray(currentValue) ? currentValue : [];
+      const next = applyMaterialDelta(currentMaterial, delta);
+      patch = null;
+      materialPatch = sameMaterialSet(currentMaterial, next) ? null : next;
+    } else if (applicationField === "subcategories") {
+      const delta = proposedValue as SubcategoriesDelta;
+      const currentSubcategories = Array.isArray(currentValue)
+        ? currentValue
+        : [];
+      const next = applySubcategoryDelta(currentSubcategories, delta);
+      if (sameSubcategorySet(currentSubcategories, next)) {
         patch = null;
-      } else if (next.length > MAX_PRODUCT_TAGS) {
-        return { ok: false, code: "too_many_tags" };
+      } else if (next.length > MAX_SUBCATEGORIES) {
+        return { ok: false, code: "too_many_subcategories" };
       } else {
         patch = {
-          productTags: next,
-          productTagsEn: deriveProductTagsEn(next),
+          subcategories: next,
+          subcategoriesEn: deriveSubcategoriesEn(next),
         };
       }
-    } else if (correctionValuesEqual(row.field, currentValue, proposedValue)) {
+    } else if (
+      correctionValuesEqual(applicationField, currentValue, proposedValue)
+    ) {
       patch = null;
     } else {
       patch = buildScalarCorrectionPatch(
-        row.field as ScalarCorrectionField,
+        applicationField as ScalarCorrectionField,
         proposedValue as number | string,
       );
     }
@@ -883,9 +1102,23 @@ export async function reviewCorrection(
       }
     }
 
+    if (materialPatch) {
+      try {
+        await applyMaterialPatch(
+          supabase,
+          row.brand_id,
+          materialPatch,
+          reviewerId,
+        );
+      } catch (writeError) {
+        await releaseClaim(supabase, id);
+        throw writeError;
+      }
+    }
+
     const superseded =
-      row.field === "product_type"
-        ? await supersedePendingTags(
+      applicationField === "category"
+        ? await supersedePendingSubcategories(
             supabase,
             row.brand_id,
             reviewerId,
@@ -968,9 +1201,9 @@ const defaultReviewCorrectionsDeps: ReviewCorrectionsDeps = {
  * approval path is a read-modify-write: it reads the brand row, computes a
  * patch, then calls `updateBrand`. Two corrections on the SAME brand running
  * concurrently therefore both read the pre-batch row and the later write
- * silently discards the earlier field change. A `product_type` approval makes
- * it worse: `supersedePendingTags` bulk-rejects that brand's sibling pending
- * `product_tags` rows, which a concurrent item may be mid-claim on. Neither
+ * silently discards the earlier field change. A `category` approval makes
+ * it worse: `supersedePendingSubcategories` bulk-rejects that brand's sibling pending
+ * `subcategories` rows, which a concurrent item may be mid-claim on. Neither
  * failure raises an error — it surfaces weeks later as a brand field that
  * "reverted on its own". Different brands share no row, so those groups are
  * free to overlap.

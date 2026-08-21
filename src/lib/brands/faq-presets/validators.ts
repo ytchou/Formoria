@@ -48,10 +48,10 @@ function evidencePresent(
       return brand.mitStatus === "declared" || brand.mitStatus === "verified";
     case "mitStory":
       return typeof brand.mitStory === "string" && brand.mitStory.trim() !== "";
-    case "productType":
-      return typeof brand.productType === "string" && brand.productType.trim() !== "";
-    case "productTags":
-      return brand.productTags.some((tag) => tag.trim() !== "");
+    case "categorySlug":
+      return typeof brand.categorySlug === "string" && brand.categorySlug.trim() !== "";
+    case "subcategories":
+      return brand.subcategories.some((tag) => tag.trim() !== "");
     case "priceRange":
       return brand.priceRange === 1 || brand.priceRange === 2 || brand.priceRange === 3;
     case "reputationSummary":

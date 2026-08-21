@@ -1,16 +1,19 @@
 import type { Metadata } from 'next'
-import Image from 'next/image'
+import { SurfaceImage } from '@/components/ui/image'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Heart } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
-import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
-import { brandImageFill } from '@/lib/images/focal'
+import { brandImageFill } from '@/lib/images/fill'
+import { selectBrandCardImage } from '@/lib/brands/image-selection'
 import { getUserSavedBrands } from '@/lib/services/saved-brands'
 import { requireUserPage } from '@/lib/auth/require-user'
 import type { SavedBrand } from '@/lib/types/saved-brand'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { routes } from '@/lib/routes'
+import { Grid } from '@/components/ui/grid'
+import { PageShell, shellStyles } from '@/components/ui/page-shell'
 
 type Props = {
   params: Promise<{ locale: string }>
@@ -27,11 +30,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 function BrandImage({ brand }: { brand: SavedBrand }) {
-  const heroImageUrl = safeImageSrc(brand.heroImageUrl)
-  if (!heroImageUrl) {
+  const selectedImage = selectBrandCardImage(brand)
+  if (!selectedImage) {
     return (
-      <div className="flex h-full items-center justify-center bg-secondary">
-        <span className="type-page-title-large text-muted-foreground">
+      <div className="flex h-full items-center justify-center bg-surface-deep">
+        <span className="type-page-title text-ink-muted">
           {[...brand.brandName][0]}
         </span>
       </div>
@@ -39,19 +42,16 @@ function BrandImage({ brand }: { brand: SavedBrand }) {
   }
 
   // Shared with every other brand image surface: a logo is contained (its
-  // whitespace is part of the mark), everything else covers and is anchored on
-  // its focal point.
-  const imageFill = brandImageFill(brand.heroImageMeta, { inset: 'p-6' })
+  // whitespace is part of the mark), everything else covers.
+  const imageFill = brandImageFill(selectedImage.meta, { inset: 'p-6' })
 
   return (
-    <Image
+    <SurfaceImage
       alt={brand.brandName}
-      className={imageFill.className}
-      // Assigned, never spread — `undefined` is meaningful here.
-      style={imageFill.style}
+      className={imageFill}
       fill
-      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-      src={heroImageUrl}
+      surface="card"
+      src={selectedImage.src}
     />
   )
 }
@@ -65,16 +65,16 @@ function SavedBrandCard({ brand }: { brand: SavedBrand }) {
         padding: 'none',
         tone: 'white',
       })}
-      href={`/brands/${brand.brandSlug}`}
+      href={routes.brand(brand.brandSlug)}
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+      <div className="relative aspect-media overflow-hidden bg-surface-deep">
         <BrandImage brand={brand} />
-        <div className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-cta shadow-sm">
+        <div className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-rule bg-ground text-accent">
           <Heart className="h-5 w-5" fill="currentColor" aria-hidden />
         </div>
       </div>
       <div className="p-4">
-        <h2 className="truncate type-subsection-title">
+        <h2 className="truncate type-body-sm font-semibold text-ink">
           {brand.brandName}
         </h2>
       </div>
@@ -94,18 +94,18 @@ function EmptyState({
   return (
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center page-gutter py-16">
       <div className="max-w-md text-center">
-        <div className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <div className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-surface-deep text-ink-muted">
           <Heart className="h-8 w-8" aria-hidden />
         </div>
-        <h2 className="mt-6 type-section-title-large">
+        <h2 className="mt-6 type-section">
           {title}
         </h2>
-        <p className="mt-3 type-card-description">
+        <p className="mt-3 type-body-sm">
           {description}
         </p>
         <Link
           className={cn(buttonVariants(), 'mt-6')}
-          href="/brands"
+          href={routes.brands()}
         >
           {action}
         </Link>
@@ -119,15 +119,26 @@ export default async function FavoritesPage({ params }: Props) {
   setRequestLocale(locale)
 
   const t = await getTranslations('favorites')
-  const user = await requireUserPage('/favorites', locale)
+  const user = await requireUserPage(routes.favorites(), locale)
 
   const brands = await getUserSavedBrands(user.id)
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="page-gutter flex h-16 items-center justify-between gap-4">
-          <h1 className="type-section-title-large">
+    <div className="min-h-screen bg-ground">
+      {/* The rule is full-bleed, the row inside it is on the measure — and
+        THE MEASURE is all this header shares with the one `loading.tsx` draws.
+        Both containers here were uncapped while that skeleton already capped at
+        the measure, so the page jumped wider the moment the real data arrived.
+        The skeleton header is `h-14` and sticky under the nav; this one is
+        `h-16` and static, so the swap still grows the row 8px and un-sticks it.
+        That mismatch predates DEV-1529 and outlives it — closing it moves
+        rendered layout, which is a behavioural change, not a width one. */}
+      <header className="border-b border-rule bg-ground">
+        <PageShell
+          measure="page"
+          className="flex h-16 items-center justify-between gap-4"
+        >
+          <h1 className="type-section">
             {t('heading')}
           </h1>
           {brands.length > 0 && (
@@ -135,16 +146,18 @@ export default async function FavoritesPage({ params }: Props) {
               {t('count', { count: brands.length })}
             </p>
           )}
-        </div>
+        </PageShell>
       </header>
 
       <main>
         {brands.length > 0 ? (
-          <div className="page-gutter grid grid-cols-1 gap-6 py-10 sm:grid-cols-2 lg:grid-cols-4">
+          // The shell as a class string, not a wrapper: `Grid` owns the
+          // element, exactly as `directory-view.tsx` reads it.
+          <Grid className={cn(shellStyles({ measure: 'page' }), 'py-stack')}>
             {brands.map((brand) => (
               <SavedBrandCard key={brand.brandId} brand={brand} />
             ))}
-          </div>
+          </Grid>
         ) : (
           <EmptyState
             title={t('emptyTitle')}

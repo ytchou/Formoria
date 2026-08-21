@@ -2,6 +2,7 @@ import {
   listCurationJobs,
   type CurationJob,
 } from "@/lib/services/curation-jobs";
+import { routes } from "@/lib/routes";
 
 const PERSONAL_OS_CURATION_RUNS_SCHEMA_VERSION = 1 as const;
 export const PERSONAL_OS_CURATION_RUNS_DEFAULT_LIMIT = 50;
@@ -77,7 +78,7 @@ function toPersonalOsCurationRun(job: CurationJob): PersonalOsCurationRun {
       failed: job.failed_count,
       cancelled: job.cancelled_count ?? 0,
     },
-    sourcePath: `/admin/jobs/${job.id}`,
+    sourcePath: routes.admin.job(job.id),
   };
 }
 

@@ -5,12 +5,29 @@ import { BUDGET } from '../budgets';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
+const IS_CANONICAL_STAGING_TARGET =
+  new URL(
+    process.env.BASE_URL ??
+      process.env.PLAYWRIGHT_BASE_URL ??
+      process.env.STAGING_BASE_URL ??
+      'http://localhost:3000',
+  ).origin === 'https://staging.formoria.com';
+
+function expectShareCardCacheContract(cacheControl: string): void {
+  if (IS_CANONICAL_STAGING_TARGET) {
+    expect(cacheControl).toBe('private, no-store');
+    return;
+  }
+
+  expect(cacheControl).toContain('s-maxage=86400');
+}
+
 /**
  * Share card API — /api/share-card/[slug]
  *
  * Journey: Anonymous request confirms the API renders a real 1080×1350 PNG for
- * approved brands, serves correct headers (cache-control, content-disposition),
- * and returns 404 for non-existent or hidden brand slugs.
+ * approved brands, serves environment-appropriate security/cache headers and
+ * content-disposition, and returns 404 for non-existent or hidden brand slugs.
  *
  * Actor: anonymous — uses Playwright `request` fixture; no browser page needed.
  * Seeds: one approved brand with a CJK name (exercises NotoSansTC subset) +
@@ -47,7 +64,7 @@ test.describe('Share card API', () => {
         slug: approvedBrandSlug,
         status: 'approved',
         approved_at: new Date().toISOString(),
-        product_type: 'crafts',
+        category: 'home',
         description: '[E2E-TEST] share card API approved brand',
       })
       .select('id')
@@ -62,7 +79,7 @@ test.describe('Share card API', () => {
         name: `[E2E-TEST] Share Card Hidden ${ts}`,
         slug: hiddenBrandSlug,
         status: 'hidden',
-        product_type: 'crafts',
+        category: 'home',
         description: '[E2E-TEST] share card API hidden brand',
       })
       .select('id')
@@ -90,7 +107,7 @@ test.describe('Share card API', () => {
     expect(contentType).toContain('image/png');
 
     const cacheControl = resp.headers()['cache-control'] ?? '';
-    expect(cacheControl).toContain('s-maxage=86400');
+    expectShareCardCacheContract(cacheControl);
 
     const body = await resp.body();
 

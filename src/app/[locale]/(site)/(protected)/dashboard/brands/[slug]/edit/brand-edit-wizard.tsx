@@ -29,6 +29,7 @@ import { BasicInfoSection } from './sections/basic-info-section'
 import { MediaSection } from './sections/media-section'
 import { LinksSection } from './sections/links-section'
 import { ReputationSection } from './sections/reputation-section'
+import { routes } from '@/lib/routes'
 
 interface BrandEditWizardProps {
   brand: Pick<OwnerBrandEditor, 'id' | 'slug'>
@@ -37,7 +38,7 @@ interface BrandEditWizardProps {
   initialStep?: number
   isActualOwner?: boolean
   isFocused?: boolean
-  productTagSuggestions?: string[]
+  subcategorySuggestions?: string[]
 }
 
 const SECTION_COMPONENTS = [
@@ -48,9 +49,9 @@ const SECTION_COMPONENTS = [
 
 const FIELD_STEPS: Partial<Record<keyof BrandEditFormValues, number>> = {
   name: 0,
-  productType: 0,
+  categorySlug: 0,
   description: 0,
-  productTags: 0,
+  subcategories: 0,
   priceRange: 0,
   heroImageUrl: 1,
   productPhotos: 1,
@@ -76,7 +77,7 @@ const MODERATION_MESSAGE_KEYS: Record<string, string> = {
 const STEP_VALIDATION_FIELDS: Partial<
   Record<string, (keyof BrandEditFormValues)[]>
 > = {
-  basicInfo: ['name', 'productType', 'description', 'priceRange'],
+  basicInfo: ['name', 'categorySlug', 'description', 'priceRange'],
   links: ['purchaseWebsite'],
 }
 
@@ -86,7 +87,7 @@ export function BrandEditWizard({
   initialCompletedSteps = [],
   initialStep = 0,
   isFocused = false,
-  productTagSuggestions = [],
+  subcategorySuggestions = [],
 }: BrandEditWizardProps) {
   const t = useTranslations('dashboard.edit')
   const router = useRouter()
@@ -261,7 +262,7 @@ export function BrandEditWizard({
   const isFocusedMode =
     isFocused || areAllWizardStepsComplete(completedSteps, WIZARD_STEPS.length)
   const handleExit = useCallback(() => {
-    router.push(`/dashboard/brands/${brand.slug}`)
+    router.push(routes.dashboard.brand(brand.slug))
   }, [brand.slug, router])
 
   return (
@@ -279,7 +280,7 @@ export function BrandEditWizard({
           {activeStep === 0 ? (
             <BasicInfoSection
               form={form}
-              productTagSuggestions={productTagSuggestions}
+              subcategorySuggestions={subcategorySuggestions}
               currentSlug={brand.slug}
             />
           ) : (

@@ -33,6 +33,17 @@ describe("scoped enrich phase sets", () => {
     expect(ENRICH_PHASES.indexOf('site_identity')).toBeLessThan(ENRICH_PHASES.indexOf('images'))
   })
 
+  it("products_runs_after_links_and_site_identity", () => {
+    // The phase proposes products from the brand's own site, so it needs the
+    // links phase's resolved `purchase_website` AND site-identity's verdict on
+    // it — reading a revoked site would send it at a stranger's shop. It also
+    // reuses classify_images' alt text, hence its place at the end.
+    const products = ENRICH_PHASES.indexOf("products");
+    expect(products).toBeGreaterThan(ENRICH_PHASES.indexOf("links"));
+    expect(products).toBeGreaterThan(ENRICH_PHASES.indexOf("site_identity"));
+    expect(products).toBeGreaterThan(ENRICH_PHASES.indexOf("classify_images"));
+  })
+
   it("only contains phases that exist in ENRICH_PHASES", () => {
     // parseEnrichPhases drops unknown phase names and then falls back to ALL
     // phases when the result is empty, so a typo would silently run everything.
@@ -219,7 +230,7 @@ describe("curation steps", () => {
   });
 
   it("keeps the product category in detail, never in context", () => {
-    // detect no longer emits productType; the descriptions phase owns the
+    // detect no longer emits categorySlug; the descriptions phase owns the
     // category, so `tags` must not be pulled forward into the context step.
     expect(CURATION_STEPS.detail).toContain("tags");
     expect(CURATION_STEPS.context).not.toContain("tags");
@@ -231,6 +242,21 @@ describe("curation steps", () => {
     );
     expect(CURATION_STEP_ORDER).toEqual(["context", "image", "detail"]);
   });
+
+  it("products_is_a_selectable_phase", () => {
+    // Both halves or neither: ENRICH_PHASES is the ordering vocabulary and
+    // CURATION_STEPS is the selectable group, so a phase in one and not the
+    // other makes `phasesForSteps` disagree with the order the run executes.
+    expect(ENRICH_PHASES).toContain("products");
+    const owners = steps
+      .filter(([, phases]) => phases.includes("products"))
+      .map(([name]) => name);
+    expect(owners).toEqual(["detail"]);
+    // No new step and no new step order: CURATION_STEP_ORDER names steps, and
+    // `products` joined an existing one.
+    expect(CURATION_STEP_ORDER).toEqual(["context", "image", "detail"]);
+  });
+
 });
 
 describe("phasesForSteps", () => {
@@ -252,6 +278,15 @@ describe("phasesForSteps", () => {
       (phase) => !(DEFERRED_PHASES as readonly string[]).includes(phase),
     );
     expect(phasesForSteps([...CURATION_STEP_ORDER])).toEqual(expected);
+  });
+
+  it("phases_for_steps_includes_products_in_detail", () => {
+    const detail = phasesForSteps(["detail"]);
+    expect(detail).toContain("products");
+    // Expanded in ENRICH_PHASES order, so the selection API hands the runner the
+    // phases in the sequence the per-brand loop actually calls them.
+    expect(detail.indexOf("products")).toBeGreaterThan(detail.indexOf("faq"));
+    expect(detail.indexOf("faq")).toBeGreaterThan(detail.indexOf("descriptions"));
   });
 
   it("dedupes repeated steps", () => {

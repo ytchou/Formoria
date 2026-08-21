@@ -1,9 +1,11 @@
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { NextRequest, NextResponse } from 'next/server'
+import { routes } from '@/lib/routes'
 import { CRAWLER_REGISTRY, matchCrawler } from './crawler-registry'
 import { isCrawlerVerificationEnforced, isVerifiedCrawler } from './verified-crawler'
 import { reportCrawlerChallenged, reportCrawlerRateLimited, reportCrawlerVerificationDisagreement } from './crawler-drift'
+import { reportRateLimitStoreRecovered, reportRateLimitStoreUnavailable } from './rate-limit-observability'
 
 export interface RateLimitResult {
   allowed: boolean
@@ -17,7 +19,7 @@ export interface RateLimitResult {
  * budget across a window boundary. Default everywhere is `sliding`; opt a rule
  * into `fixed` only where that burst is acceptable.
  */
-export type RateLimitAlgorithm = 'sliding' | 'fixed'
+type RateLimitAlgorithm = 'sliding' | 'fixed'
 
 export interface RateLimitStore {
   check(
@@ -184,6 +186,8 @@ function isStoreBreakerOpen(): boolean {
   if (storeBreakerOpenedAt === null) return false
   if (Date.now() - storeBreakerOpenedAt < STORE_BREAKER_COOLDOWN_MS) return true
 
+  // Read the outage length before clearing the field it is derived from.
+  const outageMs = Date.now() - storeBreakerOpenedAt
   storeBreakerOpenedAt = null
   console.error(
     JSON.stringify({
@@ -191,7 +195,21 @@ function isStoreBreakerOpen(): boolean {
       cooldownMs: STORE_BREAKER_COOLDOWN_MS,
     }),
   )
+  reportRateLimitStoreRecovered({ cooldownMs: STORE_BREAKER_COOLDOWN_MS, outageMs })
   return false
+}
+
+/**
+ * Read-only breaker state for `/api/health`. Deliberately NOT a call to
+ * `isStoreBreakerOpen()`: that function closes the breaker and emits a recovery
+ * event as side effects, so a health probe polled every few seconds would keep
+ * re-probing the store on the monitor's schedule and manufacture recovery
+ * events nobody asked for. A read must stay a read.
+ */
+export function isRateLimitStoreDegraded(): boolean {
+  return (
+    storeBreakerOpenedAt !== null && Date.now() - storeBreakerOpenedAt < STORE_BREAKER_COOLDOWN_MS
+  )
 }
 
 /**
@@ -210,6 +228,7 @@ async function checkStore(
     return await rateLimiter.check(key, windowMs, maxRequests, algorithm)
   } catch (error) {
     storeBreakerOpenedAt = Date.now()
+    const errorMessage = error instanceof Error ? error.message : String(error)
     // console.error rather than the Sentry adapter: this runs in the edge
     // runtime, where the Node SDK is not loaded (see src/proxy.ts).
     console.error(
@@ -217,9 +236,13 @@ async function checkStore(
         event: 'rate_limit_store_unavailable',
         action: 'failing_open',
         cooldownMs: STORE_BREAKER_COOLDOWN_MS,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
       }),
     )
+    // The log alone is not an alarm: Railway dropped 205 messages during the
+    // 2026-08-13 outage and nothing consumes the line. PostHog ingest is a plain
+    // fetch, so it survives the edge runtime where Sentry cannot follow.
+    reportRateLimitStoreUnavailable({ errorMessage, cooldownMs: STORE_BREAKER_COOLDOWN_MS })
     return null
   }
 }
@@ -267,7 +290,11 @@ const BRANDS_DIRECTORY_RATE_LIMIT = 30
 
 // Rate limit rules per path prefix
 const RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
-  '/admin/operations': { windowMs: 60_000, maxRequests: 3, crawlerExempt: false },
+  // THE BUILDER, NOT A COPY OF ITS OUTPUT. `routes.admin.operations` documented
+  // this coupling in a comment while the two were merely string-equal, so
+  // renaming the segment there would have unbucketed the tightest budget in
+  // this table -- silently, because an unmatched prefix is simply no rule.
+  [routes.admin.operations()]: { windowMs: 60_000, maxRequests: 3, crawlerExempt: false },
   '/api/upload': { windowMs: 60_000, maxRequests: 20, crawlerExempt: false },
   '/api/': { windowMs: 60_000, maxRequests: 60, crawlerExempt: false },
   '/brands': {
@@ -457,6 +484,14 @@ export async function checkRateLimit(request: NextRequest): Promise<NextResponse
   // them off the shared external limiter also prevents a Redis outage or quota
   // exhaustion from disabling scheduled operations before authentication runs.
   if (normalizedPathname.startsWith('/api/cron/')) return null
+
+  // The health endpoint must never be the thing that is down. It matched the
+  // `/api/` rule, so on 2026-08-13 a dead store 500ed it for every caller --
+  // including Railway's health check, which then blocked the very redeploy that
+  // would have fixed the limiter. `/api/health` is exempt from the Cloudflare
+  // origin guard for the same class of reason (ORIGIN_GUARD_EXEMPT_PATHS in
+  // src/proxy.ts).
+  if (normalizedPathname.startsWith('/api/health')) return null
 
   // Find the most specific matching rule
   const ruleKey = Object.keys(RATE_LIMIT_RULES)

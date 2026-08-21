@@ -157,7 +157,7 @@ export function ModerationQueue({
                 otherwise a failed decision is silently swallowed and the
                 operator just clicks again. */}
             {queueAction.error ? (
-              <p className="type-error" role="alert">
+              <p className="type-metadata text-danger" role="alert">
                 {queueAction.error}
               </p>
             ) : null}

@@ -1,7 +1,11 @@
 'use client'
 
 import { useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import { PageShell } from '@/components/ui/page-shell'
+import { inkActionClassName } from '@/components/admin/ink-action'
+import { cn } from '@/lib/utils'
 import * as Sentry from '@sentry/nextjs'
 
 export default function AdminError({
@@ -11,20 +15,32 @@ export default function AdminError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const t = useTranslations('admin.common')
+
   useEffect(() => {
     Sentry.captureException(error)
     console.error('[AdminError]', error)
   }, [error])
 
   return (
-    <main className="page-gutter mx-auto flex max-w-screen-xl flex-col items-center justify-center py-24 text-center">
-      <h1 className="type-page-title">Something went wrong</h1>
-      <p className="mt-3 type-card-description">
-        An unexpected error occurred while loading this admin page. Please try again.
-      </p>
-      <Button variant="primary" onClick={reset} className="mt-6">
-        Try again
+    // `prose`, as at every other error boundary. `gutter="none"` because this
+    // boundary renders inside `admin/layout.tsx`'s `<main>`, which has already
+    // inset it — a second gutter here would inset the message twice.
+    <PageShell
+      as="main"
+      measure="prose"
+      gutter="none"
+      className="flex flex-col items-center justify-center py-section text-center"
+    >
+      <h1 className="type-section">{t('error.title')}</h1>
+      <p className="mt-3 type-body-sm">{t('error.description')}</p>
+      <Button
+        variant="secondary"
+        onClick={reset}
+        className={cn('mt-6', inkActionClassName)}
+      >
+        {t('error.retry')}
       </Button>
-    </main>
+    </PageShell>
   )
 }

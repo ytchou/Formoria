@@ -7,22 +7,22 @@ import type { BrandEditFormValues } from '@/lib/schemas/brand-edit'
 
 export function BasicInfoSection({
   form,
-  productTagSuggestions = [],
+  subcategorySuggestions = [],
   currentSlug,
 }: {
   form: UseFormReturn<BrandEditFormValues>
-  productTagSuggestions?: string[]
+  subcategorySuggestions?: string[]
   currentSlug?: string
 }) {
   return (
     <FormProvider {...form}>
       <BrandBasicInfoSection
-        productTagSuggestions={productTagSuggestions}
+        subcategorySuggestions={subcategorySuggestions}
         requiredFields={{
           name: true,
-          productType: true,
+          categorySlug: true,
           description: true,
-          productTags: true,
+          subcategories: true,
           priceRange: true,
         }}
         suggestName={suggestCleanName}

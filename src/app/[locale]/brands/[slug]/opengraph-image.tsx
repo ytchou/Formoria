@@ -18,12 +18,12 @@ export default async function OgImage({
   try {
     const brandDetail = await getBrandBySlug(slug)
     const brandLabel = locale === 'en' ? 'Taiwanese Brand' : '台灣品牌'
-    const categoryName = brandDetail.category ?? 'Taiwan brand'
+    const categoryName = brandDetail.categoryLabel ?? 'Taiwan brand'
 
     return new ImageResponse(
       (
         <OgLayout
-          backgroundColor={brand.bg}
+          backgroundColor={brand.ground}
           leftStripe={
             <div
               style={{
@@ -32,7 +32,7 @@ export default async function OgImage({
                 top: 0,
                 bottom: 0,
                 width: 8,
-                backgroundColor: brand.cta,
+                backgroundColor: brand.accent,
               }}
             />
           }
@@ -41,8 +41,8 @@ export default async function OgImage({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                marginBottom: 72,
-                color: brand.primary,
+                marginBottom: 48,
+                color: brand.ink,
                 fontFamily: 'Bricolage Grotesque',
               }}
             >
@@ -52,7 +52,7 @@ export default async function OgImage({
                   marginLeft: 14,
                   fontSize: 30,
                   fontWeight: 700,
-                  color: brand.primary,
+                  color: brand.ink,
                   fontFamily: 'Bricolage Grotesque',
                 }}
               >
@@ -63,7 +63,7 @@ export default async function OgImage({
           headerStyle={{
             display: 'flex',
             alignItems: 'center',
-            color: brand.primary,
+            color: brand.ink,
             fontFamily: 'Bricolage Grotesque',
           }}
           contentStyle={{
@@ -73,17 +73,17 @@ export default async function OgImage({
             alignItems: 'flex-start',
             width: '100%',
             height: '100%',
-            padding: '72px 96px 72px 116px',
+            padding: '96px 96px 96px 104px',
           }}
         >
           <div
             style={{
               fontSize: 84,
               fontWeight: 700,
-              color: brand.primary,
+              color: brand.ink,
               textAlign: 'left',
               lineHeight: 1.1,
-              marginBottom: 28,
+              marginBottom: 24,
               fontFamily: 'Noto Sans TC',
             }}
           >
@@ -94,8 +94,8 @@ export default async function OgImage({
             style={{
               fontSize: 30,
               fontWeight: 700,
-              color: brand.espresso,
-              marginBottom: 36,
+              color: brand.inkMuted,
+              marginBottom: 32,
               fontFamily: 'Noto Sans TC',
             }}
           >
@@ -106,7 +106,7 @@ export default async function OgImage({
             style={{
               fontSize: 28,
               fontWeight: 700,
-              color: brand.cta,
+              color: brand.accent,
               fontFamily: 'Bricolage Grotesque',
             }}
           >
@@ -124,7 +124,7 @@ export default async function OgImage({
     return new ImageResponse(
       (
         <OgLayout
-          backgroundColor={brand.bg}
+          backgroundColor={brand.ground}
           leftStripe={
             <div
               style={{
@@ -133,7 +133,7 @@ export default async function OgImage({
                 top: 0,
                 bottom: 0,
                 width: 8,
-                backgroundColor: brand.cta,
+                backgroundColor: brand.accent,
               }}
             />
           }
@@ -142,8 +142,8 @@ export default async function OgImage({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                marginBottom: 72,
-                color: brand.primary,
+                marginBottom: 48,
+                color: brand.ink,
                 fontFamily: 'Bricolage Grotesque',
               }}
             >
@@ -153,7 +153,7 @@ export default async function OgImage({
                   marginLeft: 14,
                   fontSize: 30,
                   fontWeight: 700,
-                  color: brand.primary,
+                  color: brand.ink,
                   fontFamily: 'Bricolage Grotesque',
                 }}
               >
@@ -164,7 +164,7 @@ export default async function OgImage({
           headerStyle={{
             display: 'flex',
             alignItems: 'center',
-            color: brand.primary,
+            color: brand.ink,
             fontFamily: 'Bricolage Grotesque',
           }}
           contentStyle={{
@@ -174,17 +174,17 @@ export default async function OgImage({
             alignItems: 'flex-start',
             width: '100%',
             height: '100%',
-            padding: '72px 96px 72px 116px',
+            padding: '96px 96px 96px 104px',
           }}
         >
           <div
             style={{
               fontSize: 84,
               fontWeight: 700,
-              color: brand.primary,
+              color: brand.ink,
               textAlign: 'left',
               lineHeight: 1.1,
-              marginBottom: 28,
+              marginBottom: 24,
               fontFamily: 'Noto Sans TC',
             }}
           >
@@ -195,8 +195,8 @@ export default async function OgImage({
             style={{
               fontSize: 30,
               fontWeight: 700,
-              color: brand.espresso,
-              marginBottom: 36,
+              color: brand.inkMuted,
+              marginBottom: 32,
               fontFamily: 'Noto Sans TC',
             }}
           >
@@ -207,7 +207,7 @@ export default async function OgImage({
             style={{
               fontSize: 28,
               fontWeight: 700,
-              color: brand.cta,
+              color: brand.accent,
               fontFamily: 'Bricolage Grotesque',
             }}
           >

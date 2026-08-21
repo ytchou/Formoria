@@ -17,7 +17,7 @@ describe("buildApprovalEmail", () => {
     expect(email.html).toContain("test-brand");
     expect(email.html).toContain("Formoria");
     expect(email.html).toContain("台灣品牌探索與選物平台");
-    expect(email.html).toContain("#FDFCFA");
+    expect(email.html).toContain("#FAF7F2");
     expect(email.html).not.toContain("<script>");
     expect(email.html).not.toContain("undefined");
   });

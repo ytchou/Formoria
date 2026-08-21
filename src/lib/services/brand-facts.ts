@@ -6,14 +6,17 @@ import {
   profileChatParams,
   type LlmAuditContext,
 } from "./llm-audit";
-import { localizeToTW } from "./taiwan-localization";
-import { parseExtractionResult } from "./product-type-classifier";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
-import { normalizeProductTags } from "@/lib/services/product-tags";
+import { containsHan, localizeToTW } from "./taiwan-localization";
+import { reportBannedTerms } from "@/lib/i18n/banned-terms";
+import type { AuditCallContext } from "@/lib/audit";
+import { parseExtractionResult } from "./category-classifier";
+import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { normalizeSubcategories } from "@/lib/services/subcategories";
 import { noLlmCalls, type LlmCallCounts } from "./_shared/llm-call-outcome";
 
+/** Punctuation-only zh-TW normalization. Nothing here rewrites vocabulary. */
 function localizeZhText(text: string): string {
-  return /[一-鿿]/u.test(text) ? localizeToTW(text).text : text;
+  return containsHan(text) ? localizeToTW(text).text : text;
 }
 
 export type BrandFactsResult = {
@@ -24,9 +27,9 @@ export type BrandFactsResult = {
    * alt text. Undefined for an absent or unrecognised value — a made-up slug is
    * a model error, not a reason to discard the rest of the extraction.
    */
-  productType?: string;
-  productTags: string[];
-  productTagsEn: string[];
+  categorySlug?: string;
+  subcategories: string[];
+  subcategoriesEn: string[];
   city: string | null;
   foundingYear: number | null;
   mitIndicators: {
@@ -40,23 +43,22 @@ export type BrandFactsResult = {
    * `list`.
    */
   listing?: ListingVerdict;
-  rejected?: { tag: string; reason: string }[];
-  crossBranch?: string[];
+  rejected?: { subcategory: string; reason: string }[];
   rawResponse?: unknown;
 };
 
-const VALID_PRODUCT_TYPES = new Set<string>(
-  PRODUCT_TYPE_CATEGORIES.map((category) => category.slug),
+const VALID_CATEGORY_SLUGS = new Set<string>(
+  L1_CATEGORIES.map((category) => category.slug),
 );
 
 /**
  * Validates against the real L1 slug list. Anything else — absent, null, a made
  * up slug, a Chinese category name — is undefined, never a rejection.
  */
-function parseDescriptionProductType(raw: unknown): string | undefined {
+function parseDescriptionCategory(raw: unknown): string | undefined {
   if (typeof raw !== "string") return undefined;
   const trimmed = raw.trim();
-  return VALID_PRODUCT_TYPES.has(trimmed) ? trimmed : undefined;
+  return VALID_CATEGORY_SLUGS.has(trimmed) ? trimmed : undefined;
 }
 
 const LISTING_VERDICTS = ["list", "reject"] as const;
@@ -110,8 +112,8 @@ function parseListingVerdict(raw: unknown): ListingVerdict | undefined {
 
 const EMPTY_FACTS: BrandFactsResult = {
   priceRange: null,
-  productTags: [],
-  productTagsEn: [],
+  subcategories: [],
+  subcategoriesEn: [],
   city: null,
   foundingYear: null,
   mitIndicators: null,
@@ -126,18 +128,11 @@ export function parseBrandFactsResult(content: string): BrandFactsResult {
   // city slug map and the price tier check a second time.
   const extraction = parseExtractionResult(content);
 
-  const rawProductTagsEn = parsed.product_tags_en;
-  const productTagsEnRaw = Array.isArray(rawProductTagsEn)
-    ? rawProductTagsEn
-        .filter(
-          (t): t is string => typeof t === "string" && t.trim().length > 0,
-        )
-        .map((t) => t.trim())
-    : [];
-
-  const normalizedTags = normalizeProductTags(
-    extraction.productTags,
-    productTagsEnRaw,
+  // No `subcategories_en` parse. The prompt stopped asking for that key, and
+  // `normalizeSubcategories` derives English from the resolved ontology node, so
+  // a parsed array could only ever have been discarded.
+  const normalizedSubcategories = normalizeSubcategories(
+    extraction.subcategories,
   );
 
   const rawMit = parsed.mit_indicators;
@@ -158,23 +153,26 @@ export function parseBrandFactsResult(content: string): BrandFactsResult {
       : null;
 
   const listing = parseListingVerdict(parsed.listing);
-  const productType = parseDescriptionProductType(parsed.product_type);
+  const categorySlug = parseDescriptionCategory(parsed.category);
 
-  const acceptedTags =
-    normalizedTags.tags.length >= 1 ? normalizedTags.tags : [];
-  const acceptedTagsEn =
-    normalizedTags.tags.length >= 1 ? normalizedTags.tagsEn : [];
+  const acceptedSubcategories =
+    normalizedSubcategories.subcategories.length >= 1
+      ? normalizedSubcategories.subcategories
+      : [];
+  const acceptedSubcategoriesEn =
+    normalizedSubcategories.subcategories.length >= 1
+      ? normalizedSubcategories.subcategoriesEn
+      : [];
 
   return {
     priceRange: extraction.priceRange,
-    ...(productType ? { productType } : {}),
-    productTags: acceptedTags,
-    productTagsEn: acceptedTagsEn,
+    ...(categorySlug ? { categorySlug } : {}),
+    subcategories: acceptedSubcategories,
+    subcategoriesEn: acceptedSubcategoriesEn,
     city: extraction.city,
     foundingYear: extraction.foundingYear,
     mitIndicators,
-    rejected: normalizedTags.rejected,
-    crossBranch: normalizedTags.crossBranch,
+    rejected: normalizedSubcategories.rejected,
     ...(listing ? { listing } : {}),
   };
 }
@@ -222,6 +220,12 @@ export async function extractBrandFacts(
   brandName: string,
   userContent: string,
   audit: Pick<LlmAuditContext, "jobId" | "target">,
+  /**
+   * The enclosing phase span. REQUIRED: while it was optional, deleting the
+   * threaded argument at the one call site compiled, linted, and passed the
+   * whole suite with vocabulary detection silently off.
+   */
+  ctx: AuditCallContext,
 ): Promise<BrandFactsOutput | null> {
   const token = process.env.OPENAI_API_KEY;
   if (!token) return null;
@@ -300,6 +304,12 @@ export async function extractBrandFacts(
       }
 
       const result = parseBrandFactsResult(content);
+      // Report-only (DEV-1546), and on the ACCEPTED attempt ONLY: this return
+      // is the sole exit that hands a listing verdict to a caller, so a
+      // discarded earlier attempt can never contribute a hit an operator would
+      // then fail to find in any row. The reason lands in
+      // `triage_results.non_brand_reason`, prefixed by curation-operations.
+      reportBannedTerms(ctx, [["non_brand_reason", result.listing?.reason]]);
       attempts.push({
         attempt: attemptIndex + 1,
         input: attemptInput,

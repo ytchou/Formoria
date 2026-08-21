@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import ts from "typescript";
 
@@ -28,11 +28,6 @@ const USER_FACING_ATTRIBUTES = new Set([
 ]);
 
 const ALLOWLIST = [
-  // Admin surface is intentionally single-locale (Chinese-only).
-  "components/admin/",
-  "app/admin/",
-  // Preview/under-construction gate is zh-only by design.
-  "lib/preview/",
   // Email copy lives in-file and is locale-branched inside the template.
   "lib/email/templates.ts",
   // Language endonyms (中文 / English) — correct in both locales.
@@ -67,10 +62,11 @@ const ALLOWLIST = [
   "lib/services/brands.ts",
   // AI-slop detector uses Chinese regex patterns (not UI copy).
   "lib/services/enrich-validators.ts",
-  // zh-CN→zh-TW vocabulary and punctuation rules (not UI copy).
+  // Punctuation normalizer: a CJK character-range regex written with literal
+  // range endpoints (not UI copy). The vocabulary table is gone.
   "lib/services/taiwan-localization.ts",
-  // Product-tag validator uses Chinese blocklist regex patterns (not UI copy).
-  "lib/services/product-tags.ts",
+  // Subcategory validator uses Chinese blocklist regex patterns (not UI copy).
+  "lib/services/subcategories.ts",
   // Brand cleanup uses Chinese keyword arrays and regex patterns (not UI copy).
   "lib/services/brand-cleanup.ts",
   // LLM system prompts centralised module (Chinese prompt text).
@@ -78,7 +74,7 @@ const ALLOWLIST = [
   // LLM user message templates still contain Chinese field labels (not UI copy).
   "lib/services/description-rewrite.ts",
   "lib/services/brand-facts.ts",
-  "lib/services/product-type-classifier.ts",
+  "lib/services/category-classifier.ts",
   "lib/services/reputation-research.ts",
   // Image classify user message includes brand name in Chinese; detect has SEO keyword constants.
   "lib/services/enrich-phases/classify-images.ts",
@@ -101,21 +97,22 @@ const ALLOWLIST = [
   "lib/growth/share-card.tsx",
   // Badge embed snippet alt text is intentional zh-TW brand copy pasted into third-party sites.
   "lib/growth/share-assets.ts",
-  // Channel name normalization uses Chinese retailer noise words for stripping (data constants, not UI copy).
-  "lib/brands/channels.ts",
+  // Stockist name normalization uses Chinese retailer noise words for stripping (data constants, not UI copy).
+  "lib/brands/stockist-display.ts",
   // FAQ preset LLM prompt fragments are Chinese model instructions, not UI copy.
   "lib/brands/faq-presets/",
   // FAQ phase prompt fragments and repair instructions are Chinese model
   // instructions, not UI copy.
   "lib/services/enrich-phases/faq.ts",
   // Region slug-to-label map uses Chinese city names for display (data constants, not UI copy).
-  "lib/services/brand-channels.ts",
+  "lib/services/stockists.ts",
   // City labels the curation worker needs outside any request scope. They cannot
   // live in `messages/*.json`: the worker runs `tsx` with no bundler and its
   // image ships no `messages/` directory, so importing the catalog crashes at
   // module resolution (#596). The rendering path still reads the catalog via
   // next-intl — this map is the worker's copy, not the render source.
   "lib/constants/taiwan-cities.ts",
+  "lib/constants/taiwan-districts.ts",
 ];
 
 function isAllowlisted(relPath: string): boolean {
@@ -136,6 +133,20 @@ function walk(dir: string): string[] {
   }
   return out;
 }
+
+describe("i18n guard — allowlist hygiene", () => {
+  it("every allowlist entry points at a path that exists", () => {
+    // A dead entry fails nothing and looks like documentation of a decision
+    // that is still live. `lib/preview/` sat here after the directory was
+    // deleted, quietly holding a CJK exemption open for a path that could be
+    // recreated by anyone, for any reason, with no review.
+    const missing = ALLOWLIST.filter(
+      (entry) => !existsSync(join(SRC, entry.replace(/\/$/, ""))),
+    );
+
+    expect(missing).toEqual([]);
+  });
+});
 
 describe("i18n guard — no hardcoded Chinese in source", () => {
   it("source outside the allowlist contains no Han characters", () => {

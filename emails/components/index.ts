@@ -1,6 +1,8 @@
+export { BrandCard } from './brand-card'
 export { Button } from './button'
 export { EmailDivider } from './email-divider'
 export { EmailHeading } from './email-heading'
+export { EmailLink } from './email-link'
 export { EmailText } from './email-text'
 export { Footer } from './footer'
 export { Header } from './header'

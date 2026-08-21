@@ -1,31 +1,37 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { buttonVariants } from "@/components/ui/button";
 import { SurfaceCard } from "@/components/ui/card";
+import { inkActionClassName } from "@/components/admin/ink-action";
+import { cn } from "@/lib/utils";
+import { routes } from "@/lib/routes";
 
 export const metadata: Metadata = { title: "Scripts | Admin" };
 
-export default function AdminScriptsPage() {
+export default async function AdminScriptsPage() {
+  const t = await getTranslations("admin.scripts");
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="type-section-title-large">Scripts</h1>
-        <p className="mt-1 type-card-description">
-          Run guarded administrative utilities without leaving the dashboard.
-        </p>
+        <h1 className="type-label">{t("title")}</h1>
+        <p className="mt-1 type-body-sm">{t("description")}</p>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <SurfaceCard padding="lg">
-          <h2 className="type-card-title">Bulk community submissions</h2>
-          <p className="mt-2 type-card-description">
-            Bulk create pending community recommendations from brand names and
-            official websites.
+          <h2 className="type-label">{t("bulkSubmissions.title")}</h2>
+          <p className="mt-2 type-body-sm">
+            {t("bulkSubmissions.cardDescription")}
           </p>
           <Link
-            href="/admin/scripts/bulk-community-submissions"
-            className={buttonVariants({ className: "mt-6 min-h-12" })}
+            href={routes.admin.bulkCommunitySubmissions()}
+            className={buttonVariants({
+              variant: "secondary",
+              className: cn("mt-6", inkActionClassName),
+            })}
           >
-            Open tool
+            {t("bulkSubmissions.openCta")}
           </Link>
         </SurfaceCard>
       </div>

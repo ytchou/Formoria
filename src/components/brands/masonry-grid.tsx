@@ -2,6 +2,7 @@
 
 import { Children, type ReactNode } from "react";
 import { useInView } from "@/hooks/use-in-view";
+import { Grid } from "@/components/ui/grid";
 
 interface MasonryGridProps {
   children: ReactNode;
@@ -68,19 +69,12 @@ export function MasonryGrid({
   });
 
   return compact ? (
-    <ul
-      ref={listRef}
-      className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
-    >
+    <Grid as="ul" ref={listRef}>
       {items}
-    </ul>
+    </Grid>
   ) : (
-    <div
-      ref={divRef}
-      className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
-      role="list"
-    >
+    <Grid ref={divRef} role="list">
       {items}
-    </div>
+    </Grid>
   );
 }

@@ -1,12 +1,12 @@
 import {
-  PURCHASE_CAMEL_FIELDS,
-  type PurchaseChannelCamelField,
-} from '@/lib/brands/purchase-channels'
+  ONLINE_STORE_CAMEL_FIELDS,
+  type OnlineStoreCamelField,
+} from '@/lib/brands/online-stores'
 import type { Brand } from '@/lib/types/brand'
 
 type ProfileComponentKey =
   | 'description'
-  | 'productTags'
+  | 'subcategories'
   | 'priceRange'
   | 'heroImage'
   | 'productPhotos'
@@ -36,7 +36,7 @@ export type ProfileCompleteness = {
 type ProfileInput = Pick<
   Brand,
   | 'description'
-  | 'productTags'
+  | 'subcategories'
   | 'priceRange'
   | 'heroImageUrl'
   | 'productPhotos'
@@ -48,7 +48,7 @@ type ProfileInput = Pick<
   | 'socialFacebook'
   | 'otherUrls'
   | 'reputationSummary'
-> & Pick<Brand, PurchaseChannelCamelField>
+> & Pick<Brand, OnlineStoreCamelField>
 
 const hasText = (value: string | null | undefined) => Boolean(value?.trim())
 const hasUrl = (value: string | null | undefined) => {
@@ -73,8 +73,8 @@ export function computeProfileCompleteness(
       step: 0,
     },
     {
-      key: 'productTags',
-      complete: brand.productTags.some(hasText),
+      key: 'subcategories',
+      complete: brand.subcategories.some(hasText),
       required: true,
       weight: 3,
       step: 0,
@@ -134,12 +134,12 @@ export function computeProfileCompleteness(
     },
     {
       key: 'additionalSalesChannel',
-      // A `>= 2 of N` filter, so adding a purchase channel to the registry widens
+      // A `>= 2 of N` filter, so adding an online store to the registry widens
       // the signal pool without adding a component — `total` stays at 11. The
       // weight-bearing `officialWebsite` component above deliberately checks
       // `purchaseWebsite` ALONE and must never be folded into this loop.
       complete: [
-        ...PURCHASE_CAMEL_FIELDS.map((field) => hasUrl(brand[field])),
+        ...ONLINE_STORE_CAMEL_FIELDS.map((field) => hasUrl(brand[field])),
         hasText(brand.socialInstagram),
         hasText(brand.socialThreads),
         hasText(brand.socialFacebook),

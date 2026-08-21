@@ -8,6 +8,8 @@ import type {
   BrandSubmissionForReview,
   SubmissionReviewImage,
 } from "@/lib/services/submissions";
+import type { ExistingCuratedProduct } from "@/lib/services/curated-products/proposal-diff";
+import type { CuratedProductProposal } from "@/lib/types/enriched-data";
 import { SubmissionReviewDetails } from "../submission-review-details";
 
 const navigation = vi.hoisted(() => ({ refresh: vi.fn() }));
@@ -41,8 +43,6 @@ vi.mock("@/components/upload/ImageUploader", () => ({
           altZh: null,
           altEn: null,
           isLogo: false,
-          focalX: null,
-          focalY: null,
           width: 1200,
           height: 900,
         })
@@ -64,9 +64,9 @@ describe("SubmissionReviewDetails", () => {
     const user = userEvent.setup();
     renderDetails(makeSubmission());
 
-    const languageTabs = screen.getByRole("tablist", {
-      name: "Narrative language",
-    });
+    expect(
+      screen.getByRole("tablist", { name: "Narrative language" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Mandarin" })).toHaveAttribute(
       "aria-selected",
       "true",
@@ -210,12 +210,12 @@ describe("SubmissionReviewDetails", () => {
     );
   });
 
-  it("renders the product type as a Mandarin taxonomy label", () => {
+  it("renders the category as a Mandarin taxonomy label", () => {
     renderDetails(
       makeSubmission({
         reviewData: {
           ...reviewData,
-          productType: "beauty",
+          categorySlug: "beauty",
         },
       }),
     );
@@ -271,8 +271,6 @@ describe("SubmissionReviewDetails", () => {
     ).not.toBeInTheDocument();
   });
 
-
-
   it("keeps image actions contained in drawer-safe gallery cards", async () => {
     const user = userEvent.setup();
     renderDetails(makeSubmission());
@@ -284,13 +282,12 @@ describe("SubmissionReviewDetails", () => {
       within(imagesSection).getByRole("button", { name: "Edit" }),
     );
 
-    const heroButton = screen.getByRole("button", {
-      name: "Set image 1 as hero",
-    });
+    expect(
+      screen.getByRole("button", { name: "Set image 1 as hero" }),
+    ).toBeInTheDocument();
     const removeButton = screen.getByRole("button", {
       name: "Remove image 1",
     });
-    const gallery = heroButton.parentElement?.parentElement?.parentElement;
 
     expect(removeButton).not.toHaveTextContent("Remove");
   });
@@ -368,6 +365,269 @@ describe("SubmissionReviewDetails", () => {
   });
 });
 
+/**
+ * Curated-product proposals (DEV-1469). The reviewer's job here is to TICK, not
+ * to retype, so these cases are all about what the tick set defaults to, what a
+ * rejection looks like when the run proposes it again, and what the save
+ * carries.
+ */
+describe("SubmissionReviewDetails — curated product proposals", () => {
+  it("renders_one_row_per_proposal — every proposal shows its name, category, material and description", () => {
+    renderDetails(withProposals([mugProposal, trayProposal]));
+
+    const section = productsSection();
+    expect(within(section).getAllByRole("listitem")).toHaveLength(2);
+    expect(
+      within(section).getByText("柴燒手感馬克杯 (Wood-fired Mug)"),
+    ).toBeInTheDocument();
+    expect(
+      within(section).getByText("竹編手織托盤 (Handwoven Bamboo Tray)"),
+    ).toBeInTheDocument();
+    expect(within(section).getAllByText("居家生活")).toHaveLength(2);
+    expect(within(section).getByText("陶瓷")).toBeInTheDocument();
+    expect(within(section).getByText("竹")).toBeInTheDocument();
+    expect(
+      within(section).getByText(mugProposal.productDescriptionZh),
+    ).toBeInTheDocument();
+    expect(
+      within(section).getByText(trayProposal.productDescriptionZh),
+    ).toBeInTheDocument();
+  });
+
+  it("keep_toggle_defaults_to_ticked_for_new_proposals — a previously rejected one starts unticked", async () => {
+    const user = userEvent.setup();
+    renderDetails(withProposals([mugProposal, trayProposal]), [
+      rejectedRow(trayProposal),
+    ]);
+
+    await user.click(
+      within(productsSection()).getByRole("button", { name: "Edit" }),
+    );
+
+    expect(
+      screen.getByRole("checkbox", { name: "Keep 柴燒手感馬克杯" }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Keep 柴燒手感馬克杯" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("checkbox", { name: "Keep 竹編手織托盤" }),
+    ).not.toBeChecked();
+  });
+
+  it("marks_previously_rejected_proposals — rejection memory renders instead of a new-proposal state", () => {
+    renderDetails(withProposals([mugProposal, trayProposal]), [
+      rejectedRow(trayProposal),
+    ]);
+
+    const [mugRow, trayRow] =
+      within(productsSection()).getAllByRole("listitem");
+    expect(within(mugRow!).getByText("New proposal")).toBeInTheDocument();
+    expect(
+      within(trayRow!).getByText("Previously rejected"),
+    ).toBeInTheDocument();
+    expect(
+      within(trayRow!).queryByText("New proposal"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("locks_a_proposal_the_catalog_already_holds — materialization is create-only, so the controls must not promise an edit", async () => {
+    const user = userEvent.setup();
+    renderDetails(withProposals([mugProposal, trayProposal]), [
+      matchedRow(mugProposal),
+      rejectedRow(trayProposal),
+    ]);
+
+    await user.click(
+      within(productsSection()).getByRole("button", { name: "Edit" }),
+    );
+
+    // `materialize` inserts for `new` and does nothing for `matched` or
+    // `previously-rejected`, so a tick or a retyped name on those rows is
+    // accepted, saved, and then silently discarded at approval.
+    expect(
+      screen.getByRole("checkbox", { name: "Keep 柴燒手感馬克杯" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("checkbox", { name: "Keep 竹編手織托盤" }),
+    ).toBeDisabled();
+    for (const field of screen.getAllByLabelText("Product name (zh-TW)")) {
+      expect(field).toBeDisabled();
+    }
+    for (const field of screen.getAllByLabelText(
+      "Product description (zh-TW)",
+    )) {
+      expect(field).toBeDisabled();
+    }
+    // Said on screen, not only in a disabled attribute.
+    expect(
+      screen.getAllByText(/Approval creates products only from new proposals/),
+    ).toHaveLength(2);
+  });
+
+  it("saves_the_ticked_subset — the payload carries exactly the ticked keys", async () => {
+    const user = userEvent.setup();
+    renderDetails(withProposals([mugProposal, trayProposal]));
+
+    await user.click(
+      within(productsSection()).getByRole("button", { name: "Edit" }),
+    );
+    await user.click(
+      screen.getByRole("checkbox", { name: "Keep 柴燒手感馬克杯" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Save product selection and edits" }),
+    );
+
+    expect(reviewActions.save).toHaveBeenCalledWith(
+      "00000000-0000-4000-8000-000000000001",
+      expect.objectContaining({ keptProductKeys: [trayProposal.key] }),
+    );
+  });
+
+  it("writes_no_kept_keys_when_nothing_was_ticked — an unedited save records no decision", async () => {
+    const user = userEvent.setup();
+    renderDetails(withProposals([mugProposal, trayProposal]));
+
+    await user.click(
+      within(productsSection()).getByRole("button", { name: "Edit" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Save product selection and edits" }),
+    );
+
+    // Seeding the computed default into the draft wrote a phantom
+    // `review_overrides.kept_product_keys`. After a phase re-run those keys name
+    // the OLD proposals, and because the value is defined, `materialize` skips
+    // its "every new proposal is kept" default and files every fresh proposal as
+    // permanent rejection memory for a decision the reviewer never made.
+    expect(reviewActions.save).toHaveBeenCalledWith(
+      "00000000-0000-4000-8000-000000000001",
+      expect.not.objectContaining({ keptProductKeys: expect.anything() }),
+    );
+  });
+
+  it("keep_toggle_has_an_accessible_name_naming_the_product — never a bare 'Keep'", async () => {
+    const user = userEvent.setup();
+    renderDetails(withProposals([mugProposal, trayProposal]));
+
+    await user.click(
+      within(productsSection()).getByRole("button", { name: "Edit" }),
+    );
+
+    expect(
+      screen.getByRole("checkbox", { name: /柴燒手感馬克杯/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: /竹編手織托盤/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", { name: "Keep" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the section out of the review entirely when the run proposed nothing", () => {
+    renderDetails(makeSubmission());
+
+    expect(
+      screen.queryByText("Curated product proposals"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("carries an edited proposal in the save payload, so a fixed name is not lost", async () => {
+    const user = userEvent.setup();
+    renderDetails(withProposals([mugProposal]));
+
+    await user.click(
+      within(productsSection()).getByRole("button", { name: "Edit" }),
+    );
+    const nameField = screen.getByLabelText("Product name (zh-TW)");
+    await user.clear(nameField);
+    await user.type(nameField, "柴燒馬克杯");
+    await user.click(
+      screen.getByRole("button", { name: "Save product selection and edits" }),
+    );
+
+    expect(reviewActions.save).toHaveBeenCalledWith(
+      "00000000-0000-4000-8000-000000000001",
+      expect.objectContaining({
+        products: [expect.objectContaining({ nameZh: "柴燒馬克杯" })],
+      }),
+    );
+  });
+});
+
+function productsSection() {
+  return screen.getByText("Curated product proposals").closest("section")!;
+}
+
+const mugProposal: CuratedProductProposal = {
+  key: "chai-shao-shou-kan-ma-ko-pei",
+  nameZh: "柴燒手感馬克杯",
+  nameEn: "Wood-fired Mug",
+  category: "home",
+  subcategories: ["tableware"],
+  material: ["ceramic"],
+  officialUrl: "https://taoqi.com.tw/products/wood-fired-mug",
+  productDescriptionZh:
+    "南投柴燒窯場燒製的馬克杯，杯身留有落灰痕跡，每一只的顏色都不一樣。",
+  sources: [
+    {
+      url: "https://taoqi.com.tw/products/wood-fired-mug",
+      sourceType: "official",
+    },
+  ],
+};
+
+const trayProposal: CuratedProductProposal = {
+  key: "chu-pien-shou-chih-to-pan",
+  nameZh: "竹編手織托盤",
+  nameEn: "Handwoven Bamboo Tray",
+  category: "home",
+  subcategories: ["storage"],
+  material: ["bamboo"],
+  officialUrl: "https://taoqi.com.tw/products/bamboo-tray",
+  productDescriptionZh: "南投竹山的桂竹，師傅手工編成的方形托盤，可以水洗。",
+  sources: [
+    {
+      url: "https://taoqi.com.tw/products/bamboo-tray",
+      sourceType: "official",
+    },
+  ],
+};
+
+/**
+ * The proposals ride `enriched_data`, and the service seeds `reviewData.products`
+ * from it — the same relationship `channels` has. Both are set here so the
+ * fixture stays readable as the real thing rather than as UI-only state.
+ */
+function withProposals(
+  products: CuratedProductProposal[],
+): BrandSubmissionForReview {
+  return makeSubmission({
+    enriched_data: { products },
+    reviewData: { ...reviewData, products },
+  });
+}
+
+/** The brand already publishes this product, so a re-proposal is not new. */
+function matchedRow(proposal: CuratedProductProposal): ExistingCuratedProduct {
+  return {
+    key: proposal.key,
+    officialUrl: proposal.officialUrl,
+    visible: true,
+  };
+}
+
+/** A rejected proposal materializes as a hidden row, never as a delete. */
+function rejectedRow(proposal: CuratedProductProposal): ExistingCuratedProduct {
+  return {
+    key: proposal.key,
+    officialUrl: proposal.officialUrl,
+    visible: false,
+  };
+}
+
 const reviewData = {
   name: "Test Brand",
   description: "完整中文介紹",
@@ -375,16 +635,15 @@ const reviewData = {
   blurb: "品牌摘要",
   blurbEn: "Brand summary",
   city: "台中",
-  categoryAttributes: null,
   reputationSummary: null,
   mitEvidence: null,
   siteContent: null,
   foundingYear: 2018,
   heroImageUrl: "https://cdn.example.com/hero.webp",
-  productType: "crafts",
+  categorySlug: "home",
   priceRange: 2,
-  productTags: ["木工"],
-  productTagsEn: ["Woodwork"],
+  subcategories: ["家具"],
+  subcategoriesEn: ["Furniture"],
   websiteUrl: "https://brand.example.com",
   socialInstagram: null,
   socialThreads: null,
@@ -416,7 +675,7 @@ function makeSubmission(
     purchaseShopee: null,
     purchaseMyship: null,
     otherUrls: [],
-    suggestedTags: [],
+    suggestedSubcategories: [],
     status: "pending",
     reviewerNotes: null,
     submittedAt: "2026-07-18T00:00:00.000Z",
@@ -429,7 +688,7 @@ function makeSubmission(
     isBrandOwner: false,
     sourceAttribution: "found_online",
     intent: "recommend",
-    productTypeNote: null,
+    categoryNote: null,
     reviewKind: "new",
     duplicateWarning: null,
     baseBrandData: null,
@@ -477,18 +736,22 @@ function reviewImage(
     altZh: null,
     altEn: null,
     isLogo: false,
-    focalX: null,
-    focalY: null,
     width: 1200,
     height: 900,
     originBrandImageId: null,
   };
 }
 
-function renderDetails(submission: BrandSubmissionForReview) {
+function renderDetails(
+  submission: BrandSubmissionForReview,
+  existingProducts: ExistingCuratedProduct[] = [],
+) {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
-      <SubmissionReviewDetails submission={submission} />
+      <SubmissionReviewDetails
+        submission={submission}
+        existingProducts={existingProducts}
+      />
     </NextIntlClientProvider>,
   );
 }

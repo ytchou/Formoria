@@ -3,10 +3,12 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { FeatureRequestList } from '@/components/feedback/feature-request-list'
 import { SubmitRequestDialog } from '@/components/feedback/submit-request-dialog'
+import { PageShell } from '@/components/ui/page-shell'
 import { Typography } from '@/components/ui/typography'
 import { FeatureRequestVotesProvider } from '@/hooks/use-feature-request-votes'
 import { buildAlternates, type Locale } from '@/lib/seo/alternates'
 import { listFeatureRequests } from '@/lib/services/feature-requests'
+import { routes } from '@/lib/routes'
 
 type PageProps = {
   params: Promise<{ locale: string }>
@@ -27,7 +29,7 @@ export async function generateMetadata({
   const title = t('title')
   const description = t('description')
   const { canonical, languages } = buildAlternates(
-    '/feature-requests',
+    routes.featureRequests(),
     safeLocale,
   )
   const ogLocale = safeLocale === 'en' ? 'en_US' : 'zh_TW'
@@ -62,9 +64,10 @@ export default async function FeatureRequestsPage({ params }: PageProps) {
   ])
 
   return (
-    // max-w-3xl, not the directory's max-w-6xl: the board is a single column of
-    // one-line titles, and a wider measure would strand the upvote control.
-    <div className="page-gutter mx-auto max-w-3xl py-12 md:py-16">
+    // `prose`, the narrowest of the three measures: the board is a single
+    // column of one-line titles, and a wider measure would strand the upvote
+    // control.
+    <PageShell measure="prose" className="py-12 md:py-16">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
           <Typography as="h1" variant="pageTitle">
@@ -84,6 +87,6 @@ export default async function FeatureRequestsPage({ params }: PageProps) {
           <FeatureRequestList requests={requests} />
         </FeatureRequestVotesProvider>
       </div>
-    </div>
+    </PageShell>
   )
 }

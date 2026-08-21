@@ -76,7 +76,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
         slug: brandSlug,
         status: 'approved',
         approved_at: new Date().toISOString(),
-        product_type: 'crafts',
+        category: 'home',
         description: '[E2E-TEST] Save-brand journey test brand.',
       })
       .select('id')
@@ -316,7 +316,7 @@ test.describe('Brand save — card overlay on directory', () => {
         slug: brandSlug,
         status: 'approved',
         approved_at: new Date().toISOString(),
-        product_type: 'crafts',
+        category: 'home',
         description: '[E2E-TEST] Save-overlay journey test brand.',
       })
       .select('id')

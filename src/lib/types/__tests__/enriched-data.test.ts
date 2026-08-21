@@ -6,9 +6,9 @@ describe('enrichedDataFromDb', () => {
     expect(enrichedDataFromDb({ price_range: 2 })).toEqual({ priceRange: 2 })
   })
 
-  it('maps product_tags to productTags', () => {
-    expect(enrichedDataFromDb({ product_tags: ['skincare', 'refillable'] })).toEqual({
-      productTags: ['skincare', 'refillable'],
+  it('maps subcategories to subcategories', () => {
+    expect(enrichedDataFromDb({ subcategories: ['skincare', 'refillable'] })).toEqual({
+      subcategories: ['skincare', 'refillable'],
     })
   })
 
@@ -29,25 +29,32 @@ describe('enrichedDataFromDb', () => {
         blurb: '品牌摘要',
         blurb_en: 'Brand summary',
         city: '台北',
-        category_attributes: { material: '皮革' },
         reputation_summary: { text: '評價良好' },
         mit_evidence: { verified_source: 'enrichment_signal' },
         site_content: { title: 'Official site' },
         founding_year: 2020,
-        product_tags_en: ['Handmade'],
+        subcategories_en: ['Handmade'],
       }),
     ).toEqual({
       descriptionEn: 'English description',
       blurb: '品牌摘要',
       blurbEn: 'Brand summary',
       city: '台北',
-      categoryAttributes: { material: '皮革' },
       reputationSummary: { text: '評價良好' },
       mitEvidence: { verified_source: 'enrichment_signal' },
       siteContent: { title: 'Official site' },
       foundingYear: 2020,
-      productTagsEn: ['Handmade'],
+      subcategoriesEn: ['Handmade'],
     })
+  })
+
+  it('ignores the dropped category_attributes key on historical blobs', () => {
+    expect(() =>
+      enrichedDataFromDb({ city: '台北', category_attributes: { material: '皮革' } }),
+    ).not.toThrow()
+    expect(
+      enrichedDataFromDb({ city: '台北', category_attributes: { material: '皮革' } }),
+    ).toEqual({ city: '台北' })
   })
 })
 
@@ -56,9 +63,9 @@ describe('enrichedDataToDb', () => {
     expect(enrichedDataToDb({ priceRange: 2 })).toEqual({ price_range: 2 })
   })
 
-  it('maps productTags to product_tags', () => {
-    expect(enrichedDataToDb({ productTags: ['skincare', 'refillable'] })).toEqual({
-      product_tags: ['skincare', 'refillable'],
+  it('maps subcategories to subcategories', () => {
+    expect(enrichedDataToDb({ subcategories: ['skincare', 'refillable'] })).toEqual({
+      subcategories: ['skincare', 'refillable'],
     })
   })
 
@@ -69,24 +76,22 @@ describe('enrichedDataToDb', () => {
         blurb: '品牌摘要',
         blurbEn: 'Brand summary',
         city: '台北',
-        categoryAttributes: { material: '皮革' },
         reputationSummary: { text: '評價良好' },
         mitEvidence: { verified_source: 'enrichment_signal' },
         siteContent: { title: 'Official site' },
         foundingYear: 2020,
-        productTagsEn: ['Handmade'],
+        subcategoriesEn: ['Handmade'],
       }),
     ).toEqual({
       description_en: 'English description',
       blurb: '品牌摘要',
       blurb_en: 'Brand summary',
       city: '台北',
-      category_attributes: { material: '皮革' },
       reputation_summary: { text: '評價良好' },
       mit_evidence: { verified_source: 'enrichment_signal' },
       site_content: { title: 'Official site' },
       founding_year: 2020,
-      product_tags_en: ['Handmade'],
+      subcategories_en: ['Handmade'],
     })
   })
 })

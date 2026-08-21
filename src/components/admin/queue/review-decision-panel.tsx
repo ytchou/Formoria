@@ -3,6 +3,7 @@
 import { useId, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { inkActionClassName } from "@/components/admin/ink-action";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -97,14 +98,15 @@ export function ReviewDecisionPanel(props: {
             an absent blocker meant any consumer using the `blocker` slot lost
             EVERY action failure message. */}
         {error ? (
-          <p className="type-error" role="alert">
+          <p className="type-metadata text-danger" role="alert">
             {error}
           </p>
         ) : null}
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
-            variant="primary"
+            variant="secondary"
+            className={inkActionClassName}
             disabled={approveDisabled}
             aria-describedby={
               approveDisabled && notesPolicy === "required" && notesBlank

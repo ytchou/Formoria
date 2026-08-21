@@ -84,7 +84,7 @@ test.describe.serial('Public brand search edge cases', () => {
           slug: exactSlug,
           status: 'approved',
           approved_at: new Date().toISOString(),
-          product_type: 'crafts',
+          category: 'home',
           description: `[E2E-TEST] Exact-name search probe ${suffix}.`,
           blurb_en: `Exact prism teaware ${suffix}.`,
           is_demo: false,
@@ -94,7 +94,7 @@ test.describe.serial('Public brand search edge cases', () => {
           slug: descriptionSlug,
           status: 'approved',
           approved_at: new Date().toISOString(),
-          product_type: 'crafts',
+          category: 'home',
           description: `[E2E-TEST] Description-only phrase ${exactQuery}.`,
           is_demo: false,
         },
@@ -103,17 +103,17 @@ test.describe.serial('Public brand search edge cases', () => {
           slug: bilingualSlug,
           status: 'approved',
           approved_at: new Date().toISOString(),
-          product_type: 'crafts',
+          category: 'home',
           description: `[E2E-TEST] Bilingual search probe ${suffix}.`,
           blurb_en: `${englishToken} Aurora Copper Vessel.`,
-          product_tags_en: [englishToken, 'teaware'],
+          subcategories_en: [englishToken, 'teaware'],
           is_demo: false,
         },
         {
           name: `[E2E-TEST] ${exactQuery} 隱藏`,
           slug: hiddenSlug,
           status: 'hidden',
-          product_type: 'crafts',
+          category: 'home',
           description: `[E2E-TEST] Hidden search probe ${suffix}.`,
           blurb_en: `${englishToken} hidden result.`,
           is_demo: false,
@@ -123,7 +123,7 @@ test.describe.serial('Public brand search edge cases', () => {
           slug: `e2e-search-sort-last-${suffix}`,
           status: 'approved',
           approved_at: new Date().toISOString(),
-          product_type: 'crafts',
+          category: 'home',
           description: `[E2E-TEST] A-Z search sort probe ${sortQuery}.`,
           is_demo: false,
         },
@@ -132,7 +132,7 @@ test.describe.serial('Public brand search edge cases', () => {
           slug: `e2e-search-sort-first-${suffix}`,
           status: 'approved',
           approved_at: new Date().toISOString(),
-          product_type: 'crafts',
+          category: 'home',
           description: `[E2E-TEST] A-Z search sort probe ${sortQuery}.`,
           is_demo: false,
         },
@@ -149,7 +149,7 @@ test.describe.serial('Public brand search edge cases', () => {
     if (!supabase) return;
     for (const id of seededIds) {
       const { error } = await supabase.from('brands').delete().eq('id', id);
-      if (error) console.warn(`[e2e-cleanup] search brand ${id}: ${error.message}`);
+      if (error) throw new Error(`[e2e-cleanup] search brand ${id}: ${error.message}`);
     }
   });
 
@@ -207,13 +207,14 @@ test.describe.serial('Public brand search edge cases', () => {
     await expect(page.getByRole('link', { name: bilingualName })).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
   });
 
-  test('landing, desktop nav, localized directory, and mobile menu reach search', async ({ page }) => {
+  test('directory, desktop nav, localized directory, and mobile menu reach search', async ({ page }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
-    await page.goto('/');
-    const heroSearch = page.locator('main form[role="search"] input[role="searchbox"]');
-    await heroSearch.fill(exactQuery);
-    await heroSearch.press('Enter');
+    await page.goto('/brands');
+    const directorySearch = page.locator(
+      'main form[aria-label="依品牌或產品關鍵字篩選"] input[role="searchbox"]',
+    );
+    await directorySearch.fill(exactQuery);
     await expect(page).toHaveURL((url) =>
       url.pathname === '/brands' && url.searchParams.get('search') === exactQuery,
     );
@@ -242,7 +243,7 @@ test.describe.serial('Public brand search edge cases', () => {
   test('directory sidebar and nav stay synchronized while unrelated filters survive', async ({ page }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
-    await page.goto('/categories/crafts?sort=name&page=2');
+    await page.goto('/categories/home?sort=name&page=2');
     const sidebarSearch = page.locator(
       'main form[aria-label="依品牌或產品關鍵字篩選"] input[role="searchbox"]',
     );
@@ -251,7 +252,7 @@ test.describe.serial('Public brand search edge cases', () => {
 
     await expect(page).toHaveURL(
       (url) =>
-        url.pathname === '/categories/crafts' &&
+        url.pathname === '/categories/home' &&
         url.searchParams.get('search') === exactQuery &&
         url.searchParams.get('sort') === 'name' &&
         !url.searchParams.has('page'),
@@ -265,7 +266,7 @@ test.describe.serial('Public brand search edge cases', () => {
       .click();
     await expect(page).toHaveURL(
       (url) =>
-        url.pathname === '/categories/crafts' &&
+        url.pathname === '/categories/home' &&
         !url.searchParams.has('search') &&
         url.searchParams.get('sort') === 'name',
     );
@@ -307,7 +308,7 @@ test.describe.serial('Public brand search edge cases', () => {
       await route.fulfill({
         contentType: 'application/json',
         body: JSON.stringify({
-          results: [{ id: 'latest', name: 'Latest Result', slug: 'latest', category: 'crafts' }],
+          results: [{ id: 'latest', name: 'Latest Result', slug: 'latest', category: 'home' }],
         }),
       });
     });
@@ -324,7 +325,7 @@ test.describe.serial('Public brand search edge cases', () => {
     await routeToRelease.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({
-        results: [{ id: 'stale', name: 'Stale Result', slug: 'stale', category: 'crafts' }],
+        results: [{ id: 'stale', name: 'Stale Result', slug: 'stale', category: 'home' }],
       }),
     });
 
@@ -346,13 +347,18 @@ test.describe.serial('Public brand search edge cases', () => {
     const emptyState = page.locator('[data-empty]');
     await expect(emptyState).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     await expect(page.getByText('共 0 個品牌', { exact: true })).toBeVisible();
-    await expect(page.getByText('本目錄收錄在台灣創立、設計或製造的品牌。', { exact: true })).toHaveCount(0);
+    // A scope-note absence assertion used to sit here. Its string came from a
+    // `scopeNote` key whose renderer was already deleted earlier in this delta;
+    // this sweep removed the orphaned key, leaving an assertion no component
+    // could ever violate. The 找不到品牌 guard below is the one that matters —
+    // that copy is still live, and it must not appear alongside the real
+    // 找不到符合的品牌 empty-state heading.
     await expect(page.getByText('找不到品牌', { exact: true })).toHaveCount(0);
     await expect(page.getByText('目前套用條件', { exact: true })).toHaveCount(0);
     await expect(emptyState.getByRole('heading', { name: '找不到符合的品牌' })).toBeVisible();
     await expect(emptyState.getByRole('status')).toContainText(missingQuery);
     await expect(emptyState.locator('img[src="x"]')).toHaveCount(0);
-    await expect(emptyState.getByRole('heading', { name: '你可能想找' })).toBeVisible();
+    await expect(emptyState.getByRole('heading', { name: '類似的選擇' })).toBeVisible();
     await expect(emptyState.getByRole('link', { name: '查看全部' })).toBeVisible();
   });
 });

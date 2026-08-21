@@ -1,0 +1,354 @@
+[
+  {
+    "term": "視頻",
+    "replacement": "影片"
+  },
+  {
+    "term": "質量",
+    "replacement": "品質"
+  },
+  {
+    "term": "信息",
+    "replacement": "資訊"
+  },
+  {
+    "term": "網絡",
+    "replacement": "網路"
+  },
+  {
+    "term": "小夥伴",
+    "replacement": "夥伴"
+  },
+  {
+    "term": "家人們",
+    "replacement": "大家"
+  },
+  {
+    "term": "牛逼",
+    "replacement": "厲害"
+  },
+  {
+    "term": "靠譜",
+    "replacement": "可靠"
+  },
+  {
+    "term": "給力",
+    "replacement": "很棒"
+  },
+  {
+    "term": "接地氣",
+    "replacement": "親民"
+  },
+  {
+    "term": "博主",
+    "replacement": "部落客"
+  },
+  {
+    "term": "公交車",
+    "replacement": "公車"
+  },
+  {
+    "term": "外賣",
+    "replacement": "外送"
+  },
+  {
+    "term": "打車",
+    "replacement": "叫車"
+  },
+  {
+    "term": "盒飯",
+    "replacement": "便當"
+  },
+  {
+    "term": "方便麵",
+    "replacement": "泡麵"
+  },
+  {
+    "term": "保安",
+    "replacement": "保全"
+  },
+  {
+    "term": "工資",
+    "replacement": "薪水"
+  },
+  {
+    "term": "立馬",
+    "replacement": "馬上"
+  },
+  {
+    "term": "渠道",
+    "replacement": "管道"
+  },
+  {
+    "term": "合同",
+    "replacement": "合約"
+  },
+  {
+    "term": "反饋",
+    "replacement": "回饋"
+  },
+  {
+    "term": "運營",
+    "replacement": "營運"
+  },
+  {
+    "term": "概率",
+    "replacement": "機率"
+  },
+  {
+    "term": "演示",
+    "replacement": "展示"
+  },
+  {
+    "term": "激活",
+    "replacement": "啟用"
+  },
+  {
+    "term": "高級感",
+    "replacement": "質感"
+  },
+  {
+    "term": "公眾號",
+    "replacement": "粉專"
+  },
+  {
+    "term": "音頻",
+    "replacement": "音訊"
+  },
+  {
+    "term": "鏈接",
+    "replacement": "連結"
+  },
+  {
+    "term": "移動端",
+    "replacement": "行動版"
+  },
+  {
+    "term": "短信",
+    "replacement": "簡訊"
+  },
+  {
+    "term": "點贊",
+    "replacement": "按讚"
+  },
+  {
+    "term": "頭像",
+    "replacement": "大頭貼"
+  },
+  {
+    "term": "當前",
+    "replacement": "目前"
+  },
+  {
+    "term": "海量",
+    "replacement": "大量"
+  },
+  {
+    "term": "素質",
+    "replacement": "素養"
+  },
+  {
+    "term": "用戶",
+    "replacement": "使用者"
+  },
+  {
+    "term": "軟件",
+    "replacement": "軟體"
+  },
+  {
+    "term": "硬件",
+    "replacement": "硬體"
+  },
+  {
+    "term": "內存",
+    "replacement": "記憶體"
+  },
+  {
+    "term": "硬盤",
+    "replacement": "硬碟"
+  },
+  {
+    "term": "鼠標",
+    "replacement": "滑鼠"
+  },
+  {
+    "term": "屏幕",
+    "replacement": "螢幕"
+  },
+  {
+    "term": "打印",
+    "replacement": "列印"
+  },
+  {
+    "term": "服務器",
+    "replacement": "伺服器"
+  },
+  {
+    "term": "數據庫",
+    "replacement": "資料庫"
+  },
+  {
+    "term": "算法",
+    "replacement": "演算法"
+  },
+  {
+    "term": "代碼",
+    "replacement": "程式碼"
+  },
+  {
+    "term": "編程",
+    "replacement": "程式設計"
+  },
+  {
+    "term": "雲計算",
+    "replacement": "雲端運算"
+  },
+  {
+    "term": "默認",
+    "replacement": "預設"
+  },
+  {
+    "term": "文件夾",
+    "replacement": "資料夾"
+  },
+  {
+    "term": "互聯網",
+    "replacement": "網際網路"
+  },
+  {
+    "term": "接口",
+    "replacement": "介面"
+  },
+  {
+    "term": "加載",
+    "replacement": "載入"
+  },
+  {
+    "term": "異步",
+    "replacement": "非同步"
+  },
+  {
+    "term": "數組",
+    "replacement": "陣列"
+  },
+  {
+    "term": "賦值",
+    "replacement": "指派"
+  },
+  {
+    "term": "哈希",
+    "replacement": "雜湊"
+  },
+  {
+    "term": "緩存",
+    "replacement": "快取"
+  },
+  {
+    "term": "集成",
+    "replacement": "整合"
+  },
+  {
+    "term": "模塊",
+    "replacement": "模組"
+  },
+  {
+    "term": "全局",
+    "replacement": "全域"
+  },
+  {
+    "term": "遞歸",
+    "replacement": "遞迴"
+  },
+  {
+    "term": "構造函數",
+    "replacement": "建構子"
+  },
+  {
+    "term": "插件",
+    "replacement": "外掛"
+  },
+  {
+    "term": "集群",
+    "replacement": "叢集"
+  },
+  {
+    "term": "操作系統",
+    "replacement": "作業系統"
+  },
+  {
+    "term": "驅動程序",
+    "replacement": "驅動程式"
+  },
+  {
+    "term": "應用程序",
+    "replacement": "應用程式"
+  },
+  {
+    "term": "神經網絡",
+    "replacement": "神經網路"
+  },
+  {
+    "term": "賦能",
+    "replacement": "幫助"
+  },
+  {
+    "term": "抓手",
+    "replacement": "切入點"
+  },
+  {
+    "term": "閉環",
+    "replacement": "完整流程"
+  },
+  {
+    "term": "底層邏輯",
+    "replacement": "基本原理"
+  },
+  {
+    "term": "顆粒度",
+    "replacement": "精細度"
+  },
+  {
+    "term": "拉通",
+    "replacement": "打通"
+  },
+  {
+    "term": "鏈路",
+    "replacement": "流程"
+  },
+  {
+    "term": "私域流量",
+    "replacement": "自有受眾"
+  },
+  {
+    "term": "絕絕子",
+    "replacement": "超讚"
+  },
+  {
+    "term": "尊嘟假嘟",
+    "replacement": "真的假的"
+  },
+  {
+    "term": "YYDS",
+    "replacement": "太神了"
+  },
+  {
+    "term": "小姐姐",
+    "replacement": "正妹"
+  },
+  {
+    "term": "小哥哥",
+    "replacement": "帥哥"
+  },
+  {
+    "term": "顯眼包",
+    "replacement": "很搶戲的人"
+  },
+  {
+    "term": "鬆弛感",
+    "replacement": "從容"
+  },
+  {
+    "term": "頂流",
+    "replacement": "頂尖"
+  }
+]

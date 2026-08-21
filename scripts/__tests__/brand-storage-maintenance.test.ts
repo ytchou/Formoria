@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   buildReferenceSet,
   categorizeObjects,
+  isMissingTableError,
   planPurge,
   selectPurgeableManifests,
   shouldReencode,
@@ -145,6 +146,82 @@ describe('categorizeObjects', () => {
 })
 
 /**
+ * `curated-products/` objects (DEV-1404) are referenced only by
+ * `curated_products.image_url`, a public URL — no image table row exists for
+ * them. Without both the prefix registration and the matching read in
+ * buildReferenceSet, every live curated image is `untracked` and the purge
+ * deletes it days later with no error.
+ */
+describe('curated-products prefix', () => {
+  const supabaseUrl = 'https://test-project.supabase.co'
+  const publicUrlFor = (key: string) =>
+    `${supabaseUrl}/storage/v1/object/public/brand-images/${key}`
+
+  beforeEach(() => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', supabaseUrl)
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('a curated-products object is referenced, never untracked', async () => {
+    const key = `curated-products/${randomUUID()}/${randomUUID()}/x.webp`
+    const refsFromDb = await buildReferenceSet(
+      stubReferenceClient({
+        brand_images: [],
+        submission_images: [],
+        brands: [],
+        brand_submissions: [],
+        event_exhibitors: [],
+        curated_products: [
+          { image_url: publicUrlFor(key) },
+          { image_url: null },
+        ],
+      }),
+    )
+
+    expect(refsFromDb.otherReferencedPaths.has(key)).toBe(true)
+
+    const categorized = categorizeObjects([{ path: key, size: 1 }], refsFromDb)
+    expect(categorized.protected.map((object) => object.path)).toEqual([key])
+    expect(categorized.untracked).toEqual([])
+    expect(categorized.rejected).toEqual([])
+
+    const plan = planPurge(categorized, {
+      expectedRejected: 0,
+      expectedUntracked: 0,
+      tolerance: 0.15,
+    })
+    expect(plan.toDelete).not.toContain(key)
+  })
+
+  it('an orphaned curated-products object with no referencing row is untracked', async () => {
+    const orphanKey = `curated-products/${randomUUID()}/${randomUUID()}/dead.webp`
+    const refsFromDb = await buildReferenceSet(
+      stubReferenceClient({
+        brand_images: [],
+        submission_images: [],
+        brands: [],
+        brand_submissions: [],
+        event_exhibitors: [],
+        curated_products: [],
+      }),
+    )
+
+    const categorized = categorizeObjects(
+      [{ path: orphanKey, size: 1 }],
+      refsFromDb,
+    )
+
+    expect(categorized.untracked.map((object) => object.path)).toEqual([
+      orphanKey,
+    ])
+    expect(categorized.protected).toEqual([])
+  })
+})
+
+/**
  * Chainable stand-in for the service client. This is a plain argument, not a
  * module mock: `scripts/check-test-boundaries.mjs` forbids vi.mock of
  * `@/lib/supabase/` and `@supabase/`, and buildReferenceSet takes its client as
@@ -157,6 +234,7 @@ describe('categorizeObjects', () => {
  */
 function stubReferenceClient(
   rowsByTable: Record<string, unknown[]>,
+  errorsByTable: Record<string, { message: string; code?: string }> = {},
 ): Parameters<typeof buildReferenceSet>[0] {
   const client = {
     from(table: string) {
@@ -165,7 +243,11 @@ function stubReferenceClient(
         not: () => chain,
         order: () => chain,
         range: () =>
-          Promise.resolve({ data: rowsByTable[table] ?? [], error: null }),
+          Promise.resolve(
+            errorsByTable[table]
+              ? { data: null, error: errorsByTable[table] }
+              : { data: rowsByTable[table] ?? [], error: null },
+          ),
       }
       return chain
     },
@@ -194,6 +276,71 @@ describe('buildReferenceSet', () => {
     const result = categorizeObjects([{ path: rosterKey, size: 1 }], refsFromDb)
     expect(result.protected.map((object) => object.path)).toEqual([rosterKey])
     expect(result.untracked).toEqual([])
+  })
+})
+
+/**
+ * The guard exists for exactly one environment — one where the DEV-1404
+ * migration has not been applied — so nothing else exercises it. It was
+ * originally written against the raw Postgres code, which PostgREST never
+ * returns, making it dead code that aborted the whole audit.
+ */
+describe('missing curated_products table', () => {
+  it.each([
+    ['PGRST205', true],
+    ['42P01', true],
+    ['42501', false],
+    [undefined, false],
+  ])('isMissingTableError(%s) -> %s', (code, expected) => {
+    expect(isMissingTableError(code ? { code } : {})).toBe(expected)
+  })
+
+  it('isMissingTableError(null) -> false', () => {
+    expect(isMissingTableError(null)).toBe(false)
+  })
+
+  it('skips curated_products references when PostgREST cannot find the table', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const refsFromDb = await buildReferenceSet(
+      stubReferenceClient(
+        {
+          brand_images: [],
+          submission_images: [],
+          brands: [],
+          brand_submissions: [],
+          event_exhibitors: [],
+        },
+        {
+          curated_products: {
+            code: 'PGRST205',
+            message:
+              "Could not find the table 'public.curated_products' in the schema cache",
+          },
+        },
+      ),
+    )
+
+    expect(refsFromDb.otherReferencedPaths.size).toBe(0)
+    expect(warn).toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
+  it('still throws on an error that is not a missing table', async () => {
+    await expect(
+      buildReferenceSet(
+        stubReferenceClient(
+          {
+            brand_images: [],
+            submission_images: [],
+            brands: [],
+            brand_submissions: [],
+            event_exhibitors: [],
+          },
+          { curated_products: { code: '42501', message: 'permission denied' } },
+        ),
+      ),
+    ).rejects.toThrow(/permission denied/)
   })
 })
 

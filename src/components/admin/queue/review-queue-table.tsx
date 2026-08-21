@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { isInteractiveTableTarget } from "@/components/admin/brand-detail-sheet";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ export function ReviewQueueTable<T>(props: {
     rowClassName,
     error,
   } = props;
+  const t = useTranslations("admin.queue");
   const visibleColumns = columns.filter(
     (column) => column.visibleOn?.(queue.activeTab) ?? true,
   );
@@ -101,9 +103,9 @@ export function ReviewQueueTable<T>(props: {
         </div>
       ) : null}
 
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="rounded-[3px] border border-rule bg-surface overflow-hidden">
         <Table>
-          <TableHeader className="bg-muted">
+          <TableHeader className="bg-surface">
             <TableRow className="h-12">
               {queue.selectionEnabled ? (
                 <TableHead className="h-12 w-14">
@@ -136,11 +138,11 @@ export function ReviewQueueTable<T>(props: {
               ))}
               {rowActions ? (
                 <TableHead className="h-12 text-right">
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{t("actionsHeader")}</span>
                 </TableHead>
               ) : null}
               <TableHead className="h-12">
-                <span className="sr-only">Details</span>
+                <span className="sr-only">{t("detailsHeader")}</span>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -226,7 +228,7 @@ export function ReviewQueueTable<T>(props: {
               <TableRow>
                 <TableCell
                   colSpan={renderedColumnCount}
-                  className="py-10 text-center type-empty-body"
+                  className="py-10 text-center type-body-sm"
                 >
                   {emptyMessage}
                 </TableCell>
@@ -237,7 +239,7 @@ export function ReviewQueueTable<T>(props: {
       </div>
 
       {error ? (
-        <p className="mt-3 type-error" role="alert">
+        <p className="mt-3 type-metadata text-danger" role="alert">
           {error}
         </p>
       ) : null}

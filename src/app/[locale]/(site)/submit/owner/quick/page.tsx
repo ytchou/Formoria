@@ -7,6 +7,7 @@ import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
 import { createClient } from '@/lib/supabase/server'
+import { routes } from '@/lib/routes'
 
 type QuickOwnerPageProps = {
   params: Promise<{ locale: string }>
@@ -22,7 +23,7 @@ export async function generateMetadata({
   return {
     title: t('heading'),
     description: t('subheading'),
-    alternates: buildAlternates('/submit/owner/quick', locale as Locale),
+    alternates: buildAlternates(routes.submit.ownerQuick(), locale as Locale),
   }
 }
 
@@ -49,7 +50,7 @@ export default async function SubmitOwnerQuickPage({
   }
 
   if (error || !user) {
-    redirect(signInHref('/submit/owner/quick', locale))
+    redirect(signInHref(routes.submit.ownerQuick(), locale))
   }
 
   return <SubmitQuickForm />

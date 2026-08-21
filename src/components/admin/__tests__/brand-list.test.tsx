@@ -5,6 +5,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../../messages/en.json";
 import type { Brand } from "@/lib/types";
+import { MAX_BULK_PRODUCT_BACKFILL } from "@/lib/constants/curated-products";
 import { BrandList } from "../brand-list";
 
 const navigation = vi.hoisted(() => ({ refresh: vi.fn() }));
@@ -15,6 +16,7 @@ vi.mock("@/app/admin/actions", () => ({
   unhideBrandAction: vi.fn(),
   deleteBrandAction: vi.fn(),
   requestBrandRefreshAction: vi.fn(),
+  requestCuratedProductBackfillAction: vi.fn(),
   resendClaimInviteAction: vi.fn(),
 }));
 vi.mock("@/app/admin/brands/actions", () => ({
@@ -115,6 +117,61 @@ describe("BrandList detail sheet", () => {
   });
 });
 
+/**
+ * The selection cap, surfaced in the UI rather than discovered from a server
+ * error. Selecting 101 brands out of 718 is an ordinary intent, and the action
+ * used to answer it with the same 'Invalid brand selection' string it returns
+ * for a malformed id — naming neither the limit nor the fix.
+ */
+describe("BrandList product-generation selection cap", () => {
+  it("disables every unselected checkbox once the cap is reached, and names the number", async () => {
+    const user = userEvent.setup();
+    const brands = Array.from(
+      { length: MAX_BULK_PRODUCT_BACKFILL + 1 },
+      (_, index) =>
+        makeBrand({
+          id: `c971ea1a-8fa9-4b4e-a0b8-f57db47bc${String(index).padStart(3, "0")}`,
+          name: `Brand ${index}`,
+          slug: `brand-${index}`,
+        }),
+    );
+    renderList(brands);
+
+    // 50 is the largest page size, so the cap needs exactly two full pages —
+    // deterministic, and the third page is what proves the block.
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Brands per page" }),
+      "50",
+    );
+    const selectPage = async () =>
+      user.click(
+        screen.getByRole("checkbox", {
+          name: /Select every eligible brand on this page/,
+        }),
+      );
+    await selectPage();
+    await user.click(screen.getByRole("button", { name: "Next page" }));
+    await selectPage();
+    await user.click(screen.getByRole("button", { name: "Next page" }));
+
+    expect(
+      screen.getByText(
+        `${MAX_BULK_PRODUCT_BACKFILL} of ${MAX_BULK_PRODUCT_BACKFILL} per run — limit reached`,
+      ),
+    ).toBeInTheDocument();
+
+    const blocked = screen.getByRole("checkbox", {
+      name: `Cannot select Brand ${MAX_BULK_PRODUCT_BACKFILL}: product generation runs at most ${MAX_BULK_PRODUCT_BACKFILL} brands per run`,
+    });
+    expect(blocked).toBeDisabled();
+    expect(
+      screen.getByRole("checkbox", {
+        name: /Select every eligible brand on this page/,
+      }),
+    ).toBeDisabled();
+  });
+});
+
 function renderList(brands: Brand[]) {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
@@ -134,9 +191,9 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     blurbEn: null,
     heroImageUrl: null,
     status: "approved",
-    productType: "crafts",
+    categorySlug: "home",
+    categoryLabel: "Home & Living",
     city: "台北",
-    category: "crafts",
     isVerified: false,
     mitStatus: "unverified",
     isDemo: false,
@@ -153,8 +210,8 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     imageAlts: [],
     contactEmail: null,
     priceRange: 2,
-    productTags: [],
-    productTagsEn: [],
+    subcategories: [],
+    subcategoriesEn: [],
     siteContent: null,
     submittedAt: "2026-01-01T00:00:00.000Z",
     approvedAt: "2026-01-02T00:00:00.000Z",

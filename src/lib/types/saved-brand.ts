@@ -6,16 +6,13 @@ export interface SavedBrand {
   brandSlug: string
   heroImageUrl: string | null
   /**
-   * Metadata for the hero image ONLY — a saved card renders exactly one image,
-   * so a full index-aligned `imageAlts` array would claim more than is carried.
-   * Null when the hero has no matching `brand_images` row.
-   *
-   * Deliberately a whole `BrandImageMeta` rather than the flattened
-   * `isLogo`/`focalX`/`focalY` triple it replaces: those names satisfied
-   * `objectPositionStyle` only by coinciding with its structural parameter, so
-   * nothing tied them to `BrandImageMeta` and a field added there would never
-   * have reached this type.
+   * The image list and metadata share the same index alignment as
+   * `[heroImageUrl, ...productPhotos]`, allowing the card to choose a product
+   * photo without losing its fill mode.
    */
+  productPhotos: string[]
+  imageAlts: BrandImageMeta[]
+  /** Kept for callers that only need the denormalized hero's metadata. */
   heroImageMeta: BrandImageMeta | null
   savedAt: string
 }

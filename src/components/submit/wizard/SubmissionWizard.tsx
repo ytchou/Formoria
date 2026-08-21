@@ -43,9 +43,10 @@ import {
 import { BasicInfoSection } from './sections/BasicInfoSection'
 import { LinksSection } from './sections/LinksSection'
 import { MediaSection } from './sections/MediaSection'
+import { routes } from '@/lib/routes'
 
 type SubmissionWizardProps = {
-  productTagSuggestions?: string[]
+  subcategorySuggestions?: string[]
 }
 
 const submissionStepFormSchema = submissionWizardSchema.and(
@@ -75,9 +76,9 @@ const FIELD_STEPS: Partial<Record<keyof SubmissionWizardValues, number>> = {
   romanizedName: 0,
   website: 0,
   description: 0,
-  productType: 0,
+  categorySlug: 0,
   foundingYear: 0,
-  productTags: 0,
+  subcategories: 0,
   city: 0,
   priceRange: 0,
   mitStory: 0,
@@ -98,7 +99,7 @@ const FIELD_STEPS: Partial<Record<keyof SubmissionWizardValues, number>> = {
 }
 
 export default function SubmissionWizard({
-  productTagSuggestions = [],
+  subcategorySuggestions = [],
 }: SubmissionWizardProps) {
   const t = useTranslations('submit')
   const tReview = useTranslations('submit.review')
@@ -125,9 +126,9 @@ export default function SubmissionWizard({
       romanizedName: '',
       website: '',
       description: '',
-      productType: undefined,
+      categorySlug: undefined,
       foundingYear: undefined,
-      productTags: [],
+      subcategories: [],
       city: undefined,
       priceRange: undefined,
       mitStory: '',
@@ -150,8 +151,8 @@ export default function SubmissionWizard({
   })
 
   const contextValue = useMemo(
-    () => ({ form, productTagSuggestions, uploadSessionId }),
-    [form, productTagSuggestions, uploadSessionId],
+    () => ({ form, subcategorySuggestions, uploadSessionId }),
+    [form, subcategorySuggestions, uploadSessionId],
   )
 
   const validateStep = useCallback(async (stepKey: SubmissionWizardStepKey) => {
@@ -208,7 +209,7 @@ export default function SubmissionWizard({
         stepCompleted(currentStepKey)
         trackSubmissionCompleted(
           values.name,
-          values.productType ?? '',
+          values.categorySlug ?? '',
           Boolean(values.heroImageUrl),
           complete(),
           'owner_claim',
@@ -218,7 +219,7 @@ export default function SubmissionWizard({
         if (result?.ownershipAdjusted) {
           params.set('ownership', 'community')
         }
-        router.push(`/submit/confirmation?${params.toString()}`)
+        router.push(`${routes.submit.confirmation()}?${params.toString()}`)
       } finally {
         setIsSubmitting(false)
       }
@@ -285,7 +286,7 @@ export default function SubmissionWizard({
 
             {activeStep === SUBMISSION_WIZARD_STEPS.length - 1 ? (
               <>
-                <div className="mt-6 space-y-4 rounded-lg border border-border bg-card p-6">
+                <div className="mt-6 space-y-4 rounded-[3px] border border-rule bg-surface p-6">
                   <Controller
                     name="pdpaConsent"
                     control={form.control}
@@ -300,14 +301,14 @@ export default function SubmissionWizard({
                             }
                             className="mt-0.5 size-[18px] shrink-0"
                           />
-                          <span className="type-body font-normal">
+                          <span className="type-body-sm text-ink-soft font-normal">
                             {tReview.rich('pdpaConsent', {
                               privacyPolicy: (chunks) => (
                                 <Link
-                                  href="/privacy"
+                                  href={routes.privacy()}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                  className="text-ink underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                                 >
                                   {chunks}
                                 </Link>
@@ -316,7 +317,7 @@ export default function SubmissionWizard({
                           </span>
                         </Label>
                         {fieldState.error ? (
-                          <p className="type-error">
+                          <p className="type-metadata text-danger">
                             {t('validation.pdpaRequired')}
                           </p>
                         ) : null}
@@ -364,7 +365,7 @@ export default function SubmissionWizard({
                     />
                   </div>
                   {turnstileError || form.formState.errors.turnstileToken ? (
-                    <p className="type-error text-center" role="alert">
+                    <p className="type-metadata text-danger text-center" role="alert">
                       {turnstileError
                         ? t('errors.turnstileError')
                         : t('validation.turnstileRequired')}
@@ -372,13 +373,13 @@ export default function SubmissionWizard({
                   ) : null}
 
                   {submitError ? (
-                    <p className="type-error" role="alert" aria-live="polite">
+                    <p className="type-metadata text-danger" role="alert" aria-live="polite">
                       {submitError}
                     </p>
                   ) : null}
                 </div>
 
-                <footer className="mt-8 flex items-center justify-between border-t border-border pt-6">
+                <footer className="mt-8 flex items-center justify-between border-t border-rule pt-6">
                   <Button
                     type="button"
                     variant="secondary"
@@ -390,7 +391,6 @@ export default function SubmissionWizard({
                   <Button
                     type="submit"
                     variant="primary"
-                    tone="cta"
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? (

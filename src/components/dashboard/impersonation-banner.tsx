@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { PageShell } from '@/components/ui/page-shell'
 import { endImpersonationAction } from '@/lib/actions/impersonation'
 import { useUser } from '@/lib/auth/use-user'
+import { routes } from '@/lib/routes'
 
 function getMinutesLeft(expiresAt: number) {
   return Math.max(0, Math.ceil((expiresAt - Date.now() / 1000) / 60))
@@ -51,16 +53,23 @@ export function ImpersonationBanner() {
 
   return (
     <div className="border-b border-mit-verified/20 bg-mit-verified-bg px-3 py-2">
-      <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-3">
+      {/* `gutter="none"`: the outer strip already carries the horizontal
+          padding (`px-3`), and the shell's own gutter would inset the row a
+          second time. The banner is chrome, so it takes the page measure. */}
+      <PageShell
+        measure="page"
+        gutter="none"
+        className="flex items-center justify-between gap-3"
+      >
         <div className="flex min-w-0 items-center gap-2">
           {/* ui-exception: inverse badge on dark impersonation banner; single site, no variant warranted */}
-          <Badge className="bg-background text-mit-verified">
+          <Badge className="bg-ground text-mit-verified">
             {brandName}
           </Badge>
-          <span className="truncate type-body-emphasis text-mit-verified">
+          <span className="truncate type-body-sm font-medium text-mit-verified">
             {t('banner', { brandName })}
           </span>
-          <span className="type-caption text-mit-verified" suppressHydrationWarning>
+          <span className="type-metadata text-mit-verified" suppressHydrationWarning>
             {t.raw('timeRemaining').replace('{minutes}', String(minutesLeft))}
           </span>
         </div>
@@ -68,19 +77,19 @@ export function ImpersonationBanner() {
           type="button"
           size="compact"
           variant="secondary"
-          className="border-mit-verified/30 text-mit-verified hover:bg-background"
+          className="border-mit-verified/30 text-mit-verified hover:bg-ground"
           disabled={isPending}
           onClick={() => {
             startTransition(async () => {
               await endImpersonationAction()
               await refreshViewer()
-              router.push('/dashboard')
+              router.push(routes.dashboard.index())
             })
           }}
         >
           {t('exit')}
         </Button>
-      </div>
+      </PageShell>
     </div>
   )
 }

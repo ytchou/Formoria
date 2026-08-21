@@ -206,3 +206,38 @@ describe("release source guard", () => {
     ).toThrow(/mergeMethod/);
   });
 });
+
+/**
+ * The staging E2E gate is the last automated check before production. It used
+ * to carry its own literal list of legal release heads, which drifted from the
+ * guard above: `release/candidate-*` passed the guard, the gate skipped itself,
+ * and GitHub read the skip as a satisfied required check (DEV-1536, PR #808).
+ *
+ * These assertions read the workflow as text, so `vitest --changed` will not
+ * select this file when only the YAML moves. CI runs it unconditionally in the
+ * lint job for that reason.
+ */
+describe("staging E2E release gate", () => {
+  async function releaseGate() {
+    return readFile(".github/workflows/e2e-release.yml", "utf8");
+  }
+
+  it("runs on every pull request into production rather than skipping", async () => {
+    const workflow = await releaseGate();
+    expect(workflow).not.toMatch(/^\s*if:.*pull_request\.head\.ref/m);
+  });
+
+  it("keeps no accepted-head list of its own", async () => {
+    const workflow = await releaseGate();
+    expect(workflow).toContain("run: node scripts/check-release-source.mjs");
+    expect(workflow).not.toMatch(/head\.ref\s*==\s*'staging'/);
+  });
+
+  it("refuses to certify a candidate head against deployed staging", async () => {
+    const workflow = await releaseGate();
+    expect(workflow).toMatch(
+      /if \[\[ "\$RELEASE_HEAD_REF" != "staging" \]\]; then/,
+    );
+    expect(workflow).toContain("cannot be certified against deployed staging");
+  });
+});

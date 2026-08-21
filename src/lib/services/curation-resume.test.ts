@@ -65,6 +65,7 @@ describe("planCurationResume", () => {
       "locations",
       "reputation",
       "faq",
+      "products",
     ]);
   });
 
@@ -94,6 +95,7 @@ describe("planCurationResume", () => {
       "locations",
       "reputation",
       "faq",
+      "products",
     ].map((name) => phase(name, "succeeded"));
 
     const plans = planCurationResume(null, [

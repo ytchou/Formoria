@@ -26,19 +26,18 @@ import {
 } from '@/lib/services/origin-evidence'
 import { enrollInMarketingEmails } from '@/lib/services/marketing-email-consent'
 import {
-  confirmChannel,
-  getChannelsForBrand,
-  setOwnerChannelStatus,
-  submitChannel,
-} from '@/lib/services/brand-channels'
+  setOwnerStockistStatus,
+  submitStockist,
+} from '@/lib/services/stockists'
 import {
   revalidateLocalizedPath,
   revalidatePublicBrands,
+  revalidatePublicStockists,
 } from '@/lib/cache/public-brand-cache'
 import { isOwnerOf } from '@/lib/services/brand-owners'
-import type { ChannelType } from '@/lib/types/brand-channel'
 import { createServiceClient } from '@/lib/supabase/service'
 import { trackOriginEvidenceSubmitted } from '@/lib/analytics'
+import { routes } from '@/lib/routes'
 
 const REPORT_REASONS = [
   'incorrect_info',
@@ -82,7 +81,7 @@ type EvidenceErrorCode =
 
 export type EvidenceState = { error?: EvidenceErrorCode; success?: boolean }
 
-export type ChannelFormState = { error?: string; success?: true }
+export type StockistFormState = { error?: string; success?: true }
 
 export type SubmitClaimInput = {
   brandId: string
@@ -102,51 +101,26 @@ function getFormString(formData: FormData, key: string): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-export async function confirmChannelAction(
-  channelId: string,
-  brandSlug: string,
-): Promise<{ confirmationCount: number } | { error: string }> {
-  return runWithAuditContext({}, async () => {
-    try {
-      const user = await requireClaimUser()
-      if (!user) return { error: 'not_logged_in' }
-
-      const confirmationCount = await confirmChannel(user.id, channelId)
-      revalidatePublicBrands([brandSlug])
-      return { confirmationCount }
-    } catch (error) {
-      console.error('[brands:confirmChannel]', error)
-      return { error: 'unknown' }
-    }
-  })
-}
-
-export async function getChannelViewerStateAction(
+/**
+ * Ownership is the only viewer-dependent state the stockist list still has: it
+ * decides whether the owner moderation controls render. It stays a client-side
+ * action rather than a page prop because the brand page is statically rendered.
+ */
+export async function getStockistViewerStateAction(
   brandId: string,
-): Promise<{ isOwner: boolean; confirmedChannelIds: string[] }> {
+): Promise<{ isOwner: boolean }> {
   return runWithAuditContext({}, async () => {
     const user = await requireClaimUser()
-    if (!user) return { isOwner: false, confirmedChannelIds: [] }
+    if (!user) return { isOwner: false }
 
-    const [channels, isOwner] = await Promise.all([
-      getChannelsForBrand(brandId, user.id),
-      isOwnerOf(user.id, brandId),
-    ])
-    const allChannels = [...channels.confirmed, ...channels.possible]
-
-    return {
-      isOwner,
-      confirmedChannelIds: allChannels
-        .filter((channel) => channel.hasCurrentUserConfirmed === true)
-        .map((channel) => channel.id),
-    }
+    return { isOwner: await isOwnerOf(user.id, brandId) }
   })
 }
 
-export async function submitChannelInfoAction(
-  _prevState: ChannelFormState,
+export async function submitStockistInfoAction(
+  _prevState: StockistFormState,
   formData: FormData,
-): Promise<ChannelFormState> {
+): Promise<StockistFormState> {
   return runWithAuditContext({}, async () => {
     const t = await getTranslations('brandDetail.channels.errors')
 
@@ -160,27 +134,31 @@ export async function submitChannelInfoAction(
       const brandSlug = getFormString(formData, 'brandSlug')
       if (!brandSlug) return { error: t('missing_brand_slug') }
 
-      const result = await submitChannel(user.id, brandId, {
+      const region = getFormString(formData, 'region')
+      const result = await submitStockist(user.id, brandId, {
         name: getFormString(formData, 'name'),
-        channelType: getFormString(formData, 'channelType') as ChannelType,
-        category: getFormString(formData, 'category'),
-        region: getFormString(formData, 'region'),
+        region,
         address: getFormString(formData, 'address'),
         url: getFormString(formData, 'url'),
       })
       if (!result.ok) return { error: t(result.code) }
 
-      revalidatePublicBrands([brandSlug])
+      // Deliberately NOT revalidated. The submitted row is invisible until an
+      // admin approves it, so no cached page renders anything different — and
+      // `revalidatePublicBrands` purges the `public-brand-data` tag for all 718
+      // brand pages plus a dozen paths, which any signed-in reader could then
+      // trigger 20 times a day for zero rendered change. `reviewStockistAction`
+      // fires exactly that revalidation at the moment the row becomes public.
       return { success: true }
     } catch (error) {
-      console.error('[brands:submitChannelInfo]', error)
+      console.error('[brands:submitStockistInfo]', error)
       return { error: t('unknown') }
     }
   })
 }
 
-export async function ownerModerateChannelAction(
-  channelId: string,
+export async function ownerModerateStockistAction(
+  stockistId: string,
   brandSlug: string,
   status: 'confirmed' | 'rejected',
 ): Promise<{ success: true } | { error: string }> {
@@ -189,13 +167,14 @@ export async function ownerModerateChannelAction(
       const user = await requireClaimUser()
       if (!user) return { error: 'not_logged_in' }
 
-      const result = await setOwnerChannelStatus(user.id, channelId, status)
+      const result = await setOwnerStockistStatus(user.id, stockistId, status)
       if (!result.ok) return { error: result.code }
 
       revalidatePublicBrands([brandSlug])
+      revalidatePublicStockists(result.city)
       return { success: true }
     } catch (error) {
-      console.error('[brands:ownerModerateChannel]', error)
+      console.error('[brands:ownerModerateStockist]', error)
       return { error: 'unknown' }
     }
   })
@@ -337,8 +316,8 @@ export async function submitClaimAction(
         })
       }
 
-      revalidatePath('/admin')
-      revalidatePath('/admin/claims')
+      revalidatePath(routes.admin.index())
+      revalidatePath(routes.admin.claims())
       return {
         ok: true,
         ...(claimRequest.emailVerificationTokens[0]
@@ -422,8 +401,8 @@ export async function submitReportAction(
         ...(reportedField ? { reportedField } : {}),
         ...(userId ? { userId } : {}),
       })
-      revalidatePath('/admin/reports')
-      revalidatePath('/admin')
+      revalidatePath(routes.admin.reports())
+      revalidatePath(routes.admin.index())
       return { success: true }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('unknown')
@@ -499,10 +478,10 @@ export async function submitEvidenceAction(
       if (!result.ok) return { error: result.code }
 
       trackOriginEvidenceSubmitted(brandId.trim(), brandSlug.trim(), stance)
-      revalidateLocalizedPath(`/brands/${brandSlug.trim()}`)
-      revalidateLocalizedPath('/contributions')
+      revalidateLocalizedPath(routes.brand(brandSlug.trim()))
+      revalidateLocalizedPath(routes.contributions())
       // `/admin` lives outside `[locale]`, so its cache key is already literal.
-      revalidatePath('/admin/evidence')
+      revalidatePath(routes.admin.evidence())
       return { success: true }
     } catch (err: unknown) {
       console.error('[brands:submitEvidence]', err)

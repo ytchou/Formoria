@@ -1,23 +1,23 @@
 import {
-  PURCHASE_COLUMNS,
-  purchaseChannelByKey,
-  type PurchaseChannelColumn,
-} from '@/lib/brands/purchase-channels'
+  ONLINE_STORE_COLUMNS,
+  onlineStoreByKey,
+  type OnlineStoreColumn,
+} from '@/lib/brands/online-stores'
 import { createServiceClient } from '@/lib/supabase/service'
 
-/** The brand's own site; every other registry channel counts as a marketplace. */
-const WEBSITE_COLUMN = purchaseChannelByKey.website.column
-const MARKETPLACE_COLUMNS = PURCHASE_COLUMNS.filter(
+/** The brand's own site; every other registry store counts as a marketplace. */
+const WEBSITE_COLUMN = onlineStoreByKey.website.column
+const MARKETPLACE_COLUMNS = ONLINE_STORE_COLUMNS.filter(
   (column) => column !== WEBSITE_COLUMN
 )
 
-type BrandRow = Record<PurchaseChannelColumn, string | null> & {
+type BrandRow = Record<OnlineStoreColumn, string | null> & {
   id: string
   slug: string
   name: string
   description: string | null
   hero_image_url: string | null
-  product_type: string | null
+  category: string | null
   social_instagram: string | null
 }
 type SearchResultRow = {
@@ -101,7 +101,7 @@ function makeCandidate(
   ownerBrandIds: Set<string>
 ): Candidate {
   const coverage = [
-    `product:${brand.product_type ?? 'unknown'}`,
+    `category:${brand.category ?? 'unknown'}`,
     `data:${dataRichness(brand)}`,
     brand.hero_image_url ? 'hero:present' : 'hero:missing',
     ownerBrandIds.has(brand.id) ? 'owner:claimed' : 'owner:unclaimed',
@@ -117,7 +117,7 @@ function makeCandidate(
     descriptionSnippet: descriptionSnippet(brand.description),
     criteriaCoverage: coverage,
     reasons: [
-      `Covers ${brand.product_type ?? 'unknown'} product type`,
+      `Covers ${brand.category ?? 'unknown'} category`,
       `Represents ${dataRichness(brand)} data richness`,
       brand.hero_image_url ? 'Has current hero image' : 'Missing current hero image',
       ownerBrandIds.has(brand.id) ? 'Owner-claimed brand' : 'Unclaimed brand',
@@ -163,7 +163,7 @@ async function main(): Promise<void> {
   const brandsResult = await supabase
     .from('brands')
     .select(
-      `id, slug, name, description, hero_image_url, product_type, ${PURCHASE_COLUMNS.join(', ')}, social_instagram`
+      `id, slug, name, description, hero_image_url, category, ${ONLINE_STORE_COLUMNS.join(', ')}, social_instagram`
     )
     .eq('status', 'approved')
     .order('updated_at', { ascending: false })
@@ -173,7 +173,7 @@ async function main(): Promise<void> {
     throw new Error(brandsResult.error.message)
   }
 
-  // The select list is built from the channel registry, so supabase-js cannot
+  // The select list is built from the online-store registry, so supabase-js cannot
   // infer a row type from the (non-literal) query string.
   const brands = (brandsResult.data ?? []) as unknown as BrandRow[]
   const brandIds = brands.map((brand) => brand.id)

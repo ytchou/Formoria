@@ -40,8 +40,6 @@ export type HeroSnapshot = {
   height: number | null
   score: number | null
   tags: string[] | null
-  focalX: number | null
-  focalY: number | null
 }
 
 export type PreviewBrand = {
@@ -104,8 +102,6 @@ export function snapshot(row: BrandImageForClassification): HeroSnapshot {
           ? null
           : Number(row.score),
     tags: row.tags ?? null,
-    focalX: row.focal_x ?? null,
-    focalY: row.focal_y ?? null,
   }
 }
 

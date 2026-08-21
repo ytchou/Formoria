@@ -12,13 +12,13 @@ import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
-  PURCHASE_COLUMNS,
-  purchaseChannelByKey,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORE_COLUMNS,
+  onlineStoreByKey,
+} from "@/lib/brands/online-stores";
 import { loadCohort, snapshotDir } from "./cohort";
-// ARTIFACT_ROOT / artifactPath / esc are shared with
+// artifactPath / esc are shared with
 // scripts/resort-heroes/render.ts; see scripts/shared/artifact.ts.
-import { ARTIFACT_ROOT, artifactPath, esc } from "../shared/artifact";
+import { artifactPath, esc } from "../shared/artifact";
 
 type Img = Record<string, unknown> & {
   url: string;
@@ -73,24 +73,24 @@ const SOCIAL_FIELDS = [
   "social_facebook",
 ] as const;
 
-const WEBSITE_COLUMN = purchaseChannelByKey.website.column;
+const WEBSITE_COLUMN = onlineStoreByKey.website.column;
 
 /**
- * Own-site link first, then socials, then every marketplace channel in registry
- * order — the historical row order, now derived so a new purchase channel shows
+ * Own-site link first, then socials, then every marketplace store in registry
+ * order — the historical row order, now derived so a new online store shows
  * up in the review diff automatically.
  */
 const LINK_FIELDS: readonly string[] = [
   WEBSITE_COLUMN,
   ...SOCIAL_FIELDS,
-  ...PURCHASE_COLUMNS.filter((column) => column !== WEBSITE_COLUMN),
+  ...ONLINE_STORE_COLUMNS.filter((column) => column !== WEBSITE_COLUMN),
 ];
 
 const IDENTITY_FIELDS: ReadonlyArray<readonly [string, string]> = [
   ["name", "Name"],
   ["slug", "Slug"],
-  ["product_type", "Category"],
-  ["product_tags", "Product tags"],
+  ["category", "Category"],
+  ["subcategories", "Product subcategories"],
   ["city", "City"],
   ["founding_year", "Founded"],
   ["price_range", "Price range"],
@@ -422,10 +422,10 @@ async function main(): Promise<void> {
       const delta = na - nb;
       const cls =
         na === 0 ? "bad" : delta > 0 ? "good" : delta < 0 ? "warn" : "";
-      const catChanged = show(b.product_type) !== show(a.product_type);
+      const catChanged = show(b.category) !== show(a.category);
       return `<tr>
       <td><a href="#${esc(slug)}"><b>${esc(cohort.labels[slug] ?? String(b.name))}</b></a></td>
-      <td${catChanged ? ' class="changed"' : ""}>${esc(show(b.product_type) || "—")} → <b>${esc(show(a.product_type) || "—")}</b></td>
+      <td${catChanged ? ' class="changed"' : ""}>${esc(show(b.category) || "—")} → <b>${esc(show(a.category) || "—")}</b></td>
       <td class="num">${nb}</td>
       <td class="num">${total}</td>
       <td class="num ${cls}">${na}</td>
@@ -546,7 +546,7 @@ details{margin-top:8px}summary{cursor:pointer;font-size:13px;color:var(--muted)}
 <div class="hl">
   <div><b>${pairs.length}</b><span>brands refreshed</span></div>
   <div><b>${totalBefore} → ${totalAfter}</b><span>published images</span></div>
-  <div><b>${pairs.filter((p) => show(p.before.product_type) !== show(p.after.product_type)).length}</b><span>category changes</span></div>
+  <div><b>${pairs.filter((p) => show(p.before.category) !== show(p.after.category)).length}</b><span>category changes</span></div>
   <div><b>${pairs.filter((p) => p.before.slug !== p.after.slug).length}</b><span>slug changes</span></div>
   ${totalCalls ? `<div><b>${usd(grandTotal)}</b><span>LLM cost, ${totalCalls} calls${totalUnpriced ? ` · ${totalUnpriced} unpriced` : ""}</span></div>` : ""}
 </div>

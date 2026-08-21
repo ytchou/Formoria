@@ -11,7 +11,7 @@ vi.mock('../../site-identity-arbiter', async () => {
   return { ...actual, arbitrateSiteIdentity: arbitrate }
 })
 
-const brand = { id: 'brand-1', slug: 'wire-slug', name: 'Han 茶', product_type: 'tea' }
+const brand = { id: 'brand-1', slug: 'wire-slug', name: 'Han 茶', category: 'tea' }
 const group = (overrides: Partial<SiteIdentityQuarantine> = {}): SiteIdentityQuarantine => ({
   subjectUrl: 'https://other.example',
   subjectKind: 'source-page',
@@ -463,7 +463,7 @@ describe('site identity quarantine', () => {
   })
 
   it('keeps provider failure detail when another brand is revoked without evidence', async () => {
-    const secondBrand = { id: 'brand-2', slug: 'second-slug', name: 'Second Tea', product_type: 'tea' }
+    const secondBrand = { id: 'brand-2', slug: 'second-slug', name: 'Second Tea', category: 'tea' }
     const noEvidence = group({ subjectKind: 'website', evidence: {}, unverifiable: true })
     const evidence = group({ subjectUrl: 'https://evidence.example' })
     const summary: Record<string, unknown> = {}

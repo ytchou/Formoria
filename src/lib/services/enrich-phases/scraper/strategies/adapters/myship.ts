@@ -1,8 +1,8 @@
-import { purchaseChannelByKey } from '@/lib/brands/purchase-channels'
+import { onlineStoreByKey } from '@/lib/brands/online-stores'
 import { extractMyshipProductImages } from '../../parse/extractors'
 import { createMarketplaceAdapter } from './create-marketplace-adapter'
 
-const MYSHIP_STOREFRONT_PATTERN = purchaseChannelByKey.myship.urlPattern
+const MYSHIP_STOREFRONT_PATTERN = onlineStoreByKey.myship.urlPattern
 
 export const myshipAdapter = createMarketplaceAdapter({
   host: 'myship.7-11.com.tw',

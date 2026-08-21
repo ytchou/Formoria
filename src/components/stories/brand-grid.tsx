@@ -1,6 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 
 import { BrandCard } from '@/components/brands/brand-card'
+import { Grid } from '@/components/ui/grid'
 import { getPublicBrandsBySlugs } from '@/lib/services/brands'
 import { normalizePublicBrandCard } from '@/lib/brands/contracts'
 import { MissingBrandNotice, type BrandLoaderSeam } from './brand-card-mdx'
@@ -26,8 +27,9 @@ type BrandGridProps = {
  * `<BrandGrid slugs={[…]} />` inside story MDX.
  *
  * One batched lookup for the whole array — rendering N `<BrandCardMdx>` would
- * be N queries. Two columns, not three: the story page now runs the standard
- * `max-w-screen-xl` container, so width is no longer the constraint — a grid
+ * be N queries. Two columns, not three: on a story this sits inside the
+ * route's `prose-measure`, where two is all the width allows, and on a trail
+ * inside `page-measure`, where three would fit and still be wrong — a grid
  * dropped into prose reads as a break in the argument, and two columns keeps
  * it closer to the text than to the directory.
  */
@@ -43,7 +45,7 @@ export async function BrandGrid({
   const t = await getTranslations('stories')
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <Grid cols="pair">
       {slugs.map((slug, index) => {
         const resolvedBrand = brands.get(slug)
         const brand = resolvedBrand ? normalizePublicBrandCard(resolvedBrand) : undefined
@@ -63,6 +65,6 @@ export async function BrandGrid({
           />
         )
       })}
-    </div>
+    </Grid>
   )
 }

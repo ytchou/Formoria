@@ -15,7 +15,8 @@ const liveBrand: Brand = {
   description: 'live desc',
   heroImageUrl: 'https://x.supabase.co/hero-live.png',
   status: 'approved',
-  category: 'apparel',
+  categorySlug: 'apparel',
+  categoryLabel: 'Apparel',
   city: null,
   isVerified: true,
   mitStatus: 'verified',
@@ -37,8 +38,8 @@ const liveBrand: Brand = {
   mitStory: 'Our fabrics come from Changhua.',
   siteContent: null,
   priceRange: null,
-  productTags: [],
-  productTagsEn: [],
+  subcategories: [],
+  subcategoriesEn: [],
   descriptionEn: null,
   blurb: null,
   blurbEn: null,
@@ -112,7 +113,7 @@ describe('draftSnapshotToDomain', () => {
   it('defaults missing array fields to empty arrays', () => {
     const snapshot: Record<string, unknown> = {
       name: 'Test Brand',
-      // productPhotos, otherUrls, productTags all absent
+      // productPhotos, otherUrls, subcategories all absent
     }
     const result = draftSnapshotToDomain(snapshot)
     expect(result.productPhotos).toBeUndefined()
@@ -122,12 +123,12 @@ describe('draftSnapshotToDomain', () => {
     const snapshot: Record<string, unknown> = {
       productPhotos: null,
       otherUrls: null,
-      productTags: null,
+      subcategories: null,
     }
     const result = draftSnapshotToDomain(snapshot)
     expect(result.productPhotos).toEqual([])
     expect(result.otherUrls).toEqual([])
-    expect(result.productTags).toEqual([])
+    expect(result.subcategories).toEqual([])
   })
 
   it('round-trips mitStory through draft snapshot', () => {

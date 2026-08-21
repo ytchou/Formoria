@@ -6,10 +6,10 @@ import { SurfaceCard } from '@/components/ui/card'
 import { countDelta, percent } from '@/lib/analytics/delta-formatters'
 import type { OwnerAnalyticsSnapshotV1 } from '@/lib/analytics/posthog-types'
 import {
-  channelMessageKey,
-  purchaseChannelByKey,
-  type PurchaseChannelKey,
-} from '@/lib/brands/purchase-channels'
+  onlineStoreMessageKey,
+  onlineStoreByKey,
+  type OnlineStoreKey,
+} from '@/lib/brands/online-stores'
 import {
   outboundDestinationLabel,
   trafficSourceLabel,
@@ -36,11 +36,11 @@ export async function OverviewInlineAnalytics({
     return (
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="type-section-title">{tSidebar('analytics')}</h2>
-          <span className="type-caption text-muted-foreground">{periodLabel}</span>
+          <h2 className="type-label">{tSidebar('analytics')}</h2>
+          <span className="type-metadata text-ink-muted">{periodLabel}</span>
         </div>
         <SurfaceCard>
-          <p className="type-body-muted">{tOverview('analyticsUnavailable')}</p>
+          <p className="type-body-sm">{tOverview('analyticsUnavailable')}</p>
         </SurfaceCard>
       </section>
     )
@@ -53,36 +53,36 @@ export async function OverviewInlineAnalytics({
     direct: tAnalytics('trafficSourceDirect'),
     other: tAnalytics('trafficSourceOther'),
   }
-  // Spelled out one key per channel on purpose: an `Object.fromEntries` build
+  // Spelled out one key per store on purpose: an `Object.fromEntries` build
   // collapses to `{ [k: string]: string }`, which satisfies the Record below
-  // vacuously and lets a new channel fall through to `labels.other` unnoticed.
+  // vacuously and lets a new store fall through to `labels.other` unnoticed.
   // The literal is what makes `satisfies` a real gate.
   const purchaseOutboundDestinationLabels = {
     website: tAnalytics(
-      channelMessageKey(
-        purchaseChannelByKey.website.messageKeys.analyticsOutboundDestination,
+      onlineStoreMessageKey(
+        onlineStoreByKey.website.messageKeys.analyticsOutboundDestination,
         'dashboard.analytics',
       ),
     ),
     pinkoi: tAnalytics(
-      channelMessageKey(
-        purchaseChannelByKey.pinkoi.messageKeys.analyticsOutboundDestination,
+      onlineStoreMessageKey(
+        onlineStoreByKey.pinkoi.messageKeys.analyticsOutboundDestination,
         'dashboard.analytics',
       ),
     ),
     shopee: tAnalytics(
-      channelMessageKey(
-        purchaseChannelByKey.shopee.messageKeys.analyticsOutboundDestination,
+      onlineStoreMessageKey(
+        onlineStoreByKey.shopee.messageKeys.analyticsOutboundDestination,
         'dashboard.analytics',
       ),
     ),
     myship: tAnalytics(
-      channelMessageKey(
-        purchaseChannelByKey.myship.messageKeys.analyticsOutboundDestination,
+      onlineStoreMessageKey(
+        onlineStoreByKey.myship.messageKeys.analyticsOutboundDestination,
         'dashboard.analytics',
       ),
     ),
-  } satisfies Record<PurchaseChannelKey, string>
+  } satisfies Record<OnlineStoreKey, string>
   const outboundDestinationLabels = {
     ...purchaseOutboundDestinationLabels,
     instagram: tAnalytics('outboundDestinationInstagram'),
@@ -103,19 +103,19 @@ export async function OverviewInlineAnalytics({
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="type-section-title">{tSidebar('analytics')}</h2>
-        <span className="type-caption text-muted-foreground">{periodLabel}</span>
+        <h2 className="type-label">{tSidebar('analytics')}</h2>
+        <span className="type-metadata text-ink-muted">{periodLabel}</span>
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <SurfaceCard padding="lg">
           <div className="flex items-start justify-between gap-3">
-            <h3 className="type-card-title">{tAnalytics('trendTitle')}</h3>
+            <h3 className="type-label">{tAnalytics('trendTitle')}</h3>
             <div className="text-right">
-              <p className="type-stat">
+              <p className="type-section tabular-nums">
                 {snapshot.profileSessions?.current ?? '—'}
               </p>
               {profileDelta ? (
-                <p className="type-caption text-muted-foreground">
+                <p className="type-metadata text-ink-muted">
                   {profileDelta.text}
                 </p>
               ) : null}
@@ -133,7 +133,7 @@ export async function OverviewInlineAnalytics({
               />
             </div>
           ) : (
-            <p className="mt-4 type-body-muted">
+            <p className="mt-4 type-body-sm">
               {snapshot.daily === null
                 ? tAnalytics('trendUnavailable')
                 : tAnalytics('trendEmpty')}
@@ -157,7 +157,7 @@ export async function OverviewInlineAnalytics({
         />
 
         <SurfaceCard padding="lg">
-          <h3 className="type-card-title">{tAnalytics('outboundDestinations')}</h3>
+          <h3 className="type-label">{tAnalytics('outboundDestinations')}</h3>
           {snapshot.destinations?.length ? (
             <div className="mt-4">
               <AnalyticsBarChart
@@ -172,7 +172,7 @@ export async function OverviewInlineAnalytics({
               />
             </div>
           ) : (
-            <p className="mt-4 type-body-muted">
+            <p className="mt-4 type-body-sm">
               {snapshot.destinations === null
                 ? tAnalytics('sectionUnavailable')
                 : tAnalytics('destinationsEmpty')}

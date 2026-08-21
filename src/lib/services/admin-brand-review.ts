@@ -19,10 +19,10 @@ import {
 } from "@/lib/services/brand-images";
 import { getBrandById, updateBrand } from "@/lib/services/brands";
 import {
-  PURCHASE_CHANNELS,
-  purchaseChannelByKey,
-  type PurchaseChannelCamelField,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORES,
+  onlineStoreByKey,
+  type OnlineStoreCamelField,
+} from "@/lib/brands/online-stores";
 import type {
   SaveSubmissionReviewInput,
   SubmissionReviewImage,
@@ -42,14 +42,10 @@ type BrandImageRow = {
   width: number | null;
   height: number | null;
   source_url: string | null;
-  // The generated database types intentionally lag the applied migration; this
-  // is a hand-written projection, so it can carry the columns already.
-  focal_x: number | null;
-  focal_y: number | null;
 };
 
 const ADMIN_BRAND_IMAGE_SELECT =
-  "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, source_url, focal_x, focal_y";
+  "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, source_url";
 
 export async function getAdminBrandReviewImages(
   brandIds: string[],
@@ -197,13 +193,13 @@ export async function saveAdminBrandReview(
   });
 
   const purchaseFields = Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel) => [
+    ONLINE_STORES.map((channel) => [
       channel.camel,
-      channel === purchaseChannelByKey.website
+      channel === onlineStoreByKey.website
         ? input.websiteUrl
         : input[channel.camel],
     ]),
-  ) as Pick<SaveSubmissionReviewInput, PurchaseChannelCamelField>;
+  ) as Pick<SaveSubmissionReviewInput, OnlineStoreCamelField>;
 
   await updateBrand(brandId, {
     name: input.name,
@@ -216,10 +212,10 @@ export async function saveAdminBrandReview(
     mitEvidence: input.mitEvidence as Brand["mitEvidence"],
     siteContent: input.siteContent as Brand["siteContent"],
     foundingYear: input.foundingYear,
-    productType: input.productType,
+    categorySlug: input.categorySlug,
     priceRange: input.priceRange,
-    productTags: input.productTags,
-    productTagsEn: input.productTagsEn,
+    subcategories: input.subcategories,
+    subcategoriesEn: input.subcategoriesEn,
     socialInstagram: input.socialInstagram,
     socialThreads: input.socialThreads,
     socialFacebook: input.socialFacebook,
@@ -272,8 +268,6 @@ function toReviewImage(row: BrandImageRow): SubmissionReviewImage {
     altZh: row.alt_zh,
     altEn: row.alt_en,
     isLogo: isLogoImageTags(row.tags),
-    focalX: row.focal_x ?? null,
-    focalY: row.focal_y ?? null,
     width: row.width,
     height: row.height,
     originBrandImageId: row.status === "draft" ? null : row.id,

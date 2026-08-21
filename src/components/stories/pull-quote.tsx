@@ -23,8 +23,8 @@ type PullQuoteProps = {
  * means "someone else said this". These two must stay visually distinct or the
  * reader learns nothing from seeing either.
  *
- * Styling stays inside the article's own type scale and the single kiln accent:
- * `type-section-title-large` (the same step as an `h2`) plus a `border-primary`
+ * Styling stays inside the article's own type scale and the single accent:
+ * `type-section` (the same step as an `h2`) plus a `border-accent`
  * left rule. No tint, no card, no border box — a pull quote that looks like a
  * widget reads as an ad and gets scrolled past, which is the exact opposite of
  * why it exists.
@@ -39,19 +39,19 @@ export function PullQuote({ children, attribution }: PullQuoteProps) {
   // `border-l-2` rather than the `border-l` used by the markdown blockquote:
   // the two live in the same body copy and the weight is part of telling them
   // apart at a glance.
-  const frame = 'my-10 border-l-2 border-primary pl-5'
+  const frame = 'my-10 border-l-2 border-accent pl-5'
 
   if (!attribution) {
-    return <p className={`${frame} type-section-title-large`}>{children}</p>
+    return <p className={`${frame} type-section`}>{children}</p>
   }
 
   return (
     <blockquote className={frame}>
-      <p className="type-section-title-large">{children}</p>
+      <p className="type-section">{children}</p>
       {/* `<cite>` is italic by default in every UA stylesheet and this scale is
           already distinct enough; `not-italic` keeps the credit reading as a
           byline rather than as emphasis. */}
-      <cite className="mt-3 block not-italic type-caption">{attribution}</cite>
+      <cite className="mt-3 block not-italic type-metadata">{attribution}</cite>
     </blockquote>
   )
 }

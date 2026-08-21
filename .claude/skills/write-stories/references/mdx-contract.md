@@ -54,15 +54,15 @@ silently costs the rich result, which is most of why the FAQ is worth writing.
 
 ### `tags` — closed vocabulary
 
-Twelve L1 product-type slugs, derived from `PRODUCT_TYPE_CATEGORIES`
+Twelve L1 category slugs, derived from `L1_CATEGORIES`
 (`src/lib/taxonomy/ontology.ts`):
 
-`fashion` `bags-accessories` `jewelry` `beauty` `home` `food-drink` `crafts`
-`stationery` `tech` `outdoor` `fitness` `kids-pets`
+`fashion` `bags-accessories` `jewelry` `beauty` `home` `food-drink`
+`stationery` `tech` `outdoor` `fitness` `kids` `pets`
 
 Plus two editorial tags (`STORY_EDITORIAL_TAGS`): `event` `creative-expo`
 
-Tag what the story is *about* (product types) and what it *is* (editorial). Never
+Tag what the story is *about* (L1 categories) and what it *is* (editorial). Never
 invent a slug — `src/lib/taxonomy/__tests__/story-tags.test.ts` reads the real
 files off disk and fails CI on any tag outside this list.
 
@@ -111,9 +111,16 @@ failure, not an acceptable fallback.
 Two vocabularies that must not be mixed:
 
 - **Headings** may use an editorial gloss — 個人風格, 紙品文具.
-- **Link text** uses the canonical label from `productTypeNameZh()` — 服飾鞋履,
-  文具設計, 工藝文創, 美妝保養, 居家生活. A reader clicking
-  「瀏覽本站全部工藝文創品牌」 must land on a page whose heading says the same words.
+- **Link text** uses the canonical label from `categoryLabelZh()` — 服飾鞋履,
+  文具設計, 居家生活, 美妝保養, 包袋配件. A reader clicking
+  「瀏覽本站全部居家生活品牌」 must land on a page whose heading says the same words.
+- **Craft coverage has no L1 any more.** 工藝文創 was retired and its brands
+  were re-filed onto `home`, `jewelry` and `stationery`. A craft story links to
+  whichever of those it actually covers — `/brands?category=home` — under that
+  category's canonical label. **Never `/brands?material=…`:** every key in
+  `DIRECTORY_REFINEMENT_KEYS` (`search`, `price`, `verification`, `material`) is
+  noindex by the taxonomy decision of 2026-08-19, so a story CTA pointing there
+  sends the reader and the crawler into a page we tell Google to ignore.
 
 ## Hero image
 

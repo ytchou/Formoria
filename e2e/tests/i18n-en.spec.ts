@@ -70,10 +70,10 @@ test.describe("i18n English browse", () => {
       "Visit Website",
       "Brand information",
       "Founded",
-      "Category",
+      "Brand category",
       "Price",
-      "Product categories",
-      "Crafts & Art",
+      "Product subcategory",
+      "Home & Living",
     ]) {
       expect(document.mainText).toContain(text);
     }
@@ -82,10 +82,10 @@ test.describe("i18n English browse", () => {
       "前往官網",
       "品牌資訊",
       "創立年份",
-      "類別",
+      "品牌類別",
       "價格區間",
-      "產品類別",
-      "工藝文創",
+      "商品子類別",
+      "居家生活",
     ]) {
       expect(document.mainText).not.toContain(text);
     }
@@ -109,10 +109,10 @@ test.describe("i18n English browse", () => {
       "前往官網",
       "品牌資訊",
       "創立年份",
-      "類別",
+      "品牌類別",
       "價格區間",
-      "產品類別",
-      "工藝文創",
+      "商品子類別",
+      "居家生活",
     ]) {
       expect(document.mainText).toContain(text);
     }
@@ -121,9 +121,9 @@ test.describe("i18n English browse", () => {
       "Visit Website",
       "Brand information",
       "Founded",
-      "Category",
-      "Product categories",
-      "Crafts & Art",
+      "Brand category",
+      "Product subcategory",
+      "Home & Living",
     ]) {
       expect(document.mainText).not.toContain(text);
     }
@@ -293,6 +293,13 @@ test.describe("i18n English browse", () => {
   test("switching to EN via the switcher updates chrome + client components without refresh", async ({
     page,
   }) => {
+    // `networkidle` on `/` alone outgrew the 30s CI default when DEV-1514
+    // rebuilt the homepage — the wall now ships more image requests, and four
+    // parallel workers share one origin. Measured at 17.3s serially against
+    // deployed staging, so the failure was the budget, not the page: this is
+    // the only test in the file that waits on idle rather than on an element.
+    test.setTimeout(BUDGET.TEST.JOURNEY);
+
     // The homepage has the largest client tree in this suite. Wait for its
     // hydration requests to settle before clicking a trigger that is present in
     // the server HTML but only becomes interactive on the client.

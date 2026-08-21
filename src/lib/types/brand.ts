@@ -1,10 +1,13 @@
 import type { BrandSortOption } from '@/lib/pagination'
 import type {
-  PurchaseChannelCamelField,
-  PurchaseChannelColumn,
-} from '@/lib/brands/purchase-channels'
+  OnlineStoreCamelField,
+  OnlineStoreColumn,
+} from '@/lib/brands/online-stores'
 
 export type BrandStatus = 'approved' | 'hidden'
+/** The `brands.mit_status` ladder. Mirrors the CHECK constraint in
+ *  20260722100000_mit_status_ladder.sql — keep in lockstep. */
+export type MitStatus = 'unverified' | 'declared' | 'verified'
 export type SubmissionStatus = 'pending' | 'approved' | 'rejected'
 
 export type OtherUrl = {
@@ -27,7 +30,7 @@ export type BrandFlatLinkColumns = {
   social_threads?: string | null
   social_facebook?: string | null
   other_urls?: unknown
-} & { [Column in PurchaseChannelColumn]?: string | null }
+} & { [Column in OnlineStoreColumn]?: string | null }
 
 type MitEvidence = {
   mit_smile_listed?: boolean
@@ -67,19 +70,24 @@ export type SiteContent = {
  * mark itself, while a product photo letterboxed by `object-contain` is what
  * makes a grid of mixed aspect ratios read as ragged. The renderer cannot infer
  * this from the URL, so the classifier's tag has to travel with the image.
- *
- * `focalX`/`focalY` are the same idea one step further: `object-cover` crops
- * from the centre, which can cut the subject out of frame, so the measured
- * subject position travels with the image and becomes `object-position`. Both
- * are `null` for every image that has not been measured, which renders as the
- * centre — i.e. today's behavior.
  */
 export type BrandImageMeta = {
   altZh: string | null
   altEn: string | null
   isLogo: boolean
-  focalX: number | null
-  focalY: number | null
+  /**
+   * `brand_images.source === 'owner'` — the brand handed us this file through
+   * the dashboard wizard. It is the ONLY rights signal on an image and the only
+   * thing the brand-supplied credit may be derived from; every other source is
+   * Formoria or a crawler.
+   *
+   * Optional because it is read on exactly one surface (the brand-detail
+   * gallery) and most producers of this type have no `source` to report — a
+   * required field would have forced ~20 fixtures and four service constructors
+   * to state a provenance they do not know. Absent means "not stated", which
+   * fails closed: no credit.
+   */
+  isOwnerSupplied?: boolean
 }
 
 export type Brand = {
@@ -99,11 +107,11 @@ export type Brand = {
     height: number | null
   } | null
   status: BrandStatus
-  productType?: string | null
+  categorySlug?: string | null
   city: string | null
-  category: string | null
+  categoryLabel: string | null
   isVerified: boolean
-  mitStatus?: 'unverified' | 'declared' | 'verified'
+  mitStatus?: MitStatus
   mitDeclaredScope?: 'all' | 'most' | 'some' | null
   mitDeclaredAt?: string | null
   mitVerifiedAt?: string | null
@@ -121,19 +129,25 @@ export type Brand = {
   imageAlts: BrandImageMeta[]
   contactEmail: string | null
   priceRange: number | null
-  productTags: string[]
-  productTagsEn: string[]
+  subcategories: string[]
+  subcategoriesEn: string[]
   siteContent: SiteContent | null
   submittedAt: string
   approvedAt: string | null
   createdAt: string
   updatedAt: string
   onboardingDismissedAt: string | null
-} & { [Field in PurchaseChannelCamelField]: string | null }
+} & { [Field in OnlineStoreCamelField]: string | null }
 
 export type BrandFilters = {
   status?: BrandStatus
   category?: string[]
+  /**
+   * `brands.material` slugs, from the closed 12-slug vocabulary (`MATERIALS`).
+   * An orthogonal axis to `category`: both the browse query and the search RPC
+   * apply it, or `?material=` breaks the moment a user types (DEV-1510).
+   */
+  materials?: string[]
   priceRanges?: (1 | 2 | 3)[]
   verificationFilter?: 'all' | 'mit-verified' | 'mit-declared' | 'owned'
   search?: string

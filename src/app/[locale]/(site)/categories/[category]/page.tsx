@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { DirectoryView } from '@/components/brands/directory-view'
-import { PRODUCT_TYPE_CATEGORIES, categoryLabel } from '@/lib/taxonomy/ontology'
+import { L1_CATEGORIES, categoryLabel } from '@/lib/taxonomy/ontology'
 import { parseDirectoryViewFilters, type DirectorySearchParams } from '@/lib/seo/directory-filters'
 import { resolveDirectorySeo } from '@/lib/seo/directory-indexation'
 import { buildDirectoryCanonicals } from '@/lib/seo/directory-canonical'
@@ -25,7 +25,7 @@ export async function generateMetadata({ params, searchParams }: CategoryPagePro
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const sp = await searchParams
-  const { page, sort } = parseDirectoryViewFilters(sp, new Set(PRODUCT_TYPE_CATEGORIES.map((category) => category.slug)))
+  const { page, sort } = parseDirectoryViewFilters(sp, new Set(L1_CATEGORIES.map((category) => category.slug)))
   const seo = resolveDirectorySeo({
     locale: safeLocale,
     surface: 'category',
@@ -38,6 +38,7 @@ export async function generateMetadata({ params, searchParams }: CategoryPagePro
       sort: typeof sp.sort === 'string' ? sp.sort : sort !== 'random' ? sort : undefined,
       category: sp.category,
       sub: sp.sub,
+      material: sp.material,
     },
   })
   const catT = await getTranslations({ locale: safeLocale, namespace: 'categories' })
@@ -81,7 +82,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const sp = await searchParams
-  const parsed = parseDirectoryViewFilters(sp, new Set(PRODUCT_TYPE_CATEGORIES.map((category) => category.slug)))
+  const parsed = parseDirectoryViewFilters(sp, new Set(L1_CATEGORIES.map((category) => category.slug)))
   const directorySeo = resolveDirectorySeo({
     locale: safeLocale,
     surface: 'category',
@@ -94,6 +95,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       sort: typeof sp.sort === 'string' ? sp.sort : parsed.sort !== 'random' ? parsed.sort : undefined,
       category: sp.category,
       sub: sp.sub,
+      material: sp.material,
     },
   })
   return (
@@ -107,6 +109,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       page={parsed.page}
       sort={parsed.sort}
       canonical={directorySeo.canonical}
+      indexable={directorySeo.robots?.index !== false}
       isCategoryRoute
     />
   )

@@ -28,7 +28,7 @@ test.describe('Brand city badge', () => {
         slug: brandSlug,
         status: 'approved',
         approved_at: new Date().toISOString(),
-        product_type: 'crafts',
+        category: 'home',
         city: 'taipei',
       })
       .select('id')
@@ -43,7 +43,7 @@ test.describe('Brand city badge', () => {
   test.afterAll(async () => {
     if (brandId) {
       const { error } = await supabase.from('brands').delete().eq('id', brandId);
-      if (error) console.warn('[e2e-seed] brand-city cleanup failed:', error.message);
+      if (error) throw new Error(`[e2e-cleanup] brand-city cleanup failed: ${error.message}`);
     }
   });
 

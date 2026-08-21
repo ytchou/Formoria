@@ -13,7 +13,7 @@ export type SubmissionWizardValues = SubmissionWizardFormValues & {
 
 type SubmissionWizardContextValue = {
   form: UseFormReturn<SubmissionWizardValues>
-  productTagSuggestions: string[]
+  subcategorySuggestions: string[]
   uploadSessionId: string
 }
 

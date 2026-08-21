@@ -35,7 +35,7 @@ export function EventExhibitorList({
     <ul
       ref={listRef}
       tabIndex={-1}
-      className="divide-y divide-border border-y border-border focus:outline-none"
+      className="divide-y divide-rule border-y border-rule focus:outline-none"
     >
       {entries.map((entry, index) => (
         <EventExhibitorRow

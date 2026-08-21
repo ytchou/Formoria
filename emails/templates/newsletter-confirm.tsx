@@ -1,20 +1,26 @@
-import { Link, Section, Text } from "@react-email/components";
+import { Section, Text } from "@react-email/components";
 import { render } from "@react-email/render";
 import {
   Button,
   EmailDivider,
   EmailHeading,
+  EmailLink,
   EmailText,
   Layout,
 } from "@emails/components/";
 import {
-  BG_WHITE,
-  BORDER,
+  FONT_SIZE_META,
   FONT_STACK,
   FROM_ADDRESS,
+  INK,
+  INK_MUTED,
+  LINE_HEIGHT_META,
+  RADIUS_PILL,
+  RADIUS_SURFACE,
+  RULE,
   SITE_URL,
-  TEXT_PRIMARY,
-  TEXT_SECONDARY,
+  SPACE_GUTTER,
+  SURFACE,
 } from "@emails/styles";
 import type { EmailMessage } from "@emails/types";
 import { listUnsubscribeHeaders } from "@emails/utils";
@@ -90,7 +96,11 @@ export function NewsletterConfirmEmail({
   );
 
   return (
-    <Layout previewText={copy.preview} unsubscribeUrl={unsubscribeLink}>
+    <Layout
+      lang={lang}
+      previewText={copy.preview}
+      unsubscribeUrl={unsubscribeLink}
+    >
       <EmailHeading>{copy.heading}</EmailHeading>
       <EmailText>{copy.body}</EmailText>
 
@@ -110,9 +120,7 @@ export function NewsletterConfirmEmail({
       <EmailDivider />
       <EmailText>{copy.fallbackLink}</EmailText>
       <EmailText>
-        <Link href={confirmationUrl} style={link}>
-          {confirmationUrl}
-        </Link>
+        <EmailLink href={confirmationUrl}>{confirmationUrl}</EmailLink>
       </EmailText>
       <EmailText>{copy.disclaimer}</EmailText>
     </Layout>
@@ -137,36 +145,36 @@ export async function buildNewsletterConfirmEmail(
 
 export default NewsletterConfirmEmail;
 
+/**
+ * An inset block on `surface`, the second material. v2 retired v1's "no
+ * coloured section backgrounds" rule precisely so a group like this can be one
+ * material rather than a white card floating on a warm page.
+ */
 const interestsSection = {
-  backgroundColor: BG_WHITE,
-  border: `1px solid ${BORDER}`,
-  borderRadius: "8px",
-  margin: "0 0 24px",
-  padding: "16px",
+  backgroundColor: SURFACE,
+  border: `1px solid ${RULE}`,
+  borderRadius: RADIUS_SURFACE,
+  margin: `0 0 ${SPACE_GUTTER}`,
+  padding: SPACE_GUTTER,
 };
 
 const interestIntro = {
-  color: TEXT_SECONDARY,
+  color: INK_MUTED,
   fontFamily: FONT_STACK,
-  fontSize: "13px",
-  lineHeight: "20px",
-  margin: "0 0 10px",
+  fontSize: FONT_SIZE_META,
+  lineHeight: LINE_HEIGHT_META,
+  margin: "0 0 12px",
 };
 
+/** Chips keep the pill — the one stated exception to the 4px paper edge. */
 const interestBadge = {
-  border: `1px solid ${BORDER}`,
-  borderRadius: "999px",
-  color: TEXT_PRIMARY,
+  border: `1px solid ${RULE}`,
+  borderRadius: RADIUS_PILL,
+  color: INK,
   display: "inline-block",
   fontFamily: FONT_STACK,
-  fontSize: "14px",
-  lineHeight: "20px",
+  fontSize: FONT_SIZE_META,
+  lineHeight: LINE_HEIGHT_META,
   margin: "0 8px 8px 0",
-  padding: "6px 10px",
-};
-
-const link = {
-  color: "#2563eb",
-  textDecoration: "underline",
-  wordBreak: "break-all" as const,
+  padding: "6px 12px",
 };

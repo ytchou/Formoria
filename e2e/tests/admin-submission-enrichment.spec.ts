@@ -172,9 +172,10 @@ test.describe("Admin submission enrichment lifecycle", () => {
           description_en: "Complete enriched brand profile.",
           blurb: "完整品牌摘要",
           hero_image_url: imageUrls[0],
-          product_type: "bags-accessories",
-          product_tags: ["手工包袋"],
-          product_tags_en: ["Handmade Bags"],
+          category: "bags-accessories",
+          // Slug, not the zh-TW label — DEV-1510 closed the vocabulary.
+          subcategories: ["handbags"],
+          subcategories_en: ["Handmade Bags"],
           price_range: 2,
           purchase_website: "https://e2e-submission.example.com",
         },
@@ -263,14 +264,20 @@ test.describe("Admin submission enrichment lifecycle", () => {
 
     const { data: brand, error: brandError } = await supabase
       .from("brands")
-      .select("id, status, description_en, blurb, product_tags_en")
+      .select("id, status, description_en, blurb, subcategories_en")
       .eq("id", approvedBrandId!)
       .single();
     expect(brandError).toBeNull();
     expect(brand?.status).toBe("approved");
     expect(brand?.description_en).toBe("Complete enriched brand profile.");
     expect(brand?.blurb).toBe("完整品牌摘要");
-    expect(brand?.product_tags_en).toEqual(["Handmade Bags"]);
+    // "Handbags", not the submission's "Handmade Bags": since DEV-1510 made
+    // storage slug-native, approval DERIVES the English names from the ontology
+    // (`handbags` -> `nameEn`) instead of carrying the submitted free text
+    // through. The blob above still supplies `subcategories_en`, deliberately —
+    // asserting the derived value over a different submitted one is what proves
+    // the derivation actually runs rather than the input happening to match.
+    expect(brand?.subcategories_en).toEqual(["Handbags"]);
 
     const [{ count: stagedCount }, { data: promotedImages }] =
       await Promise.all([

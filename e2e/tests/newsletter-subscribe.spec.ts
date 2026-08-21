@@ -19,10 +19,8 @@ test.describe('Newsletter subscribe flow', () => {
 
   test.beforeAll(() => {
     // Unique email per test run — avoids collisions when the suite re-runs.
-    // Domain must accept SMTP: subscribing fires a real Resend confirmation
-    // email in production, and example.com publishes a null MX (RFC 7505), so
-    // every run hard-bounced against the Resend sending reputation.
-    testEmail = `${TEST_EMAIL_PREFIX}-${Date.now()}@formoria.com`;
+    // Use a reserved domain: staging E2E must not deliver mail externally.
+    testEmail = `${TEST_EMAIL_PREFIX}-${Date.now()}@example.test`;
   });
 
   test.afterAll(async () => {
@@ -30,14 +28,25 @@ test.describe('Newsletter subscribe flow', () => {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
-    await supabase
+    const { error } = await supabase
       .from('newsletter_subscribers')
       .delete()
       .like('email', `${TEST_EMAIL_PREFIX}%`);
+    if (error) throw new Error(`[e2e-cleanup] newsletter cleanup failed: ${error.message}`);
   });
 
   test('anonymous visitor can subscribe from the homepage', async ({ page }) => {
     test.setTimeout(BUDGET.TEST.JOURNEY);
+    // Deployed staging answers 403 to every anonymous mutation
+    // (`isAllowedStagingRequest` in src/lib/deployment-environment.ts allows only
+    // GET plus the /auth/* POSTs), so this journey's write cannot complete on the
+    // one environment this suite targets. Measured, not inferred: anonymous POSTs
+    // to /submit/recommend, /api/newsletter/subscribe and /api/feature-requests*
+    // all return 403 there while /auth/sign-up returns 200.
+    test.skip(
+      process.env.FORMORIA_DEPLOYMENT_ENV === 'staging',
+      'staging blocks anonymous mutations',
+    );
     await page.goto('/');
 
     // --- Newsletter section heading ---
@@ -46,8 +55,8 @@ test.describe('Newsletter subscribe flow', () => {
     await expect(heading).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
     // --- "Curated Picks" chip is pre-selected (aria-pressed="true") ---
-    // zh-TW label: "選物推薦"
-    const curatedPicksChip = page.getByRole('button', { name: /選物推薦/ });
+    // zh-TW label: "Formoria 選物" (the stored slug stays `curated-picks`)
+    const curatedPicksChip = page.getByRole('button', { name: /Formoria 選物/ });
     await expect(curatedPicksChip).toBeVisible({ timeout: BUDGET.RENDERED });
     await expect(curatedPicksChip).toHaveAttribute('aria-pressed', 'true');
 
@@ -70,8 +79,8 @@ test.describe('Newsletter subscribe flow', () => {
 
     // --- Success banner replaces the form ---
     // The success div has a green background and contains the confirmation text.
-    // zh-TW: "請查看您的收件匣以確認訂閱 / Check your inbox to confirm your subscription"
-    const successBanner = page.getByText('請查看您的收件匣以確認訂閱');
+    // zh-TW: "確認信已寄出，請到收件匣點開連結完成訂閱"
+    const successBanner = page.getByText('確認信已寄出，請到收件匣點開連結完成訂閱');
     await expect(successBanner).toBeVisible({ timeout: BUDGET.GATED_UI });
 
     // The form itself must no longer be present

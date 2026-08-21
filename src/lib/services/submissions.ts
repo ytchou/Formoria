@@ -13,9 +13,12 @@ import type {
   DuplicateCheckResult,
 } from "@/lib/types/submission";
 import type { Database, Json } from "@/lib/supabase/database.types";
-import type { EnrichedData } from "@/lib/types/enriched-data";
+import type {
+  CuratedProductProposal,
+  EnrichedData,
+} from "@/lib/types/enriched-data";
 import { enrichedDataFromDb } from "@/lib/types/enriched-data";
-import type { ChannelCandidate } from "@/lib/types/brand-channel";
+import type { StockistCandidate } from "@/lib/types/stockist";
 import type {
   CurationDispatchStatus,
   CurationTargetStatus,
@@ -37,24 +40,24 @@ import { toBrandRow, toSubmissionRow } from "./_shared/field-map";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { deleteStoredImagePaths } from "./image-upload";
 import { slugifyRomanizedName } from "@/lib/brands/slug";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
-import { upsertEnrichedChannels } from "./brand-channels";
+import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { upsertEnrichedStockists } from "./stockists";
 import { normalizeCommunityWebsite } from "./community-submissions";
 import {
-  PURCHASE_CAMEL_FIELDS,
-  PURCHASE_CHANNELS,
-  PURCHASE_COLUMNS,
-  purchaseChannelByKey,
-  type PurchaseChannelCamelField,
-  type PurchaseChannelColumn,
-} from "@/lib/brands/purchase-channels";
+  ONLINE_STORE_CAMEL_FIELDS,
+  ONLINE_STORES,
+  ONLINE_STORE_COLUMNS,
+  onlineStoreByKey,
+  type OnlineStoreCamelField,
+  type OnlineStoreColumn,
+} from "@/lib/brands/online-stores";
 
 // ---------------------------------------------------------------------------
 // Row types
 // ---------------------------------------------------------------------------
 
 type SubmissionRow = Database["public"]["Tables"]["brand_submissions"]["Row"] & {
-  [Column in PurchaseChannelColumn]?: string | null;
+  [Column in OnlineStoreColumn]?: string | null;
 };
 type CurationTargetHistoryRow = Pick<
   Database["public"]["Tables"]["curation_job_targets"]["Row"],
@@ -70,26 +73,21 @@ type CurationJobReviewRow = Pick<
   Database["public"]["Tables"]["curation_jobs"]["Row"],
   "id" | "status" | "dispatch_status" | "dispatch_error" | "job_error"
 >;
-type SubmissionRowWithProductTypeNote = Omit<
+type SubmissionRowWithCategoryNote = Omit<
   SubmissionRow,
-  "other_urls" | PurchaseChannelColumn
+  "other_urls" | OnlineStoreColumn
 > & {
   hero_image_url?: string | null;
-  product_type_note?: string | null;
+  category_note?: string | null;
   social_instagram?: string | null;
   social_threads?: string | null;
   social_facebook?: string | null;
   other_urls?: OtherUrl[] | null;
 } & {
-  [Column in PurchaseChannelColumn]?: string | null;
+  [Column in OnlineStoreColumn]?: string | null;
 };
 type SubmissionImageRow =
-  Database["public"]["Tables"]["submission_images"]["Row"] & {
-    // The generated database types intentionally lag the applied migration;
-    // keep this forward-compatible until the next type refresh.
-    focal_x?: number | null;
-    focal_y?: number | null;
-  };
+  Database["public"]["Tables"]["submission_images"]["Row"];
 type OwnerRecipientRow = Pick<
   Database["public"]["Tables"]["brand_submissions"]["Row"],
   "id" | "brand_id" | "submitter_email" | "submitted_at"
@@ -108,15 +106,10 @@ type BrandImageReviewRow = Pick<
   | "tags"
   | "width"
   | "height"
-> & {
-  // The generated database types intentionally lag the applied migration; keep
-  // this narrow projection forward-compatible until the next type refresh.
-  focal_x: number | null;
-  focal_y: number | null;
-};
-export type BrandSubmissionWithProductTypeNote = BrandSubmission & {
+>;
+export type BrandSubmissionWithCategoryNote = BrandSubmission & {
   websiteUrl: string | null;
-  productTypeNote: string | null;
+  categoryNote: string | null;
 };
 export type SubmissionReviewImage = {
   id: string;
@@ -131,14 +124,6 @@ export type SubmissionReviewImage = {
   isLogo: boolean;
   width: number | null;
   height: number | null;
-  /**
-   * Normalised focal point, carried so the moderation preview frames an image
-   * exactly as the public page will. Without it the two admin previews rendered
-   * a centre crop of an image that ships focal-cropped, and a moderator was
-   * approving a frame nobody would ever see.
-   */
-  focalX: number | null;
-  focalY: number | null;
   originBrandImageId: string | null;
 };
 export type SubmissionReviewData = {
@@ -148,30 +133,52 @@ export type SubmissionReviewData = {
   blurb: string | null;
   blurbEn: string | null;
   city: string | null;
-  categoryAttributes: Json | null;
   reputationSummary: Json | null;
-  channels?: ChannelCandidate[];
+  channels?: StockistCandidate[];
+  /**
+   * Curated-product proposals from the enrichment run (DEV-1469), seeded from
+   * `enriched_data.products` and editable in the review like every other
+   * field: a reviewer who fixes a name must not have that fix dropped. The
+   * enrichment blob itself is never written from the review — an edit lands in
+   * `review_overrides` under the same `products` key, which is why one mapper
+   * serves both layers.
+   */
+  products?: CuratedProductProposal[];
+  /**
+   * The proposal keys the reviewer ticked to keep. Absent means "no decision
+   * recorded yet", which is NOT the same as none kept: the review computes the
+   * default tick set from the proposal diff, and approval materializes the
+   * unticked ones as hidden rows rather than dropping them.
+   */
+  keptProductKeys?: string[];
   mitEvidence: Json | null;
   siteContent: Json | null;
   foundingYear: number | null;
   heroImageUrl: string | null;
-  productType: string | null;
+  categorySlug: string | null;
   priceRange: number | null;
-  productTags: string[];
-  productTagsEn: string[];
+  subcategories: string[];
+  subcategoriesEn: string[];
   websiteUrl: string | null;
   socialInstagram: string | null;
   socialThreads: string | null;
   socialFacebook: string | null;
   otherUrls: OtherUrl[];
-} & { [Field in PurchaseChannelCamelField]: string | null };
+} & { [Field in OnlineStoreCamelField]: string | null };
+/**
+ * `channels` is submission-only, so it is widened here. Curated-product
+ * proposals are NOT: `products` lives on `EnrichedData` itself, which is what
+ * puts it through `enrichedDataToDb`/`enrichedDataFromDb` and therefore through
+ * `enrichedDataFromSubmissionDb` below. Re-declaring it here would be a second
+ * copy of the same contract, free to drift.
+ */
 type EnrichedSubmissionData = EnrichedData & {
-  channels?: ChannelCandidate[];
+  channels?: StockistCandidate[];
 };
 type SubmissionReviewMissingField =
   | "description"
-  | "productType"
-  | "productTags"
+  | "categorySlug"
+  | "subcategories"
   | "priceRange"
   | "website"
   | "heroImage"
@@ -198,7 +205,7 @@ type SubmissionDuplicateWarning = {
   liveBrand: { slug: string; name: string } | null;
   pendingSiblings: number;
 };
-export type BrandSubmissionForReview = BrandSubmissionWithProductTypeNote & {
+export type BrandSubmissionForReview = BrandSubmissionWithCategoryNote & {
   reviewKind: "new" | "refresh";
   duplicateWarning: SubmissionDuplicateWarning | null;
   baseBrandData: Json | null;
@@ -223,7 +230,7 @@ export type BrandSubmissionForReview = BrandSubmissionWithProductTypeNote & {
  * unit test fixtures can omit them without casts.
  */
 type SubmissionRowInput = Pick<
-  SubmissionRowWithProductTypeNote,
+  SubmissionRowWithCategoryNote,
   | "id"
   | "brand_id"
   | "brand_name"
@@ -234,7 +241,7 @@ type SubmissionRowInput = Pick<
   unified_business_number?: string | null;
 } & Partial<
     Omit<
-      SubmissionRowWithProductTypeNote,
+      SubmissionRowWithCategoryNote,
       | "id"
       | "brand_id"
       | "brand_name"
@@ -244,10 +251,10 @@ type SubmissionRowInput = Pick<
     >
   >;
 
-type SuggestedTagsInput = string[] | { values?: string[] };
+type SuggestedSubcategoriesInput = string[] | { values?: string[] };
 type ServiceClient = SupabaseClient<Database>;
 type BrandInsert = Database["public"]["Tables"]["brands"]["Insert"] & {
-  [Column in PurchaseChannelColumn]?: string | null;
+  [Column in OnlineStoreColumn]?: string | null;
 };
 
 const GENERATED_GUEST_EMAIL_DOMAIN = "guest.formoria.invalid";
@@ -268,6 +275,13 @@ export type ApproveSubmissionResult = {
   brandName: string;
   submitterName: string | null;
   isBrandOwner: boolean;
+  /**
+   * The curated-product half of the effective review layer this approval
+   * already built (DEV-1469). Returned so the caller's materialization step
+   * does not re-read the row and re-derive it — two derivations of one decision
+   * are two chances to disagree about what the reviewer chose.
+   */
+  productReview: SubmissionProductReview;
 };
 
 function chunkValues<T>(values: T[], size: number): T[][] {
@@ -296,13 +310,13 @@ export type CreateSubmissionInput = {
   socialThreads?: string | null;
   socialFacebook?: string | null;
   otherUrls?: OtherUrl[];
-  suggestedTags?: string[] | { values?: string[] };
+  suggestedSubcategories?: string[] | { values?: string[] };
   pdpaConsentAt?: string;
   isOwner?: boolean;
   sourceAttribution?: SourceAttribution | null;
-  productTypeNote?: string | null;
+  categoryNote?: string | null;
   ownerData?: Record<string, unknown>;
-} & Partial<Pick<BrandSubmission, PurchaseChannelCamelField>>;
+} & Partial<Pick<BrandSubmission, OnlineStoreCamelField>>;
 
 export function buildSubmissionRecord(
   input: CreateSubmissionInput,
@@ -320,17 +334,17 @@ export function buildSubmissionRecord(
     socialThreads: input.socialThreads ?? null,
     socialFacebook: input.socialFacebook ?? null,
     ...Object.fromEntries(
-      PURCHASE_CHANNELS.map((channel) => [
+      ONLINE_STORES.map((channel) => [
         channel.camel,
         input[channel.camel] ?? null,
       ]),
     ),
     otherUrls: input.otherUrls ?? [],
-    suggestedTags: input.suggestedTags ?? [],
+    suggestedSubcategories: input.suggestedSubcategories ?? [],
     pdpaConsentAt: input.pdpaConsentAt ?? null,
     isBrandOwner: input.isOwner ?? false,
     sourceAttribution: input.sourceAttribution ?? null,
-    productTypeNote: input.productTypeNote ?? null,
+    categoryNote: input.categoryNote ?? null,
   });
 
   return {
@@ -346,15 +360,15 @@ export function buildSubmissionRecord(
     social_threads: mapped.social_threads,
     social_facebook: mapped.social_facebook,
     ...Object.fromEntries(
-      PURCHASE_COLUMNS.map((column) => [column, mapped[column]]),
+      ONLINE_STORE_COLUMNS.map((column) => [column, mapped[column]]),
     ),
     other_urls: mapped.other_urls,
     suggested_tags: mapped.suggested_tags,
     pdpa_consent_at: mapped.pdpa_consent_at,
     is_brand_owner: mapped.is_brand_owner,
     source_attribution: mapped.source_attribution,
-    product_type_note: mapped.product_type_note,
-    owner_data: input.ownerData ?? null,
+    category_note: mapped.category_note,
+    owner_data: ownerDataToDb(input.ownerData),
   };
 }
 
@@ -364,13 +378,13 @@ export function buildSubmissionRecord(
 
 function submissionToDomain(
   row: SubmissionRowInput,
-): BrandSubmissionWithProductTypeNote {
+): BrandSubmissionWithCategoryNote {
   const purchaseFields = Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel) => [
+    ONLINE_STORES.map((channel) => [
       channel.camel,
       row[channel.column] ?? null,
     ]),
-  ) as Pick<BrandSubmission, PurchaseChannelCamelField>;
+  ) as Pick<BrandSubmission, OnlineStoreCamelField>;
 
   return {
     id: row.id,
@@ -387,7 +401,7 @@ function submissionToDomain(
     socialFacebook: row.social_facebook ?? null,
     ...purchaseFields,
     otherUrls: (row.other_urls as OtherUrl[]) ?? [],
-    suggestedTags: (row.suggested_tags as string[]) ?? [],
+    suggestedSubcategories: suggestedSubcategoriesFromDb(row.suggested_tags),
     status: row.status as BrandSubmission["status"],
     reviewerNotes: row.reviewer_notes ?? null,
     denialReason: (row.denial_reason as DenialReason) ?? null,
@@ -402,16 +416,16 @@ function submissionToDomain(
     isBrandOwner: row.is_brand_owner ?? false,
     sourceAttribution:
       (row.source_attribution as BrandSubmission["sourceAttribution"]) ?? null,
-    productTypeNote: row.product_type_note ?? null,
+    categoryNote: row.category_note ?? null,
   };
 }
 
 function submissionToInsert(
-  data: Partial<Omit<BrandSubmission, "suggestedTags">> & {
+  data: Partial<Omit<BrandSubmission, "suggestedSubcategories">> & {
     romanizedName?: string | null;
     websiteUrl?: string | null;
-    suggestedTags?: SuggestedTagsInput;
-    productTypeNote?: string | null;
+    suggestedSubcategories?: SuggestedSubcategoriesInput;
+    categoryNote?: string | null;
     ownerData?: Record<string, unknown>;
     idempotencyKey?: string | null;
   },
@@ -419,7 +433,7 @@ function submissionToInsert(
   return {
     ...toSubmissionRow(data),
     idempotency_key: data.idempotencyKey ?? null,
-    owner_data: data.ownerData ?? null,
+    owner_data: ownerDataToDb(data.ownerData),
   };
 }
 
@@ -433,13 +447,29 @@ function enrichedDataFromSubmissionDb(
   return {
     ...enrichedDataFromDb(value),
     ...(Array.isArray(value.channels)
-      ? { channels: value.channels as ChannelCandidate[] }
+      ? { channels: value.channels as StockistCandidate[] }
       : {}),
   };
 }
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function ownerDataToDb(
+  value: Record<string, unknown> | undefined,
+): Record<string, unknown> | null {
+  if (!value) return null;
+  const result = { ...value };
+  if (Object.hasOwn(result, "categorySlug")) {
+    result.category = result.categorySlug;
+    delete result.categorySlug;
+  }
+  if (Object.hasOwn(result, "subcategoriesEn")) {
+    result.subcategories_en = result.subcategoriesEn;
+    delete result.subcategoriesEn;
+  }
+  return result;
 }
 
 function normalizeString(value: string | null | undefined): string | null {
@@ -501,6 +531,18 @@ function normalizeStringArray(value: unknown): string[] {
   ];
 }
 
+function suggestedSubcategoriesFromDb(
+  value: unknown,
+): BrandSubmission["suggestedSubcategories"] {
+  if (Array.isArray(value)) return normalizeStringArray(value);
+  if (!isJsonObject(value)) return [];
+
+  const values = normalizeStringArray(value.subcategories ?? value.values);
+  const categorySlug =
+    typeof value.category === "string" ? normalizeString(value.category) : null;
+  return categorySlug ? { values, categorySlug } : { values };
+}
+
 function preferText(
   preferred: string | null | undefined,
   fallback: string | null | undefined,
@@ -508,18 +550,20 @@ function preferText(
   return normalizeString(preferred) ?? normalizeString(fallback);
 }
 
-function originalSuggestedTags(value: BrandSubmission["suggestedTags"]): {
-  productType: string | null;
-  productTags: string[];
+function originalSuggestedSubcategories(
+  value: BrandSubmission["suggestedSubcategories"],
+): {
+  categorySlug: string | null;
+  subcategories: string[];
 } {
   if (Array.isArray(value)) {
-    return { productType: null, productTags: normalizeStringArray(value) };
+    return { categorySlug: null, subcategories: normalizeStringArray(value) };
   }
 
-  const structured = value as { values?: string[]; productType?: string };
+  const structured = value as { values?: string[]; categorySlug?: string };
   return {
-    productType: normalizeString(structured.productType),
-    productTags: normalizeStringArray(structured.values),
+    categorySlug: normalizeString(structured.categorySlug),
+    subcategories: normalizeStringArray(structured.values),
   };
 }
 
@@ -561,8 +605,6 @@ function submissionImageToReviewImage(
     isLogo: isLogoImageTags(row.tags),
     width: row.width,
     height: row.height,
-    focalX: row.focal_x ?? null,
-    focalY: row.focal_y ?? null,
     originBrandImageId: row.origin_brand_image_id,
   };
 }
@@ -584,8 +626,6 @@ function brandImageToReviewImage(
     isLogo: isLogoImageTags(row.tags),
     width: row.width,
     height: row.height,
-    focalX: row.focal_x ?? null,
-    focalY: row.focal_y ?? null,
     originBrandImageId: row.id,
   };
 }
@@ -632,7 +672,7 @@ export function resolveSubmissionReviewImages(
 }
 
 type SubmissionReviewSource = Pick<
-  BrandSubmissionWithProductTypeNote,
+  BrandSubmissionWithCategoryNote,
   | "brandName"
   | "description"
   | "websiteUrl"
@@ -641,32 +681,34 @@ type SubmissionReviewSource = Pick<
   | "socialThreads"
   | "socialFacebook"
   | "otherUrls"
-  | "suggestedTags"
-> & Pick<BrandSubmissionWithProductTypeNote, PurchaseChannelCamelField>;
+  | "suggestedSubcategories"
+> & Pick<BrandSubmissionWithCategoryNote, OnlineStoreCamelField>;
 
 export function buildSubmissionReviewData(
   submission: SubmissionReviewSource,
   enrichedData: EnrichedSubmissionData | null | undefined,
   images: SubmissionReviewImage[],
 ): SubmissionReviewData {
-  const originalTags = originalSuggestedTags(submission.suggestedTags);
-  const enrichedTags = normalizeStringArray(enrichedData?.productTags);
+  const originalTags = originalSuggestedSubcategories(
+    submission.suggestedSubcategories,
+  );
+  const enrichedTags = normalizeStringArray(enrichedData?.subcategories);
   const enrichedOtherUrls = normalizeOtherUrls(enrichedData?.otherUrls);
   const activeImages = normalizeSubmissionReviewImages(images).filter(
     (image) => image.status === "active",
   );
-  const websiteField = purchaseChannelByKey.website.camel;
+  const websiteField = onlineStoreByKey.website.camel;
   const imageHero = activeImages.at(0);
   const websiteUrl = preferText(
     enrichedData?.[websiteField],
     submission[websiteField],
   );
   const purchaseFields = Object.fromEntries(
-    PURCHASE_CAMEL_FIELDS.map((field) => [
+    ONLINE_STORE_CAMEL_FIELDS.map((field) => [
       field,
       preferText(enrichedData?.[field], submission[field]),
     ]),
-  ) as Pick<SubmissionReviewData, PurchaseChannelCamelField>;
+  ) as Pick<SubmissionReviewData, OnlineStoreCamelField>;
 
   return {
     name:
@@ -677,23 +719,23 @@ export function buildSubmissionReviewData(
     blurb: normalizeString(enrichedData?.blurb),
     blurbEn: normalizeString(enrichedData?.blurbEn),
     city: normalizeString(enrichedData?.city),
-    categoryAttributes: enrichedData?.categoryAttributes ?? null,
     reputationSummary: enrichedData?.reputationSummary ?? null,
     channels: enrichedData?.channels,
+    products: enrichedData?.products,
     mitEvidence: enrichedData?.mitEvidence ?? null,
     siteContent: enrichedData?.siteContent ?? null,
     foundingYear: enrichedData?.foundingYear ?? null,
     heroImageUrl:
       normalizeString(imageHero?.url) ??
       preferText(enrichedData?.heroImageUrl, submission.heroImageUrl),
-    productType: preferText(
-      enrichedData?.productType,
-      originalTags.productType,
+    categorySlug: preferText(
+      enrichedData?.categorySlug,
+      originalTags.categorySlug,
     ),
     priceRange: enrichedData?.priceRange ?? null,
-    productTags:
-      enrichedTags.length > 0 ? enrichedTags : originalTags.productTags,
-    productTagsEn: normalizeStringArray(enrichedData?.productTagsEn),
+    subcategories:
+      enrichedTags.length > 0 ? enrichedTags : originalTags.subcategories,
+    subcategoriesEn: normalizeStringArray(enrichedData?.subcategoriesEn),
     websiteUrl,
     socialInstagram: preferText(
       enrichedData?.socialInstagram,
@@ -717,26 +759,26 @@ export function buildSubmissionReviewData(
 
 function refreshReviewSource(
   baseBrandData: Record<string, unknown>,
-  fallback: BrandSubmissionWithProductTypeNote,
+  fallback: BrandSubmissionWithCategoryNote,
 ): SubmissionReviewSource {
-  const productType = normalizeString(
-    typeof baseBrandData.product_type === "string"
-      ? baseBrandData.product_type
+  const categorySlug = normalizeString(
+    typeof baseBrandData.category === "string"
+      ? baseBrandData.category
       : null,
   );
-  const websiteColumn = purchaseChannelByKey.website.column;
+  const websiteColumn = onlineStoreByKey.website.column;
   const websiteUrl =
     typeof baseBrandData[websiteColumn] === "string"
       ? baseBrandData[websiteColumn]
       : null;
   const purchaseFields = Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel) => [
+    ONLINE_STORES.map((channel) => [
       channel.camel,
       typeof baseBrandData[channel.column] === "string"
         ? baseBrandData[channel.column]
         : null,
     ]),
-  ) as Pick<SubmissionReviewSource, PurchaseChannelCamelField>;
+  ) as Pick<SubmissionReviewSource, OnlineStoreCamelField>;
 
   return {
     brandName:
@@ -766,9 +808,9 @@ function refreshReviewSource(
         : null,
     ...purchaseFields,
     otherUrls: normalizeOtherUrls(baseBrandData.other_urls),
-    suggestedTags: {
-      values: normalizeStringArray(baseBrandData.product_tags),
-      productType: productType ?? undefined,
+    suggestedSubcategories: {
+      values: normalizeStringArray(baseBrandData.subcategories),
+      categorySlug: categorySlug ?? undefined,
     },
   };
 }
@@ -783,8 +825,8 @@ export function buildRefreshSubmissionReviewData(
 }
 
 function buildReviewLayers(
-  row: SubmissionRowWithProductTypeNote,
-  submission: BrandSubmissionWithProductTypeNote,
+  row: SubmissionRowWithCategoryNote,
+  submission: BrandSubmissionWithCategoryNote,
   enrichedData: EnrichedSubmissionData | null,
   images: SubmissionReviewImage[] = [],
 ): {
@@ -854,25 +896,25 @@ export function getSubmissionReviewCompleteness(
   latestTargetStatus: CurationTargetStatus | null,
 ): SubmissionReviewCompleteness {
   const missingFields: SubmissionReviewMissingField[] = [];
-  const validProductTypes = new Set<string>(
-    PRODUCT_TYPE_CATEGORIES.map((category) => category.slug),
+  const validCategories = new Set<string>(
+    L1_CATEGORIES.map((category) => category.slug),
   );
   const activeImages = normalizeSubmissionReviewImages(images).filter(
     (image) => image.status === "active",
   );
 
   if (!normalizeString(data.description)) missingFields.push("description");
-  if (!data.productType || !validProductTypes.has(data.productType)) {
-    missingFields.push("productType");
+  if (!data.categorySlug || !validCategories.has(data.categorySlug)) {
+    missingFields.push("categorySlug");
   }
-  if (data.productTags.length < 1 || data.productTags.length > 5) {
-    missingFields.push("productTags");
+  if (data.subcategories.length < 1 || data.subcategories.length > 5) {
+    missingFields.push("subcategories");
   }
   if (![1, 2, 3].includes(data.priceRange ?? 0)) {
     missingFields.push("priceRange");
   }
-  const purchaseLinkFields = PURCHASE_CAMEL_FIELDS.filter(
-    (field) => field !== purchaseChannelByKey.website.camel,
+  const purchaseLinkFields = ONLINE_STORE_CAMEL_FIELDS.filter(
+    (field) => field !== onlineStoreByKey.website.camel,
   );
   const hasAnyLink =
     isHttpUrl(data.websiteUrl) ||
@@ -894,8 +936,8 @@ function submissionToBrandBase(row: SubmissionRow): BrandInsert {
     hero_image_url?: string | null;
   };
   const purchaseFields = Object.fromEntries(
-    PURCHASE_COLUMNS.map((column) => [column, row[column]]),
-  ) as Pick<BrandInsert, PurchaseChannelColumn>;
+    ONLINE_STORE_COLUMNS.map((column) => [column, row[column]]),
+  ) as Pick<BrandInsert, OnlineStoreColumn>;
 
   return {
     name: row.brand_name,
@@ -905,7 +947,7 @@ function submissionToBrandBase(row: SubmissionRow): BrandInsert {
     hero_image_url: rowWithSubmissionImages.hero_image_url ?? null,
     status: "approved",
     is_demo: false,
-    product_type: null as unknown as string,
+    category: null as unknown as string,
     founding_year: null,
     social_instagram: row.social_instagram,
     social_threads: row.social_threads,
@@ -927,28 +969,28 @@ function submissionReviewDataPrefix(data: SubmissionReviewData) {
     blurb: data.blurb,
     blurbEn: data.blurbEn,
     heroImageUrl: data.heroImageUrl,
-    productType: data.productType,
+    categorySlug: data.categorySlug,
     foundingYear: data.foundingYear,
     city: data.city,
     socialInstagram: data.socialInstagram,
     socialThreads: data.socialThreads,
     socialFacebook: data.socialFacebook,
     ...Object.fromEntries(
-      PURCHASE_CHANNELS.map((channel) => [
+      ONLINE_STORES.map((channel) => [
         channel.camel,
-        channel === purchaseChannelByKey.website
+        channel === onlineStoreByKey.website
           ? data.websiteUrl
           : data[channel.camel],
       ]),
     ),
     otherUrls: data.otherUrls,
     priceRange: data.priceRange,
-    productTags: data.productTags,
-    productTagsEn: data.productTagsEn,
+    subcategories: data.subcategories,
+    subcategoriesEn: data.subcategoriesEn,
   });
   const purchaseFields = Object.fromEntries(
-    PURCHASE_COLUMNS.map((column) => [column, mapped[column]]),
-  ) as Pick<BrandInsert, PurchaseChannelColumn>;
+    ONLINE_STORE_COLUMNS.map((column) => [column, mapped[column]]),
+  ) as Pick<BrandInsert, OnlineStoreColumn>;
 
   return { mapped, purchaseFields };
 }
@@ -965,16 +1007,15 @@ function submissionReviewDataToBrandInsert(
     blurb: mapped.blurb,
     blurb_en: mapped.blurb_en,
     city: mapped.city,
-    category_attributes: data.categoryAttributes,
     reputation_summary: data.reputationSummary,
     mit_evidence: data.mitEvidence,
     site_content: data.siteContent,
     founding_year: mapped.founding_year,
     hero_image_url: mapped.hero_image_url,
-    product_type: mapped.product_type,
+    category: mapped.category,
     price_range: mapped.price_range,
-    product_tags: mapped.product_tags,
-    product_tags_en: mapped.product_tags_en,
+    subcategories: mapped.subcategories,
+    subcategories_en: mapped.subcategories_en,
     social_instagram: mapped.social_instagram,
     social_threads: mapped.social_threads,
     social_facebook: mapped.social_facebook,
@@ -995,17 +1036,22 @@ function submissionReviewDataToDb(
     blurb: data.blurb,
     blurb_en: data.blurbEn,
     city: data.city,
-    category_attributes: data.categoryAttributes,
     reputation_summary: data.reputationSummary,
     channels: data.channels as unknown as Json,
+    // Same key the enrichment blob uses, so `buildRefreshSubmissionReviewData`
+    // reads proposals straight out of `enriched_data` through the same mapper
+    // that reads them back out of `review_overrides`. `kept_product_keys` only
+    // ever comes from a review — enrichment has no opinion on what to keep.
+    products: data.products as unknown as Json,
+    kept_product_keys: data.keptProductKeys as unknown as Json,
     mit_evidence: data.mitEvidence,
     site_content: data.siteContent,
     founding_year: mapped.founding_year,
     hero_image_url: mapped.hero_image_url,
-    product_type: mapped.product_type,
+    category: mapped.category,
     price_range: mapped.price_range,
-    product_tags: mapped.product_tags,
-    product_tags_en: mapped.product_tags_en,
+    subcategories: mapped.subcategories,
+    subcategories_en: mapped.subcategories_en,
     social_instagram: mapped.social_instagram,
     social_threads: mapped.social_threads,
     social_facebook: mapped.social_facebook,
@@ -1018,20 +1064,20 @@ function reviewDataFromDb(
   data: Record<string, unknown>,
   fallback: SubmissionReviewData,
 ): SubmissionReviewData {
-  const websiteColumn = purchaseChannelByKey.website.column;
+  const websiteColumn = onlineStoreByKey.website.column;
   const websiteUrl =
     data[websiteColumn] === null || typeof data[websiteColumn] === "string"
       ? (data[websiteColumn] as string | null)
       : fallback.websiteUrl;
   const purchaseFields = Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel) => [
+    ONLINE_STORES.map((channel) => [
       channel.camel,
       data[channel.column] === null ||
       typeof data[channel.column] === "string"
         ? data[channel.column]
         : fallback[channel.camel],
     ]),
-  ) as Pick<SubmissionReviewData, PurchaseChannelCamelField>;
+  ) as Pick<SubmissionReviewData, OnlineStoreCamelField>;
 
   return {
     name: typeof data.name === "string" ? data.name : fallback.name,
@@ -1055,10 +1101,6 @@ function reviewDataFromDb(
       data.city === null || typeof data.city === "string"
         ? data.city
         : fallback.city,
-    categoryAttributes:
-      data.category_attributes === undefined
-        ? fallback.categoryAttributes
-        : (data.category_attributes as Json | null),
     reputationSummary:
       data.reputation_summary === undefined
         ? fallback.reputationSummary
@@ -1067,8 +1109,20 @@ function reviewDataFromDb(
       data.channels === undefined
         ? fallback.channels
         : Array.isArray(data.channels)
-          ? (data.channels as ChannelCandidate[])
+          ? (data.channels as StockistCandidate[])
           : fallback.channels,
+    products:
+      data.products === undefined
+        ? fallback.products
+        : Array.isArray(data.products)
+          ? (data.products as CuratedProductProposal[])
+          : fallback.products,
+    keptProductKeys:
+      data.kept_product_keys === undefined
+        ? fallback.keptProductKeys
+        : Array.isArray(data.kept_product_keys)
+          ? normalizeStringArray(data.kept_product_keys)
+          : fallback.keptProductKeys,
     mitEvidence:
       data.mit_evidence === undefined
         ? fallback.mitEvidence
@@ -1085,20 +1139,20 @@ function reviewDataFromDb(
       data.hero_image_url === null || typeof data.hero_image_url === "string"
         ? data.hero_image_url
         : fallback.heroImageUrl,
-    productType:
-      data.product_type === null || typeof data.product_type === "string"
-        ? data.product_type
-        : fallback.productType,
+    categorySlug:
+      data.category === null || typeof data.category === "string"
+        ? data.category
+        : fallback.categorySlug,
     priceRange:
       data.price_range === null || typeof data.price_range === "number"
         ? data.price_range
         : fallback.priceRange,
-    productTags: Array.isArray(data.product_tags)
-      ? normalizeStringArray(data.product_tags)
-      : fallback.productTags,
-    productTagsEn: Array.isArray(data.product_tags_en)
-      ? normalizeStringArray(data.product_tags_en)
-      : fallback.productTagsEn,
+    subcategories: Array.isArray(data.subcategories)
+      ? normalizeStringArray(data.subcategories)
+      : fallback.subcategories,
+    subcategoriesEn: Array.isArray(data.subcategories_en)
+      ? normalizeStringArray(data.subcategories_en)
+      : fallback.subcategoriesEn,
     websiteUrl,
     socialInstagram:
       data.social_instagram === null ||
@@ -1195,17 +1249,17 @@ export async function createSubmission(
         | "isBrandOwner"
         | "sourceAttribution"
       >
-    > & Partial<Pick<BrandSubmission, PurchaseChannelCamelField>> & {
+    > & Partial<Pick<BrandSubmission, OnlineStoreCamelField>> & {
       websiteUrl?: string | null;
       romanizedName?: string | null;
-      suggestedTags?: SuggestedTagsInput;
-      productTypeNote?: string | null;
+      suggestedSubcategories?: SuggestedSubcategoriesInput;
+      categoryNote?: string | null;
       intent?: SubmissionIntent;
       ownerData?: Record<string, unknown>;
       idempotencyKey?: string | null;
     },
   _options?: { useServiceRole?: boolean },
-): Promise<BrandSubmissionWithProductTypeNote> {
+): Promise<BrandSubmissionWithCategoryNote> {
   return auditedCall(
     { provider: "submissions", operation: "createSubmission", kind: "service" },
     async () => {
@@ -1307,7 +1361,7 @@ const ADMIN_REVIEW_SUBMISSIONS_SELECT = `
   social_instagram,
   social_threads,
   social_facebook,
-  ${PURCHASE_COLUMNS.join(",\n  ")},
+  ${ONLINE_STORE_COLUMNS.join(",\n  ")},
   other_urls,
   suggested_tags,
   status,
@@ -1322,7 +1376,7 @@ const ADMIN_REVIEW_SUBMISSIONS_SELECT = `
   is_brand_owner,
   intent,
   source_attribution,
-  product_type_note,
+  category_note,
   enriched_data,
   owner_data,
   review_overrides,
@@ -1366,7 +1420,7 @@ export async function getSubmissionsForReview(options?: {
 
   const rows = [firstPage, ...remainingPages].flatMap(
     (page) =>
-      (page.data ?? []) as unknown as SubmissionRowWithProductTypeNote[],
+      (page.data ?? []) as unknown as SubmissionRowWithCategoryNote[],
   );
   const submissionIds = rows.map((row) => row.id);
   const targetHistory = (
@@ -1455,7 +1509,7 @@ export async function getSubmissionsForReview(options?: {
             const { data: imageData, error: imagesError } = await supabase
               .from("submission_images")
               .select(
-                "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, focal_x, focal_y, origin_brand_image_id",
+                "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, origin_brand_image_id",
               )
               .in("submission_id", targetIds)
               .order("submission_id", { ascending: true })
@@ -1507,7 +1561,7 @@ export async function getSubmissionsForReview(options?: {
             const { data: imageData, error: imagesError } = await supabase
               .from("brand_images")
               .select(
-                "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, focal_x, focal_y",
+                "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height",
               )
               .in("brand_id", brandIds)
               .eq("status", "active")
@@ -1916,6 +1970,75 @@ export async function applyBrandRefresh(
   );
 }
 
+/**
+ * What the review DECIDED about the curated-product proposals riding one
+ * submission (DEV-1469) — the effective layer, never the raw enrichment blob.
+ *
+ * Materialization must read this and not `enriched_data.products`: a reviewer's
+ * fix to a name, a category, or a description lands in `review_overrides` under
+ * the same `products` key, so reading the blob would silently publish the
+ * machine's first draft and drop every correction.
+ *
+ * IT IS A PROJECTION OF `buildReviewLayers(...).effective`, not a second
+ * implementation of it. The precedence this needs is the precedence the whole
+ * review already has — an override replaces the proposal array when the key is
+ * present, otherwise the enrichment blob shows through — and the hand-rolled
+ * copy that used to live here was free to drift from the merge that actually
+ * decides what a reviewer sees.
+ *
+ * `keptProductKeys` is `undefined` when no decision was recorded, which is NOT
+ * the same as `[]`. Absent means "the reviewer never opened the section", and
+ * the caller applies the section's own default (every new proposal kept); `[]`
+ * means "the reviewer looked and kept nothing". `SubmissionReviewData` keeps the
+ * distinction — the field is optional there for exactly this reason.
+ */
+export type SubmissionProductReview = {
+  products: CuratedProductProposal[];
+  keptProductKeys: string[] | undefined;
+};
+
+function submissionProductReview(
+  reviewData: SubmissionReviewData,
+): SubmissionProductReview {
+  return {
+    products: reviewData.products ?? [],
+    keptProductKeys: reviewData.keptProductKeys,
+  };
+}
+
+/**
+ * The reading half. `approveSubmission` already holds the effective layer and
+ * hands it straight to the materializer; this is for the refresh path, which
+ * does not.
+ */
+export async function getSubmissionProductReview(
+  id: string,
+): Promise<SubmissionProductReview> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("brand_submissions")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new NotFoundError("BrandSubmission", id);
+
+  const row = {
+    ...data,
+    other_urls: normalizeOtherUrls(data.other_urls),
+  } as unknown as SubmissionRowWithCategoryNote;
+  const enrichedData = isEnrichedData(row.enriched_data)
+    ? enrichedDataFromSubmissionDb(row.enriched_data as Record<string, unknown>)
+    : null;
+
+  // Images are not passed: the only thing they can change on the effective
+  // layer is `heroImageUrl`, and this projection reads neither it nor anything
+  // derived from it.
+  return submissionProductReview(
+    buildReviewLayers(row, submissionToDomain(row), enrichedData).effective,
+  );
+}
+
 export type SaveSubmissionReviewInput = SubmissionReviewData & {
   images: Array<{ id: string; sortOrder: number }>;
 };
@@ -1938,7 +2061,7 @@ export async function saveSubmissionReview(
     throw new NotFoundError("BrandSubmission", id, { cause: submissionError });
   }
 
-  const submissionRow = row as unknown as SubmissionRowWithProductTypeNote;
+  const submissionRow = row as unknown as SubmissionRowWithCategoryNote;
   const submission = submissionToDomain(submissionRow);
   const enrichedData = isEnrichedData(submissionRow.enriched_data)
     ? enrichedDataFromSubmissionDb(
@@ -2103,7 +2226,7 @@ export async function approveSubmission(
   const { data: imageRows, error: imageError } = await supabase
     .from("submission_images")
     .select(
-      "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, focal_x, focal_y, origin_brand_image_id",
+      "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, origin_brand_image_id",
     )
     .eq("submission_id", id)
     .order("sort_order", { ascending: true });
@@ -2117,7 +2240,7 @@ export async function approveSubmission(
   const typedSubmission = {
     ...submission,
     other_urls: normalizeOtherUrls(submission.other_urls),
-  } as unknown as SubmissionRowWithProductTypeNote;
+  } as unknown as SubmissionRowWithCategoryNote;
   const submissionDomain = submissionToDomain(typedSubmission);
   const reviewData = buildReviewLayers(
     typedSubmission,
@@ -2151,7 +2274,6 @@ export async function approveSubmission(
     slug,
     status: "approved",
   };
-
   const { data: approvalRows, error: approvalError } = await supabase.rpc(
     "approve_submission_with_romanized_name",
     {
@@ -2183,20 +2305,20 @@ export async function approveSubmission(
   // channels. Keep draining those rows until the Phase 2 importer takes over.
   if (reviewData.channels) {
     try {
-      const channelsResult = await upsertEnrichedChannels(
+      const stockistsResult = await upsertEnrichedStockists(
         approval.brand_id,
         reviewData.channels,
       );
-      if (!channelsResult.ok) {
+      if (!stockistsResult.ok) {
         console.error(
           "[approveSubmission] Failed to upsert enriched channels:",
-          channelsResult.code,
+          stockistsResult.code,
         );
       }
-    } catch (channelError) {
+    } catch (stockistError) {
       console.error(
         "[approveSubmission] Failed to upsert enriched channels:",
-        channelError,
+        stockistError,
       );
     }
   }
@@ -2211,6 +2333,10 @@ export async function approveSubmission(
     brandName: approval.brand_name,
     submitterName: approval.submitter_name ?? null,
     isBrandOwner: approval.is_brand_owner ?? false,
+    // `reviewData` is the effective layer built at the top of this function,
+    // from the row as it stood when the approval ran. Materialization is the
+    // caller's next step and consumes exactly this.
+    productReview: submissionProductReview(reviewData),
   };
     },
   );

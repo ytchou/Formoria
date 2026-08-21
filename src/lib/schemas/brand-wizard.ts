@@ -1,10 +1,11 @@
 import { z } from 'zod'
 import { MAX_BRAND_GALLERY_PHOTOS } from '@/lib/constants/brand-images'
+import { isKnownSubcategoryTerm } from '@/lib/taxonomy/ontology'
 import {
-  PURCHASE_CAMEL_FIELDS,
-  PURCHASE_CHANNELS,
-  type PurchaseChannelCamelField,
-} from '@/lib/brands/purchase-channels'
+  ONLINE_STORE_CAMEL_FIELDS,
+  ONLINE_STORES,
+  type OnlineStoreCamelField,
+} from '@/lib/brands/online-stores'
 
 const romanizedNameSchema = z
   .string()
@@ -35,11 +36,20 @@ const socialHandleOrUrlSchema = z
 export const brandWizardBasicInfoSchema = z.object({
   name: z.string().optional(),
   romanizedName: romanizedNameSchema,
-  productType: z.string().optional(),
+  categorySlug: z.string().optional(),
   description: z.string().optional(),
   foundingYear: z.union([z.number(), z.string()]).optional(),
   mitStory: z.string().optional(),
-  productTags: z.array(z.string().max(40)).max(5).optional(),
+  // Closed vocabulary since DEV-1510: the wizard's picker can only emit stored
+  // slugs, so anything else reached this schema by bypassing the UI. Membership
+  // is asked on both bases because a pre-migration draft still carries labels.
+  subcategories: z
+    .array(z.string().max(100))
+    .max(5)
+    .refine((values) => values.every(isKnownSubcategoryTerm), {
+      message: 'Choose subcategories from the list',
+    })
+    .optional(),
   city: z.string().optional(),
   priceRange: z.union([z.number(), z.string()]).optional(),
 })
@@ -69,8 +79,8 @@ const otherUrlSchema = z
   })
 
 const purchaseUrlSchemas = Object.fromEntries(
-  PURCHASE_CHANNELS.map((channel) => [channel.camel, optionalUrlSchema]),
-) as { [Field in PurchaseChannelCamelField]: typeof optionalUrlSchema }
+  ONLINE_STORES.map((channel) => [channel.camel, optionalUrlSchema]),
+) as { [Field in OnlineStoreCamelField]: typeof optionalUrlSchema }
 
 const brandWizardLinksSchema = z.object({
   socialInstagram: socialHandleOrUrlSchema,
@@ -94,11 +104,11 @@ export const BRAND_WIZARD_SHARED_SECTION_FIELDS: Record<
   basicInfo: [
     'name',
     'romanizedName',
-    'productType',
+    'categorySlug',
     'description',
     'foundingYear',
     'mitStory',
-    'productTags',
+    'subcategories',
     'city',
     'priceRange',
   ],
@@ -107,7 +117,7 @@ export const BRAND_WIZARD_SHARED_SECTION_FIELDS: Record<
     'socialInstagram',
     'socialThreads',
     'socialFacebook',
-    ...PURCHASE_CAMEL_FIELDS,
+    ...ONLINE_STORE_CAMEL_FIELDS,
     'otherUrls',
   ],
 }

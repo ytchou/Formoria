@@ -72,7 +72,7 @@ test.describe("Claim request smoke", () => {
         slug: brandSlug,
         status: "approved",
         approved_at: new Date().toISOString(),
-        product_type: "crafts",
+        category: "home",
         description: "Throwaway community brand for claim smoke coverage.",
       })
       .select("id")
@@ -160,7 +160,7 @@ test.describe("Claim request smoke", () => {
     });
     await expect(submitClaimButton).toBeEnabled({ timeout: BUDGET.SERVER_RENDER });
     await submitClaimButton.click();
-    await expect(userPage.getByText("已收到你的認領申請")).toBeVisible({
+    await expect(userPage.getByText("已收到認領申請")).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
     await expect(userPage.getByText(/我們會盡快審核/)).toBeVisible({

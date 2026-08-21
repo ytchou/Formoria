@@ -35,9 +35,30 @@ afterEach(async () => {
 
 type ArtifactStatus = "failed" | "skipped" | "success";
 
+type MergeFinding = { fingerprint: string; source: string; title: string };
+
+type TrailSupplyFixture = {
+  evidence?: Record<string, unknown>;
+  findings?: readonly MergeFinding[];
+  skippedActions?: readonly string[];
+  status: ArtifactStatus;
+} | null;
+
+interface ProductMergeOptions {
+  brandFindings?: readonly MergeFinding[];
+  directoryFindings?: readonly MergeFinding[];
+  /**
+   * `null` omits trail-supply.json entirely. The trail-supply step is
+   * continue-on-error, so the file is genuinely allowed to be absent and the
+   * merge must degrade rather than abort.
+   */
+  trailSupply?: TrailSupplyFixture;
+}
+
 async function runProductMerge(
   directoryStatus: ArtifactStatus,
   brandStatus?: ArtifactStatus,
+  options: ProductMergeOptions = {},
 ): Promise<Record<string, unknown>> {
   const artifactRoot = await mkdtemp(
     path.join(tmpdir(), "formoria-product-merge-"),
@@ -58,11 +79,15 @@ async function runProductMerge(
     throw new Error("product merge command is missing from workflow");
   }
 
-  const artifact = (routine: string, status: ArtifactStatus) => ({
+  const artifact = (
+    routine: string,
+    status: ArtifactStatus,
+    findings: readonly MergeFinding[] = [],
+  ) => ({
     collectedAt: "2026-08-08T10:00:00.000Z",
     evidence: { mode: "preflight" },
     failures: [],
-    findings: [],
+    findings,
     routine,
     skippedActions: status === "skipped" ? [`${routine}_collection`] : [],
     status,
@@ -70,12 +95,46 @@ async function runProductMerge(
   });
   await writeFile(
     path.join(artifactRoot, "directory-health.json"),
-    `${JSON.stringify(artifact("directory-health", directoryStatus))}\n`,
+    `${JSON.stringify(
+      artifact(
+        "directory-health",
+        directoryStatus,
+        options.directoryFindings ?? [],
+      ),
+    )}\n`,
   );
   if (brandStatus) {
     await writeFile(
       path.join(artifactRoot, "brand-review.json"),
-      `${JSON.stringify(artifact("brand-review", brandStatus))}\n`,
+      `${JSON.stringify(
+        artifact("brand-review", brandStatus, options.brandFindings ?? []),
+      )}\n`,
+    );
+  }
+  // DEV-1520: the merge slurps three artifacts. Every existing case gets a
+  // clean, finding-free trail-supply fixture by default so the third input
+  // never changes what those cases assert.
+  const trailSupply =
+    options.trailSupply === undefined
+      ? { status: "success" as ArtifactStatus }
+      : options.trailSupply;
+  if (trailSupply) {
+    const base = artifact(
+      "trail-supply",
+      trailSupply.status,
+      trailSupply.findings ?? [],
+    );
+    await writeFile(
+      path.join(artifactRoot, "trail-supply.json"),
+      `${JSON.stringify({
+        ...base,
+        ...(trailSupply.evidence
+          ? { evidence: trailSupply.evidence, snapshot: trailSupply.evidence }
+          : {}),
+        ...(trailSupply.skippedActions
+          ? { skippedActions: trailSupply.skippedActions }
+          : {}),
+      })}\n`,
     );
   }
 
@@ -89,6 +148,18 @@ async function runProductMerge(
 }
 
 describe("unified health-agent workflow contract", () => {
+  it("uses only the production GitHub environment", async () => {
+    const workflow = parseYaml(await readFile(workflowPath, "utf8")) as {
+      jobs: {
+        "nightly-health": { environment?: string };
+      };
+    };
+
+    expect(workflow.jobs["nightly-health"].environment).toBe(
+      "Formoria / production",
+    );
+  });
+
   it("passes --output to every workflow-runtime command", async () => {
     // The CLI builds its input object with `outputPath: requiredArgument(argv,
     // "--output")` for *every* command, before dispatch — so a step that omits
@@ -336,6 +407,10 @@ describe("unified health-agent workflow contract", () => {
     for (const id of [
       "link",
       "brand",
+      // DEV-1520: `collectTrailSupplyArtifact` can still throw on a filesystem
+      // error, and without continue-on-error that would abort the whole nightly
+      // job at Stage 2 — the one failure mode nothing else here would catch.
+      "trail-supply",
       "directory-evidence",
       "directory",
       "sentry-collect",
@@ -486,6 +561,155 @@ describe("unified health-agent workflow contract", () => {
     await expect(runProductMerge("success")).rejects.toThrow();
   });
 
+  it("merges trail supply findings deduplicated by fingerprint", async () => {
+    // DEV-1520: trail supply is REPORT ONLY, so the only way a finding reaches
+    // a human is by riding the merged directory artifact into Stage 3. The
+    // shared fingerprint proves the union deduplicates rather than double-
+    // ticketing a decayed section the directory arm already reported.
+    const shared = {
+      fingerprint: "directory:trail-empty-section:autumn-kitchen:tableware",
+      source: "directory",
+      title: "Trail section promises a slate it no longer has",
+    };
+    const merged = await runProductMerge("success", "success", {
+      directoryFindings: [shared],
+      trailSupply: {
+        findings: [
+          shared,
+          {
+            fingerprint:
+              "directory:trail-orphaned-selection:retired-trail:mugs",
+            source: "directory",
+            title: "Trail selection points at a trail that no longer exists",
+          },
+        ],
+        status: "success",
+      },
+    });
+
+    expect(merged.status).toBe("success");
+    expect(
+      (merged.findings as Array<{ fingerprint: string }>).map(
+        (finding) => finding.fingerprint,
+      ),
+    ).toEqual([
+      "directory:trail-empty-section:autumn-kitchen:tableware",
+      "directory:trail-orphaned-selection:retired-trail:mugs",
+    ]);
+  });
+
+  it("merged status stays success when trail-supply is skipped", async () => {
+    // Dormancy is the expected production state: scheduled runs check out
+    // `main`, which carries no content/trails/. A skipped trail-supply artifact
+    // must not fail the merged directory status, exactly as brand review's
+    // skipped artifact already does not.
+    const merged = await runProductMerge("success", "success", {
+      trailSupply: { status: "skipped" },
+    });
+
+    expect(merged).toMatchObject({
+      failures: [],
+      findings: [],
+      status: "success",
+    });
+  });
+
+  it("keeps the brand findings when the trail supply artifact is missing", async () => {
+    // Stage 3 aggregate is passed only --directory-artifact, so this merge is
+    // the brand review findings' only route to a human. The trail-supply step
+    // is continue-on-error, so its artifact is genuinely allowed to be absent —
+    // and `jq -s` used to abort on the unopenable file, leaving
+    // directory-health.json un-merged and discarding the night's brand findings
+    // with nothing in failures[] naming the loss.
+    const brandFinding = {
+      fingerprint: "directory:brand-mit-inconsistent:acme",
+      source: "directory",
+      title: "Brand MIT status is inconsistent",
+    };
+    const merged = await runProductMerge("success", "success", {
+      brandFindings: [brandFinding],
+      trailSupply: null,
+    });
+
+    expect(
+      (merged.findings as Array<{ fingerprint: string }>).map(
+        (finding) => finding.fingerprint,
+      ),
+    ).toEqual(["directory:brand-mit-inconsistent:acme"]);
+  });
+
+  it("fails the merged status and names the loss when trail supply is missing", async () => {
+    const merged = await runProductMerge("success", "success", {
+      trailSupply: null,
+    });
+
+    expect(merged.status).toBe("failed");
+    // The absent input has to be legible in the array the Stage 5 gate reads,
+    // not just in the status.
+    expect(merged.failures).toContain("missing_output");
+  });
+
+  it("carries the trail supply observation counts into the merged artifact", async () => {
+    // trail-supply.json is not uploaded and dies with the runner, so the merge
+    // is the only route these counts have into health-run.json. Without them a
+    // night that observed 3 trails and found nothing is byte-identical to a
+    // night that observed nothing at all.
+    const merged = await runProductMerge("success", "success", {
+      trailSupply: {
+        evidence: {
+          emptySectionCount: 0,
+          findingCount: 0,
+          orphanedSelectionCount: 0,
+          readUnavailable: false,
+          selectionsObserved: 9,
+          trailsObserved: 3,
+        },
+        status: "success",
+      },
+    });
+
+    expect(merged.evidence).toMatchObject({
+      trailSupply: {
+        selectionsObserved: 9,
+        status: "success",
+        trailsObserved: 3,
+      },
+    });
+    expect(merged.snapshot).toMatchObject({
+      trailSupply: { selectionsObserved: 9, trailsObserved: 3 },
+    });
+    // A namespaced key, so the trail arm can never overwrite a directory one.
+    expect(merged.evidence).toMatchObject({ mode: "preflight" });
+  });
+
+  it("unions the trail supply dormancy marker into skippedActions", async () => {
+    // `trail_supply_observation` is what distinguishes "the app reported
+    // dormancy" from "the collector never ran", and skippedActions is the only
+    // free-form list that reaches the aggregate as a routine-labelled entry.
+    const merged = await runProductMerge("success", "success", {
+      trailSupply: {
+        evidence: {
+          readUnavailable: true,
+          selectionsObserved: 0,
+          trailsObserved: 0,
+        },
+        skippedActions: ["trail_supply_observation"],
+        status: "skipped",
+      },
+    });
+
+    expect(merged.skippedActions).toContain("trail_supply_observation");
+    expect(merged.status).toBe("success");
+  });
+
+  it("fails the merged status when trail supply failed", async () => {
+    const merged = await runProductMerge("success", "success", {
+      trailSupply: { status: "failed" },
+    });
+
+    expect(merged.status).toBe("failed");
+  });
+
   it("classifies failed artifact uploads and gates terminal success on both attempts", async () => {
     const workflow = await readFile(workflowPath, "utf8");
 
@@ -613,7 +837,9 @@ describe("unified health-agent workflow contract", () => {
     );
   });
 
-  it("uses Turso-only Agent Hub delivery while retaining rollback credentials", async () => {
+  // Bug caught: a workflow can silently reintroduce the retired Agent Hub
+  // destination while reporting still appears healthy.
+  it("keeps setup and final reports Turso-only", async () => {
     const workflow = await readFile(workflowPath, "utf8");
     const setup = workflow.slice(
       workflow.indexOf("id: setup"),

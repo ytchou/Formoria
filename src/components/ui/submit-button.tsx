@@ -9,7 +9,6 @@ interface SubmitButtonProps {
   submittingLabel: string
   disabled?: boolean
   variant?: 'primary'
-  tone?: 'cta' | 'default'
   className?: string
   'data-ph-no-autocapture'?: boolean
 }
@@ -20,7 +19,6 @@ export function SubmitButton({
   submittingLabel,
   disabled,
   variant = 'primary',
-  tone = 'cta',
   className,
   'data-ph-no-autocapture': dataPhNoAutocapture,
 }: SubmitButtonProps) {
@@ -28,7 +26,6 @@ export function SubmitButton({
     <Button
       type="submit"
       variant={variant}
-      tone={tone}
       disabled={disabled}
       className={cn('relative w-full', className)}
       data-ph-no-autocapture={dataPhNoAutocapture}

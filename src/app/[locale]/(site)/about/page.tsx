@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import {
   buildArticleJsonLd,
@@ -13,10 +12,16 @@ import { Link } from "@/i18n/navigation";
 import AboutHero from "@/components/about/about-hero";
 import TaiwanStats from "@/components/about/taiwan-stats";
 import MissionPillars from "@/components/about/mission-pillars";
-import { AboutCard } from "@/components/about/about-card-grid";
+import {
+  AboutCard,
+  AboutCardContent,
+  AboutCardGrid,
+} from "@/components/about/about-card-grid";
 import { buttonVariants } from "@/components/ui/button";
+import { PageShell } from "@/components/ui/page-shell";
 import { getBrandStats, getRecentBrandCount } from "@/lib/services/brands";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
+import { routes } from "@/lib/routes";
 
 export const revalidate = 3600;
 
@@ -33,7 +38,7 @@ export async function generateMetadata({
   const t = await getTranslations("about.metadata");
   const title = t("title");
   const description = t("description");
-  const { canonical, languages } = buildAlternates("/about", safeLocale);
+  const { canonical, languages } = buildAlternates(routes.about(), safeLocale);
   const ogLocale = safeLocale === "zh-TW" ? "zh_TW" : "en_US";
   const ogAlternateLocale = safeLocale === "zh-TW" ? "en_US" : "zh_TW";
 
@@ -56,9 +61,8 @@ export default async function AboutPage({ params }: PageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
-  const [t, visionT, metadataT] = await Promise.all([
+  const [t, metadataT] = await Promise.all([
     getTranslations("about"),
-    getTranslations("vision"),
     getTranslations("about.metadata"),
   ]);
   const title = metadataT("title");
@@ -67,7 +71,7 @@ export default async function AboutPage({ params }: PageProps) {
   const articleJsonLd = buildArticleJsonLd({
     title,
     description,
-    path: "/about",
+    path: routes.about(),
     locale: safeLocale,
   });
 
@@ -105,53 +109,116 @@ export default async function AboutPage({ params }: PageProps) {
           recentBrands={recentBrands ?? undefined}
         />
 
+        <section className="bg-surface py-section">
+          <PageShell measure="page">
+            <h2 className="type-page-title text-balance">
+              {t("audiences.heading")}
+            </h2>
+            <p className="mt-4 prose-measure type-body text-pretty">
+              {t("audiences.intro")}
+            </p>
+            <AboutCardGrid className="md:grid-cols-2">
+              <AboutCard>
+                <AboutCardContent
+                  eyebrow="01"
+                  heading={t("audiences.wander.heading")}
+                  body={t("audiences.wander.body")}
+                />
+              </AboutCard>
+              <AboutCard>
+                <AboutCardContent
+                  eyebrow="02"
+                  heading={t("audiences.research.heading")}
+                  body={t("audiences.research.body")}
+                />
+              </AboutCard>
+            </AboutCardGrid>
+          </PageShell>
+        </section>
+
         <MissionPillars
           heading={t("mission.heading")}
           statement={t("mission.statement")}
           context={t("mission.context")}
           pillars={[
             {
-              heading: t("mission.promote.heading"),
-              body: t("mission.promote.body"),
+              heading: t("mission.directory.heading"),
+              body: t("mission.directory.body"),
             },
             {
-              heading: t("mission.smallBusiness.heading"),
-              body: t("mission.smallBusiness.body"),
+              heading: t("mission.editorial.heading"),
+              body: t("mission.editorial.body"),
             },
             {
-              heading: t("mission.platform.heading"),
-              body: t("mission.platform.body"),
+              heading: t("mission.connection.heading"),
+              body: t("mission.connection.body"),
             },
           ]}
         />
 
-        <section
-          id="vision"
-          className="scroll-mt-32 bg-secondary py-12 md:py-20"
-        >
-          <div className="page-gutter mx-auto max-w-6xl">
-            <h2 className="type-page-title-large text-balance">
-              {visionT("future.sectionHeading")}
+        <section className="bg-surface py-section">
+          <PageShell measure="page">
+            <h2 className="type-page-title text-balance">
+              {t("trust.heading")}
+            </h2>
+            <p className="mt-4 prose-measure type-body text-pretty">
+              {t("trust.intro")}
+            </p>
+            <AboutCardGrid className="md:grid-cols-2">
+              {(
+                ["listed", "selected", "brandProvided", "sponsored"] as const
+              ).map((label, index) => (
+                <AboutCard key={label}>
+                  <AboutCardContent
+                    eyebrow={String(index + 1).padStart(2, "0")}
+                    heading={t(`trust.${label}.heading`)}
+                    body={t(`trust.${label}.body`)}
+                  />
+                </AboutCard>
+              ))}
+            </AboutCardGrid>
+            <h3 className="mt-10 type-section text-balance">
+              {t("trust.commerceHeading")}
+            </h3>
+            <AboutCardGrid className="md:grid-cols-2">
+              <AboutCard>
+                <p className="type-body text-pretty">
+                  {t("trust.formoriaOwns")}
+                </p>
+              </AboutCard>
+              <AboutCard>
+                <p className="type-body text-pretty">
+                  {t("trust.merchantOwns")}
+                </p>
+              </AboutCard>
+            </AboutCardGrid>
+          </PageShell>
+        </section>
+
+        <section id="vision" className="scroll-mt-32 py-section">
+          <PageShell measure="page">
+            <h2 className="type-page-title text-balance">
+              {t("vision.sectionHeading")}
             </h2>
             <div className="mt-8 grid gap-8 md:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)] md:items-start">
               <div>
-                <h3 className="type-section-title-large text-balance">
-                  {visionT("future.heading")}
+                <h3 className="type-section text-balance">
+                  {t("vision.heading")}
                 </h3>
-                <p className="mt-5 type-page-subtitle text-pretty">
-                  {visionT("future.body")}
+                <p className="mt-5 prose-measure type-body text-pretty">
+                  {t("vision.body")}
                 </p>
               </div>
               <AboutCard>
                 <h3 className="type-card-title">
-                  {visionT("future.principleHeading")}
+                  {t("vision.principleHeading")}
                 </h3>
-                <p className="mt-3 type-page-subtitle text-pretty">
-                  {visionT("future.principleBody")}
+                <p className="mt-3 type-body text-pretty">
+                  {t("vision.principleBody")}
                 </p>
               </AboutCard>
             </div>
-          </div>
+          </PageShell>
         </section>
 
         <TaiwanStats
@@ -175,31 +242,22 @@ export default async function AboutPage({ params }: PageProps) {
           sourceName={t("taiwanStats.sourceName")}
         />
 
-        <section className="relative overflow-hidden py-12 md:py-16">
-          <Image
-            src="/images/hero-bg.png"
-            alt=""
-            fill
-            sizes="100vw"
-            className="object-cover object-right"
-          />
-          <div
-            className="absolute inset-0 bg-background/75"
-            aria-hidden="true"
-          />
-          <div className="relative mx-auto max-w-6xl page-gutter">
+        {/* Closing band. Ink ground, not a photograph under a scrim — the same
+            removal made in `about-hero.tsx`, for the same reason: contrast that
+            depends on an image nobody re-checks is contrast nobody owns. */}
+        <section className="border-t border-rule bg-surface py-section">
+          <PageShell measure="page">
             <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
               <div>
-                <h2 className="type-page-title-large text-balance">
+                <h2 className="type-page-title text-balance">
                   {t("guide.heading")}
                 </h2>
               </div>
               <div>
                 <Link
-                  href="/getting-started"
+                  href={routes.gettingStarted()}
                   className={buttonVariants({
                     variant: "primary",
-                    tone: "cta",
                     size: "large",
                     className: "min-h-12",
                   })}
@@ -208,7 +266,7 @@ export default async function AboutPage({ params }: PageProps) {
                 </Link>
               </div>
             </div>
-          </div>
+          </PageShell>
         </section>
       </main>
     </>
