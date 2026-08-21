@@ -180,10 +180,58 @@ begin
   set category = mapping.target
   from (
     values
+      -- The four below were the staging set. The remaining 37 are production's,
+      -- classified 2026-08-21 from each brand's subcategory labels and reviewed
+      -- by hand: a pet label with no child label reads `pets`, a child label
+      -- with no pet label reads `kids`. Six carried both or neither and were
+      -- adjudicated individually -- `1woof` is the standing proof that labels
+      -- alone are not enough, since its labels are toys and keyrings while the
+      -- brand is a dog brand.
+      --
+      -- Two more production brands left this L1 without appearing here:
+      -- `gaga-chicken` moved to `bags-accessories` (keyrings and charms, neither
+      -- half), and `anunnaki` was removed from the directory outright.
       ('1woof', 'pets'),
       ('2angels', 'kids'),
       ('angle-wave', 'pets'),
-      ('softie-bunny', 'kids')
+      ('baby-baby-cool', 'kids'),
+      ('boxkitty', 'pets'),
+      ('cani', 'kids'),
+      ('carl-pufferfish', 'kids'),
+      ('chia-pei-ya-shua', 'kids'),
+      ('dded', 'kids'),
+      ('eco-sprint', 'pets'),
+      ('eguchitoys', 'kids'),
+      ('heyday-concept', 'pets'),
+      ('holulu', 'pets'),
+      ('homosapiens-lab', 'kids'),
+      ('hooru-horuru', 'kids'),
+      ('jollyroll', 'pets'),
+      ('kukugaga', 'kids'),
+      ('lewa-lee', 'kids'),
+      ('lianne-baby', 'kids'),
+      ('moek-x-jesper', 'kids'),
+      ('mr-n-mrs-moon', 'kids'),
+      ('mr-sci-science-factory', 'kids'),
+      ('munchee', 'pets'),
+      ('murou', 'kids'),
+      ('my-beast', 'pets'),
+      ('newstar明日之星', 'kids'),
+      ('nido-nido', 'kids'),
+      ('odout', 'pets'),
+      ('ogg-baby', 'kids'),
+      ('pato-pato', 'kids'),
+      ('playme-toys', 'kids'),
+      ('ps-bubu', 'pets'),
+      ('qbi-toy', 'kids'),
+      ('shubingcat', 'kids'),
+      ('sikaer', 'kids'),
+      ('softie-bunny', 'kids'),
+      ('spark-s-action-plan', 'kids'),
+      ('tuobeiren', 'kids'),
+      ('wewee', 'kids'),
+      ('基隆寵物鮮食-冷凍肉品', 'pets'),
+      ('糖果屋幼教用品社', 'kids')
   ) as mapping (slug, target)
   where b.slug = mapping.slug
     and b.category = 'kids-pets';
