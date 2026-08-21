@@ -837,9 +837,9 @@ describe("unified health-agent workflow contract", () => {
     );
   });
 
-  // Bug caught: setup or final-report can lose one destination while the
-  // workflow still appears healthy because Agent Hub reporting is optional.
-  it("keeps both Agent Hub destinations enabled for the dual-write window", async () => {
+  // Bug caught: a workflow can silently reintroduce the retired Agent Hub
+  // destination while reporting still appears healthy.
+  it("keeps setup and final reports Turso-only", async () => {
     const workflow = await readFile(workflowPath, "utf8");
     const setup = workflow.slice(
       workflow.indexOf("id: setup"),
@@ -851,20 +851,19 @@ describe("unified health-agent workflow contract", () => {
     );
 
     for (const section of [setup, finalReport]) {
-      expect(section).toContain("AGENT_HUB_DELIVERY_MODE: dual");
-      expect(section).toContain(
-        "AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}",
-      );
-      expect(section).toContain(
-        "AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}",
-      );
       expect(section).toContain(
         "AGENT_HUB_TURSO_DATABASE_URL: ${{ secrets.AGENT_HUB_TURSO_DATABASE_URL }}",
       );
       expect(section).toContain(
         "AGENT_HUB_TURSO_AUTH_TOKEN: ${{ secrets.AGENT_HUB_TURSO_AUTH_TOKEN }}",
       );
+      expect(section).not.toMatch(
+        /AGENT_HUB_(?:DELIVERY_MODE|INGEST_URL|INGEST_TOKEN)/,
+      );
     }
+    expect(workflow).not.toMatch(
+      /AGENT_HUB_(?:DELIVERY_MODE|INGEST_URL|INGEST_TOKEN)/,
+    );
   });
 
   it("removes every superseded control-plane file", async () => {

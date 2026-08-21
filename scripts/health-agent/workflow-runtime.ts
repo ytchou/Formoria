@@ -2176,7 +2176,7 @@ function healthAgentHubDependency(
         if (!writer) {
           writer = createAgentHubDelivery({
             env: environment,
-            supabaseOptions: {
+            tursoOptions: {
               fetchImplementation: fetchFor(dependencies),
             },
             logger: (record: unknown) => {
@@ -2199,7 +2199,6 @@ function healthAgentHubDependency(
                     : "deliver",
                 request: {
                   destination,
-                  mode: typeof value.mode === "string" ? value.mode : "unknown",
                   source_run_id:
                     typeof value.source_run_id === "string"
                       ? value.source_run_id
@@ -2228,10 +2227,6 @@ function healthAgentHubDependency(
           operation: "ingest_envelope",
           request,
           response: {
-            mode:
-              typeof environment.AGENT_HUB_DELIVERY_MODE === "string"
-                ? environment.AGENT_HUB_DELIVERY_MODE
-                : "injected",
             result: objectValue(body),
           },
           schemaValid,

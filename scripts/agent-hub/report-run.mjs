@@ -1,10 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
-import {
-  createAgentHubDelivery,
-  resolveAgentHubDeliveryMode,
-} from "./delivery.mjs";
+import { createAgentHubDelivery } from "./delivery.mjs";
 import { AgentHubReportError } from "./envelope.mjs";
 
 export { AgentHubReportError };
@@ -15,9 +12,6 @@ export async function reportAgentRun(input, options = {}) {
   const {
     env = process.env,
     logger,
-    mode,
-    supabaseOptions,
-    supabaseWriter,
     tursoOptions,
     tursoWriter,
     writer,
@@ -27,9 +21,6 @@ export async function reportAgentRun(input, options = {}) {
   const delivery = createAgentHubDelivery({
     env,
     logger,
-    mode: resolveAgentHubDeliveryMode(mode, env),
-    supabaseOptions,
-    supabaseWriter,
     tursoOptions: { ...writerOptions, ...tursoOptions },
     tursoWriter,
   });
