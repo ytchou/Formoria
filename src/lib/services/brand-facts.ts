@@ -6,14 +6,17 @@ import {
   profileChatParams,
   type LlmAuditContext,
 } from "./llm-audit";
-import { localizeToTW } from "./taiwan-localization";
+import { containsHan, localizeToTW } from "./taiwan-localization";
+import { reportBannedTerms } from "@/lib/i18n/banned-terms";
+import type { AuditCallContext } from "@/lib/audit";
 import { parseExtractionResult } from "./category-classifier";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { normalizeSubcategories } from "@/lib/services/subcategories";
 import { noLlmCalls, type LlmCallCounts } from "./_shared/llm-call-outcome";
 
+/** Punctuation-only zh-TW normalization. Nothing here rewrites vocabulary. */
 function localizeZhText(text: string): string {
-  return /[一-鿿]/u.test(text) ? localizeToTW(text).text : text;
+  return containsHan(text) ? localizeToTW(text).text : text;
 }
 
 export type BrandFactsResult = {
@@ -217,6 +220,12 @@ export async function extractBrandFacts(
   brandName: string,
   userContent: string,
   audit: Pick<LlmAuditContext, "jobId" | "target">,
+  /**
+   * The enclosing phase span. REQUIRED: while it was optional, deleting the
+   * threaded argument at the one call site compiled, linted, and passed the
+   * whole suite with vocabulary detection silently off.
+   */
+  ctx: AuditCallContext,
 ): Promise<BrandFactsOutput | null> {
   const token = process.env.OPENAI_API_KEY;
   if (!token) return null;
@@ -295,6 +304,12 @@ export async function extractBrandFacts(
       }
 
       const result = parseBrandFactsResult(content);
+      // Report-only (DEV-1546), and on the ACCEPTED attempt ONLY: this return
+      // is the sole exit that hands a listing verdict to a caller, so a
+      // discarded earlier attempt can never contribute a hit an operator would
+      // then fail to find in any row. The reason lands in
+      // `triage_results.non_brand_reason`, prefixed by curation-operations.
+      reportBannedTerms(ctx, [["non_brand_reason", result.listing?.reason]]);
       attempts.push({
         attempt: attemptIndex + 1,
         input: attemptInput,

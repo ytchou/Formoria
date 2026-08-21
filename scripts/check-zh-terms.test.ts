@@ -3,12 +3,16 @@ import { readFileSync } from "node:fs";
 
 import { BANNED_TERMS } from "../src/lib/i18n/banned-terms";
 import {
+  EXCLUDED_SOURCE_FILES,
+  allowlistSyncProblems,
+  allowlistSyncProblemsFor,
   collectViolations,
   formatViolations,
   isScannedSourceFile,
   scanJsonValue,
   scanSourceFile,
   scanText,
+  scannedSourceFiles,
   stripNonProse,
 } from "./check-zh-terms";
 
@@ -103,6 +107,88 @@ describe("check-zh-terms — source scope", () => {
 
   it("scans the taxonomy ontology, whose nameZh values are public labels", () => {
     expect(isScannedSourceFile("src/lib/taxonomy/ontology.ts")).toBe(true);
+  });
+
+  // These four are published zh-TW copy — the microsite, transactional email
+  // and structured-data labels. They were excluded while the gate was first
+  // scoped and moved in once verified clean. This test is what stops a later
+  // edit from quietly putting them back: dropping one out of
+  // SCANNED_SOURCE_FILES, or re-adding it to EXCLUDED_SOURCE_FILES, fails
+  // here rather than going unnoticed until a banned term ships.
+  const widened = [
+    "src/components/microsite/",
+    "src/app/(microsite)/",
+    "src/lib/email/templates.ts",
+    "src/lib/json-ld.ts",
+  ];
+
+  it.each(widened)("scans reader-facing %s", (entry) => {
+    // For a directory entry, a concrete file beneath it must match too —
+    // path-exact matching would pass the entry itself and still scan nothing.
+    const probe = entry.endsWith("/") ? `${entry}some-file.tsx` : entry;
+
+    expect(isScannedSourceFile(probe)).toBe(true);
+  });
+
+  it.each(widened)("does not also classify %s as excluded", (entry) => {
+    // The map is keyed src/-relative, the way the allowlist writes it.
+    expect(EXCLUDED_SOURCE_FILES.has(entry.replace(/^src\//, ""))).toBe(false);
+  });
+
+  it("expands directory entries into the real files beneath them", () => {
+    const files = scannedSourceFiles();
+
+    expect(files).toContain("src/components/microsite/hero.tsx");
+    expect(files).toContain("src/app/(microsite)/site/[slug]/page.tsx");
+    // Tests are not copy, and one of them would name a banned term as a fixture.
+    expect(
+      files.filter((file) => /(__tests__|\.test\.tsx?$)/.test(file)),
+    ).toEqual([]);
+  });
+
+  // One membership rule, or the enumerated set and the predicate disagree and
+  // the exported `scanSourceFile` gets the looser one.
+  it.each([
+    "src/components/microsite/__tests__/hero.test.tsx",
+    "src/components/microsite/hero.test.tsx",
+    "src/components/microsite/hero.test.ts",
+  ])("agrees with the file list that %s is not scanned", (file) => {
+    expect(isScannedSourceFile(file)).toBe(false);
+    expect(scannedSourceFiles()).not.toContain(file);
+  });
+
+  it("reports a renamed scan directory as a configuration problem", () => {
+    // A raw ENOENT from readdirSync names neither this file nor the entry, so
+    // renaming a route group would kill `pnpm lint` with an unreadable stack.
+    expect(() => scannedSourceFiles(["src/app/(renamed-away)/"])).toThrow(
+      /src\/app\/\(renamed-away\)\/[\s\S]*does not exist/,
+    );
+    expect(() => scannedSourceFiles(["src/app/(renamed-away)/"])).toThrow(
+      /SCANNED_SOURCE_FILES/,
+    );
+  });
+});
+
+describe("check-zh-terms — allowlist sync", () => {
+  it("accepts a per-file allowlist entry nested under a scanned directory", () => {
+    // The bug this pins: an exact-string comparison against
+    // SCANNED_SOURCE_FILES failed a normal per-file allowlist entry whose
+    // directory prefix is already scanned, and told the developer to add it to
+    // SCANNED_SOURCE_FILES (redundant) or EXCLUDED_SOURCE_FILES (which would
+    // un-scan a file the gate had just been widened to cover).
+    expect(
+      allowlistSyncProblemsFor(["components/microsite/hero-copy.tsx"]),
+    ).toEqual([]);
+  });
+
+  it("still flags an entry that is classified nowhere", () => {
+    expect(
+      allowlistSyncProblemsFor(["lib/not-classified-anywhere.ts"]),
+    ).toEqual([expect.stringContaining("classifies nowhere")]);
+  });
+
+  it("finds the repository's two lists in sync", () => {
+    expect(allowlistSyncProblems()).toEqual([]);
   });
 });
 

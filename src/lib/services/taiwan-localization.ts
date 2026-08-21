@@ -17,6 +17,22 @@ const URL_PATTERN = /https?:\/\/\S+/gu;
 const QUOTED_SPAN_PATTERN = /「[^」]*」/gu;
 const CJK_CHARACTER = "[一-鿿]";
 
+/**
+ * CJK Unified Ideographs, the same range the punctuation rules above use.
+ *
+ * Exported because callers elsewhere need the identical question ("is there Han
+ * in this string?") and had each grown their own regex: `brand-facts.ts` had a
+ * fourth copy whose range already disagreed with `curated-product-ingest.ts`'s
+ * (that one also covers Extension A). One shared predicate, defined next to the
+ * range it must agree with, rather than a fifth.
+ */
+const HAN_CHARACTER = new RegExp(CJK_CHARACTER, "u");
+
+/** True when `text` contains at least one CJK Unified Ideograph. */
+export function containsHan(text: string): boolean {
+  return HAN_CHARACTER.test(text);
+}
+
 function protectSpans(
   text: string,
   brandName?: string,

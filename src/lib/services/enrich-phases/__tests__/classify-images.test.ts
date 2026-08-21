@@ -536,7 +536,10 @@ describe("partitionLoadedImages", () => {
     // `provider` is the kind that sets providerFailure, which feeds Gate C and
     // the LLM circuit breaker; three of those cancel every unstarted target in
     // the job and page for an OpenAI outage that never happened.
-    const result = partitionLoadedImages([image("a"), image("b")], [null, null]);
+    const result = partitionLoadedImages(
+      [image("a"), image("b")],
+      [null, null],
+    );
 
     expect(result.failure?.kind).toBe("storage");
     expect(result.sendable).toEqual([]);
@@ -640,6 +643,7 @@ describe("planChunkImageWrites", () => {
       ]),
       unavailableIds: ["unloadable"],
       now,
+      ctx: { summary: {} },
     });
 
     expect(plan.writes.map((write) => write.id)).toEqual(["loaded"]);
@@ -654,6 +658,7 @@ describe("planChunkImageWrites", () => {
       verdictsByImageId: new Map(),
       unavailableIds: [],
       now,
+      ctx: { summary: {} },
     });
 
     expect(plan.writes).toEqual([]);
@@ -672,6 +677,7 @@ describe("planChunkImageWrites", () => {
       ]),
       unavailableIds: [],
       now,
+      ctx: { summary: {} },
     });
 
     expect(plan.rejectedCount).toBe(1);
@@ -726,7 +732,9 @@ describe("buildBrandContext identifiers", () => {
     });
 
     expect(context).not.toContain("impostor.example");
-    expect(context).toContain("No verified identifier available for this brand.");
+    expect(context).toContain(
+      "No verified identifier available for this brand.",
+    );
   });
 
   it("uses the Pinkoi store slug when the brand has no website", () => {

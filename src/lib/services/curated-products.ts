@@ -2,11 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
 import { auditedCall, type AuditCallContext } from "@/lib/audit";
-import {
-  fixBannedTermsInField,
-  mergeBannedTermFixes,
-  type BannedTermFieldFix,
-} from "@/lib/i18n/banned-terms";
+import { reportBannedTerms } from "@/lib/i18n/banned-terms";
 import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
 import type { ExistingCuratedProduct } from "@/lib/services/curated-products/proposal-diff";
 import { withSlugSuffix } from "@/lib/brands/slug";
@@ -16,7 +12,10 @@ import {
   excludeTestBrands,
   TEST_BRAND_NAME_PREFIX,
 } from "@/lib/services/public-brand-filter";
-import { materialBySlug, resolveSubcategorySlugs } from "@/lib/taxonomy/ontology";
+import {
+  materialBySlug,
+  resolveSubcategorySlugs,
+} from "@/lib/taxonomy/ontology";
 import { getPublishedTrailBySlug, getTrailBySlug } from "@/lib/services/trails";
 
 /** The tables are reached through the untyped `from` surface, with generated DB shapes at the boundary. */
@@ -215,10 +214,14 @@ function winningSelection(
   selections: CuratedProductSelectionRow[] | null,
 ): CuratedProductSelectionRow | null {
   if (!selections || selections.length === 0) return null;
-  return [...selections].sort(
-    (a, b) =>
-      a.position - b.position || a.trail_slug.localeCompare(b.trail_slug),
-  ).at(0) ?? null;
+  return (
+    [...selections]
+      .sort(
+        (a, b) =>
+          a.position - b.position || a.trail_slug.localeCompare(b.trail_slug),
+      )
+      .at(0) ?? null
+  );
 }
 
 function toCuratedProduct(row: CuratedProductReadRow): CuratedProduct {
@@ -333,9 +336,9 @@ export class CuratedProductSchemaLagError extends Error {
     const code = (cause as { code?: string }).code ?? "unknown";
     const message = (cause as { message?: string }).message ?? "";
     super(
-      `[${scope}] curated-product read hit a schema older than this deploy `
-        + `(${code}${message ? `: ${message}` : ""}). The migration for this `
-        + "column or table has not been applied to the target database yet.",
+      `[${scope}] curated-product read hit a schema older than this deploy ` +
+        `(${code}${message ? `: ${message}` : ""}). The migration for this ` +
+        "column or table has not been applied to the target database yet.",
     );
     this.name = "CuratedProductSchemaLagError";
   }
@@ -379,7 +382,8 @@ export async function getPublishedCuratedProductsForBrand(
     // a page whose subject is the brand — but it is no longer silent.
     if (isSchemaLag(error)) {
       console.error(
-        new CuratedProductSchemaLagError("curatedProducts.brand", error).message,
+        new CuratedProductSchemaLagError("curatedProducts.brand", error)
+          .message,
       );
       return [];
     }
@@ -568,7 +572,10 @@ export async function getPublishedCuratedProductsForTrail(
 
   const trail = await getPublishedTrailBySlug(trailSlug).catch(() => null);
   const sectionOrder = new Map(
-    trail?.entry.frontmatter.sections.map((section, index) => [section.key, index]) ?? [],
+    trail?.entry.frontmatter.sections.map((section, index) => [
+      section.key,
+      index,
+    ]) ?? [],
   );
 
   const products: TrailCuratedProduct[] = [];
@@ -739,7 +746,9 @@ function normalizeCuratedSubcategories(
   values: readonly string[],
 ): string[] {
   const { subcategories } = normalizeSubcategories([...values]);
-  return resolveSubcategorySlugs(category, subcategories).map((sub) => sub.slug);
+  return resolveSubcategorySlugs(category, subcategories).map(
+    (sub) => sub.slug,
+  );
 }
 
 /**
@@ -792,37 +801,30 @@ function curatedProductKey(input: CuratedProductWriteInput): string {
 const GUARDED_ZH_COLUMNS = ["name_zh", "product_description_zh"] as const;
 
 /**
- * Last stop before the Supabase client: rewrite mainland-Chinese vocabulary out
- * of the zh columns and record what was rewritten on the enclosing audit span.
+ * Last stop before the Supabase client: REPORT mainland-Chinese vocabulary in
+ * the zh columns on the enclosing audit span, and store the text exactly as the
+ * author or model wrote it.
  *
- * Operates on the payload IN PLACE and only on keys that are already present,
- * so `updateCuratedProduct`'s sparseness is preserved exactly: a column the
- * caller never mentioned is never introduced, and `product_description_zh` is
- * never set to null (which the NOT NULL constraint would reject as 23502).
+ * Report-only, and permanently so (DEV-1546). The rewriting version corrupted
+ * correct Taiwan-Mandarin — with no word delimiters, a banned term cannot be
+ * told apart from a substring of a correct word, a street name, or a proper
+ * noun. The backfill script stays the only mutator, gated on a human diff.
+ *
+ * Reads the PAYLOAD, and only keys already present, so `updateCuratedProduct`'s
+ * sparseness is preserved and a column the caller never mentioned is never
+ * introduced. Nothing is written back: the payload is not modified at all.
  *
  * Pure string work — no model call, no extra query, no curation job.
  */
-function applyZhVocabularyGuard(
+function reportZhVocabulary(
   payload: Record<string, unknown>,
   ctx: AuditCallContext,
 ): void {
-  const fixes: BannedTermFieldFix[] = [];
-  for (const column of GUARDED_ZH_COLUMNS) {
-    if (!(column in payload)) continue;
-    const value = payload[column];
-    if (typeof value !== "string" || value.length === 0) continue;
-    const corrected = fixBannedTermsInField(column, value);
-    if (corrected.fixes.length === 0) continue;
-    payload[column] = corrected.value;
-    fixes.push(...corrected.fixes);
-  }
-  if (fixes.length === 0) return;
-
-  const merged = mergeBannedTermFixes(fixes);
-  ctx.summary.bannedTermFixes = merged;
-  ctx.summary.bannedTermFixCount = merged.reduce(
-    (total, fix) => total + fix.count,
-    0,
+  reportBannedTerms(
+    ctx,
+    GUARDED_ZH_COLUMNS.filter((column) => column in payload).map(
+      (column) => [column, payload[column]] as const,
+    ),
   );
 }
 
@@ -874,19 +876,12 @@ export async function createCuratedProduct(
         proposed_by: input.proposedBy ?? "admin",
       };
 
-      applyZhVocabularyGuard(row, ctx);
+      reportZhVocabulary(row, ctx);
 
-      // Keyed from the CORRECTED name, so a new row never carries a key
-      // transliterated from a term the guard just removed from `name_zh` —
-      // which `updateCuratedProduct` can never re-derive, since a key is
-      // identity and is never re-keyed.
-      //
-      // Rejection memory is untouched (DEV-1469): a caller-supplied `key` still
-      // wins inside `curatedProductKey`, and the approval materializer always
-      // supplies the PROPOSAL's key. Only the name-derived branch — interactive
-      // creates, which have no proposal to match — sees the corrected name.
-      // Existing rows are not re-keyed by this: it runs on insert only.
-      const baseKey = curatedProductKey({ ...input, nameZh: row.name_zh });
+      // Rejection memory (DEV-1469): a caller-supplied `key` wins inside
+      // `curatedProductKey`, and the approval materializer always supplies the
+      // PROPOSAL's key, so a create can never lose its match.
+      const baseKey = curatedProductKey(input);
 
       for (let attempt = 0; attempt < MAX_KEY_ATTEMPTS; attempt += 1) {
         const key =
@@ -992,7 +987,7 @@ export async function updateCuratedProduct(
       }
       if (Object.keys(payload).length === 0) return;
 
-      applyZhVocabularyGuard(payload, ctx);
+      reportZhVocabulary(payload, ctx);
 
       const { error } = await curatedProductClient(client)
         .from("curated_products")
@@ -1135,8 +1130,14 @@ async function validateSelectionInput(
 
   const trail = await getTrailBySlug(trailSlug);
   if (!trail) throw new Error(`Unknown discovery trail: ${trailSlug}`);
-  if (!trail.entry.frontmatter.sections.some((section) => section.key === sectionKey)) {
-    throw new Error(`Unknown section "${sectionKey}" for discovery trail "${trailSlug}"`);
+  if (
+    !trail.entry.frontmatter.sections.some(
+      (section) => section.key === sectionKey,
+    )
+  ) {
+    throw new Error(
+      `Unknown section "${sectionKey}" for discovery trail "${trailSlug}"`,
+    );
   }
 
   return { trailSlug, sectionKey, position };
@@ -1164,7 +1165,8 @@ export async function upsertCuratedProductSelection(
       if (productError) throw productError;
 
       const brandId = (productRow as { brand_id?: string } | null)?.brand_id;
-      if (!brandId) throw new Error(`Curated product not found: ${input.productId}`);
+      if (!brandId)
+        throw new Error(`Curated product not found: ${input.productId}`);
 
       const { data: conflicts, error: conflictError } = await supabase
         .from("curated_product_selections")
@@ -1220,7 +1222,9 @@ export async function retireCuratedProductSelection(
       const trailSlug = input.trailSlug.trim();
       const sectionKey = input.sectionKey.trim();
       if (!trailSlug || !sectionKey) {
-        throw new Error("Trail and section are required for a product placement");
+        throw new Error(
+          "Trail and section are required for a product placement",
+        );
       }
       const { data, error } = await curatedProductClient(client)
         .from("curated_product_selections")

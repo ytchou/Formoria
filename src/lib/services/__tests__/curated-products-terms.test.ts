@@ -7,12 +7,16 @@ import {
 } from "../curated-products";
 
 /**
- * DEV-1543 write-path vocabulary gate for `curated_products`.
+ * DEV-1546 write-path vocabulary REPORT for `curated_products`.
  *
- * Create and update must behave identically on the two zh columns the site
- * publishes, and the sparse update payload must stay sparse — a key the caller
- * never supplied may not appear, because `product_description_zh` is NOT NULL
- * and an introduced null would be a 23502.
+ * Create and update detect and never mutate: the stored text is byte-identical
+ * to what the author or model wrote, and the finding goes to the audit span.
+ * 質量 below is the case that made this necessary — it is the physics term for
+ * mass, correct zh-TW, and the mutating guard rewrote it to 品質.
+ *
+ * The sparse update payload must still stay sparse — a key the caller never
+ * supplied may not appear, because `product_description_zh` is NOT NULL and an
+ * introduced null would be a 23502.
  *
  * The client is INJECTED, never mocked (`scripts/check-test-boundaries.mjs`).
  */
@@ -58,9 +62,9 @@ function clientDouble(): CuratedProductSupabase {
   return double as unknown as CuratedProductSupabase;
 }
 
-function recordedFixes(): Array<Record<string, unknown>> {
+function recordedHits(): Array<Record<string, unknown>> {
   return auditRecords.flatMap((record) => {
-    const fixes = record.summary?.bannedTermFixes;
+    const fixes = record.summary?.bannedTerms;
     return Array.isArray(fixes)
       ? (fixes as Array<Record<string, unknown>>)
       : [];
@@ -77,36 +81,44 @@ beforeEach(() => {
   });
 });
 
-describe("createCuratedProduct vocabulary guard", () => {
-  it("corrects product_description_zh and name_zh", async () => {
+describe("createCuratedProduct vocabulary report", () => {
+  it("stores name_zh and product_description_zh unchanged and records both hits", async () => {
+    const nameZh = `高${BANNED}保溫瓶`;
+    const productDescriptionZh = `做工的${BANNED}很穩定。`;
+
     await createCuratedProduct(
       {
         brandId: BRAND_ID,
-        nameZh: `高${BANNED}保溫瓶`,
+        nameZh,
         category: "home",
-        productDescriptionZh: `做工的${BANNED}很穩定。`,
+        productDescriptionZh,
       },
       clientDouble(),
     );
 
     expect(inserts).toHaveLength(1);
     const row = inserts[0] as Record<string, string>;
-    expect(row.name_zh).toBe(`高${CORRECTED}保溫瓶`);
-    expect(row.product_description_zh).toBe(`做工的${CORRECTED}很穩定。`);
-    expect(JSON.stringify(row)).not.toContain(BANNED);
+    expect(row.name_zh).toBe(nameZh);
+    expect(row.product_description_zh).toBe(productDescriptionZh);
+    expect(JSON.stringify(row)).not.toContain(CORRECTED);
 
-    expect(recordedFixes()).toEqual(
+    expect(recordedHits()).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ field: "name_zh", term: BANNED }),
+        expect.objectContaining({
+          field: "name_zh",
+          term: BANNED,
+          replacement: CORRECTED,
+        }),
         expect.objectContaining({
           field: "product_description_zh",
           term: BANNED,
+          replacement: CORRECTED,
         }),
       ]),
     );
   });
 
-  it("leaves clean text untouched", async () => {
+  it("records nothing for clean text", async () => {
     const nameZh = `高${CORRECTED}保溫瓶`;
     const productDescriptionZh = `做工的${CORRECTED}很穩定。`;
 
@@ -123,16 +135,17 @@ describe("createCuratedProduct vocabulary guard", () => {
     const row = inserts[0] as Record<string, string>;
     expect(row.name_zh).toBe(nameZh);
     expect(row.product_description_zh).toBe(productDescriptionZh);
-    expect(recordedFixes()).toEqual([]);
+    expect(recordedHits()).toEqual([]);
   });
 
   /**
-   * The key is transliterated from the name, and `updateCuratedProduct` never
-   * re-keys — so a key derived BEFORE the guard would pin the banned term into
-   * the row's identity, and its public URL, forever.
+   * The key is transliterated from the INPUT name again (DEV-1546). Nothing
+   * corrects the name any more, so the two names below are different names and
+   * must key differently — the previous ticket's "corrected name" key would
+   * have collapsed them onto one key.
    */
-  it("derives the key from the corrected name", async () => {
-    const created = await createCuratedProduct(
+  it("derives the key from the input name", async () => {
+    const banned = await createCuratedProduct(
       {
         brandId: BRAND_ID,
         nameZh: `高${BANNED}保溫瓶`,
@@ -153,14 +166,14 @@ describe("createCuratedProduct vocabulary guard", () => {
       clientDouble(),
     );
 
-    expect(created.key).toBe(clean.key);
+    expect(banned.key).not.toBe(clean.key);
   });
 
   /**
    * Rejection memory hangs off the key (DEV-1469): the approval materializer
-   * passes the PROPOSAL's key, and no correction to the name may move it, or
-   * the next run's proposal misses its own hidden row and re-offers a product a
-   * human already declined.
+   * passes the PROPOSAL's key, and nothing may move it, or the next run's
+   * proposal misses its own hidden row and re-offers a product a human already
+   * declined.
    */
   it("never re-derives a caller-supplied key", async () => {
     const created = await createCuratedProduct(
@@ -176,30 +189,55 @@ describe("createCuratedProduct vocabulary guard", () => {
 
     expect(created.key).toBe("proposal-key-from-a-previous-run");
   });
+
+  /** The whole reason the write path stopped mutating. */
+  it.each(["台南市保安路", "質量輕的材料", "人潮密集成長"])(
+    "never rewrites the boundary false positive %s",
+    async (text) => {
+      await createCuratedProduct(
+        {
+          brandId: BRAND_ID,
+          nameZh: text,
+          category: "home",
+          productDescriptionZh: text,
+        },
+        clientDouble(),
+      );
+
+      const row = inserts[0] as Record<string, string>;
+      expect(row.name_zh).toBe(text);
+      expect(row.product_description_zh).toBe(text);
+    },
+  );
 });
 
-describe("updateCuratedProduct vocabulary guard", () => {
-  it("applies the same guard", async () => {
+describe("updateCuratedProduct vocabulary report", () => {
+  it("detects without mutating, exactly as create does", async () => {
+    const nameZh = `高${BANNED}保溫瓶`;
+    const productDescriptionZh = `做工的${BANNED}很穩定。`;
+
     await updateCuratedProduct(
       PRODUCT_ID,
-      {
-        nameZh: `高${BANNED}保溫瓶`,
-        productDescriptionZh: `做工的${BANNED}很穩定。`,
-      },
+      { nameZh, productDescriptionZh },
       clientDouble(),
     );
 
     expect(updates).toHaveLength(1);
     const payload = updates[0] as Record<string, string>;
-    expect(payload.name_zh).toBe(`高${CORRECTED}保溫瓶`);
-    expect(payload.product_description_zh).toBe(`做工的${CORRECTED}很穩定。`);
+    expect(payload.name_zh).toBe(nameZh);
+    expect(payload.product_description_zh).toBe(productDescriptionZh);
 
-    expect(recordedFixes()).toEqual(
+    expect(recordedHits()).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ field: "name_zh", term: BANNED }),
+        expect.objectContaining({
+          field: "name_zh",
+          term: BANNED,
+          replacement: CORRECTED,
+        }),
         expect.objectContaining({
           field: "product_description_zh",
           term: BANNED,
+          replacement: CORRECTED,
         }),
       ]),
     );

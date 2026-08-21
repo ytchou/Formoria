@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { auditedCall } from "@/lib/audit";
+import { auditedCall, type AuditCallContext } from "@/lib/audit";
+import { reportBannedTerms } from "@/lib/i18n/banned-terms";
 import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "@/lib/prompts";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import {
@@ -1211,6 +1212,13 @@ export function planChunkImageWrites(input: {
   unavailableIds: readonly string[];
   /** Passed in rather than read from the clock so the plan stays reproducible. */
   now: string;
+  /**
+   * The enclosing phase span, REQUIRED. Vocabulary is reported from the plan
+   * rather than from the parse so the audit describes text that is actually
+   * stored: a batch of ten images whose three failed to load still yields ten
+   * parsed verdicts, and those three are written nowhere.
+   */
+  ctx: AuditCallContext;
 }): ChunkWritePlan {
   const unavailable = new Set(input.unavailableIds);
   const writes: ChunkImageWrite[] = [];
@@ -1262,6 +1270,16 @@ export function planChunkImageWrites(input: {
       },
     });
   }
+
+  // Report-only (DEV-1546), over the WRITES and nothing else. The alt text is
+  // stored exactly as the model wrote it; a banned term is recorded on the span
+  // for a human, never substituted, because substring matching cannot tell a
+  // banned term from a correct word, a street name, or a proper noun that
+  // contains one.
+  reportBannedTerms(
+    input.ctx,
+    writes.map((write) => ["alt_zh", write.row.alt_zh] as const),
+  );
 
   return { writes, classifications, rejectedCount, unjudgedCount };
 }
@@ -1407,7 +1425,7 @@ export async function runClassifyImagesPhase({
       operation: "runClassifyImagesPhase",
       kind: "service",
     },
-    async () => {
+    async (ctx) => {
       const target = requestedTarget ?? brandTarget(brand.id);
       const supabase = createServiceClient();
 
@@ -1507,6 +1525,7 @@ export async function runClassifyImagesPhase({
             verdictsByImageId: outcome.verdictsByImageId,
             unavailableIds: outcome.unavailableIds,
             now: new Date().toISOString(),
+            ctx,
           });
           classifications.push(...plan.classifications);
           rejectedCount += plan.rejectedCount;

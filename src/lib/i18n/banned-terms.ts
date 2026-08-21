@@ -1,3 +1,5 @@
+import type { AuditCallContext } from "@/lib/audit";
+
 import rawBannedTerms from "./banned-terms.json";
 
 /**
@@ -7,9 +9,15 @@ import rawBannedTerms from "./banned-terms.json";
  * Han characters and needs no entry in the hardcoded-CJK guard allowlist.
  *
  * Detection is report-only: `detectBannedTerms` never returns a modified
- * string. `fixBannedTerms` is the only function that rewrites text.
+ * string. `fixBannedTerms` is the only function that rewrites text, and the
+ * only caller allowed to rewrite is the backfill script, where a human reads
+ * the diff before it lands (DEV-1546). Every WRITE path uses `reportBannedTerms`
+ * and stores exactly what the model wrote: this script has no word delimiters,
+ * so substring matching cannot tell a banned term from a correct word, a street
+ * name, or a proper noun that merely contains one.
  */
 
+/** One mainland-Chinese term and the Taiwan-Mandarin word that replaces it. */
 export interface BannedTerm {
   /** The mainland-Chinese term that must not appear in stored or published text. */
   term: string;
@@ -151,58 +159,123 @@ export function fixBannedTerms(text: string): BannedTermFixResult {
 }
 
 /**
- * One banned term corrected inside one named database column.
+ * One banned term FOUND inside one named database column.
  *
  * `field` is the column name, not a label: the point of the audit entry is that
  * a reader can tell WHICH stored column a term was found in without re-reading
- * the row.
+ * the row. `replacement` is carried even though nothing on the write path
+ * rewrites anything, because it is the suggestion a human acts on when they
+ * read the span (or when the backfill script proposes its diff).
  */
-export interface BannedTermFieldFix {
-  /** The database column the term was corrected in (snake_case). */
+export interface BannedTermFieldHit {
+  /** The database column the term was found in (snake_case). */
   field: string;
   term: string;
   replacement: string;
-  /** How many occurrences of `term` were replaced in that field. */
+  /** How many occurrences of `term` were found in that field. */
   count: number;
 }
 
-/** Collapse per-occurrence fixes into one entry per (field, term) pair. */
-export function mergeBannedTermFixes(
-  fixes: readonly BannedTermFieldFix[],
-): BannedTermFieldFix[] {
-  const merged = new Map<string, BannedTermFieldFix>();
-  for (const fix of fixes) {
-    const key = `${fix.field} ${fix.term}`;
-    const existing = merged.get(key);
-    if (existing) existing.count += fix.count;
-    else merged.set(key, { ...fix });
+/** A database column paired with the value about to be stored in it. */
+export type BannedTermScanField = readonly [field: string, value: unknown];
+
+/**
+ * One span's accumulated hits, kept as a Map beside the array so a repeated
+ * call costs one lookup per NEW hit rather than a re-merge of everything found
+ * so far.
+ */
+type HitIndex = {
+  entries: Map<string, BannedTermFieldHit>;
+  /** The exact array published on `summary.bannedTerms`, mutated in place. */
+  list: BannedTermFieldHit[];
+  /** Running sum of `count` across `list`. */
+  total: number;
+};
+
+function newHitIndex(): HitIndex {
+  return { entries: new Map(), list: [], total: 0 };
+}
+
+function addHit(index: HitIndex, hit: BannedTermFieldHit): void {
+  const key = `${hit.field} ${hit.term}`;
+  const existing = index.entries.get(key);
+  index.total += hit.count;
+  if (existing) {
+    existing.count += hit.count;
+    return;
   }
-  return [...merged.values()];
+  const entry = { ...hit };
+  index.entries.set(key, entry);
+  index.list.push(entry);
 }
 
 /**
- * Correct one field's text and report what was corrected, tagged with the
- * column it came from.
+ * Accumulation index per span, held OUTSIDE `ctx.summary`.
  *
- * Clean text is returned BY REFERENCE — `fixBannedTerms` hands back the input
- * string untouched when nothing matched — so a caller can assign the result
- * back unconditionally and still produce a byte-identical payload.
+ * The summary is serialized onto the audit row, so a Map stored there would
+ * emit as `{}`. Keeping it here makes accumulation incremental: the previous
+ * shape spread the whole accumulated list into a fresh merge on every call, so
+ * a brand with N hit-carrying images did O(N^2) merge work and allocated N
+ * copies of the full list.
  */
-export function fixBannedTermsInField(
-  field: string,
-  value: string,
-): { value: string; fixes: BannedTermFieldFix[] } {
-  const { text, substitutions } = fixBannedTerms(value);
-  if (substitutions.length === 0) return { value, fixes: [] };
-  return {
-    value: text,
-    fixes: mergeBannedTermFixes(
-      substitutions.map((hit) => ({
+const HIT_INDEX = new WeakMap<Record<string, unknown>, HitIndex>();
+
+function hitIndexFor(summary: Record<string, unknown>): HitIndex {
+  const cached = HIT_INDEX.get(summary);
+  // The cached index is only valid while it still describes the array actually
+  // published on the summary. Anything else (a fresh span, or a caller that
+  // replaced `bannedTerms` outright) rebuilds from what is really there.
+  if (cached && summary.bannedTerms === cached.list) return cached;
+
+  const index = newHitIndex();
+  if (Array.isArray(summary.bannedTerms)) {
+    for (const hit of summary.bannedTerms as BannedTermFieldHit[]) {
+      addHit(index, hit);
+    }
+  }
+  HIT_INDEX.set(summary, index);
+  return index;
+}
+
+/**
+ * THE write-path vocabulary guard. Every write path uses this one helper.
+ *
+ * Scans the supplied columns, leaves every value untouched, and records what
+ * was found on the enclosing audit span as `bannedTerms` / `bannedTermCount`.
+ * Non-string and empty values are skipped. Clean text records nothing at all,
+ * so an absent `bannedTermCount` means "scanned, nothing found".
+ *
+ * `ctx` is REQUIRED, and deliberately: while it was optional, dropping the
+ * threaded argument at a call site still compiled, linted, and passed the whole
+ * suite with detection silently off — which is the exact ambiguity this
+ * function claims to resolve.
+ *
+ * Repeated calls on one span ACCUMULATE: a phase that writes many rows (images,
+ * FAQ entries) reports one merged entry per (field, term) across all of them.
+ */
+export function reportBannedTerms(
+  ctx: AuditCallContext,
+  fields: readonly BannedTermScanField[],
+): BannedTermFieldHit[] {
+  const index = hitIndexFor(ctx.summary);
+  let added = 0;
+
+  for (const [field, value] of fields) {
+    if (typeof value !== "string" || value.length === 0) continue;
+    for (const hit of detectBannedTerms(value)) {
+      addHit(index, {
         field,
         term: hit.term,
         replacement: hit.replacement,
         count: 1,
-      })),
-    ),
-  };
+      });
+      added += 1;
+    }
+  }
+
+  if (added === 0) return index.list;
+
+  ctx.summary.bannedTerms = index.list;
+  ctx.summary.bannedTermCount = index.total;
+  return index.list;
 }

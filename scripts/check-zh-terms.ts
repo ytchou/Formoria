@@ -27,18 +27,18 @@
  *    scanning (`stripNonProse`), because a term inside a code sample is not
  *    copy — this restores what the deleted Python checker's `strip_non_prose`
  *    did.
- *  - `src/` — reduces to a single file. `src/i18n/__tests__/no-hardcoded-cjk.test.ts`
- *    already proves that every file under `src/` outside its path-exact
- *    allowlist contains no Han character at all, so a banned term cannot hide
- *    there. Scanning `src/` therefore means scanning that allowlist, and of
- *    those entries only `lib/taxonomy/ontology.ts` renders to a reader — its
- *    `nameZh` values are the public category labels. Every other entry is
- *    classified in EXCLUDED_SOURCE_FILES below with the reason it is not
- *    reader-visible. ALLOWLIST_SYNC keeps the two lists honest: an allowlist
- *    entry classified in neither list fails this check.
+ *  - `src/` — reduces to an allowlist. `src/i18n/__tests__/no-hardcoded-cjk.test.ts`
+ *    already proves that every file under `src/` outside its allowlist
+ *    contains no Han character at all, so a banned term cannot hide there.
+ *    Scanning `src/` therefore means scanning that allowlist, split between
+ *    SCANNED_SOURCE_FILES (copy a reader receives: the taxonomy ontology, the
+ *    zh-TW-only microsite, transactional email templates and structured-data
+ *    labels) and EXCLUDED_SOURCE_FILES (each with the reason its Han is not
+ *    reader-visible text). `allowlistSyncProblems` keeps the two lists honest:
+ *    an allowlist entry classified in neither fails this check.
  */
 
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -122,17 +122,38 @@ export function scanJsonValue(
 }
 
 /**
- * The only file under `src/` that renders Han to a reader. Its `nameZh` values
- * are the public L1/L2 category labels on /brands and every category page.
+ * The entries under `src/` that render Han to a reader, in the allowlist's own
+ * form but `src/`-prefixed. An entry ending in `/` covers every non-test
+ * `.ts`/`.tsx` file beneath it, matching how the no-hardcoded-cjk allowlist
+ * reads its own directory entries.
+ *
+ *  - `lib/taxonomy/ontology.ts` — `nameZh` values are the public L1/L2 category
+ *    labels on /brands and every category page.
+ *  - `components/microsite/`, `app/(microsite)/` — the zh-TW-only microsite is
+ *    a published reader surface; its copy lives in-file by design (DEV-767),
+ *    so this gate is the only thing standing between it and a zh-CN term.
+ *  - `lib/email/templates.ts` — transactional email copy. Once sent it cannot
+ *    be corrected, which makes it the worst place to notice a term late.
+ *  - `lib/json-ld.ts` — structured-data labels are read by search engines and
+ *    answer engines, and are quoted back to readers verbatim.
+ *
+ * The last three were excluded when DEV-1543 first scoped this gate. They were
+ * verified clean at the time, so widening while clean cost nothing.
  */
-const SCANNED_SOURCE_FILES = ["src/lib/taxonomy/ontology.ts"];
+const SCANNED_SOURCE_FILES = [
+  "src/lib/taxonomy/ontology.ts",
+  "src/components/microsite/",
+  "src/app/(microsite)/",
+  "src/lib/email/templates.ts",
+  "src/lib/json-ld.ts",
+];
 
 /**
  * Every other entry in the no-hardcoded-cjk allowlist, with the reason its Han
  * text is not reader-visible. Keyed by the allowlist's own `src/`-relative
  * form so ALLOWLIST_SYNC can compare them directly.
  */
-const EXCLUDED_SOURCE_FILES = new Map([
+export const EXCLUDED_SOURCE_FILES = new Map([
   // --- LLM prompts and model instructions. The banned terms appear here on
   // purpose: several prompts name the words the model must not produce.
   ["lib/prompts.ts", "LLM system prompts — model instructions, never rendered"],
@@ -190,40 +211,46 @@ const EXCLUDED_SOURCE_FILES = new Map([
     "lib/validations/submission.ts",
     "test-only static fallback map (transitional)",
   ],
-  // --- Reader-visible, but out of this gate's declared scope (DEV-1543 scoped
-  // the source side to the taxonomy ontology). Each is real zh-TW copy and is
-  // clean today; widening the gate to cover them is a follow-up, not a
-  // silent expansion here.
+  // --- Reader-visible copy that is nonetheless still excluded, each for its
+  // own reason. The microsite, transactional-email and structured-data
+  // surfaces that used to sit here are now in SCANNED_SOURCE_FILES; what
+  // remains is not "not yet done", it is copy this gate cannot usefully read.
   //
-  // Ceiling: a banned term added to microsite, transactional-email or
-  // structured-data copy passes this gate today. Upgrade path: move the entry
-  // from EXCLUDED_SOURCE_FILES to SCANNED_SOURCE_FILES — the allowlist-sync
-  // check already forces every allowlisted file to be classified in exactly
-  // one of the two, so nothing else has to change. Verified clean at the time
-  // of writing, so the move is free whenever someone wants the wider net.
-  [
-    "components/microsite/",
-    "zh-TW-only microsite copy — out of scope, see header",
-  ],
-  ["app/(microsite)/", "zh-TW-only microsite copy — out of scope, see header"],
-  [
-    "lib/email/templates.ts",
-    "transactional email copy — out of scope, see header",
-  ],
+  // Ceiling: a banned term reaching a satori-rendered PNG, an owner mailto
+  // subject or an embed snippet still passes. Upgrade path is per-entry below
+  // — there is no single follow-up that clears the group.
   [
     "components/dashboard/inline-verification.tsx",
-    "owner mailto subject — out of scope",
+    "owner mailto subject — a locale-branched string built inline; scanning it " +
+      "means scanning both branches, so bring it in by moving the zh-TW branch " +
+      "into messages/*.json, which the catalogue scan already covers",
   ],
-  ["components/settings/settings-form.tsx", "language endonyms only"],
-  ["app/opengraph-image.tsx", "rendered to PNG — out of scope"],
+  [
+    "components/settings/settings-form.tsx",
+    "language endonyms only (中文 / English) — no sentence copy exists to " +
+      "check; it comes in if this file ever gains prose",
+  ],
+  // Satori/PNG surfaces. The Han here is baked into an image, so a reader
+  // never receives it as text and neither a screen reader nor a crawler can
+  // read it. Upgrade path for all three: they come in the moment their copy
+  // also renders as HTML text (an alt attribute, a caption, a fallback).
+  ["app/opengraph-image.tsx", "rendered to PNG, not text"],
   [
     "app/[locale]/brands/[slug]/opengraph-image.tsx",
-    "rendered to PNG — out of scope",
+    "rendered to PNG, not text",
   ],
-  ["lib/growth/share-card.tsx", "rendered to PNG — out of scope"],
-  ["lib/growth/share-assets.ts", "embed snippet alt text — out of scope"],
-  ["lib/json-ld.ts", "structured-data labels — out of scope"],
-  ["lib/constants/enrich-phases.ts", "admin-only phase labels"],
+  ["lib/growth/share-card.tsx", "rendered to PNG, not text"],
+  [
+    "lib/growth/share-assets.ts",
+    "embed snippet alt text pasted into third-party sites — third-party " +
+      "surface, not ours; bring it in if the badge is ever rendered on a " +
+      "Formoria page",
+  ],
+  [
+    "lib/constants/enrich-phases.ts",
+    "admin-only phase labels — behind the admin gate, never public; comes in " +
+      "if any phase label is surfaced to a brand owner",
+  ],
   ["lib/constants/taiwan-cities.ts", "city names — the curation worker copy"],
   [
     "lib/constants/taiwan-districts.ts",
@@ -254,15 +281,22 @@ function readCjkAllowlist(): string[] {
  * Every allowlisted file must be either scanned or excluded with a reason.
  * Without this, a new allowlist entry — a new file permitted to hold Han in
  * source — would silently escape the gate.
+ *
+ * Split from `allowlistSyncProblems` so the rule can be exercised against a
+ * synthetic entry; the real gate reads the real allowlist.
  */
-export function allowlistSyncProblems(): string[] {
-  const scanned = new Set(
-    SCANNED_SOURCE_FILES.map((path) => path.replace(/^src\//, "")),
-  );
+export function allowlistSyncProblemsFor(entries: readonly string[]): string[] {
   const problems: string[] = [];
 
-  for (const entry of readCjkAllowlist()) {
-    if (scanned.has(entry) || EXCLUDED_SOURCE_FILES.has(entry)) continue;
+  for (const entry of entries) {
+    // The two lists use different key conventions: SCANNED_SOURCE_FILES is
+    // repo-relative (`src/…`), the allowlist and EXCLUDED_SOURCE_FILES are
+    // `src/`-relative. Converting UP to the repo-relative form is what lets the
+    // scanned side reuse `isScannedSourceFile` — the same rule the scan itself
+    // runs — instead of a second, path-exact reimplementation that a directory
+    // entry such as `src/components/microsite/` silently defeats.
+    if (isScannedSourceFile(`src/${entry}`)) continue;
+    if (EXCLUDED_SOURCE_FILES.has(entry)) continue;
     problems.push(
       `${CJK_ALLOWLIST_SOURCE} allows Han in "src/${entry}", which scripts/check-zh-terms.ts classifies nowhere.\n` +
         "  Add it to SCANNED_SOURCE_FILES (user-facing) or EXCLUDED_SOURCE_FILES (with the reason it is not).",
@@ -272,9 +306,35 @@ export function allowlistSyncProblems(): string[] {
   return problems;
 }
 
-/** @param file repo-relative path */
+export function allowlistSyncProblems(): string[] {
+  return allowlistSyncProblemsFor(readCjkAllowlist());
+}
+
+/**
+ * Test files and `__tests__` directories are not copy, and a test that names a
+ * banned term as its fixture — which `scripts/check-zh-terms.test.ts` does —
+ * would be a false positive. The no-hardcoded-cjk guard skips the same two
+ * things for the same reason.
+ */
+const TEST_FILE = /(?:^|\/)__tests__\/|\.test\.tsx?$/;
+
+/**
+ * @param file repo-relative path
+ *
+ * A `SCANNED_SOURCE_FILES` entry ending in `/` is a directory prefix, read the
+ * same way `no-hardcoded-cjk.test.ts` reads its own: it covers everything
+ * beneath it. Anything else is a path-exact match.
+ *
+ * This is the ONE membership rule. `scannedSourceFiles()` filters its walk
+ * through it, `scanSourceFile` gates on it, and `allowlistSyncProblemsFor` asks
+ * it — so the enumerated set and the predicate cannot disagree about a file.
+ */
 export function isScannedSourceFile(file: string): boolean {
-  return SCANNED_SOURCE_FILES.includes(file.split(sep).join("/"));
+  const path = file.split(sep).join("/");
+  if (TEST_FILE.test(path)) return false;
+  return SCANNED_SOURCE_FILES.some((entry) =>
+    entry.endsWith("/") ? path.startsWith(entry) : path === entry,
+  );
 }
 
 /**
@@ -300,6 +360,33 @@ function walk(dir: string, pattern: RegExp): string[] {
 }
 
 /**
+ * Expand `SCANNED_SOURCE_FILES` into concrete repo-relative files, resolving
+ * directory entries. Membership is `isScannedSourceFile`, so the enumerated
+ * files are exactly the files the predicate accepts — test files and
+ * `__tests__` directories drop out there, in one place.
+ *
+ * A missing entry is a CONFIGURATION problem, reported as one. Left to
+ * `readdirSync`, renaming a route group (`src/app/(microsite)/`) kills the whole
+ * lint chain with a raw ENOENT stack trace that names neither this file nor the
+ * stale entry.
+ */
+export function scannedSourceFiles(
+  entries: readonly string[] = SCANNED_SOURCE_FILES,
+): string[] {
+  return entries.flatMap((entry) => {
+    if (!existsSync(join(ROOT, entry))) {
+      throw new Error(
+        `SCANNED_SOURCE_FILES in scripts/check-zh-terms.ts names "${entry}", which does not exist.\n` +
+          "  It was renamed, moved or deleted. Update the entry — do NOT drop it silently, or\n" +
+          "  the reader-facing copy it covered stops being scanned.",
+      );
+    }
+    if (!entry.endsWith("/")) return [entry];
+    return walk(join(ROOT, entry), /\.tsx?$/).filter(isScannedSourceFile);
+  });
+}
+
+/**
  * Scan every user-facing file in the repository.
  */
 export function collectViolations(): Violation[] {
@@ -320,7 +407,7 @@ export function collectViolations(): Violation[] {
     );
   }
 
-  for (const file of SCANNED_SOURCE_FILES) {
+  for (const file of scannedSourceFiles()) {
     violations.push(...scanSourceFile(file));
   }
 

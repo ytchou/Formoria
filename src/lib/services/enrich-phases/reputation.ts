@@ -1,5 +1,6 @@
 import { insertReputationResult } from "../_shared/ai-results";
 import { auditedCall } from "@/lib/audit";
+import { reportBannedTerms } from "@/lib/i18n/banned-terms";
 import { runReputationResearch } from "../reputation-research";
 import { loadPersistedScrapeText } from "./descriptions";
 import { buildProfiledEnrichmentConfig } from "../llm-audit";
@@ -8,7 +9,10 @@ import { localizeToTW } from "../taiwan-localization";
 import { isLlmProviderFailure, noLlmCalls } from "../_shared/llm-call-outcome";
 import type { PhaseResult } from "@/lib/types/curation";
 import type { EnrichScrapedData } from "./types";
-import { brandTarget, type EnrichmentTarget } from "../_shared/enrichment-target";
+import {
+  brandTarget,
+  type EnrichmentTarget,
+} from "../_shared/enrichment-target";
 import {
   buildPhaseResult,
   hasPatchValues,
@@ -155,121 +159,130 @@ export async function runReputationPhase({
 
   return auditedCall(
     { provider: "enrich", operation: "runReputationPhase", kind: "service" },
-    async () => {
-  const { result, durationMs } = await timePhase(async () => {
-    const auditTarget = target ?? brandTarget(brand.id);
-    const persistedScrape = await loadPersistedScrapeText(auditTarget);
-    const brandSiteContent = getBrandSiteContent(brand);
-    const siteContent =
-      [brandSiteContent, persistedScrape.siteContent]
-        .filter(Boolean)
-        .join("\n\n") || null;
-    const reputationInput = {
-      name: brand.name ?? "",
-      description: brand.description ?? null,
-      category: getCategory(brand),
-      serpSnippets: [...serpSnippets, ...persistedScrape.snippets],
-      siteContent,
-    };
-    const reputationOutcome = await runReputationResearch(reputationInput, {
-      target: auditTarget,
-      phase: "reputation",
-      ...(jobId ? { jobId } : {}),
-      config: buildProfiledEnrichmentConfig(
-        "reputation",
-        REPUTATION_SYSTEM_PROMPT,
-        "reputation",
-        REPUTATION_PROMPT_PARAMS,
-      ),
-    });
+    async (ctx) => {
+      const { result, durationMs } = await timePhase(async () => {
+        const auditTarget = target ?? brandTarget(brand.id);
+        const persistedScrape = await loadPersistedScrapeText(auditTarget);
+        const brandSiteContent = getBrandSiteContent(brand);
+        const siteContent =
+          [brandSiteContent, persistedScrape.siteContent]
+            .filter(Boolean)
+            .join("\n\n") || null;
+        const reputationInput = {
+          name: brand.name ?? "",
+          description: brand.description ?? null,
+          category: getCategory(brand),
+          serpSnippets: [...serpSnippets, ...persistedScrape.snippets],
+          siteContent,
+        };
+        const reputationOutcome = await runReputationResearch(reputationInput, {
+          target: auditTarget,
+          phase: "reputation",
+          ...(jobId ? { jobId } : {}),
+          config: buildProfiledEnrichmentConfig(
+            "reputation",
+            REPUTATION_SYSTEM_PROMPT,
+            "reputation",
+            REPUTATION_PROMPT_PARAMS,
+          ),
+        });
 
-    const calls = reputationOutcome?.calls ?? noLlmCalls();
-    const reputationResearch = reputationOutcome?.result ?? null;
+        const calls = reputationOutcome?.calls ?? noLlmCalls();
+        const reputationResearch = reputationOutcome?.result ?? null;
 
-    if (!reputationResearch) {
-      return { patch: {}, calls };
-    }
+        if (!reputationResearch) {
+          return { patch: {}, calls };
+        }
 
-    // Same policy the descriptions phase used when it owned this field. In
-    // practice only an `overwrite` run reaches it: a brand that already has a
-    // reputation and is not being overwritten was skipped above.
-    const shouldWrite = (existing: unknown) =>
-      overwrite ||
-      existing == null ||
-      (typeof existing === "string" && existing.trim() === "") ||
-      (Array.isArray(existing) && existing.length === 0);
+        // Same policy the descriptions phase used when it owned this field. In
+        // practice only an `overwrite` run reaches it: a brand that already has a
+        // reputation and is not being overwritten was skipped above.
+        const shouldWrite = (existing: unknown) =>
+          overwrite ||
+          existing == null ||
+          (typeof existing === "string" && existing.trim() === "") ||
+          (Array.isArray(existing) && existing.length === 0);
 
-    const patch: Record<string, unknown> = {
-      ...(reputationResearch.reputationSummary != null
-        ? {
-            reputation_summary: {
-              ...reputationResearch.reputationSummary,
-              text: localizeToTW(reputationResearch.reputationSummary.text)
-                .text,
-            },
-          }
-        : {}),
-    };
+        const summary = reputationResearch.reputationSummary;
+        const localizedSummary =
+          summary != null
+            ? { ...summary, text: localizeToTW(summary.text).text }
+            : null;
+        // Report-only (DEV-1546), on the text this patch actually carries: the
+        // summary is stored exactly as the model wrote it, and any mainland-Chinese
+        // term in it is recorded on this span rather than rewritten. Substring
+        // rewriting cannot tell a banned term from a correct word that contains it.
+        reportBannedTerms(ctx, [
+          ["reputation_summary", localizedSummary?.text],
+        ]);
 
-    // The complement of the conditional spread above: it contributes `{}` when
-    // it has nothing to say, which the apply RPC reads as "leave the current
-    // value alone". `_cleared_fields` is how this phase says "I looked, and
-    // this field should now be empty".
-    const clearedFields = resolveClearedFields(
-      reputationResearch,
-      brand,
-      shouldWrite,
-    );
-    if (clearedFields.length > 0) {
-      patch._cleared_fields = clearedFields;
-    }
+        const patch: Record<string, unknown> = {
+          ...(localizedSummary != null
+            ? { reputation_summary: localizedSummary }
+            : {}),
+        };
 
-    return { patch, calls };
-  });
+        // The complement of the conditional spread above: it contributes `{}` when
+        // it has nothing to say, which the apply RPC reads as "leave the current
+        // value alone". `_cleared_fields` is how this phase says "I looked, and
+        // this field should now be empty".
+        const clearedFields = resolveClearedFields(
+          reputationResearch,
+          brand,
+          shouldWrite,
+        );
+        if (clearedFields.length > 0) {
+          patch._cleared_fields = clearedFields;
+        }
 
-  // The single reputation call failed at the provider. Reporting `succeeded`
-  // with an empty patch is indistinguishable from "this brand has no
-  // reputation coverage", and that ambiguity is what let a spent OpenAI
-  // account produce green targets on 2026-08-02.
-  if (isLlmProviderFailure(result.calls)) {
-    return {
-      phaseResult: {
-        ...buildPhaseResult(
+        return { patch, calls };
+      });
+
+      // The single reputation call failed at the provider. Reporting `succeeded`
+      // with an empty patch is indistinguishable from "this brand has no
+      // reputation coverage", and that ambiguity is what let a spent OpenAI
+      // account produce green targets on 2026-08-02.
+      if (isLlmProviderFailure(result.calls)) {
+        return {
+          phaseResult: {
+            ...buildPhaseResult(
+              "reputation",
+              "failed",
+              [],
+              durationMs,
+              "LLM provider failed the reputation call",
+            ),
+            providerFailure: true,
+          },
+          patch: {},
+        };
+      }
+
+      if (hasPatchValues(result.patch)) {
+        await insertReputationResult({
+          brandId: brand.id,
+          target: target ?? brandTarget(brand.id),
+        });
+      }
+
+      return {
+        phaseResult: buildPhaseResult(
           "reputation",
-          "failed",
-          [],
+          "succeeded",
+          hasPatchValues(result.patch)
+            ? [
+                ...["reputation_summary"].filter(
+                  (field) => field in result.patch,
+                ),
+                ...(Array.isArray(result.patch._cleared_fields)
+                  ? (result.patch._cleared_fields as string[])
+                  : []),
+              ]
+            : [],
           durationMs,
-          "LLM provider failed the reputation call",
         ),
-        providerFailure: true,
-      },
-      patch: {},
-    };
-  }
-
-  if (hasPatchValues(result.patch)) {
-    await insertReputationResult({
-      brandId: brand.id,
-      target: target ?? brandTarget(brand.id),
-    });
-  }
-
-  return {
-    phaseResult: buildPhaseResult(
-      "reputation",
-      "succeeded",
-      hasPatchValues(result.patch)
-        ? [
-            ...["reputation_summary"].filter((field) => field in result.patch),
-            ...(Array.isArray(result.patch._cleared_fields)
-              ? (result.patch._cleared_fields as string[])
-              : []),
-          ]
-        : [],
-      durationMs,
-    ),
-    patch: result.patch,
-  };
+        patch: result.patch,
+      };
     },
     {
       classify: (result) =>

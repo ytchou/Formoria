@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import type { AuditCallContext } from "@/lib/audit";
 import {
   BANNED_TERMS,
   detectBannedTerms,
   fixBannedTerms,
+  reportBannedTerms,
 } from "@/lib/i18n/banned-terms";
 
 describe("detectBannedTerms", () => {
@@ -122,8 +124,14 @@ describe("BANNED_TERMS", () => {
    * then one of the two terms must be the wrong one.
    */
   it("maps each gendered term to its own gendered replacement", () => {
-    expect(BANNED_TERMS).toContainEqual({ term: "小哥哥", replacement: "帥哥" });
-    expect(BANNED_TERMS).toContainEqual({ term: "小姐姐", replacement: "正妹" });
+    expect(BANNED_TERMS).toContainEqual({
+      term: "小哥哥",
+      replacement: "帥哥",
+    });
+    expect(BANNED_TERMS).toContainEqual({
+      term: "小姐姐",
+      replacement: "正妹",
+    });
 
     for (const replacement of ["正妹", "帥哥"]) {
       const terms = BANNED_TERMS.filter(
@@ -131,5 +139,108 @@ describe("BANNED_TERMS", () => {
       ).map((entry) => entry.term);
       expect(terms, replacement).toHaveLength(1);
     }
+  });
+});
+
+describe("reportBannedTerms", () => {
+  const span = (): AuditCallContext => ({ summary: {} });
+
+  it("tags each hit with the column it was found in and stores nothing back", () => {
+    const ctx = span();
+    const text = "媒體報導以視頻形式呈現。";
+
+    const reported = reportBannedTerms(ctx, [["reputation_summary", text]]);
+
+    expect(reported).toEqual([
+      {
+        field: "reputation_summary",
+        term: "視頻",
+        replacement: "影片",
+        count: 1,
+      },
+    ]);
+    expect(ctx.summary.bannedTerms).toEqual(reported);
+    expect(ctx.summary.bannedTermCount).toBe(1);
+    // Report-only: the caller's value is what gets stored, byte for byte.
+    expect(text).toBe("媒體報導以視頻形式呈現。");
+  });
+
+  it("records nothing at all for clean text", () => {
+    const ctx = span();
+
+    expect(
+      reportBannedTerms(ctx, [["reputation_summary", "以影片呈現。"]]),
+    ).toEqual([]);
+    // Absent, not zero: an absent count is what says "scanned, nothing found".
+    expect(ctx.summary.bannedTerms).toBeUndefined();
+    expect(ctx.summary.bannedTermCount).toBeUndefined();
+  });
+
+  it.each(["台南市保安路的門市", "質量輕的材料"])(
+    "reports the boundary false positive %s without rewriting it",
+    (text) => {
+      // Report-only exists BECAUSE the scan cannot tell these from a real hit:
+      // a street name and a correct zh-TW word both contain a banned substring.
+      // Flagging them for a human is fine; substituting them corrupted rows.
+      const ctx = span();
+      const before = text;
+
+      expect(
+        reportBannedTerms(ctx, [["reputation_summary", text]]),
+      ).toHaveLength(1);
+      expect(text).toBe(before);
+    },
+  );
+
+  it("skips non-string and empty values", () => {
+    const ctx = span();
+
+    expect(
+      reportBannedTerms(ctx, [
+        ["reputation_summary", null],
+        ["reputation_summary", ""],
+        ["reputation_summary", 42],
+      ]),
+    ).toEqual([]);
+    expect(ctx.summary.bannedTermCount).toBeUndefined();
+  });
+
+  it("accumulates across calls into one entry per (field, term)", () => {
+    const ctx = span();
+
+    reportBannedTerms(ctx, [["alt_zh", "視頻截圖"]]);
+    reportBannedTerms(ctx, [["alt_zh", "視頻與視頻"]]);
+    reportBannedTerms(ctx, [["reputation_summary", "視頻報導"]]);
+
+    expect(ctx.summary.bannedTerms).toEqual([
+      { field: "alt_zh", term: "視頻", replacement: "影片", count: 3 },
+      {
+        field: "reputation_summary",
+        term: "視頻",
+        replacement: "影片",
+        count: 1,
+      },
+    ]);
+    expect(ctx.summary.bannedTermCount).toBe(4);
+  });
+
+  it("keeps accumulating onto hits an earlier caller already published", () => {
+    // The accumulator is incremental, so it must still be correct when the
+    // array it is extending did not come from its own index.
+    const ctx: AuditCallContext = {
+      summary: {
+        bannedTerms: [
+          { field: "alt_zh", term: "視頻", replacement: "影片", count: 2 },
+        ],
+        bannedTermCount: 2,
+      },
+    };
+
+    reportBannedTerms(ctx, [["alt_zh", "視頻"]]);
+
+    expect(ctx.summary.bannedTerms).toEqual([
+      { field: "alt_zh", term: "視頻", replacement: "影片", count: 3 },
+    ]);
+    expect(ctx.summary.bannedTermCount).toBe(3);
   });
 });
