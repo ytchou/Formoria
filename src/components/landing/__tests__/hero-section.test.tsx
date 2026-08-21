@@ -126,13 +126,35 @@ describe("HeroSection — the editorial opener", () => {
     expect(screen.getByRole("searchbox")).toBeInTheDocument();
   });
 
-  it("carries no photograph", async () => {
-    // Reverses the 2026-08-17 restoration. The wall below is a sheet of
-    // photographs; a scrimmed hero image above it made the page open on two
-    // competing images and cost `/` its only above-the-fold preload.
+  it("opens on a lead photograph that claims the page preload", async () => {
+    // ROUND FIVE, AND THE HISTORY IS THE POINT. This assertion has been
+    // inverted before: the 2026-08-17 restoration added a hero image, the
+    // 2026-08-19 overhaul removed it again ("carries no photograph"), and
+    // DEV-1544 restores it as an ORIGINATED editorial frame — one that depicts
+    // no product, so it no longer competes with the wall of product
+    // photographs below, which was the removal's actual argument.
+    //
+    // `priority` is asserted, not incidental. Between the removal and DEV-1544
+    // both `landing-zones.tsx` and `selected-product-tile.tsx` still withheld
+    // `priority` "because the hero owns the preload" while no hero existed, so
+    // `/` ran on a text LCP with an unclaimed preload budget. If this assertion
+    // is ever deleted, those two comments become lies again.
     const { container } = await renderHero();
 
-    expect(container.querySelector("img")).toBeNull();
+    const hero = container.querySelector("img");
+    expect(hero).not.toBeNull();
+    expect(hero).toHaveAttribute("src", expect.stringContaining("home-hero"));
+    expect(hero).toHaveAttribute("data-priority", "true");
+  });
+
+  it("keeps the lead photograph decorative", async () => {
+    // `alt=""` follows story and trail detail: the `<h1>` below states the
+    // promise, and a screen reader repeating it as image text is noise. This
+    // is also why no `landing.hero.alt` message key exists — if descriptive
+    // alt is ever wanted, it has to land in BOTH locale catalogues.
+    const { container } = await renderHero();
+
+    expect(container.querySelector("img")).toHaveAttribute("alt", "");
   });
 
   it("renders exactly one search control that targets /brands?search=", async () => {

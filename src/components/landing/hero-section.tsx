@@ -2,19 +2,43 @@ import { Suspense } from 'react'
 import { Link } from '@/i18n/navigation'
 import { getTranslations } from 'next-intl/server'
 import { SearchInput } from '@/components/brands/search-input'
+import { EditorialHero } from '@/components/ui/editorial-hero'
 import { PageShell } from '@/components/ui/page-shell'
 import { routes } from '@/lib/routes'
 
 /**
- * THE EDITORIAL OPENER (D1/D18).
+ * The path of the originated lead frame. A repo path, not a remote URL:
+ * `safeImageSrc` rejects every relative path, and `editorialHeroSrc` inside
+ * `EditorialHero` takes the `startsWith('/')` branch for exactly this case.
+ */
+const HERO_IMAGE = '/images/home-hero.webp'
+
+/**
+ * THE EDITORIAL OPENER, WITH A LEAD FRAME.
  *
  * The product wall stops being the first screen. What opens the page is a
- * point of view — eyebrow, promise, lede — with the search field directly
- * under it, and nothing else. Three things it deliberately no longer has:
+ * photograph and a point of view — lead frame, eyebrow, promise, lede — with
+ * the search field directly under them.
  *
- * 1. **No photograph.** A scrimmed hero image sat one viewport above a sheet
- *    of product photographs, so the page opened on two competing images, and
- *    it consumed `/`'s only above-the-fold preload.
+ * 1. **The photograph came back (DEV-1544).** It reverses D2 of the 2026-08-16
+ *    landing redesign ("hero airy, no photograph"), which was itself the fifth
+ *    move in a week. D2's argument was real and is answered, not ignored: the
+ *    old hero was a *scrimmed* image sitting one viewport above a sheet of
+ *    product photographs, so the page opened on two competing images. This one
+ *    is an originated editorial frame under
+ *    `docs/designs/2026-08-21-originated-imagery-art-direction-design.md` —
+ *    it depicts no product, so it does not compete with the wall; it states a
+ *    register the wall then fills in.
+ *
+ *    D2's second argument was the preload, and that one had already inverted.
+ *    `landing-zones.tsx` and `selected-product-tile.tsx` both still withheld
+ *    `priority` on the grounds that "the hero photograph owns the page's single
+ *    preload" — after the hero that owned it was deleted. `/` has been running
+ *    with a text LCP and an unclaimed preload budget. `EditorialHero` claims it.
+ *
+ *    Note the old copy of this comment credited the removal to D1/D18. Wrong:
+ *    those are ledger rows about opening editorially and moving the categories
+ *    into the nav. Neither mentions the photograph.
  * 2. **No chip row.** All thirteen L1s moved into the persistent nav, which
  *    now renders them on `/` too. Keeping a copy here would put thirteen
  *    duplicate category links inside one viewport of the thirteen above.
@@ -22,14 +46,23 @@ import { routes } from '@/lib/routes'
  *    header's IntersectionObserver, which revealed the nav search once the
  *    hero scrolled away. That search is unconditional now, so both sides go.
  *
- * The opener is left-aligned, not centred: every zone below shares one reading
- * edge, and a centred opener is the one thing that breaks it.
+ * The text is left-aligned, not centred: every zone below shares one reading
+ * edge, and a centred opener is the one thing that breaks it. The frame runs to
+ * the page measure above it while the text stays at prose-measure — the band is
+ * the only full-width element here, and widening the text to match would undo
+ * the reading edge the whole page is built on.
  */
 export default async function HeroSection() {
   const t = await getTranslations('landing.hero')
 
   return (
     <PageShell as="section" measure="page" className="py-section">
+      {/* `alt=""`, the same call story and trail detail make: the `<h1>` two
+          nodes below says what this is, and a screen reader repeating the
+          promise as image text is noise, not description. The frame carries no
+          information the heading does not. */}
+      <EditorialHero src={HERO_IMAGE} alt="" className="mb-stack" />
+
       {/* WAS a 56rem cap of its own, held against the 100rem shell so the
           lede wrapped at a readable measure while the display line still ran
           long enough to read as a headline rather than as a stacked column of
