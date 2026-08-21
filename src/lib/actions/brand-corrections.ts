@@ -16,14 +16,18 @@ import {
   correctionInputSchema,
   type SubmitCorrectionActionInput,
 } from "./brand-corrections-core";
+// NOT re-exported. Next wraps every export of a `"use server"` module as a
+// server-action reference, so a type re-export becomes a runtime binding that
+// does not exist: deployed staging threw
+// `ReferenceError: SubmitCorrectionActionInput is not defined` on every request
+// that touched this module. Import the type from `./brand-corrections-core`
+// instead — that module is not `"use server"` and exports it already.
 
 const CORRECTION_RATE_LIMIT = {
   windowMs: 60_000,
   maxRequests: 5,
   prefix: "brand-correction",
 } as const;
-
-export type { SubmitCorrectionActionInput };
 
 export type SubmitCorrectionActionResult =
   | { ok: true; id: string }
