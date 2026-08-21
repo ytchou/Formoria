@@ -625,20 +625,19 @@ describe("unified health-agent workflow contract", () => {
     );
 
     for (const section of [setup, finalReport]) {
-      expect(section).toContain("AGENT_HUB_DELIVERY_MODE: turso");
-      expect(section).toContain(
-        "AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}",
-      );
-      expect(section).toContain(
-        "AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}",
-      );
       expect(section).toContain(
         "AGENT_HUB_TURSO_DATABASE_URL: ${{ secrets.AGENT_HUB_TURSO_DATABASE_URL }}",
       );
       expect(section).toContain(
         "AGENT_HUB_TURSO_AUTH_TOKEN: ${{ secrets.AGENT_HUB_TURSO_AUTH_TOKEN }}",
       );
+      expect(section).not.toMatch(
+        /AGENT_HUB_(?:DELIVERY_MODE|INGEST_URL|INGEST_TOKEN)/,
+      );
     }
+    expect(workflow).not.toMatch(
+      /AGENT_HUB_(?:DELIVERY_MODE|INGEST_URL|INGEST_TOKEN)/,
+    );
   });
 
   it("removes every superseded control-plane file", async () => {
