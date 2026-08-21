@@ -92,9 +92,6 @@ describe("Formoria health-agent credential contract", () => {
     const requiredNames = [
       "FORMORIA_RAILWAY_URL",
       "ORIGIN_SECRET",
-      "AGENT_HUB_DELIVERY_MODE",
-      "AGENT_HUB_INGEST_URL",
-      "AGENT_HUB_INGEST_TOKEN",
       "AGENT_HUB_TURSO_DATABASE_URL",
       "AGENT_HUB_TURSO_AUTH_TOKEN",
       "SLACK_HEALTH_WEBHOOK_URL",
