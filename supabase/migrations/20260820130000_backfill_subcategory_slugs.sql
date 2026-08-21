@@ -1568,13 +1568,25 @@ with latest as (
     result.created_at desc,
     result.id desc
 )
+-- Lenient, like sites 4 and 5 and for the same reason: this column holds what
+-- the model returned, not a curated selection. The strict resolver raises on
+-- absence, which is right for `brands.subcategories` — a human chose those —
+-- and wrong here. Production's latest rows carry 752 distinct strings, 477 of
+-- which are free-text product names the enrichment prompt never constrained to
+-- the vocabulary (`乳酪蛋糕`, `保險箱`, `住宿`). Staging has few enough that the
+-- strict call never met one.
+--
+-- The lenient resolver converts what it recognises, passes the rest through
+-- unchanged, and records them in `dev1510_lenient_residue`, which the report
+-- below raises as a NOTICE. Nothing is dropped, so the audit trail ADR decision
+-- 6 protects stays intact.
 update public.brand_ai_results as result
-set subcategories = public.subcategory_labels_to_slugs(result.subcategories)
+set subcategories = public.dev1510_labels_to_slugs_lenient(
+      result.subcategories, 'brand_ai_results.subcategories'
+    )
 from latest
 where latest.id = result.id
-  and result.subcategories is not null
-  and result.subcategories
-      is distinct from public.subcategory_labels_to_slugs(result.subcategories);
+  and result.subcategories is not null;
 
 -- ===========================================================================
 -- 7/7 — approve_submission converts on read
