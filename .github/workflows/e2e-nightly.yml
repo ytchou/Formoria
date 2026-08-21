@@ -290,7 +290,7 @@ jobs:
         if: ${{ always() }}
         continue-on-error: true
         env:
-          AGENT_HUB_DELIVERY_MODE: dual
+          AGENT_HUB_DELIVERY_MODE: turso
           AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}
           AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}
           AGENT_HUB_TURSO_DATABASE_URL: ${{ secrets.AGENT_HUB_TURSO_DATABASE_URL }}
@@ -1717,7 +1717,7 @@ jobs:
         if: always() && steps.guard.outputs.skip != 'true'
         continue-on-error: true
         env:
-          AGENT_HUB_DELIVERY_MODE: dual
+          AGENT_HUB_DELIVERY_MODE: turso
           AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}
           AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}
           AGENT_HUB_TURSO_DATABASE_URL: ${{ secrets.AGENT_HUB_TURSO_DATABASE_URL }}

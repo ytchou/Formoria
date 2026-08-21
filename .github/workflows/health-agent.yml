@@ -85,7 +85,7 @@ jobs:
       - name: "Stage 1 · Setup — mode, credentials, and schedule delay"
         id: setup
         env:
-          AGENT_HUB_DELIVERY_MODE: dual
+          AGENT_HUB_DELIVERY_MODE: turso
           AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}
           AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}
           AGENT_HUB_TURSO_AUTH_TOKEN: ${{ secrets.AGENT_HUB_TURSO_AUTH_TOKEN }}
@@ -637,7 +637,7 @@ jobs:
         if: always() && steps.admission.outputs.claimed == 'true'
         continue-on-error: true
         env:
-          AGENT_HUB_DELIVERY_MODE: dual
+          AGENT_HUB_DELIVERY_MODE: turso
           AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}
           AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}
           AGENT_HUB_TURSO_AUTH_TOKEN: ${{ secrets.AGENT_HUB_TURSO_AUTH_TOKEN }}
