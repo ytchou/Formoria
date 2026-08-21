@@ -125,6 +125,57 @@ describe("createCuratedProduct vocabulary guard", () => {
     expect(row.product_description_zh).toBe(productDescriptionZh);
     expect(recordedFixes()).toEqual([]);
   });
+
+  /**
+   * The key is transliterated from the name, and `updateCuratedProduct` never
+   * re-keys — so a key derived BEFORE the guard would pin the banned term into
+   * the row's identity, and its public URL, forever.
+   */
+  it("derives the key from the corrected name", async () => {
+    const created = await createCuratedProduct(
+      {
+        brandId: BRAND_ID,
+        nameZh: `高${BANNED}保溫瓶`,
+        category: "home",
+        productDescriptionZh: "乾淨的描述。",
+      },
+      clientDouble(),
+    );
+
+    inserts = [];
+    const clean = await createCuratedProduct(
+      {
+        brandId: BRAND_ID,
+        nameZh: `高${CORRECTED}保溫瓶`,
+        category: "home",
+        productDescriptionZh: "乾淨的描述。",
+      },
+      clientDouble(),
+    );
+
+    expect(created.key).toBe(clean.key);
+  });
+
+  /**
+   * Rejection memory hangs off the key (DEV-1469): the approval materializer
+   * passes the PROPOSAL's key, and no correction to the name may move it, or
+   * the next run's proposal misses its own hidden row and re-offers a product a
+   * human already declined.
+   */
+  it("never re-derives a caller-supplied key", async () => {
+    const created = await createCuratedProduct(
+      {
+        brandId: BRAND_ID,
+        key: "proposal-key-from-a-previous-run",
+        nameZh: `高${BANNED}保溫瓶`,
+        category: "home",
+        productDescriptionZh: "乾淨的描述。",
+      },
+      clientDouble(),
+    );
+
+    expect(created.key).toBe("proposal-key-from-a-previous-run");
+  });
 });
 
 describe("updateCuratedProduct vocabulary guard", () => {

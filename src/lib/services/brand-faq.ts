@@ -225,13 +225,19 @@ const GUARDED_ZH_FIELDS = ["question_zh", "answer_zh"] as const;
  *
  * Human-authored rows never reach here — `upsertBrandFaqEntries` skips them
  * before the payload is built — so the guard only ever touches model copy.
+ *
+ * `rows` is the subset of the payload whose zh side THIS write authored, not
+ * the whole payload. The upsert carries existing zh values forward whenever
+ * `takeZh` is false, so guarding the payload wholesale let an English-only
+ * fill-gaps refresh rewrite already-stored zh text and write it back — a zh
+ * mutation no caller asked for, attributed to an English-side write.
  */
 function applyZhVocabularyGuard(
-  payload: FaqEntryInsert[],
+  rows: readonly FaqEntryInsert[],
   ctx: AuditCallContext,
 ): void {
   const fixes: BannedTermFieldFix[] = [];
-  for (const row of payload) {
+  for (const row of rows) {
     for (const field of GUARDED_ZH_FIELDS) {
       const value = row[field];
       if (typeof value !== "string" || value.length === 0) continue;
@@ -311,6 +317,9 @@ export async function upsertBrandFaqEntries(
       );
 
       const payload: FaqEntryInsert[] = [];
+      // The rows whose zh side this write is authoring. Same object references
+      // as `payload`, so the guard's in-place correction reaches the upsert.
+      const zhAuthored: FaqEntryInsert[] = [];
       for (const candidate of candidates) {
         const current = existingByKey.get(
           entryKey(candidate.presetId, candidate.position),
@@ -326,7 +335,7 @@ export async function upsertBrandFaqEntries(
           (overwrite || !sideRenders(current?.questionEn, current?.answerEn));
         if (!takeZh && !takeEn) continue;
 
-        payload.push({
+        const row: FaqEntryInsert = {
           preset_id: candidate.presetId,
           position: candidate.position,
           question_zh: takeZh
@@ -338,11 +347,13 @@ export async function upsertBrandFaqEntries(
             : (current?.questionEn ?? null),
           answer_en: takeEn ? candidate.answerEn : (current?.answerEn ?? null),
           source: "model",
-        });
+        };
+        payload.push(row);
+        if (takeZh) zhAuthored.push(row);
       }
       if (payload.length === 0) return;
 
-      applyZhVocabularyGuard(payload, ctx);
+      applyZhVocabularyGuard(zhAuthored, ctx);
 
       // `upsert` rather than branching on `current`: it inserts when the row is
       // absent and updates the listed columns when it is not, which also closes

@@ -33,7 +33,7 @@ let auditRecords: AuditRecord[] = [];
  * Records what is written and reports an empty table on read, so every write is
  * a first write and the guard is exercised on a full payload.
  */
-function clientDouble(): FaqSupabase {
+function clientDouble(existing: UpsertRow[] = []): FaqSupabase {
   const double = {
     from(table: string) {
       if (table !== "brand_faq_entries") {
@@ -49,7 +49,7 @@ function clientDouble(): FaqSupabase {
           return Promise.resolve({ error: null });
         },
         then(resolve: (result: { data: unknown[]; error: null }) => unknown) {
-          return Promise.resolve(resolve({ data: [], error: null }));
+          return Promise.resolve(resolve({ data: existing, error: null }));
         },
       };
       return builder;
@@ -58,8 +58,10 @@ function clientDouble(): FaqSupabase {
   return double as unknown as FaqSupabase;
 }
 
-function write(entries: BrandFaqEntryInput[]) {
-  return upsertBrandFaqEntries(BRAND_ID, entries, { client: clientDouble() });
+function write(entries: BrandFaqEntryInput[], existing: UpsertRow[] = []) {
+  return upsertBrandFaqEntries(BRAND_ID, entries, {
+    client: clientDouble(existing),
+  });
 }
 
 /** Every fix recorded on the terminal audit row of the span just written. */
@@ -135,6 +137,50 @@ describe("upsertBrandFaqEntries vocabulary guard", () => {
     const row = upserts[0]?.[0] as Record<string, string>;
     expect(row.question_zh).toBe(questionZh);
     expect(row.answer_zh).toBe(answerZh);
+    expect(recordedFixes()).toEqual([]);
+    expect(
+      auditRecords.every(
+        (record) => record.summary?.bannedTermFixCount === undefined,
+      ),
+    ).toBe(true);
+  });
+
+  /**
+   * The upsert carries the existing zh side forward whenever this write did not
+   * author it, so guarding the whole payload made an English-only refresh
+   * rewrite stored zh text — a mutation the caller never requested, recorded
+   * against an English-side write. The guard covers authored zh only.
+   */
+  it("leaves stored zh untouched when the write authors only English", async () => {
+    const storedQuestion = `有${BANNED}介紹嗎？`;
+    const storedAnswer = `官網上有一支${BANNED}。`;
+
+    await write(
+      [
+        {
+          presetId: "main-products",
+          questionEn: "Is there a product video?",
+          answerEn: "Yes, on the official site.",
+        },
+      ],
+      [
+        {
+          preset_id: "main-products",
+          position: 0,
+          question_zh: storedQuestion,
+          answer_zh: storedAnswer,
+          question_en: null,
+          answer_en: null,
+          source: "model",
+        },
+      ],
+    );
+
+    expect(upserts).toHaveLength(1);
+    const row = upserts[0]?.[0] as Record<string, string>;
+    expect(row.question_zh).toBe(storedQuestion);
+    expect(row.answer_zh).toBe(storedAnswer);
+    expect(row.question_en).toBe("Is there a product video?");
     expect(recordedFixes()).toEqual([]);
     expect(
       auditRecords.every(

@@ -35,6 +35,15 @@ const BANNED_BY_TERM = new Map(
 );
 
 /**
+ * Case-folded lookup, so a Latin-script term matched in any casing still
+ * resolves to its canonical entry. Lowercasing is identity for Han, so this map
+ * has exactly the same keys as `BANNED_BY_TERM` apart from the Latin ones.
+ */
+const BANNED_BY_FOLDED_TERM = new Map(
+  BANNED_TERMS.map((entry) => [entry.term.toLowerCase(), entry] as const),
+);
+
+/**
  * Correct zh-TW words that literally contain a banned term (the replacement
  * for the banned term is the longer, correct word). Scanning consumes these
  * first so the shorter banned substring inside them is never flagged.
@@ -47,11 +56,7 @@ const SHIELDS: string[] = Array.from(
     BANNED_TERMS.filter(
       (entry) =>
         !BANNED_BY_TERM.has(entry.replacement) &&
-        BANNED_TERMS.some(
-          (other) =>
-            other.term !== entry.replacement &&
-            entry.replacement.includes(other.term),
-        ),
+        BANNED_TERMS.some((other) => entry.replacement.includes(other.term)),
     ).map((entry) => entry.replacement),
   ),
 );
@@ -62,6 +67,45 @@ const SCAN_TOKENS: string[] = [
   ...BANNED_TERMS.map((entry) => entry.term),
 ].sort((a, b) => b.length - a.length);
 
+/** Printable ASCII only — the tests for "is this a Latin-script term". */
+const ASCII_ONLY = /^[\x20-\x7e]+$/;
+
+/** The list is DATA. A metacharacter in a term must match itself, not compile. */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * One token as a regex fragment.
+ *
+ * Latin-script tokens fold case per character (`[Yy][Yy][Dd][Ss]`) rather than
+ * riding an `i` flag on the whole alternation: `i` would also apply Unicode
+ * case folding to the Han tokens, where case does not exist and folding can
+ * only introduce surprises. Han tokens stay byte-exact.
+ */
+function tokenPattern(token: string): string {
+  if (!ASCII_ONLY.test(token)) return escapeRegExp(token);
+  return [...token]
+    .map((char) => {
+      const lower = char.toLowerCase();
+      const upper = char.toUpperCase();
+      return lower === upper
+        ? escapeRegExp(char)
+        : `[${escapeRegExp(lower)}${escapeRegExp(upper)}]`;
+    })
+    .join("");
+}
+
+/**
+ * One precompiled alternation over every scannable token.
+ *
+ * Regex alternation returns the FIRST alternative that matches at a position,
+ * and `SCAN_TOKENS` is already sorted longest-first — so longest-match wins
+ * exactly as the previous hand-rolled cursor loop made it, shields included,
+ * at one pass over the string instead of one probe per token per character.
+ */
+const SCAN_PATTERN = new RegExp(SCAN_TOKENS.map(tokenPattern).join("|"), "g");
+
 /**
  * Report every banned term in `text`. Pure: the input is never modified.
  */
@@ -69,28 +113,19 @@ export function detectBannedTerms(text: string): BannedTermHit[] {
   if (!text) return [];
 
   const hits: BannedTermHit[] = [];
-  let index = 0;
+  SCAN_PATTERN.lastIndex = 0;
 
-  while (index < text.length) {
-    const token = SCAN_TOKENS.find((candidate) =>
-      text.startsWith(candidate, index),
-    );
-
-    if (!token) {
-      index += 1;
-      continue;
-    }
-
-    const banned = BANNED_BY_TERM.get(token);
-    if (banned) {
-      hits.push({
-        term: banned.term,
-        replacement: banned.replacement,
-        offset: index,
-      });
-    }
-
-    index += token.length;
+  let match: RegExpExecArray | null;
+  while ((match = SCAN_PATTERN.exec(text)) !== null) {
+    // A shield matched here consumes its span and reports nothing, which is the
+    // whole point of scanning it: the banned substring inside it is now past.
+    const banned = BANNED_BY_FOLDED_TERM.get(match[0].toLowerCase());
+    if (!banned) continue;
+    hits.push({
+      term: banned.term,
+      replacement: banned.replacement,
+      offset: match.index,
+    });
   }
 
   return hits;

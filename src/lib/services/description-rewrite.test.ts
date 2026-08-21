@@ -54,9 +54,15 @@ describe("parseDescriptionRewriteResult", () => {
     expect(request?.user).not.toContain("citeturn0news2");
     expect(request?.user).toContain("https://example.com?ref=1");
     expect(output?.result?.description_zh?.startsWith("信息設計坊")).toBe(true);
-    expect(output?.result?.description_zh).toContain("影片");
-    expect(output?.result?.description_zh).toContain("品質");
-    expect(output?.result?.description_zh).toContain("資訊");
+    // localizeToTW no longer performs vocabulary substitution: its 48-rule
+    // zh-CN table was measured 41-wrong-of-53 on this corpus (it rewrote the
+    // correct 審核通過 to 審核透過, and 落地燈 to 執行燈) and was deleted in
+    // DEV-1543. This path formats only, so zh-CN vocabulary now passes through
+    // verbatim. Whether a curated banned-term guard belongs on this write path
+    // is finding C4, which is escalated to a human decision and gated on C1 —
+    // do not "restore" these assertions without resolving that first.
+    expect(output?.result?.description_zh).toContain("視頻");
+    expect(output?.result?.description_zh).toContain("質量");
     expect(output?.result?.blurb_zh?.startsWith("信息設計坊")).toBe(true);
     expect(createProfiledOpenAIClient).toHaveBeenCalledWith(
       "descriptions",

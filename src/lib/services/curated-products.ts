@@ -850,7 +850,6 @@ export async function createCuratedProduct(
     },
     async (ctx) => {
       const supabase = curatedProductClient(client);
-      const baseKey = curatedProductKey(input);
       const row = {
         brand_id: input.brandId,
         name_zh: input.nameZh,
@@ -876,6 +875,18 @@ export async function createCuratedProduct(
       };
 
       applyZhVocabularyGuard(row, ctx);
+
+      // Keyed from the CORRECTED name, so a new row never carries a key
+      // transliterated from a term the guard just removed from `name_zh` —
+      // which `updateCuratedProduct` can never re-derive, since a key is
+      // identity and is never re-keyed.
+      //
+      // Rejection memory is untouched (DEV-1469): a caller-supplied `key` still
+      // wins inside `curatedProductKey`, and the approval materializer always
+      // supplies the PROPOSAL's key. Only the name-derived branch — interactive
+      // creates, which have no proposal to match — sees the corrected name.
+      // Existing rows are not re-keyed by this: it runs on insert only.
+      const baseKey = curatedProductKey({ ...input, nameZh: row.name_zh });
 
       for (let attempt = 0; attempt < MAX_KEY_ATTEMPTS; attempt += 1) {
         const key =

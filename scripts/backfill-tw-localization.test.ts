@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  backfillCuratedProducts,
+  CURATED_PRODUCTS_TABLE,
+  PAGE_SIZE,
+  backfillFaq,
+  backfillTable,
   buildCuratedProductPatches,
   buildExhibitorPatches,
   buildBrandPatches,
@@ -117,31 +120,180 @@ describe("reputation_summary", () => {
   });
 });
 
+/**
+ * A PostgREST double covering exactly the slice this script uses:
+ * `from(...).select(...).or(...).order(...).range(...)` for reads and
+ * `from(...).update(...).eq(...)` for writes. Every call is recorded, because
+ * the paging and ordering contracts ARE the assertions.
+ */
+type FakeCalls = {
+  ranges: [number, number][];
+  orders: string[];
+  filters: string[];
+  updates: unknown[];
+};
+
+type EqChain = {
+  eq: () => EqChain;
+  then: (resolve: (value: { error: null }) => void) => void;
+};
+
+function fakeClient(
+  pages: Record<string, unknown[][]>,
+  calls: FakeCalls,
+): BackfillSupabase {
+  const cursors: Record<string, number> = {};
+  const eqChain: EqChain = {
+    eq: () => eqChain,
+    then: (resolve) => resolve({ error: null }),
+  };
+
+  return {
+    from: (table: string) => ({
+      select: () => {
+        const builder = {
+          or: (filter: string) => {
+            calls.filters.push(filter);
+            return builder;
+          },
+          order: (column: string) => {
+            calls.orders.push(column);
+            return builder;
+          },
+          range: async (from: number, to: number) => {
+            calls.ranges.push([from, to]);
+            const index = cursors[table] ?? 0;
+            cursors[table] = index + 1;
+            return { data: pages[table]?.[index] ?? [], error: null };
+          },
+        };
+        return builder;
+      },
+      update: (payload: unknown) => {
+        calls.updates.push(payload);
+        return eqChain;
+      },
+    }),
+  } as unknown as BackfillSupabase;
+}
+
+function emptyCalls(): FakeCalls {
+  return { ranges: [], orders: [], filters: [], updates: [] };
+}
+
+function dirtyProduct(id: string) {
+  return {
+    id,
+    name_zh: `高${BANNED}保溫瓶`,
+    product_description_zh: `官網有產品${BANNED_LINK}。`,
+  };
+}
+
 describe("--dry-run", () => {
   it("produces patches and issues no update", async () => {
-    const updateCalls: unknown[] = [];
-    const client = {
-      from: () => ({
-        select: async () => ({
-          data: [
-            {
-              id: PRODUCT_ID,
-              name_zh: `高${BANNED}保溫瓶`,
-              product_description_zh: `官網有產品${BANNED_LINK}。`,
-            },
+    const calls = emptyCalls();
+    const client = fakeClient(
+      { curated_products: [[dirtyProduct(PRODUCT_ID)]] },
+      calls,
+    );
+
+    const counts = await backfillTable(client, CURATED_PRODUCTS_TABLE, {
+      dryRun: true,
+    });
+
+    expect(counts.updated).toBe(1);
+    expect(calls.updates).toEqual([]);
+  });
+
+  it("names the banned terms it would rewrite, with per-term counts", async () => {
+    const calls = emptyCalls();
+    const client = fakeClient(
+      {
+        curated_products: [
+          [
+            dirtyProduct(PRODUCT_ID),
+            dirtyProduct("22222222-0000-0000-0000-000000000002"),
           ],
-          error: null,
-        }),
-        update: (payload: unknown) => {
-          updateCalls.push(payload);
-          return { eq: async () => ({ error: null }) };
-        },
-      }),
-    } as unknown as BackfillSupabase;
+        ],
+      },
+      calls,
+    );
 
-    const counts = await backfillCuratedProducts(client, { dryRun: true });
+    const counts = await backfillTable(client, CURATED_PRODUCTS_TABLE, {
+      dryRun: true,
+    });
 
-    expect(counts).toEqual({ updated: 1 });
-    expect(updateCalls).toEqual([]);
+    // The operator's safety check greps this output for specific terms, so the
+    // terms must appear in it — a bare row count passes that grep vacuously.
+    expect(counts.dryRun?.terms).toEqual(
+      expect.arrayContaining([
+        { term: BANNED, replacement: CORRECTED, count: 2 },
+        { term: BANNED_LINK, replacement: CORRECTED_LINK, count: 2 },
+      ]),
+    );
+    expect(counts.dryRun?.samples[0]).toContain(PRODUCT_ID);
+    expect(counts.dryRun?.samples[0]).toContain("->");
+  });
+});
+
+describe("pagination", () => {
+  it("reads past the first page instead of stopping at the PostgREST cap", async () => {
+    const calls = emptyCalls();
+    const firstPage = Array.from({ length: PAGE_SIZE }, (_, index) =>
+      dirtyProduct(`page-1-${index}`),
+    );
+    const shortPage = [dirtyProduct("page-2-0"), dirtyProduct("page-2-1")];
+    const client = fakeClient(
+      { curated_products: [firstPage, shortPage] },
+      calls,
+    );
+
+    const counts = await backfillTable(client, CURATED_PRODUCTS_TABLE, {
+      dryRun: true,
+    });
+
+    expect(counts.updated).toBe(PAGE_SIZE + 2);
+    expect(calls.ranges).toEqual([
+      [0, PAGE_SIZE - 1],
+      [PAGE_SIZE, PAGE_SIZE * 2 - 1],
+    ]);
+    // Deterministic order, or two pages could overlap or skip rows.
+    expect(calls.orders).toEqual(["id", "id"]);
+    // Rows with nothing localizable never leave the database.
+    expect(calls.filters[0]).toBe(
+      "name_zh.not.is.null,product_description_zh.not.is.null",
+    );
+  });
+
+  it("orders brand_faq_entries by its whole composite key", async () => {
+    const calls = emptyCalls();
+    const client = fakeClient({ brand_faq_entries: [[]] }, calls);
+
+    await backfillFaq(client, { dryRun: true });
+
+    expect(calls.orders).toEqual(["brand_id", "preset_id", "position"]);
+  });
+});
+
+describe("write path", () => {
+  it("issues one update per patched row when not a dry run", async () => {
+    const calls = emptyCalls();
+    const client = fakeClient(
+      { curated_products: [[dirtyProduct(PRODUCT_ID)]] },
+      calls,
+    );
+
+    const counts = await backfillTable(client, CURATED_PRODUCTS_TABLE, {
+      dryRun: false,
+    });
+
+    expect(counts.updated).toBe(1);
+    expect(counts.dryRun).toBeUndefined();
+    expect(calls.updates).toEqual([
+      {
+        name_zh: `高${CORRECTED}保溫瓶`,
+        product_description_zh: `官網有產品${CORRECTED_LINK}。`,
+      },
+    ]);
   });
 });

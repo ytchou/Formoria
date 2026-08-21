@@ -7,7 +7,7 @@ machine-written to a Taiwanese reader. It REPORTS ONLY and never rewrites:
 optimizing prose against a rubric measurably degrades it, so the decision
 stays with a human editor.
 
-Companion to scripts/check-zh-terms.mjs, which handles vocabulary (Mainland
+Companion to scripts/check-zh-terms.ts, which handles vocabulary (Mainland
 wording) across messages, MDX content, and public category labels. This file
 handles shape: sentence rhythm, paragraph size, contrast constructions,
 register.
