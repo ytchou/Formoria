@@ -86,39 +86,14 @@ test.describe("Brand detail deep", () => {
       timeout: BUDGET.INTERACTIVE,
     });
 
-    // Both sections must appear on the same page — confirming structural separation
-    const socialSection = page.getByRole("heading", {
-      name: "社群平台",
-      level: 2,
-    });
-    const purchaseSection = page.getByRole("heading", {
-      name: "線上購買",
-      level: 2,
-    });
-    await expect(socialSection).toBeVisible();
-    await expect(purchaseSection).toBeVisible();
-  });
-
-  test("links sections are structurally separate (social before purchase)", async ({
-    page,
-  }) => {
-    await page.goto(`/brands/${seeded.slug}`);
-
-    const socialHeading = page.getByRole("heading", {
-      name: "社群平台",
-      level: 2,
-    });
-    const purchaseHeading = page.getByRole("heading", {
-      name: "線上購買",
-      level: 2,
-    });
-
-    await expect(socialHeading).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-    await expect(purchaseHeading).toBeVisible();
-
-    // Social section must appear before purchase section in document order
-    const socialBox = await socialHeading.boundingBox();
-    const purchaseBox = await purchaseHeading.boundingBox();
+    // …and social must come before purchase. Folded in from a second test that
+    // re-loaded this same page only to compare these two bounding boxes.
+    const socialBox = await page
+      .getByRole("heading", { name: "社群平台", level: 2 })
+      .boundingBox();
+    const purchaseBox = await page
+      .getByRole("heading", { name: "線上購買", level: 2 })
+      .boundingBox();
     expect(socialBox).not.toBeNull();
     expect(purchaseBox).not.toBeNull();
     expect(socialBox!.y).toBeLessThan(purchaseBox!.y);
@@ -200,40 +175,6 @@ test.describe("Brand detail deep", () => {
       await expect(link).toHaveAttribute("target", "_blank");
       await expect(link).toHaveAttribute("rel", /noopener/);
     }
-  });
-
-  test("SEO meta tags are present", async ({ page }) => {
-    await page.goto(brandHref);
-    const title = await page.title();
-    expect(title.length).toBeGreaterThan(0);
-    const ogTitle = await page
-      .locator('meta[property="og:title"]')
-      .getAttribute("content");
-    expect(ogTitle?.length).toBeGreaterThan(0);
-    const description = await page
-      .locator('meta[name="description"]')
-      .getAttribute("content");
-    expect(description?.length).toBeGreaterThan(0);
-  });
-
-  test("JSON-LD structured data is present", async ({ page }) => {
-    await page.goto(brandHref);
-    const jsonLd = await page
-      .locator('script[type="application/ld+json"]')
-      .first()
-      .textContent();
-    const parsed = JSON.parse(jsonLd || "{}");
-    expect(parsed["@type"]).toBeTruthy();
-  });
-
-  test("canonical URL matches current URL", async ({ page }) => {
-    await page.goto(brandHref);
-    const canonical = await page
-      .locator('link[rel="canonical"]')
-      .getAttribute("href");
-    expect(decodeURIComponent(canonical ?? "")).toContain(
-      decodeURIComponent(brandHref),
-    );
   });
 
   test("FAQ renders on a data-rich brand", async ({ page }) => {

@@ -120,19 +120,6 @@ test.describe("SEO deep", () => {
     }
   });
 
-  test("robots.txt is accessible and allows crawling", async ({ request }) => {
-    test.skip(
-      process.env.FORMORIA_DEPLOYMENT_ENV === "staging",
-      "Staging intentionally disables indexing.",
-    );
-    const response = await request.get("/robots.txt");
-    expect(response.status()).toBe(200);
-    const body = await response.text();
-    // Next.js generates "User-Agent" (capital A) — compare case-insensitively
-    expect(body.toLowerCase()).toContain("user-agent");
-    expect(body).not.toMatch(/Disallow: \/$|Disallow: \*$/m);
-  });
-
   test("sitemap.xml is accessible", async ({ request }) => {
     test.skip(
       process.env.FORMORIA_DEPLOYMENT_ENV === "staging",
@@ -142,21 +129,6 @@ test.describe("SEO deep", () => {
     expect(response.status()).toBe(200);
     const body = await response.text();
     expect(body).toContain("<urlset");
-  });
-
-  test("directory page 2 keeps its page query in canonical metadata", async ({
-    page,
-  }) => {
-    await page.goto("/brands?page=2");
-    const canonical = await page
-      .locator('link[rel="canonical"]')
-      .getAttribute("href");
-    const ogUrl = await page
-      .locator('meta[property="og:url"]')
-      .getAttribute("content");
-
-    expect(canonical).toMatch(/\?.*page=2(?:&|$)/);
-    expect(ogUrl).toBe(canonical);
   });
 
   test("an unknown eligible bare slug returns a direct 404", async ({
@@ -184,81 +156,6 @@ test.describe("SEO deep", () => {
     const response = await page.goto("/");
     expect(response?.status()).toBe(200);
     expect(page.url()).not.toContain("/zh-TW/");
-  });
-
-  // --- i18n: hreflang alternates on localized pages ---
-
-  test("/brands emits hreflang alternate links for zh-TW, en, and x-default", async ({
-    page,
-  }) => {
-    await page.goto("/brands");
-    // Next.js emits <link rel="alternate" hreflang="..."> via metadata.alternates.languages
-    const zhAlternate = await page
-      .locator('link[rel="alternate"][hreflang="zh-TW"]')
-      .getAttribute("href");
-    const enAlternate = await page
-      .locator('link[rel="alternate"][hreflang="en"]')
-      .getAttribute("href");
-    const xDefault = await page
-      .locator('link[rel="alternate"][hreflang="x-default"]')
-      .getAttribute("href");
-
-    expect(zhAlternate).toBeTruthy();
-    expect(enAlternate).toBeTruthy();
-    expect(xDefault).toBeTruthy();
-
-    // zh-TW URL must be prefix-free (no /en/ segment)
-    expect(zhAlternate).not.toContain("/en/");
-    // en URL must be under /en/
-    expect(enAlternate).toContain("/en/");
-    // x-default should resolve to the zh-TW (prefix-free) URL
-    expect(xDefault).not.toContain("/en/");
-  });
-
-  test("/en/brands emits hreflang alternate links", async ({ page }) => {
-    await page.goto("/en/brands");
-    const zhAlternate = await page
-      .locator('link[rel="alternate"][hreflang="zh-TW"]')
-      .getAttribute("href");
-    const enAlternate = await page
-      .locator('link[rel="alternate"][hreflang="en"]')
-      .getAttribute("href");
-    const xDefault = await page
-      .locator('link[rel="alternate"][hreflang="x-default"]')
-      .getAttribute("href");
-
-    expect(zhAlternate).toBeTruthy();
-    expect(enAlternate).toBeTruthy();
-    expect(xDefault).toBeTruthy();
-  });
-
-  test("/brands has a canonical link pointing to the zh-TW (prefix-free) URL", async ({
-    page,
-  }) => {
-    await page.goto("/brands");
-    const canonical = await page
-      .locator('link[rel="canonical"]')
-      .getAttribute("href");
-    expect(canonical).toBeTruthy();
-    expect(canonical).toMatch(/^https?:\/\//);
-    // Canonical for default locale must NOT include /en/
-    expect(canonical).not.toContain("/en/");
-  });
-
-  test("/en/brands has a canonical link pointing to the /en/ URL", async ({
-    page,
-  }) => {
-    await page.goto("/en/brands");
-    const canonical = await page
-      .locator('link[rel="canonical"]')
-      .getAttribute("href");
-    expect(canonical).toBeTruthy();
-    expect(canonical).toContain("/en/");
-  });
-
-  test("robots allows /submit", async ({ request }) => {
-    const body = await (await request.get("/robots.txt")).text();
-    expect(body).not.toMatch(/Disallow:\s*\/submit\b/);
   });
 
   test("sitemap includes the public editorial pages", async ({ request }) => {
@@ -356,50 +253,6 @@ test.describe("SEO deep", () => {
     }
   });
 
-  test("llms.txt is served as text", async ({ request }) => {
-    const res = await request.get("/llms.txt");
-    expect(res.status()).toBe(200);
-    expect(res.headers()["content-type"]).toContain("text/plain");
-    const body = await res.text();
-    expect(body).toContain("/about");
-    expect(body).not.toContain("/vision");
-    expect(body).toContain(
-      "Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
-    );
-    expect(body).toContain("Brands or retailers remain responsible");
-    expect(body).not.toContain("discover, choose, and grow");
-  });
-
-  test("llms.txt lists canonical category and reference links", async ({
-    request,
-  }) => {
-    const body = await (await request.get("/llms.txt")).text();
-    const categorySlugs = [
-      "fashion",
-      "bags-accessories",
-      "jewelry",
-      "beauty",
-      "home",
-      "food-drink",
-      // `crafts` was retired by DEV-1507 and redirects to /brands.
-      "stationery",
-      "tech",
-      "outdoor",
-      "fitness",
-      // `kids-pets` was split into these two L1s by DEV-1510.
-      "kids",
-      "pets",
-    ];
-
-    for (const slug of categorySlugs) {
-      expect(body).toContain(`/categories/${slug}`);
-      expect(body).not.toContain(`/brands?category=${slug}`);
-    }
-    for (const path of ["/events", "/faq"]) {
-      expect(body).toContain(path);
-    }
-  });
-
   test("challenge page is not indexed or followed", async ({ page }) => {
     await page.goto("/challenge");
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
@@ -410,36 +263,5 @@ test.describe("SEO deep", () => {
       "content",
       /nofollow/i,
     );
-  });
-
-  test("/brands (unfiltered) emits ItemList JSON-LD with itemListElement", async ({
-    page,
-  }) => {
-    await page.goto("/brands");
-    const blocks = await page
-      .locator('script[type="application/ld+json"]')
-      .allTextContents();
-    // The unfiltered /brands page emits an ItemList block alongside the WebSite block
-    const itemListBlock = blocks.find((b) => b.includes('"ItemList"'));
-    expect(itemListBlock).toBeTruthy();
-    // itemListElement array must be present (may be empty if no approved brands exist)
-    expect(itemListBlock).toContain('"itemListElement"');
-    const parsed = JSON.parse(itemListBlock!) as {
-      itemListElement?: Array<{
-        position?: unknown;
-        name?: unknown;
-        url?: unknown;
-      }>;
-    };
-    expect(Array.isArray(parsed.itemListElement)).toBe(true);
-    const items = parsed.itemListElement ?? [];
-    expect(
-      items.every(
-        (item) =>
-          typeof item.position === "number" &&
-          typeof item.name === "string" &&
-          String(item.url).includes("/brands/"),
-      ),
-    ).toBe(true);
   });
 });

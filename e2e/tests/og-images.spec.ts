@@ -4,9 +4,11 @@
  * Rationale: ImageResponse/satori routes can crash at runtime while `pnpm build`
  * passes (og-variable-font-crash 2026-06-01). The root /twitter-image also 404'd
  * for months because Next.js middleware intercepted it before it reached the route
- * handler (fixed in DEV-924 PR 2). This spec pins both failure classes by asserting
- * HTTP 200, image/png content-type, and a meaningful body size for every OG /
- * twitter image route in the app.
+ * handler (fixed in DEV-924 PR 2). The satori-crash class is owned by the far
+ * faster `src/app/opengraph-image.test.tsx` and
+ * `src/__tests__/app/og/trust/opengraph-image.test.tsx`, which decode a real
+ * 1200x630 PNG. What only HTTP can prove is the middleware-interception class,
+ * so this spec keeps one root route and one dynamic brand route.
  *
  * Actor: anonymous (crawlers / social scrapers). No auth, no DB seed.
  * Project: deep (e2e/tests/**\/\*.spec.ts, Desktop Chrome)
@@ -54,41 +56,15 @@ test.describe('OG / twitter image routes', () => {
     await seeded?.cleanup();
   });
 
-  // --- Root routes ---
-
-  test('/opengraph-image returns 200 PNG > 5 KB', async ({ request }) => {
-    await assertPngRoute(request, '/opengraph-image');
-  });
-
   test('/twitter-image returns 200 PNG > 5 KB', async ({ request }) => {
     // Pinned: middleware previously intercepted /twitter-image, returning 404
     // instead of reaching the Next.js image route handler (DEV-924 PR 2).
     await assertPngRoute(request, '/twitter-image');
   });
 
-  test('English homepage social images return meaningful PNGs', async ({ request }) => {
-    for (const path of ['/en/opengraph-image', '/en/twitter-image']) {
-      await assertPngRoute(request, path);
-    }
-  });
-
   // --- Brand detail routes ---
 
   test('/brands/<slug>/opengraph-image returns 200 PNG > 5 KB', async ({ request }) => {
     await assertPngRoute(request, `/brands/${seeded.slug}/opengraph-image`);
-  });
-
-  test('/brands/<slug>/twitter-image returns 200 PNG > 5 KB', async ({ request }) => {
-    await assertPngRoute(request, `/brands/${seeded.slug}/twitter-image`);
-  });
-
-  // --- Locale trust OG routes ---
-
-  test('/zh-TW/og/trust/opengraph-image returns 200 PNG > 5 KB', async ({ request }) => {
-    await assertPngRoute(request, '/zh-TW/og/trust/opengraph-image');
-  });
-
-  test('/en/og/trust/opengraph-image returns 200 PNG > 5 KB', async ({ request }) => {
-    await assertPngRoute(request, '/en/og/trust/opengraph-image');
   });
 });

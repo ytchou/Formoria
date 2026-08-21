@@ -2,8 +2,6 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures/auth';
 import { seedBrand, SeededBrand } from '../helpers/seed';
 import { BUDGET, POLL } from '../budgets';
-import { L2_SUBCATEGORIES } from '../../src/lib/taxonomy/ontology';
-import zhTW from '../../messages/zh-TW.json';
 
 const IS_CANONICAL_STAGING_TARGET =
   new URL(
@@ -29,9 +27,13 @@ const STAGING_MUTATION_SKIP_REASON =
  * original value until an admin approves it.
  *
  * The value control is a two-row chip picker (DEV-1244): row 1 is the brand's
- * current value, row 2 is everything else. DEV-1510 closed the vocabulary: row 2
- * offers all 175 nodes and there is no free-text path, so a product kind the
- * taxonomy lacks is rejected and logged rather than proposed.
+ * current value, row 2 is everything else.
+ *
+ * Scope: only what crosses the server boundary. The dialog's own behaviour —
+ * submit gating, the delta payload, the subcategory cap, and the DEV-1510 closed
+ * vocabulary that refuses an unknown term — is owned by
+ * `src/components/brands/__tests__/correction-dialog.test.tsx`, which asserts all
+ * of it without a browser or a seeded brand.
  *
  * Admin approval is deliberately out of scope here — admin review paths are
  * exercised elsewhere and excluded from this journey.
@@ -58,48 +60,6 @@ const ALREADY_SUBMITTED_TOAST = '這項修正已經送出，請等待審核。';
 // seedBrand() always writes category: 'home' and no subcategories.
 const CURRENT_CATEGORY_LABEL = '居家生活';
 const PROPOSED_CATEGORY_LABEL = '文具設計';
-
-// The subcategory-picker journey below reads its copy out of the catalogue
-// rather than restating it: three of the five strings are whole sentences, and
-// a hand-copied sentence drifts silently the day the wording changes.
-const SUBCATEGORY_SEARCH_LABEL =
-  zhTW.brandDetail.correction.subcategorySearchLabel;
-const SUBCATEGORY_REJECTED = zhTW.brandDetail.correction.subcategoryRejected;
-const SUBCATEGORY_EMPTY = zhTW.brandDetail.correction.subcategoryEmpty;
-const CURRENT_SUBCATEGORIES_HEADING =
-  zhTW.brandDetail.correction.currentSubcategoriesHeading;
-const ADD_SUBCATEGORIES_HEADING =
-  zhTW.brandDetail.correction.addSubcategoriesHeading;
-
-/**
- * A term the closed vocabulary can neither resolve NOR narrow to one node.
- *
- * Both halves are load-bearing. `commitTypedTerm` accepts a typed term when
- * `resolveSubcategorySelection` knows it — slug, zh name, en name or alias —
- * OR when the filter has left exactly ONE node on offer, which it reads as a
- * disambiguated selection rather than as free text. A term that narrows to a
- * single chip is therefore committed silently, and swapping one in here would
- * make the test below assert the opposite of its own name. 燈籠 appears
- * nowhere in `ontology.ts`, so 手工燈籠 matches zero nodes and the
- * rejection path is the only one it can take.
- */
-const OUT_OF_VOCABULARY_TERM = '手工燈籠';
-
-/**
- * The known-good half of the same journey, resolved from the ontology so a
- * renamed node breaks this loudly instead of quietly becoming a second
- * rejection — which would leave the test green while proving nothing.
- */
-const KNOWN_SUBCATEGORY = (() => {
-  const slug = 'tableware';
-  const node = L2_SUBCATEGORIES.find((item) => item.slug === slug);
-  if (!node) {
-    throw new Error(
-      `brand-corrections spec pins a subcategory that no longer exists: ${slug}`,
-    );
-  }
-  return node;
-})();
 
 /**
  * Correction submits and `/brands/` page loads are both rate limited per client
@@ -162,7 +122,7 @@ function categoryValue(page: Page) {
 // The brand page is statically served and hydrates afterwards, so a click that
 // lands too early is a no-op. Retry the (idempotent) open until the dialog is up
 // rather than sleeping on a guessed hydration delay.
-async function openCorrectionDialog(page: Page, field: 'category' | 'subcategories') {
+async function openCategoryDialog(page: Page) {
   // The trigger ships in the server-rendered HTML, so a missing one is never a
   // hydration race — it means the page under test doesn't have this feature at
   // all. Assert it up front: folded into the retry loop below it surfaces as an
@@ -178,12 +138,8 @@ async function openCorrectionDialog(page: Page, field: 'category' | 'subcategori
   // The field picker is the one control that is still a real <select>. The
   // picker opens on a disabled placeholder with no field selected, so the value
   // rows only exist after this selection.
-  await dialog.getByRole('combobox', { name: FIELD_PICKER_LABEL }).selectOption(field);
+  await dialog.getByRole('combobox', { name: FIELD_PICKER_LABEL }).selectOption('category');
   return dialog;
-}
-
-async function openCategoryDialog(page: Page) {
-  return openCorrectionDialog(page, 'category');
 }
 
 // Every chip lookup goes through one of these two. Bare
@@ -261,58 +217,13 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
       // Never bounced to sign-in. (Site chrome legitimately links to sign-in for
       // anonymous visitors, so the no-auth check is scoped to the dialog above.)
       await expect(anonPage).toHaveURL(new RegExp(`/brands/${seeded.slug}`));
-    },
-  );
 
-  test('submit stays disabled until the value changes', async ({ anonPage }, testInfo) => {
-    test.setTimeout(BUDGET.TEST.MUTATION);
-    await isolateVisitorIp(anonPage, testInfo.workerIndex);
-    await openSeededBrand(anonPage, seeded);
-
-    const dialog = await openCategoryDialog(anonPage);
-    const options = optionsRow(dialog, CATEGORY_VALUE_LABEL);
-    const proposed = options.getByRole('button', { name: PROPOSED_CATEGORY_LABEL, exact: true });
-    const submit = dialog.getByRole('button', { name: SUBMIT_LABEL, exact: true });
-
-    // The brand's current category is shown as a reference, not as something to
-    // click: it sits in row 1 and is deliberately absent from the options row,
-    // so there is nothing to propose yet.
-    await expect(currentRow(dialog)).toContainText(CURRENT_CATEGORY_LABEL);
-    await expect(
-      options.getByRole('button', { name: CURRENT_CATEGORY_LABEL, exact: true }),
-    ).toHaveCount(0);
-    await expect(proposed).toHaveAttribute('aria-pressed', 'false');
-    await expect(submit).toBeDisabled();
-
-    await proposed.click();
-    await expect(proposed).toHaveAttribute('aria-pressed', 'true');
-    await expect(submit).toBeEnabled();
-
-    // Row 2 never offers the current value, so the way back to the baseline is a
-    // second click on the same chip — which clears the selection.
-    await proposed.click();
-    await expect(proposed).toHaveAttribute('aria-pressed', 'false');
-    await expect(submit).toBeDisabled();
-  });
-
-  test(
-    'page still shows the original value after submitting',
-    async ({ anonPage }, testInfo) => {
-      test.skip(IS_CANONICAL_STAGING_TARGET, STAGING_MUTATION_SKIP_REASON);
-      test.setTimeout(BUDGET.TEST.MUTATION);
-      await isolateVisitorIp(anonPage, testInfo.workerIndex);
-      await openSeededBrand(anonPage, seeded);
-
-      await expect(categoryValue(anonPage)).toContainText(CURRENT_CATEGORY_LABEL);
-
-      const dialog = await proposeCategoryChange(anonPage);
-      await expectToast(anonPage, 'success', SUCCESS_TOAST);
-      await expect(dialog).toBeHidden();
-
-      // Pending, not applied: the header must still read the original category.
+      // Pending, NOT applied — folded in from a separate test that re-ran this
+      // whole submit only to check the header afterwards. A crowd proposal must
+      // land in the queue without touching the public value, before OR after a
+      // reload.
       await expect(categoryValue(anonPage)).toContainText(CURRENT_CATEGORY_LABEL);
       await expect(categoryValue(anonPage)).not.toContainText(PROPOSED_CATEGORY_LABEL);
-
       await anonPage.reload({ waitUntil: 'domcontentloaded' });
       await expect(categoryValue(anonPage)).toContainText(CURRENT_CATEGORY_LABEL);
       await expect(categoryValue(anonPage)).not.toContainText(PROPOSED_CATEGORY_LABEL);
@@ -335,77 +246,5 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
     await expectToast(anonPage, 'error', ALREADY_SUBMITTED_TOAST);
     // The dialog stays open on failure so the visitor can see what happened.
     await expect(dialog).toBeVisible();
-  });
-
-  /*
-   * The journey that replaces the deleted 其他 free-text escape hatch (DEV-1510).
-   *
-   * It is READ-ONLY: it opens the picker, is refused, and closes. Nothing is
-   * submitted, so it deliberately carries no `IS_CANONICAL_STAGING_TARGET` skip
-   * — the mutating tests above need one because anonymous correction writes are
-   * disabled on canonical staging, and this one writes nothing to disable.
-   * The refusal is logged in memory on the client only
-   * (`recordRejectedSubcategoryInput`), never persisted.
-   *
-   * The `?material=` half of DEV-1524 lives in `directory-material.spec.ts`.
-   */
-  test('the closed subcategory picker refuses a term outside the vocabulary', async ({
-    anonPage,
-  }, testInfo) => {
-    test.setTimeout(BUDGET.TEST.JOURNEY);
-    await isolateVisitorIp(anonPage, testInfo.workerIndex);
-    await openSeededBrand(anonPage, seeded);
-
-    const dialog = await openCorrectionDialog(anonPage, 'subcategories');
-    const filterField = dialog.getByRole('textbox', {
-      name: SUBCATEGORY_SEARCH_LABEL,
-    });
-    const submit = dialog.getByRole('button', { name: SUBMIT_LABEL, exact: true });
-    // The picker's two role="group" rows. `getByRole('status')` is deliberately
-    // not used anywhere below: the picker mounts two status regions of its own
-    // and the Next.js route announcer adds a third.
-    const selectedRow = optionsRow(dialog, CURRENT_SUBCATEGORIES_HEADING);
-    const offeredRow = optionsRow(dialog, ADD_SUBCATEGORIES_HEADING);
-
-    // The field claims invalidity only after a refusal, never on arrival.
-    await expect(filterField).not.toHaveAttribute('aria-invalid');
-    await expect(submit).toBeDisabled();
-
-    await filterField.fill(OUT_OF_VOCABULARY_TERM);
-    await filterField.press('Enter');
-
-    await expect(filterField).toHaveAttribute('aria-invalid', 'true');
-    // The refusal is ANNOUNCED through the field, not merely printed beside it:
-    // one of the nodes `aria-describedby` points at has to be what carries the
-    // text. `[id="…"]` rather than `#…` because these ids come from `useId`.
-    const describedBy =
-      (await filterField.getAttribute('aria-describedby')) ?? '';
-    const describedIds = describedBy.split(/\s+/).filter(Boolean);
-    expect(describedIds.length).toBeGreaterThan(0);
-    const rejection = anonPage
-      .locator(describedIds.map((id) => `[id="${id}"]`).join(','))
-      .filter({ hasText: SUBCATEGORY_REJECTED });
-    await expect(rejection).toHaveCount(1);
-    await expect(rejection).toBeVisible();
-
-    // Zero matches, stated rather than assumed: the empty-offer message proves
-    // the term took the rejection path instead of the one-node auto-commit path
-    // documented on OUT_OF_VOCABULARY_TERM.
-    await expect(offeredRow.getByText(SUBCATEGORY_EMPTY)).toBeVisible();
-    await expect(selectedRow).not.toContainText(OUT_OF_VOCABULARY_TERM);
-    await expect(submit).toBeDisabled();
-
-    // Cleared on the next keystroke: the message describes the term that was
-    // typed, not a state the field is stuck in.
-    await filterField.fill(KNOWN_SUBCATEGORY.slug);
-    await expect(filterField).not.toHaveAttribute('aria-invalid');
-
-    // A term the vocabulary DOES know still commits — which is what separates a
-    // closed field from a broken one. The chip renders the zh-TW label even
-    // though a slug was typed, because the stored value is the slug.
-    await filterField.press('Enter');
-    await expect(selectedRow).toContainText(KNOWN_SUBCATEGORY.nameZh);
-    await expect(filterField).toHaveValue('');
-    await expect(submit).toBeEnabled();
   });
 });
