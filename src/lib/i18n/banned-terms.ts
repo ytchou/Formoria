@@ -114,3 +114,60 @@ export function fixBannedTerms(text: string): BannedTermFixResult {
 
   return { text: out + text.slice(cursor), substitutions };
 }
+
+/**
+ * One banned term corrected inside one named database column.
+ *
+ * `field` is the column name, not a label: the point of the audit entry is that
+ * a reader can tell WHICH stored column a term was found in without re-reading
+ * the row.
+ */
+export interface BannedTermFieldFix {
+  /** The database column the term was corrected in (snake_case). */
+  field: string;
+  term: string;
+  replacement: string;
+  /** How many occurrences of `term` were replaced in that field. */
+  count: number;
+}
+
+/** Collapse per-occurrence fixes into one entry per (field, term) pair. */
+export function mergeBannedTermFixes(
+  fixes: readonly BannedTermFieldFix[],
+): BannedTermFieldFix[] {
+  const merged = new Map<string, BannedTermFieldFix>();
+  for (const fix of fixes) {
+    const key = `${fix.field} ${fix.term}`;
+    const existing = merged.get(key);
+    if (existing) existing.count += fix.count;
+    else merged.set(key, { ...fix });
+  }
+  return [...merged.values()];
+}
+
+/**
+ * Correct one field's text and report what was corrected, tagged with the
+ * column it came from.
+ *
+ * Clean text is returned BY REFERENCE — `fixBannedTerms` hands back the input
+ * string untouched when nothing matched — so a caller can assign the result
+ * back unconditionally and still produce a byte-identical payload.
+ */
+export function fixBannedTermsInField(
+  field: string,
+  value: string,
+): { value: string; fixes: BannedTermFieldFix[] } {
+  const { text, substitutions } = fixBannedTerms(value);
+  if (substitutions.length === 0) return { value, fixes: [] };
+  return {
+    value: text,
+    fixes: mergeBannedTermFixes(
+      substitutions.map((hit) => ({
+        field,
+        term: hit.term,
+        replacement: hit.replacement,
+        count: 1,
+      })),
+    ),
+  };
+}

@@ -1,7 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
-import { auditedCall } from "@/lib/audit";
+import { auditedCall, type AuditCallContext } from "@/lib/audit";
+import {
+  fixBannedTermsInField,
+  mergeBannedTermFixes,
+  type BannedTermFieldFix,
+} from "@/lib/i18n/banned-terms";
 import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
 import type { ExistingCuratedProduct } from "@/lib/services/curated-products/proposal-diff";
 import { withSlugSuffix } from "@/lib/brands/slug";
@@ -779,6 +784,49 @@ function curatedProductKey(input: CuratedProductWriteInput): string {
 }
 
 /**
+ * The zh columns this table publishes. `name_zh` is NOT NULL and
+ * `product_description_zh` is NOT NULL (DEV-1496) — but on the sparse update
+ * path a key that the caller did not supply must stay absent, so the guard
+ * reads the payload rather than the input.
+ */
+const GUARDED_ZH_COLUMNS = ["name_zh", "product_description_zh"] as const;
+
+/**
+ * Last stop before the Supabase client: rewrite mainland-Chinese vocabulary out
+ * of the zh columns and record what was rewritten on the enclosing audit span.
+ *
+ * Operates on the payload IN PLACE and only on keys that are already present,
+ * so `updateCuratedProduct`'s sparseness is preserved exactly: a column the
+ * caller never mentioned is never introduced, and `product_description_zh` is
+ * never set to null (which the NOT NULL constraint would reject as 23502).
+ *
+ * Pure string work — no model call, no extra query, no curation job.
+ */
+function applyZhVocabularyGuard(
+  payload: Record<string, unknown>,
+  ctx: AuditCallContext,
+): void {
+  const fixes: BannedTermFieldFix[] = [];
+  for (const column of GUARDED_ZH_COLUMNS) {
+    if (!(column in payload)) continue;
+    const value = payload[column];
+    if (typeof value !== "string" || value.length === 0) continue;
+    const corrected = fixBannedTermsInField(column, value);
+    if (corrected.fixes.length === 0) continue;
+    payload[column] = corrected.value;
+    fixes.push(...corrected.fixes);
+  }
+  if (fixes.length === 0) return;
+
+  const merged = mergeBannedTermFixes(fixes);
+  ctx.summary.bannedTermFixes = merged;
+  ctx.summary.bannedTermFixCount = merged.reduce(
+    (total, fix) => total + fix.count,
+    0,
+  );
+}
+
+/**
  * Creates a product. `visible` defaults to `false` — publication is a separate,
  * deliberate act, so no create path silently puts a new row on the site.
  * `proposed_by` records the origin: hand entry by default, `generated` from the
@@ -800,7 +848,7 @@ export async function createCuratedProduct(
       operation: "createCuratedProduct",
       kind: "service",
     },
-    async () => {
+    async (ctx) => {
       const supabase = curatedProductClient(client);
       const baseKey = curatedProductKey(input);
       const row = {
@@ -826,6 +874,8 @@ export async function createCuratedProduct(
         visible: input.visible ?? false,
         proposed_by: input.proposedBy ?? "admin",
       };
+
+      applyZhVocabularyGuard(row, ctx);
 
       for (let attempt = 0; attempt < MAX_KEY_ATTEMPTS; attempt += 1) {
         const key =
@@ -870,7 +920,7 @@ export async function updateCuratedProduct(
       operation: "updateCuratedProduct",
       kind: "service",
     },
-    async () => {
+    async (ctx) => {
       const payload: Record<string, unknown> = {};
       if (input.nameZh !== undefined) payload.name_zh = input.nameZh;
       if (input.nameEn !== undefined) payload.name_en = input.nameEn ?? null;
@@ -930,6 +980,8 @@ export async function updateCuratedProduct(
         payload.product_position = input.productPosition ?? null;
       }
       if (Object.keys(payload).length === 0) return;
+
+      applyZhVocabularyGuard(payload, ctx);
 
       const { error } = await curatedProductClient(client)
         .from("curated_products")

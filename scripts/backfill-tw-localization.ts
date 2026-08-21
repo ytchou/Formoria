@@ -1,13 +1,38 @@
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import {
+  createClient as createSupabaseClient,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
+import { fixBannedTerms } from "../src/lib/i18n/banned-terms";
 import { localizeToTW } from "../src/lib/services/taiwan-localization";
+
+/**
+ * Cleans already-stored zh-TW text: FORMATTING via `localizeToTW` (markdown,
+ * emoji, punctuation, AI-tool artifacts) and VOCABULARY via `fixBannedTerms`.
+ *
+ * The two passes are separate on purpose. `localizeToTW` used to carry its own
+ * 48-rule vocabulary table which corrupted stored text by rewriting substrings
+ * inside correct zh-TW words; the vocabulary list now lives in one place with
+ * longest-first matching, and this script is one of its two consumers. The other
+ * is the service-layer write guard — a backfill alone cannot hold the line,
+ * because enrichment re-authors these rows.
+ *
+ * NO model call, NO curation job. Pure string work over rows the service role
+ * can read, which is what makes it safe to re-run.
+ *
+ * Run: `pnpm backfill:tw -- --dry-run` (staging by construction; see the
+ * package script's `--env-file`).
+ */
 
 const BATCH_SIZE = 10;
 
-type CliOptions = {
+/** Only `from` is used, so a test double is a legitimate client here. */
+export type BackfillSupabase = Pick<SupabaseClient, "from">;
+
+export type CliOptions = {
   dryRun: boolean;
 };
 
-type BrandRow = {
+export type BrandRow = {
   id: string;
   name: string | null;
   description: string | null;
@@ -15,7 +40,7 @@ type BrandRow = {
   reputation_summary: unknown;
 };
 
-type FaqRow = {
+export type FaqRow = {
   brand_id: string;
   preset_id: string;
   position: number;
@@ -23,16 +48,42 @@ type FaqRow = {
   answer_zh: string | null;
 };
 
-type ImageRow = {
+export type ImageRow = {
   id: string;
   alt_zh: string | null;
+};
+
+export type CuratedProductRow = {
+  id: string;
+  name_zh: string | null;
+  product_description_zh: string | null;
+};
+
+export type ExhibitorRow = {
+  id: string;
+  summary_zh: string | null;
+  image_alt_zh: string | null;
+};
+
+/** An update keyed by `id`, carrying only the columns that actually changed. */
+export type IdPatch = {
+  id: string;
+  patch: Record<string, unknown>;
+};
+
+/** `brand_faq_entries` has a composite key, so its patch carries all three. */
+export type FaqPatch = {
+  brandId: string;
+  presetId: string;
+  position: number;
+  patch: Record<string, unknown>;
 };
 
 type BackfillCounts = {
   updated: number;
 };
 
-function createServiceClient() {
+function createServiceClient(): BackfillSupabase {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceRoleKey) {
@@ -47,106 +98,82 @@ function parseArgs(argv: string[]): CliOptions {
   return { dryRun: argv.includes("--dry-run") };
 }
 
-function localizeString(
+/**
+ * Formatting first, vocabulary second. Order matters: `localizeToTW` strips
+ * markdown and emoji, which can otherwise sit inside a banned term and hide it
+ * from the matcher.
+ */
+export function localizeString(
   value: unknown,
   brandName?: string,
 ): { value: string; changed: boolean } | null {
   if (typeof value !== "string" || value.length === 0) return null;
-  const localized = localizeToTW(
+  const formatted = localizeToTW(
     value,
     brandName ? { brandName } : undefined,
   ).text;
-  return { value: localized, changed: localized !== value };
+  const corrected = fixBannedTerms(formatted).text;
+  return { value: corrected, changed: corrected !== value };
 }
 
-function localizeReputationSummary(
+/**
+ * `reputation_summary` is jsonb with a zh `text` and an English `textEn`. Both
+ * render, so both are cleaned — the English side still carries the formatting
+ * pass, and the vocabulary list includes romanised slang that reaches it.
+ */
+export function localizeReputationSummary(
   value: unknown,
   brandName?: string,
 ): { value: unknown; changed: boolean } {
   if (!value || typeof value !== "object" || Array.isArray(value))
     return { value, changed: false };
   const summary = value as Record<string, unknown>;
-  const localizedText = localizeString(summary.text, brandName);
-  if (!localizedText?.changed) return { value, changed: false };
-  return {
-    value: { ...summary, text: localizedText.value },
-    changed: true,
-  };
-}
 
-async function inBatches<T>(
-  items: T[],
-  callback: (item: T) => Promise<void>,
-): Promise<void> {
-  for (let index = 0; index < items.length; index += BATCH_SIZE) {
-    await Promise.all(items.slice(index, index + BATCH_SIZE).map(callback));
+  const patch: Record<string, unknown> = {};
+  for (const key of ["text", "textEn"] as const) {
+    const localized = localizeString(summary[key], brandName);
+    if (localized?.changed) patch[key] = localized.value;
   }
+  if (Object.keys(patch).length === 0) return { value, changed: false };
+
+  return { value: { ...summary, ...patch }, changed: true };
 }
 
-async function backfillBrands(
-  supabase: ReturnType<typeof createServiceClient>,
-  options: CliOptions,
-): Promise<BackfillCounts> {
-  const { data, error } = await supabase
-    .from("brands")
-    .select("id, name, description, blurb, reputation_summary")
-    .order("id", { ascending: true });
-  if (error) throw error;
+/**
+ * Build a patch from a fixed column list. Returns `{}` when nothing changed, so
+ * a caller can skip the row on `Object.keys(...).length === 0` — an untouched
+ * column is never rewritten with its own value.
+ */
+function patchColumns<T extends Record<string, unknown>>(
+  row: T,
+  columns: readonly (keyof T & string)[],
+  brandName?: string,
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  for (const column of columns) {
+    const localized = localizeString(row[column], brandName);
+    if (localized?.changed) patch[column] = localized.value;
+  }
+  return patch;
+}
 
-  const updates = ((data ?? []) as BrandRow[]).flatMap((brand) => {
+export function buildBrandPatches(rows: readonly BrandRow[]): IdPatch[] {
+  return rows.flatMap((brand) => {
     const brandName = brand.name ?? undefined;
-    const description = localizeString(brand.description, brandName);
-    const blurb = localizeString(brand.blurb, brandName);
+    const patch = patchColumns(brand, ["description", "blurb"], brandName);
     const reputation = localizeReputationSummary(
       brand.reputation_summary,
       brandName,
     );
-    if (!description?.changed && !blurb?.changed && !reputation.changed)
-      return [];
+    if (reputation.changed) patch.reputation_summary = reputation.value;
 
-    return [
-      {
-        id: brand.id,
-        patch: {
-          ...(description?.changed ? { description: description.value } : {}),
-          ...(blurb?.changed ? { blurb: blurb.value } : {}),
-          ...(reputation.changed
-            ? { reputation_summary: reputation.value }
-            : {}),
-        },
-      },
-    ];
+    return Object.keys(patch).length > 0 ? [{ id: brand.id, patch }] : [];
   });
-
-  if (!options.dryRun) {
-    await inBatches(updates, async ({ id, patch }) => {
-      const { error: updateError } = await supabase
-        .from("brands")
-        .update(patch)
-        .eq("id", id);
-      if (updateError) throw updateError;
-    });
-  }
-
-  return { updated: updates.length };
 }
 
-async function backfillFaq(
-  supabase: ReturnType<typeof createServiceClient>,
-  options: CliOptions,
-): Promise<BackfillCounts> {
-  const { data, error } = await supabase
-    .from("brand_faq_entries")
-    .select("brand_id, preset_id, position, question_zh, answer_zh");
-  if (error) throw error;
-
-  const updates = ((data ?? []) as unknown as FaqRow[]).flatMap((row) => {
-    const question = localizeString(row.question_zh ?? undefined);
-    const answer = localizeString(row.answer_zh ?? undefined);
-    const patch = {
-      ...(question?.changed ? { question_zh: question.value } : {}),
-      ...(answer?.changed ? { answer_zh: answer.value } : {}),
-    };
+export function buildFaqPatches(rows: readonly FaqRow[]): FaqPatch[] {
+  return rows.flatMap((row) => {
+    const patch = patchColumns(row, ["question_zh", "answer_zh"]);
     return Object.keys(patch).length > 0
       ? [
           {
@@ -158,24 +185,103 @@ async function backfillFaq(
         ]
       : [];
   });
+}
+
+export function buildImagePatches(rows: readonly ImageRow[]): IdPatch[] {
+  return rows.flatMap((image) => {
+    const patch = patchColumns(image, ["alt_zh"]);
+    return Object.keys(patch).length > 0 ? [{ id: image.id, patch }] : [];
+  });
+}
+
+export function buildCuratedProductPatches(
+  rows: readonly CuratedProductRow[],
+): IdPatch[] {
+  return rows.flatMap((product) => {
+    const patch = patchColumns(product, [
+      "name_zh",
+      "product_description_zh",
+    ]);
+    return Object.keys(patch).length > 0 ? [{ id: product.id, patch }] : [];
+  });
+}
+
+export function buildExhibitorPatches(
+  rows: readonly ExhibitorRow[],
+): IdPatch[] {
+  return rows.flatMap((exhibitor) => {
+    const patch = patchColumns(exhibitor, ["summary_zh", "image_alt_zh"]);
+    return Object.keys(patch).length > 0 ? [{ id: exhibitor.id, patch }] : [];
+  });
+}
+
+async function inBatches<T>(
+  items: readonly T[],
+  callback: (item: T) => Promise<void>,
+): Promise<void> {
+  for (let index = 0; index < items.length; index += BATCH_SIZE) {
+    await Promise.all(items.slice(index, index + BATCH_SIZE).map(callback));
+  }
+}
+
+/** `--dry-run` stops HERE: the patches are built and reported, never issued. */
+async function applyIdPatches(
+  supabase: BackfillSupabase,
+  table: string,
+  updates: readonly IdPatch[],
+  options: CliOptions,
+): Promise<BackfillCounts> {
+  if (!options.dryRun) {
+    await inBatches(updates, async ({ id, patch }) => {
+      const { error } = await supabase.from(table).update(patch).eq("id", id);
+      if (error) throw error;
+    });
+  }
+  return { updated: updates.length };
+}
+
+export async function backfillBrands(
+  supabase: BackfillSupabase,
+  options: CliOptions,
+): Promise<BackfillCounts> {
+  const { data, error } = await supabase
+    .from("brands")
+    .select("id, name, description, blurb, reputation_summary")
+    .order("id", { ascending: true });
+  if (error) throw error;
+
+  const rows = (data ?? []) as unknown as BrandRow[];
+  return applyIdPatches(supabase, "brands", buildBrandPatches(rows), options);
+}
+
+export async function backfillFaq(
+  supabase: BackfillSupabase,
+  options: CliOptions,
+): Promise<BackfillCounts> {
+  const { data, error } = await supabase
+    .from("brand_faq_entries")
+    .select("brand_id, preset_id, position, question_zh, answer_zh");
+  if (error) throw error;
+
+  const updates = buildFaqPatches((data ?? []) as unknown as FaqRow[]);
 
   if (!options.dryRun) {
     await inBatches(updates, async ({ brandId, presetId, position, patch }) => {
-      const { error: updateError } = await supabase
+      const { error } = await supabase
         .from("brand_faq_entries")
         .update(patch)
         .eq("brand_id", brandId)
         .eq("preset_id", presetId)
         .eq("position", position);
-      if (updateError) throw updateError;
+      if (error) throw error;
     });
   }
 
   return { updated: updates.length };
 }
 
-async function backfillImages(
-  supabase: ReturnType<typeof createServiceClient>,
+export async function backfillImages(
+  supabase: BackfillSupabase,
   options: CliOptions,
 ): Promise<BackfillCounts> {
   const { data, error } = await supabase
@@ -184,35 +290,67 @@ async function backfillImages(
     .not("alt_zh", "is", null);
   if (error) throw error;
 
-  const updates = ((data ?? []) as ImageRow[]).flatMap((image) => {
-    const localized = localizeString(image.alt_zh);
-    return localized?.changed ? [{ id: image.id, altZh: localized.value }] : [];
-  });
+  return applyIdPatches(
+    supabase,
+    "brand_images",
+    buildImagePatches((data ?? []) as unknown as ImageRow[]),
+    options,
+  );
+}
 
-  if (!options.dryRun) {
-    await inBatches(updates, async ({ id, altZh }) => {
-      const { error: updateError } = await supabase
-        .from("brand_images")
-        .update({ alt_zh: altZh })
-        .eq("id", id);
-      if (updateError) throw updateError;
-    });
-  }
+export async function backfillCuratedProducts(
+  supabase: BackfillSupabase,
+  options: CliOptions,
+): Promise<BackfillCounts> {
+  const { data, error } = await supabase
+    .from("curated_products")
+    .select("id, name_zh, product_description_zh");
+  if (error) throw error;
 
-  return { updated: updates.length };
+  return applyIdPatches(
+    supabase,
+    "curated_products",
+    buildCuratedProductPatches((data ?? []) as unknown as CuratedProductRow[]),
+    options,
+  );
+}
+
+export async function backfillExhibitors(
+  supabase: BackfillSupabase,
+  options: CliOptions,
+): Promise<BackfillCounts> {
+  const { data, error } = await supabase
+    .from("event_exhibitors")
+    .select("id, summary_zh, image_alt_zh");
+  if (error) throw error;
+
+  return applyIdPatches(
+    supabase,
+    "event_exhibitors",
+    buildExhibitorPatches((data ?? []) as unknown as ExhibitorRow[]),
+    options,
+  );
 }
 
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const supabase = createServiceClient();
-  const [brands, faq, images] = await Promise.all([
+  const [brands, faq, images, products, exhibitors] = await Promise.all([
     backfillBrands(supabase, options),
     backfillFaq(supabase, options),
     backfillImages(supabase, options),
+    backfillCuratedProducts(supabase, options),
+    backfillExhibitors(supabase, options),
   ]);
 
   console.log(
-    `Brands: ${brands.updated} updated, FAQ: ${faq.updated} updated, Images: ${images.updated} updated`,
+    [
+      `Brands: ${brands.updated} updated`,
+      `FAQ: ${faq.updated} updated`,
+      `Images: ${images.updated} updated`,
+      `Curated products: ${products.updated} updated`,
+      `Exhibitors: ${exhibitors.updated} updated`,
+    ].join(", "),
   );
   if (options.dryRun) console.log("Dry run complete. No changes made.");
 }
