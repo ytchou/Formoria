@@ -1,3 +1,7 @@
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 import {
   CURATED_PRODUCTS_TABLE,
@@ -7,9 +11,13 @@ import {
   buildCuratedProductPatches,
   buildExhibitorPatches,
   buildBrandPatches,
+  dryRunReportPath,
   localizeReputationSummary,
+  reportDryRun,
   type BackfillSupabase,
+  type DryRunReport,
 } from "./backfill-tw-localization";
+import { ARTIFACT_ROOT } from "./shared/artifact";
 
 /**
  * DEV-1543. The patch builders are pure, so they are tested directly; the only
@@ -295,5 +303,179 @@ describe("write path", () => {
         product_description_zh: `官網有產品${CORRECTED_LINK}。`,
       },
     ]);
+  });
+});
+
+/**
+ * DEV-1546 Phase 2. `--dry-run` is now the ONLY mutation path for stored zh-TW
+ * text, and a human reading its diff is the entire safety mechanism against
+ * `fixBannedTerms` rewriting correct Taiwanese words that merely CONTAIN a
+ * banned term (台南市保安路 -> 保全路). The 10-row / 80-char terminal sample
+ * cannot carry that review: on staging one sample printed an identical
+ * before/after because the actual change sat past the cutoff. These tests pin
+ * the complete, untruncated file that replaced it as the review artifact.
+ */
+describe("dry-run report file", () => {
+  function readReport(path: string): DryRunReport {
+    return JSON.parse(readFileSync(path, "utf8")) as DryRunReport;
+  }
+
+  function tempReportPath(): string {
+    return join(
+      mkdtempSync(join(tmpdir(), "backfill-tw-report-")),
+      "nested",
+      "report.json",
+    );
+  }
+
+  it("writes every patch to the file, not a sample", async () => {
+    // Deliberately past DRY_RUN_SAMPLE_LIMIT (10): the terminal preview caps,
+    // the file must not.
+    const rowCount = 25;
+    const calls = emptyCalls();
+    const client = fakeClient(
+      {
+        curated_products: [
+          Array.from({ length: rowCount }, (_, index) =>
+            dirtyProduct(`row-${index}`),
+          ),
+        ],
+      },
+      calls,
+    );
+
+    const counts = await backfillTable(client, CURATED_PRODUCTS_TABLE, {
+      dryRun: true,
+    });
+    const path = tempReportPath();
+    const written = await reportDryRun(
+      { dryRun: true },
+      [["curated_products", counts]],
+      path,
+    );
+
+    expect(written).toBe(path);
+    const report = readReport(path);
+    // Two patched columns per row.
+    expect(report.entries).toHaveLength(rowCount * 2);
+    expect(report.entryCount).toBe(rowCount * 2);
+    for (let index = 0; index < rowCount; index += 1) {
+      expect(
+        report.entries.filter((entry) => entry.key.id === `row-${index}`),
+      ).toHaveLength(2);
+    }
+    // The terminal preview still caps; the file is the complete record.
+    expect(counts.dryRun?.samples).toHaveLength(10);
+  });
+
+  it("contains untruncated before and after text", async () => {
+    // The change sits well past the 80-character sample cutoff, which is the
+    // exact staging failure: an identical-looking before/after.
+    const prefix = "台".repeat(200);
+    const before = `${prefix}以${BANNED}見長`;
+    const after = `${prefix}以${CORRECTED}見長`;
+    const calls = emptyCalls();
+    const client = fakeClient(
+      {
+        curated_products: [
+          [
+            {
+              id: PRODUCT_ID,
+              name_zh: null,
+              product_description_zh: before,
+            },
+          ],
+        ],
+      },
+      calls,
+    );
+
+    const counts = await backfillTable(client, CURATED_PRODUCTS_TABLE, {
+      dryRun: true,
+    });
+    const path = tempReportPath();
+    await reportDryRun({ dryRun: true }, [["curated_products", counts]], path);
+
+    const entry = readReport(path).entries[0];
+    expect(entry?.before).toBe(before);
+    expect(entry?.after).toBe(after);
+    expect(entry?.before).not.toContain("…");
+    // The reviewer must be able to see the difference, not just its existence.
+    expect(entry?.before.slice(80)).not.toBe(entry?.after.slice(80));
+    expect(entry?.terms).toEqual([
+      { term: BANNED, replacement: CORRECTED, count: 1 },
+    ]);
+    // Readable zh, not \uXXXX escapes — a reviewer reads this file directly.
+    expect(readFileSync(path, "utf8")).toContain(CORRECTED);
+  });
+
+  it("records the composite key for brand_faq_entries", async () => {
+    const calls = emptyCalls();
+    const client = fakeClient(
+      {
+        brand_faq_entries: [
+          [
+            {
+              brand_id: BRAND_ID,
+              preset_id: "shipping",
+              position: 3,
+              question_zh: `運送${BANNED}如何？`,
+              answer_zh: null,
+            },
+          ],
+        ],
+      },
+      calls,
+    );
+
+    const counts = await backfillFaq(client, { dryRun: true });
+    const path = tempReportPath();
+    await reportDryRun(
+      { dryRun: true },
+      [["brand_faq_entries", counts]],
+      path,
+    );
+
+    const entry = readReport(path).entries[0];
+    expect(entry?.table).toBe("brand_faq_entries");
+    expect(entry?.key).toEqual({
+      brand_id: BRAND_ID,
+      preset_id: "shipping",
+      position: 3,
+    });
+    expect(entry?.field).toBe("question_zh");
+    expect(entry?.before).toBe(`運送${BANNED}如何？`);
+    expect(entry?.after).toBe(`運送${CORRECTED}如何？`);
+  });
+
+  it("is not written on a non-dry run", async () => {
+    const calls = emptyCalls();
+    const client = fakeClient(
+      { curated_products: [[dirtyProduct(PRODUCT_ID)]] },
+      calls,
+    );
+
+    const counts = await backfillTable(client, CURATED_PRODUCTS_TABLE, {
+      dryRun: false,
+    });
+    const path = tempReportPath();
+    const written = await reportDryRun(
+      { dryRun: false },
+      [["curated_products", counts]],
+      path,
+    );
+
+    expect(written).toBeNull();
+    expect(existsSync(path)).toBe(false);
+  });
+
+  it("puts the report in the gitignored artifact root, stamped per run", () => {
+    const path = dryRunReportPath(new Date(), 4242);
+
+    expect(path.startsWith(`${ARTIFACT_ROOT}/`)).toBe(true);
+    expect(path.endsWith(".json")).toBe(true);
+    // A concurrent run must not overwrite this one's evidence.
+    expect(path).toContain("4242");
+    expect(path).not.toBe(dryRunReportPath(new Date(), 4243));
   });
 });

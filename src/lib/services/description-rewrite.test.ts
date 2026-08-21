@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { setAuditWriteSeam, type AuditRecord } from "@/lib/audit";
 import {
   parseDescriptionRewriteResult,
   rewriteBrandDescription,
@@ -57,10 +58,11 @@ describe("parseDescriptionRewriteResult", () => {
     // localizeToTW no longer performs vocabulary substitution: its 48-rule
     // zh-CN table was measured 41-wrong-of-53 on this corpus (it rewrote the
     // correct 審核通過 to 審核透過, and 落地燈 to 執行燈) and was deleted in
-    // DEV-1543. This path formats only, so zh-CN vocabulary now passes through
-    // verbatim. Whether a curated banned-term guard belongs on this write path
-    // is finding C4, which is escalated to a human decision and gated on C1 —
-    // do not "restore" these assertions without resolving that first.
+    // DEV-1543. This path formats only, so zh-CN vocabulary passes through
+    // verbatim — and that is now the INTENDED, tested behavior, not a gap.
+    // DEV-1546 resolved the open question (finding C4): the write path detects
+    // banned terms and records them on its audit span, and never mutates the
+    // text. The audit assertions are the next test in this file.
     expect(output?.result?.description_zh).toContain("視頻");
     expect(output?.result?.description_zh).toContain("質量");
     expect(output?.result?.blurb_zh?.startsWith("信息設計坊")).toBe(true);
@@ -72,6 +74,58 @@ describe("parseDescriptionRewriteResult", () => {
         target: { type: "brand", id: "brand-1" },
       }),
       { apiKey: "test-key" },
+    );
+  });
+
+  /**
+   * DEV-1546: the accepted zh text is stored exactly as the model wrote it, and
+   * every banned term in it is reported on this call's audit span instead —
+   * naming the field and the replacement a human would apply by hand.
+   */
+  it("reports banned zh vocabulary on the audit span without rewriting it", async () => {
+    const auditRecords: AuditRecord[] = [];
+    setAuditWriteSeam(async (record) => {
+      auditRecords.push(record);
+      return null;
+    });
+
+    const descriptionZh = `信息設計坊${"這個視頻質量很高，信息豐富。".repeat(20)}`;
+    const blurbZh = `信息設計坊${"視頻質量很好。".repeat(8)}`;
+    const chat = vi.fn().mockResolvedValue({
+      response: { ok: true, status: 200 },
+      data: {},
+      content: JSON.stringify({
+        description_zh: descriptionZh,
+        description_en: "This brand makes durable goods. ".repeat(10),
+        blurb_zh: blurbZh,
+        blurb_en: "A durable Taiwanese brand for everyday goods.",
+      }),
+    });
+    vi.mocked(createProfiledOpenAIClient).mockReturnValue({ chat } as never);
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+
+    const output = await rewriteBrandDescription("信息設計坊", null, ["摘要"], null, {
+      jobId: "job-1",
+      target: { type: "brand", id: "brand-1" },
+    });
+
+    expect(output?.result?.description_zh).toContain("視頻");
+
+    const hits = auditRecords.flatMap((record) => {
+      const recorded = record.summary?.bannedTerms;
+      return Array.isArray(recorded)
+        ? (recorded as Array<Record<string, unknown>>)
+        : [];
+    });
+    expect(hits).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field: "description_zh",
+          term: "視頻",
+          replacement: "影片",
+        }),
+        expect.objectContaining({ field: "blurb_zh", term: "視頻" }),
+      ]),
     );
   });
 

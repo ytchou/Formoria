@@ -430,7 +430,7 @@ export async function runDescriptionsPhase({
 
   return auditedCall(
     { provider: "enrich", operation: "runDescriptionsPhase", kind: "service" },
-    async () => {
+    async (ctx) => {
   const effectiveTarget = target ?? brandTarget(brand.id);
   const persistedScrape = await loadPersistedScrapeText(effectiveTarget);
   const effectiveSnippets = [...serpSnippets, ...persistedScrape.snippets];
@@ -496,6 +496,9 @@ export async function runDescriptionsPhase({
           displayBrandName,
           sharedUserContent,
           auditContext,
+          // The facts call has no span of its own; banned zh vocabulary found in
+          // its output is reported on this phase span (DEV-1546, report-only).
+          ctx,
         )
       : null;
     const brandFacts = factsOutput?.result ?? null;

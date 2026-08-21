@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
@@ -10,6 +12,7 @@ import {
   fixBannedTerms,
 } from "../src/lib/i18n/banned-terms";
 import { localizeToTW } from "../src/lib/services/taiwan-localization";
+import { ARTIFACT_ROOT } from "./shared/artifact";
 
 /**
  * Cleans already-stored zh-TW text: FORMATTING via `localizeToTW` (markdown,
@@ -32,6 +35,18 @@ import { localizeToTW } from "../src/lib/services/taiwan-localization";
  * on staging. Each page carries a deterministic `.order(...)` on the table's
  * primary key so pages can neither overlap nor skip.
  *
+ * DEV-1546: the service-layer write guard no longer mutates, so this script is
+ * the ONLY thing that rewrites stored zh-TW text — and a human reading its dry
+ * run is the entire safety mechanism. `fixBannedTerms` matches substrings
+ * (Chinese has no word delimiters), so it also rewrites correct Taiwanese words
+ * that merely CONTAIN a banned term: 台南市保安路 -> 保全路, 人潮密集成長 ->
+ * 密整合長. Only a reader can tell those apart from a real correction, so
+ * `--dry-run` writes the COMPLETE diff to a file — every patch, every table,
+ * full before/after — and the terminal keeps only a preview. The old 10-row /
+ * 80-character terminal sample could not carry that review: on staging one
+ * sample line printed an identical before and after, because the actual change
+ * sat past the elision cutoff.
+ *
  * Run: `pnpm backfill:tw -- --dry-run` (staging by construction; see the
  * package script's `--env-file`).
  */
@@ -42,10 +57,14 @@ const BATCH_SIZE = 10;
 /** Rows read per select. Must stay at or below PostgREST's `db-max-rows`. */
 export const PAGE_SIZE = 500;
 
-/** How many `id | field | before -> after` lines a dry run prints per table. */
+/**
+ * How many `id | field | before -> after` lines a dry run PREVIEWS per table.
+ * A preview only — the reviewable record is the report file, which is capped by
+ * nothing.
+ */
 const DRY_RUN_SAMPLE_LIMIT = 10;
 
-/** How much of a value a dry-run sample line shows before eliding. */
+/** How much of a value a dry-run preview line shows before eliding. */
 const SAMPLE_TEXT_LIMIT = 80;
 
 /** Only `from` is used, so a test double is a legitimate client here. */
@@ -110,6 +129,29 @@ export type TermCount = {
 };
 
 /**
+ * One field of one row this dry run would rewrite, in full.
+ *
+ * `before` and `after` are never truncated and never whitespace-collapsed: the
+ * reviewer is checking a substring rewrite, and the character that distinguishes
+ * a correction from a corruption may sit anywhere in the value.
+ */
+export type DryRunEntry = {
+  table: string;
+  /**
+   * The row's primary key. `{ id }` for four tables; `brand_faq_entries` keys on
+   * `{ brand_id, preset_id, position }` and carries all three, or the reviewer
+   * cannot find the row they are approving.
+   */
+  key: Record<string, string | number>;
+  /** The database column (snake_case). */
+  field: string;
+  before: string;
+  after: string;
+  /** The banned terms that fired IN THIS FIELD, with per-occurrence counts. */
+  terms: TermCount[];
+};
+
+/**
  * What a dry run reports beyond the row count. The counts alone are unfalsifiable
  * — the operator's safety check is "which terms did this want to rewrite", and
  * that question needs the terms themselves in the output.
@@ -118,6 +160,19 @@ export type DryRunDetail = {
   terms: TermCount[];
   /** `key | column | before -> after`, capped at DRY_RUN_SAMPLE_LIMIT. */
   samples: string[];
+  /** Every patched field, uncapped and untruncated. Serialised to the report. */
+  entries: DryRunEntry[];
+};
+
+/** The on-disk dry-run artifact. JSON so it is greppable and diffable. */
+export type DryRunReport = {
+  generatedAt: string;
+  entryCount: number;
+  /** Patched-row counts per table, matching the terminal summary. */
+  rowsByTable: Record<string, number>;
+  /** Banned-term totals across all tables. */
+  terms: TermCount[];
+  entries: DryRunEntry[];
 };
 
 export type BackfillCounts = {
@@ -325,17 +380,25 @@ async function readPaged<Row>(
 type DryRunAccumulator = {
   terms: Map<string, TermCount>;
   samples: string[];
+  entries: DryRunEntry[];
 };
 
 function createDryRunAccumulator(): DryRunAccumulator {
-  return { terms: new Map(), samples: [] };
+  return { terms: new Map(), samples: [], entries: [] };
 }
 
-/** Render any patchable value as one line: jsonb columns included. */
+/**
+ * Render any patchable value as text, verbatim. jsonb columns are stringified
+ * because they have no other textual form; strings are passed through untouched,
+ * newlines and all — this is what the reviewer reads.
+ */
+function toText(value: unknown): string {
+  return typeof value === "string" ? value : (JSON.stringify(value) ?? "");
+}
+
+/** Collapse to one line. Preview only; never applied to a report entry. */
 function toLine(value: unknown): string {
-  const text =
-    typeof value === "string" ? value : (JSON.stringify(value) ?? "");
-  return text.replace(/\s+/g, " ").trim();
+  return toText(value).replace(/\s+/g, " ").trim();
 }
 
 function elide(text: string): string {
@@ -344,34 +407,55 @@ function elide(text: string): string {
     : text;
 }
 
+function countTerm(
+  into: Map<string, TermCount>,
+  term: string,
+  replacement: string,
+): void {
+  const existing = into.get(term);
+  if (existing) existing.count += 1;
+  else into.set(term, { term, replacement, count: 1 });
+}
+
 /**
- * Record what one patch would change. Terms are counted from the BEFORE value,
- * so a patch caused purely by formatting contributes a sample and no term —
- * which is itself the signal the operator wants.
+ * Record what one patch would change: one uncapped report entry per patched
+ * field, plus the terminal preview line while it is under its cap.
+ *
+ * Terms are counted from the BEFORE value, so a patch caused purely by
+ * formatting contributes an entry and no term — which is itself the signal the
+ * operator wants.
  */
 function recordDryRun(
   accumulator: DryRunAccumulator,
-  key: string,
+  table: string,
+  key: Record<string, string | number>,
   row: Record<string, unknown>,
   patch: Record<string, unknown>,
 ): void {
   for (const [field, after] of Object.entries(patch)) {
-    const before = toLine(row[field]);
+    const before = toText(row[field]);
+    const afterText = toText(after);
 
+    const fieldTerms = new Map<string, TermCount>();
     for (const hit of detectBannedTerms(before)) {
-      const existing = accumulator.terms.get(hit.term);
-      if (existing) existing.count += 1;
-      else
-        accumulator.terms.set(hit.term, {
-          term: hit.term,
-          replacement: hit.replacement,
-          count: 1,
-        });
+      countTerm(fieldTerms, hit.term, hit.replacement);
+      countTerm(accumulator.terms, hit.term, hit.replacement);
     }
+
+    accumulator.entries.push({
+      table,
+      key,
+      field,
+      before,
+      after: afterText,
+      terms: [...fieldTerms.values()],
+    });
 
     if (accumulator.samples.length < DRY_RUN_SAMPLE_LIMIT) {
       accumulator.samples.push(
-        `${key} | ${field} | ${elide(before)} -> ${elide(toLine(after))}`,
+        `${Object.values(key).join("/")} | ${field} | ${elide(
+          toLine(before),
+        )} -> ${elide(toLine(afterText))}`,
       );
     }
   }
@@ -381,6 +465,7 @@ function finishDryRun(accumulator: DryRunAccumulator): DryRunDetail {
   return {
     terms: [...accumulator.terms.values()].sort((a, b) => b.count - a.count),
     samples: accumulator.samples,
+    entries: accumulator.entries,
   };
 }
 
@@ -467,7 +552,13 @@ export async function backfillTable(
       if (accumulator) {
         const byId = new Map(rows.map((row) => [String(row.id), row]));
         for (const { id, patch } of patches) {
-          recordDryRun(accumulator, id, byId.get(id) ?? {}, patch);
+          recordDryRun(
+            accumulator,
+            config.table,
+            { id },
+            byId.get(id) ?? {},
+            patch,
+          );
         }
       }
 
@@ -524,7 +615,12 @@ export async function backfillFaq(
           );
           recordDryRun(
             accumulator,
-            `${update.brandId}/${update.presetId}/${update.position}`,
+            "brand_faq_entries",
+            {
+              brand_id: update.brandId,
+              preset_id: update.presetId,
+              position: update.position,
+            },
             (row ?? {}) as unknown as Record<string, unknown>,
             update.patch,
           );
@@ -573,6 +669,80 @@ export function formatDryRunDetail(
   );
 }
 
+/**
+ * Where the complete dry-run diff lands.
+ *
+ * `ARTIFACT_ROOT` (~/project/.artifact/formoria) is the repo's existing home for
+ * operator review artifacts: it is outside the working tree, so it can be
+ * neither committed nor destroyed by `git clean -xdf`. Nothing new is invented
+ * and no `.gitignore` entry is required.
+ *
+ * The name carries a second-resolution timestamp AND the pid, so two concurrent
+ * runs cannot overwrite each other's evidence — the failure mode that matters
+ * here is a reviewer approving a diff they did not read.
+ */
+export function dryRunReportPath(
+  now: Date = new Date(),
+  pid: number = process.pid,
+): string {
+  const pad = (value: number): string => String(value).padStart(2, "0");
+  const stamp =
+    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` +
+    `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  return resolve(ARTIFACT_ROOT, `backfill-tw-dry-run_${stamp}_${pid}.json`);
+}
+
+/** Merge the per-table dry-run details into one whole-run report. */
+export function buildDryRunReport(
+  sections: readonly (readonly [string, BackfillCounts])[],
+  now: Date = new Date(),
+): DryRunReport {
+  const entries: DryRunEntry[] = [];
+  const rowsByTable: Record<string, number> = {};
+  const terms = new Map<string, TermCount>();
+
+  for (const [label, counts] of sections) {
+    rowsByTable[label] = counts.updated;
+    for (const entry of counts.dryRun?.entries ?? []) entries.push(entry);
+    for (const term of counts.dryRun?.terms ?? []) {
+      const existing = terms.get(term.term);
+      if (existing) existing.count += term.count;
+      else terms.set(term.term, { ...term });
+    }
+  }
+
+  return {
+    generatedAt: now.toISOString(),
+    entryCount: entries.length,
+    rowsByTable,
+    terms: [...terms.values()].sort((a, b) => b.count - a.count),
+    entries,
+  };
+}
+
+/**
+ * Write the complete dry-run diff, and only on a dry run. Returns the path
+ * written, or `null` when there was nothing to write — a real run keeps its
+ * concise output and leaves no artifact behind.
+ *
+ * `JSON.stringify` emits zh-TW as literal characters (it escapes only control
+ * characters and lone surrogates), so the file is readable without any
+ * post-processing. That is a requirement, not a happy accident: an operator who
+ * has to un-escape `\uXXXX` before reviewing will not review.
+ */
+export async function reportDryRun(
+  options: CliOptions,
+  sections: readonly (readonly [string, BackfillCounts])[],
+  filePath: string = dryRunReportPath(),
+): Promise<string | null> {
+  if (!options.dryRun) return null;
+
+  const report = buildDryRunReport(sections);
+  await mkdir(dirname(filePath), { recursive: true });
+  await writeFile(filePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  return filePath;
+}
+
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const supabase = createServiceClient();
@@ -605,7 +775,13 @@ async function main(): Promise<void> {
         console.log(formatDryRunDetail(label, counts.dryRun));
       }
     }
+
+    // The sample lines above are a preview. This file is the thing to review.
+    const reportPath = await reportDryRun(options, labelled);
     console.log("Dry run complete. No changes made.");
+    console.log("");
+    console.log(`Full diff (every patch, untruncated): ${reportPath}`);
+    console.log("Review it before running without --dry-run.");
   }
 }
 

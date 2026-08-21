@@ -3,12 +3,14 @@ import { readFileSync } from "node:fs";
 
 import { BANNED_TERMS } from "../src/lib/i18n/banned-terms";
 import {
+  EXCLUDED_SOURCE_FILES,
   collectViolations,
   formatViolations,
   isScannedSourceFile,
   scanJsonValue,
   scanSourceFile,
   scanText,
+  scannedSourceFiles,
   stripNonProse,
 } from "./check-zh-terms";
 
@@ -103,6 +105,43 @@ describe("check-zh-terms — source scope", () => {
 
   it("scans the taxonomy ontology, whose nameZh values are public labels", () => {
     expect(isScannedSourceFile("src/lib/taxonomy/ontology.ts")).toBe(true);
+  });
+
+  // These four are published zh-TW copy — the microsite, transactional email
+  // and structured-data labels. They were excluded while the gate was first
+  // scoped and moved in once verified clean. This test is what stops a later
+  // edit from quietly putting them back: dropping one out of
+  // SCANNED_SOURCE_FILES, or re-adding it to EXCLUDED_SOURCE_FILES, fails
+  // here rather than going unnoticed until a banned term ships.
+  const widened = [
+    "src/components/microsite/",
+    "src/app/(microsite)/",
+    "src/lib/email/templates.ts",
+    "src/lib/json-ld.ts",
+  ];
+
+  it.each(widened)("scans reader-facing %s", (entry) => {
+    // For a directory entry, a concrete file beneath it must match too —
+    // path-exact matching would pass the entry itself and still scan nothing.
+    const probe = entry.endsWith("/") ? `${entry}some-file.tsx` : entry;
+
+    expect(isScannedSourceFile(probe)).toBe(true);
+  });
+
+  it.each(widened)("does not also classify %s as excluded", (entry) => {
+    // The map is keyed src/-relative, the way the allowlist writes it.
+    expect(EXCLUDED_SOURCE_FILES.has(entry.replace(/^src\//, ""))).toBe(false);
+  });
+
+  it("expands directory entries into the real files beneath them", () => {
+    const files = scannedSourceFiles();
+
+    expect(files).toContain("src/components/microsite/hero.tsx");
+    expect(files).toContain("src/app/(microsite)/site/[slug]/page.tsx");
+    // Tests are not copy, and one of them would name a banned term as a fixture.
+    expect(files.filter((file) => /(__tests__|\.test\.tsx?$)/.test(file))).toEqual(
+      [],
+    );
   });
 });
 

@@ -1,5 +1,6 @@
 import { insertReputationResult } from "../_shared/ai-results";
 import { auditedCall } from "@/lib/audit";
+import { reportBannedTerms } from "@/lib/i18n/banned-terms";
 import { runReputationResearch } from "../reputation-research";
 import { loadPersistedScrapeText } from "./descriptions";
 import { buildProfiledEnrichmentConfig } from "../llm-audit";
@@ -110,6 +111,22 @@ function getCategory(brand: EnrichBrand): string | null {
 }
 
 /**
+ * Records any banned zh vocabulary found in the reputation summary on the
+ * enclosing audit span and returns the text UNCHANGED (DEV-1546).
+ *
+ * Exported for its test, following `resolveClearedFields` in this file: the
+ * phase around it reads Supabase, and `check:test-boundaries` forbids mocking
+ * that, so the whole decision is tested where it lives.
+ */
+export function reportSummaryText(
+  ctx: { summary: Record<string, unknown> },
+  text: string,
+): string {
+  reportBannedTerms(ctx, [["reputation_summary", text]]);
+  return text;
+}
+
+/**
  * Sole owner of `reputation_summary` since the descriptions mega-call was split.
  *
  * The copy call used to ask for the same field under looser rules and won
@@ -155,7 +172,7 @@ export async function runReputationPhase({
 
   return auditedCall(
     { provider: "enrich", operation: "runReputationPhase", kind: "service" },
-    async () => {
+    async (ctx) => {
   const { result, durationMs } = await timePhase(async () => {
     const auditTarget = target ?? brandTarget(brand.id);
     const persistedScrape = await loadPersistedScrapeText(auditTarget);
@@ -204,8 +221,14 @@ export async function runReputationPhase({
         ? {
             reputation_summary: {
               ...reputationResearch.reputationSummary,
-              text: localizeToTW(reputationResearch.reputationSummary.text)
-                .text,
+              // Report-only (DEV-1546): the summary is stored exactly as the
+              // model wrote it, and any mainland-Chinese term in it is recorded
+              // on this span rather than rewritten. Substring rewriting cannot
+              // tell a banned term from a correct word that contains it.
+              text: reportSummaryText(
+                ctx,
+                localizeToTW(reputationResearch.reputationSummary.text).text,
+              ),
             },
           }
         : {}),

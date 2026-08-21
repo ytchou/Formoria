@@ -9,11 +9,7 @@ import {
 import type { FaqQuestion } from "@/lib/json-ld";
 import type { Database } from "@/lib/supabase/database.types";
 import { auditedCall, type AuditCallContext } from "@/lib/audit";
-import {
-  fixBannedTermsInField,
-  mergeBannedTermFixes,
-  type BannedTermFieldFix,
-} from "@/lib/i18n/banned-terms";
+import { reportBannedTerms } from "@/lib/i18n/banned-terms";
 
 export type TFn = (key: string, params?: Record<string, unknown>) => string;
 
@@ -215,45 +211,33 @@ function normalize(value: string | null | undefined): string | null {
 const GUARDED_ZH_FIELDS = ["question_zh", "answer_zh"] as const;
 
 /**
- * Last stop before the Supabase client: rewrite mainland-Chinese vocabulary out
- * of the zh columns and record what was rewritten on the enclosing audit span.
+ * Last stop before the Supabase client: REPORT mainland-Chinese vocabulary in
+ * the zh columns on the enclosing audit span, and store the text exactly as the
+ * model wrote it.
  *
- * This is a write-path guard, not a backfill. Every enrichment run re-authors
- * these rows, so a backfill that cleans the table is undone by the next apply
- * unless the write path itself refuses to store the term. Pure string work: no
- * model call, no extra query, no curation job.
+ * Report-only, and permanently so (DEV-1546). The rewriting version of this
+ * guard corrupted correct Taiwan-Mandarin: with no word delimiters, a banned
+ * term is indistinguishable from a substring of a correct word, a street name,
+ * or a proper noun, and no shield list or allowlist can enumerate those. The
+ * backfill script stays the only mutator, gated on a human reading its diff.
  *
  * Human-authored rows never reach here — `upsertBrandFaqEntries` skips them
- * before the payload is built — so the guard only ever touches model copy.
+ * before the payload is built — so this only ever reports on model copy.
  *
  * `rows` is the subset of the payload whose zh side THIS write authored, not
  * the whole payload. The upsert carries existing zh values forward whenever
- * `takeZh` is false, so guarding the payload wholesale let an English-only
- * fill-gaps refresh rewrite already-stored zh text and write it back — a zh
- * mutation no caller asked for, attributed to an English-side write.
+ * `takeZh` is false, and reporting a hit on text this write did not author
+ * would attribute a stored-text finding to an unrelated English-side write.
  */
-function applyZhVocabularyGuard(
+function reportZhVocabulary(
   rows: readonly FaqEntryInsert[],
   ctx: AuditCallContext,
 ): void {
-  const fixes: BannedTermFieldFix[] = [];
-  for (const row of rows) {
-    for (const field of GUARDED_ZH_FIELDS) {
-      const value = row[field];
-      if (typeof value !== "string" || value.length === 0) continue;
-      const corrected = fixBannedTermsInField(field, value);
-      if (corrected.fixes.length === 0) continue;
-      row[field] = corrected.value;
-      fixes.push(...corrected.fixes);
-    }
-  }
-  if (fixes.length === 0) return;
-
-  const merged = mergeBannedTermFixes(fixes);
-  ctx.summary.bannedTermFixes = merged;
-  ctx.summary.bannedTermFixCount = merged.reduce(
-    (total, fix) => total + fix.count,
-    0,
+  reportBannedTerms(
+    ctx,
+    rows.flatMap((row) =>
+      GUARDED_ZH_FIELDS.map((field) => [field, row[field]] as const),
+    ),
   );
 }
 
@@ -353,7 +337,7 @@ export async function upsertBrandFaqEntries(
       }
       if (payload.length === 0) return;
 
-      applyZhVocabularyGuard(zhAuthored, ctx);
+      reportZhVocabulary(zhAuthored, ctx);
 
       // `upsert` rather than branching on `current`: it inserts when the row is
       // absent and updates the listed columns when it is not, which also closes

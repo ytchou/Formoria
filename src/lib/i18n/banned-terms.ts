@@ -7,7 +7,12 @@ import rawBannedTerms from "./banned-terms.json";
  * Han characters and needs no entry in the hardcoded-CJK guard allowlist.
  *
  * Detection is report-only: `detectBannedTerms` never returns a modified
- * string. `fixBannedTerms` is the only function that rewrites text.
+ * string. `fixBannedTerms` is the only function that rewrites text, and the
+ * only caller allowed to rewrite is the backfill script, where a human reads
+ * the diff before it lands (DEV-1546). Every WRITE path uses `reportBannedTerms`
+ * and stores exactly what the model wrote: this script has no word delimiters,
+ * so substring matching cannot tell a banned term from a correct word, a street
+ * name, or a proper noun that merely contains one.
  */
 
 export interface BannedTerm {
@@ -205,4 +210,82 @@ export function fixBannedTermsInField(
       })),
     ),
   };
+}
+
+/**
+ * One banned term FOUND inside one named database column.
+ *
+ * Structurally identical to `BannedTermFieldFix`, and deliberately so: the
+ * write paths no longer rewrite anything, but `replacement` stays in the audit
+ * entry because it is the suggestion a human acts on when they read the span
+ * (or when the backfill script proposes its diff).
+ */
+export type BannedTermFieldHit = BannedTermFieldFix;
+
+/** Collapse per-occurrence hits into one entry per (field, term) pair. */
+export const mergeBannedTermHits = mergeBannedTermFixes;
+
+/**
+ * Report one field's banned terms, tagged with the column they came from.
+ *
+ * Pure and report-only: nothing is rewritten, so the caller's value is stored
+ * byte-identical to what the model wrote. Substring matching cannot be made
+ * safe on a script with no word delimiters — a correct Taiwan-Mandarin word,
+ * a street name, or a proper noun can contain a banned term outright — so
+ * rewriting is left to the backfill script, where a human reads the diff.
+ */
+export function detectBannedTermsInField(
+  field: string,
+  value: string,
+): BannedTermFieldHit[] {
+  const hits = detectBannedTerms(value);
+  if (hits.length === 0) return [];
+  return mergeBannedTermHits(
+    hits.map((hit) => ({
+      field,
+      term: hit.term,
+      replacement: hit.replacement,
+      count: 1,
+    })),
+  );
+}
+
+/** A database column paired with the value about to be stored in it. */
+export type BannedTermScanField = readonly [field: string, value: unknown];
+
+/**
+ * THE write-path vocabulary guard. Every write path uses this one helper.
+ *
+ * Scans the supplied columns, leaves every value untouched, and records what
+ * was found on the enclosing audit span as `bannedTerms` / `bannedTermCount`.
+ * Non-string and empty values are skipped. Clean text records nothing at all,
+ * so an absent `bannedTermCount` means "scanned, nothing found".
+ *
+ * Repeated calls on one span ACCUMULATE: a phase that writes many rows (images,
+ * FAQ entries) reports one merged entry per (field, term) across all of them.
+ */
+export function reportBannedTerms(
+  ctx: { summary: Record<string, unknown> },
+  fields: readonly BannedTermScanField[],
+): BannedTermFieldHit[] {
+  const hits = fields.flatMap(([field, value]) =>
+    typeof value === "string" && value.length > 0
+      ? detectBannedTermsInField(field, value)
+      : [],
+  );
+  if (hits.length === 0) {
+    const current = ctx.summary.bannedTerms;
+    return Array.isArray(current) ? (current as BannedTermFieldHit[]) : [];
+  }
+
+  const existing = Array.isArray(ctx.summary.bannedTerms)
+    ? (ctx.summary.bannedTerms as BannedTermFieldHit[])
+    : [];
+  const merged = mergeBannedTermHits([...existing, ...hits]);
+  ctx.summary.bannedTerms = merged;
+  ctx.summary.bannedTermCount = merged.reduce(
+    (total, hit) => total + hit.count,
+    0,
+  );
+  return merged;
 }

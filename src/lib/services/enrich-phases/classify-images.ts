@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { auditedCall } from "@/lib/audit";
+import { reportBannedTerms } from "@/lib/i18n/banned-terms";
 import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "@/lib/prompts";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import {
@@ -469,12 +470,32 @@ function extractArray(raw: unknown): unknown[] | null {
 }
 
 /**
+ * Records any banned zh vocabulary in one image's alt text on the enclosing
+ * span and returns the text UNCHANGED. Report-only by policy (DEV-1546):
+ * substring rewriting cannot tell a banned term from a correct Taiwan-Mandarin
+ * word, a street name, or a proper noun that contains one.
+ */
+function reportAltZh(
+  text: string,
+  ctx?: { summary: Record<string, unknown> },
+): string {
+  if (ctx) reportBannedTerms(ctx, [["alt_zh", text]]);
+  return text;
+}
+
+/**
  * Verdicts keyed by the ordinal the model was told to echo back in `id`.
  * Positional zipping is deliberately NOT used: a short or reordered array would
  * otherwise hand every later image the previous image's verdict.
  */
 export function parseClassificationBatch(
   responseText: string,
+  /**
+   * The enclosing phase span. Optional so the parser stays callable from tests
+   * with a bare object; when supplied, banned zh vocabulary found in `alt_zh` is
+   * recorded on it. The alt text itself is never rewritten (DEV-1546).
+   */
+  ctx?: { summary: Record<string, unknown> },
 ): Map<string, ParsedImageClassification> {
   type RawClassification = {
     id?: unknown;
@@ -551,7 +572,9 @@ export function parseClassificationBatch(
       reasons: belowFloor ? ["low_visual_quality"] : reasons,
       score: clampedScore,
       altZh:
-        typeof item.alt_zh === "string" ? localizeToTW(item.alt_zh).text : "",
+        typeof item.alt_zh === "string"
+          ? reportAltZh(localizeToTW(item.alt_zh).text, ctx)
+          : "",
       altEn: typeof item.alt_en === "string" ? item.alt_en : "",
     });
   }
@@ -1106,6 +1129,7 @@ async function classifyChunk(
   client: ReturnType<typeof createProfiledOpenAIClient>,
   brandContext: string,
   chunk: BrandImageForClassification[],
+  ctx?: { summary: Record<string, unknown> },
 ): Promise<ChunkOutcome> {
   const loaded = await mapWithConcurrency(
     chunk,
@@ -1168,7 +1192,7 @@ async function classifyChunk(
     return { verdictsByImageId: new Map(), failure, unavailableIds };
   }
 
-  const parsed = parseClassificationBatch(response.content ?? "");
+  const parsed = parseClassificationBatch(response.content ?? "", ctx);
   const verdictsByImageId = new Map<string, ParsedImageClassification>();
   for (const [ordinal, image] of imageByOrdinal) {
     const verdict = parsed.get(ordinal);
@@ -1407,7 +1431,7 @@ export async function runClassifyImagesPhase({
       operation: "runClassifyImagesPhase",
       kind: "service",
     },
-    async () => {
+    async (ctx) => {
       const target = requestedTarget ?? brandTarget(brand.id);
       const supabase = createServiceClient();
 
@@ -1486,7 +1510,12 @@ export async function runClassifyImagesPhase({
         for (let i = 0; i < images.length; i += BATCH_SIZE) {
           const chunk = images.slice(i, i + BATCH_SIZE);
           attemptedBatches += 1;
-          const outcome = await classifyChunk(client, brandContext, chunk);
+          const outcome = await classifyChunk(
+            client,
+            brandContext,
+            chunk,
+            ctx,
+          );
           unavailableCount += new Set(outcome.unavailableIds).size;
 
           if (outcome.failure) {

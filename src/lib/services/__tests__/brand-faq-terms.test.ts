@@ -7,12 +7,14 @@ import {
 } from "../brand-faq";
 
 /**
- * DEV-1543 write-path vocabulary gate for `brand_faq_entries`.
+ * DEV-1546 write-path vocabulary REPORT for `brand_faq_entries`.
  *
- * This table is the only text that feeds `FAQPage` JSON-LD, and it is re-authored
- * on every enrichment apply — so a backfill alone cannot hold the line. These
- * tests pin the guard to the payload that actually reaches the Supabase client,
- * not to a helper's return value.
+ * The write path detects and never mutates. Chinese has no word delimiters, so
+ * substring replacement rewrote correct Taiwan-Mandarin — 台南市保安路 became
+ * 台南市保全路, 質量輕的材料 became 品質輕的材料 — and no shield or allowlist
+ * can enumerate street names and proper nouns. These tests pin the payload that
+ * actually reaches the Supabase client to be byte-identical to the input, and
+ * pin the finding to the audit span instead.
  *
  * The client is INJECTED, never mocked: `scripts/check-test-boundaries.mjs`
  * forbids `vi.mock` of `@/lib/supabase/`, and the service already accepts
@@ -64,10 +66,10 @@ function write(entries: BrandFaqEntryInput[], existing: UpsertRow[] = []) {
   });
 }
 
-/** Every fix recorded on the terminal audit row of the span just written. */
-function recordedFixes(): Array<Record<string, unknown>> {
+/** Every hit recorded on the terminal audit row of the span just written. */
+function recordedHits(): Array<Record<string, unknown>> {
   return auditRecords.flatMap((record) => {
-    const fixes = record.summary?.bannedTermFixes;
+    const fixes = record.summary?.bannedTerms;
     return Array.isArray(fixes)
       ? (fixes as Array<Record<string, unknown>>)
       : [];
@@ -85,24 +87,21 @@ beforeEach(() => {
 
 // `src/test/setup.ts` resets the emitter after every test, so no teardown here.
 
-describe("upsertBrandFaqEntries vocabulary guard", () => {
-  it("corrects a banned term before writing", async () => {
-    await write([
-      {
-        presetId: "main-products",
-        questionZh: `有${BANNED}介紹嗎？`,
-        answerZh: `官網上有一支${BANNED}。`,
-      },
-    ]);
+describe("upsertBrandFaqEntries vocabulary report", () => {
+  it("stores a banned term unchanged", async () => {
+    const questionZh = `有${BANNED}介紹嗎？`;
+    const answerZh = `官網上有一支${BANNED}。`;
+
+    await write([{ presetId: "main-products", questionZh, answerZh }]);
 
     expect(upserts).toHaveLength(1);
     const row = upserts[0]?.[0] as Record<string, string>;
-    expect(row.question_zh).toBe(`有${CORRECTED}介紹嗎？`);
-    expect(row.answer_zh).toBe(`官網上有一支${CORRECTED}。`);
-    expect(JSON.stringify(row)).not.toContain(BANNED);
+    expect(row.question_zh).toBe(questionZh);
+    expect(row.answer_zh).toBe(answerZh);
+    expect(JSON.stringify(row)).not.toContain(CORRECTED);
   });
 
-  it("records the substitution", async () => {
+  it("records the hit with its field and suggested replacement", async () => {
     await write([
       {
         presetId: "main-products",
@@ -111,8 +110,7 @@ describe("upsertBrandFaqEntries vocabulary guard", () => {
       },
     ]);
 
-    const fixes = recordedFixes();
-    expect(fixes).toEqual(
+    expect(recordedHits()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           field: "question_zh",
@@ -128,7 +126,7 @@ describe("upsertBrandFaqEntries vocabulary guard", () => {
     );
   });
 
-  it("leaves clean text untouched", async () => {
+  it("records nothing for clean text", async () => {
     const questionZh = `有${CORRECTED}介紹嗎？`;
     const answerZh = `官網上有一支${CORRECTED}。`;
 
@@ -137,21 +135,46 @@ describe("upsertBrandFaqEntries vocabulary guard", () => {
     const row = upserts[0]?.[0] as Record<string, string>;
     expect(row.question_zh).toBe(questionZh);
     expect(row.answer_zh).toBe(answerZh);
-    expect(recordedFixes()).toEqual([]);
+    expect(recordedHits()).toEqual([]);
     expect(
       auditRecords.every(
-        (record) => record.summary?.bannedTermFixCount === undefined,
+        (record) => record.summary?.bannedTermCount === undefined,
       ),
     ).toBe(true);
   });
 
   /**
-   * The upsert carries the existing zh side forward whenever this write did not
-   * author it, so guarding the whole payload made an English-only refresh
-   * rewrite stored zh text — a mutation the caller never requested, recorded
-   * against an English-side write. The guard covers authored zh only.
+   * THE regression test for DEV-1546. Every string here is correct zh-TW that
+   * merely contains a banned substring:
+   *   - 保安 inside a Tainan street name
+   *   - 質量 as the physics term (mass), which is valid zh-TW
+   *   - 集成 straddling 密集 and 成長
+   * The mutating guard rewrote all three. A write must return them untouched.
    */
-  it("leaves stored zh untouched when the write authors only English", async () => {
+  it.each([
+    "台南市保安路",
+    "質量輕的材料",
+    "人潮密集成長",
+    "公共安全局",
+    "戶外賣場",
+    "便當前的準備",
+  ])("never rewrites the boundary false positive %s", async (text) => {
+    await write([
+      { presetId: "main-products", questionZh: text, answerZh: text },
+    ]);
+
+    const row = upserts[0]?.[0] as Record<string, string>;
+    expect(row.question_zh).toBe(text);
+    expect(row.answer_zh).toBe(text);
+  });
+
+  /**
+   * The upsert carries the existing zh side forward whenever this write did not
+   * author it. Reporting a hit on carried-forward text would attribute a stored
+   * text finding to an unrelated English-side write, so the scan covers
+   * authored zh only.
+   */
+  it("reports nothing on carried-forward zh when the write authors only English", async () => {
     const storedQuestion = `有${BANNED}介紹嗎？`;
     const storedAnswer = `官網上有一支${BANNED}。`;
 
@@ -181,10 +204,10 @@ describe("upsertBrandFaqEntries vocabulary guard", () => {
     expect(row.question_zh).toBe(storedQuestion);
     expect(row.answer_zh).toBe(storedAnswer);
     expect(row.question_en).toBe("Is there a product video?");
-    expect(recordedFixes()).toEqual([]);
+    expect(recordedHits()).toEqual([]);
     expect(
       auditRecords.every(
-        (record) => record.summary?.bannedTermFixCount === undefined,
+        (record) => record.summary?.bannedTermCount === undefined,
       ),
     ).toBe(true);
   });

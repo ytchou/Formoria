@@ -6,6 +6,7 @@ import {
 } from "@/lib/brands/online-stores";
 import { DESCRIPTION_SYSTEM_PROMPT } from "@/lib/prompts";
 import { auditedCall } from "@/lib/audit";
+import { reportBannedTerms } from "@/lib/i18n/banned-terms";
 import { parseJson } from "./openai-client";
 import {
   buildProfiledEnrichmentConfig,
@@ -560,7 +561,7 @@ export async function rewriteBrandDescription(
 ): Promise<DescriptionRewriteOutput | null> {
   return auditedCall(
     { provider: "enrich", operation: "rewriteBrandDescription", kind: "service" },
-    async () => {
+    async (ctx) => {
   const token = process.env.OPENAI_API_KEY;
   if (!token) return null;
   if (snippets.length === 0 && !existingDescription) return null;
@@ -595,8 +596,19 @@ export async function rewriteBrandDescription(
   const allValidationRejections: DescriptionRewriteResult["validationRejections"] =
     [];
   const attempts: DescriptionAttempt[] = [];
-  const localizeAcceptedZh = (value: string | null): string | null =>
-    value ? localizeToTW(value, { brandName }).text : null;
+  // Report-only vocabulary check (DEV-1546): the accepted text is stored exactly
+  // as the model wrote it, and any mainland-Chinese term found in it is recorded
+  // on this span for a human to act on. `localizeToTW` no longer carries the
+  // vocabulary table, so nothing here rewrites words either.
+  const localizeAcceptedZh = (
+    field: string,
+    value: string | null,
+  ): string | null => {
+    if (!value) return null;
+    const localized = localizeToTW(value, { brandName }).text;
+    reportBannedTerms(ctx, [[field, localized]]);
+    return localized;
+  };
 
   // The retry needs the previous attempt's own text to measure, so the pre-validation
   // parse is carried forward rather than the accumulated (already nulled) result.
@@ -706,9 +718,9 @@ export async function rewriteBrandDescription(
       allValidationRejections.push(...validated.validationRejections);
       lastRejections = validated.validationRejections;
       lastParsed = parsedResult;
-      acceptedDescriptionZh ??= localizeAcceptedZh(validated.description_zh);
+      acceptedDescriptionZh ??= localizeAcceptedZh("description_zh", validated.description_zh);
       acceptedDescriptionEn ??= validated.description_en;
-      acceptedBlurbZh ??= localizeAcceptedZh(validated.blurb_zh);
+      acceptedBlurbZh ??= localizeAcceptedZh("blurb_zh", validated.blurb_zh);
       acceptedBlurbEn ??= validated.blurb_en;
       bestResult = {
         ...validated,

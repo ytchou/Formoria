@@ -7,13 +7,32 @@ import {
   type LlmAuditContext,
 } from "./llm-audit";
 import { localizeToTW } from "./taiwan-localization";
+import { reportBannedTerms } from "@/lib/i18n/banned-terms";
 import { parseExtractionResult } from "./category-classifier";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { normalizeSubcategories } from "@/lib/services/subcategories";
 import { noLlmCalls, type LlmCallCounts } from "./_shared/llm-call-outcome";
 
-function localizeZhText(text: string): string {
-  return /[一-鿿]/u.test(text) ? localizeToTW(text).text : text;
+/**
+ * CJK Unified Ideographs. Written as escapes rather than literals so this file
+ * stays free of Han characters (`no-hardcoded-cjk`).
+ */
+const HAN = /[\u4e00-\u9fff]/u;
+
+/**
+ * A span this phase may attach findings to. Structural rather than the imported
+ * `AuditCallContext` so the parsers stay callable from tests with a bare object.
+ */
+type VocabularySpan = { summary: Record<string, unknown> };
+
+function localizeZhText(text: string, ctx?: VocabularySpan): string {
+  const localized = HAN.test(text) ? localizeToTW(text).text : text;
+  // Report-only (DEV-1546). The text is stored as the model wrote it; a banned
+  // term is recorded on the span for a human, never substituted here, because
+  // substring matching cannot tell a banned term from a correct word, a street
+  // name, or a proper noun that contains one.
+  if (ctx) reportBannedTerms(ctx, [["listing_reason", localized]]);
+  return localized;
 }
 
 export type BrandFactsResult = {
@@ -79,7 +98,10 @@ export type ListingVerdict = {
  * verdict string is a model error, and the correct fallback is "no opinion"
  * (which the consumer treats as `list`), not a discarded extraction.
  */
-function parseListingVerdict(raw: unknown): ListingVerdict | undefined {
+function parseListingVerdict(
+  raw: unknown,
+  ctx?: VocabularySpan,
+): ListingVerdict | undefined {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw))
     return undefined;
   const listing = raw as Record<string, unknown>;
@@ -94,7 +116,7 @@ function parseListingVerdict(raw: unknown): ListingVerdict | undefined {
 
   return {
     verdict,
-    reason: rawReason.length > 0 ? localizeZhText(rawReason) : null,
+    reason: rawReason.length > 0 ? localizeZhText(rawReason, ctx) : null,
     taiwanConnection,
     hasOwnProducts:
       typeof listing.has_own_products === "boolean"
@@ -116,7 +138,10 @@ const EMPTY_FACTS: BrandFactsResult = {
   mitIndicators: null,
 };
 
-export function parseBrandFactsResult(content: string): BrandFactsResult {
+export function parseBrandFactsResult(
+  content: string,
+  ctx?: VocabularySpan,
+): BrandFactsResult {
   const parsed = parseJson<Record<string, unknown>>(content);
   if (!parsed) return { ...EMPTY_FACTS };
 
@@ -149,7 +174,7 @@ export function parseBrandFactsResult(content: string): BrandFactsResult {
         })()
       : null;
 
-  const listing = parseListingVerdict(parsed.listing);
+  const listing = parseListingVerdict(parsed.listing, ctx);
   const categorySlug = parseDescriptionCategory(parsed.category);
 
   const acceptedSubcategories =
@@ -217,6 +242,12 @@ export async function extractBrandFacts(
   brandName: string,
   userContent: string,
   audit: Pick<LlmAuditContext, "jobId" | "target">,
+  /**
+   * The enclosing phase span. Optional so script and test callers stay valid;
+   * when supplied, banned zh vocabulary found in the extraction is recorded on
+   * it. Nothing is ever rewritten.
+   */
+  ctx?: VocabularySpan,
 ): Promise<BrandFactsOutput | null> {
   const token = process.env.OPENAI_API_KEY;
   if (!token) return null;
@@ -294,7 +325,7 @@ export async function extractBrandFacts(
         };
       }
 
-      const result = parseBrandFactsResult(content);
+      const result = parseBrandFactsResult(content, ctx);
       attempts.push({
         attempt: attemptIndex + 1,
         input: attemptInput,
