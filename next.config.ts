@@ -277,7 +277,10 @@ const nextConfig: NextConfig = {
           ["crafts/needle-felting", "/brands"],
           ["crafts/weaving-and-crochet", "/brands"],
           ["crafts/illustration-and-art", "/categories/home/wall-art"],
-          ["crafts/dried-flowers-and-floral-design", "/categories/home/floral-arrangements"],
+          [
+            "crafts/dried-flowers-and-floral-design",
+            "/categories/home/floral-arrangements",
+          ],
           ["kids-pets/kids-clothing", "/categories/kids/kids-clothing"],
           ["kids-pets/family-matching", "/categories/kids/family-matching"],
           ["kids-pets/baby-clothing", "/categories/kids/baby-clothing"],
@@ -286,13 +289,22 @@ const nextConfig: NextConfig = {
           ["kids-pets/kids-tableware", "/categories/kids/kids-tableware"],
           ["kids-pets/toys", "/categories/kids/toys"],
           ["kids-pets/learning-aids", "/categories/kids/learning-aids"],
-          ["kids-pets/play-mats-and-fences", "/categories/kids/play-mats-and-fences"],
-          ["kids-pets/parenting-essentials", "/categories/kids/parenting-essentials"],
+          [
+            "kids-pets/play-mats-and-fences",
+            "/categories/kids/play-mats-and-fences",
+          ],
+          [
+            "kids-pets/parenting-essentials",
+            "/categories/kids/parenting-essentials",
+          ],
           ["kids-pets/pet-food", "/categories/pets/pet-food"],
           ["kids-pets/pet-treats", "/categories/pets/pet-treats"],
           ["kids-pets/pet-supplements", "/categories/pets/pet-supplements"],
           ["kids-pets/pet-apparel", "/categories/pets/pet-apparel"],
-          ["kids-pets/pet-beds-and-scratchers", "/categories/pets/pet-beds-and-scratchers"],
+          [
+            "kids-pets/pet-beds-and-scratchers",
+            "/categories/pets/pet-beds-and-scratchers",
+          ],
           ["kids-pets/pet-grooming", "/categories/pets/pet-grooming"],
           ["kids-pets/pet-supplies", "/categories/pets/pet-supplies"],
         ] as ReadonlyArray<readonly [from: string, to: string]>

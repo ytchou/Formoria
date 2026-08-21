@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import nextConfig from '../../next.config'
-import { L1_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { L1_CATEGORIES, L2_SUBCATEGORIES } from '@/lib/taxonomy/ontology'
 import {
   decideDirectoryTaxonomyRedirect,
   isDirectoryIndexPath,
@@ -149,17 +149,28 @@ describe('retired L1 taxonomy redirects', () => {
     // renders. `baby-kids -> /categories/kids` is only a repair while `kids`
     // is live; the day an L1 is merged away it becomes a 301 into a 404, which
     // no status check and no `pnpm build` reports.
+    //
+    // Both depths, deliberately. The one-segment-only filter this replaces
+    // could not see a `/categories/<l1>/<l2>` destination at all, so every L2
+    // row the DEV-1531 generator emits — the two relocations into `home` and
+    // all seventeen reparented rows — was excluded by construction, and the
+    // only thing checking them lived inside a generator (`--check`) that no
+    // gate ran. An L2 destination is validated as a `(parent, slug)` PAIR:
+    // `beverages` is a live L2 under `food-drink` and a retired L1 elsewhere,
+    // so a bare-slug check would call a wrong-parent destination live.
     const deadDestinations = rules
       .map(rule => ({ rule, target: withoutLocale(rule.destination) }))
       // A parameterized destination (`/categories/:category`) resolves per
       // request and cannot be checked against the ontology here.
-      .filter(({ target }) => /^\/categories\/[^/:]+$/.test(target))
-      .filter(
-        ({ target }) =>
-          !L1_CATEGORIES.some(
-            category => target === `/categories/${category.slug}`,
-          ),
-      )
+      .filter(({ target }) => /^\/categories\/[^/:]+(?:\/[^/:]+)?$/.test(target))
+      .filter(({ target }) => {
+        const tail = target.slice('/categories/'.length)
+        return tail.includes('/')
+          ? !L2_SUBCATEGORIES.some(
+              sub => tail === `${sub.category}/${sub.slug}`,
+            )
+          : !L1_CATEGORIES.some(category => tail === category.slug)
+      })
       .map(({ rule }) => `${rule.source} -> ${rule.destination}`)
     expect(deadDestinations).toEqual([])
   })

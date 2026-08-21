@@ -24,6 +24,7 @@
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const ROOT = resolve(import.meta.dirname, "..");
 
@@ -76,14 +77,41 @@ function stripBackticks(cell: string): string {
 }
 
 /**
+ * Normalises the signature text so a baseline row and a live row compare.
+ * `regprocedure` renders argument lists without spaces, but a report edited by
+ * hand can pick some up.
+ */
+function normalizeSignature(signature: string): string {
+  return signature.replace(/\s+/g, "");
+}
+
+/** `apply_brand_refresh(uuid,uuid)` -> `apply_brand_refresh`. */
+function functionName(signature: string): string {
+  return signature.slice(0, signature.indexOf("("));
+}
+
+/**
  * Parses the baseline report into `{ signature, md5 }` pairs.
  *
  * Two shapes carry fingerprints: the 8-column markdown table (signature in the
  * first cell, MD5 in the last, both backticked) and a prose paragraph for the
  * trigger function that sits outside the table. Both are parsed; the table wins
- * on any duplicate signature.
+ * on any duplicate signature, where "duplicate" is judged on the same
+ * normalised key `compareFingerprints` matches on — keyed on the raw text,
+ * `f(uuid,uuid)` and `f(uuid, uuid)` would both survive dedupe and the second
+ * would then report a phantom MISSING against an already-consumed live row.
+ *
+ * The parse itself skips anything unparseable, so the guard is the cross-check
+ * below rather than the loops: a truncated or hand-edited baseline that drops a
+ * row would otherwise compare 11 functions, and a function absent from BOTH
+ * sides would be reported by neither. `scripts/generate-category-redirects.ts`
+ * guards its own regex parse the same way. `source` names the file in that
+ * failure so the operator knows which copy to fix.
  */
-export function parseBaselineReport(report: string): FingerprintRow[] {
+export function parseBaselineReport(
+  report: string,
+  source = "the baseline report",
+): FingerprintRow[] {
   const lines = report.split("\n");
   const rows: FingerprintRow[] = [];
   const seen = new Set<string>();
@@ -95,8 +123,9 @@ export function parseBaselineReport(report: string): FingerprintRow[] {
     const signature = stripBackticks(cells[0] ?? "");
     const md5 = stripBackticks(cells[cells.length - 1] ?? "");
     if (!signature.includes("(") || !MD5_PATTERN.test(md5)) continue;
-    if (seen.has(signature)) continue;
-    seen.add(signature);
+    const key = normalizeSignature(signature);
+    if (seen.has(key)) continue;
+    seen.add(key);
     rows.push({ signature, md5 });
   }
 
@@ -105,12 +134,36 @@ export function parseBaselineReport(report: string): FingerprintRow[] {
     const md5 = paragraph.match(PROSE_MD5_PATTERN)?.[1];
     const signature = paragraph.match(SIGNATURE_PATTERN)?.[1];
     if (!md5 || !signature) continue;
-    if (seen.has(signature)) continue;
-    seen.add(signature);
+    const key = normalizeSignature(signature);
+    if (seen.has(key)) continue;
+    seen.add(key);
     rows.push({ signature, md5 });
   }
 
+  if (rows.length === 0) {
+    throw new Error(`No fingerprints parsed from ${source}`);
+  }
+
+  const missing = missingContractFunctions(rows);
+  if (missing.length > 0) {
+    throw new Error(
+      `${source} carries fingerprints for ${rows.length} of ` +
+        `${CONTRACT_FUNCTION_NAMES.length} contract functions; no baseline row ` +
+        `for ${missing.join(", ")}. A function missing from the baseline is ` +
+        "also unchecked against the database, so the gate would pass while it " +
+        "is gone.",
+    );
+  }
+
   return rows;
+}
+
+/** The contract functions no parsed baseline row accounts for. */
+export function missingContractFunctions(
+  rows: readonly FingerprintRow[],
+): string[] {
+  const parsed = new Set(rows.map((row) => functionName(row.signature)));
+  return CONTRACT_FUNCTION_NAMES.filter((name) => !parsed.has(name));
 }
 
 /** The read-only catalog dump the live side runs. */
@@ -127,15 +180,6 @@ export function buildFingerprintQuery(
     `  and p.proname in (${list})`,
     "order by 1;",
   ].join("\n");
-}
-
-/**
- * Normalises the signature text so a baseline row and a live row compare.
- * `regprocedure` renders argument lists without spaces, but a report edited by
- * hand can pick some up.
- */
-function normalizeSignature(signature: string): string {
-  return signature.replace(/\s+/g, "");
 }
 
 export function compareFingerprints(
@@ -211,27 +255,53 @@ export type FetchLiveFingerprints = (input: {
   sql: string;
 }) => Promise<FingerprintRow[]>;
 
+export type ManagementQueryRequest = {
+  url: string;
+  method: "POST";
+  headers: Record<string, string>;
+  body: string;
+};
+
 /**
- * The one network call. `read_only: true` is not optional: this script must be
- * safe to point at production before a cutover, and the Management API enforces
- * the read-only transaction server-side.
+ * Builds the one request this script sends, as a value rather than inline
+ * `fetch` arguments so a test can assert what goes on the wire without any
+ * network I/O. `read_only: true` is not optional: this script must be safe to
+ * point at production before a cutover, and the Management API enforces the
+ * read-only transaction server-side. It is the single property that makes the
+ * gate safe, so it is asserted, not merely read.
  */
+export function buildManagementQueryRequest({
+  projectRef,
+  token,
+  sql,
+}: {
+  projectRef: string;
+  token: string;
+  sql: string;
+}): ManagementQueryRequest {
+  return {
+    url: `https://api.supabase.com/v1/projects/${projectRef}/database/query`,
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query: sql, read_only: true }),
+  };
+}
+
+/** The one network call. */
 export const fetchLiveFingerprints: FetchLiveFingerprints = async ({
   projectRef,
   token,
   sql,
 }) => {
-  const response = await fetch(
-    `https://api.supabase.com/v1/projects/${projectRef}/database/query`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query: sql, read_only: true }),
-    },
-  );
+  const request = buildManagementQueryRequest({ projectRef, token, sql });
+  const response = await fetch(request.url, {
+    method: request.method,
+    headers: request.headers,
+    body: request.body,
+  });
 
   if (!response.ok) {
     const body = await response.text();
@@ -260,6 +330,28 @@ export type CliOptions = {
   baselinePath: string;
 };
 
+const KNOWN_FLAGS = ["--ref", "--token", "--baseline"] as const;
+type KnownFlag = (typeof KNOWN_FLAGS)[number];
+
+function isKnownFlag(argument: string): argument is KnownFlag {
+  return (KNOWN_FLAGS as readonly string[]).includes(argument);
+}
+
+/**
+ * Describes an argument WITHOUT quoting it.
+ *
+ * Everything in `parseCliArgs` runs before `redactSecrets` has a token to
+ * strip, so a message that echoed argv content would print a token passed
+ * positionally, or one that followed a misspelled flag, verbatim to stderr.
+ * Position plus shape locates the offending word in the operator's own command
+ * line without reproducing it.
+ */
+function describeArgument(argv: readonly string[], index: number): string {
+  const argument = argv[index] ?? "";
+  const shape = argument.startsWith("--") ? "flag-shaped" : "value-shaped";
+  return `argument ${index + 1} of ${argv.length} (${shape}, ${argument.length} characters)`;
+}
+
 export function parseCliArgs(
   argv: readonly string[],
   env: NodeJS.ProcessEnv = process.env,
@@ -269,24 +361,23 @@ export function parseCliArgs(
   let baselinePath = DEFAULT_BASELINE_PATH;
 
   for (let index = 0; index < argv.length; index += 1) {
-    const flag = argv[index];
-    const value = argv[index + 1];
-    switch (flag) {
-      case "--ref":
-      case "--token":
-      case "--baseline": {
-        if (!value || value.startsWith("--")) {
-          throw new Error(`${flag} requires a value`);
-        }
-        if (flag === "--ref") projectRef = value;
-        else if (flag === "--token") token = value;
-        else baselinePath = resolve(value);
-        index += 1;
-        break;
-      }
-      default:
-        throw new Error(`Unknown argument "${flag}"`);
+    const flag = argv[index] ?? "";
+    if (!isKnownFlag(flag)) {
+      throw new Error(
+        `Unrecognised ${describeArgument(argv, index)}; expected one of ${KNOWN_FLAGS.join(", ")}`,
+      );
     }
+
+    const value = argv[index + 1];
+    if (!value || value.startsWith("--")) {
+      // `flag` is narrowed to one of the three literals above, so naming it
+      // cannot echo argv content.
+      throw new Error(`${flag} requires a value`);
+    }
+    if (flag === "--ref") projectRef = value;
+    else if (flag === "--token") token = value;
+    else baselinePath = resolve(value);
+    index += 1;
   }
 
   if (!projectRef) {
@@ -307,6 +398,30 @@ export type MainDependencies = {
   env?: NodeJS.ProcessEnv;
 };
 
+/**
+ * Reads the baseline, turning a bare ENOENT into an actionable one.
+ *
+ * `DEFAULT_BASELINE_PATH` resolves into `docs/`, which is gitignored: the file
+ * exists on the machine that captured it and nowhere else. A second operator or
+ * a CI run therefore hits a missing default rather than a broken one, and the
+ * generic catch would report only the raw errno.
+ */
+function readBaselineOrExplain(
+  readBaseline: (path: string) => string,
+  path: string,
+): string {
+  try {
+    return readBaseline(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException | null)?.code !== "ENOENT") throw error;
+    throw new Error(
+      `Baseline report not found at ${path}. The report lives under \`docs/\`, ` +
+        "which is gitignored, so it exists only on the machine that captured " +
+        "it — pass its location explicitly with --baseline <path>.",
+    );
+  }
+}
+
 /** Returns the process exit code; the CLI entry below assigns it. */
 export async function main(
   argv: readonly string[] = process.argv.slice(2),
@@ -318,7 +433,8 @@ export async function main(
   const env = deps.env ?? process.env;
 
   // Parsed before the try/catch has a token to redact, so nothing here may
-  // echo an argument value back.
+  // echo an argument value back: `parseCliArgs` reports position and shape
+  // instead, and names only flags narrowed to a literal.
   let options: CliOptions;
   try {
     options = parseCliArgs(argv, env);
@@ -330,16 +446,10 @@ export async function main(
   const secrets = [options.token, env.SUPABASE_ACCESS_TOKEN];
 
   try {
-    const baseline = parseBaselineReport(readBaseline(options.baselinePath));
-    if (baseline.length === 0) {
-      console.error(
-        redactSecrets(
-          `No fingerprints parsed from ${options.baselinePath}`,
-          secrets,
-        ),
-      );
-      return 1;
-    }
+    const baseline = parseBaselineReport(
+      readBaselineOrExplain(readBaseline, options.baselinePath),
+      options.baselinePath,
+    );
 
     const live = await fetchLive({
       projectRef: options.projectRef,
@@ -369,7 +479,14 @@ export async function main(
   }
 }
 
-if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
+// pathToFileURL, not a `file://` template: `import.meta.url` is percent-encoded
+// and a raw argv path is not, so a checkout path containing a space or a
+// non-ASCII character would fail the comparison and this gate would no-op —
+// printing nothing and exiting 0 — right before a production cutover.
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   void main().then((code) => {
     process.exitCode = code;
   });
