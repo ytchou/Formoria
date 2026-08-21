@@ -1100,8 +1100,8 @@ values
   ('雨鞋', 'boots', 'resolve'),
   ('掛畫', 'illustration-and-art', 'resolve'),
   ('護髮產品', 'hair-care', 'resolve'),
-  ('玩具教具', 'toys', 'resolve'),
-  ('香氛蠟燭', 'home-fragrance', 'resolve');
+  ('玩具教具', null, 'evicted'),
+  ('香氛蠟燭', null, 'evicted');
 -- <<< label map
 
 -- Strict resolver. Raises on anything the map does not know; drops recorded
