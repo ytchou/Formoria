@@ -272,10 +272,48 @@ describe("migration ledger drift", () => {
   });
 
   it("reports both directions of drift without ordering assumptions", () => {
-    expect(migrationLedgerDiff(["3", "1"], ["2", "1"])).toEqual({
-      pending: ["3"],
-      remoteAhead: ["2"],
+    expect(
+      migrationLedgerDiff(
+        ["20260819090000", "20260817054048"],
+        ["20260818120000", "20260817054048"],
+      ),
+    ).toEqual({
+      pending: ["20260819090000"],
+      remoteAhead: ["20260818120000"],
     });
+  });
+
+  it("does not count legacy bootstrap rows as remote drift", () => {
+    // Both Supabase projects carry `00001`…`00014` from before the CLI used
+    // timestamps. No local file can ever match them, so calling them drift
+    // means the condition can never clear.
+    expect(
+      migrationLedgerDiff(
+        ["20260819090000"],
+        ["00001", "00002", "00014", "20260819090000"],
+      ),
+    ).toEqual({ pending: [], remoteAhead: [] });
+  });
+
+  it("pushes past legacy bootstrap rows instead of demanding an unmergeable merge", () => {
+    // Production on 2026-08-21: 36 pending behind 14 legacy rows. Before this
+    // fix `migrationPushPlan` threw, so the cutover could not run at all.
+    const plan = migrationPushPlan(
+      ["20260819090000", "20260822090000"],
+      ["00001", "00014"],
+    );
+
+    expect(plan.action).toBe("push");
+    expect(plan.remoteAhead).toEqual([]);
+    expect(plan.pending).toEqual(["20260819090000", "20260822090000"]);
+  });
+
+  it("still refuses when a real unmerged-branch row sits beside pending work", () => {
+    // The guard this fix narrows must keep firing on the case it was written
+    // for: a timestamped version applied from a branch that has not merged.
+    expect(() =>
+      migrationPushPlan(["20260819090000"], ["00001", "20260822090000"]),
+    ).toThrow("Migration ledger is ahead of this commit");
   });
 
   it("reads the version prefix and rejects a file that has none", () => {
