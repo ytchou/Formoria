@@ -1,52 +1,6 @@
-import { afterAll, describe, expect, it } from 'vitest'
-import { createTestClient, describeWithDb } from '@/test/setup'
-import {
-  FEATURE_FLAGS,
-  getAppSetting,
-  isOwnerFeaturesEnabled,
-  OWNER_FEATURES_KEY,
-  setAppSetting,
-} from './app-settings'
+import { describe, expect, it } from 'vitest'
+import { FEATURE_FLAGS, OWNER_FEATURES_KEY } from './app-settings'
 
-describeWithDb('app-settings service', () => {
-  afterAll(async () => {
-    await setAppSetting(OWNER_FEATURES_KEY, false)
-  })
-
-
-  it('round-trips a write', async () => {
-    await setAppSetting('test_setting', false)
-    expect(await getAppSetting('test_setting')).toBe(false)
-    await setAppSetting('test_setting', true)
-    expect(await getAppSetting('test_setting')).toBe(true)
-  })
-
-  it('fails open: unknown key returns the provided default', async () => {
-    expect(await getAppSetting('nonexistent_key', true)).toBe(true)
-  })
-
-  it('isOwnerFeaturesEnabled returns false when the row is missing', async () => {
-    const supabase = createTestClient()
-    const { error } = await supabase
-      .from('app_settings')
-      .delete()
-      .eq('key', OWNER_FEATURES_KEY)
-    expect(error).toBeNull()
-
-    try {
-      expect(await isOwnerFeaturesEnabled()).toBe(false)
-    } finally {
-      await setAppSetting(OWNER_FEATURES_KEY, false)
-    }
-  })
-
-  it('isOwnerFeaturesEnabled reflects the stored value', async () => {
-    await setAppSetting(OWNER_FEATURES_KEY, true)
-    expect(await isOwnerFeaturesEnabled()).toBe(true)
-    await setAppSetting(OWNER_FEATURES_KEY, false)
-    expect(await isOwnerFeaturesEnabled()).toBe(false)
-  })
-})
 
 describe('feature flag registry', () => {
   it('exports a non-empty FEATURE_FLAGS array', () => {

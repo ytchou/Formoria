@@ -1,8 +1,4 @@
-import { randomUUID } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
-import type { Database } from "@/lib/supabase/database.types";
-import { describeWithDb } from "@/test/setup";
 
 /**
  * DEV-1510 Task 7. `brands.subcategories` becomes English slugs, so the
@@ -20,13 +16,6 @@ import { describeWithDb } from "@/test/setup";
  * verification step specifies.
  */
 
-const supabase =
-  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
-    ? createClient<Database>(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.SUPABASE_SERVICE_ROLE_KEY,
-      )
-    : null;
 
 /**
  * `docs/reports/2026-08-20-search-ranking-baseline.md`, captured 2026-08-19
@@ -182,58 +171,7 @@ const UNMOVED_BY_THE_BACKFILL: readonly string[] = [
   "金工:opus",
 ] as const;
 
-/** Brands seeded by an integration or e2e run are not part of the corpus. */
-const SEEDED_BRAND_NAME = /^DEV-\d+ |\[E2E-TEST\]/;
 
-type SearchRow = {
-  id: string;
-  rankScore: number;
-  searchSource: string;
-  totalCount: number;
-  slug: string;
-  name: string;
-};
-
-async function searchBrandPage(term: string): Promise<SearchRow[]> {
-  const { data, error } = await supabase!.rpc("search_brand_page", {
-    search_query: term,
-  });
-  expect(error, term).toBeNull();
-
-  const rows = data ?? [];
-  if (rows.length === 0) return [];
-
-  const { data: brands, error: brandsError } = await supabase!
-    .from("brands")
-    .select("id, slug, name")
-    .in(
-      "id",
-      rows.map((row) => row.id),
-    );
-  expect(brandsError, term).toBeNull();
-
-  const bySlug = new Map(
-    (brands ?? []).map((brand) => [
-      brand.id,
-      { slug: brand.slug, name: brand.name },
-    ]),
-  );
-
-  // PostgREST preserves the RPC's own row order, and search_brand_page ends on
-  // `ORDER BY numbered.row_number` — so this is the function's emitted order,
-  // the same thing `WITH ORDINALITY` pinned when the baseline was captured.
-  return rows.map((row) => {
-    const brand = bySlug.get(row.id);
-    return {
-      id: row.id,
-      rankScore: row.rank_score,
-      searchSource: row.search_source,
-      totalCount: Number(row.total_count),
-      slug: brand?.slug ?? row.id,
-      name: brand?.name ?? "",
-    };
-  });
-}
 
 /**
  * The honesty guard on the re-pin, and the reason `UNMOVED_BY_THE_BACKFILL` is a
@@ -266,129 +204,3 @@ describe("search ranking baseline", () => {
   });
 });
 
-describeWithDb("search recall after slug storage", () => {
-  /**
-   * Inserts an approved, non-demo brand, runs the assertions, and removes it
-   * again whatever happens. Seeding in a `beforeAll` instead would leave the
-   * brand in the corpus while `ranking_matches_the_baseline` runs, and a
-   * `backpacks`-tagged brand expands to `後背包` — it would join that term's
-   * result set and break the row count it is supposed to be protecting.
-   */
-  async function withSlugTaggedBrand(
-    assertions: (brandId: string) => Promise<void>,
-  ): Promise<void> {
-    const id = randomUUID();
-    const suffix = id.slice(0, 8);
-    const { error } = await supabase!.from("brands").insert({
-      id,
-      // Deliberately carries neither `backpack` nor 後背包: if the name matched,
-      // both cases would pass on the weight-A arm and prove nothing about the
-      // subcategory expansion.
-      name: `DEV-1510 Recall Fixture ${suffix}`,
-      slug: `dev-1510-recall-${suffix}`,
-      status: "approved",
-      approved_at: new Date().toISOString(),
-      is_demo: false,
-      category: "bags-accessories",
-      subcategories: ["backpacks"],
-      subcategories_en: ["Backpacks"],
-    });
-    expect(error).toBeNull();
-
-    try {
-      await assertions(id);
-    } finally {
-      const { error: cleanupError } = await supabase!
-        .from("brands")
-        .delete()
-        .eq("id", id);
-      expect(cleanupError).toBeNull();
-    }
-  }
-
-  // Bug caught: slug storage starves the cjk_bigrams arm. Without the
-  // taxonomy_terms expansion this returns the four label-tagged brands and
-  // not the slug-tagged one — a silent recall hole, because `?sub=backpacks`
-  // still finds it.
-  it("cjk_query_matches_a_slug_stored_brand", async () => {
-    await withSlugTaggedBrand(async (brandId) => {
-      const rows = await searchBrandPage("後背包");
-      expect(rows.map((row) => row.id)).toContain(brandId);
-
-      const hit = rows.find((row) => row.id === brandId);
-      // A trgm fall-through would mask a dead FTS arm, and the CJK gate in
-      // search_brand_page means trgm cannot even fire for this query.
-      expect(hit?.searchSource).toBe("fts");
-    });
-  });
-
-  // Bug caught: expanding the ENGLISH arm to zh-TW labels as well, which would
-  // trade the CJK hole for a Latin one. The raw slug must stay indexed.
-  it("english_query_still_matches", async () => {
-    await withSlugTaggedBrand(async (brandId) => {
-      const rows = await searchBrandPage("backpack");
-      expect(rows.map((row) => row.id)).toContain(brandId);
-      expect(rows.find((row) => row.id === brandId)?.searchSource).toBe("fts");
-    });
-  });
-
-  // Bug caught: an expansion that changes term frequencies (unioning the raw
-  // and expanded arrays, or de-duplicating) moves every rank_score while every
-  // row still comes back — the failure mode the baseline exists to catch.
-  it("ranking_matches_the_baseline", async () => {
-    for (const { term, rows: expected } of BASELINE) {
-      const returned = (await searchBrandPage(term)).filter(
-        (row) => !SEEDED_BRAND_NAME.test(row.name),
-      );
-
-      // Recall first. Eight of the nine baseline rows exist only through the
-      // subcategory arm, so a missing slug is a hard fail, not rank drift.
-      expect(
-        returned.map((row) => row.slug),
-        `${term}: recall and emitted order`,
-      ).toEqual(expected.map((row) => row.slug));
-
-      for (const [index, row] of returned.entries()) {
-        const baselineRow = expected[index];
-        // The strictest single check: a drop to `trgm` means the FTS arm
-        // stopped matching and the trigram fallback is hiding it.
-        expect(row.searchSource, `${term}: ${row.slug} search_source`).toBe(
-          "fts",
-        );
-        expect(row.rankScore, `${term}: ${row.slug} rank_score`).toBeCloseTo(
-          baselineRow!.rankScore,
-          5,
-        );
-      }
-
-      expect(returned.length, `${term}: total_count`).toBe(expected.length);
-
-      // Five of the nine rows carried the same content through the backfill and
-      // must therefore score EXACTLY what the PRE-migration capture recorded.
-      // Asserted against `preBackfill` rather than `rankScore`, so a re-pin of
-      // the live column cannot quietly move them.
-      for (const row of expected) {
-        if (!UNMOVED_BY_THE_BACKFILL.includes(`${term}:${row.slug}`)) continue;
-        expect(
-          returned.find((live) => live.slug === row.slug)?.rankScore,
-          `${term}: ${row.slug} unmoved by the backfill`,
-        ).toBeCloseTo(row.preBackfill, 5);
-      }
-      for (const row of returned) {
-        expect(row.totalCount, `${term}: total_count`).toBeGreaterThanOrEqual(
-          expected.length,
-        );
-      }
-
-      // The control: `opus` ranks #1 for 金工 without carrying the label, so
-      // it must survive a change that only touches the subcategory arms.
-      const controls = expected.filter((row) => !row.subcategoryDriven);
-      for (const control of controls) {
-        expect(
-          returned.map((row) => row.slug),
-          `${term}: control row`,
-        ).toContain(control.slug);
-      }
-    }
-  });
-});

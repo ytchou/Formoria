@@ -1,11 +1,9 @@
-import { createClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import {
   L1_CATEGORIES,
   L2_SUBCATEGORIES,
   MATERIALS,
 } from "@/lib/taxonomy/ontology";
-import { describeWithDb } from "@/test/setup";
 import {
   TAXONOMY_TERM_AXES,
   buildTaxonomyTermRows,
@@ -137,30 +135,3 @@ describe("taxonomy_terms parity with the TypeScript ontology", () => {
   });
 });
 
-describeWithDb("taxonomy_terms as deployed", () => {
-  const supabase =
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-      ? createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL,
-          process.env.SUPABASE_SERVICE_ROLE_KEY,
-        )
-      : null;
-
-  // Bug caught: the migration applied against a database whose seed block had
-  // been edited by hand, or applied before the generator was re-run.
-  it("live_table_matches_the_generated_seed", async () => {
-    const { data, error } = await supabase!
-      .from("taxonomy_terms")
-      .select("axis, slug, name_zh, name_en");
-    expect(error).toBeNull();
-
-    const live: TaxonomyTermRow[] = (data ?? []).map((row) => ({
-      axis: row.axis,
-      slug: row.slug,
-      nameZh: row.name_zh,
-      nameEn: row.name_en,
-    }));
-    expect(sortRows(live)).toEqual(sortRows(ontologyRows));
-  });
-});

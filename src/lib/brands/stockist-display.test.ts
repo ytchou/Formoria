@@ -73,9 +73,8 @@ describe("groupStockistsForDisplay", () => {
   // approving a stranger's submission sets exactly the `owner_status` the
   // brand's own owner sets — `owner_status_by` against the owner set is the
   // only thing telling them apart. Asserted here, on the pure function,
-  // because the only other assertion of the 'formoria' branch lives in
-  // `stockist-queue.integration.test.ts` under `describeWithDb`, which skips
-  // without an integration database and therefore guards nothing in CI.
+  // because it is now the only assertion of the 'formoria' branch anywhere in
+  // the suite.
   it("attributes an approval by a non-owner to Formoria, not to the brand", () => {
     const result = groupStockistsForDisplay(
       [

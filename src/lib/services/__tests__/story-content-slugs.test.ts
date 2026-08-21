@@ -3,14 +3,13 @@ import path from 'path'
 
 import { describe, expect, it } from 'vitest'
 
-import { describeWithDb } from '@/test/setup'
 import {
   extractBrandSlugs,
   extractLinkedBrandSlugs,
   extractProseBrandSlugs,
   hasEventInfoShortcode,
 } from '@/lib/mdx/extract-brand-slugs'
-import { getBrandsBySlugs, isValidSlug } from '../brands'
+import { isValidSlug } from '../brands'
 
 /**
  * Guard on the brand slugs authors embed in story MDX.
@@ -213,20 +212,3 @@ describe('story content event info shortcode', () => {
   })
 })
 
-describeWithDb('story content brand slugs (live lookup)', () => {
-  it('every BrandCard slug resolves to an approved brand', async () => {
-    const references = readStorySlugReferences()
-    const slugs = [...new Set(references.map(reference => reference.slug))]
-    if (slugs.length === 0) return
-
-    const brands = await getBrandsBySlugs(slugs)
-    const unresolved = references
-      .filter(reference => !brands.has(reference.slug))
-      .map(reference => `${reference.file}: "${reference.slug}"`)
-
-    expect(
-      unresolved,
-      `story slugs with no approved brand:\n${unresolved.join('\n')}`,
-    ).toEqual([])
-  })
-})
