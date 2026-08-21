@@ -403,11 +403,32 @@ export function migrationVersion(fileName: string): string {
 }
 
 /**
+ * A ledger version that predates the 14-digit timestamp convention.
+ *
+ * Both Supabase projects were bootstrapped with rows `00001` … `00014`, which
+ * `supabase db push` wrote before the CLI adopted timestamps. `localMigrationVersions`
+ * derives its list from `<14-digit>_*.sql` filenames, so a version in this shape
+ * can never have a local file — not because a branch is unmerged, but because no
+ * such file has ever existed.
+ */
+function isLegacyLedgerVersion(version: string): boolean {
+  return !/^\d{14}$/.test(version);
+}
+
+/**
  * The two ways a migration ledger can disagree with the commit being deployed.
  *
  * `pending` — a local file with no ledger row. Work this deploy must do.
  * `remoteAhead` — a ledger row with no local file, because the migration was
  * pushed to the database from a branch that has not merged yet.
+ *
+ * Legacy bootstrap rows are excluded from `remoteAhead` entirely. Counting them
+ * conflates "a branch owns this and has not merged" with "this predates the
+ * naming convention", and the two need opposite responses: the first is a real
+ * hold, the second can never be resolved by merging anything. Production carries
+ * 14 of them alongside 36 pending migrations, which made `migrationPushPlan`
+ * throw and `verify` hard-fail with advice ("merge the branch that owns the
+ * first list") that names no branch and no file (DEV-1531).
  */
 export function migrationLedgerDiff(
   localVersions: string[],
@@ -417,7 +438,10 @@ export function migrationLedgerDiff(
   const local = new Set(localVersions);
   return {
     pending: localVersions.filter((version) => !remote.has(version)).sort(),
-    remoteAhead: remoteVersions.filter((version) => !local.has(version)).sort(),
+    remoteAhead: remoteVersions
+      .filter((version) => !local.has(version))
+      .filter((version) => !isLegacyLedgerVersion(version))
+      .sort(),
   };
 }
 
