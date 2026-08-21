@@ -3,6 +3,7 @@
  */
 import type { ComponentProps, ReactNode } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
+import { scrimClassName } from "@/lib/design/photo-band-scrims";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,13 +12,15 @@ import en from "../../../../messages/en.json";
 import { buildWebSiteJsonLd } from "@/lib/json-ld";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
-// The opener renders no image at all now, but the mock stays: a regression that
-// puts a photograph back would otherwise die inside getImgProps on jsdom's
-// missing loader base URL rather than on the assertion that names the rule.
+// LOAD-BEARING. The opener renders a photograph — the suite below asserts it —
+// and the real `next/image` dies inside `getImgProps` on jsdom's missing loader
+// base URL before any assertion runs. The mock keeps `preload` observable as an
+// attribute, because "this band owns the page's single preload" is a claim two
+// other components' comments depend on.
 vi.mock("next/image", () => ({
-  default: ({ fill: _fill, priority, ...props }: Record<string, unknown>) => (
+  default: ({ fill: _fill, preload, ...props }: Record<string, unknown>) => (
     // eslint-disable-next-line @next/next/no-img-element -- this IS the mock of next/image
-    <img alt="" data-priority={priority ? "true" : "false"} {...props} />
+    <img alt="" data-preload={preload ? "true" : "false"} {...props} />
   ),
 }));
 
@@ -126,29 +129,69 @@ describe("HeroSection — the editorial opener", () => {
     expect(screen.getByRole("searchbox")).toBeInTheDocument();
   });
 
-  it("opens on a lead photograph that claims the page preload", async () => {
-    // ROUND FIVE, AND THE HISTORY IS THE POINT. This assertion has been
-    // inverted before: the 2026-08-17 restoration added a hero image, the
-    // 2026-08-19 overhaul removed it again ("carries no photograph"), and
-    // DEV-1544 restores it as an ORIGINATED editorial frame — one that depicts
-    // no product, so it no longer competes with the wall of product
-    // photographs below, which was the removal's actual argument.
+  it("renders the photograph as a scrimmed background, not a block in the flow", async () => {
+    // ROUND EIGHT, AND THE CONSTRUCTION IS THE ASSERTION. The image has been
+    // added and removed four times (2026-08-17 added above the text,
+    // 2026-08-19 removed, DEV-1544 restored above, removed again, then placed
+    // below). Every one of those put it in the document flow as a block of its
+    // own, where it read as a second picture competing with the wall of
+    // product photographs one viewport down. It is a BACKGROUND now: the text
+    // sits on top of it behind a scrim, the same construction as the manifesto
+    // band in `landing-zones.tsx`.
     //
-    // `priority` is asserted, not incidental. Between the removal and DEV-1544
-    // both `landing-zones.tsx` and `selected-product-tile.tsx` still withheld
-    // `priority` "because the hero owns the preload" while no hero existed, so
-    // `/` ran on a text LCP with an unclaimed preload budget. If this assertion
-    // is ever deleted, those two comments become lies again.
+    // The VARIANT is asserted, not an opacity: the stops belong to
+    // `@/lib/design/photo-band-scrims` and the numbers are proved against this
+    // photograph's real pixels by `scripts/check-photo-band-contrast.ts` on
+    // every `pnpm lint`. What this test owns is that the opener asks for the
+    // left-weighted scrim at all — the copy here is left-aligned, and a
+    // centred or flat scrim over it either bleaches the photograph (the flat
+    // `/85` this shipped with for one afternoon) or shadows one side.
+    //
+    // `preload` is asserted, not incidental. Both `landing-zones.tsx` and
+    // `selected-product-tile.tsx` withhold it "because the photograph in the
+    // opener owns the preload". If this assertion is ever deleted, those two
+    // comments become lies again.
     const { container } = await renderHero();
 
     const hero = container.querySelector("img");
     expect(hero).not.toBeNull();
     expect(hero).toHaveAttribute("src", expect.stringContaining("home-hero"));
-    expect(hero).toHaveAttribute("data-priority", "true");
+    expect(hero).toHaveAttribute("data-preload", "true");
+
+    const scrim = container.querySelector<HTMLElement>(
+      `.${scrimClassName("left")}`,
+    );
+    expect(scrim).not.toBeNull();
+    expect(scrim).toHaveClass("absolute", "inset-0");
+
+    // THE LAYER ORDER IS THE ASSERTION, and it is asserted structurally
+    // because the obvious version is vacuous: `img.contains(heading)` is false
+    // for every DOM this component could produce — `<img>` is a void element —
+    // so it stayed green through exactly the regressions it was written to
+    // catch, including the 2026-08-17 / DEV-1544 layout that put the
+    // photograph in the flow as a block above the text.
+    //
+    // What "background" means here: one `relative overflow-hidden` section
+    // holding three siblings — the image, the scrim, and the copy shell — with
+    // the scrim BEFORE the shell that holds the heading, so the copy paints on
+    // top of it.
+    const heading = screen.getByRole("heading", { level: 1 });
+    const band = hero!.parentElement!;
+    expect(band.tagName).toBe("SECTION");
+    expect(band).toHaveClass("relative", "overflow-hidden");
+
+    const shell = heading.closest(".relative");
+    expect(shell).not.toBeNull();
+    expect(shell!.parentElement).toBe(band);
+    expect(scrim!.parentElement).toBe(band);
+
+    const layers = [...band.children];
+    expect(layers.indexOf(hero!)).toBeLessThan(layers.indexOf(scrim!));
+    expect(layers.indexOf(scrim!)).toBeLessThan(layers.indexOf(shell!));
   });
 
-  it("keeps the lead photograph decorative", async () => {
-    // `alt=""` follows story and trail detail: the `<h1>` below states the
+  it("keeps the photograph decorative", async () => {
+    // `alt=""` follows story and trail detail: the `<h1>` above states the
     // promise, and a screen reader repeating it as image text is noise. This
     // is also why no `landing.hero.alt` message key exists — if descriptive
     // alt is ever wanted, it has to land in BOTH locale catalogues.

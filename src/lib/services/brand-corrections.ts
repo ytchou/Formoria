@@ -779,7 +779,7 @@ async function markReviewed(
   notes: string,
   reviewerId: string,
   reviewedAt: string,
-  ctx?: AuditCallContext,
+  ctx: AuditCallContext,
 ): Promise<
   { ok: true } | { ok: false; code: "database_error" | "already_reviewed" }
 > {
@@ -801,7 +801,7 @@ async function markReviewed(
     // The envelope classifies on the RETURNED value, so the underlying error
     // has to be carried out by hand or it is lost entirely.
     console.error("[brand-corrections] markReviewed claim failed:", error);
-    if (ctx) ctx.summary.claimError = describeError(error);
+    ctx.summary.claimError = describeError(error);
     return { ok: false, code: "database_error" };
   }
   if (count === 0) return { ok: false, code: "already_reviewed" };
@@ -834,7 +834,7 @@ async function supersedePendingSubcategories(
   brandId: string,
   reviewerId: string,
   reviewedAt: string,
-  ctx?: AuditCallContext,
+  ctx: AuditCallContext,
 ): Promise<{ ok: true } | { ok: false; code: "database_error" }> {
   const { error } = await supabase
     .from("brand_field_corrections")
@@ -853,7 +853,7 @@ async function supersedePendingSubcategories(
       "[brand-corrections] supersedePendingSubcategories failed:",
       error,
     );
-    if (ctx) ctx.summary.supersedeError = describeError(error);
+    ctx.summary.supersedeError = describeError(error);
     return { ok: false, code: "database_error" };
   }
   return { ok: true };

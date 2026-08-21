@@ -218,15 +218,14 @@ export function SelectedProductTile({
             src={imageSrc}
             alt={name}
             fill
-            // NEVER `priority`. The hero photograph is the LCP element and
-            // owns the page's single preload; a wall tile competing for
-            // `fetchpriority=high` is the regression this used to guard
-            // against with a WALL_ABOVE_FOLD counter. The wall begins below
-            // the hero at every breakpoint, so nothing here is above the fold.
-            // The hero this defers to is `hero-section.tsx`'s `EditorialHero`
-            // (DEV-1544). It was absent between the 2026-08-19 overhaul and
-            // that ticket, which left this rule deferring to nothing — see the
-            // matching note in `landing-zones.tsx`.
+            // NEVER `priority`. The frame under the homepage opener is the
+            // LCP element and owns the page's single preload; a wall tile
+            // competing for `fetchpriority=high` is the regression this used
+            // to guard against with a WALL_ABOVE_FOLD counter. The wall begins
+            // below that photograph at every breakpoint, so nothing here is
+            // above the fold. The photograph this defers to is the scrimmed
+            // background of `hero-section.tsx` — it stopped being a block in
+            // the flow, but it still claims the preload.
             className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
             surface="card"
             sizes={wallImageSizes}

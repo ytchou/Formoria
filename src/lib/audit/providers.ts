@@ -71,6 +71,7 @@ const PROVIDERS = {
     "getCachedMetrics",
     "getCachedRecentBrandCount",
     "getCachedSubcategoryRows",
+    "getCachedZhVocabularyReport",
   ],
   claims: [
     "approveClaimRequest",

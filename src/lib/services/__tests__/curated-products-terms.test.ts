@@ -190,8 +190,16 @@ describe("createCuratedProduct vocabulary report", () => {
     expect(created.key).toBe("proposal-key-from-a-previous-run");
   });
 
-  /** The whole reason the write path stopped mutating. */
-  it.each(["台南市保安路", "質量輕的材料", "人潮密集成長"])(
+  /**
+   * The whole reason the write path stopped mutating. Each fixture is correct
+   * zh-TW that merely contains a banned substring: 保安 inside a Tainan street
+   * name, 質量 as the physics term (mass), 打車 straddling 拍打 and 車身.
+   *
+   * A fixture that contains no listed term proves nothing — it would pass with
+   * the mutating guard fully restored. 人潮密集成長 became exactly that when
+   * 集成 was pruned from the list in DEV-1547, and was replaced here.
+   */
+  it.each(["台南市保安路", "質量輕的材料", "拍打車身的除塵刷"])(
     "never rewrites the boundary false positive %s",
     async (text) => {
       await createCuratedProduct(

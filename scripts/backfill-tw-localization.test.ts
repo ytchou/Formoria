@@ -6,8 +6,8 @@ import { describe, expect, it } from "vitest";
 import {
   CURATED_PRODUCTS_TABLE,
   PAGE_SIZE,
-  backfillFaq,
-  backfillTable,
+  applyApproved,
+  assertSameEnvironment,
   buildCuratedProductPatches,
   buildExhibitorPatches,
   buildBrandPatches,
@@ -15,7 +15,12 @@ import {
   dryRunReportPath,
   localizeReputationSummary,
   openDryRunReport,
+  parseArgs,
+  parseManifest,
+  scanFaq,
+  scanTable,
   supabaseEnvironment,
+  type ApprovedEntry,
   type BackfillCounts,
   type BackfillSupabase,
   type DryRunEntry,
@@ -256,9 +261,7 @@ describe("--dry-run", () => {
       calls,
     );
 
-    const counts = await backfillTable(client, CURATED_PRODUCTS_TABLE, {
-      dryRun: true,
-    });
+    const counts = await scanTable(client, CURATED_PRODUCTS_TABLE);
 
     expect(counts.updated).toBe(1);
     expect(calls.updates).toEqual([]);
@@ -278,13 +281,11 @@ describe("--dry-run", () => {
       calls,
     );
 
-    const counts = await backfillTable(client, CURATED_PRODUCTS_TABLE, {
-      dryRun: true,
-    });
+    const counts = await scanTable(client, CURATED_PRODUCTS_TABLE);
 
     // The operator's safety check greps this output for specific terms, so the
     // terms must appear in it — a bare row count passes that grep vacuously.
-    expect(counts.dryRun?.terms).toEqual(
+    expect(counts.terms).toEqual(
       expect.arrayContaining([
         { term: BANNED, replacement: CORRECTED, count: 2 },
         { term: BANNED_LINK, replacement: CORRECTED_LINK, count: 2 },
@@ -308,15 +309,12 @@ describe("--dry-run", () => {
     );
     const sink = recordingSink();
 
-    const counts = await backfillTable(
-      client,
-      CURATED_PRODUCTS_TABLE,
-      { dryRun: true },
-      sink,
-    );
+    const counts = await scanTable(client, CURATED_PRODUCTS_TABLE, sink);
 
     expect(sink.written).toHaveLength(24);
-    expect(Object.keys(counts.dryRun ?? {})).toEqual(["terms"]);
+    // The scan keeps per-term totals and nothing else resident: no array of
+    // entries, and no second copy of what already went to the sink.
+    expect(Object.keys(counts).sort()).toEqual(["terms", "updated"]);
   });
 });
 
@@ -332,9 +330,7 @@ describe("pagination", () => {
       calls,
     );
 
-    const counts = await backfillTable(client, CURATED_PRODUCTS_TABLE, {
-      dryRun: true,
-    });
+    const counts = await scanTable(client, CURATED_PRODUCTS_TABLE);
 
     expect(counts.updated).toBe(PAGE_SIZE + 2);
     expect(calls.ranges).toEqual([
@@ -353,34 +349,63 @@ describe("pagination", () => {
     const calls = emptyCalls();
     const client = fakeClient({ brand_faq_entries: [[]] }, calls);
 
-    await backfillFaq(client, { dryRun: true });
+    await scanFaq(client);
 
     expect(calls.orders).toEqual(["brand_id", "preset_id", "position"]);
   });
 });
 
-describe("write path", () => {
-  it("issues one update per patched row when not a dry run", async () => {
+/**
+ * DEV-1547 E1. The scan is the ONLY thing that reads the tables, and it can no
+ * longer write: the mode where it applied everything it had just computed is
+ * what made the first production run unusable (15 patches proposed, 5 correct,
+ * no way to take 5).
+ */
+describe("the scan never writes", () => {
+  it("issues no update even with a full page of patchable rows", async () => {
     const calls = emptyCalls();
     const client = fakeClient(
-      { curated_products: [[dirtyProduct(PRODUCT_ID)]] },
+      {
+        curated_products: [[dirtyProduct(PRODUCT_ID), dirtyProduct("row-2")]],
+      },
       calls,
     );
 
-    const counts = await backfillTable(client, CURATED_PRODUCTS_TABLE, {
-      dryRun: false,
-    });
+    const counts = await scanTable(client, CURATED_PRODUCTS_TABLE);
 
-    expect(counts.updated).toBe(1);
-    expect(counts.dryRun).toBeUndefined();
-    // Only the changed columns — the terms ride alongside the patch and are
-    // never sent to PostgREST.
-    expect(calls.updates).toEqual([
-      {
-        name_zh: `高${CORRECTED}保溫瓶`,
-        product_description_zh: `官網有產品${CORRECTED_LINK}。`,
-      },
-    ]);
+    expect(counts.updated).toBe(2);
+    expect(calls.updates).toEqual([]);
+  });
+});
+
+describe("parseArgs", () => {
+  it("takes a dry run", () => {
+    expect(parseArgs(["--dry-run"])).toEqual({ mode: "dry-run" });
+  });
+
+  it("takes an apply with its manifest", () => {
+    expect(parseArgs(["--apply", "/tmp/report.ndjson"])).toEqual({
+      mode: "apply",
+      manifestPath: "/tmp/report.ndjson",
+    });
+  });
+
+  it("refuses a bare run rather than defaulting to either mode", () => {
+    // A default of dry-run would make --apply look optional; a default of
+    // apply is the E1 defect itself.
+    expect(() => parseArgs([])).toThrow(/Nothing to do/);
+  });
+
+  it("refuses both modes at once", () => {
+    expect(() => parseArgs(["--dry-run", "--apply", "x.ndjson"])).toThrow(
+      /not both/,
+    );
+  });
+
+  it("refuses --apply with no manifest path", () => {
+    expect(() => parseArgs(["--apply"])).toThrow(/needs the path/);
+    // The next flag is not a path: a manifest is never optional.
+    expect(() => parseArgs(["--apply", "--verbose"])).toThrow(/needs the path/);
   });
 });
 
@@ -474,12 +499,7 @@ describe("dry-run report file", () => {
 
     const path = tempReportPath();
     const summary = await writeReport(path, async (sink) => {
-      const counts = await backfillTable(
-        client,
-        CURATED_PRODUCTS_TABLE,
-        { dryRun: true },
-        sink,
-      );
+      const counts = await scanTable(client, CURATED_PRODUCTS_TABLE, sink);
       return [["curated_products", counts]];
     });
 
@@ -519,12 +539,7 @@ describe("dry-run report file", () => {
 
     const path = tempReportPath();
     await writeReport(path, async (sink) => {
-      await backfillTable(
-        client,
-        CURATED_PRODUCTS_TABLE,
-        { dryRun: true },
-        sink,
-      );
+      await scanTable(client, CURATED_PRODUCTS_TABLE, sink);
       return [];
     });
 
@@ -562,7 +577,7 @@ describe("dry-run report file", () => {
 
     const path = tempReportPath();
     await writeReport(path, async (sink) => {
-      await backfillFaq(client, { dryRun: true }, sink);
+      await scanFaq(client, sink);
       return [];
     });
 
@@ -587,12 +602,7 @@ describe("dry-run report file", () => {
 
     const path = tempReportPath();
     await writeReport(path, async (sink) => {
-      const counts = await backfillTable(
-        client,
-        CURATED_PRODUCTS_TABLE,
-        { dryRun: true },
-        sink,
-      );
+      const counts = await scanTable(client, CURATED_PRODUCTS_TABLE, sink);
       return [["curated_products", counts]];
     });
 
@@ -630,12 +640,16 @@ describe("dry-run report file", () => {
     ).toContain("xwkigpvnheecihpxyvsl");
   });
 
-  it("is not opened at all on a non-dry run", async () => {
-    // The real call site: main asks for a report in both modes and gets null in
-    // one of them, so the path it prints is never a stringified null.
+  it("is not opened at all on an apply run", async () => {
+    // The real call site: main asks for a report in both modes and gets null on
+    // an apply, so the path it prints is never a stringified null.
     const path = tempReportPath();
 
-    const report = await openDryRunReport({ dryRun: false }, STAGING, path);
+    const report = await openDryRunReport(
+      { mode: "apply", manifestPath: path },
+      STAGING,
+      path,
+    );
 
     expect(report).toBeNull();
     expect(existsSync(path)).toBe(false);
@@ -644,7 +658,7 @@ describe("dry-run report file", () => {
   it("opens a real, typed path on a dry run", async () => {
     const path = tempReportPath();
 
-    const report = await openDryRunReport({ dryRun: true }, STAGING, path);
+    const report = await openDryRunReport({ mode: "dry-run" }, STAGING, path);
 
     expect(report?.path).toBe(path);
     await report?.finish([]);
@@ -666,5 +680,431 @@ describe("dry-run report file", () => {
     expect(path).not.toBe(
       dryRunReportPath({ projectRef: STAGING.projectRef, now, pid: 4243 }),
     );
+  });
+});
+
+describe("English fields keep ASCII punctuation", () => {
+  /*
+   * DEV-1547 Class 2. `reputation_summary.textEn` is an ENGLISH sentence that
+   * may name a studio in Han characters. `normalizePunctuation` full-widths any
+   * punctuation touching CJK, which is right inside a Chinese sentence and
+   * wrong inside an English one: the production dry-run turned
+   * `T Shape Of (謝工作室) focuses` into `（謝工作室）` on two brands with an
+   * EMPTY terms array — no banned term fired, the formatting pass did it alone.
+   *
+   * Pruning the term list cannot reach this, which is why it is pinned here.
+   */
+  const EN_WITH_HAN =
+    "T Shape Of (謝工作室) focuses on handmade ceramic creations.";
+
+  it("leaves textEn byte-identical when no banned term fires", () => {
+    const result = localizeReputationSummary({
+      text: "評價集中在手感。",
+      textEn: EN_WITH_HAN,
+      sources: ["https://example.com"],
+    });
+
+    expect(result.changed).toBe(false);
+    expect((result.value as { textEn: string }).textEn).toBe(EN_WITH_HAN);
+  });
+
+  it("still applies the vocabulary pass to textEn", () => {
+    const result = localizeReputationSummary({
+      text: "評價集中在手感。",
+      textEn: "Reviews call it YYDS (謝工作室).",
+    });
+
+    expect(result.changed).toBe(true);
+    expect((result.value as { textEn: string }).textEn).toBe(
+      "Reviews call it 太神了 (謝工作室).",
+    );
+  });
+
+  it("keeps full-width punctuation on the Chinese side", () => {
+    const result = localizeReputationSummary({
+      text: "評價集中在(手感)。",
+      textEn: "Nothing to change here.",
+    });
+
+    expect(result.changed).toBe(true);
+    expect((result.value as { text: string }).text).toBe(
+      "評價集中在（手感）。",
+    );
+  });
+});
+/**
+ * DEV-1547 E1 + E2. The dry-run report is the apply manifest: the reviewer adds
+ * `"approve": true` to the patch lines they accept, and `--apply` replays those
+ * lines verbatim after checking each row still holds the text they reviewed.
+ *
+ * Both escalations are behavioural, so both are pinned here against the fakes:
+ * a subset must be applicable (E1), and a row that moved between review and
+ * apply must abort the run instead of being rewritten unreviewed (E2).
+ */
+describe("apply from an approved manifest", () => {
+  type ApplyCall = {
+    table: string;
+    key: Record<string, unknown>;
+    patch: Record<string, unknown>;
+  };
+
+  type ApplyCalls = {
+    reads: { table: string; key: Record<string, unknown> }[];
+    updates: ApplyCall[];
+  };
+
+  function emptyApplyCalls(): ApplyCalls {
+    return { reads: [], updates: [] };
+  }
+
+  /**
+   * A PostgREST double for the apply path only: keyed single-row reads
+   * (`select().eq()...limit()`) and keyed updates (`update().eq()...`), over an
+   * in-memory store the test can mutate between the two.
+   */
+  function applyClient(
+    store: Record<string, Record<string, unknown>[]>,
+    calls: ApplyCalls,
+  ): BackfillSupabase {
+    return {
+      from: (table: string) => ({
+        select: () => {
+          const key: Record<string, unknown> = {};
+          const chain = {
+            eq: (column: string, value: unknown) => {
+              key[column] = value;
+              return chain;
+            },
+            limit: async (count: number) => {
+              calls.reads.push({ table, key: { ...key } });
+              const matched = (store[table] ?? []).filter((row) =>
+                Object.entries(key).every(([column, value]) => {
+                  return row[column] === value;
+                }),
+              );
+              return { data: matched.slice(0, count), error: null };
+            },
+          };
+          return chain;
+        },
+        update: (patch: Record<string, unknown>) => {
+          const key: Record<string, unknown> = {};
+          const chain = {
+            eq: (column: string, value: unknown) => {
+              key[column] = value;
+              return chain;
+            },
+            then: (resolve: (value: { error: null }) => void) => {
+              calls.updates.push({ table, key: { ...key }, patch });
+              resolve({ error: null });
+            },
+          };
+          return chain;
+        },
+      }),
+    } as unknown as BackfillSupabase;
+  }
+
+  /** Render report entries as the NDJSON file, approving the chosen fields. */
+  function manifestFor(
+    entries: readonly DryRunEntry[],
+    approve: (entry: DryRunEntry) => boolean,
+  ): string {
+    return [
+      JSON.stringify({
+        kind: "header",
+        generatedAt: new Date().toISOString(),
+        environment: STAGING,
+      }),
+      ...entries.map((entry) =>
+        JSON.stringify(
+          approve(entry)
+            ? { kind: "patch", ...entry, approve: true }
+            : { kind: "patch", ...entry },
+        ),
+      ),
+    ].join("\n");
+  }
+
+  /** Scan a store, and hand back the entries the reviewer would read. */
+  async function scanForReview(
+    store: Record<string, Record<string, unknown>[]>,
+  ): Promise<DryRunEntry[]> {
+    const sink = recordingSink();
+    await scanTable(
+      fakeClient(
+        { curated_products: [store.curated_products ?? []] },
+        emptyCalls(),
+      ),
+      CURATED_PRODUCTS_TABLE,
+      sink,
+    );
+    return sink.written;
+  }
+
+  function approvedFrom(
+    entries: readonly DryRunEntry[],
+    approve: (entry: DryRunEntry) => boolean,
+  ): ApprovedEntry[] {
+    return parseManifest(manifestFor(entries, approve)).approved;
+  }
+
+  it("writes only the patches the reviewer approved", async () => {
+    // The production shape in miniature: three patchable fields across two
+    // rows, one of which the reviewer accepts.
+    const store = {
+      curated_products: [
+        dirtyProduct(PRODUCT_ID) as Record<string, unknown>,
+        dirtyProduct("row-2") as Record<string, unknown>,
+      ],
+    };
+    const entries = await scanForReview(store);
+    expect(entries).toHaveLength(4);
+
+    const approved = approvedFrom(
+      entries,
+      (entry) => entry.key.id === PRODUCT_ID && entry.field === "name_zh",
+    );
+    expect(approved).toHaveLength(1);
+
+    const calls = emptyApplyCalls();
+    const result = await applyApproved(applyClient(store, calls), approved);
+
+    expect(result).toEqual({
+      applied: 1,
+      rowsByTable: { curated_products: 1 },
+    });
+    expect(calls.updates).toEqual([
+      {
+        table: "curated_products",
+        key: { id: PRODUCT_ID },
+        patch: { name_zh: `高${CORRECTED}保溫瓶` },
+      },
+    ]);
+  });
+
+  it("aborts without writing when a row changed since it was reviewed", async () => {
+    const store = {
+      curated_products: [dirtyProduct(PRODUCT_ID) as Record<string, unknown>],
+    };
+    const approved = approvedFrom(await scanForReview(store), () => true);
+
+    // Enrichment re-authors the row while the human is still reading the diff.
+    store.curated_products[0]!.product_description_zh = `官網有新的${BANNED_LINK}。`;
+
+    const calls = emptyApplyCalls();
+    await expect(
+      applyApproved(applyClient(store, calls), approved),
+    ).rejects.toThrow(/value_changed/);
+
+    // Nothing at all: not even the field that did not move. A half-applied
+    // manifest is the one outcome the reviewer cannot reason about.
+    expect(calls.updates).toEqual([]);
+  });
+
+  it("reports a row that disappeared rather than writing it back", async () => {
+    const store = {
+      curated_products: [dirtyProduct(PRODUCT_ID) as Record<string, unknown>],
+    };
+    const approved = approvedFrom(await scanForReview(store), () => true);
+    store.curated_products = [];
+
+    const calls = emptyApplyCalls();
+    await expect(
+      applyApproved(applyClient(store, calls), approved),
+    ).rejects.toThrow(/row_missing/);
+    expect(calls.updates).toEqual([]);
+  });
+
+  it("replays the approved text, not a value recomputed from the term list", async () => {
+    const store = {
+      curated_products: [dirtyProduct(PRODUCT_ID) as Record<string, unknown>],
+    };
+    const approved = approvedFrom(
+      await scanForReview(store),
+      (entry) => entry.field === "name_zh",
+    );
+    // What lands is the string in the file, whatever the current rules would
+    // now produce from the same row.
+    const edited: ApprovedEntry[] = approved.map((entry) => ({
+      ...entry,
+      after: "operator's own wording",
+    }));
+
+    const calls = emptyApplyCalls();
+    await applyApproved(applyClient(store, calls), edited);
+
+    expect(calls.updates[0]?.patch).toEqual({
+      name_zh: "operator's own wording",
+    });
+  });
+
+  it("writes a jsonb column back as an object, not as its stringified form", async () => {
+    const before = {
+      text: `評價集中在${BANNED}。`,
+      textEn: "Reviews call it YYDS.",
+    };
+    const after = {
+      text: `評價集中在${CORRECTED}。`,
+      textEn: "Reviews call it 太神了.",
+    };
+    const approved: ApprovedEntry[] = [
+      {
+        table: "brands",
+        key: { id: BRAND_ID },
+        field: "reputation_summary",
+        before: JSON.stringify(before),
+        after: JSON.stringify(after),
+        encoding: "json",
+      },
+    ];
+    const store = {
+      brands: [
+        { id: BRAND_ID, reputation_summary: before } as Record<string, unknown>,
+      ],
+    };
+
+    const calls = emptyApplyCalls();
+    await applyApproved(applyClient(store, calls), approved);
+
+    expect(calls.updates[0]?.patch).toEqual({ reputation_summary: after });
+  });
+
+  it("keys a brand_faq_entries update on the whole composite key", async () => {
+    const approved: ApprovedEntry[] = [
+      {
+        table: "brand_faq_entries",
+        key: { brand_id: BRAND_ID, preset_id: "shipping", position: 3 },
+        field: "question_zh",
+        before: `運送${BANNED}如何？`,
+        after: `運送${CORRECTED}如何？`,
+        encoding: "text",
+      },
+    ];
+    const store = {
+      brand_faq_entries: [
+        {
+          brand_id: BRAND_ID,
+          preset_id: "shipping",
+          position: 3,
+          question_zh: `運送${BANNED}如何？`,
+        } as Record<string, unknown>,
+      ],
+    };
+
+    const calls = emptyApplyCalls();
+    await applyApproved(applyClient(store, calls), approved);
+
+    expect(calls.reads[0]?.key).toEqual({
+      brand_id: BRAND_ID,
+      preset_id: "shipping",
+      position: 3,
+    });
+    expect(calls.updates[0]?.key).toEqual({
+      brand_id: BRAND_ID,
+      preset_id: "shipping",
+      position: 3,
+    });
+  });
+
+  it("collapses two approved fields of one row into one update", async () => {
+    const store = {
+      curated_products: [dirtyProduct(PRODUCT_ID) as Record<string, unknown>],
+    };
+    const approved = approvedFrom(await scanForReview(store), () => true);
+    expect(approved).toHaveLength(2);
+
+    const calls = emptyApplyCalls();
+    const result = await applyApproved(applyClient(store, calls), approved);
+
+    expect(result.applied).toBe(2);
+    expect(calls.updates).toHaveLength(1);
+    expect(calls.updates[0]?.patch).toEqual({
+      name_zh: `高${CORRECTED}保溫瓶`,
+      product_description_zh: `官網有產品${CORRECTED_LINK}。`,
+    });
+  });
+});
+
+describe("parseManifest", () => {
+  const HEADER = JSON.stringify({
+    kind: "header",
+    generatedAt: "2026-08-21T00:00:00.000Z",
+    environment: STAGING,
+  });
+
+  function patchLine(extra: Record<string, unknown>): string {
+    return JSON.stringify({
+      kind: "patch",
+      table: "curated_products",
+      key: { id: PRODUCT_ID },
+      field: "name_zh",
+      before: `高${BANNED}保溫瓶`,
+      after: `高${CORRECTED}保溫瓶`,
+      encoding: "text",
+      terms: [],
+      ...extra,
+    });
+  }
+
+  it("approves nothing in an unedited report", () => {
+    // The safe default: reviewing is an act, and a file nobody edited says the
+    // reviewer approved nothing.
+    const review = parseManifest(
+      [HEADER, patchLine({}), patchLine({})].join("\n"),
+    );
+
+    expect(review.totalPatches).toBe(2);
+    expect(review.approved).toEqual([]);
+    expect(review.environment).toEqual(STAGING);
+  });
+
+  it("takes only the lines marked approve", () => {
+    const review = parseManifest(
+      [HEADER, patchLine({ approve: true }), patchLine({})].join("\n"),
+    );
+
+    expect(review.totalPatches).toBe(2);
+    expect(review.approved).toHaveLength(1);
+    expect(review.approved[0]?.after).toBe(`高${CORRECTED}保溫瓶`);
+  });
+
+  it("refuses an approve value it does not define instead of reading it as no", () => {
+    // A typo must not silently drop a patch the reviewer meant to apply.
+    expect(() =>
+      parseManifest([HEADER, patchLine({ approve: "yes" })].join("\n")),
+    ).toThrow(/approve must be true or absent/);
+  });
+
+  it("refuses a malformed line rather than skipping it", () => {
+    expect(() => parseManifest([HEADER, "{ not json"].join("\n"))).toThrow(
+      /line 2: not valid JSON/,
+    );
+    expect(() =>
+      parseManifest([HEADER, patchLine({ approve: true, key: {} })].join("\n")),
+    ).toThrow(/key is empty/);
+    expect(() =>
+      parseManifest(
+        [HEADER, patchLine({ approve: true, encoding: "yaml" })].join("\n"),
+      ),
+    ).toThrow(/encoding must be text or json/);
+  });
+});
+
+describe("assertSameEnvironment", () => {
+  it("refuses a manifest reviewed against another database", () => {
+    // The failure this exists for: approve on staging, apply on production.
+    const production = supabaseEnvironment(
+      "https://xkcayngbttpxyibgzern.supabase.co",
+    );
+
+    expect(() => assertSameEnvironment(STAGING, production)).toThrow(
+      /xwkigpvnheecihpxyvsl/,
+    );
+    expect(() => assertSameEnvironment(STAGING, STAGING)).not.toThrow();
+  });
+
+  it("refuses a manifest with no header at all", () => {
+    expect(() => assertSameEnvironment(null, STAGING)).toThrow(/no header/);
   });
 });
