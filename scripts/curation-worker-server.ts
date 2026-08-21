@@ -12,6 +12,7 @@ import {
 } from "./curation-worker-loop";
 import { isStagingEnvironment } from "@/lib/deployment-environment";
 import { assertWorkerDatabaseTarget } from "./worker-target";
+import { isCurationWorkerHealthPath } from "./curation-worker-health-paths";
 
 config({ path: ".env.local", quiet: true });
 
@@ -188,7 +189,7 @@ async function handleRequest(
   request: IncomingMessage,
   response: ServerResponse,
 ): Promise<void> {
-  if (request.method === "GET" && request.url === "/health") {
+  if (request.method === "GET" && isCurationWorkerHealthPath(request.url)) {
     sendJson(response, 200, {
       ok: true,
       environment: target.deploymentEnvironment,
