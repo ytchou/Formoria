@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { selectBrandCardImage } from "../image-selection";
 
-const logoUrl = "https://atelier.supabase.co/storage/v1/object/public/logo.png";
-const productUrl =
-  "https://atelier.supabase.co/storage/v1/object/public/ceramic-cup.jpg";
+// Images are addressed through the same-origin image proxy. DEV-1551 emptied
+// ALLOWED_IMAGE_HOSTS, so an absolute remote URL now resolves to null.
+const logoUrl = "/i/brands/atelier/logo.png";
+const productUrl = "/i/brands/atelier/ceramic-cup.jpg";
 
 describe("selectBrandCardImage", () => {
   it("chooses the first non-logo product photo with its aligned metadata", () => {

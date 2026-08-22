@@ -90,6 +90,12 @@ async function withRedirectLookupServer<T>(callback: () => Promise<T>) {
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "");
+  // `mockReset`, not `mockImplementation` alone. Vitest is not configured with
+  // `clearMocks`, so call history survives across cases in this file: any test
+  // asserting a CALL COUNT would otherwise read the sum of every earlier case
+  // that reached the same call site.
+  limiter.checkRateLimit.mockReset();
+  limiter.checkSoftRateLimit.mockReset();
   limiter.checkRateLimit.mockImplementation(async () => null);
   limiter.checkSoftRateLimit.mockImplementation(async () => false);
 });

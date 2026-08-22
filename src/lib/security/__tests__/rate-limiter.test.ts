@@ -495,7 +495,9 @@ describe('exact brand directory rate limit', () => {
   })
 
   it('does not consume the directory budget for Next router requests', async () => {
-    const routerHeaders = { accept: '*/*' }
+    // A surviving router signal. `accept` was deleted as a signal in DEV-1551
+    // (see the isRouterRequest block below), so it no longer exempts anything.
+    const routerHeaders = { RSC: '1' }
 
     for (let requestNumber = 1; requestNumber <= directoryLimit; requestNumber += 1) {
       expect(await checkRateLimit(request('/en/brands'))).toBeNull()
