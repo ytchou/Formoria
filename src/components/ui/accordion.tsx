@@ -31,12 +31,16 @@ import { cn } from "@/lib/utils";
  *              else never fires.
  * Anything that moves those onto a wrapper breaks production, not just tests.
  */
-const accordionStyles = cva("overflow-hidden rounded-[3px] border border-rule", {
+const accordionStyles = cva("", {
   variants: {
     variant: {
-      boxed: "",
-      /* Edge-to-edge inside an existing bordered container. */
-      flush: "rounded-none border-x-0",
+      /* Separated cards: each item is its own bordered block, with a gap
+         between them. The stack is deliberately NOT one continuous box —
+         a shared-border table reads as a grid of rows rather than a set of
+         things you can open. */
+      boxed: "space-y-3",
+      /* No gaps: items sit flush against each other in one column. */
+      flush: "space-y-0",
     },
   },
   defaultVariants: {
@@ -78,17 +82,30 @@ function AccordionItem({
   return (
     <details
       data-slot="accordion-item"
-      className={cn("group border-b border-rule last:border-b-0", className)}
+      className={cn(
+        /* 8px, softer than DESIGN.md's 2-3px surface radius. Deliberate and
+           scoped to this component: the separated-card accordion reads as a
+           set of pressable blocks, and a near-square corner made them look
+           like table rows. */
+        "group overflow-hidden rounded-[8px] border border-rule",
+        className,
+      )}
       {...props}
     >
       {/* The row's padding lives on <summary>, the interactive element, so the
           whole visual row is the hit target (~56px, over the 44px minimum) and
           the focus ring wraps it rather than the text alone. The ring is inset
-          because the container clips an outset one. */}
+          because the item clips an outset one.
+
+          The open row carries a deeper fill than the hover fill, so "this is
+          the one I am reading" survives the mouse moving away. `group-open`
+          is repeated on the hover variant because a bare `hover:` would
+          otherwise lighten the open row back to the hover tone. */}
       <summary
         className={cn(
           "flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-4",
-          "type-card-title text-ink transition-colors hover:bg-surface",
+          "type-body text-ink transition-colors hover:bg-surface",
+          "group-open:bg-surface-deep group-open:hover:bg-surface-deep",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent",
           "[&::-webkit-details-marker]:hidden",
           titleClassName,

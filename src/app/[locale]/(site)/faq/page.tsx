@@ -5,7 +5,6 @@ import type { Locale } from '@/lib/seo/alternates'
 import { buildOpenGraph } from '@/lib/seo/open-graph'
 import { Link } from '@/i18n/navigation'
 import { Accordion, AccordionItem } from '@/components/ui/accordion'
-import { FaqSection } from '@/components/shared/faq-section'
 import { OpenTargetDetails } from '@/components/shared/open-target-details'
 import { PageShell } from '@/components/ui/page-shell'
 import { routes } from '@/lib/routes'
@@ -103,7 +102,10 @@ export default async function FaqPage({ params }: PageProps) {
           aria-labelledby="faq-heading"
           className="space-y-10 md:col-span-4"
         >
-          <FaqSection id="general" title={t('sections.general')}>
+          <section id="general" className="scroll-mt-24">
+            <div className="mb-4 border-b border-rule pb-3">
+              <h2 className="type-card-title">{t('sections.general')}</h2>
+            </div>
             <Accordion>
               {generalItemKeys.map((key) => (
                 <AccordionItem
@@ -111,11 +113,11 @@ export default async function FaqPage({ params }: PageProps) {
                   className="scroll-mt-24"
                   title={t(`items.${key}.question`)}
                 >
-                  <p className="prose-measure">{t(`items.${key}.answer`)}</p>
+                  <p>{t(`items.${key}.answer`)}</p>
                 </AccordionItem>
               ))}
               <AccordionItem title={t('items.contact.question')}>
-                <p className="prose-measure">
+                <p>
                   {t.rich('items.contact.answer', {
                     link: (chunks) => (
                       <Link href={routes.contact()} className="underline underline-offset-4">
@@ -126,8 +128,11 @@ export default async function FaqPage({ params }: PageProps) {
                 </p>
               </AccordionItem>
             </Accordion>
-          </FaqSection>
-          <FaqSection id="for-owners" title={t('sections.forOwners')}>
+          </section>
+          <section id="for-owners" className="scroll-mt-24">
+            <div className="mb-4 border-b border-rule pb-3">
+              <h2 className="type-card-title">{t('sections.forOwners')}</h2>
+            </div>
             <Accordion>
               {/* Brand claiming is live (`ClaimBrandCta` on the brand page), so
                   this answer describes the claim flow; the remaining owner
@@ -140,7 +145,7 @@ export default async function FaqPage({ params }: PageProps) {
                 className="scroll-mt-24"
                 title={t('items.ownerInterest.question')}
               >
-                <p className="prose-measure">
+                <p>
                   {t.rich('items.ownerInterest.answer', {
                     link: (chunks) => (
                       <Link
@@ -154,7 +159,7 @@ export default async function FaqPage({ params }: PageProps) {
                 </p>
               </AccordionItem>
             </Accordion>
-          </FaqSection>
+          </section>
         </div>
       </div>
     </PageShell>

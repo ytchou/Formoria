@@ -5,8 +5,8 @@ import { useTranslations } from "next-intl";
 import { trackFaqItemExpanded } from "@/lib/analytics";
 
 import { Accordion, AccordionItem } from "@/components/ui/accordion";
+import { Typography } from "@/components/ui/typography";
 import { OpenTargetDetails } from "@/components/shared/open-target-details";
-import { FaqSection } from "@/components/shared/faq-section";
 import { sanitizeHref } from "@/lib/url";
 import { useBrandEngagement } from "./brand-engagement-tracker";
 
@@ -60,7 +60,12 @@ export function BrandFaqAccordion({
   }
 
   return (
-    <FaqSection title={t("faq")} headerClassName="mb-4">
+    <>
+      {/* The <section id="faq"> landmark and its scroll offset belong to the
+          brand page, which already wraps this component in one. */}
+      <Typography as="h2" className="mb-4" variant="sectionTitleLarge">
+        {t("faq")}
+      </Typography>
       <OpenTargetDetails />
       <Accordion>
         {items.map((item) => (
@@ -71,10 +76,10 @@ export function BrandFaqAccordion({
             onToggle={(event) => handleToggle(event, item.id)}
             title={item.question}
           >
-            <p className="prose-measure">{renderLinkedText(item.answer)}</p>
+            <p>{renderLinkedText(item.answer)}</p>
           </AccordionItem>
         ))}
       </Accordion>
-    </FaqSection>
+    </>
   );
 }
