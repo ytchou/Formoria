@@ -92,6 +92,8 @@ export const NON_SERVICE_ENV: Readonly<Record<string, string>> = {
     "Deployment-specific auth and redirect origin, not a provider service.",
   STAGING_BASE_URL:
     "Canonical staging E2E target origin, not a provider service.",
+  PRODUCTION_BASE_URL:
+    "Canonical production probe target origin, not a provider service.",
   E2E_ORIGIN_SECRET:
     "Staging E2E origin authentication secret, not a provider service.",
   CURATION_WORKER_URL: "Internal worker routing target, not a credential.",
