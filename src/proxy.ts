@@ -27,6 +27,12 @@ import {
 } from "@/lib/security/rate-limiter";
 import { RATE_LIMIT_STORE_HEADER } from "@/lib/security/rate-limit-observability";
 import {
+  resolveVisitorIdentity,
+  VISITOR_COOKIE_NAME,
+  VISITOR_COOKIE_OPTIONS,
+} from "@/lib/security/visitor-identity";
+import { warnIfOriginGuardDisabled } from "@/lib/security/origin-guard";
+import {
   hasApprovedBrandSlug,
   resolveApprovedBrandRedirect,
 } from "@/lib/services/brand-redirects-edge";
@@ -541,9 +547,63 @@ function finalizeResponse(
   return response;
 }
 
+// A blank CF_ORIGIN_SECRET leaves the origin guard off (see origin-guard.ts).
+// That stays non-blocking on purpose, but it must not stay silent.
+warnIfOriginGuardDisabled();
+
+/**
+ * Reads the signed `fm_visitor` cookie and mints one when it is absent or fails
+ * verification. Deliberately reads `request.cookies` and not `cookies()` from
+ * `next/headers`, which is server-only and unusable in the edge proxy.
+ *
+ * Runs after `runProxy` so every terminal return path picks the cookie up,
+ * instead of threading a mint through a dozen `finalizeResponse` call sites.
+ *
+ * Two skips, both about the CDN, and both deliberate:
+ * - a `Set-Cookie` on a publicly cacheable response lets a shared cache hand
+ *   one visitor's identity to the next visitor, so responses already marked
+ *   `public` / `s-maxage` (the directory edge cache) are left untouched;
+ * - crawlers do not retain cookies, so minting for them buys no identity and
+ *   only makes their responses uncacheable.
+ *
+ * Ceiling: a visitor whose first hit is a cached directory index receives the
+ * cookie on their next non-cacheable response instead of the first one.
+ * Upgrade path: mint at the Cloudflare edge if identity coverage on first paint
+ * ever becomes load-bearing.
+ */
+async function attachVisitorIdentity(
+  request: NextRequest,
+  response: NextResponse,
+): Promise<NextResponse> {
+  const cacheControl = response.headers.get("cache-control") ?? "";
+  if (cacheControl.includes("public") || cacheControl.includes("s-maxage")) {
+    return response;
+  }
+  if (isLikelyCrawler(request)) return response;
+
+  try {
+    const identity = await resolveVisitorIdentity(
+      request.cookies.get(VISITOR_COOKIE_NAME)?.value,
+    );
+    if (identity.minted) {
+      response.cookies.set(
+        VISITOR_COOKIE_NAME,
+        identity.signedValue,
+        VISITOR_COOKIE_OPTIONS,
+      );
+    }
+  } catch (error) {
+    // `warning`: a missing CHALLENGE_SECRET degrades traversal accounting to
+    // the IP aggregate. It must never fail a page request.
+    reportProxyFailure("visitor-identity", error, "warning");
+  }
+
+  return response;
+}
+
 export async function proxy(request: NextRequest) {
   try {
-    return await runProxy(request);
+    return await attachVisitorIdentity(request, await runProxy(request));
   } catch (error) {
     // Fired before the rethrow and deliberately not awaited: the capture is
     // asynchronous, and the request must fail exactly as it does today.
@@ -619,38 +679,12 @@ async function runProxy(request: NextRequest) {
   // case at a single test.
   const crawlerHit = !isPlaywrightTest && isLikelyCrawler(request);
 
-  const host = request.headers.get("host") ?? "";
-  if (host === (process.env.MICROSITE_HOST ?? "brand.formoria.com")) {
-    const segments = pathname.split("/").filter(Boolean);
-
-    // Microsite traffic is recorded under the post-rewrite path so it lands in
-    // the `microsite` path_class instead of being silently absent from the
-    // telemetry. Recorded before the branch returns because both exits below
-    // are terminal.
-    if (crawlerHit) {
-      recordCrawlerHit({
-        headers: request.headers,
-        nextUrl: { pathname: `/site${pathname}` },
-      });
-    }
-
-    if (segments.length === 1) {
-      const slug = segments[0];
-      if (
-        !RESERVED_ROUTES.has(slug) &&
-        slug !== "_next" &&
-        slug !== "api" &&
-        SLUG_PATTERN.test(slug)
-      ) {
-        const url = request.nextUrl.clone();
-        url.pathname = `/site${pathname}`;
-        return finalizeResponse(NextResponse.rewrite(url), staging);
-      }
-    }
-
-    return finalizeResponse(NextResponse.next(), staging);
-  }
-
+  // ORDER IS LOAD-BEARING. This guard sits above the microsite branch because
+  // that branch is terminal -- it rewrites or returns for every request on
+  // MICROSITE_HOST. With the guard below it, anyone who set `Host:
+  // brand.formoria.com` reached the origin without an edge credential and got
+  // the whole microsite surface unguarded. The guard is host-independent, so
+  // running it first costs nothing and closes that hole.
   const cfOriginSecret = process.env.CF_ORIGIN_SECRET;
   if (process.env.NODE_ENV === "production" && cfOriginSecret) {
     // Two different credentials, one header each:
@@ -686,6 +720,38 @@ async function runProxy(request: NextRequest) {
         staging,
       );
     }
+  }
+
+  const host = request.headers.get("host") ?? "";
+  if (host === (process.env.MICROSITE_HOST ?? "brand.formoria.com")) {
+    const segments = pathname.split("/").filter(Boolean);
+
+    // Microsite traffic is recorded under the post-rewrite path so it lands in
+    // the `microsite` path_class instead of being silently absent from the
+    // telemetry. Recorded before the branch returns because both exits below
+    // are terminal.
+    if (crawlerHit) {
+      recordCrawlerHit({
+        headers: request.headers,
+        nextUrl: { pathname: `/site${pathname}` },
+      });
+    }
+
+    if (segments.length === 1) {
+      const slug = segments[0];
+      if (
+        !RESERVED_ROUTES.has(slug) &&
+        slug !== "_next" &&
+        slug !== "api" &&
+        SLUG_PATTERN.test(slug)
+      ) {
+        const url = request.nextUrl.clone();
+        url.pathname = `/site${pathname}`;
+        return finalizeResponse(NextResponse.rewrite(url), staging);
+      }
+    }
+
+    return finalizeResponse(NextResponse.next(), staging);
   }
 
   if (pathname === routes.auth.callback()) {

@@ -23,13 +23,17 @@ export const PROXIED_IMAGE_BUCKET = "brand-images" as const;
  *
  * `submissions/` is deliberately absent: submission imagery is pre-moderation
  * content that only admins may see, and admin review signs its URLs instead
- * (see `src/lib/services/_shared/signed-urls.ts`). `curated-products/` is
- * absent because nothing renders it through this route yet — add it with its
- * own test when something does.
+ * (see `src/lib/services/_shared/signed-urls.ts`).
+ *
+ * `curated-products/` was added when task 11 flipped the bucket private: the
+ * curated product layer renders `curated_products.image_url` on public pages,
+ * and its objects live under this same bucket, so without this prefix every
+ * curated product image would 404 the moment the bucket stopped being public.
  */
 export const PROXIED_IMAGE_PREFIXES = [
   "brands/",
   "event-exhibitors/",
+  "curated-products/",
 ] as const;
 
 export const PROXIED_IMAGE_CACHE_CONTROL =

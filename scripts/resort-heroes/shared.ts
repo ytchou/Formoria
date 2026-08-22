@@ -92,7 +92,10 @@ export function fingerprint(
 export function snapshot(row: BrandImageForClassification): HeroSnapshot {
   return {
     id: row.id,
-    url: row.url,
+    // `url` is the legacy public column, now optional on the row type because
+    // nothing writes it any more. This maintenance script still reads it for the
+    // preview thumbnails; a row without one renders an empty frame.
+    url: row.url ?? '',
     width: row.width ?? null,
     height: row.height ?? null,
     score:

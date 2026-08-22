@@ -7,13 +7,15 @@ import {
 } from '@/lib/images/allowed-image-hosts'
 
 describe('isAllowedImageHost', () => {
-  it('contains only the Supabase wildcard', () => {
-    expect(ALLOWED_IMAGE_HOSTS).toEqual(['*.supabase.co'])
+  it('is empty: every image we own is served same-origin from /i/', () => {
+    // DEV-1551 task 11. `*.supabase.co` was the only entry and it is gone with
+    // the private-bucket flip. Adding a host back re-opens hotlinking.
+    expect(ALLOWED_IMAGE_HOSTS).toEqual([])
   })
 
-  it('matches wildcard hosts at any subdomain depth', () => {
-    expect(isAllowedImageHost('abc.supabase.co')).toBe(true)
-    expect(isAllowedImageHost('project.storage.supabase.co')).toBe(true)
+  it('no longer allows the Supabase storage host', () => {
+    expect(isAllowedImageHost('abc.supabase.co')).toBe(false)
+    expect(isAllowedImageHost('project.storage.supabase.co')).toBe(false)
   })
 
   it('rejects previously-allowed external hosts', () => {
@@ -32,16 +34,13 @@ describe('isAllowedImageHost', () => {
 })
 
 describe('safeImageSrc', () => {
-  it('upgrades http to https for allowed hosts (next/image is https-only)', () => {
+  it('rejects a public storage URL, which the private bucket no longer serves', () => {
     expect(
       safeImageSrc('http://project.supabase.co/storage/v1/object/public/brand/logo.jpg'),
-    ).toBe('https://project.supabase.co/storage/v1/object/public/brand/logo.jpg')
-  })
-
-  it('returns https URLs on allowed hosts unchanged', () => {
+    ).toBeNull()
     expect(
       safeImageSrc('https://project.supabase.co/storage/v1/object/public/brand/logo.png'),
-    ).toBe('https://project.supabase.co/storage/v1/object/public/brand/logo.png')
+    ).toBeNull()
   })
 
   it('returns null for external CDN URLs (post-migration)', () => {

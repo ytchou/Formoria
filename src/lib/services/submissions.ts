@@ -29,6 +29,7 @@ import {
 } from "./submission-review-stage";
 import { ConflictError, NotFoundError } from "@/lib/errors";
 import { createServiceClient } from "@/lib/supabase/service";
+import { imagePathToUrl } from "@/lib/images/image-url";
 import {
   extractLatinRun,
   generateSlug,
@@ -86,6 +87,7 @@ type SubmissionRowWithCategoryNote = Omit<
   "other_urls" | OnlineStoreColumn
 > & {
   hero_image_url?: string | null;
+  hero_image_storage_path?: string | null;
   category_note?: string | null;
   social_instagram?: string | null;
   social_threads?: string | null;
@@ -105,7 +107,6 @@ type BrandImageReviewRow = Pick<
   | "id"
   | "brand_id"
   | "storage_path"
-  | "url"
   | "source"
   | "status"
   | "sort_order"
@@ -403,7 +404,14 @@ function submissionToDomain(
     submitterName: row.submitter_name ?? null,
     description: row.description ?? null,
     websiteUrl: row.website_url ?? null,
-    heroImageUrl: row.hero_image_url ?? null,
+    /*
+     * Prefer the bucket key (DEV-1551). The legacy `hero_image_url` is kept as
+     * a fallback because a submission hero is often an EXTERNAL scraped URL
+     * that never had an object of ours behind it — unlike a brand hero, which
+     * is always downloaded into storage first.
+     */
+    heroImageUrl:
+      imagePathToUrl(row.hero_image_storage_path) ?? row.hero_image_url ?? null,
     socialInstagram: row.social_instagram ?? null,
     socialThreads: row.social_threads ?? null,
     socialFacebook: row.social_facebook ?? null,
@@ -676,7 +684,14 @@ function submissionImageToReviewImage(
     id: row.id,
     submissionId: row.submission_id,
     storagePath: row.storage_path,
-    url: row.url,
+    /*
+     * Placeholder until `attachSignedSubmissionImageUrls` replaces it.
+     * `submissions/` objects are pre-moderation and the `/i/` proxy 404s them
+     * on purpose, so there is no unsigned form to fall back to. A row whose
+     * signing fails renders nothing, which is the correct failure for content
+     * only an admin may see.
+     */
+    url: "",
     source: row.source,
     status: imageStatus(row.status),
     sortOrder: row.sort_order,
@@ -697,7 +712,10 @@ function brandImageToReviewImage(
     id: row.id,
     submissionId,
     storagePath: row.storage_path,
-    url: row.url,
+    // A PUBLISHED brand image, so the same-origin proxy serves it (DEV-1551).
+    // Only `submissions/` keys are gated behind a signed URL, and those come
+    // through `submissionImageToReviewImage` instead.
+    url: imagePathToUrl(row.storage_path) ?? "",
     source: row.source,
     status: imageStatus(row.status),
     sortOrder: row.sort_order,
@@ -1014,6 +1032,7 @@ export function getSubmissionReviewCompleteness(
 function submissionToBrandBase(row: SubmissionRow): BrandInsert {
   const rowWithSubmissionImages = row as SubmissionRow & {
     hero_image_url?: string | null;
+    hero_image_storage_path?: string | null;
   };
   const purchaseFields = Object.fromEntries(
     ONLINE_STORE_COLUMNS.map((column) => [column, row[column]]),
@@ -1025,6 +1044,11 @@ function submissionToBrandBase(row: SubmissionRow): BrandInsert {
     romanized_name: normalizeString(row.romanized_name),
     description: row.description,
     hero_image_url: rowWithSubmissionImages.hero_image_url ?? null,
+    // Carried across so an approved brand has a readable hero under the private
+    // bucket (DEV-1551). `hero_image_url` rides along untouched for the SQL
+    // functions that still read it.
+    hero_image_storage_path:
+      rowWithSubmissionImages.hero_image_storage_path ?? null,
     status: "approved",
     is_demo: false,
     category: null as unknown as string,
@@ -1438,6 +1462,7 @@ const ADMIN_REVIEW_SUBMISSIONS_SELECT = `
   description,
   website_url,
   hero_image_url,
+  hero_image_storage_path,
   social_instagram,
   social_threads,
   social_facebook,
@@ -1589,7 +1614,7 @@ export async function getSubmissionsForReview(options?: {
             const { data: imageData, error: imagesError } = await supabase
               .from("submission_images")
               .select(
-                "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, origin_brand_image_id",
+                "id, submission_id, storage_path, source, status, sort_order, alt_zh, alt_en, tags, width, height, origin_brand_image_id",
               )
               .in("submission_id", targetIds)
               .order("submission_id", { ascending: true })
@@ -1646,7 +1671,7 @@ export async function getSubmissionsForReview(options?: {
             const { data: imageData, error: imagesError } = await supabase
               .from("brand_images")
               .select(
-                "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height",
+                "id, brand_id, storage_path, source, status, sort_order, alt_zh, alt_en, tags, width, height",
               )
               .in("brand_id", brandIds)
               .eq("status", "active")
@@ -2178,7 +2203,6 @@ export async function saveSubmissionReview(
 export type StageSubmissionReviewImageInput = {
   submissionId: string;
   storagePath: string;
-  url: string;
   width: number;
   height: number;
 };
@@ -2207,9 +2231,10 @@ export async function stageSubmissionReviewImage(
     .from("submission_images")
     .insert({
       submission_id: input.submissionId,
+      // DEV-1551 task 12: the bucket key is the only reference written. The
+      // `url` column keeps its schema default; nothing here fills it.
       storage_path: input.storagePath,
-      url: input.url,
-      source_url: input.url,
+      source_url: input.storagePath,
       source: "admin",
       status: "draft",
       sort_order: 0,
@@ -2317,7 +2342,7 @@ export async function approveSubmission(
   const { data: imageRows, error: imageError } = await supabase
     .from("submission_images")
     .select(
-      "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, origin_brand_image_id",
+      "id, submission_id, storage_path, source, status, sort_order, alt_zh, alt_en, tags, width, height, origin_brand_image_id",
     )
     .eq("submission_id", id)
     .order("sort_order", { ascending: true });

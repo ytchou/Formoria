@@ -7,6 +7,7 @@ import {
   MAX_BRAND_IMAGE_SELECTION,
 } from "@/lib/constants/brand-images";
 import { createServiceClient } from "@/lib/supabase/service";
+import { imagePathToUrl } from "@/lib/images/image-url";
 import {
   chunkBrandIdBatches,
   fetchActiveBrandImageRows,
@@ -32,7 +33,6 @@ type BrandImageRow = {
   id: string;
   brand_id: string;
   storage_path: string | null;
-  url: string;
   source: string;
   status: string;
   sort_order: number;
@@ -45,7 +45,7 @@ type BrandImageRow = {
 };
 
 const ADMIN_BRAND_IMAGE_SELECT =
-  "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, source_url";
+  "id, brand_id, storage_path, source, status, sort_order, alt_zh, alt_en, tags, width, height, source_url";
 
 export async function getAdminBrandReviewImages(
   brandIds: string[],
@@ -74,7 +74,6 @@ export async function getAdminBrandReviewImages(
 export async function stageAdminBrandReviewImage(input: {
   brandId: string;
   storagePath: string;
-  url: string;
   width: number;
   height: number;
 }): Promise<SubmissionReviewImage> {
@@ -93,10 +92,10 @@ export async function stageAdminBrandReviewImage(input: {
     .insert({
       id,
       brand_id: input.brandId,
+      // DEV-1551 task 12: the bucket key is the only reference written.
       storage_path: input.storagePath,
-      url: input.url,
       source: "admin",
-      source_url: input.url,
+      source_url: input.storagePath,
       status: "draft",
       // Parked above every active row until the reviewer places the image, so
       // it can never collide with a real gallery position. See
@@ -230,7 +229,12 @@ export async function saveAdminBrandReview(
   await rejectBrandImages(
     supabase,
     brandId,
-    removedActive.map((row) => row.url),
+    // `rejectBrandImages` keys on the rendered `/i/<key>` reference since
+    // DEV-1551; a row with no bucket key resolves to nothing and is skipped.
+    removedActive.flatMap((row) => {
+      const ref = imagePathToUrl(row.storage_path);
+      return ref ? [ref] : [];
+    }),
   );
 
   if (selectedRows.length > 0) {
@@ -258,7 +262,8 @@ function toReviewImage(row: BrandImageRow): SubmissionReviewImage {
     id: row.id,
     submissionId: row.brand_id,
     storagePath: row.storage_path,
-    url: row.url,
+    // Published brand imagery, so the same-origin proxy serves it (DEV-1551).
+    url: imagePathToUrl(row.storage_path) ?? "",
     source: row.source,
     status:
       row.status === "candidate" || row.status === "draft" || row.status === "rejected"

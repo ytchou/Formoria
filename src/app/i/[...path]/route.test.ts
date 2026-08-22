@@ -33,6 +33,7 @@ function storageWith(objects: Record<string, string>): {
 const BRAND_KEY = "brands/2f1c9a4e-0000-4000-8000-000000000001/hero.webp";
 const EXHIBITOR_KEY = "event-exhibitors/2026-expo/booth-a1.webp";
 const SUBMISSION_KEY = "submissions/2f1c9a4e-0000-4000-8000-000000000002/x.webp";
+const CURATED_KEY = "curated-products/some-brand/some-product/abc123.webp";
 
 describe("GET /i/[...path]", () => {
   it("serves an object under brands/", async () => {
@@ -57,6 +58,17 @@ describe("GET /i/[...path]", () => {
     expect(response.headers.get("content-type")).toBe("image/jpeg");
   });
 
+  it("serves an object under curated-products/", async () => {
+    // Added by DEV-1551 task 11: the curated product layer renders publicly and
+    // its objects share the now-private `brand-images` bucket.
+    const { download } = storageWith({ [CURATED_KEY]: "image/webp" });
+
+    const response = await serveProxiedImage(CURATED_KEY.split("/"), download);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/webp");
+  });
+
   it("404s a submissions/ path even when the object exists", async () => {
     // Submission imagery is pre-moderation content. Admin review signs it;
     // this route must never be a way around that.
@@ -71,7 +83,11 @@ describe("GET /i/[...path]", () => {
 
     expect(response.status).toBe(404);
     expect(requested).toEqual([]);
-    expect(PROXIED_IMAGE_PREFIXES).toEqual(["brands/", "event-exhibitors/"]);
+    expect(PROXIED_IMAGE_PREFIXES).toEqual([
+      "brands/",
+      "event-exhibitors/",
+      "curated-products/",
+    ]);
   });
 
   it("404s a path traversal attempt, raw and encoded", async () => {

@@ -13,6 +13,7 @@ import {
   deleteStoredImagePaths,
   uploadPublicImage,
 } from "@/lib/services/image-upload";
+import { imagePathToUrl } from "@/lib/images/image-url";
 
 /**
  * Curated-product image storage (DEV-1465).
@@ -262,13 +263,23 @@ export async function uploadCuratedProductImage(
       // source URL, so re-saving the same source overwrites in place instead of
       // orphaning an object on every apply.
       const upload = deps.upload ?? uploadPublicImage;
-      const { url } = await upload({
+      await upload({
         bucket: "brand-images",
         path,
         data: processed.buffer,
         contentType: processed.contentType,
         upsert: true,
       });
+      /*
+       * `curated_products` has no `image_storage_path` column, so `image_url`
+       * IS the stored reference. Since DEV-1551 it holds the same-origin
+       * `/i/curated-products/…` form rather than a public storage URL — the
+       * bucket is private, so the old value would be a dead link.
+       */
+      const url = imagePathToUrl(path);
+      if (!url) {
+        throw new Error(`Unable to derive an image URL for key: ${path}`);
+      }
 
       const previousKey = input.previousImageUrl
         ? curatedProductStorageKeyFromPublicUrl(input.previousImageUrl)

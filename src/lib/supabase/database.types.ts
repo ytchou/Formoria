@@ -907,6 +907,7 @@ export type Database = {
           description: string | null
           enriched_data: Json | null
           hero_image_url: string | null
+          hero_image_storage_path: string | null
           id: string
           idempotency_key: string | null
           intent: string
@@ -948,6 +949,7 @@ export type Database = {
           description?: string | null
           enriched_data?: Json | null
           hero_image_url?: string | null
+          hero_image_storage_path?: string | null
           id?: string
           idempotency_key?: string | null
           intent?: string
@@ -989,6 +991,7 @@ export type Database = {
           description?: string | null
           enriched_data?: Json | null
           hero_image_url?: string | null
+          hero_image_storage_path?: string | null
           id?: string
           idempotency_key?: string | null
           intent?: string
@@ -1046,6 +1049,7 @@ export type Database = {
           draft_updated_at: string | null
           founding_year: number | null
           hero_image_url: string | null
+          hero_image_storage_path: string | null
           id: string
           is_demo: boolean
           material: string[]
@@ -1096,6 +1100,7 @@ export type Database = {
           draft_updated_at?: string | null
           founding_year?: number | null
           hero_image_url?: string | null
+          hero_image_storage_path?: string | null
           id?: string
           is_demo?: boolean
           material?: string[]
@@ -1146,6 +1151,7 @@ export type Database = {
           draft_updated_at?: string | null
           founding_year?: number | null
           hero_image_url?: string | null
+          hero_image_storage_path?: string | null
           id?: string
           is_demo?: boolean
           material?: string[]
@@ -1911,6 +1917,7 @@ export type Database = {
           description_en: string | null
           ends_on: string
           hero_image_url: string | null
+          hero_image_storage_path: string | null
           id: string
           is_free: boolean | null
           lineup_note: string | null
@@ -1943,6 +1950,7 @@ export type Database = {
           description_en?: string | null
           ends_on: string
           hero_image_url?: string | null
+          hero_image_storage_path?: string | null
           id?: string
           is_free?: boolean | null
           lineup_note?: string | null
@@ -1975,6 +1983,7 @@ export type Database = {
           description_en?: string | null
           ends_on?: string
           hero_image_url?: string | null
+          hero_image_storage_path?: string | null
           id?: string
           is_free?: boolean | null
           lineup_note?: string | null

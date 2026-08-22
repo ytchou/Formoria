@@ -110,3 +110,27 @@ export function reportRateLimitStoreRecovered(input: {
     $process_person_profile: false,
   })
 }
+
+/** Reason codes for `RATE_LIMIT_BLOCKED`. */
+export type RateLimitBlockReason = 'hard_limit_exceeded' | 'soft_limit_challenge'
+
+/**
+ * Every block, not only registry-matched crawlers. `crawler-drift.ts` already
+ * reports a blocked crawler to Sentry, but an unrecognised client -- which is
+ * most of what a limiter blocks -- produced no signal at all, so there was
+ * nothing to calibrate enforcement thresholds against.
+ *
+ * `ipKey` must already be hashed by the caller; a raw IP must never reach here.
+ */
+export function reportRateLimitBlocked(input: {
+  routeFamily: string
+  ipKey: string
+  reason: RateLimitBlockReason
+}): void {
+  emit(ANALYTICS_EVENTS.RATE_LIMIT_BLOCKED, {
+    route_family: input.routeFamily,
+    ip_key: input.ipKey,
+    reason: input.reason,
+    $process_person_profile: false,
+  })
+}

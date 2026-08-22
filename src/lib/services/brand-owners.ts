@@ -1,3 +1,4 @@
+import { imagePathToUrl } from '@/lib/images/image-url'
 import { cache } from 'react'
 import { auditedCall } from '@/lib/audit'
 import type { Database } from '@/lib/supabase/database.types'
@@ -9,13 +10,13 @@ import { createServiceClient } from '@/lib/supabase/service'
 
 type BrandOwnerRow = Database['public']['Tables']['brand_owners']['Row']
 
-/** Shape returned by: brand_owners.select('brand_id, claimed_at, brands(id, name, slug, hero_image_url)') */
+/** Shape returned by: brand_owners.select('brand_id, claimed_at, brands(id, name, slug, hero_image_storage_path)') */
 type BrandOwnerRowWithBrand = Pick<BrandOwnerRow, 'brand_id' | 'claimed_at'> & {
   brands: {
     id: string
     name: string
     slug: string
-    hero_image_url: string | null
+    hero_image_storage_path: string | null
   }
 }
 
@@ -31,7 +32,7 @@ export const getUserBrands = cache(async (userId: string): Promise<OwnedBrand[]>
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('brand_owners')
-    .select('brand_id, claimed_at, brands(id, name, slug, hero_image_url)')
+    .select('brand_id, claimed_at, brands(id, name, slug, hero_image_storage_path)')
     .eq('user_id', userId)
     .order('claimed_at', { ascending: true })
 
@@ -43,7 +44,7 @@ export const getUserBrands = cache(async (userId: string): Promise<OwnedBrand[]>
     brandId: row.brand_id,
     brandName: row.brands.name,
     brandSlug: row.brands.slug,
-    heroImageUrl: row.brands.hero_image_url ?? null,
+    heroImageUrl: imagePathToUrl(row.brands.hero_image_storage_path),
     claimedAt: row.claimed_at,
   }))
 })
@@ -116,7 +117,7 @@ export async function getBrandBySlugForAdmin(slug: string): Promise<OwnedBrand |
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('brands')
-    .select('id, name, slug, hero_image_url, brand_owners(claimed_at)')
+    .select('id, name, slug, hero_image_storage_path, brand_owners(claimed_at)')
     .eq('slug', slug)
     .maybeSingle()
 
@@ -129,7 +130,7 @@ export async function getBrandBySlugForAdmin(slug: string): Promise<OwnedBrand |
     brandId: data.id,
     brandName: data.name,
     brandSlug: data.slug,
-    heroImageUrl: data.hero_image_url ?? null,
+    heroImageUrl: imagePathToUrl(data.hero_image_storage_path),
     claimedAt: owners[0]?.claimed_at ?? new Date().toISOString(),
   }
 }

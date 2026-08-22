@@ -60,7 +60,7 @@ export const POST = withAuditScope(async (
 
     const processed = await processImage(Buffer.from(await file.arrayBuffer()));
     const storagePath = `submissions/${submissionId}/${crypto.randomUUID()}.webp`;
-    const uploaded = await uploadPublicImage({
+    await uploadPublicImage({
       bucket: "brand-images",
       path: storagePath,
       data: processed.buffer,
@@ -71,7 +71,6 @@ export const POST = withAuditScope(async (
       const image = await stageSubmissionReviewImage({
         submissionId,
         storagePath,
-        url: uploaded.url,
         width: processed.width,
         height: processed.height,
       });

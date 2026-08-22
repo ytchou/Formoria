@@ -6,6 +6,7 @@ import { writeAuthStorageStateForCredentials } from '../helpers/auth-session';
 import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
 
 import { BUDGET, POLL } from '../budgets';
+import { e2eBrandImageKey } from '../helpers/image-refs';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -72,8 +73,9 @@ test.describe('Content moderation flow', () => {
     brandSlug = `e2e-moderation-flow-${timestamp}`;
     brandName = `[E2E-TEST] Moderation flow ${timestamp}`;
     cleanDescription = `台灣手工製作木質生活用品，耐用溫潤，適合日常使用 ${timestamp}`;
-    const heroUrl = `https://cdn.example.com/${brandSlug}/hero.webp`;
-    const productUrl = `https://cdn.example.com/${brandSlug}/product.webp`;
+    // Bucket keys, not URLs (DEV-1551): the bucket is private.
+    const heroKey = e2eBrandImageKey(brandSlug, 'hero.webp');
+    const productKey = e2eBrandImageKey(brandSlug, 'product.webp');
 
     const { data: brand, error: brandError } = await supabase
       .from('brands')
@@ -92,7 +94,7 @@ test.describe('Content moderation flow', () => {
         price_range: 2,
         founding_year: 2020,
         description: cleanDescription,
-        hero_image_url: heroUrl,
+        hero_image_storage_path: heroKey,
         purchase_website: `https://${brandSlug}.example.com`,
       })
       .select('id')
@@ -112,16 +114,16 @@ test.describe('Content moderation flow', () => {
     const { error: imageError } = await supabase.from('brand_images').insert([
       {
         brand_id: brandId,
-        url: heroUrl,
-        source_url: heroUrl,
+        storage_path: heroKey,
+        source_url: heroKey,
         source: 'legacy',
         status: 'active',
         sort_order: 0,
       },
       {
         brand_id: brandId,
-        url: productUrl,
-        source_url: productUrl,
+        storage_path: productKey,
+        source_url: productKey,
         source: 'legacy',
         status: 'active',
         sort_order: 1,

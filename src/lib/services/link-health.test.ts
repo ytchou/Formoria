@@ -27,7 +27,7 @@ function createFakeDb(options: {
                   purchase_website: options.brandUrl,
                   purchase_pinkoi: null,
                   purchase_shopee: null,
-                  hero_image_url: null,
+                  hero_image_storage_path: null,
                 },
               ],
               error: null,
@@ -315,7 +315,7 @@ describe("link_check_results lookup batching", () => {
       purchase_pinkoi: null,
       purchase_shopee: null,
       purchase_myship: null,
-      hero_image_url: null,
+      hero_image_storage_path: null,
     }));
     const inCallSizes: number[] = [];
 
@@ -352,5 +352,76 @@ describe("link_check_results lookup batching", () => {
     expect(Math.max(...inCallSizes)).toBeLessThanOrEqual(300);
     // No id may be dropped by the batching.
     expect(inCallSizes.reduce((sum, size) => sum + size, 0)).toBe(brandCount);
+  });
+});
+
+
+describe("hero image checks (DEV-1551 task 9)", () => {
+  /**
+   * `checkUrl` runs `fetch` from a background job, which has no page to resolve
+   * a relative path against. The hero task therefore has to be absolutised —
+   * link-health is one of only two consumers allowed to do that.
+   */
+  it("checks an absolute image URL derived from the bucket key", async () => {
+    const previous = process.env.NEXT_PUBLIC_SITE_URL;
+    process.env.NEXT_PUBLIC_SITE_URL = "https://formoria.test";
+    const requested: string[] = [];
+    const upsertRows: Record<string, unknown>[] = [];
+
+    const client = {
+      from(table: string) {
+        if (table === "brands") {
+          return {
+            select: () => ({
+              eq: async () => ({
+                data: [
+                  {
+                    id: "brand-1",
+                    purchase_website: null,
+                    purchase_pinkoi: null,
+                    purchase_shopee: null,
+                    purchase_myship: null,
+                    hero_image_storage_path: "brands/brand-1/hero.webp",
+                  },
+                ],
+                error: null,
+              }),
+            }),
+          };
+        }
+        return {
+          select: () => ({ in: async () => ({ data: [], error: null }) }),
+          upsert: async (rows: Record<string, unknown>[]) => {
+            upsertRows.push(...rows);
+            return { data: null, error: null };
+          },
+        };
+      },
+      rpc: async (name: string) => ({
+        data: name === "claim_health_agent_run" ? { claimed: true } : true,
+        error: null,
+      }),
+    } as unknown as LinkHealthDatabaseClient;
+
+    try {
+      await runLinkHealthCheck({
+        dryRun: true,
+        client,
+        fetchFn: (async (input: string | URL | Request) => {
+          requested.push(String(input));
+          return new Response("", { status: 200 });
+        }) as unknown as typeof fetch,
+      });
+    } finally {
+      if (previous === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
+      else process.env.NEXT_PUBLIC_SITE_URL = previous;
+    }
+
+    expect(requested).toContain(
+      "https://formoria.test/i/brands/brand-1/hero.webp",
+    );
+    for (const url of requested) {
+      expect(url.startsWith("https://")).toBe(true);
+    }
   });
 });

@@ -534,7 +534,7 @@ describe("buildArticleJsonLd", () => {
   });
 
   it("passes an absolute image URL through untouched", () => {
-    const image = "https://project.supabase.co/storage/v1/object/public/t/a.jpg";
+    const image = "https://cdn.example.com/t/a.jpg";
     const ld = buildArticleJsonLd({
       title: "Story",
       description: "desc",

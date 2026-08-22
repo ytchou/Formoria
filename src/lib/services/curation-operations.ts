@@ -317,7 +317,12 @@ export function needsPhase(
   }
 
   if (phase === "images") {
-    return isEmptyField(brand.hero_image_url ?? brand.heroImageUrl);
+    // Presence check, not a URL. Since DEV-1551 the bucket key is what proves
+    // an image exists; the legacy columns are kept in the chain only so a row
+    // that predates the backfill is not re-enriched for nothing.
+    return isEmptyField(
+      brand.hero_image_storage_path ?? brand.hero_image_url ?? brand.heroImageUrl,
+    );
   }
 
   if (phase === "reputation") {

@@ -37,6 +37,7 @@ const COLUMN_FIXTURE: Record<string, unknown> = {
   blurb: 'Short blurb',
   blurb_en: 'Short blurb (en)',
   hero_image_url: 'https://example.com/hero.jpg',
+  hero_image_storage_path: 'brands/brand-1/hero.webp',
   category: 'bags-accessories',
   contact_email: 'private-contact-canary@example.com',
   city: 'Taipei',
@@ -190,5 +191,29 @@ describe('public brand response contracts', () => {
     expect(payload).not.toContain('createdAt')
     expect(payload).not.toContain('updatedAt')
     expect(toPublicBrandDetail(brand).mitCertificateNumber).toBe('CERT-123')
+  })
+})
+
+describe('brandToDomain image derivation (DEV-1551)', () => {
+  it('emits a relative /i/ path for heroImageUrl', () => {
+    const brand = brandToDomain({
+      ...COLUMN_FIXTURE,
+      hero_image_storage_path: 'brands/brand-1/hero.webp',
+    } as unknown as BrandRowWithJoins)
+
+    expect(brand.heroImageUrl).toBe('/i/brands/brand-1/hero.webp')
+  })
+
+  it('never reads the legacy hero_image_url column', () => {
+    // The whole point of task 9: a row still carrying a public storage URL but
+    // no bucket key renders nothing rather than a dead supabase.co link.
+    const brand = brandToDomain({
+      ...COLUMN_FIXTURE,
+      hero_image_storage_path: null,
+      hero_image_url:
+        'https://project.supabase.co/storage/v1/object/public/brand-images/brands/brand-1/hero.webp',
+    } as unknown as BrandRowWithJoins)
+
+    expect(brand.heroImageUrl).toBeNull()
   })
 })

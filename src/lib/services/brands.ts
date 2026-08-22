@@ -56,6 +56,11 @@ import {
   type SkippedBrandField,
 } from "./brand-write-policy";
 import {
+  IMAGE_PROXY_PATH_PREFIX,
+  imagePathToUrl,
+  storagePathFromImageUrl,
+} from "@/lib/images/image-url";
+import {
   getBrandImages,
   insertBrandImage,
   syncHeroDenormalized,
@@ -740,7 +745,10 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     descriptionEn: row.description_en ?? null,
     blurb: row.blurb ?? null,
     blurbEn: row.blurb_en ?? null,
-    heroImageUrl: row.hero_image_url ?? null,
+    // DEV-1551 task 9: derived from the bucket key, never from the stored
+    // `hero_image_url`. The bucket is private, so a public storage URL is a
+    // dead link; `/i/<key>` is the only readable form.
+    heroImageUrl: imagePathToUrl(row.hero_image_storage_path),
     heroImageMetadata: null,
     // status is text in the DB — cast to BrandStatus at the boundary
     status: row.status as Brand["status"],
@@ -796,12 +804,12 @@ async function brandToDomainWithImages(
 }
 
 const CARD_IMAGE_SELECT =
-  "brand_id, url, tags, alt_zh, alt_en, sort_order, width, height";
+  "brand_id, storage_path, tags, alt_zh, alt_en, sort_order, width, height";
 
 type CardImageRow = Pick<
   Database["public"]["Tables"]["brand_images"]["Row"],
   | "brand_id"
-  | "url"
+  | "storage_path"
   | "tags"
   | "alt_zh"
   | "alt_en"
@@ -860,22 +868,19 @@ export async function hydrateCardImageMeta<
 
   if (brands.length === 0) return [];
 
-  // Narrowed to the hero URLs, not every active row: a brand carries 10-14
-  // active images and exactly one of them is ever kept below, so an unnarrowed
-  // read discards ~90% of what it transfers. Brands with no hero URL are left
-  // out of the query entirely — nothing could match them.
+  // Narrowed to the hero BUCKET KEYS, not every active row: a brand carries
+  // 10-14 active images and exactly one of them is ever kept below, so an
+  // unnarrowed read discards ~90% of what it transfers. Brands whose hero is
+  // not one of our objects are left out of the query entirely — nothing could
+  // match them.
   const pairs = [
     ...new Map(
       brands
-        .filter(
-          (brand): brand is T & { heroImageUrl: string } =>
-            typeof brand.heroImageUrl === "string" &&
-            brand.heroImageUrl.length > 0,
-        )
-        .map((brand) => [
-          `${brand.id}\n${brand.heroImageUrl}`,
-          { brandId: brand.id, url: brand.heroImageUrl },
-        ]),
+        .flatMap((brand) => {
+          const storagePath = storagePathFromImageUrl(brand.heroImageUrl);
+          return storagePath ? [{ brandId: brand.id, storagePath }] : [];
+        })
+        .map((pair) => [`${pair.brandId}\n${pair.storagePath}`, pair]),
     ).values(),
   ];
 
@@ -940,19 +945,28 @@ export async function hydrateCardImageMeta<
   }
 
   return brands.map((brand) => {
-    // Match on `url`, not `sort_order`. `hero_image_url` is the denormalized
-    // copy of whichever row the brand currently leads with, and a row can be
-    // rejected or re-ordered without that copy moving — so position is not a
-    // reliable key, while the url is. Rows arrive ordered by `sort_order`, so
-    // the first match is also the lowest-`sort_order` one; that makes the
-    // behavior defined if two active rows ever share a url.
+    // Match on the derived `/i/` path, not `sort_order`. `hero_image_url` (and
+    // now `hero_image_storage_path`) is the denormalized copy of whichever row
+    // the brand currently leads with, and a row can be rejected or re-ordered
+    // without that copy moving — so position is not a reliable key, while the
+    // storage key is. Rows arrive ordered by `sort_order`, so the first match is
+    // also the lowest-`sort_order` one; that makes the behavior defined if two
+    // active rows ever share a key.
     const heroRow = rowsByBrand
       .get(brand.id)
-      ?.find((row) => row.url === brand.heroImageUrl);
+      ?.find((row) => imagePathToUrl(row.storage_path) === brand.heroImageUrl);
 
+    // A row with no `storage_path` cannot be rendered at all now that the
+    // bucket is private, so it is not a usable product photo.
     const productRow = productRowsByBrand
       .get(brand.id)
-      ?.find((row) => row.url !== brand.heroImageUrl);
+      ?.find((row) => {
+        const src = imagePathToUrl(row.storage_path);
+        return src !== null && src !== brand.heroImageUrl;
+      });
+    const productPhoto = productRow
+      ? imagePathToUrl(productRow.storage_path)
+      : null;
 
     // No matching row is not an error: brands whose hero predates
     // `brand_images` (or whose row was rejected) keep the old hero behavior,
@@ -978,10 +992,10 @@ export async function hydrateCardImageMeta<
     // their complete per-image projection through `brandToDomainWithImages`.
     return {
       ...brand,
-      productPhotos: productRow ? [productRow.url] : [],
+      productPhotos: productPhoto ? [productPhoto] : [],
       imageAlts: [
         heroMeta,
-        ...(productRow
+        ...(productRow && productPhoto
           ? [
               {
                 altZh: productRow.alt_zh ?? null,
@@ -1075,6 +1089,7 @@ export const BRAND_COLUMN_LIST = [
   "blurb",
   "blurb_en",
   "hero_image_url",
+  "hero_image_storage_path",
   "category",
   "contact_email",
   "city",
@@ -1138,6 +1153,7 @@ export const PUBLIC_BRAND_CARD_COLUMN_LIST = [
   "blurb",
   "blurb_en",
   "hero_image_url",
+  "hero_image_storage_path",
   "category",
   "status",
   "founding_year",
@@ -1186,6 +1202,7 @@ export const PUBLIC_MICROSITE_BRAND_COLUMN_LIST = [
   "status",
   "description",
   "hero_image_url",
+  "hero_image_storage_path",
   "founding_year",
   "mit_status",
   "site_content",
@@ -2592,7 +2609,14 @@ export function collectSyncableImageUrls(input: {
       return false;
     }
 
-    return !isSupabaseStorageUrl(url) && !isNonImageHost(url);
+    // An image we already own is not syncable. `/i/…` (DEV-1551) is the
+    // same-origin form of exactly that, so it is excluded alongside the legacy
+    // public storage URL — re-downloading our own object would duplicate it.
+    return (
+      !url.startsWith(IMAGE_PROXY_PATH_PREFIX) &&
+      !isSupabaseStorageUrl(url) &&
+      !isNonImageHost(url)
+    );
   });
 }
 
@@ -2657,17 +2681,18 @@ export async function syncBrandImages(
   if (refs.length === 0) return { synced: 0, failed: 0 };
 
   const externalUrls = refs.map((r) => r.url);
-  const storedUrls = await downloadAndStoreImages(externalUrls, brandId);
+  // Bucket keys, not URLs (DEV-1551 task 12).
+  const storedPaths = await downloadAndStoreImages(externalUrls, brandId);
   for (let i = 0; i < refs.length; i++) {
-    const storedUrl = storedUrls.at(i);
-    if (storedUrl == null) continue;
+    const storedPath = storedPaths.at(i);
+    if (storedPath == null) continue;
 
     const ref = refs.at(i);
     if (!ref) continue;
 
     await insertBrandImage(supabase, {
       brand_id: brandId,
-      url: storedUrl,
+      storage_path: storedPath,
       source_url: ref.url,
       source: "admin",
       sort_order: i,
@@ -2679,8 +2704,8 @@ export async function syncBrandImages(
 
   await syncHeroDenormalized(supabase, brandId);
 
-  const failed = storedUrls.filter((u) => u == null).length;
-  return { synced: storedUrls.length - failed, failed };
+  const failed = storedPaths.filter((path) => path == null).length;
+  return { synced: storedPaths.length - failed, failed };
     },
   );
 }

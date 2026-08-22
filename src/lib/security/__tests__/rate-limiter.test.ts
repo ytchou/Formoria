@@ -9,6 +9,8 @@ import {
   evaluateCrawlerRateLimitAlarm,
   isLikelyCrawler,
   isRateLimitStoreDegraded,
+  isRouterRequest,
+  rateLimit,
   setRateLimitStoreForTests,
   type RateLimitStore,
 } from '../rate-limiter'
@@ -690,5 +692,80 @@ describe('crawler alarm reachability', () => {
     await checkRateLimit(request('/brands/example', 'Mozilla/5.0 (Macintosh) Chrome/131.0.0.0'))
 
     expect(getCrawlerDisagreementCount('Googlebot')).toBe(0)
+  })
+})
+
+ // DEV-1551. `isRouterRequest` exempts a request from BOTH the hard limiter and
+ // the Turnstile soft limiter, so anything it returns true for is unlimited and
+ // unchallengeable. `accept: */*` used to be a fifth signal, which handed that
+ // exemption to a bare `curl -H 'Accept: */*'`. The capture in
+ // docs/evidence/2026-08-22-router-headers.md shows every real router request
+ // that sent `accept: */*` also sent `RSC` and `next-url`, so deleting it costs
+ // genuine router traffic nothing.
+describe('isRouterRequest', () => {
+  function headed(headers: Record<string, string>): Request {
+    return new Request('https://formoria.com/brands/talkoo', { headers })
+  }
+
+  it('returns false for accept: */* alone', () => {
+    expect(isRouterRequest(headed({ accept: '*/*' }))).toBe(false)
+  })
+
+  it.each([
+    ['RSC', { RSC: '1' }],
+    ['next-url', { 'next-url': '/brands' }],
+    ['next-router-prefetch', { 'next-router-prefetch': '1' }],
+    ['next-action', { 'next-action': 'abc123' }],
+  ])('still returns true for %s', (_label, headers) => {
+    expect(isRouterRequest(headed(headers))).toBe(true)
+  })
+
+  it('returns true for the real router shape captured on 2026-08-22', () => {
+    expect(
+      isRouterRequest(
+        headed({ accept: '*/*', RSC: '1', 'next-url': '/zh-TW', 'next-router-prefetch': '1' }),
+      ),
+    ).toBe(true)
+  })
+})
+
+describe('rateLimit fail-open', () => {
+  beforeEach(() => {
+    setRateLimitTelemetryTransportForTests(async () => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    setRateLimitStoreForTests(null)
+    setRateLimitTelemetryTransportForTests(null)
+    vi.restoreAllMocks()
+  })
+
+  it('rateLimit fails open when the store throws', async () => {
+    setRateLimitStoreForTests({
+      check: () => {
+        throw new Error('ERR max requests limit exceeded')
+      },
+    } as unknown as RateLimitStore)
+
+    const result = await rateLimit('203.0.113.9', {
+      windowMs: 60_000,
+      maxRequests: 10,
+      prefix: 'challenge',
+    })
+
+    expect(result.allowed).toBe(true)
+    expect(result.remaining).toBe(10)
+  })
+
+  it('still denies past the budget when the store answers', async () => {
+    setRateLimitStoreForTests(createInMemoryRateLimiter())
+
+    let last = await rateLimit('203.0.113.10', { windowMs: 60_000, maxRequests: 2 })
+    expect(last.allowed).toBe(true)
+    last = await rateLimit('203.0.113.10', { windowMs: 60_000, maxRequests: 2 })
+    expect(last.allowed).toBe(true)
+    last = await rateLimit('203.0.113.10', { windowMs: 60_000, maxRequests: 2 })
+    expect(last.allowed).toBe(false)
   })
 })

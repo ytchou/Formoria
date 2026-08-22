@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { auditedCall } from '@/lib/audit'
 import type { ImageProcessorConfig } from '@/lib/security/image-processor'
 import { uploadWithRetry } from './storage-retry'
+import { storagePathFromImageUrl } from '@/lib/images/image-url'
 
 export const ALLOWED_UPLOAD_BUCKETS = [
   'brand-images',
@@ -140,8 +141,23 @@ export function storageKeyFromPublicUrlForRead(url: string): string | null {
  * key can only be recovered from the stored `image_url`.
  */
 export function curatedProductStorageKeyFromPublicUrl(url: string): string | null {
+  if (!url) return null
+
+  /*
+   * Two accepted forms. `/i/<key>` is what DEV-1551 stores from now on; the
+   * legacy public storage URL is still on every row written before the flip,
+   * and this function's whole job is finding the PREVIOUS object so it can be
+   * cleaned up — dropping the legacy form would leak one object per edit.
+   */
+  const proxyKey = storagePathFromImageUrl(url)
+  if (proxyKey) {
+    return proxyKey.startsWith(CURATED_PRODUCT_IMAGES_KEY_PREFIX)
+      ? proxyKey
+      : null
+  }
+
   const prefix = getBrandImagesPublicPrefix()
-  if (!url || !prefix || !url.startsWith(prefix)) {
+  if (!prefix || !url.startsWith(prefix)) {
     return null
   }
 
@@ -242,22 +258,24 @@ export async function uploadPrivateFile(input: PrivateUploadFileInput): Promise<
   )
 }
 
-export async function uploadPublicImage(input: PublicUploadImageInput): Promise<{ url: string }> {
+/**
+ * Uploads to the `brand-images` bucket and returns the BUCKET KEY.
+ *
+ * DEV-1551 task 12: no public-URL lookup. The bucket is private, so a public
+ * URL is a dead link — every caller either stores the key (`storage_path`) or
+ * renders it through `imagePathToUrl`. The name is kept because the bucket is
+ * still the "public imagery" bucket in the sense that matters here: its objects
+ * are published content, as opposed to `claim-proofs` / `origin-evidence`.
+ */
+export async function uploadPublicImage(
+  input: PublicUploadImageInput,
+): Promise<{ path: string }> {
   return auditedCall(
     { provider: 'images', operation: 'uploadPublicImage', kind: 'service' },
     async () => {
-  await uploadStorageObject(input)
-  const supabase = createServiceClient()
+  const path = await uploadStorageObject(input)
 
-  const {
-    data: { publicUrl },
-  } = await uploadWithRetry(async () =>
-    supabase.storage.from(input.bucket).getPublicUrl(input.path),
-  )
-
-  return {
-    url: publicUrl,
-  }
+  return { path }
     },
   )
 }

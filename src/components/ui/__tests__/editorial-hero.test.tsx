@@ -33,7 +33,7 @@ vi.mock("next/image", () => ({
 
 const REPO_PATH = "/images/stories/2026-taiwan-creative-expo-craft-brands.webp";
 const ALLOWED_REMOTE =
-  "https://project.supabase.co/storage/v1/object/public/story/hero.webp";
+  "/i/brands/story/hero.webp";
 // Any host outside `ALLOWED_IMAGE_HOSTS`. The CSP in `next.config.ts` is built
 // from that same list, so a hero here is one the browser refuses to load.
 const BLOCKED_REMOTE = "https://images.example.com/hero.jpg";

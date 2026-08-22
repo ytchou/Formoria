@@ -584,6 +584,24 @@ export const ANALYTICS_EVENTS = {
   RATE_LIMIT_STORE_RECOVERED: 'rate_limit_store_recovered',
 
   /**
+   * Server-side: a request was blocked by the rate limiter (hard 429) or sent
+   * to the Turnstile challenge by the soft limiter.
+   *
+   * Covers ALL blocked traffic, not just registry-matched crawlers -- the
+   * pre-existing signal (`crawler-drift.ts` -> Sentry) only fires when a
+   * User-Agent matches the crawler registry, so unrecognised clients, the
+   * majority of what a limiter blocks, produced nothing at all. Enforcement
+   * thresholds are calibrated against this event.
+   *
+   * Never carries a raw IP: `ip_key` is a non-reversible hash, enough to count
+   * distinct blocked clients and no more.
+   * @property route_family {string} Coarse route bucket the rule matched (e.g. `/brands`).
+   * @property ip_key {string} Non-reversible hash of the client IP.
+   * @property reason {string} Reason code: `hard_limit_exceeded` or `soft_limit_challenge`.
+   */
+  RATE_LIMIT_BLOCKED: 'rate_limit_blocked',
+
+  /**
    * Core Web Vitals field measurement (LCP / CLS / INP / FCP / TTFB).
    *
    * ⚠️ **Machine-emitted — never behavioural.** This is the highest-volume event in the
@@ -895,6 +913,12 @@ export interface AnalyticsEventPayloads {
   [ANALYTICS_EVENTS.RATE_LIMIT_STORE_RECOVERED]: {
     cooldown_ms: number
     outage_ms: number
+    '$process_person_profile': false
+  }
+  [ANALYTICS_EVENTS.RATE_LIMIT_BLOCKED]: {
+    route_family: string
+    ip_key: string
+    reason: 'hard_limit_exceeded' | 'soft_limit_challenge'
     '$process_person_profile': false
   }
   [ANALYTICS_EVENTS.WEB_VITAL_REPORTED]: {

@@ -134,7 +134,7 @@ function buildProduct(index: number): HomepageCuratedProduct {
     category: "home",
     subcategories: [],
     officialUrl: "https://example.com/product",
-    imageUrl: `https://project.supabase.co/storage/v1/object/public/p/${index}.jpg`,
+    imageUrl: `/i/curated-products/p/${index}.jpg`,
     imageSourceUrl: null,
     visible: true,
     linkState: "ok",
@@ -179,7 +179,7 @@ function buildTrail(
       publishedAt: "2026-01-01",
       draft: false,
       heroImage:
-        "https://project.supabase.co/storage/v1/object/public/t/hero.jpg",
+        "/i/brands/t/hero.jpg",
       heroImageAlt: "A lamp beside a low chair",
       sources: [],
       faq: [],
@@ -494,7 +494,7 @@ describe("ProductWall", () => {
     ]);
 
     expect(container.querySelector("img")?.getAttribute("src")).toBe(
-      "https://project.supabase.co/storage/v1/object/public/t/hero.jpg",
+      "/i/brands/t/hero.jpg",
     );
   });
 });

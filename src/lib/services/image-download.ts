@@ -130,7 +130,6 @@ type ExistingImageRow = {
   source_url: string | null
   status: string
   storage_path: string | null
-  url: string
 }
 
 /**
@@ -177,7 +176,7 @@ async function loadExistingCandidates(
   for (const chunk of chunkByLength(sourceUrls, IN_FILTER_URL_BUDGET)) {
     const { data, error } = await supabase
       .from(storage.table)
-      .select('source_url, status, storage_path, url')
+      .select('source_url, status, storage_path')
       .eq(storage.foreignKey, target.id)
       .in('source_url', chunk) as { data: ExistingImageRow[] | null; error: { message: string } | null }
     if (error) throw new Error(`loadExistingCandidates failed: ${JSON.stringify(error)}`)
@@ -261,6 +260,14 @@ export function dominantColorToHex(dominant: { r: number; g: number; b: number }
   return `#${channelToHex(dominant.r)}${channelToHex(dominant.g)}${channelToHex(dominant.b)}`
 }
 
+/**
+ * Downloads each candidate and stores it, returning the BUCKET KEY per slot —
+ * positionally, with a null for anything that failed.
+ *
+ * Since DEV-1551 task 12 this returns keys, not public URLs: the bucket is
+ * private, so a public URL is a dead link. Callers that need something
+ * renderable pass the key through `imagePathToUrl`.
+ */
 export async function downloadAndStoreImages(
   candidates: DownloadImageCandidate[],
   targetOrBrandId: EnrichmentTarget | string
@@ -290,7 +297,8 @@ export async function downloadAndStoreImages(
       const { url, source, sourceUrl } = normalizeCandidate(candidate)
       const existing = existingBySource.get(sourceUrl)
       if (existing?.status === 'rejected') return null
-      if (existing && (existing.status === 'active' || existing.storage_path)) return existing.url
+      if (existing && (existing.status === 'active' || existing.storage_path))
+        return existing.storage_path
 
       const controller = new AbortController()
       const timeoutId = setTimeout(
@@ -410,17 +418,13 @@ export async function downloadAndStoreImages(
           throw uploadError
         }
 
-        const {
-          data: { publicUrl },
-        } = await uploadWithRetry(async () =>
-          supabase.storage.from('brand-images').getPublicUrl(filename),
-        )
-
+        // DEV-1551 task 12: no public-URL lookup. The bucket is private, so
+        // the only durable reference is the bucket key, and `/i/<key>` is derived
+        // from it at read time.
         const { error: insertError } = await supabase
           .from(storage.table)
           .insert({
             [storage.foreignKey]: target.id,
-            url: publicUrl,
             source,
             source_url: sourceUrl,
             storage_path: filename,
@@ -439,12 +443,12 @@ export async function downloadAndStoreImages(
             supabase.storage.from('brand-images').remove([filename]),
           )
           if ((insertError as { code?: string }).code === '23505') {
-            return existing?.url ?? null
+            return existing?.storage_path ?? null
           }
           throw insertError
         }
 
-        return publicUrl
+        return filename
       } catch (err) {
         clearTimeout(timeoutId)
         console.warn(`Failed to download image ${url}:`, err)

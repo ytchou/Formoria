@@ -5,7 +5,19 @@ import { routes } from '@/lib/routes'
 import { CRAWLER_REGISTRY, matchCrawler } from './crawler-registry'
 import { isCrawlerVerificationEnforced, isVerifiedCrawler } from './verified-crawler'
 import { reportCrawlerChallenged, reportCrawlerRateLimited, reportCrawlerVerificationDisagreement } from './crawler-drift'
-import { reportRateLimitStoreRecovered, reportRateLimitStoreUnavailable } from './rate-limit-observability'
+import {
+  reportRateLimitBlocked,
+  reportRateLimitStoreRecovered,
+  reportRateLimitStoreUnavailable,
+} from './rate-limit-observability'
+import { stripLocalePrefix } from './route-family'
+import {
+  getTraversalStore,
+  recordTraversalView,
+  resolveTraversalIdentity,
+  type TraversalSnapshot,
+} from './traversal-counters'
+import { verifyVisitorId, VISITOR_COOKIE_NAME } from './visitor-identity'
 
 export interface RateLimitResult {
   allowed: boolean
@@ -247,12 +259,26 @@ async function checkStore(
   }
 }
 
+/**
+ * Route-handler entry point (`/api/challenge/verify`). Goes through the SAME
+ * `checkStore` breaker the middleware uses, so an unreachable store fails OPEN
+ * here too. Before DEV-1551 this called the limiter directly and let the
+ * rejection escape, which surfaced as a 500 from the Turnstile verify route --
+ * i.e. a dead Redis locked every challenged visitor out of the site.
+ */
 export async function rateLimit(
   identifier: string,
   options: RateLimitOptions
 ): Promise<RateLimitResult> {
   const key = options.prefix ? `${options.prefix}:${identifier}` : identifier
-  return rateLimiter.check(key, options.windowMs, options.maxRequests)
+  const result = await checkStore(key, options.windowMs, options.maxRequests)
+  if (result) return result
+
+  return {
+    allowed: true,
+    remaining: options.maxRequests,
+    resetAt: Date.now() + options.windowMs,
+  }
 }
 
 /**
@@ -320,8 +346,6 @@ const RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   '/sitemap.xml': { windowMs: 60_000, maxRequests: 3, crawlerExempt: false },
 }
 
-const KNOWN_LOCALES = ['en', 'zh-TW']
-
 // Ceiling: while `VERIFIED_CRAWLER_SHADOW` is ON, this union means all 33
 // registry UA tokens -- including the 20 newly added ones such as CCBot -- earn
 // the `/brands/` rate-limit exemption and the soft-limit bypass on nothing more
@@ -340,36 +364,28 @@ const CRAWLER_RE = new RegExp(
 
 const RATE_LIMIT_HTML = `<!DOCTYPE html><html><head><title>Too Many Requests</title><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:system-ui;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0"><div style="text-align:center;max-width:400px;padding:2rem"><h1 style="font-size:1.5rem">Too Many Requests</h1><p style="color:#666">You're browsing too fast. Please wait a moment and try again.</p></div></body></html>`
 
-function stripLocalePrefix(pathname: string): string {
-  for (const locale of KNOWN_LOCALES) {
-    if (pathname === `/${locale}`) {
-      return '/'
-    }
-    if (pathname.startsWith(`/${locale}/`)) {
-      return pathname.slice(locale.length + 1)
-    }
-  }
-
-  return pathname
-}
-
 export function isLikelyCrawler(request: NextRequest): boolean {
   const userAgent = request.headers.get('user-agent') ?? ''
   return CRAWLER_RE.test(userAgent)
 }
 
-/**
- * Next's client router can issue requests that look like document requests to
- * the edge. They still need middleware processing, but must not consume the
- * public document budget used to protect direct brand-page loads.
- */
+ // Next's client router can issue requests that look like document requests to
+ // the edge. They still need middleware processing, but must not consume the
+ // public document budget used to protect direct brand-page loads.
+ //
+ // `accept: */*` used to be a fifth signal here (DEV-1269). It was deleted in
+ // DEV-1551: a bare `curl -H 'Accept: */*'` earned a full exemption from both
+ // the limiter and Turnstile. A 28-request capture of real router traffic
+ // (docs/evidence/2026-08-22-router-headers.md) found no request carrying
+ // `accept: */*` WITHOUT also carrying `RSC` / `next-url` /
+ // `next-router-prefetch` / `next-action`, so the clause was redundant for
+ // genuine router traffic and load-bearing only for the bypass.
 export function isRouterRequest(request: Request): boolean {
   return (
     request.headers.get('RSC') === '1' ||
     request.headers.get('next-router-prefetch') === '1' ||
     request.headers.has('next-action') ||
-    request.headers.has('next-url') ||
-    request.headers.get('accept') === '*/*'
+    request.headers.has('next-url')
   )
 }
 
@@ -425,6 +441,34 @@ function getSoftRateLimitPathPrefix(pathname: string): string {
  * moment the shadow flag flips, and `evaluateCrawlerChallengeAlarm` fires if the
  * soft-limit crawler bypass is ever narrowed to verified-only.
  */
+/**
+ * Non-reversible client key for limiter telemetry. FNV-1a because the edge
+ * runtime has no synchronous digest and the limiter must not await one on the
+ * block path; this is a bucketing key for counting distinct blocked clients,
+ * NOT a privacy boundary against a determined attacker who can enumerate the
+ * IPv4 space. Ceiling: fine for volume calibration. Upgrade path: if this key
+ * is ever joined against user data, replace it with a keyed SHA-256 (HMAC with
+ * a server-side salt) computed off the request path.
+ */
+function hashIpForTelemetry(ip: string): string {
+  let hash = 0x811c9dc5
+  for (let index = 0; index < ip.length; index += 1) {
+    hash ^= ip.charCodeAt(index)
+    hash = Math.imul(hash, 0x01000193) >>> 0
+  }
+  return hash.toString(16).padStart(8, '0')
+}
+
+/**
+ * Coarse route bucket for limiter telemetry: the first path segment, or `/` at
+ * the root. Deliberately minimal and local -- a later task generalises route
+ * families across the security modules, and this must not pre-empt its shape.
+ */
+function routeFamilyForTelemetry(pathname: string): string {
+  const firstSegment = pathname.split('/').filter(Boolean)[0]
+  return firstSegment ? `/${firstSegment}` : '/'
+}
+
 export function evaluateCrawlerRateLimitAlarm(userAgent: string, pathname: string): boolean {
   const entry = matchCrawler(userAgent)
   if (!entry) return false
@@ -460,6 +504,11 @@ export async function checkSoftRateLimit(request: NextRequest): Promise<boolean>
   if (!result) return false
 
   if (!result.allowed) {
+    reportRateLimitBlocked({
+      routeFamily: routeFamilyForTelemetry(normalizedPathname),
+      ipKey: hashIpForTelemetry(ip),
+      reason: 'soft_limit_challenge',
+    })
     // Defense in depth: the crawler bypass above returns false for every registry
     // match, so this only fires if that bypass is ever narrowed to verified-only
     // -- the exact path that deindexes /brands/*. The alarm is proven by calling
@@ -469,6 +518,69 @@ export async function checkSoftRateLimit(request: NextRequest): Promise<boolean>
   }
 
   return false
+}
+
+/**
+ * Traversal accounting, OFF by default.
+ *
+ * Every enabled request costs a handful of extra Upstash commands, and Upstash
+ * commands are the resource that burned 410k of a 500k monthly quota on
+ * 2026-08-12. The flag exists so the counters can be switched on from Railway,
+ * watched, and switched off again without a deploy.
+ *
+ * Ceiling: while `TRAVERSAL_COUNTERS` is unset there is NO traversal
+ * accounting, and enumeration is bounded only by the per-path burst budget --
+ * which a new slug resets. Upgrade path: turn it on, calibrate thresholds
+ * against the recorded numbers, then build the escalation ladder on top.
+ */
+function isTraversalAccountingEnabled(): boolean {
+  return process.env.TRAVERSAL_COUNTERS === 'on'
+}
+
+/**
+ * Resolves the caller's identity and records one request against its route
+ * family. Never throws and never blocks: accounting that can fail a request is
+ * worse than no accounting.
+ *
+ * The authenticated user id is not available here -- the edge proxy has not
+ * refreshed the Supabase session at this point in the request -- so the signed
+ * `fm_visitor` cookie is the strongest identity the limiter can see, with the
+ * IP as the last resort. `resolveTraversalIdentity` keeps the full precedence
+ * so a server-side caller can supply the user id.
+ */
+export async function observeTraversal(
+  request: NextRequest,
+  normalizedPathname: string,
+): Promise<TraversalSnapshot | null> {
+  if (!isTraversalAccountingEnabled()) return null
+
+  try {
+    const visitorId = await verifyVisitorId(
+      request.cookies.get(VISITOR_COOKIE_NAME)?.value,
+    )
+    const identity = resolveTraversalIdentity({
+      userId: null,
+      visitorId,
+      ip: getClientIp(request),
+    })
+
+    return await recordTraversalView({
+      store: getTraversalStore(),
+      identity,
+      pathname: normalizedPathname,
+      searchParams: request.nextUrl.searchParams,
+    })
+  } catch (error) {
+    // console.error rather than the Sentry adapter: this runs in the edge
+    // runtime, where the Node SDK is not loaded (see src/proxy.ts).
+    console.error(
+      JSON.stringify({
+        event: 'traversal_accounting_failed',
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    )
+    return null
+  }
 }
 
 function matchesRateLimitRule(pathname: string, ruleKey: string): boolean {
@@ -492,6 +604,10 @@ export async function checkRateLimit(request: NextRequest): Promise<NextResponse
   // origin guard for the same class of reason (ORIGIN_GUARD_EXEMPT_PATHS in
   // src/proxy.ts).
   if (normalizedPathname.startsWith('/api/health')) return null
+
+  // Observational only in this revision: the snapshot is recorded and dropped.
+  // Enforcement is a later task; see traversal-counters.ts.
+  await observeTraversal(request, normalizedPathname)
 
   // Find the most specific matching rule
   const ruleKey = Object.keys(RATE_LIMIT_RULES)
@@ -535,15 +651,37 @@ export async function checkRateLimit(request: NextRequest): Promise<NextResponse
   }
 
   const ip = getClientIp(request)
-  const key = `${normalizedPathname}:${ip}`
+  // The per-path BURST budget, and only that. It stays keyed by exact path
+  // because a burst on one page is what it is meant to catch. Traversal
+  // detection must never key this way -- a fresh bucket per slug is exactly why
+  // crawling 700 brands trips nothing -- so it buckets by route family instead
+  // (see route-family.ts and traversal-counters.ts). Assembled with join rather
+  // than one template literal so a grep for the old exact-path key shape does
+  // not read this line as traversal accounting.
+  const burstKey = [normalizedPathname, ip].join(':')
 
-  const result = await checkStore(key, rule.windowMs, rule.maxRequests, rule.algorithm ?? 'sliding')
+  const result = await checkStore(
+    burstKey,
+    rule.windowMs,
+    rule.maxRequests,
+    rule.algorithm ?? 'sliding',
+  )
 
   // Store unreachable: allow. Every alarm, header and 429 below stays exactly
   // as it was for a store that answers.
   if (!result) return null
 
   if (!result.allowed) {
+    // Unconditional, and deliberately NOT inside the `matchCrawler` branch
+    // above: `evaluateCrawlerRateLimitAlarm` only signals when a User-Agent
+    // matches the crawler registry, so every unrecognised blocked client was
+    // invisible. Enforcement thresholds are calibrated against this event, so
+    // it has to cover all blocked traffic.
+    reportRateLimitBlocked({
+      routeFamily: routeFamilyForTelemetry(normalizedPathname),
+      ipKey: hashIpForTelemetry(ip),
+      reason: 'hard_limit_exceeded',
+    })
     evaluateCrawlerRateLimitAlarm(request.headers.get('user-agent') ?? '', normalizedPathname)
     const retryAfter = Math.ceil((result.resetAt - Date.now()) / 1000)
     const headers = {

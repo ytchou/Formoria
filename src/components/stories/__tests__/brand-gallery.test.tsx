@@ -34,7 +34,7 @@ vi.mock("next-intl/server", async () => {
 import { BrandGallery } from "../brand-gallery";
 
 const imageUrl = (name: string) =>
-  `https://xyz.supabase.co/storage/v1/object/public/brand-images/${name}.jpg`;
+  `/i/brands/${name}.jpg`;
 
 function makeBrand(
   slug: string,

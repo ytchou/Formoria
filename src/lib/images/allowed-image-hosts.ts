@@ -1,6 +1,21 @@
-export const ALLOWED_IMAGE_HOSTS = [
-  '*.supabase.co',
-] as const satisfies string[]
+/**
+ * Remote hosts an `<img src>` may point at. EMPTY since DEV-1551 task 11.
+ *
+ * `*.supabase.co` was the only entry, and it is gone because the `brand-images`
+ * bucket is now private: a public storage URL no longer resolves, and the
+ * same-origin `/i/` proxy serves every image we own. `safeImageSrc` handles
+ * that case in its leading-slash branch, which is why an empty list does not
+ * mean "no images".
+ *
+ * Adding a host back re-opens hotlinking, so it needs a stated reason. Note
+ * that signed submission URLs live on `*.supabase.co` too — those render
+ * through a plain `<img>` in admin review, so they are governed by the CSP
+ * `img-src` list in `next.config.ts`, NOT by this one.
+ */
+// The explicit annotation keeps the list EMPTY while still typing its elements
+// as strings: an empty `as const` array narrows to `never[]`, which makes the
+// pattern matching below fail to compile.
+export const ALLOWED_IMAGE_HOSTS: readonly string[] = []
 
 const NON_IMAGE_HOSTS = [
   'facebook.com',

@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { NextRequest } from 'next/server'
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events'
+import {
+  checkRateLimit,
+  checkSoftRateLimit,
+  createInMemoryRateLimiter,
+  setRateLimitStoreForTests,
+} from '../rate-limiter'
 import {
   reportRateLimitStoreRecovered,
   reportRateLimitStoreUnavailable,
@@ -132,5 +139,99 @@ describe('rate-limit store telemetry', () => {
     expect(() =>
       reportRateLimitStoreUnavailable({ errorMessage: 'quota exceeded', cooldownMs: 60_000 }),
     ).not.toThrow()
+  })
+})
+
+/**
+ * DEV-1551. Until now the only signal on a block came from `crawler-drift.ts`,
+ * which fires only when the User-Agent matches an entry in the crawler
+ * registry. Unrecognised clients -- most of what a limiter actually blocks,
+ * and the whole population an enforcement threshold has to be calibrated
+ * against -- produced nothing at all.
+ */
+describe('rate-limit block telemetry', () => {
+  const UNRECOGNIZED_UA =
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36'
+
+  let events: Array<{ event: string; properties: Record<string, unknown> }>
+
+  beforeEach(() => {
+    events = []
+    setRateLimitTelemetryTransportForTests(async (event, properties) => {
+      events.push({ event, properties })
+    })
+    setRateLimitStoreForTests(createInMemoryRateLimiter())
+  })
+
+  afterEach(() => {
+    setRateLimitStoreForTests(null)
+    setRateLimitTelemetryTransportForTests(null)
+  })
+
+  function documentRequest(path: string, ip: string): NextRequest {
+    return new NextRequest(`https://formoria.com${path}`, {
+      headers: {
+        'user-agent': UNRECOGNIZED_UA,
+        'cf-connecting-ip': ip,
+        accept: 'text/html',
+      },
+    })
+  }
+
+  function blockedEvents() {
+    return events.filter((entry) => entry.event === ANALYTICS_EVENTS.RATE_LIMIT_BLOCKED)
+  }
+
+  /** `/admin/operations` carries the tightest budget in the table (3/min). */
+  async function exhaustAdminBudget(ip: string): Promise<Response | null> {
+    let blocked: Response | null = null
+    for (let requestNumber = 0; requestNumber < 8; requestNumber += 1) {
+      blocked = await checkRateLimit(documentRequest('/admin/operations', ip))
+      if (blocked) break
+    }
+    return blocked
+  }
+
+  it('emits on a 429 for an unrecognized client', async () => {
+    const blocked = await exhaustAdminBudget('198.51.100.77')
+
+    expect(blocked?.status).toBe(429)
+    expect(blockedEvents()).toHaveLength(1)
+  })
+
+  it('emits with route family, IP-derived key and reason code', async () => {
+    await exhaustAdminBudget('198.51.100.78')
+
+    const emitted = blockedEvents()[0]
+    expect(emitted.properties.route_family).toBe('/admin')
+    expect(emitted.properties.reason).toBe('hard_limit_exceeded')
+    expect(emitted.properties.$process_person_profile).toBe(false)
+    expect(typeof emitted.properties.ip_key).toBe('string')
+    // A raw IP must never leave the limiter.
+    expect(JSON.stringify(emitted.properties)).not.toContain('198.51.100.78')
+  })
+
+  it('does not emit on an allowed request', async () => {
+    const allowed = await checkRateLimit(documentRequest('/admin/operations', '198.51.100.79'))
+
+    expect(allowed).toBeNull()
+    expect(blockedEvents()).toHaveLength(0)
+  })
+
+  it('emits a soft_limit_challenge reason when the Turnstile soft limit trips', async () => {
+    const configured = Number(process.env.SOFT_LIMIT_BRANDS_PER_MIN)
+    const budget = Number.isFinite(configured) && configured > 0 ? configured : 150
+
+    let challenged = false
+    for (let requestNumber = 0; requestNumber <= budget; requestNumber += 1) {
+      challenged = await checkSoftRateLimit(documentRequest('/brands/talkoo', '198.51.100.80'))
+    }
+
+    expect(challenged).toBe(true)
+    const soft = blockedEvents().filter(
+      (entry) => entry.properties.reason === 'soft_limit_challenge',
+    )
+    expect(soft.length).toBeGreaterThan(0)
+    expect(soft[0].properties.route_family).toBe('/brands')
   })
 })
