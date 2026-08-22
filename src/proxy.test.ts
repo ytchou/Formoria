@@ -38,7 +38,8 @@ vi.mock("@/lib/security/rate-limiter", async (importOriginal) => {
   };
 });
 
-const { proxy, isOriginGuardExempt } = await import("@/proxy");
+const { proxy, isOriginGuardExempt, resetProxyTelemetryForTests } =
+  await import("@/proxy");
 
 const EDGE_SECRET = "cf-edge-9f3b7c21ae4d48e0b6a15c73d2f0e884";
 const BROWSER_UA =
@@ -244,9 +245,10 @@ describe("default-locale URL canonicalization", () => {
  *
  * `vi.resetModules()` is deliberately NOT used here. Only the first dynamic
  * `import('@sentry/nextjs')` after a module reset resolves to the mock; later
- * ones reach the real SDK, which silently drops every assertion. The throttle
- * map is module-scoped instead, so each test moves the (faked) clock an hour
- * forward to start with an empty window.
+ * ones reach the real SDK, which silently drops every assertion.
+ * `resetProxyTelemetryForTests()` clears the module-scoped throttle map and the
+ * missing-credentials latch instead, so every case starts from a clean slate
+ * with no clock arithmetic.
  */
 describe("proxy failure reporting", () => {
   const CRAWLER_UA =
@@ -254,15 +256,9 @@ describe("proxy failure reporting", () => {
   const SUPABASE_URL = "https://example.supabase.co";
   const SESSION_COOKIE = "sb-example-auth-token";
 
-  // Started in the future: earlier tests in this file run on the real clock and
-  // leave entries in the module-scoped throttle map. A base in the past would
-  // read as "captured moments ago" and silence every case below.
-  let clock = Date.now() + 24 * 60 * 60 * 1000;
-
   beforeEach(() => {
+    resetProxyTelemetryForTests();
     vi.useFakeTimers({ toFake: ["Date"] });
-    clock += 60 * 60 * 1000;
-    vi.setSystemTime(clock);
     sentry.captureException.mockReset();
     sentry.captureException.mockImplementation(() => "event-id");
   });
@@ -360,6 +356,40 @@ describe("proxy failure reporting", () => {
     expect(optionsOf(captures[0]).level).toBe("error");
   });
 
+  it("lets Sentry group unhandled proxy crashes by their own stack, so a second root cause is a second issue rather than a count on the first", async () => {
+    const { recordCrawlerHit } = await import(
+      "@/lib/security/crawler-telemetry"
+    );
+    const first = new Error("crawler telemetry exploded");
+    const second = new TypeError("locale rewrite exploded");
+
+    vi.mocked(recordCrawlerHit).mockImplementationOnce(() => {
+      throw first;
+    });
+    await expect(
+      proxy(requestFor("/", { "user-agent": CRAWLER_UA })),
+    ).rejects.toBe(first);
+    await flushCaptures();
+
+    // Past the throttle window, so the second root cause is not suppressed.
+    vi.setSystemTime(Date.now() + 6 * 60 * 1000);
+    vi.mocked(recordCrawlerHit).mockImplementationOnce(() => {
+      throw second;
+    });
+    await expect(
+      proxy(requestFor("/", { "user-agent": CRAWLER_UA })),
+    ).rejects.toBe(second);
+    await flushCaptures();
+
+    const captures = capturesFor("unhandled");
+    expect(captures).toHaveLength(2);
+    expect(captures.map((call) => call[0])).toEqual([first, second]);
+    // No explicit fingerprint at this site: a fixed one would fold both errors
+    // into a single already-triaged issue and raise no new-issue alert.
+    expect(optionsOf(captures[0]).fingerprint).toBeUndefined();
+    expect(optionsOf(captures[1]).fingerprint).toBeUndefined();
+  });
+
   it("reports a Supabase failure during the brand-approval check without changing the response", async () => {
     // The blanked credentials make the edge service client throw on
     // construction — from the proxy's side, the same shape as an outage.
@@ -377,34 +407,32 @@ describe("proxy failure reporting", () => {
   });
 
   it("reports missing Supabase credentials", async () => {
-    // One warm-up request spends the once-per-process console latch if some
-    // earlier test in this file has not already spent it, plus the capture
-    // throttle window it opens.
-    await proxy(requestFor("/dashboard"));
-    await flushCaptures();
-    vi.setSystemTime(Date.now() + 6 * 60 * 1000);
-    sentry.captureException.mockClear();
-
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
     try {
       const response = await proxy(requestFor("/dashboard"));
       expect(response.status).toBeLessThan(400);
-      // Unchanged: the latch is spent, so no further line is logged.
-      expect(consoleError).not.toHaveBeenCalled();
+      await flushCaptures();
+      expect(consoleError).toHaveBeenCalledTimes(1);
+      expect(capturesFor("supabase-credentials")).toHaveLength(1);
+
+      // Missing credentials is an every-request condition, so both channels sit
+      // behind the same one-shot latch: a second request announces nothing.
+      const repeat = await proxy(requestFor("/dashboard"));
+      expect(repeat.status).toBeLessThan(400);
+      await flushCaptures();
+      expect(consoleError).toHaveBeenCalledTimes(1);
+      expect(capturesFor("supabase-credentials")).toHaveLength(1);
     } finally {
       consoleError.mockRestore();
     }
 
-    await flushCaptures();
-
     const captures = capturesFor("supabase-credentials");
-    expect(captures).toHaveLength(1);
     expect(optionsOf(captures[0]).level).toBe("error");
   });
 
-  it("reports auth-check and session-refresh failures at warning level", async () => {
+  it("reports the fail-closed auth-check at error level and the gracefully degrading session-refresh at warning level", async () => {
     stubUnreachableAuthServer();
 
     // Auth check: the staging mutation lockdown asks whether the caller is
@@ -435,7 +463,10 @@ describe("proxy failure reporting", () => {
     const sessionRefresh = capturesFor("session-refresh");
     expect(authCheck).toHaveLength(1);
     expect(sessionRefresh).toHaveLength(1);
-    expect(optionsOf(authCheck[0]).level).toBe("warning");
+    // The auth check settles CLOSED — the signed-in caller just got a 403 — so
+    // it must clear an alert threshold set at error. The session refresh only
+    // degrades to anonymous, which is the correct outcome, so it stays warning.
+    expect(optionsOf(authCheck[0]).level).toBe("error");
     expect(optionsOf(sessionRefresh[0]).level).toBe("warning");
   });
 

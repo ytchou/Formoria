@@ -4,6 +4,11 @@ import { pathToFileURL } from "node:url";
 
 import { boundedSlackText } from "@/lib/adapters/slack/notification";
 
+import {
+  requiredEnvironment,
+  type ScriptEnvironment,
+} from "../shared/environment";
+
 export type ProbeVerdict = "down" | "gated" | "ok";
 
 export type NotificationKind = "down" | "heartbeat" | "recovered";
@@ -13,13 +18,22 @@ export interface CheckResult {
   body: string;
   id: string;
   ok: boolean;
+  /**
+   * Short operator-facing explanation for a failure the status code alone does
+   * not explain — a 200 that is degraded or unreadable reads as healthy without
+   * it.
+   */
+  reason?: string;
   /** null when the request never produced a response. */
   status: number | null;
 }
 
 export interface ProbeEvaluation {
   checkCount: number;
+  /** Every non-ok result, including maintenance-gated ones. */
   failed: readonly CheckResult[];
+  /** The non-ok results that are not the maintenance gate — these set `down`. */
+  hardFailures: readonly CheckResult[];
   verdict: ProbeVerdict;
 }
 
@@ -52,6 +66,7 @@ const HEARTBEAT_HOUR_UTC = 21;
 const ATTEMPTS = 3;
 const RETRY_DELAY_MS = 10_000;
 const REQUEST_TIMEOUT_MS = 20_000;
+const DAY_MS = 86_400_000;
 
 // ── Pure decision layer ──────────────────────────────────────────────────────
 
@@ -76,7 +91,7 @@ export function evaluateProbe(
   const hardFailures = failed.filter((result) => !isMaintenanceGate(result));
   const verdict: ProbeVerdict =
     hardFailures.length > 0 ? "down" : failed.length > 0 ? "gated" : "ok";
-  return { checkCount: results.length, failed, verdict };
+  return { checkCount: results.length, failed, hardFailures, verdict };
 }
 
 function utcDate(now: Date): string {
@@ -94,22 +109,36 @@ export function shouldNotify(
   const lastHeartbeatDate = previous?.lastHeartbeatDate ?? null;
   const base: ProbeState = { lastHeartbeatDate, since, verdict };
 
-  // A missing previous state means the first run ever, or a lost cache. Record
-  // the verdict but never alarm on it — there is no transition to report.
-  if (previous === null) return { kind: null, state: base };
+  // A missing previous state means the first run ever, or a lost cache. There
+  // is no transition to report, so a healthy or gated first run stays silent —
+  // but a first run that finds production down must still alarm. Recording
+  // `down` silently would make every later run see an unchanged verdict, so the
+  // outage would never be reported at all.
+  if (previous === null) {
+    return { kind: verdict === "down" ? "down" : null, state: base };
+  }
 
   if (changed && verdict === "down") return { kind: "down", state: base };
+  // A down -> gated transition also lands here. It is a real transition worth
+  // reporting, but it is not an all-clear; renderMessage qualifies the text.
   if (changed && previous.verdict === "down")
     return { kind: "recovered", state: base };
 
+  // The heartbeat normally fires in a fixed evening window. GitHub drops and
+  // delays scheduled runs, so a recorded date older than yesterday is made up
+  // on the next run at any hour — a silent channel must mean a dead watcher,
+  // never a skipped day. `lastHeartbeatDate !== today` keeps it to one per day.
+  const today = utcDate(now);
+  const yesterday = utcDate(new Date(now.getTime() - DAY_MS));
+  const stale = lastHeartbeatDate !== null && lastHeartbeatDate < yesterday;
   const heartbeatDue =
     verdict !== "down" &&
-    now.getUTCHours() >= HEARTBEAT_HOUR_UTC &&
-    lastHeartbeatDate !== utcDate(now);
+    lastHeartbeatDate !== today &&
+    (stale || now.getUTCHours() >= HEARTBEAT_HOUR_UTC);
   if (heartbeatDue) {
     return {
       kind: "heartbeat",
-      state: { ...base, lastHeartbeatDate: utcDate(now) },
+      state: { ...base, lastHeartbeatDate: today },
     };
   }
 
@@ -118,6 +147,11 @@ export function shouldNotify(
 
 function statusLabel(result: CheckResult): string {
   return result.status === null ? "no response" : String(result.status);
+}
+
+function checkLine(result: CheckResult): string {
+  const reason = result.reason ? ` (${result.reason})` : "";
+  return `• ${result.id} — ${statusLabel(result)}${reason}`;
 }
 
 function durationLabel(fromIso: string, now: Date): string {
@@ -133,19 +167,28 @@ export function renderMessage(input: RenderMessageInput): string {
   const stamp = now.toISOString();
 
   if (kind === "down") {
-    const lines = evaluation.failed.map(
-      (result) => `• ${result.id} — ${statusLabel(result)}`,
-    );
+    // Only the hard failures set the verdict. While the site sits behind the
+    // maintenance gate, three checks return 503 on every run; listing them as
+    // failures would bury the check that actually broke.
+    const causes =
+      evaluation.hardFailures.length > 0
+        ? evaluation.hardFailures
+        : evaluation.failed;
     return boundedSlackText(
       [
-        `🔴 Production probe failed (${evaluation.failed.length}/${evaluation.checkCount} checks) at ${stamp}`,
-        ...lines,
+        `🔴 Production probe failed (${causes.length}/${evaluation.checkCount} checks) at ${stamp}`,
+        ...causes.map(checkLine),
       ].join("\n"),
     );
   }
 
   if (kind === "recovered") {
     const outage = previous ? durationLabel(previous.since, now) : "unknown";
+    if (evaluation.verdict === "gated") {
+      return boundedSlackText(
+        `⚠️ Production probe no longer failing at ${stamp} after ${outage} down, but the site is now behind the maintenance page and is not serving.`,
+      );
+    }
     return boundedSlackText(
       `✅ Production probe recovered at ${stamp} after ${outage} down.`,
     );
@@ -162,18 +205,7 @@ export function renderMessage(input: RenderMessageInput): string {
 
 // ── Side-effecting layer ─────────────────────────────────────────────────────
 
-export type ProbeEnvironment = Readonly<Record<string, string | undefined>>;
-
-function requiredEnvironment(
-  environment: ProbeEnvironment,
-  name: string,
-): string {
-  const value = environment[name]?.trim();
-  if (value) return value;
-  const error = new Error(`${name} is required`);
-  error.name = `MissingEnvironment:${name}`;
-  throw error;
-}
+export type ProbeEnvironment = ScriptEnvironment;
 
 export function readState(path: string): ProbeState | null {
   let raw: string;
@@ -193,15 +225,15 @@ export function readState(path: string): ProbeState | null {
     ) {
       return null;
     }
+    // A missing `since` is a shape failure like any other. Substituting the
+    // Unix epoch rendered recovery messages as a ~490,000h outage.
+    if (typeof candidate.since !== "string") return null;
     return {
       lastHeartbeatDate:
         typeof candidate.lastHeartbeatDate === "string"
           ? candidate.lastHeartbeatDate
           : null,
-      since:
-        typeof candidate.since === "string"
-          ? candidate.since
-          : new Date(0).toISOString(),
+      since: candidate.since,
       verdict: candidate.verdict,
     };
   } catch {
@@ -227,24 +259,48 @@ async function request(
       redirect: "follow",
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
-    const body = await response.text().catch(() => "");
-    return { body, id, ok: response.ok, status: response.status };
+    let body: string;
+    let bodyReadable = true;
+    try {
+      body = await response.text();
+    } catch {
+      body = "";
+      bodyReadable = false;
+    }
+    return {
+      body,
+      id,
+      ok: response.ok,
+      status: response.status,
+      ...(bodyReadable ? {} : { reason: "response body unreadable" }),
+    };
   } catch {
     return { body: "", id, ok: false, status: null };
   }
 }
 
-function healthIsDegraded(body: string): boolean {
+/**
+ * A 2xx from `/api/health` is not evidence of health: the 2026-08-13 outage
+ * served 200 with `rateLimitStore: "degraded"`. A body that will not parse is
+ * not evidence either, but it is a different failure and says so, because
+ * `health — 200` alone told the operator nothing.
+ */
+export function classifyHealthResult(result: CheckResult): CheckResult {
+  if (!result.ok) return result;
+  if (result.reason) return { ...result, ok: false };
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(body);
-    return (
-      typeof parsed === "object" &&
-      parsed !== null &&
-      (parsed as { rateLimitStore?: unknown }).rateLimitStore === "degraded"
-    );
+    parsed = JSON.parse(result.body);
   } catch {
-    return true;
+    return { ...result, ok: false, reason: "health body unreadable" };
   }
+  if (typeof parsed !== "object" || parsed === null) {
+    return { ...result, ok: false, reason: "health body unreadable" };
+  }
+  if ((parsed as { rateLimitStore?: unknown }).rateLimitStore === "degraded") {
+    return { ...result, ok: false, reason: "rate limiter degraded" };
+  }
+  return result;
 }
 
 export async function collectChecks(
@@ -258,32 +314,28 @@ export async function collectChecks(
   const base = config.baseUrl.replace(/\/+$/, "");
   const supabase = config.supabaseUrl.replace(/\/+$/, "");
 
-  const home = await request("home", `${base}/`, {}, fetchImpl);
-  // Never probe /brands/<slug>: that prefix sits behind the Turnstile
-  // soft-limit in proxy.ts, so a slug path would measure the challenge, not
-  // the site.
-  const brands = await request("brands", `${base}/brands`, {}, fetchImpl);
-  const healthResponse = await request(
-    "health",
-    `${base}/api/health`,
-    {},
-    fetchImpl,
-  );
-  const health: CheckResult =
-    healthResponse.ok && healthIsDegraded(healthResponse.body)
-      ? { ...healthResponse, ok: false }
-      : healthResponse;
-  const supabaseCheck = await request(
-    "supabase",
-    `${supabase}/rest/v1/brands?select=id&limit=1`,
-    {
-      Authorization: `Bearer ${config.supabaseAnonKey}`,
-      apikey: config.supabaseAnonKey,
-    },
-    fetchImpl,
-  );
+  // Concurrent, so the four checks describe the same instant and a total
+  // outage costs one request timeout rather than four. The destructuring keeps
+  // the reported order stable.
+  const [home, brands, healthResponse, supabaseCheck] = await Promise.all([
+    request("home", `${base}/`, {}, fetchImpl),
+    // Never probe /brands/<slug>: that prefix sits behind the Turnstile
+    // soft-limit in proxy.ts, so a slug path would measure the challenge, not
+    // the site.
+    request("brands", `${base}/brands`, {}, fetchImpl),
+    request("health", `${base}/api/health`, {}, fetchImpl),
+    request(
+      "supabase",
+      `${supabase}/rest/v1/brands?select=id&limit=1`,
+      {
+        Authorization: `Bearer ${config.supabaseAnonKey}`,
+        apikey: config.supabaseAnonKey,
+      },
+      fetchImpl,
+    ),
+  ]);
 
-  return [home, brands, health, supabaseCheck];
+  return [home, brands, classifyHealthResult(healthResponse), supabaseCheck];
 }
 
 async function postSlack(
@@ -300,7 +352,9 @@ async function postSlack(
     method: "POST",
   });
   if (!response.ok) {
-    throw new Error(`Slack webhook returned HTTP ${response.status}`);
+    const error = new Error(`Slack webhook returned HTTP ${response.status}`);
+    error.name = "SlackDeliveryFailed";
+    throw error;
   }
 }
 
@@ -356,20 +410,29 @@ export async function main(
   const previous = readState(statePath);
   const decision = shouldNotify(evaluation, previous, now());
 
+  // State is persisted BEFORE the Slack post. A webhook 429/500 used to unwind
+  // main() with the transition unrecorded, so the cache kept the stale verdict
+  // and the next run alarmed again — every 30 minutes for the whole outage.
+  writeState(statePath, decision.state);
+
+  let deliveryError: unknown = null;
   if (decision.kind) {
-    await postSlack(
-      webhookUrl,
-      renderMessage({
-        evaluation,
-        kind: decision.kind,
-        now: now(),
-        previous,
-      }),
-      fetchImpl,
-    );
+    try {
+      await postSlack(
+        webhookUrl,
+        renderMessage({
+          evaluation,
+          kind: decision.kind,
+          now: now(),
+          previous,
+        }),
+        fetchImpl,
+      );
+    } catch (error: unknown) {
+      deliveryError = error;
+    }
   }
 
-  writeState(statePath, decision.state);
   console.log(
     JSON.stringify({
       event: "production_probe",
@@ -378,6 +441,23 @@ export async function main(
       verdict: evaluation.verdict,
     }),
   );
+
+  // The transition is recorded either way, but a lost alarm must never be
+  // silent: fail the job so the Actions log shows it.
+  if (deliveryError) {
+    console.error(
+      JSON.stringify({
+        event: "production_probe_slack_failed",
+        message:
+          deliveryError instanceof Error
+            ? deliveryError.message
+            : "unknown Slack failure",
+        notified: decision.kind,
+      }),
+    );
+    throw deliveryError;
+  }
+
   return decision;
 }
 

@@ -66,6 +66,28 @@ describe("production probe workflow", () => {
     expect(job.if).toContain("'true'");
   });
 
+  it("workflow documents that the gate variable must be repository-scoped", async () => {
+    const raw = await readFile(workflowPath, "utf8");
+    const lines = raw.split("\n");
+    const gateIndex = lines.findIndex((line) =>
+      /^\s*if:.*PRODUCTION_PROBE_ENABLED/.test(line),
+    );
+    expect(gateIndex).toBeGreaterThan(0);
+
+    // The comment block immediately above the gate is the only place an
+    // operator learns that a job-level `if` cannot see environment-scoped vars.
+    const comment: string[] = [];
+    for (let index = gateIndex - 1; index >= 0; index -= 1) {
+      const line = lines[index] ?? "";
+      if (!/^\s*#/.test(line)) break;
+      comment.unshift(line);
+    }
+    const text = comment.join(" ");
+
+    expect(text).toMatch(/repository-level/i);
+    expect(text).toMatch(/environment/i);
+  });
+
   it("workflow uses the production environment", async () => {
     const job = probeJob(await loadWorkflow());
 

@@ -18,6 +18,12 @@ permissions:
 jobs:
   production-probe:
     name: Probe production from outside Railway
+    # PRODUCTION_PROBE_ENABLED MUST be a repository-level variable. A job-level
+    # `if` is evaluated BEFORE the job's `environment` is bound, so `vars` here
+    # sees repository and organization variables only — an environment-scoped
+    # variable reads as empty and every scheduled run skips silently. The
+    # `vars.PRODUCTION_BASE_URL` read further down is at step level, where the
+    # environment IS bound, so the two reads obey different visibility rules.
     if: vars.PRODUCTION_PROBE_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment: "Formoria / production"
