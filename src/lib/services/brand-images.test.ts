@@ -14,6 +14,9 @@ const { storageRemoveMock } = vi.hoisted(() => ({
   storageRemoveMock: vi.fn(),
 }))
 
+// Only the storage delete is a spy. The `brands/`-only gate lives in
+// `@/lib/images/storage-keys`, which is not mocked, so the test exercises the
+// real predicate.
 vi.mock('./image-upload', () => ({
   deleteStoredImagePaths: storageRemoveMock,
 }))
@@ -522,6 +525,37 @@ describe('releaseBrandImageUrls', () => {
 
     expect(select).not.toHaveBeenCalled()
     expect(update).not.toHaveBeenCalled()
+    expect(storageRemoveMock).not.toHaveBeenCalled()
+  })
+
+  it('never raw-deletes outside `brands/`, even for an unreferenced key', async () => {
+    // `deleteStoredImagePaths` also accepts `submissions/` and
+    // `curated-products/`. Owner cleanup must not reach either: a curated key
+    // that no `brand_images` row references is still live through
+    // `curated_products.image_url`, and deleting it breaks a reference the
+    // storage sweep cannot flag.
+    const CURATED_KEY = 'curated-products/brand-1/p/abc.webp'
+    const SUBMISSION_KEY = 'submissions/sub-1/photo.webp'
+    const { client, update } = createRejectClient([])
+
+    await releaseBrandImageUrls(client, 'brand-1', [
+      `/i/${CURATED_KEY}`,
+      `/i/${SUBMISSION_KEY}`,
+      ORPHAN_REF,
+    ])
+
+    expect(update).not.toHaveBeenCalled()
+    expect(storageRemoveMock).toHaveBeenCalledTimes(1)
+    expect(storageRemoveMock).toHaveBeenCalledWith([ORPHAN_KEY])
+  })
+
+  it('skips the storage call entirely when nothing deletable is left', async () => {
+    const { client } = createRejectClient([])
+
+    await releaseBrandImageUrls(client, 'brand-1', [
+      '/i/curated-products/brand-1/p/abc.webp',
+    ])
+
     expect(storageRemoveMock).not.toHaveBeenCalled()
   })
 

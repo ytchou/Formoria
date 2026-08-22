@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import {
   buildArticleJsonLd,
   buildBrandJsonLd,
@@ -557,6 +557,83 @@ describe("buildArticleJsonLd", () => {
     }) as JsonLdObject;
 
     expect("image" in ld).toBe(false);
+  });
+});
+
+describe("image IRIs in structured data", () => {
+  // `heroImageUrl` and the event hero are relative `/i/<key>` proxy paths since
+  // DEV-1551, and `metadataBase` only absolutises openGraph/twitter metadata —
+  // never the raw JSON inside the ld+json script tag. A relative IRI makes
+  // Google drop `Organization.logo` and `Event.image`.
+  const SITE = "https://formoria.test";
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  function stubSite(): void {
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", SITE);
+  }
+
+  it("absolutises a brand logo served through the /i/ proxy", () => {
+    stubSite();
+    const ld = buildBrandJsonLd(
+      makeBrand({ heroImageUrl: "/i/brands/brand-1/hero.webp" }),
+    );
+
+    expect(ld.logo).toBe(`${SITE}/i/brands/brand-1/hero.webp`);
+    expect(String(ld.logo).startsWith("https://")).toBe(true);
+  });
+
+  it("absolutises an event image served through the /i/ proxy", () => {
+    stubSite();
+    const ld = buildEventJsonLd({
+      name: "台灣文博會 2026",
+      path: "/events/creative-expo-2026",
+      startDate: "2026-08-06",
+      imageUrl: "/i/event-exhibitors/expo/hero.webp",
+    });
+
+    expect(ld.image).toBe(`${SITE}/i/event-exhibitors/expo/hero.webp`);
+    expect(String(ld.image).startsWith("https://")).toBe(true);
+  });
+
+  it("absolutises a story image served through the /i/ proxy", () => {
+    stubSite();
+    const ld = buildArticleJsonLd({
+      title: "Story",
+      description: "desc",
+      path: "/stories/a-story",
+      image: "/i/brands/brand-1/story.webp",
+    });
+
+    expect(ld.image).toBe(`${SITE}/i/brands/brand-1/story.webp`);
+    expect(String(ld.image).startsWith("https://")).toBe(true);
+  });
+
+  it("leaves a legacy absolute image URL untouched, so the helper is idempotent", () => {
+    stubSite();
+    const legacy = "https://cdn.example.com/legacy/hero.jpg";
+
+    expect(buildBrandJsonLd(makeBrand({ heroImageUrl: legacy })).logo).toBe(
+      legacy,
+    );
+    expect(
+      buildEventJsonLd({
+        name: "Expo",
+        path: "/events/expo",
+        startDate: "2026-08-06",
+        imageUrl: legacy,
+      }).image,
+    ).toBe(legacy);
+    expect(
+      buildArticleJsonLd({
+        title: "Story",
+        description: "desc",
+        path: "/stories/a-story",
+        image: legacy,
+      }).image,
+    ).toBe(legacy);
   });
 });
 

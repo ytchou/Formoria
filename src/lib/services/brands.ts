@@ -27,6 +27,7 @@ import {
   type BrandImageQueryClient,
 } from "./_shared/brand-image-batch";
 import { isNonImageHost } from "@/lib/images/allowed-image-hosts";
+import { storageKeyFromPublicUrlForRead } from "./image-upload";
 import { RESERVED_ROUTES } from "@/proxy";
 import {
   deriveCategoryLabel,
@@ -82,6 +83,23 @@ import {
   type SearchSuggestion,
 } from "@/lib/brands/contracts";
 
+
+/**
+ * Recover a readable hero reference from the legacy `hero_image_url` column.
+ *
+ * Returns null unless the stored value is one of our own bucket objects, so a
+ * dead public-storage link never reaches a card. An empty string is absent,
+ * not a URL: DEV-1551 gave the column a `''` default, which makes `''` the
+ * common case for rows written by the two hand-patched SQL functions.
+ */
+function storageBackedHeroFallback(
+  legacyUrl: string | null | undefined,
+): string | null {
+  const trimmed = legacyUrl?.trim()
+  if (!trimmed) return null
+  const key = storageKeyFromPublicUrlForRead(trimmed)
+  return key ? imagePathToUrl(key) : null
+}
 function mulberry32(seed: number): () => number {
   return () => {
     seed |= 0;
@@ -745,10 +763,22 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     descriptionEn: row.description_en ?? null,
     blurb: row.blurb ?? null,
     blurbEn: row.blurb_en ?? null,
-    // DEV-1551 task 9: derived from the bucket key, never from the stored
-    // `hero_image_url`. The bucket is private, so a public storage URL is a
-    // dead link; `/i/<key>` is the only readable form.
-    heroImageUrl: imagePathToUrl(row.hero_image_storage_path),
+    // DEV-1551 task 9: derived from the bucket key. The bucket is private, so
+    // a public storage URL is a dead link and `/i/<key>` is the only readable
+    // form.
+    //
+    // The legacy `hero_image_url` is a fallback, not a preference. Two SQL
+    // functions still own the approval path -- `approve_submission` and
+    // `apply_brand_refresh_with_protected_location_gate` -- and both were
+    // hand-patched in production with no source file here, so neither writes
+    // `hero_image_storage_path`. Without this fallback a brand approved after
+    // this ships renders with no hero anywhere. Note the column default is now
+    // '' rather than NULL, so an empty string must read as absent.
+    // Ceiling: remove the fallback once those two functions have real source
+    // and write the bucket key.
+    heroImageUrl:
+      imagePathToUrl(row.hero_image_storage_path) ??
+      storageBackedHeroFallback(row.hero_image_url),
     heroImageMetadata: null,
     // status is text in the DB — cast to BrandStatus at the boundary
     status: row.status as Brand["status"],

@@ -6,6 +6,7 @@ import {
 import { isLogoImageTags } from '@/lib/constants/brand-images'
 import type { BrandImageMeta } from '@/lib/types/brand'
 import { deleteStoredImagePaths } from './image-upload'
+import { isBrandOwnedStoragePath } from '@/lib/images/storage-keys'
 
 type BrandImageStatus = 'active' | 'candidate' | 'rejected'
 type BrandImageSource = 'scrape' | 'google_image' | 'owner' | 'admin' | 'legacy' | 'json_ld'
@@ -402,9 +403,17 @@ export async function releaseBrandImageUrls(
       }),
   )
 
-  if (unreferencedPaths.length > 0) {
+  // The prefix gate is stated HERE, not left to `deleteStoredImagePaths`, which
+  // also accepts `submissions/` and `curated-products/`. This is owner-driven
+  // cleanup: any ref the owner UI hands back that resolves outside `brands/` is
+  // an object some other flow owns, and deleting it would break a live
+  // reference that this function can neither see nor repair. Skipping is the
+  // safe direction — the storage purge reclaims a genuine orphan later.
+  const deletablePaths = unreferencedPaths.filter(isBrandOwnedStoragePath)
+
+  if (deletablePaths.length > 0) {
     try {
-      await deleteStoredImagePaths(unreferencedPaths)
+      await deleteStoredImagePaths(deletablePaths)
     } catch (storageError) {
       console.error(
         `[releaseBrandImageUrls] Failed to delete unreferenced images for ${brandId}:`,

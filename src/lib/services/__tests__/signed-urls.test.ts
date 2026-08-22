@@ -119,6 +119,115 @@ describe("createSignedUrlsInBatches", () => {
     ]);
   });
 
+  it("pairs by the echoed label, not by position, when the response is reordered", async () => {
+    // Supabase echoes `path` on every entry. If the response ever comes back
+    // out of request order, zipping by index serves one submission's signed
+    // pre-moderation image under another submission's key.
+    const reordering: CreateSignedUrlsFn = async (paths) => ({
+      data: [...paths]
+        .reverse()
+        .map((path) => ({ path, signedUrl: `https://s/${path}?token=t`, error: null })),
+      error: null,
+    });
+
+    const requested = ["brands/a.webp", "brands/b.webp", "brands/c.webp"];
+    const { urls, byPath, failures } = await createSignedUrlsInBatches(
+      requested,
+      reordering,
+    );
+
+    expect(failures).toEqual([]);
+    requested.forEach((path, index) => {
+      expect(urls[index]).toBe(`https://s/${path}?token=t`);
+      expect(byPath.get(path)).toBe(`https://s/${path}?token=t`);
+    });
+  });
+
+  it("accepts a bucket-prefixed echoed label", async () => {
+    const prefixed: CreateSignedUrlsFn = async (paths) => ({
+      data: paths.map((path) => ({
+        path: `brand-images/${path}`,
+        signedUrl: `https://s/${path}?token=t`,
+        error: null,
+      })),
+      error: null,
+    });
+
+    const { byPath, failures } = await createSignedUrlsInBatches(
+      ["brands/a.webp"],
+      prefixed,
+    );
+
+    expect(failures).toEqual([]);
+    expect(byPath.get("brands/a.webp")).toBe("https://s/brands/a.webp?token=t");
+  });
+
+  it("fails an omitted path instead of shifting the rest onto wrong keys", async () => {
+    // The middle entry is missing and the remainder shifted up: index zipping
+    // would hand `brands/b.webp` the URL signed for `brands/c.webp`.
+    const shifting: CreateSignedUrlsFn = async (paths) => ({
+      data: paths
+        .filter((path) => path !== "brands/b.webp")
+        .map((path) => ({ path, signedUrl: `https://s/${path}?token=t`, error: null })),
+      error: null,
+    });
+
+    const { urls, byPath, failures } = await createSignedUrlsInBatches(
+      ["brands/a.webp", "brands/b.webp", "brands/c.webp"],
+      shifting,
+    );
+
+    expect(urls[0]).toBe("https://s/brands/a.webp?token=t");
+    expect(urls[1]).toBeNull();
+    expect(urls[2]).toBe("https://s/brands/c.webp?token=t");
+    expect(byPath.has("brands/b.webp")).toBe(false);
+    expect(failures).toHaveLength(1);
+    expect(failures[0]?.path).toBe("brands/b.webp");
+  });
+
+  it("fails a path the response labelled with something else entirely", async () => {
+    const mislabelled: CreateSignedUrlsFn = async () => ({
+      data: [
+        {
+          path: "brands/someone-else.webp",
+          signedUrl: "https://s/brands/someone-else.webp?token=t",
+          error: null,
+        },
+      ],
+      error: null,
+    });
+
+    const { urls, failures } = await createSignedUrlsInBatches(
+      ["brands/mine.webp"],
+      mislabelled,
+    );
+
+    expect(urls).toEqual([null]);
+    expect(failures).toHaveLength(1);
+    expect(failures[0]?.path).toBe("brands/mine.webp");
+  });
+
+  it("falls back to positional zipping when no entry carries a label", async () => {
+    const unlabelled: CreateSignedUrlsFn = async (paths) => ({
+      data: paths.map((path) => ({
+        path: null,
+        signedUrl: `https://s/${path}?token=t`,
+        error: null,
+      })),
+      error: null,
+    });
+
+    const { urls } = await createSignedUrlsInBatches(
+      ["brands/a.webp", "brands/b.webp"],
+      unlabelled,
+    );
+
+    expect(urls).toEqual([
+      "https://s/brands/a.webp?token=t",
+      "https://s/brands/b.webp?token=t",
+    ]);
+  });
+
   it("skips the storage call entirely when there is nothing to sign", async () => {
     const sign = vi.fn();
 

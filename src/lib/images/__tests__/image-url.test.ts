@@ -58,6 +58,25 @@ describe('absoluteImageUrl', () => {
     expect(absoluteImageUrl(null)).toBeNull()
     expect(absoluteImageUrl('')).toBeNull()
   })
+
+  it('is idempotent, because JSON-LD callers pass mixed values', () => {
+    const once = absoluteImageUrl('/i/brands/a/x.webp')
+    expect(absoluteImageUrl(once)).toBe(once)
+  })
+
+  it('absolutises a path with no leading slash rather than passing it on', () => {
+    // A relative IRI is what Google's structured-data parser drops.
+    expect(absoluteImageUrl('images/formoria-mark.png')).toBe(
+      `${SITE_URL}/images/formoria-mark.png`,
+    )
+  })
+
+  it('leaves a non-http scheme and a protocol-relative URL alone', () => {
+    expect(absoluteImageUrl('data:image/webp;base64,AAAA')).toBe(
+      'data:image/webp;base64,AAAA',
+    )
+    expect(absoluteImageUrl('//cdn.example/x.webp')).toBe('//cdn.example/x.webp')
+  })
 })
 
 describe('storagePathFromImageUrl', () => {

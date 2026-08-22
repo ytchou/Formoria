@@ -182,8 +182,7 @@ export function toBrandRow(input: CamelSocialPurchaseFields & {
    * no-op.
    */
   if (input.heroImageUrl !== undefined)
-    (row as Record<string, unknown>).hero_image_storage_path =
-      storagePathFromImageUrl(input.heroImageUrl)
+    row.hero_image_storage_path = storagePathFromImageUrl(input.heroImageUrl)
   if (input.status !== undefined) row.status = input.status
   if (input.categorySlug !== undefined) row.category = input.categorySlug
   if (input.foundingYear !== undefined) row.founding_year = input.foundingYear

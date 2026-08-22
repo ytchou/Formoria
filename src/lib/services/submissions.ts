@@ -364,7 +364,10 @@ export function buildSubmissionRecord(
     submitter_name: mapped.submitter_name,
     description: mapped.description,
     website_url: mapped.website_url,
-    hero_image_url: mapped.hero_image_url,
+    // DEV-1551: `toBrandRow` stopped emitting `hero_image_url` and now emits
+    // the bucket key instead, so reading the old key here yielded undefined
+    // and silently dropped the reviewer's hero choice.
+    hero_image_storage_path: mapped.hero_image_storage_path,
     social_instagram: mapped.social_instagram,
     social_threads: mapped.social_threads,
     social_facebook: mapped.social_facebook,
@@ -823,8 +826,14 @@ export function buildSubmissionReviewData(
     mitEvidence: enrichedData?.mitEvidence ?? null,
     siteContent: enrichedData?.siteContent ?? null,
     foundingYear: enrichedData?.foundingYear ?? null,
+    /*
+     * DEV-1551: the hero is carried as a STABLE reference — the `/i/<key>`
+     * form of the image's bucket key. `imageHero.url` is a five-minute signed
+     * URL for a `submissions/` object (and an empty string before signing), so
+     * reading it here persisted either a value that expires or nothing at all.
+     */
     heroImageUrl:
-      normalizeString(imageHero?.url) ??
+      imagePathToUrl(imageHero?.storagePath) ??
       preferText(enrichedData?.heroImageUrl, submission.heroImageUrl),
     categorySlug: preferText(
       enrichedData?.categorySlug,
@@ -954,7 +963,12 @@ function buildReviewLayers(
   const selectedHero = normalizeSubmissionReviewImages(images).find(
     (image) => image.status === "active",
   );
-  if (selectedHero) effective.heroImageUrl = selectedHero.url;
+  // Same rule as `buildSubmissionReviewData`: the reviewer's choice travels as
+  // the bucket key, so it survives save and approval. A selected image with no
+  // `storage_path` leaves the baseline hero alone rather than replacing it with
+  // an unusable reference.
+  const selectedHeroUrl = imagePathToUrl(selectedHero?.storagePath);
+  if (selectedHeroUrl) effective.heroImageUrl = selectedHeroUrl;
 
   return {
     baseline,
@@ -1115,7 +1129,10 @@ function submissionReviewDataToBrandInsert(
     mit_evidence: data.mitEvidence,
     site_content: data.siteContent,
     founding_year: mapped.founding_year,
-    hero_image_url: mapped.hero_image_url,
+    // DEV-1551: `toBrandRow` stopped emitting `hero_image_url` and now emits
+    // the bucket key instead, so reading the old key here yielded undefined
+    // and silently dropped the reviewer's hero choice.
+    hero_image_storage_path: mapped.hero_image_storage_path,
     category: mapped.category,
     price_range: mapped.price_range,
     subcategories: mapped.subcategories,
@@ -1151,7 +1168,10 @@ function submissionReviewDataToDb(
     mit_evidence: data.mitEvidence,
     site_content: data.siteContent,
     founding_year: mapped.founding_year,
-    hero_image_url: mapped.hero_image_url,
+    // DEV-1551: `toBrandRow` stopped emitting `hero_image_url` and now emits
+    // the bucket key instead, so reading the old key here yielded undefined
+    // and silently dropped the reviewer's hero choice.
+    hero_image_storage_path: mapped.hero_image_storage_path,
     category: mapped.category,
     price_range: mapped.price_range,
     subcategories: mapped.subcategories,

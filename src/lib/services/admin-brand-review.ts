@@ -13,7 +13,10 @@ import {
   fetchActiveBrandImageRows,
   type BrandImageQueryClient,
 } from "./_shared/brand-image-batch";
-import { deleteStoredImagePaths } from "@/lib/services/image-upload";
+import {
+  deleteStoredImagePaths,
+  storageKeyFromPublicUrlForRead,
+} from "@/lib/services/image-upload";
 import {
   rejectBrandImages,
   syncHeroDenormalized,
@@ -33,6 +36,13 @@ type BrandImageRow = {
   id: string;
   brand_id: string;
   storage_path: string | null;
+  /**
+   * Legacy public storage URL, NOT NULL on the table. Selected read-only: the
+   * 20260708100000 backfill inserted rows with `url` populated from
+   * `brands.hero_image_url` and `storage_path` NULL, and those rows are only
+   * addressable through it. Never written back — see `toPersistableRow`.
+   */
+  url: string | null;
   source: string;
   status: string;
   sort_order: number;
@@ -45,7 +55,54 @@ type BrandImageRow = {
 };
 
 const ADMIN_BRAND_IMAGE_SELECT =
-  "id, brand_id, storage_path, source, status, sort_order, alt_zh, alt_en, tags, width, height, source_url";
+  "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, source_url";
+
+/**
+ * Drops the legacy `url` column from a row before it goes back into an upsert.
+ * The column is read-only since DEV-1551: nothing in TypeScript writes it, and
+ * a spread of the selected row would quietly reinstate that write.
+ */
+function toPersistableRow({
+  url: _legacyUrl,
+  ...rest
+}: BrandImageRow): Omit<BrandImageRow, "url"> {
+  return rest;
+}
+
+/**
+ * The `/i/<key>` references `rejectBrandImages` keys on, one per row.
+ *
+ * `storage_path` is the modern reference, but it is NULL on every row the
+ * 20260708100000 backfill created, and `rejectBrandImages` returns early on an
+ * empty list — so deriving the key from `storage_path` alone left a legacy row
+ * `status = 'active'` forever while the UI reported the save had succeeded.
+ * `storageKeyFromPublicUrlForRead` is the fail-open recovery for exactly that
+ * direction. A row neither path can address is surfaced, never skipped.
+ */
+export function brandImageRejectRefs(
+  rows: readonly Pick<BrandImageRow, "id" | "storage_path" | "url">[],
+): string[] {
+  const unrecoverable: string[] = [];
+  const refs = rows.flatMap((row) => {
+    const key =
+      row.storage_path ??
+      (row.url ? storageKeyFromPublicUrlForRead(row.url) : null);
+    const ref = imagePathToUrl(key);
+    if (!ref) {
+      unrecoverable.push(row.id);
+      return [];
+    }
+    return [ref];
+  });
+
+  if (unrecoverable.length > 0) {
+    throw new ValidationError(
+      `Cannot resolve a storage reference for brand image(s): ${unrecoverable.join(", ")}`,
+    );
+  }
+
+  return refs;
+}
 
 export async function getAdminBrandReviewImages(
   brandIds: string[],
@@ -188,8 +245,20 @@ export async function saveAdminBrandReview(
   const selectedRows = input.images.map((image) => {
     const row = rowsById.get(image.id);
     if (!row) throw new ValidationError("Brand image does not belong to brand");
-    return { ...row, status: "active", sort_order: image.sortOrder };
+    return {
+      ...toPersistableRow(row),
+      status: "active",
+      sort_order: image.sortOrder,
+    };
   });
+
+  // Derived BEFORE `updateBrand`, so an unaddressable row aborts the save
+  // instead of leaving the brand fields written and its image rejection
+  // silently skipped.
+  const selectedIdSet = new Set(selectedIds);
+  const removedActiveRefs = brandImageRejectRefs(
+    rows.filter((row) => row.status === "active" && !selectedIdSet.has(row.id)),
+  );
 
   const purchaseFields = Object.fromEntries(
     ONLINE_STORES.map((channel) => [
@@ -222,20 +291,7 @@ export async function saveAdminBrandReview(
     otherUrls: input.otherUrls,
   });
 
-  const selectedIdSet = new Set(selectedIds);
-  const removedActive = rows.filter(
-    (row) => row.status === "active" && !selectedIdSet.has(row.id),
-  );
-  await rejectBrandImages(
-    supabase,
-    brandId,
-    // `rejectBrandImages` keys on the rendered `/i/<key>` reference since
-    // DEV-1551; a row with no bucket key resolves to nothing and is skipped.
-    removedActive.flatMap((row) => {
-      const ref = imagePathToUrl(row.storage_path);
-      return ref ? [ref] : [];
-    }),
-  );
+  await rejectBrandImages(supabase, brandId, removedActiveRefs);
 
   if (selectedRows.length > 0) {
     const { error: upsertError } = await supabase

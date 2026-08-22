@@ -32,17 +32,25 @@ export function imagePathToUrl(
   return `${IMAGE_PROXY_PATH_PREFIX}${key}`
 }
 
+/** `https:`, `data:`, `mailto:` — anything already carrying a URI scheme. */
+const URI_SCHEME_PATTERN = /^[a-z][a-z0-9+.-]*:/i
+
 /**
  * `/i/brands/x.webp` -> `https://<site>/i/brands/x.webp`.
  *
- * A value that is already absolute is returned unchanged, so a caller holding a
- * mixture of our own paths and third-party URLs can pass the whole list.
+ * Idempotent by contract, because JSON-LD callers pass a mixture: a value that
+ * already carries a URI scheme (a legacy external image URL) or a
+ * protocol-relative `//host/...` is returned unchanged, so passing the result
+ * back through changes nothing. A repo-relative value without a leading slash
+ * (`images/x.png`) is still ours, so it gets the slash and the origin rather
+ * than being handed on as a relative IRI — an IRI Google's structured-data
+ * parser drops.
  */
 export function absoluteImageUrl(url: string | null | undefined): string | null {
   const value = url?.trim()
   if (!value) return null
-  if (!value.startsWith('/')) return value
-  return `${getSiteUrl()}${value}`
+  if (URI_SCHEME_PATTERN.test(value) || value.startsWith('//')) return value
+  return `${getSiteUrl()}${value.startsWith('/') ? value : `/${value}`}`
 }
 
 /**

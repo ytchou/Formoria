@@ -33,6 +33,21 @@ export type CreateSignedUrlsFn = (
   error: { message: string } | null
 }>
 
+/**
+ * The echoed label, trimmed of a leading slash. Supabase has echoed both the
+ * bare key and a bucket-prefixed form across versions, so the suffix comparison
+ * in {@link labelMatches} does the rest.
+ */
+function normalizeEchoedLabel(label: string | null | undefined): string | null {
+  const value = label?.trim().replace(/^\/+/, '')
+  return value ? value : null
+}
+
+/** `brands/a.webp` matches both `brands/a.webp` and `brand-images/brands/a.webp`. */
+function labelMatches(label: string, requestedPath: string): boolean {
+  return label === requestedPath || label.endsWith(`/${requestedPath}`)
+}
+
 export class SignedUrlError extends Error {
   constructor(message: string) {
     super(message)
@@ -61,9 +76,13 @@ export type SignedUrlBatchResult = {
  * object. A single path failing inside an otherwise good batch is reported in
  * `failures` instead, so one deleted object cannot blank an entire admin page.
  *
- * Order is preserved across chunk boundaries: results are zipped back by index
- * within each chunk (Supabase returns one entry per requested path, in order)
- * and then mapped onto the caller's original array through `byPath`.
+ * Results are matched to requests by the LABEL Supabase echoes in `item.path`,
+ * not by position. Zipping by index is only correct while the response happens
+ * to be in request order; one reordered or omitted entry would otherwise serve
+ * one submission's signed pre-moderation image under another submission's key,
+ * silently and with `failures` empty. A requested path with no matching label
+ * becomes a failure. Index zipping survives only as the fallback for a response
+ * that echoes no label at all.
  */
 export async function createSignedUrlsInBatches(
   paths: readonly string[],
@@ -90,16 +109,35 @@ export async function createSignedUrlsInBatches(
       )
     }
 
+    const labelled = data.map((item) => ({
+      item,
+      label: normalizeEchoedLabel(item?.path),
+    }))
+    const anyLabelled = labelled.some((entry) => entry.label !== null)
+
     batch.forEach((path, batchIndex) => {
-      const item = data[batchIndex]
       // `item.path` is echoed back by Supabase; when present it is the
-      // authoritative label for the row, and a mismatch means the response was
-      // not in request order.
-      const label = item?.path ?? path
-      if (!item || item.error || !item.signedUrl) {
+      // authoritative label for the row, so it decides the pairing. Only a
+      // response that labels nothing falls back to position.
+      const item = anyLabelled
+        ? labelled.find(
+            (entry) => entry.label !== null && labelMatches(entry.label, path),
+          )?.item
+        : data[batchIndex]
+
+      if (!item) {
         failures.push({
-          path: label,
-          message: item?.error ?? 'no signed url returned',
+          path,
+          message: anyLabelled
+            ? 'storage response carried no entry labelled with this path'
+            : 'no signed url returned',
+        })
+        return
+      }
+      if (item.error || !item.signedUrl) {
+        failures.push({
+          path,
+          message: item.error ?? 'no signed url returned',
         })
         return
       }

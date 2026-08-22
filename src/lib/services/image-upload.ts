@@ -3,6 +3,7 @@ import { auditedCall } from '@/lib/audit'
 import type { ImageProcessorConfig } from '@/lib/security/image-processor'
 import { uploadWithRetry } from './storage-retry'
 import { storagePathFromImageUrl } from '@/lib/images/image-url'
+import { BRAND_IMAGES_KEY_PREFIX } from '@/lib/images/storage-keys'
 
 export const ALLOWED_UPLOAD_BUCKETS = [
   'brand-images',
@@ -12,7 +13,6 @@ export const ALLOWED_UPLOAD_BUCKETS = [
 export type AllowedUploadBucket = (typeof ALLOWED_UPLOAD_BUCKETS)[number]
 const BRAND_IMAGES_BUCKET = ALLOWED_UPLOAD_BUCKETS[0]
 const BRAND_IMAGES_PUBLIC_SEGMENT = `/storage/v1/object/public/${BRAND_IMAGES_BUCKET}/`
-const BRAND_IMAGES_KEY_PREFIX = 'brands/'
 const SUBMISSION_IMAGES_KEY_PREFIX = 'submissions/'
 // Curated product images (DEV-1404): `curated-products/<brand>/<product>/<hash>.webp`
 // in the same `brand-images` bucket.
@@ -29,6 +29,7 @@ const READABLE_IMAGE_KEY_PREFIXES = [
   CURATED_PRODUCT_IMAGES_KEY_PREFIX,
   EVENT_EXHIBITOR_IMAGES_KEY_PREFIX,
 ] as const
+
 const CLAIM_PROOF_IMAGE_CONFIG: Partial<ImageProcessorConfig> = {
   maxWidth: 2400,
   maxHeight: 2400,

@@ -76,10 +76,25 @@ describe("image write contract (DEV-1551 task 12)", () => {
 
   it("no writer selects the legacy url column alongside storage_path", () => {
     for (const writer of WRITERS) {
+      // `admin-brand-review.ts` is the one exemption, and it is a READ. Rows
+      // from the 20260708100000 backfill carry `storage_path` NULL and are
+      // addressable only through `url`; without it the reject path yielded an
+      // empty list and the row stayed active while the UI reported success.
+      // The write side is guarded below instead.
+      if (writer === "admin-brand-review.ts") continue;
       expect(withoutComments(read(writer)), writer).not.toContain(
         "storage_path, url",
       );
     }
+  });
+
+  it("admin brand review strips the legacy url before upserting a row", () => {
+    const source = withoutComments(read("admin-brand-review.ts"));
+
+    // A bare `...row` spread of a selected row would put `url` straight back
+    // into the upsert payload.
+    expect(source).toContain("toPersistableRow(row)");
+    expect(source).not.toContain("...row,");
   });
 
   it("no service builds a public storage URL except the prefix helper", () => {
