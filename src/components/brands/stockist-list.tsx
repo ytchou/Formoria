@@ -1,12 +1,13 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Check, ChevronDown, ExternalLink, TriangleAlert } from "lucide-react";
+import { Check, ExternalLink, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   getStockistViewerStateAction,
   ownerModerateStockistAction,
 } from "@/app/[locale]/(site)/brands/[slug]/actions";
+import { Accordion, AccordionItem } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useUser } from "@/lib/auth/use-user";
@@ -437,19 +438,17 @@ export function StockistList({
         : tCities(group.key);
 
     return (
-      <details key={group.key} className="group" data-stockist-kind={group.key}>
-        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+      <AccordionItem
+        key={group.key}
+        data-stockist-kind={group.key}
+        title={
           <h3 className="type-body-sm font-semibold text-ink">{`${heading} (${group.stockists.length})`}</h3>
-          <ChevronDown
-            aria-hidden="true"
-            className="size-5 shrink-0 text-ink-muted transition-transform duration-200 group-open:rotate-180"
-          />
-        </summary>
-        <div className="space-y-4 pb-4">
-          {renderChipStack(group.key, chipStockists)}
-          {renderRowStack(rowStockists)}
-        </div>
-      </details>
+        }
+        panelClassName="space-y-4 px-4 py-4"
+      >
+        {renderChipStack(group.key, chipStockists)}
+        {renderRowStack(rowStockists)}
+      </AccordionItem>
     );
   }
 
@@ -471,11 +470,6 @@ export function StockistList({
   }
 
   return (
-    <div
-      className="divide-y divide-rule border-y border-rule"
-      data-stockist-list
-    >
-      {displayGroups.map(renderGroup)}
-    </div>
+    <Accordion data-stockist-list>{displayGroups.map(renderGroup)}</Accordion>
   );
 }
