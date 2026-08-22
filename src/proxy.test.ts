@@ -28,13 +28,20 @@ vi.mock("@/lib/security/crawler-telemetry", () => ({
   recordCrawlerHit: vi.fn(),
 }));
 
+const limiter = vi.hoisted(() => ({
+  checkRateLimit: vi.fn(async (_request: unknown): Promise<null> => null),
+  checkSoftRateLimit: vi.fn(
+    async (_request: unknown, _options?: unknown): Promise<boolean> => false,
+  ),
+}));
+
 vi.mock("@/lib/security/rate-limiter", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("@/lib/security/rate-limiter")>();
   return {
     ...actual,
-    checkRateLimit: async () => null,
-    checkSoftRateLimit: async () => false,
+    checkRateLimit: limiter.checkRateLimit,
+    checkSoftRateLimit: limiter.checkSoftRateLimit,
   };
 });
 
@@ -83,6 +90,8 @@ async function withRedirectLookupServer<T>(callback: () => Promise<T>) {
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "");
+  limiter.checkRateLimit.mockImplementation(async () => null);
+  limiter.checkSoftRateLimit.mockImplementation(async () => false);
 });
 
 afterEach(() => {
@@ -554,5 +563,68 @@ describe("proxy matcher", () => {
     expect(rest).toEqual([]);
     // And the guard really does apply to it: /i/ is not on the exempt list.
     expect(isOriginGuardExempt("/i/brands/x.webp")).toBe(false);
+  });
+});
+
+/**
+ * DEV-1551 task 15. `src/proxy.ts` used to treat a valid `fm_verified` cookie as
+ * an unconditional seven-day pass: the whole soft-limit block was skipped, so
+ * solving Turnstile once bought a week of unmetered `/brands/*` traversal.
+ * Verification now buys a RAISED budget, evaluated on the same counter.
+ */
+describe("the soft-limit budget a verified visitor gets", () => {
+  const SOFT_LIMIT_PATH = "/brands/kinship-goods";
+
+  beforeEach(() => {
+    vi.stubEnv("SECURITY_DISABLE_RATE_LIMIT", "false");
+    vi.stubEnv("PLAYWRIGHT_TEST", "false");
+    vi.stubEnv("CHALLENGE_SECRET", "proxy-test-challenge-secret");
+  });
+
+  async function verifiedCookieHeader(): Promise<string> {
+    const { signChallengeToken, CHALLENGE_COOKIE_NAME } = await import(
+      "@/lib/security/challenge"
+    );
+    return `${CHALLENGE_COOKIE_NAME}=${await signChallengeToken("203.0.113.5")}`;
+  }
+
+  it("still evaluates the soft limit for a verified visitor", async () => {
+    // Passing the soft limit lets the request fall through to the brand
+    // redirect lookup, which needs a reachable Supabase endpoint. The two
+    // tests below return before reaching it.
+    const cookie = await verifiedCookieHeader();
+    await withRedirectLookupServer(() =>
+      proxy(requestFor(SOFT_LIMIT_PATH, { cookie })),
+    );
+
+    // The call itself is the assertion: before this change the cookie skipped it.
+    expect(limiter.checkSoftRateLimit).toHaveBeenCalledTimes(1);
+    expect(limiter.checkSoftRateLimit.mock.calls[0]?.[1]).toEqual({
+      verified: true,
+    });
+  });
+
+  it("escalates a verified visitor to 429 rather than re-challenging them", async () => {
+    limiter.checkSoftRateLimit.mockImplementation(async () => true);
+
+    const response = await proxy(
+      requestFor(SOFT_LIMIT_PATH, { cookie: await verifiedCookieHeader() }),
+    );
+
+    // A redirect back to /challenge would bounce a visitor who already holds a
+    // valid token between two pages until the window rolled.
+    expect(response.status).toBe(429);
+  });
+
+  it("still sends an unverified visitor to the challenge first", async () => {
+    limiter.checkSoftRateLimit.mockImplementation(async () => true);
+
+    const response = await proxy(requestFor(SOFT_LIMIT_PATH));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/challenge");
+    expect(limiter.checkSoftRateLimit.mock.calls[0]?.[1]).toEqual({
+      verified: false,
+    });
   });
 });

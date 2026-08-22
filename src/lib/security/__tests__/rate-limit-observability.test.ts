@@ -5,13 +5,27 @@ import {
   checkRateLimit,
   checkSoftRateLimit,
   createInMemoryRateLimiter,
+  observeTraversal,
+  resetTraversalTelemetryLatchForTests,
   setRateLimitStoreForTests,
 } from '../rate-limiter'
 import {
+  reportEnforcementDecision,
+  reportIdentityRotationSuspected,
+  reportKnownCrawlerBlocked,
   reportRateLimitStoreRecovered,
   reportRateLimitStoreUnavailable,
+  reportRateLimiterDegraded,
+  reportVerifiedCrawlerAllowed,
+  reportVisitorIdentityRotated,
   setRateLimitTelemetryTransportForTests,
 } from '../rate-limit-observability'
+import type { EnforcementDecision } from '../enforcement'
+import {
+  createInMemoryTraversalStore,
+  setTraversalStoreForTests,
+} from '../traversal-counters'
+import { signVisitorId, VISITOR_COOKIE_NAME } from '../visitor-identity'
 
 const TOKEN_ENV = 'NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN'
 const HOST_ENV = 'NEXT_PUBLIC_POSTHOG_HOST'
@@ -233,5 +247,170 @@ describe('rate-limit block telemetry', () => {
     )
     expect(soft.length).toBeGreaterThan(0)
     expect(soft[0].properties.route_family).toBe('/brands')
+  })
+})
+
+/**
+ * DEV-1551 task 16. The enforcement ladder ships in log-only `observe` mode, so
+ * these eleven events are its ONLY output until thresholds are calibrated. If
+ * one of them stops firing, the ladder goes dark without anything failing.
+ *
+ * Alert thresholds, the rollback trigger and what a false positive looks like
+ * are recorded in `docs/runbooks/anti-enumeration.md`.
+ */
+describe('enforcement ladder telemetry', () => {
+  const RAW_IP = '198.51.100.201'
+  const RAW_VISITOR_ID = '7f3a1c2e-9b04-4d51-8a6f-2c3d4e5f6a7b'
+
+  let events: Array<{ event: string; properties: Record<string, unknown> }>
+
+  beforeEach(() => {
+    events = []
+    setRateLimitTelemetryTransportForTests(async (event, properties) => {
+      events.push({ event, properties })
+    })
+  })
+
+  afterEach(() => {
+    setRateLimitTelemetryTransportForTests(null)
+    setTraversalStoreForTests(null)
+    resetTraversalTelemetryLatchForTests()
+    vi.unstubAllEnvs()
+  })
+
+  function names(): string[] {
+    return events.map((entry) => entry.event)
+  }
+
+  function decisionFor(
+    action: 'record' | 'challenge' | 'block' | 'extended_block',
+    overrides: Partial<EnforcementDecision> = {},
+  ): EnforcementDecision {
+    return {
+      action,
+      effectiveAction: action,
+      reason: 'block_threshold_exceeded',
+      mode: 'enforce',
+      shadowed: false,
+      family: 'directory:detail',
+      window: 'tenMinutes',
+      identityKind: 'visitor',
+      threshold: 160,
+      observed: 412,
+      ...overrides,
+    }
+  }
+
+  it('emits all eleven scrape_/crawler events', async () => {
+    for (const action of [
+      'record',
+      'challenge',
+      'block',
+      'extended_block',
+    ] as const) {
+      reportEnforcementDecision({ identityKey: 'abcd1234', decision: decisionFor(action) })
+    }
+
+    reportEnforcementDecision({
+      identityKey: 'abcd1234',
+      decision: decisionFor('block', { mode: 'observe', effectiveAction: 'allow', shadowed: true }),
+    })
+    reportEnforcementDecision({
+      identityKey: 'abcd1234',
+      decision: decisionFor('block', { reason: 'verified_budget_exhausted' }),
+    })
+    reportIdentityRotationSuspected({
+      identityKey: 'abcd1234',
+      routeFamily: 'directory:detail',
+      reason: 'record_threshold_exceeded',
+    })
+    reportVerifiedCrawlerAllowed({
+      crawlerName: 'Googlebot',
+      routeFamily: 'directory:detail',
+      reason: 'crawler_verified',
+    })
+    reportKnownCrawlerBlocked({
+      crawlerName: 'Googlebot',
+      routeFamily: 'directory:detail',
+      reason: 'hard_limit_exceeded',
+    })
+    reportVisitorIdentityRotated({
+      identityKey: 'abcd1234',
+      routeFamily: 'directory:detail',
+      reason: 'cookie_absent',
+    })
+    reportRateLimiterDegraded({ reason: 'upstash_env_missing', storeKind: 'in-memory' })
+    await Promise.resolve()
+
+    const emitted = new Set(names())
+    for (const expected of [
+      ANALYTICS_EVENTS.SCRAPE_LADDER_RECORDED,
+      ANALYTICS_EVENTS.SCRAPE_LADDER_CHALLENGED,
+      ANALYTICS_EVENTS.SCRAPE_LADDER_BLOCKED,
+      ANALYTICS_EVENTS.SCRAPE_LADDER_EXTENDED_BLOCK,
+      ANALYTICS_EVENTS.SCRAPE_LADDER_SHADOWED,
+      ANALYTICS_EVENTS.SCRAPE_VERIFIED_BUDGET_EXHAUSTED,
+      ANALYTICS_EVENTS.SCRAPE_IDENTITY_ROTATION_SUSPECTED,
+      ANALYTICS_EVENTS.VERIFIED_CRAWLER_ALLOWED,
+      ANALYTICS_EVENTS.KNOWN_CRAWLER_BLOCKED,
+      ANALYTICS_EVENTS.VISITOR_IDENTITY_ROTATED,
+      ANALYTICS_EVENTS.RATE_LIMITER_DEGRADED,
+    ]) {
+      expect(emitted.has(expected)).toBe(true)
+    }
+    // Eleven distinct constants, none of them an inline string literal.
+    expect(emitted.size).toBe(11)
+  })
+
+  it('payload carries pseudonymous id, route family, distinct-resource count, window, threshold, reason code', async () => {
+    reportEnforcementDecision({ identityKey: 'abcd1234', decision: decisionFor('block') })
+    await Promise.resolve()
+
+    const blocked = events.find(
+      (entry) => entry.event === ANALYTICS_EVENTS.SCRAPE_LADDER_BLOCKED,
+    )
+    expect(blocked?.properties).toMatchObject({
+      identity_key: 'abcd1234',
+      identity_kind: 'visitor',
+      route_family: 'directory:detail',
+      distinct_resources: 412,
+      window: 'tenMinutes',
+      threshold: 160,
+      reason: 'block_threshold_exceeded',
+      action: 'block',
+      effective_action: 'block',
+      mode: 'enforce',
+      $process_person_profile: false,
+    })
+  })
+
+  it('does not emit a raw IP or a raw visitor id', async () => {
+    vi.stubEnv('TRAVERSAL_COUNTERS', 'on')
+    vi.stubEnv('CHALLENGE_SECRET', 'observability-test-secret')
+    vi.stubEnv('ENFORCEMENT_RECORD_DISTINCT', '1')
+    setTraversalStoreForTests(createInMemoryTraversalStore())
+    resetTraversalTelemetryLatchForTests()
+
+    const signed = await signVisitorId(RAW_VISITOR_ID)
+    const request = new NextRequest('https://formoria.com/brands/talkoo', {
+      headers: {
+        'user-agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+        'cf-connecting-ip': RAW_IP,
+        cookie: `${VISITOR_COOKIE_NAME}=${signed}`,
+      },
+    })
+
+    const evaluation = await observeTraversal(request, '/brands/talkoo')
+    await Promise.resolve()
+
+    // The path really ran: without this the assertions below pass vacuously.
+    expect(evaluation).not.toBeNull()
+    expect(events.length).toBeGreaterThan(0)
+
+    const serialized = JSON.stringify(events)
+    expect(serialized).not.toContain(RAW_IP)
+    expect(serialized).not.toContain(RAW_VISITOR_ID)
+    expect(serialized).not.toContain(signed)
   })
 })

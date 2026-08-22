@@ -11,6 +11,7 @@ describe('verifyTurnstileToken', () => {
     process.env.TURNSTILE_SECRET_KEY = 'test-secret-key'
     vi.stubEnv('NODE_ENV', 'test')
     vi.stubEnv('PLAYWRIGHT_TEST', 'false')
+    vi.stubEnv('SECURITY_STUB_TURNSTILE', 'false')
     writes = []
     setAuditWriteSeam(async (record) => {
       writes.push(record)
@@ -97,6 +98,10 @@ describe('verifyTurnstileToken', () => {
 
   it('skips verification for the production Playwright test server', async () => {
     vi.stubEnv('NODE_ENV', 'production')
+    // The legacy flag still reaches the gate through the fallback in
+    // `test-gates.ts`, so a runner that exports only this keeps working. The
+    // new switch has to be UNSET for the fallback to apply.
+    vi.stubEnv('SECURITY_STUB_TURNSTILE', '')
     vi.stubEnv('PLAYWRIGHT_TEST', 'true')
     const fetchSpy = vi.spyOn(global, 'fetch')
 
@@ -108,6 +113,45 @@ describe('verifyTurnstileToken', () => {
 
     expect(result.success).toBe(true)
     expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('skips verification when SECURITY_STUB_TURNSTILE is set on its own', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('PLAYWRIGHT_TEST', 'false')
+    vi.stubEnv('SECURITY_STUB_TURNSTILE', 'true')
+    const fetchSpy = vi.spyOn(global, 'fetch')
+
+    const result = await verifyTurnstileToken('test-token', undefined, 'formoria.com')
+
+    expect(result.success).toBe(true)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  /**
+   * DEV-1551 task 17. The short-circuit at the top of `verifyTurnstileToken`
+   * used to fire on `PLAYWRIGHT_TEST=true`, the SAME flag that disabled the rate
+   * limiter -- so an e2e project could never exercise real Turnstile while the
+   * limiter stayed off. `SECURITY_STUB_TURNSTILE=false` now turns this gate back
+   * on by itself.
+   */
+  it('calls the real endpoint when stubbing is off', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    // Both the legacy flag and the limiter switch say "test run"...
+    vi.stubEnv('PLAYWRIGHT_TEST', 'true')
+    vi.stubEnv('SECURITY_DISABLE_RATE_LIMIT', 'true')
+    // ...and Turnstile is still verified for real.
+    vi.stubEnv('SECURITY_STUB_TURNSTILE', 'false')
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true }), { status: 200 }),
+    )
+
+    const result = await verifyTurnstileToken('test-token', undefined, 'formoria.com')
+
+    expect(result.success).toBe(true)
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+      expect.objectContaining({ method: 'POST' }),
+    )
   })
 
   it('does not bypass verification for E2E_USER_EMAIL alone', async () => {

@@ -6,17 +6,23 @@ import { CRAWLER_REGISTRY, matchCrawler } from './crawler-registry'
 import { isCrawlerVerificationEnforced, isVerifiedCrawler } from './verified-crawler'
 import { reportCrawlerChallenged, reportCrawlerRateLimited, reportCrawlerVerificationDisagreement } from './crawler-drift'
 import {
+  pseudonymizeIdentifier,
+  reportEnforcementDecision,
+  reportIdentityRotationSuspected,
+  reportKnownCrawlerBlocked,
   reportRateLimitBlocked,
+  reportRateLimiterDegraded,
   reportRateLimitStoreRecovered,
   reportRateLimitStoreUnavailable,
+  reportVerifiedCrawlerAllowed,
 } from './rate-limit-observability'
 import { stripLocalePrefix } from './route-family'
 import {
-  getTraversalStore,
-  recordTraversalView,
-  resolveTraversalIdentity,
-  type TraversalSnapshot,
-} from './traversal-counters'
+  evaluateTraversal,
+  getEnforcementThresholds,
+  type EvaluateTraversalResult,
+} from './enforcement'
+import { getTraversalStore } from './traversal-counters'
 import { verifyVisitorId, VISITOR_COOKIE_NAME } from './visitor-identity'
 
 export interface RateLimitResult {
@@ -442,22 +448,12 @@ function getSoftRateLimitPathPrefix(pathname: string): string {
  * soft-limit crawler bypass is ever narrowed to verified-only.
  */
 /**
- * Non-reversible client key for limiter telemetry. FNV-1a because the edge
- * runtime has no synchronous digest and the limiter must not await one on the
- * block path; this is a bucketing key for counting distinct blocked clients,
- * NOT a privacy boundary against a determined attacker who can enumerate the
- * IPv4 space. Ceiling: fine for volume calibration. Upgrade path: if this key
- * is ever joined against user data, replace it with a keyed SHA-256 (HMAC with
- * a server-side salt) computed off the request path.
+ * Non-reversible client key for limiter telemetry. The implementation moved to
+ * `rate-limit-observability.ts` so the limiter and the enforcement ladder derive
+ * the SAME pseudonymous id for one client -- two hashes would have made the two
+ * event families impossible to join in PostHog.
  */
-function hashIpForTelemetry(ip: string): string {
-  let hash = 0x811c9dc5
-  for (let index = 0; index < ip.length; index += 1) {
-    hash ^= ip.charCodeAt(index)
-    hash = Math.imul(hash, 0x01000193) >>> 0
-  }
-  return hash.toString(16).padStart(8, '0')
-}
+const hashIpForTelemetry = pseudonymizeIdentifier
 
 /**
  * Coarse route bucket for limiter telemetry: the first path segment, or `/` at
@@ -473,6 +469,14 @@ export function evaluateCrawlerRateLimitAlarm(userAgent: string, pathname: strin
   const entry = matchCrawler(userAgent)
   if (!entry) return false
   reportCrawlerRateLimited({ crawlerName: entry.name, pathname })
+  // Sentry AND PostHog. Sentry pages a human on the individual event; the
+  // PostHog counterpart is what an operator can chart against the rest of the
+  // ladder when deciding whether to roll enforcement back.
+  reportKnownCrawlerBlocked({
+    crawlerName: entry.name,
+    routeFamily: routeFamilyForTelemetry(pathname),
+    reason: 'hard_limit_exceeded',
+  })
   return true
 }
 
@@ -480,24 +484,87 @@ export function evaluateCrawlerChallengeAlarm(userAgent: string, pathname: strin
   const entry = matchCrawler(userAgent)
   if (!entry) return false
   reportCrawlerChallenged({ crawlerName: entry.name, pathname })
+  reportKnownCrawlerBlocked({
+    crawlerName: entry.name,
+    routeFamily: routeFamilyForTelemetry(pathname),
+    reason: 'soft_limit_challenge',
+  })
   return true
 }
 
-export async function checkSoftRateLimit(request: NextRequest): Promise<boolean> {
+export interface SoftRateLimitOptions {
+  /**
+   * The caller holds a valid `fm_verified` cookie. Raises the budget; it does
+   * NOT skip the check. Before DEV-1551 `src/proxy.ts` treated this cookie as an
+   * unconditional 7-day pass, so one Turnstile solve bought a week of unmetered
+   * `/brands/*` traversal.
+   */
+  verified?: boolean
+}
+
+/**
+ * The soft limit's crawler bypass, now interlocked exactly like the hard
+ * limiter's.
+ *
+ * It used to be a bare `isLikelyCrawler()` call: a `Googlebot` User-Agent alone
+ * skipped the soft limit outright, with no dependence on the Cloudflare
+ * verified-bot header and no path by which flipping `VERIFIED_CRAWLER_SHADOW`
+ * could ever tighten it. That made the spoof free and permanent.
+ *
+ * Behaviour is unchanged TODAY on purpose: `isCrawlerVerificationEnforced()`
+ * refuses to leave shadow mode until the verified-bot header has been observed
+ * at least once (see verified-crawler.ts), and the transform rule that stamps it
+ * is not deployed. Removing that interlock here would drop Googlebot into the
+ * soft limit, 302 it to the noindex /challenge page, and deindex /brands/*.
+ * Once the rule ships and the flag flips, a UA claim stops being enough.
+ */
+function isSoftLimitCrawlerExempt(request: NextRequest): boolean {
+  const entry = matchCrawler(request.headers.get('user-agent') ?? '')
+  if (!isCrawlerVerificationEnforced()) return entry !== null
+  return isVerifiedCrawler(request) || entry?.trustedUnverified === true
+}
+
+/**
+ * The 429 a caller earns by exhausting a RAISED budget. Kept next to the limiter
+ * so the body and headers stay identical to the hard limiter's, and so the proxy
+ * layer never builds a rate-limit response itself.
+ */
+export function softLimitBlockedResponse(retryAfterSeconds?: number): NextResponse {
+  const retryAfter = retryAfterSeconds ?? getEnforcementThresholds().blockSeconds
+  return new NextResponse(RATE_LIMIT_HTML, {
+    status: 429,
+    headers: {
+      'Retry-After': String(Math.max(1, Math.ceil(retryAfter))),
+      'Content-Type': 'text/html; charset=utf-8',
+    },
+  })
+}
+
+export async function checkSoftRateLimit(
+  request: NextRequest,
+  options: SoftRateLimitOptions = {},
+): Promise<boolean> {
   const normalizedPathname = stripLocalePrefix(request.nextUrl.pathname)
 
   if (!SOFT_LIMIT_PREFIXES.some((prefix) => normalizedPathname.startsWith(prefix))) {
     return false
   }
 
-  if (isLikelyCrawler(request)) {
+  if (isSoftLimitCrawlerExempt(request)) {
     // Close the deindexing vector: soft challenge -> 302 to /challenge -> noindex.
     return false
   }
 
   const ip = getClientIp(request)
   const key = `soft:${getSoftRateLimitPathPrefix(normalizedPathname)}:${ip}`
-  const result = await checkStore(key, SOFT_LIMIT.windowMs, SOFT_LIMIT.maxRequests)
+  // Same key for verified and unverified callers on purpose: the budget is
+  // raised, but the counter is shared, so a mid-window Turnstile solve does not
+  // hand the caller a fresh window on top of a raised ceiling.
+  const verified = options.verified === true
+  const maxRequests = verified
+    ? Math.ceil(SOFT_LIMIT.maxRequests * getEnforcementThresholds().verifiedBudgetMultiplier)
+    : SOFT_LIMIT.maxRequests
+  const result = await checkStore(key, SOFT_LIMIT.windowMs, maxRequests)
 
   // Store unreachable: no challenge. A soft limit that cannot be evaluated must
   // not 302 real traffic to /challenge.
@@ -507,7 +574,7 @@ export async function checkSoftRateLimit(request: NextRequest): Promise<boolean>
     reportRateLimitBlocked({
       routeFamily: routeFamilyForTelemetry(normalizedPathname),
       ipKey: hashIpForTelemetry(ip),
-      reason: 'soft_limit_challenge',
+      reason: verified ? 'verified_budget_exhausted' : 'soft_limit_challenge',
     })
     // Defense in depth: the crawler bypass above returns false for every registry
     // match, so this only fires if that bypass is ever narrowed to verified-only
@@ -548,29 +615,103 @@ function isTraversalAccountingEnabled(): boolean {
  * IP as the last resort. `resolveTraversalIdentity` keeps the full precedence
  * so a server-side caller can supply the user id.
  */
+/**
+ * One-shot per isolate. The condition it reports is permanent for the life of
+ * the process, so throttling alone would still cost one event per cold isolate
+ * per window across the whole fleet.
+ */
+let traversalDegradedReported = false
+
+function reportTraversalStoreDegradedOnce(): void {
+  if (traversalDegradedReported) return
+  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) return
+
+  traversalDegradedReported = true
+  reportRateLimiterDegraded({
+    reason: 'upstash_env_missing',
+    // Per-isolate memory. An attacker's requests scatter across isolates, so
+    // every number the ladder reports is a fraction of the real traffic.
+    storeKind: 'in-memory',
+  })
+}
+
+/** Test seam: forget the one-shot degraded-store latch. */
+export function resetTraversalTelemetryLatchForTests(): void {
+  traversalDegradedReported = false
+}
+
 export async function observeTraversal(
   request: NextRequest,
   normalizedPathname: string,
-): Promise<TraversalSnapshot | null> {
+): Promise<EvaluateTraversalResult | null> {
   if (!isTraversalAccountingEnabled()) return null
 
   try {
     const visitorId = await verifyVisitorId(
       request.cookies.get(VISITOR_COOKIE_NAME)?.value,
     )
-    const identity = resolveTraversalIdentity({
+    const entry = matchCrawler(request.headers.get('user-agent') ?? '')
+    const ip = getClientIp(request)
+
+    const evaluation = await evaluateTraversal({
+      store: getTraversalStore(),
       userId: null,
       visitorId,
-      ip: getClientIp(request),
-    })
-
-    return await recordTraversalView({
-      store: getTraversalStore(),
-      identity,
+      ip,
       pathname: normalizedPathname,
       searchParams: request.nextUrl.searchParams,
+      crawler: {
+        claimsCrawler: entry !== null,
+        verified: isVerifiedCrawler(request),
+        trustedUnverified: entry?.trustedUnverified === true,
+      },
     })
+
+    reportTraversalStoreDegradedOnce()
+
+    // Pseudonymous, and derived from the identity that the ladder actually
+    // scored. The raw visitor id and the raw IP both stop here.
+    const identityKey = pseudonymizeIdentifier(
+      evaluation.decision.identityKind === 'visitor' && visitorId ? visitorId : ip,
+    )
+
+    if (evaluation.exempt) {
+      reportVerifiedCrawlerAllowed({
+        crawlerName: entry?.name ?? null,
+        routeFamily: evaluation.decision.family,
+        reason: evaluation.decision.reason,
+      })
+      return evaluation
+    }
+
+    reportEnforcementDecision({ identityKey, decision: evaluation.decision })
+
+    // Cookie rotation watch. A caller with no usable `fm_visitor` cookie behind
+    // an IP that has already crossed the record threshold is the shape of
+    // deliberate rotation: the visitor tier is always empty, so only the IP
+    // aggregate can see them at all.
+    const ipTier = evaluation.tiers.find((tier) => tier.kind === 'ip')
+    if (
+      !visitorId &&
+      ipTier &&
+      ipTier.distinctResources >= getEnforcementThresholds().recordDistinctResources
+    ) {
+      reportIdentityRotationSuspected({
+        identityKey,
+        routeFamily: evaluation.decision.family,
+        reason: evaluation.decision.reason,
+      })
+    }
+
+    return evaluation
   } catch (error) {
+    // The ladder produced no numbers for this request. Reported as degraded
+    // rather than silently skipped: an alert built on these counters must be
+    // able to tell "nobody is enumerating" from "nothing is counting".
+    reportRateLimiterDegraded({
+      reason: error instanceof Error ? error.message : String(error),
+      storeKind: 'disabled',
+    })
     // console.error rather than the Sentry adapter: this runs in the edge
     // runtime, where the Node SDK is not loaded (see src/proxy.ts).
     console.error(

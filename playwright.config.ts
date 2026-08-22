@@ -5,8 +5,36 @@ import { BUDGET } from "./e2e/budgets";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 require("dotenv").config({ path: ".env.local" });
 
-// Disable dev-only widgets (e.g., Agentation) during test runs
+// Disable dev-only widgets (e.g., Agentation) during test runs. This flag no
+// longer gates any SECURITY behaviour -- `src/proxy.ts` and
+// `src/lib/security/turnstile.ts` read the two granular switches below instead.
 process.env.PLAYWRIGHT_TEST = "true";
+
+/**
+ * Granular security switches (DEV-1551 task 17), replacing the single
+ * `PLAYWRIGHT_TEST` gate. Both default to the effective state that one flag
+ * produced, so no existing spec changes.
+ *
+ * They are set as env vars rather than hardcoded, so a Playwright PROJECT can
+ * override one without the other:
+ *
+ *   SECURITY_DISABLE_RATE_LIMIT=false pnpm test:e2e --project=adversarial
+ *
+ * That is only possible because both names are threaded into the `webServer`
+ * command below. The dev server is SHARED across projects, so a value set only
+ * in this Node process never reaches the runtime that enforces the gate -- the
+ * exact reason the old single flag could not be turned back on per project.
+ */
+const securityGates = {
+  SECURITY_DISABLE_RATE_LIMIT: process.env.SECURITY_DISABLE_RATE_LIMIT ?? "true",
+  SECURITY_STUB_TURNSTILE: process.env.SECURITY_STUB_TURNSTILE ?? "true",
+};
+for (const [name, value] of Object.entries(securityGates)) {
+  process.env[name] = value;
+}
+const securityGateEnv = Object.entries(securityGates)
+  .map(([name, value]) => `${name}=${value}`)
+  .join(" ");
 
 const baseURL =
   process.env.BASE_URL ??
@@ -139,20 +167,24 @@ export default defineConfig({
   // computes an empty PORT (https URLs carry no port) or wastes a CI build.
   webServer: isLocalTarget
     ? {
-        // PLAYWRIGHT_TEST=true must be on EVERY branch, not just CI. `proxy.ts`
-        // skips the soft rate limiter only when the server sees it, and
+        // The gate vars must be on EVERY branch, not just CI. `proxy.ts` skips
+        // the soft rate limiter only when the SERVER sees them, and
         // SOFT_LIMIT_PREFIXES is ['/brands/'] keyed by client IP — every local
         // worker shares 127.0.0.1, so the deep suite trips the limit partway
         // through and Next rewrites the rest of its /brands/* requests to
         // /challenge. Specs then poll a "快速驗證" interstitial until they time out,
-        // and which specs get hit shifts run to run. Setting it in this file's
+        // and which specs get hit shifts run to run. Setting them in this file's
         // process is not enough to reach the dev server's proxy runtime.
+        //
+        // PLAYWRIGHT_TEST stays on the command line for the NON-security uses
+        // that still read it (test token hashes, generateStaticParams skips,
+        // dev-widget suppression). It no longer decides either gate.
         command:
           process.env.CI && !isTargetedSelfheal
-            ? "PLAYWRIGHT_TEST=true pnpm start"
+            ? `PLAYWRIGHT_TEST=true ${securityGateEnv} pnpm start`
             : process.env.BASE_URL
-              ? `PLAYWRIGHT_TEST=true PORT=${new URL(baseURL).port || "3000"} pnpm dev`
-              : "PLAYWRIGHT_TEST=true pnpm dev",
+              ? `PLAYWRIGHT_TEST=true ${securityGateEnv} PORT=${new URL(baseURL).port || "3000"} pnpm dev`
+              : `PLAYWRIGHT_TEST=true ${securityGateEnv} pnpm dev`,
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: process.env.CI && !isTargetedSelfheal ? 60_000 : 120_000,

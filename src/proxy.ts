@@ -24,14 +24,24 @@ import {
   isLikelyCrawler,
   isRateLimitStoreDegraded,
   isRouterRequest,
+  softLimitBlockedResponse,
 } from "@/lib/security/rate-limiter";
-import { RATE_LIMIT_STORE_HEADER } from "@/lib/security/rate-limit-observability";
+import {
+  pseudonymizeIdentifier,
+  RATE_LIMIT_STORE_HEADER,
+  reportVisitorIdentityRotated,
+} from "@/lib/security/rate-limit-observability";
+import { routeFamily } from "@/lib/security/route-family";
 import {
   resolveVisitorIdentity,
   VISITOR_COOKIE_NAME,
   VISITOR_COOKIE_OPTIONS,
 } from "@/lib/security/visitor-identity";
 import { warnIfOriginGuardDisabled } from "@/lib/security/origin-guard";
+import {
+  isCrawlerTelemetrySuppressed,
+  isRateLimitDisabled,
+} from "@/lib/security/test-gates";
 import {
   hasApprovedBrandSlug,
   resolveApprovedBrandRedirect,
@@ -591,6 +601,20 @@ async function attachVisitorIdentity(
         identity.signedValue,
         VISITOR_COOKIE_OPTIONS,
       );
+      // A mint is a rotation from the counters' point of view. One per genuine
+      // first visit; a stream of them behind one IP key is deliberate. Keyed on
+      // the IP, not the new visitor id: the point is to correlate mints that
+      // the visitor tier can never see.
+      reportVisitorIdentityRotated({
+        identityKey: pseudonymizeIdentifier(getClientIp(request)),
+        routeFamily: routeFamily(
+          request.nextUrl.pathname,
+          request.nextUrl.searchParams,
+        ),
+        reason: request.cookies.has(VISITOR_COOKIE_NAME)
+          ? "cookie_failed_verification"
+          : "cookie_absent",
+      });
     }
   } catch (error) {
     // `warning`: a missing CHALLENGE_SECRET degrades traversal accounting to
@@ -615,7 +639,10 @@ export async function proxy(request: NextRequest) {
 async function runProxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const staging = isStagingRequest(request.headers.get("host"));
-  const isPlaywrightTest = process.env.PLAYWRIGHT_TEST === "true";
+  // Two independent switches, not one flag. See `security/test-gates.ts`:
+  // disabling the limiter and stubbing Turnstile used to be the same env var,
+  // which is why no e2e project could exercise either gate on its own.
+  const rateLimitDisabled = isRateLimitDisabled();
   const routerRequest = isRouterRequest(request);
 
   if (staging && pathname === "/sitemap.xml") {
@@ -677,7 +704,8 @@ async function runProxy(request: NextRequest) {
   // `isLikelyCrawler` is one precompiled union regex; `recordCrawlerHit` re-scans
   // the registry entry by entry. Gating on it keeps the human-traffic common
   // case at a single test.
-  const crawlerHit = !isPlaywrightTest && isLikelyCrawler(request);
+  const crawlerHit =
+    !isCrawlerTelemetrySuppressed() && isLikelyCrawler(request);
 
   // ORDER IS LOAD-BEARING. This guard sits above the microsite branch because
   // that branch is terminal -- it rewrites or returns for every request on
@@ -792,12 +820,12 @@ async function runProxy(request: NextRequest) {
   }
 
   // Check rate limit before regular request processing
-  if (!isPlaywrightTest) {
+  if (!rateLimitDisabled) {
     const rateLimitResponse = await checkRateLimit(request);
     if (rateLimitResponse) return finalizeResponse(rateLimitResponse, staging);
   }
 
-  if (!isPlaywrightTest && !routerRequest && isSoftLimitPath(pathname)) {
+  if (!rateLimitDisabled && !routerRequest && isSoftLimitPath(pathname)) {
     const challengeCookie = request.cookies.get(CHALLENGE_COOKIE_NAME)?.value;
     let isVerified = false;
     if (challengeCookie) {
@@ -812,14 +840,27 @@ async function runProxy(request: NextRequest) {
       }
     }
 
-    if (!isVerified) {
-      const shouldChallenge = await checkSoftRateLimit(request);
-      if (shouldChallenge) {
-        const url = request.nextUrl.clone();
-        url.pathname = routes.challenge();
-        url.searchParams.set("returnTo", pathname + request.nextUrl.search);
-        return finalizeResponse(NextResponse.redirect(url), staging);
+    // NO LONGER A SHORT-CIRCUIT. Until DEV-1551 a valid `fm_verified` cookie
+    // skipped this whole block, so one Turnstile solve bought seven days of
+    // unmetered `/brands/*` traversal — the cheapest way to scrape the
+    // directory was to pass the challenge once. Verification now buys a RAISED
+    // budget (ENFORCEMENT_VERIFIED_MULTIPLIER), evaluated on the same counter.
+    const overSoftLimit = await checkSoftRateLimit(request, {
+      verified: isVerified,
+    });
+    if (overSoftLimit) {
+      // Escalation, not a loop. Re-challenging someone who already holds a
+      // valid token would bounce them between /challenge and /brands until the
+      // window rolled, so an exhausted RAISED budget goes straight to the 429
+      // rung instead. An unverified visitor still gets the gentler rung first.
+      if (isVerified) {
+        return finalizeResponse(softLimitBlockedResponse(), staging);
       }
+
+      const url = request.nextUrl.clone();
+      url.pathname = routes.challenge();
+      url.searchParams.set("returnTo", pathname + request.nextUrl.search);
+      return finalizeResponse(NextResponse.redirect(url), staging);
     }
   }
 
