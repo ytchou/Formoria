@@ -16,11 +16,17 @@ const SUBMISSION_IMAGES_KEY_PREFIX = 'submissions/'
 // Curated product images (DEV-1404): `curated-products/<brand>/<product>/<hash>.webp`
 // in the same `brand-images` bucket.
 export const CURATED_PRODUCT_IMAGES_KEY_PREFIX = 'curated-products/'
+// Roster-owned COPIES of exhibitor heroes (DEV-1370), written by
+// `scripts/seed-expo-exhibitor-content.ts` into the same `brand-images` bucket
+// and referenced by `event_exhibitors.image_storage_path`. Read-only here, like
+// `submissions/`: they are never a delete-path target.
+const EVENT_EXHIBITOR_IMAGES_KEY_PREFIX = 'event-exhibitors/'
 const DELETABLE_IMAGE_KEY_PREFIXES = [BRAND_IMAGES_KEY_PREFIX] as const
 const READABLE_IMAGE_KEY_PREFIXES = [
   BRAND_IMAGES_KEY_PREFIX,
   SUBMISSION_IMAGES_KEY_PREFIX,
   CURATED_PRODUCT_IMAGES_KEY_PREFIX,
+  EVENT_EXHIBITOR_IMAGES_KEY_PREFIX,
 ] as const
 const CLAIM_PROOF_IMAGE_CONFIG: Partial<ImageProcessorConfig> = {
   maxWidth: 2400,

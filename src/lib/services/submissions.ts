@@ -38,7 +38,15 @@ import {
 import { cleanBrandName } from "@/lib/services/brand-cleanup";
 import { toBrandRow, toSubmissionRow } from "./_shared/field-map";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { deleteStoredImagePaths } from "./image-upload";
+import {
+  deleteStoredImagePaths,
+  storageKeyFromPublicUrlForRead,
+} from "./image-upload";
+import {
+  bucketSigner,
+  createSignedUrlsInBatches,
+  type SignedUrlBatchResult,
+} from "./_shared/signed-urls";
 import { slugifyRomanizedName } from "@/lib/brands/slug";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { upsertEnrichedStockists } from "./stockists";
@@ -587,6 +595,78 @@ function imageStatus(value: string): SubmissionReviewImage["status"] {
     return value;
   }
   return "active";
+}
+
+const SUBMISSION_IMAGE_BUCKET = "brand-images";
+const SUBMISSION_IMAGE_KEY_PREFIX = "submissions/";
+/*
+ * Five minutes: long enough for a reviewer to read a queue page, short enough
+ * that a copied URL is not a durable leak. Raise it only alongside a real
+ * complaint about links expiring mid-review.
+ */
+const SUBMISSION_IMAGE_SIGNED_URL_SECONDS = 300;
+
+/** Injection seam: tests pass a plain function, never a Supabase mock. */
+export type SignSubmissionImagePaths = (
+  paths: string[],
+) => Promise<SignedUrlBatchResult>;
+
+const defaultSubmissionImageSigner: SignSubmissionImagePaths = (paths) =>
+  createSignedUrlsInBatches(
+    paths,
+    bucketSigner(
+      SUBMISSION_IMAGE_BUCKET,
+      SUBMISSION_IMAGE_SIGNED_URL_SECONDS,
+    ),
+  );
+
+/**
+ * The bucket key of a PRE-MODERATION image, or null for anything else.
+ *
+ * `submissions/` objects are deliberately not served by the `/i/` same-origin
+ * proxy (DEV-1551): they are unreviewed uploads that only an admin may see. So
+ * admin review resolves them to a signed URL instead. Published `brands/` keys
+ * fall through untouched — they are public imagery.
+ */
+export function submissionImageStorageKey(
+  image: SubmissionReviewImage,
+): string | null {
+  const stored = image.storagePath?.trim();
+  const key =
+    stored && stored.length > 0
+      ? stored
+      : storageKeyFromPublicUrlForRead(image.url);
+
+  return key && key.startsWith(SUBMISSION_IMAGE_KEY_PREFIX) ? key : null;
+}
+
+/**
+ * Replaces the stored public URL of every pre-moderation image with a signed
+ * one. Called on the admin review projection, so the review screens keep
+ * reading `image.url` and never have to know which images are gated.
+ */
+export async function attachSignedSubmissionImageUrls(
+  images: SubmissionReviewImage[],
+  signPaths: SignSubmissionImagePaths = defaultSubmissionImageSigner,
+): Promise<SubmissionReviewImage[]> {
+  const keys = images.map(submissionImageStorageKey);
+  const signable = [...new Set(keys.filter((key): key is string => Boolean(key)))];
+  if (signable.length === 0) return images;
+
+  const { byPath, failures } = await signPaths(signable);
+
+  if (failures.length > 0) {
+    console.error("[submissions] some review images could not be signed", {
+      count: failures.length,
+      paths: failures.map((failure) => failure.path),
+    });
+  }
+
+  return images.map((image, index) => {
+    const key = keys[index];
+    const signedUrl = key ? byPath.get(key) : undefined;
+    return signedUrl ? { ...image, url: signedUrl } : image;
+  });
 }
 
 function submissionImageToReviewImage(
@@ -1531,7 +1611,12 @@ export async function getSubmissionsForReview(options?: {
       ),
     );
 
-    for (const image of imageChunks.flat().map(submissionImageToReviewImage)) {
+    // Signed before grouping, so the whole page costs one batched sign call.
+    const signedReviewImages = await attachSignedSubmissionImageUrls(
+      imageChunks.flat().map(submissionImageToReviewImage),
+    );
+
+    for (const image of signedReviewImages) {
       const current = reviewImagesBySubmission.get(image.submissionId) ?? [];
       current.push(image);
       reviewImagesBySubmission.set(image.submissionId, current);
@@ -2134,7 +2219,13 @@ export async function stageSubmissionReviewImage(
     .select("*")
     .single();
   if (error) throw error;
-  return submissionImageToReviewImage(data);
+  // A no-op unless the object landed under `submissions/` — see
+  // `attachSignedSubmissionImageUrls`. Applied here so a freshly staged image
+  // is displayable by the same rule as the rest of the queue.
+  const [staged] = await attachSignedSubmissionImageUrls([
+    submissionImageToReviewImage(data),
+  ]);
+  return staged;
     },
   );
 }

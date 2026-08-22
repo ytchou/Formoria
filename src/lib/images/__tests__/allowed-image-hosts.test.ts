@@ -62,6 +62,31 @@ describe('safeImageSrc', () => {
     expect(safeImageSrc('')).toBeNull()
     expect(safeImageSrc('not a url')).toBeNull()
     expect(safeImageSrc('data:image/png;base64,iVBOR')).toBeNull()
+    expect(safeImageSrc('javascript:alert(1)')).toBeNull()
+  })
+
+  it('accepts a same-origin absolute path (the /i/ image proxy)', () => {
+    const path = '/i/brands/2f1c9a4e-0000-4000-8000-000000000001/hero.webp'
+    expect(safeImageSrc(path)).toBe(path)
+  })
+
+  it('accepts a repo-local asset path', () => {
+    expect(safeImageSrc('/images/trails/small-space-reading-corner.webp')).toBe(
+      '/images/trails/small-space-reading-corner.webp',
+    )
+  })
+
+  it('rejects a protocol-relative path, which is not same-origin', () => {
+    // `//evil.example/x.png` starts with `/`, so a naive leading-slash branch
+    // hands the browser an offsite fetch. This is the whole reason the
+    // same-origin branch lives inside safeImageSrc instead of at the callers.
+    expect(safeImageSrc('//evil.example/x.png')).toBeNull()
+    expect(safeImageSrc('///evil.example/x.png')).toBeNull()
+    expect(safeImageSrc('/\\evil.example/x.png')).toBeNull()
+  })
+
+  it('still rejects a foreign host', () => {
+    expect(safeImageSrc('https://evil.example/x.png')).toBeNull()
   })
 })
 

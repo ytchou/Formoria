@@ -7,7 +7,7 @@ import { generateVerificationToken, hashToken } from '@/lib/utils/token'
 import { CLAIM_PROOF_TYPES } from './claim-proofs'
 import type { ClaimProofType, ProofEvidence } from './claim-proofs'
 import { lookupCertNumbers } from './mit-registry'
-import { uploadWithRetry } from './storage-retry'
+import { bucketSigner, createSignedUrlsInBatches } from './_shared/signed-urls'
 
 export { CLAIM_PROOF_TYPES } from './claim-proofs'
 export type { ProofEvidence } from './claim-proofs'
@@ -466,23 +466,24 @@ export async function attachSignedProofUrls(
   }
 
   const bucketPaths = imageKeys.map(toClaimProofBucketPath)
-  const supabase = createServiceClient()
-  const { data, error } = await uploadWithRetry(() =>
-    supabase.storage
-      .from(CLAIM_PROOF_BUCKET)
-      .createSignedUrls(bucketPaths, CLAIM_PROOF_SIGNED_URL_EXPIRES_IN_SECONDS),
+  // Throws on a storage-level failure rather than returning unsigned proofs:
+  // an admin looking at an empty evidence panel cannot tell "no proof" from
+  // "signing broke". Individual missing objects stay non-fatal.
+  const { urls, failures } = await createSignedUrlsInBatches(
+    bucketPaths,
+    bucketSigner(CLAIM_PROOF_BUCKET, CLAIM_PROOF_SIGNED_URL_EXPIRES_IN_SECONDS),
   )
 
-  if (error) {
-    return claims
+  if (failures.length > 0) {
+    console.error('[claim-requests] some proof images could not be signed', {
+      count: failures.length,
+      paths: failures.map((failure) => failure.path),
+    })
   }
 
   const signedUrlByImageKey = new Map<string, string | undefined>()
-  data?.forEach((signedUrlResult, index) => {
-    signedUrlByImageKey.set(
-      imageKeys[index],
-      signedUrlResult.error ? undefined : signedUrlResult.signedUrl ?? undefined
-    )
+  imageKeys.forEach((imageKey, index) => {
+    signedUrlByImageKey.set(imageKey, urls[index] ?? undefined)
   })
 
   return claims.map((claim) => ({

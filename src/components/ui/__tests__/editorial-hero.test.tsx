@@ -40,9 +40,15 @@ const BLOCKED_REMOTE = "https://images.example.com/hero.jpg";
 
 describe("editorialHeroSrc", () => {
   it("keeps a repo path, which the host gate would otherwise drop", () => {
-    // `safeImageSrc` parses with NO base, so every relative path throws inside
-    // it. Sending repo assets through it would blank the only heroes that exist.
+    // `safeImageSrc` used to parse with NO base, so every relative path threw
+    // inside it and blanked the only heroes that exist. It now recognises a
+    // same-origin path directly (DEV-1551).
     expect(editorialHeroSrc(REPO_PATH)).toBe(REPO_PATH);
+  });
+
+  it("drops a protocol-relative hero, which is an offsite fetch", () => {
+    // The old caller-side `startsWith("/")` branch returned this unchanged.
+    expect(editorialHeroSrc("//evil.example/hero.jpg")).toBeNull();
   });
 
   it("keeps a remote hero the page is allowed to load", () => {

@@ -38,7 +38,7 @@ vi.mock("@/lib/security/rate-limiter", async (importOriginal) => {
   };
 });
 
-const { proxy, isOriginGuardExempt, resetProxyTelemetryForTests } =
+const { proxy, isOriginGuardExempt, resetProxyTelemetryForTests, config } =
   await import("@/proxy");
 
 const EDGE_SECRET = "cf-edge-9f3b7c21ae4d48e0b6a15c73d2f0e884";
@@ -535,5 +535,24 @@ describe("proxy failure reporting", () => {
     expect(response.status).toBe(301);
     expect(response.headers.get("location")).toMatch(/\/brands\/hero-herb$/);
     expect(sentry.captureException).toHaveBeenCalled();
+  });
+});
+
+describe("proxy matcher", () => {
+  it("includes /i/ so the image proxy is processed, not skipped", () => {
+    const [defaultPattern, imageProxyPattern, ...rest] = config.matcher;
+
+    /*
+     * `/i/brands/<id>/hero.webp` ends in an image extension, which the default
+     * pattern excludes. Without the second entry the image proxy would bypass
+     * the shared rate limiter and the Cloudflare origin guard entirely.
+     */
+    expect(new RegExp(`^${defaultPattern}$`).test("/i/brands/x.webp")).toBe(
+      false,
+    );
+    expect(imageProxyPattern).toBe("/i/:path*");
+    expect(rest).toEqual([]);
+    // And the guard really does apply to it: /i/ is not on the exempt list.
+    expect(isOriginGuardExempt("/i/brands/x.webp")).toBe(false);
   });
 });

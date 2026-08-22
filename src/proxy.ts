@@ -938,5 +938,12 @@ export const config = {
      * - Files with extensions (e.g. .png, .svg, .jpg)
      */
     "/((?!_next/static|_next/image|_next/webpack-hmr|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    /*
+     * The same-origin image proxy, opted back in on purpose (DEV-1551). Its
+     * paths end in `.webp`, so the extension exclusion above would skip them
+     * and `/i/` traffic would bypass both the shared rate limiter and the
+     * Cloudflare origin guard.
+     */
+    "/i/:path*",
   ],
 };
