@@ -1,5 +1,5 @@
 import { useLocale } from 'next-intl'
-import { surfaceCardStyles } from '@/components/ui/card'
+import { Accordion, AccordionItem } from '@/components/ui/accordion'
 import { buildFaqPageJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 
 type FaqItem = {
@@ -28,33 +28,20 @@ export function FaqBlock({ questions, emitJsonLd = true }: FaqBlockProps) {
   const faqJsonLd = emitJsonLd ? buildFaqPageJsonLd(items, locale) : null
 
   return (
-    <section className="space-y-4">
+    <section>
       {faqJsonLd ? (
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqJsonLd) }}
         />
       ) : null}
-      {items.map((item) => (
-        <details key={item.q} className={surfaceCardStyles({ className: 'px-4 py-3', padding: 'none' })}>
-          {/*
-            Native `<details>`, never a scripted accordion: the answer ships in
-            the server HTML either way, which is what makes it readable by a
-            crawler that never opens the panel. `summary` is focusable by
-            default, so the only thing it needs from us is a visible ring.
-
-            Padding, never `flex`: `display:flex` suppresses the ::marker, and
-            the disclosure triangle is the only affordance saying this opens.
-            `py-2` on a 28px line is the 44px target.
-          */}
-          <summary className="cursor-pointer rounded-[2px] py-2 type-card-title focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground">
-            {item.q}
-          </summary>
-          <div className="mt-3 type-body-sm text-ink-soft">
+      <Accordion>
+        {items.map((item) => (
+          <AccordionItem key={item.q} title={item.q}>
             {item.a}
-          </div>
-        </details>
-      ))}
+          </AccordionItem>
+        ))}
+      </Accordion>
     </section>
   )
 }

@@ -2,9 +2,9 @@
 
 import { type ReactNode, type ToggleEvent } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronDown } from "lucide-react";
 import { trackFaqItemExpanded } from "@/lib/analytics";
 
+import { Accordion, AccordionItem } from "@/components/ui/accordion";
 import { OpenTargetDetails } from "@/components/shared/open-target-details";
 import { FaqSection } from "@/components/shared/faq-section";
 import { sanitizeHref } from "@/lib/url";
@@ -62,28 +62,19 @@ export function BrandFaqAccordion({
   return (
     <FaqSection title={t("faq")} headerClassName="mb-4">
       <OpenTargetDetails />
-      <div className="divide-y divide-rule">
+      <Accordion>
         {items.map((item) => (
-          <details
+          <AccordionItem
             key={item.id}
             id={`faq-${item.id}`}
-            className="group scroll-mt-24"
+            className="scroll-mt-24"
             onToggle={(event) => handleToggle(event, item.id)}
+            title={item.question}
           >
-            <summary className="flex cursor-pointer list-none items-center justify-between py-5 type-body-sm font-semibold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent [&::-webkit-details-marker]:hidden">
-              {item.question}
-              <ChevronDown className="size-5 shrink-0 text-ink-muted transition-transform duration-200 group-open:rotate-180 motion-reduce:duration-[0.01ms]" />
-            </summary>
-            {/* The row's vertical padding lives on <summary>, the interactive
-                element, so the whole visual row is the hit target (~62px, over
-                the 44px minimum) and the focus ring wraps it. The answer
-                carries the closing padding the <details> used to. */}
-            <p className="pb-5 prose-measure type-body-sm">
-              {renderLinkedText(item.answer)}
-            </p>
-          </details>
+            <p className="prose-measure">{renderLinkedText(item.answer)}</p>
+          </AccordionItem>
         ))}
-      </div>
+      </Accordion>
     </FaqSection>
   );
 }

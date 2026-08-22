@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { ChevronDown } from 'lucide-react'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { buildOpenGraph } from '@/lib/seo/open-graph'
 import { Link } from '@/i18n/navigation'
+import { Accordion, AccordionItem } from '@/components/ui/accordion'
 import { FaqSection } from '@/components/shared/faq-section'
 import { OpenTargetDetails } from '@/components/shared/open-target-details'
 import { PageShell } from '@/components/ui/page-shell'
@@ -104,24 +104,18 @@ export default async function FaqPage({ params }: PageProps) {
           className="space-y-10 md:col-span-4"
         >
           <FaqSection id="general" title={t('sections.general')}>
-            <div className="divide-y divide-border">
-              {generalItemKeys.map((key, i) => (
-                <details key={i} className="group scroll-mt-24 py-5">
-                  <summary className="flex cursor-pointer list-none items-center justify-between type-card-title [&::-webkit-details-marker]:hidden">
-                    {t(`items.${key}.question`)}
-                    <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
-                  </summary>
-                  <p className="mt-3 prose-measure type-body-sm">
-                    {t(`items.${key}.answer`)}
-                  </p>
-                </details>
+            <Accordion>
+              {generalItemKeys.map((key) => (
+                <AccordionItem
+                  key={key}
+                  className="scroll-mt-24"
+                  title={t(`items.${key}.question`)}
+                >
+                  <p className="prose-measure">{t(`items.${key}.answer`)}</p>
+                </AccordionItem>
               ))}
-              <details className="group py-5">
-                <summary className="flex cursor-pointer list-none items-center justify-between type-card-title [&::-webkit-details-marker]:hidden">
-                  {t('items.contact.question')}
-                  <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
-                </summary>
-                <p className="mt-3 prose-measure type-body-sm">
+              <AccordionItem title={t('items.contact.question')}>
+                <p className="prose-measure">
                   {t.rich('items.contact.answer', {
                     link: (chunks) => (
                       <Link href={routes.contact()} className="underline underline-offset-4">
@@ -130,22 +124,23 @@ export default async function FaqPage({ params }: PageProps) {
                     ),
                   })}
                 </p>
-              </details>
-            </div>
+              </AccordionItem>
+            </Accordion>
           </FaqSection>
           <FaqSection id="for-owners" title={t('sections.forOwners')}>
-            <div className="divide-y divide-border">
+            <Accordion>
               {/* Brand claiming is live (`ClaimBrandCta` on the brand page), so
                   this answer describes the claim flow; the remaining owner
                   features are still collected via the feature-request link.
                   `id="claim"` is kept so legacy /faq#claim deep links still
-                  land on an answer. */}
-              <details id="claim" className="group scroll-mt-24 py-5">
-                <summary className="flex cursor-pointer list-none items-center justify-between type-card-title [&::-webkit-details-marker]:hidden">
-                  {t('items.ownerInterest.question')}
-                  <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
-                </summary>
-                <p className="mt-3 prose-measure type-body-sm">
+                  land on an answer — and it must stay on the <details> itself,
+                  which is what OpenTargetDetails looks for. */}
+              <AccordionItem
+                id="claim"
+                className="scroll-mt-24"
+                title={t('items.ownerInterest.question')}
+              >
+                <p className="prose-measure">
                   {t.rich('items.ownerInterest.answer', {
                     link: (chunks) => (
                       <Link
@@ -157,8 +152,8 @@ export default async function FaqPage({ params }: PageProps) {
                     ),
                   })}
                 </p>
-              </details>
-            </div>
+              </AccordionItem>
+            </Accordion>
           </FaqSection>
         </div>
       </div>
