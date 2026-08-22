@@ -190,3 +190,6 @@ scripts/search-eval/runs/
 scripts/.storage-purge-manifest-*.json
 scripts/.reencode-originals-*.json
 scripts/.remove-backup-*.json
+
+# Production probe state cache (written by scripts/production-probe/probe.ts)
+.probe-state/

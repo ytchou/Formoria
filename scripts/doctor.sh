@@ -84,6 +84,9 @@ check_env() {
         echo "WARN: ${var} may not be set (required for the PostHog analytics hub)"
       fi
     done
+    if ! grep -q "PRODUCTION_BASE_URL=https://" .env.local 2>/dev/null; then
+      echo "WARN: PRODUCTION_BASE_URL not set — the production probe has no target (set as a GitHub repo variable in CI)"
+    fi
     if ! grep -q "RAILWAY_LOGS_URL=." .env.local 2>/dev/null; then
       echo "WARN: RAILWAY_LOGS_URL not set (admin jobs page won't show logs link)"
     fi

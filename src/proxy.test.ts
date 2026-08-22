@@ -21,6 +21,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * `console.error` per process by design (in production the same condition is a
  * silent site-wide logout). The single line in this suite's output is expected.
  */
+const sentry = vi.hoisted(() => ({ captureException: vi.fn() }));
+vi.mock("@sentry/nextjs", () => sentry);
+
 vi.mock("@/lib/security/crawler-telemetry", () => ({
   recordCrawlerHit: vi.fn(),
 }));
@@ -35,7 +38,8 @@ vi.mock("@/lib/security/rate-limiter", async (importOriginal) => {
   };
 });
 
-const { proxy, isOriginGuardExempt } = await import("@/proxy");
+const { proxy, isOriginGuardExempt, resetProxyTelemetryForTests } =
+  await import("@/proxy");
 
 const EDGE_SECRET = "cf-edge-9f3b7c21ae4d48e0b6a15c73d2f0e884";
 const BROWSER_UA =
@@ -230,5 +234,306 @@ describe("default-locale URL canonicalization", () => {
         /\/brands\/hero-herb$/,
       );
     });
+  });
+});
+
+/**
+ * Turbopack skips the Sentry SDK's webpack middleware auto-wrap, so `proxy()`
+ * reports its own failures by hand. Each case drives a capture site through a
+ * REAL failure — no Supabase or service-layer mock — and asserts the
+ * observability is additive: same status, same branch, same fallbacks.
+ *
+ * `vi.resetModules()` is deliberately NOT used here. Only the first dynamic
+ * `import('@sentry/nextjs')` after a module reset resolves to the mock; later
+ * ones reach the real SDK, which silently drops every assertion.
+ * `resetProxyTelemetryForTests()` clears the module-scoped throttle map and the
+ * missing-credentials latch instead, so every case starts from a clean slate
+ * with no clock arithmetic.
+ */
+describe("proxy failure reporting", () => {
+  const CRAWLER_UA =
+    "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
+  const SUPABASE_URL = "https://example.supabase.co";
+  const SESSION_COOKIE = "sb-example-auth-token";
+
+  beforeEach(() => {
+    resetProxyTelemetryForTests();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    sentry.captureException.mockReset();
+    sentry.captureException.mockImplementation(() => "event-id");
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  /** The capture rides a `.then()` on a dynamic import, so it needs a macrotask
+   *  turn before it is observable. */
+  async function flushCaptures() {
+    for (let turn = 0; turn < 3; turn += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
+  function capturesFor(area: string) {
+    return sentry.captureException.mock.calls.filter(
+      (call) => (call[1] as { tags?: { area?: string } })?.tags?.area === area,
+    );
+  }
+
+  function optionsOf(call: unknown[]) {
+    return call[1] as { level: string; fingerprint: string[] };
+  }
+
+  /**
+   * Makes `supabase.auth.getUser()` reject rather than resolve, without mocking
+   * Supabase: a signed-in cookie forces the client to call the Auth server, and
+   * a `fetch` that resolves to a non-Response makes auth-js throw a TypeError
+   * it does not recognise as an AuthError. Throwing from the cookie adapter
+   * instead would also reject auth-js's own un-awaited INITIAL_SESSION emit.
+   */
+  function stubUnreachableAuthServer() {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", SUPABASE_URL);
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "anon-key");
+    vi.stubGlobal("fetch", async () => undefined);
+  }
+
+  function signedInCookie() {
+    const encode = (value: unknown) =>
+      Buffer.from(JSON.stringify(value)).toString("base64url");
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const accessToken = [
+      encode({ alg: "HS256", typ: "JWT" }),
+      encode({
+        sub: "11111111-1111-1111-1111-111111111111",
+        aud: "authenticated",
+        role: "authenticated",
+        exp: nowSeconds + 3600,
+      }),
+      "signature",
+    ].join(".");
+    const session = {
+      access_token: accessToken,
+      refresh_token: "refresh-token",
+      token_type: "bearer",
+      expires_in: 3600,
+      expires_at: nowSeconds + 3600,
+      user: {
+        id: "11111111-1111-1111-1111-111111111111",
+        aud: "authenticated",
+        role: "authenticated",
+        email: "member@formoria.com",
+        app_metadata: {},
+        user_metadata: {},
+        created_at: new Date().toISOString(),
+      },
+    };
+    return `${SESSION_COOKIE}=base64-${encode(session)}`;
+  }
+
+  it("reports an unhandled proxy exception and rethrows it", async () => {
+    const { recordCrawlerHit } = await import(
+      "@/lib/security/crawler-telemetry"
+    );
+    const failure = new Error("crawler telemetry exploded");
+    vi.mocked(recordCrawlerHit).mockImplementationOnce(() => {
+      throw failure;
+    });
+
+    await expect(
+      proxy(requestFor("/", { "user-agent": CRAWLER_UA })),
+    ).rejects.toBe(failure);
+
+    await flushCaptures();
+
+    const captures = capturesFor("unhandled");
+    expect(captures).toHaveLength(1);
+    expect(captures[0][0]).toBe(failure);
+    expect(
+      (captures[0][1] as { tags: { scope: string } }).tags.scope,
+    ).toBe("proxy");
+    expect(optionsOf(captures[0]).level).toBe("error");
+  });
+
+  it("lets Sentry group unhandled proxy crashes by their own stack, so a second root cause is a second issue rather than a count on the first", async () => {
+    const { recordCrawlerHit } = await import(
+      "@/lib/security/crawler-telemetry"
+    );
+    const first = new Error("crawler telemetry exploded");
+    const second = new TypeError("locale rewrite exploded");
+
+    vi.mocked(recordCrawlerHit).mockImplementationOnce(() => {
+      throw first;
+    });
+    await expect(
+      proxy(requestFor("/", { "user-agent": CRAWLER_UA })),
+    ).rejects.toBe(first);
+    await flushCaptures();
+
+    // Past the throttle window, so the second root cause is not suppressed.
+    vi.setSystemTime(Date.now() + 6 * 60 * 1000);
+    vi.mocked(recordCrawlerHit).mockImplementationOnce(() => {
+      throw second;
+    });
+    await expect(
+      proxy(requestFor("/", { "user-agent": CRAWLER_UA })),
+    ).rejects.toBe(second);
+    await flushCaptures();
+
+    const captures = capturesFor("unhandled");
+    expect(captures).toHaveLength(2);
+    expect(captures.map((call) => call[0])).toEqual([first, second]);
+    // No explicit fingerprint at this site: a fixed one would fold both errors
+    // into a single already-triaged issue and raise no new-issue alert.
+    expect(optionsOf(captures[0]).fingerprint).toBeUndefined();
+    expect(optionsOf(captures[1]).fingerprint).toBeUndefined();
+  });
+
+  it("reports a Supabase failure during the brand-approval check without changing the response", async () => {
+    // The blanked credentials make the edge service client throw on
+    // construction — from the proxy's side, the same shape as an outage.
+    const response = await proxy(requestFor("/hero-herb"));
+
+    // Fail-open preserved: the slug is still served as an approved brand.
+    expect(response.status).toBe(301);
+    expect(response.headers.get("location")).toMatch(/\/brands\/hero-herb$/);
+
+    await flushCaptures();
+
+    const captures = capturesFor("brand-approval");
+    expect(captures).toHaveLength(1);
+    expect(optionsOf(captures[0]).level).toBe("error");
+  });
+
+  it("reports missing Supabase credentials", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    try {
+      const response = await proxy(requestFor("/dashboard"));
+      expect(response.status).toBeLessThan(400);
+      await flushCaptures();
+      expect(consoleError).toHaveBeenCalledTimes(1);
+      expect(capturesFor("supabase-credentials")).toHaveLength(1);
+
+      // Missing credentials is an every-request condition, so both channels sit
+      // behind the same one-shot latch: a second request announces nothing.
+      const repeat = await proxy(requestFor("/dashboard"));
+      expect(repeat.status).toBeLessThan(400);
+      await flushCaptures();
+      expect(consoleError).toHaveBeenCalledTimes(1);
+      expect(capturesFor("supabase-credentials")).toHaveLength(1);
+    } finally {
+      consoleError.mockRestore();
+    }
+
+    const captures = capturesFor("supabase-credentials");
+    expect(optionsOf(captures[0]).level).toBe("error");
+  });
+
+  it("reports the fail-closed auth-check at error level and the gracefully degrading session-refresh at warning level", async () => {
+    stubUnreachableAuthServer();
+
+    // Auth check: the staging mutation lockdown asks whether the caller is
+    // signed in. A failed answer must still settle closed.
+    const stagingPost = new NextRequest(
+      new URL("https://staging.formoria.com/submit"),
+      {
+        method: "POST",
+        headers: {
+          host: "staging.formoria.com",
+          "user-agent": BROWSER_UA,
+          cookie: signedInCookie(),
+        },
+      },
+    );
+    const lockedDown = await proxy(stagingPost);
+    expect(lockedDown.status).toBe(403);
+
+    // Session refresh: the request continues, unauthenticated.
+    const refreshed = await proxy(
+      requestFor("/dashboard", { cookie: signedInCookie() }),
+    );
+    expect(refreshed.status).toBeLessThan(400);
+
+    await flushCaptures();
+
+    const authCheck = capturesFor("auth-check");
+    const sessionRefresh = capturesFor("session-refresh");
+    expect(authCheck).toHaveLength(1);
+    expect(sessionRefresh).toHaveLength(1);
+    // The auth check settles CLOSED — the signed-in caller just got a 403 — so
+    // it must clear an alert threshold set at error. The session refresh only
+    // degrades to anonymous, which is the correct outcome, so it stays warning.
+    expect(optionsOf(authCheck[0]).level).toBe("error");
+    expect(optionsOf(sessionRefresh[0]).level).toBe("warning");
+  });
+
+  it("throttles repeated captures from the same site", async () => {
+    const start = Date.now();
+
+    await proxy(requestFor("/hero-herb"));
+    await flushCaptures();
+    expect(capturesFor("brand-approval")).toHaveLength(1);
+
+    // Inside the 5-minute window: silent.
+    vi.setSystemTime(start + 4 * 60 * 1000);
+    await proxy(requestFor("/hero-herb"));
+    await flushCaptures();
+    expect(capturesFor("brand-approval")).toHaveLength(1);
+
+    // Past the window: reported again.
+    vi.setSystemTime(start + 6 * 60 * 1000);
+    await proxy(requestFor("/hero-herb"));
+    await flushCaptures();
+    expect(capturesFor("brand-approval")).toHaveLength(2);
+  });
+
+  it("each capture site carries a distinct fingerprint", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    try {
+      // Flushed between the two requests: two `import('@sentry/nextjs')` calls
+      // issued before the first settles race in Vitest's mock registry, and the
+      // second resolves to the real SDK.
+      await proxy(requestFor("/hero-herb"));
+      await flushCaptures();
+      await proxy(requestFor("/dashboard"));
+      await flushCaptures();
+    } finally {
+      consoleError.mockRestore();
+    }
+
+    const brandApproval = capturesFor("brand-approval");
+    const credentials = capturesFor("supabase-credentials");
+    expect(brandApproval).toHaveLength(1);
+    expect(credentials).toHaveLength(1);
+
+    expect(optionsOf(brandApproval[0]).fingerprint).toEqual([
+      "proxy",
+      "brand-approval",
+    ]);
+    expect(optionsOf(credentials[0]).fingerprint).toEqual([
+      "proxy",
+      "supabase-credentials",
+    ]);
+    expect(optionsOf(brandApproval[0]).fingerprint).not.toEqual(
+      optionsOf(credentials[0]).fingerprint,
+    );
+  });
+
+  it("a capture failure never breaks the request", async () => {
+    sentry.captureException.mockImplementation(() => {
+      throw new Error("Sentry transport is down");
+    });
+
+    const response = await proxy(requestFor("/hero-herb"));
+    await flushCaptures();
+
+    expect(response.status).toBe(301);
+    expect(response.headers.get("location")).toMatch(/\/brands\/hero-herb$/);
+    expect(sentry.captureException).toHaveBeenCalled();
   });
 });

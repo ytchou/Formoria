@@ -1,0 +1,79 @@
+name: Formoria Production Probe
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+# spend-watch.yml only mentions concurrency in a comment and never declares it.
+# The probe writes a state file that decides whether the next run alarms, so
+# overlapping runs must serialise rather than cancel each other.
+concurrency:
+  group: production-probe
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  production-probe:
+    name: Probe production from outside Railway
+    # PRODUCTION_PROBE_ENABLED MUST be a repository-level variable. A job-level
+    # `if` is evaluated BEFORE the job's `environment` is bound, so `vars` here
+    # sees repository and organization variables only — an environment-scoped
+    # variable reads as empty and every scheduled run skips silently. The
+    # `vars.PRODUCTION_BASE_URL` read further down is at step level, where the
+    # environment IS bound, so the two reads obey different visibility rules.
+    if: vars.PRODUCTION_PROBE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: "Formoria / production"
+    timeout-minutes: 10
+    env:
+      PROBE_STATE_DIR: .probe-state
+      PROBE_STATE_FILE: .probe-state/production-probe.json
+    steps:
+      - name: "Setup — checkout"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: "Setup — pnpm"
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - name: "Setup — Node.js"
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: "Setup — install once"
+        run: pnpm install --frozen-lockfile
+      - name: "Setup — restore probe state"
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ env.PROBE_STATE_DIR }}
+          key: probe-state-${{ github.run_id }}
+          restore-keys: |
+            probe-state-
+      - name: "Setup — credentials"
+        env:
+          PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
+          SLACK_HEALTH_WEBHOOK_URL: ${{ secrets.SLACK_HEALTH_WEBHOOK_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          for name in PRODUCTION_BASE_URL SLACK_HEALTH_WEBHOOK_URL NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY; do
+            test -n "${!name:-}" || { echo "Missing required credential: $name" >&2; exit 1; }
+          done
+      - name: "Run production probe"
+        env:
+          PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
+          SLACK_HEALTH_WEBHOOK_URL: ${{ secrets.SLACK_HEALTH_WEBHOOK_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: pnpm exec tsx scripts/production-probe/probe.ts "$PROBE_STATE_FILE"
+      - name: "Teardown — save probe state"
+        if: always()
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ env.PROBE_STATE_DIR }}
+          key: probe-state-${{ github.run_id }}

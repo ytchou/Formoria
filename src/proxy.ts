@@ -341,8 +341,91 @@ function getBrandDetailSlug(segments: string[]): string | null {
   return null;
 }
 
-/** One-shot latch so the missing-credentials error is not logged per request. */
+const CAPTURE_THROTTLE_MS = 5 * 60 * 1000;
+
+/** Site key -> last capture timestamp. Best-effort only: edge isolates are
+ *  short-lived and numerous, so expect up to one capture per isolate per
+ *  window. The fingerprint, not the throttle, keeps the issue list readable. */
+const lastCaptureAt = new Map<string, number>();
+
+/**
+ * The one site whose errors are NOT collapsed into a single Sentry issue. Every
+ * other site catches one known failure, so a fixed fingerprint there is what
+ * keeps the issue list readable.
+ */
+const UNGROUPED_CAPTURE_SITE = "unhandled";
+
+/**
+ * Turbopack skips the Sentry SDK's webpack-based middleware auto-wrap, so the
+ * proxy reports its own failures. `@sentry/nextjs` is imported lazily on every
+ * capture: `@/lib/services/brands` re-exports `RESERVED_ROUTES` from this file,
+ * so a static import here would pull the Sentry graph into the server bundle
+ * everywhere that service is used. Every capture is fire-and-forget, so a
+ * failed telemetry chunk can never surface as an application error.
+ *
+ * Level rule for any new site: a fail-closed or otherwise user-visible outcome
+ * reports at `error`; a path that degrades gracefully (anonymous instead of
+ * signed in, unverified instead of verified) reports at `warning`.
+ *
+ * UNVERIFIED UNTIL A DEPLOY: this helper is only exercised by vitest under Node
+ * with `@sentry/nextjs` mocked, so neither the Turbopack-built middleware chunk
+ * nor the edge Sentry init for the middleware sandbox is covered. Either could
+ * make every capture here a silent no-op. Verify by forcing one failure in a
+ * deployed environment and confirming the event arrives in Sentry.
+ */
+function reportProxyFailure(
+  site: string,
+  error: unknown,
+  level: "error" | "warning",
+): void {
+  try {
+    const previous = lastCaptureAt.get(site);
+    if (previous !== undefined && Date.now() - previous < CAPTURE_THROTTLE_MS) {
+      return;
+    }
+
+    void import("@sentry/nextjs")
+      .then(({ captureException }) => {
+        captureException(error, {
+          level,
+          tags: { scope: "proxy", area: site },
+          // The `unhandled` site catches errors whose identity is unknown in
+          // advance, so it falls through to Sentry's default (stack-based)
+          // grouping. A fixed fingerprint there folds every future crash into
+          // one already-triaged issue and raises no new-issue alert.
+          ...(site === UNGROUPED_CAPTURE_SITE
+            ? {}
+            : { fingerprint: ["proxy", site] }),
+        });
+        // Recorded only after a capture was actually attempted, so a failed
+        // chunk load or a throwing capture cannot silence this site for a full
+        // window with zero events sent. Consequence: two failures at one site
+        // in the same tick can both capture, because this lands
+        // asynchronously — strictly better than permanent silence.
+        lastCaptureAt.set(site, Date.now());
+      })
+      .catch(() => {
+        // A failed telemetry chunk load must not surface as an app error, and
+        // leaves the site un-throttled so the next failure retries delivery.
+      });
+  } catch {
+    // Telemetry must never change the outcome of a request.
+  }
+}
+
+/**
+ * One-shot latch so the missing-credentials failure is announced once per
+ * process — both the console line and the Sentry capture. It is a persistent
+ * every-request condition, so throttling alone would still cost one event per
+ * cold isolate per window across the whole fleet.
+ */
 let supabaseCredentialsWarningEmitted = false;
+
+/** Test seam: forget the capture throttle and the missing-credentials latch. */
+export function resetProxyTelemetryForTests(): void {
+  lastCaptureAt.clear();
+  supabaseCredentialsWarningEmitted = false;
+}
 
 async function hasAuthenticatedUser(request: NextRequest): Promise<boolean> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -358,7 +441,12 @@ async function hasAuthenticatedUser(request: NextRequest): Promise<boolean> {
   try {
     const { data } = await supabase.auth.getUser();
     return data.user !== null;
-  } catch {
+  } catch (error) {
+    // `error`, not `warning`: this answer is fail-CLOSED. Returning false turns
+    // a signed-in user's mutation on deployed staging into a 403, so an Auth
+    // hiccup here is user-visible and must clear an alerting threshold set at
+    // error level.
+    reportProxyFailure("auth-check", error, "error");
     return false;
   }
 }
@@ -380,13 +468,19 @@ async function refreshSupabaseSession(
   // In production this silently logs out every user with no other symptom, so
   // announce it loudly — once per process, since it would otherwise fire on
   // every request. It stays non-throwing: a crash here takes down anonymous
-  // traffic too. `console.error` rather than the Sentry adapter because this
-  // runs in the edge runtime, where the Node SDK cannot be imported.
+  // traffic too.
   if (!supabaseUrl || !supabaseAnonKey) {
     if (!supabaseCredentialsWarningEmitted) {
       supabaseCredentialsWarningEmitted = true;
       console.error(
         "[proxy] NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY are missing — session refresh is disabled and every request will be treated as unauthenticated.",
+      );
+      reportProxyFailure(
+        "supabase-credentials",
+        new Error(
+          "[proxy] NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY are missing — session refresh is disabled",
+        ),
+        "error",
       );
     }
     return supabaseResponse;
@@ -415,8 +509,11 @@ async function refreshSupabaseSession(
   try {
     const result = await supabase.auth.getUser();
     user = result.data.user;
-  } catch {
-    // Auth timeout or network error — continue as unauthenticated
+  } catch (error) {
+    // Auth timeout or network error — continue as unauthenticated.
+    // `warning`, not `error`: degrading to anonymous is the correct outcome
+    // here, so nothing breaks for the user.
+    reportProxyFailure("session-refresh", error, "warning");
   }
 
   const impersonateCookie = request.cookies.get(IMPERSONATE_COOKIE)?.value;
@@ -445,6 +542,17 @@ function finalizeResponse(
 }
 
 export async function proxy(request: NextRequest) {
+  try {
+    return await runProxy(request);
+  } catch (error) {
+    // Fired before the rethrow and deliberately not awaited: the capture is
+    // asynchronous, and the request must fail exactly as it does today.
+    reportProxyFailure("unhandled", error, "error");
+    throw error;
+  }
+}
+
+async function runProxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const staging = isStagingRequest(request.headers.get("host"));
   const isPlaywrightTest = process.env.PLAYWRIGHT_TEST === "true";
@@ -632,7 +740,8 @@ export async function proxy(request: NextRequest) {
           challengeCookie,
           getClientIp(request),
         );
-      } catch {
+      } catch (error) {
+        reportProxyFailure("challenge-token", error, "warning");
         isVerified = false;
       }
     }
@@ -654,7 +763,8 @@ export async function proxy(request: NextRequest) {
     let decodedSlug: string;
     try {
       decodedSlug = decodeURIComponent(brandSlug);
-    } catch {
+    } catch (error) {
+      reportProxyFailure("slug-decode", error, "warning");
       return finalizeResponse(new NextResponse(null, { status: 404 }), staging);
     }
 
@@ -682,7 +792,8 @@ export async function proxy(request: NextRequest) {
       let isApproved = true;
       try {
         isApproved = await hasApprovedBrandSlug(slug);
-      } catch {
+      } catch (error) {
+        reportProxyFailure("brand-approval", error, "error");
         isApproved = true;
       }
 

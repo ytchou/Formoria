@@ -432,8 +432,10 @@ export default withSentryConfig(withNextIntl(nextConfig), {
   // production the moment a staging `SENTRY_AUTH_TOKEN` is added (DEV-1494).
   project: process.env.SENTRY_PROJECT ?? "formoria",
 
-  // Only print logs for uploading source maps in CI
-  silent: !process.env.CI,
+  // Never silence the source-map upload. `silent: !process.env.CI` hid the real
+  // `sentry-cli` error on Railway, where `CI` is unset, leaving only
+  // "failed with exit code 1" in the build log (DEV-1537).
+  silent: false,
 
   // For all available options, see:
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
