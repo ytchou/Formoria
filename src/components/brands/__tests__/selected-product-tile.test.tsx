@@ -68,7 +68,7 @@ function buildProduct(overrides: Partial<CuratedProduct> = {}): CuratedProduct {
     subcategories: [],
     officialUrl: "https://example.com/kettle",
     imageUrl:
-      "https://project.supabase.co/storage/v1/object/public/p/kettle.jpg",
+      "/i/curated-products/p/kettle.jpg",
     imageSourceUrl: null,
     visible: true,
     linkState: "ok",

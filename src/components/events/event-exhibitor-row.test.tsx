@@ -67,10 +67,11 @@ function makeEntry(overrides: Partial<CreativeExpoEntry>): CreativeExpoEntry {
   } as CreativeExpoEntry;
 }
 
-// A roster-owned image has to survive `safeImageSrc`, so the host is a real
-// Supabase storage host rather than example.com.
+// A roster-owned image has to survive `safeImageSrc`. Since DEV-1551 that means
+// the same-origin `/i/` proxy path, not a public Supabase storage URL — the
+// bucket is private and the host allow-list is empty.
 const ROSTER_IMAGE_URL =
-  "https://xkcayngbttpxyibgzern.supabase.co/storage/v1/object/public/event-exhibitors/2026-taiwan-creative-expo/studio-smoll.jpg";
+  "/i/event-exhibitors/2026-taiwan-creative-expo/studio-smoll.jpg";
 
 // `heroImageUrl` stays null on purpose: the link-structure tests below are about
 // the row's anchors, and the monogram branch keeps the thumbnail out of them.

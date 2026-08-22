@@ -29,6 +29,7 @@ import {
 } from "./submission-review-stage";
 import { ConflictError, NotFoundError } from "@/lib/errors";
 import { createServiceClient } from "@/lib/supabase/service";
+import { imagePathToUrl } from "@/lib/images/image-url";
 import {
   extractLatinRun,
   generateSlug,
@@ -38,7 +39,15 @@ import {
 import { cleanBrandName } from "@/lib/services/brand-cleanup";
 import { toBrandRow, toSubmissionRow } from "./_shared/field-map";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { deleteStoredImagePaths } from "./image-upload";
+import {
+  deleteStoredImagePaths,
+  storageKeyFromPublicUrlForRead,
+} from "./image-upload";
+import {
+  bucketSigner,
+  createSignedUrlsInBatches,
+  type SignedUrlBatchResult,
+} from "./_shared/signed-urls";
 import { slugifyRomanizedName } from "@/lib/brands/slug";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { upsertEnrichedStockists } from "./stockists";
@@ -78,6 +87,7 @@ type SubmissionRowWithCategoryNote = Omit<
   "other_urls" | OnlineStoreColumn
 > & {
   hero_image_url?: string | null;
+  hero_image_storage_path?: string | null;
   category_note?: string | null;
   social_instagram?: string | null;
   social_threads?: string | null;
@@ -97,7 +107,6 @@ type BrandImageReviewRow = Pick<
   | "id"
   | "brand_id"
   | "storage_path"
-  | "url"
   | "source"
   | "status"
   | "sort_order"
@@ -355,7 +364,10 @@ export function buildSubmissionRecord(
     submitter_name: mapped.submitter_name,
     description: mapped.description,
     website_url: mapped.website_url,
-    hero_image_url: mapped.hero_image_url,
+    // No hero key is written from review data. `toBrandRow` stopped emitting
+    // `hero_image_url`, and a submission hero lives under a `submissions/` key
+    // the image proxy refuses to serve, so `approve_submission` is the only
+    // correct owner of the brand hero.
     social_instagram: mapped.social_instagram,
     social_threads: mapped.social_threads,
     social_facebook: mapped.social_facebook,
@@ -395,7 +407,14 @@ function submissionToDomain(
     submitterName: row.submitter_name ?? null,
     description: row.description ?? null,
     websiteUrl: row.website_url ?? null,
-    heroImageUrl: row.hero_image_url ?? null,
+    /*
+     * Prefer the bucket key (DEV-1551). The legacy `hero_image_url` is kept as
+     * a fallback because a submission hero is often an EXTERNAL scraped URL
+     * that never had an object of ours behind it — unlike a brand hero, which
+     * is always downloaded into storage first.
+     */
+    heroImageUrl:
+      imagePathToUrl(row.hero_image_storage_path) ?? row.hero_image_url ?? null,
     socialInstagram: row.social_instagram ?? null,
     socialThreads: row.social_threads ?? null,
     socialFacebook: row.social_facebook ?? null,
@@ -589,6 +608,78 @@ function imageStatus(value: string): SubmissionReviewImage["status"] {
   return "active";
 }
 
+const SUBMISSION_IMAGE_BUCKET = "brand-images";
+const SUBMISSION_IMAGE_KEY_PREFIX = "submissions/";
+/*
+ * Five minutes: long enough for a reviewer to read a queue page, short enough
+ * that a copied URL is not a durable leak. Raise it only alongside a real
+ * complaint about links expiring mid-review.
+ */
+const SUBMISSION_IMAGE_SIGNED_URL_SECONDS = 300;
+
+/** Injection seam: tests pass a plain function, never a Supabase mock. */
+export type SignSubmissionImagePaths = (
+  paths: string[],
+) => Promise<SignedUrlBatchResult>;
+
+const defaultSubmissionImageSigner: SignSubmissionImagePaths = (paths) =>
+  createSignedUrlsInBatches(
+    paths,
+    bucketSigner(
+      SUBMISSION_IMAGE_BUCKET,
+      SUBMISSION_IMAGE_SIGNED_URL_SECONDS,
+    ),
+  );
+
+/**
+ * The bucket key of a PRE-MODERATION image, or null for anything else.
+ *
+ * `submissions/` objects are deliberately not served by the `/i/` same-origin
+ * proxy (DEV-1551): they are unreviewed uploads that only an admin may see. So
+ * admin review resolves them to a signed URL instead. Published `brands/` keys
+ * fall through untouched — they are public imagery.
+ */
+export function submissionImageStorageKey(
+  image: SubmissionReviewImage,
+): string | null {
+  const stored = image.storagePath?.trim();
+  const key =
+    stored && stored.length > 0
+      ? stored
+      : storageKeyFromPublicUrlForRead(image.url);
+
+  return key && key.startsWith(SUBMISSION_IMAGE_KEY_PREFIX) ? key : null;
+}
+
+/**
+ * Replaces the stored public URL of every pre-moderation image with a signed
+ * one. Called on the admin review projection, so the review screens keep
+ * reading `image.url` and never have to know which images are gated.
+ */
+export async function attachSignedSubmissionImageUrls(
+  images: SubmissionReviewImage[],
+  signPaths: SignSubmissionImagePaths = defaultSubmissionImageSigner,
+): Promise<SubmissionReviewImage[]> {
+  const keys = images.map(submissionImageStorageKey);
+  const signable = [...new Set(keys.filter((key): key is string => Boolean(key)))];
+  if (signable.length === 0) return images;
+
+  const { byPath, failures } = await signPaths(signable);
+
+  if (failures.length > 0) {
+    console.error("[submissions] some review images could not be signed", {
+      count: failures.length,
+      paths: failures.map((failure) => failure.path),
+    });
+  }
+
+  return images.map((image, index) => {
+    const key = keys[index];
+    const signedUrl = key ? byPath.get(key) : undefined;
+    return signedUrl ? { ...image, url: signedUrl } : image;
+  });
+}
+
 function submissionImageToReviewImage(
   row: SubmissionImageRow,
 ): SubmissionReviewImage {
@@ -596,7 +687,14 @@ function submissionImageToReviewImage(
     id: row.id,
     submissionId: row.submission_id,
     storagePath: row.storage_path,
-    url: row.url,
+    /*
+     * Placeholder until `attachSignedSubmissionImageUrls` replaces it.
+     * `submissions/` objects are pre-moderation and the `/i/` proxy 404s them
+     * on purpose, so there is no unsigned form to fall back to. A row whose
+     * signing fails renders nothing, which is the correct failure for content
+     * only an admin may see.
+     */
+    url: "",
     source: row.source,
     status: imageStatus(row.status),
     sortOrder: row.sort_order,
@@ -617,7 +715,10 @@ function brandImageToReviewImage(
     id: row.id,
     submissionId,
     storagePath: row.storage_path,
-    url: row.url,
+    // A PUBLISHED brand image, so the same-origin proxy serves it (DEV-1551).
+    // Only `submissions/` keys are gated behind a signed URL, and those come
+    // through `submissionImageToReviewImage` instead.
+    url: imagePathToUrl(row.storage_path) ?? "",
     source: row.source,
     status: imageStatus(row.status),
     sortOrder: row.sort_order,
@@ -725,6 +826,13 @@ export function buildSubmissionReviewData(
     mitEvidence: enrichedData?.mitEvidence ?? null,
     siteContent: enrichedData?.siteContent ?? null,
     foundingYear: enrichedData?.foundingYear ?? null,
+    /*
+     * Display reference only. `approve_submission` owns the brand hero: it
+     * selects the first active `submission_images` row and overwrites
+     * `brands.hero_image_url` after the insert, ignoring anything sent in
+     * `p_brand_data`. Deriving `/i/<key>` here would be worse than useless,
+     * because a `submissions/` key is one the image proxy 404s on purpose.
+     */
     heroImageUrl:
       normalizeString(imageHero?.url) ??
       preferText(enrichedData?.heroImageUrl, submission.heroImageUrl),
@@ -856,6 +964,8 @@ function buildReviewLayers(
   const selectedHero = normalizeSubmissionReviewImages(images).find(
     (image) => image.status === "active",
   );
+  // The reviewer's choice travels as the image's `status` and `sort_order`,
+  // which `approve_submission` reads directly, not through this field.
   if (selectedHero) effective.heroImageUrl = selectedHero.url;
 
   return {
@@ -934,6 +1044,7 @@ export function getSubmissionReviewCompleteness(
 function submissionToBrandBase(row: SubmissionRow): BrandInsert {
   const rowWithSubmissionImages = row as SubmissionRow & {
     hero_image_url?: string | null;
+    hero_image_storage_path?: string | null;
   };
   const purchaseFields = Object.fromEntries(
     ONLINE_STORE_COLUMNS.map((column) => [column, row[column]]),
@@ -945,6 +1056,11 @@ function submissionToBrandBase(row: SubmissionRow): BrandInsert {
     romanized_name: normalizeString(row.romanized_name),
     description: row.description,
     hero_image_url: rowWithSubmissionImages.hero_image_url ?? null,
+    // Carried across so an approved brand has a readable hero under the private
+    // bucket (DEV-1551). `hero_image_url` rides along untouched for the SQL
+    // functions that still read it.
+    hero_image_storage_path:
+      rowWithSubmissionImages.hero_image_storage_path ?? null,
     status: "approved",
     is_demo: false,
     category: null as unknown as string,
@@ -1011,7 +1127,10 @@ function submissionReviewDataToBrandInsert(
     mit_evidence: data.mitEvidence,
     site_content: data.siteContent,
     founding_year: mapped.founding_year,
-    hero_image_url: mapped.hero_image_url,
+    // No hero key is written from review data. `toBrandRow` stopped emitting
+    // `hero_image_url`, and a submission hero lives under a `submissions/` key
+    // the image proxy refuses to serve, so `approve_submission` is the only
+    // correct owner of the brand hero.
     category: mapped.category,
     price_range: mapped.price_range,
     subcategories: mapped.subcategories,
@@ -1047,7 +1166,10 @@ function submissionReviewDataToDb(
     mit_evidence: data.mitEvidence,
     site_content: data.siteContent,
     founding_year: mapped.founding_year,
-    hero_image_url: mapped.hero_image_url,
+    // No hero key is written from review data. `toBrandRow` stopped emitting
+    // `hero_image_url`, and a submission hero lives under a `submissions/` key
+    // the image proxy refuses to serve, so `approve_submission` is the only
+    // correct owner of the brand hero.
     category: mapped.category,
     price_range: mapped.price_range,
     subcategories: mapped.subcategories,
@@ -1358,6 +1480,7 @@ const ADMIN_REVIEW_SUBMISSIONS_SELECT = `
   description,
   website_url,
   hero_image_url,
+  hero_image_storage_path,
   social_instagram,
   social_threads,
   social_facebook,
@@ -1509,7 +1632,7 @@ export async function getSubmissionsForReview(options?: {
             const { data: imageData, error: imagesError } = await supabase
               .from("submission_images")
               .select(
-                "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, origin_brand_image_id",
+                "id, submission_id, storage_path, source, status, sort_order, alt_zh, alt_en, tags, width, height, origin_brand_image_id",
               )
               .in("submission_id", targetIds)
               .order("submission_id", { ascending: true })
@@ -1531,7 +1654,12 @@ export async function getSubmissionsForReview(options?: {
       ),
     );
 
-    for (const image of imageChunks.flat().map(submissionImageToReviewImage)) {
+    // Signed before grouping, so the whole page costs one batched sign call.
+    const signedReviewImages = await attachSignedSubmissionImageUrls(
+      imageChunks.flat().map(submissionImageToReviewImage),
+    );
+
+    for (const image of signedReviewImages) {
       const current = reviewImagesBySubmission.get(image.submissionId) ?? [];
       current.push(image);
       reviewImagesBySubmission.set(image.submissionId, current);
@@ -1561,7 +1689,7 @@ export async function getSubmissionsForReview(options?: {
             const { data: imageData, error: imagesError } = await supabase
               .from("brand_images")
               .select(
-                "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height",
+                "id, brand_id, storage_path, source, status, sort_order, alt_zh, alt_en, tags, width, height",
               )
               .in("brand_id", brandIds)
               .eq("status", "active")
@@ -2093,7 +2221,6 @@ export async function saveSubmissionReview(
 export type StageSubmissionReviewImageInput = {
   submissionId: string;
   storagePath: string;
-  url: string;
   width: number;
   height: number;
 };
@@ -2122,9 +2249,10 @@ export async function stageSubmissionReviewImage(
     .from("submission_images")
     .insert({
       submission_id: input.submissionId,
+      // DEV-1551 task 12: the bucket key is the only reference written. The
+      // `url` column keeps its schema default; nothing here fills it.
       storage_path: input.storagePath,
-      url: input.url,
-      source_url: input.url,
+      source_url: input.storagePath,
       source: "admin",
       status: "draft",
       sort_order: 0,
@@ -2134,7 +2262,13 @@ export async function stageSubmissionReviewImage(
     .select("*")
     .single();
   if (error) throw error;
-  return submissionImageToReviewImage(data);
+  // A no-op unless the object landed under `submissions/` — see
+  // `attachSignedSubmissionImageUrls`. Applied here so a freshly staged image
+  // is displayable by the same rule as the rest of the queue.
+  const [staged] = await attachSignedSubmissionImageUrls([
+    submissionImageToReviewImage(data),
+  ]);
+  return staged;
     },
   );
 }
@@ -2226,7 +2360,7 @@ export async function approveSubmission(
   const { data: imageRows, error: imageError } = await supabase
     .from("submission_images")
     .select(
-      "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, origin_brand_image_id",
+      "id, submission_id, storage_path, source, status, sort_order, alt_zh, alt_en, tags, width, height, origin_brand_image_id",
     )
     .eq("submission_id", id)
     .order("sort_order", { ascending: true });

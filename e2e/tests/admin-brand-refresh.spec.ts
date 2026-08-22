@@ -3,6 +3,11 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { expect, test } from "../fixtures/auth";
 
 import { BUDGET, POLL } from "../budgets";
+import {
+  e2eBrandImageKey,
+  e2eProxyImageUrl,
+  e2eSubmissionImageKey,
+} from "../helpers/image-refs";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -52,8 +57,10 @@ test.describe("Scheduled brand refresh review", () => {
     if (!admin) throw new Error("E2E admin user not found");
     adminUserId = admin.id;
 
-    const heroUrl = `https://cdn.example.com/${brandId}/hero.webp`;
-    const detailUrl = `https://cdn.example.com/${brandId}/detail.webp`;
+    // Bucket keys, not URLs (DEV-1551): the bucket is private and the app
+    // renders `/i/<key>`.
+    const heroKey = e2eBrandImageKey(brandId, "hero.webp");
+    const detailKey = e2eBrandImageKey(brandId, "detail.webp");
     const { error: brandError } = await supabase.from("brands").insert({
       id: brandId,
       name: brandName,
@@ -62,7 +69,7 @@ test.describe("Scheduled brand refresh review", () => {
       approved_at: new Date().toISOString(),
       description: "更新前的完整品牌介紹",
       city: "tainan",
-      hero_image_url: heroUrl,
+      hero_image_storage_path: heroKey,
       category: "home",
       // Slug, not the zh-TW label: this writes straight into `brands`, so it
       // bypasses every conversion path. `brands.subcategories` has no CHECK
@@ -78,16 +85,16 @@ test.describe("Scheduled brand refresh review", () => {
     const { error: imageError } = await supabase.from("brand_images").insert([
       {
         brand_id: brandId,
-        url: heroUrl,
-        source_url: heroUrl,
+        storage_path: heroKey,
+        source_url: heroKey,
         source: "owner",
         status: "active",
         sort_order: 0,
       },
       {
         brand_id: brandId,
-        url: detailUrl,
-        source_url: detailUrl,
+        storage_path: detailKey,
+        source_url: detailKey,
         source: "legacy",
         status: "active",
         sort_order: 1,
@@ -210,8 +217,8 @@ test.describe("Scheduled brand refresh review", () => {
     await adminPage.goto("/admin/submissions?stage=enriching");
     await expect(adminPage.getByText(brandName, { exact: true })).toBeVisible();
 
-    const heroSubmissionUrl = `https://cdn.example.com/${brandId}/hero-candidate.webp`;
-    const candidateUrl = `https://cdn.example.com/${brandId}/candidate.webp`;
+    const heroCandidateKey = e2eBrandImageKey(brandId, "hero-candidate.webp");
+    const candidateKey = e2eBrandImageKey(brandId, "candidate.webp");
     // `request_brand_refresh` already copied the brand's active images into
     // submission_images at sort_order 0 and 1. Drop them first, otherwise the
     // candidates below collide on sort_order and apply_brand_refresh rejects the
@@ -227,16 +234,16 @@ test.describe("Scheduled brand refresh review", () => {
       .insert([
         {
           submission_id: refreshSubmissionId,
-          url: heroSubmissionUrl,
-          source_url: heroSubmissionUrl,
+          storage_path: heroCandidateKey,
+          source_url: heroCandidateKey,
           source: "google_image",
           status: "active",
           sort_order: 0,
         },
         {
           submission_id: refreshSubmissionId,
-          url: candidateUrl,
-          source_url: candidateUrl,
+          storage_path: candidateKey,
+          source_url: candidateKey,
           source: "google_image",
           status: "active",
           sort_order: 1,
@@ -252,7 +259,7 @@ test.describe("Scheduled brand refresh review", () => {
           subcategories: ["tableware"],
           price_range: 2,
           purchase_website: "https://refresh-e2e.example.com",
-          hero_image_url: heroSubmissionUrl,
+          hero_image_url: e2eProxyImageUrl(heroCandidateKey),
         },
       })
       .eq("id", refreshSubmissionId);
@@ -322,10 +329,12 @@ test.describe("Scheduled brand refresh review", () => {
 
     const { data: images } = await supabase
       .from("brand_images")
-      .select("url")
+      .select("storage_path")
       .eq("brand_id", brandId)
       .eq("status", "active");
-    expect(images).toEqual(expect.arrayContaining([{ url: candidateUrl }]));
+    expect(images).toEqual(
+      expect.arrayContaining([{ storage_path: candidateKey }]),
+    );
   });
 });
 
@@ -391,9 +400,11 @@ test.describe("Bulk refresh approval", () => {
 
     const validSubmissionId = randomUUID();
     submissionIds.push(validSubmissionId);
-    const storageBase = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/brand-images/e2e/${validSubmissionId}`;
-    const validHeroUrl = `${storageBase}/hero.webp`;
-    const validDetailUrl = `${storageBase}/detail.webp`;
+    const validHeroKey = e2eSubmissionImageKey(validSubmissionId, "hero.webp");
+    const validDetailKey = e2eSubmissionImageKey(
+      validSubmissionId,
+      "detail.webp",
+    );
     const { error: validSubmissionError } = await supabase
       .from("brand_submissions")
       .insert({
@@ -409,7 +420,7 @@ test.describe("Bulk refresh approval", () => {
           subcategories: ["tableware"],
           price_range: 2,
           purchase_website: "https://bulk-approval.example.com",
-          hero_image_url: validHeroUrl,
+          hero_image_url: e2eProxyImageUrl(validHeroKey),
         },
       });
     if (validSubmissionError) throw validSubmissionError;
@@ -418,16 +429,16 @@ test.describe("Bulk refresh approval", () => {
       .insert([
         {
           submission_id: validSubmissionId,
-          url: validHeroUrl,
-          source_url: validHeroUrl,
+          storage_path: validHeroKey,
+          source_url: validHeroKey,
           source: "admin",
           status: "active",
           sort_order: 0,
         },
         {
           submission_id: validSubmissionId,
-          url: validDetailUrl,
-          source_url: validDetailUrl,
+          storage_path: validDetailKey,
+          source_url: validDetailKey,
           source: "admin",
           status: "active",
           sort_order: 1,
@@ -437,8 +448,8 @@ test.describe("Bulk refresh approval", () => {
 
     const staleBrandId = randomUUID();
     brandIds.push(staleBrandId);
-    const staleHeroUrl = `https://cdn.example.com/${staleBrandId}/hero.webp`;
-    const staleDetailUrl = `https://cdn.example.com/${staleBrandId}/detail.webp`;
+    const staleHeroKey = e2eBrandImageKey(staleBrandId, "hero.webp");
+    const staleDetailKey = e2eBrandImageKey(staleBrandId, "detail.webp");
     const { error: staleBrandError } = await supabase.from("brands").insert({
       id: staleBrandId,
       name: staleName,
@@ -446,7 +457,7 @@ test.describe("Bulk refresh approval", () => {
       status: "approved",
       approved_at: new Date().toISOString(),
       description: "完整的品牌介紹",
-      hero_image_url: staleHeroUrl,
+      hero_image_storage_path: staleHeroKey,
       category: "home",
       // Slug, not the zh-TW label — direct `brands` insert, same reason as the
       // seed above.
@@ -460,16 +471,16 @@ test.describe("Bulk refresh approval", () => {
       .insert([
         {
           brand_id: staleBrandId,
-          url: staleHeroUrl,
-          source_url: staleHeroUrl,
+          storage_path: staleHeroKey,
+          source_url: staleHeroKey,
           source: "owner",
           status: "active",
           sort_order: 0,
         },
         {
           brand_id: staleBrandId,
-          url: staleDetailUrl,
-          source_url: staleDetailUrl,
+          storage_path: staleDetailKey,
+          source_url: staleDetailKey,
           source: "owner",
           status: "active",
           sort_order: 1,

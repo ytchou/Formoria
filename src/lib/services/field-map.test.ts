@@ -5,7 +5,7 @@ const brandInput = {
   name: '森之好物',
   slug: 'sen-zi-hao-wu',
   description: 'Taiwan-made home goods and accessories',
-  heroImageUrl: 'https://cdn.example.com/hero.jpg',
+  heroImageUrl: '/i/brands/brand-123/hero.webp',
   status: 'approved',
   categorySlug: 'home',
   foundingYear: 2018,
@@ -60,7 +60,9 @@ describe('field-map', () => {
       name: '森之好物',
       slug: 'sen-zi-hao-wu',
       description: 'Taiwan-made home goods and accessories',
-      hero_image_url: 'https://cdn.example.com/hero.jpg',
+      // DEV-1551 tasks 9 and 12: the brand hero is written as a bucket key.
+      // `hero_image_url` is no longer written by TypeScript at all.
+      hero_image_storage_path: 'brands/brand-123/hero.webp',
       status: 'approved',
       category: 'home',
       founding_year: 2018,

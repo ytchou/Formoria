@@ -36,6 +36,22 @@ describe("curatedProductStorageKeyFromPublicUrl", () => {
     ).toBe(CURATED_KEY);
   });
 
+  it("resolves_curated_proxy_path_to_key", () => {
+    // DEV-1551: `image_url` now stores the same-origin `/i/<key>` form, so the
+    // previous-object lookup has to recognise it. The legacy public URL above
+    // still resolves too — every row written before the flip carries one, and
+    // dropping that branch would leak one object per edit.
+    expect(curatedProductStorageKeyFromPublicUrl(`/i/${CURATED_KEY}`)).toBe(
+      CURATED_KEY,
+    );
+  });
+
+  it("rejects_a_proxy_path_outside_curated_products", () => {
+    expect(
+      curatedProductStorageKeyFromPublicUrl("/i/brands/hanchor/logo.webp"),
+    ).toBeNull();
+  });
+
   it("rejects_brands_prefix_url", () => {
     // Scoped to curated keys ALONE. An owner brand image resolved here would be
     // deleted by a curated replacement while the brand row still references it.

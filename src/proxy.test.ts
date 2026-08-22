@@ -28,18 +28,28 @@ vi.mock("@/lib/security/crawler-telemetry", () => ({
   recordCrawlerHit: vi.fn(),
 }));
 
+const limiter = vi.hoisted(() => ({
+  checkRateLimit: vi.fn(async (_request: unknown): Promise<null> => null),
+  checkSoftRateLimit: vi.fn(
+    async (_request: unknown, _options?: unknown): Promise<boolean> => false,
+  ),
+}));
+
 vi.mock("@/lib/security/rate-limiter", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("@/lib/security/rate-limiter")>();
   return {
     ...actual,
-    checkRateLimit: async () => null,
-    checkSoftRateLimit: async () => false,
+    checkRateLimit: limiter.checkRateLimit,
+    checkSoftRateLimit: limiter.checkSoftRateLimit,
   };
 });
 
-const { proxy, isOriginGuardExempt, resetProxyTelemetryForTests } =
+const { proxy, isOriginGuardExempt, resetProxyTelemetryForTests, config } =
   await import("@/proxy");
+const { VISITOR_COOKIE_NAME } = await import(
+  "@/lib/security/visitor-identity"
+);
 
 const EDGE_SECRET = "cf-edge-9f3b7c21ae4d48e0b6a15c73d2f0e884";
 const BROWSER_UA =
@@ -83,6 +93,14 @@ async function withRedirectLookupServer<T>(callback: () => Promise<T>) {
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "");
+  // `mockReset`, not `mockImplementation` alone. Vitest is not configured with
+  // `clearMocks`, so call history survives across cases in this file: any test
+  // asserting a CALL COUNT would otherwise read the sum of every earlier case
+  // that reached the same call site.
+  limiter.checkRateLimit.mockReset();
+  limiter.checkSoftRateLimit.mockReset();
+  limiter.checkRateLimit.mockImplementation(async () => null);
+  limiter.checkSoftRateLimit.mockImplementation(async () => false);
 });
 
 afterEach(() => {
@@ -535,5 +553,176 @@ describe("proxy failure reporting", () => {
     expect(response.status).toBe(301);
     expect(response.headers.get("location")).toMatch(/\/brands\/hero-herb$/);
     expect(sentry.captureException).toHaveBeenCalled();
+  });
+});
+
+describe("proxy matcher", () => {
+  it("includes /i/ so the image proxy is processed, not skipped", () => {
+    const [defaultPattern, imageProxyPattern, ...rest] = config.matcher;
+
+    /*
+     * `/i/brands/<id>/hero.webp` ends in an image extension, which the default
+     * pattern excludes. Without the second entry the image proxy would bypass
+     * the shared rate limiter and the Cloudflare origin guard entirely.
+     */
+    expect(new RegExp(`^${defaultPattern}$`).test("/i/brands/x.webp")).toBe(
+      false,
+    );
+    expect(imageProxyPattern).toBe("/i/:path*");
+    expect(rest).toEqual([]);
+    /*
+     * The matcher entry exists for the RATE LIMITER, not the origin guard. The
+     * guard must skip `/i/`: Next's image optimizer re-enters middleware with a
+     * mocked, header-less request, which the guard would 403 in production.
+     */
+    expect(isOriginGuardExempt("/i/brands/x.webp")).toBe(true);
+  });
+});
+
+/**
+ * Regression, production-only: adding `/i/:path*` to the matcher put the image
+ * proxy behind the Cloudflare origin guard, and Next's own image optimizer
+ * re-invokes middleware for `/i/...` through `fetchInternalImage` with a mocked
+ * request whose header bag is empty. The guard 403d it, the optimizer read an
+ * empty body and threw ImageError(400), so every `next/image`-rendered proxied
+ * image on the site failed. Invisible under `pnpm dev` -- the guard requires
+ * NODE_ENV=production.
+ */
+describe("the origin guard and the image proxy", () => {
+  beforeEach(() => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("CF_ORIGIN_SECRET", EDGE_SECRET);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("serves an uncredentialed /i/ request, because the image optimizer cannot carry the edge credential", async () => {
+    const response = await proxy(
+      requestFor(
+        "/i/brands/8f14e45f-ceea-467a-9d0f-2b9c0f8c3a11/hero.webp",
+      ),
+    );
+    expect(response.status).not.toBe(403);
+  });
+
+  it("exempts /i/ by prefix, and nothing that merely starts with the same letter", () => {
+    expect(isOriginGuardExempt("/i/brands/abc/hero.webp")).toBe(true);
+    expect(isOriginGuardExempt("/i/")).toBe(true);
+    expect(isOriginGuardExempt("/images/logo.webp")).toBe(false);
+    expect(isOriginGuardExempt("/internal/thing")).toBe(false);
+  });
+
+  it("still 403s a non-exempt path carrying exactly the same (absent) headers", async () => {
+    const response = await proxy(requestFor("/api/admin/brands"));
+    expect(response.status).toBe(403);
+  });
+});
+
+/**
+ * Regression: the mint skip tested the RESPONSE's `cache-control` for
+ * `public` / `s-maxage`, but middleware runs before the route handler sets it,
+ * so the skip never fired. On `/i/` that meant N parallel uncookied image
+ * requests each minted a different identity, each emitted a rotation event, and
+ * each returned a `Set-Cookie` -- which makes a CDN bypass its cache for a
+ * response marked immutable for a year.
+ */
+describe("visitor identity minting", () => {
+  beforeEach(() => {
+    vi.stubEnv("CHALLENGE_SECRET", "proxy-test-visitor-secret");
+    vi.stubEnv("TRAVERSAL_COUNTERS", "on");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("sets no cookie on an image request", async () => {
+    const response = await proxy(
+      requestFor("/i/brands/8f14e45f-ceea-467a-9d0f-2b9c0f8c3a11/hero.webp"),
+    );
+
+    expect(response.headers.getSetCookie()).toEqual([]);
+    expect(response.cookies.get(VISITOR_COOKIE_NAME)).toBeUndefined();
+  });
+
+  it("sets no cookie on an admin request", async () => {
+    const response = await proxy(requestFor("/admin/brands"));
+    expect(response.cookies.get(VISITOR_COOKIE_NAME)).toBeUndefined();
+  });
+
+  it("mints on an ordinary page request while the counters are on", async () => {
+    const response = await proxy(requestFor("/about"));
+    expect(response.cookies.get(VISITOR_COOKIE_NAME)?.value).toBeTruthy();
+  });
+
+  it("mints nothing at all while TRAVERSAL_COUNTERS is off, because nothing reads the identity", async () => {
+    vi.stubEnv("TRAVERSAL_COUNTERS", "");
+    const response = await proxy(requestFor("/about"));
+    expect(response.cookies.get(VISITOR_COOKIE_NAME)).toBeUndefined();
+  });
+});
+
+/**
+ * DEV-1551 task 15. `src/proxy.ts` used to treat a valid `fm_verified` cookie as
+ * an unconditional seven-day pass: the whole soft-limit block was skipped, so
+ * solving Turnstile once bought a week of unmetered `/brands/*` traversal.
+ * Verification now buys a RAISED budget, evaluated on the same counter.
+ */
+describe("the soft-limit budget a verified visitor gets", () => {
+  const SOFT_LIMIT_PATH = "/brands/kinship-goods";
+
+  beforeEach(() => {
+    vi.stubEnv("SECURITY_DISABLE_RATE_LIMIT", "false");
+    vi.stubEnv("PLAYWRIGHT_TEST", "false");
+    vi.stubEnv("CHALLENGE_SECRET", "proxy-test-challenge-secret");
+  });
+
+  async function verifiedCookieHeader(): Promise<string> {
+    const { signChallengeToken, CHALLENGE_COOKIE_NAME } = await import(
+      "@/lib/security/challenge"
+    );
+    return `${CHALLENGE_COOKIE_NAME}=${await signChallengeToken("203.0.113.5")}`;
+  }
+
+  it("still evaluates the soft limit for a verified visitor", async () => {
+    // Passing the soft limit lets the request fall through to the brand
+    // redirect lookup, which needs a reachable Supabase endpoint. The two
+    // tests below return before reaching it.
+    const cookie = await verifiedCookieHeader();
+    await withRedirectLookupServer(() =>
+      proxy(requestFor(SOFT_LIMIT_PATH, { cookie })),
+    );
+
+    // The call itself is the assertion: before this change the cookie skipped it.
+    expect(limiter.checkSoftRateLimit).toHaveBeenCalledTimes(1);
+    expect(limiter.checkSoftRateLimit.mock.calls[0]?.[1]).toEqual({
+      verified: true,
+    });
+  });
+
+  it("escalates a verified visitor to 429 rather than re-challenging them", async () => {
+    limiter.checkSoftRateLimit.mockImplementation(async () => true);
+
+    const response = await proxy(
+      requestFor(SOFT_LIMIT_PATH, { cookie: await verifiedCookieHeader() }),
+    );
+
+    // A redirect back to /challenge would bounce a visitor who already holds a
+    // valid token between two pages until the window rolled.
+    expect(response.status).toBe(429);
+  });
+
+  it("still sends an unverified visitor to the challenge first", async () => {
+    limiter.checkSoftRateLimit.mockImplementation(async () => true);
+
+    const response = await proxy(requestFor(SOFT_LIMIT_PATH));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/challenge");
+    expect(limiter.checkSoftRateLimit.mock.calls[0]?.[1]).toEqual({
+      verified: false,
+    });
   });
 });

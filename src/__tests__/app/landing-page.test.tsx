@@ -142,7 +142,7 @@ function buildProduct(index: number): HomepageCuratedProduct {
     category: "home",
     subcategories: [],
     officialUrl: "https://example.com/product",
-    imageUrl: `https://project.supabase.co/storage/v1/object/public/p/${index}.jpg`,
+    imageUrl: `/i/curated-products/p/${index}.jpg`,
     imageSourceUrl: null,
     visible: true,
     linkState: "ok",

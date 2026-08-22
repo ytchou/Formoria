@@ -6,7 +6,7 @@ import type { Database } from '@/lib/supabase/database.types'
 import { createServiceClient } from '@/lib/supabase/service'
 import { validateIdBatch } from '@/lib/validation/id-batch'
 import { stripDeclaration } from './mit-declaration'
-import { uploadWithRetry } from './storage-retry'
+import { bucketSigner, createSignedUrlsInBatches } from './_shared/signed-urls'
 
 export const MAX_NOTES_LENGTH = 1000
 const MAX_PENDING_EVIDENCE = 3
@@ -166,26 +166,26 @@ async function attachSignedPhotoUrls(evidence: OriginEvidence[]): Promise<Origin
 
   if (photoPaths.length === 0) return evidence
 
-  const supabase = createServiceClient()
-  const { data, error } = await uploadWithRetry(() =>
-    supabase.storage
-      .from(ORIGIN_EVIDENCE_BUCKET)
-      .createSignedUrls(
-        photoPaths.map(toOriginEvidenceBucketPath),
-        ORIGIN_EVIDENCE_SIGNED_URL_EXPIRES_IN_SECONDS,
-      ),
+  // Throws on a storage-level failure rather than handing the reviewer a
+  // photo-less declaration that looks like it never had photos.
+  const { urls, failures } = await createSignedUrlsInBatches(
+    photoPaths.map(toOriginEvidenceBucketPath),
+    bucketSigner(
+      ORIGIN_EVIDENCE_BUCKET,
+      ORIGIN_EVIDENCE_SIGNED_URL_EXPIRES_IN_SECONDS,
+    ),
   )
 
-  if (error) return evidence
+  if (failures.length > 0) {
+    console.error('[origin-evidence] some photos could not be signed', {
+      count: failures.length,
+      paths: failures.map((failure) => failure.path),
+    })
+  }
 
   const signedUrlByPath = new Map<string, string | undefined>()
-  data?.forEach((signedUrlResult, index) => {
-    const photoPath = photoPaths[index]
-    if (!photoPath) return
-    signedUrlByPath.set(
-      photoPath,
-      signedUrlResult.error ? undefined : signedUrlResult.signedUrl ?? undefined,
-    )
+  photoPaths.forEach((photoPath, index) => {
+    signedUrlByPath.set(photoPath, urls[index] ?? undefined)
   })
 
   return evidence.map((item) => ({

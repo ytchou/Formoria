@@ -2,6 +2,8 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { auditedCall } from '@/lib/audit'
 import type { ImageProcessorConfig } from '@/lib/security/image-processor'
 import { uploadWithRetry } from './storage-retry'
+import { storagePathFromImageUrl } from '@/lib/images/image-url'
+import { BRAND_IMAGES_KEY_PREFIX } from '@/lib/images/storage-keys'
 
 export const ALLOWED_UPLOAD_BUCKETS = [
   'brand-images',
@@ -11,17 +13,23 @@ export const ALLOWED_UPLOAD_BUCKETS = [
 export type AllowedUploadBucket = (typeof ALLOWED_UPLOAD_BUCKETS)[number]
 const BRAND_IMAGES_BUCKET = ALLOWED_UPLOAD_BUCKETS[0]
 const BRAND_IMAGES_PUBLIC_SEGMENT = `/storage/v1/object/public/${BRAND_IMAGES_BUCKET}/`
-const BRAND_IMAGES_KEY_PREFIX = 'brands/'
 const SUBMISSION_IMAGES_KEY_PREFIX = 'submissions/'
 // Curated product images (DEV-1404): `curated-products/<brand>/<product>/<hash>.webp`
 // in the same `brand-images` bucket.
 export const CURATED_PRODUCT_IMAGES_KEY_PREFIX = 'curated-products/'
+// Roster-owned COPIES of exhibitor heroes (DEV-1370), written by
+// `scripts/seed-expo-exhibitor-content.ts` into the same `brand-images` bucket
+// and referenced by `event_exhibitors.image_storage_path`. Read-only here, like
+// `submissions/`: they are never a delete-path target.
+const EVENT_EXHIBITOR_IMAGES_KEY_PREFIX = 'event-exhibitors/'
 const DELETABLE_IMAGE_KEY_PREFIXES = [BRAND_IMAGES_KEY_PREFIX] as const
 const READABLE_IMAGE_KEY_PREFIXES = [
   BRAND_IMAGES_KEY_PREFIX,
   SUBMISSION_IMAGES_KEY_PREFIX,
   CURATED_PRODUCT_IMAGES_KEY_PREFIX,
+  EVENT_EXHIBITOR_IMAGES_KEY_PREFIX,
 ] as const
+
 const CLAIM_PROOF_IMAGE_CONFIG: Partial<ImageProcessorConfig> = {
   maxWidth: 2400,
   maxHeight: 2400,
@@ -134,8 +142,23 @@ export function storageKeyFromPublicUrlForRead(url: string): string | null {
  * key can only be recovered from the stored `image_url`.
  */
 export function curatedProductStorageKeyFromPublicUrl(url: string): string | null {
+  if (!url) return null
+
+  /*
+   * Two accepted forms. `/i/<key>` is what DEV-1551 stores from now on; the
+   * legacy public storage URL is still on every row written before the flip,
+   * and this function's whole job is finding the PREVIOUS object so it can be
+   * cleaned up — dropping the legacy form would leak one object per edit.
+   */
+  const proxyKey = storagePathFromImageUrl(url)
+  if (proxyKey) {
+    return proxyKey.startsWith(CURATED_PRODUCT_IMAGES_KEY_PREFIX)
+      ? proxyKey
+      : null
+  }
+
   const prefix = getBrandImagesPublicPrefix()
-  if (!url || !prefix || !url.startsWith(prefix)) {
+  if (!prefix || !url.startsWith(prefix)) {
     return null
   }
 
@@ -236,22 +259,24 @@ export async function uploadPrivateFile(input: PrivateUploadFileInput): Promise<
   )
 }
 
-export async function uploadPublicImage(input: PublicUploadImageInput): Promise<{ url: string }> {
+/**
+ * Uploads to the `brand-images` bucket and returns the BUCKET KEY.
+ *
+ * DEV-1551 task 12: no public-URL lookup. The bucket is private, so a public
+ * URL is a dead link — every caller either stores the key (`storage_path`) or
+ * renders it through `imagePathToUrl`. The name is kept because the bucket is
+ * still the "public imagery" bucket in the sense that matters here: its objects
+ * are published content, as opposed to `claim-proofs` / `origin-evidence`.
+ */
+export async function uploadPublicImage(
+  input: PublicUploadImageInput,
+): Promise<{ path: string }> {
   return auditedCall(
     { provider: 'images', operation: 'uploadPublicImage', kind: 'service' },
     async () => {
-  await uploadStorageObject(input)
-  const supabase = createServiceClient()
+  const path = await uploadStorageObject(input)
 
-  const {
-    data: { publicUrl },
-  } = await uploadWithRetry(async () =>
-    supabase.storage.from(input.bucket).getPublicUrl(input.path),
-  )
-
-  return {
-    url: publicUrl,
-  }
+  return { path }
     },
   )
 }

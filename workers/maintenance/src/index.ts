@@ -74,16 +74,41 @@ function readCookie(request: Request, name: string): string | null {
 }
 
 /**
- * Plain string compare. The token is operator-generated and high-entropy, and
- * what it guards is unfinished catalogue content rather than credentials or
- * user data — so a timing side-channel buys an attacker nothing worth the
- * subtle-crypto import. If this gate is ever reused in front of something
- * sensitive, swap this for a constant-time compare.
+ * Constant-time token comparison.
+ *
+ * SHA-256 first, then a fixed 32-byte XOR sweep: hashing makes the comparison
+ * LENGTH-INDEPENDENT, which a plain byte-by-byte sweep is not — a raw compare
+ * still leaks the expected token's length through the loop bound, and a
+ * short-circuit `===` leaks the matching prefix. Both digests are always
+ * computed and all 32 bytes are always visited, so the timing carries no
+ * information about the secret.
+ *
+ * `crypto.subtle` is available in the Workers runtime, so this costs an await
+ * on a path that already awaits a subrequest.
  */
-function isBypassAuthorized(request: Request, env: Env): boolean {
+async function timingSafeEqual(a: string, b: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const [digestA, digestB] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encoder.encode(a)),
+    crypto.subtle.digest("SHA-256", encoder.encode(b)),
+  ]);
+  const bytesA = new Uint8Array(digestA);
+  const bytesB = new Uint8Array(digestB);
+  let diff = 0;
+  for (let index = 0; index < bytesA.length; index += 1) {
+    diff |= bytesA[index] ^ bytesB[index];
+  }
+  return diff === 0;
+}
+
+async function isBypassAuthorized(request: Request, env: Env): Promise<boolean> {
   const expected = env.GATE_BYPASS_TOKEN;
+  // Unset token fails closed before any compare: hashing "" against "" would
+  // match, which would turn a missing secret into a wide-open gate.
   if (!expected) return false;
-  return readCookie(request, BYPASS_COOKIE) === expected;
+  const offered = readCookie(request, BYPASS_COOKIE);
+  if (offered === null) return false;
+  return timingSafeEqual(offered, expected);
 }
 
 /**
@@ -109,7 +134,7 @@ const maintenanceGate = {
     if (
       offeredToken &&
       env.GATE_BYPASS_TOKEN &&
-      offeredToken === env.GATE_BYPASS_TOKEN
+      (await timingSafeEqual(offeredToken, env.GATE_BYPASS_TOKEN))
     ) {
       url.searchParams.delete(BYPASS_QUERY_PARAM);
       return new Response(null, {
@@ -125,7 +150,7 @@ const maintenanceGate = {
     // An authorized operator sees the real site. On a route-bound Worker a
     // same-zone subrequest goes to the origin rather than back through this
     // Worker, so this does not recurse.
-    if (isBypassAuthorized(request, env)) {
+    if (await isBypassAuthorized(request, env)) {
       return fetch(request);
     }
 

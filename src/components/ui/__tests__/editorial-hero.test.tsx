@@ -33,16 +33,22 @@ vi.mock("next/image", () => ({
 
 const REPO_PATH = "/images/stories/2026-taiwan-creative-expo-craft-brands.webp";
 const ALLOWED_REMOTE =
-  "https://project.supabase.co/storage/v1/object/public/story/hero.webp";
+  "/i/brands/story/hero.webp";
 // Any host outside `ALLOWED_IMAGE_HOSTS`. The CSP in `next.config.ts` is built
 // from that same list, so a hero here is one the browser refuses to load.
 const BLOCKED_REMOTE = "https://images.example.com/hero.jpg";
 
 describe("editorialHeroSrc", () => {
   it("keeps a repo path, which the host gate would otherwise drop", () => {
-    // `safeImageSrc` parses with NO base, so every relative path throws inside
-    // it. Sending repo assets through it would blank the only heroes that exist.
+    // `safeImageSrc` used to parse with NO base, so every relative path threw
+    // inside it and blanked the only heroes that exist. It now recognises a
+    // same-origin path directly (DEV-1551).
     expect(editorialHeroSrc(REPO_PATH)).toBe(REPO_PATH);
+  });
+
+  it("drops a protocol-relative hero, which is an offsite fetch", () => {
+    // The old caller-side `startsWith("/")` branch returned this unchanged.
+    expect(editorialHeroSrc("//evil.example/hero.jpg")).toBeNull();
   });
 
   it("keeps a remote hero the page is allowed to load", () => {

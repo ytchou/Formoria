@@ -15,6 +15,7 @@ import {
   getUploadImageProcessingConfig,
   type AllowedUploadBucket,
 } from '@/lib/services/image-upload'
+import { imagePathToUrl } from '@/lib/images/image-url'
 
 async function captureAssetUploaded(
   request: Request,
@@ -199,8 +200,11 @@ export const POST = withAuditScope(async (request: Request) => {
         height: processed.height,
         authenticated: true,
       })
+      // The same-origin proxy path, not a storage URL (DEV-1551): the bucket
+      // is private, and this value is written straight into an `<img src>` by
+      // the dashboard uploader.
       return NextResponse.json({
-        url: result.url,
+        url: imagePathToUrl(result.path),
         width: processed.width,
         height: processed.height,
       })

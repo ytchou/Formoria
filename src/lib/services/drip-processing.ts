@@ -13,6 +13,7 @@ import {
   type OnlineStoreColumn,
 } from '@/lib/brands/online-stores'
 import { createServiceClient } from '@/lib/supabase/service'
+import { absoluteImageUrl, imagePathToUrl } from '@/lib/images/image-url'
 import type { EmailMessage } from '@/lib/email/types'
 import { normalizeOwnerLocale, type OwnerLocale } from '@/lib/types'
 import { computeProfileCompleteness } from '@/lib/services/profile-completeness'
@@ -326,7 +327,7 @@ function queryEligibleOwners(
   const query = supabase.from<Record<string, unknown>>('brand_owners').select(`
       user_id,
       claimed_at,
-      brands!inner(name, slug, description, hero_image_url, founding_year, subcategories, price_range, ${ONLINE_STORE_COLUMNS.join(', ')}, city, social_instagram, social_threads, social_facebook, other_urls, reputation_summary, site_content, brand_images(url, status, sort_order)),
+      brands!inner(name, slug, description, hero_image_storage_path, founding_year, subcategories, price_range, ${ONLINE_STORE_COLUMNS.join(', ')}, city, social_instagram, social_threads, social_facebook, other_urls, reputation_summary, site_content, brand_images(storage_path, status, sort_order)),
       owner_email_preferences!inner(unsubscribe_token),
       email:users!brand_owners_user_id_fkey(email)
     `)
@@ -344,7 +345,12 @@ function daysAgo(days: number): string {
   return date.toISOString()
 }
 
-function normalizeOwnerRow(row: Record<string, unknown>): OwnerRow {
+/**
+ * Exported for the image-URL contract test. The drip payload is the one place
+ * that must absolutise `/i/<key>`, and there is no other seam that exercises
+ * that without a Supabase client (which tests may not mock).
+ */
+export function normalizeOwnerRow(row: Record<string, unknown>): OwnerRow {
   const brand = objectValue(
     Array.isArray(row.brands) ? row.brands[0] : row.brands,
   )
@@ -376,14 +382,23 @@ function normalizeOwnerRow(row: Record<string, unknown>): OwnerRow {
     ),
     description:
       typeof brand?.description === 'string' ? brand.description : undefined,
+    /*
+     * ABSOLUTE, not relative (DEV-1551 task 9). Everything else in the app
+     * renders `/i/<key>` as a same-origin path, but an email is read in a
+     * client with no origin to resolve against, so a relative `src` shows a
+     * broken image in every inbox.
+     */
     hero_image_url:
-      typeof brand?.hero_image_url === 'string'
-        ? brand.hero_image_url
-        : undefined,
+      absoluteImageUrl(imagePathToUrl(stringValue(brand?.hero_image_storage_path))) ??
+      undefined,
     product_photos: images
       .slice(1)
-      .map((image) => stringValue(objectValue(image)?.url))
-      .filter(Boolean),
+      .flatMap((image) => {
+        const url = absoluteImageUrl(
+          imagePathToUrl(stringValue(objectValue(image)?.storage_path)),
+        )
+        return url ? [url] : []
+      }),
     subcategories: Array.isArray(brand?.subcategories)
       ? brand.subcategories.filter(
           (tag): tag is string => typeof tag === 'string',

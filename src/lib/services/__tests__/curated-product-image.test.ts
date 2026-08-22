@@ -212,17 +212,22 @@ describe("storeCuratedProductImage dimensions", () => {
         imageSourceUrl: "https://example.com/wide.png",
         previousImageUrl: null,
       },
-      { upload: async () => ({ url: "https://cdn.example.com/stored.webp" }) },
+      { upload: async ({ path }) => ({ path }) },
     );
 
     // The processor caps at 1200px on the long edge, so 2400x1200 in must come
     // back out as 1200x600. Reporting the source dimensions would render every
     // over-cap tile at a ratio the stored object does not have.
-    expect(result).toEqual({
-      url: "https://cdn.example.com/stored.webp",
-      width: 1200,
-      height: 600,
-    });
+    expect(result.width).toBe(1200);
+    expect(result.height).toBe(600);
+    // The stored URL is DERIVED from the bucket key by the /i/ proxy helper —
+    // the upload seam returns `{ path }` and no longer hands back a public
+    // storage URL, so the key shape is what this asserts.
+    expect(result.url).toMatch(
+      new RegExp(
+        `^/i/curated-products/${BRAND_ID}/${PRODUCT_ID}/[0-9a-f]{64}\\.webp$`,
+      ),
+    );
   });
 
   it("persists dimensions on create", async () => {
