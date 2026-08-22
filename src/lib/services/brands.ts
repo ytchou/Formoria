@@ -1350,7 +1350,9 @@ async function queryApprovedBrandsBySlugs(
     // the last good page served), but without a log line the failed
     // regeneration leaves no trace anywhere.
     console.error("getBrandsBySlugKey query error:", error);
-    throw new Error(`Failed to fetch brands by slug: ${error.message}`);
+    throw new Error(
+      `Failed to fetch brands by slug: ${error.message}${error.code ? ` [code ${error.code}]` : ""}${error.hint ? ` [hint: ${error.hint}]` : ""}`,
+    );
   }
 
   return new Map(

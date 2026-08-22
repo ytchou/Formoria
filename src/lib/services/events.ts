@@ -708,7 +708,16 @@ type ServiceClient = ReturnType<typeof createServiceClient>;
  */
 const PAGE_SIZE = 1000;
 
-type PageResult = { data: unknown; error: { message: string } | null };
+/**
+ * `code` and `hint` are carried because `message` alone is not actionable:
+ * Postgres puts the fix in `hint` (a 42703 names the column it thought was
+ * meant), and `code` is the stable identifier to branch on. Both are optional
+ * so every existing caller's query builder still satisfies this shape.
+ */
+type PageResult = {
+  data: unknown;
+  error: { message: string; code?: string; hint?: string } | null;
+};
 
 /**
  * Runs `page(from, to)` until a short page comes back, concatenating the rows.
@@ -727,7 +736,9 @@ async function fetchAllPages<Row>(
 
     if (error) {
       console.error(`${queryName} query error:`, error);
-      throw new Error(`${failure}: ${error.message}`);
+      throw new Error(
+        `${failure}: ${error.message}${error.code ? ` [code ${error.code}]` : ""}${error.hint ? ` [hint: ${error.hint}]` : ""}`,
+      );
     }
 
     const rows = (data ?? []) as unknown as Row[];
@@ -750,7 +761,9 @@ export async function fetchPublishedEvents(
 
   if (error) {
     console.error("fetchPublishedEvents query error:", error);
-    throw new Error(`Failed to fetch published events: ${error.message}`);
+    throw new Error(
+      `Failed to fetch published events: ${error.message}${error.code ? ` [code ${error.code}]` : ""}${error.hint ? ` [hint: ${error.hint}]` : ""}`,
+    );
   }
 
   return ((data ?? []) as unknown as EventRow[]).map(eventRowToDomain);
@@ -769,7 +782,9 @@ export async function fetchPublishedEventBySlug(
 
   if (error) {
     console.error("fetchPublishedEventBySlug query error:", error);
-    throw new Error(`Failed to fetch event ${slug}: ${error.message}`);
+    throw new Error(
+      `Failed to fetch event ${slug}: ${error.message}${error.code ? ` [code ${error.code}]` : ""}${error.hint ? ` [hint: ${error.hint}]` : ""}`,
+    );
   }
 
   return data ? eventRowToDomain(data as unknown as EventRow) : null;
