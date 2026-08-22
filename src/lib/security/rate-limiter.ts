@@ -16,7 +16,7 @@ import {
   reportRateLimitStoreUnavailable,
   reportVerifiedCrawlerAllowed,
 } from './rate-limit-observability'
-import { stripLocalePrefix } from './route-family'
+import { isAccountedFamily, routeFamily, stripLocalePrefix } from './route-family'
 import {
   evaluateTraversal,
   getEnforcementThresholds,
@@ -349,6 +349,23 @@ const RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
     maxRequests: envLimit('RATE_LIMIT_BRANDS_PER_MIN', 200),
     crawlerExempt: true,
   },
+  '/i/': {
+    // The same-origin image proxy. Unauthenticated, and every hit streams bytes
+    // out of Supabase Storage, so with no rule here a loop of cache-busted
+    // `curl https://.../i/brands/<id>/hero.webp` costs an attacker nothing and
+    // drives unbounded egress. Generous on purpose: one brand page legitimately
+    // pulls 10+ images, and a reader moving through the directory pulls several
+    // pages' worth in a minute.
+    windowMs: 60_000,
+    maxRequests: envLimit('RATE_LIMIT_IMAGES_PER_MIN', 400),
+    // Crawler-exempt for the same reason as `/brands/`: image crawlers are the
+    // second-largest bot source on the site, and Upstash spends commands BEFORE
+    // the allow/deny verdict, so metering them buys nothing and costs quota.
+    crawlerExempt: true,
+    // Fixed window: one cheaper round trip per image. A boundary burst on a
+    // static image is harmless.
+    algorithm: 'fixed',
+  },
   '/sitemap.xml': { windowMs: 60_000, maxRequests: 3, crawlerExempt: false },
 }
 
@@ -600,7 +617,7 @@ export async function checkSoftRateLimit(
  * which a new slug resets. Upgrade path: turn it on, calibrate thresholds
  * against the recorded numbers, then build the escalation ladder on top.
  */
-function isTraversalAccountingEnabled(): boolean {
+export function isTraversalAccountingEnabled(): boolean {
   return process.env.TRAVERSAL_COUNTERS === 'on'
 }
 
@@ -645,6 +662,15 @@ export async function observeTraversal(
   normalizedPathname: string,
 ): Promise<EvaluateTraversalResult | null> {
   if (!isTraversalAccountingEnabled()) return null
+
+  // Admin, dashboard, account and API surfaces are never scored. The edge
+  // cannot see the user id, so an admin working the moderation queue would be
+  // scored on the visitor tier against directory thresholds -- polluting the
+  // very distribution those thresholds are meant to be calibrated from, and
+  // challenging staff the moment `ENFORCEMENT_MODE=enforce` is set.
+  if (!isAccountedFamily(routeFamily(normalizedPathname, request.nextUrl.searchParams))) {
+    return null
+  }
 
   try {
     const visitorId = await verifyVisitorId(

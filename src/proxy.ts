@@ -24,6 +24,7 @@ import {
   isLikelyCrawler,
   isRateLimitStoreDegraded,
   isRouterRequest,
+  isTraversalAccountingEnabled,
   softLimitBlockedResponse,
 } from "@/lib/security/rate-limiter";
 import {
@@ -31,7 +32,10 @@ import {
   RATE_LIMIT_STORE_HEADER,
   reportVisitorIdentityRotated,
 } from "@/lib/security/rate-limit-observability";
-import { routeFamily } from "@/lib/security/route-family";
+import {
+  routeFamily,
+  shouldMintVisitorIdentity,
+} from "@/lib/security/route-family";
 import {
   resolveVisitorIdentity,
   VISITOR_COOKIE_NAME,
@@ -119,6 +123,18 @@ export const ORIGIN_GUARD_EXEMPT_PATHS = [
   { pathname: "/api/health", match: "prefix" },
   { pathname: "/api/cron/", match: "prefix" },
   { pathname: "/api/internal/revalidate-brands", match: "exact" },
+  // Next's own image optimizer re-enters middleware for `/i/` paths and cannot
+  // be made to carry the edge credential. `/_next/image?url=%2Fi%2F...` is
+  // excluded from the matcher, so the optimizer runs; for a non-absolute href
+  // it calls `fetchInternalImage`, which builds a MOCK request via
+  // `createRequestResponseMocks` with an empty header bag and routes it back
+  // through middleware. That mock carries neither `x-formoria-edge` nor
+  // `x-origin-verify`, so without this entry the guard 403s it, the optimizer
+  // reads an empty body and throws ImageError(400) -- every `next/image`
+  // proxied image on the site fails, and only in production, because the guard
+  // requires NODE_ENV=production. Do not remove: `/i/` stays in the matcher for
+  // the rate limiter's sake, which is what makes this exemption necessary.
+  { pathname: "/i/", match: "prefix" },
 ] as const satisfies ReadonlyArray<{
   pathname: string;
   match: "prefix" | "exact";
@@ -569,24 +585,37 @@ warnIfOriginGuardDisabled();
  * Runs after `runProxy` so every terminal return path picks the cookie up,
  * instead of threading a mint through a dozen `finalizeResponse` call sites.
  *
- * Two skips, both about the CDN, and both deliberate:
- * - a `Set-Cookie` on a publicly cacheable response lets a shared cache hand
- *   one visitor's identity to the next visitor, so responses already marked
- *   `public` / `s-maxage` (the directory edge cache) are left untouched;
+ * Three skips, all deliberate:
+ * - the identity exists only to key traversal accounting, and `observeTraversal`
+ *   returns immediately while `TRAVERSAL_COUNTERS` is off (the default), so
+ *   minting behind that flag would pay a WebCrypto HMAC verify per request for
+ *   an output nothing reads;
+ * - `shouldMintVisitorIdentity` decides cacheability FROM THE REQUEST. The
+ *   previous guard tested the response's `cache-control` for `public` /
+ *   `s-maxage`, which middleware runs too early to ever see: the route handler
+ *   sets that header afterwards, so the skip never fired. `/i/` was the
+ *   casualty -- N parallel uncookied image requests each minted a different
+ *   identity, emitted a rotation event, and returned a `Set-Cookie` that makes
+ *   a CDN bypass its cache for a response marked `immutable` for a year;
  * - crawlers do not retain cookies, so minting for them buys no identity and
  *   only makes their responses uncacheable.
  *
- * Ceiling: a visitor whose first hit is a cached directory index receives the
- * cookie on their next non-cacheable response instead of the first one.
- * Upgrade path: mint at the Cloudflare edge if identity coverage on first paint
- * ever becomes load-bearing.
+ * Ceiling: request-shape cacheability is an approximation of the handler's
+ * `cache-control`, so a newly cached public route must be added to
+ * `shouldMintVisitorIdentity`. Upgrade path: mint at the Cloudflare edge if
+ * identity coverage on first paint ever becomes load-bearing.
  */
 async function attachVisitorIdentity(
   request: NextRequest,
   response: NextResponse,
 ): Promise<NextResponse> {
-  const cacheControl = response.headers.get("cache-control") ?? "";
-  if (cacheControl.includes("public") || cacheControl.includes("s-maxage")) {
+  if (!isTraversalAccountingEnabled()) return response;
+  if (
+    !shouldMintVisitorIdentity(
+      request.nextUrl.pathname,
+      request.nextUrl.searchParams,
+    )
+  ) {
     return response;
   }
   if (isLikelyCrawler(request)) return response;

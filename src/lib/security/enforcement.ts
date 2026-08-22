@@ -128,6 +128,42 @@ export function getEnforcementMode(): EnforcementMode {
     : 'observe'
 }
 
+let inertEnforceModeWarned = false
+
+/**
+ * `ENFORCEMENT_MODE=enforce` currently mitigates nothing.
+ *
+ * This module answers what SHOULD happen; no caller turns the decision into a
+ * response yet -- `observeTraversal` reports it and drops it. Setting `enforce`
+ * therefore only relabels telemetry (`effectiveAction` stops being `allow` and
+ * `shadowed` stops being true), which reads exactly like protection that is
+ * switched on. Warn once so an operator cannot believe the ladder is blocking
+ * when it is not. No behaviour change: this is the whole fix.
+ *
+ * Upgrade path: delete this warning in the same change that acts on
+ * `decision.effectiveAction` at the proxy.
+ */
+export function warnIfEnforcementModeIsInert(): void {
+  if (inertEnforceModeWarned) return
+  if (getEnforcementMode() !== 'enforce') return
+  inertEnforceModeWarned = true
+  // console.warn rather than the Sentry adapter: this runs in the edge runtime,
+  // where the Node SDK is not loaded.
+  console.warn(
+    JSON.stringify({
+      event: 'enforcement_mode_inert',
+      reason: 'ENFORCEMENT_MODE=enforce is set, but no caller acts on the decision',
+      impact:
+        'the ladder still allows every request; the mode only relabels telemetry',
+    }),
+  )
+}
+
+/** Test seam: the warning is once-per-process, so suites must be able to rearm it. */
+export function resetEnforcementWarningForTests(): void {
+  inertEnforceModeWarned = false
+}
+
 /**
  * Defaults are placeholders sized off nothing but judgement — the counters have
  * never run in production (`TRAVERSAL_COUNTERS` is off by default). They are
@@ -459,3 +495,7 @@ export async function evaluateTraversal(
     }),
   }
 }
+
+// One warning at module scope, mirroring `warnIfOriginGuardDisabled`. The
+// condition is permanent for the life of the isolate.
+warnIfEnforcementModeIsInert()

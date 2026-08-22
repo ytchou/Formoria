@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { NextRequest } from 'next/server'
 import { CRAWLER_REGISTRY } from '../crawler-registry'
+import { routeFamily } from '../route-family'
+import {
+  createInMemoryTraversalStore,
+  setTraversalStoreForTests,
+} from '../traversal-counters'
 import {
   checkRateLimit,
   checkSoftRateLimit,
@@ -10,7 +15,9 @@ import {
   isLikelyCrawler,
   isRateLimitStoreDegraded,
   isRouterRequest,
+  observeTraversal,
   rateLimit,
+  resetTraversalTelemetryLatchForTests,
   setRateLimitStoreForTests,
   type RateLimitStore,
 } from '../rate-limiter'
@@ -522,6 +529,123 @@ describe('exact brand directory rate limit', () => {
     for (let requestNumber = 1; requestNumber <= directoryLimit + 1; requestNumber += 1) {
       expect(await checkRateLimit(request('/brands-extra'))).toBeNull()
     }
+  })
+})
+
+/**
+ * Regression: `/admin` and `/dashboard` had no branch in `classifyRoute`, so
+ * they were scored as `public:global-content` against the directory
+ * thresholds. The edge cannot see the user id, so staff traffic landed on the
+ * visitor tier at multiplier 1 and polluted the calibration set.
+ */
+describe('traversal accounting skips non-public surfaces', () => {
+  beforeEach(() => {
+    vi.stubEnv('TRAVERSAL_COUNTERS', 'on')
+    setTraversalStoreForTests(createInMemoryTraversalStore())
+    resetTraversalTelemetryLatchForTests()
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    setTraversalStoreForTests(null)
+  })
+
+  function request(path: string): NextRequest {
+    return new NextRequest(`https://formoria.com${path}`, {
+      headers: {
+        'user-agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+        'cf-connecting-ip': '198.51.100.242',
+      },
+    })
+  }
+
+  it('records nothing for admin and dashboard traffic', async () => {
+    for (const path of ['/admin/brands', '/api/admin/brands', '/dashboard']) {
+      expect(await observeTraversal(request(path), path)).toBeNull()
+    }
+  })
+
+  it('still records public directory traffic, so the skip is not global', async () => {
+    const evaluation = await observeTraversal(request('/brands/talkoo'), '/brands/talkoo')
+    expect(evaluation).not.toBeNull()
+    expect(evaluation?.decision.family).toBe('directory:detail')
+  })
+})
+
+/**
+ * Regression: `/i/:path*` was added to the proxy matcher so image traffic would
+ * share the limiter, but no `/i/` rule existed, so `checkRateLimit` fell out at
+ * `if (!ruleKey) return null` and the endpoint was metered by nothing. It is
+ * unauthenticated and streams bytes out of Supabase Storage on every hit.
+ */
+describe('image proxy budget', () => {
+  const configured = Number(process.env.RATE_LIMIT_IMAGES_PER_MIN)
+  const imageLimit =
+    Number.isFinite(configured) && configured > 0 ? configured : 400
+
+  beforeEach(() => {
+    setRateLimitStoreForTests(createInMemoryRateLimiter())
+  })
+
+  afterEach(() => {
+    setRateLimitStoreForTests(null)
+  })
+
+  function imageRequest(path: string, headers: Record<string, string> = {}): NextRequest {
+    return new NextRequest(`https://formoria.com${path}`, {
+      headers: {
+        'user-agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+        'x-forwarded-for': '198.51.100.241',
+        ...headers,
+      },
+    })
+  }
+
+  // The burst key is `pathname:ip` and the query string is not part of it, so
+  // this is exactly the looping `curl .../hero.webp?cachebust=N` case: the same
+  // asset, hammered.
+  it('meters /i/ instead of letting it through unmatched', async () => {
+    for (let requestNumber = 1; requestNumber <= imageLimit; requestNumber += 1) {
+      expect(
+        await checkRateLimit(imageRequest(`/i/brands/abc/hero.webp?v=${requestNumber}`)),
+      ).toBeNull()
+    }
+
+    const response = await checkRateLimit(imageRequest('/i/brands/abc/hero.webp?v=over'))
+
+    expect(response?.status).toBe(429)
+    expect(response?.headers.get('X-RateLimit-Limit')).toBe(String(imageLimit))
+  })
+
+  it('is generous enough that several brand pages of images do not trip it', async () => {
+    // A brand page pulls 10+ images; a reader moving through the directory
+    // pulls several pages of them inside one window.
+    for (let requestNumber = 1; requestNumber <= 120; requestNumber += 1) {
+      expect(
+        await checkRateLimit(imageRequest(`/i/brands/abc/hero.webp?v=${requestNumber}`)),
+      ).toBeNull()
+    }
+    expect(imageLimit).toBeGreaterThanOrEqual(200)
+  })
+
+  it('exempts crawlers, matching the other public-content rules', async () => {
+    for (let requestNumber = 1; requestNumber <= imageLimit + 1; requestNumber += 1) {
+      expect(
+        await checkRateLimit(
+          imageRequest('/i/brands/abc/hero.webp', { 'user-agent': 'Googlebot/2.1' }),
+        ),
+      ).toBeNull()
+    }
+  })
+
+  it('does not match a near-prefix path', async () => {
+    for (let requestNumber = 1; requestNumber <= imageLimit + 1; requestNumber += 1) {
+      expect(await checkRateLimit(imageRequest('/images/logo.webp'))).toBeNull()
+    }
+    // `/i/` must not swallow a sibling top-level segment.
+    expect(routeFamily('/images/logo.webp')).not.toBe('directory:image')
   })
 })
 

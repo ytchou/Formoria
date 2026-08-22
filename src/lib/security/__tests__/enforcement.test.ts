@@ -7,7 +7,9 @@ import {
   evaluateTraversal,
   getEnforcementMode,
   getEnforcementThresholds,
+  resetEnforcementWarningForTests,
   resolveCrawlerExemption,
+  warnIfEnforcementModeIsInert,
   type EnforcementAction,
   type EnforcementThresholds,
 } from '../enforcement'
@@ -339,5 +341,59 @@ describe('evaluateTraversal', () => {
     expect(exempted.decision.action).toBe('allow')
     expect(exempted.decision.reason).toBe(ENFORCEMENT_REASONS.CRAWLER_VERIFIED)
     expect(exempted.tiers).toHaveLength(0)
+  })
+})
+
+/**
+ * `ENFORCEMENT_MODE=enforce` computes a decision that no caller acts on, so
+ * setting it relabels telemetry and mitigates nothing. The warning is the whole
+ * of the fix; the mode deliberately still changes no behaviour.
+ */
+describe('the inert enforce-mode warning', () => {
+  let warn: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    resetEnforcementWarningForTests()
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    warn.mockRestore()
+    vi.unstubAllEnvs()
+    resetEnforcementWarningForTests()
+  })
+
+  it('warns once when the mode is set to enforce', () => {
+    vi.stubEnv('ENFORCEMENT_MODE', 'enforce')
+
+    warnIfEnforcementModeIsInert()
+    warnIfEnforcementModeIsInert()
+
+    expect(warn).toHaveBeenCalledTimes(1)
+    const [payload] = warn.mock.calls[0] ?? []
+    expect(typeof payload).toBe('string')
+    expect(JSON.parse(String(payload))).toMatchObject({
+      event: 'enforcement_mode_inert',
+    })
+  })
+
+  it('stays silent in the default observe mode', () => {
+    vi.stubEnv('ENFORCEMENT_MODE', 'observe')
+    warnIfEnforcementModeIsInert()
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('changes no decision -- enforce still blocks nothing downstream', () => {
+    vi.stubEnv('ENFORCEMENT_MODE', 'enforce')
+    warnIfEnforcementModeIsInert()
+
+    const decision = decideEnforcement({
+      tiers: [{ kind: 'visitor', distinctResources: 5, logicalViews: 5 }],
+      family: 'directory:detail',
+      window: 'tenMinutes',
+    })
+
+    expect(decision.action).toBe('allow')
+    expect(decision.effectiveAction).toBe('allow')
   })
 })
