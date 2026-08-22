@@ -1553,9 +1553,9 @@ where field = 'subcategories';
 --
 -- The target key is `brand_id` OR `submission_id` — a row carries exactly one,
 -- and approve_submission re-points submission rows at the new brand. Recency is
--- (created_at desc, id desc), matching `latestAiResultKey` /
--- `latestAiResultIds` in `src/lib/services/_shared/ai-results.ts`, which is the
--- TypeScript half of this same scope.
+-- (created_at desc, id desc). The id tiebreak is load-bearing, not decoration:
+-- the audit rows for one phase are written in a tight loop and routinely share
+-- a millisecond, so created_at alone does not order them.
 
 with latest as (
   select distinct on (coalesce(result.brand_id, result.submission_id), result.phase)
