@@ -133,10 +133,21 @@ function reportWriteLoss(error: AuditWriteError): void {
   if (lossAlertReported) return;
   lossAlertReported = true;
   try {
+    // No `error` option on purpose: `AuditWriteError` is a plain
+    // `{code, message}` object, and `captureAlert` routes any defined `error`
+    // to `Sentry.captureException`. Capturing a non-`Error` there produces a
+    // stackless synthetic group titled `<anonymous>` (FORMORIA-61). Without it
+    // the alert goes through `captureMessage` and keeps its own title.
     captureAlert("Audit record write exhausted; record dropped", {
       level: "error",
-      context: { code: error.code ?? null, message: error.message },
-      error,
+      context: {
+        code: error.code ?? null,
+        message: error.message,
+        // The count at the moment this one alert fires. The counter keeps
+        // growing afterwards and is readable only via `auditWriteLossCount()`,
+        // so this number is a floor on the volume, not the total.
+        lossCount,
+      },
     });
   } catch {
     return;
