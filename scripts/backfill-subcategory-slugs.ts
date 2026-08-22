@@ -41,6 +41,18 @@ import {
  *
  *   # re-apply ONLY the generated parts after --emit, once the migration has run
  *   … scripts/backfill-subcategory-slugs.ts --reseed
+ *
+ * RETAINED DELIBERATELY — do not delete this file as dead code. It has no TS
+ * importer, so an import-graph scan reports it unreachable. Two APPLIED
+ * migrations reference it by path, and one of them does so at RUNTIME:
+ *
+ *   - `20260820130000_backfill_subcategory_slugs.sql` raises an exception whose
+ *     `hint` tells the operator to "re-run scripts/backfill-subcategory-slugs.ts
+ *     --emit". Applied migrations cannot be edited in place, so that hint text
+ *     is permanent.
+ *   - `20260822090000_retire_crafts_l1.sql` cites this script as the provenance
+ *     of its ~1000-line generated SQL block, and defers a known alias gap
+ *     (永生花) to the next `--emit`.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));

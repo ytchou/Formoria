@@ -19,16 +19,17 @@ import {
 import corpusLabels from './fixtures/corpus-labels.json'
 
 describe('L1_CATEGORIES', () => {
-  it('has exactly 12 entries', () => {
-    expect(L1_CATEGORIES).toHaveLength(12)
-  })
-
-  it('each entry has slug, name, nameZh, tint', () => {
+  // The PRESENCE and type of slug/name/nameZh/tint is a tsc concern; their
+  // EMPTINESS is not. `nameZh: ''` type-checks fine and renders a blank
+  // category label, so the labels are asserted non-empty here. Likewise the
+  // shape of tint: it is a bare string that ships straight into CSS, so a
+  // malformed value renders no colour and raises nowhere.
+  it('every category carries non-empty labels and a renderable oklch tint', () => {
     for (const cat of L1_CATEGORIES) {
-      expect(cat.slug).toBeTruthy()
-      expect(cat.name).toBeTruthy()
-      expect(cat.nameZh).toBeTruthy()
-      expect(cat.tint).toMatch(/^oklch\([\d.]+ [\d.]+ [\d.]+\)$/)
+      expect(cat.slug, `${cat.slug} slug`).toBeTruthy()
+      expect(cat.name, `${cat.slug} name`).toBeTruthy()
+      expect(cat.nameZh, `${cat.slug} nameZh`).toBeTruthy()
+      expect(cat.tint, `${cat.slug} tint`).toMatch(/^oklch\([\d.]+ [\d.]+ [\d.]+\)$/)
     }
   })
 
@@ -55,15 +56,6 @@ describe('L1_CATEGORIES', () => {
     expect(slugs).not.toContain('others')
     expect(slugs).not.toContain('baby-kids')
     expect(slugs).not.toContain('kids-pets')
-  })
-})
-
-describe('parentGroupForSlug (removed)', () => {
-  it('is not exported', async () => {
-    const mod = await import('../ontology')
-    const exports = mod as Record<string, unknown>
-    expect(exports.parentGroupForSlug).toBeUndefined()
-    expect(exports.CATEGORY_ONTOLOGY).toBeUndefined()
   })
 })
 
@@ -328,7 +320,7 @@ const NEW_NODES_2026_08_19: Record<string, string> = {
 }
 
 describe('DEV-1510 closed vocabulary', () => {
-  it('l2_count_is_164_across_12_l1s', () => {
+  it('every L1 carries its documented subcategory count', () => {
     expect(L2_SUBCATEGORIES).toHaveLength(164)
     expect(L1_CATEGORIES).toHaveLength(12)
 

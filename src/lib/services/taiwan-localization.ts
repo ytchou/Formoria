@@ -10,6 +10,22 @@
  */
 type LocalizationOptions = {
   brandName?: string;
+  /**
+   * Which language the string is PROSE IN — not which scripts appear in it.
+   *
+   * `normalizePunctuation` full-widths any punctuation touching a Han
+   * character, which is correct inside a Chinese sentence and wrong inside an
+   * English one that happens to name a studio in Han. The production dry-run of
+   * `backfill:tw` rewrote `T Shape Of (謝工作室) focuses` to `（謝工作室）` on
+   * two brands with no banned term involved at all (DEV-1547 Class 2).
+   *
+   * `"en"` therefore keeps the markdown, emoji and protected-span passes and
+   * drops punctuation normalization alone. It cannot be inferred from the text
+   * — an English sentence naming a Chinese studio and a Chinese sentence
+   * quoting an English product name look the same to a script test — so the
+   * caller that knows the column's language has to say.
+   */
+  language?: "zh" | "en";
 };
 
 const PROTECTED_SPAN_PATTERN = /\u0000TW_PROTECTED_(\d+)\u0000/gu;
@@ -168,7 +184,9 @@ export function localizeToTW(
 
   let localized = stripMarkdown(protectedText.text, substitutions);
   localized = stripEmoji(localized, substitutions);
-  localized = normalizePunctuation(localized, substitutions);
+  if (options.language !== "en") {
+    localized = normalizePunctuation(localized, substitutions);
+  }
 
   return { text: restoreSpans(localized, protectedText.spans), substitutions };
 }

@@ -132,10 +132,6 @@
     "replacement": "按讚"
   },
   {
-    "term": "頭像",
-    "replacement": "大頭貼"
-  },
-  {
     "term": "當前",
     "replacement": "目前"
   },
@@ -228,10 +224,6 @@
     "replacement": "非同步"
   },
   {
-    "term": "數組",
-    "replacement": "陣列"
-  },
-  {
     "term": "賦值",
     "replacement": "指派"
   },
@@ -242,10 +234,6 @@
   {
     "term": "緩存",
     "replacement": "快取"
-  },
-  {
-    "term": "集成",
-    "replacement": "整合"
   },
   {
     "term": "模塊",
@@ -270,10 +258,6 @@
   {
     "term": "集群",
     "replacement": "叢集"
-  },
-  {
-    "term": "操作系統",
-    "replacement": "作業系統"
   },
   {
     "term": "驅動程序",

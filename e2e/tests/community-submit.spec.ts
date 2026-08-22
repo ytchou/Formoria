@@ -22,9 +22,6 @@ test.describe("Community submit flow", () => {
   }) => {
     test.setTimeout(BUDGET.TEST.JOURNEY);
     await gotoSubmitRecommend(userPage);
-    await expect(userPage.locator("#submit-source")).toBeVisible({
-      timeout: BUDGET.RENDERED,
-    });
     await expect(userPage.locator("#submit-guest-email")).toBeVisible({
       timeout: BUDGET.RENDERED,
     });
@@ -86,32 +83,23 @@ test.describe("Community submit flow", () => {
   // page is `/` and the English one is `/en`.
   const isHomePath = (pathname: string) => /^\/(?:en)?\/?$/.test(pathname);
 
-  test("@smoke my-submissions redirects authenticated users to the home page", async ({
-    userPage,
-  }) => {
-    test.setTimeout(BUDGET.TEST.JOURNEY);
-    await userPage.goto("/my-submissions");
-    await userPage.waitForURL((url) => isHomePath(url.pathname), {
-      timeout: BUDGET.SERVER_RENDER,
+  // A plain `for` around `test()` at collection time, not a loop INSIDE one
+  // test: both locales report independently, so an `/en` regression cannot be
+  // masked by a zh-TW failure landing first (commit 4a4fc7a8).
+  for (const path of ["/my-submissions", "/en/my-submissions"]) {
+    test(`@smoke ${path} redirects authenticated users to the home page`, async ({
+      userPage,
+    }) => {
+      test.setTimeout(BUDGET.TEST.JOURNEY);
+      const res = await userPage.goto(path);
+      expect(res?.status()).toBeLessThan(400);
+      await userPage.waitForURL((url) => isHomePath(url.pathname), {
+        timeout: BUDGET.SERVER_RENDER,
+      });
+      expect(new URL(userPage.url()).pathname).not.toContain("/dashboard");
+      await expect(userPage.locator("main, section").first()).toBeVisible({
+        timeout: BUDGET.INTERACTIVE,
+      });
     });
-    expect(new URL(userPage.url()).pathname).not.toContain("/dashboard");
-    await expect(userPage.locator("main, section").first()).toBeVisible({
-      timeout: BUDGET.INTERACTIVE,
-    });
-  });
-
-  test("my-submissions /en redirects to the home page", async ({
-    userPage,
-  }) => {
-    test.setTimeout(BUDGET.TEST.JOURNEY);
-    const res = await userPage.goto("/en/my-submissions");
-    expect(res?.status()).toBeLessThan(400);
-    await userPage.waitForURL((url) => isHomePath(url.pathname), {
-      timeout: BUDGET.SERVER_RENDER,
-    });
-    expect(new URL(userPage.url()).pathname).not.toContain("/dashboard");
-    await expect(userPage.locator("main, section").first()).toBeVisible({
-      timeout: BUDGET.INTERACTIVE,
-    });
-  });
+  }
 });

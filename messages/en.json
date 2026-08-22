@@ -3172,7 +3172,13 @@
       "completenessDistribution": "Completeness Distribution",
       "enrichmentQuality": "Enrichment Quality",
       "promoHeroImages": "Promo hero images",
-      "validationFailures": "Validation failures"
+      "validationFailures": "Validation failures",
+      "vocabularyTitle": "Stored zh-TW vocabulary",
+      "vocabularyDescription": "Mainland-Chinese terms the write-path guard found in text it stored over the last {days} days. Detection never rewrites anything, so each row below is still in the database and, if the column is published, on the site.",
+      "vocabularyUnavailable": "The audit trail could not be read, so this window is unmeasured.",
+      "vocabularyClean": "Nothing found in {spans} audited writes.",
+      "vocabularyFound": "{hits} occurrences across {spans} audited writes.",
+      "vocabularyNoSubject": "no subject"
     },
     "settings": {
       "title": "Settings",

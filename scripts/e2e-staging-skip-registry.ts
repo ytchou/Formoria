@@ -29,8 +29,7 @@ export const HIDDEN_AUTH_AFFORDANCE_REASON =
 export const ANONYMOUS_CORRECTION_REASON =
   'Anonymous correction mutations are intentionally disabled on canonical staging';
 
-/** Staging serves `noindex` and no sitemap on purpose, so the SEO suite skips. */
-export const STAGING_NOINDEX_REASON = 'Staging intentionally disables indexing.';
+/** Staging serves no sitemap on purpose, so the SEO suite skips. */
 export const STAGING_NO_SITEMAP_REASON = 'Staging intentionally omits the sitemap.';
 
 /**
@@ -84,11 +83,6 @@ export const EXPECTED_STAGING_CONSTRAINT_SKIP_REGISTRY: readonly StagingConstrai
     file: 'brand-corrections.spec.ts',
     title: 'Brand corrections — anonymous crowd QA',
     reason: ANONYMOUS_CORRECTION_REASON,
-  },
-  {
-    file: 'seo.spec.ts',
-    title: 'robots.txt is accessible and allows crawling',
-    reason: STAGING_NOINDEX_REASON,
   },
   {
     file: 'seo.spec.ts',

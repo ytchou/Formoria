@@ -4,9 +4,26 @@
  * Rationale: ImageResponse/satori routes can crash at runtime while `pnpm build`
  * passes (og-variable-font-crash 2026-06-01). The root /twitter-image also 404'd
  * for months because Next.js middleware intercepted it before it reached the route
- * handler (fixed in DEV-924 PR 2). This spec pins both failure classes by asserting
- * HTTP 200, image/png content-type, and a meaningful body size for every OG /
- * twitter image route in the app.
+ * handler (fixed in DEV-924 PR 2). The satori-crash class is owned by the far
+ * faster `src/app/opengraph-image.test.tsx` and
+ * `src/__tests__/app/og/trust/opengraph-image.test.tsx`, which decode a real
+ * 1200x630 PNG. What only HTTP can prove is the middleware-interception class.
+ *
+ * Why locale-prefixed routes are kept even though a root route is already here:
+ * `src/proxy.ts` decides them in two UNRELATED branches, so a root 200 is no
+ * evidence about `/en/*` or `/zh-TW/og/trust/*`.
+ *   - Root `/opengraph-image`, `/twitter-image` — the single-segment bare-slug
+ *     branch (`segments.length === 1` + `!RESERVED_ROUTES.has(slug)`). Both
+ *     names are literal entries in `RESERVED_ROUTES`; drop either one and the
+ *     path is rewritten/redirected as a brand slug.
+ *   - `/en/opengraph-image`, `/zh-TW/og/trust/opengraph-image` — decided by
+ *     `isLocalizedPublicPath` -> `PUBLIC_INTL_SEGMENTS.has(secondSegment)`,
+ *     which never consults `RESERVED_ROUTES` at all. It returns false for
+ *     `opengraph-image` and for `og`, so these fall to the non-intl
+ *     `NextResponse.next()` arm. Any change to that arm, to
+ *     `PUBLIC_INTL_SEGMENTS`, or to the locale-inference redirect above it can
+ *     404 or redirect these routes while every root route stays 200.
+ * Do not delete these for being "duplicates of /twitter-image" — they are not.
  *
  * Actor: anonymous (crawlers / social scrapers). No auth, no DB seed.
  * Project: deep (e2e/tests/**\/\*.spec.ts, Desktop Chrome)
@@ -54,41 +71,25 @@ test.describe('OG / twitter image routes', () => {
     await seeded?.cleanup();
   });
 
-  // --- Root routes ---
-
-  test('/opengraph-image returns 200 PNG > 5 KB', async ({ request }) => {
-    await assertPngRoute(request, '/opengraph-image');
-  });
-
   test('/twitter-image returns 200 PNG > 5 KB', async ({ request }) => {
     // Pinned: middleware previously intercepted /twitter-image, returning 404
     // instead of reaching the Next.js image route handler (DEV-924 PR 2).
     await assertPngRoute(request, '/twitter-image');
   });
 
-  test('English homepage social images return meaningful PNGs', async ({ request }) => {
-    for (const path of ['/en/opengraph-image', '/en/twitter-image']) {
-      await assertPngRoute(request, path);
-    }
+  // --- Locale-prefixed routes (the isLocalizedPublicPath branch) ---
+
+  test('/en/opengraph-image returns 200 PNG > 5 KB', async ({ request }) => {
+    await assertPngRoute(request, '/en/opengraph-image');
+  });
+
+  test('/zh-TW/og/trust/opengraph-image returns 200 PNG > 5 KB', async ({ request }) => {
+    await assertPngRoute(request, '/zh-TW/og/trust/opengraph-image');
   });
 
   // --- Brand detail routes ---
 
   test('/brands/<slug>/opengraph-image returns 200 PNG > 5 KB', async ({ request }) => {
     await assertPngRoute(request, `/brands/${seeded.slug}/opengraph-image`);
-  });
-
-  test('/brands/<slug>/twitter-image returns 200 PNG > 5 KB', async ({ request }) => {
-    await assertPngRoute(request, `/brands/${seeded.slug}/twitter-image`);
-  });
-
-  // --- Locale trust OG routes ---
-
-  test('/zh-TW/og/trust/opengraph-image returns 200 PNG > 5 KB', async ({ request }) => {
-    await assertPngRoute(request, '/zh-TW/og/trust/opengraph-image');
-  });
-
-  test('/en/og/trust/opengraph-image returns 200 PNG > 5 KB', async ({ request }) => {
-    await assertPngRoute(request, '/en/og/trust/opengraph-image');
   });
 });

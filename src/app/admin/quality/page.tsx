@@ -9,6 +9,7 @@ import {
   type OnlineStoreKey,
 } from "@/lib/brands/online-stores";
 import { getQualityMetrics } from "@/lib/services/brand-quality";
+import { loadZhVocabularyReport } from "@/lib/services/zh-vocabulary-report";
 
 export const metadata: Metadata = {
   title: "Quality Dashboard | Admin",
@@ -25,6 +26,37 @@ const getCachedMetrics = unstable_cache(
     ),
   ["quality-metrics"],
   { tags: ["quality-metrics"] },
+);
+
+/**
+ * The reader for the zh-TW vocabulary audit trail (DEV-1547 E3).
+ *
+ * The write-path guard has recorded every mainland-Chinese term it found in
+ * text about to be stored since DEV-1546, and until now nothing displayed it:
+ * a term that reached a published FAQ answer left its only trace in an
+ * `external_call_audit` row nobody queries. This is the surface that ends that.
+ *
+ * It lives on the quality dashboard rather than in its own page because it is
+ * the same question every other card here answers — what is wrong with the text
+ * we have stored — and REPORT ONLY, like all of them: nothing is rewritten, and
+ * a hit is a queue for a human, not a gate.
+ *
+ * Cached beside the metrics with the same idiom, so the added read is one
+ * query per revalidation rather than one per page view.
+ */
+const getCachedVocabulary = unstable_cache(
+  () =>
+    auditedCall(
+      {
+        provider: "cache",
+        operation: "getCachedZhVocabularyReport",
+        kind: "service",
+      },
+      () => loadZhVocabularyReport(),
+      { summary: { cached: true } },
+    ),
+  ["zh-vocabulary-report"],
+  { tags: ["zh-vocabulary-report"] },
 );
 
 const PURCHASE_LINK_PRESENTATION = {
@@ -98,7 +130,10 @@ function ProgressBar({ value, label }: ProgressBarProps) {
 
 export default async function AdminQualityPage() {
   const t = await getTranslations("admin.quality");
-  const metrics = await getCachedMetrics();
+  const [metrics, vocabulary] = await Promise.all([
+    getCachedMetrics(),
+    getCachedVocabulary(),
+  ]);
   const distributionTotal = Object.values(metrics.completeness).reduce(
     (total, count) => total + count,
     0,
@@ -132,9 +167,7 @@ export default async function AdminQualityPage() {
               return (
                 <div key={row.key} className="space-y-2">
                   <div className="flex min-h-6 items-center justify-between gap-4 type-body-sm text-ink-soft">
-                    <span className="font-medium text-ink">
-                      {row.label}
-                    </span>
+                    <span className="font-medium text-ink">{row.label}</span>
                     <span className="shrink-0 tabular-nums text-ink-muted">
                       {metric.count} / {metrics.totalBrands}
                     </span>
@@ -174,9 +207,7 @@ export default async function AdminQualityPage() {
               return (
                 <div key={row.key} className="space-y-2">
                   <div className="flex min-h-6 items-center justify-between gap-4 type-body-sm text-ink-soft">
-                    <span className="font-medium text-ink">
-                      {row.label}
-                    </span>
+                    <span className="font-medium text-ink">{row.label}</span>
                     <span className="shrink-0 tabular-nums text-ink-muted">
                       {count} ({formatPercentage(percentage)})
                     </span>
@@ -200,9 +231,7 @@ export default async function AdminQualityPage() {
               return (
                 <div key={row.key} className="space-y-2">
                   <div className="flex min-h-6 items-center justify-between gap-4 type-body-sm text-ink-soft">
-                    <span className="font-medium text-ink">
-                      {row.label}
-                    </span>
+                    <span className="font-medium text-ink">{row.label}</span>
                     <span className="shrink-0 tabular-nums text-ink-muted">
                       {formatPercentage(value)}
                     </span>
@@ -217,19 +246,84 @@ export default async function AdminQualityPage() {
 
             <div className="grid gap-4 border-t border-rule pt-4 sm:grid-cols-2">
               <div>
-                <p className="type-body-sm font-medium text-ink">{t("promoHeroImages")}</p>
+                <p className="type-body-sm font-medium text-ink">
+                  {t("promoHeroImages")}
+                </p>
                 <p className="mt-1 type-section tabular-nums">
                   {metrics.enrichment.promoHeroCount}
                 </p>
               </div>
               <div>
-                <p className="type-body-sm font-medium text-ink">{t("validationFailures")}</p>
+                <p className="type-body-sm font-medium text-ink">
+                  {t("validationFailures")}
+                </p>
                 <p className="mt-1 type-section tabular-nums">
                   {metrics.enrichment.validationFailures}
                 </p>
               </div>
             </div>
           </div>
+        </SurfaceCard>
+
+        <SurfaceCard padding="sm" className="md:col-span-2">
+          <h2 className="type-metadata">{t("vocabularyTitle")}</h2>
+          <p className="mt-2 type-body-sm text-ink-muted">
+            {t("vocabularyDescription", { days: vocabulary.windowDays })}
+          </p>
+
+          {vocabulary.readUnavailable ? (
+            // Never presented as clean: this says the query did not run.
+            <p className="mt-4 type-body-sm text-ink-soft">
+              {t("vocabularyUnavailable")}
+            </p>
+          ) : vocabulary.byField.length === 0 ? (
+            <p className="mt-4 type-body-sm text-ink-soft">
+              {t("vocabularyClean", { spans: vocabulary.spansObserved })}
+            </p>
+          ) : (
+            <div className="mt-4 space-y-4">
+              <p className="type-body-sm text-ink-soft">
+                {t("vocabularyFound", {
+                  hits: vocabulary.totalHits,
+                  spans: vocabulary.spansObserved,
+                })}
+              </p>
+              <ul className="space-y-2">
+                {vocabulary.byField.map((hit) => (
+                  <li
+                    key={`${hit.field} ${hit.term}`}
+                    className="flex min-h-6 items-center justify-between gap-4 type-body-sm text-ink-soft"
+                  >
+                    <span className="font-medium text-ink">
+                      {hit.field} — {hit.term}
+                      {hit.replacement ? ` \u2192 ${hit.replacement}` : ""}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-ink-muted">
+                      {hit.count}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {vocabulary.recentSpans.length > 0 && (
+                <ul className="space-y-1 border-t border-rule pt-4">
+                  {vocabulary.recentSpans.map((entry) => (
+                    <li
+                      key={`${entry.observedAt} ${entry.subjectId ?? ""} ${entry.operation}`}
+                      className="flex min-h-6 items-center justify-between gap-4 type-body-sm text-ink-muted"
+                    >
+                      <span>
+                        {entry.operation} —{" "}
+                        {entry.subjectId ?? t("vocabularyNoSubject")}
+                      </span>
+                      <span className="shrink-0 tabular-nums">
+                        {entry.hits}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </SurfaceCard>
       </div>
     </div>

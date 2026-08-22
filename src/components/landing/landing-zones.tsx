@@ -1,4 +1,3 @@
-import { SurfaceImage } from "@/components/ui/image";
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 
@@ -12,6 +11,7 @@ import { Link } from "@/i18n/navigation";
 import { buttonVariants } from "@/components/ui/button";
 import { Grid } from "@/components/ui/grid";
 import { PageShell } from "@/components/ui/page-shell";
+import { PhotoBand } from "@/components/ui/photo-band";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
 import type { WallSlot } from "@/lib/curated-products/home-wall";
 import type { Locale } from "@/lib/seo/alternates";
@@ -170,8 +170,16 @@ export async function LandingZones({
               {(
                 [
                   ["listed", t("trust.listedTitle"), t("trust.listedBody")],
-                  ["selected", t("trust.selectedTitle"), t("trust.selectedBody")],
-                  ["supplied", t("trust.suppliedTitle"), t("trust.suppliedBody")],
+                  [
+                    "selected",
+                    t("trust.selectedTitle"),
+                    t("trust.selectedBody"),
+                  ],
+                  [
+                    "supplied",
+                    t("trust.suppliedTitle"),
+                    t("trust.suppliedBody"),
+                  ],
                 ] as const
               ).map(([key, title, body]) => (
                 // Elevation is a border, never a shadow: the rule over each
@@ -251,64 +259,56 @@ export async function LandingZones({
           stating the commitment even though no homepage section does. The
           `about` CTA below is the homepage's only remaining path to it.
 
-          `surface="hero"` (100vw) and no `priority`: this band is well below
-          the fold, and the hero photograph above owns the preload. That claim
-          was FALSE between the 2026-08-19 overhaul and DEV-1544 — the hero it
-          defers to had been deleted and nothing claimed the preload, so `/`
-          ran on a text LCP. If the hero photograph is ever removed again, this
-          comment and `selected-product-tile.tsx`'s copy of it both have to move
-          with it, or one of the wall surfaces must take `priority` instead.
+          No `priority`: this band is well below the fold, and the photograph
+          in the homepage opener owns the page's single preload. That claim was
+          FALSE for the stretches when no such photograph existed at all, so if
+          it is deleted again this comment and `selected-product-tile.tsx`'s
+          copy of it both have to move with it, or one of the wall surfaces
+          must take `priority` instead.
+
+          The construction — image, scrim, copy on top — belongs to
+          `PhotoBand`, which also owns the contrast floor this band used to
+          argue for in twelve lines of its own. `manifesto-bg.webp` measured
+          3.04:1 for body copy in its dark regions under the original `/70`
+          scrim; that is now a `pnpm lint` failure rather than a comment.
         */}
-        <section
+        <PhotoBand
           data-landing-zone="manifesto"
           aria-labelledby="landing-manifesto"
-          className="relative overflow-hidden py-section"
+          image="/images/manifesto-bg.webp"
+          alt=""
+          // FLAT, not `center`, and that is a deliberate hold rather than the
+          // right answer. Centred copy wants a symmetric scrim — heavy through
+          // the middle, thinner at both edges, so the shop's shelves come back
+          // at the margins. This band was not the one anybody complained
+          // about, so it keeps the uniform coverage it has shipped with while
+          // the homepage opener moves first. Switching it to `center` is a
+          // one-word change the contrast gate already checks.
+          scrim="flat"
+          contentClassName="text-center"
         >
-          <SurfaceImage
-            src="/images/manifesto-bg.webp"
-            alt=""
-            fill
-            surface="hero"
-            className="object-cover"
-          />
-          {/* CONTRAST FLOOR — do not weaken either half of this.
-              `manifesto-bg.webp` measures mean 128.8/255 greyscale with a 10th
-              percentile of 53/255, so the darkest regions are what body text
-              actually sits on. Over the previous `bg-background/70` scrim the
-              muted foreground token composited to 3.83:1 on average and 3.04:1
-              in those dark regions — under the 4.5:1 AA floor for body text.
-              Two changes together clear it: the scrim goes to /85 (the paper
-              background over p10 composites to ~223/255) and the body copy
-              leaves the muted token for the full-strength foreground, landing at
-              ~13:1 in the p10 region and ~14:1 on the mean. The headline carries
-              `type-page-title`, whose default ink is the full-strength token, so
-              it has the same margin. Anything below /85 re-breaks AA. */}
-          <div className="absolute inset-0 bg-ground/85" aria-hidden="true" />
-          {/* `relative` keeps this above the absolute scrim behind it. */}
-          <PageShell measure="page" className="relative text-center">
-            <h2
-              id="landing-manifesto"
-              className="mx-auto prose-measure type-page-title"
-            >
-              {t("manifesto.headline")}
-            </h2>
-            <p className="mx-auto mt-3 prose-measure type-body-sm text-ink-soft">
-              {t("manifesto.body1")}
-            </p>
-            <p className="mx-auto mt-3 prose-measure type-body-sm text-ink-soft">
-              {t("manifesto.body2")}
-            </p>
-            <Link
-              href={routes.about()}
-              className={buttonVariants({
-                variant: "primary",
-                className: "mt-4",
-              })}
-            >
-              {t("manifesto.cta")}
-            </Link>
-          </PageShell>
-        </section>
+          <h2
+            id="landing-manifesto"
+            className="mx-auto prose-measure type-page-title"
+          >
+            {t("manifesto.headline")}
+          </h2>
+          <p className="mx-auto mt-3 prose-measure type-body-sm text-ink-soft">
+            {t("manifesto.body1")}
+          </p>
+          <p className="mx-auto mt-3 prose-measure type-body-sm text-ink-soft">
+            {t("manifesto.body2")}
+          </p>
+          <Link
+            href={routes.about()}
+            className={buttonVariants({
+              variant: "primary",
+              className: "mt-4",
+            })}
+          >
+            {t("manifesto.cta")}
+          </Link>
+        </PhotoBand>
 
         {(events.length > 0 || stories.length > 0) && (
           <section

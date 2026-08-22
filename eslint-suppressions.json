@@ -118,11 +118,6 @@
       "count": 3
     }
   },
-  "e2e/tests/dashboard-welcome-card.spec.ts": {
-    "playwright/no-conditional-in-test": {
-      "count": 1
-    }
-  },
   "e2e/tests/directory.spec.ts": {
     "playwright/no-conditional-expect": {
       "count": 1
@@ -164,7 +159,7 @@
   },
   "e2e/tests/og-images.spec.ts": {
     "playwright/expect-expect": {
-      "count": 7
+      "count": 4
     }
   },
   "e2e/tests/owner-features-flag-off.spec.ts": {

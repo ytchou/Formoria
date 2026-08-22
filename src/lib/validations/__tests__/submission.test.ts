@@ -3,7 +3,11 @@ import {
   createOwnerSubmissionSchema,
   createRecommendationSubmissionSchema,
   fullSubmissionSchema,
+  getLinksSchema,
 } from '../submission'
+
+/** The schemas take next-intl's `t`; the key itself is enough for assertions. */
+const t = (key: string) => key
 
 const sourceAttribution = 'found_online'
 
@@ -241,6 +245,55 @@ describe('owner submission romanizedName validation', () => {
     const result = ownerSchema.safeParse({
       ...validOwnerSubmission,
       heroImageUrl: null,
+    })
+
+    expect(result.success).toBe(false)
+  })
+})
+
+describe('linksSchema — URL schemes', () => {
+  const baseLinks = {
+    socialLinks: {
+      instagram: '',
+      threads: '',
+      facebook: '',
+      website: '',
+    },
+  }
+
+  const parse = (url: string) =>
+    getLinksSchema(t).safeParse({
+      ...baseLinks,
+      purchaseLinks: [{ platform: 'Website', url }],
+    })
+
+  // A purchase link is rendered as an href, so a scheme that executes rather
+  // than navigates is the whole risk here.
+  it.each([
+    'javascript:alert(1)',
+    'data:text/html,<script>alert(1)</script>',
+  ])('rejects the unsafe URL scheme %s', (url) => {
+    expect(parse(url).success).toBe(false)
+  })
+
+  it.each(['https://example.com', 'http://example.com'])(
+    'accepts the HTTP URL scheme %s',
+    (url) => {
+      expect(parse(url).success).toBe(true)
+    },
+  )
+})
+
+describe('owner submission required fields', () => {
+  it('rejects an empty description and hero image', () => {
+    const result = createOwnerSubmissionSchema(t).safeParse({
+      name: 'Owner Brand',
+      website: 'https://owner.example',
+      description: '',
+      heroImageUrl: '',
+      pdpaConsent: true,
+      turnstileToken: 'token',
+      honeypot: '',
     })
 
     expect(result.success).toBe(false)

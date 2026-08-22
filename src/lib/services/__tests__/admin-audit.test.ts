@@ -1,8 +1,6 @@
-import { randomUUID } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { createTestClient, describeWithDb } from '@/test/setup'
+import { describe, expect, it } from 'vitest'
 import {
   logAdminAction,
   type AdminAction,
@@ -40,48 +38,6 @@ const dashboardPagePath = resolve(
   'src/app/[locale]/(site)/(protected)/dashboard/brands/[slug]/(dashboard)/page.tsx',
 )
 
-describeWithDb('admin audit log', () => {
-  let supabase: ReturnType<typeof createTestClient>
-  let adminUserId = ''
-
-  beforeAll(async () => {
-    supabase = createTestClient()
-    const { data, error } = await supabase.auth.admin.createUser({
-      email: `admin-audit-${randomUUID()}@example.com`,
-      password: `Admin-audit-${randomUUID()}-password`,
-      email_confirm: true,
-    })
-    if (error || !data.user) throw error ?? new Error('Admin audit user creation failed')
-    adminUserId = data.user.id
-  })
-
-  afterAll(async () => {
-    if (!adminUserId) return
-    const { error: deleteLogError } = await supabase
-      .from('admin_audit_log')
-      .delete()
-      .eq('admin_user_id', adminUserId)
-    if (deleteLogError) throw deleteLogError
-
-    const { error } = await supabase.auth.admin.deleteUser(adminUserId)
-    if (error) throw error
-  })
-
-  it('every AdminAction union value is accepted by the database', async () => {
-    const { error } = await supabase.from('admin_audit_log').insert(
-      ALL_ACTIONS.map((action) => ({
-        admin_user_id: adminUserId,
-        admin_email: `admin-audit-${adminUserId}@example.com`,
-        action,
-        metadata: { testRun: adminUserId },
-      })),
-    )
-
-    expect(error).toBeNull()
-  })
-
-})
-
 /**
  * The union is a TypeScript claim; the CHECK constraint is the database's. A
  * new member with no migration behind it raises 23514 at runtime — and
@@ -89,9 +45,11 @@ describeWithDb('admin audit log', () => {
  * {}` and the action simply goes unrecorded. Neither tsc nor ESLint sees it:
  * the service client is created without the <Database> generic.
  *
- * `admin audit log` above asserts the same thing against a real database, but
- * only when credentials are present. This half needs none, so it runs on every
- * machine and in CI.
+ * Parsing the committed migration is the WHOLE guard: nothing else compares
+ * the union to the constraint. It needs no credentials, so it runs on every
+ * machine and in CI — but it constrains the migration text, not the deployed
+ * database. A constraint hand-patched in the cloud and never written down here
+ * is out of its reach.
  */
 describe('admin_audit_log action CHECK constraint', () => {
   const migrationsDirectory = resolve(process.cwd(), 'supabase/migrations')

@@ -45,6 +45,10 @@ describe('newsletter service — pure functions', () => {
   })
 
   describe('VALID_INTERESTS', () => {
+    // The slugs are spelled out as literals on purpose. `interests` is a
+    // persisted `text[]` on `newsletter_subscribers`, so renaming a slug in TS
+    // keeps tsc green while every stored row keeps the old value and
+    // `normalizeInterests` silently drops it. Only a literal catches that.
     it('contains exactly 4 interest slugs', () => {
       expect(VALID_INTERESTS).toHaveLength(4)
       expect(VALID_INTERESTS).toContain('brand-stories')

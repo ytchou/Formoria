@@ -21,6 +21,7 @@
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { contrast } from "./lib/color.mjs";
 
 const ROOT = process.cwd();
 const CSS = join(ROOT, "src/app/globals.css");
@@ -213,7 +214,9 @@ function checkMeasures(declared, px) {
   for (const [name, spec] of Object.entries(MEASURES)) {
     const value = declared.get(name);
     if (value === undefined) {
-      problems.push(`${name}: no \`@utility ${name}\` with a max-width in globals.css`);
+      problems.push(
+        `${name}: no \`@utility ${name}\` with a max-width in globals.css`,
+      );
       continue;
     }
 
@@ -240,25 +243,6 @@ function checkMeasures(declared, px) {
     }
   }
   return problems;
-}
-
-function srgb(c) {
-  const v = c / 255;
-  return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-}
-
-function luminance(hex) {
-  const h = hex.replace("#", "");
-  if (h.length !== 6) return null;
-  const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
-  return 0.2126 * srgb(r) + 0.7152 * srgb(g) + 0.0722 * srgb(b);
-}
-
-function contrast(a, b) {
-  const [la, lb] = [luminance(a), luminance(b)];
-  if (la == null || lb == null) return null;
-  const [hi, lo] = la > lb ? [la, lb] : [lb, la];
-  return (hi + 0.05) / (lo + 0.05);
 }
 
 function render(tokens, measures) {
@@ -383,7 +367,10 @@ if (missing.length) {
  * literal in globals.css or the pixel mirror in layout.ts — and the message
  * has to name both so the reader knows there is a second place to look.
  */
-const measureProblems = checkMeasures(measures, parseMeasurePx(readFileSync(PX, "utf8")));
+const measureProblems = checkMeasures(
+  measures,
+  parseMeasurePx(readFileSync(PX, "utf8")),
+);
 
 if (measureProblems.length) {
   console.error(

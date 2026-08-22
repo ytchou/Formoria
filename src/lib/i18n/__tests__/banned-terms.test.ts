@@ -244,3 +244,66 @@ describe("reportBannedTerms", () => {
     expect(ctx.summary.bannedTermCount).toBe(3);
   });
 });
+
+/**
+ * DEV-1547. Four terms were removed from the list on production evidence, not
+ * on taste: in the first full production dry-run of `backfill:tw` each fired
+ * ONLY on correct Taiwanese, never once on genuine zh-CN.
+ *
+ * They are pinned here rather than left as an absence because the list is a
+ * flat 84 entries with no tiers and no allowlist (DEV-1543 decision D2), so
+ * "why is 頭像 not banned?" has no answer inside the JSON. Re-adding any of
+ * them needs a corpus hit that these strings do not cover.
+ *
+ * This is a prune, not a fix for the substring class — that class is unbounded
+ * (street names and brand names cannot be enumerated) and the write paths
+ * handle it by never mutating at all.
+ */
+describe("terms pruned on production evidence", () => {
+  it.each([
+    // 操作 belongs to 遠端操作 ("remote operation"); 作業系統 is an OS.
+    ["手機遠端操作系統", "操作系統"],
+    // A cake shaped like the pet's likeness, not a photo sticker.
+    ["客製化寵物頭像鮮食蛋糕", "頭像"],
+    // 數 + 組 = "several sets". 陣列 is a programming array.
+    ["有數組不同顏色的平底鍋", "數組"],
+    // 集成 straddles 密集 and 成長; 九款茶集成的 is 集 + 成, not "integrate".
+    ["九款茶集成的台灣茶辦桌", "集成"],
+  ])("no longer flags %s, which carried %s", (text, pruned) => {
+    // Both halves, or the row is comment-grade data dressed as test data: a
+    // sentence that never contained the pruned term would pass this case with
+    // the term still on the list, and the table's second column would be free
+    // to say anything.
+    expect(text, pruned).toContain(pruned);
+    expect(detectBannedTerms(text)).toHaveLength(0);
+  });
+
+  it("keeps the list free of the four pruned entries", () => {
+    const terms = new Set(BANNED_TERMS.map((entry) => entry.term));
+    for (const pruned of ["操作系統", "頭像", "數組", "集成"]) {
+      expect(terms.has(pruned), pruned).toBe(false);
+    }
+  });
+
+  /**
+   * The other half of the same production evidence: of the 15 patches that run
+   * proposed, 5 were correct, and every one of them is pinned here as the text
+   * that produced it rather than as a bare term.
+   *
+   * The five patches carry only TWO distinct terms — 信息 on four image alt
+   * texts and 用戶 on one brand description — which is why this is stated as
+   * five patches and not, as the test was once named, five terms. Pruning is
+   * decided on corpus hits, so the corpus strings are the fixture.
+   */
+  it.each([
+    ["AROMASE促銷活動，介紹產品及優惠信息，包含插圖和文字。", "信息"],
+    ["一個促銷活動的海報，包含多個商品和折扣信息。", "信息"],
+    ["促銷活動，顯示折扣信息", "信息"],
+    ["AROMASE夏季促銷活動，展示產品及優惠信息，包含日期。", "信息"],
+    ["台灣用戶影像存放於台灣在地資料中心", "用戶"],
+  ])("still flags the correct production patch on %s", (text, term) => {
+    const hits = detectBannedTerms(text);
+    expect(hits, text).toHaveLength(1);
+    expect(hits[0]?.term, text).toBe(term);
+  });
+});
