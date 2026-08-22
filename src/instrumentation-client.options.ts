@@ -7,8 +7,12 @@ import * as Sentry from "@sentry/nextjs";
 export const clientSentryOptions = {
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
-  // Add optional integrations for additional features
-  integrations: [Sentry.replayIntegration()],
+  // `replayIntegration` exists only in the browser build of `@sentry/nextjs`.
+  // This module is imported by a node-environment test, where evaluating it at
+  // module scope throws and the suite collects zero tests. The array form is
+  // merged into the defaults by `Sentry.init`, so the browser behavior here is
+  // unchanged and the node case simply contributes nothing.
+  integrations: Sentry.replayIntegration ? [Sentry.replayIntegration()] : [],
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1,
