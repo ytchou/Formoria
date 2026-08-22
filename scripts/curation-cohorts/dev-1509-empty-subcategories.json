@@ -1,0 +1,24 @@
+{
+  "name": "dev-1509-empty-subcategories",
+  "title": "DEV-1509 — the 16 production brands left with zero subcategories",
+  "subtitle": "Approved production brands whose subcategories array is empty after the DEV-1506 vocabulary close, the DEV-1507 crafts retirement, and the DEV-1531 cutover. They are absent from every L2 page and every ?sub= facet until re-enriched. All 16 sit on home / stationery / bags-accessories, which are all eligibility: launch, so no prioritisation triage applies — the whole cohort is visible surface. Runs the full request_brand_refresh -> curation job -> apply_brand_refresh flow.",
+  "warning": "This cohort targets PRODUCTION (xkcayngbttpxyibgzern). Both .env.local and .env.staging point at staging, so the default --env-file will silently refresh the wrong project and find none of these slugs. Pass a production env file explicitly. Membership was verified by live census on 2026-08-22 and supersedes docs/reports/2026-08-20-dev1509-thin-brands.csv, which is stale: 6 of its 20 rows are no longer empty and 2 empty brands are missing from it.",
+  "labels": {
+    "bamboola-1980": "Bamboola 1980",
+    "dawn-creative": "曉創意 Dawn Creative",
+    "embroidery": "繡學號 Embroidery",
+    "guitar-player": "吉他玩家 Guitar Player",
+    "homm-sound": "和漫聲音 HOMM SOUND",
+    "hualien-stone-workshop": "研石造物 X 金玉良研 X 永續材質圖書館 Hualien Stone Workshop",
+    "kaka": "KAKA_LAZY 咖咖",
+    "peng-lu-pottery": "彭・璐 PENG LU POTTERY",
+    "sheep-craft": "Sheep Craft 羊泥工坊",
+    "shengfa-weaving-聖發織造": "Shengfa Weaving 聖發織造",
+    "simply-made": "Simply Made 簡單製造",
+    "sincerecraft-tw": "誠十製物所 Sincerecraft-TW",
+    "tp-minihorn": "TP Minihorn",
+    "twaislon": "台灣愛思隆 TWAISLON",
+    "yongyu": "永鈺窯業",
+    "蟬說-漫步台灣-蟬說生活": "蟬說"
+  }
+}
