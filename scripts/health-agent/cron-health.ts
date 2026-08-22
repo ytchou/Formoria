@@ -20,6 +20,20 @@ export interface ExpectedCronJob {
  * The pg_cron HTTP jobs that are expected to exist and keep succeeding.
  * A job missing from the log entirely is a stale finding — that is what makes
  * "silently unscheduled" detectable. Keep this in sync with the cron migration.
+ *
+ * KNOWN BLIND SPOT (DEV-1558, audited 2026-08-22): production runs seven
+ * pg_cron jobs and this detector can see only these three. The other four —
+ * `purge-external-call-audit`, `purge-admin-audit-log`, `cron-http-retention`,
+ * `cron-http-snapshot` — are pure SQL. They never call `net.http_post`, so they
+ * write no `cron_http_dispatch` row and produce no `cron_http_log` row, and a
+ * log-based detector is structurally unable to observe them. Adding their names
+ * here would make them permanently stale, not monitored.
+ *
+ * Closing the gap needs a different source — `cron.job_run_details` — which
+ * reports the scheduler's own outcome and is the right signal for a job whose
+ * work is a single SQL statement. Deliberately not done here: this detector
+ * reads through the health agent's existing log query and has no database
+ * client of its own.
  */
 export const EXPECTED_CRON_JOBS: readonly ExpectedCronJob[] = [
   // Both daily jobs run 03:05–03:15 Taipei and are read by the 04:50 health

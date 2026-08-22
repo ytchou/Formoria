@@ -6,6 +6,7 @@ import { GaUserSync } from '@/components/analytics/ga-user-sync'
 import { PostHogUserSync } from '@/components/analytics/posthog-user-sync'
 import { WebVitalsReporter } from '@/components/analytics/web-vitals-reporter'
 import { AdminAgentation } from '@/components/shared/admin-agentation'
+import { resolveGoogleAnalyticsId } from '@/lib/analytics/google-analytics-config'
 import type { AppLocale } from '@/i18n/locale-preference'
 import { ViewerProvider } from '@/lib/auth/use-user'
 
@@ -63,6 +64,11 @@ export function RootDocument({
   locale,
   skipToContentLabel,
 }: RootDocumentProps) {
+  // Gated on the deployment environment, not merely on the ID being present:
+  // staging and local production builds carry the same measurement ID, and GA4
+  // has no practical way to delete their sessions after the fact.
+  const gaId = resolveGoogleAnalyticsId()
+
   return (
     <html
       lang={locale}
@@ -84,9 +90,9 @@ export function RootDocument({
               suppression) lives inside the component — a server-side env read
               here would be frozen at build time on every prerendered page. */}
           <AdminAgentation />
-          {process.env.NEXT_PUBLIC_GA_ID && (
+          {gaId && (
             <Suspense fallback={null}>
-              <PublicGoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />
+              <PublicGoogleAnalytics gaId={gaId} />
             </Suspense>
           )}
           <Toaster richColors position="top-right" />
