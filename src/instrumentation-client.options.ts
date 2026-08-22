@@ -31,30 +31,37 @@ export const clientSentryOptions = {
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: false,
 
-  // Injected by iOS in-app browsers (WKWebView hosts such as LINE, Facebook and
-  // Instagram), not by this app — `sendDataToNative` / `sendPageHideMessage`
-  // appear in no source file here. The host's own bridge script throws when it
-  // reaches for `window.webkit.messageHandlers` on a page it does not own.
-  // Unfixable from our side and it buries real story-page errors (DEV-1340 /
-  // FORMORIA-5F). Kept narrow so a genuine `undefined is not an object` still
-  // reports.
+  // Matched against the exception VALUE (and `type: value`), not the URL:
+  // `ignoreErrors` runs through `getPossibleEventMessages`, which reads
+  // `event.exception.values[last].value`. String entries are a substring test,
+  // RegExp entries a `.test()` (@sentry/core `utils/string.js`
+  // `isMatchingPattern`).
+  //
+  // Do NOT re-add `denyUrls` for the GA entries. `_isDeniedUrl` matches
+  // `_getEventFilterUrl`, which returns the last valid STACK-FRAME filename --
+  // never the destination of the failed request. On the real production events
+  // (FORMORIA-6H) the frames are the gtag bundle and a browser extension, so a
+  // GA hostname appears in no frame and the filter fired never.
+  //
+  // 1. Injected by iOS in-app browsers (WKWebView hosts such as LINE, Facebook
+  //    and Instagram), not by this app -- `sendDataToNative` /
+  //    `sendPageHideMessage` appear in no source file here. The host's own
+  //    bridge script throws when it reaches for `window.webkit.messageHandlers`
+  //    on a page it does not own. Unfixable from our side and it buries real
+  //    story-page errors (DEV-1340 / FORMORIA-5F). Kept narrow so a genuine
+  //    `undefined is not an object` still reports.
+  // 2. GA4 collect requests cancelled by ad blockers (DEV-1550). The browser
+  //    SDK appends the destination host in parentheses when it can attribute
+  //    the fetch, so the pattern is anchored on that host and on the closing
+  //    paren. A BARE `Failed to fetch` / `Load failed` must keep reporting:
+  //    `Load failed` is Safari's generic wording for any failed fetch and one
+  //    real unrelated issue (FORMORIA-6T) is exactly that.
   ignoreErrors: [
     "undefined is not an object (evaluating 'window.webkit.messageHandlers')",
+    /(?:Failed to fetch|Load failed) \((?:[\w-]+\.)*analytics\.google\.com\)/,
   ],
 
-  // GA4 collect endpoints the gtag bundle calls. Ad blockers cancel those
-  // requests, and the resulting `TypeError: Failed to fetch` (Chrome) /
-  // `TypeError: Load failed` (Safari) is noise, not a defect (DEV-1550).
-  // Filtered by host only: both messages are the generic browser wording for
-  // ANY blocked fetch, so an `ignoreErrors` string would silence real
-  // same-origin failures site-wide — and silently, since a filter drops events
-  // without a trace.
-  denyUrls: [
-    "analytics.google.com",
-    "region1.analytics.google.com",
-  ],
-
-  beforeSend(event: Sentry.ErrorEvent) {
+  beforeSend(event) {
     if (event.user) {
       delete event.user.email;
       delete event.user.ip_address;
@@ -62,4 +69,4 @@ export const clientSentryOptions = {
 
     return event;
   },
-};
+} satisfies Sentry.BrowserOptions;

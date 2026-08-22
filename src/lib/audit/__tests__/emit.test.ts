@@ -64,6 +64,11 @@ describe("emitAuditRecord", () => {
       setAuditWriteSeam(vi.fn(async () => ({ code: "08006", message: "database unavailable" })));
       await emitAuditRecord(record(), async () => {});
 
+      // Without this the helper returns `{}` when the alert never fired, and
+      // every assertion below reads an absent field -- the exception-routing
+      // one is guarded by `!== undefined` and would pass vacuously.
+      expect(captureAlert).toHaveBeenCalledTimes(1);
+
       const call = vi.mocked(captureAlert).mock.calls[0];
       return (call?.[1] ?? {}) as {
         level?: string;
