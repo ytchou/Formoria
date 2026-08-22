@@ -111,9 +111,9 @@ export function aggregateBrandCounts(rows: BrandCountRow[]): BrandCountResult {
   for (const row of rows) {
     // Exclusion is deliberately identical to the public surfaces: approved
     // status + the test-brand name filter. `is_demo` is NOT excluded — no
-    // public listing or count filters on it (see getSubcategoryCounts and
-    // public-brand-filter.ts), so excluding it here would make this map report
-    // fewer brands than the URL it is measuring.
+    // public listing or count filters on it (see public-brand-filter.ts), so
+    // excluding it here would make this map report fewer brands than the URL
+    // it is measuring.
     if (row.status !== 'approved' || isTestBrandName(row.name)) continue
 
     const categorySlugCategory = L1_CATEGORIES.find(
@@ -158,8 +158,8 @@ export function aggregateBrandCounts(rows: BrandCountRow[]): BrandCountResult {
         // Scope the subcategory to the brand's own L1: `/brands?category=jewelry`
         // filters on category, so a fashion brand carrying 手鍊 never appears
         // under the jewelry subcategory page. Counting it would inflate every
-        // L2 count above what its URL actually renders (mirrors
-        // getSubcategoryCounts' `subcategory?.category === categorySlug`).
+        // L2 count above what its URL actually renders (mirrors the public
+        // listing's own `subcategory?.category === categorySlug` filter).
         // A cross-category subcategory is not "unmatched" either — it resolves to a
         // real subcategory, just not one this brand's page belongs to.
         if (subcategory.category !== row.category) continue

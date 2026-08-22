@@ -1128,7 +1128,7 @@ export const DIRECTORY_BRAND_COLUMN_LIST = BRAND_COLUMN_LIST.filter(
 );
 
 /** Columns allowed to cross the public card boundary. */
-export const PUBLIC_BRAND_CARD_COLUMN_LIST = [
+const PUBLIC_BRAND_CARD_COLUMN_LIST = [
   "id",
   "name",
   "slug",
@@ -1148,7 +1148,7 @@ export const PUBLIC_BRAND_CARD_COLUMN_LIST = [
 ] as const;
 
 /** Columns allowed to cross the public detail boundary. */
-export const PUBLIC_BRAND_DETAIL_COLUMN_LIST = [
+const PUBLIC_BRAND_DETAIL_COLUMN_LIST = [
   ...PUBLIC_BRAND_CARD_COLUMN_LIST,
   "city",
   ...ONLINE_STORE_COLUMNS,
@@ -1161,7 +1161,7 @@ export const PUBLIC_BRAND_DETAIL_COLUMN_LIST = [
 ] as const;
 
 /** Evidence fields used only to render the public FAQ template floors. */
-export const PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST = [
+const PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST = [
   "id",
   "name",
   "slug",
@@ -1179,7 +1179,7 @@ export const PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST = [
 ] as const;
 
 /** Microsites only need the configured content and a few display fields. */
-export const PUBLIC_MICROSITE_BRAND_COLUMN_LIST = [
+const PUBLIC_MICROSITE_BRAND_COLUMN_LIST = [
   "id",
   "name",
   "slug",
@@ -1350,7 +1350,9 @@ async function queryApprovedBrandsBySlugs(
     // the last good page served), but without a log line the failed
     // regeneration leaves no trace anywhere.
     console.error("getBrandsBySlugKey query error:", error);
-    throw new Error(`Failed to fetch brands by slug: ${error.message}`);
+    throw new Error(
+      `Failed to fetch brands by slug: ${error.message}${error.code ? ` [code ${error.code}]` : ""}${error.hint ? ` [hint: ${error.hint}]` : ""}`,
+    );
   }
 
   return new Map(
@@ -2007,12 +2009,6 @@ export async function getSubcategorySummary(
 /** Material facet counts, from the same single cache entry as the L2 counts. */
 export async function getMaterialCounts(): Promise<Map<string, number>> {
   return summarizeMaterialCounts(await getCachedSubcategoryRows());
-}
-
-export async function getSubcategoryCounts(
-  categorySlug: string,
-): Promise<Map<string, number>> {
-  return (await getSubcategorySummary(categorySlug)).counts;
 }
 
 export const EXPLORE_BRAND_LIMIT = 8;
@@ -2759,23 +2755,6 @@ export async function getRandomBrands(limit = 4): Promise<PublicBrandCard[]> {
     rows.slice(0, limit).map(brandToDomain),
   );
   return brands.map(toPublicBrandCard);
-}
-
-export async function getNewBrands(limit = 4): Promise<Brand[]> {
-  const newBrandPoolSize = 20;
-  const supabase = createServiceClient();
-  const { data, error } = await excludeTestBrands(
-    supabase.from("brands").select(BRAND_LIST_SELECT),
-  )
-    .eq("status", "approved")
-    .not("approved_at", "is", null)
-    .order("approved_at", { ascending: false })
-    .limit(newBrandPoolSize);
-
-  if (error) throw error;
-  const rows = data ?? [];
-  shuffleArray(rows);
-  return hydrateCardImageMeta(supabase, rows.slice(0, limit).map(brandToDomain));
 }
 
 const getCachedRecentBrandCount = unstable_cache(

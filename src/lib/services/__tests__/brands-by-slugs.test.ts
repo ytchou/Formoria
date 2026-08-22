@@ -39,7 +39,7 @@ type RedirectRowFixture = { old_slug: string; new_slug: string }
 const queries: QueryCall[] = []
 let table: BrandRowFixture[] = []
 let redirectTable: RedirectRowFixture[] = []
-let queryError: { message: string } | null = null
+let queryError: { message: string; code?: string; hint?: string } | null = null
 let redirectError: { message: string } | null = null
 
 /**
@@ -76,7 +76,7 @@ function createClientDouble() {
         then(
           resolve: (result: {
             data: BrandRowFixture[] | RedirectRowFixture[] | null
-            error: { message: string } | null
+            error: { message: string; code?: string; hint?: string } | null
           }) => unknown
         ) {
           // The redirect table is a different shape and has its own failure
@@ -330,6 +330,59 @@ describe('getBrandsBySlugs', () => {
       vi.resetModules()
       consoleError.mockRestore()
     }
+  })
+
+  /*
+   * What the thrown message carries. On 2026-08-21 the only thing that reached
+   * Sentry was "column brands.product_type does not exist" — Postgres had put
+   * the actionable fix in `hint`, and the throw dropped it. The console.error
+   * beside the throw logs the whole object, but stdout is not where the alert
+   * is read.
+   */
+  describe('the thrown message', () => {
+    async function thrownMessage(): Promise<string> {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+      try {
+        await lookup(['molasses'])
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error)
+      } finally {
+        consoleError.mockRestore()
+      }
+      throw new Error('expected the query error to throw')
+    }
+
+    it('includes the PostgREST code in the thrown message', async () => {
+      queryError = { code: '42703', message: 'column brands.product_type does not exist' }
+
+      expect(await thrownMessage()).toContain('42703')
+    })
+
+    it('includes the hint when Postgres supplies one', async () => {
+      queryError = {
+        code: '42703',
+        message: 'column brands.product_type does not exist',
+        hint: 'Perhaps you meant to reference the column "brands.product_types".',
+      }
+
+      expect(await thrownMessage()).toContain('brands.product_types')
+    })
+
+    it('still names the operation and the slug', async () => {
+      queryError = { code: '42703', message: 'column brands.product_type does not exist' }
+
+      // The prefix is what existing log greps match on, so the change stays additive.
+      expect(await thrownMessage()).toContain('Failed to fetch brands by slug:')
+    })
+
+    it('degrades cleanly when code and hint are absent', async () => {
+      queryError = { message: 'connection reset' }
+
+      const message = await thrownMessage()
+
+      expect(message).toBe('Failed to fetch brands by slug: connection reset')
+      expect(message).not.toContain('undefined')
+    })
   })
 
   it('throws when the query itself errors, so ISR keeps the last good page', async () => {

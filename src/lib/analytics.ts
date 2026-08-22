@@ -488,10 +488,6 @@ export function trackStockistListViewed(listName: string, itemCount: number) {
   })
 }
 
-export function trackHeroCategoryClicked(category: string, destinationUrl: string) {
-  capturePostHogEvent(ANALYTICS_EVENTS.HERO_CATEGORY_CLICKED, { category, destination_url: destinationUrl })
-}
-
 export function trackCuratedProductClicked(
   productKey: string,
   brandSlug: string,

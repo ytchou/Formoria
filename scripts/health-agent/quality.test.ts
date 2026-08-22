@@ -34,7 +34,14 @@ describe("repository health", () => {
     expect(config).toContain('"src/test/server-only.ts": ["files"]');
     // `gh` is provided by the GitHub Actions runner, not by package.json —
     // scripts/flake-report.mjs shells out to it. Same category as lsof.
-    expect(config).toContain('"ignoreBinaries": ["gh", "lsof", "tesseract"]');
+    // `psql` (scripts/db-deploy.ts, backfill-subcategory-slugs.ts,
+    // rehearse-slug-reverse.ts, generate-taxonomy-terms.ts) and `python3`
+    // (package.json's "story:lint") are system binaries too — no dependency
+    // can satisfy them. Asserted verbatim so config and expectation cannot
+    // drift apart.
+    expect(config).toContain(
+      '"ignoreBinaries": ["gh", "lsof", "psql", "python3", "tesseract"]',
+    );
     // react-simple-maps is unwired but deliberately kept: src/types/
     // react-simple-maps.d.ts is a hand-written ambient declaration for the
     // planned map surface. Suppressed rather than deleted so a dead-code pass

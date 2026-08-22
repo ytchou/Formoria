@@ -83,6 +83,7 @@ export const ANALYTICS_EVENTS = {
    * @property category {string} Category key.
    * @property destination_url {string} Resolved href the tile navigates to.
    */
+  // Retired: no emitter remains. The name stays in the ledger; DEV-1556 sweeps it.
   HERO_CATEGORY_CLICKED: 'hero_category_clicked',
 
   /**

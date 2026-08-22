@@ -74,7 +74,7 @@ export const IMAGE_SURFACE_SIZES = {
   thumb: "72px",
 } as const;
 
-export type ImageSurface = keyof typeof IMAGE_SURFACE_SIZES;
+type ImageSurface = keyof typeof IMAGE_SURFACE_SIZES;
 
 type BaseSurfaceImageProps = Omit<NextImageProps, "sizes" | "alt"> & {
   /** Which layout slot this image occupies. Drives `sizes`. */

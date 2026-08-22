@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils";
  * as content, so writing the class out here emits a real CSS rule nothing uses,
  * in the one file whose job is to make sure no such rule is ever needed.
  */
-export const PAGE_MEASURES = {
+const PAGE_MEASURES = {
   page: "page-measure",
   form: "form-measure",
   prose: "prose-measure",

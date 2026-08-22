@@ -64,7 +64,7 @@ export const ZH_VOCABULARY_MAX_SPANS = 200;
 const MAX_RECENT_SPANS = 20;
 
 /** One (column, term) pair, summed over every span in the window. */
-export type ZhVocabularyFieldHit = {
+type ZhVocabularyFieldHit = {
   /** The database column the term was found in (snake_case). */
   field: string;
   term: string;
@@ -74,7 +74,7 @@ export type ZhVocabularyFieldHit = {
 };
 
 /** One audited write that carried at least one hit. */
-export type ZhVocabularySpan = {
+type ZhVocabularySpan = {
   observedAt: string;
   provider: string;
   operation: string;

@@ -13,9 +13,10 @@
 # use: status = 'approved' minus the e2e test-brand name pattern
 # (src/lib/services/public-brand-filter.ts). is_demo is deliberately NOT
 # excluded — no public listing or count filters on it. Total: 718 brands.
-# l2-category counts are scoped to the brand's own category, matching
-# getSubcategoryCounts and `/brands?category=…`: a fashion brand tagged 手鍊
-# does not count toward the jewelry subcategory it would never render on.
+# l2-category counts are scoped to the brand's own category, matching the
+# public listing's `subcategory?.category === categorySlug` filter behind
+# `/brands?category=…`: a fashion brand tagged 手鍊 does not count toward the
+# jewelry subcategory it would never render on.
 # data/formoria-seed.csv (139 rows) is STALE and was NOT used for any count.
 # DEV-1361 replacement rows deliberately use brand_count: 0/data_quality: thin
 # until the reviewed per-brand split artifact supplies scoped assignments; the

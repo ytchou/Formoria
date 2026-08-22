@@ -101,7 +101,7 @@ export function collectHeadings(files: string[]): HeadingMatch[] {
  * Ming too and are deliberately absent: they carry sentences, and a sentence is
  * content on any screen. Only titles invert on a tool surface.
  */
-export const MING_TITLE_ROLES = [
+const MING_TITLE_ROLES = [
   "type-display",
   "type-page-title",
   "type-section",
