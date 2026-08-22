@@ -364,10 +364,10 @@ export function buildSubmissionRecord(
     submitter_name: mapped.submitter_name,
     description: mapped.description,
     website_url: mapped.website_url,
-    // DEV-1551: `toBrandRow` stopped emitting `hero_image_url` and now emits
-    // the bucket key instead, so reading the old key here yielded undefined
-    // and silently dropped the reviewer's hero choice.
-    hero_image_storage_path: mapped.hero_image_storage_path,
+    // No hero key is written from review data. `toBrandRow` stopped emitting
+    // `hero_image_url`, and a submission hero lives under a `submissions/` key
+    // the image proxy refuses to serve, so `approve_submission` is the only
+    // correct owner of the brand hero.
     social_instagram: mapped.social_instagram,
     social_threads: mapped.social_threads,
     social_facebook: mapped.social_facebook,
@@ -827,13 +827,14 @@ export function buildSubmissionReviewData(
     siteContent: enrichedData?.siteContent ?? null,
     foundingYear: enrichedData?.foundingYear ?? null,
     /*
-     * DEV-1551: the hero is carried as a STABLE reference — the `/i/<key>`
-     * form of the image's bucket key. `imageHero.url` is a five-minute signed
-     * URL for a `submissions/` object (and an empty string before signing), so
-     * reading it here persisted either a value that expires or nothing at all.
+     * Display reference only. `approve_submission` owns the brand hero: it
+     * selects the first active `submission_images` row and overwrites
+     * `brands.hero_image_url` after the insert, ignoring anything sent in
+     * `p_brand_data`. Deriving `/i/<key>` here would be worse than useless,
+     * because a `submissions/` key is one the image proxy 404s on purpose.
      */
     heroImageUrl:
-      imagePathToUrl(imageHero?.storagePath) ??
+      normalizeString(imageHero?.url) ??
       preferText(enrichedData?.heroImageUrl, submission.heroImageUrl),
     categorySlug: preferText(
       enrichedData?.categorySlug,
@@ -963,12 +964,9 @@ function buildReviewLayers(
   const selectedHero = normalizeSubmissionReviewImages(images).find(
     (image) => image.status === "active",
   );
-  // Same rule as `buildSubmissionReviewData`: the reviewer's choice travels as
-  // the bucket key, so it survives save and approval. A selected image with no
-  // `storage_path` leaves the baseline hero alone rather than replacing it with
-  // an unusable reference.
-  const selectedHeroUrl = imagePathToUrl(selectedHero?.storagePath);
-  if (selectedHeroUrl) effective.heroImageUrl = selectedHeroUrl;
+  // The reviewer's choice travels as the image's `status` and `sort_order`,
+  // which `approve_submission` reads directly, not through this field.
+  if (selectedHero) effective.heroImageUrl = selectedHero.url;
 
   return {
     baseline,
@@ -1129,10 +1127,10 @@ function submissionReviewDataToBrandInsert(
     mit_evidence: data.mitEvidence,
     site_content: data.siteContent,
     founding_year: mapped.founding_year,
-    // DEV-1551: `toBrandRow` stopped emitting `hero_image_url` and now emits
-    // the bucket key instead, so reading the old key here yielded undefined
-    // and silently dropped the reviewer's hero choice.
-    hero_image_storage_path: mapped.hero_image_storage_path,
+    // No hero key is written from review data. `toBrandRow` stopped emitting
+    // `hero_image_url`, and a submission hero lives under a `submissions/` key
+    // the image proxy refuses to serve, so `approve_submission` is the only
+    // correct owner of the brand hero.
     category: mapped.category,
     price_range: mapped.price_range,
     subcategories: mapped.subcategories,
@@ -1168,10 +1166,10 @@ function submissionReviewDataToDb(
     mit_evidence: data.mitEvidence,
     site_content: data.siteContent,
     founding_year: mapped.founding_year,
-    // DEV-1551: `toBrandRow` stopped emitting `hero_image_url` and now emits
-    // the bucket key instead, so reading the old key here yielded undefined
-    // and silently dropped the reviewer's hero choice.
-    hero_image_storage_path: mapped.hero_image_storage_path,
+    // No hero key is written from review data. `toBrandRow` stopped emitting
+    // `hero_image_url`, and a submission hero lives under a `submissions/` key
+    // the image proxy refuses to serve, so `approve_submission` is the only
+    // correct owner of the brand hero.
     category: mapped.category,
     price_range: mapped.price_range,
     subcategories: mapped.subcategories,
