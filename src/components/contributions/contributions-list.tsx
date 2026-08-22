@@ -38,7 +38,7 @@ export function ContributionsList({ items }: ContributionsListProps) {
           {t('emptyDescription')}
         </p>
         <Link
-          className={buttonVariants({ className: 'mt-6 h-12' })}
+          className={buttonVariants({ size: 'large', className: 'mt-6' })}
           href={routes.brands()}
         >
           {t('exploreBrands')}

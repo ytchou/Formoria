@@ -588,7 +588,7 @@ export function BrandFilterDrawer({
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         render={
-          <Button variant="secondary" className="min-h-12 gap-2 lg:hidden" />
+          <Button variant="secondary" size="large" className="gap-2 lg:hidden" />
         }
       >
         <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
@@ -618,7 +618,7 @@ export function BrandFilterDrawer({
         <SheetFooter className="sticky bottom-0 border-t border-rule bg-popover">
           <Button
             type="button"
-            className="w-full"
+            width="full"
             onClick={() => setOpen(false)}
           >
             {t("showResults", { count: totalCount })}
@@ -652,8 +652,9 @@ function MobileClearAll({ onClear }: { onClear: () => void }) {
     <Button
       type="button"
       variant="ghost"
+      size="large"
       onClick={clearAll}
-      className="mx-auto min-h-12 type-body-sm underline-offset-2 hover:text-ink hover:underline"
+      className="mx-auto type-body-sm underline-offset-2 hover:text-ink hover:underline"
       data-ph-no-autocapture
     >
       {t("clearAll")}

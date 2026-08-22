@@ -145,7 +145,8 @@ export default function SubmitOverview({
               <>
                 <Button
                   type="button"
-                  className="mt-6 min-h-12"
+                  className="mt-6"
+                  size="large"
                   data-ph-no-autocapture
                   onClick={() => {
                     trackSubmissionPathSelected('claim', true)

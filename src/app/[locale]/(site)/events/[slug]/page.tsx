@@ -403,7 +403,8 @@ export default async function EventDetailPage({ params }: PageProps) {
                   className={buttonVariants({
                     variant: "primary",
                     size: "large",
-                    className: "w-full sm:w-auto",
+                    width: "full",
+                    className: "sm:w-auto",
                   })}
                 >
                   {t("officialSite")}
@@ -417,7 +418,8 @@ export default async function EventDetailPage({ params }: PageProps) {
                   className={buttonVariants({
                     variant: "secondary",
                     size: "large",
-                    className: "w-full sm:w-auto",
+                    width: "full",
+                    className: "sm:w-auto",
                   })}
                 >
                   {/* A free event's ticket link books a slot, it does not sell
@@ -437,7 +439,8 @@ export default async function EventDetailPage({ params }: PageProps) {
                   className={buttonVariants({
                     variant: "secondary",
                     size: "large",
-                    className: "w-full sm:w-auto",
+                    width: "full",
+                    className: "sm:w-auto",
                   })}
                 >
                   {t("directions")}

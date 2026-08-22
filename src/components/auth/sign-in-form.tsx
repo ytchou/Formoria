@@ -128,7 +128,7 @@ export function SignInForm({
 
         <Button
           type="submit"
-          className="w-full"
+          width="full"
           size="large"
           disabled={pending}
         >

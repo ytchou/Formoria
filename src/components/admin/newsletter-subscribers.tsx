@@ -119,7 +119,7 @@ export function NewsletterSubscribersList({
                       {subscriber.status === "pending" ? (
                         <Button
                           variant="secondary"
-                          className="min-h-12"
+                          size="large"
                           disabled={isPending}
                           onClick={() => resend(subscriber.id)}
                         >
@@ -130,7 +130,7 @@ export function NewsletterSubscribersList({
                       {subscriber.status !== "unsubscribed" ? (
                         <Button
                           variant="secondary"
-                          className="min-h-12"
+                          size="large"
                           disabled={isPending}
                           onClick={() => setUnsubscribeId(subscriber.id)}
                         >

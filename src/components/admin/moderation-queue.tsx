@@ -94,7 +94,6 @@ export function ModerationQueue({
             type="button"
             variant="secondary"
             size="compact"
-            className="min-h-12"
             disabled={queueAction.isRowPending(item.id)}
             onClick={() => decide(item, "reviewed")}
           >
@@ -104,7 +103,6 @@ export function ModerationQueue({
             type="button"
             variant="ghost"
             size="compact"
-            className="min-h-12"
             disabled={queueAction.isRowPending(item.id)}
             onClick={() => decide(item, "dismissed")}
           >

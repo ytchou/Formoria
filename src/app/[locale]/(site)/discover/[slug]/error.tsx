@@ -23,7 +23,7 @@ export default function DiscoverTrailError({
         <Button
           type="button"
           variant="secondary"
-          className="min-h-12"
+          size="large"
           onClick={() => reset()}
         >
           {t("retry")}

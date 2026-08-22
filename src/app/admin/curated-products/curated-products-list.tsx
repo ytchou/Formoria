@@ -212,7 +212,7 @@ export function CuratedProductsList({
         <Button
           type="button"
           variant="secondary"
-          className="min-h-12"
+          size="large"
           aria-expanded={creating}
           onClick={() => setCreating((current) => !current)}
         >
@@ -253,7 +253,7 @@ export function CuratedProductsList({
           <Button
             type="button"
             variant="secondary"
-            className="min-h-12"
+            size="large"
             onClick={() => {
               setBrandScope(null);
               queue.resetView();

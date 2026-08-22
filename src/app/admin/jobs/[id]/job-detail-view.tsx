@@ -189,7 +189,6 @@ export function JobDetailView({
             className={buttonVariants({
               variant: "secondary",
               size: "large",
-              className: "min-h-12",
             })}
           >
             {t("actions.runLog")}
@@ -199,7 +198,6 @@ export function JobDetailView({
             className={buttonVariants({
               variant: "secondary",
               size: "large",
-              className: "min-h-12",
             })}
           >
             {t("actions.downloadHtml")}
@@ -212,7 +210,6 @@ export function JobDetailView({
               className={buttonVariants({
                 variant: "secondary",
                 size: "large",
-                className: "min-h-12",
               })}
             >
               <ExternalLink aria-hidden="true" />
@@ -227,7 +224,6 @@ export function JobDetailView({
               className={buttonVariants({
                 variant: "secondary",
                 size: "large",
-                className: "min-h-12",
               })}
             >
               <ExternalLink aria-hidden="true" />
@@ -353,7 +349,6 @@ export function JobDetailView({
                 className={buttonVariants({
                   variant: selected ? "primary" : "secondary",
                   size: "default",
-                  className: "min-h-12",
                 })}
               >
                 {filter.label}
@@ -445,7 +440,6 @@ function LineageLink({ id, label }: { id: string; label: string }) {
       className={buttonVariants({
         variant: "secondary",
         size: "large",
-        className: "min-h-12",
       })}
     >
       {label}

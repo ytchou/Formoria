@@ -113,7 +113,7 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
 
         <Button
           type="submit"
-          className="w-full"
+          width="full"
           size="large"
           disabled={pending}
         >

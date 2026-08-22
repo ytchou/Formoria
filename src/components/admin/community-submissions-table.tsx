@@ -381,7 +381,7 @@ export function CommunitySubmissionsTable() {
                         <Button
                           type="button"
                           variant="ghost"
-                          className="min-h-12"
+                          size="large"
                           disabled={isPending}
                           aria-label={`Remove row ${index + 1}`}
                           onClick={() => removeRow(row.id)}

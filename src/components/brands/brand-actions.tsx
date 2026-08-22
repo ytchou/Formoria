@@ -86,7 +86,7 @@ export function BrandActions({
           href={websiteUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className={buttonVariants({ variant: 'primary', className: 'w-full' })}
+          className={buttonVariants({ variant: 'primary', width: 'full' })}
           data-ph-no-autocapture
           onClick={handleWebsiteClick}
         >
@@ -94,7 +94,7 @@ export function BrandActions({
           {visitLabel}
         </a>
       ) : (
-        <span className={buttonVariants({ variant: 'secondary', className: 'w-full cursor-default opacity-50' })} aria-disabled="true">
+        <span className={buttonVariants({ variant: 'secondary', width: 'full', className: 'cursor-default opacity-50' })} aria-disabled="true">
           <ExternalLink className="size-[15px]" />
           <span className="line-through">{visitLabel}</span>
         </span>

@@ -63,7 +63,6 @@ export function JobHistoryList({
             className={buttonVariants({
               variant: "secondary",
               size: "large",
-              className: "min-h-12",
             })}
           >
             <ExternalLink aria-hidden="true" />
@@ -165,7 +164,6 @@ function CursorLink({
       className={buttonVariants({
         variant: "secondary",
         size: "default",
-        className: "min-h-12",
       })}
     >
       {label}

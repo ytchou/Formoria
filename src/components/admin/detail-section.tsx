@@ -45,7 +45,6 @@ export function DetailSection({
             type="button"
             variant="ghost"
             size="compact"
-            className="min-h-12"
             onClick={onEdit}
           >
             {editLabel}
@@ -61,7 +60,7 @@ export function DetailSection({
       {editing && (
         <div className="flex flex-wrap justify-end gap-2 pt-2">
           <Button
-            className="min-h-12"
+            size="large"
             variant="secondary"
             onClick={onCancel}
             disabled={isPending}

@@ -186,8 +186,10 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
           </p>
         ) : null}
         <Button
-          className="min-h-12 w-full focus-visible:ring-2 focus-visible:ring-accent"
+          className="focus-visible:ring-2 focus-visible:ring-accent"
           nativeButton={false}
+          size="large"
+          width="full"
           render={
             <Link
               href={`${routes.dashboard.brand(brand.slug)}#profile-completeness`}

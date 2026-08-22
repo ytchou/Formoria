@@ -65,7 +65,7 @@ export default async function AdminNewsletterPage({
           </div>
           <a
             href={`${routes.admin.newsletterExport()}${exportParams.size ? `?${exportParams}` : ""}`}
-            className={buttonVariants({ variant: "secondary", size: "large", className: "min-h-12" })}
+            className={buttonVariants({ variant: "secondary", size: "large" })}
           >
             <Download aria-hidden="true" />
             {t("exportCsv")}
@@ -101,7 +101,7 @@ export default async function AdminNewsletterPage({
               {VALID_INTERESTS.map((interest) => <option key={interest} value={interest}>{interest}</option>)}
             </NativeSelect>
           </Label>
-          <Button type="submit" variant="secondary" className="min-h-12">{t("filters.apply")}</Button>
+          <Button type="submit" variant="secondary" size="large">{t("filters.apply")}</Button>
         </form>
 
         <NewsletterSubscribersList subscribers={page.subscribers} />
@@ -126,7 +126,7 @@ function PaginationLink({ label, cursor, direction, filters }: {
   if (filters.q) query.set("q", filters.q);
   if (filters.status) query.set("status", filters.status);
   if (filters.interest) query.set("interest", filters.interest);
-  return <Link href={`${routes.admin.newsletter()}?${query}`} className={buttonVariants({ variant: "secondary", className: "min-h-12" })}>{label}</Link>;
+  return <Link href={`${routes.admin.newsletter()}?${query}`} className={buttonVariants({ variant: "secondary", size: "large" })}>{label}</Link>;
 }
 
 function first(value: string | string[] | undefined): string | undefined {

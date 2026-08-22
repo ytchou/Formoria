@@ -615,7 +615,7 @@ export function ReviewDetailsEditor({
                           shape="square"
                           size="icon"
                           variant="ghost"
-                          className="h-12 w-full"
+                          width="full"
                           onClick={() => moveImage(image.id, -1)}
                           disabled={index === 0}
                           aria-label={t("moveLeft", { n: index + 1 })}
@@ -626,7 +626,7 @@ export function ReviewDetailsEditor({
                           shape="square"
                           size="icon"
                           variant="ghost"
-                          className="h-12 w-full"
+                          width="full"
                           onClick={() => moveImage(image.id, 1)}
                           disabled={index === draftImages.length - 1}
                           aria-label={t("moveRight", { n: index + 1 })}
@@ -636,7 +636,7 @@ export function ReviewDetailsEditor({
                         <Button
                           shape="square"
                           size="icon"
-                          className="h-12 w-full"
+                          width="full"
                           variant="ghost"
                           onClick={() => removeImage(image.id)}
                           disabled={
@@ -1631,7 +1631,7 @@ function OtherUrlEditor({
             }
           />
           <Button
-            className="min-h-12"
+            size="large"
             variant="secondary"
             onClick={() =>
               onChange(links.filter((_, itemIndex) => itemIndex !== index))
@@ -1642,7 +1642,7 @@ function OtherUrlEditor({
         </div>
       ))}
       <Button
-        className="min-h-12"
+        size="large"
         variant="secondary"
         onClick={() => onChange([...links, { label: "", url: "" }])}
       >

@@ -515,7 +515,7 @@ export function CuratedProductEditor({
           <Button
             type="button"
             variant="secondary"
-            className="min-h-12"
+            size="large"
             disabled={isFetching || prefillUrl.trim().length === 0}
             onClick={fetchDetails}
           >
@@ -787,7 +787,7 @@ export function CuratedProductEditor({
                   <Button
                     type="button"
                     variant="ghost"
-                    className="min-h-12"
+                    size="large"
                     disabled={isPending}
                     onClick={() => retireSource(source.id)}
                   >
@@ -866,7 +866,7 @@ export function CuratedProductEditor({
         <Button
           type="button"
           variant="secondary"
-          className="min-h-12"
+          size="large"
           onClick={() =>
             setDraftSources((current) => [...current, { ...EMPTY_SOURCE }])
           }
@@ -986,7 +986,7 @@ export function CuratedProductEditor({
             <Button
               type="button"
               variant="secondary"
-              className="min-h-12"
+              size="large"
               disabled={isPending || sectionIsOrphaned}
               onClick={placeProduct}
             >
@@ -995,7 +995,7 @@ export function CuratedProductEditor({
             <Button
               type="button"
               variant="ghost"
-              className="min-h-12"
+              size="large"
               disabled={isPending}
               onClick={retirePlacement}
             >

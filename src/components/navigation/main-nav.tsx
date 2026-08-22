@@ -145,7 +145,6 @@ export function MainNav({ categories }: MainNavProps) {
                   className={buttonVariants({
                     variant: 'ghost',
                     size: 'icon',
-                    className: 'size-11',
                   })}
                   aria-label={t('openMenu')}
                 />
@@ -175,7 +174,7 @@ export function MainNav({ categories }: MainNavProps) {
                 {hasOwnedBrand && ownerFeaturesEnabled ? (
                   <Link
                     href={routes.dashboard.index()}
-                    className={buttonVariants({ variant: 'primary', className: 'w-full' })}
+                    className={buttonVariants({ variant: 'primary', width: 'full' })}
                     onClick={() => setOpen(false)}
                   >
                     {t('myBrands')}
@@ -188,7 +187,7 @@ export function MainNav({ categories }: MainNavProps) {
                       trackCtaClicked('submit_brand', 'header_nav', routes.submit.index(), pathname)
                       setOpen(false)
                     }}
-                    className={buttonVariants({ variant: 'primary', className: 'w-full' })}
+                    className={buttonVariants({ variant: 'primary', width: 'full' })}
                   >
                     {t('submitBrand')}
                   </Link>

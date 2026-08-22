@@ -259,7 +259,6 @@ export default async function AboutPage({ params }: PageProps) {
                   className={buttonVariants({
                     variant: "primary",
                     size: "large",
-                    className: "min-h-12",
                   })}
                 >
                   {t("guide.cta")}

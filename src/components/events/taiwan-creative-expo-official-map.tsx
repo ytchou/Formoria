@@ -218,7 +218,7 @@ export function TaiwanCreativeExpoOfficialMap() {
                         : t("floorMapZoomTimes", { value: level })
                     }
                     aria-pressed={zoom === level}
-                    className="min-h-12 min-w-12 px-2"
+                    className="min-w-12 px-2"
                     key={level}
                     onClick={() => setZoom(level)}
                     size="default"

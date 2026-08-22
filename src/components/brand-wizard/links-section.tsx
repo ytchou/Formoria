@@ -202,7 +202,7 @@ export function BrandLinksSection({
           <Button
             type="button"
             variant="secondary"
-            className="min-h-12"
+            size="large"
             onClick={() => append({ label: '', url: '' })}
           >
             <Plus className="size-4" />
