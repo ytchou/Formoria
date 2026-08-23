@@ -33,7 +33,11 @@ function row(
   return snapshot.services.find((service) => service.id === id)!;
 }
 
-function railwayMetric(value: number, limit: number) {
+function railwayMetric(
+  value: number,
+  limit: number,
+  subject: string | null = null,
+) {
   return {
     value,
     unit: "GB",
@@ -43,6 +47,7 @@ function railwayMetric(value: number, limit: number) {
       start: "2026-08-09T00:00:00.000Z",
       end: "2026-08-10T00:00:00.000Z",
     },
+    subject,
     source: "Railway metrics API",
     completeness: "exact" as const,
     freshness: NOW.toISOString(),
@@ -110,7 +115,12 @@ function railwaySnapshot(meter: MeteredUsage) {
 
 // One daily egress sample inside yesterday's UTC window plus seven daily
 // memory samples, the envelope Railway returns at sampleRateSeconds 86400.
-function railwayResponse(egressGb = 1.2, memoryGb = 0.5): Response {
+// `memoryGb: null` drops the memory series entirely -- the shape a service
+// that reported no memory samples returns.
+function railwayResponse(
+  egressGb = 1.2,
+  memoryGb: number | null = 0.5,
+): Response {
   const day = (offset: number) =>
     new Date(Date.UTC(2026, 7, 9 - offset)).toISOString();
   return Response.json({
@@ -120,16 +130,35 @@ function railwayResponse(egressGb = 1.2, memoryGb = 0.5): Response {
           measurement: "NETWORK_TX_GB",
           values: [{ ts: day(0), value: egressGb }],
         },
-        {
-          measurement: "MEMORY_USAGE_GB",
-          values: Array.from({ length: 7 }, (_unused, index) => ({
-            ts: day(index),
-            value: memoryGb,
-          })),
-        },
+        ...(memoryGb === null
+          ? []
+          : [
+              {
+                measurement: "MEMORY_USAGE_GB",
+                values: Array.from({ length: 7 }, (_unused, index) => ({
+                  ts: day(index),
+                  value: memoryGb,
+                })),
+              },
+            ]),
       ],
     },
   });
+}
+
+// Distinct per-service responses, in RAILWAY_SERVICE_IDS order: memory is
+// assessed per service, so a fixture that answers both services identically
+// cannot tell a per-service assessment from a summed one.
+function railwayPerServiceFetch(
+  services: Array<{ egressGb?: number; memoryGb: number | null }>,
+) {
+  const mock = vi.fn<typeof fetch>();
+  for (const service of services) {
+    mock.mockResolvedValueOnce(
+      railwayResponse(service.egressGb ?? 1.2, service.memoryGb),
+    );
+  }
+  return mock;
 }
 
 function clearProviderEnvironment() {
@@ -395,6 +424,7 @@ describe("operational usage risk", () => {
                 start: "2026-08-01T00:00:00.000Z",
                 end: "2026-09-01T00:00:00.000Z",
               },
+              subject: null,
               source: "test",
               completeness: "exact",
               freshness: NOW.toISOString(),
@@ -410,6 +440,7 @@ describe("operational usage risk", () => {
                 start: "2026-08-10T00:00:00.000Z",
                 end: "2026-08-11T00:00:00.000Z",
               },
+              subject: null,
               source: "test",
               completeness: "exact",
               freshness: NOW.toISOString(),
@@ -426,6 +457,7 @@ describe("operational usage risk", () => {
                   start: "2026-08-01T00:00:00.000Z",
                   end: "2026-09-01T00:00:00.000Z",
                 },
+                subject: null,
                 source: "test",
                 completeness: "exact",
                 freshness: NOW.toISOString(),
@@ -642,15 +674,105 @@ describe("operational usage risk", () => {
         end: "2026-08-10T00:00:00.000Z",
       },
     });
-    expect(usage.secondary?.value).toBeCloseTo(1, 10);
+    // Memory is NOT summed: 1.5 GB is a per-service limit, so the published
+    // figure is one service's 7-day mean, not both added together.
+    expect(usage.secondary?.value).toBeCloseTo(0.5, 10);
     expect(usage.secondary).toMatchObject({
       unit: "GB",
       limit: 1.5,
+      risk: "normal",
+      subject: expect.stringContaining(RAILWAY_SERVICE_IDS[0]),
       window: {
         start: "2026-08-03T00:00:00.000Z",
         end: "2026-08-10T00:00:00.000Z",
       },
     });
+  });
+
+  // Bug caught (critical): the memory means of both services were summed and
+  // compared against the per-service 1.5 GB limit, so two healthy services at
+  // 0.9 and 0.8 GB produced ratio 1.13 and paged critical every single day.
+  // An alarm that fires daily on healthy services is a disabled alarm.
+  it("keeps two healthy Railway services normal instead of summing them past the limit", async () => {
+    const fetchMock = railwayPerServiceFetch([
+      { memoryGb: 0.9 },
+      { memoryGb: 0.8 },
+    ]);
+    const usage = await fetchRailwayUsage({
+      apiToken: "railway-token",
+      projectId: "project-memory-healthy",
+      environmentId: "environment-memory-healthy",
+      fetchImpl: fetchMock,
+      now: NOW,
+    });
+
+    expect(usage.state).toBe("ready");
+    // The worst service, not the sum.
+    expect(usage.secondary?.value).toBeCloseTo(0.9, 10);
+    expect(usage.secondary?.risk).toBe("normal");
+    // Egress stays summed -- both services bill against one project allowance.
+    expect(usage.primary?.value).toBeCloseTo(2.4, 10);
+  });
+
+  it("warns on the single Railway service over the per-service memory limit and names it", async () => {
+    const fetchMock = railwayPerServiceFetch([
+      { memoryGb: 0.2 },
+      { memoryGb: 1.2 },
+    ]);
+    const usage = await fetchRailwayUsage({
+      apiToken: "railway-token",
+      projectId: "project-memory-warning",
+      environmentId: "environment-memory-warning",
+      fetchImpl: fetchMock,
+      now: NOW,
+    });
+
+    expect(usage.secondary?.value).toBeCloseTo(1.2, 10);
+    expect(usage.secondary?.risk).toBe("warning");
+    // Without the service id the operator knows the project is over but not
+    // which service to restart.
+    expect(usage.secondary?.subject).toContain(RAILWAY_SERVICE_IDS[1]);
+    expect(usage.secondary?.source).toContain("2/2");
+  });
+
+  // A service with no memory samples is unknown, never a healthy 0 that could
+  // drag a mean down. The service that DID report is still assessed, and the
+  // partial coverage is recorded on the metric.
+  it("assesses the reporting Railway service when the other returns no memory samples", async () => {
+    const fetchMock = railwayPerServiceFetch([
+      { memoryGb: null },
+      { memoryGb: 1.4 },
+    ]);
+    const usage = await fetchRailwayUsage({
+      apiToken: "railway-token",
+      projectId: "project-memory-partial",
+      environmentId: "environment-memory-partial",
+      fetchImpl: fetchMock,
+      now: NOW,
+    });
+
+    expect(usage.secondary?.value).toBeCloseTo(1.4, 10);
+    expect(usage.secondary?.risk).toBe("critical");
+    expect(usage.secondary?.subject).toContain(RAILWAY_SERVICE_IDS[1]);
+    expect(usage.secondary?.source).toContain("1/2");
+  });
+
+  // Bug caught: a mean over zero samples is unknown, not 0.00 GB at normal.
+  it("omits the Railway memory metric when no service reported samples", async () => {
+    const fetchMock = railwayPerServiceFetch([
+      { memoryGb: null },
+      { memoryGb: null },
+    ]);
+    const usage = await fetchRailwayUsage({
+      apiToken: "railway-token",
+      projectId: "project-memory-absent",
+      environmentId: "environment-memory-absent",
+      fetchImpl: fetchMock,
+      now: NOW,
+    });
+
+    expect(usage.state).toBe("ready");
+    expect(usage.secondary ?? null).toBeNull();
   });
 
   // Bug caught: the meter used to read the project and environment ids from
@@ -863,6 +985,7 @@ describe("operational usage risk", () => {
                 start: "2026-08-09T00:00:00.000Z",
                 end: "2026-08-10T00:00:00.000Z",
               },
+              subject: null,
               source: "Railway metrics API",
               completeness: "exact" as const,
               freshness: NOW.toISOString(),
@@ -911,12 +1034,12 @@ describe("operational usage risk", () => {
   // Bug caught: the memory metric rides `usage.secondary`, which the alert
   // meter dropped -- a memory warning reached Slack as "secondary usage is
   // warning." with no value, unit, limit, or attribution.
-  it("carries the Railway memory metric and its reading into the alert summary", () => {
+  it("carries the Railway memory metric, its reading, and the service it belongs to into the alert summary", () => {
     const alerts = buildOperationalAlertSummary(
       railwaySnapshot({
         state: "ready",
         primary: railwayMetric(1, 5),
-        secondary: railwayMetric(1.4, 1.5),
+        secondary: railwayMetric(1.4, 1.5, "service service-b"),
       }),
     );
     expect(alerts.railwayMemory).toMatchObject({
@@ -924,10 +1047,13 @@ describe("operational usage risk", () => {
       value: 1.4,
       limit: 1.5,
       risk: "critical",
+      subject: "service service-b",
     });
+    // The row name covers both services; without the subject the operator
+    // knows the project is over memory but not which service to act on.
     expect(alerts.warnings).toEqual(
       expect.arrayContaining([
-        "Railway project (app + curation worker) secondary usage is critical. 1.4 of 1.5 GB.",
+        "Railway project (app + curation worker) secondary usage is critical. service service-b: 1.4 of 1.5 GB.",
       ]),
     );
   });

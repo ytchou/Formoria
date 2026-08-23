@@ -224,7 +224,24 @@ describe("spend-watch report", () => {
 
   // Bug caught: Railway egress rendered through the integer unit formatter,
   // which rounded a 1.2 GB day away to "1".
-  it("renders the Railway egress line with GB units", async () => {
+  //
+  // Bug caught (F9): the message is headed with the Taipei date while the
+  // Railway figures cover a completed UTC day and the OpenAI and Upstash
+  // meters cover the current period, so the Railway lines have to name their
+  // own window.
+  it("renders the Railway lines with GB units and the UTC window they cover", async () => {
+    // Half-open windows, as the meter emits them: the egress day is
+    // 2026-08-09 UTC and the memory mean covers 2026-08-03..2026-08-09 UTC.
+    const egressWindow = {
+      start: "2026-08-09T00:00:00.000Z",
+      end: "2026-08-10T00:00:00.000Z",
+    };
+    const memoryWindow = {
+      start: "2026-08-03T00:00:00.000Z",
+      end: "2026-08-10T00:00:00.000Z",
+    };
+    const lastCoveredDay = (window: { end: string }) =>
+      new Date(Date.parse(window.end) - 86_400_000).toISOString().slice(0, 10);
     const railwayReport = {
       ...report,
       operations: {
@@ -237,6 +254,8 @@ describe("spend-watch report", () => {
           percentage: 0.24,
           projection: null,
           message: null,
+          window: egressWindow,
+          subject: null,
         },
         // The memory metric has its own line; without it a memory warning
         // reaches Slack with no value, unit, or limit.
@@ -248,6 +267,8 @@ describe("spend-watch report", () => {
           percentage: 0.76,
           projection: null,
           message: null,
+          window: memoryWindow,
+          subject: "service memory-hungry-service",
         },
       },
     };
@@ -269,6 +290,49 @@ describe("spend-watch report", () => {
     expect(text).toContain("5");
     expect(text).toContain("Railway memory (7d mean)");
     expect(text).toContain("1.14 GB");
+    // Derived from the fixture windows so the assertion cannot rot into a
+    // hard-coded date.
+    expect(text).toContain(
+      `Railway egress, ${lastCoveredDay(egressWindow)} UTC:`,
+    );
+    expect(text).toContain(
+      `Railway memory (7d mean), ${memoryWindow.start.slice(0, 10)} to ${lastCoveredDay(memoryWindow)} UTC:`,
+    );
+    // The memory figure is one service out of the two the row covers.
+    expect(text).toContain("service memory-hungry-service");
+  });
+
+  // Deploy skew: a report from the build that predates the window field must
+  // still render, just without the window label.
+  it("renders the Railway line without a window label when the meter carries no window", async () => {
+    const railwayReport = {
+      ...report,
+      operations: {
+        ...operations,
+        railway: {
+          state: "ready" as const,
+          risk: "normal" as const,
+          value: 1.2,
+          limit: 5,
+          percentage: 0.24,
+          projection: null,
+          message: null,
+        },
+      },
+    };
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(railwayReport))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const result = await runSpendReport({
+      env: environment(),
+      clock: () => AT,
+      fetchImpl,
+    });
+
+    expect(result.status).not.toBe("failed");
+    expect(responseBody(fetchImpl, 1).text).toContain("Railway egress: 1.20 GB");
   });
 
   it("marks warning Railway usage as needs_attention while still delivering", async () => {
