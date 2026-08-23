@@ -7,14 +7,16 @@
  * changing the slug — `/brands/a` and `/brands/b` are the same family, so 700
  * slugs land in one counter.
  *
- * Edge-runtime safe. The single import is `src/i18n/routing.ts`, which is a
- * `defineRouting` object literal with no Node built-ins and no back-edge into
- * this module or into `src/proxy.ts`, so it neither closes an import cycle nor
- * pulls anything the edge runtime lacks. Anything else added here must stay
+ * Edge-runtime safe. Both imports are inert: `src/i18n/routing.ts` is a
+ * `defineRouting` object literal, and `src/lib/seo/directory-query-keys.ts` is
+ * a dependency-free string list. Neither has Node built-ins nor a back-edge
+ * into this module or into `src/proxy.ts`, so neither closes an import cycle
+ * nor pulls anything the edge runtime lacks. Anything else added here must stay
  * pure string work, because `src/proxy.ts` calls it on every request.
  */
 
 import { routing } from '@/i18n/routing'
+import { DIRECTORY_FILTER_QUERY_KEYS } from '@/lib/seo/directory-query-keys'
 
 export const ROUTE_FAMILIES = [
   /** Directory index and taxonomy browse surfaces. */
@@ -84,12 +86,11 @@ const SEARCH_PARAM_KEYS = ['search', 'q']
 /**
  * The only query keys that make a list surface a DIFFERENT resource.
  *
- * Mirrors the keys `parseDirectoryViewFilters` reads in
- * `src/lib/seo/directory-filters.ts` (`category`, `sub`, `material`, `price`,
- * `verification`, `sort`, `page`); that module is the canonical parser but is
- * not imported here, because it pulls the taxonomy ontology into every edge
- * request. Ceiling: the two lists must be changed together. Upgrade path:
- * export the key list from an edge-safe module once a third consumer needs it.
+ * Derived from `DIRECTORY_FILTER_QUERY_KEYS`, the edge-safe copy of the
+ * vocabulary `parseDirectoryViewFilters` reads. That parser is canonical but
+ * cannot be imported here, because it pulls the taxonomy ontology into every
+ * edge request; the key list module carries the names alone and is the single
+ * source the proxy's cacheable-key set is built from as well.
  *
  * An allow-list and not a deny-list on purpose. Next appends `?_rsc=<hash>` to
  * every RSC navigation and prefetch, so a deny-list that forgot one key would
@@ -97,15 +98,7 @@ const SEARCH_PARAM_KEYS = ['search', 'q']
  * `markOnce` dedup at the same time; the same is true of every `utm_source`,
  * `fbclid` and `gclid` a shared link carries.
  */
-const RESOURCE_DEFINING_PARAM_KEYS = new Set([
-  'category',
-  'sub',
-  'material',
-  'price',
-  'verification',
-  'sort',
-  'page',
-])
+const RESOURCE_DEFINING_PARAM_KEYS: ReadonlySet<string> = new Set(DIRECTORY_FILTER_QUERY_KEYS)
 
 /**
  * Route families the enumeration ladder does not score. See

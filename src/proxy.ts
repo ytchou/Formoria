@@ -50,6 +50,7 @@ import {
   L1_CATEGORIES,
   subcategoryBySlug,
 } from "@/lib/taxonomy/ontology";
+import { DIRECTORY_FILTER_QUERY_KEYS } from "@/lib/seo/directory-query-keys";
 import { recordCrawlerHit } from "@/lib/security/crawler-telemetry";
 import {
   isAllowedStagingRequest,
@@ -204,6 +205,16 @@ export const PUBLIC_INTL_SEGMENTS = new Set([
 const SOFT_LIMIT_PREFIXES = ["/brands/"];
 const DIRECTORY_EDGE_CACHE_CONTROL =
   "public, s-maxage=3600, stale-while-revalidate=86400";
+// The bounded directory facets, derived from the canonical vocabulary in
+// `@/lib/seo/directory-query-keys` rather than restated here. A filter view is
+// a bounded set of renderings the edge can hold; free-text `search` is
+// unbounded and would fill the cache with single-use entries, which is why the
+// filter list excludes it. Values are NOT validated -- the page drops unknown
+// slugs, so a bad value renders the same page as the empty filter and is safe
+// to cache under its own key.
+export const CACHEABLE_DIRECTORY_QUERY_KEYS: ReadonlySet<string> = new Set(
+  DIRECTORY_FILTER_QUERY_KEYS,
+);
 const DIRECTORY_INDEX_PATHS = new Set([
   routes.brands(),
   ...routing.locales.map((locale) => `/${locale}${routes.brands()}`),
@@ -223,23 +234,35 @@ function parseDirectoryPath(pathname: string): {
 }
 
 export function isDirectoryIndexPath(pathname: string, search = ""): boolean {
-  if (search) return false;
-  if (DIRECTORY_INDEX_PATHS.has(pathname)) return true;
-
-  const { path } = parseDirectoryPath(pathname);
-  const segments = path.split("/").filter(Boolean);
-  if (
-    segments[0] !== "categories" ||
-    (segments.length !== 2 && segments.length !== 3)
-  ) {
-    return false;
+  // Pathname first, deliberately. This runs in middleware for nearly every
+  // request, and parsing the query for `/api/...?x=1` or a utm-tagged marketing
+  // URL is work thrown away one line later.
+  if (!DIRECTORY_INDEX_PATHS.has(pathname)) {
+    const { path } = parseDirectoryPath(pathname);
+    const segments = path.split("/").filter(Boolean);
+    if (
+      segments[0] !== "categories" ||
+      (segments.length !== 2 && segments.length !== 3)
+    ) {
+      return false;
+    }
+    const category = L1_CATEGORIES.find((item) => item.slug === segments[1]);
+    if (!category) return false;
+    if (
+      segments.length === 3 &&
+      subcategoryBySlug(segments[2] ?? "")?.category !== category.slug
+    ) {
+      return false;
+    }
   }
-  const category = L1_CATEGORIES.find(
-    (item) => item.slug === segments[1],
-  );
-  if (!category) return false;
-  if (segments.length === 2) return true;
-  return subcategoryBySlug(segments[2] ?? "")?.category === category.slug;
+
+  if (search) {
+    for (const key of new URLSearchParams(search).keys()) {
+      if (!CACHEABLE_DIRECTORY_QUERY_KEYS.has(key)) return false;
+    }
+  }
+
+  return true;
 }
 
 export type DirectoryTaxonomyRedirect =
@@ -611,6 +634,16 @@ async function attachVisitorIdentity(
     return response;
   }
   if (isLikelyCrawler(request)) return response;
+  // The ceiling above, closed for the one route that outran it: `runProxy` has
+  // just stamped the directory edge cache header on a cookie-less, non-RSC
+  // directory view, and `shouldMintVisitorIdentity` still returns true for
+  // `directory:list`. A `Set-Cookie` here would either drop the response from
+  // the CDN or hand one visitor's signed identity to everyone. Matching the
+  // exact header keeps minting intact for `?search=`, cookie-carrying, and all
+  // non-directory requests.
+  if (response.headers.get("cache-control") === DIRECTORY_EDGE_CACHE_CONTROL) {
+    return response;
+  }
 
   try {
     const identity = await resolveVisitorIdentity(
@@ -988,20 +1021,17 @@ async function runProxy(request: NextRequest) {
     response = NextResponse.next({ request: { headers: requestHeaders } });
   }
 
-  // Only write the cookie when it would actually change. A Set-Cookie header on
-  // every HTML response makes the response uncacheable at Cloudflare, so the CDN
-  // caches nothing and every request falls through to the origin.
+  // No locale cookie is written on this path, on purpose. `inferredLocale` is
+  // one of exactly two locales, and `en` has already returned the redirect
+  // above that carries the cookie; the only value that can reach here is
+  // `routing.defaultLocale`, which an absent cookie already resolves to through
+  // `resolveInitialLocale`. Writing it would restate the fallback while adding
+  // a Set-Cookie that makes every HTML response uncacheable at Cloudflare --
+  // and the first cookie-less visit is exactly the request the edge most needs
+  // to serve from cache.
   //
-  // URL prefixes control only the current request; only an inferred locale is
-  // retained for the browser session. Explicit preferences are persisted by the
-  // switcher, auth, and settings flows instead.
-  const resolvedLocale = inferredLocale;
-  if (resolvedLocale && resolvedLocale !== cookieLocale && !routerRequest) {
-    response.cookies.set(LOCALE_COOKIE, resolvedLocale, {
-      sameSite: "lax",
-      path: "/",
-    });
-  }
+  // URL prefixes control only the current request. Explicit preferences are
+  // persisted by the switcher, auth, and settings flows instead.
 
   if (
     isDirectoryIndexPath(pathname, request.nextUrl.search) &&

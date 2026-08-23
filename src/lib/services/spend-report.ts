@@ -115,6 +115,8 @@ export async function loadSpendReport(
     operations = {
       needsAttention: true,
       unavailableUpstash: true,
+      // The snapshot never loaded, so the egress alarm is dark too.
+      unavailableRailway: true,
       warnings: [],
       lowerBoundCaveats: [],
       openai: null,
@@ -128,6 +130,8 @@ export async function loadSpendReport(
         message: "Upstash monitoring failed.",
       },
       posthog: null,
+      railway: null,
+      railwayMemory: null,
     };
   }
 

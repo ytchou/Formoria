@@ -129,7 +129,15 @@ function isOperationalAlertSummary(value: unknown): boolean {
     value.lowerBoundCaveats.every((item) => typeof item === "string") &&
     (value.openai === null || isAlertMeter(value.openai)) &&
     (value.upstash === null || isAlertMeter(value.upstash)) &&
-    (value.posthog === null || isAlertMeter(value.posthog))
+    (value.posthog === null || isAlertMeter(value.posthog)) &&
+    // Optional during a deploy skew: the report endpoint may still be the
+    // build that predates the Railway meter.
+    (value.railway === undefined ||
+      value.railway === null ||
+      isAlertMeter(value.railway)) &&
+    (value.railwayMemory === undefined ||
+      value.railwayMemory === null ||
+      isAlertMeter(value.railwayMemory))
   );
 }
 
@@ -249,6 +257,13 @@ function units(value: number | null | undefined): string {
   );
 }
 
+// Egress is a fractional daily figure; the integer `units` formatter would
+// round a 1.2 GB day down to "1". Callers guard `null` themselves and render
+// "unknown" -- a null must never be printed as a measured "0.00 GB".
+function gb(value: number): string {
+  return `${value.toFixed(2)} GB`;
+}
+
 function unitName(value: string | null | undefined, fallback: string): string {
   const name = value?.split(/[ /]/, 1)[0]?.trim();
   return name || fallback;
@@ -265,26 +280,17 @@ function dateLabel(report: SpendWatchReport): string {
 function operationalMeterLine(
   label: string,
   meter: NonNullable<SpendWatchReport["operations"]>["openai"],
+  unit: "usd" | "units" | "gb",
 ): string {
   if (!meter) return `• ${label}: unavailable`;
-  const currency = label === "OpenAI budget";
-  const value =
-    meter.value === null
-      ? "unknown"
-      : currency
-        ? usd(meter.value)
-        : units(meter.value);
+  const format = (amount: number): string =>
+    unit === "usd" ? usd(amount) : unit === "gb" ? gb(amount) : units(amount);
+  const value = meter.value === null ? "unknown" : format(meter.value);
   const limit =
-    meter.limit === null
-      ? "no authoritative limit"
-      : currency
-        ? usd(meter.limit)
-        : units(meter.limit);
+    meter.limit === null ? "no authoritative limit" : format(meter.limit);
   const headroom =
     meter.value !== null && meter.limit !== null
-      ? currency
-        ? usd(Math.max(0, meter.limit - meter.value))
-        : units(Math.max(0, meter.limit - meter.value))
+      ? format(Math.max(0, meter.limit - meter.value))
       : "unknown";
   const percentage =
     meter.percentage === null
@@ -303,9 +309,17 @@ function successNotification(report: SpendWatchReport): AgentNotification {
   const operations = report.operations;
   const operationDetails = operations
     ? [
-        operationalMeterLine("OpenAI budget", operations.openai),
-        operationalMeterLine("Upstash commands", operations.upstash),
-        operationalMeterLine("PostHog events", operations.posthog),
+        operationalMeterLine("OpenAI budget", operations.openai, "usd"),
+        operationalMeterLine("Upstash commands", operations.upstash, "units"),
+        operationalMeterLine("PostHog events", operations.posthog, "units"),
+        operationalMeterLine("Railway egress", operations.railway, "gb"),
+        // The memory metric rides `operations.railwayMemory`; without its own
+        // line a memory warning reaches Slack with no value, unit, or limit.
+        operationalMeterLine(
+          "Railway memory (7d mean)",
+          operations.railwayMemory,
+          "gb",
+        ),
         ...operations.lowerBoundCaveats.map((caveat) => `• Caveat: ${caveat}`),
       ]
     : [];

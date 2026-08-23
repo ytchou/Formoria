@@ -108,6 +108,15 @@ check_env() {
       echo "OK: Upstash Management API credentials"
     fi
     unset __upstash_management_count
+    # The Railway project, environment, and service ids are pinned in source,
+    # so the token is the only value this meter needs. A missing token is a
+    # warning, never an error: the meter reports `unconfigured` and every other
+    # preflight check still has to be able to pass.
+    if grep -q "^RAILWAY_API_TOKEN=." .env.local 2>/dev/null; then
+      echo "OK: Railway metrics API token"
+    else
+      echo "WARN: RAILWAY_API_TOKEN is not configured — Railway egress remains unknown"
+    fi
     if ! grep -q "CF_ORIGIN_SECRET=." .env.local; then
       echo "⚠ CF_ORIGIN_SECRET not set (optional — needed for Cloudflare origin protection)"
     fi

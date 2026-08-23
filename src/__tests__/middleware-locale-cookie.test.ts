@@ -42,10 +42,11 @@ describe('locale cookie is only written when it changes', () => {
     expect(res.headers.get('set-cookie')).toBeNull()
   })
 
-  it('sets the cookie when there is no incoming cookie', async () => {
+  it('does not set the cookie when a cookie-less visitor resolves to the default locale', async () => {
     const res = await proxy(req('/about', { acceptLanguage: 'zh-TW,zh;q=0.9' }))
 
-    expect(res.cookies.get(LOCALE_COOKIE)?.value).toBe('zh-TW')
+    expect(res.cookies.get(LOCALE_COOKIE)).toBeUndefined()
+    expect(res.headers.get('set-cookie')).toBeNull()
   })
 
   it('never sets the cookie on internal router requests', async () => {
@@ -80,7 +81,7 @@ describe('locale cookie is only written when it changes', () => {
     )
 
     expect(res.status).not.toBe(307)
-    expect(res.cookies.get(LOCALE_COOKIE)?.value).toBe('zh-TW')
+    expect(res.cookies.get(LOCALE_COOKIE)).toBeUndefined()
   })
 
   it('never geo-redirects a crawler', async () => {
@@ -117,11 +118,25 @@ describe('locale cookie is only written when it changes', () => {
     },
   )
 
-  it('keeps the first brand directory response private while setting locale', async () => {
+  it('marks the first cookie-less brand directory response edge-cacheable', async () => {
     const res = await proxy(req('/brands', { acceptLanguage: 'zh-TW,zh;q=0.9' }))
 
-    expect(res.cookies.get(LOCALE_COOKIE)?.value).toBe('zh-TW')
-    expect(res.headers.get('cache-control')).not.toBe(
+    expect(res.headers.get('set-cookie')).toBeNull()
+    expect(res.headers.get('cache-control')).toBe(
+      'public, s-maxage=3600, stale-while-revalidate=86400',
+    )
+  })
+
+  it('still persists a non-default inferred locale', async () => {
+    const res = await proxy(req('/about', { acceptLanguage: 'en-US,en;q=0.9' }))
+
+    expect(res.cookies.get(LOCALE_COOKIE)?.value).toBe('en')
+  })
+
+  it('directory filter view response is edge-cacheable for a cookie-carrying visitor', async () => {
+    const res = await proxy(req('/brands?page=2&sort=newest', { cookie: 'zh-TW' }))
+
+    expect(res.headers.get('cache-control')).toBe(
       'public, s-maxage=3600, stale-while-revalidate=86400',
     )
   })

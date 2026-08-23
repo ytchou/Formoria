@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import nextConfig from '../../next.config'
 import { L1_CATEGORIES, L2_SUBCATEGORIES } from '@/lib/taxonomy/ontology'
 import {
+  CACHEABLE_DIRECTORY_QUERY_KEYS,
   decideDirectoryTaxonomyRedirect,
   isDirectoryIndexPath,
 } from '@/proxy'
@@ -99,10 +100,42 @@ describe('directory taxonomy redirects', () => {
     })
   })
 
-  it('edge-cache predicate accepts bare category paths only', () => {
+  it('edge-cache predicate accepts bare category paths', () => {
     expect(isDirectoryIndexPath('/categories/home')).toBe(true)
     expect(isDirectoryIndexPath('/categories/home/furniture')).toBe(true)
-    expect(isDirectoryIndexPath('/categories/home', '?price=2')).toBe(false)
+  })
+
+  it('isDirectoryIndexPath accepts allow-listed filter keys', () => {
+    expect(isDirectoryIndexPath('/brands', '?category=food-drink')).toBe(true)
+    expect(isDirectoryIndexPath('/brands', '?page=2&sort=newest')).toBe(true)
+    expect(
+      isDirectoryIndexPath(
+        '/brands',
+        '?category=fashion&sub=backpacks&material=leather&price=2&verification=all',
+      ),
+    ).toBe(true)
+  })
+
+  it('isDirectoryIndexPath rejects free-text search', () => {
+    expect(isDirectoryIndexPath('/brands', '?search=tea')).toBe(false)
+    expect(isDirectoryIndexPath('/brands', '?page=2&search=')).toBe(false)
+  })
+
+  it('isDirectoryIndexPath rejects unknown keys', () => {
+    expect(isDirectoryIndexPath('/brands', '?foo=bar')).toBe(false)
+    expect(isDirectoryIndexPath('/brands', '?category=food-drink&utm_source=x')).toBe(false)
+  })
+
+  it('isDirectoryIndexPath applies the same allow-list to category paths', () => {
+    expect(isDirectoryIndexPath('/categories/home', '?page=2')).toBe(true)
+    expect(isDirectoryIndexPath('/categories/home', '?search=x')).toBe(false)
+  })
+
+  it('the allow-list is exactly the directory filter keys minus search', () => {
+    expect([...CACHEABLE_DIRECTORY_QUERY_KEYS].sort()).toEqual(
+      ['category', 'material', 'page', 'price', 'sort', 'sub', 'verification'],
+    )
+    expect(CACHEABLE_DIRECTORY_QUERY_KEYS.has('search')).toBe(false)
   })
 })
 
