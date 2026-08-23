@@ -138,4 +138,27 @@ describe('backfill-storage-paths', () => {
     ).toBeNull()
     expect(resolveStoragePath('https://evil.example/brands/abc/hero.webp')).toBeNull()
   })
+
+  it('marks submission_images as skipping rows that borrow an origin image', () => {
+    // `submission_images` carries the check constraint
+    // `origin_brand_image_id IS NULL OR storage_path IS NULL`. A cloned row
+    // points at an existing brand image instead of owning bytes, so filling its
+    // path is not just rejected by Postgres, it is wrong: two rows would claim
+    // one object, and the storage sweep decides what to delete by counting
+    // owners. Production hit this after 681 rows on 2026-08-23; staging never
+    // did, because it had no submission_images rows to fill.
+    const target = targetFor('submission_images')
+
+    expect(target.skipWhenSet).toBe('origin_brand_image_id')
+  })
+
+  it('leaves every other target unfiltered', () => {
+    const others = BACKFILL_TARGETS.filter(
+      (candidate) => candidate.table !== 'submission_images',
+    )
+
+    for (const target of others) {
+      expect(target.skipWhenSet).toBeUndefined()
+    }
+  })
 })
