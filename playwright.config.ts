@@ -129,7 +129,13 @@ export default defineConfig({
     {
       name: "deep",
       testMatch: "e2e/tests/**/*.spec.ts",
-      testIgnore: "e2e/tests/mobile.spec.ts",
+      testIgnore: [
+        "e2e/tests/mobile.spec.ts",
+        // Assert limiter behaviour, so they belong to the `anti-enumeration`
+        // project. Left in `deep` they would run with the gates off and pass
+        // without proving anything.
+        "e2e/tests/anti-enumeration-*.spec.ts",
+      ],
       use: { ...devices["Desktop Chrome"] },
     },
     // Compatibility: exactly the one tagged journey, selected independently
@@ -158,6 +164,28 @@ export default defineConfig({
       name: "mobile",
       testMatch: "e2e/tests/mobile.spec.ts",
       use: { ...devices["Pixel 5"] },
+    },
+    /*
+     * Anti-enumeration (DEV-1551 task 18). The ONLY project that expects the
+     * rate limiter to be ON, which is why its specs are excluded from `deep`:
+     * under the default gates they would assert nothing and pass trivially.
+     *
+     * The switch has to reach the SERVER, not just this process -- the dev
+     * server is shared across projects. So this project cannot arm the limiter
+     * by itself; run it with the gate in the environment so `webServer` picks
+     * it up:
+     *
+     *   SECURITY_DISABLE_RATE_LIMIT=false pnpm exec playwright test --project=anti-enumeration
+     *
+     * Turnstile stays stubbed by default so the human matrix can prove "no
+     * challenge was issued" without solving one. To exercise a real failed
+     * verification, add SECURITY_STUB_TURNSTILE=false and point at
+     * Cloudflare's published always-fail test key.
+     */
+    {
+      name: "anti-enumeration",
+      testMatch: "e2e/tests/anti-enumeration-*.spec.ts",
+      use: { ...devices["Desktop Chrome"] },
     },
   ],
   globalSetup: "./e2e/global-setup.ts",
