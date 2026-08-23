@@ -291,7 +291,6 @@ test.describe("SEO deep", () => {
       "/contact",
       "/terms",
       "/privacy",
-      "/getting-started",
       "/submit",
     ]);
     const staticLocations = locations.filter((url) => {

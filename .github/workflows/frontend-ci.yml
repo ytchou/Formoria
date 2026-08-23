@@ -80,16 +80,62 @@ jobs:
               ;;
           esac
 
+  database-verify:
+    name: Database drift
+    runs-on: ubuntu-latest
+    environment: "Formoria / staging"
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Detect database changes
+        id: changes
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            database:
+              - 'supabase/migrations/**'
+              - 'src/lib/supabase/database.types.ts'
+              - 'scripts/db-deploy.ts'
+      - name: Check out pull request merge
+        if: steps.changes.outputs.database == 'true'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          persist-credentials: false
+      - if: steps.changes.outputs.database == 'true'
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - if: steps.changes.outputs.database == 'true'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        if: steps.changes.outputs.database == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Verify database drift
+        if: steps.changes.outputs.database == 'true'
+        run: pnpm db:verify
+        env:
+          FORMORIA_DEPLOYMENT_ENV: staging
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
   quality-gate:
     name: Quality
     if: always()
-    needs: [quality]
+    needs: [quality, database-verify]
     runs-on: ubuntu-latest
     steps:
       - name: Check quality results
         run: |
           if [[ "${{ needs.quality.result }}" != "success" ]]; then
             echo "Quality checks failed: ${{ needs.quality.result }}"
+            exit 1
+          fi
+          if [[ "${{ needs.database-verify.result }}" != "success" ]]; then
+            echo "Database verification failed: ${{ needs.database-verify.result }}"
             exit 1
           fi
 

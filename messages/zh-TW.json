@@ -40,7 +40,6 @@
     "tagline": "生活可以更像自己一點",
     "discoverHeading": "探索",
     "directory": "品牌目錄",
-    "gettingStarted": "開始使用",
     "stories": "專題",
     "events": "展會",
     "submit": "推薦品牌",
@@ -48,8 +47,7 @@
     "faq": "常見問題",
     "connectHeading": "聯絡",
     "whereToBuy": "哪裡買",
-    "discover": "風格",
-    "disclosure": "Formoria 不販售商品，所有購買都在品牌自己的官方網站或實體通路完成。"
+    "discover": "風格"
   },
   "discover": {
     "metaTitle": "風格",
@@ -1310,8 +1308,8 @@
       "sourceName": "經濟部中小及新創企業署《2024 年中小企業白皮書》（2023 年資料）"
     },
     "guide": {
-      "heading": "想了解如何使用 Formoria？",
-      "cta": "開始使用 →"
+      "heading": "準備探索台灣品牌了嗎？",
+      "cta": "瀏覽品牌 →"
     }
   },
   "mySubmissions": {
@@ -2058,7 +2056,7 @@
         },
         "learnMore": {
           "question": "想了解更多？",
-          "answer": "想更了解 Formoria？請參閱我們的<link>入門指南</link>。"
+          "answer": "想更了解審核、品牌認領與資料更新方式？請參閱<link>常見問題</link>。"
         }
       }
     },
@@ -2174,68 +2172,6 @@
       "suggestedName": "建議名稱：",
       "suggestedUrl": "建議網址：",
       "applySuggestion": "套用"
-    }
-  },
-  "gettingStarted": {
-    "metadata": {
-      "title": "探索 Formoria",
-      "description": "在市集停下來之後，怎麼找到那個品牌？瀏覽收錄品牌，查看產品與品牌資料，再前往品牌官方或實體通路購買。"
-    },
-    "hero": {
-      "eyebrow": "探索 Formoria",
-      "title": "從一件喜歡的東西，走到它的品牌和買得到它的地方",
-      "intro": "依分類或搜尋探索收錄品牌，查看品牌資料、產品特色，以及品牌官方的線上購買與實體通路；由 Formoria 挑選的內容會另外標示。",
-      "primaryCta": "瀏覽品牌",
-      "secondaryCta": "閱讀常見問題"
-    },
-    "steps": {
-      "heading": "如何探索 Formoria",
-      "discover": {
-        "title": "從你感興趣的方向開始",
-        "body": "依分類瀏覽品牌，或直接搜尋品牌名稱與產品關鍵字。",
-        "cta": "瀏覽品牌"
-      },
-      "submit": {
-        "title": "打開品牌頁面",
-        "body": "在品牌頁查看品牌介紹、產品照片、實體通路與官方連結。",
-        "cta": "探索品牌"
-      },
-      "review": {
-        "title": "比較品牌資訊",
-        "body": "透過品牌介紹、照片與連結，了解每個品牌的特色。"
-      },
-      "manage": {
-        "title": "先收藏，之後再看",
-        "body": "把想再次了解的品牌加入收藏，之後再回來繼續探索。"
-      }
-    },
-    "tips": {
-      "heading": "探索品牌時",
-      "accurate": "先看品牌介紹與產品資訊，確認品牌在做什麼、有哪些產品。",
-      "photos": "從產品照片查看外觀、風格與使用情境。",
-      "links": "前往品牌官方或實體通路查看價格、規格選項、庫存與購買方式。"
-    },
-    "forOwners": {
-      "heading": "如果你是品牌主",
-      "comingSoon": "品牌主可以認領自己的品牌頁面：通過擁有證明審核後，就能編輯資料。以下功能還在準備中，也歡迎讓我們知道還需要什麼。",
-      "claim": {
-        "title": "認領品牌",
-        "description": "在品牌頁點「認領這個品牌」，提交擁有證明並通過審核後，就能接手管理由社群建立的頁面。"
-      },
-      "manage": {
-        "title": "管理品牌頁面",
-        "description": "認領之後可以隨時更新產品、連結與品牌介紹，保持資訊正確。"
-      },
-      "track": {
-        "title": "追蹤表現",
-        "description": "儀表板會顯示訪客如何發現這個品牌，以及他們對哪些內容有興趣。"
-      }
-    },
-    "cta": {
-      "heading": "準備探索台灣品牌了嗎？",
-      "body": "先從品牌目錄開始，從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方；也可以先看看 Formoria 在做什麼。",
-      "browse": "瀏覽品牌",
-      "about": "了解 Formoria"
     }
   },
   "saveBrand": {

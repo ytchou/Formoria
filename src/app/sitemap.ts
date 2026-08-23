@@ -107,7 +107,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     routes.contact(),
     routes.terms(),
     routes.privacy(),
-    routes.gettingStarted(),
     routes.submit.index(),
   ].flatMap((path) => localizedEntries(path));
 

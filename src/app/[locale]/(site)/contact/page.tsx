@@ -77,7 +77,7 @@ export default async function ContactPage({ params }: PageProps) {
       </section>
 
       <section className="py-10">
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           {channels.map(({ key, icon: Icon, href, external }) => (
             <article key={key} className={surfaceCardStyles()}>
               <div className="flex size-8 items-center justify-center rounded-full bg-accent text-ground">
