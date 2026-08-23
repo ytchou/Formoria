@@ -28,8 +28,6 @@ function pathClass(pathname: string): string {
   if (first === 'sitemap.xml') return 'sitemap'
   if (first === 'robots.txt') return 'robots'
   if (first === 'api') return 'api'
-  // The microsite host is rewritten to /site/<slug> before it reaches here.
-  if (first === 'site') return 'microsite'
   return 'other'
 }
 

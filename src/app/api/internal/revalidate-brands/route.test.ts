@@ -30,7 +30,7 @@ describe("POST /api/internal/revalidate-brands", () => {
     vi.stubEnv("ORIGIN_SECRET", secret);
   });
 
-  it("bounds a 200-brand batch to one shared tag and 609 path invalidations", async () => {
+  it("bounds a 200-brand batch to one shared tag and 409 path invalidations", async () => {
     const slugs = Array.from({ length: 200 }, (_, index) => `brand-${index}`);
 
     const response = await POST(request({ slugs }));
@@ -39,7 +39,7 @@ describe("POST /api/internal/revalidate-brands", () => {
     expect(await response.json()).toEqual({ revalidated: 200 });
     expect(revalidateTag).toHaveBeenCalledTimes(1);
     expect(revalidateTag).toHaveBeenCalledWith(PUBLIC_BRAND_DATA_TAG, "max");
-    expect(revalidatePath).toHaveBeenCalledTimes(609);
+    expect(revalidatePath).toHaveBeenCalledTimes(409);
 
     expect(revalidatePath).toHaveBeenCalledWith(
       "/[locale]/events/[slug]",
@@ -56,7 +56,6 @@ describe("POST /api/internal/revalidate-brands", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/en/about");
     expect(revalidatePath).toHaveBeenCalledWith("/zh-TW/events");
     expect(revalidatePath).toHaveBeenCalledWith("/en/events");
-    expect(revalidatePath).toHaveBeenCalledWith("/site/brand-0");
     expect(revalidatePath).toHaveBeenCalledWith("/brands/brand-0");
     expect(revalidatePath).toHaveBeenCalledWith("/en/brands/brand-0");
 
@@ -79,11 +78,9 @@ describe("POST /api/internal/revalidate-brands", () => {
     expect(revalidateTag).toHaveBeenCalledTimes(1);
     expect(
       revalidatePath.mock.calls.filter(([path]) =>
-        ["/brands/niizo", "/en/brands/niizo", "/site/niizo"].includes(
-          path as string,
-        ),
+        ["/brands/niizo", "/en/brands/niizo"].includes(path as string),
       ),
-    ).toHaveLength(3);
+    ).toHaveLength(2);
   });
 
   it("returns 401 without invoking any cache operation", async () => {

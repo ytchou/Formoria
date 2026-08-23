@@ -107,7 +107,7 @@ const eslintConfig = defineConfig([
   // UI sourcing rules: raw styled HTML elements must use ui/ primitives.
   {
     files: ["src/**/*.tsx"],
-    ignores: ["src/components/ui/**", "src/components/microsite/**"],
+    ignores: ["src/components/ui/**"],
     rules: {
       "no-restricted-syntax": [
         "error",

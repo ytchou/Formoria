@@ -1,13 +1,10 @@
 import { test, expect } from "../fixtures/auth";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { ownerFeaturesDisabled } from "../helpers/owner-features";
 
-import { BUDGET, POLL } from "../budgets";
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnySupabaseClient = SupabaseClient<any, any, any>;
+import { BUDGET } from "../budgets";
 
 /**
- * Static & Compliance Pages + Microsite
+ * Static & Compliance Pages
  *
  * Journeys:
  *  - /about renders with heading
@@ -18,63 +15,11 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
  *  - /terms renders with heading
  *  - /challenge renders the localized verification heading with Turnstile container
  *  - /submit landing renders heading and links to the recommendation and owner flows
- *  - /site/<slug> renders brand name and tagline for a seeded microsite brand
  *
  * Actor: anonPage (unauthenticated)
- * Seed: one approved brand with site_content for the microsite test
- * Cleanup: afterAll deletes the brand
+ * Seed: none — every page here is static
  */
 test.describe("Static & compliance pages", () => {
-  let supabase: AnySupabaseClient;
-  let micrositeBrandId: string;
-  let micrositeSlug: string;
-  let micrositeBrandName: string;
-  const micrositeTagline = "E2E test tagline";
-
-  test.beforeAll(async ({}, workerInfo) => {
-    supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
-
-    const ts = Date.now();
-    const wi = workerInfo.workerIndex;
-    micrositeSlug = `e2e-microsite-${ts}-${wi}`;
-    micrositeBrandName = `[E2E-TEST] microsite ${ts}`;
-
-    const { data: brand, error } = await supabase
-      .from("brands")
-      .insert({
-        name: micrositeBrandName,
-        slug: micrositeSlug,
-        status: "approved",
-        approved_at: new Date().toISOString(),
-        founding_year: "2020",
-        site_content: {
-          template: "default",
-          tokens: { accent: "#000" },
-          tagline: micrositeTagline,
-          story: "E2E test story",
-          products: [],
-          ctaType: "mailto",
-        },
-      })
-      .select("id")
-      .single();
-
-    if (error || !brand) {
-      throw new Error(`Failed to seed microsite brand: ${error?.message}`);
-    }
-    micrositeBrandId = brand.id;
-  });
-
-  test.afterAll(async () => {
-    if (!supabase) return;
-    if (micrositeBrandId) {
-      await supabase.from("brands").delete().eq("id", micrositeBrandId);
-    }
-  });
-
   test("both About locales state the mission, trust labels, and outbound vision", async ({
     anonPage,
   }) => {
@@ -239,42 +184,5 @@ test.describe("Static & compliance pages", () => {
     } else {
       await expect(ownerCta).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     }
-  });
-
-  test("microsite renders for seeded brand", async ({ anonPage }) => {
-    test.setTimeout(BUDGET.TEST.MUTATION);
-    if (!supabase) {
-      test.skip(true, "PREVIEW_MODE active");
-      return;
-    }
-
-    // /site/[slug] is NOT under [locale] — use bare path
-    // ISR: allow time for the page to become available after the brand seed.
-    //
-    // `POLL.NAVIGATION` is `as const`, so its ladder is a readonly tuple while
-    await expect(async () => {
-      const resp = await anonPage.goto(`/site/${micrositeSlug}`, {
-        timeout: BUDGET.SERVER_RENDER,
-      });
-      if (resp?.status() === 503) throw new Error("503");
-      if (resp?.status() === 404)
-        throw new Error("404 — ISR not yet generated");
-      await expect(
-        anonPage.getByRole("heading", { level: 1, name: micrositeBrandName }),
-      ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-      await expect(
-        anonPage.getByText(micrositeTagline, { exact: true }),
-      ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-    }).toPass(POLL.NAVIGATION);
-
-    // The microsite is `noindex` by design and no test asserted it until
-    // DEV-1514. That combination is the dangerous one: the page is invisible
-    // to every search-based check precisely BECAUSE it is noindex, so the day
-    // the directive is dropped, nothing goes red and brand microsites quietly
-    // start competing with `/brands/[slug]` for the same queries.
-    await expect(anonPage.locator('meta[name="robots"]')).toHaveAttribute(
-      "content",
-      /noindex/i,
-    );
   });
 });

@@ -69,7 +69,6 @@ jobs:
                 src/components/ui/__tests__/button-geometry-contract.test.ts \
                 src/components/ui/__tests__/chip-row-contract.test.ts \
                 src/components/admin/__tests__/admin-plain-chrome.test.ts \
-                src/components/microsite/__tests__/v2-tokens.test.ts \
                 scripts/check-frontend-type-tokens.test.ts
               pnpm lint
               ;;

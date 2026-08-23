@@ -6,7 +6,6 @@ import type {
   PhaseResult,
   PhaseResultStatus,
 } from '@/lib/types/curation'
-import type { SiteContent } from '@/lib/types/brand'
 import type { Database } from '@/lib/supabase/database.types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import type { EnrichmentTarget } from '../_shared/enrichment-target'
@@ -29,7 +28,7 @@ export type EnrichBrand = {
   subcategories_en?: string[] | null
   founding_year?: number | null
   city?: string | null
-  site_content?: SiteContent | null
+  site_content?: unknown | null
   category?: string | null
   purchase_website?: string | null
   purchaseWebsite?: string | null

@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 /**
- * `hydrateCardImageMeta` is what puts per-image metadata on every card surface —
- * /brands, the homepage, /favorites, story galleries and microsites all route
- * through it. It decides fill mode (`isLogo`) and carries the alt text, so a
- * wrong row here is a visibly wrong render rather than a missing string.
+ * `hydrateCardImageMeta` is what puts per-image metadata on every card surface
+ * — /brands, the homepage, /favorites and story galleries all route through it.
+ * It decides fill mode (`isLogo`) and carries the alt text, so a wrong row here
+ * is a visibly wrong render rather than a missing string.
  *
  * The load-bearing parts are the batching and the failure mode, and both are
  * invisible on a five-brand happy path:

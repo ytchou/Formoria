@@ -31,10 +31,6 @@ const ALLOWED_UNFILTERED = new Map([
     "by-slug detail read; e2e specs navigate seeded brands directly",
   ],
   [
-    "getPublicMicrositeBrandBySlug",
-    "by-slug microsite read; e2e specs navigate seeded brands directly",
-  ],
-  [
     "getApprovedBrandBySlug",
     "by-slug read; e2e specs navigate seeded brands directly",
   ],
