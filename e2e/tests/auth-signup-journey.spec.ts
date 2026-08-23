@@ -9,7 +9,6 @@ import {
   deleteCapturedAuthEmail,
   waitForCapturedAuthEmail,
 } from '../helpers/auth-email-capture';
-import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
 
 import { BUDGET } from '../budgets';
 // Signup → email confirmation → onboarding → first value.
@@ -25,15 +24,6 @@ import { BUDGET } from '../budgets';
 
 test.describe.serial('Auth — signup to first value', () => {
   test.skip(!process.env.SUPABASE_SERVICE_ROLE_KEY, 'requires service role key');
-
-  // Suite-level gate (DEV-1261). The signup entry points this journey depends on
-  // are part of the owner surface the flag hides. Probes the running app, never
-  // app_settings.
-  test.beforeAll(async ({ browser }) => {
-    if (await ownerFeaturesDisabled(browser)) {
-      test.skip(true, OWNER_FEATURES_OFF_REASON);
-    }
-  });
 
   test('confirms a new account and lands on the home page signed in', async ({
     anonPage,

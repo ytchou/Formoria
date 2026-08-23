@@ -124,6 +124,11 @@ const NON_PUBLIC_HEADS = new Set([
   'admin',
   'api',
   'auth',
+  // Retired with the owner dashboard (DEV-1570) but still in the URL space:
+  // stale prefetched links, bookmarks and scanners keep hitting it. It stays
+  // non-public so those 404s are never scored on the enumeration ladder, whose
+  // thresholds are calibrated from directory traffic only.
+  'dashboard',
   'favorites',
   'my-submissions',
   'settings',

@@ -92,20 +92,3 @@ export async function logAdminAction({
     // Fire-and-forget - do not block the action on logging failure.
   }
 }
-
-export async function logAdminActionIfAdmin(
-  isAdmin: boolean,
-  user: { id: string; email: string | null },
-  action: AdminAction,
-  brandSlug: string,
-  brandId: string,
-): Promise<void> {
-  if (!isAdmin || !user.email) return
-  void logAdminAction({
-    adminUserId: user.id,
-    adminEmail: user.email,
-    action,
-    targetBrandSlug: brandSlug,
-    targetBrandId: brandId,
-  })
-}

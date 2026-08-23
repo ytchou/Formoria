@@ -18,12 +18,6 @@ export const OWNER_FEATURE_CALLSITES: readonly OwnerFeatureCallsite[] = [
     kind: "skip",
   },
   {
-    file: "auth-signup-journey.spec.ts",
-    title: "Auth — signup to first value",
-    reason: "off",
-    kind: "skip",
-  },
-  {
     file: "claim-lifecycle.spec.ts",
     title: "Claim request lifecycle",
     reason: "off",

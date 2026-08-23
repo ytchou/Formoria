@@ -28,6 +28,10 @@ import { routes } from "@/lib/routes";
  * A claim that cannot complete lands home carrying its reason. The dashboard
  * that used to render these states was removed (DEV-1570); the parameter stays
  * so the failure remains visible in the URL and in analytics.
+ *
+ * Known gap, deliberately not filled: the home page reads no `searchParams`, so
+ * `?error=` currently has no renderer and the user sees an ordinary home page.
+ * PR 4 of DEV-1570 removes the claim flow and this path with it.
  */
 function claimErrorUrl(reason: string, locale: AppLocale, origin: string): URL {
   const url = new URL(localizePath(routes.home(), locale), origin);

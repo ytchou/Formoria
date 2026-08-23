@@ -565,8 +565,8 @@ describe('exact brand directory rate limit', () => {
 })
 
 /**
- * Regression: `/admin` had no branch in `classifyRoute`, so it
- * was scored as `public:global-content` against the directory
+ * Regression: `/admin` and `/dashboard` had no branch in `classifyRoute`, so
+ * they were scored as `public:global-content` against the directory
  * thresholds. The edge cannot see the user id, so staff traffic landed on the
  * visitor tier at multiplier 1 and polluted the calibration set.
  */
@@ -592,8 +592,8 @@ describe('traversal accounting skips non-public surfaces', () => {
     })
   }
 
-  it('records nothing for admin traffic', async () => {
-    for (const path of ['/admin/brands', '/api/admin/brands']) {
+  it('records nothing for admin and dashboard traffic', async () => {
+    for (const path of ['/admin/brands', '/api/admin/brands', '/dashboard']) {
       expect(await observeTraversal(request(path), path)).toBeNull()
     }
   })

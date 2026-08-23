@@ -702,18 +702,6 @@ export function trackBrandClaimStarted(
   })
 }
 
-export function trackMitDeclared(
-  brandId: string,
-  brandSlug: string,
-  declaredScope: string,
-) {
-  capturePostHogEvent(ANALYTICS_EVENTS.MIT_DECLARED, {
-    brand_id: brandId,
-    brand_slug: brandSlug,
-    declared_scope: declaredScope,
-  })
-}
-
 export function trackOriginEvidenceSubmitted(
   brandId: string,
   brandSlug: string,

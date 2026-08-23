@@ -78,12 +78,20 @@ export const RESERVED_ROUTES = new Set([
   "events",
   "where-to-buy",
   "favorites",
-  // Retired routes. `feature-requests` and its legacy `feedback` alias no
-  // longer serve a page, but they stay reserved so a bare hit 404s cleanly
-  // instead of being redirected into `/brands/<segment>` by
-  // `decideBareBrandSlug`, and so no brand can ever claim either slug.
+  // Retired routes. `feature-requests`, its legacy `feedback` alias, and
+  // `dashboard` (parked by DEV-1570) no longer serve a page, but they stay
+  // reserved so a bare hit 404s cleanly instead of being redirected into
+  // `/brands/<segment>` by `decideBareBrandSlug`, and so no brand can ever
+  // claim one of those slugs. `dashboard` matters twice over:
+  // `hasApprovedBrandSlug` treats a Supabase error as approved, so an
+  // unreserved `/dashboard` would answer a transient outage with a 301
+  // PERMANENT redirect into `/brands/dashboard` that browsers cache forever;
+  // and `isReservedSlug` reads this same set, so a brand called
+  // "Dashboard" could otherwise take the slug and shadow the app route if
+  // DEV-1570 is ever reverted.
   "feature-requests",
   "feedback",
+  "dashboard",
   "faq",
   "about",
   "vision",
@@ -640,9 +648,31 @@ async function attachVisitorIdentity(
   return response;
 }
 
+/**
+ * Admin impersonation was deleted with the owner dashboard (DEV-1570), and with
+ * it the only code that ever cleared this cookie. A browser that used
+ * view-as-owner before that deploy keeps a signed value until it self-expires,
+ * and a `git revert` of DEV-1570 would restore code that honors a cookie minted
+ * under the old rules with no fresh authorization step.
+ *
+ * One-way cleanup, and deliberately conditional on the REQUEST carrying the
+ * cookie: an unconditional `delete` emits `Set-Cookie` on every response, which
+ * makes a CDN bypass its cache — the same trap documented on
+ * `attachVisitorIdentity` for `/i/`. Remove this once no live browser can still
+ * hold one.
+ */
+const RETIRED_IMPERSONATE_COOKIE = "fm_impersonate";
+
 export async function proxy(request: NextRequest) {
   try {
-    return await attachVisitorIdentity(request, await runProxy(request));
+    const response = await attachVisitorIdentity(
+      request,
+      await runProxy(request),
+    );
+    if (request.cookies.has(RETIRED_IMPERSONATE_COOKIE)) {
+      response.cookies.delete(RETIRED_IMPERSONATE_COOKIE);
+    }
+    return response;
   } catch (error) {
     // Fired before the rethrow and deliberately not awaited: the capture is
     // asynchronous, and the request must fail exactly as it does today.

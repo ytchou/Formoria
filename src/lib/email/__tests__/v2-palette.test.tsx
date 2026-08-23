@@ -98,6 +98,7 @@ async function renderEveryTemplate(): Promise<Array<[string, string]>> {
     buildDeclarationRemovedEmail({
       ownerEmail: "owner@formoria.com",
       brandName: "測試品牌",
+      brandSlug: "test-brand",
       reviewerNotes: "產地證據不足。",
     }),
     buildOwnershipRevokedEmail({

@@ -91,6 +91,7 @@ const declarationRemoved = (locale: Locale, brandName: string) =>
   buildDeclarationRemovedEmail({
     ownerEmail: EMAIL,
     brandName,
+    brandSlug: 'test-brand',
     reviewerNotes: 'Community evidence contradicted the declaration',
     locale,
   })

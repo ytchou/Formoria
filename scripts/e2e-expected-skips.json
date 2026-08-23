@@ -7,11 +7,6 @@
       "reason": "app_settings.owner_features_enabled is false — /submit/owner 404s and every owner surface (claiming, owner submit fork) is unreachable. Set owner_features_enabled to true to bring this suite back."
     },
     {
-      "file": "auth-signup-journey.spec.ts",
-      "title": "Auth — signup to first value",
-      "reason": "app_settings.owner_features_enabled is false — /submit/owner 404s and every owner surface (claiming, owner submit fork) is unreachable. Set owner_features_enabled to true to bring this suite back."
-    },
-    {
       "file": "claim-lifecycle.spec.ts",
       "title": "Claim request lifecycle",
       "reason": "app_settings.owner_features_enabled is false — /submit/owner 404s and every owner surface (claiming, owner submit fork) is unreachable. Set owner_features_enabled to true to bring this suite back."

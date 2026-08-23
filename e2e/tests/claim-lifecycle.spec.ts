@@ -5,9 +5,15 @@ import { test, expect } from '../fixtures/auth';
 import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
 
 import { BUDGET, POLL } from '../budgets';
-// Suite-level gate (DEV-1261). The claim CTA is not rendered and the owner
-// dashboard 404s while the flag is off, so the whole lifecycle is unreachable.
-// Probes the running app, never app_settings.
+// Suite-level gate (DEV-1261). The claim CTA is not rendered while the flag is
+// off, so the whole lifecycle is unreachable. Probes the running app, never
+// app_settings.
+//
+// DEV-1570 (PR 3) deleted the owner dashboard, so the leg that followed an
+// approved claim to /dashboard/brands/<slug> was removed from this file — it
+// would 404 the moment anyone set owner_features_enabled to true, and the
+// failure would read as a claim-flow regression. The claim journey itself is
+// deleted wholesale in PR 4, and this spec goes with it.
 test.beforeAll(async ({ browser }) => {
   if (await ownerFeaturesDisabled(browser)) {
     test.skip(true, OWNER_FEATURES_OFF_REASON);
@@ -278,22 +284,6 @@ test.describe('Claim request lifecycle', () => {
           return data?.user_id ?? null;
         })
         .toBe(isolatedUser.id);
-
-      // The public brand page is ISR-cached; the authenticated dashboard reads
-      // current ownership and exposes the owner-only edit action immediately.
-      await expect(async () => {
-        await isolatedUserPage.goto('/dashboard');
-        await expect(isolatedUserPage).toHaveURL(
-          new RegExp(`/dashboard/brands/${brand.slug}$`),
-          { timeout: BUDGET.RENDERED },
-        );
-        await expect(
-          isolatedUserPage.getByRole('heading', { level: 1, name: brand.name }),
-        ).toBeVisible({ timeout: BUDGET.RENDERED });
-        await expect(
-          isolatedUserPage.getByRole('link', { name: '編輯品牌' }).first(),
-        ).toBeVisible({ timeout: BUDGET.RENDERED });
-      }).toPass(POLL.CLAIM);
     } finally {
       await cleanupScenario(supabase, brand, isolatedUser.id, claimId, storageKeys);
     }

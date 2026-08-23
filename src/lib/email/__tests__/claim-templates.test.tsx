@@ -37,7 +37,7 @@ describe("buildClaimEmailVerificationEmail", () => {
 });
 
 describe("buildClaimApprovedEmail", () => {
-  it("returns branded approval with dashboard link", async () => {
+  it("returns branded approval linking to the brand page", async () => {
     const email = await buildClaimApprovedEmail({
       ownerEmail: "owner@example.com",
       brandName: "Test Brand",
@@ -47,6 +47,10 @@ describe("buildClaimApprovedEmail", () => {
     expect(email.to).toBe("owner@example.com");
     expect(email.html).toContain("test-brand");
     expect(email.html).toContain("Formoria");
+    // DEV-1570 removed the owner dashboard; the primary CTA must point at the
+    // brand's public page, which still exists.
+    expect(email.html).toContain("https://formoria.com/brands/test-brand");
+    expect(email.html).not.toContain("/dashboard");
   });
 
   it("includes the share-card image and download CTA (zh-TW)", async () => {

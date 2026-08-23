@@ -8,6 +8,14 @@ import { routes } from '@/lib/routes'
  */
 const GATED_OWNER_PREFIXES = [routes.submit.owner()]
 
+/**
+ * The owner dashboard, parked by DEV-1570. Its `routes.dashboard.*` builders
+ * were deleted with it, so the prefix is a literal here. Separate from
+ * `GATED_OWNER_PREFIXES` because that set is only consulted while the
+ * owner-features flag is off, and this route 404s either way.
+ */
+const RETIRED_PREFIXES = ['/dashboard']
+
 function stripLocalePrefix(pathname: string): string {
   for (const locale of routing.locales) {
     if (pathname === `/${locale}`) return '/'
@@ -21,12 +29,23 @@ function stripLocalePrefix(pathname: string): string {
  * owner-features flag hides. Query string and hash are ignored.
  */
 function isGatedOwnerPath(target: string): boolean {
+  return matchesPrefix(target, GATED_OWNER_PREFIXES)
+}
+
+/**
+ * True when the target points at a surface DEV-1570 deleted outright. Unlike
+ * `isGatedOwnerPath` this does not depend on the owner-features flag: the route
+ * is gone from the router, so honoring such a `next` is always a 404.
+ */
+function isRetiredPath(target: string): boolean {
+  return matchesPrefix(target, RETIRED_PREFIXES)
+}
+
+function matchesPrefix(target: string, prefixes: readonly string[]): boolean {
   const suffixIndex = target.search(/[?#]/)
   const pathOnly = suffixIndex === -1 ? target : target.slice(0, suffixIndex)
   const path = stripLocalePrefix(pathOnly).replace(/\/+$/, '') || '/'
-  return GATED_OWNER_PREFIXES.some(
-    (prefix) => path === prefix || path.startsWith(`${prefix}/`)
-  )
+  return prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
 }
 
 /**
@@ -43,9 +62,10 @@ export async function ownerLandingPath(): Promise<string> {
 /**
  * Resolves the post-auth destination for a caller-supplied `next`: the request
  * wins, otherwise the landing path. A `next` aimed at a gated owner route while
- * the flag is off (stale bookmark, old email link, or a `post_auth_next` cookie
- * written before the flip) would otherwise complete sign-in on a hard 404, so
- * it falls back to the landing path too.
+ * the flag is off, or at a route DEV-1570 retired (stale bookmark, old
+ * claim-invite email link, or a `post_auth_next` cookie written before the
+ * deploy), would otherwise complete sign-in on a hard 404, so it falls back to
+ * the landing path too.
  *
  * Callers must have already run `next` through `isRelativeUrl` — this check is
  * additive to the open-redirect guard, not a replacement for it. Returns an
@@ -56,6 +76,7 @@ export async function resolvePostAuthPath(
 ): Promise<string> {
   const landingPath = await ownerLandingPath()
   if (!requestedNext) return landingPath
+  if (isRetiredPath(requestedNext)) return landingPath
   if (!(await isOwnerFeaturesEnabled()) && isGatedOwnerPath(requestedNext)) {
     return landingPath
   }

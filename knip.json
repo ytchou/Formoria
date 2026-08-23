@@ -24,7 +24,6 @@
   ],
   "ignoreIssues": {
     "src/components/ui/card.tsx": ["exports"],
-    "src/components/ui/chart.tsx": ["exports", "types"],
     "src/app/admin/actions.ts": ["exports"],
     "src/test/server-only.ts": ["files"]
   }

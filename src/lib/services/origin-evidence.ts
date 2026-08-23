@@ -294,7 +294,7 @@ export async function reviewEvidence(
     })
     .eq('id', id)
     .eq('status', 'pending')
-    .select('id, brand_id, brands(name)')
+    .select('id, brand_id, brands(name, slug)')
     .maybeSingle()
 
   if (error) {
@@ -310,7 +310,10 @@ export async function reviewEvidence(
   const stripResult = await stripDeclaration(data.brand_id)
   if (!stripResult.ok) return stripResult
 
-  const brand = data.brands as unknown as Pick<OriginEvidenceBrand, 'name'> | null
+  const brand = data.brands as unknown as Pick<
+    OriginEvidenceBrand,
+    'name' | 'slug'
+  > | null
   try {
     const { data: owner, error: ownerError } = await supabase
       .from('brand_owners')
@@ -329,6 +332,7 @@ export async function reviewEvidence(
     const message = await buildDeclarationRemovedEmail({
       ownerEmail: ownerUser.user.email,
       brandName: brand.name,
+      brandSlug: brand.slug,
       reviewerNotes: notes,
     })
     const sendResult = await sendEmail(message)

@@ -65,39 +65,3 @@ export type AnalyticsSnapshotV1 = {
   }
   sourceUrl: string
 }
-
-export type OwnerDailyPoint = {
-  date: string
-  profileSessions: number
-  outboundSessions: number
-}
-
-export type DestinationRow = {
-  destination: string
-  sessions: number
-}
-
-export type TrafficSourceRow = {
-  source: string
-  sessions: number
-}
-
-export type OwnerAnalyticsSnapshotV1 = {
-  schemaVersion: 1
-  generatedAt: string
-  dataThrough: string
-  timeZone: 'Asia/Taipei'
-  windows: { current: DateWindow; prior: DateWindow; trend: DateWindow }
-  profileSessions: Comparison | null
-  outboundSessions: Comparison | null
-  outboundConversion: RateComparison | null
-  daily: OwnerDailyPoint[] | null
-  trafficSources: TrafficSourceRow[] | null
-  topTrafficSource: { source: string; share: number } | null
-  destinations: DestinationRow[] | null
-  completeness: {
-    comparisonReady: boolean
-    availableFrom: string | null
-    warnings: string[]
-  }
-}

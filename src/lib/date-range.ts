@@ -45,15 +45,6 @@ export function isoDateInTimeZone(value: string, timeZone: string) {
   return `${year}-${month}-${day}`;
 }
 
-export function formatIsoDate(date: string, locale: string, showYear: boolean) {
-  return new Intl.DateTimeFormat(locale, {
-    year: showYear ? "numeric" : undefined,
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${date}T00:00:00Z`));
-}
-
 function shiftIsoDate(isoDate: string, days: number) {
   const shifted = new Date(`${isoDate}T00:00:00Z`);
   shifted.setUTCDate(shifted.getUTCDate() + days);
