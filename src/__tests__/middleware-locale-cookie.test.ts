@@ -134,7 +134,7 @@ describe('locale cookie is only written when it changes', () => {
   })
 
   it('directory filter view response is edge-cacheable for a cookie-carrying visitor', async () => {
-    const res = await proxy(req('/brands?category=food-drink', { cookie: 'zh-TW' }))
+    const res = await proxy(req('/brands?page=2&sort=newest', { cookie: 'zh-TW' }))
 
     expect(res.headers.get('cache-control')).toBe(
       'public, s-maxage=3600, stale-while-revalidate=86400',

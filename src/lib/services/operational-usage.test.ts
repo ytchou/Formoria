@@ -640,7 +640,12 @@ describe("operational usage risk", () => {
     const captured = JSON.stringify(output);
     expect(captured).not.toContain(apiToken);
     expect(captured).toContain("https://backboard.railway.com/graphql/v2");
-    expect(JSON.stringify(fetchMock.mock.calls)).not.toContain(apiToken);
+    // The wire request must carry `Authorization: Bearer <token>`, so the fetch
+    // mock's recorded args always hold the token. The subject here is the audit
+    // record: it may never grow a header-bearing key.
+    const lowered = captured.toLowerCase();
+    expect(lowered).not.toContain("authorization");
+    expect(lowered).not.toContain("headers");
   });
 
   it("includes railway in the alert summary", () => {
