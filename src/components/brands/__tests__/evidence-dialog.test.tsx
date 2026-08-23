@@ -134,4 +134,25 @@ describe('DialogLoadingContent', () => {
     expect(dialog).toHaveAttribute('aria-busy', 'true')
     expect(screen.getByText(zh.common.loading)).toBeInTheDocument()
   })
+
+  // The width is the shell's `size` vocabulary, not a className the skeleton
+  // re-derives. A skeleton that is a different width from the body it hands off
+  // to is a visible jump at the exact moment the chunk lands.
+  it('resolves its width through the size prop, defaulting to form', () => {
+    const { rerender } = renderWithIntl(
+      <Dialog open>
+        <DialogLoadingContent />
+      </Dialog>
+    )
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-size', 'form')
+
+    rerender(
+      <NextIntlClientProvider locale="zh-TW" messages={zh}>
+        <Dialog open>
+          <DialogLoadingContent size="panel" />
+        </Dialog>
+      </NextIntlClientProvider>
+    )
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-size', 'panel')
+  })
 })

@@ -166,6 +166,10 @@ function AlertDialogFooter({
       data-slot="alert-dialog-footer"
       className={cn(
         "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-surface border-t border-rule bg-surface p-4 sm:flex-row sm:justify-end",
+        // Same slot-scoped destructive outline as `DialogFooter`, and the same
+        // reason: `Button` exposes no variant attribute, and `*:` plus an
+        // explicit slot keeps the outline off the Cancel button beside it.
+        "*:data-[slot=dialog-destructive]:border-danger *:data-[slot=dialog-destructive]:text-danger",
         className
       )}
       {...props}
