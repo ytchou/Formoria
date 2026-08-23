@@ -187,7 +187,7 @@ export function ShareDialogContent({
         <DialogTitle>{t('dialogTitle')}</DialogTitle>
         <DialogClose
           render={
-            <Button variant="ghost" size="icon" className="-mr-2 size-11" aria-label={t('close')} />
+            <Button variant="ghost" size="icon" className="-mr-2" aria-label={t('close')} />
           }
           data-ph-no-autocapture
         >
@@ -248,7 +248,7 @@ export function ShareDialogContent({
           <Button
             size="chip"
             className={cn(
-              'absolute top-1 right-1 h-8 rounded-lg',
+              'absolute top-1 right-1',
               copied && 'bg-verified-green-bg text-verified-green hover:bg-verified-green-bg',
             )}
             onClick={handleCopyLink}

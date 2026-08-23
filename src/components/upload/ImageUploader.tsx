@@ -162,7 +162,8 @@ export function ImageUploader({
                   shape="pill"
                   onClick={() => onRemove(index)}
                   aria-label={t("ariaRemove", { n: index + 1 })}
-                  className="absolute -right-3 -top-3 h-12 w-12 p-0 text-background opacity-0 transition-opacity hover:bg-transparent group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-accent"
+                  size="icon"
+                  className="absolute -right-3 -top-3 text-background opacity-0 transition-opacity hover:bg-transparent group-hover:opacity-100 focus-visible:opacity-100"
                 >
                   <span className="flex size-6 items-center justify-center rounded-full bg-foreground shadow-sm">
                     <X className="size-3" />

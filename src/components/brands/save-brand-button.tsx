@@ -80,22 +80,37 @@ export function SaveBrandButton({
       disabled={isLoading}
       className={cn(
         variant === 'overlay'
-          ? // The pill stays 32px so the card art is unchanged; the
-            // transparent ::before expands the tap area to 44x44.
-            "absolute right-2 top-2 size-8 bg-card shadow-card before:absolute before:-inset-1.5 before:content-[''] [&_svg:not([class*=size-])]:size-4"
+          ? // The TARGET is the 44x44 `size="icon"` box; the painted disc is
+            // the 32px span inside it, so the card art is unchanged. Same
+            // split as `account-menu.tsx`. It replaces a `size-8` override
+            // plus a transparent ::before that faked the tap area back to
+            // 44px — the box is simply the right size now.
+            'absolute right-1 top-1 border-transparent bg-transparent hover:bg-transparent'
           : 'shrink-0',
         className
       )}
       onClick={handleClick}
       data-ph-no-autocapture
     >
-      <Bookmark
-        ref={iconRef}
-        className="h-4 w-4 transition-[fill] duration-200"
-        fill={isSaved ? 'currentColor' : 'none'}
-        strokeWidth={2}
-        aria-hidden
-      />
+      {variant === 'overlay' ? (
+        <span className="flex size-8 items-center justify-center rounded-full bg-card shadow-card">
+          <Bookmark
+            ref={iconRef}
+            className="size-4 transition-[fill] duration-200"
+            fill={isSaved ? 'currentColor' : 'none'}
+            strokeWidth={2}
+            aria-hidden
+          />
+        </span>
+      ) : (
+        <Bookmark
+          ref={iconRef}
+          className="h-4 w-4 transition-[fill] duration-200"
+          fill={isSaved ? 'currentColor' : 'none'}
+          strokeWidth={2}
+          aria-hidden
+        />
+      )}
       {variant === 'inline' && (
         <>
           <span>{label}</span>

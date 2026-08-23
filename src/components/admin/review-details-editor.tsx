@@ -603,7 +603,8 @@ export function ReviewDetailsEditor({
                         <Button
                           shape="pill"
                           variant={index === 0 ? "primary" : "secondary"}
-                          className="absolute left-2 top-2 h-12 w-12 border border-rule p-0"
+                          size="icon"
+                          className="absolute left-2 top-2 border border-rule"
                           onClick={() => setHero(image.id)}
                           aria-label={t("setHero", { n: index + 1 })}
                         >

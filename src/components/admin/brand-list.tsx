@@ -679,7 +679,7 @@ export function BrandList({
                     <Button
                       shape="pill"
                       variant="ghost"
-                      className="h-12 w-12 p-0"
+                      size="icon"
                       onClick={() => setSelectedBrandId(brand.id)}
                       aria-expanded={selectedBrand?.id === brand.id}
                       aria-controls={`brand-detail-${brand.id}`}
@@ -739,7 +739,7 @@ export function BrandList({
           <Button
             shape="pill"
             variant="secondary"
-            className="h-12 w-12 p-0"
+            size="icon"
             onClick={() => setPage((value) => Math.max(1, value - 1))}
             disabled={currentPage === 1}
             aria-label={t("pagination.previousPage")}
@@ -752,7 +752,7 @@ export function BrandList({
           <Button
             shape="pill"
             variant="secondary"
-            className="h-12 w-12 p-0"
+            size="icon"
             onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
             disabled={currentPage === pageCount}
             aria-label={t("pagination.nextPage")}

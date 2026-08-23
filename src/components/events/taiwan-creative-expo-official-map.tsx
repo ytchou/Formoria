@@ -163,7 +163,7 @@ export function TaiwanCreativeExpoOfficialMap() {
                 render={
                   <Button
                     aria-label={t("floorMapCloseViewer")}
-                    className="size-12"
+                    className=""
                     size="icon"
                     type="button"
                     variant="ghost"

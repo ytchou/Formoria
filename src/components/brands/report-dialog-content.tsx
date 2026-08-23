@@ -26,6 +26,7 @@ import {
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Grid } from '@/components/ui/grid'
 import { OptionRow } from '@/components/ui/option-row'
+import { UnstyledButton } from '@/components/ui/unstyled-button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
@@ -215,10 +216,10 @@ export function ReportDialogContent({
                   {t('mitDisputePrompt')}{' '}
                   <DialogClose
                     render={
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-auto min-h-12 px-1 font-medium text-foreground underline underline-offset-4 hover:bg-transparent"
+                      <UnstyledButton
+                        // Inline inside a sentence: it sits on the text
+                        // baseline, so it takes no control height at all.
+                        className="font-medium text-foreground underline underline-offset-4"
                         onClick={handleMitDisputeClick}
                       />
                     }

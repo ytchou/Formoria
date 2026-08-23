@@ -139,7 +139,6 @@ export function SelectedProductTile({
     size: "compact",
     className: cn(
       "mt-auto max-w-full justify-center",
-      mode === "trail" && "min-h-11",
     ),
   });
   const destinationSlug = brandSlug ?? brand?.slug ?? "";

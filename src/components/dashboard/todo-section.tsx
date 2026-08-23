@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge'
 import { SurfaceCard } from '@/components/ui/card'
 import type { ProfileCompleteness } from '@/lib/services/profile-completeness'
 import { routes } from '@/lib/routes'
+import { buttonVariants } from '@/components/ui/button'
 
 type Recommendation = ProfileCompleteness['recommendations'][number]
 type RecommendationKey = Recommendation['key']
@@ -98,7 +99,7 @@ export async function TodoSection({
                       {tOverview('todoRemaining', { count: 1 })}
                     </Badge>
                     <Link
-                      className="inline-flex min-h-12 items-center rounded-[3px] px-3 type-body-sm font-medium text-accent hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      className={buttonVariants({ variant: 'ghost', size: 'large', className: 'type-body-sm font-medium' })}
                       href={`${routes.dashboard.brandEdit(slug)}?step=${recommendation.step}`}
                     >
                       {tOverview('todoGoComplete')}
@@ -121,7 +122,7 @@ export async function TodoSection({
                     {tOverview('todoRemaining', { count: 1 })}
                   </Badge>
                   <Link
-                    className="inline-flex min-h-12 items-center rounded-[3px] px-3 type-body-sm font-medium text-accent hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className={buttonVariants({ variant: 'ghost', size: 'large', className: 'type-body-sm font-medium' })}
                     href={routes.dashboard.brandSection(slug, 'verification')}
                   >
                     {tOverview('todoGoComplete')}

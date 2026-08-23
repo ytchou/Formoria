@@ -124,7 +124,7 @@ export function LikeBrandButton({
       title={!isReady ? t('loading') : ariaLabel}
       disabled={!isReady || isPending}
       className={cn(
-        'relative overflow-visible rounded-xl',
+        'relative overflow-visible',
         liked && 'border-accent/40 text-accent',
         className,
       )}

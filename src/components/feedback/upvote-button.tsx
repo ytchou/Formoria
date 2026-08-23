@@ -5,7 +5,8 @@ import { useTranslations } from 'next-intl'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
-import { Button } from '@/components/ui/button'
+import { UnstyledButton } from '@/components/ui/unstyled-button'
+import { DISABLED_STATE, FOCUS_RING } from '@/components/ui/control-surface'
 import { useFeatureRequestVotes } from '@/hooks/use-feature-request-votes'
 import { trackFeatureRequestVoted } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
@@ -68,9 +69,7 @@ export function UpvoteButton({
   }
 
   return (
-    <Button
-      type="button"
-      variant="secondary"
+    <UnstyledButton
       // No live region on purpose: the pressed state changes on the control
       // that still holds focus, so the screen reader re-announces it already.
       aria-label={label}
@@ -81,7 +80,9 @@ export function UpvoteButton({
       className={cn(
         // Rest fill is warm surface, not card: a white bordered control on a
         // white row reads as a hairline box under this flat-elevation system.
-        'h-auto w-14 flex-col gap-1 rounded-xl border-border bg-secondary px-0 py-2 text-foreground',
+        'flex w-14 flex-col items-center gap-1 rounded-[3px] border border-border bg-secondary py-2 text-foreground transition-colors',
+        FOCUS_RING,
+        DISABLED_STATE,
         // Hover is pinned to the rest values on purpose: a voted chip must not
         // repaint on hover, and the accent on its own 10% tint stays above the
         // 4.5:1 AA floor for the 13px count.
@@ -93,6 +94,6 @@ export function UpvoteButton({
     >
       <ChevronUp className="size-4" strokeWidth={voted ? 2.5 : 2} aria-hidden="true" />
       <span className="type-metadata tabular-nums text-current">{count}</span>
-    </Button>
+    </UnstyledButton>
   )
 }

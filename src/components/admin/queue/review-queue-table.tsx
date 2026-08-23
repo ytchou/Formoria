@@ -206,7 +206,7 @@ export function ReviewQueueTable<T>(props: {
                       type="button"
                       shape="pill"
                       variant="ghost"
-                      className="h-12 w-12 p-0"
+                      size="icon"
                       onClick={() => activateRow(item)}
                       aria-expanded={expanded}
                       aria-controls={disclosureId}

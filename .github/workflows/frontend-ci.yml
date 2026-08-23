@@ -59,6 +59,18 @@ jobs:
               # as text, so `vitest --changed` never selects them when only the
               # YAML moves. Run them unconditionally instead.
               pnpm exec vitest run scripts/check-release-source.test.ts
+              # Same failure mode, one layer up: the UI contract gates scan
+              # `src/` as TEXT rather than importing it, so a PR that only edits
+              # the files they police is exactly the PR `--changed` will not
+              # select them for. These are the gates that keep button geometry
+              # out of classNames and keep per-file lint carve-outs from
+              # returning, so a silent skip is a silent regression.
+              pnpm exec vitest run \
+                src/components/ui/__tests__/button-geometry-contract.test.ts \
+                src/components/ui/__tests__/chip-row-contract.test.ts \
+                src/components/admin/__tests__/admin-plain-chrome.test.ts \
+                src/components/microsite/__tests__/v2-tokens.test.ts \
+                scripts/check-frontend-type-tokens.test.ts
               pnpm lint
               ;;
             type-check)

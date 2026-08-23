@@ -191,7 +191,7 @@ export function BrandLinksSection({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="size-12"
+                className=""
                 aria-label={t('removeItem')}
                 onClick={() => remove(index)}
               >
