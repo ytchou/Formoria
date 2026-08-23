@@ -168,9 +168,7 @@
   },
   "marketingEmailConsent": {
     "newsletterOnlyLabel": "I agree to receive the Formoria newsletter",
-    "newsletterOnlyDescription": "The newsletter requires email confirmation. You can unsubscribe at any time, free of charge. See our <privacyPolicy>Privacy Policy</privacyPolicy> for details.",
-    "combinedLabel": "I agree to receive Formoria newsletters and, when relevant, brand-management tips and product guidance (optional)",
-    "combinedDescription": "Newsletter delivery starts after email confirmation. Either category can be turned off later in Settings, or all of them, free of charge. See our <privacyPolicy>Privacy Policy</privacyPolicy>."
+    "newsletterOnlyDescription": "The newsletter requires email confirmation. You can unsubscribe at any time, free of charge. See our <privacyPolicy>Privacy Policy</privacyPolicy> for details."
   },
   "brands": {
     "breadcrumbAria": "Brand directory breadcrumb",
@@ -1467,7 +1465,7 @@
     "emailLabel": "Email",
     "localePreferenceLabel": "Language Preference",
     "marketingHeading": "Marketing email",
-    "marketingDescription": "The newsletter is optional and off until you turn it on. Account verification, password resets, and review results are unaffected.",
+    "marketingDescription": "The newsletter is optional, off until you turn it on, and can be turned off again at any time. Account verification, password resets, and review results are unaffected.",
     "newsletterMarketingLabel": "Formoria newsletter",
     "newsletterMarketingDescription": "Brand stories, new brands, and curated trends. Email confirmation is required when enabling this category.",
     "newsletterPending": "Confirmation sent; newsletter delivery starts only after you confirm your email.",

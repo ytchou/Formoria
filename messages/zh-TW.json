@@ -168,9 +168,7 @@
   },
   "marketingEmailConsent": {
     "newsletterOnlyLabel": "我同意接收 Formoria 電子報",
-    "newsletterOnlyDescription": "電子報需完成信箱確認，可隨時免費取消。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。",
-    "combinedLabel": "我同意接收 Formoria 電子報，以及適用於品牌主的經營提醒與功能建議（選填）",
-    "combinedDescription": "電子報需完成信箱確認；之後可在設定中分別關閉任一類別，或全部免費取消。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
+    "newsletterOnlyDescription": "電子報需完成信箱確認，可隨時免費取消。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
   },
   "brands": {
     "breadcrumbAria": "品牌目錄麵包屑導覽",
@@ -1467,7 +1465,7 @@
     "emailLabel": "電子郵件",
     "localePreferenceLabel": "語言偏好",
     "marketingHeading": "行銷電子郵件",
-    "marketingDescription": "電子報為選擇性訂閱，您可以隨時關閉。帳號驗證、密碼重設及審核結果等必要信件不受影響。",
+    "marketingDescription": "電子報為選擇性訂閱，預設為關閉，須由您開啟，也可以隨時關閉。帳號驗證、密碼重設及審核結果等必要信件不受影響。",
     "newsletterMarketingLabel": "Formoria 電子報",
     "newsletterMarketingDescription": "品牌故事、新品牌與精選趨勢。開啟後需完成信箱確認。",
     "newsletterPending": "確認信已寄出；完成信箱確認後才會開始寄送電子報。",

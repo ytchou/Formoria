@@ -140,7 +140,6 @@ export const GET = withAuditScope(async (request: NextRequest) => {
       locale: intendedLocale ?? locale,
       source: "google_signup",
       newsletter: true,
-      lifecycle: true,
     });
   }
 

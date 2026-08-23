@@ -367,19 +367,6 @@ async function loadAuditUsage(
   );
 }
 
-async function loadResendLocalUsage(
-  window: UsageWindow,
-  supabase: UsageClient,
-): Promise<number> {
-  return countRows(
-    supabase
-      .from("email_sends")
-      .select("id", { count: "exact", head: true })
-      .gte("sent_at", window.start)
-      .lt("sent_at", window.end),
-  );
-}
-
 function parsedPostHogCount(result: {
   columns: string[];
   results: unknown[][];
@@ -774,9 +761,14 @@ async function collectMeteredUsage(
           }),
     },
     {
+      // Known ceiling: Serper and Resend both meter off `external_call_audit_spans`.
+      // A per-provider query failure stays isolated to its own row, but a
+      // table-level outage degrades both rows at once. Acceptable while the audit
+      // spans are the only send meter; split the source if the rows must fail
+      // independently.
       id: "resend",
       promise: supabase
-        ? loadResendLocalUsage(month, supabase).then((value) => ({
+        ? loadAuditUsage("resend", month, supabase).then((value) => ({
             id: "resend",
             state: "ready" as const,
             primary: createMetric({
@@ -784,15 +776,14 @@ async function collectMeteredUsage(
               unit: "sends",
               limit: 3_000,
               window: month,
-              source: "Formoria email_sends",
-              completeness: "lower_bound",
+              source: "Formoria audit spans",
               at: now,
             }),
           }))
         : Promise.resolve({
             id: "resend",
             state: "unconfigured" as const,
-            message: "Local email usage monitoring is not configured.",
+            message: "Resend usage requires the Supabase audit-span meter.",
           }),
     },
     {

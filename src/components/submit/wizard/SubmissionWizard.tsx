@@ -332,7 +332,6 @@ export default function SubmissionWizard({
                     render={({ field }) => (
                       <MarketingEmailOptInField
                         id="submission-marketing-email"
-                        variant="newsletter-and-lifecycle"
                         checked={field.value}
                         onCheckedChange={field.onChange}
                       />

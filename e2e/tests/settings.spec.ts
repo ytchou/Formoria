@@ -44,6 +44,8 @@ test.describe('Settings page', () => {
 
     // The newsletter is the only marketing category, plus the opt-out-of-all button
     await expect(userPage.locator('#newsletterMarketing')).toBeVisible({ timeout: BUDGET.RENDERED })
+    // The owner-lifecycle opt-in is parked (DEV-1570) — re-adding it must fail here.
+    await expect(userPage.locator('#lifecycleMarketing')).toHaveCount(0, { timeout: BUDGET.RENDERED })
     await expect(
       userPage.getByRole('button', { name: '取消所有行銷電子郵件' }),
     ).toBeVisible({ timeout: BUDGET.RENDERED })
