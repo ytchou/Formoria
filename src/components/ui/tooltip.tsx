@@ -38,7 +38,7 @@ function TooltipTrigger({
     <TooltipPrimitive.Trigger
       data-slot="tooltip-trigger"
       className={cn(
-        "outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "outline-none focus-visible:ring-2 focus-visible:ring-accent",
         className,
       )}
       {...props}

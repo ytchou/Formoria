@@ -77,13 +77,13 @@ export function ContributionsList({ items }: ContributionsListProps) {
                   aria-hidden
                   className={cn(
                     'size-2.5 shrink-0 rounded-full',
-                    isSupport ? 'bg-verified-green' : 'bg-destructive',
+                    isSupport ? 'bg-verified-green' : 'bg-danger',
                   )}
                 />
                 <span
                   className={cn(
                     'type-metadata',
-                    isSupport ? 'text-verified-green' : 'text-destructive',
+                    isSupport ? 'text-verified-green' : 'text-danger',
                   )}
                 >
                   {t(`stance.${item.stance}`)}

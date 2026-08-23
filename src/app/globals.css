@@ -3,35 +3,12 @@
 @import "shadcn/tailwind.css";
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
   /* Radius has TWO values, defined below as --radius-control / --radius-surface.
      `--radius-*: initial` clears Tailwind's built-in scale as well as this
      file's: without it, `rounded-lg` keeps resolving from the framework
@@ -97,24 +74,6 @@
 }
 
 :root {
-  /* Backgrounds */
-  --background: oklch(0.991 0.0029 84.6); /* Paper #FDFCFA */
-  --card: oklch(1 0.0001 263.3); /* Pure White #FFFFFF — unchanged */
-  --popover: oklch(1 0.0001 263.3);
-  --secondary: oklch(0.963 0.004 80); /* Warm Surface — unchanged */
-  --muted: oklch(0.95 0.004 80); /* Warm Subtle — unchanged */
-
-  /* Text */
-  --foreground: oklch(0.21 0.0059 285.9); /* Ink #18181B */
-  --card-foreground: oklch(0.21 0.0059 285.9);
-  --popover-foreground: oklch(0.21 0.0059 285.9);
-  --secondary-foreground: oklch(
-    0.528 0 0
-  ); /* Neutral gray — merged with warm-caption */
-  --muted-foreground: oklch(
-    0.528 0 0
-  ); /* Neutral gray #6B6B6B — WCAG 5.2:1 on Paper */
-
   /* Interactive — ONE token, not three.
      `--primary`, `--primary-dark`, `--primary-light`, `--cta` and
      `--cta-foreground` all lived here and all meant the same thing:
@@ -135,12 +94,8 @@
   ); /* Paper — text on dark surfaces */
 
   /* Borders */
-  --border: oklch(0.923 0.0075 80.7); /* Rule #E8E5E0 */
-  --input: oklch(0.923 0.0075 80.7); /* Same as border */
-  --ring: var(--accent); /* Focus ring follows the single accent */
 
   /* Semantic — unchanged */
-  --destructive: oklch(0.58 0.18 30);
   --warning: oklch(0.666 0.179 58.3);
   --filter-active: oklch(0.4 0.1 140);
   --filter-active-bg: oklch(0.95 0.02 140);
@@ -177,14 +132,6 @@
   --duration-stagger: 60ms;
 
   /* Sidebar */
-  --sidebar: oklch(0.975 0.003 85);
-  --sidebar-foreground: oklch(0.21 0.0059 285.9);
-  --sidebar-primary: var(--accent);
-  --sidebar-primary-foreground: oklch(1 0.0001 263.3);
-  --sidebar-accent: oklch(0.963 0.004 80);
-  --sidebar-accent-foreground: oklch(0.21 0.0059 285.9);
-  --sidebar-border: oklch(0.923 0.0075 80.7);
-  --sidebar-ring: var(--accent);
 
   /* Chart colors (warm palette) */
   --chart-1: oklch(0.63 0.17 45);

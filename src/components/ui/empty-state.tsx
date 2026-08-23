@@ -40,7 +40,7 @@ export function EmptyState({
       {icon ? (
         <span
           aria-hidden="true"
-          className="mb-4 text-muted-foreground [&_svg]:size-6"
+          className="mb-4 text-ink-muted [&_svg]:size-6"
         >
           {icon}
         </span>

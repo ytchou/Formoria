@@ -614,7 +614,7 @@ export function BrandFilterDrawer({
             totalCount={totalCount}
           />
         </div>
-        <SheetFooter className="sticky bottom-0 border-t border-rule bg-popover">
+        <SheetFooter className="sticky bottom-0 border-t border-rule bg-surface">
           <Button
             type="button"
             width="full"

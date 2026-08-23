@@ -56,7 +56,7 @@ export function MarketingEmailOptInField({
               href={routes.privacy()}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="text-ink underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               {chunks}
             </Link>

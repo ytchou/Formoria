@@ -163,9 +163,9 @@ export function ImageUploader({
                   onClick={() => onRemove(index)}
                   aria-label={t("ariaRemove", { n: index + 1 })}
                   size="icon"
-                  className="absolute -right-3 -top-3 text-background opacity-0 transition-opacity hover:bg-transparent group-hover:opacity-100 focus-visible:opacity-100"
+                  className="absolute -right-3 -top-3 text-ground opacity-0 transition-opacity hover:bg-transparent group-hover:opacity-100 focus-visible:opacity-100"
                 >
-                  <span className="flex size-6 items-center justify-center rounded-full bg-foreground">
+                  <span className="flex size-6 items-center justify-center rounded-full bg-ink">
                     <X className="size-3" />
                   </span>
                 </Button>
@@ -176,7 +176,7 @@ export function ImageUploader({
                   type="button"
                   variant="secondary"
                   onClick={() => inputRef.current?.click()}
-                  className="absolute bottom-3 left-3 border border-rule bg-background/95 hover:bg-background"
+                  className="absolute bottom-3 left-3 border border-rule bg-ground/95 hover:bg-ground"
                 >
                   <Upload className="size-4" />
                   {t("replace")}
@@ -200,12 +200,12 @@ export function ImageUploader({
           }}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
-          className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-control border-2 border-dashed border-border bg-muted p-6 transition-colors hover:border-accent"
+          className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-control border-2 border-dashed border-rule bg-surface p-6 transition-colors hover:border-accent"
         >
           {status === "uploading" ? (
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <Loader2 className="h-6 w-6 animate-spin text-ink-muted" />
           ) : (
-            <Upload className="h-6 w-6 text-muted-foreground" />
+            <Upload className="h-6 w-6 text-ink-muted" />
           )}
           <span className="type-body-sm">
             {status === "uploading"

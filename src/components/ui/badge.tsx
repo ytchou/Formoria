@@ -7,7 +7,7 @@ import { textStyles } from "./text-styles";
 
 const badgeVariants = cva(
   cn(
-    "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-surface border border-transparent px-2 py-0.5 whitespace-nowrap transition-[background-color,border-color,color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 [&>svg]:pointer-events-none [&>svg]:size-3!",
+    "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-surface border border-transparent px-2 py-0.5 whitespace-nowrap transition-[background-color,border-color,color,box-shadow] focus-visible:border-accent focus-visible:ring-[3px] focus-visible:ring-accent/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-danger aria-invalid:ring-danger/20 [&>svg]:pointer-events-none [&>svg]:size-3!",
     textStyles({ variant: "micro" }),
   ),
   {
@@ -15,17 +15,17 @@ const badgeVariants = cva(
       variant: {
         default: "bg-accent text-ground [a]:hover:bg-accent/80",
         secondary:
-          "bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80",
+          "bg-surface text-ink-soft [a]:hover:bg-surface/80",
         destructive:
-          "bg-destructive/10 text-destructive focus-visible:ring-destructive/20 [a]:hover:bg-destructive/20",
+          "bg-danger/10 text-danger focus-visible:ring-danger/20 [a]:hover:bg-danger/20",
         outline:
-          "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
+          "border-rule text-ink [a]:hover:bg-surface [a]:hover:text-ink-muted",
         ghost:
-          "hover:bg-muted hover:text-muted-foreground",
+          "hover:bg-surface hover:text-ink-muted",
         link: "text-accent underline-offset-4 hover:underline",
         success: "bg-verified-green-bg text-verified-green",
         verified: "bg-mit-verified-bg text-mit-verified",
-        declared: "border-border bg-secondary text-muted-foreground",
+        declared: "border-rule bg-surface text-ink-muted",
         warning: "bg-warning/10 text-warning [a]:hover:bg-warning/20",
         // For a badge sitting ON a filled banner: the ground becomes the
         // chip and the banner's own colour becomes the text.

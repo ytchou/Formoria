@@ -61,7 +61,7 @@ export default async function PrivacyPage({ params }: PageProps) {
           <p className="type-body-sm">{t('intro')}</p>
           <p className="type-body-sm">{t('lastUpdated')}</p>
         </aside>
-        <div className="divide-y divide-border">
+        <div className="divide-y divide-rule">
           {sectionKeys.map((key) => (
             <section key={key} className="space-y-3 py-6 first:pt-0">
               <h2 className="type-section">

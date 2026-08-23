@@ -363,10 +363,10 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
             className={cn(
               'rounded-surface border px-4 py-3 type-metadata',
               stillNeedCount > 0
-                ? 'border-border bg-muted text-muted-foreground'
+                ? 'border-rule bg-surface text-ink-muted'
                 : canSubmit
                   ? 'border-accent bg-accent/10 text-accent'
-                  : 'border-border bg-muted text-muted-foreground',
+                  : 'border-rule bg-surface text-ink-muted',
             )}
             aria-live="polite"
           >
@@ -392,7 +392,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
                       id={`claim-proof-${type}`}
                       checked={proof.selected}
                       onCheckedChange={(selected) => updateProof(type, { selected })}
-                      className="mt-1 h-5 w-5 rounded-control border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="mt-1 h-5 w-5 rounded-control border-rule focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     />
                     <div className="min-w-0 flex-1 space-y-1">
                       <Label htmlFor={`claim-proof-${type}`} className="block min-h-6 cursor-pointer type-body-sm font-semibold text-ink">
@@ -425,7 +425,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
                             value={proof.url}
                             onChange={(event) => updateProof(type, { url: event.target.value })}
                             placeholder={t('proofTypes.domainEmail.placeholder')}
-                            className="min-h-12 bg-card px-3.5 py-2.5 focus-visible:ring-2 focus-visible:ring-ring"
+                            className="min-h-12 bg-surface px-3.5 py-2.5 focus-visible:ring-2 focus-visible:ring-accent"
                           />
                           <p className="type-metadata">
                             {t('proofTypes.domainEmail.helperText')}
@@ -478,7 +478,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
                           id={`claim-${type}-note`}
                           value={proof.note}
                           onChange={(event) => updateProof(type, { note: event.target.value })}
-                          className="min-h-24 bg-card px-3.5 py-2.5 focus-visible:ring-2 focus-visible:ring-accent"
+                          className="min-h-24 bg-surface px-3.5 py-2.5 focus-visible:ring-2 focus-visible:ring-accent"
                         />
                       </div>
                     </Grid>
@@ -498,7 +498,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
               type="text"
               value={mitSmileCert}
               onChange={(event) => setMitSmileCert(event.target.value)}
-              className="min-h-12 bg-card px-3.5 py-2.5 focus-visible:ring-2 focus-visible:ring-ring"
+              className="min-h-12 bg-surface px-3.5 py-2.5 focus-visible:ring-2 focus-visible:ring-accent"
             />
             <p className="type-metadata">{t('mitCertHint')}</p>
           </div>
@@ -512,10 +512,10 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
           />
 
           {feedback.type === 'error' && (
-            <div aria-live="polite" className="space-y-2 rounded-surface bg-destructive/10 px-4 py-3 type-body-sm text-destructive">
+            <div aria-live="polite" className="space-y-2 rounded-surface bg-danger/10 px-4 py-3 type-body-sm text-danger">
               <p>{feedback.message}</p>
               {feedback.authRequired && (
-                <NextLink href={signInHref(pathname, locale)} className="inline-flex type-body-sm font-medium text-ink underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <NextLink href={signInHref(pathname, locale)} className="inline-flex type-body-sm font-medium text-ink underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                   {t('signIn')}
                 </NextLink>
               )}

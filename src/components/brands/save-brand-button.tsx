@@ -93,7 +93,7 @@ export function SaveBrandButton({
       data-ph-no-autocapture
     >
       {variant === 'overlay' ? (
-        <span className="flex size-8 items-center justify-center rounded-full border border-rule bg-card">
+        <span className="flex size-8 items-center justify-center rounded-full border border-rule bg-surface">
           <Bookmark
             ref={iconRef}
             className="size-4 transition-[fill] duration-200"
@@ -117,7 +117,7 @@ export function SaveBrandButton({
           {!userLoading && !user && (
             <LockKeyhole
               data-auth-required-indicator
-              className="size-3.5 text-muted-foreground"
+              className="size-3.5 text-ink-muted"
               aria-hidden="true"
             />
           )}

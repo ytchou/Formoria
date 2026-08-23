@@ -82,10 +82,10 @@ describe("ToggleChip", () => {
     expect(unpressedChip).not.toHaveClass("text-ground");
   });
 
-  // The Button `secondary` variant hovers to bg-muted/text-foreground. Without
-  // hover-scope overrides twMerge keeps both and the hover rule wins the
-  // cascade, so a selected chip would look unselected under the cursor while
-  // aria-pressed stayed true.
+  // The Button `secondary` variant carries a hover fill. Without hover-scope
+  // overrides twMerge keeps both and the hover rule wins the cascade, so a
+  // selected chip would look unselected under the cursor while aria-pressed
+  // stayed true.
   it("keeps the selected fill at hover scope", () => {
     render(
       <ToggleChip pressed onPressedChange={vi.fn()}>
@@ -97,8 +97,8 @@ describe("ToggleChip", () => {
     expect(chip).toHaveClass("hover:border-accent");
     expect(chip).toHaveClass("hover:bg-accent");
     expect(chip).toHaveClass("hover:text-ground");
-    expect(chip).not.toHaveClass("hover:bg-muted");
-    expect(chip).not.toHaveClass("hover:text-foreground");
+    expect(chip).not.toHaveClass("hover:bg-surface");
+    expect(chip).not.toHaveClass("hover:text-ink");
   });
 
   it("keeps the reference treatment at hover scope", () => {
@@ -109,8 +109,12 @@ describe("ToggleChip", () => {
     );
 
     const keptChip = screen.getByRole("button", { name: "Ceramics" });
-    expect(keptChip).toHaveClass("hover:bg-secondary");
-    expect(keptChip).not.toHaveClass("hover:bg-muted");
+    // The point is that hover EQUALS rest — a reference chip must not repaint
+    // under the cursor. Asserting the pair directly says that; the old
+    // `not.toHaveClass(<Button's hover token>)` said it only for as long as
+    // that token differed from the chip's own fill.
+    expect(keptChip).toHaveClass("bg-surface");
+    expect(keptChip).toHaveClass("hover:bg-surface");
     expect(keptChip).not.toHaveClass("hover:bg-accent");
 
     rerender(
@@ -120,10 +124,11 @@ describe("ToggleChip", () => {
     );
 
     const struckChip = screen.getByRole("button", { name: "Ceramics" });
-    expect(struckChip).toHaveClass("hover:bg-secondary");
-    expect(struckChip).toHaveClass("hover:text-muted-foreground");
-    expect(struckChip).not.toHaveClass("hover:bg-muted");
-    expect(struckChip).not.toHaveClass("hover:text-foreground");
+    expect(struckChip).toHaveClass("bg-surface");
+    expect(struckChip).toHaveClass("hover:bg-surface");
+    expect(struckChip).toHaveClass("text-ink-muted");
+    expect(struckChip).toHaveClass("hover:text-ink-muted");
+    expect(struckChip).not.toHaveClass("hover:bg-accent");
   });
 
   it("reference tone never uses the primary fill", () => {
@@ -134,7 +139,7 @@ describe("ToggleChip", () => {
     );
 
     const keptChip = screen.getByRole("button", { name: "Ceramics" });
-    expect(keptChip).toHaveClass("bg-secondary");
+    expect(keptChip).toHaveClass("bg-surface");
     expect(keptChip).not.toHaveClass("bg-accent");
     expect(keptChip).not.toHaveClass("border-accent");
     expect(keptChip).not.toHaveClass("text-ground");
@@ -147,12 +152,12 @@ describe("ToggleChip", () => {
     );
 
     const struckChip = screen.getByRole("button", { name: "Ceramics" });
-    expect(struckChip).toHaveClass("bg-secondary");
+    expect(struckChip).toHaveClass("bg-surface");
     expect(struckChip).not.toHaveClass("bg-accent");
     expect(struckChip).not.toHaveClass("border-accent");
     expect(struckChip).not.toHaveClass("text-ground");
     expect(struckChip).toHaveClass("line-through");
-    expect(struckChip).toHaveClass("text-muted-foreground");
+    expect(struckChip).toHaveClass("text-ink-muted");
   });
 
   it("does not fire onPressedChange when disabled", () => {

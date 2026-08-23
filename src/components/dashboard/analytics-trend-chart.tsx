@@ -28,11 +28,11 @@ export function AnalyticsTrendChart({
   const chartConfig = {
     profileSessions: {
       label: labels.profile,
-      color: "var(--foreground)",
+      color: "var(--ink)",
     },
     outboundSessions: {
       label: labels.outbound,
-      color: "var(--muted-foreground)",
+      color: "var(--ink-muted)",
     },
   } satisfies ChartConfig;
 
@@ -76,12 +76,12 @@ export function AnalyticsTrendChart({
       </ChartContainer>
       <div className="mt-3 flex flex-wrap justify-center gap-x-6 gap-y-2 type-body-sm">
         <div className="flex items-center gap-2">
-          <span className="h-0.5 w-5 bg-foreground" aria-hidden="true" />
+          <span className="h-0.5 w-5 bg-ink" aria-hidden="true" />
           <span>{labels.profile}</span>
         </div>
         <div className="flex items-center gap-2">
           <span
-            className="w-5 border-t-2 border-dashed border-muted-foreground"
+            className="w-5 border-t-2 border-dashed border-ink-muted"
             aria-hidden="true"
           />
           <span>{labels.outbound}</span>

@@ -103,7 +103,7 @@ export function SearchEmptyState({
         <div className="relative flex size-28 items-center justify-center" aria-hidden="true">
           {/* Elevation is the border. The stacked plates read as depth because
               they are offset and ruled, not because anything casts a shadow. */}
-          <div className="absolute inset-3 rotate-6 rounded-surface border border-rule bg-card" />
+          <div className="absolute inset-3 rotate-6 rounded-surface border border-rule bg-surface" />
           <div className="absolute inset-5 -rotate-3 rounded-surface border border-rule bg-ground" />
           <Search className="relative size-12 text-ink" strokeWidth={1.75} />
           <SlidersHorizontal className="absolute bottom-1 right-0 size-6 text-filter-active" />

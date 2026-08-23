@@ -115,7 +115,7 @@ export function BrandBasicInfoSection({
             aria-describedby={
               form.formState.errors.name ? "name-error" : undefined
             }
-            className="min-h-12 bg-card"
+            className="min-h-12 bg-surface"
             {...nameRegistration}
             onBlur={(event) => {
               nameRegistration.onBlur(event);
@@ -127,7 +127,7 @@ export function BrandBasicInfoSection({
             }}
           />
           {nameSuggestion ? (
-            <div className="flex items-center justify-between gap-3 rounded-surface border border-border bg-card p-3 type-body-sm text-ink-soft">
+            <div className="flex items-center justify-between gap-3 rounded-surface border border-rule bg-surface p-3 type-body-sm text-ink-soft">
               <span>
                 {tSubmit("ownerForm.suggestedName")}{" "}
                 <strong>{nameSuggestion}</strong>
@@ -170,7 +170,7 @@ export function BrandBasicInfoSection({
             }
             className={cn(
               "min-h-12",
-              isExistingBrand ? "bg-muted text-muted-foreground" : "bg-card",
+              isExistingBrand ? "bg-surface text-ink-muted" : "bg-surface",
             )}
             {...form.register("romanizedName")}
           />
@@ -188,7 +188,7 @@ export function BrandBasicInfoSection({
             id="brand-url-preview"
             readOnly
             value={previewSlug ? routes.brand(previewSlug) : ""}
-            className="min-h-12 bg-muted text-muted-foreground"
+            className="min-h-12 bg-surface text-ink-muted"
           />
         </DashboardFormField>
 
@@ -215,7 +215,7 @@ export function BrandBasicInfoSection({
                 ? "categorySlug-error"
                 : undefined
             }
-            className="min-h-12 w-full bg-card"
+            className="min-h-12 w-full bg-surface"
             {...form.register("categorySlug", {
               setValueAs: (value) => (value === "" ? undefined : value),
             })}
@@ -250,7 +250,7 @@ export function BrandBasicInfoSection({
                 ? "description-error"
                 : undefined
             }
-            className="min-h-28 bg-card"
+            className="min-h-28 bg-surface"
             {...form.register("description")}
           />
         </DashboardFormField>
@@ -266,7 +266,7 @@ export function BrandBasicInfoSection({
             type="number"
             min={1900}
             max={new Date().getFullYear()}
-            className="min-h-12 bg-card"
+            className="min-h-12 bg-surface"
             {...form.register("foundingYear")}
           />
         </DashboardFormField>
@@ -290,7 +290,7 @@ export function BrandBasicInfoSection({
             aria-describedby={
               form.formState.errors.mitStory ? "mitStory-error" : undefined
             }
-            className="min-h-28 bg-card"
+            className="min-h-28 bg-surface"
             {...form.register("mitStory")}
           />
         </DashboardFormField>
@@ -367,7 +367,7 @@ export function BrandBasicInfoSection({
         >
           <NativeSelect
             id="city"
-            className="min-h-12 w-full bg-card"
+            className="min-h-12 w-full bg-surface"
             {...form.register("city", {
               setValueAs: (value) => (value === "" ? undefined : value),
             })}
@@ -397,7 +397,7 @@ export function BrandBasicInfoSection({
             aria-describedby={
               form.formState.errors.priceRange ? "priceRange-error" : undefined
             }
-            className="min-h-12 w-full bg-card"
+            className="min-h-12 w-full bg-surface"
             {...form.register("priceRange", {
               setValueAs: (value) => (value === "" ? undefined : Number(value)),
             })}

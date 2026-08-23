@@ -257,7 +257,7 @@ export function ImageCarousel({
             {/* Counter badge */}
             <span
               className={cn(
-                'absolute rounded-full bg-accent/80 px-2.5 py-1 type-metadata text-accent-foreground backdrop-blur-sm',
+                'absolute rounded-full bg-accent/80 px-2.5 py-1 type-metadata text-ground backdrop-blur-sm',
                 variant === 'detail' ? 'bottom-4 right-4' : 'bottom-2 right-2',
               )}
             >

@@ -229,9 +229,9 @@ export function InlineVerification({
           </section>
 
           <div className="flex items-center gap-3 text-ink-muted" aria-hidden="true">
-            <span className="h-px flex-1 bg-border md:h-full md:w-px md:flex-none" />
+            <span className="h-px flex-1 bg-rule md:h-full md:w-px md:flex-none" />
             <span className="type-metadata">{t('or')}</span>
-            <span className="h-px flex-1 bg-border md:hidden" />
+            <span className="h-px flex-1 bg-rule md:hidden" />
           </div>
 
           <section className="space-y-3" aria-labelledby={`${scopeId}-declare-title`}>

@@ -114,7 +114,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
           <Typography variant="cardDescription" className="flex-1 px-4 py-6 sm:px-6">
             {t('success')}
           </Typography>
-          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-background px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground px-4 py-4 sm:px-6">
             <DialogClose render={<Button variant="secondary" />}>
               {t('close')}
             </DialogClose>
@@ -125,7 +125,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
           <Typography variant="cardDescription" className="flex-1 px-4 py-6 sm:px-6">
             {t('loading')}
           </Typography>
-          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-background px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground px-4 py-4 sm:px-6">
             <DialogClose render={<Button variant="secondary" />}>
               {t('cancel')}
             </DialogClose>
@@ -136,7 +136,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
           <Typography variant="cardDescription" className="flex-1 px-4 py-6 sm:px-6">
             {t('signInPrompt')}
           </Typography>
-          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-background px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground px-4 py-4 sm:px-6">
             <DialogClose render={<Button variant="secondary" />}>
               {t('cancel')}
             </DialogClose>
@@ -159,7 +159,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
             <fieldset className="space-y-3">
               <legend className="type-body-sm font-semibold text-ink">
                 {t('stanceLabel')}
-                <span aria-hidden="true" className="text-destructive"> *</span>
+                <span aria-hidden="true" className="text-danger"> *</span>
               </legend>
               <Grid cols="pair" gap="tight">
                 {(['supports', 'contradicts'] as const).map((value) => (
@@ -188,7 +188,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
             <div className="space-y-2">
               <Label htmlFor="evidence-product-name">
                 {t('productNameLabel')}
-                <span aria-hidden="true" className="text-destructive"> *</span>
+                <span aria-hidden="true" className="text-danger"> *</span>
               </Label>
               <Input
                 id="evidence-product-name"
@@ -201,7 +201,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
             <div className="space-y-2">
               <Label htmlFor="evidence-source-type">
                 {t('sourceTypeLabel')}
-                <span aria-hidden="true" className="text-destructive"> *</span>
+                <span aria-hidden="true" className="text-danger"> *</span>
               </Label>
               <NativeSelect
                 id="evidence-source-type"
@@ -221,7 +221,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
               <div className="flex items-center justify-between gap-4">
                 <Label htmlFor="evidence-notes">{t('notesLabel')}</Label>
                 <span
-                  className="type-metadata tabular-nums text-muted-foreground"
+                  className="type-metadata tabular-nums text-ink-muted"
                   aria-live="polite"
                   aria-atomic="true"
                 >
@@ -281,7 +281,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
             )}
           </div>
 
-          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-background px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground px-4 py-4 sm:px-6">
             <DialogClose render={<Button variant="secondary" />}>
               {t('cancel')}
             </DialogClose>

@@ -55,7 +55,7 @@ const PURCHASE_PRESENTATION = {
   website: {
     placeholder: 'https://yourbrand.com',
     icon: Globe2,
-    iconClassName: 'bg-foreground/10 text-foreground',
+    iconClassName: 'bg-ink/10 text-ink',
     inputType: 'url',
   },
   pinkoi: {
@@ -67,7 +67,7 @@ const PURCHASE_PRESENTATION = {
   shopee: {
     placeholder: 'https://shopee.tw/yourbrand',
     icon: ShoppingBag,
-    iconClassName: 'bg-destructive/10 text-destructive',
+    iconClassName: 'bg-danger/10 text-danger',
     inputType: 'url',
   },
   myship: {
@@ -107,7 +107,7 @@ export function BrandLinksSection({
       label: t('fieldThreads'),
       placeholder: 'https://threads.net/@yourbrand',
       icon: AtSign,
-      iconClassName: 'bg-foreground/10 text-foreground',
+      iconClassName: 'bg-ink/10 text-ink',
     },
     {
       name: 'socialFacebook',
@@ -159,7 +159,7 @@ export function BrandLinksSection({
       <LinkGroup
         label={t('fieldOtherLinks')}
         icon={Link2}
-        iconClassName="bg-secondary text-accent"
+        iconClassName="bg-surface text-accent"
       >
         <div className="space-y-3 p-4">
           <div className="grid grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)_3rem] gap-2">
@@ -173,14 +173,14 @@ export function BrandLinksSection({
               className="grid grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)_3rem] items-start gap-2"
             >
               <Input
-                className="min-h-12 bg-card"
+                className="min-h-12 bg-surface"
                 aria-label={t('fieldLabelPlaceholder')}
                 placeholder={t('fieldLabelPlaceholder')}
                 aria-invalid={Boolean(form.formState.errors.otherUrls?.[index]?.label)}
                 {...form.register(`otherUrls.${index}.label`)}
               />
               <Input
-                className="min-h-12 bg-card"
+                className="min-h-12 bg-surface"
                 type="url"
                 aria-label={t('fieldUrlPlaceholder')}
                 placeholder={t('fieldUrlPlaceholder')}
@@ -226,9 +226,9 @@ function LinkGroup({
   children: ReactNode
 }) {
   return (
-    <fieldset className="overflow-hidden rounded-surface border border-border bg-card">
+    <fieldset className="overflow-hidden rounded-surface border border-rule bg-surface">
       <legend className="sr-only">{label}</legend>
-      <div className="flex min-h-12 items-center gap-3 border-b border-border px-4 py-3">
+      <div className="flex min-h-12 items-center gap-3 border-b border-rule px-4 py-3">
         <span
           className={cn(
             'flex size-8 shrink-0 items-center justify-center rounded-surface',
@@ -239,7 +239,7 @@ function LinkGroup({
         </span>
         <h3 className="type-body-sm font-semibold text-ink">{label}</h3>
       </div>
-      <div className="divide-y divide-border">{children}</div>
+      <div className="divide-y divide-rule">{children}</div>
     </fieldset>
   )
 }
@@ -265,7 +265,7 @@ function FixedPlatformRow({ row, required }: { row: PlatformRow; required: boole
       </span>
       <Label htmlFor={row.name} className="type-label">
         {row.label}
-        {required ? <span aria-hidden="true" className="text-destructive"> *</span> : null}
+        {required ? <span aria-hidden="true" className="text-danger"> *</span> : null}
       </Label>
       <Controller
         control={form.control}
@@ -282,7 +282,7 @@ function FixedPlatformRow({ row, required }: { row: PlatformRow; required: boole
               aria-invalid={Boolean(error)}
               aria-describedby={error ? `${row.name}-error` : undefined}
               placeholder={row.placeholder}
-              className="min-h-12 bg-card"
+              className="min-h-12 bg-surface"
               value={field.value ?? ''}
               onChange={field.onChange}
               onBlur={field.onBlur}

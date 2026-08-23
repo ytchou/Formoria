@@ -50,7 +50,7 @@ export function EvidenceDialog({ brandId, brandSlug }: EvidenceDialogProps) {
         {!loading && !user && (
           <LockKeyhole
             data-auth-required-indicator
-            className="size-3.5 text-muted-foreground"
+            className="size-3.5 text-ink-muted"
             aria-hidden="true"
           />
         )}

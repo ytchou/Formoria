@@ -160,7 +160,7 @@ export function ShareDialogContent({
     {
       key: 'threads',
       label: t('threads'),
-      discClass: 'bg-foreground text-background',
+      discClass: 'bg-ink text-ground',
       icon: <AtSign className="size-5" aria-hidden="true" />,
     },
     {
@@ -183,7 +183,7 @@ export function ShareDialogContent({
       showCloseButton={false}
       className="w-[21rem] max-w-[calc(100%-2rem)] gap-0 rounded-surface p-0"
     >
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+      <div className="flex items-center justify-between border-b border-rule px-4 py-3">
         <DialogTitle>{t('dialogTitle')}</DialogTitle>
         <DialogClose
           render={
@@ -197,7 +197,7 @@ export function ShareDialogContent({
 
       <div className="space-y-4 p-4">
         {/* Preview card — what the recipient will actually receive. */}
-        <div className="overflow-hidden rounded-surface border border-border bg-muted">
+        <div className="overflow-hidden rounded-surface border border-rule bg-surface">
           {safeImage ? (
             <div className="relative h-[74px] w-full">
               <SurfaceImage
@@ -214,9 +214,9 @@ export function ShareDialogContent({
           ) : (
             <div
               aria-hidden="true"
-              className="flex h-[74px] w-full items-center justify-center bg-linear-to-br from-secondary to-muted"
+              className="flex h-[74px] w-full items-center justify-center bg-linear-to-br from-surface to-surface"
             >
-              <span className="type-section text-muted-foreground">
+              <span className="type-section text-ink-muted">
                 {Array.from(brandName)[0] ?? ''}
               </span>
             </div>
@@ -225,7 +225,7 @@ export function ShareDialogContent({
             <p className="truncate type-body-sm font-medium text-ink">{brandName}</p>
             {/* text-foreground/70, not text-muted-foreground: muted-on-muted
                 computes to 4.39:1 in the dark theme, below the 4.5:1 minimum. */}
-            <p className="truncate type-metadata text-foreground/70">
+            <p className="truncate type-metadata text-ink/70">
               {host}
               {categoryLabel ? ` · ${categoryLabel}` : ''}
             </p>
@@ -242,7 +242,7 @@ export function ShareDialogContent({
             // text-base on mobile keeps the 16px floor that stops iOS Safari
             // auto-zooming on focus (this field calls select() on focus);
             // text-foreground/70 clears 4.5:1 on the muted surface in dark mode.
-            className="h-10 rounded-control border-border bg-muted pr-28 text-base text-foreground/70 md:text-[13px]"
+            className="h-10 rounded-control border-rule bg-surface pr-28 text-base text-ink/70 md:text-[13px]"
             data-ph-no-autocapture
           />
           <Button
@@ -268,9 +268,9 @@ export function ShareDialogContent({
             and would announce two role="separator" nodes. These spans are
             aria-hidden. */}
         <div className="flex items-center gap-3">
-          <span className="h-px flex-1 bg-border" aria-hidden="true" />
-          <span className="type-micro text-muted-foreground">{t('orShareTo')}</span>
-          <span className="h-px flex-1 bg-border" aria-hidden="true" />
+          <span className="h-px flex-1 bg-rule" aria-hidden="true" />
+          <span className="type-micro text-ink-muted">{t('orShareTo')}</span>
+          <span className="h-px flex-1 bg-rule" aria-hidden="true" />
         </div>
 
         <div className="flex justify-between">

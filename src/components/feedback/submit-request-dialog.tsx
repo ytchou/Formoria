@@ -235,7 +235,7 @@ export function SubmitRequestDialog() {
           <Typography
             id={disclosureId}
             variant="caption"
-            className="rounded-surface bg-muted p-3 text-muted-foreground"
+            className="rounded-surface bg-surface p-3 text-ink-muted"
           >
             {t('anonymityDisclosure')}
           </Typography>

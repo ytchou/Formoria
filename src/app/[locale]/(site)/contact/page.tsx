@@ -74,7 +74,7 @@ export default async function ContactPage({ params }: PageProps) {
 
   return (
     <PageShell as="main" measure="page" className="py-10">
-      <section className="border-b border-border pb-10">
+      <section className="border-b border-rule pb-10">
         <div className="prose-measure">
           <p className="type-eyebrow">{t('hero.eyebrow')}</p>
           <h1 className="mt-3 type-display">{t('hero.title')}</h1>

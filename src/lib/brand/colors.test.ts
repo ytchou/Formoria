@@ -84,3 +84,71 @@ describe("OG routes render on the v2 palette", () => {
     }
   });
 });
+
+/**
+ * THE OTHER TWO COPIES.
+ *
+ * `brand` above is the copy Satori needs, and it was the only one pinned. Two
+ * more exist because they render outside the Next app entirely: email clients
+ * strip <style>, and the marketing cards are standalone HTML with no build
+ * step. Neither can read a CSS custom property, so both hold hex literals.
+ *
+ * Three copies of a palette is how v1 forked four ways. The copies are not the
+ * problem — being unable to notice when one drifts is. These bind the other two
+ * to `globals.css` the same way the block above binds the first.
+ */
+describe("every hard-coded copy of the palette matches globals.css", () => {
+  const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
+  const declared = (token: string) =>
+    new RegExp(`--${token}:\\s*(#[0-9A-Fa-f]{6})`).exec(css)?.[1];
+
+  it("emails/styles.ts", () => {
+    const emails = readFileSync(join(process.cwd(), "emails/styles.ts"), "utf8");
+    const exported = (name: string) =>
+      new RegExp(`export const ${name} = '(#[0-9A-Fa-f]{6})'`).exec(emails)?.[1];
+
+    // ON_ACCENT is text ON the accent fill, which v2 paints in `ground`.
+    expect({
+      GROUND: exported("GROUND"),
+      SURFACE: exported("SURFACE"),
+      INK: exported("INK"),
+      INK_SOFT: exported("INK_SOFT"),
+      INK_MUTED: exported("INK_MUTED"),
+      RULE: exported("RULE"),
+      ACCENT: exported("ACCENT"),
+      ON_ACCENT: exported("ON_ACCENT"),
+    }).toEqual({
+      GROUND: declared("ground"),
+      SURFACE: declared("surface"),
+      INK: declared("ink"),
+      INK_SOFT: declared("ink-soft"),
+      INK_MUTED: declared("ink-muted"),
+      RULE: declared("rule"),
+      ACCENT: declared("accent"),
+      ON_ACCENT: declared("ground"),
+    });
+  });
+
+  it("marketing/cards/theme.json", () => {
+    const theme = JSON.parse(
+      readFileSync(join(process.cwd(), "marketing/cards/theme.json"), "utf8"),
+    ) as { palette: Record<string, string> };
+
+    // The cards render on an INK ground, so they use the inverse ramp.
+    expect({
+      accent: theme.palette.accent,
+      dark: theme.palette.dark,
+      cream: theme.palette.cream,
+      onInk: theme.palette.onInk,
+      onInkMuted: theme.palette.onInkMuted,
+      ruleOnInk: theme.palette.ruleOnInk,
+    }).toEqual({
+      accent: declared("accent"),
+      dark: declared("ink"),
+      cream: declared("ground"),
+      onInk: declared("on-ink"),
+      onInkMuted: declared("on-ink-muted"),
+      ruleOnInk: declared("rule-on-ink"),
+    });
+  });
+});

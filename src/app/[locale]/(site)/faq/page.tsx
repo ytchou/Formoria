@@ -72,17 +72,17 @@ export default async function FaqPage({ params }: PageProps) {
           </h1>
           <nav
             aria-label={t('sections.navigation')}
-            className="space-y-1 border-l border-border pl-3"
+            className="space-y-1 border-l border-rule pl-3"
           >
             <a
               href="#general"
-              className="flex min-h-12 items-center px-3 type-nav hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-h-12 items-center px-3 type-nav hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               {t('sections.general')}
             </a>
             <a
               href="#for-owners"
-              className="flex min-h-12 items-center px-3 type-nav hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-h-12 items-center px-3 type-nav hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               {t('sections.forOwners')}
             </a>

@@ -42,7 +42,7 @@ function UploadDropzone({
         onClick={() => inputRef.current?.click()}
         disabled={disabled}
         className={cn(
-          'flex min-h-24 w-full items-center justify-center gap-2 rounded-control border border-dashed border-border bg-muted px-4 py-4 type-metadata transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60',
+          'flex min-h-24 w-full items-center justify-center gap-2 rounded-control border border-dashed border-rule bg-surface px-4 py-4 type-metadata transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60',
           FOCUS_RING,
           className
         )}

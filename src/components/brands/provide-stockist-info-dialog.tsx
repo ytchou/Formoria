@@ -116,7 +116,7 @@ export function ProvideStockistInfoDialog({
                 {t("channels.dialog.success")}
               </Typography>
             </div>
-            <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-background p-0">
+            <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground p-0">
               <DialogClose render={<Button variant="secondary" />}>
                 {t("report.close")}
               </DialogClose>
@@ -131,7 +131,7 @@ export function ProvideStockistInfoDialog({
               <div className="space-y-2">
                 <Label htmlFor={`${fieldId}-name`}>
                   {t("channels.dialog.nameLabel")}
-                  <span aria-hidden="true" className="text-destructive">
+                  <span aria-hidden="true" className="text-danger">
                     {" "}
                     *
                   </span>
@@ -147,7 +147,7 @@ export function ProvideStockistInfoDialog({
               <div className="space-y-2">
                 <Label htmlFor={`${fieldId}-region`}>
                   {t("channels.dialog.regionLabel")}
-                  <span aria-hidden="true" className="text-destructive">
+                  <span aria-hidden="true" className="text-danger">
                     {" "}
                     *
                   </span>

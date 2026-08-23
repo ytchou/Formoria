@@ -79,7 +79,7 @@ export function WallTrailTile({
       className={cn(
         // `rounded-surface` is DESIGN.md's container radius; this tile is a
         // top-level surface, not a nested one.
-        'relative list-none min-h-80 overflow-hidden rounded-surface bg-foreground text-background sm:min-h-0',
+        'relative list-none min-h-80 overflow-hidden rounded-surface bg-ink text-ground sm:min-h-0',
         // Same flex arithmetic as a product tile — one per line on phones, then
         // basis and grow both proportional to the format's ratio.
         'basis-full grow-0',
@@ -93,7 +93,7 @@ export function WallTrailTile({
         aria-labelledby={titleId}
         data-ph-no-autocapture
         onClick={() => trackTrailCardClicked(trail.slug, position, 'homepage_wall')}
-        className="group relative flex h-full min-h-80 flex-col justify-end overflow-hidden p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-3 sm:min-h-0 md:p-8"
+        className="group relative flex h-full min-h-80 flex-col justify-end overflow-hidden p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-3 sm:min-h-0 md:p-8"
       >
         {imageSrc ? (
           <SurfaceImage
@@ -115,17 +115,17 @@ export function WallTrailTile({
         ) : null}
         <span
           aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-t from-foreground/95 via-foreground/55 to-foreground/10"
+          className="absolute inset-0 bg-gradient-to-t from-ink/95 via-ink/55 to-ink/10"
         />
         <span className="relative z-10 flex max-w-xl flex-col items-start gap-3">
           <span className="rounded-full border border-ground/30 bg-ground/20 px-3 py-1 type-eyebrow text-ground">
             {labels.eyebrow}
           </span>
-          <span id={titleId} className="type-card-title md:type-section text-background">
+          <span id={titleId} className="type-card-title md:type-section text-ground">
             {title}
           </span>
           {promise ? <span className="type-body text-on-ink line-clamp-3">{promise}</span> : null}
-          <span className="inline-flex min-h-12 items-center font-medium text-background underline underline-offset-4 transition-colors group-hover:text-background/80">
+          <span className="inline-flex min-h-12 items-center font-medium text-ground underline underline-offset-4 transition-colors group-hover:text-ground/80">
             {labels.cta}
           </span>
         </span>

@@ -38,9 +38,15 @@ describe('story component map — v2 type roles', () => {
   })
 
   it('carries no v1 palette class on any mapped element', () => {
-    // The v1 names (`border-border`, `bg-secondary`, `bg-muted`,
-    // `text-foreground`) still resolve, so a leftover renders perfectly and
-    // simply ignores the v2 token layer. Nothing else would catch that.
+    // This list is the FORBIDDEN one — stock shadcn names that must never
+    // reappear here. It is deliberately written as string literals the token
+    // migration would rewrite if it treated them as live classes; they are
+    // data, not styling, so any future sweep must skip this array.
+    //
+    // These names no longer resolve to anything: the stock @theme block is
+    // gone. That makes a leftover render UNSTYLED rather than render correctly
+    // and quietly ignore the v2 layer, which is the older and worse failure
+    // this test was written for.
     const V1_PALETTE = [
       'border-border',
       'bg-secondary',

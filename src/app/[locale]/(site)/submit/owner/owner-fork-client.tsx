@@ -25,7 +25,7 @@ export default function OwnerForkClient() {
 
       <div className="mt-10 grid gap-6 md:grid-cols-2">
         <section className={surfaceCardStyles({ padding: 'lg' })}>
-          <h2 className="type-section text-foreground">
+          <h2 className="type-section text-ink">
             {t('ownerFork.quickTitle')}
           </h2>
           <p className="mt-3 type-body-sm">
@@ -39,7 +39,7 @@ export default function OwnerForkClient() {
             ].map((point) => (
               <li
                 key={point}
-                className="flex items-start gap-2 rounded-surface border border-border/70 bg-background/50 px-3 py-2.5"
+                className="flex items-start gap-2 rounded-surface border border-rule/70 bg-ground/50 px-3 py-2.5"
               >
                 <span
                   aria-hidden="true"
@@ -60,7 +60,7 @@ export default function OwnerForkClient() {
         </section>
 
         <section className={surfaceCardStyles({ padding: 'lg' })}>
-          <h2 className="type-section text-foreground">
+          <h2 className="type-section text-ink">
             {t('ownerFork.detailsTitle')}
           </h2>
           <p className="mt-3 type-body-sm">
@@ -74,7 +74,7 @@ export default function OwnerForkClient() {
             ].map((point) => (
               <li
                 key={point}
-                className="flex items-start gap-2 rounded-surface border border-border/70 bg-background/50 px-3 py-2.5"
+                className="flex items-start gap-2 rounded-surface border border-rule/70 bg-ground/50 px-3 py-2.5"
               >
                 <span
                   aria-hidden="true"

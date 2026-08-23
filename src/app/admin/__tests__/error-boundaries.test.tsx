@@ -12,11 +12,16 @@ import AdminError from "../error";
 import messages from "../../../../messages/en.json";
 
 /**
- * The v1 colour names. Every one of them still resolves — the shadcn palette
- * is live until the last surface leaves it — which is exactly why a boundary
- * can keep rendering "correctly" on the wrong system for a whole release. An
- * error page is also the surface nobody opens on purpose, so drift here is
- * found by a user, in the worst moment, or not at all.
+ * The v1 colour names — the FORBIDDEN list, not the wanted one.
+ *
+ * These no longer resolve to anything: the stock @theme block is deleted, so a
+ * leftover now renders unstyled rather than rendering "correctly" on the wrong
+ * system. That is a strict improvement, but this test still earns its place —
+ * an error page is the surface nobody opens on purpose, so drift here is found
+ * by a user, in the worst moment, or not at all.
+ *
+ * These are DATA, not styling. A token sweep that rewrites them has inverted
+ * the test into asserting that the correct tokens are absent.
  */
 const RETIRED_COLOUR_TOKENS = [
   "bg-background",

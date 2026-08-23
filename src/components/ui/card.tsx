@@ -16,9 +16,9 @@ const surfaceCardStyles = cva(
   {
     variants: {
       tone: {
-        card: "bg-card",
+        card: "bg-surface",
         white: "bg-white",
-        background: "bg-background",
+        background: "bg-ground",
         info: "border-info/30 bg-info-bg text-info",
         warning: "border-warning/30 bg-warning/10 text-warning",
         success: "border-verified-green/30 bg-verified-green-bg text-verified-green",
@@ -47,7 +47,7 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card"
       className={cn(
-        "rounded-surface border border-rule bg-card text-ink",
+        "rounded-surface border border-rule bg-surface text-ink",
         className,
       )}
       {...props}
@@ -108,7 +108,7 @@ function DataCard({
               "mt-2 text-xs",
               delta.direction === "up"
                 ? "text-verified-green"
-                : "text-muted-foreground",
+                : "text-ink-muted",
             )}
             data-direction={delta.direction}
           >

@@ -411,7 +411,7 @@ describe("SelectedProductTile", () => {
     // `surfaceCardStyles` surface it sits in — the image plate would show as a
     // visible band. Covered modes take `bg-surface-deep` as a loading tint;
     // this one must not, which is what the negative pins.
-    expect(box.className).toContain("bg-card");
+    expect(box.className).toContain("bg-surface");
     expect(box.className).not.toContain("bg-surface-deep");
     view.unmount();
   });

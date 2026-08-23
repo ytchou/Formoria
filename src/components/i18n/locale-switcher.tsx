@@ -52,7 +52,7 @@ export function LocaleSwitcher({ compact = false }: { compact?: boolean }) {
             // size-9). The size axis restores it; the colour classes stay
             // because this trigger reads as chrome, not as an accent action.
             size={compact ? 'compact' : 'icon'}
-            className="text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="text-ink-muted hover:bg-surface hover:text-ink"
           />
         }
       >

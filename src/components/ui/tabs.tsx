@@ -26,7 +26,7 @@ function Tabs({
 }
 
 const tabsListVariants = cva(
-  "group/tabs-list inline-flex w-fit items-stretch justify-start border-border text-muted-foreground group-data-horizontal/tabs:min-h-12 group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col group-data-vertical/tabs:border-r group-data-vertical/tabs:border-b-0",
+  "group/tabs-list inline-flex w-fit items-stretch justify-start border-rule text-ink-muted group-data-horizontal/tabs:min-h-12 group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col group-data-vertical/tabs:border-r group-data-vertical/tabs:border-b-0",
   {
     variants: {
       variant: {
@@ -60,12 +60,12 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
       className={cn(
-        "relative inline-flex min-h-12 flex-none items-center justify-center gap-1.5 rounded-none border border-transparent px-4 py-2 whitespace-nowrap text-muted-foreground transition-[background-color,border-color,color] group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:bg-muted/60 hover:text-foreground has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3",
+        "relative inline-flex min-h-12 flex-none items-center justify-center gap-1.5 rounded-none border border-transparent px-4 py-2 whitespace-nowrap text-ink-muted transition-[background-color,border-color,color] group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:bg-surface/60 hover:text-ink has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3",
         FOCUS_RING,
         DISABLED_STATE,
         CONTROL_ICON,
         textStyles({ variant: "navItem" }),
-        "data-active:text-foreground",
+        "data-active:text-ink",
         "after:absolute after:bg-accent after:opacity-0 after:transition-opacity motion-reduce:after:transition-none group-data-horizontal/tabs:after:inset-x-3 group-data-horizontal/tabs:after:-bottom-px group-data-horizontal/tabs:after:h-0.5 group-data-vertical/tabs:after:inset-y-3 group-data-vertical/tabs:after:-right-px group-data-vertical/tabs:after:w-0.5 data-active:after:opacity-100",
         className
       )}

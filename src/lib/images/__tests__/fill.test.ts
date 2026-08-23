@@ -17,8 +17,8 @@ describe('brandImageFill', () => {
     // The admin previews have no container behind the image, so the plate is a
     // deliberate parameter rather than the accident it looked like when the
     // carve-out was copy-pasted.
-    expect(brandImageFill({ isLogo: true }, { inset: 'p-6', logoPlate: 'bg-muted' })).toBe(
-      'bg-muted object-contain p-6',
+    expect(brandImageFill({ isLogo: true }, { inset: 'p-6', logoPlate: 'bg-surface' })).toBe(
+      'bg-surface object-contain p-6',
     )
     expect(brandImageFill({ isLogo: true }, { inset: 'p-6' })).toBe('object-contain p-6')
   })
@@ -30,7 +30,7 @@ describe('brandImageFill', () => {
     // allows. The carousel passes `inset` for the logo case in the same call,
     // so this asymmetry is load-bearing rather than theoretical (DEV-1407).
     expect(
-      brandImageFill({ isLogo: false }, { fit: 'contain', inset: 'p-6', logoPlate: 'bg-muted' }),
+      brandImageFill({ isLogo: false }, { fit: 'contain', inset: 'p-6', logoPlate: 'bg-surface' }),
     ).toBe('object-contain')
   })
 
@@ -41,7 +41,7 @@ describe('brandImageFill', () => {
 
   it('ignores inset and logoPlate for a covering image', () => {
     expect(
-      brandImageFill({ isLogo: false }, { inset: 'p-6', logoPlate: 'bg-muted' }),
+      brandImageFill({ isLogo: false }, { inset: 'p-6', logoPlate: 'bg-surface' }),
     ).toBe('object-cover')
   })
 

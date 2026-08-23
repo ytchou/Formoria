@@ -156,7 +156,7 @@ export function ReportDialogContent({
           <Typography variant="cardDescription" className="flex-1 px-4 py-6 sm:px-6">
             {t('success')}
           </Typography>
-          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-background px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground px-4 py-4 sm:px-6">
             <DialogClose render={<Button variant="secondary" />}>
               {t('close')}
             </DialogClose>
@@ -180,7 +180,7 @@ export function ReportDialogContent({
               <Typography
                 variant="cardDescription"
                 role="status"
-                className="rounded-surface border border-border bg-muted/50 p-3"
+                className="rounded-surface border border-rule bg-surface/50 p-3"
               >
                 {t('alreadyReported')}
               </Typography>
@@ -210,8 +210,8 @@ export function ReportDialogContent({
                   )
                 })}
               </Grid>
-              <div className="flex min-h-12 items-center gap-3 rounded-surface border border-rule bg-muted/50 p-3">
-                <Info className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <div className="flex min-h-12 items-center gap-3 rounded-surface border border-rule bg-surface/50 p-3">
+                <Info className="size-4 shrink-0 text-ink-muted" aria-hidden="true" />
                 <Typography variant="cardDescription">
                   {t('mitDisputePrompt')}{' '}
                   <DialogClose
@@ -219,7 +219,7 @@ export function ReportDialogContent({
                       <UnstyledButton
                         // Inline inside a sentence: it sits on the text
                         // baseline, so it takes no control height at all.
-                        className="font-medium text-foreground underline underline-offset-4"
+                        className="font-medium text-ink underline underline-offset-4"
                         onClick={handleMitDisputeClick}
                       />
                     }
@@ -248,7 +248,7 @@ export function ReportDialogContent({
                       icon={
                         <Icon
                           className={cn(
-                            'size-5 text-muted-foreground',
+                            'size-5 text-ink-muted',
                             selected && 'text-accent',
                           )}
                           aria-hidden="true"
@@ -261,7 +261,7 @@ export function ReportDialogContent({
                           <CircleCheck className="size-4" aria-hidden="true" />
                         ) : (
                           <ChevronRight
-                            className="size-4 text-muted-foreground"
+                            className="size-4 text-ink-muted"
                             aria-hidden="true"
                           />
                         )
@@ -296,7 +296,7 @@ export function ReportDialogContent({
             <Separator />
 
             {reportRequiresSignIn ? (
-              <div className="rounded-surface border border-border bg-muted/50 p-4">
+              <div className="rounded-surface border border-rule bg-surface/50 p-4">
                 <Typography variant="cardDescription">
                   {selectedReason === 'removal_request'
                     ? t('removalSignInPrompt')
@@ -308,7 +308,7 @@ export function ReportDialogContent({
                 <div className="flex items-center justify-between gap-4">
                   <Label htmlFor="report-notes">{t('notesLabel')}</Label>
                   <span
-                    className="type-metadata tabular-nums text-muted-foreground"
+                    className="type-metadata tabular-nums text-ink-muted"
                     aria-live="polite"
                     aria-atomic="true"
                   >
@@ -332,7 +332,7 @@ export function ReportDialogContent({
             )}
           </div>
 
-          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-background px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground px-4 py-4 sm:px-6">
             <DialogClose render={<Button variant="secondary" />}>
               {t('cancel')}
             </DialogClose>

@@ -54,7 +54,7 @@ export function EmailCaptureForm() {
   }
 
   return (
-    <form action={formAction} className="space-y-4 text-foreground">
+    <form action={formAction} className="space-y-4 text-ink">
       {/* Anti-spam honeypot: invisible to humans, filled in by naive bots, and
           rejected server-side by isHoneypotFilled(). It cannot be an <Input> —
           the primitive's visible styling and focus behaviour are exactly what a
@@ -66,14 +66,14 @@ export function EmailCaptureForm() {
         <div className="min-w-0 flex-1">
           <Input
             aria-invalid={state.error ? "true" : undefined}
-            className="h-12 rounded-control border-border bg-background/50 text-foreground placeholder:text-muted-foreground focus-visible:border-foreground focus-visible:ring-ring sm:h-11"
+            className="h-12 rounded-control border-rule bg-ground/50 text-ink placeholder:text-ink-muted focus-visible:border-ink focus-visible:ring-accent sm:h-11"
             name="email"
             placeholder={t("emailPlaceholder")}
             required
             type="email"
           />
           {state.error ? (
-            <p className="mt-2 type-body-sm text-destructive" role="alert">
+            <p className="mt-2 type-body-sm text-danger" role="alert">
               {state.error}
             </p>
           ) : null}
@@ -96,7 +96,7 @@ export function EmailCaptureForm() {
       </div>
 
       <div className="space-y-2">
-        <p className="type-body-sm font-medium text-secondary-foreground">
+        <p className="type-body-sm font-medium text-ink-soft">
           {t("interestsLabel")}
         </p>
         {/* A scrolling row, not a wrapping one — but still a `ChipRow`, so
@@ -131,7 +131,7 @@ export function EmailCaptureForm() {
               href={routes.privacy()}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="text-ink underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               {chunks}
             </Link>

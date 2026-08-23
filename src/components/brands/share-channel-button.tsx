@@ -58,7 +58,7 @@ export function ShareChannelButton({
       >
         {icon}
       </span>
-      <span className="type-micro text-muted-foreground">{label}</span>
+      <span className="type-micro text-ink-muted">{label}</span>
     </UnstyledButton>
   )
 }

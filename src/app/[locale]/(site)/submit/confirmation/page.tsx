@@ -75,13 +75,13 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
         </h1>
 
         {ownershipAdjusted ? (
-          <p className="mt-4 rounded-surface border border-border bg-muted p-4 type-body-sm">
+          <p className="mt-4 rounded-surface border border-rule bg-surface p-4 type-body-sm">
             {t('communityOwnershipNotice')}
           </p>
         ) : null}
 
         {/* Timeline */}
-        <div className="mt-8 rounded-surface bg-background p-6">
+        <div className="mt-8 rounded-surface bg-ground p-6">
           <div className="space-y-4">
               {([
               {
@@ -101,17 +101,17 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
                 <div className="flex flex-col items-center">
                   <div
                     className={`h-3 w-3 shrink-0 rounded-full ${
-                      step.active ? 'bg-accent' : 'bg-border'
+                      step.active ? 'bg-accent' : 'bg-rule'
                     }`}
                   />
                   {i < 1 && (
-                    <div className="mt-1 h-full w-px bg-border" />
+                    <div className="mt-1 h-full w-px bg-rule" />
                   )}
                 </div>
                 <div className="pb-4">
                   <p
                     className={`type-body-sm font-semibold text-ink ${
-                      step.active ? 'text-foreground' : 'text-muted-foreground'
+                      step.active ? 'text-ink' : 'text-ink-muted'
                     }`}
                   >
                     {step.label}
@@ -128,7 +128,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
         <p className="mt-4 type-body-sm">
           {t.rich('whatNext.learnMore.answer', {
             link: (chunks) => (
-              <Link href={routes.gettingStarted()} className="text-foreground underline">
+              <Link href={routes.gettingStarted()} className="text-ink underline">
                 {chunks}
               </Link>
             ),

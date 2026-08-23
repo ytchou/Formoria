@@ -288,7 +288,7 @@ export function SelectedProductTile({
           // `bg-muted` to migrate, so this branch does not move with the rest.
           // A covered image only shows its box while loading, which is why
           // every other mode takes the `surface-deep` plate instead.
-          mode === "trail" ? "bg-card" : "bg-surface-deep",
+          mode === "trail" ? "bg-surface" : "bg-surface-deep",
         )}
       >
         {imageSrc ? (

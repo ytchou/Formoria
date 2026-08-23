@@ -65,7 +65,7 @@ export function AdminBrandMenu({ brandId, brandName, brandSlug }: AdminBrandMenu
           <Button
             variant="ghost"
             size="icon"
-            className="text-muted-foreground hover:bg-secondary"
+            className="text-ink-muted hover:bg-surface"
           />
         }
       >
@@ -83,7 +83,7 @@ export function AdminBrandMenu({ brandId, brandName, brandSlug }: AdminBrandMenu
           {t('editFields')}
         </DropdownMenuLinkItem>
         <DropdownMenuItem
-          className="text-destructive focus:text-destructive"
+          className="text-danger focus:text-danger"
           disabled={isPending}
           onClick={handleHideBrand}
         >
