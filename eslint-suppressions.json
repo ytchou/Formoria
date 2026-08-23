@@ -72,7 +72,7 @@
   },
   "e2e/tests/brand-actions.spec.ts": {
     "playwright/no-conditional-in-test": {
-      "count": 2
+      "count": 1
     }
   },
   "e2e/tests/brand-save.spec.ts": {
