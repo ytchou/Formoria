@@ -33,18 +33,28 @@ export default function BrandShowcase({
   return (
     <section>
       {/* The one shared header, so the directory rail is titled exactly the way the
-          selection wall and the trust seam above it are. Its link slot stays
+          selection wall above it is. Its link slot stays
           empty: the rail's CTA is tracked, and one destination announced twice
           is a second tab stop to the same place. */}
       <SectionHeader heading={heading} note={subheading} className="mb-6" />
-      <Grid ref={ref}>
+      <Grid ref={ref} className="xl:grid-cols-5">
         {brands.map((brand, index) => (
           <div
             key={brand.id}
-            className={inView ? 'animate-reveal-up' : 'opacity-0'}
+            className={[
+              index >= 8 ? 'hidden xl:block' : null,
+              inView ? 'animate-reveal-up' : 'opacity-0',
+            ]
+              .filter(Boolean)
+              .join(' ')}
             style={{ animationDelay: `${index * 60}ms` }}
           >
-            <BrandCard brand={brand} position={index} listSource={ctaLocation} />
+            <BrandCard
+              brand={brand}
+              position={index}
+              listSource={ctaLocation}
+              imageSizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 25vw, 20vw"
+            />
           </div>
         ))}
       </Grid>

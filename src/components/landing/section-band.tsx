@@ -8,10 +8,10 @@ import { routes } from '@/lib/routes'
 /**
  * THE CLOSING CTA BAND.
  *
- * The closing ask, on `surface` — the second material, and the only background
- * on the page besides the trust band. The recommendation block holds a single
- * CTA; it once sat beside a feature-request ask as two stacked blocks with a
- * heading each, which read as two competing sections at the foot of the page.
+ * The closing ask, on `surface` — the second material, and the only flat-color
+ * background on the page. The recommendation block holds a single CTA; it once
+ * sat beside a feature-request ask as two stacked blocks with a heading each,
+ * which read as two competing sections at the foot of the page.
  *
  * The newsletter stays a real form rather than the mock's monthly-selection
  * subscribe button: `e2e/tests/newsletter-subscribe.spec.ts` subscribes through

@@ -9,7 +9,6 @@ import { StoryRow } from "@/components/stories/story-row";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { Link } from "@/i18n/navigation";
 import { buttonVariants } from "@/components/ui/button";
-import { Grid } from "@/components/ui/grid";
 import { PageShell } from "@/components/ui/page-shell";
 import { PhotoBand } from "@/components/ui/photo-band";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
@@ -57,8 +56,6 @@ export type LandingZonesProps = {
  *
  *     hero      the editorial opener — eyebrow, promise, lede, search
  *     selection the justified wall with trails woven in
- *     trust     the trust-seam line — membership and selection, kept clearly
- *               apart — explained as prose in three columns
  *     trails    the style zone — every indexable trail as a titled row
  *     manifesto the photo band
  *     topics    stories, with a live event lifted above them
@@ -74,8 +71,9 @@ export type LandingZonesProps = {
  * dated event, and dropping it would also strip the stories and events reads
  * out of `page.tsx` and out of `isLandingRenderDegraded`.
  *
- * Only ONE zone carries a background — the trust band, on `surface`. Every
- * other seam is whitespace, per DESIGN.md.
+ * Only ONE flat-color zone carries a background — the closing band, on
+ * `surface`. The manifesto owns its photograph; every other seam is
+ * whitespace, per DESIGN.md.
  */
 export async function LandingZones({
   locale,
@@ -129,69 +127,6 @@ export async function LandingZones({
             />
           </div>
         ) : null}
-
-        {/*
-          THE TRUST IA AS PROSE, NEVER AS BADGES (D11).
-
-          The homepage states what directory membership, the selection label
-          and the brand-supplied credit each mean, in running text, once. It
-          renders no trust BADGE at all — the single rendered selection badge
-          lives on brand detail, and a badge here would read as the homepage
-          certifying something.
-
-          The heading is `landing.trustSeam.line`, the commitment in
-          docs/strategy/brand-voice.md. It left the homepage on 2026-08-17 when
-          the manifesto band replaced the thin seam; this band brings it back
-          with the explanation the thin seam never had.
-
-          Column titles are h3, not h2: `homepage-curated-product.spec.ts` finds
-          the wall by the section whose h2 reads exactly the selection label
-          (`landing.selectedProducts.heading`), and the trust column's title is
-          that same string — a second h2 with it would give the selector two
-          matches.
-        */}
-        <section
-          data-landing-zone="trust"
-          aria-labelledby="landing-trust"
-          className="bg-surface py-section"
-        >
-          <PageShell
-            measure="page"
-            className="flex flex-col gap-stack lg:flex-row lg:gap-gutter"
-          >
-            <div className="lg:w-1/4">
-              <h2 id="landing-trust" className="type-section">
-                {t("trustSeam.line")}
-              </h2>
-              <p className="mt-3 type-body-sm">{t("trust.note")}</p>
-            </div>
-            {/* The shared grid primitive, not a local `md:grid-cols-3`. */}
-            <Grid cols="triptych" gap="gutter" className="lg:flex-1">
-              {(
-                [
-                  ["listed", t("trust.listedTitle"), t("trust.listedBody")],
-                  [
-                    "selected",
-                    t("trust.selectedTitle"),
-                    t("trust.selectedBody"),
-                  ],
-                  [
-                    "supplied",
-                    t("trust.suppliedTitle"),
-                    t("trust.suppliedBody"),
-                  ],
-                ] as const
-              ).map(([key, title, body]) => (
-                // Elevation is a border, never a shadow: the rule over each
-                // column is the whole separation between them.
-                <div key={key} className="border-t-2 border-ink pt-4">
-                  <h3 className="type-label">{title}</h3>
-                  <p className="mt-3 type-body-sm">{body}</p>
-                </div>
-              ))}
-            </Grid>
-          </PageShell>
-        </section>
 
         {/*
           Every indexable trail — including the ones the wall placed as tiles.
