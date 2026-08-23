@@ -38,11 +38,28 @@ export type BackfillTarget = {
   urlColumn: string
   /** Column that must end up holding the bucket-relative key. */
   pathColumn: string
+  /**
+   * Column that, when NOT null, means this row borrows another row's storage
+   * object and must therefore keep a NULL path of its own.
+   *
+   * `submission_images` carries the check constraint
+   * `origin_brand_image_id IS NULL OR storage_path IS NULL`: a row cloned from
+   * an existing brand image points at that image rather than owning bytes.
+   * Filling its path is not merely rejected by Postgres, it is wrong -- it
+   * would give two rows ownership of one object, and the storage sweep decides
+   * what to delete by counting owners.
+   */
+  skipWhenSet?: string
 }
 
 export const BACKFILL_TARGETS: readonly BackfillTarget[] = [
   { table: 'brand_images', urlColumn: 'url', pathColumn: 'storage_path' },
-  { table: 'submission_images', urlColumn: 'url', pathColumn: 'storage_path' },
+  {
+    table: 'submission_images',
+    urlColumn: 'url',
+    pathColumn: 'storage_path',
+    skipWhenSet: 'origin_brand_image_id',
+  },
   {
     table: 'event_exhibitors',
     urlColumn: 'image_url',
@@ -253,11 +270,20 @@ async function fetchRows(
   let from = 0
 
   for (;;) {
-    const { data, error } = await supabase
+    let query = supabase
       .from(target.table)
       .select(`id, ${target.urlColumn}, ${target.pathColumn}`)
       .not(target.urlColumn, 'is', null)
       .is(target.pathColumn, null)
+
+    // Excluded at the query, not filtered after: a borrowed-object row is not
+    // an unresolvable row, and counting it as one would make every run report
+    // failures that are actually correct state.
+    if (target.skipWhenSet) {
+      query = query.is(target.skipWhenSet, null)
+    }
+
+    const { data, error } = await query
       .order('id', { ascending: true })
       .range(from, from + PAGE_SIZE - 1)
 
