@@ -10,7 +10,7 @@ import { extendTailwindMerge } from "tailwind-merge"
  * one element at equal specificity, and the winner is whichever rule Tailwind
  * happened to emit last: an order no call site can read and no test can pin.
  *
- * THE FOUR COMPONENT SIZES were registered first. The moment `DialogContent`
+ * THE FIVE COMPONENT SIZES were registered first. The moment `DialogContent`
  * carried `sm:overlay-panel` instead of Tailwind's own small-screen cap, the
  * six dialogs that pass `sm:max-w-lg` would have kept BOTH widths. Registering
  * the names is what keeps a call-site override doing what it did when the base
@@ -43,9 +43,13 @@ const twMerge = extendTailwindMerge({
         "page-measure",
         "form-measure",
         "prose-measure",
-        // The four component sizes.
+        // The five component sizes — the `overlay-*` block in `globals.css`.
+        // `overlay-tokens.test.ts` pins the two lists to the same set, so a
+        // name added there and not here fails rather than silently stops
+        // being overridable.
         "overlay-compact",
         "overlay-panel",
+        "overlay-form",
         "overlay-wide",
         "content-column",
       ],
