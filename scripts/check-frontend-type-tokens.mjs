@@ -122,21 +122,6 @@ export const allowedMatches = [
     values: ["max-w-[min(96vw,1100px)]"],
   },
   {
-    // Caps the donut GRAPHIC so it stays circular and legible inside a card of
-    // any width. A drawing's size, not a text column's.
-    file: "src/components/dashboard/analytics-donut-card.tsx",
-    names: ["unnamed page width"],
-    values: ["max-w-[280px]"],
-  },
-  {
-    // An empty state's centred body column. Its near neighbour `content-column`
-    // is 28rem/448px, so converting it is plausible but would move the rendered
-    // width by 32px — a visual change, which is out of scope for a lint gate.
-    file: "src/components/dashboard/dashboard-empty-state.tsx",
-    names: ["unnamed page width"],
-    values: ["max-w-[480px]"],
-  },
-  {
     // Table-cell truncation caps. They bound a `<td>` so a long brand name
     // ellipses instead of stretching its column — a cell width, which no page
     // measure and no overlay name describes.

@@ -433,13 +433,6 @@ export const ANALYTICS_EVENTS = {
   BRAND_LISTING_PUBLISHED: 'brand_listing_published',
 
   /**
-   * Server-side: a brand owner published an edit from the owner dashboard.
-   * @property brand_id {string} Brand UUID.
-   * @property brand_slug {string} Slug after the publish (may differ from the pre-edit slug).
-   */
-  BRAND_OWNER_EDIT_PUBLISHED: 'brand_owner_edit_published',
-
-  /**
    * A manufacturing-origin declaration was made during the claim flow.
    * @property brand_id {string} Brand UUID.
    * @property brand_slug {string} Brand slug.
@@ -931,7 +924,6 @@ export interface AnalyticsEventPayloads {
     is_brand_owner: boolean
     '$process_person_profile': false
   }
-  [ANALYTICS_EVENTS.BRAND_OWNER_EDIT_PUBLISHED]: { brand_id: string; brand_slug: string }
   [ANALYTICS_EVENTS.MIT_DECLARED]: {
     brand_id: string
     brand_slug: string

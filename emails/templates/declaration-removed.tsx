@@ -11,6 +11,7 @@ type Locale = "zh-TW" | "en";
 
 type DeclarationRemovedEmailProps = {
   brandName: string;
+  brandSlug: string;
   reviewerNotes: string;
   locale?: Locale;
 };
@@ -21,12 +22,16 @@ type BuildDeclarationRemovedEmailProps = DeclarationRemovedEmailProps & {
 
 export default function DeclarationRemovedEmail({
   brandName,
+  brandSlug,
   reviewerNotes,
   locale = "zh-TW",
 }: DeclarationRemovedEmailProps) {
   const escapedBrandName = escapeHtml(brandName);
   const escapedReviewerNotes = escapeHtml(reviewerNotes.trim());
-  const dashboardUrl = `${SITE_URL}/dashboard`;
+  // The owner dashboard that held the MIT status card was removed (DEV-1570),
+  // so this points at the brand's public page — the only surface that still
+  // shows the current Made in Taiwan status.
+  const brandUrl = `${SITE_URL}/brands/${escapeHtml(brandSlug)}`;
 
   if (locale === "en") {
     return (
@@ -39,15 +44,14 @@ export default function DeclarationRemovedEmail({
         </EmailText>
         <ReviewerNotes label="Reviewer notes:" notes={escapedReviewerNotes} />
         <EmailText>
-          Visit the MIT status card in your brand dashboard to review the
-          current status.
+          Your brand page now shows the updated Made in Taiwan status.
         </EmailText>
         <EmailText>
           You can re-declare after addressing the evidence, or pursue Tier 1
           registry verification with valid MIT certification.
         </EmailText>
         <EmailText>
-          <EmailLink href={dashboardUrl}>Open the MIT status card</EmailLink>
+          <EmailLink href={brandUrl}>View your brand page</EmailLink>
         </EmailText>
         <EmailText>
           Formoria — Taiwanese Brand Discovery &amp; Curation
@@ -65,13 +69,13 @@ export default function DeclarationRemovedEmail({
         的台灣製造聲明。
       </EmailText>
       <ReviewerNotes label="審核意見：" notes={escapedReviewerNotes} />
-      <EmailText>請前往品牌主後台的台灣製造狀態卡查看目前狀態。</EmailText>
+      <EmailText>您的品牌頁面已顯示更新後的台灣製造狀態。</EmailText>
       <EmailText>
         您可以在處理相關證據後重新聲明，或提供有效的 MIT 認證，申請第 1
         級登錄驗證。
       </EmailText>
       <EmailText>
-        <EmailLink href={dashboardUrl}>前往台灣製造狀態卡</EmailLink>
+        <EmailLink href={brandUrl}>查看品牌頁面</EmailLink>
       </EmailText>
       <EmailText>Formoria — 台灣品牌探索與選物平台</EmailText>
     </Layout>

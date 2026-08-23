@@ -2,8 +2,6 @@ import { getAuditContext } from '@/lib/audit'
 import { createServiceClient } from '@/lib/supabase/service'
 
 export type AdminAction =
-  | 'impersonate_start'
-  | 'impersonate_end'
   | 'brand_edit'
   | 'draft_save'
   | 'draft_publish'
@@ -93,21 +91,4 @@ export async function logAdminAction({
   } catch {
     // Fire-and-forget - do not block the action on logging failure.
   }
-}
-
-export async function logAdminActionIfAdmin(
-  isAdmin: boolean,
-  user: { id: string; email: string | null },
-  action: AdminAction,
-  brandSlug: string,
-  brandId: string,
-): Promise<void> {
-  if (!isAdmin || !user.email) return
-  void logAdminAction({
-    adminUserId: user.id,
-    adminEmail: user.email,
-    action,
-    targetBrandSlug: brandSlug,
-    targetBrandId: brandId,
-  })
 }

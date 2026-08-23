@@ -211,15 +211,9 @@ export const EXCLUDED_SOURCE_FILES = new Map([
   // to sit here are now in SCANNED_SOURCE_FILES; what remains is not "not yet
   // done", it is copy this gate cannot usefully read.
   //
-  // Ceiling: a banned term reaching a satori-rendered PNG, an owner mailto
-  // subject or an embed snippet still passes. Upgrade path is per-entry below
+  // Ceiling: a banned term reaching a satori-rendered PNG or an embed snippet
+  // still passes. Upgrade path is per-entry below
   // — there is no single follow-up that clears the group.
-  [
-    "components/dashboard/inline-verification.tsx",
-    "owner mailto subject — a locale-branched string built inline; scanning it " +
-      "means scanning both branches, so bring it in by moving the zh-TW branch " +
-      "into messages/*.json, which the catalogue scan already covers",
-  ],
   [
     "components/settings/settings-form.tsx",
     "language endonyms only (中文 / English) — no sentence copy exists to " +

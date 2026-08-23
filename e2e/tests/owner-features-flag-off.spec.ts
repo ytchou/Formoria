@@ -84,12 +84,15 @@ test.describe("Owner features gated off", () => {
     ).toHaveCount(0);
   });
 
-  test("the owner dashboard and owner submit fork are unreachable for a signed-in non-admin", async ({
+  test("the deleted owner dashboard and the flag-gated owner submit fork both 404 for a signed-in non-admin", async ({
     userPage,
   }) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
-    // Signed in, so the (protected) layout's auth check passes and the flag gate
-    // below it answers notFound() — a 404, not the signed-out sign-in redirect.
+    // Two different causes, one status code. /dashboard 404s because DEV-1570
+    // (PR 3) deleted the route outright — the flag no longer decides it, and
+    // this assertion would hold with owner features ON. The /submit/owner
+    // paths below are the ones the flag still gates. Signed in either way, so
+    // the answer is a 404 and not the signed-out sign-in redirect.
     const dashboard = await userPage.goto("/dashboard");
     if (dashboard?.status() === 503) {
       test.skip(

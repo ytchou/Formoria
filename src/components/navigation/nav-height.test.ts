@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
  * `--nav-height` IS THE STICKY OFFSET FOR SIX ELEMENTS, AND IT DRIFTED.
  *
  * The brand section nav, the directory filter rail, the favorites loading
- * header, the dashboard wizard sidebar and the terms/faq/privacy asides all
+ * header, the brand wizard sidebar and the terms/faq/privacy asides all
  * park below the header with `top-(--nav-height)`. When row 1 grew from `h-14`
  * to `h-16` and a `min-h-12` category row was added, the token still read
  * 100px, so all six lost their top 13px under a z-50 bar — including the top

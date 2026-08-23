@@ -10,10 +10,6 @@ import {
   resolveInitialLocale,
 } from "@/i18n/locale-preference";
 import {
-  IMPERSONATE_COOKIE,
-  resolveImpersonationCookie,
-} from "@/lib/auth/impersonation";
-import {
   verifyChallengeToken,
   CHALLENGE_COOKIE_NAME,
 } from "@/lib/security/challenge";
@@ -81,14 +77,21 @@ export const RESERVED_ROUTES = new Set([
   "discover",
   "events",
   "where-to-buy",
-  "dashboard",
   "favorites",
   // Retired routes. None serve a page, but they stay reserved so a bare hit
   // 404s cleanly instead of being redirected into `/brands/<segment>` by
   // `decideBareBrandSlug`, and so no brand can ever claim one of these slugs.
+  //
+  // `dashboard` (parked by DEV-1570) matters twice over: `hasApprovedBrandSlug`
+  // treats a Supabase error as approved, so an unreserved `/dashboard` would
+  // answer a transient outage with a 301 PERMANENT redirect into
+  // `/brands/dashboard` that browsers cache forever; and `isReservedSlug` reads
+  // this same set, so a brand called "Dashboard" could otherwise take the slug
+  // and shadow the app route if DEV-1570 is ever reverted.
   "feature-requests",
   "feedback",
   "getting-started",
+  "dashboard",
   "faq",
   "about",
   "vision",
@@ -194,7 +197,6 @@ export const PUBLIC_INTL_SEGMENTS = new Set([
   "challenge",
   "my-submissions",
   "contributions",
-  "dashboard",
   "settings",
   "favorites",
   "privacy",
@@ -538,24 +540,13 @@ async function refreshSupabaseSession(
   // Refresh the session — must call getUser() not getSession()
   // to properly validate the JWT against the Supabase Auth server.
   // Timeout prevents stale/invalid tokens from blocking the request.
-  let user = null;
   try {
-    const result = await supabase.auth.getUser();
-    user = result.data.user;
+    await supabase.auth.getUser();
   } catch (error) {
     // Auth timeout or network error — continue as unauthenticated.
     // `warning`, not `error`: degrading to anonymous is the correct outcome
     // here, so nothing breaks for the user.
     reportProxyFailure("session-refresh", error, "warning");
-  }
-
-  const impersonateCookie = request.cookies.get(IMPERSONATE_COOKIE)?.value;
-  const impersonateDecision = await resolveImpersonationCookie({
-    email: user?.email ?? null,
-    currentCookie: impersonateCookie,
-  });
-  if (impersonateDecision.action === "delete") {
-    response.cookies.delete(IMPERSONATE_COOKIE);
   }
 
   return supabaseResponse;
@@ -655,9 +646,31 @@ async function attachVisitorIdentity(
   return response;
 }
 
+/**
+ * Admin impersonation was deleted with the owner dashboard (DEV-1570), and with
+ * it the only code that ever cleared this cookie. A browser that used
+ * view-as-owner before that deploy keeps a signed value until it self-expires,
+ * and a `git revert` of DEV-1570 would restore code that honors a cookie minted
+ * under the old rules with no fresh authorization step.
+ *
+ * One-way cleanup, and deliberately conditional on the REQUEST carrying the
+ * cookie: an unconditional `delete` emits `Set-Cookie` on every response, which
+ * makes a CDN bypass its cache — the same trap documented on
+ * `attachVisitorIdentity` for `/i/`. Remove this once no live browser can still
+ * hold one.
+ */
+const RETIRED_IMPERSONATE_COOKIE = "fm_impersonate";
+
 export async function proxy(request: NextRequest) {
   try {
-    return await attachVisitorIdentity(request, await runProxy(request));
+    const response = await attachVisitorIdentity(
+      request,
+      await runProxy(request),
+    );
+    if (request.cookies.has(RETIRED_IMPERSONATE_COOKIE)) {
+      response.cookies.delete(RETIRED_IMPERSONATE_COOKIE);
+    }
+    return response;
   } catch (error) {
     // Fired before the rethrow and deliberately not awaited: the capture is
     // asynchronous, and the request must fail exactly as it does today.
@@ -999,7 +1012,7 @@ async function runProxy(request: NextRequest) {
   }
 
   // Skip Supabase auth refresh for truly public content paths to reduce egress.
-  // dashboard, settings, and my-submissions still need auth even though
+  // settings and my-submissions still need auth even though
   // isLocalizedPublicPath returns true for them (they're in PUBLIC_INTL_SEGMENTS).
   if (isPublicPath) {
     const segments = pathname.split("/").filter(Boolean);
@@ -1012,7 +1025,6 @@ async function runProxy(request: NextRequest) {
     // already-signed-in users on the sign-in form.
     const AUTH_REQUIRED_SEGMENTS = new Set([
       "auth",
-      "dashboard",
       "settings",
       "my-submissions",
       "submit",

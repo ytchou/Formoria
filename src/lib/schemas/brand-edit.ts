@@ -30,7 +30,7 @@ const publishPurchaseRequirements = {
   [onlineStoreByKey.website.camel]: z.string().url(),
 }
 
-export const brandPublishRequirementsSchema = z.object({
+const brandPublishRequirementsSchema = z.object({
   name: z.string().trim().min(1),
   categorySlug: z.string().trim().min(1),
   description: z.string().trim().min(1),
@@ -73,7 +73,7 @@ type WizardStepKey =
 
 export type WizardStep = { key: WizardStepKey }
 
-export const WIZARD_STEPS: WizardStep[] = [
+const WIZARD_STEPS: WizardStep[] = [
   { key: 'basicInfo' },
   { key: 'media' },
   { key: 'links' },

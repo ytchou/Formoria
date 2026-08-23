@@ -6,6 +6,14 @@ import {
   OWNER_FEATURES_OFF_REASON,
 } from "../helpers/owner-features";
 
+// Suite-level gate (DEV-1261): the claim CTA is not rendered while the flag is
+// off, so this journey is unreachable.
+//
+// DEV-1570 (PR 3) deleted the owner dashboard, so the leg that followed an
+// approved claim to /dashboard/brands/<slug> was removed from this file — it
+// would 404 the moment anyone set owner_features_enabled to true, and the
+// failure would read as a claim-flow regression. The claim journey itself is
+// deleted wholesale in PR 4, and this spec goes with it.
 test.beforeAll(async ({ browser }) => {
   if (await ownerFeaturesDisabled(browser)) {
     test.skip(true, OWNER_FEATURES_OFF_REASON);
@@ -283,23 +291,5 @@ test.describe("Claim request smoke", () => {
         POLL.UI,
       )
       .toBe(userId);
-
-    await expect(async () => {
-      await userPage.goto("/dashboard");
-      await expect(userPage).toHaveURL(
-        new RegExp(`/dashboard/brands/${brandSlug}$`),
-        {
-          timeout: BUDGET.RENDERED,
-        },
-      );
-      await expect(
-        userPage.getByRole("heading", { level: 1, name: brandName }),
-      ).toBeVisible({ timeout: BUDGET.RENDERED });
-      await expect(
-        userPage.getByRole("link", { name: "編輯品牌" }).first(),
-      ).toBeVisible({
-        timeout: BUDGET.RENDERED,
-      });
-    }).toPass(POLL.CLAIM);
   });
 });

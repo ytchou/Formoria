@@ -15,7 +15,6 @@ const UTM_LAST_TOUCH_KEY = 'formoria_utm_last_touch'
 
 const PROTECTED_ANALYTICS_SEGMENTS = [
   routes.admin.index(),
-  routes.dashboard.index(),
   routes.auth.index(),
 ] as const
 
@@ -700,18 +699,6 @@ export function trackBrandClaimStarted(
     brand_id: brandId,
     brand_slug: brandSlug,
     is_authenticated: isAuthenticated,
-  })
-}
-
-export function trackMitDeclared(
-  brandId: string,
-  brandSlug: string,
-  declaredScope: string,
-) {
-  capturePostHogEvent(ANALYTICS_EVENTS.MIT_DECLARED, {
-    brand_id: brandId,
-    brand_slug: brandSlug,
-    declared_scope: declaredScope,
   })
 }
 

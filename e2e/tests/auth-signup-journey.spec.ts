@@ -9,7 +9,6 @@ import {
   deleteCapturedAuthEmail,
   waitForCapturedAuthEmail,
 } from '../helpers/auth-email-capture';
-import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
 
 import { BUDGET } from '../budgets';
 // Signup → email confirmation → onboarding → first value.
@@ -26,17 +25,7 @@ import { BUDGET } from '../budgets';
 test.describe.serial('Auth — signup to first value', () => {
   test.skip(!process.env.SUPABASE_SERVICE_ROLE_KEY, 'requires service role key');
 
-  // Suite-level gate (DEV-1261). The confirmation callback lands new users on
-  // `/` instead of `/dashboard` while the flag is off, so the owner-dashboard
-  // payoff this journey verifies is unreachable. Probes the running app, never
-  // app_settings.
-  test.beforeAll(async ({ browser }) => {
-    if (await ownerFeaturesDisabled(browser)) {
-      test.skip(true, OWNER_FEATURES_OFF_REASON);
-    }
-  });
-
-  test('confirms a new account and lands on the owner dashboard empty state', async ({
+  test('confirms a new account and lands on the home page signed in', async ({
     anonPage,
     baseURL,
   }, testInfo) => {
@@ -105,7 +94,8 @@ test.describe.serial('Auth — signup to first value', () => {
       await anonPage.goto(capturedAuthLink(capture));
 
       // 4. Onboarding handoff — callback marks a <60s-old account as new and sends
-      //    it to the zh-TW dashboard (bare path, localePrefix: 'as-needed').
+      //    it to the zh-TW home page (bare path, localePrefix: 'as-needed'); the
+      //    owner dashboard it used to open was removed by DEV-1570.
       //    A landing on ?error=expired-code means verifyOtp rejected the token — say
       //    so rather than emitting a bare URL-mismatch, because the two failures
       //    have different causes.
@@ -113,23 +103,15 @@ test.describe.serial('Auth — signup to first value', () => {
         expect(
           `callback rejected the confirmation token: ${anonPage.url()}`,
           'confirmation token did not complete the OTP verification',
-        ).toBe('/dashboard?is_new_user=1');
+        ).toBe('/?is_new_user=1');
       }
-      await expect(anonPage).toHaveURL(/\/dashboard\?.*is_new_user=1/, { timeout: BUDGET.GATED_UI });
+      await expect(anonPage).toHaveURL(/\/(?:en)?\?.*is_new_user=1/, { timeout: BUDGET.GATED_UI });
 
-      // 5. First value: the account with no brand yet sees the owner empty state
-      //    with both onward CTAs. This is the payoff the whole funnel exists for.
+      // 5. First value: the confirmed account arrives on the home page as a
+      //    signed-in user, which the account menu button is the proof of.
       await expect(
-        anonPage.getByRole('heading', { level: 1, name: '此頁面為品牌經營者專屬主控台' }),
+        anonPage.getByRole('button', { name: /account|帳號/i }),
       ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
-      await expect(anonPage.getByRole('link', { name: '提交你的品牌' })).toHaveAttribute(
-        'href',
-        /\/submit$/,
-      );
-      await expect(anonPage.getByRole('link', { name: '瀏覽品牌目錄' })).toHaveAttribute(
-        'href',
-        /\/brands$/,
-      );
 
       // 6. The confirmation actually stuck server-side — not just a client redirect.
       const { data: refreshed, error: fetchError } = await admin.auth.admin.getUserById(userId);

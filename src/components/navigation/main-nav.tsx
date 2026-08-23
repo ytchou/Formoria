@@ -28,13 +28,11 @@ interface MainNavProps {
 export function MainNav({ categories }: MainNavProps) {
   const [open, setOpen] = useState(false);
   const t = useTranslations("nav");
-  // Reads `user` and `viewer` with no loading gate, which is only safe because
-  // ViewerProvider commits both in the same update — `viewer` can never resolve
-  // first. If that ever changes, this renders "My Brands" beside the signed-out
-  // LocaleSwitcher below (DEV-1414); add a `viewerLoading` gate here first.
-  const { user, viewer } = useUser();
-  const hasOwnedBrand = viewer.hasOwnedBrand;
-  const ownerFeaturesEnabled = viewer.ownerFeaturesEnabled;
+  // Reads `user` with no loading gate: the only thing it drives is whether the
+  // signed-out LocaleSwitcher renders, and ViewerProvider commits `user` in the
+  // same update as the rest of the viewer state (DEV-1414). Anything added here
+  // that depends on `viewer` needs a `viewerLoading` gate first.
+  const { user } = useUser();
   const pathname = usePathname();
 
   /**
@@ -108,33 +106,21 @@ export function MainNav({ categories }: MainNavProps) {
             </Link>
           ))}
           {!user ? <LocaleSwitcher /> : null}
-          {/* NOT in the approved mock, and it stays: owner-features-flag-off
-              and dashboard-tabs both assert this link's presence or absence
-              inside `header`. */}
-          {hasOwnedBrand && ownerFeaturesEnabled ? (
-            <Link
-              href={routes.dashboard.index()}
-              className={buttonVariants({ variant: "primary" })}
-            >
-              {t("myBrands")}
-            </Link>
-          ) : (
-            <Link
-              href={routes.submit.index()}
-              data-ph-no-autocapture
-              onClick={() =>
-                trackCtaClicked(
-                  "submit_brand",
-                  "header_nav",
-                  routes.submit.index(),
-                  pathname,
-                )
-              }
-              className={buttonVariants({ variant: "primary" })}
-            >
-              {t("submitBrand")}
-            </Link>
-          )}
+          <Link
+            href={routes.submit.index()}
+            data-ph-no-autocapture
+            onClick={() =>
+              trackCtaClicked(
+                "submit_brand",
+                "header_nav",
+                routes.submit.index(),
+                pathname,
+              )
+            }
+            className={buttonVariants({ variant: "primary" })}
+          >
+            {t("submitBrand")}
+          </Link>
           <AccountMenu />
         </nav>
 
@@ -190,38 +176,25 @@ export function MainNav({ categories }: MainNavProps) {
                   </Link>
                 ))}
 
-                {hasOwnedBrand && ownerFeaturesEnabled ? (
-                  <Link
-                    href={routes.dashboard.index()}
-                    className={buttonVariants({
-                      variant: "primary",
-                      width: "full",
-                    })}
-                    onClick={() => setOpen(false)}
-                  >
-                    {t("myBrands")}
-                  </Link>
-                ) : (
-                  <Link
-                    href={routes.submit.index()}
-                    data-ph-no-autocapture
-                    onClick={() => {
-                      trackCtaClicked(
-                        "submit_brand",
-                        "header_nav",
-                        routes.submit.index(),
-                        pathname,
-                      );
-                      setOpen(false);
-                    }}
-                    className={buttonVariants({
-                      variant: "primary",
-                      width: "full",
-                    })}
-                  >
-                    {t("submitBrand")}
-                  </Link>
-                )}
+                <Link
+                  href={routes.submit.index()}
+                  data-ph-no-autocapture
+                  onClick={() => {
+                    trackCtaClicked(
+                      "submit_brand",
+                      "header_nav",
+                      routes.submit.index(),
+                      pathname,
+                    );
+                    setOpen(false);
+                  }}
+                  className={buttonVariants({
+                    variant: "primary",
+                    width: "full",
+                  })}
+                >
+                  {t("submitBrand")}
+                </Link>
                 <div className="px-4">
                   <LocaleSwitcher compact />
                 </div>

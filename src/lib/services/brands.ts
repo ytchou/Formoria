@@ -64,18 +64,15 @@ import {
 } from "./brand-images";
 import {
   toAdminBrandListItem,
-  toOwnerBrandEditor,
   toPublicBrandCard,
   toPublicBrandDetail,
   toPublicBrandFaqContext,
   type AdminBrandListItem,
-  type OwnerBrandEditor,
   type PublicBrandCard,
   type PublicBrandDetail,
   type PublicBrandFaqContext,
   type SearchSuggestion,
 } from "@/lib/brands/contracts";
-
 
 /**
  * Recover a readable hero reference from the legacy `hero_image_url` column.
@@ -121,7 +118,6 @@ function shuffleArray<T>(arr: T[], seed?: number): void {
 // ---------------------------------------------------------------------------
 
 type BrandRow = Database["public"]["Tables"]["brands"]["Row"];
-type BrandDraftData = BrandRow["draft_data"];
 type BrandFlatLinkColumns = {
   social_instagram?: string | null;
   social_threads?: string | null;
@@ -547,13 +543,7 @@ function normalizeReputationSummary(value: unknown): ReputationSummary | null {
   return { text: value.text, textEn, sources };
 }
 
-function draftDataToSnapshot(
-  value: BrandDraftData,
-): Record<string, unknown> | null {
-  return isRecord(value) ? value : null;
-}
-
-export const BRAND_DRAFT_PROGRESS_KEY = "__wizardCompletedSteps";
+const BRAND_DRAFT_PROGRESS_KEY = "__wizardCompletedSteps";
 
 export function brandToDraftSnapshot(
   data: Partial<Brand>,
@@ -2142,11 +2132,6 @@ export async function getPublicBrandFaqContextById(
   return toPublicBrandFaqContext(brandToDomain(data));
 }
 
-/** Owner/admin callers receive a contract rather than a raw database row. */
-export function toOwnerEditorContract(brand: Brand): OwnerBrandEditor {
-  return toOwnerBrandEditor(brand);
-}
-
 export function toAdminListContract(brand: Brand): AdminBrandListItem {
   return toAdminBrandListItem(brand);
 }
@@ -2272,107 +2257,6 @@ export async function updateBrand(
     ...brandToDomain(updated),
     skipped,
   };
-    },
-  );
-}
-
-export async function saveDraft(
-  brandId: string,
-  data: Partial<Brand>,
-): Promise<void> {
-  return auditedCall(
-    { provider: "brands", operation: "saveDraft", kind: "service" },
-    async () => {
-  const supabase = createServiceClient();
-  const { error, count } = await supabase
-    .from("brands")
-    .update(
-      {
-        draft_data: brandToDraftSnapshot(data) as BrandDraftData,
-        draft_updated_at: new Date().toISOString(),
-      },
-      { count: "exact" },
-    )
-    .eq("id", brandId);
-
-  if (error) throw error;
-  if (count === 0) throw new NotFoundError("Brand", brandId);
-    },
-  );
-}
-
-export async function getBrandDraft(
-  brandId: string,
-): Promise<Record<string, unknown> | null> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("brands")
-    .select("draft_data")
-    .eq("id", brandId)
-    .maybeSingle();
-
-  if (error) throw error;
-  return draftDataToSnapshot(data?.draft_data ?? null);
-}
-
-/**
- * `actor` decides the provenance stamped on every published field. It must be
- * passed: the default is `admin`, and an owner edit recorded as `admin` is not
- * protected from an enrichment refresh, because only `owner` blocks one.
- */
-export async function publishDraft(
-  brandId: string,
-  actor: BrandWriteActor,
-): Promise<Brand> {
-  return auditedCall(
-    { provider: "brands", operation: "publishDraft", kind: "service" },
-    async () => {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("brands")
-    .select("draft_data, draft_updated_at")
-    .eq("id", brandId)
-    .single();
-
-  if (error || !data)
-    throw new NotFoundError("Brand", brandId, { cause: error });
-
-  const snapshot = draftDataToSnapshot(data.draft_data);
-  if (!snapshot) throw new ValidationError("No draft to publish");
-
-  const partial = draftSnapshotToDomain(snapshot);
-  if (Object.keys(partial).length > 0) {
-    const draftUpdatedAt = data.draft_updated_at;
-    const draftTimestamp = draftUpdatedAt
-      ? Date.parse(draftUpdatedAt)
-      : Number.NaN;
-    if (!Number.isFinite(draftTimestamp)) {
-      throw new ConflictError("Draft timestamp is missing or invalid");
-    }
-
-    const fieldState = await loadBrandFieldState(supabase, brandId);
-    const patch = brandToUpdate(partial);
-    const hasStaleField = Object.keys(patch).some((field) => {
-      const fieldTimestamp = Date.parse(fieldState[field]?.updatedAt ?? "");
-      return Number.isFinite(fieldTimestamp) && fieldTimestamp > draftTimestamp;
-    });
-
-    if (hasStaleField) {
-      throw new ConflictError("Draft conflicts with newer brand edits");
-    }
-  }
-
-  const published = await updateBrand(brandId, partial, actor);
-
-  const { error: clearError, count } = await supabase
-    .from("brands")
-    .update({ draft_data: null, draft_updated_at: null }, { count: "exact" })
-    .eq("id", brandId);
-
-  if (clearError) throw clearError;
-  if (count === 0) throw new NotFoundError("Brand", brandId);
-
-  return published;
     },
   );
 }

@@ -36,7 +36,9 @@ export default function ClaimApprovedEmail({
   locale = "zh-TW",
 }: ClaimApprovedEmailProps) {
   const escapedBrandName = escapeHtml(brandName);
-  const dashboardUrl = `${siteUrl}/dashboard?brand=${escapeHtml(brandSlug)}`;
+  // The owner dashboard was removed (DEV-1570), so the primary CTA points at
+  // the brand's public page instead.
+  const brandUrl = `${siteUrl}/brands/${escapeHtml(brandSlug)}`;
   const cardUrl = buildShareCardUrl(siteUrl, brandSlug);
   const downloadUrl = buildShareCardUrl(siteUrl, brandSlug, { download: true });
 
@@ -52,9 +54,9 @@ export default function ClaimApprovedEmail({
           been approved.
         </EmailText>
         <EmailText>
-          You can now manage your brand from the owner dashboard.
+          Your brand page on Formoria is now linked to your account.
         </EmailText>
-        <Button href={dashboardUrl}>Go to owner dashboard</Button>
+        <Button href={brandUrl}>View your brand page</Button>
         <EmailText>Share the news — download your brand share card.</EmailText>
         <Img
           src={cardUrl}
@@ -79,8 +81,8 @@ export default function ClaimApprovedEmail({
         <strong dangerouslySetInnerHTML={{ __html: escapedBrandName }} />{" "}
         的品牌認領申請已獲批准。
       </EmailText>
-      <EmailText>您現在可以前往品牌主後台管理品牌資訊。</EmailText>
-      <Button href={dashboardUrl}>前往品牌主後台</Button>
+      <EmailText>您的品牌頁面已與您的帳號連結。</EmailText>
+      <Button href={brandUrl}>查看品牌頁面</Button>
       <EmailText>分享這個好消息 — 下載品牌分享卡。</EmailText>
       <Img
         src={cardUrl}

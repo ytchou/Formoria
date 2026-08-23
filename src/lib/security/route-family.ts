@@ -36,7 +36,7 @@ export const ROUTE_FAMILIES = [
   /** Everything else public: stories, trails, static pages. */
   'public:global-content',
   /**
-   * Admin, dashboard, account and API surfaces. NOT scored by the enumeration
+   * Admin, account and API surfaces. NOT scored by the enumeration
    * ladder: enumeration protection is about public content, and an admin
    * working the moderation queue legitimately opens 40+ distinct `/admin/...`
    * paths in ten minutes. Scoring them against the directory thresholds would
@@ -124,6 +124,10 @@ const NON_PUBLIC_HEADS = new Set([
   'admin',
   'api',
   'auth',
+  // Retired with the owner dashboard (DEV-1570) but still in the URL space:
+  // stale prefetched links, bookmarks and scanners keep hitting it. It stays
+  // non-public so those 404s are never scored on the enumeration ladder, whose
+  // thresholds are calibrated from directory traffic only.
   'dashboard',
   'favorites',
   'my-submissions',

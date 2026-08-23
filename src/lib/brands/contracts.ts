@@ -79,14 +79,6 @@ export type PublicBrandFaqContext = {
   mitStory?: string | null
 }
 
-export type OwnerBrandEditor = PublicBrandDetail & {
-  romanizedName: string | null
-  reputationSummary: ReputationSummary | null
-  mitEvidence: NonNullable<Brand['mitEvidence']> | null
-  siteContent: unknown | null
-  imageAlts: BrandImageMeta[]
-}
-
 export type AdminBrandListItem = {
   id: string
   name: string
@@ -232,16 +224,6 @@ export function toPublicBrandDetail(brand: Brand): PublicBrandDetail {
       isOwnerSupplied: alt.isOwnerSupplied ?? false,
     })),
     heroImageMetadata: brand.heroImageMetadata ?? null,
-  }
-}
-
-export function toOwnerBrandEditor(brand: Brand): OwnerBrandEditor {
-  return {
-    ...toPublicBrandDetail(brand),
-    romanizedName: brand.romanizedName ?? null,
-    reputationSummary: brand.reputationSummary ?? null,
-    mitEvidence: brand.mitEvidence ?? null,
-    siteContent: brand.siteContent ?? null,
   }
 }
 

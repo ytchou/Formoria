@@ -50,7 +50,6 @@ const EVENT_NAME_SNAPSHOT = [
   'brand_claim_completed',
   'brand_claim_approved',
   'brand_listing_published',
-  'brand_owner_edit_published',
   'mit_declared',
   'origin_evidence_submitted',
   'brand_reported',

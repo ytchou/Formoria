@@ -192,9 +192,10 @@ export function sanitizePostHogEvent<T extends PostHogEvent>(event: T): T | null
     : null
   scrubbed.locale = explicitLocale ?? analyticsLocale(pathname)
   scrubbed.content_group = getContentGroup(pathname)
-  scrubbed.surface = stripLocale(pathname).startsWith(routes.dashboard.index())
-    ? 'product'
-    : 'public'
+  // Every remaining surface is public: the only 'product' surface was the owner
+  // dashboard, removed by DEV-1570. The property itself stays so the dimension
+  // keeps its history rather than disappearing from every event.
+  scrubbed.surface = 'public'
 
   return { ...event, properties: scrubbed }
 }

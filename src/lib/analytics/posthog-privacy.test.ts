@@ -18,7 +18,7 @@ describe('PostHog path privacy', () => {
     expect(isPostHogAnalyticsPath(pathname)).toBe(false)
   })
 
-  it.each(['/', '/zh-TW/brands', '/en/brands/example', '/zh-TW/dashboard']) (
+  it.each(['/', '/zh-TW/brands', '/en/brands/example', '/zh-TW/settings']) (
     'accepts customer-facing path %s',
     (pathname) => {
       expect(isPostHogAnalyticsPath(pathname)).toBe(true)
@@ -151,7 +151,7 @@ describe('PostHog path privacy', () => {
     const sanitized = sanitizePostHogEvent({
       event: 'user_signed_up',
       properties: {
-        $current_url: 'https://formoria.com/en/dashboard',
+        $current_url: 'https://formoria.com/en/settings',
         $utm_source: 'person@example.com',
         utm_medium: 'paid_social',
         utm_campaign: 'launch-2026',

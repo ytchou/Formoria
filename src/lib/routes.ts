@@ -105,16 +105,6 @@ export const routes = {
     ownerDetails: () => '/submit/owner/details',
   },
 
-  dashboard: {
-    index: (query?: RouteQuery) => withQuery('/dashboard', query),
-    analytics: () => '/dashboard/analytics',
-    brand: (slug: string) => `/dashboard/brands/${seg(slug)}`,
-    /** `info` · `links` · `media` · `reputation` · `verification` · `analytics`. */
-    brandSection: (slug: string, section: string) =>
-      `/dashboard/brands/${seg(slug)}/${seg(section)}`,
-    brandEdit: (slug: string) => `/dashboard/brands/${seg(slug)}/edit`,
-  },
-
   auth: {
     /** The auth section itself — a prefix, used by the analytics and staging gates. */
     index: () => '/auth',

@@ -663,7 +663,7 @@ export async function observeTraversal(
 ): Promise<EvaluateTraversalResult | null> {
   if (!isTraversalAccountingEnabled()) return null
 
-  // Admin, dashboard, account and API surfaces are never scored. The edge
+  // Admin, account and API surfaces are never scored. The edge
   // cannot see the user id, so an admin working the moderation queue would be
   // scored on the visitor tier against directory thresholds -- polluting the
   // very distribution those thresholds are meant to be calibrated from, and

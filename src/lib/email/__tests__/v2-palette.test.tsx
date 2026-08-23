@@ -14,7 +14,6 @@ import { buildClaimEmailVerificationEmail } from "@emails/templates/claim-verifi
 import { buildDeclarationRemovedEmail } from "@emails/templates/declaration-removed";
 import { buildOwnershipRevokedEmail } from "@emails/templates/ownership-revoked";
 import { buildNewsletterConfirmEmail } from "@emails/templates/newsletter-confirm";
-import { buildViolationAdminNotificationEmail } from "@emails/templates/violation-admin-notification";
 
 /**
  * D17 — EMAIL IS A SANS-ONLY SURFACE WITH ONE COLOUR SOURCE.
@@ -99,6 +98,7 @@ async function renderEveryTemplate(): Promise<Array<[string, string]>> {
     buildDeclarationRemovedEmail({
       ownerEmail: "owner@formoria.com",
       brandName: "測試品牌",
+      brandSlug: "test-brand",
       reviewerNotes: "產地證據不足。",
     }),
     buildOwnershipRevokedEmail({
@@ -111,14 +111,6 @@ async function renderEveryTemplate(): Promise<Array<[string, string]>> {
       confirmToken: "confirm-token",
       unsubscribeToken: "unsub-token",
       interests: ["brand-stories", "new-brands"],
-    }),
-    buildViolationAdminNotificationEmail({
-      brandName: "測試品牌",
-      ownerEmail: "owner@formoria.com",
-      violations: [
-        { field: "description", rule: "no-contact", userMessage: "請移除聯絡方式。" },
-      ],
-      siteUrl: SITE,
     }),
   ]);
 

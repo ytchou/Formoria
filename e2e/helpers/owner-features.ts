@@ -5,7 +5,7 @@ import type { Browser } from '@playwright/test'
  * Owner-features gate probe (DEV-1261).
  *
  * `app_settings.owner_features_enabled` gates every owner surface: claiming a
- * brand, the owner dashboard, and the `/submit/owner` fork. It ships default
+ * brand and the `/submit/owner` fork. It ships default
  * OFF and the server helper fails closed when the row is missing, so at launch
  * only the consumer directory is reachable.
  *
@@ -23,7 +23,7 @@ import type { Browser } from '@playwright/test'
  */
 export const OWNER_FEATURES_OFF_REASON =
   'app_settings.owner_features_enabled is false — /submit/owner 404s and every ' +
-  'owner surface (claiming, owner dashboard, owner submit fork) is unreachable. ' +
+  'owner surface (claiming, owner submit fork) is unreachable. ' +
   'Set owner_features_enabled to true to bring this suite back.'
 
 export const OWNER_FEATURES_ON_REASON =

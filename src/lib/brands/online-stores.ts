@@ -40,8 +40,6 @@ interface OnlineStoreMessageKeys {
   readonly brandDetailAction: string
   /** Store phrase used inside the generated brand FAQ answers. */
   readonly brandFaqChannel: string
-  /** Outbound-destination row label in the owner dashboard analytics. */
-  readonly analyticsOutboundDestination: string
   /** Field label in the owner brand-edit wizard. */
   readonly dashboardEditField: string
   /** Field label in the admin corrections queue (keyed by DB column). */
@@ -114,7 +112,6 @@ export const ONLINE_STORES = [
       brandDetailLink: 'brandDetail.links.website',
       brandDetailAction: 'brandDetail.actions.visitWebsite',
       brandFaqChannel: 'brandDetail.brandFaq.channels.website',
-      analyticsOutboundDestination: 'dashboard.analytics.outboundDestinationWebsite',
       dashboardEditField: 'dashboard.edit.fieldOfficialWebsite',
       adminCorrectionField: 'admin.corrections.fields.purchase_website',
     },
@@ -131,7 +128,6 @@ export const ONLINE_STORES = [
       brandDetailLink: 'brandDetail.links.pinkoi',
       brandDetailAction: 'brandDetail.actions.visitPinkoi',
       brandFaqChannel: 'brandDetail.brandFaq.channels.pinkoi',
-      analyticsOutboundDestination: 'dashboard.analytics.outboundDestinationPinkoi',
       dashboardEditField: 'dashboard.edit.fieldPinkoi',
       adminCorrectionField: 'admin.corrections.fields.purchase_pinkoi',
     },
@@ -148,7 +144,6 @@ export const ONLINE_STORES = [
       brandDetailLink: 'brandDetail.links.shopee',
       brandDetailAction: 'brandDetail.actions.visitShopee',
       brandFaqChannel: 'brandDetail.brandFaq.channels.shopee',
-      analyticsOutboundDestination: 'dashboard.analytics.outboundDestinationShopee',
       dashboardEditField: 'dashboard.edit.fieldShopee',
       adminCorrectionField: 'admin.corrections.fields.purchase_shopee',
     },
@@ -168,7 +163,6 @@ export const ONLINE_STORES = [
       brandDetailLink: 'brandDetail.links.myship',
       brandDetailAction: 'brandDetail.actions.visitMyship',
       brandFaqChannel: 'brandDetail.brandFaq.channels.myship',
-      analyticsOutboundDestination: 'dashboard.analytics.outboundDestinationMyship',
       dashboardEditField: 'dashboard.edit.fieldMyship',
       adminCorrectionField: 'admin.corrections.fields.purchase_myship',
     },

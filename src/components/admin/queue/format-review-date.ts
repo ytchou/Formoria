@@ -8,8 +8,7 @@
  * Taiwan-brand records and the SLA an admin reasons about is Taipei-local, so
  * the displayed day must not move with the reviewer's machine.
  *
- * Not `formatIsoDate` from `@/lib/date-range` — that one appends `T00:00:00Z`
- * and therefore takes a `YYYY-MM-DD` date, not the ISO timestamps queues hold.
+ * It takes the ISO timestamps queues hold, not a bare `YYYY-MM-DD` date.
  */
 const REVIEW_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
   year: "numeric",

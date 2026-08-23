@@ -241,18 +241,6 @@ async function globalSetup() {
         );
       }
       try {
-        await page.goto(baseURL + "/dashboard", {
-          waitUntil: "domcontentloaded",
-          timeout: BUDGET.NAVIGATION,
-        });
-        console.log("[global-setup] /dashboard warm-up complete");
-      } catch (err) {
-        console.warn(
-          "[global-setup] /dashboard warm-up failed (non-fatal):",
-          err instanceof Error ? err.message : String(err),
-        );
-      }
-      try {
         await page.goto(baseURL + "/admin", {
           waitUntil: "domcontentloaded",
           timeout: BUDGET.NAVIGATION,

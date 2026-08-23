@@ -16,7 +16,6 @@ const ADMIN_VIEWER: ViewerContext = {
   hasOwnedBrand: false,
   isAdmin: true,
   ownerFeaturesEnabled: true,
-  impersonation: null,
 }
 
 function renderViewer() {

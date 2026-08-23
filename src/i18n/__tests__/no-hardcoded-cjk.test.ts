@@ -37,8 +37,6 @@ const ALLOWLIST = [
   "app/[locale]/brands/[slug]/opengraph-image.tsx",
   // Structured data uses locale-aware labels outside React rendering.
   "lib/json-ld.ts",
-  // Owner mailto subject — locale-branched template.
-  "components/dashboard/inline-verification.tsx",
   // Non-display Chinese: a comment and scraper keyword regex.
   "lib/constants.ts",
   "lib/services/enrich-phases/scraper/strategies/crawl.ts",

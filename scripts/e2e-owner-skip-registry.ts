@@ -18,12 +18,6 @@ export const OWNER_FEATURE_CALLSITES: readonly OwnerFeatureCallsite[] = [
     kind: "skip",
   },
   {
-    file: "auth-signup-journey.spec.ts",
-    title: "Auth — signup to first value",
-    reason: "off",
-    kind: "skip",
-  },
-  {
     file: "claim-lifecycle.spec.ts",
     title: "Claim request lifecycle",
     reason: "off",
@@ -38,48 +32,6 @@ export const OWNER_FEATURE_CALLSITES: readonly OwnerFeatureCallsite[] = [
   {
     file: "community-submit.spec.ts",
     title: "Community submit flow › @smoke owner quick form shows its core fields when owner features are enabled",
-    reason: "off",
-    kind: "skip",
-  },
-  {
-    file: "dashboard-analytics.spec.ts",
-    title: "Dashboard — analytics",
-    reason: "off",
-    kind: "skip",
-  },
-  {
-    file: "dashboard-brand-owned-edit.spec.ts",
-    title: "Dashboard brand edit",
-    reason: "off",
-    kind: "skip",
-  },
-  {
-    file: "dashboard-brand-owned-edit.spec.ts",
-    title: "Brand edit sidebar wizard — navigation",
-    reason: "off",
-    kind: "skip",
-  },
-  {
-    file: "dashboard-brand-owned-edit.spec.ts",
-    title: "Dashboard — brand image upload",
-    reason: "off",
-    kind: "skip",
-  },
-  {
-    file: "dashboard-brand-owned-edit.spec.ts",
-    title: "Dashboard — governed field integrity",
-    reason: "off",
-    kind: "skip",
-  },
-  {
-    file: "dashboard-tabs.spec.ts",
-    title: "Dashboard — tab navigation",
-    reason: "off",
-    kind: "skip",
-  },
-  {
-    file: "dashboard-tabs.spec.ts",
-    title: "Dashboard — legacy brand route redirect",
     reason: "off",
     kind: "skip",
   },
