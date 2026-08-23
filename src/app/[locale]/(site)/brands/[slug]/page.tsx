@@ -358,7 +358,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
                   <AdminBrandMenu
                     brandId={displayBrand.id}
                     brandName={displayBrand.name}
-                    brandSlug={displayBrand.slug}
                   />
                 }
                 actionsSlot={

@@ -51,7 +51,6 @@ describe('routes', () => {
       routes.about(),
       routes.faq(),
       routes.submit.index(),
-      routes.dashboard.index(),
       routes.auth.signIn(),
       routes.admin.index(),
     ]
@@ -74,7 +73,7 @@ describe('routes', () => {
     )
   })
 
-  it('builds the account, submit, dashboard, auth and admin families', () => {
+  it('builds the account, submit, auth and admin families', () => {
     expect(routes.favorites()).toBe('/favorites')
     expect(routes.settings()).toBe('/settings')
     expect(routes.mySubmissions()).toBe('/my-submissions')
@@ -85,14 +84,6 @@ describe('routes', () => {
     expect(routes.submit.owner()).toBe('/submit/owner')
     expect(routes.submit.ownerQuick()).toBe('/submit/owner/quick')
     expect(routes.submit.ownerDetails()).toBe('/submit/owner/details')
-
-    expect(routes.dashboard.index()).toBe('/dashboard')
-    expect(routes.dashboard.analytics()).toBe('/dashboard/analytics')
-    expect(routes.dashboard.brand('acme')).toBe('/dashboard/brands/acme')
-    expect(routes.dashboard.brandSection('acme', 'media')).toBe(
-      '/dashboard/brands/acme/media',
-    )
-    expect(routes.dashboard.brandEdit('acme')).toBe('/dashboard/brands/acme/edit')
 
     expect(routes.auth.signIn()).toBe('/auth/sign-in')
     expect(routes.auth.signIn({ next: '/favorites' })).toBe(

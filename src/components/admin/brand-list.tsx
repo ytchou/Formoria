@@ -52,7 +52,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { statusStyles, textStyles } from "@/components/ui/text-styles";
 import { MAX_BULK_PRODUCT_BACKFILL } from "@/lib/constants/curated-products";
-import { routing } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
 import { inkActionClassName } from "@/components/admin/ink-action";
 import { routes } from "@/lib/routes";
@@ -585,15 +584,6 @@ export function BrandList({
                   <TableCell>{formatDate(brand.updatedAt)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1.5">
-                      <Link
-                        href={`/${routing.defaultLocale}/dashboard/brands/${brand.slug}`}
-                        className={buttonVariants({
-                          variant: "secondary",
-                          size: "compact",
-                        })}
-                      >
-                        {t("actions.viewInDashboard")}
-                      </Link>
                       {claimInviteBrandIdSet.has(brand.id) && (
                         <Button
                           variant="secondary"

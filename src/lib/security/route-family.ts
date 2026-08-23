@@ -36,7 +36,7 @@ export const ROUTE_FAMILIES = [
   /** Everything else public: stories, trails, static pages. */
   'public:global-content',
   /**
-   * Admin, dashboard, account and API surfaces. NOT scored by the enumeration
+   * Admin, account and API surfaces. NOT scored by the enumeration
    * ladder: enumeration protection is about public content, and an admin
    * working the moderation queue legitimately opens 40+ distinct `/admin/...`
    * paths in ten minutes. Scoring them against the directory thresholds would
@@ -124,7 +124,6 @@ const NON_PUBLIC_HEADS = new Set([
   'admin',
   'api',
   'auth',
-  'dashboard',
   'favorites',
   'my-submissions',
   'settings',

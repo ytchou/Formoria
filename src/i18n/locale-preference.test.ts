@@ -66,10 +66,10 @@ describe('locale preference', () => {
   })
 
   it('uses locale-prefixed paths only for English', () => {
-    expect(localizePath('/dashboard', 'en')).toBe('/en/dashboard')
-    expect(localizePath('/dashboard', 'zh-TW')).toBe('/dashboard')
-    expect(localizePath('/en/dashboard', 'en')).toBe('/en/dashboard')
-    expect(localizePath('/en/dashboard', 'zh-TW')).toBe('/dashboard')
+    expect(localizePath('/settings', 'en')).toBe('/en/settings')
+    expect(localizePath('/settings', 'zh-TW')).toBe('/settings')
+    expect(localizePath('/en/settings', 'en')).toBe('/en/settings')
+    expect(localizePath('/en/settings', 'zh-TW')).toBe('/settings')
   })
 
   it('preserves query and fragment when a visitor switches locale from either homepage', () => {

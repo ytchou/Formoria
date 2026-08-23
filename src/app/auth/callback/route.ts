@@ -7,7 +7,7 @@ import { isRelativeUrl } from "@/lib/auth/validations";
 import { resolvePostAuthPath } from "@/lib/auth/owner-landing";
 import { verifyClaimToken } from "@/lib/auth/claim-token";
 import { getRequestOrigin } from "@/lib/auth/site-url";
-import { completeBrandClaim, getBrandById } from "@/lib/services/brands";
+import { completeBrandClaim } from "@/lib/services/brands";
 import { getProfileAdmin, updateProfileAdmin } from "@/lib/services/profiles";
 import { enrollInMarketingEmails } from "@/lib/services/marketing-email-consent";
 import { getPostHogClient } from "@/lib/posthog-server";
@@ -23,6 +23,17 @@ import {
 } from "@/i18n/locale-preference";
 import { isStagingRequest } from "@/lib/deployment-environment";
 import { routes } from "@/lib/routes";
+
+/**
+ * A claim that cannot complete lands home carrying its reason. The dashboard
+ * that used to render these states was removed (DEV-1570); the parameter stays
+ * so the failure remains visible in the URL and in analytics.
+ */
+function claimErrorUrl(reason: string, locale: AppLocale, origin: string): URL {
+  const url = new URL(localizePath(routes.home(), locale), origin);
+  url.searchParams.set("error", reason);
+  return url;
+}
 
 function isRecentlyCreated(createdAt: string | undefined): boolean {
   if (!createdAt) return false;
@@ -152,15 +163,11 @@ export const GET = withAuditScope(async (request: NextRequest) => {
     const claim = await verifyClaimToken(claimToken);
 
     if (!claim) {
-      return NextResponse.redirect(
-        new URL(localizePath(routes.dashboard.index({ error: "invalid-claim" }), locale), origin)
-      );
+      return NextResponse.redirect(claimErrorUrl("invalid-claim", locale, origin));
     }
 
     if (claim.email !== userEmail) {
-      return NextResponse.redirect(
-        new URL(localizePath(routes.dashboard.index({ error: "email-mismatch" }), locale), origin)
-      );
+      return NextResponse.redirect(claimErrorUrl("email-mismatch", locale, origin));
     }
 
     try {
@@ -170,7 +177,6 @@ export const GET = withAuditScope(async (request: NextRequest) => {
         email: userEmail,
       });
 
-      const brand = await getBrandById(claim.brandId);
       if (!staging) {
         const posthog = getPostHogClient();
         posthog.capture({
@@ -183,10 +189,9 @@ export const GET = withAuditScope(async (request: NextRequest) => {
         });
         await posthog.flush();
       }
-      const url = new URL(
-        localizePath(routes.dashboard.brand(brand.slug), locale),
-        origin,
-      );
+      // The owner dashboard this used to open was removed (DEV-1570), so a
+      // completed claim lands home like any other post-auth arrival.
+      const url = new URL(localizePath(routes.home(), locale), origin);
       if (isNewUser) {
         url.searchParams.set("is_new_user", "1");
       } else {
@@ -197,9 +202,7 @@ export const GET = withAuditScope(async (request: NextRequest) => {
       const reason = error instanceof Error && error.message.includes('already manages a brand')
         ? 'owner-limit'
         : 'claim-failed'
-      return NextResponse.redirect(
-        new URL(localizePath(routes.dashboard.index({ error: reason }), locale), origin)
-      );
+      return NextResponse.redirect(claimErrorUrl(reason, locale, origin));
     }
   }
 

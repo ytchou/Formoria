@@ -42,48 +42,6 @@ export const OWNER_FEATURE_CALLSITES: readonly OwnerFeatureCallsite[] = [
     kind: "skip",
   },
   {
-    file: "dashboard-analytics.spec.ts",
-    title: "Dashboard — analytics",
-    reason: "off",
-    kind: "skip",
-  },
-  {
-    file: "dashboard-brand-owned-edit.spec.ts",
-    title: "Dashboard brand edit",
-    reason: "off",
-    kind: "skip",
-  },
-  {
-    file: "dashboard-brand-owned-edit.spec.ts",
-    title: "Brand edit sidebar wizard — navigation",
-    reason: "off",
-    kind: "skip",
-  },
-  {
-    file: "dashboard-brand-owned-edit.spec.ts",
-    title: "Dashboard — brand image upload",
-    reason: "off",
-    kind: "skip",
-  },
-  {
-    file: "dashboard-brand-owned-edit.spec.ts",
-    title: "Dashboard — governed field integrity",
-    reason: "off",
-    kind: "skip",
-  },
-  {
-    file: "dashboard-tabs.spec.ts",
-    title: "Dashboard — tab navigation",
-    reason: "off",
-    kind: "skip",
-  },
-  {
-    file: "dashboard-tabs.spec.ts",
-    title: "Dashboard — legacy brand route redirect",
-    reason: "off",
-    kind: "skip",
-  },
-  {
     file: "owner-features-flag-off.spec.ts",
     title: "Owner features gated off",
     reason: "on",

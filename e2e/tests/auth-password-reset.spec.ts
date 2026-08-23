@@ -189,8 +189,8 @@ test.describe('Auth — reset password page guard', () => {
     userPage,
   }) => {
     test.setTimeout(BUDGET.TEST.ADMIN);
-    // Regression: the auth layout used to redirect any authenticated user to
-    // /dashboard, breaking the recovery flow (callback authenticates, then
+    // Regression: the auth layout used to redirect any authenticated user away
+    // from this page, breaking the recovery flow (callback authenticates, then
     // sends the user here). The guard now lives on sign-in/sign-up/forgot-password
     // pages only — the reset form must render for a signed-in user.
     await userPage.goto('/auth/reset-password');

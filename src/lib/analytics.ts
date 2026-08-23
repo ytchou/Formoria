@@ -15,7 +15,6 @@ const UTM_LAST_TOUCH_KEY = 'formoria_utm_last_touch'
 
 const PROTECTED_ANALYTICS_SEGMENTS = [
   routes.admin.index(),
-  routes.dashboard.index(),
   routes.auth.index(),
 ] as const
 

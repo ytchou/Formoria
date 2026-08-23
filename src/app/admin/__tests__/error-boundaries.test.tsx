@@ -48,8 +48,6 @@ const BOUNDARIES = [
   "src/app/[locale]/(site)/error.tsx",
   "src/app/[locale]/(site)/not-found.tsx",
   "src/app/[locale]/(site)/(protected)/error.tsx",
-  "src/app/[locale]/(site)/(protected)/dashboard/loading.tsx",
-  "src/app/[locale]/(site)/(protected)/dashboard/analytics/loading.tsx",
   "src/app/[locale]/(site)/(protected)/favorites/loading.tsx",
   "src/app/[locale]/(site)/(protected)/settings/loading.tsx",
   "src/app/[locale]/(site)/events/[slug]/error.tsx",

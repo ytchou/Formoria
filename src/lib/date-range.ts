@@ -3,7 +3,7 @@ export type IsoDateRange = {
   end: string;
 };
 
-/** Analytics windows are Taipei-based (see posthog-owner-analytics). */
+/** Analytics windows are Taipei-based. */
 const ANALYTICS_TIME_ZONE = "Asia/Taipei";
 
 export function dateRangeForPastDays(

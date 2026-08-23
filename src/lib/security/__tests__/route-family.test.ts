@@ -148,8 +148,8 @@ describe('list resource ids fold only resource-defining params', () => {
 })
 
 /**
- * Regression: `/admin` and `/dashboard` fell through to
- * `public:global-content` and were scored against the directory thresholds
+ * Regression: `/admin` fell through to
+ * `public:global-content` and was scored against the directory thresholds
  * (record 40 / challenge 80 / block 160). An admin working the moderation queue
  * opens 40+ distinct paths in ten minutes, so staff traffic polluted the very
  * distribution the thresholds are to be calibrated from.
@@ -161,8 +161,6 @@ describe('non-public surfaces are outside the enumeration ladder', () => {
     '/admin/operations',
     '/api/admin/brands',
     '/api/upload',
-    '/dashboard',
-    '/zh-TW/dashboard/brands/mizu-tw/edit',
     '/favorites',
     '/my-submissions',
     '/settings',

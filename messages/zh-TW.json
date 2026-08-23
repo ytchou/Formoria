@@ -18,7 +18,6 @@
     "searchPlaceholder": "搜尋品牌…",
     "openMenu": "開啟選單",
     "navigation": "導覽選單",
-    "myBrands": "我的品牌",
     "signIn": "登入",
     "languageLabel": "切換語言",
     "languageTraditionalChinese": "繁體中文",
@@ -541,7 +540,6 @@
     },
     "adminMenu": {
       "label": "管理選單",
-      "viewAsOwner": "品牌主檢視",
       "editFields": "編輯欄位",
       "hideBrand": "隱藏品牌"
     },
@@ -1477,246 +1475,6 @@
     }
   },
   "dashboard": {
-    "sidebar": {
-      "navLabel": "儀表板導覽",
-      "overview": "總覽",
-      "info": "品牌資訊",
-      "media": "媒體與圖片",
-      "links": "連結與線上購買",
-      "verification": "MIT 驗證",
-      "reputation": "品牌口碑",
-      "analytics": "數據分析",
-      "viewBrandPage": "查看品牌頁面",
-      "editBrand": "編輯品牌",
-      "openMenu": "開啟選單",
-      "completenessTitle": "完成度",
-      "viewMissing": "查看待完成項目"
-    },
-    "overview": {
-      "statusPublished": "已發布",
-      "statusHidden": "未發布",
-      "completionTitle": "品牌檔案完成度",
-      "completedCount": "已完成 {completed}／{total} 個項目",
-      "warningIncomplete": "還有 {count} 個品牌檔案項目需要完成。",
-      "viewAllTodos": "查看所有待辦事項",
-      "analyticsUnavailable": "數據分析暫時無法使用。",
-      "quickActionsTitle": "管理重點",
-      "quickActions": {
-        "editProfile": {
-          "description": "更新品牌基本資料與描述"
-        },
-        "checkHealth": {
-          "description": "檢視品牌完整度與狀態"
-        },
-        "viewAnalytics": {
-          "description": "掌握品牌表現與趨勢"
-        },
-        "readFaq": {
-          "description": "尋找使用說明與解答"
-        }
-      },
-      "todoTitle": "待辦事項",
-      "todoGoComplete": "前往完成",
-      "todoRemaining": "剩 {count} 項",
-      "todoDescription": {
-        "description": "撰寫品牌故事以吸引更多消費者",
-        "subcategories": "新增產品子類別以提升搜尋曝光",
-        "priceRange": "選擇價格區間以方便消費者篩選",
-        "heroImage": "上傳主視覺圖片以提升品牌辨識度",
-        "productPhotos": "新增品牌圖片與產品圖片",
-        "officialWebsite": "新增官方網站連結",
-        "city": "新增品牌創立城市資訊",
-        "foundingYear": "新增品牌創立年份",
-        "socialPresence": "連結社群帳號以增加曝光",
-        "additionalSalesChannel": "新增其他線上購買或社群連結",
-        "reputation": "新增口碑來源以提升品牌可信度"
-      },
-      "todoEmpty": "所有項目已完成！",
-      "todoVerification": "完成 MIT 認證"
-    },
-    "period": {
-      "periodLabel": "時間範圍",
-      "7d": "過去 7 天",
-      "30d": "過去 30 天",
-      "90d": "過去 90 天"
-    },
-    "sources": {
-      "title": "流量來源",
-      "labels": {
-        "direct": "直接進入",
-        "search": "站內搜尋",
-        "category": "分類瀏覽",
-        "directory": "品牌目錄",
-        "recommendation": "推薦連結",
-        "external_search": "外部搜尋",
-        "social": "社群媒體",
-        "external": "外部連結",
-        "unknown": "其他"
-      }
-    },
-    "metadata": {
-      "title": "經營者主控台"
-    },
-    "heading": "經營者主控台",
-    "welcome": {
-      "title": "品牌儀表板",
-      "subtitle": "以下是開始管理品牌頁面的方式。",
-      "dismiss": "關閉",
-      "tips": {
-        "editProfile": "編輯品牌資料",
-        "checkHealth": "檢查品牌健康度",
-        "viewAnalytics": "查看分析數據",
-        "readFaq": "閱讀品牌主常見問題"
-      }
-    },
-    "empty": "尚未認領任何品牌。認領品牌後，它將顯示在此處。",
-    "tabs": {
-      "profile": "總覽",
-      "analytics": "數據分析",
-      "submissions": "更新紀錄",
-      "dashboardNav": "帳號導覽"
-    },
-    "emptyState": {
-      "title": "此頁面為品牌經營者專屬主控台",
-      "description": "只有已登入的品牌帳號才能查看這個頁面。如果你是台灣品牌的主理人，可以先建立品牌的 Formoria 頁面。",
-      "submitCta": "建立品牌頁面",
-      "browseCta": "瀏覽品牌目錄"
-    },
-    "analytics": {
-      "pageTitle": "數據分析",
-      "profileVisits": "品牌頁瀏覽",
-      "outboundClicks": "外部連結點擊",
-      "outboundClickRate": "外連點擊率",
-      "topTrafficSource": "主要流量來源",
-      "shareOfVisits": "佔瀏覽量 {share}%",
-      "tooltipProfileVisits": "過去 30 天內開啟品牌頁面的不重複瀏覽工作階段。",
-      "tooltipOutboundClicks": "訪客在品牌頁面點擊外部連結的工作階段。",
-      "privacyBoundary": "外連點擊只記錄訪客離開 Formoria 的那一下。Formoria 不追蹤你在品牌官網上的行為，之後發生什麼事，只有你自己的網站看得到。",
-      "tooltipOutboundClickRate": "外連點擊 ÷ 品牌頁瀏覽。衡量訪客與連結互動的頻率。",
-      "tooltipTopTrafficSource": "訪客找到這個品牌頁面的最常見方式。",
-      "definitionAria": "查看定義",
-      "sessions": "工作階段",
-      "collectingBaseline": "正在累積比較基準",
-      "currentRateUnavailable": "目前無法計算比率",
-      "trendTitle": "30 天流量趨勢",
-      "trendAria": "30 天流量趨勢圖表",
-      "trendUnavailable": "每日趨勢暫時無法使用。",
-      "trendEmpty": "此期間沒有品牌頁工作階段。",
-      "trafficSources": "流量來源",
-      "trafficSourceSearch": "搜尋",
-      "trafficSourceCategory": "分類頁面",
-      "trafficSourceHomepage": "首頁",
-      "trafficSourceDirect": "直接造訪",
-      "trafficSourceOther": "其他",
-      "trafficSourcesEmpty": "此期間沒有流量來源資料。",
-      "outboundDestinations": "外連目的地",
-      "outboundDestinationWebsite": "品牌官網",
-      "outboundDestinationInstagram": "Instagram",
-      "outboundDestinationThreads": "Threads",
-      "outboundDestinationFacebook": "Facebook",
-      "outboundDestinationPinkoi": "Pinkoi",
-      "outboundDestinationShopee": "蝦皮購物",
-      "outboundDestinationMyship": "7-ELEVEN 賣貨便",
-      "outboundDestinationOther": "其他",
-      "destinationsEmpty": "此期間沒有外連工作階段。",
-      "sectionUnavailable": "此區塊暫時無法使用。",
-      "generated": "產生時間",
-      "unavailableTitle": "數據分析暫時無法使用",
-      "unavailableBody": "數據分析目前無法載入此品牌的工作階段指標，請稍後再試。"
-    },
-    "profileCompleteness": {
-      "title": "品牌檔案完成度",
-      "completedCount": "已完成 {completed}／{total} 個項目",
-      "recommendations": "建議下一步",
-      "complete": "品牌檔案已完成。",
-      "priority": {
-        "required": "必填"
-      },
-      "component": {
-        "description": "新增品牌故事",
-        "subcategories": "新增產品子類別",
-        "priceRange": "選擇價格範圍",
-        "heroImage": "上傳主視覺圖片",
-        "productPhotos": "上傳產品照片",
-        "officialWebsite": "新增官方網站",
-        "city": "新增品牌創立城市",
-        "foundingYear": "新增創立年份",
-        "socialPresence": "連結社群帳號",
-        "additionalSalesChannel": "新增其他線上購買連結",
-        "reputation": "新增口碑佐證"
-      }
-    },
-    "mit": {
-      "title": "MIT 驗證狀態",
-      "status": {
-        "unverified": "尚未驗證",
-        "declared": "品牌聲明",
-        "verified": "MIT 微笑認證"
-      },
-      "description": {
-        "unverified": "可以來信申請 MIT 微笑標章驗證，讓消費者更容易找到這個品牌。",
-        "verified": "這個品牌已通過 MIT 微笑標章登錄驗證。"
-      },
-      "certLabel": "MIT 微笑標章編號",
-      "certPlaceholder": "例如 01900539-00001",
-      "verifyButton": "驗證",
-      "verifySuccess": "MIT 微笑標章驗證成功！",
-      "certNotFound": "在 MIT 微笑標章資料庫中找不到此標章編號",
-      "certExpired": "此 MIT 微笑標章已到期",
-      "certMismatch": "此標章編號登記於其他品牌",
-      "certAlreadyClaimed": "此標章編號已綁定至其他品牌",
-      "dismiss": "關閉",
-      "tier": {
-        "certTitle": "MIT 微笑標章認證",
-        "certDescription": "輸入 MIT 微笑標章編號，驗證官方登錄資料。",
-        "declareTitle": "品牌自行聲明",
-        "declareDescription": "若尚未取得官方認證，可先聲明台灣製造範圍。"
-      },
-      "or": "或",
-      "declare": {
-        "scopeLabel": "聲明範圍",
-        "scope": {
-          "all": "全部產品",
-          "most": "大部分產品",
-          "some": "部分產品"
-        },
-        "attestation": "我確認上述產品於台灣製造，且資訊真實無誤。",
-        "storyLabel": "台灣製造故事（選填）",
-        "storyPlaceholder": "分享品牌在台灣製造的背景與方式",
-        "submit": "送出聲明",
-        "success": "品牌聲明已送出。"
-      },
-      "declared": {
-        "scopeLabel": "聲明範圍",
-        "dateLabel": "聲明日期",
-        "withdraw": "撤回聲明",
-        "withdrawSuccess": "品牌聲明已撤回。"
-      },
-      "errors": {
-        "notLoggedIn": "請先登入。",
-        "forbidden": "沒有編輯此品牌的權限。",
-        "brandNotFound": "找不到此品牌。",
-        "invalidScope": "請選擇有效的聲明範圍。",
-        "database_error": "儲存失敗，請稍後再試。",
-        "not_declared": "此品牌目前沒有可撤回的聲明。",
-        "not_found": "找不到此品牌。",
-        "already_verified": "此品牌已通過 MIT 認證，無法改為自行聲明。",
-        "invalid_state": "目前的 MIT 狀態無法執行此操作。",
-        "unknown": "發生未知錯誤，請稍後再試。"
-      }
-    },
-    "errors": {
-      "invalidClaim": "認領連結無效或已過期，請聯繫客服。",
-      "emailMismatch": "登入的電子郵件與認領邀請不符，請改用受邀的電子郵件登入。",
-      "claimFailed": "此品牌已被認領。若認為有誤，請聯繫客服。"
-    },
-    "manage": {
-      "metaTitle": "品牌管理",
-      "subtitle": "管理品牌頁面",
-      "descriptionLabel": "品牌介紹",
-      "websiteLabel": "官方網站",
-      "socialLinksLabel": "社群連結"
-    },
     "edit": {
       "metaTitle": "編輯品牌",
       "pageHeading": "編輯 {name}",
@@ -1818,26 +1576,6 @@
       "subcategoriesOptionsHeading": "可加入的子類別",
       "subcategoriesRejected": "這個詞不在子類別清單中。請改用下方清單裡最接近的子類別。",
       "subcategoriesEmpty": "沒有符合的子類別，請換個關鍵字。"
-    },
-    "brandProfile": {
-      "productPhotos": "產品照片",
-      "priceRange": "價格範圍",
-      "purchaseLinks": "購買連結",
-      "socialLinks": "社群連結",
-      "verified": "已驗證",
-      "founded": "創立於",
-      "notSet": "未設定",
-      "sectionBasicInfoHint": "公開頁面會顯示的品牌核心資訊，幫助訪客快速認識這個品牌。",
-      "sectionBrandImagesHint": "管理品牌圖片，決定搜尋結果封面與品牌頁面的圖片內容。",
-      "sectionLinksHint": "整理官方社群、網站與線上購買連結，讓訪客更容易找到這個品牌。",
-      "sectionVerification": "製造驗證",
-      "sectionVerificationHint": "比對 MIT 微笑標章登錄資料，顯示該筆登錄涵蓋產品的驗證資訊。",
-      "sectionReputationHint": "補充媒體報導、獎項與外部評價，建立品牌可信度。",
-      "website": "網站",
-      "pinkoi": "Pinkoi",
-      "shopee": "Shopee",
-      "link": "連結",
-      "edit": "編輯"
     }
   },
   "errors": {
@@ -2271,11 +2009,6 @@
       "viewAll": "查看全部",
       "clearAll": "清除全部"
     }
-  },
-  "impersonation": {
-    "banner": "正在以 {brandName} 身份檢視",
-    "exit": "結束",
-    "timeRemaining": "剩餘 {minutes} 分鐘"
   },
   "stories": {
     "metaTitle": "專題",

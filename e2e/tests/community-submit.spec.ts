@@ -76,9 +76,8 @@ test.describe("Community submit flow", () => {
     await expect(userPage.locator("#submit-description")).toBeVisible();
   });
 
-  // There is no submissions list page, and while owner features are gated off
-  // (DEV-1261) there is no owner dashboard to fall back to either — so the
-  // route hands a signed-in user the home page rather than a dead end.
+  // There is no submissions list page and no owner surface to fall back to, so
+  // the route hands a signed-in user the home page rather than a dead end.
   // zh-TW is the default locale and its prefix is stripped, so the zh-TW home
   // page is `/` and the English one is `/en`.
   const isHomePath = (pathname: string) => /^\/(?:en)?\/?$/.test(pathname);
@@ -96,7 +95,7 @@ test.describe("Community submit flow", () => {
       await userPage.waitForURL((url) => isHomePath(url.pathname), {
         timeout: BUDGET.SERVER_RENDER,
       });
-      expect(new URL(userPage.url()).pathname).not.toContain("/dashboard");
+      expect(isHomePath(new URL(userPage.url()).pathname)).toBe(true);
       await expect(userPage.locator("main, section").first()).toBeVisible({
         timeout: BUDGET.INTERACTIVE,
       });

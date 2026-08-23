@@ -2,8 +2,6 @@ import { getAuditContext } from '@/lib/audit'
 import { createServiceClient } from '@/lib/supabase/service'
 
 export type AdminAction =
-  | 'impersonate_start'
-  | 'impersonate_end'
   | 'brand_edit'
   | 'draft_save'
   | 'draft_publish'

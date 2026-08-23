@@ -459,7 +459,7 @@ describe("proxy failure reporting", () => {
       .spyOn(console, "error")
       .mockImplementation(() => {});
     try {
-      const response = await proxy(requestFor("/dashboard"));
+      const response = await proxy(requestFor("/settings"));
       expect(response.status).toBeLessThan(400);
       await flushCaptures();
       expect(consoleError).toHaveBeenCalledTimes(1);
@@ -467,7 +467,7 @@ describe("proxy failure reporting", () => {
 
       // Missing credentials is an every-request condition, so both channels sit
       // behind the same one-shot latch: a second request announces nothing.
-      const repeat = await proxy(requestFor("/dashboard"));
+      const repeat = await proxy(requestFor("/settings"));
       expect(repeat.status).toBeLessThan(400);
       await flushCaptures();
       expect(consoleError).toHaveBeenCalledTimes(1);
@@ -501,7 +501,7 @@ describe("proxy failure reporting", () => {
 
     // Session refresh: the request continues, unauthenticated.
     const refreshed = await proxy(
-      requestFor("/dashboard", { cookie: signedInCookie() }),
+      requestFor("/settings", { cookie: signedInCookie() }),
     );
     expect(refreshed.status).toBeLessThan(400);
 
@@ -548,7 +548,7 @@ describe("proxy failure reporting", () => {
       // second resolves to the real SDK.
       await proxy(requestFor("/hero-herb"));
       await flushCaptures();
-      await proxy(requestFor("/dashboard"));
+      await proxy(requestFor("/settings"));
       await flushCaptures();
     } finally {
       consoleError.mockRestore();

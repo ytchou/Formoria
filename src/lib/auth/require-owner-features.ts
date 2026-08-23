@@ -6,9 +6,8 @@ import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
  * Returns a boolean rather than throwing so each action keeps its own error
  * shape (`{ error: 'forbidden' }`, `{ error: t('forbidden') }`, …).
  *
- * Deliberately NOT folded into `requireBrandEditor`: that helper also backs the
- * dashboard layout and the brand edit page, which admins must keep reaching
- * while the flag is off for impersonation / view-as-owner QA.
+ * It answers only "is the owner surface on at all" — per-brand authorization is
+ * a separate check at each call site.
  */
 export async function requireOwnerFeaturesEnabled(): Promise<boolean> {
   return isOwnerFeaturesEnabled()

@@ -146,9 +146,9 @@ test.describe("Auth — sign-in flow", () => {
     ]);
 
     await expect(anonPage).not.toHaveURL(/\/auth\/sign-in(?:[/?#]|$)/);
-    // Where sign-in lands depends on the owner-features flag, so this spec only
-    // asserts that the user left the sign-in page authenticated. The flag-off
-    // landing (`/`, not `/dashboard`) is owned by owner-features-flag-off.spec.ts.
+    // Sign-in honours `?next=` and otherwise lands home; this spec only asserts
+    // that the user left the sign-in page authenticated. The landing itself is
+    // owned by owner-features-flag-off.spec.ts.
     // The account menu button in the main nav is always visible when authenticated.
     await expect(
       anonPage.getByRole("button", { name: /account|帳號/i }),

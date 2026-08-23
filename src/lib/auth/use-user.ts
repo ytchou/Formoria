@@ -44,7 +44,6 @@ const EMPTY_VIEWER_CONTEXT: ViewerContext = {
   isAdmin: false,
   // Fail closed: owner surfaces stay hidden until the server says otherwise.
   ownerFeaturesEnabled: false,
-  impersonation: null,
 }
 
 /**

@@ -4,9 +4,9 @@ import { routes } from '@/lib/routes'
 
 /**
  * Routes that 404 while the owner-features kill switch is off. Matched as path
- * prefixes, so `/dashboard/brands/foo` and `/submit/owner/quick` are covered.
+ * prefixes, so `/submit/owner/quick` is covered.
  */
-const GATED_OWNER_PREFIXES = [routes.dashboard.index(), routes.submit.owner()]
+const GATED_OWNER_PREFIXES = [routes.submit.owner()]
 
 function stripLocalePrefix(pathname: string): string {
   for (const locale of routing.locales) {
@@ -33,17 +33,19 @@ function isGatedOwnerPath(target: string): boolean {
  * Where a signed-in user belongs when no explicit destination applies. Returns
  * an unlocalized path — call sites must still run it through `localizePath`.
  *
- * With owner features off the dashboard 404s, so land signed-in users home.
+ * Always home: the owner dashboard it used to point at was removed (DEV-1570),
+ * and no other surface is a general-purpose signed-in landing.
  */
 export async function ownerLandingPath(): Promise<string> {
-  return (await isOwnerFeaturesEnabled()) ? routes.dashboard.index() : '/'
+  return '/'
 }
 
 /**
- * Resolves the post-auth destination for a caller-supplied `next`. A `next`
- * aimed at a gated owner route while the flag is off (stale bookmark, old email
- * link, or a `post_auth_next` cookie written before the flip) would otherwise
- * complete sign-in on a hard 404, so it falls back to the landing path.
+ * Resolves the post-auth destination for a caller-supplied `next`: the request
+ * wins, otherwise the landing path. A `next` aimed at a gated owner route while
+ * the flag is off (stale bookmark, old email link, or a `post_auth_next` cookie
+ * written before the flip) would otherwise complete sign-in on a hard 404, so
+ * it falls back to the landing path too.
  *
  * Callers must have already run `next` through `isRelativeUrl` — this check is
  * additive to the open-redirect guard, not a replacement for it. Returns an
@@ -52,9 +54,10 @@ export async function ownerLandingPath(): Promise<string> {
 export async function resolvePostAuthPath(
   requestedNext: string | null | undefined
 ): Promise<string> {
-  const ownerFeaturesEnabled = await isOwnerFeaturesEnabled()
-  const landingPath = ownerFeaturesEnabled ? routes.dashboard.index() : '/'
+  const landingPath = await ownerLandingPath()
   if (!requestedNext) return landingPath
-  if (!ownerFeaturesEnabled && isGatedOwnerPath(requestedNext)) return landingPath
+  if (!(await isOwnerFeaturesEnabled()) && isGatedOwnerPath(requestedNext)) {
+    return landingPath
+  }
   return requestedNext
 }

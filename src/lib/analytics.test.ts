@@ -117,8 +117,6 @@ describe('isPublicAnalyticsPath', () => {
     '/admin',
     '/admin/reports',
     '/zh-TW/admin',
-    '/dashboard',
-    '/en/dashboard/brands',
     '/auth/callback',
     '/zh-TW/auth/login',
   ])('rejects protected path %s', (pathname) => {

@@ -8,9 +8,9 @@ export type { CrawlerHitRow }
 const MAX_BUFFERED_ROWS = 50
 const MAX_BUFFER_AGE_MS = 60_000
 // Every analytics read surface in this project buckets by Asia/Taipei
-// (see date-range.ts and posthog-owner-analytics), so the write side matches it:
-// a UTC `day` here would put the 00:00-08:00 Taipei slice of crawler traffic on
-// the previous row and quietly disagree with every dashboard reading it.
+// (see date-range.ts), so the write side matches it: a UTC `day` here would put
+// the 00:00-08:00 Taipei slice of crawler traffic on the previous row and
+// quietly disagree with every report reading it.
 const TELEMETRY_TIME_ZONE = 'Asia/Taipei'
 const buffered = new Map<string, CrawlerHitRow>()
 let oldestHitAt: number | null = null

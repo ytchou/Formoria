@@ -10,10 +10,6 @@ import {
   resolveInitialLocale,
 } from "@/i18n/locale-preference";
 import {
-  IMPERSONATE_COOKIE,
-  resolveImpersonationCookie,
-} from "@/lib/auth/impersonation";
-import {
   verifyChallengeToken,
   CHALLENGE_COOKIE_NAME,
 } from "@/lib/security/challenge";
@@ -81,7 +77,6 @@ export const RESERVED_ROUTES = new Set([
   "discover",
   "events",
   "where-to-buy",
-  "dashboard",
   "favorites",
   // Retired routes. `feature-requests` and its legacy `feedback` alias no
   // longer serve a page, but they stay reserved so a bare hit 404s cleanly
@@ -196,7 +191,6 @@ export const PUBLIC_INTL_SEGMENTS = new Set([
   "challenge",
   "my-submissions",
   "contributions",
-  "dashboard",
   "settings",
   "favorites",
   "privacy",
@@ -540,24 +534,13 @@ async function refreshSupabaseSession(
   // Refresh the session — must call getUser() not getSession()
   // to properly validate the JWT against the Supabase Auth server.
   // Timeout prevents stale/invalid tokens from blocking the request.
-  let user = null;
   try {
-    const result = await supabase.auth.getUser();
-    user = result.data.user;
+    await supabase.auth.getUser();
   } catch (error) {
     // Auth timeout or network error — continue as unauthenticated.
     // `warning`, not `error`: degrading to anonymous is the correct outcome
     // here, so nothing breaks for the user.
     reportProxyFailure("session-refresh", error, "warning");
-  }
-
-  const impersonateCookie = request.cookies.get(IMPERSONATE_COOKIE)?.value;
-  const impersonateDecision = await resolveImpersonationCookie({
-    email: user?.email ?? null,
-    currentCookie: impersonateCookie,
-  });
-  if (impersonateDecision.action === "delete") {
-    response.cookies.delete(IMPERSONATE_COOKIE);
   }
 
   return supabaseResponse;
@@ -1001,7 +984,7 @@ async function runProxy(request: NextRequest) {
   }
 
   // Skip Supabase auth refresh for truly public content paths to reduce egress.
-  // dashboard, settings, and my-submissions still need auth even though
+  // settings and my-submissions still need auth even though
   // isLocalizedPublicPath returns true for them (they're in PUBLIC_INTL_SEGMENTS).
   if (isPublicPath) {
     const segments = pathname.split("/").filter(Boolean);
@@ -1014,7 +997,6 @@ async function runProxy(request: NextRequest) {
     // already-signed-in users on the sign-in form.
     const AUTH_REQUIRED_SEGMENTS = new Set([
       "auth",
-      "dashboard",
       "settings",
       "my-submissions",
       "submit",

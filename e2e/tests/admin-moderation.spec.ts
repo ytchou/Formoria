@@ -35,6 +35,11 @@ test.describe.configure({ mode: 'serial' });
 // while the flag is off — the admin exemption does not apply to `ownerPage`.
 // Declared at file scope so it runs before the seeding beforeAll below. Probes
 // the running app, never app_settings.
+//
+// DEV-1570 removed that wizard along with the rest of the owner dashboard, so
+// the route is gone rather than merely gated. The gate below keeps the suite
+// skipped; restoring it means reverting the DEV-1570 merge, not flipping the
+// flag.
 test.beforeAll(async ({ browser }) => {
   if (await ownerFeaturesDisabled(browser)) {
     test.skip(true, OWNER_FEATURES_OFF_REASON);
