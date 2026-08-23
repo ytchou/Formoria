@@ -11,6 +11,7 @@ import { BUDGET } from "../budgets";
  *  - both About locales contain the mission, trust labels, and outbound vision
  *  - /vision redirects to the merged vision section on /about
  *  - /mission remains absent
+ *  - /getting-started remains absent
  *  - /privacy renders with heading
  *  - /terms renders with heading
  *  - /challenge renders the localized verification heading with Turnstile container
@@ -100,6 +101,11 @@ test.describe("Static & compliance pages", () => {
   test("mission routes remain absent", async ({ request }) => {
     expect((await request.get("/mission")).status()).toBe(404);
     expect((await request.get("/en/mission")).status()).toBe(404);
+  });
+
+  test("getting-started routes remain absent", async ({ request }) => {
+    expect((await request.get("/getting-started")).status()).toBe(404);
+    expect((await request.get("/en/getting-started")).status()).toBe(404);
   });
 
   test("privacy page renders", async ({ anonPage }) => {
