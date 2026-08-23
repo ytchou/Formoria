@@ -4,6 +4,8 @@ import type { FormEvent } from 'react'
 import { Globe } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { setLocalePreference } from '@/app/actions/locale-preference'
+import { Button } from '@/components/ui/button'
+import { UnstyledButton } from '@/components/ui/unstyled-button'
 
 import {
   DropdownMenu,
@@ -43,9 +45,16 @@ export function LocaleSwitcher({ compact = false }: { compact?: boolean }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={compact ? undefined : t('languageLabel')}
-        className={compact
-          ? 'inline-flex min-h-9 items-center justify-center rounded-lg px-2 type-metadata transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50'
-          : 'inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50'}
+        render={
+          <Button
+            variant="ghost"
+            // Both branches were hand-sized below the 44px floor (min-h-9 /
+            // size-9). The size axis restores it; the colour classes stay
+            // because this trigger reads as chrome, not as an accent action.
+            size={compact ? 'compact' : 'icon'}
+            className="text-muted-foreground hover:bg-muted hover:text-foreground"
+          />
+        }
       >
         {compact ? t(locale === 'zh-TW' ? 'languageTraditionalChinese' : 'languageEnglish') : <Globe className="size-4" />}
       </DropdownMenuTrigger>
@@ -60,15 +69,13 @@ export function LocaleSwitcher({ compact = false }: { compact?: boolean }) {
             <DropdownMenuItem
               className={locale === targetLocale ? 'font-medium' : undefined}
               render={
-                /* eslint-disable no-restricted-syntax -- ui-exception: render-prop injection for DropdownMenuItem, raw button is required by Base UI render prop API */
-                <button
+                <UnstyledButton
                   type="submit"
                   className="w-full text-left"
                   aria-current={locale === targetLocale ? 'true' : undefined}
                   data-ph-no-autocapture
                   onClick={() => trackLanguageSwitched(locale, targetLocale, location)}
                 />
-                /* eslint-enable no-restricted-syntax */
               }
             >
               {t(targetLocale === 'zh-TW' ? 'languageTraditionalChinese' : 'languageEnglish')}

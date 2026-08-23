@@ -7,6 +7,7 @@ import { useImageUpload } from "./useImageUpload";
 import { cn } from "@/lib/utils";
 import { MAX_BRAND_GALLERY_PHOTOS } from "@/lib/constants/brand-images";
 import { Button } from "@/components/ui/button";
+import { FileInput } from "@/components/ui/file-input";
 import type { ImageUploadMetadata } from "./useImageUpload";
 
 type ImageUploaderProps = {
@@ -216,13 +217,11 @@ export function ImageUploader({
       )}
 
       {/* Hidden file input */}
-      <input
+      <FileInput
         id={id}
         ref={inputRef}
-        type="file"
         accept="image/*"
         multiple={mode === "multi"}
-        className="hidden"
         onChange={handleFileSelect}
       />
 

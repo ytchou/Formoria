@@ -14,7 +14,7 @@ import { AccountMenu } from '@/components/auth/account-menu'
 import { NavSearchInput } from './nav-search-input'
 import { NavCategoryTabs } from './nav-category-tabs'
 import { LocaleSwitcher } from '@/components/i18n/locale-switcher'
-import { buttonVariants } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { PageShell } from '@/components/ui/page-shell'
 import { useUser } from '@/lib/auth/use-user'
 import { trackCtaClicked } from '@/lib/analytics'
@@ -139,13 +139,9 @@ export function MainNav({ categories }: MainNavProps) {
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetPrimitive.Trigger
               render={
-                <button
-                  type="button"
-                  // eslint-disable-next-line no-restricted-syntax -- ui-exception: render-prop injection for SheetPrimitive.Trigger, raw button is required by Base UI render prop API
-                  className={buttonVariants({
-                    variant: 'ghost',
-                    size: 'icon',
-                  })}
+                <Button
+                  variant="ghost"
+                  size="icon"
                   aria-label={t('openMenu')}
                 />
               }

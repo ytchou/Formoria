@@ -1,8 +1,7 @@
 'use client'
 
-import { Upload } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useEffect, useRef, useState, useTransition, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useState, useTransition, type ChangeEvent, type FormEvent } from 'react'
 import {
   getPendingClaimStatusAction,
   submitClaimAction,
@@ -13,6 +12,9 @@ import { Grid } from '@/components/ui/grid'
 import { MarketingEmailOptInField } from '@/components/forms/marketing-email-opt-in-field'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
+import { UploadDropzone } from '@/components/ui/upload-dropzone'
 import { Textarea } from '@/components/ui/textarea'
 import { useImageUpload } from '@/components/upload/useImageUpload'
 import { Link, usePathname } from '@/i18n/navigation'
@@ -102,7 +104,6 @@ function ClaimProofUpload({
   onUploaded: (imageKey: string) => void
 }) {
   const t = useTranslations('brands.claimCta')
-  const inputRef = useRef<HTMLInputElement>(null)
   const uploadPath = `${userId}/${brandId}`
   const uploadState = useImageUpload({
     bucket: 'claim-proofs',
@@ -129,22 +130,12 @@ function ClaimProofUpload({
   return (
     <div className="space-y-2">
       <p className="type-body-sm font-medium text-ink">{label}</p>
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={uploading}
-        className="flex min-h-24 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted px-4 py-4 type-metadata transition-colors hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        <Upload className="h-4 w-4" aria-hidden="true" />
-        <span>{uploading ? t('uploadingLabel') : hint}</span>
-      </button>
-      <input
-        ref={inputRef}
+      <UploadDropzone
         id={`claim-${proofType}-image`}
-        type="file"
         accept={accept}
-        className="sr-only"
-        onChange={handleFileSelect}
+        disabled={uploading}
+        hint={uploading ? t('uploadingLabel') : hint}
+        onFileSelect={handleFileSelect}
       />
       {typeof uploadState.progress === 'number' && uploadState.progress > 0 && (
         <p className="type-metadata">{uploadState.progress}%</p>
@@ -397,17 +388,16 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
                   )}
                 >
                   <div className="flex gap-3">
-                    <input
+                    <Checkbox
                       id={`claim-proof-${type}`}
-                      type="checkbox"
                       checked={proof.selected}
-                      onChange={(event) => updateProof(type, { selected: event.target.checked })}
-                      className="mt-1 h-5 w-5 rounded border-border accent-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onCheckedChange={(selected) => updateProof(type, { selected })}
+                      className="mt-1 h-5 w-5 rounded border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
                     <div className="min-w-0 flex-1 space-y-1">
-                      <label htmlFor={`claim-proof-${type}`} className="block min-h-6 cursor-pointer type-body-sm font-semibold text-ink">
+                      <Label htmlFor={`claim-proof-${type}`} className="block min-h-6 cursor-pointer type-body-sm font-semibold text-ink">
                         {label}
-                      </label>
+                      </Label>
                       <p className="type-body-sm">{description}</p>
                       {type === 'domain_email' && (
                         <p className="type-metadata">
@@ -426,9 +416,9 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
                     <Grid cols="pair" className="border-t border-rule pt-4">
                       {type === 'domain_email' && (
                         <div className="space-y-2 md:col-span-2">
-                          <label htmlFor={`claim-${type}-email`} className="block type-body-sm font-medium text-ink">
+                          <Label htmlFor={`claim-${type}-email`} className="block type-body-sm font-medium text-ink">
                             {t('proofTypes.domainEmail.emailLabel')}
-                          </label>
+                          </Label>
                           <Input
                             id={`claim-${type}-email`}
                             type="email"
@@ -481,9 +471,9 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
                       )}
 
                       <div className="space-y-2 md:col-span-2">
-                        <label htmlFor={`claim-${type}-note`} className="block type-body-sm font-medium text-ink">
+                        <Label htmlFor={`claim-${type}-note`} className="block type-body-sm font-medium text-ink">
                           {t('noteLabel')}
-                        </label>
+                        </Label>
                         <Textarea
                           id={`claim-${type}-note`}
                           value={proof.note}
@@ -499,9 +489,9 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="claim-mit-smile-cert" className="block type-body-sm font-medium text-ink">
+            <Label htmlFor="claim-mit-smile-cert" className="block type-body-sm font-medium text-ink">
               {t('mitCertLabel')}
-            </label>
+            </Label>
             <Input
               id="claim-mit-smile-cert"
               name="mitSmileCert"

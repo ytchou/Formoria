@@ -18,6 +18,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { SurfaceCard } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Radio } from "@/components/ui/radio";
 import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
@@ -557,12 +558,10 @@ function FilterRadio({
         checked && "bg-accent/10 font-medium text-accent",
       )}
     >
-      <input
-        type="radio"
+      <Radio
         name={name}
         checked={checked}
         onChange={onChange}
-        className="h-4 w-4 accent-accent"
         data-ph-no-autocapture
       />
       <span>{label}</span>

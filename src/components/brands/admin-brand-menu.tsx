@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { startImpersonationAction } from '@/lib/actions/impersonation'
 import { hideBrandAction } from '@/app/admin/actions'
+import { Button } from '@/components/ui/button'
 import { useUser } from '@/lib/auth/use-user'
 import { routes } from '@/lib/routes'
 
@@ -60,7 +61,13 @@ export function AdminBrandMenu({ brandId, brandName, brandSlug }: AdminBrandMenu
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={t('label')}
-        className="flex size-12 items-center justify-center rounded-xl bg-transparent text-muted-foreground transition-colors hover:bg-secondary"
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:bg-secondary"
+          />
+        }
       >
         <Settings className="size-4" />
       </DropdownMenuTrigger>

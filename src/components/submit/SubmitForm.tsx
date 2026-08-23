@@ -46,6 +46,7 @@ import {
 } from "@/lib/analytics";
 import { useSubmissionAnalytics } from "@/hooks/use-submission-analytics";
 import { routes } from "@/lib/routes";
+import { HoneypotField } from '@/components/forms/honeypot-field'
 
 /**
  * A duplicate hit reads as a plain red line, matching every other field error
@@ -648,15 +649,7 @@ export default function SubmitForm({
             />
           </div>
 
-          <input
-            type="text"
-            {...register("honeypot")}
-            tabIndex={-1}
-            autoComplete="off"
-            // eslint-disable-next-line no-restricted-syntax -- ui-exception: honeypot trap must be invisible native input
-            className="pointer-events-none absolute -left-[9999px] h-0 w-0 opacity-0"
-            aria-hidden="true"
-          />
+          <HoneypotField {...register("honeypot")} />
 
           <div className="flex justify-center">
             <TurnstileWidget

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { InstagramIcon } from '@/components/icons/instagram-icon'
+import { ShareChannelButton } from './share-channel-button'
 import { cn } from '@/lib/utils'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 
@@ -274,30 +275,14 @@ export function ShareDialogContent({
 
         <div className="flex justify-between">
           {channels.map((channel) => (
-            <button
+            <ShareChannelButton
               key={channel.key}
-              type="button"
+              icon={channel.icon}
+              label={channel.label}
+              discClass={channel.discClass}
+              discStyle={channel.discStyle}
               onClick={() => handleChannelClick(channel.key)}
-              data-ph-no-autocapture
-              // w-15 (60px), not w-16: four 64px buttons exactly fill the
-              // 256px content width at a 288px dialog, so the hit rectangles
-              // would abut with no gutter. The 44px disc is unchanged.
-              // eslint-disable-next-line no-restricted-syntax -- ui-exception: 44px brand disc with label beneath, not a Button shape
-              className="flex w-15 cursor-pointer flex-col items-center gap-1.5 rounded-lg py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <span
-                aria-hidden="true"
-                style={channel.discStyle}
-                className={cn(
-                  // Tailwind's `hover:` variant is already wrapped in @media (hover: hover).
-                  'flex size-11 items-center justify-center rounded-full transition-transform duration-150 hover:scale-105',
-                  channel.discClass,
-                )}
-              >
-                {channel.icon}
-              </span>
-              <span className="type-micro text-muted-foreground">{channel.label}</span>
-            </button>
+            />
           ))}
         </div>
 

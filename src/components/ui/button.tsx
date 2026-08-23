@@ -2,6 +2,7 @@ import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
+import { CONTROL_ICON, DISABLED_STATE, FOCUS_RING } from "./control-surface"
 
 /**
  * THREE INTERACTION VARIANTS, PLUS ONE DANGER SEMANTIC.
@@ -23,13 +24,11 @@ type ButtonVariant = (typeof BUTTON_VARIANTS)[number]
 const buttonStyles = cva(
   cn(
     "group/button inline-flex shrink-0 items-center justify-center border bg-clip-padding font-hei text-sm font-medium whitespace-nowrap",
-    "transition-[background-color,border-color,color] outline-none select-none",
-    // The visible replacement for `outline-none`: a drawn 2px accent ring,
-    // offset off the control so it reads on ground and on surface alike.
-    "focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground",
-    "disabled:pointer-events-none disabled:opacity-50",
+    "transition-[background-color,border-color,color] select-none",
+    FOCUS_RING,
+    DISABLED_STATE,
     "aria-invalid:border-danger aria-invalid:ring-2 aria-invalid:ring-danger/30",
-    "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+    CONTROL_ICON,
   ),
   {
     variants: {

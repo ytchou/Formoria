@@ -1,3 +1,4 @@
+import { MicrositeCta } from "@/components/microsite/microsite-cta";
 import { SurfaceImage } from "@/components/ui/image";
 import { PageShell } from "@/components/ui/page-shell";
 import type { PublicMicrositeBrand } from "@/lib/brands/contracts";
@@ -37,29 +38,9 @@ export function Hero({ brand, siteContent }: HeroProps) {
             )}
           </div>
 
-          {/*
-            The BRAND's accent, not the system's — see `tokens.ts`. The label
-            colour is set inline rather than through an arbitrary-value colour
-            utility wrapping the CSS variable, because `type-button` carries
-            `text-ink` of its own and two single-class colour rules leave CSS
-            source order to decide which one a brand's CTA gets.
-
-            Do not write that utility's class name out here, even as an
-            example: Tailwind scans comments for candidates, so naming it
-            generates a rule with a literal ellipsis in it, which fails to
-            parse and 500s every route in the app.
-
-            The focus ring is the brand accent held off the fill by a 2px
-            ground offset, which is exactly how the system `Button` draws a
-            ring on top of `bg-accent`.
-          */}
-          <a
-            href="#contact"
-            className="inline-flex min-h-11 items-center justify-center rounded-[4px] bg-[var(--brand-accent)] px-6 type-button transition-transform focus-visible:ring-2 focus-visible:ring-[var(--brand-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-ground focus-visible:outline-none active:scale-[0.98] motion-reduce:transition-none"
-            style={{ color: "var(--brand-accent-foreground)" }}
-          >
-            了解更多
-          </a>
+          {/* The BRAND's accent, not the system's — the fill, the label colour
+              and the focus ring all live in `microsite-cta.tsx`. */}
+          <MicrositeCta href="#contact">了解更多</MicrositeCta>
         </div>
 
         {brand.heroImageUrl && (

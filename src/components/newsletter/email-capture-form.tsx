@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { subscribeToNewsletter } from "@/app/actions/newsletter";
+import { HoneypotField } from "@/components/forms/honeypot-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
@@ -33,7 +34,7 @@ export function EmailCaptureForm() {
     if (state.success) {
       trackNewsletterSubscribed(selectedChips, true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- ui-exception: fires once when state.success flips, reporting the chips as they were at submit time. The component early-returns into the success view immediately after, so selectedChips cannot change afterwards; adding it would only re-fire on an edit that can never happen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once when state.success flips, reporting the chips as they were at submit time. The component early-returns into the success view immediately after, so selectedChips cannot change afterwards; adding it would only re-fire on an edit that can never happen.
   }, [state.success]);
 
   function toggleChip(slug: string) {
@@ -54,20 +55,11 @@ export function EmailCaptureForm() {
 
   return (
     <form action={formAction} className="space-y-4 text-foreground">
-      {/* ui-exception: the honeypot anti-spam field must stay a raw <input>.
-          Routing it through <Input> would give it the primitive's visible
-          styling and focus behaviour, which is exactly what must not happen to
-          a field only a bot should ever fill. No eslint-disable is needed here:
-          no-restricted-syntax is already off for this file via the grandfather
-          block in eslint.config.mjs. */}
-      <input
-        aria-hidden="true"
-        autoComplete="off"
-        className="sr-only"
-        name="website"
-        tabIndex={-1}
-        type="text"
-      />
+      {/* Anti-spam honeypot: invisible to humans, filled in by naive bots, and
+          rejected server-side by isHoneypotFilled(). It cannot be an <Input> —
+          the primitive's visible styling and focus behaviour are exactly what a
+          field only a bot should ever reach must not have. */}
+      <HoneypotField />
       <input type="hidden" name="locale" value={locale} />
 
       <div className="flex flex-col gap-2 sm:flex-row">

@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Grid } from '@/components/ui/grid'
+import { OptionRow } from '@/components/ui/option-row'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
@@ -193,25 +194,18 @@ export function ReportDialogContent({
                   const selected = selectedReason === value
 
                   return (
-                    <Button
+                    <OptionRow
                       key={value}
-                      type="button"
-                      variant="secondary"
-                      size="large"
-                      aria-pressed={selected}
-                      className={cn(
-                        'h-auto min-h-14 w-full justify-start gap-3 px-4 py-3 text-left whitespace-normal',
-                        selected &&
-                          'border-accent bg-accent/10 text-accent hover:bg-accent/10',
-                      )}
+                      selected={selected}
                       onClick={() => selectReason(value)}
-                    >
-                      <Icon className="size-5" aria-hidden="true" />
-                      <span className="min-w-0 flex-1">{label}</span>
-                      {selected ? (
-                        <CircleCheck className="size-4" aria-hidden="true" />
-                      ) : null}
-                    </Button>
+                      icon={<Icon className="size-5" aria-hidden="true" />}
+                      title={label}
+                      trailing={
+                        selected ? (
+                          <CircleCheck className="size-4" aria-hidden="true" />
+                        ) : null
+                      }
+                    />
                   )
                 })}
               </Grid>
@@ -246,39 +240,32 @@ export function ReportDialogContent({
                   const selected = selectedReason === value
 
                   return (
-                    <Button
+                    <OptionRow
                       key={value}
-                      type="button"
-                      variant="secondary"
-                      size="large"
-                      aria-pressed={selected}
-                      className={cn(
-                        'h-auto min-h-16 w-full justify-start gap-3 px-4 py-3 text-left whitespace-normal',
-                        selected &&
-                          'border-accent bg-accent/10 text-accent hover:bg-accent/10',
-                      )}
+                      selected={selected}
                       onClick={() => selectReason(value)}
-                    >
-                      <Icon
-                        className={cn(
-                          'size-5 text-muted-foreground',
-                          selected && 'text-accent',
-                        )}
-                        aria-hidden="true"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block type-body-sm font-medium text-ink">{label}</span>
-                        <span className="mt-0.5 block type-body-sm">{description}</span>
-                      </span>
-                      {selected ? (
-                        <CircleCheck className="size-4" aria-hidden="true" />
-                      ) : (
-                        <ChevronRight
-                          className="size-4 text-muted-foreground"
+                      icon={
+                        <Icon
+                          className={cn(
+                            'size-5 text-muted-foreground',
+                            selected && 'text-accent',
+                          )}
                           aria-hidden="true"
                         />
-                      )}
-                    </Button>
+                      }
+                      title={label}
+                      description={description}
+                      trailing={
+                        selected ? (
+                          <CircleCheck className="size-4" aria-hidden="true" />
+                        ) : (
+                          <ChevronRight
+                            className="size-4 text-muted-foreground"
+                            aria-hidden="true"
+                          />
+                        )
+                      }
+                    />
                   )
                 })}
               </div>

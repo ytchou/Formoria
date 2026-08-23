@@ -1,3 +1,4 @@
+import { MicrositeCta } from "@/components/microsite/microsite-cta";
 import { SurfaceImage } from "@/components/ui/image";
 import { surfaceCardStyles } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
@@ -58,11 +59,11 @@ export function ProductGrid({ brand, products }: ProductGridProps) {
                 </div>
 
                 {product.url && (
-                  <a
+                  <MicrositeCta
                     href={product.url}
+                    variant="outline"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex min-h-11 items-center justify-center rounded-[4px] border border-rule px-4 type-button transition-colors hover:border-[var(--brand-accent)] hover:text-[var(--brand-accent)] focus-visible:ring-2 focus-visible:ring-[var(--brand-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-ground focus-visible:outline-none active:scale-[0.98] motion-reduce:transition-none"
                   >
                     查看商品
                     {/*
@@ -71,7 +72,7 @@ export function ProductGrid({ brand, products }: ProductGridProps) {
                       links all called 查看商品, and the destination is off-site.
                     */}
                     <span className="sr-only">：{product.name}（外部連結）</span>
-                  </a>
+                  </MicrositeCta>
                 )}
               </div>
             </article>

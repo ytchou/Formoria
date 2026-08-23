@@ -7,6 +7,7 @@ import { useRouter } from '@/i18n/navigation'
 import { localizePath } from '@/i18n/locale-preference'
 import { useFilterParams } from '@/hooks/use-filter-params'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   trackSearchExecuted,
@@ -291,12 +292,18 @@ function SearchInput({
 
       {/* Clear button */}
       {value && (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={handleClear}
           aria-label={t('search.clear')}
-          // eslint-disable-next-line no-restricted-syntax -- ui-exception: inline clear button inside custom search form, tightly coupled to search input layout
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-ink-muted hover:text-ink"
+          // `size="icon"` is 44px against the old 28px box, so the glyph is
+          // held in the same place by POSITION rather than by re-adding a
+          // height: `right-0` puts its centre at the 22px inset the `right-2`
+          // + `p-1.5` box used to produce, and 44px is exactly the `h-11`
+          // field, so vertical centring is unchanged. No hover fill — the
+          // affordance here has always been the glyph darkening.
+          className="absolute right-0 top-1/2 -translate-y-1/2 text-ink-muted hover:bg-transparent hover:text-ink"
         >
           <svg
             className="h-4 w-4"
@@ -309,7 +316,7 @@ function SearchInput({
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
           </svg>
-        </button>
+        </Button>
       )}
 
       {/* Hidden submit button ensures implicit form submission works in all browsers (WebKit) */}

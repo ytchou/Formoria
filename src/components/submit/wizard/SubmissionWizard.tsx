@@ -44,6 +44,7 @@ import { BasicInfoSection } from './sections/BasicInfoSection'
 import { LinksSection } from './sections/LinksSection'
 import { MediaSection } from './sections/MediaSection'
 import { routes } from '@/lib/routes'
+import { HoneypotField } from '@/components/forms/honeypot-field'
 
 type SubmissionWizardProps = {
   subcategorySuggestions?: string[]
@@ -338,15 +339,7 @@ export default function SubmissionWizard({
                     )}
                   />
 
-                  <input
-                    type="text"
-                    {...form.register('honeypot')}
-                    tabIndex={-1}
-                    autoComplete="off"
-                    // eslint-disable-next-line no-restricted-syntax -- ui-exception: honeypot trap must be invisible native input
-                    className="pointer-events-none absolute -left-[9999px] h-0 w-0 opacity-0"
-                    aria-hidden="true"
-                  />
+                  <HoneypotField {...form.register('honeypot')} />
 
                   <div className="flex justify-center">
                     <TurnstileWidget

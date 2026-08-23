@@ -62,8 +62,7 @@ export function ImpersonationBanner() {
         className="flex items-center justify-between gap-3"
       >
         <div className="flex min-w-0 items-center gap-2">
-          {/* ui-exception: inverse badge on dark impersonation banner; single site, no variant warranted */}
-          <Badge className="bg-ground text-mit-verified">
+          <Badge variant="inverse">
             {brandName}
           </Badge>
           <span className="truncate type-body-sm font-medium text-mit-verified">

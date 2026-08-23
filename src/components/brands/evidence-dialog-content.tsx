@@ -3,12 +3,11 @@
 import NextLink from 'next/link'
 import {
   useActionState,
-  useRef,
   useState,
   type ChangeEvent,
 } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { FileSearch, Upload, X } from 'lucide-react'
+import { FileSearch, X } from 'lucide-react'
 import {
   submitEvidenceAction,
   type EvidenceState,
@@ -24,6 +23,7 @@ import {
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Grid } from '@/components/ui/grid'
 import { Input } from '@/components/ui/input'
+import { UploadDropzone } from '@/components/ui/upload-dropzone'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
@@ -57,7 +57,6 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
   const [notesLength, setNotesLength] = useState(0)
   const [photoPath, setPhotoPath] = useState('')
   const [lastFile, setLastFile] = useState<File | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
   const uploadState = useImageUpload({
     bucket: 'origin-evidence',
     path: `${user?.id ?? 'anonymous'}/${brandId}`,
@@ -242,23 +241,12 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
 
             <div className="space-y-2">
               <p className="type-body-sm font-medium text-ink">{t('photoLabel')}</p>
-              <Button
-                type="button"
-                onClick={() => inputRef.current?.click()}
-                disabled={uploading}
-                variant="ghost"
-                className="flex min-h-24 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted px-4 py-4 type-metadata transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Upload className="size-4" aria-hidden="true" />
-                <span>{uploading ? t('uploading') : t('photoHint')}</span>
-              </Button>
-              <Input
-                ref={inputRef}
+                            <UploadDropzone
                 id="evidence-photo"
-                type="file"
                 accept="image/*"
-                className="sr-only"
-                onChange={handleFileSelect}
+                disabled={uploading}
+                hint={uploading ? t('uploading') : t('photoHint')}
+                onFileSelect={handleFileSelect}
               />
               {photoPath && (
                 <Typography variant="cardDescription" role="status">
