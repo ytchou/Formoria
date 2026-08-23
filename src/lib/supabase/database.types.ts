@@ -225,35 +225,6 @@ export type Database = {
           },
         ]
       }
-      brand_channel_confirmations: {
-        Row: {
-          channel_id: string
-          created_at: string
-          id: string
-          user_id: string
-        }
-        Insert: {
-          channel_id: string
-          created_at?: string
-          id?: string
-          user_id: string
-        }
-        Update: {
-          channel_id?: string
-          created_at?: string
-          id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "brand_channel_confirmations_channel_id_fkey"
-            columns: ["channel_id"]
-            isOneToOne: false
-            referencedRelation: "brand_channels"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       brand_channels: {
         Row: {
           address: string | null
@@ -592,7 +563,7 @@ export type Database = {
           status?: string
           storage_path?: string | null
           tags?: string[] | null
-          url: string
+          url?: string
           width?: number | null
         }
         Update: {
@@ -906,8 +877,8 @@ export type Database = {
           denial_reason: string | null
           description: string | null
           enriched_data: Json | null
-          hero_image_url: string | null
           hero_image_storage_path: string | null
+          hero_image_url: string | null
           id: string
           idempotency_key: string | null
           intent: string
@@ -948,8 +919,8 @@ export type Database = {
           denial_reason?: string | null
           description?: string | null
           enriched_data?: Json | null
-          hero_image_url?: string | null
           hero_image_storage_path?: string | null
+          hero_image_url?: string | null
           id?: string
           idempotency_key?: string | null
           intent?: string
@@ -990,8 +961,8 @@ export type Database = {
           denial_reason?: string | null
           description?: string | null
           enriched_data?: Json | null
-          hero_image_url?: string | null
           hero_image_storage_path?: string | null
+          hero_image_url?: string | null
           id?: string
           idempotency_key?: string | null
           intent?: string
@@ -1048,8 +1019,8 @@ export type Database = {
           draft_data: Json | null
           draft_updated_at: string | null
           founding_year: number | null
-          hero_image_url: string | null
           hero_image_storage_path: string | null
+          hero_image_url: string | null
           id: string
           is_demo: boolean
           material: string[]
@@ -1099,8 +1070,8 @@ export type Database = {
           draft_data?: Json | null
           draft_updated_at?: string | null
           founding_year?: number | null
-          hero_image_url?: string | null
           hero_image_storage_path?: string | null
+          hero_image_url?: string | null
           id?: string
           is_demo?: boolean
           material?: string[]
@@ -1150,8 +1121,8 @@ export type Database = {
           draft_data?: Json | null
           draft_updated_at?: string | null
           founding_year?: number | null
-          hero_image_url?: string | null
           hero_image_storage_path?: string | null
+          hero_image_url?: string | null
           id?: string
           is_demo?: boolean
           material?: string[]
@@ -1916,8 +1887,8 @@ export type Database = {
           description: string | null
           description_en: string | null
           ends_on: string
-          hero_image_url: string | null
           hero_image_storage_path: string | null
+          hero_image_url: string | null
           id: string
           is_free: boolean | null
           lineup_note: string | null
@@ -1949,8 +1920,8 @@ export type Database = {
           description?: string | null
           description_en?: string | null
           ends_on: string
-          hero_image_url?: string | null
           hero_image_storage_path?: string | null
+          hero_image_url?: string | null
           id?: string
           is_free?: boolean | null
           lineup_note?: string | null
@@ -1982,8 +1953,8 @@ export type Database = {
           description?: string | null
           description_en?: string | null
           ends_on?: string
-          hero_image_url?: string | null
           hero_image_storage_path?: string | null
+          hero_image_url?: string | null
           id?: string
           is_free?: boolean | null
           lineup_note?: string | null
@@ -2844,7 +2815,7 @@ export type Database = {
           storage_path?: string | null
           submission_id: string
           tags?: string[] | null
-          url: string
+          url?: string
           width?: number | null
         }
         Update: {
