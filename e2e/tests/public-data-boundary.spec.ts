@@ -92,14 +92,6 @@ test.describe.serial("Public brand data boundary", () => {
         brand_enriched_at: privateTimestamp,
         updated_at: privateTimestamp,
         is_demo: false,
-        site_content: {
-          template: "default",
-          tokens: { accent: "#000000" },
-          tagline: "Public boundary microsite",
-          story: "A public microsite story.",
-          products: [],
-          ctaType: "mailto",
-        },
       })
       .select("id")
       .single();
@@ -205,13 +197,6 @@ test.describe.serial("Public brand data boundary", () => {
       timeout: BUDGET.GATED_UI,
     });
     await auditCurrentDocument(page, canaries, "brand detail");
-
-    await openSeededRoute(page, `/site/${brandSlug}`, brandName);
-    await expect(
-      page.getByText("Public boundary microsite", { exact: true }),
-    ).toBeVisible();
-    await expect(page.locator('a[href^="mailto:"]')).toHaveCount(0);
-    await auditCurrentDocument(page, canaries, "microsite");
 
     await openSeededRoute(page, `/events/${eventSlug}`, eventName);
     await expect(page.getByRole("link", { name: brandName })).toBeVisible();

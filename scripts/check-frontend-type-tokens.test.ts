@@ -80,8 +80,8 @@ describe("check-frontend-type-tokens", () => {
       // em-relative MDX code face is an "arbitrary numeric text size" that only
       // the `src/lib/mdx/components.ts` row permits; delete that row and the
       // assertion below goes to three. This fixture used to manufacture
-      // `text-[13px]` in `microsite/contact-cta.tsx`, which kept passing after
-      // the literal — and then the row — left the real tree, so the test was
+      // `text-[13px]` in a component that has since been deleted, which kept
+      // passing after the literal — and then the row — left the tree, so it was
       // guarding a permission the codebase no longer had.
       '<code className="text-[0.85em]">x</code>',
     );

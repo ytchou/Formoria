@@ -54,7 +54,6 @@ describe('routes', () => {
       routes.dashboard.index(),
       routes.auth.signIn(),
       routes.admin.index(),
-      routes.microsite('niizo'),
     ]
 
     for (const path of every) {
@@ -114,11 +113,6 @@ describe('routes', () => {
     expect(routes.admin.moderation()).toBe('/admin/moderation')
     // The bucket key in `RATE_LIMIT_RULES`, not a documentation claim about one.
     expect(routes.admin.operations()).toBe('/admin/operations')
-  })
-
-  it('exposes the microsite route, which is not locale-prefixed by the router either', () => {
-    expect(routes.microsite('niizo')).toBe('/site/niizo')
-    expect(routes.microsite('a/b')).toBe('/site/a%2Fb')
   })
 
   it('names the category path once whether or not a subcategory is present', () => {

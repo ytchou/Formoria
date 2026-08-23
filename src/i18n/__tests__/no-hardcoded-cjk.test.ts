@@ -86,9 +86,6 @@ const ALLOWLIST = [
   // Transitional: real messages come from the i18n factory; static fallback map
   // here is test-only. TODO remove the static fallback and drop this entry.
   "lib/validations/submission.ts",
-  // Microsite is intentionally ZH-TW-only (v1 single-locale surface, DEV-767).
-  "components/microsite/",
-  "app/(microsite)/",
   // MIT registry parser uses Chinese column header keys from the government CSV dataset (not UI copy).
   "lib/services/mit-registry.ts",
   // MIT verification normalizes Taiwanese legal-entity suffixes (not UI copy).

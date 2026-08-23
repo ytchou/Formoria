@@ -29,9 +29,9 @@ export type BrandImageFillOptions = {
    * from what the surface is for:
    *
    * - `cover` where brands are compared side by side (directory grid, cards,
-   *   favorites, microsite hero). Mismatched aspect ratios letterbox to
-   *   different widths, and a row of unequal grey strips is what made the grid
-   *   read as ragged — the defect DEV-1406 set out to fix.
+   *   favorites). Mismatched aspect ratios letterbox to different widths,
+   *   and a row of unequal grey strips is what made the grid read as ragged —
+   *   the defect DEV-1406 set out to fix.
    * - `contain` where a single product is shown large (detail carousel hero,
    *   dashboard hero card). Nothing neighbours it, so there is no raggedness to
    *   fix, and cropping only removes product. 54.7% of active product photos

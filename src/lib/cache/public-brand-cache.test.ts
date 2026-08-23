@@ -31,10 +31,8 @@ describe('revalidatePublicBrands', () => {
       expect.arrayContaining([
         ['/brands/niizo'],
         ['/en/brands/niizo'],
-        ['/site/niizo'],
         ['/brands/kiln'],
         ['/en/brands/kiln'],
-        ['/site/kiln'],
         ['/zh-TW'],
         ['/en'],
         ['/zh-TW/about'],
@@ -54,7 +52,6 @@ describe('revalidatePublicBrands', () => {
     expect(
       revalidatedPaths().filter(([path]) => path === '/brands/niizo'),
     ).toHaveLength(1)
-    expect(revalidatedPaths().filter(([path]) => path === '/site/niizo')).toHaveLength(1)
     expect(revalidatedPaths()).not.toContainEqual(['/zh-TW/brands'])
     expect(revalidatedPaths()).not.toContainEqual(['/en/brands'])
     expect(

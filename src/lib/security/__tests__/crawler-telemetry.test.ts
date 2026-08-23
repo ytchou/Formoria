@@ -90,12 +90,6 @@ describe('crawler telemetry', () => {
     expect(rows[0]?.count).toBe(2)
   })
 
-  it('buckets the microsite rewrite path into its own class', async () => {
-    recordCrawlerHit({ headers: { get: () => 'Googlebot/2.1' }, nextUrl: { pathname: '/site/example-brand' } })
-    await flushCrawlerHits()
-    expect(rows[0]?.pathClass).toBe('microsite')
-  })
-
   it('buckets the day in Asia/Taipei, not UTC', async () => {
     vi.useFakeTimers()
     // 2026-08-07T17:30Z is already 2026-08-08 in Taipei.

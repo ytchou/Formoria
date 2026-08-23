@@ -195,7 +195,7 @@
       "count": 2
     },
     "playwright/no-conditional-in-test": {
-      "count": 8
+      "count": 7
     }
   },
   "e2e/tests/stories.spec.ts": {

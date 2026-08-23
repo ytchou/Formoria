@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 import { BANNED_TERMS } from "../src/lib/i18n/banned-terms";
 import {
@@ -109,18 +109,13 @@ describe("check-zh-terms — source scope", () => {
     expect(isScannedSourceFile("src/lib/taxonomy/ontology.ts")).toBe(true);
   });
 
-  // These four are published zh-TW copy — the microsite, transactional email
-  // and structured-data labels. They were excluded while the gate was first
+  // These two are published zh-TW copy — transactional email and
+  // structured-data labels. They were excluded while the gate was first
   // scoped and moved in once verified clean. This test is what stops a later
   // edit from quietly putting them back: dropping one out of
   // SCANNED_SOURCE_FILES, or re-adding it to EXCLUDED_SOURCE_FILES, fails
   // here rather than going unnoticed until a banned term ships.
-  const widened = [
-    "src/components/microsite/",
-    "src/app/(microsite)/",
-    "src/lib/email/templates.ts",
-    "src/lib/json-ld.ts",
-  ];
+  const widened = ["src/lib/email/templates.ts", "src/lib/json-ld.ts"];
 
   it.each(widened)("scans reader-facing %s", (entry) => {
     // For a directory entry, a concrete file beneath it must match too —
@@ -135,11 +130,18 @@ describe("check-zh-terms — source scope", () => {
     expect(EXCLUDED_SOURCE_FILES.has(entry.replace(/^src\//, ""))).toBe(false);
   });
 
-  it("expands directory entries into the real files beneath them", () => {
+  it("resolves every scanned entry to files that exist", () => {
+    // Directory entries expand, file entries pass through, and either way an
+    // entry naming something that is no longer there stops scanning copy it
+    // used to cover. The allowlist has no existence check of its own.
     const files = scannedSourceFiles();
 
-    expect(files).toContain("src/components/microsite/hero.tsx");
-    expect(files).toContain("src/app/(microsite)/site/[slug]/page.tsx");
+    expect(files).toContain("src/lib/taxonomy/ontology.ts");
+    expect(files).toContain("src/lib/email/templates.ts");
+    expect(files).toContain("src/lib/json-ld.ts");
+    for (const file of files) {
+      expect(existsSync(file)).toBe(true);
+    }
     // Tests are not copy, and one of them would name a banned term as a fixture.
     expect(
       files.filter((file) => /(__tests__|\.test\.tsx?$)/.test(file)),
@@ -147,11 +149,12 @@ describe("check-zh-terms — source scope", () => {
   });
 
   // One membership rule, or the enumerated set and the predicate disagree and
-  // the exported `scanSourceFile` gets the looser one.
+  // the exported `scanSourceFile` gets the looser one. The test siblings of a
+  // scanned copy file are the case that must not slip through.
   it.each([
-    "src/components/microsite/__tests__/hero.test.tsx",
-    "src/components/microsite/hero.test.tsx",
-    "src/components/microsite/hero.test.ts",
+    "src/lib/taxonomy/__tests__/ontology.test.ts",
+    "src/lib/taxonomy/ontology.test.tsx",
+    "src/lib/email/templates.test.ts",
   ])("agrees with the file list that %s is not scanned", (file) => {
     expect(isScannedSourceFile(file)).toBe(false);
     expect(scannedSourceFiles()).not.toContain(file);
@@ -170,15 +173,15 @@ describe("check-zh-terms — source scope", () => {
 });
 
 describe("check-zh-terms — allowlist sync", () => {
-  it("accepts a per-file allowlist entry nested under a scanned directory", () => {
+  it("accepts an allowlist entry a scanned entry already covers", () => {
     // The bug this pins: an exact-string comparison against
     // SCANNED_SOURCE_FILES failed a normal per-file allowlist entry whose
     // directory prefix is already scanned, and told the developer to add it to
     // SCANNED_SOURCE_FILES (redundant) or EXCLUDED_SOURCE_FILES (which would
-    // un-scan a file the gate had just been widened to cover).
-    expect(
-      allowlistSyncProblemsFor(["components/microsite/hero-copy.tsx"]),
-    ).toEqual([]);
+    // un-scan a file the gate had just been widened to cover). No scanned
+    // entry is a directory today, so only the file half of that rule is
+    // reachable; `isScannedSourceFile` still owns both.
+    expect(allowlistSyncProblemsFor(["lib/json-ld.ts"])).toEqual([]);
   });
 
   it("still flags an entry that is classified nowhere", () => {

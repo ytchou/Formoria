@@ -9,7 +9,6 @@ import {
 import {
   toPublicBrandCard,
   toPublicBrandDetail,
-  toPublicMicrositeBrand,
 } from '@/lib/brands/contracts'
 
 /**
@@ -174,12 +173,11 @@ describe('brandToDomain field completeness', () => {
 })
 
 describe('public brand response contracts', () => {
-  it('keeps private canaries out of card, detail, and microsite payloads', () => {
+  it('keeps private canaries out of card and detail payloads', () => {
     const brand = brandToDomain(buildRow(BRAND_COLUMN_LIST))
     const payload = JSON.stringify([
       toPublicBrandCard(brand),
       toPublicBrandDetail(brand),
-      toPublicMicrositeBrand(brand),
     ])
 
     expect(payload).not.toContain('private-contact-canary@example.com')

@@ -56,7 +56,6 @@ describe("POST /api/internal/revalidate-brands", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/en/about");
     expect(revalidatePath).toHaveBeenCalledWith("/zh-TW/events");
     expect(revalidatePath).toHaveBeenCalledWith("/en/events");
-    expect(revalidatePath).toHaveBeenCalledWith("/site/brand-0");
     expect(revalidatePath).toHaveBeenCalledWith("/brands/brand-0");
     expect(revalidatePath).toHaveBeenCalledWith("/en/brands/brand-0");
 
@@ -79,11 +78,9 @@ describe("POST /api/internal/revalidate-brands", () => {
     expect(revalidateTag).toHaveBeenCalledTimes(1);
     expect(
       revalidatePath.mock.calls.filter(([path]) =>
-        ["/brands/niizo", "/en/brands/niizo", "/site/niizo"].includes(
-          path as string,
-        ),
+        ["/brands/niizo", "/en/brands/niizo"].includes(path as string),
       ),
-    ).toHaveLength(3);
+    ).toHaveLength(2);
   });
 
   it("returns 401 without invoking any cache operation", async () => {

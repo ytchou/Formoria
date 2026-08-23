@@ -5,7 +5,6 @@ import type {
   OtherUrl,
   ReputationSummary,
   SiteContent,
-  SiteProduct,
 } from '@/lib/types/brand'
 
 /** Purchase links are intentionally spelled out at every public boundary. */
@@ -53,51 +52,6 @@ export type PublicBrandDetail = PublicBrandCard &
     imageAlts: BrandImageMeta[]
     heroImageMetadata: Brand['heroImageMetadata']
   }
-
-type PublicSiteTokens = {
-  accent: string
-  accentForeground?: string
-}
-
-export type PublicSiteProduct = {
-  name: string
-  imageUrl?: string
-  url?: string
-  caption?: string
-}
-
-type PublicSiteContent = {
-  template: string
-  tokens: PublicSiteTokens
-  tagline?: string
-  story?: string
-  products: PublicSiteProduct[]
-  ctaType: 'mailto'
-  /** Only an explicitly configured CTA may produce a public email link. */
-  ctaValue?: string
-}
-
-export type PublicMicrositeBrand = {
-  id: string
-  name: string
-  slug: string
-  status: 'approved' | 'hidden'
-  description: string | null
-  heroImageUrl: string | null
-  /**
-   * Metadata for the hero image ONLY — this surface renders exactly one image,
-   * so a full index-aligned `imageAlts` array would be dishonest about what is
-   * carried. Nullable because a brand's hero can predate `brand_images`.
-   *
-   * Deliberately a whole `BrandImageMeta` rather than the flattened fields it
-   * replaces: a flattened copy is tied to nothing, so a field added to
-   * `BrandImageMeta` would never have reached this contract.
-   */
-  heroImageMeta: BrandImageMeta | null
-  foundingYear: number | null
-  mitVerified: boolean
-  siteContent: PublicSiteContent
-}
 
 export type SearchSuggestion = {
   id: string
@@ -169,29 +123,6 @@ export type AdminBrandListItem = {
   socialThreads?: string | null
   socialFacebook?: string | null
   otherUrls?: OtherUrl[]
-}
-
-function publicSiteContent(siteContent: SiteContent | null): PublicSiteContent | null {
-  if (!siteContent) return null
-  return {
-    template: siteContent.template,
-    tokens: {
-      accent: siteContent.tokens.accent,
-      ...(siteContent.tokens.accentForeground
-        ? { accentForeground: siteContent.tokens.accentForeground }
-        : {}),
-    },
-    ...(siteContent.tagline !== undefined ? { tagline: siteContent.tagline } : {}),
-    ...(siteContent.story !== undefined ? { story: siteContent.story } : {}),
-    products: siteContent.products.map((product: SiteProduct) => ({
-      name: product.name,
-      ...(product.imageUrl !== undefined ? { imageUrl: product.imageUrl } : {}),
-      ...(product.url !== undefined ? { url: product.url } : {}),
-      ...(product.caption !== undefined ? { caption: product.caption } : {}),
-    })),
-    ctaType: siteContent.ctaType,
-    ...(siteContent.ctaValue !== undefined ? { ctaValue: siteContent.ctaValue } : {}),
-  }
 }
 
 export function toPublicBrandCard(brand: Brand): PublicBrandCard {
@@ -302,23 +233,6 @@ export function toPublicBrandDetail(brand: Brand): PublicBrandDetail {
       isOwnerSupplied: alt.isOwnerSupplied ?? false,
     })),
     heroImageMetadata: brand.heroImageMetadata ?? null,
-  }
-}
-
-export function toPublicMicrositeBrand(brand: Brand): PublicMicrositeBrand | null {
-  const content = publicSiteContent(brand.siteContent)
-  if (!content) return null
-  return {
-    id: brand.id,
-    name: brand.name,
-    slug: brand.slug,
-    status: brand.status,
-    heroImageUrl: brand.heroImageUrl,
-    heroImageMeta: brand.imageAlts.at(0) ?? null,
-    description: brand.description,
-    foundingYear: brand.foundingYear,
-    mitVerified: brand.mitStatus === 'verified' || brand.mitVerified === true,
-    siteContent: content,
   }
 }
 

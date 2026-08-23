@@ -81,7 +81,6 @@ export const RESERVED_ROUTES = new Set([
   "discover",
   "events",
   "where-to-buy",
-  "site",
   "dashboard",
   "favorites",
   "feature-requests",
@@ -736,12 +735,11 @@ async function runProxy(request: NextRequest) {
   const crawlerHit =
     !isCrawlerTelemetrySuppressed() && isLikelyCrawler(request);
 
-  // ORDER IS LOAD-BEARING. This guard sits above the microsite branch because
-  // that branch is terminal -- it rewrites or returns for every request on
-  // MICROSITE_HOST. With the guard below it, anyone who set `Host:
-  // brand.formoria.com` reached the origin without an edge credential and got
-  // the whole microsite surface unguarded. The guard is host-independent, so
-  // running it first costs nothing and closes that hole.
+  // ORDER IS LOAD-BEARING. This guard sits above every branch below it, and
+  // several of those are terminal -- the auth callback and /admin/content
+  // return `next()` outright. With the guard below them, those surfaces would
+  // reach the origin with no edge credential. The guard is host-independent
+  // and path-independent, so running it first costs nothing.
   const cfOriginSecret = process.env.CF_ORIGIN_SECRET;
   if (process.env.NODE_ENV === "production" && cfOriginSecret) {
     // Two different credentials, one header each:
@@ -777,38 +775,6 @@ async function runProxy(request: NextRequest) {
         staging,
       );
     }
-  }
-
-  const host = request.headers.get("host") ?? "";
-  if (host === (process.env.MICROSITE_HOST ?? "brand.formoria.com")) {
-    const segments = pathname.split("/").filter(Boolean);
-
-    // Microsite traffic is recorded under the post-rewrite path so it lands in
-    // the `microsite` path_class instead of being silently absent from the
-    // telemetry. Recorded before the branch returns because both exits below
-    // are terminal.
-    if (crawlerHit) {
-      recordCrawlerHit({
-        headers: request.headers,
-        nextUrl: { pathname: `/site${pathname}` },
-      });
-    }
-
-    if (segments.length === 1) {
-      const slug = segments[0];
-      if (
-        !RESERVED_ROUTES.has(slug) &&
-        slug !== "_next" &&
-        slug !== "api" &&
-        SLUG_PATTERN.test(slug)
-      ) {
-        const url = request.nextUrl.clone();
-        url.pathname = `/site${pathname}`;
-        return finalizeResponse(NextResponse.rewrite(url), staging);
-      }
-    }
-
-    return finalizeResponse(NextResponse.next(), staging);
   }
 
   if (pathname === routes.auth.callback()) {

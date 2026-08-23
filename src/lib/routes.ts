@@ -162,10 +162,4 @@ export const routes = {
     stockists: () => '/admin/stockists',
     submissions: (query?: RouteQuery) => withQuery('/admin/submissions', query),
   },
-
-  /**
-   * The owner microsite. It lives outside the `[locale]` tree, so it is
-   * prefix-free for a second reason: there is no localized variant to prefix.
-   */
-  microsite: (slug: string) => `/site/${seg(slug)}`,
 } as const

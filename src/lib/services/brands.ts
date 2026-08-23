@@ -73,13 +73,11 @@ import {
   toPublicBrandCard,
   toPublicBrandDetail,
   toPublicBrandFaqContext,
-  toPublicMicrositeBrand,
   type AdminBrandListItem,
   type OwnerBrandEditor,
   type PublicBrandCard,
   type PublicBrandDetail,
   type PublicBrandFaqContext,
-  type PublicMicrositeBrand,
   type SearchSuggestion,
 } from "@/lib/brands/contracts";
 
@@ -942,7 +940,7 @@ export async function hydrateCardImageMeta<
      *    Falling back to unhydrated brands reproduces exactly the behaviour
      *    these surfaces had before this function existed (`imageAlts: []`,
      *    centred `object-cover`). Taking down /brands, the homepage,
-     *    /favorites, story galleries and every microsite because a decoration
+     *    /favorites and story galleries because a decoration
      *    could not be loaded is never the right trade.
      * 2. It closes the deploy-order window. Railway deploys on a push to main
      *    but Supabase migrations are applied by hand, so between the two a
@@ -1224,26 +1222,11 @@ const PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST = [
   "mit_story",
 ] as const;
 
-/** Microsites only need the configured content and a few display fields. */
-const PUBLIC_MICROSITE_BRAND_COLUMN_LIST = [
-  "id",
-  "name",
-  "slug",
-  "status",
-  "description",
-  "hero_image_url",
-  "hero_image_storage_path",
-  "founding_year",
-  "mit_status",
-  "site_content",
-] as const;
-
 const BRAND_COLUMNS = BRAND_COLUMN_LIST.join(", ");
 const DIRECTORY_BRAND_COLUMNS = DIRECTORY_BRAND_COLUMN_LIST.join(", ");
 const PUBLIC_BRAND_CARD_COLUMNS = PUBLIC_BRAND_CARD_COLUMN_LIST.join(", ");
 const PUBLIC_BRAND_DETAIL_COLUMNS = PUBLIC_BRAND_DETAIL_COLUMN_LIST.join(", ");
 const PUBLIC_BRAND_FAQ_CONTEXT_COLUMNS = PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST.join(", ");
-const PUBLIC_MICROSITE_BRAND_COLUMNS = PUBLIC_MICROSITE_BRAND_COLUMN_LIST.join(", ");
 
 export const BRAND_SELECT =
   `${BRAND_COLUMNS}, brand_owners(user_id)` as unknown as "*";
@@ -1262,8 +1245,6 @@ const PUBLIC_BRAND_DETAIL_SELECT =
   `${PUBLIC_BRAND_DETAIL_COLUMNS}, brand_owners(user_id)` as unknown as "*";
 const PUBLIC_BRAND_FAQ_CONTEXT_SELECT =
   PUBLIC_BRAND_FAQ_CONTEXT_COLUMNS as unknown as "*";
-const PUBLIC_MICROSITE_BRAND_SELECT =
-  `${PUBLIC_MICROSITE_BRAND_COLUMNS}, brand_owners(user_id)` as unknown as "*";
 
 /**
  * PostgREST sends `.in()` filters in the GET query string, so a single call with
@@ -2220,24 +2201,6 @@ export async function getPublicBrandFaqContextById(
   return toPublicBrandFaqContext(brandToDomain(data));
 }
 
-/** Public microsite boundary. A missing/empty site_content is not public. */
-export async function getPublicMicrositeBrandBySlug(
-  slug: string,
-): Promise<PublicMicrositeBrand | null> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("brands")
-    .select(PUBLIC_MICROSITE_BRAND_SELECT)
-    .eq("slug", slug)
-    .eq("status", "approved")
-    .maybeSingle();
-
-  if (error) throw error;
-  if (!data) return null;
-  const [brand] = await hydrateCardImageMeta(supabase, [brandToDomain(data)]);
-  return toPublicMicrositeBrand(brand);
-}
-
 /** Owner/admin callers receive a contract rather than a raw database row. */
 export function toOwnerEditorContract(brand: Brand): OwnerBrandEditor {
   return toOwnerBrandEditor(brand);
@@ -2572,18 +2535,6 @@ export async function getBrandSeoEntries(): Promise<BrandSeoEntry[]> {
     blurbEn: row.blurb_en,
     seoPromoted: row.seo_promoted === true,
   }));
-}
-
-export async function getMicrositeSlugs(): Promise<string[]> {
-  const supabase = createServiceClient();
-  const { data, error } = await excludeTestBrands(
-    supabase.from("brands").select("slug"),
-  )
-    .eq("status", "approved")
-    .not("site_content", "is", null);
-
-  if (error) throw error;
-  return (data ?? []).map((row) => row.slug);
 }
 
 export async function getBrandById(id: string): Promise<Brand> {

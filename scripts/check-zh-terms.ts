@@ -31,9 +31,9 @@
  *    already proves that every file under `src/` outside its allowlist
  *    contains no Han character at all, so a banned term cannot hide there.
  *    Scanning `src/` therefore means scanning that allowlist, split between
- *    SCANNED_SOURCE_FILES (copy a reader receives: the taxonomy ontology, the
- *    zh-TW-only microsite, transactional email templates and structured-data
- *    labels) and EXCLUDED_SOURCE_FILES (each with the reason its Han is not
+ *    SCANNED_SOURCE_FILES (copy a reader receives: the taxonomy ontology,
+ *    transactional email templates and structured-data labels) and
+ *    EXCLUDED_SOURCE_FILES (each with the reason its Han is not
  *    reader-visible text). `allowlistSyncProblems` keeps the two lists honest:
  *    an allowlist entry classified in neither fails this check.
  */
@@ -129,21 +129,16 @@ export function scanJsonValue(
  *
  *  - `lib/taxonomy/ontology.ts` — `nameZh` values are the public L1/L2 category
  *    labels on /brands and every category page.
- *  - `components/microsite/`, `app/(microsite)/` — the zh-TW-only microsite is
- *    a published reader surface; its copy lives in-file by design (DEV-767),
- *    so this gate is the only thing standing between it and a zh-CN term.
  *  - `lib/email/templates.ts` — transactional email copy. Once sent it cannot
  *    be corrected, which makes it the worst place to notice a term late.
  *  - `lib/json-ld.ts` — structured-data labels are read by search engines and
  *    answer engines, and are quoted back to readers verbatim.
  *
- * The last three were excluded when DEV-1543 first scoped this gate. They were
+ * The last two were excluded when DEV-1543 first scoped this gate. They were
  * verified clean at the time, so widening while clean cost nothing.
  */
 const SCANNED_SOURCE_FILES = [
   "src/lib/taxonomy/ontology.ts",
-  "src/components/microsite/",
-  "src/app/(microsite)/",
   "src/lib/email/templates.ts",
   "src/lib/json-ld.ts",
 ];
@@ -212,8 +207,8 @@ export const EXCLUDED_SOURCE_FILES = new Map([
     "test-only static fallback map (transitional)",
   ],
   // --- Reader-visible copy that is nonetheless still excluded, each for its
-  // own reason. The microsite, transactional-email and structured-data
-  // surfaces that used to sit here are now in SCANNED_SOURCE_FILES; what
+  // own reason. The transactional-email and structured-data surfaces that
+  // used to sit here are now in SCANNED_SOURCE_FILES; what
   // remains is not "not yet done", it is copy this gate cannot usefully read.
   //
   // Ceiling: a banned term reaching a satori-rendered PNG, an owner mailto
@@ -293,8 +288,8 @@ export function allowlistSyncProblemsFor(entries: readonly string[]): string[] {
     // repo-relative (`src/…`), the allowlist and EXCLUDED_SOURCE_FILES are
     // `src/`-relative. Converting UP to the repo-relative form is what lets the
     // scanned side reuse `isScannedSourceFile` — the same rule the scan itself
-    // runs — instead of a second, path-exact reimplementation that a directory
-    // entry such as `src/components/microsite/` silently defeats.
+    // runs — instead of a second, path-exact reimplementation that any
+    // directory entry (one ending in `/`) silently defeats.
     if (isScannedSourceFile(`src/${entry}`)) continue;
     if (EXCLUDED_SOURCE_FILES.has(entry)) continue;
     problems.push(
@@ -366,7 +361,7 @@ function walk(dir: string, pattern: RegExp): string[] {
  * `__tests__` directories drop out there, in one place.
  *
  * A missing entry is a CONFIGURATION problem, reported as one. Left to
- * `readdirSync`, renaming a route group (`src/app/(microsite)/`) kills the whole
+ * `readdirSync`, renaming a scanned directory kills the whole
  * lint chain with a raw ENOENT stack trace that names neither this file nor the
  * stale entry.
  */
