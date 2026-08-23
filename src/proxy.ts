@@ -78,19 +78,19 @@ export const RESERVED_ROUTES = new Set([
   "events",
   "where-to-buy",
   "favorites",
-  // Retired routes. `feature-requests`, its legacy `feedback` alias, and
-  // `dashboard` (parked by DEV-1570) no longer serve a page, but they stay
-  // reserved so a bare hit 404s cleanly instead of being redirected into
-  // `/brands/<segment>` by `decideBareBrandSlug`, and so no brand can ever
-  // claim one of those slugs. `dashboard` matters twice over:
-  // `hasApprovedBrandSlug` treats a Supabase error as approved, so an
-  // unreserved `/dashboard` would answer a transient outage with a 301
-  // PERMANENT redirect into `/brands/dashboard` that browsers cache forever;
-  // and `isReservedSlug` reads this same set, so a brand called
-  // "Dashboard" could otherwise take the slug and shadow the app route if
-  // DEV-1570 is ever reverted.
+  // Retired routes. None serve a page, but they stay reserved so a bare hit
+  // 404s cleanly instead of being redirected into `/brands/<segment>` by
+  // `decideBareBrandSlug`, and so no brand can ever claim one of these slugs.
+  //
+  // `dashboard` (parked by DEV-1570) matters twice over: `hasApprovedBrandSlug`
+  // treats a Supabase error as approved, so an unreserved `/dashboard` would
+  // answer a transient outage with a 301 PERMANENT redirect into
+  // `/brands/dashboard` that browsers cache forever; and `isReservedSlug` reads
+  // this same set, so a brand called "Dashboard" could otherwise take the slug
+  // and shadow the app route if DEV-1570 is ever reverted.
   "feature-requests",
   "feedback",
+  "getting-started",
   "dashboard",
   "faq",
   "about",
@@ -99,7 +99,6 @@ export const RESERVED_ROUTES = new Set([
   "my-submissions",
   "contributions",
   "settings",
-  "getting-started",
   "global-error",
   "privacy",
   "sitemap.xml",
@@ -193,7 +192,6 @@ export const PUBLIC_INTL_SEGMENTS = new Set([
   "vision",
   "contact",
   "faq",
-  "getting-started",
   "terms",
   "submit",
   "challenge",

@@ -35,7 +35,7 @@ export function MainNav({ categories }: MainNavProps) {
   const pathname = usePathname()
 
   /**
-   * The mock's five destinations, in its order. Declared once and rendered
+   * The mock's four destinations, in its order. Declared once and rendered
    * twice — the desktop row and the mobile sheet used to be two hand-kept lists
    * that had already drifted apart by one link.
    */
@@ -43,7 +43,6 @@ export function MainNav({ categories }: MainNavProps) {
     { href: routes.discover(), label: t('discover') },
     { href: routes.brands(), label: t('brands') },
     { href: routes.stories(), label: t('stories') },
-    { href: routes.whereToBuy(), label: t('whereToBuy') },
     { href: routes.about(), label: t('about') },
   ]
 

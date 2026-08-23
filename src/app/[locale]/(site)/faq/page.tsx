@@ -65,7 +65,7 @@ export default async function FaqPage({ params }: PageProps) {
   return (
     <PageShell as="main" measure="page" className="py-10">
       <OpenTargetDetails />
-      <div className="grid gap-10 md:grid-cols-5 md:gap-16">
+      <div className="grid gap-10 md:grid-cols-[18rem_minmax(0,1fr)] md:gap-16">
         <aside className="space-y-4 md:sticky md:top-(--nav-height) md:self-start">
           <h1 id="faq-heading" className="type-section">
             {t('title')}
@@ -100,7 +100,7 @@ export default async function FaqPage({ params }: PageProps) {
         <div
           role="region"
           aria-labelledby="faq-heading"
-          className="space-y-10 md:col-span-4"
+          className="space-y-10"
         >
           <section id="general" className="scroll-mt-24">
             <div className="mb-4 border-b border-rule pb-3">

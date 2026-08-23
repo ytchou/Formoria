@@ -62,10 +62,8 @@ const RETIRED_IDENTITY_PATTERNS = [
  * that moment" — so the bare word "reconnects" is deliberately NOT banned here.
  *
  * The retired tagline 「從自己想要的生活出發」 / "the life you want" is banned for the
- * same reason and was added later: DEV-1486 retired it everywhere except the
- * `gettingStarted` namespace, where three keys per locale shipped it verbatim
- * while this guard stayed green because it banned only the mission sentence.
- * It too is matched by fragment, so 「從自己想要的生活出發，找到適合的台灣產品」 and
+ * same reason and was added later. It too is matched by fragment, so
+ * 「從自己想要的生活出發，找到適合的台灣產品」 and
  * "Start with the life you want…" / "start with the life you want…" all fail.
  */
 const RETIRED_MISSION_PATTERNS = [

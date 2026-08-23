@@ -255,7 +255,7 @@ export default async function AboutPage({ params }: PageProps) {
               </div>
               <div>
                 <Link
-                  href={routes.gettingStarted()}
+                  href={routes.brands()}
                   className={buttonVariants({
                     variant: "primary",
                     size: "large",

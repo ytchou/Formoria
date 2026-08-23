@@ -39,7 +39,6 @@
     "tagline": "Life can look a little more like you",
     "discoverHeading": "Discover",
     "directory": "Brand Directory",
-    "gettingStarted": "Getting Started",
     "stories": "Stories",
     "events": "Events",
     "submit": "Recommend a Brand",
@@ -47,8 +46,7 @@
     "faq": "FAQ",
     "connectHeading": "Connect",
     "whereToBuy": "Where to buy",
-    "discover": "Styles",
-    "disclosure": "Formoria does not sell products. Every purchase happens on the brand's own website or at a stockist."
+    "discover": "Styles"
   },
   "discover": {
     "metaTitle": "Styles",
@@ -1308,8 +1306,8 @@
       "sourceName": "SME White Paper 2024, SME & Startup Administration, MOEA (2023 data)"
     },
     "guide": {
-      "heading": "Ready to use Formoria?",
-      "cta": "Get started →"
+      "heading": "Ready to explore Taiwanese brands?",
+      "cta": "Browse brands →"
     }
   },
   "mySubmissions": {
@@ -1766,7 +1764,7 @@
         },
         "learnMore": {
           "question": "Want to learn more?",
-          "answer": "Want to learn more about Formoria? Check out our <link>Getting Started guide</link>."
+          "answer": "For details about reviews, brand claims, and updating information, read our <link>FAQ</link>."
         }
       }
     },
@@ -1882,68 +1880,6 @@
       "suggestedName": "Suggested name:",
       "suggestedUrl": "Suggested URL:",
       "applySuggestion": "Apply"
-    }
-  },
-  "gettingStarted": {
-    "metadata": {
-      "title": "Explore Formoria",
-      "description": "Stopped at a market stall? How to find that brand on Formoria: browse listed brands, read the details, then head to the brand's own online store or a stockist."
-    },
-    "hero": {
-      "eyebrow": "Explore Formoria",
-      "title": "From one thing you love to its brand and the place you can buy it",
-      "intro": "Browse or search listed brands, then review brand information, product highlights, and each brand's own online stores and stockists. Content selected by Formoria is labelled separately.",
-      "primaryCta": "Browse brands",
-      "secondaryCta": "Read the FAQ"
-    },
-    "steps": {
-      "heading": "How to explore Formoria",
-      "discover": {
-        "title": "Start with what interests you",
-        "body": "Browse by category, values, location, or online store to find brands that match your interests.",
-        "cta": "Browse brands"
-      },
-      "submit": {
-        "title": "Open a brand listing",
-        "body": "Read the brand story, products, photos, locations, and official links in one place.",
-        "cta": "Explore brands"
-      },
-      "review": {
-        "title": "Compare the details",
-        "body": "Use descriptions, photos, and links to understand what makes each brand different."
-      },
-      "manage": {
-        "title": "Save brands for later",
-        "body": "Keep brands you want to revisit in your saved list, then return when you are ready to continue exploring."
-      }
-    },
-    "tips": {
-      "heading": "While you browse",
-      "accurate": "Read the description and product details to understand what each brand offers.",
-      "photos": "Use product photos to get a feel for the brand's materials, style, and range.",
-      "links": "Continue to the brand's own online store or a stockist for price, variants, inventory, and purchase details."
-    },
-    "forOwners": {
-      "heading": "If you own a brand",
-      "comingSoon": "Brand owners can claim their own brand page: once the ownership proof is approved, the details become editable. The features below are still being built — tell us what else is needed.",
-      "claim": {
-        "title": "Claim Your Brand",
-        "description": "On the brand page, select “Claim this brand”, submit ownership proof, and once it is approved you take over the listing the community started."
-      },
-      "manage": {
-        "title": "Manage Your Listing",
-        "description": "After claiming, update products, links, and descriptions whenever details change."
-      },
-      "track": {
-        "title": "Track Performance",
-        "description": "The dashboard shows how visitors find this brand and which content interests them."
-      }
-    },
-    "cta": {
-      "heading": "Ready to explore Taiwanese brands?",
-      "body": "Start with the directory: from one thing you love, to its brand, its story, and the place you can buy it. Or read what Formoria does.",
-      "browse": "Browse brands",
-      "about": "About Formoria"
     }
   },
   "admin": {
