@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { expect, test } from "../fixtures/auth";
 
 import { BUDGET, POLL } from "../budgets";
+import { e2eProxyImageUrl } from "../helpers/image-refs";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -50,8 +51,9 @@ async function seedReadySubmission(
     .from("brand-images")
     .upload(storagePath, PNG_1X1, { contentType: "image/png" });
   if (uploadError) throw new Error(`image seed failed: ${uploadError.message}`);
-  const imageUrl = supabase.storage.from("brand-images").getPublicUrl(storagePath)
-    .data.publicUrl;
+  // The same-origin proxy path, not a public storage URL (DEV-1551): the bucket
+  // is private, so `getPublicUrl` would seed a dead link.
+  const imageUrl = e2eProxyImageUrl(storagePath);
 
   const { error: submissionError } = await supabase
     .from("brand_submissions")
@@ -102,8 +104,7 @@ async function seedReadySubmission(
   const { error: imageError } = await supabase.from("submission_images").insert({
     submission_id: id,
     storage_path: storagePath,
-    url: imageUrl,
-    source_url: imageUrl,
+    source_url: storagePath,
     source: "admin",
     status: "active",
     sort_order: 0,

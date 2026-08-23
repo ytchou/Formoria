@@ -48,6 +48,16 @@ const RETIRED_CATEGORY_SLUGS: ReadonlyArray<
 const imgSrcHosts = ALLOWED_IMAGE_HOSTS.map(
   (hostname) => `https://${hostname}`,
 ).join(" ");
+/*
+ * SIGNED submission URLs only (DEV-1551). `ALLOWED_IMAGE_HOSTS` is empty since
+ * the `brand-images` bucket went private and every published image is served
+ * from `/i/` on this origin — but admin review still renders pre-moderation
+ * imagery from a short-lived signed Supabase URL in a plain `<img>`, and CSP
+ * would block it without this. It is deliberately NOT in `ALLOWED_IMAGE_HOSTS`:
+ * that list governs `safeImageSrc` and `next/image`, and re-adding it there
+ * would let a public page hotlink the storage host again.
+ */
+const signedStorageImgSrcHosts = "https://*.supabase.co";
 const mapTileImgSrcHosts = "https://*.tile.openstreetmap.org";
 const googleAdsImgSrcHosts = "https://www.google.com https://www.google.com.tw";
 const supabaseOrigin = (() => {
@@ -70,8 +80,15 @@ const nextConfig: NextConfig = {
     },
   },
   images: {
+    /*
+     * EMPTY since DEV-1551 task 11. `ALLOWED_IMAGE_HOSTS` has no entries: the
+     * `brand-images` bucket is private and every image we own is served from
+     * `/i/` on this origin, which `next/image` optimises without a remote
+     * pattern. Kept as a map over the constant rather than a literal `[]` so
+     * the two lists cannot drift apart.
+     */
     remotePatterns: ALLOWED_IMAGE_HOSTS.map((hostname) => ({
-      protocol: "https",
+      protocol: "https" as const,
       hostname,
     })),
     // WebP only, no AVIF: brand images are already stored as WebP (1,647 of
@@ -97,7 +114,7 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://challenges.cloudflare.com https://*.sentry.io https://static.cloudflareinsights.com https://e.formoria.com",
               "style-src 'self' 'unsafe-inline'",
-              `img-src 'self' data: blob: ${imgSrcHosts} ${mapTileImgSrcHosts} ${googleAdsImgSrcHosts}`,
+              `img-src 'self' data: blob: ${imgSrcHosts} ${signedStorageImgSrcHosts} ${mapTileImgSrcHosts} ${googleAdsImgSrcHosts}`,
               "font-src 'self'",
               `connect-src 'self' ${supabaseOrigin} https://e.formoria.com https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://www.google-analytics.com https://analytics.google.com https://www.google.com https://stats.g.doubleclick.net https://challenges.cloudflare.com https://cloudflareinsights.com`,
               "worker-src 'self' blob:",

@@ -1,4 +1,5 @@
 import { auditedCall } from '@/lib/audit'
+import { isTurnstileStubbed } from './test-gates'
 
 export interface TurnstileResult {
   success: boolean
@@ -29,7 +30,11 @@ export async function verifyTurnstileToken(
 ): Promise<TurnstileResult> {
   const secretKey = process.env.TURNSTILE_SECRET_KEY
 
-  if (process.env.PLAYWRIGHT_TEST === 'true') {
+  // SECURITY_STUB_TURNSTILE, independent of the rate-limit switch. This used to
+  // read the single e2e flag, which also disabled the limiter, so no Playwright
+  // project could exercise one gate without losing the other. See
+  // `test-gates.ts`, the one file that may still consult the legacy flag.
+  if (isTurnstileStubbed()) {
     return { success: true }
   }
 

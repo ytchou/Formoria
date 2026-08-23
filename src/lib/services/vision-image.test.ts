@@ -105,6 +105,22 @@ describe('visionStorageKey', () => {
     ).toBe('submissions/stored/path.webp')
   })
 
+  it('resolves a key from storage_path alone, with no url at all', () => {
+    // DEV-1551 task 12: nothing writes `url` any more, so a freshly downloaded
+    // row reaches the classifier with the bucket key and nothing else.
+    expect(
+      visionStorageKey({ storage_path: 'brands/4d3f/hero.webp' }),
+    ).toBe('brands/4d3f/hero.webp')
+    expect(
+      visionStorageKey({ storage_path: 'submissions/4d3f/hero.webp', url: '' }),
+    ).toBe('submissions/4d3f/hero.webp')
+  })
+
+  it('has no key for a row with neither a path nor a resolvable url', () => {
+    expect(visionStorageKey({ storage_path: null })).toBeNull()
+    expect(visionStorageKey({ storage_path: null, url: '' })).toBeNull()
+  })
+
   it('has no key for an external hotlink', () => {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', SUPABASE_URL)
 

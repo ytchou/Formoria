@@ -58,7 +58,9 @@ function eventRow(overrides: Partial<EventRow> = {}): EventRow {
     official_url: "https://example.tw/market",
     ticket_url: null,
     is_free: null,
+    // Legacy public column: still on the row type, never written any more.
     hero_image_url: null,
+    hero_image_storage_path: null,
     status: "published",
     created_at: "2026-07-01T00:00:00.000Z",
     updated_at: "2026-07-01T00:00:00.000Z",
@@ -524,7 +526,7 @@ describe("events service", () => {
       website_url: null,
       verified_at: "2026-08-06",
       sort_order: 0,
-      image_url: null,
+      image_storage_path: null,
       image_alt_zh: null,
       image_alt_en: null,
       summary_zh: null,
@@ -567,8 +569,10 @@ describe("events service", () => {
         website_url: "https://herbalight.com.tw",
         verified_at: "2026-08-06",
         sort_order: 3,
-        image_url:
-          "https://xkcayngbttpxyibgzern.supabase.co/storage/v1/object/public/event-exhibitors/2026-taiwan-creative-expo/herbalight.jpg",
+        // Bucket key, not a URL: the bucket is private since DEV-1551 and the
+        // roster image is served from `/i/event-exhibitors/…`.
+        image_storage_path:
+          "event-exhibitors/2026-taiwan-creative-expo/herbalight.jpg",
         image_alt_zh: "禾亮家的青草茶包裝罐",
         image_alt_en: "Herbalight herbal tea canisters",
         summary_zh: "以台灣在地青草入茶的漢方飲品品牌。",
@@ -588,7 +592,7 @@ describe("events service", () => {
     expect(exhibitors[0]).toMatchObject({
       sourceKey: "creative-expo:417",
       imageUrl:
-        "https://xkcayngbttpxyibgzern.supabase.co/storage/v1/object/public/event-exhibitors/2026-taiwan-creative-expo/herbalight.jpg",
+        "/i/event-exhibitors/2026-taiwan-creative-expo/herbalight.jpg",
       imageAltZh: "禾亮家的青草茶包裝罐",
       imageAltEn: "Herbalight herbal tea canisters",
       summaryZh: "以台灣在地青草入茶的漢方飲品品牌。",

@@ -1581,7 +1581,7 @@ export async function runClassifyImagesPhase({
           unavailableCount,
           failedBatches,
           attemptedBatches,
-          heroImageUrl: finalActiveImages.at(0)?.url ?? null,
+          heroStoragePath: finalActiveImages.at(0)?.storage_path ?? null,
         };
       });
 
@@ -1591,7 +1591,9 @@ export async function runClassifyImagesPhase({
           : [];
       const patch =
         target.type === "submission" && result.classifiedCount > 0
-          ? { hero_image_url: result.heroImageUrl }
+          ? // DEV-1551: the bucket key, not a URL. `submissionToDomain` derives
+            // the `/i/` form from it.
+            { hero_image_storage_path: result.heroStoragePath }
           : {};
 
       const detail = [

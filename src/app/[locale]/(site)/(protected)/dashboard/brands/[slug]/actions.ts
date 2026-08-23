@@ -26,7 +26,7 @@ import {
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireOwnerFeaturesEnabled } from "@/lib/auth/require-owner-features";
 import { ConflictError } from "@/lib/errors";
-import { storageKeyFromPublicUrl } from "@/lib/services/image-upload";
+import { storagePathFromImageUrl } from "@/lib/images/image-url";
 import { logAdminActionIfAdmin } from "@/lib/services/admin-audit";
 import type { Brand } from "@/lib/types";
 import { buildModerationPayload } from "./actions-utils";
@@ -136,12 +136,16 @@ async function syncOwnerUploadedImages(
   );
   await rejectBrandImages(supabase, brandId, removedImageUrls);
   for (const url of newImageUrls) {
+    // Since DEV-1551 the dashboard hands back `/i/<key>` for anything we own.
+    // A reference that resolves to no key is not one of our objects, so there
+    // is no row to write — skipping it is the safe direction.
+    const storagePath = storagePathFromImageUrl(url);
+    if (!storagePath) continue;
     await insertBrandImage(supabase, {
       brand_id: brandId,
-      url,
       source: "owner",
       source_url: url,
-      storage_path: storageKeyFromPublicUrl(url),
+      storage_path: storagePath,
       sort_order: nextImageUrls.indexOf(url),
     });
   }

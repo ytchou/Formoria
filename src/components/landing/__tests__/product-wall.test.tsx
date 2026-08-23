@@ -133,7 +133,7 @@ function buildProduct(index: number): HomepageCuratedProduct {
     category: "home",
     subcategories: [],
     officialUrl: "https://example.com/product",
-    imageUrl: `https://project.supabase.co/storage/v1/object/public/p/${index}.jpg`,
+    imageUrl: `/i/curated-products/p/${index}.jpg`,
     imageSourceUrl: null,
     visible: true,
     linkState: "ok",
@@ -178,7 +178,7 @@ function buildTrail(
       publishedAt: "2026-01-01",
       draft: false,
       heroImage:
-        "https://project.supabase.co/storage/v1/object/public/t/hero.jpg",
+        "/i/brands/t/hero.jpg",
       heroImageAlt: "A lamp beside a low chair",
       sources: [],
       faq: [],
@@ -437,12 +437,12 @@ describe("ProductWall", () => {
     );
   });
 
-  it("renders a repo-local hero path, which safeImageSrc drops on its own", () => {
-    // `safeImageSrc` (allowed-image-hosts.ts:47) builds `new URL(url)` with NO
-    // base, so every relative path throws and returns null — only
-    // `*.supabase.co` survived. A hero committed at `/images/trails/…` passed
-    // the frontmatter disk check, reserved a wall slot, and still rendered an
-    // imageless tile. This is the assertion for that whole class.
+  it("renders a repo-local hero path, which safeImageSrc now keeps", () => {
+    // `safeImageSrc` used to build `new URL(url)` with NO base, so every
+    // relative path threw and returned null — a hero committed at
+    // `/images/trails/…` passed the frontmatter disk check, reserved a wall
+    // slot, and still rendered an imageless tile. It now owns the same-origin
+    // case itself (DEV-1551), and the tile no longer hand-rolls the branch.
     const trail = buildTrail();
     trail.frontmatter.heroImage =
       "/images/trails/small-space-reading-corner.webp";
@@ -458,6 +458,19 @@ describe("ProductWall", () => {
       "/images/trails/small-space-reading-corner.webp",
     );
     expect(image?.getAttribute("alt")).toBe("A lamp beside a low chair");
+  });
+
+  it("drops a protocol-relative hero rather than fetching it offsite", () => {
+    // `//evil.example/…` starts with `/`, so the caller-side leading-slash
+    // branch this tile used to carry rendered it as if it were a repo asset.
+    const trail = buildTrail();
+    trail.frontmatter.heroImage = "//evil.example/hero.webp";
+
+    const { container } = renderWall([
+      { kind: "trail", trail, format: "tall" },
+    ]);
+
+    expect(container.querySelector("img")).toBeNull();
   });
 
   it("falls back to an empty alt rather than repeating the title", () => {
@@ -480,7 +493,7 @@ describe("ProductWall", () => {
     ]);
 
     expect(container.querySelector("img")?.getAttribute("src")).toBe(
-      "https://project.supabase.co/storage/v1/object/public/t/hero.jpg",
+      "/i/brands/t/hero.jpg",
     );
   });
 });

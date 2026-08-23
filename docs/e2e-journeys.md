@@ -34,7 +34,18 @@ The canonical browser suite targets the isolated staging Supabase project. Deep 
 | Footer navigation | site footer on `/` | `e2e/tests/stories.spec.ts`, `e2e/tests/events.spec.ts` | deep | 專題 and 展會 links render inside `contentinfo` with the right `href` |
 | Generated curated products — review and approval | admin submission review drawer | _uncovered_ | — | DEV-1469: proposals render, keep toggles, locked already-known rows, approval materializes ticked rows visible and unticked hidden |
 | Generated curated products — brand backfill | `/admin/brands` | _uncovered_ | — | DEV-1469: multi-select, per-run cap, `Generate products for N selected brands`, products-scoped job enqueued |
+| Anti-enumeration — adversarial | `/brands*`, `/sitemap.xml`, `/api/challenge/verify` | `e2e/tests/anti-enumeration-adversarial.spec.ts` | anti-enumeration | DEV-1551 task 18: 14 cases. Header spoofs, crawler-UA spoof, parallel and sequential crawls, invalid-slug probing, cookie rotation, verified-budget exhaustion, sitemap access, limiter outage fails open. Cases 2-4 document open finding 1 rather than asserting a fix. |
+| Anti-enumeration — human sessions | `/brands*` across devices, locales and networks | `e2e/tests/anti-enumeration-human.spec.ts` | anti-enumeration | **Launch gate.** 13 cases, each asserting ZERO challenges. Desktop/mobile browsers, LINE and Instagram in-app, both locales, shared IP, multiple tabs, mid-session network change, filter journey, 20-brand journey. |
+| Image proxy | `/i/[...path]` | `e2e/tests/image-route.spec.ts` | deep | DEV-1551: serves a public prefix with immutable caching, refuses `submissions/` even when the object exists, rejects traversal, and is exempt from the Cloudflare origin guard so Next's image optimizer can fetch it. Seeds its own objects. |
 
 ## Pending verification
 
-- Nothing pending. The DEV-1503 staging-run narrative that used to sit here described a run against deployed merge SHA `261b1667` and is no longer the state of the suite: the 2026-08-21 cleanup added and removed cases across `brand-corrections`, `brand-detail`, `community-submit`, `og-images`, `seo`, `settings`, `brand-share`, `stories`, and `events`, so those counts no longer describe anything. Re-run the canonical staging suite and replace this section with the new result.
+- **DEV-1551's three new specs have never been executed.** They are authored, and they pass `tsc`, `eslint` and `scripts/check-e2e-timeouts.mjs`, but `e2e/global-setup.ts` calls `validateStagingTarget`, which supports neither a local nor a production target: the suite is canonical only against the isolated deployed staging origin. That origin does not carry this branch, so the specs cannot run until it is deployed. The two anti-enumeration specs additionally need `SECURITY_DISABLE_RATE_LIMIT=false` so the shared server arms the limiter — without it they pass while asserting nothing, which is the failure mode to watch for:
+
+  ```
+  SECURITY_DISABLE_RATE_LIMIT=false pnpm exec playwright test --project=anti-enumeration
+  ```
+
+  `image-route.spec.ts` seeds and removes its own storage objects, so it does not depend on what the target's bucket already holds. That matters: staging's `brand-images` bucket contains only `curated-products/`, so any spec asserting against pre-existing `brands/` objects would 404 for the wrong reason and pass vacuously.
+
+- The older DEV-1503 staging-run narrative that used to sit here described deployed merge SHA `261b1667` and no longer describes the suite: the 2026-08-21 cleanup added and removed cases across `brand-corrections`, `brand-detail`, `community-submit`, `og-images`, `seo`, `settings`, `brand-share`, `stories`, and `events`. Re-run the canonical staging suite and replace this section with the new result.

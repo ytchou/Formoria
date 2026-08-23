@@ -15,6 +15,7 @@ import {
   RETRY_ATTEMPTS,
 } from "@/lib/retry";
 import { parsePhaseResults } from "@/lib/services/phase-results";
+import { imagePathToUrl } from "@/lib/images/image-url";
 import {
   enrichedDataFromDb,
   hasCompleteEnrichment,
@@ -414,7 +415,9 @@ export async function enqueueManualRerun(
         const supabase = createServiceClient();
         const { data, error } = await supabase
           .from("brand_submissions")
-          .select("id, status, brand_id, hero_image_url, enriched_data, owner_data")
+          .select(
+            "id, status, brand_id, hero_image_storage_path, enriched_data, owner_data",
+          )
           .in("id", submissionIds);
 
         if (error) throw error;
@@ -430,7 +433,10 @@ export async function enqueueManualRerun(
           if (
             submission.status === "pending" &&
             submission.brand_id === null &&
-            !hasCompleteEnrichment(enrichedData, submission.hero_image_url)
+            !hasCompleteEnrichment(
+              enrichedData,
+              imagePathToUrl(submission.hero_image_storage_path),
+            )
           ) {
             incompleteSubmissionIds.add(submission.id);
           }
@@ -765,7 +771,7 @@ async function resolvePendingSubmissionTargets(): Promise<EnqueueTarget[]> {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("brand_submissions")
-    .select("id, brand_name, hero_image_url, enriched_data, intent")
+    .select("id, brand_name, hero_image_storage_path, enriched_data, intent")
     .eq("status", "pending")
     .order("submitted_at", { ascending: true });
 
@@ -782,7 +788,10 @@ async function resolvePendingSubmissionTargets(): Promise<EnqueueTarget[]> {
         : null;
     return {
       ...submission,
-      complete: hasCompleteEnrichment(enrichedData, submission.hero_image_url),
+      complete: hasCompleteEnrichment(
+        enrichedData,
+        imagePathToUrl(submission.hero_image_storage_path),
+      ),
     };
   });
 

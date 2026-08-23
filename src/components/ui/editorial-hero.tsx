@@ -36,13 +36,12 @@ export function editorialHeroSrc(
   if (!heroImage) return null;
 
   /*
-   * A repo path is taken as-is; only a remote URL goes through the host gate.
-   * `safeImageSrc` builds `new URL(url)` with NO base, so every relative path
-   * throws and comes back null — a hero committed at `/images/stories/x.webp`
-   * would otherwise be dropped as if its host were disallowed. Same branch as
-   * `wall-trail-tile.tsx`.
+   * `safeImageSrc` owns the same-origin case itself (DEV-1551): a hero
+   * committed at `/images/stories/x.webp` comes back unchanged, a
+   * protocol-relative `//host/x.png` comes back null. The caller-side
+   * leading-slash branch that used to live here got the second case wrong.
    */
-  return heroImage.startsWith("/") ? heroImage : safeImageSrc(heroImage);
+  return safeImageSrc(heroImage);
 }
 
 export type EditorialHeroProps = {

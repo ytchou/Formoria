@@ -1,7 +1,12 @@
 import { auditedCall } from '@/lib/audit'
+import {
+  imagePathToUrl,
+  storagePathFromImageUrl,
+} from '@/lib/images/image-url'
 import { isLogoImageTags } from '@/lib/constants/brand-images'
 import type { BrandImageMeta } from '@/lib/types/brand'
-import { deleteBrandImages, deleteStoredImagePaths } from './image-upload'
+import { deleteStoredImagePaths } from './image-upload'
+import { isBrandOwnedStoragePath } from '@/lib/images/storage-keys'
 
 type BrandImageStatus = 'active' | 'candidate' | 'rejected'
 type BrandImageSource = 'scrape' | 'google_image' | 'owner' | 'admin' | 'legacy' | 'json_ld'
@@ -11,7 +16,8 @@ export type BrandImageRow = {
   id?: string
   brand_id?: string
   storage_path?: string | null
-  url: string
+  /** Legacy public URL. Read-only: still selected by admin projections, never written. */
+  url?: string | null
   source?: BrandImageSource
   status?: BrandImageStatus
   tags?: string[] | null
@@ -29,17 +35,32 @@ export type BrandImageRow = {
 
 export type BrandImageInsert = {
   brand_id: string
-  url: string
+  /**
+   * DEV-1551 task 12: the bucket key is the ONLY reference written. The `url`
+   * column stays in the schema (seven Postgres functions read it, two of them
+   * hand-patched with no source file) but nothing in TypeScript writes it any
+   * more.
+   */
+  storage_path: string
   source: BrandImageSource
   source_url?: string | null
   provider_metadata?: BrandImageProviderMetadata | null
-  storage_path?: string | null
   status?: BrandImageStatus
   rejection_reasons?: string[] | null
   rejected_at?: string | null
   tags?: string[] | null
   score?: number | null
   sort_order?: number
+}
+
+/**
+ * Update payloads may CLEAR `storage_path` (rejection drops the bucket
+ * reference), which `Partial<BrandImageInsert>` cannot express because the
+ * insert contract requires a key. No update writes `url` — that column stays
+ * unwritten.
+ */
+type BrandImageUpdate = Partial<Omit<BrandImageInsert, 'storage_path'>> & {
+  storage_path?: string | null
 }
 
 type QueryError = { code?: string; message?: string }
@@ -49,7 +70,7 @@ type BrandImagesSelectQuery = {
     value: string,
   ) => BrandImagesSelectQuery
   in: (
-    column: 'url',
+    column: 'storage_path',
     values: string[],
   ) => Promise<{ data: BrandImageRow[] | null; error: QueryError | null }>
   order: (
@@ -68,13 +89,13 @@ type BrandImagesTable = {
     row: BrandImageInsert,
     options: { onConflict: string },
   ) => Promise<{ error: QueryError | null }>
-  update: (row: Partial<BrandImageInsert>) => {
+  update: (row: BrandImageUpdate) => {
     eq: (
       column: 'brand_id',
       value: string,
     ) => {
       in: (
-        column: 'url',
+        column: 'storage_path',
         values: string[],
       ) => Promise<{ error: QueryError | null }>
     }
@@ -84,7 +105,7 @@ type BrandImagesClient = {
   from: (table: 'brand_images') => BrandImagesTable
 }
 type BrandHeroTable = {
-  update: (row: { hero_image_url: string | null }) => {
+  update: (row: { hero_image_storage_path: string | null }) => {
     eq: (
       column: 'id',
       value: string,
@@ -145,13 +166,17 @@ export function toImageFields(rows: BrandImageRow[]): {
   imageAlts: BrandImageMeta[]
 } {
   const active = rows
-    .filter((row) => row.status === 'active')
+    // A row with no `storage_path` has no renderable form at all now that the
+    // bucket is private (DEV-1551), so it is dropped here rather than emitted
+    // as a broken `src`. Dropping it BEFORE the sort keeps `imageAlts`
+    // index-aligned with `[heroImageUrl, ...productPhotos]`.
+    .filter((row) => row.status === 'active' && Boolean(row.storage_path))
     .toSorted((left, right) => (left.sort_order ?? 0) - (right.sort_order ?? 0))
 
   const hero = active.at(0)
 
   return {
-    heroImageUrl: hero?.url ?? null,
+    heroImageUrl: imagePathToUrl(hero?.storage_path),
     heroImageMetadata: hero
       ? {
           altZh: hero.alt_zh ?? null,
@@ -160,7 +185,12 @@ export function toImageFields(rows: BrandImageRow[]): {
           height: hero.height && hero.height > 0 ? hero.height : null,
         }
       : null,
-    productPhotos: active.slice(1).map((row) => row.url),
+    productPhotos: active
+      .slice(1)
+      .flatMap((row) => {
+        const src = imagePathToUrl(row.storage_path)
+        return src ? [src] : []
+      }),
     imageAlts: active.map((row) => ({
       altZh: row.alt_zh ?? null,
       altEn: row.alt_en ?? null,
@@ -189,7 +219,9 @@ export async function getBrandImages(
     // untyped, so dropping it here is neither a type error nor a query error —
     // every row would just come back unattributed and the credit would silently
     // never render. `brand-images.test.ts` asserts this string for that reason.
-    .select('url, status, tags, score, sort_order, source, source_url, alt_zh, alt_en, width, height')
+    .select(
+      'storage_path, status, tags, score, sort_order, source, source_url, alt_zh, alt_en, width, height',
+    )
     .eq('brand_id', brandId)
     .eq('status', 'active')
     .order('sort_order', { ascending: true })
@@ -256,12 +288,33 @@ export async function insertBrandImage(
   )
 }
 
+/**
+ * Turns whatever the UI handed back into bucket keys.
+ *
+ * Callers hold the RENDERED reference — since DEV-1551 that is `/i/<key>`.
+ * Anything else (a third-party URL an owner pasted, a legacy public storage
+ * URL) resolves to no key and is silently skipped, which is the safe direction:
+ * these functions delete storage objects.
+ */
+export function storagePathsFromImageRefs(refs: readonly string[]): string[] {
+  return [
+    ...new Set(
+      refs.flatMap((ref) => {
+        const path = storagePathFromImageUrl(ref)
+        return path ? [path] : []
+      }),
+    ),
+  ]
+}
+
 export async function rejectBrandImages(
   supabase: unknown,
   brandId: string,
-  urls: string[],
+  imageRefs: string[],
 ): Promise<void> {
-  if (urls.length === 0) return
+  if (imageRefs.length === 0) return
+  const storagePaths = storagePathsFromImageRefs(imageRefs)
+  if (storagePaths.length === 0) return
 
   return auditedCall(
     {
@@ -273,15 +326,15 @@ export async function rejectBrandImages(
   const { data: rows, error: selectError } = await brandImagesTable(supabase)
     .select('storage_path')
     .eq('brand_id', brandId)
-    .in('url', urls)
+    .in('storage_path', storagePaths)
   if (selectError) throw selectError
 
-  const storagePaths = (rows ?? []).flatMap((row) =>
+  const storedPaths = (rows ?? []).flatMap((row) =>
     row.storage_path ? [row.storage_path] : [],
   )
-  if (storagePaths.length > 0) {
+  if (storedPaths.length > 0) {
     try {
-      await deleteStoredImagePaths(storagePaths)
+      await deleteStoredImagePaths(storedPaths)
     } catch (storageError) {
       console.error(
         `[rejectBrandImages] Failed to delete rejected images for ${brandId}:`,
@@ -293,10 +346,10 @@ export async function rejectBrandImages(
   const { error } = await brandImagesTable(supabase)
     .update({ status: 'rejected', storage_path: null })
     .eq('brand_id', brandId)
-    .in('url', urls)
+    .in('storage_path', storagePaths)
   if (error) throw error
     },
-    { subjectId: brandId, summary: { urlCount: urls.length } },
+    { subjectId: brandId, summary: { urlCount: imageRefs.length } },
   )
 }
 
@@ -313,9 +366,11 @@ export async function rejectBrandImages(
 export async function releaseBrandImageUrls(
   supabase: unknown,
   brandId: string,
-  urls: string[],
+  imageRefs: string[],
 ): Promise<void> {
-  if (urls.length === 0) return
+  if (imageRefs.length === 0) return
+  const storagePaths = storagePathsFromImageRefs(imageRefs)
+  if (storagePaths.length === 0) return
 
   return auditedCall(
     {
@@ -325,23 +380,40 @@ export async function releaseBrandImageUrls(
     },
     async () => {
   const { data: rows, error } = await brandImagesTable(supabase)
-    .select('url, storage_path')
+    .select('storage_path')
     .eq('brand_id', brandId)
-    .in('url', urls)
+    .in('storage_path', storagePaths)
   if (error) throw error
 
-  const referencedUrls = new Set((rows ?? []).map((row) => row.url))
-  const unreferencedUrls = urls.filter((url) => !referencedUrls.has(url))
+  const referencedPaths = new Set(
+    (rows ?? []).flatMap((row) => (row.storage_path ? [row.storage_path] : [])),
+  )
+  const unreferencedPaths = storagePaths.filter(
+    (path) => !referencedPaths.has(path),
+  )
 
   await rejectBrandImages(
     supabase,
     brandId,
-    urls.filter((url) => referencedUrls.has(url)),
+    storagePaths
+      .filter((path) => referencedPaths.has(path))
+      .flatMap((path) => {
+        const ref = imagePathToUrl(path)
+        return ref ? [ref] : []
+      }),
   )
 
-  if (unreferencedUrls.length > 0) {
+  // The prefix gate is stated HERE, not left to `deleteStoredImagePaths`, which
+  // also accepts `submissions/` and `curated-products/`. This is owner-driven
+  // cleanup: any ref the owner UI hands back that resolves outside `brands/` is
+  // an object some other flow owns, and deleting it would break a live
+  // reference that this function can neither see nor repair. Skipping is the
+  // safe direction — the storage purge reclaims a genuine orphan later.
+  const deletablePaths = unreferencedPaths.filter(isBrandOwnedStoragePath)
+
+  if (deletablePaths.length > 0) {
     try {
-      await deleteBrandImages(unreferencedUrls)
+      await deleteStoredImagePaths(deletablePaths)
     } catch (storageError) {
       console.error(
         `[releaseBrandImageUrls] Failed to delete unreferenced images for ${brandId}:`,
@@ -350,7 +422,7 @@ export async function releaseBrandImageUrls(
     }
   }
     },
-    { subjectId: brandId, summary: { urlCount: urls.length } },
+    { subjectId: brandId, summary: { urlCount: imageRefs.length } },
   )
 }
 
@@ -366,11 +438,14 @@ export async function syncHeroDenormalized(
     },
     async () => {
   const images = await getBrandImages(supabase, brandId)
-  const heroImageUrl = images.at(0)?.url ?? null
+  const heroStoragePath = images.at(0)?.storage_path ?? null
 
-  // brand_images owns image ordering; hero_image_url is only its grid-card projection.
+  // brand_images owns image ordering; the denormalized hero column is only its
+  // grid-card projection. Since DEV-1551 task 12 that column is
+  // `hero_image_storage_path`; `hero_image_url` is left exactly as the SQL
+  // functions last wrote it and is no longer read by any TypeScript projection.
   const { error } = await brandHeroTable(supabase)
-    .update({ hero_image_url: heroImageUrl })
+    .update({ hero_image_storage_path: heroStoragePath })
     .eq('id', brandId)
 
   if (error) throw error

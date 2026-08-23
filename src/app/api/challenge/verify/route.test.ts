@@ -96,6 +96,45 @@ describe('POST /api/challenge/verify', () => {
     expect(mockSignChallengeToken).not.toHaveBeenCalled()
   })
 
+  /**
+   * DEV-1551. `rateLimit` used to call the limiter directly, so an unreachable
+   * Upstash rejected and the rejection escaped as a 500 -- locking every
+   * challenged visitor out of the site during a store outage. It now goes
+   * through the same fail-open breaker the middleware uses.
+   *
+   * The real implementation is imported with `importActual` and installed as
+   * the mock body, so this exercises the actual breaker rather than a stub of
+   * it.
+   */
+  it('/api/challenge/verify returns 200 with a dead store', async () => {
+    const actualLimiter = await vi.importActual<
+      typeof import('@/lib/security/rate-limiter')
+    >('@/lib/security/rate-limiter')
+    const observability = await import('@/lib/security/rate-limit-observability')
+    observability.setRateLimitTelemetryTransportForTests(async () => {})
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    actualLimiter.setRateLimitStoreForTests({
+      check: () => {
+        throw new Error('ERR max requests limit exceeded')
+      },
+    } as never)
+    mockRateLimit.mockImplementation(actualLimiter.rateLimit)
+
+    try {
+      const response = await POST(makeRequest({
+        token: 'verified-token',
+        returnTo: '/brands/talkoo',
+      }))
+
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({ redirectTo: '/brands/talkoo' })
+    } finally {
+      actualLimiter.setRateLimitStoreForTests(null)
+      observability.setRateLimitTelemetryTransportForTests(null)
+      consoleError.mockRestore()
+    }
+  })
+
   it('rejects rate-limited verification before reading the token', async () => {
     mockRateLimit.mockResolvedValueOnce({
       allowed: false,

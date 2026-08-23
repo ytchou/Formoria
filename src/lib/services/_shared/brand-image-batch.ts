@@ -49,10 +49,18 @@ const BRAND_IMAGE_IN_FILTER_CHUNK_SIZE = 200;
  */
 const BRAND_IMAGE_URL_FILTER_BUDGET = 2_000;
 
-/** One request's worth of filters. `urls`, when present, narrows the rows further. */
+/**
+ * One request's worth of filters. `storagePaths`, when present, narrows the
+ * rows further.
+ *
+ * Bucket KEYS since DEV-1551, not URLs: the `url` column is no longer written
+ * and the hero is identified by `hero_image_storage_path`. The length budget
+ * below still applies — a key is shorter than the public URL it replaced, so
+ * the same budget simply fits more brands per request.
+ */
 export type BrandImageBatch = {
   brandIds: string[];
-  urls?: string[];
+  storagePaths?: string[];
 };
 
 /** Chunk brand ids for a plain `.in('brand_id', ...)` read of every active row. */
@@ -71,44 +79,47 @@ export function chunkBrandIdBatches(brandIds: string[]): BrandImageBatch[] {
 }
 
 /**
- * Chunk (brand, hero url) pairs so BOTH `.in()` lists stay inside their limits.
+ * Chunk (brand, hero bucket key) pairs so BOTH `.in()` lists stay inside their
+ * limits.
  *
  * Chunked by cumulative URL length rather than by count, because one long URL
  * costs as much request line as ten short ones — the same approach
  * `image-download.ts` already uses. The brand-id cap still applies, so whichever
  * limit binds first wins.
  *
- * Note the shape: `brandIds` and `urls` are two independent `.in()` filters, so
+ * Note the shape: `brandIds` and `storagePaths` are two independent `.in()`
+ * filters, so
  * the query matches their cross product, not the pairs. That is deliberate and
- * safe here — a row for brand A carrying brand B's hero URL is simply extra
- * noise that the per-brand URL match at the call site ignores, and no row that
+ * safe here — a row for brand A carrying brand B's hero key is simply extra
+ * noise that the per-brand key match at the call site ignores, and no row that
  * SHOULD match can be excluded.
  */
 export function chunkBrandHeroUrlBatches(
-  pairs: Array<{ brandId: string; url: string }>,
+  pairs: Array<{ brandId: string; storagePath: string }>,
 ): BrandImageBatch[] {
   const batches: BrandImageBatch[] = [];
   let brandIds: string[] = [];
-  let urls: string[] = [];
+  let storagePaths: string[] = [];
   let budget = 0;
 
   const flush = () => {
     if (brandIds.length === 0) return;
-    batches.push({ brandIds, urls });
+    batches.push({ brandIds, storagePaths });
     brandIds = [];
-    urls = [];
+    storagePaths = [];
     budget = 0;
   };
 
   for (const pair of pairs) {
-    // A single over-budget URL still has to go somewhere: give it its own batch
+    // A single over-budget key still has to go somewhere: give it its own batch
     // rather than dropping it or wedging it into a full one.
-    const overBudget = budget + pair.url.length > BRAND_IMAGE_URL_FILTER_BUDGET;
+    const overBudget =
+      budget + pair.storagePath.length > BRAND_IMAGE_URL_FILTER_BUDGET;
     const overCount = brandIds.length >= BRAND_IMAGE_IN_FILTER_CHUNK_SIZE;
     if (brandIds.length > 0 && (overBudget || overCount)) flush();
     brandIds.push(pair.brandId);
-    urls.push(pair.url);
-    budget += pair.url.length;
+    storagePaths.push(pair.storagePath);
+    budget += pair.storagePath.length;
   }
   flush();
 
@@ -132,7 +143,10 @@ export type BrandImageQueryClient = {
 };
 
 type BrandImageFilterChain = {
-  in(column: "brand_id" | "url", values: string[]): BrandImageFilterChain;
+  in(
+    column: "brand_id" | "storage_path",
+    values: string[],
+  ): BrandImageFilterChain;
   eq(column: "status", value: string): BrandImageFilterChain;
   order(
     column: string,
@@ -186,7 +200,8 @@ export async function fetchActiveBrandImageRows<Row>(
           .from("brand_images")
           .select(select)
           .in("brand_id", batch.brandIds);
-        if (batch.urls) query = query.in("url", batch.urls);
+        if (batch.storagePaths)
+          query = query.in("storage_path", batch.storagePaths);
         const { data, error } = await query
           .eq("status", "active")
           // LOAD-BEARING, not cosmetic: `.range()` over an unordered result set

@@ -1,6 +1,7 @@
 import type { Locale } from "@/lib/seo/alternates";
 import { buildAlternates } from "@/lib/seo/alternates";
 import { ONLINE_STORES } from "@/lib/brands/online-stores";
+import { absoluteImageUrl } from "@/lib/images/image-url";
 import { FORMORIA_SOCIALS } from "./constants";
 import { getSiteUrl } from "./seo/site-url";
 import type { Stockist } from "./types/stockist";
@@ -90,7 +91,11 @@ export function buildBrandJsonLd(
       (value): value is string => value !== null && value !== undefined,
     ) ?? null;
   if (url) jsonLd.url = url;
-  if (brand.heroImageUrl) jsonLd.logo = brand.heroImageUrl;
+  // JSON-LD is raw JSON inside a <script> tag, so `metadataBase` never touches
+  // it: `heroImageUrl` is the relative `/i/<key>` proxy path since DEV-1551,
+  // and Google drops `Organization.logo` when the IRI is not absolute.
+  const logo = absoluteImageUrl(brand.heroImageUrl);
+  if (logo) jsonLd.logo = logo;
   if (brand.foundingYear) jsonLd.foundingDate = String(brand.foundingYear);
   if (allSameAs.length > 0) jsonLd.sameAs = allSameAs;
 
@@ -298,12 +303,7 @@ export function buildArticleJsonLd({
   // leading-slash repo path is meaningless there even though it renders fine in
   // the `<img>`. Resolved once here rather than at each caller, because both
   // callers hold exactly the same kind of value.
-  const trimmedImage = image?.trim();
-  const imageUrl = trimmedImage
-    ? trimmedImage.startsWith("/")
-      ? `${siteUrl}${trimmedImage}`
-      : trimmedImage
-    : null;
+  const imageUrl = absoluteImageUrl(image);
 
   const jsonLd: JsonLdObject = {
     "@context": "https://schema.org",
@@ -418,7 +418,11 @@ export function buildEventJsonLd({
     jsonLd.organizer = { "@type": "Organization", name: organizerName };
   }
 
-  if (imageUrl) jsonLd.image = imageUrl;
+  // Same absolutisation as the brand logo and the story image: `imageUrl`
+  // arrives as `safeImageSrc(imagePathToUrl(...))`, a relative proxy path, and
+  // `Event.image` is required for the rich result.
+  const absoluteEventImage = absoluteImageUrl(imageUrl);
+  if (absoluteEventImage) jsonLd.image = absoluteEventImage;
 
   if (isFree === true) {
     jsonLd.offers = {

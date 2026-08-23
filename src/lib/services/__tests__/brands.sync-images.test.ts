@@ -13,9 +13,9 @@ describe('collectSyncableImageUrls', () => {
     expect(urls).toEqual(['https://cdn01.pinkoi.com/product/x/1/800x0.jpg'])
   })
 
-  it('skips URLs already hosted on Supabase', () => {
+  it('skips images we already own (the /i/ proxy form)', () => {
     const urls = collectSyncableImageUrls({
-      heroImageUrl: 'https://project.supabase.co/storage/v1/object/public/brand/x.webp',
+      heroImageUrl: '/i/brands/x/x.webp',
       productPhotos: [],
     })
     expect(urls).toEqual([])

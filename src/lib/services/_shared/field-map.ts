@@ -1,5 +1,6 @@
 import type { TablesInsert } from '@/lib/supabase/database.types'
 import { deriveSubcategoriesEn } from '@/lib/services/subcategories'
+import { storagePathFromImageUrl } from '@/lib/images/image-url'
 import {
   ONLINE_STORES,
   type OnlineStoreCamelField,
@@ -169,7 +170,19 @@ export function toBrandRow(input: CamelSocialPurchaseFields & {
   if (input.descriptionEn !== undefined) row.description_en = input.descriptionEn
   if (input.blurb !== undefined) (row as Record<string, unknown>).blurb = input.blurb
   if (input.blurbEn !== undefined) row.blurb_en = input.blurbEn
-  if (input.heroImageUrl !== undefined) row.hero_image_url = input.heroImageUrl
+  /*
+   * DEV-1551 tasks 9 and 12: the brand hero is addressed by its bucket key.
+   * Callers hand back the rendered `/i/<key>` reference, which is converted
+   * here; `hero_image_url` is no longer written by TypeScript at all (the
+   * column stays for the SQL functions that still read it).
+   *
+   * A value that resolves to no key is not one of our objects. It is written
+   * as an explicit null rather than skipped, so clearing the hero still
+   * clears it — anything else would make "remove the hero image" a silent
+   * no-op.
+   */
+  if (input.heroImageUrl !== undefined)
+    row.hero_image_storage_path = storagePathFromImageUrl(input.heroImageUrl)
   if (input.status !== undefined) row.status = input.status
   if (input.categorySlug !== undefined) row.category = input.categorySlug
   if (input.foundingYear !== undefined) row.founding_year = input.foundingYear

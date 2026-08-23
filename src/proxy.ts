@@ -24,8 +24,28 @@ import {
   isLikelyCrawler,
   isRateLimitStoreDegraded,
   isRouterRequest,
+  isTraversalAccountingEnabled,
+  softLimitBlockedResponse,
 } from "@/lib/security/rate-limiter";
-import { RATE_LIMIT_STORE_HEADER } from "@/lib/security/rate-limit-observability";
+import {
+  pseudonymizeIdentifier,
+  RATE_LIMIT_STORE_HEADER,
+  reportVisitorIdentityRotated,
+} from "@/lib/security/rate-limit-observability";
+import {
+  routeFamily,
+  shouldMintVisitorIdentity,
+} from "@/lib/security/route-family";
+import {
+  resolveVisitorIdentity,
+  VISITOR_COOKIE_NAME,
+  VISITOR_COOKIE_OPTIONS,
+} from "@/lib/security/visitor-identity";
+import { warnIfOriginGuardDisabled } from "@/lib/security/origin-guard";
+import {
+  isCrawlerTelemetrySuppressed,
+  isRateLimitDisabled,
+} from "@/lib/security/test-gates";
 import {
   hasApprovedBrandSlug,
   resolveApprovedBrandRedirect,
@@ -103,6 +123,18 @@ export const ORIGIN_GUARD_EXEMPT_PATHS = [
   { pathname: "/api/health", match: "prefix" },
   { pathname: "/api/cron/", match: "prefix" },
   { pathname: "/api/internal/revalidate-brands", match: "exact" },
+  // Next's own image optimizer re-enters middleware for `/i/` paths and cannot
+  // be made to carry the edge credential. `/_next/image?url=%2Fi%2F...` is
+  // excluded from the matcher, so the optimizer runs; for a non-absolute href
+  // it calls `fetchInternalImage`, which builds a MOCK request via
+  // `createRequestResponseMocks` with an empty header bag and routes it back
+  // through middleware. That mock carries neither `x-formoria-edge` nor
+  // `x-origin-verify`, so without this entry the guard 403s it, the optimizer
+  // reads an empty body and throws ImageError(400) -- every `next/image`
+  // proxied image on the site fails, and only in production, because the guard
+  // requires NODE_ENV=production. Do not remove: `/i/` stays in the matcher for
+  // the rate limiter's sake, which is what makes this exemption necessary.
+  { pathname: "/i/", match: "prefix" },
 ] as const satisfies ReadonlyArray<{
   pathname: string;
   match: "prefix" | "exact";
@@ -541,9 +573,90 @@ function finalizeResponse(
   return response;
 }
 
+// A blank CF_ORIGIN_SECRET leaves the origin guard off (see origin-guard.ts).
+// That stays non-blocking on purpose, but it must not stay silent.
+warnIfOriginGuardDisabled();
+
+/**
+ * Reads the signed `fm_visitor` cookie and mints one when it is absent or fails
+ * verification. Deliberately reads `request.cookies` and not `cookies()` from
+ * `next/headers`, which is server-only and unusable in the edge proxy.
+ *
+ * Runs after `runProxy` so every terminal return path picks the cookie up,
+ * instead of threading a mint through a dozen `finalizeResponse` call sites.
+ *
+ * Three skips, all deliberate:
+ * - the identity exists only to key traversal accounting, and `observeTraversal`
+ *   returns immediately while `TRAVERSAL_COUNTERS` is off (the default), so
+ *   minting behind that flag would pay a WebCrypto HMAC verify per request for
+ *   an output nothing reads;
+ * - `shouldMintVisitorIdentity` decides cacheability FROM THE REQUEST. The
+ *   previous guard tested the response's `cache-control` for `public` /
+ *   `s-maxage`, which middleware runs too early to ever see: the route handler
+ *   sets that header afterwards, so the skip never fired. `/i/` was the
+ *   casualty -- N parallel uncookied image requests each minted a different
+ *   identity, emitted a rotation event, and returned a `Set-Cookie` that makes
+ *   a CDN bypass its cache for a response marked `immutable` for a year;
+ * - crawlers do not retain cookies, so minting for them buys no identity and
+ *   only makes their responses uncacheable.
+ *
+ * Ceiling: request-shape cacheability is an approximation of the handler's
+ * `cache-control`, so a newly cached public route must be added to
+ * `shouldMintVisitorIdentity`. Upgrade path: mint at the Cloudflare edge if
+ * identity coverage on first paint ever becomes load-bearing.
+ */
+async function attachVisitorIdentity(
+  request: NextRequest,
+  response: NextResponse,
+): Promise<NextResponse> {
+  if (!isTraversalAccountingEnabled()) return response;
+  if (
+    !shouldMintVisitorIdentity(
+      request.nextUrl.pathname,
+      request.nextUrl.searchParams,
+    )
+  ) {
+    return response;
+  }
+  if (isLikelyCrawler(request)) return response;
+
+  try {
+    const identity = await resolveVisitorIdentity(
+      request.cookies.get(VISITOR_COOKIE_NAME)?.value,
+    );
+    if (identity.minted) {
+      response.cookies.set(
+        VISITOR_COOKIE_NAME,
+        identity.signedValue,
+        VISITOR_COOKIE_OPTIONS,
+      );
+      // A mint is a rotation from the counters' point of view. One per genuine
+      // first visit; a stream of them behind one IP key is deliberate. Keyed on
+      // the IP, not the new visitor id: the point is to correlate mints that
+      // the visitor tier can never see.
+      reportVisitorIdentityRotated({
+        identityKey: pseudonymizeIdentifier(getClientIp(request)),
+        routeFamily: routeFamily(
+          request.nextUrl.pathname,
+          request.nextUrl.searchParams,
+        ),
+        reason: request.cookies.has(VISITOR_COOKIE_NAME)
+          ? "cookie_failed_verification"
+          : "cookie_absent",
+      });
+    }
+  } catch (error) {
+    // `warning`: a missing CHALLENGE_SECRET degrades traversal accounting to
+    // the IP aggregate. It must never fail a page request.
+    reportProxyFailure("visitor-identity", error, "warning");
+  }
+
+  return response;
+}
+
 export async function proxy(request: NextRequest) {
   try {
-    return await runProxy(request);
+    return await attachVisitorIdentity(request, await runProxy(request));
   } catch (error) {
     // Fired before the rethrow and deliberately not awaited: the capture is
     // asynchronous, and the request must fail exactly as it does today.
@@ -555,7 +668,10 @@ export async function proxy(request: NextRequest) {
 async function runProxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const staging = isStagingRequest(request.headers.get("host"));
-  const isPlaywrightTest = process.env.PLAYWRIGHT_TEST === "true";
+  // Two independent switches, not one flag. See `security/test-gates.ts`:
+  // disabling the limiter and stubbing Turnstile used to be the same env var,
+  // which is why no e2e project could exercise either gate on its own.
+  const rateLimitDisabled = isRateLimitDisabled();
   const routerRequest = isRouterRequest(request);
 
   if (staging && pathname === "/sitemap.xml") {
@@ -617,40 +733,15 @@ async function runProxy(request: NextRequest) {
   // `isLikelyCrawler` is one precompiled union regex; `recordCrawlerHit` re-scans
   // the registry entry by entry. Gating on it keeps the human-traffic common
   // case at a single test.
-  const crawlerHit = !isPlaywrightTest && isLikelyCrawler(request);
+  const crawlerHit =
+    !isCrawlerTelemetrySuppressed() && isLikelyCrawler(request);
 
-  const host = request.headers.get("host") ?? "";
-  if (host === (process.env.MICROSITE_HOST ?? "brand.formoria.com")) {
-    const segments = pathname.split("/").filter(Boolean);
-
-    // Microsite traffic is recorded under the post-rewrite path so it lands in
-    // the `microsite` path_class instead of being silently absent from the
-    // telemetry. Recorded before the branch returns because both exits below
-    // are terminal.
-    if (crawlerHit) {
-      recordCrawlerHit({
-        headers: request.headers,
-        nextUrl: { pathname: `/site${pathname}` },
-      });
-    }
-
-    if (segments.length === 1) {
-      const slug = segments[0];
-      if (
-        !RESERVED_ROUTES.has(slug) &&
-        slug !== "_next" &&
-        slug !== "api" &&
-        SLUG_PATTERN.test(slug)
-      ) {
-        const url = request.nextUrl.clone();
-        url.pathname = `/site${pathname}`;
-        return finalizeResponse(NextResponse.rewrite(url), staging);
-      }
-    }
-
-    return finalizeResponse(NextResponse.next(), staging);
-  }
-
+  // ORDER IS LOAD-BEARING. This guard sits above the microsite branch because
+  // that branch is terminal -- it rewrites or returns for every request on
+  // MICROSITE_HOST. With the guard below it, anyone who set `Host:
+  // brand.formoria.com` reached the origin without an edge credential and got
+  // the whole microsite surface unguarded. The guard is host-independent, so
+  // running it first costs nothing and closes that hole.
   const cfOriginSecret = process.env.CF_ORIGIN_SECRET;
   if (process.env.NODE_ENV === "production" && cfOriginSecret) {
     // Two different credentials, one header each:
@@ -686,6 +777,38 @@ async function runProxy(request: NextRequest) {
         staging,
       );
     }
+  }
+
+  const host = request.headers.get("host") ?? "";
+  if (host === (process.env.MICROSITE_HOST ?? "brand.formoria.com")) {
+    const segments = pathname.split("/").filter(Boolean);
+
+    // Microsite traffic is recorded under the post-rewrite path so it lands in
+    // the `microsite` path_class instead of being silently absent from the
+    // telemetry. Recorded before the branch returns because both exits below
+    // are terminal.
+    if (crawlerHit) {
+      recordCrawlerHit({
+        headers: request.headers,
+        nextUrl: { pathname: `/site${pathname}` },
+      });
+    }
+
+    if (segments.length === 1) {
+      const slug = segments[0];
+      if (
+        !RESERVED_ROUTES.has(slug) &&
+        slug !== "_next" &&
+        slug !== "api" &&
+        SLUG_PATTERN.test(slug)
+      ) {
+        const url = request.nextUrl.clone();
+        url.pathname = `/site${pathname}`;
+        return finalizeResponse(NextResponse.rewrite(url), staging);
+      }
+    }
+
+    return finalizeResponse(NextResponse.next(), staging);
   }
 
   if (pathname === routes.auth.callback()) {
@@ -726,12 +849,12 @@ async function runProxy(request: NextRequest) {
   }
 
   // Check rate limit before regular request processing
-  if (!isPlaywrightTest) {
+  if (!rateLimitDisabled) {
     const rateLimitResponse = await checkRateLimit(request);
     if (rateLimitResponse) return finalizeResponse(rateLimitResponse, staging);
   }
 
-  if (!isPlaywrightTest && !routerRequest && isSoftLimitPath(pathname)) {
+  if (!rateLimitDisabled && !routerRequest && isSoftLimitPath(pathname)) {
     const challengeCookie = request.cookies.get(CHALLENGE_COOKIE_NAME)?.value;
     let isVerified = false;
     if (challengeCookie) {
@@ -746,14 +869,27 @@ async function runProxy(request: NextRequest) {
       }
     }
 
-    if (!isVerified) {
-      const shouldChallenge = await checkSoftRateLimit(request);
-      if (shouldChallenge) {
-        const url = request.nextUrl.clone();
-        url.pathname = routes.challenge();
-        url.searchParams.set("returnTo", pathname + request.nextUrl.search);
-        return finalizeResponse(NextResponse.redirect(url), staging);
+    // NO LONGER A SHORT-CIRCUIT. Until DEV-1551 a valid `fm_verified` cookie
+    // skipped this whole block, so one Turnstile solve bought seven days of
+    // unmetered `/brands/*` traversal — the cheapest way to scrape the
+    // directory was to pass the challenge once. Verification now buys a RAISED
+    // budget (ENFORCEMENT_VERIFIED_MULTIPLIER), evaluated on the same counter.
+    const overSoftLimit = await checkSoftRateLimit(request, {
+      verified: isVerified,
+    });
+    if (overSoftLimit) {
+      // Escalation, not a loop. Re-challenging someone who already holds a
+      // valid token would bounce them between /challenge and /brands until the
+      // window rolled, so an exhausted RAISED budget goes straight to the 429
+      // rung instead. An unverified visitor still gets the gentler rung first.
+      if (isVerified) {
+        return finalizeResponse(softLimitBlockedResponse(), staging);
       }
+
+      const url = request.nextUrl.clone();
+      url.pathname = routes.challenge();
+      url.searchParams.set("returnTo", pathname + request.nextUrl.search);
+      return finalizeResponse(NextResponse.redirect(url), staging);
     }
   }
 
@@ -938,5 +1074,12 @@ export const config = {
      * - Files with extensions (e.g. .png, .svg, .jpg)
      */
     "/((?!_next/static|_next/image|_next/webpack-hmr|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    /*
+     * The same-origin image proxy, opted back in on purpose (DEV-1551). Its
+     * paths end in `.webp`, so the extension exclusion above would skip them
+     * and `/i/` traffic would bypass both the shared rate limiter and the
+     * Cloudflare origin guard.
+     */
+    "/i/:path*",
   ],
 };

@@ -2,6 +2,8 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { auditedCall } from '@/lib/audit'
 import type { ImageProcessorConfig } from '@/lib/security/image-processor'
 import { uploadWithRetry } from './storage-retry'
+import { storagePathFromImageUrl } from '@/lib/images/image-url'
+import { BRAND_IMAGES_KEY_PREFIX } from '@/lib/images/storage-keys'
 
 export const ALLOWED_UPLOAD_BUCKETS = [
   'brand-images',
@@ -11,17 +13,12 @@ export const ALLOWED_UPLOAD_BUCKETS = [
 export type AllowedUploadBucket = (typeof ALLOWED_UPLOAD_BUCKETS)[number]
 const BRAND_IMAGES_BUCKET = ALLOWED_UPLOAD_BUCKETS[0]
 const BRAND_IMAGES_PUBLIC_SEGMENT = `/storage/v1/object/public/${BRAND_IMAGES_BUCKET}/`
-const BRAND_IMAGES_KEY_PREFIX = 'brands/'
 const SUBMISSION_IMAGES_KEY_PREFIX = 'submissions/'
 // Curated product images (DEV-1404): `curated-products/<brand>/<product>/<hash>.webp`
 // in the same `brand-images` bucket.
 export const CURATED_PRODUCT_IMAGES_KEY_PREFIX = 'curated-products/'
 const DELETABLE_IMAGE_KEY_PREFIXES = [BRAND_IMAGES_KEY_PREFIX] as const
-const READABLE_IMAGE_KEY_PREFIXES = [
-  BRAND_IMAGES_KEY_PREFIX,
-  SUBMISSION_IMAGES_KEY_PREFIX,
-  CURATED_PRODUCT_IMAGES_KEY_PREFIX,
-] as const
+
 const CLAIM_PROOF_IMAGE_CONFIG: Partial<ImageProcessorConfig> = {
   maxWidth: 2400,
   maxHeight: 2400,
@@ -105,16 +102,43 @@ export function storageKeyFromPublicUrl(url: string): string | null {
  * open, so they cannot share a prefix list.
  */
 export function storageKeyFromPublicUrlForRead(url: string): string | null {
-  const prefix = getBrandImagesPublicPrefix()
-  if (!url || !prefix || !url.startsWith(prefix)) {
+  if (!url) {
     return null
   }
 
-  const key = url.slice(prefix.length)
-  if (!READABLE_IMAGE_KEY_PREFIXES.some((allowed) => key.startsWith(allowed))) {
+  /*
+   * Matched on the bucket segment, not on the current project's host. A
+   * bucket-relative key is the same object whichever project URL fronts it,
+   * and requiring an exact host match made this fail closed for every row
+   * whose url names a different project -- which is every row in a database
+   * restored from another environment. Staging is a copy of production, so on
+   * 2026-08-23 all 634 of its rows resolved to nothing and would have lost
+   * their images the moment the bucket went private.
+   *
+   * Safe because the segment names the bucket explicitly and these urls come
+   * from our own columns, never from user input. The delete-path twin above
+   * stays host-exact on purpose -- it fails closed.
+   */
+  const segmentIndex = url.indexOf(BRAND_IMAGES_PUBLIC_SEGMENT)
+  if (segmentIndex === -1) {
     return null
   }
 
+  const key = url.slice(segmentIndex + BRAND_IMAGES_PUBLIC_SEGMENT.length)
+  if (!key || key.includes('..')) {
+    return null
+  }
+
+  /*
+   * No prefix allow-list on the read path. The bucket segment above already
+   * established that this is one of our `brand-images` objects, and a list
+   * here only adds a way to be wrong: it omitted `curated-products/` until
+   * task 11, and `events/` until the 2026-08-23 staging backfill found a row
+   * it could not resolve. Reading a key that turns out not to exist is a 404;
+   * failing to resolve a key that does exist loses the image. This function is
+   * the fail-open twin by design -- `storageKeyFromPublicUrl` above keeps its
+   * strict list because deleting is the direction that must fail closed.
+   */
   return key
 }
 
@@ -134,8 +158,23 @@ export function storageKeyFromPublicUrlForRead(url: string): string | null {
  * key can only be recovered from the stored `image_url`.
  */
 export function curatedProductStorageKeyFromPublicUrl(url: string): string | null {
+  if (!url) return null
+
+  /*
+   * Two accepted forms. `/i/<key>` is what DEV-1551 stores from now on; the
+   * legacy public storage URL is still on every row written before the flip,
+   * and this function's whole job is finding the PREVIOUS object so it can be
+   * cleaned up — dropping the legacy form would leak one object per edit.
+   */
+  const proxyKey = storagePathFromImageUrl(url)
+  if (proxyKey) {
+    return proxyKey.startsWith(CURATED_PRODUCT_IMAGES_KEY_PREFIX)
+      ? proxyKey
+      : null
+  }
+
   const prefix = getBrandImagesPublicPrefix()
-  if (!url || !prefix || !url.startsWith(prefix)) {
+  if (!prefix || !url.startsWith(prefix)) {
     return null
   }
 
@@ -190,6 +229,79 @@ export async function deleteStoredImagePaths(paths: string[]): Promise<void> {
   )
 }
 
+/**
+ * Size of a `brand-images` object, or null when it does not exist.
+ *
+ * `size` is optional on the Storage info payload; a missing value is reported
+ * as 0 rather than as "unknown", which makes two size-less objects compare
+ * equal. Ceiling: identity is size-only. Upgrade to an etag/checksum comparison
+ * if the API starts returning one for every object.
+ */
+export async function statBrandImageObject(
+  key: string
+): Promise<{ size: number } | null> {
+  return auditedCall(
+    { provider: 'images', operation: 'statBrandImageObject', kind: 'service' },
+    async () => {
+      const supabase = createServiceClient()
+      const { data, error } = await uploadWithRetry(() =>
+        supabase.storage.from(BRAND_IMAGES_BUCKET).info(key),
+      )
+
+      if (error) {
+        if (isMissingStorageObjectError(error)) {
+          return null
+        }
+        throw error
+      }
+
+      return { size: data.size ?? 0 }
+    },
+  )
+}
+
+function isMissingStorageObjectError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) {
+    return false
+  }
+  const candidate = error as { status?: unknown; statusCode?: unknown; message?: unknown }
+  if (candidate.status === 404 || String(candidate.statusCode) === '404') {
+    return true
+  }
+  return (
+    typeof candidate.message === 'string' &&
+    /not[ _]?found/i.test(candidate.message)
+  )
+}
+
+/**
+ * Server-side copy inside the `brand-images` bucket. Never overwrites: Storage
+ * answers an occupied destination with a 409, which the caller must surface
+ * rather than resolve. Nothing here deletes the source.
+ */
+export async function copyBrandImageObject(
+  sourceKey: string,
+  targetKey: string
+): Promise<void> {
+  return auditedCall(
+    { provider: 'images', operation: 'copyBrandImageObject', kind: 'service' },
+    async () => {
+      // The destination key is DERIVED (brands/<brand_id>/<filename>), so a
+      // retried copy cannot duplicate an object under a second random name --
+      // the worst case is a 409 on the retry, which the promotion engine
+      // records and a re-run resolves by adopting the existing target.
+      const supabase = createServiceClient()
+      const { error } = await uploadWithRetry(() =>
+        supabase.storage.from(BRAND_IMAGES_BUCKET).copy(sourceKey, targetKey),
+      )
+
+      if (error) {
+        throw error
+      }
+    },
+  )
+}
+
 async function uploadStorageObject(input: UploadImageInput | PrivateUploadFileInput): Promise<string> {
   const supabase = createServiceClient()
   const upload = () =>
@@ -236,22 +348,24 @@ export async function uploadPrivateFile(input: PrivateUploadFileInput): Promise<
   )
 }
 
-export async function uploadPublicImage(input: PublicUploadImageInput): Promise<{ url: string }> {
+/**
+ * Uploads to the `brand-images` bucket and returns the BUCKET KEY.
+ *
+ * DEV-1551 task 12: no public-URL lookup. The bucket is private, so a public
+ * URL is a dead link — every caller either stores the key (`storage_path`) or
+ * renders it through `imagePathToUrl`. The name is kept because the bucket is
+ * still the "public imagery" bucket in the sense that matters here: its objects
+ * are published content, as opposed to `claim-proofs` / `origin-evidence`.
+ */
+export async function uploadPublicImage(
+  input: PublicUploadImageInput,
+): Promise<{ path: string }> {
   return auditedCall(
     { provider: 'images', operation: 'uploadPublicImage', kind: 'service' },
     async () => {
-  await uploadStorageObject(input)
-  const supabase = createServiceClient()
+  const path = await uploadStorageObject(input)
 
-  const {
-    data: { publicUrl },
-  } = await uploadWithRetry(async () =>
-    supabase.storage.from(input.bucket).getPublicUrl(input.path),
-  )
-
-  return {
-    url: publicUrl,
-  }
+  return { path }
     },
   )
 }

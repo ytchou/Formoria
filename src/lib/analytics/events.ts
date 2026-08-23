@@ -585,6 +585,119 @@ export const ANALYTICS_EVENTS = {
   RATE_LIMIT_STORE_RECOVERED: 'rate_limit_store_recovered',
 
   /**
+   * Server-side: a request was blocked by the rate limiter (hard 429) or sent
+   * to the Turnstile challenge by the soft limiter.
+   *
+   * Covers ALL blocked traffic, not just registry-matched crawlers -- the
+   * pre-existing signal (`crawler-drift.ts` -> Sentry) only fires when a
+   * User-Agent matches the crawler registry, so unrecognised clients, the
+   * majority of what a limiter blocks, produced nothing at all. Enforcement
+   * thresholds are calibrated against this event.
+   *
+   * Never carries a raw IP: `ip_key` is a non-reversible hash, enough to count
+   * distinct blocked clients and no more.
+   * @property route_family {string} Coarse route bucket the rule matched (e.g. `/brands`).
+   * @property ip_key {string} Non-reversible hash of the client IP.
+   * @property reason {string} Reason code: `hard_limit_exceeded`, `soft_limit_challenge` or `verified_budget_exhausted`.
+   */
+  RATE_LIMIT_BLOCKED: 'rate_limit_blocked',
+
+  /**
+   * ENFORCEMENT LADDER (DEV-1551). Eleven events covering every rung and every
+   * state of the anti-enumeration ladder in `security/enforcement.ts`.
+   *
+   * The ladder ships in log-only `observe` mode, so these events are its ONLY
+   * output until thresholds have been calibrated against them. Alert
+   * thresholds, the rollback trigger, and what a false-positive spike looks
+   * like are recorded in `docs/runbooks/anti-enumeration.md`.
+   *
+   * PRIVACY CONTRACT: none of the eleven may ever carry a raw IP or a raw
+   * `fm_visitor` id. `identity_key` is a non-reversible hash
+   * (`pseudonymizeIdentifier`), enough to count distinct clients and no more.
+   * A test in `rate-limit-observability.test.ts` enforces this.
+   *
+   * Every ladder event shares the same property set:
+   * @property identity_key {string} Non-reversible hash of the scored identity.
+   * @property identity_kind {string} Which tier scored: `user`, `visitor` or `ip`.
+   * @property route_family {string} Route family from `security/route-family.ts`.
+   * @property distinct_resources {number} Distinct resources seen in the window.
+   * @property window {string} Traversal window: `burst`, `tenMinutes` or `hour`.
+   * @property threshold {number} The scaled threshold that was compared against.
+   * @property reason {string} Machine-readable reason code from `ENFORCEMENT_REASONS`.
+   * @property action {string} The rung the ladder concluded.
+   * @property effective_action {string} What the request actually experienced.
+   * @property mode {string} `observe` or `enforce`.
+   */
+  /**
+   * Rung 1: above the noise floor, still served. There is deliberately NO
+   * event for rung 0 -- an `allow` fires on every request on the site, and the
+   * denominator is already available from pageview volume.
+   */
+  SCRAPE_LADDER_RECORDED: 'scrape_ladder_recorded',
+  /** Rung 2: sent through Turnstile. */
+  SCRAPE_LADDER_CHALLENGED: 'scrape_ladder_challenged',
+  /** Rung 3: 429 for the standard block window. */
+  SCRAPE_LADDER_BLOCKED: 'scrape_ladder_blocked',
+  /** Rung 4: 429 for the longer window, after the standard one did not help. */
+  SCRAPE_LADDER_EXTENDED_BLOCK: 'scrape_ladder_extended_block',
+  /**
+   * The ladder concluded a non-allow rung but `observe` mode suppressed it.
+   * Fires alongside the rung event, so "how much would we block if we flipped
+   * the switch?" is answerable without filtering on `mode`.
+   */
+  SCRAPE_LADDER_SHADOWED: 'scrape_ladder_shadowed',
+  /**
+   * A Turnstile-verified visitor exhausted the RAISED budget. Verification is a
+   * multiplier, never an exemption -- this event is the proof it stayed finite.
+   */
+  SCRAPE_VERIFIED_BUDGET_EXHAUSTED: 'scrape_verified_budget_exhausted',
+  /**
+   * A pseudonymous IP key is producing repeated fresh `fm_visitor` identities.
+   * Cookie rotation is the cheapest evasion, so this is the signal that
+   * IP-tier accounting is the thing actually holding.
+   * @property identity_key {string} Non-reversible hash of the IP tier.
+   * @property route_family {string} Route family the rotation was seen on.
+   * @property reason {string} Machine-readable reason code.
+   */
+  SCRAPE_IDENTITY_ROTATION_SUSPECTED: 'scrape_identity_rotation_suspected',
+  /**
+   * A Cloudflare-verified crawler took the exemption. Paired with
+   * its blocked counterpart: together they say whether the verified-bot
+   * transform rule is live, which gates flipping `VERIFIED_CRAWLER_SHADOW`.
+   * @property crawler_name {string | null} Registry entry name, when matched.
+   * @property route_family {string} Route family the request was on.
+   * @property reason {string} Machine-readable reason code.
+   */
+  VERIFIED_CRAWLER_ALLOWED: 'verified_crawler_allowed',
+  /**
+   * THE DEINDEXING ALARM. A registry crawler was blocked or challenged.
+   * Sustained volume here means search engines are being turned away from
+   * `/brands/*`, which is the outcome this whole subsystem exists to avoid.
+   * @property crawler_name {string} Registry entry name.
+   * @property route_family {string} Route family the request was on.
+   * @property reason {string} Machine-readable reason code.
+   */
+  KNOWN_CRAWLER_BLOCKED: 'known_crawler_blocked',
+  /**
+   * A fresh `fm_visitor` was minted because none arrived or the signature did
+   * not verify. One per genuine first visit; a stream of them from one IP key
+   * is deliberate rotation.
+   * @property identity_key {string} Non-reversible hash of the client.
+   * @property route_family {string} Route family the mint happened on.
+   * @property reason {string} Machine-readable reason code.
+   */
+  VISITOR_IDENTITY_ROTATED: 'visitor_identity_rotated',
+  /**
+   * The ladder ran on the DEGRADED in-memory store, or with counters disabled.
+   * Distinct from `rate_limit_store_unavailable` (the hard limiter's breaker):
+   * this one says the enumeration numbers being alerted on are per-isolate
+   * fractions and must not be trusted.
+   * @property reason {string} Why the ladder is degraded.
+   * @property store_kind {string} `in-memory` or `disabled`.
+   */
+  RATE_LIMITER_DEGRADED: 'rate_limiter_degraded',
+
+  /**
    * Core Web Vitals field measurement (LCP / CLS / INP / FCP / TTFB).
    *
    * ⚠️ **Machine-emitted — never behavioural.** This is the highest-volume event in the
@@ -629,6 +742,26 @@ export const ANALYTICS_EVENTS = {
  * a contract with historical data: widening or changing one silently breaks every
  * aggregate that spans the change.
  */
+/**
+ * Shared by the seven enforcement-ladder events. One shape on purpose: an
+ * operator comparing rungs in PostHog must be able to break every one of them
+ * down by the same properties.
+ */
+export interface ScrapeLadderPayload {
+  /** Non-reversible hash. NEVER a raw IP or a raw `fm_visitor` id. */
+  identity_key: string
+  identity_kind: 'user' | 'visitor' | 'ip'
+  route_family: string
+  distinct_resources: number
+  window: string
+  threshold: number
+  reason: string
+  action: string
+  effective_action: string
+  mode: 'observe' | 'enforce'
+  '$process_person_profile': false
+}
+
 export interface AnalyticsEventPayloads {
   // Discovery
   [ANALYTICS_EVENTS.BRAND_LIST_VIEWED]: { list_name: string; item_count: number }
@@ -896,6 +1029,47 @@ export interface AnalyticsEventPayloads {
   [ANALYTICS_EVENTS.RATE_LIMIT_STORE_RECOVERED]: {
     cooldown_ms: number
     outage_ms: number
+    '$process_person_profile': false
+  }
+  [ANALYTICS_EVENTS.RATE_LIMIT_BLOCKED]: {
+    route_family: string
+    ip_key: string
+    reason: 'hard_limit_exceeded' | 'soft_limit_challenge' | 'verified_budget_exhausted'
+    '$process_person_profile': false
+  }
+  [ANALYTICS_EVENTS.SCRAPE_LADDER_RECORDED]: ScrapeLadderPayload
+  [ANALYTICS_EVENTS.SCRAPE_LADDER_CHALLENGED]: ScrapeLadderPayload
+  [ANALYTICS_EVENTS.SCRAPE_LADDER_BLOCKED]: ScrapeLadderPayload
+  [ANALYTICS_EVENTS.SCRAPE_LADDER_EXTENDED_BLOCK]: ScrapeLadderPayload
+  [ANALYTICS_EVENTS.SCRAPE_LADDER_SHADOWED]: ScrapeLadderPayload
+  [ANALYTICS_EVENTS.SCRAPE_VERIFIED_BUDGET_EXHAUSTED]: ScrapeLadderPayload
+  [ANALYTICS_EVENTS.SCRAPE_IDENTITY_ROTATION_SUSPECTED]: {
+    identity_key: string
+    route_family: string
+    reason: string
+    '$process_person_profile': false
+  }
+  [ANALYTICS_EVENTS.VERIFIED_CRAWLER_ALLOWED]: {
+    crawler_name: string | null
+    route_family: string
+    reason: string
+    '$process_person_profile': false
+  }
+  [ANALYTICS_EVENTS.KNOWN_CRAWLER_BLOCKED]: {
+    crawler_name: string
+    route_family: string
+    reason: string
+    '$process_person_profile': false
+  }
+  [ANALYTICS_EVENTS.VISITOR_IDENTITY_ROTATED]: {
+    identity_key: string
+    route_family: string
+    reason: string
+    '$process_person_profile': false
+  }
+  [ANALYTICS_EVENTS.RATE_LIMITER_DEGRADED]: {
+    reason: string
+    store_kind: 'in-memory' | 'disabled'
     '$process_person_profile': false
   }
   [ANALYTICS_EVENTS.WEB_VITAL_REPORTED]: {

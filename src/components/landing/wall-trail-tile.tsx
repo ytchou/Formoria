@@ -53,18 +53,15 @@ export function WallTrailTile({
   const title = trail.frontmatter.title
   const promise = trail.frontmatter.promise ?? trail.frontmatter.description ?? ''
   /*
-   * A repo path is taken as-is; only a remote URL goes through the host gate.
-   *
-   * `safeImageSrc` builds `new URL(url)` with NO base, so EVERY relative path
-   * throws and returns null — a hero committed at `/images/trails/x.webp`
-   * passed the frontmatter disk check, reserved a wall slot, and still rendered
-   * an imageless tile. Same branch as `stories/[slug]/page.tsx:292`.
+   * `safeImageSrc` now owns the same-origin case itself (DEV-1551), so a hero
+   * committed at `/images/trails/x.webp` survives without a caller-side
+   * leading-slash branch — and a protocol-relative `//host/x.png`, which such a
+   * branch waved through, does not.
    *
    * The imageless branch below stays: it is the degradation path for a 404 or a
    * disallowed host, not a supply gate.
    */
-  const heroImage = trail.frontmatter.heroImage
-  const imageSrc = heroImage?.startsWith('/') ? heroImage : safeImageSrc(heroImage)
+  const imageSrc = safeImageSrc(trail.frontmatter.heroImage)
   /*
    * Empty, never the title. The link is already `aria-labelledby` the title
    * beside it, so repeating the title as image text announces the same words

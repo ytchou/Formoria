@@ -157,6 +157,13 @@ const PROVIDERS = {
     "runStandaloneClassification",
   ],
   images: [
+    // DEV-1551: an approved brand's images keep their `submissions/` key, which
+    // the image proxy refuses to serve, so promotion server-side copies the
+    // object under `brands/` and rewrites the row. Both calls are audited
+    // because a copy that silently half-succeeds leaves a brand with images
+    // nothing can render.
+    "copyBrandImageObject",
+    "statBrandImageObject",
     "deleteBrandImages",
     "deleteStoredImagePaths",
     "downloadAndStoreImages",

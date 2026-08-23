@@ -4,6 +4,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { BUDGET } from '../budgets';
 import { e2eSeedName } from '../helpers/cleanup';
+import { e2eProxyImageUrl } from '../helpers/image-refs';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -50,9 +51,8 @@ test.describe('Admin dashboard deep', () => {
         throw new Error(`image seed failed: ${uploadError.message}`);
       }
     }
-    imageUrls = storagePaths.map(
-      (path) => supabase.storage.from('brand-images').getPublicUrl(path).data.publicUrl,
-    );
+    // Same-origin proxy paths, not public storage URLs (DEV-1551).
+    imageUrls = storagePaths.map((path) => e2eProxyImageUrl(path));
 
     const { error: submissionError } = await supabase
       .from('brand_submissions')
@@ -82,8 +82,7 @@ test.describe('Admin dashboard deep', () => {
         storagePaths.map((storagePath, index) => ({
           submission_id: testSubmissionId,
           storage_path: storagePath,
-          url: imageUrls[index]!,
-          source_url: imageUrls[index]!,
+          source_url: storagePath,
           source: 'admin',
           status: 'active',
           sort_order: index,
