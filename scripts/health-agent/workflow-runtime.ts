@@ -1457,6 +1457,23 @@ export async function writeTerminalStatus(
   return result;
 }
 
+/**
+ * PostgREST truncates at the project's `max_rows` (1000 here) and says nothing
+ * about it -- no error, no flag on the body, just a short array. A collector
+ * that reads the result as the whole corpus therefore reports every row past
+ * the cap as ABSENT, and `reconcile_health_fix_lifecycle` reads absence as
+ * `detector_absence` -> `fixed`. Silent truncation is indistinguishable from a
+ * clean bill of health (DEV-1555).
+ */
+const SUPABASE_PAGE_SIZE = 1000;
+
+/**
+ * Bounds the paging loop. 100 pages is 100k rows -- far past any table this
+ * agent reads -- so hitting it means the server stopped honouring Range and
+ * kept returning full pages, which must fail loudly rather than spin.
+ */
+const SUPABASE_MAX_PAGES = 100;
+
 async function supabaseRows(
   dependencies: WorkflowRuntimeDependencies,
   resource: string,
@@ -1466,15 +1483,36 @@ async function supabaseRows(
   order = "id",
 ): Promise<Record<string, unknown>[]> {
   const query = new URLSearchParams({ order, select, ...filters });
-  return recordRows(
-    await supabaseRequest(
-      dependencies,
-      operation,
-      `/rest/v1/${resource}?${query.toString()}`,
-      "HEALTH_AGENT_READER_TOKEN",
-      { method: "GET" },
-      (value) => Array.isArray(value),
-    ),
+  const path = `/rest/v1/${resource}?${query.toString()}`;
+  const rows: Record<string, unknown>[] = [];
+
+  for (let pageIndex = 0; pageIndex < SUPABASE_MAX_PAGES; pageIndex += 1) {
+    const offset = pageIndex * SUPABASE_PAGE_SIZE;
+    const page = recordRows(
+      await supabaseRequest(
+        dependencies,
+        operation,
+        path,
+        "HEALTH_AGENT_READER_TOKEN",
+        {
+          method: "GET",
+          headers: {
+            Range: `${offset}-${offset + SUPABASE_PAGE_SIZE - 1}`,
+          },
+        },
+        (value) => Array.isArray(value),
+      ),
+    );
+    rows.push(...page);
+    // A short page is the only end-of-data signal that does not need
+    // `Prefer: count=exact`, which costs a second full scan server-side.
+    if (page.length < SUPABASE_PAGE_SIZE) {
+      return rows;
+    }
+  }
+
+  throw new Error(
+    `${operation}: still returning full pages after ${SUPABASE_MAX_PAGES} pages -- Range is not being honoured`,
   );
 }
 
@@ -1585,7 +1623,14 @@ async function collectBrandReview(
       "brands",
       `id,name,description,description_en,mit_status,mit_declared_scope,mit_declared_at,mit_verified_at,${ONLINE_STORE_COLUMNS.join(",")},social_instagram,social_threads,social_facebook,other_urls`,
       "brand_review_query",
-      { status: "eq.approved", updated_at: `gte.${windowStart}` },
+      // NO `updated_at` filter. `reconcile_health_fix_lifecycle` closes a
+      // finding whose fingerprint is absent from the next run, so a windowed
+      // scan makes "not edited lately" indistinguishable from "fixed" -- on
+      // production the 25h window held 1 of 788 approved brands, and unfixed
+      // findings cycled fixed -> reappear -> new ticket forever. None of the
+      // six predicates in `evaluateBrandReview` reads the window, so scanning
+      // everything needs no change to what they decide (DEV-1555).
+      { status: "eq.approved" },
     );
     const brands = rows.map(recentBrandEdit);
     const evaluated = evaluateBrandReview(brands, input.runAt, windowStart);
@@ -1593,7 +1638,9 @@ async function collectBrandReview(
       collectedAt: input.runAt,
       evidence: {
         mode: input.mode,
-        source: "recent_approved_brand_edits",
+        source: "all_approved_brands",
+        // Recorded for the digest's reporting window only. Since DEV-1555 it
+        // no longer bounds the query -- the scan is the full approved corpus.
         windowHours,
       },
       failures: [],
