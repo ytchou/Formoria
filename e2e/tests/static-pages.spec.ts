@@ -1,5 +1,4 @@
 import { test, expect } from "../fixtures/auth";
-import { ownerFeaturesDisabled } from "../helpers/owner-features";
 
 import { BUDGET } from "../budgets";
 
@@ -15,7 +14,7 @@ import { BUDGET } from "../budgets";
  *  - /privacy renders with heading
  *  - /terms renders with heading
  *  - /challenge renders the localized verification heading with Turnstile container
- *  - /submit landing renders heading and links to the recommendation and owner flows
+ *  - /submit landing renders heading and links to the recommendation flow
  *
  * Actor: anonPage (unauthenticated)
  * Seed: none — every page here is static
@@ -162,9 +161,8 @@ test.describe("Static & compliance pages", () => {
     // The widget may redirect quickly in dev; assert the heading appeared above.
   });
 
-  test("submit landing page renders with recommendation and owner CTAs", async ({
+  test("submit landing page renders the recommendation CTA", async ({
     anonPage,
-    browser,
   }) => {
     const resp = await anonPage.goto("/submit", { timeout: BUDGET.GATED_UI });
     if (resp?.status() === 503) {
@@ -178,17 +176,10 @@ test.describe("Static & compliance pages", () => {
     await expect(anonPage.locator('a[href*="/submit/recommend"]')).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
-    // The owner fork CTA is gated by `owner_features_enabled` (DEV-1261). Assert
-    // both polarities here rather than skipping: the recommendation CTA above is
-    // a live consumer journey in either flag state, and the owner CTA's absence
-    // while off is exactly what this PR ships.
-    const ownerCta = anonPage.locator(
-      'a[href*="/auth/sign-in?next=%2Fsubmit%2Fowner"]',
-    );
-    if (await ownerFeaturesDisabled(browser)) {
-      await expect(ownerCta).toHaveCount(0);
-    } else {
-      await expect(ownerCta).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-    }
+    // DEV-1570 removed the owner fork. Its CTA must stay gone: this page is the
+    // only entry point that ever linked to it.
+    await expect(
+      anonPage.locator('a[href*="/submit/owner"]'),
+    ).toHaveCount(0);
   });
 });

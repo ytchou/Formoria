@@ -85,21 +85,6 @@
       "count": 4
     }
   },
-  "e2e/tests/claim-lifecycle.spec.ts": {
-    "playwright/no-conditional-in-test": {
-      "count": 9
-    }
-  },
-  "e2e/tests/claim-smoke.spec.ts": {
-    "playwright/no-conditional-in-test": {
-      "count": 3
-    }
-  },
-  "e2e/tests/community-submit.spec.ts": {
-    "playwright/no-conditional-in-test": {
-      "count": 1
-    }
-  },
   "e2e/tests/directory.spec.ts": {
     "playwright/no-conditional-expect": {
       "count": 1
@@ -144,11 +129,6 @@
       "count": 4
     }
   },
-  "e2e/tests/owner-features-flag-off.spec.ts": {
-    "playwright/no-conditional-in-test": {
-      "count": 3
-    }
-  },
   "e2e/tests/public-data-boundary.spec.ts": {
     "playwright/no-conditional-expect": {
       "count": 4
@@ -173,11 +153,8 @@
     }
   },
   "e2e/tests/static-pages.spec.ts": {
-    "playwright/no-conditional-expect": {
-      "count": 2
-    },
     "playwright/no-conditional-in-test": {
-      "count": 7
+      "count": 6
     }
   },
   "e2e/tests/stories.spec.ts": {
@@ -195,7 +172,7 @@
   },
   "e2e/tests/submit-funnel.spec.ts": {
     "playwright/no-conditional-in-test": {
-      "count": 4
+      "count": 2
     }
   }
 }

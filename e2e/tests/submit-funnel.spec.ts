@@ -2,7 +2,6 @@ import { test, expect } from "../fixtures/auth";
 import type { Locator, Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { BUDGET, POLL } from "../budgets";
-import { OWNER_FEATURES_OFF_REASON } from "../helpers/owner-features";
 
 /**
  * Turnstile is normally solved by the addInitScript mock. When that has not
@@ -29,11 +28,6 @@ async function ensureTurnstileSolved(page: Page, submitBtn: Locator) {
     );
   });
 }
-
-const TINY_PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-  "base64",
-);
 
 /**
  * Submit Funnel End-to-End
@@ -122,7 +116,7 @@ test.describe("Submit funnel", () => {
     await anonPage.locator("#submit-website").fill(websiteUrl);
     await anonPage.locator("#submit-name").fill(brandName);
 
-    // Source attribution is required when isOwner is unchecked (default)
+    // Source attribution is required on the recommendation form.
     await anonPage.locator("#submit-source").selectOption("found_online");
 
     // PDPA consent
@@ -184,125 +178,5 @@ test.describe("Submit funnel", () => {
     expect(savedSubmission?.submitter_email).toMatch(
       /^guest\+.+@guest\.formoria\.invalid$/,
     );
-  });
-
-  test("detailed owner wizard writes only on final submit and preserves shared links", async ({
-    userPage,
-  }, workerInfo) => {
-    test.setTimeout(BUDGET.TEST.ADMIN);
-    const ts = Date.now();
-    const brandName = `[E2E-TEST] Submit Funnel Detailed ${ts}-${workerInfo.workerIndex}`;
-    const sourceWebsite = `https://detailed-${ts}.example.com`;
-    const purchaseWebsite = `https://shop-${ts}.example.com`;
-
-    await userPage.addInitScript(() => {
-      Object.defineProperty(window, "turnstile", {
-        configurable: true,
-        get() {
-          return {
-            render(
-              _el: HTMLElement,
-              opts: { callback: (token: string) => void },
-            ) {
-              opts.callback("e2e-bypass-token");
-              return "fake-widget-id";
-            },
-            remove() {},
-          };
-        },
-      });
-    });
-
-    const resp = await userPage.goto("/submit/owner/details");
-    if (resp?.status() === 503) {
-      test.skip(true, "PREVIEW_MODE active — skipping");
-      return;
-    }
-    // The owner fork 404s while owner features are gated off (DEV-1261). Probed
-    // from the navigation that is already here rather than from app_settings.
-    if (resp?.status() === 404) {
-      test.skip(true, OWNER_FEATURES_OFF_REASON);
-      return;
-    }
-
-    await expect(
-      userPage.getByRole("heading", { name: "填寫品牌資料", exact: true }),
-    ).toBeVisible({ timeout: BUDGET.GATED_UI });
-    await userPage.locator("#name").fill(brandName);
-    await userPage.locator("#romanizedName").fill("Detailed Wizard Brand");
-    await expect(userPage.locator("#brand-url-preview")).toHaveValue(
-      "/brands/detailed-wizard-brand",
-    );
-    await userPage.locator("#submission-website").fill(sourceWebsite);
-    await userPage.locator("#description").fill("台灣製造的詳細提交測試品牌。");
-
-    await userPage.getByRole("button", { name: "儲存並繼續" }).click();
-    await expect(userPage.locator("#media")).toBeVisible({ timeout: BUDGET.GATED_UI });
-
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
-    const submissionCount = async () => {
-      const { count } = await supabase
-        .from("brand_submissions")
-        .select("id", { count: "exact", head: true })
-        .eq("brand_name", brandName);
-      return count ?? 0;
-    };
-    await expect.poll(submissionCount).toBe(0);
-
-    const uploadResponsePromise = userPage.waitForResponse(
-      (response) =>
-        response.url().includes("/api/upload") &&
-        response.request().method() === "POST",
-      { timeout: BUDGET.GATED_UI },
-    );
-    await userPage.locator("#image-upload-heroImageUrl").setInputFiles({
-      name: "detailed-hero.png",
-      mimeType: "image/png",
-      buffer: TINY_PNG,
-    });
-    expect((await uploadResponsePromise).status()).toBe(200);
-    await expect(
-      userPage.locator("#image-upload-heroImageUrl-replace"),
-    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-
-    await userPage.getByRole("button", { name: "儲存並繼續" }).click();
-    await expect(userPage.locator("#purchase")).toBeVisible({
-      timeout: BUDGET.GATED_UI,
-    });
-    await expect(userPage.locator("#purchase fieldset")).toHaveCount(3);
-    // 3 social + 4 online stores (ONLINE_STORES). Bump when a store is added.
-    await expect(userPage.locator("#purchase [data-platform-row]")).toHaveCount(
-      7,
-    );
-    await userPage.locator("#socialInstagram").fill("@detailed-wizard");
-    await userPage.locator("#purchaseWebsite").fill(purchaseWebsite);
-    await userPage.getByLabel("標籤", { exact: true }).first().fill("媒體報導");
-    await userPage
-      .getByLabel("網址", { exact: true })
-      .first()
-      .fill(`https://press-${ts}.example.com`);
-    await expect.poll(submissionCount).toBe(0);
-
-    await userPage.locator("#submission-pdpa").check();
-
-    const submitButton = userPage.getByRole("button", { name: "送出品牌資料" });
-    await expect(submitButton).toBeEnabled({ timeout: BUDGET.SERVER_RENDER });
-    await submitButton.click();
-    await userPage.waitForURL(/\/submit\/confirmation/, { timeout: BUDGET.GATED_UI });
-
-    const { data, error } = await supabase
-      .from("brand_submissions")
-      .select("romanized_name, purchase_website, other_urls")
-      .eq("brand_name", brandName)
-      .single();
-    expect(error).toBeNull();
-    expect(data?.romanized_name).toBe("Detailed Wizard Brand");
-    expect(data?.purchase_website).toBe(purchaseWebsite);
-    expect(data?.other_urls).toEqual([
-      { label: "媒體報導", url: `https://press-${ts}.example.com` },
-    ]);
   });
 });

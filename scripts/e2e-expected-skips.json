@@ -2,31 +2,6 @@
   "version": 1,
   "allowed": [
     {
-      "file": "admin-moderation.spec.ts",
-      "title": "Content moderation flow",
-      "reason": "app_settings.owner_features_enabled is false — /submit/owner 404s and every owner surface (claiming, owner submit fork) is unreachable. Set owner_features_enabled to true to bring this suite back."
-    },
-    {
-      "file": "claim-lifecycle.spec.ts",
-      "title": "Claim request lifecycle",
-      "reason": "app_settings.owner_features_enabled is false — /submit/owner 404s and every owner surface (claiming, owner submit fork) is unreachable. Set owner_features_enabled to true to bring this suite back."
-    },
-    {
-      "file": "claim-smoke.spec.ts",
-      "title": "Claim request smoke",
-      "reason": "app_settings.owner_features_enabled is false — /submit/owner 404s and every owner surface (claiming, owner submit fork) is unreachable. Set owner_features_enabled to true to bring this suite back."
-    },
-    {
-      "file": "owner-features-flag-off.spec.ts",
-      "title": "Owner features gated off",
-      "reason": "app_settings.owner_features_enabled is true — this suite documents the flag-OFF surface only, so its expectations no longer apply."
-    },
-    {
-      "file": "community-submit.spec.ts",
-      "title": "Community submit flow › @smoke owner quick form shows its core fields when owner features are enabled",
-      "reason": "app_settings.owner_features_enabled is false — /submit/owner 404s and every owner surface (claiming, owner submit fork) is unreachable. Set owner_features_enabled to true to bring this suite back."
-    },
-    {
       "file": "newsletter-subscribe.spec.ts",
       "title": "anonymous visitor can subscribe from the homepage",
       "reason": "staging blocks anonymous mutations"
@@ -50,11 +25,6 @@
       "file": "auth-password-reset.spec.ts",
       "title": "sign-in page links to the forgot-password form",
       "reason": "staging hides the Google button and the forgot-password link"
-    },
-    {
-      "file": "submit-funnel.spec.ts",
-      "title": "Submit funnel › detailed owner wizard writes only on final submit and preserves shared links",
-      "reason": "app_settings.owner_features_enabled is false — /submit/owner 404s and every owner surface (claiming, owner submit fork) is unreachable. Set owner_features_enabled to true to bring this suite back."
     },
     {
       "file": "brand-corrections.spec.ts",

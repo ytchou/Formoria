@@ -211,72 +211,13 @@
     "card": {
       "foundingYear": "Est. {year}",
       "viewBrand": "View brand",
-      "verifiedLabel": "Managed by the brand owner",
-      "verifiedBadge": "Claimed",
       "mitVerifiedBadge": "MIT",
       "mitDeclaredBadge": "MIT Declared"
     },
     "verificationFilter": {
       "all": "All",
       "mit-verified": "MIT Verified",
-      "mit-declared": "MIT Declared",
-      "owned": "Owner-managed"
-    },
-    "claimCta": {
-      "submitError": "Something went wrong. Please try again.",
-      "communityTitle": "Is this your brand?",
-      "communityListing": "Claim it to manage your brand and build trust.",
-      "claimButton": "Claim this brand",
-      "proofHeading": "Submit claim proof",
-      "pickOneInstruction": "Provide any one of the following proofs of ownership",
-      "stillNeed": "Select one proof to continue",
-      "readyToSubmit": "Ready to submit",
-      "noteLabel": "Note (optional)",
-      "uploadingLabel": "Uploading…",
-      "invalidUploadType": "Choose a supported file type.",
-      "fileTooLarge": "File size must be under 5MB.",
-      "uploadFailed": "Upload failed. Please try again.",
-      "pendingTitle": "Claim request received",
-      "pendingBody": "We'll review the ownership proof and email the result.",
-      "pendingDomainEmailBody": "A verification email has been sent to {email}. Open the link in that email to complete verification.",
-      "mitCertLabel": "MIT Smile Mark number (optional)",
-      "mitCertHint": "Add it to earn an additional \"MIT verified\" badge.",
-      "proofTypes": {
-        "domainEmail": {
-          "label": "Brand domain email",
-          "description": "Enter an email address using the brand's domain (for example, you@yourbrand.com)",
-          "emailLabel": "Domain email",
-          "placeholder": "you@yourbrand.com",
-          "helperText": "We'll email a verification link to this address — click it to confirm."
-        },
-        "backendScreenshot": {
-          "label": "Admin/backend screenshot",
-          "description": "Upload a screenshot showing you manage this brand's official account or store",
-          "loginNote": "Must show a logged-in state — not a public page.",
-          "examples": [
-            "Instagram / social: your logged-in profile page (showing the Edit profile button) or the professional dashboard",
-            "Online store: your store admin dashboard (Shopify, your site admin, marketplace seller center, etc.)"
-          ],
-          "uploadLabel": "Upload backend screenshot",
-          "uploadHint": "JPG / PNG, max 5MB"
-        },
-        "businessDoc": {
-          "label": "Business registration document",
-          "description": "A registration document showing the responsible person's name",
-          "privacyNote": "Uploads are private and visible only to reviewers. After approval or rejection, deletion starts immediately and retries automatically if needed. Unsubmitted uploads are removed after 24 hours. You may black out everything except your business number, business name, and responsible person's name.",
-          "uploadLabel": "Upload business registration document",
-          "uploadHint": "PDF / JPG / PNG, max 5MB"
-        }
-      },
-      "notesLabel": "Notes (optional)",
-      "notesPlaceholder": "Add any helpful context.",
-      "city": "Brand City/County",
-      "cityPlaceholder": "Select city (optional)",
-      "signIn": "Sign in",
-      "submitting": "Submitting claim...",
-      "submit": "Submit claim request",
-      "cancel": "Cancel",
-      "whyClaim": "Why claim?"
+      "mit-declared": "MIT Declared"
     },
     "loadingAria": "Loading brands...",
     "noResultsInSuggestions": "No results found"
@@ -341,7 +282,6 @@
       "brandSiteCta": "Go to the brand's website"
     },
     "verified": "Brand-managed",
-    "verifiedTitle": "Managed by the brand owner",
     "mitVerified": "MIT Verified",
     "mitVerifiedTitle": "Verified against the MIT Smile registry",
     "mitDeclared": "MIT Declared",
@@ -440,7 +380,8 @@
         "invalidReason": "Please select a valid report reason",
         "notesTooLong": "Additional notes must be 1000 characters or fewer",
         "rateLimited": "Too many reports. Please try again later.",
-        "unknown": "An unknown error occurred"
+        "unknown": "An unknown error occurred",
+        "notLoggedIn": "Please sign in to submit a report"
       }
     },
     "evidence": {
@@ -617,20 +558,6 @@
       "heading": "More in {category}",
       "subtext": "{count} other brands in this category",
       "viewAll": "View all"
-    },
-    "claim": {
-      "errors": {
-        "notLoggedIn": "Please sign in to submit a claim",
-        "missingBrandId": "Missing brand ID",
-        "invalidProofType": "Please choose a valid proof type",
-        "invalidProofUrl": "Please enter a valid proof URL",
-        "invalidProofEmail": "Please enter a valid brand domain email",
-        "proofEvidenceRequired": "Each proof needs the required evidence",
-        "proofsMin": "Please provide at least 1 proof",
-        "invalidImageKey": "Uploaded proof image is not valid for this user",
-        "duplicate": "A claim for this brand has already been submitted",
-        "unknown": "Something went wrong. Please try again."
-      }
     },
     "brandFaq": {
       "listSeparator": ", ",
@@ -1040,7 +967,7 @@
       },
       "dataUse": {
         "heading": "Data Usage",
-        "body": "Brand data collected by Formoria is used to build and maintain the directory, provide discovery and curation features, improve data quality, support brand owners in maintaining their pages, and showcase Taiwanese brands. We do not sell your personal information or brand data to third parties. Data use is governed by these terms and our privacy policy."
+        "body": "Brand data collected by Formoria is used to build and maintain the directory, provide discovery and curation features, improve data quality, and showcase Taiwanese brands. We do not sell your personal information or brand data to third parties. Data use is governed by these terms and our privacy policy."
       },
       "automatedAccess": {
         "heading": "Automated Access and Data Extraction",
@@ -1049,7 +976,7 @@
       },
       "reviewProcess": {
         "heading": "Brand Review Process",
-        "body": "New brand recommendations and owner-provided details are subject to manual review before they are published. Edits to an existing brand are scanned automatically: clean changes are published immediately, while blocked changes are not published until corrected. Formoria reserves the right to reject or remove any brand information that does not meet our platform standards, without liability to the person who provided it. Approval does not constitute endorsement or certification of the brand by Formoria."
+        "body": "New brand recommendations are subject to manual review before they are published. Edits to an existing brand are scanned automatically: clean changes are published immediately, while blocked changes are not published until corrected. Formoria reserves the right to reject or remove any brand information that does not meet our platform standards, without liability to the person who provided it. Approval does not constitute endorsement or certification of the brand by Formoria."
       },
       "disclaimer": {
         "heading": "Disclaimer",
@@ -1111,8 +1038,7 @@
     "intro": "Inclusion rules, curation labels, where to buy — the questions we are asked most, gathered here. If the answer is not here, please <contact>contact us</contact>.",
     "sections": {
       "navigation": "FAQ sections",
-      "general": "General",
-      "forOwners": "For Brand Owners"
+      "general": "General"
     },
     "items": {
       "whatIsFormoria": {
@@ -1129,7 +1055,7 @@
       },
       "whoCanSubmit": {
         "question": "Who can recommend a brand?",
-        "answer": "Anyone can recommend a brand — you do not need to be the owner. Brand owners can also use the owner flow to provide complete details and claim the listing after approval."
+        "answer": "Anyone can recommend a brand — you do not need to be the owner."
       },
       "taiwaneseBrandCriteria": {
         "question": "What counts as a Taiwanese brand?",
@@ -1159,10 +1085,6 @@
         "question": "Is it free to list a brand on Formoria?",
         "answer": "Yes. Recommending a brand to Formoria is free, and brand owners, fans, and community members are all welcome to help build the Taiwanese brand directory."
       },
-      "ownerInterest": {
-        "question": "I own a brand — can I manage my own brand page?",
-        "answer": "Yes. On the brand page, select “Claim this brand” and submit one piece of ownership proof for our review; once it is approved you can edit brand details, product highlights, and online store and stockist information, and submit an MIT brand declaration. If the brand page is already claimed, the claim button will not appear — tell us on the contact page. While a claim is under review the page stays with our team, and corrections can be reported directly on the brand page."
-      },
       "whatCategories": {
         "question": "What product categories does Formoria cover?",
         "answer": "Formoria covers twelve categories: Fashion & Apparel, Bags & Accessories, Jewelry, Beauty & Personal Care, Home & Living, Food & Beverage, Stationery & Design, Tech & Electronics, Outdoor & Camping, Sports & Fitness, Kids & Baby, and Pets."
@@ -1173,7 +1095,7 @@
       },
       "howVerified": {
         "question": "How does brand verification work?",
-        "answer": "Listing review checks that a brand exists and meets our inclusion criteria. Owner verification confirms who may manage the page. Manufacturing signals are separate: MIT Verified is matched to the official MIT Smile registry, while MIT Declared records the scope stated by the brand owner."
+        "answer": "Listing review checks that a brand exists and meets our inclusion criteria. Manufacturing signals are separate: MIT Verified is matched to the official MIT Smile registry, while MIT Declared records the scope stated by the brand owner."
       },
       "contact": {
         "question": "How do I contact the Formoria team?",
@@ -1336,7 +1258,6 @@
       "heading": "Sign In",
       "metaTitle": "Sign In",
       "subheading": "Enter your email and password to continue",
-      "claimMessage": "Sign in to claim <strong>{brandName}</strong> on Formoria.",
       "emailLabel": "Email",
       "passwordLabel": "Password",
       "forgotPassword": "Forgot password?",
@@ -1377,7 +1298,6 @@
     "signUp": {
       "heading": "Create Account",
       "subheading": "Fill in the basics to get started",
-      "claimMessage": "This is an invitation to claim <strong>{brandName}</strong> on Formoria. Create an account to manage this brand page.",
       "emailLabel": "Email",
       "passwordLabel": "Password",
       "passwordPlaceholder": "At least 8 characters",
@@ -1722,23 +1642,14 @@
       },
       "heading": "Thanks for the recommendation!",
       "subheading": "We’ve received your brand recommendation",
-      "ownerSubheading": "We’ve received your brand details",
-      "communityOwnershipNotice": "Because this account already manages a brand, the recommendation was accepted as a community listing and cannot be claimed by this account.",
       "timeline": {
         "review": {
           "label": "Under Review",
           "description": "Our team typically completes the review within 2 business days"
         },
-        "ownerReview": {
-          "description": "Our team typically completes the review within 2 business days"
-        },
         "result": {
           "label": "Brand Listing",
           "description": "Once reviewed, approved brands appear in the Formoria directory. If an email address was provided, we’ll send the review result."
-        },
-        "ownerResult": {
-          "label": "Claim Invitation",
-          "description": "If approved, we’ll send a claim invitation next, followed by the ownership-proof flow."
         }
       },
       "cta": {
@@ -1807,53 +1718,6 @@
       "suggestedUrl": "Suggested URL:",
       "applySuggestion": "Apply"
     },
-    "ownerForm": {
-      "heading": "Build Your Brand Page",
-      "subheading": "Provide your brand details first. After approval, we’ll send the claim invitation.",
-      "websiteLabel": "Official Brand Website",
-      "websiteHint": "Use your main website. We’ll use it as the anchor for review and later claim steps.",
-      "websitePlaceholder": "https://yourbrand.com",
-      "brandNameLabel": "Brand Name",
-      "brandNamePlaceholder": "e.g. Warmwood Living",
-      "brandNameHint": "Use the official public brand name. It will shape both the listing and the later claim flow.",
-      "romanizedNameLabel": "Brand English Name",
-      "romanizedNameHint": "If not provided, Wade-Giles romanization will be used for the brand URL",
-      "romanizedNamePlaceholder": "e.g. Din Tai Fung",
-      "urlPreviewLabel": "Public brand URL",
-      "urlPreviewHint": "URL changes from dashboard edits are applied after review. Clearing the romanized name keeps the current URL.",
-      "descriptionLabel": "Brand Description",
-      "descriptionHint": "A short brand description helps us review and structure the listing faster.",
-      "descriptionPlaceholder": "Tell us what you make, how the brand is connected to Taiwan, and what defines it.",
-      "cityHint": "Add the brand’s city so customers can discover local brands.",
-      "requiredHint": "indicates a required field",
-      "submitButton": "Send Brand Details",
-      "submittingButton": "Sending…",
-      "suggestedName": "Suggested name:",
-      "suggestedUrl": "Suggested URL:",
-      "applySuggestion": "Apply"
-    },
-    "ownerFork": {
-      "heading": "Choose How to Build Your Brand Page",
-      "description": "Pick the option that best fits your time and needs.",
-      "quickTitle": "Add Basic Brand Info",
-      "quickDescription": "Our system fills in as much brand information as it can from the web, based on the basics entered, but accuracy is not guaranteed. Suited to owners short on time — plan to check it over afterwards.",
-      "quickPoint1": "Just provide brand name, official website, and description",
-      "quickPoint2": "System fills in brand information from what you enter",
-      "quickPoint3": "Data enrichment completed within 3 business days",
-      "quickCta": "Start Quick Setup",
-      "detailsTitle": "Provide Full Brand Details",
-      "detailsDescription": "Fill in the complete brand information yourself, so every detail is presented the way the brand decides.",
-      "detailsPoint1": "Write your brand story and product descriptions",
-      "detailsPoint2": "Upload brand logo, cover photo, and product images",
-      "detailsPoint3": "Add social accounts, website, and online stores",
-      "detailsCta": "Fill in Details"
-    },
-    "quickForm": {
-      "heading": "Quick Brand Page Setup",
-      "subheading": "Provide basic info — we'll auto-enrich the rest from your website.",
-      "submitButton": "Build Brand Page",
-      "submittingButton": "Building…"
-    },
     "submissionWizard": {
       "heading": "Fill in Brand Details",
       "subheading": "Complete each step so the brand is accurately represented.",
@@ -1888,13 +1752,11 @@
         "jobs": "Data Jobs",
         "moderation": "Content Moderation",
         "evidence": "Evidence",
-        "claims": "Claim Requests",
         "reports": "Reports",
         "brands": "Brand Catalog",
         "quality": "Quality Dashboard",
         "newsletter": "Newsletter",
         "scripts": "Scripts",
-        "settings": "Settings",
         "corrections": "Corrections",
         "curatedProducts": "Curated Products",
         "stockists": "Stockists"
@@ -1923,17 +1785,7 @@
         "label": "Evidence",
         "description": "Origin evidence awaiting review"
       },
-      "ownerFeatures": {
-        "label": "Owner features",
-        "enabled": "Enabled",
-        "disabled": "Disabled",
-        "manage": "Manage feature flags"
-      },
       "queues": {
-        "claims": {
-          "title": "Brand Claims",
-          "empty": "No pending brand claims."
-        },
         "reports": {
           "title": "Brand Reports",
           "empty": "No pending brand reports."
@@ -2065,13 +1917,6 @@
       "unavailable": "Unavailable",
       "reviewerNotes": "Reviewer notes",
       "reviewerNotesPlaceholder": "Add notes about this decision",
-      "revoke": {
-        "reasonLabel": "Revocation reason",
-        "trigger": "Revoke ownership",
-        "confirmTitle": "Revoke ownership?",
-        "confirmDescription": "This removes the current owner from {brand}. The owner will be notified by email.",
-        "confirmLabel": "Confirm revoke"
-      },
       "unknownBrand": "Unknown brand",
       "empty": "No pending reports.",
       "errors": {
@@ -2122,80 +1967,6 @@
       "errors": {
         "generic": "Unable to review this brand correction. Please try again."
       }
-    },
-    "claimRequests": {
-      "tabs": {
-        "all": "All",
-        "pending": "Pending",
-        "approved": "Approved",
-        "rejected": "Rejected"
-      },
-      "table": {
-        "brand": "Brand",
-        "requester": "Requester",
-        "proof": "Proof",
-        "date": "Date",
-        "status": "Status"
-      },
-      "actions": {
-        "approve": "Approve",
-        "reject": "Reject",
-        "confirmReject": "Confirm reject"
-      },
-      "reviewerNotes": "Reviewer notes",
-      "proofEvidence": "Proof evidence",
-      "noProofEvidence": "No proof evidence provided.",
-      "unknownBrand": "Unknown brand",
-      "unknownRequester": "Unknown",
-      "empty": "No claim requests found.",
-      "mitCertApprovalLabel": "MIT cert — approval also attempts MIT verification",
-      "mitRegistryCompanyLabel": "Registry company",
-      "domainEmailVerified": "✓ Verified",
-      "domainEmailPending": "⏳ Pending verification",
-      "ownerAlreadyManagesShort": "Already owns a brand",
-      "ownerAlreadyManagesTitle": "Approval blocked: owner limit reached",
-      "ownerAlreadyManagesBody": "This requester already manages {brandName}. Reject this claim using the existing-owner reason.",
-      "cleanupWarning": "Decision saved. Proof deletion remains queued for automatic retry.",
-      "cleanupStatus": {
-        "label": "Proof file cleanup",
-        "pending": {
-          "label": "Queued / retrying",
-          "description": "Deletion is queued and will retry automatically."
-        },
-        "failed": {
-          "label": "Retry failed",
-          "description": "Automatic retries are exhausted. Admin intervention is required."
-        },
-        "completed": {
-          "label": "Deleted",
-          "description": "Private proof files were deleted."
-        }
-      },
-      "proofTypes": {
-        "domainEmail": "Brand domain email",
-        "backendScreenshot": "Admin/backend screenshot",
-        "businessDoc": "Business registration document"
-      },
-      "rejectReasons": {
-        "label": "Common rejection reason",
-        "placeholder": "Pick a common reason…",
-        "insufficientProof": "The proof provided is insufficient to confirm you operate this brand.",
-        "proofMismatch": "The proof provided does not match this brand.",
-        "emailUnverified": "The email verification was not completed.",
-        "alreadyClaimed": "This brand has already been claimed by someone else.",
-        "screenshotInsufficient": "The backend screenshot does not demonstrate that you manage this brand.",
-        "docMismatch": "The business registration document does not match the brand or is illegible.",
-        "proofInauthentic": "The proof provided appears to have been edited or is not authentic.",
-        "needMoreEvidence": "The current proof is insufficient; please resubmit with additional supporting evidence."
-      },
-      "rejectNotesLabel": "Rejection notes",
-      "rejectNotesPlaceholder": "Why are you rejecting this claim?",
-      "errors": {
-        "rejectNotesRequired": "Rejection notes are required.",
-        "generic": "Something went wrong. Please try again."
-      },
-      "title": "Claim Requests",
-      "description": "Review and manage brand ownership claims."
     },
     "stockists": {
       "title": "Community Stockists",
@@ -2588,7 +2359,6 @@
         "empty": "No brands found."
       },
       "actions": {
-        "resendClaimInvite": "Resend claim invite",
         "hide": "Hide",
         "unhide": "Unhide",
         "requestReenrichment": "Request re-enrichment",
@@ -2762,11 +2532,6 @@
       "vocabularyClean": "Nothing found in {spans} audited writes.",
       "vocabularyFound": "{hits} occurrences across {spans} audited writes.",
       "vocabularyNoSubject": "no subject"
-    },
-    "settings": {
-      "title": "Settings",
-      "description": "Control operator-managed product settings.",
-      "featureToggles": "Feature Toggles"
     },
     "common": {
       "navLabel": "Admin main navigation",

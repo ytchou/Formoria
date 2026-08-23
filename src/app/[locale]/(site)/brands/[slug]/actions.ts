@@ -143,10 +143,7 @@ export async function submitReportAction(
       let userId: string | undefined
       if (AUTHENTICATED_REPORT_REASONS.includes(reason)) {
         const user = await requireClaimUser()
-        if (!user) {
-          const claimT = await getTranslations('brandDetail.claim.errors')
-          return { error: claimT('notLoggedIn') }
-        }
+        if (!user) return { error: t('notLoggedIn') }
         userId = user.id
       }
 

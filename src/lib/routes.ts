@@ -100,9 +100,6 @@ export const routes = {
     index: () => '/submit',
     recommend: (query?: RouteQuery) => withQuery('/submit/recommend', query),
     confirmation: (query?: RouteQuery) => withQuery('/submit/confirmation', query),
-    owner: () => '/submit/owner',
-    ownerQuick: () => '/submit/owner/quick',
-    ownerDetails: () => '/submit/owner/details',
   },
 
   auth: {
@@ -119,7 +116,6 @@ export const routes = {
   admin: {
     index: () => '/admin',
     brands: (query?: RouteQuery) => withQuery('/admin/brands', query),
-    claims: () => '/admin/claims',
     corrections: () => '/admin/corrections',
     curatedProducts: (query?: RouteQuery) => withQuery('/admin/curated-products', query),
     evidence: () => '/admin/evidence',
@@ -144,7 +140,6 @@ export const routes = {
     reports: () => '/admin/reports',
     scripts: () => '/admin/scripts',
     bulkCommunitySubmissions: () => '/admin/scripts/bulk-community-submissions',
-    settings: () => '/admin/settings',
     /** Review queue for reader-submitted stockists; nothing else publishes one. */
     stockists: () => '/admin/stockists',
     submissions: (query?: RouteQuery) => withQuery('/admin/submissions', query),

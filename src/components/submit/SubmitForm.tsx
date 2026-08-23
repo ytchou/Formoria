@@ -321,8 +321,7 @@ export default function SubmitForm({
       };
 
       try {
-        const result:
-          { error?: string; ownershipAdjusted?: boolean } | undefined =
+        const result: { error?: string } | undefined =
           await submitRecommendation(data, idempotencyKeyRef.current);
 
         if (result?.error) {
@@ -331,13 +330,7 @@ export default function SubmitForm({
           return;
         }
 
-        const query = new URLSearchParams({
-          intent: "recommend",
-        });
-        if (result?.ownershipAdjusted) {
-          query.set("ownership", "community");
-        }
-        setPendingRedirect(`${routes.submit.confirmation()}?${query.toString()}`);
+        setPendingRedirect(routes.submit.confirmation());
 
         trackSubmissionCompleted(
           data.name,

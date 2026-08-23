@@ -12,7 +12,11 @@ import { MIT_REGISTRY_SYNC_MAX_AGE_HOURS } from "@/lib/services/mit-registry";
 const runAt = "2026-08-07T04:00:00.000Z";
 const now = new Date(runAt);
 
-const HOURLY = "claim-proof-cleanup-hourly";
+// The surviving daily job. Named for its schedule, not its pg_cron job name:
+// the "-6h" suffix is stale (renaming a pg_cron job means recreating it), and
+// the previous subject `claim-proof-cleanup-hourly` was unscheduled with the
+// claim flow in DEV-1570.
+const DAILY = "classifier-image-retention-6h";
 const WEEKLY = "sync-mit-registry-weekly";
 
 function hoursBefore(hours: number): string {
@@ -96,17 +100,17 @@ describe("evaluateCronHealth", () => {
   it("flags a non-2xx response as a failure", () => {
     const rows = [
       ...healthyRows(),
-      row({ job_name: HOURLY, request_id: 9, status_code: 401 }),
+      row({ job_name: DAILY, request_id: 9, status_code: 401 }),
     ];
     const findings = evaluateCronHealth(rows, now);
-    expect(fingerprints(findings)).toEqual([`cron:failed:${HOURLY}`]);
+    expect(fingerprints(findings)).toEqual([`cron:failed:${DAILY}`]);
     expect(findings[0]).toMatchObject({
       severity: "high",
       source: "cron",
     });
     expect(findings[0]?.evidence).toMatchObject({
       failureCount: 1,
-      jobName: HOURLY,
+      jobName: DAILY,
       statusCodes: [401],
     });
   });
@@ -137,14 +141,14 @@ describe("evaluateCronHealth", () => {
     const rows = [
       ...healthyRows(),
       row({
-        job_name: HOURLY,
+        job_name: DAILY,
         request_id: 9,
         status_code: 200,
         timed_out: true,
       }),
     ];
     const findings = evaluateCronHealth(rows, now);
-    expect(fingerprints(findings)).toEqual([`cron:failed:${HOURLY}`]);
+    expect(fingerprints(findings)).toEqual([`cron:failed:${DAILY}`]);
     expect(findings[0]?.evidence).toMatchObject({ timedOutCount: 1 });
   });
 
@@ -153,19 +157,19 @@ describe("evaluateCronHealth", () => {
     // (2026-08-11 standardized the maintenance window) and a hardcoded age
     // turns a deliberate cadence change into a failing test.
     const budget =
-      EXPECTED_CRON_JOBS.find((job) => job.jobName === HOURLY)?.maxAgeHours ?? 0;
+      EXPECTED_CRON_JOBS.find((job) => job.jobName === DAILY)?.maxAgeHours ?? 0;
     const staleAt = hoursBefore(budget + 2);
     const rows = [
-      ...healthyRows().filter((logged) => logged.job_name !== HOURLY),
+      ...healthyRows().filter((logged) => logged.job_name !== DAILY),
       row({
-        job_name: HOURLY,
+        job_name: DAILY,
         request_id: 1,
         status_code: 200,
         created: staleAt,
       }),
     ];
     const findings = evaluateCronHealth(rows, now);
-    expect(fingerprints(findings)).toEqual([`cron:stale:${HOURLY}`]);
+    expect(fingerprints(findings)).toEqual([`cron:stale:${DAILY}`]);
     expect(findings[0]).toMatchObject({ severity: "high", source: "cron" });
     expect(findings[0]?.evidence).toMatchObject({
       lastSuccessAt: staleAt,
@@ -188,7 +192,7 @@ describe("evaluateCronHealth", () => {
     const first = evaluateCronHealth(
       [
         row({
-          job_name: HOURLY,
+          job_name: DAILY,
           request_id: 1,
           status_code: 500,
           created: hoursBefore(1),
@@ -199,13 +203,13 @@ describe("evaluateCronHealth", () => {
     const second = evaluateCronHealth(
       [
         row({
-          job_name: HOURLY,
+          job_name: DAILY,
           request_id: 7,
           status_code: 502,
           created: hoursBefore(2),
         }),
         row({
-          job_name: HOURLY,
+          job_name: DAILY,
           request_id: 8,
           status_code: 503,
           created: hoursBefore(2),
@@ -213,12 +217,12 @@ describe("evaluateCronHealth", () => {
       ],
       new Date(now.getTime() + 60 * 60 * 1000),
     );
-    // Only HOURLY appears in the log at all, and only as failures — so every
-    // expected job is stale, HOURLY additionally failed.
+    // Only DAILY appears in the log at all, and only as failures — so every
+    // expected job is stale, DAILY additionally failed.
     expect(fingerprints(first)).toEqual(fingerprints(second));
     expect(fingerprints(first)).toEqual(
       [
-        `cron:failed:${HOURLY}`,
+        `cron:failed:${DAILY}`,
         ...EXPECTED_CRON_JOBS.map((job) => `cron:stale:${job.jobName}`),
       ].sort(),
     );
@@ -304,7 +308,7 @@ describe("cron health collector", () => {
     const result = await collectCronHealthArtifact(
       { outputPath: "cron-health.json", runAt },
       dependencyWithRows([
-        { ...row({ job_name: HOURLY }), request_id: "not-a-number" },
+        { ...row({ job_name: DAILY }), request_id: "not-a-number" },
       ]),
     );
 

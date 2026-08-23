@@ -13,10 +13,6 @@ const IS_CANONICAL_STAGING_TARGET =
   ).origin === 'https://staging.formoria.com';
 const STAGING_MUTATION_SKIP_REASON =
   'Anonymous correction mutations are intentionally disabled on canonical staging';
-// DEV-1261 note: deliberately NOT gated on `owner_features_enabled`. This is an
-// anonymous crowd-QA journey that touches no owner surface, and it is live at
-// launch — pausing it would take consumer coverage dark for no reason. Verified
-// green with the flag off.
 
 /**
  * Crowd-QA corrections (DEV-1170).
