@@ -134,7 +134,10 @@ function isOperationalAlertSummary(value: unknown): boolean {
     // build that predates the Railway meter.
     (value.railway === undefined ||
       value.railway === null ||
-      isAlertMeter(value.railway))
+      isAlertMeter(value.railway)) &&
+    (value.railwayMemory === undefined ||
+      value.railwayMemory === null ||
+      isAlertMeter(value.railwayMemory))
   );
 }
 
@@ -255,12 +258,10 @@ function units(value: number | null | undefined): string {
 }
 
 // Egress is a fractional daily figure; the integer `units` formatter would
-// round a 1.2 GB day down to "1".
-function gb(value: number | null | undefined): string {
-  return `${(typeof value === "number" && Number.isFinite(value)
-    ? value
-    : 0
-  ).toFixed(2)} GB`;
+// round a 1.2 GB day down to "1". Callers guard `null` themselves and render
+// "unknown" -- a null must never be printed as a measured "0.00 GB".
+function gb(value: number): string {
+  return `${value.toFixed(2)} GB`;
 }
 
 function unitName(value: string | null | undefined, fallback: string): string {
@@ -312,6 +313,13 @@ function successNotification(report: SpendWatchReport): AgentNotification {
         operationalMeterLine("Upstash commands", operations.upstash, "units"),
         operationalMeterLine("PostHog events", operations.posthog, "units"),
         operationalMeterLine("Railway egress", operations.railway, "gb"),
+        // The memory metric rides `operations.railwayMemory`; without its own
+        // line a memory warning reaches Slack with no value, unit, or limit.
+        operationalMeterLine(
+          "Railway memory (7d mean)",
+          operations.railwayMemory,
+          "gb",
+        ),
         ...operations.lowerBoundCaveats.map((caveat) => `• Caveat: ${caveat}`),
       ]
     : [];

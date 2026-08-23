@@ -5,12 +5,15 @@ import {
   buildOperationalSnapshot,
   fetchRailwayUsage,
   fetchUpstashUsage,
+  RAILWAY_SERVICE_IDS,
   loadOperationalSnapshot,
   parseSentryAcceptedCount,
   parseUpstashDatabase,
   parseUpstashStats,
+  type MeteredUsage,
   type UsageMetricInput,
 } from "./operational-usage";
+import { SERVICE_REGISTRY } from "./service-registry";
 
 const NOW = new Date("2026-08-10T12:00:00.000Z");
 
@@ -28,6 +31,81 @@ function row(
   id: string,
 ) {
   return snapshot.services.find((service) => service.id === id)!;
+}
+
+function railwayMetric(value: number, limit: number) {
+  return {
+    value,
+    unit: "GB",
+    limit,
+    percentage: value / limit,
+    window: {
+      start: "2026-08-09T00:00:00.000Z",
+      end: "2026-08-10T00:00:00.000Z",
+    },
+    source: "Railway metrics API",
+    completeness: "exact" as const,
+    freshness: NOW.toISOString(),
+    projection: null,
+    risk: assessUsageRisk({
+      value,
+      limit,
+      completeness: "exact",
+      projection: null,
+    }),
+  };
+}
+
+// Upstash is included and healthy so `needsAttention` reflects the Railway
+// meter alone -- an absent Upstash row escalates on its own.
+function railwaySnapshot(meter: MeteredUsage) {
+  return buildOperationalSnapshot({
+    registry: [
+      {
+        id: "upstash-redis",
+        name: "Upstash Redis",
+        vendor: "Upstash",
+        category: "database",
+        criticality: "customer-critical",
+        operationalSection: "production",
+        operationalKind: "dependency",
+        envVars: [],
+        status: "active",
+        plan: {
+          kind: "usage",
+          asOf: "2026-08-10",
+          sourceUrl: "https://upstash.com/pricing",
+        },
+      },
+      {
+        id: "railway-formoria",
+        name: "Railway project (app + curation worker)",
+        vendor: "Railway",
+        category: "hosting",
+        criticality: "customer-critical",
+        operationalSection: "production",
+        operationalKind: "dependency",
+        envVars: [],
+        status: "active",
+        plan: {
+          kind: "usage",
+          asOf: "2026-08-10",
+          sourceUrl: "https://railway.com/pricing",
+        },
+      },
+    ],
+    health: {
+      status: "healthy",
+      checkedAt: NOW.toISOString(),
+      inventory: [],
+      services: [],
+    },
+    meters: new Map<string, MeteredUsage>([
+      ["upstash-redis", { state: "ready" }],
+      ["railway-formoria", meter],
+    ]),
+    now: NOW,
+  });
 }
 
 // One daily egress sample inside yesterday's UTC window plus seven daily
@@ -69,8 +147,6 @@ function clearProviderEnvironment() {
     "SENTRY_READ_TOKEN",
     "SENTRY_AUTH_TOKEN",
     "RAILWAY_API_TOKEN",
-    "RAILWAY_PROJECT_ID",
-    "RAILWAY_ENVIRONMENT_ID",
   ]) {
     vi.stubEnv(name, "");
   }
@@ -366,8 +442,10 @@ describe("operational usage risk", () => {
     expect(alerts.needsAttention).toBe(true);
     expect(alerts.warnings).toEqual(
       expect.arrayContaining([
-        "Upstash Redis secondary usage is critical.",
-        "Upstash Redis additional usage is warning.",
+        // Non-primary warnings carry their reading; "secondary usage is
+        // critical." alone names neither the quantity nor the amount.
+        "Upstash Redis secondary usage is critical. 95 of 100 commands today.",
+        "Upstash Redis additional usage is warning. 8 of 10 bytes.",
       ]),
     );
   });
@@ -575,20 +653,16 @@ describe("operational usage risk", () => {
     });
   });
 
-  it("reports partial Railway configuration as an error while absence stays unconfigured", async () => {
+  // Bug caught: the meter used to read the project and environment ids from
+  // the environment, so a fresh `cp .env.example .env.local` produced a
+  // "partial" configuration that mapped to `error` and hard-failed
+  // `make doctor`. The ids are pinned in source now, and the combination that
+  // actually occurs -- ids present (Railway injects them into every deployed
+  // service), token absent -- must read `unconfigured`.
+  it("reports a missing Railway token as unconfigured even with the platform-injected ids present", async () => {
     clearProviderEnvironment();
-    vi.stubEnv("RAILWAY_API_TOKEN", "railway-token");
-    const partial = await loadOperationalSnapshot({
-      now: NOW,
-      health: healthyHealth(),
-      supabase: null,
-      posthog: null,
-    });
-    expect(row(partial, "railway-formoria").usage).toMatchObject({
-      state: "error",
-    });
-
-    vi.stubEnv("RAILWAY_API_TOKEN", "");
+    vi.stubEnv("RAILWAY_PROJECT_ID", "injected-by-the-platform");
+    vi.stubEnv("RAILWAY_ENVIRONMENT_ID", "injected-by-the-platform");
     const absent = await loadOperationalSnapshot({
       now: NOW,
       health: healthyHealth(),
@@ -599,6 +673,17 @@ describe("operational usage risk", () => {
       state: "unconfigured",
       message: expect.stringContaining("RAILWAY_API_TOKEN"),
     });
+  });
+
+  // Shortcut guard: RAILWAY_SERVICE_IDS is pinned by hand, so a Railway
+  // service added to the registry without its id here would silently drop out
+  // of the summed egress while the meter still published `exact`.
+  it("meters every Railway service in the registry", () => {
+    const railwayServices = SERVICE_REGISTRY.filter(
+      (entry) => entry.vendor === "Railway",
+    );
+    expect(RAILWAY_SERVICE_IDS).toHaveLength(railwayServices.length);
+    expect(new Set(RAILWAY_SERVICE_IDS).size).toBe(RAILWAY_SERVICE_IDS.length);
   });
 
   // Bug caught: Railway answers an unauthorized query with HTTP 200 and an
@@ -619,8 +704,98 @@ describe("operational usage risk", () => {
       now: NOW,
     });
     expect(usage.state).toBe("error");
-    expect(usage.message).toContain("Not Authorized");
+    // The provider text never reaches the snapshot, the cron JSON, or Slack --
+    // the same contract every sibling meter follows.
+    expect(usage.message).toBe("Railway metrics request failed.");
+    expect(usage.message).not.toContain("Not Authorized");
     expect(usage.primary ?? null).toBeNull();
+  });
+
+  // Bug caught: Railway answers a GraphQL failure with HTTP 200, so the audit
+  // span recorded a succeeded call at the same moment every report said the
+  // meter was unavailable.
+  it("records a Railway GraphQL error body as a failed audit span", async () => {
+    const output: unknown[][] = [];
+    vi.spyOn(console, "log").mockImplementation((...args) => output.push(args));
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() =>
+        Promise.resolve(
+          Response.json({ errors: [{ message: "Not Authorized" }] }),
+        ),
+      );
+    await fetchRailwayUsage({
+      apiToken: "railway-token",
+      projectId: "project-graphql-audit",
+      environmentId: "environment-graphql-audit",
+      fetchImpl: fetchMock,
+      now: NOW,
+    });
+    const captured = JSON.stringify(output);
+    expect(captured).toContain("failed");
+    expect(captured).not.toContain("succeeded");
+  });
+
+  // Bug caught (critical): an empty series, a renamed measurement, or an
+  // expired metrics scope all produced `0.00 GB` at `exact` and `normal` --
+  // a false green on the alarm that exists to catch a traffic flood.
+  it("refuses to publish a zero-sample Railway egress reading as normal", async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        Response.json({
+          data: {
+            metrics: [
+              // The measurement Railway used to return, renamed.
+              { measurement: "NETWORK_TX", values: [{ ts: NOW.toISOString(), value: 4 }] },
+              { measurement: "MEMORY_USAGE_GB", values: [] },
+            ],
+          },
+        }),
+      ),
+    );
+    const usage = await fetchRailwayUsage({
+      apiToken: "railway-token",
+      projectId: "project-no-samples",
+      environmentId: "environment-no-samples",
+      fetchImpl: fetchMock,
+      now: NOW,
+    });
+    expect(usage.state).toBe("error");
+    expect(usage.message).toContain("no egress samples");
+    expect(usage.primary ?? null).toBeNull();
+  });
+
+  // Bug caught: `Number(null)`, `Number("")`, and `Number(false)` are all a
+  // finite 0, so a gap in the series was recorded as a real zero reading.
+  it("drops non-numeric Railway samples instead of reading them as zero", async () => {
+    const day = new Date(Date.UTC(2026, 7, 9)).toISOString();
+    const fetchMock = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        Response.json({
+          data: {
+            metrics: [
+              {
+                measurement: "NETWORK_TX_GB",
+                values: [
+                  { ts: day, value: null },
+                  { ts: day, value: "" },
+                  { ts: day, value: false },
+                ],
+              },
+            ],
+          },
+        }),
+      ),
+    );
+    const usage = await fetchRailwayUsage({
+      apiToken: "railway-token",
+      projectId: "project-null-samples",
+      environmentId: "environment-null-samples",
+      fetchImpl: fetchMock,
+      now: NOW,
+    });
+    expect(usage.state).toBe("error");
+    expect(usage.message).toContain("no egress samples");
   });
 
   it("redacts the Railway token from captured audit metadata", async () => {
@@ -653,7 +828,7 @@ describe("operational usage risk", () => {
       registry: [
         {
           id: "railway-formoria",
-          name: "Railway Formoria app",
+          name: "Railway project (app + curation worker)",
           vendor: "Railway",
           category: "hosting",
           criticality: "customer-critical",
@@ -707,7 +882,53 @@ describe("operational usage risk", () => {
       limit: 5,
     });
     expect(alerts.warnings).toEqual(
-      expect.arrayContaining(["Railway Formoria app usage is warning."]),
+      expect.arrayContaining([
+        "Railway project (app + curation worker) usage is warning.",
+      ]),
+    );
+  });
+
+  // Bug caught (critical): a rotated or expired RAILWAY_API_TOKEN put the
+  // meter in `error` with no warnings, so `needsAttention` stayed false and
+  // the egress alarm could be dead indefinitely inside an otherwise-normal
+  // digest.
+  it("escalates an unavailable Railway meter but not an unconfigured one", () => {
+    const errored = buildOperationalAlertSummary(
+      railwaySnapshot({ state: "error", message: "Railway metrics request failed." }),
+    );
+    expect(errored.unavailableRailway).toBe(true);
+    expect(errored.needsAttention).toBe(true);
+
+    // The token is set by hand after this ships, so absence must not page
+    // daily until then.
+    const unconfigured = buildOperationalAlertSummary(
+      railwaySnapshot({ state: "unconfigured", message: "Railway usage requires RAILWAY_API_TOKEN." }),
+    );
+    expect(unconfigured.unavailableRailway).toBe(false);
+    expect(unconfigured.needsAttention).toBe(false);
+  });
+
+  // Bug caught: the memory metric rides `usage.secondary`, which the alert
+  // meter dropped -- a memory warning reached Slack as "secondary usage is
+  // warning." with no value, unit, limit, or attribution.
+  it("carries the Railway memory metric and its reading into the alert summary", () => {
+    const alerts = buildOperationalAlertSummary(
+      railwaySnapshot({
+        state: "ready",
+        primary: railwayMetric(1, 5),
+        secondary: railwayMetric(1.4, 1.5),
+      }),
+    );
+    expect(alerts.railwayMemory).toMatchObject({
+      state: "ready",
+      value: 1.4,
+      limit: 1.5,
+      risk: "critical",
+    });
+    expect(alerts.warnings).toEqual(
+      expect.arrayContaining([
+        "Railway project (app + curation worker) secondary usage is critical. 1.4 of 1.5 GB.",
+      ]),
     );
   });
 

@@ -238,6 +238,17 @@ describe("spend-watch report", () => {
           projection: null,
           message: null,
         },
+        // The memory metric has its own line; without it a memory warning
+        // reaches Slack with no value, unit, or limit.
+        railwayMemory: {
+          state: "ready" as const,
+          risk: "warning" as const,
+          value: 1.14,
+          limit: 1.5,
+          percentage: 0.76,
+          projection: null,
+          message: null,
+        },
       },
     };
     const fetchImpl = vi
@@ -256,6 +267,8 @@ describe("spend-watch report", () => {
     expect(text).toContain("Railway egress");
     expect(text).toContain("1.2");
     expect(text).toContain("5");
+    expect(text).toContain("Railway memory (7d mean)");
+    expect(text).toContain("1.14 GB");
   });
 
   it("marks warning Railway usage as needs_attention while still delivering", async () => {
@@ -264,7 +277,7 @@ describe("spend-watch report", () => {
       operations: {
         ...operations,
         needsAttention: true,
-        warnings: ["Railway Formoria app usage is warning."],
+        warnings: ["Railway project (app + curation worker) usage is warning."],
         railway: {
           state: "ready" as const,
           risk: "warning" as const,
@@ -290,7 +303,9 @@ describe("spend-watch report", () => {
     expect(result.status).toBe("needs_attention");
     const text = responseBody(fetchImpl, 1).text;
     expect(text).toContain("Railway egress");
-    expect(text).toContain("Railway Formoria app usage is warning.");
+    expect(text).toContain(
+      "Railway project (app + curation worker) usage is warning.",
+    );
   });
 
   // Deploy skew: the report endpoint may still be the build that predates the

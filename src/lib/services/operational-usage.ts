@@ -1,4 +1,4 @@
-import { auditedCall } from "@/lib/audit";
+import { auditedCall, type AuditStatus } from "@/lib/audit";
 import {
   createPostHogQueryClient,
   type PostHogQueryClient,
@@ -92,12 +92,14 @@ type OperationalAlertMeter = {
 export type OperationalAlertSummary = {
   needsAttention: boolean;
   unavailableUpstash: boolean;
+  unavailableRailway: boolean;
   warnings: string[];
   lowerBoundCaveats: string[];
   openai: OperationalAlertMeter | null;
   upstash: OperationalAlertMeter | null;
   posthog: OperationalAlertMeter | null;
   railway: OperationalAlertMeter | null;
+  railwayMemory: OperationalAlertMeter | null;
 };
 
 export type UsageMetricInput = {
@@ -130,12 +132,24 @@ function utcMonthWindow(at: Date): UsageWindow {
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 function utcDayWindow(at: Date): UsageWindow {
   const start = new Date(
     Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate()),
   );
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  const end = new Date(start.getTime() + DAY_MS);
   return { start: start.toISOString(), end: end.toISOString() };
+}
+
+// The window that ends with `at`'s UTC day and reaches back `days` whole days,
+// so `utcTrailingDaysWindow(at, 7)` covers a seven-day trailing mean.
+function utcTrailingDaysWindow(at: Date, days: number): UsageWindow {
+  const day = utcDayWindow(at);
+  return {
+    start: new Date(Date.parse(day.start) - (days - 1) * DAY_MS).toISOString(),
+    end: day.end,
+  };
 }
 
 function projectionFor(
@@ -312,7 +326,7 @@ function overallHealth(rows: OperationalServiceRow[]): OperationalHealthStatus {
   return "healthy";
 }
 
-type MeteredUsage = {
+export type MeteredUsage = {
   state: UsageState;
   message?: string | null;
   primary?: UsageMetric | null;
@@ -479,6 +493,9 @@ async function auditedJson(
   provider: "upstash" | "sentry" | "railway",
   operation: "get_database" | "get_stats" | "get_error_events" | "get_metrics",
   fetchImpl: typeof fetch,
+  // Providers that answer a failure with HTTP 200 (Railway GraphQL) pass a
+  // classifier so the span is recorded as failed instead of succeeded.
+  classify?: (body: unknown) => AuditStatus,
 ): Promise<unknown> {
   const parsedUrl = new URL(url);
   const auditPath =
@@ -521,6 +538,7 @@ async function auditedJson(
           : { type: typeof body };
       return body;
     },
+    classify ? { classify } : {},
   );
 }
 
@@ -609,12 +627,26 @@ export async function fetchUpstashUsage({
 
 const RAILWAY_GRAPHQL_ENDPOINT = "https://backboard.railway.com/graphql/v2";
 // Service ids identify services inside the Railway project; they are not
-// secrets and never appear in a header, so they stay in source next to the
-// project and environment ids that are read from the environment.
-const RAILWAY_SERVICE_IDS = [
+// secrets and never appear in a header, so they stay in source.
+export const RAILWAY_SERVICE_IDS = [
   "c26be870-d329-4720-b075-eab280842478",
   "b85503a7-83b4-46cb-85e3-7aae5426a435",
 ] as const;
+// Shortcut: the metered service set is pinned by hand. Ceiling - a service
+// added to, or recreated in, the Railway project mints a new id and silently
+// drops out of the sum while the meter still reports `exact`. Upgrade path:
+// list the project's services through the same GraphQL endpoint and meter
+// whatever comes back. The guard until then is the "meters every Railway
+// service in the registry" case in `operational-usage.test.ts`, which fails
+// when the registry's Railway service count and this list disagree.
+//
+// The project and environment ids are pinned in source for the same reason as
+// the service ids: they are not secrets, they never appear in a header, and
+// reading them from the environment would collide with the values Railway
+// injects into a deployed service (which name the *deployed* environment, not
+// the one this meter is supposed to read).
+const RAILWAY_PROJECT_ID = "fc1fb53f-6a7f-4324-8275-de1ec53847eb";
+const RAILWAY_ENVIRONMENT_ID = "d2c107d8-95e4-4467-a972-fbf719593dc3";
 const RAILWAY_EGRESS_LIMIT_GB = 5;
 const RAILWAY_MEMORY_LIMIT_GB = 1.5;
 const RAILWAY_METRICS_QUERY = `query($p:String!,$e:String!,$s:String!,$st:DateTime!,$en:DateTime!){
@@ -659,7 +691,17 @@ function parseRailwayMetrics(value: unknown): RailwaySeries[] {
     const values = row.values.flatMap((point) => {
       if (!point || typeof point !== "object") return [];
       const sample = point as Record<string, unknown>;
-      const number = Number(sample.value);
+      // A gap in the series arrives as `null` (and, historically, as `""` or
+      // `false`). `Number()` turns all three into a finite 0, which would be
+      // recorded as a real zero-egress reading, so non-numeric samples are
+      // dropped instead of coerced.
+      const raw = sample.value;
+      const number =
+        typeof raw === "number"
+          ? raw
+          : typeof raw === "string" && raw.trim() !== ""
+            ? Number(raw)
+            : Number.NaN;
       return typeof sample.ts === "string" && Number.isFinite(number)
         ? [{ ts: sample.ts, value: number }]
         : [];
@@ -677,23 +719,52 @@ function railwaySamples(
     .flatMap((entry) => entry.values);
 }
 
-function railwayEgressGb(series: RailwaySeries[], window: UsageWindow): number {
+// The matched sample count is returned alongside the sum so the caller can
+// tell "no data" (renamed measurement, empty series, expired scope) from "a
+// quiet day": Railway emits a bucket with value 0 for a genuinely idle day, so
+// zero *samples* is never a real zero reading.
+function railwayEgressGb(
+  series: RailwaySeries[],
+  window: UsageWindow,
+): { gb: number; samples: number } {
   const start = Date.parse(window.start);
   const end = Date.parse(window.end);
-  return railwaySamples(series, "NETWORK_TX_GB")
-    .filter((sample) => {
-      const at = Date.parse(sample.ts);
-      return Number.isFinite(at) && at >= start && at < end;
-    })
-    .reduce((sum, sample) => sum + sample.value, 0);
+  // Assumption, unpinned: Railway stamps each daily bucket at its START, so a
+  // half-open [start, end) filter keeps yesterday's bucket. If Railway stamps
+  // at the bucket END this excludes yesterday and the meter reads no-data
+  // forever. Verify by comparing one day's figure here against the same day on
+  // the Railway dashboard (Project -> Usage -> Network egress).
+  const matched = railwaySamples(series, "NETWORK_TX_GB").filter((sample) => {
+    const at = Date.parse(sample.ts);
+    return Number.isFinite(at) && at >= start && at < end;
+  });
+  return {
+    gb: matched.reduce((sum, sample) => sum + sample.value, 0),
+    samples: matched.length,
+  };
 }
 
-function railwayMemoryMeanGb(series: RailwaySeries[]): number {
+// `null` when the series carried no memory samples at all, for the same reason
+// egress retains its count: a mean over zero samples is unknown, not 0.
+function railwayMemoryMeanGb(series: RailwaySeries[]): number | null {
   const samples = railwaySamples(series, "MEMORY_USAGE_GB");
-  if (samples.length === 0) return 0;
+  if (samples.length === 0) return null;
   return (
     samples.reduce((sum, sample) => sum + sample.value, 0) / samples.length
   );
+}
+
+const RAILWAY_UNAVAILABLE_MESSAGE = "Railway metrics request failed.";
+const RAILWAY_NO_EGRESS_SAMPLES_MESSAGE =
+  "Railway metrics returned no egress samples for the reported day - the figure is unknown, not zero.";
+
+// Railway reports an unauthorized or malformed query with HTTP 200 and an
+// `errors` array, so without this the span records a succeeded call at the same
+// moment every report says the meter is unavailable.
+function railwayAuditStatus(body: unknown): AuditStatus {
+  if (!body || typeof body !== "object") return "failed";
+  const errors = (body as Record<string, unknown>).errors;
+  return Array.isArray(errors) && errors.length > 0 ? "failed" : "succeeded";
 }
 
 export type RailwayUsageOptions = {
@@ -714,13 +785,9 @@ export async function fetchRailwayUsage({
   const cacheKey = `${projectId}\u0000${environmentId}`;
   const cached = railwayUsageCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
-  const day = utcDayWindow(new Date(now.getTime() - 24 * 60 * 60 * 1000));
-  const memoryWindow: UsageWindow = {
-    start: new Date(
-      Date.parse(day.start) - 6 * 24 * 60 * 60 * 1000,
-    ).toISOString(),
-    end: day.end,
-  };
+  const yesterday = new Date(now.getTime() - DAY_MS);
+  const day = utcDayWindow(yesterday);
+  const memoryWindow = utcTrailingDaysWindow(yesterday, 7);
   let series: RailwaySeries[][];
   try {
     series = await Promise.all(
@@ -749,33 +816,38 @@ export async function fetchRailwayUsage({
             "railway",
             "get_metrics",
             fetchImpl,
+            railwayAuditStatus,
           ),
         ),
       ),
     );
-  } catch (error) {
+  } catch {
     // Railway answers an unauthorized or malformed query with HTTP 200 and an
-    // `errors` array, so the failure is surfaced as an unavailable meter with
-    // the provider message rather than a zero-egress reading. Errors are never
+    // `errors` array, so the failure is surfaced as an unavailable meter rather
+    // than a zero-egress reading. The provider text is deliberately not copied
+    // into the message -- the same contract every sibling meter follows, since
+    // this string reaches the operational snapshot, the cron JSON, and Slack.
+    // The raw message is still recorded on the audit span. Errors are never
     // cached; the next report retries.
-    return {
-      state: "error",
-      message:
-        error instanceof Error
-          ? error.message
-          : "Railway metrics request failed.",
-    };
+    return { state: "error", message: RAILWAY_UNAVAILABLE_MESSAGE };
   }
   // Both Railway services bill against the same project egress allowance, so
   // the worker's egress is folded into this one meter.
-  const egress = series.reduce(
-    (sum, entry) => sum + railwayEgressGb(entry, day),
+  const egressReadings = series.map((entry) => railwayEgressGb(entry, day));
+  const egress = egressReadings.reduce((sum, entry) => sum + entry.gb, 0);
+  const egressSamples = egressReadings.reduce(
+    (sum, entry) => sum + entry.samples,
     0,
   );
-  const memory = series.reduce(
-    (sum, entry) => sum + railwayMemoryMeanGb(entry),
-    0,
-  );
+  // A zero-sample result must never be publishable as `0.00 GB` at `exact` and
+  // `normal` -- that is a false green on the alarm this meter exists to be.
+  if (egressSamples === 0) {
+    return { state: "error", message: RAILWAY_NO_EGRESS_SAMPLES_MESSAGE };
+  }
+  const memoryMeans = series.map(railwayMemoryMeanGb);
+  const memory = memoryMeans.every((mean) => mean === null)
+    ? null
+    : memoryMeans.reduce<number>((sum, mean) => sum + (mean ?? 0), 0);
   const usage: MeteredUsage = {
     state: "ready",
     message:
@@ -790,16 +862,21 @@ export async function fetchRailwayUsage({
       projection: null,
       at: now,
     }),
-    secondary: createMetric({
-      value: memory,
-      unit: "GB",
-      limit: RAILWAY_MEMORY_LIMIT_GB,
-      window: memoryWindow,
-      source: "Railway metrics API",
-      completeness: "exact",
-      projection: null,
-      at: now,
-    }),
+    // Omitted rather than published as 0.00 GB when Railway returned no memory
+    // samples: an unknown reading must never render as a healthy one.
+    secondary:
+      memory === null
+        ? null
+        : createMetric({
+            value: memory,
+            unit: "GB",
+            limit: RAILWAY_MEMORY_LIMIT_GB,
+            window: memoryWindow,
+            source: "Railway metrics API",
+            completeness: "exact",
+            projection: null,
+            at: now,
+          }),
   };
   railwayUsageCache.set(cacheKey, {
     value: usage,
@@ -1056,36 +1133,22 @@ async function collectMeteredUsage(
     },
     {
       id: "railway-formoria",
-      promise:
-        providerConfigurationState(
-          process.env.RAILWAY_API_TOKEN,
-          process.env.RAILWAY_PROJECT_ID,
-          process.env.RAILWAY_ENVIRONMENT_ID,
-        ) === "complete"
-          ? fetchRailwayUsage({
-              apiToken: process.env.RAILWAY_API_TOKEN!,
-              projectId: process.env.RAILWAY_PROJECT_ID!,
-              environmentId: process.env.RAILWAY_ENVIRONMENT_ID!,
-              fetchImpl,
-              now,
-            }).then((usage) => ({ id: "railway-formoria", ...usage }))
-          : providerConfigurationState(
-                process.env.RAILWAY_API_TOKEN,
-                process.env.RAILWAY_PROJECT_ID,
-                process.env.RAILWAY_ENVIRONMENT_ID,
-              ) === "partial"
-            ? Promise.resolve({
-                id: "railway-formoria",
-                state: "error" as const,
-                message:
-                  "Railway metrics credentials are partially configured.",
-              })
-            : Promise.resolve({
-                id: "railway-formoria",
-                state: "unconfigured" as const,
-                message:
-                  "Railway usage requires RAILWAY_API_TOKEN, RAILWAY_PROJECT_ID, and RAILWAY_ENVIRONMENT_ID.",
-              }),
+      // The project, environment, and service ids live in source, so the token
+      // is the only configuration this meter reads and a missing token is
+      // `unconfigured`, never a failed report.
+      promise: providerConfigured(process.env.RAILWAY_API_TOKEN)
+        ? fetchRailwayUsage({
+            apiToken: process.env.RAILWAY_API_TOKEN!,
+            projectId: RAILWAY_PROJECT_ID,
+            environmentId: RAILWAY_ENVIRONMENT_ID,
+            fetchImpl,
+            now,
+          }).then((usage) => ({ id: "railway-formoria", ...usage }))
+        : Promise.resolve({
+            id: "railway-formoria",
+            state: "unconfigured" as const,
+            message: "Railway usage requires RAILWAY_API_TOKEN.",
+          }),
     },
     {
       id: "sentry",
@@ -1118,13 +1181,17 @@ function usageForEntry(
   entry: ServiceEntry,
   meters: Map<string, MeteredUsage>,
 ): OperationalServiceRow["usage"] {
-  if (
-    entry.id === "supabase" ||
-    entry.id === "public-site" ||
-    // The curation worker's egress is summed into the `railway-formoria` meter,
-    // so a second Railway row would double-count the same project allowance.
-    entry.id === "railway-curation-worker"
-  ) {
+  // The curation worker's egress and memory are summed into the Railway
+  // project meter, so a second Railway row would double-count the same project
+  // allowance. The row says so rather than reading "Dashboard only", which
+  // would send an operator chasing an unmetered service.
+  if (entry.id === "railway-curation-worker") {
+    return emptyUsage(
+      "unsupported",
+      "Metered on the Railway project row - this worker's egress and memory are included there.",
+    );
+  }
+  if (entry.id === "supabase" || entry.id === "public-site") {
     return emptyUsage("unsupported", "Dashboard only");
   }
   if (
@@ -1214,9 +1281,10 @@ export function buildOperationalSnapshot({
 
 function alertMeter(
   service: OperationalServiceRow | undefined,
+  which: "primary" | "secondary" = "primary",
 ): OperationalAlertMeter | null {
   if (!service) return null;
-  const metric = service.usage.primary;
+  const metric = service.usage[which];
   return {
     state: service.usage.state,
     risk: metric?.risk ?? "unknown",
@@ -1253,6 +1321,12 @@ function labelledMetrics(service: OperationalServiceRow): Array<{
   );
 }
 
+function meterReading(metric: UsageMetric): string {
+  const value = metric.value === null ? "unknown" : String(metric.value);
+  const limit = metric.limit === null ? "no limit" : String(metric.limit);
+  return `${value} of ${limit} ${metric.unit}.`;
+}
+
 export function buildOperationalAlertSummary(
   snapshot: OperationalSnapshotV1,
 ): OperationalAlertSummary {
@@ -1264,7 +1338,11 @@ export function buildOperationalAlertSummary(
       .filter(({ metric }) => ["warning", "critical"].includes(metric.risk))
       .map(
         ({ label, metric }) =>
-          `${service.name} ${label === "primary" ? "" : `${label} `}usage is ${metric.risk}.`,
+          `${service.name} ${label === "primary" ? "" : `${label} `}usage is ${metric.risk}.` +
+          // "secondary usage is warning." names neither the quantity nor the
+          // amount, and a reader assumes it means the primary metric. Non-
+          // primary warnings carry their reading so they are diagnosable.
+          (label === "primary" ? "" : ` ${meterReading(metric)}`),
       );
   });
   const lowerBoundCaveats = snapshot.services.flatMap((service) =>
@@ -1276,18 +1354,47 @@ export function buildOperationalAlertSummary(
       ),
   );
   const upstash = alertMeter(byId.get("upstash-redis"));
-  const unavailableUpstash =
-    upstash === null || ["error", "unconfigured"].includes(upstash.state);
+  const railwayService = byId.get("railway-formoria");
+  const railway = alertMeter(railwayService);
+  const unavailableUpstash = meterUnavailable(upstash, {
+    escalateUnconfigured: true,
+  });
+  // `unconfigured` does NOT escalate for Railway: the token is set by hand
+  // after this ships, so escalating absence would page daily until then. An
+  // `error` -- a rotated or expired token, a renamed measurement, an empty
+  // series -- always escalates, because a silently dead egress alarm is the
+  // failure this meter exists to prevent.
+  const unavailableRailway = meterUnavailable(railway, {
+    escalateUnconfigured: false,
+  });
   return {
-    needsAttention: warnings.length > 0 || unavailableUpstash,
+    needsAttention:
+      warnings.length > 0 || unavailableUpstash || unavailableRailway,
     unavailableUpstash,
+    unavailableRailway,
     warnings,
     lowerBoundCaveats,
     openai: alertMeter(byId.get("openai")),
     upstash,
     posthog: alertMeter(byId.get("posthog")),
-    railway: alertMeter(byId.get("railway-formoria")),
+    railway,
+    // The memory metric rides `usage.secondary`, which `alertMeter` would
+    // otherwise drop -- leaving a memory warning with no value, unit, or limit
+    // anywhere in the digest.
+    railwayMemory: railwayService?.usage.secondary
+      ? alertMeter(railwayService, "secondary")
+      : null,
   };
+}
+
+function meterUnavailable(
+  meter: OperationalAlertMeter | null,
+  { escalateUnconfigured }: { escalateUnconfigured: boolean },
+): boolean {
+  if (meter === null) return true;
+  return escalateUnconfigured
+    ? ["error", "unconfigured"].includes(meter.state)
+    : meter.state === "error";
 }
 
 const OPERATIONAL_CACHE_TTL_MS = 5 * 60_000;

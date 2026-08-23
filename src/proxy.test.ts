@@ -687,6 +687,29 @@ describe("visitor identity minting", () => {
     expect(response.cookies.get(VISITOR_COOKIE_NAME)?.value).toBeTruthy();
   });
 
+  // C1 regression: `attachVisitorIdentity` runs AFTER `runProxy` has stamped
+  // the directory edge cache header, and `shouldMintVisitorIdentity` returns
+  // true for `directory:list`. A `Set-Cookie` on a `public, s-maxage` response
+  // either drops it from the CDN or leaks one visitor's identity to everyone.
+  it("sets no cookie on a cookie-less filtered directory view, and keeps it edge-cacheable", async () => {
+    const response = await proxy(requestFor("/brands?page=2&sort=newest"));
+
+    expect(response.headers.get("cache-control")).toBe(
+      "public, s-maxage=3600, stale-while-revalidate=86400",
+    );
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(response.cookies.get(VISITOR_COOKIE_NAME)).toBeUndefined();
+  });
+
+  it("still mints on a directory SEARCH view, which is never edge-cached", async () => {
+    const response = await proxy(requestFor("/brands?search=ceramic"));
+
+    expect(response.headers.get("cache-control")).not.toBe(
+      "public, s-maxage=3600, stale-while-revalidate=86400",
+    );
+    expect(response.cookies.get(VISITOR_COOKIE_NAME)?.value).toBeTruthy();
+  });
+
   it("mints nothing at all while TRAVERSAL_COUNTERS is off, because nothing reads the identity", async () => {
     vi.stubEnv("TRAVERSAL_COUNTERS", "");
     const response = await proxy(requestFor("/about"));

@@ -464,7 +464,10 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
   },
   {
     id: "railway-formoria",
-    name: "Railway Formoria app",
+    // The meter on this row sums BOTH Railway services (app + curation
+    // worker), which bill against one project allowance, so the name says so;
+    // a row named for the app alone sends the operator to the wrong service.
+    name: "Railway project (app + curation worker)",
     vendor: "Railway",
     category: "hosting",
     criticality: "customer-critical",
@@ -472,9 +475,9 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     operationalKind: "dependency",
     envVars: [
       "FORMORIA_RAILWAY_URL",
+      // The project, environment, and service ids are pinned in source next to
+      // the metrics query; the token is the only credential.
       "RAILWAY_API_TOKEN",
-      "RAILWAY_PROJECT_ID",
-      "RAILWAY_ENVIRONMENT_ID",
     ],
     status: "active",
     plan: {
