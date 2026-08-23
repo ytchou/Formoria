@@ -2,11 +2,16 @@
 
 import type { CSSProperties, ReactNode, SVGProps } from 'react'
 import { useTranslations } from 'next-intl'
-import { AtSign, Check, Link as LinkIcon, MessageCircle, X } from 'lucide-react'
+import { AtSign, Check, Link as LinkIcon, MessageCircle } from 'lucide-react'
 import { SurfaceImage } from '@/components/ui/image'
 import { trackBrandPageShared, type ShareChannel } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
-import { DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import {
+  DialogBody,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { InstagramIcon } from '@/components/icons/instagram-icon'
 import { ShareChannelButton } from './share-channel-button'
@@ -179,23 +184,21 @@ export function ShareDialogContent({
   ]
 
   return (
-    <DialogContent
-      showCloseButton={false}
-      className="w-[21rem] max-w-[calc(100%-2rem)] gap-0 rounded-surface p-0"
-    >
-      <div className="flex items-center justify-between border-b border-rule px-4 py-3">
+    // `compact` (20rem) is the narrowest name in the vocabulary and the one
+    // this panel was always approximating with `w-[21rem]`. The width is the
+    // prop; the shell already carries its own edge gutter, its rounding and
+    // its below-`sm` sheet behaviour, so none of those come back as a
+    // className here.
+    <DialogContent size="compact">
+      {/* The close button is the primitive's own absolute one. A hand-rolled
+          `justify-between` header cannot work beside it: the close is taken
+          out of flow, so the title would sit alone in the row and the header
+          would reserve no gutter for the glyph it renders under. */}
+      <DialogHeader>
         <DialogTitle>{t('dialogTitle')}</DialogTitle>
-        <DialogClose
-          render={
-            <Button variant="ghost" size="icon" className="-mr-2" aria-label={t('close')} />
-          }
-          data-ph-no-autocapture
-        >
-          <X className="size-4" aria-hidden="true" />
-        </DialogClose>
-      </div>
+      </DialogHeader>
 
-      <div className="space-y-4 p-4">
+      <DialogBody className="space-y-4">
         {/* Preview card — what the recipient will actually receive. */}
         <div className="overflow-hidden rounded-surface border border-rule bg-surface">
           {safeImage ? (
@@ -204,10 +207,12 @@ export function ShareDialogContent({
                 src={safeImage}
                 alt=""
                 fill
-                // Measured, with no surface to name: a fixed 74px-tall preview
-                // strip, 256px wide on the narrow dialog and 336px otherwise.
-                // Neither width is any of the layout slots.
-                sizes="(max-width: 352px) 256px, 336px"
+                // Re-derived for `overlay-compact`: from `sm` up the panel is
+                // 20rem and `DialogBody` takes 1rem of padding each side, so
+                // the strip is 18rem = 288px. Below `sm` the dialog is a
+                // full-width sheet, so it is the viewport less the same
+                // padding. A fixed 74px-tall strip either way.
+                sizes="(min-width: 640px) 288px, calc(100vw - 2rem)"
                 className="object-cover"
               />
             </div>
@@ -297,7 +302,7 @@ export function ShareDialogContent({
         >
           {instagramCopied ? t('instagramCopied') : ''}
         </p>
-      </div>
+      </DialogBody>
     </DialogContent>
   )
 }

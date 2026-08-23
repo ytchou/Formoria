@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import zh from '../../../../messages/zh-TW.json'
@@ -180,6 +180,39 @@ describe('ShareDialog', () => {
 
     expect(screen.getByText(HOST)).toBeInTheDocument()
     expect(screen.queryByText(new RegExp(`${HOST}\\s*·`))).not.toBeInTheDocument()
+  })
+
+  // The primitive's own absolute close is now the ONLY close control: the
+  // hand-rolled header used to render a second one, and `brand-share.spec.ts`
+  // resolves it by SUBSTRING, so two of them is a strict-mode violation in e2e
+  // rather than a visual nit. `common.closeDialog` is read from the message
+  // catalogue so this asserts on the shipped label, not a copy of it.
+  it('renders exactly one close control', async () => {
+    const user = setupUser()
+    renderDialog()
+    await openDialog(user)
+
+    const dialog = await findLoadedDialog()
+
+    expect(
+      within(dialog).getAllByRole('button', { name: new RegExp(zh.common.close) })
+    ).toHaveLength(1)
+  })
+
+  // Share is the acceptance-criterion carve-out: header and body come from the
+  // primitives, and there is deliberately NO footer — its copy and channel
+  // controls are body content, not footer actions. Pinned so a later pass
+  // cannot re-hand-roll a header or invent a footer row.
+  it('uses DialogHeader and DialogBody, and renders no footer', async () => {
+    const user = setupUser()
+    renderDialog()
+    await openDialog(user)
+
+    const dialog = await findLoadedDialog()
+
+    expect(dialog.querySelector('[data-slot="dialog-header"]')).not.toBeNull()
+    expect(dialog.querySelector('[data-slot="dialog-body"]')).not.toBeNull()
+    expect(dialog.querySelector('[data-slot="dialog-footer"]')).toBeNull()
   })
 
   it('preview card falls back to the brand initial without a hero image', async () => {

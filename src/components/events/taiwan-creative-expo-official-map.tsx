@@ -3,10 +3,9 @@
 import { SurfaceImage } from "@/components/ui/image";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ExternalLink, Maximize2, X } from "lucide-react";
+import { ExternalLink, Maximize2 } from "lucide-react";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -148,30 +147,21 @@ export function TaiwanCreativeExpoOfficialMap() {
             <Maximize2 aria-hidden="true" />
             {t("floorMapOpenViewer")}
           </DialogTrigger>
-          <DialogContent
-            className="h-[100dvh] w-screen max-w-none gap-0 rounded-none p-0 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-[min(96vw,1100px)] sm:rounded-surface"
-            showCloseButton={false}
-          >
-            <DialogHeader className="flex-row items-start justify-between gap-3 border-b p-4 sm:p-5">
-              <div className="min-w-0 space-y-1">
-                <DialogTitle>{t("floorMapViewerTitle")}</DialogTitle>
-                <DialogDescription>
-                  {t("floorMapViewerDescription")}
-                </DialogDescription>
-              </div>
-              <DialogClose
-                render={
-                  <Button
-                    aria-label={t("floorMapCloseViewer")}
-                    className=""
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  />
-                }
-              >
-                <X aria-hidden="true" />
-              </DialogClose>
+          {/*
+            THE ONE DELIBERATE EXEMPTION FROM THE BOTTOM-SHEET RULE. Every
+            other dialog docks to the bottom edge below `sm`; this one stays
+            fullscreen, because the reader is here to pan a 3200px plan and a
+            sheet would hand that job half the screen.
+          */}
+          <DialogContent className="h-[100dvh] w-screen max-w-none gap-0 rounded-none p-0 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-[min(96vw,1100px)] sm:rounded-surface">
+            {/* The rule, the close-button gutter and the close button itself
+                all belong to the primitive now — the title used to share a
+                `justify-between` row with a hand-rolled close. */}
+            <DialogHeader>
+              <DialogTitle>{t("floorMapViewerTitle")}</DialogTitle>
+              <DialogDescription>
+                {t("floorMapViewerDescription")}
+              </DialogDescription>
             </DialogHeader>
 
             <div

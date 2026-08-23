@@ -32,7 +32,10 @@ export const allowedMatches = [
     // density of the read-only URL field, paired with a `text-base` mobile floor
     // so iOS Safari does not auto-zoom on focus.
     // The values moved out of `share-dialog.tsx` into the click-gated
-    // `share-dialog-content.tsx` chunk; the shell now holds no literals.
+    // `share-dialog-content.tsx` chunk; the shell now holds no literals. Its
+    // WIDTH rows are gone: both halves name `size="compact"`, so neither file
+    // spells a width at all and the only surviving width rows are `ui/dialog`'s
+    // edge gutter and the floor map's viewport-relative cap.
     file: "src/components/brands/share-dialog-content.tsx",
     names: [
       "raw hex color class",
@@ -107,29 +110,6 @@ export const allowedMatches = [
     // in the comment that explains it, once in the class string — this guard
     // reads comments too.
     file: "src/components/ui/dialog.tsx",
-    names: ["unnamed page width"],
-    values: ["max-w-[calc(100%-2rem)]"],
-  },
-  {
-    // The share panel's own width. `21rem` pairs with the `w-[21rem]` beside it
-    // and falls between `overlay-compact` (20rem) and `overlay-panel` (24rem),
-    // so no overlay name states it; the `calc` is the same viewport clamp as
-    // `dialog.tsx`.
-    file: "src/components/brands/share-dialog.tsx",
-    names: ["unnamed page width"],
-    values: ["max-w-[calc(100%-2rem)]", "max-w-[21rem]"],
-  },
-  {
-    // The loaded half of the same share panel — same clamp, same reason.
-    file: "src/components/brands/share-dialog-content.tsx",
-    names: ["unnamed page width"],
-    values: ["max-w-[calc(100%-2rem)]"],
-  },
-  {
-    // The `!` prefix overrides `AlertDialogContent`'s built-in clamp with the
-    // identical value so the `sm:!max-w-lg` step below it wins in order; it is
-    // the same edge-gutter clamp, not a width.
-    file: "src/components/submit/SubmitOverview.tsx",
     names: ["unnamed page width"],
     values: ["max-w-[calc(100%-2rem)]"],
   },

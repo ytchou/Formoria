@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import type { ReactNode } from "react";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -146,6 +146,29 @@ describe("MainNav", () => {
     const search = screen.getAllByRole("search");
     expect(search.length).toBeGreaterThan(0);
     expect(search[0]!.className).not.toContain("hidden");
+  });
+
+  it("nav sheet still exposes its search form", async () => {
+    // `search-edge-cases.spec.ts:234` opens the mobile menu and types into the
+    // field inside it. The sheet body is a slot now rather than a hand-rolled
+    // div, so this pins the thing that spec depends on: a `search` landmark
+    // reachable INSIDE the dialog, not merely somewhere on the page — the
+    // header renders a second one in the desktop row that would satisfy a
+    // page-wide query while the sheet's had been dropped.
+    renderNav();
+
+    fireEvent.click(screen.getByRole("button", { name: en.nav.openMenu }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("search")).toBeInTheDocument();
+
+    // The body is the slot, and it carries no `sheet-header`: the title in
+    // this sheet is `sr-only`, so a ruled header would draw a rule over
+    // nothing.
+    const body = dialog.querySelector('[data-slot="sheet-body"]');
+    expect(body).not.toBeNull();
+    expect(body!.querySelector('[role="search"]')).not.toBeNull();
+    expect(dialog.querySelector('[data-slot="sheet-header"]')).toBeNull();
   });
 
   it("offers the mock's five destinations plus the recommendation CTA", () => {

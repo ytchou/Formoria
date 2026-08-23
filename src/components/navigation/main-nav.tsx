@@ -6,10 +6,11 @@ import { Link, usePathname } from '@/i18n/navigation'
 import { Menu } from 'lucide-react'
 import {
   Sheet,
+  SheetBody,
   SheetContent,
   SheetTitle,
+  SheetTrigger,
 } from '@/components/ui/sheet'
-import { Dialog as SheetPrimitive } from '@base-ui/react/dialog'
 import { AccountMenu } from '@/components/auth/account-menu'
 import { NavSearchInput } from './nav-search-input'
 import { NavCategoryTabs } from './nav-category-tabs'
@@ -137,7 +138,7 @@ export function MainNav({ categories }: MainNavProps) {
             mobile.spec.ts asserts by role. */}
         <nav aria-label={t('navigation')} className="ml-auto md:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
-            <SheetPrimitive.Trigger
+            <SheetTrigger
               render={
                 <Button
                   variant="ghost"
@@ -147,10 +148,15 @@ export function MainNav({ categories }: MainNavProps) {
               }
             >
               <Menu className="size-5" />
-            </SheetPrimitive.Trigger>
+            </SheetTrigger>
             <SheetContent side="right" className="w-72">
+              {/* NO `SheetHeader`. The title here is `sr-only`, and a ruled
+                  header above an invisible title draws a hairline over nothing.
+                  `pt-8` is what clears the absolutely-positioned close button;
+                  `px-0` keeps the slot from adding a second inset on top of the
+                  per-row `px-1` / `px-4` this list already carries. */}
               <SheetTitle className="sr-only">{t('navigation')}</SheetTitle>
-              <div className="flex flex-col gap-4 pt-8">
+              <SheetBody className="flex flex-col gap-4 px-0 pt-8">
                 {/* Search in mobile sheet */}
                 <div className="px-1">
                   <NavSearchInput />
@@ -194,7 +200,7 @@ export function MainNav({ categories }: MainNavProps) {
                 <div className="px-4">
                   <AccountMenu />
                 </div>
-              </div>
+              </SheetBody>
             </SheetContent>
           </Sheet>
         </nav>
