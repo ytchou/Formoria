@@ -92,7 +92,7 @@ const HAND_ROLLED_SCRIM_EXEMPTIONS: { file: string; why: string }[] = [
     // a tile, and giving it one means deciding whether a tile scrim is the
     // same contract as a band scrim — which it probably is not, since the copy
     // here paints `--ground` on a DARK scrim rather than ink on a light one.
-    file: "src/components/landing/wall-trail-tile.tsx",
+    file: "src/components/landing/trail-tile.tsx",
     why: "tile-scale gradient scrim over a photograph; needs a tile variant before it can move",
   },
   {
