@@ -77,7 +77,7 @@ export function RootDocument({
       <body className="min-h-full flex flex-col bg-ground text-ink">
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:rounded-control focus:bg-background focus:px-4 focus:py-2 focus:type-body-sm focus:font-medium focus:text-ink focus:shadow-lg focus:ring-2 focus:ring-ring"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:rounded-control focus:bg-background focus:px-4 focus:py-2 focus:type-body-sm focus:font-medium focus:border focus:border-rule focus:text-ink focus:ring-2 focus:ring-ring"
         >
           {skipToContentLabel}
         </a>

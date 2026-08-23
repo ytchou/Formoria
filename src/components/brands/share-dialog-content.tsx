@@ -242,7 +242,7 @@ export function ShareDialogContent({
             // text-base on mobile keeps the 16px floor that stops iOS Safari
             // auto-zooming on focus (this field calls select() on focus);
             // text-foreground/70 clears 4.5:1 on the muted surface in dark mode.
-            className="h-10 rounded-control border-border bg-muted pr-28 font-mono text-base text-foreground/70 md:text-[13px]"
+            className="h-10 rounded-control border-border bg-muted pr-28 text-base text-foreground/70 md:text-[13px]"
             data-ph-no-autocapture
           />
           <Button

@@ -226,7 +226,7 @@ function LinkGroup({
   children: ReactNode
 }) {
   return (
-    <fieldset className="overflow-hidden rounded-surface border border-border bg-card shadow-card">
+    <fieldset className="overflow-hidden rounded-surface border border-border bg-card">
       <legend className="sr-only">{label}</legend>
       <div className="flex min-h-12 items-center gap-3 border-b border-border px-4 py-3">
         <span

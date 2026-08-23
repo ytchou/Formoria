@@ -165,7 +165,7 @@ export function ImageUploader({
                   size="icon"
                   className="absolute -right-3 -top-3 text-background opacity-0 transition-opacity hover:bg-transparent group-hover:opacity-100 focus-visible:opacity-100"
                 >
-                  <span className="flex size-6 items-center justify-center rounded-full bg-foreground shadow-sm">
+                  <span className="flex size-6 items-center justify-center rounded-full bg-foreground">
                     <X className="size-3" />
                   </span>
                 </Button>
@@ -176,7 +176,7 @@ export function ImageUploader({
                   type="button"
                   variant="secondary"
                   onClick={() => inputRef.current?.click()}
-                  className="absolute bottom-3 left-3 bg-background/95 shadow-sm hover:bg-background"
+                  className="absolute bottom-3 left-3 border border-rule bg-background/95 hover:bg-background"
                 >
                   <Upload className="size-4" />
                   {t("replace")}

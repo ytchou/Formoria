@@ -62,7 +62,6 @@ function ChallengeContent() {
       }}
     >
       <section
-        className="shadow-card-hover"
         style={{
           width: '100%',
           maxWidth: '420px',

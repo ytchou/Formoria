@@ -215,3 +215,22 @@ describe("allowlist hygiene", () => {
     expect(offenders.map((file) => relative(projectRoot, file))).toEqual([]);
   });
 });
+
+/**
+ * DESIGN.md: "No monospace face ships." v2 dropped Geist Mono rather than carry
+ * an undocumented third face, and admin renders field identifiers in 黑體.
+ *
+ * Code is the single amendment: character alignment is what a code block is
+ * for. That exception is bounded to the MDX renderers and this keeps it there —
+ * it had already leaked to a verification code chip, a share URL field and a
+ * chart tooltip, none of which is code, and all of which wanted `tabular-nums`.
+ */
+describe("type faces", () => {
+  it("monospace appears only in the MDX code renderers", () => {
+    const offenders = collectSources("src")
+      .filter((file) => readFileSync(file, "utf8").includes("font-mono"))
+      .map((file) => relative(projectRoot, file));
+
+    expect(offenders).toEqual(["src/lib/mdx/components.ts"]);
+  });
+});

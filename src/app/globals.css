@@ -76,9 +76,6 @@
   --radius-control: 4px;
   --radius-surface: 3px;
 
-  --shadow-card: 0 2px 8px oklch(0 0 0 / 0.04);
-  --shadow-card-hover: 0 4px 12px oklch(0 0 0 / 0.08);
-
   /* 明體 (content) and 黑體 (interface). One rule, no route exceptions.
      Declared here rather than in `:root` so a single declaration both registers
      the `font-ming` / `font-hei` utilities and stays the one value the

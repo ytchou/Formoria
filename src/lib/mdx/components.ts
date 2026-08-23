@@ -263,8 +263,21 @@ export function createStoryComponentMap({
         className: cn('border border-rule px-3 py-2 align-top type-body-sm text-ink-soft', props.className),
       }),
 
-    // Inline code. Inside a `<pre>` the chrome would double up, so `pre` strips it
-    // back off its direct `code` child rather than this needing to know its parent.
+    /*
+     * Inline code. Inside a `<pre>` the chrome would double up, so `pre` strips
+     * it back off its direct `code` child rather than this needing to know its
+     * parent.
+     *
+     * `font-mono` HERE AND ONLY HERE. DESIGN.md says no monospace face ships,
+     * and v2 deleted Geist Mono rather than carry an undocumented third face —
+     * admin renders field identifiers in the interface face (`--font-hei`)
+     * for exactly that reason. Code is
+     * the one place the rule does not survive contact: character alignment is
+     * what a code block is FOR, and proportional code is a legibility
+     * regression a reader notices immediately. This is a deliberate amendment
+     * with a Code row in DESIGN.md section 8, not a leftover — no monospace
+     * face is loaded, so this resolves to the reader's own monospace stack.
+     */
     code: (props: ComponentPropsWithoutRef<'code'>) =>
       createElement('code', {
         ...props,
