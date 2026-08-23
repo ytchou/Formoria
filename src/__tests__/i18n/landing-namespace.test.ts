@@ -71,10 +71,11 @@ const DEAD_KEYS = [
   // renderer. Only `trustSeam.line` survives, for /og/trust.
   "trustSeam.note",
   "trustSeam.cta",
-  // The closing band folded two stacked asks into one block with two buttons,
-  // so the feature request keeps only its button label.
+  // The feature-request board was retired, so the closing band lost its second
+  // button and the whole `featureRequestBand` namespace went with it.
   "featureRequestBand.headline",
   "featureRequestBand.body",
+  "featureRequestBand.cta",
   // The wall's continuation strip is gone; its trails moved to their own zone.
   "selectedProducts.continuationHeading",
   "selectedProducts.trailLinksLabel",
@@ -105,6 +106,8 @@ describe("landing namespace", () => {
     expect(enLanding).not.toHaveProperty("categoryGrid");
     expect(zhLanding).not.toHaveProperty("newBrands");
     expect(enLanding).not.toHaveProperty("newBrands");
+    expect(zhLanding).not.toHaveProperty("featureRequestBand");
+    expect(enLanding).not.toHaveProperty("featureRequestBand");
   });
 
   it("the canonical promise ships", () => {

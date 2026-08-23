@@ -83,7 +83,12 @@ export const RESERVED_ROUTES = new Set([
   "where-to-buy",
   "dashboard",
   "favorites",
+  // Retired routes. `feature-requests` and its legacy `feedback` alias no
+  // longer serve a page, but they stay reserved so a bare hit 404s cleanly
+  // instead of being redirected into `/brands/<segment>` by
+  // `decideBareBrandSlug`, and so no brand can ever claim either slug.
   "feature-requests",
+  "feedback",
   "faq",
   "about",
   "vision",
@@ -194,7 +199,6 @@ export const PUBLIC_INTL_SEGMENTS = new Set([
   "dashboard",
   "settings",
   "favorites",
-  "feature-requests",
   "privacy",
 ]);
 const SOFT_LIMIT_PREFIXES = ["/brands/"];

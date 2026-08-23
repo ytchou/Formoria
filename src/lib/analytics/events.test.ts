@@ -82,8 +82,6 @@ const EVENT_NAME_SNAPSHOT = [
   'visitor_identity_rotated',
   'rate_limiter_degraded',
   'web_vital_reported',
-  'feature_request_submitted',
-  'feature_request_voted',
 ]
 
 describe('analytics event registry', () => {

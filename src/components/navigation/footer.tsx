@@ -124,11 +124,6 @@ export function Footer() {
                   </Link>
                 </li>
                 <li>
-                  <Link href={routes.featureRequests()} prefetch={false} className={linkClasses}>
-                    {t("feedback")}
-                  </Link>
-                </li>
-                <li>
                   <Link href={routes.terms()} prefetch={false} className={linkClasses}>
                     {t("terms")}
                   </Link>

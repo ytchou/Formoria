@@ -1,10 +1,7 @@
 import { Pencil, ShieldCheck, TrendingUp } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
-import { Link } from '@/i18n/navigation'
-import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
-import { routes } from '@/lib/routes'
 
 const benefits = [
   {
@@ -23,7 +20,6 @@ const benefits = [
 
 export function OwnerBenefitsSection() {
   const t = useTranslations('gettingStarted.forOwners')
-  const ctaT = useTranslations('gettingStarted.ctaFooter')
 
   return (
     // `prose-measure` for the same reason the tips list beside it carries one:
@@ -47,16 +43,6 @@ export function OwnerBenefitsSection() {
           </article>
         ))}
       </div>
-
-      {/* Owner tools are not open yet, so the only action here is registering
-          interest on the feature request board — shown to every visitor, since
-          signed-in owners have no dashboard to be sent to either. */}
-      <Link
-        href={routes.featureRequests()}
-        className={buttonVariants({ variant: 'primary' })}
-      >
-        {ctaT('cta')}
-      </Link>
     </div>
   )
 }

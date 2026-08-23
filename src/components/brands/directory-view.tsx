@@ -436,8 +436,6 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, in
             <SavedBrandsProvider>
               {displayBrands.length === 0 ? (
                 <SearchEmptyState
-                  query={search}
-                  categoryLabel={categoryTag ? categoryLabel(categoryTag, safeLocale) : undefined}
                   activeFilters={activeFilters}
                   recommendedBrands={recommendedBrands}
                   recommendationsHref={recommendationsHref}

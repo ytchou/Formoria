@@ -72,8 +72,8 @@ test.describe("Submit funnel", () => {
     // (`isAllowedStagingRequest` in src/lib/deployment-environment.ts allows only
     // GET plus the /auth/* POSTs), so this journey's write cannot complete on the
     // one environment this suite targets. Measured, not inferred: anonymous POSTs
-    // to /submit/recommend, /api/newsletter/subscribe and /api/feature-requests*
-    // all return 403 there while /auth/sign-up returns 200.
+    // to /submit/recommend and /api/newsletter/subscribe both return 403 there
+    // while /auth/sign-up returns 200.
     test.skip(
       process.env.FORMORIA_DEPLOYMENT_ENV === "staging",
       "staging blocks anonymous mutations",
