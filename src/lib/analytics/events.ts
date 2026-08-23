@@ -323,21 +323,6 @@ export const ANALYTICS_EVENTS = {
    */
   BRAND_UNSAVED: 'brand_unsaved',
 
-  /**
-   * A brand was liked from the brand detail page.
-   * @property brand_id {string} Brand UUID.
-   * @property brand_slug {string} Brand slug.
-   * @property location {string} Always `'brand_detail'` — the only surface exposing the control.
-   */
-  BRAND_LIKED: 'brand_liked',
-
-  /**
-   * A like was withdrawn from the brand detail page.
-   * @property brand_id {string} Brand UUID.
-   * @property brand_slug {string} Brand slug.
-   * @property location {string} Always `'brand_detail'`.
-   */
-  BRAND_UNLIKED: 'brand_unliked',
 
   // ---------------------------------------------------------------------------
   // Submission funnel
@@ -900,16 +885,6 @@ export interface AnalyticsEventPayloads {
     brand_id?: string
   }
   [ANALYTICS_EVENTS.BRAND_UNSAVED]: {
-    brand_id: string
-    brand_slug: string
-    location: string
-  }
-  [ANALYTICS_EVENTS.BRAND_LIKED]: {
-    brand_id: string
-    brand_slug: string
-    location: string
-  }
-  [ANALYTICS_EVENTS.BRAND_UNLIKED]: {
     brand_id: string
     brand_slug: string
     location: string
