@@ -511,7 +511,6 @@
       "socialTitle": "Provide a social link",
       "socialFieldPickerLabel": "Social channel",
       "socialFieldPickerPlaceholder": "Choose a social profile…",
-      "close": "Close",
       "fieldPickerLabel": "Field to correct",
       "fieldPickerPlaceholder": "Choose a field…",
       "description": "Thanks for the suggestion! Formoria reviews every submission and decides whether to update the listing.",
@@ -1889,7 +1888,6 @@
       "ownerLimitDescription": "Each account can manage only one brand, so another page can’t be built through the brand owner flow. To share a different brand, use the community recommendation flow.",
       "ownerLimitRecommendCta": "Recommend a brand",
       "ownerLimitCancelCta": "Cancel",
-      "ownerLimitCloseCta": "Close",
       "ownerLimitNavigationError": "We couldn’t open the recommendation flow. Please try again."
     },
     "wizard": {

@@ -120,14 +120,14 @@ export function ProvideStockistInfoDialog({
               </DialogClose>
             }
           >
-            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            <DialogBody>
               <div className="flex items-center gap-3 rounded-surface border border-verified-green/30 bg-verified-green-bg p-4 text-verified-green">
                 <Check aria-hidden="true" className="size-5 shrink-0" />
                 <Typography variant="cardDescription">
                   {t("channels.dialog.success")}
                 </Typography>
               </div>
-            </div>
+            </DialogBody>
           </DialogStatus>
         ) : (
           <DialogForm action={action}>

@@ -2,6 +2,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh-TW.json";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -12,18 +14,30 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { DIALOG_SIZES, type DialogSize } from "@/components/ui/dialog";
 
-// `common.closeDialog` in both locales. `AlertDialog` must never grow a close
-// affordance: an alert dialog is a decision, and a dismissal that is neither
-// "confirm" nor "cancel" leaves the caller guessing which one it got.
-const CLOSE_DIALOG_NAME = /Close dialog|關閉對話框/i;
+// `common.closeDialog` in both locales, READ FROM THE CATALOGUES. This test's
+// whole job is asserting an ABSENCE, so a hardcoded copy of the string is the
+// one kind of drift it cannot survive: retranslate `common.closeDialog` and a
+// literal regex matches nothing that renders, the assertion passes vacuously,
+// and it would keep passing after `AlertDialogContent` grew a close button.
+//
+// `AlertDialog` must never grow one: an alert dialog is a decision, and a
+// dismissal that is neither "confirm" nor "cancel" leaves the caller guessing
+// which one it got.
+const CLOSE_DIALOG_NAME = new RegExp(
+  [enMessages.common.closeDialog, zhMessages.common.closeDialog]
+    .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|"),
+  "i",
+);
 
 function Fixture({
   destructive,
   size,
 }: {
   destructive?: boolean;
-  size?: "compact" | "panel" | "form" | "wide";
+  size?: DialogSize;
 }) {
   return (
     <AlertDialog defaultOpen destructive={destructive}>
@@ -51,17 +65,17 @@ describe("AlertDialog", () => {
 
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: CLOSE_DIALOG_NAME })
+      screen.queryByRole("button", { name: CLOSE_DIALOG_NAME }),
     ).toBeNull();
 
     rerender(<Fixture destructive />);
 
     expect(
-      screen.queryByRole("button", { name: CLOSE_DIALOG_NAME })
+      screen.queryByRole("button", { name: CLOSE_DIALOG_NAME }),
     ).toBeNull();
     // Nothing that merely *looks* like a close control either.
     expect(
-      screen.getAllByRole("button").map((button) => button.textContent)
+      screen.getAllByRole("button").map((button) => button.textContent),
     ).toEqual(["Delete", "Cancel"]);
   });
 
@@ -87,7 +101,7 @@ describe("AlertDialog", () => {
     expect(screen.getByRole("alertdialog")).toBe(dialog);
 
     const backdrop = document.querySelector(
-      '[data-slot="alert-dialog-overlay"]'
+      '[data-slot="alert-dialog-overlay"]',
     );
     expect(backdrop).not.toBeNull();
     fireEvent.pointerDown(backdrop as Element);
@@ -118,14 +132,16 @@ describe("AlertDialog", () => {
 
     expect(screen.getByRole("alertdialog")).toHaveAttribute(
       "data-size",
-      "panel"
+      "panel",
     );
 
-    for (const size of ["compact", "panel", "form", "wide"] as const) {
+    // The one list, from `dialog.tsx` — a fifth name is covered here without
+    // an edit rather than silently untested.
+    for (const size of DIALOG_SIZES) {
       rerender(<Fixture size={size} />);
       expect(screen.getByRole("alertdialog")).toHaveAttribute(
         "data-size",
-        size
+        size,
       );
     }
   });

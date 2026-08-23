@@ -511,7 +511,6 @@
       "socialTitle": "提供社群連結",
       "socialFieldPickerLabel": "社群管道",
       "socialFieldPickerPlaceholder": "請選擇社群管道…",
-      "close": "關閉",
       "fieldPickerLabel": "修正項目",
       "fieldPickerPlaceholder": "請選擇要修正的項目…",
       "description": "感謝提供建議！送出後由 Formoria 審核決定是否更新。",
@@ -1889,7 +1888,6 @@
       "ownerLimitDescription": "每個帳號只能管理一個品牌，因此無法再透過品牌主流程建立另一個品牌頁。若想分享其他品牌，請改用社群推薦流程。",
       "ownerLimitRecommendCta": "前往推薦品牌",
       "ownerLimitCancelCta": "取消",
-      "ownerLimitCloseCta": "關閉",
       "ownerLimitNavigationError": "目前無法前往推薦流程，請再試一次。"
     },
     "wizard": {

@@ -1,12 +1,12 @@
-'use client'
+"use client";
 
-import { useState, useTransition } from 'react'
-import NextLink from 'next/link'
-import { useLocale, useTranslations } from 'next-intl'
-import { toast } from 'sonner'
-import { Link, useRouter } from '@/i18n/navigation'
-import { signInHref } from '@/i18n/locale-preference'
-import { trackSubmissionPathSelected } from '@/lib/analytics'
+import { useState, useTransition } from "react";
+import NextLink from "next/link";
+import { useLocale, useTranslations } from "next-intl";
+import { toast } from "sonner";
+import { Link, useRouter } from "@/i18n/navigation";
+import { signInHref } from "@/i18n/locale-preference";
+import { trackSubmissionPathSelected } from "@/lib/analytics";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -15,14 +15,14 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { Badge } from '@/components/ui/badge'
-import { Button, buttonVariants } from '@/components/ui/button'
-import { surfaceCardStyles } from '@/components/ui/card'
-import { PageShell } from '@/components/ui/page-shell'
-import { Check, Info } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { routes } from '@/lib/routes'
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { surfaceCardStyles } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
+import { Check, Info } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { routes } from "@/lib/routes";
 
 /**
  * The three selling points under each path. `muted` drops the CTA accent so the
@@ -40,10 +40,10 @@ function PathPoints({ points, muted }: { points: string[]; muted?: boolean }) {
           <span
             aria-hidden="true"
             className={cn(
-              'mt-0.5 inline-flex size-5 items-center justify-center rounded-full border',
+              "mt-0.5 inline-flex size-5 items-center justify-center rounded-full border",
               muted
-                ? 'border-rule bg-surface text-ink-muted'
-                : 'border-accent/25 bg-accent/10 text-accent',
+                ? "border-rule bg-surface text-ink-muted"
+                : "border-accent/25 bg-accent/10 text-accent",
             )}
           >
             <Check className="size-3" />
@@ -52,22 +52,22 @@ function PathPoints({ points, muted }: { points: string[]; muted?: boolean }) {
         </li>
       ))}
     </ul>
-  )
+  );
 }
 
 type SubmitOverviewProps = {
-  ownerPath?: string
-  recommendPath?: string
-  isLoggedIn?: boolean
-  hasOwnedBrand?: boolean
+  ownerPath?: string;
+  recommendPath?: string;
+  isLoggedIn?: boolean;
+  hasOwnedBrand?: boolean;
   /**
    * Owner-features kill switch, resolved server-side and passed down: this stays
    * a presentational component and never reads the flag itself. Defaults closed
    * so a caller that forgets the prop hides the owner fork rather than exposing
    * a route that 404s.
    */
-  ownerFeaturesEnabled?: boolean
-}
+  ownerFeaturesEnabled?: boolean;
+};
 
 export default function SubmitOverview({
   ownerPath = routes.submit.owner(),
@@ -76,70 +76,61 @@ export default function SubmitOverview({
   hasOwnedBrand = false,
   ownerFeaturesEnabled = false,
 }: SubmitOverviewProps) {
-  const t = useTranslations('submit.overview')
-  const locale = useLocale()
-  const router = useRouter()
-  const [isOwnerLimitOpen, setIsOwnerLimitOpen] = useState(false)
-  const [isNavigating, startNavigation] = useTransition()
+  const t = useTranslations("submit.overview");
+  const locale = useLocale();
+  const router = useRouter();
+  const [isOwnerLimitOpen, setIsOwnerLimitOpen] = useState(false);
+  const [isNavigating, startNavigation] = useTransition();
 
   function handleRecommendationNavigation() {
     startNavigation(() => {
       try {
-        router.push(recommendPath)
+        router.push(recommendPath);
       } catch {
-        toast.error(t('ownerLimitNavigationError'))
+        toast.error(t("ownerLimitNavigationError"));
       }
-    })
+    });
   }
 
   return (
     <PageShell as="main" measure="form" className="py-20">
       <div className="prose-measure">
-        <h1 className="text-balance type-page-title">{t('heading')}</h1>
-        <p className="mt-4 type-body-sm">{t('description')}</p>
+        <h1 className="text-balance type-page-title">{t("heading")}</h1>
+        <p className="mt-4 type-body-sm">{t("description")}</p>
       </div>
 
       {/* Two columns in both flag states: while the owner fork is gated its card
           stays in place as a coming-soon placeholder, so turning the flag on is
           a content change and never a re-layout. */}
       <div className="mt-10 grid gap-6 md:grid-cols-2">
-        <section className={surfaceCardStyles({ padding: 'lg' })}>
-          <p className="type-eyebrow">{t('recommendEyebrow')}</p>
-          <h2 className="mt-2 type-section text-ink">
-            {t('recommendTitle')}
-          </h2>
-          <p className="mt-3 type-body-sm">
-            {t('recommendDescription')}
-          </p>
+        <section className={surfaceCardStyles({ padding: "lg" })}>
+          <p className="type-eyebrow">{t("recommendEyebrow")}</p>
+          <h2 className="mt-2 type-section text-ink">{t("recommendTitle")}</h2>
+          <p className="mt-3 type-body-sm">{t("recommendDescription")}</p>
           <PathPoints
             points={[
-              t('recommendPoint1'),
-              t('recommendPoint2'),
-              t('recommendPoint3'),
+              t("recommendPoint1"),
+              t("recommendPoint2"),
+              t("recommendPoint3"),
             ]}
           />
           <Link
             href={recommendPath}
             data-ph-no-autocapture
-            onClick={() => trackSubmissionPathSelected('recommend', isLoggedIn)}
-            className={cn(
-              buttonVariants({ variant: 'primary' }),
-              'mt-6',
-            )}
+            onClick={() => trackSubmissionPathSelected("recommend", isLoggedIn)}
+            className={cn(buttonVariants({ variant: "primary" }), "mt-6")}
           >
-            {t('recommendCta')}
+            {t("recommendCta")}
           </Link>
         </section>
 
         {ownerFeaturesEnabled ? (
-          <section className={surfaceCardStyles({ padding: 'lg' })}>
-            <p className="type-eyebrow">{t('ownerEyebrow')}</p>
-            <h2 className="mt-2 type-section text-ink">
-              {t('ownerTitle')}
-            </h2>
-            <p className="mt-3 type-body-sm">{t('ownerDescription')}</p>
+          <section className={surfaceCardStyles({ padding: "lg" })}>
+            <p className="type-eyebrow">{t("ownerEyebrow")}</p>
+            <h2 className="mt-2 type-section text-ink">{t("ownerTitle")}</h2>
+            <p className="mt-3 type-body-sm">{t("ownerDescription")}</p>
             <PathPoints
-              points={[t('ownerPoint1'), t('ownerPoint2'), t('ownerPoint3')]}
+              points={[t("ownerPoint1"), t("ownerPoint2"), t("ownerPoint3")]}
             />
             {hasOwnedBrand ? (
               <>
@@ -149,11 +140,11 @@ export default function SubmitOverview({
                   size="large"
                   data-ph-no-autocapture
                   onClick={() => {
-                    trackSubmissionPathSelected('claim', true)
-                    setIsOwnerLimitOpen(true)
+                    trackSubmissionPathSelected("claim", true);
+                    setIsOwnerLimitOpen(true);
                   }}
                 >
-                  {t('ownerCtaLoggedIn')}
+                  {t("ownerCtaLoggedIn")}
                 </Button>
                 <AlertDialog
                   open={isOwnerLimitOpen}
@@ -168,24 +159,33 @@ export default function SubmitOverview({
                       — Escape, the backdrop and the footer Cancel are the
                       exits, and an icon button beside them would be a fourth. */}
                   <AlertDialogContent size="form">
-                    <AlertDialogHeader>
+                    {/* NO `alert-dialog-media` SLOT, AND THE CENTRING IS
+                        RESTORED. `AlertDialogHeader`'s media layout puts the
+                        title in column 2 from `sm` up but declares no
+                        `grid-cols`, so the description auto-places back into
+                        column 1 under the icon. This header is a centred
+                        icon/title/description stack at every width, which the
+                        default (non-media) layout already renders — the two
+                        `sm:` classes below only hold the centring the shell
+                        drops at `sm`, and tailwind-merge replaces the shell's
+                        own pair because the modifiers match. */}
+                    <AlertDialogHeader className="sm:place-items-center sm:text-center">
                       <span
-                        data-slot="alert-dialog-media"
                         aria-hidden="true"
                         className="flex size-12 items-center justify-center rounded-full bg-accent/10 text-accent"
                       >
                         <Info className="size-5" />
                       </span>
                       <AlertDialogTitle className="type-section">
-                        {t('ownerLimitTitle')}
+                        {t("ownerLimitTitle")}
                       </AlertDialogTitle>
                       <AlertDialogDescription>
-                        {t('ownerLimitDescription')}
+                        {t("ownerLimitDescription")}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="sm:[&>*]:flex-1">
                       <AlertDialogCancel size="large">
-                        {t('ownerLimitCancelCta')}
+                        {t("ownerLimitCancelCta")}
                       </AlertDialogCancel>
                       <Button
                         type="button"
@@ -193,7 +193,7 @@ export default function SubmitOverview({
                         disabled={isNavigating}
                         onClick={handleRecommendationNavigation}
                       >
-                        {t('ownerLimitRecommendCta')}
+                        {t("ownerLimitRecommendCta")}
                       </Button>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -203,25 +203,19 @@ export default function SubmitOverview({
               <Link
                 href={ownerPath}
                 data-ph-no-autocapture
-                onClick={() => trackSubmissionPathSelected('claim', true)}
-                className={cn(
-                  buttonVariants({ variant: 'primary' }),
-                  'mt-6',
-                )}
+                onClick={() => trackSubmissionPathSelected("claim", true)}
+                className={cn(buttonVariants({ variant: "primary" }), "mt-6")}
               >
-                {t('ownerCtaLoggedIn')}
+                {t("ownerCtaLoggedIn")}
               </Link>
             ) : (
               <NextLink
                 href={signInHref(ownerPath, locale)}
                 data-ph-no-autocapture
-                onClick={() => trackSubmissionPathSelected('claim', false)}
-                className={cn(
-                  buttonVariants({ variant: 'primary' }),
-                  'mt-6',
-                )}
+                onClick={() => trackSubmissionPathSelected("claim", false)}
+                className={cn(buttonVariants({ variant: "primary" }), "mt-6")}
               >
-                {t('ownerCta')}
+                {t("ownerCta")}
               </NextLink>
             )}
           </section>
@@ -230,23 +224,26 @@ export default function SubmitOverview({
           // never enable is noise for pointer and screen-reader users alike.
           // The badge states the same thing and stays out of the tab order.
           <section
-            className={cn(surfaceCardStyles({ padding: 'lg' }), 'bg-surface/30')}
+            className={cn(
+              surfaceCardStyles({ padding: "lg" }),
+              "bg-surface/30",
+            )}
           >
             <div className="flex flex-wrap items-center gap-2">
-              <p className="type-eyebrow">{t('ownerEyebrow')}</p>
-              <Badge variant="declared">{t('ownerComingSoon')}</Badge>
+              <p className="type-eyebrow">{t("ownerEyebrow")}</p>
+              <Badge variant="declared">{t("ownerComingSoon")}</Badge>
             </div>
             <h2 className="mt-2 type-section text-ink-muted">
-              {t('ownerTitle')}
+              {t("ownerTitle")}
             </h2>
-            <p className="mt-3 type-body-sm">{t('ownerDescription')}</p>
+            <p className="mt-3 type-body-sm">{t("ownerDescription")}</p>
             <PathPoints
-              points={[t('ownerPoint1'), t('ownerPoint2'), t('ownerPoint3')]}
+              points={[t("ownerPoint1"), t("ownerPoint2"), t("ownerPoint3")]}
               muted
             />
           </section>
         )}
       </div>
     </PageShell>
-  )
+  );
 }

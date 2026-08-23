@@ -1,38 +1,45 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { NextIntlClientProvider } from 'next-intl'
-import zh from '../../../../messages/zh-TW.json'
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { NextIntlClientProvider } from "next-intl";
+import zh from "../../../../messages/zh-TW.json";
 
-vi.mock('@/lib/analytics', () => ({
+vi.mock("@/lib/analytics", () => ({
   trackBrandPageShared: vi.fn(),
-}))
+}));
 
-vi.mock('next/image', () => ({
-  default: ({ alt = '', src }: { alt?: string; src: string }) => (
+vi.mock("next/image", () => ({
+  default: ({ alt = "", src }: { alt?: string; src: string }) => (
     // eslint-disable-next-line @next/next/no-img-element
-    <img alt={alt} src={typeof src === 'string' ? src : ''} />
+    <img alt={alt} src={typeof src === "string" ? src : ""} />
   ),
-}))
+}));
 
-import { ShareDialog } from '../share-dialog'
+import { ShareDialog } from "../share-dialog";
 
-const share = zh.brandDetail.share
-const SLUG = 'test-brand'
-const BRAND_NAME = 'Test Brand'
-const ABSOLUTE_URL = `http://localhost/brands/${SLUG}`
-const HOST = window.location.host
+const share = zh.brandDetail.share;
+const SLUG = "test-brand";
+const BRAND_NAME = "Test Brand";
+const ABSOLUTE_URL = `http://localhost/brands/${SLUG}`;
+const HOST = window.location.host;
 
-let writeText: ReturnType<typeof vi.fn>
-let openSpy: ReturnType<typeof vi.fn>
+let writeText: ReturnType<typeof vi.fn>;
+let openSpy: ReturnType<typeof vi.fn>;
 
-function renderDialog(props: { categoryLabel?: string | null; brandImageUrl?: string } = {}) {
+function renderDialog(
+  props: { categoryLabel?: string | null; brandImageUrl?: string } = {},
+) {
   return render(
     <NextIntlClientProvider locale="zh-TW" messages={zh}>
-      <ShareDialog brandSlug={SLUG} brandName={BRAND_NAME} brandId="b1" {...props} />
-    </NextIntlClientProvider>
-  )
+      <ShareDialog
+        brandSlug={SLUG}
+        brandName={BRAND_NAME}
+        brandId="b1"
+        {...props}
+      />
+    </NextIntlClientProvider>,
+  );
 }
 
 // The body is a `next/dynamic` chunk behind a `loading:` skeleton that already
@@ -45,181 +52,199 @@ function renderDialog(props: { categoryLabel?: string | null; brandImageUrl?: st
 // full parallel suite it routinely overruns. The wait is generous; nothing it
 // waits for is weakened. The per-test budget that must exceed this one lives in
 // vitest.config.ts (testTimeout).
-const CHUNK_LOAD_TIMEOUT_MS = 10_000
+const CHUNK_LOAD_TIMEOUT_MS = 10_000;
 
 async function findLoadedDialog() {
   return waitFor(
     () => {
       const loaded = screen
-        .getAllByRole('dialog')
-        .find((node) => node.getAttribute('aria-busy') !== 'true')
-      if (!loaded) throw new Error('dialog body has not mounted yet')
-      return loaded
+        .getAllByRole("dialog")
+        .find((node) => node.getAttribute("aria-busy") !== "true");
+      if (!loaded) throw new Error("dialog body has not mounted yet");
+      return loaded;
     },
-    { timeout: CHUNK_LOAD_TIMEOUT_MS }
-  )
+    { timeout: CHUNK_LOAD_TIMEOUT_MS },
+  );
 }
 
 async function openDialog(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: share.trigger }))
-  await findLoadedDialog()
-  await screen.findByRole('button', { name: share.copy })
+  await user.click(screen.getByRole("button", { name: share.trigger }));
+  await findLoadedDialog();
+  await screen.findByRole("button", { name: share.copy });
 }
 
 // userEvent.setup() installs its own navigator.clipboard stub, so ours has to
 // be defined afterwards or it gets clobbered.
 function setupUser() {
-  const user = userEvent.setup()
-  Object.defineProperty(navigator, 'clipboard', {
+  const user = userEvent.setup();
+  Object.defineProperty(navigator, "clipboard", {
     configurable: true,
     value: { writeText },
-  })
-  return user
+  });
+  return user;
 }
 
 beforeEach(() => {
-  writeText = vi.fn().mockResolvedValue(undefined)
-  openSpy = vi.fn()
-  vi.stubGlobal('open', openSpy)
-})
+  writeText = vi.fn().mockResolvedValue(undefined);
+  openSpy = vi.fn();
+  vi.stubGlobal("open", openSpy);
+});
 
 afterEach(() => {
-  vi.unstubAllGlobals()
-  vi.clearAllMocks()
-})
+  vi.unstubAllGlobals();
+  vi.clearAllMocks();
+});
 
-describe('ShareDialog', () => {
-  it('instagram copies the link before opening instagram', async () => {
-    let resolveWrite: () => void = () => {}
+describe("ShareDialog", () => {
+  it("instagram copies the link before opening instagram", async () => {
+    let resolveWrite: () => void = () => {};
     writeText.mockImplementation(
       () =>
         new Promise<void>((resolve) => {
-          resolveWrite = resolve
-        })
-    )
+          resolveWrite = resolve;
+        }),
+    );
 
-    const user = setupUser()
-    renderDialog()
-    await openDialog(user)
+    const user = setupUser();
+    renderDialog();
+    await openDialog(user);
 
-    await user.click(screen.getByRole('button', { name: share.instagram }))
+    await user.click(screen.getByRole("button", { name: share.instagram }));
 
-    expect(writeText).toHaveBeenCalledWith(ABSOLUTE_URL)
+    expect(writeText).toHaveBeenCalledWith(ABSOLUTE_URL);
     // Nothing is opened until the clipboard write has actually resolved.
-    expect(openSpy).not.toHaveBeenCalled()
+    expect(openSpy).not.toHaveBeenCalled();
 
-    resolveWrite()
+    resolveWrite();
 
-    await waitFor(() => expect(openSpy).toHaveBeenCalled())
-    expect(openSpy.mock.calls[0]?.[0]).toBe('https://www.instagram.com/')
-  })
+    await waitFor(() => expect(openSpy).toHaveBeenCalled());
+    expect(openSpy.mock.calls[0]?.[0]).toBe("https://www.instagram.com/");
+  });
 
-  it('instagram opens nothing when the clipboard is denied', async () => {
-    writeText.mockRejectedValue(new Error('denied'))
+  it("instagram opens nothing when the clipboard is denied", async () => {
+    writeText.mockRejectedValue(new Error("denied"));
 
-    const user = setupUser()
-    renderDialog()
-    await openDialog(user)
+    const user = setupUser();
+    renderDialog();
+    await openDialog(user);
 
-    await user.click(screen.getByRole('button', { name: share.instagram }))
+    await user.click(screen.getByRole("button", { name: share.instagram }));
 
-    await waitFor(() => expect(writeText).toHaveBeenCalled())
-    expect(openSpy).not.toHaveBeenCalled()
-    expect(screen.getByRole('status').textContent).toBe('')
-  })
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(screen.getByRole("status").textContent).toBe("");
+  });
 
-  it('instagram shows the status message after a successful copy', async () => {
-    const user = setupUser()
-    renderDialog()
-    await openDialog(user)
+  it("instagram shows the status message after a successful copy", async () => {
+    const user = setupUser();
+    renderDialog();
+    await openDialog(user);
 
-    await user.click(screen.getByRole('button', { name: share.instagram }))
+    await user.click(screen.getByRole("button", { name: share.instagram }));
 
     await waitFor(() =>
-      expect(screen.getByRole('status')).toHaveTextContent(share.instagramCopied)
-    )
-  })
+      expect(screen.getByRole("status")).toHaveTextContent(
+        share.instagramCopied,
+      ),
+    );
+  });
 
-  it('copy writes the absolute brand url and swaps the label', async () => {
-    const user = setupUser()
-    renderDialog()
-    await openDialog(user)
+  it("copy writes the absolute brand url and swaps the label", async () => {
+    const user = setupUser();
+    renderDialog();
+    await openDialog(user);
 
-    await user.click(screen.getByRole('button', { name: share.copy }))
+    await user.click(screen.getByRole("button", { name: share.copy }));
 
-    expect(writeText).toHaveBeenCalledWith(ABSOLUTE_URL)
+    expect(writeText).toHaveBeenCalledWith(ABSOLUTE_URL);
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: share.copied })).toBeInTheDocument()
-    )
-  })
+      expect(
+        screen.getByRole("button", { name: share.copied }),
+      ).toBeInTheDocument(),
+    );
+  });
 
-  it('channel row offers line threads facebook instagram and not x', async () => {
-    const user = setupUser()
-    renderDialog()
-    await openDialog(user)
+  it("channel row offers line threads facebook instagram and not x", async () => {
+    const user = setupUser();
+    renderDialog();
+    await openDialog(user);
 
-    expect(screen.getByRole('button', { name: share.line })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: share.threads })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: share.facebook })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: share.instagram })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'X' })).not.toBeInTheDocument()
-  })
+    expect(
+      screen.getByRole("button", { name: share.line }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: share.threads }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: share.facebook }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: share.instagram }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "X" })).not.toBeInTheDocument();
+  });
 
-  it('preview card appends the category after the host separator', async () => {
-    const user = setupUser()
-    renderDialog({ categoryLabel: 'Test Category' })
-    await openDialog(user)
+  it("preview card appends the category after the host separator", async () => {
+    const user = setupUser();
+    renderDialog({ categoryLabel: "Test Category" });
+    await openDialog(user);
 
-    expect(screen.getByText(`${HOST} · Test Category`)).toBeInTheDocument()
-  })
+    expect(screen.getByText(`${HOST} · Test Category`)).toBeInTheDocument();
+  });
 
-  it('preview card leaves no dangling separator without a category', async () => {
-    const user = setupUser()
-    renderDialog()
-    await openDialog(user)
+  it("preview card leaves no dangling separator without a category", async () => {
+    const user = setupUser();
+    renderDialog();
+    await openDialog(user);
 
-    expect(screen.getByText(HOST)).toBeInTheDocument()
-    expect(screen.queryByText(new RegExp(`${HOST}\\s*·`))).not.toBeInTheDocument()
-  })
+    expect(screen.getByText(HOST)).toBeInTheDocument();
+    expect(
+      screen.queryByText(new RegExp(`${HOST}\\s*·`)),
+    ).not.toBeInTheDocument();
+  });
 
   // The primitive's own absolute close is now the ONLY close control: the
   // hand-rolled header used to render a second one, and `brand-share.spec.ts`
   // resolves it by SUBSTRING, so two of them is a strict-mode violation in e2e
-  // rather than a visual nit. `common.closeDialog` is read from the message
-  // catalogue so this asserts on the shipped label, not a copy of it.
-  it('renders exactly one close control', async () => {
-    const user = setupUser()
-    renderDialog()
-    await openDialog(user)
+  // rather than a visual nit. `common.closeDialog` is the key the primitive
+  // renders, and it is asserted WHOLE rather than as a substring: `common.close`
+  // ('關閉') matches the shipped '關閉對話框' only by accident, so a retranslation
+  // of either key could quietly leave this counting nothing.
+  it("renders exactly one close control", async () => {
+    const user = setupUser();
+    renderDialog();
+    await openDialog(user);
 
-    const dialog = await findLoadedDialog()
+    const dialog = await findLoadedDialog();
 
     expect(
-      within(dialog).getAllByRole('button', { name: new RegExp(zh.common.close) })
-    ).toHaveLength(1)
-  })
+      within(dialog).getAllByRole("button", { name: zh.common.closeDialog }),
+    ).toHaveLength(1);
+  });
 
   // Share is the acceptance-criterion carve-out: header and body come from the
   // primitives, and there is deliberately NO footer — its copy and channel
   // controls are body content, not footer actions. Pinned so a later pass
   // cannot re-hand-roll a header or invent a footer row.
-  it('uses DialogHeader and DialogBody, and renders no footer', async () => {
-    const user = setupUser()
-    renderDialog()
-    await openDialog(user)
+  it("uses DialogHeader and DialogBody, and renders no footer", async () => {
+    const user = setupUser();
+    renderDialog();
+    await openDialog(user);
 
-    const dialog = await findLoadedDialog()
+    const dialog = await findLoadedDialog();
 
-    expect(dialog.querySelector('[data-slot="dialog-header"]')).not.toBeNull()
-    expect(dialog.querySelector('[data-slot="dialog-body"]')).not.toBeNull()
-    expect(dialog.querySelector('[data-slot="dialog-footer"]')).toBeNull()
-  })
+    expect(dialog.querySelector('[data-slot="dialog-header"]')).not.toBeNull();
+    expect(dialog.querySelector('[data-slot="dialog-body"]')).not.toBeNull();
+    expect(dialog.querySelector('[data-slot="dialog-footer"]')).toBeNull();
+  });
 
-  it('preview card falls back to the brand initial without a hero image', async () => {
-    const user = setupUser()
-    renderDialog()
-    await openDialog(user)
+  it("preview card falls back to the brand initial without a hero image", async () => {
+    const user = setupUser();
+    renderDialog();
+    await openDialog(user);
 
-    expect(screen.getByText(Array.from(BRAND_NAME)[0] as string)).toBeInTheDocument()
-  })
-})
+    expect(
+      screen.getByText(Array.from(BRAND_NAME)[0] as string),
+    ).toBeInTheDocument();
+  });
+});

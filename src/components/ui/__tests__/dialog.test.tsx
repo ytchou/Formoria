@@ -168,6 +168,86 @@ describe("Dialog", () => {
     );
   });
 
+  it("spells the viewport gutter on an axis the size branch cannot outrank", () => {
+    renderDialog(
+      <DialogContent size="wide">
+        <DialogHeader>
+          <DialogTitle>Workspace</DialogTitle>
+        </DialogHeader>
+      </DialogContent>,
+    );
+
+    const classes = slot("dialog-content").className.split(/\s+/);
+
+    // As a max-width the gutter shared both the `sm` media query AND the
+    // `max-width` property with the size branch, and lost: the branch's
+    // selector carries the class plus `[data-size="wide"]` (0,2,0) against the
+    // gutter's class alone (0,1,0), and tailwind-merge keeps both because their
+    // modifier sets differ. A `size="wide"` dialog on a 700px window then took
+    // the full 700px and touched both screen edges. As a WIDTH it sets a
+    // different property, so the two compose instead of competing.
+    expect(classes).toContain("sm:w-[calc(100%-2rem)]");
+    expect(classes).toContain("data-[size=wide]:sm:overlay-wide");
+    expect(classes.filter((cls) => /^sm:max-w-/.test(cls))).toEqual([]);
+  });
+
+  it("a call site can lift the mobile height cap", () => {
+    renderDialog(
+      // What the expo floor map needs: a documented fullscreen exemption that
+      // must reach the top of a phone viewport rather than dock as a sheet.
+      <DialogContent className="max-h-none">
+        <DialogHeader>
+          <DialogTitle>Floor map</DialogTitle>
+        </DialogHeader>
+      </DialogContent>,
+    );
+
+    const classes = slot("dialog-content").className.split(/\s+/);
+
+    // Unprefixed against unprefixed: same tailwind-merge group, same (empty)
+    // modifier set, so the base cap is REMOVED rather than left to fight the
+    // override at equal specificity in an emission order nothing can pin.
+    // `max-h-none` needed registering in `src/lib/utils` for this to hold —
+    // tailwind-merge does not ship `none` in its own `max-h` scale.
+    expect(classes).toContain("max-h-none");
+    expect(classes).not.toContain("max-h-[85dvh]");
+  });
+
+  it("DialogStatus announces its result", () => {
+    renderDialog(
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Report a problem</DialogTitle>
+        </DialogHeader>
+        <DialogStatus message="Thank you — we will take a look." />
+      </DialogContent>,
+    );
+
+    // Every status branch replaces a form in place after an async submit, and
+    // the focused submit button leaves the tree with it. Without a live region
+    // the reader submits and hears nothing.
+    const status = screen.getByRole("status");
+    expect(status).toBe(slot("dialog-status"));
+    expect(status).toHaveTextContent("Thank you — we will take a look.");
+  });
+
+  it("DialogStatus falls back to message when a conditional child renders nothing", () => {
+    renderDialog(
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Report a problem</DialogTitle>
+        </DialogHeader>
+        {/* `{showDetail && <Detail />}` with the flag off: `false` is defined,
+            so `??` kept it and the status rendered empty. */}
+        <DialogStatus message="We could not load this report.">
+          {false}
+        </DialogStatus>
+      </DialogContent>,
+    );
+
+    expect(screen.getByText("We could not load this report.")).toBeTruthy();
+  });
+
   it("DialogFooter does not bleed", () => {
     renderDialog(
       <DialogContent>

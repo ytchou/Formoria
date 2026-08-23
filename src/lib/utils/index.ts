@@ -1,5 +1,5 @@
-import { clsx, type ClassValue } from "clsx"
-import { extendTailwindMerge } from "tailwind-merge"
+import { clsx, type ClassValue } from "clsx";
+import { extendTailwindMerge } from "tailwind-merge";
 
 /**
  * EVERY CUSTOM WIDTH NAME FROM `globals.css`, TAUGHT TO tailwind-merge.
@@ -53,12 +53,19 @@ const twMerge = extendTailwindMerge({
         "overlay-wide",
         "content-column",
       ],
+      // NOT A CUSTOM NAME — A HOLE IN tailwind-merge's OWN SCALE. Its `max-h`
+      // group has no `none`, so `cn("max-h-[85dvh]", "max-h-none")` kept BOTH
+      // caps at equal specificity and the winner was emission order. Every
+      // other max-height value collapses correctly (`max-h-96`,
+      // `max-h-[100dvh]`); only `none` did not, and `none` is exactly what a
+      // call site writes to lift `DialogContent`'s mobile cap.
+      "max-h": ["max-h-none"],
     },
   },
-})
+});
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
 }
 
 /**
@@ -69,13 +76,16 @@ export function cn(...inputs: ClassValue[]) {
  * `random` is injectable so a caller's ordering can be asserted with a stubbed
  * generator instead of a statistical guess about `Math.random`.
  */
-export function shuffle<T>(items: T[], random: () => number = Math.random): T[] {
-  const result = [...items]
+export function shuffle<T>(
+  items: T[],
+  random: () => number = Math.random,
+): T[] {
+  const result = [...items];
   for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1))
-    const swap = result[i]
-    result[i] = result[j]
-    result[j] = swap
+    const j = Math.floor(random() * (i + 1));
+    const swap = result[i];
+    result[i] = result[j];
+    result[j] = swap;
   }
-  return result
+  return result;
 }

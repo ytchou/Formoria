@@ -3,7 +3,12 @@ import { join, relative } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { collectSources } from "@/test/source-scan";
+import {
+  balanced,
+  collectSources,
+  PRIMITIVE_DIR,
+  stripComments,
+} from "@/test/source-scan";
 
 /**
  * THE OVERLAY SHELL OWNS ITS OWN BOX.
@@ -16,9 +21,13 @@ import { collectSources } from "@/test/source-scan";
  * how a `sm:max-w-lg` copied between files quietly became the house default
  * nobody had chosen.
  *
- * THERE IS ONE EXCLUSION, and it is a presentation the rule does not cover, not
- * a file that was too hard to migrate. Anything else that does not fit the
- * `size` axis is a new size, not a call site wearing overrides.
+ * EVERY EXCLUSION IS LISTED IN `SHELL_BOX_EXCLUSIONS` WITH ITS OWN REASON, and
+ * each one is a presentation the rule does not cover, not a file that was too
+ * hard to migrate. The count is deliberately not written out here or in the
+ * test names below: prose that counts rows drifts the moment a row is added,
+ * and this docblock claimed "one" for as long as the list held two. Read the
+ * list. Anything in it that does not fit the `size` axis is a new size, not a
+ * call site wearing overrides.
  *
  * SCOPE: only what `size` actually owns.
  *   width    max-w-*      -> size
@@ -51,17 +60,10 @@ const SHELL_OWNED_BOX =
   /(?<![\w-])(?:max-w|max-h|overflow-y|grid-rows)-[\w[\]().,%/+*-]+(?![\w-])/g;
 
 /**
- * `src/components/ui/**` is where the shells themselves live, so it is where
- * these classes are supposed to be written. Structural boundary, the same one
- * `eslint.config.mjs` draws — not a per-file permission.
- */
-const PRIMITIVE_DIR = "src/components/ui/";
-
-/**
  * The exemptions, each with the reason it is not drift.
  *
- * Both are paths, and a path rots: rename or delete either file and the filter
- * silently stops excluding anything, so the second test below asserts they are
+ * Every entry is a path, and a path rots: rename or delete a file and the
+ * filter silently stops excluding it, so the second test below asserts they are
  * all still present. Adding a row here is a design decision, not a way to get
  * a red test green.
  */
@@ -86,31 +88,10 @@ const SHELL_BOX_EXCLUSIONS: { path: string; reason: string }[] = [
     // narrowed to the file rather than made a general "unprefixed max-w is fine"
     // rule, because that rule would let a bare `max-w-lg` back into every dialog.
     path: "src/components/brands/brand-filter-sidebar.tsx",
-    reason: "mobile drawer width below `sm`, which the size axis does not cover",
+    reason:
+      "mobile drawer width below `sm`, which the size axis does not cover",
   },
 ];
-
-/** Blank out comments, preserving offsets — a prose comment naming a class
- *  ("no longer needs `max-w-lg`") otherwise parses as a string literal and gets
- *  reported as the very violation it describes. */
-function stripComments(text: string): string {
-  return text
-    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))
-    .replace(/\/\/[^\n]*/g, (m) => " ".repeat(m.length));
-}
-
-/** Capture a balanced region starting at `i`, counting `open`/`close`. */
-function balanced(src: string, i: number, open: string, close: string): string | null {
-  let depth = 0;
-  for (let j = i; j < src.length; j++) {
-    if (src[j] === open) depth++;
-    else if (src[j] === close) {
-      depth--;
-      if (depth === 0) return src.slice(i, j + 1);
-    }
-  }
-  return null;
-}
 
 type Violation = { file: string; line: number; classes: string[] };
 
@@ -139,7 +120,8 @@ function findViolations(file: string): Violation[] {
           ? balanced(rest, rest.indexOf("{"), "{", "}")
           : rest.slice(rest.indexOf(open[1]));
       if (!raw) continue;
-      const scoped = open[1] === "{" ? raw : raw.slice(0, raw.indexOf(open[1], 1) + 1);
+      const scoped =
+        open[1] === "{" ? raw : raw.slice(0, raw.indexOf(open[1], 1) + 1);
 
       for (const q of scoped.matchAll(/'([^']*)'|"([^"]*)"|`([^`]*)`/g)) {
         const value = q[1] ?? q[2] ?? q[3] ?? "";
@@ -177,17 +159,21 @@ describe("dialog shell contract", () => {
       .filter((file) => !file.includes(PRIMITIVE_DIR))
       .filter((file) => !excluded.has(relative(process.cwd(), file)))
       .flatMap(findViolations)
-      .map((v) => `${relative(process.cwd(), v.file)}:${v.line}  ${v.classes.join(" ")}`);
+      .map(
+        (v) =>
+          `${relative(process.cwd(), v.file)}:${v.line}  ${v.classes.join(" ")}`,
+      );
 
     expect(offenders).toEqual([]);
   });
 
   /**
    * If an excluded file is renamed or deleted, the filter silently stops
-   * excluding anything and the hole grows by exactly one unexamined file. This
-   * makes that rename fail loudly here instead.
+   * excluding it and the hole grows by exactly one unexamined file. This makes
+   * that rename fail loudly here instead. Named for the list rather than for a
+   * number, so adding a row cannot make the name a lie.
    */
-  it("the excluded path still exists", () => {
+  it("every excluded path still exists", () => {
     const missing = SHELL_BOX_EXCLUSIONS.filter(
       (e) => !existsSync(join(process.cwd(), e.path)),
     ).map((e) => `${e.path} (${e.reason})`);
