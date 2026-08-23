@@ -17,6 +17,27 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const MUTATING_METHODS = new Set(["insert", "update", "upsert", "delete"]);
 
+/**
+ * Every storage-js bucket method this wrapper will let through. An ALLOW-list,
+ * deliberately: this client points at PRODUCTION, so a storage-js release that
+ * adds a new writing method must fail closed rather than pass through unnamed.
+ * A deny-list gets that backwards — it is safe only until the SDK grows a verb
+ * nobody updated it for.
+ *
+ * `createSignedUploadUrl` is absent for the same reason it would head a
+ * deny-list: handing out an upload token is a write with a delay, not a read.
+ * Add a method here only after confirming it cannot mutate an object.
+ */
+const READABLE_STORAGE_METHODS = new Set([
+  "download",
+  "list",
+  "info",
+  "exists",
+  "getPublicUrl",
+  "createSignedUrl",
+  "createSignedUrls",
+]);
+
 export type BlockedWrite = { table: string; method: string };
 
 /**
@@ -158,20 +179,45 @@ export function createWriteBlockingClient(
         };
       }
 
-      // Storage uploads and RPCs are writes we cannot inspect argument-by-argument,
-      // so they are refused outright rather than approximated.
+      // Storage mutations and RPCs are writes we cannot inspect
+      // argument-by-argument, so they are refused outright rather than
+      // approximated. Named storage READS pass through to the real bucket:
+      // copying production objects into staging (`sync-staging-from-prod.ts`)
+      // has to download from a client that structurally cannot write, and a
+      // read is exactly what this wrapper exists to allow.
       if (prop === "storage") {
+        const realStorage = target.storage;
         return {
-          from: () => ({
-            upload: async () => {
-              blocked.push({ table: "storage", method: "upload" });
-              return { data: null, error: null };
-            },
-            remove: async () => {
-              blocked.push({ table: "storage", method: "remove" });
-              return { data: null, error: null };
-            },
-          }),
+          from: (bucket: string) => {
+            const realBucket = realStorage.from(bucket);
+            return new Proxy(realBucket, {
+              get(bucketTarget, bucketProp, bucketReceiver) {
+                const value = Reflect.get(
+                  bucketTarget,
+                  bucketProp,
+                  bucketReceiver,
+                );
+                // Non-methods carry no write, and letting them through keeps
+                // the bucket object introspectable.
+                if (typeof value !== "function") {
+                  return value;
+                }
+                if (
+                  typeof bucketProp !== "string" ||
+                  !READABLE_STORAGE_METHODS.has(bucketProp)
+                ) {
+                  return async (..._args: unknown[]) => {
+                    blocked.push({
+                      table: "storage",
+                      method: String(bucketProp),
+                    });
+                    return { data: null, error: null };
+                  };
+                }
+                return value.bind(bucketTarget);
+              },
+            });
+          },
         };
       }
       if (prop === "rpc") {
