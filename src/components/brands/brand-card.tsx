@@ -32,6 +32,8 @@ interface BrandCardProps {
   sourceBrandSlug?: string
   /** Stable analytics identifier for the list or rail containing this card. */
   listSource?: string
+  /** Internal image candidate hint for a surface with a custom card width. */
+  imageSizes?: string
   /**
    * Editorial variant only: the author's line about this brand, shown in place
    * of the generated blurb so a story's own voice wins over directory copy.
@@ -48,6 +50,7 @@ export function BrandCard({
   variant = 'directory',
   sourceBrandSlug,
   listSource,
+  imageSizes,
   note,
   eyebrow,
 }: BrandCardProps) {
@@ -96,6 +99,7 @@ export function BrandCard({
             alt=""
             fill
             preload={preload}
+            sizes={imageSizes}
             className={cn('transition-transform group-hover:scale-[1.02]', imageFill)}
             surface="card"
             onError={() => setImgError(true)}
