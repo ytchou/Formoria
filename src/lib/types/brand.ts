@@ -88,7 +88,6 @@ export type Brand = {
   categorySlug?: string | null
   city: string | null
   categoryLabel: string | null
-  isVerified: boolean
   mitStatus?: MitStatus
   mitDeclaredScope?: 'all' | 'most' | 'some' | null
   mitDeclaredAt?: string | null
@@ -128,7 +127,7 @@ export type BrandFilters = {
    */
   materials?: string[]
   priceRanges?: (1 | 2 | 3)[]
-  verificationFilter?: 'all' | 'mit-verified' | 'mit-declared' | 'owned'
+  verificationFilter?: 'all' | 'mit-verified' | 'mit-declared'
   search?: string
   sort?: BrandSortOption
   limit?: number

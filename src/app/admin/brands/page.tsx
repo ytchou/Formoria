@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
 import { getBrands, toAdminListContract } from '@/lib/services/brands'
-import { getApprovedOwnerSubmissionRecipients } from '@/lib/services/submissions'
 import { BrandList } from '@/components/admin/brand-list'
 import { getAdminBrandReviewImages } from '@/lib/services/admin-brand-review'
 
@@ -31,12 +30,6 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
     includeDetailColumns: true,
   })
   const brands = internalBrands.map(toAdminListContract)
-  const resendableBrandIds = brands
-    .filter((brand) => brand.status === 'approved' && !brand.isVerified)
-    .map((brand) => brand.id)
-  const claimInviteRecipients = await getApprovedOwnerSubmissionRecipients(
-    resendableBrandIds
-  )
   const reviewImagesByBrandId = await getAdminBrandReviewImages(
     brands.map((brand) => brand.id)
   )
@@ -60,7 +53,6 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
         <BrandList
           brands={brands}
           reviewImagesByBrandId={reviewImagesByBrandId}
-          claimInviteBrandIds={[...claimInviteRecipients.keys()]}
           initialEditingBrandId={first(query.edit)}
           initialSearchQuery={first(query.search)}
           initialTab={initialTab}

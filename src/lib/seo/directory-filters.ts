@@ -33,7 +33,7 @@ function parsePriceRanges(value: string | string[] | undefined): (1 | 2 | 3)[] {
 function parseVerificationParam(
   value: string | string[] | undefined,
 ): NonNullable<BrandFilters['verificationFilter']> {
-  return value === 'mit-verified' || value === 'mit-declared' || value === 'owned' || value === 'all'
+  return value === 'mit-verified' || value === 'mit-declared' || value === 'all'
     ? value
     : 'all'
 }

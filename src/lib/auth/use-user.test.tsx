@@ -13,9 +13,7 @@ vi.mock('next/navigation', () => ({ usePathname: () => '/' }))
 const { ViewerProvider, useUser } = await import('./use-user')
 
 const ADMIN_VIEWER: ViewerContext = {
-  hasOwnedBrand: false,
   isAdmin: true,
-  ownerFeaturesEnabled: true,
 }
 
 function renderViewer() {
@@ -89,8 +87,6 @@ describe('ViewerProvider', () => {
     // privilege. `viewerError` is what makes this distinguishable from a
     // legitimate "resolved, not an admin" — without it both are silence.
     expect(result.current.viewer.isAdmin).toBe(false)
-    expect(result.current.viewer.hasOwnedBrand).toBe(false)
-    expect(result.current.viewer.ownerFeaturesEnabled).toBe(false)
     expect(result.current.viewerError).toBe(true)
   })
 

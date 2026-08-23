@@ -28,7 +28,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     description: "Natural body care with camellia seed oil",
     heroImageUrl: "https://example.com/hero.jpg",
     status: "approved",
-    isVerified: false,
     isDemo: false,
     categorySlug: "food-drink",
     categoryLabel: "Food & Beverage",

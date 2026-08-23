@@ -5,8 +5,6 @@ import type { Locale } from '@/lib/seo/alternates'
 import { buildOpenGraph } from '@/lib/seo/open-graph'
 import { createClient } from '@/lib/supabase/server'
 import SubmitOverview from '@/components/submit/SubmitOverview'
-import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
-import { getUserBrand } from '@/lib/services/brand-owners'
 import { routes } from '@/lib/routes'
 
 type SubmitPageProps = {
@@ -50,17 +48,11 @@ export default async function SubmitPage({ params }: SubmitPageProps) {
   } = await supabase.auth.getUser()
 
   const isLoggedIn = !error && !!user
-  const hasOwnedBrand = isLoggedIn ? Boolean(await getUserBrand(user.id)) : false
-  // This page is already dynamic (it reads the session), so the flag can be
-  // resolved server-side and handed to the presentational overview.
-  const ownerFeaturesEnabled = await isOwnerFeaturesEnabled()
 
   return (
     <SubmitOverview
       recommendPath={routes.submit.recommend()}
       isLoggedIn={isLoggedIn}
-      hasOwnedBrand={hasOwnedBrand}
-      ownerFeaturesEnabled={ownerFeaturesEnabled}
     />
   )
 }

@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { NextIntlClientProvider } from 'next-intl';
 import zhMessages from '../../../messages/zh-TW.json';
@@ -9,15 +8,6 @@ import SubmitOverview from './SubmitOverview';
 vi.mock('@/lib/analytics', () => ({
   trackSubmissionPathSelected: vi.fn(),
 }))
-
-const { push, toastError } = vi.hoisted(() => ({
-  push: vi.fn(),
-  toastError: vi.fn(),
-}));
-
-vi.mock('sonner', () => ({
-  toast: { error: toastError },
-}));
 
 vi.mock('@/i18n/navigation', () => ({
   Link: ({
@@ -35,7 +25,6 @@ vi.mock('@/i18n/navigation', () => ({
       {children}
     </a>
   ),
-  useRouter: () => ({ push }),
 }));
 
 function renderWithZhTW(ui: React.ReactElement) {
@@ -59,7 +48,7 @@ describe('SubmitOverview', () => {
   });
 
   it('explains the owner submission path with concise copy', () => {
-    renderWithZhTW(<SubmitOverview ownerFeaturesEnabled />);
+    renderWithZhTW(<SubmitOverview />);
 
     expect(
       screen.getByText('與社群分享你喜歡的台灣品牌，我們會審核後收錄進品牌目錄。'),
@@ -78,17 +67,11 @@ describe('SubmitOverview', () => {
     expect(cta).toHaveAttribute('href', '/submit/recommend');
   });
 
-  it('renders owner CTA behind sign-in when logged out', () => {
-    renderWithZhTW(<SubmitOverview ownerFeaturesEnabled />);
-    const cta = screen.getByRole('link', { name: /登入後開始/i });
-    expect(cta).toHaveAttribute('href', '/auth/sign-in?next=%2Fsubmit%2Fowner');
-  });
+  it('shows the owner fork as coming soon, with no way in', () => {
+    renderWithZhTW(<SubmitOverview />);
 
-  it('shows the owner fork as coming soon, with no way in, when owner features are disabled', () => {
-    renderWithZhTW(<SubmitOverview ownerFeaturesEnabled={false} />);
-
-    // The card keeps its slot so enabling the flag never re-lays out the page,
-    // but it must offer no route into a fork that 404s.
+    // The card keeps its slot so the page keeps its two-column layout, but the
+    // owner fork was removed (DEV-1570) and must offer no route into it.
     expect(
       screen.getByRole('heading', { level: 2, name: '開始創建完整品牌資訊' }),
     ).toBeInTheDocument();
@@ -99,8 +82,8 @@ describe('SubmitOverview', () => {
     ).toHaveAttribute('href', '/submit/recommend');
   });
 
-  it('offers a signed-in visitor no owner action when owner features are disabled', () => {
-    renderWithZhTW(<SubmitOverview isLoggedIn ownerFeaturesEnabled={false} />);
+  it('offers a signed-in visitor no owner action', () => {
+    renderWithZhTW(<SubmitOverview isLoggedIn />);
 
     expect(document.querySelector('a[href*="/submit/owner"]')).toBeNull();
     expect(
@@ -108,96 +91,4 @@ describe('SubmitOverview', () => {
     ).not.toBeInTheDocument();
     expect(screen.getByText('即將推出')).toBeInTheDocument();
   });
-
-  it('directs an existing owner to the recommendation flow from a dialog', async () => {
-    const user = userEvent.setup();
-    renderWithZhTW(
-      <SubmitOverview isLoggedIn hasOwnedBrand ownerFeaturesEnabled />,
-    );
-
-    const trigger = screen.getByRole('button', { name: ownerCtaLoggedIn });
-    await user.click(trigger);
-
-    const dialog = screen.getByRole('alertdialog');
-    expect(dialog).toHaveTextContent('這個帳號已經管理一個品牌');
-    expect(dialog).toHaveTextContent(
-      '每個帳號只能管理一個品牌，因此無法再透過品牌主流程建立另一個品牌頁。若想分享其他品牌，請改用社群推薦流程。',
-    );
-
-    await user.click(screen.getByRole('button', { name: '前往推薦品牌' }));
-
-    expect(push).toHaveBeenCalledWith('/submit/recommend');
-    expect(document.querySelector('a[href*="/submit/owner"]')).toBeNull();
-  });
-
-  it('closes without replacing the underlying submit overview and restores focus', async () => {
-    const user = userEvent.setup();
-    renderWithZhTW(
-      <SubmitOverview isLoggedIn hasOwnedBrand ownerFeaturesEnabled />,
-    );
-    const trigger = screen.getByRole('button', { name: ownerCtaLoggedIn });
-
-    await user.click(trigger);
-    await user.click(screen.getByRole('button', { name: '取消' }));
-
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
-    expect(trigger).toHaveFocus();
-  });
-
-  it('closes with Escape and restores focus to the owner action', async () => {
-    const user = userEvent.setup();
-    renderWithZhTW(
-      <SubmitOverview isLoggedIn hasOwnedBrand ownerFeaturesEnabled />,
-    );
-    const trigger = screen.getByRole('button', { name: ownerCtaLoggedIn });
-
-    await user.click(trigger);
-    await user.keyboard('{Escape}');
-
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-    expect(trigger).toHaveFocus();
-  });
-
-  it('keeps the restriction dialog open when recommendation navigation fails', async () => {
-    const user = userEvent.setup();
-    push.mockImplementationOnce(() => {
-      throw new Error('navigation failed');
-    });
-    renderWithZhTW(
-      <SubmitOverview isLoggedIn hasOwnedBrand ownerFeaturesEnabled />,
-    );
-
-    await user.click(screen.getByRole('button', { name: ownerCtaLoggedIn }));
-    await user.click(screen.getByRole('button', { name: '前往推薦品牌' }));
-
-    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
-    expect(toastError).toHaveBeenCalledWith(
-      '目前無法前往推薦流程，請再試一次。',
-    );
-  });
-
-  // An alert dialog never carries an X. This one used to carry a hand-rolled
-  // one on top of the footer Cancel, which put two identical dismissals in the
-  // tab order. The footer Cancel is the only dismissal control left; Escape
-  // and the backdrop still work, which the two tests above hold.
-  it('renders no close icon button', async () => {
-    const user = userEvent.setup();
-    renderWithZhTW(
-      <SubmitOverview isLoggedIn hasOwnedBrand ownerFeaturesEnabled />,
-    );
-
-    await user.click(screen.getByRole('button', { name: ownerCtaLoggedIn }));
-    const dialog = screen.getByRole('alertdialog');
-
-    const dismissals = Array.from(
-      dialog.querySelectorAll('[data-slot="alert-dialog-cancel"]'),
-    );
-    expect(dismissals).toHaveLength(1);
-    expect(dismissals[0]).toHaveTextContent('取消');
-    expect(
-      screen.queryByRole('button', { name: '關閉' }),
-    ).not.toBeInTheDocument();
-  });
-
 });

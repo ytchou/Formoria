@@ -7,12 +7,7 @@ import * as tokens from "@emails/styles";
 import { BrandCard } from "@emails/components/brand-card";
 import { buildApprovalEmail } from "@emails/templates/submission-approved";
 import { buildRejectionEmail } from "@emails/templates/submission-rejected";
-import { buildClaimEmail } from "@emails/templates/claim-submitted";
-import { buildClaimApprovedEmail } from "@emails/templates/claim-approved";
-import { buildClaimRejectedEmail } from "@emails/templates/claim-rejected";
-import { buildClaimEmailVerificationEmail } from "@emails/templates/claim-verified";
 import { buildDeclarationRemovedEmail } from "@emails/templates/declaration-removed";
-import { buildOwnershipRevokedEmail } from "@emails/templates/ownership-revoked";
 import { buildNewsletterConfirmEmail } from "@emails/templates/newsletter-confirm";
 
 /**
@@ -72,39 +67,11 @@ async function renderEveryTemplate(): Promise<Array<[string, string]>> {
       denialReason: "other",
       reviewerNotes: "需要補充產地資料。",
     }),
-    buildClaimEmail({
-      submitterEmail: "owner@formoria.com",
-      brandName: "測試品牌",
-      claimUrl: `${SITE}/claim/abc`,
-    }),
-    buildClaimApprovedEmail({
-      ownerEmail: "owner@formoria.com",
-      brandName: "測試品牌",
-      brandSlug: "test-brand",
-      siteUrl: SITE,
-    }),
-    buildClaimRejectedEmail({
-      ownerEmail: "owner@formoria.com",
-      brandName: "測試品牌",
-      reviewerNotes: "資料不足。",
-      siteUrl: SITE,
-    }),
-    buildClaimEmailVerificationEmail({
-      recipientEmail: "owner@formoria.com",
-      brandName: "測試品牌",
-      verifyUrl: `${SITE}/claim/verify?token=abc`,
-      siteUrl: SITE,
-    }),
     buildDeclarationRemovedEmail({
       ownerEmail: "owner@formoria.com",
       brandName: "測試品牌",
       brandSlug: "test-brand",
       reviewerNotes: "產地證據不足。",
-    }),
-    buildOwnershipRevokedEmail({
-      ownerEmail: "owner@formoria.com",
-      brandName: "測試品牌",
-      reason: "重複認領。",
     }),
     buildNewsletterConfirmEmail({
       to: "reader@formoria.com",

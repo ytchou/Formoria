@@ -97,7 +97,7 @@ vi.mock("@/lib/auth/use-user", () => ({
   useUser: () => ({
     user: null,
     loading: false,
-    viewer: { hasOwnedBrand: false, isAdmin: false },
+    viewer: { isAdmin: false },
     viewerLoading: false,
     viewerError: false,
     refreshViewer: vi.fn(),
@@ -253,7 +253,6 @@ function buildBrand(index: number): PublicBrandCard {
     heroImageUrl: null,
     status: "approved",
     category: "home",
-    isVerified: false,
     priceRange: null,
     subcategories: [],
     subcategoriesEn: [],

@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 import {
   MitDeclaredBadge,
   MitVerifiedBadge,
-  OwnerVerifiedBadge,
 } from "./brand-verification-badges";
 import { CorrectionDialog } from "./correction-dialog";
 
@@ -36,9 +35,7 @@ export function BrandHeader({
   const t = useTranslations("brandDetail");
   const hasMitDeclaredBadge = brand.mitStatus === "declared";
   const hasMitVerifiedBadge = brand.mitStatus === "verified";
-  const hasOwnerVerifiedBadge = brand.isVerified;
-  const hasVerification =
-    hasMitDeclaredBadge || hasMitVerifiedBadge || hasOwnerVerifiedBadge;
+  const hasVerification = hasMitDeclaredBadge || hasMitVerifiedBadge;
   const mitSmileCert = hasMitVerifiedBadge
     ? brand.mitCertificateNumber
     : undefined;
@@ -109,12 +106,6 @@ export function BrandHeader({
               <MitVerifiedBadge
                 label={t("mitVerified")}
                 title={t("mitVerifiedTitle")}
-              />
-            )}
-            {hasOwnerVerifiedBadge && (
-              <OwnerVerifiedBadge
-                label={t("verified")}
-                title={t("verifiedTitle")}
               />
             )}
             {mitSmileCert && (

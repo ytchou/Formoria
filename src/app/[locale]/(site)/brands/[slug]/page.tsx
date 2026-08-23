@@ -28,7 +28,6 @@ import { ImageCarousel } from "@/components/brands/image-carousel";
 import { BrandHeader } from "@/components/brands/brand-header";
 import { BrandActions } from "@/components/brands/brand-actions";
 import { AdminBrandMenu } from "@/components/brands/admin-brand-menu";
-import { ClaimBrandCta } from "@/components/brands/claim-brand-cta";
 import { BrandAbout } from "@/components/brands/brand-about";
 import { BrandFaqAccordion } from "@/components/brands/brand-faq-accordion";
 import { BrandLinks } from "@/components/brands/brand-links";
@@ -372,14 +371,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
                   />
                 }
               />
-              {!displayBrand.isVerified && (
-                <div className="mt-8">
-                  <ClaimBrandCta
-                    brandId={displayBrand.id}
-                    brandSlug={displayBrand.slug}
-                  />
-                </div>
-              )}
             </div>
           </div>
 

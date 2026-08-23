@@ -4,38 +4,16 @@ import { runWithAuditContext } from '@/lib/audit/context'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { getTranslations } from 'next-intl/server'
-import { z } from 'zod/v3'
 import { requireClaimUser } from '@/lib/auth/claim-user'
-import { getSiteUrl } from '@/lib/auth/site-url'
-import { sendEmail } from '@/lib/email/send'
-import { buildClaimEmailVerificationEmail } from '@/lib/email/templates'
 import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
-import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
-import { getBrandById } from '@/lib/services/brands'
-import {
-  CLAIM_PROOF_TYPES,
-  createClaimRequest,
-  hasPendingClaim,
-  type ProofEvidence,
-} from '@/lib/services/claim-requests'
 import { createReport } from '@/lib/services/reports'
 import {
   createEvidence,
   type OriginEvidenceSourceType,
   type OriginEvidenceStance,
 } from '@/lib/services/origin-evidence'
-import { enrollInMarketingEmails } from '@/lib/services/marketing-email-consent'
-import {
-  setOwnerStockistStatus,
-  submitStockist,
-} from '@/lib/services/stockists'
-import {
-  revalidateLocalizedPath,
-  revalidatePublicBrands,
-  revalidatePublicStockists,
-} from '@/lib/cache/public-brand-cache'
-import { isOwnerOf } from '@/lib/services/brand-owners'
-import { createServiceClient } from '@/lib/supabase/service'
+import { submitStockist } from '@/lib/services/stockists'
+import { revalidateLocalizedPath } from '@/lib/cache/public-brand-cache'
 import { trackOriginEvidenceSubmitted } from '@/lib/analytics'
 import { routes } from '@/lib/routes'
 
@@ -51,10 +29,6 @@ const AUTHENTICATED_REPORT_REASONS: readonly SubmitReportReason[] = [
   'ownership_dispute',
   'removal_request',
 ]
-type Translator = Awaited<
-  ReturnType<typeof getTranslations<'brandDetail.claim.errors'>>
->
-
 export type ReportState = { error?: string; success?: boolean }
 
 const EVIDENCE_STANCES = ['supports', 'contradicts'] as const
@@ -83,17 +57,6 @@ export type EvidenceState = { error?: EvidenceErrorCode; success?: boolean }
 
 export type StockistFormState = { error?: string; success?: true }
 
-export type SubmitClaimInput = {
-  brandId: string
-  proofs: ProofEvidence[]
-  mitSmileCert?: string
-  locale?: 'zh-TW' | 'en'
-  marketingEmailOptIn?: boolean
-}
-
-export type SubmitClaimResult =
-  { ok: true; domainEmailVerificationSentTo?: string } | { error: string }
-
 const reportRateLimiter = createInMemoryRateLimiter()
 
 function getFormString(formData: FormData, key: string): string {
@@ -110,10 +73,11 @@ export async function getStockistViewerStateAction(
   brandId: string,
 ): Promise<{ isOwner: boolean }> {
   return runWithAuditContext({}, async () => {
-    const user = await requireClaimUser()
-    if (!user) return { isOwner: false }
-
-    return { isOwner: await isOwnerOf(user.id, brandId) }
+    // Brand ownership was parked with the claim flow (DEV-1570): nobody can
+    // become an owner, so the owner moderation controls never render. The action
+    // stays so the client keeps a single, unchanged call site.
+    void brandId
+    return { isOwner: false }
   })
 }
 
@@ -153,189 +117,6 @@ export async function submitStockistInfoAction(
     } catch (error) {
       console.error('[brands:submitStockistInfo]', error)
       return { error: t('unknown') }
-    }
-  })
-}
-
-export async function ownerModerateStockistAction(
-  stockistId: string,
-  brandSlug: string,
-  status: 'confirmed' | 'rejected',
-): Promise<{ success: true } | { error: string }> {
-  return runWithAuditContext({}, async () => {
-    try {
-      const user = await requireClaimUser()
-      if (!user) return { error: 'not_logged_in' }
-
-      const result = await setOwnerStockistStatus(user.id, stockistId, status)
-      if (!result.ok) return { error: result.code }
-
-      revalidatePublicBrands([brandSlug])
-      revalidatePublicStockists(result.city)
-      return { success: true }
-    } catch (error) {
-      console.error('[brands:ownerModerateStockist]', error)
-      return { error: 'unknown' }
-    }
-  })
-}
-
-export async function getPendingClaimStatusAction(
-  brandId: string,
-): Promise<boolean> {
-  return runWithAuditContext({}, async () => {
-    // Owner-features kill switch: no claim can be pending while claiming is off,
-    // so report the same "nothing pending" state as a signed-out visitor.
-    if (!(await isOwnerFeaturesEnabled())) return false
-
-    const user = await requireClaimUser()
-    return user ? hasPendingClaim(user.id, brandId) : false
-  })
-}
-
-function buildFieldSchemas(t: Translator) {
-  const proofSchema = z
-    .object({
-      type: z.enum(CLAIM_PROOF_TYPES, {
-        errorMap: () => ({ message: t('invalidProofType') }),
-      }),
-      url: z.string().trim().optional(),
-      imageKey: z.string().trim().optional(),
-      note: z.string().trim().optional(),
-    })
-    .superRefine((proof, ctx) => {
-      if (proof.type === 'domain_email') {
-        const emailResult = z.string().email().safeParse(proof.url)
-        if (!emailResult.success) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['url'],
-            message: t('invalidProofEmail'),
-          })
-        }
-        return
-      }
-
-      if (
-        (proof.type === 'backend_screenshot' ||
-          proof.type === 'business_doc') &&
-        !proof.imageKey
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['imageKey'],
-          message: t('proofEvidenceRequired'),
-        })
-      }
-    })
-
-  return {
-    brandId: z.string().trim().min(1, t('missingBrandId')),
-    proofs: z.array(proofSchema).min(1, t('proofsMin')),
-    mitSmileCert: z.string().trim().optional(),
-    locale: z.enum(['zh-TW', 'en']).optional(),
-    marketingEmailOptIn: z.boolean().optional().default(false),
-  }
-}
-
-function getSubmitClaimSchema(t: Translator) {
-  const fields = buildFieldSchemas(t)
-  return z.object(fields)
-}
-
-export async function submitClaimAction(
-  input: SubmitClaimInput,
-): Promise<SubmitClaimResult> {
-  return runWithAuditContext({}, async () => {
-    const t = await getTranslations('brandDetail.claim.errors')
-    // Owner-features kill switch: refuse before auth so a stale client that still
-    // holds the claim dialog cannot write while the surface is hidden.
-    if (!(await isOwnerFeaturesEnabled())) return { error: t('unknown') }
-
-    try {
-      const user = await requireClaimUser()
-      if (!user) return { error: t('notLoggedIn') }
-
-      const parsed = getSubmitClaimSchema(t).safeParse(input)
-      if (!parsed.success) {
-        return { error: parsed.error.issues[0]?.message ?? t('unknown') }
-      }
-
-      const imageNamespace = `claim-proofs/${user.id}/`
-      const invalidImageKey = parsed.data.proofs.find(
-        (proof) => proof.imageKey && !proof.imageKey.startsWith(imageNamespace),
-      )
-      if (invalidImageKey) {
-        return { error: t('invalidImageKey') }
-      }
-
-      const brand = await getBrandById(parsed.data.brandId)
-
-      const claimRequest = await createClaimRequest({
-        userId: user.id,
-        brandId: parsed.data.brandId,
-        proofEvidence: parsed.data.proofs,
-        mitSmileCert: parsed.data.mitSmileCert || undefined,
-      })
-
-      const locale = parsed.data.locale ?? 'zh-TW'
-      const siteUrl = getSiteUrl().replace(/\/$/, '')
-
-      for (const verification of claimRequest.emailVerificationTokens) {
-        const params = new URLSearchParams({
-          cr: claimRequest.id,
-          i: String(verification.proofIndex),
-          token: verification.token,
-          locale,
-        })
-        const verifyUrl = `${siteUrl}/api/claim/verify-email?${params.toString()}`
-
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('[claim-email-verification]', verifyUrl)
-        }
-
-        await sendEmail(
-          await buildClaimEmailVerificationEmail({
-            recipientEmail: verification.email,
-            brandName: brand.name,
-            verifyUrl,
-            siteUrl,
-            locale,
-          }),
-        )
-      }
-
-      if (parsed.data.marketingEmailOptIn && user.email) {
-        await enrollInMarketingEmails(createServiceClient(), {
-          email: user.email,
-          userId: user.id,
-          locale,
-          source: 'brand_claim',
-          newsletter: true,
-        })
-      }
-
-      revalidatePath(routes.admin.index())
-      revalidatePath(routes.admin.claims())
-      return {
-        ok: true,
-        ...(claimRequest.emailVerificationTokens[0]
-          ? {
-              domainEmailVerificationSentTo:
-                claimRequest.emailVerificationTokens[0].email,
-            }
-          : {}),
-      }
-    } catch (err) {
-      console.error('[brands:submitClaim]', err)
-
-      if ((err as { code?: string }).code === '23505') {
-        return { error: t('duplicate') }
-      }
-
-      return {
-        error: err instanceof Error ? err.message : t('unknown'),
-      }
     }
   })
 }

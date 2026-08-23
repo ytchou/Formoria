@@ -187,7 +187,6 @@ export const EXCLUDED_SOURCE_FILES = new Map([
   ["lib/services/enrich-validators.ts", "AI-slop detector regexes"],
   ["lib/seo/search-console/segmentation.ts", "query-clustering regexes"],
   ["lib/services/mit-registry.ts", "government CSV column headers"],
-  ["lib/services/mit-verification.ts", "legal-entity suffix normalisation"],
   [
     "lib/brands/stockist-display.ts",
     "retailer noise words stripped before display",

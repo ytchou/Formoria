@@ -11,9 +11,6 @@ type MarketingConsentSource =
   | 'guest_recommendation'
   | 'account_signup'
   | 'google_signup'
-  | 'owner_quick_submission'
-  | 'owner_detailed_submission'
-  | 'brand_claim'
   | 'settings'
 
 export type MarketingEnrollmentInput = {

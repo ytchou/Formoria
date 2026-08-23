@@ -8,24 +8,18 @@ import {
   createRecommendationSubmissionSchema,
   type SubmissionFormData,
 } from '@/lib/validations/submission'
-import { submissionWizardSchema } from '@/lib/schemas/submission-wizard'
 import { submitBrandForReview } from '@/lib/services/submission-pipeline'
 import { cleanBrandName } from '@/lib/services/brand-cleanup'
-import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
 import type { DuplicateCandidate, SourceAttribution } from '@/lib/types/submission'
-import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
-import { getUserBrand } from '@/lib/services/brand-owners'
 import {
   buildGuestSubmissionEmail,
   checkBrandDuplicates,
 } from '@/lib/services/submissions'
 import { enrollInMarketingEmails } from '@/lib/services/marketing-email-consent'
 
-// Per-user in-action rate limiter for brand submissions (5 per 60s)
-const ownerSubmissionRateLimiter = createInMemoryRateLimiter()
 const guestRecommendationRateLimiter = createInMemoryRateLimiter()
 const nameInspectionRateLimiter = createInMemoryRateLimiter()
 
@@ -190,214 +184,6 @@ export async function submitRecommendation(
       console.error('Submit recommendation error:', err)
       if (isDnsResolutionError(err)) {
         console.error('Submit recommendation DNS resolution failure:', err)
-        return { error: t('unexpected') }
-      }
-      return { error: t('unexpected') }
-    }
-  });
-}
-
-export async function submitOwnerQuick(
-  data: unknown,
-  idempotencyKey?: string | null,
-): Promise<{ error?: string; ownershipAdjusted?: boolean } | undefined> {
-  return runWithAuditContext({}, async () => {
-    const t = await getTranslations('submit.errors')
-    // Owner-features kill switch: refuse before auth so a stale client that still
-    // holds the owner form cannot write while the surface is hidden.
-    if (!(await isOwnerFeaturesEnabled())) return { error: t('unexpected') }
-
-    try {
-      const parsed = z.object({
-        name: z.string().min(1),
-        romanizedName: z
-          .string()
-          .min(2)
-          .max(100)
-          .regex(/^[a-zA-Z0-9\s\-'.]+$/)
-          .optional()
-          .or(z.literal('')),
-        website: z.string().url(),
-        description: z.string().min(1),
-        pdpaConsent: z.literal(true),
-        marketingEmailOptIn: z.boolean().default(false),
-        turnstileToken: z.string().min(1),
-        honeypot: z.string(),
-      }).parse(data)
-
-      if (parsed.honeypot) {
-        return undefined
-      }
-
-      const supabase = await createClient()
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser()
-
-      if (authError || !user) {
-        return { error: t('notAuthenticated') }
-      }
-
-      if (process.env.PLAYWRIGHT_TEST !== 'true') {
-        const rateResult = ownerSubmissionRateLimiter.check(user.id, 60_000, 5)
-        if (!rateResult.allowed) {
-          return { error: t('rateLimit') }
-        }
-      }
-
-      const headerStore = await headers()
-      const turnstile = await verifyTurnstileToken(
-        parsed.turnstileToken,
-        undefined,
-        getRequestHost(headerStore),
-      )
-      if (!turnstile.success) {
-        return { error: t('validation') }
-      }
-
-      const ownershipAdjusted = Boolean(await getUserBrand(user.id))
-
-      await submitBrandForReview({
-        idempotencyKey,
-        brandName: parsed.name,
-        romanizedName: parsed.romanizedName?.trim() || undefined,
-        websiteUrl: parsed.website,
-        description: parsed.description,
-        intent: ownershipAdjusted ? 'recommend' : 'owner_claim',
-        isBrandOwner: !ownershipAdjusted,
-        submitterEmail: user.email ?? '',
-        submitterName: user.user_metadata?.full_name ?? undefined,
-        pdpaConsent: true,
-      })
-
-      if (parsed.marketingEmailOptIn && user.email) {
-        await enrollInMarketingEmails(createServiceClient(), {
-          email: user.email,
-          userId: user.id,
-          locale: await getLocale(),
-          source: 'owner_quick_submission',
-          newsletter: true,
-        })
-      }
-
-      return ownershipAdjusted ? { ownershipAdjusted: true } : undefined
-    } catch (err) {
-      console.error('Submit owner quick error:', err)
-      if (isDnsResolutionError(err)) {
-        console.error('Submit owner quick DNS resolution failure:', err)
-        return { error: t('unexpected') }
-      }
-      return { error: t('unexpected') }
-    }
-  });
-}
-
-export async function submitOwnerDetailedBrand(
-  data: unknown,
-  idempotencyKey?: string | null,
-): Promise<{ error?: string; ownershipAdjusted?: boolean } | undefined> {
-  return runWithAuditContext({}, async () => {
-    const t = await getTranslations('submit.errors')
-    if (!(await isOwnerFeaturesEnabled())) return { error: t('unexpected') }
-
-    try {
-      const parsed = submissionWizardSchema.extend({
-        pdpaConsent: z.literal(true),
-        marketingEmailOptIn: z.boolean().default(false),
-        turnstileToken: z.string().min(1),
-        honeypot: z.string(),
-      }).parse(data)
-
-      if (parsed.honeypot) {
-        return undefined
-      }
-
-      const supabase = await createClient()
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser()
-
-      if (authError || !user) {
-        return { error: t('notAuthenticated') }
-      }
-
-      if (process.env.PLAYWRIGHT_TEST !== 'true') {
-        const rateResult = ownerSubmissionRateLimiter.check(user.id, 60_000, 5)
-        if (!rateResult.allowed) {
-          return { error: t('rateLimit') }
-        }
-      }
-
-      const headerStore = await headers()
-      const turnstile = await verifyTurnstileToken(
-        parsed.turnstileToken,
-        undefined,
-        getRequestHost(headerStore),
-      )
-      if (!turnstile.success) {
-        return { error: t('validation') }
-      }
-
-      const ownershipAdjusted = Boolean(await getUserBrand(user.id))
-      const ownerData = {
-        categorySlug: parsed.categorySlug,
-        foundingYear: parsed.foundingYear,
-        subcategories: parsed.subcategories,
-        city: parsed.city,
-        priceRange: parsed.priceRange,
-        productPhotos: parsed.productPhotos,
-        mitStory: parsed.mitStory,
-      }
-
-      await submitBrandForReview({
-        idempotencyKey,
-        brandName: parsed.name,
-        romanizedName: parsed.romanizedName?.trim() || undefined,
-        websiteUrl: parsed.website,
-        description: parsed.description,
-        heroImageUrl: parsed.heroImageUrl,
-        purchaseWebsite: parsed.purchaseWebsite?.trim() || undefined,
-        intent: ownershipAdjusted ? 'recommend' : 'owner_claim',
-        isBrandOwner: !ownershipAdjusted,
-        socialLinks: {
-          instagram: parsed.socialInstagram,
-          threads: parsed.socialThreads,
-          facebook: parsed.socialFacebook,
-          pinkoi: parsed.purchasePinkoi,
-          shopee: parsed.purchaseShopee,
-          myship: parsed.purchaseMyship,
-        },
-        otherUrls: parsed.otherUrls?.flatMap(({ label, url }) => {
-          const normalizedLabel = label?.trim()
-          const normalizedUrl = url?.trim()
-
-          return normalizedLabel && normalizedUrl
-            ? [{ label: normalizedLabel, url: normalizedUrl }]
-            : []
-        }),
-        ownerData,
-        submitterEmail: user.email ?? '',
-        submitterName: user.user_metadata?.full_name ?? undefined,
-        pdpaConsent: true,
-      })
-
-      if (parsed.marketingEmailOptIn && user.email) {
-        await enrollInMarketingEmails(createServiceClient(), {
-          email: user.email,
-          userId: user.id,
-          locale: await getLocale(),
-          source: 'owner_detailed_submission',
-          newsletter: true,
-        })
-      }
-
-      return ownershipAdjusted ? { ownershipAdjusted: true } : undefined
-    } catch (err) {
-      console.error('Submit owner detailed brand error:', err)
-      if (isDnsResolutionError(err)) {
-        console.error('Submit owner detailed brand DNS resolution failure:', err)
         return { error: t('unexpected') }
       }
       return { error: t('unexpected') }

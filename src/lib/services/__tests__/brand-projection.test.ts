@@ -78,7 +78,7 @@ const COLUMN_FIXTURE: Record<string, unknown> = {
 }
 
 function buildRow(columns: readonly string[]): BrandRowWithJoins {
-  const row: Record<string, unknown> = { brand_owners: [{ user_id: 'user-abc' }] }
+  const row: Record<string, unknown> = {}
   for (const column of columns) {
     row[column] = COLUMN_FIXTURE[column]
   }
@@ -112,7 +112,6 @@ const DIRECTORY_CONSUMED_FIELDS = [
   'priceRange',
   'subcategories',
   'subcategoriesEn',
-  'isVerified',
   'mitStatus',
 ]
 

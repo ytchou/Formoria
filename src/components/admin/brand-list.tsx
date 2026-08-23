@@ -6,7 +6,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  MailCheck,
   MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -29,7 +28,6 @@ import {
   deleteBrandAction,
   requestBrandRefreshAction,
   requestCuratedProductBackfillAction,
-  resendClaimInviteAction,
 } from "@/app/admin/actions";
 import {
   DropdownMenu,
@@ -107,14 +105,12 @@ function MitStatusBadge({ status }: { status: MitStatus }) {
 export function BrandList({
   brands,
   reviewImagesByBrandId = {},
-  claimInviteBrandIds = [],
   initialEditingBrandId,
   initialSearchQuery = "",
   initialTab = "all",
 }: {
   brands: AdminBrandListItem[];
   reviewImagesByBrandId?: Record<string, SubmissionReviewImage[]>;
-  claimInviteBrandIds?: string[];
   initialEditingBrandId?: string;
   initialSearchQuery?: string;
   initialTab?: TabValue;
@@ -147,7 +143,6 @@ export function BrandList({
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const claimInviteBrandIdSet = new Set(claimInviteBrandIds);
 
   const brandsById = new Map(brands.map((brand) => [brand.id, brand]));
 
@@ -249,17 +244,6 @@ export function BrandList({
       const result = await deleteBrandAction(deletingBrand.id);
       if (result?.error) setError(result.error);
       else setDeletingBrandId(null);
-    });
-  }
-
-  function handleResendClaimInvite(brand: AdminBrandListItem) {
-    startTransition(async () => {
-      const result = await resendClaimInviteAction(brand.id);
-      if ("error" in result) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success("Claim invitation sent");
     });
   }
 
@@ -584,17 +568,6 @@ export function BrandList({
                   <TableCell>{formatDate(brand.updatedAt)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1.5">
-                      {claimInviteBrandIdSet.has(brand.id) && (
-                        <Button
-                          variant="secondary"
-                          size="compact"
-                          onClick={() => handleResendClaimInvite(brand)}
-                          disabled={isPending}
-                        >
-                          <MailCheck className="size-4" aria-hidden />
-                          {t("actions.resendClaimInvite")}
-                        </Button>
-                      )}
                       {brand.status === "approved" && (
                         <Button
                           variant="secondary"

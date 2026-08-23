@@ -323,12 +323,12 @@ export function trackSearchResultClicked(
 
 export function trackSubmissionFormOpened(
   source: 'header_cta' | 'hero_cta' | 'footer_link' | 'quick' = 'hero_cta',
-  intent: 'recommend' | 'owner_claim' | 'owner' = 'recommend'
+  intent: 'recommend' = 'recommend'
 ) {
   safeGAEvent('event', 'submission_form_opened', { source, intent })
   capturePostHogEvent(ANALYTICS_EVENTS.SUBMISSION_FORM_OPENED, {
     source,
-    intent: intent === 'owner' ? 'owner_claim' : intent,
+    intent,
   })
 }
 
@@ -342,7 +342,7 @@ export function trackSubmissionCompleted(
   category: string,
   hasLogo: boolean,
   timeSpentSeconds: number,
-  intent: 'recommend' | 'owner_claim' = 'recommend',
+  intent: 'recommend' = 'recommend',
   guestSubmission = false,
 ) {
   const utmParams =
@@ -690,18 +690,6 @@ export function trackNewsletterSubscribed(interests: string[], hasEmail: boolean
   })
 }
 
-export function trackBrandClaimStarted(
-  brandId: string,
-  brandSlug: string,
-  isAuthenticated: boolean,
-) {
-  capturePostHogEvent(ANALYTICS_EVENTS.BRAND_CLAIM_STARTED, {
-    brand_id: brandId,
-    brand_slug: brandSlug,
-    is_authenticated: isAuthenticated,
-  })
-}
-
 export function trackOriginEvidenceSubmitted(
   brandId: string,
   brandSlug: string,
@@ -711,18 +699,6 @@ export function trackOriginEvidenceSubmitted(
     brand_id: brandId,
     brand_slug: brandSlug,
     stance,
-  })
-}
-
-export function trackBrandClaimFormSubmitted(
-  brandId: string,
-  brandSlug: string,
-  proofTypes: string[],
-) {
-  capturePostHogEvent(ANALYTICS_EVENTS.BRAND_CLAIM_FORM_SUBMITTED, {
-    brand_id: brandId,
-    brand_slug: brandSlug,
-    proof_types: proofTypes,
   })
 }
 

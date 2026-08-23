@@ -414,11 +414,6 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
-        source: "/admin/claim-requests",
-        destination: "/admin/claims",
-        permanent: true,
-      },
-      {
         source: "/admin/taxonomy",
         destination: "/admin/catalog/taxonomy",
         permanent: true,

@@ -43,11 +43,7 @@ vi.mock("@/lib/auth/use-user", () => ({
   useUser: () => ({
     user: null,
     loading: false,
-    viewer: {
-      hasOwnedBrand: false,
-      ownerFeaturesEnabled: false,
-      isAdmin: false,
-    },
+    viewer: { isAdmin: false },
     viewerLoading: false,
     viewerError: false,
     refreshViewer: vi.fn(),

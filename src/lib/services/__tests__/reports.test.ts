@@ -66,7 +66,7 @@ describe('buildReportRecord', () => {
 })
 
 describe('enrichReporterRows', () => {
-  it('attaches reporter email to authenticated reports and ownership status to disputes only', async () => {
+  it('attaches reporter email to authenticated reports only', async () => {
     const rows = [
       { id: 'r1', reason: 'ownership_dispute', user_id: 'user-uuid-9', brand_id: 'b1' },
       { id: 'r2', reason: 'removal_request', user_id: 'user-uuid-10', brand_id: 'b2' },
@@ -74,11 +74,9 @@ describe('enrichReporterRows', () => {
     ]
     const enriched = await enrichReporterRows(rows, {
       getEmail: async (id) => id === 'user-uuid-9' ? 'mei.lin@example.com' : 'owner@example.com',
-      getOwnedBrandIds: async () => new Set(['b1']),
     })
-    expect(enriched[0]).toMatchObject({ reporterEmail: 'mei.lin@example.com', brandHasOwner: true })
+    expect(enriched[0]).toMatchObject({ reporterEmail: 'mei.lin@example.com' })
     expect(enriched[1]).toMatchObject({ reporterEmail: 'owner@example.com' })
-    expect(enriched[1].brandHasOwner).toBeUndefined()
     expect(enriched[2].reporterEmail).toBeUndefined()
   })
 })

@@ -8,7 +8,6 @@ import {
   getAdminOperationsSnapshot,
   type AdminOperationsMetrics,
 } from "@/lib/services/admin-operations";
-import { isOwnerFeaturesEnabled } from "@/lib/services/app-settings";
 import { cn } from "@/lib/utils";
 import { routes } from "@/lib/routes";
 
@@ -87,13 +86,6 @@ const metrics: Metric[] = [
     requiresAction: true,
   },
   {
-    key: "claims",
-    label: "Claims",
-    description: "Ownership requests awaiting review",
-    href: routes.admin.claims(),
-    requiresAction: true,
-  },
-  {
     key: "reports",
     label: "Reports",
     description: "Open brand reports",
@@ -124,10 +116,9 @@ const metrics: Metric[] = [
 ];
 
 export default async function AdminPage() {
-  const [snapshot, t, ownerFeaturesEnabled] = await Promise.all([
+  const [snapshot, t] = await Promise.all([
     getAdminOperationsSnapshot(),
     getTranslations("admin.dashboard"),
-    isOwnerFeaturesEnabled(),
   ]);
   const dashboardMetrics: Metric[] = [
     ...metrics.slice(0, 3),
@@ -171,18 +162,6 @@ export default async function AdminPage() {
               />
             );
           })}
-          {/* State is conveyed as text, never colour alone, so the accessible
-              name reads "Owner features / Disabled / Manage feature flags". */}
-          <OperationsCard
-            href={routes.admin.settings()}
-            label={t("ownerFeatures.label")}
-            value={
-              ownerFeaturesEnabled
-                ? t("ownerFeatures.enabled")
-                : t("ownerFeatures.disabled")
-            }
-            description={t("ownerFeatures.manage")}
-          />
         </div>
       </section>
 

@@ -14,12 +14,7 @@ import { Label } from "@/components/ui/label";
 import { MarketingEmailOptInField } from "@/components/forms/marketing-email-opt-in-field";
 import { routes } from "@/lib/routes";
 
-type SignUpFormProps = {
-  claimToken?: string;
-  claimBrandName?: string;
-};
-
-export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
+export function SignUpForm() {
   const [state, action, pending] = useActionState<AuthState, FormData>(
     signUp,
     {},
@@ -30,14 +25,13 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
   const locale = useLocale();
   const googleAction = signInWithGoogle.bind(
     null,
-    claimToken,
     undefined,
     marketingEmailOptIn,
     locale,
   );
   const t = useTranslations("auth");
 
-  const signInHref = routes.auth.signIn({ claim: claimToken });
+  const signInHref = routes.auth.signIn();
 
   return (
     <div className="space-y-6">
@@ -46,22 +40,10 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
         <p className="type-body-sm">{t("signUp.subheading")}</p>
       </div>
 
-      {claimToken && claimBrandName && (
-        <div className="rounded-surface border border-rule bg-surface px-4 py-3 type-body-sm text-ink-soft">
-          {t.rich("signUp.claimMessage", {
-            brandName: claimBrandName,
-            strong: (chunks) => <strong>{chunks}</strong>,
-          })}
-        </div>
-      )}
-
       <AuthFormError message={state.error} />
 
       <form action={action} className="space-y-4">
         <input type="hidden" name="locale" value={locale} />
-        {claimToken && (
-          <input type="hidden" name="claimToken" value={claimToken} />
-        )}
 
         <div className="space-y-2">
           <Label htmlFor="email">{t("signUp.emailLabel")}</Label>

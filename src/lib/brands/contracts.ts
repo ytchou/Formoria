@@ -27,7 +27,6 @@ export type PublicBrandCard = {
   status: 'approved' | 'hidden'
   categorySlug?: string | null
   categoryLabel: string | null
-  isVerified: boolean
   mitStatus?: MitStatus
   priceRange: number | null
   subcategories: string[]
@@ -91,7 +90,6 @@ export type AdminBrandListItem = {
   mitStatus?: MitStatus
   mitCertificateNumber?: string | null
   mitVerified?: boolean
-  isVerified?: boolean
   description?: string | null
   descriptionEn?: string | null
   blurb?: string | null
@@ -130,7 +128,6 @@ export function toPublicBrandCard(brand: Brand): PublicBrandCard {
     status: brand.status,
     categorySlug: brand.categorySlug ?? null,
     categoryLabel: brand.categoryLabel,
-    isVerified: brand.isVerified,
     mitStatus: brand.mitStatus ?? 'unverified',
     priceRange: brand.priceRange,
     subcategories: [...brand.subcategories],
@@ -240,7 +237,6 @@ export function toAdminBrandListItem(brand: Brand): AdminBrandListItem {
     mitStatus: brand.mitStatus ?? (brand.mitVerified ? 'verified' : 'unverified'),
     mitCertificateNumber: brand.mitEvidence?.mit_smile_cert ?? null,
     mitVerified: brand.mitVerified ?? false,
-    isVerified: brand.isVerified,
     description: brand.description,
     descriptionEn: brand.descriptionEn,
     blurb: brand.blurb,

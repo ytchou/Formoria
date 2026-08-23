@@ -85,8 +85,6 @@ export interface InventoryEntry {
 export const NON_SERVICE_ENV: Readonly<Record<string, string>> = {
   CHALLENGE_SECRET:
     "Internal challenge-cookie signing secret, not a provider service.",
-  CLAIM_TOKEN_SECRET:
-    "Internal claim-token signing secret, not a provider service.",
   FORMORIA_LINK_HEALTH_URL: "Optional internal health-agent link target.",
   FORMORIA_RUNTIME_URL:
     "Deployment-specific auth and redirect origin, not a provider service.",

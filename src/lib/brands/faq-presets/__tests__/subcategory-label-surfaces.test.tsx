@@ -75,7 +75,7 @@ vi.mock("@/lib/auth/use-user", () => ({
   useUser: () => ({
     user: null,
     loading: false,
-    viewer: { hasOwnedBrand: false, isAdmin: false },
+    viewer: { isAdmin: false },
     viewerLoading: false,
     viewerError: false,
     refreshViewer: vi.fn(),
@@ -110,7 +110,6 @@ function buildBrand(
     categorySlug: "bags-accessories",
     categoryLabel: "包袋配件",
     city: null,
-    isVerified: false,
     mitStatus: "unverified",
     mitStory: null,
     mitCertificateNumber: null,

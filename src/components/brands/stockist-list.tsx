@@ -1,12 +1,9 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Check, ExternalLink, TriangleAlert } from "lucide-react";
+import { Check, ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
-import {
-  getStockistViewerStateAction,
-  ownerModerateStockistAction,
-} from "@/app/[locale]/(site)/brands/[slug]/actions";
+import { getStockistViewerStateAction } from "@/app/[locale]/(site)/brands/[slug]/actions";
 import { Accordion, AccordionItem } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -70,25 +67,10 @@ function StatusMarker({ confirmed }: { confirmed: boolean }) {
 
 type StockistListRowProps = {
   stockist: Stockist;
-  isPending: boolean;
-  isOwner: boolean;
-  error: string | undefined;
   t: Translate;
-  ownerConfirmLabel: string;
-  ownerRejectLabel: string;
-  onModerate: (stockist: Stockist, status: "confirmed" | "rejected") => void;
 };
 
-function StockistListRow({
-  stockist,
-  isPending,
-  isOwner,
-  error,
-  t,
-  ownerConfirmLabel,
-  ownerRejectLabel,
-  onModerate,
-}: StockistListRowProps) {
+function StockistListRow({ stockist, t }: StockistListRowProps) {
   // Every stockist is a physical place since DEV-1513, so the address is always
   // the location worth printing and the region label is its fallback — except
   // the chain sentinel, which is not a location at all.
@@ -138,11 +120,6 @@ function StockistListRow({
               )}
             </div>
           ) : null}
-          {error ? (
-            <p className="mt-2 type-metadata text-danger" role="alert">
-              {error}
-            </p>
-          ) : null}
         </div>
       </div>
 
@@ -170,32 +147,6 @@ function StockistListRow({
             {t("channels.confirmed.officialPageLink")}
             <ExternalLink aria-hidden="true" className="size-4" />
           </a>
-        ) : null}
-        {!isConfirmed && isOwner ? (
-          <>
-            <Button
-              type="button"
-              variant="secondary"
-              size="compact"
-              aria-pressed={stockist.ownerStatus === "confirmed"}
-              disabled={isPending}
-              onClick={() => onModerate(stockist, "confirmed")}
-            >
-              <Check aria-hidden="true" className="size-4" />
-              {ownerConfirmLabel}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="compact"
-              aria-pressed={stockist.ownerStatus === "rejected"}
-              disabled={isPending}
-              onClick={() => onModerate(stockist, "rejected")}
-            >
-              <TriangleAlert aria-hidden="true" className="size-4" />
-              {ownerRejectLabel}
-            </Button>
-          </>
         ) : null}
       </div>
     </div>
@@ -281,10 +232,8 @@ export function StockistList({
   confirmed,
   possible,
   brandId,
-  brandSlug,
 }: StockistListProps) {
   const t = useTranslations("brandDetail");
-  const tErrors = useTranslations("brandDetail.channels.errors");
   const tCities = useTranslations("cities");
   const { user, loading } = useUser();
   const allStockists = [...confirmed, ...possible];
@@ -292,8 +241,6 @@ export function StockistList({
     Partial<Record<string, boolean>>
   >({});
   const [isOwner, setIsOwner] = useState(false);
-  const [pendingStockistId, setPendingStockistId] = useState<string | null>(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (loading || !user) return;
@@ -315,70 +262,18 @@ export function StockistList({
   }, [brandId, loading, user]);
 
   const displayGroups = groupStockistsByRegion(allStockists);
-  const ownerConfirmLabel = t("channels.ownerBanner.confirm");
-  const ownerRejectLabel = t("channels.ownerBanner.reject");
-
-  function setStockistError(stockistId: string, message: string | null) {
-    setErrors((current) => {
-      const next = { ...current };
-      if (message) next[stockistId] = message;
-      else delete next[stockistId];
-      return next;
-    });
-  }
-
-  async function handleOwnerModeration(
-    stockist: Stockist,
-    status: "confirmed" | "rejected",
-  ) {
-    setStockistError(stockist.id, null);
-    setPendingStockistId(stockist.id);
-
-    try {
-      const result = await ownerModerateStockistAction(
-        stockist.id,
-        brandSlug,
-        status,
-      );
-      // The action returns a machine-readable code, never a sentence. Codes it
-      // can return that this catalogue has no entry for (`not_owner`,
-      // `not_found`, `invalid_status`) would otherwise render as a raw key
-      // path, so an unknown code falls back to the generic failure.
-      if ("error" in result) {
-        setStockistError(
-          stockist.id,
-          tErrors.has(result.error) ? tErrors(result.error) : tErrors("unknown"),
-        );
-      }
-    } catch {
-      // A thrown action is a transport failure, which carries no code.
-      setStockistError(stockist.id, tErrors("unknown"));
-    } finally {
-      setPendingStockistId((current) =>
-        current === stockist.id ? null : current,
-      );
-    }
-  }
 
   function rendersAsRow(stockist: Stockist) {
     if (stockist.status === "confirmed") return true;
-    // The owner needs the moderation controls, which do not fit inside a chip.
+    // Ownership no longer changes the row: brand ownership was parked with the
+    // claim flow (DEV-1570), so `isOwner` is always false and an unconfirmed
+    // stockist renders as a chip.
     return isOwner;
   }
 
   function renderRow(stockist: Stockist) {
     return (
-      <StockistListRow
-        key={stockist.id}
-        stockist={stockist}
-        isPending={pendingStockistId === stockist.id}
-        isOwner={isOwner}
-        error={errors[stockist.id]}
-        t={t}
-        ownerConfirmLabel={ownerConfirmLabel}
-        ownerRejectLabel={ownerRejectLabel}
-        onModerate={handleOwnerModeration}
-      />
+      <StockistListRow key={stockist.id} stockist={stockist} t={t} />
     );
   }
 
@@ -419,9 +314,8 @@ export function StockistList({
           </Button>
         ) : null}
         {/* No live region here any more. It existed for the community confirm
-            round-trip, which is gone: a chip is a static entry now, and the only
-            message a stockist can still raise (owner moderation) belongs to the
-            row that raised it. */}
+            round-trip, which is gone: a chip is a static entry now, and nothing
+            in this list raises a message. */}
       </div>
     );
   }

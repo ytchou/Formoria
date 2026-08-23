@@ -9,13 +9,11 @@ import type { Stockist } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
   getStockistViewerStateAction: vi.fn(),
-  ownerModerateStockistAction: vi.fn(),
   useUser: vi.fn(),
 }));
 
 vi.mock("@/app/[locale]/(site)/brands/[slug]/actions", () => ({
   getStockistViewerStateAction: mocks.getStockistViewerStateAction,
-  ownerModerateStockistAction: mocks.ownerModerateStockistAction,
 }));
 
 vi.mock("@/lib/auth/use-user", () => ({
@@ -79,7 +77,6 @@ describe("StockistList", () => {
     vi.clearAllMocks();
     mocks.useUser.mockReturnValue({ user: { id: "user-1" }, loading: false });
     mocks.getStockistViewerStateAction.mockResolvedValue({ isOwner: false });
-    mocks.ownerModerateStockistAction.mockResolvedValue({ success: true });
   });
 
   it("renders a flat chip list without group headings below four stockists", () => {
@@ -397,20 +394,22 @@ describe("StockistList", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders owner moderation rows instead of chips for the brand owner", async () => {
+  // Owner moderation was parked with the claim flow (DEV-1570), so the rows an
+  // owner would have seen carry no moderation controls. `isOwner` can no longer
+  // be true in production; the assertion pins that no control came back.
+  it("renders rows without moderation controls when the viewer is an owner", async () => {
     mocks.getStockistViewerStateAction.mockResolvedValue({ isOwner: true });
     const { container } = renderList({ possible: makeStockists(4) });
 
     await waitFor(() => {
       expect(container.querySelectorAll("[data-stockist-row]")).toHaveLength(4);
-      expect(container.querySelectorAll("[data-stockist-chip]")).toHaveLength(0);
-      expect(screen.getAllByRole("button", { name: "確認販售" })).toHaveLength(
-        4,
-      );
-      expect(screen.getAllByRole("button", { name: "未販售" })).toHaveLength(4);
-      expect(
-        screen.queryByRole("button", { name: /我確認/ }),
-      ).not.toBeInTheDocument();
     });
+    expect(container.querySelectorAll("[data-stockist-chip]")).toHaveLength(0);
+    expect(
+      screen.queryByRole("button", { name: "確認販售" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "未販售" }),
+    ).not.toBeInTheDocument();
   });
 });

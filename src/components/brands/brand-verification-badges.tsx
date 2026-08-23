@@ -1,4 +1,4 @@
-import { BadgeCheck, ShieldCheck } from 'lucide-react'
+import { ShieldCheck } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
 type BrandVerificationBadgeProps = {
@@ -18,17 +18,6 @@ export function MitVerifiedBadge({ label, title }: BrandVerificationBadgeProps) 
 export function MitDeclaredBadge({ label, title }: BrandVerificationBadgeProps) {
   return (
     <Badge variant="declared" title={title} aria-label={title}>
-      {label}
-    </Badge>
-  )
-}
-
-export function OwnerVerifiedBadge({ label, title }: BrandVerificationBadgeProps) {
-  return (
-    // `success` IS the green pair; `verified` is the MIT amber. This used to be
-    // `verified` overridden back to green by hand.
-    <Badge variant="success" title={title} aria-label={title}>
-      <BadgeCheck className="h-[11px] w-[11px]" aria-hidden />
       {label}
     </Badge>
   )

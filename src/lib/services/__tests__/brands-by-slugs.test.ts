@@ -14,7 +14,6 @@ type BrandRowFixture = {
   slug: string
   status: string
   category: string | null
-  brand_owners: Array<{ user_id: string }>
 }
 
 import type { createServiceClient } from '@/lib/supabase/service'
@@ -130,7 +129,6 @@ function brandRow(overrides: Partial<BrandRowFixture> & { slug: string }): Brand
     name: overrides.slug,
     status: 'approved',
     category: 'bags-accessories',
-    brand_owners: [],
     ...overrides,
   }
 }
@@ -177,7 +175,7 @@ describe('getBrandsBySlugs', () => {
     for (const column of DIRECTORY_OMITTED_COLUMNS) {
       expect(selected, `${column} must stay out of card queries`).not.toContain(column)
     }
-    expect(selected).toContain('brand_owners(user_id)')
+    expect(selected).not.toContain('brand_owners')
   })
 
   it('omits slugs with no matching brand instead of throwing', async () => {

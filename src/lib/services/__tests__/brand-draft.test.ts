@@ -18,7 +18,6 @@ const liveBrand: Brand = {
   categorySlug: 'apparel',
   categoryLabel: 'Apparel',
   city: null,
-  isVerified: true,
   mitStatus: 'verified',
   mitVerifiedAt: '2026-01-01T00:00:00Z',
   mitEvidence: null,
@@ -62,7 +61,6 @@ describe('brandToDraftSnapshot', () => {
     expect(snap).not.toHaveProperty('id')
     expect(snap).not.toHaveProperty('slug')
     expect(snap).not.toHaveProperty('status')
-    expect(snap).not.toHaveProperty('isVerified')
   })
 
   it('preserves internal wizard progress metadata for staged edits', () => {
