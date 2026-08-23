@@ -100,9 +100,7 @@
       "heading": "Formoria Selection",
       "note": "Moving in, styling a shop, changing a lamp — these products were chosen on purpose for moments like these; open one to meet the brand behind it.",
       "showMore": "See more selections",
-      "showLess": "Show fewer selections",
-      "trailEyebrow": "Style",
-      "trailCta": "Explore this style →"
+      "showLess": "Show fewer selections"
     },
     "trustSeam": {
       "line": "Listings and selections stay distinct"
@@ -135,7 +133,9 @@
     "trails": {
       "heading": "Styles",
       "note": "One situation, one set of things. Start from the days you are living, not from a brand name.",
-      "linkText": "See every style →"
+      "linkText": "See every style →",
+      "eyebrow": "Style",
+      "cta": "Explore this style →"
     }
   },
   "newsletter": {

@@ -214,6 +214,8 @@ function buildTrail(slug: string): TrailEntry {
       locale: "en",
       publishedAt: "2026-02-01",
       draft: false,
+      heroImage: `/images/trails/${slug}.webp`,
+      heroImageAlt: `Objects arranged for ${slug}`,
       sources: [],
       faq: [],
       sections: [],
@@ -333,16 +335,15 @@ describe("landing page zones", () => {
       within(trails!).getByRole("link", { name: en.landing.trails.linkText }),
     ).toHaveAttribute("href", "/discover");
 
-    const rows = within(trails!).getAllByRole("heading", { level: 3 });
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toHaveTextContent("Trail small-kitchen");
-    // /discover, not /stories — the row is `StoryRow` with `hrefBase` repointed.
+    const headings = within(trails!).getAllByRole("heading", { level: 3 });
+    expect(headings).toHaveLength(1);
+    expect(headings[0]).toHaveTextContent("Trail small-kitchen");
     expect(
       within(trails!).getByRole("link", { name: /Trail small-kitchen/ }),
     ).toHaveAttribute("href", "/discover/small-kitchen");
   });
 
-  it("renders every published trail in the zone", async () => {
+  it("renders every published trail as a card in the zone", async () => {
     const first = buildTrail("small-kitchen");
     const second = buildTrail("first-apartment");
     const { container } = await renderZones({
@@ -352,13 +353,23 @@ describe("landing page zones", () => {
     const trails = container.querySelector<HTMLElement>(
       '[data-landing-zone="trails"]',
     )!;
+    const cards = within(trails).getAllByRole("listitem");
+    expect(cards).toHaveLength(2);
+    for (const card of cards) {
+      expect(within(card).getByRole("img")).toBeInTheDocument();
+      expect(within(card).getByRole("heading", { level: 3 })).toBeInTheDocument();
+    }
+  });
+
+  it("keeps a level-3 heading per trail", async () => {
+    const { container } = await renderZones({
+      trails: [buildTrail("small-kitchen"), buildTrail("first-apartment")],
+    });
+
+    const trails = container.querySelector<HTMLElement>(
+      '[data-landing-zone="trails"]',
+    )!;
     expect(within(trails).getAllByRole("heading", { level: 3 })).toHaveLength(2);
-    expect(
-      within(trails).getByRole("heading", { name: "Trail small-kitchen" }),
-    ).toBeInTheDocument();
-    expect(
-      within(trails).getByRole("heading", { name: "Trail first-apartment" }),
-    ).toBeInTheDocument();
   });
 
   it("omits the trails zone when no trail is published", async () => {
