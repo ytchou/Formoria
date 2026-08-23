@@ -20,7 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { PageShell } from '@/components/ui/page-shell'
-import { Check, Info, X } from 'lucide-react'
+import { Check, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { routes } from '@/lib/routes'
 
@@ -159,17 +159,18 @@ export default function SubmitOverview({
                   open={isOwnerLimitOpen}
                   onOpenChange={setIsOwnerLimitOpen}
                 >
-                  <AlertDialogContent className="max-h-[calc(100dvh-2rem)] !max-w-[calc(100%-2rem)] gap-6 overflow-y-auto p-6 sm:!max-w-lg sm:p-8">
-                    <AlertDialogCancel
-                      variant="ghost"
-                      size="large"
-                      className="absolute top-2 right-2"
-                      aria-label={t('ownerLimitCloseCta')}
-                    >
-                      <X className="size-4" aria-hidden="true" />
-                    </AlertDialogCancel>
-                    <AlertDialogHeader className="!place-items-center gap-3 pt-4 !text-center">
+                  {/* NO X, AND NO `!` OVERRIDES. The width is the shared size
+                      axis now; the important-flagged width pair existed only
+                      to defeat the `data-[size=…]` hoisting that the size prop
+                      now spells properly, so removing one of the two
+                      without the other would silently drop the new sizing.
+                      This dialog is informational, so it is NOT `destructive`
+                      — Escape, the backdrop and the footer Cancel are the
+                      exits, and an icon button beside them would be a fourth. */}
+                  <AlertDialogContent size="form">
+                    <AlertDialogHeader>
                       <span
+                        data-slot="alert-dialog-media"
                         aria-hidden="true"
                         className="flex size-12 items-center justify-center rounded-full bg-accent/10 text-accent"
                       >
@@ -178,11 +179,11 @@ export default function SubmitOverview({
                       <AlertDialogTitle className="type-section">
                         {t('ownerLimitTitle')}
                       </AlertDialogTitle>
-                      <AlertDialogDescription className="max-w-md text-center">
+                      <AlertDialogDescription>
                         {t('ownerLimitDescription')}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter className="mx-0 mb-0 rounded-none bg-transparent px-0 pb-0 pt-4 sm:[&>*]:flex-1">
+                    <AlertDialogFooter className="sm:[&>*]:flex-1">
                       <AlertDialogCancel size="large">
                         {t('ownerLimitCancelCta')}
                       </AlertDialogCancel>
