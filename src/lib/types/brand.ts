@@ -40,28 +40,6 @@ type MitEvidence = {
   verified_by?: string
 }
 
-export type SiteTokens = {
-  accent: string
-  accentForeground?: string
-}
-
-export type SiteProduct = {
-  name: string
-  imageUrl?: string
-  url?: string
-  caption?: string
-}
-
-export type SiteContent = {
-  template: string
-  tokens: SiteTokens
-  tagline?: string
-  story?: string
-  products: SiteProduct[]
-  ctaType: 'mailto'
-  ctaValue?: string
-}
-
 /**
  * Per-image metadata, index-aligned with `[heroImageUrl, ...productPhotos]`.
  *
@@ -131,7 +109,8 @@ export type Brand = {
   priceRange: number | null
   subcategories: string[]
   subcategoriesEn: string[]
-  siteContent: SiteContent | null
+  /** Raw `brands.site_content` jsonb, passed through unshaped. */
+  siteContent: unknown | null
   submittedAt: string
   approvedAt: string | null
   createdAt: string

@@ -4,12 +4,7 @@ import { auditedCall } from "@/lib/audit";
 import { pinyin } from "pinyin-pro";
 import { convertPinyinToWadeGiles } from "@/lib/utils/pinyin-to-wade-giles";
 import type { Brand, BrandFilters, OtherUrl } from "@/lib/types";
-import type {
-  ReputationSummary,
-  SiteContent,
-  SiteProduct,
-  SiteTokens,
-} from "@/lib/types/brand";
+import type { ReputationSummary } from "@/lib/types/brand";
 import type { Database } from "@/lib/supabase/database.types";
 import { toBrandRow as baseToBrandRow } from "./_shared/field-map";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
@@ -536,10 +531,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
-}
-
 function normalizeReputationSummary(value: unknown): ReputationSummary | null {
   if (!isRecord(value) || typeof value.text !== "string") return null;
   const sources = Array.isArray(value.sources)
@@ -554,57 +545,6 @@ function normalizeReputationSummary(value: unknown): ReputationSummary | null {
       ? value.text_en.trim()
       : null;
   return { text: value.text, textEn, sources };
-}
-
-function normalizeSiteTokens(value: unknown): SiteTokens {
-  const tokens = isRecord(value) ? value : {};
-  const result: SiteTokens = {
-    accent: typeof tokens.accent === "string" ? tokens.accent : "",
-  };
-  const accentForeground = optionalString(tokens.accentForeground);
-  if (accentForeground !== undefined)
-    result.accentForeground = accentForeground;
-  return result;
-}
-
-function normalizeSiteProduct(value: unknown): SiteProduct | null {
-  if (!isRecord(value)) return null;
-
-  const result: SiteProduct = {
-    name: typeof value.name === "string" ? value.name : "",
-  };
-  const imageUrl = optionalString(value.imageUrl);
-  if (imageUrl !== undefined) result.imageUrl = imageUrl;
-  const url = optionalString(value.url);
-  if (url !== undefined) result.url = url;
-  const caption = optionalString(value.caption);
-  if (caption !== undefined) result.caption = caption;
-  return result;
-}
-
-export function normalizeSiteContent(raw: unknown): SiteContent | null {
-  if (!raw || !isRecord(raw) || Object.keys(raw).length === 0) return null;
-
-  const result: SiteContent = {
-    template: typeof raw.template === "string" ? raw.template : "default",
-    tokens: normalizeSiteTokens(raw.tokens),
-    products: Array.isArray(raw.products)
-      ? raw.products.flatMap((product) => {
-          const normalized = normalizeSiteProduct(product);
-          return normalized ? [normalized] : [];
-        })
-      : [],
-    ctaType: raw.ctaType === "mailto" ? raw.ctaType : "mailto",
-  };
-
-  const tagline = optionalString(raw.tagline);
-  if (tagline !== undefined) result.tagline = tagline;
-  const story = optionalString(raw.story);
-  if (story !== undefined) result.story = story;
-  const ctaValue = optionalString(raw.ctaValue);
-  if (ctaValue !== undefined) result.ctaValue = ctaValue;
-
-  return result;
 }
 
 function draftDataToSnapshot(
@@ -811,7 +751,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
       ? row.subcategories_en
       : [],
     reputationSummary: normalizeReputationSummary(row.reputation_summary),
-    siteContent: normalizeSiteContent(row.site_content as Brand["siteContent"]),
+    siteContent: row.site_content ?? null,
     submittedAt: row.submitted_at ?? "",
     approvedAt: row.approved_at ?? null,
     createdAt: row.created_at ?? "",
@@ -940,8 +880,8 @@ export async function hydrateCardImageMeta<
      *    Falling back to unhydrated brands reproduces exactly the behaviour
      *    these surfaces had before this function existed (`imageAlts: []`,
      *    centred `object-cover`). Taking down /brands, the homepage,
-     *    /favorites and story galleries because a decoration
-     *    could not be loaded is never the right trade.
+     *    /favorites and story galleries because a decoration could not be
+     *    loaded is never the right trade.
      * 2. It closes the deploy-order window. Railway deploys on a push to main
      *    but Supabase migrations are applied by hand, so between the two a
      *    column this projection reads can be absent, PostgREST answers 42703,
@@ -1055,7 +995,8 @@ export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
     row.mit_evidence = data.mitEvidence;
   }
   if (data.siteContent !== undefined) {
-    row.site_content = data.siteContent;
+    // Opaque jsonb pass-through; the microsite shape-enforcer was parked in DEV-1570.
+    row.site_content = data.siteContent as typeof row.site_content;
   }
   return row;
 }

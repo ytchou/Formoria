@@ -14,9 +14,9 @@ export const frontendTokenRoots = ["src/app", "src/components", "src/lib"];
 
 /**
  * Exported so a test can assert every entry still points at a file that exists.
- * An allowlist has no existence check of its own, which is why the entry for a
- * deleted test file sat here silently permitting two hexes in a file that had
- * not existed for months.
+ * An allowlist has no existence check of its own, which is why the entry for
+ * the microsite registry test (parked in DEV-1570) sat here silently
+ * permitting two hexes in a file that had not existed for months.
  */
 export const allowedMatches = [
   {

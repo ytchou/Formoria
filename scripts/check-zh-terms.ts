@@ -207,9 +207,9 @@ export const EXCLUDED_SOURCE_FILES = new Map([
     "test-only static fallback map (transitional)",
   ],
   // --- Reader-visible copy that is nonetheless still excluded, each for its
-  // own reason. The transactional-email and structured-data surfaces that
-  // used to sit here are now in SCANNED_SOURCE_FILES; what
-  // remains is not "not yet done", it is copy this gate cannot usefully read.
+  // own reason. The transactional-email and structured-data surfaces that used
+  // to sit here are now in SCANNED_SOURCE_FILES; what remains is not "not yet
+  // done", it is copy this gate cannot usefully read.
   //
   // Ceiling: a banned term reaching a satori-rendered PNG, an owner mailto
   // subject or an embed snippet still passes. Upgrade path is per-entry below
@@ -280,7 +280,10 @@ function readCjkAllowlist(): string[] {
  * Split from `allowlistSyncProblems` so the rule can be exercised against a
  * synthetic entry; the real gate reads the real allowlist.
  */
-export function allowlistSyncProblemsFor(entries: readonly string[]): string[] {
+export function allowlistSyncProblemsFor(
+  entries: readonly string[],
+  scannedEntries: readonly string[] = SCANNED_SOURCE_FILES,
+): string[] {
   const problems: string[] = [];
 
   for (const entry of entries) {
@@ -290,7 +293,7 @@ export function allowlistSyncProblemsFor(entries: readonly string[]): string[] {
     // scanned side reuse `isScannedSourceFile` — the same rule the scan itself
     // runs — instead of a second, path-exact reimplementation that any
     // directory entry (one ending in `/`) silently defeats.
-    if (isScannedSourceFile(`src/${entry}`)) continue;
+    if (isScannedSourceFile(`src/${entry}`, scannedEntries)) continue;
     if (EXCLUDED_SOURCE_FILES.has(entry)) continue;
     problems.push(
       `${CJK_ALLOWLIST_SOURCE} allows Han in "src/${entry}", which scripts/check-zh-terms.ts classifies nowhere.\n` +
@@ -315,6 +318,9 @@ const TEST_FILE = /(?:^|\/)__tests__\/|\.test\.tsx?$/;
 
 /**
  * @param file repo-relative path
+ * @param entries scanned entries to test against; the real list by default,
+ *   overridden only by tests that need a directory entry to exercise the
+ *   prefix half of the rule.
  *
  * A `SCANNED_SOURCE_FILES` entry ending in `/` is a directory prefix, read the
  * same way `no-hardcoded-cjk.test.ts` reads its own: it covers everything
@@ -324,10 +330,13 @@ const TEST_FILE = /(?:^|\/)__tests__\/|\.test\.tsx?$/;
  * through it, `scanSourceFile` gates on it, and `allowlistSyncProblemsFor` asks
  * it — so the enumerated set and the predicate cannot disagree about a file.
  */
-export function isScannedSourceFile(file: string): boolean {
+export function isScannedSourceFile(
+  file: string,
+  entries: readonly string[] = SCANNED_SOURCE_FILES,
+): boolean {
   const path = file.split(sep).join("/");
   if (TEST_FILE.test(path)) return false;
-  return SCANNED_SOURCE_FILES.some((entry) =>
+  return entries.some((entry) =>
     entry.endsWith("/") ? path.startsWith(entry) : path === entry,
   );
 }
@@ -361,9 +370,8 @@ function walk(dir: string, pattern: RegExp): string[] {
  * `__tests__` directories drop out there, in one place.
  *
  * A missing entry is a CONFIGURATION problem, reported as one. Left to
- * `readdirSync`, renaming a scanned directory kills the whole
- * lint chain with a raw ENOENT stack trace that names neither this file nor the
- * stale entry.
+ * `readdirSync`, renaming a scanned directory kills the whole lint chain with a
+ * raw ENOENT stack trace that names neither this file nor the stale entry.
  */
 export function scannedSourceFiles(
   entries: readonly string[] = SCANNED_SOURCE_FILES,
@@ -377,7 +385,9 @@ export function scannedSourceFiles(
       );
     }
     if (!entry.endsWith("/")) return [entry];
-    return walk(join(ROOT, entry), /\.tsx?$/).filter(isScannedSourceFile);
+    return walk(join(ROOT, entry), /\.tsx?$/).filter((file) =>
+      isScannedSourceFile(file, entries),
+    );
   });
 }
 

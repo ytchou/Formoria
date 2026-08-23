@@ -4,7 +4,6 @@ import type {
   MitStatus,
   OtherUrl,
   ReputationSummary,
-  SiteContent,
 } from '@/lib/types/brand'
 
 /** Purchase links are intentionally spelled out at every public boundary. */
@@ -84,7 +83,7 @@ export type OwnerBrandEditor = PublicBrandDetail & {
   romanizedName: string | null
   reputationSummary: ReputationSummary | null
   mitEvidence: NonNullable<Brand['mitEvidence']> | null
-  siteContent: SiteContent | null
+  siteContent: unknown | null
   imageAlts: BrandImageMeta[]
 }
 
@@ -111,7 +110,7 @@ export type AdminBrandListItem = {
   foundingYear?: number | null
   reputationSummary?: ReputationSummary | null
   mitEvidence?: Brand['mitEvidence']
-  siteContent?: SiteContent | null
+  siteContent?: unknown | null
   priceRange?: number | null
   subcategories?: string[]
   subcategoriesEn?: string[]

@@ -729,17 +729,12 @@ async function runProxy(request: NextRequest) {
     );
   }
 
-  // `isLikelyCrawler` is one precompiled union regex; `recordCrawlerHit` re-scans
-  // the registry entry by entry. Gating on it keeps the human-traffic common
-  // case at a single test.
-  const crawlerHit =
-    !isCrawlerTelemetrySuppressed() && isLikelyCrawler(request);
-
   // ORDER IS LOAD-BEARING. This guard sits above every branch below it, and
   // several of those are terminal -- the auth callback and /admin/content
   // return `next()` outright. With the guard below them, those surfaces would
-  // reach the origin with no edge credential. The guard is host-independent
-  // and path-independent, so running it first costs nothing.
+  // reach the origin with no edge credential. The guard is host-independent,
+  // and its only path-sensitivity is the explicit exempt list below, so
+  // running it first costs nothing.
   const cfOriginSecret = process.env.CF_ORIGIN_SECRET;
   if (process.env.NODE_ENV === "production" && cfOriginSecret) {
     // Two different credentials, one header each:
@@ -810,7 +805,11 @@ async function runProxy(request: NextRequest) {
   // Below BOTH 301s — the pathname normalization above and the taxonomy
   // redirect. A crawler that requests a non-canonical path would otherwise be
   // counted once for the redirect and again when it follows it.
-  if (crawlerHit) {
+  //
+  // `isLikelyCrawler` is one precompiled union regex; `recordCrawlerHit`
+  // re-scans the registry entry by entry. Gating on it keeps the
+  // human-traffic common case at a single test.
+  if (!isCrawlerTelemetrySuppressed() && isLikelyCrawler(request)) {
     recordCrawlerHit(request);
   }
 

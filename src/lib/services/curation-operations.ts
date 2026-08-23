@@ -8,7 +8,6 @@ import {
   resolveRefreshEnrichmentPatch,
 } from "./brand-write-policy";
 import type { BrandFlatLinkColumns } from "@/lib/types";
-import type { SiteContent } from "@/lib/types/brand";
 import type { ScrapedBrandData } from "@/lib/types/scraper";
 import {
   ENRICH_LLM_PHASES,
@@ -116,7 +115,7 @@ type CurationBrand = {
   city?: string | null;
   category?: string | null;
   subcategories?: string[] | null;
-  site_content?: SiteContent | null;
+  site_content?: unknown | null;
   reputation_summary?: unknown | null;
   mit_evidence?: unknown | null;
   purchase_website?: string | null;
@@ -1351,7 +1350,7 @@ export function submissionToEnrichBrand(
         : null,
     city: typeof existing.city === "string" ? existing.city : null,
     site_content: isPlainObject(existing.site_content)
-      ? (existing.site_content as EnrichBrand["site_content"])
+      ? existing.site_content
       : null,
     reputation_summary: existing.reputation_summary ?? null,
     mit_evidence: existing.mit_evidence ?? null,

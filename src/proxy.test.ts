@@ -2,6 +2,8 @@ import { createServer } from "node:http";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { routes } from "@/lib/routes";
+
 /**
  * Boundary mocks only: the origin guard runs near the top of `proxy()`, but a
  * request that PASSES the guard keeps falling through to the rate limiter
@@ -192,6 +194,34 @@ describe("a request arriving at the origin in production", () => {
   it("is rejected on the rest of /api/internal/, which is deliberately not exempt", async () => {
     const response = await proxy(requestFor("/api/internal/purge-cache"));
     expect(response.status).toBe(403);
+  });
+
+  // ORDER IS LOAD-BEARING. Both branches below return `next()` outright, so a
+  // guard placed under them would hand those surfaces to any caller that
+  // reached the origin without an edge credential. These two cases are the
+  // only thing pinning the guard above them.
+  it("is rejected on the auth callback, a terminal `next()` branch below the guard", async () => {
+    const response = await proxy(requestFor(routes.auth.callback()));
+    expect(response.status).toBe(403);
+  });
+
+  it("is rejected on /admin/content, the other terminal `next()` branch below the guard", async () => {
+    const response = await proxy(requestFor(routes.admin.content()));
+    expect(response.status).toBe(403);
+  });
+
+  it("still reaches the auth callback when it carries the edge credential", async () => {
+    const response = await proxy(
+      requestFor(routes.auth.callback(), { "x-formoria-edge": EDGE_SECRET }),
+    );
+    expect(response.status).not.toBe(403);
+  });
+
+  it("still reaches /admin/content when it carries the edge credential", async () => {
+    const response = await proxy(
+      requestFor(routes.admin.content(), { "x-formoria-edge": EDGE_SECRET }),
+    );
+    expect(response.status).not.toBe(403);
   });
 });
 
