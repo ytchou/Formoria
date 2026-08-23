@@ -114,8 +114,20 @@ function isAlertMeter(value: unknown): boolean {
     (value.limit === null || isFiniteNumber(value.limit)) &&
     (value.percentage === null || isFiniteNumber(value.percentage)) &&
     (value.projection === null || isFiniteNumber(value.projection)) &&
-    (value.message === null || typeof value.message === "string")
+    (value.message === null || typeof value.message === "string") &&
+    // Optional during a deploy skew, like `railway` below: the report endpoint
+    // may still be the build that predates these fields.
+    (value.window === undefined ||
+      value.window === null ||
+      isUsageWindow(value.window)) &&
+    (value.subject === undefined ||
+      value.subject === null ||
+      typeof value.subject === "string")
   );
+}
+
+function isUsageWindow(value: unknown): boolean {
+  return isRecord(value) && isTimestamp(value.start) && isTimestamp(value.end);
 }
 
 function isOperationalAlertSummary(value: unknown): boolean {
@@ -277,12 +289,36 @@ function dateLabel(report: SpendWatchReport): string {
   return isoDateInTimeZone(report.generatedAt, "Asia/Taipei");
 }
 
+// The UTC period a meter covers, as a bare date or an inclusive date range.
+// The Railway lines report a completed UTC day while `dateLabel` heads the
+// message with the Taipei date and the other meters cover the current period,
+// so the Railway figures have to say which day they mean. Derived from the
+// meter's own window; the window is half-open, so the last covered day is one
+// day before `end`.
+function utcWindowLabel(
+  window: { start: string; end: string } | null | undefined,
+): string | null {
+  if (!window) return null;
+  const start = Date.parse(window.start);
+  const end = Date.parse(window.end);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start)
+    return null;
+  const firstDay = new Date(start).toISOString().slice(0, 10);
+  const lastDay = new Date(end - 86_400_000).toISOString().slice(0, 10);
+  return firstDay === lastDay
+    ? `${firstDay} UTC`
+    : `${firstDay} to ${lastDay} UTC`;
+}
+
 function operationalMeterLine(
   label: string,
   meter: NonNullable<SpendWatchReport["operations"]>["openai"],
   unit: "usd" | "units" | "gb",
+  { showWindow = false }: { showWindow?: boolean } = {},
 ): string {
   if (!meter) return `• ${label}: unavailable`;
+  const windowLabel = showWindow ? utcWindowLabel(meter.window) : null;
+  const headline = windowLabel === null ? label : `${label}, ${windowLabel}`;
   const format = (amount: number): string =>
     unit === "usd" ? usd(amount) : unit === "gb" ? gb(amount) : units(amount);
   const value = meter.value === null ? "unknown" : format(meter.value);
@@ -300,7 +336,10 @@ function operationalMeterLine(
     meter.projection === null
       ? "unknown"
       : `${Math.round(meter.projection * 100)}%`;
-  return `• ${label}: ${value}/${limit} (${percentage}) · headroom ${headroom} · projection ${projection} · ${meter.risk}`;
+  // The subject names WHICH Railway service the memory reading belongs to; the
+  // row covers two and the figure is the worst of them.
+  const subject = meter.subject ? ` · ${meter.subject}` : "";
+  return `• ${headline}: ${value}/${limit} (${percentage}) · headroom ${headroom} · projection ${projection} · ${meter.risk}${subject}`;
 }
 
 function successNotification(report: SpendWatchReport): AgentNotification {
@@ -312,13 +351,16 @@ function successNotification(report: SpendWatchReport): AgentNotification {
         operationalMeterLine("OpenAI budget", operations.openai, "usd"),
         operationalMeterLine("Upstash commands", operations.upstash, "units"),
         operationalMeterLine("PostHog events", operations.posthog, "units"),
-        operationalMeterLine("Railway egress", operations.railway, "gb"),
+        operationalMeterLine("Railway egress", operations.railway, "gb", {
+          showWindow: true,
+        }),
         // The memory metric rides `operations.railwayMemory`; without its own
         // line a memory warning reaches Slack with no value, unit, or limit.
         operationalMeterLine(
           "Railway memory (7d mean)",
           operations.railwayMemory,
           "gb",
+          { showWindow: true },
         ),
         ...operations.lowerBoundCaveats.map((caveat) => `• Caveat: ${caveat}`),
       ]

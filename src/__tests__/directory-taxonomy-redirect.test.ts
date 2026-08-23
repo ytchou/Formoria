@@ -131,6 +131,57 @@ describe('directory taxonomy redirects', () => {
     expect(isDirectoryIndexPath('/categories/home', '?search=x')).toBe(false)
   })
 
+  it('isDirectoryIndexPath accepts in-vocabulary filter values', () => {
+    expect(isDirectoryIndexPath('/brands', '?page=1')).toBe(true)
+    expect(isDirectoryIndexPath('/brands', '?page=60')).toBe(true)
+    expect(isDirectoryIndexPath('/brands', '?sort=name')).toBe(true)
+    expect(isDirectoryIndexPath('/brands', '?verification=mit-verified')).toBe(true)
+    expect(isDirectoryIndexPath('/brands', '?price=1,3')).toBe(true)
+    expect(isDirectoryIndexPath('/brands', '?material=leather')).toBe(true)
+    expect(isDirectoryIndexPath('/brands', '?sub=backpacks')).toBe(true)
+  })
+
+  // Every one of these renders EXACTLY the page it renders today: the parsers
+  // drop or clamp an out-of-vocabulary term. `false` here withholds an edge
+  // cache key, nothing more -- which is the whole point, because a bot walking
+  // `?page=<random>` would otherwise mint unbounded always-MISS keys through an
+  // allow-listed param.
+  it('isDirectoryIndexPath rejects out-of-vocabulary filter values', () => {
+    expect(isDirectoryIndexPath('/brands', '?page=abc')).toBe(false)
+    expect(isDirectoryIndexPath('/brands', '?page=0')).toBe(false)
+    expect(isDirectoryIndexPath('/brands', '?page=-1')).toBe(false)
+    expect(isDirectoryIndexPath('/brands', '?page=999999999')).toBe(false)
+    expect(isDirectoryIndexPath('/brands', '?page=')).toBe(false)
+    expect(isDirectoryIndexPath('/brands', '?sort=cheapest')).toBe(false)
+    expect(isDirectoryIndexPath('/brands', '?verification=maybe')).toBe(false)
+    expect(isDirectoryIndexPath('/brands', '?price=9')).toBe(false)
+    expect(isDirectoryIndexPath('/brands', '?category=not-a-category')).toBe(false)
+    expect(isDirectoryIndexPath('/brands', '?sub=not-a-subcategory')).toBe(false)
+    expect(isDirectoryIndexPath('/brands', '?material=unobtainium')).toBe(false)
+  })
+
+  it('isDirectoryIndexPath rejects a repeated key', () => {
+    expect(isDirectoryIndexPath('/brands', '?page=1&page=2')).toBe(false)
+    expect(isDirectoryIndexPath('/brands', '?category=home&category=food-drink')).toBe(
+      false,
+    )
+  })
+
+  it('isDirectoryIndexPath rejects one bad value among good ones', () => {
+    expect(isDirectoryIndexPath('/brands', '?category=home&page=999999999')).toBe(false)
+    expect(isDirectoryIndexPath('/categories/home', '?page=abc')).toBe(false)
+  })
+
+  it('a rejected value is a cacheability verdict, not a routing one', () => {
+    // The predicate only gates the edge `Cache-Control` header, so a junk value
+    // must leave the taxonomy redirect decision untouched: the page still
+    // renders, and nothing 404s or redirects because of it.
+    expect(isDirectoryIndexPath('/brands', '?page=999999999')).toBe(false)
+    expect(
+      decideDirectoryTaxonomyRedirect('/brands', 'page=999999999'),
+    ).toEqual({ action: 'none' })
+  })
+
   it('the allow-list is exactly the directory filter keys minus search', () => {
     expect([...CACHEABLE_DIRECTORY_QUERY_KEYS].sort()).toEqual(
       ['category', 'material', 'page', 'price', 'sort', 'sub', 'verification'],

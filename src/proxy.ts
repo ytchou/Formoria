@@ -3,12 +3,7 @@ import createMiddleware from "next-intl/middleware";
 import { NextResponse, type NextRequest } from "next/server";
 import { routing } from "@/i18n/routing";
 import { routes } from "@/lib/routes";
-import {
-  isAppLocale,
-  localizePath,
-  LOCALE_COOKIE,
-  resolveInitialLocale,
-} from "@/i18n/locale-preference";
+import { isAppLocale, localizePath } from "@/i18n/locale-preference";
 import {
   verifyChallengeToken,
   CHALLENGE_COOKIE_NAME,
@@ -48,8 +43,10 @@ import {
 } from "@/lib/services/brand-redirects-edge";
 import {
   L1_CATEGORIES,
+  materialBySlug,
   subcategoryBySlug,
 } from "@/lib/taxonomy/ontology";
+import { BRAND_SORT_CONFIG } from "@/lib/pagination";
 import { DIRECTORY_FILTER_QUERY_KEYS } from "@/lib/seo/directory-query-keys";
 import { recordCrawlerHit } from "@/lib/security/crawler-telemetry";
 import {
@@ -209,12 +206,104 @@ const DIRECTORY_EDGE_CACHE_CONTROL =
 // `@/lib/seo/directory-query-keys` rather than restated here. A filter view is
 // a bounded set of renderings the edge can hold; free-text `search` is
 // unbounded and would fill the cache with single-use entries, which is why the
-// filter list excludes it. Values are NOT validated -- the page drops unknown
-// slugs, so a bad value renders the same page as the empty filter and is safe
-// to cache under its own key.
+// filter list excludes it.
+//
+// Keys alone do not bound the key space. Every parser coerces junk to a default
+// -- `parsePageParam` clamps, `parseSortParam` falls back to `random`, the slug
+// facets drop unknown terms -- so `?page=<random>` renders the identical page
+// under an unlimited number of distinct edge keys, all of them permanent
+// MISSes. `isCacheableQueryValue` below closes that by bounding the VALUES too.
 export const CACHEABLE_DIRECTORY_QUERY_KEYS: ReadonlySet<string> = new Set(
   DIRECTORY_FILTER_QUERY_KEYS,
 );
+
+/**
+ * The highest page number worth an edge cache key.
+ *
+ * Ceiling: ~718 approved brands at 12 per page is ~60 pages for the
+ * unfiltered directory, and every filter view is shorter; 100 leaves room for
+ * the catalogue to grow by half. Upgrade path: derive it from the real approved
+ * count once an edge-safe source for that count exists, or raise the constant
+ * when the directory passes ~1000 brands.
+ *
+ * A page above the ceiling still RENDERS exactly as it does today -- this
+ * decides cacheability only.
+ */
+const MAX_CACHEABLE_DIRECTORY_PAGE = 100;
+
+/** Restated from `parseVerificationParam`; see `isCacheableQueryValue`. */
+const CACHEABLE_VERIFICATION_VALUES: ReadonlySet<string> = new Set([
+  "all",
+  "mit-verified",
+  "mit-declared",
+  "owned",
+]);
+
+/** Restated from `parsePriceRanges`; see `isCacheableQueryValue`. */
+const CACHEABLE_PRICE_VALUES: ReadonlySet<string> = new Set(["1", "2", "3"]);
+
+const CACHEABLE_SORT_VALUES: ReadonlySet<string> = new Set(
+  Object.keys(BRAND_SORT_CONFIG),
+);
+
+/** The comma list the directory parsers accept, split the same way they do. */
+function splitFacetValue(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function isCacheableFacetList(
+  raw: string,
+  isKnown: (value: string) => boolean,
+): boolean {
+  const parts = splitFacetValue(raw);
+  return parts.length > 0 && parts.every(isKnown);
+}
+
+/**
+ * Whether one allow-listed query value is inside the closed vocabulary the page
+ * actually renders from.
+ *
+ * A `false` never changes what a visitor sees -- the page renders as before,
+ * with the unknown term dropped. It only refuses to spend an edge key on a URL
+ * a bot can mint an unbounded number of.
+ *
+ * The taxonomy checks reuse `L1_CATEGORIES` / `subcategoryBySlug` /
+ * `materialBySlug`, which this file already imports for the path half of the
+ * predicate. `parseDirectoryViewFilters` stays out of the edge bundle on
+ * purpose (see `@/lib/seo/directory-query-keys`), so the two enum vocabularies
+ * it holds inline are restated above. Ceiling: they must be changed together;
+ * a drift only over-restricts caching, it cannot change a rendering.
+ */
+function isCacheableQueryValue(key: string, raw: string): boolean {
+  switch (key) {
+    case "page":
+      return (
+        /^[1-9][0-9]*$/.test(raw) &&
+        Number(raw) <= MAX_CACHEABLE_DIRECTORY_PAGE
+      );
+    case "sort":
+      return CACHEABLE_SORT_VALUES.has(raw);
+    case "verification":
+      return CACHEABLE_VERIFICATION_VALUES.has(raw);
+    case "price":
+      return isCacheableFacetList(raw, (value) =>
+        CACHEABLE_PRICE_VALUES.has(value),
+      );
+    case "category":
+      return isCacheableFacetList(raw, (value) =>
+        L1_CATEGORIES.some((item) => item.slug === value),
+      );
+    case "sub":
+      return isCacheableFacetList(raw, (value) => subcategoryBySlug(value) !== null);
+    case "material":
+      return isCacheableFacetList(raw, (value) => materialBySlug(value) !== null);
+    default:
+      return false;
+  }
+}
 const DIRECTORY_INDEX_PATHS = new Set([
   routes.brands(),
   ...routing.locales.map((locale) => `/${locale}${routes.brands()}`),
@@ -257,8 +346,14 @@ export function isDirectoryIndexPath(pathname: string, search = ""): boolean {
   }
 
   if (search) {
-    for (const key of new URLSearchParams(search).keys()) {
+    const params = new URLSearchParams(search);
+    for (const key of new Set(params.keys())) {
       if (!CACHEABLE_DIRECTORY_QUERY_KEYS.has(key)) return false;
+      const values = params.getAll(key);
+      // A repeated key multiplies the key space without changing the render:
+      // every parser reads a single string and drops an array outright.
+      if (values.length !== 1) return false;
+      if (!isCacheableQueryValue(key, values[0] ?? "")) return false;
     }
   }
 
@@ -965,36 +1060,19 @@ async function runProxy(request: NextRequest) {
 
   const isPublicPath = isLocalizedPublicPath(pathname);
   const explicitLocale = isAppLocale(segments.at(0)) ? segments.at(0) : null;
-  const cookieLocale = request.cookies.get(LOCALE_COOKIE)?.value;
-  const shouldInferLocale =
-    isPublicPath && !explicitLocale && !isLikelyCrawler(request);
-  const inferredLocale = shouldInferLocale
-    ? resolveInitialLocale({
-        cookieLocale,
-        acceptLanguage: request.headers.get("accept-language"),
-        country:
-          request.headers.get("cf-ipcountry") ??
-          request.headers.get("x-vercel-ip-country"),
-      })
-    : null;
-
-  if (isPublicPath && !explicitLocale && inferredLocale === "en") {
-    const url = request.nextUrl.clone();
-    url.pathname = localizePath(pathname, "en");
-    const localeResponse = NextResponse.redirect(url);
-    if (!routerRequest) {
-      localeResponse.cookies.set(LOCALE_COOKIE, "en", {
-        sameSite: "lax",
-        path: "/",
-      });
-    }
-    localeResponse.headers.set("Cache-Control", "private, no-store");
-    return finalizeResponse(localeResponse, staging);
-  }
+  // No locale is inferred from the request. A prefixless public URL is always
+  // the default locale, which is what `src/i18n/routing.ts` already declares
+  // with `localeDetection: false`. English is reached only by an explicit
+  // choice: the locale switcher writes `NEXT_LOCALE` through a server action,
+  // and `/en/...` prefixes are honoured as written. Inferring here varied every
+  // prefixless page on `accept-language` and `cf-ipcountry` with no `Vary`
+  // header, so the edge could hand a cached zh-TW page to an English visitor --
+  // and the redirect it issued was `private, no-store`, which took the whole
+  // directory out of the edge cache for exactly the cold visitors it serves.
 
   let response: NextResponse;
   const isPrefixlessBrandDetail = brandSlug !== null && explicitLocale === null;
-  if (isPrefixlessBrandDetail && inferredLocale !== "en") {
+  if (isPrefixlessBrandDetail) {
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set(NEXT_INTL_LOCALE_HEADER, "zh-TW");
     response = NextResponse.next({ request: { headers: requestHeaders } });
@@ -1021,14 +1099,10 @@ async function runProxy(request: NextRequest) {
     response = NextResponse.next({ request: { headers: requestHeaders } });
   }
 
-  // No locale cookie is written on this path, on purpose. `inferredLocale` is
-  // one of exactly two locales, and `en` has already returned the redirect
-  // above that carries the cookie; the only value that can reach here is
-  // `routing.defaultLocale`, which an absent cookie already resolves to through
-  // `resolveInitialLocale`. Writing it would restate the fallback while adding
-  // a Set-Cookie that makes every HTML response uncacheable at Cloudflare --
-  // and the first cookie-less visit is exactly the request the edge most needs
-  // to serve from cache.
+  // No locale cookie is written on this path, on purpose. Writing one would add
+  // a Set-Cookie that makes every HTML response uncacheable at Cloudflare -- and
+  // the first cookie-less visit is exactly the request the edge most needs to
+  // serve from cache.
   //
   // URL prefixes control only the current request. Explicit preferences are
   // persisted by the switcher, auth, and settings flows instead.

@@ -32,7 +32,7 @@ test.describe("Auth — locale intent", () => {
     });
   });
 
-  test("sign-in HTML honors the locale cookie over browser inference", async ({
+  test("sign-in HTML honors the locale cookie", async ({
     request,
   }) => {
     const response = await request.get("/auth/sign-in", {
