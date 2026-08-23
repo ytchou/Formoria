@@ -119,10 +119,6 @@ export async function LandingZones({
                   brandSiteCta: tSelected("brandSiteCta"),
                   unavailable: tSelected("unavailable"),
                 },
-                trail: {
-                  eyebrow: t("selectedProducts.trailEyebrow"),
-                  cta: t("selectedProducts.trailCta"),
-                },
               }}
             />
           </div>

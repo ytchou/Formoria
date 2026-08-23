@@ -9,10 +9,8 @@ import {
   buildWallSlots,
   MAX_HOME_WALL_PRODUCTS,
   type WallSlot,
-  type WallTrailSlot,
 } from "@/lib/curated-products/home-wall";
 import type { HomepageCuratedProduct } from "@/lib/services/curated-products";
-import type { TrailEntry } from "@/lib/services/trails";
 import { WALL_RATIOS } from "@/lib/curated-products/wall-ratio";
 import {
   ProductWall,
@@ -48,7 +46,6 @@ vi.mock("@/i18n/navigation", () => ({
 
 vi.mock("@/lib/analytics", () => ({
   trackCuratedProductClicked: vi.fn(),
-  trackTrailCardClicked: vi.fn(),
   trackViewItemList: vi.fn(),
   trackStockistListViewed: vi.fn(),
 }));
@@ -63,7 +60,6 @@ const labels = {
     brandSiteCta: "Visit brand site",
     unavailable: "Link unavailable",
   },
-  trail: { eyebrow: "Trail", cta: "Explore this trail" },
 };
 
 /**
@@ -164,36 +160,8 @@ function buildProduct(index: number): HomepageCuratedProduct {
   };
 }
 
-function buildTrail(
-  slug = "small-space-reading-corner",
-  title = "A reading corner for a small flat",
-): TrailEntry {
-  return {
-    slug,
-    frontmatter: {
-      title,
-      slug,
-      tags: [],
-      locale: "en",
-      publishedAt: "2026-01-01",
-      draft: false,
-      heroImage:
-        "/i/brands/t/hero.jpg",
-      heroImageAlt: "A lamp beside a low chair",
-      sources: [],
-      faq: [],
-      sections: [],
-      relatedCategories: [],
-      relatedStories: [],
-      relatedTrails: [],
-      promise: "Three objects that make a corner feel finished.",
-    },
-  };
-}
-
 function productSlots(count: number): WallSlot[] {
   return Array.from({ length: count }, (_, index) => ({
-    kind: "product" as const,
     product: buildProduct(index),
     ratio: "4:3" as const,
   }));
@@ -234,10 +202,10 @@ describe("ProductWall", () => {
 
   it("sizes each tile proportionally to its ratio, so a line justifies", () => {
     const { container } = renderWall([
-      { kind: "product", product: buildProduct(0), ratio: "3:4" },
-      { kind: "product", product: buildProduct(1), ratio: "4:5" },
-      { kind: "product", product: buildProduct(2), ratio: "1:1" },
-      { kind: "product", product: buildProduct(3), ratio: "4:3" },
+      { product: buildProduct(0), ratio: "3:4" },
+      { product: buildProduct(1), ratio: "4:5" },
+      { product: buildProduct(2), ratio: "1:1" },
+      { product: buildProduct(3), ratio: "4:3" },
     ]);
 
     const tiles = Array.from(
@@ -323,41 +291,22 @@ describe("ProductWall", () => {
     ).toHaveLength(3);
   });
 
-  it("takes the trim out of products, so no composed trail vanishes", () => {
-    // The real composition, not hand-built slots: at a 16-product cap and a
-    // trail every 8 slots `buildWallSlots` reserves TWO trails and returns 18
-    // slots ENDING on one of them. A tail slice back to 16 therefore deleted a
-    // composed trail; the trim must fall on products instead.
+  it("trims from the tail at partial supply", () => {
     const products = Array.from(
-      { length: MAX_HOME_WALL_PRODUCTS + 4 },
+      { length: MAX_HOME_WALL_PRODUCTS - 3 },
       (_, index) => buildProduct(index),
     );
-    const trails = [
-      buildTrail("trail-a", "Where to read in a small flat"),
-      buildTrail("trail-b", "A table set for four"),
-    ];
     const slots = buildWallSlots({
       products,
-      trails,
       seed: "2026-08-17",
     });
-
-    const composedTrails = slots.filter(
-      (slot): slot is WallTrailSlot => slot.kind === "trail",
-    );
-    // The premise of the test: fewer than two reserved trails and the trim has
-    // nothing to drop, so the assertion below would pass vacuously.
-    expect(composedTrails).toHaveLength(2);
+    expect(slots).toHaveLength(13);
 
     const { container } = renderWall(slots);
 
-    // The wall still ends on a full line — the trim is wanted, only its
-    // victim changed.
     const tiles = container.querySelectorAll("li:not([role='presentation'])");
-    expect(tiles.length % WALL_LINE_SIZE_DESKTOP).toBe(0);
-    expect(tiles).toHaveLength(16);
-    // Two of the sixteen are trails, so fourteen products are reported.
-    expect(trackViewItemList).toHaveBeenCalledWith("home_wall", 14);
+    expect(tiles).toHaveLength(12);
+    expect(trackViewItemList).toHaveBeenCalledWith("home_wall", 12);
   });
 
   it("preserves the wall's accessible name and list semantics", () => {
@@ -406,94 +355,11 @@ describe("ProductWall", () => {
     expect(list.dataset.wallExpanded).toBe("true");
   });
 
-  it("counts only product slots for view_item_list", () => {
-    renderWall([
-      { kind: "product", product: buildProduct(0), ratio: "4:3" },
-      { kind: "trail", trail: buildTrail("trail-a"), format: "wide" },
-      { kind: "product", product: buildProduct(1), ratio: "1:1" },
-    ]);
+  it("reports every visible slot to view_item_list", () => {
+    const slots = productSlots(4);
 
-    // A trail tile is not an item of this list. The list NAME is the existing
-    // analytics series key and must stay byte-identical.
-    expect(trackViewItemList).toHaveBeenCalledWith("home_wall", 2);
-  });
+    renderWall(slots);
 
-  it("degrades to a single trail tile", () => {
-    const { container } = renderWall([
-      { kind: "trail", trail: buildTrail(), format: "tall" },
-    ]);
-
-    const list = screen.getByRole("list", { name: labels.heading });
-    expect(within(list).getAllByRole("listitem").length).toBe(1);
-    expect(
-      screen.getByText("A reading corner for a small flat"),
-    ).toBeInTheDocument();
-    // The wall no longer owns a continuation strip at all — leftover trails
-    // render as their own zone (see landing-zones.tsx). Asserted so the strip
-    // cannot reappear here.
-    expect(container.querySelector(".border-t")).toBeNull();
-    expect(container.querySelector("li")?.className).toContain(
-      "sm:grow-[var(--tile-ratio)]",
-    );
-  });
-
-  it("renders a repo-local hero path, which safeImageSrc now keeps", () => {
-    // `safeImageSrc` used to build `new URL(url)` with NO base, so every
-    // relative path threw and returned null — a hero committed at
-    // `/images/trails/…` passed the frontmatter disk check, reserved a wall
-    // slot, and still rendered an imageless tile. It now owns the same-origin
-    // case itself (DEV-1551), and the tile no longer hand-rolls the branch.
-    const trail = buildTrail();
-    trail.frontmatter.heroImage =
-      "/images/trails/small-space-reading-corner.webp";
-    trail.frontmatter.heroImageAlt = "A lamp beside a low chair";
-
-    const { container } = renderWall([
-      { kind: "trail", trail, format: "tall" },
-    ]);
-
-    const image = container.querySelector("img");
-    expect(image).not.toBeNull();
-    expect(image?.getAttribute("src")).toBe(
-      "/images/trails/small-space-reading-corner.webp",
-    );
-    expect(image?.getAttribute("alt")).toBe("A lamp beside a low chair");
-  });
-
-  it("drops a protocol-relative hero rather than fetching it offsite", () => {
-    // `//evil.example/…` starts with `/`, so the caller-side leading-slash
-    // branch this tile used to carry rendered it as if it were a repo asset.
-    const trail = buildTrail();
-    trail.frontmatter.heroImage = "//evil.example/hero.webp";
-
-    const { container } = renderWall([
-      { kind: "trail", trail, format: "tall" },
-    ]);
-
-    expect(container.querySelector("img")).toBeNull();
-  });
-
-  it("falls back to an empty alt rather than repeating the title", () => {
-    // The link is already `aria-labelledby` the title, so an alt that repeats
-    // it announces the same words twice.
-    const trail = buildTrail();
-    trail.frontmatter.heroImage = "/images/trails/small-space-reading-corner.webp";
-    delete trail.frontmatter.heroImageAlt;
-
-    const { container } = renderWall([
-      { kind: "trail", trail, format: "wide" },
-    ]);
-
-    expect(container.querySelector("img")?.getAttribute("alt")).toBe("");
-  });
-
-  it("still renders a remote hero on an allowed host", () => {
-    const { container } = renderWall([
-      { kind: "trail", trail: buildTrail(), format: "tall" },
-    ]);
-
-    expect(container.querySelector("img")?.getAttribute("src")).toBe(
-      "/i/brands/t/hero.jpg",
-    );
+    expect(trackViewItemList).toHaveBeenCalledWith("home_wall", slots.length);
   });
 });

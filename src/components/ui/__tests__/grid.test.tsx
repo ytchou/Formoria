@@ -40,6 +40,22 @@ describe("Grid", () => {
     expect(gridStyles({ cols: "thirds" })).toContain("lg:grid-cols-3");
   });
 
+  it("single renders one column at every breakpoint", () => {
+    const classes = gridStyles({ cols: "single" });
+
+    expect(classes).toContain("grid-cols-1");
+    expect(classes).not.toMatch(/(?:sm|lg|xl):grid-cols-/);
+  });
+
+  it("bands goes two-up at lg and three-up at xl", () => {
+    const classes = gridStyles({ cols: "bands" });
+
+    expect(classes).toContain("grid-cols-1");
+    expect(classes).toContain("lg:grid-cols-2");
+    expect(classes).toContain("xl:grid-cols-3");
+    expect(classes).not.toContain("sm:grid-cols-");
+  });
+
   it("renders a semantic element when asked", () => {
     render(
       <Grid as="ul" aria-label="Brands" data-testid="grid">

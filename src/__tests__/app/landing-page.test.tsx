@@ -176,7 +176,6 @@ function buildProduct(index: number): HomepageCuratedProduct {
 function buildWall(count = 2): { slots: WallSlot[] } {
   return {
     slots: Array.from({ length: count }, (_, index) => ({
-      kind: "product" as const,
       product: buildProduct(index),
       ratio: "4:3" as const,
     })),
@@ -314,23 +313,9 @@ describe("landing page zones", () => {
     expect(container.querySelector('[data-landing-zone="trust"]')).toBeNull();
   });
 
-  /**
-   * The zone used to render only the trails the wall did NOT place. With a
-   * single published trail that trail is always a wall tile,
-   * so the zone disappeared from the homepage entirely. Its input is now every
-   * published trail, and wall placement is not a reason to withhold one: the
-   * tile is a picture, the row is the reader's route into /discover.
-   */
-  it("renders the trails zone when its only trail is also a wall tile", async () => {
+  it("renders the trails zone when only one trail is published", async () => {
     const trail = buildTrail("small-kitchen");
     const { container } = await renderZones({
-      // Placed in the wall AND passed to the zone: exactly the single-trail case.
-      wall: {
-        slots: [
-          ...buildWall().slots,
-          { kind: "trail" as const, trail, format: "wide" as const },
-        ],
-      },
       trails: [trail],
     });
 
@@ -358,16 +343,10 @@ describe("landing page zones", () => {
   });
 
   it("renders every published trail in the zone", async () => {
-    const placed = buildTrail("small-kitchen");
-    const unplaced = buildTrail("first-apartment");
+    const first = buildTrail("small-kitchen");
+    const second = buildTrail("first-apartment");
     const { container } = await renderZones({
-      wall: {
-        slots: [
-          ...buildWall().slots,
-          { kind: "trail" as const, trail: placed, format: "wide" as const },
-        ],
-      },
-      trails: [placed, unplaced],
+      trails: [first, second],
     });
 
     const trails = container.querySelector<HTMLElement>(
