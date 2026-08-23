@@ -128,7 +128,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
         <p className="mt-4 type-body-sm">
           {t.rich('whatNext.learnMore.answer', {
             link: (chunks) => (
-              <Link href={routes.gettingStarted()} className="text-ink underline">
+              <Link href={routes.faq()} className="text-ink underline">
                 {chunks}
               </Link>
             ),

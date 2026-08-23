@@ -43,7 +43,11 @@ vi.mock("@/lib/auth/use-user", () => ({
   useUser: () => ({
     user: null,
     loading: false,
-    viewer: { hasOwnedBrand: false, ownerFeaturesEnabled: false, isAdmin: false },
+    viewer: {
+      hasOwnedBrand: false,
+      ownerFeaturesEnabled: false,
+      isAdmin: false,
+    },
     viewerLoading: false,
     viewerError: false,
     refreshViewer: vi.fn(),
@@ -171,7 +175,7 @@ describe("MainNav", () => {
     expect(dialog.querySelector('[data-slot="sheet-header"]')).toBeNull();
   });
 
-  it("offers the mock's five destinations plus the recommendation CTA", () => {
+  it("keeps where-to-buy out of the header destinations", () => {
     // 推薦品牌 is NOT in the approved mock's nav, and it stays anyway:
     // owner-features-flag-off.spec.ts asserts it inside `header`.
     renderNav();
@@ -181,7 +185,6 @@ describe("MainNav", () => {
       [en.nav.discover, "/discover"],
       [en.nav.brands, "/brands"],
       [en.nav.stories, "/stories"],
-      [en.nav.whereToBuy, "/where-to-buy"],
       [en.nav.about, "/about"],
       [en.nav.submitBrand, "/submit"],
     ] as const) {
@@ -189,5 +192,8 @@ describe("MainNav", () => {
         within(banner).getAllByRole("link", { name: label })[0],
       ).toHaveAttribute("href", href);
     }
+    expect(
+      within(banner).queryByRole("link", { name: en.nav.whereToBuy }),
+    ).not.toBeInTheDocument();
   });
 });

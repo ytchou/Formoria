@@ -4,14 +4,10 @@ import { buildClaimRejectedEmail } from '@emails/templates/claim-rejected'
 import { buildClaimEmail } from '@emails/templates/claim-submitted'
 import { buildClaimEmailVerificationEmail } from '@emails/templates/claim-verified'
 import { buildDeclarationRemovedEmail } from '@emails/templates/declaration-removed'
-import { buildMicrositeSpotlightEmail } from '@emails/templates/microsite-spotlight'
 import { buildNewsletterConfirmEmail } from '@emails/templates/newsletter-confirm'
 import { buildOwnershipRevokedEmail } from '@emails/templates/ownership-revoked'
-import { buildProfileNudgeEmail } from '@emails/templates/profile-nudge'
-import { buildReEngagementEmail } from '@emails/templates/re-engagement'
 import { buildApprovalEmail } from '@emails/templates/submission-approved'
 import { buildRejectionEmail } from '@emails/templates/submission-rejected'
-import { buildWelcomeEmail } from '@emails/templates/welcome'
 import type { EmailMessage } from '@emails/types'
 
 type Locale = 'zh-TW' | 'en'
@@ -96,43 +92,6 @@ const declarationRemoved = (locale: Locale, brandName: string) =>
     ownerEmail: EMAIL,
     brandName,
     reviewerNotes: 'Community evidence contradicted the declaration',
-    locale,
-  })
-
-const welcome = (locale: Locale, brandName: string) =>
-  buildWelcomeEmail({
-    to: EMAIL,
-    brandName,
-    brandSlug: 'test-brand',
-    unsubscribeToken: 'welcome-token',
-    locale,
-  })
-
-const profileNudge = (locale: Locale, brandName: string) =>
-  buildProfileNudgeEmail({
-    to: EMAIL,
-    brandName,
-    completenessPercent: 60,
-    missingFields: ['description'],
-    unsubscribeToken: 'profile-token',
-    locale,
-  })
-
-const micrositeSpotlight = (locale: Locale, brandName: string) =>
-  buildMicrositeSpotlightEmail({
-    to: EMAIL,
-    brandName,
-    brandSlug: 'test-brand',
-    unsubscribeToken: 'microsite-token',
-    locale,
-  })
-
-const reEngagement = (locale: Locale, brandName: string) =>
-  buildReEngagementEmail({
-    to: EMAIL,
-    brandName,
-    brandSlug: 'test-brand',
-    unsubscribeToken: 'reengagement-token',
     locale,
   })
 
@@ -246,54 +205,6 @@ const SUBJECT_CASES: SubjectCase[] = [
     locale: 'en',
     build: () => declarationRemoved('en', EN_BRAND),
     expected: 'MIT declaration removed for "Test Brand" — Formoria',
-    includesBrandName: true,
-  },
-  {
-    name: 'welcome',
-    locale: 'zh-TW',
-    build: () => welcome('zh-TW', ZH_BRAND),
-    includesBrandName: true,
-  },
-  {
-    name: 'welcome',
-    locale: 'en',
-    build: () => welcome('en', EN_BRAND),
-    includesBrandName: true,
-  },
-  {
-    name: 'profile-nudge',
-    locale: 'zh-TW',
-    build: () => profileNudge('zh-TW', ZH_BRAND),
-    includesBrandName: true,
-  },
-  {
-    name: 'profile-nudge',
-    locale: 'en',
-    build: () => profileNudge('en', EN_BRAND),
-    includesBrandName: true,
-  },
-  {
-    name: 'microsite-spotlight',
-    locale: 'zh-TW',
-    build: () => micrositeSpotlight('zh-TW', ZH_BRAND),
-    includesBrandName: true,
-  },
-  {
-    name: 'microsite-spotlight',
-    locale: 'en',
-    build: () => micrositeSpotlight('en', EN_BRAND),
-    includesBrandName: true,
-  },
-  {
-    name: 're-engagement',
-    locale: 'zh-TW',
-    build: () => reEngagement('zh-TW', ZH_BRAND),
-    includesBrandName: true,
-  },
-  {
-    name: 're-engagement',
-    locale: 'en',
-    build: () => reEngagement('en', EN_BRAND),
     includesBrandName: true,
   },
   {

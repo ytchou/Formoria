@@ -88,7 +88,6 @@ export const routes = {
   contact: () => '/contact',
   privacy: () => '/privacy',
   terms: () => '/terms',
-  gettingStarted: () => '/getting-started',
   challenge: () => '/challenge',
   contributions: () => '/contributions',
 

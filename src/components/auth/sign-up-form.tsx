@@ -105,7 +105,6 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
         <MarketingEmailOptInField
           id="signup-marketing-email"
           name="marketingEmailOptIn"
-          variant="newsletter-and-lifecycle"
           checked={marketingEmailOptIn}
           onCheckedChange={setMarketingEmailOptIn}
           disabled={pending}

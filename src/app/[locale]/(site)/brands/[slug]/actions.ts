@@ -312,7 +312,6 @@ export async function submitClaimAction(
           locale,
           source: 'brand_claim',
           newsletter: true,
-          lifecycle: true,
         })
       }
 

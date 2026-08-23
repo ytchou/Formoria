@@ -505,7 +505,6 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
 
           <MarketingEmailOptInField
             id="claim-marketing-email"
-            variant="newsletter-and-lifecycle"
             checked={marketingEmailOptIn}
             onCheckedChange={setMarketingEmailOptIn}
             disabled={isPending}

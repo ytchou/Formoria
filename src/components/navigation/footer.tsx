@@ -97,11 +97,6 @@ export function Footer() {
                   </Link>
                 </li>
                 <li>
-                  <Link href={routes.gettingStarted()} prefetch={false} className={linkClasses}>
-                    {t("gettingStarted")}
-                  </Link>
-                </li>
-                <li>
                   <Link href={routes.faq()} prefetch={false} className={linkClasses}>
                     {t("faq")}
                   </Link>
@@ -138,14 +133,10 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Copyright and the non-seller disclosure. The disclosure is not fine
-            print by accident: Formoria never owns the transaction, and this is
-            the one line that says so on every route. */}
-        <div className="mt-stack flex flex-col items-start gap-3 border-t border-rule-on-ink pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-stack border-t border-rule-on-ink pt-6">
           <p className="type-metadata text-on-ink-muted">
             {t("copyright", { year: new Date().getFullYear() })}
           </p>
-          <p className="type-metadata text-on-ink-muted">{t("disclosure")}</p>
         </div>
       </PageShell>
     </footer>

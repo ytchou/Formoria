@@ -182,7 +182,6 @@ export async function submitRecommendation(
           locale: await getLocale(),
           source: 'guest_recommendation',
           newsletter: true,
-          lifecycle: false,
         })
       }
 
@@ -279,7 +278,6 @@ export async function submitOwnerQuick(
           locale: await getLocale(),
           source: 'owner_quick_submission',
           newsletter: true,
-          lifecycle: true,
         })
       }
 
@@ -392,7 +390,6 @@ export async function submitOwnerDetailedBrand(
           locale: await getLocale(),
           source: 'owner_detailed_submission',
           newsletter: true,
-          lifecycle: true,
         })
       }
 
