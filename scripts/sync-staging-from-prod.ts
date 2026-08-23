@@ -42,10 +42,11 @@
  * The client types are branded so that passing the production client to a
  * write helper is a compile error, not a runtime surprise.
  *
- * The sync is ADDITIVE. There is no delete anywhere in this file, and there is
- * exactly one write call (`upsertBatch`). `curated_products` is deliberately
- * untouched — production has zero rows, and staging's rows are the real
- * authored supply, not a fixture (DEV-1485 deleted the synthetic one), so any
+ * The sync is ADDITIVE. There is no delete anywhere in this file, and there
+ * are exactly two write calls: `upsertBatch` for rows and the storage upload
+ * in `syncStorageObjects` for the bytes those rows point at.
+ * `curated_products` is deliberately untouched — production has zero rows, and
+ * staging's rows are the real authored supply, not a fixture (DEV-1485 deleted the synthetic one), so any
  * mirroring of that table would destroy the homepage product wall's only data.
  *
  * There is no seed ordering to respect any more: `db:seed:staging` no longer
@@ -482,6 +483,162 @@ export const TABLE_POLICIES: Record<CopyTable, TablePolicy> = {
     brandIdColumn: null,
     batchSize: 500,
   },
+};
+
+// ---------------------------------------------------------------------------
+// Storage objects
+// ---------------------------------------------------------------------------
+
+/**
+ * The bucket every rendered brand image lives in.
+ *
+ * Copying ROWS used to be enough: `brand_images.url` was an absolute URL into
+ * PRODUCTION's public bucket, so staging rendered production's bytes. DEV-1551
+ * replaced that with the same-origin `/i/<storage_path>` proxy, which
+ * downloads from the DEPLOYING project's own bucket
+ * (`src/app/i/[...path]/route.ts`). A row-only sync therefore leaves staging
+ * holding rows for galleries with no bytes behind them — every `/i/` request
+ * 404s and `next/image` turns that into a 400.
+ */
+export const STORAGE_BUCKET = "brand-images";
+
+/**
+ * The key prefixes this sync copies.
+ *
+ * `submissions/` is here even though the public read proxy deny-lists it
+ * unconditionally (`PRIVATE_IMAGE_PREFIXES` in `src/lib/images/image-proxy.ts`),
+ * so a copied `submissions/` object never serves a page directly. It is copied
+ * because it is the SOURCE `promote-submission-images.ts` reads: promotion is a
+ * server-side copy inside one bucket, so the source bytes must already be in the
+ * project being promoted. Run against a staging bucket that holds only
+ * `brands/`, promotion reports `Object not found` for every row — measured
+ * 2026-08-23, 781/781.
+ *
+ * The alternative is promoting in PRODUCTION first and syncing the rewritten
+ * keys, which makes a `brands/`-only copy sufficient. That is the better end
+ * state and is tracked as DEV-1568; it is not a prerequisite for a usable
+ * staging, which is why both prefixes are copied here.
+ *
+ * Widening this to `events/` or `event-exhibitors/` is a one-line change plus
+ * the corresponding surfaces going through `/i/`; the stage reports what it
+ * skipped so the gap is visible rather than inferred.
+ */
+export const SYNCED_STORAGE_PREFIXES = ["brands/", "submissions/"] as const;
+
+/** Columns that hold a bucket-relative key, per copied table. */
+const STORAGE_KEY_COLUMNS: Partial<Record<CopyTable, readonly string[]>> = {
+  brands: ["hero_image_storage_path"],
+  brand_images: ["storage_path"],
+  events: ["hero_image_storage_path"],
+  event_exhibitors: ["image_storage_path"],
+};
+
+/**
+ * Whether a row's key is worth copying.
+ *
+ * `brand_images` keeps rejected rows with their `storage_path` intact, but
+ * `brand-storage-maintenance.ts` purges the objects underneath them — so a
+ * rejected key resolves to nothing in production and copying it can only fail.
+ * Measured 2026-08-23: production holds 6,193 active and 1,718 rejected rows,
+ * and a sync that asked for all of them reported 524 `Object not found`.
+ *
+ * The public read filters on the same column (`brand-images.ts` selects
+ * `status = 'active'`), so this matches what actually renders. A row with no
+ * `status` column at all is kept: the other key-bearing tables have no such
+ * concept and must not be filtered out by an absent field.
+ */
+/**
+ * Whether Storage refused the upload because of the object's media type.
+ *
+ * Matched on the message because storage-js reports this as a generic 400 with
+ * no distinguishing code. Narrow on purpose: a broader match would swallow
+ * retryable 400s and silently stop failing runs that ought to fail.
+ */
+function isUnsupportedMimeError(error: unknown): boolean {
+  const message =
+    typeof error === "object" && error !== null && "message" in error
+      ? String((error as { message: unknown }).message)
+      : "";
+  return /mime type .* is not supported/i.test(message);
+}
+
+function isRenderableImageRow(table: CopyTable, row: Row): boolean {
+  if (table !== "brand_images") return true;
+  const status = row.status;
+  return typeof status !== "string" || status === "active";
+}
+
+export type StorageKeyPlan = {
+  /** Distinct keys under a synced prefix, sorted. What the copy stage moves. */
+  keys: string[];
+  /** Distinct keys under some other prefix. Reported, never copied. */
+  skippedByPrefix: string[];
+};
+
+/**
+ * The bucket keys the copied rows reference.
+ *
+ * Reads every key-bearing column of every table this sync writes, then
+ * partitions on `SYNCED_STORAGE_PREFIXES`. `curated_products` is absent on
+ * purpose: this sync does not copy that table (see the header), so copying its
+ * objects would seed staging with bytes no synced row points at.
+ */
+export function planStorageKeys(
+  rowsByTable: Partial<Record<CopyTable, readonly Row[]>>,
+): StorageKeyPlan {
+  const wanted = new Set<string>();
+  const skipped = new Set<string>();
+  for (const [table, columns] of Object.entries(STORAGE_KEY_COLUMNS)) {
+    for (const row of rowsByTable[table as CopyTable] ?? []) {
+      if (!isRenderableImageRow(table as CopyTable, row)) continue;
+      for (const column of columns ?? []) {
+        const value = row[column];
+        if (typeof value !== "string") continue;
+        const key = value.trim();
+        if (key.length === 0) continue;
+        if (SYNCED_STORAGE_PREFIXES.some((prefix) => key.startsWith(prefix)))
+          wanted.add(key);
+        else skipped.add(key);
+      }
+    }
+  }
+  return {
+    keys: [...wanted].sort(),
+    skippedByPrefix: [...skipped].sort(),
+  };
+}
+
+/** The folder each key lives in, deduplicated. One `list` call apiece. */
+export function storageFoldersOf(keys: readonly string[]): string[] {
+  const folders = new Set<string>();
+  for (const key of keys) {
+    const cut = key.lastIndexOf("/");
+    folders.add(cut < 0 ? "" : key.slice(0, cut));
+  }
+  return [...folders].sort();
+}
+
+/** Objects copied concurrently. Bounded: each one holds a whole image in memory. */
+const STORAGE_COPY_CONCURRENCY = 6;
+/** Folder listings run concurrently. Metadata only, so a wider fan-out is fine. */
+const STORAGE_LIST_CONCURRENCY = 20;
+/** storage-js caps a page well below this; the loop stops on an empty page. */
+const STORAGE_PAGE_SIZE = 1000;
+
+export type StorageCopyReport = {
+  planned: number;
+  copied: number;
+  /** Already in staging under the same key. Re-running a partial run is cheap. */
+  skippedPresent: number;
+  /** Retryable. A re-run should clear these; a non-zero count fails the run. */
+  failed: number;
+  /**
+   * Refused by the destination bucket's mime policy. Reported, never retried,
+   * and deliberately does NOT fail the run — see the upload branch.
+   */
+  rejectedByBucket: number;
+  /** One line per failing object, capped for the console. */
+  errors: string[];
 };
 
 // ---------------------------------------------------------------------------
@@ -1320,7 +1477,7 @@ type ApiKeyEntry = { id?: unknown; type?: unknown; api_key?: unknown };
  * a verifiable project ref, which is what makes the identity check below more
  * than a comment.
  */
-function resolveServiceRoleKey(ref: string): {
+export function resolveServiceRoleKey(ref: string): {
   url: string;
   key: string;
 } {
@@ -1528,6 +1685,156 @@ async function upsertBatch(
     written += batch.length;
   }
   return written;
+}
+
+// ---------------------------------------------------------------------------
+// The other write: storage objects
+// ---------------------------------------------------------------------------
+
+/**
+ * The keys a project already holds under the given folders.
+ *
+ * Folder-scoped rather than a whole-bucket walk: the sync knows exactly which
+ * folders its keys live in (`brands/<brand-id>/`), and a recursive listing of
+ * a production-sized bucket is thousands of round trips for an answer we do
+ * not need. Only files are collected — storage-js reports a folder as an entry
+ * with a null id.
+ */
+export async function listStorageKeys(
+  /**
+   * Unbranded on purpose: this is the one storage helper that cannot write, so
+   * "which project am I holding" is not a hazard here, and
+   * `check-image-resolvability.ts` needs the same listing against either one.
+   */
+  client: SupabaseClient,
+  folders: readonly string[],
+): Promise<Set<string>> {
+  const found = new Set<string>();
+
+  const listFolder = async (folder: string): Promise<void> => {
+    for (let offset = 0; ; ) {
+      const { data, error } = await client.storage
+        .from(STORAGE_BUCKET)
+        .list(folder, {
+          limit: STORAGE_PAGE_SIZE,
+          offset,
+          sortBy: { column: "name", order: "asc" },
+        });
+      if (error) {
+        throw new Error(
+          `storage list "${folder || "/"}" failed: ${describeError(error)}`,
+        );
+      }
+      const page = data ?? [];
+      // The endpoint may cap a page below the requested limit, so a SHORT page
+      // is not the end of the listing — only an empty one is.
+      if (page.length === 0) return;
+      offset += page.length;
+      for (const entry of page) {
+        if (entry.id === null) continue;
+        found.add(folder ? `${folder}/${entry.name}` : entry.name);
+      }
+    }
+  };
+
+  for (
+    let index = 0;
+    index < folders.length;
+    index += STORAGE_LIST_CONCURRENCY
+  ) {
+    await Promise.all(
+      folders.slice(index, index + STORAGE_LIST_CONCURRENCY).map(listFolder),
+    );
+  }
+  return found;
+}
+
+/**
+ * Copies the referenced objects from production's bucket into staging's.
+ *
+ * Additive and idempotent, like the row sync: `upsert: true` means a re-run
+ * overwrites rather than conflicts, and nothing is ever removed from either
+ * side. That is what makes a partial run safe — an object that failed on
+ * attempt one is simply copied on attempt two.
+ *
+ * A per-object failure is recorded and the stage continues. Aborting on the
+ * first one would leave the bucket in a state whose only description is "some
+ * prefix of a sorted key list", which nobody can act on; a tally of what did
+ * not make it is actionable.
+ */
+async function syncStorageObjects(input: {
+  production: ProdClient;
+  staging: StagingClient;
+  keys: readonly string[];
+  dryRun: boolean;
+}): Promise<StorageCopyReport> {
+  const { production, staging, keys, dryRun } = input;
+  const report: StorageCopyReport = {
+    planned: keys.length,
+    copied: 0,
+    skippedPresent: 0,
+    failed: 0,
+    rejectedByBucket: 0,
+    errors: [],
+  };
+  if (keys.length === 0) return report;
+
+  const present = await listStorageKeys(staging, storageFoldersOf(keys));
+  const missing = keys.filter((key) => !present.has(key));
+  report.skippedPresent = keys.length - missing.length;
+
+  // A dry run reports the plan without moving bytes. Downloading thousands of
+  // images to then discard them is the kind of cost that stops people running
+  // the dry run at all.
+  if (dryRun) return report;
+
+  const copyOne = async (key: string): Promise<void> => {
+    const { data, error } = await production.storage
+      .from(STORAGE_BUCKET)
+      .download(key);
+    if (error || !data) {
+      report.failed += 1;
+      if (report.errors.length < 20) {
+        report.errors.push(`download ${key}: ${describeError(error)}`);
+      }
+      return;
+    }
+    const { error: uploadError } = await staging.storage
+      .from(STORAGE_BUCKET)
+      .upload(key, data, {
+        upsert: true,
+        contentType: data.type || "application/octet-stream",
+      });
+    if (uploadError) {
+      // A mime the destination bucket refuses is not a transient failure: the
+      // bytes are what they are, and every re-run rejects them identically.
+      // Counting it with the retryable failures would leave this command
+      // permanently exit-1, which teaches operators to ignore a red sync.
+      // Production holds at least one SVG stored under a `.jpg` key
+      // (measured 2026-08-23); that is bad data to fix at the source, not here.
+      if (isUnsupportedMimeError(uploadError)) {
+        report.rejectedByBucket += 1;
+      } else {
+        report.failed += 1;
+      }
+      if (report.errors.length < 20) {
+        report.errors.push(`upload ${key}: ${describeError(uploadError)}`);
+      }
+      return;
+    }
+    report.copied += 1;
+  };
+
+  for (
+    let index = 0;
+    index < missing.length;
+    index += STORAGE_COPY_CONCURRENCY
+  ) {
+    await Promise.all(
+      missing.slice(index, index + STORAGE_COPY_CONCURRENCY).map(copyOne),
+    );
+  }
+  return report;
 }
 
 // ---------------------------------------------------------------------------
@@ -2104,6 +2411,44 @@ async function runSync(argv: string[]): Promise<void> {
     );
   }
 
+  // --- 11. Storage objects -------------------------------------------------
+  // Gated on brand_images: it holds all but a handful of the referenced keys,
+  // and `brands.hero_image_storage_path` is a denormalized copy of one of its
+  // rows rather than an independent object.
+  let storage: StorageCopyReport | null = null;
+  if (wants("brand_images")) {
+    const keyPlan = planStorageKeys({
+      brands: prodBrands,
+      brand_images: prodImages,
+      events: prodEvents,
+      event_exhibitors: prodExhibitors,
+    });
+    if (keyPlan.skippedByPrefix.length > 0) {
+      const prefixes = tally(
+        keyPlan.skippedByPrefix.map((key) => `${key.split("/").at(0) ?? key}/`),
+      );
+      console.log(
+        `Storage: not copying ${keyPlan.skippedByPrefix.length} key(s) outside ${SYNCED_STORAGE_PREFIXES.join(", ")} (${[
+          ...prefixes,
+        ]
+          .map(([prefix, count]) => `${prefix}=${count}`)
+          .join(" ")})`,
+      );
+    }
+    storage = await syncStorageObjects({
+      production: production.client,
+      staging: staging.client,
+      keys: keyPlan.keys,
+      dryRun: args.dryRun,
+    });
+    console.log(
+      args.dryRun
+        ? `[dry-run] storage: would copy ${storage.planned - storage.skippedPresent} object(s), ${storage.skippedPresent} already present`
+        : `  storage: ${storage.copied} copied, ${storage.skippedPresent} already present, ${storage.failed} failed, ${storage.rejectedByBucket} refused by bucket mime policy (of ${storage.planned})`,
+    );
+    for (const message of storage.errors) console.error(`    ${message}`);
+  }
+
   // --- Report --------------------------------------------------------------
   if (args.dryRun) {
     console.log("\n[dry-run] planned writes:");
@@ -2154,6 +2499,15 @@ async function runSync(argv: string[]): Promise<void> {
   });
 
   printRunNotes();
+
+  // Last, so the row report and the run notes are on screen first: a storage
+  // failure is repaired by re-running this same command, and the operator
+  // needs to see what did land before being told to run it again.
+  if (storage && storage.failed > 0) {
+    throw new Error(
+      `${storage.failed} of ${storage.planned} storage object(s) did not copy. The stage is idempotent — re-run \`pnpm db:sync:staging\` to retry only the missing ones.`,
+    );
+  }
 }
 
 function assertMapped(table: string, unmapped: string[]): void {
@@ -2264,8 +2618,19 @@ function printRunNotes(): void {
       "The reverse order lets the fixture overwrite copied brand content with",
       "its placeholder description.",
       "",
-      "Copied images point at PRODUCTION's storage bucket. A production bucket",
-      "cleanup breaks every staging gallery; re-run this sync to repair.",
+      "Images render through the same-origin /i/ proxy, which reads THIS",
+      "project's own bucket (DEV-1551). The sync therefore copies the objects",
+      "too, under `brands/` AND `submissions/`. Copying the bytes is not enough",
+      "on its own: the proxy deny-lists a `submissions/` key whether the bytes",
+      "are there or not, so run",
+      "`pnpm tsx scripts/promote-submission-images.ts promote --live` against",
+      "STAGING afterwards to rewrite those rows to `brands/` keys. Promotion is",
+      "a server-side copy inside one bucket, which is why it needs the source",
+      "bytes here first. Verify with `pnpm check:image-resolvability`.",
+      "",
+      "Re-run this sync to repair a gallery with missing bytes; it copies only",
+      "what staging lacks. `event-exhibitors/` and `events/` keys are NOT",
+      "copied — those surfaces stay image-blind on staging.",
     ].join("\n"),
   );
 }

@@ -24,6 +24,7 @@
     "check:test-brand-filter": "node scripts/check-test-brand-filter.mjs",
     "check:zh-terms": "tsx scripts/check-zh-terms.ts",
     "check:e2e-timeouts": "node scripts/check-e2e-timeouts.mjs",
+    "check:image-resolvability": "tsx scripts/check-image-resolvability.ts",
     "check:photo-bands": "tsx scripts/check-photo-band-contrast.ts",
     "check:e2e-report": "tsx scripts/e2e-report-gate.ts",
     "db:types": "tsx scripts/db-deploy.ts types",
