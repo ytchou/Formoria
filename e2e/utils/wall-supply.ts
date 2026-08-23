@@ -5,8 +5,6 @@ import { getServiceClient } from "../helpers/seed";
 // A LEAF module: it declares two string constants and imports nothing, so this
 // does not drag the service layer into the Playwright module graph.
 import { TEST_BRAND_NAME_PATTERN } from "../../src/lib/services/public-brand-filter";
-// Same leaf rule, same reason: `wall-ratio` declares numbers and imports
-// nothing at all.
 
 /**
  * Mirrors MIN_HOME_CURATED_PRODUCTS in src/lib/services/curated-products.ts
@@ -31,9 +29,8 @@ export const MIN_HOME_CURATED_PRODUCTS = 6;
  * is a far worse failure than a duplicated integer.
  *
  * The drift this normally costs is pinned rather than accepted: the unit test
- * beside this file imports the real constants (vitest DOES resolve `@/`) and
- * asserts these equal them, so changing either source reds a test in the same
- * commit.
+ * beside this file imports the real constant (vitest DOES resolve `@/`) and
+ * asserts it is equal, so changing the source reds a test in the same commit.
  */
 export const MAX_HOME_WALL_PRODUCTS = 16;
 

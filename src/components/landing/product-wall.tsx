@@ -240,12 +240,11 @@ export function ProductWall({
         <ViewItemListTracker listName="home_wall" itemCount={visibleSlots.length} />
 
         {/* The continuation strip is GONE (2026-08-17). Its trail links now
-            render as their own zone below, with the same StoryRow design the
-            topics zone uses — a bare list of underlined links at the foot of a
-            photographic wall was the weakest possible presentation for the
-            editorial content it pointed at. The category nav and the brands
-            button that also lived here were removed earlier; both destinations
-            are still linked from the hero. */}
+            render as image-led cards in their own zone below — a bare list of
+            underlined links at the foot of a photographic wall was the weakest
+            possible presentation for the editorial content it pointed at. The
+            category nav and the brands button that also lived here were removed
+            earlier; both destinations are still linked from the hero. */}
       </PageShell>
     </section>
   )
