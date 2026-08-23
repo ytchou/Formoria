@@ -296,7 +296,7 @@ export async function insertBrandImage(
  * URL) resolves to no key and is silently skipped, which is the safe direction:
  * these functions delete storage objects.
  */
-export function storagePathsFromImageRefs(refs: readonly string[]): string[] {
+function storagePathsFromImageRefs(refs: readonly string[]): string[] {
   return [
     ...new Set(
       refs.flatMap((ref) => {

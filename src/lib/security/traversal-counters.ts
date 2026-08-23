@@ -115,7 +115,7 @@ export function createInMemoryTraversalStore(): TraversalStore {
  * PFADD/PFCOUNT if set memory ever shows up in the Upstash dashboard —
  * enumeration detection tolerates HyperLogLog's error rate.
  */
-export function createUpstashTraversalStore(redis: Redis): TraversalStore {
+function createUpstashTraversalStore(redis: Redis): TraversalStore {
   return {
     async increment(key, ttlMs) {
       const results = await redis.pipeline().incr(key).pexpire(key, ttlMs).exec()
@@ -143,7 +143,7 @@ export function createUpstashTraversalStore(redis: Redis): TraversalStore {
 
 let defaultStore: TraversalStore | null = null
 
-export function createTraversalStore(): TraversalStore {
+function createTraversalStore(): TraversalStore {
   if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
     return createUpstashTraversalStore(
       new Redis({

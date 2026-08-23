@@ -34,4 +34,3 @@ function FileInput({ id, accept, multiple, onChange, className, ref }: FileInput
 }
 
 export { FileInput }
-export type { FileInputProps }
