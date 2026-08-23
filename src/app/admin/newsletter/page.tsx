@@ -65,7 +65,7 @@ export default async function AdminNewsletterPage({
           </div>
           <a
             href={`${routes.admin.newsletterExport()}${exportParams.size ? `?${exportParams}` : ""}`}
-            className={buttonVariants({ variant: "secondary", size: "large", className: "min-h-12" })}
+            className={buttonVariants({ variant: "secondary", size: "large" })}
           >
             <Download aria-hidden="true" />
             {t("exportCsv")}
@@ -80,7 +80,7 @@ export default async function AdminNewsletterPage({
           <DataCard label="Confirmation rate" value={`${stats.confirmationRate}%`} description="Active ÷ active plus pending" />
         </div>
 
-        <form className="grid gap-3 rounded-[3px] border border-rule bg-surface p-4 lg:grid-cols-[minmax(260px,1fr)_220px_220px_auto] lg:items-end">
+        <form className="grid gap-3 rounded-surface border border-rule bg-surface p-4 lg:grid-cols-[minmax(260px,1fr)_220px_220px_auto] lg:items-end">
           <Label className="space-y-1 type-body-sm font-medium text-ink">
             {t("filters.search")}
             <Input name="q" defaultValue={filters.q ?? ""} placeholder={t("filters.searchPlaceholder")} />
@@ -101,7 +101,7 @@ export default async function AdminNewsletterPage({
               {VALID_INTERESTS.map((interest) => <option key={interest} value={interest}>{interest}</option>)}
             </NativeSelect>
           </Label>
-          <Button type="submit" variant="secondary" className="min-h-12">{t("filters.apply")}</Button>
+          <Button type="submit" variant="secondary" size="large">{t("filters.apply")}</Button>
         </form>
 
         <NewsletterSubscribersList subscribers={page.subscribers} />
@@ -126,7 +126,7 @@ function PaginationLink({ label, cursor, direction, filters }: {
   if (filters.q) query.set("q", filters.q);
   if (filters.status) query.set("status", filters.status);
   if (filters.interest) query.set("interest", filters.interest);
-  return <Link href={`${routes.admin.newsletter()}?${query}`} className={buttonVariants({ variant: "secondary", className: "min-h-12" })}>{label}</Link>;
+  return <Link href={`${routes.admin.newsletter()}?${query}`} className={buttonVariants({ variant: "secondary", size: "large" })}>{label}</Link>;
 }
 
 function first(value: string | string[] | undefined): string | undefined {

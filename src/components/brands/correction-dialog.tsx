@@ -363,7 +363,7 @@ export function CorrectionDialog({
             type="button"
             variant="ghost"
             size="compact"
-            className="relative min-h-10 gap-1.5 px-1 type-metadata text-accent underline-offset-4 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[''] hover:bg-transparent hover:text-accent/80 hover:underline focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
+            className="relative gap-1.5 px-1 type-metadata text-accent underline-offset-4 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[''] hover:bg-transparent hover:text-accent/80 hover:underline focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
           />
         }
       >
@@ -387,7 +387,7 @@ export function CorrectionDialog({
           <X className="size-4" aria-hidden="true" />
         </DialogClose>
 
-        <DialogHeader className="gap-0.5 border-b border-border p-4 pr-14 sm:pr-16">
+        <DialogHeader className="gap-0.5 border-b border-rule p-4 pr-14 sm:pr-16">
           <DialogTitle>
             {tCorrection(copy.title)}
           </DialogTitle>
@@ -401,7 +401,7 @@ export function CorrectionDialog({
           onSubmit={handleSubmit}
         >
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <div className="space-y-2 border-b border-border p-4">
+            <div className="space-y-2 border-b border-rule p-4">
               <Label htmlFor={fieldSelectId}>
                 {tCorrection(copy.fieldPickerLabel)}
               </Label>
@@ -418,7 +418,7 @@ export function CorrectionDialog({
                     ) ?? "",
                   );
                 }}
-                className="bg-card focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
+                className="bg-surface focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
               >
                 {field === "" && (
                   <option value="" disabled>
@@ -554,7 +554,7 @@ export function CorrectionDialog({
             )}
           </div>
 
-          <DialogFooter className="mx-0 mb-0 flex-col gap-3 rounded-b-xl bg-background px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <DialogFooter className="mx-0 mb-0 flex-col gap-3 rounded-b-surface bg-ground px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="type-metadata sm:max-w-xs">
               {tCorrection("description")}
             </p>

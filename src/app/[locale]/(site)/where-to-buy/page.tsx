@@ -114,7 +114,7 @@ export default async function WhereToBuyPage({ params }: PageProps) {
       </div>
 
       {overseas.length > 0 ? (
-        <section className="mt-section rounded-[3px] border border-rule bg-surface p-6 sm:p-8">
+        <section className="mt-section rounded-surface border border-rule bg-surface p-6 sm:p-8">
           <h2 className="type-card-title text-ink">
             {t('overseasTitle')}
           </h2>

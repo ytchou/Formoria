@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { InstagramIcon } from '@/components/icons/instagram-icon'
+import { ShareChannelButton } from './share-channel-button'
 import { cn } from '@/lib/utils'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 
@@ -159,7 +160,7 @@ export function ShareDialogContent({
     {
       key: 'threads',
       label: t('threads'),
-      discClass: 'bg-foreground text-background',
+      discClass: 'bg-ink text-ground',
       icon: <AtSign className="size-5" aria-hidden="true" />,
     },
     {
@@ -180,13 +181,13 @@ export function ShareDialogContent({
   return (
     <DialogContent
       showCloseButton={false}
-      className="w-[21rem] max-w-[calc(100%-2rem)] gap-0 rounded-2xl p-0"
+      className="w-[21rem] max-w-[calc(100%-2rem)] gap-0 rounded-surface p-0"
     >
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+      <div className="flex items-center justify-between border-b border-rule px-4 py-3">
         <DialogTitle>{t('dialogTitle')}</DialogTitle>
         <DialogClose
           render={
-            <Button variant="ghost" size="icon" className="-mr-2 size-11" aria-label={t('close')} />
+            <Button variant="ghost" size="icon" className="-mr-2" aria-label={t('close')} />
           }
           data-ph-no-autocapture
         >
@@ -196,7 +197,7 @@ export function ShareDialogContent({
 
       <div className="space-y-4 p-4">
         {/* Preview card — what the recipient will actually receive. */}
-        <div className="overflow-hidden rounded-xl border border-border bg-muted">
+        <div className="overflow-hidden rounded-surface border border-rule bg-surface">
           {safeImage ? (
             <div className="relative h-[74px] w-full">
               <SurfaceImage
@@ -213,9 +214,9 @@ export function ShareDialogContent({
           ) : (
             <div
               aria-hidden="true"
-              className="flex h-[74px] w-full items-center justify-center bg-linear-to-br from-secondary to-muted"
+              className="flex h-[74px] w-full items-center justify-center bg-linear-to-br from-surface to-surface"
             >
-              <span className="type-section text-muted-foreground">
+              <span className="type-section text-ink-muted">
                 {Array.from(brandName)[0] ?? ''}
               </span>
             </div>
@@ -224,7 +225,7 @@ export function ShareDialogContent({
             <p className="truncate type-body-sm font-medium text-ink">{brandName}</p>
             {/* text-foreground/70, not text-muted-foreground: muted-on-muted
                 computes to 4.39:1 in the dark theme, below the 4.5:1 minimum. */}
-            <p className="truncate type-metadata text-foreground/70">
+            <p className="truncate type-metadata text-ink/70">
               {host}
               {categoryLabel ? ` · ${categoryLabel}` : ''}
             </p>
@@ -241,13 +242,13 @@ export function ShareDialogContent({
             // text-base on mobile keeps the 16px floor that stops iOS Safari
             // auto-zooming on focus (this field calls select() on focus);
             // text-foreground/70 clears 4.5:1 on the muted surface in dark mode.
-            className="h-10 rounded-lg border-border bg-muted pr-28 font-mono text-base text-foreground/70 md:text-[13px]"
+            className="h-10 rounded-control border-rule bg-surface pr-28 text-base text-ink/70 md:text-[13px]"
             data-ph-no-autocapture
           />
           <Button
             size="chip"
             className={cn(
-              'absolute top-1 right-1 h-8 rounded-lg',
+              'absolute top-1 right-1',
               copied && 'bg-verified-green-bg text-verified-green hover:bg-verified-green-bg',
             )}
             onClick={handleCopyLink}
@@ -267,37 +268,21 @@ export function ShareDialogContent({
             and would announce two role="separator" nodes. These spans are
             aria-hidden. */}
         <div className="flex items-center gap-3">
-          <span className="h-px flex-1 bg-border" aria-hidden="true" />
-          <span className="type-micro text-muted-foreground">{t('orShareTo')}</span>
-          <span className="h-px flex-1 bg-border" aria-hidden="true" />
+          <span className="h-px flex-1 bg-rule" aria-hidden="true" />
+          <span className="type-micro text-ink-muted">{t('orShareTo')}</span>
+          <span className="h-px flex-1 bg-rule" aria-hidden="true" />
         </div>
 
         <div className="flex justify-between">
           {channels.map((channel) => (
-            <button
+            <ShareChannelButton
               key={channel.key}
-              type="button"
+              icon={channel.icon}
+              label={channel.label}
+              discClass={channel.discClass}
+              discStyle={channel.discStyle}
               onClick={() => handleChannelClick(channel.key)}
-              data-ph-no-autocapture
-              // w-15 (60px), not w-16: four 64px buttons exactly fill the
-              // 256px content width at a 288px dialog, so the hit rectangles
-              // would abut with no gutter. The 44px disc is unchanged.
-              // eslint-disable-next-line no-restricted-syntax -- ui-exception: 44px brand disc with label beneath, not a Button shape
-              className="flex w-15 cursor-pointer flex-col items-center gap-1.5 rounded-lg py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <span
-                aria-hidden="true"
-                style={channel.discStyle}
-                className={cn(
-                  // Tailwind's `hover:` variant is already wrapped in @media (hover: hover).
-                  'flex size-11 items-center justify-center rounded-full transition-transform duration-150 hover:scale-105',
-                  channel.discClass,
-                )}
-              >
-                {channel.icon}
-              </span>
-              <span className="type-micro text-muted-foreground">{channel.label}</span>
-            </button>
+            />
           ))}
         </div>
 
@@ -306,7 +291,7 @@ export function ShareDialogContent({
         <p
           role="status"
           className={cn(
-            'rounded-lg bg-verified-green-bg px-3 py-2 type-micro text-verified-green transition-opacity duration-150',
+            'rounded-surface bg-verified-green-bg px-3 py-2 type-micro text-verified-green transition-opacity duration-150',
             instagramCopied ? 'opacity-100' : 'sr-only opacity-0',
           )}
         >

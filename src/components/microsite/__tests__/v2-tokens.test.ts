@@ -55,8 +55,10 @@ function relative(file: string): string {
 }
 
 describe("microsite renders on design system v2", () => {
-  it("covers the whole surface — 13 files, the 2 test files excluded", () => {
-    expect(FILES).toHaveLength(11);
+  it("covers the whole surface — 14 files, the 2 test files excluded", () => {
+    // 12 after `microsite-cta.tsx` was extracted from the three hand-written
+    // copies of the CTA class string in hero / contact-cta / product-grid.
+    expect(FILES).toHaveLength(12);
   });
 
   it("carries no v1 colour token", () => {

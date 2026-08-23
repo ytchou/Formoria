@@ -103,7 +103,7 @@ export function ReviewQueueTable<T>(props: {
         </div>
       ) : null}
 
-      <div className="rounded-[3px] border border-rule bg-surface overflow-hidden">
+      <div className="rounded-surface border border-rule bg-surface overflow-hidden">
         <Table>
           <TableHeader className="bg-surface">
             <TableRow className="h-12">
@@ -206,7 +206,7 @@ export function ReviewQueueTable<T>(props: {
                       type="button"
                       shape="pill"
                       variant="ghost"
-                      className="h-12 w-12 p-0"
+                      size="icon"
                       onClick={() => activateRow(item)}
                       aria-expanded={expanded}
                       aria-controls={disclosureId}

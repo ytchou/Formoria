@@ -8,7 +8,7 @@ export function RequiredFieldsHint({ className }: { className?: string }) {
 
   return (
     <p className={cn('type-metadata', className)}>
-      <span aria-hidden="true" className="text-destructive">
+      <span aria-hidden="true" className="text-danger">
         *
       </span>{' '}
       {t('requiredHint')}

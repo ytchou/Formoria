@@ -39,7 +39,7 @@ export function StoryFigure({ src, alt, caption }: StoryFigureProps) {
         alt={alt}
         loading="lazy"
         decoding="async"
-        className="aspect-media w-full rounded-[3px] border border-rule bg-surface-deep object-cover"
+        className="aspect-media w-full rounded-surface border border-rule bg-surface-deep object-cover"
       />
       {/* Left-aligned to the image's own edge, not centred: a centred caption
           under an off-centre-width image reads as a standalone line of prose

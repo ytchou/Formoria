@@ -27,7 +27,8 @@ export function SubmitButton({
       type="submit"
       variant={variant}
       disabled={disabled}
-      className={cn('relative w-full', className)}
+      width="full"
+      className={cn('relative', className)}
       data-ph-no-autocapture={dataPhNoAutocapture}
     >
       <span

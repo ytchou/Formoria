@@ -18,6 +18,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { SurfaceCard } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Radio } from "@/components/ui/radio";
 import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
@@ -92,7 +93,7 @@ const verificationOptions: VerificationFilterValue[] = [
 ];
 const priceRangeOptions = [1, 2, 3] as const;
 const filterOptionClassName =
-  "flex min-h-12 cursor-pointer items-center gap-2 rounded-[4px] px-2 type-body-sm transition-colors hover:bg-surface hover:text-ink";
+  "flex min-h-12 cursor-pointer items-center gap-2 rounded-control px-2 type-body-sm transition-colors hover:bg-surface hover:text-ink";
 
 function parseCommaParam(value: string | null): string[] {
   return value
@@ -557,12 +558,10 @@ function FilterRadio({
         checked && "bg-accent/10 font-medium text-accent",
       )}
     >
-      <input
-        type="radio"
+      <Radio
         name={name}
         checked={checked}
         onChange={onChange}
-        className="h-4 w-4 accent-accent"
         data-ph-no-autocapture
       />
       <span>{label}</span>
@@ -588,7 +587,7 @@ export function BrandFilterDrawer({
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         render={
-          <Button variant="secondary" className="min-h-12 gap-2 lg:hidden" />
+          <Button variant="secondary" size="large" className="gap-2 lg:hidden" />
         }
       >
         <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
@@ -615,10 +614,10 @@ export function BrandFilterDrawer({
             totalCount={totalCount}
           />
         </div>
-        <SheetFooter className="sticky bottom-0 border-t border-rule bg-popover">
+        <SheetFooter className="sticky bottom-0 border-t border-rule bg-surface">
           <Button
             type="button"
-            className="w-full"
+            width="full"
             onClick={() => setOpen(false)}
           >
             {t("showResults", { count: totalCount })}
@@ -652,8 +651,9 @@ function MobileClearAll({ onClear }: { onClear: () => void }) {
     <Button
       type="button"
       variant="ghost"
+      size="large"
       onClick={clearAll}
-      className="mx-auto min-h-12 type-body-sm underline-offset-2 hover:text-ink hover:underline"
+      className="mx-auto type-body-sm underline-offset-2 hover:text-ink hover:underline"
       data-ph-no-autocapture
     >
       {t("clearAll")}

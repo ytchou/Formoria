@@ -87,7 +87,7 @@ function AccordionItem({
            scoped to this component: the separated-card accordion reads as a
            set of pressable blocks, and a near-square corner made them look
            like table rows. */
-        "group overflow-hidden rounded-[8px] border border-rule",
+        "group overflow-hidden rounded-surface border border-rule",
         className,
       )}
       {...props}

@@ -47,7 +47,7 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
       </div>
 
       {claimToken && claimBrandName && (
-        <div className="rounded-[3px] border border-rule bg-surface px-4 py-3 type-body-sm text-ink-soft">
+        <div className="rounded-surface border border-rule bg-surface px-4 py-3 type-body-sm text-ink-soft">
           {t.rich("signUp.claimMessage", {
             brandName: claimBrandName,
             strong: (chunks) => <strong>{chunks}</strong>,
@@ -113,7 +113,7 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
 
         <Button
           type="submit"
-          className="w-full"
+          width="full"
           size="large"
           disabled={pending}
         >

@@ -3,12 +3,11 @@
 import NextLink from 'next/link'
 import {
   useActionState,
-  useRef,
   useState,
   type ChangeEvent,
 } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { FileSearch, Upload, X } from 'lucide-react'
+import { FileSearch, X } from 'lucide-react'
 import {
   submitEvidenceAction,
   type EvidenceState,
@@ -24,6 +23,7 @@ import {
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Grid } from '@/components/ui/grid'
 import { Input } from '@/components/ui/input'
+import { UploadDropzone } from '@/components/ui/upload-dropzone'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
@@ -57,7 +57,6 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
   const [notesLength, setNotesLength] = useState(0)
   const [photoPath, setPhotoPath] = useState('')
   const [lastFile, setLastFile] = useState<File | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
   const uploadState = useImageUpload({
     bucket: 'origin-evidence',
     path: `${user?.id ?? 'anonymous'}/${brandId}`,
@@ -115,7 +114,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
           <Typography variant="cardDescription" className="flex-1 px-4 py-6 sm:px-6">
             {t('success')}
           </Typography>
-          <DialogFooter className="mx-0 mb-0 rounded-b-xl bg-background px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground px-4 py-4 sm:px-6">
             <DialogClose render={<Button variant="secondary" />}>
               {t('close')}
             </DialogClose>
@@ -126,7 +125,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
           <Typography variant="cardDescription" className="flex-1 px-4 py-6 sm:px-6">
             {t('loading')}
           </Typography>
-          <DialogFooter className="mx-0 mb-0 rounded-b-xl bg-background px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground px-4 py-4 sm:px-6">
             <DialogClose render={<Button variant="secondary" />}>
               {t('cancel')}
             </DialogClose>
@@ -137,7 +136,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
           <Typography variant="cardDescription" className="flex-1 px-4 py-6 sm:px-6">
             {t('signInPrompt')}
           </Typography>
-          <DialogFooter className="mx-0 mb-0 rounded-b-xl bg-background px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground px-4 py-4 sm:px-6">
             <DialogClose render={<Button variant="secondary" />}>
               {t('cancel')}
             </DialogClose>
@@ -160,14 +159,14 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
             <fieldset className="space-y-3">
               <legend className="type-body-sm font-semibold text-ink">
                 {t('stanceLabel')}
-                <span aria-hidden="true" className="text-destructive"> *</span>
+                <span aria-hidden="true" className="text-danger"> *</span>
               </legend>
               <Grid cols="pair" gap="tight">
                 {(['supports', 'contradicts'] as const).map((value) => (
                   <Label
                     key={value}
                     className={cn(
-                      'flex min-h-12 cursor-pointer items-center gap-3 rounded-[4px] border border-rule px-4 py-3 transition-colors',
+                      'flex min-h-12 cursor-pointer items-center gap-3 rounded-control border border-rule px-4 py-3 transition-colors',
                       stance === value && 'border-accent bg-accent/10 text-accent',
                     )}
                   >
@@ -189,7 +188,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
             <div className="space-y-2">
               <Label htmlFor="evidence-product-name">
                 {t('productNameLabel')}
-                <span aria-hidden="true" className="text-destructive"> *</span>
+                <span aria-hidden="true" className="text-danger"> *</span>
               </Label>
               <Input
                 id="evidence-product-name"
@@ -202,7 +201,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
             <div className="space-y-2">
               <Label htmlFor="evidence-source-type">
                 {t('sourceTypeLabel')}
-                <span aria-hidden="true" className="text-destructive"> *</span>
+                <span aria-hidden="true" className="text-danger"> *</span>
               </Label>
               <NativeSelect
                 id="evidence-source-type"
@@ -222,7 +221,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
               <div className="flex items-center justify-between gap-4">
                 <Label htmlFor="evidence-notes">{t('notesLabel')}</Label>
                 <span
-                  className="type-metadata tabular-nums text-muted-foreground"
+                  className="type-metadata tabular-nums text-ink-muted"
                   aria-live="polite"
                   aria-atomic="true"
                 >
@@ -242,23 +241,12 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
 
             <div className="space-y-2">
               <p className="type-body-sm font-medium text-ink">{t('photoLabel')}</p>
-              <Button
-                type="button"
-                onClick={() => inputRef.current?.click()}
-                disabled={uploading}
-                variant="ghost"
-                className="flex min-h-24 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted px-4 py-4 type-metadata transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Upload className="size-4" aria-hidden="true" />
-                <span>{uploading ? t('uploading') : t('photoHint')}</span>
-              </Button>
-              <Input
-                ref={inputRef}
+                            <UploadDropzone
                 id="evidence-photo"
-                type="file"
                 accept="image/*"
-                className="sr-only"
-                onChange={handleFileSelect}
+                disabled={uploading}
+                hint={uploading ? t('uploading') : t('photoHint')}
+                onFileSelect={handleFileSelect}
               />
               {photoPath && (
                 <Typography variant="cardDescription" role="status">
@@ -293,7 +281,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
             )}
           </div>
 
-          <DialogFooter className="mx-0 mb-0 rounded-b-xl bg-background px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground px-4 py-4 sm:px-6">
             <DialogClose render={<Button variant="secondary" />}>
               {t('cancel')}
             </DialogClose>

@@ -153,7 +153,7 @@ export default async function AdminPage() {
           </h2>
           <p className="mt-1 type-body-sm">{t("operationsOverviewDescription")}</p>
         </div>
-        <div className="grid overflow-hidden rounded-[3px] border-l border-t border-rule sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid overflow-hidden rounded-surface border-l border-t border-rule sm:grid-cols-2 xl:grid-cols-5">
           {dashboardMetrics.map((metric) => {
             const value = snapshot.metrics[metric.key];
             return (

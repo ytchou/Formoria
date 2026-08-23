@@ -86,7 +86,7 @@ export function BrandActions({
           href={websiteUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className={buttonVariants({ variant: 'primary', className: 'w-full' })}
+          className={buttonVariants({ variant: 'primary', width: 'full' })}
           data-ph-no-autocapture
           onClick={handleWebsiteClick}
         >
@@ -94,7 +94,7 @@ export function BrandActions({
           {visitLabel}
         </a>
       ) : (
-        <span className={buttonVariants({ variant: 'secondary', className: 'w-full cursor-default opacity-50' })} aria-disabled="true">
+        <span className={buttonVariants({ variant: 'secondary', width: 'full', className: 'cursor-default opacity-50' })} aria-disabled="true">
           <ExternalLink className="size-[15px]" />
           <span className="line-through">{visitLabel}</span>
         </span>
@@ -117,7 +117,7 @@ export function BrandActions({
           categoryLabel={categoryLabel}
         />
         {brandId && <LikeBrandButton brandId={brandId} slug={brandSlug} />}
-        {brandId && <SaveBrandButton brandId={brandId} slug={brandSlug} variant="inline" className="rounded-xl" />}
+        {brandId && <SaveBrandButton brandId={brandId} slug={brandSlug} variant="inline" className="rounded-control" />}
         {/* Origin-evidence reporting is unwired for launch, not deleted: its only
             submit path required an account, and opening it to guests needs a
             migration (`origin_evidence.user_id` is NOT NULL) plus an anonymous

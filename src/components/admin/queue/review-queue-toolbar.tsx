@@ -91,7 +91,7 @@ function DateRangeFilter<T>({
           variant="ghost"
           shape="square"
           size="icon"
-          className="size-12"
+          className=""
           aria-label={filter.clearLabel ?? `Clear ${filter.label}`}
           onClick={() => onChange(null)}
         >
@@ -252,7 +252,7 @@ export function ReviewQueuePagination<T>(props: {
           type="button"
           shape="pill"
           variant="secondary"
-          className="h-12 w-12 p-0"
+          size="icon"
           onClick={() => queue.setPage(queue.page - 1)}
           disabled={queue.page === 1}
           aria-label={previousLabel}
@@ -266,7 +266,7 @@ export function ReviewQueuePagination<T>(props: {
           type="button"
           shape="pill"
           variant="secondary"
-          className="h-12 w-12 p-0"
+          size="icon"
           onClick={() => queue.setPage(queue.page + 1)}
           disabled={queue.page === queue.pageCount}
           aria-label={nextLabel}

@@ -43,10 +43,26 @@ describe("buttonVariants", () => {
     }
   });
 
-  it("uses the 4px control radius by default and a pill only on request", () => {
-    expect(buttonVariants()).toContain("rounded-[4px]");
+  it("uses the control radius token by default and a pill only on request", () => {
+    expect(buttonVariants()).toContain("rounded-control");
     expect(buttonVariants({ shape: "pill" })).toContain("rounded-full");
     expect(buttonVariants()).not.toContain("rounded-xl");
+  });
+
+  it("exposes width as an axis so no call site appends w-full by hand", () => {
+    expect(buttonVariants()).not.toContain("w-full");
+    expect(buttonVariants({ width: "full" })).toContain("w-full");
+    // Default must stay auto — a button that fills its container is opt-in.
+    expect(buttonVariants({ width: "auto" })).not.toContain("w-full");
+  });
+
+  it("has exactly ONE 48px size, sharing the default's px-4", () => {
+    const large = buttonVariants({ size: "large" });
+    expect(large).toContain("h-12");
+    // px-5 would make `large` a second 48px button distinguishable only by
+    // padding — the drift this axis exists to prevent.
+    expect(large).toContain("px-4");
+    expect(large).not.toContain("px-5");
   });
 
   it("no longer exposes overlay or tone:cta", () => {

@@ -42,7 +42,6 @@ export default async function AboutHero({ brandCount, categoryCount, recentBrand
               className={buttonVariants({
                 variant: 'primary',
                 size: 'large',
-                className: 'min-h-12',
               })}
             >
               {t('cta')}

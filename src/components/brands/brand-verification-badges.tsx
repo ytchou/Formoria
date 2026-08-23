@@ -25,8 +25,9 @@ export function MitDeclaredBadge({ label, title }: BrandVerificationBadgeProps) 
 
 export function OwnerVerifiedBadge({ label, title }: BrandVerificationBadgeProps) {
   return (
-    // ui-exception: owner-verified uses green tokens distinct from MIT-verified amber; no dedicated variant
-    <Badge variant="verified" className="bg-verified-green-bg text-verified-green" title={title} aria-label={title}>
+    // `success` IS the green pair; `verified` is the MIT amber. This used to be
+    // `verified` overridden back to green by hand.
+    <Badge variant="success" title={title} aria-label={title}>
       <BadgeCheck className="h-[11px] w-[11px]" aria-hidden />
       {label}
     </Badge>

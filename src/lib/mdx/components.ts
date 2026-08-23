@@ -200,7 +200,7 @@ export function createStoryComponentMap({
       createElement('a', {
         ...props,
         className: cn(
-          'rounded-[2px] break-words text-accent underline underline-offset-4 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground',
+          'rounded-control break-words text-accent underline underline-offset-4 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground',
           props.className,
         ),
       }),
@@ -232,7 +232,7 @@ export function createStoryComponentMap({
         decoding: 'async',
         ...props,
         className: cn(
-          'mx-auto my-6 aspect-media w-full prose-measure rounded-[3px] border border-rule bg-surface-deep object-cover',
+          'mx-auto my-6 aspect-media w-full prose-measure rounded-surface border border-rule bg-surface-deep object-cover',
           props.className,
         ),
       }),
@@ -263,13 +263,26 @@ export function createStoryComponentMap({
         className: cn('border border-rule px-3 py-2 align-top type-body-sm text-ink-soft', props.className),
       }),
 
-    // Inline code. Inside a `<pre>` the chrome would double up, so `pre` strips it
-    // back off its direct `code` child rather than this needing to know its parent.
+    /*
+     * Inline code. Inside a `<pre>` the chrome would double up, so `pre` strips
+     * it back off its direct `code` child rather than this needing to know its
+     * parent.
+     *
+     * `font-mono` HERE AND ONLY HERE. DESIGN.md says no monospace face ships,
+     * and v2 deleted Geist Mono rather than carry an undocumented third face —
+     * admin renders field identifiers in the interface face (`--font-hei`)
+     * for exactly that reason. Code is
+     * the one place the rule does not survive contact: character alignment is
+     * what a code block is FOR, and proportional code is a legibility
+     * regression a reader notices immediately. This is a deliberate amendment
+     * with a Code row in DESIGN.md section 8, not a leftover — no monospace
+     * face is loaded, so this resolves to the reader's own monospace stack.
+     */
     code: (props: ComponentPropsWithoutRef<'code'>) =>
       createElement('code', {
         ...props,
         className: cn(
-          'rounded-[2px] border border-rule bg-surface px-1.5 py-0.5 font-mono text-[0.85em]',
+          'rounded-surface border border-rule bg-surface px-1.5 py-0.5 font-mono text-[0.85em]',
           props.className,
         ),
       }),
@@ -277,7 +290,7 @@ export function createStoryComponentMap({
       createElement('pre', {
         ...props,
         className: cn(
-          'my-6 overflow-x-auto rounded-[3px] border border-rule bg-surface p-4 font-mono text-[0.8125rem] leading-[1.7] text-ink',
+          'my-6 overflow-x-auto rounded-surface border border-rule bg-surface p-4 font-mono text-[0.8125rem] leading-[1.7] text-ink',
           '[&>code]:rounded-none [&>code]:border-0 [&>code]:bg-transparent [&>code]:p-0 [&>code]:text-inherit',
           props.className,
         ),

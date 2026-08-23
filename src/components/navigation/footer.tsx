@@ -16,7 +16,7 @@ import { PageShell } from "@/components/ui/page-shell";
  * and must never carry type.
  */
 const linkClasses =
-  "inline-flex min-h-11 items-center type-nav text-on-ink hover:underline underline-offset-4 rounded-[2px] focus-visible:ring-2 focus-visible:ring-on-ink focus-visible:ring-offset-2 focus-visible:ring-offset-ink";
+  "inline-flex min-h-11 items-center type-nav text-on-ink hover:underline underline-offset-4 rounded-control focus-visible:ring-2 focus-visible:ring-on-ink focus-visible:ring-offset-2 focus-visible:ring-offset-ink";
 
 const columnHeadingClasses = "type-eyebrow text-on-ink-muted";
 

@@ -57,7 +57,7 @@ export function ResetPasswordForm() {
 
         <Button
           type="submit"
-          className="w-full"
+          width="full"
           size="large"
           disabled={pending}
         >

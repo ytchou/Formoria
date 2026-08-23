@@ -18,7 +18,7 @@ const ShareDialogContent = dynamic(
   {
     ssr: false,
     loading: () => (
-      <DialogLoadingContent className="w-[21rem] max-w-[calc(100%-2rem)] rounded-2xl sm:max-w-[21rem]" />
+      <DialogLoadingContent className="w-[21rem] max-w-[calc(100%-2rem)] rounded-surface sm:max-w-[21rem]" />
     ),
   },
 )

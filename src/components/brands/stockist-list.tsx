@@ -165,7 +165,6 @@ function StockistListRow({
             className={buttonVariants({
               variant: "secondary",
               size: "compact",
-              className: "min-h-12",
             })}
           >
             {t("channels.confirmed.officialPageLink")}

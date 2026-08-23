@@ -6,9 +6,10 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { collectSources } from "../src/test/source-scan";
 import {
   allowedMatches,
   collectFrontendTokenFailures,
@@ -178,18 +179,58 @@ describe("allowlist hygiene", () => {
     expect(missing).toEqual([]);
   });
 
-  it("no eslint grandfather entry points at a missing file", () => {
+  /**
+   * The grandfather block is GONE, and this asserts it stays gone.
+   *
+   * It used to turn `no-restricted-syntax` off wholesale for nine files, and
+   * the assertion here was merely that its entries pointed at real paths. That
+   * kept the list tidy while leaving the carve-out itself unquestioned — five
+   * of the nine no longer had a violation at all.
+   *
+   * A per-file rule-off is the drift, not the safety net. When a control
+   * genuinely cannot be a `<Button>`, the answer is a named component in
+   * `src/components/ui/` (which the rule exempts by design): `UnstyledButton`
+   * for Base UI `render` props, `UploadDropzone`, `FileInput`, `OptionRow`,
+   * `HoneypotField`, `Radio`.
+   */
+  it("no eslint grandfather block turns the UI rules off per file", () => {
     // Read as text rather than imported: loading the flat config pulls in every
-    // eslint plugin, and this assertion needs one array of strings.
+    // eslint plugin, and this assertion only needs the source.
     const config = readFileSync(join(projectRoot, "eslint.config.mjs"), "utf8");
-    const block = config.slice(config.indexOf("Grandfather block:"));
-    const files = [...block.matchAll(/"(src\/[^"]+\.tsx?)"/g)].map(
-      (match) => match[1],
+
+    expect(config).not.toContain("Grandfather block:");
+    expect(config).not.toMatch(/"no-restricted-syntax":\s*"off"/);
+  });
+
+  /**
+   * The same rule, spelled the other way: an inline `ui-exception` disable is a
+   * grandfather block of one. `src/components/ui/**` is exempt from the lint
+   * rule outright, so a primitive there never needs a directive either.
+   */
+  it("no ui-exception disable comments survive anywhere in src", () => {
+    const offenders = collectSources("src").filter((file) =>
+      readFileSync(file, "utf8").includes("ui-exception"),
     );
 
-    expect(files.length).toBeGreaterThan(0);
-    expect(
-      files.filter((file) => !existsSync(join(projectRoot, file))),
-    ).toEqual([]);
+    expect(offenders.map((file) => relative(projectRoot, file))).toEqual([]);
+  });
+});
+
+/**
+ * DESIGN.md: "No monospace face ships." v2 dropped Geist Mono rather than carry
+ * an undocumented third face, and admin renders field identifiers in 黑體.
+ *
+ * Code is the single amendment: character alignment is what a code block is
+ * for. That exception is bounded to the MDX renderers and this keeps it there —
+ * it had already leaked to a verification code chip, a share URL field and a
+ * chart tooltip, none of which is code, and all of which wanted `tabular-nums`.
+ */
+describe("type faces", () => {
+  it("monospace appears only in the MDX code renderers", () => {
+    const offenders = collectSources("src")
+      .filter((file) => readFileSync(file, "utf8").includes("font-mono"))
+      .map((file) => relative(projectRoot, file));
+
+    expect(offenders).toEqual(["src/lib/mdx/components.ts"]);
   });
 });

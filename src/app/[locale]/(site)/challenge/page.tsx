@@ -57,26 +57,25 @@ function ChallengeContent() {
         alignItems: 'center',
         justifyContent: 'center',
         padding: '24px',
-        background: 'var(--background)',
-        color: 'var(--foreground)',
+        background: 'var(--ground)',
+        color: 'var(--ink)',
       }}
     >
       <section
-        className="shadow-card-hover"
         style={{
           width: '100%',
           maxWidth: '420px',
           textAlign: 'center',
           padding: '32px',
-          border: '1px solid var(--border)',
+          border: '1px solid var(--rule)',
           borderRadius: '8px',
-          background: 'var(--card)',
+          background: 'var(--surface)',
         }}
       >
         <h1 style={{ margin: '0 0 12px', fontSize: '24px', lineHeight: 1.25 }}>
           {t('title')}
         </h1>
-        <p style={{ margin: '0 0 24px', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
+        <p style={{ margin: '0 0 24px', color: 'var(--ink-muted)', lineHeight: 1.5 }}>
           {t('description')}
         </p>
         <div style={{ display: 'flex', justifyContent: 'center', minHeight: '65px' }}>
@@ -87,10 +86,10 @@ function ChallengeContent() {
           />
         </div>
         {state === 'verifying' ? (
-          <p style={{ margin: '20px 0 0', color: 'var(--muted-foreground)' }}>{t('verifying')}</p>
+          <p style={{ margin: '20px 0 0', color: 'var(--ink-muted)' }}>{t('verifying')}</p>
         ) : null}
         {state === 'error' ? (
-          <p style={{ margin: '20px 0 0', color: 'var(--destructive)' }}>
+          <p style={{ margin: '20px 0 0', color: 'var(--danger)' }}>
             {t('error')}
           </p>
         ) : null}

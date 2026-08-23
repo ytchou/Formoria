@@ -17,7 +17,7 @@ const variants: Record<StatusPillVariant, { dot: string; text: string }> = {
   verified: { dot: 'bg-verified-green', text: 'text-verified-green' },
   declared: { dot: 'bg-mit-verified', text: 'text-mit-verified' },
   pending: { dot: 'bg-warning', text: 'text-warning' },
-  unverified: { dot: 'bg-muted-foreground', text: 'text-muted-foreground' },
+  unverified: { dot: 'bg-ink-muted', text: 'text-ink-muted' },
 }
 
 interface StatusPillProps {

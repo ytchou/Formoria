@@ -90,7 +90,7 @@ export function ProvideStockistInfoDialog({
             type="button"
             variant="ghost"
             size="compact"
-            className="relative min-h-10 gap-1.5 px-1 type-metadata text-accent underline-offset-4 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[''] hover:bg-transparent hover:text-accent/80 hover:underline focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
+            className="relative gap-1.5 px-1 type-metadata text-accent underline-offset-4 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[''] hover:bg-transparent hover:text-accent/80 hover:underline focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
           />
         }
       >
@@ -110,13 +110,13 @@ export function ProvideStockistInfoDialog({
 
         {state.success ? (
           <div className="space-y-5 p-4 sm:p-6">
-            <div className="flex items-center gap-3 rounded-lg border border-verified-green/30 bg-verified-green-bg p-4 text-verified-green">
+            <div className="flex items-center gap-3 rounded-surface border border-verified-green/30 bg-verified-green-bg p-4 text-verified-green">
               <Check aria-hidden="true" className="size-5 shrink-0" />
               <Typography variant="cardDescription">
                 {t("channels.dialog.success")}
               </Typography>
             </div>
-            <DialogFooter className="mx-0 mb-0 rounded-b-xl bg-background p-0">
+            <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground p-0">
               <DialogClose render={<Button variant="secondary" />}>
                 {t("report.close")}
               </DialogClose>
@@ -131,7 +131,7 @@ export function ProvideStockistInfoDialog({
               <div className="space-y-2">
                 <Label htmlFor={`${fieldId}-name`}>
                   {t("channels.dialog.nameLabel")}
-                  <span aria-hidden="true" className="text-destructive">
+                  <span aria-hidden="true" className="text-danger">
                     {" "}
                     *
                   </span>
@@ -147,7 +147,7 @@ export function ProvideStockistInfoDialog({
               <div className="space-y-2">
                 <Label htmlFor={`${fieldId}-region`}>
                   {t("channels.dialog.regionLabel")}
-                  <span aria-hidden="true" className="text-destructive">
+                  <span aria-hidden="true" className="text-danger">
                     {" "}
                     *
                   </span>
@@ -219,7 +219,7 @@ export function ProvideStockistInfoDialog({
               ) : null}
             </div>
 
-            <DialogFooter className="mx-0 mb-0 rounded-b-xl px-4 py-4 sm:px-6">
+            <DialogFooter className="mx-0 mb-0 rounded-b-surface px-4 py-4 sm:px-6">
               <DialogClose
                 render={<Button variant="secondary" type="button" />}
               >

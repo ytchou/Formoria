@@ -26,6 +26,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { Button } from '@/components/ui/button'
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
@@ -97,8 +98,7 @@ function KpiLabel({
       <Tooltip>
         <TooltipTrigger
           aria-label={definitionAria}
-          className="flex min-h-12 min-w-12 items-center justify-center rounded-[4px] text-ink-muted"
-          type="button"
+          render={<Button variant="ghost" size="icon" className="text-ink-muted" />}
         >
           ⓘ
         </TooltipTrigger>

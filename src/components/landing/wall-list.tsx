@@ -63,7 +63,8 @@ export function WallList({
             aria-expanded={expanded}
             aria-controls={listId}
             onClick={() => setExpanded((current) => !current)}
-            className="min-h-11 w-full justify-center"
+            width="full"
+            className="min-h-11 justify-center"
           >
             {expanded ? showLessLabel : showMoreLabel}
           </Button>

@@ -63,7 +63,7 @@ export default async function GettingStartedPage({ params }: PageProps) {
 
   return (
     <PageShell as="main" measure="page" className="py-10">
-      <section className="grid gap-8 border-b border-border pb-10 md:grid-cols-[minmax(0,1fr)_18rem] md:items-end">
+      <section className="grid gap-8 border-b border-rule pb-10 md:grid-cols-[minmax(0,1fr)_18rem] md:items-end">
         <div className="prose-measure">
           <p className="type-eyebrow">{t("hero.eyebrow")}</p>
           <h1 className="mt-3 type-display">{t("hero.title")}</h1>
@@ -121,7 +121,7 @@ export default async function GettingStartedPage({ params }: PageProps) {
         </div>
       </section>
 
-      <section className="grid gap-8 border-t border-border py-10 md:grid-cols-[18rem_minmax(0,1fr)]">
+      <section className="grid gap-8 border-t border-rule py-10 md:grid-cols-[18rem_minmax(0,1fr)]">
         <h2 className="type-section">{t("tips.heading")}</h2>
         {/* The reading track of a two-track section. Nothing above it caps a
             width, so uncapped it takes the page measure less the 18rem heading
@@ -139,7 +139,7 @@ export default async function GettingStartedPage({ params }: PageProps) {
         </ul>
       </section>
 
-      <section className="grid gap-8 border-t border-border py-10 md:grid-cols-[18rem_minmax(0,1fr)]">
+      <section className="grid gap-8 border-t border-rule py-10 md:grid-cols-[18rem_minmax(0,1fr)]">
         <h2 className="type-section">{t("forOwners.heading")}</h2>
         <OwnerBenefitsSection />
       </section>

@@ -209,7 +209,7 @@ export function ClaimRequestsList({
     return (
       <div className="space-y-4">
         {item.existingOwnedBrand ? (
-          <div className="rounded-[3px] border border-danger/30 bg-danger/5 p-4">
+          <div className="rounded-surface border border-danger/30 bg-danger/5 p-4">
             <p className="type-body-sm font-semibold text-danger">
               {t("ownerAlreadyManagesTitle")}
             </p>
@@ -233,7 +233,7 @@ export function ClaimRequestsList({
               {item.proofEvidence.map((proof, index) => (
                 <div
                   key={`${proof.type}-${proof.url ?? proof.imageKey ?? index}`}
-                  className="rounded-[3px] border border-rule bg-surface p-4"
+                  className="rounded-surface border border-rule bg-surface p-4"
                 >
                   <div className="space-y-3">
                     <p className="type-body-sm font-medium text-ink">
@@ -276,7 +276,7 @@ export function ClaimRequestsList({
                           alt={proofTypesT(
                             `${PROOF_TYPE_I18N_KEYS[proof.type]}.label`,
                           )}
-                          className="h-20 w-20 rounded-[4px] border border-rule object-cover"
+                          className="h-20 w-20 rounded-surface border border-rule object-cover"
                         />
                       </>
                     ) : null}
@@ -309,7 +309,7 @@ export function ClaimRequestsList({
           </div>
         ) : null}
         {item.status !== "pending" && item.proofCleanupStatus ? (
-          <div className="space-y-1 rounded-[3px] border border-rule bg-surface p-4">
+          <div className="space-y-1 rounded-surface border border-rule bg-surface p-4">
             <p className="type-metadata">{t("cleanupStatus.label")}</p>
             <Badge
               variant={
@@ -335,7 +335,7 @@ export function ClaimRequestsList({
       <ReviewQueueToolbar queue={queue}>
         {warning ? (
           <p
-            className="rounded-[3px] border border-warning/30 bg-warning/10 px-4 py-3 type-body-sm text-warning"
+            className="rounded-surface border border-warning/30 bg-warning/10 px-4 py-3 type-body-sm text-warning"
             role="status"
           >
             {warning}

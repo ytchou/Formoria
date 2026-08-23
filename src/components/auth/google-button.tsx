@@ -52,7 +52,7 @@ export function GoogleButton({ action }: GoogleButtonProps) {
         <Button
           type="submit"
           variant="secondary"
-          className="w-full"
+          width="full"
         >
           <GoogleGlyph />
           {t("continueWithGoogle")}

@@ -16,16 +16,16 @@ type AnalyticsDonutCardProps = {
 };
 
 const PALETTE = [
-  "var(--foreground)",
+  "var(--ink)",
   "var(--chart-2)",
   "var(--chart-3)",
   "var(--accent)",
-  "var(--muted-foreground)",
+  "var(--ink-muted)",
 ] as const;
 
 function paletteColor(index: number): string {
   return (
-    PALETTE[Math.min(index, PALETTE.length - 1)] ?? "var(--muted-foreground)"
+    PALETTE[Math.min(index, PALETTE.length - 1)] ?? "var(--ink-muted)"
   );
 }
 
@@ -44,7 +44,7 @@ export function AnalyticsDonutCard({
   );
 
   return (
-    <SurfaceCard className="rounded-[4px]" padding="lg">
+    <SurfaceCard className="rounded-surface" padding="lg">
       <h2 className="type-label">{title}</h2>
       {rows.length === 0 ? (
         <p className="mt-4 type-body-sm">{emptyLabel}</p>

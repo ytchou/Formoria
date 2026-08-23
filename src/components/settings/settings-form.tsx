@@ -46,7 +46,7 @@ export function SettingsForm({
       <input type="hidden" name="_currentLocale" value={currentLocale} />
 
       {state.error && (
-        <div className="rounded-[3px] bg-danger/10 px-4 py-3 type-metadata text-danger">
+        <div className="rounded-surface bg-danger/10 px-4 py-3 type-metadata text-danger">
           {state.error}
         </div>
       )}
@@ -110,7 +110,7 @@ export function SettingsForm({
         </NativeSelect>
       </FormField>
 
-      <section className="space-y-4 rounded-[3px] border border-rule p-4">
+      <section className="space-y-4 rounded-surface border border-rule p-4">
         <div>
           <h2 className="type-body-sm font-semibold text-ink">{t("marketingHeading")}</h2>
           <p className="mt-1 type-metadata">{t("marketingDescription")}</p>

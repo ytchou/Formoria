@@ -12,11 +12,11 @@ export default function Loading() {
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="space-y-2">
               <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-12 w-full rounded-[3px]" />
+              <Skeleton className="h-12 w-full rounded-surface" />
             </div>
           ))}
         </div>
-        <Skeleton className="h-10 w-24 rounded-[3px]" />
+        <Skeleton className="h-10 w-24 rounded-surface" />
       </div>
     </PageShell>
   )

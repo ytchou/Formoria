@@ -33,7 +33,7 @@ export function AuthFormError({ message }: { message?: string }) {
 
   return (
     <div
-      className="rounded-[3px] border border-danger/30 bg-danger/10 px-4 py-3 type-body-sm text-danger outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground"
+      className="rounded-surface border border-danger/30 bg-danger/10 px-4 py-3 type-body-sm text-danger outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground"
       ref={ref}
       role="alert"
       tabIndex={-1}

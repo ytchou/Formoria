@@ -20,7 +20,7 @@ export function DashboardFormField({
   return (
     <FormField
       className={cn(
-        'rounded-md transition-colors',
+        'rounded-surface transition-colors',
         isDirty && 'bg-accent/5 ring-1 ring-accent/20',
         className,
       )}

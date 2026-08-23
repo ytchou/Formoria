@@ -89,7 +89,7 @@ export function BrandCard({
       {/* `surface-deep` is DESIGN.md §2's third step, the documented image
           placeholder. It replaces v1's `bg-muted` on every image plate in one
           pass, so two adjacent image boxes can never sit in different tones. */}
-      <div className="relative z-10 aspect-media overflow-hidden rounded-t-[2px] bg-surface-deep">
+      <div className="relative z-10 aspect-media overflow-hidden rounded-t-surface bg-surface-deep">
         {showImage ? (
           <SurfaceImage
             src={imageSrc}
@@ -190,7 +190,9 @@ export function BrandCard({
               href={routes.brand(brand.slug)}
               className={buttonVariants({
                 variant: 'secondary',
-                className: 'relative z-20 mt-4 min-h-12 w-full',
+                size: 'large',
+                width: 'full',
+                className: 'relative z-20 mt-4',
               })}
               onClick={() => trackRecommendationBrandClicked(brand.id, brand.slug, sourceBrandSlug ?? '', position)}
               data-ph-no-autocapture

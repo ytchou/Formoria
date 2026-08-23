@@ -71,7 +71,7 @@ export function EditorialHero({ src, alt, className }: EditorialHeroProps) {
   return (
     <div
       className={cn(
-        "relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-rule bg-surface-deep",
+        "relative aspect-[16/9] w-full overflow-hidden rounded-surface border border-rule bg-surface-deep",
         className,
       )}
     >

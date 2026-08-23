@@ -154,7 +154,7 @@ export function FeatureRequestsQueue({
   }
 
   return (
-    <div className="mt-4 overflow-hidden rounded-[3px] border border-rule bg-surface">
+    <div className="mt-4 overflow-hidden rounded-surface border border-rule bg-surface">
       <Table>
         <TableHeader>
           <TableRow>

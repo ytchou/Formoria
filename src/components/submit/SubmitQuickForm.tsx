@@ -35,6 +35,7 @@ import { trackSubmissionCompleted } from "@/lib/analytics";
 import { stripUrlQuery } from "@/lib/url";
 import { useSubmissionAnalytics } from "@/hooks/use-submission-analytics";
 import { routes } from "@/lib/routes";
+import { HoneypotField } from '@/components/forms/honeypot-field'
 
 type Translator = (key: string) => string;
 
@@ -257,7 +258,7 @@ export default function SubmitQuickForm() {
             />
             {nameSuggestion ? (
               <div className="animate-reveal-up">
-                <div className="flex items-center justify-between gap-3 rounded-[3px] border border-rule bg-surface p-3 type-body-sm text-ink-soft">
+                <div className="flex items-center justify-between gap-3 rounded-surface border border-rule bg-surface p-3 type-body-sm text-ink-soft">
                   <span>
                     {t("ownerForm.suggestedName")}{" "}
                     <strong>{nameSuggestion}</strong>
@@ -317,7 +318,7 @@ export default function SubmitQuickForm() {
             />
             {urlSuggestion ? (
               <div className="animate-reveal-up">
-                <div className="flex items-center justify-between gap-3 rounded-[3px] border border-rule bg-surface p-3 type-body-sm text-ink-soft">
+                <div className="flex items-center justify-between gap-3 rounded-surface border border-rule bg-surface p-3 type-body-sm text-ink-soft">
                   <span>
                     {t("ownerForm.suggestedUrl")}{" "}
                     <strong>{urlSuggestion}</strong>
@@ -402,15 +403,7 @@ export default function SubmitQuickForm() {
             )}
           />
 
-          <input
-            type="text"
-            {...register("honeypot")}
-            tabIndex={-1}
-            autoComplete="off"
-            // eslint-disable-next-line no-restricted-syntax -- ui-exception: honeypot trap must be invisible native input
-            className="pointer-events-none absolute -left-[9999px] h-0 w-0 opacity-0"
-            aria-hidden="true"
-          />
+          <HoneypotField {...register("honeypot")} />
 
           <div className="flex justify-center">
             <TurnstileWidget

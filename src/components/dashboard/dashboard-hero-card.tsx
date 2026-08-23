@@ -64,7 +64,7 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
 
   return (
     <SurfaceCard
-      className="grid grid-cols-1 gap-6 rounded-[3px] md:grid-cols-[auto_1fr_auto]"
+      className="grid grid-cols-1 gap-6 rounded-surface md:grid-cols-[auto_1fr_auto]"
       padding="lg"
     >
       <div
@@ -179,15 +179,17 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
           })}
         </p>
         {completeness.score < 100 ? (
-          <p className="w-full rounded-[3px] bg-warning/10 p-3 type-metadata text-warning">
+          <p className="w-full rounded-surface bg-warning/10 p-3 type-metadata text-warning">
             {tOverview('warningIncomplete', {
               count: completeness.recommendations.length,
             })}
           </p>
         ) : null}
         <Button
-          className="min-h-12 w-full focus-visible:ring-2 focus-visible:ring-accent"
+          className="focus-visible:ring-2 focus-visible:ring-accent"
           nativeButton={false}
+          size="large"
+          width="full"
           render={
             <Link
               href={`${routes.dashboard.brand(brand.slug)}#profile-completeness`}

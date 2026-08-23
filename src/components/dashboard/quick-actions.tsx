@@ -62,12 +62,12 @@ export async function QuickActions({ brandSlug }: { brandSlug: string }) {
 
           return (
             <Link
-              className="group min-h-12 rounded-[3px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="group min-h-12 rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               href={action.href}
               key={action.titleKey}
             >
               <SurfaceCard
-                className="flex h-full items-center gap-3 rounded-[3px] transition-colors group-hover:bg-surface"
+                className="flex h-full items-center gap-3 rounded-control transition-colors group-hover:bg-surface"
                 padding="sm"
               >
                 <Icon

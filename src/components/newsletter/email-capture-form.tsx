@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { subscribeToNewsletter } from "@/app/actions/newsletter";
+import { HoneypotField } from "@/components/forms/honeypot-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
@@ -33,7 +34,7 @@ export function EmailCaptureForm() {
     if (state.success) {
       trackNewsletterSubscribed(selectedChips, true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- ui-exception: fires once when state.success flips, reporting the chips as they were at submit time. The component early-returns into the success view immediately after, so selectedChips cannot change afterwards; adding it would only re-fire on an edit that can never happen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once when state.success flips, reporting the chips as they were at submit time. The component early-returns into the success view immediately after, so selectedChips cannot change afterwards; adding it would only re-fire on an edit that can never happen.
   }, [state.success]);
 
   function toggleChip(slug: string) {
@@ -46,42 +47,33 @@ export function EmailCaptureForm() {
 
   if (state.success) {
     return (
-      <div className="rounded-lg bg-verified-green-bg px-4 py-3 type-body-sm font-medium text-ink text-verified-green">
+      <div className="rounded-surface bg-verified-green-bg px-4 py-3 type-body-sm font-medium text-ink text-verified-green">
         {t("success")}
       </div>
     );
   }
 
   return (
-    <form action={formAction} className="space-y-4 text-foreground">
-      {/* ui-exception: the honeypot anti-spam field must stay a raw <input>.
-          Routing it through <Input> would give it the primitive's visible
-          styling and focus behaviour, which is exactly what must not happen to
-          a field only a bot should ever fill. No eslint-disable is needed here:
-          no-restricted-syntax is already off for this file via the grandfather
-          block in eslint.config.mjs. */}
-      <input
-        aria-hidden="true"
-        autoComplete="off"
-        className="sr-only"
-        name="website"
-        tabIndex={-1}
-        type="text"
-      />
+    <form action={formAction} className="space-y-4 text-ink">
+      {/* Anti-spam honeypot: invisible to humans, filled in by naive bots, and
+          rejected server-side by isHoneypotFilled(). It cannot be an <Input> —
+          the primitive's visible styling and focus behaviour are exactly what a
+          field only a bot should ever reach must not have. */}
+      <HoneypotField />
       <input type="hidden" name="locale" value={locale} />
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <div className="min-w-0 flex-1">
           <Input
             aria-invalid={state.error ? "true" : undefined}
-            className="h-12 rounded-lg border-border bg-background/50 text-foreground placeholder:text-muted-foreground focus-visible:border-foreground focus-visible:ring-ring sm:h-11"
+            className="h-12 rounded-control border-rule bg-ground/50 text-ink placeholder:text-ink-muted focus-visible:border-ink focus-visible:ring-accent sm:h-11"
             name="email"
             placeholder={t("emailPlaceholder")}
             required
             type="email"
           />
           {state.error ? (
-            <p className="mt-2 type-body-sm text-destructive" role="alert">
+            <p className="mt-2 type-body-sm text-danger" role="alert">
               {state.error}
             </p>
           ) : null}
@@ -104,7 +96,7 @@ export function EmailCaptureForm() {
       </div>
 
       <div className="space-y-2">
-        <p className="type-body-sm font-medium text-secondary-foreground">
+        <p className="type-body-sm font-medium text-ink-soft">
           {t("interestsLabel")}
         </p>
         {/* A scrolling row, not a wrapping one — but still a `ChipRow`, so
@@ -139,7 +131,7 @@ export function EmailCaptureForm() {
               href={routes.privacy()}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="text-ink underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               {chunks}
             </Link>

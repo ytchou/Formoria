@@ -25,6 +25,8 @@ import {
 } from '@/components/ui/dialog'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Grid } from '@/components/ui/grid'
+import { OptionRow } from '@/components/ui/option-row'
+import { UnstyledButton } from '@/components/ui/unstyled-button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
@@ -154,7 +156,7 @@ export function ReportDialogContent({
           <Typography variant="cardDescription" className="flex-1 px-4 py-6 sm:px-6">
             {t('success')}
           </Typography>
-          <DialogFooter className="mx-0 mb-0 rounded-b-xl bg-background px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground px-4 py-4 sm:px-6">
             <DialogClose render={<Button variant="secondary" />}>
               {t('close')}
             </DialogClose>
@@ -178,7 +180,7 @@ export function ReportDialogContent({
               <Typography
                 variant="cardDescription"
                 role="status"
-                className="rounded-lg border border-border bg-muted/50 p-3"
+                className="rounded-surface border border-rule bg-surface/50 p-3"
               >
                 {t('alreadyReported')}
               </Typography>
@@ -193,38 +195,31 @@ export function ReportDialogContent({
                   const selected = selectedReason === value
 
                   return (
-                    <Button
+                    <OptionRow
                       key={value}
-                      type="button"
-                      variant="secondary"
-                      size="large"
-                      aria-pressed={selected}
-                      className={cn(
-                        'h-auto min-h-14 w-full justify-start gap-3 px-4 py-3 text-left whitespace-normal',
-                        selected &&
-                          'border-accent bg-accent/10 text-accent hover:bg-accent/10',
-                      )}
+                      selected={selected}
                       onClick={() => selectReason(value)}
-                    >
-                      <Icon className="size-5" aria-hidden="true" />
-                      <span className="min-w-0 flex-1">{label}</span>
-                      {selected ? (
-                        <CircleCheck className="size-4" aria-hidden="true" />
-                      ) : null}
-                    </Button>
+                      icon={<Icon className="size-5" aria-hidden="true" />}
+                      title={label}
+                      trailing={
+                        selected ? (
+                          <CircleCheck className="size-4" aria-hidden="true" />
+                        ) : null
+                      }
+                    />
                   )
                 })}
               </Grid>
-              <div className="flex min-h-12 items-center gap-3 rounded-[3px] border border-rule bg-muted/50 p-3">
-                <Info className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <div className="flex min-h-12 items-center gap-3 rounded-surface border border-rule bg-surface/50 p-3">
+                <Info className="size-4 shrink-0 text-ink-muted" aria-hidden="true" />
                 <Typography variant="cardDescription">
                   {t('mitDisputePrompt')}{' '}
                   <DialogClose
                     render={
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-auto min-h-12 px-1 font-medium text-foreground underline underline-offset-4 hover:bg-transparent"
+                      <UnstyledButton
+                        // Inline inside a sentence: it sits on the text
+                        // baseline, so it takes no control height at all.
+                        className="font-medium text-ink underline underline-offset-4"
                         onClick={handleMitDisputeClick}
                       />
                     }
@@ -246,39 +241,32 @@ export function ReportDialogContent({
                   const selected = selectedReason === value
 
                   return (
-                    <Button
+                    <OptionRow
                       key={value}
-                      type="button"
-                      variant="secondary"
-                      size="large"
-                      aria-pressed={selected}
-                      className={cn(
-                        'h-auto min-h-16 w-full justify-start gap-3 px-4 py-3 text-left whitespace-normal',
-                        selected &&
-                          'border-accent bg-accent/10 text-accent hover:bg-accent/10',
-                      )}
+                      selected={selected}
                       onClick={() => selectReason(value)}
-                    >
-                      <Icon
-                        className={cn(
-                          'size-5 text-muted-foreground',
-                          selected && 'text-accent',
-                        )}
-                        aria-hidden="true"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block type-body-sm font-medium text-ink">{label}</span>
-                        <span className="mt-0.5 block type-body-sm">{description}</span>
-                      </span>
-                      {selected ? (
-                        <CircleCheck className="size-4" aria-hidden="true" />
-                      ) : (
-                        <ChevronRight
-                          className="size-4 text-muted-foreground"
+                      icon={
+                        <Icon
+                          className={cn(
+                            'size-5 text-ink-muted',
+                            selected && 'text-accent',
+                          )}
                           aria-hidden="true"
                         />
-                      )}
-                    </Button>
+                      }
+                      title={label}
+                      description={description}
+                      trailing={
+                        selected ? (
+                          <CircleCheck className="size-4" aria-hidden="true" />
+                        ) : (
+                          <ChevronRight
+                            className="size-4 text-ink-muted"
+                            aria-hidden="true"
+                          />
+                        )
+                      }
+                    />
                   )
                 })}
               </div>
@@ -308,7 +296,7 @@ export function ReportDialogContent({
             <Separator />
 
             {reportRequiresSignIn ? (
-              <div className="rounded-lg border border-border bg-muted/50 p-4">
+              <div className="rounded-surface border border-rule bg-surface/50 p-4">
                 <Typography variant="cardDescription">
                   {selectedReason === 'removal_request'
                     ? t('removalSignInPrompt')
@@ -320,7 +308,7 @@ export function ReportDialogContent({
                 <div className="flex items-center justify-between gap-4">
                   <Label htmlFor="report-notes">{t('notesLabel')}</Label>
                   <span
-                    className="type-metadata tabular-nums text-muted-foreground"
+                    className="type-metadata tabular-nums text-ink-muted"
                     aria-live="polite"
                     aria-atomic="true"
                   >
@@ -344,7 +332,7 @@ export function ReportDialogContent({
             )}
           </div>
 
-          <DialogFooter className="mx-0 mb-0 rounded-b-xl bg-background px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground px-4 py-4 sm:px-6">
             <DialogClose render={<Button variant="secondary" />}>
               {t('cancel')}
             </DialogClose>

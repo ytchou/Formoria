@@ -33,7 +33,8 @@ export function AdminQuickActions({ needsDataCount }: { needsDataCount: number |
       <Button
         onClick={enrichNeedsData}
         disabled={needsDataCount === null || needsDataCount === 0 || isEnriching}
-        className="min-h-12 justify-start"
+        className="justify-start"
+        size="large"
         variant="secondary"
       >
         <DatabaseZap aria-hidden="true" />

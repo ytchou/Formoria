@@ -106,7 +106,7 @@ export async function BrandGallery({
               loading="lazy"
               decoding="async"
               className={cn(
-                'aspect-media w-full rounded-[3px] border border-rule bg-surface-deep',
+                'aspect-media w-full rounded-surface border border-rule bg-surface-deep',
                 fill,
               )}
             />

@@ -36,7 +36,7 @@ export function DetailSection({
 }: DetailSectionProps) {
   return (
     <section
-      className={editing ? "space-y-4 rounded-[3px] bg-surface/40 p-4" : "space-y-3"}
+      className={editing ? "space-y-4 rounded-surface bg-surface/40 p-4" : "space-y-3"}
     >
       <div className="flex items-center justify-between">
         <h3 className="type-body-sm font-semibold text-ink">{title}</h3>
@@ -45,7 +45,6 @@ export function DetailSection({
             type="button"
             variant="ghost"
             size="compact"
-            className="min-h-12"
             onClick={onEdit}
           >
             {editLabel}
@@ -61,7 +60,7 @@ export function DetailSection({
       {editing && (
         <div className="flex flex-wrap justify-end gap-2 pt-2">
           <Button
-            className="min-h-12"
+            size="large"
             variant="secondary"
             onClick={onCancel}
             disabled={isPending}

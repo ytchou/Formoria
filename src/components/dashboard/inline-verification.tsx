@@ -133,7 +133,7 @@ export function InlineVerification({
       >
         <StatusPill variant="verified" label={t('status.verified')}>
           {mitEvidence?.mit_smile_cert && (
-            <span className="rounded bg-verified-green-bg px-2 py-0.5 font-mono type-metadata text-verified-green">
+            <span className="rounded-surface bg-verified-green-bg px-2 py-0.5 type-metadata tabular-nums text-verified-green">
               {mitEvidence.mit_smile_cert}
             </span>
           )}
@@ -220,7 +220,7 @@ export function InlineVerification({
                 value={certNumber}
                 onChange={(event) => setCertNumber(event.target.value)}
                 placeholder={t('certPlaceholder')}
-                className="font-mono type-metadata"
+                className="type-metadata tabular-nums"
               />
               <Button type="submit" size="compact" disabled={!certNumber.trim() || isPending}>
                 {t('verifyButton')}
@@ -229,9 +229,9 @@ export function InlineVerification({
           </section>
 
           <div className="flex items-center gap-3 text-ink-muted" aria-hidden="true">
-            <span className="h-px flex-1 bg-border md:h-full md:w-px md:flex-none" />
+            <span className="h-px flex-1 bg-rule md:h-full md:w-px md:flex-none" />
             <span className="type-metadata">{t('or')}</span>
-            <span className="h-px flex-1 bg-border md:hidden" />
+            <span className="h-px flex-1 bg-rule md:hidden" />
           </div>
 
           <section className="space-y-3" aria-labelledby={`${scopeId}-declare-title`}>
