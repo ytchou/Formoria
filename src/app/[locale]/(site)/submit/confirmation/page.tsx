@@ -58,7 +58,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
     >
       <div
         className={surfaceCardStyles({
-          className: 'w-full prose-measure rounded-2xl p-10',
+          className: 'w-full prose-measure rounded-surface p-10',
           padding: 'none',
           tone: 'white',
         })}
@@ -75,13 +75,13 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
         </h1>
 
         {ownershipAdjusted ? (
-          <p className="mt-4 rounded-lg border border-border bg-muted p-4 type-body-sm">
+          <p className="mt-4 rounded-surface border border-border bg-muted p-4 type-body-sm">
             {t('communityOwnershipNotice')}
           </p>
         ) : null}
 
         {/* Timeline */}
-        <div className="mt-8 rounded-xl bg-background p-6">
+        <div className="mt-8 rounded-surface bg-background p-6">
           <div className="space-y-4">
               {([
               {

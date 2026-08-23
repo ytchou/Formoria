@@ -77,9 +77,9 @@ export function WallTrailTile({
     <li
       style={{ '--tile-ratio': TRAIL_FORMAT_RATIO[format] } as CSSProperties}
       className={cn(
-        // `rounded-lg` is DESIGN.md's container radius; this tile is a
+        // `rounded-surface` is DESIGN.md's container radius; this tile is a
         // top-level surface, not a nested one.
-        'relative list-none min-h-80 overflow-hidden rounded-lg bg-foreground text-background sm:min-h-0',
+        'relative list-none min-h-80 overflow-hidden rounded-surface bg-foreground text-background sm:min-h-0',
         // Same flex arithmetic as a product tile — one per line on phones, then
         // basis and grow both proportional to the format's ratio.
         'basis-full grow-0',

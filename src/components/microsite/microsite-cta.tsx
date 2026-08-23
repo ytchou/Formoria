@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
  * which is exactly how the system `Button` draws a ring on top of its own fill.
  */
 const ctaBase = cn(
-  "inline-flex min-h-11 items-center justify-center rounded-[4px] type-button",
+  "inline-flex min-h-11 items-center justify-center rounded-control type-button",
   "focus-visible:ring-2 focus-visible:ring-[var(--brand-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-ground focus-visible:outline-none",
   "active:scale-[0.98] motion-reduce:transition-none",
 );

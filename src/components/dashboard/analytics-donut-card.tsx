@@ -44,7 +44,7 @@ export function AnalyticsDonutCard({
   );
 
   return (
-    <SurfaceCard className="rounded-[4px]" padding="lg">
+    <SurfaceCard className="rounded-surface" padding="lg">
       <h2 className="type-label">{title}</h2>
       {rows.length === 0 ? (
         <p className="mt-4 type-body-sm">{emptyLabel}</p>

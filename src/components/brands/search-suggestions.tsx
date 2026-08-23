@@ -28,7 +28,7 @@ function highlightMatch(text: string, query: string): ReactNode {
   return (
     <>
       {text.slice(0, idx)}
-      <mark className="bg-accent/10 text-ink rounded-sm">
+      <mark className="bg-accent/10 text-ink rounded-surface">
         {text.slice(idx, idx + query.length)}
       </mark>
       {text.slice(idx + query.length)}
@@ -61,7 +61,7 @@ export function SearchSuggestions({
     <ul
       id={id}
       role="listbox"
-      className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-[3px] border border-rule bg-card"
+      className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-surface border border-rule bg-card"
     >
       {suggestions.length === 0 ? (
         <li className="px-4 py-3 type-body-sm">

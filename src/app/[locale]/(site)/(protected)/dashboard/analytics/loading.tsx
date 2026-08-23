@@ -9,12 +9,12 @@ export default function AnalyticsLoading() {
             className={surfaceCardStyles({ className: 'h-28', tone: 'white' })}
             key={item}
           >
-            <div className="h-4 w-24 rounded bg-surface-deep" />
+            <div className="h-4 w-24 rounded-surface bg-surface-deep" />
             <div className="mt-4 flex items-center gap-3">
-              <div className="h-7 w-16 rounded bg-surface-deep" />
+              <div className="h-7 w-16 rounded-surface bg-surface-deep" />
               <div className="h-4 w-4 rounded-full bg-surface-deep" />
             </div>
-            <div className="mt-3 h-3 w-32 rounded bg-surface-deep" />
+            <div className="mt-3 h-3 w-32 rounded-surface bg-surface-deep" />
           </div>
         ))}
       </div>
@@ -22,12 +22,12 @@ export default function AnalyticsLoading() {
       <div className={surfaceCardStyles({ tone: 'white' })}>
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
-            <div className="h-4 w-36 rounded bg-surface-deep" />
-            <div className="h-4 w-48 rounded bg-surface-deep" />
+            <div className="h-4 w-36 rounded-surface bg-surface-deep" />
+            <div className="h-4 w-48 rounded-surface bg-surface-deep" />
           </div>
-          <div className="h-8 w-28 rounded-[8px] bg-surface-deep" />
+          <div className="h-8 w-28 rounded-surface bg-surface-deep" />
         </div>
-        <div className="mt-6 h-52 rounded bg-surface-deep" />
+        <div className="mt-6 h-52 rounded-surface bg-surface-deep" />
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -37,15 +37,15 @@ export default function AnalyticsLoading() {
             key={item}
           >
             <div className="flex items-center justify-between gap-4">
-              <div className="h-4 w-32 rounded bg-surface-deep" />
-              <div className="h-4 w-16 rounded bg-surface-deep" />
+              <div className="h-4 w-32 rounded-surface bg-surface-deep" />
+              <div className="h-4 w-16 rounded-surface bg-surface-deep" />
             </div>
             <div className="mt-5 space-y-4">
               {[0, 1, 2].map((row) => (
                 <div className="flex items-center gap-3" key={row}>
-                  <div className="h-4 w-24 rounded bg-surface-deep" />
+                  <div className="h-4 w-24 rounded-surface bg-surface-deep" />
                   <div className="h-2 flex-1 rounded-full bg-surface-deep" />
-                  <div className="h-4 w-8 rounded bg-surface-deep" />
+                  <div className="h-4 w-8 rounded-surface bg-surface-deep" />
                 </div>
               ))}
             </div>

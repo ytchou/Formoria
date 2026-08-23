@@ -11,7 +11,7 @@ type EventExhibitorPaginationProps = {
 };
 
 const EDGE_CLASS =
-  "inline-flex min-h-12 items-center justify-center rounded-[4px] px-3 type-body-sm font-medium text-ink/20";
+  "inline-flex min-h-12 items-center justify-center rounded-control px-3 type-body-sm font-medium text-ink/20";
 
 /**
  * Buttons, not links — the one deliberate divergence from
@@ -69,7 +69,7 @@ export function EventExhibitorPagination({
           <span
             key={page}
             aria-current="page"
-            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-[4px] bg-accent type-metadata text-ground"
+            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-control bg-accent type-metadata text-ground"
           >
             {page}
           </span>

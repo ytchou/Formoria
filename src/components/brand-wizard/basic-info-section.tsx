@@ -127,7 +127,7 @@ export function BrandBasicInfoSection({
             }}
           />
           {nameSuggestion ? (
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 type-body-sm text-ink-soft">
+            <div className="flex items-center justify-between gap-3 rounded-surface border border-border bg-card p-3 type-body-sm text-ink-soft">
               <span>
                 {tSubmit("ownerForm.suggestedName")}{" "}
                 <strong>{nameSuggestion}</strong>

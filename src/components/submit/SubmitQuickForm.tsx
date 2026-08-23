@@ -258,7 +258,7 @@ export default function SubmitQuickForm() {
             />
             {nameSuggestion ? (
               <div className="animate-reveal-up">
-                <div className="flex items-center justify-between gap-3 rounded-[3px] border border-rule bg-surface p-3 type-body-sm text-ink-soft">
+                <div className="flex items-center justify-between gap-3 rounded-surface border border-rule bg-surface p-3 type-body-sm text-ink-soft">
                   <span>
                     {t("ownerForm.suggestedName")}{" "}
                     <strong>{nameSuggestion}</strong>
@@ -318,7 +318,7 @@ export default function SubmitQuickForm() {
             />
             {urlSuggestion ? (
               <div className="animate-reveal-up">
-                <div className="flex items-center justify-between gap-3 rounded-[3px] border border-rule bg-surface p-3 type-body-sm text-ink-soft">
+                <div className="flex items-center justify-between gap-3 rounded-surface border border-rule bg-surface p-3 type-body-sm text-ink-soft">
                   <span>
                     {t("ownerForm.suggestedUrl")}{" "}
                     <strong>{urlSuggestion}</strong>

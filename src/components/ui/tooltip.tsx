@@ -64,7 +64,7 @@ function TooltipContent({
           role="tooltip"
           data-slot="tooltip-content"
           className={cn(
-            "origin-(--transform-origin) rounded-md border border-rule bg-surface px-3 py-1.5 type-metadata text-ink transition-opacity duration-100 outline-none data-ending-style:opacity-0 data-instant:duration-0 data-starting-style:opacity-0",
+            "origin-(--transform-origin) rounded-surface border border-rule bg-surface px-3 py-1.5 type-metadata text-ink transition-opacity duration-100 outline-none data-ending-style:opacity-0 data-instant:duration-0 data-starting-style:opacity-0",
             className,
           )}
           {...props}

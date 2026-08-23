@@ -200,7 +200,7 @@ export function createStoryComponentMap({
       createElement('a', {
         ...props,
         className: cn(
-          'rounded-[2px] break-words text-accent underline underline-offset-4 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground',
+          'rounded-control break-words text-accent underline underline-offset-4 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground',
           props.className,
         ),
       }),
@@ -232,7 +232,7 @@ export function createStoryComponentMap({
         decoding: 'async',
         ...props,
         className: cn(
-          'mx-auto my-6 aspect-media w-full prose-measure rounded-[3px] border border-rule bg-surface-deep object-cover',
+          'mx-auto my-6 aspect-media w-full prose-measure rounded-surface border border-rule bg-surface-deep object-cover',
           props.className,
         ),
       }),
@@ -269,7 +269,7 @@ export function createStoryComponentMap({
       createElement('code', {
         ...props,
         className: cn(
-          'rounded-[2px] border border-rule bg-surface px-1.5 py-0.5 font-mono text-[0.85em]',
+          'rounded-surface border border-rule bg-surface px-1.5 py-0.5 font-mono text-[0.85em]',
           props.className,
         ),
       }),
@@ -277,7 +277,7 @@ export function createStoryComponentMap({
       createElement('pre', {
         ...props,
         className: cn(
-          'my-6 overflow-x-auto rounded-[3px] border border-rule bg-surface p-4 font-mono text-[0.8125rem] leading-[1.7] text-ink',
+          'my-6 overflow-x-auto rounded-surface border border-rule bg-surface p-4 font-mono text-[0.8125rem] leading-[1.7] text-ink',
           '[&>code]:rounded-none [&>code]:border-0 [&>code]:bg-transparent [&>code]:p-0 [&>code]:text-inherit',
           props.className,
         ),

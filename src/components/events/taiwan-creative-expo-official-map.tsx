@@ -149,7 +149,7 @@ export function TaiwanCreativeExpoOfficialMap() {
             {t("floorMapOpenViewer")}
           </DialogTrigger>
           <DialogContent
-            className="h-[100dvh] w-screen max-w-none gap-0 rounded-none p-0 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-[min(96vw,1100px)] sm:rounded-[3px]"
+            className="h-[100dvh] w-screen max-w-none gap-0 rounded-none p-0 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-[min(96vw,1100px)] sm:rounded-surface"
             showCloseButton={false}
           >
             <DialogHeader className="flex-row items-start justify-between gap-3 border-b p-4 sm:p-5">
@@ -267,7 +267,7 @@ export function TaiwanCreativeExpoOfficialMap() {
         booth numbers on a 3200px plan are not legible.
       */}
       <div
-        className="relative mx-auto aspect-[3200/2450] w-full max-w-4xl overflow-hidden rounded-[3px] border border-rule bg-surface-deep"
+        className="relative mx-auto aspect-[3200/2450] w-full max-w-4xl overflow-hidden rounded-surface border border-rule bg-surface-deep"
         data-map-image={EXPO_FLOOR_MAP_GEOMETRY.viewBox}
       >
         <SurfaceImage

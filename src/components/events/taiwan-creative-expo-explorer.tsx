@@ -244,7 +244,7 @@ export function TaiwanCreativeExpoExplorer({
 
       {rosterFailed ? (
         <div
-          className="rounded-[3px] border border-dashed border-warning/60 bg-warning/5 p-4"
+          className="rounded-surface border border-dashed border-warning/60 bg-warning/5 p-4"
           role="status"
         >
           <p className="type-card-title">{t("explorerRosterUnavailable")}</p>

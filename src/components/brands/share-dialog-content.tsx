@@ -181,7 +181,7 @@ export function ShareDialogContent({
   return (
     <DialogContent
       showCloseButton={false}
-      className="w-[21rem] max-w-[calc(100%-2rem)] gap-0 rounded-2xl p-0"
+      className="w-[21rem] max-w-[calc(100%-2rem)] gap-0 rounded-surface p-0"
     >
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <DialogTitle>{t('dialogTitle')}</DialogTitle>
@@ -197,7 +197,7 @@ export function ShareDialogContent({
 
       <div className="space-y-4 p-4">
         {/* Preview card — what the recipient will actually receive. */}
-        <div className="overflow-hidden rounded-xl border border-border bg-muted">
+        <div className="overflow-hidden rounded-surface border border-border bg-muted">
           {safeImage ? (
             <div className="relative h-[74px] w-full">
               <SurfaceImage
@@ -242,7 +242,7 @@ export function ShareDialogContent({
             // text-base on mobile keeps the 16px floor that stops iOS Safari
             // auto-zooming on focus (this field calls select() on focus);
             // text-foreground/70 clears 4.5:1 on the muted surface in dark mode.
-            className="h-10 rounded-lg border-border bg-muted pr-28 font-mono text-base text-foreground/70 md:text-[13px]"
+            className="h-10 rounded-control border-border bg-muted pr-28 font-mono text-base text-foreground/70 md:text-[13px]"
             data-ph-no-autocapture
           />
           <Button
@@ -291,7 +291,7 @@ export function ShareDialogContent({
         <p
           role="status"
           className={cn(
-            'rounded-lg bg-verified-green-bg px-3 py-2 type-micro text-verified-green transition-opacity duration-150',
+            'rounded-surface bg-verified-green-bg px-3 py-2 type-micro text-verified-green transition-opacity duration-150',
             instagramCopied ? 'opacity-100' : 'sr-only opacity-0',
           )}
         >

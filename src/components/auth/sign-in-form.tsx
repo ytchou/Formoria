@@ -69,7 +69,7 @@ export function SignInForm({
       </div>
 
       {claimToken && claimBrandName && (
-        <div className="rounded-[3px] border border-rule bg-surface px-4 py-3 type-body-sm text-ink-soft">
+        <div className="rounded-surface border border-rule bg-surface px-4 py-3 type-body-sm text-ink-soft">
           {t.rich("signIn.claimMessage", {
             brandName: claimBrandName,
             strong: (chunks) => <strong>{chunks}</strong>,
@@ -78,7 +78,7 @@ export function SignInForm({
       )}
 
       {message && (
-        <div className="rounded-[3px] bg-surface px-4 py-3 type-body-sm text-ink-soft">
+        <div className="rounded-surface bg-surface px-4 py-3 type-body-sm text-ink-soft">
           {message}
         </div>
       )}

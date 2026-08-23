@@ -61,7 +61,7 @@ export async function TodoSection({
       <h2 className="type-label" id="todo-section-title">
         {tOverview('todoTitle')}
       </h2>
-      <SurfaceCard className="mt-4 rounded-[3px]" padding="lg">
+      <SurfaceCard className="mt-4 rounded-surface" padding="lg">
         {isEmpty ? (
           <div className="flex items-center justify-center gap-3 py-4">
             <CircleCheck

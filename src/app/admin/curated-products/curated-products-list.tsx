@@ -221,7 +221,7 @@ export function CuratedProductsList({
       </div>
 
       {creating ? (
-        <div className="mb-6 rounded-[3px] border border-rule p-4">
+        <div className="mb-6 rounded-surface border border-rule p-4">
           <DetailSection
             title={t("newProduct")}
             editLabel={t("editor.edit")}

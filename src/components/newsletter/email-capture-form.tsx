@@ -47,7 +47,7 @@ export function EmailCaptureForm() {
 
   if (state.success) {
     return (
-      <div className="rounded-lg bg-verified-green-bg px-4 py-3 type-body-sm font-medium text-ink text-verified-green">
+      <div className="rounded-surface bg-verified-green-bg px-4 py-3 type-body-sm font-medium text-ink text-verified-green">
         {t("success")}
       </div>
     );
@@ -66,7 +66,7 @@ export function EmailCaptureForm() {
         <div className="min-w-0 flex-1">
           <Input
             aria-invalid={state.error ? "true" : undefined}
-            className="h-12 rounded-lg border-border bg-background/50 text-foreground placeholder:text-muted-foreground focus-visible:border-foreground focus-visible:ring-ring sm:h-11"
+            className="h-12 rounded-control border-border bg-background/50 text-foreground placeholder:text-muted-foreground focus-visible:border-foreground focus-visible:ring-ring sm:h-11"
             name="email"
             placeholder={t("emailPlaceholder")}
             required

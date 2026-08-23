@@ -35,7 +35,7 @@ import { cn } from '@/lib/utils'
  * why no caller may set a height.
  */
 const optionRowBaseClasses = cn(
-  'group/option-row flex min-h-14 w-full items-center gap-3 rounded-[4px] border bg-clip-padding px-4 py-3 text-left',
+  'group/option-row flex min-h-14 w-full items-center gap-3 rounded-control border bg-clip-padding px-4 py-3 text-left',
   'font-hei text-sm font-medium transition-[background-color,border-color,color] outline-none select-none',
   // The visible replacement for `outline-none` — same ring, offset and offset
   // colour as every other control in the system.

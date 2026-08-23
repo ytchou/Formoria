@@ -45,7 +45,7 @@ function TrustLabel({ className, kind = "selected" }: TrustLabelProps) {
       data-slot="trust-label"
       data-trust-label={kind}
       className={cn(
-        "inline-flex h-5 w-fit shrink-0 items-center justify-center rounded-[2px] border border-rule bg-transparent px-2 whitespace-nowrap",
+        "inline-flex h-5 w-fit shrink-0 items-center justify-center rounded-surface border border-rule bg-transparent px-2 whitespace-nowrap",
         textStyles({ variant: "micro" }),
         className,
       )}

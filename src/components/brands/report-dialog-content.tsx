@@ -156,7 +156,7 @@ export function ReportDialogContent({
           <Typography variant="cardDescription" className="flex-1 px-4 py-6 sm:px-6">
             {t('success')}
           </Typography>
-          <DialogFooter className="mx-0 mb-0 rounded-b-xl bg-background px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-background px-4 py-4 sm:px-6">
             <DialogClose render={<Button variant="secondary" />}>
               {t('close')}
             </DialogClose>
@@ -180,7 +180,7 @@ export function ReportDialogContent({
               <Typography
                 variant="cardDescription"
                 role="status"
-                className="rounded-lg border border-border bg-muted/50 p-3"
+                className="rounded-surface border border-border bg-muted/50 p-3"
               >
                 {t('alreadyReported')}
               </Typography>
@@ -210,7 +210,7 @@ export function ReportDialogContent({
                   )
                 })}
               </Grid>
-              <div className="flex min-h-12 items-center gap-3 rounded-[3px] border border-rule bg-muted/50 p-3">
+              <div className="flex min-h-12 items-center gap-3 rounded-surface border border-rule bg-muted/50 p-3">
                 <Info className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <Typography variant="cardDescription">
                   {t('mitDisputePrompt')}{' '}
@@ -296,7 +296,7 @@ export function ReportDialogContent({
             <Separator />
 
             {reportRequiresSignIn ? (
-              <div className="rounded-lg border border-border bg-muted/50 p-4">
+              <div className="rounded-surface border border-border bg-muted/50 p-4">
                 <Typography variant="cardDescription">
                   {selectedReason === 'removal_request'
                     ? t('removalSignInPrompt')
@@ -332,7 +332,7 @@ export function ReportDialogContent({
             )}
           </div>
 
-          <DialogFooter className="mx-0 mb-0 rounded-b-xl bg-background px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-background px-4 py-4 sm:px-6">
             <DialogClose render={<Button variant="secondary" />}>
               {t('cancel')}
             </DialogClose>

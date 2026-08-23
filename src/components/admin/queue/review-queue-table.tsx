@@ -103,7 +103,7 @@ export function ReviewQueueTable<T>(props: {
         </div>
       ) : null}
 
-      <div className="rounded-[3px] border border-rule bg-surface overflow-hidden">
+      <div className="rounded-surface border border-rule bg-surface overflow-hidden">
         <Table>
           <TableHeader className="bg-surface">
             <TableRow className="h-12">

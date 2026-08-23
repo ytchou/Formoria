@@ -44,7 +44,7 @@ export function Hero({ brand, siteContent }: HeroProps) {
         </div>
 
         {brand.heroImageUrl && (
-          <div className="relative aspect-media overflow-hidden rounded-[3px] border border-rule bg-surface">
+          <div className="relative aspect-media overflow-hidden rounded-surface border border-rule bg-surface">
             <SurfaceImage
               src={brand.heroImageUrl}
               alt={brand.name}

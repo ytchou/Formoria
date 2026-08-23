@@ -80,7 +80,7 @@ export default async function AdminNewsletterPage({
           <DataCard label="Confirmation rate" value={`${stats.confirmationRate}%`} description="Active ÷ active plus pending" />
         </div>
 
-        <form className="grid gap-3 rounded-[3px] border border-rule bg-surface p-4 lg:grid-cols-[minmax(260px,1fr)_220px_220px_auto] lg:items-end">
+        <form className="grid gap-3 rounded-surface border border-rule bg-surface p-4 lg:grid-cols-[minmax(260px,1fr)_220px_220px_auto] lg:items-end">
           <Label className="space-y-1 type-body-sm font-medium text-ink">
             {t("filters.search")}
             <Input name="q" defaultValue={filters.q ?? ""} placeholder={t("filters.searchPlaceholder")} />

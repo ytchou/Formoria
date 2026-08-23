@@ -428,7 +428,7 @@ export default function SubmitForm({
               />
               {nameSuggestion ? (
                 <div className="animate-reveal-up">
-                  <div className="flex items-center justify-between gap-3 rounded-[3px] border border-rule bg-surface p-3 type-body-sm text-ink-soft">
+                  <div className="flex items-center justify-between gap-3 rounded-surface border border-rule bg-surface p-3 type-body-sm text-ink-soft">
                     <span>
                       {tForm("suggestedName")} <strong>{nameSuggestion}</strong>
                     </span>
@@ -485,7 +485,7 @@ export default function SubmitForm({
               />
               {urlSuggestion ? (
                 <div className="overflow-hidden transition-all duration-200">
-                  <div className="flex items-center justify-between gap-3 rounded-[3px] border border-rule bg-surface p-3 type-body-sm text-ink-soft">
+                  <div className="flex items-center justify-between gap-3 rounded-surface border border-rule bg-surface p-3 type-body-sm text-ink-soft">
                     <span>
                       {tForm("suggestedUrl")} <strong>{urlSuggestion}</strong>
                     </span>

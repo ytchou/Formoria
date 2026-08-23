@@ -82,12 +82,12 @@ export default async function StoriesHubPage({
         {!storyResult.ok ? (
           <div
             role="alert"
-            className="flex min-h-[40vh] items-center justify-center rounded-[3px] border border-rule bg-surface px-6 py-16 text-center"
+            className="flex min-h-[40vh] items-center justify-center rounded-surface border border-rule bg-surface px-6 py-16 text-center"
           >
             <p className="type-card-title text-ink-muted">{t("loadError")}</p>
           </div>
         ) : stories.length === 0 ? (
-          <div className="flex min-h-[40vh] items-center justify-center rounded-[3px] border border-rule bg-surface px-6 py-16 text-center">
+          <div className="flex min-h-[40vh] items-center justify-center rounded-surface border border-rule bg-surface px-6 py-16 text-center">
             <p className="type-body-sm">{t("comingSoon")}</p>
           </div>
         ) : (

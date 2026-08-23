@@ -68,7 +68,7 @@ export function AccountMenu() {
     return (
       <NextLink
         href={signInHref(pathname, locale)}
-        className="inline-flex h-9 items-center justify-center rounded-[4px] px-2.5 type-metadata transition-colors hover:text-ink focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none"
+        className="inline-flex h-9 items-center justify-center rounded-control px-2.5 type-metadata transition-colors hover:text-ink focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none"
       >
         {t('nav.signIn')}
       </NextLink>

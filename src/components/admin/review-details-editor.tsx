@@ -342,7 +342,7 @@ export function ReviewDetailsEditor({
       className="space-y-6"
     >
       {missingLabels.length > 0 && (
-        <div className="rounded-[4px] border border-danger/30 bg-danger/5 p-4">
+        <div className="rounded-surface border border-danger/30 bg-danger/5 p-4">
           <p className="type-body-sm font-medium text-ink">{t("missingRequired")}</p>
           <ul className="mt-2 list-disc space-y-1 pl-5 type-body-sm">
             {missingLabels.map((label) => (
@@ -591,7 +591,7 @@ export function ReviewDetailsEditor({
                   return (
                     <div
                       key={image.id}
-                      className="overflow-hidden rounded-[4px] border bg-surface"
+                      className="overflow-hidden rounded-surface border bg-surface"
                     >
                       <div className="relative">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -686,7 +686,7 @@ export function ReviewDetailsEditor({
                           src={image.url}
                           alt={image.altZh ?? t("imageAlt", { n: index + 1 })}
                           className={cn(
-                            "aspect-media w-full rounded-[4px] border",
+                            "aspect-media w-full rounded-surface border",
                             fill,
                           )}
                         />
@@ -961,7 +961,7 @@ function ProductProposalsReadOnly({
         return (
           <li
             key={proposal.key}
-            className="space-y-3 rounded-[4px] border border-rule p-4"
+            className="space-y-3 rounded-surface border border-rule p-4"
           >
             <div className="flex flex-wrap items-center gap-2">
               <p className="type-body-sm font-medium text-ink">{proposalTitle(proposal)}</p>
@@ -1074,7 +1074,7 @@ function ProductProposalsEditor({
         return (
           <fieldset
             key={proposal.key}
-            className="space-y-3 rounded-[4px] border border-rule p-4"
+            className="space-y-3 rounded-surface border border-rule p-4"
           >
             <legend className="type-metadata">
               {t("details.productEditor.item", { number: index + 1 })}

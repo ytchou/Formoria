@@ -36,7 +36,7 @@ export default async function MediaPage({ params }: Props) {
           label={tEdit('fieldHeroImage')}
         >
           {heroImageUrl ? (
-            <div className="relative aspect-video max-w-md overflow-hidden rounded-[3px] bg-surface-deep">
+            <div className="relative aspect-video max-w-md overflow-hidden rounded-surface bg-surface-deep">
               <SurfaceImage
                 alt={tEdit('fieldHeroImage')}
                 className="object-cover"
@@ -63,7 +63,7 @@ export default async function MediaPage({ params }: Props) {
               {productPhotos.map((photo, index) => (
                 <div
                   key={`${photo}-${index}`}
-                  className="relative aspect-square overflow-hidden rounded-[3px] bg-surface-deep"
+                  className="relative aspect-square overflow-hidden rounded-surface bg-surface-deep"
                 >
                   <SurfaceImage
                     alt={`${tEdit('fieldProductPhotos')} ${index + 1}`}

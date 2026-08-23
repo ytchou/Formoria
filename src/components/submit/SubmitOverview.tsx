@@ -35,7 +35,7 @@ function PathPoints({ points, muted }: { points: string[]; muted?: boolean }) {
       {points.map((point) => (
         <li
           key={point}
-          className="flex items-start gap-2 rounded-[3px] border border-rule/70 bg-ground/50 px-3 py-2.5"
+          className="flex items-start gap-2 rounded-surface border border-rule/70 bg-ground/50 px-3 py-2.5"
         >
           <span
             aria-hidden="true"

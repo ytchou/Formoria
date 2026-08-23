@@ -39,7 +39,7 @@ export function ProductGrid({ brand, products }: ProductGridProps) {
               })}
             >
               {product.imageUrl && (
-                <div className="relative aspect-media overflow-hidden rounded-t-[3px] bg-surface-deep">
+                <div className="relative aspect-media overflow-hidden rounded-t-surface bg-surface-deep">
                   <SurfaceImage
                     src={product.imageUrl}
                     alt={`${brand.name} ${product.name}`}

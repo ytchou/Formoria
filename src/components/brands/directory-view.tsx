@@ -423,10 +423,10 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, in
               <Grid aria-label={t('loadingAria')}>
                 {Array.from({ length: 8 }).map((_, index) => (
                   <div key={index} className={surfaceCardStyles({ padding: 'none' })}>
-                    <div className="aspect-media animate-pulse rounded-t-xl bg-muted" />
+                    <div className="aspect-media animate-pulse rounded-t-surface bg-muted" />
                     <div className="p-4">
-                      <div className="h-4 animate-pulse rounded bg-muted" />
-                      <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-muted" />
+                      <div className="h-4 animate-pulse rounded-surface bg-muted" />
+                      <div className="mt-2 h-3 w-2/3 animate-pulse rounded-surface bg-muted" />
                     </div>
                   </div>
                 ))}

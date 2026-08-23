@@ -196,7 +196,7 @@ export function SelectedProductTile({
    */
   const wallCaptionClass = cn(
     "flex flex-col gap-1 pt-3",
-    "sm:absolute sm:inset-x-0 sm:bottom-0 sm:z-10 sm:rounded-b-[3px] sm:bg-ground/94 sm:p-4",
+    "sm:absolute sm:inset-x-0 sm:bottom-0 sm:z-10 sm:rounded-b-surface sm:bg-ground/94 sm:p-4",
     "sm:transition-opacity sm:duration-300 motion-reduce:sm:duration-[0.01ms]",
     "[@media(hover:hover)]:sm:opacity-0",
     "[@media(hover:hover)]:sm:group-hover:opacity-100",
@@ -210,7 +210,7 @@ export function SelectedProductTile({
         style={{ aspectRatio: wallAspectRatio }}
         // Container radius: the photo box is a top-level surface of the wall,
         // so it takes DESIGN.md's 6px container step, not the nested 4.8px one.
-        className="relative w-full overflow-hidden rounded-[3px] bg-surface-deep"
+        className="relative w-full overflow-hidden rounded-surface bg-surface-deep"
       >
         {imageSrc ? (
           <SurfaceImage
@@ -328,7 +328,7 @@ export function SelectedProductTile({
           tracking ? (
             <SelectedProductTileLink
               href={internalHref}
-              className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               productKey={product.key}
               brandSlug={tracking.brandSlug}
               position={tracking.position}
@@ -345,7 +345,7 @@ export function SelectedProductTile({
           ) : (
             <Link
               href={internalHref}
-              className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               data-ph-no-autocapture
             >
               <Typography

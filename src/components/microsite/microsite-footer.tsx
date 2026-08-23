@@ -19,7 +19,7 @@ export function MicrositeFooter({ brand }: MicrositeFooterProps) {
           href={`https://formoria.com/brands/${brand.slug}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="w-fit rounded-[2px] font-medium text-ink underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground focus-visible:outline-none"
+          className="w-fit rounded-control font-medium text-ink underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground focus-visible:outline-none"
         >
           Powered by Formoria
         </a>

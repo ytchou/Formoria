@@ -25,7 +25,7 @@ function NativeSelect({
     <select
       data-slot="native-select"
       className={cn(
-        "h-11 w-full min-w-0 rounded-[4px] border border-rule bg-transparent px-3.5 py-2 font-hei text-base text-ink transition-colors outline-none",
+        "h-11 w-full min-w-0 rounded-control border border-rule bg-transparent px-3.5 py-2 font-hei text-base text-ink transition-colors outline-none",
         "focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground",
         "disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-surface disabled:opacity-50",
         "aria-invalid:border-danger aria-invalid:ring-2 aria-invalid:ring-danger/30",

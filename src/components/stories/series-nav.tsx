@@ -25,7 +25,7 @@ export async function SeriesNav({ series, currentSlug, locale }: SeriesNavProps)
       // The sticky header would otherwise cover the top of the series nav when linked.
       id="series"
       aria-label={t('seriesNavAria')}
-      className="scroll-mt-24 rounded-[3px] border border-rule bg-surface p-5"
+      className="scroll-mt-24 rounded-surface border border-rule bg-surface p-5"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 className="type-body-sm font-semibold text-ink">{t('seriesHeading')}</h2>
@@ -63,7 +63,7 @@ export function SeriesList({ series, currentSlug }: Omit<SeriesNavProps, 'locale
               // `generateStaticParams` registers. `frontmatter.slug` 404s.
               <Link
                 href={routes.story(entry.slug)}
-                className="flex min-h-11 items-center gap-3 rounded-[4px] py-2 type-body-sm text-ink-soft transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="flex min-h-11 items-center gap-3 rounded-control py-2 type-body-sm text-ink-soft transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 {position}
                 {entry.frontmatter.title}

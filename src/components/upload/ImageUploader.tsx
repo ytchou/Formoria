@@ -151,8 +151,8 @@ export function ImageUploader({
                 alt={t("imageAlt", { n: index + 1 })}
                 className={
                   mode === "single"
-                    ? "aspect-video w-full max-w-md rounded-lg object-cover"
-                    : "h-20 w-20 rounded-lg object-cover"
+                    ? "aspect-video w-full max-w-md rounded-surface object-cover"
+                    : "h-20 w-20 rounded-surface object-cover"
                 }
               />
               {onRemove && (
@@ -200,7 +200,7 @@ export function ImageUploader({
           }}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
-          className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted p-6 transition-colors hover:border-accent"
+          className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-control border-2 border-dashed border-border bg-muted p-6 transition-colors hover:border-accent"
         >
           {status === "uploading" ? (
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

@@ -640,7 +640,7 @@ export function BrandList({
                           </DropdownMenuTrigger>
                           <DropdownMenuContent
                             align="end"
-                            className="w-40 min-w-40 rounded-[3px] border border-rule bg-surface"
+                            className="w-40 min-w-40 rounded-surface border border-rule bg-surface"
                           >
                             <DropdownMenuItem
                               disabled={isPending}

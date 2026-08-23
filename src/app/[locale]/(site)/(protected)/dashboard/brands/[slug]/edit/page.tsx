@@ -100,7 +100,7 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
         sidebar below already owns the only `<aside>` on this page — which
         `dashboard-brand-owned-edit.spec.ts` selects by tag.
       */}
-      <div className="space-y-2 rounded-[3px] border border-rule bg-surface p-4">
+      <div className="space-y-2 rounded-surface border border-rule bg-surface p-4">
         <p className="type-body-sm text-ink-soft">{t('reviewNotice')}</p>
         <p className="type-body-sm text-ink-soft">{t('curationNotice')}</p>
       </div>

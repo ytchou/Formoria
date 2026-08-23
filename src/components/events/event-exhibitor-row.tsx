@@ -33,7 +33,7 @@ type EventExhibitorRowProps = {
 };
 
 const OUTBOUND_LINK_CLASS =
-  "inline-flex size-11 shrink-0 items-center justify-center rounded-[4px] text-ink-muted transition-colors hover:bg-surface-deep hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+  "inline-flex size-11 shrink-0 items-center justify-center rounded-control text-ink-muted transition-colors hover:bg-surface-deep hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
 /**
  * One exhibitor in the Creative Expo hall, listed by Formoria or not.
@@ -104,7 +104,7 @@ export function EventExhibitorRow({
           isRowLink && "transition-colors hover:bg-surface-deep/40",
         )}
       >
-        <div className="relative size-16 shrink-0 overflow-hidden rounded-[3px] border border-rule bg-surface-deep md:size-18">
+        <div className="relative size-16 shrink-0 overflow-hidden rounded-surface border border-rule bg-surface-deep md:size-18">
           {showImage ? (
             <SurfaceImage
               src={imageSrc}

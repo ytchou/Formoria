@@ -45,9 +45,9 @@ const buttonStyles = cva(
       shape: {
         // 4px on controls. Softer radii read as app chrome; the warm-paper
         // direction wants a paper edge.
-        default: "rounded-[4px]",
+        default: "rounded-control",
         pill: "rounded-full",
-        square: "rounded-[2px]",
+        square: "rounded-surface",
       },
       size: {
         // h-11 is 44px — the touch minimum, and the height of every button.

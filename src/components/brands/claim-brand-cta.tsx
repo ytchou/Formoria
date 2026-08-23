@@ -361,7 +361,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
 
           <div
             className={cn(
-              'rounded-lg border px-4 py-3 type-metadata',
+              'rounded-surface border px-4 py-3 type-metadata',
               stillNeedCount > 0
                 ? 'border-border bg-muted text-muted-foreground'
                 : canSubmit
@@ -392,7 +392,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
                       id={`claim-proof-${type}`}
                       checked={proof.selected}
                       onCheckedChange={(selected) => updateProof(type, { selected })}
-                      className="mt-1 h-5 w-5 rounded border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="mt-1 h-5 w-5 rounded-control border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
                     <div className="min-w-0 flex-1 space-y-1">
                       <Label htmlFor={`claim-proof-${type}`} className="block min-h-6 cursor-pointer type-body-sm font-semibold text-ink">
@@ -512,7 +512,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
           />
 
           {feedback.type === 'error' && (
-            <div aria-live="polite" className="space-y-2 rounded-lg bg-destructive/10 px-4 py-3 type-body-sm text-destructive">
+            <div aria-live="polite" className="space-y-2 rounded-surface bg-destructive/10 px-4 py-3 type-body-sm text-destructive">
               <p>{feedback.message}</p>
               {feedback.authRequired && (
                 <NextLink href={signInHref(pathname, locale)} className="inline-flex type-body-sm font-medium text-ink underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

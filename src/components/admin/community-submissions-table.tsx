@@ -210,10 +210,10 @@ export function CommunitySubmissionsTable() {
         <Label
           htmlFor={`${idBase}-csv`}
           aria-disabled={isPending}
-          className="flex min-h-36 cursor-pointer items-center justify-between gap-6 rounded-[3px] border border-dashed border-rule bg-ground p-6 transition-colors hover:bg-surface aria-disabled:pointer-events-none aria-disabled:opacity-50"
+          className="flex min-h-36 cursor-pointer items-center justify-between gap-6 rounded-control border border-dashed border-rule bg-ground p-6 transition-colors hover:bg-surface aria-disabled:pointer-events-none aria-disabled:opacity-50"
         >
           <span className="flex items-center gap-4">
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-[3px] border border-rule bg-surface">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-surface border border-rule bg-surface">
               <FileUp aria-hidden="true" />
             </span>
             <span className="space-y-1">

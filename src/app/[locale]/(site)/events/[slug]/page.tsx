@@ -378,7 +378,7 @@ export default async function EventDetailPage({ params }: PageProps) {
         </header>
 
         {heroSrc ? (
-          <div className="relative aspect-[16/9] overflow-hidden rounded-xl border border-rule bg-surface-deep">
+          <div className="relative aspect-[16/9] overflow-hidden rounded-surface border border-rule bg-surface-deep">
             {/* Decorative: the event name is the adjacent `<h1>`, so alt text
                 here would only repeat it to a screen reader. */}
             <SurfaceImage

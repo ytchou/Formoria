@@ -287,7 +287,7 @@ export default function SubmissionWizard({
 
             {activeStep === SUBMISSION_WIZARD_STEPS.length - 1 ? (
               <>
-                <div className="mt-6 space-y-4 rounded-[3px] border border-rule bg-surface p-6">
+                <div className="mt-6 space-y-4 rounded-surface border border-rule bg-surface p-6">
                   <Controller
                     name="pdpaConsent"
                     control={form.control}

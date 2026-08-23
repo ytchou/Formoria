@@ -12,7 +12,7 @@ import { textStyles } from "./text-styles";
  * bordered default, which is what they should have been using.
  */
 const surfaceCardStyles = cva(
-  "rounded-[3px] border border-rule text-ink shadow-none",
+  "rounded-surface border border-rule text-ink shadow-none",
   {
     variants: {
       tone: {
@@ -47,7 +47,7 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card"
       className={cn(
-        "rounded-[3px] border border-rule bg-card text-ink",
+        "rounded-surface border border-rule bg-card text-ink",
         className,
       )}
       {...props}

@@ -114,7 +114,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
           <Typography variant="cardDescription" className="flex-1 px-4 py-6 sm:px-6">
             {t('success')}
           </Typography>
-          <DialogFooter className="mx-0 mb-0 rounded-b-xl bg-background px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-background px-4 py-4 sm:px-6">
             <DialogClose render={<Button variant="secondary" />}>
               {t('close')}
             </DialogClose>
@@ -125,7 +125,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
           <Typography variant="cardDescription" className="flex-1 px-4 py-6 sm:px-6">
             {t('loading')}
           </Typography>
-          <DialogFooter className="mx-0 mb-0 rounded-b-xl bg-background px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-background px-4 py-4 sm:px-6">
             <DialogClose render={<Button variant="secondary" />}>
               {t('cancel')}
             </DialogClose>
@@ -136,7 +136,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
           <Typography variant="cardDescription" className="flex-1 px-4 py-6 sm:px-6">
             {t('signInPrompt')}
           </Typography>
-          <DialogFooter className="mx-0 mb-0 rounded-b-xl bg-background px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-background px-4 py-4 sm:px-6">
             <DialogClose render={<Button variant="secondary" />}>
               {t('cancel')}
             </DialogClose>
@@ -166,7 +166,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
                   <Label
                     key={value}
                     className={cn(
-                      'flex min-h-12 cursor-pointer items-center gap-3 rounded-[4px] border border-rule px-4 py-3 transition-colors',
+                      'flex min-h-12 cursor-pointer items-center gap-3 rounded-control border border-rule px-4 py-3 transition-colors',
                       stance === value && 'border-accent bg-accent/10 text-accent',
                     )}
                   >
@@ -281,7 +281,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
             )}
           </div>
 
-          <DialogFooter className="mx-0 mb-0 rounded-b-xl bg-background px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-background px-4 py-4 sm:px-6">
             <DialogClose render={<Button variant="secondary" />}>
               {t('cancel')}
             </DialogClose>

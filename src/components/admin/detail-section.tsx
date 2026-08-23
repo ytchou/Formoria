@@ -36,7 +36,7 @@ export function DetailSection({
 }: DetailSectionProps) {
   return (
     <section
-      className={editing ? "space-y-4 rounded-[3px] bg-surface/40 p-4" : "space-y-3"}
+      className={editing ? "space-y-4 rounded-surface bg-surface/40 p-4" : "space-y-3"}
     >
       <div className="flex items-center justify-between">
         <h3 className="type-body-sm font-semibold text-ink">{title}</h3>

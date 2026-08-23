@@ -321,7 +321,7 @@ export function JobDetailView({
             <summary className="flex min-h-12 cursor-pointer items-center font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
               {t("detail.phaseHelp")}
             </summary>
-            <dl className="grid gap-x-6 gap-y-3 rounded-[3px] bg-surface/40 p-4 sm:grid-cols-2 lg:grid-cols-3">
+            <dl className="grid gap-x-6 gap-y-3 rounded-surface bg-surface/40 p-4 sm:grid-cols-2 lg:grid-cols-3">
               {phaseDefinitions.map(([phase, description]) => (
                 <div key={phase}>
                   <dt className="type-body-sm font-medium text-ink capitalize">{phase}</dt>
@@ -457,7 +457,7 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
         {t("actions.viewDetails")}
       </summary>
       <div className="pb-4 pr-4">
-        <dl className="grid gap-4 rounded-[3px] bg-surface/40 p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <dl className="grid gap-4 rounded-surface bg-surface/40 p-4 sm:grid-cols-2 lg:grid-cols-4">
           <InfoField label="Slug" value={target.brand_slug ?? "-"} />
           <InfoField
             label="Changed fields"
@@ -486,7 +486,7 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
               {phases.map((phase, index) => (
                 <li
                   key={`${phase.phase}-${index}`}
-                  className="rounded-[3px] border border-rule p-3"
+                  className="rounded-surface border border-rule p-3"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-medium">{phase.phase}</span>

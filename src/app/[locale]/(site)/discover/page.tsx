@@ -109,7 +109,7 @@ export default async function DiscoverHubPage({ params, searchParams }: PageProp
         {view.kind === "loadError" ? (
           <div
             role="alert"
-            className="rounded-[3px] border border-rule bg-surface px-6 py-16 text-center"
+            className="rounded-surface border border-rule bg-surface px-6 py-16 text-center"
           >
             <p className="type-card-title text-ink-muted">{t("loadError")}</p>
           </div>

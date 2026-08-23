@@ -39,11 +39,11 @@ export function ShareChannelButton({
       // no gutter. The 44px disc is unchanged.
       //
       // Built on UnstyledButton, not Button: routing it through the Button CVA
-      // meant seven overrides (`h-auto px-0 rounded-lg hover:bg-transparent`
+      // meant seven overrides (`h-auto`, `px-0`, a radius, `hover:bg-transparent`
       // …) each cancelling a rule the CVA had just applied. When a control
       // needs to undo most of a variant, it was never that variant.
       className={cn(
-        'flex w-15 cursor-pointer flex-col items-center gap-1.5 rounded-[4px] py-1',
+        'flex w-15 cursor-pointer flex-col items-center gap-1.5 rounded-control py-1',
         FOCUS_RING,
       )}
     >

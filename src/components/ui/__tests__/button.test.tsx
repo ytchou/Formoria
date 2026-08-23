@@ -43,8 +43,8 @@ describe("buttonVariants", () => {
     }
   });
 
-  it("uses the 4px control radius by default and a pill only on request", () => {
-    expect(buttonVariants()).toContain("rounded-[4px]");
+  it("uses the control radius token by default and a pill only on request", () => {
+    expect(buttonVariants()).toContain("rounded-control");
     expect(buttonVariants({ shape: "pill" })).toContain("rounded-full");
     expect(buttonVariants()).not.toContain("rounded-xl");
   });

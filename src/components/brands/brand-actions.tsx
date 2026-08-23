@@ -117,7 +117,7 @@ export function BrandActions({
           categoryLabel={categoryLabel}
         />
         {brandId && <LikeBrandButton brandId={brandId} slug={brandSlug} />}
-        {brandId && <SaveBrandButton brandId={brandId} slug={brandSlug} variant="inline" className="rounded-xl" />}
+        {brandId && <SaveBrandButton brandId={brandId} slug={brandSlug} variant="inline" className="rounded-control" />}
         {/* Origin-evidence reporting is unwired for launch, not deleted: its only
             submit path required an account, and opening it to guests needs a
             migration (`origin_evidence.user_id` is NOT NULL) plus an anonymous

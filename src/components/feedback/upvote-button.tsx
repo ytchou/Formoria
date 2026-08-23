@@ -80,7 +80,7 @@ export function UpvoteButton({
       className={cn(
         // Rest fill is warm surface, not card: a white bordered control on a
         // white row reads as a hairline box under this flat-elevation system.
-        'flex w-14 flex-col items-center gap-1 rounded-[3px] border border-border bg-secondary py-2 text-foreground transition-colors',
+        'flex w-14 flex-col items-center gap-1 rounded-control border border-border bg-secondary py-2 text-foreground transition-colors',
         FOCUS_RING,
         DISABLED_STATE,
         // Hover is pinned to the rest values on purpose: a voted chip must not
