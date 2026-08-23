@@ -14,10 +14,6 @@ import { buildClaimEmailVerificationEmail } from "@emails/templates/claim-verifi
 import { buildDeclarationRemovedEmail } from "@emails/templates/declaration-removed";
 import { buildOwnershipRevokedEmail } from "@emails/templates/ownership-revoked";
 import { buildNewsletterConfirmEmail } from "@emails/templates/newsletter-confirm";
-import { buildWelcomeEmail } from "@emails/templates/welcome";
-import { buildProfileNudgeEmail } from "@emails/templates/profile-nudge";
-import { buildReEngagementEmail } from "@emails/templates/re-engagement";
-import { buildMicrositeSpotlightEmail } from "@emails/templates/microsite-spotlight";
 import { buildViolationAdminNotificationEmail } from "@emails/templates/violation-admin-notification";
 
 /**
@@ -115,31 +111,6 @@ async function renderEveryTemplate(): Promise<Array<[string, string]>> {
       confirmToken: "confirm-token",
       unsubscribeToken: "unsub-token",
       interests: ["brand-stories", "new-brands"],
-    }),
-    buildWelcomeEmail({
-      to: "owner@formoria.com",
-      brandName: "測試品牌",
-      brandSlug: "test-brand",
-      unsubscribeToken: "unsub-token",
-    }),
-    buildProfileNudgeEmail({
-      to: "owner@formoria.com",
-      brandName: "測試品牌",
-      completenessPercent: 40,
-      missingFields: ["description", "logo"],
-      unsubscribeToken: "unsub-token",
-    }),
-    buildReEngagementEmail({
-      to: "owner@formoria.com",
-      brandName: "測試品牌",
-      brandSlug: "test-brand",
-      unsubscribeToken: "unsub-token",
-    }),
-    buildMicrositeSpotlightEmail({
-      to: "owner@formoria.com",
-      brandName: "測試品牌",
-      brandSlug: "test-brand",
-      unsubscribeToken: "unsub-token",
     }),
     buildViolationAdminNotificationEmail({
       brandName: "測試品牌",

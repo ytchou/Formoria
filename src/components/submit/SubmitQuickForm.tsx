@@ -396,7 +396,6 @@ export default function SubmitQuickForm() {
             render={({ field }) => (
               <MarketingEmailOptInField
                 id="submit-marketing-email"
-                variant="newsletter-only"
                 checked={field.value}
                 onCheckedChange={field.onChange}
               />

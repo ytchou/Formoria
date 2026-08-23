@@ -595,7 +595,6 @@ export default function SubmitForm({
               render={({ field }) => (
                 <MarketingEmailOptInField
                   id="submit-marketing-email"
-                  variant="newsletter-only"
                   checked={field.value ?? false}
                   onCheckedChange={(checked) => {
                     field.onChange(checked);

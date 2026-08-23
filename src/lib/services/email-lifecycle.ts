@@ -14,10 +14,6 @@ type EmailPreferencesRow = {
   unsubscribed_at: string | null
 }
 
-type EmailSendRow = {
-  id: string
-}
-
 type EmailLifecycleResult<T> = Promise<{
   data: T | null
   error: EmailLifecycleError | null
@@ -30,17 +26,12 @@ type EqBuilder<T> = {
 }
 
 type EmailLifecycleTable = {
-  insert(values: Record<string, unknown>): {
-    select(columns?: string): {
-      single(): EmailLifecycleResult<EmailPreferencesRow | EmailSendRow>
-    }
-  }
   upsert(values: Record<string, unknown>, options?: { onConflict?: string }): {
     select(columns?: string): {
       single(): EmailLifecycleResult<EmailPreferencesRow>
     }
   }
-  select(columns: string): EqBuilder<EmailPreferencesRow | EmailSendRow>
+  select(columns: string): EqBuilder<EmailPreferencesRow>
   update(values: Record<string, unknown>): {
     eq(column: string, value: string): EmailLifecycleResult<unknown>
   }
@@ -58,14 +49,6 @@ export async function createEmailPreferences(supabase: unknown, userId: string) 
       .select()
       .single(),
   )
-}
-
-export type LifecycleEmailPreference = {
-  isOptedIn: boolean
-  consentSource: string | null
-  consentVersion: string | null
-  optedInAt: string | null
-  unsubscribedAt: string | null
 }
 
 export type SetLifecycleEmailPreferenceInput = {
@@ -125,46 +108,6 @@ export async function setLifecycleEmailPreference(
   )
 }
 
-export async function getLifecycleEmailPreference(
-  supabase: unknown,
-  userId: string,
-): Promise<LifecycleEmailPreference> {
-  const { data, error } = await emailLifecycleTable(
-    supabase,
-    'owner_email_preferences',
-  )
-    .select(
-      'lifecycle_opted_in_at, consent_source, consent_version, unsubscribed_at',
-    )
-    .eq('user_id', userId)
-    .maybeSingle()
-
-  if (error && error.code !== 'PGRST116') {
-    throw new Error(error.message ?? 'Unable to load lifecycle email preference')
-  }
-
-  const row = data && 'user_id' in data
-    ? data
-    : data as EmailPreferencesRow | null
-  const optedInAt = row?.lifecycle_opted_in_at ?? null
-  const unsubscribedAt = row?.unsubscribed_at ?? null
-
-  return {
-    isOptedIn: optedInAt !== null && unsubscribedAt === null,
-    consentSource: row?.consent_source ?? null,
-    consentVersion: row?.consent_version ?? null,
-    optedInAt,
-    unsubscribedAt,
-  }
-}
-
-export async function isLifecycleOptedIn(
-  supabase: unknown,
-  userId: string,
-): Promise<boolean> {
-  return (await getLifecycleEmailPreference(supabase, userId)).isOptedIn
-}
-
 export async function unsubscribeByToken(
   supabase: unknown,
   token: string
@@ -202,31 +145,4 @@ export async function unsubscribeByToken(
   return { success: true }
     },
   )
-}
-
-export async function hasSent(
-  supabase: unknown,
-  userId: string,
-  templateKey: string
-): Promise<boolean> {
-  const { data } = await emailLifecycleTable(supabase, 'email_sends')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('template_key', templateKey)
-    .maybeSingle()
-
-  return data !== null
-}
-
-export async function isUnsubscribed(supabase: unknown, userId: string): Promise<boolean> {
-  const { data, error } = await emailLifecycleTable(supabase, 'owner_email_preferences')
-    .select('unsubscribed_at')
-    .eq('user_id', userId)
-    .single()
-
-  if (error?.code === 'PGRST116' || data === null) {
-    return false
-  }
-
-  return 'unsubscribed_at' in data && data.unsubscribed_at !== null
 }

@@ -155,9 +155,7 @@
   },
   "marketingEmailConsent": {
     "newsletterOnlyLabel": "我同意接收 Formoria 電子報",
-    "newsletterOnlyDescription": "電子報需完成信箱確認，可隨時免費取消。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。",
-    "combinedLabel": "我同意接收 Formoria 電子報，以及適用於品牌主的經營提醒與功能建議（選填）",
-    "combinedDescription": "電子報需完成信箱確認；之後可在設定中分別關閉任一類別，或全部免費取消。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
+    "newsletterOnlyDescription": "電子報需完成信箱確認，可隨時免費取消。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
   },
   "brands": {
     "breadcrumbAria": "品牌目錄麵包屑導覽",
@@ -1082,7 +1080,7 @@
       },
       "purpose": {
         "heading": "使用目的",
-        "body": "我們蒐集個人資料的目的包括：建立及維護台灣品牌目錄、提供品牌探索與搜尋功能、補充與校正品牌資料、防止垃圾訊息與濫用、改善網站功能與使用體驗，以及處理您的品牌推薦、認領、驗證、安全性與帳號相關通知。只有在您另外選擇同意後，我們才會寄送電子報，或適用於品牌主的經營提醒與功能建議；這兩類行銷信件可分別關閉。是否同意行銷信件不影響您推薦品牌、建立帳號或使用核心服務。"
+        "body": "我們蒐集個人資料的目的包括：建立及維護台灣品牌目錄、提供品牌探索與搜尋功能、補充與校正品牌資料、防止垃圾訊息與濫用、改善網站功能與使用體驗，以及處理您的品牌推薦、認領、驗證、安全性與帳號相關通知。只有在您另外選擇同意後，我們才會寄送電子報，且您可以隨時關閉。是否同意行銷信件不影響您推薦品牌、建立帳號或使用核心服務。"
       },
       "thirdParty": {
         "heading": "第三方服務",
@@ -1448,12 +1446,10 @@
     "emailLabel": "電子郵件",
     "localePreferenceLabel": "語言偏好",
     "marketingHeading": "行銷電子郵件",
-    "marketingDescription": "分別管理電子報與品牌主經營信件。帳號驗證、密碼重設及審核結果等必要信件不受影響。",
+    "marketingDescription": "電子報為選擇性訂閱，預設為關閉，須由您開啟，也可以隨時關閉。帳號驗證、密碼重設及審核結果等必要信件不受影響。",
     "newsletterMarketingLabel": "Formoria 電子報",
     "newsletterMarketingDescription": "品牌故事、新品牌與精選趨勢。開啟後需完成信箱確認。",
     "newsletterPending": "確認信已寄出；完成信箱確認後才會開始寄送電子報。",
-    "lifecycleMarketingLabel": "品牌經營提醒與功能建議",
-    "lifecycleMarketingDescription": "適用於品牌主的非必要經營提醒、使用建議與功能介紹。",
     "unsubscribeAllMarketing": "取消所有行銷電子郵件",
     "marketingUnsubscribedAll": "已取消所有行銷電子郵件",
     "marketingUpdateError": "部分電子郵件偏好無法更新，請再試一次",

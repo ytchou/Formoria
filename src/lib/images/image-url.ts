@@ -9,8 +9,8 @@ import { getSiteUrl } from '@/lib/site-url'
  * private.
  *
  * RELATIVE IS THE DEFAULT. A relative `src` is what the browser, `next/image`
- * and `metadataBase` all want, and it survives a domain change. Only the two
- * consumers whose output leaves the site — the drip email payload and the
+ * and `metadataBase` all want, and it survives a domain change. Only the
+ * consumers whose output leaves the site — JSON-LD structured data and the
  * link-health checker — call {@link absoluteImageUrl}.
  */
 

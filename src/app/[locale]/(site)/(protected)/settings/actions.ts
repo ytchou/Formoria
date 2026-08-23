@@ -1,12 +1,15 @@
 "use server";
 
 import { runWithAuditContext } from "@/lib/audit/context";
+import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import { localizePath } from "@/i18n/locale-preference";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { updateProfile } from "@/lib/services/profiles";
+import { routes } from "@/lib/routes";
 import { getProfileSchema } from "@/lib/validations/profile";
 import {
   MARKETING_CONSENT_VERSION,
@@ -58,6 +61,11 @@ export async function updateSettings(
       if (results.some((result) => result.status === "rejected")) {
         return { error: t("settings.marketingUpdateError") };
       }
+      // Without this the server component keeps its cached newsletterStatus,
+      // the checkbox stays ticked, and the next Save re-subscribes the user.
+      // `localePrefix: 'as-needed'` means the English visitor is on
+      // `/en/settings`, which a bare `/settings` revalidation never matches.
+      revalidatePath(localizePath(routes.settings(), await getLocale()));
       return { message: t("settings.marketingUnsubscribedAll") };
     }
 
@@ -86,15 +94,7 @@ export async function updateSettings(
     }
 
     const newsletterEnabled = isChecked(formData, "newsletterMarketing");
-    const lifecycleEnabled = isChecked(formData, "lifecycleMarketing");
-    const marketingUpdates: Promise<unknown>[] = [
-      setLifecycleEmailPreference(serviceSupabase, {
-        userId: user.id,
-        enabled: lifecycleEnabled,
-        consentSource: "settings",
-        consentVersion: MARKETING_CONSENT_VERSION,
-      }),
-    ];
+    const marketingUpdates: Promise<unknown>[] = [];
 
     if (user.email) {
       marketingUpdates.push(

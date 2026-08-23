@@ -2,7 +2,6 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getProfile } from "@/lib/services/profiles";
 import { getNewsletterPreferenceByEmail } from "@/lib/services/newsletter";
-import { getLifecycleEmailPreference } from "@/lib/services/email-lifecycle";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireUserPage } from "@/lib/auth/require-user";
@@ -31,10 +30,9 @@ export default async function SettingsPage({ params, searchParams }: Props) {
   const t = await getTranslations("settings");
 
   const serviceSupabase = createServiceClient();
-  const [profile, newsletterPreference, lifecyclePreference] = await Promise.all([
+  const [profile, newsletterPreference] = await Promise.all([
     getProfile(user.id),
     getNewsletterPreferenceByEmail(serviceSupabase, user.email ?? ""),
-    getLifecycleEmailPreference(serviceSupabase, user.id),
   ]);
 
   return (
@@ -56,7 +54,6 @@ export default async function SettingsPage({ params, searchParams }: Props) {
           email={user.email ?? ""}
           currentLocale={locale}
           newsletterStatus={newsletterPreference.status}
-          lifecycleOptedIn={lifecyclePreference.isOptedIn}
         />
       </div>
     </PageShell>

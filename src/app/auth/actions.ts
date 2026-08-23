@@ -167,7 +167,6 @@ export async function signUp(
         locale,
         source: "account_signup",
         newsletter: true,
-        lifecycle: true,
       });
     }
 
