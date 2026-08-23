@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { cache } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import {
   getPublicBrandDetailBySlug,
@@ -84,7 +85,16 @@ const loadApprovedBrand = cache(
     try {
       return await getPublicBrandDetailBySlug(slug);
     } catch (error) {
-      if (!(error instanceof NotFoundError) || error.cause) throw error;
+      if (!(error instanceof NotFoundError) || error.cause) {
+        // Rethrown NotFoundErrors reach Sentry via onRequestError with only the
+        // "Brand not found" message. The underlying Supabase failure lives on
+        // `cause` — surface it on the current scope so the auto-captured event
+        // carries it instead of just the generic not-found text.
+        if (error instanceof NotFoundError && error.cause) {
+          Sentry.setContext("brandLookup", { slug, cause: error.cause });
+        }
+        throw error;
+      }
     }
     notFound();
   },

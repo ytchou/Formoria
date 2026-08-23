@@ -129,4 +129,4 @@ function AccordionItem({
   );
 }
 
-export { Accordion, AccordionItem, accordionStyles };
+export { Accordion, AccordionItem };
