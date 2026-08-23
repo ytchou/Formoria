@@ -2,10 +2,8 @@ import { test, expect } from "@playwright/test";
 import { load } from "cheerio";
 
 import { BUDGET } from "../budgets";
-import {
-  requireWallOrSkip,
-  requireWallTrailTileOrSkip,
-} from "../utils/wall-supply";
+import { publishedTrails } from "../utils/published-trails";
+import { requireWallOrSkip } from "../utils/wall-supply";
 
 test.describe("Homepage curated product deep", () => {
   test("homepage curated rail leads to the selected product on its brand page", async ({
@@ -69,33 +67,19 @@ test.describe("Homepage curated product deep", () => {
     await expect(selectedProducts.getByRole("navigation")).toHaveCount(0);
   });
 
-  test("a discovery trail tile inside the wall leads to its trail", async ({
+  test("a discovery trail card leads to its trail", async ({
     page,
   }) => {
     const response = await page.goto("/");
     test.skip(response?.status() === 503, "PREVIEW_MODE active");
-
-    const selectedProducts = page.getByRole("region", {
-      name: "Formoria 選物",
-    });
-    await requireWallOrSkip((await selectedProducts.count()) === 0);
-
-    const wallLinks = selectedProducts
-      .getByRole("list", { name: "Formoria 選物", exact: true })
-      .getByRole("link");
-    const wallHrefs = await wallLinks.evaluateAll((links) =>
-      links.map((link) => link.getAttribute("href") ?? ""),
+    test.skip(
+      publishedTrails().length === 0,
+      "no published trails in content/trails",
     );
-    const trailLinkIndex = wallHrefs.findIndex((href) =>
-      /^\/discover\/[a-z0-9-]+$/.test(href),
-    );
-    // NOT `test.skip(trailLinkIndex === -1)`. An empty result here is the same
-    // selector whether the wall reserved no trail slot or lost the tile it
-    // reserved, so the guard measures both of `buildWallSlots`' gates instead
-    // of reading the DOM twice (DEV-1522).
-    await requireWallTrailTileOrSkip(trailLinkIndex === -1);
 
-    const trailLink = wallLinks.nth(trailLinkIndex);
+    const trailsZone = page.locator('[data-landing-zone="trails"]');
+    await expect(trailsZone).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+    const trailLink = trailsZone.getByRole("listitem").first().getByRole("link");
     const destination = await trailLink.getAttribute("href");
     expect(destination).toMatch(/^\/discover\/[a-z0-9-]+$/);
     // The trailing `:?` is load-bearing. Playwright ends a node's line with a
@@ -120,6 +104,24 @@ test.describe("Homepage curated product deep", () => {
         exact: true,
       }),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+  });
+
+  test("every rendered trail card carries a photograph", async ({ page }) => {
+    const response = await page.goto("/");
+    test.skip(response?.status() === 503, "PREVIEW_MODE active");
+    test.skip(
+      publishedTrails().length === 0,
+      "no published trails in content/trails",
+    );
+
+    const cards = page
+      .locator('[data-landing-zone="trails"]')
+      .getByRole("listitem");
+    await expect(cards.first()).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+    const count = await cards.count();
+    for (let index = 0; index < count; index += 1) {
+      await expect(cards.nth(index).getByRole("img")).toHaveCount(1);
+    }
   });
 
   test("every wall tile links to its product and carries no rationale", async ({
