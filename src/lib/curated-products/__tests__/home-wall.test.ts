@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import type { HomepageCuratedProduct } from "@/lib/services/curated-products";
-import type { TrailEntry } from "@/lib/services/trails";
 import {
   MAX_HOME_WALL_PRODUCTS,
   buildWallSlots,
@@ -55,77 +54,31 @@ function product(
   };
 }
 
-/**
- * No `heroImage`: the wall stopped reading it (DEV-1514 Task 15). Keeping the
- * parameter would suggest the composition still branches on it.
- */
-function trail(slug: string): TrailEntry {
-  return {
-    slug,
-    frontmatter: {
-      title: slug,
-      slug,
-    } as TrailEntry["frontmatter"],
-  };
-}
-
 function productSlots(slots: ReturnType<typeof buildWallSlots>) {
-  return slots.filter(
-    (slot): slot is Extract<(typeof slots)[number], { kind: "product" }> =>
-      slot.kind === "product",
-  );
+  return slots;
 }
 
 const SEED = "2026-08-16";
 const OTHER_SEED = "2026-08-17";
 
 describe("buildWallSlots", () => {
-  it("reserves one trail slot per eight products", () => {
+  it("builds sixteen product slots at full supply", () => {
     const slots = buildWallSlots({
       products: Array.from({ length: 16 }, (_, index) => product(`p-${index}`)),
-      trails: [trail("first"), trail("second")],
       seed: SEED,
     });
 
-    expect(
-      slots.flatMap((slot, index) =>
-        slot.kind === "trail" ? [index] : [],
-      ),
-    ).toEqual([8, 17]);
-  });
-
-  it("reserves no trail slot below eight products", () => {
-    const slots = buildWallSlots({
-      products: Array.from({ length: 7 }, (_, index) => product(`p-${index}`)),
-      trails: [trail("small")],
-      seed: SEED,
-    });
-
-    expect(slots.some((slot) => slot.kind === "trail")).toBe(false);
+    expect(slots).toHaveLength(16);
+    expect(slots.every((slot) => slot.product)).toBe(true);
   });
 
   it("caps the wall at MAX_HOME_WALL_PRODUCTS", () => {
     const slots = buildWallSlots({
       products: Array.from({ length: 40 }, (_, index) => product(`p-${index}`)),
-      trails: [],
       seed: SEED,
     });
 
     expect(productSlots(slots)).toHaveLength(MAX_HOME_WALL_PRODUCTS);
-  });
-
-  it("counts every published trail, hero image or not", () => {
-    // Replaces "excludes trails without a heroImage" (DEV-1514 Task 15). The
-    // hero is now a PUBLICATION precondition enforced at authoring time, not a
-    // runtime filter — see
-    // docs/decisions/2026-08-19-trail-hero-image-is-a-publish-precondition.md.
-    const slots = buildWallSlots({
-      products: Array.from({ length: 8 }, (_, index) => product(`p-${index}`)),
-      trails: [trail("no-hero")],
-      seed: SEED,
-    });
-
-    expect(slots.some((slot) => slot.kind === "trail")).toBe(true);
   });
 
   it("snaps each product to the nearest of four ratio buckets", () => {
@@ -139,7 +92,6 @@ describe("buildWallSlots", () => {
         // the snap is what stops a 4.0 image rendering as a strip.
         product("banner", { imageWidth: 2000, imageHeight: 500 }),
       ],
-      trails: [],
       seed: SEED,
     });
 
@@ -159,7 +111,6 @@ describe("buildWallSlots", () => {
         product("no-width", { imageWidth: null, imageHeight: 900 }),
         product("no-height", { imageWidth: 1200, imageHeight: null }),
       ],
-      trails: [],
       seed: SEED,
     });
 
@@ -169,32 +120,13 @@ describe("buildWallSlots", () => {
     ]);
   });
 
-  it("assigns trails their own two formats", () => {
-    const slots = buildWallSlots({
-      products: Array.from({ length: 24 }, (_, index) => product(`p-${index}`)),
-      trails: [trail("first"), trail("second")],
-      seed: SEED,
-    });
-
-    const formats = slots.flatMap((slot) =>
-      slot.kind === "trail" ? [slot.format] : [],
-    );
-    expect(formats).toHaveLength(2);
-    for (const format of formats) expect(["tall", "wide"]).toContain(format);
-    // A trail is never sized from a product bucket: its tile carries editorial
-    // copy, so its shape is chosen, not measured.
-    for (const format of formats) {
-      expect(["1:1", "3:4", "4:3", "4:5"]).not.toContain(format);
-    }
-  });
-
   it("produces the same order twice for the same date seed", () => {
     const products = Array.from({ length: 24 }, (_, index) =>
       product(`p-${index}`),
     );
     const keys = () =>
       productSlots(
-        buildWallSlots({ products, trails: [], seed: SEED }),
+        buildWallSlots({ products, seed: SEED }),
       ).map((slot) => slot.product.key);
 
     expect(keys()).toEqual(keys());
@@ -206,7 +138,7 @@ describe("buildWallSlots", () => {
     );
     const keysFor = (seed: string) =>
       productSlots(
-        buildWallSlots({ products, trails: [], seed }),
+        buildWallSlots({ products, seed }),
       ).map((slot) => slot.product.key);
 
     expect(keysFor(SEED)).not.toEqual(keysFor(OTHER_SEED));
@@ -215,7 +147,6 @@ describe("buildWallSlots", () => {
   it("no longer emits anchor spans", async () => {
     const slots = buildWallSlots({
       products: Array.from({ length: 20 }, (_, index) => product(`p-${index}`)),
-      trails: [trail("first")],
       seed: SEED,
     });
 
@@ -249,7 +180,7 @@ describe("buildWallSlots", () => {
     ];
 
     const slots = productSlots(
-      buildWallSlots({ products, trails: [], seed: SEED }),
+      buildWallSlots({ products, seed: SEED }),
     );
 
     expect(slots).toHaveLength(16);
@@ -271,7 +202,6 @@ describe("buildWallSlots", () => {
           product(`free-${index}`, { category: "home" }),
         ),
       ],
-      trails: [],
       seed: SEED,
     });
 
@@ -292,7 +222,7 @@ describe("buildWallSlots", () => {
       product(`shared-${index}`, { brandId: "brand-shared" }),
     );
     const visiblePair = (seed: string) =>
-      productSlots(buildWallSlots({ products, trails: [], seed }))
+      productSlots(buildWallSlots({ products, seed }))
         .map((slot) => slot.product.key)
         .sort();
 

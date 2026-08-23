@@ -16,7 +16,7 @@ import { DialogLoadingContent } from '@/components/brands/dialog-loading-content
 // chunk request starts in the same commit that opens the dialog.
 const EvidenceDialogContent = dynamic(
   () => import('@/components/brands/evidence-dialog-content').then((m) => m.EvidenceDialogContent),
-  { ssr: false, loading: () => <DialogLoadingContent /> },
+  { ssr: false, loading: () => <DialogLoadingContent size="form" /> },
 )
 
 interface EvidenceDialogProps {

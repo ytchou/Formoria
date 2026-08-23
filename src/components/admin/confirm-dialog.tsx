@@ -48,8 +48,14 @@ export function ConfirmDialog({
   const isConfirmDisabled =
     isPending || (confirmText != null && inputValue !== confirmText)
 
+  const isDestructive = variant === 'destructive'
+
   return (
-    <AlertDialog open={open} onOpenChange={handleOpenChange}>
+    <AlertDialog
+      open={open}
+      onOpenChange={handleOpenChange}
+      destructive={isDestructive}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
@@ -69,8 +75,12 @@ export function ConfirmDialog({
 
         <AlertDialogFooter>
           <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+          {/* The `variant` styles the button; the slot is what the footer's
+              destructive outline selector can actually see, since `Button`
+              emits no attribute carrying its variant. */}
           <Button
             variant={variant}
+            data-slot={isDestructive ? 'dialog-destructive' : undefined}
             onClick={onConfirm}
             disabled={isConfirmDisabled}
           >

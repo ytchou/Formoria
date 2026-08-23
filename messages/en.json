@@ -97,9 +97,7 @@
       "heading": "Formoria Selection",
       "note": "Moving in, styling a shop, changing a lamp — these products were chosen on purpose for moments like these; open one to meet the brand behind it.",
       "showMore": "See more selections",
-      "showLess": "Show fewer selections",
-      "trailEyebrow": "Style",
-      "trailCta": "Explore this style →"
+      "showLess": "Show fewer selections"
     },
     "trustSeam": {
       "line": "Listings and selections stay distinct"
@@ -132,7 +130,9 @@
     "trails": {
       "heading": "Styles",
       "note": "One situation, one set of things. Start from the days you are living, not from a brand name.",
-      "linkText": "See every style →"
+      "linkText": "See every style →",
+      "eyebrow": "Style",
+      "cta": "Explore this style →"
     }
   },
   "newsletter": {
@@ -380,8 +380,7 @@
       "threads": "Threads",
       "facebook": "Facebook",
       "instagram": "Instagram",
-      "instagramCopied": "Link copied — paste it into your story or bio",
-      "close": "Close"
+      "instagramCopied": "Link copied — paste it into your story or bio"
     },
     "links": {
       "socialPlatforms": "Social Platforms",
@@ -434,7 +433,7 @@
       "reportFieldOther": "Other",
       "notesLabel": "Additional notes (optional)",
       "notesPlaceholder": "Provide any details that will help us review this report",
-      "submitting": "Submitting...",
+      "submitting": "Submitting…",
       "submit": "Submit Report",
       "errors": {
         "missingBrandId": "Missing brand ID",
@@ -495,20 +494,19 @@
       }
     },
     "correction": {
-      "trigger": "Something wrong?",
+      "trigger": "Report incorrect information",
       "title": "Correct brand information",
       "purchaseTrigger": "Provide a purchase link",
       "purchaseTitle": "Provide a purchase link",
-      "purchaseFieldPickerLabel": "Which online store are you adding?",
+      "purchaseFieldPickerLabel": "Online store link",
       "purchaseFieldPickerPlaceholder": "Choose an online store…",
       "purchaseUrlLabel": "Link URL",
       "purchaseUrlPlaceholder": "https://example.com/shop",
       "socialTrigger": "Provide a social link",
       "socialTitle": "Provide a social link",
-      "socialFieldPickerLabel": "Which social profile are you adding?",
+      "socialFieldPickerLabel": "Social channel",
       "socialFieldPickerPlaceholder": "Choose a social profile…",
-      "close": "Close",
-      "fieldPickerLabel": "Which field is wrong?",
+      "fieldPickerLabel": "Field to correct",
       "fieldPickerPlaceholder": "Choose a field…",
       "description": "Thanks for the suggestion! Formoria reviews every submission and decides whether to update the listing.",
       "submitting": "Submitting…",
@@ -1592,7 +1590,6 @@
       "ownerLimitDescription": "Each account can manage only one brand, so another page can’t be built through the brand owner flow. To share a different brand, use the community recommendation flow.",
       "ownerLimitRecommendCta": "Recommend a brand",
       "ownerLimitCancelCta": "Cancel",
-      "ownerLimitCloseCta": "Close",
       "ownerLimitNavigationError": "We couldn’t open the recommendation flow. Please try again."
     },
     "wizard": {
@@ -2940,7 +2937,6 @@
     "floorMapOpenViewer": "Full-screen map",
     "floorMapViewerTitle": "Full-screen floor map",
     "floorMapViewerDescription": "Scroll in either direction to pan. Choose a zoom level or fit the complete map in the viewer.",
-    "floorMapCloseViewer": "Close floor-map viewer",
     "floorMapZoom": "Zoom",
     "floorMapFit": "Fit",
     "floorMapZoomTimes": "{value}×",

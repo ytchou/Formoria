@@ -298,4 +298,29 @@ describe('ReportDialog', () => {
     expect(screen.getByText('發生錯誤')).toBeInTheDocument()
   })
 
+  // The success branch is one sentence and the way out, so it renders through
+  // `DialogStatus` — never through the body. Asserting the ABSENCE of the
+  // scroll container is the half that catches a regression back into a
+  // hand-rolled `div`: a status wrapped in `DialogBody` still shows the text.
+  it('renders the success state through DialogStatus', async () => {
+    const { useActionState } = await import('react')
+    vi.mocked(useActionState).mockReturnValue(
+      [{ success: true }, vi.fn(), false] as ReturnType<typeof useActionState>
+    )
+    renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
+    await userEvent.setup().click(screen.getByRole('button', { name: /檢舉/i }))
+    const dialog = await findLoadedDialog()
+
+    const status = dialog.querySelector('[data-slot="dialog-status"]')
+    expect(status).not.toBeNull()
+    expect(status).toHaveTextContent(/感謝你的回報/)
+    expect(dialog.querySelector('[data-slot="dialog-body"]')).toBeNull()
+
+    const actions = status!.querySelectorAll(
+      '[data-slot="dialog-footer"] button'
+    )
+    expect(actions).toHaveLength(1)
+    expect(actions[0]).toHaveTextContent('關閉')
+  })
+
 })

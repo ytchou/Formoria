@@ -97,9 +97,7 @@
       "heading": "Formoria 選物",
       "note": "搬新家、佈置店面、想換一盞燈 — 這裡是為了這些時刻刻意挑出的產品，點進去認識做它的品牌。",
       "showMore": "看更多選物",
-      "showLess": "收合選物",
-      "trailEyebrow": "風格",
-      "trailCta": "探索這個風格 →"
+      "showLess": "收合選物"
     },
     "trustSeam": {
       "line": "收錄與選物，清楚分開"
@@ -132,7 +130,9 @@
     "trails": {
       "heading": "風格",
       "note": "一個情境、一組選物。從你正在過的日子開始，而不是從品牌名開始。",
-      "linkText": "看全部風格 →"
+      "linkText": "看全部風格 →",
+      "eyebrow": "風格",
+      "cta": "探索這個風格 →"
     }
   },
   "newsletter": {
@@ -380,8 +380,7 @@
       "threads": "Threads",
       "facebook": "Facebook",
       "instagram": "Instagram",
-      "instagramCopied": "已複製連結，貼到限時動態或個人簡介",
-      "close": "關閉"
+      "instagramCopied": "已複製連結，貼到限時動態或個人簡介"
     },
     "links": {
       "socialPlatforms": "社群平台",
@@ -434,7 +433,7 @@
       "reportFieldOther": "其他",
       "notesLabel": "補充說明（選填）",
       "notesPlaceholder": "請提供更多資訊，以協助我們更快處理",
-      "submitting": "送出中...",
+      "submitting": "送出中…",
       "submit": "送出檢舉",
       "errors": {
         "missingBrandId": "缺少品牌 ID",
@@ -495,20 +494,19 @@
       }
     },
     "correction": {
-      "trigger": "資料有誤?",
+      "trigger": "回報資料有誤",
       "title": "修正品牌資訊",
       "purchaseTrigger": "提供購買連結",
       "purchaseTitle": "提供購買連結",
-      "purchaseFieldPickerLabel": "要提供哪一個線上購買連結?",
+      "purchaseFieldPickerLabel": "線上購買連結",
       "purchaseFieldPickerPlaceholder": "請選擇線上購買連結…",
       "purchaseUrlLabel": "連結網址",
       "purchaseUrlPlaceholder": "https://example.com/shop",
       "socialTrigger": "提供社群連結",
       "socialTitle": "提供社群連結",
-      "socialFieldPickerLabel": "要提供哪一個社群管道?",
+      "socialFieldPickerLabel": "社群管道",
       "socialFieldPickerPlaceholder": "請選擇社群管道…",
-      "close": "關閉",
-      "fieldPickerLabel": "要修正哪一項?",
+      "fieldPickerLabel": "修正項目",
       "fieldPickerPlaceholder": "請選擇要修正的項目…",
       "description": "感謝提供建議！送出後由 Formoria 審核決定是否更新。",
       "submitting": "送出中…",
@@ -1592,7 +1590,6 @@
       "ownerLimitDescription": "每個帳號只能管理一個品牌，因此無法再透過品牌主流程建立另一個品牌頁。若想分享其他品牌，請改用社群推薦流程。",
       "ownerLimitRecommendCta": "前往推薦品牌",
       "ownerLimitCancelCta": "取消",
-      "ownerLimitCloseCta": "關閉",
       "ownerLimitNavigationError": "目前無法前往推薦流程，請再試一次。"
     },
     "wizard": {
@@ -2040,7 +2037,6 @@
     "floorMapOpenViewer": "全螢幕平面圖",
     "floorMapViewerTitle": "全螢幕平面圖",
     "floorMapViewerDescription": "可上下左右捲動平移，選擇縮放比例或查看完整平面圖。",
-    "floorMapCloseViewer": "關閉平面圖檢視器",
     "floorMapZoom": "縮放",
     "floorMapFit": "完整檢視",
     "floorMapZoomTimes": "{value} 倍",

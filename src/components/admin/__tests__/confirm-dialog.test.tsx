@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ComponentProps } from 'react'
 import messages from '../../../../messages/en.json'
@@ -62,5 +63,33 @@ describe('ConfirmDialog', () => {
     const input = screen.getByPlaceholderText('Type "My Brand" to confirm')
     fireEvent.change(input, { target: { value: 'My Brand' } })
     expect(confirmBtn).toHaveProperty('disabled', false)
+  })
+
+  // A destructive confirmation is a one-way door: the cheapest keystroke must
+  // never be the one that deletes something, so focus starts on Cancel and
+  // Escape is refused.
+  it('variant="destructive" arms the destructive dialog behavior', async () => {
+    const onOpenChange = vi.fn()
+    renderDialog({ ...defaultProps, onOpenChange, variant: 'destructive' })
+
+    const cancel = screen.getByRole('button', { name: 'Cancel' })
+    await waitFor(() => expect(document.activeElement).toBe(cancel))
+
+    await userEvent.keyboard('{Escape}')
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByText('Delete Brand')).toBeDefined()
+  })
+
+  it('variant="primary" leaves dismissal alone', async () => {
+    const onOpenChange = vi.fn()
+    renderDialog({
+      ...defaultProps,
+      onOpenChange,
+      variant: 'primary',
+      confirmLabel: 'Approve',
+    })
+
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
   })
 })

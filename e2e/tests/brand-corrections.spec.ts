@@ -22,7 +22,7 @@ const STAGING_MUTATION_SKIP_REASON =
  * Crowd-QA corrections (DEV-1170).
  *
  * Journey: an anonymous visitor spots a wrong value in the brand header, taps
- * the single quiet "資料有誤?" trigger next to the 品牌資訊 heading, picks which
+ * the single quiet "回報資料有誤" trigger next to the 品牌資訊 heading, picks which
  * field is wrong, proposes a different value, and submits. No account required.
  * The proposal lands in a pending queue and the public page keeps showing the
  * original value until an admin approves it.
@@ -44,9 +44,9 @@ const STAGING_MUTATION_SKIP_REASON =
 // Strings below are the literal values in messages/zh-TW.json.
 // The trigger has no aria-label: its visible text IS its accessible name
 // (WCAG 2.5.3), so one constant covers both the role query and the text check.
-const CORRECTION_TRIGGER_TEXT = '資料有誤?'; // brandDetail.correction.trigger
+const CORRECTION_TRIGGER_TEXT = '回報資料有誤'; // brandDetail.correction.trigger
 const CORRECTION_DIALOG_TITLE = '修正品牌資訊'; // brandDetail.correction.title
-const FIELD_PICKER_LABEL = '要修正哪一項?'; // brandDetail.correction.fieldPickerLabel
+const FIELD_PICKER_LABEL = '修正項目'; // brandDetail.correction.fieldPickerLabel
 // The value control is two role="group" rows. Row 1 (the brand's current value)
 // is named by the 目前 heading; row 2 (the options a visitor may pick) is named
 // by the field label itself, so 品牌類別 addresses the options row, not the current one.

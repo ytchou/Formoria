@@ -7,18 +7,21 @@ import {
   type ChangeEvent,
 } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { FileSearch, X } from 'lucide-react'
+import { FileSearch } from 'lucide-react'
 import {
   submitEvidenceAction,
   type EvidenceState,
 } from '@/app/[locale]/(site)/brands/[slug]/actions'
 import {
+  DialogBody,
+  DialogClose,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
-  DialogClose,
+  DialogForm,
+  DialogHeader,
+  DialogStatus,
+  DialogTitle,
 } from '@/components/ui/dialog'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Grid } from '@/components/ui/grid'
@@ -82,80 +85,65 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
   }
 
   return (
-    <DialogContent
-      showCloseButton={false}
-      className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-lg"
-    >
-      <DialogClose
-        render={
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-3 right-3 z-10 sm:top-4 sm:right-4"
-            aria-label={t('close')}
-          />
-        }
-      >
-        <X className="size-4" aria-hidden="true" />
-      </DialogClose>
-
-      <DialogHeader className="flex-row gap-3 p-4 pr-14 sm:p-6 sm:pr-16">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
-          <FileSearch className="size-5" aria-hidden="true" />
-        </span>
-        <div className="min-w-0 space-y-1">
-          <DialogTitle>{t('title')}</DialogTitle>
-          <DialogDescription>{t('description')}</DialogDescription>
-        </div>
+    // The width is the shell's vocabulary, and the 85dvh cap, the two-row grid
+    // and the single scroll container all belong to `DialogContent`. This body
+    // used to spell every one of them here, beside its own close button.
+    <DialogContent size="form">
+      <DialogHeader icon={<FileSearch className="size-5" aria-hidden="true" />}>
+        <DialogTitle>{t('title')}</DialogTitle>
+        <DialogDescription>{t('description')}</DialogDescription>
       </DialogHeader>
 
+      {/* Three states that are not a body — one sentence and the ways out of
+          it — and one that is. `DialogStatus` renders its own footer, so the
+          form below is the only branch that spells one out. */}
       {state.success ? (
-        <div className="flex min-h-0 flex-col">
-          <Typography variant="cardDescription" className="flex-1 px-4 py-6 sm:px-6">
-            {t('success')}
-          </Typography>
-          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground px-4 py-4 sm:px-6">
+        <DialogStatus
+          message={t('success')}
+          actions={
             <DialogClose render={<Button variant="secondary" />}>
               {t('close')}
             </DialogClose>
-          </DialogFooter>
-        </div>
+          }
+        />
       ) : loading ? (
-        <div className="flex min-h-0 flex-col">
-          <Typography variant="cardDescription" className="flex-1 px-4 py-6 sm:px-6">
-            {t('loading')}
-          </Typography>
-          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground px-4 py-4 sm:px-6">
+        <DialogStatus
+          message={t('loading')}
+          actions={
             <DialogClose render={<Button variant="secondary" />}>
               {t('cancel')}
             </DialogClose>
-          </DialogFooter>
-        </div>
+          }
+        />
       ) : !user ? (
-        <div className="flex min-h-0 flex-col">
-          <Typography variant="cardDescription" className="flex-1 px-4 py-6 sm:px-6">
-            {t('signInPrompt')}
-          </Typography>
-          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground px-4 py-4 sm:px-6">
-            <DialogClose render={<Button variant="secondary" />}>
-              {t('cancel')}
-            </DialogClose>
-            <NextLink
-              href={signInHref(pathname, locale)}
-              className={buttonVariants({ variant: 'primary' })}
-            >
-              {t('signIn')}
-            </NextLink>
-          </DialogFooter>
-        </div>
+        <DialogStatus
+          message={t('signInPrompt')}
+          actions={
+            <>
+              <DialogClose render={<Button variant="secondary" />}>
+                {t('cancel')}
+              </DialogClose>
+              <NextLink
+                href={signInHref(pathname, locale)}
+                className={buttonVariants({ variant: 'primary' })}
+              >
+                {t('signIn')}
+              </NextLink>
+            </>
+          }
+        />
       ) : (
-        <form action={action} className="flex min-h-0 flex-col overflow-hidden">
+        <DialogForm action={action}>
           <input type="hidden" name="brandId" value={brandId} />
           <input type="hidden" name="brandSlug" value={brandSlug} />
           <input type="hidden" name="stance" value={stance ?? ''} />
           {photoPath && <input type="hidden" name="photoPaths" value={photoPath} />}
 
-          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+          {/* NO `overflow-hidden` ANYWHERE ABOVE THIS. The stance radios are
+              `required`, and the browser anchors its native validation bubble
+              to the input — a clipped scroll container swallows it, and the
+              reader is left with a submit that silently does nothing. */}
+          <DialogBody className="space-y-5">
             <fieldset className="space-y-3">
               <legend className="type-body-sm font-semibold text-ink">
                 {t('stanceLabel')}
@@ -279,9 +267,9 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
                 {t(`errors.${state.error}`)}
               </Typography>
             )}
-          </div>
+          </DialogBody>
 
-          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground px-4 py-4 sm:px-6">
+          <DialogFooter>
             <DialogClose render={<Button variant="secondary" />}>
               {t('cancel')}
             </DialogClose>
@@ -293,7 +281,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
               {pending ? t('submitting') : t('submit')}
             </Button>
           </DialogFooter>
-        </form>
+        </DialogForm>
       )}
     </DialogContent>
   )

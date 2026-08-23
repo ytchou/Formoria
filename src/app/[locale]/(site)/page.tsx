@@ -183,13 +183,11 @@ export default async function LandingPage({ params }: PageProps) {
     ? storyResult.stories.slice(0, LANDING_STORY_LIMIT)
     : [];
   const curatedProducts = curatedProductsResult ?? [];
-  // One list, two consumers: the wall composes tiles from it and the trails
-  // zone lists all of it. Straight off the MDX read already in flight — no
-  // second query, so `/` stays statically rendered.
+  // Straight off the MDX read already in flight, so `/` stays statically
+  // rendered without a second query.
   const publishedTrails = trailResult?.ok ? trailResult.trails : [];
   const wallSlots = buildWallSlots({
     products: curatedProducts,
-    trails: publishedTrails,
   });
   const promotedEvents: PromotedEvent[] = liveEvents.map((event) => ({
     event,

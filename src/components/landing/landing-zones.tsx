@@ -3,12 +3,14 @@ import { getTranslations } from "next-intl/server";
 
 import { EventCard } from "@/components/events/event-card";
 import { ProductWall } from "@/components/landing/product-wall";
+import { TrailTile } from "@/components/landing/trail-tile";
 import { SectionHeader } from "@/components/shared/section-header";
 import BrandShowcase from "@/components/shared/brand-showcase";
 import { StoryRow } from "@/components/stories/story-row";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { Link } from "@/i18n/navigation";
 import { buttonVariants } from "@/components/ui/button";
+import { Grid } from "@/components/ui/grid";
 import { PageShell } from "@/components/ui/page-shell";
 import { PhotoBand } from "@/components/ui/photo-band";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
@@ -38,13 +40,7 @@ export type LandingZonesProps = {
   close: ReactNode;
   /** `null` when the wall is below its publication floor and must not render. */
   wall: { slots: WallSlot[] } | null;
-  /**
-   * EVERY indexable trail, not the ones the wall declined to place. A trail
-   * that earns a wall tile still belongs in this zone: the tile is a picture in
-   * a masonry grid, the row is the titled, dated route into `/discover`. The
-   * zone used to read the wall's leftover trails, which meant the single-trail
-   * case — the trail is always placed — erased the zone from the page.
-   */
+  /** Every indexable trail rendered in the dedicated editorial zone. */
   trails: TrailEntry[];
   stories: StoryEntry[];
   events: PromotedEvent[];
@@ -55,8 +51,8 @@ export type LandingZonesProps = {
  * The homepage's zones, in order:
  *
  *     hero      the editorial opener — eyebrow, promise, lede, search
- *     selection the justified wall with trails woven in
- *     trails    the style zone — every indexable trail as a titled row
+ *     selection the justified product wall
+ *     trails    the style zone — every indexable trail as an editorial card
  *     manifesto the photo band
  *     topics    stories, with a live event lifted above them
  *     directory one explore-style brand rail
@@ -119,36 +115,13 @@ export async function LandingZones({
                   brandSiteCta: tSelected("brandSiteCta"),
                   unavailable: tSelected("unavailable"),
                 },
-                trail: {
-                  eyebrow: t("selectedProducts.trailEyebrow"),
-                  cta: t("selectedProducts.trailCta"),
-                },
               }}
             />
           </div>
         ) : null}
 
-        {/*
-          Every indexable trail — including the ones the wall placed as tiles.
-          Duplication with the wall is deliberate and cheap: a wall tile is a
-          photograph a reader may scroll past, and this row is the only titled,
-          dated, keyboard-obvious path to `/discover`. Gating on the trails the
-          wall left over instead cost the zone its whole existence the moment
-          the site had one indexable trail, since that trail is always placed.
-          The zone is withheld only when nothing is indexable — never
-          because the wall is missing.
-
-          This zone replaces the continuation strip that used to sit at the foot
-          of the wall, where the same trails were a row of underlined links —
-          the weakest presentation available for the editorial content they
-          point at.
-
-          It deliberately reuses the topics zone's construction: `SectionHeader`
-          over a `StoryRow` list on the same divided rule. `StoryRow` already
-          takes a `TrailEntry` (the /discover hub renders trails through it), so
-          this is the existing component with `hrefBase` and `namespace`
-          repointed, not a second row design to keep in sync.
-        */}
+        {/* The zone is withheld only when nothing is indexable. Its image-led
+            cards are the homepage's single owner for discovery trails. */}
         {trails.length > 0 ? (
           <section
             data-landing-zone="trails"
@@ -163,21 +136,24 @@ export async function LandingZones({
                 linkHref={routes.discover()}
                 linkLabel={t("trails.linkText")}
               />
-              <div className="mt-8 divide-y divide-rule border-y border-rule">
+              <Grid
+                as="ul"
+                cols={trails.length >= 3 ? "bands" : "single"}
+                className="mt-8"
+              >
                 {trails.map((trail, index) => (
-                  <StoryRow
+                  <TrailTile
                     key={trail.slug}
-                    story={trail}
-                    locale={locale}
-                    headingLevel={3}
+                    trail={trail}
+                    labels={{
+                      eyebrow: t("trails.eyebrow"),
+                      cta: t("trails.cta"),
+                    }}
                     position={index}
-                    trackingSurface="homepage_trails"
-                    trackingKind="trail"
-                    hrefBase={routes.discover()}
-                    namespace="discover"
+                    singleColumn={trails.length < 3}
                   />
                 ))}
-              </div>
+              </Grid>
             </PageShell>
           </section>
         ) : null}

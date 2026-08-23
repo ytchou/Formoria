@@ -176,7 +176,6 @@ function buildProduct(index: number): HomepageCuratedProduct {
 function buildWall(count = 2): { slots: WallSlot[] } {
   return {
     slots: Array.from({ length: count }, (_, index) => ({
-      kind: "product" as const,
       product: buildProduct(index),
       ratio: "4:3" as const,
     })),
@@ -215,6 +214,8 @@ function buildTrail(slug: string): TrailEntry {
       locale: "en",
       publishedAt: "2026-02-01",
       draft: false,
+      heroImage: `/images/trails/${slug}.webp`,
+      heroImageAlt: `Objects arranged for ${slug}`,
       sources: [],
       faq: [],
       sections: [],
@@ -314,23 +315,9 @@ describe("landing page zones", () => {
     expect(container.querySelector('[data-landing-zone="trust"]')).toBeNull();
   });
 
-  /**
-   * The zone used to render only the trails the wall did NOT place. With a
-   * single published trail that trail is always a wall tile,
-   * so the zone disappeared from the homepage entirely. Its input is now every
-   * published trail, and wall placement is not a reason to withhold one: the
-   * tile is a picture, the row is the reader's route into /discover.
-   */
-  it("renders the trails zone when its only trail is also a wall tile", async () => {
+  it("renders the trails zone when only one trail is published", async () => {
     const trail = buildTrail("small-kitchen");
     const { container } = await renderZones({
-      // Placed in the wall AND passed to the zone: exactly the single-trail case.
-      wall: {
-        slots: [
-          ...buildWall().slots,
-          { kind: "trail" as const, trail, format: "wide" as const },
-        ],
-      },
       trails: [trail],
     });
 
@@ -348,38 +335,41 @@ describe("landing page zones", () => {
       within(trails!).getByRole("link", { name: en.landing.trails.linkText }),
     ).toHaveAttribute("href", "/discover");
 
-    const rows = within(trails!).getAllByRole("heading", { level: 3 });
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toHaveTextContent("Trail small-kitchen");
-    // /discover, not /stories — the row is `StoryRow` with `hrefBase` repointed.
+    const headings = within(trails!).getAllByRole("heading", { level: 3 });
+    expect(headings).toHaveLength(1);
+    expect(headings[0]).toHaveTextContent("Trail small-kitchen");
     expect(
       within(trails!).getByRole("link", { name: /Trail small-kitchen/ }),
     ).toHaveAttribute("href", "/discover/small-kitchen");
   });
 
-  it("renders every published trail in the zone", async () => {
-    const placed = buildTrail("small-kitchen");
-    const unplaced = buildTrail("first-apartment");
+  it("renders every published trail as a card in the zone", async () => {
+    const first = buildTrail("small-kitchen");
+    const second = buildTrail("first-apartment");
     const { container } = await renderZones({
-      wall: {
-        slots: [
-          ...buildWall().slots,
-          { kind: "trail" as const, trail: placed, format: "wide" as const },
-        ],
-      },
-      trails: [placed, unplaced],
+      trails: [first, second],
+    });
+
+    const trails = container.querySelector<HTMLElement>(
+      '[data-landing-zone="trails"]',
+    )!;
+    const cards = within(trails).getAllByRole("listitem");
+    expect(cards).toHaveLength(2);
+    for (const card of cards) {
+      expect(within(card).getByRole("img")).toBeInTheDocument();
+      expect(within(card).getByRole("heading", { level: 3 })).toBeInTheDocument();
+    }
+  });
+
+  it("keeps a level-3 heading per trail", async () => {
+    const { container } = await renderZones({
+      trails: [buildTrail("small-kitchen"), buildTrail("first-apartment")],
     });
 
     const trails = container.querySelector<HTMLElement>(
       '[data-landing-zone="trails"]',
     )!;
     expect(within(trails).getAllByRole("heading", { level: 3 })).toHaveLength(2);
-    expect(
-      within(trails).getByRole("heading", { name: "Trail small-kitchen" }),
-    ).toBeInTheDocument();
-    expect(
-      within(trails).getByRole("heading", { name: "Trail first-apartment" }),
-    ).toBeInTheDocument();
   });
 
   it("omits the trails zone when no trail is published", async () => {

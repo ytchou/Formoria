@@ -14,7 +14,7 @@ import { DialogLoadingContent } from '@/components/brands/dialog-loading-content
 // portal (overlay + focus trap) still mounts while the chunk is in flight.
 const ReportDialogContent = dynamic(
   () => import('@/components/brands/report-dialog-content').then((m) => m.ReportDialogContent),
-  { ssr: false, loading: () => <DialogLoadingContent /> },
+  { ssr: false, loading: () => <DialogLoadingContent size="form" /> },
 )
 
 interface ReportDialogProps {

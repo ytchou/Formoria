@@ -12,15 +12,17 @@ import {
   ShieldAlert,
   ShieldCheck,
   TriangleAlert,
-  X,
 } from 'lucide-react'
 import { submitReportAction, type ReportState } from '@/app/[locale]/(site)/brands/[slug]/actions'
 import {
+  DialogBody,
   DialogContent,
+  DialogForm,
   DialogHeader,
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogStatus,
   DialogClose,
 } from '@/components/ui/dialog'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -124,48 +126,29 @@ export function ReportDialogContent({
   }
 
   return (
-    <DialogContent
-      showCloseButton={false}
-      className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-lg"
-    >
-      <DialogClose
-        render={
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-3 right-3 z-10 sm:top-4 sm:right-4"
-            aria-label={t('close')}
-          />
-        }
-      >
-        <X className="size-4" aria-hidden="true" />
-      </DialogClose>
-
-      <DialogHeader className="flex-row gap-3 p-4 pr-14 sm:p-6 sm:pr-16">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
-          <TriangleAlert className="size-5" aria-hidden="true" />
-        </span>
-        <div className="min-w-0 space-y-1">
-          <DialogTitle>{t('title')}</DialogTitle>
-          <DialogDescription>{t('description')}</DialogDescription>
-        </div>
+    // Width, the 85dvh cap, the two-row grid and the single scroll container
+    // all belong to the shell now; this call site used to spell every one of
+    // them by hand, alongside its own close button and header gutter.
+    <DialogContent size="form">
+      <DialogHeader icon={<TriangleAlert className="size-5" />}>
+        <DialogTitle>{t('title')}</DialogTitle>
+        <DialogDescription>{t('description')}</DialogDescription>
       </DialogHeader>
 
       {state.success ? (
-        <div className="flex min-h-0 flex-col">
-          <Typography variant="cardDescription" className="flex-1 px-4 py-6 sm:px-6">
-            {t('success')}
-          </Typography>
-          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground px-4 py-4 sm:px-6">
+        // One sentence and the way out — the branch `DialogStatus` exists for.
+        // It deliberately does not scroll, and it is not a form.
+        <DialogStatus
+          message={t('success')}
+          actions={
             <DialogClose render={<Button variant="secondary" />}>
               {t('close')}
             </DialogClose>
-          </DialogFooter>
-        </div>
+          }
+        />
       ) : (
-        <form
+        <DialogForm
           action={action}
-          className="flex min-h-0 flex-col overflow-hidden"
           onSubmit={() => {
             if (selectedReason) {
               trackBrandReported(brandSlug, selectedReason, 'general')
@@ -175,7 +158,7 @@ export function ReportDialogContent({
           <input type="hidden" name="brandId" value={brandId} />
           <input type="hidden" name="reason" value={selectedReason ?? ''} />
 
-          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+          <DialogBody className="space-y-5">
             {alreadyReported && (
               <Typography
                 variant="cardDescription"
@@ -330,9 +313,9 @@ export function ReportDialogContent({
             {state.error && (
               <Typography variant="error" role="alert">{state.error}</Typography>
             )}
-          </div>
+          </DialogBody>
 
-          <DialogFooter className="mx-0 mb-0 rounded-b-surface bg-ground px-4 py-4 sm:px-6">
+          <DialogFooter>
             <DialogClose render={<Button variant="secondary" />}>
               {t('cancel')}
             </DialogClose>
@@ -358,7 +341,7 @@ export function ReportDialogContent({
               </Button>
             )}
           </DialogFooter>
-        </form>
+        </DialogForm>
       )}
     </DialogContent>
   )
