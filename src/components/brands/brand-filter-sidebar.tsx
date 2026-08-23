@@ -22,6 +22,7 @@ import { Radio } from "@/components/ui/radio";
 import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
+  SheetBody,
   SheetContent,
   SheetFooter,
   SheetHeader,
@@ -601,7 +602,14 @@ export function BrandFilterDrawer({
         <SheetHeader className="border-b border-rule">
           <SheetTitle>{t("title")}</SheetTitle>
         </SheetHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        {/*
+          The drawer's ONE scroll container. The footer below is pinned by the
+          popup's own flex column — `SheetBody` takes `flex-1` and the footer
+          takes `mt-auto` — not by `sticky bottom-0`, which needed this body to
+          be the scrollport of a taller box and drew the footer over the last
+          filter row when it wasn't.
+        */}
+        <SheetBody>
           <BrandFilterSidebar
             activeFilters={activeFilters}
             categories={categories}
@@ -613,8 +621,8 @@ export function BrandFilterDrawer({
             announceSearchLoading={announceSearchLoading}
             totalCount={totalCount}
           />
-        </div>
-        <SheetFooter className="sticky bottom-0 border-t border-rule bg-surface">
+        </SheetBody>
+        <SheetFooter>
           <Button
             type="button"
             width="full"

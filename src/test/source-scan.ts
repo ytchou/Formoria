@@ -29,7 +29,8 @@ export function collectSources(root: string): string[] {
     for (const entry of readdirSync(current, { withFileTypes: true })) {
       const child = join(current, entry.name);
       if (entry.isDirectory()) {
-        if (entry.name === "__tests__" || entry.name === "node_modules") continue;
+        if (entry.name === "__tests__" || entry.name === "node_modules")
+          continue;
         stack.push(child);
         continue;
       }
@@ -44,6 +45,46 @@ export function collectSources(root: string): string[] {
   }
 
   return files.sort();
+}
+
+/**
+ * `src/components/ui/**` is where the primitives themselves live, so it is
+ * where the classes these gates forbid at a call site are supposed to be
+ * written. A structural boundary, the same one `eslint.config.mjs` draws — not
+ * a per-file permission, and not an allowlist.
+ */
+export const PRIMITIVE_DIR = "src/components/ui/";
+
+/**
+ * Blank out comments, preserving offsets.
+ *
+ * A prose comment naming a class (a note that some element "no longer needs"
+ * one) otherwise parses as a string literal and gets reported as the very
+ * violation it describes. Offsets are preserved rather than the text removed so
+ * that a line number computed against the original source stays correct.
+ */
+export function stripComments(text: string): string {
+  return text
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))
+    .replace(/\/\/[^\n]*/g, (m) => " ".repeat(m.length));
+}
+
+/** Capture a balanced region starting at `i`, counting `open`/`close`. */
+export function balanced(
+  src: string,
+  i: number,
+  open: string,
+  close: string,
+): string | null {
+  let depth = 0;
+  for (let j = i; j < src.length; j++) {
+    if (src[j] === open) depth++;
+    else if (src[j] === close) {
+      depth--;
+      if (depth === 0) return src.slice(i, j + 1);
+    }
+  }
+  return null;
 }
 
 export type HeadingMatch = {

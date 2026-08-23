@@ -3,7 +3,12 @@ import { relative } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { collectSources } from "@/test/source-scan";
+import {
+  balanced,
+  collectSources,
+  PRIMITIVE_DIR,
+  stripComments,
+} from "@/test/source-scan";
 
 /**
  * THE BUTTON OWNS ITS OWN GEOMETRY.
@@ -32,35 +37,6 @@ import { collectSources } from "@/test/source-scan";
  */
 const AXIS_OWNED_GEOMETRY =
   /(?<![\w-])(?:min-)?h-(?:\d+(?:\.\d+)?|px|full|auto|screen|fit)(?![\w-])|(?<![\w-])w-full(?![\w-])|(?<![\w-])size-\d+(?:\.\d+)?(?![\w-])|(?<![\w-])rounded(?:-[\w[\]().%-]+)?(?![\w-])/g;
-
-/**
- * `src/components/ui/**` is where the primitives themselves live — the button,
- * and the components that legitimately are not buttons. This is a structural
- * boundary, the same one `eslint.config.mjs` draws, not a per-file permission.
- */
-const PRIMITIVE_DIR = "src/components/ui/";
-
-/** Blank out comments, preserving offsets — a prose comment naming a class
- *  ("replaces a `size-8` override") otherwise parses as a template literal and
- *  gets reported as the very violation it describes. */
-function stripComments(text: string): string {
-  return text
-    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))
-    .replace(/\/\/[^\n]*/g, (m) => " ".repeat(m.length));
-}
-
-/** Capture a balanced region starting at `i`, counting `open`/`close`. */
-function balanced(src: string, i: number, open: string, close: string): string | null {
-  let depth = 0;
-  for (let j = i; j < src.length; j++) {
-    if (src[j] === open) depth++;
-    else if (src[j] === close) {
-      depth--;
-      if (depth === 0) return src.slice(i, j + 1);
-    }
-  }
-  return null;
-}
 
 type Violation = { file: string; line: number; classes: string[] };
 
@@ -123,7 +99,10 @@ describe("button geometry contract", () => {
     const offenders = collectSources("src")
       .filter((file) => !file.includes(PRIMITIVE_DIR))
       .flatMap(findViolations)
-      .map((v) => `${relative(process.cwd(), v.file)}:${v.line}  ${v.classes.join(" ")}`);
+      .map(
+        (v) =>
+          `${relative(process.cwd(), v.file)}:${v.line}  ${v.classes.join(" ")}`,
+      );
 
     expect(offenders).toEqual([]);
   });

@@ -3,10 +3,9 @@
 import { SurfaceImage } from "@/components/ui/image";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ExternalLink, Maximize2, X } from "lucide-react";
+import { ExternalLink, Maximize2 } from "lucide-react";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -148,30 +147,42 @@ export function TaiwanCreativeExpoOfficialMap() {
             <Maximize2 aria-hidden="true" />
             {t("floorMapOpenViewer")}
           </DialogTrigger>
-          <DialogContent
-            className="h-[100dvh] w-screen max-w-none gap-0 rounded-none p-0 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-[min(96vw,1100px)] sm:rounded-surface"
-            showCloseButton={false}
-          >
-            <DialogHeader className="flex-row items-start justify-between gap-3 border-b p-4 sm:p-5">
-              <div className="min-w-0 space-y-1">
-                <DialogTitle>{t("floorMapViewerTitle")}</DialogTitle>
-                <DialogDescription>
-                  {t("floorMapViewerDescription")}
-                </DialogDescription>
-              </div>
-              <DialogClose
-                render={
-                  <Button
-                    aria-label={t("floorMapCloseViewer")}
-                    className=""
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  />
-                }
-              >
-                <X aria-hidden="true" />
-              </DialogClose>
+          {/*
+            THE ONE DELIBERATE EXEMPTION FROM THE BOTTOM-SHEET RULE. Every
+            other dialog docks to the bottom edge below `sm`; this one stays
+            fullscreen, because the reader is here to pan a 3200px plan and a
+            sheet would hand that job half the screen.
+          */}
+          {/*
+            THE TWO OVERRIDES BELOW ARE NOT DECORATION, and neither can be
+            spelled with the `size` prop.
+
+            `inset-0 max-h-none` defeats the shell's own `inset-x-0 bottom-0`
+            and `max-h-[85dvh]` — the bottom-sheet dock. Both are unprefixed on
+            both sides, so tailwind-merge drops the shell's copy outright and
+            the fullscreen box is decided here rather than by a specificity
+            race. From `sm` up the shell's own `sm:` positioning takes back
+            over and this is a centred card again.
+
+            The trailing `!` on the width is the deliberate opt-out
+            `alert-dialog.tsx` documents. The shell writes its own width behind
+            a `data-[size=...]` prefix (specificity 0,2,0), which outranks any
+            plain `sm:`-prefixed width a call site can write, and no name on
+            the size axis fits this viewer: `overlay-wide` is a flat 72rem that
+            would overflow a 1024px laptop, which is why this file already
+            holds a standing row in `scripts/check-frontend-type-tokens.mjs`.
+            The important marker is what makes the viewport-relative cap win
+            whatever size the shell defaults to.
+          */}
+          <DialogContent className="inset-0 h-[100dvh] w-screen max-h-none max-w-none gap-0 rounded-none p-0 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-[min(96vw,1100px)]! sm:rounded-surface">
+            {/* The rule, the close-button gutter and the close button itself
+                all belong to the primitive now — the title used to share a
+                `justify-between` row with a hand-rolled close. */}
+            <DialogHeader>
+              <DialogTitle>{t("floorMapViewerTitle")}</DialogTitle>
+              <DialogDescription>
+                {t("floorMapViewerDescription")}
+              </DialogDescription>
             </DialogHeader>
 
             <div
@@ -205,7 +216,12 @@ export function TaiwanCreativeExpoOfficialMap() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-ground p-3 sm:p-4">
+            {/* A hand-rolled row, NOT a `DialogFooter`: it is a persistent
+                zoom control that belongs to the viewport above it, not the
+                dialog's action row. Only its colours are the shared tokens —
+                a bare `border-t` inherits `currentColor` under Tailwind v4's
+                preflight, which paints the rule in ink. */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule bg-surface p-3 sm:p-4">
               <span className={textStyles({ variant: "caption" })}>
                 {t("floorMapZoom")}
               </span>

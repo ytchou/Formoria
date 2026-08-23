@@ -560,7 +560,7 @@ test.describe("Creative Expo exhibitor list", () => {
     ).toHaveAttribute("href", /creativexpo\.tw\/uploads\/download/);
 
     await viewer
-      .getByRole("button", { name: "Close floor-map viewer" })
+      .getByRole("button", { name: "Close dialog" })
       .click();
     await expect(viewer).toBeHidden();
 

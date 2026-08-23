@@ -1,40 +1,41 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useTranslations } from 'next-intl'
-import { Link, usePathname } from '@/i18n/navigation'
-import { Menu } from 'lucide-react'
+import { useState } from "react";
+import { useTranslations } from "next-intl";
+import { Link, usePathname } from "@/i18n/navigation";
+import { Menu } from "lucide-react";
 import {
   Sheet,
+  SheetBody,
   SheetContent,
   SheetTitle,
-} from '@/components/ui/sheet'
-import { Dialog as SheetPrimitive } from '@base-ui/react/dialog'
-import { AccountMenu } from '@/components/auth/account-menu'
-import { NavSearchInput } from './nav-search-input'
-import { NavCategoryTabs } from './nav-category-tabs'
-import { LocaleSwitcher } from '@/components/i18n/locale-switcher'
-import { Button, buttonVariants } from '@/components/ui/button'
-import { PageShell } from '@/components/ui/page-shell'
-import { useUser } from '@/lib/auth/use-user'
-import { trackCtaClicked } from '@/lib/analytics'
-import { routes } from '@/lib/routes'
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { AccountMenu } from "@/components/auth/account-menu";
+import { NavSearchInput } from "./nav-search-input";
+import { NavCategoryTabs } from "./nav-category-tabs";
+import { LocaleSwitcher } from "@/components/i18n/locale-switcher";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { PageShell } from "@/components/ui/page-shell";
+import { useUser } from "@/lib/auth/use-user";
+import { trackCtaClicked } from "@/lib/analytics";
+import { routes } from "@/lib/routes";
 
 interface MainNavProps {
-  categories: Array<{ slug: string; name: string; nameZh: string | null }>
+  categories: Array<{ slug: string; name: string; nameZh: string | null }>;
 }
 
 export function MainNav({ categories }: MainNavProps) {
-  const [open, setOpen] = useState(false)
-  const t = useTranslations('nav')
+  const [open, setOpen] = useState(false);
+  const t = useTranslations("nav");
   // Reads `user` and `viewer` with no loading gate, which is only safe because
   // ViewerProvider commits both in the same update — `viewer` can never resolve
   // first. If that ever changes, this renders "My Brands" beside the signed-out
   // LocaleSwitcher below (DEV-1414); add a `viewerLoading` gate here first.
-  const { user, viewer } = useUser()
-  const hasOwnedBrand = viewer.hasOwnedBrand
-  const ownerFeaturesEnabled = viewer.ownerFeaturesEnabled
-  const pathname = usePathname()
+  const { user, viewer } = useUser();
+  const hasOwnedBrand = viewer.hasOwnedBrand;
+  const ownerFeaturesEnabled = viewer.ownerFeaturesEnabled;
+  const pathname = usePathname();
 
   /**
    * The mock's four destinations, in its order. Declared once and rendered
@@ -42,11 +43,11 @@ export function MainNav({ categories }: MainNavProps) {
    * that had already drifted apart by one link.
    */
   const primaryLinks = [
-    { href: routes.discover(), label: t('discover') },
-    { href: routes.brands(), label: t('brands') },
-    { href: routes.stories(), label: t('stories') },
-    { href: routes.about(), label: t('about') },
-  ]
+    { href: routes.discover(), label: t("discover") },
+    { href: routes.brands(), label: t("brands") },
+    { href: routes.stories(), label: t("stories") },
+    { href: routes.about(), label: t("about") },
+  ];
 
   return (
     <header className="sticky top-0 z-50 border-b border-rule bg-ground">
@@ -93,7 +94,10 @@ export function MainNav({ categories }: MainNavProps) {
 
         {/* Right actions (desktop). A `nav` rather than a `div`: this and the
             category row below are the header's navigation landmarks. */}
-        <nav aria-label={t('navigation')} className="hidden items-center gap-5 md:flex">
+        <nav
+          aria-label={t("navigation")}
+          className="hidden items-center gap-5 md:flex"
+        >
           {primaryLinks.map((link) => (
             <Link
               key={link.href}
@@ -110,20 +114,25 @@ export function MainNav({ categories }: MainNavProps) {
           {hasOwnedBrand && ownerFeaturesEnabled ? (
             <Link
               href={routes.dashboard.index()}
-              className={buttonVariants({ variant: 'primary' })}
+              className={buttonVariants({ variant: "primary" })}
             >
-              {t('myBrands')}
+              {t("myBrands")}
             </Link>
           ) : (
             <Link
               href={routes.submit.index()}
               data-ph-no-autocapture
               onClick={() =>
-                trackCtaClicked('submit_brand', 'header_nav', routes.submit.index(), pathname)
+                trackCtaClicked(
+                  "submit_brand",
+                  "header_nav",
+                  routes.submit.index(),
+                  pathname,
+                )
               }
-              className={buttonVariants({ variant: 'primary' })}
+              className={buttonVariants({ variant: "primary" })}
             >
-              {t('submitBrand')}
+              {t("submitBrand")}
             </Link>
           )}
           <AccountMenu />
@@ -134,22 +143,37 @@ export function MainNav({ categories }: MainNavProps) {
             is `display: none` below 768px and exposes no landmark there. This
             is the first navigation landmark in the banner at 375px, which
             mobile.spec.ts asserts by role. */}
-        <nav aria-label={t('navigation')} className="ml-auto md:hidden">
+        <nav aria-label={t("navigation")} className="ml-auto md:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
-            <SheetPrimitive.Trigger
+            <SheetTrigger
               render={
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label={t('openMenu')}
+                  aria-label={t("openMenu")}
                 />
               }
             >
               <Menu className="size-5" />
-            </SheetPrimitive.Trigger>
-            <SheetContent side="right" className="w-72">
-              <SheetTitle className="sr-only">{t('navigation')}</SheetTitle>
-              <div className="flex flex-col gap-4 pt-8">
+            </SheetTrigger>
+            {/* `size="panel"` IS STATED, NOT INHERITED. It is also the
+                shell's default, and the width it names (24rem) is the one this
+                menu wants; spelling it keeps the width a decision this file
+                made. The `w-72` that used to sit here never applied at all —
+                the shell's `data-[side=right]` width outranks a plain `w-*`
+                from a call site. */}
+            <SheetContent side="right" size="panel">
+              {/* NO `SheetHeader`. The title here is `sr-only`, and a ruled
+                  header above an invisible title draws a hairline over nothing.
+                  `pt-14` (3.5rem) is what clears the absolutely-positioned
+                  close button: `size="icon"` is 2.75rem tall and the shell
+                  insets it 0.5rem from the top, so its bottom edge lands at
+                  3.25rem and the search field below it starts a quarter of a
+                  rem clear. `px-0` keeps the slot from adding a second inset on
+                  top of the per-row `px-1` / `px-4` this list already
+                  carries. */}
+              <SheetTitle className="sr-only">{t("navigation")}</SheetTitle>
+              <SheetBody className="flex flex-col gap-4 px-0 pt-14">
                 {/* Search in mobile sheet */}
                 <div className="px-1">
                   <NavSearchInput />
@@ -169,22 +193,33 @@ export function MainNav({ categories }: MainNavProps) {
                 {hasOwnedBrand && ownerFeaturesEnabled ? (
                   <Link
                     href={routes.dashboard.index()}
-                    className={buttonVariants({ variant: 'primary', width: 'full' })}
+                    className={buttonVariants({
+                      variant: "primary",
+                      width: "full",
+                    })}
                     onClick={() => setOpen(false)}
                   >
-                    {t('myBrands')}
+                    {t("myBrands")}
                   </Link>
                 ) : (
                   <Link
                     href={routes.submit.index()}
                     data-ph-no-autocapture
                     onClick={() => {
-                      trackCtaClicked('submit_brand', 'header_nav', routes.submit.index(), pathname)
-                      setOpen(false)
+                      trackCtaClicked(
+                        "submit_brand",
+                        "header_nav",
+                        routes.submit.index(),
+                        pathname,
+                      );
+                      setOpen(false);
                     }}
-                    className={buttonVariants({ variant: 'primary', width: 'full' })}
+                    className={buttonVariants({
+                      variant: "primary",
+                      width: "full",
+                    })}
                   >
-                    {t('submitBrand')}
+                    {t("submitBrand")}
                   </Link>
                 )}
                 <div className="px-4">
@@ -193,7 +228,7 @@ export function MainNav({ categories }: MainNavProps) {
                 <div className="px-4">
                   <AccountMenu />
                 </div>
-              </div>
+              </SheetBody>
             </SheetContent>
           </Sheet>
         </nav>
@@ -204,5 +239,5 @@ export function MainNav({ categories }: MainNavProps) {
           that block is deleted, so the categories live in exactly one place. */}
       <NavCategoryTabs categories={categories} />
     </header>
-  )
+  );
 }

@@ -88,11 +88,24 @@ describe("check-frontend-type-tokens", () => {
     writeFixture(
       cwd,
       "src/components/brands/share-dialog-content.tsx",
-      // Exercises every allowlisted value for this file (both brand-disc hex
-      // classes, all four Instagram gradient hexes, and the arbitrary text
-      // size) so deleting any of them from the allowlist turns this red.
+      // Exercises the brand-mark values allowlisted for this file (both
+      // brand-disc hex classes, all four Instagram gradient hexes, and the
+      // arbitrary text size) so deleting any of them from the allowlist turns
+      // this red. It no longer carries a `max-w-[…]`: the share panel names its
+      // width with `size="compact"` and holds no width literal to permit.
       '<span className="bg-[#06C755] bg-[#1877F2] md:text-[13px] text-[#123456]" ' +
         'style={{ backgroundImage: "radial-gradient(#FDF497, #FD5949, #D6249F, #285AEB)" }} />',
+    );
+    writeFixture(
+      cwd,
+      "src/components/ui/dialog.tsx",
+      // The width half of the same proof, repointed here when the three share
+      // rows went. `max-w-[calc(100%-2rem)]` is a real "unnamed page width"
+      // match that only the surviving `ui/dialog.tsx` row suppresses — delete
+      // that row and the assertion below goes to three. The width allowlist is
+      // down to two rows, so it needs a live fixture of its own or nothing
+      // would notice the last one rotting.
+      '<div className="sm:max-w-[calc(100%-2rem)]" />',
     );
 
     expect(collectFrontendTokenFailures({ cwd })).toEqual([

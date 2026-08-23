@@ -298,9 +298,9 @@
 }
 
 /*
- * FOUR COMPONENT SIZES — A DIFFERENT AXIS FROM THE THREE MEASURES ABOVE.
+ * FIVE COMPONENT SIZES — A DIFFERENT AXIS FROM THE THREE MEASURES ABOVE.
  *
- * A measure answers "how wide is this PAGE". These four answer "how wide is
+ * A measure answers "how wide is this PAGE". These five answer "how wide is
  * this COMPONENT", which is a different question with different inputs: a
  * confirm dialog is sized by the decision it carries and by what a floating
  * panel is expected to look like, so it is the same width above a 100rem
@@ -317,6 +317,13 @@
  *   `overlay-panel`    24rem — the default floating panel above the phone
  *                      breakpoint: a dialog, a sheet docked to the left or
  *                      right edge, a full-size alert dialog.
+ *   `overlay-form`     32rem — a dialog the reader FILLS IN rather than reads:
+ *                      labelled fields, a textarea, a two-button footer. It is
+ *                      a fifth name because six call sites had already reached
+ *                      this width by hand at the `sm` step, each spelling its
+ *                      own built-in cap; a form needs the room a message does
+ *                      not, and the width they agreed on without coordinating
+ *                      is the one worth naming.
  *   `overlay-wide`     72rem — a sheet that is a WORKSPACE rather than a
  *                      message: the admin brand detail sheet, which holds a
  *                      record's whole field set beside the table it opened
@@ -342,9 +349,10 @@
  *
  * `cn()` CANNOT SEE THESE ON ITS OWN. tailwind-merge only knows the class
  * groups it ships with, so a call site overriding `sm:overlay-panel` with
- * `sm:max-w-lg` would keep BOTH unless it is told they collide — which is why
- * all four names are registered into the `max-w` group in `src/lib/utils`. A
- * name added here without an entry there silently stops being overridable.
+ * Tailwind's own step would keep BOTH unless it is told they collide — which
+ * is why all five names are registered into the `max-w` group in
+ * `src/lib/utils`. A name added here without an entry there silently stops
+ * being overridable, which is what `overlay-tokens.test.ts` fails on.
  *
  * LITERALS, NOT `var()`, for the same reason as the measures: a custom
  * property is an override seam any ancestor can redeclare from a part of the
@@ -356,6 +364,10 @@
 
 @utility overlay-panel {
   max-width: 24rem;
+}
+
+@utility overlay-form {
+  max-width: 32rem;
 }
 
 @utility overlay-wide {

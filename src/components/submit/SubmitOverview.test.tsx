@@ -123,7 +123,6 @@ describe('SubmitOverview', () => {
     expect(dialog).toHaveTextContent(
       '每個帳號只能管理一個品牌，因此無法再透過品牌主流程建立另一個品牌頁。若想分享其他品牌，請改用社群推薦流程。',
     );
-    expect(screen.getByRole('button', { name: '關閉' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '前往推薦品牌' }));
 
@@ -178,5 +177,27 @@ describe('SubmitOverview', () => {
     );
   });
 
+  // An alert dialog never carries an X. This one used to carry a hand-rolled
+  // one on top of the footer Cancel, which put two identical dismissals in the
+  // tab order. The footer Cancel is the only dismissal control left; Escape
+  // and the backdrop still work, which the two tests above hold.
+  it('renders no close icon button', async () => {
+    const user = userEvent.setup();
+    renderWithZhTW(
+      <SubmitOverview isLoggedIn hasOwnedBrand ownerFeaturesEnabled />,
+    );
+
+    await user.click(screen.getByRole('button', { name: ownerCtaLoggedIn }));
+    const dialog = screen.getByRole('alertdialog');
+
+    const dismissals = Array.from(
+      dialog.querySelectorAll('[data-slot="alert-dialog-cancel"]'),
+    );
+    expect(dismissals).toHaveLength(1);
+    expect(dismissals[0]).toHaveTextContent('取消');
+    expect(
+      screen.queryByRole('button', { name: '關閉' }),
+    ).not.toBeInTheDocument();
+  });
 
 });

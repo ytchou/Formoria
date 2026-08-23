@@ -23,8 +23,10 @@ vi.mock('@/i18n/navigation', () => ({
 import { Dialog } from '@/components/ui/dialog'
 import { DialogLoadingContent } from '../dialog-loading-content'
 import { EvidenceDialog } from '../evidence-dialog'
+import { EvidenceDialogContent } from '../evidence-dialog-content'
 import { ReportDialog } from '../report-dialog'
 import { useUser } from '@/lib/auth/use-user'
+import { submitEvidenceAction } from '@/app/[locale]/(site)/brands/[slug]/actions'
 
 const evidence = zh.brandDetail.evidence
 const report = zh.brandDetail.report
@@ -122,6 +124,88 @@ describe('EvidenceDialog', () => {
   })
 })
 
+// The four footers this body used to spell by hand are now three
+// `DialogStatus` branches (each rendering its own footer) plus one form. The
+// branch is only correct if it carries BOTH halves: the message the reader is
+// answering, and the exact set of ways out. A status that renders the right
+// sentence under the wrong actions is the failure this guards — signed-out
+// without its sign-in link is a dead end.
+describe('EvidenceDialogContent status branches', () => {
+  const mockUser = (value: { user: { id: string } | null; loading: boolean }) => {
+    ;(useUser as unknown as ReturnType<typeof vi.fn>).mockReturnValue(value)
+  }
+
+  function renderContent() {
+    return renderWithIntl(
+      <Dialog open>
+        <EvidenceDialogContent brandId="b1" brandSlug="test-brand" />
+      </Dialog>
+    )
+  }
+
+  function status() {
+    const node = document.querySelector('[data-slot="dialog-status"]')
+    if (!node) throw new Error('no DialogStatus branch rendered')
+    return node as HTMLElement
+  }
+
+  it('renders the auth-loading branch with cancel as its only way out', () => {
+    mockUser({ user: null, loading: true })
+    renderContent()
+
+    const branch = status()
+    expect(within(branch).getByText(evidence.loading)).toBeInTheDocument()
+    expect(
+      within(branch)
+        .getAllByRole('button')
+        .map((node) => node.textContent)
+    ).toEqual([evidence.cancel])
+    expect(within(branch).queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('renders the signed-out branch with cancel and a sign-in link', () => {
+    mockUser({ user: null, loading: false })
+    renderContent()
+
+    const branch = status()
+    expect(within(branch).getByText(evidence.signInPrompt)).toBeInTheDocument()
+    expect(
+      within(branch)
+        .getAllByRole('button')
+        .map((node) => node.textContent)
+    ).toEqual([evidence.cancel])
+    expect(
+      within(branch).getByRole('link', { name: evidence.signIn })
+    ).toHaveAttribute('href', expect.stringContaining('/sign-in'))
+  })
+
+  it('renders the success branch with close as its only way out', async () => {
+    const user = userEvent.setup()
+    mockUser({ user: { id: 'user-uuid-9' }, loading: false })
+    ;(submitEvidenceAction as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+    })
+    renderContent()
+
+    await user.click(screen.getByRole('radio', { name: evidence.stances.supports }))
+    await user.type(
+      screen.getByLabelText(new RegExp(evidence.productNameLabel)),
+      'Test product'
+    )
+    await user.click(screen.getByRole('button', { name: evidence.submit }))
+
+    await waitFor(() => {
+      expect(screen.getByText(evidence.success)).toBeInTheDocument()
+    })
+    const branch = status()
+    expect(
+      within(branch)
+        .getAllByRole('button')
+        .map((node) => node.textContent)
+    ).toEqual([evidence.close])
+  })
+})
+
 describe('DialogLoadingContent', () => {
   it('renders a labelled, busy dialog surface so the overlay and focus trap exist', () => {
     renderWithIntl(
@@ -133,5 +217,26 @@ describe('DialogLoadingContent', () => {
     const dialog = screen.getByRole('dialog')
     expect(dialog).toHaveAttribute('aria-busy', 'true')
     expect(screen.getByText(zh.common.loading)).toBeInTheDocument()
+  })
+
+  // The width is the shell's `size` vocabulary, not a className the skeleton
+  // re-derives. A skeleton that is a different width from the body it hands off
+  // to is a visible jump at the exact moment the chunk lands.
+  it('resolves its width through the size prop, defaulting to form', () => {
+    const { rerender } = renderWithIntl(
+      <Dialog open>
+        <DialogLoadingContent />
+      </Dialog>
+    )
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-size', 'form')
+
+    rerender(
+      <NextIntlClientProvider locale="zh-TW" messages={zh}>
+        <Dialog open>
+          <DialogLoadingContent size="panel" />
+        </Dialog>
+      </NextIntlClientProvider>
+    )
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-size', 'panel')
   })
 })
