@@ -108,6 +108,21 @@ check_env() {
       echo "OK: Upstash Management API credentials"
     fi
     unset __upstash_management_count
+    __railway_metrics_count=0
+    for var in RAILWAY_API_TOKEN RAILWAY_PROJECT_ID RAILWAY_ENVIRONMENT_ID; do
+      if grep -q "^${var}=." .env.local 2>/dev/null; then
+        __railway_metrics_count=$((__railway_metrics_count + 1))
+      fi
+    done
+    if [ "$__railway_metrics_count" -eq 0 ]; then
+      echo "WARN: Railway metrics API credentials are not configured — egress remains unknown"
+    elif [ "$__railway_metrics_count" -lt 3 ]; then
+      echo "ERROR: RAILWAY_API_TOKEN, RAILWAY_PROJECT_ID, and RAILWAY_ENVIRONMENT_ID must be configured together"
+      ERRORS=$((ERRORS + 1))
+    else
+      echo "OK: Railway metrics API credentials"
+    fi
+    unset __railway_metrics_count
     if ! grep -q "CF_ORIGIN_SECRET=." .env.local; then
       echo "⚠ CF_ORIGIN_SECRET not set (optional — needed for Cloudflare origin protection)"
     fi

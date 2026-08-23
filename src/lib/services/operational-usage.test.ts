@@ -3,6 +3,7 @@ import {
   assessUsageRisk,
   buildOperationalAlertSummary,
   buildOperationalSnapshot,
+  fetchRailwayUsage,
   fetchUpstashUsage,
   loadOperationalSnapshot,
   parseSentryAcceptedCount,
@@ -29,6 +30,30 @@ function row(
   return snapshot.services.find((service) => service.id === id)!;
 }
 
+// One daily egress sample inside yesterday's UTC window plus seven daily
+// memory samples, the envelope Railway returns at sampleRateSeconds 86400.
+function railwayResponse(egressGb = 1.2, memoryGb = 0.5): Response {
+  const day = (offset: number) =>
+    new Date(Date.UTC(2026, 7, 9 - offset)).toISOString();
+  return Response.json({
+    data: {
+      metrics: [
+        {
+          measurement: "NETWORK_TX_GB",
+          values: [{ ts: day(0), value: egressGb }],
+        },
+        {
+          measurement: "MEMORY_USAGE_GB",
+          values: Array.from({ length: 7 }, (_unused, index) => ({
+            ts: day(index),
+            value: memoryGb,
+          })),
+        },
+      ],
+    },
+  });
+}
+
 function clearProviderEnvironment() {
   for (const name of [
     "OPENAI_API_KEY",
@@ -43,6 +68,9 @@ function clearProviderEnvironment() {
     "SENTRY_ORGANIZATION",
     "SENTRY_READ_TOKEN",
     "SENTRY_AUTH_TOKEN",
+    "RAILWAY_API_TOKEN",
+    "RAILWAY_PROJECT_ID",
+    "RAILWAY_ENVIRONMENT_ID",
   ]) {
     vi.stubEnv(name, "");
   }
@@ -505,6 +533,177 @@ describe("operational usage risk", () => {
         fetchImpl: fetchMock,
       }),
     ).rejects.toThrow("Upstash returned HTTP 503");
+  });
+
+  // Bug caught: Railway egress was dashboard-only, so a traffic flood reached the
+  // invoice before it reached the daily report.
+  it("marks Railway egress ready from the metrics envelope", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(railwayResponse()));
+    const usage = await fetchRailwayUsage({
+      apiToken: "railway-token",
+      projectId: "project-ready",
+      environmentId: "environment-ready",
+      fetchImpl: fetchMock,
+      now: NOW,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(usage.state).toBe("ready");
+    // Both Railway services are summed into one egress meter.
+    expect(usage.primary?.value).toBeCloseTo(2.4, 10);
+    expect(usage.primary).toMatchObject({
+      unit: "GB",
+      limit: 5,
+      completeness: "exact",
+      projection: null,
+      risk: "normal",
+      window: {
+        start: "2026-08-09T00:00:00.000Z",
+        end: "2026-08-10T00:00:00.000Z",
+      },
+    });
+    expect(usage.secondary?.value).toBeCloseTo(1, 10);
+    expect(usage.secondary).toMatchObject({
+      unit: "GB",
+      limit: 1.5,
+      window: {
+        start: "2026-08-03T00:00:00.000Z",
+        end: "2026-08-10T00:00:00.000Z",
+      },
+    });
+  });
+
+  it("reports partial Railway configuration as an error while absence stays unconfigured", async () => {
+    clearProviderEnvironment();
+    vi.stubEnv("RAILWAY_API_TOKEN", "railway-token");
+    const partial = await loadOperationalSnapshot({
+      now: NOW,
+      health: healthyHealth(),
+      supabase: null,
+      posthog: null,
+    });
+    expect(row(partial, "railway-formoria").usage).toMatchObject({
+      state: "error",
+    });
+
+    vi.stubEnv("RAILWAY_API_TOKEN", "");
+    const absent = await loadOperationalSnapshot({
+      now: NOW,
+      health: healthyHealth(),
+      supabase: null,
+      posthog: null,
+    });
+    expect(row(absent, "railway-formoria").usage).toMatchObject({
+      state: "unconfigured",
+      message: expect.stringContaining("RAILWAY_API_TOKEN"),
+    });
+  });
+
+  // Bug caught: Railway answers an unauthorized query with HTTP 200 and an
+  // `errors` array, which would otherwise render as zero egress.
+  it("fails the Railway meter on a GraphQL error body", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() =>
+        Promise.resolve(
+          Response.json({ errors: [{ message: "Not Authorized" }] }),
+        ),
+      );
+    const usage = await fetchRailwayUsage({
+      apiToken: "railway-token",
+      projectId: "project-graphql-error",
+      environmentId: "environment-graphql-error",
+      fetchImpl: fetchMock,
+      now: NOW,
+    });
+    expect(usage.state).toBe("error");
+    expect(usage.message).toContain("Not Authorized");
+    expect(usage.primary ?? null).toBeNull();
+  });
+
+  it("redacts the Railway token from captured audit metadata", async () => {
+    const output: unknown[][] = [];
+    vi.spyOn(console, "log").mockImplementation((...args) => output.push(args));
+    const apiToken = "railway-token-audit-secret";
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(railwayResponse()));
+    await fetchRailwayUsage({
+      apiToken,
+      projectId: "project-audit",
+      environmentId: "environment-audit",
+      fetchImpl: fetchMock,
+      now: NOW,
+    });
+    const captured = JSON.stringify(output);
+    expect(captured).not.toContain(apiToken);
+    expect(captured).toContain("https://backboard.railway.com/graphql/v2");
+    expect(JSON.stringify(fetchMock.mock.calls)).not.toContain(apiToken);
+  });
+
+  it("includes railway in the alert summary", () => {
+    const snapshot = buildOperationalSnapshot({
+      registry: [
+        {
+          id: "railway-formoria",
+          name: "Railway Formoria app",
+          vendor: "Railway",
+          category: "hosting",
+          criticality: "customer-critical",
+          operationalSection: "production",
+          operationalKind: "dependency",
+          envVars: [],
+          status: "active",
+          plan: {
+            kind: "usage",
+            asOf: "2026-08-10",
+            sourceUrl: "https://railway.com/pricing",
+          },
+        },
+      ],
+      health: {
+        status: "healthy",
+        checkedAt: NOW.toISOString(),
+        inventory: [],
+        services: [],
+      },
+      meters: new Map([
+        [
+          "railway-formoria",
+          {
+            state: "ready" as const,
+            primary: {
+              value: 3.6,
+              unit: "GB",
+              limit: 5,
+              percentage: 0.72,
+              window: {
+                start: "2026-08-09T00:00:00.000Z",
+                end: "2026-08-10T00:00:00.000Z",
+              },
+              source: "Railway metrics API",
+              completeness: "exact" as const,
+              freshness: NOW.toISOString(),
+              projection: null,
+              risk: "warning" as const,
+            },
+          },
+        ],
+      ]),
+      now: NOW,
+    });
+    const alerts = buildOperationalAlertSummary(snapshot);
+    expect(alerts.railway).toMatchObject({
+      state: "ready",
+      risk: "warning",
+      value: 3.6,
+      limit: 5,
+    });
+    expect(alerts.warnings).toEqual(
+      expect.arrayContaining(["Railway Formoria app usage is warning."]),
+    );
   });
 
   it("reports partial Upstash configuration as an error while absence stays unconfigured", async () => {

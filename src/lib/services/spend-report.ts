@@ -128,6 +128,7 @@ export async function loadSpendReport(
         message: "Upstash monitoring failed.",
       },
       posthog: null,
+      railway: null,
     };
   }
 

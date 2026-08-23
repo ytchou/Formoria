@@ -204,6 +204,20 @@ export const PUBLIC_INTL_SEGMENTS = new Set([
 const SOFT_LIMIT_PREFIXES = ["/brands/"];
 const DIRECTORY_EDGE_CACHE_CONTROL =
   "public, s-maxage=3600, stale-while-revalidate=86400";
+// Exactly the keys `parseDirectoryViewFilters` reads, minus `search`. A filter
+// view is a bounded set of renderings the edge can hold; free-text search is
+// unbounded and would fill the cache with single-use entries. Values are NOT
+// validated -- the page drops unknown slugs, so a bad value renders the same
+// page as the empty filter and is safe to cache under its own key.
+export const CACHEABLE_DIRECTORY_QUERY_KEYS: ReadonlySet<string> = new Set([
+  "category",
+  "sub",
+  "material",
+  "price",
+  "verification",
+  "page",
+  "sort",
+]);
 const DIRECTORY_INDEX_PATHS = new Set([
   routes.brands(),
   ...routing.locales.map((locale) => `/${locale}${routes.brands()}`),
@@ -223,7 +237,11 @@ function parseDirectoryPath(pathname: string): {
 }
 
 export function isDirectoryIndexPath(pathname: string, search = ""): boolean {
-  if (search) return false;
+  if (search) {
+    for (const key of new URLSearchParams(search).keys()) {
+      if (!CACHEABLE_DIRECTORY_QUERY_KEYS.has(key)) return false;
+    }
+  }
   if (DIRECTORY_INDEX_PATHS.has(pathname)) return true;
 
   const { path } = parseDirectoryPath(pathname);
@@ -977,15 +995,26 @@ async function runProxy(request: NextRequest) {
     response = NextResponse.next({ request: { headers: requestHeaders } });
   }
 
-  // Only write the cookie when it would actually change. A Set-Cookie header on
-  // every HTML response makes the response uncacheable at Cloudflare, so the CDN
-  // caches nothing and every request falls through to the origin.
+  // Only write the cookie when it would actually change, and never for the
+  // default locale. A Set-Cookie header on every HTML response makes the
+  // response uncacheable at Cloudflare, so the CDN caches nothing and every
+  // request falls through to the origin -- and the very first cookie-less visit
+  // is exactly the request the edge most needs to serve from cache.
   //
-  // URL prefixes control only the current request; only an inferred locale is
-  // retained for the browser session. Explicit preferences are persisted by the
-  // switcher, auth, and settings flows instead.
+  // Persisting the default buys nothing: an absent cookie already resolves to
+  // `routing.defaultLocale` through `resolveInitialLocale`, so the cookie only
+  // restates the fallback while costing edge cacheability.
+  //
+  // URL prefixes control only the current request; only an inferred non-default
+  // locale is retained for the browser session. Explicit preferences are
+  // persisted by the switcher, auth, and settings flows instead.
   const resolvedLocale = inferredLocale;
-  if (resolvedLocale && resolvedLocale !== cookieLocale && !routerRequest) {
+  if (
+    resolvedLocale &&
+    resolvedLocale !== cookieLocale &&
+    resolvedLocale !== routing.defaultLocale &&
+    !routerRequest
+  ) {
     response.cookies.set(LOCALE_COOKIE, resolvedLocale, {
       sameSite: "lax",
       path: "/",

@@ -222,6 +222,110 @@ describe("spend-watch report", () => {
     );
   });
 
+  // Bug caught: Railway egress rendered through the integer unit formatter,
+  // which rounded a 1.2 GB day away to "1".
+  it("renders the Railway egress line with GB units", async () => {
+    const railwayReport = {
+      ...report,
+      operations: {
+        ...operations,
+        railway: {
+          state: "ready" as const,
+          risk: "normal" as const,
+          value: 1.2,
+          limit: 5,
+          percentage: 0.24,
+          projection: null,
+          message: null,
+        },
+      },
+    };
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(railwayReport))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const result = await runSpendReport({
+      env: environment(),
+      clock: () => AT,
+      fetchImpl,
+    });
+
+    expect(result.status).not.toBe("failed");
+    const text = responseBody(fetchImpl, 1).text;
+    expect(text).toContain("Railway egress");
+    expect(text).toContain("1.2");
+    expect(text).toContain("5");
+  });
+
+  it("marks warning Railway usage as needs_attention while still delivering", async () => {
+    const warningReport = {
+      ...report,
+      operations: {
+        ...operations,
+        needsAttention: true,
+        warnings: ["Railway Formoria app usage is warning."],
+        railway: {
+          state: "ready" as const,
+          risk: "warning" as const,
+          value: 3.6,
+          limit: 5,
+          percentage: 0.72,
+          projection: null,
+          message: null,
+        },
+      },
+    };
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(warningReport))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const result = await runSpendReport({
+      env: environment(),
+      clock: () => AT,
+      fetchImpl,
+    });
+
+    expect(result.status).toBe("needs_attention");
+    const text = responseBody(fetchImpl, 1).text;
+    expect(text).toContain("Railway egress");
+    expect(text).toContain("Railway Formoria app usage is warning.");
+  });
+
+  // Deploy skew: the report endpoint may still be the build that predates the
+  // Railway meter, and an absent key must not fail schema validation.
+  it("accepts a response without a railway key", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({ ...report, operations: { ...operations } }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...report,
+          operations: { ...operations, railway: null },
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const absent = await runSpendReport({
+      env: environment(),
+      clock: () => AT,
+      fetchImpl,
+    });
+    const explicitNull = await runSpendReport({
+      env: environment(),
+      clock: () => AT,
+      fetchImpl,
+    });
+
+    expect(absent.status).not.toBe("failed");
+    expect(explicitNull.status).not.toBe("failed");
+    expect(responseBody(fetchImpl, 1).text).not.toContain("InvalidSpendReport");
+  });
+
   it("surfaces unavailable Upstash monitoring as needs_attention, not failed", async () => {
     const unavailableReport = {
       ...report,

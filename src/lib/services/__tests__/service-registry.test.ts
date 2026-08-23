@@ -53,6 +53,8 @@ describe("service registry", () => {
     expect(openai?.plan.monthlyUsd).toBeUndefined();
     expect(openai?.quota).toMatchObject({ included: 25, unit: "USD / month" });
     expect(railway?.plan.monthlyUsd).toBe(5);
+    // Railway egress is metered from the GraphQL metrics API, not the dashboard.
+    expect(railway?.envVars).toContain("RAILWAY_API_TOKEN");
   });
 
   it("dead keys are marked unwired", () => {

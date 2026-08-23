@@ -288,7 +288,11 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "customer-critical",
     operationalSection: "production",
     operationalKind: "dependency",
-    envVars: ["CF_ORIGIN_SECRET", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"],
+    envVars: [
+      "CF_ORIGIN_SECRET",
+      "CF_ACCESS_CLIENT_ID",
+      "CF_ACCESS_CLIENT_SECRET",
+    ],
     status: "active",
     plan: {
       kind: "free",
@@ -466,7 +470,12 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "customer-critical",
     operationalSection: "production",
     operationalKind: "dependency",
-    envVars: ["FORMORIA_RAILWAY_URL"],
+    envVars: [
+      "FORMORIA_RAILWAY_URL",
+      "RAILWAY_API_TOKEN",
+      "RAILWAY_PROJECT_ID",
+      "RAILWAY_ENVIRONMENT_ID",
+    ],
     status: "active",
     plan: {
       kind: "usage",
@@ -475,7 +484,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       sourceUrl: "https://railway.com/pricing",
     },
     dashboardUrl: "https://railway.app/dashboard",
-    notes: "Railway minimum monthly spend; variable usage is dashboard-only.",
+    notes:
+      "Railway minimum monthly spend; egress and memory are metered daily from the Railway metrics API.",
   },
   {
     id: "railway-curation-worker",

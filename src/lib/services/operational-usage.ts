@@ -16,8 +16,7 @@ type UsageState =
   "ready" | "unsupported" | "unconfigured" | "error" | "not_applicable";
 export type UsageRisk = "normal" | "warning" | "critical" | "unknown";
 type UsageCompleteness = "exact" | "lower_bound";
-type OperationalHealthStatus =
-  "healthy" | "warning" | "critical" | "unknown";
+type OperationalHealthStatus = "healthy" | "warning" | "critical" | "unknown";
 
 type UsageWindow = { start: string; end: string };
 
@@ -98,6 +97,7 @@ export type OperationalAlertSummary = {
   openai: OperationalAlertMeter | null;
   upstash: OperationalAlertMeter | null;
   posthog: OperationalAlertMeter | null;
+  railway: OperationalAlertMeter | null;
 };
 
 export type UsageMetricInput = {
@@ -476,8 +476,8 @@ export function parseUpstashStats(value: unknown): {
 async function auditedJson(
   url: string,
   init: RequestInit,
-  provider: "upstash" | "sentry",
-  operation: "get_database" | "get_stats" | "get_error_events",
+  provider: "upstash" | "sentry" | "railway",
+  operation: "get_database" | "get_stats" | "get_error_events" | "get_metrics",
   fetchImpl: typeof fetch,
 ): Promise<unknown> {
   const parsedUrl = new URL(url);
@@ -501,7 +501,11 @@ async function auditedJson(
         signal: init.signal ?? AbortSignal.timeout(8_000),
       });
       context.summary.httpStatus = response.status;
-      const providerName = provider === "upstash" ? "Upstash" : "Sentry";
+      const providerName = {
+        upstash: "Upstash",
+        sentry: "Sentry",
+        railway: "Railway",
+      }[provider];
       if (!response.ok)
         throw new Error(`${providerName} returned HTTP ${response.status}.`);
       let body: unknown;
@@ -597,6 +601,207 @@ export async function fetchUpstashUsage({
   }
   const usage = { state: "ready" as const, primary, secondary, additional };
   upstashUsageCache.set(cacheKey, {
+    value: usage,
+    expiresAt: Date.now() + OPERATIONAL_CACHE_TTL_MS,
+  });
+  return usage;
+}
+
+const RAILWAY_GRAPHQL_ENDPOINT = "https://backboard.railway.com/graphql/v2";
+// Service ids identify services inside the Railway project; they are not
+// secrets and never appear in a header, so they stay in source next to the
+// project and environment ids that are read from the environment.
+const RAILWAY_SERVICE_IDS = [
+  "c26be870-d329-4720-b075-eab280842478",
+  "b85503a7-83b4-46cb-85e3-7aae5426a435",
+] as const;
+const RAILWAY_EGRESS_LIMIT_GB = 5;
+const RAILWAY_MEMORY_LIMIT_GB = 1.5;
+const RAILWAY_METRICS_QUERY = `query($p:String!,$e:String!,$s:String!,$st:DateTime!,$en:DateTime!){
+  metrics(projectId:$p, environmentId:$e, serviceId:$s,
+          measurements:[NETWORK_TX_GB, MEMORY_USAGE_GB],
+          startDate:$st, endDate:$en, sampleRateSeconds:86400)
+  { measurement values { ts value } } }`;
+
+type RailwaySeries = {
+  measurement: string;
+  values: Array<{ ts: string; value: number }>;
+};
+
+function parseRailwayMetrics(value: unknown): RailwaySeries[] {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("Railway metrics response was malformed.");
+  const root = value as Record<string, unknown>;
+  if (Array.isArray(root.errors) && root.errors.length > 0) {
+    const messages = root.errors
+      .map((entry) =>
+        entry && typeof entry === "object"
+          ? (entry as Record<string, unknown>).message
+          : null,
+      )
+      .filter((message): message is string => typeof message === "string");
+    throw new Error(
+      `Railway metrics API returned an error: ${messages.join("; ") || "unknown error"}`,
+    );
+  }
+  const data = root.data;
+  const metrics =
+    data && typeof data === "object"
+      ? (data as Record<string, unknown>).metrics
+      : undefined;
+  if (!Array.isArray(metrics))
+    throw new Error("Railway metrics response was malformed.");
+  return metrics.flatMap((series) => {
+    if (!series || typeof series !== "object") return [];
+    const row = series as Record<string, unknown>;
+    if (typeof row.measurement !== "string" || !Array.isArray(row.values))
+      return [];
+    const values = row.values.flatMap((point) => {
+      if (!point || typeof point !== "object") return [];
+      const sample = point as Record<string, unknown>;
+      const number = Number(sample.value);
+      return typeof sample.ts === "string" && Number.isFinite(number)
+        ? [{ ts: sample.ts, value: number }]
+        : [];
+    });
+    return [{ measurement: row.measurement, values }];
+  });
+}
+
+function railwaySamples(
+  series: RailwaySeries[],
+  measurement: string,
+): Array<{ ts: string; value: number }> {
+  return series
+    .filter((entry) => entry.measurement === measurement)
+    .flatMap((entry) => entry.values);
+}
+
+function railwayEgressGb(series: RailwaySeries[], window: UsageWindow): number {
+  const start = Date.parse(window.start);
+  const end = Date.parse(window.end);
+  return railwaySamples(series, "NETWORK_TX_GB")
+    .filter((sample) => {
+      const at = Date.parse(sample.ts);
+      return Number.isFinite(at) && at >= start && at < end;
+    })
+    .reduce((sum, sample) => sum + sample.value, 0);
+}
+
+function railwayMemoryMeanGb(series: RailwaySeries[]): number {
+  const samples = railwaySamples(series, "MEMORY_USAGE_GB");
+  if (samples.length === 0) return 0;
+  return (
+    samples.reduce((sum, sample) => sum + sample.value, 0) / samples.length
+  );
+}
+
+export type RailwayUsageOptions = {
+  apiToken: string;
+  projectId: string;
+  environmentId: string;
+  fetchImpl?: typeof fetch;
+  now?: Date;
+};
+
+export async function fetchRailwayUsage({
+  apiToken,
+  projectId,
+  environmentId,
+  fetchImpl = globalThis.fetch,
+  now = new Date(),
+}: RailwayUsageOptions): Promise<MeteredUsage> {
+  const cacheKey = `${projectId}\u0000${environmentId}`;
+  const cached = railwayUsageCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const day = utcDayWindow(new Date(now.getTime() - 24 * 60 * 60 * 1000));
+  const memoryWindow: UsageWindow = {
+    start: new Date(
+      Date.parse(day.start) - 6 * 24 * 60 * 60 * 1000,
+    ).toISOString(),
+    end: day.end,
+  };
+  let series: RailwaySeries[][];
+  try {
+    series = await Promise.all(
+      RAILWAY_SERVICE_IDS.map(async (serviceId) =>
+        parseRailwayMetrics(
+          await auditedJson(
+            RAILWAY_GRAPHQL_ENDPOINT,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${apiToken}`,
+                "Content-Type": "application/json",
+                "User-Agent": "formoria-spend-watch",
+              },
+              body: JSON.stringify({
+                query: RAILWAY_METRICS_QUERY,
+                variables: {
+                  p: projectId,
+                  e: environmentId,
+                  s: serviceId,
+                  st: memoryWindow.start,
+                  en: memoryWindow.end,
+                },
+              }),
+            },
+            "railway",
+            "get_metrics",
+            fetchImpl,
+          ),
+        ),
+      ),
+    );
+  } catch (error) {
+    // Railway answers an unauthorized or malformed query with HTTP 200 and an
+    // `errors` array, so the failure is surfaced as an unavailable meter with
+    // the provider message rather than a zero-egress reading. Errors are never
+    // cached; the next report retries.
+    return {
+      state: "error",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Railway metrics request failed.",
+    };
+  }
+  // Both Railway services bill against the same project egress allowance, so
+  // the worker's egress is folded into this one meter.
+  const egress = series.reduce(
+    (sum, entry) => sum + railwayEgressGb(entry, day),
+    0,
+  );
+  const memory = series.reduce(
+    (sum, entry) => sum + railwayMemoryMeanGb(entry),
+    0,
+  );
+  const usage: MeteredUsage = {
+    state: "ready",
+    message:
+      "Daily granularity - the Railway dashboard usage limit is the intra-day stop.",
+    primary: createMetric({
+      value: egress,
+      unit: "GB",
+      limit: RAILWAY_EGRESS_LIMIT_GB,
+      window: day,
+      source: "Railway metrics API",
+      completeness: "exact",
+      projection: null,
+      at: now,
+    }),
+    secondary: createMetric({
+      value: memory,
+      unit: "GB",
+      limit: RAILWAY_MEMORY_LIMIT_GB,
+      window: memoryWindow,
+      source: "Railway metrics API",
+      completeness: "exact",
+      projection: null,
+      at: now,
+    }),
+  };
+  railwayUsageCache.set(cacheKey, {
     value: usage,
     expiresAt: Date.now() + OPERATIONAL_CACHE_TTL_MS,
   });
@@ -850,6 +1055,39 @@ async function collectMeteredUsage(
           }),
     },
     {
+      id: "railway-formoria",
+      promise:
+        providerConfigurationState(
+          process.env.RAILWAY_API_TOKEN,
+          process.env.RAILWAY_PROJECT_ID,
+          process.env.RAILWAY_ENVIRONMENT_ID,
+        ) === "complete"
+          ? fetchRailwayUsage({
+              apiToken: process.env.RAILWAY_API_TOKEN!,
+              projectId: process.env.RAILWAY_PROJECT_ID!,
+              environmentId: process.env.RAILWAY_ENVIRONMENT_ID!,
+              fetchImpl,
+              now,
+            }).then((usage) => ({ id: "railway-formoria", ...usage }))
+          : providerConfigurationState(
+                process.env.RAILWAY_API_TOKEN,
+                process.env.RAILWAY_PROJECT_ID,
+                process.env.RAILWAY_ENVIRONMENT_ID,
+              ) === "partial"
+            ? Promise.resolve({
+                id: "railway-formoria",
+                state: "error" as const,
+                message:
+                  "Railway metrics credentials are partially configured.",
+              })
+            : Promise.resolve({
+                id: "railway-formoria",
+                state: "unconfigured" as const,
+                message:
+                  "Railway usage requires RAILWAY_API_TOKEN, RAILWAY_PROJECT_ID, and RAILWAY_ENVIRONMENT_ID.",
+              }),
+    },
+    {
       id: "sentry",
       promise: fetchSentryErrorUsage(now, fetchImpl).then((usage) => ({
         id: "sentry",
@@ -882,8 +1120,9 @@ function usageForEntry(
 ): OperationalServiceRow["usage"] {
   if (
     entry.id === "supabase" ||
-    entry.id === "railway-formoria" ||
     entry.id === "public-site" ||
+    // The curation worker's egress is summed into the `railway-formoria` meter,
+    // so a second Railway row would double-count the same project allowance.
     entry.id === "railway-curation-worker"
   ) {
     return emptyUsage("unsupported", "Dashboard only");
@@ -896,6 +1135,7 @@ function usageForEntry(
       "upstash-redis",
       "posthog",
       "sentry",
+      "railway-formoria",
     ].includes(entry.id)
   ) {
     return toUsage(
@@ -988,9 +1228,7 @@ function alertMeter(
   };
 }
 
-function labelledMetrics(
-  service: OperationalServiceRow,
-): Array<{
+function labelledMetrics(service: OperationalServiceRow): Array<{
   label: "primary" | "secondary" | "additional";
   metric: UsageMetric;
 }> {
@@ -1048,11 +1286,16 @@ export function buildOperationalAlertSummary(
     openai: alertMeter(byId.get("openai")),
     upstash,
     posthog: alertMeter(byId.get("posthog")),
+    railway: alertMeter(byId.get("railway-formoria")),
   };
 }
 
 const OPERATIONAL_CACHE_TTL_MS = 5 * 60_000;
 const upstashUsageCache = new Map<
+  string,
+  { value: MeteredUsage; expiresAt: number }
+>();
+const railwayUsageCache = new Map<
   string,
   { value: MeteredUsage; expiresAt: number }
 >();
