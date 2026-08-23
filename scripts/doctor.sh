@@ -74,7 +74,7 @@ check_env() {
       echo "WARN: SENTRY_DSN (or NEXT_PUBLIC_SENTRY_DSN) not set — curation job alerts will not reach Sentry (optional; set it on the curation worker service too)"
     fi
     if ! grep -q "SLACK_FORMORIA_WEBHOOK_URL=https://" .env.local 2>/dev/null; then
-      echo "WARN: SLACK_FORMORIA_WEBHOOK_URL not set — curation provider-failure alerts will not reach Slack (optional)"
+      echo "WARN: SLACK_FORMORIA_WEBHOOK_URL not set — no in-app alert (provider failure, circuit-breaker trip, job or worker failure) will reach Slack (optional locally; REQUIRED on the Railway Formoria service)"
     fi
     if ! grep -q "NEXT_PUBLIC_POSTHOG_HOST=https://e.formoria.com" .env.local 2>/dev/null; then
       echo "WARN: NEXT_PUBLIC_POSTHOG_HOST must be https://e.formoria.com for production analytics capture"
