@@ -61,10 +61,13 @@ export function reportCrawlerVerificationDisagreement(input: {
   const name = input.crawlerName ?? 'unknown'
   disagreementTotals.set(name, (disagreementTotals.get(name) ?? 0) + 1)
 
-  // The Cloudflare transform rule that sets `x-formoria-verified-bot` is
-  // deferred to a follow-up PR, so at this revision `verified` is false for
-  // EVERY request and this alarm would describe a condition the team already
-  // knows is true -- roughly 14k Sentry events a day, indefinitely. The gate is
+  // The Cloudflare transform rules that set `x-formoria-verified-bot` went live
+  // 2026-08-07 (see docs/runbooks/cloudflare-edge.md). Before they existed
+  // `verified` was false for EVERY request and this alarm would have described a
+  // condition the team already knew -- roughly 14k Sentry events a day,
+  // indefinitely. The latch is kept because it is still the right gate: it now
+  // guards the per-process warm-up window between a fresh instance starting and
+  // the first verified crawler reaching it. The gate is
   // the observation latch rather than an env flag so it needs no deploy to
   // clear: the first verified request the origin ever sees arms the alarm, and
   // from then on a disagreement is real news. Counting above is unconditional.
