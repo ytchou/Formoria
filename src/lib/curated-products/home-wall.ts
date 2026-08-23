@@ -35,12 +35,6 @@ export const MAX_HOME_WALL_PRODUCTS = 16;
  */
 const WALL_TIME_ZONE = "Asia/Taipei";
 
-/**
- * Trail tiles are sized editorially, never measured: the tile carries a title
- * and a line of copy over a hero image, so its shape is a layout decision.
- */
-export type WallTrailFormat = "tall" | "wide";
-
 export type WallProductSlot = {
   product: HomepageCuratedProduct;
   ratio: WallRatio;

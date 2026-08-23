@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
  * it and the raw `<img>` buys nothing.
  *
  * So the split is now "can this be displayed at all", and an image that cannot
- * takes the IMAGELESS path — the same degradation `wall-trail-tile.tsx` uses
+ * takes the IMAGELESS path — the same degradation `trail-tile.tsx` uses
  * for a 404 or a disallowed host. Rendering nothing is the honest outcome; a
  * blank bordered box is not.
  */
