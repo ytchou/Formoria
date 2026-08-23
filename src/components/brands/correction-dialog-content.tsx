@@ -130,7 +130,7 @@ export function CorrectionDialogContent({
 }: CorrectionDialogContentProps) {
   const locale = useLocale();
   const tBrandDetail = useTranslations("brandDetail");
-  const tEdit = useTranslations("dashboard.edit");
+  const tEdit = useTranslations("brandFields");
   const tCorrection = useTranslations("brandDetail.correction");
   const baseId = useId();
   const fieldSelectId = useId();

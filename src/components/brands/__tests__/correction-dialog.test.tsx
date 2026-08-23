@@ -45,7 +45,7 @@ const BRAND_ID = "d9428888-122b-4e1f-b85c-61c0a8904d6a";
 // The real locale file is the fixture: a dropped or renamed key then fails the
 // suite instead of surfacing as a raw key path at runtime.
 const COPY = messages.brandDetail.correction;
-const EDIT_COPY = messages.dashboard.edit;
+const EDIT_COPY = messages.brandFields;
 
 // The trigger has no aria-label — its visible text is its accessible name.
 const TRIGGER_NAME = COPY.trigger;
