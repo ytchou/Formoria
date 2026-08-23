@@ -17,18 +17,7 @@ const SUBMISSION_IMAGES_KEY_PREFIX = 'submissions/'
 // Curated product images (DEV-1404): `curated-products/<brand>/<product>/<hash>.webp`
 // in the same `brand-images` bucket.
 export const CURATED_PRODUCT_IMAGES_KEY_PREFIX = 'curated-products/'
-// Roster-owned COPIES of exhibitor heroes (DEV-1370), written by
-// `scripts/seed-expo-exhibitor-content.ts` into the same `brand-images` bucket
-// and referenced by `event_exhibitors.image_storage_path`. Read-only here, like
-// `submissions/`: they are never a delete-path target.
-const EVENT_EXHIBITOR_IMAGES_KEY_PREFIX = 'event-exhibitors/'
 const DELETABLE_IMAGE_KEY_PREFIXES = [BRAND_IMAGES_KEY_PREFIX] as const
-const READABLE_IMAGE_KEY_PREFIXES = [
-  BRAND_IMAGES_KEY_PREFIX,
-  SUBMISSION_IMAGES_KEY_PREFIX,
-  CURATED_PRODUCT_IMAGES_KEY_PREFIX,
-  EVENT_EXHIBITOR_IMAGES_KEY_PREFIX,
-] as const
 
 const CLAIM_PROOF_IMAGE_CONFIG: Partial<ImageProcessorConfig> = {
   maxWidth: 2400,
@@ -113,16 +102,43 @@ export function storageKeyFromPublicUrl(url: string): string | null {
  * open, so they cannot share a prefix list.
  */
 export function storageKeyFromPublicUrlForRead(url: string): string | null {
-  const prefix = getBrandImagesPublicPrefix()
-  if (!url || !prefix || !url.startsWith(prefix)) {
+  if (!url) {
     return null
   }
 
-  const key = url.slice(prefix.length)
-  if (!READABLE_IMAGE_KEY_PREFIXES.some((allowed) => key.startsWith(allowed))) {
+  /*
+   * Matched on the bucket segment, not on the current project's host. A
+   * bucket-relative key is the same object whichever project URL fronts it,
+   * and requiring an exact host match made this fail closed for every row
+   * whose url names a different project -- which is every row in a database
+   * restored from another environment. Staging is a copy of production, so on
+   * 2026-08-23 all 634 of its rows resolved to nothing and would have lost
+   * their images the moment the bucket went private.
+   *
+   * Safe because the segment names the bucket explicitly and these urls come
+   * from our own columns, never from user input. The delete-path twin above
+   * stays host-exact on purpose -- it fails closed.
+   */
+  const segmentIndex = url.indexOf(BRAND_IMAGES_PUBLIC_SEGMENT)
+  if (segmentIndex === -1) {
     return null
   }
 
+  const key = url.slice(segmentIndex + BRAND_IMAGES_PUBLIC_SEGMENT.length)
+  if (!key || key.includes('..')) {
+    return null
+  }
+
+  /*
+   * No prefix allow-list on the read path. The bucket segment above already
+   * established that this is one of our `brand-images` objects, and a list
+   * here only adds a way to be wrong: it omitted `curated-products/` until
+   * task 11, and `events/` until the 2026-08-23 staging backfill found a row
+   * it could not resolve. Reading a key that turns out not to exist is a 404;
+   * failing to resolve a key that does exist loses the image. This function is
+   * the fail-open twin by design -- `storageKeyFromPublicUrl` above keeps its
+   * strict list because deleting is the direction that must fail closed.
+   */
   return key
 }
 

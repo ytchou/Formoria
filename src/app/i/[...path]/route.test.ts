@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
  * a better seam anyway.
  */
 import {
-  PROXIED_IMAGE_PREFIXES,
+  PRIVATE_IMAGE_PREFIXES,
   resolveProxiedImageKey,
   serveProxiedImage,
   type ProxiedImageDownload,
@@ -83,11 +83,9 @@ describe("GET /i/[...path]", () => {
 
     expect(response.status).toBe(404);
     expect(requested).toEqual([]);
-    expect(PROXIED_IMAGE_PREFIXES).toEqual([
-      "brands/",
-      "event-exhibitors/",
-      "curated-products/",
-    ]);
+    // A deny-list, so this asserts what stays PRIVATE. It used to be an
+    // allow-list and went stale twice: `curated-products/` and then `events/`.
+    expect(PRIVATE_IMAGE_PREFIXES).toEqual(["submissions/"]);
   });
 
   it("404s a path traversal attempt, raw and encoded", async () => {
@@ -141,5 +139,18 @@ describe("GET /i/[...path]", () => {
 
     expect(typeof route.GET).toBe("function");
     expect(route.runtime).toBe("nodejs");
+  });
+
+  it("serves a prefix no allow-list ever knew about", async () => {
+    // `events/` was found in the bucket by the 2026-08-23 staging backfill,
+    // in neither the proxy allow-list nor the read-key list. Under a deny-list
+    // it just works, which is the point of the inversion.
+    const key = "events/2026-taiwan-creative-expo/hero.webp";
+    const { download, requested } = storageWith({ [key]: "image/webp" });
+
+    const response = await serveProxiedImage(key.split("/"), download);
+
+    expect(response.status).toBe(200);
+    expect(requested).toEqual([key]);
   });
 });

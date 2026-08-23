@@ -120,4 +120,22 @@ describe('backfill-storage-paths', () => {
       'events',
     ])
   })
+
+  it('resolves a url whose host is a different Supabase project', () => {
+    // Staging is restored from production, so every row there carries a
+    // production host. Requiring an exact host match reported all 634 staging
+    // rows unresolvable on 2026-08-23; a bucket-relative key is the same
+    // object whichever project URL fronts it.
+    const otherProject =
+      'https://some-other-ref.supabase.co/storage/v1/object/public/brand-images/brands/abc/hero.webp'
+
+    expect(resolveStoragePath(otherProject)).toBe('brands/abc/hero.webp')
+  })
+
+  it('still refuses a url that is not a brand-images object', () => {
+    expect(
+      resolveStoragePath('https://evil.example/storage/v1/object/public/other-bucket/x.webp'),
+    ).toBeNull()
+    expect(resolveStoragePath('https://evil.example/brands/abc/hero.webp')).toBeNull()
+  })
 })

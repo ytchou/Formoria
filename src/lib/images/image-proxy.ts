@@ -17,24 +17,27 @@
 export const PROXIED_IMAGE_BUCKET = "brand-images" as const;
 
 /**
- * The ONLY key prefixes this route will serve. A module-level constant rather
- * than an inline conditional so that adding a prefix is a visible, reviewable
- * diff.
+ * Key prefixes this route refuses to serve. A DENY-list, not an allow-list.
  *
- * `submissions/` is deliberately absent: submission imagery is pre-moderation
- * content that only admins may see, and admin review signs its URLs instead
- * (see `src/lib/services/_shared/signed-urls.ts`).
+ * `submissions/` is pre-moderation content that only admins may see; admin
+ * review signs its URLs instead (`src/lib/services/_shared/signed-urls.ts`).
+ * Everything else in `brand-images` is public imagery, which is the invariant
+ * this constant now states directly.
  *
- * `curated-products/` was added when task 11 flipped the bucket private: the
- * curated product layer renders `curated_products.image_url` on public pages,
- * and its objects live under this same bucket, so without this prefix every
- * curated product image would 404 the moment the bucket stopped being public.
+ * It used to be an allow-list and it went stale twice in one week: task 11
+ * missed `curated-products/`, which would have 404ed every curated product
+ * image the moment the bucket went private, and the 2026-08-23 staging
+ * backfill then turned up `events/`, which no list knew about at all. An
+ * allow-list has to be edited every time a surface stores a new prefix, and
+ * nothing fails until production 404s -- `resolveProxiedImageKey` returning
+ * null is indistinguishable from a genuinely bad key. A deny-list cannot go
+ * stale as surfaces are added, and the one thing that must stay private is
+ * named explicitly.
+ *
+ * Adding a prefix here makes objects PRIVATE. Anything added must have a
+ * signed-URL path for the people who are allowed to see it.
  */
-export const PROXIED_IMAGE_PREFIXES = [
-  "brands/",
-  "event-exhibitors/",
-  "curated-products/",
-] as const;
+export const PRIVATE_IMAGE_PREFIXES = ["submissions/"] as const;
 
 export const PROXIED_IMAGE_CACHE_CONTROL =
   "public, max-age=31536000, immutable";
@@ -102,7 +105,7 @@ export function resolveProxiedImageKey(
   if (decoded.includes("..")) return null;
 
   const key = parts.join("/");
-  if (!PROXIED_IMAGE_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+  if (PRIVATE_IMAGE_PREFIXES.some((prefix) => key.startsWith(prefix))) {
     return null;
   }
 
