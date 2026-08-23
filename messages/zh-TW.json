@@ -385,8 +385,7 @@
       "threads": "Threads",
       "facebook": "Facebook",
       "instagram": "Instagram",
-      "instagramCopied": "已複製連結，貼到限時動態或個人簡介",
-      "close": "關閉"
+      "instagramCopied": "已複製連結，貼到限時動態或個人簡介"
     },
     "links": {
       "socialPlatforms": "社群平台",
@@ -439,7 +438,7 @@
       "reportFieldOther": "其他",
       "notesLabel": "補充說明（選填）",
       "notesPlaceholder": "請提供更多資訊，以協助我們更快處理",
-      "submitting": "送出中...",
+      "submitting": "送出中…",
       "submit": "送出檢舉",
       "errors": {
         "missingBrandId": "缺少品牌 ID",
@@ -500,20 +499,20 @@
       }
     },
     "correction": {
-      "trigger": "資料有誤?",
+      "trigger": "回報資料有誤",
       "title": "修正品牌資訊",
       "purchaseTrigger": "提供購買連結",
       "purchaseTitle": "提供購買連結",
-      "purchaseFieldPickerLabel": "要提供哪一個線上購買連結?",
+      "purchaseFieldPickerLabel": "線上購買連結",
       "purchaseFieldPickerPlaceholder": "請選擇線上購買連結…",
       "purchaseUrlLabel": "連結網址",
       "purchaseUrlPlaceholder": "https://example.com/shop",
       "socialTrigger": "提供社群連結",
       "socialTitle": "提供社群連結",
-      "socialFieldPickerLabel": "要提供哪一個社群管道?",
+      "socialFieldPickerLabel": "社群管道",
       "socialFieldPickerPlaceholder": "請選擇社群管道…",
       "close": "關閉",
-      "fieldPickerLabel": "要修正哪一項?",
+      "fieldPickerLabel": "修正項目",
       "fieldPickerPlaceholder": "請選擇要修正的項目…",
       "description": "感謝提供建議！送出後由 Formoria 審核決定是否更新。",
       "submitting": "送出中…",
@@ -2405,7 +2404,6 @@
     "floorMapOpenViewer": "全螢幕平面圖",
     "floorMapViewerTitle": "全螢幕平面圖",
     "floorMapViewerDescription": "可上下左右捲動平移，選擇縮放比例或查看完整平面圖。",
-    "floorMapCloseViewer": "關閉平面圖檢視器",
     "floorMapZoom": "縮放",
     "floorMapFit": "完整檢視",
     "floorMapZoomTimes": "{value} 倍",
