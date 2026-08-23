@@ -1,6 +1,7 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 
+import { BUDGET } from "../budgets";
 import { getServiceClient } from "../helpers/seed";
 
 /**
@@ -69,6 +70,31 @@ async function crawlUntilLimited(
   return statuses;
 }
 
+/**
+ * Fire requests in parallel batches until the origin returns 429, or the cap is
+ * reached. Parallel because the point is to exhaust a bucket, not to measure
+ * ordering: 800+ sequential round trips to a deployed origin cannot finish
+ * inside any sane test budget, and a batch proves the same thing.
+ */
+async function exhaustUntilLimited(
+  request: APIRequestContext,
+  path: string,
+  headers: Record<string, string>,
+  cap: number,
+): Promise<boolean> {
+  const batchSize = 60;
+
+  for (let sent = 0; sent < cap; sent += batchSize) {
+    const batch = Array.from({ length: batchSize }, () =>
+      rawGet(request, path, headers),
+    );
+    const statuses = (await Promise.all(batch)).map((r) => r.status());
+    if (statuses.includes(429)) return true;
+  }
+
+  return false;
+}
+
 async function approvedSlugs(limit: number): Promise<string[]> {
   const { data, error } = await getServiceClient()
     .from("brands")
@@ -85,6 +111,8 @@ test.describe("anti-enumeration — adversarial", () => {
   test("1. a bare Accept: */* client is metered, not exempt", async ({
     request,
   }) => {
+    test.setTimeout(BUDGET.TEST.CLAIM);
+
     // DEV-1269 added `accept: */*` to isRouterRequest, which handed any client
     // sending one curl flag a permanent exemption from both the document budget
     // and Turnstile. DEV-1551 deleted it on the evidence in
@@ -93,15 +121,18 @@ test.describe("anti-enumeration — adversarial", () => {
     const slugs = await approvedSlugs(1);
     const target = `${BRANDS}/${slugs[0] ?? "unknown"}`;
 
-    const outcomes: number[] = [];
-    for (let i = 0; i < 40; i += 1) {
-      const response = await rawGet(request, target, { accept: "*/*" });
-      outcomes.push(response.status());
-    }
+    // Must actually exhaust the document budget. A short loop proves nothing:
+    // under the budget every request is a 200 whether it is counted or not, so
+    // the only observable difference between "metered" and "exempt" is that a
+    // metered client eventually gets a 429.
+    const limited = await exhaustUntilLimited(
+      request,
+      target,
+      { accept: "*/*" },
+      1_500,
+    );
 
-    // The signal no longer buys an exemption: these requests are subject to the
-    // same accounting as any other client.
-    expect(outcomes.every((status) => status === 200)).toBe(false);
+    expect(limited).toBe(true);
   });
 
   // Closed 2026-08-23. Deleting `accept` removed one spoofable signal and left
@@ -117,18 +148,17 @@ test.describe("anti-enumeration — adversarial", () => {
     ["4. next-router-prefetch", { "next-router-prefetch": "1" }],
   ] as const) {
     test(`${name} spoof is metered, not exempt`, async ({ request }) => {
+      // Exhausting a bucket over the network is legitimately long work.
+      test.setTimeout(BUDGET.TEST.CLAIM);
+
       const slugs = await approvedSlugs(1);
       const target = `${BRANDS}/${slugs[0] ?? "unknown"}`;
 
-      // Deliberately past the raised router budget: the point is that one
-      // exists at all, where before this loop could run forever.
-      const statuses: number[] = [];
-      for (let i = 0; i < 900; i += 1) {
-        const response = await rawGet(request, target, header);
-        statuses.push(response.status());
-      }
+      // Deliberately past the raised router budget. Before this fix the loop
+      // could have run forever: a router signal was an unconditional skip.
+      const limited = await exhaustUntilLimited(request, target, header, 1_500);
 
-      expect(statuses).toContain(429);
+      expect(limited).toBe(true);
     });
   }
 
