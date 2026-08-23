@@ -24,11 +24,19 @@ describe("Directory Health policies", () => {
       expect(query.readOnly).toBe(true);
     }
 
+    // Autovacuum's threshold and the true bloat ratio both scale off
+    // pg_class.reltuples, never off the n_live_tup delta (DEV-1560).
     expect(DIRECTORY_QUERY_SPECS.deadTuples.sql).toMatch(
-      /n_dead_tup\s*\/\s*\(n_live_tup\s*\+\s*n_dead_tup\)/i,
+      /NULLIF\(classes\.reltuples,\s*-1\)/i,
     );
     expect(DIRECTORY_QUERY_SPECS.deadTuples.sql).toMatch(
-      /n_live_tup\s*\+\s*n_dead_tup\s*>\s*0/i,
+      /stats\.n_dead_tup\s*\/\s*\(live\.estimate\s*\+\s*stats\.n_dead_tup\)/i,
+    );
+    expect(DIRECTORY_QUERY_SPECS.deadTuples.sql).toMatch(
+      /\*\s*live\.estimate\s+AS\s+autovacuum_threshold/i,
+    );
+    expect(DIRECTORY_QUERY_SPECS.deadTuples.sql).not.toMatch(
+      /\*\s*stats\.n_live_tup\s+AS\s+autovacuum_threshold/i,
     );
   });
 

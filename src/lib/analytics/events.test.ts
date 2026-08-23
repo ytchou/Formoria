@@ -38,8 +38,6 @@ const EVENT_NAME_SNAPSHOT = [
   'brand_saved',
   'saved_brand_revisited',
   'brand_unsaved',
-  'brand_liked',
-  'brand_unliked',
   'submission_form_opened',
   'submission_path_selected',
   'submission_form_step_completed',

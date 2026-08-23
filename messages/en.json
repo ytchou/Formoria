@@ -3206,14 +3206,6 @@
     "exploreBrands": "Browse Brands",
     "loginToSave": "Log in to save brands"
   },
-  "likeBrand": {
-    "like": "Support",
-    "likeAriaLabel": "Support this brand, {count, plural, one {# supporter} other {# supporters}}",
-    "unlikeAriaLabel": "Remove your support from this brand, {count, plural, one {# supporter} other {# supporters}}",
-    "loading": "Loading support count",
-    "rateLimited": "Too many reactions. Please try again later.",
-    "error": "We couldn't update your support. Please try again."
-  },
   "search": {
     "emptyState": {
       "noticeSearchCategory": "No brands match “{query}” in “{category}”.",

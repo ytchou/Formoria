@@ -1792,6 +1792,78 @@ describe("collect-brand-review", () => {
     });
   });
 
+  // DEV-1555. The scan was bounded to `updated_at >= now() - 25h`, so an
+  // unedited brand fell out of the corpus and the lifecycle reconciler read its
+  // absent fingerprint as `detector_absence` -> `fixed`. On production that
+  // window held 1 of 788 approved brands. Absence can only mean "fixed" if the
+  // detector actually looks at everything.
+  it("scans every approved brand rather than a recent-edit window", async () => {
+    const { files } = brandReviewFiles();
+    const requested: string[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>(async (url) => {
+      requested.push(String(url));
+      if (String(url).includes("/rest/v1/brands")) {
+        return new Response(JSON.stringify([]), { status: 200 });
+      }
+      return new Response(JSON.stringify(true), { status: 200 });
+    });
+
+    await runWorkflowCommand("collect-brand-review", input, {
+      env,
+      fetchImplementation,
+      files,
+    });
+
+    const brandQuery = requested.find((url) => url.includes("/rest/v1/brands"));
+    expect(brandQuery).toBeDefined();
+    expect(brandQuery).toContain("status=eq.approved");
+    expect(brandQuery).not.toContain("updated_at");
+  });
+
+  // A full scan without paging just moves the same bug to row 1000: PostgREST
+  // caps `max_rows` at 1000 on this project and truncates silently, so every
+  // brand past the cap would go permanently absent and be permanently "fixed".
+  it("pages past the PostgREST row cap instead of truncating", async () => {
+    const { files } = brandReviewFiles();
+    const ranges: (string | null)[] = [];
+    const page = (count: number, offset: number) =>
+      Array.from({ length: count }, (_unused, index) => ({
+        description: null,
+        description_en: null,
+        id: `brand-${offset + index}`,
+        mit_declared_at: null,
+        mit_declared_scope: null,
+        mit_status: null,
+        mit_verified_at: null,
+        name: `Brand ${offset + index}`,
+        other_urls: null,
+        purchase_website: null,
+        social_facebook: null,
+        social_instagram: null,
+        social_threads: null,
+      }));
+
+    const fetchImplementation = vi.fn<typeof fetch>(async (url, init) => {
+      if (!String(url).includes("/rest/v1/brands")) {
+        return new Response(JSON.stringify(true), { status: 200 });
+      }
+      const headers = new Headers(init?.headers);
+      const range = headers.get("Range");
+      ranges.push(range);
+      // First page full at the cap, second page short -> paging must stop.
+      const body = range?.startsWith("0-") ? page(1000, 0) : page(1, 1000);
+      return new Response(JSON.stringify(body), { status: 206 });
+    });
+
+    await runWorkflowCommand("collect-brand-review", input, {
+      env,
+      fetchImplementation,
+      files,
+    });
+
+    expect(ranges).toEqual(["0-999", "1000-1999"]);
+  });
+
   it("produces a successful empty artifact when there are no recent edits", async () => {
     const { contents, files } = brandReviewFiles();
     const fetchImplementation = vi.fn<typeof fetch>(async () =>

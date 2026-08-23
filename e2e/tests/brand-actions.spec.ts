@@ -7,8 +7,7 @@ import { waitForViewerReady } from "../helpers/viewer-ready";
  * Public brand actions and admin placement.
  *
  * These journeys exercise the controls that sit beside a brand name on the
- * detail page: anonymous support and the admin menu's placement in the heading
- * row.
+ * detail page: the admin menu's placement in the heading row.
  */
 
 test.describe("Brand detail actions", () => {
@@ -25,47 +24,6 @@ test.describe("Brand detail actions", () => {
 
   test.afterAll(async () => {
     await seeded.cleanup();
-  });
-
-  test("anonymous visitor can add and remove public support", async ({
-    anonPage,
-  }) => {
-    const response = await anonPage.goto(`/brands/${seeded.slug}`, {
-      waitUntil: "domcontentloaded",
-    });
-    if (response?.status() === 503) {
-      test.skip(true, "PREVIEW_MODE active — skipping.");
-      return;
-    }
-
-    const supportButton = anonPage.getByRole("button", {
-      name: /支持這個品牌，目前有 \d+ 個支持/,
-    });
-    await expect(supportButton).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
-    await expect(supportButton).toHaveAttribute("aria-pressed", "false");
-    await expect(supportButton).toHaveAttribute(
-      "aria-label",
-      "支持這個品牌，目前有 0 個支持",
-    );
-
-    await supportButton.click();
-
-    const removeSupportButton = anonPage.getByRole("button", {
-      name: /收回對這個品牌的支持，目前有 \d+ 個支持/,
-    });
-    await expect(removeSupportButton).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
-    await expect(removeSupportButton).toHaveAttribute("aria-pressed", "true");
-    await expect(removeSupportButton).toHaveAttribute(
-      "aria-label",
-      "收回對這個品牌的支持，目前有 1 個支持",
-    );
-
-    await removeSupportButton.click();
-    await expect(
-      anonPage.getByRole("button", {
-        name: "支持這個品牌，目前有 0 個支持",
-      }),
-    ).toHaveAttribute("aria-pressed", "false");
   });
 
   test("admin menu renders in the brand heading row", async ({ adminPage }) => {

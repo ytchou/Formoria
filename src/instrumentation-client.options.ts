@@ -3,9 +3,18 @@
 // `Sentry.init` and installs global browser handlers.
 
 import * as Sentry from "@sentry/nextjs";
+import {
+  isLocalRequestUrl,
+  resolveSentryEnvironment,
+} from "@/lib/observability/sentry-environment";
 
 export const clientSentryOptions = {
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+
+  // Resolved from the `NEXT_PUBLIC_RAILWAY_ENVIRONMENT_NAME` that
+  // `next.config.ts` inlines into this bundle. Without it the SDK would fall
+  // back to `NODE_ENV` and tag a local `next start` as production (DEV-1561).
+  environment: resolveSentryEnvironment(),
 
   // `replayIntegration` exists only in the browser build of `@sentry/nextjs`.
   // This module is imported by a node-environment test, where evaluating it at
@@ -62,6 +71,10 @@ export const clientSentryOptions = {
   ],
 
   beforeSend(event) {
+    if (isLocalRequestUrl(event.request?.url)) {
+      return null;
+    }
+
     if (event.user) {
       delete event.user.email;
       delete event.user.ip_address;

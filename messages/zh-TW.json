@@ -2274,14 +2274,6 @@
     "exploreBrands": "探索品牌目錄",
     "loginToSave": "登入後即可收藏品牌"
   },
-  "likeBrand": {
-    "like": "支持",
-    "likeAriaLabel": "支持這個品牌，目前有 {count} 個支持",
-    "unlikeAriaLabel": "收回對這個品牌的支持，目前有 {count} 個支持",
-    "loading": "正在載入支持數",
-    "rateLimited": "操作太頻繁，請稍後再試。",
-    "error": "目前無法更新支持，請再試一次。"
-  },
   "search": {
     "emptyState": {
       "noticeSearchCategory": "目前沒有符合「{query}」且屬於「{category}」的品牌。",

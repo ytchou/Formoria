@@ -46,7 +46,6 @@ const PROVIDERS = {
     "saveAdminBrandReview",
     "saveBrand",
     "saveDraft",
-    "setBrandLike",
     "setFeatureRequestStatus",
     "setFeatureRequestVote",
     "setOwnerStockistStatus",

@@ -71,6 +71,19 @@ const supabaseOrigin = (() => {
 })();
 
 const nextConfig: NextConfig = {
+  // Railway injects `RAILWAY_ENVIRONMENT_NAME` into the build, but only a
+  // `NEXT_PUBLIC_` name is inlined into the browser bundle. Without this
+  // mirror, `resolveSentryEnvironment()` finds no deploy marker on the client
+  // and every browser error from production reports as `local` (DEV-1561).
+  // Omitted entirely when absent so a local build keeps resolving to `local`.
+  ...(process.env.RAILWAY_ENVIRONMENT_NAME?.trim()
+    ? {
+        env: {
+          NEXT_PUBLIC_RAILWAY_ENVIRONMENT_NAME:
+            process.env.RAILWAY_ENVIRONMENT_NAME,
+        },
+      }
+    : {}),
   serverExternalPackages: ["adm-zip", "@playwright/test"],
   transpilePackages: ["react-simple-maps"],
   experimental: {

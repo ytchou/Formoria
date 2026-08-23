@@ -29,8 +29,6 @@ import {
   trackGalleryPhotoView,
   trackBrandPageShared,
   trackSubcategoryFilterApplied,
-  trackBrandLiked,
-  trackBrandUnliked,
   trackFaqItemExpanded,
   trackBrandDetailEngaged,
   trackSavedBrandRevisited,
@@ -482,24 +480,6 @@ describe('filter result counts', () => {
       { result_count: number },
     ]
     expect(Number.isInteger(properties.result_count)).toBe(true)
-  })
-})
-
-describe('brand like tracking', () => {
-  it('tracks public brand likes and removals separately from saves', () => {
-    trackBrandLiked('brand-uuid', 'my-brand')
-    trackBrandUnliked('brand-uuid', 'my-brand')
-
-    expect(mockPostHogCapture).toHaveBeenNthCalledWith(1, 'brand_liked', {
-      brand_id: 'brand-uuid',
-      brand_slug: 'my-brand',
-      location: 'brand_detail',
-    })
-    expect(mockPostHogCapture).toHaveBeenNthCalledWith(2, 'brand_unliked', {
-      brand_id: 'brand-uuid',
-      brand_slug: 'my-brand',
-      location: 'brand_detail',
-    })
   })
 })
 
