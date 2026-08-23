@@ -704,19 +704,6 @@ export const ANALYTICS_EVENTS = {
    * @property content_group {string | null} Content group at report time, null on the server.
    */
   WEB_VITAL_REPORTED: 'web_vital_reported',
-
-  /**
-   * A product feature request was submitted.
-   * @property request_id {string} Feature request id.
-   */
-  FEATURE_REQUEST_SUBMITTED: 'feature_request_submitted',
-
-  /**
-   * A vote on a feature request was cast or withdrawn.
-   * @property request_id {string} Feature request id.
-   * @property voted {boolean} True when voting, false when withdrawing the vote.
-   */
-  FEATURE_REQUEST_VOTED: 'feature_request_voted',
 } as const
 
 /**
@@ -1056,6 +1043,4 @@ export interface AnalyticsEventPayloads {
     navigation_type: string | null
     content_group: string | null
   }
-  [ANALYTICS_EVENTS.FEATURE_REQUEST_SUBMITTED]: { request_id: string }
-  [ANALYTICS_EVENTS.FEATURE_REQUEST_VOTED]: { request_id: string; voted: boolean }
 }

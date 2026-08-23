@@ -48,16 +48,4 @@ describe('isLocalizedPublicPath', () => {
   it('still excludes non-localized routes', () => {
     expect(isLocalizedPublicPath('/admin')).toBe(false)
   })
-
-  it('keeps the feature request board out of the brand-slug redirect', async () => {
-    const request = new NextRequest('https://formoria.com/feature-requests', {
-      headers: { host: 'formoria.com' },
-    })
-
-    const response = await proxy(request)
-
-    expect(response.headers.get('location')).toBeNull()
-    expect(isLocalizedPublicPath('/feature-requests')).toBe(true)
-    expect(isLocalizedPublicPath('/en/feature-requests')).toBe(true)
-  })
 })

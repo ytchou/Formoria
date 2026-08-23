@@ -91,7 +91,6 @@ export const routes = {
   gettingStarted: () => '/getting-started',
   challenge: () => '/challenge',
   contributions: () => '/contributions',
-  featureRequests: () => '/feature-requests',
 
   // Signed-in account surfaces
   favorites: () => '/favorites',
@@ -135,7 +134,6 @@ export const routes = {
     corrections: () => '/admin/corrections',
     curatedProducts: (query?: RouteQuery) => withQuery('/admin/curated-products', query),
     evidence: () => '/admin/evidence',
-    featureRequests: () => '/admin/feature-requests',
     jobs: (query?: RouteQuery) => withQuery('/admin/jobs', query),
     job: (id: string) => `/admin/jobs/${seg(id)}`,
     /** The job's rendered run log, served by a route handler under `/admin`. */

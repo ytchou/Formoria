@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { Building2, HelpCircle, Lightbulb, Mail } from 'lucide-react'
+import { Building2, HelpCircle, Mail } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
@@ -55,12 +55,6 @@ export default async function ContactPage({ params }: PageProps) {
       icon: Mail,
       href: `mailto:${CONTACT_EMAILS.contact}`,
       external: true,
-    },
-    {
-      key: 'feature',
-      icon: Lightbulb,
-      href: routes.featureRequests(),
-      external: false,
     },
     { key: 'brand', icon: Building2, href: routes.brands(), external: false },
     { key: 'question', icon: HelpCircle, href: routes.faq(), external: false },

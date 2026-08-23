@@ -41,7 +41,6 @@ function renderEmptyState(
 ) {
   return render(
     <SearchEmptyState
-      query=""
       activeFilters={[]}
       recommendedBrands={[]}
       recommendationsHref={routes.brands()}
@@ -71,10 +70,7 @@ describe("SearchEmptyState", () => {
   });
 
   it("offers the same route out with no recommendations to fall back on", () => {
-    const { container } = renderEmptyState({
-      query: "unmatchable",
-      activeFilters: [FILTER],
-    });
+    const { container } = renderEmptyState({ activeFilters: [FILTER] });
 
     // Not "some link exists" — every link on the page must go somewhere real.
     const hrefs = Array.from(container.querySelectorAll("a")).map((link) =>
@@ -86,7 +82,7 @@ describe("SearchEmptyState", () => {
   });
 
   it("offers to drop the filters that emptied the page, keeping the search", () => {
-    renderEmptyState({ query: "kettle", activeFilters: [FILTER] });
+    renderEmptyState({ activeFilters: [FILTER] });
 
     // Clearing filters keeps what the reader asked for and widens where it is
     // looked for; browsing everything abandons the question. Both are offered,
@@ -103,18 +99,10 @@ describe("SearchEmptyState", () => {
   });
 
   it("offers no clear-filters route when nothing is filtered", () => {
-    renderEmptyState({ query: "unmatchable" });
+    renderEmptyState();
 
     expect(
       screen.queryByRole("link", { name: /actions\.clearFilters\.title/ }),
     ).toBeNull();
-  });
-
-  it("offers to recommend the brand the reader searched for", () => {
-    renderEmptyState({ query: "未收錄品牌" });
-
-    expect(
-      screen.getByRole("link", { name: /actions\.recommendBrand\.title/ }),
-    ).toHaveAttribute("href", routes.submit.recommend({ name: "未收錄品牌" }));
   });
 });

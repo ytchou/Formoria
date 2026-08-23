@@ -408,26 +408,6 @@ const nextConfig: NextConfig = {
         destination: "/stories",
         permanent: true,
       },
-      // Same trap as /guides above: the feature-request board moved from
-      // /feedback to /feature-requests and `feedback` left RESERVED_ROUTES, so a
-      // bare /feedback would otherwise match SLUG_PATTERN in src/proxy.ts and
-      // 308 to /brands/feedback, which 404s. These keep the old internal links
-      // (footer, FAQ, account menu) landing on the board.
-      {
-        source: "/feedback",
-        destination: "/feature-requests",
-        permanent: true,
-      },
-      {
-        source: "/en/feedback",
-        destination: "/en/feature-requests",
-        permanent: true,
-      },
-      {
-        source: "/zh-TW/feedback",
-        destination: "/feature-requests",
-        permanent: true,
-      },
       {
         source: "/zh-TW/auth/:path*",
         destination: "/auth/:path*",

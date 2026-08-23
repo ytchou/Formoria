@@ -443,11 +443,6 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
       isSweepCandidate(row, createdSince, orphanedBefore);
   });
   const jobIds = jobs.map((row) => String(row.id)).filter(Boolean);
-  const featureRequests = (await queryRows(supabase, 'feature_requests', 'id, title, created_at', failures)).filter((row) =>
-    isE2EName(row.title) &&
-    isSweepCandidate(row, createdSince, orphanedBefore),
-  );
-  const featureRequestIds = featureRequests.map((row) => String(row.id)).filter(Boolean);
   const newsletterRows = (await queryRows(supabase, 'newsletter_subscribers', 'id, email, created_at', failures)).filter((row) =>
     typeof row.email === 'string' &&
     row.email.startsWith('e2e-') &&
@@ -476,14 +471,12 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
   ];
 
   // Delete children first. This includes the tables that were previously
-  // omitted from the sweep (owner preferences, jobs, feature requests,
-  // reports, images, and claim storage), then the namespaced roots.
-  await deleteWhereIn(supabase, 'feature_request_votes', 'request_id', featureRequestIds, failures);
+  // omitted from the sweep (owner preferences, jobs, reports, images, and
+  // claim storage), then the namespaced roots.
   await deleteWhereIn(supabase, 'curation_job_targets', 'job_id', jobIds, failures);
   await deleteWhereIn(supabase, 'curation_jobs', 'id', jobIds, failures);
   await deleteWhereIn(supabase, 'event_brands', 'event_id', eventIds, failures);
   await deleteWhereIn(supabase, 'events', 'id', eventIds, failures);
-  await deleteWhereIn(supabase, 'feature_requests', 'id', featureRequestIds, failures);
   await deleteWhereIn(supabase, 'brand_reports', 'id', reportIds, failures);
   await deleteWhereIn(supabase, 'brand_field_corrections', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'moderation_flags', 'brand_id', brandIds, failures);
@@ -546,8 +539,6 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
     ['curation_jobs', 'id', jobIds],
     ['curation_job_targets', 'job_id', jobIds],
     ['event_brands', 'event_id', eventIds],
-    ['feature_requests', 'id', featureRequestIds],
-    ['feature_request_votes', 'request_id', featureRequestIds],
     ['brand_reports', 'id', reportIds],
     ['brand_owners', 'brand_id', brandIds],
     ['brand_images', 'brand_id', brandIds],

@@ -65,11 +65,6 @@ export const EXPECTED_STAGING_CONSTRAINT_SKIP_REGISTRY: readonly StagingConstrai
     reason: ANONYMOUS_MUTATION_REASON,
   },
   {
-    file: 'feature-requests.spec.ts',
-    title: 'signed-out visitor upvotes without signing in',
-    reason: ANONYMOUS_MUTATION_REASON,
-  },
-  {
     file: 'auth-signin.spec.ts',
     title: 'sign-in page renders the heading and Google entry point',
     reason: HIDDEN_AUTH_AFFORDANCE_REASON,

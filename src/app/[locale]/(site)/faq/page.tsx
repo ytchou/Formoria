@@ -136,7 +136,7 @@ export default async function FaqPage({ params }: PageProps) {
             <Accordion>
               {/* Brand claiming is live (`ClaimBrandCta` on the brand page), so
                   this answer describes the claim flow; the remaining owner
-                  features are still collected via the feature-request link.
+                  features have no public destination yet.
                   `id="claim"` is kept so legacy /faq#claim deep links still
                   land on an answer — and it must stay on the <details> itself,
                   which is what OpenTargetDetails looks for. */}
@@ -145,18 +145,7 @@ export default async function FaqPage({ params }: PageProps) {
                 className="scroll-mt-24"
                 title={t('items.ownerInterest.question')}
               >
-                <p>
-                  {t.rich('items.ownerInterest.answer', {
-                    link: (chunks) => (
-                      <Link
-                        href={routes.featureRequests()}
-                        className="underline underline-offset-4"
-                      >
-                        {chunks}
-                      </Link>
-                    ),
-                  })}
-                </p>
+                <p>{t('items.ownerInterest.answer')}</p>
               </AccordionItem>
             </Accordion>
           </section>

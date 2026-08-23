@@ -356,8 +356,13 @@ test.describe.serial('Public brand search edge cases', () => {
     await expect(page.getByText('找不到品牌', { exact: true })).toHaveCount(0);
     await expect(page.getByText('目前套用條件', { exact: true })).toHaveCount(0);
     await expect(emptyState.getByRole('heading', { name: '找不到符合的品牌' })).toBeVisible();
-    await expect(emptyState.getByRole('status')).toContainText(missingQuery);
-    await expect(emptyState.locator('img[src="x"]')).toHaveCount(0);
+    // The empty state no longer echoes the query back — the notice banner that
+    // did was removed. The search box is now the only place the raw string is
+    // rendered, so that is where the escaping guard has to point.
+    await expect(
+      page.locator('form[role="search"] input[role="searchbox"]:visible').first(),
+    ).toHaveValue(missingQuery);
+    await expect(page.locator('img[src="x"]')).toHaveCount(0);
     await expect(emptyState.getByRole('heading', { name: '類似的選擇' })).toBeVisible();
     await expect(emptyState.getByRole('link', { name: '查看全部' })).toBeVisible();
   });

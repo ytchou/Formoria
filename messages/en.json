@@ -47,7 +47,6 @@
     "companyHeading": "Company",
     "faq": "FAQ",
     "connectHeading": "Connect",
-    "feedback": "Feature requests",
     "whereToBuy": "Where to buy",
     "discover": "Styles",
     "disclosure": "Formoria does not sell products. Every purchase happens on the brand's own website or at a stockist."
@@ -123,9 +122,6 @@
       "headline": "Found a brand that should not be missed?",
       "body": "Tell us. Approved brands join the directory, and you need no connection to the brand.",
       "cta": "Recommend a brand"
-    },
-    "featureRequestBand": {
-      "cta": "Request a Feature"
     },
     "events": {
       "heading": "Events",
@@ -1182,7 +1178,7 @@
       },
       "ownerInterest": {
         "question": "I own a brand — can I manage my own brand page?",
-        "answer": "Yes. On the brand page, select “Claim this brand” and submit one piece of ownership proof for our review; once it is approved you can edit brand details, product highlights, and online store and stockist information, and submit an MIT brand declaration. If the brand page is already claimed, the claim button will not appear — tell us on the contact page. While a claim is under review the page stays with our team, and corrections can be reported directly on the brand page. For any other owner tools, tell us on the <link>feature request board</link>."
+        "answer": "Yes. On the brand page, select “Claim this brand” and submit one piece of ownership proof for our review; once it is approved you can edit brand details, product highlights, and online store and stockist information, and submit an MIT brand declaration. If the brand page is already claimed, the claim button will not appear — tell us on the contact page. While a claim is under review the page stays with our team, and corrections can be reported directly on the brand page."
       },
       "whatCategories": {
         "question": "What product categories does Formoria cover?",
@@ -1217,11 +1213,6 @@
         "title": "Report a problem",
         "body": "Something broken, a page that won't load, or an error message while using the site? Email us — a page URL and a screenshot help us fix it faster.",
         "cta": "Email us"
-      },
-      "feature": {
-        "title": "Request a feature",
-        "body": "Want Formoria to do more? Post your idea on the feature request board, and upvote the ideas other people have already asked for.",
-        "cta": "Open the request board"
       },
       "brand": {
         "title": "Something wrong with a brand",
@@ -1423,8 +1414,7 @@
     "contributions": "My Contributions",
     "mySubmissions": "My Recommendations",
     "signOut": "Sign out",
-    "settings": "Settings",
-    "feedback": "Feature requests"
+    "settings": "Settings"
   },
   "favorites": {
     "metadata": {
@@ -2259,9 +2249,6 @@
       "body": "Start with the directory: from one thing you love, to its brand, its story, and the place you can buy it. Or read what Formoria does.",
       "browse": "Browse brands",
       "about": "About Formoria"
-    },
-    "ctaFooter": {
-      "cta": "Post a request on the feature request board"
     }
   },
   "admin": {
@@ -2826,37 +2813,6 @@
       "suggestedTags": "Suggested Tags",
       "notSet": "Not set"
     },
-    "featureRequests": {
-      "title": "Feature requests",
-      "description": "Move requests through the board and fold duplicates into the request they belong to.",
-      "empty": "No feature requests yet.",
-      "table": {
-        "request": "Request",
-        "votes": "Votes",
-        "status": "Status",
-        "merge": "Merge into"
-      },
-      "status": {
-        "open": "Open",
-        "planned": "Planned",
-        "in_progress": "In development",
-        "shipped": "Shipped",
-        "declined": "Declined",
-        "duplicate": "Duplicate"
-      },
-      "statusLabel": "Status for {title}",
-      "noteLabel": "Admin note for {title}",
-      "saveStatus": "Save status",
-      "mergeLabel": "Merge {title} into",
-      "mergeTargetNone": "Pick a target",
-      "mergeAction": "Merge",
-      "mergedInto": "Merged",
-      "toast": {
-        "statusSaved": "Status updated.",
-        "merged": "Requests merged.",
-        "error": "That didn't work. Please try again."
-      }
-    },
     "curatedProducts": {
       "title": "Curated Products",
       "description": "Editorially selected products shown on brand pages. A product publishes only when it can prove itself: an official link, sources that were read, and at least one active source.",
@@ -3208,11 +3164,6 @@
   },
   "search": {
     "emptyState": {
-      "noticeSearchCategory": "No brands match “{query}” in “{category}”.",
-      "noticeSearchFilters": "No brands match “{query}” with the current filters.",
-      "noticeSearch": "No brands match “{query}”.",
-      "noticeFilters": "No brands match the current filters.",
-      "noticeAll": "There are no brands to show right now.",
       "currentConditions": "Current conditions",
       "title": "No matching brands found",
       "description": "Adjust a condition or explore more brands for inspiration.",
@@ -3228,10 +3179,6 @@
         "browseAll": {
           "title": "Browse all brands",
           "description": "Explore every brand on Formoria"
-        },
-        "recommendBrand": {
-          "title": "Recommend this brand",
-          "description": "Can't find it? Recommend it to Formoria and we'll review it shortly."
         }
       },
       "recommendations": "Similar options",
@@ -3380,101 +3327,6 @@
       "title": "Event not found",
       "description": "This event doesn't exist or has been removed.",
       "browseAll": "Browse all events"
-    }
-  },
-  "feedback": {
-    "metadata": {
-      "title": "Feature requests",
-      "description": "Tell us what you'd like Formoria to build, and upvote the ideas you want most."
-    },
-    "title": "Feature requests",
-    "description": "Tell us what would make Formoria more useful for you, and upvote the ideas you want to see next.",
-    "disclaimer": "Order and priority change as we go — we don't commit to dates.",
-    "status": {
-      "open": "Open",
-      "planned": "Planned",
-      "in_progress": "In development",
-      "shipped": "Shipped",
-      "declined": "Declined"
-    },
-    "sections": {
-      "inProgress": {
-        "title": "In development",
-        "description": "These are being built right now — stay tuned!",
-        "empty": "Nothing is being built right now."
-      },
-      "planned": {
-        "title": "Planned",
-        "description": "Committed and queued up — not started yet.",
-        "empty": "Nothing is queued up yet."
-      },
-      "open": {
-        "title": "Open",
-        "description": "Upvote to decide what we build next.",
-        "empty": "No open requests right now — yours could be the first."
-      }
-    },
-    "requests": {
-      "brand_reviews": {
-        "title": "Add reviews and ratings to brand pages",
-        "body": "Let signed-in visitors share their experience with a brand so shoppers can judge customer experience separately from Made-in-Taiwan verification."
-      },
-      "occasion_discovery": {
-        "title": "Browse Taiwanese brands by occasion",
-        "body": "Let visitors discover brands by shopping intent, such as gifts, small-apartment decor, or sustainable essentials, without needing to understand the category structure first."
-      },
-      "nearby_brand_map": {
-        "title": "Show nearby Taiwanese brands on a map",
-        "body": "Let visitors browse brands with physical locations on one map and filter by city, district, and category to find places they can visit nearby."
-      },
-      "owner_claim_flow": {
-        "title": "Let brand owners claim and manage their brand page",
-        "body": "Let a brand's owner verify they represent the brand, then keep its description, official links, and stockists up to date themselves."
-      },
-      "brand_retail_locations": {
-        "title": "Show a brand's retail locations on its page",
-        "body": "List the physical stores, counters, and stockists that carry a brand directly on its brand page, so visitors can see where to buy it in person."
-      },
-      "origin_evidence_reports": {
-        "title": "Let anyone report origin evidence on a brand page",
-        "body": "Let visitors share proof of where a brand's products are actually made — a product label, packaging, or an in-store photo — without needing an account, so Made-in-Taiwan claims are checked by the people who bought the product."
-      },
-      "brand_events": {
-        "title": "Link in-person events to the brands taking part",
-        "body": "Show upcoming markets, fairs, and pop-ups such as Creative Expo Taiwan on the brands appearing at them, so visitors can plan to meet a brand in person."
-      }
-    },
-    "upvote": {
-      "action": "Upvote {title}",
-      "remove": "Remove your upvote from {title}",
-      "error": "We couldn't record that vote. Please try again.",
-      "rateLimited": "That's a lot of voting. Please wait a moment and try again."
-    },
-    "submit": {
-      "trigger": "Request a feature",
-      "title": "Request a feature",
-      "description": "Thanks for taking the time to tell us. We read every request — the more specific it is, the further it gets.",
-      "titleLabel": "What should we build?",
-      "detailsLabel": "Details",
-      "detailsHint": "What are you trying to do, and where does Formoria get in the way? A real example helps.",
-      "contactEmailLabel": "Email",
-      "contactEmailHint": "Leave your email if you'd like a reply about this request.",
-      "anonymityDisclosure": "Requests are shown publicly without your name or email.",
-      "idle": "Send request",
-      "submitting": "Sending",
-      "success": "Thanks — we've got your request.",
-      "errors": {
-        "title": "Give your request a title between 4 and 80 characters so others can find it.",
-        "details": "Add at least 10 characters describing the problem to solve.",
-        "contactEmail": "Enter a valid email address, or leave the field empty.",
-        "unauthenticated": "Please sign in again, then resend your request.",
-        "invalid_input": "Check that the title is 80 characters or fewer and the details are at least 10 characters, then try again.",
-        "rate_limited": "A few requests have already been sent. Please try again in an hour.",
-        "not_found": "That request no longer exists. Reload the page and try again.",
-        "merged": "That request was merged into another one. Reload the page to find it.",
-        "already_submitted": "That request is already on the board. Upvote the existing one instead.",
-        "unavailable": "We couldn't send your request. Please try again in a moment."
-      }
     }
   },
   "districts": {

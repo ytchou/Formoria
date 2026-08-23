@@ -82,11 +82,6 @@
       "reason": "staging blocks anonymous mutations"
     },
     {
-      "file": "feature-requests.spec.ts",
-      "title": "signed-out visitor upvotes without signing in",
-      "reason": "staging blocks anonymous mutations"
-    },
-    {
       "file": "auth-signin.spec.ts",
       "title": "sign-in page renders the heading and Google entry point",
       "reason": "staging hides the Google button and the forgot-password link"

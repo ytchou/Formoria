@@ -63,7 +63,7 @@ export type LandingZonesProps = {
  *     manifesto the photo band
  *     topics    stories, with a live event lifted above them
  *     directory one explore-style brand rail
- *     close     the CTA band — recommend · feature request · newsletter
+ *     close     the CTA band — recommend · newsletter
  *
  * Every zone carries `data-landing-zone`, which is the structure's contract: a
  * marker survives copy edits that a heading-text assertion would not.

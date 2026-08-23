@@ -47,7 +47,6 @@
     "companyHeading": "關於",
     "faq": "常見問題",
     "connectHeading": "聯絡",
-    "feedback": "功能建議",
     "whereToBuy": "哪裡買",
     "discover": "風格",
     "disclosure": "Formoria 不販售商品，所有購買都在品牌自己的官方網站或實體通路完成。"
@@ -123,9 +122,6 @@
       "headline": "發現了不該被錯過的品牌嗎？",
       "body": "告訴我們，通過審核後就會收錄進目錄。推薦不需要和品牌有關係。",
       "cta": "推薦一個品牌"
-    },
-    "featureRequestBand": {
-      "cta": "提出建議"
     },
     "events": {
       "heading": "展會資訊",
@@ -1182,7 +1178,7 @@
       },
       "ownerInterest": {
         "question": "我是品牌主，可以自己管理品牌頁面嗎？",
-        "answer": "可以。到品牌頁點「認領這個品牌」，提交一項擁有證明後由我們審核；通過後就能編輯品牌資料、產品特色，以及線上購買與實體通路資訊，也能提交 MIT 品牌聲明。品牌頁已經被認領的話，頁面上不會出現認領按鈕，請到「聯絡我們」頁面告訴我們。審核期間品牌頁仍由團隊維護，資訊有誤也可以直接在品牌頁回報勘誤。還想要其他品牌主功能，歡迎到<link>功能許願板</link>提出。"
+        "answer": "可以。到品牌頁點「認領這個品牌」，提交一項擁有證明後由我們審核；通過後就能編輯品牌資料、產品特色，以及線上購買與實體通路資訊，也能提交 MIT 品牌聲明。品牌頁已經被認領的話，頁面上不會出現認領按鈕，請到「聯絡我們」頁面告訴我們。審核期間品牌頁仍由團隊維護，資訊有誤也可以直接在品牌頁回報勘誤。"
       },
       "whatCategories": {
         "question": "Formoria 收錄哪些產品分類？",
@@ -1217,11 +1213,6 @@
         "title": "回報問題",
         "body": "網站壞掉、頁面載入失敗，或操作時跳出錯誤訊息？來信告訴我們，附上頁面網址與畫面截圖會更快處理。",
         "cta": "寫信給我們"
-      },
-      "feature": {
-        "title": "功能建議",
-        "body": "希望 Formoria 多做一點什麼？到功能建議板提出想法，也可以為別人的點子投票。",
-        "cta": "前往功能建議板"
       },
       "brand": {
         "title": "品牌資料有誤",
@@ -1423,8 +1414,7 @@
     "contributions": "我的貢獻",
     "mySubmissions": "我的推薦",
     "signOut": "登出",
-    "settings": "帳號設定",
-    "feedback": "功能建議"
+    "settings": "帳號設定"
   },
   "favorites": {
     "metadata": {
@@ -2259,9 +2249,6 @@
       "body": "先從品牌目錄開始，從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方；也可以先看看 Formoria 在做什麼。",
       "browse": "瀏覽品牌",
       "about": "了解 Formoria"
-    },
-    "ctaFooter": {
-      "cta": "到功能許願板提出需求"
     }
   },
   "saveBrand": {
@@ -2276,11 +2263,6 @@
   },
   "search": {
     "emptyState": {
-      "noticeSearchCategory": "目前沒有符合「{query}」且屬於「{category}」的品牌。",
-      "noticeSearchFilters": "目前沒有符合「{query}」與目前篩選條件的品牌。",
-      "noticeSearch": "目前沒有符合「{query}」的品牌。",
-      "noticeFilters": "目前沒有符合目前篩選條件的品牌。",
-      "noticeAll": "目前沒有可顯示的品牌。",
       "currentConditions": "目前套用條件",
       "title": "找不到符合的品牌",
       "description": "嘗試調整條件，或瀏覽更多品牌探索靈感。",
@@ -2296,10 +2278,6 @@
         "browseAll": {
           "title": "瀏覽所有品牌",
           "description": "探索 Formoria 全部品牌"
-        },
-        "recommendBrand": {
-          "title": "推薦這個品牌",
-          "description": "找不到？把它推薦給 Formoria，我們會盡快審核。"
         }
       },
       "recommendations": "類似的選擇",
@@ -2448,101 +2426,6 @@
       "title": "找不到展會",
       "description": "這個展會不存在或已被移除。",
       "browseAll": "瀏覽所有展會"
-    }
-  },
-  "feedback": {
-    "metadata": {
-      "title": "功能建議",
-      "description": "告訴我們你希望 Formoria 增加什麼功能，也可以為別人的建議投票。"
-    },
-    "title": "功能建議",
-    "description": "告訴我們什麼功能會讓 Formoria 更好用，也可以為你想看到的建議投票。",
-    "disclaimer": "開發順序會依實際狀況調整，我們不承諾時程。",
-    "status": {
-      "open": "待評估",
-      "planned": "已排入規劃",
-      "in_progress": "開發中",
-      "shipped": "已上線",
-      "declined": "不會做"
-    },
-    "sections": {
-      "inProgress": {
-        "title": "開發中",
-        "description": "這些功能正在開發中，敬請期待！",
-        "empty": "目前沒有正在開發的功能。"
-      },
-      "planned": {
-        "title": "已排入規劃",
-        "description": "已確定執行，尚未開始。",
-        "empty": "目前尚無排入規劃的功能。"
-      },
-      "open": {
-        "title": "待評估",
-        "description": "投票決定我們接下來要做什麼。",
-        "empty": "目前沒有待評估的建議，你可以成為第一個。"
-      }
-    },
-    "requests": {
-      "brand_reviews": {
-        "title": "在品牌頁加入評論與評分",
-        "body": "讓登入的訪客分享品牌體驗，幫助消費者分別判斷顧客體驗與台灣製造驗證。"
-      },
-      "occasion_discovery": {
-        "title": "依使用情境探索台灣品牌",
-        "body": "讓訪客依送禮、小宅佈置或永續日用品等購物需求探索品牌，不必先了解分類架構。"
-      },
-      "nearby_brand_map": {
-        "title": "在地圖上查看附近的台灣品牌",
-        "body": "讓訪客在同一張地圖瀏覽有實體通路的品牌，並依縣市、行政區與分類篩選，找到附近可以造訪的地點。"
-      },
-      "owner_claim_flow": {
-        "title": "讓品牌主認領並管理自己的品牌頁",
-        "body": "讓品牌經營者驗證身分後，自行維護品牌介紹、官方連結與實體通路，不必再等我們更新。"
-      },
-      "brand_retail_locations": {
-        "title": "在品牌頁顯示實體通路",
-        "body": "在品牌頁直接列出販售該品牌的實體通路，包含直營店、百貨櫃位與寄售點，讓訪客知道可以去哪裡親眼看看。"
-      },
-      "origin_evidence_reports": {
-        "title": "讓任何人都能在品牌頁回報產地資訊",
-        "body": "讓訪客不必註冊也能提供產地佐證，例如產品標籤、包裝或實體通路的現場照片，讓「台灣製造」的標示能由真正買過的人一起查核。"
-      },
-      "brand_events": {
-        "title": "串連實體活動與參展品牌",
-        "body": "在品牌頁顯示即將登場的市集、展會與快閃活動（例如文博會），讓訪客可以安排時間到現場認識品牌。"
-      }
-    },
-    "upvote": {
-      "action": "為「{title}」投票",
-      "remove": "收回對「{title}」的投票",
-      "error": "無法記錄這次投票，請再試一次。",
-      "rateLimited": "投票次數過多，請稍候再試。"
-    },
-    "submit": {
-      "trigger": "提出建議",
-      "title": "提出建議",
-      "description": "謝謝你願意花時間告訴我們。每一則建議我們都會讀，寫得越具體，越有機會被做出來。",
-      "titleLabel": "你希望我們做什麼？",
-      "detailsLabel": "詳細說明",
-      "detailsHint": "你想完成什麼事？Formoria 目前哪裡不順？舉一個實際遇到的例子最好。",
-      "contactEmailLabel": "電子郵件",
-      "contactEmailHint": "留下電子郵件，我們有回覆時會通知你。",
-      "anonymityDisclosure": "建議會以不具名的方式公開顯示，也不會顯示你的電子郵件。",
-      "idle": "送出建議",
-      "submitting": "送出中",
-      "success": "謝謝你，我們已經收到你的建議。",
-      "errors": {
-        "title": "請把標題控制在 4 到 80 個字，讓其他人更容易找到。",
-        "details": "請至少寫 10 個字，說明想解決的問題。",
-        "contactEmail": "請輸入有效的電子郵件地址，或留空。",
-        "unauthenticated": "請重新登入後再送出一次。",
-        "invalid_input": "請確認標題在 80 個字以內、詳細說明至少 10 個字，再試一次。",
-        "rate_limited": "已經送出好幾則建議了，請一小時後再試。",
-        "not_found": "找不到這則建議，請重新整理後再試。",
-        "merged": "這則建議已被合併到另一則，請重新整理後查看。",
-        "already_submitted": "這則建議已經在列表上了，請改為支持現有的那則。",
-        "unavailable": "無法送出建議，請稍候再試。"
-      }
     }
   },
   "districts": {

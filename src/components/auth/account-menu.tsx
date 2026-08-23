@@ -116,11 +116,6 @@ export function AccountMenu() {
             {t('account.mySubmissions')}
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem
-          render={<Link href={routes.featureRequests()} />}
-        >
-          {t('account.feedback')}
-        </DropdownMenuItem>
         <DropdownMenuSeparator />
         {(['zh-TW', 'en'] as const).map((targetLocale) => (
           <form

@@ -810,16 +810,3 @@ export function trackWebVital(metric: {
       typeof window !== 'undefined' ? getContentGroup(window.location.pathname) : null,
   })
 }
-
-export function trackFeatureRequestSubmitted(requestId: string) {
-  capturePostHogEvent(ANALYTICS_EVENTS.FEATURE_REQUEST_SUBMITTED, {
-    request_id: requestId,
-  })
-}
-
-export function trackFeatureRequestVoted(requestId: string, voted: boolean) {
-  capturePostHogEvent(ANALYTICS_EVENTS.FEATURE_REQUEST_VOTED, {
-    request_id: requestId,
-    voted,
-  })
-}
