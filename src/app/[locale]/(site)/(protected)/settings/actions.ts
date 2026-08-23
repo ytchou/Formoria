@@ -86,15 +86,7 @@ export async function updateSettings(
     }
 
     const newsletterEnabled = isChecked(formData, "newsletterMarketing");
-    const lifecycleEnabled = isChecked(formData, "lifecycleMarketing");
-    const marketingUpdates: Promise<unknown>[] = [
-      setLifecycleEmailPreference(serviceSupabase, {
-        userId: user.id,
-        enabled: lifecycleEnabled,
-        consentSource: "settings",
-        consentVersion: MARKETING_CONSENT_VERSION,
-      }),
-    ];
+    const marketingUpdates: Promise<unknown>[] = [];
 
     if (user.email) {
       marketingUpdates.push(

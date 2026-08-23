@@ -1095,7 +1095,7 @@
       },
       "purpose": {
         "heading": "Purpose of Use",
-        "body": "We collect personal data to build and maintain the Taiwan brand directory, provide discovery and search, improve brand information, prevent spam and abuse, improve the service, and send recommendation, claim, verification, security, and account-related notices. We send newsletters or owner lifecycle content such as operating reminders and feature guidance only after separate consent; you can turn off either marketing category independently. Declining marketing email does not affect brand recommendations, account creation, or core service access."
+        "body": "We collect personal data to build and maintain the Taiwan brand directory, provide discovery and search, improve brand information, prevent spam and abuse, improve the service, and send recommendation, claim, verification, security, and account-related notices. We send the newsletter only after separate consent, and you can turn it off at any time. Declining marketing email does not affect brand recommendations, account creation, or core service access."
       },
       "thirdParty": {
         "heading": "Third-Party Services",
@@ -1467,12 +1467,10 @@
     "emailLabel": "Email",
     "localePreferenceLabel": "Language Preference",
     "marketingHeading": "Marketing email",
-    "marketingDescription": "Manage newsletters and optional owner guidance separately. Account verification, password resets, and review results are unaffected.",
+    "marketingDescription": "The newsletter is optional and off until you turn it on. Account verification, password resets, and review results are unaffected.",
     "newsletterMarketingLabel": "Formoria newsletter",
     "newsletterMarketingDescription": "Brand stories, new brands, and curated trends. Email confirmation is required when enabling this category.",
     "newsletterPending": "Confirmation sent; newsletter delivery starts only after you confirm your email.",
-    "lifecycleMarketingLabel": "Brand-management tips and product guidance",
-    "lifecycleMarketingDescription": "Optional operating reminders, usage tips, and feature guidance for brand owners.",
     "unsubscribeAllMarketing": "Unsubscribe from all marketing email",
     "marketingUnsubscribedAll": "You have been unsubscribed from all marketing email",
     "marketingUpdateError": "Some email preferences could not be updated. Please try again.",

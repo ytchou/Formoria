@@ -44,7 +44,7 @@ async function unsubscribe(request: NextRequest) {
   }
 
   return htmlResponse(
-    'You have been unsubscribed from Formoria lifecycle emails. Claim and verification emails will continue.',
+    'You have been unsubscribed from Formoria marketing email. Account, verification, and security emails will continue.',
     200
   )
 }

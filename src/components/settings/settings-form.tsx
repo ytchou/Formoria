@@ -19,7 +19,6 @@ type Props = {
   email: string;
   currentLocale: string;
   newsletterStatus: "off" | "pending" | "on";
-  lifecycleOptedIn: boolean;
 };
 
 export function SettingsForm({
@@ -27,7 +26,6 @@ export function SettingsForm({
   email,
   currentLocale,
   newsletterStatus,
-  lifecycleOptedIn,
 }: Props) {
   const t = useTranslations("settings");
   const [state, action, pending] = useActionState<SettingsState, FormData>(
@@ -36,9 +34,6 @@ export function SettingsForm({
   );
   const [newsletterMarketing, setNewsletterMarketing] = useState(
     newsletterStatus !== "off"
-  );
-  const [lifecycleMarketing, setLifecycleMarketing] = useState(
-    lifecycleOptedIn
   );
 
   return (
@@ -138,29 +133,6 @@ export function SettingsForm({
             {newsletterStatus === "pending"
               ? t("newsletterPending")
               : t("newsletterMarketingDescription")}
-          </p>
-        </div>
-
-        <div className="space-y-1">
-          <input type="hidden" name="lifecycleMarketing" value="false" />
-          <Label
-            htmlFor="lifecycleMarketing"
-            className="flex min-h-12 cursor-pointer items-start gap-3"
-          >
-            <Checkbox
-              id="lifecycleMarketing"
-              name="lifecycleMarketing"
-              value="true"
-              checked={lifecycleMarketing}
-              onCheckedChange={setLifecycleMarketing}
-              className="mt-0.5 size-[18px] shrink-0"
-            />
-            <span className="type-body-sm text-ink-soft font-normal">
-              {t("lifecycleMarketingLabel")}
-            </span>
-          </Label>
-          <p className="pl-[30px] type-metadata">
-            {t("lifecycleMarketingDescription")}
           </p>
         </div>
 

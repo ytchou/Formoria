@@ -42,9 +42,8 @@ test.describe('Settings page', () => {
     const localeSelect = userPage.locator('#localePreference')
     await expect(localeSelect).toBeVisible({ timeout: BUDGET.RENDERED })
 
-    // Independently managed marketing categories
+    // The newsletter is the only marketing category, plus the opt-out-of-all button
     await expect(userPage.locator('#newsletterMarketing')).toBeVisible({ timeout: BUDGET.RENDERED })
-    await expect(userPage.locator('#lifecycleMarketing')).toBeVisible({ timeout: BUDGET.RENDERED })
     await expect(
       userPage.getByRole('button', { name: '取消所有行銷電子郵件' }),
     ).toBeVisible({ timeout: BUDGET.RENDERED })
