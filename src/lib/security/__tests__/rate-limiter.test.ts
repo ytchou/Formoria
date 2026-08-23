@@ -514,6 +514,38 @@ describe('exact brand directory rate limit', () => {
     expect((await checkRateLimit(request('/en/brands')))?.status).toBe(429)
   })
 
+  it('meters router requests against their own budget instead of exempting them', async () => {
+    // The bypass DEV-1551 set out to close. Deleting `accept` from the signal
+    // list moved it one header over: `RSC: 1` still bought unlimited access to
+    // every public route, because a router request skipped the limiter outright.
+    // It now has a finite budget of its own -- generous, because one navigation
+    // legitimately fans out to several prefetches, but no longer unbounded.
+    const routerHeaders = { RSC: '1' }
+    const routerBudget = directoryLimit * 4
+
+    for (let requestNumber = 1; requestNumber <= routerBudget; requestNumber += 1) {
+      expect(await checkRateLimit(request('/en/brands', routerHeaders))).toBeNull()
+    }
+
+    const blocked = await checkRateLimit(request('/en/brands', routerHeaders))
+    expect(blocked?.status).toBe(429)
+    expect(blocked?.headers.get('X-RateLimit-Limit')).toBe(String(routerBudget))
+  })
+
+  it('keeps the router budget separate from the document budget', async () => {
+    // The property DEV-1269 was protecting: a reader's RSC companion request
+    // must not spend the budget their document request needs. Exhausting one
+    // bucket must leave the other intact.
+    const routerHeaders = { RSC: '1' }
+
+    for (let requestNumber = 1; requestNumber <= directoryLimit; requestNumber += 1) {
+      expect(await checkRateLimit(request('/en/brands', routerHeaders))).toBeNull()
+    }
+
+    // Document budget untouched by the router traffic above.
+    expect(await checkRateLimit(request('/en/brands'))).toBeNull()
+  })
+
   // Superseded the 2026-08-12 assertion that Googlebot consumed the index
   // budget: metering crawler traffic on the directory index burned 410k Upstash
   // commands in one day. The index is crawler-exempt again, like /brands/.

@@ -789,9 +789,7 @@ export async function checkRateLimit(request: NextRequest): Promise<NextResponse
   // is now the rule's own `crawlerExempt` flag -- the two questions were fused
   // into one prefix test, which silently exempted `/sitemap.xml`.
   const isProtectedRoute = ruleKey.startsWith('/api/') || ruleKey.startsWith('/admin/')
-  if (!isProtectedRoute && isRouterRequest(request)) {
-    return null
-  }
+  const routerRequest = !isProtectedRoute && isRouterRequest(request)
 
   if (rule.crawlerExempt) {
     const userAgent = request.headers.get('user-agent') ?? ''
@@ -827,10 +825,39 @@ export async function checkRateLimit(request: NextRequest): Promise<NextResponse
   // not read this line as traversal accounting.
   const burstKey = [normalizedPathname, ip].join(':')
 
+  // Router traffic gets its OWN bucket at a raised budget -- it is no longer an
+  // unconditional skip.
+  //
+  // DEV-1269 added the skip because one navigation issues a document request
+  // AND its RSC twin, so counting both charged a real reader twice and tripped
+  // the limit at half the intended rate. That reasoning was sound; the
+  // implementation was not. `RSC`, `next-url`, `next-router-prefetch` and
+  // `next-action` are all client-settable, so `curl -H 'RSC: 1'` inherited
+  // unlimited access to every public route -- DEV-1551 deleted `accept: */*`
+  // from the signal list and left the same hole one header over.
+  //
+  // A separate bucket keeps what DEV-1269 protected (router traffic never
+  // consumes the document budget, so no reader is charged twice) while removing
+  // what it gave away (the budget is now finite). The multiplier is generous
+  // because a single navigation can legitimately fan out to several prefetches:
+  // the ceiling is meant to catch a scripted loop, not a busy reader.
+  //
+  // Ceiling: this bounds the abuse rather than identifying it. Charging one
+  // logical view per resource -- deduplicating the document and its RSC twin
+  // through `markOnce` in traversal-counters.ts -- is the accurate form, and is
+  // what DEV-1285's accounting is for. It is not wired here because that store
+  // is behind `TRAVERSAL_COUNTERS`, which is off by default; a fix that only
+  // works when an unset flag is set is not a fix.
+  const routerBudgetMultiplier = envLimit('RATE_LIMIT_ROUTER_MULTIPLIER', 4)
+  const effectiveKey = routerRequest ? `${burstKey}:rsc` : burstKey
+  const effectiveMax = routerRequest
+    ? rule.maxRequests * routerBudgetMultiplier
+    : rule.maxRequests
+
   const result = await checkStore(
-    burstKey,
+    effectiveKey,
     rule.windowMs,
-    rule.maxRequests,
+    effectiveMax,
     rule.algorithm ?? 'sliding',
   )
 
@@ -847,13 +874,13 @@ export async function checkRateLimit(request: NextRequest): Promise<NextResponse
     reportRateLimitBlocked({
       routeFamily: routeFamilyForTelemetry(normalizedPathname),
       ipKey: hashIpForTelemetry(ip),
-      reason: 'hard_limit_exceeded',
+      reason: routerRequest ? 'router_limit_exceeded' : 'hard_limit_exceeded',
     })
     evaluateCrawlerRateLimitAlarm(request.headers.get('user-agent') ?? '', normalizedPathname)
     const retryAfter = Math.ceil((result.resetAt - Date.now()) / 1000)
     const headers = {
       'Retry-After': String(retryAfter),
-      'X-RateLimit-Limit': String(rule.maxRequests),
+      'X-RateLimit-Limit': String(effectiveMax),
       'X-RateLimit-Remaining': '0',
       'X-RateLimit-Reset': String(result.resetAt),
     }

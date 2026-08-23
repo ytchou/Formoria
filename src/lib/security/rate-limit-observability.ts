@@ -137,6 +137,11 @@ export function pseudonymizeIdentifier(value: string): string {
 /** Reason codes for `RATE_LIMIT_BLOCKED`. */
 export type RateLimitBlockReason =
   | 'hard_limit_exceeded'
+  // Router traffic is metered against its own raised budget rather than being
+  // waved through (DEV-1551). Separated from `hard_limit_exceeded` because the
+  // two answer different questions: this one says a client is claiming to be
+  // the Next.js router, which is the shape a scripted crawl takes.
+  | 'router_limit_exceeded'
   | 'soft_limit_challenge'
   | 'verified_budget_exhausted'
 

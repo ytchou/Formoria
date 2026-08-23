@@ -19,7 +19,9 @@ import { getServiceClient } from "../helpers/seed";
  *    does — the hard limiter and the Turnstile soft limit — never a 429 that
  *    the ladder would have produced.
  *
- * 2. Cases 2-4 document a gap rather than a fix. See KNOWN GAP below.
+ * 2. Cases 2-4 cover the bypass that DEV-1551 set out to close and initially
+ *    only half-closed. Router requests are now metered against their own
+ *    raised budget rather than skipping the limiter outright.
  */
 
 const BRANDS = "/brands";
@@ -102,37 +104,31 @@ test.describe("anti-enumeration — adversarial", () => {
     expect(outcomes.every((status) => status === 200)).toBe(false);
   });
 
-  // KNOWN GAP (DEV-1551 open finding 1): deleting `accept: */*` removed ONE
-  // spoofable signal and left four. `RSC`, `next-url`, `next-router-prefetch`
-  // and `next-action` are all client-settable, so a single header still skips
-  // both the hard limiter (rate-limiter.ts, the `!isProtectedRoute &&
-  // isRouterRequest` guard) and the soft limit (proxy.ts, `!routerRequest`).
-  // The branch's headline claim — that a bare client can no longer bypass — is
-  // NOT met; the bypass moved one header over. Closing it needs the logical
-  // content accounting DEV-1285 names as a prerequisite, so it is a design
-  // decision rather than a patch.
-  //
-  // These three cases assert the CURRENT behaviour so the gap is visible and
-  // regression-guarded. When it closes, invert them.
+  // Closed 2026-08-23. Deleting `accept` removed one spoofable signal and left
+  // four -- `RSC`, `next-url`, `next-router-prefetch` and `next-action` are all
+  // client-settable, so the bypass had simply moved one header over. Router
+  // requests are no longer an unconditional skip: they are metered against
+  // their own raised budget, which keeps what DEV-1269 protected (a reader's
+  // RSC companion never spends the document budget) while removing what it gave
+  // away (the budget is now finite).
   for (const [name, header] of [
     ["2. RSC: 1", { RSC: "1" }],
     ["3. next-url", { "next-url": "/zh-TW" }],
     ["4. next-router-prefetch", { "next-router-prefetch": "1" }],
   ] as const) {
-    test(`${name} spoof still bypasses the limiter (known gap)`, async ({
-      request,
-    }) => {
+    test(`${name} spoof is metered, not exempt`, async ({ request }) => {
       const slugs = await approvedSlugs(1);
       const target = `${BRANDS}/${slugs[0] ?? "unknown"}`;
 
+      // Deliberately past the raised router budget: the point is that one
+      // exists at all, where before this loop could run forever.
       const statuses: number[] = [];
-      for (let i = 0; i < 40; i += 1) {
+      for (let i = 0; i < 900; i += 1) {
         const response = await rawGet(request, target, header);
         statuses.push(response.status());
       }
 
-      // Documents the gap: a router signal is still an unconditional skip.
-      expect(statuses.every((status) => status < 400)).toBe(true);
+      expect(statuses).toContain(429);
     });
   }
 
