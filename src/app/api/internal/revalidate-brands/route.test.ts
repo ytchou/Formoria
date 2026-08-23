@@ -30,7 +30,7 @@ describe("POST /api/internal/revalidate-brands", () => {
     vi.stubEnv("ORIGIN_SECRET", secret);
   });
 
-  it("bounds a 200-brand batch to one shared tag and 609 path invalidations", async () => {
+  it("bounds a 200-brand batch to one shared tag and 409 path invalidations", async () => {
     const slugs = Array.from({ length: 200 }, (_, index) => `brand-${index}`);
 
     const response = await POST(request({ slugs }));
@@ -39,7 +39,7 @@ describe("POST /api/internal/revalidate-brands", () => {
     expect(await response.json()).toEqual({ revalidated: 200 });
     expect(revalidateTag).toHaveBeenCalledTimes(1);
     expect(revalidateTag).toHaveBeenCalledWith(PUBLIC_BRAND_DATA_TAG, "max");
-    expect(revalidatePath).toHaveBeenCalledTimes(609);
+    expect(revalidatePath).toHaveBeenCalledTimes(409);
 
     expect(revalidatePath).toHaveBeenCalledWith(
       "/[locale]/events/[slug]",

@@ -18,7 +18,7 @@ import { collectSources } from "@/test/source-scan";
  * expressed through the axes is not a `Button` wearing overrides — it is a
  * different component, and the repo now has the ones that were hiding as
  * exceptions: `UnstyledButton` (Base UI `render` props), `OptionRow`,
- * `UploadDropzone`, `ShareChannelButton`, `MicrositeCta`. Reach for one of
+ * `UploadDropzone`, `ShareChannelButton`. Reach for one of
  * those, or add an axis. Do not add a name to a list here.
  *
  * SCOPE: only what an axis actually owns.
@@ -129,7 +129,7 @@ describe("button geometry contract", () => {
   });
 
   /**
-   * The hole that let three identical microsite CTAs accumulate.
+   * The hole that let three identical call-to-action buttons accumulate.
    *
    * `eslint.config.mjs`'s `no-restricted-syntax` matches AST shape, not string
    * contents, so it can forbid a styled raw `<button>` but is blind to an
