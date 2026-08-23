@@ -51,6 +51,7 @@ import {
 import { slugifyRomanizedName } from "@/lib/brands/slug";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { upsertEnrichedStockists } from "./stockists";
+import { promoteApprovedBrandImages } from "./promote-submission-images";
 import { normalizeCommunityWebsite } from "./community-submissions";
 import {
   ONLINE_STORE_CAMEL_FIELDS,
@@ -2434,6 +2435,17 @@ export async function approveSubmission(
   const approval = approvalRows?.at(0);
   if (!approval)
     throw new NotFoundError("BrandSubmission", id, { cause: approvalError });
+
+  // DEV-1551: the approval RPC copies `submission_images` into `brand_images`
+  // and carries `storage_path` across verbatim, so the brand's imagery would
+  // stay under `submissions/` -- a prefix the same-origin read proxy refuses,
+  // because pre-moderation imagery is private and the proxy cannot read row
+  // status without a per-request database round trip. The object has to move
+  // the moment it becomes public. `promoteApprovedBrandImages` never throws and
+  // never deletes: approval must not fail because a copy failed, since a brand
+  // with unservable images is recoverable (re-run
+  // `scripts/promote-submission-images.ts`) and a failed approval is not.
+  await promoteApprovedBrandImages(approval.brand_id);
 
   // The maps producer is gone, but pending submissions can still carry legacy
   // channels. Keep draining those rows until the Phase 2 importer takes over.

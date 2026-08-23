@@ -229,6 +229,79 @@ export async function deleteStoredImagePaths(paths: string[]): Promise<void> {
   )
 }
 
+/**
+ * Size of a `brand-images` object, or null when it does not exist.
+ *
+ * `size` is optional on the Storage info payload; a missing value is reported
+ * as 0 rather than as "unknown", which makes two size-less objects compare
+ * equal. Ceiling: identity is size-only. Upgrade to an etag/checksum comparison
+ * if the API starts returning one for every object.
+ */
+export async function statBrandImageObject(
+  key: string
+): Promise<{ size: number } | null> {
+  return auditedCall(
+    { provider: 'images', operation: 'statBrandImageObject', kind: 'service' },
+    async () => {
+      const supabase = createServiceClient()
+      const { data, error } = await uploadWithRetry(() =>
+        supabase.storage.from(BRAND_IMAGES_BUCKET).info(key),
+      )
+
+      if (error) {
+        if (isMissingStorageObjectError(error)) {
+          return null
+        }
+        throw error
+      }
+
+      return { size: data.size ?? 0 }
+    },
+  )
+}
+
+function isMissingStorageObjectError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) {
+    return false
+  }
+  const candidate = error as { status?: unknown; statusCode?: unknown; message?: unknown }
+  if (candidate.status === 404 || String(candidate.statusCode) === '404') {
+    return true
+  }
+  return (
+    typeof candidate.message === 'string' &&
+    /not[ _]?found/i.test(candidate.message)
+  )
+}
+
+/**
+ * Server-side copy inside the `brand-images` bucket. Never overwrites: Storage
+ * answers an occupied destination with a 409, which the caller must surface
+ * rather than resolve. Nothing here deletes the source.
+ */
+export async function copyBrandImageObject(
+  sourceKey: string,
+  targetKey: string
+): Promise<void> {
+  return auditedCall(
+    { provider: 'images', operation: 'copyBrandImageObject', kind: 'service' },
+    async () => {
+      // The destination key is DERIVED (brands/<brand_id>/<filename>), so a
+      // retried copy cannot duplicate an object under a second random name --
+      // the worst case is a 409 on the retry, which the promotion engine
+      // records and a re-run resolves by adopting the existing target.
+      const supabase = createServiceClient()
+      const { error } = await uploadWithRetry(() =>
+        supabase.storage.from(BRAND_IMAGES_BUCKET).copy(sourceKey, targetKey),
+      )
+
+      if (error) {
+        throw error
+      }
+    },
+  )
+}
+
 async function uploadStorageObject(input: UploadImageInput | PrivateUploadFileInput): Promise<string> {
   const supabase = createServiceClient()
   const upload = () =>
