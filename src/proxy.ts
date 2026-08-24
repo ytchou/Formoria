@@ -236,7 +236,6 @@ const CACHEABLE_VERIFICATION_VALUES: ReadonlySet<string> = new Set([
   "all",
   "mit-verified",
   "mit-declared",
-  "owned",
 ]);
 
 /** Restated from `parsePriceRanges`; see `isCacheableQueryValue`. */

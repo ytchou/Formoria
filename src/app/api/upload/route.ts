@@ -11,7 +11,6 @@ import {
   uploadPrivateImage,
   uploadPublicImage,
   ALLOWED_UPLOAD_BUCKETS,
-  getUploadImageProcessingConfig,
   type AllowedUploadBucket,
 } from '@/lib/services/image-upload'
 import { imagePathToUrl } from '@/lib/images/image-url'
@@ -73,14 +72,6 @@ export const POST = withAuditScope(async (request: Request) => {
     }
     const bucket = rawBucket as AllowedUploadBucket
 
-    // `claim-proofs` stays in the storage allowlist because DEV-1570 keeps every
-    // database object, but the claim flow that wrote to it is gone. Rejecting it
-    // here stops a retired bucket from falling through to the public upload path
-    // now that it is no longer treated as private.
-    if (bucket === 'claim-proofs') {
-      return NextResponse.json({ error: 'Invalid bucket' }, { status: 400 })
-    }
-
     // Every bucket requires an authenticated user — the public brand-images
     // bucket has no anonymous upload path, and the in-memory rate limiter alone
     // is not an access control.
@@ -121,7 +112,7 @@ export const POST = withAuditScope(async (request: Request) => {
 
     let processed
     try {
-      processed = await processImage(buffer, getUploadImageProcessingConfig(bucket))
+      processed = await processImage(buffer)
     } catch (err) {
       Sentry.captureException(err)
       return NextResponse.json(sanitizeErrorResponse(err), { status: 400 })

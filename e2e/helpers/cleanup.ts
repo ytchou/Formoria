@@ -459,6 +459,22 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
     ...durableUsers.map((user) => user.id),
   ];
 
+  // DEV-1570: the claim flow is gone but the `claim-proofs` bucket is
+  // deliberately kept, and `claim_requests.brand_id` is ON DELETE CASCADE — the
+  // rows vanish with the test brand, so there is no row left to derive a
+  // per-claim prefix from. List the bucket root instead and keep the objects
+  // whose path names a swept brand or a disposable test user, which is the
+  // `<user_id>/<brand_id>/…` shape the upload path used.
+  const claimProofScope = new Set<string>([
+    ...brandIds,
+    ...disposableUsers.map((user) => String(user.id)).filter(Boolean),
+  ]);
+  const inClaimProofScope = (path: string) =>
+    path.split('/').some((segment) => claimProofScope.has(segment));
+  const claimProofObjects = claimProofScope.size
+    ? (await listStorageObjects(supabase, 'claim-proofs', '', failures)).filter(inClaimProofScope)
+    : [];
+
   // Delete children first. This includes the tables that were previously
   // omitted from the sweep (owner preferences, jobs, reports, and images),
   // then the namespaced roots.
@@ -488,6 +504,7 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
   await deleteWhereIn(supabase, 'staging_auth_email_captures', 'id', captureIds, failures);
 
   await removeStorageObjects(supabase, 'brand-images', [...brandImagePaths, ...submissionImagePaths, ...storageObjects.brandImages], failures);
+  await removeStorageObjects(supabase, 'claim-proofs', claimProofObjects, failures);
   await removeStorageObjects(supabase, 'origin-evidence', [...originEvidencePaths, ...storageObjects.originEvidence], failures);
 
   if (!createdSince) {
@@ -549,6 +566,16 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
     for (const prefix of prefixes) {
       const objects = await listStorageObjects(supabase, bucket, prefix, residue);
       if (objects.length > 0) residue.push(`${bucket}/${prefix}: ${objects.length} object(s)`);
+    }
+  }
+  // Fail closed on claim-proof objects that outlived their cascaded row, using
+  // the same id scope as the delete pass above.
+  if (claimProofScope.size) {
+    const claimProofResidue = (
+      await listStorageObjects(supabase, 'claim-proofs', '', residue)
+    ).filter(inClaimProofScope);
+    if (claimProofResidue.length > 0) {
+      residue.push(`claim-proofs: ${claimProofResidue.length} object(s)`);
     }
   }
   const remainingUsers = await listAllAuthUsers(supabase, residue);

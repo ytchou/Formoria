@@ -16,7 +16,6 @@ export type DenialReason =
   | 'policy_violation'
   | 'admin_reject'
   | 'other'
-export type OwnerLocale = 'zh-TW' | 'en'
 
 export const SOURCE_ATTRIBUTION_VALUES = [
   'bought_product',
@@ -34,10 +33,6 @@ export const DENIAL_REASONS = [
   'admin_reject',
   'other',
 ] as const satisfies readonly DenialReason[]
-
-export function normalizeOwnerLocale(locale: unknown): OwnerLocale {
-  return locale === 'en' ? 'en' : 'zh-TW'
-}
 
 export type BrandSubmission = {
   id: string

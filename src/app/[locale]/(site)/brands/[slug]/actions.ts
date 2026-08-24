@@ -64,23 +64,6 @@ function getFormString(formData: FormData, key: string): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-/**
- * Ownership is the only viewer-dependent state the stockist list still has: it
- * decides whether the owner moderation controls render. It stays a client-side
- * action rather than a page prop because the brand page is statically rendered.
- */
-export async function getStockistViewerStateAction(
-  brandId: string,
-): Promise<{ isOwner: boolean }> {
-  return runWithAuditContext({}, async () => {
-    // Brand ownership was parked with the claim flow (DEV-1570): nobody can
-    // become an owner, so the owner moderation controls never render. The action
-    // stays so the client keeps a single, unchanged call site.
-    void brandId
-    return { isOwner: false }
-  })
-}
-
 export async function submitStockistInfoAction(
   _prevState: StockistFormState,
   formData: FormData,

@@ -511,10 +511,6 @@
         "evidence": "來自官網",
         "evidenceOther": "來源佐證"
       },
-      "ownerBanner": {
-        "confirm": "確認販售",
-        "reject": "未販售"
-      },
       "dialog": {
         "title": "提供實體通路",
         "nameLabel": "實體通路名稱",
@@ -1500,15 +1496,9 @@
       "ownerTitle": "開始創建完整品牌資訊",
       "ownerDescription": "提交審核通過後將直接擁有編輯管理權",
       "ownerPoint1": "提供品牌基本資料與代表性連結",
-      "ownerPoint2": "完成認領流程，審核通過後我們會寄送認領邀請",
-      "ownerPoint3": "認領完成後，品牌頁會收錄進 Formoria，並記錄你的品牌主身分",
-      "ownerCta": "登入後開始",
-      "ownerCtaLoggedIn": "建立我的品牌頁",
-      "ownerLimitTitle": "這個帳號已經管理一個品牌",
-      "ownerLimitDescription": "每個帳號只能管理一個品牌，因此無法再透過品牌主流程建立另一個品牌頁。若想分享其他品牌，請改用社群推薦流程。",
-      "ownerLimitRecommendCta": "前往推薦品牌",
-      "ownerLimitCancelCta": "取消",
-      "ownerLimitNavigationError": "目前無法前往推薦流程，請再試一次。"
+      "ownerPoint2": "送出後由 Formoria 審核，通過後我們會與你聯繫",
+      "ownerPoint3": "品牌頁收錄後，你可以持續維護品牌資訊",
+      "ownerCtaLoggedIn": "建立我的品牌頁"
     },
     "wizard": {
       "heading": "推薦品牌",

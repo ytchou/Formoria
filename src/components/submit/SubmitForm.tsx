@@ -108,7 +108,7 @@ export default function SubmitForm({
   const tForm = useTranslations("submit.recommendForm");
   const tReview = useTranslations("submit.review");
   const router = useRouter();
-  const { complete } = useSubmissionAnalytics(source, "recommend", "opened");
+  const { complete } = useSubmissionAnalytics(source, "opened");
   const nameBlurRequestRef = useRef(0);
   const submitLockRef = useRef(false);
   const idempotencyKeyRef = useRef(crypto.randomUUID());
@@ -337,7 +337,6 @@ export default function SubmitForm({
           "",
           Boolean(data.heroImageUrl),
           complete(),
-          "recommend",
           !data.guestEmail,
         );
       } catch (error) {

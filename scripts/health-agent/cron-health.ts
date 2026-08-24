@@ -21,8 +21,8 @@ export interface ExpectedCronJob {
  * A job missing from the log entirely is a stale finding — that is what makes
  * "silently unscheduled" detectable. Keep this in sync with the cron migration.
  *
- * KNOWN BLIND SPOT (DEV-1558, audited 2026-08-22): production runs seven
- * pg_cron jobs and this detector can see only these three. The other four —
+ * KNOWN BLIND SPOT (DEV-1558, audited 2026-08-22): production runs six
+ * pg_cron jobs and this detector can see only these two. The other four —
  * `purge-external-call-audit`, `purge-admin-audit-log`, `cron-http-retention`,
  * `cron-http-snapshot` — are pure SQL. They never call `net.http_post`, so they
  * write no `cron_http_dispatch` row and produce no `cron_http_log` row, and a

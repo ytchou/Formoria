@@ -1,13 +1,16 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { auditedCall } from '@/lib/audit'
-import type { ImageProcessorConfig } from '@/lib/security/image-processor'
 import { uploadWithRetry } from './storage-retry'
 import { storagePathFromImageUrl } from '@/lib/images/image-url'
 import { BRAND_IMAGES_KEY_PREFIX } from '@/lib/images/storage-keys'
 
+/**
+ * Public upload route allowlist. A private bucket belongs here ONLY if a signed-in
+ * user may write to it through `/api/upload`; `run-logs` and `claim-proofs` are
+ * server-side-only buckets and are absent on purpose.
+ */
 export const ALLOWED_UPLOAD_BUCKETS = [
   'brand-images',
-  'claim-proofs',
   'origin-evidence',
 ] as const
 export type AllowedUploadBucket = (typeof ALLOWED_UPLOAD_BUCKETS)[number]
@@ -18,12 +21,6 @@ const SUBMISSION_IMAGES_KEY_PREFIX = 'submissions/'
 // in the same `brand-images` bucket.
 export const CURATED_PRODUCT_IMAGES_KEY_PREFIX = 'curated-products/'
 const DELETABLE_IMAGE_KEY_PREFIXES = [BRAND_IMAGES_KEY_PREFIX] as const
-
-const CLAIM_PROOF_IMAGE_CONFIG: Partial<ImageProcessorConfig> = {
-  maxWidth: 2400,
-  maxHeight: 2400,
-  quality: 92,
-}
 
 function getBrandImagesPublicPrefix(): string {
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''}${BRAND_IMAGES_PUBLIC_SEGMENT}`
@@ -48,17 +45,11 @@ type PublicUploadImageInput = UploadImageInput & {
   upsert?: boolean
 }
 type PrivateUploadImageInput = UploadImageInput & {
-  bucket: 'claim-proofs' | 'origin-evidence'
+  bucket: 'origin-evidence'
 }
 export type PrivateUploadFileInput = Omit<UploadImageInput, 'bucket'> & {
-  bucket: 'claim-proofs' | 'run-logs'
+  bucket: 'run-logs'
   upsert?: boolean
-}
-
-export function getUploadImageProcessingConfig(
-  bucket: AllowedUploadBucket
-): Partial<ImageProcessorConfig> {
-  return bucket === 'claim-proofs' ? CLAIM_PROOF_IMAGE_CONFIG : {}
 }
 
 /**

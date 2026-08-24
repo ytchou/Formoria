@@ -414,6 +414,14 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        // DEV-1570: /admin/claims went with the claim flow. The old 308 to it
+        // is cached in admin browsers forever, so keep a hop that resolves --
+        // temporary (307) so this rule is not itself permanently cached.
+        source: "/admin/claim-requests",
+        destination: "/admin",
+        permanent: false,
+      },
+      {
         source: "/admin/taxonomy",
         destination: "/admin/catalog/taxonomy",
         permanent: true,

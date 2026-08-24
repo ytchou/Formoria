@@ -103,7 +103,6 @@ const PROVIDERS = {
   email: [
     "adminUnsubscribeNewsletterSubscriber",
     "confirmSubscriber",
-    "createEmailPreferences",
     "createSubscriber",
     "enrollInMarketingEmails",
     "requestNewsletterSubscription",

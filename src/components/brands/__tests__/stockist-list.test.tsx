@@ -1,24 +1,11 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import zh from "../../../../messages/zh-TW.json";
 import { CHAIN_REGION_LABEL } from "@/lib/brands/stockist-display";
 import type { Stockist } from "@/lib/types";
-
-const mocks = vi.hoisted(() => ({
-  getStockistViewerStateAction: vi.fn(),
-  useUser: vi.fn(),
-}));
-
-vi.mock("@/app/[locale]/(site)/brands/[slug]/actions", () => ({
-  getStockistViewerStateAction: mocks.getStockistViewerStateAction,
-}));
-
-vi.mock("@/lib/auth/use-user", () => ({
-  useUser: mocks.useUser,
-}));
 
 import { StockistList } from "../stockist-list";
 
@@ -57,8 +44,6 @@ function renderList(
       <StockistList
         confirmed={options.confirmed ?? []}
         possible={options.possible ?? []}
-        brandId="brand-1"
-        brandSlug="test-brand"
       />
     </NextIntlClientProvider>,
   );
@@ -73,12 +58,6 @@ function getChip(container: HTMLElement, name: string): HTMLElement {
 }
 
 describe("StockistList", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mocks.useUser.mockReturnValue({ user: { id: "user-1" }, loading: false });
-    mocks.getStockistViewerStateAction.mockResolvedValue({ isOwner: false });
-  });
-
   it("renders a flat chip list without group headings below four stockists", () => {
     const { container } = renderList({ possible: makeStockists(3) });
 
@@ -391,25 +370,6 @@ describe("StockistList", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByText("3 個社群提供的通路待確認"),
-    ).not.toBeInTheDocument();
-  });
-
-  // Owner moderation was parked with the claim flow (DEV-1570), so the rows an
-  // owner would have seen carry no moderation controls. `isOwner` can no longer
-  // be true in production; the assertion pins that no control came back.
-  it("renders rows without moderation controls when the viewer is an owner", async () => {
-    mocks.getStockistViewerStateAction.mockResolvedValue({ isOwner: true });
-    const { container } = renderList({ possible: makeStockists(4) });
-
-    await waitFor(() => {
-      expect(container.querySelectorAll("[data-stockist-row]")).toHaveLength(4);
-    });
-    expect(container.querySelectorAll("[data-stockist-chip]")).toHaveLength(0);
-    expect(
-      screen.queryByRole("button", { name: "確認販售" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "未販售" }),
     ).not.toBeInTheDocument();
   });
 });

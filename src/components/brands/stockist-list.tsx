@@ -2,12 +2,10 @@
 
 import { useTranslations } from "next-intl";
 import { Check, ExternalLink } from "lucide-react";
-import { useEffect, useState } from "react";
-import { getStockistViewerStateAction } from "@/app/[locale]/(site)/brands/[slug]/actions";
+import { useState } from "react";
 import { Accordion, AccordionItem } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { useUser } from "@/lib/auth/use-user";
 import {
   CHAIN_REGION_LABEL,
   groupStockistsByRegion,
@@ -41,8 +39,6 @@ function printableRegionLabel(stockist: Stockist): string | null {
 export type StockistListProps = {
   confirmed: Stockist[];
   possible: Stockist[];
-  brandId: string;
-  brandSlug: string;
 };
 
 function StatusMarker({ confirmed }: { confirmed: boolean }) {
@@ -228,47 +224,22 @@ function StockistChip({ stockist, t }: StockistChipProps) {
   );
 }
 
-export function StockistList({
-  confirmed,
-  possible,
-  brandId,
-}: StockistListProps) {
+export function StockistList({ confirmed, possible }: StockistListProps) {
   const t = useTranslations("brandDetail");
   const tCities = useTranslations("cities");
-  const { user, loading } = useUser();
   const allStockists = [...confirmed, ...possible];
   const [expandedChipGroups, setExpandedChipGroups] = useState<
     Partial<Record<string, boolean>>
   >({});
-  const [isOwner, setIsOwner] = useState(false);
-
-  useEffect(() => {
-    if (loading || !user) return;
-
-    let active = true;
-    void getStockistViewerStateAction(brandId)
-      .then((viewerState) => {
-        if (!active) return;
-        setIsOwner(viewerState.isOwner);
-      })
-      .catch(() => {
-        // Privileged state fails closed: the list renders as it does for a
-        // visitor, which is the same thing every signed-out reader sees.
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [brandId, loading, user]);
 
   const displayGroups = groupStockistsByRegion(allStockists);
 
+  // The row/chip split is now a pure function of the row itself: a confirmed
+  // stockist gets a full row, everything else a chip. It used to also depend on
+  // the viewer being the brand's owner, which was parked with the claim flow
+  // (DEV-1570) -- nobody can be an owner, so no viewer state remains.
   function rendersAsRow(stockist: Stockist) {
-    if (stockist.status === "confirmed") return true;
-    // Ownership no longer changes the row: brand ownership was parked with the
-    // claim flow (DEV-1570), so `isOwner` is always false and an unconfirmed
-    // stockist renders as a chip.
-    return isOwner;
+    return stockist.status === "confirmed";
   }
 
   function renderRow(stockist: Stockist) {

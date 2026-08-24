@@ -121,7 +121,7 @@
   },
   "e2e/tests/mit-verification.spec.ts": {
     "playwright/no-conditional-in-test": {
-      "count": 2
+      "count": 1
     }
   },
   "e2e/tests/og-images.spec.ts": {

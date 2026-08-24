@@ -511,10 +511,6 @@
         "evidence": "From the official website",
         "evidenceOther": "Source verified"
       },
-      "ownerBanner": {
-        "confirm": "Confirm sold here",
-        "reject": "Not sold here"
-      },
       "dialog": {
         "title": "Provide a stockist",
         "nameLabel": "Stockist name",
@@ -1498,17 +1494,11 @@
       "ownerEyebrow": "Brand owner",
       "ownerComingSoon": "Coming soon",
       "ownerTitle": "Start your brand management flow",
-      "ownerDescription": "Best for founders, operators, and brand teams. After approval, we’ll send the invitation to claim and manage the listing.",
+      "ownerDescription": "Best for founders, operators, and brand teams. After approval, we’ll be in touch about managing the listing.",
       "ownerPoint1": "Provide core brand details and representative links",
-      "ownerPoint2": "Complete the owner claim flow, and we’ll send an invitation after approval",
-      "ownerPoint3": "After the claim is complete, the brand page is listed on Formoria with your ownership on record",
-      "ownerCta": "Sign in to start",
-      "ownerCtaLoggedIn": "Build my brand page",
-      "ownerLimitTitle": "This account already manages a brand",
-      "ownerLimitDescription": "Each account can manage only one brand, so another page can’t be built through the brand owner flow. To share a different brand, use the community recommendation flow.",
-      "ownerLimitRecommendCta": "Recommend a brand",
-      "ownerLimitCancelCta": "Cancel",
-      "ownerLimitNavigationError": "We couldn’t open the recommendation flow. Please try again."
+      "ownerPoint2": "Submit your brand for review, and we’ll be in touch once it’s approved",
+      "ownerPoint3": "Once the page is listed on Formoria, you keep the brand’s details up to date",
+      "ownerCtaLoggedIn": "Build my brand page"
     },
     "wizard": {
       "heading": "Recommend a Brand",

@@ -17,6 +17,21 @@ describe("admin redirects", () => {
   });
 });
 
+describe("removed admin claim routes", () => {
+  it("hops /admin/claim-requests to /admin with a temporary redirect", async () => {
+    const redirects = await nextConfig.redirects?.();
+    const claimRedirect = redirects?.find(
+      ({ source }) => source === "/admin/claim-requests",
+    );
+
+    // DEV-1570 deleted /admin/claims. The previous rule was a 308, which admin
+    // browsers cache indefinitely, so the hop has to survive and land on a real
+    // page -- and stay temporary so this rule is itself invalidatable.
+    expect(claimRedirect?.destination).toBe("/admin");
+    expect(claimRedirect?.permanent).toBe(false);
+  });
+});
+
 describe("legacy category redirects", () => {
   it("uses HTTP 301 for every singular category locale variant", async () => {
     const redirects = await nextConfig.redirects?.();

@@ -322,13 +322,15 @@ export function trackSearchResultClicked(
 }
 
 export function trackSubmissionFormOpened(
-  source: 'header_cta' | 'hero_cta' | 'footer_link' | 'quick' = 'hero_cta',
-  intent: 'recommend' = 'recommend'
+  source: 'header_cta' | 'hero_cta' | 'footer_link' | 'quick' = 'hero_cta'
 ) {
-  safeGAEvent('event', 'submission_form_opened', { source, intent })
+  // `intent` is a constant on the wire: recommendation is the only submission
+  // flow left (DEV-1570), and the property stays so the existing GA/PostHog
+  // reports keep resolving.
+  safeGAEvent('event', 'submission_form_opened', { source, intent: 'recommend' })
   capturePostHogEvent(ANALYTICS_EVENTS.SUBMISSION_FORM_OPENED, {
     source,
-    intent,
+    intent: 'recommend',
   })
 }
 
@@ -342,7 +344,6 @@ export function trackSubmissionCompleted(
   category: string,
   hasLogo: boolean,
   timeSpentSeconds: number,
-  intent: 'recommend' = 'recommend',
   guestSubmission = false,
 ) {
   const utmParams =
@@ -353,7 +354,7 @@ export function trackSubmissionCompleted(
     category,
     has_logo: hasLogo,
     time_spent_seconds: timeSpentSeconds,
-    intent,
+    intent: 'recommend',
     guest_submission: guestSubmission,
     ...utmParams,
   })
@@ -361,7 +362,7 @@ export function trackSubmissionCompleted(
     category,
     has_logo: hasLogo,
     time_spent_seconds: timeSpentSeconds,
-    intent,
+    intent: 'recommend',
     guest_submission: guestSubmission,
     ...utmParams,
   })
