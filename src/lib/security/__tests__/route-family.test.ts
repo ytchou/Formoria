@@ -178,7 +178,6 @@ describe("non-public surfaces are outside the enumeration ladder", () => {
     "/dashboard",
     "/zh-TW/dashboard/brands/mizu-tw/edit",
     "/favorites",
-    "/my-submissions",
     "/settings",
     "/auth/callback",
   ];

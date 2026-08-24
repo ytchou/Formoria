@@ -123,7 +123,6 @@ const NON_PUBLIC_HEADS = new Set([
   // thresholds are calibrated from directory traffic only.
   'dashboard',
   'favorites',
-  'my-submissions',
   'settings',
 ])
 

@@ -87,7 +87,6 @@ export type AdminBrandListItem = {
   updatedAt: string;
   mitStatus?: MitStatus;
   mitCertificateNumber?: string | null;
-  mitVerified?: boolean;
   description?: string | null;
   descriptionEn?: string | null;
   blurb?: string | null;
@@ -242,10 +241,8 @@ export function toAdminBrandListItem(brand: Brand): AdminBrandListItem {
     categoryLabel: brand.categoryLabel,
     createdAt: brand.createdAt,
     updatedAt: brand.updatedAt,
-    mitStatus:
-      brand.mitStatus ?? (brand.mitVerified ? "verified" : "unverified"),
+    mitStatus: brand.mitStatus ?? "unverified",
     mitCertificateNumber: brand.mitEvidence?.mit_smile_cert ?? null,
-    mitVerified: brand.mitVerified ?? false,
     description: brand.description,
     descriptionEn: brand.descriptionEn,
     blurb: brand.blurb,

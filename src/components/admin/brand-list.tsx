@@ -73,8 +73,7 @@ const MIT_STATUS_CONFIG: Record<MitStatus, { className: string }> = {
 };
 
 function getMitStatus(brand: AdminBrandListItem): MitStatus {
-  if (brand.mitStatus) return brand.mitStatus;
-  return brand.mitVerified ? "verified" : "unverified";
+  return brand.mitStatus ?? "unverified";
 }
 
 /**

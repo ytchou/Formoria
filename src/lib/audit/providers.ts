@@ -9,11 +9,6 @@ const PROVIDERS = {
   turnstile: ["siteverify"],
   slack: ["post_slack_alert"],
   posthog: ["run_query"],
-  "mit-registry": [
-    "lookup_cert_number",
-    "lookup_cert_numbers",
-    "sync_registry",
-  ],
   playwright: ["fetch_rendered"],
   scraper: ["scrape_url"],
   http: [

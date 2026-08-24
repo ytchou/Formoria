@@ -94,7 +94,6 @@ export const routes = {
   // Signed-in account surfaces
   favorites: () => '/favorites',
   settings: () => '/settings',
-  mySubmissions: () => '/my-submissions',
 
   submit: {
     index: () => '/submit',

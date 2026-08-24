@@ -7,7 +7,6 @@ import * as tokens from "@emails/styles";
 import { BrandCard } from "@emails/components/brand-card";
 import { buildApprovalEmail } from "@emails/templates/submission-approved";
 import { buildRejectionEmail } from "@emails/templates/submission-rejected";
-import { buildDeclarationRemovedEmail } from "@emails/templates/declaration-removed";
 import { buildNewsletterConfirmEmail } from "@emails/templates/newsletter-confirm";
 
 /**
@@ -66,12 +65,6 @@ async function renderEveryTemplate(): Promise<Array<[string, string]>> {
       brandName: "測試品牌",
       denialReason: "other",
       reviewerNotes: "需要補充產地資料。",
-    }),
-    buildDeclarationRemovedEmail({
-      ownerEmail: "owner@formoria.com",
-      brandName: "測試品牌",
-      brandSlug: "test-brand",
-      reviewerNotes: "產地證據不足。",
     }),
     buildNewsletterConfirmEmail({
       to: "reader@formoria.com",

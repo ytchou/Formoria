@@ -27,9 +27,6 @@ const badgeVariants = cva(
         verified: "bg-mit-verified-bg text-mit-verified",
         declared: "border-rule bg-surface text-ink-muted",
         warning: "bg-warning/10 text-warning [a]:hover:bg-warning/20",
-        // For a badge sitting ON a filled banner: the ground becomes the
-        // chip and the banner's own colour becomes the text.
-        inverse: "bg-ground text-mit-verified",
       },
     },
     defaultVariants: {

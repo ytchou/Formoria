@@ -3,8 +3,6 @@ import {
   type HealthFinding,
   type JsonValue,
 } from "./contracts";
-import { MIT_REGISTRY_SYNC_MAX_AGE_HOURS } from "@/lib/services/mit-registry";
-
 export interface ExpectedCronJob {
   /** `cron.job.jobname` of a scheduled pg_cron HTTP dispatch. */
   jobName: string;
@@ -45,10 +43,9 @@ export const EXPECTED_CRON_JOBS: readonly ExpectedCronJob[] = [
   //
   // `claim-proof-cleanup-hourly` was unscheduled with the claim flow (DEV-1570);
   // its HTTP endpoint is gone, so the job would have 404'd on every run.
-  {
-    jobName: "sync-mit-registry-weekly",
-    maxAgeHours: MIT_REGISTRY_SYNC_MAX_AGE_HOURS,
-  }, // weekly + 24h grace
+  //
+  // `sync-mit-registry-weekly` was unscheduled with the MIT registry parking
+  // (DEV-1586); its HTTP endpoint is gone.
   { jobName: "classifier-image-retention-6h", maxAgeHours: 25 }, // daily 03:15 Taipei
 ] as const;
 

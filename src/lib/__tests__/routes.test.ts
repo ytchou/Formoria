@@ -76,8 +76,6 @@ describe('routes', () => {
   it('builds the account, submit, auth and admin families', () => {
     expect(routes.favorites()).toBe('/favorites')
     expect(routes.settings()).toBe('/settings')
-    expect(routes.mySubmissions()).toBe('/my-submissions')
-
     expect(routes.submit.index()).toBe('/submit')
     expect(routes.submit.recommend()).toBe('/submit/recommend')
     expect(routes.submit.confirmation()).toBe('/submit/confirmation')

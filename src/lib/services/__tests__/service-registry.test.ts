@@ -34,10 +34,7 @@ describe("service registry", () => {
   it("probed entries declare env vars", () => {
     expect(
       SERVICE_REGISTRY.filter((entry) => entry.probe === "executive-health")
-        .filter(
-          (entry) =>
-            entry.name !== "Public site" && entry.id !== "mit-registry",
-        )
+        .filter((entry) => entry.name !== "Public site")
         .every((entry) => entry.envVars.length > 0),
     ).toBe(true);
   });
@@ -115,7 +112,7 @@ describe("service registry", () => {
       "agents",
       "production",
       "agents",
-      "production",
+      "deprecated",
     ]);
     expect(inventory).toHaveLength(18);
     expect(

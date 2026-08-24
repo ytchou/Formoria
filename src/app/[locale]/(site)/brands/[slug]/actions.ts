@@ -4,7 +4,7 @@ import { runWithAuditContext } from '@/lib/audit/context'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { getTranslations } from 'next-intl/server'
-import { requireClaimUser } from '@/lib/auth/claim-user'
+import { requireCurrentUser } from '@/lib/auth/current-user'
 import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
 import { createReport } from '@/lib/services/reports'
 import {
@@ -72,7 +72,7 @@ export async function submitStockistInfoAction(
     const t = await getTranslations('brandDetail.channels.errors')
 
     try {
-      const user = await requireClaimUser()
+      const user = await requireCurrentUser()
       if (!user) return { error: 'not_logged_in' }
 
       const brandId = getFormString(formData, 'brandId')
@@ -125,7 +125,7 @@ export async function submitReportAction(
 
       let userId: string | undefined
       if (AUTHENTICATED_REPORT_REASONS.includes(reason)) {
-        const user = await requireClaimUser()
+        const user = await requireCurrentUser()
         if (!user) return { error: t('notLoggedIn') }
         userId = user.id
       }
@@ -178,7 +178,7 @@ export async function submitEvidenceAction(
 ): Promise<EvidenceState> {
   return runWithAuditContext({}, async () => {
     try {
-      const user = await requireClaimUser()
+      const user = await requireCurrentUser()
       if (!user) return { error: 'not_logged_in' }
 
       const brandId = formData.get('brandId')

@@ -1,6 +1,5 @@
 import { auditedCall } from "@/lib/audit";
 import { createServiceClient } from "@/lib/supabase/service";
-import { checkMitRegistryHealth } from "@/lib/services/mit-registry";
 import {
   SERVICE_REGISTRY,
   toInventoryProjection,
@@ -490,18 +489,6 @@ export function defaultChecks(): ExecutiveHealthCheckDefinition[] {
             "PostHog reachable",
           ),
       ),
-    },
-    {
-      id: "mit-registry",
-      service: "MIT registry",
-      tier: "customer-flow",
-      request: {
-        table: "mit_registry",
-        operation: "select",
-        orderBy: "synced_at",
-        limit: 1,
-      },
-      run: checkMitRegistryHealth,
     },
     {
       id: "railway-curation-worker",

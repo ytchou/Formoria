@@ -214,7 +214,6 @@
     },
     "verificationFilter": {
       "all": "全部",
-      "mit-verified": "MIT 微笑認證",
       "mit-declared": "品牌聲明"
     },
     "loadingAria": "載入品牌中...",
@@ -1214,22 +1213,6 @@
       "cta": "瀏覽品牌 →"
     }
   },
-  "mySubmissions": {
-    "metadata": {
-      "title": "我的推薦"
-    },
-    "heading": "我的推薦",
-    "subheading": "查看推薦過的所有品牌",
-    "empty": {
-      "message": "還沒有推薦過任何品牌。",
-      "cta": "推薦品牌"
-    },
-    "status": {
-      "pending": "審核中",
-      "approved": "已通過",
-      "rejected": "已拒絕"
-    }
-  },
   "auth": {
     "emailPlaceholder": "you@example.com",
     "validation": {
@@ -1299,7 +1282,6 @@
     "menuLabel": "帳號",
     "favorites": "收藏品牌",
     "contributions": "我的貢獻",
-    "mySubmissions": "我的推薦",
     "signOut": "登出",
     "settings": "帳號設定"
   },

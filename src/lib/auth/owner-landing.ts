@@ -9,7 +9,7 @@ import { routing } from '@/i18n/routing'
  * from the router, so honoring a `next` that points at either completes sign-in
  * on a hard 404.
  */
-const RETIRED_PREFIXES = ['/dashboard', '/submit/owner']
+const RETIRED_PREFIXES = ['/dashboard', '/submit/owner', '/my-submissions']
 
 function stripLocalePrefix(pathname: string): string {
   for (const locale of routing.locales) {

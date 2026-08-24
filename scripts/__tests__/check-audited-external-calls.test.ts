@@ -8,7 +8,6 @@ import {
 
 const REGISTRY_SOURCE = `export const PROVIDERS = {
   serper: ["search"],
-  "mit-registry": ["lookup_cert_number"],
 } as const;`;
 const REGISTRY = parseProviderRegistry(REGISTRY_SOURCE);
 

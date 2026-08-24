@@ -7,7 +7,6 @@ import {
   type CronHttpLogRow,
 } from "./cron-health";
 import { collectCronHealthArtifact } from "./workflow-runtime";
-import { MIT_REGISTRY_SYNC_MAX_AGE_HOURS } from "@/lib/services/mit-registry";
 
 const runAt = "2026-08-07T04:00:00.000Z";
 const now = new Date(runAt);
@@ -17,7 +16,6 @@ const now = new Date(runAt);
 // the previous subject `claim-proof-cleanup-hourly` was unscheduled with the
 // claim flow in DEV-1570.
 const DAILY = "classifier-image-retention-6h";
-const WEEKLY = "sync-mit-registry-weekly";
 
 function hoursBefore(hours: number): string {
   return new Date(now.getTime() - hours * 60 * 60 * 1000).toISOString();
@@ -80,12 +78,6 @@ function dependencyWithRows(rows: unknown[]) {
 }
 
 describe("evaluateCronHealth", () => {
-  it("shares the MIT registry freshness budget with the provider health probe", () => {
-    expect(
-      EXPECTED_CRON_JOBS.find((job) => job.jobName === WEEKLY)?.maxAgeHours,
-    ).toBe(MIT_REGISTRY_SYNC_MAX_AGE_HOURS);
-  });
-
   it("reads a window wider than the slowest job's staleness budget", () => {
     const widest = Math.max(
       ...EXPECTED_CRON_JOBS.map((job) => job.maxAgeHours),
@@ -121,7 +113,7 @@ describe("evaluateCronHealth", () => {
     const rows = [
       ...healthyRows(),
       row({
-        job_name: WEEKLY,
+        job_name: DAILY,
         request_id: 9,
         status_code: null,
         timed_out: false,
@@ -129,7 +121,7 @@ describe("evaluateCronHealth", () => {
       }),
     ];
     const findings = evaluateCronHealth(rows, now);
-    expect(fingerprints(findings)).toEqual([`cron:failed:${WEEKLY}`]);
+    expect(fingerprints(findings)).toEqual([`cron:failed:${DAILY}`]);
     expect(findings[0]?.evidence).toMatchObject({
       sampleErrorMsg: "Could not resolve host: formoria.com",
       statusCodes: [],
@@ -270,7 +262,7 @@ describe("cron health collector", () => {
       dependencyWithRows([
         ...healthyRows(),
         row({
-          job_name: WEEKLY,
+          job_name: DAILY,
           request_id: 9,
           status_code: null,
           timed_out: false,
@@ -280,7 +272,7 @@ describe("cron health collector", () => {
     );
 
     expect(result.status).toBe("success");
-    expect(fingerprints(result.findings)).toEqual([`cron:failed:${WEEKLY}`]);
+    expect(fingerprints(result.findings)).toEqual([`cron:failed:${DAILY}`]);
   });
 
   it("fails loudly when PostgREST cannot be read", async () => {
