@@ -56,7 +56,13 @@ export function TrailTile({
   return (
     <li
       className={cn(
-        "relative aspect-[3/2] min-h-80 list-none overflow-hidden rounded-surface bg-ink text-ground",
+        /*
+         * `min-w-0` is load-bearing, not tidying. `aspect-[3/2]` plus
+         * `min-h-80` gives this grid item an automatic minimum WIDTH of
+         * 320px * 1.5 = 480px, which overflows the 327px of content box left
+         * at a 375px viewport and pushes body scrollWidth to 504px.
+         */
+        "relative aspect-[3/2] min-h-80 min-w-0 list-none overflow-hidden rounded-surface bg-ink text-ground",
         singleColumn && "max-h-[35rem]",
         className,
       )}
