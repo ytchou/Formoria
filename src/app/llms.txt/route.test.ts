@@ -26,11 +26,7 @@ describe("GET /llms.txt", () => {
       expect(body).toContain(category.nameZh);
     }
 
-    for (const path of ["/events", "/faq"]) {
-      expect(body).toContain(buildAlternates(path, "zh-TW").canonical);
-    }
-
-    for (const path of ["/brands", "/stories", "/about"]) {
+    for (const path of ["/faq", "/brands", "/stories", "/about"]) {
       expect(body).toContain(buildAlternates(path, "zh-TW").canonical);
     }
   });
