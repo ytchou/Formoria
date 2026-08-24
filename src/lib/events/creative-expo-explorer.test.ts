@@ -57,8 +57,6 @@ function entry(overrides: Partial<CreativeExpoEntry> = {}): CreativeExpoEntry {
     verifiedAt: "2026-08-06",
     sortOrder: 0,
     imageUrl: null,
-    imageAltZh: null,
-    imageAltEn: null,
     summaryZh: null,
     summaryEn: null,
     contentSource: null,

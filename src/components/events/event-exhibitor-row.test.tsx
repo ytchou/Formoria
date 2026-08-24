@@ -58,8 +58,6 @@ function makeEntry(overrides: Partial<CreativeExpoEntry>): CreativeExpoEntry {
     zone: "K1",
     websiteUrl: "https://example.com/studio",
     imageUrl: null,
-    imageAltZh: null,
-    imageAltEn: null,
     summaryZh: null,
     summaryEn: null,
     brand: null,
@@ -196,19 +194,15 @@ describe("EventExhibitorRow", () => {
     renderRow(
       makeEntry({
         imageUrl: ROSTER_IMAGE_URL,
-        imageAltZh: "Studio Smoll 的手沖壺",
-        imageAltEn: "A Studio Smoll pour-over kettle",
         summaryZh: "台南的手作陶器工作室。",
         summaryEn: "A Tainan studio throwing tableware by hand.",
       }),
     );
 
-    const image = screen.getByRole("img");
+    const image = screen.getByRole("presentation");
 
     expect(image).toHaveAttribute("src", ROSTER_IMAGE_URL);
-    // Roster images are the only description of an unlisted exhibitor we have,
-    // so unlike a listed row's thumbnail they are not decorative.
-    expect(image).toHaveAttribute("alt", "A Studio Smoll pour-over kettle");
+    expect(image).toHaveAttribute("alt", "");
     expect(
       screen.getByText("A Tainan studio throwing tableware by hand."),
     ).toBeInTheDocument();

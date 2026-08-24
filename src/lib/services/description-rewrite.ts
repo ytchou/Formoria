@@ -60,7 +60,7 @@ export type DescriptionEvidence = {
     socialFacebook?: string | null;
   } & { [K in OnlineStoreCamelField]?: string | null };
   productCategoryZh?: string | null;
-  /** Alt text of the brand's classified images — direct evidence that physical products exist. */
+  /** Classified image labels — direct evidence that physical products exist. */
   imageAlts?: string[];
 };
 
@@ -92,8 +92,8 @@ export function buildEnrichmentUserContent(
 
   // Stage-2 listing evidence. Appended, never interleaved: the four fields above
   // are the description inputs and their labels are what the tuned prompt reads.
-  // Online stores and image alt text cannot be inferred from prose, so the
-  // listing verdict is only as good as these lines.
+  // Online stores and image classification labels cannot be inferred from
+  // prose, so the listing verdict is only as good as these lines.
   const purchaseEntry = (
     channel: OnlineStore,
   ): [string, string | null | undefined] => [

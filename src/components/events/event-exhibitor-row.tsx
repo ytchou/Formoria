@@ -84,14 +84,9 @@ export function EventExhibitorRow({
   const imageSrc = safeImageSrc(brand?.heroImageUrl ?? entry.imageUrl);
   const showImage = imageSrc !== null && !imgError;
   // A listed row's thumbnail stays decorative: the brand name sits beside it and
-  // the whole row already links to the brand page. A roster-owned image is the
-  // only description of that exhibitor we have, so it carries its curated alt —
-  // same locale ladder as the summary, empty string when there is none.
-  const imageAlt = brand
-    ? ""
-    : ((isEnglish
-        ? (entry.imageAltEn ?? entry.imageAltZh)
-        : entry.imageAltZh) ?? "");
+  // the whole row already links to the brand page. Roster-owned images for
+  // unlisted exhibitors are also decorative (no curated alt text available).
+  const imageAlt = "";
   const monogram = [...name][0] ?? "";
   const websiteUrl = entry.websiteUrl;
   const isRowLink = brand !== null || websiteUrl !== null;

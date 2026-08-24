@@ -140,8 +140,6 @@ export type EventExhibitor = {
    * columns, and nothing on the render path reads through a submission.
    */
   imageUrl: string | null;
-  imageAltZh: string | null;
-  imageAltEn: string | null;
   summaryZh: string | null;
   summaryEn: string | null;
   contentSource: string | null;
@@ -432,8 +430,6 @@ export function eventExhibitorRowToDomain(
     verifiedAt: row.verified_at,
     sortOrder: row.sort_order,
     imageUrl: imagePathToUrl(row.image_storage_path),
-    imageAltZh: null,
-    imageAltEn: null,
     summaryZh: row.summary_zh,
     summaryEn: row.summary_en,
     contentSource: row.content_source,
