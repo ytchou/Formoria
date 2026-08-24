@@ -304,7 +304,7 @@ export default async function StoryPage({ params }: PageProps) {
           <h1 className="type-page-title">
             {story.entry.frontmatter.title}
           </h1>
-          <p className="type-body text-ink-soft">
+          <p className="type-body">
             {story.entry.frontmatter.description}
           </p>
           {/* The byline sits under a hairline, the way a feature's credits do in

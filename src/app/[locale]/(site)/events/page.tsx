@@ -111,7 +111,7 @@ export default async function EventsHubPage({ params }: PageProps) {
       <div className="space-y-stack">
         <header className="prose-measure space-y-3">
           <h1 className="type-page-title">{t('heading')}</h1>
-          <p className="type-body text-ink-soft">{t('subheading')}</p>
+          <p className="type-body">{t('subheading')}</p>
         </header>
 
         {/*

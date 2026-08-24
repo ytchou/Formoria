@@ -221,7 +221,7 @@ export function createStoryComponentMap({
       createElement("p", {
         ...props,
         className: cn(
-          "prose-measure my-4 type-body text-ink-soft",
+          "prose-measure my-4 type-body",
           props.className,
         ),
       }),
@@ -229,7 +229,7 @@ export function createStoryComponentMap({
       createElement("ul", {
         ...props,
         className: cn(
-          "prose-measure my-4 list-disc space-y-2 pl-5 type-body text-ink-soft",
+          "prose-measure my-4 list-disc space-y-2 pl-5 type-body",
           props.className,
         ),
       }),
@@ -237,14 +237,14 @@ export function createStoryComponentMap({
       createElement("ol", {
         ...props,
         className: cn(
-          "prose-measure my-4 list-decimal space-y-2 pl-5 type-body text-ink-soft",
+          "prose-measure my-4 list-decimal space-y-2 pl-5 type-body",
           props.className,
         ),
       }),
     li: (props: ComponentPropsWithoutRef<"li">) =>
       createElement("li", {
         ...props,
-        className: cn("type-body text-ink-soft", props.className),
+        className: cn("type-body", props.className),
       }),
     a: (props: ComponentPropsWithoutRef<"a">) =>
       createElement("a", {

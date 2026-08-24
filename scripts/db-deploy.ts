@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -32,6 +33,74 @@ const EXPECTED_STORAGE_BUCKETS =
   "brand-images:false,claim-proofs:false,image-eval:false,origin-evidence:false,run-logs:false";
 const EXPECTED_EXTENSIONS =
   "pg_cron:pg_catalog,pg_net:public,pg_stat_statements:extensions,pg_trgm:public,pgcrypto:extensions,plpgsql:pg_catalog,supabase_vault:vault,uuid-ossp:extensions";
+const CHECKSUM_MANIFEST = resolve(ROOT, "supabase/migration-checksums.json");
+
+// ---------------------------------------------------------------------------
+// Migration content integrity
+// ---------------------------------------------------------------------------
+
+export function computeFileHash(content: Buffer): string {
+  return createHash("sha256").update(content).digest("hex");
+}
+
+export function buildChecksumManifest(
+  migrationsDir: string = MIGRATIONS,
+): Record<string, string> {
+  const manifest: Record<string, string> = {};
+  for (const file of readdirSync(migrationsDir)
+    .filter((f) => f.endsWith(".sql"))
+    .sort()) {
+    manifest[migrationVersion(file)] = computeFileHash(
+      readFileSync(resolve(migrationsDir, file)),
+    );
+  }
+  return manifest;
+}
+
+export function verifyChecksumManifest(
+  manifest: Record<string, string>,
+  localFiles: Array<{ version: string; hash: string }>,
+): string[] {
+  const violations: string[] = [];
+  for (const { version, hash } of localFiles) {
+    const recorded = manifest[version];
+    if (!recorded) {
+      violations.push(
+        `${version}: missing from checksum manifest (run "pnpm db-deploy checksums" to record)`,
+      );
+    } else if (hash !== recorded) {
+      violations.push(
+        `${version}: content modified since recorded (was ${recorded.slice(0, 12)}…, now ${hash.slice(0, 12)}…)`,
+      );
+    }
+  }
+  return violations;
+}
+
+function localMigrationFileHashes(
+  migrationsDir: string = MIGRATIONS,
+): Array<{ version: string; hash: string }> {
+  return readdirSync(migrationsDir)
+    .filter((f) => f.endsWith(".sql"))
+    .map((file) => ({
+      version: migrationVersion(file),
+      hash: computeFileHash(readFileSync(resolve(migrationsDir, file))),
+    }));
+}
+
+function loadChecksumManifest(
+  manifestPath: string = CHECKSUM_MANIFEST,
+): Record<string, string> {
+  if (!existsSync(manifestPath)) {
+    throw new Error(
+      `Checksum manifest not found at ${manifestPath}. Run "pnpm db-deploy checksums" to create it.`,
+    );
+  }
+  return JSON.parse(readFileSync(manifestPath, "utf8")) as Record<
+    string,
+    string
+  >;
+}
 
 export type DeploymentTarget = {
   databaseUrl: string;
@@ -630,6 +699,16 @@ function verify(target: DeploymentTarget, includeSchemaDiff: boolean): void {
     }
     reportRemoteAhead(target, ledger.remoteAhead);
   }
+  const checksumViolations = verifyChecksumManifest(
+    loadChecksumManifest(),
+    localMigrationFileHashes(),
+  );
+  if (checksumViolations.length > 0) {
+    throw new Error(
+      `Migration content integrity check failed:\n  ${checksumViolations.join("\n  ")}`,
+    );
+  }
+
   if (publicTablesWithoutRls !== 0) {
     throw new Error(
       "Database verification failed: a public table is missing RLS",
@@ -679,6 +758,29 @@ function verify(target: DeploymentTarget, includeSchemaDiff: boolean): void {
 
 async function main(): Promise<void> {
   const command = process.argv[2];
+
+  if (command === "checksums") {
+    const manifest = buildChecksumManifest();
+    writeFileSync(CHECKSUM_MANIFEST, JSON.stringify(manifest, null, 2) + "\n");
+    console.log(
+      `Recorded ${Object.keys(manifest).length} migration checksums to ${CHECKSUM_MANIFEST}`,
+    );
+    return;
+  }
+  if (command === "checksums:verify") {
+    const violations = verifyChecksumManifest(
+      loadChecksumManifest(),
+      localMigrationFileHashes(),
+    );
+    if (violations.length > 0) {
+      throw new Error(
+        `Migration content integrity check failed:\n  ${violations.join("\n  ")}`,
+      );
+    }
+    console.log("Migration content integrity: all checksums match");
+    return;
+  }
+
   const target = validateDeploymentTarget();
 
   switch (command) {

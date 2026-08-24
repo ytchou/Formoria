@@ -58,7 +58,7 @@ describe("findBands — the JSX scanner", () => {
            alt=""
            scrim="left"
          >
-           <p className="type-body text-ink-soft">copy</p>
+           <p className="type-body">copy</p>
          </PhotoBand>
        );`,
     );
@@ -201,17 +201,13 @@ describe("ink roles", () => {
   const roleInk = readTypeRoleInk(css);
 
   it("reads the role-to-ink map out of globals.css", () => {
-    expect(roleInk.get("type-body")).toBe("--ink-muted");
+    expect(roleInk.get("type-body")).toBe("--ink-soft");
     expect(roleInk.get("type-eyebrow")).toBe("--ink-muted");
     expect(roleInk.get("type-page-title")).toBe("--ink");
   });
 
-  it("checks the muted role when a band actually paints it", () => {
-    // The comment used to claim muted was "a role no band is allowed to paint
-    // on itself anyway" — a rule nothing enforced. `--ink-muted` measures
-    // 2.75:1 over the homepage photograph at the wide breakpoint, so a band that drops the override
-    // has to fail rather than go unmeasured.
-    expect(resolveBandInk([["type-body"]], roleInk)).toContain("--ink-muted");
+  it("resolves type-body to its CSS-declared ink role", () => {
+    expect(resolveBandInk([["type-body"]], roleInk)).toContain("--ink-soft");
   });
 
   it("lets an explicit ink override the role's default", () => {
