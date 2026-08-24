@@ -154,7 +154,7 @@
   },
   "e2e/tests/static-pages.spec.ts": {
     "playwright/no-conditional-in-test": {
-      "count": 6
+      "count": 5
     }
   },
   "e2e/tests/stories.spec.ts": {

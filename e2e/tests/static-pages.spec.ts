@@ -7,8 +7,8 @@ import { BUDGET } from "../budgets";
  *
  * Journeys:
  *  - /about renders with heading
- *  - both About locales contain the mission, trust labels, and outbound vision
- *  - /vision redirects to the merged vision section on /about
+ *  - both About locales state the mission and the commitments
+ *  - vision routes remain absent
  *  - /mission remains absent
  *  - /getting-started remains absent
  *  - /privacy renders with heading
@@ -20,36 +20,34 @@ import { BUDGET } from "../budgets";
  * Seed: none — every page here is static
  */
 test.describe("Static & compliance pages", () => {
-  test("both About locales state the mission, trust labels, and outbound vision", async ({
+  test("both About locales state the mission and the commitments", async ({
     anonPage,
   }) => {
     const locales = [
       {
         path: "/about",
-        heading: "搬新家、佈置店面、在市集停下來的那一刻",
+        heading: "搬新家、佈置店面、\n在市集停下來的那一刻",
         mission:
           "喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
-        trustLabels: ["收錄品牌", "Formoria 選物", "品牌提供", "贊助內容"],
-        boundary:
-          "品牌或零售通路負責價格、規格選項、庫存、結帳、出貨與售後服務。",
-        vision:
-          "打造一個台灣品牌線上選物空間，讓人可以慢慢逛、找到新的偏好，認識產品背後的品牌，再前往品牌官方或實體通路。",
+        stanceLeads: [
+          "我們把你交到品牌手上。",
+          "付費不會改變任何順序。",
+          "這裡是選出來的，不是全部。",
+          "判斷是我們的，而且會說明理由。",
+        ],
       },
       {
         path: "/en/about",
-        heading: "Moving into a new home, setting up a shop, stopping at a market stall",
+        heading:
+          "Moving into a new home, setting up a shop,\nstopping at a market stall",
         mission:
           "Something you love shouldn't stay a chance encounter. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
-        trustLabels: [
-          "收錄品牌 (Listed brand)",
-          "Formoria 選物 (Formoria Selection)",
-          "品牌提供 (Brand-provided)",
-          "贊助內容 (Sponsored content)",
+        stanceLeads: [
+          "We hand you to the brand.",
+          "Paying changes no order.",
+          "What is here is selected, not everything.",
+          "The judgement is ours, and we show it.",
         ],
-        boundary:
-          "Brands or retailers remain responsible for price, variants, inventory, checkout, fulfilment, and after-sales service.",
-        vision:
-          "Build an online select space for Taiwanese brands where people can browse at their own pace, discover new preferences, get to know the brands behind the products, then continue to the brands' own online stores and stockists.",
       },
     ] as const;
 
@@ -67,34 +65,17 @@ test.describe("Static & compliance pages", () => {
       await expect(
         anonPage.getByText(locale.mission, { exact: true }),
       ).toBeVisible();
-      for (const trustLabel of locale.trustLabels) {
+      for (const lead of locale.stanceLeads) {
         await expect(
-          anonPage.getByRole("heading", { name: trustLabel, exact: true }),
+          anonPage.getByText(lead, { exact: true }),
         ).toBeVisible();
       }
-      await expect(
-        anonPage.getByText(locale.boundary, { exact: true }).first(),
-      ).toBeVisible();
-      await expect(
-        anonPage.getByRole("heading", { name: locale.vision }),
-      ).toBeVisible();
     }
   });
 
-  test("vision page redirects to the merged section on about", async ({
-    anonPage,
-  }) => {
-    const resp = await anonPage.goto("/vision", { timeout: BUDGET.NAVIGATION });
-    if (resp?.status() === 503) {
-      test.skip(true, "PREVIEW_MODE active");
-      return;
-    }
-    await expect(anonPage).toHaveURL(/\/about#vision$/);
-    await expect(
-      anonPage.getByRole("heading", {
-        name: "打造一個台灣品牌線上選物空間，讓人可以慢慢逛、找到新的偏好，認識產品背後的品牌，再前往品牌官方或實體通路。",
-      }),
-    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+  test("vision routes remain absent", async ({ request }) => {
+    expect((await request.get("/vision")).status()).toBe(404);
+    expect((await request.get("/en/vision")).status()).toBe(404);
   });
 
   test("mission routes remain absent", async ({ request }) => {

@@ -501,13 +501,13 @@ describe("buildOrganizationJsonLd", () => {
 describe("buildArticleJsonLd", () => {
   it("emits an Article with headline and publisher Organization", () => {
     const ld = buildArticleJsonLd({
-      title: "About",
+      title: "A Test Story",
       description: "desc",
-      path: "/about",
+      path: "/stories/a-test-story",
       locale: "zh-TW",
     }) as JsonLdObject;
     expect(ld["@type"]).toBe("Article");
-    expect(ld.headline).toBe("About");
+    expect(ld.headline).toBe("A Test Story");
     expect(ld.publisher["@type"]).toBe("Organization");
   });
 

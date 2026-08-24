@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import {
-  buildArticleJsonLd,
   buildOrganizationJsonLd,
   safeJsonLdStringify,
 } from "@/lib/json-ld";
@@ -10,13 +9,7 @@ import type { Locale } from "@/lib/seo/alternates";
 import { buildOpenGraph } from "@/lib/seo/open-graph";
 import { Link } from "@/i18n/navigation";
 import AboutHero from "@/components/about/about-hero";
-import TaiwanStats from "@/components/about/taiwan-stats";
-import MissionPillars from "@/components/about/mission-pillars";
-import {
-  AboutCard,
-  AboutCardContent,
-  AboutCardGrid,
-} from "@/components/about/about-card-grid";
+import { PullQuote } from "@/components/stories/pull-quote";
 import { buttonVariants } from "@/components/ui/button";
 import { PageShell } from "@/components/ui/page-shell";
 import { getBrandStats, getRecentBrandCount } from "@/lib/services/brands";
@@ -52,36 +45,25 @@ export async function generateMetadata({
       url: canonical,
       locale: ogLocale,
       alternateLocale: [ogAlternateLocale],
-      type: "article",
     }),
   };
 }
+
+const SCENE_KEYS = ["intention", "encounter", "alternatives", "adjacent"] as const;
+const STANCE_KEYS = ["boundary", "noPayToWin", "incomplete", "judgment"] as const;
 
 export default async function AboutPage({ params }: PageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
-  const [t, metadataT] = await Promise.all([
-    getTranslations("about"),
-    getTranslations("about.metadata"),
-  ]);
-  const title = metadataT("title");
-  const description = metadataT("description");
+  const t = await getTranslations("about");
   const organizationJsonLd = buildOrganizationJsonLd(safeLocale);
-  const articleJsonLd = buildArticleJsonLd({
-    title,
-    description,
-    path: routes.about(),
-    locale: safeLocale,
-  });
 
   const [stats, recentBrands] = await Promise.all([
     getBrandStats().catch(captureReadFailure("about.brandStats")),
     getRecentBrandCount().catch(captureReadFailure("about.recentBrandCount")),
   ]);
 
-  // Aggregate flag: ANY failed read means this render is degraded, and a degraded
-  // render must never be frozen by `revalidate = 3600`.
   const degraded = stats === null || recentBrands === null;
   if (degraded) {
     await markRenderDegraded("about");
@@ -95,156 +77,126 @@ export default async function AboutPage({ params }: PageProps) {
           __html: safeJsonLdStringify(organizationJsonLd),
         }}
       />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(articleJsonLd) }}
-      />
       <main>
-        {/* Each figure is suppressed by ITS OWN read: a failed `getRecentBrandCount`
-            must not hide stats that `getBrandStats` returned. `undefined` omits the
-            figure; a genuinely empty DB still resolves 0 and renders 0. */}
         <AboutHero
           brandCount={stats?.brandCount}
           categoryCount={stats?.categoryCount}
           recentBrands={recentBrands ?? undefined}
         />
 
+        {/* Scenes */}
         <section className="bg-surface py-section">
           <PageShell measure="page">
-            <h2 className="type-page-title text-balance">
-              {t("audiences.heading")}
-            </h2>
-            <p className="mt-4 prose-measure type-body text-pretty">
-              {t("audiences.intro")}
-            </p>
-            <AboutCardGrid className="md:grid-cols-2">
-              <AboutCard>
-                <AboutCardContent
-                  eyebrow="01"
-                  heading={t("audiences.wander.heading")}
-                  body={t("audiences.wander.body")}
-                />
-              </AboutCard>
-              <AboutCard>
-                <AboutCardContent
-                  eyebrow="02"
-                  heading={t("audiences.research.heading")}
-                  body={t("audiences.research.body")}
-                />
-              </AboutCard>
-            </AboutCardGrid>
-          </PageShell>
-        </section>
-
-        <MissionPillars
-          heading={t("mission.heading")}
-          statement={t("mission.statement")}
-          context={t("mission.context")}
-          pillars={[
-            {
-              heading: t("mission.directory.heading"),
-              body: t("mission.directory.body"),
-            },
-            {
-              heading: t("mission.editorial.heading"),
-              body: t("mission.editorial.body"),
-            },
-            {
-              heading: t("mission.connection.heading"),
-              body: t("mission.connection.body"),
-            },
-          ]}
-        />
-
-        <section className="bg-surface py-section">
-          <PageShell measure="page">
-            <h2 className="type-page-title text-balance">
-              {t("trust.heading")}
-            </h2>
-            <p className="mt-4 prose-measure type-body text-pretty">
-              {t("trust.intro")}
-            </p>
-            <AboutCardGrid className="md:grid-cols-2">
-              {(
-                ["listed", "selected", "brandProvided", "sponsored"] as const
-              ).map((label, index) => (
-                <AboutCard key={label}>
-                  <AboutCardContent
-                    eyebrow={String(index + 1).padStart(2, "0")}
-                    heading={t(`trust.${label}.heading`)}
-                    body={t(`trust.${label}.body`)}
-                  />
-                </AboutCard>
-              ))}
-            </AboutCardGrid>
-            <h3 className="mt-10 type-section text-balance">
-              {t("trust.commerceHeading")}
-            </h3>
-            <AboutCardGrid className="md:grid-cols-2">
-              <AboutCard>
-                <p className="type-body text-pretty">
-                  {t("trust.formoriaOwns")}
-                </p>
-              </AboutCard>
-              <AboutCard>
-                <p className="type-body text-pretty">
-                  {t("trust.merchantOwns")}
-                </p>
-              </AboutCard>
-            </AboutCardGrid>
-          </PageShell>
-        </section>
-
-        <section id="vision" className="scroll-mt-32 py-section">
-          <PageShell measure="page">
-            <h2 className="type-page-title text-balance">
-              {t("vision.sectionHeading")}
-            </h2>
-            <div className="mt-8 grid gap-8 md:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)] md:items-start">
-              <div>
-                <h3 className="type-section text-balance">
-                  {t("vision.heading")}
-                </h3>
-                <p className="mt-5 prose-measure type-body text-pretty">
-                  {t("vision.body")}
-                </p>
+            <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
+              <h2 className="type-page-title text-balance">
+                {t("scenes.heading")}
+              </h2>
+              <div className="space-y-6">
+                {SCENE_KEYS.map((key, i) => (
+                  <div key={key}>
+                    <p className="type-section">
+                      {t(`scenes.items.${key}.scene`)}
+                    </p>
+                    <p className="mt-2 type-body-sm text-ink-soft">
+                      {t(`scenes.items.${key}.detail`)}
+                    </p>
+                    {i < SCENE_KEYS.length - 1 && (
+                      <hr className="mt-6 border-rule" />
+                    )}
+                  </div>
+                ))}
               </div>
-              <AboutCard>
-                <h3 className="type-card-title">
-                  {t("vision.principleHeading")}
-                </h3>
-                <p className="mt-3 type-body text-pretty">
-                  {t("vision.principleBody")}
-                </p>
-              </AboutCard>
             </div>
           </PageShell>
         </section>
 
-        <TaiwanStats
-          heading={t("taiwanStats.heading")}
-          intro={t("taiwanStats.intro")}
-          items={[
-            {
-              value: t("taiwanStats.items.count.value"),
-              label: t("taiwanStats.items.count.label"),
-            },
-            {
-              value: t("taiwanStats.items.share.value"),
-              label: t("taiwanStats.items.share.label"),
-            },
-            {
-              value: t("taiwanStats.items.employment.value"),
-              label: t("taiwanStats.items.employment.label"),
-            },
-          ]}
-          sourceLabel={t("taiwanStats.sourceLabel")}
-          sourceName={t("taiwanStats.sourceName")}
-        />
+        {/* Loop */}
+        <section className="py-section">
+          <PageShell measure="page">
+            <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
+              <h2 className="type-page-title text-balance">
+                {t("loop.heading")}
+              </h2>
+              <div>
+                <p className="type-body text-ink-soft">{t("loop.body1")}</p>
+                <p className="mt-6 type-body text-ink-soft">
+                  {t("loop.body2")}
+                </p>
+                <PullQuote>{t("loop.pullQuote")}</PullQuote>
+                <h3 className="type-section">{t("loop.brandHeading")}</h3>
+                <p className="mt-4 type-body text-ink-soft">
+                  {t("loop.brandBody")}
+                </p>
+              </div>
+            </div>
+          </PageShell>
+        </section>
 
-        {/* Closing band. Ink ground, not a photograph under a scrim — the same
-            removal made in `about-hero.tsx`, for the same reason: contrast that
-            depends on an image nobody re-checks is contrast nobody owns. */}
+        {/* Statistics */}
+        <section className="bg-surface py-section">
+          <PageShell measure="page">
+            <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
+              <h2 className="type-page-title text-balance">
+                {t("taiwanStats.heading")}
+              </h2>
+              <div>
+                <p className="type-body text-ink-soft">
+                  {t("taiwanStats.intro")}
+                </p>
+                <div className="mt-8 flex flex-wrap gap-14">
+                  {(["count", "share", "employment"] as const).map((key) => (
+                    <div key={key}>
+                      <p className="type-display tabular-nums">
+                        {t(`taiwanStats.items.${key}.value`)}
+                      </p>
+                      <p className="mt-2 type-metadata">
+                        {t(`taiwanStats.items.${key}.label`)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <hr className="mt-8 border-rule" />
+                <p className="mt-4 type-metadata">
+                  {t("taiwanStats.sourceLabel")}
+                  {": "}
+                  <a
+                    href="https://www.sme.gov.tw/article-tw-2853-13097"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    {t("taiwanStats.sourceName")}
+                  </a>
+                </p>
+              </div>
+            </div>
+          </PageShell>
+        </section>
+
+        {/* Stance */}
+        <section className="py-section">
+          <PageShell measure="page">
+            <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
+              <h2 className="type-page-title text-balance">
+                {t("stance.heading")}
+              </h2>
+              <div className="space-y-8">
+                {STANCE_KEYS.map((key) => (
+                  <div key={key}>
+                    <p className="type-section">
+                      {t(`stance.items.${key}.lead`)}
+                    </p>
+                    <p className="mt-2 type-body text-ink-soft">
+                      {t(`stance.items.${key}.body`)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </PageShell>
+        </section>
+
+        {/* Closing CTA */}
         <section className="border-t border-rule bg-surface py-section">
           <PageShell measure="page">
             <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
