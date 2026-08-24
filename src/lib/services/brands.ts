@@ -27,6 +27,7 @@ import { RESERVED_ROUTES } from "@/proxy";
 import {
   deriveCategoryLabel,
   L1_CATEGORIES,
+  VISIBLE_L1_CATEGORIES,
   subcategoryBySlug,
 } from "@/lib/taxonomy/ontology";
 import { slugifyRomanizedName, withSlugSuffix } from "@/lib/brands/slug";
@@ -1483,8 +1484,14 @@ export function directoryBrandCategoryFilter(
   subcategorySlugs: readonly string[],
 ): string[] | undefined {
   if (subcategorySlugs.length > 0) return undefined;
-  return categorySlugs.length > 0 ? [...categorySlugs] : undefined;
+  return categorySlugs.length > 0
+    ? [...categorySlugs]
+    : VISIBLE_L1_CATEGORIES.map(c => c.slug);
 }
+
+const DEFERRED_CATEGORY_NAMES: ReadonlySet<string> = new Set(
+  L1_CATEGORIES.filter(c => 'deferred' in c).flatMap(c => [c.name, c.nameZh])
+);
 
 function getBrandsSelect(filters: GetBrandsFilters | undefined): "*" {
   if (filters?.includeDetailColumns) {
@@ -2027,12 +2034,14 @@ export async function searchBrandsAutocomplete(
     throw error;
   }
 
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    slug: row.slug,
-    name: row.name,
-    categoryLabel: row.primary_category_name ?? "",
-  }));
+  return (data ?? [])
+    .filter((row) => !DEFERRED_CATEGORY_NAMES.has(row.primary_category_name ?? ""))
+    .map((row) => ({
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      categoryLabel: row.primary_category_name ?? "",
+    }));
 }
 
 export async function getBrandBySlug(
@@ -2571,10 +2580,12 @@ export async function getBrandStats(): Promise<{
         supabase
           .from("brands")
           .select(BRAND_COLUMNS as "*", { count: "exact", head: true })
-          .eq("status", "approved"),
+          .eq("status", "approved")
+          .in("category", VISIBLE_L1_CATEGORIES.map(c => c.slug)),
       ),
       excludeTestBrands(
-        supabase.from("brands").select("category").eq("status", "approved"),
+        supabase.from("brands").select("category").eq("status", "approved")
+          .in("category", VISIBLE_L1_CATEGORIES.map(c => c.slug)),
       ).not("category", "is", null),
     ]);
 

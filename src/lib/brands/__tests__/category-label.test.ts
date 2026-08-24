@@ -28,4 +28,12 @@ describe("getBrandCategoryLabel", () => {
       "Fashion & Apparel",
     );
   });
+
+  it("returns label for visible category", () => {
+    expect(getBrandCategoryLabel({ categorySlug: "home" })).toBe("居家生活");
+  });
+
+  it("returns empty string for deferred category", () => {
+    expect(getBrandCategoryLabel({ categorySlug: "pets" })).toBe("");
+  });
 });

@@ -371,14 +371,14 @@ clusters:
   search_intent: commercial
   page_type: l1-category
   target_url: /categories/kids
-  target_status: live
+  target_status: proposed
   ontology_slug: kids
   brand_count: 29
   data_quality: pass
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: launch
+  eligibility: defer-brands
   composite: none
   content_requirement: Category intro explaining what makes this category's Taiwanese brands distinct,
     a brand grid with verification tiers, and CollectionPage + ItemList JSON-LD.
@@ -434,14 +434,14 @@ clusters:
   search_intent: commercial
   page_type: l1-category
   target_url: /categories/stationery
-  target_status: live
+  target_status: proposed
   ontology_slug: stationery
   brand_count: 25
   data_quality: pass
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: launch
+  eligibility: defer-brands
   composite: none
   content_requirement: Category intro explaining what makes this category's Taiwanese brands distinct,
     a brand grid with verification tiers, and CollectionPage + ItemList JSON-LD.
@@ -459,14 +459,14 @@ clusters:
   search_intent: commercial
   page_type: l1-category
   target_url: /categories/outdoor
-  target_status: live
+  target_status: proposed
   ontology_slug: outdoor
   brand_count: 17
   data_quality: thin
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: launch
+  eligibility: defer-brands
   composite: none
   content_requirement: Category intro explaining what makes this category's Taiwanese brands distinct,
     a brand grid with verification tiers, and CollectionPage + ItemList JSON-LD.

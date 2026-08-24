@@ -1,4 +1,8 @@
-import { L1_CATEGORIES, subcategoryBySlug } from "@/lib/taxonomy/ontology";
+import {
+  L1_CATEGORIES,
+  isVisibleCategory,
+  subcategoryBySlug,
+} from "@/lib/taxonomy/ontology";
 
 function findL1Category(value: string) {
   return L1_CATEGORIES.find(
@@ -32,6 +36,7 @@ export function getBrandCategoryLabel(
   locale: "zh-TW" | "en" = "zh-TW",
 ): string {
   if (!brand.categorySlug) return "";
+  if (!isVisibleCategory(brand.categorySlug)) return "";
   return getCategoryLabel(brand.categorySlug, locale) ?? brand.categorySlug;
 }
 

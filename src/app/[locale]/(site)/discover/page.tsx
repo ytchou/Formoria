@@ -13,7 +13,7 @@ import {
   type TrailEntry,
   type TrailListResult,
 } from "@/lib/services/trails";
-import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { VISIBLE_L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { routes } from "@/lib/routes";
 
 type PageProps = {
@@ -25,7 +25,7 @@ export { shouldIndexTrailHub };
 
 export const revalidate = 3600;
 
-const TRAIL_TAGS = new Set<string>(L1_CATEGORIES.map((category) => category.slug));
+const TRAIL_TAGS = new Set<string>(VISIBLE_L1_CATEGORIES.map((category) => category.slug));
 
 export function filterTrailsByTag(
   trails: TrailEntry[],

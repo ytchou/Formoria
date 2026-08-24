@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { DirectoryView } from "@/components/brands/directory-view";
 import {
   L1_CATEGORIES,
+  VISIBLE_L1_CATEGORIES,
   categoryLabel,
   resolveDirectorySubcategorySlugs,
 } from "@/lib/taxonomy/ontology";
@@ -20,7 +21,7 @@ import { truncateForMeta } from "@/lib/text/truncate-for-meta";
 export const revalidate = 3600;
 
 const VALID_CATEGORY_SLUGS = new Set(
-  L1_CATEGORIES.map((category) => category.slug),
+  VISIBLE_L1_CATEGORIES.map((category) => category.slug),
 );
 
 interface BrandsPageProps {

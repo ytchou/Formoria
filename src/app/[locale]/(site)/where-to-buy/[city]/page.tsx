@@ -16,7 +16,7 @@ import {
   stockistDistrictSlugs,
   summarizeStockistCities,
 } from '@/lib/services/stockists'
-import { L1_CATEGORIES, categoryLabel } from '@/lib/taxonomy/ontology'
+import { VISIBLE_L1_CATEGORIES, categoryLabel } from '@/lib/taxonomy/ontology'
 import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
 import { buildStockistItemListJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { captureReadFailure, markRenderDegraded } from '@/lib/degraded-render'
@@ -151,7 +151,7 @@ export default async function WhereToBuyCityPage({
               {t('allCategories')}
             </a>
           </li>
-          {L1_CATEGORIES.map((item) => (
+          {VISIBLE_L1_CATEGORIES.map((item) => (
             <li key={item.slug}>
               <a
                 href={localizePath(
