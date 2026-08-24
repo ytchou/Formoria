@@ -211,8 +211,6 @@ describe('getBrandImages', () => {
       'sort_order',
       'source',
       'source_url',
-      'alt_zh',
-      'alt_en',
       'width',
       'height',
     ])
@@ -256,8 +254,6 @@ describe('toImageFields', () => {
       storage_path: 'brands/brand-1/tote.webp',
       status: 'active',
       sort_order: 0,
-      alt_zh: '職人手工編織的藺草提包',
-      alt_en: 'Handwoven rush-grass tote bag',
       width: 1600,
       height: 1200,
     },
@@ -268,20 +264,16 @@ describe('toImageFields', () => {
     expect(toImageFields(rows as never)).toEqual({
       heroImageUrl: '/i/brands/brand-1/tote.webp',
       heroImageMetadata: {
-        altZh: '職人手工編織的藺草提包',
-        altEn: 'Handwoven rush-grass tote bag',
         width: 1600,
         height: 1200,
       },
       productPhotos: ['/i/brands/brand-1/workshop.webp'],
       imageAlts: [
         {
-          altZh: '職人手工編織的藺草提包',
-          altEn: 'Handwoven rush-grass tote bag',
           isLogo: false,
           isOwnerSupplied: false,
         },
-        { altZh: null, altEn: null, isLogo: false, isOwnerSupplied: false },
+        { isLogo: false, isOwnerSupplied: false },
       ],
     })
   })
@@ -366,7 +358,6 @@ describe('getBrandImages', () => {
 
     const columns = (select.mock.calls[0]?.[0] ?? '').split(',').map((c) => c.trim())
     expect(columns).toContain('source')
-    expect(columns).toContain('alt_zh')
   })
 })
 

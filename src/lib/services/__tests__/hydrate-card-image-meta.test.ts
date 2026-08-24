@@ -23,8 +23,6 @@ type ImageRowFixture = {
   brand_id: string
   storage_path: string
   tags: string[] | null
-  alt_zh: string | null
-  alt_en: string | null
   sort_order: number
   width: number | null
   height: number | null
@@ -123,8 +121,6 @@ function imageRow(
 ): ImageRowFixture {
   return {
     tags: ['product'],
-    alt_zh: null,
-    alt_en: null,
     sort_order: 0,
     width: 1200,
     height: 900,
@@ -156,8 +152,6 @@ describe('hydrateCardImageMeta', () => {
         storage_path: 'brands/b1/hero.webp',
         sort_order: 2,
         tags: ['logo'],
-        alt_zh: '標誌',
-        alt_en: 'Logo',
         width: 800,
         height: 800,
       }),
@@ -168,11 +162,9 @@ describe('hydrateCardImageMeta', () => {
     ])
 
     expect(hydrated?.imageAlts).toEqual([
-      { altZh: '標誌', altEn: 'Logo', isLogo: true },
+      { isLogo: true },
     ])
     expect(hydrated?.heroImageMetadata).toEqual({
-      altZh: '標誌',
-      altEn: 'Logo',
       width: 800,
       height: 800,
     })
@@ -191,8 +183,6 @@ describe('hydrateCardImageMeta', () => {
         storage_path: 'brands/b1/product.webp',
         tags: ['product'],
         sort_order: 1,
-        alt_zh: '商品照片',
-        alt_en: 'Product photo',
       }),
     ]
 
@@ -204,8 +194,6 @@ describe('hydrateCardImageMeta', () => {
     expect(hydrated?.imageAlts).toEqual([
       expect.objectContaining({ isLogo: true }),
       expect.objectContaining({
-        altZh: '商品照片',
-        altEn: 'Product photo',
         isLogo: false,
       }),
     ])
@@ -423,8 +411,6 @@ describe('hydrateCardImageMeta', () => {
         'brand_id',
         'storage_path',
         'tags',
-        'alt_zh',
-        'alt_en',
         'sort_order',
         'width',
         'height',
@@ -441,7 +427,7 @@ describe('hydrateCardImageMeta', () => {
       // `supabase db push`, a column this projection reads does not exist yet,
       // PostgREST answers 42703, and it does so on every card surface at once.
       queryError = {
-        message: 'column brand_images.alt_en does not exist',
+        message: 'column brand_images.tags does not exist',
         code: '42703',
       }
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})

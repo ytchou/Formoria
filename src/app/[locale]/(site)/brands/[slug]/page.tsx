@@ -117,11 +117,7 @@ export async function generateMetadata({
   ];
   const heroImageUrl = safeImageSrc(brand.heroImageUrl);
   const heroImageMetadata = brand.heroImageMetadata;
-  const heroImageAlt =
-    (safeLocale === "en"
-      ? heroImageMetadata?.altEn
-      : heroImageMetadata?.altZh
-    )?.trim() || brand.name;
+  const heroImageAlt = brand.name;
   const heroImageDimensions =
     heroImageMetadata?.width && heroImageMetadata.height
       ? { width: heroImageMetadata.width, height: heroImageMetadata.height }

@@ -52,9 +52,9 @@ const IMAGES = [
   `${ALLOWED_HOST}/third.jpg`,
 ];
 const IMAGE_ALTS: BrandImageMeta[] = [
-  { altZh: "第一張", altEn: "First logo", isLogo: true },
-  { altZh: "第二張", altEn: "Second photo", isLogo: false },
-  { altZh: "第三張", altEn: "Third logo", isLogo: true },
+  { isLogo: true },
+  { isLogo: false },
+  { isLogo: true },
 ];
 
 function renderCarousel() {
@@ -93,15 +93,14 @@ describe("ImageCarousel", () => {
     expect(container.innerHTML).not.toMatch(/aspect-\[/);
   });
 
-  it("resolves alt text from the original index, not the filtered one", () => {
+  it("uses the brand-name fallback for alt text", () => {
     renderCarousel();
     const [hero, firstThumb, secondThumb] = images();
 
-    expect(hero).toHaveAttribute("alt", "First logo");
-    expect(firstThumb).toHaveAttribute("alt", "First logo");
-    // The second surviving image came from source index 2. Indexing the
-    // filtered list would hand it index 1 — "Second photo".
-    expect(secondThumb).toHaveAttribute("alt", "Third logo");
+    // Every image falls back to the brand-name template.
+    expect(hero).toHaveAttribute("alt", "gallery.photoAltWithBrand");
+    expect(firstThumb).toHaveAttribute("alt", "gallery.photoAltWithBrand");
+    expect(secondThumb).toHaveAttribute("alt", "gallery.photoAltWithBrand");
   });
 
   it("resolves the logo fill mode from the original index, not the filtered one", () => {
@@ -120,7 +119,7 @@ describe("ImageCarousel", () => {
     fireEvent.click(screen.getByRole("button", { name: "gallery.next" }));
 
     const [hero] = images();
-    expect(hero).toHaveAttribute("alt", "Third logo");
+    expect(hero).toHaveAttribute("alt", "gallery.photoAltWithBrand");
     expect(hero).toHaveClass("object-contain", "p-6");
   });
 
@@ -158,8 +157,8 @@ describe("ImageCarousel", () => {
         brandId="brand-id"
         brandSlug="formoria"
         imageAlts={[
-          { altZh: null, altEn: null, isLogo: true },
-          { altZh: null, altEn: null, isLogo: false },
+          { isLogo: true },
+          { isLogo: false },
         ]}
       />,
     );
@@ -207,8 +206,6 @@ describe("ImageCarousel", () => {
         brandId="brand-id"
         brandSlug="formoria"
         imageAlts={sources.map((isOwnerSupplied) => ({
-          altZh: null,
-          altEn: null,
           isLogo: false,
           isOwnerSupplied,
         }))}

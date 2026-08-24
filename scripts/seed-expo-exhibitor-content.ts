@@ -538,7 +538,7 @@ async function harvestOne(
   // active sort_order is the image the pipeline chose to lead with.
   const { data: heroRows, error: heroError } = await supabase
     .from("submission_images")
-    .select("storage_path, alt_zh, alt_en")
+    .select("storage_path")
     .eq("submission_id", submissionId)
     .eq("status", "active")
     .order("sort_order", { ascending: true })
@@ -597,8 +597,6 @@ async function harvestOne(
     .update({
       image_url: publicUrl,
       image_storage_path: destination,
-      image_alt_zh: hero.alt_zh,
-      image_alt_en: hero.alt_en,
       summary_zh: summaryZh,
       summary_en: summaryEn,
       content_source: "enriched",

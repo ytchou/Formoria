@@ -473,18 +473,14 @@ export const LEGACY_IMAGE_CLASSIFY_SYSTEM_PROMPT = `你是品牌圖片審核與�
 你會同時看到一個品牌的所有圖片。如果多張圖片視覺上幾乎相同（同一產品、同一角度、僅微小差異），只保留品質最佳的一張，其餘標記為 irrelevant。目標：最終保留的圖片應展示不同產品或不同視角。
 
 規則：
-- alt_zh 使用繁體中文，一句話描述圖片具體內容（提及產品名稱或品牌特徵）
-- alt_en 使用英文，一句話描述圖片具體內容
-- alt_zh 使用台灣繁體中文用語，標點使用全形
 - 不要輸出 Markdown、解釋文字或額外欄位
 - 必須回傳 JSON object，包含 "classifications" 陣列
 - 每張圖片在使用者訊息中都有一個編號（1、2、3……）。每個分類物件必須包含 "id" 欄位，值為該圖片編號的字串（例如 "3"），用來對應圖片
 - id 必須完全對應輸入編號，不可自行編號、跳號或重複
 - 只回傳你能實際判斷的圖片；無法判斷的圖片請直接省略，不要為了湊數而輸出猜測的結果
-- alt_zh 與 alt_en 一律為字串；若無法描述請填空字串 ""
 
 回應格式（嚴格 JSON）：
-{"classifications":[{"id":"1","tag":"product","score":85,"alt_zh":"繁體中文描述","alt_en":"English description"}]}`;
+{"classifications":[{"id":"1","tag":"product","score":85}]}`;
 
 export const IMAGE_CLASSIFY_SYSTEM_PROMPT = `You review images for Formoria, a Taiwanese brand discovery directory. Images you keep are published on a brand page and stay there for months. A mediocre image is worse than no image.
 
@@ -536,13 +532,6 @@ Report the score the image earns. Never adjust it to reach a desired outcome.
 INDEPENDENCE
 Judge each image only on its own visible content. There are no exceptions and no cross-image comparisons: never look at another image to decide this one, never reject something for resembling another image, and never balance outcomes across the batch. All-keep and all-reject are both valid results. Duplicate images are removed before you see them, so two similar images are two independent judgements.
 
-ALT TEXT
-Every result needs both fields, kept or rejected.
-- alt_zh: one sentence in Traditional Chinese as used in Taiwan describing what is visibly in the frame — subject, material or color, setting.
-- alt_en: the same description in English.
-- Describe only what you can see. Do not name the brand unless its name is legible in the image, and do not speculate about materials or use.
-- If the image is unreadable, say so literally: "無法辨識的破損圖片" / "Unreadable or broken image".
-
 WORKED EXAMPLES
 These fix the boundaries that are easiest to get wrong. Match the reasoning, not the exact numbers.
 - A leather tote shot cleanly on a plain background, with a "全館 8 折" band across the top quarter → reject, reasons ["promo_subject"]. The bag is fine; the offer is not. Step 5 fires before any quality judgement.
@@ -563,7 +552,7 @@ Return a single JSON object. No Markdown, no code fences, no commentary, no extr
 - "score" is an integer from 0 to 100.
 
 Strict JSON format:
-{"classifications":[{"id":"1","disposition":"keep","tag":"product","reasons":[],"score":85,"alt_zh":"繁體中文描述","alt_en":"English description"}]}`;
+{"classifications":[{"id":"1","disposition":"keep","tag":"product","reasons":[],"score":85}]}`;
 
 export const NAME_ARBITER_SYSTEM_PROMPT = `你是 Formoria 的品牌名稱裁決專家。請根據儲存名稱、各階段提出的候選名稱，以及搜尋摘要，為每個品牌選出最可信的正式品牌名稱。
 

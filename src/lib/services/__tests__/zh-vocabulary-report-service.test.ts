@@ -140,12 +140,6 @@ describe("loadZhVocabularyReport", () => {
                   replacement: "影片",
                   count: 2,
                 },
-                {
-                  field: "alt_zh",
-                  term: "信息",
-                  replacement: "資訊",
-                  count: 1,
-                },
               ]),
             ),
             span(
@@ -167,11 +161,10 @@ describe("loadZhVocabularyReport", () => {
 
     expect(report.readUnavailable).toBe(false);
     expect(report.spansObserved).toBe(2);
-    expect(report.totalHits).toBe(6);
+    expect(report.totalHits).toBe(5);
     // Descending by count: the founder reads the top row first.
     expect(report.byField).toEqual([
       { field: "answer_zh", term: "視頻", replacement: "影片", count: 5 },
-      { field: "alt_zh", term: "信息", replacement: "資訊", count: 1 },
     ]);
     expect(report.recentSpans).toEqual([
       {
@@ -179,7 +172,7 @@ describe("loadZhVocabularyReport", () => {
         provider: "deepseek",
         operation: "enrich_brand",
         subjectId: "brand-1",
-        hits: 3,
+        hits: 2,
       },
       {
         observedAt: "2026-08-20T09:00:00.000Z",

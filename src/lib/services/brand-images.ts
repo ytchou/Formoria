@@ -27,8 +27,6 @@ export type BrandImageRow = {
   provider_metadata?: BrandImageProviderMetadata | null
   rejection_reasons?: string[] | null
   rejected_at?: string | null
-  alt_zh?: string | null
-  alt_en?: string | null
   width?: number | null
   height?: number | null
 }
@@ -157,8 +155,6 @@ export function getBrandGalleryImages(brand: {
 export function toImageFields(rows: BrandImageRow[]): {
   heroImageUrl: string | null
   heroImageMetadata: {
-    altZh: string | null
-    altEn: string | null
     width: number | null
     height: number | null
   } | null
@@ -179,8 +175,6 @@ export function toImageFields(rows: BrandImageRow[]): {
     heroImageUrl: imagePathToUrl(hero?.storage_path),
     heroImageMetadata: hero
       ? {
-          altZh: hero.alt_zh ?? null,
-          altEn: hero.alt_en ?? null,
           width: hero.width && hero.width > 0 ? hero.width : null,
           height: hero.height && hero.height > 0 ? hero.height : null,
         }
@@ -192,8 +186,6 @@ export function toImageFields(rows: BrandImageRow[]): {
         return src ? [src] : []
       }),
     imageAlts: active.map((row) => ({
-      altZh: row.alt_zh ?? null,
-      altEn: row.alt_en ?? null,
       isLogo: isLogoImageTags(row.tags),
       /*
        * The brand-supplied credit, derived once and never inferred.
@@ -220,7 +212,7 @@ export async function getBrandImages(
     // every row would just come back unattributed and the credit would silently
     // never render. `brand-images.test.ts` asserts this string for that reason.
     .select(
-      'storage_path, status, tags, score, sort_order, source, source_url, alt_zh, alt_en, width, height',
+      'storage_path, status, tags, score, sort_order, source, source_url, width, height',
     )
     .eq('brand_id', brandId)
     .eq('status', 'active')

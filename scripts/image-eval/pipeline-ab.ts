@@ -60,7 +60,6 @@ type AfterImage = {
   tag?: string | null
   score?: number
   reasons?: string[]
-  altZh?: string
   rank?: number
   published?: boolean
 }
@@ -151,7 +150,7 @@ async function gateCandidate(
 async function classifyBatch(
   brandContext: string,
   images: AfterImage[]
-): Promise<Map<string, { disposition: string; tag: string | null; score: number; reasons: string[]; altZh: string }>> {
+): Promise<Map<string, { disposition: string; tag: string | null; score: number; reasons: string[] }>> {
   const ordinals = images.map((_, i) => String(i + 1))
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -181,9 +180,9 @@ async function classifyBatch(
     console.log(`      classify failed: ${String(json.error?.message).slice(0, 120)}`)
     return new Map()
   }
-  const out = new Map<string, { disposition: string; tag: string | null; score: number; reasons: string[]; altZh: string }>()
+  const out = new Map<string, { disposition: string; tag: string | null; score: number; reasons: string[] }>()
   for (const [ord, v] of parseClassificationBatch(json.choices?.[0]?.message?.content ?? '')) {
-    out.set(ord, { disposition: v.disposition, tag: v.tag, score: v.score, reasons: v.reasons, altZh: v.altZh })
+    out.set(ord, { disposition: v.disposition, tag: v.tag, score: v.score, reasons: v.reasons })
   }
   return out
 }
@@ -354,7 +353,6 @@ async function main(): Promise<void> {
         image.tag = v.tag
         image.score = v.score
         image.reasons = v.reasons
-        image.altZh = v.altZh
       }
     }
 

@@ -102,7 +102,6 @@ type EvalImage = {
   tag?: string | null;
   score?: number;
   reasons?: string[];
-  altZh?: string;
   rank?: number;
   published?: boolean;
 };
@@ -230,7 +229,6 @@ async function classifyBatch(
       tag: string | null;
       score: number;
       reasons: string[];
-      altZh: string;
     }
   >
 > {
@@ -269,7 +267,6 @@ async function classifyBatch(
       tag: string | null;
       score: number;
       reasons: string[];
-      altZh: string;
     }
   >();
   for (const [ord, v] of parseClassificationBatch(result.content)) {
@@ -278,7 +275,6 @@ async function classifyBatch(
       tag: v.tag,
       score: v.score,
       reasons: v.reasons,
-      altZh: v.altZh,
     });
   }
   return out;
@@ -604,7 +600,6 @@ async function main(): Promise<void> {
         image.tag = v.tag;
         image.score = v.score;
         image.reasons = v.reasons;
-        image.altZh = v.altZh;
       }
     }
 

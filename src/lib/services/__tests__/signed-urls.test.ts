@@ -45,8 +45,6 @@ function reviewImage(
     source: "owner",
     status: "active",
     sortOrder: 0,
-    altZh: null,
-    altEn: null,
     isLogo: false,
     width: null,
     height: null,
