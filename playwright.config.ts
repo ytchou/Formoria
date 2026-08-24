@@ -97,12 +97,13 @@ export default defineConfig({
   },
   use: {
     baseURL,
-    // `use.locale` below only reaches BROWSER contexts. The `request` fixture is
-    // an APIRequestContext and inherits none of it, so it sends no
-    // Accept-Language at all. proxy.ts:721 then infers the locale from
-    // cf-ipcountry and 307s every public path to /en/..., which is invisible
-    // from Taiwan and unavoidable from a US-hosted runner. Declared here rather
-    // than in remoteHeaders so a local run outside Taiwan behaves the same.
+    // Vestigial as of DEV-1580: the proxy no longer infers a locale from
+    // Accept-Language or cf-ipcountry, so a prefix-free public path is the
+    // default locale whatever this header says. It was added because the
+    // `request` fixture is an APIRequestContext, inherits none of `use.locale`
+    // below, and so sent no Accept-Language at all -- which used to 307 every
+    // public path to /en/... from a US-hosted runner. Kept because it is inert
+    // and because it still makes the API fixture match a real browser.
     extraHTTPHeaders: {
       "Accept-Language": "zh-TW",
       ...(isLocalTarget ? {} : remoteHeaders),

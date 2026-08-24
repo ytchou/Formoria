@@ -26,6 +26,11 @@ type UsageMetric = {
   limit: number | null;
   percentage: number | null;
   window: UsageWindow;
+  // What this reading is *about* when the service row's name is not precise
+  // enough -- the Railway memory metric is one service out of the two the row
+  // covers, and a warning that does not name it leaves the operator guessing.
+  // `null` on every metric whose service row already identifies it.
+  subject: string | null;
   source: string;
   completeness: UsageCompleteness;
   freshness: string | null;
@@ -87,6 +92,14 @@ type OperationalAlertMeter = {
   percentage: number | null;
   projection: number | null;
   message: string | null;
+  // The period the reading covers. Carried through to Slack because the
+  // Railway meters report a completed UTC day while the OpenAI and Upstash
+  // meters in the same message report the current period -- a report headed
+  // with a Taipei date gives the reader no cue that the lines differ.
+  window: UsageWindow | null;
+  // Which Railway service the reading belongs to, when the row covers more
+  // than one. `null` for meters whose row already names the subject.
+  subject: string | null;
 };
 
 export type OperationalAlertSummary = {
@@ -178,6 +191,7 @@ function createMetric({
   unit,
   limit,
   window,
+  subject = null,
   source,
   completeness = "exact",
   freshness,
@@ -188,6 +202,7 @@ function createMetric({
   unit: string;
   limit: number | null;
   window: UsageWindow;
+  subject?: string | null;
   source: string;
   completeness?: UsageCompleteness;
   freshness?: string | null;
@@ -205,6 +220,7 @@ function createMetric({
     limit,
     percentage,
     window,
+    subject,
     source,
     completeness,
     freshness: freshness ?? at.toISOString(),
@@ -647,7 +663,15 @@ export const RAILWAY_SERVICE_IDS = [
 // the one this meter is supposed to read).
 const RAILWAY_PROJECT_ID = "fc1fb53f-6a7f-4324-8275-de1ec53847eb";
 const RAILWAY_ENVIRONMENT_ID = "d2c107d8-95e4-4467-a972-fbf719593dc3";
+// Both metered services bill against ONE project egress allowance, so this
+// limit is compared against their sum.
 const RAILWAY_EGRESS_LIMIT_GB = 5;
+// PER SERVICE, deliberately unlike the summed egress limit directly above.
+// 1.5 GB is what a single Railway service is expected to stay under, so each
+// service's 7-day mean is assessed against it on its own and the worst one is
+// published. Summing the two means instead put two healthy services (0.9 +
+// 0.8) at ratio 1.13 and paged critical every single day, which trains the
+// reader to ignore the alarm this meter exists to raise.
 const RAILWAY_MEMORY_LIMIT_GB = 1.5;
 const RAILWAY_METRICS_QUERY = `query($p:String!,$e:String!,$s:String!,$st:DateTime!,$en:DateTime!){
   metrics(projectId:$p, environmentId:$e, serviceId:$s,
@@ -844,10 +868,27 @@ export async function fetchRailwayUsage({
   if (egressSamples === 0) {
     return { state: "error", message: RAILWAY_NO_EGRESS_SAMPLES_MESSAGE };
   }
-  const memoryMeans = series.map(railwayMemoryMeanGb);
-  const memory = memoryMeans.every((mean) => mean === null)
-    ? null
-    : memoryMeans.reduce<number>((sum, mean) => sum + (mean ?? 0), 0);
+  // Memory is assessed per service (see RAILWAY_MEMORY_LIMIT_GB) and the worst
+  // service is published as the secondary metric. Every service shares one
+  // limit, so the highest mean is also the highest ratio.
+  const memoryByService: Array<{ serviceId: string; mean: number }> = [];
+  RAILWAY_SERVICE_IDS.forEach((serviceId, index) => {
+    const mean = railwayMemoryMeanGb(series[index] ?? []);
+    if (mean !== null) memoryByService.push({ serviceId, mean });
+  });
+  // A service that reported no samples is not assessed rather than counted as
+  // 0 GB -- a missing service must never read as healthy. When SOME services
+  // reported, the worst of those is still published (an over-limit service is
+  // actionable now) and the reporting count travels in `source` so a partial
+  // reading is never mistaken for full coverage. Only when NO service reported
+  // is the metric omitted entirely.
+  const worstMemory = memoryByService.reduce<{
+    serviceId: string;
+    mean: number;
+  } | null>(
+    (worst, entry) => (worst === null || entry.mean > worst.mean ? entry : worst),
+    null,
+  );
   const usage: MeteredUsage = {
     state: "ready",
     message:
@@ -863,16 +904,17 @@ export async function fetchRailwayUsage({
       at: now,
     }),
     // Omitted rather than published as 0.00 GB when Railway returned no memory
-    // samples: an unknown reading must never render as a healthy one.
+    // samples at all: an unknown reading must never render as a healthy one.
     secondary:
-      memory === null
+      worstMemory === null
         ? null
         : createMetric({
-            value: memory,
+            value: worstMemory.mean,
             unit: "GB",
             limit: RAILWAY_MEMORY_LIMIT_GB,
             window: memoryWindow,
-            source: "Railway metrics API",
+            subject: `service ${worstMemory.serviceId}`,
+            source: `Railway metrics API (worst of ${memoryByService.length}/${RAILWAY_SERVICE_IDS.length} services reporting)`,
             completeness: "exact",
             projection: null,
             at: now,
@@ -1293,6 +1335,8 @@ function alertMeter(
     percentage: metric?.percentage ?? null,
     projection: metric?.projection ?? null,
     message: service.usage.message,
+    window: metric?.window ?? null,
+    subject: metric?.subject ?? null,
   };
 }
 
@@ -1324,7 +1368,10 @@ function labelledMetrics(service: OperationalServiceRow): Array<{
 function meterReading(metric: UsageMetric): string {
   const value = metric.value === null ? "unknown" : String(metric.value);
   const limit = metric.limit === null ? "no limit" : String(metric.limit);
-  return `${value} of ${limit} ${metric.unit}.`;
+  // The subject leads: "Railway ... secondary usage is critical." names the
+  // project row, not the one service that is actually over its own limit.
+  const subject = metric.subject === null ? "" : `${metric.subject}: `;
+  return `${subject}${value} of ${limit} ${metric.unit}.`;
 }
 
 export function buildOperationalAlertSummary(

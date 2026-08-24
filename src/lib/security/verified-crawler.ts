@@ -9,7 +9,16 @@ let observedVerifiedHeader = false
 let warnedAboutMissingHeader = false
 
 // This header is trustworthy only because the origin is reachable exclusively
-// through Cloudflare. Enforcing that origin boundary is deferred to a follow-up PR.
+// through Cloudflare, and because the edge writes the header on EVERY request so
+// no inbound value can survive. Both halves are live as of 2026-08-07 -- see
+// docs/runbooks/cloudflare-edge.md:
+//   - transform rule A `cf.client.bot` -> `1`, rule B `not cf.client.bot` -> `0`
+//     (rule B is the strip; without it this header is client-settable and worthless)
+//   - transform rule `x-formoria-edge` = CF_ORIGIN_SECRET, read by src/proxy.ts
+// This comment previously said the origin boundary was "deferred to a follow-up
+// PR". That was stale for two and a half weeks and led a later reader to conclude
+// the header was spoofable and the shadow flip unsafe. If you change the zone,
+// update this comment in the same pass.
 export function isVerifiedCrawler(request: { headers: { get(name: string): string | null } }): boolean {
   const verified = request.headers.get(VERIFIED_BOT_HEADER) === '1'
   if (verified) observedVerifiedHeader = true
