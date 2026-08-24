@@ -153,22 +153,11 @@ describe("a request arriving at the origin in production", () => {
     expect(response.status).not.toBe(403);
   });
 
-  it("is still served when it carries the edge credential in the legacy x-origin-verify header — the fallback that keeps production alive until the Cloudflare rule ships", async () => {
+  it("is rejected when only the legacy x-origin-verify header is present — the fallback was removed after the x-formoria-edge transform rule soaked", async () => {
     const response = await proxy(
       requestFor("/api/admin/brands", { "x-origin-verify": EDGE_SECRET }),
     );
-    expect(response.status).not.toBe(403);
-  });
-
-  it("is rejected when the new header is present but wrong, even if the legacy header is correct — the new header must win outright, or the zone-wide transform rule would override the migration", async () => {
-    const response = await proxy(
-      requestFor("/api/admin/brands", {
-        "x-formoria-edge": "cf-edge-stale-rotated-value",
-        "x-origin-verify": EDGE_SECRET,
-      }),
-    );
     expect(response.status).toBe(403);
-    await expect(response.text()).resolves.toBe("Forbidden");
   });
 
   it("is rejected on a non-exempt path when it carries no credential at all", async () => {

@@ -131,8 +131,8 @@ export const ORIGIN_GUARD_EXEMPT_PATHS = [
   // excluded from the matcher, so the optimizer runs; for a non-absolute href
   // it calls `fetchInternalImage`, which builds a MOCK request via
   // `createRequestResponseMocks` with an empty header bag and routes it back
-  // through middleware. That mock carries neither `x-formoria-edge` nor
-  // `x-origin-verify`, so without this entry the guard 403s it, the optimizer
+  // through middleware. That mock carries no `x-formoria-edge`, so without
+  // this entry the guard 403s it, the optimizer
   // reads an empty body and throws ImageError(400) -- every `next/image`
   // proxied image on the site fails, and only in production, because the guard
   // requires NODE_ENV=production. Do not remove: `/i/` stays in the matcher for
@@ -884,20 +884,13 @@ async function runProxy(request: NextRequest) {
     // rule overwrote it on every request — clobbering the caller credential and
     // silently breaking every pg_cron job.
     //
-    // TEMPORARY: x-origin-verify is still accepted as a fallback because the
-    // Cloudflare rule that injects x-formoria-edge does not exist yet. Remove
-    // the fallback once that rule has soaked. When the new header IS present it
-    // decides on its own — falling back after a wrong new header would let the
-    // legacy header override it and defeat the migration.
-    //
     // Exempt paths are called machine-to-machine straight at the Railway origin
     // (the public host is Cloudflare-fronted and bot-challenges those POSTs), so
     // they carry no edge credential and authenticate themselves inside their own
     // handler. /api/internal/revalidate-brands follows the same contract as
     // /api/cron/; the rest of /api/internal/ keeps this guard as a second layer
     // and is deliberately not exempt.
-    const edgeHeader = request.headers.get("x-formoria-edge");
-    const edgeSecret = edgeHeader ?? request.headers.get("x-origin-verify");
+    const edgeSecret = request.headers.get("x-formoria-edge");
     if (
       edgeSecret !== cfOriginSecret &&
       !isOriginGuardExempt(request.nextUrl.pathname)
