@@ -171,6 +171,7 @@ describe('keyword map invariants', () => {
 
   it('no reject-taxonomy row is marked live', () => {
     const rejected = clusters.filter(cluster => cluster.eligibility === 'reject-taxonomy')
+    expect(rejected.length).toBeGreaterThan(0)
     expect(rejected.every(cluster => cluster.target_status === 'proposed' && !cluster.target_url)).toBe(true)
   })
 

@@ -54,10 +54,8 @@ export function MainNav({ categories }: MainNavProps) {
           park below the header with `top-(--nav-height)`, and that token is a
           `calc()` of this row, the category row and the bottom hairline. A
           literal here desyncs the six the moment it changes — which is exactly
-          how they came to sit 13px under a z-50 bar. `nav-height.test.ts`
-          fails if this row stops reading the token — it reads this className,
-          so keep the height token IN the class string rather than moving it
-          onto a wrapper.
+          how they came to sit 13px under a z-50 bar. Keep the height token IN
+          the class string rather than moving it onto a wrapper.
           THE WIDTH IS `PageShell`, the same shell every route root reads. The
           header used to be held at its own fixed 80rem while the landing bands
           sat at 100rem, which is the 160px seam down one page this ticket was
