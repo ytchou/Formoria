@@ -175,7 +175,8 @@ describe("findHandRolledScrims — the ban", () => {
     const drifted = analyzeFiles([
       {
         file: trailFile,
-        source: trailSource.replace("line-clamp-2", "line-clamp-1"),
+        // Mutate the scrim to trigger the trail-tile contract
+        source: trailSource.replace("from-ink/95", "from-ink/90"),
       },
       {
         file: productFile,
@@ -187,7 +188,7 @@ describe("findHandRolledScrims — the ban", () => {
       },
     ]);
 
-    expect(drifted.errors.join("\n")).toMatch(/title contract drifted/);
+    expect(drifted.errors.join("\n")).toMatch(/scrim contract drifted/);
     expect(drifted.errors.join("\n")).toMatch(
       /plate must use sm:bg-ground\/95/,
     );
