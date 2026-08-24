@@ -68,6 +68,7 @@
   --font-hei: var(--font-noto-sans-tc), "PingFang TC", sans-serif;
 }
 
+/* prettier-ignore */
 :root {
   /* Interactive — ONE token, not three.
      `--primary`, `--primary-dark`, `--primary-light`, `--cta` and
@@ -83,7 +84,7 @@
      were the new indigo. It now means one thing: interaction. Links, CTAs,
      focus rings, active states — never a section background and never a large
      decorative fill. */
-  --accent: #2f4f63;
+  --accent: #2F4F63;
   --accent-foreground: oklch(
     0.991 0.0029 84.6
   ); /* Paper — text on dark surfaces */
@@ -146,20 +147,21 @@
  *
  * The v1 palette above is still live and still wrong; waves 2-5 retire it.
  */
+/* prettier-ignore */
 :root {
   /* Colour */
-  --ground: #faf7f2; /* page background */
-  --surface: #f1eae0; /* bands, cards, inset blocks */
+  --ground: #FAF7F2; /* page background */
+  --surface: #F1EAE0; /* bands, cards, inset blocks */
   /* Third step; image placeholder. NO TEXT SITS ON THIS. It is a hole in the
      page waiting for a photograph, not a band — and `--ink-muted` measures
      4.17:1 on it, under the 4.5:1 AA floor. Body or metadata belongs on
      `--surface` (4.6:1) or `--ground` (5.1:1). Nothing checks this pair, so it
      is written here rather than discovered later. */
   --surface-deep: #e8dfd2;
-  --ink: #1a1815; /* primary text — 18.9:1 on ground */
-  --ink-soft: #4a443c; /* body prose — 10.2:1 on ground */
-  --ink-muted: #6f685f; /* metadata — 5.1:1 ground / 4.6:1 surface */
-  --rule: #ded5c8; /* hairlines, borders */
+  --ink: #1A1815; /* primary text — 18.9:1 on ground */
+  --ink-soft: #4A443C; /* body prose — 10.2:1 on ground */
+  --ink-muted: #6F685F; /* metadata — 5.1:1 ground / 4.6:1 surface */
+  --rule: #DED5C8; /* hairlines, borders */
   /* `--accent` (藍染 indigo) is deliberately NOT restated here. It is declared
      exactly once, in the palette block above, so the v1 meaning of that name
      (ink) and the v2 meaning (interaction) cannot coexist. */
@@ -167,9 +169,9 @@
   /* On ink grounds (footer, admin nav) the ramp inverts. `rule-on-ink` is a
      non-text rule only — it does not meet a text contrast floor and must never
      carry type. */
-  --on-ink: #d6cfc4; /* 11.5:1 on ink */
-  --on-ink-muted: #9a9288; /* 5.8:1 on ink */
-  --rule-on-ink: #3a352e; /* hairline on ink — non-text only */
+  --on-ink: #D6CFC4; /* 11.5:1 on ink */
+  --on-ink-muted: #9A9288; /* 5.8:1 on ink */
+  --rule-on-ink: #3A352E; /* hairline on ink — non-text only */
 
   /* Form errors. Separate from `--destructive`, which v1 uses for destructive
      ACTIONS; this one carries validation messages. */

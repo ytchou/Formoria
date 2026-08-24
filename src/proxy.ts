@@ -239,9 +239,6 @@ const CACHEABLE_VERIFICATION_VALUES: ReadonlySet<string> = new Set([
   "owned",
 ]);
 
-/** Restated from `parsePriceRanges`; see `isCacheableQueryValue`. */
-const CACHEABLE_PRICE_VALUES: ReadonlySet<string> = new Set(["1", "2", "3"]);
-
 const CACHEABLE_SORT_VALUES: ReadonlySet<string> = new Set(
   Object.keys(BRAND_SORT_CONFIG),
 );
@@ -287,10 +284,6 @@ function isCacheableQueryValue(key: string, raw: string): boolean {
       return CACHEABLE_SORT_VALUES.has(raw);
     case "verification":
       return CACHEABLE_VERIFICATION_VALUES.has(raw);
-    case "price":
-      return isCacheableFacetList(raw, (value) =>
-        CACHEABLE_PRICE_VALUES.has(value),
-      );
     case "category":
       return isCacheableFacetList(raw, (value) =>
         L1_CATEGORIES.some((item) => item.slug === value),

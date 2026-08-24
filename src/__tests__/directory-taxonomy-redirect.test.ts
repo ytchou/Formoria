@@ -164,7 +164,8 @@ describe("directory taxonomy redirects", () => {
     expect(isDirectoryIndexPath("/brands", "?page=2&search=")).toBe(false);
   });
 
-  it("isDirectoryIndexPath rejects unknown keys", () => {
+  it("isDirectoryIndexPath rejects retired and unknown keys", () => {
+    expect(isDirectoryIndexPath("/brands", "?price=1,3")).toBe(false);
     expect(isDirectoryIndexPath("/brands", "?foo=bar")).toBe(false);
     expect(
       isDirectoryIndexPath("/brands", "?category=food-drink&utm_source=x"),
@@ -183,7 +184,6 @@ describe("directory taxonomy redirects", () => {
     expect(isDirectoryIndexPath("/brands", "?verification=mit-verified")).toBe(
       true,
     );
-    expect(isDirectoryIndexPath("/brands", "?price=1,3")).toBe(true);
     expect(isDirectoryIndexPath("/brands", "?material=leather")).toBe(true);
     expect(isDirectoryIndexPath("/brands", "?sub=backpacks")).toBe(true);
   });
