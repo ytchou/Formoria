@@ -39,12 +39,8 @@ describe("POST /api/internal/revalidate-brands", () => {
     expect(await response.json()).toEqual({ revalidated: 200 });
     expect(revalidateTag).toHaveBeenCalledTimes(1);
     expect(revalidateTag).toHaveBeenCalledWith(PUBLIC_BRAND_DATA_TAG, "max");
-    expect(revalidatePath).toHaveBeenCalledTimes(409);
+    expect(revalidatePath).toHaveBeenCalledTimes(406);
 
-    expect(revalidatePath).toHaveBeenCalledWith(
-      "/[locale]/events/[slug]",
-      "page",
-    );
     expect(revalidatePath).toHaveBeenCalledWith(
       "/[locale]/stories/[slug]",
       "page",
@@ -54,8 +50,6 @@ describe("POST /api/internal/revalidate-brands", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/en");
     expect(revalidatePath).toHaveBeenCalledWith("/zh-TW/about");
     expect(revalidatePath).toHaveBeenCalledWith("/en/about");
-    expect(revalidatePath).toHaveBeenCalledWith("/zh-TW/events");
-    expect(revalidatePath).toHaveBeenCalledWith("/en/events");
     expect(revalidatePath).toHaveBeenCalledWith("/brands/brand-0");
     expect(revalidatePath).toHaveBeenCalledWith("/en/brands/brand-0");
 
@@ -92,15 +86,4 @@ describe("POST /api/internal/revalidate-brands", () => {
     expect(revalidateTag).not.toHaveBeenCalled();
   });
 
-  it("revalidates the event hub and sitemap once for an empty event list", async () => {
-    const response = await POST(request({ events: [] }));
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ revalidated: 0 });
-    expect(revalidateTag).not.toHaveBeenCalled();
-    expect(revalidatePath).toHaveBeenCalledTimes(3);
-    expect(revalidatePath).toHaveBeenCalledWith("/zh-TW/events");
-    expect(revalidatePath).toHaveBeenCalledWith("/en/events");
-    expect(revalidatePath).toHaveBeenCalledWith("/sitemap.xml");
-  });
 });

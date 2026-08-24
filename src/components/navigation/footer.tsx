@@ -62,8 +62,8 @@ export function Footer() {
                 </li>
                 <li>
                   {/* Full-document navigation, not a client transition: the
-                      stories and events hubs are statically rendered and the
-                      soft transition re-fetched them on every footer click. */}
+                      stories hub is statically rendered and the soft transition
+                      re-fetched it on every footer click. */}
                   <a
                     href={getFooterFullDocumentHref(routes.stories(), locale)}
                     className={linkClasses}
@@ -75,14 +75,6 @@ export function Footer() {
                   <Link href={routes.whereToBuy()} prefetch={false} className={linkClasses}>
                     {t("whereToBuy")}
                   </Link>
-                </li>
-                <li>
-                  <a
-                    href={getFooterFullDocumentHref(routes.events(), locale)}
-                    className={linkClasses}
-                  >
-                    {t("events")}
-                  </a>
                 </li>
               </ul>
             </div>

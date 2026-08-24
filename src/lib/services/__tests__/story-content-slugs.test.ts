@@ -7,7 +7,6 @@ import {
   extractBrandSlugs,
   extractLinkedBrandSlugs,
   extractProseBrandSlugs,
-  hasEventInfoShortcode,
 } from '@/lib/mdx/extract-brand-slugs'
 import { isValidSlug } from '../brands'
 
@@ -200,14 +199,3 @@ describe('story content brand slugs (fixture coverage)', () => {
   })
 })
 
-describe('story content event info shortcode', () => {
-  it('detects a rendered EventInfo shortcode', () => {
-    expect(hasEventInfoShortcode('<EventInfo slug="expo" />')).toBe(true)
-  })
-
-  it('ignores EventInfo examples inside fenced code blocks', () => {
-    expect(
-      hasEventInfoShortcode(['```mdx', '<EventInfo slug="not-rendered" />', '```'].join('\n')),
-    ).toBe(false)
-  })
-})
