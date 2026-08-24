@@ -131,7 +131,6 @@ export default defineConfig({
       name: "deep",
       testMatch: "e2e/tests/**/*.spec.ts",
       testIgnore: [
-        "e2e/tests/mobile.spec.ts",
         // Assert limiter behaviour, so they belong to the `anti-enumeration`
         // project. Left in `deep` they would run with the gates off and pass
         // without proving anything.
@@ -168,12 +167,6 @@ export default defineConfig({
       grep: /@cross-browser/,
       timeout: 60_000,
       use: { ...devices["Desktop Safari"], navigationTimeout: 45_000 },
-    },
-    // Mobile: Chrome
-    {
-      name: "mobile",
-      testMatch: "e2e/tests/mobile.spec.ts",
-      use: { ...devices["Pixel 5"] },
     },
     /*
      * Anti-enumeration (DEV-1551 task 18). The ONLY project that expects the
