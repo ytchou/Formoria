@@ -346,7 +346,6 @@ export async function submitOwnerDetailedBrand(
         foundingYear: parsed.foundingYear,
         subcategories: parsed.subcategories,
         city: parsed.city,
-        priceRange: parsed.priceRange,
         productPhotos: parsed.productPhotos,
         mitStory: parsed.mitStory,
       }

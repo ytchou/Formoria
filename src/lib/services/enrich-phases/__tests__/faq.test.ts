@@ -55,7 +55,6 @@ const BRAND: Brand = {
   productPhotos: [],
   imageAlts: [],
   contactEmail: null,
-  priceRange: null,
   subcategories: [],
   subcategoriesEn: [],
   siteContent: null,
@@ -72,7 +71,6 @@ const BRAND: Brand = {
 
 const PEER_STATS: NonNullable<FaqBrandContext["peerStats"]> = {
   peerCount: 2,
-  priceDistribution: { 1: 1, 2: 1, 3: 0 },
   cityClusters: [{ city: "臺南", count: 2 }],
 };
 
@@ -200,14 +198,14 @@ describe("validateFaqEntries", () => {
   });
 
   it("drops an answer containing an NT$ figure", () => {
-    // `price-positioning` is eligible here, so the drop can only come from the
-    // pricing check — not from eligibility or from a length miss.
-    const ctx = context({ priceRange: 2 }, PEER_STATS);
+    // `category-position` is eligible here, so the drop can only come from the
+    // commerce check — not from eligibility.
+    const ctx = context({}, PEER_STATS);
     const presets = authorable(ctx);
-    expect(presets.map((preset) => preset.id)).toContain("price-positioning");
+    expect(presets.map((preset) => preset.id)).toContain("category-position");
 
     const clean = validateFaqEntries(
-      { entries: [modelEntry("price-positioning")] },
+      { entries: [modelEntry("category-position")] },
       presets,
       ctx,
     );
@@ -216,7 +214,7 @@ describe("validateFaqEntries", () => {
     const outcome = validateFaqEntries(
       {
         entries: [
-          modelEntry("price-positioning", {
+          modelEntry("category-position", {
             answerZh: zhAnswer("這個品牌的入門品項售價為 NT$ 800，屬於同類品牌的中段位置。"),
           }),
         ],
@@ -231,7 +229,7 @@ describe("validateFaqEntries", () => {
     expect(
       outcome.failures.some(
         (failure) =>
-          failure.locale === "zh" && /pricing/i.test(failure.reason),
+          failure.locale === "zh" && /commerce/i.test(failure.reason),
       ),
     ).toBe(true);
   });
@@ -264,14 +262,14 @@ describe("validateFaqEntries", () => {
     // Two answers for the same preset would both take `position = 0`, and the
     // single upsert would then hit `brand_id,preset_id,position` twice —
     // Postgres 21000, which fails the whole phase.
-    const ctx = context({ priceRange: 2 }, PEER_STATS);
+    const ctx = context({}, PEER_STATS);
     const presets = authorable(ctx);
 
     const outcome = validateFaqEntries(
       {
         entries: [
-          modelEntry("price-positioning"),
-          modelEntry("price-positioning", {
+          modelEntry("category-position"),
+          modelEntry("category-position", {
             answerZh: zhAnswer(CUSTOM_SEEDS[1]),
             answerEn: enAnswer("A second take on the same comparative question."),
           }),
@@ -281,17 +279,17 @@ describe("validateFaqEntries", () => {
       ctx,
     );
 
-    const priced = outcome.entries.filter(
-      (entry) => entry.presetId === "price-positioning",
+    const categoryEntries = outcome.entries.filter(
+      (entry) => entry.presetId === "category-position",
     );
-    expect(priced).toHaveLength(1);
-    expect(priced[0]?.position).toBe(0);
+    expect(categoryEntries).toHaveLength(1);
+    expect(categoryEntries[0]?.position).toBe(0);
     expect(outcome.dropped).toBe(1);
   });
 
   it("drops an over-ceiling custom before validating it", () => {
     // The over-ceiling entry carries a currency figure. If the ceiling were
-    // still checked after validation, that figure would show up as a pricing
+    // still checked after validation, that figure would show up as a commerce
     // failure — and a failure is what spends the second LLM attempt.
     const ctx = context();
     const presets = authorable(ctx);
@@ -325,7 +323,7 @@ describe("validateFaqEntries", () => {
       outcome.entries.filter((entry) => entry.presetId === "custom"),
     ).toHaveLength(CUSTOM_QUESTION_CEILING);
     expect(
-      outcome.failures.some((failure) => /pricing/i.test(failure.reason)),
+      outcome.failures.some((failure) => /commerce/i.test(failure.reason)),
     ).toBe(false);
     expect(outcome.dropped).toBe(1);
   });
@@ -361,9 +359,9 @@ describe("faqCoverageIsComplete", () => {
     };
   }
 
-  // Peer stats and a price bucket so the set is more than `custom` alone —
+  // Peer stats make the set wider than `custom` alone —
   // a single-preset set would not show the per-preset accounting at all.
-  const presets = authorable(context({ priceRange: 2 }, PEER_STATS));
+  const presets = authorable(context({}, PEER_STATS));
 
   it("covers a set wider than custom alone", () => {
     expect(
@@ -404,7 +402,7 @@ describe("faqCoverageIsComplete", () => {
 
 describe("resolveFaqAttempts", () => {
   it("retries once with a repair instruction on a repairable failure", async () => {
-    const ctx = context({ priceRange: 2 }, PEER_STATS);
+    const ctx = context({}, PEER_STATS);
     const presets = authorable(ctx);
     const send = vi
       .fn<
@@ -413,13 +411,13 @@ describe("resolveFaqAttempts", () => {
           attempt: number,
         ) => Promise<{ ok: boolean; content: string | null }>
       >()
-      // Attempt 1 puts a currency figure in the comparative answer — a real
+      // Attempt 1 puts a currency figure in the factual category answer — a real
       // repairable rejection, the kind the second call exists for.
       .mockResolvedValueOnce({
         ok: true,
         content: JSON.stringify({
           entries: [
-            modelEntry("price-positioning", {
+            modelEntry("category-position", {
               answerZh: zhAnswer("這個品牌的入門品項售價為 NT$ 800，屬於同類品牌的中段位置。"),
             }),
           ],
@@ -428,7 +426,7 @@ describe("resolveFaqAttempts", () => {
       // Attempt 2 returns the repaired entry and clears validation.
       .mockResolvedValueOnce({
         ok: true,
-        content: JSON.stringify({ entries: [modelEntry("price-positioning")] }),
+        content: JSON.stringify({ entries: [modelEntry("category-position")] }),
       });
 
     const outcome = await resolveFaqAttempts(presets, ctx, send);
@@ -436,7 +434,7 @@ describe("resolveFaqAttempts", () => {
     expect(send).toHaveBeenCalledTimes(2);
     expect(send.mock.calls[0]?.[0]).toBe("");
     expect(send.mock.calls[1]?.[0]).toContain("修復上一版 FAQ");
-    expect(send.mock.calls[1]?.[0]).toContain("price-positioning");
+    expect(send.mock.calls[1]?.[0]).toContain("category-position");
     expect(outcome.entries).toHaveLength(1);
     expect(outcome.calls.attempted).toBe(2);
   });
@@ -458,7 +456,7 @@ describe("resolveFaqAttempts", () => {
   });
 
   it("keeps attempt 1's accepted entries when attempt 2 returns only a repair", async () => {
-    const ctx = context({ priceRange: 2 }, PEER_STATS);
+    const ctx = context({}, PEER_STATS);
     const presets = authorable(ctx);
     const send = vi
       .fn<
@@ -472,7 +470,7 @@ describe("resolveFaqAttempts", () => {
         content: JSON.stringify({
           entries: [
             modelEntry("custom"),
-            modelEntry("price-positioning", {
+            modelEntry("category-position", {
               answerZh: zhAnswer("這個品牌的入門品項售價為 NT$ 800，屬於同類品牌的中段位置。"),
             }),
           ],
@@ -483,9 +481,9 @@ describe("resolveFaqAttempts", () => {
         ok: true,
         content: JSON.stringify({
           entries: [
-            modelEntry("price-positioning", {
-              answerZh: zhAnswer("這個品牌在同類品牌中屬於中段序位，用料與工序高於入門選項。"),
-              answerEn: enAnswer("This brand sits mid-pack against its peers."),
+            modelEntry("category-position", {
+              answerZh: zhAnswer("這個類別共有兩個品牌，兩者都位於臺南，資料僅描述類別規模與地理分布。"),
+              answerEn: enAnswer("This category contains two brands, both located in Tainan."),
             }),
           ],
         }),
@@ -495,7 +493,7 @@ describe("resolveFaqAttempts", () => {
 
     expect(send).toHaveBeenCalledTimes(2);
     const presetIds = outcome.entries.map((entry) => entry.presetId).sort();
-    expect(presetIds).toEqual(["custom", "price-positioning"]);
+    expect(presetIds).toEqual(["category-position", "custom"]);
   });
 
   it("stops at one attempt when the first one validates", async () => {

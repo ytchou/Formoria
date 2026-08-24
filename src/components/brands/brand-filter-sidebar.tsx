@@ -8,7 +8,6 @@ import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import {
   trackCategoryFilterApplied,
   trackFilterCleared,
-  trackPriceFilterApplied,
   trackSubcategoryFilterApplied,
   trackVerificationFilterApplied,
 } from "@/lib/analytics";
@@ -29,7 +28,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
 import type { BrandFilters } from "@/lib/types";
 import {
   clearDirectoryFilters,
@@ -92,7 +90,6 @@ const verificationOptions: VerificationFilterValue[] = [
   "mit-declared",
   "owned",
 ];
-const priceRangeOptions = [1, 2, 3] as const;
 const filterOptionClassName =
   "flex min-h-12 cursor-pointer items-center gap-2 rounded-control px-2 type-body-sm transition-colors hover:bg-surface hover:text-ink";
 
@@ -192,10 +189,6 @@ export function BrandFilterSidebar({
       ? searchParams.get("verification")
       : "all"
   ) as VerificationFilterValue;
-  const activePriceRanges = useMemo(
-    () => new Set(parseCommaParam(searchParams.get("price")).map(Number)),
-    [searchParams],
-  );
   const activeSubcategories = new Set(activeSubSlugs);
   // The server-validated list, and only that: `parseDirectoryViewFilters`
   // drops any value outside the closed 12-slug vocabulary, so reading
@@ -257,26 +250,6 @@ export function BrandFilterSidebar({
       router.replace(
         updateDirectoryUrl(pathname, searchParams, {
           material: next.size > 0 ? Array.from(next).join(",") : null,
-        }),
-        { scroll: false },
-      );
-    });
-  }
-
-  function togglePriceRange(value: number, checked: boolean) {
-    const next = new Set(activePriceRanges);
-    if (checked) {
-      next.add(value);
-      trackPriceFilterApplied(String(value));
-    } else {
-      next.delete(value);
-      trackFilterCleared("single", "price", String(value));
-    }
-
-    startTransition(() => {
-      router.replace(
-        updateDirectoryUrl(pathname, searchParams, {
-          price: next.size > 0 ? Array.from(next).sort().join(",") : null,
         }),
         { scroll: false },
       );
@@ -493,32 +466,6 @@ export function BrandFilterSidebar({
 
         <Separator />
 
-        <FilterSection title={t("priceRange")}>
-          <ChipRow>
-            {priceRangeOptions.map((value) => {
-              const checked = activePriceRanges.has(value);
-              const label = "$".repeat(value);
-              return (
-                <ToggleChip
-                  key={value}
-                  pressed={checked}
-                  onPressedChange={(next) => togglePriceRange(value, next)}
-                  // No height override. A chip is 36px; `min-h-12` rendered
-                  // this one row at 48px while every other chip row in the app
-                  // sat at 36px. The 14px `ChipRow` gap is what keeps the 36px
-                  // exception honest, not a taller box on one screen.
-                  className="active:animate-spring-pop"
-                  data-ph-no-autocapture
-                >
-                  {label}
-                </ToggleChip>
-              );
-            })}
-          </ChipRow>
-        </FilterSection>
-
-        <Separator />
-
         <FilterSection title={t("brandStatus")}>
           <div
             role="radiogroup"
@@ -596,7 +543,8 @@ export function BrandFilterDrawer({
       </SheetTrigger>
       <SheetContent
         side="left"
-        className="w-[86vw] max-w-sm gap-0 p-0"
+        size="panel"
+        className="gap-0 p-0"
         showCloseButton
       >
         <SheetHeader className="border-b border-rule">

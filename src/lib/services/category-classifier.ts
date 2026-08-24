@@ -57,7 +57,6 @@ export type DetectResult = {
   confidence: "high" | "medium" | "low";
 };
 export type ExtractionResult = {
-  priceRange: 1 | 2 | 3 | null;
   subcategories: string[];
   city: string | null;
   foundingYear: number | null;
@@ -233,12 +232,6 @@ function mapCityToSlug(value: string | null): string | null {
 export function parseExtractionResult(content: string): ExtractionResult {
   try {
     const parsed = JSON.parse(content) as UnknownRecord;
-    const priceRange =
-      parsed.price_range === 1 ||
-      parsed.price_range === 2 ||
-      parsed.price_range === 3
-        ? parsed.price_range
-        : null;
     const foundingYear =
       typeof parsed.founding_year === "number" &&
       Number.isInteger(parsed.founding_year)
@@ -246,7 +239,6 @@ export function parseExtractionResult(content: string): ExtractionResult {
         : null;
 
     return {
-      priceRange,
       subcategories: parseStringArray(parsed.subcategories).slice(0, 5),
       city: mapCityToSlug(parseNullableString(parsed.city)),
       foundingYear,
@@ -259,7 +251,6 @@ export function parseExtractionResult(content: string): ExtractionResult {
     };
   } catch {
     return {
-      priceRange: null,
       subcategories: [],
       city: null,
       foundingYear: null,

@@ -79,13 +79,16 @@ export function TrailTile({
         ) : null}
         <span
           aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-t from-ink/95 via-ink/55 to-ink/10"
+          className="absolute inset-0 bg-gradient-to-t from-ink/95 via-ink/75 via-[75%] to-ink/10"
         />
         <span className="relative z-10 flex max-w-xl flex-col items-start gap-3">
-          <span className="rounded-full border border-ground/30 bg-ground/20 px-3 py-1 type-eyebrow text-ground">
+          <span className="rounded-full border border-ground/30 bg-ink px-3 py-1 type-eyebrow text-ground">
             {labels.eyebrow}
           </span>
-          <h3 id={titleId} className="type-card-title text-ground md:type-section">
+          <h3
+            id={titleId}
+            className="line-clamp-2 type-card-title text-ground md:type-section md:text-ground"
+          >
             {title}
           </h3>
           {promise ? <span className="type-body text-on-ink line-clamp-3">{promise}</span> : null}

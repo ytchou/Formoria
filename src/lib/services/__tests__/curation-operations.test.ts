@@ -48,7 +48,6 @@ describe('seedEnrichedDataFromOwnerData', () => {
       categorySlug: 'bags-accessories',
       foundingYear: 2018,
       city: 'tainan',
-      priceRange: 2,
       subcategories: ['leather', 'handmade'],
     }
     const result = seedEnrichedDataFromOwnerData(ownerData, null)
@@ -56,7 +55,6 @@ describe('seedEnrichedDataFromOwnerData', () => {
       category: 'bags-accessories',
       founding_year: 2018,
       city: 'tainan',
-      price_range: 2,
       subcategories: ['leather', 'handmade'],
     })
   })

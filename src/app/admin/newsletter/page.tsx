@@ -46,7 +46,7 @@ export default async function AdminNewsletterPage({
   } catch (error) {
     return (
       <div className="space-y-3">
-        <h1 className="type-label">{t("title")}</h1>
+        <h1 className="type-tool-heading">{t("title")}</h1>
         <p className="type-metadata text-danger">{error instanceof Error ? error.message : t("unavailable")}</p>
       </div>
     );
@@ -60,7 +60,7 @@ export default async function AdminNewsletterPage({
       <div className="space-y-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="type-label">{t("title")}</h1>
+            <h1 className="type-tool-heading">{t("title")}</h1>
             <p className="mt-1 type-body-sm">{t("description")}</p>
           </div>
           <a
@@ -73,11 +73,11 @@ export default async function AdminNewsletterPage({
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <DataCard label="Total" value={stats.total} description="All consent records" />
-          <DataCard label="Active" value={stats.active} description="Confirmed and subscribed" />
-          <DataCard label="Pending" value={stats.pending} description="Awaiting confirmation" />
-          <DataCard label="Unsubscribed" value={stats.unsubscribed} description="Opted-out records" />
-          <DataCard label="Confirmation rate" value={`${stats.confirmationRate}%`} description="Active ÷ active plus pending" />
+          <DataCard label="Total" value={stats.total} description={t("stats.totalDescription")} />
+          <DataCard label="Active" value={stats.active} description={t("stats.activeDescription")} />
+          <DataCard label="Pending" value={stats.pending} description={t("stats.pendingDescription")} />
+          <DataCard label="Unsubscribed" value={stats.unsubscribed} description={t("stats.unsubscribedDescription")} />
+          <DataCard label="Confirmation rate" value={`${stats.confirmationRate}%`} description={t("stats.confirmationRateDescription")} />
         </div>
 
         <form className="grid gap-3 rounded-surface border border-rule bg-surface p-4 lg:grid-cols-[minmax(260px,1fr)_220px_220px_auto] lg:items-end">

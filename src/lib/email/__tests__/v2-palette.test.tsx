@@ -234,6 +234,12 @@ describe("email layout uses a sans system stack only (D17)", () => {
   });
 });
 
+describe("email voice", () => {
+  it("uses no formal second-person honorific in templates", () => {
+    expect(readdirText(join(EMAIL_ROOT, "templates"))).not.toContain("您");
+  });
+});
+
 /** Concatenates one file, or every file one directory deep, into a single string. */
 function readdirText(target: string): string {
   if (statSync(target).isFile()) return readFileSync(target, "utf8");

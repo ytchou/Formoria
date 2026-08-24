@@ -75,7 +75,6 @@ test.describe('Content moderation flow', () => {
         // constraint, so a label would insert cleanly and then match no facet,
         // no L2 page and no `?sub=`. `餐具` is a `tableware` alias.
         subcategories: ['tableware'],
-        price_range: 2,
         founding_year: 2020,
         description: cleanDescription,
         hero_image_storage_path: heroKey,

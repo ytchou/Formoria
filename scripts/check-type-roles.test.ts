@@ -7,7 +7,7 @@ const projectRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
 const globals = readFileSync(join(projectRoot, 'src/app/globals.css'), 'utf8')
 
 /**
- * Design system v2 collapses 37 `type-*` utilities into 12 roles, and the two
+ * Design system v2 collapses 37 `type-*` utilities into 13 roles, and the two
  * interaction tokens (`--primary`, `--cta`) into one (`--accent`).
  *
  * This gate exists because neither collapse is enforceable by tsc or eslint: a
@@ -28,6 +28,7 @@ const V2_TYPE_ROLES = [
   'type-body',
   'type-body-sm',
   // 黑體 (font-hei) — interface
+  'type-tool-heading',
   'type-button',
   'type-nav',
   'type-label',
@@ -119,7 +120,7 @@ function findMatches(pattern: RegExp) {
 }
 
 describe('design system v2 type roles', () => {
-  it('globals declares exactly the 12 v2 roles', () => {
+  it('globals declares exactly the 13 v2 roles', () => {
     const declared = [...globals.matchAll(/@utility (type-[a-z-]+)/g)].map((match) => match[1])
 
     expect([...declared].sort()).toEqual([...V2_TYPE_ROLES].sort())

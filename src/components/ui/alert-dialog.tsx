@@ -123,7 +123,7 @@ function AlertDialogContent({
           // which leaves a strip of backdrop tappable above it. From `sm` up it
           // is a centred card — centred with `inset-0 m-auto` rather than a
           // translate, so the transform axis stays free for the motion below.
-          "group/alert-dialog-content fixed inset-x-0 bottom-0 z-50 grid max-h-[85dvh] w-full gap-4 overflow-y-auto rounded-t-surface border border-rule bg-ground p-4 text-ink outline-none",
+          "group/alert-dialog-content fixed inset-x-0 bottom-0 z-50 grid max-h-[85dvh] w-full grid-rows-[auto_minmax(0,1fr)_auto] rounded-t-surface border border-rule bg-ground text-ink outline-none",
           "sm:inset-0 sm:m-auto sm:h-fit sm:w-[calc(100%-2rem)] sm:max-h-[calc(100dvh-4rem)] sm:rounded-surface",
           "data-[size=compact]:sm:overlay-compact data-[size=panel]:sm:overlay-panel data-[size=form]:sm:overlay-form data-[size=wide]:sm:overlay-wide",
           // Base UI transition states, not `animate-in`/`animate-out`: the
@@ -149,9 +149,22 @@ function AlertDialogHeader({
     <div
       data-slot="alert-dialog-header"
       className={cn(
-        "-mx-4 -mt-4 grid grid-rows-[auto_1fr] place-items-center gap-1.5 border-b border-rule p-4 text-center has-data-[slot=alert-dialog-media]:grid-rows-[auto_auto_1fr] has-data-[slot=alert-dialog-media]:gap-x-4 sm:place-items-start sm:text-left sm:has-data-[slot=alert-dialog-media]:grid-rows-[auto_1fr]",
+        "grid place-items-center gap-1.5 border-b border-rule p-4 text-center sm:place-items-start sm:text-left",
         className
       )}
+      {...props}
+    />
+  )
+}
+
+function AlertDialogBody({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="alert-dialog-body"
+      className={cn("min-h-0 overflow-y-auto p-4", className)}
       {...props}
     />
   )
@@ -165,7 +178,7 @@ function AlertDialogFooter({
     <div
       data-slot="alert-dialog-footer"
       className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-surface border-t border-rule bg-surface p-4 sm:flex-row sm:justify-end",
+        "flex flex-col-reverse gap-2 rounded-b-surface border-t border-rule bg-surface p-4 sm:flex-row sm:justify-end",
         // Same slot-scoped destructive outline as `DialogFooter`, and the same
         // reason: `Button` exposes no variant attribute, and `*:` plus an
         // explicit slot keeps the outline off the Cancel button beside it.
@@ -184,11 +197,7 @@ function AlertDialogTitle({
   return (
     <AlertDialogPrimitive.Title
       data-slot="alert-dialog-title"
-      className={cn(
-        textStyles({ variant: "cardTitle" }),
-        "sm:group-has-data-[slot=alert-dialog-media]/alert-dialog-content:col-start-2",
-        className
-      )}
+      className={cn(textStyles({ variant: "cardTitle" }), className)}
       {...props}
     />
   )
@@ -233,6 +242,7 @@ function AlertDialogCancel({
 
 export {
   AlertDialog,
+  AlertDialogBody,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,

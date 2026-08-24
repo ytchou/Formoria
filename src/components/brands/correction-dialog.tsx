@@ -63,7 +63,6 @@ export type CorrectionDialogProps = {
   brandSlug: string;
   mode?: CorrectionDialogMode;
   categorySlug?: string | null;
-  priceRange?: number | null;
   subcategories?: string[];
   purchaseLinks?: Record<OnlineStoreColumn, string | null>;
   socialInstagram?: string | null;
@@ -76,7 +75,6 @@ export function CorrectionDialog({
   brandSlug,
   mode = "brandInfo",
   categorySlug = null,
-  priceRange = null,
   subcategories = [],
   purchaseLinks = {} as Record<OnlineStoreColumn, string | null>,
   socialInstagram = null,
@@ -131,7 +129,6 @@ export function CorrectionDialog({
           setField={setField}
           onOpenChange={handleOpenChange}
           categorySlug={categorySlug}
-          priceRange={priceRange}
           subcategories={subcategories}
           purchaseLinks={purchaseLinks}
           socialInstagram={socialInstagram}

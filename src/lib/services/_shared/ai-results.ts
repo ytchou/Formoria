@@ -280,7 +280,7 @@ async function findAuditRow(
 }
 
 /**
- * Copy-call audit. `price_range` and `subcategories` are deliberately absent:
+ * Copy-call audit. `subcategories` is deliberately absent:
  * those fields moved to the facts call when the mega-call was split, and
  * `updateFactsAuditResult` denormalises them onto the `facts` row instead.
  */
@@ -341,7 +341,6 @@ export async function updateFactsAuditResult(input: {
         parsed,
         [],
       ),
-      price_range: parsed.priceRange,
       subcategories: parsed.subcategories,
     } as never)
     .eq("id", data.id);

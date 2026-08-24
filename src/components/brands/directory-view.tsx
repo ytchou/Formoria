@@ -83,7 +83,6 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, in
   const brandCategoryFilter = directoryBrandCategoryFilter(validCategoryFilter, activeSubSlugs)
   const pageHeading = categoryTag ? categoryLabel(categoryTag, safeLocale) : t('heading')
   const search = filters.search ?? ''
-  const priceRanges = filters.priceRanges ?? []
   const verificationFilter = filters.verificationFilter ?? 'all'
   const shouldLoadTaxonomySummary = Boolean(singleValidCategory) && !search
   const materials = filters.materials ?? []
@@ -94,7 +93,6 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, in
       category: brandCategoryFilter,
       subcategoryTags: activeSubSlugs,
       materials: materials.length > 0 ? materials : undefined,
-      priceRanges: priceRanges.length > 0 ? priceRanges : undefined,
       verificationFilter,
       sort,
       page,
@@ -139,7 +137,6 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, in
       category: brandCategoryFilter,
       subcategoryTags: activeSubSlugs,
       materials: materials.length > 0 ? materials : undefined,
-      priceRanges: priceRanges.length > 0 ? priceRanges : undefined,
       verificationFilter,
       sort,
       page: clampedPage,
@@ -160,7 +157,6 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, in
     subcategorySlugs: activeSubSlugs,
     search,
     materials,
-    priceRanges,
     verificationFilter,
     sort,
   })
@@ -227,19 +223,6 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, in
       removeLabel: t('filters.removeFilter', { label: t('filters.activeMaterial'), value }),
     })
   }
-  for (const priceRange of priceRanges) {
-    const value = '$'.repeat(priceRange)
-    const remainingPrices = priceRanges.filter((item) => item !== priceRange)
-    activeFilters.push({
-      id: `price-${priceRange}`,
-      label: t('filters.activePrice'),
-      value,
-      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, {
-        price: remainingPrices.length > 0 ? remainingPrices.join(',') : null,
-      }),
-      removeLabel: t('filters.removeFilter', { label: t('filters.activePrice'), value }),
-    })
-  }
   if (verificationFilter !== 'all') {
     const value = verificationT(verificationFilter)
     activeFilters.push({
@@ -282,7 +265,6 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, in
       categorySlugs: validCategoryFilter,
       search,
       materials,
-      priceRanges,
       verificationFilter,
       page,
     })

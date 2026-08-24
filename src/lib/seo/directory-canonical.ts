@@ -12,7 +12,6 @@ type DirectoryCanonicalOptions = {
 
 export type DirectoryCanonicalFacets = {
   search?: unknown
-  price?: unknown
   verification?: unknown
   category?: unknown
   sub?: unknown
@@ -40,7 +39,6 @@ function appendDirectoryQuery(
   const params = new URLSearchParams()
   const recognizedFacets: Array<[string, unknown]> = [
     ['search', facets?.search],
-    ['price', facets?.price],
     ['verification', facets?.verification],
     ['category', facets?.category],
     ['sub', facets?.sub],

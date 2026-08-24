@@ -63,20 +63,20 @@ export default function ClaimVerifiedEmail({
   }
 
   return (
-    <Layout previewText="驗證您的認領信箱 - Formoria">
-      <EmailHeading as="h2">驗證您的認領信箱</EmailHeading>
+    <Layout previewText="驗證品牌認領信箱 - Formoria">
+      <EmailHeading as="h2">驗證品牌認領信箱</EmailHeading>
       <EmailText>
-        您已申請認領 Formoria 上的{" "}
+        已收到認領 Formoria 上{" "}
         <strong dangerouslySetInnerHTML={{ __html: escapedBrandName }} />。
       </EmailText>
-      <EmailText>請點擊下方按鈕，確認您可控制此 Email 地址：</EmailText>
+      <EmailText>請點擊下方按鈕，確認你可控制此 Email 地址：</EmailText>
       <Button href={escapedVerifyUrl}>驗證信箱</Button>
       <EmailText>若按鈕無法使用，請開啟此連結：</EmailText>
       <EmailText>
         <EmailLink href={escapedVerifyUrl}>{escapedVerifyUrl}</EmailLink>
       </EmailText>
       <EmailText>
-        此連結將在 7 天後失效。如果您並未提出此認領申請，可安全忽略此郵件。
+        此連結將在 7 天後失效。如果不是你提出的申請，可安全忽略此郵件。
       </EmailText>
       <EmailText>Formoria — 台灣品牌探索與選物平台</EmailText>
       <EmailText>
@@ -99,7 +99,7 @@ export async function buildClaimEmailVerificationEmail(
     subject:
       locale === "en"
         ? "Verify your claim email — Formoria"
-        : "驗證您的認領信箱 — Formoria",
+        : "驗證品牌認領信箱 — Formoria",
     html: await render(
       <ClaimVerifiedEmail {...props} siteUrl={props.siteUrl ?? SITE_URL} />,
     ),

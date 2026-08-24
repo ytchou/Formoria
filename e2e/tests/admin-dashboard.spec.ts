@@ -68,7 +68,6 @@ test.describe('Admin dashboard deep', () => {
           category: 'bags-accessories',
           // Slug, not the zh-TW label — DEV-1510 closed the vocabulary.
           subcategories: ['handbags'],
-          price_range: 2,
           purchase_website: 'https://e2e-dashboard.example.com',
         },
       });

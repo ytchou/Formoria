@@ -4,7 +4,6 @@ import { getCategoryPeerStats } from "../brand-peer-stats";
 
 type BrandRow = {
   id: string;
-  price_range: number | null;
   city: string | null;
   status: string;
   name: string;
@@ -66,7 +65,6 @@ function row(overrides: Partial<BrandRow> & Pick<BrandRow, "id">): BrandRow {
   // `id` is supplied only by the spread: `overrides` is `Pick<BrandRow, "id">`,
   // so it is always present and listing it again would just be overwritten.
   return {
-    price_range: null,
     city: null,
     status: "approved",
     name: `Brand ${overrides.id}`,
@@ -78,15 +76,15 @@ function row(overrides: Partial<BrandRow> & Pick<BrandRow, "id">): BrandRow {
 describe("getCategoryPeerStats", () => {
   it("counts only approved brands in the category", async () => {
     const double = createClientDouble([
-      row({ id: "subject", price_range: 2, city: "Taipei" }),
-      row({ id: "approved-peer", price_range: 1, city: "Taichung" }),
-      row({ id: "hidden-peer", status: "hidden", price_range: 3, city: "Tainan" }),
-      row({ id: "other-category", category: "fashion", price_range: 2, city: "Hsinchu" }),
+      row({ id: "subject", city: "Taipei" }),
+      row({ id: "approved-peer", city: "Taichung" }),
+      row({ id: "hidden-peer", status: "hidden", city: "Tainan" }),
+      row({ id: "other-category", category: "fashion", city: "Hsinchu" }),
     ]);
 
     const result = await getCategoryPeerStats("home", "subject", double.client);
 
-    expect(double.selectCalls).toEqual(["id, price_range, city"]);
+    expect(double.selectCalls).toEqual(["id, city"]);
     expect(double.eqCalls).toEqual([
       ["status", "approved"],
       ["category", "home"],
@@ -96,31 +94,16 @@ describe("getCategoryPeerStats", () => {
 
   it("excludes the subject brand from its own peer set", async () => {
     const double = createClientDouble([
-      row({ id: "subject", price_range: 2, city: "Taipei" }),
-      row({ id: "peer", price_range: 2, city: "Taipei" }),
+      row({ id: "subject", city: "Taipei" }),
+      row({ id: "peer", city: "Taipei" }),
     ]);
 
     const result = await getCategoryPeerStats("home", "subject", double.client);
 
     expect(result).toEqual({
       peerCount: 1,
-      priceDistribution: { 1: 0, 2: 1, 3: 0 },
       cityClusters: [{ city: "Taipei", count: 1 }],
     });
-  });
-
-  it("returns price-range distribution across the category", async () => {
-    const double = createClientDouble([
-      row({ id: "subject", price_range: 1, city: "Taipei" }),
-      row({ id: "peer-1", price_range: 1, city: "Taipei" }),
-      row({ id: "peer-2", price_range: 2, city: "Taichung" }),
-      row({ id: "peer-3", price_range: 3, city: "Tainan" }),
-      row({ id: "peer-4", price_range: null, city: null }),
-    ]);
-
-    const result = await getCategoryPeerStats("home", "subject", double.client);
-
-    expect(result?.priceDistribution).toEqual({ 1: 1, 2: 1, 3: 1 });
   });
 
   it("returns null for a brand with no category", async () => {

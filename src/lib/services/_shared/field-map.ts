@@ -90,7 +90,6 @@ const BRAND_FIELD_MAP = [
     mitStory?: string | null
     city?: string | null
     otherUrls?: unknown
-    priceRange?: number | null
     subcategories?: string[] | null
   },
   BrandInsertRow
@@ -156,7 +155,6 @@ export function toBrandRow(input: CamelSocialPurchaseFields & {
   city?: string | null
   otherUrls?: unknown
   contactEmail?: string | null
-  priceRange?: number | null
   subcategories?: string[] | null
   subcategoriesEn?: string[] | null
   blurb?: string | null
@@ -188,7 +186,6 @@ export function toBrandRow(input: CamelSocialPurchaseFields & {
   if (input.foundingYear !== undefined) row.founding_year = input.foundingYear
   copyMappedFields(input, row, SOCIAL_PURCHASE_FIELD_MAP)
   copyMappedFields(input, row, BRAND_FIELD_MAP)
-  row.price_range = input.priceRange ?? null
   row.subcategories = input.subcategories ?? []
   // Single normalizer at the write boundary: `subcategories_en` is always a
   // function of `subcategories`, never a caller-supplied string. The admin

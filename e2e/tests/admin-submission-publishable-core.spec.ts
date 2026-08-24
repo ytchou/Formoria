@@ -129,7 +129,6 @@ async function seedReadySubmission(
         // crafts L1.
         subcategories: ["tableware"],
         subcategories_en: ["Tableware"],
-        price_range: 2,
         ...enrichedLinks,
       },
     })
@@ -284,7 +283,6 @@ test.describe("Submission publishable-core link guard", () => {
             description: "台灣本地手工木器，以榫接工法製作日常餐廚用品。",
             category: "home",
             subcategories: ["tableware"],
-            price_range: 2,
           },
         },
       );

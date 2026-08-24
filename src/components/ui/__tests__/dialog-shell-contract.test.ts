@@ -78,19 +78,6 @@ const SHELL_BOX_EXCLUSIONS: { path: string; reason: string }[] = [
     path: "src/components/events/taiwan-creative-expo-official-map.tsx",
     reason: "fullscreen map viewer — the deliberate bottom-sheet exemption",
   },
-  {
-    // The filter drawer's `max-w-sm` is a MOBILE cap, and the sheet size axis
-    // has no mobile value to express it: all four `sheetSizeClasses` entries are
-    // `sm:`-prefixed, so below `sm` the shell states only `w-3/4` and no
-    // max-width. The drawer wants `w-[86vw]` capped at 24rem on a phone; at `sm`
-    // and up `sm:overlay-panel` (also 24rem) takes over and the call site's rule
-    // stops mattering. Nothing the shell owns is being overridden. This is
-    // narrowed to the file rather than made a general "unprefixed max-w is fine"
-    // rule, because that rule would let a bare `max-w-lg` back into every dialog.
-    path: "src/components/brands/brand-filter-sidebar.tsx",
-    reason:
-      "mobile drawer width below `sm`, which the size axis does not cover",
-  },
 ];
 
 type Violation = { file: string; line: number; classes: string[] };

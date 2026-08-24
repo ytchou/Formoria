@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
+import ts from "typescript";
 
 /**
  * Shared machinery for the source gates that enforce a rule across a whole
@@ -110,28 +111,32 @@ export function collectHeadings(files: string[]): HeadingMatch[] {
 
   for (const file of files) {
     const source = readFileSync(file, "utf8");
+    const sourceFile = ts.createSourceFile(
+      file,
+      source,
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TSX,
+    );
 
-    for (const match of source.matchAll(/<h[1-6](?=[\s/>])/g)) {
-      const start = match.index + match[0].length;
-      let depth = 0;
-      let end = source.length;
-
-      for (let i = start; i < source.length; i += 1) {
-        const char = source[i];
-        if (char === "{") depth += 1;
-        else if (char === "}") depth -= 1;
-        else if (char === ">" && depth === 0) {
-          end = i;
-          break;
-        }
+    function visit(node: ts.Node) {
+      if (
+        (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
+        /^h[1-6]$/.test(node.tagName.getText(sourceFile))
+      ) {
+        const { line } = sourceFile.getLineAndCharacterOfPosition(
+          node.getStart(sourceFile),
+        );
+        headings.push({
+          file: relative(process.cwd(), file),
+          line: line + 1,
+          attributes: node.attributes.getText(sourceFile),
+        });
       }
-
-      headings.push({
-        file: relative(process.cwd(), file),
-        line: source.slice(0, match.index).split("\n").length,
-        attributes: source.slice(start, end),
-      });
+      ts.forEachChild(node, visit);
     }
+
+    visit(sourceFile);
   }
 
   return headings;
@@ -152,6 +157,6 @@ const MING_TITLE_ROLES = [
 /** The Ming title role used in `attributes`, if any. */
 export function mingTitleRoleIn(attributes: string): string | undefined {
   return MING_TITLE_ROLES.find((role) =>
-    new RegExp(`\\b${role}\\b`).test(attributes),
+    new RegExp(`\\b${role}(?![\\w-])`).test(attributes),
   );
 }

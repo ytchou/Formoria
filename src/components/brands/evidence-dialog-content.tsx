@@ -7,7 +7,6 @@ import {
   type ChangeEvent,
 } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { FileSearch } from 'lucide-react'
 import {
   submitEvidenceAction,
   type EvidenceState,
@@ -89,7 +88,7 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
     // and the single scroll container all belong to `DialogContent`. This body
     // used to spell every one of them here, beside its own close button.
     <DialogContent size="form">
-      <DialogHeader icon={<FileSearch className="size-5" aria-hidden="true" />}>
+      <DialogHeader>
         <DialogTitle>{t('title')}</DialogTitle>
         <DialogDescription>{t('description')}</DialogDescription>
       </DialogHeader>

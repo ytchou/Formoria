@@ -32,7 +32,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     otherUrls: [],
     productPhotos: [],
     contactEmail: null,
-    priceRange: null,
     subcategories: [],
     subcategoriesEn: [],
     descriptionEn: null,
@@ -197,7 +196,6 @@ describe("getBrandFaq", () => {
     // be padded in with weak content.
     expect(ids).not.toContain("main-products");
     expect(ids).not.toContain("reputation");
-    expect(ids).not.toContain("price-positioning");
     expect(ids).not.toContain("taiwan-origin");
   });
 
@@ -209,23 +207,9 @@ describe("getBrandFaq", () => {
     expect(items[0].id).toBe("taiwan-origin");
   });
 
-  // The regression this whole fix exists for: the request path has no peer
-  // stats, so gating price-positioning's *render* on them made its template
-  // floor unreachable and shrank the FAQ below what the old column-era
-  // generators produced.
-  it("renders the price floor from price_range alone, with no peer stats", async () => {
-    const { items } = await getFaq(makeBrand({ priceRange: 2 }));
-
-    expect(items.map((item) => item.id)).toContain("price-positioning");
-    expect(
-      items.find((item) => item.id === "price-positioning")?.answer,
-    ).toContain("brandFaq.priceRange.answer");
-  });
-
   it("renders every eligible preset for a typical approved brand", async () => {
     const { items } = await getFaq(
       makeBrand({
-        priceRange: 2,
         subcategories: ["陶瓷"],
         reputationSummary: {
           text: "被設計媒體報導過的小型工作室。",
@@ -237,18 +221,11 @@ describe("getBrandFaq", () => {
     );
 
     // category-position is prompt-only (no template floor) and taiwan-origin
-    // requires verified MIT evidence; the other three reach the page.
+    // requires verified MIT evidence; the other two reach the page.
     expect(items.map((item) => item.id)).toEqual([
       "main-products",
-      "price-positioning",
       "reputation",
     ]);
-  });
-
-  it("still drops price-positioning when price_range is unset", async () => {
-    const { items } = await getFaq(makeBrand({ priceRange: null }));
-
-    expect(items.map((item) => item.id)).not.toContain("price-positioning");
   });
 
   // I10: the floor interpolates the locale's own tag array, so eligibility has

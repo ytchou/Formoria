@@ -254,7 +254,6 @@ function buildBrand(index: number): PublicBrandCard {
     status: "approved",
     category: "home",
     isVerified: false,
-    priceRange: null,
     subcategories: [],
     subcategoriesEn: [],
     foundingYear: null,

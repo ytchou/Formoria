@@ -114,6 +114,30 @@ describe('story component map — trail section numbers', () => {
     expect(html).toContain('aria-hidden="true"')
   })
 
+  it('numbers a declared section whose heading contains inline markup', () => {
+    const map = createStoryComponentMap({ trailSections: sections })
+    const html = markup(
+      map.h2({
+        children: ['把需要的東西', <em key="emphasis">放在座位旁</em>],
+      }),
+    )
+
+    expect(html).toContain('02')
+    expect(html).toContain('<em>放在座位旁</em>')
+  })
+
+  it('leaves duplicate declared titles unnumbered', () => {
+    const map = createStoryComponentMap({
+      trailSections: [
+        { key: 'first', title: '重複標題' },
+        { key: 'second', title: ' 重複標題 ' },
+      ],
+    })
+    const html = markup(map.h2({ children: '重複標題' }))
+
+    expect(html).not.toContain('aria-hidden')
+  })
+
   it('leaves an undeclared heading unnumbered', () => {
     const map = createStoryComponentMap({ trailSections: sections })
     const html = markup(map.h2({ children: '一段沒有宣告的標題' }))

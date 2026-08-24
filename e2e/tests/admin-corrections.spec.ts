@@ -76,10 +76,6 @@ test.describe("Admin brand corrections", () => {
           await seedBrand({
             name: `corrections ${name}`,
             workerIndex: test.info().workerIndex,
-            // `withFaqEvidence` is the only seed switch that writes
-            // `price_range` (ordinal 2). Without it the column is NULL and the
-            // "unselected row is untouched" assertion has nothing to compare.
-            withFaqEvidence: true,
           }),
         );
       }
@@ -88,14 +84,14 @@ test.describe("Admin brand corrections", () => {
       return;
     }
 
-    const proposedValues = [1, 3, 1];
+    const proposedValues = ["fashion", "jewelry", "fashion"];
     for (const [index, seeded] of seededBrands.entries()) {
       const { data: correction, error } = await supabase
         .from("brand_field_corrections")
         .insert({
           brand_id: seeded.brand.id,
-          field: "price_range",
-          previous_value: 2,
+          field: "category",
+          previous_value: "home",
           proposed_value: proposedValues[index],
           visitor_hash: randomUUID(),
           status: "pending",
@@ -159,14 +155,14 @@ test.describe("Admin brand corrections", () => {
 
     const { data: brands, error: brandsError } = await supabase
       .from("brands")
-      .select("id, price_range")
+      .select("id, category")
       .in("id", seededBrands.map((seeded) => seeded.brand.id));
     expect(brandsError).toBeNull();
-    expect(new Map(brands?.map((brand) => [brand.id, brand.price_range]))).toEqual(
+    expect(new Map(brands?.map((brand) => [brand.id, brand.category]))).toEqual(
       new Map([
-        [seededBrands[0].brand.id, 1],
-        [seededBrands[1].brand.id, 3],
-        [seededBrands[2].brand.id, 2],
+        [seededBrands[0].brand.id, "fashion"],
+        [seededBrands[1].brand.id, "jewelry"],
+        [seededBrands[2].brand.id, "home"],
       ]),
     );
 

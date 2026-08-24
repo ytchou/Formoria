@@ -11,7 +11,6 @@ import {
   Link2Off,
   ShieldAlert,
   ShieldCheck,
-  TriangleAlert,
 } from 'lucide-react'
 import { submitReportAction, type ReportState } from '@/app/[locale]/(site)/brands/[slug]/actions'
 import {
@@ -130,7 +129,7 @@ export function ReportDialogContent({
     // all belong to the shell now; this call site used to spell every one of
     // them by hand, alongside its own close button and header gutter.
     <DialogContent size="form">
-      <DialogHeader icon={<TriangleAlert className="size-5" />}>
+      <DialogHeader>
         <DialogTitle>{t('title')}</DialogTitle>
         <DialogDescription>{t('description')}</DialogDescription>
       </DialogHeader>

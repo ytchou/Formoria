@@ -177,7 +177,9 @@ export function ReviewQueueTable<T>(props: {
                     <TableCell>
                       <Label className="flex min-h-12 min-w-12 cursor-pointer items-center">
                         <Checkbox
-                          aria-label={`Select ${getRowName(item)}`}
+                          aria-label={t("selectRow", {
+                            name: getRowName(item),
+                          })}
                           checked={selected}
                           disabled={!queue.isSelectable(item)}
                           onCheckedChange={() => queue.toggleSelection(id)}

@@ -51,7 +51,6 @@ export const brandWizardBasicInfoSchema = z.object({
     })
     .optional(),
   city: z.string().optional(),
-  priceRange: z.union([z.number(), z.string()]).optional(),
 })
 
 const brandWizardMediaSchema = z.object({
@@ -110,7 +109,6 @@ export const BRAND_WIZARD_SHARED_SECTION_FIELDS: Record<
     'mitStory',
     'subcategories',
     'city',
-    'priceRange',
   ],
   media: ['heroImageUrl', 'productPhotos'],
   links: [

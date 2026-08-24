@@ -113,7 +113,6 @@ function makeBrand(slug: string, name: string): Brand {
     descriptionEn: null,
     isVerified: false,
     mitStatus: 'unverified',
-    priceRange: null,
     subcategories: [],
     subcategoriesEn: [],
   } as unknown as Brand

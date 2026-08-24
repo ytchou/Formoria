@@ -82,8 +82,16 @@ describe('directory taxonomy redirects', () => {
     })
   })
 
-  it.each(['search=chairs', 'price=2', 'verification=owned', 'sort=name'])('does not redirect when %s is present', (query) => {
+  it.each(['search=chairs', 'verification=owned', 'sort=name'])('does not redirect when %s is present', (query) => {
     expect(decideDirectoryTaxonomyRedirect('/brands', `category=home&${query}`).action).toBe('none')
+  })
+
+  it('ignores the retired price input when redirecting taxonomy URLs', () => {
+    expect(decideDirectoryTaxonomyRedirect('/brands', 'category=home&price=2')).toEqual({
+      action: 'redirect',
+      status: 301,
+      pathname: '/categories/home',
+    })
   })
 
   it('does not redirect multi-valued category or sub', () => {
@@ -111,7 +119,7 @@ describe('directory taxonomy redirects', () => {
     expect(
       isDirectoryIndexPath(
         '/brands',
-        '?category=fashion&sub=backpacks&material=leather&price=2&verification=all',
+        '?category=fashion&sub=backpacks&material=leather&verification=all',
       ),
     ).toBe(true)
   })
@@ -184,7 +192,7 @@ describe('directory taxonomy redirects', () => {
 
   it('the allow-list is exactly the directory filter keys minus search', () => {
     expect([...CACHEABLE_DIRECTORY_QUERY_KEYS].sort()).toEqual(
-      ['category', 'material', 'page', 'price', 'sort', 'sub', 'verification'],
+      ['category', 'material', 'page', 'sort', 'sub', 'verification'],
     )
     expect(CACHEABLE_DIRECTORY_QUERY_KEYS.has('search')).toBe(false)
   })

@@ -16,7 +16,6 @@ const completeWizardData = {
   // DEV-1510, on the schema as well as in the UI.
   subcategories: ['wallets', 'card-holders'],
   city: 'tainan',
-  priceRange: 2,
   mitStory: 'Made by local craftspeople.',
   heroImageUrl: 'https://storage.example.com/hero.webp',
   productPhotos: ['https://storage.example.com/p1.webp'],

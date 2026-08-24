@@ -213,7 +213,7 @@ export function contextFacts(ctx: FaqBrandContext): string {
   const brand = ctx.brand;
   const tags = getBrandSubcategoryLabels(brand, "zh-TW");
   return [
-    `結構化品牌事實：產品類型=${brand.categorySlug ?? "無"}；產品標籤=${tags.join("、") || "無"}；價格序位=${brand.priceRange ?? "無"}；成立年份=${brand.foundingYear ?? "無"}；城市=${ctx.cityLabel ?? brand.city ?? "無"}；MIT 狀態=${brand.mitStatus ?? "無"}`,
+    `結構化品牌事實：產品類型=${brand.categorySlug ?? "無"}；產品標籤=${tags.join("、") || "無"}；成立年份=${brand.foundingYear ?? "無"}；城市=${ctx.cityLabel ?? brand.city ?? "無"}；MIT 狀態=${brand.mitStatus ?? "無"}`,
     `聲譽摘要：${brand.reputationSummary?.text ?? brand.reputationSummary?.textEn ?? "無"}`,
     `同類品牌比較資料：${ctx.peerStats ? JSON.stringify(ctx.peerStats) : "無"}`,
   ].join("\n");
@@ -492,7 +492,7 @@ export async function runFaqPhase({
     // answer keyed to it would be stored with zero validators behind it.
     // `authorable` is the preset's own answer to "does the model have enough
     // evidence to write this?", which is a stricter question than render
-    // eligibility (price-positioning needs peer stats the request path lacks).
+    // eligibility (category-position needs peer stats the request path lacks).
     // It defaults to `eligible` when a preset does not override it.
     const authorable = eligibleFaqPresets(ctx).filter(
       (preset) =>

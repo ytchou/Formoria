@@ -244,9 +244,6 @@ export function BrandCard({
             </p>
             <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
               {categoryLabel && <Badge variant="secondary">{categoryLabel}</Badge>}
-              {brand.priceRange != null && (
-                <Badge variant="secondary">{'$'.repeat(brand.priceRange)}</Badge>
-              )}
               {primarySubcategory && (
                 <Badge variant="secondary" className="max-w-full truncate">
                   {primarySubcategory}

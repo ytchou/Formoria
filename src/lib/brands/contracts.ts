@@ -29,7 +29,6 @@ export type PublicBrandCard = {
   categoryLabel: string | null
   isVerified: boolean
   mitStatus?: MitStatus
-  priceRange: number | null
   subcategories: string[]
   subcategoriesEn: string[]
   foundingYear: number | null
@@ -71,7 +70,6 @@ export type PublicBrandFaqContext = {
   categorySlug?: string | null
   subcategories: string[]
   subcategoriesEn: string[]
-  priceRange: number | null
   foundingYear: number | null
   reputationSummary?: ReputationSummary | null
   mitStatus?: MitStatus
@@ -103,7 +101,6 @@ export type AdminBrandListItem = {
   reputationSummary?: ReputationSummary | null
   mitEvidence?: Brand['mitEvidence']
   siteContent?: unknown | null
-  priceRange?: number | null
   subcategories?: string[]
   subcategoriesEn?: string[]
   purchaseWebsite?: string | null
@@ -132,7 +129,6 @@ export function toPublicBrandCard(brand: Brand): PublicBrandCard {
     categoryLabel: brand.categoryLabel,
     isVerified: brand.isVerified,
     mitStatus: brand.mitStatus ?? 'unverified',
-    priceRange: brand.priceRange,
     subcategories: [...brand.subcategories],
     subcategoriesEn: [...brand.subcategoriesEn],
     foundingYear: brand.foundingYear,
@@ -154,7 +150,6 @@ export function toPublicBrandFaqContext(brand: Brand): PublicBrandFaqContext {
     categorySlug: brand.categorySlug ?? null,
     subcategories: Array.isArray(brand.subcategories) ? [...brand.subcategories] : [],
     subcategoriesEn: Array.isArray(brand.subcategoriesEn) ? [...brand.subcategoriesEn] : [],
-    priceRange: brand.priceRange,
     foundingYear: brand.foundingYear,
     reputationSummary: brand.reputationSummary ?? null,
     mitStatus: brand.mitStatus ?? 'unverified',
@@ -252,7 +247,6 @@ export function toAdminBrandListItem(brand: Brand): AdminBrandListItem {
     reputationSummary: brand.reputationSummary ?? null,
     mitEvidence: brand.mitEvidence ?? null,
     siteContent: brand.siteContent ?? null,
-    priceRange: brand.priceRange,
     subcategories: [...brand.subcategories],
     subcategoriesEn: [...brand.subcategoriesEn],
     purchaseWebsite: brand.purchaseWebsite,

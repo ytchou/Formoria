@@ -59,7 +59,6 @@ export function shouldEmitDirectoryItemList(input: {
   categorySlugs: readonly string[]
   search: string
   materials: readonly string[]
-  priceRanges: readonly number[]
   verificationFilter: DirectoryVerificationFilter
   page: number
 }): boolean {
@@ -68,7 +67,6 @@ export function shouldEmitDirectoryItemList(input: {
     input.categorySlugs.length === 0 &&
     !input.search &&
     input.materials.length === 0 &&
-    input.priceRanges.length === 0 &&
     input.verificationFilter === 'all' &&
     input.page === 1
   )
@@ -86,7 +84,6 @@ export type DirectoryUrlStateInput = {
   subcategorySlugs: readonly string[]
   search: string
   materials: readonly string[]
-  priceRanges: readonly number[]
   verificationFilter: DirectoryVerificationFilter
   sort: BrandSortOption
 }
@@ -125,7 +122,6 @@ export function buildDirectoryUrlState(
     normalizedParams.set('sub', input.subcategorySlugs.join(','))
   }
   if (input.materials.length > 0) normalizedParams.set('material', input.materials.join(','))
-  if (input.priceRanges.length > 0) normalizedParams.set('price', input.priceRanges.join(','))
   if (input.verificationFilter !== 'all') {
     normalizedParams.set('verification', input.verificationFilter)
   }

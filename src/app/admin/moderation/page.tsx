@@ -23,7 +23,7 @@ export default async function ReviewQueueModerationPage() {
 
   return (
     <div>
-      <h1 className="type-label">{t('dashboard')}</h1>
+      <h1 className="type-tool-heading">{t('dashboard')}</h1>
       <p className="mt-2 text-ink-muted">
         {t('blockedCount', { count: items.length })}
       </p>

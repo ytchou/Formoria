@@ -41,7 +41,6 @@ describe('resolveDirectorySeo', () => {
 
   it.each([
     ['search', { search: '椅子' }, '?search=%E6%A4%85%E5%AD%90'],
-    ['price', { price: ['2'] }, '?price=2'],
     ['verification', { verification: 'mit-verified' }, '?verification=mit-verified'],
     ['multi-category', { multiCategory: 'home,fashion' }, '?category=home%2Cfashion'],
     ['multi-sub', { multiSub: 'furniture,storage' }, '?sub=furniture%2Cstorage'],
@@ -94,16 +93,6 @@ describe('resolveDirectorySeo', () => {
     expect(result.languages?.en).toBe(`${base}/en/brands?sub=furniture`)
   })
 
-  it('category price facet self-canonicalizes with the recognized facet retained', () => {
-    const result = resolveDirectorySeo(
-      state({ categorySlug: 'home', facets: { price: ['2'] } }),
-    )
-
-    expect(result.robots).toEqual({ index: false, follow: true })
-    expect(result.canonical).toBe(`${base}/categories/home?price=2`)
-    expect(result.languages?.en).toBe(`${base}/en/categories/home?price=2`)
-  })
-
   it('category-route facets preserve the route taxonomy in self-canonicals', () => {
     const l1 = resolveDirectorySeo(
       state({ surface: 'category', categorySlug: 'home', facets: { category: 'fashion' } }),
@@ -128,14 +117,14 @@ describe('resolveDirectorySeo', () => {
       state({
         categorySlug: 'home',
         page: 2,
-        facets: { price: ['2'], sort: 'name' },
+        facets: { material: ['ceramic'], sort: 'name' },
       }),
     )
 
     expect(result.robots).toEqual({ index: false, follow: true })
-    expect(result.canonical).toBe(`${base}/categories/home?price=2&sort=name&page=2`)
+    expect(result.canonical).toBe(`${base}/categories/home?material=ceramic&sort=name&page=2`)
     expect(result.languages?.en).toBe(
-      `${base}/en/categories/home?price=2&sort=name&page=2`,
+      `${base}/en/categories/home?material=ceramic&sort=name&page=2`,
     )
   })
 

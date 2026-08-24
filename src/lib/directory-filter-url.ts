@@ -11,7 +11,6 @@
  */
 export const DIRECTORY_REFINEMENT_KEYS = [
   'search',
-  'price',
   'verification',
   'material',
 ] as const
@@ -39,6 +38,10 @@ export function updateDirectoryUrl(
   updates: DirectoryFilterUpdates,
 ): string {
   const params = new URLSearchParams(searchParams.toString())
+
+  // DEV-1540 retired the price facet. Strip it from any legacy URL as soon as
+  // the user changes another directory control.
+  params.delete('price')
 
   for (const [key, value] of Object.entries(updates)) {
     if (value) params.set(key, value)
@@ -74,7 +77,6 @@ export function clearDirectoryFilters(
     category: null,
     sub: null,
     material: null,
-    price: null,
     verification: null,
   })
 }

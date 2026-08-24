@@ -129,33 +129,8 @@ describe("normalizeProposedValue — subcategories", () => {
   });
 });
 
-describe("normalizeProposedValue — price_range and category", () => {
-  it("price_range and category branches are unchanged", () => {
-    expect(normalizeProposedValue("price_range", 1)).toEqual({
-      ok: true,
-      value: 1,
-    });
-    expect(normalizeProposedValue("price_range", 3)).toEqual({
-      ok: true,
-      value: 3,
-    });
-    expect(normalizeProposedValue("price_range", 0)).toEqual({
-      ok: false,
-      error: "invalid_value",
-    });
-    expect(normalizeProposedValue("price_range", 4)).toEqual({
-      ok: false,
-      error: "invalid_value",
-    });
-    expect(normalizeProposedValue("price_range", 2.5)).toEqual({
-      ok: false,
-      error: "invalid_value",
-    });
-    expect(normalizeProposedValue("price_range", "2")).toEqual({
-      ok: false,
-      error: "invalid_value",
-    });
-
+describe("normalizeProposedValue — category", () => {
+  it("accepts known category slugs", () => {
     expect(normalizeProposedValue("category", "fashion")).toEqual({
       ok: true,
       value: "fashion",
@@ -394,7 +369,6 @@ describe("buildScalarCorrectionPatch — social links", () => {
 describe("isCorrectionField", () => {
   it("accepts every supported field name and rejects unknown ones", () => {
     for (const field of [
-      "price_range",
       "category",
       "subcategories",
       "purchase_website",

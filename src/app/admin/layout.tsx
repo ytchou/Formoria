@@ -100,7 +100,7 @@ export default async function AdminLayout({
             measure="page"
             className="py-stack"
           >
-            <h1 className="type-label">{t("title")}</h1>
+            <h1 className="type-tool-heading">{t("title")}</h1>
             <AdminNav items={navItems} />
             <div className="mt-8">{children}</div>
           </PageShell>

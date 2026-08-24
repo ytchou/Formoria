@@ -41,14 +41,13 @@ export async function seedBrand(opts: {
    * a fixture renders several FAQ items. `taiwan-origin` requires a verified
    * `mit_status` and is intentionally absent from this declared fixture:
    *   - `main-products`  — needs `subcategories` (and `subcategories_en` for /en).
-   *   - `price-positioning` — needs `price_range` (smallint ordinal 1/2/3).
    *   - `reputation`     — needs `reputation_summary.text`; deliberately left
    *     unseeded, since no e2e journey asserts on it and it is the one field
    *     whose copy is model-authored rather than template-derived.
    *   - `custom`         — model-authored only, no template floor to seed for.
    *
    * Opt-in and default-off on purpose: many specs share `seedBrand`, and these
-   * columns change the rendered header badge, subcategories, and price row.
+   * columns change the rendered header badge and subcategories.
    */
   withFaqEvidence?: boolean;
 }): Promise<SeededBrand> {
@@ -92,7 +91,6 @@ export async function seedBrand(opts: {
     // unusable for facets and L2 pages.
     brandData.subcategories = ['tableware', 'storage'];
     brandData.subcategories_en = ['Tableware', 'Storage'];
-    brandData.price_range = 2;
   }
 
   if (opts.withLinks) {

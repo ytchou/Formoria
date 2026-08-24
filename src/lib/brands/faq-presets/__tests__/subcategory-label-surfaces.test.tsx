@@ -114,7 +114,6 @@ function buildBrand(
     mitStatus: "unverified",
     mitStory: null,
     mitCertificateNumber: null,
-    priceRange: null,
     subcategories: [MIGRATED_SLUG],
     subcategoriesEn: [MIGRATED_LABEL_EN],
     foundingYear: null,

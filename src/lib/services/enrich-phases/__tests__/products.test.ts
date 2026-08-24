@@ -484,7 +484,6 @@ describe("validateProductProposals", () => {
         products: [
           rawProposal({
             price: 580,
-            price_range: 2,
             availability: "in stock",
             variants: ["S", "M"],
             offers: { price: 580 },
@@ -497,8 +496,6 @@ describe("validateProductProposals", () => {
     const keys = Object.keys(proposals[0]!);
     for (const forbidden of [
       "price",
-      "priceRange",
-      "price_range",
       "availability",
       "stock",
       "inventory",

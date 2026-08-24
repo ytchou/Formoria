@@ -371,7 +371,6 @@ const BRAND_FACT_FIELDS = [
   ["subcategoriesEn", "subcategories_en"],
   ["city", "city"],
   ["foundingYear", "founding_year"],
-  ["priceRange", "price_range"],
   ["purchaseWebsite", "purchase_website"],
   ["purchasePinkoi", "purchase_pinkoi"],
   ["purchaseShopee", "purchase_shopee"],

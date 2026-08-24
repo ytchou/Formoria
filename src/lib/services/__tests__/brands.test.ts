@@ -187,12 +187,6 @@ describe('brandToDomain (flat link columns)', () => {
 })
 
 describe('brandToDomain — brand detail enrichment fields', () => {
-  it('maps price_range to priceRange', () => {
-    const row = makeBrandRow({ price_range: 3 })
-    const brand = brandToDomain(row)
-    expect(brand.priceRange).toBe(3)
-  })
-
   it('maps subcategories to subcategories', () => {
     const row = makeBrandRow({ subcategories: ['cotton', 'handmade'] })
     const brand = brandToDomain(row)
@@ -205,11 +199,6 @@ describe('brandToDomain — brand detail enrichment fields', () => {
     expect(brand.subcategories).toEqual([])
   })
 
-  it('defaults priceRange to null when price_range is not set', () => {
-    const row = makeBrandRow()
-    const brand = brandToDomain(row)
-    expect(brand.priceRange).toBeNull()
-  })
 })
 
 describe('brandToInsert — isDemo', () => {
@@ -258,11 +247,6 @@ describe('brandToInsert (flat link columns)', () => {
 })
 
 describe('brandToInsert — brand detail enrichment fields', () => {
-  it('serializes priceRange to price_range', () => {
-    const result = brandToInsert({ priceRange: 2 })
-    expect(result.price_range).toBe(2)
-  })
-
   it('serializes non-empty subcategories to subcategories', () => {
     const result = brandToInsert({ subcategories: ['minimal', 'gift'] })
     expect(result.subcategories).toEqual(['minimal', 'gift'])

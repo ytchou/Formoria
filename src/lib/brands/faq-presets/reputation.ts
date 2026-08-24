@@ -4,11 +4,12 @@ import {
 } from "./types";
 import {
   noKeywordStuffing,
-  noPricingFigures,
+  noCommerceClaims,
   notDuplicateOf,
   pureLanguage,
   withinLengthBand,
 } from "./validators";
+import { faqReputationPrompt } from "@/lib/prompts";
 
 const reputation: FaqPreset = {
   id: "reputation",
@@ -35,13 +36,13 @@ const reputation: FaqPreset = {
   },
   promptFragment: (ctx) => {
     const summary = ctx.brand.reputationSummary?.textEn ?? ctx.brand.reputationSummary?.text ?? "";
-    return `只能根據以下已提供的聲譽摘要回答，不得加入摘要以外的評價、評分或媒體資訊：${summary}`;
+    return faqReputationPrompt(summary);
   },
   // `groundedIn(requiredEvidence)` is derived in the registry (index.ts).
   validators: [
     pureLanguage(),
     withinLengthBand(),
-    noPricingFigures(),
+    noCommerceClaims(),
     noKeywordStuffing(),
     notDuplicateOf(),
   ],

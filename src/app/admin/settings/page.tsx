@@ -18,7 +18,7 @@ export default async function AdminSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="type-label">{t("title")}</h1>
+        <h1 className="type-tool-heading">{t("title")}</h1>
         <p className="mt-1 type-body-sm">{t("description")}</p>
       </div>
       <FeatureTogglesCard initialValues={initialValues} />

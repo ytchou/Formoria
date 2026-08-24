@@ -350,7 +350,6 @@ type EnrichDescriptionsPhase = {
 type EnrichDescriptionPatch = Partial<{
   description: string | null;
   description_en: string | null;
-  price_range: number | null;
   subcategories: string[] | null;
   city: string | null;
 }>;
@@ -426,7 +425,6 @@ export function seedEnrichedDataFromOwnerData(
     ["categorySlug", "category"],
     ["foundingYear", "founding_year"],
     ["city", "city"],
-    ["priceRange", "price_range"],
     ["subcategories", "subcategories"],
     ["subcategories_en", "subcategories_en"],
     ["productPhotos", "product_photos"],

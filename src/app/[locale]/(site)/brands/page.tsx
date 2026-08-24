@@ -45,7 +45,6 @@ export async function generateMetadata({ params, searchParams }: BrandsPageProps
     page,
     facets: {
       search: sp.search,
-      price: sp.price,
       verification: sp.verification,
       sort: typeof sp.sort === 'string' ? sp.sort : undefined,
       category: sp.category,
@@ -134,7 +133,6 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
     page,
     facets: {
       search: sp.search,
-      price: sp.price,
       verification: sp.verification,
       sort: typeof sp.sort === 'string' ? sp.sort : sort !== 'random' ? sort : undefined,
       category: sp.category,

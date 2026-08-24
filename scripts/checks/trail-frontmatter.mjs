@@ -102,6 +102,7 @@ function checkTrail(file, raw) {
     fileFailures.push(`${file}: \`sections\` must be a non-empty array`)
   } else {
     const seenKeys = new Set()
+    const seenTitles = new Set()
     data.sections.forEach((section, index) => {
       const key = section && typeof section.key === 'string' ? section.key.trim() : ''
       if (!key) fileFailures.push(`${file}: \`sections[${index}].key\` must be non-empty`)
@@ -109,6 +110,13 @@ function checkTrail(file, raw) {
       else seenKeys.add(key)
       if (!isNonEmptyString(section?.title)) {
         fileFailures.push(`${file}: \`sections[${index}].title\` must be non-empty`)
+      } else {
+        const title = section.title.trim()
+        if (seenTitles.has(title)) {
+          fileFailures.push(`${file}: duplicate section title ${JSON.stringify(title)}`)
+        } else {
+          seenTitles.add(title)
+        }
       }
     })
   }

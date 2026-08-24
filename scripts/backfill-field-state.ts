@@ -47,7 +47,6 @@ const BRAND_FIELDS: readonly string[] = [
   'submitted_at',
   'approved_at',
   'founding_year',
-  'price_range',
   'subcategories',
   'reputation_summary',
   'mit_status',

@@ -65,16 +65,16 @@ export default function ClaimRejectedEmail({
   }
 
   return (
-    <Layout previewText={`您的品牌認領申請「${escapedBrandName}」未通過審核`}>
-      <EmailHeading as="h2">您的品牌認領申請未通過審核</EmailHeading>
+    <Layout previewText={`品牌認領申請「${escapedBrandName}」未通過審核`}>
+      <EmailHeading as="h2">品牌認領申請未通過審核</EmailHeading>
       <EmailText>
-        感謝您提交{" "}
+        感謝提交{" "}
         <strong dangerouslySetInnerHTML={{ __html: escapedBrandName }} />{" "}
         的品牌認領申請。
       </EmailText>
       <EmailText>經審核後，我們目前無法批准此次申請。</EmailText>
       <ReviewerNotes label="審核意見" notes={escapedReviewerNotes} />
-      <EmailText>若您有補充資料，可前往 Formoria 重新確認品牌資訊。</EmailText>
+      <EmailText>若有補充資料，可前往 Formoria 重新確認品牌資訊。</EmailText>
       <EmailText>
         <EmailLink href={escapedSiteUrl}>{escapedSiteUrl}</EmailLink>
       </EmailText>
@@ -95,7 +95,7 @@ export async function buildClaimRejectedEmail(
     subject:
       locale === "en"
         ? `Your brand claim for "${brandName}" was not approved — Formoria`
-        : `您的品牌認領申請「${brandName}」未通過審核 — Formoria`,
+        : `品牌認領申請「${brandName}」未通過審核 — Formoria`,
     html: await render(
       <ClaimRejectedEmail {...props} siteUrl={props.siteUrl ?? SITE_URL} />,
     ),

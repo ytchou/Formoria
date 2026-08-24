@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { routes } from "@/lib/routes";
 
 type RequiredBasicField =
-  "name" | "categorySlug" | "description" | "subcategories" | "priceRange";
+  "name" | "categorySlug" | "description" | "subcategories";
 
 type BasicFieldName = RequiredBasicField | "mitStory";
 
@@ -71,15 +71,6 @@ export function BrandBasicInfoSection({
       ? error.message
       : t("requiredFieldError");
   };
-  const getPriceRangeLabel = (value: unknown) => {
-    const labels: Record<string, string> = {
-      "1": `$ · ${t("fieldPriceRangeBudget")}`,
-      "2": `$$ · ${t("fieldPriceRangeMidRange")}`,
-      "3": `$$$ · ${t("fieldPriceRangePremium")}`,
-    };
-    return labels[String(value)] ?? String(value ?? "");
-  };
-
   const handleNameBlur = async () => {
     const name = form.getValues("name")?.trim();
     if (!name || !suggestName) return;
@@ -381,33 +372,6 @@ export function BrandBasicInfoSection({
           </NativeSelect>
         </DashboardFormField>
 
-        <DashboardFormField
-          id="priceRange"
-          fieldName="priceRange"
-          label={tx("fieldPriceRange", "Price Range")}
-          description={tx("fieldPriceRangeHint", "Used for filtering")}
-          required={Boolean(requiredFields.priceRange)}
-          error={fieldError("priceRange")}
-          errorId="priceRange-error"
-        >
-          <NativeSelect
-            id="priceRange"
-            aria-required={Boolean(requiredFields.priceRange)}
-            aria-invalid={Boolean(form.formState.errors.priceRange)}
-            aria-describedby={
-              form.formState.errors.priceRange ? "priceRange-error" : undefined
-            }
-            className="min-h-12 w-full bg-surface"
-            {...form.register("priceRange", {
-              setValueAs: (value) => (value === "" ? undefined : Number(value)),
-            })}
-          >
-            <option value="">{tx("fieldPriceRangeUnset", "Unset")}</option>
-            <option value="1">{getPriceRangeLabel("1")}</option>
-            <option value="2">{getPriceRangeLabel("2")}</option>
-            <option value="3">{getPriceRangeLabel("3")}</option>
-          </NativeSelect>
-        </DashboardFormField>
       </StandardFormStack>
     </StandardFormSection>
   );

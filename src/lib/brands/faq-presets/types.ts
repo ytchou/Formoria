@@ -6,7 +6,6 @@ export type EvidenceKey =
   | "mitStory"
   | "categorySlug"
   | "subcategories"
-  | "priceRange"
   | "reputationSummary"
   | "foundingYear"
   | "city"

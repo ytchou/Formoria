@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import { getAllTrails, getPublishedTrailBySlug, getTrailBySlug } from '../trails'
 
@@ -14,6 +14,7 @@ const fixtureStems = [
   'loader-malformed-fixture',
   'checker-slug-fixture',
   'checker-sections-fixture',
+  'checker-section-titles-fixture',
   'checker-tags-fixture',
 ]
 
@@ -156,6 +157,12 @@ describe('trail content loader', () => {
 })
 
 describe('trail frontmatter checker', () => {
+  beforeEach(() => {
+    for (const stem of fixtureStems) {
+      rmSync(join(trailsDir, `${stem}.mdx`), { force: true })
+    }
+  })
+
   it('rejects a slug that differs from the filename stem', () => {
     const stem = 'checker-slug-fixture'
     writeTrail(stem, validFrontmatter(stem).replace(`slug: ${stem}`, 'slug: different-slug'))
@@ -180,15 +187,23 @@ describe('trail frontmatter checker', () => {
     expect(() => execFileSync(process.execPath, [checker], { encoding: 'utf8' })).toThrow()
   })
 
+  it('rejects duplicate trimmed section titles', () => {
+    const stem = 'checker-section-titles-fixture'
+    writeTrail(
+      stem,
+      validFrontmatter(stem, [], [
+        '  - key: first',
+        '    title: Repeated section',
+        '  - key: second',
+        '    title: " Repeated section "',
+      ]),
+    )
+
+    expect(() => execFileSync(process.execPath, [checker], { encoding: 'utf8' })).toThrow()
+  })
+
   it('rejects unknown tags while accepting a valid L1 product category slug', () => {
     const stem = 'checker-tags-fixture'
-    for (const staleStem of [
-      'checker-slug-fixture',
-      'checker-sections-fixture',
-      'loader-malformed-fixture',
-    ]) {
-      rmSync(join(trailsDir, `${staleStem}.mdx`), { force: true })
-    }
     writeTrail(stem, validFrontmatter(stem).replace('  - home', '  - not-a-category'))
 
     expect(() => execFileSync(process.execPath, [checker], { encoding: 'utf8' })).toThrow()

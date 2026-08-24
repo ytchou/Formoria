@@ -52,8 +52,6 @@ function evidencePresent(
       return typeof brand.categorySlug === "string" && brand.categorySlug.trim() !== "";
     case "subcategories":
       return brand.subcategories.some((tag) => tag.trim() !== "");
-    case "priceRange":
-      return brand.priceRange === 1 || brand.priceRange === 2 || brand.priceRange === 3;
     case "reputationSummary":
       return (
         (brand.reputationSummary?.text?.trim().length ?? 0) >= 10 ||
@@ -105,12 +103,12 @@ export function withinLengthBand(bands: LengthBands = {}): FaqValidator {
   };
 }
 
-export function noPricingFigures(): FaqValidator {
+export function noCommerceClaims(): FaqValidator {
   return (answer) => {
-    const pricingPattern =
-      /(?:NT\s*[$＄]|TWD|新台幣|\d[\d,]*(?:\.\d+)?\s*(?:元|塊|NT\s*[$＄]|TWD)|[$＄]\s*\d[\d,]*)/iu;
-    return pricingPattern.test(answer)
-      ? fail("Pricing figures and currency tokens are not allowed.")
+    const commercePattern =
+      /(?:NT\s*[$\uFF04]|TWD|\u65B0\u53F0\u5E63|\d[\d,]*(?:\.\d+)?\s*(?:\u5143|\u584A|NT\s*[$\uFF04]|TWD)|[$\uFF04]\s*\d[\d,]*|\b(?:affordable|budget(?:-friendly)?|mid[- ]?range|premium|luxury|price(?:d|s|point|tier)?|pricing|costs?|stock|inventory|discount|sale|promotion|shipping|delivery|pre-?order|sold out|availability|checkout|cart|offer)\b|\u50F9\u683C|\u552E\u50F9|\u50F9\u4F4D|\u50F9\u9322|\u5E73\u50F9|\u89AA\u6C11|\u5165\u9580\u50F9|\u4E2D\u50F9|\u9AD8\u50F9|\u7CBE\u54C1|\u4FBF\u5B9C|\u6602\u8CB4|\u6298\u6263|\u512A\u60E0|\u4FC3\u92B7|\u7279\u50F9|\u514D\u904B|\u904B\u8CBB|\u5EAB\u5B58|\u73FE\u8CA8|\u7F3A\u8CA8|\u9810\u8CFC|\u552E\u5B8C|\u88DC\u8CA8|\u5230\u8CA8|\u914D\u9001|\u4EA4\u8CA8|\u4F9B\u61C9|\u4E0B\u55AE|\u7D50\u5E33|\u8CFC\u7269\u8ECA)/iu;
+    return commercePattern.test(answer)
+      ? fail("Commerce claims are not allowed.")
       : pass();
   };
 }

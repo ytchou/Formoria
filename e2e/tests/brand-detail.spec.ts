@@ -27,7 +27,7 @@ test.describe("Brand detail deep", () => {
       withLinks: true,
       withOwner: true,
       // The FAQ cases below need brand *evidence*, not links: the presets that
-      // survive gate on mit_status / subcategories / price_range.
+      // survive gate on mit_status / subcategories.
       withFaqEvidence: true,
     });
     brandHref = `/brands/${seeded.slug}`;
@@ -216,10 +216,10 @@ test.describe("Brand detail deep", () => {
 
   test("FAQ renders on a data-rich brand", async ({ page }) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
-    // Seeded via `withFaqEvidence`: mit_status, subcategories and price_range.
+    // Seeded via `withFaqEvidence`: mit_status and subcategories.
     // Those — not links — are what the FAQ floors gate on. This fixture is
     // declared rather than MIT-verified, so taiwan-origin is intentionally
-    // absent while the product and price floors still render.
+    // absent while the product floor still renders.
     await expect(async () => {
       await page.goto(`/brands/${seeded.slug}`, {
         waitUntil: "domcontentloaded",
@@ -239,14 +239,8 @@ test.describe("Brand detail deep", () => {
 
     // Each seeded evidence field must pull its own preset onto the page, while
     // an unverified/declared brand must not receive a taiwan-origin floor.
-    for (const id of ["main-products", "price-positioning"]) {
-      await expect(page.locator(`details#faq-${id}`)).toHaveCount(1);
-    }
+    await expect(page.locator("details#faq-main-products")).toHaveCount(1);
     await expect(page.locator("details#faq-taiwan-origin")).toHaveCount(0);
-
-    const priceAnswer = page.locator("#faq-price-positioning p");
-    await expect(priceAnswer).toContainText("產品定位在中價位。");
-    await expect(priceAnswer).not.toContainText("中價位價位");
 
     const jsonLdNodes = await page
       .locator('script[type="application/ld+json"]')
@@ -265,7 +259,7 @@ test.describe("Brand detail deep", () => {
     );
 
     expect(faqJsonLd).toBeDefined();
-    expect(faqQuestions).toContain(`${seeded.brand.name} 的價位屬於哪個區間？`);
+    expect(faqQuestions).toContain(`${seeded.brand.name} 的主要產品有哪些？`);
     expect(
       faqQuestions?.some((question) => question.includes("是台灣品牌嗎？")),
     ).toBe(false);

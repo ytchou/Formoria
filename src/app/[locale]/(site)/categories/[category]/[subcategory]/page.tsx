@@ -34,7 +34,6 @@ export async function generateMetadata({ params, searchParams }: SubcategoryPage
     page,
     facets: {
       search: sp.search,
-      price: sp.price,
       verification: sp.verification,
       sort: typeof sp.sort === 'string' ? sp.sort : sort !== 'random' ? sort : undefined,
       category: sp.category,
@@ -93,7 +92,6 @@ export default async function SubcategoryPage({ params, searchParams }: Subcateg
     page: parsed.page,
     facets: {
       search: sp.search,
-      price: sp.price,
       verification: sp.verification,
       sort: typeof sp.sort === 'string' ? sp.sort : parsed.sort !== 'random' ? parsed.sort : undefined,
       category: sp.category,

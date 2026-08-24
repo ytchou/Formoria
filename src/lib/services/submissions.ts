@@ -166,7 +166,6 @@ export type SubmissionReviewData = {
   foundingYear: number | null;
   heroImageUrl: string | null;
   categorySlug: string | null;
-  priceRange: number | null;
   subcategories: string[];
   subcategoriesEn: string[];
   websiteUrl: string | null;
@@ -189,7 +188,6 @@ type SubmissionReviewMissingField =
   | "description"
   | "categorySlug"
   | "subcategories"
-  | "priceRange"
   | "website"
   | "heroImage"
   | "successfulEnrichment";
@@ -841,7 +839,6 @@ export function buildSubmissionReviewData(
       enrichedData?.categorySlug,
       originalTags.categorySlug,
     ),
-    priceRange: enrichedData?.priceRange ?? null,
     subcategories:
       enrichedTags.length > 0 ? enrichedTags : originalTags.subcategories,
     subcategoriesEn: normalizeStringArray(enrichedData?.subcategoriesEn),
@@ -1021,9 +1018,6 @@ export function getSubmissionReviewCompleteness(
   if (data.subcategories.length < 1 || data.subcategories.length > 5) {
     missingFields.push("subcategories");
   }
-  if (![1, 2, 3].includes(data.priceRange ?? 0)) {
-    missingFields.push("priceRange");
-  }
   const purchaseLinkFields = ONLINE_STORE_CAMEL_FIELDS.filter(
     (field) => field !== onlineStoreByKey.website.camel,
   );
@@ -1101,7 +1095,6 @@ function submissionReviewDataPrefix(data: SubmissionReviewData) {
       ]),
     ),
     otherUrls: data.otherUrls,
-    priceRange: data.priceRange,
     subcategories: data.subcategories,
     subcategoriesEn: data.subcategoriesEn,
   });
@@ -1133,7 +1126,6 @@ function submissionReviewDataToBrandInsert(
     // the image proxy refuses to serve, so `approve_submission` is the only
     // correct owner of the brand hero.
     category: mapped.category,
-    price_range: mapped.price_range,
     subcategories: mapped.subcategories,
     subcategories_en: mapped.subcategories_en,
     social_instagram: mapped.social_instagram,
@@ -1172,7 +1164,6 @@ function submissionReviewDataToDb(
     // the image proxy refuses to serve, so `approve_submission` is the only
     // correct owner of the brand hero.
     category: mapped.category,
-    price_range: mapped.price_range,
     subcategories: mapped.subcategories,
     subcategories_en: mapped.subcategories_en,
     social_instagram: mapped.social_instagram,
@@ -1266,10 +1257,6 @@ function reviewDataFromDb(
       data.category === null || typeof data.category === "string"
         ? data.category
         : fallback.categorySlug,
-    priceRange:
-      data.price_range === null || typeof data.price_range === "number"
-        ? data.price_range
-        : fallback.priceRange,
     subcategories: Array.isArray(data.subcategories)
       ? normalizeStringArray(data.subcategories)
       : fallback.subcategories,

@@ -45,7 +45,6 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/analytics", () => ({
   trackCategoryFilterApplied: vi.fn(),
   trackFilterCleared: vi.fn(),
-  trackPriceFilterApplied: vi.fn(),
   trackSubcategoryFilterApplied: vi.fn(),
   trackVerificationFilterApplied: vi.fn(),
 }));

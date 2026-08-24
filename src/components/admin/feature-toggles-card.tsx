@@ -38,7 +38,7 @@ export function FeatureTogglesCard({
   return (
     <section>
       <div className="mb-4">
-        <h2 className="type-label">{t('featureToggles')}</h2>
+        <h2 className="type-tool-heading">{t('featureToggles')}</h2>
       </div>
       <SurfaceCard padding="lg">
         {FEATURE_FLAGS.map((flag) => (

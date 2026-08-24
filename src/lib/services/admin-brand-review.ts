@@ -281,7 +281,6 @@ export async function saveAdminBrandReview(
     siteContent: input.siteContent,
     foundingYear: input.foundingYear,
     categorySlug: input.categorySlug,
-    priceRange: input.priceRange,
     subcategories: input.subcategories,
     subcategoriesEn: input.subcategoriesEn,
     socialInstagram: input.socialInstagram,

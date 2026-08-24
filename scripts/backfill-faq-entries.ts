@@ -100,22 +100,16 @@ async function loadCandidates(): Promise<Candidate[]> {
  */
 async function report(candidates: Candidate[]): Promise<void> {
   let empty = 0;
-  let missingPrice = 0;
-
   await mapWithConcurrency(candidates, CONCURRENCY, async (brand) => {
     const stored = await getBrandFaqEntries(brand.id);
-    const hasPrice = stored.some(
-      (entry) => entry.presetId === "price-positioning",
-    );
     if (stored.length === 0) empty += 1;
-    if (!hasPrice) missingPrice += 1;
     console.log(
-      `  ${brand.slug}: ${stored.length} stored ${stored.length === 1 ? "entry" : "entries"}${hasPrice ? "" : " — no price-positioning row"}`,
+      `  ${brand.slug}: ${stored.length} stored ${stored.length === 1 ? "entry" : "entries"}`,
     );
   });
 
   console.log(
-    `\n[backfill-faq] ${empty} brand(s) have no FAQ entries at all; ${missingPrice} lack a price-positioning row.`,
+    `\n[backfill-faq] ${empty} brand(s) have no FAQ entries at all.`,
   );
   console.log(
     "[backfill-faq] Re-run with --apply to author them. Without --overwrite, brands whose eligible presets are already complete are skipped with no LLM call.",

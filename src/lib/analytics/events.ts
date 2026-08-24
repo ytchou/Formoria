@@ -60,6 +60,8 @@ export const ANALYTICS_EVENTS = {
 
   /**
    * A booth block was selected in the Creative Expo floor map.
+   * @deprecated Retired 2026-08-24: the interactive floor map was removed. Historical
+   * PostHog rows remain directly queryable (3 events from 1 person; last seen 2026-08-07).
    * @property booth {string} Canonical booth code.
    * @property zone {string} Expo zone containing the booth.
    * @property brand_count {number} Linked brands represented by the booth.
@@ -80,10 +82,11 @@ export const ANALYTICS_EVENTS = {
 
   /**
    * A category tile in the homepage hero was clicked.
+   * @deprecated Retired 2026-08-24: the final production caller was removed. Historical
+   * PostHog rows remain directly queryable (60 events from 21 people; last seen 2026-08-16).
    * @property category {string} Category key.
    * @property destination_url {string} Resolved href the tile navigates to.
    */
-  // Retired: no emitter remains. The name stays in the ledger; DEV-1556 sweeps it.
   HERO_CATEGORY_CLICKED: 'hero_category_clicked',
 
   /**
@@ -144,6 +147,8 @@ export const ANALYTICS_EVENTS = {
 
   /**
    * A price-range filter was applied.
+   * @deprecated Retired 2026-08-24 with the price-range facet. The event name
+   * and payload remain in this permanent analytics ledger for historical rows.
    * @property price_range {string} Price bucket key.
    */
   PRICE_FILTER_APPLIED: 'price_filter_applied',
@@ -434,6 +439,8 @@ export const ANALYTICS_EVENTS = {
 
   /**
    * A manufacturing-origin declaration was made during the claim flow.
+   * @deprecated Retired 2026-08-24 with the owner declaration surface. No PostHog rows
+   * were ever ingested; the permanent ledger entry preserves the payload contract.
    * @property brand_id {string} Brand UUID.
    * @property brand_slug {string} Brand slug.
    * @property declared_scope {string} Declared MIT scope.
@@ -522,6 +529,8 @@ export const ANALYTICS_EVENTS = {
 
   /**
    * An API error surfaced to the user in the UI.
+   * @deprecated Retired 2026-08-24 after the unused emitter was removed. No PostHog rows
+   * were ever ingested; the permanent ledger entry preserves the payload contract.
    * @property endpoint {string} Endpoint that failed.
    * @property status_code {number} HTTP status returned.
    * @property user_action {string} What the user was trying to do.

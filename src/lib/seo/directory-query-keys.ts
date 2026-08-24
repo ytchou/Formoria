@@ -24,7 +24,6 @@ export const DIRECTORY_QUERY_KEYS = [
   'category',
   'sub',
   'material',
-  'price',
   'verification',
   'sort',
   'page',

@@ -35,7 +35,7 @@ import {
 import { brandPatchRpc, updateBrand, type BrandWriteInput } from "./brands";
 
 const CORRECTION_SELECT =
-  `*, brands(name, slug, price_range, category, subcategories, material, ${ONLINE_STORE_COLUMNS.join(
+  `*, brands(name, slug, category, subcategories, material, ${ONLINE_STORE_COLUMNS.join(
     ", ",
   )}, social_instagram, social_threads, social_facebook)`;
 
@@ -92,7 +92,6 @@ type BrandCorrectionBrandRow = Pick<
   | "id"
   | "name"
   | "slug"
-  | "price_range"
   | "category"
   | "subcategories"
   | "material"
@@ -128,7 +127,6 @@ type LinkCorrectionField =
  * caller. Adding a field here now adds it everywhere, once.
  */
 export const CORRECTION_FIELDS = [
-  "price_range",
   "category",
   "subcategories",
   "material",
@@ -515,15 +513,6 @@ export function normalizeProposedValue(
   field: CorrectionField,
   value: unknown,
 ): NormalizeProposedValueResult {
-  if (field === "price_range") {
-    return typeof value === "number" &&
-      Number.isInteger(value) &&
-      value >= 1 &&
-      value <= 3
-      ? { ok: true, value }
-      : { ok: false, error: "invalid_value" };
-  }
-
   if (field === "category") {
     return typeof value === "string" && CATEGORY_SLUGS.has(value)
       ? { ok: true, value }
@@ -617,8 +606,6 @@ export function buildScalarCorrectionPatch(
   }
 
   switch (field) {
-    case "price_range":
-      return { priceRange: proposedValue as number };
     case "category":
       return { categorySlug: proposedValue as string };
     case "social_instagram":
@@ -688,8 +675,6 @@ function currentValueForField(
   // `CorrectionField` without a case here cannot silently read another
   // column's value.
   switch (field) {
-    case "price_range":
-      return brand.price_range;
     case "category":
       return brand.category;
     case "subcategories":
@@ -752,7 +737,7 @@ async function readBrand(
   const { data, error } = await supabase
     .from("brands")
     .select(
-      `id, name, slug, price_range, category, subcategories, material, ${ONLINE_STORE_COLUMNS.join(
+      `id, name, slug, category, subcategories, material, ${ONLINE_STORE_COLUMNS.join(
         ", ",
       )}, social_instagram, social_threads, social_facebook`,
     )

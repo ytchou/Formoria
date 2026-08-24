@@ -93,7 +93,6 @@ describe('brandPublishSchema', () => {
         categorySlug: 'food',
         description: 'Story',
         subcategories: ['tea'],
-        priceRange: 2,
         heroImageUrl: 'https://example.com/hero.webp',
         productPhotos: ['https://example.com/product.webp'],
         purchaseWebsite: 'https://example.com',
@@ -106,7 +105,6 @@ describe('brandPublishSchema', () => {
     categorySlug: 'food',
     description: 'Story',
     subcategories: ['tea'],
-    priceRange: 2,
     heroImageUrl: 'https://example.com/hero.webp',
     purchaseWebsite: 'https://example.com',
   }

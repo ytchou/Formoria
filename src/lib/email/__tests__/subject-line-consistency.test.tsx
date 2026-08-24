@@ -124,7 +124,7 @@ const SUBJECT_CASES: SubjectCase[] = [
     name: 'submission-approved',
     locale: 'zh-TW',
     build: () => approval('zh-TW', ZH_BRAND),
-    expected: '您的品牌「測試品牌」已通過審核 — Formoria',
+    expected: '品牌「測試品牌」已通過審核 — Formoria',
     includesBrandName: true,
   },
   {
@@ -138,7 +138,7 @@ const SUBJECT_CASES: SubjectCase[] = [
     name: 'submission-rejected',
     locale: 'zh-TW',
     build: () => rejection('zh-TW', ZH_BRAND),
-    expected: 'Formoria：您提交的「測試品牌」需要修改',
+    expected: 'Formoria：「測試品牌」的提交內容需要修改',
     includesBrandName: true,
     allowsPrefixException: true,
   },
@@ -163,7 +163,7 @@ const SUBJECT_CASES: SubjectCase[] = [
     name: 'claim-approved',
     locale: 'zh-TW',
     build: () => claimApproved('zh-TW', ZH_BRAND),
-    expected: '您的品牌認領申請「測試品牌」已通過審核 — Formoria',
+    expected: '品牌認領申請「測試品牌」已通過審核 — Formoria',
     includesBrandName: true,
   },
   {
@@ -177,7 +177,7 @@ const SUBJECT_CASES: SubjectCase[] = [
     name: 'claim-rejected',
     locale: 'zh-TW',
     build: () => claimRejected('zh-TW', ZH_BRAND),
-    expected: '您的品牌認領申請「測試品牌」未通過審核 — Formoria',
+    expected: '品牌認領申請「測試品牌」未通過審核 — Formoria',
     includesBrandName: true,
   },
   {

@@ -49,7 +49,7 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
 
   return (
     <div>
-      <h1 className="type-label">
+      <h1 className="type-tool-heading">
         {t('title')}
       </h1>
       <p className="mt-2 type-body-sm">

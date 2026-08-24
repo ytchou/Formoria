@@ -134,7 +134,6 @@ function createReviewClientDouble() {
       id: STALE_BRAND_ID,
       name: "窯物所",
       slug: "yao-wu-suo",
-      price_range: 2,
       category: "home-living",
       subcategories: ["tableware"],
       material: ["ceramic"],

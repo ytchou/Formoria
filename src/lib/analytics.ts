@@ -196,10 +196,6 @@ export function trackBrandCardClicked(
   }
 }
 
-// `trackBoothSelected` was removed with the interactive floor map that was its only
-// caller. ANALYTICS_EVENTS.BOOTH_SELECTED stays in the registry on purpose: registry
-// entries are permanent, so the historical series keeps its documented shape.
-
 /**
  * An exhibitor's own site, opened from the event exhibitor list.
  *
@@ -557,10 +553,6 @@ export function trackSubcategoryFilterApplied(
     parent_category: parentCategory,
     result_count: Math.trunc(resultCount),
   })
-}
-
-export function trackPriceFilterApplied(priceRange: string) {
-  capturePostHogEvent(ANALYTICS_EVENTS.PRICE_FILTER_APPLIED, { price_range: priceRange })
 }
 
 export function trackVerificationFilterApplied(status: string) {

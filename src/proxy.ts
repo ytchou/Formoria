@@ -388,7 +388,7 @@ export function decideDirectoryTaxonomyRedirect(
   const { locale, path } = parseDirectoryPath(pathname);
   if (path !== routes.brands()) return { action: "none" };
 
-  for (const facet of ["search", "price", "verification", "sort"]) {
+  for (const facet of ["search", "verification", "sort"]) {
     if (params.get(facet)?.trim()) return { action: "none" };
   }
 
@@ -420,6 +420,7 @@ export function decideDirectoryTaxonomyRedirect(
   const destination = new URLSearchParams(params.toString());
   destination.delete("category");
   destination.delete("sub");
+  destination.delete("price");
   const query = destination.toString();
   const localizedPath = localizePath(destinationPath, locale);
   return {

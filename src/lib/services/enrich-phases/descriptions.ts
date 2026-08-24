@@ -13,7 +13,6 @@ import {
 } from "../brand-facts";
 import { normalizeSubcategories } from "@/lib/services/subcategories";
 import { CLEARED_FIELDS_KEY } from "@/lib/services/brand-write-policy";
-import { resolveEnrichedPriceRange } from "@/lib/brands/price-range";
 import { createServiceClient } from "@/lib/supabase/service";
 import { categoryLabelZh } from "@/lib/taxonomy/ontology";
 import {
@@ -124,10 +123,6 @@ function changedFieldsForPatch(patch: Record<string, unknown>): string[] {
 
   if (patch.description_en !== undefined) {
     changedFields.push("description_en");
-  }
-
-  if (patch.price_range != null) {
-    changedFields.push("price_range");
   }
 
   if (Array.isArray(patch.subcategories) && patch.subcategories.length > 0) {
@@ -522,14 +517,6 @@ export async function runDescriptionsPhase({
       } = normalizeSubcategories(brandFacts.subcategories);
 
       descriptionPatch = {
-        // Unlike every other field here, an absent price range is filled rather
-        // than skipped: `null` fails the review completeness gate, so a brand the
-        // model found no price signal for could never be published. See
-        // `resolveEnrichedPriceRange` for why mid-range and how a defaulted tier
-        // stays traceable.
-        ...(shouldWrite(brand.price_range)
-          ? { price_range: resolveEnrichedPriceRange(brandFacts.priceRange) }
-          : {}),
         // `subcategories` and `subcategories_en` are index-aligned by contract, so
         // they have to be written as one unit. Gating them on two independent
         // `shouldWrite` checks let one land without the other, which is how the

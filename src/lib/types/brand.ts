@@ -106,7 +106,6 @@ export type Brand = {
   productPhotos: string[]
   imageAlts: BrandImageMeta[]
   contactEmail: string | null
-  priceRange: number | null
   subcategories: string[]
   subcategoriesEn: string[]
   /** Raw `brands.site_content` jsonb, passed through unshaped. */
@@ -127,7 +126,6 @@ export type BrandFilters = {
    * apply it, or `?material=` breaks the moment a user types (DEV-1510).
    */
   materials?: string[]
-  priceRanges?: (1 | 2 | 3)[]
   verificationFilter?: 'all' | 'mit-verified' | 'mit-declared' | 'owned'
   search?: string
   sort?: BrandSortOption

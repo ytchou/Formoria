@@ -11,7 +11,7 @@ describe('directory filter URLs', () => {
     )
 
     expect(updateDirectoryUrl('/brands', params, { search: null })).toBe(
-      '/brands?category=jewelry&price=2&sort=name',
+      '/brands?category=jewelry&sort=name',
     )
   })
 

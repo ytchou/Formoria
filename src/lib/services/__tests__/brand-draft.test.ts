@@ -37,7 +37,6 @@ const liveBrand: Brand = {
   contactEmail: 'live@brand.tw',
   mitStory: 'Our fabrics come from Changhua.',
   siteContent: null,
-  priceRange: null,
   subcategories: [],
   subcategoriesEn: [],
   descriptionEn: null,

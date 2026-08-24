@@ -47,7 +47,7 @@ const DENIAL_GUIDANCE: Record<DenialReason, { en: string; zh: string }> = {
   },
   duplicate: {
     en: 'This brand has already been submitted. If you believe this is in error, please contact us.',
-    zh: '此品牌已經提交過。如果您認為這是錯誤，請聯絡我們。',
+    zh: '此品牌已經提交過。如果認為這是錯誤，請聯絡我們。',
   },
   policy_violation: {
     en: "This submission doesn't meet our community guidelines.",
@@ -124,10 +124,10 @@ export default function SubmissionRejectedEmail({
   }
 
   return (
-    <Layout previewText="您的提交需要修改">
-      <EmailHeading>您的提交需要修改</EmailHeading>
+    <Layout previewText="提交內容需要修改">
+      <EmailHeading>提交內容需要修改</EmailHeading>
       <EmailText>
-        感謝您向 Formoria 提交 <strong dangerouslySetInnerHTML={{ __html: brandNameHtml }} />。
+        感謝向 Formoria 提交 <strong dangerouslySetInnerHTML={{ __html: brandNameHtml }} />。
       </EmailText>
       <EmailText>
         <strong>拒絕原因：</strong>
@@ -137,11 +137,11 @@ export default function SubmissionRejectedEmail({
       <EmailText>{guidance}</EmailText>
       {reviewerNotesHtml ? <ReviewerNotes label="審核意見：" notesHtml={reviewerNotesHtml} /> : null}
       <EmailText>
-        如果您認為此決定有誤，請透過{' '}
+        如果認為此決定有誤，請透過{' '}
         <EmailLink href="mailto:ops@formoria.com">ops@formoria.com</EmailLink>{' '}
         聯絡我們。
       </EmailText>
-      <EmailText>您可以修改資料後重新提交。</EmailText>
+      <EmailText>修改資料後即可重新提交。</EmailText>
       <Button href={SITE_URL}>前往 Formoria</Button>
     </Layout>
   )
@@ -182,7 +182,7 @@ export async function buildRejectionEmail(params: RejectionEmailProps): Promise<
   const subject =
     locale === 'en'
       ? '[Action Needed] Your Formoria submission needs attention'
-      : `Formoria：您提交的「${brandName}」需要修改`
+      : `Formoria：「${brandName}」的提交內容需要修改`
 
   return {
     to: params.submitterEmail,

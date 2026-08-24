@@ -37,7 +37,6 @@ function urlState(overrides: Partial<DirectoryUrlStateInput> = {}) {
     subcategorySlugs: [],
     search: '',
     materials: [],
-    priceRanges: [],
     verificationFilter: 'all',
     sort: 'random',
     ...overrides,
@@ -125,14 +124,12 @@ describe('buildDirectoryUrlState', () => {
     const state = urlState({
       search: 'tote',
       materials: ['ceramic'],
-      priceRanges: [2],
       verificationFilter: 'mit-verified',
       sort: 'newest',
     })
 
     expect(state.normalizedParams.get('search')).toBe('tote')
     expect(state.normalizedParams.get('material')).toBe('ceramic')
-    expect(state.normalizedParams.get('price')).toBe('2')
     expect(state.normalizedParams.get('verification')).toBe('mit-verified')
     expect(state.normalizedParams.get('sort')).toBe('newest')
     expect(urlState().normalizedParams.toString()).toBe('')
@@ -145,7 +142,6 @@ describe('shouldEmitDirectoryItemList', () => {
     categorySlugs: [] as string[],
     search: '',
     materials: [] as string[],
-    priceRanges: [] as number[],
     verificationFilter: 'all' as const,
     page: 1,
   }
@@ -179,7 +175,6 @@ describe('shouldEmitDirectoryItemList', () => {
     const narrowed = [
       { ...unfiltered, categorySlugs: ['home'] },
       { ...unfiltered, search: 'tote' },
-      { ...unfiltered, priceRanges: [2] },
       { ...unfiltered, verificationFilter: 'mit-verified' as const },
       { ...unfiltered, page: 2 },
     ]

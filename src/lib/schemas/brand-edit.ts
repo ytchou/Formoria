@@ -35,14 +35,6 @@ const brandPublishRequirementsSchema = z.object({
   categorySlug: z.string().trim().min(1),
   description: z.string().trim().min(1),
   subcategories: z.array(z.string().trim().min(1)).min(1).max(5),
-  priceRange: z.union([
-    z.literal(1),
-    z.literal(2),
-    z.literal(3),
-    z.literal('1'),
-    z.literal('2'),
-    z.literal('3'),
-  ]),
   heroImageUrl: z.string().url(),
   // Gallery photos are optional: a brand with only a hero image must still be
   // able to publish and to save unrelated fields in the edit wizard.

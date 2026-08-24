@@ -13,7 +13,6 @@ import { submitCorrectionAction } from "@/lib/actions/brand-corrections";
 import { toast } from "sonner";
 
 import { trackCorrectionSubmitted } from "@/lib/analytics";
-import { PRICE_RANGE_TIERS } from "@/lib/brands/price-range";
 import {
   onlineStoreMessageKey,
   ONLINE_STORE_COLUMNS,
@@ -85,7 +84,6 @@ export type CorrectionDialogContentProps = {
   setField: (field: CorrectionField | "") => void;
   onOpenChange: (open: boolean) => void;
   categorySlug?: string | null;
-  priceRange?: number | null;
   subcategories?: string[];
   purchaseLinks?: Record<OnlineStoreColumn, string | null>;
   socialInstagram?: string | null;
@@ -121,7 +119,6 @@ export function CorrectionDialogContent({
   setField,
   onOpenChange,
   categorySlug = null,
-  priceRange = null,
   subcategories = [],
   purchaseLinks = {} as Record<OnlineStoreColumn, string | null>,
   socialInstagram = null,
@@ -145,8 +142,8 @@ export function CorrectionDialogContent({
       : mode === "socialLinks"
         ? ["social_instagram", "social_threads", "social_facebook"]
         : categorySlug != null
-          ? ["category", "price_range", "subcategories"]
-          : ["category", "price_range"];
+          ? ["category", "subcategories"]
+          : ["category"];
   // Every link field — purchase and social alike — is edited as a free-text URL
   // rather than a chip, so they share the baseline, diff and body branches.
   const isLinkField =
@@ -157,9 +154,7 @@ export function CorrectionDialogContent({
   const originalSelection =
     field === "category"
       ? (categorySlug ?? "")
-      : field === "price_range" && priceRange != null
-        ? String(priceRange)
-        : onlineStore
+      : onlineStore
           ? (purchaseLinks[onlineStore.column] ?? "")
           : field === "social_instagram"
             ? (socialInstagram ?? "")
@@ -208,9 +203,7 @@ export function CorrectionDialogContent({
     }
     return item === "category"
       ? tBrandDetail("label.category")
-      : item === "price_range"
-        ? tBrandDetail("label.priceRange")
-        : item === "subcategories"
+      : item === "subcategories"
           ? tBrandDetail("label.subcategories")
           : item === "social_instagram"
             ? tBrandDetail("links.instagram")
@@ -250,11 +243,9 @@ export function CorrectionDialogContent({
     if (field === "" || !hasChanged || isPending) return;
 
     const proposedValue =
-      field === "price_range"
-        ? Number(selection)
-        : field !== "subcategories"
-          ? selection
-          : buildSubcategoryDelta(originalSubcategories, selectedSubcategories);
+      field !== "subcategories"
+        ? selection
+        : buildSubcategoryDelta(originalSubcategories, selectedSubcategories);
     startTransition(async () => {
       try {
         const result = await submitCorrectionAction({
@@ -334,9 +325,6 @@ export function CorrectionDialogContent({
     );
   }
 
-  const currentPriceTier = PRICE_RANGE_TIERS.find(
-    (tier) => String(tier.value) === originalSelection,
-  );
   const currentCategory = L1_CATEGORIES.find(
     (item) => item.slug === originalSelection,
   );
@@ -387,20 +375,6 @@ export function CorrectionDialogContent({
               ))}
             </NativeSelect>
           </div>
-
-          {field === "price_range" &&
-            scalarRows(
-              currentPriceTier
-                ? `${currentPriceTier.prefix} · ${tEdit(currentPriceTier.labelKey)}`
-                : null,
-              PRICE_RANGE_TIERS.filter(
-                (tier) => String(tier.value) !== originalSelection,
-              ).map((tier) => ({
-                key: String(tier.value),
-                value: String(tier.value),
-                label: `${tier.prefix} · ${tEdit(tier.labelKey)}`,
-              })),
-            )}
 
           {field === "category" &&
             scalarRows(

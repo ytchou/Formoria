@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import {
   AlertDialog,
+  AlertDialogBody,
   AlertDialogContent,
   AlertDialogHeader,
   AlertDialogFooter,
@@ -39,6 +40,7 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const t = useTranslations('admin.common')
   const [inputValue, setInputValue] = useState('')
+  const confirmationInputRef = useRef<HTMLInputElement>(null)
 
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) setInputValue('')
@@ -56,22 +58,26 @@ export function ConfirmDialog({
       onOpenChange={handleOpenChange}
       destructive={isDestructive}
     >
-      <AlertDialogContent>
+      <AlertDialogContent
+        {...(confirmText != null ? { initialFocus: confirmationInputRef } : {})}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
 
-        {confirmText != null && (
-          <div className="px-1">
-            <Input
-              placeholder={`Type "${confirmText}" to confirm`}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              autoFocus
-            />
-          </div>
-        )}
+        <AlertDialogBody className="space-y-4">
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+          {confirmText != null && (
+            <div className="px-1">
+              <Input
+                ref={confirmationInputRef}
+                placeholder={t('confirmPlaceholder', { value: confirmText })}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+              />
+            </div>
+          )}
+        </AlertDialogBody>
 
         <AlertDialogFooter>
           <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>

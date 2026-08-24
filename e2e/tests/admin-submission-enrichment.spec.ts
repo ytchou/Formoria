@@ -174,7 +174,6 @@ test.describe("Admin submission enrichment lifecycle", () => {
           // Slug, not the zh-TW label — DEV-1510 closed the vocabulary.
           subcategories: ["handbags"],
           subcategories_en: ["Handmade Bags"],
-          price_range: 2,
           purchase_website: "https://e2e-submission.example.com",
         },
       })

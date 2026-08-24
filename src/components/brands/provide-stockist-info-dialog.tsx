@@ -2,7 +2,7 @@
 
 import NextLink from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { Check, Pencil, TriangleAlert } from "lucide-react";
+import { Check, Pencil } from "lucide-react";
 import { useActionState, useId, useState } from "react";
 import {
   submitStockistInfoAction,
@@ -104,7 +104,7 @@ export function ProvideStockistInfoDialog({
           one dialog whose Content was itself the scroll container. The size axis
           is a prop now, and the scrolling belongs to `DialogBody`. */}
       <DialogContent size="form">
-        <DialogHeader icon={<TriangleAlert className="size-5" />}>
+        <DialogHeader>
           <DialogTitle>{t("channels.dialog.title")}</DialogTitle>
           <DialogDescription>{t("channels.subtitle")}</DialogDescription>
         </DialogHeader>

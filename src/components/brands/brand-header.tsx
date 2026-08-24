@@ -42,8 +42,6 @@ export function BrandHeader({
   const mitSmileCert = hasMitVerifiedBadge
     ? brand.mitCertificateNumber
     : undefined;
-  const priceRangeLabel =
-    brand.priceRange != null ? "$".repeat(brand.priceRange) : null;
   const resolvedCategory = categoryLabel ?? brand.categoryLabel;
   // `subcategories` stores slugs since DEV-1510, so the chips resolve through
   // the ontology rather than rendering the stored value.
@@ -88,7 +86,6 @@ export function BrandHeader({
             brandId={brand.id}
             brandSlug={brand.slug}
             categorySlug={brand.categorySlug ?? null}
-            priceRange={brand.priceRange}
             subcategories={brand.subcategories}
           />
         </div>
@@ -161,20 +158,6 @@ export function BrandHeader({
               resolvedCategory ? (
                 <Badge className="text-ink" variant="secondary">
                   {resolvedCategory}
-                </Badge>
-              ) : (
-                unknownValue
-              )
-            }
-          />
-          <InfoField
-            label={t("label.priceRange")}
-            labelClassName={infoLabelClassName}
-            layout="stacked"
-            value={
-              priceRangeLabel ? (
-                <Badge className="text-ink" variant="secondary">
-                  {priceRangeLabel}
                 </Badge>
               ) : (
                 unknownValue

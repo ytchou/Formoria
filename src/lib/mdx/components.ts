@@ -1,4 +1,9 @@
-import { createElement, type ComponentPropsWithoutRef, type ReactNode } from 'react'
+import {
+  createElement,
+  isValidElement,
+  type ComponentPropsWithoutRef,
+  type ReactNode,
+} from 'react'
 
 import { BrandCardMdx } from '@/components/stories/brand-card-mdx'
 import { BrandGallery } from '@/components/stories/brand-gallery'
@@ -18,6 +23,13 @@ import { cn } from '@/lib/utils'
  * it is what the markdown `##` heading resolves against.
  */
 export type TrailSectionRef = { key: string; title: string }
+
+function visibleText(node: ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(visibleText).join('')
+  if (isValidElement<{ children?: ReactNode }>(node)) return visibleText(node.props.children)
+  return ''
+}
 
 /**
  * Story MDX shortcodes plus element-level typography for the prose itself.
@@ -59,11 +71,18 @@ export function createStoryComponentMap({
    */
   trailSections?: readonly TrailSectionRef[]
 } = {}) {
+  const titleCounts = new Map<string, number>()
+  for (const section of trailSections ?? []) {
+    const title = section.title.trim()
+    titleCounts.set(title, (titleCounts.get(title) ?? 0) + 1)
+  }
   const sectionNumbers = new Map(
-    (trailSections ?? []).map((section, index) => [
-      section.title.trim(),
-      String(index + 1).padStart(2, '0'),
-    ]),
+    (trailSections ?? [])
+      .map((section, index) => [
+        section.title.trim(),
+        String(index + 1).padStart(2, '0'),
+      ] as const)
+      .filter(([title]) => title.length > 0 && titleCounts.get(title) === 1),
   )
 
   return {
@@ -124,7 +143,7 @@ export function createStoryComponentMap({
         className: cn('mt-10 mb-4 scroll-mt-24 type-page-title', props.className),
       }),
     h2: (props: ComponentPropsWithoutRef<'h2'>) => {
-      const label = typeof props.children === 'string' ? props.children.trim() : ''
+      const label = visibleText(props.children).trim()
       const sectionNumber = sectionNumbers.get(label)
 
       if (!sectionNumber) {

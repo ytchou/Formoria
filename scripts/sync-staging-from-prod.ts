@@ -246,7 +246,6 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "blurb_en",
     "city",
     "founding_year",
-    "price_range",
     "category",
     "subcategories",
     "subcategories_en",

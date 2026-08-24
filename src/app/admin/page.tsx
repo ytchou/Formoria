@@ -147,7 +147,7 @@ export default async function AdminPage() {
         <div className="mb-5 prose-measure">
           <h2
             id="operations-overview-heading"
-            className="type-label"
+            className="type-tool-heading"
           >
             {t("operationsOverview")}
           </h2>
@@ -163,7 +163,7 @@ export default async function AdminPage() {
                 label={metric.label}
                 value={value ?? "—"}
                 description={
-                  value === null ? "Unavailable" : metric.description
+                  value === null ? t("unavailable") : metric.description
                 }
                 needsAttention={
                   metric.requiresAction && value !== null && value > 0
@@ -191,7 +191,7 @@ export default async function AdminPage() {
         className="border-t border-rule pt-8"
       >
         <div className="mb-4">
-          <h2 id="quick-operations-heading" className="type-label">
+          <h2 id="quick-operations-heading" className="type-tool-heading">
             {t("quickOperations")}
           </h2>
         </div>
@@ -204,7 +204,7 @@ export default async function AdminPage() {
       >
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
-            <h2 id="recent-jobs-heading" className="type-label">
+            <h2 id="recent-jobs-heading" className="type-tool-heading">
               {t("recentJobs.title")}
             </h2>
             <p className="mt-1 type-body-sm">{t("recentJobs.description")}</p>

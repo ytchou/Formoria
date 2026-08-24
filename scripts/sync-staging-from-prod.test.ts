@@ -76,7 +76,6 @@ function prodBrandRow(overrides: Row = {}): Row {
     blurb_en: "Handmade ceramics",
     city: "新北市",
     founding_year: 1998,
-    price_range: 2,
     category: "home",
     subcategories: ["陶器"],
     subcategories_en: ["ceramics"],

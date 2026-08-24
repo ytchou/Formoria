@@ -20,7 +20,6 @@ const baseline: SubmissionReviewData = {
   foundingYear: 2020,
   heroImageUrl: "https://example.com/hero.webp",
   categorySlug: "fashion",
-  priceRange: 2,
   subcategories: ["服飾"],
   subcategoriesEn: ["Apparel"],
   websiteUrl: "https://example.com",
@@ -43,7 +42,6 @@ describe("refresh review overrides", () => {
         description_en: "Snapshot English description",
         city: "Tainan",
         founding_year: 2018,
-        price_range: 2,
         subcategories: ["服飾"],
       },
       {
@@ -62,7 +60,6 @@ describe("refresh review overrides", () => {
       descriptionEn: "Snapshot English description",
       city: "Taichung",
       foundingYear: 2018,
-      priceRange: 2,
     });
   });
 

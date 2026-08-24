@@ -69,9 +69,9 @@ export default function DeclarationRemovedEmail({
         的台灣製造聲明。
       </EmailText>
       <ReviewerNotes label="審核意見：" notes={escapedReviewerNotes} />
-      <EmailText>您的品牌頁面已顯示更新後的台灣製造狀態。</EmailText>
+      <EmailText>品牌頁面已顯示更新後的台灣製造狀態。</EmailText>
       <EmailText>
-        您可以在處理相關證據後重新聲明，或提供有效的 MIT 認證，申請第 1
+        處理相關證據後可重新聲明，或提供有效的 MIT 認證，申請第 1
         級登錄驗證。
       </EmailText>
       <EmailText>

@@ -93,7 +93,6 @@ const IDENTITY_FIELDS: ReadonlyArray<readonly [string, string]> = [
   ["subcategories", "Product subcategories"],
   ["city", "City"],
   ["founding_year", "Founded"],
-  ["price_range", "Price range"],
 ];
 
 const CONTENT_FIELDS: ReadonlyArray<readonly [string, string]> = [

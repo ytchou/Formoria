@@ -2,10 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { enrichedDataFromDb, enrichedDataToDb } from '../enriched-data'
 
 describe('enrichedDataFromDb', () => {
-  it('maps price_range to priceRange', () => {
-    expect(enrichedDataFromDb({ price_range: 2 })).toEqual({ priceRange: 2 })
-  })
-
   it('maps subcategories to subcategories', () => {
     expect(enrichedDataFromDb({ subcategories: ['skincare', 'refillable'] })).toEqual({
       subcategories: ['skincare', 'refillable'],
@@ -59,10 +55,6 @@ describe('enrichedDataFromDb', () => {
 })
 
 describe('enrichedDataToDb', () => {
-  it('maps priceRange to price_range', () => {
-    expect(enrichedDataToDb({ priceRange: 2 })).toEqual({ price_range: 2 })
-  })
-
   it('maps subcategories to subcategories', () => {
     expect(enrichedDataToDb({ subcategories: ['skincare', 'refillable'] })).toEqual({
       subcategories: ['skincare', 'refillable'],

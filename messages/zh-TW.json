@@ -171,7 +171,6 @@
       "trigger": "篩選（{count}）",
       "all": "全部",
       "category": "分類",
-      "priceRange": "價格區間",
       "material": "材質",
       "brandStatus": "品牌狀態",
       "appliedHint": "點擊標籤上的 × 可移除篩選條件",
@@ -183,7 +182,6 @@
       "activeCategory": "分類",
       "activeSubcategory": "子分類",
       "activeMaterial": "材質",
-      "activePrice": "價格區間",
       "activeStatus": "品牌狀態",
       "removeFilter": "移除{label}：{value}",
       "clearAll": "清除全部",
@@ -354,7 +352,6 @@
       "location": "地點",
       "foundingYear": "創立年份",
       "category": "品牌類別",
-      "priceRange": "價格區間",
       "subcategories": "商品子類別",
       "certification": "認證"
     },
@@ -640,11 +637,6 @@
         "shopee": "蝦皮購物",
         "myship": "7-ELEVEN 賣貨便"
       },
-      "priceRanges": {
-        "budget": "平價",
-        "midRange": "中價位",
-        "premium": "高價位"
-      },
       "context": {
         "city": "位於{city}",
         "founded": "{year}年創立",
@@ -659,10 +651,6 @@
         "question": "{brandName} 的主要產品有哪些？",
         "answerWithCategoryAndSubcategories": "{brandName} 以{category}為主要領域，代表產品包含{subcategories}。{context}",
         "answerWithSubcategories": "{brandName} 的代表產品包含{subcategories}。{context}"
-      },
-      "priceRange": {
-        "question": "{brandName} 的價位屬於哪個區間？",
-        "answer": "{brandName} 的產品定位在{range}。"
       },
       "reputation": {
         "question": "{brandName} 的評價如何？",
@@ -1483,11 +1471,6 @@
       "fieldSubcategories": "產品子類別",
       "subcategoriesMax": "最多 5 個子類別。請描述產品，而非宣傳用語。",
       "fieldFoundingYear": "創立年份",
-      "fieldPriceRange": "價格範圍",
-      "fieldPriceRangeUnset": "未設定",
-      "fieldPriceRangeBudget": "平價（低於 NT$1,000）",
-      "fieldPriceRangeMidRange": "中價位（NT$1,000–5,000）",
-      "fieldPriceRangePremium": "高價位（高於 NT$5,000）",
       "fieldHeroImage": "主視覺圖片",
       "heroImageEditHint": "僅限 1 張。這是品牌頁面最先顯示的圖片，也會作為瀑布流品牌卡片封面。建議使用清晰的 16:9 橫式圖片。",
       "fieldProductPhotos": "產品照片",
@@ -1534,7 +1517,6 @@
       "fieldFoundingYearHint": "顯示在品牌頁面上",
       "mitStoryHint": "若有填寫會顯示在品牌頁面上",
       "cityHint": "填寫後品牌會顯示在地圖上",
-      "fieldPriceRangeHint": "用於篩選",
       "unsavedChanges": "有未儲存的變更",
       "slugChangeBlocked": "品牌網址基於此名稱。如需更改，請聯繫我們。",
       "subcategoriesSearchHint": "輸入關鍵字篩選，再點選下方標籤加入。",

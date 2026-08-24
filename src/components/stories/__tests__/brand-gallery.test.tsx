@@ -60,7 +60,6 @@ function makeBrand(
     descriptionEn: null,
     isVerified: false,
     mitStatus: "unverified",
-    priceRange: null,
     subcategories: [],
     subcategoriesEn: [],
   } as unknown as Brand;

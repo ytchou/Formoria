@@ -206,12 +206,11 @@ type BrandOwnerRef = { user_id: string };
 /**
  * Full joined row from BRAND_SELECT. Extends Partial<BrandRow> so that
  * unit test fixtures can omit columns added in later migrations (is_demo,
- * price_range, subcategories) without a cast — the mapper uses
+ * subcategories) without a cast — the mapper uses
  * ?? defaults for all optional fields.
  */
 export type BrandRowWithJoins = Partial<BrandRow> &
   BrandFlatLinkColumns & {
-    price_range?: number | null;
     subcategories?: string[] | null;
     description_en?: string | null;
     blurb?: string | null;
@@ -515,7 +514,6 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
   "socialFacebook",
   "heroImageUrl",
   "productPhotos",
-  "priceRange",
   "subcategories",
   ...ONLINE_STORE_CAMEL_FIELDS,
   "mitStory",
@@ -630,9 +628,6 @@ export function draftSnapshotToDomain(
         partial.productPhotos =
           (snapshot.productPhotos as Brand["productPhotos"]) ?? [];
         break;
-      case "priceRange":
-        partial.priceRange = snapshot.priceRange as Brand["priceRange"];
-        break;
       case "subcategories":
         partial.subcategories =
           (snapshot.subcategories as Brand["subcategories"]) ?? [];
@@ -735,7 +730,6 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     productPhotos: [],
     imageAlts: [],
     contactEmail: row.contact_email ?? null,
-    priceRange: row.price_range ?? null,
     subcategories: Array.isArray(row.subcategories) ? row.subcategories : [],
     subcategoriesEn: Array.isArray(row.subcategories_en)
       ? row.subcategories_en
@@ -999,8 +993,6 @@ function brandToUpdate(data: BrandWriteInput): Record<string, unknown> {
     }
   }
   const raw = data as Record<string, unknown>;
-  if (data.priceRange === undefined && raw.price_range === undefined)
-    delete row.price_range;
   if (data.subcategories === undefined && raw.subcategories === undefined)
     delete row.subcategories;
   return row;
@@ -1067,7 +1059,6 @@ export const BRAND_COLUMN_LIST = [
   "draft_data",
   "draft_updated_at",
   "founding_year",
-  "price_range",
   "subcategories",
   "subcategories_en",
   "reputation_summary",
@@ -1116,7 +1107,6 @@ const PUBLIC_BRAND_CARD_COLUMN_LIST = [
   "category",
   "status",
   "founding_year",
-  "price_range",
   "subcategories",
   "subcategories_en",
   "mit_status",
@@ -1144,7 +1134,6 @@ const PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST = [
   "city",
   "category",
   "founding_year",
-  "price_range",
   "subcategories",
   "subcategories_en",
   "reputation_summary",
@@ -1614,9 +1603,6 @@ export async function getBrands(
         // types — the same defect class as the `?sub=` no-op (DEV-1510).
         filter_materials: materials,
         filter_verification: verificationFilter,
-        filter_price_ranges: filters.priceRanges?.length
-          ? filters.priceRanges
-          : null,
         page_offset: offset,
         sort_mode: filters.sort && filters.sort !== "random" ? filters.sort : "rank",
       },
@@ -1641,9 +1627,6 @@ export async function getBrands(
           filter_subcategories: subcategoryTags,
           filter_materials: materials,
           filter_verification: verificationFilter,
-          filter_price_ranges: filters.priceRanges?.length
-            ? filters.priceRanges
-            : null,
           page_offset: 0,
           sort_mode: filters.sort && filters.sort !== "random" ? filters.sort : "rank",
         },
@@ -1703,9 +1686,6 @@ export async function getBrands(
   if (filters?.category && filters.category.length > 0) {
     query = query.in("category", filters.category);
   }
-  if (filters?.priceRanges && filters.priceRanges.length > 0) {
-    query = query.in("price_range", filters.priceRanges);
-  }
   if (subcategoryTags) {
     query = query.overlaps("subcategories", subcategoryTags);
   }
@@ -1763,7 +1743,6 @@ export async function getPublicBrandCards(
     BrandFilters,
     | "category"
     | "materials"
-    | "priceRanges"
     | "verificationFilter"
     | "search"
     | "sort"

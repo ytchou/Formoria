@@ -21,7 +21,6 @@ import {
 type DirectoryFacets = {
   [key: string]: unknown
   search?: unknown
-  price?: unknown
   verification?: unknown
   sort?: unknown
   /** Raw values are accepted for callers that parse multi-select query params. */
@@ -221,7 +220,6 @@ function selfCanonicalFacets(state: DirectoryState): DirectoryCanonicalFacets {
 
   return {
     search: serializableFacetValue(facets.search),
-    price: serializableFacetValue(facets.price),
     verification,
     category,
     sub,

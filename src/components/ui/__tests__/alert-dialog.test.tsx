@@ -6,6 +6,7 @@ import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh-TW.json";
 import {
   AlertDialog,
+  AlertDialogBody,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -44,10 +45,12 @@ function Fixture({
       <AlertDialogContent size={size}>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete this brand?</AlertDialogTitle>
+        </AlertDialogHeader>
+        <AlertDialogBody>
           <AlertDialogDescription>
             This removes the brand from the directory.
           </AlertDialogDescription>
-        </AlertDialogHeader>
+        </AlertDialogBody>
         <AlertDialogFooter>
           {/* Rendered before Cancel on purpose: if `initialFocus` were not
               wired, Base UI would focus this first tabbable element instead. */}

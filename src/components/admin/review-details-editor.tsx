@@ -438,10 +438,6 @@ export function ReviewDetailsEditor({
                         : null
                     }
                   />
-                  <Definition
-                    label={t("details.priceRange")}
-                    value={data.priceRange ? "$".repeat(data.priceRange) : null}
-                  />
                   <Definition label={t("details.city")} value={data.city} />
                   <Definition
                     label={t("details.foundingYear")}
@@ -847,30 +843,6 @@ function CatalogEditor({
               {L1_CATEGORIES.map((category) => (
                 <SelectItem key={category.slug} value={category.slug}>
                   {category.nameZh} ({category.name})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field label={t("details.priceRange")}>
-          <Select
-            value={draft.priceRange?.toString() ?? EMPTY_SELECT_VALUE}
-            onValueChange={(value) =>
-              onUpdate(
-                "priceRange",
-                value === EMPTY_SELECT_VALUE ? null : Number(value),
-              )
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={EMPTY_SELECT_VALUE}>{t("notSet")}</SelectItem>
-              {[1, 2, 3].map((value) => (
-                <SelectItem key={value} value={value.toString()}>
-                  {" "}
-                  {"$".repeat(value)}{" "}
                 </SelectItem>
               ))}
             </SelectContent>

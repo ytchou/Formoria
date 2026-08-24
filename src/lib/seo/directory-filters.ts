@@ -6,7 +6,7 @@ export type DirectorySearchParams = Record<string, string | string[] | undefined
 
 export type DirectoryViewFilters = Pick<
   BrandFilters,
-  'search' | 'materials' | 'priceRanges' | 'verificationFilter'
+  'search' | 'materials' | 'verificationFilter'
 > & {
   categorySlugs: string[]
   subcategorySlugs: string[]
@@ -22,12 +22,6 @@ function parseCommaParam(value: string | string[] | undefined): string[] {
       .map((entry) => entry.trim())
       .filter(Boolean),
   )
-}
-
-function parsePriceRanges(value: string | string[] | undefined): (1 | 2 | 3)[] {
-  return parseCommaParam(value)
-    .map(Number)
-    .filter((price): price is 1 | 2 | 3 => price === 1 || price === 2 || price === 3)
 }
 
 function parseVerificationParam(
@@ -71,7 +65,6 @@ export function parseDirectoryViewFilters(
           ),
         ),
       ],
-      priceRanges: parsePriceRanges(searchParams.price),
       verificationFilter: parseVerificationParam(searchParams.verification),
     },
   }

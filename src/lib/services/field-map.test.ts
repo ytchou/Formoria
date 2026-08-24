@@ -17,7 +17,6 @@ const brandInput = {
   purchaseShopee: 'https://shopee.tw/senzi',
   otherUrls: [{ label: 'Line', url: 'https://line.me/senzi' }],
   contactEmail: 'hello@senzi.tw',
-  priceRange: 2,
   subcategories: ['handmade', 'home'],
   isDemo: true,
 }
@@ -74,7 +73,6 @@ describe('field-map', () => {
       purchase_shopee: 'https://shopee.tw/senzi',
       other_urls: [{ label: 'Line', url: 'https://line.me/senzi' }],
       contact_email: 'hello@senzi.tw',
-      price_range: 2,
       subcategories: ['handmade', 'home'],
       // Neither subcategory is in the ontology, so deriveSubcategoriesEn falls through to
       // the novel-subcategory path, which now Title Cases to match ontology nameEn casing.
@@ -114,7 +112,6 @@ describe('field-map', () => {
       foundingYear: undefined,
       otherUrls: undefined,
       contactEmail: undefined,
-      priceRange: undefined,
       subcategories: undefined,
       isDemo: undefined,
     })

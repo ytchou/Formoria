@@ -15,7 +15,6 @@ import {
   MAX_SUBCATEGORIES,
   type SubcategoriesDelta,
 } from "@/lib/services/subcategories";
-import { formatPriceRange } from "@/lib/brands/price-range";
 import { ONLINE_STORE_COLUMNS } from "@/lib/brands/online-stores";
 import {
   categoryLabel,
@@ -146,10 +145,6 @@ function scalarValue(
   locale: string,
   unavailableLabel: string,
 ): string {
-  if (field === "price_range") {
-    return formatPriceRange(value) ?? unavailableLabel;
-  }
-
   if (field === "category" && typeof value === "string") {
     const category = L1_CATEGORIES.find(
       (item) => item.slug === value,
