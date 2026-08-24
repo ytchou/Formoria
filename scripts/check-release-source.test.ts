@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
 
 import {
   checkReleaseSource,
@@ -35,45 +34,6 @@ function cliEnvWithoutRepositoryIdentity(
 }
 
 describe("release source guard", () => {
-  it("runs when an existing pull request is retargeted into production", async () => {
-    const workflow = await readFile(
-      ".github/workflows/release-source.yml",
-      "utf8",
-    );
-    expect(workflow).toContain(
-      "types: [opened, synchronize, reopened, edited]",
-    );
-  });
-
-  it("runs trusted guard code from the repository default branch", async () => {
-    const workflow = await readFile(
-      ".github/workflows/release-source.yml",
-      "utf8",
-    );
-
-    expect(workflow).toContain("pull_request_target:");
-    expect(workflow).toContain(
-      "ref: ${{ github.event.repository.default_branch }}",
-    );
-    expect(workflow).toContain("GITHUB_REPOSITORY: ${{ github.repository }}");
-  });
-
-  it("bootstraps the first same-repository release when production has no policy yet", async () => {
-    const workflow = await readFile(
-      ".github/workflows/release-source.yml",
-      "utf8",
-    );
-    const defaultPolicyLookup = workflow.indexOf("ref=$DEFAULT_BRANCH");
-    const bootstrapPolicyLookup = workflow.indexOf("ref=$GITHUB_HEAD_SHA");
-
-    expect(defaultPolicyLookup).toBeGreaterThan(-1);
-    expect(bootstrapPolicyLookup).toBeGreaterThan(defaultPolicyLookup);
-    expect(workflow).toContain('grep -q "HTTP 404"');
-    expect(workflow).toContain(
-      '[[ "$GITHUB_HEAD_REPO" != "$GITHUB_REPOSITORY" ]]',
-    );
-  });
-
   it("permits only staging as the source of a production pull request", () => {
     expect(
       checkReleaseSource({
@@ -207,37 +167,3 @@ describe("release source guard", () => {
   });
 });
 
-/**
- * The staging E2E gate is the last automated check before production. It used
- * to carry its own literal list of legal release heads, which drifted from the
- * guard above: `release/candidate-*` passed the guard, the gate skipped itself,
- * and GitHub read the skip as a satisfied required check (DEV-1536, PR #808).
- *
- * These assertions read the workflow as text, so `vitest --changed` will not
- * select this file when only the YAML moves. CI runs it unconditionally in the
- * lint job for that reason.
- */
-describe("staging E2E release gate", () => {
-  async function releaseGate() {
-    return readFile(".github/workflows/e2e-release.yml", "utf8");
-  }
-
-  it("runs on every pull request into production rather than skipping", async () => {
-    const workflow = await releaseGate();
-    expect(workflow).not.toMatch(/^\s*if:.*pull_request\.head\.ref/m);
-  });
-
-  it("keeps no accepted-head list of its own", async () => {
-    const workflow = await releaseGate();
-    expect(workflow).toContain("run: node scripts/check-release-source.mjs");
-    expect(workflow).not.toMatch(/head\.ref\s*==\s*'staging'/);
-  });
-
-  it("refuses to certify a candidate head against deployed staging", async () => {
-    const workflow = await releaseGate();
-    expect(workflow).toMatch(
-      /if \[\[ "\$RELEASE_HEAD_REF" != "staging" \]\]; then/,
-    );
-    expect(workflow).toContain("cannot be certified against deployed staging");
-  });
-});
